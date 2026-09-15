@@ -1392,10 +1392,16 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   va in fondo e non sparisce - e' una voce che qualcuno deve ancora collocare.
   Un'ora di fine prima dell'inizio si perde (la voce resta): si butta l'ora
   sbagliata, non il lavoro di chi stava scrivendo.
-- **Gli avvisi non bloccano** (`controlla`): ore mancanti, fini prima degli
-  inizi, sovrapposizioni. Si dicono, e basta: una giornata si compone a pezzi, e
-  un buco a meta' pomeriggio due settimane prima e' normale. L'area riservata li
-  mostra sotto l'elenco mentre si scrive, e nel riquadro del cruscotto.
+- **Accanto a ogni nome c'e' il TITOLO** con cui la persona va annunciata
+  ("Avv.", "Dott.ssa", "Presidente"): e' l'unica cosa che si scrive a mano, e
+  parte dal ruolo dell'iscrizione. Non e' un dato dell'iscritto - li' c'e' il
+  ruolo in azienda - ma il modo in cui quel giorno lo si chiama dal palco.
+- **Gli avvisi non si calcolano qui.** Cosa non torna in una giornata - ore
+  mancanti, cose in contemporanea, tavole senza moderatore, e le
+  incompatibilita' con gli incontri B2B - vive in
+  `area-riservata/programma-giornata.js` (vedi sotto): si deve vedere MENTRE si
+  scrive, non dopo un salvataggio, e una copia anche qui vorrebbe dire due
+  regole che si allontanano.
 - **Si salva tutta insieme** (`programma-salva`): la scaletta si compone
   guardandola intera - spostare un intervento vuol dire spostare quello dopo - e
   la risposta riporta la scaletta RIFATTA, non un "ok", perche' la
@@ -1407,6 +1413,34 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   - amministratore, equity e founding partner.
 
 Provato da `prove/programma-evento.prove.js` (`node prove/programma-evento.prove.js`).
+
+### La giornata come si legge: `area-riservata/programma-giornata.js`
+
+Funzioni pure, caricate dal browser nell'area riservata e provate da
+`prove/programma-giornata.prove.js`. Stanno fuori dal servizio perche' servono
+a ogni tasto mentre si scrive la scaletta, e fuori dall'applicazione perche'
+cosi' si possono provare da sole.
+
+- **Mattina e pomeriggio** (`confine`, `dividi`): il confine non e' mezzogiorno
+  per convenzione, e' la FINE DELLA PAUSA PRANZO - quella scritta in scaletta,
+  altrimenti quella degli incontri B2B, altrimenti le 13:00. La fine e non
+  l'inizio perche' la pausa CHIUDE la mattina, com'e' su un programma stampato.
+  Le voci senza orario non stanno ne' di qua ne' di la': restano da collocare.
+- **Cosa non torna** (`avvisi`): ore mancanti, una voce che finisce prima di
+  cominciare, due cose in contemporanea, una tavola rotonda senza moderatore.
+  Si dicono e basta: una giornata si compone a pezzi.
+- **Le INCOMPATIBILITA' con gli incontri B2B** (`conflittiB2B`): chi e' sul
+  palco non puo' essere contemporaneamente al suo tavolo. E' l'errore che
+  nessuno vedeva, perche' viveva in due schermate diverse - la scaletta e
+  l'agenda dei tavoli - e ognuna, da sola, era coerente. Due gravita':
+  **grave** quando in quell'ora c'e' gia' un'impresa che ha prenotato (sono due
+  impegni presi con due persone diverse, e uno salta), **da sistemare** quando
+  l'orario e' soltanto ancora prenotabile (basta chiuderlo dall'agenda, prima
+  che qualcuno lo prenoti). Un tavolo spento e un orario gia' chiuso non sono
+  conflitti: una segnalazione inventata farebbe perdere fiducia a tutte le
+  altre. La stessa persona si riconosce dall'INDIRIZZO EMAIL, non dal nome.
+- `oreInConflitto` da' gli orari da dipingere di rosso nella panoramica, cosi'
+  la griglia e l'elenco degli errori non possono raccontare due cose diverse.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 

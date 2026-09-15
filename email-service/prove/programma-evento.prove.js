@@ -22,8 +22,8 @@
      - il salvataggio RISPONDE con la scaletta rifatta, cosi' chi
        ha salvato vede com'e' rimasta e non com'era sul suo
        schermo;
-     - gli avvisi (ore mancanti, sovrapposizioni) si dicono senza
-       impedire di salvare: una giornata si compone a pezzi;
+     - il titolo scritto a mano resta accanto al nome, che e'
+       come la persona va annunciata dal palco;
      - la lettura e' di chiunque veda gli Eventi, la scrittura no.
    ============================================================ */
 'use strict';
@@ -56,8 +56,10 @@ async function chiama(corpo, puo) {
         email: 'staff@revilaw.it', collab: '', eAdmin: puo !== false, ePartner: puo !== false
     });
 }
-const anna = { nome: 'Anna Verdi', ruolo: 'Revisore legale', azienda: 'Revilaw', sezione: 'aderenti', doc: 'c1' };
-const luca = { nome: 'Luca Bianchi', ruolo: 'Partner', azienda: 'Sponsor Srl', sezione: 'sponsor', doc: 'd1' };
+/* Come arrivano dall'elenco iscritti: con l'indirizzo email, che e' quello
+   con cui si riconosce la stessa persona fra scaletta e tavoli B2B. */
+const anna = { nome: 'Anna Verdi', email: 'anna@revilaw.it', ruolo: 'Revisore legale', azienda: 'Revilaw', sezione: 'aderenti', doc: 'c1' };
+const luca = { nome: 'Luca Bianchi', email: 'luca@sponsor.it', ruolo: 'Partner', azienda: 'Sponsor Srl', sezione: 'sponsor', doc: 'd1' };
 
 // ---------- il piccolo motore delle prove ----------
 let ok = 0, ko = 0;
@@ -125,24 +127,29 @@ async function prova(nome, fn) {
             'una fine prima dell\'inizio si perde, la voce resta');
         const inventata = r.corpo.voci.filter(v => v.titolo === 'Ora inventata')[0];
         esigi(inventata && !inventata.dalle && !inventata.alle, 'le ore che non sono ore non si scrivono');
-        esigi(r.corpo.avvisi.length >= 2, 'e gli avvisi lo dicono');
+        esigi(r.corpo.voci.length === 2, 'e tutte e due le voci restano in elenco');
     });
 
-    await prova('4) Gli avvisi: ore mancanti e sovrapposizioni', async () => {
+    await prova('4) Il titolo accanto al nome', async () => {
         azzera();
         const r = await chiama({
             azione: 'programma-salva',
-            voci: [
-                { tipo: 'tavola', titolo: 'Prima', dalle: '14:30', alle: '15:40' },
-                { tipo: 'tavola', titolo: 'Seconda', dalle: '15:00', alle: '16:00' },
-                { tipo: 'intervento', titolo: 'Senza fine', dalle: '17:00' }
-            ]
+            voci: [{
+                tipo: 'tavola', titolo: 'Merito creditizio', dalle: '14:30', alle: '15:40',
+                moderatore: Object.assign({}, luca, { titolo: 'Avv.' }),
+                partecipanti: [Object.assign({}, anna, { titolo: 'Dott.ssa' })]
+            }]
         });
-        const avvisi = r.corpo.avvisi.join(' | ');
-        esigi(/si sovrappongono: Prima e Seconda/.test(avvisi), 'due tavole sovrapposte si segnalano');
-        esigi(/Senza fine: manca l'ora di fine/.test(avvisi), 'e l\'ora di fine mancante');
-        esigi(r.corpo.ok && salvato().voci.length === 3,
-            'ma si salva lo stesso: una giornata si compone a pezzi');
+        const v = r.corpo.voci[0];
+        esigi(v.moderatore.titolo === 'Avv.' && v.partecipanti[0].titolo === 'Dott.ssa',
+            'il titolo si salva con la persona, dentro quella voce');
+        esigi(v.moderatore.email === 'luca@sponsor.it',
+            'e l\'indirizzo email resta: e con quello che si riconosce chi tiene anche un tavolo B2B');
+        const senza = await chiama({
+            azione: 'programma-salva',
+            voci: [{ tipo: 'tavola', titolo: 'x', dalle: '09:00', alle: '10:00', moderatore: anna }]
+        });
+        esigi(senza.corpo.voci[0].moderatore.titolo === '', 'senza titolo scritto, il campo resta vuoto');
     });
 
     await prova('5) La lettura: la scaletta e i tipi di voce', async () => {
@@ -169,7 +176,7 @@ async function prova(nome, fn) {
 
     await prova('7) Le funzioni interne', async () => {
         esigi(PRG.tipoDa('TAVOLA').id === 'tavola' && PRG.tipoDa('boh') === null, 'i tipi si riconoscono, gli altri no');
-        esigi(PRG.nomeTipo('pranzo') === 'Pausa pranzo', 'il tipo ha un nome da leggere');
+        esigi(PRG.tipoDa('pranzo').nome === 'Pausa pranzo', 'il tipo ha un nome da leggere');
         esigi(PRG.oraValida('09:30') && !PRG.oraValida('9:30') && !PRG.oraValida('24:00'), 'un\'ora e "HH:MM" e basta');
         const v = PRG.normalizzaVoce({ tipo: 'tavola', titolo: 'x', partecipanti: new Array(20).fill(anna) }, 0);
         esigi(v.partecipanti.length === 12, 'a un tavolo non si siedono in venti');

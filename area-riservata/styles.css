@@ -3402,59 +3402,106 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
    quello che fanno (invii alle aziende, comunicazioni periodiche,
    incontri B2B, programma della giornata). Prima erano schede larghe
    in fila, e per arrivare in fondo si scorreva oltre tutto il resto.
+   Densi di proposito: sono dodici cose, e devono stare tutte sopra la
+   piega dello schermo, altrimenti tanto vale la fila di prima.
    ============================================================ */
-.ev-cruscotto { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.ev-cruscotto { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .ev-gruppo-tit {
-    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-    margin: 0 0 7px 2px; font-size: 0.74rem; font-weight: 700;
+    display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+    margin: 0 0 5px 2px; font-size: 0.68rem; font-weight: 700;
     letter-spacing: 0.9px; text-transform: uppercase; color: var(--blu-700);
 }
-.ev-gruppo-tit span { font-size: 0.78rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-400); }
-.ev-riquadri { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; align-items: stretch; }
+.ev-gruppo-tit span { font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-400); }
+.ev-riquadri { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 8px; align-items: stretch; }
 .ev-riq {
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; flex-direction: column; gap: 6px;
     background: var(--bianco); border: 1px solid var(--grigio-200); border-radius: var(--raggio);
-    padding: 12px 14px; box-shadow: var(--ombra);
+    padding: 9px 11px; box-shadow: var(--ombra);
 }
 .ev-riq.larga { grid-column: 1 / -1; }
-.ev-riq-tit { font-size: 0.92rem; font-weight: 700; color: var(--blu-900); }
-.ev-riq-stato { flex: 1 1 auto; font-size: 0.82rem; line-height: 1.5; color: var(--grigio-600); }
+.ev-riq-tit { font-size: 0.85rem; font-weight: 700; color: var(--blu-900); line-height: 1.3; }
+.ev-riq-stato { flex: 1 1 auto; font-size: 0.78rem; line-height: 1.4; color: var(--grigio-600); }
 .ev-riq-stato b { color: var(--grigio-900); }
-.ev-riq-az { display: flex; flex-wrap: wrap; gap: 6px; }
-.ev-riq .inv-card-prog { margin-top: 5px; }
+.ev-riq-az { display: flex; flex-wrap: wrap; gap: 5px; }
+.ev-riq-az .btn { padding: 4px 10px; font-size: 0.76rem; }
+.ev-riq .inv-card-prog { margin-top: 4px; }
 @media (max-width: 720px) {
     .ev-riquadri { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
-   PROGRAMMA DELLA GIORNATA (la scaletta)
-   Una voce per riga: le due ore a sinistra, al centro il titolo con
-   il tipo, e sotto chi modera e chi siede al tavolo.
+   PROGRAMMA DELLA GIORNATA
+   Due colonne, mattina e pomeriggio, e sotto ciascuna gli incontri
+   B2B della stessa fascia: chi e' sul palco alle tre non puo' essere
+   al suo tavolo alle tre, e finche' erano due schermate diverse
+   l'errore non lo vedeva nessuno.
    ============================================================ */
-.prg-aggiungi { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 8px 10px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
-.prg-aggiungi .hint { margin: 0 4px 0 0; }
-.prg-voci { margin-top: 10px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco); }
-.prg-voce { display: flex; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--grigio-100); }
+.prg-aggiungi { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 6px 9px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+.prg-aggiungi .hint { margin: 0 3px 0 0; }
+.prg-aggiungi .btn { padding: 3px 8px; font-size: 0.75rem; }
+.prg-colonne { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; align-items: start; }
+.prg-col { min-width: 0; }
+.prg-col-tit {
+    display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; margin-bottom: 5px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--blu-700);
+}
+.prg-col-tit span { font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-400); }
+.prg-voci { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco); }
+.prg-vuota { border: 1px dashed var(--grigio-200); border-radius: var(--raggio-sm); padding: 10px 12px; font-size: 0.8rem; color: var(--grigio-400); background: var(--bianco); }
+.prg-voce { display: flex; flex-direction: column; gap: 4px; padding: 7px 9px; border-bottom: 1px solid var(--grigio-100); }
 .prg-voce:last-child { border-bottom: none; }
-.prg-ore { display: flex; flex-direction: column; gap: 4px; flex: none; }
-label.prg-ora { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.72rem; font-weight: 400; color: var(--grigio-400); }
-label.prg-ora input { margin: 0; padding: 4px 6px; font-size: 0.85rem; width: 7.2em; }
-.prg-corpo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.prg-riga1 { display: flex; align-items: center; gap: 8px; }
-.prg-riga1 .badge { flex: none; }
-input.prg-titolo { flex: 1 1 auto; min-width: 0; margin: 0; padding: 5px 8px; font-size: 0.9rem; font-weight: 600; color: var(--grigio-900); }
-input.prg-nota { margin: 0; padding: 4px 8px; font-size: 0.8rem; }
-.prg-elimina { flex: none; background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.8rem; padding: 2px 4px; line-height: 1; }
+.prg-riga1 { display: flex; align-items: center; gap: 5px; }
+.prg-riga1 .badge { flex: none; font-size: 0.66rem; padding: 1px 6px; }
+input.prg-t { flex: none; width: 6.4em; margin: 0; padding: 2px 5px; font-size: 0.8rem; text-align: center; }
+.prg-freccia { color: var(--grigio-400); font-size: 0.78rem; flex: none; }
+input.prg-titolo { margin: 0; padding: 4px 7px; font-size: 0.85rem; font-weight: 600; color: var(--grigio-900); }
+input.prg-nota { margin: 0; padding: 3px 7px; font-size: 0.75rem; }
+.prg-elimina { margin-left: auto; flex: none; background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.75rem; padding: 2px 3px; line-height: 1; }
 .prg-elimina:hover { color: var(--rosso); }
-.prg-persone { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.prg-et { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--blu-700); flex: none; }
-.prg-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 3px 10px; font-size: 0.8rem; color: var(--grigio-900); }
-.prg-chip-ruolo { color: var(--grigio-600); font-size: 0.74rem; }
-.prg-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.72rem; padding: 0 1px; line-height: 1; }
+.prg-persone { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.prg-et { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--blu-700); flex: none; }
+.prg-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 1px 4px 1px 9px; font-size: 0.76rem; color: var(--grigio-900); max-width: 100%; }
+.prg-chip b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* il titolo con cui la persona va annunciata: si scrive li', accanto al nome */
+input.prg-tit-p { margin: 0; padding: 1px 6px; font-size: 0.7rem; color: var(--grigio-600); background: var(--bianco); border: 1px dashed var(--grigio-200); border-radius: 999px; width: 7.5em; }
+input.prg-tit-p:focus { border-style: solid; color: var(--grigio-900); }
+.prg-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.68rem; padding: 0 2px; line-height: 1; }
 .prg-togli:hover { color: var(--rosso); }
-select.prg-scegli { margin: 0; padding: 4px 8px; font-size: 0.8rem; max-width: 280px; }
-.prg-avvisi { margin-top: 10px; padding: 9px 12px; border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; border-radius: var(--raggio-sm); background: #fffaf3; font-size: 0.82rem; color: var(--grigio-900); }
-@media (max-width: 720px) {
-    .prg-voce { flex-direction: column; gap: 8px; }
-    .prg-ore { flex-direction: row; gap: 8px; }
+select.prg-scegli { margin: 0; padding: 2px 6px; font-size: 0.74rem; max-width: 190px; }
+.prg-senza-ora { margin-top: 10px; }
+
+/* la panoramica degli incontri B2B, sotto ogni colonna */
+.prg-b2b { margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--grigio-050); padding: 7px 9px; }
+.prg-b2b-tit { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--blu-700); margin-bottom: 5px; }
+.prg-b2b-riga { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; border-top: 1px solid var(--grigio-200); }
+.prg-b2b-riga:first-of-type { border-top: none; }
+.prg-b2b-nome { flex: 0 0 34%; min-width: 0; font-size: 0.76rem; font-weight: 600; color: var(--grigio-900); line-height: 1.25; }
+.prg-b2b-nome span { display: block; font-weight: 400; font-size: 0.7rem; color: var(--grigio-600); overflow: hidden; text-overflow: ellipsis; }
+/* un tavolo attivo senza referente resta rosso anche qui: e' la stessa cosa
+   che la scheda degli incontri segnala, e due colori diversi per lo stesso
+   guaio si leggono come due guai diversi */
+.prg-b2b-nome span.ev-ko { color: var(--rosso); }
+.prg-slot-fila { display: flex; flex-wrap: wrap; gap: 3px; flex: 1 1 auto; min-width: 0; }
+.prg-slot {
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 3.6em; max-width: 7em; padding: 2px 4px; border-radius: var(--raggio-sm);
+    border: 1px solid var(--grigio-200); background: var(--bianco);
+    font-size: 0.68rem; line-height: 1.15; color: var(--grigio-600);
+}
+.prg-slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.62rem; font-weight: 600; color: var(--blu-700); }
+.prg-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
+.prg-slot.chiuso { border-style: dashed; color: var(--grigio-400); background: var(--grigio-100); }
+.prg-slot.occupato { border-color: var(--blu-300); background: var(--blu-050); color: var(--blu-900); }
+/* l'incompatibilita': l'orario in cui chi tiene il tavolo e' sul palco */
+.prg-slot.conflitto { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso-scuro); font-weight: 700; }
+.prg-slot.conflitto b { color: var(--rosso-scuro); }
+
+/* le segnalazioni: l'errore grave, gli orari da chiudere, il resto */
+.prg-segn { margin-top: 8px; padding: 8px 11px; border-radius: var(--raggio-sm); font-size: 0.8rem; line-height: 1.45; }
+.prg-segn b { display: block; margin-bottom: 2px; }
+.prg-segn.errore { border: 1px solid #e7b4b0; border-left: 3px solid var(--rosso); background: var(--rosso-bg); color: var(--rosso-scuro); }
+.prg-segn.attenzione { border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fffaf3; color: var(--grigio-900); }
+.prg-segn.avviso { border: 1px solid var(--grigio-200); border-left: 3px solid var(--grigio-400); background: var(--grigio-050); color: var(--grigio-600); }
+@media (max-width: 900px) {
+    .prg-colonne { grid-template-columns: 1fr; }
 }

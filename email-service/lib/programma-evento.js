@@ -71,18 +71,24 @@ function minutiOra(v) {
     return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
 }
 
-/* Una persona sul palco, ridotta a cio' che si stampa: nome, ruolo,
+/* Una persona sul palco, ridotta a cio' che si stampa: nome, titolo, ruolo,
    azienda. `doc` e' la sua scheda fra gli iscritti - e' da li che arriva -
    e resta attaccata per poter risalire alla persona; il nome pero' si
    scrive anche qui, perche' la scaletta si deve poter stampare senza
-   rileggere l'elenco degli iscritti. */
+   rileggere l'elenco degli iscritti.
+   Il `titolo` e' l'unica cosa che si scrive a mano, e sta accanto al nome
+   ("Avv.", "Dott.", "Presidente"): non e' un dato dell'iscrizione - li'
+   c'e' il ruolo in azienda - ma e' come la persona va annunciata dal palco,
+   e cambia da un evento all'altro. */
 function normalizzaPersona(v) {
     const p = (v && typeof v === 'object') ? v : {};
     const nome = testo(p.nome, 120);
     if (!nome) return null;
     return {
         doc: testo(p.doc, 400), id: testo(p.id, 300), nome: nome,
+        titolo: testo(p.titolo, 80),
         ruolo: testo(p.ruolo, 160), azienda: testo(p.azienda, 160),
+        email: testo(p.email, 200).toLowerCase(),
         sezione: (['aderenti', 'sponsor'].indexOf(testo(p.sezione, 20)) >= 0) ? testo(p.sezione, 20) : ''
     };
 }
@@ -148,27 +154,13 @@ async function leggiProgramma(db, evento) {
     return normalizzaProgramma(snap.exists ? snap.data() : null, evento);
 }
 
-/* Cosa non torna nella scaletta. Non si BLOCCA il salvataggio: una
-   giornata si compone a pezzi, e un buco a meta' pomeriggio alle cinque di
-   un martedi' e' normale. Si dice soltanto, perche' un orario che si
-   sovrappone e' quasi sempre una svista, e accorgersene mentre si scrive
-   costa niente. */
-function controlla(voci) {
-    const avvisi = [];
-    const conOra = (voci || []).filter(v => oraValida(v.dalle));
-    (voci || []).forEach(v => {
-        if (!oraValida(v.dalle)) avvisi.push((v.titolo || nomeTipo(v.tipo)) + ': manca l\'ora di inizio');
-        else if (!oraValida(v.alle)) avvisi.push((v.titolo || nomeTipo(v.tipo)) + ': manca l\'ora di fine');
-    });
-    conOra.forEach((a, i) => conOra.slice(i + 1).forEach(b => {
-        if (!oraValida(a.alle) || !oraValida(b.alle)) return;
-        if (minutiOra(a.dalle) < minutiOra(b.alle) && minutiOra(b.dalle) < minutiOra(a.alle)) {
-            avvisi.push('si sovrappongono: ' + (a.titolo || nomeTipo(a.tipo)) + ' e ' + (b.titolo || nomeTipo(b.tipo)));
-        }
-    }));
-    return avvisi.slice(0, 12);
-}
-function nomeTipo(id) { const t = tipoDa(id); return t ? t.nome : 'voce'; }
+/* Gli AVVISI non si calcolano qui. Cosa non torna in una scaletta - ore
+   mancanti, cose in contemporanea, una tavola senza moderatore, e soprattutto
+   le incompatibilita' con gli incontri B2B - si deve vedere MENTRE si scrive,
+   non dopo un salvataggio: vive quindi in area-riservata/programma-giornata.js,
+   che l'area riservata usa a ogni tasto e le prove provano da sole. Tenerne
+   una copia anche qui vorrebbe dire due regole che si allontanano, e la
+   seconda opinione su quando una giornata torna non serve a nessuno. */
 
 /* =========================================================
    LE AZIONI DELL'AREA RISERVATA (sezione: 'programma')
@@ -197,7 +189,7 @@ async function esegui(ctx) {
                    compone i pulsanti "aggiungi" e le etichette da qui, invece
                    di tenerne una copia sua che il giorno dopo non combacia. */
                 tipi: TIPI,
-                voci: p.voci, aggiornato: p.aggiornato, avvisi: controlla(p.voci)
+                voci: p.voci, aggiornato: p.aggiornato
             }
         };
     }
@@ -224,7 +216,7 @@ async function esegui(ctx) {
            impossibile, e chi ha salvato deve vedere com'e' rimasta. */
         return {
             stato: 200,
-            corpo: { ok: true, voci: p.voci, aggiornato: p.aggiornato, avvisi: controlla(p.voci) }
+            corpo: { ok: true, voci: p.voci, aggiornato: p.aggiornato }
         };
     }
 
@@ -232,9 +224,9 @@ async function esegui(ctx) {
 }
 
 module.exports = {
-    TIPI, tipoDa, nomeTipo,
+    TIPI, tipoDa,
     oraValida, minutiOra, ordina,
-    normalizzaVoce, normalizzaProgramma, controlla,
+    normalizzaVoce, normalizzaProgramma,
     idEvento, rifProgramma, leggiProgramma,
     gestisce, esegui
 };
