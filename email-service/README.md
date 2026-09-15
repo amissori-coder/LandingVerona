@@ -1083,7 +1083,7 @@ da mani diverse: chi configura non deve poter sovrascrivere una prenotazione
 presa un attimo prima.
 
 - `b2bAgenda/{evento}` - **la configurazione**, scritta dall'area riservata
-  (sezione Eventi, scheda "Incontri B2B: tavoli, referenti e orari"):
+  (sezione Eventi, finestra "La giornata", riquadro "I tavoli B2B"):
   `giornata` (`inizio`, `fine`, `durata` in minuti, `pranzoDa`/`pranzoA`) e,
   per ciascuna delle undici aree, `attiva`, `referenti` (chi tiene il tavolo),
   `chiusi` (gli orari in cui non riceve) e `nota`. Di partenza: dalle 10:00
@@ -1441,6 +1441,40 @@ cosi' si possono provare da sole.
   altre. La stessa persona si riconosce dall'INDIRIZZO EMAIL, non dal nome.
 - `oreInConflitto` da' gli orari da dipingere di rosso nella panoramica, cosi'
   la griglia e l'elenco degli errori non possono raccontare due cose diverse.
+
+### Una finestra sola: "La giornata" (area riservata)
+
+La scaletta e i tavoli B2B erano due schermate, e l'incompatibilita' fra chi e'
+sul palco e chi tiene un tavolo non la vedeva nessuno: ognuna delle due, da
+sola, era coerente. Ora sono una finestra sola, con dentro due parti distinte:
+
+- in alto **mattina e pomeriggio**, una colonna per meta'. In ciascuna le voci
+  del programma di quella fascia e, sotto, gli **orari B2B della stessa fascia**
+  come quadratini: verde libero, blu prenotato, grigio chiuso, **rosso** quando
+  chi tiene quel tavolo in quell'ora e' sul palco. Un orario libero si preme e
+  si chiude, uno chiuso si preme e si riapre; su uno gia' prenotato non si
+  preme - c'e' un'impresa dall'altra parte - e si libera dalla crocetta, che
+  chiede conferma;
+- sotto, **"I tavoli B2B"**: gli orari della giornata (inizio, fine, durata,
+  pausa) e una riga per area con chi la tiene, la nota e i conti. E' com'e'
+  fatto un tavolo, che vale per l'intera giornata: gli orari, che invece un'ora
+  ce l'hanno, si toccano su nelle colonne;
+- in fondo le **richieste a orari esauriti**.
+
+**I due salvataggi si comportano in modo diverso, ed e' voluto**: il programma
+e' una bozza che si compone a pezzi e si salva col pulsante in fondo; i
+**tavoli valgono subito**, nell'istante in cui si tocca un orario o si cambia
+il referente, perche' intanto la' fuori qualcuno sta prenotando - un orario che
+credevamo chiuso e che non lo e' ancora e' una prenotazione di troppo. La
+finestra lo dice in cima, e la riga in fondo dice ogni volta cosa e' appena
+stato scritto. Se un salvataggio dei tavoli non riesce, l'agenda si **rilegge**
+dal servizio invece di restare a schermo com'era: su un'agenda che sta
+prendendo prenotazioni, quello che si vede deve essere quello che c'e'.
+
+Sopra l'elenco degli iscritti resta una **fascia** di quattro blocchi -
+iscrizioni, invii alle aziende, comunicazioni periodiche, la giornata - con il
+minimo che serve a decidere se aprire qualcosa: i numeri e le righe in rosso.
+Il resto sta dentro le finestre, che e' dove si lavora.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
