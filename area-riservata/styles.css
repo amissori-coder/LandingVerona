@@ -3395,3 +3395,66 @@ table.dati.cq-elenco .cq-agg { white-space: nowrap; }
 /* la riga dell'ultimo promemoria aperto: si ritrova a colpo d'occhio tornando dalla finestra */
 table.dati tbody tr.pm-evidenziata > td { background: var(--blu-100); }
 table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 var(--blu-700); }
+
+/* ============================================================
+   CRUSCOTTO DELLA SEZIONE EVENTI
+   Sopra l'elenco degli iscritti: riquadri piccoli, raggruppati per
+   quello che fanno (invii alle aziende, comunicazioni periodiche,
+   incontri B2B, programma della giornata). Prima erano schede larghe
+   in fila, e per arrivare in fondo si scorreva oltre tutto il resto.
+   ============================================================ */
+.ev-cruscotto { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.ev-gruppo-tit {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin: 0 0 7px 2px; font-size: 0.74rem; font-weight: 700;
+    letter-spacing: 0.9px; text-transform: uppercase; color: var(--blu-700);
+}
+.ev-gruppo-tit span { font-size: 0.78rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-400); }
+.ev-riquadri { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; align-items: stretch; }
+.ev-riq {
+    display: flex; flex-direction: column; gap: 8px;
+    background: var(--bianco); border: 1px solid var(--grigio-200); border-radius: var(--raggio);
+    padding: 12px 14px; box-shadow: var(--ombra);
+}
+.ev-riq.larga { grid-column: 1 / -1; }
+.ev-riq-tit { font-size: 0.92rem; font-weight: 700; color: var(--blu-900); }
+.ev-riq-stato { flex: 1 1 auto; font-size: 0.82rem; line-height: 1.5; color: var(--grigio-600); }
+.ev-riq-stato b { color: var(--grigio-900); }
+.ev-riq-az { display: flex; flex-wrap: wrap; gap: 6px; }
+.ev-riq .inv-card-prog { margin-top: 5px; }
+@media (max-width: 720px) {
+    .ev-riquadri { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   PROGRAMMA DELLA GIORNATA (la scaletta)
+   Una voce per riga: le due ore a sinistra, al centro il titolo con
+   il tipo, e sotto chi modera e chi siede al tavolo.
+   ============================================================ */
+.prg-aggiungi { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 8px 10px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+.prg-aggiungi .hint { margin: 0 4px 0 0; }
+.prg-voci { margin-top: 10px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco); }
+.prg-voce { display: flex; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--grigio-100); }
+.prg-voce:last-child { border-bottom: none; }
+.prg-ore { display: flex; flex-direction: column; gap: 4px; flex: none; }
+label.prg-ora { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.72rem; font-weight: 400; color: var(--grigio-400); }
+label.prg-ora input { margin: 0; padding: 4px 6px; font-size: 0.85rem; width: 7.2em; }
+.prg-corpo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.prg-riga1 { display: flex; align-items: center; gap: 8px; }
+.prg-riga1 .badge { flex: none; }
+input.prg-titolo { flex: 1 1 auto; min-width: 0; margin: 0; padding: 5px 8px; font-size: 0.9rem; font-weight: 600; color: var(--grigio-900); }
+input.prg-nota { margin: 0; padding: 4px 8px; font-size: 0.8rem; }
+.prg-elimina { flex: none; background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.8rem; padding: 2px 4px; line-height: 1; }
+.prg-elimina:hover { color: var(--rosso); }
+.prg-persone { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.prg-et { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--blu-700); flex: none; }
+.prg-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 3px 10px; font-size: 0.8rem; color: var(--grigio-900); }
+.prg-chip-ruolo { color: var(--grigio-600); font-size: 0.74rem; }
+.prg-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.72rem; padding: 0 1px; line-height: 1; }
+.prg-togli:hover { color: var(--rosso); }
+select.prg-scegli { margin: 0; padding: 4px 8px; font-size: 0.8rem; max-width: 280px; }
+.prg-avvisi { margin-top: 10px; padding: 9px 12px; border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; border-radius: var(--raggio-sm); background: #fffaf3; font-size: 0.82rem; color: var(--grigio-900); }
+@media (max-width: 720px) {
+    .prg-voce { flex-direction: column; gap: 8px; }
+    .prg-ore { flex-direction: row; gap: 8px; }
+}

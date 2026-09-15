@@ -1,0 +1,181 @@
+/* ============================================================
+   PROVE - lib/programma-evento.js (la scaletta della giornata)
+   ------------------------------------------------------------
+       node prove/programma-evento.prove.js
+
+   Niente da installare: Firestore e' finto e sta qui dentro.
+   Esce con 1 se qualcosa e' rosso.
+
+   COSA DIMOSTRANO. La scaletta e' un foglio che il giorno del
+   convegno si legge dall'alto in basso, e queste prove tengono
+   fermo proprio quello:
+
+     - le voci si mettono in fila DA SOLE, in ordine di orario, e
+       quella senza ora va in fondo invece di sparire;
+     - una voce che non ha senso avere - il moderatore della pausa
+       pranzo - non si salva: il tipo decide cosa una voce puo'
+       portarsi dietro;
+     - un'ora di fine prima dell'inizio non si tiene: si perde
+       l'ora, non la voce che qualcuno stava scrivendo;
+     - chi sale sul palco arriva dall'elenco iscritti, e un nome
+       vuoto non diventa un relatore fantasma;
+     - il salvataggio RISPONDE con la scaletta rifatta, cosi' chi
+       ha salvato vede com'e' rimasta e non com'era sul suo
+       schermo;
+     - gli avvisi (ore mancanti, sovrapposizioni) si dicono senza
+       impedire di salvare: una giornata si compone a pezzi;
+     - la lettura e' di chiunque veda gli Eventi, la scrittura no.
+   ============================================================ */
+'use strict';
+const path = require('path');
+
+// ---------- orologio ----------
+let orologio = Date.parse('2026-09-20T09:00:00Z');
+Date.now = () => orologio;
+
+// ---------- Firestore finto ----------
+const dati = new Map();
+function doc(chiave) {
+    const self = {
+        get: async () => ({ exists: dati.has(chiave), data: () => dati.get(chiave), ref: self }),
+        set: async (v) => { dati.set(chiave, JSON.parse(JSON.stringify(v))); }
+    };
+    return self;
+}
+const db = { collection: nome => ({ doc: id => doc(nome + '/' + id) }) };
+
+const RADICE = path.join(__dirname, '..');
+const PRG = require(path.join(RADICE, 'lib/programma-evento.js'));
+
+const EVENTO = 'napoli-2026-10-02';
+function azzera() { dati.clear(); }
+function salvato() { return dati.get('programmaEventi/' + EVENTO); }
+async function chiama(corpo, puo) {
+    return PRG.esegui({
+        db: db, body: Object.assign({ sezione: 'programma', evento: EVENTO }, corpo),
+        email: 'staff@revilaw.it', collab: '', eAdmin: puo !== false, ePartner: puo !== false
+    });
+}
+const anna = { nome: 'Anna Verdi', ruolo: 'Revisore legale', azienda: 'Revilaw', sezione: 'aderenti', doc: 'c1' };
+const luca = { nome: 'Luca Bianchi', ruolo: 'Partner', azienda: 'Sponsor Srl', sezione: 'sponsor', doc: 'd1' };
+
+// ---------- il piccolo motore delle prove ----------
+let ok = 0, ko = 0;
+function esigi(cond, testo) { if (cond) { ok++; console.log('  ok   ' + testo); } else { ko++; console.log('  KO   ' + testo); } }
+async function prova(nome, fn) {
+    console.log('\n' + nome);
+    try { await fn(); }
+    catch (e) { ko++; console.log('  KO   eccezione: ' + (e && e.stack || e)); }
+}
+
+(async () => {
+
+    await prova('1) La giornata si mette in fila da sola', async () => {
+        azzera();
+        const r = await chiama({
+            azione: 'programma-salva',
+            eventoDati: { titolo: 'Napoli', quando: '2 ottobre 2026' },
+            voci: [
+                { tipo: 'tavola', titolo: 'Merito creditizio', dalle: '14:30', alle: '15:40', moderatore: luca, partecipanti: [anna] },
+                { tipo: 'registrazione', dalle: '09:00', alle: '09:30' },
+                { tipo: 'pranzo', dalle: '13:00', alle: '14:00' },
+                { tipo: 'altro', titolo: 'Da collocare' }
+            ]
+        });
+        esigi(r.stato === 200 && r.corpo.ok, 'la scaletta si salva');
+        const ordine = r.corpo.voci.map(v => v.tipo).join(' > ');
+        esigi(ordine === 'registrazione > pranzo > tavola > altro',
+            'in ordine di orario, e la voce senza ora va in fondo (' + ordine + ')');
+        esigi(salvato().voci.length === 4, 'restano scritte tutte e quattro');
+        esigi(salvato().aggiornato.da === 'staff@revilaw.it', 'resta scritto chi ha salvato');
+    });
+
+    await prova('2) Il tipo decide cosa una voce puo\' portarsi dietro', async () => {
+        azzera();
+        const r = await chiama({
+            azione: 'programma-salva',
+            voci: [
+                { tipo: 'pranzo', dalle: '13:00', alle: '14:00', moderatore: luca, partecipanti: [anna] },
+                { tipo: 'istituzionali', dalle: '09:45', alle: '10:00', moderatore: luca, partecipanti: [anna] },
+                { tipo: 'tavola', titolo: 'Con chi', dalle: '14:30', alle: '15:40', moderatore: luca, partecipanti: [anna, { nome: '' }, anna] }
+            ]
+        });
+        const per = t => r.corpo.voci.filter(v => v.tipo === t)[0];
+        esigi(!per('pranzo').moderatore && per('pranzo').partecipanti.length === 0,
+            'la pausa pranzo non ha moderatore ne relatori');
+        esigi(!per('istituzionali').moderatore && per('istituzionali').partecipanti.length === 1,
+            'i saluti istituzionali hanno chi parla ma non un moderatore');
+        esigi(per('tavola').moderatore.nome === 'Luca Bianchi' && per('tavola').partecipanti.length === 2,
+            'la tavola rotonda tiene moderatore e partecipanti, e butta il nome vuoto');
+        esigi(per('tavola').moderatore.sezione === 'sponsor' && per('tavola').partecipanti[0].azienda === 'Revilaw',
+            'di chi sale sul palco restano ruolo, azienda e sezione');
+    });
+
+    await prova('3) Un\'ora che non sta in piedi', async () => {
+        azzera();
+        const r = await chiama({
+            azione: 'programma-salva',
+            voci: [
+                { tipo: 'intervento', titolo: 'Storta', dalle: '11:00', alle: '10:00' },
+                { tipo: 'intervento', titolo: 'Ora inventata', dalle: '25:99', alle: 'boh' }
+            ]
+        });
+        const storta = r.corpo.voci.filter(v => v.titolo === 'Storta')[0];
+        esigi(storta && storta.dalle === '11:00' && storta.alle === '',
+            'una fine prima dell\'inizio si perde, la voce resta');
+        const inventata = r.corpo.voci.filter(v => v.titolo === 'Ora inventata')[0];
+        esigi(inventata && !inventata.dalle && !inventata.alle, 'le ore che non sono ore non si scrivono');
+        esigi(r.corpo.avvisi.length >= 2, 'e gli avvisi lo dicono');
+    });
+
+    await prova('4) Gli avvisi: ore mancanti e sovrapposizioni', async () => {
+        azzera();
+        const r = await chiama({
+            azione: 'programma-salva',
+            voci: [
+                { tipo: 'tavola', titolo: 'Prima', dalle: '14:30', alle: '15:40' },
+                { tipo: 'tavola', titolo: 'Seconda', dalle: '15:00', alle: '16:00' },
+                { tipo: 'intervento', titolo: 'Senza fine', dalle: '17:00' }
+            ]
+        });
+        const avvisi = r.corpo.avvisi.join(' | ');
+        esigi(/si sovrappongono: Prima e Seconda/.test(avvisi), 'due tavole sovrapposte si segnalano');
+        esigi(/Senza fine: manca l'ora di fine/.test(avvisi), 'e l\'ora di fine mancante');
+        esigi(r.corpo.ok && salvato().voci.length === 3,
+            'ma si salva lo stesso: una giornata si compone a pezzi');
+    });
+
+    await prova('5) La lettura: la scaletta e i tipi di voce', async () => {
+        azzera();
+        await chiama({ azione: 'programma-salva', voci: [{ tipo: 'saluti', dalle: '09:30', alle: '09:45', partecipanti: [anna] }] });
+        const r = await chiama({ azione: 'programma' }, false);   // chi non puo' scrivere legge lo stesso
+        esigi(r.stato === 200 && r.corpo.ok && r.corpo.voci.length === 1, 'chi vede gli Eventi legge la scaletta');
+        esigi(Array.isArray(r.corpo.tipi) && r.corpo.tipi.some(t => t.id === 'tavola' && t.conModeratore),
+            'i tipi di voce viaggiano con la scaletta: l\'area riservata non ne tiene una copia');
+        esigi(r.corpo.voci[0].partecipanti[0].nome === 'Anna Verdi', 'e chi e sul palco si legge');
+    });
+
+    await prova('6) Chi non manda gli inviti non riscrive la giornata', async () => {
+        azzera();
+        await chiama({ azione: 'programma-salva', voci: [{ tipo: 'registrazione', dalle: '09:00', alle: '09:30' }] });
+        const r = await chiama({ azione: 'programma-salva', voci: [] }, false);
+        esigi(r.stato === 403, 'il salvataggio viene respinto');
+        esigi(salvato().voci.length === 1, 'e la scaletta resta quella di prima');
+        const s = await chiama({ azione: 'inventata' });
+        esigi(s.stato === 400, 'un\'azione che non esiste viene respinta');
+        const senza = await PRG.esegui({ db: db, body: { sezione: 'programma' }, email: 'x@y.it', eAdmin: true });
+        esigi(senza.stato === 400, 'senza evento non si fa niente');
+    });
+
+    await prova('7) Le funzioni interne', async () => {
+        esigi(PRG.tipoDa('TAVOLA').id === 'tavola' && PRG.tipoDa('boh') === null, 'i tipi si riconoscono, gli altri no');
+        esigi(PRG.nomeTipo('pranzo') === 'Pausa pranzo', 'il tipo ha un nome da leggere');
+        esigi(PRG.oraValida('09:30') && !PRG.oraValida('9:30') && !PRG.oraValida('24:00'), 'un\'ora e "HH:MM" e basta');
+        const v = PRG.normalizzaVoce({ tipo: 'tavola', titolo: 'x', partecipanti: new Array(20).fill(anna) }, 0);
+        esigi(v.partecipanti.length === 12, 'a un tavolo non si siedono in venti');
+        esigi(PRG.normalizzaVoce({}, 3).id === 'v4', 'una voce senza identificativo ne prende uno dalla posizione');
+    });
+
+    console.log('\n' + ok + ' ok, ' + ko + ' KO');
+    process.exit(ko ? 1 : 0);
+})().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });

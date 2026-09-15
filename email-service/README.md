@@ -1367,6 +1367,47 @@ personale appartiene a un'azienda che non ha nominato.
   che lascia passare i ripensamenti veri e ferma l'accanimento sul pulsante, che
   sarebbe una mail dietro l'altra.
 
+## Programma della giornata (`lib/programma-evento.js`)
+
+La scaletta dell'evento: dall'apertura della registrazione alla chiusura dei
+lavori. Una VOCE per ogni momento - registrazione, saluti iniziali, saluti
+istituzionali, interventi, tavole rotonde, coffee break, pausa pranzo,
+chiusura - con la sua ora di inizio e di fine. Un documento per evento,
+`programmaEventi/{evento}`, e le richieste arrivano da `/api/presenze` con
+`sezione: 'programma'` (stessa deviazione dell'agenda B2B).
+
+- **Il tipo decide cosa la voce si porta dietro** (costante `TIPI`): una tavola
+  rotonda ha il MODERATORE e i partecipanti, i saluti istituzionali hanno chi
+  parla ma nessun moderatore, la pausa pranzo non ha ne l'uno ne gli altri. Se
+  arrivano lo stesso, si buttano: una voce che non puo' averli non li tiene.
+- **Chi sale sul palco arriva dall'elenco iscritti**: moderatore e partecipanti
+  si scelgono fra le persone iscritte a quell'evento nelle sezioni "Sponsor e
+  relatori" e "Aderenti Revilaw". Non si scrivono a mano, perche' un nome
+  scritto a mano e' un nome che nessuno ha confermato e che il giorno del
+  convegno puo' non esserci. Di ciascuno restano scritti nome, ruolo, azienda e
+  la scheda di provenienza (`doc`), cosi' la scaletta si stampa senza rileggere
+  l'elenco. Chi deve comparire senza essere iscritto (un ospite istituzionale
+  annunciato all'ultimo) si annota nella `nota` della voce, che resta libera.
+- **Le voci si mettono in fila da sole**, in ordine di orario; quella senza ora
+  va in fondo e non sparisce - e' una voce che qualcuno deve ancora collocare.
+  Un'ora di fine prima dell'inizio si perde (la voce resta): si butta l'ora
+  sbagliata, non il lavoro di chi stava scrivendo.
+- **Gli avvisi non bloccano** (`controlla`): ore mancanti, fini prima degli
+  inizi, sovrapposizioni. Si dicono, e basta: una giornata si compone a pezzi, e
+  un buco a meta' pomeriggio due settimane prima e' normale. L'area riservata li
+  mostra sotto l'elenco mentre si scrive, e nel riquadro del cruscotto.
+- **Si salva tutta insieme** (`programma-salva`): la scaletta si compone
+  guardandola intera - spostare un intervento vuol dire spostare quello dopo - e
+  la risposta riporta la scaletta RIFATTA, non un "ok", perche' la
+  normalizzazione puo' averla rimessa in fila o aver tolto un'ora impossibile.
+  La lettura (`programma`) porta con se' anche i `TIPI`, cosi' l'area riservata
+  non ne tiene una copia che il giorno dopo non combacia.
+- **Permessi**: legge chiunque veda gli Eventi (il giorno del convegno la
+  scaletta serve a tutti quelli che stanno al desk), scrive chi manda gli inviti
+  - amministratore, equity e founding partner.
+
+Provato da `prove/programma-evento.prove.js` (`node prove/programma-evento.prove.js`).
+
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
 Riservato all'**amministratore** (ID token verificato, ruolo `admin`). Porta

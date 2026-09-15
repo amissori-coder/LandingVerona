@@ -1893,6 +1893,30 @@
             }
         },
 
+        /* Programma della giornata (la scaletta): stesso indirizzo, altra
+           sezione. Legge chiunque veda gli Eventi, scrive chi manda gli inviti:
+           a decidere e' il servizio, non queste righe. */
+        async programmaEvento(corpo) {
+            let url = window.RV_PRESENZE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'presenze$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, sezione: 'programma', ...corpo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                return { ...data, ok: true };
+            } catch (e) {
+                return { ok: false, msg: await this._perche(url, e) };
+            }
+        },
+
         /* --- NEWSLETTER ---
            Un unico servizio per l'elenco dei destinatari raccolti dal sito
            (tutte le pagine, non solo gli eventi) e per le disiscrizioni. */
@@ -15605,9 +15629,11 @@
        il problema e nel salvataggio; se invece c'e, il problema e in ricezione. */
     function diagnosticaEventiHtml() {
         if (!_evDiag) {
-            return '<div class="card s-admin"><div class="s-admin-txt"><strong>Diagnostica accessi</strong>'
-                + '<div class="hint">Controlla se l\'elenco degli abilitati è arrivato al server. Lo vedi solo tu.</div></div>'
-                + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-diag-btn">Verifica sul server</button></div></div>';
+            return riquadroEv({
+                titolo: 'Diagnostica accessi',
+                stato: 'Controlla se l\'elenco degli abilitati è arrivato al server. Lo vedi solo tu.',
+                azioni: '<button class="btn btn-sm btn-secondary" id="ev-diag-btn">Verifica sul server</button>'
+            });
         }
         const loc = elencoAbilitatiDa(_evDiag.locale);
         const r = _evDiag.remoto || {};
@@ -15637,7 +15663,8 @@
             else esito = 'può vedere gli Eventi (' + esc(nomeRuolo(u.ruolo)) + ')';
             return '<div class="ev-diag-riga"><span>' + esc(e) + '</span><span>' + esito + '</span></div>';
         }).join('');
-        return '<div class="card"><strong>Diagnostica accessi</strong>'
+        return '<div class="ev-riq larga"><div class="ev-riq-tit">Diagnostica accessi</div>'
+            + '<div class="ev-riq-stato">'
             + '<div class="ev-diag-riga"><span>In questo browser</span><span><b>' + loc.length + '</b>'
             + (loc.length ? ' &middot; ' + esc(loc.join(', ')) : ' (elenco vuoto)') + '</span></div>'
             + '<div class="ev-diag-riga"><span>Sul server</span><span>' + remoto + '</span></div>'
@@ -15650,7 +15677,7 @@
                 + esc(Object.keys(Cloud.archiviNonScritti).map(d => d + ': ' + Cloud.archiviNonScritti[d]).join(' | '))
                 + '</span></div>'
                 : '')
-            + '<div style="margin-top:10px;"><button class="btn btn-sm btn-secondary" id="ev-diag-btn">Ricontrolla</button></div></div>';
+            + '</div><div class="ev-riq-az"><button class="btn btn-sm btn-secondary" id="ev-diag-btn">Ricontrolla</button></div></div>';
     }
 
     /* poi(cambiato): "cambiato" dice se l'elenco e diverso da quello gia a video,
@@ -16669,27 +16696,44 @@
             + (titolo ? ' title="' + esc(titolo) + '"' : '') + '>'
             + n + '<span>' + esc(et) + '</span></div>';
 
-        const gestione = admin
-            ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
-            + '<div class="hint">Oltre all\'amministratore, vedono gli Eventi <b>' + cfg.abilitati.length + '</b> utenti abilitati.</div></div>'
-            + '<div class="s-admin-azioni">'
+        /* I RIQUADRI DELLA GESTIONE ISCRIZIONI. Sono tre cose diverse - portare
+           dentro chi si e' iscritto altrove, caricare un elenco, decidere chi
+           vede la sezione - e stavano tutte e tre in una scheda sola, con i
+           pulsanti in fila senza che si capisse quale riguardasse cosa.
+           L'invito agli incontri B2B non e' piu' qui: sta con i suoi tavoli. */
+        const riquadriIscrizioni = [
             // dagli eventi con iscrizione anche su portali esterni (Eventbrite) si
-            // puo' aggiungere una scheda a mano, con la mail di conferma NGB, e
-            // far partire a tutti l'invito agli incontri B2B
-            + (ev.manuale ? '<button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>'
-                + '<button class="btn btn-secondary" id="ev-b2b">Invito incontri B2B</button>' : '')
-            + '<button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
-            + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
-            /* Anche EQUITY e FOUNDING PARTNER aggiungono le iscrizioni arrivate
-               dai portali esterni: conta il solo ruolo di accesso. A loro compare
-               la sola card con quel pulsante, il resto della gestione resta
-               all'amministratore. */
-            : (ev.manuale && puoAggiungereIscrizioni()
-                ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Iscrizioni da altri portali</strong>'
-                + '<div class="hint">Chi si iscrive da Eventbrite non compare da solo: la scheda si aggiunge da qui, con la mail di conferma in formato NGB.</div></div>'
-                + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>'
-                + '<button class="btn btn-secondary" id="ev-b2b">Invito incontri B2B</button></div></div>'
-                : '');
+            // puo' aggiungere una scheda a mano, con la mail di conferma NGB.
+            // Possono farlo anche EQUITY e FOUNDING PARTNER: conta il solo ruolo
+            // di accesso, non la spunta in anagrafica.
+            (ev.manuale && puoAggiungereIscrizioni()) ? riquadroEv({
+                titolo: 'Iscrizioni da altri portali',
+                stato: 'Chi si iscrive da Eventbrite non compare da solo: la scheda si aggiunge da qui, con la mail di conferma in formato NGB.',
+                azioni: '<button class="btn btn-sm btn-primary" id="ev-nuova">Aggiungi iscrizione</button>'
+            }) : '',
+            admin ? riquadroEv({
+                titolo: 'Importazione di un elenco',
+                stato: 'Un elenco di iscrizioni raccolte altrove (foglio, CSV) entra da qui, una volta sola.',
+                azioni: '<button class="btn btn-sm btn-secondary" id="ev-importa">Importa iscrizioni</button>'
+            }) : '',
+            admin ? riquadroEv({
+                titolo: 'Accesso alla sezione',
+                stato: 'Oltre all\'amministratore, vedono gli Eventi <b>' + cfg.abilitati.length + '</b> utenti abilitati.',
+                azioni: '<button class="btn btn-sm btn-secondary" id="ev-accessi">Gestisci accessi</button>'
+            }) : '',
+            admin ? diagnosticaEventiHtml() : ''
+        ];
+        /* IL CRUSCOTTO: quattro gruppi, nell'ordine in cui si lavora a un
+           evento. Gli invii alle aziende (chi si vuole in sala), le
+           comunicazioni periodiche a chi e' gia' iscritto, gli incontri B2B e
+           il programma della giornata. */
+        const cruscotto = '<div class="ev-cruscotto">'
+            + gruppoEv('Iscrizioni', 'l\'elenco qui sotto', riquadriIscrizioni)
+            + gruppoEv('Invii alle aziende', 'clienti e sponsor da portare in sala', [aziendeInvitoHtml(ev)])
+            + gruppoEv('Comunicazioni periodiche', 'a chi e già iscritto', [promemoriaEventiHtml(ev)])
+            + gruppoEv('Incontri B2B', 'tavoli, orari e prenotazioni', [agendaB2BHtml(ev), riepilogoPrenotazioniHtml(ev, _evIscrizioni)])
+            + gruppoEv('Programma della giornata', 'la scaletta dei lavori', [programmaHtml(ev)])
+            + '</div>';
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const vuoto = ev.nota
             ? '<div class="card tabella-vuota">Nessuna iscrizione per ' + esc(ev.titolo) + '.<br><span class="hint">' + esc(ev.nota) + '</span></div>'
@@ -16742,7 +16786,7 @@
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + '</div>') + '</div>'
-            + gestione + aziendeInvitoHtml(ev) + agendaB2BHtml(ev) + promemoriaEventiHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
+            + cruscotto + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
             b.addEventListener('click', () => apriEvento(b.dataset.ev)));
@@ -16763,6 +16807,10 @@
         });
         collegaPromemoria(ev);
         collegaAgendaB2B(ev);
+        collegaProgramma(ev);
+        /* Il programma si legge entrando, come l'agenda: il riquadro deve poter
+           dire a che punto sta la giornata senza che nessuno apra la finestra. */
+        if (!ev.tutti) caricaProgramma(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaProgramma(ev); });
         /* L'agenda degli incontri si legge entrando: la scheda in pagina deve
            poter dire quanti orari restano e se c'e' una richiesta da guardare,
            senza che nessuno debba aprire la finestra per scoprirlo. Una
@@ -16794,10 +16842,11 @@
         }
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
-        const bB2b = document.getElementById('ev-b2b');
-        if (bB2b) bB2b.addEventListener('click', () => modaleInvitoB2B(ev));
+        // l'invito agli incontri lo collega collegaAgendaB2B, insieme al suo riquadro
         const bB2bPdf = document.getElementById('ev-b2b-pdf');
         if (bB2bPdf) bB2bPdf.addEventListener('click', () => stampaPrenotazioniB2B(ev));
+        const bB2bEl = document.getElementById('ev-b2b-elenco');
+        if (bB2bEl) bB2bEl.addEventListener('click', () => modaleRiepilogoB2B(ev));
         const bDiag = document.getElementById('ev-diag-btn');
         if (bDiag) bDiag.addEventListener('click', () => {
             bDiag.disabled = true; bDiag.textContent = 'Controllo...';
@@ -17408,16 +17457,38 @@
         const gruppi = gruppiPrenotazioniB2B(lista);
         const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
         if (!temi.length) return '';
-        return '<div class="card"><div class="s-admin" style="padding:0;border:none;box-shadow:none;background:none;">'
-            + '<div class="s-admin-txt"><strong>Incontri B2B: prenotati per argomento</strong>'
-            + '<div class="hint">Chi si è prenotato a ciascun tavolo <b>rispondendo all\'invito B2B</b>. I temi spuntati al momento dell\'iscrizione non entrano qui: sono preferenze, e si leggono nella colonna "Preferenze iscrizione" dell\'elenco. Una persona può comparire sotto più tavoli; la nota (se c\'è) racconta il progetto.</div></div>'
-            + '<div class="s-admin-azioni"><button class="btn btn-sm btn-secondary" id="ev-b2b-pdf">Stampa PDF</button></div></div>'
-            + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;"><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
+        const persone = new Set();
+        temi.forEach(t => gruppi[t].forEach(p => persone.add(p.email || p.chi)));
+        return riquadroEv({
+            titolo: 'Prenotati per argomento',
+            stato: '<b>' + persone.size + '</b> ' + (persone.size === 1 ? 'persona prenotata' : 'persone prenotate')
+                + ' su <b>' + temi.length + '</b> tavol' + (temi.length === 1 ? 'o' : 'i') + '. '
+                + 'Chi ha risposto all\'invito B2B, tavolo per tavolo: è l\'elenco con cui si compongono i tavoli.',
+            azioni: '<button class="btn btn-sm btn-secondary" id="ev-b2b-elenco">Vedi l\'elenco</button>'
+                + '<button class="btn btn-sm btn-ghost" id="ev-b2b-pdf">Stampa PDF</button>'
+        });
+    }
+    /* L'elenco per argomento, in una finestra: una riga per persona, sotto il
+       suo tavolo. Prima stava aperto sulla pagina, e con nove tavoli era il
+       pezzo che spingeva l'elenco degli iscritti sotto lo schermo. */
+    function modaleRiepilogoB2B(ev) {
+        const gruppi = gruppiPrenotazioniB2B(_evIscrizioni);
+        const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
+        if (!temi.length) { toast('Nessuna prenotazione ancora raccolta per questo evento.', 'rosso'); return; }
+        apriModale('<h2>Incontri B2B: prenotati per argomento</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;max-width:none;">Chi si è prenotato a ciascun tavolo <b>rispondendo all\'invito B2B</b>. '
+            + 'I temi spuntati al momento dell\'iscrizione non entrano qui: sono preferenze, e si leggono nella colonna "Preferenze iscrizione" dell\'elenco. '
+            + 'La nota, se c\'è, racconta il progetto.</p>'
+            + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;" open><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
                 + '<div style="margin-top:6px;">' + gruppi[t].map(p =>
-                    '<div class="ev-diag-riga"><span>' + esc(p.chi) + (p.azienda ? ' - ' + esc(p.azienda) : '') + '</span>'
+                    '<div class="ev-diag-riga"><span>' + esc(p.chi) + (p.azienda ? ' - ' + esc(p.azienda) : '')
+                    + (p.email ? ' <span class="hint">' + esc(p.email) + '</span>' : '') + '</span>'
                     + '<span class="hint">' + esc(p.nota || '') + '</span></div>').join('')
                 + '</div></details>').join('')
-            + '</div>';
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="rb-stampa">Stampa PDF</button>'
+            + '<button class="btn btn-secondary" id="rb-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        document.getElementById('rb-chiudi').addEventListener('click', chiudiModale);
+        document.getElementById('rb-stampa').addEventListener('click', () => stampaPrenotazioniB2B(ev));
     }
 
     /* Stampa in PDF del riepilogo per argomento: un capitolo per tavolo con la
@@ -17449,7 +17520,7 @@
             + '</tbody></table></section>').join('');
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
             + '<title>Incontri B2B per argomento - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
-            + '<style>' + STAMPA_B2B_CSS + '</style></head><body>'
+            + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
             + '<header><h1>Incontri B2B: prenotati per argomento</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
             + '<div class="meta">' + temi.length + ' tavoli &middot; ' + persone.size + ' persone &middot; ' + scelte + ' prenotazioni (solo risposte all\'invito B2B) &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
@@ -17462,7 +17533,7 @@
        argomento e l'agenda della giornata. Uno solo per tutti e due: sono
        due fogli che finiscono sullo stesso tavolo, lo stesso giorno, e due
        stili che si allontanano si vedono subito. */
-    const STAMPA_B2B_CSS = '*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    const STAMPA_EVENTI_CSS = '*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
         + 'body{font-family:Arial,\'Helvetica Neue\',Helvetica,sans-serif;color:#1E293B;margin:28px;font-size:12px;line-height:1.45;}'
         + 'header{border-bottom:3px solid #0A2844;padding-bottom:12px;margin-bottom:6px;}'
         + 'h1{color:#0A2844;font-size:21px;letter-spacing:-0.2px;}'
@@ -17619,6 +17690,43 @@
         return gruppi;
     }
 
+    /* =========================================================
+       IL CRUSCOTTO DELLA SEZIONE EVENTI
+       ---------------------------------------------------------
+       Sopra l'elenco degli iscritti ci sono una dozzina di cose da
+       fare, e in fila una sotto l'altra - una scheda larga per
+       ciascuna - non si distinguevano piu': per arrivare ai
+       promemoria si scorreva oltre le aziende, e l'invito agli
+       incontri B2B stava dentro la scheda degli accessi, che con
+       gli incontri non c'entra niente.
+       Adesso stanno in RIQUADRI piccoli, raggruppati per quello
+       che fanno: gli invii alle aziende, le comunicazioni
+       periodiche agli iscritti, gli incontri B2B, il programma
+       della giornata. Ogni riquadro dice tre cose, sempre nello
+       stesso ordine: che cos'e', come sta adesso, e i pulsanti.
+       `stato` e' HTML gia' pronto (i numeri vanno in grassetto, i
+       guai in rosso): chi lo compone si occupa di proteggere
+       quello che scrive.
+    ========================================================= */
+    function riquadroEv(r) {
+        return '<div class="ev-riq' + (r.classe ? ' ' + r.classe : '') + '"'
+            + (r.id ? ' id="' + esc(r.id) + '"' : '') + '>'
+            + '<div class="ev-riq-tit">' + esc(r.titolo) + '</div>'
+            + '<div class="ev-riq-stato">' + (r.stato || '') + '</div>'
+            + (r.azioni ? '<div class="ev-riq-az">' + r.azioni + '</div>' : '')
+            + '</div>';
+    }
+    /* Un gruppo di riquadri. Se dentro non c'e' niente - per esempio a chi non
+       puo' gestire gli inviti - il titolo non compare da solo: una riga di
+       sezione vuota fa cercare quello che non c'e'. */
+    function gruppoEv(titolo, spiega, riquadri) {
+        const dentro = (riquadri || []).filter(Boolean).join('');
+        if (!dentro) return '';
+        return '<section class="ev-gruppo"><h2 class="ev-gruppo-tit">' + esc(titolo)
+            + (spiega ? '<span>' + esc(spiega) + '</span>' : '') + '</h2>'
+            + '<div class="ev-riquadri">' + dentro + '</div></section>';
+    }
+
     /* --- le ore, in forma confrontabile ---
        Un'ora scritta a mano ("14.30", "14,30", "primo pomeriggio") e' tre
        modi diversi di dire la stessa cosa, e nessuno che il programma possa
@@ -17721,11 +17829,12 @@
     // deve saltare all'occhio anche quando tutto il resto e' a posto
     function richiesteAperte(a) { return ((a && a.richieste) || []).filter(r => String(r.stato || 'aperta') !== 'gestita'); }
 
-    /* CHI PUO' TENERE UN TAVOLO: gli aderenti Revilaw e gli sponsor e
-       relatori iscritti a questo evento. Non tutta l'anagrafica dello
-       studio: al tavolo ci si siede di persona, e chi quel giorno non c'e'
-       non e' un candidato. Un indirizzo compare una volta sola. */
-    function candidatiB2B(ev) {
+    /* CHI PUO' STARE DA QUESTA PARTE: gli aderenti Revilaw e gli sponsor e
+       relatori iscritti a questo evento. Sono i candidati a tenere un tavolo
+       B2B e a salire sul palco nel programma della giornata. Non tutta
+       l'anagrafica dello studio: a un tavolo ci si siede di persona, e chi
+       quel giorno non c'e' non e' un candidato. Un indirizzo una volta sola. */
+    function relatoriEAderenti(ev) {
         const visti = {}, fuori = [];
         (_evIscrizioni || []).forEach(r => {
             const m = modalitaDi(ev, r);
@@ -17772,15 +17881,22 @@
                 + (aperte ? ' <span class="ev-ko"><b>' + aperte + '</b> richiest' + (aperte === 1 ? 'a' : 'e') + ' di incontro a orari esauriti da guardare.</span>' : '')
                 : 'Nessun tavolo attivo: finché non se ne attiva almeno uno, l\'invito agli incontri non si può mandare.';
         }
-        return '<div class="card s-admin" id="ev-agenda-scheda"><div class="s-admin-txt"><strong>Incontri B2B: tavoli, referenti e orari</strong>'
-            + '<div class="hint">' + riga + '</div></div>'
-            + '<div class="s-admin-azioni">'
-            + '<button class="btn ' + (a && richiesteAperte(a).length ? 'btn-primary' : 'btn-secondary') + '" id="ev-agenda">Organizza gli incontri</button>'
-            + '</div></div>';
+        /* L'invito sta QUI, accanto ai tavoli e agli orari che porta con se':
+           prima era nella scheda degli accessi, che con gli incontri non
+           c'entra niente, ed e' esattamente il genere di posto in cui un
+           pulsante non si trova. */
+        const puoInvitare = ev.manuale && puoAggiungereIscrizioni();
+        return riquadroEv({
+            id: 'ev-agenda-scheda', titolo: 'Tavoli, referenti e orari', stato: riga,
+            azioni: '<button class="btn btn-sm ' + (a && richiesteAperte(a).length ? 'btn-primary' : 'btn-secondary') + '" id="ev-agenda">Organizza gli incontri</button>'
+                + (puoInvitare ? '<button class="btn btn-sm btn-secondary" id="ev-b2b">Invito agli incontri</button>' : '')
+        });
     }
     function collegaAgendaB2B(ev) {
         const b = document.getElementById('ev-agenda');
         if (b) b.addEventListener('click', () => modaleAgendaB2B(ev));
+        const i = document.getElementById('ev-b2b');
+        if (i) i.addEventListener('click', () => modaleInvitoB2B(ev));
     }
     function aggiornaSchedaAgenda(ev) {
         const el = document.getElementById('ev-agenda-scheda');
@@ -17871,7 +17987,7 @@
             + conta
             + '<span class="ag-freccia">' + (aperta ? '&#9650;' : '&#9660;') + '</span></div>';
         if (!aperta) return '<div class="ag-area">' + testa + '</div>';
-        const candidati = candidatiB2B(ev);
+        const candidati = relatoriEAderenti(ev);
         const gia = x.referenti.map(r => r.email || r.nome);
         const opzioni = candidati.filter(c => gia.indexOf(c.email || c.nome) < 0)
             .map(c => '<option value="' + esc(c.email || c.nome) + '">' + esc(c.nome)
@@ -17976,7 +18092,7 @@
         if (sg) sg.addEventListener('click', () => salvaGiornata(ev));
         radice.querySelectorAll('.ag-aggiungi').forEach(s => s.addEventListener('change', () => {
             const area = areaLocale(s.dataset.area);
-            const c = candidatiB2B(ev).filter(x => (x.email || x.nome) === s.value)[0];
+            const c = relatoriEAderenti(ev).filter(x => (x.email || x.nome) === s.value)[0];
             if (!area || !c) return;
             area.referenti = area.referenti.concat([c]);
             /* Un tavolo con un referente e' un tavolo che si vuole tenere:
@@ -18147,7 +18263,7 @@
         const g = a.giornata || {};
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
             + '<title>Agenda incontri B2B - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
-            + '<style>' + STAMPA_B2B_CSS + '</style></head><body>'
+            + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
             + '<header><h1>Agenda degli incontri B2B</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.luogo ? ' &middot; ' + esc(ev.luogo) : '') + '</div>'
             + '<div class="meta">' + attive.length + ' tavoli &middot; ' + prenotati + ' appuntamenti &middot; '
@@ -18160,6 +18276,400 @@
         apriStampa(pagina);
     }
 
+
+    /* =========================================================
+       IL PROGRAMMA DELLA GIORNATA (la scaletta)
+       ---------------------------------------------------------
+       Com'e' fatta la giornata: dall'apertura della registrazione
+       alla chiusura dei lavori, con i saluti, gli interventi, le
+       tavole rotonde, le pause. Ogni voce ha la sua ora; le tavole
+       rotonde hanno anche CHI MODERA e chi siede al tavolo.
+
+       Le persone non si scrivono a mano: si scelgono fra gli
+       ISCRITTI a questo evento - sponsor e relatori, e gli aderenti
+       Revilaw - perche' un nome scritto a mano e' un nome che
+       nessuno ha confermato e che il giorno del convegno puo' non
+       esserci. Chi deve comparire senza essere fra gli iscritti si
+       annota nella nota della voce, che resta libera.
+
+       La scaletta sta sul servizio (`programmaEventi/{evento}`) e
+       non nel browser: la guardano in tanti e cambia fino
+       all'ultimo giorno. Si salva tutta insieme, perche' cosi' la
+       si compone - spostare un intervento vuol dire spostare
+       anche quello dopo.
+    ========================================================= */
+    let _prg = null;            // la scaletta letta dal servizio
+    let _prgEv = '';            // di quale evento e'
+    let _prgQuando = 0;
+    let _prgInFlight = false;
+    let _prgMsg = '';
+    let _prgAttese = [];
+    let _prgVoci = null;        // la copia su cui si lavora nella finestra
+    const PRG_FRESCA_MS = 20000;
+
+    /* I tipi di voce li manda il servizio insieme alla scaletta: qui non se ne
+       tiene una copia, che il giorno dopo non combacerebbe piu'. */
+    function tipiProgramma() { return (_prg && Array.isArray(_prg.tipi)) ? _prg.tipi : []; }
+    function tipoPrgDa(id) { return tipiProgramma().filter(t => t.id === id)[0] || tipiProgramma()[0] || { id: 'altro', nome: 'Voce' }; }
+    function programmaDi(ev) { return (ev && _prg && _prgEv === ev.id) ? _prg : null; }
+    function caricaProgramma(ev, poi, forza) {
+        if (!ev || ev.tutti) { if (poi) poi(null); return; }
+        if (!Cloud.attivo) {
+            _prgMsg = 'Accesso al database non attivo: il programma non si puo\' leggere.';
+            if (poi) poi(null);
+            return;
+        }
+        if (_prgInFlight) { if (poi) _prgAttese.push(poi); return; }
+        if (!forza && _prgEv === ev.id && Date.now() - _prgQuando < PRG_FRESCA_MS) { if (poi) poi(_prg); return; }
+        _prgInFlight = true;
+        if (poi) _prgAttese.push(poi);
+        const finito = r => {
+            _prgInFlight = false;
+            const attese = _prgAttese;
+            _prgAttese = [];
+            attese.forEach(f => { try { f(r); } catch (e) { } });
+        };
+        Cloud.programmaEvento({ azione: 'programma', evento: ev.id }).then(r => {
+            if (!r || !r.ok) { _prgMsg = (r && r.msg) || 'Programma non leggibile.'; finito(null); return; }
+            _prgMsg = '';
+            _prg = r; _prgEv = ev.id; _prgQuando = Date.now();
+            finito(r);
+        }).catch(() => {
+            _prgMsg = 'Servizio non raggiungibile: programma non letto.';
+            finito(null);
+        });
+    }
+
+    /* IL RIQUADRO NEL CRUSCOTTO: a che punto sta la giornata, in una riga. */
+    function programmaHtml(ev) {
+        if (!ev || ev.tutti) return '';
+        const p = programmaDi(ev);
+        let stato;
+        if (!p) {
+            stato = _prgMsg ? esc(_prgMsg)
+                : 'La scaletta della giornata: registrazione, saluti, interventi, tavole rotonde, pause e chiusura, con moderatore e partecipanti di ogni tavola.';
+        } else if (!p.voci.length) {
+            stato = 'Ancora da comporre: dalla registrazione alla chiusura, una voce per ogni momento della giornata.';
+        } else {
+            /* Da che ora a che ora dura la giornata: la prima ora di inizio e
+               l'ultima di fine. L'ultima si CERCA, non si prende dall'ultima
+               riga: la voce che finisce piu' tardi non e' per forza quella in
+               fondo (una tavola lunga puo' cominciare prima di una pausa). */
+            const dalle = p.voci.map(v => v.dalle).filter(Boolean).sort()[0] || '';
+            const alle = p.voci.map(v => v.alle).filter(Boolean).sort().slice(-1)[0] || '';
+            const tavole = p.voci.filter(v => v.tipo === 'tavola').length;
+            const senzaModeratore = p.voci.filter(v => v.tipo === 'tavola' && !v.moderatore).length;
+            stato = '<b>' + p.voci.length + '</b> voci'
+                + (dalle && alle ? ', dalle ' + esc(dalle) + ' alle ' + esc(alle) : '')
+                + (tavole ? ' &middot; <b>' + tavole + '</b> tavol' + (tavole === 1 ? 'a rotonda' : 'e rotonde') : '')
+                + '.'
+                + (senzaModeratore ? ' <span class="ev-ko">' + senzaModeratore + (senzaModeratore === 1 ? ' tavola è senza moderatore' : ' tavole sono senza moderatore') + '.</span>' : '')
+                + ((p.avvisi || []).length ? ' <span class="ev-ko">' + (p.avvisi || []).length + ' cos' + ((p.avvisi || []).length === 1 ? 'a' : 'e') + ' da sistemare negli orari.</span>' : '');
+        }
+        return riquadroEv({
+            id: 'ev-prg-scheda', titolo: 'Programma della giornata', stato: stato,
+            azioni: '<button class="btn btn-sm btn-secondary" id="ev-programma">Componi il programma</button>'
+                + (p && p.voci.length ? '<button class="btn btn-sm btn-ghost" id="ev-prg-stampa">Stampa</button>' : '')
+        });
+    }
+    function collegaProgramma(ev) {
+        const b = document.getElementById('ev-programma');
+        if (b) b.addEventListener('click', () => modaleProgramma(ev));
+        const s = document.getElementById('ev-prg-stampa');
+        if (s) s.addEventListener('click', () => stampaProgramma(ev));
+    }
+    function aggiornaSchedaProgramma(ev) {
+        const el = document.getElementById('ev-prg-scheda');
+        if (!el) return;
+        el.outerHTML = programmaHtml(ev);
+        collegaProgramma(ev);
+    }
+
+    /* LA FINESTRA: la scaletta intera, in ordine di orario. */
+    function modaleProgramma(ev) {
+        if (!ev || ev.tutti) return;
+        const puo = puoGestireInviti();
+        apriModale('<h2>Programma della giornata - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;max-width:none;">'
+            + 'Una voce per ogni momento: registrazione, saluti, interventi, tavole rotonde, pause, chiusura. '
+            + 'Le voci si mettono in fila <b>da sole, in ordine di orario</b>. '
+            + 'Moderatore e partecipanti delle tavole rotonde si scelgono fra gli <b>iscritti a questo evento</b> '
+            + '(sponsor e relatori, e aderenti Revilaw): chi deve esserci senza essere iscritto si scrive nella nota della voce.'
+            + (puo ? '' : ' Da qui puoi guardare: per modificare servono i permessi di chi manda gli inviti.')
+            + '</p>'
+            + '<div id="prg-corpo"><div class="tabella-vuota">Carico il programma...</div></div>'
+            + '<div id="prg-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni">'
+            + '<button class="btn btn-secondary" id="prg-stampa">Stampa il programma</button>'
+            + '<button class="btn btn-secondary" id="prg-chiudi">Chiudi</button>'
+            + (puo ? '<button class="btn btn-primary" id="prg-salva">Salva il programma</button>' : '')
+            + '</div>', { classe: 'larga' });
+        document.getElementById('prg-chiudi').addEventListener('click', () => { chiudiModale(); aggiornaSchedaProgramma(ev); });
+        document.getElementById('prg-stampa').addEventListener('click', () => stampaProgramma(ev, _prgVoci));
+        const bs = document.getElementById('prg-salva');
+        if (bs) bs.addEventListener('click', () => salvaProgramma(ev));
+        caricaProgramma(ev, r => {
+            // si lavora su una COPIA: chi chiude senza salvare non deve aver
+            // cambiato niente, nemmeno a video
+            _prgVoci = r ? JSON.parse(JSON.stringify(r.voci || [])) : [];
+            disegnaProgramma(ev);
+        }, true);
+    }
+    function esitoProgramma(testo, ko) {
+        const e = document.getElementById('prg-esito');
+        if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+    }
+    function minutiPrg(v) {
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || ''))) return 99999;
+        const p = String(v).split(':');
+        return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+    }
+    function ordinaVociPrg() {
+        _prgVoci = (_prgVoci || []).map((v, i) => ({ v: v, i: i }))
+            .sort((a, b) => (minutiPrg(a.v.dalle) - minutiPrg(b.v.dalle)) || (a.i - b.i))
+            .map(x => x.v);
+    }
+    function disegnaProgramma(ev) {
+        const box = document.getElementById('prg-corpo');
+        if (!box) return;
+        if (_prgVoci === null || !tipiProgramma().length) {
+            box.innerHTML = '<div class="tabella-vuota">' + esc(_prgMsg || 'Programma non disponibile.') + '</div>';
+            return;
+        }
+        const puo = puoGestireInviti();
+        ordinaVociPrg();
+        const aggiungi = puo
+            ? '<div class="prg-aggiungi"><span class="hint">Aggiungi:</span>'
+            + tipiProgramma().map(t => '<button type="button" class="btn btn-sm btn-ghost prg-piu" data-tipo="' + esc(t.id) + '">'
+                + esc(t.nome) + '</button>').join('')
+            + '</div>'
+            : '';
+        const vuoto = '<div class="tabella-vuota" style="margin-top:10px;">Il programma è vuoto: aggiungi la prima voce qui sopra, '
+            + 'per esempio la registrazione dei partecipanti.</div>';
+        box.innerHTML = aggiungi
+            + (_prgVoci.length ? '<div class="prg-voci">' + _prgVoci.map((v, i) => voceHtml(ev, v, i, puo)).join('') + '</div>' : (puo ? vuoto : '<div class="tabella-vuota">Il programma non è ancora stato composto.</div>'))
+            + avvisiPrgHtml();
+        collegaProgrammaVoci(ev, box, puo);
+    }
+    /* Quello che non torna, sotto l'elenco: orari mancanti, tavole senza
+       moderatore, sovrapposizioni. Non impedisce di salvare - una giornata si
+       compone a pezzi - ma non lascia scoprire il buco il giorno prima. */
+    function avvisiPrgHtml() {
+        const avvisi = [];
+        (_prgVoci || []).forEach(v => {
+            const nome = v.titolo || tipoPrgDa(v.tipo).nome;
+            if (!v.dalle) avvisi.push(nome + ': manca l\'ora di inizio');
+            else if (!v.alle) avvisi.push(nome + ': manca l\'ora di fine');
+            else if (minutiPrg(v.alle) <= minutiPrg(v.dalle)) avvisi.push(nome + ': finisce prima di cominciare');
+            if (v.tipo === 'tavola' && !v.moderatore) avvisi.push(nome + ': manca il moderatore');
+        });
+        const conOra = (_prgVoci || []).filter(v => v.dalle && v.alle && minutiPrg(v.alle) > minutiPrg(v.dalle));
+        conOra.forEach((a, i) => conOra.slice(i + 1).forEach(b => {
+            if (minutiPrg(a.dalle) < minutiPrg(b.alle) && minutiPrg(b.dalle) < minutiPrg(a.alle)) {
+                avvisi.push('si sovrappongono: ' + (a.titolo || tipoPrgDa(a.tipo).nome) + ' e ' + (b.titolo || tipoPrgDa(b.tipo).nome));
+            }
+        }));
+        if (!avvisi.length) return '';
+        return '<div class="prg-avvisi"><b>Da sistemare:</b> ' + avvisi.slice(0, 12).map(esc).join('; ') + '.</div>';
+    }
+    /* Una voce: le due ore a sinistra, il titolo al centro, e - per chi ne ha -
+       il moderatore e i partecipanti. La riga NON si ridisegna mentre si
+       scrive (si perderebbe il cursore): il testo va nella copia di lavoro e
+       basta; si ridisegna quando cambia la forma della riga (una persona in
+       piu', una voce in meno). */
+    function voceHtml(ev, v, i, puo) {
+        const t = tipoPrgDa(v.tipo);
+        const campoOra = (chiave, et) => '<label class="prg-ora"><span>' + et + '</span>'
+            + '<input type="time" step="60" data-voce="' + i + '" data-campo="' + chiave + '" value="' + esc(v[chiave] || '') + '"'
+            + (puo ? '' : ' disabled') + '></label>';
+        const persone = (lista, ruolo) => (lista || []).map((p, k) =>
+            '<span class="prg-chip"><b>' + esc(p.nome) + '</b>'
+            + (p.ruolo || p.azienda ? '<span class="prg-chip-ruolo">' + esc([p.ruolo, p.azienda].filter(Boolean).join(' - ')) + '</span>' : '')
+            + (puo ? '<button type="button" class="prg-togli" data-voce="' + i + '" data-ruolo="' + ruolo + '" data-k="' + k + '" title="Togli">&#10005;</button>' : '')
+            + '</span>').join('');
+        const scelta = (ruolo, etichetta) => puo
+            ? '<select class="prg-scegli" data-voce="' + i + '" data-ruolo="' + ruolo + '">'
+            + '<option value="">' + etichetta + '</option>' + opzioniRelatori(ev) + '</select>'
+            : '';
+        const moderatore = t.conModeratore
+            ? '<div class="prg-persone"><span class="prg-et">Modera</span>'
+            + (v.moderatore ? persone([v.moderatore], 'moderatore')
+                : '<span class="hint">da indicare</span>')
+            + (puo && !v.moderatore ? scelta('moderatore', 'Scegli chi modera...') : '')
+            + '</div>'
+            : '';
+        const partecipanti = t.conRelatori
+            ? '<div class="prg-persone"><span class="prg-et">' + (t.conModeratore ? 'Al tavolo' : 'Sul palco') + '</span>'
+            + (v.partecipanti && v.partecipanti.length ? persone(v.partecipanti, 'partecipante') : '<span class="hint">nessuno indicato</span>')
+            + scelta('partecipante', 'Aggiungi chi partecipa...')
+            + '</div>'
+            : '';
+        return '<div class="prg-voce">'
+            + '<div class="prg-ore">' + campoOra('dalle', 'dalle') + campoOra('alle', 'alle') + '</div>'
+            + '<div class="prg-corpo">'
+            + '<div class="prg-riga1">'
+            + '<span class="badge ' + badgeTipo(t.id) + '">' + esc(t.nome) + '</span>'
+            + '<input type="text" class="prg-titolo" data-voce="' + i + '" data-campo="titolo" maxlength="200" '
+            + 'placeholder="' + esc(t.titolo || 'Titolo della voce') + '" value="' + esc(v.titolo || '') + '"' + (puo ? '' : ' disabled') + '>'
+            + (puo ? '<button type="button" class="prg-elimina" data-voce="' + i + '" title="Togli questa voce">&#10005;</button>' : '')
+            + '</div>'
+            + moderatore + partecipanti
+            + '<input type="text" class="prg-nota" data-voce="' + i + '" data-campo="nota" maxlength="500" '
+            + 'placeholder="Nota (sala, ospiti esterni, indicazioni per il desk)" value="' + esc(v.nota || '') + '"' + (puo ? '' : ' disabled') + '>'
+            + '</div></div>';
+    }
+    function badgeTipo(id) {
+        if (id === 'tavola') return 'legale';
+        if (id === 'pranzo' || id === 'coffee') return 'ambra';
+        if (id === 'registrazione' || id === 'chiusura') return 'neutro';
+        return 'verde';
+    }
+    /* Chi puo' salire sul palco: gli iscritti a questo evento fra sponsor e
+       relatori (prima, perche' e' li' che stanno i relatori) e gli aderenti
+       Revilaw. Non tutta l'anagrafica: chi quel giorno non c'e' non modera
+       niente. */
+    function opzioniRelatori(ev) {
+        const tutti = relatoriEAderenti(ev);
+        const gruppo = (sez, et) => {
+            const lista = tutti.filter(c => c.sezione === sez);
+            if (!lista.length) return '';
+            return '<optgroup label="' + et + '">'
+                + lista.map(c => '<option value="' + esc(c.email || c.nome) + '">' + esc(c.nome)
+                    + (c.ruolo ? ' - ' + esc(c.ruolo) : '') + (c.azienda ? ' (' + esc(c.azienda) + ')' : '') + '</option>').join('')
+                + '</optgroup>';
+        };
+        return gruppo('sponsor', 'Sponsor e relatori') + gruppo('aderenti', 'Aderenti Revilaw');
+    }
+    function collegaProgrammaVoci(ev, radice, puo) {
+        if (!puo) return;
+        radice.querySelectorAll('.prg-piu').forEach(b => b.addEventListener('click', () => {
+            const t = tipoPrgDa(b.dataset.tipo);
+            /* La voce nuova nasce dopo l'ultima che ha un orario, con la stessa
+               durata dell'ultima: si compone una giornata di seguito, e
+               ricominciare ogni volta da un campo vuoto sono due ore da
+               scrivere a mano per ogni riga. */
+            const ultima = (_prgVoci || []).filter(v => v.dalle && v.alle).slice(-1)[0];
+            const dalle = ultima ? ultima.alle : '';
+            const durata = ultima ? Math.max(5, minutiPrg(ultima.alle) - minutiPrg(ultima.dalle)) : 30;
+            const alle = dalle ? oraDaMinuti(minutiPrg(dalle) + durata) : '';
+            _prgVoci.push({
+                id: 'v' + Date.now() + Math.floor(Math.random() * 1000),
+                tipo: t.id, titolo: t.titolo || '', dalle: dalle, alle: alle, nota: '',
+                moderatore: null, partecipanti: []
+            });
+            esitoProgramma('');
+            disegnaProgramma(ev);
+        }));
+        radice.querySelectorAll('.prg-elimina').forEach(b => b.addEventListener('click', () => {
+            const i = parseInt(b.dataset.voce, 10);
+            const v = _prgVoci[i];
+            if (!v) return;
+            const nome = v.titolo || tipoPrgDa(v.tipo).nome;
+            if (!confirm('Tolgo "' + nome + '" dal programma?')) return;
+            _prgVoci.splice(i, 1);
+            disegnaProgramma(ev);
+        }));
+        // testo e ore: si scrivono nella copia di lavoro senza ridisegnare,
+        // altrimenti il cursore salterebbe a ogni tasto
+        radice.querySelectorAll('[data-campo]').forEach(c => c.addEventListener('input', () => {
+            const v = _prgVoci[parseInt(c.dataset.voce, 10)];
+            if (!v) return;
+            v[c.dataset.campo] = c.value;
+            esitoProgramma('');
+            /* Gli avvisi invece seguono: sono la ragione per cui si guarda in
+               fondo alla finestra mentre si scrivono gli orari. */
+            const box = document.querySelector('#prg-corpo .prg-avvisi');
+            const nuovo = avvisiPrgHtml();
+            if (box) box.outerHTML = nuovo || '<div class="prg-avvisi" hidden></div>';
+            else if (nuovo) document.getElementById('prg-corpo').insertAdjacentHTML('beforeend', nuovo);
+        }));
+        radice.querySelectorAll('.prg-scegli').forEach(s => s.addEventListener('change', () => {
+            const v = _prgVoci[parseInt(s.dataset.voce, 10)];
+            const c = relatoriEAderenti(ev).filter(x => (x.email || x.nome) === s.value)[0];
+            if (!v || !c) return;
+            const p = { doc: c.doc, id: c.id, nome: c.nome, ruolo: c.ruolo, azienda: c.azienda, email: c.email, sezione: c.sezione };
+            if (s.dataset.ruolo === 'moderatore') v.moderatore = p;
+            else {
+                v.partecipanti = v.partecipanti || [];
+                // due volte la stessa persona allo stesso tavolo non vuol dire niente
+                if (!v.partecipanti.some(x => (x.email || x.nome) === (p.email || p.nome))) v.partecipanti.push(p);
+            }
+            disegnaProgramma(ev);
+        }));
+        radice.querySelectorAll('.prg-togli').forEach(b => b.addEventListener('click', () => {
+            const v = _prgVoci[parseInt(b.dataset.voce, 10)];
+            if (!v) return;
+            if (b.dataset.ruolo === 'moderatore') v.moderatore = null;
+            else v.partecipanti.splice(parseInt(b.dataset.k, 10), 1);
+            disegnaProgramma(ev);
+        }));
+    }
+    function salvaProgramma(ev) {
+        const b = document.getElementById('prg-salva');
+        if (b) { b.disabled = true; b.textContent = 'Salvo...'; }
+        ordinaVociPrg();
+        Cloud.programmaEvento({
+            azione: 'programma-salva', evento: ev.id, voci: _prgVoci,
+            eventoDati: { titolo: ev.titolo, quando: ev.quando, luogo: ev.luogo || '', indirizzo: ev.indirizzo || '' }
+        }).then(r => {
+            if (b) { b.disabled = false; b.textContent = 'Salva il programma'; }
+            if (!r || !r.ok) { esitoProgramma((r && r.msg) || 'Salvataggio non riuscito.', true); return; }
+            if (_prg && _prgEv === ev.id) { _prg.voci = r.voci; _prg.aggiornato = r.aggiornato; _prg.avvisi = r.avvisi || []; }
+            else { _prg = { ok: true, voci: r.voci, aggiornato: r.aggiornato, avvisi: r.avvisi || [] }; _prgEv = ev.id; }
+            _prgQuando = Date.now();
+            _prgVoci = JSON.parse(JSON.stringify(r.voci || []));
+            disegnaProgramma(ev);
+            esitoProgramma('Programma salvato: ' + r.voci.length + (r.voci.length === 1 ? ' voce.' : ' voci.'));
+            try {
+                Audit.registra(Auth.utenteCorrente, 'Evento: programma della giornata salvato', 'sistema', ev.id, null,
+                    r.voci.length + ' voci, ' + r.voci.filter(v => v.tipo === 'tavola').length + ' tavole rotonde');
+            } catch (e) { }
+        }).catch(() => {
+            if (b) { b.disabled = false; b.textContent = 'Salva il programma'; }
+            esitoProgramma('Servizio non raggiungibile.', true);
+        });
+    }
+    /* LA STAMPA: la scaletta come la si legge il giorno del convegno, ora per
+       ora, con chi modera e chi siede al tavolo. E' il foglio che sta sul
+       leggio e al desk, dove non c'e' un'area riservata da aprire. */
+    function stampaProgramma(ev, vociLocali) {
+        const p = programmaDi(ev);
+        const voci = vociLocali || (p ? p.voci : null);
+        if (!voci || !voci.length) { toast('Il programma non è ancora stato composto.', 'rosso'); return; }
+        const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const righe = voci.slice().sort((a, b) => minutiPrg(a.dalle) - minutiPrg(b.dalle)).map(v => {
+            const t = tipoPrgDa(v.tipo);
+            const chi = [];
+            if (v.moderatore) chi.push('<b>Modera:</b> ' + esc(v.moderatore.nome)
+                + (v.moderatore.ruolo ? ' (' + esc(v.moderatore.ruolo) + ')' : ''));
+            if (v.partecipanti && v.partecipanti.length) {
+                chi.push('<b>' + (t.conModeratore ? 'Al tavolo' : 'Sul palco') + ':</b> '
+                    + v.partecipanti.map(x => esc(x.nome) + (x.azienda ? ' - ' + esc(x.azienda) : '')).join('; '));
+            }
+            return '<tr>'
+                + '<td class="forte">' + esc(v.dalle || '-') + (v.alle ? ' - ' + esc(v.alle) : '') + '</td>'
+                + '<td><b>' + esc(v.titolo || t.nome) + '</b>'
+                + (v.titolo ? '<div class="nota">' + esc(t.nome) + '</div>' : '')
+                + (chi.length ? '<div class="nota">' + chi.join('<br>') + '</div>' : '')
+                + (v.nota ? '<div class="nota">' + esc(v.nota) + '</div>' : '')
+                + '</td></tr>';
+        }).join('');
+        const tavole = voci.filter(v => v.tipo === 'tavola').length;
+        const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
+            + '<title>Programma - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
+            + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
+            + '<header><h1>Programma della giornata</h1>'
+            + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando)
+            + (ev.luogo ? ' &middot; ' + esc(ev.luogo) : '') + '</div>'
+            + '<div class="meta">' + voci.length + ' voci'
+            + (tavole ? ' &middot; ' + tavole + (tavole === 1 ? ' tavola rotonda' : ' tavole rotonde') : '')
+            + ' &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
+            + '<section class="tema"><table><thead><tr><th style="width:120px;">Orario</th><th>Cosa succede</th></tr></thead>'
+            + '<tbody>' + righe + '</tbody></table></section>'
+            + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
+            + '</body></html>';
+        apriStampa(pagina);
+    }
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il
        collegamento firmato alla pagina di PRENOTAZIONE. Non e' un sondaggio di
@@ -19752,9 +20262,10 @@
                 + (prossimo ? ' Prossimo: <b>' + esc(quandoPromemoria(prossimo.quando)) + '</b> alle 8, ' + esc(etichettaSezioniPromemoria(prossimo.sezioni).toLowerCase()) + '.' : '')
                 + (n.inviato ? ' Chi si iscrive dopo un invio riceve la mattina dopo l\'ultimo promemoria della sua serie.' : '');
         }
-        return '<div class="card s-admin" id="ev-promemoria-scheda"><div class="s-admin-txt"><strong>Promemoria agli iscritti</strong>'
-            + '<div class="hint">' + riga + '</div></div>'
-            + '<div class="s-admin-azioni"><button class="btn ' + (n.proposta && !n.programmato && !n.inviato ? 'btn-primary' : 'btn-secondary') + '" id="ev-promemoria">Gestisci i promemoria</button></div></div>';
+        return riquadroEv({
+            id: 'ev-promemoria-scheda', titolo: 'Promemoria agli iscritti', stato: riga,
+            azioni: '<button class="btn btn-sm ' + (n.proposta && !n.programmato && !n.inviato ? 'btn-primary' : 'btn-secondary') + '" id="ev-promemoria">Gestisci i promemoria</button>'
+        });
     }
     function collegaPromemoria(ev) {
         const b = document.getElementById('ev-promemoria');
@@ -20067,12 +20578,14 @@
                Il contenitore c'e' SEMPRE, anche vuoto e nascosto: e' il posto
                in cui il rinfresco scrive senza dover ridisegnare la pagina. */
             const testo = rigaProgrammazione(ev, camp.id);
-            return '<div class="card s-admin"><div class="s-admin-txt"><strong>' + esc(camp.nome) + '</strong>'
-                + '<div class="hint">' + riga + '</div>'
-                + '<div class="hint inv-card-prog" id="' + esc(idRigaProg(camp.id)) + '"'
-                + (testo ? '' : ' hidden') + '>' + testo + '</div></div>'
-                + '<div class="s-admin-azioni"><button class="btn btn-primary ev-inviti" data-campagna="' + esc(camp.id) + '">'
-                + 'Gestisci le aziende</button></div></div>';
+            return riquadroEv({
+                titolo: camp.nome,
+                stato: riga
+                    + '<div class="inv-card-prog" id="' + esc(idRigaProg(camp.id)) + '"'
+                    + (testo ? '' : ' hidden') + '>' + testo + '</div>',
+                azioni: '<button class="btn btn-sm btn-secondary ev-inviti" data-campagna="' + esc(camp.id) + '">'
+                    + 'Gestisci le aziende</button>'
+            });
         }).join('');
     }
     function idRigaProg(campagna) { return 'ev-prog-' + campagna; }
