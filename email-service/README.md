@@ -1426,6 +1426,15 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   ("Avv.", "Dott.ssa", "Presidente"): e' l'unica cosa che si scrive a mano, e
   parte dal ruolo dell'iscrizione. Non e' un dato dell'iscritto - li' c'e' il
   ruolo in azienda - ma il modo in cui quel giorno lo si chiama dal palco.
+- **L'orario si sceglie con la DURATA.** Accanto alle due ore c'e' quanto dura
+  la voce, ed e' quella che si tocca: un orario si pensa "comincia alle 14:30 e
+  dura un'ora", non "dalle 14:30 alle 15:30". Scegliendo la durata la fine si
+  scrive da se'; **spostando l'inizio la fine SEGUE**, tenendo la stessa
+  durata, perche' un intervento che si sposta di un quarto d'ora non cambia
+  lunghezza - e rifare il conto a mente e' il modo piu' facile per lasciarsi
+  dietro una fine vecchia, cioe' una voce che si sovrappone alla dopo senza
+  che si veda. Chi vuole un'ora di fine qualsiasi la scrive lo stesso nella
+  sua casella: la durata si adegua.
 - **Aggiungere una fase si vede.** I pulsanti dicono cosa succede prima di
   premerli (dove nasce la voce e che le voci si mettono in fila da sole), e
   dopo la pressione la voce nuova si accende, si porta a schermo e prende il
@@ -1498,22 +1507,25 @@ La scaletta e i tavoli B2B erano due schermate, e l'incompatibilita' fra chi e'
 sul palco e chi tiene un tavolo non la vedeva nessuno: ognuna delle due, da
 sola, era coerente. Ora sono una finestra sola, con dentro due parti distinte:
 
-- in alto **mattina e pomeriggio**, una colonna per meta'. In ciascuna le voci
-  del programma di quella fascia e, sotto, le **prenotazioni B2B della stessa
-  fascia** come tabella: **una riga per orario, una colonna per tavolo**, perche
-  gli incontri non si fanno uno dopo l'altro - alle 14:30 si tengono tutti
-  insieme, uno per tavolo - e in fila per tavolo la cosa piu importante, che
-  alle 14:30 servono tre stanze e tre persone, non si vedeva. Accanto all'ora
-  c'e scritto quanti ne partono **in parallelo** in quel momento, e nella cella
-  c'e la prenotazione: chi arriva e da che azienda. Verde libero, blu
-  prenotato, grigio chiuso, **rosso** quando chi tiene quel tavolo in quell'ora
-  e' sul palco - e li' il quadratino non dice piu "libero" ma **"non
-  disponibile / sul palco"**: rosso e "libero" insieme si leggevano come due
-  cose che si contraddicono. Prenotabile lo e' ancora, ed e' proprio per
-  questo che va chiuso. Un orario libero si preme e si chiude, uno chiuso si riapre; su
-  uno **prenotato non si preme niente** - ha il lucchetto, ed e' bloccato
-  finche' la prenotazione c'e' - e si sblocca liberandola dalla crocetta, che
-  chiede conferma;
+- in alto il **programma**, in due colonne: **mattina e pomeriggio**, divise
+  sulla fine della pausa pranzo;
+- sotto, le **prenotazioni B2B di tutta la giornata** in una tabella sola:
+  **una riga per orario, una colonna per tavolo**, perche gli incontri non si
+  fanno uno dopo l'altro - alle 14:30 si tengono tutti insieme, uno per tavolo
+  - e in fila per tavolo la cosa piu importante, che alle 14:30 servono tre
+  stanze e tre persone, non si vedeva. Una riga di mezzo separa la mattina dal
+  pomeriggio, e accanto all'ora c'e scritto quanti incontri partono **in
+  parallelo** in quel momento. Nella cella c'e la prenotazione: chi arriva e da
+  che azienda. Verde libero, blu prenotato, grigio chiuso, **rosso** quando chi
+  tiene quel tavolo in quell'ora e' sul palco - e li' il quadratino non dice
+  piu "libero" ma **"non disponibile / sul palco"**: rosso e "libero" insieme
+  si leggevano come due cose che si contraddicono. Prenotabile lo e' ancora, ed
+  e' proprio per questo che va chiuso. Un orario libero si preme e si chiude,
+  uno chiuso si riapre; su uno **prenotato non si preme niente** - ha il
+  lucchetto, ed e' bloccato finche' la prenotazione c'e' - e si sblocca
+  liberandola dalla crocetta, che chiede conferma. Stanno DOPO il programma e
+  non dentro le colonne: prima erano spezzate in due, e per leggere gli
+  appuntamenti bisognava guardare in due posti;
 - sotto, **l'impostazione dei tavoli**, che e' la stessa di sempre: "La
   giornata degli incontri" (inizio, fine, durata, pausa, e il suo "Salva la
   giornata") e poi un tavolo per riga che si apre e mostra chi lo tiene, la
