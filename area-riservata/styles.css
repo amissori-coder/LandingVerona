@@ -3408,21 +3408,53 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
    rotolo; poi riquadri, e restava alta. Cosi' l'elenco degli iscritti
    comincia subito sotto.
    ============================================================ */
-.ev-cruscotto { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 8px; margin-bottom: 12px; align-items: start; }
-.ev-bl { background: var(--bianco); border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 8px 10px; box-shadow: var(--ombra); display: flex; flex-direction: column; gap: 5px; }
-.ev-bl-tit { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--blu-700); }
-.ev-bl-tit span { font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-400); }
-.ev-bl-stato { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
-.ev-bl-riga { display: flex; gap: 6px; align-items: baseline; font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); }
-.ev-bl-riga b { color: var(--grigio-900); }
+/* ============================================================
+   IL CRUSCOTTO DEGLI EVENTI
+   Quattro riquadri della STESSA grandezza sopra l'elenco: uguali
+   perche' si guardano insieme, e uno piu' alto degli altri fa
+   credere che dica di piu'. Ognuno ha la sua fascia in testa, i
+   numeri in mezzo e i pulsanti in fondo, incolonnati fra un
+   riquadro e l'altro: la fila dei pulsanti dev'essere una riga
+   sola per l'occhio, non quattro a quote diverse.
+   Quando dentro c'e' qualcosa che non va, il riquadro si ACCENDE:
+   e' la spia del cruscotto, e serve a far guardare li' prima che
+   altrove.
+   ============================================================ */
+.ev-cruscotto { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 10px; margin-bottom: 14px; align-items: stretch; }
+.ev-bl {
+    display: flex; flex-direction: column; height: 100%; overflow: hidden;
+    background: var(--bianco); border: 1px solid var(--grigio-200);
+    border-radius: var(--raggio); box-shadow: var(--ombra);
+    transition: box-shadow 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+.ev-bl:hover { border-color: var(--blu-500); box-shadow: var(--ombra-lg); transform: translateY(-1px); }
+/* la fascia in testa: due righe sempre, cosi' le teste si incolonnano */
+.ev-bl-tit {
+    padding: 5px 10px 5px 12px; background: var(--blu-050);
+    border-bottom: 1px solid var(--grigio-200); box-shadow: inset 3px 0 0 var(--blu-700);
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--blu-900);
+}
+.ev-bl-tit span { display: block; font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-600); }
+.ev-bl-stato { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; padding: 7px 10px 7px 12px; }
+.ev-bl-riga { display: flex; gap: 7px; align-items: baseline; font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); }
+.ev-bl-riga b { color: var(--blu-900); font-size: 0.92rem; }
 .ev-bl-et { flex: 0 0 auto; min-width: 5.6em; white-space: nowrap; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grigio-400); }
-.ev-bl-az { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 1px; }
+/* il piede: i pulsanti scendono qui e restano alla stessa quota in tutti e quattro */
+.ev-bl-az {
+    display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto;
+    padding: 6px 10px 6px 12px; background: var(--grigio-100); border-top: 1px solid var(--grigio-200);
+}
 .ev-bl-az .btn { padding: 3px 9px; font-size: 0.75rem; }
-.ev-bl .inv-card-prog { margin-top: 2px; }
+.ev-bl .inv-card-prog { margin: 0 10px 8px 12px; }
+/* LA SPIA: dentro c'e' qualcosa da guardare */
+.ev-bl.allerta { border-color: var(--ambra); }
+.ev-bl.allerta .ev-bl-tit { background: var(--ambra-bg); box-shadow: inset 3px 0 0 var(--ambra); color: #6b4700; }
+.ev-bl.allerta .ev-bl-tit span { color: #6b4700; }
 .ev-diag { display: flex; flex-direction: column; gap: 4px; }
 @media (max-width: 720px) {
     .ev-cruscotto { grid-template-columns: 1fr; }
     .ev-bl-et { min-width: 4.6em; }
+}
 }
 
 /* ============================================================

@@ -1556,10 +1556,16 @@ disabilitata; e "La giornata degli incontri" avverte, prima che si prema, che
 cambiare durata o orari le farebbe sparire. Sono gli stessi rifiuti che fa il
 servizio: qui si evita di far premere un pulsante per poi cercare il perche'.
 
-Sopra l'elenco degli iscritti resta una **fascia** di quattro blocchi -
-iscrizioni, invii alle aziende, comunicazioni periodiche, la giornata - con il
-minimo che serve a decidere se aprire qualcosa: i numeri e le righe in rosso.
-Il resto sta dentro le finestre, che e' dove si lavora.
+Sopra l'elenco degli iscritti resta il **cruscotto**: quattro riquadri della
+STESSA grandezza - iscrizioni, invii alle aziende, comunicazioni periodiche, la
+giornata - con il minimo che serve a decidere se aprire qualcosa: i numeri e le
+righe in rosso. Uguali apposta, perche' si guardano insieme e uno piu' alto
+degli altri fa credere che dica di piu': ognuno ha la fascia in testa, i numeri
+in mezzo e i pulsanti in fondo, ancorati al piede e quindi incolonnati fra un
+riquadro e l'altro. Un riquadro che contiene qualcosa scritto in rosso si
+ACCENDE (fascia e bordo ambra): e' la spia del cruscotto, e fa guardare li'
+prima che altrove senza doverli leggere tutti. Il resto sta dentro le finestre,
+che e' dove si lavora.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
