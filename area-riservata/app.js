@@ -18195,9 +18195,9 @@
         const puo = puoGestireInviti();
         apriModale('<h2>La giornata - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + '<p class="hint" style="margin:-4px 0 10px;max-width:none;">'
-            + 'Mattina e pomeriggio, e in ciascuna metà il <b>programma</b> dei lavori e le <b>prenotazioni B2B</b> della stessa fascia, '
-            + 'una riga per orario: gli incontri dei vari tavoli si tengono <b>in parallelo</b>. '
-            + 'Se chi è sul palco tiene anche un tavolo, l\'orario diventa <b>rosso</b>. '
+            + 'In alto il <b>programma</b> dei lavori, mattina e pomeriggio. Sotto, le <b>prenotazioni B2B</b> di tutta la giornata: '
+            + 'una riga per orario, perché gli incontri dei vari tavoli si tengono <b>in parallelo</b>. '
+            + 'Se chi è sul palco tiene anche un tavolo, quell\'orario diventa <b>rosso</b>. '
             + (puo
                 ? 'Il programma si salva col pulsante in fondo, ma <b>non sopra una prenotazione</b>: se manda sul palco chi in quell\'ora è già atteso al suo tavolo, il salvataggio si ferma. '
                 + 'I <b>tavoli</b> si impostano qui sotto, uno per volta, e ciascuno ha il suo "Salva questo tavolo". '
@@ -18227,6 +18227,33 @@
             caricaAgendaB2B(ev, () => disegnaGiornata(ev));
             disegnaGiornata(ev);
         }, true);
+    }
+    // le durate che si scelgono piu' spesso in un convegno
+    const DURATE_PRG = [10, 15, 20, 30, 40, 45, 60, 75, 90, 105, 120, 150, 180];
+    // corta, perche' sta in una casella stretta accanto alle due ore
+    function fraseDurata(m) {
+        if (m < 60) return m + ' min';
+        const ore = Math.floor(m / 60), resto = m % 60;
+        return ore + ' h' + (resto ? ' ' + resto : '');
+    }
+    /* La tendina della durata segue quello che si scrive nelle due ore: se
+       il valore nuovo non e' fra quelli in elenco, ce lo si mette. */
+    function aggiornaDurataMostrata(radice, i, v) {
+        const sel = radice.querySelector('.prg-dur[data-voce="' + i + '"]');
+        if (!sel) return;
+        const m = durataVoce(v);
+        if (m === null) { sel.value = ''; return; }
+        if (!Array.prototype.some.call(sel.options, o => o.value === String(m))) {
+            const o = document.createElement('option');
+            o.value = String(m); o.textContent = fraseDurata(m);
+            sel.insertBefore(o, sel.firstChild);
+        }
+        sel.value = String(m);
+    }
+    function durataVoce(v) {
+        const da = minutiPrg(v && v.dalle), a = minutiPrg(v && v.alle);
+        if (da >= 99999 || a >= 99999 || a <= da) return null;
+        return a - da;
     }
     // l'identificativo della voce appena aggiunta: serve solo a farla vedere
     let _prgNuova = '';
@@ -18263,8 +18290,8 @@
         box.innerHTML = barraVociHtml(puo)
             + '<div id="prg-segnalazioni">' + segnalazioniHtml(ev, conflitti) + '</div>'
             + '<div class="prg-colonne">'
-            + colonnaHtml(ev, 'Mattina', 'fino alle ' + G.oraDaMinuti(confine), fasce.mattina, 0, confine, puo, rosse)
-            + colonnaHtml(ev, 'Pomeriggio', 'dalle ' + G.oraDaMinuti(confine), fasce.pomeriggio, confine, 24 * 60, puo, rosse)
+            + colonnaHtml(ev, 'Mattina', 'fino alle ' + G.oraDaMinuti(confine), fasce.mattina, puo)
+            + colonnaHtml(ev, 'Pomeriggio', 'dalle ' + G.oraDaMinuti(confine), fasce.pomeriggio, puo)
             + '</div>'
             + (fasce.senzaOra.length
                 ? '<div class="prg-senza-ora"><div class="prg-col-tit">Ancora senza orario<span>finché non hanno un\'ora non stanno né in mattina né in pomeriggio</span></div>'
@@ -18273,6 +18300,7 @@
             + (!_prgVoci.length && puo
                 ? '<div class="tabella-vuota" style="margin:8px 0;">Il programma è vuoto: aggiungi la prima voce qui sopra, per esempio la registrazione.</div>'
                 : '')
+            + b2bTuttoHtml(ev, confine, rosse, puo)
             + tavoliHtml(ev, puo)
             + richiesteHtml(agenda, puo);
         collegaGiornata(ev, box, puo);
@@ -18304,33 +18332,38 @@
     /* UNA COLONNA: le voci di quella meta' della giornata e, sotto, i tavoli
        B2B nella stessa fascia, con gli orari che si aprono e si chiudono da
        qui. Cosi' la panoramica e' una sola. */
-    function colonnaHtml(ev, titolo, sotto, voci, daMin, aMin, puo, rosse) {
+    function colonnaHtml(ev, titolo, sotto, voci, puo) {
         return '<section class="prg-col">'
             + '<div class="prg-col-tit">' + esc(titolo) + '<span>' + esc(sotto) + '</span></div>'
             + (voci.length
                 ? '<div class="prg-voci">' + voci.map(v => voceHtml(ev, v, puo)).join('') + '</div>'
                 : '<div class="prg-vuota">Niente in programma in questa fascia.</div>')
-            + b2bFasciaHtml(ev, daMin, aMin, rosse, puo)
             + '</section>';
     }
-    /* LE PRENOTAZIONI B2B DELLA FASCIA, IN PARALLELO
+    /* LE PRENOTAZIONI B2B, IN PARALLELO E IN FONDO
        ---------------------------------------------------------
+       Stanno DOPO il programma, in una tabella sola con tutta la
+       giornata dentro: prima erano spezzate in due, una meta' sotto la
+       colonna della mattina e una sotto quella del pomeriggio, e per
+       leggere gli appuntamenti bisognava guardare in due posti. Sopra si
+       compone la giornata, qui si legge chi arriva.
+
        Gli incontri B2B non si fanno uno dopo l'altro: alle 14:30 si
        tengono TUTTI INSIEME, uno per tavolo. Quindi si leggono come
-       succedono - una riga per orario, una colonna per tavolo - e in
-       fondo alla riga c'e' scritto quanti ne partono in quel momento.
-       In fila per tavolo la cosa piu' importante, che alle 14:30 in sala
-       servono tre stanze e tre persone, non si vedeva.
+       succedono - una riga per orario, una colonna per tavolo - e
+       accanto all'ora c'e' scritto quanti ne partono in quel momento.
+       Una riga di mezzo separa la mattina dal pomeriggio, cosi' la
+       tabella continua a raccontare le due meta' della giornata.
 
        Dentro la cella c'e' la PRENOTAZIONE: chi arriva e da che azienda.
-       Verde = ancora libero, blu = prenotato, grigio = chiuso, e ROSSO
-       quando chi tiene quel tavolo in quell'ora e' sul palco.
-       Un orario libero si preme e si chiude, uno chiuso si riapre, e la
-       modifica parte subito. Su un orario PRENOTATO non si preme niente:
-       quell'ora e' bloccata finche' la prenotazione c'e' - dall'altra
-       parte un'impresa ha in mano un foglio che dice quell'ora - e si
-       sblocca liberandola dalla crocetta, che chiede conferma. */
-    function b2bFasciaHtml(ev, daMin, aMin, rosse, puo) {
+       Verde libero, blu prenotato, grigio chiuso, e ROSSO "non
+       disponibile / sul palco" quando chi tiene quel tavolo in quell'ora
+       e' sul palco. Un orario libero si preme e si chiude, uno chiuso si
+       riapre. Su uno PRENOTATO non si preme niente: quell'ora e'
+       bloccata finche' la prenotazione c'e' - dall'altra parte
+       un'impresa ha in mano un foglio che dice quell'ora - e si sblocca
+       liberandola dalla crocetta, che chiede conferma. */
+    function b2bTuttoHtml(ev, confine, rosse, puo) {
         const G = giornataLib();
         const a = agendaDi(ev);
         if (!G) return '';
@@ -18340,13 +18373,13 @@
         if (!a) return guscio('<div class="hint">Agenda dei tavoli non caricata.</div>');
         const attive = (a.aree || []).filter(x => x.attiva);
         if (!attive.length) return guscio('<div class="hint">Nessun tavolo attivo: si attivano qui sotto, in "La giornata degli incontri".</div>');
-        // gli orari della fascia: l'unione di quelli dei tavoli attivi, in ordine
+        // tutti gli orari della giornata: l'unione di quelli dei tavoli attivi, in ordine
         const ore = [];
-        attive.forEach(area => G.slotDellaFascia(area.slot, daMin, aMin).forEach(s => {
+        attive.forEach(area => (area.slot || []).forEach(s => {
             if (!ore.some(x => x.chiave === s.chiave)) ore.push({ chiave: s.chiave, ora: s.ora, fine: s.fine });
         }));
         ore.sort((x, y) => G.minutiOra(x.ora) - G.minutiOra(y.ora));
-        if (!ore.length) return guscio('<div class="hint">Nessun orario B2B in questa fascia.</div>');
+        if (!ore.length) return guscio('<div class="hint">Nessun orario B2B: guarda gli orari della giornata qui sotto.</div>');
 
         const intestazione = '<tr><th class="prg-par-ora">orario</th>'
             + attive.map(area => '<th>' + esc(area.nome)
@@ -18354,7 +18387,16 @@
                     ? '<span>' + esc(area.referenti.map(r => r.nome).join(', ')) + '</span>'
                     : '<span class="ev-ko">nessun referente</span>') + '</th>').join('')
             + '</tr>';
+        let inMattina = 0;         // quante righe di mattina sono gia' passate
+        let mezzoMesso = false;    // la riga di mezzo si mette UNA volta sola
+        let tot = 0;
         const righe = ore.map(o => {
+            /* La riga di mezzo: si mette quando si passa dalla mattina al
+               pomeriggio, cioe' alla prima ora oltre il confine. */
+            const dopoPranzo = G.minutiOra(o.ora) >= confine;
+            let divisoria = '';
+            if (dopoPranzo && inMattina > 0 && !mezzoMesso) { divisoria = divisoriaFatta(); mezzoMesso = true; }
+            if (!dopoPranzo) inMattina++;
             let presi = 0;
             const celle = attive.map(area => {
                 const s = (area.slot || []).filter(x => x.chiave === o.chiave)[0];
@@ -18362,11 +18404,11 @@
                 const rosso = rosse[area.id + '|' + s.chiave] || '';
                 const p = s.chi || {};
                 if (s.stato === 'occupato') {
-                    presi++;
+                    presi++; tot++;
                     const spiega = 'Prenotato da ' + (p.nome || '') + (p.azienda ? ' (' + p.azienda + ')' : '')
-                        + ' &mdash; orario bloccato: finché c\'è questa prenotazione non si può chiudere né spostare'
+                        + ' - orario bloccato: finché c\'è questa prenotazione non si può chiudere né spostare'
                         + (rosso === 'grave' ? '. INCOMPATIBILE: il referente in quest\'ora è sul palco' : '');
-                    return '<td><span class="prg-slot occupato' + (rosso ? ' conflitto' : '') + '" title="' + esc(spiega.replace(/&mdash;/g, '-')) + '">'
+                    return '<td><span class="prg-slot occupato' + (rosso ? ' conflitto' : '') + '" title="' + esc(spiega) + '">'
                         + '<b>' + esc(p.nome || 'prenotato') + '</b>'
                         + (p.azienda ? '<i>' + esc(p.azienda) + '</i>' : '')
                         + '<span class="prg-lucchetto" aria-hidden="true">&#128274;</span>'
@@ -18374,11 +18416,6 @@
                         + '</span></td>';
                 }
                 const chiuso = s.stato === 'chiuso';
-                /* ROSSO E "LIBERO" insieme non si capivano: il quadratino diceva
-                   "libero" mentre il rosso voleva dire il contrario. Quando chi
-                   tiene il tavolo in quell'ora e' sul palco, l'orario si legge
-                   per quello che e': NON DISPONIBILE. Prenotabile lo e' ancora,
-                   ed e' proprio per questo che va chiuso. */
                 const etichetta = (rosso && !chiuso) ? 'non disponibile<span class="prg-slot-sotto">sul palco</span>'
                     : (chiuso ? 'chiuso' : 'libero');
                 const spiega = (rosso && !chiuso)
@@ -18391,17 +18428,20 @@
                     + (puo ? ' data-chiudi="' + esc(area.id) + '" data-ora="' + esc(s.chiave) + '"' : ' disabled')
                     + '>' + etichetta + '</button></td>';
             }).join('');
-            return '<tr><th class="prg-par-ora">' + esc(o.ora)
+            return divisoria + '<tr><th class="prg-par-ora">' + esc(o.ora)
                 + (presi ? '<span><b>' + presi + '</b> in parallelo</span>' : '') + '</th>'
                 + celle + '</tr>';
         }).join('');
-        const tot = ore.reduce((n, o) => n + attive.filter(area =>
-            (area.slot || []).some(x => x.chiave === o.chiave && x.stato === 'occupato')).length, 0);
+        function divisoriaFatta() {
+            return '<tr class="prg-par-mezzo"><th class="prg-par-ora">&nbsp;</th>'
+                + '<td colspan="' + attive.length + '">pomeriggio &mdash; dalle ' + esc(G.oraDaMinuti(confine)) + '</td></tr>';
+        }
         return guscio('<div class="prg-par-scorri"><table class="prg-par">'
             + '<thead>' + intestazione + '</thead><tbody>' + righe + '</tbody></table></div>',
-            tot ? tot + (tot === 1 ? ' prenotazione in questa fascia' : ' prenotazioni in questa fascia')
-                + ' · in ogni riga gli incontri si tengono in parallelo'
-                : 'nessuna prenotazione in questa fascia · in ogni riga gli incontri si tengono in parallelo');
+            (tot ? tot + (tot === 1 ? ' prenotazione' : ' prenotazioni') : 'nessuna prenotazione')
+            /* il sottotitolo passa da esc(): qui ci va il carattere, non
+               l'entita', se no si legge "&middot;" per davvero */
+            + ' \u00b7 una riga per orario: in ciascuna gli incontri si tengono in parallelo');
     }
     /* L'IMPOSTAZIONE DEI TAVOLI B2B
        ---------------------------------------------------------
@@ -18620,6 +18660,23 @@
         const ora = (chiave) => '<input type="time" step="60" class="prg-t" data-voce="' + i + '" data-campo="' + chiave + '"'
             + ' value="' + esc(v[chiave] || '') + '" aria-label="' + (chiave === 'dalle' ? 'Ora di inizio' : 'Ora di fine') + '"'
             + (puo ? '' : ' disabled') + '>';
+        /* LA DURATA accanto alle due ore. Serve perche' un orario si pensa
+           quasi sempre cosi': "comincia alle 14:30 e dura un'ora". Con due
+           sole caselle bisognava fare il conto a mente e scrivere 15:30, e
+           spostando l'inizio bisognava rifarlo. Qui si sceglie la durata e la
+           fine si scrive da se'; e spostando l'inizio, la fine SEGUE tenendo
+           la stessa durata. Chi vuole un'ora di fine strana la scrive lo
+           stesso nella sua casella: la durata si adegua. */
+        const durataMin = durataVoce(v);
+        const durataHtml = puo
+            ? '<select class="prg-dur" data-voce="' + i + '" title="Quanto dura: la fine si calcola da sé">'
+            + (durataMin !== null && DURATE_PRG.indexOf(durataMin) < 0
+                ? '<option value="' + durataMin + '" selected>' + fraseDurata(durataMin) + '</option>' : '')
+            + (durataMin === null ? '<option value="" selected>durata</option>' : '')
+            + DURATE_PRG.map(m => '<option value="' + m + '"' + (m === durataMin ? ' selected' : '') + '>'
+                + fraseDurata(m) + '</option>').join('')
+            + '</select>'
+            : (durataMin !== null ? '<span class="prg-dur-fissa">' + esc(fraseDurata(durataMin)) + '</span>' : '');
         const chip = (p, ruolo, k) => '<span class="prg-chip">'
             + '<b>' + esc(p.nome) + '</b>'
             + '<input type="text" class="prg-tit-p" data-voce="' + i + '" data-ruolo="' + ruolo + '" data-k="' + k + '"'
@@ -18645,6 +18702,7 @@
         return '<div class="prg-voce' + (nuova ? ' nuova' : '') + '">'
             + (nuova ? '<div class="prg-nuova-et">appena aggiunta &mdash; scrivi il titolo e correggi le ore</div>' : '')
             + '<div class="prg-riga1">' + ora('dalle') + '<span class="prg-freccia">&rarr;</span>' + ora('alle')
+            + durataHtml
             + '<span class="badge ' + badgeTipo(t.id) + '">' + esc(t.nome) + '</span>'
             + (puo ? '<button type="button" class="prg-elimina" data-voce="' + i + '" title="Togli questa voce">&#10005;</button>' : '')
             + '</div>'
@@ -18739,9 +18797,43 @@
            cursore salterebbe a ogni tasto. Le segnalazioni pero' seguono,
            perche' sono la ragione per cui si guarda mentre si scrive. */
         radice.querySelectorAll('.prg-voce [data-campo]').forEach(c => c.addEventListener('input', () => {
-            const v = _prgVoci[parseInt(c.dataset.voce, 10)];
+            const i = parseInt(c.dataset.voce, 10);
+            const v = _prgVoci[i];
             if (!v) return;
-            v[c.dataset.campo] = c.value;
+            const campo = c.dataset.campo;
+            /* SPOSTANDO L'INIZIO, LA FINE SEGUE. Un intervento che si sposta
+               di un quarto d'ora non cambia durata: cambia quando comincia.
+               Rifare il conto a mente e riscrivere anche la fine e' il modo
+               piu' facile per lasciarne una vecchia, e una fine vecchia e'
+               una voce che si sovrappone alla dopo senza che si veda. */
+            if (campo === 'dalle') {
+                const durata = durataVoce(v);
+                v.dalle = c.value;
+                if (durata !== null && oraValida(c.value)) {
+                    v.alle = oraDaMinuti(minutiPrg(c.value) + durata);
+                    const fine = radice.querySelector('.prg-voce input[data-voce="' + i + '"][data-campo="alle"]');
+                    if (fine) fine.value = v.alle;
+                }
+            } else {
+                v[campo] = c.value;
+            }
+            if (campo === 'dalle' || campo === 'alle') aggiornaDurataMostrata(radice, i, v);
+            esitoGiornata('');
+            aggiornaSegnalazioni(ev);
+        }));
+        /* LA DURATA: si sceglie, e la fine si scrive da se'. */
+        radice.querySelectorAll('.prg-dur').forEach(c => c.addEventListener('change', () => {
+            const i = parseInt(c.dataset.voce, 10);
+            const v = _prgVoci[i];
+            const m = parseInt(c.value, 10);
+            if (!v || !(m > 0)) return;
+            if (!oraValida(v.dalle)) {
+                esitoGiornata('Scrivi prima l\'ora di inizio: la durata serve a calcolare la fine.', true);
+                return;
+            }
+            v.alle = oraDaMinuti(minutiPrg(v.dalle) + m);
+            const fine = radice.querySelector('.prg-voce input[data-voce="' + i + '"][data-campo="alle"]');
+            if (fine) fine.value = v.alle;
             esitoGiornata('');
             aggiornaSegnalazioni(ev);
         }));
