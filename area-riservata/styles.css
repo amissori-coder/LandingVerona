@@ -1511,39 +1511,57 @@ summary.ni-testa::before {
    un'ora: gli orari, che invece un'ora ce l'hanno, si aprono e si chiudono su
    nelle colonne. Ogni modifica qui vale subito. */
 .ag-tavoli { margin-top: 14px; }
-.ag-fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 7px 9px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
-label.ag-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.72rem; font-weight: 400; color: var(--grigio-600); }
-label.ag-mini input[type="time"] { margin: 0; padding: 3px 6px; font-size: 0.8rem; width: 6.6em; }
-label.ag-mini input[type="number"] { margin: 0; padding: 3px 6px; font-size: 0.8rem; width: 4em; }
-.ag-righe { margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco); }
-.ag-riga { display: flex; align-items: center; gap: 10px; padding: 5px 9px; border-bottom: 1px solid var(--grigio-100); font-size: 0.8rem; }
-.ag-riga:last-child { border-bottom: none; }
-.ag-riga:not(.attiva) { background: var(--grigio-050); color: var(--grigio-400); }
-label.ag-riga-nome { display: flex; align-items: center; gap: 6px; margin: 0; flex: 0 0 24%; min-width: 0; font-weight: 600; color: var(--blu-900); font-size: 0.8rem; line-height: 1.25; }
-label.ag-riga-nome input { width: auto; margin: 0; flex: none; }
-label.ag-riga-nome span { min-width: 0; }
-.ag-riga:not(.attiva) label.ag-riga-nome { color: var(--grigio-600); font-weight: 400; }
-.ag-riga.bloccata label.ag-riga-nome { cursor: help; }
-.ag-riga.bloccata input[type="checkbox"] { cursor: not-allowed; }
-.ag-avviso { flex: 1 1 100%; font-size: 0.72rem; color: var(--rosso-scuro); background: var(--rosso-bg); border: 1px solid var(--rosso); border-radius: var(--raggio-sm); padding: 3px 7px; }
-.ag-riga-ref { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; min-width: 0; }
-.ag-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 1px 4px 1px 9px; font-size: 0.75rem; font-weight: 600; color: var(--grigio-900); }
-.ag-chip-ruolo { font-weight: 400; color: var(--grigio-600); font-size: 0.7rem; }
-.ag-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.7rem; padding: 0 2px; line-height: 1; }
+.ag-giornata { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #f8fafc; padding: 10px 12px; }
+.ag-titolo { font-weight: 700; color: var(--blu-900); font-size: 0.9rem; margin-bottom: 8px; }
+.ag-fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+label.ag-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); }
+label.ag-mini input[type="time"] { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 7.5em; }
+label.ag-mini input[type="number"] { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 4.5em; }
+label.ag-attiva { font-weight: 600; color: var(--grigio-900); }
+label.ag-attiva input { width: auto; margin: 0; }
+label.ag-attiva input[disabled] { cursor: not-allowed; }
+/* l'avviso quando cambiare la giornata farebbe sparire delle prenotazioni */
+.ag-avviso { margin-top: 7px; font-size: 0.78rem; color: var(--rosso-scuro); background: var(--rosso-bg); border: 1px solid var(--rosso); border-radius: var(--raggio-sm); padding: 5px 8px; }
+.ag-aree { margin-top: 12px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
+.ag-area { border-bottom: 1px solid var(--grigio-100); }
+.ag-area:last-child { border-bottom: none; }
+.ag-area.aperta { background: #f8fafc; }
+.ag-testa { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; font-size: 0.86rem; }
+.ag-testa:hover { background: var(--grigio-100); }
+.ag-nome { font-weight: 700; color: var(--blu-900); flex: 0 0 auto; }
+.ag-chi { flex: 1 1 auto; min-width: 0; color: var(--grigio-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-freccia { color: var(--grigio-400); font-size: 0.7rem; flex: none; }
+.ag-dentro { padding: 4px 12px 14px; }
+.ag-et { font-size: 0.72rem; letter-spacing: 0.6px; text-transform: uppercase; color: var(--blu-700); font-weight: 700; margin: 10px 0 5px; }
+.ag-ref { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.ag-chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-700); border-radius: var(--raggio-sm); padding: 4px 8px; font-size: 0.82rem; font-weight: 600; color: var(--grigio-900); }
+.ag-chip-ruolo { font-weight: 400; color: var(--grigio-600); }
+.ag-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.78rem; padding: 0 2px; line-height: 1; }
 .ag-togli:hover { color: var(--rosso); }
-select.ag-aggiungi { margin: 0; padding: 2px 6px; font-size: 0.73rem; max-width: 170px; }
-input.ag-nota { flex: 0 0 21%; min-width: 0; margin: 0; padding: 3px 7px; font-size: 0.73rem; }
-.ag-riga-conti { flex: 0 0 9.4em; text-align: right; font-size: 0.73rem; color: var(--grigio-600); white-space: nowrap; }
-.ag-richieste { margin-top: 14px; border: 1px solid #f3d4b5; border-radius: var(--raggio-sm); background: #fffaf3; padding: 9px 11px; }
-.ag-richiesta { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f3e2cd; font-size: 0.82rem; }
+.ag-slot-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.ag-slot { position: relative; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; padding: 6px 4px; font: inherit; font-size: 0.8rem; text-align: center; line-height: 1.25; color: var(--grigio-900); }
+button.ag-slot { cursor: pointer; }
+.ag-slot b { display: block; font-size: 0.86rem; }
+.ag-slot-et { font-size: 0.7rem; color: var(--grigio-400); }
+.ag-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
+.ag-slot.libero:hover { border-color: var(--verde); }
+.ag-slot.chiuso { background: var(--grigio-100); border-style: dashed; color: var(--grigio-400); }
+.ag-slot.preso { border-color: var(--blu-700); background: #eef4fa; text-align: left; padding: 6px 20px 6px 8px; }
+/* rosso: chi tiene questo tavolo, in quest'ora, e' sul palco */
+.ag-slot.conflitto { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso-scuro); }
+.ag-slot.conflitto b, .ag-slot.conflitto .ag-slot-et, .ag-slot.conflitto .ag-slot-chi { color: var(--rosso-scuro); }
+.ag-slot-chi { display: block; font-size: 0.72rem; color: var(--grigio-600); overflow: hidden; }
+.ag-libera { position: absolute; top: 2px; right: 3px; background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.72rem; line-height: 1; padding: 2px; }
+.ag-libera:hover { color: var(--rosso); }
+.ag-comandi { margin-top: 12px; }
+.ag-nota { flex: 1 1 220px; min-width: 0; margin: 0; padding: 5px 8px; font-size: 0.83rem; }
+.ag-richieste { margin-top: 14px; border: 1px solid #f3d4b5; border-radius: var(--raggio-sm); background: #fffaf3; padding: 10px 12px; }
+.ag-richiesta { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3e2cd; font-size: 0.85rem; }
 .ag-richiesta:last-child { border-bottom: none; }
 .ag-richiesta.gestita { opacity: 0.6; }
 .ag-richiesta-az { display: flex; gap: 6px; flex: none; }
 .ag-nota-testo { margin-top: 3px; color: var(--grigio-600); font-style: italic; }
 @media (max-width: 900px) {
-    .ag-riga { flex-wrap: wrap; }
-    label.ag-riga-nome { flex: 1 1 100%; }
-    input.ag-nota { flex: 1 1 100%; }
     .ag-richiesta { flex-direction: column; }
 }
 
@@ -3466,10 +3484,6 @@ th.prg-par-ora span { display: block; font-weight: 400; font-size: 0.62rem; colo
 td.prg-par-no { text-align: center; color: var(--grigio-200); background: var(--grigio-050); }
 table.prg-par td .prg-slot { display: flex; width: 100%; max-width: none; min-width: 0; border: none; background: none; }
 .prg-lucchetto { font-size: 0.6rem; opacity: 0.55; }
-/* un tavolo attivo senza referente resta rosso anche qui: e' la stessa cosa
-   che la scheda degli incontri segnala, e due colori diversi per lo stesso
-   guaio si leggono come due guai diversi */
-.prg-b2b-nome span.ev-ko { color: var(--rosso); }
 .prg-slot {
     display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
     min-width: 3.6em; max-width: 7em; padding: 2px 4px; border-radius: var(--raggio-sm);

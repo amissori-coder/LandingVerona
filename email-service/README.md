@@ -1091,7 +1091,7 @@ da mani diverse: chi configura non deve poter sovrascrivere una prenotazione
 presa un attimo prima.
 
 - `b2bAgenda/{evento}` - **la configurazione**, scritta dall'area riservata
-  (sezione Eventi, finestra "La giornata", riquadro "I tavoli B2B"):
+  (sezione Eventi, finestra "La giornata", sotto "La giornata degli incontri"):
   `giornata` (`inizio`, `fine`, `durata` in minuti, `pranzoDa`/`pranzoA`) e,
   per ciascuna delle undici aree, `attiva`, `referenti` (chi tiene il tavolo),
   `chiusi` (gli orari in cui non riceve) e `nota`. Di partenza: dalle 10:00
@@ -1504,20 +1504,23 @@ sola, era coerente. Ora sono una finestra sola, con dentro due parti distinte:
   uno **prenotato non si preme niente** - ha il lucchetto, ed e' bloccato
   finche' la prenotazione c'e' - e si sblocca liberandola dalla crocetta, che
   chiede conferma;
-- sotto, **"I tavoli B2B"**: gli orari della giornata (inizio, fine, durata,
-  pausa) e una riga per area con chi la tiene, la nota e i conti. E' com'e'
-  fatto un tavolo, che vale per l'intera giornata: gli orari, che invece un'ora
-  ce l'hanno, si toccano su nelle colonne;
+- sotto, **l'impostazione dei tavoli**, che e' la stessa di sempre: "La
+  giornata degli incontri" (inizio, fine, durata, pausa, e il suo "Salva la
+  giornata") e poi un tavolo per riga che si apre e mostra chi lo tiene, la
+  griglia dei suoi orari e la nota, con "Salva questo tavolo". Sta sotto le
+  colonne e non dentro, perche' non e' una cosa che succede a un'ora: e'
+  com'e' fatto un tavolo, e vale per l'intera giornata;
 - in fondo le **richieste a orari esauriti**.
 
-**I due salvataggi si comportano in modo diverso, ed e' voluto**: il programma
-e' una bozza che si compone a pezzi e si salva col pulsante in fondo; i
-**tavoli valgono subito**, nell'istante in cui si tocca un orario o si cambia
-il referente, perche' intanto la' fuori qualcuno sta prenotando - un orario che
-credevamo chiuso e che non lo e' ancora e' una prenotazione di troppo. La
-finestra lo dice in cima, e la riga in fondo dice ogni volta cosa e' appena
-stato scritto. Se un salvataggio non riesce, l'agenda si **rilegge** dal
-servizio invece di restare a schermo com'era: su un'agenda che sta prendendo
+**Ogni parte ha il suo salvataggio, ed e' voluto**: il programma si salva col
+pulsante in fondo alla finestra, la giornata degli incontri con "Salva la
+giornata", ogni tavolo con il suo "Salva questo tavolo". Quello che si tocca
+resta nella copia locale finche' non si preme: un tavolo si prepara
+guardandolo intero - il referente, gli orari da chiudere, la sala - e mandarlo
+al servizio a ogni tocco vorrebbe dire pubblicare mezza configurazione a chi in
+quel momento sta prenotando. La riga in fondo dice ogni volta cosa e' stato
+scritto. Se un salvataggio non riesce, l'agenda si **rilegge** dal servizio
+invece di restare a schermo com'era: su un'agenda che sta prendendo
 prenotazioni, quello che si vede deve essere quello che c'e' - e un rifiuto
 `motivo: "prenotato"` vuol dire proprio che e' arrivata una prenotazione
 mentre guardavamo, quindi deve comparire.
@@ -1525,10 +1528,11 @@ mentre guardavamo, quindi deve comparire.
 **Le prenotazioni bloccano, in tutte e due le direzioni.** Il pulsante
 "Salva il programma" si ferma da solo se la scaletta manda sul palco qualcuno
 gia atteso al suo tavolo (e il riquadro rosso lo dice: *il programma non si
-salva*), e nella tabella dei tavoli la spunta "attivo" di un tavolo con
-prenotazioni e' disabilitata, con la striscia degli orari che avverte che
-cambiarli le farebbe sparire. Sono gli stessi rifiuti che fa il servizio: qui
-si evita di far premere un pulsante per poi cercare il perche'.
+salva*); nella griglia di un tavolo un orario prenotato porta il **lucchetto**
+e non si preme; la spunta "Tavolo attivo" di un tavolo con prenotazioni e'
+disabilitata; e "La giornata degli incontri" avverte, prima che si prema, che
+cambiare durata o orari le farebbe sparire. Sono gli stessi rifiuti che fa il
+servizio: qui si evita di far premere un pulsante per poi cercare il perche'.
 
 Sopra l'elenco degli iscritti resta una **fascia** di quattro blocchi -
 iscrizioni, invii alle aziende, comunicazioni periodiche, la giornata - con il
