@@ -33,7 +33,15 @@
        allegato, e sulla sua scheda resta scritto l'appuntamento;
      - chi e' stato invitato con il modulo VECCHIO (a caselle)
        continua a vedere quello: la pagina non cambia le regole
-       sotto i piedi di chi ha gia' la mail in casella.
+       sotto i piedi di chi ha gia' la mail in casella;
+     - UN ORARIO PRENOTATO NON SI TOCCA: chi organizza non puo'
+       chiuderlo, non puo' spegnere quel tavolo e non puo'
+       cambiare la durata della giornata se cosi' quell'orario
+       sparirebbe. Dall'altra parte c'e' un'impresa con in mano
+       un foglio che dice ora, tavolo e nome. Si blocca il
+       CAMBIAMENTO e non lo stato: un orario prenotato che era
+       gia' chiuso non trasforma quel tavolo in un pezzo di
+       agenda che non si puo' piu' salvare.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -451,6 +459,79 @@ async function prova(nome, fn) {
         const r = await chiama('mario', { azione: 'b2b-slot-prenota', area: 'merito-creditizio', ora: '10:00' });
         esigi(r.ok && r.mailInviata === false, 'la pagina lo dice: prenotato, ma la mail non e partita');
         esigi(!!slotDi('merito-creditizio', '10:00'), 'l\'orario resta suo: perderlo sarebbe il danno peggiore');
+    });
+
+    await prova('13) Un orario prenotato non si tocca piu\'', async () => {
+        azzera();
+        mettiAgenda({ 'merito-creditizio': { referenti: [{ nome: 'Anna Verdi' }] }, 'esg': {} });
+        mettiInvitato('mario', 'Mario', ['merito-creditizio']);
+        const preso = await chiama('mario', { azione: 'b2b-slot-prenota', area: 'merito-creditizio', ora: '11:00' });
+        esigi(preso.ok, 'Mario ha il suo appuntamento delle 11:00');
+
+        // chiudere l'orario di qualcuno
+        const chiudi = await staff({
+            azione: 'agenda-salva',
+            aree: { 'merito-creditizio': { attiva: true, nota: '', chiusi: ['1100'], referenti: [{ nome: 'Anna Verdi' }] } }
+        });
+        esigi(chiudi.stato === 409 && !chiudi.corpo.ok, 'chiudere le 11:00 viene rifiutato');
+        esigi(/11:00/.test(chiudi.corpo.msg) && /Merito creditizio/.test(chiudi.corpo.msg) && /Mario/.test(chiudi.corpo.msg),
+            'e il rifiuto dice quale orario, quale tavolo e chi ci sarebbe: ' + chiudi.corpo.msg.slice(0, 90));
+        esigi(!!slotDi('merito-creditizio', '11:00'), 'la prenotazione e rimasta dov\'era');
+
+        // un orario LIBERO dello stesso tavolo si chiude come sempre
+        const altro = await staff({
+            azione: 'agenda-salva',
+            aree: { 'merito-creditizio': { attiva: true, nota: '', chiusi: ['1130'], referenti: [{ nome: 'Anna Verdi' }] } }
+        });
+        esigi(altro.stato === 200 && altro.corpo.ok, 'chiudere le 11:30, che e libero, si puo ancora');
+        const area = altro.corpo.aree.filter(a => a.id === 'merito-creditizio')[0];
+        esigi(area.slot.filter(x => x.chiave === '1130')[0].stato === 'chiuso', 'e si vede chiuso');
+
+        // spegnere il tavolo di chi ha prenotato
+        const spegni = await staff({
+            azione: 'agenda-salva',
+            aree: { 'merito-creditizio': { attiva: false, nota: '', chiusi: [], referenti: [] } }
+        });
+        esigi(spegni.stato === 409 && /Merito creditizio/.test(spegni.corpo.msg),
+            'spegnere il tavolo con una prenotazione dentro viene rifiutato');
+        const spegniAltro = await staff({
+            azione: 'agenda-salva', aree: { 'esg': { attiva: false, nota: '', chiusi: [], referenti: [] } }
+        });
+        esigi(spegniAltro.stato === 200, 'un tavolo senza prenotazioni si spegne come prima');
+
+        // cambiare la forma della giornata sotto i piedi di chi ha un appuntamento
+        const durata = await staff({
+            azione: 'agenda-salva',
+            giornata: { inizio: '10:00', fine: '18:00', pranzoDa: '13:00', pranzoA: '14:00', durata: 45 }
+        });
+        esigi(durata.stato === 409 && /11:00/.test(durata.corpo.msg),
+            'con 45 minuti le 11:00 non esisterebbero piu: la modifica viene rifiutata');
+        esigi(/libera la prenotazione/.test(durata.corpo.msg), 'e dice cosa fare prima');
+
+        // liberato l'orario, la stessa modifica passa
+        const libera = await staff({ azione: 'agenda-libera', doc: 'mario' });
+        esigi(libera.stato === 200 && libera.corpo.ok, 'si libera l\'orario di Mario');
+        const ora = await staff({
+            azione: 'agenda-salva',
+            giornata: { inizio: '10:00', fine: '18:00', pranzoDa: '13:00', pranzoA: '14:00', durata: 45 }
+        });
+        esigi(ora.stato === 200 && ora.corpo.ok, 'adesso la durata si cambia');
+    });
+
+    await prova('14) Si blocca il cambiamento, non lo stato', async () => {
+        azzera();
+        mettiAgenda({ 'merito-creditizio': { referenti: [{ nome: 'Anna Verdi' }], chiusi: ['1100'] } });
+        mettiInvitato('elena', 'Elena', ['merito-creditizio']);
+        /* Un posto assegnato d'ufficio su un orario CHIUSO: la chiusura c'era
+           gia', e non deve diventare un lucchetto sul tavolo intero. */
+        const dato = await staff({ azione: 'agenda-assegna', doc: 'elena', area: 'merito-creditizio', ora: '11:00' });
+        esigi(dato.stato === 200 && dato.corpo.ok, 'lo staff assegna le 11:00, che erano chiuse');
+        const nota = await staff({
+            azione: 'agenda-salva',
+            aree: { 'merito-creditizio': { attiva: true, nota: 'Sala 3', chiusi: ['1100'], referenti: [{ nome: 'Anna Verdi' }] } }
+        });
+        esigi(nota.stato === 200 && nota.corpo.ok, 'quel tavolo si salva lo stesso: la chiusura non e nuova');
+        esigi(nota.corpo.aree.filter(a => a.id === 'merito-creditizio')[0].nota === 'Sala 3', 'e la nota e passata');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

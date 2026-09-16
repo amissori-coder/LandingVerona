@@ -1506,58 +1506,44 @@ summary.ni-testa::before {
 .nl-dest-riga input { width: auto; margin: 0; }
 .nl-dest-riga.escluso { color: var(--grigio-400); text-decoration: line-through; }
 
-/* AGENDA DEGLI INCONTRI B2B: la giornata, i tavoli, gli orari.
-   Ogni tavolo e' una riga che si apre; dentro, chi lo tiene e la griglia
-   degli appuntamenti. Gli stati di un orario sono tre e si distinguono a
-   colpo d'occhio, perche' e' questa la griglia che si guarda il giorno
-   prima del convegno: verde libero, grigio chiuso, blu gia' preso. */
-.ag-giornata { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #f8fafc; padding: 10px 12px; }
-.ag-titolo { font-weight: 700; color: var(--blu-900); font-size: 0.9rem; margin-bottom: 8px; }
-.ag-fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-label.ag-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); }
-label.ag-mini input[type="time"] { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 7.5em; }
-label.ag-mini input[type="number"] { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 4.5em; }
-label.ag-attiva { font-weight: 600; color: var(--grigio-900); }
-label.ag-attiva input { width: auto; margin: 0; }
-.ag-aree { margin-top: 12px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
-.ag-area { border-bottom: 1px solid var(--grigio-100); }
-.ag-area:last-child { border-bottom: none; }
-.ag-area.aperta { background: #f8fafc; }
-.ag-testa { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; font-size: 0.86rem; }
-.ag-testa:hover { background: var(--grigio-100); }
-.ag-nome { font-weight: 700; color: var(--blu-900); flex: 0 0 auto; }
-.ag-chi { flex: 1 1 auto; min-width: 0; color: var(--grigio-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ag-freccia { color: var(--grigio-400); font-size: 0.7rem; flex: none; }
-.ag-dentro { padding: 4px 12px 14px; }
-.ag-et { font-size: 0.72rem; letter-spacing: 0.6px; text-transform: uppercase; color: var(--blu-700); font-weight: 700; margin: 10px 0 5px; }
-.ag-ref { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-.ag-chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-700); border-radius: var(--raggio-sm); padding: 4px 8px; font-size: 0.82rem; font-weight: 600; color: var(--grigio-900); }
-.ag-chip-ruolo { font-weight: 400; color: var(--grigio-600); }
-.ag-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.78rem; padding: 0 2px; line-height: 1; }
+/* I TAVOLI B2B dentro la finestra della giornata: chi li tiene e se sono in
+   programma. Sta sotto le due colonne, perche' non e' una cosa che succede a
+   un'ora: gli orari, che invece un'ora ce l'hanno, si aprono e si chiudono su
+   nelle colonne. Ogni modifica qui vale subito. */
+.ag-tavoli { margin-top: 14px; }
+.ag-fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 7px 9px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+label.ag-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.72rem; font-weight: 400; color: var(--grigio-600); }
+label.ag-mini input[type="time"] { margin: 0; padding: 3px 6px; font-size: 0.8rem; width: 6.6em; }
+label.ag-mini input[type="number"] { margin: 0; padding: 3px 6px; font-size: 0.8rem; width: 4em; }
+.ag-righe { margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco); }
+.ag-riga { display: flex; align-items: center; gap: 10px; padding: 5px 9px; border-bottom: 1px solid var(--grigio-100); font-size: 0.8rem; }
+.ag-riga:last-child { border-bottom: none; }
+.ag-riga:not(.attiva) { background: var(--grigio-050); color: var(--grigio-400); }
+label.ag-riga-nome { display: flex; align-items: center; gap: 6px; margin: 0; flex: 0 0 24%; min-width: 0; font-weight: 600; color: var(--blu-900); font-size: 0.8rem; line-height: 1.25; }
+label.ag-riga-nome input { width: auto; margin: 0; flex: none; }
+label.ag-riga-nome span { min-width: 0; }
+.ag-riga:not(.attiva) label.ag-riga-nome { color: var(--grigio-600); font-weight: 400; }
+.ag-riga.bloccata label.ag-riga-nome { cursor: help; }
+.ag-riga.bloccata input[type="checkbox"] { cursor: not-allowed; }
+.ag-avviso { flex: 1 1 100%; font-size: 0.72rem; color: var(--rosso-scuro); background: var(--rosso-bg); border: 1px solid var(--rosso); border-radius: var(--raggio-sm); padding: 3px 7px; }
+.ag-riga-ref { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.ag-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 1px 4px 1px 9px; font-size: 0.75rem; font-weight: 600; color: var(--grigio-900); }
+.ag-chip-ruolo { font-weight: 400; color: var(--grigio-600); font-size: 0.7rem; }
+.ag-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.7rem; padding: 0 2px; line-height: 1; }
 .ag-togli:hover { color: var(--rosso); }
-.ag-slot-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
-.ag-slot { position: relative; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; padding: 6px 4px; font: inherit; font-size: 0.8rem; text-align: center; line-height: 1.25; color: var(--grigio-900); }
-button.ag-slot { cursor: pointer; }
-.ag-slot b { display: block; font-size: 0.86rem; }
-.ag-slot-et { font-size: 0.7rem; color: var(--grigio-400); }
-.ag-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
-.ag-slot.libero:hover { border-color: var(--verde); }
-.ag-slot.chiuso { background: var(--grigio-100); border-style: dashed; color: var(--grigio-400); }
-.ag-slot.preso { border-color: var(--blu-700); background: #eef4fa; text-align: left; padding: 6px 20px 6px 8px; }
-.ag-slot-chi { display: block; font-size: 0.72rem; color: var(--grigio-600); overflow: hidden; }
-.ag-libera { position: absolute; top: 2px; right: 3px; background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.72rem; line-height: 1; padding: 2px; }
-.ag-libera:hover { color: var(--rosso); }
-.ag-comandi { margin-top: 12px; }
-.ag-nota { flex: 1 1 220px; min-width: 0; margin: 0; padding: 5px 8px; font-size: 0.83rem; }
-.ag-richieste { margin-top: 14px; border: 1px solid #f3d4b5; border-radius: var(--raggio-sm); background: #fffaf3; padding: 10px 12px; }
-.ag-richiesta { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3e2cd; font-size: 0.85rem; }
+select.ag-aggiungi { margin: 0; padding: 2px 6px; font-size: 0.73rem; max-width: 170px; }
+input.ag-nota { flex: 0 0 21%; min-width: 0; margin: 0; padding: 3px 7px; font-size: 0.73rem; }
+.ag-riga-conti { flex: 0 0 9.4em; text-align: right; font-size: 0.73rem; color: var(--grigio-600); white-space: nowrap; }
+.ag-richieste { margin-top: 14px; border: 1px solid #f3d4b5; border-radius: var(--raggio-sm); background: #fffaf3; padding: 9px 11px; }
+.ag-richiesta { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f3e2cd; font-size: 0.82rem; }
 .ag-richiesta:last-child { border-bottom: none; }
 .ag-richiesta.gestita { opacity: 0.6; }
 .ag-richiesta-az { display: flex; gap: 6px; flex: none; }
 .ag-nota-testo { margin-top: 3px; color: var(--grigio-600); font-style: italic; }
-@media (max-width: 720px) {
-    .ag-testa { flex-wrap: wrap; }
-    .ag-chi { flex: 1 1 100%; white-space: normal; }
+@media (max-width: 900px) {
+    .ag-riga { flex-wrap: wrap; }
+    label.ag-riga-nome { flex: 1 1 100%; }
+    input.ag-nota { flex: 1 1 100%; }
     .ag-richiesta { flex-direction: column; }
 }
 
@@ -3395,3 +3381,122 @@ table.dati.cq-elenco .cq-agg { white-space: nowrap; }
 /* la riga dell'ultimo promemoria aperto: si ritrova a colpo d'occhio tornando dalla finestra */
 table.dati tbody tr.pm-evidenziata > td { background: var(--blu-100); }
 table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 var(--blu-700); }
+
+/* ============================================================
+   CRUSCOTTO DELLA SEZIONE EVENTI
+   Una FASCIA sopra l'elenco: quattro blocchi affiancati, uno per
+   mestiere (iscrizioni, invii alle aziende, comunicazioni periodiche,
+   la giornata). Prima erano schede larghe in fila e la pagina era un
+   rotolo; poi riquadri, e restava alta. Cosi' l'elenco degli iscritti
+   comincia subito sotto.
+   ============================================================ */
+.ev-cruscotto { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 8px; margin-bottom: 12px; align-items: start; }
+.ev-bl { background: var(--bianco); border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 8px 10px; box-shadow: var(--ombra); display: flex; flex-direction: column; gap: 5px; }
+.ev-bl-tit { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--blu-700); }
+.ev-bl-tit span { font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-400); }
+.ev-bl-stato { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.ev-bl-riga { display: flex; gap: 6px; align-items: baseline; font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); }
+.ev-bl-riga b { color: var(--grigio-900); }
+.ev-bl-et { flex: 0 0 auto; min-width: 5.6em; white-space: nowrap; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grigio-400); }
+.ev-bl-az { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 1px; }
+.ev-bl-az .btn { padding: 3px 9px; font-size: 0.75rem; }
+.ev-bl .inv-card-prog { margin-top: 2px; }
+.ev-diag { display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 720px) {
+    .ev-cruscotto { grid-template-columns: 1fr; }
+    .ev-bl-et { min-width: 4.6em; }
+}
+
+/* ============================================================
+   PROGRAMMA DELLA GIORNATA
+   Due colonne, mattina e pomeriggio, e sotto ciascuna gli incontri
+   B2B della stessa fascia: chi e' sul palco alle tre non puo' essere
+   al suo tavolo alle tre, e finche' erano due schermate diverse
+   l'errore non lo vedeva nessuno.
+   ============================================================ */
+.prg-aggiungi { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 6px 9px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+.prg-aggiungi .hint { margin: 0 3px 0 0; }
+.prg-aggiungi .btn { padding: 3px 8px; font-size: 0.75rem; }
+.prg-colonne { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; align-items: start; }
+.prg-col { min-width: 0; }
+.prg-col-tit {
+    display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; margin-bottom: 5px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--blu-700);
+}
+.prg-col-tit span { font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-400); }
+.prg-voci { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco); }
+.prg-vuota { border: 1px dashed var(--grigio-200); border-radius: var(--raggio-sm); padding: 10px 12px; font-size: 0.8rem; color: var(--grigio-400); background: var(--bianco); }
+.prg-voce { display: flex; flex-direction: column; gap: 4px; padding: 7px 9px; border-bottom: 1px solid var(--grigio-100); }
+.prg-voce:last-child { border-bottom: none; }
+.prg-riga1 { display: flex; align-items: center; gap: 5px; }
+.prg-riga1 .badge { flex: none; font-size: 0.66rem; padding: 1px 6px; }
+input.prg-t { flex: none; width: 6.4em; margin: 0; padding: 2px 5px; font-size: 0.8rem; text-align: center; }
+.prg-freccia { color: var(--grigio-400); font-size: 0.78rem; flex: none; }
+input.prg-titolo { margin: 0; padding: 4px 7px; font-size: 0.85rem; font-weight: 600; color: var(--grigio-900); }
+input.prg-nota { margin: 0; padding: 3px 7px; font-size: 0.75rem; }
+.prg-elimina { margin-left: auto; flex: none; background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.75rem; padding: 2px 3px; line-height: 1; }
+.prg-elimina:hover { color: var(--rosso); }
+.prg-persone { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.prg-et { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--blu-700); flex: none; }
+.prg-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 1px 4px 1px 9px; font-size: 0.76rem; color: var(--grigio-900); max-width: 100%; }
+.prg-chip b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* il titolo con cui la persona va annunciata: si scrive li', accanto al nome */
+input.prg-tit-p { margin: 0; padding: 1px 6px; font-size: 0.7rem; color: var(--grigio-600); background: var(--bianco); border: 1px dashed var(--grigio-200); border-radius: 999px; width: 7.5em; }
+input.prg-tit-p:focus { border-style: solid; color: var(--grigio-900); }
+.prg-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.68rem; padding: 0 2px; line-height: 1; }
+.prg-togli:hover { color: var(--rosso); }
+select.prg-scegli { margin: 0; padding: 2px 6px; font-size: 0.74rem; max-width: 190px; }
+.prg-senza-ora { margin-top: 10px; }
+
+/* la panoramica degli incontri B2B, sotto ogni colonna */
+.prg-b2b { margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--grigio-050); padding: 7px 9px; }
+.prg-b2b-tit { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--blu-700); margin-bottom: 5px; }
+.prg-b2b-tit span { display: block; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.7rem; color: var(--grigio-600); }
+/* LE PRENOTAZIONI IN PARALLELO: una riga per orario, una colonna per tavolo.
+   Con molti tavoli attivi la tabella scorre di lato invece di schiacciare le
+   colonne: un nome tagliato a meta' non dice chi arriva. */
+.prg-par-scorri { overflow-x: auto; }
+table.prg-par { border-collapse: collapse; width: 100%; }
+table.prg-par th, table.prg-par td { border: 1px solid var(--grigio-200); padding: 2px 3px; vertical-align: middle; background: var(--bianco); }
+table.prg-par thead th { background: var(--grigio-050); font-size: 0.66rem; font-weight: 700; color: var(--blu-900); line-height: 1.2; text-align: left; min-width: 6.4em; }
+table.prg-par thead th span { display: block; font-weight: 400; font-size: 0.64rem; color: var(--grigio-600); }
+table.prg-par thead th span.ev-ko { color: var(--rosso); }
+th.prg-par-ora { width: 1%; white-space: nowrap; font-size: 0.72rem; font-weight: 700; color: var(--grigio-900); text-align: right; background: var(--grigio-050); }
+th.prg-par-ora span { display: block; font-weight: 400; font-size: 0.62rem; color: var(--grigio-600); }
+td.prg-par-no { text-align: center; color: var(--grigio-200); background: var(--grigio-050); }
+table.prg-par td .prg-slot { display: flex; width: 100%; max-width: none; min-width: 0; border: none; background: none; }
+.prg-lucchetto { font-size: 0.6rem; opacity: 0.55; }
+/* un tavolo attivo senza referente resta rosso anche qui: e' la stessa cosa
+   che la scheda degli incontri segnala, e due colori diversi per lo stesso
+   guaio si leggono come due guai diversi */
+.prg-b2b-nome span.ev-ko { color: var(--rosso); }
+.prg-slot {
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 3.6em; max-width: 7em; padding: 2px 4px; border-radius: var(--raggio-sm);
+    border: 1px solid var(--grigio-200); background: var(--bianco);
+    font-size: 0.68rem; line-height: 1.15; color: var(--grigio-600);
+}
+.prg-slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.66rem; font-weight: 600; color: var(--blu-700); }
+.prg-slot i { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: 0.62rem; color: var(--grigio-600); }
+.prg-slot.conflitto i { color: var(--rosso-scuro); }
+.prg-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
+.prg-slot.chiuso { border-style: dashed; color: var(--grigio-400); background: var(--grigio-100); }
+.prg-slot.occupato { border-color: var(--blu-300); background: var(--blu-050); color: var(--blu-900); }
+/* l'incompatibilita': l'orario in cui chi tiene il tavolo e' sul palco */
+.prg-slot.conflitto { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso-scuro); font-weight: 700; }
+.prg-slot.conflitto b { color: var(--rosso-scuro); }
+button.prg-slot { cursor: pointer; }
+button.prg-slot:hover:not([disabled]) { border-color: var(--blu-700); }
+.prg-slot { position: relative; }
+.prg-slot-x { position: absolute; top: -5px; right: -4px; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--grigio-200); background: var(--bianco); color: var(--grigio-400); font-size: 0.6rem; line-height: 1; cursor: pointer; padding: 0; }
+.prg-slot-x:hover { color: var(--rosso); border-color: var(--rosso); }
+
+/* le segnalazioni: l'errore grave, gli orari da chiudere, il resto */
+.prg-segn { margin-top: 8px; padding: 8px 11px; border-radius: var(--raggio-sm); font-size: 0.8rem; line-height: 1.45; }
+.prg-segn b { display: block; margin-bottom: 2px; }
+.prg-segn.errore { border: 1px solid #e7b4b0; border-left: 3px solid var(--rosso); background: var(--rosso-bg); color: var(--rosso-scuro); }
+.prg-segn.attenzione { border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fffaf3; color: var(--grigio-900); }
+.prg-segn.avviso { border: 1px solid var(--grigio-200); border-left: 3px solid var(--grigio-400); background: var(--grigio-050); color: var(--grigio-600); }
+@media (max-width: 900px) {
+    .prg-colonne { grid-template-columns: 1fr; }
+}

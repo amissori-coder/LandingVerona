@@ -1076,6 +1076,14 @@ sedersi, ognuno con la sua fascia oraria - e resta vivo per gli inviti gia
 partiti cosi ("Un orario per ogni tavolo", piu avanti): a decidere quale
 pagina vede l'ospite e il SUO invito, non la versione del programma.
 
+### Il modello dell'agenda (`lib/agenda-modello.js`)
+
+Documenti, orari e stato dei tavoli stanno in un file loro, senza posta ne
+PDF: cosi lo puo leggere anche chi ha bisogno solo di SAPERE chi ha prenotato
+- per esempio `programma-evento.js`, che prima di salvare la scaletta deve
+controllare se manda sul palco qualcuno gia atteso a un tavolo. `agenda-b2b.js`
+lo usa e ne riespone tutto, quindi per il resto del servizio non cambia niente.
+
 ### L'agenda a slot: tavoli, referenti, orari (`lib/agenda-b2b.js`)
 
 Due documenti per evento, e non uno, perche si scrivono in momenti diversi e
@@ -1083,7 +1091,7 @@ da mani diverse: chi configura non deve poter sovrascrivere una prenotazione
 presa un attimo prima.
 
 - `b2bAgenda/{evento}` - **la configurazione**, scritta dall'area riservata
-  (sezione Eventi, scheda "Incontri B2B: tavoli, referenti e orari"):
+  (sezione Eventi, finestra "La giornata", riquadro "I tavoli B2B"):
   `giornata` (`inizio`, `fine`, `durata` in minuti, `pranzoDa`/`pranzoA`) e,
   per ciascuna delle undici aree, `attiva`, `referenti` (chi tiene il tavolo),
   `chiusi` (gli orari in cui non riceve) e `nota`. Di partenza: dalle 10:00
@@ -1094,6 +1102,28 @@ presa un attimo prima.
   trovato tutto esaurito. La chiave oraria e `"1030"` e non `"10:30"`: e il
   nome di un campo dentro una mappa di Firestore, e li i due punti sono un
   carattere da evitare.
+
+**UN ORARIO PRENOTATO NON SI TOCCA** (`bloccoSuPrenotazioni`). Dall'altra
+parte di ogni prenotazione c'e un'impresa che ha in mano un foglio con
+quell'ora, quel tavolo e quel nome sopra. Quindi `agenda-salva` risponde
+**409** - e non scrive niente - quando la modifica farebbe sparire un incontro
+gia preso:
+
+- **chiudere** quell'orario;
+- **spegnere** il tavolo che lo contiene;
+- **cambiare la forma della giornata** (inizio, fine, durata, pausa) in modo
+  che quell'orario non esista piu. E' il caso piu insidioso: senza il blocco
+  la prenotazione resterebbe scritta in `b2bPrenotazioni` ma non comparirebbe
+  piu da nessuna parte, e il giorno del convegno si presenterebbe qualcuno che
+  non aspettiamo piu.
+
+Si blocca il **cambiamento**, non lo stato: un orario prenotato che era gia
+chiuso (succede assegnando un posto d'ufficio con `forzato`) resta chiuso,
+altrimenti quel tavolo non si potrebbe piu salvare nemmeno per cambiargli la
+nota. Il messaggio dice quale orario, quale tavolo, chi ci sarebbe e cosa fare
+prima. L'area riservata non fa nemmeno premere quegli orari, ma fra quando ha
+disegnato la griglia e quando qualcuno preme possono passare dieci minuti: qui
+si decide sull'ultima versione dei dati.
 
 Le regole, tutte dentro una **transazione**, perche e qui che due ospiti si
 incontrano:
@@ -1366,6 +1396,144 @@ personale appartiene a un'azienda che non ha nominato.
   in due persone - ma il salvataggio ha un tetto per SCHEDA (12 ogni 10 minuti),
   che lascia passare i ripensamenti veri e ferma l'accanimento sul pulsante, che
   sarebbe una mail dietro l'altra.
+
+## Programma della giornata (`lib/programma-evento.js`)
+
+La scaletta dell'evento: dall'apertura della registrazione alla chiusura dei
+lavori. Una VOCE per ogni momento - registrazione, saluti iniziali, saluti
+istituzionali, interventi, tavole rotonde, coffee break, pausa pranzo,
+chiusura - con la sua ora di inizio e di fine. Un documento per evento,
+`programmaEventi/{evento}`, e le richieste arrivano da `/api/presenze` con
+`sezione: 'programma'` (stessa deviazione dell'agenda B2B).
+
+- **Il tipo decide cosa la voce si porta dietro** (costante `TIPI`): una tavola
+  rotonda ha il MODERATORE e i partecipanti, i saluti istituzionali hanno chi
+  parla ma nessun moderatore, la pausa pranzo non ha ne l'uno ne gli altri. Se
+  arrivano lo stesso, si buttano: una voce che non puo' averli non li tiene.
+- **Chi sale sul palco arriva dall'elenco iscritti**: moderatore e partecipanti
+  si scelgono fra le persone iscritte a quell'evento nelle sezioni "Sponsor e
+  relatori" e "Aderenti Revilaw". Non si scrivono a mano, perche' un nome
+  scritto a mano e' un nome che nessuno ha confermato e che il giorno del
+  convegno puo' non esserci. Di ciascuno restano scritti nome, ruolo, azienda e
+  la scheda di provenienza (`doc`), cosi' la scaletta si stampa senza rileggere
+  l'elenco. Chi deve comparire senza essere iscritto (un ospite istituzionale
+  annunciato all'ultimo) si annota nella `nota` della voce, che resta libera.
+- **Le voci si mettono in fila da sole**, in ordine di orario; quella senza ora
+  va in fondo e non sparisce - e' una voce che qualcuno deve ancora collocare.
+  Un'ora di fine prima dell'inizio si perde (la voce resta): si butta l'ora
+  sbagliata, non il lavoro di chi stava scrivendo.
+- **Accanto a ogni nome c'e' il TITOLO** con cui la persona va annunciata
+  ("Avv.", "Dott.ssa", "Presidente"): e' l'unica cosa che si scrive a mano, e
+  parte dal ruolo dell'iscrizione. Non e' un dato dell'iscritto - li' c'e' il
+  ruolo in azienda - ma il modo in cui quel giorno lo si chiama dal palco.
+- **Gli avvisi non si calcolano qui.** Cosa non torna in una giornata - ore
+  mancanti, cose in contemporanea, tavole senza moderatore, e le
+  incompatibilita' con gli incontri B2B - vive in
+  `area-riservata/programma-giornata.js` (vedi sotto): si deve vedere MENTRE si
+  scrive, non dopo un salvataggio, e una copia anche qui vorrebbe dire due
+  regole che si allontanano.
+- **Non si salva sopra una prenotazione** (`conflittiConPrenotazioni`).
+  Se la scaletta manda sul palco qualcuno che in quell'ora ha gia un incontro
+  B2B **prenotato** al tavolo che tiene, `programma-salva` risponde **409** e
+  non scrive: sono due impegni presi con due persone diverse, e uno dei due
+  salterebbe il giorno del convegno. La risposta porta con se i conflitti, cosi
+  l'area riservata li dipinge di rosso al posto giusto. Un orario soltanto
+  ancora *prenotabile* non blocca niente: resta un avviso, si chiude dai
+  tavoli, e intanto la giornata si scrive.
+  Questa meta della regola vive in due posti - qui, che decide sull'ultima
+  versione dei dati, e in `programma-giornata.js`, che dipinge di rosso mentre
+  si scrive - e `prove/programma-giornata.prove.js` mette le due
+  implementazioni davanti agli stessi casi e pretende la stessa risposta: se
+  una cambia senza l'altra, la prova diventa rossa.
+- **Si salva tutta insieme** (`programma-salva`): la scaletta si compone
+  guardandola intera - spostare un intervento vuol dire spostare quello dopo - e
+  la risposta riporta la scaletta RIFATTA, non un "ok", perche' la
+  normalizzazione puo' averla rimessa in fila o aver tolto un'ora impossibile.
+  La lettura (`programma`) porta con se' anche i `TIPI`, cosi' l'area riservata
+  non ne tiene una copia che il giorno dopo non combacia.
+- **Permessi**: legge chiunque veda gli Eventi (il giorno del convegno la
+  scaletta serve a tutti quelli che stanno al desk), scrive chi manda gli inviti
+  - amministratore, equity e founding partner.
+
+Provato da `prove/programma-evento.prove.js` (`node prove/programma-evento.prove.js`).
+
+### La giornata come si legge: `area-riservata/programma-giornata.js`
+
+Funzioni pure, caricate dal browser nell'area riservata e provate da
+`prove/programma-giornata.prove.js`. Stanno fuori dal servizio perche' servono
+a ogni tasto mentre si scrive la scaletta, e fuori dall'applicazione perche'
+cosi' si possono provare da sole.
+
+- **Mattina e pomeriggio** (`confine`, `dividi`): il confine non e' mezzogiorno
+  per convenzione, e' la FINE DELLA PAUSA PRANZO - quella scritta in scaletta,
+  altrimenti quella degli incontri B2B, altrimenti le 13:00. La fine e non
+  l'inizio perche' la pausa CHIUDE la mattina, com'e' su un programma stampato.
+  Le voci senza orario non stanno ne' di qua ne' di la': restano da collocare.
+- **Cosa non torna** (`avvisi`): ore mancanti, una voce che finisce prima di
+  cominciare, due cose in contemporanea, una tavola rotonda senza moderatore.
+  Si dicono e basta: una giornata si compone a pezzi.
+- **Le INCOMPATIBILITA' con gli incontri B2B** (`conflittiB2B`): chi e' sul
+  palco non puo' essere contemporaneamente al suo tavolo. E' l'errore che
+  nessuno vedeva, perche' viveva in due schermate diverse - la scaletta e
+  l'agenda dei tavoli - e ognuna, da sola, era coerente. Due gravita':
+  **grave** quando in quell'ora c'e' gia' un'impresa che ha prenotato (sono due
+  impegni presi con due persone diverse, e uno salta), **da sistemare** quando
+  l'orario e' soltanto ancora prenotabile (basta chiuderlo dall'agenda, prima
+  che qualcuno lo prenoti). Un tavolo spento e un orario gia' chiuso non sono
+  conflitti: una segnalazione inventata farebbe perdere fiducia a tutte le
+  altre. La stessa persona si riconosce dall'INDIRIZZO EMAIL, non dal nome.
+- `oreInConflitto` da' gli orari da dipingere di rosso nella panoramica, cosi'
+  la griglia e l'elenco degli errori non possono raccontare due cose diverse.
+
+### Una finestra sola: "La giornata" (area riservata)
+
+La scaletta e i tavoli B2B erano due schermate, e l'incompatibilita' fra chi e'
+sul palco e chi tiene un tavolo non la vedeva nessuno: ognuna delle due, da
+sola, era coerente. Ora sono una finestra sola, con dentro due parti distinte:
+
+- in alto **mattina e pomeriggio**, una colonna per meta'. In ciascuna le voci
+  del programma di quella fascia e, sotto, le **prenotazioni B2B della stessa
+  fascia** come tabella: **una riga per orario, una colonna per tavolo**, perche
+  gli incontri non si fanno uno dopo l'altro - alle 14:30 si tengono tutti
+  insieme, uno per tavolo - e in fila per tavolo la cosa piu importante, che
+  alle 14:30 servono tre stanze e tre persone, non si vedeva. Accanto all'ora
+  c'e scritto quanti ne partono **in parallelo** in quel momento, e nella cella
+  c'e la prenotazione: chi arriva e da che azienda. Verde libero, blu
+  prenotato, grigio chiuso, **rosso** quando chi tiene quel tavolo in quell'ora
+  e' sul palco. Un orario libero si preme e si chiude, uno chiuso si riapre; su
+  uno **prenotato non si preme niente** - ha il lucchetto, ed e' bloccato
+  finche' la prenotazione c'e' - e si sblocca liberandola dalla crocetta, che
+  chiede conferma;
+- sotto, **"I tavoli B2B"**: gli orari della giornata (inizio, fine, durata,
+  pausa) e una riga per area con chi la tiene, la nota e i conti. E' com'e'
+  fatto un tavolo, che vale per l'intera giornata: gli orari, che invece un'ora
+  ce l'hanno, si toccano su nelle colonne;
+- in fondo le **richieste a orari esauriti**.
+
+**I due salvataggi si comportano in modo diverso, ed e' voluto**: il programma
+e' una bozza che si compone a pezzi e si salva col pulsante in fondo; i
+**tavoli valgono subito**, nell'istante in cui si tocca un orario o si cambia
+il referente, perche' intanto la' fuori qualcuno sta prenotando - un orario che
+credevamo chiuso e che non lo e' ancora e' una prenotazione di troppo. La
+finestra lo dice in cima, e la riga in fondo dice ogni volta cosa e' appena
+stato scritto. Se un salvataggio non riesce, l'agenda si **rilegge** dal
+servizio invece di restare a schermo com'era: su un'agenda che sta prendendo
+prenotazioni, quello che si vede deve essere quello che c'e' - e un rifiuto
+`motivo: "prenotato"` vuol dire proprio che e' arrivata una prenotazione
+mentre guardavamo, quindi deve comparire.
+
+**Le prenotazioni bloccano, in tutte e due le direzioni.** Il pulsante
+"Salva il programma" si ferma da solo se la scaletta manda sul palco qualcuno
+gia atteso al suo tavolo (e il riquadro rosso lo dice: *il programma non si
+salva*), e nella tabella dei tavoli la spunta "attivo" di un tavolo con
+prenotazioni e' disabilitata, con la striscia degli orari che avverte che
+cambiarli le farebbe sparire. Sono gli stessi rifiuti che fa il servizio: qui
+si evita di far premere un pulsante per poi cercare il perche'.
+
+Sopra l'elenco degli iscritti resta una **fascia** di quattro blocchi -
+iscrizioni, invii alle aziende, comunicazioni periodiche, la giornata - con il
+minimo che serve a decidere se aprire qualcosa: i numeri e le righe in rosso.
+Il resto sta dentro le finestre, che e' dove si lavora.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 

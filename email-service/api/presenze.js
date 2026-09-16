@@ -62,6 +62,10 @@ const { TEMI_B2B, areaDa } = require('../lib/temi-b2b');
    sezione: 'b2b' si deviano li'. Si carica solo quando ne arriva una. */
 function moduloAgenda() { return require('../lib/agenda-b2b'); }
 function sezioneB2B(body) { return !!(body && String(body.sezione || '') === 'b2b'); }
+/* Il programma della giornata (la scaletta): stessa storia, altro archivio.
+   Le richieste con sezione: 'programma' si deviano li'. */
+function moduloProgramma() { return require('../lib/programma-evento'); }
+function sezioneProgramma(body) { return !!(body && String(body.sezione || '') === 'programma'); }
 // la frase che racconta uno spostamento di azienda: la scrivono in due
 // (qui e in iscrizioni.js), quindi sta in un modulo solo
 const { tracciaSpostamento } = require('../lib/traccia-azienda');
@@ -393,6 +397,24 @@ module.exports = async (req, res) => {
                 db: db, body: body, email: email, collab: collab, eAdmin: eAdmin,
                 ePartner: eAdmin || await ePartner(db, ruolo),
                 segnaCambiamento: segnaCambiamento
+            });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+
+        // Programma della giornata: stessa deviazione, stessi permessi di lettura
+        // (chi vede gli Eventi) e di scrittura (chi manda gli inviti).
+        if (sezioneProgramma(body)) {
+            let PROGRAMMA;
+            try { PROGRAMMA = moduloProgramma(); }
+            catch (e) {
+                console.error('Programma della giornata non caricato:', String((e && e.message) || e).slice(0, 300));
+                res.status(500).json({ ok: false, msg: 'Programma non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
+                return;
+            }
+            const r = await PROGRAMMA.esegui({
+                db: db, body: body, email: email, collab: collab, eAdmin: eAdmin,
+                ePartner: eAdmin || await ePartner(db, ruolo)
             });
             res.status(r.stato).json(r.corpo);
             return;
