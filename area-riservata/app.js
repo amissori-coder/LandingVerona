@@ -17701,7 +17701,13 @@
     function gruppoEv(g) {
         const dentro = (g.stato || '') + (g.azioni ? '<div class="ev-bl-az">' + g.azioni + '</div>' : '');
         if (!dentro.trim()) return '';
-        return '<section class="ev-bl"' + (g.id ? ' id="' + esc(g.id) + '"' : '') + '>'
+        /* LA SPIA DEL CRUSCOTTO. Un riquadro che contiene qualcosa scritto in
+           rosso si accende: la fascia in testa diventa ambra e il bordo pure.
+           I quattro riquadri sono uguali apposta - si guardano insieme - e
+           allora quello che chiede attenzione deve distinguersi da solo,
+           senza che si debba leggerli tutti per scoprire quale. */
+        const allerta = /class="ev-ko"/.test(g.stato || '');
+        return '<section class="ev-bl' + (allerta ? ' allerta' : '') + '"' + (g.id ? ' id="' + esc(g.id) + '"' : '') + '>'
             + '<div class="ev-bl-tit">' + esc(g.titolo)
             + (g.spiega ? '<span>' + esc(g.spiega) + '</span>' : '') + '</div>'
             + (g.stato ? '<div class="ev-bl-stato">' + g.stato + '</div>' : '')
