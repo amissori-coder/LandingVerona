@@ -24,7 +24,13 @@
        schermo;
      - il titolo scritto a mano resta accanto al nome, che e'
        come la persona va annunciata dal palco;
-     - la lettura e' di chiunque veda gli Eventi, la scrittura no.
+     - la lettura e' di chiunque veda gli Eventi, la scrittura no;
+     - una scaletta che manda sul palco qualcuno che in
+       quell'ora ha gia' un incontro B2B PRENOTATO non si
+       salva: sono due impegni presi con due persone
+       diverse, e uno dei due salterebbe. Un orario solo
+       ancora prenotabile, invece, resta un avviso: si
+       chiude dai tavoli, e intanto la giornata si scrive.
    ============================================================ */
 'use strict';
 const path = require('path');
@@ -49,6 +55,24 @@ const PRG = require(path.join(RADICE, 'lib/programma-evento.js'));
 
 const EVENTO = 'napoli-2026-10-02';
 function azzera() { dati.clear(); }
+/* Un tavolo B2B tenuto da qualcuno, con gli orari che si vogliono presi.
+   Serve a far incontrare le due cose: chi sta sul palco e chi e' atteso
+   al tavolo. */
+function mettiTavolo(areaId, referenti, presi, attiva) {
+    const agenda = dati.get('b2bAgenda/' + EVENTO) || {
+        evento: EVENTO, eventoDati: { titolo: 'Napoli', quando: '2 ottobre 2026' },
+        giornata: { inizio: '10:00', fine: '18:00', pranzoDa: '13:00', pranzoA: '14:00', durata: 30 },
+        aree: {}
+    };
+    agenda.aree[areaId] = { attiva: attiva !== false, referenti: referenti, chiusi: [], nota: '' };
+    dati.set('b2bAgenda/' + EVENTO, agenda);
+    const pren = dati.get('b2bPrenotazioni/' + EVENTO) || { evento: EVENTO, aree: {}, richieste: [] };
+    pren.aree[areaId] = {};
+    Object.keys(presi || {}).forEach(ora => {
+        pren.aree[areaId][ora.replace(':', '')] = presi[ora];
+    });
+    dati.set('b2bPrenotazioni/' + EVENTO, pren);
+}
 function salvato() { return dati.get('programmaEventi/' + EVENTO); }
 async function chiama(corpo, puo) {
     return PRG.esegui({
@@ -181,6 +205,72 @@ async function prova(nome, fn) {
         const v = PRG.normalizzaVoce({ tipo: 'tavola', titolo: 'x', partecipanti: new Array(20).fill(anna) }, 0);
         esigi(v.partecipanti.length === 12, 'a un tavolo non si siedono in venti');
         esigi(PRG.normalizzaVoce({}, 3).id === 'v4', 'una voce senza identificativo ne prende uno dalla posizione');
+    });
+
+    await prova('8) Chi e\' atteso al tavolo non si manda sul palco', async () => {
+        azzera();
+        mettiTavolo('merito-creditizio', [anna], { '14:30': { doc: 'b1', nome: 'Elena Bruni', azienda: 'Beta SpA' } });
+        const r = await chiama({
+            azione: 'programma-salva',
+            voci: [{ tipo: 'tavola', titolo: 'Merito creditizio', dalle: '14:30', alle: '15:40', moderatore: luca, partecipanti: [anna] }]
+        });
+        esigi(r.stato === 409 && !r.corpo.ok, 'la scaletta non si salva');
+        esigi(/Anna Verdi/.test(r.corpo.msg) && /Elena Bruni/.test(r.corpo.msg) && /14:30/.test(r.corpo.msg),
+            'e il rifiuto dice chi e quando: ' + r.corpo.msg.slice(0, 110));
+        esigi(/sposta la voce|libera la prenotazione/.test(r.corpo.msg), 'e dice le due strade per uscirne');
+        esigi(!dati.get('programmaEventi/' + EVENTO), 'niente e stato scritto');
+        esigi(r.corpo.conflitti.length === 1 && r.corpo.conflitti[0].areaId === 'merito-creditizio'
+            && r.corpo.conflitti[0].chiavi[0] === '1430',
+            'e i conflitti viaggiano con la risposta, cosi l\'area riservata li dipinge di rosso');
+
+        // spostata fuori da quell'ora, la stessa voce si salva
+        const ok2 = await chiama({
+            azione: 'programma-salva',
+            voci: [{ tipo: 'tavola', titolo: 'Merito creditizio', dalle: '11:00', alle: '12:00', moderatore: luca, partecipanti: [anna] }]
+        });
+        esigi(ok2.stato === 200 && ok2.corpo.ok,
+            'spostata alle 11:00, dove nessuno ha prenotato, la stessa voce passa');
+        esigi(dati.get('programmaEventi/' + EVENTO).voci.length === 1, 'e adesso e scritta');
+    });
+
+    await prova('9) Si blocca solo quello che e\' gia\' prenotato', async () => {
+        azzera();
+        // stesso tavolo, stessa persona, ma nessuno ha prenotato
+        mettiTavolo('merito-creditizio', [anna], {});
+        const libero = await chiama({
+            azione: 'programma-salva',
+            voci: [{ tipo: 'tavola', titolo: 'Merito creditizio', dalle: '14:30', alle: '15:40', partecipanti: [anna] }]
+        });
+        esigi(libero.stato === 200 && libero.corpo.ok,
+            'un orario soltanto ancora prenotabile non blocca: e un avviso, e si chiude dai tavoli');
+
+        azzera();
+        // il tavolo e' spento: non aspetta nessuno
+        mettiTavolo('merito-creditizio', [anna], { '14:30': { doc: 'b1', nome: 'Elena Bruni' } }, false);
+        const spento = await chiama({
+            azione: 'programma-salva',
+            voci: [{ tipo: 'tavola', titolo: 'x', dalle: '14:30', alle: '15:40', partecipanti: [anna] }]
+        });
+        esigi(spento.stato === 200, 'un tavolo spento non toglie nessuno dal palco');
+
+        azzera();
+        // un'altra persona allo stesso tavolo: l'incompatibilita' e' di chi lo tiene
+        mettiTavolo('merito-creditizio', [anna], { '14:30': { doc: 'b1', nome: 'Elena Bruni' } });
+        const altri = await chiama({
+            azione: 'programma-salva',
+            voci: [{ tipo: 'tavola', titolo: 'x', dalle: '14:30', alle: '15:40', partecipanti: [luca] }]
+        });
+        esigi(altri.stato === 200, 'chi non tiene quel tavolo sale sul palco quando vuole');
+
+        azzera();
+        // la stessa persona riconosciuta dall'EMAIL, anche se il nome e scritto diverso
+        mettiTavolo('merito-creditizio', [{ nome: 'A. Verdi', email: 'ANNA@revilaw.it' }],
+            { '14:30': { doc: 'b1', nome: 'Elena Bruni' } });
+        const stessa = await chiama({
+            azione: 'programma-salva',
+            voci: [{ tipo: 'tavola', titolo: 'x', dalle: '14:30', alle: '15:40', partecipanti: [anna] }]
+        });
+        esigi(stessa.stato === 409, 'la stessa persona si riconosce dall\'indirizzo email, non dal nome');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

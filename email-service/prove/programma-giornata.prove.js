@@ -27,11 +27,18 @@
        visto;
      - gli avvisi della scaletta (ore mancanti, contemporanee,
        tavola senza moderatore) dicono quello che manca senza
-       impedire niente.
+       impedire niente;
+     - questa regola vive in DUE posti - qui, per dipingere di
+       rosso mentre si scrive, e nel servizio, per rifiutare un
+       salvataggio deciso sull'ultima versione dei dati - e
+       l'ultima prova le mette una davanti all'altra sugli
+       stessi casi: se una cambia senza l'altra, diventa rossa.
    ============================================================ */
 'use strict';
 const path = require('path');
 const G = require(path.join(__dirname, '..', '..', 'area-riservata', 'programma-giornata.js'));
+// la meta' della stessa regola che sta nel servizio, quella che BLOCCA
+const PRG = require(path.join(__dirname, '..', 'lib', 'programma-evento.js'));
 
 const TIPI = [
     { id: 'registrazione', nome: 'Registrazione', conRelatori: false, conModeratore: false },
@@ -168,6 +175,64 @@ prova('7) Cosa non torna nella scaletta', () => {
         'una voce senza titolo si nomina con il suo tipo');
     esigi(G.nomePersona({ nome: 'Mario Rossi', titolo: 'Avv.' }) === 'Avv. Mario Rossi',
         'il titolo scritto a mano sta davanti al nome');
+});
+
+prova('8) La regola del browser e quella del servizio dicono la stessa cosa', () => {
+    /* La regola vive in due posti, e deve: il browser la usa a ogni tasto
+       per dipingere di rosso, il servizio la usa al salvataggio per
+       rifiutare - e il servizio deve decidere sull'ultima versione dei
+       dati, non su quella che aveva in mano chi guardava.
+       Due copie che si allontanano sarebbero il peggio dei due mondi: uno
+       schermo rosso che si salva, o uno schermo pulito che viene
+       respinto. Qui si mettono le stesse carte davanti a tutte e due e si
+       pretende la stessa risposta. */
+    const casi = [
+        {
+            nome: 'un orario prenotato sotto il palco',
+            voci: [{ tipo: 'tavola', titolo: 'Tavola', dalle: '14:30', alle: '15:40', moderatore: anna, partecipanti: [luca] }],
+            aree: [tavolo({ slot: [['14:00', '14:30', 'libero'], ['14:30', '15:00', 'occupato', 'Elena Bruni', 'Beta SpA'], ['15:00', '15:30', 'libero']] })]
+        },
+        {
+            nome: 'nessuna prenotazione, solo orari liberi',
+            voci: [{ tipo: 'tavola', titolo: 'Tavola', dalle: '14:30', alle: '15:40', partecipanti: [anna] }],
+            aree: [tavolo({ slot: [['14:30', '15:00', 'libero'], ['15:00', '15:30', 'chiuso']] })]
+        },
+        {
+            nome: 'il tavolo e spento',
+            voci: [{ tipo: 'tavola', titolo: 'Tavola', dalle: '14:30', alle: '15:40', partecipanti: [anna] }],
+            aree: [tavolo({ attiva: false, slot: [['14:30', '15:00', 'occupato', 'Elena Bruni']] })]
+        },
+        {
+            nome: 'il nome scritto in un altro modo',
+            voci: [{ tipo: 'tavola', titolo: 'Tavola', dalle: '14:30', alle: '15:40', partecipanti: [annaScrittaMale] }],
+            aree: [tavolo({ slot: [['14:30', '15:00', 'occupato', 'Elena Bruni']] })]
+        },
+        {
+            nome: 'due tavoli, due prenotazioni',
+            voci: [{ tipo: 'tavola', titolo: 'Tavola', dalle: '14:00', alle: '16:00', moderatore: anna, partecipanti: [luca] }],
+            aree: [
+                tavolo({ slot: [['14:30', '15:00', 'occupato', 'Elena Bruni']] }),
+                tavolo({ id: 'esg', nome: 'ESG', referenti: [luca], slot: [['15:00', '15:30', 'occupato', 'Ugo Neri']] })
+            ]
+        },
+        {
+            nome: 'una voce senza ora non impegna nessuno',
+            voci: [{ tipo: 'tavola', titolo: 'Tavola', partecipanti: [anna] }],
+            aree: [tavolo({ slot: [['14:30', '15:00', 'occupato', 'Elena Bruni']] })]
+        },
+        {
+            nome: 'il palco finisce quando il tavolo comincia',
+            voci: [{ tipo: 'tavola', titolo: 'Tavola', dalle: '13:30', alle: '14:30', partecipanti: [anna] }],
+            aree: [tavolo({ slot: [['14:30', '15:00', 'occupato', 'Elena Bruni']] })]
+        }
+    ];
+    const impronta = lista => lista.map(c => c.areaId + '|' + (c.chiavi || []).join(',')).sort().join(' ; ');
+    casi.forEach(caso => {
+        const browser = G.conflittiB2B(caso.voci, caso.aree, TIPI).filter(c => c.grave);
+        const servizio = PRG.conflittiConPrenotazioni(caso.voci, caso.aree);
+        esigi(impronta(browser) === impronta(servizio),
+            caso.nome + ': stessa risposta (' + (impronta(servizio) || 'nessun blocco') + ')');
+    });
 });
 
 console.log('\n' + ok + ' ok, ' + ko + ' KO');

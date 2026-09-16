@@ -172,6 +172,109 @@ async function leggiProgramma(db, evento) {
 ========================================================= */
 function gestisce(body) { return !!(body && String(body.sezione || '') === 'programma'); }
 
+/* =========================================================
+   LE INCOMPATIBILITA' CON GLI INCONTRI GIA' PRENOTATI
+   ---------------------------------------------------------
+   Chi tiene un tavolo B2B non puo' essere sul palco nella stessa ora. Se
+   in quell'ora c'e' soltanto un orario ancora libero e' una cosa da
+   sistemare, e l'area riservata la dice in giallo; se invece c'e' gia'
+   una PRENOTAZIONE, sono due impegni presi con due persone diverse e uno
+   dei due saltera' il giorno del convegno. Quello non si salva: si
+   respinge, e si dice quale.
+
+   Perche' anche qui e non solo nel browser: la scaletta la si scrive per
+   mezz'ora di fila, e in mezz'ora un'impresa prenota. Chi salva avrebbe
+   in mano una giornata che era coerente quando l'ha aperta e non lo e'
+   piu' quando preme. Qui si decide sull'ultima versione dei dati.
+
+   La regola completa - con anche gli avvisi in giallo - sta in
+   `area-riservata/programma-giornata.js`, che e' quella che disegna il
+   rosso mentre si scrive. Qui c'e' solo la meta' che BLOCCA, e
+   `prove/programma-giornata.prove.js` verifica che le due dicano la
+   stessa cosa sugli stessi dati: e' la ragione per cui possono vivere in
+   due file senza allontanarsi.
+========================================================= */
+function chiavePersona(p) {
+    if (!p) return '';
+    const mail = String(p.email || '').trim().toLowerCase();
+    if (mail) return 'm:' + mail;
+    const nome = String(p.nome || '').trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+    return nome ? 'n:' + nome : '';
+}
+function personeDiVoce(v) {
+    const fuori = [];
+    if (v && v.moderatore && v.moderatore.nome) fuori.push({ persona: v.moderatore, ruolo: 'moderatore' });
+    ((v && v.partecipanti) || []).forEach(p => { if (p && p.nome) fuori.push({ persona: p, ruolo: 'partecipante' }); });
+    return fuori;
+}
+function nomePersona(p) {
+    const n = String((p && p.nome) || '').trim();
+    const t = String((p && p.titolo) || '').trim();
+    return t ? t + ' ' + n : n;
+}
+/* `aree` sono i tavoli come li compone l'agenda: {id, nome, attiva,
+   referenti, slot[{ora, fine, chiave, stato, chi}]}. Si guardano solo i
+   tavoli ATTIVI e solo gli slot OCCUPATI: un tavolo spento non aspetta
+   nessuno, e un orario libero non e' un impegno con nessuno. */
+function conflittiConPrenotazioni(voci, aree) {
+    const fuori = [];
+    (voci || []).forEach(v => {
+        const da = minutiOra(v && v.dalle), a = minutiOra(v && v.alle);
+        if (da < 0 || a <= da) return;
+        personeDiVoce(v).forEach(chi => {
+            const k = chiavePersona(chi.persona);
+            if (!k) return;
+            (aree || []).forEach(area => {
+                if (!area || area.attiva === false) return;
+                if (!(area.referenti || []).some(r => chiavePersona(r) === k)) return;
+                const presi = (area.slot || []).filter(s => {
+                    if (!s || s.stato !== 'occupato') return false;
+                    const sda = minutiOra(s.ora);
+                    if (sda < 0) return false;
+                    const sa = minutiOra(s.fine);
+                    return da < (sa > sda ? sa : sda + 1) && sda < a;
+                });
+                if (!presi.length) return;
+                const t = tipoDa(v.tipo);
+                fuori.push({
+                    chi: nomePersona(chi.persona), chiave: k, ruolo: chi.ruolo,
+                    areaId: area.id, area: area.nome || area.id,
+                    voce: testo(v.titolo, 200) || (t ? t.nome : 'voce senza titolo'),
+                    dalle: v.dalle, alle: v.alle,
+                    chiavi: presi.map(s => s.chiave || String(s.ora).replace(':', '')),
+                    ore: presi.map(s => s.ora),
+                    ospiti: presi.map(s => {
+                        const p = s.chi || {};
+                        return s.ora + ' ' + (p.nome || 'prenotato') + (p.azienda ? ' (' + p.azienda + ')' : '');
+                    })
+                });
+            });
+        });
+    });
+    return fuori;
+}
+function frasePerRifiuto(conflitti) {
+    const righe = conflitti.slice(0, 4).map(c => c.chi
+        + (c.ruolo === 'moderatore' ? ' modera' : ' partecipa a')
+        + ' "' + c.voce + '" dalle ' + c.dalle + ' alle ' + c.alle
+        + ', ma al tavolo ' + c.area + ' ha ' + c.ospiti.join('; '));
+    return 'Non posso salvare: ' + righe.join('. ')
+        + (conflitti.length > 4 ? '. E altre ' + (conflitti.length - 4) + ' incompatibilita' : '')
+        + '. Sono due impegni presi con due persone diverse, e uno dei due salterebbe: '
+        + 'sposta la voce del programma, oppure libera la prenotazione dai tavoli B2B, e risalva.';
+}
+/* Si legge dal MODELLO dell'agenda (lib/agenda-modello.js) e non da
+   agenda-b2b.js: qui serve solo sapere chi ha prenotato, e il modulo
+   grande si tira dietro la posta e il PDF, che a una scaletta che si
+   salva non servono. */
+const AGENDA = require('./agenda-modello');
+async function areeConPrenotazioni(db, evento) {
+    const agenda = await AGENDA.leggiAgenda(db, evento);
+    const pren = await AGENDA.leggiPrenotazioni(db, evento);
+    return AGENDA.areeComposte(agenda, pren);
+}
+
 async function esegui(ctx) {
     const db = ctx.db;
     const body = ctx.body || {};
@@ -209,6 +312,17 @@ async function esegui(ctx) {
         const corrente = await leggiProgramma(db, evento);
         const ev = (body.eventoDati && typeof body.eventoDati === 'object') ? body.eventoDati : corrente.eventoDati;
         const p = normalizzaProgramma({ evento: evento, eventoDati: ev, voci: body.voci }, evento);
+        /* Prima di scrivere: se la scaletta manda sul palco qualcuno che in
+           quell'ora ha gia' un incontro PRENOTATO, non si salva (vedi
+           conflittiConPrenotazioni). */
+        const aree = await areeConPrenotazioni(db, evento);
+        const scontri = conflittiConPrenotazioni(p.voci, aree);
+        if (scontri.length) {
+            return {
+                stato: 409,
+                corpo: { ok: false, motivo: 'prenotato', msg: frasePerRifiuto(scontri), conflitti: scontri }
+            };
+        }
         p.aggiornato = { quando: Date.now(), da: String(ctx.email || ''), collab: String(ctx.collab || '') };
         await rifProgramma(db, evento).set(p);
         /* Si risponde con la scaletta rifatta e non con un "ok": la
@@ -228,5 +342,6 @@ module.exports = {
     oraValida, minutiOra, ordina,
     normalizzaVoce, normalizzaProgramma,
     idEvento, rifProgramma, leggiProgramma,
+    conflittiConPrenotazioni, areeConPrenotazioni, frasePerRifiuto,
     gestisce, esegui
 };

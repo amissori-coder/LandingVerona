@@ -1076,6 +1076,14 @@ sedersi, ognuno con la sua fascia oraria - e resta vivo per gli inviti gia
 partiti cosi ("Un orario per ogni tavolo", piu avanti): a decidere quale
 pagina vede l'ospite e il SUO invito, non la versione del programma.
 
+### Il modello dell'agenda (`lib/agenda-modello.js`)
+
+Documenti, orari e stato dei tavoli stanno in un file loro, senza posta ne
+PDF: cosi lo puo leggere anche chi ha bisogno solo di SAPERE chi ha prenotato
+- per esempio `programma-evento.js`, che prima di salvare la scaletta deve
+controllare se manda sul palco qualcuno gia atteso a un tavolo. `agenda-b2b.js`
+lo usa e ne riespone tutto, quindi per il resto del servizio non cambia niente.
+
 ### L'agenda a slot: tavoli, referenti, orari (`lib/agenda-b2b.js`)
 
 Due documenti per evento, e non uno, perche si scrivono in momenti diversi e
@@ -1094,6 +1102,28 @@ presa un attimo prima.
   trovato tutto esaurito. La chiave oraria e `"1030"` e non `"10:30"`: e il
   nome di un campo dentro una mappa di Firestore, e li i due punti sono un
   carattere da evitare.
+
+**UN ORARIO PRENOTATO NON SI TOCCA** (`bloccoSuPrenotazioni`). Dall'altra
+parte di ogni prenotazione c'e un'impresa che ha in mano un foglio con
+quell'ora, quel tavolo e quel nome sopra. Quindi `agenda-salva` risponde
+**409** - e non scrive niente - quando la modifica farebbe sparire un incontro
+gia preso:
+
+- **chiudere** quell'orario;
+- **spegnere** il tavolo che lo contiene;
+- **cambiare la forma della giornata** (inizio, fine, durata, pausa) in modo
+  che quell'orario non esista piu. E' il caso piu insidioso: senza il blocco
+  la prenotazione resterebbe scritta in `b2bPrenotazioni` ma non comparirebbe
+  piu da nessuna parte, e il giorno del convegno si presenterebbe qualcuno che
+  non aspettiamo piu.
+
+Si blocca il **cambiamento**, non lo stato: un orario prenotato che era gia
+chiuso (succede assegnando un posto d'ufficio con `forzato`) resta chiuso,
+altrimenti quel tavolo non si potrebbe piu salvare nemmeno per cambiargli la
+nota. Il messaggio dice quale orario, quale tavolo, chi ci sarebbe e cosa fare
+prima. L'area riservata non fa nemmeno premere quegli orari, ma fra quando ha
+disegnato la griglia e quando qualcuno preme possono passare dieci minuti: qui
+si decide sull'ultima versione dei dati.
 
 Le regole, tutte dentro una **transazione**, perche e qui che due ospiti si
 incontrano:
@@ -1402,6 +1432,19 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   `area-riservata/programma-giornata.js` (vedi sotto): si deve vedere MENTRE si
   scrive, non dopo un salvataggio, e una copia anche qui vorrebbe dire due
   regole che si allontanano.
+- **Non si salva sopra una prenotazione** (`conflittiConPrenotazioni`).
+  Se la scaletta manda sul palco qualcuno che in quell'ora ha gia un incontro
+  B2B **prenotato** al tavolo che tiene, `programma-salva` risponde **409** e
+  non scrive: sono due impegni presi con due persone diverse, e uno dei due
+  salterebbe il giorno del convegno. La risposta porta con se i conflitti, cosi
+  l'area riservata li dipinge di rosso al posto giusto. Un orario soltanto
+  ancora *prenotabile* non blocca niente: resta un avviso, si chiude dai
+  tavoli, e intanto la giornata si scrive.
+  Questa meta della regola vive in due posti - qui, che decide sull'ultima
+  versione dei dati, e in `programma-giornata.js`, che dipinge di rosso mentre
+  si scrive - e `prove/programma-giornata.prove.js` mette le due
+  implementazioni davanti agli stessi casi e pretende la stessa risposta: se
+  una cambia senza l'altra, la prova diventa rossa.
 - **Si salva tutta insieme** (`programma-salva`): la scaletta si compone
   guardandola intera - spostare un intervento vuol dire spostare quello dopo - e
   la risposta riporta la scaletta RIFATTA, non un "ok", perche' la
@@ -1449,11 +1492,17 @@ sul palco e chi tiene un tavolo non la vedeva nessuno: ognuna delle due, da
 sola, era coerente. Ora sono una finestra sola, con dentro due parti distinte:
 
 - in alto **mattina e pomeriggio**, una colonna per meta'. In ciascuna le voci
-  del programma di quella fascia e, sotto, gli **orari B2B della stessa fascia**
-  come quadratini: verde libero, blu prenotato, grigio chiuso, **rosso** quando
-  chi tiene quel tavolo in quell'ora e' sul palco. Un orario libero si preme e
-  si chiude, uno chiuso si preme e si riapre; su uno gia' prenotato non si
-  preme - c'e' un'impresa dall'altra parte - e si libera dalla crocetta, che
+  del programma di quella fascia e, sotto, le **prenotazioni B2B della stessa
+  fascia** come tabella: **una riga per orario, una colonna per tavolo**, perche
+  gli incontri non si fanno uno dopo l'altro - alle 14:30 si tengono tutti
+  insieme, uno per tavolo - e in fila per tavolo la cosa piu importante, che
+  alle 14:30 servono tre stanze e tre persone, non si vedeva. Accanto all'ora
+  c'e scritto quanti ne partono **in parallelo** in quel momento, e nella cella
+  c'e la prenotazione: chi arriva e da che azienda. Verde libero, blu
+  prenotato, grigio chiuso, **rosso** quando chi tiene quel tavolo in quell'ora
+  e' sul palco. Un orario libero si preme e si chiude, uno chiuso si riapre; su
+  uno **prenotato non si preme niente** - ha il lucchetto, ed e' bloccato
+  finche' la prenotazione c'e' - e si sblocca liberandola dalla crocetta, che
   chiede conferma;
 - sotto, **"I tavoli B2B"**: gli orari della giornata (inizio, fine, durata,
   pausa) e una riga per area con chi la tiene, la nota e i conti. E' com'e'
@@ -1467,9 +1516,19 @@ e' una bozza che si compone a pezzi e si salva col pulsante in fondo; i
 il referente, perche' intanto la' fuori qualcuno sta prenotando - un orario che
 credevamo chiuso e che non lo e' ancora e' una prenotazione di troppo. La
 finestra lo dice in cima, e la riga in fondo dice ogni volta cosa e' appena
-stato scritto. Se un salvataggio dei tavoli non riesce, l'agenda si **rilegge**
-dal servizio invece di restare a schermo com'era: su un'agenda che sta
-prendendo prenotazioni, quello che si vede deve essere quello che c'e'.
+stato scritto. Se un salvataggio non riesce, l'agenda si **rilegge** dal
+servizio invece di restare a schermo com'era: su un'agenda che sta prendendo
+prenotazioni, quello che si vede deve essere quello che c'e' - e un rifiuto
+`motivo: "prenotato"` vuol dire proprio che e' arrivata una prenotazione
+mentre guardavamo, quindi deve comparire.
+
+**Le prenotazioni bloccano, in tutte e due le direzioni.** Il pulsante
+"Salva il programma" si ferma da solo se la scaletta manda sul palco qualcuno
+gia atteso al suo tavolo (e il riquadro rosso lo dice: *il programma non si
+salva*), e nella tabella dei tavoli la spunta "attivo" di un tavolo con
+prenotazioni e' disabilitata, con la striscia degli orari che avverte che
+cambiarli le farebbe sparire. Sono gli stessi rifiuti che fa il servizio: qui
+si evita di far premere un pulsante per poi cercare il perche'.
 
 Sopra l'elenco degli iscritti resta una **fascia** di quattro blocchi -
 iscrizioni, invii alle aziende, comunicazioni periodiche, la giornata - con il

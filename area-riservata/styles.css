@@ -1523,6 +1523,9 @@ label.ag-riga-nome { display: flex; align-items: center; gap: 6px; margin: 0; fl
 label.ag-riga-nome input { width: auto; margin: 0; flex: none; }
 label.ag-riga-nome span { min-width: 0; }
 .ag-riga:not(.attiva) label.ag-riga-nome { color: var(--grigio-600); font-weight: 400; }
+.ag-riga.bloccata label.ag-riga-nome { cursor: help; }
+.ag-riga.bloccata input[type="checkbox"] { cursor: not-allowed; }
+.ag-avviso { flex: 1 1 100%; font-size: 0.72rem; color: var(--rosso-scuro); background: var(--rosso-bg); border: 1px solid var(--rosso); border-radius: var(--raggio-sm); padding: 3px 7px; }
 .ag-riga-ref { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; min-width: 0; }
 .ag-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 1px 4px 1px 9px; font-size: 0.75rem; font-weight: 600; color: var(--grigio-900); }
 .ag-chip-ruolo { font-weight: 400; color: var(--grigio-600); font-size: 0.7rem; }
@@ -3448,22 +3451,34 @@ select.prg-scegli { margin: 0; padding: 2px 6px; font-size: 0.74rem; max-width: 
 /* la panoramica degli incontri B2B, sotto ogni colonna */
 .prg-b2b { margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--grigio-050); padding: 7px 9px; }
 .prg-b2b-tit { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--blu-700); margin-bottom: 5px; }
-.prg-b2b-riga { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; border-top: 1px solid var(--grigio-200); }
-.prg-b2b-riga:first-of-type { border-top: none; }
-.prg-b2b-nome { flex: 0 0 34%; min-width: 0; font-size: 0.76rem; font-weight: 600; color: var(--grigio-900); line-height: 1.25; }
-.prg-b2b-nome span { display: block; font-weight: 400; font-size: 0.7rem; color: var(--grigio-600); overflow: hidden; text-overflow: ellipsis; }
+.prg-b2b-tit span { display: block; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.7rem; color: var(--grigio-600); }
+/* LE PRENOTAZIONI IN PARALLELO: una riga per orario, una colonna per tavolo.
+   Con molti tavoli attivi la tabella scorre di lato invece di schiacciare le
+   colonne: un nome tagliato a meta' non dice chi arriva. */
+.prg-par-scorri { overflow-x: auto; }
+table.prg-par { border-collapse: collapse; width: 100%; }
+table.prg-par th, table.prg-par td { border: 1px solid var(--grigio-200); padding: 2px 3px; vertical-align: middle; background: var(--bianco); }
+table.prg-par thead th { background: var(--grigio-050); font-size: 0.66rem; font-weight: 700; color: var(--blu-900); line-height: 1.2; text-align: left; min-width: 6.4em; }
+table.prg-par thead th span { display: block; font-weight: 400; font-size: 0.64rem; color: var(--grigio-600); }
+table.prg-par thead th span.ev-ko { color: var(--rosso); }
+th.prg-par-ora { width: 1%; white-space: nowrap; font-size: 0.72rem; font-weight: 700; color: var(--grigio-900); text-align: right; background: var(--grigio-050); }
+th.prg-par-ora span { display: block; font-weight: 400; font-size: 0.62rem; color: var(--grigio-600); }
+td.prg-par-no { text-align: center; color: var(--grigio-200); background: var(--grigio-050); }
+table.prg-par td .prg-slot { display: flex; width: 100%; max-width: none; min-width: 0; border: none; background: none; }
+.prg-lucchetto { font-size: 0.6rem; opacity: 0.55; }
 /* un tavolo attivo senza referente resta rosso anche qui: e' la stessa cosa
    che la scheda degli incontri segnala, e due colori diversi per lo stesso
    guaio si leggono come due guai diversi */
 .prg-b2b-nome span.ev-ko { color: var(--rosso); }
-.prg-slot-fila { display: flex; flex-wrap: wrap; gap: 3px; flex: 1 1 auto; min-width: 0; }
 .prg-slot {
     display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
     min-width: 3.6em; max-width: 7em; padding: 2px 4px; border-radius: var(--raggio-sm);
     border: 1px solid var(--grigio-200); background: var(--bianco);
     font-size: 0.68rem; line-height: 1.15; color: var(--grigio-600);
 }
-.prg-slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.62rem; font-weight: 600; color: var(--blu-700); }
+.prg-slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.66rem; font-weight: 600; color: var(--blu-700); }
+.prg-slot i { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: 0.62rem; color: var(--grigio-600); }
+.prg-slot.conflitto i { color: var(--rosso-scuro); }
 .prg-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
 .prg-slot.chiuso { border-style: dashed; color: var(--grigio-400); background: var(--grigio-100); }
 .prg-slot.occupato { border-color: var(--blu-300); background: var(--blu-050); color: var(--blu-900); }
