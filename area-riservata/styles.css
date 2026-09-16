@@ -3432,9 +3432,15 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
    al suo tavolo alle tre, e finche' erano due schermate diverse
    l'errore non lo vedeva nessuno.
    ============================================================ */
-.prg-aggiungi { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 6px 9px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
-.prg-aggiungi .hint { margin: 0 3px 0 0; }
-.prg-aggiungi .btn { padding: 3px 8px; font-size: 0.75rem; }
+.prg-aggiungi { padding: 7px 10px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+.prg-aggiungi-tit { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.7px; text-transform: uppercase; color: var(--blu-700); margin-bottom: 5px; }
+.prg-aggiungi-bottoni { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.prg-aggiungi .hint { margin: 5px 0 0; max-width: none; }
+.prg-aggiungi .btn { padding: 3px 9px; font-size: 0.75rem; }
+/* LA VOCE APPENA AGGIUNTA. Si accende finche' non la si tocca: premere un
+   pulsante e non vedere muoversi niente sembra un pulsante che non funziona. */
+.prg-voce.nuova { background: var(--ambra-bg); box-shadow: inset 3px 0 0 var(--ambra); }
+.prg-nuova-et { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ambra); }
 .prg-colonne { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; align-items: start; }
 .prg-col { min-width: 0; }
 .prg-col-tit {
@@ -3491,6 +3497,8 @@ table.prg-par td .prg-slot { display: flex; width: 100%; max-width: none; min-wi
     font-size: 0.68rem; line-height: 1.15; color: var(--grigio-600);
 }
 .prg-slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.66rem; font-weight: 600; color: var(--blu-700); }
+/* "non disponibile" su due righe: la seconda dice PERCHE' */
+.prg-slot-sotto { display: block; font-size: 0.62rem; font-weight: 400; opacity: 0.85; }
 .prg-slot i { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: 0.62rem; color: var(--grigio-600); }
 .prg-slot.conflitto i { color: var(--rosso-scuro); }
 .prg-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }

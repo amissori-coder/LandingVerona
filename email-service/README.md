@@ -1426,6 +1426,13 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   ("Avv.", "Dott.ssa", "Presidente"): e' l'unica cosa che si scrive a mano, e
   parte dal ruolo dell'iscrizione. Non e' un dato dell'iscritto - li' c'e' il
   ruolo in azienda - ma il modo in cui quel giorno lo si chiama dal palco.
+- **Aggiungere una fase si vede.** I pulsanti dicono cosa succede prima di
+  premerli (dove nasce la voce e che le voci si mettono in fila da sole), e
+  dopo la pressione la voce nuova si accende, si porta a schermo e prende il
+  fuoco sul titolo, mentre la riga in fondo dice a che ora e' finita e in
+  quale meta' della giornata. Prima si premeva un pulsante e non si vedeva
+  muoversi niente: la voce compariva piu' in basso, nella colonna della sua
+  ora. L'accensione si spegne appena si scrive dentro.
 - **Gli avvisi non si calcolano qui.** Cosa non torna in una giornata - ore
   mancanti, cose in contemporanea, tavole senza moderatore, e le
   incompatibilita' con gli incontri B2B - vive in
@@ -1500,7 +1507,10 @@ sola, era coerente. Ora sono una finestra sola, con dentro due parti distinte:
   c'e scritto quanti ne partono **in parallelo** in quel momento, e nella cella
   c'e la prenotazione: chi arriva e da che azienda. Verde libero, blu
   prenotato, grigio chiuso, **rosso** quando chi tiene quel tavolo in quell'ora
-  e' sul palco. Un orario libero si preme e si chiude, uno chiuso si riapre; su
+  e' sul palco - e li' il quadratino non dice piu "libero" ma **"non
+  disponibile / sul palco"**: rosso e "libero" insieme si leggevano come due
+  cose che si contraddicono. Prenotabile lo e' ancora, ed e' proprio per
+  questo che va chiuso. Un orario libero si preme e si chiude, uno chiuso si riapre; su
   uno **prenotato non si preme niente** - ha il lucchetto, ed e' bloccato
   finche' la prenotazione c'e' - e si sblocca liberandola dalla crocetta, che
   chiede conferma;
