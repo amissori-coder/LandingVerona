@@ -18228,6 +18228,14 @@
             disegnaGiornata(ev);
         }, true);
     }
+    // l'identificativo della voce appena aggiunta: serve solo a farla vedere
+    let _prgNuova = '';
+    // il confine fra mattina e pomeriggio, com'e' adesso
+    function confinePrg(ev) {
+        const G = giornataLib();
+        const a = agendaDi(ev);
+        return G ? G.confine(_prgVoci || [], (a && a.giornata) || {}) : 13 * 60;
+    }
     function minutiPrg(v) {
         const G = giornataLib();
         const m = G ? G.minutiOra(v) : -1;
@@ -18270,11 +18278,27 @@
         collegaGiornata(ev, box, puo);
     }
     // i pulsanti che aggiungono una voce alla scaletta
+    /* LA BARRA PER AGGIUNGERE. Prima diceva solo "Aggiungi al programma:" e
+       una fila di pulsanti: si premeva, e la voce nuova compariva da qualche
+       parte piu' in basso, nella colonna della sua ora. Chi premeva non
+       capiva se fosse successo qualcosa.
+       Adesso la barra dice PRIMA cosa succede (dove nasce e che le voci si
+       mettono in fila da sole), e dopo la pressione la voce nuova si
+       illumina, si porta a schermo e prende il fuoco sul titolo: si vede
+       dov'e' andata e si puo' scrivere subito. */
     function barraVociHtml(puo) {
         if (!puo) return '';
-        return '<div class="prg-aggiungi"><span class="hint">Aggiungi al programma:</span>'
+        const ultima = (_prgVoci || []).filter(v => v.dalle && v.alle).slice(-1)[0];
+        return '<div class="prg-aggiungi">'
+            + '<div class="prg-aggiungi-tit">Aggiungi una fase alla giornata</div>'
+            + '<div class="prg-aggiungi-bottoni">'
             + tipiProgramma().map(t => '<button type="button" class="btn btn-sm btn-ghost prg-piu" data-tipo="' + esc(t.id) + '">'
-                + esc(t.nome) + '</button>').join('')
+                + '+ ' + esc(t.nome) + '</button>').join('')
+            + '</div>'
+            + '<div class="hint">' + (ultima
+                ? 'Nasce <b>dopo l\'ultima</b>, cioè alle <b>' + esc(ultima.alle) + '</b>, con la stessa durata: poi correggi ora e titolo. '
+                : 'La prima nasce <b>senza orario</b> e resta in fondo finché non gliene dai uno. ')
+            + 'Le voci <b>si mettono in fila da sole</b> per orario, e vanno in mattina o pomeriggio secondo l\'ora che hanno.</div>'
             + '</div>';
     }
     /* UNA COLONNA: le voci di quella meta' della giornata e, sotto, i tavoli
@@ -18350,13 +18374,22 @@
                         + '</span></td>';
                 }
                 const chiuso = s.stato === 'chiuso';
-                const spiega = (chiuso ? 'Chiuso' : 'Libero') + ', nessuna prenotazione'
-                    + (puo ? (chiuso ? ': premi per riaprirlo' : ': premi per chiuderlo') : '')
-                    + (rosso ? ' - da chiudere: il referente in quest\'ora è sul palco' : '');
+                /* ROSSO E "LIBERO" insieme non si capivano: il quadratino diceva
+                   "libero" mentre il rosso voleva dire il contrario. Quando chi
+                   tiene il tavolo in quell'ora e' sul palco, l'orario si legge
+                   per quello che e': NON DISPONIBILE. Prenotabile lo e' ancora,
+                   ed e' proprio per questo che va chiuso. */
+                const etichetta = (rosso && !chiuso) ? 'non disponibile<span class="prg-slot-sotto">sul palco</span>'
+                    : (chiuso ? 'chiuso' : 'libero');
+                const spiega = (rosso && !chiuso)
+                    ? 'Non disponibile: chi tiene questo tavolo in quest\'ora è sul palco'
+                    + (puo ? '. È ancora prenotabile: premi per chiuderlo, prima che qualcuno lo prenoti' : '')
+                    : (chiuso ? 'Chiuso' : 'Libero') + ', nessuna prenotazione'
+                    + (puo ? (chiuso ? ': premi per riaprirlo' : ': premi per chiuderlo') : '');
                 return '<td><button type="button" class="prg-slot ' + s.stato + (rosso ? ' conflitto' : '') + '"'
                     + ' title="' + esc(spiega) + '"'
                     + (puo ? ' data-chiudi="' + esc(area.id) + '" data-ora="' + esc(s.chiave) + '"' : ' disabled')
-                    + '>' + (chiuso ? 'chiuso' : 'libero') + '</button></td>';
+                    + '>' + etichetta + '</button></td>';
             }).join('');
             return '<tr><th class="prg-par-ora">' + esc(o.ora)
                 + (presi ? '<span><b>' + presi + '</b> in parallelo</span>' : '') + '</th>'
@@ -18486,11 +18519,15 @@
                     + '</div>';
             }
             const chiuso = s.stato === 'chiuso';
+            // stessa cosa qui: rosso e "libero" insieme non si leggevano
+            const etichetta = (rosso && !chiuso) ? 'non disponibile<br>sul palco' : (chiuso ? 'chiuso' : 'libero');
+            const spiega = (rosso && !chiuso)
+                ? 'Non disponibile: chi tiene questo tavolo in quest\'ora è sul palco. È ancora prenotabile: premi per chiuderlo'
+                : (chiuso ? 'Chiuso: premi per riaprirlo' : 'Libero: premi per chiuderlo');
             return '<button type="button" class="ag-slot ' + (chiuso ? 'chiuso' : 'libero') + (rosso ? ' conflitto' : '') + '"'
                 + (puo ? ' data-chiudi="' + esc(x.id) + '" data-ora="' + esc(s.chiave) + '"' : ' disabled')
-                + ' title="' + esc((chiuso ? 'Chiuso: premi per riaprirlo' : 'Libero: premi per chiuderlo')
-                    + (rosso ? ' - da chiudere: il referente in quest\'ora è sul palco' : '')) + '">'
-                + '<b>' + esc(s.ora) + '</b><span class="ag-slot-et">' + (chiuso ? 'chiuso' : 'libero') + '</span></button>';
+                + ' title="' + esc(spiega) + '">'
+                + '<b>' + esc(s.ora) + '</b><span class="ag-slot-et">' + etichetta + '</span></button>';
         }).join('') + '</div>';
         const comandi = puo
             ? '<div class="ag-fila ag-comandi">'
@@ -18604,7 +18641,9 @@
                 + (puo ? scegliHtml(ev, i, 'partecipante', 'aggiungi...') : '')
                 + '</div>');
         }
-        return '<div class="prg-voce">'
+        const nuova = _prgNuova && v.id === _prgNuova;
+        return '<div class="prg-voce' + (nuova ? ' nuova' : '') + '">'
+            + (nuova ? '<div class="prg-nuova-et">appena aggiunta &mdash; scrivi il titolo e correggi le ore</div>' : '')
             + '<div class="prg-riga1">' + ora('dalle') + '<span class="prg-freccia">&rarr;</span>' + ora('alle')
             + '<span class="badge ' + badgeTipo(t.id) + '">' + esc(t.nome) + '</span>'
             + (puo ? '<button type="button" class="prg-elimina" data-voce="' + i + '" title="Togli questa voce">&#10005;</button>' : '')
@@ -18654,13 +18693,26 @@
             const dalle = ultima ? ultima.alle : '';
             const durata = ultima ? Math.max(5, minutiPrg(ultima.alle) - minutiPrg(ultima.dalle)) : 30;
             const alle = dalle ? oraDaMinuti(minutiPrg(dalle) + durata) : '';
+            const id = 'v' + Date.now() + Math.floor(Math.random() * 1000);
             _prgVoci.push({
-                id: 'v' + Date.now() + Math.floor(Math.random() * 1000),
-                tipo: t.id, titolo: t.titolo || '', dalle: dalle, alle: alle, nota: '',
+                id: id, tipo: t.id, titolo: t.titolo || '', dalle: dalle, alle: alle, nota: '',
                 moderatore: null, partecipanti: []
             });
-            esitoGiornata('');
+            /* Si segna quale voce e' appena nata: disegnaGiornata le mette il
+               riquadro acceso, e qui sotto la si porta a schermo. Senza,
+               premere un pulsante e non vedere niente muoversi sembra un
+               pulsante che non funziona. */
+            _prgNuova = id;
             disegnaGiornata(ev);
+            const box = document.querySelector('.prg-voce.nuova');
+            if (box) {
+                if (box.scrollIntoView) box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                const tit = box.querySelector('.prg-titolo');
+                if (tit && tit.focus) tit.focus();
+            }
+            esitoGiornata('Aggiunta: ' + t.nome
+                + (dalle ? ' dalle ' + dalle + ' alle ' + alle + ', in ' + (minutiPrg(dalle) < confinePrg(ev) ? 'mattina' : 'pomeriggio') : ', ancora senza orario')
+                + '. Scrivi il titolo e correggi le ore, poi "Salva il programma".');
         }));
         radice.querySelectorAll('.prg-elimina').forEach(b => b.addEventListener('click', () => {
             const i = parseInt(b.dataset.voce, 10);
@@ -18671,6 +18723,18 @@
             _prgVoci.splice(i, 1);
             disegnaGiornata(ev);
         }));
+        /* Appena si scrive in una voce, quella non e' piu' "appena aggiunta":
+           il riquadro acceso ha gia' fatto il suo lavoro, cioe' dire dov'era
+           finita. */
+        radice.querySelectorAll('.prg-voce.nuova input').forEach(i => i.addEventListener('input', () => {
+            const box = i.closest('.prg-voce');
+            _prgNuova = '';
+            if (box) {
+                box.classList.remove('nuova');
+                const et = box.querySelector('.prg-nuova-et');
+                if (et) et.remove();
+            }
+        }, { once: true }));
         /* Testo e ore si scrivono nella copia di lavoro SENZA ridisegnare: il
            cursore salterebbe a ogni tasto. Le segnalazioni pero' seguono,
            perche' sono la ragione per cui si guarda mentre si scrive. */
@@ -18780,6 +18844,7 @@
         if (sg) sg.addEventListener('click', () => salvaGiornata(ev));
     }
     function salvaProgramma(ev) {
+        _prgNuova = '';
         ordinaVociPrg();
         /* NON SI SALVA SOPRA UNA PRENOTAZIONE. Un conflitto "grave" vuol
            dire che chi mandiamo sul palco, in quell'ora, ha gia' un incontro
