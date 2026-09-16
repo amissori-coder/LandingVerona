@@ -17953,9 +17953,16 @@
        pulsante da bloccare: parte, e l'esito si legge nella riga in fondo
        alla finestra col messaggio di chi ha chiamato ("Orario chiuso:
        ...", "referente tolto"), che dice cosa e' appena stato scritto. */
-    function salvaTavolo(ev, id, messaggio) {
+    /* SALVARE UN TAVOLO. Il pulsante manda la configurazione di QUESTO
+       tavolo: chi lo tiene, gli orari chiusi, la nota, se e' attivo. Le
+       altre aree non si toccano, cosi' due persone che lavorano su due
+       tavoli diversi non si cancellano il lavoro a vicenda. */
+    function salvaAreaB2B(ev, id, bottone) {
         const area = areaLocale(id);
         if (!area) return;
+        if (area.attiva && !area.referenti.length
+            && !confirm('Questo tavolo non ha nessun referente: chi prenota non saprà chi troverà. Lo salvo lo stesso?')) return;
+        if (bottone) { bottone.disabled = true; bottone.textContent = 'Salvo...'; }
         const aree = {};
         aree[id] = {
             attiva: area.attiva, nota: area.nota || '', chiusi: area.chiusi || [],
@@ -17964,9 +17971,9 @@
                 azienda: r.azienda || '', email: r.email || '', sezione: r.sezione || ''
             }))
         };
-        esitoGiornata('Salvo il tavolo...');
         Cloud.agendaB2B({ azione: 'agenda-salva', evento: ev.id, aree: aree, eventoDati: datiEventoB2B(ev) })
             .then(r => {
+                if (bottone) { bottone.disabled = false; bottone.textContent = 'Salva questo tavolo'; }
                 if (!r || !r.ok) {
                     /* Non riuscito: quello che si vede a schermo NON e' quello
                        che e' scritto, e su un'agenda che sta prendendo
@@ -17979,7 +17986,7 @@
                     return;
                 }
                 aggiornaDopoSalvataggio(ev, r);
-                esitoGiornata(messaggio || ('Tavolo salvato: ' + nomeAreaB2B(id) + '.'));
+                esitoGiornata('Tavolo salvato: ' + nomeAreaB2B(id) + '.');
                 try {
                     Audit.registra(Auth.utenteCorrente, 'Evento: tavolo B2B aggiornato', 'sistema', ev.id, null,
                         nomeAreaB2B(id) + (area.attiva ? ' attivo' : ' non attivo')
@@ -17987,7 +17994,8 @@
                 } catch (e) { }
             })
             .catch(() => {
-                esitoGiornata('Servizio non raggiungibile: il tavolo NON e\' stato salvato.', true);
+                if (bottone) { bottone.disabled = false; bottone.textContent = 'Salva questo tavolo'; }
+                esitoGiornata('Servizio non raggiungibile: il tavolo NON è stato salvato.', true);
                 caricaAgendaB2B(ev, () => disegnaGiornata(ev), true);
             });
     }
@@ -18155,20 +18163,19 @@
        ciascuna il PROGRAMMA e, sotto, gli INCONTRI B2B della
        stessa fascia.
 
-       Restano due cose DISTINTE, e si vede: il programma e' su
-       fondo bianco e si compone come una scaletta; i tavoli
-       sono su fondo grigio, con il loro titolo. E si salvano in
-       modo diverso, perche' sono diversi:
-         - il PROGRAMMA e' una bozza che si compone a pezzi, e
-           si salva quando si e' finito, col suo pulsante;
-         - i TAVOLI valgono subito: mentre li si guarda, la'
-           fuori qualcuno sta prenotando. Chiudere un orario o
-           cambiare il referente si salva nell'istante in cui
-           lo si fa, altrimenti si aprirebbe la porta a una
-           prenotazione su un orario che credevamo di aver
-           chiuso.
-       La finestra lo dice in cima, perche' un salvataggio che
-       si comporta in due modi va spiegato prima, non scoperto.
+       Restano due cose DISTINTE, e si vede: in alto le due
+       colonne, che sono la giornata da LEGGERE - il programma e
+       le prenotazioni della stessa fascia, in parallelo; sotto,
+       l'IMPOSTAZIONE dei tavoli, che e' la stessa schermata di
+       sempre e serve a prepararli.
+       Ogni parte ha il suo salvataggio, e quello che si tocca
+       resta locale finche' non si preme: il programma col
+       pulsante in fondo, la giornata degli incontri col suo, un
+       tavolo per volta col "Salva questo tavolo". Un tavolo si
+       prepara guardandolo intero - il referente, gli orari da
+       chiudere, la sala - e mandarlo al servizio a ogni tocco
+       vorrebbe dire pubblicare mezza configurazione a chi in
+       quel momento sta prenotando.
     ========================================================= */
     function esitoGiornata(testo, ko) {
         const e = document.getElementById('gio-esito');
@@ -18193,7 +18200,8 @@
             + 'Se chi è sul palco tiene anche un tavolo, l\'orario diventa <b>rosso</b>. '
             + (puo
                 ? 'Il programma si salva col pulsante in fondo, ma <b>non sopra una prenotazione</b>: se manda sul palco chi in quell\'ora è già atteso al suo tavolo, il salvataggio si ferma. '
-                + '<b>I tavoli valgono subito</b>, perché intanto le imprese prenotano, e un orario già <b>prenotato è bloccato</b>: si sblocca solo liberando la prenotazione.'
+                + 'I <b>tavoli</b> si impostano qui sotto, uno per volta, e ciascuno ha il suo "Salva questo tavolo". '
+                + 'Un orario già <b>prenotato è bloccato</b>: si sblocca solo liberando la prenotazione.'
                 : 'Da qui puoi guardare: per modificare servono i permessi di chi manda gli inviti.')
             + '</p>'
             + '<div id="gio-corpo"><div class="tabella-vuota">Carico la giornata...</div></div>'
@@ -18307,7 +18315,7 @@
             + dentro + '</div>';
         if (!a) return guscio('<div class="hint">Agenda dei tavoli non caricata.</div>');
         const attive = (a.aree || []).filter(x => x.attiva);
-        if (!attive.length) return guscio('<div class="hint">Nessun tavolo attivo: si attivano qui sotto, in "I tavoli B2B".</div>');
+        if (!attive.length) return guscio('<div class="hint">Nessun tavolo attivo: si attivano qui sotto, in "La giornata degli incontri".</div>');
         // gli orari della fascia: l'unione di quelli dei tavoli attivi, in ordine
         const ore = [];
         attive.forEach(area => G.slotDellaFascia(area.slot, daMin, aMin).forEach(s => {
@@ -18362,10 +18370,18 @@
                 + ' · in ogni riga gli incontri si tengono in parallelo'
                 : 'nessuna prenotazione in questa fascia · in ogni riga gli incontri si tengono in parallelo');
     }
-    /* I TAVOLI: chi li tiene, e se sono attivi. Sta sotto le colonne e non
-       dentro, perche' non e' una cosa che succede a un'ora: e' come sono fatti
-       i tavoli, e vale per tutta la giornata. Gli orari - che invece un'ora ce
-       l'hanno - si aprono e si chiudono su nelle colonne. */
+    /* L'IMPOSTAZIONE DEI TAVOLI B2B
+       ---------------------------------------------------------
+       E' la stessa schermata di prima, portata dentro la finestra della
+       giornata: la giornata degli incontri in cima, poi un tavolo per
+       riga che si apre e mostra chi lo tiene, i suoi orari e la nota.
+       Le modifiche restano LOCALI finche' non si preme "Salva questo
+       tavolo": un tavolo si prepara guardandolo intero - metti il
+       referente, chiudi le ore in cui e' sul palco, scrivi la sala - e
+       poi lo si conferma in una volta.
+       Sta sotto le colonne e non dentro, perche' non e' una cosa che
+       succede a un'ora: e' come sono fatti i tavoli, e vale per tutta
+       la giornata. */
     function tavoliHtml(ev, puo) {
         const a = agendaDi(ev);
         if (!a) return '';
@@ -18373,52 +18389,133 @@
         const prese = (a.aree || []).reduce((n, x) => n + x.occupati, 0);
         const campoOra = (id, et, val) => '<label class="ag-mini"><span>' + esc(et) + '</span>'
             + '<input type="time" step="60" id="' + id + '" value="' + esc(val || '') + '"' + (puo ? '' : ' disabled') + '></label>';
-        const orari = '<div class="ag-fila">'
-            + campoOra('ag-da', 'dalle', g.inizio) + campoOra('ag-a', 'alle', g.fine)
+        const giornata = '<div class="ag-giornata">'
+            + '<div class="ag-titolo">La giornata degli incontri</div>'
+            + '<div class="ag-fila">'
+            + campoOra('ag-da', 'dalle', g.inizio)
+            + campoOra('ag-a', 'alle', g.fine)
             + '<label class="ag-mini"><span>durata</span><input type="number" id="ag-durata" min="10" max="240" step="5" value="'
             + (g.durata || 30) + '"' + (puo ? '' : ' disabled') + '><span>min</span></label>'
-            + campoOra('ag-pda', 'pausa dalle', g.pranzoDa) + campoOra('ag-pa', 'alle', g.pranzoA)
-            + (puo ? '<button class="btn btn-sm btn-secondary" id="ag-salva-g">Cambia gli orari</button>' : '')
+            + campoOra('ag-pda', 'pausa dalle', g.pranzoDa)
+            + campoOra('ag-pa', 'alle', g.pranzoA)
+            + (puo ? '<button class="btn btn-sm btn-secondary" id="ag-salva-g">Salva la giornata</button>' : '')
+            + '</div>'
+            + '<div class="hint">Vale per tutti i tavoli. Gli appuntamenti che cadono nella pausa pranzo non esistono: '
+            + 'nessuno li vede e nessuno li può prenotare.</div>'
+            /* Il vecchio avviso diceva "guarda i tavoli prima di confermare":
+               adesso non serve guardare, perche' una prenotazione blocca il
+               cambio e il servizio lo rifiuta. Va detto prima di premere. */
             + (prese
-                ? '<span class="ag-avviso">' + prese + (prese === 1 ? ' prenotazione presa' : ' prenotazioni prese')
-                + ': cambiare questi orari le farebbe sparire, e il salvataggio viene rifiutato. Prima liberale.</span>'
+                ? '<div class="ag-avviso">' + prese + (prese === 1 ? ' appuntamento già preso' : ' appuntamenti già presi')
+                + ': cambiare durata o orari in modo che quelle ore non esistano più li farebbe sparire, '
+                + 'e il salvataggio viene rifiutato. Prima libera quelle prenotazioni.</div>'
                 : '')
             + '</div>';
-        const righe = (a.aree || []).map(x => {
-            const candidati = relatoriEAderenti(ev);
-            const gia = x.referenti.map(r => r.email || r.nome);
-            const opzioni = candidati.filter(c => gia.indexOf(c.email || c.nome) < 0)
-                .map(c => '<option value="' + esc(c.email || c.nome) + '">' + esc(c.nome)
-                    + (c.ruolo ? ' - ' + esc(c.ruolo) : '') + '</option>').join('');
-            const chips = x.referenti.map(r => '<span class="ag-chip">' + esc(r.nome)
-                + (r.ruolo ? '<span class="ag-chip-ruolo">' + esc(r.ruolo) + '</span>' : '')
-                + (puo ? '<button type="button" class="ag-togli" data-area="' + esc(x.id) + '" data-ref="' + esc(r.email || r.nome) + '" title="Togli">&#10005;</button>' : '')
-                + '</span>').join('');
-            /* Un tavolo con prenotazioni dentro non si spegne: spegnerlo
-               farebbe sparire dall'agenda incontri che qualcuno aspetta. La
-               spunta si blocca qui e il servizio rifiuta comunque. */
-            const bloccato = x.occupati > 0;
-            return '<div class="ag-riga' + (x.attiva ? ' attiva' : '') + (bloccato ? ' bloccata' : '') + '">'
-                + '<label class="ag-riga-nome"' + (bloccato ? ' title="' + esc(x.occupati + (x.occupati === 1 ? ' prenotazione presa' : ' prenotazioni prese') + ': per spegnere il tavolo liberale prima') + '"' : '') + '>'
-                + '<input type="checkbox" class="ag-attiva-c" data-area="' + esc(x.id) + '"'
-                + (x.attiva ? ' checked' : '') + ((puo && !bloccato) ? '' : ' disabled') + '>'
-                + '<span>' + esc(x.nome) + (bloccato ? ' <span class="prg-lucchetto" aria-hidden="true">&#128274;</span>' : '') + '</span></label>'
-                + '<div class="ag-riga-ref">' + chips
-                + (puo ? '<select class="ag-aggiungi" data-area="' + esc(x.id) + '"><option value="">chi lo tiene...</option>' + opzioni + '</select>' : '')
-                + (!x.referenti.length && x.attiva ? '<span class="ev-ko">nessun referente</span>' : '')
-                + '</div>'
-                + '<input type="text" class="ag-nota" data-area="' + esc(x.id) + '" maxlength="300" placeholder="nota (sala, indicazioni)" value="'
-                + esc(x.nota || '') + '"' + (puo ? '' : ' disabled') + '>'
-                + '<div class="ag-riga-conti">' + (x.attiva
-                    ? '<b>' + x.occupati + '</b> prenotati &middot; ' + x.liberi + ' liberi'
-                    : '<span class="hint">non attivo</span>') + '</div>'
-                + '</div>';
-        }).join('');
-        return '<div class="ag-tavoli"><div class="prg-col-tit">I tavoli B2B'
-            + '<span>chi li tiene e quali sono in programma &middot; ogni modifica vale subito &middot; '
-            + 'gli orari con una prenotazione sono bloccati</span></div>'
-            + orari
-            + '<div class="ag-righe">' + righe + '</div></div>';
+        return '<div class="ag-tavoli">' + giornata
+            + '<div class="ag-aree">' + (a.aree || []).map(x => areaHtml(ev, x, puo)).join('') + '</div>'
+            + '</div>';
+    }
+    /* Un tavolo: la riga che si apre. Chiusa dice le tre cose che si
+       guardano da fuori (se e' attivo, chi lo tiene, quanti posti restano);
+       aperta ha i comandi. */
+    function areaHtml(ev, x, puo) {
+        const chi = x.referenti.map(r => r.nome).join(', ');
+        const aperta = _agAperta === x.id;
+        /* Un tavolo con prenotazioni dentro non si spegne e i suoi orari
+           presi non si toccano: dall'altra parte c'e' chi ha in mano il
+           foglio con quell'ora sopra. */
+        const bloccato = x.occupati > 0;
+        const stato = x.attiva
+            ? '<span class="badge verde">attivo</span>'
+            : '<span class="badge neutro">non attivo</span>';
+        const conta = x.attiva
+            ? '<span class="hint">' + x.occupati + ' prenotati &middot; ' + x.liberi + ' liberi</span>'
+            : '';
+        /* "Nessun referente" in rosso vale per i tavoli ATTIVI, dove e' una cosa
+           da sistemare prima di invitare; su un tavolo spento e' solo il suo
+           stato normale, e undici righe rosse non fanno guardare quella che
+           conta. */
+        const testa = '<div class="ag-testa" data-apri="' + esc(x.id) + '">'
+            + '<span class="ag-nome">' + esc(x.nome) + '</span>' + stato
+            + (bloccato ? '<span class="prg-lucchetto" title="' + esc(x.occupati + (x.occupati === 1 ? ' orario prenotato: è bloccato' : ' orari prenotati: sono bloccati')) + '">&#128274;</span>' : '')
+            + '<span class="ag-chi">' + (chi ? esc(chi)
+                : (x.attiva ? '<span class="ev-ko">nessun referente</span>' : '<span class="hint">da organizzare</span>')) + '</span>'
+            + conta
+            + '<span class="ag-freccia">' + (aperta ? '&#9650;' : '&#9660;') + '</span></div>';
+        if (!aperta) return '<div class="ag-area">' + testa + '</div>';
+        const candidati = relatoriEAderenti(ev);
+        const gia = x.referenti.map(r => r.email || r.nome);
+        const opzioni = candidati.filter(c => gia.indexOf(c.email || c.nome) < 0)
+            .map(c => '<option value="' + esc(c.email || c.nome) + '">' + esc(c.nome)
+                + (c.ruolo ? ' - ' + esc(c.ruolo) : '')
+                + ' (' + (c.sezione === 'aderenti' ? 'aderente Revilaw' : 'sponsor e relatori') + ')</option>').join('');
+        const referenti = '<div class="ag-ref">'
+            + (x.referenti.length
+                ? x.referenti.map(r => '<span class="ag-chip">' + esc(r.nome)
+                    + (r.ruolo ? ' <span class="ag-chip-ruolo">' + esc(r.ruolo) + '</span>' : '')
+                    + (puo ? '<button type="button" class="ag-togli" data-area="' + esc(x.id) + '" data-ref="' + esc(r.email || r.nome) + '" title="Togli">&#10005;</button>' : '')
+                    + '</span>').join('')
+                : '<span class="hint">Nessuno: finché non lo indichi, chi prenota non sa chi troverà al tavolo.</span>')
+            + '</div>'
+            + (puo ? '<div class="ag-fila"><select class="ag-aggiungi" data-area="' + esc(x.id) + '">'
+                + '<option value="">Aggiungi chi tiene il tavolo...</option>' + opzioni + '</select>'
+                /* Elenco vuoto: due motivi diversi, e dirne uno per l'altro manda
+                   a spostare gente che e' gia' al posto giusto. */
+                + (candidati.length ? ''
+                    : (_evIscrizioni === null
+                        ? '<span class="hint">Sto ancora caricando gli iscritti: fra un momento compaiono qui.</span>'
+                        : '<span class="hint">Nessun aderente Revilaw né sponsor fra gli iscritti a questo evento: '
+                        + 'spostali nelle loro sezioni dall\'elenco qui sotto, e compariranno qui.</span>'))
+                + '</div>' : '');
+        /* Gli orari: uno per slot. Verde libero, grigio chiuso, blu preso -
+           e chi l'ha preso si legge, perche' e' la domanda che si fa chi
+           guarda questa griglia il giorno prima del convegno. Un orario
+           preso non si preme: e' bloccato, e si sblocca solo liberandolo. */
+        const rosse = oreRosseDi(ev);
+        const slot = '<div class="ag-slot-griglia">' + x.slot.map(s => {
+            const rosso = rosse[x.id + '|' + s.chiave] || '';
+            if (s.stato === 'occupato') {
+                const p = s.chi || {};
+                const spiega = 'Prenotato da ' + (p.nome || '') + (p.azienda ? ' - ' + p.azienda : '')
+                    + ' - orario bloccato: non si può chiudere finché c\'è questa prenotazione'
+                    + (rosso === 'grave' ? '. INCOMPATIBILE: il referente in quest\'ora è sul palco' : '');
+                return '<div class="ag-slot preso' + (rosso ? ' conflitto' : '') + '" title="' + esc(spiega) + '">'
+                    + '<b>' + esc(s.ora) + ' <span class="prg-lucchetto">&#128274;</span></b>'
+                    + '<span class="ag-slot-chi">' + esc(p.nome || 'prenotato') + (p.azienda ? '<br>' + esc(p.azienda) : '') + '</span>'
+                    + (puo ? '<button type="button" class="ag-libera" data-doc="' + esc(p.doc || '') + '" title="Libera questo orario">&#10005;</button>' : '')
+                    + '</div>';
+            }
+            const chiuso = s.stato === 'chiuso';
+            return '<button type="button" class="ag-slot ' + (chiuso ? 'chiuso' : 'libero') + (rosso ? ' conflitto' : '') + '"'
+                + (puo ? ' data-chiudi="' + esc(x.id) + '" data-ora="' + esc(s.chiave) + '"' : ' disabled')
+                + ' title="' + esc((chiuso ? 'Chiuso: premi per riaprirlo' : 'Libero: premi per chiuderlo')
+                    + (rosso ? ' - da chiudere: il referente in quest\'ora è sul palco' : '')) + '">'
+                + '<b>' + esc(s.ora) + '</b><span class="ag-slot-et">' + (chiuso ? 'chiuso' : 'libero') + '</span></button>';
+        }).join('') + '</div>';
+        const comandi = puo
+            ? '<div class="ag-fila ag-comandi">'
+            + '<label class="ag-mini ag-attiva"' + (bloccato ? ' title="' + esc(x.occupati + (x.occupati === 1 ? ' prenotazione presa' : ' prenotazioni prese') + ': per spegnere il tavolo liberale prima') + '"' : '') + '>'
+            + '<input type="checkbox" class="ag-attiva-c" data-area="' + esc(x.id) + '"'
+            + (x.attiva ? ' checked' : '') + (bloccato ? ' disabled' : '') + '><span>Tavolo attivo</span></label>'
+            + '<input type="text" class="ag-nota" data-area="' + esc(x.id) + '" maxlength="300" placeholder="Nota per chi prenota (sala, indicazioni)" value="' + esc(x.nota || '') + '">'
+            + '<button class="btn btn-sm btn-primary ag-salva" data-area="' + esc(x.id) + '">Salva questo tavolo</button>'
+            + '</div>'
+            : '';
+        return '<div class="ag-area aperta">' + testa
+            + '<div class="ag-dentro">'
+            + '<div class="ag-et">Chi tiene il tavolo</div>' + referenti
+            + '<div class="ag-et">Orari</div>'
+            + '<div class="hint" style="margin:-2px 0 6px;">Premi un orario per chiuderlo o riaprirlo. '
+            + 'Gli orari chiusi non si possono prenotare: usali quando chi tiene il tavolo è sul palco o non c\'è. '
+            + 'Gli orari già prenotati hanno il lucchetto e non si premono.</div>'
+            + slot
+            + comandi
+            + '</div></div>';
+    }
+    // gli orari da dipingere di rosso, gli stessi che si vedono in panoramica
+    function oreRosseDi(ev) {
+        const G = giornataLib();
+        return G ? G.oreInConflitto(conflittiPrg(ev, _prgVoci)) : {};
     }
     /* LE RICHIESTE A ORARI ESAURITI: chi ha aperto la pagina e non ha trovato
        piu' niente, e ha chiesto un incontro lo stesso. Non e' una prenotazione
@@ -18428,10 +18525,10 @@
         const lista = ((a && a.richieste) || []).slice().sort((x, y) => (y.quando || 0) - (x.quando || 0));
         if (!lista.length) return '';
         const aperte = richiesteAperte(a).length;
-        return '<div class="ag-richieste"><div class="prg-col-tit">Richieste a orari esauriti'
-            + (aperte ? '<span class="badge ambra">' + aperte + ' da guardare</span>' : '') + '</div>'
+        return '<div class="ag-richieste"><div class="ag-titolo">Richieste a orari esauriti'
+            + (aperte ? ' <span class="badge ambra">' + aperte + ' da guardare</span>' : '') + '</div>'
             + '<div class="hint">Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: non hanno nessun orario. '
-            + 'Per dargliene uno riapri un orario chiuso qui sopra e assegnaglielo, oppure segna la richiesta come gestita dopo averli sentiti.</div>'
+            + 'Per dargliene uno apri un orario chiuso nel tavolo giusto e assegnaglielo, oppure segna la richiesta come gestita dopo averli sentiti.</div>'
             + lista.map(r => '<div class="ag-richiesta' + (String(r.stato || 'aperta') === 'gestita' ? ' gestita' : '') + '">'
                 + '<div><b>' + esc(r.nome || r.email || '') + '</b>' + (r.azienda ? ' - ' + esc(r.azienda) : '')
                 + '<div class="hint">' + esc(r.email || '') + (r.telefono ? ' &middot; ' + esc(r.telefono) : '')
@@ -18627,61 +18724,53 @@
             disegnaGiornata(ev);
         }));
 
-        // ---- i tavoli B2B: quello che si tocca vale subito ----
+        /* ---- i tavoli B2B: si preparano e poi si salvano ----
+           Quello che si tocca qui resta nella copia locale finche' non si
+           preme "Salva questo tavolo". Un tavolo si prepara guardandolo
+           intero - il referente, gli orari da chiudere, la sala - e
+           mandarlo al servizio a ogni tocco vorrebbe dire pubblicare una
+           mezza configurazione a chi in quel momento sta prenotando. */
+        radice.querySelectorAll('.ag-testa').forEach(t => t.addEventListener('click', () => {
+            _agAperta = (_agAperta === t.dataset.apri) ? '' : t.dataset.apri;
+            disegnaGiornata(ev);
+        }));
         radice.querySelectorAll('[data-chiudi]').forEach(b => b.addEventListener('click', () => {
             const area = areaLocale(b.dataset.chiudi);
             if (!area) return;
             const k = b.dataset.ora;
             const i = area.chiusi.indexOf(k);
             if (i >= 0) area.chiusi.splice(i, 1); else area.chiusi.push(k);
-            const s = (area.slot || []).filter(x => x.chiave === k)[0];
-            if (s) s.stato = i >= 0 ? 'libero' : 'chiuso';
+            // lo stato mostrato segue subito la spunta, il salvataggio lo conferma
+            (area.slot.filter(s => s.chiave === k)[0] || {}).stato = i >= 0 ? 'libero' : 'chiuso';
             disegnaGiornata(ev);
-            salvaTavolo(ev, area.id, (i >= 0 ? 'Orario riaperto: ' : 'Orario chiuso: ') + area.nome + ' ' + (s ? s.ora : ''));
-        }));
-        radice.querySelectorAll('.ag-attiva-c').forEach(c => c.addEventListener('change', () => {
-            const area = areaLocale(c.dataset.area);
-            if (!area) return;
-            /* Attivare un tavolo senza sapere chi lo tiene si puo' - il nome
-               alle volte si decide dopo - ma va detto adesso, non il giorno in
-               cui qualcuno prenota e non trova nessuno. */
-            if (c.checked && !area.referenti.length
-                && !confirm('Questo tavolo non ha nessun referente: chi prenota non saprà chi troverà. Lo attivo lo stesso?')) {
-                c.checked = false;
-                return;
-            }
-            area.attiva = c.checked;
-            disegnaGiornata(ev);
-            salvaTavolo(ev, area.id, area.nome + (area.attiva ? ': tavolo attivo.' : ': tavolo non attivo.'));
         }));
         radice.querySelectorAll('.ag-aggiungi').forEach(s => s.addEventListener('change', () => {
             const area = areaLocale(s.dataset.area);
             const c = relatoriEAderenti(ev).filter(x => (x.email || x.nome) === s.value)[0];
             if (!area || !c) return;
             area.referenti = area.referenti.concat([c]);
-            // un tavolo con un referente e' un tavolo che si vuole tenere
+            /* Un tavolo con un referente e' un tavolo che si vuole tenere:
+               si attiva da se'. Dimenticare la spunta e' il modo piu' facile
+               per preparare tutto e poi non riuscire a invitare nessuno. */
             area.attiva = true;
             disegnaGiornata(ev);
-            salvaTavolo(ev, area.id, area.nome + ': ora lo tiene ' + c.nome + '.');
         }));
-        radice.querySelectorAll('.ag-togli').forEach(b => b.addEventListener('click', () => {
+        radice.querySelectorAll('.ag-togli').forEach(b => b.addEventListener('click', e => {
+            e.stopPropagation();
             const area = areaLocale(b.dataset.area);
             if (!area) return;
             area.referenti = area.referenti.filter(r => (r.email || r.nome) !== b.dataset.ref);
             disegnaGiornata(ev);
-            salvaTavolo(ev, area.id, area.nome + ': referente tolto.');
         }));
-        radice.querySelectorAll('.ag-nota').forEach(t => {
-            t.addEventListener('input', () => {
-                const area = areaLocale(t.dataset.area);
-                if (area) area.nota = t.value;
-            });
-            // la nota si salva quando si esce dal campo, non a ogni lettera
-            t.addEventListener('blur', () => {
-                const area = areaLocale(t.dataset.area);
-                if (area) salvaTavolo(ev, area.id, area.nome + ': nota salvata.');
-            });
-        });
+        radice.querySelectorAll('.ag-attiva-c').forEach(c => c.addEventListener('change', () => {
+            const area = areaLocale(c.dataset.area);
+            if (area) area.attiva = c.checked;
+        }));
+        radice.querySelectorAll('.ag-nota').forEach(t => t.addEventListener('input', () => {
+            const area = areaLocale(t.dataset.area);
+            if (area) area.nota = t.value;
+        }));
+        radice.querySelectorAll('.ag-salva').forEach(b => b.addEventListener('click', () => salvaAreaB2B(ev, b.dataset.area, b)));
         radice.querySelectorAll('.ag-libera').forEach(b => b.addEventListener('click', e => {
             e.stopPropagation();
             liberaSlotB2B(ev, b.dataset.doc);
@@ -18834,7 +18923,7 @@
         }
         const attive = agenda.aree.filter(x => x.attiva);
         if (!attive.length) {
-            toast('Nessun tavolo attivo: aprine almeno uno dalla giornata, in "I tavoli B2B", e riprova.', 'rosso');
+            toast('Nessun tavolo attivo: aprine almeno uno dalla giornata, sotto "La giornata degli incontri", e riprova.', 'rosso');
             return;
         }
         /* I destinatari: uno per INDIRIZZO, perche' chi risulta iscritto due
@@ -19193,7 +19282,7 @@
             const a = areaCorrente();
             const pezzi = [];
             if (!a.referenti.length) pezzi.push('<span class="ev-ko">Questo tavolo non ha un referente: '
-                + 'la mail non potrà dire chi accoglierà l\'ospite. Puoi indicarlo dalla giornata, in "I tavoli B2B".</span>');
+                + 'la mail non potrà dire chi accoglierà l\'ospite. Puoi indicarlo aprendo quel tavolo dalla giornata.</span>');
             if (!a.liberi) pezzi.push('<span class="ev-ko">Nessun orario libero: chi riceve l\'invito troverà tutto prenotato '
                 + 'e potrà solo chiedere un incontro fuori orario. Apri qualche orario chiuso prima di invitare.</span>');
             else pezzi.push('<b>' + a.liberi + '</b> ' + (a.liberi === 1 ? 'orario libero' : 'orari liberi')
