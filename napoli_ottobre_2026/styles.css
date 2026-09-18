@@ -2066,6 +2066,15 @@ ul {
     max-height: 64px;
 }
 
+/* Fideuram e' il lockup piu' allungato della riga (9,7:1: simbolo, logotipo e
+   la dicitura "Private Banker" dopo il filetto), quindi si vincola solo in
+   larghezza, alla stessa misura di Fineco perche' i due marchi bancari si
+   pareggino; l'altezza resta da guardia. */
+.partner-brand-img-fideuram {
+    max-width: 252px;
+    max-height: 30px;
+}
+
 /* Come Serviter, Petti&co e' un lockup impilato (monogramma sopra, logotipo e
    payoff sotto) e quasi quadrato (1,4:1): il limite che conta e' l'altezza,
    altrimenti la riga "consulenza imprenditoriale" diventa illeggibile. */
@@ -2684,6 +2693,11 @@ ul {
         max-height: 58px;
     }
 
+    .partner-brand-img-fideuram {
+        max-width: 236px;
+        max-height: 28px;
+    }
+
     .partner-brand-img-petti {
         max-width: 136px;
         max-height: 94px;
@@ -2884,6 +2898,11 @@ ul {
         max-height: 52px;
     }
 
+    .partner-brand-img-fideuram {
+        max-width: 214px;
+        max-height: 25px;
+    }
+
     .partner-brand-img-petti {
         max-width: 124px;
         max-height: 86px;
@@ -2963,6 +2982,11 @@ ul {
     .partner-brand-img-fineco {
         max-width: 196px;
         max-height: 48px;
+    }
+
+    .partner-brand-img-fideuram {
+        max-width: 196px;
+        max-height: 23px;
     }
 }
 
