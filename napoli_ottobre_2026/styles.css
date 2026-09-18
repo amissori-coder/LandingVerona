@@ -2094,6 +2094,16 @@ ul {
     max-height: 104px;
 }
 
+/* Sponsor tecnico. RS Group e' l'unico marchio della sezione su fondo pieno
+   scuro, ed e' una tessera quadrata in cui lo scudo occupa l'86% dell'altezza
+   e il 67% della larghezza: il resto e' margine scuro. La tessera si misura
+   percio' sullo scudo e non sul proprio bordo, a 120px lo scudo risulta alto
+   ~103px e va a pari con Petti&co e Space Up. */
+.partner-brand-img-rsgroup {
+    max-width: 120px;
+    max-height: 120px;
+}
+
 /* Thin vertical separator between Revilaw and Advant */
 .partner-sep {
     width: 1px;
@@ -2711,6 +2721,11 @@ ul {
         max-height: 94px;
     }
 
+    .partner-brand-img-rsgroup {
+        max-width: 110px;
+        max-height: 110px;
+    }
+
     .label-text {
         font-size: 0.64rem;
         letter-spacing: 2.2px;
@@ -2916,6 +2931,11 @@ ul {
         max-height: 86px;
     }
 
+    .partner-brand-img-rsgroup {
+        max-width: 100px;
+        max-height: 100px;
+    }
+
     .label-text {
         font-size: 0.6rem;
         letter-spacing: 1.8px;
@@ -2990,6 +3010,11 @@ ul {
     .partner-brand-img-fideuram {
         max-width: 240px;
         max-height: 26px;
+    }
+
+    .partner-brand-img-rsgroup {
+        max-width: 88px;
+        max-height: 88px;
     }
 }
 
