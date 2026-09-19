@@ -17582,6 +17582,9 @@
         + '.fase{color:#2A5A85;font-size:10.5px;letter-spacing:0.3px;text-transform:uppercase;}'
         + '.chi{margin-top:2px;}'
         + '.chi .et{display:inline-block;width:64px;color:#94A3B8;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
+        /* il titolo che la persona porta, dopo il nome: si legge, ma non
+           compete con il nome, che e' quello che si cerca */
+        + '.chi .ruolo{color:#475569;}'
         + '.vuoto-cella{color:#94A3B8;}'
         + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
         + '@page{margin:14mm 12mm;}';
@@ -19359,12 +19362,15 @@
            compare solo se aggiunge qualcosa. */
         const righe = (G ? G.ordina(voci) : voci.slice()).map(v => {
             const t = tipoPrgDa(v.tipo);
-            /* Sul foglio della persona si scrivono DUE cose sole: il nome e
-               la qualifica con cui va annunciata ("Avv. Mario Rossi"). Il
-               ruolo in azienda e il nome dell'azienda vengono dal modulo
-               d'iscrizione, servono a noi per riconoscerla, e su un
-               programma della giornata sono rumore. */
-            const comeSiAnnuncia = x => esc(G ? G.nomePersona(x) : x.nome);
+            /* Sul foglio della persona si scrivono il NOME e il suo TITOLO:
+               davanti la qualifica con cui va annunciata ("Avv. Mario
+               Rossi"), e dopo il titolo che porta ("Partner", "Revisore
+               legale"), che e' come si presenta chi sta sul palco. Restano
+               fuori l'azienda, i contatti e il resto del modulo
+               d'iscrizione: servono a noi per riconoscere la persona, e su
+               un programma della giornata sono rumore. */
+            const comeSiAnnuncia = x => esc(G ? G.nomePersona(x) : x.nome)
+                + (x.ruolo ? '<span class="ruolo">, ' + esc(x.ruolo) + '</span>' : '');
             const riga = (et, testo) => '<div class="chi"><span class="et">' + et + '</span>' + testo + '</div>';
             const chi = [];
             if (v.moderatore) chi.push(riga('Modera', comeSiAnnuncia(v.moderatore)));
