@@ -3420,7 +3420,12 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
    e' la spia del cruscotto, e serve a far guardare li' prima che
    altrove.
    ============================================================ */
-.ev-cruscotto { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 10px; margin-bottom: 14px; align-items: stretch; }
+/* La larghezza minima e' bassa apposta: i riquadri non sono sempre gli
+   stessi - "Le cene" c'e' solo dove si cena - e uno che va a capo da solo
+   su una seconda riga e' un riquadro orfano, piu' basso degli altri, che
+   fa crescere il cruscotto di un terzo. Meglio colonne un po' piu'
+   strette e tutti in fila. */
+.ev-cruscotto { display: grid; grid-template-columns: repeat(auto-fit, minmax(208px, 1fr)); gap: 10px; margin-bottom: 14px; align-items: stretch; }
 .ev-bl {
     display: flex; flex-direction: column; height: 100%; overflow: hidden;
     background: var(--bianco); border: 1px solid var(--grigio-200);
@@ -3436,9 +3441,9 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
 }
 .ev-bl-tit span { display: block; font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--grigio-600); }
 .ev-bl-stato { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; padding: 7px 10px 7px 12px; }
-.ev-bl-riga { display: flex; gap: 7px; align-items: baseline; font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); }
+.ev-bl-riga { font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); }
 .ev-bl-riga b { color: var(--blu-900); font-size: 0.92rem; }
-.ev-bl-et { flex: 0 0 auto; min-width: 5.6em; white-space: nowrap; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grigio-400); }
+.ev-bl-et { margin-right: 5px; white-space: nowrap; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grigio-400); }
 /* il piede: i pulsanti scendono qui e restano alla stessa quota in tutti e quattro */
 .ev-bl-az {
     display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto;
@@ -3453,7 +3458,6 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
 .ev-diag { display: flex; flex-direction: column; gap: 4px; }
 @media (max-width: 720px) {
     .ev-cruscotto { grid-template-columns: 1fr; }
-    .ev-bl-et { min-width: 4.6em; }
 }
 }
 
