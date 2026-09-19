@@ -1917,6 +1917,32 @@
             }
         },
 
+        /* Le conferme alle cene dei giorni del convegno: stesso indirizzo,
+           altra sezione. Le raccoglie la pagina pubblica passando dal servizio
+           delle iscrizioni; da qui si leggono soltanto, e a togliere una
+           risposta e' il solo amministratore - a decidere e' il servizio, non
+           queste righe. */
+        async ceneEvento(corpo) {
+            let url = window.RV_PRESENZE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'presenze$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, sezione: 'cene', ...corpo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                return { ...data, ok: true };
+            } catch (e) {
+                return { ok: false, msg: await this._perche(url, e) };
+            }
+        },
+
         /* --- NEWSLETTER ---
            Un unico servizio per l'elenco dei destinatari raccolti dal sito
            (tutte le pagine, non solo gli eventi) e per le disiscrizioni. */
@@ -16737,6 +16763,7 @@
             + aziendeInvitoHtml(ev)
             + promemoriaEventiHtml(ev)
             + giornataHtml(ev)
+            + ceneHtml(ev)
             + '</div>';
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const vuoto = ev.nota
@@ -16811,6 +16838,12 @@
         });
         collegaPromemoria(ev);
         collegaGiornataBlocco(ev);
+        collegaCeneBlocco(ev);
+        /* Le conferme alle cene si leggono entrando, come il programma e
+           l'agenda: il riquadro deve poter dire quanti posti sono prenotati
+           senza che nessuno apra la finestra. Una lettura sola, non a ogni
+           ridisegno (vedi CENE_FRESCHE_MS). */
+        if (evHaCene(ev)) caricaCene(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaCene(ev); });
         /* Il programma si legge entrando, come l'agenda: il riquadro deve poter
            dire a che punto sta la giornata senza che nessuno apra la finestra. */
         if (!ev.tutti) caricaProgramma(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaGiornata(ev); });
@@ -17914,6 +17947,267 @@
         if (!el) return;
         el.outerHTML = giornataHtml(ev);
         collegaGiornataBlocco(ev);
+    }
+
+    /* =========================================================
+       LE CENE DEI GIORNI DEL CONVEGNO
+       ---------------------------------------------------------
+       Due serate, due platee, due pagine: il 1 ottobre tutti gli
+       aderenti, il 2 ottobre coordinatori, vice coordinatori e
+       partner. Chi e' invitato riceve il collegamento e conferma
+       da li'; qui si guarda quello che e' arrivato.
+
+       QUESTA SEZIONE NON RACCOGLIE NIENTE: le risposte le scrive
+       la pagina pubblica passando dal servizio delle iscrizioni.
+       Da qui si leggono, si esportano e - solo l'amministratore -
+       si tolgono quelle sbagliate. Il numero che conta, i POSTI,
+       lo somma il servizio: cosi' e' lo stesso dovunque lo si
+       guardi, e al ristorante se ne comunica uno solo.
+
+       Le date, il termine e il tetto degli ospiti stanno nel
+       servizio (email-service/lib/cene-evento.js). Qui sotto
+       restano solo gli indirizzi delle due pagine, che servono al
+       pulsante per copiare il collegamento da mandare agli
+       invitati, e l'elenco degli eventi che una cena ce l'hanno:
+       senza, il riquadro comparirebbe su ogni evento del
+       calendario per poi dire che non c'e' niente.
+    ========================================================= */
+    const CENE_PAGINE = {
+        'napoli-2026-10-01': '/cene_napoli/aderenti/',
+        'napoli-2026-10-02': '/cene_napoli/coordinatori/'
+    };
+    const EVENTI_CON_CENE = ['napoli-2026-10-02'];
+    function evHaCene(ev) { return !!ev && !ev.tutti && EVENTI_CON_CENE.indexOf(ev.id) >= 0; }
+
+    let _cene = null;           // l'ultima lettura: [{ cena, righe, conti }, ...]
+    let _ceneEv = '';           // di quale evento e'
+    let _ceneQuando = 0;
+    let _ceneInFlight = false;
+    let _ceneMsg = '';
+    let _ceneAttese = [];       // chi sta aspettando la lettura in volo
+    const CENE_FRESCHE_MS = 20000;
+
+    function ceneDi(ev) { return (ev && _cene && _ceneEv === ev.id) ? _cene : null; }
+    function caricaCene(ev, poi, forza) {
+        if (!evHaCene(ev)) { if (poi) poi(null); return; }
+        if (!Cloud.attivo) {
+            _ceneMsg = 'Accesso al database non attivo: le conferme non si possono leggere.';
+            if (poi) poi(null);
+            return;
+        }
+        if (_ceneInFlight) { if (poi) _ceneAttese.push(poi); return; }
+        if (!forza && _ceneEv === ev.id && Date.now() - _ceneQuando < CENE_FRESCHE_MS) { if (poi) poi(_cene); return; }
+        _ceneInFlight = true;
+        if (poi) _ceneAttese.push(poi);
+        const finito = r => {
+            _ceneInFlight = false;
+            const attese = _ceneAttese;
+            _ceneAttese = [];
+            attese.forEach(f => { try { f(r); } catch (e) { } });
+        };
+        Cloud.ceneEvento({ azione: 'elenco', evento: ev.id }).then(r => {
+            if (!r || !r.ok) {
+                _ceneMsg = (r && r.msg) || 'Conferme delle cene non leggibili.';
+                finito(null);
+                return;
+            }
+            _ceneMsg = '';
+            _cene = r.cene || []; _ceneEv = ev.id; _ceneQuando = Date.now();
+            finito(_cene);
+        }).catch(() => {
+            _ceneMsg = 'Servizio non raggiungibile: conferme delle cene non lette.';
+            finito(null);
+        });
+    }
+
+    // "1 ottobre" da "2026-10-01": nel riquadro la serata si riconosce dal giorno
+    function giornoCena(c) {
+        const d = String((c && c.giorno) || '');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return String((c && c.quando) || '');
+        const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+            'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+        return Number(d.slice(8, 10)) + ' ' + MESI[Number(d.slice(5, 7)) - 1];
+    }
+    function indirizzoCena(c) {
+        const via = CENE_PAGINE[c.id] || '';
+        if (!via) return '';
+        /* Dall'area riservata il collegamento deve puntare al SITO, non a dove
+           si trova adesso questa pagina: aperta da un file locale o da un
+           indirizzo di prova, "origin" sarebbe quello sbagliato da mandare in
+           giro. */
+        const base = /nextgenerationbusiness\.it$/.test(location.hostname)
+            ? location.origin : 'https://nextgenerationbusiness.it';
+        return base + via;
+    }
+    function copiaNegliAppunti(testo, detto) {
+        const fatto = () => toast(detto || 'Collegamento copiato.', 'verde');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(testo).then(fatto).catch(() => window.prompt('Copia il collegamento:', testo));
+            return;
+        }
+        window.prompt('Copia il collegamento:', testo);
+    }
+
+    /* IL BLOCCO NEL CRUSCOTTO. Una riga per serata con i due numeri che
+       servono davvero - quante persone hanno risposto e quanti posti sono
+       prenotati - e il pulsante che apre l'elenco. Chi non ha ancora
+       risposto non si conta qui: non lo sappiamo, perche' l'invito parte per
+       email e non da un elenco chiuso. */
+    function ceneHtml(ev) {
+        if (!evHaCene(ev)) return '';
+        const dati = ceneDi(ev);
+        const righe = [];
+        if (!dati) {
+            righe.push(rigaBl('Conferme', esc(_ceneMsg || 'da leggere...')));
+        } else if (!dati.length) {
+            righe.push(rigaBl('Conferme', '<span class="hint">nessuna cena configurata</span>'));
+        } else {
+            dati.forEach(d => {
+                const c = d.conti;
+                righe.push(rigaBl(giornoCena(d.cena), c
+                    ? '<b>' + c.presenti + '</b> present' + (c.presenti === 1 ? 'e' : 'i')
+                        + ' &middot; <b>' + c.posti + '</b> post' + (c.posti === 1 ? 'o' : 'i')
+                        + (c.assenti ? ' &middot; <span class="hint">' + c.assenti + ' non viene</span>' : '')
+                    : '<span class="ev-ko">non leggibile</span>'));
+            });
+            /* Il termine e' l'unica cosa che qui puo' diventare urgente: quando
+               e' passato, i numeri sono definitivi e vanno portati al
+               ristorante. */
+            const chiusa = dati.every(d => d.cena && d.cena.chiusa);
+            righe.push(rigaBl('Termine', chiusa
+                ? '<span class="hint">conferme chiuse: i numeri sono definitivi</span>'
+                : 'entro domenica 27 settembre'));
+        }
+        return gruppoEv({
+            id: 'ev-cene-blocco', titolo: 'Le cene', spiega: 'conferme di presenza',
+            stato: righe.join(''),
+            azioni: '<button class="btn btn-sm btn-secondary" id="ev-cene">Apri le conferme</button>'
+        });
+    }
+    function collegaCeneBlocco(ev) {
+        const b = document.getElementById('ev-cene');
+        if (b) b.addEventListener('click', () => modaleCene(ev));
+    }
+    function aggiornaSchedaCene(ev) {
+        const el = document.getElementById('ev-cene-blocco');
+        if (!el) return;
+        el.outerHTML = ceneHtml(ev);
+        collegaCeneBlocco(ev);
+    }
+
+    /* LA FINESTRA. Le due serate una sotto l'altra, ognuna con il suo
+       collegamento da mandare, i suoi conti e il suo elenco. Non si sceglie
+       fra le due con una linguetta: si guardano insieme, perche' quasi
+       sempre la domanda e' "chi c'e' la prima sera e chi la seconda". */
+    function modaleCene(ev) {
+        apriModale('<h2>Le cene di ' + esc(ev.titolo) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;">Le conferme arrivano dalle pagine mandate agli invitati. '
+            + 'I posti comprendono chi ha risposto e gli ospiti che porta.</p>'
+            + '<div id="cene-corpo"><div class="tabella-vuota">Carico le conferme...</div></div>'
+            + '<div class="modale-azioni">'
+            + '<button class="btn btn-secondary" id="cene-aggiorna">Aggiorna</button>'
+            + '<button class="btn btn-secondary" id="cene-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        document.getElementById('cene-chiudi').addEventListener('click', chiudiModale);
+        document.getElementById('cene-aggiorna').addEventListener('click', () => {
+            const corpo = document.getElementById('cene-corpo');
+            if (corpo) corpo.innerHTML = '<div class="tabella-vuota">Carico le conferme...</div>';
+            caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+        });
+        caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); });
+    }
+
+    function disegnaCorpoCene(ev) {
+        const corpo = document.getElementById('cene-corpo');
+        if (!corpo) return;
+        const dati = ceneDi(ev);
+        if (!dati) {
+            corpo.innerHTML = '<div class="tabella-vuota">' + esc(_ceneMsg || 'Conferme non leggibili.') + '</div>';
+            return;
+        }
+        corpo.innerHTML = dati.map(d => sezioneCenaHtml(d)).join('');
+        collegaCorpoCene(ev);
+    }
+
+    function sezioneCenaHtml(d) {
+        const c = d.cena || {};
+        const conti = d.conti || { risposte: 0, presenti: 0, assenti: 0, ospiti: 0, posti: 0 };
+        const url = indirizzoCena(c);
+        const elenco = d.righe && d.righe.length
+            ? '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+                + '<th>Nome</th><th>Email</th><th>Telefono</th><th>Viene</th>'
+                + '<th>Ospiti</th><th>Posti</th><th>Note</th><th>Risposta</th><th></th>'
+                + '</tr></thead><tbody>'
+                + d.righe.map(r => rigaCenaHtml(c, r)).join('')
+                + '</tbody></table></div>'
+            : '<div class="tabella-vuota">Nessuna conferma ancora arrivata.</div>';
+        return '<section class="ev-bl" style="margin-top:14px;">'
+            + '<div class="ev-bl-tit">' + esc(c.titolo || '') + '<span>' + esc(c.quando || '') + '</span></div>'
+            + '<div class="ev-bl-stato">'
+            + (url
+                ? rigaBl('Pagina', '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a> '
+                    + '<button type="button" class="btn btn-sm btn-ghost" data-copia="' + esc(url) + '">Copia</button>')
+                : '')
+            + rigaBl('Conferme', '<b>' + conti.risposte + '</b> arrivate &middot; ' + conti.presenti + ' presenti &middot; '
+                + conti.assenti + ' assenti &middot; <b>' + conti.posti + '</b> posti ('
+                + conti.ospiti + (conti.ospiti === 1 ? ' ospite' : ' ospiti') + ')')
+            + (c.chiusa ? rigaBl('Termine', '<span class="hint">conferme chiuse</span>') : '')
+            + '</div>'
+            + '<div class="ev-bl-az"><button class="btn btn-sm btn-secondary" data-csv="' + esc(c.id) + '">Esporta CSV</button></div>'
+            + elenco
+            + '</section>';
+    }
+
+    function rigaCenaHtml(c, r) {
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        const ospiti = r.ospiti && r.ospiti.length
+            ? esc(r.ospiti.join(', '))
+            : (r.quantiOspiti ? r.quantiOspiti + (r.quantiOspiti === 1 ? ' ospite' : ' ospiti') + ' senza nome' : '');
+        const quando = r.quando
+            ? new Date(r.quando).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : '';
+        return '<tr>'
+            + '<td>' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
+            + '<td>' + esc(r.email) + '</td>'
+            + '<td>' + esc(r.telefono || '') + '</td>'
+            + '<td>' + (r.presente ? '<b class="ev-ok">sì</b>' : 'no') + '</td>'
+            + '<td>' + ospiti + '</td>'
+            + '<td class="num">' + (r.posti || 0) + '</td>'
+            + '<td>' + esc(r.note || '') + '</td>'
+            + '<td>' + esc(quando) + (r.cambiata ? ' <span class="hint">(modificata)</span>' : '') + '</td>'
+            + '<td>' + (admin
+                ? '<button type="button" class="btn btn-sm btn-ghost" data-togli="' + esc(r.id) + '" data-cena="' + esc(c.id) + '" '
+                    + 'data-chi="' + esc((r.nome + ' ' + r.cognome).trim()) + '">Togli</button>'
+                : '') + '</td>'
+            + '</tr>';
+    }
+
+    function collegaCorpoCene(ev) {
+        const corpo = document.getElementById('cene-corpo');
+        if (!corpo) return;
+        corpo.querySelectorAll('[data-copia]').forEach(b => b.addEventListener('click', () => {
+            copiaNegliAppunti(b.dataset.copia, 'Collegamento copiato: mandalo agli invitati.');
+        }));
+        corpo.querySelectorAll('[data-csv]').forEach(b => b.addEventListener('click', () => {
+            const sez = b.closest('section');
+            const tab = sez && sez.querySelector('table.dati');
+            if (!tab) { toast('Non c\'è ancora niente da esportare.', 'ambra'); return; }
+            esportaTabellaCsv(tab, 'cena-' + b.dataset.csv);
+        }));
+        /* Togliere una risposta e' dell'amministratore, e il servizio lo
+           ripete per conto suo: qui il pulsante non compare nemmeno. Serve
+           per chi ha compilato con un indirizzo sbagliato - quella scheda non
+           si aggiornera' piu' da sola e resterebbe a contare posti che nessuno
+           occupera'. */
+        corpo.querySelectorAll('[data-togli]').forEach(b => b.addEventListener('click', () => {
+            const chi = b.dataset.chi || 'questa risposta';
+            if (!confirm('Tolgo la risposta di ' + chi + '? I posti che aveva prenotato tornano liberi.')) return;
+            b.disabled = true;
+            Cloud.ceneEvento({ azione: 'cancella', cena: b.dataset.cena, ids: [b.dataset.togli] }).then(r => {
+                if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a togliere la risposta.', 'rosso'); return; }
+                toast('Risposta tolta.', 'verde');
+                caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+            });
+        }));
     }
 
     function salvaGiornata(ev) {

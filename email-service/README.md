@@ -1567,6 +1567,58 @@ ACCENDE (fascia e bordo ambra): e' la spia del cruscotto, e fa guardare li'
 prima che altrove senza doverli leggere tutti. Il resto sta dentro le finestre,
 che e' dove si lavora.
 
+## Le cene del convegno (`lib/cene-evento.js`)
+
+Le due serate di Napoli: il **1 ottobre** tutti gli aderenti Revilaw, il **2
+ottobre** i coordinatori, i vice coordinatori e i partner. Chi e' invitato non
+si iscrive dal sito: riceve un collegamento e conferma da li'. Le due pagine
+sono `/cene_napoli/aderenti/` e `/cene_napoli/coordinatori/`, con
+`noindex, nofollow`, escluse in `robots.txt` e fuori dalla sitemap - come le
+agende personali degli ospiti (`/n26/`): l'indirizzo e' l'invito.
+
+Le risposte vivono nella collezione `ceneEventi`, un documento per persona e
+per serata (`{cena}~{email}`).
+
+- **Due azioni sull'endpoint pubblico** `/api/iscrizione-nuova`:
+  `cena-leggi` restituisce la scheda della serata (titolo, data, luogo, termine,
+  quanti ospiti si possono portare) e l'ora del servizio; `cena-conferma`
+  registra la risposta. La prima non scrive e non spedisce, quindi non pesa sul
+  freno per indirizzo IP: tre persone dello stesso studio che aprono la pagina
+  non devono mangiarsi gli invii veri di tutti gli altri.
+- **Le date e il termine stanno qui, non nella pagina.** Se arrivassero dal
+  browser basterebbe cambiarne una riga per riaprire un modulo chiuso. L'HTML
+  delle due pagine si tiene solo una copia di riserva dei testi, per non restare
+  bianco se il servizio non risponde.
+- **Il termine e' un istante**: `2026-09-27T23:59:59+02:00`, la mezzanotte
+  italiana fra domenica 27 e lunedi 28 settembre. Dopo, il servizio rifiuta con
+  `403` e `chiusa: true`, anche se la pagina era rimasta aperta da giorni. Il
+  conto alla rovescia in pagina va sull'ora DEL SERVIZIO, non su quella del
+  computer di chi guarda.
+- **I posti li conta il servizio**: chi conferma vale un posto, piu' uno per
+  ogni ospite che porta. Chi risponde che non viene resta in elenco - e' un'
+  informazione, non un vuoto - ma non occupa niente, e gli ospiti che aveva
+  scritto prima di cambiare idea non restano a contare coperti. I nomi degli
+  ospiti sono facoltativi: chi non li sa ancora dichiara quanti sono.
+- **Un indirizzo, una scheda.** Chi compila due volte aggiorna la prima
+  risposta invece di crearne una seconda, e nella scheda resta la storia degli
+  ultimi cinque ripensamenti (quando, presente o no, quanti posti): "eravamo
+  40, adesso siamo 38" si deve poter ricostruire senza chiedere in giro.
+- **La mail di riepilogo e' una conseguenza, non una condizione**: se l'SMTP
+  non risponde la conferma resta comunque registrata e si vede nell'area
+  riservata.
+- **Dall'area riservata** le richieste arrivano a `/api/presenze` con
+  `sezione: 'cene'` (stessa deviazione dell'agenda B2B e del programma):
+  `elenco` restituisce tutte e due le serate con i conti gia' fatti (risposte,
+  presenti, assenti, ospiti, posti) e lo legge chiunque veda gli Eventi;
+  `cancella` toglie una risposta ed e' del solo **amministratore** - serve per
+  chi ha compilato con un indirizzo sbagliato, perche' quella scheda non si
+  aggiornera' piu' da sola e resterebbe a contare posti che nessuno occupera'.
+  Il riquadro "Le cene" nel cruscotto dell'evento mostra presenti e posti per
+  serata; la finestra apre gli elenchi, il collegamento da mandare agli
+  invitati e l'esportazione in CSV.
+- **Le prove**: `node prove/cene-evento.prove.js` (Firestore e posta finti,
+  niente da installare).
+
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
 Riservato all'**amministratore** (ID token verificato, ruolo `admin`). Porta
