@@ -17590,8 +17590,13 @@
         + '.vuoto-cella{color:#94A3B8;}'
         /* gli incontri B2B non sono una fase del palco: si tengono in
            parallelo, e sul foglio si vedono per quello che sono */
-        + 'tbody tr.b2b td{background:#F4F8FB;border-top:1px solid #2A5A85;border-bottom:1px solid #2A5A85;}'
-        + 'tbody tr.b2b .fase{color:#0A2844;font-weight:bold;}'
+        /* la colonna degli incontri B2B: accanto al programma, riempita solo
+           sulle due fasce in cui i tavoli ricevono */
+        + 'td.colb2b{background:#F4F8FB;border-left:2px solid #2A5A85;vertical-align:top;}'
+        + 'td.colb2b.vuota{background:#fff;border-left:1px solid #E2E8F0;}'
+        + '.colb2b-ore{font-weight:bold;color:#0A2844;font-size:11.5px;}'
+        + '.colb2b-forte{font-weight:bold;color:#2A5A85;font-size:10.5px;}'
+        + '.colb2b-nota{color:#475569;font-size:10px;line-height:1.35;margin-top:2px;}'
         + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
         + '@page{margin:14mm 12mm;}';
     /* La finestra di stampa: si scrive la pagina e si chiama print(), da cui
@@ -19461,14 +19466,17 @@
                 + '<td class="fase">' + esc(t.nome) + '</td>'
                 + '<td>' + (cosa || '<span class="vuoto-cella">-</span>') + '</td></tr>' };
         });
-        /* GLI INCONTRI B2B SUL FOGLIO DEL PROGRAMMA. Non sono una fase del
-           palco: si tengono IN PARALLELO, per tutta la giornata, mentre in
-           sala si va avanti. Ma chi legge il programma deve saperlo - e' la
-           mezza giornata in cui le imprese sono ai tavoli - quindi entrano
-           come una riga sola, messa al posto giusto nell'ordine degli
-           orari, con dentro la fascia intera, quanti tavoli vanno insieme e
-           quali sono. Le ore e i nomi si leggono dall'agenda: se un tavolo
-           si spegne, il foglio cambia con lei. */
+        /* GLI INCONTRI B2B: UNA COLONNA A DESTRA. Non sono una fase del
+           palco - si tengono IN PARALLELO, mentre in sala si va avanti -
+           quindi non stanno in fila con le altre voci: stanno ACCANTO. La
+           colonna si riempie solo dove servono, cioe' sulle due fasce
+           dedicate: quella della mattina e quella del pomeriggio, divise
+           dalla pausa pranzo. Una cella sola per fascia, alta quanto le
+           voci che le corrono a fianco: si vede a colpo d'occhio che
+           mentre sul palco si susseguono quattro sessioni, sotto ci sono
+           otto tavoli che ricevono.
+           Le ore e i nomi si leggono dall'agenda: un tavolo che si spegne
+           cambia anche il foglio. */
         const ag = agendaDi(ev);
         const tavoli = ((ag && ag.aree) || []).filter(x => x.attiva);
         const slotTutti = [];
@@ -19476,36 +19484,71 @@
             if (!slotTutti.some(y => y.chiave === sl.chiave)) slotTutti.push(sl);
         }));
         slotTutti.sort((x, y) => minutiPrg(x.ora) - minutiPrg(y.ora));
-        let rigaB2B = null;
-        if (tavoli.length && slotTutti.length) {
-            const daB2B = slotTutti[0].ora;
-            const aB2B = slotTutti.map(x => x.fine).filter(Boolean).sort().slice(-1)[0] || slotTutti[slotTutti.length - 1].ora;
+        // le due fasce, divise dalla pausa pranzo (la stessa che divide le
+        // colonne della finestra: una regola sola per tutta la giornata)
+        const confineB2B = G ? G.confine(voci, (ag && ag.giornata) || {}) : 13 * 60;
+        const fasciaDa = lista => lista.length ? {
+            da: lista[0].ora,
+            a: lista.map(x => x.fine).filter(Boolean).sort().slice(-1)[0] || lista[lista.length - 1].ora,
+            daMin: minutiPrg(lista[0].ora),
+            aMin: Math.max.apply(null, lista.map(x => minutiPrg(x.fine || x.ora)))
+        } : null;
+        const fasce = tavoli.length ? [
+            fasciaDa(slotTutti.filter(x => minutiPrg(x.ora) < confineB2B)),
+            fasciaDa(slotTutti.filter(x => minutiPrg(x.ora) >= confineB2B))
+        ].filter(Boolean) : [];
+        const conB2B = fasce.length > 0;
+        const cellaB2B = (f, quante) => {
             const presi = tavoli.reduce((t, x) => t + x.occupati, 0);
-            rigaB2B = {
-                min: minutiPrg(daB2B),
-                html: '<tr class="b2b"><td class="forte">' + esc(daB2B) + '-' + esc(aB2B) + '</td>'
-                    + '<td class="fase">Incontri B2B</td>'
-                    + '<td><b>' + tavoli.length + (tavoli.length === 1 ? ' tavolo' : ' tavoli')
-                    + ' in parallelo, solo su invito</b>'
-                    + '<div class="nota">' + tavoli.map(x => esc(x.nome)).join(' &middot; ') + '</div>'
-                    + '<div class="nota">In parallelo al programma di sala'
-                    + (presi ? ', ' + presi + (presi === 1 ? ' incontro già prenotato' : ' incontri già prenotati') : '')
-                    + '. L\'agenda tavolo per tavolo è sul foglio "Stampa l\'agenda B2B".</div>'
-                    + '</td></tr>'
-            };
-        }
-        const righe = (rigaB2B
-            ? (() => {
-                const fuori = [];
-                let messa = false;
-                righeVoci.forEach(r => {
-                    if (!messa && rigaB2B.min < r.min) { fuori.push(rigaB2B.html); messa = true; }
-                    fuori.push(r.html);
+            return '<td class="colb2b" rowspan="' + quante + '">'
+                + '<div class="colb2b-ore">' + esc(f.da) + '-' + esc(f.a) + '</div>'
+                + '<div class="colb2b-forte">' + tavoli.length + (tavoli.length === 1 ? ' tavolo' : ' tavoli')
+                + ' in parallelo</div>'
+                + '<div class="colb2b-nota">solo su invito</div>'
+                + '<div class="colb2b-nota">' + tavoli.map(x => esc(x.nome)).join('<br>') + '</div>'
+                + (presi ? '<div class="colb2b-nota">' + presi + (presi === 1 ? ' prenotato' : ' prenotati') + '</div>' : '')
+                + '</td>';
+        };
+        /* A ogni riga del programma si guarda in quale fascia cade, e le
+           righe consecutive della stessa fascia si prendono una cella sola
+           (rowspan). Chi sta fuori - la registrazione, i saluti, la pausa -
+           lascia la colonna vuota, ed e' giusto: li' i tavoli non ricevono. */
+        const quale = r => {
+            for (let k = 0; k < fasce.length; k++) {
+                if (r.min >= fasce[k].daMin && r.min < fasce[k].aMin) return k;
+            }
+            return -1;
+        };
+        /* UNA FASCIA SI VEDE ANCHE SE IN SALA NON SUCCEDE NIENTE. Se il
+           programma non ha nessuna voce che corre a fianco dei tavoli - una
+           mattina in cui la sala e' ferma, o una scaletta ancora da
+           scrivere - la fascia avrebbe una colonna vuota accanto a niente,
+           e sparirebbe dal foglio. Invece e' proprio il caso in cui contava
+           dirlo: si aggiunge una riga sua, con le altre colonne vuote. */
+        let elenco = righeVoci.slice();
+        if (conB2B) {
+            fasce.forEach((f, k) => {
+                if (righeVoci.some(r => quale(r) === k)) return;
+                elenco.push({
+                    min: f.daMin, soloB2B: k,
+                    html: '<tr><td class="forte">' + esc(f.da) + '-' + esc(f.a) + '</td>'
+                        + '<td class="fase">Incontri B2B</td>'
+                        + '<td><span class="vuoto-cella">in sala non è previsto niente in questa fascia</span></td></tr>'
                 });
-                if (!messa) fuori.push(rigaB2B.html);
-                return fuori;
-            })()
-            : righeVoci.map(r => r.html)).join('');
+            });
+            elenco.sort((x, y) => x.min - y.min);
+        }
+        const fasciaDi = r => (r.soloB2B !== undefined ? r.soloB2B : quale(r));
+        const righe = elenco.map((r, k) => {
+            if (!conB2B) return r.html;
+            const f = fasciaDi(r);
+            if (f < 0) return r.html.replace('</tr>', '<td class="colb2b vuota"></td></tr>');
+            // la cella si apre solo sulla PRIMA riga del gruppo
+            if (k > 0 && fasciaDi(elenco[k - 1]) === f) return r.html;
+            let quante = 1;
+            while (k + quante < elenco.length && fasciaDi(elenco[k + quante]) === f) quante++;
+            return r.html.replace('</tr>', cellaB2B(fasce[f], quante) + '</tr>');
+        }).join('');
         const tavole = voci.filter(v => v.tipo === 'tavola').length;
         const dalle = voci.map(v => v.dalle).filter(Boolean).sort()[0] || '';
         const alle = voci.map(v => v.alle).filter(Boolean).sort().slice(-1)[0] || '';
@@ -19519,8 +19562,9 @@
             + (dalle && alle ? ' &middot; dalle ' + esc(dalle) + ' alle ' + esc(alle) : '')
             + (tavole ? ' &middot; ' + tavole + (tavole === 1 ? ' tavola rotonda' : ' tavole rotonde') : '')
             + ' &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
-            + '<section class="tema"><table><thead><tr><th style="width:96px;">Orario</th>'
-            + '<th style="width:142px;">Fase</th><th>Titolo e chi interviene</th></tr></thead>'
+            + '<section class="tema"><table><thead><tr><th style="width:92px;">Orario</th>'
+            + '<th style="width:132px;">Fase</th><th>Titolo e chi interviene</th>'
+            + (conB2B ? '<th style="width:150px;">Incontri B2B</th>' : '') + '</tr></thead>'
             + '<tbody>' + righe + '</tbody></table></section>'
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
