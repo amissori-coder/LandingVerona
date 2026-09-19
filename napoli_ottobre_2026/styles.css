@@ -3428,6 +3428,7 @@ ul {
 .matching-text,
 .program-note,
 .cfp-note p,
+.b2b-callout-text,
 .form-success p,
 .rel-rel-text {
     text-align: justify;
@@ -3468,4 +3469,487 @@ ul {
 @media (max-width: 600px) {
     .video-shell,
     .video-player { border-radius: var(--radius-md); }
+}
+
+/* =====================================================================
+   PROGRAMMA DELLA GIORNATA - scaletta definitiva 09.00 / 17.00
+   Aggiunte per la sezione #programma: fascia di sintesi, occhiello di
+   formato sopra ogni titolo, distinzione fra chi modera e chi relaziona,
+   e il riquadro degli incontri B2B in parallelo.
+   Nessuna regola preesistente viene riscritta: .timeline, .timeline-item,
+   .timeline-speakers, .speakers-*, .speaker-*, .program-part e
+   .timeline-dur restano quelli che erano. Qui ci sono solo classi nuove
+   piu' tre discendenze che le adattano alle card gia' esistenti.
+   ===================================================================== */
+
+/* --- Fascia di sintesi, sotto l'intestazione di sezione ---
+   Non una card: due filetti orizzontali, come il resto della pagina.
+   Aggiungere una scatola bianca in una sezione gia' fatta di scatole
+   bianche avrebbe tolto respiro invece di darne. */
+.program-stats {
+    max-width: 780px;
+    margin: 0 auto 42px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 22px 0;
+    border-top: 1px solid var(--medium-gray);
+    border-bottom: 1px solid var(--medium-gray);
+}
+
+.program-stat {
+    text-align: center;
+    padding: 0 12px;
+    border-left: 1px solid rgba(22, 64, 104, 0.12);
+}
+
+.program-stat:first-child {
+    border-left: none;
+}
+
+.stat-value {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.85rem;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    color: var(--navy);
+}
+
+.stat-label {
+    display: block;
+    margin-top: 9px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.66rem;
+    line-height: 1.35;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+}
+
+/* La cella dell'orario porta un intervallo, non una cifra: va rimpicciolita
+   perche' stia sulla riga senza spezzarsi, e tinta in accento perche' e'
+   il dato per cui si guarda il programma. */
+.program-stat--hours .stat-value {
+    font-size: 1.12rem;
+    line-height: 1.85rem;
+    letter-spacing: -0.1px;
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+/* --- Ora di fine accanto all'ora di inizio ---
+   E' uno pseudo-elemento, e non un secondo <span>, di proposito: script.js
+   (riga 521) copia il testo di .timeline-time dentro data-time per la vista
+   mobile, e il contenuto generato non entra in textContent. Cosi' la colonna
+   mostra l'intervallo intero senza che l'orario mobile diventi "09.0009.30". */
+.timeline-time[data-fine]::after {
+    content: "\2013\00a0" attr(data-fine);
+    display: block;
+    margin-top: 3px;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: var(--text-muted);
+}
+
+/* --- Occhiello di formato dentro la card ---
+   Primo figlio di .timeline-content, sopra l'<h3>. Dice che cosa e' la voce
+   (tavola rotonda, intervento, saluti, pausa) prima ancora che la si legga,
+   cosi' il ritmo della giornata si coglie scorrendo la colonna. */
+.timeline-phase {
+    display: inline-block;
+    margin-bottom: 9px;
+    padding: 5px 10px;
+    font-family: var(--font-display);
+    font-size: 0.58rem;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    white-space: nowrap;
+    border-radius: 999px;
+    color: var(--phase-c, var(--navy));
+    background: var(--phase-bg, rgba(22, 64, 104, 0.07));
+    border: 1px solid var(--phase-bd, transparent);
+}
+
+/* Tavola rotonda: il formato portante della giornata, sette volte su tredici. */
+.timeline-phase--round {
+    --phase-c: var(--accent-dark);
+    --phase-bg: rgba(177, 33, 59, 0.08);
+    --phase-bd: rgba(177, 33, 59, 0.20);
+}
+
+/* Saluti istituzionali e apertura dei lavori. */
+.timeline-phase--open {
+    --phase-c: var(--navy-dark);
+    --phase-bg: rgba(22, 64, 104, 0.10);
+    --phase-bd: rgba(22, 64, 104, 0.20);
+}
+
+/* Intervento singolo, Q&A, chiusura. */
+.timeline-phase--talk {
+    --phase-c: var(--navy-light);
+    --phase-bg: rgba(42, 90, 133, 0.09);
+    --phase-bd: rgba(42, 90, 133, 0.22);
+}
+
+/* Registrazione e pausa pranzo. */
+.timeline-phase--pause {
+    --phase-c: var(--nctm-gray);
+    --phase-bg: rgba(110, 110, 110, 0.08);
+    --phase-bd: rgba(110, 110, 110, 0.30);
+}
+
+/* La card delle pause ha fondo trasparente sopra il grigio della sezione:
+   li' l'occhiello va riportato su bianco pieno, altrimenti si smaterializza. */
+.timeline-item--break .timeline-phase {
+    background: var(--white);
+    border-color: rgba(110, 110, 110, 0.28);
+}
+
+/* La card in evidenza ha gia' un velo rosso: un occhiello rosso sopra un
+   fondo rosso raddoppierebbe l'accento invece di segnalarlo. */
+.timeline-item--highlight .timeline-phase--round {
+    --phase-bg: rgba(255, 255, 255, 0.72);
+}
+
+/* --- Chi modera e chi relaziona ---
+   .timeline-speakers resta il contenitore unico e porta lui il filetto
+   superiore: i gruppi al suo interno si separano con il solo spazio.
+   La variante del moderatore si distingue per colore (navy contro accento),
+   non per decorazione. */
+.speakers-group + .speakers-group {
+    margin-top: 18px;
+}
+
+.speakers-label--mod {
+    color: var(--navy);
+}
+
+/* Il trattino di .speakers-label::before e' dichiarato in accento: per la
+   variante moderatore va ridichiarato, altrimenti resta rosso. */
+.speakers-label--mod::before {
+    background: var(--navy);
+}
+
+/* Due classi nel selettore contro una: vince per specificita', non per
+   ordine nel file, e non teme un riordino del foglio. */
+.speakers-group--mod .speakers-list li {
+    border-left-color: rgba(22, 64, 104, 0.40);
+}
+
+.speakers-group--mod .speakers-list li:hover {
+    border-left-color: var(--navy);
+}
+
+/* --- Incontri B2B in parallelo, 10.00 / 17.00, su invito ---
+   Unico blocco a fondo scuro dentro una sezione chiara: e' il contrasto
+   piu' forte della sezione, e chi scorre non puo' mancarlo. Si porta dietro
+   il proprio fondo, quindi i toni chiari del testo sono qui legittimi. */
+.b2b-callout {
+    max-width: 780px;
+    margin: 0 auto 46px;
+    display: grid;
+    grid-template-columns: minmax(170px, 215px) 1fr;
+    align-items: center;
+    gap: 32px;
+    padding: 30px 34px;
+    border-radius: var(--radius-lg);
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%);
+    box-shadow: var(--shadow-lg);
+}
+
+.b2b-callout-clock {
+    padding-right: 30px;
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.b2b-callout-hours {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    color: var(--white);
+    white-space: nowrap;
+}
+
+.b2b-callout-day {
+    display: block;
+    margin-top: 8px;
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #7FBAFF;
+}
+
+.b2b-callout-tag {
+    display: block;
+    margin-bottom: 10px;
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--accent-light);
+}
+
+.b2b-callout-title {
+    margin: 0 0 10px;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--white);
+}
+
+.b2b-callout-text {
+    margin: 0;
+    max-width: 64ch;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #C4D6E7;
+}
+
+.b2b-callout-text strong {
+    color: var(--white);
+    font-weight: 600;
+}
+
+.b2b-callout-note {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 14px 0 0;
+    padding-top: 13px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    letter-spacing: 0.3px;
+    color: #9FC0DC;
+}
+
+.b2b-callout-note svg {
+    color: var(--accent-light);
+    flex-shrink: 0;
+}
+
+/* =====================================================================
+   PROGRAMMA - responsive. I breakpoint della pagina sono 968 / 768 / 600
+   / 480: nessuna media query esistente intercetta queste classi nuove,
+   quindi vanno dichiarate per intero.
+   ===================================================================== */
+
+@media (max-width: 968px) {
+    .stat-value {
+        font-size: 1.6rem;
+    }
+
+    .program-stat--hours .stat-value {
+        font-size: 1rem;
+    }
+
+    .stat-label {
+        font-size: 0.62rem;
+        letter-spacing: 1.6px;
+    }
+
+    .b2b-callout {
+        grid-template-columns: minmax(150px, 190px) 1fr;
+        gap: 26px;
+        padding: 28px;
+    }
+
+    .b2b-callout-clock {
+        padding-right: 24px;
+    }
+
+    .b2b-callout-hours {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Fascia di sintesi: da quattro colonne a due, filetti ricalcolati. */
+    .program-stats {
+        grid-template-columns: repeat(2, 1fr);
+        margin-bottom: 34px;
+        padding: 0;
+    }
+
+    .program-stat {
+        padding: 18px 10px;
+        border-left: 1px solid rgba(22, 64, 104, 0.12);
+    }
+
+    .program-stat:nth-child(odd) {
+        border-left: none;
+    }
+
+    .program-stat:nth-child(n + 3) {
+        border-top: 1px solid rgba(22, 64, 104, 0.12);
+    }
+
+    /* Sotto i 768px .timeline-time sparisce (riga 2475) e l'orario lo da'
+       lo pseudo ::before della card: l'intervallo lo racconta il badge
+       della durata, che resta accanto al titolo. */
+    .timeline-phase {
+        margin-bottom: 8px;
+        padding: 4px 9px;
+        font-size: 0.55rem;
+        letter-spacing: 1.6px;
+    }
+
+    .speakers-group + .speakers-group {
+        margin-top: 15px;
+    }
+
+    /* B2B: le due colonne si impilano, il filetto verticale diventa
+       orizzontale e l'orario resta la cosa piu' grande del riquadro. */
+    .b2b-callout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        margin-bottom: 38px;
+        padding: 26px 24px;
+    }
+
+    .b2b-callout-clock {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        padding-right: 0;
+        padding-bottom: 18px;
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .b2b-callout-day {
+        margin-top: 0;
+    }
+
+    .b2b-callout-hours {
+        font-size: 1.6rem;
+    }
+
+    .b2b-callout-title {
+        font-size: 1.08rem;
+    }
+
+    .b2b-callout-text {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .b2b-callout {
+        padding: 24px 20px;
+        border-radius: var(--radius-md);
+    }
+
+    .b2b-callout-clock {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .b2b-callout-note {
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .b2b-callout-note svg {
+        margin-top: 2px;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Sotto i 480px due colonne strette spezzerebbero le etichette lunghe:
+       una cella per riga, valore e didascalia sulla stessa linea. */
+    .program-stats {
+        grid-template-columns: 1fr;
+        margin-bottom: 30px;
+    }
+
+    .program-stat {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 14px;
+        text-align: left;
+        padding: 13px 4px;
+        border-left: none;
+        border-top: 1px solid rgba(22, 64, 104, 0.12);
+    }
+
+    .program-stat:first-child {
+        border-top: none;
+    }
+
+    .stat-value {
+        font-size: 1.35rem;
+    }
+
+    .program-stat--hours .stat-value {
+        font-size: 0.98rem;
+        line-height: 1;
+        letter-spacing: 0;
+    }
+
+    .stat-label {
+        margin-top: 0;
+        font-size: 0.58rem;
+        letter-spacing: 1.3px;
+    }
+
+    .timeline-phase {
+        font-size: 0.53rem;
+        letter-spacing: 1.4px;
+    }
+
+    .speakers-group + .speakers-group {
+        margin-top: 14px;
+    }
+
+    .b2b-callout {
+        padding: 22px 18px;
+    }
+
+    .b2b-callout-hours {
+        font-size: 1.42rem;
+    }
+
+    .b2b-callout-day {
+        font-size: 0.63rem;
+        letter-spacing: 1.6px;
+    }
+
+    .b2b-callout-tag {
+        font-size: 0.62rem;
+        letter-spacing: 0.16em;
+    }
+
+    .b2b-callout-title {
+        font-size: 1rem;
+    }
+
+    .b2b-callout-text {
+        font-size: 0.83rem;
+        line-height: 1.65;
+    }
+
+    .b2b-callout-note {
+        font-size: 0.74rem;
+    }
 }
