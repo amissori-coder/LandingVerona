@@ -30,6 +30,15 @@
      compone chi era previsto, e il palco continua a dire solo
      chi e' confermato.
 
+   - NON INDOVINA I NOMI. Dove la tabella di partenza non si legge -
+     una scansione storta, un cognome che puo' essere due cognomi -
+     il nome NON si scrive: la nota dice "da completare" e descrive
+     il posto vuoto ("un relatore di ADVANT NCTM", "chi e'
+     specialista per l'innovazione in Banca Intesa Sanpaolo"). Un
+     nome sbagliato in un programma e' peggio di un nome mancante:
+     quello mancante lo si vede e si riempie, quello sbagliato
+     arriva fino alla stampa e al leggio.
+
    COME SI AGGIUNGE UN EVENTO. Una chiave in PROPOSTE con l'id
    dell'evento (gli stessi di EVENTI_DEF in app.js) e le sue voci,
    in ordine di orario: `tipo` fra quelli del servizio
@@ -59,7 +68,11 @@
            durata nell'area riservata si ricava da sole.
            La tavola rotonda delle banche resta SENZA MODERATORE: la giornata
            lo segnala in giallo, ed e' giusto che lo faccia, perche' nella
-           tabella non c'e' e va scelto fra gli iscritti. */
+           tabella non c'e' e va scelto fra gli iscritti.
+           I RELATORI ESTERNI che nella tabella non si leggevano con certezza
+           non sono stati indovinati: la nota dice quanti sono e di che
+           organizzazione, e chi compone la giornata li mette dall'area
+           riservata, dove i nomi veri ci sono gia'. */
         'napoli-2026-10-02': {
             fonte: 'Programma dei lavori di Napoli, 2 ottobre 2026',
             voci: [
@@ -72,8 +85,8 @@
                     tipo: 'istituzionali', dalle: '09:30', alle: '09:50',
                     titolo: 'Saluti istituzionali',
                     nota: 'Apertura ufficiale dei lavori. Dal programma: delegato del Presidente dell\'Ordine dei Commercialisti; '
-                        + 'Pier Luigi Sterzi; Fausta Bianchi; Chiara Marciani (assessore alle attività produttive); '
-                        + 'Francesca Serao (già presidente).'
+                        + 'Pier Luigi Sterzi. Da completare: altri tre saluti - uno dall\'assessorato alle attività produttive, '
+                        + 'uno di chi ha già presieduto - con i nomi che nella tabella non si leggono.'
                 },
                 {
                     tipo: 'intervento', dalle: '09:50', alle: '10:00',
@@ -88,24 +101,26 @@
                 {
                     tipo: 'intervento', dalle: '10:40', alle: '11:20',
                     titolo: 'Modello 231 e Tax Control Framework',
-                    nota: 'Governance, presidio dei rischi e conformità. Dal programma: Melo Martella (Revilaw); Luca Barbero (ADVANT NCTM).'
+                    nota: 'Governance, presidio dei rischi e conformità. Dal programma: Melo Martella (Revilaw). '
+                        + 'Da completare: un relatore di ADVANT NCTM.'
                 },
                 {
                     tipo: 'intervento', dalle: '11:20', alle: '11:50',
                     titolo: 'Rating di Legalità',
-                    nota: 'Requisiti, benefici e riflessi sul merito creditizio. Dal programma: Francesca Ragai (ADVANT NCTM); avv. Antonella Candelieri.'
+                    nota: 'Requisiti, benefici e riflessi sul merito creditizio. Dal programma: avv. Antonella Candelieri. '
+                        + 'Da completare: una relatrice di ADVANT NCTM.'
                 },
                 {
                     tipo: 'intervento', dalle: '11:50', alle: '12:40',
                     titolo: 'Sostenibilità e fattori ESG',
-                    nota: 'Valore, competitività e accesso al credito. Dal programma: Vincenzo Furca (NATU); '
-                        + 'Benito De Berardis (ceo Serviter); Antonella Candelieri (Revilaw).'
+                    nota: 'Valore, competitività e accesso al credito. Dal programma: Antonella Candelieri (Revilaw). '
+                        + 'Da completare: due relatori esterni, uno dei quali a capo di una società di servizi.'
                 },
                 {
                     tipo: 'intervento', dalle: '12:40', alle: '13:30',
                     titolo: 'Finanza agevolata',
-                    nota: 'Strumenti e opportunità per le imprese. Dal programma: Sara Ventura (Spacoup); '
-                        + 'prof. Federico Secondo Maria Mustilli (senza presentazione); Strato Feola (Fineco); Concetta Petti.'
+                    nota: 'Strumenti e opportunità per le imprese. Dal programma: Concetta Petti. Da completare: tre relatori, '
+                        + 'fra cui un professore universitario (nella tabella, senza presentazione) e un relatore di Fineco.'
                 },
                 {
                     tipo: 'pranzo', dalle: '13:30', alle: '14:30',
@@ -115,14 +130,14 @@
                 {
                     tipo: 'tavola', dalle: '14:30', alle: '15:20',
                     titolo: 'Banche. Tavola rotonda',
-                    nota: 'Merito creditizio e dialogo banca-impresa. Al tavolo, dal programma: Federica Tartaro (Banca Intesa Sanpaolo), '
-                        + 'specialista per l\'innovazione e referente ESG per Campania, Calabria e Sicilia; Michele Novale '
-                        + '(Banca Intesa Sanpaolo), specialista dell\'Ufficio Crediti della Direzione Generale. Il moderatore va scelto fra gli iscritti.'
+                    nota: 'Merito creditizio e dialogo banca-impresa. Al tavolo, dal programma, due di Banca Intesa Sanpaolo: '
+                        + 'chi è specialista per l\'innovazione e referente ESG per Campania, Calabria e Sicilia, e chi lo è '
+                        + 'dell\'Ufficio Crediti della Direzione Generale. Nomi da completare, moderatore da scegliere fra gli iscritti.'
                 },
                 {
                     tipo: 'intervento', dalle: '15:20', alle: '16:10',
                     titolo: 'Invitalia e MCC. Bagnoli e America\'s Cup',
-                    nota: 'Sviluppo del territorio e opportunità per le imprese. Dal programma: Sergio Schirani (Invitalia); Carlo De Simone (SIMEST).'
+                    nota: 'Sviluppo del territorio e opportunità per le imprese. Da completare: un relatore di Invitalia e uno di SIMEST.'
                 },
                 {
                     tipo: 'intervento', dalle: '16:10', alle: '16:40',
