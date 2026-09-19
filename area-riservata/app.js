@@ -17577,6 +17577,12 @@
         + 'tr.vuoto td{color:#94A3B8;}'
         + '.forte{font-weight:bold;color:#0A2844;white-space:nowrap;}'
         + '.nota{color:#475569;}'
+        /* il programma della giornata: la colonna della fase e le righe di
+           chi interviene, con l'etichetta incolonnata a sinistra */
+        + '.fase{color:#2A5A85;font-size:10.5px;letter-spacing:0.3px;text-transform:uppercase;}'
+        + '.chi{margin-top:2px;}'
+        + '.chi .et{display:inline-block;width:64px;color:#94A3B8;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
+        + '.vuoto-cella{color:#94A3B8;}'
         + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
         + '@page{margin:14mm 12mm;}';
     /* La finestra di stampa: si scrive la pagina e si chiama print(), da cui
@@ -19343,29 +19349,43 @@
         const voci = vociLocali || (p ? p.voci : null);
         if (!voci || !voci.length) { toast('Il programma non è ancora stato composto.', 'rosso'); return; }
         const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const righe = voci.slice().sort((a, b) => minutiPrg(a.dalle) - minutiPrg(b.dalle)).map(v => {
+        const G = giornataLib();
+        /* TRE COLONNE, e ogni cosa scritta UNA VOLTA SOLA. Prima il tipo
+           della voce stava sotto il titolo, dentro la stessa cella: quando
+           il titolo era il nome del tipo ("Saluti istituzionali") la riga lo
+           diceva due volte, e chi legge si chiede quale delle due e' quella
+           giusta. Adesso il tipo ha la sua colonna - ed e' anche quello che
+           rende il foglio uno SCHEMA, leggibile in verticale - e il titolo
+           compare solo se aggiunge qualcosa. */
+        const righe = (G ? G.ordina(voci) : voci.slice()).map(v => {
             const t = tipoPrgDa(v.tipo);
-            const G = giornataLib();
-            /* Sul foglio la persona si legge come va ANNUNCIATA: il titolo
-               scritto a mano davanti al nome ("Avv. Mario Rossi"), e l'azienda
-               di seguito. E' per questo che il titolo esiste. */
-            const comeSiAnnuncia = x => esc(G ? G.nomePersona(x) : x.nome)
-                + (x.azienda ? ' - ' + esc(x.azienda) : '');
+            /* Sul foglio della persona si scrivono DUE cose sole: il nome e
+               la qualifica con cui va annunciata ("Avv. Mario Rossi"). Il
+               ruolo in azienda e il nome dell'azienda vengono dal modulo
+               d'iscrizione, servono a noi per riconoscerla, e su un
+               programma della giornata sono rumore. */
+            const comeSiAnnuncia = x => esc(G ? G.nomePersona(x) : x.nome);
+            const riga = (et, testo) => '<div class="chi"><span class="et">' + et + '</span>' + testo + '</div>';
             const chi = [];
-            if (v.moderatore) chi.push('<b>Modera:</b> ' + comeSiAnnuncia(v.moderatore));
+            if (v.moderatore) chi.push(riga('Modera', comeSiAnnuncia(v.moderatore)));
             if (v.partecipanti && v.partecipanti.length) {
-                chi.push('<b>' + (t.conModeratore ? 'Al tavolo' : 'Sul palco') + ':</b> '
-                    + v.partecipanti.map(comeSiAnnuncia).join('; '));
+                chi.push(riga(t.conModeratore ? 'Al tavolo' : 'Sul palco',
+                    v.partecipanti.map(comeSiAnnuncia).join(' &middot; ')));
             }
+            // il titolo si scrive solo se dice qualcosa in piu' del tipo
+            const titolo = String(v.titolo || '').trim();
+            const titoloSuo = titolo && titolo.toLowerCase() !== t.nome.toLowerCase() ? titolo : '';
+            const cosa = (titoloSuo ? '<b>' + esc(titoloSuo) + '</b>' : '')
+                + chi.join('')
+                + (v.nota ? '<div class="nota">' + esc(v.nota) + '</div>' : '');
             return '<tr>'
-                + '<td class="forte">' + esc(v.dalle || '-') + (v.alle ? ' - ' + esc(v.alle) : '') + '</td>'
-                + '<td><b>' + esc(v.titolo || t.nome) + '</b>'
-                + (v.titolo ? '<div class="nota">' + esc(t.nome) + '</div>' : '')
-                + (chi.length ? '<div class="nota">' + chi.join('<br>') + '</div>' : '')
-                + (v.nota ? '<div class="nota">' + esc(v.nota) + '</div>' : '')
-                + '</td></tr>';
+                + '<td class="forte">' + (v.dalle ? esc(v.dalle) + (v.alle ? '&ndash;' + esc(v.alle) : '') : '&mdash;') + '</td>'
+                + '<td class="fase">' + esc(t.nome) + '</td>'
+                + '<td>' + (cosa || '<span class="vuoto-cella">&mdash;</span>') + '</td></tr>';
         }).join('');
         const tavole = voci.filter(v => v.tipo === 'tavola').length;
+        const dalle = voci.map(v => v.dalle).filter(Boolean).sort()[0] || '';
+        const alle = voci.map(v => v.alle).filter(Boolean).sort().slice(-1)[0] || '';
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
             + '<title>Programma - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
             + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
@@ -19373,9 +19393,11 @@
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando)
             + (ev.luogo ? ' &middot; ' + esc(ev.luogo) : '') + '</div>'
             + '<div class="meta">' + voci.length + ' voci'
+            + (dalle && alle ? ' &middot; dalle ' + esc(dalle) + ' alle ' + esc(alle) : '')
             + (tavole ? ' &middot; ' + tavole + (tavole === 1 ? ' tavola rotonda' : ' tavole rotonde') : '')
             + ' &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
-            + '<section class="tema"><table><thead><tr><th style="width:120px;">Orario</th><th>Cosa succede</th></tr></thead>'
+            + '<section class="tema"><table><thead><tr><th style="width:96px;">Orario</th>'
+            + '<th style="width:142px;">Fase</th><th>Titolo e chi interviene</th></tr></thead>'
             + '<tbody>' + righe + '</tbody></table></section>'
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';

@@ -1426,6 +1426,14 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   ("Avv.", "Dott.ssa", "Presidente"): e' l'unica cosa che si scrive a mano, e
   parte dal ruolo dell'iscrizione. Non e' un dato dell'iscritto - li' c'e' il
   ruolo in azienda - ma il modo in cui quel giorno lo si chiama dal palco.
+- **La stampa e' uno SCHEMA.** Tre colonne - orario, fase, titolo e chi
+  interviene - e ogni cosa scritta una volta sola: quando il titolo coincide
+  col nome della fase non si ripete accanto (prima la riga lo diceva due
+  volte, e chi legge si chiede quale delle due e' quella giusta). Delle
+  persone si scrivono solo il NOME e la QUALIFICA con cui vanno annunciate:
+  azienda, ruolo e contatti vengono dal modulo d'iscrizione, servono a
+  riconoscerle e su un programma della giornata sono rumore. Sull'agenda B2B
+  restano, perche' quello e' il foglio del desk.
 - **L'orario si sceglie con la DURATA.** Accanto alle due ore c'e' quanto dura
   la voce, ed e' quella che si tocca: un orario si pensa "comincia alle 14:30 e
   dura un'ora", non "dalle 14:30 alle 15:30". Scegliendo la durata la fine si
