@@ -3701,7 +3701,7 @@ ul {
     line-height: 1;
     text-transform: uppercase;
     letter-spacing: 0.2em;
-    color: var(--accent-light);
+    color: #FFA8B6;
 }
 
 .b2b-callout-title {
@@ -3740,7 +3740,7 @@ ul {
 }
 
 .b2b-callout-note svg {
-    color: var(--accent-light);
+    color: #FFA8B6;
     flex-shrink: 0;
 }
 
