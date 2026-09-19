@@ -17588,6 +17588,10 @@
            compete con il nome, che e' quello che si cerca */
         + '.chi .ruolo{color:#475569;}'
         + '.vuoto-cella{color:#94A3B8;}'
+        /* gli incontri B2B non sono una fase del palco: si tengono in
+           parallelo, e sul foglio si vedono per quello che sono */
+        + 'tbody tr.b2b td{background:#F4F8FB;border-top:1px solid #2A5A85;border-bottom:1px solid #2A5A85;}'
+        + 'tbody tr.b2b .fase{color:#0A2844;font-weight:bold;}'
         + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
         + '@page{margin:14mm 12mm;}';
     /* La finestra di stampa: si scrive la pagina e si chiama print(), da cui
@@ -19415,7 +19419,7 @@
            giusta. Adesso il tipo ha la sua colonna - ed e' anche quello che
            rende il foglio uno SCHEMA, leggibile in verticale - e il titolo
            compare solo se aggiunge qualcosa. */
-        const righe = (G ? G.ordina(voci) : voci.slice()).map(v => {
+        const righeVoci = (G ? G.ordina(voci) : voci.slice()).map(v => {
             const t = tipoPrgDa(v.tipo);
             /* CHI E' SUL PALCO VA IN ELENCO, uno per riga: prima il NOME,
                poi un trattino, poi la QUALIFICA. In fila su una riga sola,
@@ -19452,11 +19456,56 @@
             const cosa = (titoloSuo ? '<b>' + esc(titoloSuo) + '</b>' : '')
                 + (descrizione ? '<div class="nota">' + esc(descrizione) + '</div>' : '')
                 + chi.join('');
-            return '<tr>'
+            return { min: minutiPrg(v.dalle), html: '<tr>'
                 + '<td class="forte">' + (v.dalle ? esc(v.dalle) + (v.alle ? '-' + esc(v.alle) : '') : '-') + '</td>'
                 + '<td class="fase">' + esc(t.nome) + '</td>'
-                + '<td>' + (cosa || '<span class="vuoto-cella">-</span>') + '</td></tr>';
-        }).join('');
+                + '<td>' + (cosa || '<span class="vuoto-cella">-</span>') + '</td></tr>' };
+        });
+        /* GLI INCONTRI B2B SUL FOGLIO DEL PROGRAMMA. Non sono una fase del
+           palco: si tengono IN PARALLELO, per tutta la giornata, mentre in
+           sala si va avanti. Ma chi legge il programma deve saperlo - e' la
+           mezza giornata in cui le imprese sono ai tavoli - quindi entrano
+           come una riga sola, messa al posto giusto nell'ordine degli
+           orari, con dentro la fascia intera, quanti tavoli vanno insieme e
+           quali sono. Le ore e i nomi si leggono dall'agenda: se un tavolo
+           si spegne, il foglio cambia con lei. */
+        const ag = agendaDi(ev);
+        const tavoli = ((ag && ag.aree) || []).filter(x => x.attiva);
+        const slotTutti = [];
+        tavoli.forEach(x => (x.slot || []).forEach(sl => {
+            if (!slotTutti.some(y => y.chiave === sl.chiave)) slotTutti.push(sl);
+        }));
+        slotTutti.sort((x, y) => minutiPrg(x.ora) - minutiPrg(y.ora));
+        let rigaB2B = null;
+        if (tavoli.length && slotTutti.length) {
+            const daB2B = slotTutti[0].ora;
+            const aB2B = slotTutti.map(x => x.fine).filter(Boolean).sort().slice(-1)[0] || slotTutti[slotTutti.length - 1].ora;
+            const presi = tavoli.reduce((t, x) => t + x.occupati, 0);
+            rigaB2B = {
+                min: minutiPrg(daB2B),
+                html: '<tr class="b2b"><td class="forte">' + esc(daB2B) + '-' + esc(aB2B) + '</td>'
+                    + '<td class="fase">Incontri B2B</td>'
+                    + '<td><b>' + tavoli.length + (tavoli.length === 1 ? ' tavolo' : ' tavoli')
+                    + ' in parallelo, solo su invito</b>'
+                    + '<div class="nota">' + tavoli.map(x => esc(x.nome)).join(' &middot; ') + '</div>'
+                    + '<div class="nota">In parallelo al programma di sala'
+                    + (presi ? ', ' + presi + (presi === 1 ? ' incontro già prenotato' : ' incontri già prenotati') : '')
+                    + '. L\'agenda tavolo per tavolo è sul foglio "Stampa l\'agenda B2B".</div>'
+                    + '</td></tr>'
+            };
+        }
+        const righe = (rigaB2B
+            ? (() => {
+                const fuori = [];
+                let messa = false;
+                righeVoci.forEach(r => {
+                    if (!messa && rigaB2B.min < r.min) { fuori.push(rigaB2B.html); messa = true; }
+                    fuori.push(r.html);
+                });
+                if (!messa) fuori.push(rigaB2B.html);
+                return fuori;
+            })()
+            : righeVoci.map(r => r.html)).join('');
         const tavole = voci.filter(v => v.tipo === 'tavola').length;
         const dalle = voci.map(v => v.dalle).filter(Boolean).sort()[0] || '';
         const alle = voci.map(v => v.alle).filter(Boolean).sort().slice(-1)[0] || '';
@@ -19485,16 +19534,22 @@
        ancora). Nella finestra si vedono, ed e' giusto: sono promemoria per
        chi sta scrivendo. Sul foglio da leggio no - li' c'e' chi annuncia,
        e un promemoria interno letto ad alta voce e' una figuraccia.
-       Si taglia dalla prima delle due in poi, e solo quando sono scritte
-       come frase (coi due punti): una nota che parla "del programma di
-       sala" non deve perdersi mezza riga. */
-    const APPUNTI_PRG = /(^|[.;·]\s*)(dal programma|da completare)\s*:/i;
+       Si taglia dall'inizio della FRASE che le contiene, perche' l'appunto
+       non comincia sempre con la dicitura: "Al tavolo, dal programma, due
+       di Banca Intesa Sanpaolo: ..." e' tutto appunto, e tagliare da "dal
+       programma" lascerebbe un "Al tavolo," appeso.
+       La dicitura vale solo se subito dopo ha i due punti o la virgola: una
+       nota che parla "del programma di sala" non deve perdersi mezza riga. */
+    const APPUNTI_PRG = /(dal programma|da completare)\s*[:,]/i;
     function notaDaStampare(nota) {
         const t = String(nota || '').trim();
         if (!t) return '';
         const m = t.match(APPUNTI_PRG);
         if (!m) return t;
-        return t.slice(0, m.index + (m[1] ? m[1].replace(/\s+$/, '').length : 0)).trim();
+        // indietro fino alla fine della frase precedente
+        const prima = t.slice(0, m.index);
+        const fine = Math.max(prima.lastIndexOf('.'), prima.lastIndexOf(';'), prima.lastIndexOf('\u00b7'));
+        return (fine >= 0 ? t.slice(0, fine + 1) : '').trim();
     }
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il

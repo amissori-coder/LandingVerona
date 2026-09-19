@@ -1447,8 +1447,16 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   programma proposto si porta dietro, nelle note, due diciture che servono a
   COMPORRE e non a leggere: "Dal programma: ..." e "Da completare: ...". Nella
   finestra si vedono - sono promemoria per chi scrive - ma la stampa le taglia
-  (`notaDaStampare`), e solo quando sono scritte come frase coi due punti:
-  una nota che parla "del programma di sala" non deve perdersi mezza riga.
+  (`notaDaStampare`). Si taglia dall'inizio della FRASE che le contiene,
+  perche' l'appunto non comincia sempre con la dicitura ("Al tavolo, dal
+  programma, due di Banca Intesa Sanpaolo: ..." e' tutto appunto). La
+  dicitura vale solo se subito dopo ha i due punti o la virgola: una nota che
+  parla "del programma di sala" non perde mezza riga.
+- **Sul foglio del programma si vedono anche gli incontri B2B.** Non sono una
+  fase del palco - si tengono IN PARALLELO, mentre in sala si va avanti - ma
+  chi legge il programma deve saperlo. Entrano come UNA riga, messa al posto
+  giusto fra gli orari, con la fascia intera, quanti tavoli vanno insieme,
+  che e' solo su invito e quali sono. Ore e nomi si leggono dall'agenda.
 - **L'orario si sceglie con la DURATA.** Accanto alle due ore c'e' quanto dura
   la voce, ed e' quella che si tocca: un orario si pensa "comincia alle 14:30 e
   dura un'ora", non "dalle 14:30 alle 15:30". Scegliendo la durata la fine si
