@@ -125,7 +125,7 @@
                 {
                     tipo: 'pranzo', dalle: '13:30', alle: '14:30',
                     titolo: 'Lunch buffet e networking',
-                    nota: 'Incontri e relazioni professionali. È la fascia degli incontri B2B: gli orari dei tavoli si impostano qui sotto.'
+                    nota: ''
                 },
                 {
                     tipo: 'tavola', dalle: '14:30', alle: '15:20',

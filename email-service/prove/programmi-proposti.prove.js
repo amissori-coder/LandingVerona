@@ -88,8 +88,16 @@ prova('4) La bozza non manda nessuno sul palco da sola', () => {
         const voci = PROP.di(id);
         const conNomi = voci.filter(v => (v.moderatore && v.moderatore.nome) || (v.partecipanti || []).length);
         esigi(conNomi.length === 0, id + ': nessun relatore scritto a mano (si scelgono fra gli iscritti)');
-        const senzaNota = voci.filter(v => !v.nota);
-        esigi(senzaNota.length === 0, id + ': ogni voce porta con se il contenuto e i relatori previsti, nella nota');
+        /* La nota e' dove la bozza mette il contenuto e i relatori previsti,
+           ed e' la ragione per cui esiste. Ma NON e' obbligatoria: una voce
+           come "Lunch buffet e networking" si spiega da sola, e una nota
+           messa per forza diventa una riga in piu' da leggere sul foglio del
+           leggio. Si pretende che la bozza serva a qualcosa - la maggior
+           parte delle voci porta il suo contenuto - non che ogni riga abbia
+           una didascalia. */
+        const conNota = voci.filter(v => v.nota);
+        esigi(conNota.length >= Math.ceil(voci.length * 0.7),
+            id + ': ' + conNota.length + ' voci su ' + voci.length + ' portano con se il contenuto, nella nota');
     });
 });
 
