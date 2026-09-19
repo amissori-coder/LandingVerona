@@ -17584,6 +17584,7 @@
         + '.chi .et{flex:0 0 58px;padding-top:1px;color:#94A3B8;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
         + '.chi ul{list-style:none;margin:0;padding:0;}'
         + '.chi li{padding:0.5px 0;}'
+        + '.chi li.manca{color:#B3261E;font-style:italic;}'
         /* il titolo che la persona porta, dopo il nome: si legge, ma non
            compete con il nome, che e' quello che si cerca */
         + '.chi .ruolo{color:#475569;}'
@@ -19064,7 +19065,7 @@
                 + '</div>');
         }
         if (t.conRelatori) {
-            persone.push('<div class="prg-persone"><span class="prg-et">' + (t.conModeratore ? 'Al tavolo' : 'Sul palco') + '</span>'
+            persone.push('<div class="prg-persone"><span class="prg-et">' + (t.conModeratore ? 'Relatori' : 'Sul palco') + '</span>'
                 + (v.partecipanti || []).map((p, k) => chip(p, 'partecipante', k)).join('')
                 + (puo ? scegliHtml(ev, i, 'partecipante', 'aggiungi...') : '')
                 + '</div>');
@@ -19445,9 +19446,21 @@
             const riga = (et, persone) => '<div class="chi"><span class="et">' + et + '</span>'
                 + '<ul>' + persone.map(voceElenco).join('') + '</ul></div>';
             const chi = [];
-            if (v.moderatore) chi.push(riga('Modera', [v.moderatore]));
+            /* IL MODERATORE SI VEDE ANCHE QUANDO MANCA. Una tavola rotonda
+               senza moderatore non e' una tavola rotonda: qualcuno deve
+               darle il tempo e le domande. Se la riga comparisse solo
+               quando c'e', sul foglio non si vedrebbe il buco - e il buco
+               lo si scopre il giorno del convegno, sul palco. */
+            if (t.conModeratore) {
+                chi.push(v.moderatore
+                    ? riga('Modera', [v.moderatore])
+                    : '<div class="chi"><span class="et">Modera</span>'
+                    + '<ul><li class="manca">da indicare</li></ul></div>');
+            } else if (v.moderatore) {
+                chi.push(riga('Modera', [v.moderatore]));
+            }
             if (v.partecipanti && v.partecipanti.length) {
-                chi.push(riga(t.conModeratore ? 'Al tavolo' : 'Sul palco', v.partecipanti));
+                chi.push(riga(t.conModeratore ? 'Relatori' : 'Sul palco', v.partecipanti));
             }
             // il titolo si scrive solo se dice qualcosa in piu' del tipo
             const titolo = String(v.titolo || '').trim();

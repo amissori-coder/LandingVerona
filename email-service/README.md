@@ -1463,6 +1463,12 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   previsto niente, quella fascia prende una riga sua invece di sparire dal
   foglio: e' proprio il caso in cui contava dirlo. Ore e nomi si leggono
   dall'agenda.
+- **Chi e' sul palco si chiama RELATORI** nelle tavole rotonde (prima "al
+  tavolo"), e il MODERATORE si vede anche quando manca: sul foglio la riga
+  "Modera" c'e' sempre, e se e' vuota dice "da indicare" in rosso invece di
+  sparire. Una tavola rotonda senza moderatore non e' una tavola rotonda -
+  qualcuno deve darle il tempo e le domande - e un buco che il foglio tace si
+  scopre il giorno del convegno, sul palco.
 - **L'orario si sceglie con la DURATA.** Accanto alle due ore c'e' quanto dura
   la voce, ed e' quella che si tocca: un orario si pensa "comincia alle 14:30 e
   dura un'ora", non "dalle 14:30 alle 15:30". Scegliendo la durata la fine si
