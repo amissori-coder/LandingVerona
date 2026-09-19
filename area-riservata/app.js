@@ -19048,7 +19048,16 @@
             + (nuova ? '<div class="prg-nuova-et">appena aggiunta &mdash; scrivi il titolo e correggi le ore</div>' : '')
             + '<div class="prg-riga1">' + ora('dalle') + '<span class="prg-freccia">&rarr;</span>' + ora('alle')
             + durataHtml
-            + '<span class="badge ' + badgeTipo(t.id) + '">' + esc(t.nome) + '</span>'
+            /* IL TIPO SI CAMBIA. Prima era solo un'etichetta: una voce nata
+               "intervento" che diventava una tavola rotonda si poteva solo
+               buttare e rifare, perdendo titolo, ore, nota e chi era gia'
+               stato messo sul palco. E' la modifica piu' normale che ci sia
+               mentre un programma prende forma. */
+            + (puo
+                ? '<select class="prg-tipo badge ' + badgeTipo(t.id) + '" data-voce="' + i + '" title="Che cosa è questa voce">'
+                + tipiProgramma().map(x => '<option value="' + esc(x.id) + '"' + (x.id === t.id ? ' selected' : '') + '>'
+                    + esc(x.nome) + '</option>').join('') + '</select>'
+                : '<span class="badge ' + badgeTipo(t.id) + '">' + esc(t.nome) + '</span>')
             + (puo ? '<button type="button" class="prg-elimina" data-voce="' + i + '" title="Togli questa voce">&#10005;</button>' : '')
             + '</div>'
             + '<input type="text" class="prg-titolo" data-voce="' + i + '" data-campo="titolo" maxlength="200" '
@@ -19130,6 +19139,33 @@
             esitoGiornata('Aggiunta: ' + t.nome
                 + (dalle ? ' dalle ' + dalle + ' alle ' + alle + ', in ' + (minutiPrg(dalle) < confinePrg(ev) ? 'mattina' : 'pomeriggio') : ', ancora senza orario')
                 + '. Scrivi il titolo e correggi le ore, poi "Salva il programma".');
+        }));
+        radice.querySelectorAll('.prg-tipo').forEach(c => c.addEventListener('change', () => {
+            const i = parseInt(c.dataset.voce, 10);
+            const v = _prgVoci[i];
+            const t = tipoPrgDa(c.value);
+            if (!v || !t) return;
+            /* Alcuni tipi non si portano dietro chi sale sul palco (la pausa
+               pranzo non ha relatori, i saluti non hanno un moderatore). Se
+               il tipo nuovo non li ammette quei nomi si perdono, e va detto
+               PRIMA: sono stati scelti uno per uno. */
+            const perde = [];
+            if (!t.conModeratore && v.moderatore) perde.push('il moderatore');
+            if (!t.conRelatori && (v.partecipanti || []).length) {
+                perde.push((v.partecipanti.length === 1 ? 'la persona' : 'le ' + v.partecipanti.length + ' persone') + ' sul palco');
+            }
+            if (perde.length && !confirm('"' + t.nome + '" non prevede ' + perde.join(' né ')
+                + ': cambiando tipo ' + (perde.length === 1 ? 'si perde' : 'si perdono') + '. Procedo?')) {
+                c.value = v.tipo;
+                return;
+            }
+            const prima = tipoPrgDa(v.tipo).nome;
+            v.tipo = t.id;
+            if (!t.conModeratore) v.moderatore = null;
+            if (!t.conRelatori) v.partecipanti = [];
+            disegnaGiornata(ev);
+            esitoGiornata('Cambiata da "' + prima + '" a "' + t.nome + '"'
+                + (v.titolo ? ': ' + v.titolo : '') + '. Ricordati di salvare il programma.');
         }));
         radice.querySelectorAll('.prg-elimina').forEach(b => b.addEventListener('click', () => {
             const i = parseInt(b.dataset.voce, 10);

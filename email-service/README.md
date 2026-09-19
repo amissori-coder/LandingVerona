@@ -1454,6 +1454,12 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   dietro una fine vecchia, cioe' una voce che si sovrappone alla dopo senza
   che si veda. Chi vuole un'ora di fine qualsiasi la scrive lo stesso nella
   sua casella: la durata si adegua.
+- **Il tipo di una voce si cambia** (tendina al posto dell'etichetta). Prima
+  era solo un'etichetta: una voce nata "intervento" che diventava una tavola
+  rotonda si poteva solo buttare e rifare, perdendo titolo, ore, nota e chi
+  era gia' stato messo sul palco - ed e' la modifica piu' normale che ci sia
+  mentre un programma prende forma. Se il tipo nuovo non ammette moderatore o
+  relatori, si avvisa PRIMA: quei nomi erano stati scelti uno per uno.
 - **Aggiungere una fase si vede.** I pulsanti dicono cosa succede prima di
   premerli (dove nasce la voce e che le voci si mettono in fila da sole), e
   dopo la pressione la voce nuova si accende, si porta a schermo e prende il
