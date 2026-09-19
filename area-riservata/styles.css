@@ -3469,6 +3469,11 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
 .prg-aggiungi-bottoni { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .prg-aggiungi .hint { margin: 5px 0 0; max-width: none; }
 .prg-aggiungi .btn { padding: 3px 9px; font-size: 0.75rem; }
+/* la bozza gia' scritta: sta SOPRA i pulsanti che aggiungono, perche' e'
+   la prima cosa da fare quando il programma e' vuoto */
+.prg-bozza { padding: 7px 10px; margin-bottom: 6px; background: var(--ambra-050, #fff8e6); border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+.prg-bozza .btn { padding: 3px 9px; font-size: 0.75rem; }
+.prg-bozza .hint { margin: 5px 0 0; max-width: none; }
 /* LA VOCE APPENA AGGIUNTA. Si accende finche' non la si tocca: premere un
    pulsante e non vedere muoversi niente sembra un pulsante che non funziona. */
 .prg-voce.nuova { background: var(--ambra-bg); box-shadow: inset 3px 0 0 var(--ambra); }
