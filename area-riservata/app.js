@@ -18712,8 +18712,9 @@
         const G = giornataLib();
         const a = agendaDi(ev);
         if (!G) return '';
-        const guscio = (dentro, sotto) => '<div class="prg-b2b"><div class="prg-b2b-tit">Prenotazioni B2B'
+        const guscio = (dentro, sotto, quali) => '<div class="prg-b2b"><div class="prg-b2b-tit">Prenotazioni B2B'
             + '<span>' + esc(sotto || 'gli incontri dei tavoli, che in ogni orario si tengono in parallelo') + '</span></div>'
+            + (quali ? '<div class="prg-b2b-quali">' + quali + '</div>' : '')
             + dentro + '</div>';
         if (!a) return guscio('<div class="hint">Agenda dei tavoli non caricata.</div>');
         const attive = (a.aree || []).filter(x => x.attiva);
@@ -18779,14 +18780,30 @@
         }).join('');
         function divisoriaFatta() {
             return '<tr class="prg-par-mezzo"><th class="prg-par-ora">&nbsp;</th>'
-                + '<td colspan="' + attive.length + '">pomeriggio &mdash; dalle ' + esc(G.oraDaMinuti(confine)) + '</td></tr>';
+                + '<td colspan="' + attive.length + '">pomeriggio, dalle ' + esc(G.oraDaMinuti(confine)) + '</td></tr>';
         }
-        return guscio('<div class="prg-par-scorri"><table class="prg-par">'
-            + '<thead>' + intestazione + '</thead><tbody>' + righe + '</tbody></table></div>',
-            (tot ? tot + (tot === 1 ? ' prenotazione' : ' prenotazioni') : 'nessuna prenotazione')
+        /* CHE COSA SI TIENE, QUANDO E QUANTI. Nelle colonne i nomi dei tavoli
+           stanno stretti e si leggono a fatica; qui sopra si dicono per
+           intero, una volta, insieme alla fascia oraria e al numero di
+           incontri che partono insieme a ogni orario. E' la frase che chi
+           organizza ripete al telefono: "dalle 10 alle 17:30 ci sono otto
+           tavoli in parallelo, e ci si va su invito".
+           Le ore e i nomi si leggono dall'agenda, non si scrivono qui: un
+           tavolo che si attiva o si spegne deve cambiare anche questa riga. */
+        const daOra = ore[0].ora;
+        const aOra = ore.map(o => o.fine).filter(Boolean).sort().slice(-1)[0] || ore[ore.length - 1].ora;
+        const quanti = attive.length;
+        const sotto = 'dalle ' + daOra + ' alle ' + aOra + ', '
+            + quanti + (quanti === 1 ? ' tavolo' : ' tavoli') + ' in parallelo a ogni orario, solo su invito'
             /* il sottotitolo passa da esc(): qui ci va il carattere, non
                l'entita', se no si legge "&middot;" per davvero */
-            + ' \u00b7 una riga per orario: in ciascuna gli incontri si tengono in parallelo');
+            + ' \u00b7 ' + (tot ? tot + (tot === 1 ? ' prenotazione' : ' prenotazioni') : 'nessuna prenotazione')
+            + ' finora';
+        const quali = '<b>' + quanti + (quanti === 1 ? ' incontro' : ' incontri') + ':</b> '
+            + attive.map(x => esc(x.nome)).join(' &middot; ');
+        return guscio('<div class="prg-par-scorri"><table class="prg-par">'
+            + '<thead>' + intestazione + '</thead><tbody>' + righe + '</tbody></table></div>',
+            sotto, quali);
     }
     /* L'IMPOSTAZIONE DEI TAVOLI B2B
        ---------------------------------------------------------
@@ -19045,7 +19062,7 @@
         }
         const nuova = _prgNuova && v.id === _prgNuova;
         return '<div class="prg-voce' + (nuova ? ' nuova' : '') + '">'
-            + (nuova ? '<div class="prg-nuova-et">appena aggiunta &mdash; scrivi il titolo e correggi le ore</div>' : '')
+            + (nuova ? '<div class="prg-nuova-et">appena aggiunta: scrivi il titolo e correggi le ore</div>' : '')
             + '<div class="prg-riga1">' + ora('dalle') + '<span class="prg-freccia">&rarr;</span>' + ora('alle')
             + durataHtml
             /* IL TIPO SI CAMBIA. Prima era solo un'etichetta: una voce nata
@@ -19413,7 +19430,7 @@
             const voceElenco = x => {
                 const qualifica = String(x.titolo || '').trim() || String(x.ruolo || '').trim();
                 return '<li>' + esc(x.nome)
-                    + (qualifica ? ' <span class="ruolo">&ndash; ' + esc(qualifica) + '</span>' : '')
+                    + (qualifica ? ' <span class="ruolo">- ' + esc(qualifica) + '</span>' : '')
                     + '</li>';
             };
             const riga = (et, persone) => '<div class="chi"><span class="et">' + et + '</span>'
@@ -19426,13 +19443,19 @@
             // il titolo si scrive solo se dice qualcosa in piu' del tipo
             const titolo = String(v.titolo || '').trim();
             const titoloSuo = titolo && titolo.toLowerCase() !== t.nome.toLowerCase() ? titolo : '';
+            /* L'ordine dentro la cella e' quello con cui si legge una voce:
+               prima COS'E' (il titolo, in grassetto), poi DI CHE COSA SI
+               PARLA (la descrizione, sotto il titolo), e in fondo CHI ci
+               sale. La descrizione in coda, dopo l'elenco dei nomi, sembrava
+               una nota di servizio invece del contenuto della sessione. */
+            const descrizione = notaDaStampare(v.nota);
             const cosa = (titoloSuo ? '<b>' + esc(titoloSuo) + '</b>' : '')
-                + chi.join('')
-                + (notaDaStampare(v.nota) ? '<div class="nota">' + esc(notaDaStampare(v.nota)) + '</div>' : '');
+                + (descrizione ? '<div class="nota">' + esc(descrizione) + '</div>' : '')
+                + chi.join('');
             return '<tr>'
-                + '<td class="forte">' + (v.dalle ? esc(v.dalle) + (v.alle ? '&ndash;' + esc(v.alle) : '') : '&mdash;') + '</td>'
+                + '<td class="forte">' + (v.dalle ? esc(v.dalle) + (v.alle ? '-' + esc(v.alle) : '') : '-') + '</td>'
                 + '<td class="fase">' + esc(t.nome) + '</td>'
-                + '<td>' + (cosa || '<span class="vuoto-cella">&mdash;</span>') + '</td></tr>';
+                + '<td>' + (cosa || '<span class="vuoto-cella">-</span>') + '</td></tr>';
         }).join('');
         const tavole = voci.filter(v => v.tipo === 'tavola').length;
         const dalle = voci.map(v => v.dalle).filter(Boolean).sort()[0] || '';
