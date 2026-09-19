@@ -18779,7 +18779,7 @@
         }).join('');
         function divisoriaFatta() {
             return '<tr class="prg-par-mezzo"><th class="prg-par-ora">&nbsp;</th>'
-                + '<td colspan="' + attive.length + '">pomeriggio &mdash; dalle ' + esc(G.oraDaMinuti(confine)) + '</td></tr>';
+                + '<td colspan="' + attive.length + '">pomeriggio, dalle ' + esc(G.oraDaMinuti(confine)) + '</td></tr>';
         }
         return guscio('<div class="prg-par-scorri"><table class="prg-par">'
             + '<thead>' + intestazione + '</thead><tbody>' + righe + '</tbody></table></div>',
@@ -19045,7 +19045,7 @@
         }
         const nuova = _prgNuova && v.id === _prgNuova;
         return '<div class="prg-voce' + (nuova ? ' nuova' : '') + '">'
-            + (nuova ? '<div class="prg-nuova-et">appena aggiunta &mdash; scrivi il titolo e correggi le ore</div>' : '')
+            + (nuova ? '<div class="prg-nuova-et">appena aggiunta: scrivi il titolo e correggi le ore</div>' : '')
             + '<div class="prg-riga1">' + ora('dalle') + '<span class="prg-freccia">&rarr;</span>' + ora('alle')
             + durataHtml
             /* IL TIPO SI CAMBIA. Prima era solo un'etichetta: una voce nata
@@ -19413,7 +19413,7 @@
             const voceElenco = x => {
                 const qualifica = String(x.titolo || '').trim() || String(x.ruolo || '').trim();
                 return '<li>' + esc(x.nome)
-                    + (qualifica ? ' <span class="ruolo">&ndash; ' + esc(qualifica) + '</span>' : '')
+                    + (qualifica ? ' <span class="ruolo">- ' + esc(qualifica) + '</span>' : '')
                     + '</li>';
             };
             const riga = (et, persone) => '<div class="chi"><span class="et">' + et + '</span>'
@@ -19426,13 +19426,19 @@
             // il titolo si scrive solo se dice qualcosa in piu' del tipo
             const titolo = String(v.titolo || '').trim();
             const titoloSuo = titolo && titolo.toLowerCase() !== t.nome.toLowerCase() ? titolo : '';
+            /* L'ordine dentro la cella e' quello con cui si legge una voce:
+               prima COS'E' (il titolo, in grassetto), poi DI CHE COSA SI
+               PARLA (la descrizione, sotto il titolo), e in fondo CHI ci
+               sale. La descrizione in coda, dopo l'elenco dei nomi, sembrava
+               una nota di servizio invece del contenuto della sessione. */
+            const descrizione = notaDaStampare(v.nota);
             const cosa = (titoloSuo ? '<b>' + esc(titoloSuo) + '</b>' : '')
-                + chi.join('')
-                + (notaDaStampare(v.nota) ? '<div class="nota">' + esc(notaDaStampare(v.nota)) + '</div>' : '');
+                + (descrizione ? '<div class="nota">' + esc(descrizione) + '</div>' : '')
+                + chi.join('');
             return '<tr>'
-                + '<td class="forte">' + (v.dalle ? esc(v.dalle) + (v.alle ? '&ndash;' + esc(v.alle) : '') : '&mdash;') + '</td>'
+                + '<td class="forte">' + (v.dalle ? esc(v.dalle) + (v.alle ? '-' + esc(v.alle) : '') : '-') + '</td>'
                 + '<td class="fase">' + esc(t.nome) + '</td>'
-                + '<td>' + (cosa || '<span class="vuoto-cella">&mdash;</span>') + '</td></tr>';
+                + '<td>' + (cosa || '<span class="vuoto-cella">-</span>') + '</td></tr>';
         }).join('');
         const tavole = voci.filter(v => v.tipo === 'tavola').length;
         const dalle = voci.map(v => v.dalle).filter(Boolean).sort()[0] || '';

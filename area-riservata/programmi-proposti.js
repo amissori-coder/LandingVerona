@@ -130,9 +130,7 @@
                 {
                     tipo: 'tavola', dalle: '14:30', alle: '15:20',
                     titolo: 'Banche. Tavola rotonda',
-                    nota: 'Merito creditizio e dialogo banca-impresa. Al tavolo, dal programma, due di Banca Intesa Sanpaolo: '
-                        + 'chi è specialista per l\'innovazione e referente ESG per Campania, Calabria e Sicilia, e chi lo è '
-                        + 'dell\'Ufficio Crediti della Direzione Generale. Nomi da completare, moderatore da scegliere fra gli iscritti.'
+                    nota: 'Merito creditizio e dialogo banca-impresa.'
                 },
                 {
                     tipo: 'tavola', dalle: '15:20', alle: '16:10',
@@ -140,7 +138,7 @@
                     nota: 'Sviluppo del territorio e opportunità per le imprese. Da completare: un relatore di Invitalia e uno di SIMEST.'
                 },
                 {
-                    tipo: 'tavola', dalle: '16:10', alle: '16:40',
+                    tipo: 'intervento', dalle: '16:10', alle: '16:40',
                     titolo: 'Sessione Questions and Answers',
                     nota: 'Domande dal pubblico.'
                 },

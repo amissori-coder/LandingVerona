@@ -1427,7 +1427,11 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   parte dal ruolo dell'iscrizione. Non e' un dato dell'iscritto - li' c'e' il
   ruolo in azienda - ma il modo in cui quel giorno lo si chiama dal palco.
 - **La stampa e' uno SCHEMA.** Tre colonne - orario, fase, titolo e chi
-  interviene - e ogni cosa scritta una volta sola: quando il titolo coincide
+  interviene - e dentro la terza l'ordine con cui si legge una voce: prima
+  COS'E' (il titolo, in grassetto), poi DI CHE COSA SI PARLA (la descrizione,
+  subito sotto il titolo), e in fondo CHI ci sale. La descrizione in coda,
+  dopo l'elenco dei nomi, sembrava una nota di servizio invece del contenuto
+  della sessione. Ogni cosa e' scritta una volta sola: quando il titolo coincide
   col nome della fase non si ripete accanto (prima la riga lo diceva due
   volte, e chi legge si chiede quale delle due e' quella giusta). Chi e' sul
   palco va IN ELENCO, uno per riga: prima il NOME, poi un trattino, poi la
