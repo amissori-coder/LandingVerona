@@ -94,30 +94,30 @@
                     nota: 'Scenario, obiettivi del convegno e presentazione del network. Dal programma: Sergio Miele (Revilaw).'
                 },
                 {
-                    tipo: 'intervento', dalle: '10:00', alle: '10:40',
+                    tipo: 'tavola', dalle: '10:00', alle: '10:40',
                     titolo: 'Adeguati assetti e continuità aziendale',
                     nota: 'Prevenzione, monitoraggio e segnali di crisi. Dal programma: Stefano Pizzutelli (Revilaw); Andrea Missori (Revilaw).'
                 },
                 {
-                    tipo: 'intervento', dalle: '10:40', alle: '11:20',
+                    tipo: 'tavola', dalle: '10:40', alle: '11:20',
                     titolo: 'Modello 231 e Tax Control Framework',
                     nota: 'Governance, presidio dei rischi e conformità. Dal programma: Melo Martella (Revilaw). '
                         + 'Da completare: un relatore di ADVANT NCTM.'
                 },
                 {
-                    tipo: 'intervento', dalle: '11:20', alle: '11:50',
+                    tipo: 'tavola', dalle: '11:20', alle: '11:50',
                     titolo: 'Rating di Legalità',
                     nota: 'Requisiti, benefici e riflessi sul merito creditizio. Dal programma: avv. Antonella Candelieri. '
                         + 'Da completare: una relatrice di ADVANT NCTM.'
                 },
                 {
-                    tipo: 'intervento', dalle: '11:50', alle: '12:40',
+                    tipo: 'tavola', dalle: '11:50', alle: '12:40',
                     titolo: 'Sostenibilità e fattori ESG',
                     nota: 'Valore, competitività e accesso al credito. Dal programma: Antonella Candelieri (Revilaw). '
                         + 'Da completare: due relatori esterni, uno dei quali a capo di una società di servizi.'
                 },
                 {
-                    tipo: 'intervento', dalle: '12:40', alle: '13:30',
+                    tipo: 'tavola', dalle: '12:40', alle: '13:30',
                     titolo: 'Finanza agevolata',
                     nota: 'Strumenti e opportunità per le imprese. Dal programma: Concetta Petti. Da completare: tre relatori, '
                         + 'fra cui un professore universitario (nella tabella, senza presentazione) e un relatore di Fineco.'
@@ -135,12 +135,12 @@
                         + 'dell\'Ufficio Crediti della Direzione Generale. Nomi da completare, moderatore da scegliere fra gli iscritti.'
                 },
                 {
-                    tipo: 'intervento', dalle: '15:20', alle: '16:10',
+                    tipo: 'tavola', dalle: '15:20', alle: '16:10',
                     titolo: 'Invitalia e MCC. Bagnoli e America\'s Cup',
                     nota: 'Sviluppo del territorio e opportunità per le imprese. Da completare: un relatore di Invitalia e uno di SIMEST.'
                 },
                 {
-                    tipo: 'intervento', dalle: '16:10', alle: '16:40',
+                    tipo: 'tavola', dalle: '16:10', alle: '16:40',
                     titolo: 'Sessione Questions and Answers',
                     nota: 'Domande dal pubblico.'
                 },

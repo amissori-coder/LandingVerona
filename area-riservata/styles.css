@@ -3495,6 +3495,9 @@ table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 
 .prg-voce:last-child { border-bottom: none; }
 .prg-riga1 { display: flex; align-items: center; gap: 5px; }
 .prg-riga1 .badge { flex: none; font-size: 0.66rem; padding: 1px 6px; }
+/* il tipo si cambia: e' una tendina, ma si legge come l'etichetta che era */
+select.prg-tipo { width: auto; max-width: 10em; margin: 0; border-radius: 999px; font-weight: 700; cursor: pointer; }
+select.prg-tipo:hover { filter: brightness(0.97); }
 input.prg-t { flex: none; width: 6.4em; margin: 0; padding: 2px 5px; font-size: 0.8rem; text-align: center; }
 /* la durata accanto alle due ore: si sceglie quella, e la fine si scrive da se' */
 select.prg-dur { flex: none; width: auto; max-width: 6.6em; margin: 0 0 0 3px; padding: 2px 4px; font-size: 0.72rem; color: var(--grigio-600); }
