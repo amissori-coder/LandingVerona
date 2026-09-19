@@ -1429,12 +1429,22 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
 - **La stampa e' uno SCHEMA.** Tre colonne - orario, fase, titolo e chi
   interviene - e ogni cosa scritta una volta sola: quando il titolo coincide
   col nome della fase non si ripete accanto (prima la riga lo diceva due
-  volte, e chi legge si chiede quale delle due e' quella giusta). Della
-  persona si scrivono il NOME, la qualifica con cui va annunciata (davanti) e
-  il TITOLO che porta (dopo): "Avv. Luca Bianchi, Partner". Azienda e contatti
-  no: vengono dal modulo d'iscrizione, servono a riconoscere la persona e su
-  un programma della giornata sono rumore. Sull'agenda B2B restano, perche'
-  quello e' il foglio del desk.
+  volte, e chi legge si chiede quale delle due e' quella giusta). Chi e' sul
+  palco va IN ELENCO, uno per riga: prima il NOME, poi un trattino, poi la
+  QUALIFICA ("Pier Luigi Sterzi - Amministratore Unico Revilaw"). In fila su
+  una riga sola, con la qualifica davanti al nome, otto relatori diventavano
+  un paragrafo in cui i nomi non si trovavano piu' - ed e' il nome quello che
+  si cerca. La qualifica e' quella scritta a mano; se manca vale il ruolo
+  dell'iscrizione, e ne compare UNA sola, perche' due di fila ("Equity Partner
+  Revilaw, PARTNER") si leggono come un errore. Azienda e contatti no: vengono
+  dal modulo, servono a riconoscere la persona e su un programma sono rumore.
+  Sull'agenda B2B restano, perche' quello e' il foglio del desk.
+- **Gli appunti di lavorazione non vanno sul foglio.** Chi riporta un
+  programma proposto si porta dietro, nelle note, due diciture che servono a
+  COMPORRE e non a leggere: "Dal programma: ..." e "Da completare: ...". Nella
+  finestra si vedono - sono promemoria per chi scrive - ma la stampa le taglia
+  (`notaDaStampare`), e solo quando sono scritte come frase coi due punti:
+  una nota che parla "del programma di sala" non deve perdersi mezza riga.
 - **L'orario si sceglie con la DURATA.** Accanto alle due ore c'e' quanto dura
   la voce, ed e' quella che si tocca: un orario si pensa "comincia alle 14:30 e
   dura un'ora", non "dalle 14:30 alle 15:30". Scegliendo la durata la fine si

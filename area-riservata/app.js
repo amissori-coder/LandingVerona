@@ -17580,8 +17580,10 @@
         /* il programma della giornata: la colonna della fase e le righe di
            chi interviene, con l'etichetta incolonnata a sinistra */
         + '.fase{color:#2A5A85;font-size:10.5px;letter-spacing:0.3px;text-transform:uppercase;}'
-        + '.chi{margin-top:2px;}'
-        + '.chi .et{display:inline-block;width:64px;color:#94A3B8;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
+        + '.chi{display:flex;gap:8px;margin-top:3px;}'
+        + '.chi .et{flex:0 0 58px;padding-top:1px;color:#94A3B8;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
+        + '.chi ul{list-style:none;margin:0;padding:0;}'
+        + '.chi li{padding:0.5px 0;}'
         /* il titolo che la persona porta, dopo il nome: si legge, ma non
            compete con il nome, che e' quello che si cerca */
         + '.chi .ruolo{color:#475569;}'
@@ -19362,28 +19364,35 @@
            compare solo se aggiunge qualcosa. */
         const righe = (G ? G.ordina(voci) : voci.slice()).map(v => {
             const t = tipoPrgDa(v.tipo);
-            /* Sul foglio della persona si scrivono il NOME e il suo TITOLO:
-               davanti la qualifica con cui va annunciata ("Avv. Mario
-               Rossi"), e dopo il titolo che porta ("Partner", "Revisore
-               legale"), che e' come si presenta chi sta sul palco. Restano
-               fuori l'azienda, i contatti e il resto del modulo
-               d'iscrizione: servono a noi per riconoscere la persona, e su
-               un programma della giornata sono rumore. */
-            const comeSiAnnuncia = x => esc(G ? G.nomePersona(x) : x.nome)
-                + (x.ruolo ? '<span class="ruolo">, ' + esc(x.ruolo) + '</span>' : '');
-            const riga = (et, testo) => '<div class="chi"><span class="et">' + et + '</span>' + testo + '</div>';
+            /* CHI E' SUL PALCO VA IN ELENCO, uno per riga: prima il NOME,
+               poi un trattino, poi la QUALIFICA. In fila su una riga sola,
+               con la qualifica davanti al nome, otto relatori diventavano
+               un paragrafo in cui i nomi non si trovavano piu' - ed e' il
+               nome quello che si cerca, sia dal leggio sia dal desk.
+               La qualifica e' quella scritta a mano; se non c'e', vale il
+               ruolo dell'iscrizione. Una sola, perche' due qualifiche di
+               fila ("Equity Partner Revilaw, PARTNER") si leggono come un
+               errore. Azienda e contatti restano fuori: servono a noi per
+               riconoscere la persona, non a chi legge il programma. */
+            const voceElenco = x => {
+                const qualifica = String(x.titolo || '').trim() || String(x.ruolo || '').trim();
+                return '<li>' + esc(x.nome)
+                    + (qualifica ? ' <span class="ruolo">&ndash; ' + esc(qualifica) + '</span>' : '')
+                    + '</li>';
+            };
+            const riga = (et, persone) => '<div class="chi"><span class="et">' + et + '</span>'
+                + '<ul>' + persone.map(voceElenco).join('') + '</ul></div>';
             const chi = [];
-            if (v.moderatore) chi.push(riga('Modera', comeSiAnnuncia(v.moderatore)));
+            if (v.moderatore) chi.push(riga('Modera', [v.moderatore]));
             if (v.partecipanti && v.partecipanti.length) {
-                chi.push(riga(t.conModeratore ? 'Al tavolo' : 'Sul palco',
-                    v.partecipanti.map(comeSiAnnuncia).join(' &middot; ')));
+                chi.push(riga(t.conModeratore ? 'Al tavolo' : 'Sul palco', v.partecipanti));
             }
             // il titolo si scrive solo se dice qualcosa in piu' del tipo
             const titolo = String(v.titolo || '').trim();
             const titoloSuo = titolo && titolo.toLowerCase() !== t.nome.toLowerCase() ? titolo : '';
             const cosa = (titoloSuo ? '<b>' + esc(titoloSuo) + '</b>' : '')
                 + chi.join('')
-                + (v.nota ? '<div class="nota">' + esc(v.nota) + '</div>' : '');
+                + (notaDaStampare(v.nota) ? '<div class="nota">' + esc(notaDaStampare(v.nota)) + '</div>' : '');
             return '<tr>'
                 + '<td class="forte">' + (v.dalle ? esc(v.dalle) + (v.alle ? '&ndash;' + esc(v.alle) : '') : '&mdash;') + '</td>'
                 + '<td class="fase">' + esc(t.nome) + '</td>'
@@ -19408,6 +19417,25 @@
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
         apriStampa(pagina);
+    }
+
+    /* GLI APPUNTI DI LAVORAZIONE NON VANNO SUL FOGLIO.
+       Chi riporta un programma proposto si porta dietro, nelle note, due
+       diciture che servono a COMPORRE e non a leggere: "Dal programma:
+       ..." (da dove viene quella voce) e "Da completare: ..." (cosa manca
+       ancora). Nella finestra si vedono, ed e' giusto: sono promemoria per
+       chi sta scrivendo. Sul foglio da leggio no - li' c'e' chi annuncia,
+       e un promemoria interno letto ad alta voce e' una figuraccia.
+       Si taglia dalla prima delle due in poi, e solo quando sono scritte
+       come frase (coi due punti): una nota che parla "del programma di
+       sala" non deve perdersi mezza riga. */
+    const APPUNTI_PRG = /(^|[.;·]\s*)(dal programma|da completare)\s*:/i;
+    function notaDaStampare(nota) {
+        const t = String(nota || '').trim();
+        if (!t) return '';
+        const m = t.match(APPUNTI_PRG);
+        if (!m) return t;
+        return t.slice(0, m.index + (m[1] ? m[1].replace(/\s+$/, '').length : 0)).trim();
     }
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il
