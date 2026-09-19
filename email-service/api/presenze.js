@@ -66,6 +66,12 @@ function sezioneB2B(body) { return !!(body && String(body.sezione || '') === 'b2
    Le richieste con sezione: 'programma' si deviano li'. */
 function moduloProgramma() { return require('../lib/programma-evento'); }
 function sezioneProgramma(body) { return !!(body && String(body.sezione || '') === 'programma'); }
+/* Le conferme alle due cene (1 e 2 ottobre a Napoli): le raccoglie la pagina
+   pubblica passando da api/iscrizione-nuova, e da qui le legge chi organizza.
+   Stessa storia degli altri archivi: sta in lib/ e si carica solo quando
+   arriva una richiesta con sezione: 'cene'. */
+function moduloCene() { return require('../lib/cene-evento'); }
+function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'cene'); }
 // la frase che racconta uno spostamento di azienda: la scrivono in due
 // (qui e in iscrizioni.js), quindi sta in un modulo solo
 const { tracciaSpostamento } = require('../lib/traccia-azienda');
@@ -416,6 +422,24 @@ module.exports = async (req, res) => {
                 db: db, body: body, email: email, collab: collab, eAdmin: eAdmin,
                 ePartner: eAdmin || await ePartner(db, ruolo)
             });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+
+        /* Le cene dei giorni del convegno: stessa sezione Eventi, stessi
+           permessi di lettura (chi vede gli Eventi) e cancellazione riservata
+           all'amministratore, come per le iscrizioni. Si devia qui perche'
+           queste richieste non hanno un iscritto da indicare, che invece piu'
+           sotto e' obbligatorio. */
+        if (sezioneCene(body)) {
+            let CENE;
+            try { CENE = moduloCene(); }
+            catch (e) {
+                console.error('Sezione cene non caricata:', String((e && e.message) || e).slice(0, 300));
+                res.status(500).json({ ok: false, msg: 'Sezione cene non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
+                return;
+            }
+            const r = await CENE.esegui({ db: db, body: body, email: email, eAdmin: eAdmin });
             res.status(r.stato).json(r.corpo);
             return;
         }

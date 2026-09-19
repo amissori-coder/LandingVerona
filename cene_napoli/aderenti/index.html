@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Pagina di servizio raggiunta SOLO dal collegamento che si manda agli
+         aderenti: non va indicizzata, non e' nella sitemap ed e' esclusa in
+         robots.txt, come le agende personali degli ospiti (/n26/). -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Cena degli aderenti Revilaw, 1 ottobre | Next Generation Business</title>
+    <link rel="stylesheet" href="../stile.css">
+</head>
+<body>
+    <header class="testata">
+        <div class="testata-dentro">
+            <a href="https://nextgenerationbusiness.it"><img src="/assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale"></a>
+            <h1>Cena degli aderenti Revilaw</h1>
+            <p>Gioved&igrave; 1 ottobre 2026 &middot; Napoli</p>
+        </div>
+    </header>
+    <main>
+        <div class="scheda">
+            <p>Gentile Aderente, alla vigilia del convegno di Napoli ci ritroviamo a cena.
+                Ci faccia sapere se sar&agrave; dei nostri e se porta con s&eacute; qualche ospite:
+                il numero dei coperti va comunicato in anticipo.</p>
+        </div>
+        <div class="scheda" id="contenuto">
+            <div class="avviso">Un momento&hellip;</div>
+        </div>
+    </main>
+    <footer class="piede">
+        <p>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235</p>
+        <p><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a>
+            &nbsp;&middot;&nbsp; <a href="https://nextgenerationbusiness.it">nextgenerationbusiness.it</a></p>
+    </footer>
+    <!-- Quale serata e', piu' una copia di riserva dei testi: se il servizio
+         non risponde la pagina mostra comunque la cena e il modulo, invece di
+         restare bianca. La verita' - date, termine, ospiti ammessi - sta in
+         email-service/lib/cene-evento.js. -->
+    <script>
+        window.CENA = {
+            id: 'napoli-2026-10-01',
+            titolo: 'Cena degli aderenti Revilaw',
+            quando: 'giovedì 1 ottobre 2026',
+            chi: 'tutti gli aderenti Revilaw',
+            ospitiMax: 3
+        };
+    </script>
+    <script src="../modulo.js"></script>
+</body>
+</html>

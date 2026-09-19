@@ -60,6 +60,12 @@ const CODICI = require('../lib/codici-invito');
    questo file gia' applica - e riscriverne la guardia altrove vorrebbe dire
    avere due porte aperte da tenere chiuse invece di una. */
 const CONTATTI = require('../lib/richieste-contatto');
+/* Le conferme alle due cene dei giorni del convegno (1 e 2 ottobre a Napoli).
+   Stesso genere di endpoint delle richieste di contatto - pubblico, con il
+   freno per indirizzo IP che questo file gia' applica - e stessa ragione per
+   non fargli una funzione sua: chi conferma arriva da una pagina che non ha
+   nient'altro da chiedere al servizio. */
+const CENE = require('../lib/cene-evento');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -1000,7 +1006,13 @@ module.exports = async (req, res) => {
         const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva',
             'b2b-slot-prenota', 'b2b-slot-richiedi']
             .indexOf(String(body.azione || '')) >= 0;
-        if (!conFirma && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+        /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
+           della serata (data, termine, quanti ospiti si possono portare) che
+           la pagina chiede appena si apre. Farla pesare sul freno vorrebbe
+           dire che tre persone dello stesso studio, aprendo e richiudendo la
+           pagina, si mangiano gli invii veri di tutti gli altri. */
+        const soloLettura = String(body.azione || '') === 'cena-leggi';
+        if (!conFirma && !soloLettura && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
 
         // completamento dei dati (dal collegamento personale nella mail): altra
         // azione, stessa funzione. I form del sito non mandano "azione", quindi
@@ -1038,6 +1050,24 @@ module.exports = async (req, res) => {
             const cred1 = leggiServiceAccount();
             initAdmin(cred1);
             const r = await CONTATTI.ricevi(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* Le due cene del convegno di Napoli. La pagina chiede prima la
+           scheda della serata (cena-leggi) e poi manda la conferma
+           (cena-conferma). Le date e il termine li tiene il servizio, non la
+           pagina: un modulo chiuso non si riapre cambiando una riga nel
+           browser. */
+        if (azione === 'cena-leggi') {
+            const c = CENE.perLaPagina(CENE.definizione(body.cena));
+            if (!c) { res.status(404).json({ ok: false, msg: 'Cena non riconosciuta.' }); return; }
+            res.status(200).json({ ok: true, cena: c, adesso: Date.now() });
+            return;
+        }
+        if (azione === 'cena-conferma') {
+            const cred2 = leggiServiceAccount();
+            initAdmin(cred2);
+            const r = await CENE.ricevi(admin.firestore(), body);
             res.status(r.stato).json(r.corpo);
             return;
         }
