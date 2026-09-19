@@ -1544,7 +1544,11 @@ sola, era coerente. Ora sono una finestra sola, con dentro due parti distinte:
   - e in fila per tavolo la cosa piu importante, che alle 14:30 servono tre
   stanze e tre persone, non si vedeva. Una riga di mezzo separa la mattina dal
   pomeriggio, e accanto all'ora c'e scritto quanti incontri partono **in
-  parallelo** in quel momento. Nella cella c'e la prenotazione: chi arriva e da
+  parallelo** in quel momento. Sopra la tabella si dice per intero quando si
+  tengono, quanti ne partono insieme, che ci si va SOLO SU INVITO, quante
+  prenotazioni ci sono finora e QUALI sono i tavoli, coi nomi completi (nelle
+  colonne stanno stretti). Ore e nomi si leggono dall'agenda: un tavolo che si
+  attiva o si spegne cambia anche quella riga. Nella cella c'e la prenotazione: chi arriva e da
   che azienda. Verde libero, blu prenotato, grigio chiuso, **rosso** quando chi
   tiene quel tavolo in quell'ora e' sul palco - e li' il quadratino non dice
   piu "libero" ma **"non disponibile / sul palco"**: rosso e "libero" insieme

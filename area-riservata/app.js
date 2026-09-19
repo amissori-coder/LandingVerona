@@ -18712,8 +18712,9 @@
         const G = giornataLib();
         const a = agendaDi(ev);
         if (!G) return '';
-        const guscio = (dentro, sotto) => '<div class="prg-b2b"><div class="prg-b2b-tit">Prenotazioni B2B'
+        const guscio = (dentro, sotto, quali) => '<div class="prg-b2b"><div class="prg-b2b-tit">Prenotazioni B2B'
             + '<span>' + esc(sotto || 'gli incontri dei tavoli, che in ogni orario si tengono in parallelo') + '</span></div>'
+            + (quali ? '<div class="prg-b2b-quali">' + quali + '</div>' : '')
             + dentro + '</div>';
         if (!a) return guscio('<div class="hint">Agenda dei tavoli non caricata.</div>');
         const attive = (a.aree || []).filter(x => x.attiva);
@@ -18781,12 +18782,28 @@
             return '<tr class="prg-par-mezzo"><th class="prg-par-ora">&nbsp;</th>'
                 + '<td colspan="' + attive.length + '">pomeriggio, dalle ' + esc(G.oraDaMinuti(confine)) + '</td></tr>';
         }
-        return guscio('<div class="prg-par-scorri"><table class="prg-par">'
-            + '<thead>' + intestazione + '</thead><tbody>' + righe + '</tbody></table></div>',
-            (tot ? tot + (tot === 1 ? ' prenotazione' : ' prenotazioni') : 'nessuna prenotazione')
+        /* CHE COSA SI TIENE, QUANDO E QUANTI. Nelle colonne i nomi dei tavoli
+           stanno stretti e si leggono a fatica; qui sopra si dicono per
+           intero, una volta, insieme alla fascia oraria e al numero di
+           incontri che partono insieme a ogni orario. E' la frase che chi
+           organizza ripete al telefono: "dalle 10 alle 17:30 ci sono otto
+           tavoli in parallelo, e ci si va su invito".
+           Le ore e i nomi si leggono dall'agenda, non si scrivono qui: un
+           tavolo che si attiva o si spegne deve cambiare anche questa riga. */
+        const daOra = ore[0].ora;
+        const aOra = ore.map(o => o.fine).filter(Boolean).sort().slice(-1)[0] || ore[ore.length - 1].ora;
+        const quanti = attive.length;
+        const sotto = 'dalle ' + daOra + ' alle ' + aOra + ', '
+            + quanti + (quanti === 1 ? ' tavolo' : ' tavoli') + ' in parallelo a ogni orario, solo su invito'
             /* il sottotitolo passa da esc(): qui ci va il carattere, non
                l'entita', se no si legge "&middot;" per davvero */
-            + ' \u00b7 una riga per orario: in ciascuna gli incontri si tengono in parallelo');
+            + ' \u00b7 ' + (tot ? tot + (tot === 1 ? ' prenotazione' : ' prenotazioni') : 'nessuna prenotazione')
+            + ' finora';
+        const quali = '<b>' + quanti + (quanti === 1 ? ' incontro' : ' incontri') + ':</b> '
+            + attive.map(x => esc(x.nome)).join(' &middot; ');
+        return guscio('<div class="prg-par-scorri"><table class="prg-par">'
+            + '<thead>' + intestazione + '</thead><tbody>' + righe + '</tbody></table></div>',
+            sotto, quali);
     }
     /* L'IMPOSTAZIONE DEI TAVOLI B2B
        ---------------------------------------------------------

@@ -3526,6 +3526,9 @@ select.prg-scegli { margin: 0; padding: 2px 6px; font-size: 0.74rem; max-width: 
 /* LE PRENOTAZIONI IN PARALLELO: una riga per orario, una colonna per tavolo.
    Con molti tavoli attivi la tabella scorre di lato invece di schiacciare le
    colonne: un nome tagliato a meta' non dice chi arriva. */
+/* i nomi dei tavoli per intero: nelle colonne stanno stretti */
+.prg-b2b-quali { margin: 0 0 6px; font-size: 0.75rem; line-height: 1.4; color: var(--grigio-600); }
+.prg-b2b-quali b { color: var(--blu-900); }
 .prg-par-scorri { overflow-x: auto; }
 table.prg-par { border-collapse: collapse; width: 100%; }
 table.prg-par th, table.prg-par td { border: 1px solid var(--grigio-200); padding: 2px 3px; vertical-align: middle; background: var(--bianco); }
