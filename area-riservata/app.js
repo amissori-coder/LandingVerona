@@ -18587,7 +18587,7 @@
         const fasce = G.dividi(_prgVoci, confine);
         const conflitti = conflittiPrg(ev, _prgVoci);
         const rosse = G.oreInConflitto(conflitti);
-        box.innerHTML = barraVociHtml(puo)
+        box.innerHTML = barraVociHtml(ev, puo)
             + '<div id="prg-segnalazioni">' + segnalazioniHtml(ev, conflitti) + '</div>'
             + '<div class="prg-colonne">'
             + colonnaHtml(ev, 'Mattina', 'fino alle ' + G.oraDaMinuti(confine), fasce.mattina, puo)
@@ -18605,6 +18605,18 @@
             + richiesteHtml(agenda, puo);
         collegaGiornata(ev, box, puo);
     }
+    /* LA BOZZA GIA' SCRITTA (programmi-proposti.js)
+       ---------------------------------------------------------
+       Per alcuni eventi il programma esiste gia' su carta, in una tabella
+       che gira fra chi organizza. Riportarla a mano vuol dire ricopiare
+       tredici righe e ventisei orari, e le ore ricopiate sono quelle che
+       nessuno rilegge. Se per questo evento c'e' una bozza, la si riporta
+       con un pulsante: finisce nella copia di lavoro - non sul servizio -
+       e da li' si corregge e si salva come qualunque altra scaletta. */
+    function propostaPrg(ev) {
+        const P = window.RV_PROGRAMMI_PROPOSTI;
+        return (P && ev && !ev.tutti && P.esiste(ev.id)) ? P : null;
+    }
     // i pulsanti che aggiungono una voce alla scaletta
     /* LA BARRA PER AGGIUNGERE. Prima diceva solo "Aggiungi al programma:" e
        una fila di pulsanti: si premeva, e la voce nuova compariva da qualche
@@ -18614,10 +18626,12 @@
        mettono in fila da sole), e dopo la pressione la voce nuova si
        illumina, si porta a schermo e prende il fuoco sul titolo: si vede
        dov'e' andata e si puo' scrivere subito. */
-    function barraVociHtml(puo) {
+    function barraVociHtml(ev, puo) {
         if (!puo) return '';
         const ultima = (_prgVoci || []).filter(v => v.dalle && v.alle).slice(-1)[0];
-        return '<div class="prg-aggiungi">'
+        const P = propostaPrg(ev);
+        return (P ? bozzaHtml(ev, P) : '')
+            + '<div class="prg-aggiungi">'
             + '<div class="prg-aggiungi-tit">Aggiungi una fase alla giornata</div>'
             + '<div class="prg-aggiungi-bottoni">'
             + tipiProgramma().map(t => '<button type="button" class="btn btn-sm btn-ghost prg-piu" data-tipo="' + esc(t.id) + '">'
@@ -18627,6 +18641,26 @@
                 ? 'Nasce <b>dopo l\'ultima</b>, cioè alle <b>' + esc(ultima.alle) + '</b>, con la stessa durata: poi correggi ora e titolo. '
                 : 'La prima nasce <b>senza orario</b> e resta in fondo finché non gliene dai uno. ')
             + 'Le voci <b>si mettono in fila da sole</b> per orario, e vanno in mattina o pomeriggio secondo l\'ora che hanno.</div>'
+            + '</div>';
+    }
+    /* IL PULSANTE DELLA BOZZA. Dice PRIMA cosa succede - quante voci arrivano,
+       da dove, e che sul servizio non cambia niente finche' non si salva -
+       perche' un pulsante che riempie mezza schermata senza preavviso si
+       preme una volta sola, per sbaglio. Se il programma e' gia' scritto la
+       sostituzione la conferma chi preme: quello che c'e' a video puo' essere
+       il lavoro di un'ora. */
+    function bozzaHtml(ev, P) {
+        const n = P.quante(ev.id);
+        const pieno = (_prgVoci || []).length;
+        return '<div class="prg-bozza">'
+            + '<div class="prg-aggiungi-tit">Il programma di questo evento è già scritto</div>'
+            + '<button type="button" class="btn btn-sm btn-secondary" id="prg-bozza">'
+            + (pieno ? 'Sostituisci con la bozza' : 'Riporta il programma') + ' (' + n + ' voci)</button>'
+            + '<div class="hint">' + esc(P.fonte(ev.id)) + ': le voci arrivano <b>qui nella finestra</b>, con orari, titoli e '
+            + 'i relatori scritti nella <b>nota</b> di ogni voce. Sul palco non va nessuno da solo: chi modera e chi siede al '
+            + 'tavolo si sceglie <b>fra gli iscritti</b>, voce per voce. '
+            + (pieno ? 'Le <b>' + pieno + ' voci</b> che vedi adesso verrebbero sostituite: te lo chiedo prima. ' : '')
+            + 'Sul servizio <b>non cambia niente</b> finché non premi "Salva il programma".</div>'
             + '</div>';
     }
     /* UNA COLONNA: le voci di quella meta' della giornata e, sotto, i tavoli
@@ -19042,6 +19076,20 @@
     function collegaGiornata(ev, radice, puo) {
         if (!puo) return;
         // ---- il programma: si compone, e si salva col suo pulsante ----
+        const bozza = radice.querySelector('#prg-bozza');
+        if (bozza) bozza.addEventListener('click', () => {
+            const P = propostaPrg(ev);
+            if (!P) return;
+            const pieno = (_prgVoci || []).length;
+            if (pieno && !confirm('Sostituisco le ' + pieno + (pieno === 1 ? ' voce' : ' voci')
+                + ' che vedi con le ' + P.quante(ev.id) + ' della bozza?\n\n'
+                + 'Quello che c\'è adesso a video va perso. Sul servizio non cambia niente finché non salvi.')) return;
+            _prgVoci = P.di(ev.id);
+            _prgNuova = '';
+            disegnaGiornata(ev);
+            esitoGiornata('Riportate ' + _prgVoci.length + ' voci: controlla orari e titoli, scegli chi va sul palco fra gli '
+                + 'iscritti, poi premi "Salva il programma". Finché non lo premi, sul servizio non è cambiato niente.');
+        });
         radice.querySelectorAll('.prg-piu').forEach(b => b.addEventListener('click', () => {
             const t = tipoPrgDa(b.dataset.tipo);
             /* La voce nuova nasce dopo l'ultima che ha un orario, con la stessa

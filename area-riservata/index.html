@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260916h">
+    <link rel="stylesheet" href="styles.css?v=20260919a">
     <!-- Live reload di sviluppo: si attiva solo aprendo la pagina con ?dev=1,
          in produzione non carica e non esegue nulla. Vedi assets/dev-reload.js -->
     <script>try{var d=/[?&]dev=([01])/.exec(location.search);if(d){d[1]==='1'?sessionStorage.setItem('ngbDevReload','1'):sessionStorage.removeItem('ngbDevReload');}if(sessionStorage.getItem('ngbDevReload')==='1'){var s=document.createElement('script');s.src='/assets/dev-reload.js';s.defer=true;document.head.appendChild(s);}}catch(e){}</script>
@@ -117,11 +117,15 @@
          scaletta e le incompatibilita' con gli incontri B2B (funzioni pure,
          provate da email-service/prove/programma-giornata.prove.js) -->
     <script src="programma-giornata.js?v=20260916a"></script>
+    <!-- i programmi gia' scritti: la scaletta di un evento pronta da
+         riportare nella finestra della giornata (provata da
+         email-service/prove/programmi-proposti.prove.js) -->
+    <script src="programmi-proposti.js?v=20260919b"></script>
     <!-- La "v=" NON e' decorativa: il sito sta su GitHub Pages e senza un
          indirizzo nuovo il browser continua a servire la copia vecchia. Va
          cambiata a OGNI modifica di app.js, altrimenti chi e' gia' entrato
          una volta non vede nulla di nuovo e la funzione sembra rotta. Lo
          stesso vale per styles.css qui sopra. -->
-    <script src="app.js?v=20260916h"></script>
+    <script src="app.js?v=20260919a"></script>
 </body>
 </html>
