@@ -131,10 +131,20 @@
         }
     }
 
-    /* --- la serata --- */
+    /* --- la serata ---
+       Il ristorante e l'orario si decidono dopo, e la riga non si salta: chi
+       legge "giovedi 1 ottobre" e basta si chiede dove deve andare, e lo
+       chiede alla segreteria. Scritto che arrivano prima dell'evento, non lo
+       chiede nessuno. Appena `luogo` e `ora` sono compilati nel servizio
+       (lib/cene-evento.js), questa riga lascia il posto a quelle vere. */
     function serataHtml() {
         var righe = '<dt>Quando</dt><dd>' + esc(cena.quando) + (cena.ora ? ', ore ' + esc(cena.ora) : '') + '</dd>';
         if (cena.luogo) righe += '<dt>Dove</dt><dd>' + esc(cena.luogo) + '</dd>';
+        if (!cena.luogo || !cena.ora) {
+            righe += '<dt>' + (cena.luogo ? 'Orario' : (cena.ora ? 'Dove' : 'Dove e orario')) + '</dt>'
+                + '<dd class="poi">' + (cena.luogo || cena.ora ? 'sar\u00e0 comunicato' : 'saranno comunicati')
+                + ' prima dell\'evento</dd>';
+        }
         if (cena.chi) righe += '<dt>Invitati</dt><dd>' + esc(cena.chi) + '</dd>';
         return '<div class="serata"><dl>' + righe + '</dl></div>';
     }

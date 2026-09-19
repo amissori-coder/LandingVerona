@@ -40,6 +40,8 @@ main { max-width: 640px; margin: 0 auto; padding: 24px 20px 60px; }
 .serata dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 0.95rem; }
 .serata dt { color: var(--tenue); white-space: nowrap; }
 .serata dd { font-weight: bold; color: var(--navy-dark); }
+/* la riga di cio' che si sapra' dopo: stessa posizione, peso normale */
+.serata dd.poi { font-weight: normal; color: var(--tenue); font-style: italic; }
 
 /* --- il conto alla rovescia ---
    Non e' un ornamento: e' la ragione per cui chi apre la mail
