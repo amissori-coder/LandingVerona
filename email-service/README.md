@@ -1452,11 +1452,17 @@ chiusura - con la sua ora di inizio e di fine. Un documento per evento,
   programma, due di Banca Intesa Sanpaolo: ..." e' tutto appunto). La
   dicitura vale solo se subito dopo ha i due punti o la virgola: una nota che
   parla "del programma di sala" non perde mezza riga.
-- **Sul foglio del programma si vedono anche gli incontri B2B.** Non sono una
-  fase del palco - si tengono IN PARALLELO, mentre in sala si va avanti - ma
-  chi legge il programma deve saperlo. Entrano come UNA riga, messa al posto
-  giusto fra gli orari, con la fascia intera, quanti tavoli vanno insieme,
-  che e' solo su invito e quali sono. Ore e nomi si leggono dall'agenda.
+- **Sul foglio del programma gli incontri B2B stanno in una COLONNA A
+  DESTRA.** Non sono una fase del palco - si tengono in parallelo, mentre in
+  sala si va avanti - quindi non stanno in fila con le altre voci: stanno
+  accanto. La colonna si riempie solo sulle due fasce dedicate (mattina e
+  pomeriggio, divise dalla pausa pranzo), una cella per fascia con `rowspan`
+  alto quanto le voci che le corrono a fianco: orario, quanti tavoli vanno
+  insieme, che e' solo su invito, quali sono e quanti gia' prenotati. Dove i
+  tavoli non ricevono la colonna resta vuota. Se in una fascia in sala non e'
+  previsto niente, quella fascia prende una riga sua invece di sparire dal
+  foglio: e' proprio il caso in cui contava dirlo. Ore e nomi si leggono
+  dall'agenda.
 - **L'orario si sceglie con la DURATA.** Accanto alle due ore c'e' quanto dura
   la voce, ed e' quella che si tocca: un orario si pensa "comincia alle 14:30 e
   dura un'ora", non "dalle 14:30 alle 15:30". Scegliendo la durata la fine si
