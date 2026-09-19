@@ -196,7 +196,7 @@ async function ricevi(db, corpo) {
             stato: 403,
             corpo: {
                 ok: false, chiusa: true,
-                msg: 'Le conferme si sono chiuse domenica 27 settembre. Scriva alla segreteria: eventi@revilaw.it'
+                msg: 'Le conferme si sono chiuse domenica 27 settembre. Scriva alla segreteria: info@nextgenerationbusiness.it'
             }
         };
     }

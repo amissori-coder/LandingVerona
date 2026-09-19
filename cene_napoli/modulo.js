@@ -91,7 +91,7 @@
             cifre.innerHTML = '';
             quando.innerHTML = 'Il termine era ' + esc(terminePerEsteso())
                 + '. Se ha bisogno di comunicarci qualcosa scriva a '
-                + '<a href="mailto:eventi@revilaw.it">eventi@revilaw.it</a>.';
+                + '<a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.';
             if (battito) { clearInterval(battito); battito = null; }
             chiudiModulo();
             return;
@@ -127,7 +127,7 @@
         if (az && !el('avviso-chiusa')) {
             az.insertAdjacentHTML('beforebegin', '<div class="chiusa" id="avviso-chiusa">'
                 + '<b>Le conferme sono chiuse.</b> Il termine e\' scaduto mentre la pagina era aperta. '
-                + 'Se deve comunicarci qualcosa scriva a <a href="mailto:eventi@revilaw.it">eventi@revilaw.it</a>.</div>');
+                + 'Se deve comunicarci qualcosa scriva a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.</div>');
         }
     }
 
