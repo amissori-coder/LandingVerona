@@ -396,6 +396,13 @@ document.addEventListener('DOMContentLoaded', () => {
                    cambiare quel campo. Il servizio accetta solo "presenza" e
                    "online": l'assenza del campo varrebbe in presenza. */
                 modalita: ((form.querySelector('#modalita') || {}).value || 'online'),
+                /* In coda per un posto in sala. Va detto al servizio perche' e'
+                   quello che cambia la mail di conferma - "ti abbiamo inserito
+                   in lista d'attesa" - e perche' quando un posto si libera
+                   l'elenco deve sapere chi chiamare. Sta nel modulo accanto
+                   alla modalita' e si spegne con lo stesso gesto, il giorno in
+                   cui la sala riapre. */
+                listaAttesa: !!(form.querySelector('#listaAttesa') || {}).value,
                 /* La dichiarazione di essere aderente: e' quello che dice chi si
                    iscrive, non la sezione in cui finira'. In quale sezione sta lo
                    decide chi organizza, dall'area riservata: qui si registra la

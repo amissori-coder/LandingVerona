@@ -353,6 +353,12 @@ module.exports = async (req, res) => {
                        parola: chi organizza puo' spostare in online chi resta
                        fuori dalla sala, e quella decisione sta fra le presenze. */
                     modalita: String(v.modalita || ''),
+                    /* In coda per un posto in sala: si iscrive online perche' la
+                       sala e' piena, non perche' preferisce il video. La
+                       lettura e' una whitelist campo per campo, quindi senza
+                       questa riga la coda resterebbe sul database e quando un
+                       posto si libera non si saprebbe chi chiamare. */
+                    listaAttesa: v.listaAttesa === true,
                     /* chi ha inserito la scheda a mano (equity o amministratore):
                        l'area riservata lo mostra in "Aggiornato da" finche' non
                        ci sono presenze. Le iscrizioni dai form non ce l'hanno. */

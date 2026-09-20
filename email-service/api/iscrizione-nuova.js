@@ -1176,6 +1176,20 @@ module.exports = async (req, res) => {
             scheda.modalita = 'aderenti';
         }
 
+        /* Lista d'attesa per un posto in sala. Ha senso in un caso solo: la
+           sala e' al completo, il modulo iscrive per la diretta e chi si
+           iscrive resta in coda se un posto si libera. Percio' si scrive solo
+           accanto a "online" - a un evento che si segue solo da remoto non c'e'
+           nessuna coda, e accanto a "presenza" o "aderenti" un posto ce l'hai
+           gia'.
+           Sta sulla scheda e non solo nella mail perche' quando il posto si
+           libera bisogna sapere CHI chiamare: l'elenco deve poterlo dire da
+           solo, senza che qualcuno vada a ricostruire chi si e' iscritto dopo
+           il tutto esaurito. */
+        if (scheda.modalita === 'online' && consenso(body.listaAttesa) === true) {
+            scheda.listaAttesa = true;
+        }
+
         const idDoc = idDocumento(email, data, nome, cognome);
         await admin.firestore().collection('iscrizioni')
             .doc(idDoc)
@@ -1216,7 +1230,8 @@ module.exports = async (req, res) => {
                 const m = MNGB.confermaSito(
                     {
                         nome: nome, cognome: cognome, email: email, azienda: scheda.azienda,
-                        pagina: pagina, data: data, modalita: scheda.modalita || ''
+                        pagina: pagina, data: data, modalita: scheda.modalita || '',
+                        listaAttesa: scheda.listaAttesa === true
                     },
                     NL.linkCompleta(idDoc));
                 await trasporto().sendMail({

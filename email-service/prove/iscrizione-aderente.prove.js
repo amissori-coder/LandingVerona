@@ -22,7 +22,11 @@
        un "false" su ogni iscrizione di ogni altro modulo del sito
        sarebbe rumore;
      - la conferma automatica parta lo stesso, e non prometta un posto
-       in sala a chi si iscrive online.
+       in sala a chi si iscrive online;
+     - la lista d'attesa per la sala si scriva sulla scheda e si legga
+       nella conferma, ma solo dove un posto in sala non c'e': accanto a
+       "presenza" o a un aderente sarebbe una riga che contraddice la
+       mail che la contiene.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -141,6 +145,39 @@ prova('Chi si iscrive online lo legge nella conferma', async () => {
     esigi(/partecipazione online/i.test(spedite[0] ? spedite[0].html : ''), 'la mail parla di partecipazione online');
     esigi(!/posto è riservato/i.test(spedite[0] ? spedite[0].html : ''), 'e non promette un posto in sala');
     esigi(r.scheda.modalita === 'online', 'la scheda dice online');
+});
+
+prova('La lista d\'attesa per la sala si scrive, e la conferma la dice', async () => {
+    /* La sala di Napoli e' piena: chi si iscrive segue online E resta in coda.
+       Deve risultare in due posti - sulla scheda, perche' quando un posto si
+       libera bisogna sapere chi chiamare, e nella mail, perche' altrimenti la
+       coda esiste solo per chi organizza e chi aspetta non sa di aspettare. */
+    const r = await iscrivi({ modalita: 'online', listaAttesa: true });
+    esigi(r.scheda && r.scheda.listaAttesa === true, 'la scheda tiene la coda');
+    esigi(/lista d.attesa/i.test(spedite[0] ? spedite[0].html : ''), 'la conferma dice che e in lista d\'attesa');
+    esigi(/lista d.attesa/i.test(spedite[0] ? spedite[0].text : ''), 'anche la versione senza formattazione');
+    esigi(/partecipazione online/i.test(spedite[0] ? spedite[0].html : ''), 'e resta una partecipazione online');
+});
+
+prova('Una coda accanto a un posto in sala non vuol dire niente', async () => {
+    /* "In lista d'attesa" ha senso solo dove un posto non c'e'. Accanto a
+       "presenza" - o a un modulo che la modalita' non la chiede affatto - e'
+       una riga che contraddice la mail che la contiene. */
+    const inSala = await iscrivi({ modalita: 'presenza', listaAttesa: true });
+    esigi(inSala.scheda && inSala.scheda.listaAttesa === undefined, 'con "presenza" si ignora');
+    esigi(!/lista d.attesa/i.test(spedite[0] ? spedite[0].html : ''), 'e la conferma non ne parla');
+    const muto = await iscrivi({ listaAttesa: true });
+    esigi(muto.scheda && muto.scheda.listaAttesa === undefined, 'senza modalita pure');
+    const aderente = await iscrivi({ aderente: true, modalita: 'online', listaAttesa: true });
+    esigi(aderente.scheda && aderente.scheda.listaAttesa === undefined, 'e un aderente, che in sala entra, non finisce in coda');
+});
+
+prova('Senza il campo non si scrive niente', async () => {
+    const r = await iscrivi({ modalita: 'online' });
+    esigi(r.scheda && r.scheda.listaAttesa === undefined, 'nessuna coda: il campo assente vale "no"');
+    esigi(!/lista d.attesa/i.test(spedite[0] ? spedite[0].html : ''), 'e la conferma online resta quella di prima');
+    const no = await iscrivi({ modalita: 'online', listaAttesa: false });
+    esigi(no.scheda && no.scheda.listaAttesa === undefined, 'e un "false" esplicito non cambia niente');
 });
 
 (async () => {

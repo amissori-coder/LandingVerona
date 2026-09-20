@@ -1462,6 +1462,14 @@ ul {
     font-weight: 600;
 }
 
+/* La coda per la sala: seconda notizia dell'avviso, non seconda per
+   importanza. Staccata da una riga per non annegare nel paragrafo sopra. */
+.sala-esaurita-coda {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 /* Sottile strip orizzontale di benefici sopra il form */
 .form-benefits-strip {
     text-align: center;
