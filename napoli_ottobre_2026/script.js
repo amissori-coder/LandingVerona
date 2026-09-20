@@ -384,6 +384,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // il codice riservato all'azienda invitata, se ne ha uno: e' cio'
                 // che lega questa iscrizione all'elenco delle aziende selezionate
                 codiceInvito: campoCodice ? ripulisci(campoCodice.value) : '',
+                /* Modalita' di partecipazione. I posti in sala sono esauriti:
+                   da questa pagina si entra solo per la diretta online, e il
+                   valore e' fisso nel modulo (campo nascosto) invece di essere
+                   scritto qui, cosi' il giorno in cui la sala riapre basta
+                   cambiare quel campo. Il servizio accetta solo "presenza" e
+                   "online": l'assenza del campo varrebbe in presenza. */
+                modalita: ((form.querySelector('#modalita') || {}).value || 'online'),
                 /* La dichiarazione di essere aderente: e' quello che dice chi si
                    iscrive, non la sezione in cui finira'. In quale sezione sta lo
                    decide chi organizza, dall'area riservata: qui si registra la

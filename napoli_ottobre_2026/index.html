@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
 
     <!-- Structured Data (JSON-LD): BusinessEvent -->
     <script type="application/ld+json">
@@ -895,10 +895,18 @@
     <section class="section section-accent" id="accreditamento">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">Iscrizione</span>
-                <h2 class="section-title">Riserva il tuo posto</h2>
+                <span class="section-tag">Iscrizione online</span>
+                <h2 class="section-title">Segui il convegno in diretta</h2>
                 <div class="section-divider"></div>
-                <p class="section-description">Il programma della giornata e i nomi di chi interviene sono già online: compila il modulo per riservare il tuo posto e ricevere le informazioni pratiche di accesso. Partecipazione gratuita, posti limitati.</p>
+                <p class="section-description">Il programma della giornata e i nomi di chi interviene sono già online: compila il modulo per iscriverti e seguire l&rsquo;evento in diretta. Partecipazione gratuita.</p>
+            </div>
+
+            <div class="sala-esaurita" role="status">
+                <svg class="sala-esaurita-icona" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                <div class="sala-esaurita-testo">
+                    <p class="sala-esaurita-titolo">Posti in sala esauriti &middot; Iscrizioni aperte per la diretta online</p>
+                    <p>La partecipazione <strong>in presenza</strong> non &egrave; pi&ugrave; disponibile: la sala ha raggiunto la capienza massima. &Egrave; per&ograve; possibile iscriversi per <strong>seguire l&rsquo;evento online, in diretta</strong>: compila il modulo qui sotto e nei giorni precedenti riceverai il collegamento e le istruzioni per assistere ai lavori.</p>
+                </div>
             </div>
 
             <div class="form-benefits-strip">
@@ -912,7 +920,7 @@
                 </span>
                 <span class="benefit-item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    Business Matching
+                    Collegamento in diretta via email
                 </span>
                 <span class="benefit-item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -929,6 +937,7 @@
 
             <div class="form-wrapper">
                 <form id="accreditationForm" class="accreditation-form" novalidate>
+                    <input type="hidden" id="modalita" name="modalita" value="online">
                     <!-- ADERENTI REVILAW. Sta in cima perche' cambia quello che il
                          modulo chiede: a un aderente non si domandano settore,
                          fatturato e incontri B2B, che servono ad abbinare fra loro
@@ -1121,7 +1130,7 @@
                                 Invio in corso...
                             </span>
                         </button>
-                        <p class="form-footnote">Riceverai la conferma dell’iscrizione e le informazioni pratiche di accesso. Posti limitati.</p>
+                        <p class="form-footnote">Iscrizione per la partecipazione <strong>online in diretta</strong>. Riceverai la conferma e, nei giorni precedenti l’evento, il collegamento per seguire i lavori.</p>
                     </div>
                 </form>
                 <div id="formSuccess" class="form-success" style="display:none;">
@@ -1129,8 +1138,8 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     </div>
                     <h3>Richiesta inviata!</h3>
-                    <p>Grazie per il tuo interesse. Ti contatteremo con la conferma dell’iscrizione e le informazioni pratiche di accesso all’evento di Napoli.</p>
-                    <p class="success-detail">A presto, il 2 ottobre 2026 a Napoli.</p>
+                    <p>Grazie per il tuo interesse. La tua iscrizione per seguire l’evento di Napoli <strong>online in diretta</strong> è stata registrata: riceverai la conferma via email e, nei giorni precedenti, il collegamento per assistere ai lavori.</p>
+                    <p class="success-detail">Ci colleghiamo il 2 ottobre 2026.</p>
                 </div>
             </div>
         </div>

@@ -1419,6 +1419,49 @@ ul {
 }
 
 /* === Accreditation Form === */
+/* Avviso "posti in sala esauriti": sta sopra al modulo e deve fermare
+   l'occhio prima che si cominci a compilare, non confondersi con i
+   benefici. Bordo rosso sul lato, fondo appena piu' chiaro del blu della
+   sezione: si vede, senza diventare un cartello d'errore. */
+.sala-esaurita {
+    max-width: 760px;
+    margin: 0 auto 32px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+}
+
+.sala-esaurita-icona {
+    color: var(--accent-light);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.sala-esaurita-titolo {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 0.2px;
+    margin-bottom: 8px;
+}
+
+.sala-esaurita-testo p {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.sala-esaurita-testo strong {
+    color: var(--white);
+    font-weight: 600;
+}
+
 /* Sottile strip orizzontale di benefici sopra il form */
 .form-benefits-strip {
     text-align: center;
@@ -2421,6 +2464,20 @@ ul {
     .hero-cta-note {
         font-size: 0.74rem;
         margin-top: 12px;
+    }
+
+    .sala-esaurita {
+        padding: 18px 18px;
+        gap: 12px;
+        margin-bottom: 26px;
+    }
+
+    .sala-esaurita-titolo {
+        font-size: 0.88rem;
+    }
+
+    .sala-esaurita-testo p {
+        font-size: 0.82rem;
     }
 
     .form-benefits-strip {
