@@ -1636,6 +1636,54 @@ ul {
    "hidden" da solo perde contro il display della griglia del modulo */
 .accreditation-form .form-group[hidden] { display: none; }
 
+/* --- Campi sospesi ---
+   Domande che avevano senso finche' si entrava in sala: la casella degli
+   Aderenti Revilaw e gli incontri B2B. Restano a video, spente, con accanto
+   il motivo: toglierle lascerebbe chi le cercava a chiedersi se ha sbagliato
+   pagina, e una domanda che non si puo' piu' rispondere e' meno fastidiosa di
+   una che sparisce senza spiegazioni. Smorzate quel tanto che basta a non
+   sembrare compilabili, non fino a diventare illeggibili. */
+.campo-sospeso > label,
+.campo-sospeso .checkbox-label {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.campo-sospeso select:disabled,
+.campo-sospeso input:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.campo-sospeso .checkmark {
+    border-style: dashed;
+}
+
+.campo-sospeso-nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.campo-sospeso-nota svg {
+    color: var(--accent-light);
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+.campo-sospeso-nota strong {
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 600;
+}
+
 /* Checkbox */
 .checkbox-label {
     display: flex;

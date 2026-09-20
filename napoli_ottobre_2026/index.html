@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
 
     <!-- Structured Data (JSON-LD): BusinessEvent -->
     <script type="application/ld+json">
@@ -938,19 +938,28 @@
             <div class="form-wrapper">
                 <form id="accreditationForm" class="accreditation-form" novalidate>
                     <input type="hidden" id="modalita" name="modalita" value="online">
-                    <!-- ADERENTI REVILAW. Sta in cima perche' cambia quello che il
-                         modulo chiede: a un aderente non si domandano settore,
-                         fatturato e incontri B2B, che servono ad abbinare fra loro
-                         gli OSPITI. La spiegazione compare solo quando si spunta:
-                         a chi non c'entra non dice niente, e chi la spunta deve
-                         sapere esattamente chi e' un aderente prima di andare
-                         avanti. -->
-                    <div class="form-group full-width aderente-scelta">
+                    <!-- ADERENTI REVILAW. Serviva a riservare il posto in sala: chi
+                         fa parte della rete si iscriveva con il minimo, e il modulo
+                         gli risparmiava settore, fatturato e incontri B2B, che
+                         servono ad abbinare fra loro gli OSPITI presenti.
+                         Esauriti i posti in sala l'iscrizione da qui e' una sola -
+                         la diretta online - e la distinzione non cambia piu'
+                         niente: la casella resta a video, spenta, con scritto
+                         perche'. Sparire del tutto lascerebbe chi la cercava a
+                         chiedersi se ha sbagliato pagina. -->
+                    <div class="form-group full-width aderente-scelta campo-sospeso">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="aderente" name="aderente">
+                            <input type="checkbox" id="aderente" name="aderente" disabled>
                             <span class="checkmark"></span>
                             <span>Sono un <strong>Aderente Revilaw</strong></span>
                         </label>
+                        <p class="campo-sospeso-nota">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span><strong>Non pi&ugrave; disponibile: valeva per la partecipazione in sala.</strong>
+                            L&rsquo;iscrizione riservata agli Aderenti Revilaw serviva a riservare il posto in presenza.
+                            Ora che la sala &egrave; al completo l&rsquo;iscrizione da questa pagina &egrave; una sola, per la
+                            diretta online: anche gli Aderenti compilano il modulo qui sotto.</span>
+                        </p>
                         <div class="aderente-spiega" id="aderenteSpiega" hidden>
                             <p><strong>Chi &egrave; un Aderente Revilaw.</strong> I professionisti e gli studi che fanno parte
                             della rete Revilaw: chi ha sottoscritto l&rsquo;adesione e compare nell&rsquo;elenco degli Aderenti.</p>
@@ -1051,14 +1060,20 @@
                         </select>
                         <span class="form-error" id="dimensioneError"></span>
                     </div>
-                    <div class="form-group" id="gruppoIncontro">
-                        <label for="incontro">Incontri B2B &middot; 10.00 &ndash; 17.00 *</label>
-                        <select id="incontro" name="incontro" required>
-                            <option value="">Scegli...</option>
+                    <div class="form-group full-width campo-sospeso" id="gruppoIncontro">
+                        <label for="incontro">Incontri B2B &middot; 10.00 &ndash; 17.00</label>
+                        <select id="incontro" name="incontro" disabled>
+                            <option value="">Non disponibile per la partecipazione online</option>
                             <option value="si">S&igrave;, vorrei incontri riservati di 15 minuti</option>
                             <option value="forse">Mi interessa, decider&ograve; pi&ugrave; avanti</option>
                             <option value="no">No, partecipo solo al convegno</option>
                         </select>
+                        <p class="campo-sospeso-nota">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span><strong>Non pi&ugrave; disponibile: valeva per la partecipazione in sala.</strong>
+                            Gli incontri B2B sono appuntamenti di persona, che si tengono a Napoli in parallelo ai
+                            lavori: chi segue la diretta online non pu&ograve; prenderne parte.</span>
+                        </p>
                         <span class="form-error" id="incontroError"></span>
                     </div>
                     <div class="form-group full-width" id="gruppoInteressi">

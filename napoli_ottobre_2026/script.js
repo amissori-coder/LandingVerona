@@ -380,6 +380,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 settore:     (form.querySelector('#settore')    || {}).value || '',
                 dimensione:  (form.querySelector('#dimensione') || {}).value || '',
                 incontro:    (form.querySelector('#incontro')   || {}).value || '',
+                /* `incontro` parte vuoto finche' la tendina resta spenta: gli
+                   incontri B2B si tengono in sala e chi si iscrive da qui
+                   segue online. Il servizio scrive i campi del matching solo
+                   se arrivano pieni, quindi un campo vuoto non diventa una
+                   risposta finta sull'elenco. */
                 interessi:   interessi,
                 // il codice riservato all'azienda invitata, se ne ha uno: e' cio'
                 // che lega questa iscrizione all'elenco delle aziende selezionate
