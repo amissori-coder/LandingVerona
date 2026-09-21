@@ -663,6 +663,73 @@ prova('Anche l\'invito B2B torna in copia a chi lo manda', async () => {
     esigi(bcc.length === 1 && bcc[0] === 'admin@esempio.it', 'con la copia nascosta a chi invita', JSON.stringify(bcc));
 });
 
+/* ------------------------------------------------------------
+   LA CODA PER UN POSTO IN SALA
+   ------------------------------------------------------------
+   La mail del passaggio online promette per iscritto che il nominativo
+   resta in lista d'attesa e che se un posto si libera gli si scrive.
+   Una promessa che non si scrive anche nei dati non e' una promessa:
+   quando il posto si libera nessuno sa piu' chi chiamare. Qui si
+   verifica che lo spostamento la scriva, che la scriva anche quando la
+   mail non parte - e' lo SPOSTAMENTO a mettere in coda, non l'avviso -
+   e che tornando in sala la coda finisca.
+   ------------------------------------------------------------ */
+
+prova('Chi passa online entra in lista d attesa', async () => {
+    scenario();
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: TUTTI, mail: MAIL });
+    esigi(TUTTI.every(d => (presenzaDi('napoli-2026-10-02', d.id) || {}).listaAttesa === true),
+        'la coda e scritta su tutte e sei le presenze',
+        JSON.stringify(TUTTI.map(d => (presenzaDi('napoli-2026-10-02', d.id) || {}).listaAttesa)));
+    /* Anche su chi la mail non l'ha ricevuta: chi non ha indirizzo, chi ha
+       annullato, chi su Firestore una scheda non ce l'ha. In coda ci sono
+       lo stesso - il posto in sala lo hanno perso come gli altri. */
+    esigi((presenzaDi('napoli-2026-10-02', 'nino.senzamail|04/09/2026 09:00') || {}).listaAttesa === true,
+        'compreso chi non ha un indirizzo a cui scrivere');
+    esigi((presenzaDi('napoli-2026-10-02', 'solo.sul.foglio@delta.it|06/09/2026 09:00') || {}).listaAttesa === true,
+        'e chi su Firestore non ha nessuna scheda');
+});
+
+prova('E in coda lo mette lo spostamento, non l avviso', async () => {
+    scenario();
+    /* Senza `mail` non parte niente, ma il posto in sala lo ha perso lo
+       stesso: la coda e' una conseguenza dello spostamento. */
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[0]] });
+    esigi(spedite.length === 0, 'senza mail non parte nessun avviso');
+    esigi((presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).listaAttesa === true, 'ma la coda e scritta');
+});
+
+prova('Anche se la posta si ferma, la coda resta scritta', async () => {
+    scenario();
+    cadeLaPosta = true;
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[0]], mail: MAIL });
+    esigi((presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).listaAttesa === true,
+        'lo spostamento viene prima delle mail, e la coda con lui');
+});
+
+prova('Tornando in sala la coda finisce', async () => {
+    scenario();
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[0]], mail: MAIL });
+    esigi((presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).listaAttesa === true, 'prima era in coda');
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'presenza', destinatari: [TUTTI[0]] });
+    const p = presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {};
+    esigi(p.listaAttesa === undefined, 'riportato in sala la coda si cancella: il posto lo ha avuto',
+        JSON.stringify(p.listaAttesa));
+    esigi(p.modalita === 'presenza', 'e la sezione e quella giusta', p.modalita);
+});
+
+prova('Le altre sezioni in sala non mettono in coda nessuno', async () => {
+    scenario();
+    /* Aderenti e sponsor sono in sala: non aspettano nessun posto, e la
+       cancellazione non si scrive dove non c'era niente da togliere. */
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'aderenti', destinatari: [TUTTI[0]] });
+    esigi((presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).listaAttesa === undefined,
+        'fra gli aderenti nessuna coda');
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'sponsor', destinatari: [TUTTI[1]] });
+    esigi((presenzaDi('napoli-2026-10-02', TUTTI[1].id) || {}).listaAttesa === undefined,
+        'e nemmeno fra sponsor e relatori');
+});
+
 (async () => {
     for (const p of prove) {
         console.log('\n' + p.titolo);

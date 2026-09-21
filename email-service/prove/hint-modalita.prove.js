@@ -58,6 +58,15 @@ const costanteDaAppJs = nome => eval('(' + ritaglia('const ' + nome + ' = [', '[
     .slice(('const ' + nome + ' = ').length) + ')');
 const oggettoDaAppJs = nome => eval('(' + ritaglia('const ' + nome + ' = {', '{', '}')
     .slice(('const ' + nome + ' = ').length) + ')');
+/* La terza bocca: una costante-stringa, che puo' stare su piu' righe unite dal
+   piu'. Si taglia al primo punto e virgola a fine riga. */
+const stringaDaAppJs = nome => {
+    const inizio = APP.indexOf('const ' + nome + ' = ');
+    if (inizio < 0) throw new Error('non trovato in app.js: const ' + nome);
+    const fine = APP.indexOf(';\n', inizio);
+    if (fine < 0) throw new Error('chiusura non trovata per: const ' + nome);
+    return eval('(' + APP.slice(inizio + ('const ' + nome + ' = ').length, fine) + ')');
+};
 
 /* L'unica finzione: nell'app EventiPresenze.di legge _evPresenze, che vive
    dentro la chiusura. Qui e' una tabella che ogni scenario riempie. */
@@ -69,12 +78,14 @@ const EventiPresenze = { di(evento, idIscritto) { return presenze[idIscritto] ||
    esc, EventiPresenze e le altre su questo file al momento della chiamata. */
 const SEZIONI_MODALITA = costanteDaAppJs('SEZIONI_MODALITA');
 const TITOLO_DAL_MODULO = oggettoDaAppJs('TITOLO_DAL_MODULO');
+const TITOLO_LISTA_ATTESA = stringaDaAppJs('TITOLO_LISTA_ATTESA');
 const esc = daAppJs('esc');
 const avvisoBreve = daAppJs('avvisoBreve');
 const avvisoTitolo = daAppJs('avvisoTitolo');
 const avvisoModalitaDi = daAppJs('avvisoModalitaDi');
 const modalitaDi = daAppJs('modalitaDi');
 const sezioneDalModulo = daAppJs('sezioneDalModulo');
+const inListaAttesa = daAppJs('inListaAttesa');
 const hintMailModalita = daAppJs('hintMailModalita');
 const hintModalitaHtml = daAppJs('hintModalitaHtml');
 
@@ -210,6 +221,64 @@ prova('Nel riepilogo di tutti gli eventi la colonna tace', () => {
     const TUTTI = { id: 'tutti', tutti: true };
     esigi(riga({ modalita: 'online' }, null, TUTTI).html === '', 'chi viene dal modulo non porta la provenienza');
     esigi(riga({}, { modalita: 'online' }, TUTTI).html === '', 'e non si chiede nessuna mail a nessuno');
+});
+
+/* ------------------------------------------------------------
+   LA CODA PER UN POSTO IN SALA
+   ------------------------------------------------------------
+   Chi viene spostato all'online a sala piena riceve una mail che gli
+   promette per iscritto la lista d'attesa. Quella promessa dev'essere
+   scritta anche nei dati, o quando un posto si libera non si sa chi
+   chiamare - ed e' questa riga che lo dice a chi guarda l'elenco.
+   ------------------------------------------------------------ */
+
+prova('La coda si legge da tutte e due le strade', () => {
+    /* Ci si entra in due modi e la parola e' la stessa: spostato da chi
+       organizza (sta fra le presenze) oppure iscritto dal modulo a sala
+       gia' piena (sta sulla scheda). */
+    const spostato = riga({}, { modalita: 'online', listaAttesa: true });
+    esigi(spostato.html.indexOf('ev-in-coda') >= 0, 'chi e stato spostato e in coda', spostato.html);
+    const dalModulo = riga({ modalita: 'online', listaAttesa: true }, null);
+    esigi(dalModulo.html.indexOf('ev-in-coda') >= 0, 'e anche chi ci e entrato dal modulo', dalModulo.html);
+    esigi(inListaAttesa(EV, { id: 'i1', listaAttesa: true }, 'online') === true, 'il lettore risponde di si');
+});
+
+prova('Chi in sala c e gia non aspetta nessun posto', () => {
+    /* La coda vale per la sola sezione online: una scheda che si porta
+       dietro listaAttesa da un passaggio precedente non deve far comparire
+       la scritta su chi in sala e' tornato. */
+    const inSala = riga({ listaAttesa: true }, { modalita: 'presenza', listaAttesa: true });
+    esigi(inSala.html.indexOf('ev-in-coda') < 0, 'in presenza la scritta non compare', inSala.html);
+    esigi(inListaAttesa(EV, { id: 'i1', listaAttesa: true }, 'presenza') === false, 'e il lettore risponde di no');
+    esigi(inListaAttesa(EV, { id: 'i1', listaAttesa: true }, 'aderenti') === false, 'nemmeno fra gli aderenti');
+});
+
+prova('Online senza coda resta senza scritta', () => {
+    const r = riga({ modalita: 'online' }, null);
+    esigi(r.html.indexOf('ev-in-coda') < 0, 'chi non risulta in coda non la porta', r.html);
+});
+
+prova('La coda si dice per ultima, sotto la posta e la provenienza', () => {
+    /* Non e' una cosa da fare: e' lo stato in cui quella persona e'
+       rimasta, e va letta dopo quelle che chiedono qualcosa. */
+    const r = riga({ modalita: 'online', listaAttesa: true }, null);
+    const iModulo = r.html.indexOf('ev-dal-modulo');
+    const iCoda = r.html.indexOf('ev-in-coda');
+    esigi(iModulo >= 0 && iCoda > iModulo, 'prima "dal modulo", poi "in lista d attesa"', r.html);
+});
+
+prova('Nel riepilogo di tutti gli eventi anche la coda tace', () => {
+    /* Li' le presenze non si caricano: dire "in lista d'attesa" sulla sola
+       scheda direbbe una cosa che da quella vista non si puo' sapere. */
+    const TUTTI = { id: 'tutti', tutti: true };
+    esigi(riga({ modalita: 'online', listaAttesa: true }, null, TUTTI).html === '', 'la colonna resta muta');
+    esigi(inListaAttesa(TUTTI, { id: 'i1', listaAttesa: true }, 'online') === false, 'e il lettore non si sbilancia');
+});
+
+prova('Il titolo della coda dice a che cosa serve', () => {
+    esigi(TITOLO_LISTA_ATTESA.indexOf('posto in sala') >= 0, 'nomina il posto in sala', TITOLO_LISTA_ATTESA);
+    esigi(riga({ modalita: 'online', listaAttesa: true }, null).html.indexOf('title="') >= 0,
+        'e arriva sulla riga come suggerimento');
 });
 
 console.log('\nLa scritta sotto la modalita\', nella sezione Online\n');

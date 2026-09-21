@@ -16289,10 +16289,28 @@
         if (md === 'online') return String(r.modalita || '').toLowerCase() === 'online';
         return false;
     }
+    /* IN CODA PER UN POSTO IN SALA. Due strade, una parola sola, e si
+       leggono insieme come la modalita':
+         - lo ha deciso chi organizza, spostandolo all'online a sala piena
+           (sta fra le presenze, lo scrive sposta-modalita);
+         - ce lo ha messo lui iscrivendosi dal modulo di un evento con la
+           sala gia' al completo (sta sulla scheda).
+       A tutti e due e' stato promesso per iscritto che se un posto si
+       libera gli si scrive: e' la stessa coda, e distinguere chi ci e'
+       entrato in quale modo qui non serve a niente. Vale solo per chi e'
+       online: chi in sala c'e' gia' non aspetta nessun posto. */
+    function inListaAttesa(ev, r, md) {
+        if (ev.tutti) return false;
+        if (md !== 'online') return false;
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        return p.listaAttesa === true || r.listaAttesa === true;
+    }
     /* Come si dice, e perche', che quella sezione l'ha scelta chi si iscrive.
        Per l'online il titolo dice anche la conseguenza - non c'e' niente da
        mandargli - perche' e' esattamente la domanda che viene guardando una
        riga online senza la scritta arancio accanto. */
+    const TITOLO_LISTA_ATTESA = 'Segue online ma resta in coda per un posto in sala: '
+        + 'gliel\u2019abbiamo promesso per iscritto, e se un posto si libera \u00e8 fra questi che si cerca.';
     const TITOLO_DAL_MODULO = {
         aderenti: 'Si \u00e8 iscritto spuntando \u00abSono un Aderente Revilaw\u00bb: nessuno di qui lo ha spostato.',
         online: 'Si \u00e8 iscritto dal modulo del sito per seguire la diretta online: sa gi\u00e0 che seguir\u00e0 da remoto, non c\u2019\u00e8 nessun passaggio da comunicargli.'
@@ -16351,8 +16369,13 @@
            chiede a tutti una mail che a molti e' gia' stata mandata. */
         if (ev.tutti) return '';
         const dalModulo = sezioneDalModulo(ev, r, md);
+        /* La coda si scrive per ULTIMA, sotto la posta e la provenienza: non
+           e' una cosa da fare, e' lo stato in cui quella persona e' rimasta.
+           Ed e' quella che si cerca quando un posto si libera. */
+        const inCoda = inListaAttesa(ev, r, md);
         return [hintMailModalita(ev, r, md),
-            dalModulo ? '<div class="hint ev-dal-modulo" title="' + esc(TITOLO_DAL_MODULO[md] || '') + '">dal modulo</div>' : '']
+            dalModulo ? '<div class="hint ev-dal-modulo" title="' + esc(TITOLO_DAL_MODULO[md] || '') + '">dal modulo</div>' : '',
+            inCoda ? '<div class="hint ev-in-coda" title="' + esc(TITOLO_LISTA_ATTESA) + '">in lista d\u2019attesa</div>' : '']
             .filter(Boolean).join(' ');
     }
     /* LA CELLA DELLE AZIONI: il menu dei tre puntini della riga.

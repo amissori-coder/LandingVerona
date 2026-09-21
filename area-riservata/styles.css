@@ -1652,12 +1652,17 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    l'ambra non compare. Non porta il verde-acqua degli aderenti, che in quella
    colonna e' il colore di una SEZIONE: sotto un "Online" blu direbbe la sezione
    sbagliata. */
-.ev-avvisato, .ev-dal-modulo, .ev-da-avvisare, .ev-senza-mail {
+.ev-avvisato, .ev-dal-modulo, .ev-da-avvisare, .ev-senza-mail, .ev-in-coda {
     margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--grigio-600);
 }
 .ev-avvisato { color: #15803d; }
 .ev-da-avvisare { color: #b45309; font-weight: 600; }
 .ev-senza-mail { color: var(--grigio-500); font-style: italic; }
+/* La coda per un posto in sala: blu, spenta, senza grassetto. Non chiede di
+   fare niente adesso - e' lo stato in cui quella persona e' rimasta - ma
+   quando un posto si libera e' l'unica riga che si sta cercando, e in una
+   colonna di ambre e verdi il blu si trova a colpo d'occhio. */
+.ev-in-coda { color: var(--blu-500); }
 
 /* Le sezioni sopra l'elenco: una riga di voci con il proprio numero, che si
    legge come un riepilogo anche senza premerle. La voce vuota resta visibile,

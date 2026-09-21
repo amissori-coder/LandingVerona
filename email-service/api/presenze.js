@@ -854,6 +854,24 @@ module.exports = async (req, res) => {
                 if (avPrima && avPrima.modalita && avPrima.modalita !== nuova) {
                     patch.avvisoModalita = admin.firestore.FieldValue.delete();
                 }
+                /* LA CODA PER UN POSTO IN SALA. Chi viene spostato all'online
+                   perche' i posti sono finiti non ha scelto il video: e' in
+                   coda, e la mail che gli parte glielo promette per iscritto
+                   ("se un posto si libera Le scriviamo"). Senza questa riga la
+                   promessa non sarebbe scritta da nessuna parte, e quando un
+                   posto si libera non si saprebbe chi chiamare - e' la stessa
+                   ragione per cui il modulo pubblico scrive `listaAttesa` su
+                   chi si iscrive a sala piena.
+                   Sta QUI, fra le presenze, e non sulla scheda dell'iscritto:
+                   e' una decisione di chi organizza, come la modalita' accanto,
+                   e soprattutto lo spostamento funziona anche per le iscrizioni
+                   che su Firestore una scheda non ce l'hanno.
+                   Tornando in sala la coda finisce: il posto lo ha avuto. Il
+                   `delete` si scrive solo dove c'era qualcosa da togliere. */
+                if (nuova === 'online') patch.listaAttesa = true;
+                else if ((primaDi[d.id] || {}).listaAttesa !== undefined) {
+                    patch.listaAttesa = admin.firestore.FieldValue.delete();
+                }
                 batch.set(db.collection('presenze').doc(idDoc(evento, d.id)), patch, { merge: true });
                 nel++;
                 if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }

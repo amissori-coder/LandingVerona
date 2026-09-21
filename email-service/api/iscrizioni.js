@@ -298,6 +298,16 @@ module.exports = async (req, res) => {
                         /* In sala o online. Vuoto vale IN PRESENZA: fino a Napoli
                            il modulo non lo chiedeva e in sala ci andavano tutti. */
                         modalita: String(v.modalita || ''),
+                        /* In coda per un posto in sala perche' ce lo ha messo chi
+                           organizza, spostandolo all'online a sala piena. La
+                           scheda ha un campo con lo stesso nome, che dice la
+                           stessa cosa per chi in coda ci e' entrato da se' dal
+                           modulo: si leggono insieme, come la modalita'. Senza
+                           questa riga la coda decisa di qui resterebbe sul
+                           database, e quando un posto si libera non si saprebbe
+                           chi chiamare - che e' esattamente cio' che la mail del
+                           passaggio online promette. */
+                        listaAttesa: v.listaAttesa === true,
                         /* Quando gli e' stato detto che seguira' online, e da chi:
                            serve a non scrivere due volte alla stessa persona. */
                         avvisoModalita: (v.avvisoModalita && typeof v.avvisoModalita === 'object') ? {
