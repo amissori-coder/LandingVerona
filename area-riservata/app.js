@@ -16072,6 +16072,44 @@
         return fuori;
     }
     /* =========================================================
+       GLI AVVISI RIMASTI DA MANDARE
+       ---------------------------------------------------------
+       L'invio degli avvisi ha un tetto di tempo: il servizio spedisce
+       per 45 secondi (la funzione ne dura 60) e poi dice quanti ne
+       restano. Su un elenco di duecento persone questo NON e' un
+       guasto, e' la normalita': lo spostamento si fa tutto in un colpo,
+       le mail no, e ci vogliono piu' passate.
+
+       Il guaio era ritrovarle, quelle passate dopo la prima. Chi e'
+       stato spostato adesso sta fra gli ONLINE, quindi "Elenco
+       definitivo" non lo propone piu' - il confronto guarda la sala - e
+       spuntarle a mano nella sezione Online e' il lavoro da centinaia
+       di righe da cui si era partiti. Peggio: spuntarle TUTTE scrive
+       anche a chi online ci e' andato da se' dal modulo, a sala gia'
+       piena. A quella persona la pagina lo aveva detto prima di
+       iscriversi e la conferma gliel'ha ripetuto: riceverebbe
+       l'annuncio di un passaggio che non ha mai fatto.
+
+       Qui si prendono ESATTAMENTE le righe che l'elenco segna in
+       arancio, "mail da inviare", che e' la stessa domanda scritta in
+       un posto solo: sono online per una decisione di chi organizza,
+       l'avviso per questa sezione non lo hanno ancora avuto, e un
+       indirizzo a cui mandarlo ce l'hanno. Chi non ha indirizzo resta
+       fuori: non e' un avviso in ritardo, e' un avviso che non partira'
+       mai, e l'elenco lo dice gia' con "nessuna email".
+    ========================================================= */
+    function righeDaAvvisare(ev, lista) {
+        if (!ev || ev.tutti) return [];
+        return (lista || []).filter(r => {
+            if (modalitaDi(ev, r) !== 'online') return false;
+            const a = avvisoModalitaDi(ev, r);
+            if (a && a.modalita === 'online') return false;      // gia' avvisato
+            if (sezioneDalModulo(ev, r, 'online')) return false; // non e' uno da avvisare
+            return !!String(r.email || '').trim();
+        });
+    }
+
+    /* =========================================================
        L'ELENCO DEFINITIVO DI CHI RESTA IN SALA
        ---------------------------------------------------------
        Quando le adesioni superano la capienza, chi entra in sala non lo
@@ -16703,6 +16741,11 @@
            l'elenco che il foglio incollato dovra' ridurre. */
         const ospiti = (!ev.tutti && puoAggiungereIscrizioni())
             ? tutte.filter(r => modalitaDi(ev, r) === 'presenza').length : 0;
+        /* Gli avvisi rimasti indietro. Il pulsante compare SOLO quando ce ne
+           sono: a invio finito sparisce, ed e' proprio quella sparizione a
+           dire "hai finito" - un conteggio a zero fermo li' si guarda ogni
+           volta chiedendosi se manca qualcosa. */
+        const daAvvisare = puoAggiungereIscrizioni() ? righeDaAvvisare(ev, tutte).length : 0;
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
             + voce('tutte', 'Tutte')
             + SEZIONI_MODALITA.map(x => voce(x.id, x.nome)).join('')
@@ -16715,6 +16758,12 @@
                 ? '<button type="button" class="ev-sez-btn ev-doppi" id="ev-doppi" '
                 + 'title="Indirizzi email presenti su più iscrizioni: li elenca uno per uno e lascia cancellare le righe in più">'
                 + '<span class="ev-sez-nome">Indirizzi doppi</span><span class="ev-sez-n">' + doppi + '</span></button>'
+                : '')
+            + (daAvvisare
+                ? '<button type="button" class="ev-sez-btn ev-da-avvisare-btn" id="ev-da-avvisare-btn" '
+                + 'title="Gli avvisi del passaggio online ancora da mandare: le righe in arancio. '
+                + 'Chi online ci e\' andato da se\' dal modulo non e\' compreso, e chi e\' gia\' stato avvisato nemmeno.">'
+                + '<span class="ev-sez-nome">Avvisi da mandare</span><span class="ev-sez-n">' + daAvvisare + '</span></button>'
                 : '')
             + (ospiti
                 ? '<button type="button" class="ev-sez-btn ev-elenco-def" id="ev-elenco-def" '
@@ -17278,6 +17327,21 @@
         {
             const bDef = document.getElementById('ev-elenco-def');
             if (bDef) bDef.addEventListener('click', () => modaleElencoDefinitivo(ev));
+        }
+        /* "Avvisi da mandare": si va dritti alla finestra dello spostamento,
+           che e' gia' la conferma - dice quanti indirizzi, mostra l'anteprima
+           della mail e avverte delle copie in casella. Non c'e' una seconda
+           scelta da fare: queste righe sono online per una vostra decisione e
+           l'avviso lo devono avere. Lo spostamento riscrive la sezione che
+           hanno gia' (non cambia nulla) e il servizio salta da se' chi nel
+           frattempo fosse stato avvisato. */
+        {
+            const bAvv = document.getElementById('ev-da-avvisare-btn');
+            if (bAvv) bAvv.addEventListener('click', () => {
+                const righe = righeDaAvvisare(ev, _evIscrizioni || []);
+                if (!righe.length) { toast('Nessun avviso in sospeso: sono partiti tutti.', 'verde'); return; }
+                modaleSpostaModalita(ev, righe, 'online', {});
+            });
         }
         // le sezioni sopra l'elenco: cambiarle azzera la selezione, cosi' le
         // spunte di una sezione non restano attive mentre se ne guarda un'altra

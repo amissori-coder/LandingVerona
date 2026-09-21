@@ -1772,6 +1772,11 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 /* L'elenco definitivo non segnala niente: e' uno strumento che si prende in
    mano quando serve. Blu come il resto dell'area riservata, tratteggiato come
    i suoi due vicini. */
+/* Gli avvisi rimasti: ambra e in grassetto, come le righe che conta. E' una
+   cosa DA FARE e l'unica del gruppo che chieda qualcosa - a invio finito il
+   pulsante non c'e' piu'. */
+.ev-sez-btn.ev-da-avvisare-btn { border-style: dashed; border-color: var(--ambra); color: var(--ambra); font-weight: 600; }
+.ev-sez-btn.ev-da-avvisare-btn:hover { background: var(--ambra-bg); }
 .ev-sez-btn.ev-elenco-def { border-style: dashed; color: var(--blu-700); }
 .ev-sez-btn.ev-elenco-def:hover { border-color: var(--blu-700); background: var(--blu-050); }
 .ev-sez-n { font-variant-numeric: tabular-nums; font-weight: 700; }

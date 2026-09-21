@@ -86,6 +86,7 @@ const avvisoModalitaDi = daAppJs('avvisoModalitaDi');
 const modalitaDi = daAppJs('modalitaDi');
 const sezioneDalModulo = daAppJs('sezioneDalModulo');
 const inListaAttesa = daAppJs('inListaAttesa');
+const righeDaAvvisare = daAppJs('righeDaAvvisare');
 const hintMailModalita = daAppJs('hintMailModalita');
 const hintModalitaHtml = daAppJs('hintModalitaHtml');
 
@@ -279,6 +280,103 @@ prova('Il titolo della coda dice a che cosa serve', () => {
     esigi(TITOLO_LISTA_ATTESA.indexOf('posto in sala') >= 0, 'nomina il posto in sala', TITOLO_LISTA_ATTESA);
     esigi(riga({ modalita: 'online', listaAttesa: true }, null).html.indexOf('title="') >= 0,
         'e arriva sulla riga come suggerimento');
+});
+
+/* ------------------------------------------------------------
+   GLI AVVISI RIMASTI DA MANDARE
+   ------------------------------------------------------------
+   Il pulsante "Avvisi da mandare" raccoglie le righe che l'elenco segna
+   in arancio. E' la stessa domanda della colonna, e deve dare la stessa
+   risposta: se le due si allontanano, il pulsante scrive a qualcuno a
+   cui la colonna non stava chiedendo di scrivere - e su un invio in piu'
+   passate non se ne accorgerebbe nessuno.
+   ------------------------------------------------------------ */
+
+/* Le righe come le vede righeDaAvvisare: la scheda piu' la sua presenza,
+   messa nella tabella che EventiPresenze finge. */
+function rigaVera(id, scheda, presenza) {
+    presenze[id] = presenza || null;
+    return Object.assign({ id: id, email: id + '@esempio.it' }, scheda || {});
+}
+
+prova('Si prende chi e online per una vostra decisione e non e stato avvisato', () => {
+    presenze = {};
+    const spostato = rigaVera('spostato', {}, { modalita: 'online' });
+    const fuori = righeDaAvvisare(EV, [spostato]);
+    esigi(fuori.length === 1 && fuori[0] === spostato, 'e la riga che chiede la mail', String(fuori.length));
+});
+
+prova('Chi si e iscritto online dal modulo NON si avvisa mai', () => {
+    presenze = {};
+    /* E' il danno vero di questo pulsante: a quella persona la pagina
+       aveva gia' detto che i posti erano finiti, e la conferma gliel'ha
+       ripetuto. Riceverebbe l'annuncio di un passaggio mai avvenuto. */
+    const dalModulo = rigaVera('dalmodulo', { modalita: 'online' }, null);
+    esigi(righeDaAvvisare(EV, [dalModulo]).length === 0, 'resta fuori dalla raccolta');
+    /* E la colonna dice la stessa cosa: nessun arancio sulla sua riga. */
+    const html = hintModalitaHtml(EV, dalModulo, 'online');
+    esigi(html.indexOf('ev-da-avvisare') < 0, 'come dice la sua riga in elenco', html);
+});
+
+prova('Chi ha gia ricevuto l avviso non lo riceve due volte', () => {
+    presenze = {};
+    const gia = rigaVera('gia', {}, { modalita: 'online', avvisoModalita: { modalita: 'online', quando: QUANDO } });
+    esigi(righeDaAvvisare(EV, [gia]).length === 0, 'una passata dopo l altra non raddoppia le mail');
+});
+
+prova('L avviso di un altra sezione non vale come avviso dell online', () => {
+    presenze = {};
+    /* Spostato online, avvisato, riportato in sala, rispostato online: la
+       notizia e' cambiata due volte e va ridetta. */
+    const r = rigaVera('rientrato', {}, { modalita: 'online', avvisoModalita: { modalita: 'presenza', quando: QUANDO } });
+    esigi(righeDaAvvisare(EV, [r]).length === 1, 'torna fra quelli da avvisare');
+});
+
+prova('Chi non ha indirizzo non e un avviso in ritardo', () => {
+    presenze = {};
+    /* Non partira' mai: metterlo nel conto terrebbe il pulsante acceso
+       per sempre, e l'elenco lo dice gia' con "nessuna email". */
+    const muto = rigaVera('muto', { email: '' }, { modalita: 'online' });
+    const vuoto = rigaVera('vuoto', { email: '   ' }, { modalita: 'online' });
+    esigi(righeDaAvvisare(EV, [muto, vuoto]).length === 0, 'resta fuori dal conto');
+});
+
+prova('Chi e in sala non aspetta nessun avviso', () => {
+    presenze = {};
+    const inSala = rigaVera('insala', {}, { modalita: 'presenza' });
+    const aderente = rigaVera('aderente', {}, { modalita: 'aderenti' });
+    const relatore = rigaVera('relatore', {}, { modalita: 'sponsor' });
+    const senzaSezione = rigaVera('nuovo', {}, null);
+    esigi(righeDaAvvisare(EV, [inSala, aderente, relatore, senzaSezione]).length === 0,
+        'nessuna delle sezioni in sala entra nella raccolta');
+});
+
+prova('La raccolta e la colonna dicono la stessa cosa', () => {
+    presenze = {};
+    /* La prova che conta: su un elenco misto, le righe raccolte sono
+       ESATTAMENTE quelle che l'elenco segna in arancio. */
+    const tutte = [
+        rigaVera('a', {}, { modalita: 'online' }),
+        rigaVera('b', { modalita: 'online' }, null),
+        rigaVera('c', {}, { modalita: 'online', avvisoModalita: { modalita: 'online', quando: QUANDO } }),
+        rigaVera('d', { email: '' }, { modalita: 'online' }),
+        rigaVera('e', {}, { modalita: 'presenza' }),
+        rigaVera('f', {}, { modalita: 'online', avvisoModalita: { modalita: 'presenza', quando: QUANDO } })
+    ];
+    const raccolte = righeDaAvvisare(EV, tutte).map(r => r.id).sort().join('');
+    const arancio = tutte.filter(r => hintModalitaHtml(EV, r, modalitaDi(EV, r)).indexOf('ev-da-avvisare') >= 0)
+        .map(r => r.id).sort().join('');
+    esigi(raccolte === arancio, 'le due risposte combaciano', 'raccolte=' + raccolte + ' arancio=' + arancio);
+    esigi(raccolte === 'af', 'e sono le due che devono ricevere la mail', raccolte);
+});
+
+prova('Nel riepilogo di tutti gli eventi non si avvisa nessuno', () => {
+    presenze = {};
+    /* Li' le presenze non si caricano: non si sa chi e' stato spostato ne'
+       chi e' gia' stato avvisato, e mandare mail al buio e' irreversibile. */
+    const TUTTI = { id: 'tutti', tutti: true };
+    esigi(righeDaAvvisare(TUTTI, [rigaVera('x', { modalita: 'online' }, { modalita: 'online' })]).length === 0,
+        'la raccolta resta vuota');
 });
 
 console.log('\nLa scritta sotto la modalita\', nella sezione Online\n');
