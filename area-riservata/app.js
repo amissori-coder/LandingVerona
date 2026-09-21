@@ -15417,6 +15417,15 @@
             invito: {
                 patrocinio: 'Camera di Commercio di Napoli',
                 con: ['Invitalia', 'SIMEST'],
+                /* La sala ha raggiunto la capienza: da qui in avanti l'invito
+                   che si propone e' quello alla diretta online, con la lista
+                   d'attesa per un posto in presenza. E' la stessa cosa che
+                   dicono gia' la pagina dell'evento e la conferma automatica:
+                   scritta qui, la finestra dell'invito non puo' proporre di
+                   riservare una poltrona che non c'e'.
+                   Il giorno in cui la sala riapre si toglie questa riga (e si
+                   rimette il modulo su "presenza" in napoli_ottobre_2026). */
+                salaEsaurita: true,
                 contesto: 'Napoli sta attraversando una stagione di investimenti che non capita spesso: '
                     + 'la rigenerazione di Bagnoli e l\'America\'s Cup muovono opere, commesse e filiere '
                     + 'che ridisegnano la domanda per gli anni a venire. Sono occasioni che premiano le '
@@ -20882,6 +20891,50 @@
         return INV_CAMPAGNE.find(c => c.id === id) || INV_CAMPAGNE[0];
     }
 
+    /* LE DUE VERSIONI DELL'INVITO.
+       Una campagna e' una LISTA di aziende; una versione e' il MESSAGGIO che
+       si manda a quella lista. Sono due cose diverse e vanno tenute diverse:
+       quando la sala si riempie non cambia chi resta da invitare - cambia
+       cosa gli si scrive. Fosse una terza campagna, le aziende gia' caricate
+       andrebbero ricaricate in un elenco nuovo, i codici gia' spediti
+       resterebbero nell'altro e "quante restano da invitare" comincerebbe a
+       rispondere due numeri.
+
+       SALA     i posti in presenza ci sono: ci si registra e si viene.
+       DIRETTA  i posti in sala sono esauriti: si invita alla diretta online,
+                e chi si iscrive resta in coda per un posto in presenza.
+
+       La seconda non e' la prima con una frase in piu': cambia cosa si
+       promette. Promettere una poltrona a chi non l'avra' e' il modo piu'
+       rapido di perdere un'azienda, e tacere la coda vuol dire che la lista
+       d'attesa esiste solo per chi organizza - chi aspetta non sa di
+       aspettare (e' la stessa scelta gia' fatta sulla pagina di Napoli e
+       nella conferma automatica di email-service/lib/mail-ngb.js).
+
+       Quale delle due si propone lo dice l'evento (invito.salaEsaurita):
+       chi manda puo' comunque cambiarla dalla finestra, e il giorno in cui
+       la sala riapre si spegne quella riga sola. */
+    const INV_VERSIONI = [
+        {
+            id: 'sala', nome: 'Posti in sala disponibili',
+            spiega: 'L\'invito normale: partecipazione in presenza, posti limitati, ci si registra in ordine di arrivo.'
+        },
+        {
+            id: 'diretta', nome: 'Sala esaurita: invito alla diretta',
+            spiega: 'Dice che i posti in presenza sono finiti, invita a seguire la diretta online e spiega che l\'iscrizione vale anche come lista d\'attesa per la sala.'
+        }
+    ];
+    function versioneDef(id) {
+        return INV_VERSIONI.find(v => v.id === id) || INV_VERSIONI[0];
+    }
+    /* La versione proposta all'apertura della finestra. Sta sull'evento e non
+       nella testa di chi manda: a sala piena l'invito sbagliato non e' una
+       svista che si nota rileggendo, e' una promessa di un posto che non c'e'
+       spedita a centinaia di aziende. */
+    function invVersionePredefinita(ev) {
+        return ((ev && ev.invito && ev.invito.salaEsaurita) === true) ? 'diretta' : 'sala';
+    }
+
     /* I RITMI DELL'INVIO PROGRAMMATO.
        Su un elenco da migliaia di aziende l'invio a mano non basta: la
        finestra del browser dovrebbe restare aperta per ore, e il tetto
@@ -22026,10 +22079,14 @@
             + 'Restiamo a disposizione per ogni chiarimento e cogliamo l\'occasione per porgere i nostri migliori saluti.';
     }
 
-    function invTestoPredefinito(ev, campagna) {
-        if (campagnaDef(campagna || _invCampagna).id === 'sponsor') return invTestoSponsor(ev);
+    /* L'apertura, uguale nelle due versioni dell'invito: a chi si scrive, a
+       cosa lo si invita, chi patrocina, perche' proprio adesso e di che cosa
+       si parla. Le versioni si separano da li' in poi - se si viene in sala o
+       si segue da remoto - e questa parte sta scritta una volta sola: scritta
+       due, al primo ritocco le due lettere comincerebbero a raccontare due
+       eventi diversi. */
+    function invAperturaInvito(ev) {
         const dove = ev.luogo ? (ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '')) : '';
-        const pagina = ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
         const inv = ev.invito || {};
         const con = (inv.con || []).filter(Boolean);
         const elenca = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : (a[0] || '');
@@ -22048,7 +22105,16 @@
             + istituzioni
             + (inv.contesto ? inv.contesto + '\n\n' : '')
             + 'La giornata è dedicata agli strumenti con cui l\'impresa affronta i prossimi anni: '
-            + 'assetti adeguati, merito creditizio, finanza agevolata, sostenibilità e intelligenza artificiale.\n\n'
+            + 'assetti adeguati, merito creditizio, finanza agevolata, sostenibilità e intelligenza artificiale.\n\n';
+    }
+    function invPaginaEvento(ev) {
+        return ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
+    }
+
+    /* VERSIONE "SALA": l'invito di sempre, con il posto in presenza da
+       riservare. */
+    function invTestoSala(ev) {
+        return invAperturaInvito(ev)
             /* Il codice. Va detto per cosa serve e cosa succede se non lo si
                usa, altrimenti resta cinque caratteri buttati in fondo a una
                mail e nessuno lo trascrive. Il segnaposto {codice} lo sostituisce
@@ -22067,14 +22133,63 @@
                dentro la frase restava un indirizzo nudo che a capo si
                spezzava a meta'. */
             + 'Il programma completo e il modulo di registrazione sono qui:\n\n'
-            + pagina + '\n\n'
+            + invPaginaEvento(ev) + '\n\n'
             + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
     }
-    function invOggettoPredefinito(ev, campagna) {
-        return (campagnaDef(campagna || _invCampagna).id === 'sponsor'
+
+    /* VERSIONE "DIRETTA": la sala e' al completo.
+       Tre cose vanno dette, e in quest'ordine, perche' e' l'ordine delle
+       domande che si fa chi legge:
+
+         1. i posti in sala sono finiti - subito, prima di qualunque invito,
+            altrimenti e' un invito che promette una poltrona inesistente;
+         2. la giornata pero' si segue in diretta, stesso programma e stessi
+            relatori, e l'iscrizione e' aperta;
+         3. iscriversi alla diretta mette comunque in lista d'attesa per la
+            sala. Senza questa riga la coda esiste solo per chi organizza:
+            chi aspetta non sa di aspettare, e chi avrebbe aspettato volentieri
+            legge "esaurito" e chiude la mail.
+
+       Il codice resta, e cambia mestiere: non tiene piu' un posto, dice chi
+       ha la precedenza quando un posto si libera. */
+    function invTestoDiretta(ev) {
+        return invAperturaInvito(ev)
+            + 'I posti in sala sono esauriti: le adesioni per la partecipazione in presenza sono chiuse. '
+            + 'La giornata però si può seguire in diretta online, dai Vostri uffici e senza '
+            + 'spostamenti, con lo stesso programma e gli stessi relatori. La partecipazione è gratuita e l\'iscrizione richiede pochi minuti.\n\n'
+            + 'Chi si iscrive alla diretta entra comunque in lista d\'attesa per un posto in sala: le rinunce '
+            + 'dell\'ultima settimana ci sono sempre, e quando un posto si libera Vi scriviamo, lasciandoVi '
+            + 'decidere se venire di persona. Non occorre fare altro: l\'iscrizione alla diretta vale anche '
+            + 'come richiesta di un posto in presenza.\n\n'
+            + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
+            + '{codice}\n\n'
+            + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato e va '
+            + 'indicato nel modulo di iscrizione, nel campo dedicato: è quello che ci permette di riconoscere '
+            + 'le aziende selezionate e di darVi la precedenza sulla lista d\'attesa per la sala.\n\n'
+            + 'Nei giorni precedenti l\'evento riceverete il collegamento e le istruzioni per seguire i lavori.\n\n'
+            + 'Il programma completo e il modulo di iscrizione alla diretta sono qui:\n\n'
+            + invPaginaEvento(ev) + '\n\n'
+            + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
+    }
+
+    function invTestoPredefinito(ev, campagna, versione) {
+        if (campagnaDef(campagna || _invCampagna).id === 'sponsor') return invTestoSponsor(ev);
+        return versioneDef(versione || invVersionePredefinita(ev)).id === 'diretta'
+            ? invTestoDiretta(ev)
+            : invTestoSala(ev);
+    }
+    /* L'oggetto segue la versione, e non e' un dettaglio: a sala esaurita un
+       oggetto che dice solo "Invito" fa aprire la mail con l'idea di
+       prenotare una poltrona, e la smentita arriva tre righe dopo. Dirlo
+       nell'oggetto vuol dire che chi quel giorno non puo' spostarsi scopre
+       dal solo elenco della posta che c'e' comunque un modo di esserci. */
+    function invOggettoPredefinito(ev, campagna, versione) {
+        const quale = campagnaDef(campagna || _invCampagna).id === 'sponsor'
             ? 'Proposta di sponsorizzazione - '
-            : 'Invito - ')
-            + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
+            : (versioneDef(versione || invVersionePredefinita(ev)).id === 'diretta'
+                ? 'Invito alla diretta online - '
+                : 'Invito - ');
+        return quale + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
     }
 
     /* La finestra di gestione: elenco, caricamento, correzioni e invio.
@@ -24263,6 +24378,13 @@
             + '<input type="radio" name="inv-modo" id="' + id + '" value="' + nome + '"'
             + (attivo ? ' checked' : '') + (pronto ? '' : ' disabled') + '>'
             + '<span><b>' + etichetta + '</b><br><span class="hint">' + spiega + '</span></span></label>';
+        /* E la terza domanda dello stesso genere: quale delle due lettere.
+           Stessa forma delle altre due, per la stessa ragione. */
+        const versioneOpz = (v, attivo) =>
+            '<label class="inv-canale' + (attivo ? ' attiva' : '') + '">'
+            + '<input type="radio" name="inv-versione" id="ii-v-' + v.id + '" value="' + v.id + '"'
+            + (attivo ? ' checked' : '') + '>'
+            + '<span><b>' + esc(v.nome) + '</b><br><span class="hint">' + esc(v.spiega) + '</span></span></label>';
         /* Una sola programmazione per elenco: lo dice anche il servizio, ma
            saperlo qui evita di far compilare tutta la finestra per poi
            sentirsi rispondere di no. L'invio a mano invece resta possibile:
@@ -24291,12 +24413,19 @@
         const oraIso = d => dueCifre(d.getHours()) + ':' + dueCifre(d.getMinutes());
 
         const campI = campagnaDef(_invCampagna);
+        /* Quale delle due lettere si propone: la sceglie l'evento, e la
+           domanda compare solo sull'invito. Alla richiesta di
+           sponsorizzazione non serve - una sponsorizzazione non ha posti a
+           sedere - e una domanda in piu' che non cambia niente e' una
+           domanda a cui prima o poi qualcuno risponde male. */
+        const conVersioni = campI.id !== 'sponsor';
+        let versione = conVersioni ? invVersionePredefinita(ev) : 'sala';
         /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
            campagna ma dal TESTO: il pulsante si puo' togliere dallo sponsor e
            si puo' incollare in un invito, e in tutti e due i casi la domanda
            "a chi arrivano le risposte" segue il pulsante, non l'etichetta
            della lista. */
-        const testoIniziale = invTestoPredefinito(ev);
+        const testoIniziale = invTestoPredefinito(ev, _invCampagna, versione);
         const contatti = contattiDi(ev);
         /* Il blocco compare solo se i destinatari di adesso sono GIA' stati
            letti. Mostrarlo vuoto perche' la lettura non e' ancora tornata
@@ -24364,8 +24493,20 @@
             + 'Chi si disiscrive nel frattempo viene tolto lo stesso, perché quel controllo il servizio lo rifà '
             + 'prima di ogni messaggio.</div>'
             + '</div></div>'
+            /* QUALE INVITO. Sta appena sopra l'oggetto e il testo perche' li
+               riscrive tutti e due: e' la domanda che decide cosa dice il
+               messaggio, non un'etichetta da mettere sopra a quello che si e'
+               gia' scritto. */
+            + (conVersioni
+                ? '<div class="campo"><label>Quale invito</label>'
+                + INV_VERSIONI.map(v => versioneOpz(v, v.id === versione)).join('')
+                + '<div class="hint">' + (invVersionePredefinita(ev) === 'diretta'
+                    ? 'Per questo evento la sala risulta <b>esaurita</b>, quindi si propone l\'invito alla diretta. '
+                    : '')
+                + 'Cambiando voce si riscrivono oggetto e testo, che restano comunque modificabili a mano.</div></div>'
+                : '')
             + '<div class="campo"><label for="ii-ogg">Oggetto</label>'
-            + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev)) + '"></div>'
+            + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev, _invCampagna, versione)) + '"></div>'
             + '<div class="campo"><label for="ii-testo">Testo ' + esc(campI.id === 'sponsor' ? 'della richiesta' : 'dell\'invito') + '</label>'
             + '<textarea id="ii-testo" rows="14">' + esc(testoIniziale) + '</textarea>'
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
@@ -24647,6 +24788,36 @@
             const box = document.getElementById('ii-prog');
             if (box) box.hidden = (modoInvio !== 'prog');
             aggiornaBottone();
+        }));
+        /* IL CAMBIO DI VERSIONE riscrive oggetto e testo: e' il suo mestiere,
+           visto che le due lettere dicono cose diverse. Ma non lo fa di
+           soppiatto: se chi manda li ha gia' ritoccati, quei ritocchi sono
+           lavoro suo, e cancellarli senza chiedere e' il genere di cosa che
+           si scopre dopo aver premuto Invia. Si confronta con il testo
+           PROPOSTO, non con quello iniziale: cosi' la domanda arriva solo a
+           chi ha davvero scritto qualcosa, e non a ogni secondo cambio. */
+        let testoProposto = testoIniziale;
+        let oggettoProposto = invOggettoPredefinito(ev, _invCampagna, versione);
+        document.querySelectorAll('input[name="inv-versione"]').forEach(r => r.addEventListener('change', () => {
+            const campoT = document.getElementById('ii-testo');
+            const campoO = document.getElementById('ii-ogg');
+            const toccato = (campoT && campoT.value !== testoProposto)
+                || (campoO && campoO.value !== oggettoProposto);
+            if (toccato && !confirm('Oggetto e testo sono stati modificati a mano.\n\n'
+                + 'Passando a "' + versioneDef(r.value).nome + '" vengono riscritti da capo '
+                + 'e le modifiche si perdono. Procedo?')) {
+                // si torna alla voce di prima: lasciarla segnata su quella
+                // rifiutata direbbe una versione e ne spedirebbe un'altra
+                const indietro = document.getElementById('ii-v-' + versione);
+                if (indietro) { indietro.checked = true; soloIlSuo(indietro); }
+                return;
+            }
+            versione = r.value;
+            soloIlSuo(r);
+            testoProposto = invTestoPredefinito(ev, _invCampagna, versione);
+            oggettoProposto = invOggettoPredefinito(ev, _invCampagna, versione);
+            if (campoT) campoT.value = testoProposto;
+            if (campoO) campoO.value = oggettoProposto;
         }));
         const selRitmo = document.getElementById('ii-ritmo');
         if (selRitmo) selRitmo.addEventListener('change', aggiornaStima);
