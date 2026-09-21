@@ -298,11 +298,6 @@ module.exports = async (req, res) => {
                         /* In sala o online. Vuoto vale IN PRESENZA: fino a Napoli
                            il modulo non lo chiedeva e in sala ci andavano tutti. */
                         modalita: String(v.modalita || ''),
-                    /* "Sono un aderente Revilaw", spuntato iscrivendosi. La
-                       lettura e' una whitelist campo per campo: senza questa
-                       riga la dichiarazione resterebbe sul database e non la
-                       vedrebbe nessuno. */
-                    aderente: v.aderente === true,
                         /* Quando gli e' stato detto che seguira' online, e da chi:
                            serve a non scrivere due volte alla stessa persona. */
                         avvisoModalita: (v.avvisoModalita && typeof v.avvisoModalita === 'object') ? {
@@ -353,6 +348,21 @@ module.exports = async (req, res) => {
                        parola: chi organizza puo' spostare in online chi resta
                        fuori dalla sala, e quella decisione sta fra le presenze. */
                     modalita: String(v.modalita || ''),
+                    /* In coda per un posto in sala: si iscrive online perche' la
+                       sala e' piena, non perche' preferisce il video. La
+                       lettura e' una whitelist campo per campo, quindi senza
+                       questa riga la coda resterebbe sul database e quando un
+                       posto si libera non si saprebbe chi chiamare. */
+                    listaAttesa: v.listaAttesa === true,
+                    /* "Sono un aderente Revilaw", spuntato iscrivendosi. Sta QUI
+                       e non fra le presenze perche' li' non lo scrive nessuno:
+                       lo scrive iscrizione-nuova.js sulla SCHEDA, insieme alla
+                       modalita', ed e' la stessa cosa - quello che la persona ha
+                       dichiarato di se'. Letto dalla parte sbagliata non arrivava
+                       mai all'area riservata, e le due cose che lo usano -
+                       "Riconosci aderenti" e la scritta "dal modulo" - restavano
+                       spente senza dirlo. */
+                    aderente: v.aderente === true,
                     /* chi ha inserito la scheda a mano (equity o amministratore):
                        l'area riservata lo mostra in "Aggiornato da" finche' non
                        ci sono presenze. Le iscrizioni dai form non ce l'hanno. */

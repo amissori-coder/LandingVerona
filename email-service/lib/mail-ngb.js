@@ -184,7 +184,12 @@ const MOTIVO = 'Ricevi questa email come conferma della tua iscrizione all\'even
    `modalita` vale 'online' quando il modulo la chiede e la persona ha scelto
    di seguire da remoto: allora non c'e' nessun posto in sala da riservare, e
    la mail non deve dire il contrario. Assente o 'presenza' = in sala, com'era
-   ogni iscrizione fino a Napoli. */
+   ogni iscrizione fino a Napoli.
+   `listaAttesa` aggiunge il perche': non e' una preferenza, e' una sala piena.
+   Chi si e' iscritto online resta in coda per un posto in presenza, e la mail
+   lo dice - altrimenti la coda esiste solo per chi organizza, e chi aspetta
+   non sa di aspettare. Vale solo accanto a 'online': a un evento che si segue
+   solo da remoto non c'e' nessuna coda, e la riga non compare. */
 function confermaSito(dati, link) {
     const evento = nomeEvento(dati.pagina);
     const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
@@ -193,8 +198,11 @@ function confermaSito(dati, link) {
     const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
     const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata'
         + (online ? ' per la partecipazione online' : '') + '.';
+    const attesa = online && dati && dati.listaAttesa === true;
     const apertura = online
-        ? 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
+        ? 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
+            + (attesa ? ' I posti in sala sono esauriti, ma ti abbiamo inserito in lista d\'attesa: se se ne libera uno ti scriviamo, e decidi tu se venire di persona.' : '')
+            + ' Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
         : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.';
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
         testata('Iscrizione ricevuta', sommario)
@@ -203,7 +211,7 @@ function confermaSito(dati, link) {
             + spazio(22)
             + '<tr><td>' + box(
                 rigaBox('Evento', 'Next Generation Business - ' + evento)
-                + rigaBox('Partecipazione', online ? 'Online' : '')
+                + rigaBox('Partecipazione', online ? (attesa ? 'Online - in lista d\'attesa per la sala' : 'Online') : '')
                 + rigaBox('Iscritto', nomeCompleto)
                 + rigaBox('Azienda', dati.azienda)
                 + rigaBox('Registrata il', String(dati.data || '').slice(0, 16))
@@ -217,7 +225,7 @@ function confermaSito(dati, link) {
         + piede(MOTIVO));
     const testo = ['ISCRIZIONE RICEVUTA', sommario, apertura,
         'Evento: Next Generation Business - ' + evento
-        + (online ? '\nPartecipazione: Online' : '')
+        + (online ? '\nPartecipazione: Online' + (attesa ? ' - in lista d\'attesa per la sala' : '') : '')
         + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '')
         + (dati.azienda ? '\nAzienda: ' + dati.azienda : ''),
         'Modifica o annulla l\'iscrizione: ' + link,

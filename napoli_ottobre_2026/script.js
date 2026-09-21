@@ -380,10 +380,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 settore:     (form.querySelector('#settore')    || {}).value || '',
                 dimensione:  (form.querySelector('#dimensione') || {}).value || '',
                 incontro:    (form.querySelector('#incontro')   || {}).value || '',
+                /* `incontro` parte vuoto finche' la tendina resta spenta: gli
+                   incontri B2B si tengono in sala e chi si iscrive da qui
+                   segue online. Il servizio scrive i campi del matching solo
+                   se arrivano pieni, quindi un campo vuoto non diventa una
+                   risposta finta sull'elenco. */
                 interessi:   interessi,
                 // il codice riservato all'azienda invitata, se ne ha uno: e' cio'
                 // che lega questa iscrizione all'elenco delle aziende selezionate
                 codiceInvito: campoCodice ? ripulisci(campoCodice.value) : '',
+                /* Modalita' di partecipazione. I posti in sala sono esauriti:
+                   da questa pagina si entra solo per la diretta online, e il
+                   valore e' fisso nel modulo (campo nascosto) invece di essere
+                   scritto qui, cosi' il giorno in cui la sala riapre basta
+                   cambiare quel campo. Il servizio accetta solo "presenza" e
+                   "online": l'assenza del campo varrebbe in presenza. */
+                modalita: ((form.querySelector('#modalita') || {}).value || 'online'),
+                /* In coda per un posto in sala. Va detto al servizio perche' e'
+                   quello che cambia la mail di conferma - "ti abbiamo inserito
+                   in lista d'attesa" - e perche' quando un posto si libera
+                   l'elenco deve sapere chi chiamare. Sta nel modulo accanto
+                   alla modalita' e si spegne con lo stesso gesto, il giorno in
+                   cui la sala riapre. */
+                listaAttesa: !!(form.querySelector('#listaAttesa') || {}).value,
                 /* La dichiarazione di essere aderente: e' quello che dice chi si
                    iscrive, non la sezione in cui finira'. In quale sezione sta lo
                    decide chi organizza, dall'area riservata: qui si registra la

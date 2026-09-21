@@ -1081,6 +1081,19 @@ module.exports = async (req, res) => {
                 messaggio: c.messaggio !== undefined ? testo(c.messaggio, 2000) : String(attuale.messaggio || ''),
                 modificato: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() }
             };
+            /* Quello che la persona ha dichiarato ISCRIVENDOSI si porta dietro,
+               e da qui non si tocca: correggere una lettera dell'email non e'
+               cambiare idea sul convegno. Conta perche' cambiando email o data la
+               scheda TRASLOCA su un documento nuovo (poche righe sotto), e su un
+               documento nuovo il merge non ha niente da conservare: senza questa
+               riga chi si era iscritto per la diretta perderebbe la sua "online",
+               ricadrebbe in presenza e tornerebbe a occupare un posto in sala che
+               non ha mai chiesto - in silenzio, perche' a video si vede solo una
+               riga che cambia sezione. Si copiano solo se ci sono: un campo
+               assente resta assente, com'era prima. */
+            if (attuale.modalita !== undefined) nuovo.modalita = attuale.modalita;
+            if (attuale.aderente !== undefined) nuovo.aderente = attuale.aderente;
+            if (attuale.listaAttesa !== undefined) nuovo.listaAttesa = attuale.listaAttesa;
             if (nuovo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(nuovo.email)) {
                 res.status(400).json({ ok: false, msg: 'Indirizzo email non valido.' }); return;
             }

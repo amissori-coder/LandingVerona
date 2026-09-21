@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=14">
 
     <!-- Structured Data (JSON-LD): BusinessEvent -->
     <script type="application/ld+json">
@@ -895,10 +895,19 @@
     <section class="section section-accent" id="accreditamento">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">Iscrizione</span>
-                <h2 class="section-title">Riserva il tuo posto</h2>
+                <span class="section-tag">Iscrizione online</span>
+                <h2 class="section-title">Segui il convegno in diretta</h2>
                 <div class="section-divider"></div>
-                <p class="section-description">Il programma della giornata e i nomi di chi interviene sono già online: compila il modulo per riservare il tuo posto e ricevere le informazioni pratiche di accesso. Partecipazione gratuita, posti limitati.</p>
+                <p class="section-description">Il programma della giornata e i nomi di chi interviene sono già online: compila il modulo per iscriverti e seguire l&rsquo;evento in diretta. Partecipazione gratuita.</p>
+            </div>
+
+            <div class="sala-esaurita" role="status">
+                <svg class="sala-esaurita-icona" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                <div class="sala-esaurita-testo">
+                    <p class="sala-esaurita-titolo">Posti in sala esauriti &middot; Iscrizioni aperte per la diretta online</p>
+                    <p>La partecipazione <strong>in presenza</strong> non &egrave; pi&ugrave; disponibile: la sala ha raggiunto la capienza massima. &Egrave; per&ograve; possibile iscriversi per <strong>seguire l&rsquo;evento online, in diretta</strong>: compila il modulo qui sotto e nei giorni precedenti riceverai il collegamento e le istruzioni per assistere ai lavori.</p>
+                    <p class="sala-esaurita-coda">Chi si iscrive entra <strong>comunque in lista d&rsquo;attesa per la sala</strong>: se si liberano dei posti ti scriviamo, e decidi tu se venire di persona. Non devi fare altro, l&rsquo;iscrizione qui sotto basta.</p>
+                </div>
             </div>
 
             <div class="form-benefits-strip">
@@ -912,7 +921,7 @@
                 </span>
                 <span class="benefit-item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    Business Matching
+                    Collegamento in diretta via email
                 </span>
                 <span class="benefit-item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -929,19 +938,30 @@
 
             <div class="form-wrapper">
                 <form id="accreditationForm" class="accreditation-form" novalidate>
-                    <!-- ADERENTI REVILAW. Sta in cima perche' cambia quello che il
-                         modulo chiede: a un aderente non si domandano settore,
-                         fatturato e incontri B2B, che servono ad abbinare fra loro
-                         gli OSPITI. La spiegazione compare solo quando si spunta:
-                         a chi non c'entra non dice niente, e chi la spunta deve
-                         sapere esattamente chi e' un aderente prima di andare
-                         avanti. -->
-                    <div class="form-group full-width aderente-scelta">
+                    <input type="hidden" id="modalita" name="modalita" value="online">
+                    <input type="hidden" id="listaAttesa" name="listaAttesa" value="1">
+                    <!-- ADERENTI REVILAW. Serviva a riservare il posto in sala: chi
+                         fa parte della rete si iscriveva con il minimo, e il modulo
+                         gli risparmiava settore, fatturato e incontri B2B, che
+                         servono ad abbinare fra loro gli OSPITI presenti.
+                         Esauriti i posti in sala l'iscrizione da qui e' una sola -
+                         la diretta online - e la distinzione non cambia piu'
+                         niente: la casella resta a video, spenta, con scritto
+                         perche'. Sparire del tutto lascerebbe chi la cercava a
+                         chiedersi se ha sbagliato pagina. -->
+                    <div class="form-group full-width aderente-scelta campo-sospeso">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="aderente" name="aderente">
+                            <input type="checkbox" id="aderente" name="aderente" disabled>
                             <span class="checkmark"></span>
                             <span>Sono un <strong>Aderente Revilaw</strong></span>
                         </label>
+                        <p class="campo-sospeso-nota">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span><strong>Non pi&ugrave; disponibile: valeva per la partecipazione in sala.</strong>
+                            L&rsquo;iscrizione riservata agli Aderenti Revilaw serviva a riservare il posto in presenza.
+                            Ora che la sala &egrave; al completo l&rsquo;iscrizione da questa pagina &egrave; una sola, per la
+                            diretta online: anche gli Aderenti compilano il modulo qui sotto.</span>
+                        </p>
                         <div class="aderente-spiega" id="aderenteSpiega" hidden>
                             <p><strong>Chi &egrave; un Aderente Revilaw.</strong> I professionisti e gli studi che fanno parte
                             della rete Revilaw: chi ha sottoscritto l&rsquo;adesione e compare nell&rsquo;elenco degli Aderenti.</p>
@@ -1042,14 +1062,20 @@
                         </select>
                         <span class="form-error" id="dimensioneError"></span>
                     </div>
-                    <div class="form-group" id="gruppoIncontro">
-                        <label for="incontro">Incontri B2B &middot; 10.00 &ndash; 17.00 *</label>
-                        <select id="incontro" name="incontro" required>
-                            <option value="">Scegli...</option>
+                    <div class="form-group full-width campo-sospeso" id="gruppoIncontro">
+                        <label for="incontro">Incontri B2B &middot; 10.00 &ndash; 17.00</label>
+                        <select id="incontro" name="incontro" disabled>
+                            <option value="">Non disponibile per la partecipazione online</option>
                             <option value="si">S&igrave;, vorrei incontri riservati di 15 minuti</option>
                             <option value="forse">Mi interessa, decider&ograve; pi&ugrave; avanti</option>
                             <option value="no">No, partecipo solo al convegno</option>
                         </select>
+                        <p class="campo-sospeso-nota">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span><strong>Non pi&ugrave; disponibile: valeva per la partecipazione in sala.</strong>
+                            Gli incontri B2B sono appuntamenti di persona, che si tengono a Napoli in parallelo ai
+                            lavori: chi segue la diretta online non pu&ograve; prenderne parte.</span>
+                        </p>
                         <span class="form-error" id="incontroError"></span>
                     </div>
                     <div class="form-group full-width" id="gruppoInteressi">
@@ -1121,7 +1147,7 @@
                                 Invio in corso...
                             </span>
                         </button>
-                        <p class="form-footnote">Riceverai la conferma dell’iscrizione e le informazioni pratiche di accesso. Posti limitati.</p>
+                        <p class="form-footnote">Iscrizione per la partecipazione <strong>online in diretta</strong>, con inserimento in <strong>lista d’attesa</strong> per un posto in sala. Riceverai la conferma e, nei giorni precedenti l’evento, il collegamento per seguire i lavori.</p>
                     </div>
                 </form>
                 <div id="formSuccess" class="form-success" style="display:none;">
@@ -1129,8 +1155,9 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     </div>
                     <h3>Richiesta inviata!</h3>
-                    <p>Grazie per il tuo interesse. Ti contatteremo con la conferma dell’iscrizione e le informazioni pratiche di accesso all’evento di Napoli.</p>
-                    <p class="success-detail">A presto, il 2 ottobre 2026 a Napoli.</p>
+                    <p>Grazie per il tuo interesse. La tua iscrizione per seguire l’evento di Napoli <strong>online in diretta</strong> è stata registrata: riceverai la conferma via email e, nei giorni precedenti, il collegamento per assistere ai lavori.</p>
+                    <p>Sei anche in <strong>lista d’attesa per la sala</strong>: se si libera un posto ti scriviamo.</p>
+                    <p class="success-detail">Ci colleghiamo il 2 ottobre 2026.</p>
                 </div>
             </div>
         </div>
