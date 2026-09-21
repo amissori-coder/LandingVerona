@@ -154,6 +154,11 @@ function tabellaIncontri(voci) {
         // cercare "il tavolo del merito creditizio"
         + (v.con ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue
             + ';font-weight:normal;">con ' + esc(v.con) + '</span>' : '')
+        /* CHI VIENE per l'impresa: e' un'altra cosa da "chi tiene il tavolo",
+           e con l'invito per azienda e' l'informazione che al desk serve di
+           piu' - a quel tavolo, a quell'ora, si presenta questa persona. */
+        + (v.per ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.scuro
+            + ';font-weight:normal;">per ' + esc(v.per) + '</span>' : '')
         + '</td></tr>';
     return '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         + 'style="border-collapse:collapse;">' + voci.map(riga).join('') + '</table></td></tr>';
@@ -368,4 +373,131 @@ function confermaB2B(dati, link) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { confermaSito, confermaVariazioni, confermaB2B, nomeEvento };
+/* ============================================================
+   LA CONFERMA ALL'AZIENDA
+   ------------------------------------------------------------
+   Gli incontri B2B sono dell'impresa: un invito, un collegamento,
+   una prenotazione per azienda. Questa mail va a TUTTI i
+   referenti insieme - non una copia a testa - e dice tre cose che
+   la conferma personale non poteva dire:
+     - gli incontri PRENOTATI, ciascuno con chi lo tiene e con il
+       nominativo di chi ci va per l'azienda;
+     - le preferenze IN ATTESA di orario, con la frase che toglie
+       ogni dubbio: finche' non arriva la nostra mail, al desk non
+       risulta nessun incontro;
+     - le altre esigenze che l'azienda ci ha segnalato.
+   E il collegamento non e' piu' personale: vale per l'azienda, e
+   lo dice, perche' la riga di prima ("non lo inoltri") sarebbe
+   una bugia stampata - quel collegamento e' proprio da condividere
+   fra i referenti.
+   `motivo`: 'prenotazione' | 'spostamento' | 'assegnazione' | 'disdetta'.
+============================================================ */
+const TITOLI_B2B = {
+    prenotazione: 'Prenotazione confermata',
+    spostamento: 'Incontro spostato',
+    assegnazione: 'Nuovo incontro assegnato',
+    disdetta: 'Incontro annullato'
+};
+function confermaB2BAzienda(dati, link) {
+    const d = dati || {};
+    const ev = d.evento || {};
+    const motivo = TITOLI_B2B[String(d.motivo || '')] ? String(d.motivo) : 'prenotazione';
+    const titolo = TITOLI_B2B[motivo];
+    const evNome = [ev.titolo, ev.quando].filter(Boolean).join(', ') || nomeEvento(d.pagina);
+    const tavoli = ORARI.ordinaPerOrario(ORARI.normalizzaTavoli(d.tavoli));
+    const quanti = tavoli.length;
+    const coda = Array.isArray(d.coda) ? d.coda : [];
+    const esigenze = Array.isArray(d.esigenze) ? d.esigenze : [];
+    const azienda = String(d.azienda || d.nome || '');
+    const referenti = Array.isArray(d.referenti) ? d.referenti : [];
+    const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+    const oggetto = titolo + ' - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
+    const saluto = 'Gentile ' + (azienda || 'ospite') + ',';
+    const sommario = saluto + ' ' + (motivo === 'disdetta'
+        ? 'uno degli incontri B2B prenotati non è più in programma. Qui sotto trova la situazione aggiornata.'
+        : (motivo === 'assegnazione'
+            ? 'abbiamo trovato posto per una delle Vostre preferenze: qui sotto gli incontri, con gli orari.'
+            : (motivo === 'spostamento'
+                ? 'abbiamo dovuto spostare un incontro: qui sotto gli orari aggiornati.'
+                : 'la prenotazione agli incontri B2B'
+                + (evNome ? ' del convegno di ' + evNome : '') + ' è registrata: '
+                + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo con gli orari.')));
+    const vociIncontri = tavoli.map(t => {
+        const ore = ORARI.oreDaFrase(t.orario);
+        return {
+            ora: (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : '',
+            nome: t.nome + ((!ore.inizio && t.orario) ? ' - ' + t.orario : ''),
+            con: t.con || '', per: t.perChi || ''
+        };
+    });
+    const fraseDesk = quanti
+        ? 'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
+        + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Al tavolo La attende il professionista indicato qui sopra.'
+        : 'Al momento non risulta nessun incontro prenotato per la Vostra azienda: può sceglierne uno dal pulsante qui sotto.';
+    const fraseCoda = 'Non sono prenotazioni: finché non arriva una nostra mail con l\'orario, al desk non risulta '
+        + 'nessun incontro a questi tavoli.';
+    const vociCoda = coda.map(c => (c.pos === 3 ? 'terza' : 'seconda') + ' preferenza: ' + c.nome
+        + (c.perChi ? ' - per ' + c.perChi : ''));
+    const vociEsigenze = esigenze.map(e => (e.perChi ? e.perChi + ': ' : '') + e.testo);
+    const elencoSemplice = voci => '<tr><td style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.scuro + ';">'
+        + voci.map(v => '&bull;&nbsp; ' + esc(v)).join('<br>') + '</td></tr>';
+    const html = involucro(oggetto, titolo + ': in allegato il foglio per il desk.',
+        testata(titolo, sommario)
+        + corpo(
+            '<tr><td>' + box(
+                rigaBox('Convegno', 'Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : '')))
+                + rigaBox('Giorno', String(ev.quando || ''))
+                + rigaBox('Dove', dove)
+                + rigaBox('Azienda', azienda)
+                + (referenti.length ? rigaBox(referenti.length === 1 ? 'Referente' : 'Referenti', referenti.join(', ')) : '')
+            ) + '</td></tr>'
+            + spazio(30)
+            + (quanti
+                ? occhiello(quanti === 1 ? 'L\'incontro prenotato' : 'Gli incontri prenotati')
+                + spazio(4) + tabellaIncontri(vociIncontri) + spazio(28)
+                : '')
+            + (vociCoda.length
+                ? occhiello('In attesa di un orario') + spazio(4) + elencoSemplice(vociCoda)
+                + spazio(10) + paragrafo(fraseCoda) + spazio(28)
+                : '')
+            + (vociEsigenze.length
+                ? occhiello('Ci avete segnalato') + spazio(4) + elencoSemplice(vociEsigenze) + spazio(28)
+                : '')
+            + paragrafo(fraseDesk)
+            + spazio(22)
+            + paragrafo('Potete cambiare le scelte quando volete, dal pulsante qui sotto: '
+                + 'a ogni modifica arriva una mail nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.')
+            + spazio(28)
+            + bottone(quanti ? 'Rivedi le prenotazioni' : 'Scegli un incontro', link)
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue
+            + ';text-align:justify;">Il collegamento vale per tutta ' + esc(azienda || 'l\'azienda')
+            + ': lo può usare anche un Suo collega, e le scelte sono le stesse per tutti. '
+            + 'Le chiediamo di non diffonderlo fuori dall\'azienda.</td></tr>'
+        )
+        + piede(MOTIVO));
+    const testo = [titolo.toUpperCase(), sommario,
+        'Convegno: Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : ''))
+        + (ev.quando ? '\nGiorno: ' + ev.quando : '')
+        + (dove ? '\nDove: ' + dove : '')
+        + (azienda ? '\nAzienda: ' + azienda : '')
+        + (referenti.length ? '\nReferenti: ' + referenti.join(', ') : ''),
+        quanti ? ((quanti === 1 ? 'Incontro prenotato:' : 'Incontri prenotati:') + '\n'
+            + tavoli.map(t => {
+                const ore = ORARI.oreDaFrase(t.orario);
+                const quando = (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : (t.orario || '');
+                return '- ' + (quando ? quando + ', ' : '') + t.nome
+                    + (t.con ? ' (con ' + t.con + ')' : '') + (t.perChi ? ' - per ' + t.perChi : '');
+            }).join('\n')) : 'Nessun incontro prenotato.',
+        vociCoda.length ? ('In attesa di un orario:\n' + vociCoda.map(v => '- ' + v).join('\n') + '\n' + fraseCoda) : '',
+        vociEsigenze.length ? ('Ci avete segnalato:\n' + vociEsigenze.map(v => '- ' + v).join('\n')) : '',
+        fraseDesk,
+        'Rivedi le prenotazioni: ' + link,
+        'Il collegamento vale per tutta ' + (azienda || 'l\'azienda') + ': lo può usare anche un Suo collega. '
+        + 'Le chiediamo di non diffonderlo fuori dall\'azienda.',
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+module.exports = { confermaSito, confermaVariazioni, confermaB2B, confermaB2BAzienda, nomeEvento };

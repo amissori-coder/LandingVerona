@@ -87,6 +87,26 @@ function firmaCompletaValida(idDoc, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del collegamento agli incontri B2B PER AZIENDA. Contesto suo, e non
+   quello di `firmaCompleta`, per una ragione precisa: lo stesso token che
+   apre il modulo B2B apre anche /completa_iscrizione/, che SCRIVE (cambia i
+   nominativi dei partecipanti di quella scheda). Il collegamento d'azienda
+   gira fra tutti i referenti - e' fatto apposta - e riusare quel contesto
+   darebbe a ciascuno la facolta' di riscrivere l'iscrizione di un collega.
+   Il segreto invece e' lo stesso: toccarlo invaliderebbe in un colpo le
+   disiscrizioni, i completamenti e gli inviti gia' spediti. */
+function firmaAzienda(evento, aziendaId) {
+    return crypto.createHmac('sha256', segreto())
+        .update('b2b-azienda|' + String(evento || '') + '|' + String(aziendaId || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaAziendaValida(evento, aziendaId, token) {
+    const attesa = Buffer.from(firmaAzienda(evento, aziendaId));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 const BASE = String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 const PAGINA_DISISCRIZIONE = BASE + '/newsletter/disiscriviti.html';
 const PAGINA_COMPLETA = BASE + '/completa_iscrizione/';
@@ -100,6 +120,15 @@ const PAGINA_B2B = BASE + '/incontri_b2b/';
 function linkB2B(idDoc) {
     return PAGINA_B2B + '?d=' + encodeURIComponent(String(idDoc || ''))
         + '&t=' + encodeURIComponent(firmaCompleta(idDoc));
+}
+/* Modulo degli incontri B2B PER AZIENDA: lo stesso indirizzo, con l'azienda
+   e l'evento al posto della scheda. E' il collegamento che l'invito manda a
+   tutti i referenti, ed e' lo stesso per tutti: chi lo apre vede e modifica
+   le scelte dell'impresa, non le proprie. */
+function linkB2BAzienda(evento, aziendaId) {
+    return PAGINA_B2B + '?a=' + encodeURIComponent(String(aziendaId || ''))
+        + '&e=' + encodeURIComponent(String(evento || ''))
+        + '&t=' + encodeURIComponent(firmaAzienda(evento, aziendaId));
 }
 /* Collegamento personale mostrato in fondo alla mail (pagina di conferma). */
 function linkDisiscrizione(email, campagna) {
@@ -241,6 +270,7 @@ module.exports = {
     leggiServiceAccount, initAdmin, admin,
     firma, firmaValida, linkDisiscrizione, linkUnClic,
     firmaCompleta, firmaCompletaValida, linkCompleta, linkB2B,
+    firmaAzienda, firmaAziendaValida, linkB2BAzienda,
     PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,
     brevoAttivo, chiamataBrevo, bloccatiBrevo

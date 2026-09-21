@@ -414,6 +414,97 @@ function appuntamentoDi(prenotazioni, idDoc) {
     return null;
 }
 
+/* =========================================================
+   IL DOCUMENTO DELLE PRENOTAZIONI SI SCRIVE DA UN POSTO SOLO
+   ------------------------------------------------------------
+   `b2bPrenotazioni/{evento}` si riscrive INTERO a ogni operazione
+   (prendere uno slot, liberarlo, registrare una richiesta,
+   segnarla gestita): un `set` senza merge, quattro volte, in
+   quattro punti diversi di agenda-b2b.js. Finche' i campi erano
+   tre andava bene; al primo campo nuovo ricopiato in tre punti su
+   quattro, quel campo sparisce alla prima operazione successiva -
+   e sparisce senza errore, che e' il modo peggiore.
+   Quindi l'oggetto da scrivere lo compone QUESTA funzione, e i
+   quattro punti passano tutti da qui. Un campo nuovo si aggiunge
+   in due posti (il normalizzatore che legge e questo che scrive)
+   invece che in cinque.
+========================================================= */
+function corpoPrenotazioni(corrente, cambi) {
+    const c = (corrente && typeof corrente === 'object') ? corrente : {};
+    const x = (cambi && typeof cambi === 'object') ? cambi : {};
+    return {
+        evento: idEvento(x.evento || c.evento),
+        aree: (x.aree && typeof x.aree === 'object') ? x.aree : (c.aree || {}),
+        richieste: Array.isArray(x.richieste) ? x.richieste : (c.richieste || []),
+        aggiornato: (x.aggiornato && typeof x.aggiornato === 'object')
+            ? x.aggiornato : (c.aggiornato || null)
+    };
+}
+
+/* =========================================================
+   QUALE POSTO SI LIBERA QUANDO SE NE PRENDE UN ALTRO
+   ------------------------------------------------------------
+   Finche' un'impresa aveva un incontro solo, la regola era
+   semplice: "il posto di prima e' quello dove c'e' scritto il suo
+   documento", e `appuntamentoDi` tornava il primo che trovava.
+   Con le tre preferenze un'azienda puo' avere DUE incontri (la
+   prima piu' una seconda che lo staff le ha assegnato): il primo
+   che si trova non e' piu' quello giusto, e assegnare la seconda
+   cancellerebbe la prima senza che nessuno se ne accorga finche'
+   l'impresa non si presenta al tavolo.
+   La regola, dichiarata:
+     1. se chi chiama dice DA QUALE slot si parte (lo spostamento),
+        si libera quello e nient'altro;
+     2. se no, e la persona porta una chiave d'azienda, si libera
+        il solo slot della STESSA azienda con la STESSA preferenza;
+     3. se no - cioe' tutto quello che e' stato prenotato prima
+        che le aziende esistessero - si ripiega sul documento
+        della persona, che e' il comportamento di sempre.
+========================================================= */
+function slotDi(prenotazioni, area, chiave) {
+    const p = ((prenotazioni.aree || {})[area] || {})[chiave];
+    return p ? { area: area, chiave: chiave, ora: oraDaChiave(chiave), dati: p } : null;
+}
+function appuntamentoDaLiberare(prenotazioni, persona, slotDa) {
+    const p = persona || {};
+    if (slotDa && slotDa.area && slotDa.chiave) return slotDi(prenotazioni, slotDa.area, slotDa.chiave);
+    const azienda = String(p.aziendaId || '');
+    if (azienda) {
+        const scelta = Number(p.scelta) || 1;
+        const aree = prenotazioni.aree || {};
+        const nomi = Object.keys(aree);
+        for (let i = 0; i < nomi.length; i++) {
+            const chiavi = Object.keys(aree[nomi[i]] || {});
+            for (let k = 0; k < chiavi.length; k++) {
+                const q = aree[nomi[i]][chiavi[k]];
+                if (q && String(q.aziendaId || '') === azienda && (Number(q.scelta) || 1) === scelta) {
+                    return { area: nomi[i], chiave: chiavi[k], ora: oraDaChiave(chiavi[k]), dati: q };
+                }
+            }
+        }
+        return null;
+    }
+    return appuntamentoDi(prenotazioni, p.doc);
+}
+/* L'appuntamento di un'AZIENDA, dovunque sia: tutti i suoi incontri, in
+   ordine di orario. Non e' uno solo, come per la persona: la prima
+   preferenza piu' le seconde/terze che lo staff ha assegnato. */
+function appuntamentiAzienda(prenotazioni, aziendaId) {
+    const az = String(aziendaId || '');
+    if (!az) return [];
+    const fuori = [];
+    const aree = prenotazioni.aree || {};
+    Object.keys(aree).forEach(area => {
+        Object.keys(aree[area] || {}).forEach(k => {
+            const q = aree[area][k];
+            if (q && String(q.aziendaId || '') === az) {
+                fuori.push({ area: area, chiave: k, ora: oraDaChiave(k), dati: q });
+            }
+        });
+    });
+    return fuori.sort((a, b) => minutiOra(a.ora) - minutiOra(b.ora));
+}
+
 /* I tavoli come li legge chi guarda: la configurazione e gli orari con
    dentro chi li occupa, gia' composti. Si risponde con QUESTO e non con i
    due archivi grezzi, perche' quali orari esistono dipende dalla durata e
@@ -432,6 +523,175 @@ function areeComposte(agenda, prenotazioni, voci) {
     });
 }
 
+
+/* =========================================================
+   IL DOCUMENTO DELL'AZIENDA (b2bAziende/{evento}--{aziendaId})
+   ------------------------------------------------------------
+   Gli incontri B2B sono dell'IMPRESA, non della persona: un
+   invito per azienda, un collegamento per azienda, una prima
+   preferenza per azienda. Qui dentro sta cio' che l'impresa ha
+   detto e che negli slot non puo' stare:
+     - i REFERENTI a cui l'invito e' arrivato (congelati
+       all'invio: la mail li nomina, e il modulo offre solo loro
+       come nominativi);
+     - la CODA, cioe' la seconda e la terza preferenza: non sono
+       prenotazioni - non impegnano nessun orario - e vivono
+       finche' lo staff non le assegna;
+     - le ALTRE ESIGENZE, il testo libero con il nominativo.
+
+   PERCHE' UN DOCUMENTO A PARTE e non un campo dentro
+   `b2bPrenotazioni`: li' ogni operazione riscrive il documento
+   intero e la lettura scarta cio' che non conosce, quindi la coda
+   sparirebbe alla prima prenotazione; e `bloccoSuPrenotazioni`,
+   che guarda la mappa degli slot per rifiutare una modifica su un
+   orario gia' preso, comincerebbe a rifiutare la configurazione di
+   tavoli in realta' liberi.
+   PERCHE' UNO PER AZIENDA e non uno per evento: nei giorni
+   dell'invito scrivono in cento, e un documento solo mette in coda
+   ogni transazione dietro le altre.
+
+   `rev` cresce di uno a ogni scrittura ed e' la guardia fra due
+   referenti della stessa impresa che compilano insieme: chi salva
+   con una revisione vecchia si sente dire che un collega ha
+   appena cambiato le scelte, invece di cancellargliele.
+========================================================= */
+const MAX_REFERENTI = 8;
+const MAX_ESIGENZE = 5;
+const TESTO_ESIGENZA = 600;
+
+function rifAziende(db) { return db.collection('b2bAziende'); }
+function nomeDocAzienda(evento, aziendaId) {
+    return idEvento(evento) + '--' + String(aziendaId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+}
+function rifAzienda(db, evento, aziendaId) {
+    return rifAziende(db).doc(nomeDocAzienda(evento, aziendaId));
+}
+function normalizzaReferenteAzienda(v) {
+    const r = (v && typeof v === 'object') ? v : {};
+    const nome = testo(r.nome, 160);
+    const email = testo(r.email, 200).toLowerCase();
+    if (!nome && !email) return null;
+    return {
+        doc: testo(r.doc, 400), nome: nome, ruolo: testo(r.ruolo, 160),
+        email: email, telefono: testo(r.telefono, 60)
+    };
+}
+/* Una voce della coda: la seconda o la terza preferenza. `stato` dice a che
+   punto e': in attesa che lo staff guardi, assegnata (e allora ha un orario
+   vero, e il modulo non la puo' piu' toccare), oppure scartata. */
+function normalizzaVoceCoda(v) {
+    const x = (v && typeof v === 'object') ? v : {};
+    const pos = (Number(x.pos) === 3) ? 3 : 2;
+    const area = areaDa(x.area);
+    if (!area) return null;
+    const stato = ['attesa', 'assegnata', 'scartata'].indexOf(testo(x.stato, 20)) >= 0 ? testo(x.stato, 20) : 'attesa';
+    const ass = (x.assegnato && typeof x.assegnato === 'object') ? x.assegnato : null;
+    return {
+        id: testo(x.id, 60) || ('c' + pos),
+        pos: pos, area: area.id,
+        perChi: testo(x.perChi, 160), perRuolo: testo(x.perRuolo, 160), perDoc: testo(x.perDoc, 400),
+        quando: Number(x.quando) || 0,
+        stato: stato,
+        assegnato: (stato === 'assegnata' && ass) ? {
+            area: testo(ass.area, 60), chiave: chiaveSlot(oraDaChiave(ass.chiave)),
+            ora: oraDaChiave(ass.chiave) || testo(ass.ora, 5), fine: testo(ass.fine, 5),
+            quando: Number(ass.quando) || 0, da: testo(ass.da, 200)
+        } : null
+    };
+}
+function normalizzaEsigenza(v) {
+    const x = (v && typeof v === 'object') ? v : {};
+    const t = testo(x.testo, TESTO_ESIGENZA);
+    if (!t) return null;
+    return {
+        id: testo(x.id, 60),
+        perChi: testo(x.perChi, 160), perRuolo: testo(x.perRuolo, 160), perDoc: testo(x.perDoc, 400),
+        testo: t, quando: Number(x.quando) || 0,
+        stato: testo(x.stato, 20) === 'gestita' ? 'gestita' : 'aperta'
+    };
+}
+function aziendaVuota(evento, aziendaId) {
+    return {
+        evento: idEvento(evento), id: String(aziendaId || ''), nome: '', chiave: '', piva: '',
+        aree: [], referenti: [], invito: null, coda: [], esigenze: [],
+        rev: 0, aggiornato: null, esiste: false
+    };
+}
+function normalizzaAziendaB2B(v, evento, aziendaId) {
+    const d = (v && typeof v === 'object') ? v : null;
+    if (!d) return aziendaVuota(evento, aziendaId);
+    const aree = (Array.isArray(d.aree) ? d.aree : [])
+        .map(x => (areaDa(x) || {}).id).filter(Boolean);
+    /* Una sola voce per posizione: se ne arrivano due con lo stesso numero
+       vale l'ultima, altrimenti la coda crescerebbe a ogni salvataggio. */
+    const perPos = {};
+    (Array.isArray(d.coda) ? d.coda : []).map(normalizzaVoceCoda).filter(Boolean)
+        .forEach(c => { perPos[c.pos] = c; });
+    const inv = (d.invito && typeof d.invito === 'object') ? d.invito : null;
+    return {
+        evento: idEvento(evento || d.evento),
+        id: String(d.id || aziendaId || ''),
+        nome: testo(d.nome, 200), chiave: testo(d.chiave, 200), piva: testo(d.piva, 20),
+        aree: Array.from(new Set(aree)),
+        referenti: (Array.isArray(d.referenti) ? d.referenti : [])
+            .map(normalizzaReferenteAzienda).filter(Boolean).slice(0, MAX_REFERENTI),
+        invito: inv ? {
+            quando: Number(inv.quando) || 0, da: testo(inv.da, 200),
+            collab: testo(inv.collab, 200), revocato: inv.revocato === true
+        } : null,
+        coda: [2, 3].map(n => perPos[n]).filter(Boolean),
+        esigenze: (Array.isArray(d.esigenze) ? d.esigenze : [])
+            .map(normalizzaEsigenza).filter(Boolean).slice(0, MAX_ESIGENZE),
+        rev: Number(d.rev) || 0,
+        aggiornato: (d.aggiornato && typeof d.aggiornato === 'object') ? d.aggiornato : null,
+        esiste: true
+    };
+}
+async function leggiAzienda(db, evento, aziendaId) {
+    const snap = await rifAzienda(db, evento, aziendaId).get();
+    return normalizzaAziendaB2B(snap.exists ? snap.data() : null, evento, aziendaId);
+}
+/* Tutte le aziende di un evento. Si legge la collezione intera e si filtra
+   in JavaScript, senza `where`: il Firestore finto delle prove risponde
+   vuoto a qualunque query, e una prova verde su un servizio che non trova
+   niente e' peggio di nessuna prova. Le aziende di un evento sono cento, non
+   centomila: la lettura intera costa poco e si fa una volta per schermata. */
+async function leggiAziendeB2B(db, evento) {
+    const ev = idEvento(evento);
+    const snap = await rifAziende(db).get();
+    const fuori = [];
+    (snap && snap.docs ? snap.docs : []).forEach(d => {
+        const dati = typeof d.data === 'function' ? d.data() : null;
+        if (!dati || idEvento(dati.evento) !== ev) return;
+        fuori.push(normalizzaAziendaB2B(dati, ev, dati.id));
+    });
+    return fuori.sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+}
+
+/* =========================================================
+   LE REGOLE DELLA PRENOTAZIONE, SCRITTE UNA VOLTA SOLA
+   ------------------------------------------------------------
+   Le stesse frasi vanno nella mail d'invito, nel modulo online e
+   nella mail di conferma. Scritte tre volte, al primo ritocco
+   diventano tre regole diverse - e la piu' vecchia e' quella che
+   l'impresa ha letto quando ha deciso.
+========================================================= */
+function regoleB2B(giornata) {
+    const g = normalizzaGiornata(giornata);
+    return [
+        'Un invito per azienda: indichi il nominativo di chi partecipa a ciascun incontro, '
+        + 'e può essere una persona diversa da un tavolo all\'altro.',
+        'La PRIMA preferenza prenota davvero: sceglie il tavolo E l\'orario, e da quel momento quell\'orario è Suo.',
+        'La SECONDA e la TERZA sono solo il TAVOLO: se restano posti l\'orario glielo assegniamo noi e Le scriviamo. '
+        + 'Finché non arriva quella mail non c\'è nessun orario a Suo nome.',
+        'Ogni incontro dura ' + g.durata + ' minuti, fra le ' + g.inizio + ' e le ' + g.fine
+        + (g.pranzoDa ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',
+        'Può cambiare tutto da questa pagina fino al giorno del convegno: a ogni modifica riceve una mail '
+        + 'nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
+    ];
+}
+
+
 module.exports = {
     AREE_B2B, areaDa, nomeArea, testo,
     oraValida, minutiOra, oraDaMinuti, chiaveSlot, oraDaChiave, fraseOrario,
@@ -441,5 +701,9 @@ module.exports = {
     areaVuota, normalizzaReferente, normalizzaAree, normalizzaAgenda, leggiAgenda,
     normalizzaPrenotazioni, leggiPrenotazioni,
     slotDiArea, areeComposte, appuntamentoDi,
+    corpoPrenotazioni, appuntamentoDaLiberare, appuntamentiAzienda, slotDi,
+    MAX_REFERENTI, MAX_ESIGENZE, TESTO_ESIGENZA,
+    rifAziende, nomeDocAzienda, rifAzienda, aziendaVuota, normalizzaAziendaB2B,
+    leggiAzienda, leggiAziendeB2B, regoleB2B,
     orariPresi, chiDiSlot, bloccoSuPrenotazioni
 };

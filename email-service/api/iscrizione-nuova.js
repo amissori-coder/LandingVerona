@@ -355,42 +355,14 @@ function indiciDaTemi(etichette) {
         (gmail, libero, aruba...) non dicono niente sull'azienda e non contano.
    Le due cose insieme fondono i gruppi a catena: "Alfa Srl" + "Alfa SPA" con
    lo stesso dominio sono una sola impresa. */
-const DOMINI_PUBBLICI = [
-    'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.it', 'outlook.com', 'outlook.it',
-    'live.it', 'live.com', 'msn.com', 'yahoo.it', 'yahoo.com', 'libero.it', 'virgilio.it',
-    'alice.it', 'tin.it', 'tiscali.it', 'inwind.it', 'iol.it', 'email.it', 'fastwebnet.it',
-    'icloud.com', 'me.com', 'mac.com', 'aruba.it', 'pec.it', 'legalmail.it', 'poste.it',
-    'protonmail.com', 'proton.me', 'gmx.com', 'katamail.com', 'supereva.it', 'teletu.it',
-    'vodafone.it', 'wind.it', 'tim.it', 'windtre.it', 'blu.it'
-];
-/* Le forme giuridiche: si tolgono dal confronto perche' la stessa impresa
-   compare ora con la sigla, ora senza, ora con i punti. Restano fuori le
-   parole che potrebbero essere il nome vero ("studio", "impresa", "gruppo"):
-   toglierle farebbe di "Studio Rossi" e "Studio Bianchi" la stessa cosa. */
-const FORME_GIURIDICHE = /\b(s\s*r\s*l\s*s?|s\s*p\s*a|s\s*a\s*p\s*a|s\s*a\s*s|s\s*n\s*c|s\s*c\s*a\s*r\s*l|s\s*s|societa|soc|cooperativa|coop|sarl|ltd|limited|llc|inc|gmbh|plc)\b/g;
-function chiaveAzienda(s) {
-    let t = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    t = t.replace(/&/g, ' e ');
-    // i punti e gli apostrofi spariscono senza lasciare spazio: "s.r.l." -> "srl"
-    t = t.replace(/[.'\u2019"]/g, '');
-    t = t.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-    const senzaForma = t.replace(FORME_GIURIDICHE, ' ').replace(/\s+/g, ' ').trim();
-    // se dell'azienda resta solo la forma giuridica, meglio la stringa intera
-    return senzaForma || t;
-}
-function dominioMail(email) {
-    const m = String(email || '').toLowerCase().trim().match(/@([a-z0-9.\-]+)$/);
-    if (!m) return '';
-    let d = m[1];
-    if (DOMINI_PUBBLICI.indexOf(d) >= 0) return '';
-    /* Le caselle di posta certificata dell'azienda portano lo stesso nome
-       (pec.alfa.it e alfa.it sono la stessa impresa). Il prefisso si toglie
-       solo se quel che resta e' ancora un dominio: da "pec.it" resterebbe
-       "it", e allora mezzo mondo diventerebbe un'azienda sola. */
-    const senzaPrefisso = d.replace(/^(pec|mail|posta)\./, '');
-    if (senzaPrefisso !== d && senzaPrefisso.indexOf('.') > 0) d = senzaPrefisso;
-    return DOMINI_PUBBLICI.indexOf(d) >= 0 ? '' : d;
-}
+/* Le due regole - la ragione sociale ridotta all'osso e il dominio della
+   mail - stanno in lib/chiavi-azienda.js, insieme alla chiave con cui
+   l'azienda viaggia negli incontri B2B: erano gia' scritte due volte (qui e
+   nell'area riservata), e una terza copia le avrebbe fatte divergere al primo
+   ritocco. Qui si usano per mettere insieme i colleghi; li' per decidere di
+   chi e' una prenotazione. */
+const { chiaveAzienda, dominioMail } = require('../lib/chiavi-azienda');
+
 /* Mette insieme le persone che risultano della stessa impresa, per nome
    ridotto all'osso o per dominio della mail (una catena di unioni: chi condivide
    l'uno o l'altro finisce nello stesso gruppo). Torna un vettore di radici,

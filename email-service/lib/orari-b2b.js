@@ -62,8 +62,19 @@ function ordinaPerOrario(tavoli) {
 function normalizzaTavoli(tavoli) {
     return (tavoli || []).filter(Boolean)
         .map(t => (typeof t === 'string'
-            ? { nome: t, orario: '', con: '' }
-            : { nome: String(t.nome || ''), orario: String(t.orario || ''), con: String(t.con || '') }))
+            ? { nome: t, orario: '', con: '', perChi: '', perRuolo: '', prenotatoDa: '', scelta: 0 }
+            : {
+                nome: String(t.nome || ''), orario: String(t.orario || ''), con: String(t.con || ''),
+                /* CHI VIENE per l'azienda, e chi ha prenotato: con l'invito per
+                   impresa non sono piu' la stessa persona, e al desk servono
+                   tutte e due - il nome che si presenta, e quello da chiamare
+                   se qualcosa non torna. Passavano da qui e si perdevano:
+                   questa funzione riduceva ogni tavolo a nome, orario e con, e
+                   il nominativo spariva senza un errore, prima della mail e
+                   prima del foglio. */
+                perChi: String(t.perChi || ''), perRuolo: String(t.perRuolo || ''),
+                prenotatoDa: String(t.prenotatoDa || ''), scelta: Number(t.scelta) || 0
+            }))
         .filter(t => t.nome);
 }
 
