@@ -1647,13 +1647,14 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    avvisato: la conferma in verde, la mail che manca in ambra e in grassetto
    (e' l'unica che chiede di fare qualcosa), la mancanza di indirizzo in grigio
    spento e in corsivo, perche' li' non c'e' niente da fare.
-   La provenienza sta apposta su un altro tono, spento come il grigio: dove si
-   legge "dal modulo" non c'e' niente da fare, e nella sezione online e' anzi
-   la ragione per cui l'ambra non compare. */
+   La provenienza sta sul grigio di partenza, spenta: dove si legge "dal modulo"
+   non c'e' niente da fare, e nella sezione online e' anzi la ragione per cui
+   l'ambra non compare. Non porta il verde-acqua degli aderenti, che in quella
+   colonna e' il colore di una SEZIONE: sotto un "Online" blu direbbe la sezione
+   sbagliata. */
 .ev-avvisato, .ev-dal-modulo, .ev-da-avvisare, .ev-senza-mail {
     margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--grigio-600);
 }
-.ev-dal-modulo { color: #0f766e; }
 .ev-avvisato { color: #15803d; }
 .ev-da-avvisare { color: #b45309; font-weight: 600; }
 .ev-senza-mail { color: var(--grigio-500); font-style: italic; }

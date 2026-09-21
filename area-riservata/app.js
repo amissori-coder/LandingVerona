@@ -16177,6 +16177,12 @@
        decisione diventa sua, e da quel momento vale quello che ha deciso lui -
        compresa la posta che ne consegue. */
     function sezioneDalModulo(ev, r, md) {
+        /* Nel riepilogo di TUTTI gli eventi le presenze non si caricano, quindi
+           "nessuno lo ha spostato" non si puo' ne' affermare ne' smentire: si
+           tace, che e' l'unica cosa vera. Senza questa riga la stessa persona
+           riportata in sala si leggerebbe "Online - dal modulo" solo perche'
+           li' la sua presenza non e' stata letta. */
+        if (ev.tutti) return false;
         const p = EventiPresenze.di(ev.id, r.id) || {};
         if (p.modalita) return false;
         if (md === 'aderenti') return r.aderente === true;
@@ -16240,6 +16246,10 @@
        quel momento la decisione e' sua.
        Si rigenera tutto insieme, perche' cambiando sezione cambiano insieme. */
     function hintModalitaHtml(ev, r, md) {
+        /* Stessa ragione: senza le presenze non si sa ne' se un avviso e'
+           partito ne' se ne serve uno. Meglio una colonna muta che una che
+           chiede a tutti una mail che a molti e' gia' stata mandata. */
+        if (ev.tutti) return '';
         const dalModulo = sezioneDalModulo(ev, r, md);
         return [hintMailModalita(ev, r, md),
             dalModulo ? '<div class="hint ev-dal-modulo" title="' + esc(TITOLO_DAL_MODULO[md] || '') + '">dal modulo</div>' : '']
@@ -16295,21 +16305,24 @@
                l'unico che toglie qualcosa a chi lo riceve, e va spiegato.
                Diventare aderente in elenco, passare fra sponsor e relatori o
                tornare in sala non si annunciano per posta.
-               A chi l'online se l'e' scelto iscrivendosi il comando resta -
-               si puo' sempre voler scrivere a qualcuno - ma cambia nome: un
-               "passaggio" che non c'e' mai stato non si puo' annunciare, e
-               chi preme deve sapere che sta mandando una cosa in piu', non
-               una che manca. */
+               A chi l'online se l'e' scelto iscrivendosi non si offre: dietro
+               quella voce c'e' uno spostamento, e uno spostamento scrive la
+               sezione fra le presenze PRIMA di provare a spedire. Bastava
+               togliere la spunta all'invio, o un errore SMTP, e la riga
+               perdeva "dal modulo" e si riaccendeva in arancio - cioe'
+               tornava a chiedere esattamente la mail che qui non va chiesta,
+               e senza un gesto per tornare indietro. Un comando che puo'
+               lasciare le cose peggio di come le ha trovate e' meglio non
+               averlo: per scrivere a qualcuno ci sono i suoi recapiti, che
+               stanno nella riga accanto. */
             (puoRichiedere && !ev.tutti
                 ? SEZIONI_MODALITA.filter(x => x.id !== md).map(x =>
                     '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
                     + '" data-verso="' + x.id + '">' + esc(x.vai) + '</button>').join('')
-                + (md === 'online' && r.email
+                + (md === 'online' && r.email && !sezioneDalModulo(ev, r, md)
                     ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
                     + '" data-verso="online" data-rinvia="1">'
-                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online'
-                        : sezioneDalModulo(ev, r, md) ? 'Manda comunque l\'avviso online'
-                            : 'Avvisa del passaggio online') + '</button>'
+                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
                     : '')
                 : ''),
             (adminEv
@@ -20647,7 +20660,12 @@
             const e = String(r.email || '').toLowerCase();
             if (e && indirizzi.indexOf(e) < 0) indirizzi.push(e);
         });
-        const senzaMail = elenco.filter(r => !String(r.email || '').trim()).length;
+        /* Senza indirizzo e da avvisare a voce - ma solo chi qualcosa da sapere
+           ce l'ha. A chi e' online per sua scelta non manca un recapito: non
+           c'e' proprio niente da comunicargli, ed e' la stessa ragione per cui
+           sulla sua riga non compare "nessuna email". */
+        const senzaMail = elenco.filter(r => !String(r.email || '').trim()
+            && !(online && sezioneDalModulo(ev, r, 'online'))).length;
         // gia' avvisati PER QUESTA sezione: l'avviso di un'altra non conta,
         // perche' decade nel momento in cui si cambia (lo fa il servizio)
         const giaAvvisati = elenco.filter(r => {
@@ -20671,9 +20689,18 @@
 
         const chi = uno ? '<strong>' + esc(nomeDi(elenco[0])) + '</strong>'
             : '<strong>' + elenco.length + ' iscrizioni</strong>' + (nPosti !== elenco.length ? ' (' + nPosti + ' posti)' : '');
+        /* "Non cambia nulla" vale per la SEZIONE, non per la riga: lo
+           spostamento scrive comunque la modalita' fra le presenze, e per chi
+           in quella sezione ci era arrivato da se' quella scrittura cambia
+           eccome - la sua provenienza sparisce e passa fra quelle decise da
+           voi. Detta com'era, la frase rassicurava proprio nel caso in cui
+           qualcosa si perde. */
         const NOTA_GIA_LI = giaLi
-            ? ' <b>' + giaLi + '</b> ' + (giaLi === 1 ? 'è già in questa sezione: per quella riga non cambia nulla.'
-                : 'sono già in questa sezione: per quelle righe non cambia nulla.')
+            ? ' <b>' + giaLi + '</b> ' + (giaLi === 1 ? 'è già in questa sezione' : 'sono già in questa sezione')
+            + (giaInformati
+                ? ': la sezione non cambia, ma ' + (giaInformati === 1 ? 'una riga arrivata' : giaInformati + ' righe arrivate')
+                + ' dal modulo ' + (giaInformati === 1 ? 'passa' : 'passano') + ' fra quelle decise da voi.'
+                : ': per ' + (giaLi === 1 ? 'quella riga' : 'quelle righe') + ' non cambia nulla.')
             : '';
         /* Il titolo: lo stesso comando del menu della riga ("Sposta fra sponsor
            e relatori"), piu' quante righe si stanno spostando quando sono

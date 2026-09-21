@@ -879,9 +879,9 @@ La sezione si legge da due posti, in quest'ordine:
    posti in sala finiscono, chi resta fuori si sposta online: non si cancella.
    Gli aderenti si riconoscono uno per uno, dall'elenco.
 2. `iscrizioni.<scheda>.modalita` — quello che la persona **dichiara**
-   iscrivendosi. `/api/iscrizione-nuova` accetta gia il campo `modalita` e lo
-   scrive solo se arriva davvero, quindi quando il modulo comincera a chiederlo
-   non serve toccare il servizio; la conferma automatica (`lib/mail-ngb.js`,
+   iscrivendosi. `/api/iscrizione-nuova` accetta il campo `modalita` e lo scrive
+   solo se arriva davvero; **il modulo di Napoli lo manda gia**, fisso su
+   `online`, da quando la sala e al completo. La conferma automatica (`lib/mail-ngb.js`,
    `confermaSito`) sa gia dirlo, e a chi si iscrive online non promette un posto
    in sala. Dal modulo pubblico si accettano **solo `presenza` e `online`**:
    nelle sezioni degli aderenti e di sponsor e relatori non ci si mette da
@@ -929,8 +929,10 @@ E non si annuncia a chi online ci e nato: chi si iscrive dal modulo per la
 diretta un passaggio non lo ha mai fatto - la pagina glielo ha detto prima di
 iscriversi e la conferma automatica gliel'ha ripetuto. Sulla sua riga l'area
 riservata non scrive "mail da inviare" (sarebbe una cosa da fare che non va
-fatta) ma "dal modulo"; il comando per scrivergli lo stesso resta nel menu della
-riga, con un altro nome - "Manda comunque l'avviso online". Il discriminante e
+fatta) ma "dal modulo", e il menu della sua riga non offre di avvisarlo: dietro
+quella voce c'e uno spostamento, che scrive la sezione fra le presenze prima
+ancora di provare a spedire - bastava un invio non riuscito e la riga perdeva
+"dal modulo" e tornava in ambra, senza un gesto per rimediare. Il discriminante e
 `!p.modalita && r.modalita === 'online'`, lo stesso `!p.modalita` degli aderenti:
 appena chi organizza tocca la sezione la decisione diventa sua e la riga torna a
 chiedere la mail. La prova che lo fissa e `prove/hint-modalita.prove.js`.

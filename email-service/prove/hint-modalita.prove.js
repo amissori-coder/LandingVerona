@@ -94,12 +94,13 @@ const QUANDO = new Date(2026, 8, 15, 10, 30).getTime();   // 15/09/2026, 10:30
    organizza le ha messo addosso. La modalita' si CALCOLA con modalitaDi,
    mai a mano: e' proprio la funzione che fonde le due provenienze, e
    scavalcarla vorrebbe dire non provare niente. */
-function riga(r, presenza) {
+function riga(r, presenza, ev) {
     presenze = {};
     const scheda = Object.assign({ id: 'i1', nome: 'Mario', cognome: 'Rossi', email: 'mario@studio.it' }, r);
     if (presenza) presenze[scheda.id] = presenza;
-    const md = modalitaDi(EV, scheda);
-    return { md: md, html: hintModalitaHtml(EV, scheda, md) };
+    const evento = ev || EV;
+    const md = modalitaDi(evento, scheda);
+    return { md: md, html: hintModalitaHtml(evento, scheda, md) };
 }
 
 const prove = [];
@@ -130,14 +131,16 @@ prova('La conferma di un avviso partito resta a tutti e due', () => {
     esigi(spostato.html.indexOf('ev-avvisato') >= 0, 'lo spostato vede la conferma verde');
     esigi(spostato.html.indexOf('15/09') >= 0, 'con il giorno in cui e partita', spostato.html);
     esigi(/Anna Bianchi/.test(spostato.html), 'e nel suggerimento chi l\'ha mandata');
-    /* La trappola: chi era arrivato dal modulo e poi e' stato avvisato lo
-       stesso ("Manda comunque l'avviso online"). La guardia nuova sta DOPO il
-       ramo verde proprio per questo: una mail partita non si nasconde. */
+    /* L'ORDINE DELLE GUARDIE, messo alla prova davvero: la presenza porta
+       l'avviso ma NON la sezione. Cosi' sezioneDalModulo direbbe ancora "viene
+       dal modulo", e se la guardia stesse PRIMA del ramo verde la conferma di
+       una mail partita sparirebbe. Con una presenza che ha anche la modalita'
+       questa prova sarebbe verde per il motivo sbagliato. */
     const dalModulo = riga({ modalita: 'online' }, {
-        modalita: 'online',
         avvisoModalita: { modalita: 'online', quando: QUANDO, daNome: 'Anna Bianchi' }
     });
-    esigi(dalModulo.html.indexOf('ev-avvisato') >= 0, 'e la vede anche chi era arrivato dal modulo', dalModulo.html);
+    esigi(dalModulo.html.indexOf('ev-avvisato') >= 0, 'e una mail partita non si nasconde mai', dalModulo.html);
+    esigi(dalModulo.html.indexOf('ev-dal-modulo') >= 0, 'la provenienza resta, perche nessuno lo ha spostato');
 });
 
 prova('Appena chi organizza tocca la sezione, la decisione diventa sua', () => {
@@ -186,6 +189,27 @@ prova('"dal modulo" non si puo dichiarare per le sezioni che non si scelgono', (
     presenze = {};
     esigi(sezioneDalModulo(EV, { id: 'i1', modalita: 'online' }, 'presenza') === false,
         'e la provenienza vale solo per la sezione in cui si e finiti');
+});
+
+prova('Una presenza senza sezione non e una decisione', () => {
+    /* Il caso piu' frequente in sala, e quello che il perno deve reggere:
+       l'API manda SEMPRE modalita: '' per ogni documento di presenze, quindi
+       basta che qualcuno segni lo stato al desk o scriva una nota perche' la
+       presenza esista. Esistere non e' decidere: la stringa vuota non deve
+       valere come "l'ho spostato io". */
+    const r = riga({ modalita: 'online' }, { stato: 'presente', nota: 'arriva alle 10', modalita: '' });
+    esigi(r.md === 'online', 'resta nella sezione Online', r.md);
+    esigi(r.html.indexOf('ev-dal-modulo') >= 0, 'e continua a venire dal modulo', r.html);
+    esigi(r.html.indexOf('ev-da-avvisare') < 0, 'quindi nessuna mail da mandargli');
+});
+
+prova('Nel riepilogo di tutti gli eventi la colonna tace', () => {
+    /* Li' le presenze non si caricano: non si sa se un avviso e' partito ne'
+       se qualcuno lo ha spostato. Dire "dal modulo" sarebbe affermare una cosa
+       che non si puo' sapere, e dire "mail da inviare" pure. */
+    const TUTTI = { id: 'tutti', tutti: true };
+    esigi(riga({ modalita: 'online' }, null, TUTTI).html === '', 'chi viene dal modulo non porta la provenienza');
+    esigi(riga({}, { modalita: 'online' }, TUTTI).html === '', 'e non si chiede nessuna mail a nessuno');
 });
 
 console.log('\nLa scritta sotto la modalita\', nella sezione Online\n');
