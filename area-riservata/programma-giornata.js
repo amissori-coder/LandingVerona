@@ -28,8 +28,17 @@
        non il giorno del convegno;
      - da sistemare: il tavolo in quell'ora e' ancora prenotabile.
        Nessuno ci ha ancora messo piede, ma se qualcuno prenota
-       l'errore diventa grave da solo. Basta chiudere quegli
-       orari dall'agenda dei tavoli.
+       l'errore diventa grave da solo. Oggi quegli orari il
+       servizio li chiude da se' appena la scaletta lo dice
+       (`chiusureDaPalco` in email-service/lib/agenda-modello.js),
+       quindi questo avviso si vede solo finche' la griglia a
+       video e' quella di prima del salvataggio: e' la rete sotto,
+       non la regola.
+
+   FRA IL PALCO E IL TAVOLO CI SONO DIECI MINUTI di margine, prima
+   e dopo: chi scende dal leggio attraversa la sala, e un incontro
+   attaccato all'intervento e' un incontro che comincia in ritardo
+   con un'impresa che aspetta e non sa perche'.
    ============================================================ */
 (function (radice, fabbrica) {
     const api = fabbrica();
@@ -37,6 +46,14 @@
     else radice.RV_GIORNATA = api;
 })(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
+
+    /* IL MARGINE DI PRUDENZA fra il palco e il tavolo: dieci minuti prima e
+       dieci dopo. E' lo stesso numero di `MARGINE_PALCO` nel servizio
+       (email-service/lib/agenda-modello.js), che con quello CHIUDE gli
+       orari: se i due si allontanassero, l'area riservata direbbe che va
+       tutto bene su un orario che il servizio non lascia prenotare (o
+       peggio, il contrario). */
+    const MARGINE_PALCO = 10;
 
     const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
     function oraValida(v) { return RE_ORA.test(String(v || '')); }
@@ -178,8 +195,11 @@
     function conflittiB2B(voci, aree, tipi) {
         const fuori = [];
         (voci || []).forEach(v => {
-            const d = durata(v);
-            if (!d) return;
+            const q = durata(v);
+            if (!q) return;
+            // la fascia del palco, allargata del margine: un incontro
+            // attaccato all'intervento comincia comunque in ritardo
+            const d = { da: q.da - MARGINE_PALCO, a: q.a + MARGINE_PALCO };
             personeDiVoce(v).forEach(chi => {
                 const k = chiavePersona(chi.persona);
                 if (!k) return;
@@ -252,7 +272,7 @@
     }
 
     return {
-        CONFINE_PREDEFINITO: CONFINE_PREDEFINITO,
+        CONFINE_PREDEFINITO: CONFINE_PREDEFINITO, MARGINE_PALCO: MARGINE_PALCO,
         oraValida: oraValida, minutiOra: minutiOra, oraDaMinuti: oraDaMinuti,
         siSovrappongono: siSovrappongono, durata: durata, ordina: ordina,
         confine: confine, dividi: dividi, slotDellaFascia: slotDellaFascia,
