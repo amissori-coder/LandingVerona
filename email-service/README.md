@@ -1082,6 +1082,29 @@ riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
 ## Incontri B2B
 
+**L'unita' e' l'AZIENDA, non la persona.** Un invito per impresa, un
+collegamento per impresa, una prima preferenza per impresa. La mail parte una
+sola volta a tutti i referenti insieme e li nomina; il collegamento
+(`?a=<azienda>&e=<evento>&t=<firma>`) e' lo stesso per tutti loro, e ha un
+contesto di firma SUO - non quello della scheda, perche' quel token apre anche
+`/completa_iscrizione/`, che SCRIVE, e un collegamento fatto per girare fra i
+referenti darebbe a ciascuno la facolta' di riscrivere l'iscrizione di un
+collega. Dalla pagina l'azienda indica TRE preferenze in ordine (la prima
+prenota tavolo e orario, la seconda e la terza sono solo il tavolo e le assegna
+lo staff), il NOMINATIVO di chi partecipa a ciascuna - scelto fra i referenti
+dell'invito - e le altre esigenze da approfondire. A ogni modifica parte una
+mail sola a tutti i referenti, con il foglio del desk aggiornato; lo stesso
+quando lo staff sposta, assegna o annulla. Il pezzo di modello sta in
+`lib/chiavi-azienda.js` (la chiave: partita IVA, ragione sociale, dominio, e -
+ultima spiaggia - la scheda stessa), in `lib/agenda-modello.js`
+(`b2bAziende/{evento}--{aziendaId}`, con coda ed esigenze) e in
+`lib/agenda-b2b.js` (le operazioni); le prove stanno in
+`prove/azienda-b2b.prove.js`.
+
+Il modo di prima - un invito per PERSONA, un tavolo, un orario - resta vivo e
+provato (`prove/agenda-b2b.prove.js`): lo sceglie la scheda, e chi ha in casella
+una mail vecchia continua a vedere la pagina di cui quella mail parla.
+
 L'invito B2B non e un sondaggio di gradimento: e la convocazione con cui
 Revilaw chiama le aziende agli incontri. Ogni argomento del convegno e un
 tavolo, piu la revisione legale e la certificazione ISO, che tappe del
