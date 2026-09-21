@@ -17742,93 +17742,278 @@
        Quelle preferenze restano visibili nell'elenco, colonna per colonna,
        accanto alla prenotazione. Una persona puo' stare sotto piu' tavoli: sono
        incontri diversi, non una scelta sola. */
-    /* Raggruppa le prenotazioni B2B per argomento: per ogni tavolo, l'elenco
-       delle persone con TUTTI i loro dati. Lo usano il riquadro e la stampa. */
-    function gruppiPrenotazioniB2B(lista) {
-        const gruppi = {};
-        (lista || []).forEach(r => {
-            const grezzo = (r.extra && r.extra[COL_B2B_PRENOTATI]) || '';
-            String(grezzo).split(',').map(s => s.trim()).filter(Boolean).forEach(tema => {
-                (gruppi[tema] = gruppi[tema] || []).push({
-                    chi: (r.nome + ' ' + r.cognome).trim() || r.email,
-                    azienda: r.azienda || '', ruolo: r.ruolo || '',
-                    email: r.email || '', telefono: r.telefono || '',
-                    portale: (r.extra && r.extra.Portale) || 'Sito NGB',
-                    nota: (r.extra && r.extra['Nota B2B']) || '',
-                    // le preferenze dell'iscrizione: nella stampa aiutano a capire
-                    // se il tavolo prenotato e' quello che l'impresa cercava
-                    preferenze: (r.extra && r.extra[COL_PREF_ISCRIZIONE]) || ''
-                });
-            });
-        });
-        return gruppi;
-    }
-    /* Quante persone hanno prenotato un incontro B2B: e' il numero che il
-       blocco della giornata scrive sul pulsante che apre l'elenco. */
-    function prenotatiB2BConti(ev) {
-        if (!ev || !ev.manuale || !_evIscrizioni || !_evIscrizioni.length) return 0;
-        const gruppi = gruppiPrenotazioniB2B(_evIscrizioni);
-        const persone = new Set();
-        Object.keys(gruppi).forEach(t => gruppi[t].forEach(p => persone.add(p.email || p.chi)));
-        return persone.size;
-    }
-    /* L'elenco per argomento, in una finestra: una riga per persona, sotto il
-       suo tavolo. Prima stava aperto sulla pagina, e con nove tavoli era il
-       pezzo che spingeva l'elenco degli iscritti sotto lo schermo. */
-    function modaleRiepilogoB2B(ev) {
-        const gruppi = gruppiPrenotazioniB2B(_evIscrizioni);
-        const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
-        if (!temi.length) { toast('Nessuna prenotazione ancora raccolta per questo evento.', 'rosso'); return; }
-        apriModale('<h2>Incontri B2B: prenotati per argomento</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;max-width:none;">Chi si è prenotato a ciascun tavolo <b>rispondendo all\'invito B2B</b>. '
-            + 'I temi spuntati al momento dell\'iscrizione non entrano qui: sono preferenze, e si leggono nella colonna "Preferenze iscrizione" dell\'elenco. '
-            + 'La nota, se c\'è, racconta il progetto.</p>'
-            + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;" open><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
-                + '<div style="margin-top:6px;">' + gruppi[t].map(p =>
-                    '<div class="ev-diag-riga"><span>' + esc(p.chi) + (p.azienda ? ' - ' + esc(p.azienda) : '')
-                    + (p.email ? ' <span class="hint">' + esc(p.email) + '</span>' : '') + '</span>'
-                    + '<span class="hint">' + esc(p.nota || '') + '</span></div>').join('')
-                + '</div></details>').join('')
-            + '<div class="modale-azioni"><button class="btn btn-secondary" id="rb-stampa">Stampa PDF</button>'
+    /* ============================================================
+       IL RIEPILOGO DEI DESK
+       ------------------------------------------------------------
+       Un blocco per tavolo: gli orari con dentro l'azienda e il
+       nominativo di chi si presentera', e in CODA le seconde e terze
+       preferenze che aspettano un orario, marcate 2a o 3a. Le ALTRE
+       ESIGENZE stanno da parte, in fondo: non sono incontri, e
+       metterle in mezzo agli incontri le farebbe leggere come tali.
+
+       Da qui si fanno le due cose che il giorno prima del convegno si
+       fanno davvero: SPOSTARE un incontro (anche sul tavolo gemello) e
+       ASSEGNARE una preferenza in coda. Tutte e due fanno partire la
+       mail all'azienda con il foglio aggiornato.
+
+       Non nasce dal riepilogo "per argomento" che c'era prima: quello
+       leggeva la colonna sulla scheda dell'iscritto e non sapeva cosa
+       fosse uno slot: mostrava persone, non orari, e con l'invito per
+       azienda avrebbe contato la stessa impresa una volta per
+       referente. Questo legge l'AGENDA, che e' dove le prenotazioni
+       stanno davvero.
+
+       La coda si legge nell'ordine in cui conviene lavorarla: prima
+       chi non ha ancora nessun incontro. Con duecento preferenze e una
+       decina di posti che avanzano, l'ordine in cui compaiono sullo
+       schermo diventa il criterio con cui si decide, e tanto vale che
+       sia quello giusto.
+    ============================================================ */
+    let _rb = null, _rbEvId = '', _rbAperto = '';
+
+    function apriRiepilogoB2B(ev) {
+        _rb = null; _rbEvId = ev.id; _rbAperto = '';
+        apriModale('<h2>Riepilogo incontri B2B - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<div id="rb-corpo"><div class="hint">Leggo l\'agenda...</div></div>'
+            + '<div id="rb-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="rb-stampa">Stampa</button>'
             + '<button class="btn btn-secondary" id="rb-chiudi">Chiudi</button></div>', { classe: 'larga' });
         document.getElementById('rb-chiudi').addEventListener('click', chiudiModale);
-        document.getElementById('rb-stampa').addEventListener('click', () => stampaPrenotazioniB2B(ev));
+        document.getElementById('rb-stampa').addEventListener('click', () => stampaRiepilogoB2B(ev));
+        leggiRiepilogoB2B(ev);
+    }
+    function esitoRb(testo, ko) {
+        const e = document.getElementById('rb-esito');
+        if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+    }
+    function leggiRiepilogoB2B(ev) {
+        Cloud.agendaB2B({ azione: 'riepilogo', evento: ev.id }).then(r => {
+            if (!r || !r.ok) {
+                const box = document.getElementById('rb-corpo');
+                if (box) box.innerHTML = '<div class="ev-ko">' + esc((r && r.msg) || 'Riepilogo non leggibile.') + '</div>';
+                return;
+            }
+            _rb = r;
+            disegnaRiepilogoB2B(ev);
+        }).catch(() => {
+            const box = document.getElementById('rb-corpo');
+            if (box) box.innerHTML = '<div class="ev-ko">Servizio non raggiungibile.</div>';
+        });
+    }
+    // gli orari ancora liberi di un tavolo: sono le sole destinazioni che si
+    // propongono, perche' spostare su un orario chiuso o gia' preso non si fa
+    function liberiDi(id) {
+        const d = ((_rb && _rb.desk) || []).filter(x => x.id === id)[0];
+        return d ? d.slot.filter(s => s.stato === 'libero') : [];
+    }
+    function tendinaDove(prefisso, areaScelta) {
+        const desk = ((_rb && _rb.desk) || []).filter(d => d.attiva);
+        const area = areaScelta || (desk[0] || {}).id || '';
+        const liberi = liberiDi(area);
+        return '<select class="rb-dove-area" data-p="' + esc(prefisso) + '">'
+            + desk.map(d => '<option value="' + esc(d.id) + '"' + (d.id === area ? ' selected' : '') + '>'
+                + esc(d.nome) + ' (' + d.liberi + ')</option>').join('')
+            + '</select>'
+            + '<select class="rb-dove-ora" data-p="' + esc(prefisso) + '">'
+            + (liberi.length
+                ? liberi.map(s => '<option value="' + esc(s.chiave) + '">' + esc(s.ora) + ' - ' + esc(s.fine) + '</option>').join('')
+                : '<option value="">nessun orario libero</option>')
+            + '</select>';
+    }
+    function disegnaRiepilogoB2B(ev) {
+        const box = document.getElementById('rb-corpo');
+        if (!box || !_rb) return;
+        const puo = puoAggiungereIscrizioni();
+        const c = _rb.conti || {};
+        const conti = '<div class="rb-conti">'
+            + '<span><b>' + (c.aziende || 0) + '</b> aziende invitate</span>'
+            + '<span><b>' + (c.occupati || 0) + '</b> incontri fissati</span>'
+            + '<span class="' + (c.codaDaAssegnare ? 'ambra' : '') + '"><b>' + (c.codaDaAssegnare || 0) + '</b> preferenze in coda</span>'
+            + '<span class="' + (c.esigenzeAperte ? 'ambra' : '') + '"><b>' + (c.esigenzeAperte || 0) + '</b> esigenze da guardare</span>'
+            + '<span class="' + (c.senzaIncontro ? 'ambra' : '') + '"><b>' + (c.senzaIncontro || 0) + '</b> aziende senza incontro</span>'
+            + '<span><b>' + (c.liberi || 0) + '</b> orari liberi</span></div>';
+        const rigaSlot = (d, s) => {
+            const chi = s.chi || {};
+            const spostaAperto = _rbAperto === ('sposta|' + d.id + '|' + s.chiave);
+            return '<div class="rb-riga">'
+                + '<span class="rb-ora">' + esc(s.ora) + '</span>'
+                + '<span class="rb-chi"><b>' + esc(chi.aziendaNome || chi.azienda || '-') + '</b>'
+                + (chi.perChi ? '<span class="rb-per">per ' + esc(chi.perChi) + '</span>' : '')
+                + ((Number(chi.scelta) || 1) > 1 ? '<span class="rb-pos">' + (Number(chi.scelta) === 3 ? '3a' : '2a') + ' scelta</span>' : '')
+                + (chi.email ? '<span class="hint">' + esc(chi.email) + (chi.telefono ? ' &middot; ' + esc(chi.telefono) : '') + '</span>' : '')
+                + (chi.nota ? '<span class="rb-nota">' + esc(chi.nota) + '</span>' : '')
+                + '</span>'
+                + (puo ? '<span class="rb-az">'
+                    + '<button class="btn btn-sm btn-ghost rb-sposta" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Sposta</button>'
+                    + '<button class="btn btn-sm btn-ghost rb-libera" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Annulla</button>'
+                    + '</span>' : '')
+                + (spostaAperto
+                    ? '<div class="rb-dove">Sposta a: ' + tendinaDove('sposta|' + d.id + '|' + s.chiave, d.id)
+                    + '<button class="btn btn-sm btn-primary rb-sposta-ok" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Sposta e avvisa</button>'
+                    + '<button class="btn btn-sm btn-ghost rb-annulla">Lascia stare</button></div>'
+                    : '')
+                + '</div>';
+        };
+        const rigaCoda = (d, v) => {
+            const aperto = _rbAperto === ('coda|' + v.id);
+            return '<div class="rb-riga rb-coda-riga' + (v.haGiaUnIncontro ? ' ha-gia' : '') + '">'
+                + '<span class="rb-ora">' + (v.pos === 3 ? '3a' : '2a') + '</span>'
+                + '<span class="rb-chi"><b>' + esc(v.aziendaNome) + '</b>'
+                + (v.perChi ? '<span class="rb-per">per ' + esc(v.perChi) + '</span>' : '')
+                + '<span class="hint">' + (v.haGiaUnIncontro ? 'ha gia un incontro' : 'nessun incontro ancora') + '</span>'
+                + '</span>'
+                + (puo ? '<span class="rb-az">'
+                    + '<button class="btn btn-sm btn-ghost rb-assegna" data-coda="' + esc(v.id) + '">Assegna</button>'
+                    + '<button class="btn btn-sm btn-ghost rb-scarta" data-coda="' + esc(v.id) + '" data-az="' + esc(v.aziendaId) + '">Scarta</button>'
+                    + '</span>' : '')
+                + (aperto
+                    ? '<div class="rb-dove">Orario: ' + tendinaDove('coda|' + v.id, d.id)
+                    + '<button class="btn btn-sm btn-primary rb-assegna-ok" data-coda="' + esc(v.id) + '" data-az="' + esc(v.aziendaId) + '">Assegna e avvisa</button>'
+                    + '<button class="btn btn-sm btn-ghost rb-annulla">Lascia stare</button></div>'
+                    : '')
+                + '</div>';
+        };
+        const deskHtml = (_rb.desk || []).filter(d => d.attiva || d.occupati || d.coda.length).map(d => {
+            const presi = d.slot.filter(s => s.stato === 'occupato');
+            return '<div class="rb-desk"><div class="rb-desk-testa"><b>' + esc(d.nome) + '</b>'
+                + (d.referenti.length ? '<span class="hint">con ' + esc(d.referenti.map(r => r.nome).join(', ')) + '</span>' : '<span class="ev-ko">nessun referente</span>')
+                + '<span class="hint">' + presi.length + ' fissati &middot; ' + d.liberi + ' liberi</span></div>'
+                + (presi.length ? presi.map(s => rigaSlot(d, s)).join('') : '<div class="hint" style="padding:6px 0;">Nessun incontro fissato.</div>')
+                + (d.coda.length
+                    ? '<div class="rb-coda-et">In coda a questo tavolo (' + d.coda.length + ')</div>'
+                    + d.coda.map(v => rigaCoda(d, v)).join('')
+                    : '')
+                + '</div>';
+        }).join('');
+        const esigenze = (_rb.esigenze || []);
+        const esigenzeHtml = esigenze.length
+            ? '<div class="rb-desk rb-esigenze"><div class="rb-desk-testa"><b>Altre esigenze segnalate</b>'
+            + '<span class="hint">non sono incontri: sono domande a cui rispondere</span></div>'
+            + esigenze.map(e => '<div class="rb-riga' + (e.stato === 'gestita' ? ' gestita' : '') + '">'
+                + '<span class="rb-chi"><b>' + esc(e.aziendaNome) + '</b>'
+                + (e.perChi ? '<span class="rb-per">per ' + esc(e.perChi) + '</span>' : '')
+                + '<span class="rb-nota">' + esc(e.testo) + '</span></span>'
+                + (puo ? '<span class="rb-az"><button class="btn btn-sm btn-ghost rb-esigenza" data-az="' + esc(e.aziendaId) + '" '
+                    + 'data-id="' + esc(e.id) + '" data-stato="' + (e.stato === 'gestita' ? 'aperta' : 'gestita') + '">'
+                    + (e.stato === 'gestita' ? 'Riapri' : 'Segna gestita') + '</button></span>' : '')
+                + '</div>').join('')
+            + '</div>'
+            : '';
+        box.innerHTML = conti + (deskHtml || '<div class="hint">Nessun tavolo attivo.</div>') + esigenzeHtml;
+        collegaRiepilogoB2B(ev);
+    }
+    function collegaRiepilogoB2B(ev) {
+        const box = document.getElementById('rb-corpo');
+        if (!box) return;
+        const ridisegna = () => disegnaRiepilogoB2B(ev);
+        box.querySelectorAll('.rb-sposta').forEach(b => b.addEventListener('click', () => {
+            _rbAperto = 'sposta|' + b.dataset.area + '|' + b.dataset.chiave; ridisegna();
+        }));
+        box.querySelectorAll('.rb-assegna').forEach(b => b.addEventListener('click', () => {
+            _rbAperto = 'coda|' + b.dataset.coda; ridisegna();
+        }));
+        box.querySelectorAll('.rb-annulla').forEach(b => b.addEventListener('click', () => { _rbAperto = ''; ridisegna(); }));
+        // cambiando tavolo cambiano gli orari liberi: la seconda tendina si rifa'
+        box.querySelectorAll('.rb-dove-area').forEach(sel => sel.addEventListener('change', () => {
+            const ora = box.querySelector('.rb-dove-ora[data-p="' + sel.dataset.p + '"]');
+            if (!ora) return;
+            const liberi = liberiDi(sel.value);
+            ora.innerHTML = liberi.length
+                ? liberi.map(s => '<option value="' + esc(s.chiave) + '">' + esc(s.ora) + ' - ' + esc(s.fine) + '</option>').join('')
+                : '<option value="">nessun orario libero</option>';
+        }));
+        const dove = p => {
+            const a = box.querySelector('.rb-dove-area[data-p="' + p + '"]');
+            const o = box.querySelector('.rb-dove-ora[data-p="' + p + '"]');
+            return { area: a ? a.value : '', chiave: o ? o.value : '' };
+        };
+        const chiama = (corpo, dopo) => {
+            esitoRb('Un momento...');
+            Cloud.agendaB2B(Object.assign({ evento: ev.id }, corpo)).then(r => {
+                if (!r || !r.ok) { esitoRb((r && r.msg) || 'Operazione non riuscita.', true); return; }
+                _rbAperto = '';
+                esitoRb(dopo(r));
+                leggiRiepilogoB2B(ev);
+                caricaAgendaB2B(ev, () => { if (vistaCorrente === 'eventi') aggiornaSchedaGiornata(ev); }, true);
+            }).catch(() => esitoRb('Servizio non raggiungibile.', true));
+        };
+        box.querySelectorAll('.rb-sposta-ok').forEach(b => b.addEventListener('click', () => {
+            const p = 'sposta|' + b.dataset.area + '|' + b.dataset.chiave;
+            const d = dove(p);
+            if (!d.chiave) { esitoRb('Scegli un orario libero.', true); return; }
+            chiama({
+                azione: 'b2b-sposta', daArea: b.dataset.area, daChiave: b.dataset.chiave,
+                aArea: d.area, aChiave: d.chiave, avvisa: true
+            }, r => 'Incontro spostato alle ' + (r.ora || '') + ': avvisati ' + ((r.avvisati || []).length) + ' referenti.');
+        }));
+        box.querySelectorAll('.rb-assegna-ok').forEach(b => b.addEventListener('click', () => {
+            const p = 'coda|' + b.dataset.coda;
+            const d = dove(p);
+            if (!d.chiave) { esitoRb('Scegli un orario libero.', true); return; }
+            chiama({
+                azione: 'coda-assegna', aziendaId: b.dataset.az, codaId: b.dataset.coda,
+                area: d.area, chiave: d.chiave, avvisa: true
+            }, r => 'Preferenza assegnata alle ' + (r.ora || '') + ': avvisati ' + ((r.avvisati || []).length) + ' referenti.');
+        }));
+        box.querySelectorAll('.rb-scarta').forEach(b => b.addEventListener('click', () => {
+            if (!confirm('Scarto questa preferenza? Resta scritta come scartata, e all\'azienda non parte nessuna mail: glielo dici tu.')) return;
+            chiama({ azione: 'coda-scarta', aziendaId: b.dataset.az, codaId: b.dataset.coda }, () => 'Preferenza scartata.');
+        }));
+        box.querySelectorAll('.rb-libera').forEach(b => b.addEventListener('click', () => {
+            if (!confirm('Annullo questo incontro? All\'azienda parte una mail che dice che non c\'è più, con il collegamento per riprenotare.')) return;
+            chiama({ azione: 'agenda-libera', area: b.dataset.area, chiave: b.dataset.chiave, avvisa: true },
+                r => 'Incontro annullato: avvisati ' + ((r.avvisati || []).length) + ' referenti.');
+        }));
+        box.querySelectorAll('.rb-esigenza').forEach(b => b.addEventListener('click', () => {
+            chiama({ azione: 'esigenza-segna', aziendaId: b.dataset.az, esigenzaId: b.dataset.id, stato: b.dataset.stato },
+                () => 'Segnata.');
+        }));
     }
 
-    /* Stampa in PDF del riepilogo per argomento: un capitolo per tavolo con la
-       tabella completa dei prenotati (tutti i dati della scheda, nota
-       compresa). Si apre la finestra di stampa del browser, da cui si salva
-       in PDF: niente librerie, e l'impaginazione la fanno le regole di
-       stampa scritte qui dentro. */
-    function stampaPrenotazioniB2B(ev) {
-        const gruppi = gruppiPrenotazioniB2B(_evIscrizioni);
-        const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
-        if (!temi.length) { toast('Nessuna prenotazione ancora raccolta per questo evento.', 'rosso'); return; }
-        const persone = new Set();
-        let scelte = 0;
-        temi.forEach(t => gruppi[t].forEach(p => { persone.add(p.email || p.chi); scelte++; }));
+    /* La stampa del riepilogo: un capitolo per tavolo, con gli orari e la coda.
+       E' il foglio che il giorno prima si guarda insieme, e la sera prima si
+       porta a casa: per questo porta anche le altre esigenze, che sul foglio
+       del desk non ci stanno. */
+    function stampaRiepilogoB2B(ev) {
+        if (!_rb) { toast('Riepilogo non ancora caricato.', 'rosso'); return; }
+        const c = _rb.conti || {};
         const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const sezioni = temi.map(t =>
-            '<section class="tema"><h2>' + esc(t) + ' <span class="conta">' + gruppi[t].length
-            + (gruppi[t].length === 1 ? ' prenotato' : ' prenotati') + '</span></h2>'
-            + '<table><thead><tr><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Preferenze iscrizione</th><th>Progetto / esigenza</th></tr></thead><tbody>'
-            + gruppi[t].map(p => '<tr>'
-                + '<td class="forte">' + esc(p.chi) + '</td>'
-                + '<td>' + esc(p.azienda || '-') + '</td>'
-                + '<td>' + esc(p.ruolo || '-') + '</td>'
-                + '<td>' + esc(p.email || '-') + '</td>'
-                + '<td>' + esc(p.telefono || '-') + '</td>'
-                + '<td class="nota">' + esc(p.preferenze || '-') + '</td>'
-                + '<td class="nota">' + esc(p.nota || '-') + '</td>'
-                + '</tr>').join('')
-            + '</tbody></table></section>').join('');
+        const sezioni = (_rb.desk || []).filter(d => d.attiva || d.occupati || d.coda.length).map(d => {
+            const presi = d.slot.filter(s => s.stato === 'occupato');
+            return '<section class="tema"><h2>' + esc(d.nome) + ' <span class="conta">' + presi.length
+                + (presi.length === 1 ? ' incontro' : ' incontri') + (d.coda.length ? ' &middot; ' + d.coda.length + ' in coda' : '') + '</span></h2>'
+                + (d.referenti.length ? '<div class="sotto">Con ' + esc(d.referenti.map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ')) + '</div>' : '')
+                + (presi.length ? '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Partecipa</th><th>Contatti</th><th>Nota</th></tr></thead><tbody>'
+                    + presi.map(s => {
+                        const chi = s.chi || {};
+                        return '<tr><td class="forte">' + esc(s.ora) + ' - ' + esc(s.fine) + '</td>'
+                            + '<td class="forte">' + esc(chi.aziendaNome || chi.azienda || '-')
+                            + ((Number(chi.scelta) || 1) > 1 ? ' (' + (Number(chi.scelta) === 3 ? '3a' : '2a') + ' scelta)' : '') + '</td>'
+                            + '<td>' + esc(chi.perChi || chi.nome || '-') + '</td>'
+                            + '<td>' + esc((chi.email || '') + (chi.telefono ? ' - ' + chi.telefono : '')) + '</td>'
+                            + '<td class="nota">' + esc(chi.nota || '') + '</td></tr>';
+                    }).join('') + '</tbody></table>' : '<div class="sotto">Nessun incontro fissato.</div>')
+                + (d.coda.length ? '<div class="sotto"><b>In coda:</b> ' + d.coda.map(v =>
+                    esc(v.aziendaNome) + ' (' + (v.pos === 3 ? '3a' : '2a') + (v.perChi ? ', per ' + esc(v.perChi) : '') + ')').join('; ') + '</div>' : '')
+                + '</section>';
+        }).join('');
+        const esigenze = (_rb.esigenze || []);
+        const sezEsigenze = esigenze.length
+            ? '<section class="tema"><h2>Altre esigenze segnalate <span class="conta">' + esigenze.length + '</span></h2>'
+            + '<table><thead><tr><th>Azienda</th><th>Chi</th><th>Cosa</th></tr></thead><tbody>'
+            + esigenze.map(e => '<tr><td class="forte">' + esc(e.aziendaNome) + '</td><td>' + esc(e.perChi || '-')
+                + '</td><td class="nota">' + esc(e.testo) + '</td></tr>').join('')
+            + '</tbody></table></section>'
+            : '';
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
-            + '<title>Incontri B2B per argomento - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
+            + '<title>Riepilogo incontri B2B - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
             + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
-            + '<header><h1>Incontri B2B: prenotati per argomento</h1>'
+            + '<header><h1>Incontri B2B: il riepilogo dei desk</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
-            + '<div class="meta">' + temi.length + ' tavoli &middot; ' + persone.size + ' persone &middot; ' + scelte + ' prenotazioni (solo risposte all\'invito B2B) &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
-            + sezioni
+            + '<div class="meta">' + (c.aziende || 0) + ' aziende &middot; ' + (c.occupati || 0) + ' incontri &middot; '
+            + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi &middot; stampato il '
+            + esc(quando) + ' &middot; documento riservato</div></header>'
+            + sezioni + sezEsigenze
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
         apriStampa(pagina);
@@ -18225,13 +18410,14 @@
         if (aperte) guai.push('<b>' + aperte + '</b> richiest' + (aperte === 1 ? 'a' : 'e') + ' B2B');
         if (guai.length) righe.push(rigaBl('Da guardare', '<span class="ev-ko">' + guai.join(' &middot; ') + '</span>'));
         const puoInvitare = ev.manuale && puoAggiungereIscrizioni();
-        const prenotati = prenotatiB2BConti(ev);
+        const prenotatiSlot = (a ? a.aree.reduce((n, x) => n + (x.occupati || 0), 0) : 0);
         return gruppoEv({
             id: 'ev-giornata-blocco', titolo: 'La giornata', spiega: 'programma e incontri B2B',
             stato: righe.join(''),
             azioni: '<button class="btn btn-sm ' + (gravi || aperte ? 'btn-primary' : 'btn-secondary') + '" id="ev-giornata">Apri la giornata</button>'
                 + (puoInvitare ? '<button class="btn btn-sm btn-secondary" id="ev-b2b">Inviti B2B</button>' : '')
-                + (prenotati ? '<button class="btn btn-sm btn-ghost" id="ev-b2b-elenco">Prenotati (' + prenotati + ')</button>' : '')
+                + (a ? '<button class="btn btn-sm btn-ghost" id="ev-b2b-elenco">Riepilogo B2B'
+                    + (prenotatiSlot ? ' (' + prenotatiSlot + ')' : '') + '</button>' : '')
         });
     }
     function collegaGiornataBlocco(ev) {
@@ -18240,7 +18426,7 @@
         const i = document.getElementById('ev-b2b');
         if (i) i.addEventListener('click', () => modaleInvitoB2B(ev));
         const e = document.getElementById('ev-b2b-elenco');
-        if (e) e.addEventListener('click', () => modaleRiepilogoB2B(ev));
+        if (e) e.addEventListener('click', () => apriRiepilogoB2B(ev));
     }
     function aggiornaSchedaGiornata(ev) {
         const el = document.getElementById('ev-giornata-blocco');
@@ -20007,6 +20193,64 @@
         let spostaNuova = '';         // ...la ragione sociale scritta a mano: sopravvivono al ridisegno
         const destinatari = () => aziende.filter(a => scelte.has(a.chiave))
             .reduce((tot, a) => tot.concat(a.persone), []);
+        /* ---- DALLE AZIENDE A VIDEO ALLE AZIENDE DA INVITARE ----
+           Il gruppo che si vede in elenco e' fatto per LEGGERE: unisce chi ha
+           la stessa ragione sociale o lo stesso dominio. L'invito pero' crea
+           una PRENOTAZIONE, e li' un gruppo sbagliato non e' un fastidio ma un
+           danno: un collegamento solo condiviso fra due imprese diverse, ognuna
+           in grado di cambiare la prenotazione dell'altra. Quindi prima di
+           spedire il gruppo si ricontrolla con due regole:
+             - la PARTITA IVA comanda. Se dentro un gruppo ce ne sono due
+               diverse, quel gruppo sono due imprese (succede con le societa'
+               dello stesso gruppo, scritte uguale);
+             - il gruppo "senza" - chi non ha ne' ragione sociale ne' dominio
+               aziendale - non si invita MAI come gruppo: ognuno vale come
+               un'azienda a se'. */
+        const pivaDi = c => {
+            const x = (c && c.riga && c.riga.extra) ? c.riga.extra : {};
+            const cifre = String(x['P.IVA'] || x['Partita IVA'] || x['P.Iva'] || '').replace(/[^0-9]/g, '');
+            return cifre.length === 11 ? cifre : '';
+        };
+        const nomeDi = (g, persone) => g.nomeScritto || g.nome
+            || (persone[0] && (persone[0].azienda || persone[0].nome)) || 'Azienda';
+        function unitaInvito() {
+            const fuori = [];
+            aziende.filter(a => scelte.has(a.chiave)).forEach(g => {
+                if (g.chiave === 'senza') {
+                    g.persone.forEach(c => fuori.push({
+                        chiave: pivaDi(c) ? 'p:' + pivaDi(c) : 'doc:' + (c.doc || c.id),
+                        nome: c.azienda || c.nome, piva: pivaDi(c), persone: [c]
+                    }));
+                    return;
+                }
+                const perPiva = {}, senzaPiva = [];
+                g.persone.forEach(c => {
+                    const piva = pivaDi(c);
+                    if (piva) { (perPiva[piva] = perPiva[piva] || []).push(c); } else senzaPiva.push(c);
+                });
+                const pive = Object.keys(perPiva);
+                if (!pive.length) {
+                    fuori.push({ chiave: g.chiave, nome: nomeDi(g, g.persone), piva: '', persone: g.persone });
+                    return;
+                }
+                pive.forEach(piva => fuori.push({
+                    chiave: 'p:' + piva, nome: nomeDi(g, perPiva[piva]), piva: piva, persone: perPiva[piva]
+                }));
+                /* Chi nel gruppo la partita IVA non ce l'ha resta con gli altri
+                   SOLO se di partite IVA ce n'era una sola: con due, non si sa a
+                   quale delle due imprese appartenga, e tirare a indovinare qui
+                   vuol dire dargli il collegamento dell'altra. */
+                if (senzaPiva.length) {
+                    if (pive.length === 1) {
+                        const u = fuori[fuori.length - 1];
+                        u.persone = u.persone.concat(senzaPiva);
+                    } else {
+                        fuori.push({ chiave: g.chiave, nome: nomeDi(g, senzaPiva), piva: '', persone: senzaPiva });
+                    }
+                }
+            });
+            return fuori;
+        }
         /* IL TAVOLO A CUI SI INVITA. Uno per invio: la mail dice l'argomento,
            chi lo tiene e in che fascia della giornata si sta, e chi apre la
            pagina trova gli orari di quel tavolo. Di partenza si propone quello
@@ -20014,28 +20258,31 @@
            scelta resta di chi manda. I tavoli senza referente si possono
            invitare lo stesso e la finestra lo segnala: alle volte il nome si
            decide dopo, e non e' il caso di bloccare l'invio per questo. */
-        let areaScelta = attive.slice().sort((a, b) => b.liberi - a.liberi)[0].id;
-        const areaCorrente = () => attive.filter(a => a.id === areaScelta)[0] || attive[0];
+        // i tavoli non si scelgono piu' uno per volta: l'invito li copre tutti,
+        // e questi riquadri servono a vedere come stanno prima di spedire
         const defArea = id => areeB2BDef().filter(a => a.id === id)[0] || { id: id, nome: nomeAreaB2B(id), descrizione: '' };
+        /* La mail dell'invito: UNA per azienda, e copre TUTTI i tavoli attivi.
+           L'impresa ne indichera' tre in ordine dalla pagina, quindi elencarli
+           qui - con chi li tiene - e' quello che le permette di decidere prima
+           di aprire il collegamento. */
         const mailDi = () => {
-            if (!window.RV_NEWSLETTER) return null;
-            const a = areaCorrente();
-            return RV_NEWSLETTER.invitoB2BArea({
+            if (!window.RV_NEWSLETTER || !RV_NEWSLETTER.invitoB2BAzienda) return null;
+            return RV_NEWSLETTER.invitoB2BAzienda({
                 evento: {
                     titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
                     luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
                 },
-                area: defArea(a.id),
-                referenti: a.referenti,
-                giornata: agenda.giornata
+                aree: attive.map(a => Object.assign({}, defArea(a.id), { referenti: a.referenti })),
+                giornata: agenda.giornata,
+                regole: RV_NEWSLETTER.regoleB2B(agenda.giornata)
             });
         };
         const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
         const testaHint = unica
             ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') riceverà la mail con il suo collegamento personale alla pagina di prenotazione, e una copia nascosta torna a te. '
             + 'Dalla pagina sceglie <b>un orario</b> fra quelli ancora liberi del tavolo che scegli qui sotto.'
-            : 'Scegli il tavolo e le aziende da invitare: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
-            + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie <b>un orario</b> fra quelli liberi. '
+            : 'Scegli le aziende da invitare: parte <b>una mail per azienda</b>, indirizzata a tutti i suoi referenti iscritti insieme, '
+            + 'con un collegamento unico che apre le scelte dell\'impresa - tre preferenze in ordine, e il nominativo di chi partecipa. '
             + 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno di persona, e chi segue online o è aderente Revilaw resta fuori. '
             + 'Chi l\'ha già ricevuta la riceve di nuovo. Ogni invito torna in copia nascosta anche a te. '
             + 'Gli orari prenotati compaiono nell\'elenco (colonne "B2B prenotati" e "Orario B2B") e nell\'agenda della giornata.';
@@ -20043,17 +20290,18 @@
            quello che serve sapere prima di premere Invia - quanti posti restano
            e chi tiene il tavolo - deve stare davanti agli occhi, non dentro una
            voce da aprire. */
-        const rigaArea = a => '<label class="ib-area' + (a.id === areaScelta ? ' scelta' : '') + '">'
-            + '<input type="radio" name="ib-area" value="' + esc(a.id) + '"' + (a.id === areaScelta ? ' checked' : '') + '>'
+        const rigaArea = a => '<div class="ib-area">'
             + '<span class="ib-area-dentro"><span class="ib-area-nome">' + esc(a.nome) + '</span>'
             + '<span class="ib-area-chi">' + (a.referenti.length
                 ? esc(a.referenti.map(r => r.nome).join(', '))
                 : '<span class="ev-ko">nessun referente</span>') + '</span>'
             + '<span class="ib-area-posti">' + a.liberi + (a.liberi === 1 ? ' orario libero' : ' orari liberi')
-            + ' &middot; ' + a.occupati + ' prenotati</span></span></label>';
-        const campoArea = '<div class="campo"><label>Tavolo a cui invitare</label>'
-            + '<div class="hint" style="margin:-2px 0 8px;">Un invito, un tavolo: la mail parla di quell\'argomento e porta agli orari di quel tavolo. '
-            + 'Per convocare le stesse aziende a due tavoli si fanno due invii. '
+            + ' &middot; ' + a.occupati + ' prenotati</span></span></div>';
+        const liberiTotali = attive.reduce((n, a) => n + a.liberi, 0);
+        const campoArea = '<div class="campo"><label>I tavoli dell\'invito</label>'
+            + '<div class="hint" style="margin:-2px 0 8px;">L\'invito &egrave; uno solo e copre <b>tutti</b> i tavoli attivi: '
+            + 'ogni azienda ne indica <b>tre in ordine</b>, e solo la prima prenota davvero un orario. '
+            + 'In tutto ci sono <b>' + liberiTotali + (liberiTotali === 1 ? ' orario libero' : ' orari liberi') + '</b>. '
             + 'Orari, durata e referenti si cambiano dalla finestra <b>La giornata</b>.</div>'
             + '<div class="ib-aree">' + attive.map(rigaArea).join('') + '</div>'
             + '<div id="ib-area-avviso" class="hint"></div></div>';
@@ -20082,9 +20330,14 @@
         function aggiornaInvio() {
             const b = document.getElementById('ib-si');
             if (!b || b.dataset.inCorso === '1') return;
-            const n = unica ? 1 : destinatari().length;
+            /* Si conta in AZIENDE, perche' e' quello che parte: una mail per
+               impresa. Contare gli indirizzi direbbe un numero piu' grande di
+               quante mail partono davvero, e chi preme si aspetterebbe altro. */
+            const n = unica ? 1 : unitaInvito().length;
+            const ind = unica ? 1 : destinatari().length;
             b.textContent = unica ? 'Invia l\'invito'
-                : (n ? 'Invia a ' + n + (n === 1 ? ' destinatario' : ' destinatari') : 'Nessun destinatario');
+                : (n ? 'Invia a ' + n + (n === 1 ? ' azienda' : ' aziende')
+                    + (ind !== n ? ' (' + ind + ' referenti)' : '') : 'Nessuna azienda');
             b.disabled = !n;
         }
         // "a, b, c" scritto come "a · b · c", con ogni voce al riparo dall'HTML
@@ -20306,30 +20559,22 @@
         function aggiornaAvvisoArea() {
             const box = document.getElementById('ib-area-avviso');
             if (!box) return;
-            const a = areaCorrente();
+            const senzaRef = attive.filter(a => !a.referenti.length);
+            const n = unitaInvito().length;
             const pezzi = [];
-            if (!a.referenti.length) pezzi.push('<span class="ev-ko">Questo tavolo non ha un referente: '
-                + 'la mail non potrà dire chi accoglierà l\'ospite. Puoi indicarlo aprendo quel tavolo dalla giornata.</span>');
-            if (!a.liberi) pezzi.push('<span class="ev-ko">Nessun orario libero: chi riceve l\'invito troverà tutto prenotato '
-                + 'e potrà solo chiedere un incontro fuori orario. Apri qualche orario chiuso prima di invitare.</span>');
-            else pezzi.push('<b>' + a.liberi + '</b> ' + (a.liberi === 1 ? 'orario libero' : 'orari liberi')
-                + ' &middot; ' + a.occupati + ' già prenotati'
-                + (a.liberi < 5 ? ' &middot; restano pochi posti: invita poche aziende per volta' : ''));
+            if (senzaRef.length) pezzi.push('<span class="ev-ko">' + senzaRef.length
+                + (senzaRef.length === 1 ? ' tavolo non ha un referente' : ' tavoli non hanno un referente')
+                + ' (' + esc(senzaRef.map(a => a.nome).join(', ')) + '): la mail non potrà dire chi accoglierà l\'ospite. '
+                + 'Puoi indicarlo aprendo quel tavolo dalla giornata.</span>');
+            if (!liberiTotali) pezzi.push('<span class="ev-ko">Nessun orario libero in tutta la giornata: chi riceve l\'invito '
+                + 'troverà tutto prenotato e potrà solo chiedere un incontro fuori orario.</span>');
+            else pezzi.push('<b>' + liberiTotali + '</b> ' + (liberiTotali === 1 ? 'orario libero' : 'orari liberi')
+                + ' in tutto, su ' + attive.length + ' tavoli'
+                + (n ? ' &middot; <b>' + n + '</b> ' + (n === 1 ? 'azienda da invitare' : 'aziende da invitare') : '')
+                + (n > liberiTotali ? ' <span class="ev-ko">&middot; le aziende sono più degli orari: chi prenota dopo resta fuori</span>' : ''));
             box.innerHTML = pezzi.join('<br>');
         }
-        /* L'anteprima della mail non si ridisegna qui: la finestra ascolta gia'
-           i "change" di tutto il suo corpo (anteprimaSegueCampi), e cambiare
-           tavolo e' uno di quelli. */
-        document.querySelectorAll('input[name="ib-area"]').forEach(r => r.addEventListener('change', () => {
-            if (!r.checked) return;
-            areaScelta = r.value;
-            document.querySelectorAll('.ib-area').forEach(l => {
-                const inp = l.querySelector('input');
-                l.classList.toggle('scelta', !!(inp && inp.checked));
-            });
-            esito('');
-            aggiornaAvvisoArea();
-        }));
+
         aggiornaAvvisoArea();
         document.getElementById('ib-no').addEventListener('click', chiudiModale);
         /* Anteprima aperta da subito, e che segue il tavolo scelto: la mail
@@ -20344,47 +20589,59 @@
                 .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
         }));
         document.getElementById('ib-si').addEventListener('click', () => {
-            const area = areaCorrente();
+            const unita = unitaInvito();
             const scelti = destinatari();
-            if (!scelti.length) { esito('Nessuna azienda spuntata: scegli almeno un\'azienda da invitare.', true); return; }
-            /* Piu' inviti che orari liberi: non e' un errore da impedire - una
-               parte delle aziende non risponde mai - ma va detto prima, perche'
-               chi resta fuori vede "tutto esaurito" e puo' solo chiedere un
-               incontro fuori orario. */
-            if (scelti.length > area.liberi
-                && !confirm('Stai invitando ' + scelti.length + ' referenti al tavolo "' + area.nome + '", che ha '
-                    + area.liberi + (area.liberi === 1 ? ' orario libero' : ' orari liberi')
-                    + '.\n\nChi non trova posto potrà solo chiedere un incontro fuori orario. Mando lo stesso?')) return;
+            if (!unita.length) { esito('Nessuna azienda spuntata: scegli almeno un\'azienda da invitare.', true); return; }
+            /* Piu' aziende che orari liberi: non e' un errore da impedire - una
+               parte non risponde mai - ma va detto PRIMA con i numeri, perche'
+               chi resta fuori trova "esaurito" e puo' solo chiedere un incontro
+               fuori orario. E le seconde e terze preferenze si assegnano solo
+               con quello che avanza. */
+            if (unita.length > liberiTotali
+                && !confirm('Stai invitando ' + unita.length + ' aziende, e in tutto ci sono '
+                    + liberiTotali + (liberiTotali === 1 ? ' orario libero' : ' orari liberi') + '.\n\n'
+                    + 'Chi prenota per primo prende il posto; gli altri potranno solo chiedere un incontro fuori orario. Mando lo stesso?')) return;
             const m = mailDi();
             if (!m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
-            const dest = scelti.map(c => ({ id: c.id, doc: c.doc }));
-            const nAziende = aziende.filter(a => scelte.has(a.chiave)).length;
+            /* Per ogni azienda vanno TUTTE le schede dei suoi referenti, non
+               una per indirizzo: due persone che condividono la casella sono
+               due persone, e una scheda senza l'azienda scritta sopra non
+               aprirebbe il modulo dell'impresa. */
+            const carico = unita.map(u => ({
+                chiave: u.chiave, nome: u.nome, piva: u.piva,
+                referenti: u.persone.reduce((tot, c) => tot.concat(
+                    (c.docs && c.docs.length ? c.docs : [c.doc]).filter(Boolean).map(d => ({ doc: d, id: c.id }))
+                ), [])
+            }));
+            const areeInvito = attive.map(a => a.id);
             const b = document.getElementById('ib-si');
             b.dataset.inCorso = '1';
             b.disabled = true; b.textContent = 'Invio...';
             const liberaInvio = () => { delete b.dataset.inCorso; b.disabled = false; aggiornaInvio(); };
-            // a lotti da 40: il servizio spedisce una mail alla volta, e cosi'
-            // nessuna chiamata sfora il tempo massimo della funzione
+            // a lotti da 25: il servizio manda una mail alla volta e si ferma da
+            // solo prima del tempo massimo, dicendo quali aziende non ha fatto
             (async () => {
                 let inviate = 0, gia = 0, saltate = 0, falliti = 0;
-                for (let i = 0; i < dest.length; i += 40) {
-                    esito('Invio in corso: ' + inviate + ' inviate su ' + dest.length + ' indirizzi...');
+                let coda = carico.slice();
+                let giri = 0;
+                while (coda.length && giri < 40) {
+                    giri++;
+                    const lotto = coda.slice(0, 25);
+                    esito('Invio in corso: ' + inviate + ' aziende su ' + carico.length + '...');
                     let r;
                     try {
                         r = await Cloud.operaPresenza({
-                            /* forza: SEMPRE. L'invito e' la convocazione agli incontri, non
-                               un sondaggio da mandare una volta sola: chi l'ha gia' ricevuto
-                               lo riceve di nuovo, con la scelta aggiornata scritta dentro.
-                               Saltarlo lascerebbe fuori proprio i referenti gia' contattati. */
-                            azione: 'invita-b2b', evento: ev.id, destinatari: dest.slice(i, i + 40), forza: true,
-                            /* Il TAVOLO viaggia con l'invito e resta scritto sulla
-                               scheda: e' cosi' che la pagina di prenotazione sa quali
-                               orari proporre, e non ci sta nel collegamento, dove
-                               chiunque potrebbe cambiarlo. I dati dell'evento servono
-                               alla mail di conferma e al foglio del desk, che partono
-                               DOPO, quando l'ospite prenota: il servizio non ha una
+                            /* forza: SEMPRE. L'invito e' la convocazione agli incontri,
+                               non un sondaggio da mandare una volta sola: chi l'ha gia'
+                               ricevuto lo riceve di nuovo, con le scelte gia' fatte
+                               visibili dal collegamento. */
+                            azione: 'invita-b2b-azienda', evento: ev.id, aziende: lotto, forza: true,
+                            /* I TAVOLI viaggiano con l'invito e restano scritti sul
+                               documento dell'azienda: e' cosi' che la pagina sa quali
+                               proporre. I dati dell'evento servono alla conferma e al
+                               foglio del desk, che partono DOPO: il servizio non ha una
                                tabella degli eventi da cui ricavarli. */
-                            area: area.id,
+                            aree: areeInvito,
                             eventoDati: {
                                 titolo: ev.titolo, quando: ev.quando,
                                 luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
@@ -20398,22 +20655,26 @@
                         return;
                     }
                     inviate += r.inviate || 0; gia += r.giaInvitate || 0;
-                    saltate += (r.senzaScheda || 0) + (r.senzaEmail || 0);
+                    saltate += r.senzaReferenti || 0;
                     falliti += (r.falliti || []).length;
+                    /* Il servizio dice quali aziende NON ha fatto (si ferma prima
+                       di sforare il tempo della funzione): si riprende da quelle,
+                       invece di dare per buono che il lotto sia partito intero. */
+                    const restanti = new Set(r.restanti || []);
+                    coda = lotto.filter(x => restanti.has(x.chiave)).concat(coda.slice(25));
                 }
                 chiudiModale();
-                toast('Invito B2B (' + area.nome + '): ' + inviate + ' mail inviate'
-                    + (unica ? '' : ' a ' + nAziende + (nAziende === 1 ? ' azienda' : ' aziende'))
-                    + (gia ? ', ' + gia + ' doppioni di indirizzo saltati' : '')
-                    + (saltate ? ', ' + saltate + ' senza scheda o email' : '')
+                toast('Invito B2B: ' + inviate + (inviate === 1 ? ' azienda invitata' : ' aziende invitate')
+                    + ' (' + scelti.length + ' referenti)'
+                    + (gia ? ', ' + gia + ' gia invitate' : '')
+                    + (saltate ? ', ' + saltate + ' senza referenti con email' : '')
                     + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.', falliti ? 'rosso' : 'verde');
                 // l'agenda cambia da sola mentre gli invitati prenotano: si
                 // rilegge, cosi' la scheda in pagina dice quanti posti restano
                 caricaAgendaB2B(ev, () => { if (vistaCorrente === 'eventi') aggiornaSchedaGiornata(ev); }, true);
                 try {
                     Audit.registra(Auth.utenteCorrente, 'Evento: invito B2B inviato', 'sistema', ev.id, null,
-                        inviate + ' su ' + dest.length + (unica ? '' : ' (' + nAziende + ' aziende)')
-                        + ', tavolo ' + area.nome);
+                        inviate + ' aziende su ' + carico.length + ', ' + areeInvito.length + ' tavoli');
                 } catch (e) { }
             })();
         });
