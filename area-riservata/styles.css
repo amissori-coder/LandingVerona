@@ -1640,12 +1640,16 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    stessa colonna delle altre due. */
 .ev-modalita.sponsor, .ev-sez-sponsor { color: #7E22CE; font-weight: 600; }
 /* Le righine sotto la tendina della modalita': A CHE PUNTO STA LA POSTA, piu'
-   la provenienza di chi sta fra gli aderenti per sua dichiarazione e non per
-   decisione di chi organizza. I tre stati della posta si distinguono a colpo
-   d'occhio scorrendo la colonna, perche' e' scorrendola che si cerca chi non e'
-   stato avvisato: la conferma in verde, la mail che manca in ambra e in
-   grassetto (e' l'unica che chiede di fare qualcosa), la mancanza di indirizzo
-   in grigio spento e in corsivo, perche' li' non c'e' niente da fare. */
+   la provenienza di chi sta in quella sezione per sua dichiarazione e non per
+   decisione di chi organizza - gli aderenti Revilaw e chi si e' iscritto per la
+   diretta online. I tre stati della posta si distinguono a colpo d'occhio
+   scorrendo la colonna, perche' e' scorrendola che si cerca chi non e' stato
+   avvisato: la conferma in verde, la mail che manca in ambra e in grassetto
+   (e' l'unica che chiede di fare qualcosa), la mancanza di indirizzo in grigio
+   spento e in corsivo, perche' li' non c'e' niente da fare.
+   La provenienza sta apposta su un altro tono, spento come il grigio: dove si
+   legge "dal modulo" non c'e' niente da fare, e nella sezione online e' anzi
+   la ragione per cui l'ambra non compare. */
 .ev-avvisato, .ev-dal-modulo, .ev-da-avvisare, .ev-senza-mail {
     margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--grigio-600);
 }

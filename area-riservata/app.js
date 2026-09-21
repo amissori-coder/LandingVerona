@@ -16160,10 +16160,36 @@
         if (chi) t += ' da ' + chi;
         return t;
     }
+    /* LA SEZIONE E' SUA, NON VOSTRA: ci sta perche' lo ha dichiarato
+       iscrivendosi, e nessuno di qui lo ha spostato. Due casi, una regola
+       sola: chi ha spuntato "Sono un Aderente Revilaw" e chi si e' iscritto
+       per la diretta online dal modulo di un evento con la sala al completo.
+       Il perno e' `!p.modalita`: appena chi organizza tocca la sezione la
+       decisione diventa sua, e da quel momento vale quello che ha deciso lui -
+       compresa la posta che ne consegue. */
+    function sezioneDalModulo(ev, r, md) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        if (p.modalita) return false;
+        if (md === 'aderenti') return r.aderente === true;
+        if (md === 'online') return String(r.modalita || '').toLowerCase() === 'online';
+        return false;
+    }
+    /* Come si dice, e perche', che quella sezione l'ha scelta chi si iscrive.
+       Per l'online il titolo dice anche la conseguenza - non c'e' niente da
+       mandargli - perche' e' esattamente la domanda che viene guardando una
+       riga online senza la scritta arancio accanto. */
+    const TITOLO_DAL_MODULO = {
+        aderenti: 'Si \u00e8 iscritto spuntando \u00abSono un Aderente Revilaw\u00bb: nessuno di qui lo ha spostato.',
+        online: 'Si \u00e8 iscritto dal modulo del sito per seguire la diretta online: sa gi\u00e0 che seguir\u00e0 da remoto, non c\u2019\u00e8 nessun passaggio da comunicargli.'
+    };
     /* A CHE PUNTO STA LA POSTA, riga per riga. Nella sezione online conta piu'
-       che altrove: lo spostamento all'online toglie il posto in sala, e chi lo
+       che altrove: lo SPOSTAMENTO all'online toglie il posto in sala, e chi lo
        subisce deve averlo saputo - quindi la riga non si limita a dire "Online",
        dice anche se la mail e' partita, quando, o che deve ancora partire.
+       Ma nella sezione online non ci sono solo gli spostati: da quando la sala
+       di un evento si riempie, il modulo del sito iscrive direttamente per la
+       diretta, e chi arriva da li' un passaggio non lo ha mai fatto. Per lui la
+       riga tace (vedi sotto), e al suo posto parla la provenienza.
        Chi non ha un indirizzo e' un caso a parte: scrivere "mail da inviare"
        sarebbe una promessa che nessuno puo' mantenere. */
     function hintMailModalita(ev, r, md) {
@@ -16176,22 +16202,38 @@
            sala non porta con se' nessuna mail, e una riga "da inviare" li'
            chiederebbe di fare una cosa che non va fatta. */
         if (md !== 'online') return '';
+        /* E non si annuncia a chi l'online se l'e' scelto da se'. La pagina
+           glielo ha detto prima di iscriversi - i posti in sala sono esauriti,
+           questa iscrizione vale per la diretta - e la conferma automatica
+           gliel'ha ripetuto: un avviso "passi all'online" gli annuncerebbe una
+           cosa che sa gia', e la riga arancio chiederebbe a chi organizza di
+           mandarlo. Nessuno stato della posta, quindi: sotto la tendina resta
+           la provenienza, che e' la risposta alla domanda vera ("e questo
+           perche' non va avvisato?").
+           Sta DOPO il ramo verde di proposito: se qualcuno gli ha scritto lo
+           stesso, la conferma che e' partita resta scritta. E vale anche per
+           chi non ha indirizzo: non e' un recapito che manca, e' una
+           comunicazione che non serve. */
+        if (sezioneDalModulo(ev, r, md)) return '';
         if (!String(r.email || '').trim()) {
             return '<div class="hint ev-senza-mail" title="Nessun indirizzo email sulla scheda: il passaggio all\'online non si puo\' comunicare.">nessuna email</div>';
         }
         return '<div class="hint ev-da-avvisare" title="Passaggio all\'online ancora da comunicare: «Avvisa del passaggio online» nel menu della riga.">mail da inviare</div>';
     }
     /* Tutto quello che sta SOTTO la tendina della modalita': la posta e, per chi
-       sta fra gli aderenti perche' lo ha dichiarato ISCRIVENDOSI e non perche'
+       sta in quella sezione perche' lo ha dichiarato ISCRIVENDOSI e non perche'
        ce lo ha messo qualcuno di qui, da dove viene quella sezione - senza
        dirlo, la prima domanda davanti all'elenco sarebbe "chi lo ha spostato?".
+       Vale per gli aderenti Revilaw e per chi si e' iscritto online: la' dice
+       da dove viene, qui dice anche perche' non c'e' nessuna mail da mandargli
+       - ed e' la sola riga che compare, perche' la posta tace.
        Appena chi organizza tocca la sua sezione la scritta sparisce, perche' da
        quel momento la decisione e' sua.
        Si rigenera tutto insieme, perche' cambiando sezione cambiano insieme. */
     function hintModalitaHtml(ev, r, md) {
-        const p = EventiPresenze.di(ev.id, r.id) || {};
-        const dalModulo = r.aderente === true && md === 'aderenti' && !p.modalita;
-        return [hintMailModalita(ev, r, md), dalModulo ? '<div class="hint ev-dal-modulo">dal modulo</div>' : '']
+        const dalModulo = sezioneDalModulo(ev, r, md);
+        return [hintMailModalita(ev, r, md),
+            dalModulo ? '<div class="hint ev-dal-modulo" title="' + esc(TITOLO_DAL_MODULO[md] || '') + '">dal modulo</div>' : '']
             .filter(Boolean).join(' ');
     }
     /* LA CELLA DELLE AZIONI: il menu dei tre puntini della riga.
@@ -16243,7 +16285,12 @@
                L'avviso lo porta con se' il solo passaggio all'online: e'
                l'unico che toglie qualcosa a chi lo riceve, e va spiegato.
                Diventare aderente in elenco, passare fra sponsor e relatori o
-               tornare in sala non si annunciano per posta. */
+               tornare in sala non si annunciano per posta.
+               A chi l'online se l'e' scelto iscrivendosi il comando resta -
+               si puo' sempre voler scrivere a qualcuno - ma cambia nome: un
+               "passaggio" che non c'e' mai stato non si puo' annunciare, e
+               chi preme deve sapere che sta mandando una cosa in piu', non
+               una che manca. */
             (puoRichiedere && !ev.tutti
                 ? SEZIONI_MODALITA.filter(x => x.id !== md).map(x =>
                     '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
@@ -16251,7 +16298,9 @@
                 + (md === 'online' && r.email
                     ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
                     + '" data-verso="online" data-rinvia="1">'
-                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
+                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online'
+                        : sezioneDalModulo(ev, r, md) ? 'Manda comunque l\'avviso online'
+                            : 'Avvisa del passaggio online') + '</button>'
                     : '')
                 : ''),
             (adminEv
@@ -16561,8 +16610,11 @@
                 : '<td data-label="Nota">' + esc(p.nota || '-') + '</td>';
             /* In sala o online: e' la colonna che dice chi occupa un posto
                davvero, quindi sta accanto allo stato e non fra le aggiuntive.
-               Sotto la tendina, la posta: la conferma che l'avviso e' partito e
-               quando, oppure che deve ancora partire (hintModalitaHtml). */
+               Sotto la tendina, tre cose possibili (hintModalitaHtml): la
+               conferma che l'avviso e' partito e quando, che deve ancora
+               partire, oppure - per chi quella sezione se l'e' scelta
+               iscrivendosi - da dove viene, che e' anche il motivo per cui non
+               c'e' nessun avviso da mandargli. */
             const md = modalitaDi(ev, r);
             const hintM = hintModalitaHtml(ev, r, md);
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
@@ -20593,6 +20645,14 @@
             const a = avvisoModalitaDi(ev, r);
             return a && a.modalita === verso;
         }).length;
+        /* Fra i selezionati, chi e' online perche' se l'e' scelto iscrivendosi:
+           a lui l'avviso non dice niente di nuovo - la conferma d'iscrizione
+           gliel'ha gia' detto. Non lo si toglie dall'invio, perche' chi apre
+           questa finestra lo ha scelto apposta e potrebbe volergli scrivere
+           lo stesso: gli si dice il numero, e decide lui. */
+        const giaInformati = online
+            ? elenco.filter(r => !avvisoModalitaDi(ev, r) && sezioneDalModulo(ev, r, 'online')).length
+            : 0;
         const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.passaggioOnline({
             evento: {
                 titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
@@ -20661,6 +20721,16 @@
                 + (rinvia ? ': lo ' + (giaAvvisati === 1 ? 'riceverà' : 'riceveranno') + ' di nuovo.'
                     : ' e ' + (giaAvvisati === 1 ? 'viene saltato' : 'vengono saltati')
                     + ': per riscrivere a qualcuno usa "Invia di nuovo l\'avviso" dal menu della sua riga.')
+                : '')
+            /* Non e' un salto: la mail parte anche a loro. E' che a loro non
+               dice niente che non sappiano gia', ed e' meglio saperlo prima di
+               premere che dopo, da chi risponde "ma io mi ero iscritto per la
+               diretta". */
+            + (giaInformati
+                ? ' <b>' + giaInformati + '</b> ' + (giaInformati === 1 ? 'si \u00e8 iscritto' : 'si sono iscritti')
+                + ' online dal modulo e lo ' + (giaInformati === 1 ? 'sa' : 'sanno') + ' gi\u00e0: '
+                + (giaInformati === 1 ? 'l\'avviso gli ripete quello che ha letto iscrivendosi.'
+                    : 'l\'avviso non aggiunge niente a quello che hanno letto iscrivendosi.')
                 : '')
             + '</div></label>'
             : '';
