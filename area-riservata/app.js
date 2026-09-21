@@ -18075,9 +18075,9 @@
        ---------------------------------------------------------
        Gli incontri non sono piu' "un tavolo per argomento a
        quell'ora", ma APPUNTAMENTI: la giornata di ciascun tavolo
-       (i nove argomenti del convegno piu' il desk Revilaw e la
-       revisione legale) e' divisa in slot, e ogni ospite invitato
-       ne prenota uno.
+       (gli argomenti del convegno, piu' la revisione legale e la
+       certificazione ISO) e' divisa in slot, e ogni ospite
+       invitato ne prenota uno.
 
        Qui si organizza tutto quello che viene PRIMA dell'invito:
          - gli orari della giornata, uguali per tutti i tavoli:

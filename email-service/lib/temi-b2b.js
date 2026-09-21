@@ -1,13 +1,12 @@
 /* ============================================================
    Le AREE degli incontri B2B (i tavoli)
    ------------------------------------------------------------
-   Un tavolo per area. Le prime nove sono gli argomenti del
-   convegno; le altre - il desk Revilaw, la revisione legale, la
-   certificazione ISO - non sono tappe del programma ma tavoli che
-   ci sono lo stesso, e chi organizza li gestisce insieme agli
-   altri. In fondo ci sono anche i SECONDI TAVOLI degli argomenti
-   tenuti da due persone: un orario ospita una prenotazione sola,
-   quindi due referenti in parallelo sono due tavoli.
+   Un tavolo per area, e ci sono SOLO i tavoli che si tengono
+   davvero: sei argomenti del convegno piu' la revisione legale e
+   la certificazione ISO, che tappe del programma non sono ma
+   tavoli si'. Accanto a due argomenti c'e' il loro SECONDO TAVOLO:
+   un orario ospita una prenotazione sola, quindi due referenti che
+   ricevono in parallelo sono due tavoli.
 
    L'elenco sta qui, in un posto solo, perche' lo usano TRE pezzi del
    servizio: presenze.js (che con l'invito riceve l'area e l'orario di
@@ -31,6 +30,18 @@
    per INDICE, e spostare una riga sposterebbe le scelte gia' fatte
    da un argomento all'altro. Le voci nuove si aggiungono in fondo.
 
+   UNA VOLTA E' SUCCESSO, e si e' scelto di farlo: l'elenco e' stato
+   ripulito dei cinque tavoli che a Napoli non si tenevano
+   (governance, il Tax Control Framework a se' - ora accorpato al
+   231 -, Bagnoli, altre esigenze e il desk Revilaw) e rimesso
+   nell'ordine in cui i tavoli si leggono. Gli indici quindi sono
+   cambiati tutti: le scelte salvate PRIMA per numero - le
+   preferenze del modulo del sito, le prenotazioni a caselle - non
+   valgono piu', e chi le rilegge trova un altro argomento o niente.
+   Si e' potuto fare perche' a quel momento nessuno aveva ancora
+   prenotato. Da qui in avanti vale di nuovo la regola sopra: le
+   voci nuove in fondo, quelle vecchie ferme dove sono.
+
    Le stesse etichette, nello stesso ORDINE, stanno anche:
      - area-riservata/newsletter-format.js (TEMI_B2B, con la
        descrizione lunga accanto: e' quella che va nella mail);
@@ -42,24 +53,13 @@
 
 const AREE_B2B = [
     { id: 'merito-creditizio', nome: 'Merito creditizio' },
-    { id: 'governance', nome: 'Governance e controllo di gestione' },
     { id: 'adeguati-assetti', nome: 'Adeguati assetti' },
     { id: 'esg', nome: 'ESG e sostenibilita' },
     /* Il 231 e il Tax Control Framework stanno insieme perche' insieme
        vanno sul palco e insieme si tengono: un sistema solo di presidio dei
-       rischi, penali e fiscali. Il rating di legalita' invece si e'
-       staccato: e' una tappa sua del programma, con le sue persone, e chi
-       lo chiede quasi mai chiede anche il 231. */
+       rischi, penali e fiscali. Il rating di legalita' invece e' una tappa
+       sua del programma, con le sue persone, e ha il suo tavolo. */
     { id: 'modello-231', nome: 'Modello 231 e Tax Control Framework' },
-    { id: 'finanza-agevolata', nome: 'Finanza agevolata' },
-    { id: 'tax-control-framework', nome: 'Tax Control Framework' },
-    { id: 'bagnoli', nome: "Bagnoli e America's Cup 2027" },
-    { id: 'altre-esigenze', nome: 'Altre esigenze' },
-    /* I due tavoli che non sono tappe del programma: il desk dello studio,
-       dove si chiede di Revilaw, e la revisione legale, che e' il mestiere
-       di casa e non compare fra gli argomenti del convegno. */
-    { id: 'desk-revilaw', nome: 'Desk Revilaw' },
-    { id: 'revisione', nome: 'Revisione legale' },
     /* I TAVOLI DOPPI. Su un argomento tenuto da due persone gli incontri
        possono correre in parallelo, ma un orario di un tavolo ospita UNA
        prenotazione sola: due imprese alle 10:00 sullo stesso tavolo
@@ -67,13 +67,17 @@ const AREE_B2B = [
        detto. Il secondo referente ha quindi il suo tavolo, con i suoi
        orari e le sue chiusure - se lui e' sul palco e l'altro no, il primo
        tavolo resta prenotabile - e chi invita sceglie a quale dei due
-       convoca l'impresa.
-       La certificazione ISO non e' una tappa del convegno: e' un tavolo che
-       c'e' lo stesso, come il desk e la revisione. */
+       convoca l'impresa. Sta accanto al suo gemello, non in fondo: chi
+       guarda l'elenco deve vedere subito che sono lo stesso argomento. */
     { id: 'modello-231-b', nome: 'Modello 231 e TCF - secondo tavolo' },
+    { id: 'finanza-agevolata', nome: 'Finanza agevolata' },
+    /* I due tavoli che non sono tappe del programma: la revisione legale,
+       che e' il mestiere di casa, e la certificazione ISO. Ci sono lo
+       stesso, e chi organizza li gestisce insieme agli altri. */
+    { id: 'revisione', nome: 'Revisione legale' },
+    { id: 'certificazione-iso', nome: 'Certificazione ISO' },
     { id: 'rating-legalita', nome: 'Rating di legalita' },
-    { id: 'rating-legalita-b', nome: 'Rating di legalita - secondo tavolo' },
-    { id: 'certificazione-iso', nome: 'Certificazione ISO' }
+    { id: 'rating-legalita-b', nome: 'Rating di legalita - secondo tavolo' }
 ];
 
 // le sole etichette, nello stesso ordine: la forma con cui gli orari e le
@@ -103,16 +107,19 @@ function idArea(nome) {
 }
 
 /* Etichette storiche del form del sito che non coincidono alla lettera con i
-   nove temi: si riportano comunque come caselle gia' spuntate, cosi' chi ha
+   tavoli: si riportano comunque come caselle gia' spuntate, cosi' chi ha
    scelto dal sito si ritrova le sue preferenze e puo' modificarle. Le chiavi
-   sono in forma normalizzata (minuscole, senza accenti). */
+   sono in forma normalizzata (minuscole, senza accenti).
+   Le voci del modulo che un tavolo non ce l'hanno piu' (governance, Bagnoli)
+   non si buttano: restano scritte sulla scheda come sono arrivate, e al
+   salvataggio si riportano. Sono quello che quell'impresa aveva chiesto. */
 const ALIAS_B2B = {
-    'modello 231 e tax control framework': [4],
-    'rating di legalita': [12],
+    'modello 231 e tax control framework': [3],
+    'rating di legalita': [8],
     /* Come si chiamava il tavolo quando il 231 e il rating stavano insieme:
        chi aveva gia' scelto quella voce ritrova spuntati tutti e due i
        tavoli in cui si e' diviso, invece di ritrovarsi la casella vuota. */
-    'modello 231 e rating di legalita': [4, 12]
+    'modello 231 e rating di legalita': [3, 8]
 };
 
 module.exports = { AREE_B2B, TEMI_B2B, ALIAS_B2B, areaDa, nomeArea, idArea };

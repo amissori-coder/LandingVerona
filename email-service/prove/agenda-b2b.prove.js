@@ -325,14 +325,14 @@ async function prova(nome, fn) {
         mettiAgenda({
             'merito-creditizio': { chiusi: ['1100'] },
             'esg': { attiva: false },
-            'bagnoli': {}
+            'revisione': {}
         });
         mettiInvitato('mario', 'Mario', ['merito-creditizio', 'esg']);
         const chiuso = await chiama('mario', { azione: 'b2b-slot-prenota', area: 'merito-creditizio', ora: '11:00' });
         esigi(!chiuso.ok && chiuso.motivo === 'chiuso', 'un orario chiuso non si prenota');
         const spento = await chiama('mario', { azione: 'b2b-slot-prenota', area: 'esg', ora: '10:00' });
         esigi(!spento.ok && spento.motivo === 'area', 'un tavolo non attivo non si prenota');
-        const altrui = await chiama('mario', { azione: 'b2b-slot-prenota', area: 'bagnoli', ora: '10:00' });
+        const altrui = await chiama('mario', { azione: 'b2b-slot-prenota', area: 'revisione', ora: '10:00' });
         esigi(!altrui.ok && /non e fra quelli del Suo invito/.test(altrui.msg || ''), 'un tavolo fuori invito viene respinto');
         const inventato = await chiama('mario', { azione: 'b2b-slot-prenota', area: 'merito-creditizio', ora: '09:15' });
         esigi(!inventato.ok && inventato.motivo === 'orario', 'un orario che non esiste viene respinto');
@@ -423,7 +423,7 @@ async function prova(nome, fn) {
         const conRef = await staff({
             azione: 'agenda-salva',
             aree: {
-                'desk-revilaw': {
+                'revisione': {
                     attiva: true, nota: 'Sala 2',
                     referenti: [{ nome: 'Anna Verdi', ruolo: 'Revisore', sezione: 'aderenti', email: 'ANNA@revilaw.it' }],
                     chiusi: ['1215']
@@ -431,9 +431,9 @@ async function prova(nome, fn) {
                 'tavolo-inventato': { attiva: true }
             }
         });
-        const desk = conRef.corpo.aree.filter(a => a.id === 'desk-revilaw')[0];
+        const desk = conRef.corpo.aree.filter(a => a.id === 'revisione')[0];
         esigi(desk.attiva && desk.referenti[0].email === 'anna@revilaw.it' && desk.nota === 'Sala 2',
-            'il tavolo del desk Revilaw si salva con il suo referente');
+            'il tavolo della revisione legale si salva con il suo referente');
         esigi(desk.chiusi.length === 1 && desk.chiusi[0] === '1215', 'l\'orario chiuso resta');
         esigi(conRef.corpo.aree.length === AGENDA.AREE_B2B.length,
             'i tavoli restano quelli dell\'elenco: quello inventato non entra');

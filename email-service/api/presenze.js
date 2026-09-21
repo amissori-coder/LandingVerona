@@ -54,7 +54,7 @@ function moduloInviti() { return require('../lib/aziende-invito'); }
 /* La stessa domanda che fa aziende-invito.gestisce(), scritta qui perche'
    chiedere "e' roba tua?" non deve costare il caricamento del modulo. */
 function sezioneAziende(body) { return !!(body && String(body.sezione || '') === 'aziende'); }
-// le undici aree degli incontri B2B: servono a validare l'area e gli orari
+// le aree degli incontri B2B: servono a validare l'area e gli orari
 // per tavolo che arrivano con l'invito (le etichette sconosciute si scartano)
 const { TEMI_B2B, areaDa } = require('../lib/temi-b2b');
 /* L'agenda degli incontri B2B (aree, referenti, slot, prenotazioni): sta in

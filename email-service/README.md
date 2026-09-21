@@ -1084,8 +1084,10 @@ riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
 L'invito B2B non e un sondaggio di gradimento: e la convocazione con cui
 Revilaw chiama le aziende agli incontri. Ogni argomento del convegno e un
-tavolo, piu il desk Revilaw e la revisione legale: undici tavoli in tutto
-(`lib/temi-b2b.js`, `AREE_B2B`).
+tavolo, piu la revisione legale e la certificazione ISO, che tappe del
+programma non sono ma tavoli si; gli argomenti tenuti da due persone hanno
+anche il loro secondo tavolo. Dieci tavoli in tutto (`lib/temi-b2b.js`,
+`AREE_B2B`), e ci sono solo quelli che si tengono davvero.
 
 Chi riceve la mail sceglie **l'ORARIO** del suo incontro: la giornata di ogni
 tavolo e divisa in appuntamenti e se ne prenota **uno** (vedi "L'agenda a
@@ -1394,11 +1396,11 @@ orario, ed e l'unico modo perche chi prenota sappia se due si sovrappongono.
 - Se all'invito non erano stati dati orari per tavolo ma il vecchio `orario`
   unico - inviti partiti con la versione precedente - vale quello per tutti i
   tavoli: e quello che quella mail diceva davvero.
-- Gli undici tavoli stanno in `lib/temi-b2b.js`, condiviso fra `presenze.js`,
+- I tavoli stanno in `lib/temi-b2b.js`, condiviso fra `presenze.js`,
   `iscrizione-nuova.js` e `agenda-b2b.js`: finche erano due copie bastava una
   virgola di differenza perche un orario arrivasse su un tavolo e la
   prenotazione su un altro. Ogni area ha un `id` STABILE (`merito-creditizio`,
-  `desk-revilaw`...), con cui viaggia fra invito, prenotazione e agenda, e un
+  `rating-legalita`...), con cui viaggia fra invito, prenotazione e agenda, e un
   `nome`, che e l'etichetta che si legge: cosi riscrivere un'etichetta non
   stacca le prenotazioni gia prese dal loro tavolo. L'ordine non si cambia e le
   voci non si tolgono - la prenotazione a caselle viaggia per INDICE - e le
