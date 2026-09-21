@@ -51,6 +51,12 @@ const MNGB = require('./mail-ngb');
 // il foglio da presentare al desk
 const PDF = require('./pdf-prenotazione');
 const { AREE_B2B, areaDa, nomeArea } = require('./temi-b2b');
+/* La SCALETTA della giornata: serve per sapere chi e' sul palco e quando.
+   Gli orari in cui chi tiene un tavolo e' in sala non si chiudono piu' a
+   mano - si ricavano da qui ogni volta che l'agenda si legge (vedi
+   `chiusureDaPalco` nel modello) - cosi' fra l'accorgersene e il chiuderli
+   non resta una finestra in cui qualcuno prenota un incontro impossibile. */
+const PRG = require('./programma-evento');
 /* Il modello - documenti, orari, stato dei tavoli - sta in un file suo,
    senza posta ne' PDF: cosi' lo puo' leggere anche chi ha bisogno solo di
    sapere chi ha prenotato (vedi lib/agenda-modello.js). Qui si tiene tutto
@@ -63,9 +69,22 @@ const {
     idEvento, rifAgenda, rifPrenotazioni,
     areaVuota, normalizzaReferente, normalizzaAree, normalizzaAgenda, leggiAgenda,
     normalizzaPrenotazioni, leggiPrenotazioni,
-    slotDiArea, areeComposte, appuntamentoDi,
+    slotDiArea, areeComposte, appuntamentoDi, chiusureDaPalco,
     orariPresi, chiDiSlot, bloccoSuPrenotazioni
 } = M;
+
+/* Le voci della scaletta, o niente. "Niente" e' una risposta buona: un
+   evento senza programma scritto non ha nessuno sul palco, e i tavoli si
+   leggono come si sono sempre letti. Un errore nel leggerlo non deve
+   fermare la pagina di chi prenota, ma nemmeno spalancare gli orari di
+   chi e' in sala: se il programma non si legge, si risponde `null` e chi
+   chiama lo distingue dalla scaletta vuota. */
+async function vociProgramma(db, evento) {
+    try {
+        const p = await PRG.leggiProgramma(db, evento);
+        return (p && p.voci) || [];
+    } catch (e) { return null; }
+}
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -111,6 +130,7 @@ async function letturaOspite(db, scheda, idDoc) {
     const invitate = areeInvitate(scheda);
     const agenda = await leggiAgenda(db, evento);
     const pren = await leggiPrenotazioni(db, evento);
+    const voci = await vociProgramma(db, evento) || [];
     const mio = appuntamentoDi(pren, idDoc);
     /* Le aree da mostrare: quelle a cui e' stato invitato e che sono
        ATTIVE. Piu' quella dove ha gia' l'appuntamento, anche se nel
@@ -121,7 +141,7 @@ async function letturaOspite(db, scheda, idDoc) {
     if (mio && daMostrare.indexOf(mio.area) < 0) daMostrare.push(mio.area);
     const aree = daMostrare.map(id => {
         const cfg = (agenda.aree || {})[id] || areaVuota();
-        const slot = slotDiArea(agenda, pren, id);
+        const slot = slotDiArea(agenda, pren, id, voci);
         return {
             id: id, nome: nomeArea(id), nota: cfg.nota,
             // di chi tiene il tavolo si dice nome e ruolo: e' la persona che
@@ -180,6 +200,19 @@ async function prendiSlot(db, dati) {
     if (!dati.forzato) {
         if (!cfg.attiva) return { ok: false, motivo: 'area', msg: 'Questo tavolo non e attivo: ricarichi la pagina.' };
         if (cfg.chiusi.indexOf(chiave) >= 0) return { ok: false, motivo: 'chiuso', msg: 'Quell\'orario non e disponibile: ne scelga un altro.' };
+        /* E nemmeno un orario in cui chi tiene il tavolo e' sul palco: la
+           pagina quegli orari non li mostra liberi, ma fra quando li ha
+           disegnati e quando qualcuno preme la scaletta puo' essere
+           cambiata. Qui si decide sull'ultima versione. Se il programma
+           non si riesce a leggere non si tira a indovinare: si chiede di
+           riprovare, perche' l'alternativa e' fissare un incontro con
+           qualcuno che in quell'ora e' in sala. */
+        const voci = await vociProgramma(db, evento);
+        if (voci === null) {
+            return { ok: false, motivo: 'errore', msg: 'Non riesco a controllare il programma della giornata: riprovi fra un momento.' };
+        }
+        const palco = chiusureDaPalco(agenda.giornata, voci, cfg.referenti)[chiave];
+        if (palco) return { ok: false, motivo: 'palco', msg: 'Quell\'orario non e disponibile: ne scelga un altro.' };
     }
     const p = dati.persona || {};
     const persona = {
@@ -489,7 +522,7 @@ async function esegui(ctx) {
     if (azione === 'agenda') {
         const agenda = await leggiAgenda(db, evento);
         const pren = await leggiPrenotazioni(db, evento);
-        const aree = areeComposte(agenda, pren);
+        const aree = areeComposte(agenda, pren, await vociProgramma(db, evento) || []);
         return {
             stato: 200,
             corpo: {
@@ -538,7 +571,7 @@ async function esegui(ctx) {
             stato: 200,
             corpo: {
                 ok: true, giornata: agenda.giornata, aggiornato: agenda.aggiornato,
-                aree: areeComposte(agenda, pren)
+                aree: areeComposte(agenda, pren, await vociProgramma(db, evento) || [])
             }
         };
     }

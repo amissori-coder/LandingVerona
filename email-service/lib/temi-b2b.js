@@ -2,9 +2,12 @@
    Le AREE degli incontri B2B (i tavoli)
    ------------------------------------------------------------
    Un tavolo per area. Le prime nove sono gli argomenti del
-   convegno; le ultime due - il desk Revilaw e la revisione legale -
-   non sono tappe del programma ma tavoli che ci sono lo stesso, e
-   chi organizza li gestisce insieme agli altri.
+   convegno; le altre - il desk Revilaw, la revisione legale, la
+   certificazione ISO - non sono tappe del programma ma tavoli che
+   ci sono lo stesso, e chi organizza li gestisce insieme agli
+   altri. In fondo ci sono anche i SECONDI TAVOLI degli argomenti
+   tenuti da due persone: un orario ospita una prenotazione sola,
+   quindi due referenti in parallelo sono due tavoli.
 
    L'elenco sta qui, in un posto solo, perche' lo usano TRE pezzi del
    servizio: presenze.js (che con l'invito riceve l'area e l'orario di
@@ -42,7 +45,12 @@ const AREE_B2B = [
     { id: 'governance', nome: 'Governance e controllo di gestione' },
     { id: 'adeguati-assetti', nome: 'Adeguati assetti' },
     { id: 'esg', nome: 'ESG e sostenibilita' },
-    { id: 'modello-231', nome: 'Modello 231 e Rating di Legalita' },
+    /* Il 231 e il Tax Control Framework stanno insieme perche' insieme
+       vanno sul palco e insieme si tengono: un sistema solo di presidio dei
+       rischi, penali e fiscali. Il rating di legalita' invece si e'
+       staccato: e' una tappa sua del programma, con le sue persone, e chi
+       lo chiede quasi mai chiede anche il 231. */
+    { id: 'modello-231', nome: 'Modello 231 e Tax Control Framework' },
     { id: 'finanza-agevolata', nome: 'Finanza agevolata' },
     { id: 'tax-control-framework', nome: 'Tax Control Framework' },
     { id: 'bagnoli', nome: "Bagnoli e America's Cup 2027" },
@@ -51,7 +59,21 @@ const AREE_B2B = [
        dove si chiede di Revilaw, e la revisione legale, che e' il mestiere
        di casa e non compare fra gli argomenti del convegno. */
     { id: 'desk-revilaw', nome: 'Desk Revilaw' },
-    { id: 'revisione', nome: 'Revisione legale' }
+    { id: 'revisione', nome: 'Revisione legale' },
+    /* I TAVOLI DOPPI. Su un argomento tenuto da due persone gli incontri
+       possono correre in parallelo, ma un orario di un tavolo ospita UNA
+       prenotazione sola: due imprese alle 10:00 sullo stesso tavolo
+       vorrebbe dire che una delle due non trova posto dove le abbiamo
+       detto. Il secondo referente ha quindi il suo tavolo, con i suoi
+       orari e le sue chiusure - se lui e' sul palco e l'altro no, il primo
+       tavolo resta prenotabile - e chi invita sceglie a quale dei due
+       convoca l'impresa.
+       La certificazione ISO non e' una tappa del convegno: e' un tavolo che
+       c'e' lo stesso, come il desk e la revisione. */
+    { id: 'modello-231-b', nome: 'Modello 231 e TCF - secondo tavolo' },
+    { id: 'rating-legalita', nome: 'Rating di legalita' },
+    { id: 'rating-legalita-b', nome: 'Rating di legalita - secondo tavolo' },
+    { id: 'certificazione-iso', nome: 'Certificazione ISO' }
 ];
 
 // le sole etichette, nello stesso ordine: la forma con cui gli orari e le
@@ -65,11 +87,19 @@ function areaDa(id) {
 // l'etichetta corta di un'area, oppure stringa vuota se l'identificativo non
 // e' dei nostri: chi chiama non deve mai stampare quello che gli e' arrivato
 function nomeArea(id) { const a = areaDa(id); return a ? a.nome : ''; }
+/* Le etichette con cui un'area si chiamava PRIMA. Un nome si puo' ritoccare
+   (l'identificativo no), ma un invito partito mesi fa parla ancora per nome:
+   senza questa riga quel nome non corrisponderebbe piu' a niente, e il
+   tavolo di quella convocazione sparirebbe senza che nessuno lo veda. */
+const NOMI_STORICI = {
+    // quando il rating di legalita' stava ancora insieme al 231
+    'modello 231 e rating di legalita': 'modello-231'
+};
 // dall'etichetta corta all'identificativo (gli inviti vecchi parlano per nome)
 function idArea(nome) {
     const k = String(nome == null ? '' : nome).trim().toLowerCase();
     const a = AREE_B2B.find(x => x.nome.toLowerCase() === k);
-    return a ? a.id : '';
+    return a ? a.id : (NOMI_STORICI[k] || '');
 }
 
 /* Etichette storiche del form del sito che non coincidono alla lettera con i
@@ -77,8 +107,12 @@ function idArea(nome) {
    scelto dal sito si ritrova le sue preferenze e puo' modificarle. Le chiavi
    sono in forma normalizzata (minuscole, senza accenti). */
 const ALIAS_B2B = {
-    'modello 231 e tax control framework': [4, 6],
-    'rating di legalita': [4]
+    'modello 231 e tax control framework': [4],
+    'rating di legalita': [12],
+    /* Come si chiamava il tavolo quando il 231 e il rating stavano insieme:
+       chi aveva gia' scelto quella voce ritrova spuntati tutti e due i
+       tavoli in cui si e' diviso, invece di ritrovarsi la casella vuota. */
+    'modello 231 e rating di legalita': [4, 12]
 };
 
 module.exports = { AREE_B2B, TEMI_B2B, ALIAS_B2B, areaDa, nomeArea, idArea };

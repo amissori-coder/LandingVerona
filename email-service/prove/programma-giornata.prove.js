@@ -104,7 +104,12 @@ prova('2) Sul palco e al tavolo nello stesso momento: errore grave', () => {
     esigi(/Anna Verdi modera "Merito creditizio"/.test(gravi[0].testo)
         && /Mario Rossi \(Alfa S\.r\.l\.\)/.test(gravi[0].testo),
         'e il testo dice chi, cosa e con chi aveva appuntamento');
-    esigi(c.filter(x => !x.grave).length === 0, 'le 14:00 e le 16:00 non toccano la fascia del palco');
+    /* Il margine di prudenza allarga la fascia di dieci minuti per parte:
+       le 14:00-14:30 finiscono dentro (la tavola comincia alle 14:30), le
+       16:00 no - li' Anna e scesa dal palco da venti minuti. */
+    const daChiudere = c.filter(x => !x.grave);
+    esigi(daChiudere.length === 1 && daChiudere[0].ore.join(',') === '14:00',
+        'il margine prende anche l\'orario attaccato all\'inizio, non le 16:00');
 });
 
 prova('3) Orari ancora prenotabili: avviso, non errore', () => {
@@ -112,7 +117,8 @@ prova('3) Orari ancora prenotabili: avviso, non errore', () => {
     const aree = [tavolo({ slot: [['10:00', '10:30', 'libero'], ['10:30', '11:00', 'libero'], ['11:00', '11:30', 'libero']] })];
     const c = G.conflittiB2B(voci, aree, TIPI);
     esigi(c.length === 1 && !c[0].grave, 'un avviso, e non un errore');
-    esigi(c[0].ore.join(',') === '10:00,10:30', 'solo gli orari che cadono davvero nella fascia');
+    esigi(c[0].ore.join(',') === '10:00,10:30,11:00',
+        'gli orari della fascia piu i dieci minuti di margine (le 11:00 attaccate alla fine)');
     esigi(/Anna Verdi è sul palco per "Intervento"/.test(c[0].testo) && /chiudili/.test(c[0].testo),
         'e si dice cosa fare: chiudere quegli orari');
 });

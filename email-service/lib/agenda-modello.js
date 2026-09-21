@@ -57,11 +57,15 @@ function fraseOrario(inizio, fine) { return 'dalle ' + inizio + ' alle ' + fine;
 /* =========================================================
    LA GIORNATA E I SUOI SLOT
 ========================================================= */
-/* Gli incontri vanno dalle 10 alle 18, mezz'ora ciascuno, con l'ora di
-   pranzo fuori. Sono i valori di partenza: chi organizza li cambia
-   dall'area riservata, e quello che vale e' sempre quello che ha scritto
-   lui. */
-const GIORNATA_PREDEFINITA = { inizio: '10:00', fine: '18:00', pranzoDa: '13:00', pranzoA: '14:00', durata: 30 };
+/* Gli incontri vanno dalle 10 alle 17, mezz'ora ciascuno, con l'ora di
+   pranzo fuori: e' la giornata del convegno - i lavori in sala finiscono
+   alle 17 e il buffet e' fra le 13:30 e le 14:30 - ed e' il punto da cui
+   conviene partire, perche' un tavolo aperto quando in sala non c'e' piu'
+   nessuno e' un orario che nessuno prenota. Sono i valori di PARTENZA: chi
+   organizza li cambia dall'area riservata, e quello che vale e' sempre
+   quello che ha scritto lui (un'agenda gia' salvata ha la sua giornata
+   scritta dentro, e questi valori non la toccano). */
+const GIORNATA_PREDEFINITA = { inizio: '10:00', fine: '17:00', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 };
 const MAX_SLOT = 48;          // tetto di sicurezza: una giornata non ne ha di piu'
 const DURATA_MIN = 10, DURATA_MAX = 240;
 
@@ -132,9 +136,9 @@ function normalizzaReferente(v) {
     };
 }
 function areaVuota() { return { attiva: false, referenti: [], chiusi: [], nota: '' }; }
-/* Le aree SEMPRE tutte e undici, anche quelle che nessuno ha ancora
-   toccato: chi apre la sezione deve vedere l'elenco intero e decidere,
-   non indovinare quali mancano. */
+/* Le aree SEMPRE tutte, anche quelle che nessuno ha ancora toccato: chi
+   apre la sezione deve vedere l'elenco intero e decidere, non indovinare
+   quali mancano. */
 function normalizzaAree(v, giornata) {
     const dentro = (v && typeof v === 'object') ? v : {};
     const validi = slotDellaGiornata(giornata).map(s => s.chiave);
@@ -203,22 +207,122 @@ async function leggiPrenotazioni(db, evento) {
 }
 
 /* =========================================================
+   CHI TIENE IL TAVOLO E' SUL PALCO
+   ------------------------------------------------------------
+   Una persona sola non puo' stare in due posti: se la scaletta la
+   manda sul palco alle 10:40, alle 10:40 il suo tavolo non e'
+   prenotabile. Finora lo si diceva soltanto - un avviso giallo
+   nell'area riservata, "chiudi quegli orari prima che qualcuno li
+   prenoti" - e fra l'avviso e la mano di chi organizza c'era una
+   finestra in cui un'impresa poteva prenotare un incontro che non
+   sarebbe mai potuto avvenire. Ora quegli orari si chiudono DA
+   SOLI: si ricavano dalla scaletta ogni volta che l'agenda si
+   legge, e valgono anche dentro la transazione che prende lo slot.
+
+   IL MARGINE. Fra il palco e il tavolo c'e' la sala da
+   attraversare, le domande di chi ti ferma, il microfono da
+   restituire. Un incontro che comincia nel minuto esatto in cui
+   finisce la tavola rotonda e' un incontro che comincia in
+   ritardo, e l'impresa che aspetta al tavolo non sa perche'.
+   Quindi la fascia del palco si allarga di DIECI MINUTI prima e
+   dopo: sono orari che si perdono, ed e' il prezzo di non far
+   aspettare nessuno.
+
+   Chi organizza puo' sempre chiudere altri orari a mano (`chiusi`)
+   e puo' sempre assegnare d'ufficio un orario chiuso (`forzato`):
+   e' una decisione, e le decisioni restano sue. Quello che non
+   puo' piu' succedere e' che un orario cosi' resti LIBERO per
+   distrazione.
+========================================================= */
+const MARGINE_PALCO = 10;
+
+/* Due schede sono la stessa persona se hanno lo stesso indirizzo: il nome
+   si scrive in dieci modi, e qui un confronto sbagliato vuol dire o un
+   tavolo chiuso per niente o - peggio - un orario lasciato aperto a chi in
+   quel momento e' sul palco. Senza indirizzo si ripiega sul nome ridotto
+   all'osso. E' la stessa chiave di area-riservata/programma-giornata.js:
+   le due devono dire la stessa cosa sulle stesse persone. */
+function chiavePersona(p) {
+    if (!p) return '';
+    const mail = String(p.email || '').trim().toLowerCase();
+    if (mail) return 'm:' + mail;
+    const nome = String(p.nome || '').trim().toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
+    return nome ? 'n:' + nome : '';
+}
+// chi sale sul palco in una voce della scaletta: chi modera e chi siede al tavolo
+function personeDiVoce(v) {
+    const fuori = [];
+    if (v && v.moderatore && v.moderatore.nome) fuori.push(v.moderatore);
+    ((v && v.partecipanti) || []).forEach(p => { if (p && p.nome) fuori.push(p); });
+    return fuori;
+}
+/* Gli orari di QUESTO tavolo che cadono mentre uno dei suoi referenti e'
+   sul palco: mappa chiave -> perche'. Il perche' si tiene per intero
+   (chi, quale voce, da che ora a che ora) perche' un orario chiuso senza
+   motivo scritto e' un orario che qualcuno riaprira'.
+   Senza scaletta - o senza referenti - non si chiude niente: non sapere
+   dove sono le persone non e' una ragione per togliere posti. */
+function chiusureDaPalco(giornata, voci, referenti, margine) {
+    const fuori = {};
+    const chiavi = (referenti || []).map(chiavePersona).filter(Boolean);
+    if (!chiavi.length || !(voci || []).length) return fuori;
+    const m = (typeof margine === 'number' && margine >= 0) ? margine : MARGINE_PALCO;
+    const slot = slotDellaGiornata(giornata);
+    (voci || []).forEach(v => {
+        const da = minutiOra(v && v.dalle), a = minutiOra(v && v.alle);
+        // una voce senza due ore buone non colloca nessuno: indovinarlo
+        // vorrebbe dire chiudere tavoli per un orario che non esiste
+        if (da < 0 || a <= da) return;
+        personeDiVoce(v).forEach(p => {
+            const k = chiavePersona(p);
+            if (!k || chiavi.indexOf(k) < 0) return;
+            const dentro = da - m, fino = a + m;
+            slot.forEach(s => {
+                const sda = minutiOra(s.ora), sa = minutiOra(s.fine);
+                if (!(dentro < sa && sda < fino)) return;   // non si toccano
+                // il primo impegno che copre l'orario e' quello che si
+                // racconta: due voci sullo stesso slot vogliono dire
+                // comunque tavolo chiuso
+                if (fuori[s.chiave]) return;
+                fuori[s.chiave] = {
+                    chi: String(p.nome || ''), voce: testo(v.titolo, 200),
+                    dalle: String(v.dalle || ''), alle: String(v.alle || ''), margine: m
+                };
+            });
+        });
+    });
+    return fuori;
+}
+
+/* =========================================================
    LO STATO DI UN'AREA
 ========================================================= */
 /* Gli slot di un'area con il loro stato. Tre stati e non due: LIBERO si
    prenota, OCCUPATO no, CHIUSO nemmeno - ma per un motivo diverso, che
    va detto (il referente e' sul palco, o al tavolo non c'e' nessuno). Chi
    guarda la pagina deve capire se ha perso il posto o se quel posto non
-   c'e' mai stato. */
-function slotDiArea(agenda, prenotazioni, areaId) {
+   c'e' mai stato.
+   `voci` e' la scaletta dell'evento, quando chi chiama ce l'ha: da li'
+   escono gli orari chiusi dal palco. Senza, il tavolo si legge come
+   prima - chiuso e' solo cio' che ha chiuso una mano. */
+function slotDiArea(agenda, prenotazioni, areaId, voci) {
     const cfg = (agenda.aree || {})[areaId] || areaVuota();
     const prese = (prenotazioni.aree || {})[areaId] || {};
+    const palco = chiusureDaPalco(agenda.giornata, voci, cfg.referenti);
     return slotDellaGiornata(agenda.giornata).map(s => {
         const p = prese[s.chiave];
-        const chiuso = cfg.chiusi.indexOf(s.chiave) >= 0;
+        const aMano = cfg.chiusi.indexOf(s.chiave) >= 0;
+        const sulPalco = palco[s.chiave] || null;
         return {
             ora: s.ora, fine: s.fine, chiave: s.chiave,
-            stato: p ? 'occupato' : (chiuso ? 'chiuso' : 'libero'),
+            stato: p ? 'occupato' : ((aMano || sulPalco) ? 'chiuso' : 'libero'),
+            /* Perche' e' chiuso, e non solo che lo e': "sul palco" non si
+               riapre premendoci sopra - si sposta la scaletta - mentre
+               quello chiuso a mano si', ed e' la prima cosa che chiede chi
+               guarda la griglia. */
+            motivo: p ? '' : (sulPalco ? 'palco' : (aMano ? 'mano' : '')),
+            palco: sulPalco,
             chi: p || null
         };
     });
@@ -315,10 +419,10 @@ function appuntamentoDi(prenotazioni, idDoc) {
    due archivi grezzi, perche' quali orari esistono dipende dalla durata e
    dalla pausa, e farlo due volte - qui e nel browser - vuol dire vederlo
    divergere il giorno in cui qualcuno cambia la durata. */
-function areeComposte(agenda, prenotazioni) {
+function areeComposte(agenda, prenotazioni, voci) {
     return AREE_B2B.map(a => {
         const cfg = (agenda.aree || {})[a.id] || areaVuota();
-        const slot = slotDiArea(agenda, prenotazioni, a.id);
+        const slot = slotDiArea(agenda, prenotazioni, a.id, voci);
         return {
             id: a.id, nome: a.nome, attiva: cfg.attiva, nota: cfg.nota,
             referenti: cfg.referenti, chiusi: cfg.chiusi, slot: slot,
@@ -332,6 +436,7 @@ module.exports = {
     AREE_B2B, areaDa, nomeArea, testo,
     oraValida, minutiOra, oraDaMinuti, chiaveSlot, oraDaChiave, fraseOrario,
     GIORNATA_PREDEFINITA, normalizzaGiornata, slotDellaGiornata,
+    MARGINE_PALCO, chiavePersona, personeDiVoce, chiusureDaPalco,
     idEvento, rifAgenda, rifPrenotazioni,
     areaVuota, normalizzaReferente, normalizzaAree, normalizzaAgenda, leggiAgenda,
     normalizzaPrenotazioni, leggiPrenotazioni,

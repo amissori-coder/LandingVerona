@@ -19210,13 +19210,27 @@
                     + '</div>';
             }
             const chiuso = s.stato === 'chiuso';
+            /* CHIUSO DAL PALCO: non l'ha chiuso una mano, l'ha chiuso la
+               scaletta, e premendoci sopra non si riapre - si sposta la voce
+               del programma, oppure si assegna l'orario d'ufficio. Dirlo qui
+               risparmia il giro di premere, salvare e vederlo tornare chiuso. */
+            const palco = (s.motivo === 'palco') ? (s.palco || {}) : null;
             // stessa cosa qui: rosso e "libero" insieme non si leggevano
-            const etichetta = (rosso && !chiuso) ? 'non disponibile<br>sul palco' : (chiuso ? 'chiuso' : 'libero');
-            const spiega = (rosso && !chiuso)
-                ? 'Non disponibile: chi tiene questo tavolo in quest\'ora è sul palco. È ancora prenotabile: premi per chiuderlo'
-                : (chiuso ? 'Chiuso: premi per riaprirlo' : 'Libero: premi per chiuderlo');
-            return '<button type="button" class="ag-slot ' + (chiuso ? 'chiuso' : 'libero') + (rosso ? ' conflitto' : '') + '"'
-                + (puo ? ' data-chiudi="' + esc(x.id) + '" data-ora="' + esc(s.chiave) + '"' : ' disabled')
+            const etichetta = palco ? 'chiuso<br>sul palco'
+                : ((rosso && !chiuso) ? 'non disponibile<br>sul palco' : (chiuso ? 'chiuso' : 'libero'));
+            const spiega = palco
+                ? (palco.chi || 'Chi tiene il tavolo') + ' in quest\'ora è sul palco'
+                + (palco.voce ? ' per "' + palco.voce + '"' : '')
+                + (palco.dalle ? ' (dalle ' + palco.dalle + ' alle ' + palco.alle + ', più i '
+                    + (palco.margine || 10) + ' minuti di margine)' : '')
+                + ': l\'orario si è chiuso da sé. Per riaprirlo sposta la voce nella scaletta; '
+                + 'per usarlo lo stesso assegna l\'orario dall\'elenco degli iscritti'
+                : ((rosso && !chiuso)
+                    ? 'Non disponibile: chi tiene questo tavolo in quest\'ora è sul palco. È ancora prenotabile: premi per chiuderlo'
+                    : (chiuso ? 'Chiuso: premi per riaprirlo' : 'Libero: premi per chiuderlo'));
+            return '<button type="button" class="ag-slot ' + (chiuso ? 'chiuso' : 'libero')
+                + (palco ? ' palco' : '') + (rosso ? ' conflitto' : '') + '"'
+                + ((puo && !palco) ? ' data-chiudi="' + esc(x.id) + '" data-ora="' + esc(s.chiave) + '"' : ' disabled')
                 + ' title="' + esc(spiega) + '">'
                 + '<b>' + esc(s.ora) + '</b><span class="ag-slot-et">' + etichetta + '</span></button>';
         }).join('') + '</div>';
@@ -19234,7 +19248,9 @@
             + '<div class="ag-et">Chi tiene il tavolo</div>' + referenti
             + '<div class="ag-et">Orari</div>'
             + '<div class="hint" style="margin:-2px 0 6px;">Premi un orario per chiuderlo o riaprirlo. '
-            + 'Gli orari chiusi non si possono prenotare: usali quando chi tiene il tavolo è sul palco o non c\'è. '
+            + 'Gli orari chiusi non si possono prenotare: usali quando chi tiene il tavolo non c\'è. '
+            + 'Quando è sul palco non serve: quegli orari si chiudono da sé leggendo la scaletta, '
+            + 'con dieci minuti di margine prima e dopo, e non si premono. '
             + 'Gli orari già prenotati hanno il lucchetto e non si premono.</div>'
             + slot
             + comandi

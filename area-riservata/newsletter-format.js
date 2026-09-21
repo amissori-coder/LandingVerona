@@ -1350,7 +1350,7 @@
         { nome: 'Governance e controllo di gestione', descrizione: 'controllo di gestione e pianificazione finanziaria' },
         { nome: 'Adeguati assetti', descrizione: 'adeguati assetti organizzativi, amministrativi e contabili' },
         { nome: 'ESG e sostenibilita', descrizione: 'sostenibilità ed ESG' },
-        { nome: 'Modello 231 e Rating di Legalita', descrizione: 'Modello 231 e rating di legalità' },
+        { nome: 'Modello 231 e Tax Control Framework', descrizione: 'Modello 231 e Tax Control Framework: un solo sistema di presidio dei rischi penali e fiscali' },
         { nome: 'Finanza agevolata', descrizione: 'finanza agevolata e sostegno agli investimenti' },
         { nome: 'Tax Control Framework', descrizione: 'Tax Control Framework' },
         { nome: "Bagnoli e America's Cup 2027", descrizione: 'opportunità connesse allo sviluppo di Bagnoli e all\'America\'s Cup' },
@@ -1363,7 +1363,16 @@
            Gli identificativi stabili delle aree stanno nel servizio
            (email-service/lib/temi-b2b.js): qui contano nome e ordine. */
         { nome: 'Desk Revilaw', descrizione: 'il desk Revilaw: chi siamo e come lavoriamo con le imprese' },
-        { nome: 'Revisione legale', descrizione: 'revisione legale dei conti e collegio sindacale' }
+        { nome: 'Revisione legale', descrizione: 'revisione legale dei conti e collegio sindacale' },
+        /* I SECONDI TAVOLI degli argomenti tenuti da due persone: un orario
+           ospita una prenotazione sola, quindi due referenti in parallelo
+           sono due tavoli, e chi invita sceglie a quale convocare l'impresa.
+           La descrizione e' la stessa dell'argomento: per chi la legge nella
+           mail e' lo stesso incontro, ed e' giusto che lo sia. */
+        { nome: 'Modello 231 e TCF - secondo tavolo', descrizione: 'Modello 231 e Tax Control Framework: un solo sistema di presidio dei rischi penali e fiscali' },
+        { nome: 'Rating di legalita', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
+        { nome: 'Rating di legalita - secondo tavolo', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
+        { nome: 'Certificazione ISO', descrizione: 'certificazioni ISO e sistemi di gestione: qualità, ambiente e sicurezza' }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
@@ -1371,7 +1380,8 @@
     const AREE_B2B = [
         'merito-creditizio', 'governance', 'adeguati-assetti', 'esg',
         'modello-231', 'finanza-agevolata', 'tax-control-framework', 'bagnoli',
-        'altre-esigenze', 'desk-revilaw', 'revisione'
+        'altre-esigenze', 'desk-revilaw', 'revisione',
+        'modello-231-b', 'rating-legalita', 'rating-legalita-b', 'certificazione-iso'
     ].map((id, i) => ({ id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione }));
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
        caselle e per quello a orari. Stanno qui in tre funzioni e non

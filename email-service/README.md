@@ -1111,10 +1111,10 @@ presa un attimo prima.
 - `b2bAgenda/{evento}` - **la configurazione**, scritta dall'area riservata
   (sezione Eventi, finestra "La giornata", sotto "La giornata degli incontri"):
   `giornata` (`inizio`, `fine`, `durata` in minuti, `pranzoDa`/`pranzoA`) e,
-  per ciascuna delle undici aree, `attiva`, `referenti` (chi tiene il tavolo),
-  `chiusi` (gli orari in cui non riceve) e `nota`. Di partenza: dalle 10:00
-  alle 18:00, mezz'ora per incontro, pausa 13:00-14:00 - quattordici
-  appuntamenti per tavolo.
+  per ciascuna area, `attiva`, `referenti` (chi tiene il tavolo),
+  `chiusi` (gli orari chiusi A MANO) e `nota`. Di partenza: dalle 10:00
+  alle 17:00, mezz'ora per incontro, pausa 13:30-14:30 - dodici
+  appuntamenti per tavolo, come la giornata del convegno.
 - `b2bPrenotazioni/{evento}` - **chi ha preso cosa**: `aree[area][chiave
   oraria]` con la scheda del prenotato, e `richieste`, quelle di chi ha
   trovato tutto esaurito. La chiave oraria e `"1030"` e non `"10:30"`: e il
@@ -1163,6 +1163,40 @@ incontrano:
   giornata, una chiusura che non corrisponde piu a nessuno slot sparisce,
   altrimenti toglierebbe un posto senza che si veda dove.
 
+**CHI TIENE IL TAVOLO E' SUL PALCO: quell'orario si chiude da se**
+(`chiusureDaPalco` in `lib/agenda-modello.js`). Una persona sola non puo stare
+in due posti: se la scaletta (`programmaEventi/{evento}`) la manda sul palco
+alle 10:40, alle 10:40 il suo tavolo non e prenotabile. Prima lo si diceva
+soltanto - un avviso giallo nell'area riservata, "chiudi quegli orari prima
+che qualcuno li prenoti" - e fra l'avviso e la mano di chi organizza c'era una
+finestra in cui un'impresa poteva prenotare un incontro che non sarebbe mai
+potuto avvenire. Ora quegli orari si ricavano dalla scaletta ogni volta che
+l'agenda si legge, e valgono anche dentro `prendiSlot` (`motivo: "palco"`),
+non solo a video.
+
+- **dieci minuti di margine**, prima e dopo (`MARGINE_PALCO`): fra il leggio e
+  il tavolo c'e la sala da attraversare e chi ti ferma per una domanda. Un
+  incontro attaccato alla tavola rotonda e' un incontro che comincia in
+  ritardo, con un'impresa che aspetta e non sa perche. Lo stesso numero sta in
+  `area-riservata/programma-giornata.js`, che con quello dipinge di rosso
+  mentre si scrive la scaletta, e in `conflittiConPrenotazioni`, che con quello
+  RIFIUTA di salvare una scaletta sovrapposta a una prenotazione gia presa;
+- **non si riapre premendoci sopra**: nella griglia dell'area riservata un
+  orario cosi e ambra, dice "chiuso / sul palco" e non si preme. Si riapre
+  spostando la voce nella scaletta, oppure si usa lo stesso assegnando
+  l'orario d'ufficio (`agenda-assegna`, che e sempre `forzato`): forzare e una
+  decisione di chi organizza, non un errore da impedire;
+- **senza scaletta non si chiude niente**: un evento senza programma scritto,
+  o una voce senza ore, non toglie nessun posto. Non sapere dove sono le
+  persone non e una ragione per togliere orari.
+
+**I TAVOLI DOPPI sono due tavoli.** Un orario di un tavolo ospita UNA
+prenotazione sola, quindi un argomento tenuto da due persone in parallelo ha
+due voci in `AREE_B2B` (`modello-231` e `modello-231-b`, `rating-legalita` e
+`rating-legalita-b`): ognuna con i suoi referenti, i suoi orari e le sue
+chiusure, cosi se uno dei due e sul palco l'altro continua a ricevere. Chi
+invita sceglie a quale dei due convocare l'impresa.
+
 **L'area invitata sta sulla SCHEDA, non nel collegamento**
 (`b2bInvito.aree` + `b2bInvito.eventoId`, scritti da `invita-b2b` con
 `body.area`): cosi chi riceve la mail non puo cambiarla ritoccando
@@ -1205,7 +1239,12 @@ partita.
 Provato da `prove/agenda-b2b.prove.js` (`node prove/agenda-b2b.prove.js`,
 niente da installare): due ospiti sullo stesso orario, il cambio di orario,
 gli orari chiusi, il tavolo fuori invito, l'esaurito con la richiesta, la mail
-che non parte, e l'invito vecchio che continua a funzionare.
+che non parte, l'invito vecchio che continua a funzionare, e gli orari che si
+chiudono da se quando il referente e sul palco (con il margine ai due lati).
+`prove/tavoli-b2b.prove.js` mette invece uno accanto all'altro i TRE elenchi
+dei tavoli - il servizio, le mail dell'area riservata e la pagina dell'ospite -
+perche viaggiano per indice e una riga aggiunta in due file su tre sposterebbe
+le prenotazioni da un argomento all'altro.
 
 - **Invito massivo** (`/api/presenze`, `azione: "invita-b2b"`; amministratore,
   equity e founding partner): riceve `destinatari` (fino a 50 per chiamata,

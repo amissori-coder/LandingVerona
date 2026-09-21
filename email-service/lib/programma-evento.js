@@ -220,8 +220,14 @@ function nomePersona(p) {
 function conflittiConPrenotazioni(voci, aree) {
     const fuori = [];
     (voci || []).forEach(v => {
-        const da = minutiOra(v && v.dalle), a = minutiOra(v && v.alle);
-        if (da < 0 || a <= da) return;
+        /* La fascia del palco si allarga del MARGINE di prudenza (dieci
+           minuti prima e dopo, gli stessi con cui l'agenda chiude gli
+           orari): un incontro attaccato alla tavola rotonda e' un incontro
+           in cui l'impresa aspetta al tavolo mentre la persona riconsegna
+           il microfono. */
+        const dalle = minutiOra(v && v.dalle), alle = minutiOra(v && v.alle);
+        if (dalle < 0 || alle <= dalle) return;
+        const da = dalle - AGENDA.MARGINE_PALCO, a = alle + AGENDA.MARGINE_PALCO;
         personeDiVoce(v).forEach(chi => {
             const k = chiavePersona(chi.persona);
             if (!k) return;

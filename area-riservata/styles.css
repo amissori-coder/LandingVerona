@@ -1546,6 +1546,12 @@ button.ag-slot { cursor: pointer; }
 .ag-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
 .ag-slot.libero:hover { border-color: var(--verde); }
 .ag-slot.chiuso { background: var(--grigio-100); border-style: dashed; color: var(--grigio-400); }
+/* Chiuso dalla SCALETTA e non da una mano: chi tiene il tavolo in
+   quell'ora e' sul palco. Si distingue dal grigio della chiusura a mano
+   perche' e' l'unico che non si riapre premendoci sopra. */
+.ag-slot.palco { background: var(--ambra-bg); border-color: var(--ambra); border-style: dashed; color: var(--ambra); }
+.ag-slot.palco .ag-slot-et { color: var(--ambra); }
+button.ag-slot[disabled] { cursor: default; }
 .ag-slot.preso { border-color: var(--blu-700); background: #eef4fa; text-align: left; padding: 6px 20px 6px 8px; }
 /* rosso: chi tiene questo tavolo, in quest'ora, e' sul palco */
 .ag-slot.conflitto { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso-scuro); }

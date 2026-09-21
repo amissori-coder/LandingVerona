@@ -180,6 +180,11 @@ function mettiAgenda(aree, giornata) {
         aree: dentro
     });
 }
+/* La SCALETTA della giornata, come la salva l'area riservata: serve a
+   provare che gli orari di chi e' sul palco si chiudono da se'. */
+function mettiProgramma(voci) {
+    dati.set('programmaEventi/' + EVENTO, { evento: EVENTO, voci: voci });
+}
 // una scheda di iscritto invitato a uno o piu' tavoli (invito "a slot")
 function mettiInvitato(id, nome, aree, extra) {
     dati.set('iscrizioni/' + id, Object.assign({
@@ -235,8 +240,10 @@ async function prova(nome, fn) {
         esigi(lunghi.length === 8 && lunghi.map(x => x.ora).indexOf('12:15') >= 0,
             'con 45 minuti e pausa 13:00-14:30 restano 8 orari, l\'ultimo della mattina alle 12:15');
         const storta = AGENDA.normalizzaGiornata({ inizio: '18:00', fine: '10:00', durata: 20 });
-        esigi(storta.inizio === '10:00' && storta.fine === '18:00' && storta.durata === 20,
-            'una giornata che finisce prima di cominciare torna agli orari di partenza');
+        esigi(storta.inizio === '10:00' && storta.fine === '17:00' && storta.durata === 20,
+            'una giornata che finisce prima di cominciare torna agli orari di partenza (10-17)');
+        esigi(storta.pranzoDa === '13:30' && storta.pranzoA === '14:30',
+            'e alla pausa pranzo del convegno');
     });
 
     await prova('2) Quello che vede chi ha ricevuto l\'invito', async () => {
@@ -428,7 +435,8 @@ async function prova(nome, fn) {
         esigi(desk.attiva && desk.referenti[0].email === 'anna@revilaw.it' && desk.nota === 'Sala 2',
             'il tavolo del desk Revilaw si salva con il suo referente');
         esigi(desk.chiusi.length === 1 && desk.chiusi[0] === '1215', 'l\'orario chiuso resta');
-        esigi(conRef.corpo.aree.length === 11, 'i tavoli restano undici: quello inventato non entra');
+        esigi(conRef.corpo.aree.length === AGENDA.AREE_B2B.length,
+            'i tavoli restano quelli dell\'elenco: quello inventato non entra');
         esigi(conRef.corpo.aree.filter(a => a.id === 'merito-creditizio')[0].slot.length === 8,
             'salvare un tavolo non tocca la giornata degli altri');
     });
@@ -443,7 +451,8 @@ async function prova(nome, fn) {
         });
         const r = await chiama('vecchio', { azione: 'b2b-leggi' });
         esigi(r.ok && r.modo !== 'slot', 'chi ha l\'invito vecchio vede la pagina a caselle');
-        esigi(Array.isArray(r.temi) && r.temi.length === 11, 'gli argomenti sono undici, con desk e revisione in fondo');
+        esigi(Array.isArray(r.temi) && r.temi.length === AGENDA.AREE_B2B.length,
+            'gli argomenti sono tutti quelli dell\'elenco, nel loro ordine');
         esigi(r.orari[0] === 'dalle 14:30 alle 15:15', 'l\'orario del suo invito e ancora quello');
         const slot = await chiama('vecchio', { azione: 'b2b-slot-prenota', area: 'merito-creditizio', ora: '10:00' });
         esigi(!slot.ok, 'con l\'invito vecchio non si prenota uno slot');
@@ -532,6 +541,62 @@ async function prova(nome, fn) {
         });
         esigi(nota.stato === 200 && nota.corpo.ok, 'quel tavolo si salva lo stesso: la chiusura non e nuova');
         esigi(nota.corpo.aree.filter(a => a.id === 'merito-creditizio')[0].nota === 'Sala 3', 'e la nota e passata');
+    });
+
+    await prova('15) Chi tiene il tavolo e sul palco: quegli orari si chiudono da se', async () => {
+        azzera();
+        const anna = { nome: 'Anna Verdi', email: 'anna@revilaw.it' };
+        mettiAgenda({
+            'merito-creditizio': { referenti: [anna] },
+            // il secondo tavolo dello stesso argomento, tenuto da un altro:
+            // e' il motivo per cui i tavoli doppi sono due tavoli
+            'modello-231-b': { referenti: [{ nome: 'Luca Bianchi', email: 'luca@revilaw.it' }] }
+        });
+        mettiProgramma([
+            { tipo: 'tavola', titolo: 'Modello 231 e Tax Control Framework', dalle: '10:40', alle: '11:20', moderatore: anna }
+        ]);
+        mettiInvitato('gino', 'Gino', ['merito-creditizio', 'modello-231-b']);
+        const r = await chiama('gino', { azione: 'b2b-leggi' });
+        const suo = r.aree.filter(a => a.id === 'merito-creditizio')[0];
+        const stato = ora => (suo.slot.filter(x => x.ora === ora)[0] || {}).stato;
+        esigi(stato('10:30') === 'chiuso' && stato('11:00') === 'chiuso',
+            'gli orari sotto il palco non sono prenotabili, e nessuno ha dovuto chiuderli');
+        /* Il margine di dieci minuti, dai due lati: le 10:00-10:30 finiscono
+           quando la fascia comincia, le 11:30 cominciano quando finisce. */
+        esigi(stato('10:00') === 'libero' && stato('11:30') === 'libero',
+            'gli orari che stanno fuori dal margine restano liberi');
+        const altro = r.aree.filter(a => a.id === 'modello-231-b')[0];
+        esigi((altro.slot.filter(x => x.ora === '10:30')[0] || {}).stato === 'libero',
+            'il secondo tavolo, tenuto da un altro, in quell\'ora riceve lo stesso');
+        const negato = await chiama('gino', { azione: 'b2b-slot-prenota', area: 'merito-creditizio', ora: '10:30' });
+        esigi(!negato.ok && negato.motivo === 'palco', 'e se ci prova lo stesso, non passa');
+        esigi(!slotDi('merito-creditizio', '10:30'), 'nell\'agenda quell\'orario resta vuoto');
+        const preso = await chiama('gino', { azione: 'b2b-slot-prenota', area: 'merito-creditizio', ora: '10:00' });
+        esigi(preso.ok, 'l\'orario di prima del margine si prenota come sempre');
+        // chi organizza vede il perche', non solo la porta chiusa
+        const letto = await staff({ azione: 'agenda' });
+        const s1030 = letto.corpo.aree.filter(a => a.id === 'merito-creditizio')[0]
+            .slot.filter(x => x.ora === '10:30')[0];
+        esigi(s1030.motivo === 'palco' && s1030.palco && s1030.palco.chi === 'Anna Verdi',
+            'nell\'area riservata l\'orario dice chi e sul palco e per cosa');
+        // forzare resta una decisione di chi organizza
+        mettiInvitato('elena', 'Elena', ['merito-creditizio']);
+        const forzato = await staff({ azione: 'agenda-assegna', doc: 'elena', area: 'merito-creditizio', ora: '10:30' });
+        esigi(forzato.stato === 200 && forzato.corpo.ok, 'lo staff puo assegnarlo lo stesso: e una decisione, non un errore');
+    });
+
+    await prova('16) Senza scaletta non si chiude niente', async () => {
+        azzera();
+        mettiAgenda({ 'merito-creditizio': { referenti: [{ nome: 'Anna Verdi', email: 'anna@revilaw.it' }] } });
+        // un evento senza programma scritto: nessuno e' sul palco, e i tavoli
+        // si leggono come si sono sempre letti
+        mettiInvitato('nina', 'Nina', ['merito-creditizio']);
+        const r = await chiama('nina', { azione: 'b2b-leggi' });
+        esigi(r.aree[0].liberi === 14, 'tutti e 14 gli orari restano liberi');
+        // e una voce senza ore non colloca nessuno
+        mettiProgramma([{ tipo: 'tavola', titolo: 'Da collocare', moderatore: { nome: 'Anna Verdi', email: 'anna@revilaw.it' } }]);
+        const r2 = await chiama('nina', { azione: 'b2b-leggi' });
+        esigi(r2.aree[0].liberi === 14, 'e una voce senza orario non ne toglie nemmeno uno');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
