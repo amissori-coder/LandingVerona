@@ -2165,16 +2165,16 @@ ul {
     max-height: 64px;
 }
 
-/* Fideuram e' il lockup piu' allungato della riga (9,7:1: simbolo, logotipo e
-   la dicitura "Private Banker" dopo il filetto): alla larghezza degli altri
-   marchi resterebbe alto una trentina di pixel e non reggerebbe il confronto.
-   Gli si concede percio' quasi tutto il palco, cosi' prende una riga per se'
-   (con Petti&co non ci sta piu') e arriva a un'altezza confrontabile con
-   Fiscalrevisione. Il limite che conta e' la larghezza, l'altezza e' da
-   guardia. */
+/* Fideuram porta ora la firma dei due private banker sopra il marchio: da
+   lockup lunghissimo (9,7:1) e' diventato un blocco impilato (3,4:1), due
+   righe di nomi e sotto simbolo, logotipo e "Private Banker". Si misura
+   percio' come gli altri impilati - Serviter, Petti&co, Space Up - con la
+   stessa altezza, cosi' nella riga i blocchi pesano uguale; il limite che
+   conta e' l'altezza, la larghezza e' da guardia. Accorciandosi non si
+   prende piu' una riga da solo: ora ci sta accanto Petti&co. */
 .partner-brand-img-fideuram {
-    max-width: 440px;
-    max-height: 48px;
+    max-width: 360px;
+    max-height: 104px;
 }
 
 /* Come Serviter, Petti&co e' un lockup impilato (monogramma sopra, logotipo e
@@ -2821,8 +2821,8 @@ ul {
     }
 
     .partner-brand-img-fideuram {
-        max-width: 380px;
-        max-height: 40px;
+        max-width: 326px;
+        max-height: 94px;
     }
 
     .partner-brand-img-petti {
@@ -3031,8 +3031,8 @@ ul {
     }
 
     .partner-brand-img-fideuram {
-        max-width: 280px;
-        max-height: 30px;
+        max-width: 298px;
+        max-height: 86px;
     }
 
     .partner-brand-img-petti {
@@ -3122,8 +3122,8 @@ ul {
     }
 
     .partner-brand-img-fideuram {
-        max-width: 240px;
-        max-height: 26px;
+        max-width: 276px;
+        max-height: 80px;
     }
 
     .partner-brand-img-rsgroup {
