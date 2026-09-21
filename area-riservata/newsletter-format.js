@@ -1347,41 +1347,31 @@
        del modulo di iscrizione di Napoli, dove esistono gia'). */
     const TEMI_B2B = [
         { nome: 'Merito creditizio', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' },
-        { nome: 'Governance e controllo di gestione', descrizione: 'controllo di gestione e pianificazione finanziaria' },
         { nome: 'Adeguati assetti', descrizione: 'adeguati assetti organizzativi, amministrativi e contabili' },
         { nome: 'ESG e sostenibilita', descrizione: 'sostenibilità ed ESG' },
         { nome: 'Modello 231 e Tax Control Framework', descrizione: 'Modello 231 e Tax Control Framework: un solo sistema di presidio dei rischi penali e fiscali' },
+        /* Il SECONDO TAVOLO di un argomento tenuto da due persone: la
+           descrizione e' la stessa: per chi la legge nella mail e' lo stesso
+           incontro, ed e' giusto che lo sia. Cambia chi lo tiene, e quello
+           l'invito lo dice con il nome del referente. */
+        { nome: 'Modello 231 e TCF - secondo tavolo', descrizione: 'Modello 231 e Tax Control Framework: un solo sistema di presidio dei rischi penali e fiscali' },
         { nome: 'Finanza agevolata', descrizione: 'finanza agevolata e sostegno agli investimenti' },
-        { nome: 'Tax Control Framework', descrizione: 'Tax Control Framework' },
-        { nome: "Bagnoli e America's Cup 2027", descrizione: 'opportunità connesse allo sviluppo di Bagnoli e all\'America\'s Cup' },
-        { nome: 'Altre esigenze', descrizione: 'altre esigenze specifiche della Sua impresa' },
-        /* I due tavoli che non sono tappe del convegno: il desk dello studio e
-           la revisione legale, che e' il mestiere di casa. Stanno in fondo
-           perche' l'ordine di questo elenco non si tocca: le prenotazioni
-           dell'invito a caselle viaggiano per indice, e spostare una riga
-           sposterebbe le scelte gia' fatte da un argomento all'altro.
+        /* I due tavoli che non sono tappe del convegno: la revisione legale,
+           che e' il mestiere di casa, e la certificazione ISO.
            Gli identificativi stabili delle aree stanno nel servizio
            (email-service/lib/temi-b2b.js): qui contano nome e ordine. */
-        { nome: 'Desk Revilaw', descrizione: 'il desk Revilaw: chi siamo e come lavoriamo con le imprese' },
         { nome: 'Revisione legale', descrizione: 'revisione legale dei conti e collegio sindacale' },
-        /* I SECONDI TAVOLI degli argomenti tenuti da due persone: un orario
-           ospita una prenotazione sola, quindi due referenti in parallelo
-           sono due tavoli, e chi invita sceglie a quale convocare l'impresa.
-           La descrizione e' la stessa dell'argomento: per chi la legge nella
-           mail e' lo stesso incontro, ed e' giusto che lo sia. */
-        { nome: 'Modello 231 e TCF - secondo tavolo', descrizione: 'Modello 231 e Tax Control Framework: un solo sistema di presidio dei rischi penali e fiscali' },
+        { nome: 'Certificazione ISO', descrizione: 'certificazioni ISO e sistemi di gestione: qualità, ambiente e sicurezza' },
         { nome: 'Rating di legalita', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
-        { nome: 'Rating di legalita - secondo tavolo', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
-        { nome: 'Certificazione ISO', descrizione: 'certificazioni ISO e sistemi di gestione: qualità, ambiente e sicurezza' }
+        { nome: 'Rating di legalita - secondo tavolo', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
        combaciare alla lettera con AREE_B2B del servizio. */
     const AREE_B2B = [
-        'merito-creditizio', 'governance', 'adeguati-assetti', 'esg',
-        'modello-231', 'finanza-agevolata', 'tax-control-framework', 'bagnoli',
-        'altre-esigenze', 'desk-revilaw', 'revisione',
-        'modello-231-b', 'rating-legalita', 'rating-legalita-b', 'certificazione-iso'
+        'merito-creditizio', 'adeguati-assetti', 'esg',
+        'modello-231', 'modello-231-b', 'finanza-agevolata',
+        'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b'
     ].map((id, i) => ({ id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione }));
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
        caselle e per quello a orari. Stanno qui in tre funzioni e non

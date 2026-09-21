@@ -274,7 +274,7 @@ function partecipanteVuoto(p) { return !p.nome && !p.cognome && !p.email && !p.a
    si mostrano nome, ruolo e tavoli scelti: la nota no, e' scritta a
    noi e resta di chi l'ha scritta.
    ============================================================ */
-// i nove argomenti e i loro alias stanno in un modulo a parte: li usa anche
+// i tavoli e i loro alias stanno in un modulo a parte: li usa anche
 // presenze.js, che con l'invito riceve l'orario di ciascun tavolo
 const { TEMI_B2B, ALIAS_B2B } = require('../lib/temi-b2b');
 function normalizzaTema(s) {

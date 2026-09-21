@@ -3,9 +3,10 @@
    ------------------------------------------------------------
    Gli incontri B2B non sono piu' un tavolo per argomento con
    un'ora sola per tutti: sono APPUNTAMENTI. La giornata di
-   ciascun'area (i nove argomenti del convegno piu' il desk Revilaw
-   e la revisione legale) e' divisa in slot - dalle 10 alle 18, con
-   la pausa pranzo fuori - e chi riceve l'invito ne prenota UNO.
+   ciascun'area (gli argomenti del convegno, piu' la revisione
+   legale e la certificazione ISO, che tappe del programma non sono
+   ma tavoli si') e' divisa in slot - dalle 10 alle 17, con la
+   pausa pranzo fuori - e chi riceve l'invito ne prenota UNO.
 
    Perche' il conto lo tiene il servizio e non l'area riservata:
    due ospiti che aprono la pagina nello stesso momento vedono
