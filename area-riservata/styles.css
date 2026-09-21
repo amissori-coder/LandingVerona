@@ -1692,6 +1692,9 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ra-testo { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .ra-tutte { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 0.86rem; color: var(--grigio-600); cursor: pointer; }
 .ra-elenco li:has(.ra-scelta:not(:checked)) .ra-testo { opacity: 0.5; }
+/* Stessa lista, stessa regola, per le spunte dell'elenco definitivo: qui la
+   casella vuol dire SPOSTA, quindi a sbiadire e' chi resta in sala. */
+.ra-elenco li:has(.ed-scelta:not(:checked)) .ra-testo { opacity: 0.5; }
 .ra-mail { font-weight: 600; color: var(--blu-900); overflow-wrap: anywhere; }
 .ra-chi { font-size: 0.86rem; color: var(--grigio-900); }
 .ra-dove { font-size: 0.78rem; color: var(--grigio-600); }
@@ -1719,6 +1722,36 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .dp-righe li.dp-tenuta { border-left: 3px solid var(--verde); background: var(--verde-bg); }
 .dp-badge { font-size: 0.72rem; font-weight: 600; color: var(--verde); white-space: nowrap; }
 
+/* L'ELENCO DEFINITIVO. Due schermate in una finestra sola: prima la casella
+   dove si incolla, poi i conti e le righe da spostare. La casella e' a
+   larghezza piena e monospaziata: si incollano indirizzi uno sotto l'altro, e
+   in monospazio un carattere di troppo si vede. */
+.ed-testo {
+    width: 100%; box-sizing: border-box; resize: vertical; min-height: 140px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem; line-height: 1.5;
+}
+/* I CONTI, prima delle righe: sono la ragione per cui questa schermata esiste
+   e non si va dritti alle spunte. Riquadro chiaro, come le altre cose che si
+   leggono e basta. */
+.ed-conti {
+    background: var(--grigio-050); border: 1px solid var(--grigio-200);
+    border-radius: var(--raggio-sm); padding: 10px 14px; margin: 0 0 12px;
+    font-size: 0.88rem; color: var(--grigio-900);
+}
+.ed-conti p { margin: 0 0 6px; }
+.ed-conti p:last-child { margin-bottom: 0; }
+/* Gli indirizzi dell'elenco che in sala non si trovano: ambra, la tinta delle
+   cose da sistemare a mano - da qui non si tocca nessuno di loro. */
+.ed-attenzione { color: var(--ambra); }
+.ed-ok { color: var(--verde); }
+.ed-mancanti {
+    list-style: none; margin: 8px 0 0; padding: 0; max-height: 22vh; overflow-y: auto;
+    border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco);
+}
+.ed-mancanti li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 5px 10px; }
+.ed-mancanti li + li { border-top: 1px solid var(--grigio-100); }
+
 /* I pulsanti IN CODA alle sezioni ("Riconosci aderenti", "Indirizzi doppi"):
    non filtrano l'elenco, aprono una finestra, e il bordo tratteggiato lo dice
    senza scriverlo. Stanno a destra, staccati: il primo dei due si prende lo
@@ -1731,6 +1764,11 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    ambra, la stessa tinta con cui l'elenco segna le mail ancora da mandare. */
 .ev-sez-btn.ev-doppi { border-style: dashed; color: var(--ambra); }
 .ev-sez-btn.ev-doppi:hover { border-color: var(--ambra); background: var(--ambra-bg); }
+/* L'elenco definitivo non segnala niente: e' uno strumento che si prende in
+   mano quando serve. Blu come il resto dell'area riservata, tratteggiato come
+   i suoi due vicini. */
+.ev-sez-btn.ev-elenco-def { border-style: dashed; color: var(--blu-700); }
+.ev-sez-btn.ev-elenco-def:hover { border-color: var(--blu-700); background: var(--blu-050); }
 .ev-sez-n { font-variant-numeric: tabular-nums; font-weight: 700; }
 @media print { .ev-sezioni { display: none !important; } }
 .nl-esito { font-size: 0.88rem; margin: 8px 0 0; }

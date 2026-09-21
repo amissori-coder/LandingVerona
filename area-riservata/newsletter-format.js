@@ -1651,7 +1651,11 @@
        Dice tre cose, nell'ordine in cui servono a chi legge:
          1. i posti in sala sono esauriti;
          2. l'iscrizione NON e' persa: resta valida per l'online;
-         3. il collegamento e le istruzioni arrivano qualche giorno
+         3. il nominativo resta in LISTA D'ATTESA per la sala, e se un
+            posto si libera lo si richiama - la stessa promessa che la
+            pagina pubblica fa a chi si iscrive a sala piena, detta col
+            Lei della mail;
+         4. il collegamento e le istruzioni arrivano qualche giorno
             prima dell'evento (cioe': adesso non deve fare niente).
        Registro formale come l'invito B2B: e' una comunicazione
        personale, e non e' una bella notizia - darla col "tu" della
@@ -1669,7 +1673,7 @@
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'Posti in sala esauriti: potrà seguire online - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
-        const anteprima = 'La Sua iscrizione resta valida: seguirà i lavori online. Le istruzioni arrivano pochi giorni prima.';
+        const anteprima = 'La Sua iscrizione resta valida: seguirà i lavori online e resta in lista d\'attesa per la sala.';
 
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + '. I posti disponibili in sala sono esauriti: la Sua iscrizione resta valida '
@@ -1707,6 +1711,7 @@
                 + riga('Data', ev.quando)
                 + riga('Partecipazione', 'Online, da collegamento')
                 + riga('Iscrizione', 'Valida, nessuna azione richiesta')
+                + riga('Lista d\'attesa', 'Sì, per un posto in sala')
             ) + '</td></tr></table>';
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
@@ -1718,6 +1723,18 @@
             + spazio(22)
             + '<tr><td>' + box + '</td></tr>'
             + spazio(26)
+            /* LA LISTA D'ATTESA, subito dopo il riquadro. E' la sola cosa
+               che il destinatario puo' ancora sperare, e arriva prima delle
+               istruzioni per l'online: chi legge una mail come questa si
+               ferma presto, e sapere che il posto non e' perso per sempre e'
+               piu' importante di sapere quando arrivera' il collegamento.
+               La promessa e' la stessa che la pagina pubblica fa a chi si
+               iscrive a sala piena - "se si liberano dei posti ti scriviamo,
+               e decidi tu se venire di persona" - detta col Lei del resto
+               della mail. Due registri, una parola sola: se qui dicessimo
+               qualcosa di diverso, sarebbe la pagina o la mail a mentire. */
+            + par('Il Suo nominativo resta comunque in lista d\'attesa per la sala. Fino al giorno dei lavori le rinunce sono la norma, e ogni posto che si libera torna a chi è in attesa: se accade, Le scriviamo a questo stesso indirizzo e decide Lei se venire di persona. Non deve segnalarci nulla né iscriversi di nuovo.')
+            + spazio(22)
             + par('Pochi giorni prima dell\'evento riceverà a questo stesso indirizzo il collegamento e le istruzioni per seguire i lavori online. '
                 + 'Da adesso a quel momento non deve fare nulla: pensiamo noi a scriverLe.')
             + spazio(24)
@@ -1750,7 +1767,9 @@
             ['Evento: ' + (ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business'),
                 ev.quando ? 'Data: ' + ev.quando : '',
                 'Partecipazione: Online, da collegamento',
-                'Iscrizione: Valida, nessuna azione richiesta'].filter(Boolean).join('\n'),
+                'Iscrizione: Valida, nessuna azione richiesta',
+                'Lista d\'attesa: Sì, per un posto in sala'].filter(Boolean).join('\n'),
+            'Il Suo nominativo resta comunque in lista d\'attesa per la sala. Fino al giorno dei lavori le rinunce sono la norma, e ogni posto che si libera torna a chi è in attesa: se accade, Le scriviamo a questo stesso indirizzo e decide Lei se venire di persona. Non deve segnalarci nulla né iscriversi di nuovo.',
             'Pochi giorni prima dell\'evento riceverà a questo stesso indirizzo il collegamento e le istruzioni per seguire i lavori online. '
             + 'Da adesso a quel momento non deve fare nulla: pensiamo noi a scriverLe.',
             'Per rinunciare o correggere i Suoi dati: ' + SEGNAPOSTO_COMPLETA,

@@ -16072,6 +16072,106 @@
         return fuori;
     }
     /* =========================================================
+       L'ELENCO DEFINITIVO DI CHI RESTA IN SALA
+       ---------------------------------------------------------
+       Quando le adesioni superano la capienza, chi entra in sala non lo
+       decide piu' l'ordine di arrivo: si sceglie fuori di qui - su un
+       foglio, guardando le imprese una per una - e si torna con un
+       elenco definitivo. Il lavoro che resta e' il piu' sciocco e il
+       piu' facile da sbagliare: trovare, fra centinaia di righe, quelle
+       che in quell'elenco NON ci sono, e spostarle all'online.
+
+       Il confronto e' per INDIRIZZO, come il riconoscimento degli
+       aderenti e per la stessa ragione: e' l'unico dato che combacia
+       fra un foglio e un modulo compilato a mano - i nomi si scrivono
+       in dieci modi, le ragioni sociali in venti. L'elenco si incolla
+       come viene: da una colonna di Excel, da una riga di destinatari,
+       da un messaggio. Gli indirizzi si pescano dal testo, il resto si
+       butta.
+
+       DUE COSE NON SI FANNO, ed e' importante:
+         - non si tocca chi non e' fra gli OSPITI IN SALA. Gli aderenti
+           Revilaw, gli sponsor e i relatori in quell'elenco non ci sono
+           mai - e' un elenco di imprese ospiti - e mandare online i
+           relatori e' esattamente il danno che un confronto automatico
+           sa fare in un clic;
+         - non si sposta niente da qui. Si SPUNTA, e lo spostamento
+           resta un secondo gesto, dalla barra dell'elenco: e' la
+           regola di "Riconosci aderenti", e vale a maggior ragione qui,
+           dove ogni riga spuntata e' una mail che parte.
+
+       Il confronto risponde anche alla domanda opposta, che e' quella
+       che scopre gli errori: degli indirizzi dell'elenco, quali NON si
+       trovano fra gli ospiti in sala? Uno che sta gia' online, uno
+       scritto male, uno che non si e' mai iscritto. Sono pochi e vanno
+       guardati a mano, ma finche' nessuno li conta l'elenco sembra
+       tornare e non torna.
+    ========================================================= */
+    /* Gli indirizzi dentro un testo qualunque, in minuscolo e senza
+       doppioni, nell'ordine in cui compaiono. La classe di sinistra e'
+       volutamente stretta (lettere, cifre e i pochi segni che si vedono
+       davvero): serve a pescare da un incollato sporco, non a validare
+       un indirizzo secondo lo standard. I segni che un elenco mette
+       INTORNO a un indirizzo - virgole, punti e virgola, parentesi
+       angolari, spazi, a capo - restano fuori dalla classe apposta, ed
+       e' quello che fa funzionare "Nome Cognome <mario@x.it>," senza
+       nessuna pulizia prima. */
+    const RE_INDIRIZZO = /[a-z0-9._%+'-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+/g;
+    function indirizziIncollati(testo) {
+        const visti = Object.create(null);
+        const fuori = [];
+        (String(testo == null ? '' : testo).toLowerCase().match(RE_INDIRIZZO) || []).forEach(e => {
+            // un punto o un trattino attaccati davanti vengono dal testo, non dall'indirizzo
+            e = e.replace(/^[.'-]+/, '');
+            if (!e || visti[e]) return;
+            visti[e] = true;
+            fuori.push(e);
+        });
+        return fuori;
+    }
+    /* L'elenco definitivo contro l'elenco vero. Una passata sola, che
+       tiene insieme le quattro risposte che servono a decidere:
+         fuori           gli OSPITI IN SALA che nell'elenco non ci sono:
+                         sono quelli da spostare, ed e' la risposta che
+                         si e' venuti a cercare;
+         senzaIndirizzo  gli ospiti in sala senza email. Non sono "fuori
+                         elenco": sono FUORI CONFRONTO - l'unico dato su
+                         cui si confronta non ce l'hanno - e vanno decisi
+                         a mano, uno per uno;
+         trovati         quanti indirizzi dell'elenco hanno trovato il
+                         loro posto in sala;
+         mancanti        gli indirizzi dell'elenco che in sala non si
+                         trovano, ognuno con la sezione in cui sta se sta
+                         altrove (online, aderenti, sponsor). Vuoto vuol
+                         dire che quell'indirizzo non risulta iscritto.
+       Le righe di aderenti, sponsor e online si leggono - servono a dire
+       DOVE sta un indirizzo che in sala manca - ma non finiscono mai fra
+       quelle da spostare. */
+    function confrontoElencoDefinitivo(ev, lista, indirizzi) {
+        const dentro = new Set(indirizzi || []);
+        const fuori = [];
+        const senzaIndirizzo = [];
+        const trovati = new Set();
+        const altrove = new Map();
+        (lista || []).forEach(r => {
+            const sez = modalitaDi(ev, r);
+            const e = String(r.email || '').trim().toLowerCase();
+            if (sez !== 'presenza') {
+                // la prima sezione in cui lo si incontra: e' quella che si mostra
+                if (e && dentro.has(e) && !altrove.has(e)) altrove.set(e, sez);
+                return;
+            }
+            if (!e) { senzaIndirizzo.push({ riga: r, email: '', sezione: sez, motivo: 'senza indirizzo' }); return; }
+            if (dentro.has(e)) { trovati.add(e); return; }
+            fuori.push({ riga: r, email: e, sezione: sez, motivo: 'fuori elenco' });
+        });
+        const mancanti = [];
+        // nell'ordine in cui sono stati incollati: e' l'ordine del foglio da cui
+        // arrivano, ed e' li' che chi guarda andra' a cercarli
+        dentro.forEach(e => { if (!trovati.has(e)) mancanti.push({ email: e, dove: altrove.get(e) || '' }); });
+        return { fuori: fuori, senzaIndirizzo: senzaIndirizzo, trovati: trovati.size, mancanti: mancanti };
+    }
+    /* =========================================================
        LO STESSO INDIRIZZO SU PIU' ISCRIZIONI
        ---------------------------------------------------------
        Capita spesso e non e' sempre un errore: chi si iscrive due volte
@@ -16573,6 +16673,13 @@
            nessuno lo dice il numero in testa alla pagina e' semplicemente
            sbagliato. Il pulsante compare solo quando ce ne sono. */
         const doppi = puoAggiungereIscrizioni() ? gruppiDoppi(ev, tutte).length : 0;
+        /* "Elenco definitivo" compare solo dove ha qualcosa da confrontare: un
+           evento vero - nel riepilogo le presenze non si leggono, quindi chi sia
+           in sala non lo sa nessuno - e degli OSPITI in sala. Il numero sul
+           pulsante e' proprio quello: quanti ospiti ci sono adesso, cioe'
+           l'elenco che il foglio incollato dovra' ridurre. */
+        const ospiti = (!ev.tutti && puoAggiungereIscrizioni())
+            ? tutte.filter(r => modalitaDi(ev, r) === 'presenza').length : 0;
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
             + voce('tutte', 'Tutte')
             + SEZIONI_MODALITA.map(x => voce(x.id, x.nome)).join('')
@@ -16585,6 +16692,11 @@
                 ? '<button type="button" class="ev-sez-btn ev-doppi" id="ev-doppi" '
                 + 'title="Indirizzi email presenti su più iscrizioni: li elenca uno per uno e lascia cancellare le righe in più">'
                 + '<span class="ev-sez-nome">Indirizzi doppi</span><span class="ev-sez-n">' + doppi + '</span></button>'
+                : '')
+            + (ospiti
+                ? '<button type="button" class="ev-sez-btn ev-elenco-def" id="ev-elenco-def" '
+                + 'title="Incolla l\'elenco definitivo di chi resta in sala: confronta per indirizzo email e spunta gli ospiti che non ci sono, da spostare all\'online">'
+                + '<span class="ev-sez-nome">Elenco definitivo</span><span class="ev-sez-n">' + ospiti + '</span></button>'
                 : '')
             + '</div>';
     }
@@ -17137,6 +17249,12 @@
                 if (!g.length) { toast('Nessun indirizzo doppio: ogni iscrizione ha il suo.', 'verde'); return; }
                 modaleIndirizziDoppi(ev, g);
             });
+        }
+        /* "Elenco definitivo": si apre la finestra dove si incolla l'elenco.
+           Il confronto lo fa lei, con le righe caricate adesso. */
+        {
+            const bDef = document.getElementById('ev-elenco-def');
+            if (bDef) bDef.addEventListener('click', () => modaleElencoDefinitivo(ev));
         }
         // le sezioni sopra l'elenco: cambiarle azzera la selezione, cosi' le
         // spunte di una sezione non restano attive mentre se ne guarda un'altra
@@ -20323,20 +20441,64 @@
        l'elenco, deve cambiare in un posto solo.
        Restituisce la risposta del servizio: chi ha aperto la finestra decide
        cosa farne (riaccendere il pulsante, scrivere l'errore, chiudersi). */
+    /* QUANTI NE PRENDE IL SERVIZIO PER CHIAMATA. Il numero e' suo (lo
+       taglia lui, in presenze.js), e finche' l'elenco veniva da spunte
+       messe a mano non ci si arrivava mai. Con l'elenco definitivo ci si
+       arriva: un evento con la sala piena e un foglio corto fa centinaia
+       di righe in un colpo. Il taglio dall'altra parte e' MUTO - risponde
+       "fatto" per le prime 300 e le altre non le ha viste - quindi qui si
+       manda a lotti e si sommano le risposte. Sotto le 300 e' una
+       chiamata sola, esattamente come prima. */
+    const LOTTO_SPOSTAMENTO = 300;
+
     function eseguiSpostaModalita(ev, elenco, verso, opz) {
         opz = opz || {};
         const m = opz.mail || null;
-        return Cloud.operaPresenza({
-            azione: 'sposta-modalita', evento: ev.id, modalita: verso, forza: !!opz.rinvia,
-            destinatari: elenco.map(r => ({ id: r.id, doc: r.doc || '' })),
-            mail: m ? { oggetto: m.oggetto, html: m.html, testo: m.testo } : null
-        }).then(res => {
-            if (!res.ok) return res;
+        const lotti = [];
+        for (let i = 0; i < elenco.length; i += LOTTO_SPOSTAMENTO) {
+            lotti.push(elenco.slice(i, i + LOTTO_SPOSTAMENTO));
+        }
+        /* I lotti UNO ALLA VOLTA, non in parallelo: ogni chiamata spedisce
+           mail per 45 secondi e il freno agli invii e' per utente. Due lotti
+           insieme se lo prenderebbero in faccia a vicenda. */
+        const mosse = [];        // le righe che il servizio ha davvero preso
+        const somma = { spostate: 0, mail: null };
+        let ko = null;
+        const unLotto = k => {
+            if (k >= lotti.length) return Promise.resolve();
+            return Cloud.operaPresenza({
+                azione: 'sposta-modalita', evento: ev.id, modalita: verso, forza: !!opz.rinvia,
+                destinatari: lotti[k].map(r => ({ id: r.id, doc: r.doc || '' })),
+                mail: m ? { oggetto: m.oggetto, html: m.html, testo: m.testo } : null
+            }).then(res => {
+                if (!res || !res.ok) { ko = res || { ok: false, msg: 'Spostamento non riuscito.' }; return; }
+                mosse.push.apply(mosse, lotti[k]);
+                somma.spostate += (typeof res.spostate === 'number' ? res.spostate : lotti[k].length);
+                if (res.mail) {
+                    if (!somma.mail) {
+                        somma.mail = { inviate: 0, senzaScheda: 0, senzaEmail: 0, doppie: 0, giaAvvisati: 0, restanti: 0, falliti: [] };
+                    }
+                    ['inviate', 'senzaScheda', 'senzaEmail', 'doppie', 'giaAvvisati', 'restanti']
+                        .forEach(c => { somma.mail[c] += (Number(res.mail[c]) || 0); });
+                    somma.mail.falliti = somma.mail.falliti.concat(res.mail.falliti || []);
+                }
+                return unLotto(k + 1);
+            });
+        };
+        /* Anche quando un lotto si rompe si arriva qui: i lotti prima di
+           quello sono stati spostati davvero, e l'elenco deve dirlo. Tacere
+           e restituire l'errore lascerebbe a video una sala piu' piena di
+           quella vera. */
+        return unLotto(0).then(() => {
+            const res = ko
+                ? { ok: false, msg: (ko.msg || 'Spostamento non riuscito.'), spostate: somma.spostate, modalita: verso, mail: somma.mail }
+                : { ok: true, spostate: somma.spostate, modalita: verso, mail: somma.mail };
+            if (ko && !mosse.length) return res;   // niente e' cambiato: l'errore e basta
             /* A video subito, poi la verita' dal server: la modalita' si
                aggiorna qui, l'avviso ("avvisato il ...") arriva con la
                rilettura, che sa a chi la mail e' partita davvero. */
             const u = Auth.utenteCorrente;
-            elenco.forEach(r => {
+            mosse.forEach(r => {
                 _evPresenze[r.id] = {
                     ...(_evPresenze[r.id] || {}), modalita: verso,
                     da: u ? String(u.email).toLowerCase() : '', daNome: u ? (u.nome || u.email || '') : '',
@@ -20346,7 +20508,7 @@
             _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
             const esMail = res.mail || null;
             const dove = ' ' + sezioneDef(verso).dove;
-            const parti = [(res.spostate || elenco.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
+            const parti = [(res.spostate || mosse.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
             if (esMail) {
                 parti.push(esMail.inviate + (esMail.inviate === 1 ? ' avviso inviato' : ' avvisi inviati'));
                 if (esMail.giaAvvisati) parti.push(esMail.giaAvvisati + ' già avvisati, saltati');
@@ -20358,11 +20520,20 @@
                    ricevuto viene saltato, quindi nessuno prende due mail. */
                 if (esMail.restanti) parti.push(esMail.restanti + ' ancora da avvisare: ripremi "Sposta online" sulle stesse righe');
             }
-            const ko = !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti));
-            toast(parti.join(' · ') + '.', ko ? 'rosso' : 'verde');
+            /* Un lotto si e' rotto a meta' strada: quelli prima sono spostati
+               davvero, e il numero qui sopra e' loro. Le righe che restano si
+               ritrovano nella sezione di partenza - basta rispuntarle e
+               ripremere, e chi ha gia' ricevuto l'avviso viene saltato. */
+            if (ko) {
+                const restano = elenco.length - mosse.length;
+                parti.push(restano + (restano === 1 ? ' riga non spostata' : ' righe non spostate')
+                    + ': ' + (ko.msg || 'lo spostamento si è interrotto') + '. Rispuntale e ripremi');
+            }
+            const rosso = !!ko || !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti));
+            toast(parti.join(' · ') + '.', rosso ? 'rosso' : 'verde');
             try {
                 Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni spostate' + dove,
-                    'sistema', ev.id, null, elenco.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso'));
+                    'sistema', ev.id, null, mosse.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso'));
             } catch (e) { }
             // rilettura vera: porta l'avviso registrato e allinea chi guarda da altrove
             _evUltimoTentativo[ev.id] = 0;
@@ -20622,6 +20793,234 @@
     }
 
     /* =========================================================
+       L'ELENCO DEFINITIVO: PRIMO PASSO, LO SI INCOLLA
+       ---------------------------------------------------------
+       Una casella e basta. L'elenco arriva da fuori - un foglio, una
+       riga di destinatari, un messaggio - e si incolla come viene:
+       gli indirizzi li pesca il programma, il resto lo butta. Sotto,
+       mentre si scrive, il numero di indirizzi riconosciuti: e' il
+       controllo che si fa d'istinto ("ne avevo 283, ne legge 283") e
+       costa una riga.
+       Qui non si confronta niente e non si sposta nessuno: si preme
+       "Confronta" e si passa alla finestra che mostra i conti.
+    ========================================================= */
+    function modaleElencoDefinitivo(ev) {
+        if (!puoAggiungereIscrizioni() || !ev || ev.tutti) return;
+        const tutte = _evIscrizioni || [];
+        const inSala = tutte.filter(r => modalitaDi(ev, r) === 'presenza');
+        if (!inSala.length) { toast('Nessun ospite in sala: non c\'e\' niente da confrontare.', 'verde'); return; }
+        const posti = inSala.reduce((t, r) => t + partecipantiDi(r), 0);
+        apriModale('<h2>Elenco definitivo di chi resta in sala</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Incolla qui l\'elenco di chi <b>resta in presenza</b>. '
+            + 'Il confronto e\' per <b>indirizzo email</b> - l\'unico dato che combacia fra un foglio e un modulo compilato a mano - '
+            + 'e riguarda i soli <b>ospiti in sala</b>: <b>aderenti Revilaw</b> e <b>sponsor e relatori</b> non entrano nel confronto '
+            + 'e non si spostano mai da qui. Puoi incollare una colonna di Excel, una riga di destinatari o un messaggio intero: '
+            + 'gli indirizzi li trova da se\'.</p>'
+            + '<p class="hint" style="margin:0 0 10px;">In sala ci sono ora <b>' + inSala.length + '</b> '
+            + (inSala.length === 1 ? 'iscrizione di ospiti' : 'iscrizioni di ospiti')
+            + (posti !== inSala.length ? ', per <b>' + posti + '</b> posti' : '') + '.</p>'
+            + '<div class="campo"><label for="ed-testo">L\'elenco definitivo</label>'
+            + '<textarea id="ed-testo" class="ed-testo" rows="10" spellcheck="false" '
+            + 'placeholder="mario.rossi@esempio.it&#10;segreteria@altraimpresa.it&#10;..."></textarea></div>'
+            + '<div id="ed-conta" class="hint" style="margin:-6px 0 2px;">Nessun indirizzo riconosciuto.</div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="ed-si" disabled>Confronta</button></div>',
+            { classe: 'larga' });
+        const area = document.getElementById('ed-testo');
+        const conta = document.getElementById('ed-conta');
+        const bSi = document.getElementById('ed-si');
+        let indirizzi = [];
+        const aggiorna = () => {
+            indirizzi = indirizziIncollati(area.value);
+            /* Indirizzi, non persone: due colleghi possono condividere una
+               casella, e dirlo qui evita la sottrazione sbagliata quando il
+               numero non torna con quello del foglio. */
+            conta.innerHTML = indirizzi.length
+                ? '<b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'indirizzo riconosciuto' : 'indirizzi riconosciuti')
+                + ' (i doppioni si contano una volta sola). Le persone possono essere di piu\': due colleghi possono condividere una casella.'
+                : 'Nessun indirizzo riconosciuto.';
+            bSi.disabled = indirizzi.length === 0;
+        };
+        area.addEventListener('input', aggiorna);
+        aggiorna();
+        area.focus();
+        document.getElementById('ed-no').addEventListener('click', chiudiModale);
+        bSi.addEventListener('click', () => {
+            if (!indirizzi.length) return;
+            modaleConfrontoElenco(ev, indirizzi, confrontoElencoDefinitivo(ev, _evIscrizioni || [], indirizzi));
+        });
+    }
+
+    /* =========================================================
+       L'ELENCO DEFINITIVO: SECONDO PASSO, I CONTI E LE SPUNTE
+       ---------------------------------------------------------
+       Prima i numeri, poi le righe. I numeri servono a capire se
+       l'elenco incollato e' quello giusto PRIMA di guardare duecento
+       nomi: se degli indirizzi dell'elenco ne combaciano 270 su 283,
+       i tredici che mancano sono la notizia - un foglio vecchio, un
+       indirizzo scritto male, qualcuno che si e' iscritto online - e
+       vanno visti prima di spostare chiunque.
+       Poi le righe da spostare, una per riga, spuntate: il caso normale
+       e' che si spostino tutte, e togliere una spunta e' piu' facile
+       che metterne duecento.
+       DUE ECCEZIONI partono SENZA spunta, perche' non sono una
+       proposta ma una domanda: gli ospiti SENZA INDIRIZZO, che sul solo
+       dato del confronto non si possono giudicare - potrebbero essere
+       nell'elenco e non risultarci - e che nessuna mail raggiungerebbe.
+    ========================================================= */
+    function modaleConfrontoElenco(ev, indirizzi, esito) {
+        if (!puoAggiungereIscrizioni() || !ev || ev.tutti) return;
+        esito = esito || {};
+        const fuori = esito.fuori || [];
+        const muti = esito.senzaIndirizzo || [];
+        const mancanti = esito.mancanti || [];
+        const elenco = fuori.concat(muti);
+        const nomeDi = r => (r.nome + ' ' + r.cognome).trim() || r.email || r.id;
+        const postiDi = v => v.reduce((t, x) => t + partecipantiDi(x.riga), 0);
+        /* I mancanti divisi in due, perche' si rimedia in due modi diversi:
+           chi sta in un'altra sezione lo si riporta in sala con un clic, chi
+           non risulta iscritto va cercato (o iscritto a mano). */
+        const altrove = mancanti.filter(m => m.dove);
+        const ignoti = mancanti.filter(m => !m.dove);
+        /* La scomposizione si scrive solo per i casi che ci sono: con una
+           sola delle due specie, ripetere il totale ("3 mancanti: 3 non
+           risultano iscritti") suona come un conto sbagliato. */
+        const dettaglio = [];
+        if (altrove.length) {
+            dettaglio.push('<b>' + altrove.length + '</b> '
+                + (altrove.length === 1 ? 'sta in un\'altra sezione' : 'stanno in un\'altra sezione'));
+        }
+        if (ignoti.length) {
+            dettaglio.push('<b>' + ignoti.length + '</b> non '
+                + (ignoti.length === 1 ? 'risulta iscritto' : 'risultano iscritti') + ' a questo evento');
+        }
+        const voce = (t, i) => {
+            const nome = nomeDi(t.riga);
+            const posti = partecipantiDi(t.riga);
+            const perche = t.motivo === 'senza indirizzo'
+                ? 'nessun indirizzo sulla scheda: il confronto non lo raggiunge, e nemmeno la mail'
+                : 'non e\' nell\'elenco incollato';
+            return '<li><label>'
+                + '<input type="checkbox" class="ed-scelta" value="' + i + '"'
+                + (t.motivo === 'senza indirizzo' ? '' : ' checked') + '>'
+                + '<span class="ra-testo">'
+                + '<span class="ra-mail">' + esc(t.email || '(senza indirizzo)') + '</span>'
+                + '<span class="ra-chi">' + esc(nome)
+                + (t.riga.azienda ? ' &middot; ' + esc(t.riga.azienda) : '')
+                + (posti > 1 ? ' &middot; ' + posti + ' posti' : '') + '</span>'
+                + '<span class="ra-dove">' + esc(perche) + '</span>'
+                + '</span></label></li>';
+        };
+        const rigaMancante = m => '<li><span class="ra-mail">' + esc(m.email) + '</span>'
+            + '<span class="ra-dove">' + (m.dove
+                ? 'gia\' nella sezione ' + esc(NOMI_MODALITA[m.dove] || m.dove) + ': in sala non c\'e\''
+                : 'non risulta iscritto a questo evento') + '</span></li>';
+        /* IL CONTO, in una frase per ciascuna delle due direzioni. Le due
+           domande sono diverse e vanno separate: "chi e' in sala e non
+           dovrebbe" si risolve spostando, "chi dovrebbe e non e' in sala" no
+           - si risolve a mano, e se non lo si dice qui non lo dice nessuno. */
+        const conti = '<div class="ed-conti">'
+            + '<p><b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'indirizzo' : 'indirizzi')
+            + ' nell\'elenco definitivo. <b>' + esito.trovati + '</b> '
+            + (esito.trovati === 1 ? 'combacia' : 'combaciano') + ' con un ospite in sala.</p>'
+            + (mancanti.length
+                ? '<p class="ed-attenzione"><b>' + mancanti.length + '</b> '
+                + (mancanti.length === 1 ? 'indirizzo dell\'elenco non si trova fra gli ospiti in sala'
+                    : 'indirizzi dell\'elenco non si trovano fra gli ospiti in sala')
+                + (dettaglio.length ? ': ' + dettaglio.join(', ') : '') + '. '
+                + 'Sono sotto, uno per uno: vanno guardati a mano, da qui non si tocca nessuno di loro.</p>'
+                + '<ul class="ed-mancanti">' + mancanti.map(rigaMancante).join('') + '</ul>'
+                : '<p class="ed-ok">Ogni indirizzo dell\'elenco ha trovato il suo ospite in sala.</p>')
+            + '</div>';
+        const testa = '<h2>' + (fuori.length
+            ? fuori.length + (fuori.length === 1 ? ' ospite in sala non e\' nell\'elenco' : ' ospiti in sala non sono nell\'elenco')
+            : 'Nessun ospite da spostare') + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Confronto per <b>indirizzo email</b> sui soli <b>ospiti in sala</b>. '
+            + 'Aderenti Revilaw, sponsor e relatori non sono stati confrontati e restano dove sono.</p>'
+            + conti;
+        if (!elenco.length) {
+            apriModale(testa
+                + '<p class="hint">Tutti gli ospiti in sala sono nell\'elenco definitivo: non c\'e\' niente da spostare.</p>'
+                + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed2-indietro">Cambia elenco</button>'
+                + '<button class="btn btn-primary" id="ed2-chiudi">Chiudi</button></div>', { classe: 'larga' });
+            document.getElementById('ed2-indietro').addEventListener('click', () => modaleElencoDefinitivo(ev));
+            document.getElementById('ed2-chiudi').addEventListener('click', chiudiModale);
+            return;
+        }
+        apriModale(testa
+            + '<p class="hint" style="margin:0 0 8px;"><b>' + fuori.length + '</b> '
+            + (fuori.length === 1 ? 'ospite e\' da spostare all\'online' : 'ospiti sono da spostare all\'online')
+            + (postiDi(fuori) !== fuori.length ? ' (' + postiDi(fuori) + ' posti che si liberano)' : '')
+            + (muti.length
+                ? '. <b>' + muti.length + '</b> ' + (muti.length === 1 ? 'iscrizione e\' senza indirizzo' : 'iscrizioni sono senza indirizzo')
+                + ' e ' + (muti.length === 1 ? 'parte' : 'partono') + ' <b>senza spunta</b>: '
+                + 'il confronto non ' + (muti.length === 1 ? 'la' : 'le') + ' raggiunge, e nemmeno la mail. '
+                + (muti.length === 1 ? 'Decidila' : 'Decidile') + ' tu.'
+                : '.')
+            + ' Togli la spunta a chi deve restare in sala.</p>'
+            + '<label class="ra-tutte"><input type="checkbox" id="ed2-tutte"> Tutte</label>'
+            + '<ul class="ra-elenco">' + elenco.map(voce).join('') + '</ul>'
+            + '<div id="ed2-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed2-indietro">Cambia elenco</button>'
+            + '<button class="btn btn-secondary" id="ed2-spunta">Spunta in elenco</button>'
+            + '<button class="btn btn-primary" id="ed2-si">Sposta online e avvisa</button></div>',
+            { classe: 'larga' });
+        const scelte = () => Array.from(document.querySelectorAll('.ed-scelta:checked'))
+            .map(c => elenco[Number(c.value)]).filter(Boolean);
+        const bSi = document.getElementById('ed2-si');
+        const bSpunta = document.getElementById('ed2-spunta');
+        const esitoDi = (testoEs, ko) => {
+            const e = document.getElementById('ed2-esito');
+            if (e) e.innerHTML = testoEs ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testoEs) + '</span>' : '';
+        };
+        const aggiornaPulsanti = () => {
+            const s = scelte();
+            const senza = s.filter(t => t.motivo === 'senza indirizzo').length;
+            bSi.disabled = s.length === 0;
+            bSpunta.disabled = s.length === 0;
+            bSi.textContent = s.length ? 'Sposta online e avvisa (' + s.length + ')' : 'Sposta online e avvisa';
+            const t = document.getElementById('ed2-tutte');
+            if (t) { t.checked = s.length === elenco.length; t.indeterminate = s.length > 0 && s.length < elenco.length; }
+            /* Le spunte senza indirizzo si ricordano fino all'ultimo: si
+               spostano eccome, ma la mail a loro non parte e vanno avvisate
+               a voce. E' la cosa che si dimentica. */
+            esitoDi(senza
+                ? senza + (senza === 1 ? ' iscrizione spuntata e\' senza indirizzo' : ' iscrizioni spuntate sono senza indirizzo')
+                + ': ' + (senza === 1 ? 'si sposta' : 'si spostano') + ' lo stesso, ma '
+                + (senza === 1 ? 'va avvisata' : 'vanno avvisate') + ' a voce.'
+                : '', true);
+        };
+        document.querySelectorAll('.ed-scelta').forEach(c => c.addEventListener('change', aggiornaPulsanti));
+        { const t = document.getElementById('ed2-tutte');
+          if (t) t.addEventListener('change', () => {
+              document.querySelectorAll('.ed-scelta').forEach(c => { c.checked = t.checked; });
+              aggiornaPulsanti();
+          }); }
+        aggiornaPulsanti();
+        document.getElementById('ed2-indietro').addEventListener('click', () => modaleElencoDefinitivo(ev));
+        /* La via lunga: le righe si spuntano nell'elenco vero, dove accanto
+           c'e' il resto della scheda. Si apre "In presenza", che e' l'unica
+           sezione da cui possono venire. */
+        bSpunta.addEventListener('click', () => {
+            const s = scelte();
+            if (!s.length) return;
+            chiudiModale();
+            _evSezione[ev.id] = 'presenza';
+            _evSelezionate = new Set(s.map(t => t.riga.id));
+            if (vistaCorrente === 'eventi') vistaEventi();
+            toast(s.length + (s.length === 1 ? ' riga spuntata' : ' righe spuntate')
+                + ': controllale e premi "Sposta online e avvisa".', 'verde');
+        });
+        // la via breve: si passa alla finestra dello spostamento, con la sua
+        // anteprima della mail e la sua conferma - non si salta nessun passo
+        bSi.addEventListener('click', () => {
+            const s = scelte();
+            if (!s.length) return;
+            modaleSpostaModalita(ev, s.map(t => t.riga), 'online', {});
+        });
+    }
+
+    /* =========================================================
        SPOSTARE LE ISCRIZIONI FRA SALA E ONLINE
        ---------------------------------------------------------
        Quando i posti in presenza finiscono, chi resta fuori non si
@@ -20717,7 +21116,8 @@
             ? chi + ' ' + (uno ? 'passa' : 'passano')
             + ' alla partecipazione online: ' + (uno ? 'il suo posto in sala si libera' : 'i loro posti in sala si liberano')
             + ', l\'iscrizione resta valida e i conteggi delle sezioni si aggiornano da soli. '
-            + 'La mail avvisa che i posti in sala sono esauriti e che il collegamento arriverà pochi giorni prima dell\'evento.'
+            + 'La mail avvisa che i posti in sala sono esauriti, che il collegamento arriverà pochi giorni prima dell\'evento '
+            + 'e che il nominativo <b>resta in lista d\'attesa per la sala</b>: se un posto si libera, gli si scrive.'
             : verso === 'aderenti'
                 ? chi + ' ' + (uno ? 'passa' : 'passano') + ' nella sezione <b>Aderenti Revilaw</b>: '
                 + (uno ? 'resta in sala, ma il suo posto si conta' : 'restano in sala, ma i loro posti si contano')
