@@ -1185,6 +1185,22 @@ stato scritto con le prenotazioni vere: se l'incontro non c'e' piu', la voce
 torna in attesa. Il secondo serve per quello che e' gia' rimasto indietro - una
 riga di verita' che non dipende dall'essere passati dal punto giusto.
 
+### Eliminare un'azienda dagli incontri (`b2b-azienda-elimina`)
+
+Non e' "toglierla dall'elenco" (`invito-b2b-segna` con valore vuoto, che spegne
+la scelta e lascia tutto dov'e'): qui gli orari che l'azienda aveva prenotato
+tornano liberi per le altre, la sua richiesta a orari esauriti si chiude e il
+documento `b2bAziende/{evento}--{id}` sparisce - con lui il collegamento, la
+coda e le altre esigenze. L'iscrizione all'evento non si tocca: e' un'altra
+cosa, vive nell'elenco degli iscritti e si cancella da li', dove si vede chi si
+sta cancellando. Nessuna mail, e riservato all'amministratore come tutte le
+cancellazioni.
+
+L'area riservata la usa dalla riga della singola azienda e, subito dopo, spegne
+la scelta; se quell'azienda esisteva SOLO per gli incontri (tutti i suoi
+referenti in sezione `b2b`) cancella anche le schede, che altrimenti
+resterebbero invisibili dappertutto.
+
 ### Allineare gli incontri al programma nuovo (`b2b-allinea`)
 
 Salvare un programma che manda sul palco chi tiene un tavolo con un'impresa

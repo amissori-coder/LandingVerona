@@ -584,6 +584,36 @@ async function prenota(chiave, area, ora, coda, esigenze) {
         esigi((r.corpo.avvisati || []).length === 1, 'e la risposta dice chi e stato avvisato');
     });
 
+    await prova('15) Un\'azienda si elimina dagli incontri: gli orari tornano liberi', async () => {
+        await dueAziende();
+        await prenota('p:09302991212', 'modello-231', '10:00');
+        await prenota('p:07307010632', 'merito-creditizio', '10:00');
+        const az = documentoAzienda('p:09302991212');
+        esigi(!!az && !!slotDi('modello-231', '10:00'), 'l\'azienda c\'e\' e ha il suo incontro');
+        const r = await staff({ azione: 'b2b-azienda-elimina', aziendaId: az.id });
+        esigi(r.stato === 200 && r.corpo.ok === true, 'l\'eliminazione va a buon fine', JSON.stringify(r.corpo));
+        esigi((r.corpo.liberati || []).length === 1, 'e dice quanti orari tornano liberi', JSON.stringify(r.corpo.liberati));
+        esigi(!slotDi('modello-231', '10:00'), 'quell\'ora e\' libera per un\'altra impresa');
+        esigi(!documentoAzienda('p:09302991212'), 'e il documento dell\'azienda non c\'e\' piu\': il collegamento non apre niente');
+        esigi(!!slotDi('merito-creditizio', '10:00'),
+            'l\'incontro di un\'ALTRA azienda resta dov\'era: si elimina una riga, non l\'elenco');
+        const letto = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
+        esigi(letto.ok === false, 'e chi apre quel collegamento non trova piu\' niente', JSON.stringify(letto).slice(0, 120));
+    });
+
+    await prova('16) Eliminare un\'azienda dagli incontri e\' cosa da amministratore', async () => {
+        await dueAziende();
+        await prenota('p:09302991212', 'modello-231', '10:00');
+        const az = documentoAzienda('p:09302991212');
+        const r = await AGENDA.esegui({
+            db: db, body: { sezione: 'b2b', evento: EVENTO, azione: 'b2b-azienda-elimina', aziendaId: az.id },
+            email: 'socio@revilaw.it', collab: '', eAdmin: false, ePartner: true
+        });
+        esigi(r.stato === 403, 'l\'equity partner, che pure manda gli inviti, viene respinto', 'stato=' + r.stato);
+        esigi(!!documentoAzienda('p:09302991212') && !!slotDi('modello-231', '10:00'),
+            'e non si e\' toccato niente');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })();
