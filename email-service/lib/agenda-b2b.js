@@ -304,11 +304,32 @@ async function prendiSlot(db, dati) {
         // il posto che aveva prima si libera: quello indicato, oppure quello
         // della stessa azienda con la stessa preferenza (vedi il modello)
         const prima = appuntamentoDaLiberare(corrente, persona, dati.slotDa);
+        /* UN'AZIENDA, UN INCONTRO PER ARGOMENTO.
+           Lo stesso tavolo due volte alla stessa impresa non ha senso: si
+           parla della stessa cosa con le stesse persone, e intanto quel posto
+           non c'e' per un'altra azienda. Succedeva per una via sola e
+           silenziosa: la prima preferenza su "Adeguati assetti" piu' la
+           seconda, assegnata da noi, sullo stesso tavolo - due preferenze
+           diverse, quindi la regola di sopra (stessa azienda, stessa
+           preferenza) non le vedeva come la stessa cosa.
+           Qui vale l'ultima: quello che si prende adesso resta, e gli altri
+           incontri della stessa impresa su QUESTO argomento - gemelli
+           compresi, che per l'impresa sono un tavolo solo - si liberano. La
+           regola sta dentro la transazione, dove si vede lo stato vero. */
+        const famiglia = gemelliDi(capofilaDi(areaId) || areaId);
+        const doppi = persona.aziendaId
+            ? appuntamentiAzienda(corrente, persona.aziendaId).filter(x =>
+                famiglia.indexOf(x.area) >= 0
+                && !(prima && x.area === prima.area && x.chiave === prima.chiave)
+                && !(x.area === areaId && x.chiave === chiave))
+            : [];
         const aree = Object.assign({}, corrente.aree);
-        if (prima) {
-            aree[prima.area] = Object.assign({}, aree[prima.area]);
-            delete aree[prima.area][prima.chiave];
-        }
+        const libera = x => {
+            aree[x.area] = Object.assign({}, aree[x.area]);
+            delete aree[x.area][x.chiave];
+        };
+        if (prima) libera(prima);
+        doppi.forEach(libera);
         aree[areaId] = Object.assign({}, aree[areaId] || {});
         aree[areaId][chiave] = persona;
         /* La richiesta fuori slot, se ce n'era una di questa persona o di un
@@ -327,7 +348,11 @@ async function prendiSlot(db, dati) {
         esito = {
             ok: true, area: areaId, areaNome: nomeArea(areaId),
             ora: slot.ora, fine: slot.fine, orario: fraseOrario(slot.ora, slot.fine),
-            liberato: prima ? { area: prima.area, ora: prima.ora } : null
+            liberato: prima ? { area: prima.area, ora: prima.ora } : null,
+            /* Gli incontri che l'impresa aveva sullo STESSO argomento e che
+               questo ha sostituito: chi assegna deve vederlo scritto, perche'
+               e' un incontro che sparisce da un foglio gia' spedito. */
+            doppiLiberati: doppi.map(x => ({ area: x.area, areaNome: nomeArea(x.area), ora: x.ora }))
         };
     });
     return esito || { ok: false, motivo: 'errore', msg: 'Prenotazione non riuscita: riprovi fra un momento.' };
@@ -1814,7 +1839,7 @@ module.exports = {
     oraValida, minutiOra, oraDaMinuti, chiaveSlot, oraDaChiave, fraseOrario,
     normalizzaGiornata, slotDellaGiornata, normalizzaAgenda, normalizzaPrenotazioni,
     idEvento, rifAgenda, rifPrenotazioni, leggiAgenda, leggiPrenotazioni,
-    areaDa, slotDiArea, areeComposte, appuntamentoDi, areeInvitate, eventoInvito, invitoASlot,
+    areaDa, capofilaDi, gemelliDi, slotDiArea, areeComposte, appuntamentoDi, areeInvitate, eventoInvito, invitoASlot,
     orariPresi, bloccoSuPrenotazioni,
     // le operazioni
     prendiSlot, liberaSlot, chiediFuoriSlot, segnaRichiesta,

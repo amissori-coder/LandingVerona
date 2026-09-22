@@ -73,7 +73,10 @@ function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'collegaRiepilogoB2B',
+/* Chi guarda: per queste prove e' l'amministratore, che e' l'unico a cui la
+   vista per azienda mostra il comando per toglierla dagli incontri. */
+const Auth = { eAdmin: () => true };
+const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'collegaRiepilogoB2B', 'Auth',
     'let _rb = null, _rbAperto = "", _rbVista = "tavoli", _rbAzienda = "";\n'
     + pezzi
     + '\nreturn {'
@@ -81,7 +84,7 @@ const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'col
     + '    disegnaRiepilogoB2B({ id: "napoli-2026-10-02" }); return document.getElementById("rb-corpo").innerHTML; },'
     + '  sceltaB2B: sceltaB2B, SCELTE_B2B: SCELTE_B2B'
     + '};'
-)(esc, documentoFinto, () => true, () => { });
+)(esc, documentoFinto, () => true, () => { }, Auth);
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -207,6 +210,17 @@ prova('E si vede QUELLA azienda, non le altre', () => {
     esigi(h.indexOf('Beta Srl') < 0, 'di Beta non c\'e\' traccia', 'ne resta qualcosa');
     esigi(h.indexOf('Gino Verdi') < 0, 'nemmeno dei suoi nominativi');
     esigi(h.indexOf('rating') < 0, 'nemmeno delle sue domande');
+});
+
+prova('Da qui si toglie un azienda dagli incontri', () => {
+    /* Un'azienda che non viene piu' - o che e' stata cancellata dagli
+       iscritti - restava negli incontri con i suoi orari impegnati: la si
+       poteva togliere solo dalla finestra degli inviti, e solo se la sua
+       scheda portava ancora l'identificativo. Qui l'identificativo c'e' di
+       sicuro, perche' e' quello che si sta guardando. */
+    const h = perAzienda('alfa');
+    esigi(h.indexOf('rb-az-elimina') >= 0, 'il comando c\'e\'');
+    esigi(h.indexOf('data-az="alfa"') >= 0, 'e sa quale azienda togliere');
 });
 
 prova('Le righe sono le stesse delle due viste', () => {

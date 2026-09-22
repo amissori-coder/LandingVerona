@@ -412,7 +412,9 @@ function slotDi(area, ora) {
         esigi(/30 settembre/.test(unaRiga), 'e entro quando si sceglie');
         const pagina = require('fs').readFileSync(
             require('path').join(__dirname, '..', '..', 'incontri_b2b', 'index.html'), 'utf8');
-        esigi(/avanzano posti dopo le prime preferenze di tutti/.test(pagina),
+        /* Il testo della pagina sta in un sorgente che va a capo dove gli
+           pare: si cerca un pezzo che sopravviva all'andare a capo. */
+        esigi(/posti dopo le prime preferenze di tutti/.test(pagina),
             'la pagina, dopo il salvataggio, dice la stessa cosa');
         const prg = dati.get('iscrizioni/mario').b2bProgramma;
         esigi(prg && prg.incontri.length === 1 && prg.attesa.length === 1,
@@ -605,6 +607,67 @@ function slotDi(area, ora) {
         });
         esigi(r.ok !== true, 'la richiesta viene respinta', 'stato=' + r._stato + ' ' + (r.msg || ''));
         esigi(!!slotDi('revisione', '11:00'), 'e l\'incontro dell\'altra azienda resta dov\'e');
+    });
+
+    await prova('18) Lo stesso tavolo due volte: non si salva', async () => {
+        /* Lo stesso argomento indicato due volte non e' una scelta: e' la
+           stessa cosa chiesta due volte, e quando poi la seconda viene
+           assegnata l'impresa si ritrova due incontri allo stesso tavolo -
+           mentre quel posto manca a un'altra azienda. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {}, 'esg': {}, 'modello-231': {}, 'modello-231-b': {} });
+        mettiReferente('mario', 'Mario', 'Rossi', 'Alfa', 'mario@alfa.it', '01234567891');
+        await invita([{ chiave: 'p:01234567891', nome: 'Alfa S.r.l.', piva: '01234567891', referenti: [{ doc: 'mario' }] }]);
+        const letto = await chiamaAzienda('p:01234567891', { azione: 'b2b-azienda-leggi' });
+        const r = await chiamaAzienda('p:01234567891', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'esg', ora: '10:00', perDoc: 'mario' },
+            coda: [{ pos: 2, area: 'esg', perDoc: 'mario' }], esigenze: []
+        });
+        esigi(r.ok !== true && r.motivo === 'doppione', 'il salvataggio si ferma', JSON.stringify(r.motivo));
+        esigi(/due volte/.test(String(r.msg || '')) && /seconda/.test(String(r.msg || '')),
+            'e dice quale tavolo e quale preferenza sistemare', String(r.msg || ''));
+        esigi(!slotDi('esg', '10:00'), 'e non salva meta scelta: l orario non e stato preso');
+        /* I GEMELLI sono lo stesso tavolo per chi sceglie: indicarne uno come
+           prima e l'altro come seconda e' lo stesso doppione. */
+        const r2 = await chiamaAzienda('p:01234567891', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'modello-231', ora: '10:00', perDoc: 'mario' },
+            coda: [{ pos: 2, area: 'modello-231-b', perDoc: 'mario' }], esigenze: []
+        });
+        esigi(r2.ok !== true && r2.motivo === 'doppione', 'anche con i due tavoli gemelli, che per l impresa sono uno');
+    });
+
+    await prova('19) Un tavolo, un incontro per azienda: vale l ultimo', async () => {
+        /* Se un doppione e' gia' li' - assegnato prima di questa regola, o
+           forzato da chi organizza - prenotare di nuovo su quell'argomento
+           non ne fa due: resta l'ultimo, e il primo si libera. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'adeguati-assetti': {}, 'esg': {} });
+        mettiReferente('mario', 'Mario', 'Rossi', 'Alfa', 'mario@alfa.it', '01234567891');
+        await invita([{ chiave: 'p:01234567891', nome: 'Alfa S.r.l.', piva: '01234567891', referenti: [{ doc: 'mario' }] }]);
+        const letto = await chiamaAzienda('p:01234567891', { azione: 'b2b-azienda-leggi' });
+        await chiamaAzienda('p:01234567891', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'adeguati-assetti', ora: '10:00', perDoc: 'mario' },
+            coda: [{ pos: 2, area: 'esg', perDoc: 'mario' }], esigenze: []
+        });
+        esigi(!!slotDi('adeguati-assetti', '10:00'), 'la prima preferenza e prenotata');
+        // chi organizza assegna la seconda preferenza sullo STESSO tavolo
+        const az = documentoAzienda('p:01234567891');
+        const codaId = (az.coda || [])[0].id;
+        const r = await chiamaPresenze({
+            sezione: 'b2b', azione: 'coda-assegna', aziendaId: az.id, codaId: codaId,
+            area: 'adeguati-assetti', ora: '11:00', avvisa: false
+        });
+        esigi(r.ok === true, 'l assegnazione passa');
+        esigi(!!slotDi('adeguati-assetti', '11:00'), 'e l ultimo orario resta');
+        esigi(!slotDi('adeguati-assetti', '10:00'),
+            'mentre quello di prima si e liberato: un tavolo, un incontro per azienda');
+        esigi((r.doppiLiberati || []).length === 1 && r.doppiLiberati[0].ora === '10:00',
+            'e la risposta dice quale incontro e stato tolto', JSON.stringify(r.doppiLiberati));
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
