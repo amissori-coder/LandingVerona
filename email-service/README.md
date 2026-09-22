@@ -1846,6 +1846,12 @@ sparirebbe dall'elenco da cui la si aggiunge) e con la partita IVA ridotta alle
 sole cifre. Senza `mail` nel corpo non parte nessuna conferma, che e' quello che
 serve qui: la prima mail che quell'impresa ricevera' e' l'invito.
 
+Oltre **trecento** schede l'azione **rifiuta** invece di tagliare: tagliare in
+silenzio vorrebbe dire rispondere "fatto" avendo toccato le prime trecento, e
+chi ha premuto "Svuota l'elenco" si ritroverebbe mezzo elenco ancora invitato
+senza sospettarlo. A dividere in lotti e' chi chiama (`aLotti`, in
+`area-riservata/app.js`, che manda duecento schede per volta).
+
 Le prove stanno in `prove/elenco-inviti-b2b.prove.js`.
 
 ### Quante letture costa (e la copia condivisa)

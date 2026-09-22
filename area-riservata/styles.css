@@ -1630,6 +1630,13 @@ label.ib-mano-campo > span { font-size: 0.76rem; color: var(--grigio-400); }
 label.ib-mano-campo input { width: 100%; margin: 0; }
 .ib-mano-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 @media (max-width: 640px) { .ib-mano-righe { grid-template-columns: 1fr; } }
+/* il riquadro dello svuotamento: due strade diverse, tenute separate */
+.ib-svuota {
+    border: 1px solid var(--rosso); border-radius: 8px; padding: 10px;
+    background: #fff5f5; margin: 0 0 10px; font-size: 0.85rem;
+}
+.ib-svuota-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.ib-svuota-azioni .hint { margin: 0; }
 /* "Togli"/"Metti" sulla riga dell'azienda: tocca la scelta, non l'iscrizione */
 .ib-az-segna {
     flex: none; background: none; border: 1px solid var(--grigio-200); border-radius: 6px;
