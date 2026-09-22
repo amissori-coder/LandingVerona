@@ -1621,6 +1621,47 @@ esiste. La **stessa frase** sta nella mail di conferma (`fraseCoda` in
 `prove/azienda-b2b.prove.js` le tiene legate controllando che la dicano tutte e
 due.
 
+### Il riepilogo di chi organizza: due viste, e ogni riga dice da dove viene
+
+Il riepilogo (`apriRiepilogoB2B` in `area-riservata/app.js`, che legge
+`azione: 'riepilogo'`) e' il foglio su cui si lavora il giorno prima del
+convegno, e ogni riga chiede una decisione: questo incontro lo posso spostare?
+questa preferenza la assegno?
+
+**Da dove viene la riga**, ora, c'e' scritto. Un incontro nasce in quattro modi
+(`SCELTE_B2B`), e la differenza non e' un dettaglio: la **1a scelta** l'orario
+se l'e' preso l'azienda - spostarlo vuol dire disdirle un impegno che ha gia' in
+agenda - la **2a** e la **3a** gliel'abbiamo dato noi da una sua preferenza, e
+quella **da esigenza** (valore 4) non era fra le tre: e' una domanda che ci ha
+scritto e che abbiamo portato a un tavolo. Prima il riepilogo scriveva "2a
+scelta" o "3a scelta" e basta: la prima non aveva contrassegno e si riconosceva
+per esclusione, e l'esigenza finiva nel ramo dell'else di un ternario e si
+leggeva **"2a scelta"** - una riga che dichiarava una cosa falsa. Il nome sta in
+un posto solo e lo usano la schermata e il foglio stampato, che ha ora una
+colonna "Scelta" sua invece della parentesi accanto al nome. In cima c'e' la
+legenda.
+
+**Due viste.** "Per tavolo" e' com'e' fatta la giornata, e serve a chi prepara i
+desk. "Per azienda" risponde alla domanda piu' frequente - *questa impresa che
+cosa ha?* - per la quale prima toccava scorrere nove tavoli cercando lo stesso
+nome, con le sue preferenze in coda sparse in altri tre. Si sceglie l'azienda da
+un elenco (accanto al nome c'e' gia' quanto ha in mano) e si vedono in una
+schermata gli incontri fissati, le preferenze che aspettano, le domande che ci
+ha scritto, i referenti con indirizzo e telefono - che e' quello che serve
+quando si e' al telefono - e il collegamento al modulo che vede lei.
+
+Le righe delle due viste le disegnano **le stesse funzioni** (`rigaSlot`,
+`rigaCoda`, `rigaEsigenza`, con un `conTavolo`/`conAzienda` che dice che cosa e'
+gia' scritto in testa): da "per azienda" si sposta e si assegna come da "per
+tavolo", e non c'e' una seconda copia da tenere allineata. La lista delle
+aziende arriva gia' dal servizio (`aziende` nella risposta del riepilogo, con
+`incontri`, `coda`, `esigenze` e il `link`), quindi la vista non costa una
+lettura in piu'.
+
+Le prove stanno in `prove/riepilogo-b2b.prove.js`: ritagliano le funzioni dal
+sorgente vero di `app.js` e le fanno girare con un DOM finto, quindi collaudano
+la schermata che si apre davvero.
+
 ### Conferma della prenotazione, con il foglio per il desk
 
 Appena l'ospite salva la scelta, `b2b-salva` gli manda una mail di conferma

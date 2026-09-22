@@ -1561,11 +1561,43 @@ button.ag-slot { cursor: pointer; }
 .rb-ora { flex: 0 0 74px; font-weight: bold; color: var(--blu-700); }
 .rb-chi { flex: 1 1 260px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
 .rb-per { color: var(--grigio-900); }
-.rb-pos { font-size: 0.78rem; background: var(--ambra-bg); color: var(--ambra); border-radius: 10px; padding: 1px 8px; }
+/* QUALE DELLE TRE SCELTE. Un incontro fissato e una preferenza in attesa si
+   somigliano su uno schermo, e la differenza fra la prima scelta (l'orario
+   l'ha preso l'azienda) e la seconda (l'orario l'abbiamo dato noi) decide chi
+   si puo' spostare senza telefonare a nessuno. Ogni riga porta quindi il suo
+   contrassegno, sempre - anche la prima, che prima non ne aveva nessuno e si
+   riconosceva solo per esclusione - e i colori dicono da soli chi ha deciso:
+   verde l'azienda, ambra noi su una sua preferenza, blu noi su una domanda
+   che ci ha scritto. */
+.rb-pos { font-size: 0.78rem; background: var(--ambra-bg); color: var(--ambra); border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+.rb-pos.s1 { background: var(--verde-bg); color: var(--verde); }
+.rb-pos.s4 { background: var(--blu-050); color: var(--blu-700); }
+.rb-pos.neutro { background: var(--grigio-100); color: var(--grigio-600); }
+/* La legenda dei contrassegni: sta in cima, una riga sola, e serve la prima
+   volta che si apre il riepilogo - poi non la si legge piu', ed e' giusto
+   cosi'. */
+.rb-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0 0; font-size: 0.85rem; color: var(--grigio-600); }
+/* Le due viste: per tavolo (com'e' fatta la giornata) e per azienda (che cosa
+   ha in mano questa impresa). La stessa domanda cambia a seconda di chi la fa:
+   chi prepara i desk guarda i tavoli, chi risponde al telefono di un'azienda
+   guarda l'azienda. */
+.rb-viste { display: flex; gap: 6px; padding: 12px 0 0; }
+.rb-vista-b { font: inherit; font-size: 0.9rem; padding: 6px 14px; border: 1px solid var(--grigio-200); background: #fff; color: var(--grigio-600); border-radius: 999px; cursor: pointer; }
+.rb-vista-b.scelta { background: var(--blu-700); border-color: var(--blu-700); color: #fff; font-weight: bold; }
+.rb-scegli-az { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px 0 4px; }
+.rb-scegli-az select { font: inherit; font-size: 0.95rem; padding: 8px 10px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; flex: 1 1 320px; max-width: 100%; }
+.rb-az-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.rb-az-testa b { font-size: 1.05rem; color: var(--blu-900); }
+.rb-vuoto { padding: 10px 12px; color: var(--grigio-600); font-size: 0.9rem; }
+.rb-tavolo { flex: 0 0 100%; font-weight: bold; color: var(--blu-900); }
 .rb-nota { flex: 1 1 100%; color: var(--grigio-600); font-size: 0.88rem; }
 .rb-az { display: flex; gap: 4px; }
 .rb-coda-et { padding: 8px 12px 2px; font-size: 0.8rem; font-weight: bold; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ambra); }
-.rb-coda-riga .rb-ora { color: var(--ambra); }
+/* "in attesa" al posto dell'ora: sta nella stessa colonna dell'orario, perche'
+   e' li' che l'occhio cerca "quando", e la risposta e' che un quando non c'e'
+   ancora. Non deve andare a capo: su due righe la riga si alza e l'elenco
+   perde il passo. */
+.rb-coda-riga .rb-ora { color: var(--ambra); font-size: 0.82rem; white-space: nowrap; flex-basis: 84px; }
 .rb-coda-riga.ha-gia { opacity: 0.7; }
 .rb-dove { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 2px; }
 .rb-dove select { font: inherit; font-size: 0.9rem; padding: 6px 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }

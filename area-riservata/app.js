@@ -17880,9 +17880,42 @@
        sia quello giusto.
     ============================================================ */
     let _rb = null, _rbEvId = '', _rbAperto = '';
+    let _rbVista = 'tavoli';     // 'tavoli' (com'e' fatta la giornata) | 'aziende' (che cosa ha in mano un'impresa)
+    let _rbAzienda = '';         // l'azienda aperta nella vista per azienda
+
+    /* QUALE DELLE TRE SCELTE E'.
+       Un incontro nasce in quattro modi diversi, e sapere quale cambia che
+       cosa se ne puo' fare: la PRIMA scelta l'orario se l'e' preso l'azienda
+       (spostarlo vuol dire disdire un impegno che ha gia' in agenda), la
+       SECONDA e la TERZA gliel'abbiamo dato noi da una sua preferenza, e
+       quello nato da un'ALTRA ESIGENZA non e' fra le tre che aveva indicato -
+       e' una domanda che ci ha scritto e che abbiamo portato a un tavolo.
+       Prima il riepilogo scriveva "2a scelta" o "3a scelta" e basta: la prima
+       non aveva contrassegno e si riconosceva per esclusione, e l'esigenza
+       (che vale 4) finiva nel ramo dell'else e si vedeva marcata "2a scelta" -
+       una riga che dichiarava una cosa falsa. Il nome sta qui, in un posto
+       solo, e lo usano il riepilogo a video e il foglio stampato. */
+    const SCELTE_B2B = {
+        1: { breve: '1\u00aa scelta', classe: 's1', spiega: 'l\'orario l\'ha scelto l\'azienda' },
+        2: { breve: '2\u00aa scelta', classe: 's2', spiega: 'preferenza a cui l\'orario l\'abbiamo dato noi' },
+        3: { breve: '3\u00aa scelta', classe: 's3', spiega: 'preferenza a cui l\'orario l\'abbiamo dato noi' },
+        4: { breve: 'da esigenza', classe: 's4', spiega: 'non era fra le tre: \u00e8 una domanda che ci ha scritto' }
+    };
+    function sceltaB2B(n) { return SCELTE_B2B[Number(n) || 1] || SCELTE_B2B[1]; }
+    function bolloScelta(n) {
+        const x = sceltaB2B(n);
+        return '<span class="rb-pos ' + x.classe + '" title="' + esc(x.spiega) + '">' + x.breve + '</span>';
+    }
+    // il contrassegno di una preferenza ancora in coda: la stessa parola
+    // dell'incontro, cosi' le due righe si confrontano senza tradurre
+    function bolloCoda(pos) {
+        const x = sceltaB2B(Number(pos) === 3 ? 3 : 2);
+        return '<span class="rb-pos ' + x.classe + '" title="in attesa di un orario">' + x.breve + '</span>';
+    }
 
     function apriRiepilogoB2B(ev) {
         _rb = null; _rbEvId = ev.id; _rbAperto = '';
+        _rbVista = 'tavoli'; _rbAzienda = '';
         apriModale('<h2>Riepilogo incontri B2B - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + '<div id="rb-corpo"><div class="hint">Leggo l\'agenda...</div></div>'
             + '<div id="rb-esito" class="ev-imp-esito"></div>'
@@ -17942,14 +17975,19 @@
             + '<span class="' + (c.esigenzeAperte ? 'ambra' : '') + '"><b>' + (c.esigenzeAperte || 0) + '</b> esigenze da guardare</span>'
             + '<span class="' + (c.senzaIncontro ? 'ambra' : '') + '"><b>' + (c.senzaIncontro || 0) + '</b> aziende senza incontro</span>'
             + '<span><b>' + (c.liberi || 0) + '</b> orari liberi</span></div>';
-        const rigaSlot = (d, s) => {
+        /* `conTavolo` serve alla vista per azienda, dove le righe di tavoli
+           diversi stanno una sotto l'altra e il nome del tavolo non e' piu'
+           l'intestazione del blocco: senza, si leggerebbero tre orari senza
+           sapere dove. */
+        const rigaSlot = (d, s, conTavolo) => {
             const chi = s.chi || {};
             const spostaAperto = _rbAperto === ('sposta|' + d.id + '|' + s.chiave);
             return '<div class="rb-riga">'
                 + '<span class="rb-ora">' + esc(s.ora) + '</span>'
-                + '<span class="rb-chi"><b>' + esc(chi.aziendaNome || chi.azienda || '-') + '</b>'
+                + '<span class="rb-chi">'
+                + (conTavolo ? '<b>' + esc(d.nome) + '</b>' : '<b>' + esc(chi.aziendaNome || chi.azienda || '-') + '</b>')
+                + bolloScelta(chi.scelta)
                 + (chi.perChi ? '<span class="rb-per">per ' + esc(chi.perChi) + '</span>' : '')
-                + ((Number(chi.scelta) || 1) > 1 ? '<span class="rb-pos">' + (Number(chi.scelta) === 3 ? '3a' : '2a') + ' scelta</span>' : '')
                 + (chi.email ? '<span class="hint">' + esc(chi.email) + (chi.telefono ? ' &middot; ' + esc(chi.telefono) : '') + '</span>' : '')
                 + (chi.nota ? '<span class="rb-nota">' + esc(chi.nota) + '</span>' : '')
                 + '</span>'
@@ -17964,13 +18002,15 @@
                     : '')
                 + '</div>';
         };
-        const rigaCoda = (d, v) => {
+        const rigaCoda = (d, v, conTavolo) => {
             const aperto = _rbAperto === ('coda|' + v.id);
             return '<div class="rb-riga rb-coda-riga' + (v.haGiaUnIncontro ? ' ha-gia' : '') + '">'
-                + '<span class="rb-ora">' + (v.pos === 3 ? '3a' : '2a') + '</span>'
-                + '<span class="rb-chi"><b>' + esc(v.aziendaNome) + '</b>'
+                + '<span class="rb-ora">in attesa</span>'
+                + '<span class="rb-chi">'
+                + (conTavolo ? '<b>' + esc(d.nome) + '</b>' : '<b>' + esc(v.aziendaNome) + '</b>')
+                + bolloCoda(v.pos)
                 + (v.perChi ? '<span class="rb-per">per ' + esc(v.perChi) + '</span>' : '')
-                + '<span class="hint">' + (v.haGiaUnIncontro ? 'ha gia un incontro' : 'nessun incontro ancora') + '</span>'
+                + '<span class="hint">' + (v.haGiaUnIncontro ? 'ha gi\u00e0 un incontro' : 'nessun incontro ancora') + '</span>'
                 + '</span>'
                 + (puo ? '<span class="rb-az">'
                     + '<button class="btn btn-sm btn-ghost rb-assegna" data-coda="' + esc(v.id) + '">Assegna</button>'
@@ -17998,16 +18038,17 @@
                 + '</div>';
         }).join('');
         const esigenze = (_rb.esigenze || []);
-        const esigenzeHtml = esigenze.length
-            ? '<div class="rb-desk rb-esigenze"><div class="rb-desk-testa"><b>Altre esigenze segnalate</b>'
-            + '<span class="hint">non sono incontri: sono domande a cui rispondere</span></div>'
-            + esigenze.map(e => {
+        /* `conAzienda` come per gli incontri: nella vista per azienda il nome
+           e' gia' scritto in testa e ripeterlo a ogni riga e' rumore. */
+        const rigaEsigenza = (e, conAzienda) => {
                 const aperto = _rbAperto === ('esig|' + e.id);
                 return '<div class="rb-riga' + (e.stato === 'gestita' ? ' gestita' : '')
                     + (e.stato === 'assegnata' ? ' gestita' : '') + '">'
-                    + '<span class="rb-chi"><b>' + esc(e.aziendaNome) + '</b>'
+                    + '<span class="rb-chi">'
+                    + (conAzienda ? '<b>' + esc(e.aziendaNome) + '</b>' : '')
                     + (e.perChi ? '<span class="rb-per">per ' + esc(e.perChi) + '</span>' : '')
-                    + (e.stato === 'assegnata' ? '<span class="rb-pos">portata a un tavolo</span>' : '')
+                    + (e.stato === 'assegnata' ? '<span class="rb-pos s4">portata a un tavolo</span>' : '')
+                    + (e.stato === 'gestita' ? '<span class="rb-pos neutro">gestita</span>' : '')
                     + '<span class="rb-nota">' + esc(e.testo) + '</span></span>'
                     /* Tre cose si possono fare a un'altra esigenza, e sono
                        diverse: PORTARLA a un tavolo (diventa un incontro con
@@ -18035,16 +18076,133 @@
                         + 'l\'orario glielo diciamo solo con quella mail.</div></div>'
                         : '')
                     + '</div>';
-            }).join('')
+        };
+        const esigenzeHtml = esigenze.length
+            ? '<div class="rb-desk rb-esigenze"><div class="rb-desk-testa"><b>Altre esigenze segnalate</b>'
+            + '<span class="hint">non sono incontri: sono domande a cui rispondere</span></div>'
+            + esigenze.map(e => rigaEsigenza(e, true)).join('')
             + '</div>'
             : '';
-        box.innerHTML = conti + (deskHtml || '<div class="hint">Nessun tavolo attivo.</div>') + esigenzeHtml;
+
+        /* ------------------------------------------------------------
+           LA VISTA PER AZIENDA
+           Il riepilogo per tavolo racconta com'e' fatta la giornata, ed e'
+           quello che serve a chi prepara i desk. Ma la domanda piu' frequente
+           e' un'altra - "questa impresa che cosa ha?" - e per rispondere
+           toccava scorrere nove tavoli cercando lo stesso nome, con le sue
+           preferenze in coda sparse in altri tre. Qui si sceglie l'azienda
+           da un elenco e si vede tutto quello che la riguarda in una
+           schermata: gli incontri fissati, le preferenze che aspettano, le
+           domande che ci ha scritto, e i suoi referenti con indirizzo e
+           telefono - che e' quello che serve quando si e' al telefono.
+           I comandi sono gli stessi dell'altra vista: le righe le disegnano
+           le stesse funzioni, quindi da qui si sposta e si assegna come di
+           la', e non c'e' una seconda copia da tenere allineata.
+        ------------------------------------------------------------ */
+        const aziende = (_rb.aziende || []).slice().sort((a, b) =>
+            String(a.nome || '').localeCompare(String(b.nome || ''), 'it'));
+        const incontriDi = id => {
+            const fuori = [];
+            (_rb.desk || []).forEach(d => d.slot.forEach(sl => {
+                if (sl.stato === 'occupato' && sl.chi && sl.chi.aziendaId === id) fuori.push({ d: d, s: sl });
+            }));
+            return fuori.sort((x, y) => String(x.s.ora).localeCompare(String(y.s.ora)));
+        };
+        const codaDi = id => {
+            const fuori = [];
+            (_rb.desk || []).forEach(d => (d.coda || []).forEach(v => {
+                if (v.aziendaId === id) fuori.push({ d: d, v: v });
+            }));
+            return fuori.sort((x, y) => (x.v.pos - y.v.pos));
+        };
+        const vistaAziende = () => {
+            const az = aziende.filter(a => a.id === _rbAzienda)[0] || null;
+            const voce = a => {
+                const n = [];
+                if (a.incontri) n.push(a.incontri + (a.incontri === 1 ? ' incontro' : ' incontri'));
+                if (a.coda) n.push(a.coda + ' in attesa');
+                if (a.esigenze) n.push(a.esigenze + (a.esigenze === 1 ? ' esigenza' : ' esigenze'));
+                return '<option value="' + esc(a.id) + '"' + (az && a.id === az.id ? ' selected' : '') + '>'
+                    + esc(a.nome) + (n.length ? ' - ' + n.join(', ') : ' - niente ancora') + '</option>';
+            };
+            const scelta = '<div class="rb-scegli-az"><label for="rb-az-scelta">Azienda:</label>'
+                + '<select id="rb-az-scelta"><option value="">Scegli un\'azienda fra le ' + aziende.length + ' invitate...</option>'
+                + aziende.map(voce).join('') + '</select></div>';
+            if (!az) {
+                return scelta + '<div class="rb-vuoto">Scegli un\'azienda per vedere i suoi incontri, '
+                    + 'le preferenze che aspettano un orario e le domande che ci ha scritto. '
+                    + 'Accanto al nome c\'\u00e8 gi\u00e0 quanto ha in mano.</div>';
+            }
+            const inc = incontriDi(az.id);
+            const cod = codaDi(az.id);
+            const esig = esigenze.filter(e => e.aziendaId === az.id);
+            const chi = (az.referenti || []).map(r => esc(r.nome)
+                + (r.email ? ' <span class="hint">' + esc(r.email) + (r.telefono ? ' &middot; ' + esc(r.telefono) : '') + '</span>' : ''));
+            const blocco = (titolo, sotto, dentro, vuoto) => '<div class="rb-desk">'
+                + '<div class="rb-desk-testa"><b>' + titolo + '</b>' + (sotto ? '<span class="hint">' + sotto + '</span>' : '') + '</div>'
+                + (dentro || '<div class="rb-vuoto">' + vuoto + '</div>') + '</div>';
+            return scelta
+                + '<div class="rb-desk"><div class="rb-desk-testa rb-az-testa"><b>' + esc(az.nome) + '</b>'
+                + (az.piva ? '<span class="hint">P.IVA ' + esc(az.piva) + '</span>' : '')
+                + '<span class="hint">' + inc.length + (inc.length === 1 ? ' incontro fissato' : ' incontri fissati')
+                + ' &middot; ' + cod.length + ' in attesa &middot; ' + esig.length
+                + (esig.length === 1 ? ' esigenza' : ' esigenze') + '</span></div>'
+                + (chi.length ? '<div class="rb-riga"><span class="rb-chi">' + chi.join(' &nbsp;&middot;&nbsp; ') + '</span></div>' : '')
+                /* Il collegamento al SUO modulo: e' la pagina che l'azienda
+                   vede, ed e' l'unico modo di controllare davvero che cosa le
+                   compare - al telefono, mentre ce l'hai dall'altra parte. */
+                + (az.link ? '<div class="rb-riga"><span class="rb-chi"><a href="' + esc(az.link)
+                    + '" target="_blank" rel="noopener">Apri il modulo di questa azienda</a>'
+                    + '<span class="hint">\u00e8 la pagina che vede lei</span></span></div>' : '')
+                + '</div>'
+                + blocco('Incontri fissati', 'hanno un orario: al desk risultano a nome suo',
+                    inc.map(x => rigaSlot(x.d, x.s, true)).join(''),
+                    'Nessun incontro fissato per questa azienda.')
+                + blocco('Preferenze in attesa di un orario', 'non sono prenotazioni finch\u00e9 non gliele assegniamo',
+                    cod.map(x => rigaCoda(x.d, x.v, true)).join(''),
+                    'Nessuna preferenza in attesa.')
+                + blocco('Altre esigenze segnalate', 'non sono incontri: sono domande a cui rispondere',
+                    esig.map(e => rigaEsigenza(e, false)).join(''),
+                    'Nessuna domanda da questa azienda.');
+        };
+
+        /* La legenda dei contrassegni, in cima: serve la prima volta che si
+           apre il riepilogo, e non toglie spazio a nient'altro. */
+        const legenda = '<div class="rb-legenda"><span>Come leggere:</span>'
+            + '<span>' + bolloScelta(1) + ' ' + esc(sceltaB2B(1).spiega) + '</span>'
+            // la seconda e la terza si spiegano insieme: sono la stessa cosa,
+            // e scriverlo due volte fa sembrare che siano due
+            + '<span>' + bolloScelta(2) + ' ' + bolloScelta(3) + ' ' + esc(sceltaB2B(2).spiega) + '</span>'
+            + '<span>' + bolloScelta(4) + ' ' + esc(sceltaB2B(4).spiega) + '</span>'
+            + '</div>';
+        const viste = '<div class="rb-viste">'
+            + '<button type="button" class="rb-vista-b' + (_rbVista === 'tavoli' ? ' scelta' : '') + '" data-v="tavoli">Per tavolo</button>'
+            + '<button type="button" class="rb-vista-b' + (_rbVista === 'aziende' ? ' scelta' : '') + '" data-v="aziende">Per azienda</button>'
+            + '</div>';
+        box.innerHTML = conti + legenda + viste
+            + (_rbVista === 'aziende'
+                ? vistaAziende()
+                : (deskHtml || '<div class="hint">Nessun tavolo attivo.</div>') + esigenzeHtml);
         collegaRiepilogoB2B(ev);
     }
     function collegaRiepilogoB2B(ev) {
         const box = document.getElementById('rb-corpo');
         if (!box) return;
         const ridisegna = () => disegnaRiepilogoB2B(ev);
+        /* Cambiando vista si chiude quello che era aperto a meta': un riquadro
+           "sposta a..." rimasto appeso in una vista che non si vede piu' e'
+           una decisione che nessuno ha preso. */
+        box.querySelectorAll('.rb-vista-b').forEach(b => b.addEventListener('click', () => {
+            _rbVista = b.dataset.v === 'aziende' ? 'aziende' : 'tavoli';
+            _rbAperto = '';
+            ridisegna();
+        }));
+        const sceltaAz = document.getElementById('rb-az-scelta');
+        if (sceltaAz) sceltaAz.addEventListener('change', () => {
+            _rbAzienda = sceltaAz.value || '';
+            _rbAperto = '';
+            ridisegna();
+        });
         box.querySelectorAll('.rb-sposta').forEach(b => b.addEventListener('click', () => {
             _rbAperto = 'sposta|' + b.dataset.area + '|' + b.dataset.chiave; ridisegna();
         }));
@@ -18140,18 +18298,24 @@
             return '<section class="tema"><h2>' + esc(d.nome) + ' <span class="conta">' + presi.length
                 + (presi.length === 1 ? ' incontro' : ' incontri') + (d.coda.length ? ' &middot; ' + d.coda.length + ' in coda' : '') + '</span></h2>'
                 + (d.referenti.length ? '<div class="sotto">Con ' + esc(d.referenti.map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ')) + '</div>' : '')
-                + (presi.length ? '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Partecipa</th><th>Contatti</th><th>Nota</th></tr></thead><tbody>'
+                + (presi.length ? '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Scelta</th><th>Partecipa</th><th>Contatti</th><th>Nota</th></tr></thead><tbody>'
                     + presi.map(s => {
                         const chi = s.chi || {};
                         return '<tr><td class="forte">' + esc(s.ora) + ' - ' + esc(s.fine) + '</td>'
-                            + '<td class="forte">' + esc(chi.aziendaNome || chi.azienda || '-')
-                            + ((Number(chi.scelta) || 1) > 1 ? ' (' + (Number(chi.scelta) === 3 ? '3a' : '2a') + ' scelta)' : '') + '</td>'
+                            + '<td class="forte">' + esc(chi.aziendaNome || chi.azienda || '-') + '</td>'
+                            /* Quale scelta, in una colonna sua e per tutte e
+                               quattro: sul foglio stampato stava fra parentesi
+                               accanto al nome, spariva per la prima e diceva
+                               "2a scelta" per gli incontri nati da una domanda
+                               dell'impresa - che la seconda scelta non sono. */
+                            + '<td>' + esc(sceltaB2B(chi.scelta).breve) + '</td>'
                             + '<td>' + esc(chi.perChi || chi.nome || '-') + '</td>'
                             + '<td>' + esc((chi.email || '') + (chi.telefono ? ' - ' + chi.telefono : '')) + '</td>'
                             + '<td class="nota">' + esc(chi.nota || '') + '</td></tr>';
                     }).join('') + '</tbody></table>' : '<div class="sotto">Nessun incontro fissato.</div>')
-                + (d.coda.length ? '<div class="sotto"><b>In coda:</b> ' + d.coda.map(v =>
-                    esc(v.aziendaNome) + ' (' + (v.pos === 3 ? '3a' : '2a') + (v.perChi ? ', per ' + esc(v.perChi) : '') + ')').join('; ') + '</div>' : '')
+                + (d.coda.length ? '<div class="sotto"><b>In attesa di un orario:</b> ' + d.coda.map(v =>
+                    esc(v.aziendaNome) + ' (' + esc(sceltaB2B(Number(v.pos) === 3 ? 3 : 2).breve)
+                    + (v.perChi ? ', per ' + esc(v.perChi) : '') + ')').join('; ') + '</div>' : '')
                 + '</section>';
         }).join('');
         const esigenze = (_rb.esigenze || []);
