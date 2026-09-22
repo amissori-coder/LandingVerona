@@ -142,6 +142,34 @@ prova('L ordine e quello in cui si legge', () => {
     esigi(bottone < saluti && saluti < note, 'i saluti dopo il pulsante, le note sul collegamento in coda');
 });
 
+prova('Che e un invito riservato si legge prima di aprire la mail', () => {
+    /* In una casella piena l'oggetto e' spesso l'unica riga che qualcuno
+       legge: se non dice che l'invito e' riservato, la mail passa per una
+       comunicazione di servizio mandata a tutti e si apre la settimana dopo.
+       Le tre parole stanno in TESTA, prima del taglio che i telefoni fanno
+       dopo una quarantina di caratteri. */
+    const m = mail();
+    esigi(/^Invito riservato/.test(m.oggetto), 'l oggetto comincia da li', m.oggetto);
+    esigi(m.oggetto.indexOf('Invito riservato') < 40, 'e la parte che conta sta prima del taglio');
+    const html = senzaTrattini(m.html);
+    esigi(/riservat/i.test(html.slice(0, html.indexOf('Revilaw S.p.A.'))),
+        'e lo ripete la mail, non solo l intestazione');
+    const titolo = html.indexOf('Invito riservato agli incontri B2B');
+    esigi(titolo > 0 && titolo < html.indexOf('iniziativa'),
+        'il titolo della testata dice la stessa cosa, e sta prima del corpo');
+    esigi(/^INVITO RISERVATO/.test(m.testo), 'e anche il testo semplice', m.testo.split('\n')[0]);
+});
+
+prova('Il corpo dice perche proprio a loro, e in coda a chi resta', () => {
+    const m = mail();
+    const html = senzaTrattini(m.html);
+    esigi(html.indexOf('non sono aperti a tutti gli iscritti') > 0
+        && m.testo.indexOf('non sono aperti a tutti gli iscritti') > 0,
+        'l invito non e per tutti, e si dice');
+    esigi(html.indexOf('riservato a {{AZIENDA}}') > 0,
+        'e la nota in coda lo ripete nominando l impresa');
+});
+
 prova('Le tre sezioni hanno la stessa forma', () => {
     /* Prima erano due riquadri disegnati a mano e in mezzo un titoletto nudo:
        tre pesi diversi nella stessa pagina. Qui si conta che i riquadri siano

@@ -1217,9 +1217,33 @@ stanno in coda: quella sui colleghi stava fra le regole e il pulsante, e
 interrompeva proprio nel punto in cui chi legge ha finito di capire e sta per
 prenotare.
 
+### Un invito riservato, e si legge prima di aprire la mail
+
+L'oggetto e' **"Invito riservato agli incontri B2B - Next Generation Business,
+..."**. In una casella piena l'oggetto e' spesso l'unica riga che qualcuno
+legge: "Gli incontri B2B della Vostra azienda" si scambiava per una
+comunicazione di servizio mandata a tutti gli iscritti, e una mail del genere si
+apre la settimana dopo. Questa non va a tutti - va alle imprese scelte una per
+una, con la colonna `Invito B2B` - e chi la riceve deve saperlo dalla riga
+dell'elenco.
+
+Le tre parole stanno in **testa** all'oggetto perche' i telefoni lo tagliano
+dopo una quarantina di caratteri, e quello che conta deve stare prima del
+taglio. Poi lo ripetono l'anteprima (la riga grigia accanto all'oggetto), il
+titolo della testata, il sommario e la nota in coda ("Questo invito e' riservato
+a {{AZIENDA}}"). Nel corpo c'e' anche il **perche' proprio a loro**, in un
+paragrafo corto che si legge anche scorrendo: i posti ai desk sono limitati e
+l'invito va alle imprese che si scelgono una per una.
+
+La pagina di prenotazione dice le stesse parole ("Il Vostro invito riservato
+agli incontri B2B", in `incontri_b2b/index.html`): chi apre il collegamento deve
+ritrovarsi dove si aspettava.
+
 Le prove stanno in `prove/mail-invito-forma.prove.js`: ritagliano il corpo dalla
 mail vera, cercano i blocchi di prosa (trenta lettere in su, cioe' quelli che
-vanno a capo davvero) e pretendono il giustificato su tutti.
+vanno a capo davvero) e pretendono il giustificato su tutti; controllano anche
+che l'oggetto cominci da "Invito riservato" e che le stesse parole tornino nella
+testata e nel testo semplice.
 
 ### Una mail per indirizzo, e nomina gli altri
 
