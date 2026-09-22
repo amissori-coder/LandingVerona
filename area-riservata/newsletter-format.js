@@ -1627,6 +1627,132 @@
         return { oggetto: oggetto, html: html, testo: testo };
     }
 
+    /* =========================================================
+       L'INVITO B2B PER AZIENDA
+       ---------------------------------------------------------
+       Una mail sola per impresa, mandata a tutti i suoi referenti
+       insieme: l'invito e' dell'azienda, e le scelte che si fanno
+       dalla pagina valgono per l'azienda, chiunque le salvi.
+       Copre TUTTI i tavoli della giornata - non uno - perche'
+       l'impresa ne indica tre in ordine: il primo prenota davvero,
+       gli altri due li assegniamo noi se restano posti.
+       Segnaposti, sostituiti dal servizio PER AZIENDA:
+         {{NOME}} e {{AZIENDA}} - la ragione sociale;
+         {{SE_COLLEGHI}}...{{REFERENTI}}...{{/SE_COLLEGHI}} - il
+           tratto che nomina gli altri referenti, tolto quando il
+           referente e' uno solo;
+         {{B2B}} - il collegamento dell'azienda alla pagina.
+       `dati`: { evento: {titolo, quando, sottotitolo, luogo, indirizzo},
+       aree: [{nome, descrizione}] (di chi tiene il tavolo non si scrive:
+       e' un nome che puo' cambiare fino al giorno prima, e l'impresa
+       sceglie l'argomento, non la persona),
+       giornata: {inizio, fine, pranzoDa, pranzoA, durata} }.
+    ========================================================= */
+    function invitoB2BAzienda(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const g = dati.giornata || {};
+        const aree = (dati.aree || []).filter(a => a && a.nome);
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
+        const oggetto = 'Gli incontri B2B della Vostra azienda - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const anteprima = 'Un invito per azienda: indichi chi partecipa e tre preferenze. La prima prenota davvero.';
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', nel corso del convegno "' + nomeConvegno + '"'
+            + (quandoEv ? ' di ' + quandoEv : '') + ' riserviamo alla Vostra impresa degli incontri B2B con i nostri professionisti.';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const riquadro = (etichetta, forte, sotto) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
+            + '<tr><td style="padding:14px 20px;">'
+            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">' + esc(etichetta) + '</span><br>'
+            + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">' + esc(forte) + '</span>'
+            + (sotto ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(sotto) + '</span>' : '')
+            + '</td></tr></table></td></tr>';
+        /* I TAVOLI, tutti, con chi li tiene: l'invito e' uno solo e l'impresa
+           sceglie fra questi. Elencarli qui - e non solo sulla pagina - e'
+           quello che permette di decidere prima di aprire il collegamento. */
+        const elencoTavoli = '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">'
+            + aree.map(a => '&bull;&nbsp; <b>' + esc(a.nome) + '</b>'
+                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> - ' + esc(a.descrizione) + '</span>' : ''))
+                .join('<br>')
+            + '</td></tr>';
+        const regole = (dati.regole || []);
+        const elencoRegole = regole.length
+            ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
+            + '<tr><td style="padding:14px 20px;">'
+            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Come funziona</span><br>'
+            + '<span style="' + FONTE + 'font-size:14px;line-height:23px;color:' + C.scuro + ';">'
+            + regole.map(x => '&bull;&nbsp; ' + esc(x)).join('<br>')
+            + '</span></td></tr></table></td></tr>'
+            : '';
+        const bottone = '<tr><td align="center" style="text-align:center;">'
+            + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
+            + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
+            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scelga i Vostri incontri</a>'
+            + '</td></tr></table></td></tr>';
+        const fraseColleghi = 'Questo invito è arrivato anche a {{REFERENTI}}: è un invito solo per {{AZIENDA}}, '
+            + 'e le scelte si vedono e si modificano dallo stesso collegamento, chiunque di voi lo apra.';
+        const chiusura = 'Gli orari si assegnano a chi prenota per primo: Le consigliamo di scegliere appena può. '
+            + 'Nell\'attesa di incontrarVi' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.';
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
+            + spazio(14)
+            + par('Per questo riserviamo alla Vostra azienda un incontro con i nostri professionisti, su uno dei tavoli della giornata.')
+            + ((ev.quando || ev.luogo) ? spazio(18) + riquadro('Quando e dove',
+                [ev.quando, ev.luogo].filter(Boolean).join(' - '), ev.indirizzo || '') : '')
+            + (aree.length ? spazio(18) + par('<b>I tavoli della giornata</b>') + spazio(6) + elencoTavoli : '')
+            + (elencoRegole ? spazio(18) + elencoRegole : '')
+            + spazio(18)
+            + '{{SE_COLLEGHI}}' + par(fraseColleghi) + spazio(18) + '{{/SE_COLLEGHI}}'
+            + bottone
+            + spazio(26)
+            + par(chiusura)
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. Le chiediamo di non diffonderlo fuori dall\'azienda.</td></tr>'
+        ));
+        const html = involucro(oggetto, anteprima,
+            testaB2B('Gli incontri B2B della Vostra azienda', sommario) + copertinaB2B()
+            + corpo + spazio(36) + piedeB2B());
+        const testo = ['GLI INCONTRI B2B DELLA VOSTRA AZIENDA', sommario,
+            'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.',
+            ((ev.quando || ev.luogo) ? 'Quando e dove: ' + [ev.quando, ev.luogo].filter(Boolean).join(' - ')
+                + (ev.indirizzo ? ', ' + ev.indirizzo : '') : ''),
+            (aree.length ? 'I tavoli della giornata:\n'
+                + aree.map(a => '- ' + a.nome + (a.descrizione ? ' - ' + a.descrizione : '')).join('\n') : ''),
+            (regole.length ? 'Come funziona:\n' + regole.map(x => '- ' + x).join('\n') : ''),
+            '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
+            'Scelga i Vostri incontri: ' + SEGNAPOSTO_B2B,
+            chiusura,
+            'Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. Le chiediamo di non diffonderlo fuori dall\'azienda.',
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
+    /* LE REGOLE DELLA PRENOTAZIONE, le stesse che il servizio manda alla
+       pagina (email-service/lib/agenda-modello.js, regoleB2B): qui servono
+       per scriverle nella mail d'invito, che parte prima che qualcuno apra
+       la pagina. Sono due copie, e devono restare identiche alla lettera:
+       la prova prove/tavoli-b2b.prove.js le mette una accanto all'altra. */
+    function regoleB2B(giornata) {
+        const g = giornata || {};
+        const durata = parseInt(g.durata, 10) > 0 ? parseInt(g.durata, 10) : 30;
+        const inizio = g.inizio || '10:00', fine = g.fine || '17:00';
+        return [
+            'Un invito per azienda: indichi il nominativo di chi partecipa a ciascun incontro, '
+            + 'e può essere una persona diversa da un tavolo all\'altro.',
+            'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo.',
+            'La seconda e la terza sono solo il tavolo: se restano posti l\'orario glielo assegniamo noi e Le scriviamo. '
+            + 'Finché non arriva quella mail non c\'è nessun orario a Suo nome.',
+            'Ogni incontro dura ' + durata + ' minuti, fra le ' + inizio + ' e le ' + fine
+            + (g.pranzoDa && g.pranzoA ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',
+            'Può cambiare tutto da questa pagina fino al giorno del convegno: a ogni modifica riceve una mail '
+            + 'nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
+        ];
+    }
+
     /* Applica (o toglie) il tratto "preferenze gia' indicate" dell'invito B2B:
        il testo fra {{SE_TEMI}} e {{/SE_TEMI}} resta solo se `temi` c'e', con
        {{TEMI}} sostituito. Il servizio lo fa per destinatario; l'anteprima
@@ -2087,6 +2213,7 @@
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
         passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
+        invitoB2BAzienda: invitoB2BAzienda, regoleB2B: regoleB2B,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };

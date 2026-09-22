@@ -57,6 +57,7 @@ function sezioneAziende(body) { return !!(body && String(body.sezione || '') ===
 // le aree degli incontri B2B: servono a validare l'area e gli orari
 // per tavolo che arrivano con l'invito (le etichette sconosciute si scartano)
 const { TEMI_B2B, areaDa } = require('../lib/temi-b2b');
+const CHIAVI = require('../lib/chiavi-azienda');
 /* L'agenda degli incontri B2B (aree, referenti, slot, prenotazioni): sta in
    lib/ per la stessa ragione delle aziende da invitare, e le richieste con
    sezione: 'b2b' si deviano li'. Si carica solo quando ne arriva una. */
@@ -191,17 +192,19 @@ function esc(s) {
 /* Tratto "preferenze gia' indicate" dell'invito B2B: il testo fra {{SE_TEMI}}
    e {{/SE_TEMI}} resta solo se il destinatario ha gia' dei temi, con {{TEMI}}
    al loro posto. Specchio di conTemiB2B in newsletter-format.js. */
-function conTemi(s, temi) {
+function conBlocco(s, tag, segnaposto, valore) {
     s = String(s == null ? '' : s);
-    const i = s.indexOf('{{SE_TEMI}}');
+    const apre = '{{SE_' + tag + '}}', chiude = '{{/SE_' + tag + '}}';
+    const i = s.indexOf(apre);
     if (i < 0) return s;
-    const j = s.indexOf('{{/SE_TEMI}}');
+    const j = s.indexOf(chiude);
     if (j < 0) return s;
     const pre = s.slice(0, i);
-    const dentro = s.slice(i + '{{SE_TEMI}}'.length, j);
-    const dopo = s.slice(j + '{{/SE_TEMI}}'.length);
-    return temi ? pre + dentro.split('{{TEMI}}').join(temi) + dopo : pre + dopo;
+    const dentro = s.slice(i + apre.length, j);
+    const dopo = s.slice(j + chiude.length);
+    return valore ? pre + dentro.split('{{' + segnaposto + '}}').join(valore) + dopo : pre + dopo;
 }
+function conTemi(s, temi) { return conBlocco(s, 'TEMI', 'TEMI', temi); }
 /* Data di iscrizione in formato italiano, fuso di Roma: la stessa regola del
    form pubblico (iscrizione-nuova), perche' la data entra nell'identificativo
    della scheda e dev'essere fatta allo stesso modo. */
@@ -455,7 +458,7 @@ module.exports = async (req, res) => {
         // "aggiungi" crea la scheda; "invita-b2b" e "sposta-modalita" portano il
         // proprio elenco di destinatari: sono le sole azioni senza un iscritto da
         // indicare qui
-        const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'sposta-modalita'];
+        const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'invita-b2b-azienda', 'sposta-modalita'];
         if (CON_ELENCO_PROPRIO.indexOf(azione) < 0 && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
@@ -638,6 +641,169 @@ module.exports = async (req, res) => {
            dopo l'altro. Chi ha gia' ricevuto l'invito viene saltato (b2bInvito
            sulla scheda), salvo richiesta esplicita di reinvio. Stessi permessi
            dell'inserimento manuale. */
+        /* ============================================================
+           L'INVITO B2B PER AZIENDA
+           ------------------------------------------------------------
+           L'invito di prima era per PERSONA: una mail a testa, un
+           collegamento a testa, e due colleghi della stessa impresa
+           finivano con due prenotazioni diverse senza saperlo.
+           Questo e' per AZIENDA: una mail sola all'impresa - indirizzata
+           a tutti i suoi referenti insieme, che si leggono a vicenda nei
+           destinatari - un collegamento solo, e una prenotazione sola.
+           Chi raggruppa e' l'area riservata, che i gruppi li mostra a
+           video prima di spedire; qui arriva la CHIAVE gia' decisa e non
+           si ricalcola niente, perche' un raggruppamento che cambia fra
+           un giorno e l'altro cambierebbe di chi e' la prenotazione.
+        ============================================================ */
+        if (azione === 'invita-b2b-azienda') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono invitare l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            if (!evento) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
+            /* Venticinque aziende per chiamata e non cinquanta: qui ogni
+               azienda costa una lettura per referente, una scrittura del suo
+               documento e una mail con il server SMTP in sequenza, e la
+               funzione ha sessanta secondi. L'area riservata manda i lotti
+               uno dopo l'altro e riprende da dove si era fermata. */
+            const aziende = (Array.isArray(body.aziende) ? body.aziende : []).slice(0, 25)
+                .map(a => (a && typeof a === 'object') ? {
+                    chiave: testo(a.chiave, 200),
+                    nome: testo(a.nome, 200),
+                    piva: CHIAVI.normalizzaPiva(a.piva),
+                    referenti: (Array.isArray(a.referenti) ? a.referenti : []).slice(0, 8)
+                        .map(r => (r && typeof r === 'object') ? { id: testo(r.id, 300), doc: testo(r.doc, 400) } : null)
+                        .filter(Boolean)
+                } : null)
+                .filter(a => a && a.chiave && a.referenti.length);
+            if (!aziende.length) { res.status(400).json({ ok: false, msg: 'Nessuna azienda indicata.' }); return; }
+            const m = body.mail && typeof body.mail === 'object' ? body.mail : {};
+            const oggettoBase = (testo(m.oggetto, 250) || 'Incontri B2B riservati - Next Generation Business').replace(/[\r\n]/g, ' ');
+            const htmlBase = String(m.html || '').slice(0, 300000);
+            const testoBase = String(m.testo || '').slice(0, 20000);
+            if (!htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
+            /* I TAVOLI dell'invito: tutti quelli che si tengono, perche'
+               l'invito e' uno solo e copre tutti i b2b. Chi prenota sceglie
+               fra questi. */
+            const areeInvito = (Array.isArray(body.aree) ? body.aree : [])
+                .map(x => (areaDa(x) || {}).id || '').filter(Boolean);
+            const evB2Baz = (body.eventoDati && typeof body.eventoDati === 'object') ? {
+                titolo: testo(body.eventoDati.titolo, 120),
+                quando: testo(body.eventoDati.quando, 120),
+                luogo: testo(body.eventoDati.luogo, 200),
+                indirizzo: testo(body.eventoDati.indirizzo, 200)
+            } : null;
+            const AG = moduloAgenda();
+            const fromEmailAz = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+            const fromNameAz = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+            const transAz = trasporto();
+            const avvio = Date.now();
+            let inviate = 0, senzaReferenti = 0, giaInvitate = 0;
+            const falliti = [], fatte = [], restanti = [];
+            for (let n = 0; n < aziende.length; n++) {
+                const az = aziende[n];
+                /* Il tempo della funzione e' sessanta secondi e le mail partono
+                   una dopo l'altra: quando restano meno di otto secondi si
+                   smette e si dice quali aziende non si sono fatte, invece di
+                   farsi interrompere a meta' di un invio - che vorrebbe dire
+                   una mail partita senza l'invito scritto sulla scheda. */
+                if (n > 0 && (Date.now() - avvio) > 50000) { restanti.push(az.chiave); continue; }
+                const referenti = [];
+                for (const r of az.referenti) {
+                    const docId = r.doc || idIscrizione(r.id);
+                    if (!docId) continue;
+                    const snap = await db.collection('iscrizioni').doc(docId).get();
+                    if (!snap.exists) continue;
+                    const s2 = snap.data() || {};
+                    if (s2.annullato) continue;
+                    const a2 = String(s2.email || '').toLowerCase();
+                    referenti.push({
+                        doc: docId,
+                        nome: ((String(s2.nome || '') + ' ' + String(s2.cognome || '')).trim()),
+                        ruolo: testo(s2.ruolo, 160),
+                        email: emailValida(a2) ? a2 : '',
+                        telefono: testo(s2.telefono, 60),
+                        invitato: !!s2.b2bInvito
+                    });
+                }
+                const conMail = Array.from(new Set(referenti.map(r => r.email).filter(Boolean)));
+                if (!referenti.length || !conMail.length) { senzaReferenti++; continue; }
+                if (body.forza !== true && referenti.every(r => r.invitato)) { giaInvitate++; continue; }
+                const aziendaId = CHIAVI.idAzienda(evento, az.chiave);
+                const nomeAz = az.nome || 'la Sua azienda';
+                // il documento dell'azienda PRIMA della mail: se la mail parte e
+                // il documento non c'e', il collegamento non apre niente
+                await AG.assicuraAzienda(db, evento, aziendaId, {
+                    nome: nomeAz, chiave: az.chiave, piva: az.piva,
+                    aree: areeInvito,
+                    referenti: referenti.map(r => ({ doc: r.doc, nome: r.nome, ruolo: r.ruolo, email: r.email, telefono: r.telefono })),
+                    da: email, collab: collab
+                });
+                const link = NL.linkB2BAzienda(evento, aziendaId);
+                const nomiRef = referenti.map(r => r.nome).filter(Boolean);
+                const colleghi = nomiRef.length > 1 ? nomiRef.join(', ') : '';
+                const sostituisci = (testoMail, quote) => {
+                    const q = quote ? esc : (x => x);
+                    return conBlocco(testoMail, 'COLLEGHI', 'REFERENTI', colleghi ? q(colleghi) : '')
+                        .split('{{NOME}}').join(q(nomeAz))
+                        .split('{{AZIENDA}}').join(q(nomeAz))
+                        .split('{{REFERENTI}}').join(q(colleghi))
+                        .split('{{B2B}}').join(link);
+                };
+                try {
+                    await transAz.sendMail({
+                        from: '"' + fromNameAz + '" <' + fromEmailAz + '>',
+                        replyTo: email,
+                        /* TUTTI i referenti in chiaro, non in copia nascosta: la
+                           mail dice che l'invito e' arrivato anche agli altri e
+                           li nomina, e vederseli fra i destinatari e' la prova
+                           che e' vero. Sono colleghi della stessa impresa. */
+                        to: conMail.join(', '),
+                        bcc: ccnOperatore(email, emailSessione, conMail[0]),
+                        subject: oggettoBase,
+                        text: testoBase ? sostituisci(testoBase, false) : undefined,
+                        html: sostituisci(htmlBase, true)
+                    });
+                    inviate++;
+                    fatte.push(az.chiave);
+                } catch (e) {
+                    const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
+                    falliti.push({ azienda: nomeAz, email: conMail.join(', '), motivo: motivo });
+                    continue;
+                }
+                /* L'invito si scrive su TUTTE le schede dei referenti, anche su
+                   quelle che condividono l'indirizzo con un collega: la mail e'
+                   una sola, ma le persone sono due, e una scheda senza chiave
+                   d'azienda non aprirebbe il modulo dell'impresa. */
+                for (const r of referenti) {
+                    try {
+                        await db.collection('iscrizioni').doc(r.doc).set({
+                            b2bAzienda: {
+                                id: aziendaId, nome: nomeAz, chiave: az.chiave, piva: az.piva,
+                                evento: evento, quando: Date.now(), da: email
+                            },
+                            b2bInvito: Object.assign(
+                                { quando: Date.now(), da: email, collab: collab, eventoId: evento },
+                                areeInvito.length ? { aree: areeInvito, area: areeInvito[0] } : {},
+                                evB2Baz ? { evento: evB2Baz } : {}
+                            )
+                        }, { merge: true });
+                    } catch (e) {
+                        falliti.push({ azienda: nomeAz, email: r.email, motivo: 'invito non scritto sulla scheda' });
+                    }
+                }
+            }
+            /* La copia condivisa dell'elenco va avvisata che i dati sono
+               cambiati: l'invito di prima non lo faceva, e le colonne del B2B
+               restavano vecchie fino a sei ore. */
+            await segnaCambiamento(db);
+            res.status(200).json({
+                ok: true, inviate: inviate, senzaReferenti: senzaReferenti, giaInvitate: giaInvitate,
+                fatte: fatte, restanti: restanti, falliti: falliti.slice(0, 50)
+            });
+            return;
+        }
+
         if (azione === 'invita-b2b') {
             if (!eAdmin && !(await ePartner(db, ruolo))) {
                 res.status(403).json({ ok: false, msg: 'Possono invitare l\'amministratore, gli equity partner e i founding partner.' });

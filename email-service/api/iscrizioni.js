@@ -142,6 +142,12 @@ const COLONNA_B2B = 'B2B prenotati';
    desk la mattina legge gli orari. */
 const COLONNA_ORA_B2B = 'Orario B2B';
 const COLONNA_SPOSTATO = 'Spostamento azienda';
+/* L'AZIENDA con cui questa persona e' stata invitata al B2B, e le preferenze
+   che l'impresa aspetta ancora: con l'invito per azienda la prenotazione non
+   e' piu' di chi la guarda, e senza queste due colonne l'elenco continuerebbe
+   a raccontare una persona sola. */
+const COLONNA_AZIENDA_B2B = 'Azienda B2B';
+const COLONNA_ATTESA_B2B = 'B2B in attesa';
 function prenotatiB2B(v) {
     if (!Array.isArray(v.b2bScelte)) return [];
     return v.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
@@ -156,12 +162,48 @@ function appuntamentoB2B(v) {
     };
 }
 
+function aziendaB2B(v) {
+    const a = (v && v.b2bAzienda && typeof v.b2bAzienda === 'object') ? v.b2bAzienda : null;
+    if (!a || !String(a.id || '').trim()) return null;
+    return {
+        id: String(a.id || ''), nome: String(a.nome || ''),
+        piva: String(a.piva || ''), evento: String(a.evento || '')
+    };
+}
+/* Il programma dell'AZIENDA, ricopiato su ogni scheda dei suoi referenti: gli
+   incontri prenotati (con il nominativo di chi ci va) e le preferenze ancora
+   in attesa di un orario. E' una copia, e si rifa' per intero a ogni
+   cambiamento: quello che non c'e' piu' sparisce perche' la copia si rifa'. */
+function programmaB2B(v) {
+    const p = (v && v.b2bProgramma && typeof v.b2bProgramma === 'object') ? v.b2bProgramma : null;
+    if (!p) return null;
+    return {
+        incontri: (Array.isArray(p.incontri) ? p.incontri : []).map(x => ({
+            area: String(x.area || ''), areaNome: String(x.areaNome || ''),
+            ora: String(x.ora || ''), fine: String(x.fine || ''),
+            perChi: String(x.perChi || ''), scelta: Number(x.scelta) || 1
+        })),
+        attesa: (Array.isArray(p.attesa) ? p.attesa : []).map(x => ({
+            area: String(x.area || ''), areaNome: String(x.areaNome || ''),
+            pos: Number(x.pos) || 2, perChi: String(x.perChi || '')
+        })),
+        esigenze: Number(p.esigenze) || 0
+    };
+}
+
 function extraMatching(v) {
     const fuori = {};
     const prenotati = prenotatiB2B(v);
     if (prenotati.length) fuori[COLONNA_B2B] = prenotati.join(',');
     const app = appuntamentoB2B(v);
     if (app) fuori[COLONNA_ORA_B2B] = app.ora + (app.fine ? ' - ' + app.fine : '');
+    const azB2B = aziendaB2B(v);
+    if (azB2B && azB2B.nome) fuori[COLONNA_AZIENDA_B2B] = azB2B.nome;
+    const prg = programmaB2B(v);
+    if (prg && prg.attesa.length) {
+        fuori[COLONNA_ATTESA_B2B] = prg.attesa
+            .map(x => x.areaNome + ' (' + (x.pos === 3 ? '3a' : '2a') + ')').join(', ');
+    }
     /* Chi e' stato spostato d'azienda a mano se lo porta scritto dietro: la
        lettura dell'elenco e' una whitelist campo per campo, quindi senza questa
        riga la traccia resterebbe sul database e non si vedrebbe mai. Vale anche
@@ -415,6 +457,9 @@ module.exports = async (req, res) => {
                     areeB2B: (v.b2bInvito && typeof v.b2bInvito === 'object' && Array.isArray(v.b2bInvito.aree))
                         ? v.b2bInvito.aree.map(x => String(x || '')).filter(Boolean) : null,
                     appuntamentoB2B: appuntamentoB2B(v),
+                    // l'azienda dell'invito B2B e il programma che ne discende
+                    aziendaB2B: aziendaB2B(v),
+                    programmaB2B: programmaB2B(v),
                     /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
                        del business matching. Si costruisce una copia nuova, cosi'
                        l'oggetto letto dal database resta com'e'. */

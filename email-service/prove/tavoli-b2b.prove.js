@@ -84,5 +84,25 @@ prova('3) Gli alias del modulo del sito portano su tavoli che esistono', () => {
         'un invito partito quando il tavolo si chiamava ancora cosi trova lo stesso il suo tavolo');
 });
 
+prova('4) Le regole della prenotazione: servizio e mail dicono la stessa cosa', () => {
+    /* Le cinque frasi vivono in due posti: il servizio le manda alla pagina di
+       chi prenota, l'area riservata le scrive nella mail d'invito - che parte
+       prima che qualcuno apra la pagina. Se si allontanassero, l'impresa
+       leggerebbe una regola nella mail e ne troverebbe un'altra sul modulo, e
+       quella che ha letto quando ha deciso e' la prima. */
+    const MODELLO = require(path.join(__dirname, '..', 'lib', 'agenda-modello.js'));
+    const giornate = [
+        { inizio: '10:00', fine: '17:00', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 },
+        { inizio: '09:30', fine: '18:00', pranzoDa: '', pranzoA: '', durata: 45 }
+    ];
+    giornate.forEach(g => {
+        const servizio = MODELLO.regoleB2B(g);
+        const mail = AREA.regoleB2B(g);
+        esigi(servizio.length === 5 && mail.length === 5, 'sono cinque frasi da tutte e due le parti (' + g.durata + ' minuti)');
+        const diverse = servizio.filter((x, i) => x !== mail[i]);
+        esigi(!diverse.length, 'e sono identiche alla lettera' + (diverse.length ? ': ' + diverse[0] : ''));
+    });
+});
+
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
 process.exit(ko ? 1 : 0);

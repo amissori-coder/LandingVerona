@@ -1546,6 +1546,31 @@ button.ag-slot { cursor: pointer; }
 .ag-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
 .ag-slot.libero:hover { border-color: var(--verde); }
 .ag-slot.chiuso { background: var(--grigio-100); border-style: dashed; color: var(--grigio-400); }
+/* --- IL RIEPILOGO DEI DESK (incontri B2B) ---
+   Un blocco per tavolo, gli orari con dentro l'azienda e chi si presenta, e
+   in coda le seconde e terze preferenze. Le righe sono alte e distanziate
+   apposta: e' un elenco che si legge il giorno prima del convegno, spesso
+   in due davanti allo stesso schermo. */
+.rb-conti { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 0 14px; border-bottom: 1px solid var(--grigio-200); font-size: 0.9rem; color: var(--grigio-600); }
+.rb-conti span.ambra { color: var(--ambra); }
+.rb-desk { margin-top: 18px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); overflow: hidden; }
+.rb-desk-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 9px 12px; background: var(--grigio-050, #F8FAFC); border-bottom: 1px solid var(--grigio-200); }
+.rb-riga { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--grigio-100); }
+.rb-riga:last-child { border-bottom: none; }
+.rb-riga.gestita { opacity: 0.55; }
+.rb-ora { flex: 0 0 74px; font-weight: bold; color: var(--blu-700); }
+.rb-chi { flex: 1 1 260px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.rb-per { color: var(--grigio-900); }
+.rb-pos { font-size: 0.78rem; background: var(--ambra-bg); color: var(--ambra); border-radius: 10px; padding: 1px 8px; }
+.rb-nota { flex: 1 1 100%; color: var(--grigio-600); font-size: 0.88rem; }
+.rb-az { display: flex; gap: 4px; }
+.rb-coda-et { padding: 8px 12px 2px; font-size: 0.8rem; font-weight: bold; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ambra); }
+.rb-coda-riga .rb-ora { color: var(--ambra); }
+.rb-coda-riga.ha-gia { opacity: 0.7; }
+.rb-dove { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 2px; }
+.rb-dove select { font: inherit; font-size: 0.9rem; padding: 6px 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
+.rb-esigenze .rb-chi { flex-direction: column; align-items: flex-start; gap: 2px; }
+
 /* Chiuso dalla SCALETTA e non da una mano: chi tiene il tavolo in
    quell'ora e' sul palco. Si distingue dal grigio della chiusura a mano
    perche' e' l'unico che non si riapre premendoci sopra. */

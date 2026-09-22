@@ -355,42 +355,14 @@ function indiciDaTemi(etichette) {
         (gmail, libero, aruba...) non dicono niente sull'azienda e non contano.
    Le due cose insieme fondono i gruppi a catena: "Alfa Srl" + "Alfa SPA" con
    lo stesso dominio sono una sola impresa. */
-const DOMINI_PUBBLICI = [
-    'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.it', 'outlook.com', 'outlook.it',
-    'live.it', 'live.com', 'msn.com', 'yahoo.it', 'yahoo.com', 'libero.it', 'virgilio.it',
-    'alice.it', 'tin.it', 'tiscali.it', 'inwind.it', 'iol.it', 'email.it', 'fastwebnet.it',
-    'icloud.com', 'me.com', 'mac.com', 'aruba.it', 'pec.it', 'legalmail.it', 'poste.it',
-    'protonmail.com', 'proton.me', 'gmx.com', 'katamail.com', 'supereva.it', 'teletu.it',
-    'vodafone.it', 'wind.it', 'tim.it', 'windtre.it', 'blu.it'
-];
-/* Le forme giuridiche: si tolgono dal confronto perche' la stessa impresa
-   compare ora con la sigla, ora senza, ora con i punti. Restano fuori le
-   parole che potrebbero essere il nome vero ("studio", "impresa", "gruppo"):
-   toglierle farebbe di "Studio Rossi" e "Studio Bianchi" la stessa cosa. */
-const FORME_GIURIDICHE = /\b(s\s*r\s*l\s*s?|s\s*p\s*a|s\s*a\s*p\s*a|s\s*a\s*s|s\s*n\s*c|s\s*c\s*a\s*r\s*l|s\s*s|societa|soc|cooperativa|coop|sarl|ltd|limited|llc|inc|gmbh|plc)\b/g;
-function chiaveAzienda(s) {
-    let t = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    t = t.replace(/&/g, ' e ');
-    // i punti e gli apostrofi spariscono senza lasciare spazio: "s.r.l." -> "srl"
-    t = t.replace(/[.'\u2019"]/g, '');
-    t = t.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-    const senzaForma = t.replace(FORME_GIURIDICHE, ' ').replace(/\s+/g, ' ').trim();
-    // se dell'azienda resta solo la forma giuridica, meglio la stringa intera
-    return senzaForma || t;
-}
-function dominioMail(email) {
-    const m = String(email || '').toLowerCase().trim().match(/@([a-z0-9.\-]+)$/);
-    if (!m) return '';
-    let d = m[1];
-    if (DOMINI_PUBBLICI.indexOf(d) >= 0) return '';
-    /* Le caselle di posta certificata dell'azienda portano lo stesso nome
-       (pec.alfa.it e alfa.it sono la stessa impresa). Il prefisso si toglie
-       solo se quel che resta e' ancora un dominio: da "pec.it" resterebbe
-       "it", e allora mezzo mondo diventerebbe un'azienda sola. */
-    const senzaPrefisso = d.replace(/^(pec|mail|posta)\./, '');
-    if (senzaPrefisso !== d && senzaPrefisso.indexOf('.') > 0) d = senzaPrefisso;
-    return DOMINI_PUBBLICI.indexOf(d) >= 0 ? '' : d;
-}
+/* Le due regole - la ragione sociale ridotta all'osso e il dominio della
+   mail - stanno in lib/chiavi-azienda.js, insieme alla chiave con cui
+   l'azienda viaggia negli incontri B2B: erano gia' scritte due volte (qui e
+   nell'area riservata), e una terza copia le avrebbe fatte divergere al primo
+   ritocco. Qui si usano per mettere insieme i colleghi; li' per decidere di
+   chi e' una prenotazione. */
+const { chiaveAzienda, dominioMail } = require('../lib/chiavi-azienda');
+
 /* Mette insieme le persone che risultano della stessa impresa, per nome
    ridotto all'osso o per dominio della mail (una catena di unioni: chi condivide
    l'uno o l'altro finisce nello stesso gruppo). Torna un vettore di radici,
@@ -527,6 +499,21 @@ async function interessiB2B(azione, body, res) {
        lo stesso collegamento: cambiare le regole sotto i piedi di chi ha gia'
        una mail in casella vorrebbe dire dargli una pagina che non parla piu'
        della convocazione che ha ricevuto. */
+    /* UNA LOGICA SOLA, DUE PORTE. Se questa scheda e' stata invitata come
+       AZIENDA, anche il collegamento personale apre gli incontri
+       dell'azienda: stessa lettura, stesso salvataggio, stessa unicita'.
+       Senza questa riga i due collegamenti vivrebbero uno accanto all'altro -
+       uno che prenota per la persona e uno per l'impresa - e la stessa
+       azienda potrebbe ritrovarsi con due prime preferenze. */
+    const azScheda = (scheda.b2bAzienda && typeof scheda.b2bAzienda === 'object') ? scheda.b2bAzienda : null;
+    if (azScheda && azScheda.id && AGENDA.idEvento(azScheda.evento) === AGENDA.eventoInvito(scheda)) {
+        const azioneAz = (azione === 'b2b-leggi') ? 'b2b-azienda-leggi'
+            : ((azione === 'b2b-salva' || azione === 'b2b-slot-prenota') ? 'b2b-azienda-salva' : azione);
+        await incontriAzienda(azioneAz, Object.assign({}, body, {
+            a: String(azScheda.id), e: AGENDA.idEvento(azScheda.evento)
+        }), res, { db: db, gia: true });
+        return;
+    }
     if (AGENDA.invitoASlot(scheda)) {
         await prenotazioneASlot(azione, body, res, { db: db, rif: rif, scheda: scheda, idDoc: idDoc });
         return;
@@ -747,6 +734,138 @@ async function prenotazioneASlot(azione, body, res, ctx) {
         console.error('Conferma appuntamento B2B non inviata:', String((e && e.message) || e).slice(0, 200));
     }
     res.status(200).json(Object.assign({}, preso, { mailInviata: mailInviata }));
+}
+
+/* ============================================================
+   GLI INCONTRI DI UN'AZIENDA (azioni "b2b-azienda-leggi" e
+   "b2b-azienda-salva")
+   ------------------------------------------------------------
+   L'invito e' uno per impresa e il collegamento gira fra i suoi
+   referenti: chi lo apre non prenota per se', prenota per
+   l'azienda. Quindi il modulo viaggia INTERO - prima preferenza,
+   seconda, terza, altre esigenze - e a ogni salvataggio si
+   riscrive tutto quello che l'azienda ha detto.
+   Due cose da tenere a mente leggendo queste righe:
+     - la PRIMA preferenza e' una prenotazione vera, e passa dalla
+       transazione degli slot come tutte le altre; la seconda e la
+       terza no, sono una coda che lo staff lavorera';
+     - fra due referenti che compilano insieme decide la
+       REVISIONE: chi arriva con una revisione vecchia si sente
+       dire che un collega ha appena cambiato le scelte, invece di
+       cancellargliele senza accorgersene.
+============================================================ */
+async function incontriAzienda(azione, body, res, ctx) {
+    const aziendaId = String(body.a || '').slice(0, 40);
+    const evento = AGENDA.idEvento(String(body.e || '').slice(0, 120));
+    const token = String(body.t || '').trim();
+    // chi arriva dal collegamento personale ha gia' passato la sua firma
+    const giaFirmato = !!(ctx && ctx.gia);
+    if (!aziendaId || !evento || (!giaFirmato && (!token || !NL.firmaAziendaValida(evento, aziendaId, token)))) {
+        res.status(403).json({ ok: false, msg: MSG_LINK });
+        return;
+    }
+    initAdmin(leggiServiceAccount());
+    const db = (ctx && ctx.db) || admin.firestore();
+    const azienda = await AGENDA.leggiAzienda(db, evento, aziendaId);
+    /* Azienda che non c'e', o invito revocato: si risponde la stessa cosa che
+       si risponde a una firma sbagliata. Dire "questa azienda non esiste"
+       vorrebbe dire lasciar sapere, a chi prova, quali esistono. */
+    if (!azienda.esiste || (azienda.invito && azienda.invito.revocato)) {
+        res.status(403).json({ ok: false, msg: MSG_LINK });
+        return;
+    }
+
+    if (azione === 'b2b-azienda-leggi') {
+        const dati = await AGENDA.letturaAzienda(db, evento, aziendaId);
+        res.status(200).json(Object.assign({ ok: true }, dati));
+        return;
+    }
+
+    /* --- il salvataggio --- */
+    if (troppiSalvataggi('az:' + aziendaId)) {
+        res.status(429).json({
+            ok: false, motivo: 'freno',
+            msg: 'Le scelte sono state cambiate molte volte di seguito: aspetti qualche minuto e riprovi. Vale sempre l\'ultimo salvataggio.'
+        });
+        return;
+    }
+    const rev = Number(body.rev);
+    if (rev >= 0 && azienda.rev !== rev) {
+        const dati = await AGENDA.letturaAzienda(db, evento, aziendaId);
+        res.status(409).json(Object.assign({
+            ok: false, motivo: 'collega',
+            msg: 'Un Suo collega ha appena cambiato le scelte dell\'azienda: qui sotto ci sono quelle aggiornate, le riveda e risalvi.'
+        }, dati));
+        return;
+    }
+
+    /* LA PRIMA PREFERENZA. Il nominativo si sceglie fra i referenti
+       dell'invito: e' la regola detta a chi organizza, ed e' anche cio' che
+       permette al desk di riconoscere chi si presenta. */
+    const pr = (body.prima && typeof body.prima === 'object') ? body.prima : null;
+    const nostri = AGENDA.appuntamentiAzienda(await AGENDA.leggiPrenotazioni(db, evento), aziendaId);
+    const primaOra = nostri.filter(x => (Number(x.dati.scelta) || 1) === 1)[0] || null;
+    let esitoPrima = null;
+    if (pr && pr.area) {
+        const ref = AGENDA.referenteDi(azienda, pr.perDoc);
+        if (!ref) {
+            res.status(400).json({ ok: false, motivo: 'nominativo', msg: 'Indichi chi partecipa all\'incontro, scegliendolo fra i referenti dell\'invito.' });
+            return;
+        }
+        esitoPrima = await AGENDA.prendiSlot(db, {
+            evento: evento, area: pr.area, ora: testo(pr.ora, 5), chiave: testo(pr.chiave, 8),
+            scelta: 1, da: ref.email || azienda.nome,
+            persona: {
+                doc: ref.doc, nome: ref.nome, email: ref.email, telefono: ref.telefono, ruolo: ref.ruolo,
+                azienda: azienda.nome, aziendaId: aziendaId, aziendaNome: azienda.nome,
+                perChi: ref.nome, perRuolo: ref.ruolo, perDoc: ref.doc,
+                nota: testo(body.nota, 800)
+            }
+        });
+    } else if (primaOra) {
+        /* La prima preferenza tolta: l'orario si libera. Non e' un caso raro -
+           e' l'impresa che ci ripensa - e lasciarlo occupato vorrebbe dire
+           tenere fermo un posto che nessuno usera'. */
+        esitoPrima = await AGENDA.liberaSlot(db, evento, '', azienda.nome, { area: primaOra.area, chiave: primaOra.chiave });
+        if (esitoPrima.ok) esitoPrima.liberata = true;
+    }
+
+    /* LE ALTRE DUE PREFERENZE E LE ESIGENZE. Si salvano anche se la prima
+       preferenza non e' andata a buon fine (l'orario preso un attimo prima da
+       un'altra impresa): quello che l'azienda ha scritto non si butta via
+       perche' un orario e' sfumato. */
+    const salvate = await AGENDA.salvaPreferenze(db, evento, aziendaId, {
+        rev: azienda.rev,
+        coda: Array.isArray(body.coda) ? body.coda : [],
+        esigenze: Array.isArray(body.esigenze) ? body.esigenze : [],
+        da: testo(body.da, 200) || azienda.nome
+    });
+
+    try { await AGENDA.scriviProgrammaAzienda(db, evento, aziendaId); }
+    catch (e) { console.error('Programma B2B non scritto:', String((e && e.message) || e).slice(0, 200)); }
+    try { scordaEvento(String(azienda.nome || '')); } catch (_) { /* niente */ }
+    try { await segnaCambiamento(db); } catch (_) { /* la lettura scade comunque */ }
+
+    /* La ricevuta: una mail sola a tutti i referenti, con il foglio
+       aggiornato. Se la posta non risponde le scelte restano comunque
+       registrate, e la pagina lo dice. */
+    let mail = { ok: false, a: [] };
+    try { mail = await AGENDA.inviaConfermaAzienda(db, evento, aziendaId, 'prenotazione'); }
+    catch (e) { console.error('Conferma B2B azienda non inviata:', String((e && e.message) || e).slice(0, 200)); }
+
+    const dati = await AGENDA.letturaAzienda(db, evento, aziendaId);
+    res.status(200).json(Object.assign({ ok: true }, dati, {
+        prima: dati.prima,
+        esitoPrima: esitoPrima ? {
+            ok: esitoPrima.ok === true, motivo: esitoPrima.motivo || '', msg: esitoPrima.msg || '',
+            liberata: esitoPrima.liberata === true
+        } : null,
+        bloccate: salvate.bloccate || [],
+        salvate: salvate.ok === true,
+        motivoSalvataggio: salvate.motivo || '',
+        mailInviata: mail.ok === true,
+        avvisati: mail.a || []
+    }));
 }
 
 /* Mail di conferma della prenotazione, con il PDF in allegato. Data, orario e
@@ -1004,7 +1123,11 @@ module.exports = async (req, res) => {
            mangerebbero in due persone, bloccando proprio chi ha il diritto di
            cambiare idea. Li' il freno e' un altro, per singola scheda. */
         const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva',
-            'b2b-slot-prenota', 'b2b-slot-richiedi']
+            'b2b-slot-prenota', 'b2b-slot-richiedi',
+            // il collegamento d'azienda ce l'hanno in piu' persone dello stesso
+            // ufficio: a maggior ragione qui il freno per indirizzo IP se lo
+            // mangerebbero fra loro
+            'b2b-azienda-leggi', 'b2b-azienda-salva']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1025,6 +1148,11 @@ module.exports = async (req, res) => {
         if (azione === 'b2b-leggi' || azione === 'b2b-salva'
             || azione === 'b2b-slot-prenota' || azione === 'b2b-slot-richiedi') {
             await interessiB2B(azione, body, res);
+            return;
+        }
+        // il collegamento d'azienda: stessa pagina, altra porta
+        if (azione === 'b2b-azienda-leggi' || azione === 'b2b-azienda-salva') {
+            await incontriAzienda(azione, body, res);
             return;
         }
         /* Il modulo chiede se un codice e' buono PRIMA di spedire, cosi' chi

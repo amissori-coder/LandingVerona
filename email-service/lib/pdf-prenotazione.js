@@ -169,10 +169,19 @@ function contenutoPagina(dati) {
     f.testo('Incontri B2B - la Sua prenotazione', { alto: 114, corpo: 20, grassetto: true, colore: C.bianco });
 
     f.y = altaTesta + 44;
-    f.testo('PARTECIPANTE', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
+    /* DI CHI E' QUESTO FOGLIO. Con l'invito per azienda l'intestatario non e'
+       una persona ma l'impresa - gli incontri sono suoi, e a ciascuno puo'
+       presentarsi un referente diverso - quindi in grande va la ragione
+       sociale e sotto i nomi. Con l'invito personale resta tutto com'era: al
+       desk quel foglio si cerca per cognome. */
+    const perAzienda = Array.isArray(d.referenti) && d.referenti.length > 0;
+    f.testo(perAzienda ? 'AZIENDA' : 'PARTECIPANTE', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
     f.scendi(22);
-    f.paragrafo(d.nome || 'Ospite', { corpo: 17, grassetto: true, colore: C.scuro, passo: 22 });
-    const sotto = [d.azienda, d.ruolo].filter(Boolean).join(' - ');
+    f.paragrafo((perAzienda ? (d.azienda || d.nome) : d.nome) || 'Ospite',
+        { corpo: 17, grassetto: true, colore: C.scuro, passo: 22 });
+    const sotto = perAzienda
+        ? d.referenti.join(' - ')
+        : [d.azienda, d.ruolo].filter(Boolean).join(' - ');
     if (sotto) f.paragrafo(sotto, { corpo: 11.5, colore: C.tenue, passo: 17 });
 
     // --- riquadro "quando e dove" ---
@@ -206,7 +215,8 @@ function contenutoPagina(dati) {
     // --- i tavoli prenotati ---
     // dove finisce la pagina: lo sanno sia l'elenco sia l'avviso
     const altoPiede = A4.altezza - 66;
-    f.testo('IL SUO PROGRAMMA', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
+    f.testo(perAzienda ? 'IL PROGRAMMA DELL\'AZIENDA' : 'IL SUO PROGRAMMA',
+        { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
     f.scendi(10);
     f.linea(LATO, f.y, A4.larghezza - LATO, C.bordo, 1);
     f.scendi(20);
@@ -248,8 +258,20 @@ function contenutoPagina(dati) {
             const corpoCon = corpoNome - 1.5;
             const passoCon = passoNome - 2;
             const righeCon = t.con ? aCapo('con ' + t.con, corpoCon, DENTRO - LARGA_ORA - 8) : [];
+            /* CHI VIENE per l'azienda, e sotto - solo se e' un'altra persona -
+               chi ha prenotato: al desk la prima riga dice chi aspettare, la
+               seconda chi chiamare se non si presenta nessuno. Le loro altezze
+               si SOMMANO in `altezza`, altrimenti l'incontro dopo si stampa
+               sopra queste righe e il foglio diventa illeggibile proprio per
+               le aziende che hanno piu' incontri. */
+            const righePer = t.perChi
+                ? aCapo('per ' + t.perChi + (t.perRuolo ? ' (' + t.perRuolo + ')' : ''), corpoCon, DENTRO - LARGA_ORA - 8)
+                : [];
+            const diverso = t.prenotatoDa && t.perChi
+                && t.prenotatoDa.trim().toLowerCase() !== t.perChi.trim().toLowerCase();
+            const righeDa = diverso ? aCapo('prenotato da ' + t.prenotatoDa, corpoCon - 0.5, DENTRO - LARGA_ORA - 8) : [];
             const altezza = Math.max(righeOra.length, righeNome.length) * passoNome
-                + righeCon.length * passoCon + (stretti ? 8 : 12);
+                + (righeCon.length + righePer.length + righeDa.length) * passoCon + (stretti ? 8 : 12);
             if (f.y + altezza > limiteElenco) { saltati++; return; }
             const alto = f.y;
             if (n && !saltati) f.linea(LATO + 4, alto - 10, A4.larghezza - LATO, C.bordo, 0.6);
@@ -263,6 +285,18 @@ function contenutoPagina(dati) {
                 f.testo(riga, {
                     alto: alto + righeNome.length * passoNome + i * passoCon,
                     x: LATO + LARGA_ORA, corpo: corpoCon, colore: C.tenue
+                });
+            });
+            righePer.forEach((riga, i) => {
+                f.testo(riga, {
+                    alto: alto + righeNome.length * passoNome + (righeCon.length + i) * passoCon,
+                    x: LATO + LARGA_ORA, corpo: corpoCon, grassetto: true, colore: C.scuro
+                });
+            });
+            righeDa.forEach((riga, i) => {
+                f.testo(riga, {
+                    alto: alto + righeNome.length * passoNome + (righeCon.length + righePer.length + i) * passoCon,
+                    x: LATO + LARGA_ORA, corpo: corpoCon - 0.5, colore: C.tenue
                 });
             });
             f.scendi(altezza);

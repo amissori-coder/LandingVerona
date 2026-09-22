@@ -31,6 +31,21 @@
         .tema input { width: 18px; height: 18px; margin-top: 3px; flex: 0 0 auto; }
         .tema span { font-size: 0.98rem; }
         .tema-ora { display: block; margin-top: 2px; font-size: 0.88rem; font-weight: bold; color: var(--navy-light); }
+        /* --- il modulo dell'azienda: regole, preferenze, esigenze --- */
+        .regole { background: var(--chiaro); border: 1px solid var(--bordo); border-radius: 8px; padding: 14px 16px; margin-top: 16px; font-size: 0.95rem; }
+        .regole ul { margin: 8px 0 0 18px; padding: 0; }
+        .regole li { margin-bottom: 6px; }
+        .pref { border: 1px solid var(--bordo); border-radius: 8px; padding: 12px 14px; margin-top: 12px; background: #fff; }
+        .pref.bloccata { background: var(--chiaro); border-style: dashed; }
+        .pref-et { font-size: 0.92rem; font-weight: bold; color: var(--navy); letter-spacing: 0.01em; }
+        .pref-et.grande { margin-top: 22px; font-size: 1.02rem; color: var(--navy); }
+        .pref-righe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .pref-righe select, .esigenza select { font: inherit; font-size: 16px; padding: 9px 10px; border: 1px solid var(--bordo); border-radius: 6px; background: #fff; color: var(--testo); flex: 1 1 200px; }
+        .mini { font-size: 0.85rem; color: var(--tenue); margin-top: 6px; }
+        .esigenza { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .esigenza textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 6px; flex: 2 1 260px; min-height: 64px; resize: vertical; color: var(--testo); }
+        .mini-btn { font: inherit; font-size: 0.9rem; background: none; border: none; color: var(--navy-light); cursor: pointer; padding: 4px 0; text-align: left; }
+        .mini-btn[disabled] { color: #94A3B8; cursor: default; }
         .campo { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; }
         .campo label { font-size: 0.85rem; font-weight: bold; color: var(--tenue); }
         .campo textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 6px; width: 100%; min-height: 110px; resize: vertical; color: var(--testo); }
@@ -91,7 +106,7 @@
     <header class="testata">
         <div class="testata-dentro">
             <a href="https://nextgenerationbusiness.it"><img src="/assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale"></a>
-            <h1>Il Suo incontro B2B</h1>
+            <h1 id="titolo-pagina">Il Suo incontro B2B</h1>
             <p id="sotto-titolo">Next Generation Business</p>
         </div>
     </header>
@@ -120,6 +135,10 @@
             var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
             var q = new URLSearchParams(location.search);
             var d = q.get('d') || '', t = q.get('t') || '';
+            /* Il collegamento dell'AZIENDA: ?a=<azienda>&e=<evento>&t=<firma>.
+               E' lo stesso per tutti i referenti dell'impresa - la mail lo dice -
+               e apre le scelte dell'azienda, non quelle di chi lo ha in mano. */
+            var a = q.get('a') || '', ev = q.get('e') || '';
             var box = document.getElementById('contenuto');
             /* Le descrizioni dei tavoli, NELLO STESSO ORDINE di TEMI_B2B nel
                servizio: al salvataggio viaggiano solo gli indici. Sono gli
@@ -149,7 +168,7 @@
             function chiama(corpo) {
                 return fetch(API, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(Object.assign({ d: d, t: t }, corpo))
+                    body: JSON.stringify(Object.assign({ d: d, a: a, e: ev, t: t }, corpo))
                 }).then(function (r) { return r.json().catch(function () { return {}; }); });
             }
             function nomeEvento(pagina) {
@@ -337,12 +356,6 @@
                 var d = parseInt(String(g && g.durata || 30), 10);
                 return d > 0 ? d : 30;
             }
-            function referentiTesto(a) {
-                var chi = (a.referenti || []).map(function (r) {
-                    return r.nome + (r.ruolo ? ' - ' + r.ruolo : '') + (r.azienda ? ' (' + r.azienda + ')' : '');
-                });
-                return chi.length ? chi.join(', ') : '';
-            }
             function htmlSlot(a, s) {
                 var mio = s.stato === 'mio';
                 var libero = s.stato === 'libero' || mio;
@@ -356,10 +369,8 @@
                     + esc(s.ora) + '<span class="et">' + esc(et) + '</span></button>';
             }
             function htmlArea(a) {
-                var chi = referentiTesto(a);
+                // come sopra: il tema del tavolo, non chi ci siede per noi
                 return '<div class="area"><h2>' + esc(a.nome) + '</h2>'
-                    + (chi ? '<div class="area-con">Con <b>' + esc(chi) + '</b></div>'
-                        : '<div class="area-con">Le confermeremo il professionista che La accogliera al tavolo.</div>')
                     + (a.nota ? '<div class="area-nota">' + esc(a.nota) + '</div>' : '')
                     + '<div class="griglia">' + a.slot.map(function (s) { return htmlSlot(a, s); }).join('') + '</div>'
                     + '<div class="legenda">' + (a.liberi
@@ -498,12 +509,10 @@
                quella la cosa da cercare in casella. */
             function fattoSlot(r, e) {
                 var area = (r.aree || []).filter(function (a) { return a.id === e.area; })[0] || {};
-                var chi = referentiTesto(area);
                 box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
                     + '<h2>Incontro prenotato</h2>'
                     + '<p>La aspettiamo al tavolo <b>' + esc(e.areaNome || area.nome || '') + '</b>'
-                    + '<br>dalle <b>' + esc(e.ora) + '</b> alle <b>' + esc(e.fine) + '</b>'
-                    + (chi ? '<br>con ' + esc(chi) : '') + '</p>'
+                    + '<br>dalle <b>' + esc(e.ora) + '</b> alle <b>' + esc(e.fine) + '</b></p>'
                     + (e.mailInviata
                         ? '<p style="margin-top:12px;">Le abbiamo mandato una mail di conferma con il <b>foglio da presentare al desk</b> in allegato: '
                         + 'lo porti stampato o sul telefono.</p>'
@@ -514,23 +523,289 @@
                 document.getElementById('rifai').addEventListener('click', apri);
             }
 
+
+            /* ========================================================
+               IL MODULO DELL'AZIENDA (invito per impresa)
+               --------------------------------------------------------
+               L'invito e' uno per azienda e questo collegamento ce
+               l'hanno tutti i suoi referenti: chi apre non sceglie per
+               se', sceglie per l'impresa. Da qui si indicano TRE
+               preferenze - la prima prenota davvero tavolo e orario, la
+               seconda e la terza sono solo il tavolo e l'orario lo
+               assegna chi organizza - piu' le altre esigenze da
+               approfondire. Ogni riga porta il NOMINATIVO di chi
+               partecipa, scelto fra i referenti dell'invito: al desk
+               deve esserci scritto chi si presentera'.
+               Il modulo viaggia INTERO a ogni salvataggio, e con lui la
+               revisione letta all'apertura: se nel frattempo ha salvato
+               un collega, il servizio lo dice e la pagina si ricarica
+               invece di cancellargli le scelte.
+            ======================================================== */
+            var azRev = 0, azDati = null;
+            function tendinaChi(nome, scelto, referenti) {
+                return '<select class="chi" data-campo="' + esc(nome) + '">'
+                    + '<option value="">Chi partecipa...</option>'
+                    + (referenti || []).map(function (r) {
+                        return '<option value="' + esc(r.doc) + '"' + (r.doc === scelto ? ' selected' : '') + '>'
+                            + esc(r.nome) + (r.ruolo ? ' - ' + esc(r.ruolo) : '') + '</option>';
+                    }).join('') + '</select>';
+            }
+            function tendinaTavolo(nome, scelto, aree) {
+                return '<select class="tavolo" data-campo="' + esc(nome) + '">'
+                    + '<option value="">Nessuna preferenza</option>'
+                    + (aree || []).map(function (x) {
+                        return '<option value="' + esc(x.id) + '"' + (x.id === scelto ? ' selected' : '') + '>'
+                            + esc(x.nome) + '</option>';
+                    }).join('') + '</select>';
+            }
+            function htmlSlotAz(a, s) {
+                var mio = s.stato === 'mio';
+                var libero = s.stato === 'libero' || mio;
+                var scelto = (sceltaArea === a.id && sceltaOra === s.ora);
+                var et = mio ? (s.scelta > 1 ? 'incontro assegnato' : 'il Vostro orario')
+                    : (s.stato === 'occupato' ? 'gia prenotato'
+                        : (s.stato === 'chiuso' ? 'non disponibile' : s.fine));
+                return '<button type="button" class="slot' + (scelto ? ' scelto' : '') + (mio ? ' mio' : '') + '"'
+                    + ((libero && !(mio && s.scelta > 1)) ? '' : ' disabled')
+                    + ' data-area="' + esc(a.id) + '" data-ora="' + esc(s.ora) + '">'
+                    + esc(s.ora) + '<span class="et">' + esc(et) + '</span></button>';
+            }
+            function htmlAreaAz(a) {
+                /* Del tavolo si dice l'ARGOMENTO e basta. Chi lo tiene per noi
+                   non si scrive: e' un nome che puo' cambiare fino all'ultimo
+                   giorno, e l'impresa sceglie il tema di cui vuole parlare, non
+                   la persona con cui parlarne. */
+                return '<div class="area"><h2>' + esc(a.nome) + '</h2>'
+                    + (a.nota ? '<div class="area-nota">' + esc(a.nota) + '</div>' : '')
+                    + '<div class="griglia">' + a.slot.map(function (s) { return htmlSlotAz(a, s); }).join('') + '</div>'
+                    + '<div class="legenda">' + (a.liberi
+                        ? a.liberi + (a.liberi === 1 ? ' orario ancora libero' : ' orari ancora liberi')
+                        : 'Nessun orario libero a questo tavolo') + '</div></div>';
+            }
+            function moduloAzienda(r) {
+                azRev = r.rev || 0; azDati = r;
+                var ev = r.evento || {};
+                /* La testata parla all'AZIENDA: "Il Suo incontro" era scritto
+                   per un invito personale, e qui chi legge sceglie per l'impresa. */
+                var tp = document.getElementById('titolo-pagina');
+                if (tp) tp.textContent = 'Gli incontri B2B della Vostra azienda';
+                document.getElementById('sotto-titolo').textContent = 'Next Generation Business'
+                    + (ev.titolo ? ' - ' + ev.titolo : '');
+                var aree = r.aree || [];
+                if (!aree.length) {
+                    errore('Il Vostro invito non risulta collegato a nessun tavolo attivo. Scriva a info@nextgenerationbusiness.it e sistemiamo noi.');
+                    return;
+                }
+                var referenti = r.referenti || [];
+                sceltaArea = r.prima ? r.prima.area : '';
+                sceltaOra = r.prima ? r.prima.ora : '';
+                var altri = referenti.map(function (x) { return x.nome; }).filter(Boolean);
+                var colleghi = altri.length > 1
+                    ? '<div class="area-con" style="margin-top:6px;">L\'invito &egrave; arrivato anche a <b>' + esc(altri.join(', '))
+                    + '</b>: &egrave; un invito solo per l\'azienda, e questo collegamento &egrave; lo stesso per tutti voi. '
+                    + 'Le scelte qui sotto valgono per l\'impresa, chiunque le salvi.</div>'
+                    : '';
+                /* LE REGOLE PRIMA DELLE GRIGLIE: chi compila deve sapere cosa
+                   sta facendo prima di premere, non dopo. Sono le stesse frasi
+                   della mail d'invito, scritte una volta sola nel servizio. */
+                var regole = (r.regole || []).length
+                    ? '<div class="regole"><b>Come funziona</b><ul>'
+                    + r.regole.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('')
+                    + '</ul></div>'
+                    : '';
+                var prima = r.prima
+                    ? '<div class="confermato"><b>Prima preferenza prenotata:</b> ' + esc(r.prima.areaNome)
+                    + ', <b>' + esc(r.prima.ora) + (r.prima.fine ? ' - ' + esc(r.prima.fine) : '') + '</b>'
+                    + (r.prima.perChi ? ' - per <b>' + esc(r.prima.perChi) + '</b>' : '')
+                    + '. Per cambiarla scelga un altro orario qui sotto: la prenotazione si sposta.</div>'
+                    : '';
+                var assegnati = (r.assegnati || []).length
+                    ? '<div class="confermato"><b>Assegnati da noi:</b> '
+                    + r.assegnati.map(function (x) {
+                        return esc(x.areaNome) + ' ' + esc(x.ora) + (x.perChi ? ' (per ' + esc(x.perChi) + ')' : '');
+                    }).join('; ') + '. Per spostarli ci scriva.</div>'
+                    : '';
+                var esaurito = (r.esaurito && !r.prima)
+                    ? '<div class="esaurito"><b>Gli orari disponibili sono esauriti.</b> '
+                    + 'Pu&ograve; indicare lo stesso le Sue preferenze qui sotto: se si libera un posto La chiamiamo noi.</div>'
+                    : '';
+                var vocePref = function (pos) {
+                    var c = (r.coda || []).filter(function (x) { return x.pos === pos; })[0] || null;
+                    var et = pos === 2 ? 'Seconda preferenza' : 'Terza preferenza';
+                    if (c && c.stato === 'assegnata') {
+                        return '<div class="pref bloccata"><div class="pref-et">' + et + '</div>'
+                            + '<div>' + esc(c.areaNome) + (c.ora ? ' - <b>' + esc(c.ora) + '</b>' : '')
+                            + (c.perChi ? ' - per ' + esc(c.perChi) : '')
+                            + '<div class="mini">Questo incontro &egrave; gi&agrave; fissato: per spostarlo ci scriva.</div></div></div>';
+                    }
+                    return '<div class="pref"><div class="pref-et">' + et + '</div>'
+                        + '<div class="pref-righe">'
+                        + tendinaTavolo('area' + pos, c ? c.area : '', aree)
+                        + tendinaChi('chi' + pos, c ? c.perDoc : '', referenti)
+                        + '</div><div class="mini">Solo il tavolo: l\'orario glielo assegniamo noi se restano posti.</div></div>';
+                };
+                var esigenze = (r.esigenze || []);
+                var righeEsigenze = function () {
+                    var righe = esigenze.length ? esigenze : [{ perDoc: '', testo: '' }];
+                    return righe.map(function (e, i) {
+                        return '<div class="esigenza">'
+                            + tendinaChi('esigenzaChi' + i, e.perDoc || '', referenti)
+                            + '<textarea class="esigenza-testo" maxlength="600" '
+                            + 'placeholder="Un\'altra questione che vorreste approfondire">' + esc(e.testo || '') + '</textarea>'
+                            + '</div>';
+                    }).join('');
+                };
+                box.innerHTML =
+                    '<div class="riepilogo">Gentile <b>' + esc((r.azienda || {}).nome || 'azienda') + '</b>, '
+                    + 'la invitiamo agli incontri B2B riservati'
+                    + (ev.quando ? ' del ' + esc(ev.quando) : '')
+                    + (ev.luogo ? ' - ' + esc(ev.luogo) : '') + '.'
+                    + colleghi + '</div>'
+                    + regole + prima + assegnati + esaurito
+                    + '<div class="pref-et grande">Prima preferenza: tavolo e orario</div>'
+                    + '<div class="pref-righe" style="margin-bottom:10px;">' + tendinaChi('chi1', r.prima ? r.prima.perDoc : '', referenti) + '</div>'
+                    + aree.map(htmlAreaAz).join('')
+                    + vocePref(2) + vocePref(3)
+                    + '<div class="campo"><label>Un\'altra questione che vorreste approfondire (facoltativo)</label>'
+                    + '<div class="mini" style="margin:-2px 0 6px;">Le preferenze restano tre: questa &egrave; una domanda in pi&ugrave;, non un quarto incontro.</div>'
+                    + '<div id="esigenze">' + righeEsigenze() + '</div></div>'
+                    + '<div class="azioni"><button type="button" class="invia" id="salva-az">Salvo le nostre scelte</button>'
+                    + '<div class="esito" id="esito"></div></div>';
+                box.querySelectorAll('.slot').forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        sceltaArea = b.dataset.area; sceltaOra = b.dataset.ora;
+                        box.querySelectorAll('.slot').forEach(function (x) { x.classList.remove('scelto'); });
+                        b.classList.add('scelto');
+                        var e = document.getElementById('esito');
+                        if (e) { e.className = 'esito'; e.textContent = ''; }
+                    });
+                });
+                document.getElementById('salva-az').addEventListener('click', salvaAzienda);
+            }
+            function valore(campo) {
+                var el = box.querySelector('[data-campo="' + campo + '"]');
+                return el ? el.value : '';
+            }
+            function salvaAzienda() {
+                var esito = document.getElementById('esito');
+                var chi1 = valore('chi1');
+                if (sceltaOra && !chi1) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Indichi chi partecipa al primo incontro: e il nome che scriviamo sul foglio del desk.';
+                    return;
+                }
+                var coda = [];
+                [2, 3].forEach(function (pos) {
+                    var area = valore('area' + pos), chi = valore('chi' + pos);
+                    if (area && chi) coda.push({ pos: pos, area: area, perDoc: chi });
+                });
+                var esigenze = [];
+                box.querySelectorAll('.esigenza').forEach(function (riga) {
+                    var chi = riga.querySelector('.chi');
+                    var testo = riga.querySelector('.esigenza-testo');
+                    if (chi && testo && chi.value && testo.value.trim()) {
+                        esigenze.push({ perDoc: chi.value, testo: testo.value.trim() });
+                    }
+                });
+                var mancanti = [];
+                [2, 3].forEach(function (pos) {
+                    var area = valore('area' + pos), chi = valore('chi' + pos);
+                    if (area && !chi) mancanti.push(pos === 2 ? 'seconda' : 'terza');
+                });
+                box.querySelectorAll('.esigenza').forEach(function (riga) {
+                    var chi = riga.querySelector('.chi');
+                    var testo = riga.querySelector('.esigenza-testo');
+                    if (testo && testo.value.trim() && chi && !chi.value) mancanti.push('esigenza');
+                });
+                if (mancanti.length) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Manca il nominativo: ogni preferenza e ogni esigenza deve dire chi se ne occupa.';
+                    return;
+                }
+                var b = document.getElementById('salva-az');
+                var etichetta = b.textContent;
+                b.disabled = true; b.textContent = 'Salvataggio in corso…';
+                esito.className = 'esito'; esito.textContent = '';
+                chiama({
+                    azione: 'b2b-azienda-salva', rev: azRev,
+                    prima: sceltaOra ? { area: sceltaArea, ora: sceltaOra, perDoc: chi1 } : null,
+                    coda: coda, esigenze: esigenze
+                }).then(function (e) {
+                    if (!e || !e.ok) {
+                        b.disabled = false; b.textContent = etichetta;
+                        esito.className = 'esito ko';
+                        esito.textContent = (e && e.msg) || 'Salvataggio non riuscito: riprovi fra un momento.';
+                        // un collega ha salvato prima, oppure l'orario e' appena
+                        // stato preso: si rilegge, invece di lasciare a video una
+                        // pagina che racconta una cosa che non c'e' piu'
+                        if (e && (e.motivo === 'collega' || e.motivo === 'occupato' || e.motivo === 'orario')) {
+                            setTimeout(apri, 1500);
+                        }
+                        return;
+                    }
+                    fattoAzienda(e);
+                }).catch(function () {
+                    b.disabled = false; b.textContent = etichetta;
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Servizio non raggiungibile: riprovi fra un momento.';
+                });
+            }
+            function fattoAzienda(e) {
+                var incontri = [];
+                if (e.prima) incontri.push(e.prima.areaNome + ', ' + e.prima.ora
+                    + (e.prima.fine ? ' - ' + e.prima.fine : '')
+                    + (e.prima.perChi ? ' (per ' + e.prima.perChi + ')' : ''));
+                (e.assegnati || []).forEach(function (x) {
+                    incontri.push(x.areaNome + ', ' + x.ora + (x.perChi ? ' (per ' + x.perChi + ')' : ''));
+                });
+                var attesa = (e.coda || []).filter(function (x) { return x.stato !== 'assegnata'; });
+                var bloccate = (e.bloccate || []).length
+                    ? '<p style="margin-top:10px;" class="avviso-mail">La '
+                    + e.bloccate.map(function (p) { return p === 3 ? 'terza' : 'seconda'; }).join(' e la ')
+                    + ' preferenza &egrave; gi&agrave; stata fissata da noi con un orario: quella non si cambia da qui, ci scriva.</p>'
+                    : '';
+                var esitoPrima = (e.esitoPrima && !e.esitoPrima.ok && !e.esitoPrima.liberata)
+                    ? '<p style="margin-top:10px;" class="avviso-mail">L\'orario della prima preferenza non era piu&grave; libero: '
+                    + esc(e.esitoPrima.msg || 'ne scelga un altro') + '</p>'
+                    : '';
+                box.innerHTML = '<div class="fatto"><h2>Scelte salvate</h2>'
+                    + (incontri.length
+                        ? '<p>Gli incontri prenotati:</p><p><b>' + incontri.map(esc).join('<br>') + '</b></p>'
+                        : '<p>Non risulta ancora nessun incontro prenotato per la Vostra azienda.</p>')
+                    + (attesa.length
+                        ? '<p style="margin-top:10px;">In attesa di un orario: <b>'
+                        + attesa.map(function (x) { return esc(x.areaNome) + ' (' + (x.pos === 3 ? '3a' : '2a') + ')'; }).join(', ')
+                        + '</b>. Non sono prenotazioni: finch&eacute; non arriva la nostra mail con l\'orario, al desk non risulta nessun incontro a quei tavoli.</p>'
+                        : '')
+                    + bloccate + esitoPrima
+                    + (e.mailInviata
+                        ? '<p style="margin-top:12px;">Abbiamo mandato la conferma'
+                        + ((e.avvisati || []).length > 1 ? ' a tutti i referenti' : '')
+                        + ', con il <b>foglio da presentare al desk</b> in allegato.</p>'
+                        : '<p style="margin-top:12px;" class="avviso-mail">Le scelte sono salvate, ma la mail di conferma non &egrave; partita. '
+                        + 'Riprovi fra qualche minuto, oppure scriva a info@nextgenerationbusiness.it: al desk basta il nome dell\'azienda.</p>')
+                    + '<button type="button" class="rifai" id="rifai">Rivedi le scelte o rimanda la mail</button></div>';
+                document.getElementById('rifai').addEventListener('click', apri);
+            }
+
             function apri() {
                 box.innerHTML = '<div class="avviso">Un momento: recupero la Sua iscrizione&hellip;</div>';
-                chiama({ azione: 'b2b-leggi' }).then(function (r) {
+                chiama({ azione: a ? 'b2b-azienda-leggi' : 'b2b-leggi' }).then(function (r) {
                     if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scriva a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
                     /* Due inviti, due pagine. Chi e' stato convocato a un tavolo
                        con la sua agenda sceglie l'ORARIO; chi ha ricevuto
                        l'invito di prima continua a vedere i tavoli a caselle,
                        come dice la mail che ha in casella. Lo decide il
                        servizio, che sa com'e' partito quell'invito. */
+                    if (r.modo === 'azienda') { moduloAzienda(r); return; }
                     if (r.modo === 'slot') { moduloSlot(r); return; }
                     modulo(r);
                 }).catch(function () {
                     errore('Servizio non raggiungibile in questo momento: riprovi fra qualche minuto.');
                 });
             }
-            if (!d || !t) {
-                errore('Questa pagina si apre dal collegamento personale che trova nella mail di invito. Se non la trova, scriva a info@nextgenerationbusiness.it');
+            if (!t || (!d && !(a && ev))) {
+                errore('Questa pagina si apre dal collegamento che trova nella mail di invito. Se non lo trova, scriva a info@nextgenerationbusiness.it');
                 return;
             }
             apri();
