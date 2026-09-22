@@ -639,10 +639,10 @@ function slotDi(area, ora) {
         esigi(r2.ok !== true && r2.motivo === 'doppione', 'anche con i due tavoli gemelli, che per l impresa sono uno');
     });
 
-    await prova('19) Un tavolo, un incontro per azienda: vale l ultimo', async () => {
-        /* Se un doppione e' gia' li' - assegnato prima di questa regola, o
-           forzato da chi organizza - prenotare di nuovo su quell'argomento
-           non ne fa due: resta l'ultimo, e il primo si libera. */
+    await prova('19) Assegnare sul tavolo dove ha gia la prima: si viene fermati', async () => {
+        /* Non e' una cosa che si risolve da se': e' un incontro che sparirebbe
+           da un foglio gia' spedito. Chi assegna si sente dire di no e sceglie
+           un altro tavolo. */
         azzera();
         dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
         mettiAgenda({ 'adeguati-assetti': {}, 'esg': {} });
@@ -662,12 +662,54 @@ function slotDi(area, ora) {
             sezione: 'b2b', azione: 'coda-assegna', aziendaId: az.id, codaId: codaId,
             area: 'adeguati-assetti', ora: '11:00', avvisa: false
         });
-        esigi(r.ok === true, 'l assegnazione passa');
-        esigi(!!slotDi('adeguati-assetti', '11:00'), 'e l ultimo orario resta');
-        esigi(!slotDi('adeguati-assetti', '10:00'),
-            'mentre quello di prima si e liberato: un tavolo, un incontro per azienda');
-        esigi((r.doppiLiberati || []).length === 1 && r.doppiLiberati[0].ora === '10:00',
-            'e la risposta dice quale incontro e stato tolto', JSON.stringify(r.doppiLiberati));
+        esigi(r.ok !== true && r.motivo === 'stesso-tavolo', 'l assegnazione viene rifiutata', JSON.stringify(r.motivo));
+        esigi(/Adeguati assetti/.test(String(r.msg || '')) && /prima preferenza/.test(String(r.msg || '')),
+            'e il messaggio dice dove e perche', String(r.msg || ''));
+        esigi(!slotDi('adeguati-assetti', '11:00'), 'nessun secondo incontro a quel tavolo');
+        esigi(!!slotDi('adeguati-assetti', '10:00'), 'e la prima preferenza resta dov era');
+        const dopo = (documentoAzienda('p:01234567891').coda || [])[0];
+        esigi(dopo && dopo.stato === 'attesa',
+            'la preferenza torna in attesa: presa in carico e non assegnata, sparirebbe dal riepilogo',
+            JSON.stringify(dopo && dopo.stato));
+        /* LA RETE, sotto. Forzando - o per un doppione nato prima di questa
+           regola - l'ultimo resta e il primo si libera: due incontri appesi
+           allo stesso tavolo non devono restare comunque. */
+        const forz = await chiamaPresenze({
+            sezione: 'b2b', azione: 'coda-assegna', aziendaId: az.id, codaId: codaId,
+            area: 'adeguati-assetti', ora: '11:00', avvisa: false, forzato: true
+        });
+        esigi(forz.ok === true, 'forzando si passa');
+        esigi(!!slotDi('adeguati-assetti', '11:00') && !slotDi('adeguati-assetti', '10:00'),
+            'e resta solo l ultimo: un tavolo, un incontro per azienda');
+        esigi((forz.doppiLiberati || []).length === 1 && forz.doppiLiberati[0].ora === '10:00',
+            'con scritto quale incontro e stato tolto', JSON.stringify(forz.doppiLiberati));
+    });
+
+    await prova('20) E nemmeno dove ha gia CHIESTO di andare', async () => {
+        /* Spostare la terza sul tavolo della seconda vorrebbe dire assegnarle
+           due volte lo stesso argomento appena la seconda trova posto. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'adeguati-assetti': {}, 'esg': {}, 'revisione': {} });
+        mettiReferente('mario', 'Mario', 'Rossi', 'Alfa', 'mario@alfa.it', '01234567891');
+        await invita([{ chiave: 'p:01234567891', nome: 'Alfa S.r.l.', piva: '01234567891', referenti: [{ doc: 'mario' }] }]);
+        const letto = await chiamaAzienda('p:01234567891', { azione: 'b2b-azienda-leggi' });
+        await chiamaAzienda('p:01234567891', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'adeguati-assetti', ora: '10:00', perDoc: 'mario' },
+            coda: [{ pos: 2, area: 'esg', perDoc: 'mario' }, { pos: 3, area: 'revisione', perDoc: 'mario' }],
+            esigenze: []
+        });
+        const az = documentoAzienda('p:01234567891');
+        const terza = (az.coda || []).filter(c => c.pos === 3)[0];
+        const r = await chiamaPresenze({
+            sezione: 'b2b', azione: 'coda-assegna', aziendaId: az.id, codaId: terza.id,
+            area: 'esg', ora: '11:00', avvisa: false
+        });
+        esigi(r.ok !== true && r.motivo === 'stesso-tavolo',
+            'la terza non si assegna sul tavolo della seconda', JSON.stringify(r.motivo));
+        esigi(/seconda preferenza/.test(String(r.msg || '')), 'e il messaggio dice di chi e quel tavolo', String(r.msg || ''));
+        esigi(!slotDi('esg', '11:00'), 'e nessun orario viene impegnato');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

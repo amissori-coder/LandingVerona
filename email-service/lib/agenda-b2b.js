@@ -1231,6 +1231,53 @@ async function esegui(ctx) {
        perche' fra quando il riepilogo e' stato disegnato e quando qualcuno
        preme possono essere passati dieci minuti - e la mattina del convegno
        davanti a quel riepilogo ci sono due persone. */
+    /* ============================================================
+       UN TAVOLO, UNA COSA SOLA PER AZIENDA
+       ------------------------------------------------------------
+       Un'impresa non puo' avere due incontri sullo stesso argomento, e
+       nemmeno una preferenza in attesa su un tavolo dove ha gia'
+       qualcosa: si parlerebbe della stessa cosa con le stesse persone,
+       e intanto quel posto manca a un'altra azienda.
+       La regola ferma CHI ASSEGNA, prima che scriva. Dentro la
+       transazione di `prendiSlot` c'e' gia' la rete - l'ultimo resta e
+       il doppione si libera - ma quella e' una rete: serve a non
+       lasciare due incontri appesi, non a far sparire in silenzio un
+       incontro che sta gia' su un foglio spedito. Qui invece si dice di
+       no e si spiega perche', cosi' chi assegna sceglie un altro tavolo.
+       Si guarda per FAMIGLIA (i due gemelli sono un tavolo solo) e si
+       lasciano fuori i tavoli INTERNI: il desk Revilaw e' nostro, non e'
+       una delle tre preferenze, e ci si puo' andare comunque.
+    ============================================================ */
+    async function occupatoDaLei(pren, azienda, aziendaId, areaDest, escludi) {
+        const capo = capofilaDi(areaDest) || areaDest;
+        if (!aziendaId || !capo || areaInterna(capo)) return '';
+        const famiglia = gemelliDi(capo);
+        const saltaSlot = escludi && escludi.slot ? escludi.slot : null;
+        const gia = appuntamentiAzienda(pren, aziendaId).filter(x =>
+            famiglia.indexOf(x.area) >= 0
+            && !(saltaSlot && x.area === saltaSlot.area && x.chiave === saltaSlot.chiave));
+        if (gia.length) {
+            const q = gia[0];
+            const quale = (Number(q.dati.scelta) || 1) === 1 ? 'la prima preferenza'
+                : ((Number(q.dati.scelta) || 1) === SCELTA_ESIGENZA ? 'un incontro'
+                    : ('la ' + ((Number(q.dati.scelta) || 1) === 3 ? 'terza' : 'seconda') + ' preferenza'));
+            return 'A "' + nomeArea(capo) + '" questa azienda ha gia un incontro alle ' + q.ora
+                + ' (' + quale + '): a un tavolo ci va una volta sola. Ne scelga un altro.';
+        }
+        /* E nemmeno dove ha gia' CHIESTO di andare: spostare la terza sul
+           tavolo della seconda vorrebbe dire assegnarle due volte lo stesso
+           argomento appena la seconda trova posto. */
+        const altra = ((azienda && azienda.coda) || []).filter(c => c.stato === 'attesa'
+            && (capofilaDi(c.area) || c.area) === capo
+            && !(escludi && escludi.codaId && c.id === escludi.codaId))[0] || null;
+        if (altra) {
+            return 'A "' + nomeArea(capo) + '" questa azienda ha gia indicato la '
+                + (Number(altra.pos) === 3 ? 'terza' : 'seconda') + ' preferenza: a un tavolo ci va una volta sola. '
+                + 'Ne scelga un altro.';
+        }
+        return '';
+    }
+
     if (azione === 'b2b-sposta') {
         const daArea = (areaDa(body.daArea) || {}).id || '';
         const daChiave = chiaveSlot(oraDaChiave(body.daChiave || '')) || chiaveSlot(body.daOra);
@@ -1243,6 +1290,12 @@ async function esegui(ctx) {
         const partenza = M.slotDi(pren, daArea, daChiave);
         if (!partenza) return { stato: 409, corpo: { ok: false, motivo: 'sparito', msg: 'Quell\'incontro non c\'è più: ricarichi il riepilogo.' } };
         const persona = partenza.dati || {};
+        if (String(persona.aziendaId || '') && body.forzato !== true) {
+            const az = await leggiAzienda(db, evento, String(persona.aziendaId));
+            const no = await occupatoDaLei(pren, az, String(persona.aziendaId), aArea,
+                { slot: { area: daArea, chiave: daChiave }, codaId: String(persona.codaId || '') });
+            if (no) return { stato: 409, corpo: { ok: false, motivo: 'stesso-tavolo', msg: no } };
+        }
         const preso = await prendiSlot(db, {
             evento: evento, area: aArea, chiave: aChiave, da: chi, staff: true,
             scelta: Number(persona.scelta) || 1, codaId: String(persona.codaId || ''),
@@ -1295,6 +1348,14 @@ async function esegui(ctx) {
         const ref = referenteDi(azienda, voce.perDoc) || (azienda.referenti || [])[0] || {};
         const area = (areaDa(body.area) || {}).id || voce.area;
         const chiave = chiaveSlot(oraDaChiave(body.chiave || '')) || chiaveSlot(body.ora);
+        if (body.forzato !== true) {
+            const no = await occupatoDaLei(await leggiPrenotazioni(db, evento), azienda, azId, area, { codaId: codaId });
+            if (no) {
+                // la voce torna in attesa: l'abbiamo presa in carico un attimo fa
+                try { await rilasciaCoda(db, evento, azId, codaId, chi, 'attesa'); } catch (_) { /* niente */ }
+                return { stato: 409, corpo: { ok: false, motivo: 'stesso-tavolo', msg: no } };
+            }
+        }
         const preso = chiave ? await prendiSlot(db, {
             evento: evento, area: area, chiave: chiave, da: chi, staff: true,
             scelta: voce.pos, codaId: voce.id, forzato: body.forzato === true,
@@ -1449,6 +1510,28 @@ async function esegui(ctx) {
         }
         const azienda = await leggiAzienda(db, evento, azId);
         const ref = referenteDi(azienda, voce.perDoc) || (azienda.referenti || [])[0] || {};
+        /* Anche una domanda portata a un tavolo e' un incontro: se l'impresa
+           a quel tavolo ce l'ha gia', si finirebbe per farle fare due volte
+           la stessa conversazione. Il desk Revilaw resta sempre possibile -
+           e' interno, non e' una delle sue preferenze. */
+        if (body.forzato !== true) {
+            const no = await occupatoDaLei(await leggiPrenotazioni(db, evento), azienda, azId, area, null);
+            if (no) {
+                try {
+                    await db.runTransaction(async t => {
+                        const snap = await t.get(rif);
+                        const corrente = M.normalizzaAziendaB2B(snap.exists ? snap.data() : null, evento, azId);
+                        if (!corrente.esiste) return;
+                        const esigenze = corrente.esigenze.map(x => x.id === eId
+                            ? Object.assign({}, x, { stato: 'aperta' }) : x);
+                        const fuori = Object.assign({}, corrente, { esigenze: esigenze, rev: corrente.rev + 1 });
+                        delete fuori.esiste;
+                        t.set(rif, fuori);
+                    });
+                } catch (_) { /* niente */ }
+                return { stato: 409, corpo: { ok: false, motivo: 'stesso-tavolo', msg: no } };
+            }
+        }
         const preso = await prendiSlot(db, {
             evento: evento, area: area, chiave: chiave, da: chi, staff: true,
             scelta: SCELTA_ESIGENZA, forzato: body.forzato === true,
