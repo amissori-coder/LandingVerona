@@ -18208,8 +18208,7 @@
                    non la si toglie piu' da nessuna parte. Qui l'identificativo
                    c'e' di sicuro: e' quello che si sta guardando. */
                 + (Auth.eAdmin() ? '<span class="rb-az"><button class="btn btn-sm btn-ghost rb-az-elimina" data-az="'
-                    + esc(az.id) + '" data-nome="' + esc(az.nome) + '" data-docs="'
-                    + esc((az.referenti || []).map(r => r.doc).filter(Boolean).join('|')) + '">Togli dagli incontri</button></span>' : '')
+                    + esc(az.id) + '" data-nome="' + esc(az.nome) + '">Togli dagli incontri</button></span>' : '')
                 + '</div>'
                 + (chi.length ? '<div class="rb-riga"><span class="rb-chi">' + chi.join(' &nbsp;&middot;&nbsp; ') + '</span></div>' : '')
                 /* Il collegamento al SUO modulo: e' la pagina che l'azienda
@@ -18263,25 +18262,23 @@
         }));
         box.querySelectorAll('.rb-az-elimina').forEach(b => b.addEventListener('click', () => {
             if (!confirm('Tolgo "' + b.dataset.nome + '" dagli incontri B2B?\n\n'
-                + 'Gli orari che aveva prenotato tornano liberi, il suo collegamento smette di funzionare '
-                + '(da quel momento non puo\' piu\' prenotare niente) e sparisce anche dall\'elenco degli inviti. '
-                + 'L\'iscrizione all\'evento resta. Non parte nessuna mail.\n\n'
+                + 'Gli orari che aveva prenotato tornano liberi, l\'invito sparisce dalle schede dei suoi '
+                + 'referenti e il collegamento smette di funzionare: da quel momento non puo\' piu\' prenotare '
+                + 'niente, e non torna nell\'elenco degli inviti. L\'iscrizione all\'evento resta. '
+                + 'Non parte nessuna mail.\n\n'
                 + 'Non si torna indietro.')) return;
-            const docs = String(b.dataset.docs || '').split('|').filter(Boolean);
+            /* Tutto il resto lo fa il servizio, in un colpo solo: libera gli
+               orari, cancella il documento e toglie l'invito dalle schede dei
+               referenti - chiave dell'azienda e colonna "Invito B2B"
+               comprese. Farlo da qui con una seconda chiamata vorrebbe dire
+               che se il browser si chiude a meta' l'azienda torna. */
             chiama({ azione: 'b2b-azienda-elimina', aziendaId: b.dataset.az }, r => {
                 _rbAzienda = '';
                 const n = (r.liberati || []).length;
-                /* E SI SPEGNE ANCHE LA SCELTA. Senza, l'azienda resta
-                   nell'elenco degli inviti B2B (e' la colonna "Invito B2B" a
-                   tenercela) e al primo invio le si rifa' il documento: tolta
-                   di qua, tornerebbe di la'. */
-                if (docs.length) {
-                    aLotti(docs, 200).reduce((p, lotto) => p.then(() =>
-                        Cloud.operaPresenza({ azione: 'invito-b2b-segna', evento: ev.id, docs: lotto, valore: '' })),
-                        Promise.resolve()).catch(() => { });
-                }
                 return b.dataset.nome + ' non e\' piu\' negli incontri'
-                    + (n ? ': ' + n + (n === 1 ? ' orario torna libero.' : ' orari tornano liberi.') : '.');
+                    + (n ? ': ' + n + (n === 1 ? ' orario torna libero' : ' orari tornano liberi') : '')
+                    + (r.schede ? ', e l\'invito e\' tolto da ' + r.schede
+                        + (r.schede === 1 ? ' scheda.' : ' schede.') : '.');
             });
         }));
         const sceltaAz = document.getElementById('rb-az-scelta');
