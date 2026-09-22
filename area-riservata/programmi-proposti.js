@@ -5,7 +5,7 @@
    prima, in una tabella - orari, sessione, contenuto, relatori -
    che gira per posta fra chi organizza. Quando arriva il momento
    di metterla dentro la giornata, qualcuno la ricopia voce per
-   voce: tredici righe, ventisei orari, e un'ora scritta male che
+   voce: quattordici righe, ventotto orari, e un'ora scritta male che
    nessuno rilegge perche' "l'ho appena copiata da li'".
 
    Qui sta quella tabella, gia' in forma di scaletta. L'area
@@ -66,13 +66,15 @@
            va dalle 09:50 alle 10:00 - si sono tenute le ORE, perche' sono
            quelle che compongono la giornata e che il pubblico legge; la
            durata nell'area riservata si ricava da sole.
-           La tavola rotonda delle banche resta SENZA MODERATORE: la giornata
-           lo segnala in giallo, ed e' giusto che lo faccia, perche' nella
-           tabella non c'e' e va scelto fra gli iscritti.
-           I RELATORI ESTERNI che nella tabella non si leggevano con certezza
-           non sono stati indovinati: la nota dice quanti sono e di che
-           organizzazione, e chi compone la giornata li mette dall'area
-           riservata, dove i nomi veri ci sono gia'. */
+           AGGIORNATA al programma pubblicato: quattordici voci dalle 09:00
+           alle 17:30, con la tavola rotonda sulla Piccola Industria alle
+           10:00 - dove Fausto Bianchi e' passato dai saluti - e il Rating di
+           Legalita' che apre i lavori del pomeriggio, dopo il pranzo.
+           I RELATORI ORA SI SANNO TUTTI, moderatori compresi, e stanno nelle
+           note voce per voce: non c'e' piu' nessun "da completare". Restano
+           nella NOTA e non fra i partecipanti, come vuole questo file: sul
+           palco ci va solo chi risulta iscritto, e la giornata continuera' a
+           segnalare in giallo i moderatori finche' non li si sceglie di li'. */
         'napoli-2026-10-02': {
             fonte: 'Programma dei lavori di Napoli, 2 ottobre 2026',
             voci: [
@@ -84,9 +86,10 @@
                 {
                     tipo: 'istituzionali', dalle: '09:30', alle: '09:50',
                     titolo: 'Saluti istituzionali',
-                    nota: 'Apertura ufficiale dei lavori. Dal programma: delegato del Presidente dell\'Ordine dei Commercialisti; '
-                        + 'Pier Luigi Sterzi. Da completare: altri tre saluti - uno dall\'assessorato alle attività produttive, '
-                        + 'uno di chi ha già presieduto - con i nomi che nella tabella non si leggono.'
+                    nota: 'Apertura ufficiale dei lavori. Dal programma: Pier Luigi Sterzi (Revilaw); Matteo De Lise '
+                        + '(Presidente ODCEC di Napoli); Francesco Serao (già Presidente del CNDCEC); Chiara Marciani '
+                        + '(Assessore alle Politiche Sociali, Giovanili e al Lavoro, Comune di Napoli); Ciro Fiola '
+                        + '(Presidente della Camera di Commercio di Napoli).'
                 },
                 {
                     tipo: 'intervento', dalle: '09:50', alle: '10:00',
@@ -94,33 +97,36 @@
                     nota: 'Scenario, obiettivi del convegno e presentazione del network. Dal programma: Sergio Miele (Revilaw).'
                 },
                 {
-                    tipo: 'tavola', dalle: '10:00', alle: '10:40',
+                    tipo: 'tavola', dalle: '10:00', alle: '10:30',
+                    titolo: 'Il futuro della Piccola Industria italiana',
+                    nota: 'Dialogo con il Presidente nazionale di Piccola Industria Confindustria. Dal programma: '
+                        + 'modera Sergio Miele (Revilaw); Fausto Bianchi (Vice Presidente Nazionale Confindustria e '
+                        + 'Presidente Nazionale Piccola Industria).'
+                },
+                {
+                    tipo: 'tavola', dalle: '10:30', alle: '11:10',
                     titolo: 'Adeguati assetti e continuità aziendale',
-                    nota: 'Prevenzione, monitoraggio e segnali di crisi. Dal programma: Stefano Pizzutelli (Revilaw); Andrea Missori (Revilaw).'
+                    nota: 'Prevenzione, monitoraggio e segnali di crisi. Dal programma: modera Sergio Miele (Revilaw); '
+                        + 'Stefano Pizzutelli (Revilaw); Andrea Missori (Revilaw).'
                 },
                 {
-                    tipo: 'tavola', dalle: '10:40', alle: '11:20',
+                    tipo: 'tavola', dalle: '11:10', alle: '11:50',
                     titolo: 'Modello 231 e Tax Control Framework',
-                    nota: 'Governance, presidio dei rischi e conformità. Dal programma: Melo Martella (Revilaw). '
-                        + 'Da completare: un relatore di ADVANT NCTM.'
-                },
-                {
-                    tipo: 'tavola', dalle: '11:20', alle: '11:50',
-                    titolo: 'Rating di Legalità',
-                    nota: 'Requisiti, benefici e riflessi sul merito creditizio. Dal programma: avv. Antonella Candelieri. '
-                        + 'Da completare: una relatrice di ADVANT NCTM.'
+                    nota: 'Governance, presidio dei rischi e conformità. Dal programma: modera Sergio Miele (Revilaw); '
+                        + 'Melo Martella (Revilaw); Luca La Barbera (ADVANT NCTM).'
                 },
                 {
                     tipo: 'tavola', dalle: '11:50', alle: '12:40',
                     titolo: 'Sostenibilità e fattori ESG',
-                    nota: 'Valore, competitività e accesso al credito. Dal programma: Antonella Candelieri (Revilaw). '
-                        + 'Da completare: due relatori esterni, uno dei quali a capo di una società di servizi.'
+                    nota: 'Valore, competitività e accesso al credito. Dal programma: modera Sergio Miele (Revilaw); '
+                        + 'Antonella Candelieri (Revilaw); Vincenzo Fusco (Natù); Benito De Berardis (Serviter).'
                 },
                 {
                     tipo: 'tavola', dalle: '12:40', alle: '13:30',
                     titolo: 'Finanza agevolata',
-                    nota: 'Strumenti e opportunità per le imprese. Dal programma: Concetta Petti. Da completare: tre relatori, '
-                        + 'fra cui un professore universitario (nella tabella, senza presentazione) e un relatore di Fineco.'
+                    nota: 'Strumenti e opportunità per le imprese. Dal programma: modera Concetta Petti (Petti&co); '
+                        + 'Sara Ventura (SpaceUp); Mario Mustilli (professore ordinario di Economia e Gestione delle '
+                        + 'Imprese); Strato Fevola (Fineco Bank); Sergio Cordua (Fineco Asset Manager Dublino).'
                 },
                 {
                     tipo: 'pranzo', dalle: '13:30', alle: '14:30',
@@ -128,22 +134,30 @@
                     nota: ''
                 },
                 {
-                    tipo: 'tavola', dalle: '14:30', alle: '15:20',
+                    tipo: 'tavola', dalle: '14:30', alle: '15:00',
+                    titolo: 'Rating di Legalità',
+                    nota: 'Requisiti, benefici e riflessi sul merito creditizio. Dal programma: modera Sergio Miele '
+                        + '(Revilaw); Francesca Rogai (ADVANT NCTM); Antonella Candelieri (Revilaw).'
+                },
+                {
+                    tipo: 'tavola', dalle: '15:00', alle: '15:50',
                     titolo: 'Banche. Tavola rotonda',
-                    nota: 'Merito creditizio e dialogo banca-impresa.'
+                    nota: 'Merito creditizio e dialogo banca-impresa. Dal programma: modera Sergio Miele (Revilaw); '
+                        + 'Federica Tortora (Intesa Sanpaolo); Michele Nevola (Intesa Sanpaolo).'
                 },
                 {
-                    tipo: 'tavola', dalle: '15:20', alle: '16:10',
+                    tipo: 'tavola', dalle: '15:50', alle: '16:40',
                     titolo: 'Invitalia e MCC. Bagnoli e America\'s Cup',
-                    nota: 'Sviluppo del territorio e opportunità per le imprese. Da completare: un relatore di Invitalia e uno di SIMEST.'
+                    nota: 'Sviluppo del territorio e opportunità per le imprese. Dal programma: modera Sergio Miele '
+                        + '(Revilaw); Sergio Schisani (Presidente di Invitalia); Carlo de Simone (SIMEST).'
                 },
                 {
-                    tipo: 'intervento', dalle: '16:10', alle: '16:40',
+                    tipo: 'intervento', dalle: '16:40', alle: '17:10',
                     titolo: 'Sessione Questions and Answers',
-                    nota: 'Domande dal pubblico.'
+                    nota: 'Domande dal pubblico. Dal programma: Sergio Miele (Revilaw).'
                 },
                 {
-                    tipo: 'chiusura', dalle: '16:40', alle: '17:00',
+                    tipo: 'chiusura', dalle: '17:10', alle: '17:30',
                     titolo: 'Conclusioni e chiusura dei lavori',
                     nota: 'Sintesi, prossimi passi e networking finale. Dal programma: Sergio Miele (Revilaw).'
                 }
