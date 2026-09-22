@@ -16051,7 +16051,7 @@
            ospiti del convegno, e contarle fra i presenti vorrebbe dire
            preparare una sala per gente che non viene. Agli incontri invece
            ci vanno, e infatti daInvitareB2B le comprende. */
-        { id: 'b2b', nome: 'Solo incontri B2B', breve: 'solo B2B', sala: false, dove: 'fra gli invitati ai soli incontri B2B', vai: 'Sposta fra gli invitati ai soli incontri B2B' }
+        { id: 'b2b', nome: 'Solo incontri B2B', breve: 'solo B2B', sala: false, fuoriElenco: true, dove: 'fra gli invitati ai soli incontri B2B', vai: 'Sposta fra gli invitati ai soli incontri B2B' }
     ];
     function sezioneDef(id) { return SEZIONI_MODALITA.find(x => x.id === id) || SEZIONI_MODALITA[0]; }
     function modalitaDi(ev, r) {
@@ -16068,6 +16068,23 @@
        Sponsor e relatori stanno a parte solo per comodita' di chi organizza:
        in sala ci sono, e nel totale ci vanno sempre. */
     function inSala(m) { return !!(SEZIONI_MODALITA.find(x => x.id === m) || {}).sala; }
+    /* CHI NON STA NELL'ELENCO DEGLI ISCRITTI.
+       Gli invitati ai soli incontri B2B non sono iscritti al convegno: non
+       hanno un posto in sala, non li si conferma all'ingresso, non li si
+       conta. Tenerli in elenco - anche solo in una sezione loro - vorrebbe
+       dire trovarseli in mezzo agli ospiti a ogni ricerca, in ogni
+       esportazione, in ogni conto degli indirizzi doppi, e doversi ricordare
+       ogni volta che quelli non c'entrano. Vivono dentro la finestra degli
+       inviti B2B, che e' l'unico posto dove servono.
+       La sezione resta scritta - e' la modalita' con cui la scheda nasce, e il
+       servizio la conosce - ma l'elenco la salta. */
+    function fuoriElenco(m) { return !!(SEZIONI_MODALITA.find(x => x.id === m) || {}).fuoriElenco; }
+    /* Le iscrizioni come le mostra l'elenco: tutte, meno quelle che in elenco
+       non ci vanno. Passa di qui chiunque disegni o conti l'elenco, cosi' non
+       resta un punto che le fa ricomparire. */
+    function soloIscritti(ev, lista) {
+        return (lista || []).filter(r => !fuoriElenco(modalitaDi(ev, r)));
+    }
     /* A CHI SI MANDANO GLI INVITI AGLI INCONTRI B2B. Gli incontri si fanno di
        persona, e sono fra IMPRESE OSPITI da abbinare l'una all'altra: chi segue
        online a un tavolo non ci si siede, e un aderente Revilaw non e'
@@ -16544,7 +16561,7 @@
                averlo: per scrivere a qualcuno ci sono i suoi recapiti, che
                stanno nella riga accanto. */
             (puoRichiedere && !ev.tutti
-                ? SEZIONI_MODALITA.filter(x => x.id !== md).map(x =>
+                ? SEZIONI_MODALITA.filter(x => x.id !== md && !x.fuoriElenco).map(x =>
                     '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
                     + '" data-verso="' + x.id + '">' + esc(x.vai) + '</button>').join('')
                 + (md === 'online' && r.email && !sezioneDalModulo(ev, r, md)
@@ -16673,10 +16690,10 @@
        In sala ci sono ospiti E aderenti: nessuno dei due numeri, da solo, dice
        quanti posti servono. */
     function contiEvento(ev) {
-        const lista = _evIscrizioni;
+        const lista = _evIscrizioni ? soloIscritti(ev, _evIscrizioni) : _evIscrizioni;
         const conModalita = !!(lista && !ev.tutti);
         const postiSezione = {};
-        if (conModalita) SEZIONI_MODALITA.forEach(x => {
+        if (conModalita) SEZIONI_MODALITA.filter(x => !x.fuoriElenco).forEach(x => {
             postiSezione[x.id] = lista.filter(r => modalitaDi(ev, r) === x.id).reduce((t, r) => t + partecipantiDi(r), 0);
         });
         return {
@@ -16744,7 +16761,7 @@
         scriviNumero(num('partecipanti'), c.nPart === null ? '-' : c.nPart);
         scriviNumero(num('indirizzi'), c.nIndir === null ? '-' : c.nIndir);
         // le voci sopra l'elenco: numero, suggerimento e la veste "sezione vuota"
-        const tutte = _evIscrizioni || [];
+        const tutte = soloIscritti(ev, _evIscrizioni || []);
         vista.querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => {
             const id = b.dataset.sez;
             const righe = id === 'tutte' ? tutte : tutte.filter(r => modalitaDi(ev, r) === id);
@@ -16815,7 +16832,7 @@
         const daAvvisare = puoAggiungereIscrizioni() ? righeDaAvvisare(ev, tutte).length : 0;
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
             + voce('tutte', 'Tutte')
-            + SEZIONI_MODALITA.map(x => voce(x.id, x.nome)).join('')
+            + SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
             + (daRiconoscere
                 ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
                 + 'title="Mostra le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le spunta se confermi, e le sposti poi con il pulsante della barra">'
@@ -16973,7 +16990,7 @@
                obbliga a ricontrollare ogni volta che cosa fa. Nascono
                dall'elenco delle sezioni, cosi' aggiungerne una non lascia
                indietro la barra. */
-            + (ev.tutti ? '' : SEZIONI_MODALITA.map(x =>
+            + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x =>
                 '<button class="btn btn-sm btn-secondary ev-multi" data-verso="' + x.id + '">'
                 + esc(x.vai) + '</button>').join(''))
             + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">'
@@ -17096,7 +17113,11 @@
             : '<div class="card tabella-vuota">Nessuna iscrizione per questo evento.</div>';
         const corpo = _evIscrizioni === null
             ? '<div class="card tabella-vuota">' + (_evInFlight ? 'Carico le iscrizioni...' : 'Premi "Aggiorna adesso" per caricare le iscrizioni.') + '</div>'
-            : (!_evIscrizioni.length ? vuoto : tabellaIscrizioni(ev, _evIscrizioni));
+            /* L'elenco riceve GIA' ripulito quello che deve mostrare: gli
+               invitati ai soli incontri B2B non sono iscritti al convegno, e
+               da qui in giu' nessuno deve piu' ricordarselo - ricerca,
+               esportazione, indirizzi doppi e conteggi lavorano su questo. */
+            : (!soloIscritti(ev, _evIscrizioni).length ? vuoto : tabellaIscrizioni(ev, soloIscritti(ev, _evIscrizioni)));
 
         // un riquadro per evento: si apre uno alla volta, cosi gli elenchi non si mescolano
         const schede = '<div class="ev-schede">' + EVENTI_DEF.map(x =>
@@ -17138,7 +17159,7 @@
             + '</div>'
             + (ev.tutti ? '' : '<div class="ev-num-gruppo">'
                 + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte', 'sala')
-                + SEZIONI_MODALITA.filter(x => !inSala(x.id))
+                + SEZIONI_MODALITA.filter(x => !inSala(x.id) && !x.fuoriElenco)
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + '</div>') + '</div>'
@@ -17375,7 +17396,7 @@
         {
             const bTrova = document.getElementById('ev-trova-aderenti');
             if (bTrova) bTrova.addEventListener('click', () => {
-                const trovati = righeDaRiconoscere(ev, _evIscrizioni || []);
+                const trovati = righeDaRiconoscere(ev, soloIscritti(ev, _evIscrizioni || []));
                 if (!trovati.length) { toast('Nessuna iscrizione da riconoscere: gli aderenti in elenco sono già nella loro sezione.', 'verde'); return; }
                 modaleRiconosciAderenti(ev, trovati);
             });
@@ -17384,7 +17405,7 @@
         {
             const bDoppi = document.getElementById('ev-doppi');
             if (bDoppi) bDoppi.addEventListener('click', () => {
-                const g = gruppiDoppi(ev, _evIscrizioni || []);
+                const g = gruppiDoppi(ev, soloIscritti(ev, _evIscrizioni || []));
                 if (!g.length) { toast('Nessun indirizzo doppio: ogni iscrizione ha il suo.', 'verde'); return; }
                 modaleIndirizziDoppi(ev, g);
             });
@@ -17405,7 +17426,7 @@
         {
             const bAvv = document.getElementById('ev-da-avvisare-btn');
             if (bAvv) bAvv.addEventListener('click', () => {
-                const righe = righeDaAvvisare(ev, _evIscrizioni || []);
+                const righe = righeDaAvvisare(ev, soloIscritti(ev, _evIscrizioni || []));
                 if (!righe.length) { toast('Nessun avviso in sospeso: sono partiti tutti.', 'verde'); return; }
                 modaleSpostaModalita(ev, righe, 'online', {});
             });
@@ -20306,6 +20327,11 @@
                 if (perEmail[e]) { perEmail[e].docs.push(r.doc || ''); perEmail[e].righe.push(r); return; }
                 const c = {
                     id: r.id, doc: r.doc || '', docs: [r.doc || ''], righe: [r], riga: r, email: e,
+                    /* Chi e' stato aggiunto a mano qui dentro vive SOLO qui:
+                       nell'elenco degli iscritti non compare. Serve saperlo
+                       prima di toglierlo dagli inviti, perche' dopo non lo si
+                       ritrova da nessuna parte. */
+                    soloB2B: modalitaDi(ev, r) === 'b2b',
                     nome: (r.nome + ' ' + r.cognome).trim() || r.email,
                     ruolo: String(r.ruolo || '').trim(),
                     azienda: String(r.azienda || '').trim(),
@@ -20673,6 +20699,14 @@
                 const docs = [];
                 g.persone.forEach(c => (c.docs || []).filter(Boolean).forEach(d => docs.push(d)));
                 if (!docs.length) { esito('Questa azienda non ha schede da segnare: ricarica l\'elenco.', true); return; }
+                /* Un'azienda aggiunta a mano non sta nell'elenco degli iscritti:
+                   toglierla da qui vuol dire non averla piu' sotto gli occhi in
+                   nessun posto. Non e' un danno - si riaggiunge - ma va detto
+                   prima, non scoperto dopo. */
+                if (g.persone.every(c => c.soloB2B)
+                    && !confirm('"' + g.nome + '" è stata aggiunta a mano per gli incontri e nell\'elenco '
+                        + 'degli iscritti non compare: togliendola dagli inviti non la trovi più da nessuna parte. '
+                        + 'La puoi sempre riaggiungere con "Aggiungi un\'azienda". Procedo?')) return;
                 b.disabled = true;
                 Cloud.operaPresenza({ azione: 'invito-b2b-segna', evento: ev.id, docs: docs, valore: valore }).then(r => {
                     b.disabled = false;
@@ -20845,6 +20879,7 @@
             if (!svuotaAperto) { box.innerHTML = ''; return; }
             const gruppi = aziendeMostrate();
             const persone = gruppi.reduce((n, g) => n + g.persone.length, 0);
+            const aggiunteAMano = gruppi.filter(g => g.persone.every(c => c.soloB2B)).length;
             const quali = filtroAz.trim()
                 ? 'le <b>' + gruppi.length + '</b> aziende che la ricerca sta mostrando'
                 : 'tutte e <b>' + gruppi.length + '</b> le aziende dell\'elenco';
@@ -20853,7 +20888,12 @@
                 + (persone === 1 ? ' referente' : ' referenti') + ').</div>'
                 + '<div class="hint" style="margin:6px 0 0;">Spegne la scelta e basta: <b>nessuna iscrizione viene cancellata</b>. '
                 + 'Le persone restano iscritte all\'evento e non ricevono niente, e reimportando il file tornano in elenco. '
-                + 'Per cancellare davvero un\'iscrizione c\'è l\'elenco degli iscritti, riga per riga.</div>'
+                + 'Per cancellare davvero un\'iscrizione c\'è l\'elenco degli iscritti, riga per riga.'
+                + (aggiunteAMano ? ' <span class="ev-ko">' + aggiunteAMano
+                    + (aggiunteAMano === 1 ? ' azienda è stata aggiunta a mano' : ' aziende sono state aggiunte a mano')
+                    + ' e nell\'elenco degli iscritti non compare: togliendola da qui non la trovi più da nessuna parte '
+                    + '(si riaggiunge con "Aggiungi un\'azienda").</span>' : '')
+                + '</div>'
                 + '<div class="ib-svuota-azioni">'
                 + '<button type="button" class="btn btn-sm btn-primary" id="ib-sv-togli">Svuota</button>'
                 + '<button type="button" class="btn btn-sm btn-ghost" id="ib-sv-no">Annulla</button>'

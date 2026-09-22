@@ -1144,7 +1144,17 @@ si prepara la sala. Nasce quindi con `modalita: 'b2b'` - una quinta sezione
 (`MODALITA_SCELTE` in `api/presenze.js`, `SEZIONI_MODALITA` in
 `area-riservata/app.js`) che vale `sala: false` come l'online, ma che
 `daInvitareB2B` comprende: agli incontri ci va, in sala no. Da li' si sposta in
-presenza come qualunque altra riga, se poi viene anche al convegno.
+`daInvitareB2B` comprende: agli incontri ci va, in sala no.
+
+E dall'ELENCO degli iscritti resta fuori del tutto: la sezione ha
+`fuoriElenco: true`, e `soloIscritti` (in `area-riservata/app.js`) la toglie
+prima che l'elenco la disegni o la conti. Non e' una sezione in piu' da
+guardare: quelle schede non sono iscrizioni al convegno, e tenerle in elenco
+vorrebbe dire trovarsele in mezzo agli ospiti a ogni ricerca, in ogni
+esportazione e in ogni conto degli indirizzi doppi. Vivono dentro la finestra
+degli inviti B2B, che e' l'unico posto dove servono - e la finestra avverte
+prima di toglierne una, perche' tolta di li' non si trova piu' da nessuna
+parte.
 
 ### Una mail per indirizzo, e nomina gli altri
 
