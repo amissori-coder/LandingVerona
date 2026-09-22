@@ -198,16 +198,20 @@ const elenco = [
     { email: 'rita@beta.it', modalita: 'aderente', extra: { 'Invito B2B': 'si' } },
     { email: '', modalita: 'presenza', extra: { 'Invito B2B': 'si' } }
 ];
-const segnati = iscrittiPerInvitoB2B('ev', elenco, true).map(r => r.email);
+const segnati = iscrittiPerInvitoB2B('ev', elenco).map(r => r.email);
 esigi(segnati.join(' ') === 'mario@alfa.it gino@beta.it',
-    'ci sono solo gli iscritti segnati nel foglio, ospiti e sponsor', segnati.join(' '));
+    'ci sono solo le aziende importate, fra gli ospiti e gli sponsor in sala', segnati.join(' '));
+esigi(segnati.indexOf('luisa@alfa.it') < 0,
+    'un iscritto che nel file non c\'era non compare: agli incontri non si invita chi si e\' iscritto');
 esigi(segnati.indexOf('sara@beta.it') < 0 && segnati.indexOf('rita@beta.it') < 0,
-    'chi segue online e gli aderenti restano fuori anche se segnati: al tavolo non ci siedono');
-const tutti = iscrittiPerInvitoB2B('ev', elenco, false).map(r => r.email);
-esigi(tutti.join(' ') === 'mario@alfa.it luisa@alfa.it gino@beta.it',
-    'togliendo la spunta tornano tutti quelli in sala', tutti.join(' '));
-esigi(!iscrittiPerInvitoB2B('ev', null, true).length && !iscrittiPerInvitoB2B('ev', [], false).length,
+    'chi segue online e gli aderenti restano fuori anche se importati: al tavolo non ci siedono');
+esigi(!iscrittiPerInvitoB2B('ev', null).length && !iscrittiPerInvitoB2B('ev', []).length,
     'e senza iscritti non si sbaglia: non c\'e\' nessuno da invitare');
+/* Non c'e' nessun modo di farli comparire: la funzione prende due argomenti e
+   basta. Un interruttore "mostra tutti" era il genere di comodita' da cui, un
+   giorno di fretta, parte un invito a duecento persone che non dovevano. */
+esigi(iscrittiPerInvitoB2B.length === 2,
+    'e non c\'e\' nessun interruttore per vedere tutti gli iscritti', 'argomenti: ' + iscrittiPerInvitoB2B.length);
 
 console.log('\n8) Svuotare l\'elenco: le schede si mandano a lotti');
 /* "Svuota l'elenco" tocca tutte le schede insieme, e il servizio ne accetta

@@ -1809,8 +1809,11 @@ Agli incontri B2B non si invitano tutti gli iscritti: si invitano le aziende
 (si accettano anche `x`, `1`, `s`). Finisce fra le colonne aggiuntive con quel
 nome esatto, comunque sia scritta nel foglio, e l'area riservata la legge da li'
 (`segnatoInvitoB2B` / `iscrittiPerInvitoB2B` in `area-riservata/app.js`): la
-finestra degli inviti mostra **solo** chi e' segnato, con una spunta per tornare
-a vedere tutti gli iscritti in sala.
+finestra degli inviti mostra **soltanto** chi e' segnato, e non c'e' nessun modo
+di farle mostrare gli altri. Un interruttore "vedi tutti gli iscritti in sala"
+c'e' stato per poco ed e' stato tolto: e' il genere di comodita' da cui, un
+giorno di fretta, parte un invito a duecento persone che non dovevano riceverlo.
+Un elenco vuoto non chiude la finestra, perche' e' da li' che si importa.
 
 Tutte le altre colonne si scrivono **solo quando hanno un valore**: un elenco
 parziale non deve cancellare il telefono di nessuno. Questa no. E' una
@@ -1826,8 +1829,10 @@ Le prove stanno in `prove/scelta-invito-b2b.prove.js`.
 
 La stessa colonna si scrive dalla finestra degli inviti, con l'azione
 `invito-b2b-segna` di `/api/presenze` (`docs`, `valore` = `si` o vuoto; stessi
-permessi dell'invio degli inviti). Toglie e mette **l'azienda intera**, cioe'
-tutte le schede dei suoi referenti: l'invito e' uno per impresa.
+permessi dell'invio degli inviti). Riguarda **l'azienda intera**, cioe' tutte le
+schede dei suoi referenti: l'invito e' uno per impresa. Dalla finestra si usa
+per TOGLIERE (`valore` vuoto: "Svuota l'elenco" e "Togli" sulla riga); a mettere
+ci pensano il file e "Aggiungi un'azienda".
 
 Due cose che l'azione fa apposta:
 
@@ -1838,7 +1843,11 @@ Due cose che l'azione fa apposta:
   indirizzo, che comparirebbe fra gli iscritti. Le schede che non ci sono si
   contano (`nonTrovate`) invece di inventarle;
 - **non cancella niente**: spegne la colonna e basta. Chi non riceve l'invito
-  resta iscritto all'evento.
+  resta iscritto all'evento. Dalla finestra degli inviti non si cancellano
+  iscrizioni: la cancellazione non si disfa, e un pulsante che la fa a duecento
+  schede insieme, dentro la finestra da cui si sistema un elenco, e' il genere
+  di comando che prima o poi si preme per sbaglio. Resta nell'elenco degli
+  iscritti, riga per riga, dove si vede chi si sta cancellando.
 
 L'azione `aggiungi` accetta ora `invitoB2B: true` e `campi.piva`, per l'azienda
 aggiunta a mano dalla finestra degli inviti: nasce gia' scelta (altrimenti

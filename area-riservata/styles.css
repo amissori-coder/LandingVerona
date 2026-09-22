@@ -1645,15 +1645,6 @@ label.ib-mano-campo input { width: 100%; margin: 0; }
 }
 .ib-az-segna:hover { color: var(--blu-700); border-color: var(--blu-700); }
 .ib-az-segna[disabled] { opacity: 0.5; cursor: default; }
-/* la spunta "solo le aziende scelte nel file": sta sopra l'elenco perche'
-   decide CHI si vede, non come lo si vede, e chi apre la finestra deve
-   accorgersene prima di leggere la lista e crederla completa. */
-label.ib-az-solo {
-    display: flex; align-items: center; gap: 8px; margin: 6px 0 0;
-    font-size: 0.85rem; font-weight: 400; color: var(--grigio-900); cursor: pointer;
-}
-label.ib-az-solo input[type="checkbox"] { width: auto; margin: 0; padding: 0; flex: none; }
-label.ib-az-solo .hint { margin: 0; }
 .ib-az-riga { border-bottom: 1px solid var(--grigio-100); }
 .ib-az-riga:last-child { border-bottom: none; }
 .ib-az-riga.aperta { background: #f8fafc; }
