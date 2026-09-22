@@ -237,7 +237,7 @@ prova('Chi non manda gli inviti non tocca l\'elenco', async () => {
 prova('L\'azienda aggiunta a mano nasce scelta, con la sua partita IVA e senza mail', async () => {
     scenario();
     const r = await chiama({
-        azione: 'aggiungi', evento: EV, pagina: 'Napoli 2 Ottobre 2026', modalita: 'presenza',
+        azione: 'aggiungi', evento: EV, pagina: 'Napoli 2 Ottobre 2026', modalita: 'b2b',
         portale: { id: 'altro', nome: 'Aggiunta per il B2B' }, invitoB2B: true,
         campi: { nome: 'Gino', cognome: 'Verdi', email: 'gino@beta.it', azienda: 'Beta Srl', piva: 'IT 073.070.10632', partecipanti: '1' }
     });
@@ -250,6 +250,13 @@ prova('L\'azienda aggiunta a mano nasce scelta, con la sua partita IVA e senza m
     esigi(nuova.extra && nuova.extra.Portale === 'Aggiunta per il B2B' && nuova.extra.Partecipanti === '1',
         'e le colonne di sempre restano al loro posto');
     esigi(!spedite.length, 'nessuna mail adesso: la prima che ricevera\' e\' l\'invito');
+    /* E NON OCCUPA UN POSTO IN SALA. Un'azienda aggiunta dalla finestra degli
+       inviti e' invitata agli INCONTRI, non al convegno: contarla fra i
+       presenti vorrebbe dire preparare una sala per gente che non viene. */
+    const pres = dati[chiave('presenze', idScheda(EV + '~' + r.corpo.id))] || {};
+    esigi(pres.modalita === 'b2b',
+        'entra nella sezione "Solo incontri B2B", non fra gli iscritti in presenza',
+        JSON.stringify(pres));
 });
 
 prova('Una scheda aggiunta come si faceva prima non diventa un invitato', async () => {

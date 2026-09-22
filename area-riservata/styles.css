@@ -1706,6 +1706,10 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    al blu dell'online, perche' e' la terza sezione della sala e si legge nella
    stessa colonna delle altre due. */
 .ev-modalita.sponsor, .ev-sez-sponsor { color: #7E22CE; font-weight: 600; }
+/* Invitati ai SOLI incontri B2B: in sala non si siedono, quindi la tinta li
+   accosta all'online (l'altra sezione che non occupa posti) restando distinta -
+   e' l'ambra bruciata degli incontri, la stessa famiglia dei desk. */
+.ev-modalita.b2b, .ev-sez-b2b { color: #B45309; font-weight: 600; }
 /* Le righine sotto la tendina della modalita': A CHE PUNTO STA LA POSTA, piu'
    la provenienza di chi sta in quella sezione per sua dichiarazione e non per
    decisione di chi organizza - gli aderenti Revilaw e chi si e' iscritto per la

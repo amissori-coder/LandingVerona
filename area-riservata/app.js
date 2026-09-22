@@ -16027,7 +16027,7 @@
        ("Aderenti Revilaw", "Sponsor e relatori"). Con il nome lungo dentro la
        tendina il browser lo taglia a meta' - "Aderente R...", "Sponsor/re..." -
        proprio nella colonna che dice chi entra in sala e in quale sezione. */
-    const NOMI_MODALITA = { presenza: 'In presenza', aderenti: 'Aderente', online: 'Online', sponsor: 'Sponsor' };
+    const NOMI_MODALITA = { presenza: 'In presenza', aderenti: 'Aderente', online: 'Online', sponsor: 'Sponsor', b2b: 'Solo B2B' };
     /* LE SEZIONI DELL'ELENCO, in ordine di lettura. Prima quelle che occupano un
        posto in sala (`sala: true`), poi l'online: e' l'ordine dei riquadri in
        testa e delle voci sopra l'elenco, che devono dirsi la stessa cosa.
@@ -16043,7 +16043,15 @@
         { id: 'presenza', nome: 'In presenza', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
         { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti', sala: true, dove: 'fra gli aderenti Revilaw', vai: 'Sposta fra gli aderenti Revilaw' },
         { id: 'sponsor', nome: 'Sponsor e relatori', breve: 'sponsor e relatori', sala: true, dove: 'fra sponsor e relatori', vai: 'Sposta fra sponsor e relatori' },
-        { id: 'online', nome: 'Online', breve: 'online', sala: false, dove: 'all\'online', vai: 'Sposta online e avvisa' }
+        { id: 'online', nome: 'Online', breve: 'online', sala: false, dove: 'all\'online', vai: 'Sposta online e avvisa' },
+        /* INVITATI AI SOLI INCONTRI B2B. Vengono al desk per il loro
+           appuntamento e in sala non si siedono: non occupano un posto e non
+           entrano nel totale. E' la sezione in cui nascono le aziende
+           aggiunte a mano dalla finestra degli inviti - quelle non sono
+           ospiti del convegno, e contarle fra i presenti vorrebbe dire
+           preparare una sala per gente che non viene. Agli incontri invece
+           ci vanno, e infatti daInvitareB2B le comprende. */
+        { id: 'b2b', nome: 'Solo incontri B2B', breve: 'solo B2B', sala: false, dove: 'fra gli invitati ai soli incontri B2B', vai: 'Sposta fra gli invitati ai soli incontri B2B' }
     ];
     function sezioneDef(id) { return SEZIONI_MODALITA.find(x => x.id === id) || SEZIONI_MODALITA[0]; }
     function modalitaDi(ev, r) {
@@ -16060,15 +16068,16 @@
        Sponsor e relatori stanno a parte solo per comodita' di chi organizza:
        in sala ci sono, e nel totale ci vanno sempre. */
     function inSala(m) { return !!(SEZIONI_MODALITA.find(x => x.id === m) || {}).sala; }
-    /* A CHI SI MANDANO GLI INVITI AGLI INCONTRI B2B. Gli incontri si fanno in
-       sala, e sono fra IMPRESE OSPITI da abbinare l'una all'altra: chi segue
+    /* A CHI SI MANDANO GLI INVITI AGLI INCONTRI B2B. Gli incontri si fanno di
+       persona, e sono fra IMPRESE OSPITI da abbinare l'una all'altra: chi segue
        online a un tavolo non ci si siede, e un aderente Revilaw non e'
        un'impresa da abbinare - e' la rete dello studio. Sponsor e relatori in
-       sala ci sono, e agli incontri ci tengono piu' di tutti.
+       sala ci sono, e agli incontri ci tengono piu' di tutti; chi e' invitato ai
+       SOLI incontri viene apposta per quello, anche se in sala non si siede.
        La regola sta qui e non in due posti: vale per la voce del menu della
        riga e per l'invito a tutte le aziende, e due copie che si allontanano
        fanno esattamente il danno che questa regola vuole evitare. */
-    function daInvitareB2B(m) { return m === 'presenza' || m === 'sponsor'; }
+    function daInvitareB2B(m) { return m === 'presenza' || m === 'sponsor' || m === 'b2b'; }
     /* GLI ADERENTI, L'AREA RISERVATA LI CONOSCE GIA': stanno nella sezione
        "Aderenti Revilaw" (Persone), con il loro indirizzo email. Spostarli a
        mano uno per uno, cercandoli a occhio in un elenco di centinaia di righe,
@@ -20910,8 +20919,9 @@
             const campo = (id, et, tipo, largo) => '<label class="ib-mano-campo' + (largo ? ' largo' : '') + '">'
                 + '<span>' + esc(et) + '</span><input type="' + (tipo || 'text') + '" id="' + id + '"></label>';
             box.innerHTML = '<div class="ib-mano">'
-                + '<div class="hint" style="margin:0 0 8px;">Un\'azienda che nel file non c\'era. Entra fra gli iscritti '
-                + '<b>in presenza</b> di questo evento e fra le aziende da invitare, e <b>non riceve nessuna mail</b> adesso: '
+                + '<div class="hint" style="margin:0 0 8px;">Un\'azienda che nel file non c\'era. Entra fra le aziende da invitare '
+                + 'e nella sezione <b>Solo incontri B2B</b> dell\'elenco: <b>non occupa un posto in sala</b> e non entra nel totale, '
+                + 'perché è invitata agli incontri, non al convegno. <b>Non riceve nessuna mail</b> adesso: '
                 + 'la prima sarà l\'invito. Servono <b>azienda</b>, <b>nome</b> e <b>indirizzo email</b>; '
                 + 'la <b>partita IVA</b> è quella che tiene distinte due società scritte quasi uguali.</div>'
                 + '<div class="ib-mano-righe">'
@@ -20938,7 +20948,11 @@
                 ok.disabled = true; ok.textContent = 'Aggiungo...';
                 const finito = () => { ok.disabled = false; ok.textContent = 'Aggiungi all\'elenco'; };
                 Cloud.operaPresenza({
-                    azione: 'aggiungi', evento: ev.id, pagina: ev.pagina, modalita: 'presenza',
+                    /* NON "in presenza": un'azienda aggiunta qui e' invitata agli
+                       INCONTRI, non al convegno. Messa fra gli iscritti in sala
+                       farebbe contare un posto che nessuno occupera', e il totale
+                       con cui si prepara la sala e' proprio quello. */
+                    azione: 'aggiungi', evento: ev.id, pagina: ev.pagina, modalita: 'b2b',
                     portale: { id: 'altro', nome: 'Aggiunta per il B2B' }, invitoB2B: true,
                     campi: {
                         nome: nome, cognome: val('ib-m-cognome'), email: email, azienda: azienda,
