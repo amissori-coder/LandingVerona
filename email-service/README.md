@@ -1156,6 +1156,38 @@ degli inviti B2B, che e' l'unico posto dove servono - e la finestra avverte
 prima di toglierne una, perche' tolta di li' non si trova piu' da nessuna
 parte.
 
+### Il giustificato e la sillabazione
+
+Il testo delle mail e' **giustificato**, ed e' una scelta di chi le firma.
+Giustificare pero' vuol dire allargare gli spazi fra le parole finche' la riga
+arriva in fondo, e in una mail non c'e' niente che spezzi le parole a fine
+riga: i programmi di posta non sillabano, e `hyphens:auto` lo capiscono in
+pochi (Outlook no). Su una colonna di 520px vengono i "fiumi" bianchi che
+attraversano il paragrafo.
+
+I punti di sillabazione quindi ce li mettiamo noi, con il **trattino morbido**
+(U+00AD): e' un carattere, non uno stile, quindi lo capiscono tutti i lettori
+di posta, e dove la riga non si spezza non si vede niente. Le regole sono
+quelle dell'italiano (`sillabeIt` in `area-riservata/newsletter-format.js`): i
+gruppi di vocali non si dividono mai, una consonante fra due vocali va con la
+vocale dopo, le doppie si dividono, restano attaccate la s impura, i digrammi
+e muta+liquida. Niente trattino se da una parte resterebbero meno di tre
+lettere, perche' "a-zienda" a fine riga si legge come un errore di stampa.
+
+Due cose che, sbagliate, fanno danno e sono sotto prova
+(`prove/mail-sillabe.prove.js`):
+
+- i **segnaposto** (`{{REFERENTI}}`, `{{AZIENDA}}`, `{{B2B}}`) non si toccano:
+  sono parole lunghe fatte di sole lettere, e sillabarle vorrebbe dire non
+  riconoscerle piu' al momento di sostituirle - al destinatario arriverebbe la
+  mail con il segnaposto stampato dentro;
+- **indirizzi e collegamenti** nemmeno: si sillaba solo cio' che e' una parola
+  e basta, mai un token che contenga `@`, `.` o `/`. Un indirizzo si
+  seleziona, si incolla e deve funzionare.
+
+Il **testo semplice** resta pulito: li' un carattere invisibile non serve a
+nessuno.
+
 ### Una mail per indirizzo, e nomina gli altri
 
 L'invito e' dell'AZIENDA - un collegamento solo, le stesse scelte - ma i
