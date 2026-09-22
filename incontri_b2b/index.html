@@ -35,6 +35,24 @@
         .regole { background: var(--chiaro); border: 1px solid var(--bordo); border-radius: 8px; padding: 14px 16px; margin-top: 16px; font-size: 0.95rem; }
         .regole ul { margin: 8px 0 0 18px; padding: 0; }
         .regole li { margin-bottom: 6px; }
+/* --- I PASSI DEL MODULO: quattro cose diverse, quattro riquadri ---
+   Stavano una sotto l'altra con tre titoletti, e si leggevano come un modulo
+   solo lungo: la prima preferenza - l'unica che prenota davvero - aveva lo
+   stesso peso della terza, e l'altra questione, che un incontro B2B non e',
+   sembrava la quarta preferenza. Il numero in testa e la faccia diversa
+   dell'ultimo riquadro dicono a colpo d'occhio che cosa si sta facendo. */
+        .passo { border: 1px solid var(--bordo); border-radius: 10px; background: #fff; margin-top: 20px; overflow: hidden; }
+        .passo.prenota { border-color: var(--navy-light); }
+        .passo.domanda { border-style: dashed; background: var(--sfondo); }
+        .passo-testa { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: var(--chiaro); border-bottom: 1px solid var(--bordo); }
+        .passo.prenota .passo-testa { background: var(--blu-050, #F4F8FB); }
+        .passo.domanda .passo-testa { background: transparent; border-bottom-style: dashed; }
+        .passo-n { flex: 0 0 auto; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 999px; background: var(--navy); color: #fff; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; }
+        .passo-n.due { background: #8A6300; font-size: 0.82rem; }
+        .passo-n.piu { background: transparent; color: var(--tenue); border: 1px dashed var(--bordo); }
+        .passo-tit { font-weight: bold; color: var(--navy-dark); font-size: 1.05rem; }
+        .passo-sot { font-size: 0.9rem; color: var(--tenue); margin-top: 2px; }
+        .passo-dentro { padding: 12px 14px; }
         .pref { border: 1px solid var(--bordo); border-radius: 8px; padding: 12px 14px; margin-top: 12px; background: #fff; }
         .pref.bloccata { background: var(--chiaro); border-style: dashed; }
         .pref-et { font-size: 0.92rem; font-weight: bold; color: var(--navy); letter-spacing: 0.01em; }
@@ -871,9 +889,25 @@
                     + (ev.luogo ? ' - ' + esc(ev.luogo) : '') + '.'
                     + colleghi + '</div>'
                     + regole + entroQuando + miei + esaurito
-                    + '<div class="pref-et grande">1. Prima preferenza: tavolo e orario</div>'
-                    + '<div class="mini" style="margin:2px 0 8px;">Apra il tavolo che Vi interessa e prema un orario. '
-                    + '&Egrave; l\'unica scelta che prenota davvero.'
+                    /* ============================================================
+                       TRE PREFERENZE E UNA DOMANDA: quattro cose diverse
+                       ------------------------------------------------------------
+                       Stavano una sotto l'altra con tre titoletti, e si
+                       leggevano come un modulo solo lungo: la prima - l'unica
+                       che prenota davvero - aveva lo stesso peso della terza,
+                       e l'altra questione, che un incontro B2B non e', sembrava
+                       la quarta preferenza. Adesso ogni passo e' un riquadro
+                       suo, numerato, con scritto in testa che cosa fa: 1
+                       PRENOTA, 2 e 3 sono preferenze che prenotano niente, e la
+                       domanda in fondo ha un'altra faccia - tratteggiata,
+                       senza numero - perche' non e' un incontro.
+                    ============================================================ */
+                    + '<section class="passo prenota"><div class="passo-testa">'
+                    + '<span class="passo-n">1</span>'
+                    + '<div><div class="passo-tit">Prima preferenza</div>'
+                    + '<div class="passo-sot">Tavolo e orario. &Egrave; l\'unica scelta che <b>prenota davvero</b>.</div></div></div>'
+                    + '<div class="passo-dentro">'
+                    + '<div class="mini" style="margin:0 0 8px;">Apra il tavolo che Vi interessa e prema un orario.'
                     + (r.prima ? ' <b>Avete gi&agrave; un orario:</b> premendone un altro e salvando la prenotazione si '
                         + 'sposta l&igrave;, e quella di adesso si libera. Non serve annullarla prima.' : '')
                     + '</div>'
@@ -888,17 +922,32 @@
                     + '<div class="stato-orari"><span id="stato-orari-t">Orari aggiornati a questo momento.</span>'
                     + '<button type="button" class="mini-btn" id="aggiorna-orari">Aggiorna</button></div>'
                     + '<div id="griglie">' + aree.map(htmlAreaAz).join('') + '</div>'
-                    + '<div class="pref-et grande">2. Seconda e terza preferenza</div>'
-                    + '<div class="mini" style="margin:2px 0 6px;">Solo il tavolo, e non prenotano niente: diventano un '
-                    + 'incontro solo se a quel tavolo avanzano posti dopo le prime preferenze di tutti. L\'orario lo '
-                    + 'scegliamo noi fra quelli rimasti - anche lontano da quello del primo incontro - e glielo diciamo '
-                    + 'per mail. <b>Da quel momento quell\'orario &egrave; confermato:</b> non si cambia e non se ne '
-                    + 'pu&ograve; chiedere un altro da qui; se non Vi va bene lo potete solo annullare, e l\'ora torna '
-                    + 'libera.</div>'
+                    + '</div></section>'
+                    + '<section class="passo"><div class="passo-testa">'
+                    + '<span class="passo-n due">2 e 3</span>'
+                    + '<div><div class="passo-tit">Seconda e terza preferenza</div>'
+                    + '<div class="passo-sot">Solo il tavolo, e <b>non prenotano niente</b>: l\'orario lo scegliamo noi, '
+                    + 'se avanzano posti.</div></div></div>'
+                    + '<div class="passo-dentro">'
+                    + '<div class="mini" style="margin:0 0 8px;">Diventano un incontro solo se a quel tavolo avanzano '
+                    + 'posti dopo le prime preferenze di tutti. L\'orario lo scegliamo noi fra quelli rimasti - anche '
+                    + 'lontano da quello del primo incontro - e glielo diciamo per mail. <b>Da quel momento '
+                    + 'quell\'orario &egrave; confermato:</b> non si cambia e non se ne pu&ograve; chiedere un altro da '
+                    + 'qui; se non Vi va bene lo potete solo annullare, e l\'ora torna libera. '
+                    + '<b>I tre tavoli devono essere diversi</b>: lo stesso argomento due volte non raddoppia le '
+                    + 'possibilit&agrave;, le toglie.</div>'
                     + '<div class="riga-due">' + vocePref(2) + vocePref(3) + '</div>'
-                    + '<div class="pref-et grande">3. Un\'altra questione (facoltativo)</div>'
-                    + '<div class="mini" style="margin:2px 0 6px;">Le preferenze restano tre: questa &egrave; una domanda in pi&ugrave;, non un quarto incontro.</div>'
+                    + '</div></section>'
+                    + '<section class="passo domanda"><div class="passo-testa">'
+                    + '<span class="passo-n piu">+</span>'
+                    + '<div><div class="passo-tit">Un\'altra questione (facoltativo)</div>'
+                    + '<div class="passo-sot"><b>Non &egrave; un incontro B2B</b> e non &egrave; una quarta preferenza: '
+                    + '&egrave; una domanda a cui rispondiamo noi.</div></div></div>'
+                    + '<div class="passo-dentro">'
+                    + '<div class="mini" style="margin:0 0 8px;">Se serve un incontro, ci pensiamo noi: pu&ograve; '
+                    + 'diventare un appuntamento al desk della segreteria, e in quel caso Ve lo scriviamo.</div>'
                     + '<div id="esigenze">' + righeEsigenze() + '</div>'
+                    + '</div></section>'
                     + '<div class="azioni"><button type="button" class="invia" id="salva-az">Salvo le nostre scelte</button>'
                     + '<div class="esito" id="esito"></div></div>';
                 applicaValori(valori);
@@ -1103,6 +1152,23 @@
                         esigenze.push({ perDoc: chi.value, testo: testo.value.trim() });
                     }
                 });
+                /* TRE TAVOLI DIVERSI. Il servizio lo rifiuta comunque, ma
+                   dirlo qui evita il giro: si perde il salvataggio e si
+                   rilegge un messaggio che si poteva leggere prima. */
+                var scelti = [];
+                if (sceltaOra && sceltaArea) scelti.push({ area: sceltaArea, quale: 'prima' });
+                coda.forEach(function (c) { scelti.push({ area: c.area, quale: c.pos === 3 ? 'terza' : 'seconda' }); });
+                var doppio = scelti.filter(function (x, i) {
+                    return scelti.findIndex(function (y) { return y.area === x.area; }) !== i;
+                })[0];
+                if (doppio) {
+                    var nomeDoppio = (azDati.aree || []).filter(function (a) { return a.id === doppio.area; })
+                        .map(function (a) { return a.nome; })[0] || 'Quel tavolo';
+                    esito.className = 'esito ko';
+                    esito.textContent = '"' + nomeDoppio + '" è indicato due volte: le tre preferenze devono essere di '
+                        + 'tre tavoli diversi. Ne scelga un altro per la ' + doppio.quale + ' preferenza.';
+                    return;
+                }
                 var mancanti = [];
                 [2, 3].forEach(function (pos) {
                     var area = valore('area' + pos), chi = valore('chi' + pos);

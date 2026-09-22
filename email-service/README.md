@@ -1667,6 +1667,38 @@ spostare: lo spostamento resta nostro, la rinuncia e' di chi non puo' venire.
 Annullandolo, la **domanda torna aperta** (`riapriEsigenzeAssegnate`): altrimenti
 sparirebbe dal riepilogo di chi organizza pur essendo rimasta senza risposta.
 
+#### Un tavolo, un incontro per azienda
+
+Lo stesso tavolo due volte alla stessa impresa non ha senso: si parla della
+stessa cosa con le stesse persone, e intanto quel posto non c'e' per un'altra
+azienda. Succedeva per una via sola e silenziosa: la prima preferenza su
+"Adeguati assetti" **piu'** la seconda, assegnata da noi, sullo stesso tavolo -
+due preferenze diverse, quindi la regola di `appuntamentoDaLiberare` (stessa
+azienda, stessa preferenza) non le vedeva come la stessa cosa.
+
+Si chiude da due parti:
+
+- **prima di scrivere**: il salvataggio rifiuta tre preferenze con due tavoli
+  uguali (`motivo: 'doppione'`) e dice quale sistemare. Il confronto e' per
+  FAMIGLIA - i due gemelli per chi sceglie sono un tavolo solo - e la pagina lo
+  controlla anche da se', per non far perdere il salvataggio;
+- **dentro la transazione**: `prendiSlot` libera gli altri incontri di
+  quell'impresa sullo stesso argomento, gemelli compresi. **Vale l'ultimo**:
+  quello che si prende adesso resta. La risposta porta `doppiLiberati`, cosi'
+  chi assegna dal riepilogo legge che quell'incontro e' stato tolto - e' un
+  incontro che sparisce da un foglio gia' spedito.
+
+#### Togliere un'azienda dagli incontri, dal riepilogo
+
+Un'azienda che non viene piu' - o che e' stata cancellata dagli iscritti -
+restava negli incontri con i suoi orari impegnati: la si poteva togliere solo
+dalla finestra degli inviti, e solo se la sua scheda portava ancora
+l'identificativo dell'azienda B2B. Nella vista **per azienda** del riepilogo il
+comando c'e' ora sempre (amministratore), e l'identificativo e' quello che si
+sta guardando: `b2b-azienda-elimina` libera tutti i suoi orari, toglie le sue
+richieste, cancella il documento - e da quel momento il suo collegamento non
+apre piu' niente, quindi non puo' piu' prenotare.
+
 #### Tre provenienze, tre cose diverse da poter fare
 
 Le tre righe del riepilogo non si governano allo stesso modo, e confonderle
@@ -1689,6 +1721,17 @@ alla lettera) e ogni riga del riquadro lo scrivono per esteso:
   `salvaPreferenze` risponde `bloccate`;
 - **desk Revilaw** - lo fissiamo noi, e vale come sopra: si vede, si annulla, non
   si sposta.
+
+### Tre preferenze e una domanda: quattro cose diverse
+
+I passi del modulo stavano uno sotto l'altro con tre titoletti, e si leggevano
+come un modulo solo lungo: la prima preferenza - l'unica che **prenota davvero**
+- aveva lo stesso peso della terza, e l'altra questione, che un incontro B2B non
+e', sembrava la quarta preferenza. Ora ogni passo e' un riquadro suo, numerato,
+con scritto in testa che cosa fa: **1** prenota, **2 e 3** sono preferenze che
+non prenotano niente, e la domanda in fondo ha un'altra faccia - tratteggiata,
+senza numero, sfondo diverso - perche' non e' un incontro e non e' una quarta
+preferenza.
 
 ### "I Vostri incontri": un riquadro solo, e da li' si annulla
 

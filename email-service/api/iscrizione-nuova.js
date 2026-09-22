@@ -863,6 +863,35 @@ async function incontriAzienda(azione, body, res, ctx) {
         return;
     }
 
+    /* TRE PREFERENZE, TRE TAVOLI DIVERSI.
+       Lo stesso argomento indicato due volte non e' una scelta: e' la stessa
+       cosa chiesta due volte, e quando poi la seconda viene assegnata
+       l'impresa si ritrova due incontri allo stesso tavolo - con le stesse
+       persone, sullo stesso tema - mentre quel posto manca a un'altra
+       azienda. Si ferma qui, prima di scrivere, e si dice quale: il
+       salvataggio e' un'operazione sola, e lasciarne passare meta' vorrebbe
+       dire salvare una scelta che l'impresa non ha fatto.
+       Il confronto e' per FAMIGLIA, cioe' per argomento: i due tavoli gemelli
+       per chi sceglie sono lo stesso tavolo. */
+    const famigliaDi = a => AGENDA.capofilaDi(String(a || '')) || String(a || '');
+    const sceltiOra = [];
+    const prAreaN = (body.prima && typeof body.prima === 'object') ? famigliaDi(body.prima.area) : '';
+    if (prAreaN) sceltiOra.push({ pos: 1, area: prAreaN });
+    (Array.isArray(body.coda) ? body.coda : []).forEach(c => {
+        const a = famigliaDi((c || {}).area);
+        if (a) sceltiOra.push({ pos: Number((c || {}).pos) === 3 ? 3 : 2, area: a });
+    });
+    const doppione = sceltiOra.filter((x, i) => sceltiOra.findIndex(y => y.area === x.area) !== i)[0] || null;
+    if (doppione) {
+        const nome = AGENDA.AREE_B2B.filter(a => a.id === doppione.area).map(a => a.nome)[0] || 'quel tavolo';
+        res.status(400).json({
+            ok: false, motivo: 'doppione',
+            msg: '"' + nome + '" \u00e8 indicato due volte: le tre preferenze devono essere di tre tavoli diversi. '
+                + 'Ne scelga un altro per la ' + (doppione.pos === 3 ? 'terza' : (doppione.pos === 2 ? 'seconda' : 'prima')) + ' preferenza.'
+        });
+        return;
+    }
+
     /* LA PRIMA PREFERENZA. Il nominativo si sceglie fra i referenti
        dell'invito: e' la regola detta a chi organizza, ed e' anche cio' che
        permette al desk di riconoscere chi si presenta. */

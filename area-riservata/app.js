@@ -18163,7 +18163,19 @@
                    compare - al telefono, mentre ce l'hai dall'altra parte. */
                 + (az.link ? '<div class="rb-riga"><span class="rb-chi"><a href="' + esc(az.link)
                     + '" target="_blank" rel="noopener">Apri il modulo di questa azienda</a>'
-                    + '<span class="hint">\u00e8 la pagina che vede lei</span></span></div>' : '')
+                    + '<span class="hint">\u00e8 la pagina che vede lei</span></span>'
+                    /* TOGLIERLA DAGLI INCONTRI, da qui. Un'azienda che non
+                       viene piu' - o che e' stata cancellata dagli iscritti -
+                       restava negli incontri con i suoi orari impegnati: la si
+                       poteva togliere solo dalla finestra degli inviti, e solo
+                       se la sua scheda portava ancora l'identificativo. Qui
+                       l'identificativo c'e' di sicuro, perche' e' quello che
+                       si sta guardando. Gli orari tornano liberi e il suo
+                       collegamento smette di aprire: da quel momento non puo'
+                       piu' prenotare niente. */
+                    + (Auth.eAdmin() ? '<span class="rb-az"><button class="btn btn-sm btn-ghost rb-az-elimina" data-az="'
+                        + esc(az.id) + '" data-nome="' + esc(az.nome) + '">Togli dagli incontri</button></span>' : '')
+                    + '</div>' : '')
                 + '</div>'
                 + blocco('Incontri fissati', 'hanno un orario: al desk risultano a nome suo',
                     inc.map(x => rigaSlot(x.d, x.s, true)).join(''),
@@ -18206,6 +18218,18 @@
             _rbVista = b.dataset.v === 'aziende' ? 'aziende' : 'tavoli';
             _rbAperto = '';
             ridisegna();
+        }));
+        box.querySelectorAll('.rb-az-elimina').forEach(b => b.addEventListener('click', () => {
+            if (!confirm('Tolgo "' + b.dataset.nome + '" dagli incontri B2B?\n\n'
+                + 'Gli orari che aveva prenotato tornano liberi e il suo collegamento smette di funzionare: '
+                + 'da quel momento non puo\' piu\' prenotare niente. Non parte nessuna mail.\n\n'
+                + 'Non si torna indietro.')) return;
+            chiama({ azione: 'b2b-azienda-elimina', aziendaId: b.dataset.az }, r => {
+                _rbAzienda = '';
+                const n = (r.liberati || []).length;
+                return b.dataset.nome + ' non e\' piu\' negli incontri'
+                    + (n ? ': ' + n + (n === 1 ? ' orario torna libero.' : ' orari tornano liberi.') : '.');
+            });
         }));
         const sceltaAz = document.getElementById('rb-az-scelta');
         if (sceltaAz) sceltaAz.addEventListener('change', () => {
@@ -18260,7 +18284,13 @@
             chiama({
                 azione: 'coda-assegna', aziendaId: b.dataset.az, codaId: b.dataset.coda,
                 area: d.area, chiave: d.chiave, avvisa: true
-            }, r => 'Preferenza assegnata alle ' + (r.ora || '') + ': avvisati ' + ((r.avvisati || []).length) + ' referenti.');
+            }, r => 'Preferenza assegnata alle ' + (r.ora || '') + ': avvisati ' + ((r.avvisati || []).length) + ' referenti.'
+                /* Se quell'impresa aveva gia' un incontro sullo stesso
+                   argomento, quello e' stato tolto: e' un incontro che sparisce
+                   da un foglio gia' spedito, e chi assegna deve saperlo. */
+                + ((r.doppiLiberati || []).length
+                    ? ' Aveva gia\' un incontro a questo tavolo (' + esc(r.doppiLiberati[0].ora) + '): quello e\' stato tolto.'
+                    : ''));
         }));
         box.querySelectorAll('.rb-scarta').forEach(b => b.addEventListener('click', () => {
             if (!confirm('Scarto questa preferenza? Resta scritta come scartata, e all\'azienda non parte nessuna mail: glielo dici tu.')) return;
