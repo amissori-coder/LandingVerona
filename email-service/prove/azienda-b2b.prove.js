@@ -351,10 +351,19 @@ function slotDi(area, ora) {
         esigi(r.ok && r.modo === 'azienda', 'la pagina si apre in modalita azienda');
         esigi(r.azienda.nome === 'Alfa S.r.l.' && r.referenti.length === 2, 'sa di che impresa e chi sono i referenti');
         esigi(r.referenti[0].doc === 'mario' && r.referenti[0].email === undefined, 'la tendina dei nominativi non porta gli indirizzi');
-        esigi(Array.isArray(r.regole) && r.regole.length === 6 && /prima preferenza prenota davvero/.test(r.regole[1]),
+        esigi(Array.isArray(r.regole) && r.regole.length === 7 && /prima preferenza prenota davvero/.test(r.regole[1]),
             'le regole di prenotazione arrivano dal servizio, scritte una volta sola');
-        esigi(/non prenotano niente/.test(r.regole[2]) && /annullarlo da questa pagina/.test(r.regole[3]),
-            'e dicono che la seconda e la terza non prenotano, e che un orario che non va bene si annulla');
+        /* Le tre cose che chi prenota sbaglia piu' spesso, e che le regole
+           devono dire per intero: come si cambia la prima (si sposta da se',
+           senza disdire nulla), che cosa sono la seconda e la terza (non
+           prenotano), e che una volta assegnate non si spostano ma si possono
+           solo annullare. */
+        esigi(/Non serve annullarla prima/.test(r.regole[2]),
+            'e dicono che la prima si sposta senza doverla annullare');
+        esigi(/non prenotano niente/.test(r.regole[3]),
+            'che la seconda e la terza non prenotano niente');
+        esigi(/\u00e8 confermato/.test(r.regole[4]) && /lo annulli/.test(r.regole[4]),
+            'e che un orario assegnato e confermato: si puo solo annullare');
         esigi(r.aree.length === 3, 'i tavoli sono quelli dell\'invito, tutti');
         esigi(r.prima === null && r.coda.length === 0, 'e all\'inizio non c\'e nessuna scelta');
     });
@@ -396,9 +405,10 @@ function slotDi(area, ora) {
             'e che diventano un incontro solo se a quel tavolo avanzano posti');
         esigi(/l'orario lo scegliamo noi fra quelli rimasti/.test(unaRiga),
             'e che l orario lo scegliamo noi fra quelli rimasti');
-        esigi(/pu\u00f2 annullarlo dalla stessa pagina/.test(unaRiga)
-            || /annullarlo dalla stessa pagina/.test(unaRiga),
-            'e che un orario che non va bene si annulla dalla pagina');
+        esigi(/sono confermati/.test(unaRiga) && /lo annulli/.test(unaRiga),
+            'e che un orario assegnato e confermato: si puo solo annullare');
+        esigi(/La prima preferenza invece si sposta da se/.test(unaRiga),
+            'mentre la prima si sposta da se, senza annullare nulla');
         esigi(/30 settembre/.test(unaRiga), 'e entro quando si sceglie');
         const pagina = require('fs').readFileSync(
             require('path').join(__dirname, '..', '..', 'incontri_b2b', 'index.html'), 'utf8');

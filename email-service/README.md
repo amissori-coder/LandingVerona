@@ -1667,6 +1667,29 @@ spostare: lo spostamento resta nostro, la rinuncia e' di chi non puo' venire.
 Annullandolo, la **domanda torna aperta** (`riapriEsigenzeAssegnate`): altrimenti
 sparirebbe dal riepilogo di chi organizza pur essendo rimasta senza risposta.
 
+#### Tre provenienze, tre cose diverse da poter fare
+
+Le tre righe del riepilogo non si governano allo stesso modo, e confonderle
+costa un posto. Le regole (`regoleB2B`, che la pagina e la mail d'invito dicono
+alla lettera) e ogni riga del riquadro lo scrivono per esteso:
+
+- **prima preferenza** - per cambiare orario o tavolo si preme quello nuovo e si
+  salva: la prenotazione **si sposta** e l'ora di prima torna libera nello stesso
+  momento (`appuntamentoDaLiberare` libera lo slot con la stessa `scelta`).
+  **Non serve annullarla prima**, e dirlo conta: chi crede di dover disdire per
+  poi riprenotare libera il suo posto e rischia di restare senza niente.
+  Annullare serve solo a chi rinuncia all'incontro;
+- **seconda e terza, una volta assegnate** - l'orario gliel'abbiamo dato noi ed
+  **e' confermato**: dalla pagina non si sposta e non se ne puo' chiedere un
+  altro. L'unica cosa che l'impresa puo' farne e' **annullarlo**. Il modulo non
+  mostra nemmeno le tendine per quella preferenza, perche' lasciarle attive
+  vorrebbe dire far scegliere qualcosa che al salvataggio verrebbe ignorato - e
+  chi ha scelto crederebbe di aver cambiato. Chi ci prova lo stesso (l'orario
+  gliel'abbiamo assegnato mentre aveva la pagina aperta) se lo sente dire:
+  `salvaPreferenze` risponde `bloccate`;
+- **desk Revilaw** - lo fissiamo noi, e vale come sopra: si vede, si annulla, non
+  si sposta.
+
 ### "I Vostri incontri": un riquadro solo, e da li' si annulla
 
 Erano tre cose sparse - la prima preferenza in un riquadro verde, quelli

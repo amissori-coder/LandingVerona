@@ -474,8 +474,10 @@ function confermaB2BAzienda(dati, link) {
        non c'e': dirlo soltanto qui sarebbe inutile se poi non si potesse fare
        niente, e infatti adesso dalla pagina si annulla - il posto torna
        libero per un'altra impresa e la preferenza resta in lista. */
-    const fraseAnnulla = 'Se un orario che Le abbiamo assegnato non Le va bene può annullarlo dalla stessa pagina: '
-        + 'torna libero per un\'altra impresa, e la Sua preferenza resta in lista per un orario diverso.';
+    const fraseAnnulla = 'Gli orari che Le abbiamo assegnato noi - quelli nati dalla seconda o dalla terza preferenza - '
+        + 'sono confermati: dalla pagina non si spostano e non se ne può chiedere un altro. Se uno non Le va bene lo '
+        + 'annulli: torna libero per un\'altra impresa, e la Sua preferenza resta in lista per un orario diverso. '
+        + 'La prima preferenza invece si sposta da se\': basta scegliere un altro orario dalla pagina, senza annullare nulla.';
     const fraseEntro = entro
         ? 'Può scegliere e cambiare entro il ' + entro + ': dopo quella data chiudiamo gli abbinamenti e '
         + 'assegniamo gli orari rimasti.'
