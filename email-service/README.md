@@ -1802,6 +1802,26 @@ Cognome, Email, Azienda, Ruolo, Telefono, Messaggio, ...`), quindi l'ordine puo
 cambiare senza rompere nulla. Il filtro dell'evento confronta la colonna
 `Pagina` (senza accenti/maiuscole).
 
+### La colonna `Invito B2B`, l'unica che cancella
+
+Agli incontri B2B non si invitano tutti gli iscritti: si invitano le aziende
+**scelte**, e la scelta si fa qui, con una colonna `Invito B2B` che vale "si"
+(si accettano anche `x`, `1`, `s`). Finisce fra le colonne aggiuntive con quel
+nome esatto, comunque sia scritta nel foglio, e l'area riservata la legge da li'
+(`segnatoInvitoB2B` / `iscrittiPerInvitoB2B` in `area-riservata/app.js`): la
+finestra degli inviti mostra **solo** chi e' segnato, con una spunta per tornare
+a vedere tutti gli iscritti in sala.
+
+Tutte le altre colonne si scrivono **solo quando hanno un valore**: un elenco
+parziale non deve cancellare il telefono di nessuno. Questa no. E' una
+selezione, e il file si reimporta proprio per cambiarla: la cella svuotata
+**cancella** il "si" della volta prima. Senza, l'azienda tolta dall'elenco
+resterebbe fra gli invitati - la scrittura e' a sovrapposizione (`merge`), e la
+sovrapposizione di una mappa unisce le chiavi invece di sostituirle.
+
+Un file **senza** quella colonna non tocca la scelta gia' fatta: non ne parla.
+Le prove stanno in `prove/scelta-invito-b2b.prove.js`.
+
 ### Quante letture costa (e la copia condivisa)
 
 L'archivio si legge dalla **copia condivisa** di `lib/copia-iscrizioni.js`, la

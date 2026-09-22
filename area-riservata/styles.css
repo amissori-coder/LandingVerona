@@ -1615,6 +1615,15 @@ label.ib-area input { width: auto; margin: 2px 0 0; flex: none; }
    tendina, su "Sposta", su un campo - farebbe scattare la casella di spunta.
    La label resta attorno alla sola casella e al nome. */
 .ib-az-lista { max-height: 420px; }
+/* la spunta "solo le aziende scelte nel file": sta sopra l'elenco perche'
+   decide CHI si vede, non come lo si vede, e chi apre la finestra deve
+   accorgersene prima di leggere la lista e crederla completa. */
+label.ib-az-solo {
+    display: flex; align-items: center; gap: 8px; margin: 6px 0 0;
+    font-size: 0.85rem; font-weight: 400; color: var(--grigio-900); cursor: pointer;
+}
+label.ib-az-solo input[type="checkbox"] { width: auto; margin: 0; padding: 0; flex: none; }
+label.ib-az-solo .hint { margin: 0; }
 .ib-az-riga { border-bottom: 1px solid var(--grigio-100); }
 .ib-az-riga:last-child { border-bottom: none; }
 .ib-az-riga.aperta { background: #f8fafc; }

@@ -15645,10 +15645,41 @@
        non da' errore: da' una colonna vuota, che si scambia per "nessun dato".
          B2B prenotati       - i tavoli scelti rispondendo all'invito
          Interessi           - i temi spuntati ISCRIVENDOSI: preferenze, non prenotazioni
-         Spostamento azienda - la traccia di chi e' stato spostato d'azienda a mano */
+         Spostamento azienda - la traccia di chi e' stato spostato d'azienda a mano
+         Invito B2B          - la scelta fatta nel foglio importato: agli incontri
+                               non va invitato chi si e' iscritto, ma chi e' stato
+                               SCELTO, e la scelta si fa nel foglio (una colonna
+                               con "si") perche' li' si ragiona sulle aziende. */
     const COL_B2B_PRENOTATI = 'B2B prenotati';
     const COL_PREF_ISCRIZIONE = 'Interessi';
     const COL_SPOSTATO = 'Spostamento azienda';
+    const COL_INVITO_B2B = 'Invito B2B';
+    /* Vale come "scelto" tutto cio' che in un foglio vuol dire si: chi compila
+       scrive "si", "SI", "x", "1", e una colonna che accetta solo una di queste
+       forme lascerebbe fuori aziende senza dirlo. Il vuoto, "no" e "0" no. */
+    function segnatoInvitoB2B(r) {
+        const x = (r && r.extra) ? r.extra : {};
+        let v = String(x[COL_INVITO_B2B] == null ? '' : x[COL_INVITO_B2B]).trim().toLowerCase();
+        // gli accenti si tolgono: "si" e "si" con l'accento sono la stessa risposta
+        v = v.normalize ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : v;
+        if (!v) return false;
+        return ['si', 's', 'x', '1', 'true', 'y', 'yes', 'ok', 'vero', 'invitare'].indexOf(v) >= 0;
+    }
+    /* Fra quali iscritti si scelgono le aziende da invitare agli incontri.
+       Due setacci, e tutti e due tolgono gente senza chiedere permesso:
+         - IN SALA. Gli incontri si fanno di persona: chi segue online e gli
+           aderenti Revilaw non hanno un tavolo a cui sedersi;
+         - SCELTI NEL FOGLIO, quando si vuole cosi'. Agli incontri non va
+           invitato chi si e' iscritto, ma chi e' stato scelto, e la scelta si
+           fa nel file importato.
+       Sta qui fuori, e non dentro la finestra degli inviti, perche' e' la
+       regola che decide A CHI parte la mail: va detta in un posto solo e
+       dev'essere possibile provarla. */
+    function iscrittiPerInvitoB2B(ev, lista, soloSegnati) {
+        return (lista || []).filter(r => r && r.email
+            && daInvitareB2B(modalitaDi(ev, r))
+            && (!soloSegnati || segnatoInvitoB2B(r)));
+    }
 
     let _evDiag = null;  // confronto fra l'elenco abilitati locale e quello sul server
     function caricaDiagnosticaEventi(poi) {
@@ -20145,18 +20176,32 @@
            iscrizioni, non solo quella capitata per prima. La riga intera resta
            attaccata (`riga`) perche' la tendina mostra quello che ha dichiarato,
            e li' servono ruolo, telefono, portale, prenotazioni e preferenze. */
+        /* CHI E' STATO SCELTO. Agli incontri non si invitano tutti gli iscritti:
+           si invitano le aziende scelte una per una, e la scelta si fa nel
+           foglio che si importa, segnando "si" nella colonna "Invito B2B".
+           Quando quella colonna c'e', l'elenco qui sotto mostra SOLO chi e'
+           segnato - e la spunta "solo le aziende scelte nel file" permette di
+           tornare a vedere tutti gli iscritti in sala quando serve.
+           Se nessuno e' segnato la colonna non e' mai stata compilata: allora
+           valgono tutti, come prima, altrimenti la finestra si aprirebbe vuota
+           per gli eventi che questa colonna non ce l'hanno mai avuta. */
+        const quantiSegnati = unica ? 0 : iscrittiPerInvitoB2B(ev, _evIscrizioni, true).length;
+        /* Segnati nel foglio ma non in sala: sono scelte che NON diventeranno un
+           invito, e tacerlo vorrebbe dire lasciar credere che la mail sia
+           partita anche a loro. Si contano per poterlo dire sotto l'elenco. */
+        const segnatiFuoriSala = unica ? 0 : (_evIscrizioni || []).filter(r =>
+            r.email && segnatoInvitoB2B(r) && !daInvitareB2B(modalitaDi(ev, r))).length;
+        let soloSegnati = quantiSegnati > 0;
         function componiCandidati() {
             const perEmail = {};
             const fuori = [];
-            (unica ? [unica] : (_evIscrizioni || [])).forEach(r => {
+            /* Il setaccio sta in iscrittiPerInvitoB2B: chi e' in sala e, se si
+               invita per scelta, chi e' segnato nel foglio. Qui conta piu' che
+               nel menu di una riga - di la' si sbaglia una persona alla volta,
+               di qua se ne invitano duecento in un colpo. */
+            (unica ? [unica] : iscrittiPerInvitoB2B(ev, _evIscrizioni, soloSegnati)).forEach(r => {
                 const e = String(r.email || '').toLowerCase();
                 if (!e) return;
-                /* Stessa regola della voce nel menu della riga: chi segue
-                   online e gli aderenti Revilaw restano fuori dall'elenco delle
-                   aziende da invitare. Qui conta piu' che nella riga - di la'
-                   si sbaglia una persona alla volta, di qua se ne invitano
-                   duecento in un colpo. */
-                if (!unica && !daInvitareB2B(modalitaDi(ev, r))) return;
                 if (perEmail[e]) { perEmail[e].docs.push(r.doc || ''); perEmail[e].righe.push(r); return; }
                 const c = {
                     id: r.id, doc: r.doc || '', docs: [r.doc || ''], righe: [r], riga: r, email: e,
@@ -20283,7 +20328,10 @@
             + 'Dalla pagina sceglie <b>un orario</b> fra quelli ancora liberi del tavolo che scegli qui sotto.'
             : 'Scegli le aziende da invitare: parte <b>una mail per azienda</b>, indirizzata a tutti i suoi referenti iscritti insieme, '
             + 'con un collegamento unico che apre le scelte dell\'impresa - tre preferenze in ordine, e il nominativo di chi partecipa. '
-            + 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno di persona, e chi segue online o è aderente Revilaw resta fuori. '
+            + (quantiSegnati
+                ? 'Nell\'elenco ci sono <b>solo le aziende scelte nel foglio</b> (colonna "' + esc(COL_INVITO_B2B) + '" con "sì"): '
+                + 'agli incontri non si invitano tutti gli iscritti. Per cambiare la scelta reimporta il file aggiornato. '
+                : 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno di persona, e chi segue online o è aderente Revilaw resta fuori. ')
             + 'Chi l\'ha già ricevuta la riceve di nuovo. Ogni invito torna in copia nascosta anche a te. '
             + 'Gli orari prenotati compaiono nell\'elenco (colonne "B2B prenotati" e "Orario B2B") e nell\'agenda della giornata.';
         /* Il tavolo si sceglie da un elenco di riquadri e non da una tendina:
@@ -20448,6 +20496,11 @@
                 + '<input type="search" id="ib-cerca-az" placeholder="Cerca un\'azienda, un nome o un indirizzo..." value="' + esc(filtroAz) + '">'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="1">Spunta le mostrate</button>'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="0">Togli le mostrate</button></div>'
+                + (quantiSegnati
+                    ? '<label class="ib-az-solo"><input type="checkbox" id="ib-solo-segnati"' + (soloSegnati ? ' checked' : '') + '> '
+                    + 'Solo le aziende scelte nel file <span class="hint">(colonna "' + esc(COL_INVITO_B2B) + '": '
+                    + quantiSegnati + (quantiSegnati === 1 ? ' persona segnata' : ' persone segnate') + ')</span></label>'
+                    : '')
                 + '<div class="nl-dest-lista ib-az-lista">' + (visibili.length
                     ? visibili.map(riga).join('')
                     : '<div class="hint" style="padding:10px;">Nessuna azienda corrisponde alla ricerca.</div>') + '</div>'
@@ -20455,6 +20508,15 @@
                 + (aziende.length === 1 ? ' azienda' : ' aziende') + ' spuntate &middot; <b>' + destinatari().length + '</b> '
                 + (destinatari().length === 1 ? 'destinatario' : 'destinatari')
                 + (q ? ' &middot; la ricerca ne mostra ' + visibili.length + ', le spunte fuori ricerca restano' : '') + '</div>'
+                + (quantiSegnati && soloSegnati
+                    ? '<div class="hint" style="margin-top:4px;">In elenco ci sono <b>solo</b> le aziende scelte nel foglio: '
+                    + 'per cambiarle segna "si" nella colonna "' + esc(COL_INVITO_B2B) + '" e reimporta il file aggiornato, '
+                    + 'oppure togli la spunta qui sopra per vedere tutti gli iscritti in sala.'
+                    + (segnatiFuoriSala ? ' <span class="ev-ko">' + segnatiFuoriSala
+                        + (segnatiFuoriSala === 1 ? ' persona segnata nel file non &egrave; in sala' : ' persone segnate nel file non sono in sala')
+                        + ' (online o aderenti Revilaw): a loro l\'invito non parte.</span>' : '')
+                    + '</div>'
+                    : '')
                 + '<div class="hint" style="margin-top:4px;">Le scritture diverse della stessa impresa ("Alfa S.r.l.", "ALFA SPA") stanno in una riga sola; '
                 + 'nel dubbio conta il dominio della mail, così chi ha lasciato in bianco l\'azienda finisce comunque con i suoi colleghi. '
                 + 'Apri una riga per vedere i referenti e, se serve, spostarne uno in un\'altra azienda.</div>';
@@ -20477,6 +20539,8 @@
                 spostamentoAperto = '';
                 disegnaAziende();
             }));
+            const solo = document.getElementById('ib-solo-segnati');
+            if (solo) solo.addEventListener('change', () => { soloSegnati = solo.checked; ricomponi(); });
             cont.querySelectorAll('[data-tutteaz]').forEach(b => b.addEventListener('click', () => {
                 const dentro = b.getAttribute('data-tutteaz') === '1';
                 visibili.forEach(a => { if (dentro) scelte.add(a.chiave); else scelte.delete(a.chiave); });
@@ -20490,6 +20554,21 @@
             }));
             collegaSposta();
             aggiornaInvio();
+        }
+        /* L'elenco rifatto da capo quando cambia la spunta "solo le aziende
+           scelte nel file": i candidati sono altri, quindi anche i gruppi e le
+           spunte. Le spunte si rimettono tutte, com'erano all'apertura - tenere
+           quelle di prima vorrebbe dire lasciare escluse aziende che con l'altro
+           elenco non c'erano nemmeno, senza che nulla lo mostri. */
+        function ricomponi() {
+            candidati = componiCandidati();
+            aziende = raggruppaPerAzienda(candidati);
+            scelte.clear(); conosciute.clear();
+            aziende.forEach(a => { scelte.add(a.chiave); conosciute.add(a.chiave); });
+            aperte.clear();
+            spostamentoAperto = ''; spostaScelta = ''; spostaNuova = '';
+            disegnaAziende();
+            aggiornaAvvisoArea();
         }
         /* I comandi del riquadro "sposta", ricollegati a ogni ridisegno perche'
            l'elenco si riscrive per intero. */
@@ -21594,6 +21673,12 @@
             + '<div class="ev-imp-passo"><strong>2. Oppure da un file</strong>'
             + '<div class="hint">Un file .csv con l\'elenco. Le colonne Nome, Cognome, Email, Azienda, Ruolo, Telefono '
             + 'vengono riconosciute anche se scritte in modo diverso; tutte le altre restano e si possono mostrare dalla tabella.</div>'
+            /* La colonna degli inviti B2B si dice qui perche' e' l'unica che si
+               comporta al contrario delle altre: svuotarla cancella. Chi la
+               scopre dopo aver reimportato ha gia' cambiato la selezione. */
+            + '<div class="hint">Una colonna <b>"' + esc(COL_INVITO_B2B) + '"</b> con "sì" sceglie le aziende che compariranno '
+            + 'nella finestra degli inviti agli incontri. È l\'unica colonna in cui la cella lasciata in bianco '
+            + '<b>cancella</b> la scelta fatta prima: si cambia idea correggendo il file e reimportandolo.</div>'
             + '<div class="campo"><label for="imp-evento">A quale evento appartiene</label><select id="imp-evento">'
             + '<option value="">Come indicato nella colonna Pagina</option>'
             + EVENTI_DEF.filter(x => !x.tutti).map(x => '<option value="' + esc(x.id) + '"'
