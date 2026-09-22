@@ -19447,6 +19447,20 @@
             + '</div>'
             + '<div class="hint">Vale per tutti i tavoli. Gli appuntamenti che cadono nella pausa pranzo non esistono: '
             + 'nessuno li vede e nessuno li può prenotare.</div>'
+            /* GLI INCONTRI FINISCONO QUANDO FINISCE IL CONVEGNO. Corrono
+               accanto ai lavori in sala, e una giornata degli incontri piu'
+               corta della scaletta vuol dire orari che non si possono
+               prenotare pur essendoci: nessuno se ne accorge, perche' a video
+               semplicemente non ci sono. Qui si confrontano i due orari e, se
+               non combaciano, si offre di portarli uguali - riempiendo le
+               caselle, non salvando: cambiare la giornata tocca le
+               prenotazioni prese, e la decisione resta di chi guarda. */
+            + (fuoriPrg(g)
+                ? '<div class="hint">Il programma va <b>dalle ' + esc(fuoriPrg(g).dalle) + ' alle ' + esc(fuoriPrg(g).alle)
+                + '</b>, gli incontri dalle ' + esc(g.inizio) + ' alle ' + esc(g.fine) + '. '
+                + (puo ? '<button type="button" class="btn btn-sm btn-ghost" id="ag-come-prg">Porta gli incontri sugli orari del programma</button> '
+                    + '(poi premi <b>Salva la giornata</b>)' : '') + '</div>'
+                : '')
             /* Il vecchio avviso diceva "guarda i tavoli prima di confermare":
                adesso non serve guardare, perche' una prenotazione blocca il
                cambio e il servizio lo rifiuta. Va detto prima di premere. */
@@ -19459,6 +19473,20 @@
         return '<div class="ag-tavoli">' + giornata
             + '<div class="ag-aree">' + (a.aree || []).map(x => areaHtml(ev, x, puo)).join('') + '</div>'
             + '</div>';
+    }
+    /* Gli estremi della SCALETTA: la prima ora in cui si comincia e l'ultima
+       in cui si finisce. Tornano solo se sono diversi da quelli degli
+       incontri: e' l'unico caso in cui c'e' qualcosa da dire. */
+    function fuoriPrg(g) {
+        const voci = (_prgVoci && _prgVoci.length) ? _prgVoci : ((_prg && _prg.voci) || []);
+        let da = '', a = '';
+        (voci || []).forEach(v => {
+            if (v && v.dalle && (!da || v.dalle < da)) da = v.dalle;
+            if (v && v.alle && (!a || v.alle > a)) a = v.alle;
+        });
+        if (!da || !a) return null;
+        const g2 = g || {};
+        return (a !== g2.fine || da !== g2.inizio) ? { dalle: da, alle: a } : null;
     }
     /* Un tavolo: la riga che si apre. Chiusa dice le tre cose che si
        guardano da fuori (se e' attivo, chi lo tiene, quanti posti restano);
@@ -20028,6 +20056,20 @@
         radice.querySelectorAll('.ag-rich').forEach(b => b.addEventListener('click', () => segnaRichiestaB2B(ev, b.dataset.doc, b.dataset.stato)));
         const sg = document.getElementById('ag-salva-g');
         if (sg) sg.addEventListener('click', () => salvaGiornata(ev));
+        /* Le caselle si riempiono, il salvataggio resta a chi guarda: allungare
+           o accorciare la giornata tocca le prenotazioni gia' prese, e il
+           servizio rifiuta la modifica che le farebbe sparire. */
+        const cp = document.getElementById('ag-come-prg');
+        if (cp) cp.addEventListener('click', () => {
+            const a = agendaDi(ev);
+            const e = fuoriPrg((a && a.giornata) || {});
+            if (!e) return;
+            const da = document.getElementById('ag-da'), fi = document.getElementById('ag-a');
+            if (da) da.value = e.dalle;
+            if (fi) fi.value = e.alle;
+            esitoGiornata('Orari degli incontri portati dalle ' + e.dalle + ' alle ' + e.alle
+                + ', come il programma: premi "Salva la giornata" per confermare.');
+        });
     }
     function salvaProgramma(ev) {
         _prgNuova = '';

@@ -65,7 +65,11 @@ function fraseOrario(inizio, fine) { return 'dalle ' + inizio + ' alle ' + fine;
    organizza li cambia dall'area riservata, e quello che vale e' sempre
    quello che ha scritto lui (un'agenda gia' salvata ha la sua giornata
    scritta dentro, e questi valori non la toccano). */
-const GIORNATA_PREDEFINITA = { inizio: '10:00', fine: '17:00', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 };
+/* La giornata degli incontri quando nessuno l'ha ancora scritta: le stesse
+   ore del convegno, perche' gli incontri corrono accanto ai lavori in sala e
+   finiscono quando finiscono quelli. Chi organizza la cambia dalla finestra
+   "La giornata", e da quel momento vale quello che ha scritto lui. */
+const GIORNATA_PREDEFINITA = { inizio: '10:00', fine: '17:30', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 };
 const MAX_SLOT = 48;          // tetto di sicurezza: una giornata non ne ha di piu'
 const DURATA_MIN = 10, DURATA_MAX = 240;
 
