@@ -643,6 +643,52 @@ async function prenota(chiave, area, ora, coda, esigenze) {
             'e non si e\' toccato niente');
     });
 
+    await prova('17) L\'appuntamento al desk, l\'azienda lo vede e lo puo annullare', async () => {
+        /* Il desk Revilaw non e' fra i tavoli del modulo - li' non si prenota e
+           non si sposta, l'ora gliela diciamo noi - ma l'appuntamento esiste, e
+           puo' cadere quando quella persona non c'e'. Vederlo e poterlo disdire
+           non e' come poterlo spostare: lo spostamento resta nostro, la
+           rinuncia e' di chi non puo' venire. E tenere impegnato un orario per
+           qualcuno che non verra' non serve a nessuno. */
+        await dueAziende();
+        /* Il freno per scheda conta i salvataggi in una finestra di tempo, e
+           qui l'orologio e' fermo: le prove di prima ne hanno gia' fatti tanti
+           per questa impresa. Si sposta avanti l'ora, che e' quello che
+           succede davvero fra un'impresa che salva oggi e una che salva
+           domani. */
+        orologio += 60 * 60 * 1000;
+        const doc = docDi('p:09302991212');
+        await prenota('p:09302991212', 'merito-creditizio', '10:00', [],
+            [{ perDoc: doc, testo: 'Una posizione a Bagnoli: quali autorizzazioni servono?' }]);
+        const az = documentoAzienda('p:09302991212');
+        await staff({
+            azione: 'esigenza-assegna', aziendaId: az.id, esigenzaId: (az.esigenze || [])[0].id,
+            area: 'desk-revilaw', ora: '11:00'
+        });
+        const letto = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
+        esigi((letto.interni || []).length === 1 && letto.interni[0].chiave === '1100',
+            'nel modulo l\'appuntamento al desk si vede, con la sua ora');
+        esigi(/Bagnoli/.test(String((letto.interni[0] || {}).nota || '')),
+            'e con la questione da cui e nato');
+        esigi(!(letto.aree || []).some(a => /Revilaw/i.test(a.nome)),
+            'ma il desk resta fuori dai tavoli che si prenotano: vederlo non vuol dire poterselo scegliere');
+        posta.length = 0;
+        const r = await chiamaAzienda('p:09302991212', {
+            azione: 'b2b-azienda-annulla', area: letto.interni[0].areaVera, chiave: letto.interni[0].chiave
+        });
+        esigi(r.ok === true, 'l\'azienda lo annulla');
+        esigi(!slotDi('desk-revilaw', '11:00'), 'e quell\'ora al desk torna libera');
+        esigi((r.interni || []).length === 0, 'il modulo non lo mostra piu');
+        /* LA DOMANDA TORNA APERTA. Annullato l'incontro e non riaperta, quella
+           sparirebbe dal riepilogo di chi organizza pur essendo rimasta senza
+           risposta: nessuno la rivedrebbe piu'. */
+        const esigenze = documentoAzienda('p:09302991212').esigenze || [];
+        esigi(esigenze.length === 1 && esigenze[0].stato !== 'assegnata',
+            'e la domanda torna fra quelle aperte, invece di sparire senza risposta',
+            JSON.stringify(esigenze.map(e => e.stato)));
+        esigi(posta.length === 1, 'a tutti i referenti parte la mail con il foglio aggiornato');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })();

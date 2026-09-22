@@ -155,6 +155,32 @@
         .regole.fitte li { margin-bottom: 3px; }
         .confermato { border: 1px solid #b7dfc9; border-left: 3px solid var(--verde); background: #EAF6F0; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.95rem; }
         .confermato b { color: var(--verde); }
+/* --- I VOSTRI INCONTRI: l'elenco di quello che e' fissato, e da dove viene ---
+   Erano tre cose sparse - la prima preferenza in un riquadro, quelli assegnati
+   da noi in un altro, il desk Revilaw da nessuna parte - e nessuna delle tre
+   diceva a colpo d'occhio che cosa se ne poteva fare. Qui hanno tutte la stessa
+   forma: l'ora a sinistra, il tavolo e la provenienza al centro, il pulsante a
+   destra. Il pulsante e' un pulsante vero e non un trattino sottolineato in
+   mezzo a una frase: annullare libera un posto che un'altra impresa puo'
+   prendere in un minuto, e un comando del genere deve vedersi. */
+        .miei { border: 1px solid var(--bordo); border-radius: 8px; margin-top: 16px; background: #fff; overflow: hidden; }
+        .miei-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 11px 14px; background: var(--chiaro); border-bottom: 1px solid var(--bordo); font-weight: bold; color: var(--navy-dark); }
+        .miei-n { font-weight: normal; font-size: 0.88rem; color: var(--tenue); }
+        .miei-elenco { list-style: none; margin: 0; padding: 0; }
+        .miei-riga { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 14px; padding: 12px 14px; border-bottom: 1px solid var(--bordo); }
+        .miei-riga:last-child { border-bottom: none; }
+        .miei-ora { flex: 0 0 110px; font-weight: bold; color: var(--navy); }
+        .miei-che { flex: 1 1 240px; }
+        .miei-nome { font-weight: bold; color: var(--navy-dark); }
+        .miei-pos { display: inline-block; margin-left: 8px; font-size: 0.76rem; font-weight: bold; letter-spacing: 0.02em; text-transform: uppercase; border-radius: 10px; padding: 2px 9px; background: #EAF6F0; color: var(--verde); white-space: nowrap; }
+        .miei-pos.attesa { background: #FFF4D6; color: #8A6300; }
+        .miei-pos.desk { background: var(--chiaro); color: var(--navy-light); }
+        .miei-chi, .miei-nota { display: block; font-size: 0.88rem; color: var(--tenue); margin-top: 3px; }
+        .miei-az { flex: 0 0 auto; margin-left: auto; }
+        .btn-annulla { font: inherit; font-size: 0.9rem; padding: 8px 16px; border: 1px solid var(--bordo); border-radius: 6px; background: #fff; color: var(--rosso); cursor: pointer; }
+        .btn-annulla:hover { border-color: var(--rosso); background: #FDF1F0; }
+        .btn-annulla[disabled] { opacity: 0.6; cursor: default; }
+        .miei-spiega { padding: 11px 14px; background: var(--chiaro); border-top: 1px solid var(--bordo); font-size: 0.88rem; color: var(--tenue); }
         .esaurito { border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.93rem; }
         .esaurito b { color: #8a4a12; }
         .legenda { margin-top: 10px; font-size: 0.82rem; color: var(--tenue); }
@@ -708,42 +734,66 @@
                     + r.regole.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('')
                     + '</ul></div>'
                     : '';
-                var prima = r.prima
-                    ? '<div class="confermato"><b>Prima preferenza prenotata:</b> ' + esc(r.prima.areaNome)
-                    + ', <b>' + esc(r.prima.ora) + (r.prima.fine ? ' - ' + esc(r.prima.fine) : '') + '</b>'
-                    + (r.prima.perChi ? ' - per <b>' + esc(r.prima.perChi) + '</b>' : '')
-                    + '. Per cambiarla scelga un altro orario qui sotto: la prenotazione si sposta.'
-                    + (r.prima.chiave
-                        ? ' <button type="button" class="mini-btn annulla-inc" data-area="' + esc(r.prima.areaVera || '')
-                        + '" data-chiave="' + esc(r.prima.chiave) + '" data-che="la prenotazione delle '
-                        + esc(r.prima.ora) + ' (' + esc(r.prima.areaNome) + ')">Oppure la annulli</button>'
-                        : '')
-                    + '</div>'
-                    : '';
-                /* GLI INCONTRI CHE ABBIAMO ASSEGNATO NOI a una seconda o terza
-                   preferenza. L'ora l'abbiamo scelta noi fra quelle rimaste, e
-                   puo' cadere quando quella persona non c'e': prima qui c'era
-                   scritto "per spostarli ci scriva", e nel frattempo il posto
-                   restava impegnato per qualcuno che non sarebbe venuto. Da
-                   qui si annulla, e l'orario torna libero per un'altra impresa
-                   nello stesso istante. */
-                var assegnati = (r.assegnati || []).length
-                    ? '<div class="confermato"><b>Assegnati da noi</b> (erano la Vostra seconda o terza preferenza):'
-                    + '<ul class="scelti-elenco">'
-                    + r.assegnati.map(function (x) {
-                        return '<li>' + esc(x.areaNome) + ', <b>' + esc(x.ora)
-                            + (x.fine ? ' - ' + esc(x.fine) : '') + '</b>'
-                            + (x.perChi ? ' - per ' + esc(x.perChi) : '')
-                            + (x.chiave
-                                ? ' <button type="button" class="mini-btn annulla-inc" data-area="' + esc(x.areaVera || '')
-                                + '" data-chiave="' + esc(x.chiave) + '" data-che="l\'incontro delle ' + esc(x.ora)
-                                + ' (' + esc(x.areaNome) + ')">Annulla</button>'
-                                : '')
-                            + '</li>';
-                    }).join('') + '</ul>'
-                    + '<div class="mini">L\'orario lo abbiamo scelto noi fra quelli rimasti. Se non Vi va bene, '
-                    + 'annullatelo: torna libero per un\'altra impresa e la Vostra preferenza resta in lista per '
-                    + 'un orario diverso.</div></div>'
+                /* ============================================================
+                   I VOSTRI INCONTRI: un riquadro solo, e da li' si annulla
+                   ------------------------------------------------------------
+                   Erano tre cose sparse: la prima preferenza in un riquadro
+                   verde, quelli assegnati da noi in un altro, e il desk
+                   Revilaw da nessuna parte - eppure e' un orario come gli
+                   altri, e chi non puo' venire deve poterlo disdire.
+                   Adesso e' un elenco solo, con la stessa forma per tutti:
+                   l'ora a sinistra, il tavolo e da dove viene quell'orario al
+                   centro, il pulsante per annullare a destra. Da dove viene lo
+                   dice un contrassegno colorato, perche' e' quello che decide
+                   che cosa se ne puo' fare: la PRIMA l'ora l'avete scelta voi
+                   e si sposta scegliendone un'altra; la SECONDA e la TERZA
+                   gliel'abbiamo data noi; il DESK e' su nostra indicazione e
+                   nel modulo non si prenota.
+                   Il pulsante e' un pulsante vero e non un trattino sottolineato
+                   in mezzo a una frase: annullare libera un posto che un'altra
+                   impresa puo' prendere in un minuto, e un comando del genere
+                   deve vedersi.
+                ============================================================ */
+                var righeIncontri = [];
+                var rigaIncontro = function (x, classe, etichetta, sotto) {
+                    return '<li class="miei-riga">'
+                        + '<div class="miei-ora">' + esc(x.ora) + (x.fine ? ' - ' + esc(x.fine) : '') + '</div>'
+                        + '<div class="miei-che"><span class="miei-nome">' + esc(x.areaNome) + '</span>'
+                        + '<span class="miei-pos ' + classe + '">' + etichetta + '</span>'
+                        + (x.perChi ? '<span class="miei-chi">per ' + esc(x.perChi) + '</span>' : '')
+                        + (sotto ? '<span class="miei-nota">' + sotto + '</span>' : '')
+                        + '</div>'
+                        + '<div class="miei-az">'
+                        + (x.chiave
+                            ? '<button type="button" class="btn-annulla annulla-inc" data-area="' + esc(x.areaVera || '')
+                            + '" data-chiave="' + esc(x.chiave) + '" data-che="l\'incontro delle ' + esc(x.ora)
+                            + ' (' + esc(x.areaNome) + ')">Annulla</button>'
+                            : '')
+                        + '</div></li>';
+                };
+                if (r.prima) {
+                    righeIncontri.push(rigaIncontro(r.prima, 'prima', 'prima preferenza',
+                        'L\'orario l\'avete scelto voi. Per spostarlo prema un altro orario qui sotto: la prenotazione si sposta.'));
+                }
+                (r.assegnati || []).forEach(function (x) {
+                    righeIncontri.push(rigaIncontro(x, 'attesa',
+                        (Number(x.scelta) === 3 ? 'terza preferenza' : 'seconda preferenza'),
+                        'L\'orario lo abbiamo scelto noi fra quelli rimasti.'));
+                });
+                (r.interni || []).forEach(function (x) {
+                    righeIncontri.push(rigaIncontro(x, 'desk', 'su nostra indicazione',
+                        'Fissato da noi per la questione che ci avete segnalato'
+                        + (x.nota ? ': &laquo;' + esc(x.nota) + '&raquo;' : '.')));
+                });
+                var miei = righeIncontri.length
+                    ? '<div class="miei"><div class="miei-testa">I Vostri incontri'
+                    + '<span class="miei-n">' + righeIncontri.length
+                    + (righeIncontri.length === 1 ? ' fissato' : ' fissati') + '</span></div>'
+                    + '<ul class="miei-elenco">' + righeIncontri.join('') + '</ul>'
+                    + '<div class="miei-spiega"><b>Annullare libera l\'orario</b>: torna disponibile per un\'altra '
+                    + 'impresa, e un\'altra impresa pu&ograve; prenderlo subito. Le Vostre preferenze restano in '
+                    + 'lista: se avanzano posti Vi proponiamo un orario diverso. A ogni modifica Vi arriva una mail '
+                    + 'con il foglio aggiornato.</div></div>'
                     : '';
                 /* ENTRO QUANDO. La dice il servizio insieme alle regole; qui
                    sta da sola e in evidenza, perche' e' l'unica informazione
@@ -798,7 +848,7 @@
                     + (ev.quando ? ' del ' + esc(ev.quando) : '')
                     + (ev.luogo ? ' - ' + esc(ev.luogo) : '') + '.'
                     + colleghi + '</div>'
-                    + regole + entroQuando + prima + assegnati + esaurito
+                    + regole + entroQuando + miei + esaurito
                     + '<div class="pref-et grande">1. Prima preferenza: tavolo e orario</div>'
                     + '<div class="mini" style="margin:2px 0 8px;">Apra il tavolo che Vi interessa e prema un orario. '
                     + '&Egrave; l\'unica scelta che prenota davvero.</div>'

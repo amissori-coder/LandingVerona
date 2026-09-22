@@ -823,6 +823,15 @@ async function incontriAzienda(azione, body, res, ctx) {
             try { await AGENDA.rilasciaCoda(db, evento, aziendaId, String(liberata.codaId), azienda.nome, 'attesa'); }
             catch (_) { /* lo slot e' libero: e' quello che conta */ }
         }
+        /* L'incontro nato da un'ALTRA ESIGENZA - al desk Revilaw quasi sempre -
+           si porta dietro la domanda, segnata "assegnata". Annullato l'orario
+           e non riaperta la domanda, quella sparirebbe dal riepilogo di chi
+           organizza pur essendo rimasta senza risposta: nessuno la
+           rivedrebbe piu'. */
+        if ((Number(liberata.scelta) || 1) === AGENDA.SCELTA_ESIGENZA) {
+            try { await AGENDA.riapriEsigenzeAssegnate(db, evento, aziendaId); }
+            catch (_) { /* lo slot e' libero: e' quello che conta */ }
+        }
         try { await AGENDA.scriviProgrammaAzienda(db, evento, aziendaId); } catch (_) { /* la copia si rifara' */ }
         try { await segnaCambiamento(db); } catch (_) { /* la lettura scade comunque */ }
         let mail = { ok: false, a: [] };
