@@ -1568,6 +1568,32 @@ tavoli), con `b2bRisposta` a fare da data; `b2b-salva` non tocca piu `interessi`
   era mai partito, quindi non c'e' niente da recuperare altrove e `interessi`
   non e mai una prenotazione.
 
+### La ricevuta a video, dopo il salvataggio
+
+Chiusa la scelta, la pagina dell'azienda (`incontri_b2b/index.html`,
+`fattoAzienda`) mostra la ricevuta. Erano cinque paragrafi centrati uno sotto
+l'altro: quello che e' **prenotato davvero** e quello che **aspetta ancora un
+orario** si leggevano con lo stesso peso, e al desk quella differenza e' l'unica
+che conti. Ora sono due blocchi con la loro etichetta e il loro colore - verde
+cio' che c'e', blu cio' che aspetta - e dentro una riga per incontro: il tavolo
+a sinistra, a destra l'ora oppure la posizione della preferenza, e sotto, in
+piccolo, chi ci va e da dove viene quell'orario.
+
+Per ogni incontro prenotato si dice **da dove viene**: "prima preferenza,
+orario scelto da Voi" oppure "seconda preferenza, orario assegnato da noi".
+Senza, chi legge non ricorda di aver scelto quell'orario - perche' non l'ha
+scelto - e telefona.
+
+Le preferenze senza orario dicono **che cosa ne sara'**: *"Se al tavolo
+resteranno posti liberi, l'orario glielo assegniamo noi e Le arriva una mail con
+il foglio aggiornato. Finche' quella mail non arriva non sono prenotazioni: al
+desk non risulta nessun incontro a quei tavoli."* "In attesa di un orario" da
+solo lasciava in sospeso la domanda vera - qualcuno ci pensera'? - e la risposta
+esiste. La **stessa frase** sta nella mail di conferma (`fraseCoda` in
+`lib/mail-ngb.js`): sono due copie della stessa regola, e
+`prove/azienda-b2b.prove.js` le tiene legate controllando che la dicano tutte e
+due.
+
 ### Conferma della prenotazione, con il foglio per il desk
 
 Appena l'ospite salva la scelta, `b2b-salva` gli manda una mail di conferma

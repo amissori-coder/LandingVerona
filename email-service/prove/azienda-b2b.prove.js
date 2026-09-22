@@ -384,6 +384,17 @@ function slotDi(area, ora) {
         esigi((posta[0].attachments || []).length === 1, 'con il foglio per il desk in allegato');
         esigi(/per Anna Neri/.test(posta[0].text || ''), 'e dice a chi tocca quell\'incontro');
         esigi(/In attesa di un orario/.test(posta[0].text || ''), 'e che la seconda preferenza aspetta un orario');
+        /* CHE COSA NE SARA'. "Aspetta un orario" da solo lascia in sospeso la
+           domanda vera - qualcuno ci pensera'? - e la risposta va detta: se al
+           tavolo restano posti, l'orario lo assegniamo noi. La stessa frase sta
+           sulla pagina, dopo il salvataggio: due versioni diverse della stessa
+           regola la farebbero sembrare incerta, e questa prova le tiene legate. */
+        const promessa = /resteranno posti liberi.*assegniamo noi/;
+        esigi(promessa.test((posta[0].text || '').replace(/\n/g, ' ')),
+            'e che se restano posti liberi l orario lo assegniamo noi');
+        const pagina = require('fs').readFileSync(
+            require('path').join(__dirname, '..', '..', 'incontri_b2b', 'index.html'), 'utf8');
+        esigi(/resteranno posti liberi/.test(pagina), 'la pagina, dopo il salvataggio, dice la stessa cosa');
         const prg = dati.get('iscrizioni/mario').b2bProgramma;
         esigi(prg && prg.incontri.length === 1 && prg.attesa.length === 1,
             'il programma dell\'azienda e ricopiato anche sulla scheda del collega che non partecipa');

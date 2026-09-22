@@ -448,8 +448,15 @@ function confermaB2BAzienda(dati, link) {
         ? 'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
         + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Al tavolo Vi attendono i nostri professionisti.'
         : 'Al momento non risulta nessun incontro prenotato per la Vostra azienda: può sceglierne uno dal pulsante qui sotto.';
-    const fraseCoda = 'Non sono prenotazioni: finché non arriva una nostra mail con l\'orario, al desk non risulta '
-        + 'nessun incontro a questi tavoli.';
+    /* CHE COSA NE SARA', e non solo che cosa non sono. "Non sono
+       prenotazioni" lasciava in sospeso la domanda vera - qualcuno ci
+       pensera'? - e la risposta c'e': se al tavolo restano posti l'orario lo
+       assegniamo noi. Stessa frase sulla pagina, dopo il salvataggio: e' la
+       stessa cosa detta nello stesso momento, e due versioni diverse la
+       farebbero sembrare una regola incerta. */
+    const fraseCoda = 'Se al tavolo resteranno posti liberi, l\'orario glielo assegniamo noi e Le arriva una mail con '
+        + 'il foglio aggiornato. Finché quella mail non arriva non sono prenotazioni: al desk non risulta nessun '
+        + 'incontro a questi tavoli.';
     const vociCoda = coda.map(c => (c.pos === 3 ? 'terza' : 'seconda') + ' preferenza: ' + c.nome
         + (c.perChi ? ' - per ' + c.perChi : ''));
     const vociEsigenze = esigenze.map(e => (e.perChi ? e.perChi + ': ' : '') + e.testo);

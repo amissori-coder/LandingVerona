@@ -62,6 +62,28 @@
         .fuori-programma b { color: #8a4a12; }
         .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
         .fatto p { color: var(--tenue); }
+        /* --- LA RICEVUTA DELL'AZIENDA, dopo il salvataggio ---
+           Erano cinque paragrafi centrati uno sotto l'altro: quello che e'
+           PRENOTATO DAVVERO e quello che aspetta ancora un orario si leggevano
+           con lo stesso peso, e al desk quella differenza e' l'unica che
+           conti. Ora sono due blocchi con il loro colore e la loro etichetta -
+           verde cio' che c'e', blu cio' che aspetta - e dentro una riga per
+           incontro, allineata a sinistra: un elenco si scorre, un paragrafo
+           centrato no. */
+        .ricevuta { text-align: left; margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+        .ric-blocco { border: 1px solid var(--bordo); border-left: 3px solid var(--verde); border-radius: 8px; padding: 14px 16px; background: var(--chiaro); }
+        .ric-blocco.attesa { border-left-color: var(--navy-light); }
+        .ric-et { font-size: 0.78rem; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; color: var(--verde); }
+        .ric-blocco.attesa .ric-et { color: var(--navy-light); }
+        .ric-lista { list-style: none; margin: 10px 0 0; padding: 0; }
+        .ric-lista li + li { border-top: 1px solid var(--bordo); margin-top: 10px; padding-top: 10px; }
+        .ric-testa { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; justify-content: space-between; }
+        .ric-tavolo { font-weight: bold; color: var(--navy-dark); font-size: 0.98rem; }
+        .ric-ora { font-weight: bold; color: var(--navy); font-size: 0.95rem; white-space: nowrap; }
+        .ric-pos { font-size: 0.78rem; font-weight: bold; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tenue); white-space: nowrap; }
+        .ric-chi { font-size: 0.86rem; color: var(--tenue); margin-top: 2px; }
+        .fatto .ric-nota { font-size: 0.88rem; color: var(--tenue); margin-top: 12px; text-align: left; }
+        .fatto .ric-mail { margin-top: 16px; }
         .colleghi { margin-top: 22px; border-top: 1px solid var(--bordo); padding-top: 18px; }
         .colleghi h2 { font-size: 1.05rem; color: var(--navy-dark); }
         .colleghi .spiega { font-size: 0.88rem; color: var(--tenue); margin-top: 4px; }
@@ -833,15 +855,46 @@
                     esito.textContent = 'Servizio non raggiungibile: riprovi fra un momento.';
                 });
             }
+            /* Il nome della preferenza per esteso. Nel modulo si sceglie
+               "prima, seconda, terza" e nella ricevuta si leggeva "(2a)"
+               appiccicato al nome del tavolo: la stessa cosa detta in due
+               modi, e il secondo va decifrato. */
+            function nomePosizione(pos) {
+                return pos === 3 ? 'Terza preferenza' : (pos === 2 ? 'Seconda preferenza' : 'Prima preferenza');
+            }
+            /* Una riga della ricevuta: il tavolo a sinistra, a destra l'ora
+               (se c'e') o la posizione della preferenza, e sotto, in piccolo,
+               chi ci va e da dove viene quell'orario. Sempre la stessa forma,
+               prenotato o in attesa: sono le due colonne a dire quale delle
+               due cose sia.
+               Il nome del tavolo resta SOLO il nome del tavolo: appendergli
+               "- seconda preferenza" lo faceva sembrare il nome di un altro
+               tavolo, e quella e' una nota, non un titolo. */
+            function rigaRicevuta(tavolo, destra, chi, forte, sotto) {
+                var piccolo = [chi ? 'per ' + chi : '', sotto || ''].filter(Boolean).join(' \u00b7 ');
+                return '<li><div class="ric-testa"><span class="ric-tavolo">' + esc(tavolo) + '</span>'
+                    + (destra ? '<span class="' + (forte ? 'ric-ora' : 'ric-pos') + '">' + esc(destra) + '</span>' : '')
+                    + '</div>'
+                    + (piccolo ? '<div class="ric-chi">' + esc(piccolo) + '</div>' : '') + '</li>';
+            }
             function fattoAzienda(e) {
-                var incontri = [];
-                if (e.prima) incontri.push(e.prima.areaNome + ', ' + e.prima.ora
-                    + (e.prima.fine ? ' - ' + e.prima.fine : '')
-                    + (e.prima.perChi ? ' (per ' + e.prima.perChi + ')' : ''));
+                var righe = [];
+                if (e.prima) {
+                    righe.push(rigaRicevuta(e.prima.areaNome,
+                        e.prima.ora + (e.prima.fine ? ' - ' + e.prima.fine : ''), e.prima.perChi, true,
+                        'prima preferenza, orario scelto da Voi'));
+                }
+                /* Gli incontri che abbiamo assegnato NOI a una seconda o terza
+                   preferenza: sono prenotati come il primo - al desk valgono
+                   uguale - ma dire da dove vengono evita la telefonata di chi
+                   non ricorda di aver scelto quell'orario, perche' non l'ha
+                   scelto. */
                 (e.assegnati || []).forEach(function (x) {
-                    incontri.push(x.areaNome + ', ' + x.ora + (x.perChi ? ' (per ' + x.perChi + ')' : ''));
+                    righe.push(rigaRicevuta(x.areaNome, x.ora + (x.fine ? ' - ' + x.fine : ''), x.perChi, true,
+                        nomePosizione(Number(x.scelta) || 2).toLowerCase() + ', orario assegnato da noi'));
                 });
-                var attesa = (e.coda || []).filter(function (x) { return x.stato !== 'assegnata'; });
+                var attesa = (e.coda || []).filter(function (x) { return x.stato !== 'assegnata'; })
+                    .sort(function (a, b) { return (Number(a.pos) || 2) - (Number(b.pos) || 2); });
                 var bloccate = (e.bloccate || []).length
                     ? '<p style="margin-top:10px;" class="avviso-mail">La '
                     + e.bloccate.map(function (p) { return p === 3 ? 'terza' : 'seconda'; }).join(' e la ')
@@ -851,21 +904,41 @@
                     ? '<p style="margin-top:10px;" class="avviso-mail">L\'orario della prima preferenza non era piu&grave; libero: '
                     + esc(e.esitoPrima.msg || 'ne scelga un altro') + '</p>'
                     : '';
-                box.innerHTML = '<div class="fatto"><h2>Scelte salvate</h2>'
-                    + (incontri.length
-                        ? '<p>Gli incontri prenotati:</p><p><b>' + incontri.map(esc).join('<br>') + '</b></p>'
-                        : '<p>Non risulta ancora nessun incontro prenotato per la Vostra azienda.</p>')
+                box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div><h2>Scelte salvate</h2>'
+                    + '<div class="ricevuta">'
+                    + (righe.length
+                        ? '<div class="ric-blocco"><div class="ric-et">'
+                        + (righe.length === 1 ? 'Incontro prenotato' : 'Incontri prenotati')
+                        + '</div><ul class="ric-lista">' + righe.join('') + '</ul>'
+                        + '<p class="ric-nota">' + (righe.length === 1
+                            ? 'Ha un orario: al desk risulta gi&agrave; a nome Vostro.'
+                            : 'Hanno un orario: al desk risultano gi&agrave; a nome Vostro.') + '</p></div>'
+                        : '<div class="ric-blocco attesa"><div class="ric-et">Nessun orario</div>'
+                        + '<p class="ric-nota">Non risulta ancora nessun incontro prenotato per la Vostra azienda.</p></div>')
+                    /* LE PREFERENZE SENZA ORARIO, e che cosa ne sara'.
+                       "In attesa di un orario" da solo non dice se qualcosa
+                       accadra' o no, e chi legge resta con la domanda aperta:
+                       qui si dice la regola per intero - se al tavolo restano
+                       posti l'orario lo assegniamo noi e arriva una mail - e
+                       subito dopo che cosa vale oggi, cioe' niente. */
                     + (attesa.length
-                        ? '<p style="margin-top:10px;">In attesa di un orario: <b>'
-                        + attesa.map(function (x) { return esc(x.areaNome) + ' (' + (x.pos === 3 ? '3a' : '2a') + ')'; }).join(', ')
-                        + '</b>. Non sono prenotazioni: finch&eacute; non arriva la nostra mail con l\'orario, al desk non risulta nessun incontro a quei tavoli.</p>'
+                        ? '<div class="ric-blocco attesa"><div class="ric-et">In attesa di un orario</div>'
+                        + '<ul class="ric-lista">'
+                        + attesa.map(function (x) {
+                            return rigaRicevuta(x.areaNome, nomePosizione(Number(x.pos) || 2), x.perChi, false);
+                        }).join('')
+                        + '</ul>'
+                        + '<p class="ric-nota"><b>Se al tavolo resteranno posti liberi, l\'orario glielo assegniamo noi</b> '
+                        + 'e Le arriva una mail con il foglio aggiornato. Finch&eacute; quella mail non arriva non sono '
+                        + 'prenotazioni: al desk non risulta nessun incontro a quei tavoli.</p></div>'
                         : '')
+                    + '</div>'
                     + bloccate + esitoPrima
                     + (e.mailInviata
-                        ? '<p style="margin-top:12px;">Abbiamo mandato la conferma'
+                        ? '<p class="ric-mail">Abbiamo mandato la conferma'
                         + ((e.avvisati || []).length > 1 ? ' a tutti i referenti' : '')
                         + ', con il <b>foglio da presentare al desk</b> in allegato.</p>'
-                        : '<p style="margin-top:12px;" class="avviso-mail">Le scelte sono salvate, ma la mail di conferma non &egrave; partita. '
+                        : '<p class="ric-mail avviso-mail">Le scelte sono salvate, ma la mail di conferma non &egrave; partita. '
                         + 'Riprovi fra qualche minuto, oppure scriva a info@nextgenerationbusiness.it: al desk basta il nome dell\'azienda.</p>')
                     + '<button type="button" class="rifai" id="rifai">Rivedi le scelte o rimanda la mail</button></div>';
                 document.getElementById('rifai').addEventListener('click', apri);
