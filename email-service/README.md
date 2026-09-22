@@ -1658,8 +1658,33 @@ dell'impresa):
 - parte la mail con il foglio aggiornato a **tutti i referenti**: un collega
   puo' avere in tasca il foglio di prima.
 
-Dalla stessa pagina si toglie anche la prima prenotazione ("Oppure la annulli"),
-che prima si poteva solo spostare.
+**Anche l'appuntamento al desk Revilaw.** Il desk resta fuori dai tavoli del
+modulo - li' non si prenota e non si sposta, l'ora gliela diciamo noi - ma
+l'appuntamento esiste e puo' cadere quando quella persona non c'e': si vede nel
+riepilogo degli incontri (`interni` nella lettura), con la domanda da cui e'
+nato, e da li' si annulla. Vedere una cosa e poterla disdire non e' come poterla
+spostare: lo spostamento resta nostro, la rinuncia e' di chi non puo' venire.
+Annullandolo, la **domanda torna aperta** (`riapriEsigenzeAssegnate`): altrimenti
+sparirebbe dal riepilogo di chi organizza pur essendo rimasta senza risposta.
+
+### "I Vostri incontri": un riquadro solo, e da li' si annulla
+
+Erano tre cose sparse - la prima preferenza in un riquadro verde, quelli
+assegnati da noi in un altro, il desk da nessuna parte - e nessuna diceva a
+colpo d'occhio che cosa se ne poteva fare. Ora e' un elenco solo, con la stessa
+forma per tutti: **l'ora** a sinistra, il **tavolo** e da dove viene quell'orario
+al centro, il **pulsante** per annullare a destra.
+
+La provenienza e' un contrassegno colorato, perche' e' quella che decide che cosa
+se ne puo' fare: *prima preferenza* (verde - l'ora l'avete scelta voi, e si
+sposta scegliendone un'altra), *seconda/terza preferenza* (ambra - gliel'abbiamo
+data noi), *su nostra indicazione* (blu - il desk, che nel modulo non si
+prenota). Sotto, una riga spiega che cosa succede annullando: l'orario torna
+libero e un'altra impresa puo' prenderlo subito, la preferenza resta in lista.
+
+Il pulsante e' un **pulsante vero** e non un trattino sottolineato in mezzo a una
+frase: annullare libera un posto che un'altra impresa puo' prendere in un
+minuto, e un comando del genere deve vedersi.
 
 ### Entro quando si prenota
 

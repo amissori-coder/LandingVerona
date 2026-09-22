@@ -621,10 +621,14 @@ async function letturaAzienda(db, evento, aziendaId) {
     const azienda = await leggiAzienda(db, ev, aziendaId);
     const voci = await vociProgramma(db, ev) || [];
     const tutti = appuntamentiAzienda(pren, aziendaId);
-    /* Gli incontri che l'azienda VEDE. Quelli ai tavoli interni - il desk
-       Revilaw - non si mostrano: quel tavolo per l'impresa non esiste, l'ora
-       e il posto glieli diciamo per mail, con il foglio. Mostrarlo qui
-       vorrebbe dire farle credere di poterselo spostare. */
+    /* Gli incontri ai tavoli che l'azienda puo' SCEGLIERE. Il desk Revilaw
+       non e' fra questi: nel modulo non compare fra i tavoli, non lo si
+       prenota e non lo si sposta - l'ora e il posto glieli diciamo noi.
+       Ma l'appuntamento al desk esiste, e anche quello puo' cadere quando
+       quella persona non c'e': si mostra quindi nel riepilogo degli incontri
+       (`interni` qui sotto), dove si legge e si puo' ANNULLARE. Vedere una
+       cosa e poterla disdire non e' come poterla spostare: lo spostamento
+       resta nostro, la rinuncia e' di chi non puo' venire. */
     const nostri = tutti.filter(x => !areaInterna(x.area));
     const primaN = nostri.filter(x => (Number(x.dati.scelta) || 1) === 1)[0] || null;
     /* I TAVOLI DA MOSTRARE, uno per FAMIGLIA: i due gemelli di un argomento
@@ -698,6 +702,17 @@ async function letturaAzienda(db, evento, aziendaId) {
             fine: String(x.dati.fine || ''),
             areaVera: x.area, chiave: x.chiave,
             perChi: String(x.dati.perChi || ''), scelta: Number(x.dati.scelta) || 2
+        })),
+        /* L'APPUNTAMENTO AL DESK REVILAW. Non entra fra i tavoli del modulo -
+           li' non si prenota e non si sposta - ma si vede nel riepilogo degli
+           incontri, con la sua ora e la domanda da cui e' nato, e da li' si
+           puo' annullare: e' un orario come gli altri, e tenerlo impegnato
+           per qualcuno che non verra' non serve a nessuno. */
+        interni: tutti.filter(x => areaInterna(x.area)).map(x => ({
+            area: x.area, areaNome: nomeArea(x.area), ora: x.ora,
+            fine: String(x.dati.fine || ''),
+            areaVera: x.area, chiave: x.chiave,
+            perChi: String(x.dati.perChi || ''), nota: String(x.dati.nota || '')
         })),
         /* LE PREFERENZE SCARTATE NON SI MANDANO. Restano scritte da noi -
            il giorno dopo qualcuno chiedera' perche' quell'impresa non ha
@@ -1807,7 +1822,7 @@ module.exports = {
     // gli incontri di un'azienda
     rifAzienda, leggiAzienda, leggiAziendeB2B, regoleB2B, appuntamentiAzienda,
     assicuraAzienda, letturaAzienda, salvaPreferenze,
-    prendiCodaInCarico, rilasciaCoda, segnaCodaAssegnata,
+    prendiCodaInCarico, rilasciaCoda, segnaCodaAssegnata, riapriEsigenzeAssegnate, SCELTA_ESIGENZA,
     scriviProgrammaAzienda, inviaConfermaAzienda, referenteDi,
     scriviAppuntamento, azzeraAppuntamento,
     quandoInItalia, nomeFileFoglio,
