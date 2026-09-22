@@ -1635,6 +1635,37 @@ minuti, tornando sulla scheda dopo averla lasciata, e con il pulsante
 - altrimenti si rifanno le sole **griglie**. Se l'orario che si era scelto nel
   frattempo l'ha preso un altro, la pagina lo dice e toglie la selezione.
 
+### Due imprese sullo stesso orario, nello stesso istante
+
+Non e' un caso raro: gli inviti partono insieme, e alle dieci del mattino dopo
+sono in venti sulla stessa pagina. Il posto pero' e' uno.
+
+La risposta vera si da' **dentro la transazione** di `prendiSlot`, perche' e'
+l'unico punto in cui e' vera: fuori, fra la lettura e la scrittura, quell'ora
+puo' essere gia' di un altro. Chi arriva secondo riceve `motivo: 'occupato'` e
+un messaggio che dice le tre cose che servono - non e' stato preso, perche', e
+che si puo' fare adesso: *"Quell'orario e' stato appena prenotato da un'altra
+azienda: non e' piu' disponibile. Qui sotto trova gli orari aggiornati: ne
+scelga un altro."*
+
+Sulla pagina l'avviso sta **in testa alla ricevuta e in rosso**, con il titolo
+che cambia ("Manca l'orario del primo incontro") e un pulsante per tornare a
+scegliere: *"scelte salvate"* con sotto, piccolo, *"il Suo incontro pero' non
+c'e'"* e' il modo migliore per far presentare qualcuno a un tavolo che non lo
+aspetta. **Il resto delle scelte resta salvato** - seconda e terza preferenza,
+nominativi, domande - e si torna al modulo solo per l'orario.
+
+Se il salvataggio viene respinto per intero, la pagina non ricarica piu' tutto:
+per `occupato` rifa' le sole **griglie** (chi stava scrivendo la sua domanda non
+perde quello che ha scritto) e toglie la selezione sbagliata; per `collega` usa i
+dati che la risposta gia' porta con se', perche' li' vale quello che ha salvato
+lui.
+
+`prove/azienda-b2b.prove.js` lancia le due prenotazioni **insieme**
+(`Promise.all`) e verifica che ne passi una sola, che l'altra riceva il motivo e
+il messaggio, che a quel tavolo resti un orario occupato solo, e che a chi ha
+perso l'orario resti tutto il resto.
+
 ### La seconda e la terza sono PREFERENZE, e si annullano
 
 Non sono un orario che aspetta conferma: diventano un incontro solo se a quel

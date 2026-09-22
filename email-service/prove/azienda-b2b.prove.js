@@ -712,6 +712,60 @@ function slotDi(area, ora) {
         esigi(!slotDi('esg', '11:00'), 'e nessun orario viene impegnato');
     });
 
+    await prova('21) Due aziende sullo stesso orario, nello stesso istante', async () => {
+        /* Non e' un caso raro: gli inviti partono insieme, e alle dieci del
+           mattino dopo sono in venti sulla stessa pagina. Il posto e' uno, e
+           la transazione e' l'unico punto in cui la risposta e' vera: fuori,
+           fra la lettura e la scrittura, quell'ora puo' essere gia' di un
+           altro. Chi arriva secondo deve sentirselo dire - e non deve perdere
+           il resto di quello che aveva scritto. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {}, 'esg': {}, 'revisione': {} });
+        mettiReferente('mario', 'Mario', 'Rossi', 'Alfa', 'mario@alfa.it', '01234567891');
+        mettiReferente('laura', 'Laura', 'Balzano', 'Balzano Srl', 'laura@balzano.it', '07307010632');
+        await invita([
+            { chiave: 'p:01234567891', nome: 'Alfa S.r.l.', piva: '01234567891', referenti: [{ doc: 'mario' }] },
+            { chiave: 'p:07307010632', nome: 'Balzano Srl', piva: '07307010632', referenti: [{ doc: 'laura' }] }
+        ]);
+        const l1 = await chiamaAzienda('p:01234567891', { azione: 'b2b-azienda-leggi' });
+        const l2 = await chiamaAzienda('p:07307010632', { azione: 'b2b-azienda-leggi' });
+        esigi((l1.aree.filter(a => a.id === 'merito-creditizio')[0].slot.filter(s => s.ora === '10:00')[0] || {}).stato === 'libero',
+            'per tutti e due quell\'ora risulta libera: e la fotografia che hanno in mano');
+        const [a, b] = await Promise.all([
+            chiamaAzienda('p:01234567891', {
+                azione: 'b2b-azienda-salva', rev: l1.rev,
+                prima: { area: 'merito-creditizio', ora: '10:00', perDoc: 'mario' },
+                coda: [{ pos: 2, area: 'esg', perDoc: 'mario' }],
+                esigenze: [{ perDoc: 'mario', testo: 'Una domanda che non deve andare persa.' }]
+            }),
+            chiamaAzienda('p:07307010632', {
+                azione: 'b2b-azienda-salva', rev: l2.rev,
+                prima: { area: 'merito-creditizio', ora: '10:00', perDoc: 'laura' },
+                coda: [{ pos: 2, area: 'revisione', perDoc: 'laura' }], esigenze: []
+            })
+        ]);
+        const preso = slotDi('merito-creditizio', '10:00');
+        esigi(!!preso, 'l\'orario e stato preso');
+        const vincitore = preso.aziendaNome;
+        esigi(['Alfa S.r.l.', 'Balzano Srl'].indexOf(vincitore) >= 0, 'da una delle due', String(vincitore));
+        /* E UNA SOLA. Due scritture andate a buon fine sullo stesso posto
+           vorrebbero dire due imprese davanti allo stesso tavolo alla stessa
+           ora, e uno dei due manderemmo via. */
+        const vinte = [a, b].filter(x => x.esitoPrima && x.esitoPrima.ok);
+        const perse = [a, b].filter(x => x.esitoPrima && !x.esitoPrima.ok);
+        esigi(vinte.length === 1 && perse.length === 1, 'una prenotazione sola passa',
+            JSON.stringify([a, b].map(x => x.esitoPrima)));
+        esigi(perse[0].esitoPrima.motivo === 'occupato', 'e all\'altra si dice perche');
+        esigi(/un\'altra azienda/.test(String(perse[0].esitoPrima.msg || ''))
+            && /ne scelga un altro/.test(String(perse[0].esitoPrima.msg || '')),
+            'con parole che dicono che cosa fare adesso', String(perse[0].esitoPrima.msg || ''));
+        esigi(perse[0].ok === true && (perse[0].coda || []).length === 1,
+            'a chi non l\'ha preso resta tutto il resto: la seconda preferenza e salvata');
+        const dueVolte = Object.keys(((dati.get('b2bPrenotazioni/' + EVENTO) || {}).aree || {})['merito-creditizio'] || {});
+        esigi(dueVolte.length === 1, 'e a quel tavolo c\'e un orario occupato solo', JSON.stringify(dueVolte));
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });
