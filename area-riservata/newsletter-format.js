@@ -2019,6 +2019,13 @@
             + 'e può essere una persona diversa da un tavolo all\'altro.',
             'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo. '
             + 'Gli orari che vede liberi sono quelli liberi adesso: appena un\'impresa ne prende uno, a tutti gli altri sparisce.',
+            /* COME SI CAMBIA LA PRIMA. E' la domanda che arriva per prima, e la
+               risposta e' rassicurante: non bisogna disdire per poi rischiare di
+               restare senza niente - si preme l'orario nuovo e la prenotazione si
+               sposta, in un'operazione sola. Non dirlo lasciava credere il
+               contrario, che e' il modo piu' facile per perdere un posto. */
+            'Per cambiare orario o tavolo della prima preferenza prema quello nuovo e salvi: la prenotazione si sposta, '
+            + 'e l\'ora di prima torna libera nello stesso momento. Non serve annullarla prima.',
             /* LA SECONDA E LA TERZA NON SONO PRENOTAZIONI, e va detto per intero:
                non sono un orario che aspetta conferma, sono una preferenza che
                diventera' un incontro solo se dopo le prime preferenze di tutti
@@ -2031,8 +2038,13 @@
             + 'tavolo avanzano posti dopo le prime preferenze di tutti, e l\'orario lo scegliamo noi fra quelli rimasti - '
             + 'anche lontano da quello del primo incontro. Glielo diciamo per mail: finché non arriva, a Suo nome non '
             + 'c\'è nessun orario.',
-            'Se l\'orario che Le assegniamo non Le va bene può annullarlo da questa pagina: torna libero per un\'altra '
-            + 'impresa, e la Sua preferenza resta in lista per un orario diverso.',
+            /* E UNA VOLTA ASSEGNATE non si toccano piu': l'orario e' quello, e
+               l'unica cosa che l'impresa puo' fare e' rinunciarci. Detto cosi' -
+               "confermato, oppure annullatelo" - non resta la terza possibilita'
+               che nessuno puo' dare, cioe' spostarlo di un'ora. */
+            'Una volta che gliene abbiamo assegnato uno, quell\'orario è confermato: da questa pagina non si sposta '
+            + 'e non se ne può chiedere un altro. Se non Le va bene lo annulli: torna libero per un\'altra impresa, e '
+            + 'la Sua preferenza resta in lista per un orario diverso.',
             'Ogni incontro dura ' + g.durata + ' minuti, fra le ' + g.inizio + ' e le ' + g.fine
             + (g.pranzoDa ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',
             'Può cambiare tutto da questa pagina ' + (entro ? 'entro il ' + entro : 'fino al giorno del convegno')

@@ -771,19 +771,32 @@
                             : '')
                         + '</div></li>';
                 };
+                /* CHE COSA SI PUO' FARE DI OGNI RIGA, scritto sulla riga.
+                   Le tre provenienze non si governano allo stesso modo, e
+                   confonderle costa un posto: la PRIMA si sposta da se'
+                   premendo un altro orario (e chi crede di dover prima
+                   disdire rischia di restare senza niente); la SECONDA e la
+                   TERZA, una volta che l'orario gliel'abbiamo dato noi, sono
+                   confermate e da qui si possono solo annullare; il DESK lo
+                   fissiamo noi e vale lo stesso. */
                 if (r.prima) {
                     righeIncontri.push(rigaIncontro(r.prima, 'prima', 'prima preferenza',
-                        'L\'orario l\'avete scelto voi. Per spostarlo prema un altro orario qui sotto: la prenotazione si sposta.'));
+                        '<b>Per cambiare orario o tavolo</b> prema quello nuovo qui sotto e salvi: la prenotazione si '
+                        + 'sposta e quest\'ora torna libera. Non serve annullarla prima. '
+                        + 'Annullare serve se rinunciate all\'incontro.'));
                 }
                 (r.assegnati || []).forEach(function (x) {
                     righeIncontri.push(rigaIncontro(x, 'attesa',
                         (Number(x.scelta) === 3 ? 'terza preferenza' : 'seconda preferenza'),
-                        'L\'orario lo abbiamo scelto noi fra quelli rimasti.'));
+                        'L\'orario lo abbiamo scelto noi fra quelli rimasti ed <b>&egrave; confermato</b>: da qui non '
+                        + 'si sposta e non se ne pu&ograve; chiedere un altro. Se non Vi va bene, <b>potete solo '
+                        + 'annullarlo</b>: l\'ora torna libera e la preferenza resta in lista per un orario diverso.'));
                 });
                 (r.interni || []).forEach(function (x) {
                     righeIncontri.push(rigaIncontro(x, 'desk', 'su nostra indicazione',
                         'Fissato da noi per la questione che ci avete segnalato'
-                        + (x.nota ? ': &laquo;' + esc(x.nota) + '&raquo;' : '.')));
+                        + (x.nota ? ': &laquo;' + esc(x.nota) + '&raquo;. ' : '. ')
+                        + 'L\'ora la scegliamo noi: da qui si pu&ograve; solo annullare.'));
                 });
                 var miei = righeIncontri.length
                     ? '<div class="miei"><div class="miei-testa">I Vostri incontri'
@@ -811,11 +824,20 @@
                     var c = (r.coda || []).filter(function (x) { return x.pos === pos; })[0] || null;
                     var et = pos === 2 ? 'Seconda preferenza' : 'Terza preferenza';
                     if (c && c.stato === 'assegnata') {
+                        /* Niente tendine: questa preferenza e' diventata un
+                           incontro, e da qui non si cambia. Lasciare i campi
+                           attivi vorrebbe dire far scegliere qualcosa che al
+                           salvataggio verrebbe ignorato - e chi ha scelto
+                           crederebbe di aver cambiato. */
                         return '<div class="pref bloccata" style="margin-top:0;"><div class="pref-et">' + et + '</div>'
-                            + '<div>' + esc(c.areaNome) + (c.ora ? ' - <b>' + esc(c.ora) + '</b>' : '')
+                            + '<div><b>Gi&agrave; diventata un incontro:</b> ' + esc(c.areaNome)
+                            + (c.ora ? ', <b>' + esc(c.ora) + '</b>' : '')
                             + (c.perChi ? ' - per ' + esc(c.perChi) : '')
-                            + '<div class="mini">Diventata un incontro: la trova qui sopra, fra quelli assegnati da noi, '
-                            + 'con il comando per annullarla se l\'orario non Vi va bene.</div></div></div>';
+                            + '<div class="mini">L\'orario che Vi abbiamo assegnato <b>&egrave; confermato</b>: da qui '
+                            + 'non si cambia tavolo, non si sposta l\'ora e non se ne pu&ograve; chiedere un\'altra. '
+                            + 'L\'unica cosa che potete fare &egrave; <b>annullarlo</b>, dal riquadro "I Vostri incontri" '
+                            + 'qui sopra: l\'ora torna libera e questa preferenza resta in lista per un orario diverso.'
+                            + '</div></div></div>';
                     }
                     return '<div class="pref" style="margin-top:0;"><div class="pref-et">' + et + '</div>'
                         + '<div class="pref-righe">'
@@ -851,7 +873,10 @@
                     + regole + entroQuando + miei + esaurito
                     + '<div class="pref-et grande">1. Prima preferenza: tavolo e orario</div>'
                     + '<div class="mini" style="margin:2px 0 8px;">Apra il tavolo che Vi interessa e prema un orario. '
-                    + '&Egrave; l\'unica scelta che prenota davvero.</div>'
+                    + '&Egrave; l\'unica scelta che prenota davvero.'
+                    + (r.prima ? ' <b>Avete gi&agrave; un orario:</b> premendone un altro e salvando la prenotazione si '
+                        + 'sposta l&igrave;, e quella di adesso si libera. Non serve annullarla prima.' : '')
+                    + '</div>'
                     + '<div class="pref-righe" style="margin-bottom:8px;">' + tendinaChi('chi1', r.prima ? r.prima.perDoc : '', referenti) + '</div>'
                     /* GLI ORARI SONO DI TUTTI, e cambiano mentre si guarda: qui
                        sotto c'e' quello che e' libero ADESSO, non quello che
@@ -867,7 +892,9 @@
                     + '<div class="mini" style="margin:2px 0 6px;">Solo il tavolo, e non prenotano niente: diventano un '
                     + 'incontro solo se a quel tavolo avanzano posti dopo le prime preferenze di tutti. L\'orario lo '
                     + 'scegliamo noi fra quelli rimasti - anche lontano da quello del primo incontro - e glielo diciamo '
-                    + 'per mail. Se non Vi va bene, potrete annullarlo da questa pagina.</div>'
+                    + 'per mail. <b>Da quel momento quell\'orario &egrave; confermato:</b> non si cambia e non se ne '
+                    + 'pu&ograve; chiedere un altro da qui; se non Vi va bene lo potete solo annullare, e l\'ora torna '
+                    + 'libera.</div>'
                     + '<div class="riga-due">' + vocePref(2) + vocePref(3) + '</div>'
                     + '<div class="pref-et grande">3. Un\'altra questione (facoltativo)</div>'
                     + '<div class="mini" style="margin:2px 0 6px;">Le preferenze restano tre: questa &egrave; una domanda in pi&ugrave;, non un quarto incontro.</div>'
@@ -1162,10 +1189,17 @@
                 });
                 var attesa = (e.coda || []).filter(function (x) { return x.stato !== 'assegnata'; })
                     .sort(function (a, b) { return (Number(a.pos) || 2) - (Number(b.pos) || 2); });
+                /* Hanno provato a cambiare una preferenza che nel frattempo e'
+                   diventata un incontro. Non e' un errore loro: fra quando
+                   hanno aperto la pagina e quando hanno salvato, l'orario
+                   gliel'abbiamo assegnato noi. Si dice che cosa vale adesso -
+                   l'orario assegnato - e l'unica cosa che possono farne. */
                 var bloccate = (e.bloccate || []).length
                     ? '<p style="margin-top:10px;" class="avviso-mail">La '
                     + e.bloccate.map(function (p) { return p === 3 ? 'terza' : 'seconda'; }).join(' e la ')
-                    + ' preferenza &egrave; gi&agrave; stata fissata da noi con un orario: quella non si cambia da qui, ci scriva.</p>'
+                    + ' preferenza nel frattempo &egrave; diventata un incontro, con l\'orario che Vi abbiamo '
+                    + 'assegnato: quello vale, e da qui non si cambia. Se non Vi va bene potete solo annullarlo, '
+                    + 'dal riquadro "I Vostri incontri".</p>'
                     : '';
                 var esitoPrima = (e.esitoPrima && !e.esitoPrima.ok && !e.esitoPrima.liberata)
                     ? '<p style="margin-top:10px;" class="avviso-mail">L\'orario della prima preferenza non era piu&grave; libero: '

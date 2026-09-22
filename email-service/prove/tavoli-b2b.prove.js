@@ -102,7 +102,7 @@ prova('4) Le regole della prenotazione: servizio e mail dicono la stessa cosa', 
         const come = g.durata + ' minuti, ' + (scadenza ? 'con scadenza' : 'senza scadenza');
         const servizio = MODELLO.regoleB2B(g, scadenza);
         const mail = AREA.regoleB2B(g, scadenza);
-        esigi(servizio.length === 6 && mail.length === 6, 'sono sei frasi da tutte e due le parti (' + come + ')');
+        esigi(servizio.length === 7 && mail.length === 7, 'sono sette frasi da tutte e due le parti (' + come + ')');
         const diverse = servizio.filter((x, i) => x !== mail[i]);
         esigi(!diverse.length, 'e sono identiche alla lettera (' + come + ')' + (diverse.length ? ': ' + diverse[0] : ''));
         esigi(scadenza ? servizio.some(x => x.indexOf(scadenza) >= 0) : !servizio.some(x => /settembre/.test(x)),
