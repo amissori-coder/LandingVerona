@@ -1,0 +1,160 @@
+/* ============================================================
+   PROVE - la forma della mail d'invito B2B
+   ------------------------------------------------------------
+       node prove/mail-invito-forma.prove.js
+
+   Niente da installare: si compone la mail vera e si guarda come
+   viene, che e' l'unica cosa che il destinatario vede.
+
+   COSA DIMOSTRANO. L'invito B2B e' una lettera dello studio, e una
+   lettera dello studio si scrive giustificata: e' una scelta di chi
+   firma, non del programma che la compone. Basta un blocco lasciato a
+   bandiera - una regola dell'elenco, la riga dell'indirizzo, la nota
+   in coda - perche' la pagina si veda montata da due mani diverse, e
+   sono proprio i blocchi che si aggiungono dopo a dimenticarselo.
+
+   Qui si verifica che:
+     - nel CORPO non resti un solo blocco di prosa non giustificato
+       (testata e piede stanno fuori: il titolo e' un titolo, e il
+       piede e' centrato apposta);
+     - i tavoli della giornata portino SOLO IL TITOLO. La descrizione
+       dice in una riga e mezza quello che il titolo dice in tre
+       parole, e ripetuta nove volte trasformava l'elenco in una
+       colonna di grigio in cui non si distingueva piu' un tavolo
+       dall'altro;
+     - l'ordine sia quello in cui si legge: prima perche' scriviamo,
+       poi quando e dove, poi che cosa si puo' scegliere, poi come si
+       sceglie, e solo a quel punto il pulsante. Le note sul
+       collegamento stanno in coda, non in mezzo alla strada fra le
+       regole e il pulsante.
+   ============================================================ */
+'use strict';
+const path = require('path');
+const NL = require(path.join(__dirname, '..', '..', 'area-riservata', 'newsletter-format.js'));
+const MODELLO = require(path.join(__dirname, '..', 'lib', 'agenda-modello.js'));
+
+let ok = 0, ko = 0;
+function esigi(cond, testo, extra) {
+    if (cond) { ok++; console.log('  verde  ' + testo); }
+    else { ko++; console.log('  ROSSO  ' + testo + (extra ? '   ' + extra : '')); }
+}
+const prove = [];
+function prova(titolo, fn) { prove.push({ titolo: titolo, fn: fn }); }
+
+const GIORNATA = { inizio: '10:00', fine: '17:30', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 };
+const AREE = [
+    { id: 'merito-creditizio', nome: 'Merito creditizio', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' },
+    { id: 'adeguati-assetti', nome: 'Adeguati assetti', descrizione: 'adeguati assetti organizzativi, amministrativi e contabili' },
+    { id: 'modello-231', nome: 'Modello 231 e Tax Control Framework', descrizione: 'un solo sistema di presidio dei rischi penali e fiscali' },
+    { id: 'desk-revilaw', nome: 'Desk Revilaw', descrizione: 'il desk della segreteria' }
+];
+/* Nell'HTML le parole portano i trattini morbidi della sillabazione: sono
+   invisibili a chi legge, ma una ricerca per frase non troverebbe piu' nulla.
+   Si tolgono prima di cercare, e restano quelli che devono restare - la prova
+   della sillabazione e' un'altra (prove/mail-sillabe.prove.js). */
+const MORBIDO = '\u00ad';
+const senzaTrattini = s => String(s || '').split(MORBIDO).join('');
+function mail() {
+    return NL.invitoB2BAzienda({
+        evento: {
+            titolo: 'Napoli', quando: '2 ottobre 2026', sottotitolo: 'Costruire l\'impresa del futuro',
+            luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli'
+        },
+        aree: AREE, giornata: GIORNATA, regole: MODELLO.regoleB2B(GIORNATA)
+    });
+}
+/* IL CORPO, cioe' quello che sta fra la fascia della testata e il piede.
+   Fuori restano il titolo (un titolo non si giustifica) e il piede
+   (centrato apposta): il resto e' la lettera. */
+function corpoDi(grezzo) {
+    const html = senzaTrattini(grezzo);
+    const da = html.lastIndexOf('-ms-interpolation-mode:bicubic;">');
+    const a = html.indexOf('Revilaw S.p.A.');
+    if (da < 0 || a < 0) throw new Error('la mail non ha piu la forma attesa: testata o piede non trovati');
+    return html.slice(da, a);
+}
+/* I blocchi di PROSA: le celle e i riquadri con dentro abbastanza testo da
+   andare a capo. Sotto le trenta lettere si sta su una riga sola, e li' il
+   giustificato non si vede nemmeno (etichette, numeri dell'elenco, il
+   pulsante): chiederlo sarebbe una regola che nessuno puo' verificare a
+   occhio. */
+function blocchiDiProsa(html) {
+    const fuori = [];
+    const re = /<(td|div)([^>]*)>([^<]{30,})</g;
+    let m;
+    while ((m = re.exec(html))) {
+        const testo = m[3].replace(/&[a-z]+;/g, ' ').trim();
+        if (testo.length < 30) continue;
+        fuori.push({ stile: m[2], testo: testo });
+    }
+    return fuori;
+}
+const GIUSTIFICATO = /text-align:justify/;
+
+prova('Nel corpo non c e un blocco lasciato a bandiera', () => {
+    const m = mail();
+    const blocchi = blocchiDiProsa(corpoDi(m.html));
+    esigi(blocchi.length >= 8, 'i blocchi di prosa si trovano (' + blocchi.length + ')');
+    const bandiera = blocchi.filter(b => !GIUSTIFICATO.test(b.stile));
+    esigi(!bandiera.length, 'sono tutti giustificati',
+        bandiera.map(b => b.testo.slice(0, 40)).join(' || '));
+});
+
+prova('Anche le regole e le note, che si aggiungono per ultime', () => {
+    const m = mail();
+    const corpo = corpoDi(m.html);
+    const blocchi = blocchiDiProsa(corpo);
+    const con = t => blocchi.filter(b => b.testo.indexOf(t) >= 0)[0];
+    const regola = con('La prima preferenza prenota davvero');
+    esigi(regola && GIUSTIFICATO.test(regola.stile), 'la regola dell elenco numerato e giustificata');
+    const nota = con('Le chiediamo di non diffonderlo');
+    esigi(nota && GIUSTIFICATO.test(nota.stile), 'e cosi la nota in coda sul collegamento');
+    const saluti = con('Nell\'attesa di incontrarVi');
+    esigi(saluti && GIUSTIFICATO.test(saluti.stile), 'e i saluti');
+});
+
+prova('I tavoli portano solo il titolo', () => {
+    const m = mail();
+    const html = senzaTrattini(m.html);
+    AREE.forEach(a => {
+        esigi(html.indexOf(a.descrizione) < 0 && m.testo.indexOf(a.descrizione) < 0,
+            'la descrizione di "' + a.nome + '" non compare');
+    });
+    esigi(html.indexOf('Merito creditizio') > 0, 'il titolo invece si');
+    esigi(m.testo.indexOf('- Merito creditizio\n') > 0
+        || /- Merito creditizio$/m.test(m.testo), 'anche nel testo semplice, una riga per tavolo');
+});
+
+prova('L ordine e quello in cui si legge', () => {
+    const html = senzaTrattini(mail().html);
+    const dove = t => html.indexOf(t);
+    const apertura = dove('iniziativa');
+    const quandoDove = dove('Quando e dove');
+    const tavoli = dove('I tavoli della giornata');
+    const regole = dove('Come funziona');
+    const bottone = dove('Scelga i Vostri incontri');
+    const saluti = dove('Gli orari si assegnano');
+    const note = dove('{{SE_COLLEGHI}}');
+    esigi(apertura > 0 && apertura < quandoDove, 'prima si dice perche scriviamo');
+    esigi(quandoDove < tavoli, 'poi quando e dove');
+    esigi(tavoli < regole, 'poi che cosa si puo scegliere');
+    esigi(regole < bottone, 'poi come si sceglie, e solo dopo il pulsante');
+    esigi(bottone < saluti && saluti < note, 'i saluti dopo il pulsante, le note sul collegamento in coda');
+});
+
+prova('Le tre sezioni hanno la stessa forma', () => {
+    /* Prima erano due riquadri disegnati a mano e in mezzo un titoletto nudo:
+       tre pesi diversi nella stessa pagina. Qui si conta che i riquadri siano
+       tre, cioe' che nessuna delle tre sezioni sia tornata a farsi da se'. */
+    const corpo = corpoDi(mail().html);
+    const quanti = corpo.split('border-left:3px solid').length - 1;
+    esigi(quanti === 3, 'i riquadri del corpo sono tre', 'contati: ' + quanti);
+});
+
+console.log('\nLa forma della mail d\'invito B2B\n');
+for (const p of prove) {
+    console.log('\n' + p.titolo);
+    try { p.fn(); } catch (e) { ko++; console.log('  ROSSO  eccezione: ' + (e && e.stack || e)); }
+}
+console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
+process.exit(ko ? 1 : 0);

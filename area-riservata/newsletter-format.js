@@ -518,14 +518,11 @@
             + spazio(12)
         );
     }
-    /* UNA RIGA IN GRASSETTO dentro il corpo. Esiste perche' par() SCAPPA
-       l'HTML: scrivendo par('<b>...</b>') nella mail si leggeva "<b>I tavoli
-       della giornata</b>", marcatura compresa - ed e' arrivata cosi' a chi
-       l'ha ricevuta. Qui il grassetto sta nello stile della cella, e il testo
-       resta testo. */
-    function capoletto(testo) {
-        return '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + esc(testo) + '</td></tr>';
-    }
+    /* PROMEMORIA, a chi scrivera' un titoletto dentro il corpo: par() SCAPPA
+       l'HTML, e par('<b>...</b>') si leggeva "<b>I tavoli della giornata</b>",
+       marcatura compresa - ed e' arrivata cosi' a chi l'ha ricevuta. Il
+       grassetto va messo nello stile della cella, come fa l'etichetta dei
+       riquadri, non nel testo. */
     /* UN ELENCO PUNTATO CHE STA IN COLONNA. Scritto come "&bull;&nbsp; testo"
        con i <br> in mezzo, la seconda riga di una voce lunga torna al margine
        sinistro e si incolonna con il pallino: l'elenco si legge come un blocco
@@ -1843,28 +1840,48 @@
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', nel corso del convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + ' riserviamo alla Vostra impresa degli incontri B2B con i nostri professionisti.';
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
-        const riquadro = (etichetta, forte, sotto) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        /* La nota in coda, in corpo minore: le due cose che riguardano il
+           COLLEGAMENTO e non l'incontro (chi altri l'ha ricevuto, fin dove lo
+           si puo' passare). In fondo e piccole, ma giustificate come il resto:
+           sono l'ultima cosa che si legge, non un'avvertenza da contratto. */
+        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        /* UN SOLO RIQUADRO PER TUTTE LE SEZIONI.
+           Prima ce n'erano due disegnati a mano ("Quando e dove", "Come
+           funziona") e in mezzo un titoletto nudo per i tavoli: tre blocchi
+           con tre pesi diversi, e la mail sembrava montata in momenti
+           diversi. Ora la forma e' una sola - etichetta in alto, contenuto
+           sotto - e le tre sezioni si leggono come tre schede dello stesso
+           foglio. Il contenuto arriva gia' formato: dentro ci va tanto un
+           paio di righe quanto un elenco. */
+        const sezione = (etichetta, dentro) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
-            + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">' + esc(etichetta) + '</span><br>'
-            + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">' + esc(forte) + '</span>'
-            + (sotto ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(sotto) + '</span>' : '')
-            + '</td></tr></table></td></tr>';
-        /* I TAVOLI, tutti, con chi li tiene: l'invito e' uno solo e l'impresa
-           sceglie fra questi. Elencarli qui - e non solo sulla pagina - e'
-           quello che permette di decidere prima di aprire il collegamento. */
-        const elencoTavoli = '<tr><td>' + elencoPunti(
-            aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + testoHtml(a.nome) + '</span>'
-                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> - ' + testoHtml(a.descrizione) + '</span>' : '')),
-            'font-size:15px;line-height:24px;color:' + C.testo + ';') + '</td></tr>';
+            + '<tr><td style="padding:16px 22px;">'
+            + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
+            + dentro + '</td></tr></table></td></tr>';
+        const quandoDove = [ev.quando, ev.luogo].filter(Boolean).join(' - ');
+        const sezioneQuandoDove = quandoDove || ev.indirizzo
+            ? sezione('Quando e dove',
+                '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">' + testoHtml(quandoDove) + '</div>'
+                + (ev.indirizzo ? '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(ev.indirizzo) + '</div>' : ''))
+            : '';
+        /* I TAVOLI, tutti: l'invito e' uno solo e l'impresa sceglie fra
+           questi. Elencarli qui - e non solo sulla pagina - e' quello che
+           permette di decidere prima di aprire il collegamento.
+           SOLO IL TITOLO. La descrizione dice in una riga e mezza quello che
+           il titolo dice in tre parole, e ripetuta nove volte trasformava
+           l'elenco in una colonna di testo grigio da cui non si distingueva
+           piu' un tavolo dall'altro: chi legge deve poter scorrere gli
+           argomenti con l'occhio e fermarsi sul suo. Per esteso stanno sulla
+           pagina di prenotazione, dove si sceglie davvero. */
+        const sezioneTavoli = aree.length
+            ? sezione('I tavoli della giornata', elencoPunti(
+                aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + testoHtml(a.nome) + '</span>'),
+                'font-size:15px;line-height:26px;color:' + C.testo + ';' + ALLINEA, C.blu))
+            : '';
         const regole = (dati.regole || []);
-        const elencoRegole = regole.length
-            ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
-            + '<tr><td style="padding:14px 20px;">'
-            + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:8px;">Come funziona</div>'
-            + elencoPunti(regole.map(x => testoHtml(x)), 'font-size:14px;line-height:23px;color:' + C.scuro + ';', C.blu, true)
-            + '</td></tr></table></td></tr>'
+        const sezioneRegole = regole.length
+            ? sezione('Come funziona', elencoPunti(regole.map(x => testoHtml(x)),
+                'font-size:14px;line-height:23px;color:' + C.scuro + ';' + ALLINEA, C.blu, true))
             : '';
         const bottone = '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
@@ -1874,39 +1891,49 @@
             + '</td></tr></table></td></tr>';
         const fraseColleghi = 'Questo invito è arrivato anche a {{REFERENTI}}: è un invito solo per {{AZIENDA}}, '
             + 'e le scelte si vedono e si modificano dallo stesso collegamento, chiunque di voi lo apra.';
+        const fraseCollegamento = 'Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. '
+            + 'Le chiediamo di non diffonderlo fuori dall\'azienda.';
         const chiusura = 'Gli orari si assegnano a chi prenota per primo: Le consigliamo di scegliere appena può. '
             + 'Nell\'attesa di incontrarVi' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.';
+        /* L'ORDINE IN CUI SI LEGGE.
+           Prima perche' scriviamo, poi quando e dove, poi che cosa si puo'
+           scegliere, poi come si sceglie: a quel punto - e non prima - il
+           pulsante. Il tratto sui colleghi stava in mezzo alla pagina, fra le
+           regole e il pulsante, e interrompeva proprio nel punto in cui chi
+           legge ha finito di capire e sta per prenotare: e' una cosa che
+           riguarda il collegamento, quindi sta in coda accanto all'altra. */
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
             + spazio(14)
-            + par('Gli incontri si tengono a margine dei lavori in sala, ai desk riservati: qui sotto trova gli argomenti, e dal pulsante in fondo sceglie quello che Vi interessa e l\'orario.')
-            + ((ev.quando || ev.luogo) ? spazio(18) + riquadro('Quando e dove',
-                [ev.quando, ev.luogo].filter(Boolean).join(' - '), ev.indirizzo || '') : '')
-            + (aree.length ? spazio(22) + capoletto('I tavoli della giornata') + spazio(8) + elencoTavoli : '')
-            + (elencoRegole ? spazio(18) + elencoRegole : '')
-            + spazio(18)
-            + '{{SE_COLLEGHI}}' + par(fraseColleghi) + spazio(18) + '{{/SE_COLLEGHI}}'
+            + par('Gli incontri si tengono a margine dei lavori in sala, ai desk riservati: qui sotto trova gli argomenti e come funziona la prenotazione, e dal pulsante sceglie i tavoli che Vi interessano e l\'orario.')
+            + (sezioneQuandoDove ? spazio(24) + sezioneQuandoDove : '')
+            + (sezioneTavoli ? spazio(16) + sezioneTavoli : '')
+            + (sezioneRegole ? spazio(16) + sezioneRegole : '')
+            + spazio(30)
             + bottone
-            + spazio(26)
+            + spazio(30)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. Le chiediamo di non diffonderlo fuori dall\'azienda.</td></tr>'
+            + '{{SE_COLLEGHI}}' + nota(fraseColleghi) + spazio(10) + '{{/SE_COLLEGHI}}'
+            + nota(fraseCollegamento)
         ));
         const html = involucro(oggetto, anteprima,
             testaB2B('Gli incontri B2B della Vostra azienda', sommario) + copertinaB2B()
             + corpo + spazio(36) + piedeB2B());
+        // la versione a solo testo dice le stesse cose nello stesso ordine: chi
+        // la riceve (posta che non mostra l'HTML) legge la stessa lettera
         const testo = ['GLI INCONTRI B2B DELLA VOSTRA AZIENDA', sommario,
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.',
+            'Gli incontri si tengono a margine dei lavori in sala, ai desk riservati.',
             ((ev.quando || ev.luogo) ? 'Quando e dove: ' + [ev.quando, ev.luogo].filter(Boolean).join(' - ')
                 + (ev.indirizzo ? ', ' + ev.indirizzo : '') : ''),
-            (aree.length ? 'I tavoli della giornata:\n'
-                + aree.map(a => '- ' + a.nome + (a.descrizione ? ' - ' + a.descrizione : '')).join('\n') : ''),
-            (regole.length ? 'Come funziona:\n' + regole.map(x => '- ' + x).join('\n') : ''),
-            '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
+            (aree.length ? 'I tavoli della giornata:\n' + aree.map(a => '- ' + a.nome).join('\n') : ''),
+            (regole.length ? 'Come funziona:\n' + regole.map((x, i) => (i + 1) + '. ' + x).join('\n') : ''),
             'Scelga i Vostri incontri: ' + SEGNAPOSTO_B2B,
             chiusura,
-            'Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. Le chiediamo di non diffonderlo fuori dall\'azienda.',
+            '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
+            fraseCollegamento,
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
             'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
         return { oggetto: oggetto, html: html, testo: testo };
