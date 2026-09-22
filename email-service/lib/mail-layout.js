@@ -63,7 +63,7 @@ function avvolgi(inner) {
         + 'a{color:#164068;}\n'
         /* il testo va giustificato anche quando lo scrive l'editor, che non mette
            alcun allineamento sui suoi paragrafi */
-        + '.rv-corpo p,.rv-corpo div,.rv-corpo li,.rv-corpo blockquote{text-align:justify;}\n'
+        + '.rv-corpo p,.rv-corpo div,.rv-corpo li,.rv-corpo blockquote{text-align:left;-webkit-hyphens:auto;hyphens:auto;}\n'
         + '.rv-corpo h1,.rv-corpo h2,.rv-corpo h3,.rv-corpo h4{text-align:left;}\n'
         /* la firma non si giustifica: e' un blocco di righe corte, verrebbe sparpagliata */
         + '.rv-firma td,.rv-firma div,.rv-firma p{text-align:left !important;}\n'
@@ -77,7 +77,7 @@ function avvolgi(inner) {
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F1F5F9;">\n'
         + '<tr><td align="center" style="padding:24px 12px;">\n'
         + '<table role="presentation" class="rv-contenitore" width="620" cellpadding="0" cellspacing="0" border="0" align="center" style="width:620px;max-width:620px;background-color:#ffffff;border:1px solid #E2E8F0;border-radius:8px;">\n'
-        + '<tr><td class="rv-pad rv-corpo" style="padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;text-align:justify;">\n'
+        + '<tr><td class="rv-pad rv-corpo" style="padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;text-align:left;-webkit-hyphens:auto;hyphens:auto;">\n'
         + inner
         + FIRMA
         + '\n</td></tr></table>\n'

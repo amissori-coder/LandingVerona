@@ -715,7 +715,7 @@ module.exports = async (req, res) => {
             const fromNameAz = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
             const transAz = trasporto();
             const avvio = Date.now();
-            let inviate = 0, senzaReferenti = 0, giaInvitate = 0;
+            let inviate = 0, senzaReferenti = 0, giaInvitate = 0, mailPartite = 0;
             const falliti = [], fatte = [], restanti = [];
             for (let n = 0; n < aziende.length; n++) {
                 const az = aziende[n];
@@ -757,37 +757,65 @@ module.exports = async (req, res) => {
                     da: email, collab: collab
                 });
                 const link = NL.linkB2BAzienda(evento, aziendaId);
-                const nomiRef = referenti.map(r => r.nome).filter(Boolean);
-                const colleghi = nomiRef.length > 1 ? nomiRef.join(', ') : '';
-                const sostituisci = (testoMail, quote) => {
+                const sostituisci = (testoMail, quote, colleghi) => {
                     const q = quote ? esc : (x => x);
                     return conBlocco(testoMail, 'COLLEGHI', 'REFERENTI', colleghi ? q(colleghi) : '')
                         .split('{{NOME}}').join(q(nomeAz))
                         .split('{{AZIENDA}}').join(q(nomeAz))
-                        .split('{{REFERENTI}}').join(q(colleghi))
+                        .split('{{REFERENTI}}').join(q(colleghi || ''))
                         .split('{{B2B}}').join(link);
                 };
-                try {
-                    await transAz.sendMail({
-                        from: '"' + fromNameAz + '" <' + fromEmailAz + '>',
-                        replyTo: email,
-                        /* TUTTI i referenti in chiaro, non in copia nascosta: la
-                           mail dice che l'invito e' arrivato anche agli altri e
-                           li nomina, e vederseli fra i destinatari e' la prova
-                           che e' vero. Sono colleghi della stessa impresa. */
-                        to: conMail.join(', '),
-                        bcc: ccnOperatore(email, emailSessione, conMail[0]),
-                        subject: oggettoBase,
-                        text: testoBase ? sostituisci(testoBase, false) : undefined,
-                        html: sostituisci(htmlBase, true)
-                    });
-                    inviate++;
-                    fatte.push(az.chiave);
-                } catch (e) {
-                    const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
-                    falliti.push({ azienda: nomeAz, email: conMail.join(', '), motivo: motivo });
-                    continue;
+                /* UNA MAIL PER INDIRIZZO, e ognuna nomina GLI ALTRI.
+                   Prima ne partiva una sola con tutti i referenti fra i
+                   destinatari, e la frase "l'invito e' arrivato anche a"
+                   elencava tutti - compreso chi la stava leggendo, che si
+                   vedeva annunciare se stesso. Adesso Andrea legge che
+                   l'altro e' Giorgia, e Giorgia che l'altro e' Andrea.
+                   Il collegamento resta lo stesso per tutti: e' dell'azienda.
+                   Due persone che condividono la casella ricevono una mail
+                   sola, ed e' giusto: e' una casella sola. */
+                const perIndirizzo = conMail.map(mail => {
+                    /* Una casella CONDIVISA da due persone e' il caso in cui
+                       "gli altri" non si puo' dire: chi apre quella posta e'
+                       uno dei due e non sappiamo quale. Allora si nominano
+                       tutti, e la frase torna a dire per chi vale l'invito. */
+                    const quiSopra = referenti.filter(r => r.email === mail);
+                    const lista = quiSopra.length > 1 ? referenti : referenti.filter(r => r.email !== mail);
+                    return { a: mail, altri: lista.map(r => r.nome).filter(Boolean) };
+                });
+                let almenoUna = false, motivoUltimo = '';
+                for (let k = 0; k < perIndirizzo.length; k++) {
+                    const p = perIndirizzo[k];
+                    const colleghi = p.altri.join(', ');
+                    try {
+                        await transAz.sendMail({
+                            from: '"' + fromNameAz + '" <' + fromEmailAz + '>',
+                            replyTo: email,
+                            to: p.a,
+                            // la copia nascosta a chi manda parte una volta per
+                            // AZIENDA: una per referente sarebbe la stessa mail
+                            // tre volte nella sua casella
+                            bcc: k === 0 ? ccnOperatore(email, emailSessione, p.a) : undefined,
+                            subject: oggettoBase,
+                            text: testoBase ? sostituisci(testoBase, false, colleghi) : undefined,
+                            html: sostituisci(htmlBase, true, colleghi)
+                        });
+                        almenoUna = true;
+                        mailPartite++;
+                    } catch (e) {
+                        motivoUltimo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
+                        falliti.push({ azienda: nomeAz, email: p.a, motivo: motivoUltimo });
+                    }
                 }
+                /* Se non e' partita NESSUNA mail l'invito non si scrive sulle
+                   schede: quell'azienda non e' stata invitata, e segnarla
+                   invitata vorrebbe dire non riprovarci mai piu'. Se ne e'
+                   partita almeno una si prosegue: il collegamento e' lo stesso
+                   per tutti, e chi non l'ha ricevuta la puo' avere da un
+                   collega o da un secondo invio. */
+                if (!almenoUna) continue;
+                inviate++;
+                fatte.push(az.chiave);
                 /* L'invito si scrive su TUTTE le schede dei referenti, anche su
                    quelle che condividono l'indirizzo con un collega: la mail e'
                    una sola, ma le persone sono due, e una scheda senza chiave
@@ -816,6 +844,10 @@ module.exports = async (req, res) => {
             await segnaCambiamento(db);
             res.status(200).json({
                 ok: true, inviate: inviate, senzaReferenti: senzaReferenti, giaInvitate: giaInvitate,
+                // "inviate" sono le AZIENDE, "mail" i messaggi: con piu' referenti
+                // a indirizzi diversi i secondi sono di piu', e chi guarda il
+                // conto deve poterlo capire senza chiederselo
+                mail: mailPartite,
                 fatte: fatte, restanti: restanti, falliti: falliti.slice(0, 50)
             });
             return;

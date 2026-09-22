@@ -675,12 +675,23 @@ async function letturaAzienda(db, evento, aziendaId) {
             fine: String(x.dati.fine || ''),
             perChi: String(x.dati.perChi || ''), scelta: Number(x.dati.scelta) || 2
         })),
-        coda: azienda.coda.map(c => ({
+        /* LE PREFERENZE SCARTATE NON SI MANDANO. Restano scritte da noi -
+           il giorno dopo qualcuno chiedera' perche' quell'impresa non ha
+           avuto il suo secondo incontro - ma nel modulo tornavano come
+           scelte ancora vive: l'azienda le rivedeva selezionate, credeva
+           di averle ancora e non ne sceglieva altre. Quello che le
+           abbiamo tolto deve sparire anche da li'. */
+        coda: azienda.coda.filter(c => c.stato !== 'scartata').map(c => ({
             id: c.id, pos: c.pos, area: capofilaDi(c.area) || c.area, areaNome: nomeArea(capofilaDi(c.area) || c.area),
             perChi: c.perChi, perDoc: c.perDoc, stato: c.stato,
             ora: c.assegnato ? c.assegnato.ora : ''
         })),
-        esigenze: azienda.esigenze.map(e => ({
+        /* Come per le preferenze scartate: quella che abbiamo gia' portato a
+           un tavolo non torna nel modulo. E' diventata un incontro, con la
+           sua ora, e rimandarla indietro come domanda aperta farebbe credere
+           all'impresa che sia rimasta in sospeso - togliendole anche l'unica
+           riga libera per scrivercene un'altra. */
+        esigenze: azienda.esigenze.filter(e => e.stato !== 'assegnata').map(e => ({
             id: e.id, perChi: e.perChi, perDoc: e.perDoc, testo: e.testo, stato: e.stato
         })),
         rev: azienda.rev,
@@ -734,16 +745,26 @@ async function salvaPreferenze(db, evento, aziendaId, dati) {
                 stato: 'attesa', assegnato: null
             });
         });
-        const esigenze = (Array.isArray(d.esigenze) ? d.esigenze : []).map((e, i) => {
+        /* Le esigenze gia' PORTATE A UN TAVOLO non passano dal modulo e non si
+           toccano: dall'altra parte c'e' un orario sul foglio del desk, e un
+           risalvataggio le rimetterebbe fra le domande aperte facendo sparire
+           quell'incontro dal riepilogo. Lo stesso vale, piu' piano, per quelle
+           segnate gestite: se tornano identiche restano gestite, invece di
+           riaprirsi da sole perche' qualcuno ha salvato un'altra cosa. */
+        const assegnate = corrente.esigenze.filter(e => e.stato === 'assegnata');
+        const esigenze = assegnate.concat((Array.isArray(d.esigenze) ? d.esigenze : []).map((e, i) => {
             const ref = referenteDi(corrente, e && e.perDoc);
             const t2 = testo(e && e.testo, TESTO_ESIGENZA);
             if (!ref || !t2) return null;
+            const gia = corrente.esigenze.filter(x => x.id === testo(e.id, 60))[0] || null;
+            const uguale = gia && gia.testo === t2 && gia.perDoc === ref.doc;
             return {
                 id: testo(e.id, 60) || ('e' + (i + 1) + '-' + Date.now()),
                 perChi: ref.nome, perRuolo: ref.ruolo, perDoc: ref.doc,
-                testo: t2, quando: Date.now(), stato: 'aperta'
+                testo: t2, quando: (uguale && gia.quando) || Date.now(),
+                stato: uguale ? gia.stato : 'aperta'
             };
-        }).filter(Boolean).slice(0, MAX_ESIGENZE);
+        }).filter(Boolean).slice(0, MAX_ESIGENZE));
         const fuori = Object.assign({}, corrente, {
             coda: coda, esigenze: esigenze,
             rev: corrente.rev + 1,

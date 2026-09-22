@@ -21091,7 +21091,7 @@
             // a lotti da 25: il servizio manda una mail alla volta e si ferma da
             // solo prima del tempo massimo, dicendo quali aziende non ha fatto
             (async () => {
-                let inviate = 0, gia = 0, saltate = 0, falliti = 0;
+                let inviate = 0, gia = 0, saltate = 0, falliti = 0, mail = 0;
                 let coda = carico.slice();
                 let giri = 0;
                 while (coda.length && giri < 40) {
@@ -21124,7 +21124,7 @@
                         esito((r.msg || 'Invio non riuscito.') + (inviate ? ' Inviate finora: ' + inviate + '.' : ''), true);
                         return;
                     }
-                    inviate += r.inviate || 0; gia += r.giaInvitate || 0;
+                    inviate += r.inviate || 0; gia += r.giaInvitate || 0; mail += r.mail || 0;
                     saltate += r.senzaReferenti || 0;
                     falliti += (r.falliti || []).length;
                     /* Il servizio dice quali aziende NON ha fatto (si ferma prima
@@ -21135,7 +21135,9 @@
                 }
                 chiudiModale();
                 toast('Invito B2B: ' + inviate + (inviate === 1 ? ' azienda invitata' : ' aziende invitate')
-                    + ' (' + scelti.length + ' referenti)'
+                    /* Le mail sono di piu' delle aziende: ne parte UNA PER
+                       INDIRIZZO, e ognuna nomina gli altri referenti. */
+                    + ' (' + mail + (mail === 1 ? ' mail' : ' mail') + ', ' + scelti.length + ' referenti)'
                     + (gia ? ', ' + gia + ' gia invitate' : '')
                     + (saltate ? ', ' + saltate + ' senza referenti con email' : '')
                     + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.', falliti ? 'rosso' : 'verde');

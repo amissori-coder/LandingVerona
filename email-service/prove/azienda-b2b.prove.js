@@ -292,7 +292,7 @@ function slotDi(area, ora) {
 
 (async () => {
 
-    await prova('1) L\'invito per azienda: una mail sola, che nomina i colleghi', async () => {
+    await prova('1) L\'invito per azienda: una mail per indirizzo, e ognuna nomina GLI ALTRI', async () => {
         azzera();
         dati.set('utenti/staff@revilaw.it', { ruolo: 'admin', nome: 'Staff' });
         mettiAgenda({
@@ -304,15 +304,28 @@ function slotDi(area, ora) {
         mettiReferente('anna', 'Anna', 'Neri', 'Alfa S.r.l.', 'anna@alfa.it', '01234567891');
         const r = await invita([{ chiave: 'p:01234567891', nome: 'Alfa S.r.l.', piva: '01234567891', referenti: [{ doc: 'mario' }, { doc: 'anna' }] }]);
         esigi(r.ok && r.inviate === 1, 'un invito per azienda, non uno per persona');
-        esigi(posta.length === 1, 'e una mail sola');
-        esigi(posta[0].to === 'mario@alfa.it, anna@alfa.it', 'con dentro tutti e due i referenti');
-        esigi(/Anche a Mario Rossi, Anna Neri/.test(posta[0].text || ''), 'la mail dice che e arrivata anche agli altri, e li nomina');
+        /* UNA MAIL PER INDIRIZZO. Prima ne partiva una sola con tutti fra i
+           destinatari, e la frase "l'invito e' arrivato anche a" elencava
+           tutti - compreso chi la stava leggendo, che si vedeva annunciare
+           se stesso. */
+        esigi(posta.length === 2, 'parte una mail per ciascun indirizzo', 'mail: ' + posta.length);
+        esigi(r.mail === 2, 'e il conto delle mail lo dice, accanto a quello delle aziende');
+        const aMario = posta.filter(m => m.to === 'mario@alfa.it')[0] || {};
+        const adAnna = posta.filter(m => m.to === 'anna@alfa.it')[0] || {};
+        esigi(!!aMario.to && !!adAnna.to, 'ognuna al suo destinatario, da sola');
+        esigi(/Anche a Anna Neri/.test(aMario.text || '') && !/Mario Rossi/.test(aMario.text || ''),
+            'Mario legge che l\'altra e Anna, e non si vede annunciare se stesso');
+        esigi(/Anche a Mario Rossi/.test(adAnna.text || '') && !/Anna Neri/.test(adAnna.text || ''),
+            'e Anna legge che l\'altro e Mario');
         const az = documentoAzienda('p:01234567891');
         esigi(az && az.nome === 'Alfa S.r.l.' && az.referenti.length === 2, 'il documento dell\'azienda esiste, con i suoi referenti');
         esigi(dati.get('iscrizioni/mario').b2bAzienda.id === idAziendaDi('p:01234567891')
             && dati.get('iscrizioni/anna').b2bAzienda.id === idAziendaDi('p:01234567891'),
             'e l\'azienda resta scritta su TUTTE le schede, non solo sulla prima');
-        esigi((posta[0].html || '').indexOf(idAziendaDi('p:01234567891')) > 0, 'il collegamento nella mail e quello dell\'azienda');
+        esigi(posta.every(m => (m.html || '').indexOf(idAziendaDi('p:01234567891')) > 0),
+            'il collegamento e lo stesso in tutte e due: e dell\'azienda, non della persona');
+        esigi(posta.filter(m => m.bcc).length === 1,
+            'e la copia nascosta a chi manda parte una volta per azienda, non una per referente');
     });
 
     await prova('2) Due persone sulla stessa casella: una mail, due schede', async () => {

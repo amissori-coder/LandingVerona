@@ -206,7 +206,7 @@
            sinistra su ogni schermo stretto. */
         const pStile = 'margin:0 0 ' + (scuro ? 14 : (stretto ? 12 : 16)) + 'px 0;font-family:' + FONT
             + ';font-size:' + (stretto ? 15 : 16) + 'px;line-height:' + (scuro ? 26 : (stretto ? 24 : 27)) + 'px;color:' + cTesto + ';'
-            + 'text-align:justify;';
+            + ALLINEA;
         return String(html || '')
             .replace(/<p>/g, '<p class="par" style="' + pStile + '">')
             .replace(/<h3>/g, '<h3 style="margin:26px 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:25px;color:' + cTitoli + ';">')
@@ -328,6 +328,19 @@
     const LATO = 40;                 // margine laterale: lascia 520px di colonna di testo
     // "mso-line-height-rule:exactly" serve a Outlook: senza, ignora l'interlinea
     const FONTE = 'font-family:' + FONT + ';mso-line-height-rule:exactly;';
+    /* IL TESTO VA A BANDIERA, allineato a sinistra.
+       Era giustificato, e si vedeva: giustificare vuol dire allargare gli
+       spazi fra le parole finche' la riga non arriva in fondo, e in una mail
+       non c'e' niente che spezzi le parole a fine riga - i programmi di posta
+       non sillabano, e quelli che ci provano (Apple Mail) sono una minoranza.
+       Su una colonna di 520px il risultato erano i "fiumi" bianchi che
+       attraversano il paragrafo: la prima cosa che fa sembrare una mail fatta
+       in casa. A bandiera le parole restano a distanza costante e il margine
+       destro e' irregolare, che e' come si scrive una lettera.
+       La sillabazione si chiede lo stesso: chi la sa fare chiude anche le
+       righe corte, e `lang="it"` sull'involucro dice con quali regole. */
+    const ALLINEA = 'text-align:left;'
+        + '-webkit-hyphens:auto;-moz-hyphens:auto;-ms-hyphens:auto;hyphens:auto;';
 
     /* Riga vuota di altezza fissa: in una mail lo spazio si fa cosi', non con
        i margini (Outlook li ignora quasi tutti). */
@@ -406,7 +419,25 @@
        l'ha ricevuta. Qui il grassetto sta nello stile della cella, e il testo
        resta testo. */
     function capoletto(testo) {
-        return '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">' + esc(testo) + '</td></tr>';
+        return '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + esc(testo) + '</td></tr>';
+    }
+    /* UN ELENCO PUNTATO CHE STA IN COLONNA. Scritto come "&bull;&nbsp; testo"
+       con i <br> in mezzo, la seconda riga di una voce lunga torna al margine
+       sinistro e si incolonna con il pallino: l'elenco si legge come un blocco
+       di testo a cui qualcuno ha messo dei punti in mezzo. Con una tabella di
+       due celle - il pallino in una, il testo nell'altra - le righe che vanno
+       a capo restano sotto il testo, com'e' giusto, e in una mail questo e'
+       l'unico modo che funziona dappertutto. */
+    function elencoPunti(voci, stile, colorePunto) {
+        const righe = (voci || []).filter(x => x !== '' && x != null);
+        if (!righe.length) return '';
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+            + righe.map((v, i) => '<tr>'
+                + '<td valign="top" width="14" style="' + FONTE + stile + 'width:14px;color:' + (colorePunto || C.accento) + ';'
+                + (i ? 'padding-top:6px;' : '') + '">&bull;</td>'
+                + '<td valign="top" style="' + FONTE + stile + (i ? 'padding-top:6px;' : '') + '">' + v + '</td>'
+                + '</tr>').join('')
+            + '</table>';
     }
     function etichetta(testo) {
         return '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(testo) + '</div>';
@@ -517,7 +548,7 @@
             && L0 >= SOGLIE.ATT_MIN && L0 <= SOGLIE.ATT_MAX;
         const apreConElenco = primo && primo.tipo === 'ul';
         const corpo = attacco
-            ? '<div class="att par" style="' + FONTE + 'font-size:20px;line-height:31px;color:' + C.scuro + ';margin:0 0 18px 0;text-align:justify;">'
+            ? '<div class="att par" style="' + FONTE + 'font-size:20px;line-height:31px;color:' + C.scuro + ';margin:0 0 18px 0;' + ALLINEA + '">'
               + stilizzaInline(primo.html.replace(/^<p>/i, '').replace(/<\/p>$/i, ''), C.blu, C.scuro) + '</div>'
               + stilizza(bl.slice(1).map(b => b.html).join(''))
             : stilizza(bl.map(b => b.html).join(''));
@@ -863,11 +894,11 @@
             + '  .h1{font-size:24px!important;line-height:31px!important;}\n'
             + '  .lead{font-size:16px!important;line-height:26px!important;}\n'
             + '  .btnlink{display:block!important;text-align:center!important;}\n'
-            /* Il giustificato resta anche sul telefono: i messaggi vanno sempre
-               a bandiera doppia, e' il modo in cui questo studio scrive. Perche'
-               sulla colonna stretta non si aprano buchi bianchi fra le parole si
-               chiede la sillabazione, che Apple Mail e Gmail su iOS applicano:
-               dove non c'e' si perde solo un po' di uniformita', non la forma. */
+            /* Sul telefono la colonna e' ancora piu' stretta, ed e' li' che una
+               riga lunga si spezza male: la sillabazione si richiede anche qui,
+               per i programmi che leggono il foglio di stile e non gli stili
+               scritti sulla cella. Dove non c'e' si perde solo un po' di
+               uniformita' in fondo alle righe, non la forma. */
             + '  .par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}\n'
             /* Blocchi affiancati: sotto i 620px ciascuno prende tutta la larghezza
                e si impilano da soli, senza dover sapere quanti sono. Lo spazio fra
@@ -950,7 +981,7 @@
                lasciarlo a bandiera mentre tutto il resto della mail e' giustificato
                si vede. Porta anche la classe "par", quella che sotto i 620px
                riporta a sinistra: due classi, due lavori diversi. */
-            ? (titolo ? spazio(16) : '') + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(nl.sommario) + '</td></tr>'
+            ? (titolo ? spazio(16) : '') + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(nl.sommario) + '</td></tr>'
             : '';
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
@@ -1095,7 +1126,7 @@
                 + spazio(12)
                 + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">Iscrizione confermata</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(saluto + ' ' + sommario) + '</td></tr>'
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(saluto + ' ' + sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -1121,7 +1152,7 @@
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe) + '</td></tr></table>';
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const posto = online
             ? (nPart > 1
                 ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
@@ -1147,7 +1178,7 @@
                segnaposto {{COMPLETA}}, che il servizio sostituisce con
                l'indirizzo firmato al momento dell'invio. */
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Devi correggere qualcosa o annullare l\'iscrizione? '
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Devi correggere qualcosa o annullare l\'iscrizione? '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Fallo dal tuo collegamento personale</a>, senza scriverci.</td></tr>'
         ));
 
@@ -1235,7 +1266,7 @@
                 + spazio(12)
                 + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">Completa la tua iscrizione</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(saluto + ' ' + sommario) + '</td></tr>'
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(saluto + ' ' + sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -1274,7 +1305,7 @@
             + '<!--<![endif]-->'
             + '</td></tr></table>';
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const spiegazione = nPart > 1
             ? 'Al momento abbiamo i dati del solo intestatario. Dal pulsante qui sotto puoi indicare nome, cognome, email e azienda di ciascuno dei ' + nPart + ' partecipanti, e correggere i tuoi se serve: così prepariamo i badge e l\'accoglienza per tutti. Dallo stesso modulo puoi anche annullare il posto di chi non potrà esserci.'
             : 'Dal pulsante qui sotto puoi completare o correggere i dati della tua iscrizione (azienda, ruolo, telefono): così prepariamo il badge e l\'accoglienza. Dallo stesso modulo puoi anche annullare l\'iscrizione, se non potrai esserci.';
@@ -1289,7 +1320,7 @@
             + bottone
             + '</td></tr></table></td></tr>'
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Se qualcosa non torna, rispondi a questa email.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Se qualcosa non torna, rispondi a questa email.</td></tr>'
         ));
 
         const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
@@ -1411,7 +1442,7 @@
                 + spazio(12)
                 + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(titolo) + '</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(sommario) + '</td></tr>'
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
             + '</td></tr>';
     }
@@ -1457,7 +1488,7 @@
         const testa = testaB2B('Un incontro riservato per la Sua impresa', sommario);
         const copertina = copertinaB2B();
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* L'elenco dei tavoli, con il quadratino blu del formato newsletter e
            l'orario del singolo tavolo sotto la descrizione: e' li' che serve,
            perche' la domanda di chi legge non e' "quando sono gli incontri" ma
@@ -1532,7 +1563,7 @@
             + spazio(26)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
 
         const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piedeB2B());
@@ -1583,7 +1614,7 @@
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + ': nel corso della giornata La invitiamo a un incontro B2B riservato su '
             + nomeArea + '.';
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const riquadro = (etichetta, forte, sotto) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
@@ -1627,7 +1658,7 @@
             + spazio(26)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
         const html = involucro(oggetto, anteprima,
             testaB2B('Un incontro riservato per la Sua impresa', sommario) + copertinaB2B()
@@ -1679,7 +1710,7 @@
         const anteprima = 'Un invito per azienda: indichi chi partecipa e tre preferenze. La prima prenota davvero.';
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', nel corso del convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + ' riserviamo alla Vostra impresa degli incontri B2B con i nostri professionisti.';
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const riquadro = (etichetta, forte, sotto) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
@@ -1690,20 +1721,18 @@
         /* I TAVOLI, tutti, con chi li tiene: l'invito e' uno solo e l'impresa
            sceglie fra questi. Elencarli qui - e non solo sulla pagina - e'
            quello che permette di decidere prima di aprire il collegamento. */
-        const elencoTavoli = '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">'
-            + aree.map(a => '&bull;&nbsp; <b>' + esc(a.nome) + '</b>'
-                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> - ' + esc(a.descrizione) + '</span>' : ''))
-                .join('<br>')
-            + '</td></tr>';
+        const elencoTavoli = '<tr><td>' + elencoPunti(
+            aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + esc(a.nome) + '</span>'
+                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> &ndash; ' + esc(a.descrizione) + '</span>' : '')),
+            'font-size:15px;line-height:24px;color:' + C.testo + ';') + '</td></tr>';
         const regole = (dati.regole || []);
         const elencoRegole = regole.length
             ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Come funziona</span><br>'
-            + '<span style="' + FONTE + 'font-size:14px;line-height:23px;color:' + C.scuro + ';">'
-            + regole.map(x => '&bull;&nbsp; ' + esc(x)).join('<br>')
-            + '</span></td></tr></table></td></tr>'
+            + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:8px;">Come funziona</div>'
+            + elencoPunti(regole.map(esc), 'font-size:14px;line-height:23px;color:' + C.scuro + ';', C.blu)
+            + '</td></tr></table></td></tr>'
             : '';
         const bottone = '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
@@ -1722,7 +1751,7 @@
             + par('Per questo riserviamo alla Vostra azienda un incontro con i nostri professionisti, su uno dei tavoli della giornata.')
             + ((ev.quando || ev.luogo) ? spazio(18) + riquadro('Quando e dove',
                 [ev.quando, ev.luogo].filter(Boolean).join(' - '), ev.indirizzo || '') : '')
-            + (aree.length ? spazio(18) + capoletto('I tavoli della giornata') + spazio(6) + elencoTavoli : '')
+            + (aree.length ? spazio(22) + capoletto('I tavoli della giornata') + spazio(8) + elencoTavoli : '')
             + (elencoRegole ? spazio(18) + elencoRegole : '')
             + spazio(18)
             + '{{SE_COLLEGHI}}' + par(fraseColleghi) + spazio(18) + '{{/SE_COLLEGHI}}'
@@ -1730,7 +1759,7 @@
             + spazio(26)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. Le chiediamo di non diffonderlo fuori dall\'azienda.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. Le chiediamo di non diffonderlo fuori dall\'azienda.</td></tr>'
         ));
         const html = involucro(oggetto, anteprima,
             testaB2B('Gli incontri B2B della Vostra azienda', sommario) + copertinaB2B()
@@ -1836,7 +1865,7 @@
                 + spazio(12)
                 + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">La seguiremo online</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(sommario) + '</td></tr>'
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -1860,7 +1889,7 @@
                 + riga('Lista d\'attesa', 'Sì, per un posto in sala')
             ) + '</td></tr></table>';
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par('L\'interesse verso l\'iniziativa è stato superiore alla capienza della sala e le adesioni in presenza hanno esaurito i posti '
@@ -1884,7 +1913,7 @@
             + par('Pochi giorni prima dell\'evento riceverà a questo stesso indirizzo il collegamento e le istruzioni per seguire i lavori online. '
                 + 'Da adesso a quel momento non deve fare nulla: pensiamo noi a scriverLe.')
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">'
             + 'Se preferisce rinunciare, o se i Suoi dati sono da correggere, può farlo dal '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
             + 'Il collegamento vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
@@ -1987,7 +2016,7 @@
                 + spazio(12)
                 + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(titolo) + '</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(sommario) + '</td></tr>'
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -1995,7 +2024,7 @@
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
            lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
            l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
@@ -2004,7 +2033,7 @@
         const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + voci.map(v => '<tr>'
                 + '<td width="18" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.accento + ';font-weight:bold;padding:2px 0;">&bull;</td>'
-                + '<td valign="top" class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;text-align:justify;">' + testoHtml(v) + '</td></tr>').join('')
+                + '<td valign="top" class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
             + '</table></td></tr>';
         const corpoParagrafi = paragrafi.map((p, i) => {
             let h = i ? spazio(p.titolo ? 26 : 18) : '';
@@ -2059,7 +2088,7 @@
         const rigaBottone = bottone ? spazio(28) + '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
             + '</td></tr>' : '';
-        const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">' + t + '</td></tr>';
+        const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
         const fraseLink = 'Se non puoi più partecipare, o se i tuoi dati sono da correggere, puoi farlo dal '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">tuo collegamento personale</a>. '
             + 'Vale solo per la tua iscrizione: ti chiediamo di non inoltrarlo.';
