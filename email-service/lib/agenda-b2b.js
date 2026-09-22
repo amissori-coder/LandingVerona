@@ -350,6 +350,17 @@ async function liberaSlot(db, evento, idDoc, chi, slotDa) {
             ? M.slotDi(corrente, slotDa.area, chiaveSlot(oraDaChiave(slotDa.chiave)) || slotDa.chiave)
             : appuntamentoDi(corrente, idDoc);
         if (!mio) { esito = { ok: false, msg: 'Nessun incontro prenotato per questa persona.' }; return; }
+        /* DI CHI E' QUELL'ORARIO. Chi organizza libera quello che vuole; la
+           pagina dell'azienda, che da oggi puo' annullare un incontro, deve
+           poter liberare SOLO i propri. Il controllo sta dentro la
+           transazione e non prima: fra una lettura e la scrittura l'orario
+           puo' essere passato a un'altra impresa, e liberare il suo sarebbe
+           il danno peggiore che questa funzione possa fare. */
+        if (slotDa && slotDa.aziendaId
+            && String((mio.dati || {}).aziendaId || '') !== String(slotDa.aziendaId)) {
+            esito = { ok: false, motivo: 'non-tuo', msg: 'Questo orario non risulta prenotato dalla Vostra azienda: ricarichi la pagina.' };
+            return;
+        }
         const aree = Object.assign({}, corrente.aree);
         aree[mio.area] = Object.assign({}, aree[mio.area]);
         delete aree[mio.area][mio.chiave];
@@ -663,16 +674,29 @@ async function letturaAzienda(db, evento, aziendaId) {
         azienda: { id: azienda.id, nome: azienda.nome },
         referenti: referentiPubblici(azienda),
         aree: aree,
-        regole: regoleB2B(agenda.giornata),
+        // entro quando si sceglie: la data sta con i dati dell'evento, e da
+        // qui arriva alla pagina, alle regole e a tutte le mail
+        scadenza: String((agenda.eventoDati || {}).scadenzaB2B || ''),
+        regole: regoleB2B(agenda.giornata, (agenda.eventoDati || {}).scadenzaB2B),
         prima: primaN ? {
             area: capofilaDi(primaN.area), areaNome: nomeArea(capofilaDi(primaN.area)), ora: primaN.ora,
             fine: String(primaN.dati.fine || ''), perChi: String(primaN.dati.perChi || ''),
-            perDoc: String(primaN.dati.perDoc || ''), quando: Number(primaN.dati.quando) || 0
+            perDoc: String(primaN.dati.perDoc || ''), quando: Number(primaN.dati.quando) || 0,
+            // il tavolo vero e l'ora, per poterla togliere dalla pagina
+            areaVera: primaN.area, chiave: primaN.chiave
         } : null,
-        // le seconde e terze GIA' assegnate: si vedono, e non si toccano piu'
+        /* LE SECONDE E TERZE GIA' ASSEGNATE. Si vedono, e ora si possono
+           anche ANNULLARE: l'orario glielo abbiamo scelto noi fra quelli
+           rimasti, e puo' benissimo cadere in un'ora in cui quella persona
+           non c'e'. Prima la pagina diceva "per spostarlo ci scriva", e nel
+           frattempo quel posto restava impegnato per qualcuno che non sarebbe
+           venuto. Per annullarlo servono il tavolo VERO (il gemello su cui
+           sta, non il capofila) e la chiave dell'ora: senza, la richiesta non
+           saprebbe quale slot liberare. */
         assegnati: nostri.filter(x => (Number(x.dati.scelta) || 1) > 1).map(x => ({
             area: capofilaDi(x.area), areaNome: nomeArea(capofilaDi(x.area)), ora: x.ora,
             fine: String(x.dati.fine || ''),
+            areaVera: x.area, chiave: x.chiave,
             perChi: String(x.dati.perChi || ''), scelta: Number(x.dati.scelta) || 2
         })),
         /* LE PREFERENZE SCARTATE NON SI MANDANO. Restano scritte da noi -
@@ -952,7 +976,9 @@ async function inviaConfermaAzienda(db, evento, aziendaId, motivo, extra) {
         referenti: (azienda.referenti || []).map(r => r.nome + (r.ruolo ? ' (' + r.ruolo + ')' : '')),
         evento: {
             titolo: String(evd.titolo || '') || 'Next Generation Business',
-            quando: String(evd.quando || ''), luogo: String(evd.luogo || ''), indirizzo: String(evd.indirizzo || '')
+            quando: String(evd.quando || ''), luogo: String(evd.luogo || ''), indirizzo: String(evd.indirizzo || ''),
+            // entro quando si sceglie: lo dicono tutte le mail, e da un posto solo
+            scadenzaB2B: String(evd.scadenzaB2B || '')
         },
         // nella mail e sul foglio del desk: l'argomento, l'ora e il nominativo
         // di chi viene. Chi tiene il tavolo per noi non si nomina.
@@ -1773,7 +1799,7 @@ module.exports = {
     oraValida, minutiOra, oraDaMinuti, chiaveSlot, oraDaChiave, fraseOrario,
     normalizzaGiornata, slotDellaGiornata, normalizzaAgenda, normalizzaPrenotazioni,
     idEvento, rifAgenda, rifPrenotazioni, leggiAgenda, leggiPrenotazioni,
-    slotDiArea, areeComposte, appuntamentoDi, areeInvitate, eventoInvito, invitoASlot,
+    areaDa, slotDiArea, areeComposte, appuntamentoDi, areeInvitate, eventoInvito, invitoASlot,
     orariPresi, bloccoSuPrenotazioni,
     // le operazioni
     prendiSlot, liberaSlot, chiediFuoriSlot, segnaRichiesta,

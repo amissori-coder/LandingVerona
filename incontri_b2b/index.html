@@ -44,7 +44,12 @@
         .mini { font-size: 0.85rem; color: var(--tenue); margin-top: 6px; }
         .esigenza { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
         .esigenza textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 6px; flex: 2 1 260px; min-height: 64px; resize: vertical; color: var(--testo); }
-        .mini-btn { font: inherit; font-size: 0.9rem; background: none; border: none; color: var(--navy-light); cursor: pointer; padding: 4px 0; text-align: left; }
+        .mini-btn { font: inherit; font-size: 0.9rem; background: none; border: none; color: var(--navy-light); cursor: pointer; padding: 4px 0; text-align: left; text-decoration: underline; }
+/* LA RIGA DEGLI ORARI: da quanto tempo e' quello che si vede. Gli orari se li
+   dividono tutte le imprese invitate, e una pagina lasciata aperta mezz'ora
+   mostra una fotografia. Sta sopra le griglie, piccola, e non chiede niente:
+   dice soltanto quanto e' fresco quello che c'e' sotto. */
+        .stato-orari { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 10px 0 4px; font-size: 0.85rem; color: var(--tenue); }
         .mini-btn[disabled] { color: #94A3B8; cursor: default; }
         .campo { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; }
         .campo label { font-size: 0.85rem; font-weight: bold; color: var(--tenue); }
@@ -669,7 +674,7 @@
                     + '<div class="griglia-fitta">' + a.slot.map(function (s) { return htmlSlotAz(a, s); }).join('') + '</div>'
                     + '</div></details>';
             }
-            function moduloAzienda(r) {
+            function moduloAzienda(r, valori) {
                 azRev = r.rev || 0; azDati = r;
                 var ev = r.evento || {};
                 /* La testata parla all'AZIENDA: "Il Suo incontro" era scritto
@@ -707,13 +712,46 @@
                     ? '<div class="confermato"><b>Prima preferenza prenotata:</b> ' + esc(r.prima.areaNome)
                     + ', <b>' + esc(r.prima.ora) + (r.prima.fine ? ' - ' + esc(r.prima.fine) : '') + '</b>'
                     + (r.prima.perChi ? ' - per <b>' + esc(r.prima.perChi) + '</b>' : '')
-                    + '. Per cambiarla scelga un altro orario qui sotto: la prenotazione si sposta.</div>'
+                    + '. Per cambiarla scelga un altro orario qui sotto: la prenotazione si sposta.'
+                    + (r.prima.chiave
+                        ? ' <button type="button" class="mini-btn annulla-inc" data-area="' + esc(r.prima.areaVera || '')
+                        + '" data-chiave="' + esc(r.prima.chiave) + '" data-che="la prenotazione delle '
+                        + esc(r.prima.ora) + ' (' + esc(r.prima.areaNome) + ')">Oppure la annulli</button>'
+                        : '')
+                    + '</div>'
                     : '';
+                /* GLI INCONTRI CHE ABBIAMO ASSEGNATO NOI a una seconda o terza
+                   preferenza. L'ora l'abbiamo scelta noi fra quelle rimaste, e
+                   puo' cadere quando quella persona non c'e': prima qui c'era
+                   scritto "per spostarli ci scriva", e nel frattempo il posto
+                   restava impegnato per qualcuno che non sarebbe venuto. Da
+                   qui si annulla, e l'orario torna libero per un'altra impresa
+                   nello stesso istante. */
                 var assegnati = (r.assegnati || []).length
-                    ? '<div class="confermato"><b>Assegnati da noi:</b> '
+                    ? '<div class="confermato"><b>Assegnati da noi</b> (erano la Vostra seconda o terza preferenza):'
+                    + '<ul class="scelti-elenco">'
                     + r.assegnati.map(function (x) {
-                        return esc(x.areaNome) + ' ' + esc(x.ora) + (x.perChi ? ' (per ' + esc(x.perChi) + ')' : '');
-                    }).join('; ') + '. Per spostarli ci scriva.</div>'
+                        return '<li>' + esc(x.areaNome) + ', <b>' + esc(x.ora)
+                            + (x.fine ? ' - ' + esc(x.fine) : '') + '</b>'
+                            + (x.perChi ? ' - per ' + esc(x.perChi) : '')
+                            + (x.chiave
+                                ? ' <button type="button" class="mini-btn annulla-inc" data-area="' + esc(x.areaVera || '')
+                                + '" data-chiave="' + esc(x.chiave) + '" data-che="l\'incontro delle ' + esc(x.ora)
+                                + ' (' + esc(x.areaNome) + ')">Annulla</button>'
+                                : '')
+                            + '</li>';
+                    }).join('') + '</ul>'
+                    + '<div class="mini">L\'orario lo abbiamo scelto noi fra quelli rimasti. Se non Vi va bene, '
+                    + 'annullatelo: torna libero per un\'altra impresa e la Vostra preferenza resta in lista per '
+                    + 'un orario diverso.</div></div>'
+                    : '';
+                /* ENTRO QUANDO. La dice il servizio insieme alle regole; qui
+                   sta da sola e in evidenza, perche' e' l'unica informazione
+                   che ha una data e che chi legge deve ricordarsi. */
+                var scadenza = String(r.scadenza || '').trim();
+                var entroQuando = scadenza
+                    ? '<div class="regole fitte"><b>Le scelte si chiudono il ' + esc(scadenza) + '.</b> '
+                    + 'Dopo quella data chiudiamo gli abbinamenti e assegniamo gli orari rimasti.</div>'
                     : '';
                 var esaurito = (r.esaurito && !r.prima)
                     ? '<div class="esaurito"><b>Gli orari disponibili sono esauriti.</b> '
@@ -726,7 +764,8 @@
                         return '<div class="pref bloccata" style="margin-top:0;"><div class="pref-et">' + et + '</div>'
                             + '<div>' + esc(c.areaNome) + (c.ora ? ' - <b>' + esc(c.ora) + '</b>' : '')
                             + (c.perChi ? ' - per ' + esc(c.perChi) : '')
-                            + '<div class="mini">Questo incontro &egrave; gi&agrave; fissato: per spostarlo ci scriva.</div></div></div>';
+                            + '<div class="mini">Diventata un incontro: la trova qui sopra, fra quelli assegnati da noi, '
+                            + 'con il comando per annullarla se l\'orario non Vi va bene.</div></div></div>';
                     }
                     return '<div class="pref" style="margin-top:0;"><div class="pref-et">' + et + '</div>'
                         + '<div class="pref-righe">'
@@ -759,20 +798,44 @@
                     + (ev.quando ? ' del ' + esc(ev.quando) : '')
                     + (ev.luogo ? ' - ' + esc(ev.luogo) : '') + '.'
                     + colleghi + '</div>'
-                    + regole + prima + assegnati + esaurito
+                    + regole + entroQuando + prima + assegnati + esaurito
                     + '<div class="pref-et grande">1. Prima preferenza: tavolo e orario</div>'
                     + '<div class="mini" style="margin:2px 0 8px;">Apra il tavolo che Vi interessa e prema un orario. '
                     + '&Egrave; l\'unica scelta che prenota davvero.</div>'
                     + '<div class="pref-righe" style="margin-bottom:8px;">' + tendinaChi('chi1', r.prima ? r.prima.perDoc : '', referenti) + '</div>'
-                    + aree.map(htmlAreaAz).join('')
+                    /* GLI ORARI SONO DI TUTTI, e cambiano mentre si guarda: qui
+                       sotto c'e' quello che e' libero ADESSO, non quello che
+                       era libero quando la pagina si e' aperta. La riga dice
+                       l'ora dell'ultima lettura e la rifa' da sola; senza,
+                       un'impresa rimasta con la pagina aperta sceglierebbe un
+                       orario che un'altra ha gia' preso e se lo sentirebbe
+                       dire solo premendo Salva. */
+                    + '<div class="stato-orari"><span id="stato-orari-t">Orari aggiornati a questo momento.</span>'
+                    + '<button type="button" class="mini-btn" id="aggiorna-orari">Aggiorna</button></div>'
+                    + '<div id="griglie">' + aree.map(htmlAreaAz).join('') + '</div>'
                     + '<div class="pref-et grande">2. Seconda e terza preferenza</div>'
-                    + '<div class="mini" style="margin:2px 0 6px;">Solo il tavolo: l\'orario glielo assegniamo noi se restano posti.</div>'
+                    + '<div class="mini" style="margin:2px 0 6px;">Solo il tavolo, e non prenotano niente: diventano un '
+                    + 'incontro solo se a quel tavolo avanzano posti dopo le prime preferenze di tutti. L\'orario lo '
+                    + 'scegliamo noi fra quelli rimasti - anche lontano da quello del primo incontro - e glielo diciamo '
+                    + 'per mail. Se non Vi va bene, potrete annullarlo da questa pagina.</div>'
                     + '<div class="riga-due">' + vocePref(2) + vocePref(3) + '</div>'
                     + '<div class="pref-et grande">3. Un\'altra questione (facoltativo)</div>'
                     + '<div class="mini" style="margin:2px 0 6px;">Le preferenze restano tre: questa &egrave; una domanda in pi&ugrave;, non un quarto incontro.</div>'
                     + '<div id="esigenze">' + righeEsigenze() + '</div>'
                     + '<div class="azioni"><button type="button" class="invia" id="salva-az">Salvo le nostre scelte</button>'
                     + '<div class="esito" id="esito"></div></div>';
+                applicaValori(valori);
+                collegaSlot();
+                collegaAnnulla();
+                segnaQuandoLetto();
+                var agg = document.getElementById('aggiorna-orari');
+                if (agg) agg.addEventListener('click', function () { aggiornaOrari(false); });
+                document.getElementById('salva-az').addEventListener('click', salvaAzienda);
+            }
+            /* I pulsanti degli orari si ricollegano a ogni ridisegno della
+               griglia: quando gli orari si aggiornano da soli, l'HTML e' nuovo
+               e i vecchi ascoltatori se ne sono andati con quello vecchio. */
+            function collegaSlot() {
                 box.querySelectorAll('.slot').forEach(function (b) {
                     b.addEventListener('click', function () {
                         sceltaArea = b.dataset.area; sceltaOra = b.dataset.ora;
@@ -782,7 +845,161 @@
                         if (e) { e.className = 'esito'; e.textContent = ''; }
                     });
                 });
-                document.getElementById('salva-az').addEventListener('click', salvaAzienda);
+            }
+            function collegaAnnulla() {
+                box.querySelectorAll('.annulla-inc').forEach(function (b) {
+                    b.addEventListener('click', function () { annullaIncontro(b); });
+                });
+            }
+            /* Da quanto tempo guardiamo orari vecchi. La riga lo dice a
+               parole - "aggiornati un minuto fa" - perche' un'ora esatta
+               ("14:32") non risponde alla domanda vera, che e' "quello che
+               vedo e' di adesso?". */
+            function segnaQuandoLetto() {
+                lettoIl = Date.now();
+                scriviQuandoLetto();
+            }
+            function scriviQuandoLetto() {
+                var t = document.getElementById('stato-orari-t');
+                if (!t) return;
+                var min = Math.floor((Date.now() - lettoIl) / 60000);
+                t.textContent = min < 1
+                    ? 'Orari aggiornati adesso: qui sotto c\'è quello che è libero in questo momento.'
+                    : (min === 1 ? 'Orari aggiornati un minuto fa.' : 'Orari aggiornati ' + min + ' minuti fa.');
+            }
+            /* I VALORI SCRITTI A MANO e non ancora salvati. Servono quando la
+               pagina si ridisegna per conto suo: chi stava scrivendo la sua
+               domanda non deve ritrovare il campo vuoto perche' nel frattempo
+               un'altra impresa ha preso un orario che non lo riguarda. */
+            function valoriModulo() {
+                var v = { chi1: valore('chi1'), area2: valore('area2'), chi2: valore('chi2'),
+                    area3: valore('area3'), chi3: valore('chi3'), esigenze: [] };
+                box.querySelectorAll('.esigenza').forEach(function (riga) {
+                    var chi = riga.querySelector('.chi');
+                    var testo = riga.querySelector('.esigenza-testo');
+                    v.esigenze.push({ chi: chi ? chi.value : '', testo: testo ? testo.value : '' });
+                });
+                return v;
+            }
+            function applicaValori(v) {
+                if (!v) return;
+                ['chi1', 'area2', 'chi2', 'area3', 'chi3'].forEach(function (campo) {
+                    var el = box.querySelector('[data-campo="' + campo + '"]');
+                    if (!el || !v[campo]) return;
+                    // se la scelta di prima non esiste piu' (tavolo spento) non
+                    // si forza: il campo resta vuoto e si vede
+                    var c = el.querySelector('option[value="' + v[campo].replace(/"/g, '') + '"]');
+                    if (c) el.value = v[campo];
+                });
+                var righe = box.querySelectorAll('.esigenza');
+                (v.esigenze || []).forEach(function (e, i) {
+                    var riga = righe[i];
+                    if (!riga) return;
+                    var chi = riga.querySelector('.chi');
+                    var testo = riga.querySelector('.esigenza-testo');
+                    if (testo && e.testo) testo.value = e.testo;
+                    if (chi && e.chi && chi.querySelector('option[value="' + e.chi.replace(/"/g, '') + '"]')) chi.value = e.chi;
+                });
+            }
+            /* GLI ORARI, RILETTI DAL SERVIZIO.
+               Gli orari non sono nostri: se li dividono tutte le imprese
+               invitate, e mentre questa pagina sta aperta un'altra ne prende
+               uno. Rileggerli e' l'unico modo di mostrare la verita' invece di
+               una fotografia di dieci minuti fa.
+               Si ridisegna il MENO possibile:
+                 - se un collega ha salvato (la revisione e' cambiata) vale
+                   quello che ha scritto lui, e la pagina si rifa' per intero:
+                   sovrascriverlo con quello che avevamo in mano sarebbe
+                   cancellargli il lavoro senza dirglielo;
+                 - se sono cambiati i nostri incontri (li ha spostati chi
+                   organizza) si rifa' tutto, ma tenendo quello che chi sta
+                   compilando ha gia' scritto e non ha ancora salvato;
+                 - altrimenti si rifanno le sole griglie degli orari.
+               E se l'orario che si era scelto nel frattempo l'ha preso un
+               altro, si dice - invece di lasciarlo selezionato e farlo
+               scoprire premendo Salva. */
+            function firmaIncontri(r) {
+                return JSON.stringify([
+                    r.prima ? [r.prima.area, r.prima.ora] : null,
+                    (r.assegnati || []).map(function (x) { return [x.area, x.ora]; })
+                ]);
+            }
+            var aggiornoInCorso = false;
+            function aggiornaOrari(silenzioso) {
+                if (inCorso || aggiornoInCorso || !document.getElementById('salva-az')) return;
+                aggiornoInCorso = true;
+                var t = document.getElementById('stato-orari-t');
+                if (t && !silenzioso) t.textContent = 'Rileggo gli orari...';
+                chiama({ azione: 'b2b-azienda-leggi' }).then(function (r) {
+                    aggiornoInCorso = false;
+                    if (!r || !r.ok || r.modo !== 'azienda') { scriviQuandoLetto(); return; }
+                    if (!document.getElementById('salva-az')) return;   // nel frattempo si e' salvato
+                    if ((r.rev || 0) !== azRev) {
+                        moduloAzienda(r);
+                        avvisaOrari('Un Suo collega ha cambiato le scelte dell\'azienda: qui sotto ci sono quelle aggiornate.');
+                        return;
+                    }
+                    if (firmaIncontri(r) !== firmaIncontri(azDati)) {
+                        var v = valoriModulo();
+                        moduloAzienda(r, v);
+                        avvisaOrari('I Vostri incontri sono cambiati: qui sotto c\'è la situazione aggiornata.');
+                        return;
+                    }
+                    azDati = r;
+                    var g = document.getElementById('griglie');
+                    if (g) {
+                        var perso = sceltaOra && !(r.aree || []).some(function (a) {
+                            return a.id === sceltaArea && a.slot.some(function (x) {
+                                return x.ora === sceltaOra && (x.stato === 'libero' || x.stato === 'mio');
+                            });
+                        });
+                        if (perso) {
+                            sceltaArea = ''; sceltaOra = '';
+                            avvisaOrari('L\'orario che aveva scelto è stato appena preso da un\'altra azienda: ne scelga un altro.');
+                        }
+                        g.innerHTML = (r.aree || []).map(htmlAreaAz).join('');
+                        collegaSlot();
+                    }
+                    segnaQuandoLetto();
+                }).catch(function () { aggiornoInCorso = false; scriviQuandoLetto(); });
+            }
+            function avvisaOrari(testo) {
+                var e = document.getElementById('esito');
+                if (e) { e.className = 'esito ko'; e.textContent = testo; }
+            }
+            /* ANNULLARE UN INCONTRO. Lo si fa sapendo che cosa si sta
+               annullando - il pulsante porta scritto che cosa - perche' da
+               qui l'orario torna libero e un'altra impresa puo' prenderlo
+               nello stesso minuto: non e' una cosa che si disfa premendo di
+               nuovo. */
+            function annullaIncontro(b) {
+                var che = b.dataset.che || 'questo incontro';
+                if (!confirm('Annullo ' + che + '?\n\nL\'orario torna libero e un\'altra azienda può prenderlo subito. '
+                    + 'La preferenza resta in lista: se avanzano posti Vi proponiamo un altro orario.')) return;
+                var etichetta = b.textContent;
+                b.disabled = true; b.textContent = 'Annullo...';
+                inCorso = true;
+                chiama({ azione: 'b2b-azienda-annulla', area: b.dataset.area, chiave: b.dataset.chiave })
+                    .then(function (r) {
+                        inCorso = false;
+                        if (!r || !r.ok) {
+                            b.disabled = false; b.textContent = etichetta;
+                            if (r && r.modo === 'azienda') moduloAzienda(r);
+                            avvisaOrari((r && r.msg) || 'Non sono riuscito ad annullare: riprovi fra un momento.');
+                            return;
+                        }
+                        moduloAzienda(r);
+                        var e = document.getElementById('esito');
+                        if (e) {
+                            e.className = 'esito';
+                            e.textContent = 'Incontro annullato: l\'orario è tornato libero'
+                                + (r.mailInviata ? ', e la conferma è partita a tutti i referenti.' : '.');
+                        }
+                    }).catch(function () {
+                        inCorso = false;
+                        b.disabled = false; b.textContent = etichetta;
+                        avvisaOrari('Servizio non raggiungibile: riprovi fra un momento.');
+                    });
             }
             function valore(campo) {
                 var el = box.querySelector('[data-campo="' + campo + '"]');
@@ -975,11 +1192,24 @@
                cancellerebbe quello che ha appena scritto. */
             var lettoIl = 0;
             var inCorso = false;
+            /* IL BATTITO. Gli orari sono di tutti e cambiano mentre si guarda:
+               ogni minuto si riscrive da quanto tempo sono quelli che si
+               vedono, e ogni due minuti si rileggono davvero. E' poco
+               traffico - una lettura per pagina aperta - e risparmia la cosa
+               peggiore che questa pagina possa fare: lasciar scegliere un
+               orario che un'altra impresa ha gia' preso.
+               Tornando sulla scheda dopo averla lasciata, si rilegge subito:
+               li' la fotografia e' vecchia di sicuro. */
+            setInterval(function () {
+                if (!document.getElementById('salva-az')) return;
+                scriviQuandoLetto();
+                if (!document.hidden && !inCorso && Date.now() - lettoIl >= 120000) aggiornaOrari(true);
+            }, 60000);
             document.addEventListener('visibilitychange', function () {
                 if (document.hidden || inCorso) return;
-                if (Date.now() - lettoIl < 120000) return;
                 if (!document.getElementById('salva-az')) return;   // non siamo nel modulo dell'azienda
-                apri();
+                if (Date.now() - lettoIl < 20000) return;
+                aggiornaOrari(false);
             });
             apri();
         })();

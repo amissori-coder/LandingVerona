@@ -781,7 +781,62 @@ async function incontriAzienda(azione, body, res, ctx) {
         return;
     }
 
-    /* --- il salvataggio --- */
+    /* ANNULLARE UN INCONTRO DALLA PAGINA DELL'AZIENDA.
+       La seconda e la terza preferenza non scelgono l'ora: gliela diamo noi
+       fra quelle rimaste, e puo' cadere quando quella persona non c'e'. Prima
+       la pagina diceva "per spostarlo ci scriva": nel frattempo il posto
+       restava impegnato per qualcuno che non sarebbe venuto, e l'unico modo
+       di liberarlo era che qualcuno leggesse una mail e lo facesse a mano.
+       Ora lo annulla l'azienda, e l'orario torna libero per un'altra impresa
+       nello stesso istante.
+       Quello che succede e' tutto qui: lo slot si libera (solo se e'
+       davvero suo - il controllo sta dentro la transazione), la preferenza
+       che l'aveva portato li' torna IN ATTESA - non sparisce: l'impresa
+       quel tavolo lo vuole ancora, e con un altro orario ce lo mandiamo -
+       e parte la mail con il foglio aggiornato a tutti i referenti, perche'
+       un collega puo' avere in tasca il foglio di prima. */
+    if (azione === 'b2b-azienda-annulla') {
+        // annullare scrive, quindi passa dallo stesso freno del salvataggio
+        if (troppiSalvataggi('az:' + aziendaId)) {
+            res.status(429).json({
+                ok: false, motivo: 'freno',
+                msg: 'Le scelte sono state cambiate molte volte di seguito: aspetti qualche minuto e riprovi.'
+            });
+            return;
+        }
+        const area = (AGENDA.areaDa(body.area) || {}).id || '';
+        const chiave = AGENDA.chiaveSlot(AGENDA.oraDaChiave(body.chiave || '')) || AGENDA.chiaveSlot(body.ora);
+        if (!area || !chiave) {
+            res.status(400).json({ ok: false, msg: 'Non ho capito quale incontro annullare: ricarichi la pagina.' });
+            return;
+        }
+        const r = await AGENDA.liberaSlot(db, evento, '', azienda.nome, {
+            area: area, chiave: chiave, aziendaId: aziendaId
+        });
+        if (!r.ok) {
+            const dati = await AGENDA.letturaAzienda(db, evento, aziendaId);
+            res.status(409).json(Object.assign({ ok: false, motivo: r.motivo || 'sparito' }, dati, { msg: r.msg }));
+            return;
+        }
+        const liberata = r.chi || {};
+        if (liberata.codaId) {
+            try { await AGENDA.rilasciaCoda(db, evento, aziendaId, String(liberata.codaId), azienda.nome, 'attesa'); }
+            catch (_) { /* lo slot e' libero: e' quello che conta */ }
+        }
+        try { await AGENDA.scriviProgrammaAzienda(db, evento, aziendaId); } catch (_) { /* la copia si rifara' */ }
+        try { await segnaCambiamento(db); } catch (_) { /* la lettura scade comunque */ }
+        let mail = { ok: false, a: [] };
+        try { mail = await AGENDA.inviaConfermaAzienda(db, evento, aziendaId, 'disdetta'); }
+        catch (e) { console.error('Disdetta B2B non comunicata:', String((e && e.message) || e).slice(0, 200)); }
+        const dati = await AGENDA.letturaAzienda(db, evento, aziendaId);
+        res.status(200).json(Object.assign({ ok: true }, dati, {
+            annullato: { areaNome: r.areaNome, ora: r.ora },
+            mailInviata: mail.ok === true, avvisati: mail.a || []
+        }));
+        return;
+    }
+
+    /* --- le azioni che SCRIVONO: salvataggio e annullamento --- */
     if (troppiSalvataggi('az:' + aziendaId)) {
         res.status(429).json({
             ok: false, motivo: 'freno',
@@ -1127,7 +1182,7 @@ module.exports = async (req, res) => {
             // il collegamento d'azienda ce l'hanno in piu' persone dello stesso
             // ufficio: a maggior ragione qui il freno per indirizzo IP se lo
             // mangerebbero fra loro
-            'b2b-azienda-leggi', 'b2b-azienda-salva']
+            'b2b-azienda-leggi', 'b2b-azienda-salva', 'b2b-azienda-annulla']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1151,7 +1206,8 @@ module.exports = async (req, res) => {
             return;
         }
         // il collegamento d'azienda: stessa pagina, altra porta
-        if (azione === 'b2b-azienda-leggi' || azione === 'b2b-azienda-salva') {
+        if (azione === 'b2b-azienda-leggi' || azione === 'b2b-azienda-salva'
+            || azione === 'b2b-azienda-annulla') {
             await incontriAzienda(azione, body, res);
             return;
         }

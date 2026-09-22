@@ -1595,6 +1595,70 @@ tavoli), con `b2bRisposta` a fare da data; `b2b-salva` non tocca piu `interessi`
   era mai partito, quindi non c'e' niente da recuperare altrove e `interessi`
   non e mai una prenotazione.
 
+### Gli orari sono di tutti, e la pagina lo mostra mentre succede
+
+Gli orari se li dividono tutte le imprese invitate. La pagina li calcola a ogni
+lettura da `b2bPrenotazioni` (`slotDiFamiglia`), quindi quello che mostra e'
+sempre lo stato vero: un orario preso da un'altra azienda si vede `occupato` e
+non si puo' premere, e sui **tavoli gemelli** diventa occupato solo quando sono
+pieni tutti e due (`posti` dice quanti ne restano). La transazione di
+`prendiSlot` resta l'ultima parola: due imprese che premono lo stesso orario
+nello stesso istante non passano tutte e due.
+
+Restava una fotografia: chi apriva il modulo e lo lasciava li' mezz'ora
+sceglieva su un'agenda vecchia, e lo scopriva solo premendo Salva. Ora la
+pagina **rilegge da sola**: una riga sopra le griglie dice da quanto tempo sono
+quelli che si vedono ("Orari aggiornati un minuto fa"), si rilegge ogni due
+minuti, tornando sulla scheda dopo averla lasciata, e con il pulsante
+"Aggiorna". Si ridisegna il meno possibile:
+
+- se un **collega ha salvato** (la revisione e' cambiata) vale quello che ha
+  scritto lui e la pagina si rifa' per intero: sovrascriverlo sarebbe
+  cancellargli il lavoro senza dirglielo;
+- se sono cambiati **i nostri incontri** (li ha spostati chi organizza) si rifa'
+  tutto, ma tenendo quello che chi sta compilando ha gia' scritto e non ha
+  ancora salvato;
+- altrimenti si rifanno le sole **griglie**. Se l'orario che si era scelto nel
+  frattempo l'ha preso un altro, la pagina lo dice e toglie la selezione.
+
+### La seconda e la terza sono PREFERENZE, e si annullano
+
+Non sono un orario che aspetta conferma: diventano un incontro solo se a quel
+tavolo avanzano posti dopo le prime preferenze di tutti, e **l'orario lo
+scegliamo noi** fra quelli rimasti, anche lontano da quello del primo incontro.
+Detto a meta', chi legge si aspetta "il suo orario, da confermare".
+
+Quindi l'orario assegnato puo' cadere quando quella persona non c'e'. Prima la
+pagina diceva *"per spostarlo ci scriva"*, e nel frattempo il posto restava
+impegnato per qualcuno che non sarebbe venuto. Ora l'azienda lo **annulla da
+se'** (azione pubblica `b2b-azienda-annulla`, dal collegamento firmato
+dell'impresa):
+
+- lo slot si libera e nello stesso istante e' prenotabile da un'altra impresa;
+- si libera **solo se e' suo**: il controllo di proprieta' sta DENTRO la
+  transazione di `liberaSlot` (`slotDa.aziendaId`), perche' fra una lettura e
+  la scrittura quell'orario puo' essere passato a qualcun altro, e liberare il
+  suo sarebbe il danno peggiore che quella funzione possa fare;
+- la preferenza non sparisce: torna **in attesa**, perche' quel tavolo
+  l'impresa lo vuole ancora e con un altro orario glielo si puo' proporre;
+- parte la mail con il foglio aggiornato a **tutti i referenti**: un collega
+  puo' avere in tasca il foglio di prima.
+
+Dalla stessa pagina si toglie anche la prima prenotazione ("Oppure la annulli"),
+che prima si poteva solo spostare.
+
+### Entro quando si prenota
+
+La data sta con gli altri dati dell'evento (`EVENTI_DEF` in
+`area-riservata/app.js`, campo `scadenzaB2B`; per Napoli **30 settembre**), passa
+in `eventoDati.scadenzaB2B` sull'agenda e da li' raggiunge le regole
+(`regoleB2B(giornata, scadenza)`), il modulo, la mail d'invito e tutte le
+conferme. Scritta a mano in sei posti, prima o poi due ne direbbero due diverse.
+
+**Vuota vuol dire "non la diciamo"**, non "non c'e'": le frasi che la nominano
+si tolgono da sole invece di inventare una data. `prove/tavoli-b2b.prove.js`
+confronta le due copie delle regole - servizio e mail - con la scadenza e senza.
+
 ### La ricevuta a video, dopo il salvataggio
 
 Chiusa la scelta, la pagina dell'azienda (`incontri_b2b/index.html`,
