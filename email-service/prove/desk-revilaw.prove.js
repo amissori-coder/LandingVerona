@@ -520,6 +520,70 @@ async function prenota(chiave, area, ora, coda, esigenze) {
             'e nel riepilogo torna fra quelle da guardare');
     });
 
+    await prova('12) Il programma nuovo manda sul palco chi tiene il tavolo: gli incontri si allineano', async () => {
+        await dueAziende();
+        await prenota('p:09302991212', 'modello-231', '11:00');
+        esigi(!!slotDi('modello-231', '11:00'), 'l\'impresa ha il suo incontro alle 11:00');
+        /* La scaletta NUOVA, quella che si sta salvando: Anna, che tiene il
+           primo tavolo del 231, modera una tavola rotonda a quell'ora. */
+        const voci = [{
+            id: 'v1', tipo: 'tavola', titolo: 'Tavola rotonda sul 231',
+            dalle: '10:50', alle: '11:40',
+            moderatore: { nome: 'Anna Verdi' }, partecipanti: []
+        }];
+        const r = await staff({ azione: 'b2b-allinea', voci: voci, avvisa: false });
+        esigi(r.stato === 200 && r.corpo.ok === true, 'l\'allineamento va a buon fine', JSON.stringify(r.corpo).slice(0, 200));
+        esigi((r.corpo.spostati || []).length === 1, 'un incontro spostato', JSON.stringify(r.corpo.spostati));
+        esigi(!slotDi('modello-231', '11:00'), 'il tavolo di chi va sul palco e libero a quell\'ora');
+        esigi(!!slotDi('modello-231-b', '11:00'),
+            'e l\'impresa tiene la sua ora: cambia solo chi la riceve, perche\' il gemello quell\'ora ce l\'ha');
+        const dopo = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
+        esigi(!!dopo.prima && dopo.prima.ora === '11:00' && /231/.test(dopo.prima.areaNome),
+            'nel modulo l\'impresa legge lo stesso argomento alla stessa ora');
+    });
+
+    await prova('13) Se sul palco ci vanno tutti e due, l\'incontro si sposta d\'ora', async () => {
+        await dueAziende();
+        await prenota('p:09302991212', 'modello-231', '11:00');
+        const voci = [{
+            id: 'v1', tipo: 'tavola', titolo: 'Tavola rotonda sul 231',
+            dalle: '10:50', alle: '11:40',
+            moderatore: { nome: 'Anna Verdi' },
+            partecipanti: [{ nome: 'Luca Bianchi' }]
+        }];
+        const r = await staff({ azione: 'b2b-allinea', voci: voci, avvisa: false });
+        esigi((r.corpo.spostati || []).length === 1, 'l\'incontro si sposta lo stesso', JSON.stringify(r.corpo));
+        esigi(!slotDi('modello-231', '11:00') && !slotDi('modello-231-b', '11:00'),
+            'nessuno dei due gemelli riceve mentre i suoi sono sul palco');
+        const dove = (r.corpo.spostati || [])[0] || {};
+        esigi(dove.a && dove.a.ora !== '11:00', 'e l\'ora nuova e un\'altra', JSON.stringify(dove.a));
+        /* Il margine di prudenza vale anche qui: l'ora nuova non deve cadere
+           dentro la fascia del palco allargata di dieci minuti. */
+        const min = h => Number(String(h).split(':')[0]) * 60 + Number(String(h).split(':')[1]);
+        esigi(min(dove.a.ora) + 30 <= 10 * 60 + 40 || min(dove.a.ora) >= 11 * 60 + 50,
+            'e nemmeno appiccicata alla tavola rotonda: il margine di dieci minuti vale anche adesso', dove.a.ora);
+    });
+
+    await prova('14) Con il programma nuovo si avvisa una volta sola per azienda', async () => {
+        await dueAziende();
+        await prenota('p:09302991212', 'modello-231', '11:00',
+            [{ pos: 2, area: 'merito-creditizio', perDoc: docDi('p:09302991212') }]);
+        const az = documentoAzienda('p:09302991212');
+        await staff({
+            azione: 'coda-assegna', aziendaId: az.id, codaId: (az.coda || [])[0].id,
+            area: 'merito-creditizio', ora: '11:30'
+        });
+        posta.length = 0;
+        const voci = [
+            { id: 'v1', tipo: 'tavola', titolo: 'Tavola 231', dalle: '10:50', alle: '11:40', moderatore: { nome: 'Anna Verdi' }, partecipanti: [] },
+            { id: 'v2', tipo: 'tavola', titolo: 'Tavola credito', dalle: '11:20', alle: '12:00', moderatore: { nome: 'Ida Neri' }, partecipanti: [] }
+        ];
+        const r = await staff({ azione: 'b2b-allinea', voci: voci });
+        esigi((r.corpo.spostati || []).length === 2, 'tutti e due gli incontri si spostano', JSON.stringify(r.corpo.spostati));
+        esigi(posta.length === 1, 'ma la mail e una sola: lo stesso foglio due volte non serve a nessuno', 'mail: ' + posta.length);
+        esigi((r.corpo.avvisati || []).length === 1, 'e la risposta dice chi e stato avvisato');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })();
