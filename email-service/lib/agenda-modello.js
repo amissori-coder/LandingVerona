@@ -186,7 +186,16 @@ function normalizzaAgenda(v, evento) {
         eventoDati: {
             titolo: testo(ev.titolo, 120), quando: testo(ev.quando, 120),
             luogo: testo(ev.luogo, 200), indirizzo: testo(ev.indirizzo, 200),
-            pagina: testo(ev.pagina, 200)
+            pagina: testo(ev.pagina, 200),
+            /* ENTRO QUANDO SI PRENOTA. Gli abbinamenti li chiudiamo prima del
+               convegno - le seconde e le terze preferenze si assegnano solo
+               con quello che avanza, e per farlo bisogna sapere quando
+               smettere di aspettare. La data si dichiara con il resto dei
+               dati dell'evento (area-riservata/app.js, EVENTI_DEF): scritta a
+               mano in ogni mail, prima o poi due mail ne direbbero due
+               diverse. Vuota vuol dire "non la diciamo", non "non c'e'": i
+               testi che la nominano si tolgono da soli. */
+            scadenzaB2B: testo(ev.scadenzaB2B, 60)
         },
         giornata: giornata,
         aree: normalizzaAree(d.aree, giornata),
@@ -804,18 +813,33 @@ function esigenzeVive(azienda, prenotazioni) {
     });
 }
 
-function regoleB2B(giornata) {
+function regoleB2B(giornata, scadenza) {
     const g = normalizzaGiornata(giornata);
+    const entro = testo(scadenza, 60);
     return [
         'Un invito per azienda: indichi il nominativo di chi partecipa a ciascun incontro, '
         + 'e può essere una persona diversa da un tavolo all\'altro.',
-        'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo.',
-        'La seconda e la terza sono solo il tavolo: se restano posti l\'orario glielo assegniamo noi e Le scriviamo. '
-        + 'Finché non arriva quella mail non c\'è nessun orario a Suo nome.',
+        'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo. '
+        + 'Gli orari che vede liberi sono quelli liberi adesso: appena un\'impresa ne prende uno, a tutti gli altri sparisce.',
+        /* LA SECONDA E LA TERZA NON SONO PRENOTAZIONI, e va detto per intero:
+           non sono un orario che aspetta conferma, sono una preferenza che
+           diventera' un incontro solo se dopo le prime preferenze di tutti
+           avanza un posto a quel tavolo - e l'ora la sceglieremo noi fra
+           quelle rimaste, che puo' essere lontana da quella del primo
+           incontro. Detto a meta', chi legge si aspetta "il suo orario, da
+           confermare", e il giorno del convegno si presenta a un'ora che non
+           gli abbiamo mai dato. */
+        'La seconda e la terza sono solo il tavolo, e non prenotano niente: diventano un incontro solo se a quel '
+        + 'tavolo avanzano posti dopo le prime preferenze di tutti, e l\'orario lo scegliamo noi fra quelli rimasti - '
+        + 'anche lontano da quello del primo incontro. Glielo diciamo per mail: finché non arriva, a Suo nome non '
+        + 'c\'è nessun orario.',
+        'Se l\'orario che Le assegniamo non Le va bene può annullarlo da questa pagina: torna libero per un\'altra '
+        + 'impresa, e la Sua preferenza resta in lista per un orario diverso.',
         'Ogni incontro dura ' + g.durata + ' minuti, fra le ' + g.inizio + ' e le ' + g.fine
         + (g.pranzoDa ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',
-        'Può cambiare tutto da questa pagina fino al giorno del convegno: a ogni modifica riceve una mail '
-        + 'nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
+        'Può cambiare tutto da questa pagina ' + (entro ? 'entro il ' + entro : 'fino al giorno del convegno')
+        + ': a ogni modifica riceve una mail nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
+        + (entro ? ' Dopo il ' + entro + ' chiudiamo gli abbinamenti e assegniamo gli orari rimasti.' : '')
     ];
 }
 

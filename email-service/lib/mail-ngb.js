@@ -429,6 +429,9 @@ function confermaB2BAzienda(dati, link) {
     const azienda = String(d.azienda || d.nome || '');
     const referenti = Array.isArray(d.referenti) ? d.referenti : [];
     const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+    // entro quando si sceglie: arriva con i dati dell'evento, e se non c'e'
+    // le frasi che la nominano si tolgono da sole invece di inventarla
+    const entro = String(ev.scadenzaB2B || '').trim();
     const oggetto = titolo + ' - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
     const saluto = 'Gentile ' + (azienda || 'ospite') + ',';
     const sommario = saluto + ' ' + (motivo === 'disdetta'
@@ -437,7 +440,8 @@ function confermaB2BAzienda(dati, link) {
             ? 'per la questione che ci avete segnalato Vi aspettiamo al desk Revilaw: qui sotto la questione '
             + 'e l\'orario, e in allegato il foglio da presentare.'
             : (motivo === 'assegnazione'
-            ? 'abbiamo trovato posto per una delle Vostre preferenze: qui sotto gli incontri, con gli orari.'
+            ? 'a quel tavolo è avanzato un posto e lo abbiamo dato a una delle Vostre preferenze: '
+            + 'l\'orario lo abbiamo scelto noi fra quelli rimasti. Qui sotto gli incontri, con gli orari.'
             : (motivo === 'spostamento'
                 ? 'abbiamo dovuto spostare un incontro: qui sotto gli orari aggiornati.'
                 : 'la prenotazione agli incontri B2B'
@@ -461,9 +465,21 @@ function confermaB2BAzienda(dati, link) {
        assegniamo noi. Stessa frase sulla pagina, dopo il salvataggio: e' la
        stessa cosa detta nello stesso momento, e due versioni diverse la
        farebbero sembrare una regola incerta. */
-    const fraseCoda = 'Se al tavolo resteranno posti liberi, l\'orario glielo assegniamo noi e Le arriva una mail con '
-        + 'il foglio aggiornato. Finché quella mail non arriva non sono prenotazioni: al desk non risulta nessun '
-        + 'incontro a questi tavoli.';
+    const fraseCoda = 'Non sono prenotazioni: sono preferenze. Diventano un incontro solo se a quel tavolo avanzano '
+        + 'posti dopo le prime preferenze di tutti, e l\'orario lo scegliamo noi fra quelli rimasti - anche lontano '
+        + 'da quello del primo incontro. Glielo diciamo con una mail come questa: finché non arriva, al desk non '
+        + 'risulta nessun incontro a questi tavoli.';
+    /* CHE COSA SI PUO' FARE DI UN ORARIO CHE NON VA BENE. L'orario delle
+       preferenze lo scegliamo noi, quindi puo' cadere quando quella persona
+       non c'e': dirlo soltanto qui sarebbe inutile se poi non si potesse fare
+       niente, e infatti adesso dalla pagina si annulla - il posto torna
+       libero per un'altra impresa e la preferenza resta in lista. */
+    const fraseAnnulla = 'Se un orario che Le abbiamo assegnato non Le va bene può annullarlo dalla stessa pagina: '
+        + 'torna libero per un\'altra impresa, e la Sua preferenza resta in lista per un orario diverso.';
+    const fraseEntro = entro
+        ? 'Può scegliere e cambiare entro il ' + entro + ': dopo quella data chiudiamo gli abbinamenti e '
+        + 'assegniamo gli orari rimasti.'
+        : '';
     const vociCoda = coda.map(c => (c.pos === 3 ? 'terza' : 'seconda') + ' preferenza: ' + c.nome
         + (c.perChi ? ' - per ' + c.perChi : ''));
     const vociEsigenze = esigenze.map(e => (e.perChi ? e.perChi + ': ' : '') + e.testo);
@@ -495,7 +511,7 @@ function confermaB2BAzienda(dati, link) {
                 + spazio(28)
                 : '')
             + (vociCoda.length
-                ? occhiello('In attesa di un orario') + spazio(4) + elencoSemplice(vociCoda)
+                ? occhiello('Preferenze in attesa di un orario') + spazio(4) + elencoSemplice(vociCoda)
                 + spazio(10) + paragrafo(fraseCoda) + spazio(28)
                 : '')
             + (vociEsigenze.length
@@ -503,8 +519,11 @@ function confermaB2BAzienda(dati, link) {
                 : '')
             + paragrafo(fraseDesk)
             + spazio(22)
-            + paragrafo('Potete cambiare le scelte quando volete, dal pulsante qui sotto: '
-                + 'a ogni modifica arriva una mail nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.')
+            + paragrafo('Potete cambiare le scelte dal pulsante qui sotto: a ogni modifica arriva una mail nuova con '
+                + 'il foglio aggiornato, e vale sempre l\'ultimo emesso.')
+            + spazio(16)
+            + paragrafo(fraseAnnulla)
+            + (fraseEntro ? spazio(16) + paragrafo(fraseEntro) : '')
             + spazio(28)
             + bottone(quanti ? 'Rivedi le prenotazioni' : 'Scegli un incontro', link)
             + spazio(24)
@@ -529,9 +548,11 @@ function confermaB2BAzienda(dati, link) {
             }).join('\n')) : 'Nessun incontro prenotato.',
         questione ? ('La questione che ci avete segnalato:\n\u00ab' + questione.testo + '\u00bb'
             + (questione.perChi ? '\nPosta da ' + questione.perChi : '')) : '',
-        vociCoda.length ? ('In attesa di un orario:\n' + vociCoda.map(v => '- ' + v).join('\n') + '\n' + fraseCoda) : '',
+        vociCoda.length ? ('Preferenze in attesa di un orario:\n' + vociCoda.map(v => '- ' + v).join('\n') + '\n' + fraseCoda) : '',
         vociEsigenze.length ? ('Ci avete segnalato:\n' + vociEsigenze.map(v => '- ' + v).join('\n')) : '',
         fraseDesk,
+        fraseAnnulla,
+        fraseEntro,
         'Rivedi le prenotazioni: ' + link,
         'Il collegamento vale per tutta ' + (azienda || 'l\'azienda') + ': lo può usare anche un Suo collega. '
         + 'Le chiediamo di non diffonderlo fuori dall\'azienda.',

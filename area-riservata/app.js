@@ -15416,6 +15416,16 @@
             id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', giorno: '2026-10-02', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026',
             manuale: true, luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli', urlPagina: '/napoli_ottobre_2026/',
             sottotitolo: 'Costruire l\'impresa del futuro',
+            /* ENTRO QUANDO SI PRENOTANO GLI INCONTRI B2B. Le seconde e le
+               terze preferenze si assegnano con quello che AVANZA dopo le
+               prime di tutti, e per farlo bisogna smettere di aspettare: da
+               qui in poi chiudiamo gli abbinamenti. La data sta con gli altri
+               dati dell'evento e non dentro i testi, perche' la nominano il
+               modulo, l'invito e tutte le mail di conferma - scritta a mano
+               in sei posti, prima o poi due ne direbbero due diverse.
+               Vuota vuol dire "non la diciamo": le frasi che la citano si
+               tolgono da sole. */
+            scadenzaB2B: '30 settembre',
             /* Quello che rende questo invito diverso da un invito qualunque:
                chi patrocina, chi partecipa e perche' proprio adesso. Sta qui e
                non dentro la funzione che compone il testo, perche' cambia da
@@ -19042,7 +19052,10 @@
     function datiEventoB2B(ev) {
         return {
             titolo: ev.titolo, quando: ev.quando, luogo: ev.luogo || '',
-            indirizzo: ev.indirizzo || '', pagina: ev.pagina || ''
+            indirizzo: ev.indirizzo || '', pagina: ev.pagina || '',
+            // entro quando si prenota: da qui arriva alla pagina dell'azienda,
+            // alle regole e a tutte le mail di conferma
+            scadenzaB2B: ev.scadenzaB2B || ''
         };
     }
     function aggiornaDopoSalvataggio(ev, r) {
@@ -20753,11 +20766,12 @@
             return RV_NEWSLETTER.invitoB2BAzienda({
                 evento: {
                     titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
-                    luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+                    luogo: ev.luogo || '', indirizzo: ev.indirizzo || '',
+                    scadenzaB2B: ev.scadenzaB2B || ''
                 },
                 aree: famiglie.map(a => Object.assign({}, defArea(a.id), { referenti: a.referenti })),
                 giornata: agenda.giornata,
-                regole: RV_NEWSLETTER.regoleB2B(agenda.giornata)
+                regole: RV_NEWSLETTER.regoleB2B(agenda.giornata, ev.scadenzaB2B)
             });
         };
         const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
@@ -21571,7 +21585,8 @@
                             aree: areeInvito,
                             eventoDati: {
                                 titolo: ev.titolo, quando: ev.quando,
-                                luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+                                luogo: ev.luogo || '', indirizzo: ev.indirizzo || '',
+                                scadenzaB2B: ev.scadenzaB2B || ''
                             },
                             mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
                         });

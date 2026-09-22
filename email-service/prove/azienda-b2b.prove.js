@@ -174,7 +174,7 @@ function mettiAgenda(aree, giornata) {
     });
     dati.set('b2bAgenda/' + EVENTO, {
         evento: EVENTO,
-        eventoDati: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48' },
+        eventoDati: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48', scadenzaB2B: '30 settembre' },
         giornata: giornata || GIORNATA,
         aree: dentro
     });
@@ -250,7 +250,7 @@ async function invita(aziende, aree, forza) {
             idToken: 'x', azione: 'invita-b2b-azienda', evento: EVENTO,
             aziende: aziende, aree: aree || ['merito-creditizio', 'esg', 'revisione'],
             forza: forza !== false,
-            eventoDati: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48' },
+            eventoDati: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48', scadenzaB2B: '30 settembre' },
             mail: {
                 oggetto: 'Incontri B2B',
                 html: '<p>Gentile {{NOME}},</p>{{SE_COLLEGHI}}<p>Questo invito e arrivato anche a {{REFERENTI}}.</p>{{/SE_COLLEGHI}}<p><a href="{{B2B}}">Scelga</a></p>',
@@ -351,8 +351,10 @@ function slotDi(area, ora) {
         esigi(r.ok && r.modo === 'azienda', 'la pagina si apre in modalita azienda');
         esigi(r.azienda.nome === 'Alfa S.r.l.' && r.referenti.length === 2, 'sa di che impresa e chi sono i referenti');
         esigi(r.referenti[0].doc === 'mario' && r.referenti[0].email === undefined, 'la tendina dei nominativi non porta gli indirizzi');
-        esigi(Array.isArray(r.regole) && r.regole.length === 5 && /prima preferenza prenota davvero/.test(r.regole[1]),
+        esigi(Array.isArray(r.regole) && r.regole.length === 6 && /prima preferenza prenota davvero/.test(r.regole[1]),
             'le regole di prenotazione arrivano dal servizio, scritte una volta sola');
+        esigi(/non prenotano niente/.test(r.regole[2]) && /annullarlo da questa pagina/.test(r.regole[3]),
+            'e dicono che la seconda e la terza non prenotano, e che un orario che non va bene si annulla');
         esigi(r.aree.length === 3, 'i tavoli sono quelli dell\'invito, tutti');
         esigi(r.prima === null && r.coda.length === 0, 'e all\'inizio non c\'e nessuna scelta');
     });
@@ -383,18 +385,25 @@ function slotDi(area, ora) {
         esigi(posta.length === 1 && posta[0].to === 'mario@alfa.it, anna@alfa.it', 'la conferma e una mail sola, a tutti i referenti');
         esigi((posta[0].attachments || []).length === 1, 'con il foglio per il desk in allegato');
         esigi(/per Anna Neri/.test(posta[0].text || ''), 'e dice a chi tocca quell\'incontro');
-        esigi(/In attesa di un orario/.test(posta[0].text || ''), 'e che la seconda preferenza aspetta un orario');
+        esigi(/in attesa di un orario/i.test(posta[0].text || ''), 'e che la seconda preferenza aspetta un orario');
         /* CHE COSA NE SARA'. "Aspetta un orario" da solo lascia in sospeso la
            domanda vera - qualcuno ci pensera'? - e la risposta va detta: se al
            tavolo restano posti, l'orario lo assegniamo noi. La stessa frase sta
            sulla pagina, dopo il salvataggio: due versioni diverse della stessa
            regola la farebbero sembrare incerta, e questa prova le tiene legate. */
-        const promessa = /resteranno posti liberi.*assegniamo noi/;
-        esigi(promessa.test((posta[0].text || '').replace(/\n/g, ' ')),
-            'e che se restano posti liberi l orario lo assegniamo noi');
+        const unaRiga = (posta[0].text || '').replace(/\n/g, ' ');
+        esigi(/avanzano posti dopo le prime preferenze di tutti/.test(unaRiga),
+            'e che diventano un incontro solo se a quel tavolo avanzano posti');
+        esigi(/l'orario lo scegliamo noi fra quelli rimasti/.test(unaRiga),
+            'e che l orario lo scegliamo noi fra quelli rimasti');
+        esigi(/pu\u00f2 annullarlo dalla stessa pagina/.test(unaRiga)
+            || /annullarlo dalla stessa pagina/.test(unaRiga),
+            'e che un orario che non va bene si annulla dalla pagina');
+        esigi(/30 settembre/.test(unaRiga), 'e entro quando si sceglie');
         const pagina = require('fs').readFileSync(
             require('path').join(__dirname, '..', '..', 'incontri_b2b', 'index.html'), 'utf8');
-        esigi(/resteranno posti liberi/.test(pagina), 'la pagina, dopo il salvataggio, dice la stessa cosa');
+        esigi(/avanzano posti dopo le prime preferenze di tutti/.test(pagina),
+            'la pagina, dopo il salvataggio, dice la stessa cosa');
         const prg = dati.get('iscrizioni/mario').b2bProgramma;
         esigi(prg && prg.incontri.length === 1 && prg.attesa.length === 1,
             'il programma dell\'azienda e ricopiato anche sulla scheda del collega che non partecipa');
@@ -542,6 +551,50 @@ function slotDi(area, ora) {
             body: { a: 'az0000000000000000', e: EVENTO, t: NL.firmaAzienda(EVENTO, 'az0000000000000000'), azione: 'b2b-azienda-leggi' }
         }, res2);
         esigi(res2._s === 403, 'e un\'azienda che non esiste risponde come una firma sbagliata, senza farlo capire');
+    });
+
+    await prova('11bis) L\'orario assegnato che non va bene, l\'azienda lo annulla', async () => {
+        /* L'ora delle preferenze la scegliamo NOI fra quelle rimaste, e puo'
+           cadere quando quella persona non c'e'. Prima la pagina diceva "per
+           spostarlo ci scriva": nel frattempo il posto restava impegnato per
+           qualcuno che non sarebbe venuto, e liberarlo richiedeva che
+           qualcuno leggesse una mail e lo facesse a mano. */
+        const prima = await chiamaAzienda('p:01234567891', { azione: 'b2b-azienda-leggi' });
+        const ass = prima.assegnati[0];
+        esigi(!!ass && ass.areaVera === 'esg' && ass.chiave === '1200',
+            'il modulo sa su quale tavolo vero e a che ora sta quell\'incontro');
+        posta.length = 0;
+        const r = await chiamaAzienda('p:01234567891', {
+            azione: 'b2b-azienda-annulla', area: ass.areaVera, chiave: ass.chiave
+        });
+        esigi(r.ok === true, 'l\'annullamento riesce');
+        esigi(!slotDi('esg', '12:00'), 'e quell\'orario e tornato libero per un\'altra impresa');
+        const coda = (documentoAzienda('p:01234567891').coda || []).filter(c => c.area === 'esg')[0];
+        esigi(!!coda && coda.stato === 'attesa',
+            'la preferenza non sparisce: torna in attesa, perche quel tavolo lo vogliono ancora', JSON.stringify(coda));
+        esigi((r.assegnati || []).length === 0, 'e il modulo non lo mostra piu fra quelli assegnati');
+        esigi(posta.length === 1 && /annullato/i.test(String(posta[0].subject || '')),
+            'a tutti i referenti parte la mail con il foglio aggiornato', String((posta[0] || {}).subject || ''));
+    });
+
+    await prova('11ter) Un\'azienda non puo annullare l\'orario di un\'altra', async () => {
+        /* Il collegamento e' dell'azienda, e da li' si tocca solo cio' che e'
+           suo. Senza questo controllo basterebbe indovinare tavolo e ora per
+           cancellare l'incontro di chiunque. */
+        // un'altra impresa invitata, con un suo incontro a un'ora sua
+        mettiReferente('laura', 'Laura', 'Balzano', 'Balzano Srl', 'laura@balzano.it', '07307010632');
+        await invita([{ chiave: 'p:07307010632', nome: 'Balzano Srl', piva: '07307010632', referenti: [{ doc: 'laura' }] }]);
+        const letto = await chiamaAzienda('p:07307010632', { azione: 'b2b-azienda-leggi' });
+        await chiamaAzienda('p:07307010632', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'revisione', ora: '11:00', perDoc: 'laura' }, coda: [], esigenze: []
+        });
+        esigi(!!slotDi('revisione', '11:00'), 'l\'altra azienda ha il suo incontro');
+        const r = await chiamaAzienda('p:01234567891', {
+            azione: 'b2b-azienda-annulla', area: 'revisione', chiave: '1100'
+        });
+        esigi(r.ok !== true, 'la richiesta viene respinta', 'stato=' + r._stato + ' ' + (r.msg || ''));
+        esigi(!!slotDi('revisione', '11:00'), 'e l\'incontro dell\'altra azienda resta dov\'e');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

@@ -95,13 +95,19 @@ prova('4) Le regole della prenotazione: servizio e mail dicono la stessa cosa', 
         { inizio: '10:00', fine: '17:00', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 },
         { inizio: '09:30', fine: '18:00', pranzoDa: '', pranzoA: '', durata: 45 }
     ];
-    giornate.forEach(g => {
-        const servizio = MODELLO.regoleB2B(g);
-        const mail = AREA.regoleB2B(g);
-        esigi(servizio.length === 5 && mail.length === 5, 'sono cinque frasi da tutte e due le parti (' + g.durata + ' minuti)');
+    /* Anche la SCADENZA passa di qui: e' un pezzo di frase che cambia due
+       regole su sei, ed e' esattamente il genere di cosa che si aggiunge da
+       una parte sola. Si prova con la data e senza. */
+    giornate.forEach(g => ['30 settembre', ''].forEach(scadenza => {
+        const come = g.durata + ' minuti, ' + (scadenza ? 'con scadenza' : 'senza scadenza');
+        const servizio = MODELLO.regoleB2B(g, scadenza);
+        const mail = AREA.regoleB2B(g, scadenza);
+        esigi(servizio.length === 6 && mail.length === 6, 'sono sei frasi da tutte e due le parti (' + come + ')');
         const diverse = servizio.filter((x, i) => x !== mail[i]);
-        esigi(!diverse.length, 'e sono identiche alla lettera' + (diverse.length ? ': ' + diverse[0] : ''));
-    });
+        esigi(!diverse.length, 'e sono identiche alla lettera (' + come + ')' + (diverse.length ? ': ' + diverse[0] : ''));
+        esigi(scadenza ? servizio.some(x => x.indexOf(scadenza) >= 0) : !servizio.some(x => /settembre/.test(x)),
+            scadenza ? 'la scadenza c\'e, scritta nelle regole' : 'e senza scadenza nessuna frase se la inventa');
+    }));
 });
 
 prova('5) La mail d\'invito elenca un tavolo per ARGOMENTO', () => {
