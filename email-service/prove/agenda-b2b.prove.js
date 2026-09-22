@@ -240,8 +240,8 @@ async function prova(nome, fn) {
         esigi(lunghi.length === 8 && lunghi.map(x => x.ora).indexOf('12:15') >= 0,
             'con 45 minuti e pausa 13:00-14:30 restano 8 orari, l\'ultimo della mattina alle 12:15');
         const storta = AGENDA.normalizzaGiornata({ inizio: '18:00', fine: '10:00', durata: 20 });
-        esigi(storta.inizio === '10:00' && storta.fine === '17:00' && storta.durata === 20,
-            'una giornata che finisce prima di cominciare torna agli orari di partenza (10-17)');
+        esigi(storta.inizio === '10:00' && storta.fine === '17:30' && storta.durata === 20,
+            'una giornata che finisce prima di cominciare torna agli orari di partenza (10:00-17:30)');
         esigi(storta.pranzoDa === '13:30' && storta.pranzoA === '14:30',
             'e alla pausa pranzo del convegno');
     });
