@@ -53,18 +53,29 @@ const admin = {
 };
 admin.firestore.FieldValue = { increment: n => n, serverTimestamp: () => 0 };
 const db = {
-    collection: () => ({
-        doc: id => ({ id: id, set: async () => { } })
+    collection: nome => ({
+        // il riferimento porta con se' la collezione, come fa Firestore: il
+        // batch scrive dove gli dice il riferimento, non dove indovina
+        doc: id => ({ id: id, _coll: nome, set: async () => { } }),
+        /* La lettura con cui l'importazione degli inviti cerca chi e' gia'
+           iscritto: si legge tutta la collezione con tre campi soli. */
+        select: () => ({
+            get: async () => {
+                const righe = Object.keys(dati).filter(k => k.indexOf(nome + '/') === 0)
+                    .map(k => ({ id: k.slice(nome.length + 1), data: () => dati[k] }));
+                return { forEach: f => righe.forEach(f), size: righe.length };
+            }
+        })
     }),
     batch() {
         const ops = [];
         return {
             set(rif, patch, opz) {
-                ops.push({ id: rif.id, patch: patch, merge: !!(opz && opz.merge) });
+                ops.push({ k: (rif._coll || 'iscrizioni') + '/' + rif.id, patch: patch, merge: !!(opz && opz.merge) });
             },
             commit: async () => {
                 ops.forEach(o => {
-                    dati[o.id] = o.merge ? sovrapponi(dati[o.id], o.patch) : o.patch;
+                    dati[o.k] = o.merge ? sovrapponi(dati[o.k], o.patch) : o.patch;
                 });
             }
         };
@@ -126,58 +137,75 @@ async function importa(csv) {
     await IMPORTA({ method: 'POST', body: { idToken: 't', csv: csv, pagina: 'Napoli 2 Ottobre 2026' } }, res);
     return res._j || {};
 }
-const scheda = mail => {
-    const k = Object.keys(dati).filter(x => x.indexOf(mail.replace(/[\/\\.#$\[\]]/g, '-')) === 0)[0];
-    return k ? dati[k] : null;
-};
+/* Una scheda gia' presente fra gli iscritti: e' il punto di partenza di
+   queste prove, perche' il file degli inviti sceglie fra chi c'e' gia'. */
+function mettiIscritto(id, email, pagina, resto) {
+    dati['iscrizioni/' + id] = Object.assign({
+        nome: 'Tizio', cognome: 'Caio', email: email, pagina: pagina, extra: {}
+    }, resto || {});
+}
+const schede = () => Object.keys(dati).filter(k => k.indexOf('iscrizioni/') === 0).map(k => dati[k]);
 const INTEST = 'Data,Nome,Cognome,Email,Azienda,P.IVA,Telefono,Invito B2B';
 const riga = (nome, mail, tel, invito) =>
     '01/09/2026,' + nome + ',Rossi,' + mail + ',Alfa Srl,09302991212,' + tel + ',' + invito;
 
 (async () => {
 
-console.log('\n1) La colonna del foglio dice chi va invitato');
+console.log('\n1) Il file degli inviti SEGNA chi e\' gia\' iscritto, e non aggiunge nessuno');
 dati = {};
-await importa([INTEST, riga('Mario', 'mario@alfa.it', '333', 'si'),
+mettiIscritto('vecchia-1', 'mario@alfa.it', 'Napoli 2 Ottobre 2026', { telefono: '333', azienda: 'Alfa Srl' });
+mettiIscritto('vecchia-2', 'luisa@alfa.it', 'Napoli 2 Ottobre 2026', {});
+const r1 = await importa([INTEST, riga('Mario', 'mario@alfa.it', '999', 'si'),
     riga('Luisa', 'luisa@alfa.it', '334', '')].join('\n'));
-esigi(scheda('mario@alfa.it').extra[COL_INVITO_B2B] === 'si',
-    'chi e\' segnato nel foglio si ritrova segnato sulla scheda');
-esigi(scheda('luisa@alfa.it').extra[COL_INVITO_B2B] === '',
-    'e chi ha la cella in bianco no');
-esigi(segnatoInvitoB2B(scheda('mario@alfa.it')) && !segnatoInvitoB2B(scheda('luisa@alfa.it')),
-    'e l\'area riservata legge la stessa cosa');
+esigi(schede().length === 2, 'nessuna scheda nuova: le aziende del file erano gia\' iscritte', 'schede: ' + schede().length);
+esigi(dati['iscrizioni/vecchia-1'].extra[COL_INVITO_B2B] === 'si', 'chi e\' segnato nel foglio si ritrova segnato sulla sua scheda');
+esigi(dati['iscrizioni/vecchia-2'].extra[COL_INVITO_B2B] === '', 'e chi ha la cella in bianco no');
+esigi(dati['iscrizioni/vecchia-1'].telefono === '333',
+    'il telefono con cui si era iscritto resta il suo: il foglio degli inviti non riscrive l\'anagrafica');
+esigi(dati['iscrizioni/vecchia-1'].extra['P.IVA'] === '09302991212',
+    'la partita IVA del foglio invece arriva: senza, l\'azienda non si riconosce al momento di spedire');
+esigi(r1.soloInviti === true && r1.aggiornate === 2, 'e la risposta dice che sono state SEGNATE, non importate',
+    JSON.stringify(r1));
 
 console.log('\n2) Il ripensamento: si toglie il "si" e si reimporta');
-await importa([INTEST, riga('Mario', 'mario@alfa.it', '333', ''),
+await importa([INTEST, riga('Mario', 'mario@alfa.it', '999', ''),
     riga('Luisa', 'luisa@alfa.it', '334', 'si')].join('\n'));
-esigi(!segnatoInvitoB2B(scheda('mario@alfa.it')),
+esigi(!segnatoInvitoB2B(dati['iscrizioni/vecchia-1']),
     'la cella svuotata cancella davvero la scelta della volta prima');
-esigi(segnatoInvitoB2B(scheda('luisa@alfa.it')),
-    'e quella riempita la aggiunge');
-esigi(scheda('mario@alfa.it').telefono === '333',
-    'il resto della scheda non si muove');
+esigi(segnatoInvitoB2B(dati['iscrizioni/vecchia-2']), 'e quella riempita la aggiunge');
+esigi(schede().length === 2, 'e anche stavolta nessuna scheda nuova');
 
-console.log('\n3) Le ALTRE colonne continuano a non cancellare niente');
+console.log('\n3) Una riga che non trova il suo iscritto non si scrive: si riporta');
 dati = {};
-await importa(['Data,Nome,Cognome,Email,Azienda,Citta,Invito B2B',
-    '01/09/2026,Mario,Rossi,mario@alfa.it,Alfa Srl,Napoli,si'].join('\n'));
-esigi(scheda('mario@alfa.it').extra['Citta'] === 'Napoli', 'la citta arriva dal primo file');
-await importa(['Data,Nome,Cognome,Email,Azienda,Citta,Invito B2B',
-    '01/09/2026,Mario,Rossi,mario@alfa.it,Alfa Srl,,si'].join('\n'));
-esigi(scheda('mario@alfa.it').extra['Citta'] === 'Napoli',
-    'e un secondo file che la lascia in bianco non la porta via: solo la scelta degli inviti si cancella');
+mettiIscritto('vecchia-1', 'mario@alfa.it', 'Napoli 2 Ottobre 2026', {});
+mettiIscritto('altra-citta', 'gino@beta.it', 'Verona 27 Marzo 2026', {});
+const r3 = await importa([INTEST,
+    riga('Mario', 'mario@alfa.it', '333', 'si'),
+    riga('Gino', 'gino@beta.it', '334', 'si'),
+    riga('Rita', 'rita@gamma.it', '335', 'si')].join('\n'));
+esigi(r3.aggiornate === 1 && r3.nonIscritte === 2, 'una segnata, due no', JSON.stringify(r3));
+esigi(schede().length === 2, 'e le due che non c\'erano non sono nate: le presenze restano quelle vere');
+esigi((r3.nonTrovate || []).join(' ') === 'gino@beta.it rita@gamma.it',
+    'la risposta dice QUALI, cosi\' non si scopre il 2 ottobre che a due aziende non e\' arrivato niente',
+    (r3.nonTrovate || []).join(' '));
+esigi(!segnatoInvitoB2B(dati['iscrizioni/altra-citta']),
+    'chi e\' iscritto a un ALTRO evento non viene segnato: quell\'invito non e\' suo');
 
-console.log('\n4) Un elenco senza quella colonna non tocca la scelta gia\' fatta');
-await importa(['Data,Nome,Cognome,Email,Azienda', '01/09/2026,Mario,Rossi,mario@alfa.it,Alfa Srl'].join('\n'));
-esigi(segnatoInvitoB2B(scheda('mario@alfa.it')),
-    'chi era segnato resta segnato: quel file degli inviti non parlava');
+console.log('\n4) Un file SENZA quella colonna importa come ha sempre fatto');
+dati = {};
+const r4 = await importa(['Data,Nome,Cognome,Email,Azienda',
+    '01/09/2026,Rita,Neri,rita@gamma.it,Gamma Srl'].join('\n'));
+esigi(r4.soloInviti === false && r4.importate === 1, 'la riga si importa', JSON.stringify(r4));
+esigi(schede().length === 1 && schede()[0].email === 'rita@gamma.it',
+    'e la scheda nasce: l\'importazione degli iscritti resta quella di sempre');
 
 console.log('\n5) L\'etichetta e\' sempre la stessa, comunque sia scritta nel foglio');
 dati = {};
+mettiIscritto('vecchia-1', 'mario@alfa.it', 'Napoli 2 Ottobre 2026', {});
 await importa(['Data,Nome,Cognome,Email,invito b2b', '01/09/2026,Mario,Rossi,mario@alfa.it,SI'].join('\n'));
-esigi(scheda('mario@alfa.it').extra[COL_INVITO_B2B] === 'SI',
+esigi(dati['iscrizioni/vecchia-1'].extra[COL_INVITO_B2B] === 'SI',
     'il foglio scrive "invito b2b", la scheda scrive "' + COL_INVITO_B2B + '"');
-esigi(Object.keys(scheda('mario@alfa.it').extra).length === 1,
+esigi(Object.keys(dati['iscrizioni/vecchia-1'].extra).length === 1,
     'e la colonna non finisce due volte nelle colonne aggiuntive');
 
 console.log('\n6) Cosa vale come "si"');
