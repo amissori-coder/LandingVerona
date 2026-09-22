@@ -651,9 +651,12 @@
                 azRev = r.rev || 0; azDati = r;
                 var ev = r.evento || {};
                 /* La testata parla all'AZIENDA: "Il Suo incontro" era scritto
-                   per un invito personale, e qui chi legge sceglie per l'impresa. */
+                   per un invito personale, e qui chi legge sceglie per l'impresa.
+                   E dice le STESSE PAROLE della mail da cui si arriva ("invito
+                   riservato"): chi apre il collegamento deve ritrovarsi dove si
+                   aspettava, non su una pagina che sembra un'altra cosa. */
                 var tp = document.getElementById('titolo-pagina');
-                if (tp) tp.textContent = 'Gli incontri B2B della Vostra azienda';
+                if (tp) tp.textContent = 'Il Vostro invito riservato agli incontri B2B';
                 document.getElementById('sotto-titolo').textContent = 'Next Generation Business'
                     + (ev.titolo ? ' - ' + ev.titolo : '');
                 var aree = r.aree || [];

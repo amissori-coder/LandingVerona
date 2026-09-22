@@ -1835,10 +1835,23 @@
         });
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
-        const oggetto = 'Gli incontri B2B della Vostra azienda - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
-        const anteprima = 'Un invito per azienda: indichi chi partecipa e tre preferenze. La prima prenota davvero.';
-        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', nel corso del convegno "' + nomeConvegno + '"'
-            + (quandoEv ? ' di ' + quandoEv : '') + ' riserviamo alla Vostra impresa degli incontri B2B con i nostri professionisti.';
+        /* CHE E' UN INVITO RISERVATO SI DICE SUBITO, E PRIMA DI TUTTO
+           NELL'OGGETTO. In una casella piena, l'oggetto e' spesso l'unica riga
+           che qualcuno legge: "Gli incontri B2B della Vostra azienda" si
+           scambia per una comunicazione di servizio mandata a tutti gli
+           iscritti, e una mail del genere si apre la settimana dopo. Questa
+           non va a tutti - va alle imprese scelte una per una - e chi la
+           riceve deve saperlo dalla riga dell'elenco, non a meta' del testo.
+           Le tre parole stanno in TESTA all'oggetto perche' i telefoni lo
+           tagliano dopo una quarantina di caratteri, e quello che conta deve
+           stare prima del taglio. Poi lo ripetono l'anteprima (la riga grigia
+           accanto all'oggetto), il titolo della testata e la nota in coda:
+           quattro posti, la stessa parola, perche' e' la premessa di tutto il
+           resto. */
+        const oggetto = 'Invito riservato agli incontri B2B - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const anteprima = 'Un invito riservato alla Vostra impresa: indichi chi partecipa e tre preferenze. La prima prenota davvero.';
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', questo è un invito riservato alla Vostra impresa: nel corso del convegno "'
+            + nomeConvegno + '"' + (quandoEv ? ' di ' + quandoEv : '') + ' Le dedichiamo degli incontri B2B con i nostri professionisti.';
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* La nota in coda, in corpo minore: le due cose che riguardano il
            COLLEGAMENTO e non l'incontro (chi altri l'ha ricevuto, fin dove lo
@@ -1891,8 +1904,8 @@
             + '</td></tr></table></td></tr>';
         const fraseColleghi = 'Questo invito è arrivato anche a {{REFERENTI}}: è un invito solo per {{AZIENDA}}, '
             + 'e le scelte si vedono e si modificano dallo stesso collegamento, chiunque di voi lo apra.';
-        const fraseCollegamento = 'Il collegamento vale per tutta {{AZIENDA}}: lo può usare anche un Suo collega. '
-            + 'Le chiediamo di non diffonderlo fuori dall\'azienda.';
+        const fraseCollegamento = 'Questo invito è riservato a {{AZIENDA}}: il collegamento vale per tutta l\'impresa e lo può '
+            + 'usare anche un Suo collega, ma Le chiediamo di non diffonderlo fuori dall\'azienda.';
         const chiusura = 'Gli orari si assegnano a chi prenota per primo: Le consigliamo di scegliere appena può. '
             + 'Nell\'attesa di incontrarVi' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.';
         /* L'ORDINE IN CUI SI LEGGE.
@@ -1905,6 +1918,13 @@
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
+            + spazio(14)
+            /* Perche' proprio a loro: e' la frase che l'oggetto promette, e in
+               un paragrafo corto si legge anche da chi scorre. Dice come stanno
+               le cose e basta - i desk hanno pochi posti, le imprese le
+               scegliamo una per una - senza promettere numeri che non
+               conosciamo. */
+            + par('Gli incontri non sono aperti a tutti gli iscritti: i posti ai desk sono limitati e l\'invito va alle imprese che scegliamo una per una. La Vostra è fra queste.')
             + spazio(14)
             + par('Gli incontri si tengono a margine dei lavori in sala, ai desk riservati: qui sotto trova gli argomenti e come funziona la prenotazione, e dal pulsante sceglie i tavoli che Vi interessano e l\'orario.')
             + (sezioneQuandoDove ? spazio(24) + sezioneQuandoDove : '')
@@ -1919,12 +1939,13 @@
             + nota(fraseCollegamento)
         ));
         const html = involucro(oggetto, anteprima,
-            testaB2B('Gli incontri B2B della Vostra azienda', sommario) + copertinaB2B()
+            testaB2B('Invito riservato agli incontri B2B', sommario) + copertinaB2B()
             + corpo + spazio(36) + piedeB2B());
         // la versione a solo testo dice le stesse cose nello stesso ordine: chi
         // la riceve (posta che non mostra l'HTML) legge la stessa lettera
-        const testo = ['GLI INCONTRI B2B DELLA VOSTRA AZIENDA', sommario,
+        const testo = ['INVITO RISERVATO AGLI INCONTRI B2B', sommario,
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.',
+            'Gli incontri non sono aperti a tutti gli iscritti: i posti ai desk sono limitati e l\'invito va alle imprese che scegliamo una per una. La Vostra è fra queste.',
             'Gli incontri si tengono a margine dei lavori in sala, ai desk riservati.',
             ((ev.quando || ev.luogo) ? 'Quando e dove: ' + [ev.quando, ev.luogo].filter(Boolean).join(' - ')
                 + (ev.indirizzo ? ', ' + ev.indirizzo : '') : ''),
