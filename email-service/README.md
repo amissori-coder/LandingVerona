@@ -2045,6 +2045,39 @@ senza sospettarlo. A dividere in lotti e' chi chiama (`aLotti`, in
 
 Le prove stanno in `prove/elenco-inviti-b2b.prove.js`.
 
+### Una lista a parte: l'avviso delle nuove iscrizioni non le annuncia
+
+Entrando nell'area riservata si apre la finestra **"N nuove iscrizioni dal
+sito"**. Le aziende della finestra degli inviti non sono quelle: sono imprese
+gia' note - quasi sempre gia' iscritte - riscritte in forma di impresa da
+abbinare ai tavoli. Chi prepara gli inviti ne aggiunge dieci di fila, e senza
+un setaccio si ritrova dieci finestre da chiudere, ognuna che gli annuncia
+come "nuova iscrizione dal sito" una riga che ha appena digitato lui.
+
+Quindi la scheda creata da `aggiungi` con `invitoB2B: true` porta la bandiera
+**`soloB2B: true`**, che `/api/iscrizioni` e `/api/newsletter` riportano in
+elenco, e `area-riservata/app.js` toglie dall'avviso (`natoPerInvitiB2B`,
+`senzaInvitiB2B`) tutto quello che riconosce come nato per gli inviti:
+
+- la bandiera `soloB2B` sulla scheda;
+- la sezione `b2b` ("Solo incontri B2B") dichiarata sulla scheda;
+- le schede scritte **prima** che la bandiera esistesse: inserite a mano
+  (`inserito`, che le iscrizioni dai moduli del sito non hanno) e segnate nella
+  colonna `Invito B2B`.
+
+L'ultimo setaccio guarda anche `inserito` apposta: la colonna `Invito B2B` si
+mette **anche agli iscritti veri** importando il foglio, e da sola farebbe
+sparire dall'avviso proprio le iscrizioni per cui l'avviso esiste.
+
+La bandiera sta sulla **scheda** e non fra le presenze come la sezione: l'avviso
+legge l'archivio delle iscrizioni, delle presenze non sa nulla, e li' la
+bandiera non la vedrebbe nessuno. Il setaccio lavora in due tempi - riga per
+riga dove la bandiera si vede, poi per chiave di iscrizione (indirizzo piu'
+data) - perche' la stessa azienda arriva anche dall'elenco della newsletter, e
+senza il secondo passaggio rientrerebbe dalla finestra.
+
+Le prove stanno in `prove/avviso-iscritti.prove.js`.
+
 ### Quante letture costa (e la copia condivisa)
 
 L'archivio si legge dalla **copia condivisa** di `lib/copia-iscrizioni.js`, la

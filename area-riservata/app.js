@@ -15673,6 +15673,28 @@
         if (!v) return false;
         return ['si', 's', 'x', '1', 'true', 'y', 'yes', 'ok', 'vero', 'invitare'].indexOf(v) >= 0;
     }
+    /* NATA PER GLI INVITI B2B, non dal sito.
+       Le aziende della finestra degli inviti sono quasi sempre imprese GIA'
+       ISCRITTE, riscritte in forma di impresa da abbinare ai tavoli: una lista
+       a parte, che serve solo a preparare gli incontri. Aggiungerne una non e'
+       una nuova iscrizione, e annunciarla come tale vorrebbe dire aprire una
+       finestra di avviso a chi sta compilando l'elenco, riga dopo riga.
+       Si riconosce in tre modi, e servono tutti e tre:
+         - la bandiera "soloB2B", scritta sulla scheda da chi la crea: e' quella
+           giusta, ed e' l'unica che non si puo' confondere con altro;
+         - la sezione "Solo incontri B2B" dichiarata sulla scheda;
+         - le schede create PRIMA che la bandiera esistesse, che si riconoscono
+           dall'essere state inserite a mano (le iscrizioni dai moduli del sito
+           non hanno "inserito") e segnate per gli inviti.
+       L'ultimo setaccio guarda anche "inserito" apposta: la colonna "Invito
+       B2B" si mette anche agli iscritti veri importando il foglio, e da sola
+       farebbe sparire dall'avviso chi si e' iscritto davvero. */
+    function natoPerInvitiB2B(r) {
+        if (!r) return false;
+        if (r.soloB2B === true) return true;
+        if (String(r.modalita || '').toLowerCase() === 'b2b') return true;
+        return !!r.inserito && segnatoInvitoB2B(r);
+    }
     /* Chi puo' finire negli inviti agli incontri. Due setacci, e tutti e due
        tolgono gente senza chiedere permesso:
          - IMPORTATO. Agli incontri non si invita chi si e' iscritto, ma chi e'
@@ -28896,17 +28918,35 @@
         }));
         return fuori;
     }
+    /* FUORI LE AZIENDE DEGLI INVITI B2B.
+       Quelle non sono iscrizioni arrivate dal sito: sono imprese gia' note,
+       riscritte a mano nella finestra degli inviti per poterle abbinare ai
+       tavoli. Restano una lista a parte - vivono li' dentro e solo li' - e non
+       devono far comparire nulla: chi prepara gli inviti ne aggiunge dieci di
+       fila, e dieci finestre di avviso sono dieci finestre da chiudere.
+       Si toglie qui, dove l'avviso decide COSA guardare, e non piu' in la' al
+       momento di disegnarlo: cosi' non contano nemmeno per decidere se
+       l'avviso si apre.
+       Il setaccio lavora in due tempi. Prima riga per riga, dove la bandiera
+       si vede. Poi per CHIAVE DI ISCRIZIONE: la stessa azienda arriva anche
+       dall'elenco della newsletter, che di bandiere non ne porta, e senza il
+       secondo passaggio rientrerebbe dalla finestra. */
+    function senzaInvitiB2B(elenco, riconosciute) {
+        const fuori = {};
+        (riconosciute || []).forEach(r => { if (natoPerInvitiB2B(r)) fuori[chiaveIscrizione(r)] = true; });
+        return (elenco || []).filter(r => !natoPerInvitiB2B(r) && !fuori[chiaveIscrizione(r)]);
+    }
     /* Le iscrizioni da mostrare, secondo cio' che la persona puo' vedere. */
     function raccogliNuoviIscritti(vedeEventi, vedeSito, poi) {
-        if (!vedeSito) { iscrizioniEventiPerAvviso(ev => poi(unisciIscrizioni([ev]))); return; }
+        if (!vedeSito) { iscrizioniEventiPerAvviso(ev => poi(senzaInvitiB2B(unisciIscrizioni([ev]), ev))); return; }
         // l'elenco della newsletter letto da poco vale ancora: una chiamata (e le sue
         // letture sul database) in meno a ogni giro di controllo
         const fresco = _nlDati && (Date.now() - _nlAggiornato) < NL_SORVEGLIA_MS;
         const conNewsletter = fresco ? (f => f()) : caricaDestinatariNewsletter;
         conNewsletter(() => {
             const sito = (_nlDati && _nlDati.iscritti) || [];
-            if (!vedeEventi) { poi(unisciIscrizioni([sito])); return; }
-            iscrizioniEventiPerAvviso(ev => poi(unisciIscrizioni([ev, sito])));
+            if (!vedeEventi) { poi(senzaInvitiB2B(unisciIscrizioni([sito]), sito)); return; }
+            iscrizioniEventiPerAvviso(ev => poi(senzaInvitiB2B(unisciIscrizioni([ev, sito]), ev)));
         });
     }
     function avvisaNuoviIscritti() {
