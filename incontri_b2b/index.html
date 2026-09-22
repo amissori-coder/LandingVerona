@@ -81,6 +81,14 @@
         .esito.ko { color: var(--rosso); font-weight: bold; }
         .fatto { text-align: center; padding: 26px 10px; }
         .fatto .segno { font-size: 2.4rem; color: var(--verde); }
+        .fatto .segno.ko { color: var(--rosso); }
+/* L'orario sfumato: preso da un'altra azienda mentre si salvava. In testa alla
+   ricevuta e in rosso, perche' "scelte salvate" con sotto, piccolo, "il Suo
+   incontro pero' non c'e'" e' il modo migliore per far presentare qualcuno a un
+   tavolo che non lo aspetta. */
+        .sfumato { border: 1px solid #f0c3c0; border-left: 3px solid var(--rosso); background: #FDF1F0; border-radius: 6px; padding: 14px 16px; margin: 4px 0 18px; text-align: left; font-size: 0.95rem; color: var(--testo); }
+        .sfumato b { color: var(--rosso); }
+        .sfumato .invia { margin-top: 12px; font-size: 0.98rem; padding: 11px 22px; }
         .fuori-programma { margin-top: 14px; border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; font-size: 0.93rem; }
         .fuori-programma b { color: #8a4a12; }
         .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
@@ -1199,11 +1207,24 @@
                         b.disabled = false; b.textContent = etichetta;
                         esito.className = 'esito ko';
                         esito.textContent = (e && e.msg) || 'Salvataggio non riuscito: riprovi fra un momento.';
-                        // un collega ha salvato prima, oppure l'orario e' appena
-                        // stato preso: si rilegge, invece di lasciare a video una
-                        // pagina che racconta una cosa che non c'e' piu'
-                        if (e && (e.motivo === 'collega' || e.motivo === 'occupato' || e.motivo === 'orario')) {
-                            setTimeout(apri, 1500);
+                        /* UN COLLEGA HA SALVATO PRIMA: vale quello che ha
+                           scritto lui, e la risposta lo porta gia' con se'. Si
+                           ridisegna con i suoi dati invece di rileggere. */
+                        if (e && e.motivo === 'collega' && e.modo === 'azienda') {
+                            var avviso = e.msg;
+                            moduloAzienda(e);
+                            avvisaOrari(avviso);
+                            return;
+                        }
+                        /* L'ORARIO L'HA PRESO UN'ALTRA AZIENDA mentre si
+                           salvava. Si rifanno le sole griglie - cosi' chi
+                           stava scrivendo la sua domanda non perde quello che
+                           ha scritto - e la selezione sbagliata si toglie da
+                           se': e' la funzione che aggiorna gli orari a
+                           accorgersene e a dirlo. */
+                        if (e && (e.motivo === 'occupato' || e.motivo === 'orario')) {
+                            sceltaOra = ''; sceltaArea = '';
+                            aggiornaOrari(true);
                         }
                         return;
                     }
@@ -1267,11 +1288,29 @@
                     + 'assegnato: quello vale, e da qui non si cambia. Se non Vi va bene potete solo annullarlo, '
                     + 'dal riquadro "I Vostri incontri".</p>'
                     : '';
-                var esitoPrima = (e.esitoPrima && !e.esitoPrima.ok && !e.esitoPrima.liberata)
-                    ? '<p style="margin-top:10px;" class="avviso-mail">L\'orario della prima preferenza non era piu&grave; libero: '
-                    + esc(e.esitoPrima.msg || 'ne scelga un altro') + '</p>'
+                /* L'ORARIO PRESO DA UN'ALTRA AZIENDA MENTRE SI SALVAVA.
+                   Gli inviti partono insieme, e alle dieci del mattino dopo
+                   sono in venti sulla stessa pagina: due imprese che premono
+                   lo stesso orario nello stesso momento sono la norma, non
+                   l'eccezione. Una lo prende, all'altra lo diciamo - e glielo
+                   diciamo IN TESTA e in rosso, non in una riga in mezzo alla
+                   ricevuta: "scelte salvate" con sotto, piccolo, "il Suo
+                   incontro pero' non c'e'" e' il modo migliore per far
+                   presentare qualcuno a un tavolo che non lo aspetta.
+                   Le altre scelte restano salvate (la seconda, la terza, le
+                   domande): si torna al modulo solo per l'orario. */
+                var sfumato = (e.esitoPrima && !e.esitoPrima.ok && !e.esitoPrima.liberata);
+                var esitoPrima = sfumato
+                    ? '<div class="sfumato"><b>L\'orario che avevate scelto non era pi&ugrave; libero.</b> '
+                    + esc(e.esitoPrima.msg || 'L\'ha preso un\'altra azienda un attimo prima: ne scelga un altro.')
+                    + '<div class="mini" style="margin-top:6px;">Tutto il resto &egrave; salvato: seconda e terza '
+                    + 'preferenza, nominativi e domande. Manca solo l\'orario del primo incontro.</div>'
+                    + '<button type="button" class="invia" id="riscegli">Scegli un altro orario</button></div>'
                     : '';
-                box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div><h2>Scelte salvate</h2>'
+                box.innerHTML = '<div class="fatto">'
+                    + (sfumato ? '<div class="segno ko">&#33;</div><h2>Manca l\'orario del primo incontro</h2>'
+                        : '<div class="segno">&#10003;</div><h2>Scelte salvate</h2>')
+                    + esitoPrima
                     + '<div class="ricevuta">'
                     + (righe.length
                         ? '<div class="ric-blocco"><div class="ric-et">'
@@ -1300,7 +1339,7 @@
                         + 'prenotazioni: al desk non risulta nessun incontro a quei tavoli.</p></div>'
                         : '')
                     + '</div>'
-                    + bloccate + esitoPrima
+                    + bloccate
                     + (e.mailInviata
                         ? '<p class="ric-mail">Abbiamo mandato la conferma'
                         + ((e.avvisati || []).length > 1 ? ' a tutti i referenti' : '')
@@ -1309,6 +1348,8 @@
                         + 'Riprovi fra qualche minuto, oppure scriva a info@nextgenerationbusiness.it: al desk basta il nome dell\'azienda.</p>')
                     + '<button type="button" class="rifai" id="rifai">Rivedi le scelte o rimanda la mail</button></div>';
                 document.getElementById('rifai').addEventListener('click', apri);
+                var ri = document.getElementById('riscegli');
+                if (ri) ri.addEventListener('click', apri);
             }
 
             function apri() {

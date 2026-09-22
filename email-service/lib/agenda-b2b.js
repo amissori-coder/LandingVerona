@@ -298,7 +298,19 @@ async function prendiSlot(db, dati) {
             if (!q || nostro(q)) { areaId = candidati[i]; break; }
         }
         if (!areaId) {
-            esito = { ok: false, motivo: 'occupato', msg: 'Quell\'orario e stato appena prenotato da qualcun altro: ne scelga un altro.' };
+            /* DUE IMPRESE SULLO STESSO ORARIO. Non e' un caso raro: gli
+               inviti partono insieme, e alle dieci del mattino dopo sono in
+               venti sulla stessa pagina. Chi arriva secondo se lo sente dire
+               QUI, dentro la transazione, che e' l'unico posto dove la
+               risposta e' vera: fuori, fra la lettura e la scrittura, quel
+               posto puo' essere gia' di un altro.
+               Il messaggio dice le tre cose che servono: non e' stato preso,
+               perche', e che si puo' fare subito. */
+            esito = {
+                ok: false, motivo: 'occupato',
+                msg: 'Quell\'orario è stato appena prenotato da un\'altra azienda: non è più disponibile. '
+                    + 'Qui sotto trova gli orari aggiornati: ne scelga un altro.'
+            };
             return;
         }
         // il posto che aveva prima si libera: quello indicato, oppure quello
