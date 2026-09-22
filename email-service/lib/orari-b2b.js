@@ -62,7 +62,7 @@ function ordinaPerOrario(tavoli) {
 function normalizzaTavoli(tavoli) {
     return (tavoli || []).filter(Boolean)
         .map(t => (typeof t === 'string'
-            ? { nome: t, orario: '', con: '', perChi: '', perRuolo: '', prenotatoDa: '', scelta: 0 }
+            ? { nome: t, orario: '', con: '', perChi: '', perRuolo: '', prenotatoDa: '', scelta: 0, nota: '' }
             : {
                 nome: String(t.nome || ''), orario: String(t.orario || ''), con: String(t.con || ''),
                 /* CHI VIENE per l'azienda, e chi ha prenotato: con l'invito per
@@ -73,7 +73,15 @@ function normalizzaTavoli(tavoli) {
                    il nominativo spariva senza un errore, prima della mail e
                    prima del foglio. */
                 perChi: String(t.perChi || ''), perRuolo: String(t.perRuolo || ''),
-                prenotatoDa: String(t.prenotatoDa || ''), scelta: Number(t.scelta) || 0
+                prenotatoDa: String(t.prenotatoDa || ''), scelta: Number(t.scelta) || 0,
+                /* DI CHE COSA SI PARLA a quell'incontro: la questione che
+                   l'impresa ci ha scritto, quando l'incontro nasce da li'
+                   (il desk Revilaw e' quasi sempre questo). Passa da qui e
+                   si perdeva, come si erano persi i nominativi: questa
+                   funzione riduce ogni tavolo ai campi che elenca, e quello
+                   che non e' elencato sparisce senza un errore, prima della
+                   mail e prima del foglio. */
+                nota: String(t.nota || '')
             }))
         .filter(t => t.nome);
 }
