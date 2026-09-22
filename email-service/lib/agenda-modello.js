@@ -17,7 +17,7 @@
    presa un attimo prima.
    ============================================================ */
 'use strict';
-const { AREE_B2B, areaDa, nomeArea } = require('./temi-b2b');
+const { AREE_B2B, areaDa, nomeArea, gemelliDi, capofilaDi, areaInterna, famiglieB2B } = require('./temi-b2b');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -155,7 +155,17 @@ function normalizzaAree(v, giornata) {
             .map(k => chiaveSlot(oraDaChiave(k)))
             .filter(k => k && validi.indexOf(k) >= 0);
         fuori[a.id] = {
-            attiva: x.attiva === true,
+            /* I tavoli INTERNI nascono ACCESI. Gli altri no, perche' un tavolo
+               del convegno esiste solo se qualcuno lo tiene, e accenderlo da
+               soli vorrebbe dire proporre alle imprese un incontro che non
+               abbiamo mai deciso di fare. Il desk Revilaw e' l'opposto: e'
+               nostro, sta li' tutta la giornata, non lo si propone a nessuno
+               e chi organizza ci porta le cose a mano. Chiederne
+               l'accensione sarebbe un passaggio in piu' per un tavolo che
+               c'e' comunque - e finche' non si nota, le esigenze da portare
+               al desk non si possono assegnare. Spegnerlo resta possibile:
+               una volta toccato vale quello che c'e' scritto. */
+            attiva: (x.attiva === undefined && a.interno) ? true : x.attiva === true,
             referenti: referenti,
             chiusi: Array.from(new Set(chiusi)).sort(),
             nota: testo(x.nota, 300)
@@ -327,6 +337,66 @@ function slotDiArea(agenda, prenotazioni, areaId, voci) {
         };
     });
 }
+/* =========================================================
+   GLI ORARI DI UNA FAMIGLIA DI TAVOLI
+   ---------------------------------------------------------
+   Due tavoli gemelli, per l'azienda, sono un tavolo solo con il
+   doppio dei posti: alle 10:00 ci si puo' sedere in due, uno per
+   referente. Qui le due griglie si fondono in una, orario per
+   orario, e resta scritto QUANTI posti restano e su quale tavolo
+   vero finirebbe chi prenota adesso.
+
+   Le regole della fusione, in ordine:
+     - se in quell'ora un tavolo della famiglia e' gia' NOSTRO, la
+       casella e' nostra: un'azienda non prenota due volte la stessa
+       ora, e vedersela libera la inviterebbe a farlo;
+     - se ce n'e' almeno uno libero, la casella e' libera (e `posti`
+       dice se sono uno o due);
+     - se sono tutti presi, e' occupata; se non ce n'e' nessuno
+       disponibile per altri motivi, e' chiusa. Occupato e chiuso
+       restano due cose diverse: la prima e' "qualcuno e' arrivato
+       prima", la seconda e' "quel posto non c'e' mai stato".
+   I tavoli SPENTI non entrano nella fusione: se sono spenti tutti e
+   due si guarda comunque il capofila, cosi' un incontro gia' fissato
+   non sparisce dalla pagina di chi lo ha.
+========================================================= */
+function slotDiFamiglia(agenda, prenotazioni, capofila, voci, aziendaId) {
+    const capo = capofilaDi(capofila) || String(capofila || '');
+    const tutti = gemelliDi(capo);
+    const accesi = tutti.filter(id => (((agenda.aree || {})[id]) || {}).attiva === true);
+    const lista = accesi.length ? accesi : [capo];
+    const griglie = lista.map(id => ({ id: id, slot: slotDiArea(agenda, prenotazioni, id, voci) }));
+    const az = String(aziendaId || '');
+    return slotDellaGiornata(agenda.giornata).map((s, i) => {
+        const celle = griglie.map(g => ({ area: g.id, cella: g.slot[i] })).filter(x => x.cella);
+        const mia = celle.filter(x => x.cella.chi && az && String(x.cella.chi.aziendaId || '') === az)[0] || null;
+        const liberi = celle.filter(x => x.cella.stato === 'libero');
+        const occupati = celle.filter(x => x.cella.stato === 'occupato');
+        const scelto = mia || liberi[0] || occupati[0] || celle[0] || null;
+        return {
+            ora: s.ora, fine: s.fine, chiave: s.chiave,
+            stato: mia ? 'mio' : (liberi.length ? 'libero' : (occupati.length ? 'occupato' : 'chiuso')),
+            // quanti posti restano a quell'ora: con i gemelli possono essere due
+            posti: liberi.length,
+            // su quale tavolo VERO finirebbe chi prenota adesso (o dove sta il nostro)
+            area: scelto ? scelto.area : capo,
+            chi: mia ? mia.cella.chi : null
+        };
+    });
+}
+/* I tavoli di una famiglia su cui si puo' davvero prenotare quell'ora, in
+   ordine: il capofila per primo. Lo usa la transazione che prende lo slot,
+   che dentro sceglie il primo ancora libero. */
+function gemelliPrenotabili(agenda, capofila, chiave, voci) {
+    return gemelliDi(capofilaDi(capofila) || String(capofila || '')).filter(id => {
+        const cfg = (agenda.aree || {})[id] || areaVuota();
+        if (!cfg.attiva) return false;
+        if (cfg.chiusi.indexOf(chiave) >= 0) return false;
+        if (voci && chiusureDaPalco(agenda.giornata, voci, cfg.referenti)[chiave]) return false;
+        return true;
+    });
+}
+
 /* =========================================================
    UN ORARIO PRENOTATO NON SI TOCCA
    ---------------------------------------------------------
@@ -560,6 +630,13 @@ const MAX_REFERENTI = 8;
    quarta scelta. Con cinque righe diventava un elenco di desideri da
    leggere a mano la sera prima, e le preferenze restano tre. */
 const MAX_ESIGENZE = 1;
+/* La PREFERENZA di un appuntamento e' 1, 2 o 3. Un'altra esigenza portata a
+   un tavolo non e' nessuna delle tre - non l'ha scelta l'impresa fra i temi,
+   l'abbiamo spostata noi - e ha il suo numero: serve perche' "il posto della
+   stessa azienda con la stessa preferenza" e' la regola con cui si decide
+   quale incontro si sposta. Senza un numero suo, portare un'esigenza al desk
+   cancellerebbe la seconda preferenza gia' assegnata a quell'impresa. */
+const SCELTA_ESIGENZA = 4;
 const TESTO_ESIGENZA = 600;
 
 function rifAziende(db) { return db.collection('b2bAziende'); }
@@ -610,7 +687,10 @@ function normalizzaEsigenza(v) {
         id: testo(x.id, 60),
         perChi: testo(x.perChi, 160), perRuolo: testo(x.perRuolo, 160), perDoc: testo(x.perDoc, 400),
         testo: t, quando: Number(x.quando) || 0,
-        stato: testo(x.stato, 20) === 'gestita' ? 'gestita' : 'aperta'
+        /* Tre stati: aperta (da guardare), gestita (l'abbiamo vista e
+           risolta a voce), assegnata (l'abbiamo portata a un tavolo, e
+           adesso e' un incontro con un'ora sopra). */
+        stato: ['gestita', 'assegnata'].indexOf(testo(x.stato, 20)) >= 0 ? testo(x.stato, 20) : 'aperta'
     };
 }
 function aziendaVuota(evento, aziendaId) {
@@ -703,7 +783,8 @@ module.exports = {
     idEvento, rifAgenda, rifPrenotazioni,
     areaVuota, normalizzaReferente, normalizzaAree, normalizzaAgenda, leggiAgenda,
     normalizzaPrenotazioni, leggiPrenotazioni,
-    slotDiArea, areeComposte, appuntamentoDi,
+    slotDiArea, slotDiFamiglia, gemelliPrenotabili, areeComposte, appuntamentoDi,
+    gemelliDi, capofilaDi, areaInterna, famiglieB2B, SCELTA_ESIGENZA,
     corpoPrenotazioni, appuntamentoDaLiberare, appuntamentiAzienda, slotDi,
     MAX_REFERENTI, MAX_ESIGENZE, TESTO_ESIGENZA,
     rifAziende, nomeDocAzienda, rifAzienda, aziendaVuota, normalizzaAziendaB2B,

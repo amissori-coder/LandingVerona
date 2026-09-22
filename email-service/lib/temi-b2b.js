@@ -69,7 +69,7 @@ const AREE_B2B = [
        tavolo resta prenotabile - e chi invita sceglie a quale dei due
        convoca l'impresa. Sta accanto al suo gemello, non in fondo: chi
        guarda l'elenco deve vedere subito che sono lo stesso argomento. */
-    { id: 'modello-231-b', nome: 'Modello 231 e TCF - secondo tavolo' },
+    { id: 'modello-231-b', nome: 'Modello 231 e TCF - secondo tavolo', gemelloDi: 'modello-231' },
     { id: 'finanza-agevolata', nome: 'Finanza agevolata' },
     /* I due tavoli che non sono tappe del programma: la revisione legale,
        che e' il mestiere di casa, e la certificazione ISO. Ci sono lo
@@ -77,12 +77,60 @@ const AREE_B2B = [
     { id: 'revisione', nome: 'Revisione legale' },
     { id: 'certificazione-iso', nome: 'Certificazione ISO' },
     { id: 'rating-legalita', nome: 'Rating di legalita' },
-    { id: 'rating-legalita-b', nome: 'Rating di legalita - secondo tavolo' }
+    { id: 'rating-legalita-b', nome: 'Rating di legalita - secondo tavolo', gemelloDi: 'rating-legalita' },
+    /* IL DESK REVILAW, e' INTERNO: non compare nel modulo dell'azienda ne'
+       nella mail d'invito, e nessuno lo puo' prenotare da se'. Ci si finisce
+       solo perche' lo decide chi organizza - di solito portandoci un'altra
+       esigenza segnalata dall'impresa, che a un tavolo del convegno non
+       appartiene. All'azienda arriva comunque la mail con il foglio: l'ora e
+       il posto dove presentarsi ci sono, quello che non c'e' e' il modo di
+       scegliersela da soli. Anche lui ha il suo secondo tavolo. */
+    { id: 'desk-revilaw', nome: 'Desk Revilaw', interno: true },
+    { id: 'desk-revilaw-b', nome: 'Desk Revilaw - secondo tavolo', interno: true, gemelloDi: 'desk-revilaw' }
 ];
 
 // le sole etichette, nello stesso ordine: la forma con cui gli orari e le
 // prenotazioni viaggiavano gia' prima che le aree avessero un identificativo
 const TEMI_B2B = AREE_B2B.map(a => a.nome);
+
+/* =========================================================
+   TAVOLI GEMELLI E TAVOLI INTERNI
+   ---------------------------------------------------------
+   Due argomenti (e il desk Revilaw) sono tenuti da DUE persone, quindi
+   hanno due tavoli. Sono due tavoli veri - due referenti, due griglie
+   di orari, due chiusure diverse quando uno dei due e' sul palco - e
+   per chi organizza restano due.
+   Per l'AZIENDA invece sono un tavolo solo: a lei interessa l'argomento
+   e l'ora, non a quale dei due professionisti la manderemo. Prima il
+   modulo li mostrava tutti e due, uno sotto l'altro, con lo stesso
+   titolo: sembrava un errore, e all'impresa toccava scegliere una cosa
+   che non e' sua. Adesso il modulo mostra UNA voce per famiglia, con
+   gli orari dei due tavoli fusi: lo stesso orario si puo' prenotare due
+   volte, e a chi dei due assegnarlo lo decide il servizio (il primo
+   libero, il capofila per primo). Chi organizza puo' sempre spostare.
+
+   `interno` e' l'altra faccia: un tavolo che esiste per noi e non per
+   loro. Non si manda nell'invito, non compare nel modulo, non si
+   prenota da se'. L'appuntamento pero' e' vero, e va sul foglio.
+========================================================= */
+function capofilaDi(id) {
+    const a = areaDa(id);
+    return a ? (a.gemelloDi || a.id) : '';
+}
+/* I tavoli di una famiglia, nell'ordine in cui si riempiono: prima il
+   capofila, poi i suoi secondi tavoli. L'ordine e' quello dell'elenco. */
+function gemelliDi(id) {
+    const capo = capofilaDi(id);
+    if (!capo) return [];
+    return AREE_B2B.filter(a => (a.gemelloDi || a.id) === capo).map(a => a.id);
+}
+function areaInterna(id) { const a = areaDa(id); return !!(a && a.interno); }
+/* Le famiglie che l'azienda puo' vedere: una voce per argomento, senza le
+   interne. `aree` sono i tavoli veri che ci stanno dentro. */
+function famiglieB2B() {
+    return AREE_B2B.filter(a => !a.gemelloDi && !a.interno)
+        .map(a => ({ id: a.id, nome: a.nome, aree: gemelliDi(a.id) }));
+}
 
 function areaDa(id) {
     const k = String(id == null ? '' : id).trim().toLowerCase();
@@ -122,4 +170,7 @@ const ALIAS_B2B = {
     'modello 231 e rating di legalita': [3, 8]
 };
 
-module.exports = { AREE_B2B, TEMI_B2B, ALIAS_B2B, areaDa, nomeArea, idArea };
+module.exports = {
+    AREE_B2B, TEMI_B2B, ALIAS_B2B, areaDa, nomeArea, idArea,
+    capofilaDi, gemelliDi, areaInterna, famiglieB2B
+};

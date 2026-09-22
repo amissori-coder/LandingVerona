@@ -17925,8 +17925,10 @@
         };
         const deskHtml = (_rb.desk || []).filter(d => d.attiva || d.occupati || d.coda.length).map(d => {
             const presi = d.slot.filter(s => s.stato === 'occupato');
-            return '<div class="rb-desk"><div class="rb-desk-testa"><b>' + esc(d.nome) + '</b>'
-                + (d.referenti.length ? '<span class="hint">con ' + esc(d.referenti.map(r => r.nome).join(', ')) + '</span>' : '<span class="ev-ko">nessun referente</span>')
+            return '<div class="rb-desk' + (d.interno ? ' rb-interno' : '') + '"><div class="rb-desk-testa"><b>' + esc(d.nome) + '</b>'
+                + (d.interno ? '<span class="rb-pos">solo nostro</span>' : '')
+                + (d.referenti.length ? '<span class="hint">con ' + esc(d.referenti.map(r => r.nome).join(', ')) + '</span>'
+                    : (d.interno ? '' : '<span class="ev-ko">nessun referente</span>'))
                 + '<span class="hint">' + presi.length + ' fissati &middot; ' + d.liberi + ' liberi</span></div>'
                 + (presi.length ? presi.map(s => rigaSlot(d, s)).join('') : '<div class="hint" style="padding:6px 0;">Nessun incontro fissato.</div>')
                 + (d.coda.length
@@ -17939,14 +17941,41 @@
         const esigenzeHtml = esigenze.length
             ? '<div class="rb-desk rb-esigenze"><div class="rb-desk-testa"><b>Altre esigenze segnalate</b>'
             + '<span class="hint">non sono incontri: sono domande a cui rispondere</span></div>'
-            + esigenze.map(e => '<div class="rb-riga' + (e.stato === 'gestita' ? ' gestita' : '') + '">'
-                + '<span class="rb-chi"><b>' + esc(e.aziendaNome) + '</b>'
-                + (e.perChi ? '<span class="rb-per">per ' + esc(e.perChi) + '</span>' : '')
-                + '<span class="rb-nota">' + esc(e.testo) + '</span></span>'
-                + (puo ? '<span class="rb-az"><button class="btn btn-sm btn-ghost rb-esigenza" data-az="' + esc(e.aziendaId) + '" '
-                    + 'data-id="' + esc(e.id) + '" data-stato="' + (e.stato === 'gestita' ? 'aperta' : 'gestita') + '">'
-                    + (e.stato === 'gestita' ? 'Riapri' : 'Segna gestita') + '</button></span>' : '')
-                + '</div>').join('')
+            + esigenze.map(e => {
+                const aperto = _rbAperto === ('esig|' + e.id);
+                return '<div class="rb-riga' + (e.stato === 'gestita' ? ' gestita' : '')
+                    + (e.stato === 'assegnata' ? ' gestita' : '') + '">'
+                    + '<span class="rb-chi"><b>' + esc(e.aziendaNome) + '</b>'
+                    + (e.perChi ? '<span class="rb-per">per ' + esc(e.perChi) + '</span>' : '')
+                    + (e.stato === 'assegnata' ? '<span class="rb-pos">portata a un tavolo</span>' : '')
+                    + '<span class="rb-nota">' + esc(e.testo) + '</span></span>'
+                    /* Tre cose si possono fare a un'altra esigenza, e sono
+                       diverse: PORTARLA a un tavolo (diventa un incontro con
+                       la sua ora, e parte la mail con il foglio), segnarla
+                       gestita (l'abbiamo risolta a voce) o CANCELLARLA. La
+                       cancellazione e' l'unica che non si disfa, e chiede
+                       conferma. */
+                    + (puo ? '<span class="rb-az">'
+                        + (e.stato === 'assegnata' ? ''
+                            : '<button class="btn btn-sm btn-ghost rb-esig-porta" data-id="' + esc(e.id) + '">Porta a un tavolo</button>')
+                        + '<button class="btn btn-sm btn-ghost rb-esigenza" data-az="' + esc(e.aziendaId) + '" '
+                        + 'data-id="' + esc(e.id) + '" data-stato="' + (e.stato === 'gestita' ? 'aperta' : 'gestita') + '">'
+                        + (e.stato === 'gestita' ? 'Riapri' : 'Segna gestita') + '</button>'
+                        + '<button class="btn btn-sm btn-ghost rb-esig-canc" data-az="' + esc(e.aziendaId) + '" '
+                        + 'data-id="' + esc(e.id) + '">Cancella</button>'
+                        + '</span>' : '')
+                    + (aperto
+                        ? '<div class="rb-dove">Tavolo e orario: ' + tendinaDove('esig|' + e.id, '')
+                        + '<button class="btn btn-sm btn-primary rb-esig-ok" data-id="' + esc(e.id) + '" '
+                        + 'data-az="' + esc(e.aziendaId) + '">Porta e avvisa</button>'
+                        + '<button class="btn btn-sm btn-ghost rb-annulla">Lascia stare</button>'
+                        + '<div class="hint" style="flex-basis:100%;margin-top:4px;">Diventa un incontro come gli altri: '
+                        + 'va sul foglio del desk e all\'azienda parte la mail con il PDF. '
+                        + 'Il <b>desk Revilaw</b> è in elenco come gli altri tavoli, ma nel modulo dell\'azienda non compare: '
+                        + 'l\'orario glielo diciamo solo con quella mail.</div></div>'
+                        : '')
+                    + '</div>';
+            }).join('')
             + '</div>'
             : '';
         box.innerHTML = conti + (deskHtml || '<div class="hint">Nessun tavolo attivo.</div>') + esigenzeHtml;
@@ -18017,6 +18046,24 @@
         box.querySelectorAll('.rb-esigenza').forEach(b => b.addEventListener('click', () => {
             chiama({ azione: 'esigenza-segna', aziendaId: b.dataset.az, esigenzaId: b.dataset.id, stato: b.dataset.stato },
                 () => 'Segnata.');
+        }));
+        box.querySelectorAll('.rb-esig-porta').forEach(b => b.addEventListener('click', () => {
+            _rbAperto = 'esig|' + b.dataset.id; ridisegna();
+        }));
+        box.querySelectorAll('.rb-esig-ok').forEach(b => b.addEventListener('click', () => {
+            const d = dove('esig|' + b.dataset.id);
+            if (!d.chiave) { esitoRb('Scegli un orario libero.', true); return; }
+            chiama({
+                azione: 'esigenza-assegna', aziendaId: b.dataset.az, esigenzaId: b.dataset.id,
+                area: d.area, chiave: d.chiave, avvisa: true
+            }, r => (r.interno ? 'Appuntamento al desk Revilaw alle ' : 'Esigenza portata al tavolo alle ')
+                + (r.ora || '') + ': avvisati ' + ((r.avvisati || []).length) + ' referenti.');
+        }));
+        box.querySelectorAll('.rb-esig-canc').forEach(b => b.addEventListener('click', () => {
+            if (!confirm('Cancello questa esigenza? Sparisce dal riepilogo e non si torna indietro. '
+                + 'L\'azienda può riscriverla dal suo modulo, e nessuna mail parte adesso.')) return;
+            chiama({ azione: 'esigenza-cancella', aziendaId: b.dataset.az, esigenzaId: b.dataset.id },
+                () => 'Esigenza cancellata.');
         }));
     }
 
@@ -20184,7 +20231,13 @@
             caricaAgendaB2B(ev, () => { if (vistaCorrente === 'eventi') aggiornaSchedaGiornata(ev); }, true);
             return;
         }
-        const attive = agenda.aree.filter(x => x.attiva);
+        /* I TAVOLI DELL'INVITO. Quelli INTERNI restano fuori: il desk Revilaw
+           e' nostro, nel modulo dell'azienda non compare e proporlo nella
+           mail sarebbe invitare a prenotare una cosa che non si prenota.
+           Chi e' interno lo dice il formato della newsletter, che tiene
+           l'elenco dei tavoli: qui non se ne fa una seconda copia. */
+        const interna = id => !!(window.RV_NEWSLETTER && RV_NEWSLETTER.areaInternaB2B && RV_NEWSLETTER.areaInternaB2B(id));
+        const attive = agenda.aree.filter(x => x.attiva && !interna(x.id));
         if (!attive.length) {
             toast('Nessun tavolo attivo: aprine almeno uno dalla giornata, sotto "La giornata degli incontri", e riprova.', 'rosso');
             return;

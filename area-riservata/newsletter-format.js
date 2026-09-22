@@ -400,6 +400,14 @@
             + spazio(12)
         );
     }
+    /* UNA RIGA IN GRASSETTO dentro il corpo. Esiste perche' par() SCAPPA
+       l'HTML: scrivendo par('<b>...</b>') nella mail si leggeva "<b>I tavoli
+       della giornata</b>", marcatura compresa - ed e' arrivata cosi' a chi
+       l'ha ricevuta. Qui il grassetto sta nello stile della cella, e il testo
+       resta testo. */
+    function capoletto(testo) {
+        return '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">' + esc(testo) + '</td></tr>';
+    }
     function etichetta(testo) {
         return '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(testo) + '</div>';
     }
@@ -1363,7 +1371,13 @@
         { nome: 'Revisione legale', descrizione: 'revisione legale dei conti e collegio sindacale' },
         { nome: 'Certificazione ISO', descrizione: 'certificazioni ISO e sistemi di gestione: qualità, ambiente e sicurezza' },
         { nome: 'Rating di legalita', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
-        { nome: 'Rating di legalita - secondo tavolo', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' }
+        { nome: 'Rating di legalita - secondo tavolo', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
+        /* IL DESK REVILAW e' INTERNO: sta in elenco perche' i tre elenchi dei
+           tavoli devono restare identici (lo controlla prove/tavoli-b2b), ma
+           l'invito non lo propone mai - chi compone la mail toglie i tavoli
+           interni. Ci si finisce solo perche' lo decide chi organizza. */
+        { nome: 'Desk Revilaw', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' },
+        { nome: 'Desk Revilaw - secondo tavolo', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
@@ -1371,8 +1385,14 @@
     const AREE_B2B = [
         'merito-creditizio', 'adeguati-assetti', 'esg',
         'modello-231', 'modello-231-b', 'finanza-agevolata',
-        'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b'
+        'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b',
+        'desk-revilaw', 'desk-revilaw-b'
     ].map((id, i) => ({ id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione }));
+    /* I tavoli INTERNI non si propongono a nessuno. La regola sta anche qui
+       perche' qui si compone la mail d'invito, e un tavolo interno finito in
+       elenco sarebbe un invito a prenotare una cosa che non si prenota. */
+    const AREE_INTERNE_B2B = ['desk-revilaw', 'desk-revilaw-b'];
+    const areaInternaB2B = id => AREE_INTERNE_B2B.indexOf(String(id || '')) >= 0;
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
        caselle e per quello a orari. Stanno qui in tre funzioni e non
        ricopiate in due punti, perche' sono la faccia della mail: due copie
@@ -1652,7 +1672,7 @@
         dati = dati || {};
         const ev = dati.evento || {};
         const g = dati.giornata || {};
-        const aree = (dati.aree || []).filter(a => a && a.nome);
+        const aree = (dati.aree || []).filter(a => a && a.nome && !areaInternaB2B(a.id));
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'Gli incontri B2B della Vostra azienda - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
@@ -1702,7 +1722,7 @@
             + par('Per questo riserviamo alla Vostra azienda un incontro con i nostri professionisti, su uno dei tavoli della giornata.')
             + ((ev.quando || ev.luogo) ? spazio(18) + riquadro('Quando e dove',
                 [ev.quando, ev.luogo].filter(Boolean).join(' - '), ev.indirizzo || '') : '')
-            + (aree.length ? spazio(18) + par('<b>I tavoli della giornata</b>') + spazio(6) + elencoTavoli : '')
+            + (aree.length ? spazio(18) + capoletto('I tavoli della giornata') + spazio(6) + elencoTavoli : '')
             + (elencoRegole ? spazio(18) + elencoRegole : '')
             + spazio(18)
             + '{{SE_COLLEGHI}}' + par(fraseColleghi) + spazio(18) + '{{/SE_COLLEGHI}}'
@@ -2213,7 +2233,7 @@
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
         passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
-        invitoB2BAzienda: invitoB2BAzienda, regoleB2B: regoleB2B,
+        invitoB2BAzienda: invitoB2BAzienda, regoleB2B: regoleB2B, areaInternaB2B: areaInternaB2B,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };

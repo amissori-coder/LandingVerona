@@ -90,6 +90,42 @@
         .slot.mio { border-color: var(--verde); background: #EAF6F0; color: var(--verde); font-weight: bold; }
         .slot.mio .et { color: var(--verde); }
         .slot[disabled]:not(.mio) { cursor: default; background: var(--sfondo); border-style: dashed; color: #94A3B8; }
+        /* --- IL MODULO DELL'AZIENDA, compatto ---
+           Otto tavoli per quattordici orari erano centododici caselle una
+           sotto l'altra: la pagina scorreva per tre schermate e la domanda
+           vera ("quale argomento?") si perdeva. I tavoli diventano quindi
+           righe che si aprono, una alla volta, e gli orari stanno stretti.
+           Si apre da se' quello dove l'azienda ha gia' il suo incontro. */
+        .tav { border: 1px solid var(--bordo); border-radius: 8px; background: #fff; margin-top: 8px; }
+        .tav[open] { border-color: var(--navy-light); }
+        .tav > summary {
+            list-style: none; cursor: pointer; padding: 11px 14px;
+            display: flex; align-items: baseline; gap: 10px;
+        }
+        .tav > summary::-webkit-details-marker { display: none; }
+        .tav > summary::after { content: '\25BE'; margin-left: auto; color: var(--tenue); font-size: 0.8rem; }
+        .tav[open] > summary::after { content: '\25B4'; }
+        .tav > summary:hover { background: var(--chiaro); border-radius: 8px; }
+        .tav-nome { font-weight: bold; color: var(--navy-dark); font-size: 0.98rem; }
+        .tav-quanti { font-size: 0.82rem; color: var(--tenue); }
+        .tav-quanti.pieno { color: #8a4a12; }
+        .tav-mio { font-size: 0.82rem; color: var(--verde); font-weight: bold; }
+        .tav-dentro { padding: 0 14px 12px; }
+        .tav-nota { font-size: 0.85rem; color: var(--tenue); font-style: italic; margin-bottom: 8px; }
+        .griglia-fitta { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
+        .griglia-fitta .slot { padding: 7px 2px; font-size: 0.9rem; border-radius: 6px; }
+        .doppio { display: block; font-size: 0.66rem; color: var(--tenue); }
+        .slot.scelto .doppio { color: #C8DAEA; }
+        .riga-due { display: flex; flex-wrap: wrap; gap: 10px; }
+        /* min-width: 0 serve davvero: senza, la larghezza minima di una
+           colonna e' quella del suo contenuto - e una tendina con dentro
+           "Nessuna preferenza" e' larga - quindi le due colonne non ci
+           stanno mai accanto e vanno a capo su qualunque schermo. */
+        .riga-due > * { flex: 1 1 240px; min-width: 0; }
+        .riga-due select { min-width: 0; }
+        .regole.fitte { padding: 11px 14px; font-size: 0.88rem; margin-top: 12px; }
+        .regole.fitte ul { margin: 6px 0 0 16px; }
+        .regole.fitte li { margin-bottom: 3px; }
         .confermato { border: 1px solid #b7dfc9; border-left: 3px solid var(--verde); background: #EAF6F0; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.95rem; }
         .confermato b { color: var(--verde); }
         .esaurito { border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.93rem; }
@@ -155,7 +191,13 @@
                 'revisione legale dei conti e collegio sindacale',
                 'certificazioni ISO e sistemi di gestione: qualità, ambiente e sicurezza',
                 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche',
-                'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche'
+                'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche',
+                /* il desk Revilaw e i suoi due tavoli sono INTERNI: stanno in
+                   elenco solo perche' i tre elenchi dei tavoli devono restare
+                   identici, ma nel modulo non compaiono mai - li toglie il
+                   servizio, che sa quali sono interni */
+                'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff',
+                'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff'
             ];
             function esc(s) {
                 return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -562,25 +604,48 @@
                 var mio = s.stato === 'mio';
                 var libero = s.stato === 'libero' || mio;
                 var scelto = (sceltaArea === a.id && sceltaOra === s.ora);
-                var et = mio ? (s.scelta > 1 ? 'incontro assegnato' : 'il Vostro orario')
-                    : (s.stato === 'occupato' ? 'gia prenotato'
-                        : (s.stato === 'chiuso' ? 'non disponibile' : s.fine));
+                /* La casella porta l'ORA e basta: il resto - perche' non si
+                   puo' premere, di chi e' - sta nel titolo e nel colore. Con
+                   quattordici orari per otto tavoli, una riga di spiegazione
+                   sotto ciascuno faceva una pagina lunga tre schermate.
+                   L'eccezione e' il nostro incontro, che va detto a parole. */
+                var titolo = mio ? (s.scelta > 1 ? 'Incontro assegnato da noi' : 'Il Vostro orario')
+                    : (s.stato === 'occupato' ? 'Gia prenotato da un\'altra azienda'
+                        : (s.stato === 'chiuso' ? 'Non disponibile'
+                            : 'Libero, ' + s.ora + ' - ' + s.fine));
+                /* DUE POSTI ALLA STESSA ORA: succede sui tavoli tenuti da due
+                   professionisti. Non si dice quale dei due, perche' non e'
+                   una cosa dell'impresa - si dice solo che c'e' spazio. */
+                var doppio = (!mio && s.stato === 'libero' && s.posti > 1) ? '<span class="doppio">2 posti</span>' : '';
                 return '<button type="button" class="slot' + (scelto ? ' scelto' : '') + (mio ? ' mio' : '') + '"'
                     + ((libero && !(mio && s.scelta > 1)) ? '' : ' disabled')
+                    + ' title="' + esc(titolo) + '"'
                     + ' data-area="' + esc(a.id) + '" data-ora="' + esc(s.ora) + '">'
-                    + esc(s.ora) + '<span class="et">' + esc(et) + '</span></button>';
+                    + esc(s.ora)
+                    + (mio ? '<span class="et">' + esc(s.scelta > 1 ? 'assegnato' : 'il Vostro') + '</span>' : doppio)
+                    + '</button>';
             }
             function htmlAreaAz(a) {
                 /* Del tavolo si dice l'ARGOMENTO e basta. Chi lo tiene per noi
                    non si scrive: e' un nome che puo' cambiare fino all'ultimo
                    giorno, e l'impresa sceglie il tema di cui vuole parlare, non
-                   la persona con cui parlarne. */
-                return '<div class="area"><h2>' + esc(a.nome) + '</h2>'
-                    + (a.nota ? '<div class="area-nota">' + esc(a.nota) + '</div>' : '')
-                    + '<div class="griglia">' + a.slot.map(function (s) { return htmlSlotAz(a, s); }).join('') + '</div>'
-                    + '<div class="legenda">' + (a.liberi
-                        ? a.liberi + (a.liberi === 1 ? ' orario ancora libero' : ' orari ancora liberi')
-                        : 'Nessun orario libero a questo tavolo') + '</div></div>';
+                   la persona con cui parlarne.
+                   La riga si APRE: si vede l'elenco dei tavoli tutto insieme e
+                   si guardano gli orari di quello che interessa. */
+                var mio = a.slot.filter(function (s) { return s.stato === 'mio'; })[0] || null;
+                var aperto = !!mio || (sceltaArea === a.id);
+                return '<details class="tav"' + (aperto ? ' open' : '') + ' data-tav="' + esc(a.id) + '">'
+                    + '<summary><span class="tav-nome">' + esc(a.nome) + '</span>'
+                    + (mio
+                        ? '<span class="tav-mio">' + esc(mio.ora) + (mio.perChi ? ' - ' + esc(mio.perChi) : '') + '</span>'
+                        : '<span class="tav-quanti' + (a.liberi ? '' : ' pieno') + '">' + (a.liberi
+                            ? a.liberi + (a.liberi === 1 ? ' orario libero' : ' orari liberi')
+                            : 'nessun orario libero') + '</span>')
+                    + '</summary>'
+                    + '<div class="tav-dentro">'
+                    + (a.nota ? '<div class="tav-nota">' + esc(a.nota) + '</div>' : '')
+                    + '<div class="griglia-fitta">' + a.slot.map(function (s) { return htmlSlotAz(a, s); }).join('') + '</div>'
+                    + '</div></details>';
             }
             function moduloAzienda(r) {
                 azRev = r.rev || 0; azDati = r;
@@ -609,7 +674,7 @@
                    sta facendo prima di premere, non dopo. Sono le stesse frasi
                    della mail d'invito, scritte una volta sola nel servizio. */
                 var regole = (r.regole || []).length
-                    ? '<div class="regole"><b>Come funziona</b><ul>'
+                    ? '<div class="regole fitte"><b>Come funziona</b><ul>'
                     + r.regole.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('')
                     + '</ul></div>'
                     : '';
@@ -633,16 +698,16 @@
                     var c = (r.coda || []).filter(function (x) { return x.pos === pos; })[0] || null;
                     var et = pos === 2 ? 'Seconda preferenza' : 'Terza preferenza';
                     if (c && c.stato === 'assegnata') {
-                        return '<div class="pref bloccata"><div class="pref-et">' + et + '</div>'
+                        return '<div class="pref bloccata" style="margin-top:0;"><div class="pref-et">' + et + '</div>'
                             + '<div>' + esc(c.areaNome) + (c.ora ? ' - <b>' + esc(c.ora) + '</b>' : '')
                             + (c.perChi ? ' - per ' + esc(c.perChi) : '')
                             + '<div class="mini">Questo incontro &egrave; gi&agrave; fissato: per spostarlo ci scriva.</div></div></div>';
                     }
-                    return '<div class="pref"><div class="pref-et">' + et + '</div>'
+                    return '<div class="pref" style="margin-top:0;"><div class="pref-et">' + et + '</div>'
                         + '<div class="pref-righe">'
                         + tendinaTavolo('area' + pos, c ? c.area : '', aree)
                         + tendinaChi('chi' + pos, c ? c.perDoc : '', referenti)
-                        + '</div><div class="mini">Solo il tavolo: l\'orario glielo assegniamo noi se restano posti.</div></div>';
+                        + '</div></div>';
                 };
                 var esigenze = (r.esigenze || []);
                 var righeEsigenze = function () {
@@ -655,6 +720,14 @@
                             + '</div>';
                     }).join('');
                 };
+                /* L'ORDINE DEL MODULO, e sono tre passi e non dieci:
+                   1. chi partecipa e a quale tavolo/ora (la prima preferenza,
+                      l'unica che prenota davvero);
+                   2. le altre due preferenze, una accanto all'altra;
+                   3. l'altra questione, se ce n'e' una.
+                   Tutto il resto - saluto, regole, incontri gia' fissati -
+                   sta sopra, in righe corte: si legge una volta e non
+                   ritorna. */
                 box.innerHTML =
                     '<div class="riepilogo">Gentile <b>' + esc((r.azienda || {}).nome || 'azienda') + '</b>, '
                     + 'la invitiamo agli incontri B2B riservati'
@@ -662,13 +735,17 @@
                     + (ev.luogo ? ' - ' + esc(ev.luogo) : '') + '.'
                     + colleghi + '</div>'
                     + regole + prima + assegnati + esaurito
-                    + '<div class="pref-et grande">Prima preferenza: tavolo e orario</div>'
-                    + '<div class="pref-righe" style="margin-bottom:10px;">' + tendinaChi('chi1', r.prima ? r.prima.perDoc : '', referenti) + '</div>'
+                    + '<div class="pref-et grande">1. Prima preferenza: tavolo e orario</div>'
+                    + '<div class="mini" style="margin:2px 0 8px;">Apra il tavolo che Vi interessa e prema un orario. '
+                    + '&Egrave; l\'unica scelta che prenota davvero.</div>'
+                    + '<div class="pref-righe" style="margin-bottom:8px;">' + tendinaChi('chi1', r.prima ? r.prima.perDoc : '', referenti) + '</div>'
                     + aree.map(htmlAreaAz).join('')
-                    + vocePref(2) + vocePref(3)
-                    + '<div class="campo"><label>Un\'altra questione che vorreste approfondire (facoltativo)</label>'
-                    + '<div class="mini" style="margin:-2px 0 6px;">Le preferenze restano tre: questa &egrave; una domanda in pi&ugrave;, non un quarto incontro.</div>'
-                    + '<div id="esigenze">' + righeEsigenze() + '</div></div>'
+                    + '<div class="pref-et grande">2. Seconda e terza preferenza</div>'
+                    + '<div class="mini" style="margin:2px 0 6px;">Solo il tavolo: l\'orario glielo assegniamo noi se restano posti.</div>'
+                    + '<div class="riga-due">' + vocePref(2) + vocePref(3) + '</div>'
+                    + '<div class="pref-et grande">3. Un\'altra questione (facoltativo)</div>'
+                    + '<div class="mini" style="margin:2px 0 6px;">Le preferenze restano tre: questa &egrave; una domanda in pi&ugrave;, non un quarto incontro.</div>'
+                    + '<div id="esigenze">' + righeEsigenze() + '</div>'
                     + '<div class="azioni"><button type="button" class="invia" id="salva-az">Salvo le nostre scelte</button>'
                     + '<div class="esito" id="esito"></div></div>';
                 box.querySelectorAll('.slot').forEach(function (b) {
@@ -724,6 +801,7 @@
                 }
                 var b = document.getElementById('salva-az');
                 var etichetta = b.textContent;
+                inCorso = true;
                 b.disabled = true; b.textContent = 'Salvataggio in corso…';
                 esito.className = 'esito'; esito.textContent = '';
                 chiama({
@@ -731,6 +809,7 @@
                     prima: sceltaOra ? { area: sceltaArea, ora: sceltaOra, perDoc: chi1 } : null,
                     coda: coda, esigenze: esigenze
                 }).then(function (e) {
+                    inCorso = false;
                     if (!e || !e.ok) {
                         b.disabled = false; b.textContent = etichetta;
                         esito.className = 'esito ko';
@@ -745,6 +824,7 @@
                     }
                     fattoAzienda(e);
                 }).catch(function () {
+                    inCorso = false;
                     b.disabled = false; b.textContent = etichetta;
                     esito.className = 'esito ko';
                     esito.textContent = 'Servizio non raggiungibile: riprovi fra un momento.';
@@ -789,6 +869,7 @@
             }
 
             function apri() {
+                lettoIl = Date.now();
                 box.innerHTML = '<div class="avviso">Un momento: recupero la Sua iscrizione&hellip;</div>';
                 chiama({ azione: a ? 'b2b-azienda-leggi' : 'b2b-leggi' }).then(function (r) {
                     if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scriva a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
@@ -808,6 +889,22 @@
                 errore('Questa pagina si apre dal collegamento che trova nella mail di invito. Se non lo trova, scriva a info@nextgenerationbusiness.it');
                 return;
             }
+            /* LA PAGINA SI RILEGGE QUANDO SI TORNA A GUARDARLA. Le prenotazioni
+               le tocchiamo anche noi: uno spostamento, un orario liberato,
+               un'esigenza portata a un tavolo. Chi ha lasciato la pagina aperta
+               ieri si ritroverebbe davanti un'agenda che non esiste piu', e
+               premendo Salva si sentirebbe dire che un collega ha cambiato
+               tutto. Si rilegge solo se e' passato qualche minuto e se non si
+               sta salvando: rileggere sotto le dita di chi sta compilando
+               cancellerebbe quello che ha appena scritto. */
+            var lettoIl = 0;
+            var inCorso = false;
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden || inCorso) return;
+                if (Date.now() - lettoIl < 120000) return;
+                if (!document.getElementById('salva-az')) return;   // non siamo nel modulo dell'azienda
+                apri();
+            });
             apri();
         })();
     </script>
