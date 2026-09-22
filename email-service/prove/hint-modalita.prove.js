@@ -88,6 +88,10 @@ const sezioneDalModulo = daAppJs('sezioneDalModulo');
 const inListaAttesa = daAppJs('inListaAttesa');
 const righeDaAvvisare = daAppJs('righeDaAvvisare');
 const hintMailModalita = daAppJs('hintMailModalita');
+const inSala = daAppJs('inSala');
+const fuoriElenco = daAppJs('fuoriElenco');
+const soloIscritti = daAppJs('soloIscritti');
+const daInvitareB2B = daAppJs('daInvitareB2B');
 const hintModalitaHtml = daAppJs('hintModalitaHtml');
 
 let ok = 0, ko = 0;
@@ -117,6 +121,29 @@ function riga(r, presenza, ev) {
 
 const prove = [];
 function prova(titolo, fn) { prove.push({ titolo: titolo, fn: fn }); }
+
+prova('Gli invitati ai soli incontri B2B non stanno nell\'elenco degli iscritti', () => {
+    /* Sono aziende aggiunte a mano dalla finestra degli inviti: vengono al
+       desk per il loro appuntamento e in sala non si siedono. Tenerle in
+       elenco vorrebbe dire trovarsele in mezzo agli ospiti a ogni ricerca,
+       in ogni esportazione e in ogni conto degli indirizzi doppi. */
+    presenze = {};
+    const elenco = [
+        { id: 'a', email: 'ospite@alfa.it' },
+        { id: 'b', email: 'online@beta.it', modalita: 'online' },
+        { id: 'c', email: 'desk@gamma.it', modalita: 'b2b' }
+    ];
+    esigi(modalitaDi(EV, elenco[2]) === 'b2b', 'la sezione esiste e si legge dalla scheda');
+    esigi(inSala('b2b') === false, 'non occupa un posto in sala');
+    esigi(fuoriElenco('b2b') === true && fuoriElenco('online') === false && fuoriElenco('presenza') === false,
+        'ed e\' l\'unica sezione che dall\'elenco resta fuori');
+    const visti = soloIscritti(EV, elenco).map(r => r.id);
+    esigi(visti.join(' ') === 'a b',
+        'l\'elenco mostra l\'ospite e chi segue online, e non l\'invitato ai soli incontri', visti.join(' '));
+    esigi(daInvitareB2B('b2b') === true,
+        'agli incontri pero\' ci va: e\' proprio per quelli che e\' stato aggiunto');
+    esigi(soloIscritti(EV, null).length === 0, 'e senza elenco non si sbaglia');
+});
 
 prova('Chi si iscrive online dal modulo non ha nessuna mail da ricevere', () => {
     const r = riga({ modalita: 'online' });
