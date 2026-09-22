@@ -192,6 +192,10 @@ function iscrizioniDaArchivio(arch) {
             pagina: String(v.pagina || ''),
             data: String(v.data || ''),
             messaggio: String(v.messaggio || '').slice(0, 600),
+            /* Scheda nata per gli inviti B2B: resta un destinatario come gli
+               altri (l'indirizzo e' buono e il consenso vale), ma l'avviso
+               delle nuove iscrizioni la riconosce e non la annuncia. */
+            soloB2B: v.soloB2B === true,
             marketing: consensoScheda(v)
         });
     });

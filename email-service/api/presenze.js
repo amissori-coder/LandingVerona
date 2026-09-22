@@ -521,6 +521,17 @@ module.exports = async (req, res) => {
                 partecipanti: partecipanti,
                 extra: colonneAggiunte(portaleNome, partecipanti, c, body),
                 origine: 'manuale',
+                /* NATA PER GLI INVITI B2B, e non dal sito. E' un'azienda gia'
+                   nota - la si sta riscrivendo in forma di impresa da abbinare
+                   ai tavoli - e non una persona che si e' appena iscritta:
+                   l'avviso "nuove iscrizioni dal sito" non deve annunciarla,
+                   altrimenti chi prepara gli inviti si ritrova addosso una
+                   finestra per ogni riga che digita.
+                   Sta sulla SCHEDA, e non fra le presenze come la sezione,
+                   perche' l'avviso guarda l'archivio delle iscrizioni e delle
+                   presenze non sa nulla: li' la bandiera non la vedrebbe
+                   nessuno. */
+                ...(body && body.invitoB2B === true ? { soloB2B: true } : {}),
                 inserito: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() },
                 ricevuto: admin.firestore.FieldValue.serverTimestamp()
             };

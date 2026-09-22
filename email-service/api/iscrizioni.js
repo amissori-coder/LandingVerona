@@ -415,6 +415,15 @@ module.exports = async (req, res) => {
                        "Riconosci aderenti" e la scritta "dal modulo" - restavano
                        spente senza dirlo. */
                     aderente: v.aderente === true,
+                    /* SCHEDA NATA PER GLI INVITI B2B: l'ha scritta la finestra
+                       degli inviti per avere l'impresa fra quelle da abbinare
+                       ai tavoli, non una persona che si e' iscritta al
+                       convegno. La lettura e' una whitelist campo per campo,
+                       quindi senza questa riga la bandiera resterebbe sul
+                       database e l'avviso delle nuove iscrizioni continuerebbe
+                       ad annunciare come ospiti del sito le aziende appena
+                       aggiunte a mano. */
+                    soloB2B: v.soloB2B === true,
                     /* chi ha inserito la scheda a mano (equity o amministratore):
                        l'area riservata lo mostra in "Aggiornato da" finche' non
                        ci sono presenze. Le iscrizioni dai form non ce l'hanno. */
