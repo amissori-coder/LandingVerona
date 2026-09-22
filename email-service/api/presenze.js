@@ -135,7 +135,13 @@ const STATI = ['', 'confermato', 'presente', 'assente'];
                  sono gia' impegnati da chi l'evento lo fa, non a cambiare
                  qualcosa per la persona. I loro posti restano contati fra
                  quelli in sala, sempre, e nessuna mail parte;
-     'online'    chi segue da remoto, che in sala non occupa niente.
+     'online'    chi segue da remoto, che in sala non occupa niente;
+     'b2b'       invitato ai SOLI incontri B2B. Viene al desk per il suo
+                 appuntamento e in sala non si siede: non occupa un posto e
+                 non entra nel totale. E' la sezione in cui nascono le
+                 aziende aggiunte a mano dalla finestra degli inviti - quelle
+                 non sono ospiti del convegno, e contarle fra i presenti
+                 vorrebbe dire preparare una sala per gente che non viene.
 
    La modalita' vive QUI, con lo stato e la nota, e non sulla scheda
    dell'iscritto: e' una decisione di chi organizza, non un dato dichiarato.
@@ -145,10 +151,10 @@ const STATI = ['', 'confermato', 'presente', 'assente'];
    particolare NON possono arrivare dal modulo pubblico: nessuno si dichiara
    aderente o relatore da se', e infatti iscrizione-nuova accetta solo
    'presenza' e 'online'. */
-const MODALITA = ['', 'presenza', 'aderenti', 'sponsor', 'online'];
+const MODALITA = ['', 'presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
 // le sezioni in cui si puo' SPOSTARE qualcuno (il vuoto non e' una scelta:
 // e' solo com'e' scritta un'iscrizione che nessuno ha ancora toccato)
-const MODALITA_SCELTE = ['presenza', 'aderenti', 'sponsor', 'online'];
+const MODALITA_SCELTE = ['presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
 /* Portali da cui puo' arrivare un'iscrizione inserita a mano. Per le voci
    fisse l'etichetta la decide il servizio, non chi chiama: cosi' la colonna
    "Portale" resta confrontabile. Con "altro" il nome della piattaforma lo
