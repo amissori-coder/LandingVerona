@@ -20760,6 +20760,14 @@
                    all'evento, semplicemente non e' fra chi riceve l'invito. */
                 + '<button type="button" class="ib-az-segna" data-segna="' + esc(a.chiave) + '"'
                 + ' title="Toglie questa azienda dagli inviti. Resta iscritta all\'evento.">Togli</button>'
+                /* ELIMINARE e' un'altra cosa da togliere: qui gli orari che
+                   l'azienda aveva prenotato tornano liberi per gli altri e il
+                   suo collegamento smette di funzionare. Si vede una riga per
+                   volta, con il nome davanti, ed e' per questo che sulla
+                   singola azienda si puo' fare e sull'elenco intero no. */
+                + (Auth.eAdmin() ? '<button type="button" class="ib-az-elim" data-elim="' + esc(a.chiave) + '"'
+                    + ' title="Elimina questa azienda dagli incontri: libera i suoi orari e spegne il suo collegamento.">'
+                    + 'Elimina</button>' : '')
                 + '<button type="button" class="ib-az-apri" data-az="' + esc(a.chiave) + '" '
                 + 'aria-expanded="' + (aperte.has(a.chiave) ? 'true' : 'false') + '">'
                 + '<span class="ib-az-num">' + a.persone.length + (a.persone.length === 1 ? ' referente' : ' referenti') + '</span>'
@@ -20803,6 +20811,11 @@
             cont.querySelectorAll('.ib-az').forEach(c => c.addEventListener('change', () => {
                 if (c.checked) scelte.add(c.value); else scelte.delete(c.value);
                 disegnaAziende();
+            }));
+            cont.querySelectorAll('.ib-az-elim').forEach(b => b.addEventListener('click', () => {
+                const g = aziende.filter(x => x.chiave === b.getAttribute('data-elim'))[0];
+                if (!g) return;
+                eliminaAzienda(g, b);
             }));
             cont.querySelectorAll('.ib-az-apri').forEach(b => b.addEventListener('click', () => {
                 const k = b.getAttribute('data-az');
@@ -21064,6 +21077,89 @@
                 toast('Elenco degli inviti svuotato.', 'verde');
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco inviti B2B svuotato', 'sistema', ev.id, null, quanteAziende + ' aziende'); } catch (e) { }
             });
+        }
+        /* ELIMINARE UN'AZIENDA DAGLI INCONTRI, una per volta.
+           Tre cose in fila, e sono tre perche' toccano tre posti diversi:
+             - gli ORARI che aveva prenotato tornano liberi (e con loro il suo
+               collegamento, che senza documento non apre piu' niente);
+             - la SCELTA si spegne, cosi' non ricompare fra le invitate;
+             - le SCHEDE si cancellano soltanto se quell'azienda esisteva solo
+               per gli incontri. Se e' anche iscritta al convegno la sua
+               iscrizione resta: non e' questo il posto per cancellarla, e chi
+               preme qui sta guardando gli inviti, non l'elenco.
+           Nessuna mail: e' una decisione nostra, e a chi va avvisato si
+           telefona. */
+        /* L'identificativo con cui l'azienda vive nel B2B. Non si ricalcola qui:
+           lo ha scritto il servizio sulle schede al momento dell'invito
+           (`aziendaB2B`), e ricalcolarlo nel browser vorrebbe dire rifare a
+           mano un impasto che deve combaciare alla lettera. Un'azienda mai
+           invitata non ce l'ha, e infatti non ha niente da eliminare di la'. */
+        function idAziendaDiGruppo(g) {
+            let id = '';
+            (g.persone || []).forEach(c => {
+                const a = (c.riga && c.riga.aziendaB2B) || null;
+                if (!id && a && a.id && (!a.evento || a.evento === ev.id)) id = a.id;
+            });
+            return id;
+        }
+        function eliminaAzienda(g, bottone) {
+            const soloIncontri = g.persone.every(c => c.soloB2B);
+            const docs = [];
+            const ids = [];
+            g.persone.forEach(c => {
+                (c.docs || []).filter(Boolean).forEach(d => docs.push(d));
+                (c.righe || []).forEach(r => { if (r.id) ids.push(r.id); });
+            });
+            if (!confirm('Elimino "' + g.nome + '" dagli incontri B2B?\n\n'
+                + 'Gli orari che aveva prenotato tornano liberi e il suo collegamento smette di funzionare. '
+                + 'Non parte nessuna mail: se l\'azienda va avvisata, glielo dici tu.\n\n'
+                + (soloIncontri
+                    ? 'Questa azienda esisteva solo per gli incontri: vengono cancellate anche le sue '
+                    + (ids.length === 1 ? 'scheda' : ids.length + ' schede') + ', e non si torna indietro.'
+                    : 'L\'iscrizione all\'evento resta: quella si cancella dall\'elenco degli iscritti.'))) return;
+            bottone.disabled = true;
+            const prec = bottone.textContent;
+            bottone.textContent = 'Elimino...';
+            const finito = () => { bottone.disabled = false; bottone.textContent = prec; };
+            const azId = idAziendaDiGruppo(g);
+            /* Mai invitata: di la' non c'e' niente da eliminare - ne' orari ne'
+               documento - e si passa direttamente a spegnere la scelta. */
+            const primoPasso = azId
+                ? Cloud.agendaB2B({ azione: 'b2b-azienda-elimina', evento: ev.id, aziendaId: azId })
+                : Promise.resolve({ ok: true, liberati: [] });
+            primoPasso
+                .then(r => {
+                    if (!r || !r.ok) { finito(); esito((r && r.msg) || 'Eliminazione non riuscita.', true); return; }
+                    const liberati = (r.liberati || []).length;
+                    // la scelta si spegne: senza, l'azienda tornerebbe in elenco
+                    const lotti = aLotti(docs, 200);
+                    const spegni = i => (i >= lotti.length) ? Promise.resolve()
+                        : Cloud.operaPresenza({ azione: 'invito-b2b-segna', evento: ev.id, docs: lotti[i], valore: '' })
+                            .then(() => spegni(i + 1));
+                    spegni(0).then(() => {
+                        if (!soloIncontri || !ids.length || !Auth.eAdmin()) return null;
+                        const li = aLotti(ids, 200);
+                        const canc = i => (i >= li.length) ? Promise.resolve()
+                            : Cloud.operaPresenza({ azione: 'cancella', evento: ev.id, idIscritti: li[i] })
+                                .then(() => canc(i + 1));
+                        return canc(0).then(() => {
+                            ids.forEach(id => { delete _evPresenze[id]; _evSelezionate.delete(id); });
+                        });
+                    }).then(() => {
+                        finito();
+                        rileggi(fatta => {
+                            if (!fatta) { toast('Azienda eliminata, ma l\'elenco non si è riletto: chiudi e riapri la finestra.', 'rosso'); return; }
+                            esito(g.nome + ' eliminata dagli incontri'
+                                + (liberati ? ': ' + liberati + (liberati === 1 ? ' orario torna libero.' : ' orari tornano liberi.') : '.'));
+                        }, false);
+                        toast(g.nome + ' eliminata dagli incontri.', 'verde');
+                        try {
+                            Audit.registra(Auth.utenteCorrente, 'Evento: azienda eliminata dagli incontri B2B', 'sistema', ev.id, null,
+                                g.nome + (soloIncontri ? ' (con le sue schede)' : ''));
+                        } catch (e) { }
+                    }).catch(() => { finito(); esito('Servizio non raggiungibile.', true); });
+                })
+                .catch(() => { finito(); esito('Servizio non raggiungibile.', true); });
         }
         /* L'AZIENDA AGGIUNTA A MANO. Nasce come un'iscrizione in presenza gia'
            scelta per gli incontri, perche' e' quello che si sta facendo: se

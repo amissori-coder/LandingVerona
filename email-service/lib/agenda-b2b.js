@@ -1419,6 +1419,64 @@ async function esegui(ctx) {
     }
 
     /* ============================================================
+       ELIMINARE UN'AZIENDA DAGLI INCONTRI
+       ------------------------------------------------------------
+       Non e' "toglierla dall'elenco" - quello spegne la scelta e
+       lascia tutto dov'e' - ma cancellarla dagli incontri: gli orari
+       che aveva prenotato tornano liberi per gli altri, e il suo
+       documento B2B (il collegamento, le preferenze in coda, le
+       altre esigenze) sparisce. Serve quando un'impresa non viene
+       piu': lasciarle gli orari vuol dire tenere fermi dei posti che
+       nessuno usera'.
+       L'ISCRIZIONE ALL'EVENTO NON SI TOCCA. Quella e' un'altra cosa,
+       vive nell'elenco degli iscritti e si cancella da li', dove si
+       vede chi si sta cancellando: un'azienda che non viene agli
+       incontri puo' benissimo venire al convegno.
+       Nessuna mail: e' una decisione nostra, e a chi va avvisato si
+       telefona. Riservato all'amministratore, come tutte le
+       cancellazioni.
+    ============================================================ */
+    if (azione === 'b2b-azienda-elimina') {
+        if (!ctx.eAdmin) {
+            return { stato: 403, corpo: { ok: false, msg: 'Solo l\'amministratore puo eliminare un\'azienda dagli incontri.' } };
+        }
+        const azId = testo(body.aziendaId, 40);
+        if (!azId) return { stato: 400, corpo: { ok: false, msg: 'Azienda non indicata.' } };
+        const rif = rifPrenotazioni(db, evento);
+        let liberati = [];
+        await db.runTransaction(async t => {
+            const snap = await t.get(rif);
+            const corrente = normalizzaPrenotazioni(snap.exists ? snap.data() : null, evento);
+            const aree = {};
+            liberati = [];
+            Object.keys(corrente.aree || {}).forEach(area => {
+                const dentro = {};
+                Object.keys(corrente.aree[area] || {}).forEach(k => {
+                    const q = corrente.aree[area][k];
+                    if (q && String(q.aziendaId || '') === azId) {
+                        liberati.push({ area: nomeArea(area), ora: oraDaChiave(k) });
+                        return;                      // questo orario torna libero
+                    }
+                    dentro[k] = q;
+                });
+                aree[area] = dentro;
+            });
+            /* Anche la richiesta a orari esauriti, se ne aveva una: lasciarla
+               manderebbe lo staff a cercare un posto per chi non c'e' piu'. */
+            const richieste = (corrente.richieste || []).filter(r => String(r.aziendaId || '') !== azId);
+            t.set(rif, corpoPrenotazioni(corrente, {
+                evento: evento, aree: aree, richieste: richieste,
+                aggiornato: { quando: Date.now(), da: chi }
+            }));
+        });
+        // le schede dei referenti non portano piu' un incontro che non c'e'
+        try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
+        try { await rifAzienda(db, evento, azId).delete(); } catch (_) { /* il documento non c'era */ }
+        if (ctx.segnaCambiamento) { try { await ctx.segnaCambiamento(db); } catch (_) { /* niente */ } }
+        return { stato: 200, corpo: { ok: true, liberati: liberati } };
+    }
+
+    /* ============================================================
        ALLINEARE GLI INCONTRI AL PROGRAMMA NUOVO
        ------------------------------------------------------------
        Il programma non si salva se manda sul palco qualcuno che a
