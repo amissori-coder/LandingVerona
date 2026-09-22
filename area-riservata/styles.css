@@ -1570,6 +1570,12 @@ button.ag-slot { cursor: pointer; }
 .rb-dove { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 0 2px; }
 .rb-dove select { font: inherit; font-size: 0.9rem; padding: 6px 8px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
 .rb-esigenze .rb-chi { flex-direction: column; align-items: flex-start; gap: 2px; }
+/* IL DESK REVILAW. E' un tavolo che esiste solo per noi: nel modulo
+   dell'azienda non compare, e chi guarda il riepilogo deve accorgersene
+   senza doverlo ricordare - da qui si assegna un orario che l'impresa
+   leggera' soltanto nella mail. */
+.rb-desk.rb-interno { border-color: var(--blu-500, #2A5A85); }
+.rb-desk.rb-interno .rb-desk-testa { background: var(--blu-050, #F4F8FB); }
 
 /* Chiuso dalla SCALETTA e non da una mano: chi tiene il tavolo in
    quell'ora e' sul palco. Si distingue dal grigio della chiusura a mano

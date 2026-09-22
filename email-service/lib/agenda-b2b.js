@@ -70,7 +70,8 @@ const {
     idEvento, rifAgenda, rifPrenotazioni,
     areaVuota, normalizzaReferente, normalizzaAree, normalizzaAgenda, leggiAgenda,
     normalizzaPrenotazioni, leggiPrenotazioni,
-    slotDiArea, areeComposte, appuntamentoDi, chiusureDaPalco,
+    slotDiArea, slotDiFamiglia, gemelliPrenotabili, areeComposte, appuntamentoDi, chiusureDaPalco,
+    gemelliDi, capofilaDi, areaInterna, famiglieB2B, SCELTA_ESIGENZA,
     corpoPrenotazioni, appuntamentoDaLiberare, appuntamentiAzienda,
     rifAzienda, normalizzaAziendaB2B, leggiAzienda, leggiAziendeB2B, regoleB2B,
     MAX_ESIGENZE, TESTO_ESIGENZA,
@@ -189,22 +190,47 @@ async function letturaOspite(db, scheda, idDoc) {
 ========================================================= */
 async function prendiSlot(db, dati) {
     const evento = idEvento(dati.evento);
-    const areaId = (areaDa(dati.area) || {}).id || '';
+    const areaChiesta = (areaDa(dati.area) || {}).id || '';
     const chiave = chiaveSlot(dati.ora) || chiaveSlot(oraDaChiave(dati.chiave || ''));
-    if (!evento || !areaId || !chiave) {
+    if (!evento || !areaChiesta || !chiave) {
         return { ok: false, motivo: 'dati', msg: 'Incontro non riconosciuto: ricarichi la pagina e riprovi.' };
     }
     const agenda = await leggiAgenda(db, evento);
-    const cfg = (agenda.aree || {})[areaId] || areaVuota();
+    const cfg = (agenda.aree || {})[areaChiesta] || areaVuota();
     const slot = slotDellaGiornata(agenda.giornata).filter(s => s.chiave === chiave)[0];
     if (!slot) return { ok: false, motivo: 'orario', msg: 'Quell\'orario non e piu in programma: ricarichi la pagina e scelga fra quelli disponibili.' };
-    /* Lo staff puo' assegnare anche uno slot chiuso o di un'area spenta: e'
-       il senso di "forzare", ed e' la risposta a chi ha chiesto un incontro
-       a posti esauriti. L'ospite no. */
-    if (!dati.forzato) {
+    /* SU QUALE TAVOLO FINISCE. Lo staff assegna un tavolo PRECISO - e' il
+       senso di "forzare", e vale anche per gli orari chiusi, per le aree
+       spente e per i tavoli interni. L'ospite no: lui sceglie l'argomento e
+       l'ora, e fra i tavoli gemelli decide il servizio, prendendo il primo
+       ancora libero (il capofila per primo). E' quello che permette di
+       prenotare la stessa ora due volte senza che nessuno debba sapere che
+       esiste un "secondo tavolo". */
+    /* CHI ASSEGNA DALL'AREA RISERVATA SCEGLIE UN TAVOLO PRECISO (`staff`):
+       spostare un incontro sul gemello e' una decisione, e lasciare che il
+       servizio "scelga il primo libero" la disferebbe. I controlli pero'
+       restano accesi - tavolo attivo, orario non chiuso, referente non sul
+       palco - perche' una decisione presa a freddo non deve fissare un
+       incontro che nessuno puo' onorare. `forzato` e' l'altra cosa: spegne
+       anche quelli, ed e' la risposta a chi ha chiesto un incontro a posti
+       esauriti. */
+    let candidati = [areaChiesta];
+    if (dati.staff && !dati.forzato) {
         if (!cfg.attiva) return { ok: false, motivo: 'area', msg: 'Questo tavolo non e attivo: ricarichi la pagina.' };
         if (cfg.chiusi.indexOf(chiave) >= 0) return { ok: false, motivo: 'chiuso', msg: 'Quell\'orario non e disponibile: ne scelga un altro.' };
-        /* E nemmeno un orario in cui chi tiene il tavolo e' sul palco: la
+        const voci = await vociProgramma(db, evento);
+        if (voci === null) {
+            return { ok: false, motivo: 'errore', msg: 'Non riesco a controllare il programma della giornata: riprovi fra un momento.' };
+        }
+        if (chiusureDaPalco(agenda.giornata, voci, cfg.referenti)[chiave]) {
+            return { ok: false, motivo: 'palco', msg: 'Quell\'orario non e disponibile: ne scelga un altro.' };
+        }
+    } else if (!dati.forzato) {
+        if (areaInterna(areaChiesta)) return { ok: false, motivo: 'area', msg: 'Questo tavolo non e prenotabile: ricarichi la pagina.' };
+        if (!cfg.attiva && !gemelliDi(areaChiesta).some(id => (((agenda.aree || {})[id]) || {}).attiva)) {
+            return { ok: false, motivo: 'area', msg: 'Questo tavolo non e attivo: ricarichi la pagina.' };
+        }
+        /* Nemmeno un orario in cui chi tiene il tavolo e' sul palco: la
            pagina quegli orari non li mostra liberi, ma fra quando li ha
            disegnati e quando qualcuno preme la scaletta puo' essere
            cambiata. Qui si decide sull'ultima versione. Se il programma
@@ -215,8 +241,14 @@ async function prendiSlot(db, dati) {
         if (voci === null) {
             return { ok: false, motivo: 'errore', msg: 'Non riesco a controllare il programma della giornata: riprovi fra un momento.' };
         }
-        const palco = chiusureDaPalco(agenda.giornata, voci, cfg.referenti)[chiave];
-        if (palco) return { ok: false, motivo: 'palco', msg: 'Quell\'orario non e disponibile: ne scelga un altro.' };
+        candidati = gemelliPrenotabili(agenda, areaChiesta, chiave, voci);
+        if (!candidati.length) {
+            const perPalco = gemelliDi(areaChiesta).some(id => {
+                const c = (agenda.aree || {})[id] || areaVuota();
+                return c.attiva && chiusureDaPalco(agenda.giornata, voci, c.referenti)[chiave];
+            });
+            return { ok: false, motivo: perPalco ? 'palco' : 'chiuso', msg: 'Quell\'orario non e disponibile: ne scelga un altro.' };
+        }
     }
     const p = dati.persona || {};
     const persona = {
@@ -230,8 +262,9 @@ async function prendiSlot(db, dati) {
            e sul foglio del desk si leggono come due. */
         aziendaId: testo(p.aziendaId, 40), aziendaNome: testo(p.aziendaNome, 200),
         perChi: testo(p.perChi, 160), perRuolo: testo(p.perRuolo, 160), perDoc: testo(p.perDoc, 400),
-        // 1 = la preferenza che prenota da se', 2 e 3 = quelle assegnate dallo staff
-        scelta: [1, 2, 3].indexOf(Number(dati.scelta)) >= 0 ? Number(dati.scelta) : 1,
+        /* 1 = la preferenza che prenota da se', 2 e 3 = quelle assegnate dallo
+           staff, 4 = un'altra esigenza che abbiamo portato a un tavolo. */
+        scelta: [1, 2, 3, SCELTA_ESIGENZA].indexOf(Number(dati.scelta)) >= 0 ? Number(dati.scelta) : 1,
         codaId: testo(dati.codaId, 60),
         fine: slot.fine, quando: Date.now(),
         da: dati.forzato ? 'staff' : 'ospite'
@@ -243,7 +276,6 @@ async function prendiSlot(db, dati) {
     await db.runTransaction(async t => {
         const snap = await t.get(rif);
         const corrente = normalizzaPrenotazioni(snap.exists ? snap.data() : null, evento);
-        const preso = ((corrente.aree || {})[areaId] || {})[chiave];
         /* DI CHI E' QUESTO ORARIO. Con l'azienda la domanda cambia: non piu'
            "e' della stessa persona?" ma "e' della stessa azienda, e della
            stessa preferenza?". La preferenza conta: un'azienda puo' avere la
@@ -251,11 +283,21 @@ async function prendiSlot(db, dati) {
            cancellerebbe un incontro gia' sul foglio del desk. Per tutto
            quello che e' stato prenotato prima che le aziende esistessero
            vale la regola di sempre, il documento della persona. */
-        const mio = preso && (persona.aziendaId
-            ? (String(preso.aziendaId || '') === persona.aziendaId
-                && (Number(preso.scelta) || 1) === persona.scelta)
-            : String(preso.doc || '') === persona.doc);
-        if (preso && !mio) {
+        const nostro = q => q && (persona.aziendaId
+            ? (String(q.aziendaId || '') === persona.aziendaId
+                && (Number(q.scelta) || 1) === persona.scelta)
+            : String(q.doc || '') === persona.doc);
+        /* IL TAVOLO SI SCEGLIE QUI DENTRO, non prima: fra la lettura e la
+           scrittura un gemello puo' essersi riempito, e sceglierlo fuori
+           vorrebbe dire scoprirlo troppo tardi. Si prende il primo dove
+           quell'ora e' libera - o dove c'e' gia' il nostro incontro, che e'
+           il caso di chi cambia idea. */
+        let areaId = '';
+        for (let i = 0; i < candidati.length; i++) {
+            const q = ((corrente.aree || {})[candidati[i]] || {})[chiave];
+            if (!q || nostro(q)) { areaId = candidati[i]; break; }
+        }
+        if (!areaId) {
             esito = { ok: false, motivo: 'occupato', msg: 'Quell\'orario e stato appena prenotato da qualcun altro: ne scelga un altro.' };
             return;
         }
@@ -567,36 +609,51 @@ async function letturaAzienda(db, evento, aziendaId) {
     const pren = await leggiPrenotazioni(db, ev);
     const azienda = await leggiAzienda(db, ev, aziendaId);
     const voci = await vociProgramma(db, ev) || [];
-    const nostri = appuntamentiAzienda(pren, aziendaId);
+    const tutti = appuntamentiAzienda(pren, aziendaId);
+    /* Gli incontri che l'azienda VEDE. Quelli ai tavoli interni - il desk
+       Revilaw - non si mostrano: quel tavolo per l'impresa non esiste, l'ora
+       e il posto glieli diciamo per mail, con il foglio. Mostrarlo qui
+       vorrebbe dire farle credere di poterselo spostare. */
+    const nostri = tutti.filter(x => !areaInterna(x.area));
     const primaN = nostri.filter(x => (Number(x.dati.scelta) || 1) === 1)[0] || null;
-    /* I tavoli da mostrare: quelli dell'invito che sono ATTIVI, piu' quelli
-       dove l'azienda ha gia' un incontro (anche se il tavolo e' stato spento
-       nel frattempo: quell'incontro esiste, e nasconderlo manderebbe
-       l'impresa a un tavolo che crede ancora suo). */
-    const daMostrare = (azienda.aree.length ? azienda.aree : Object.keys(agenda.aree || {}))
-        .filter(id => ((agenda.aree || {})[id] || {}).attiva === true);
-    nostri.forEach(x => { if (daMostrare.indexOf(x.area) < 0) daMostrare.push(x.area); });
+    /* I TAVOLI DA MOSTRARE, uno per FAMIGLIA: i due gemelli di un argomento
+       sono un tavolo solo con il doppio dei posti, e proporli due volte con
+       lo stesso titolo era la cosa che nel modulo sembrava un errore.
+       Si parte dai tavoli dell'invito che hanno almeno un gemello attivo, e
+       si aggiungono quelli dove l'azienda ha gia' un incontro (anche se il
+       tavolo e' stato spento nel frattempo: quell'incontro esiste, e
+       nasconderlo manderebbe l'impresa a un tavolo che crede ancora suo). */
+    const daMostrare = [];
+    const aggiungi = id => {
+        const capo = capofilaDi(id);
+        if (!capo || areaInterna(capo)) return;
+        if (daMostrare.indexOf(capo) < 0) daMostrare.push(capo);
+    };
+    (azienda.aree.length ? azienda.aree : Object.keys(agenda.aree || {}))
+        .filter(id => gemelliDi(id).some(g => (((agenda.aree || {})[g]) || {}).attiva === true))
+        .forEach(aggiungi);
+    nostri.forEach(x => aggiungi(x.area));
     const aree = daMostrare.map(id => {
         const cfg = (agenda.aree || {})[id] || areaVuota();
-        const slot = slotDiArea(agenda, pren, id, voci);
+        const slot = slotDiFamiglia(agenda, pren, id, voci, aziendaId);
         /* Del tavolo si manda l'ARGOMENTO e la nota, non chi lo tiene per noi:
            e' un nome che puo' cambiare fino al giorno prima, e l'impresa
            sceglie il tema di cui vuole parlare. Quello che non si manda non
-           si puo' nemmeno stampare per sbaglio. */
+           si puo' nemmeno stampare per sbaglio. E nemmeno su QUALE dei due
+           gemelli finira': non e' una cosa sua. */
         return {
             id: id, nome: nomeArea(id), nota: cfg.nota,
-            slot: slot.map(s => {
-                const suo = s.chi && String(s.chi.aziendaId || '') === String(aziendaId || '');
-                return {
-                    ora: s.ora, fine: s.fine, chiave: s.chiave,
-                    stato: suo ? 'mio' : s.stato,
-                    // di un orario nostro si dice per chi e', cosi' un collega
-                    // che apre la pagina capisce cosa ha gia' fatto l'azienda
-                    perChi: suo ? String(s.chi.perChi || '') : '',
-                    scelta: suo ? (Number(s.chi.scelta) || 1) : 0
-                };
-            }),
-            liberi: slot.filter(s => s.stato === 'libero').length
+            slot: slot.map(s => ({
+                ora: s.ora, fine: s.fine, chiave: s.chiave,
+                stato: s.stato,
+                posti: s.posti,
+                // di un orario nostro si dice per chi e', cosi' un collega
+                // che apre la pagina capisce cosa ha gia' fatto l'azienda
+                perChi: s.chi ? String(s.chi.perChi || '') : '',
+                scelta: s.chi ? (Number(s.chi.scelta) || 1) : 0
+            })),
+            liberi: slot.filter(s => s.stato === 'libero').length,
+            posti: slot.reduce((n, s) => n + (s.posti || 0), 0)
         };
     });
     return {
@@ -608,17 +665,18 @@ async function letturaAzienda(db, evento, aziendaId) {
         aree: aree,
         regole: regoleB2B(agenda.giornata),
         prima: primaN ? {
-            area: primaN.area, areaNome: nomeArea(primaN.area), ora: primaN.ora,
+            area: capofilaDi(primaN.area), areaNome: nomeArea(capofilaDi(primaN.area)), ora: primaN.ora,
             fine: String(primaN.dati.fine || ''), perChi: String(primaN.dati.perChi || ''),
             perDoc: String(primaN.dati.perDoc || ''), quando: Number(primaN.dati.quando) || 0
         } : null,
         // le seconde e terze GIA' assegnate: si vedono, e non si toccano piu'
         assegnati: nostri.filter(x => (Number(x.dati.scelta) || 1) > 1).map(x => ({
-            area: x.area, areaNome: nomeArea(x.area), ora: x.ora, fine: String(x.dati.fine || ''),
+            area: capofilaDi(x.area), areaNome: nomeArea(capofilaDi(x.area)), ora: x.ora,
+            fine: String(x.dati.fine || ''),
             perChi: String(x.dati.perChi || ''), scelta: Number(x.dati.scelta) || 2
         })),
         coda: azienda.coda.map(c => ({
-            id: c.id, pos: c.pos, area: c.area, areaNome: nomeArea(c.area),
+            id: c.id, pos: c.pos, area: capofilaDi(c.area) || c.area, areaNome: nomeArea(capofilaDi(c.area) || c.area),
             perChi: c.perChi, perDoc: c.perDoc, stato: c.stato,
             ora: c.assegnato ? c.assegnato.ora : ''
         })),
@@ -853,7 +911,11 @@ async function inviaConfermaAzienda(db, evento, aziendaId, motivo) {
         })),
         coda: azienda.coda.filter(c => c.stato === 'attesa')
             .map(c => ({ nome: nomeArea(c.area), pos: c.pos, perChi: c.perChi })),
-        esigenze: azienda.esigenze.map(e => ({ testo: e.testo, perChi: e.perChi })),
+        /* Le esigenze ANCORA APERTE. Quella che abbiamo portato a un tavolo
+           non si ripete qui: sta gia' fra gli incontri, con la sua ora, e
+           leggerla due volte farebbe credere che sia rimasta in sospeso. */
+        esigenze: azienda.esigenze.filter(e => e.stato !== 'assegnata')
+            .map(e => ({ testo: e.testo, perChi: e.perChi })),
         motivo: String(motivo || 'prenotazione')
     };
     const link = NL.linkB2BAzienda(ev, aziendaId);
@@ -974,6 +1036,9 @@ async function esegui(ctx) {
         }));
         const desk = aree.map(a => ({
             id: a.id, nome: a.nome, attiva: a.attiva, nota: a.nota,
+            // il desk interno si vede solo di qua: l'area riservata lo segnala,
+            // e il conto degli orari liberi del convegno non lo comprende
+            interno: areaInterna(a.id),
             referenti: a.referenti.map(r => ({ nome: r.nome, ruolo: r.ruolo, azienda: r.azienda })),
             liberi: a.liberi, occupati: a.occupati,
             slot: a.slot,
@@ -1020,8 +1085,9 @@ async function esegui(ctx) {
                     senzaIncontro: aziende.filter(az => !conIncontro[az.id]).length,
                     codaDaAssegnare: codaTotale,
                     esigenzeAperte: esigenze.filter(e => e.stato === 'aperta').length,
-                    liberi: desk.reduce((n, d) => n + (d.attiva ? d.liberi : 0), 0),
-                    occupati: desk.reduce((n, d) => n + d.occupati, 0)
+                    liberi: desk.reduce((n, d) => n + ((d.attiva && !d.interno) ? d.liberi : 0), 0),
+                    occupati: desk.reduce((n, d) => n + d.occupati, 0),
+                    liberiDesk: desk.reduce((n, d) => n + ((d.attiva && d.interno) ? d.liberi : 0), 0)
                 }
             }
         };
@@ -1049,7 +1115,7 @@ async function esegui(ctx) {
         if (!partenza) return { stato: 409, corpo: { ok: false, motivo: 'sparito', msg: 'Quell\'incontro non c\'è più: ricarichi il riepilogo.' } };
         const persona = partenza.dati || {};
         const preso = await prendiSlot(db, {
-            evento: evento, area: aArea, chiave: aChiave, da: chi,
+            evento: evento, area: aArea, chiave: aChiave, da: chi, staff: true,
             scelta: Number(persona.scelta) || 1, codaId: String(persona.codaId || ''),
             forzato: body.forzato === true, slotDa: { area: daArea, chiave: daChiave },
             persona: persona
@@ -1101,7 +1167,7 @@ async function esegui(ctx) {
         const area = (areaDa(body.area) || {}).id || voce.area;
         const chiave = chiaveSlot(oraDaChiave(body.chiave || '')) || chiaveSlot(body.ora);
         const preso = chiave ? await prendiSlot(db, {
-            evento: evento, area: area, chiave: chiave, da: chi,
+            evento: evento, area: area, chiave: chiave, da: chi, staff: true,
             scelta: voce.pos, codaId: voce.id, forzato: body.forzato === true,
             persona: {
                 doc: ref.doc, nome: ref.nome, email: ref.email, telefono: ref.telefono, ruolo: ref.ruolo,
@@ -1169,6 +1235,136 @@ async function esegui(ctx) {
             fatto = true;
         });
         return fatto ? { stato: 200, corpo: { ok: true } } : { stato: 404, corpo: { ok: false, msg: 'Azienda non trovata.' } };
+    }
+
+    /* UN'ALTRA ESIGENZA SI CANCELLA. Le tre preferenze si "scartano" e
+       restano scritte, perche' il giorno dopo qualcuno chiedera' perche'
+       quell'impresa non ha avuto il suo secondo incontro. Questa no: e' una
+       riga di testo libero, spesso un doppione o un "ci risentiamo", e
+       tenerne memoria non serve a nessuno. Sparisce, e l'azienda puo'
+       riscriverla dal suo modulo quando vuole. */
+    if (azione === 'esigenza-cancella') {
+        const azId = testo(body.aziendaId, 40);
+        const eId = testo(body.esigenzaId, 60);
+        if (!azId || !eId) return { stato: 400, corpo: { ok: false, msg: 'Esigenza non indicata.' } };
+        const rif = rifAzienda(db, evento, azId);
+        let fatto = false;
+        await db.runTransaction(async t => {
+            const snap = await t.get(rif);
+            const corrente = M.normalizzaAziendaB2B(snap.exists ? snap.data() : null, evento, azId);
+            if (!corrente.esiste) return;
+            const esigenze = corrente.esigenze.filter(e => e.id !== eId);
+            if (esigenze.length === corrente.esigenze.length) return;
+            const fuori = Object.assign({}, corrente, {
+                esigenze: esigenze, rev: corrente.rev + 1,
+                aggiornato: { quando: Date.now(), da: chi }
+            });
+            delete fuori.esiste;
+            t.set(rif, fuori);
+            fatto = true;
+        });
+        if (ctx.segnaCambiamento && fatto) { try { await ctx.segnaCambiamento(db); } catch (_) { /* niente */ } }
+        return fatto
+            ? { stato: 200, corpo: { ok: true } }
+            : { stato: 409, corpo: { ok: false, msg: 'Questa esigenza non c\'è più: ricarichi il riepilogo.' } };
+    }
+
+    /* UN'ALTRA ESIGENZA PORTATA A UN TAVOLO (un B2B, oppure il desk Revilaw).
+       E' un incontro a tutti gli effetti: prende un orario, va sul foglio del
+       desk e fa partire la mail con il PDF. Quello che NON e' e' una delle
+       tre preferenze: l'impresa non l'ha scelto fra i temi, l'abbiamo
+       spostata noi. Per questo porta un numero di preferenza suo
+       (SCELTA_ESIGENZA), senza il quale assegnarla cancellerebbe la seconda
+       preferenza gia' fissata a quell'azienda - stessa azienda, stesso
+       numero, e il modello libera "il posto di prima".
+       L'ORDINE e' quello di coda-assegna e per lo stesso motivo: prima si
+       prende in carico l'esigenza (che passa ad "assegnata" solo se era
+       ancora aperta), poi si prende l'orario. Al contrario, due operatori
+       davanti allo stesso riepilogo fisserebbero due incontri. */
+    if (azione === 'esigenza-assegna') {
+        const azId = testo(body.aziendaId, 40);
+        const eId = testo(body.esigenzaId, 60);
+        const area = (areaDa(body.area) || {}).id || '';
+        const chiave = chiaveSlot(oraDaChiave(body.chiave || '')) || chiaveSlot(body.ora);
+        if (!azId || !eId) return { stato: 400, corpo: { ok: false, msg: 'Esigenza non indicata.' } };
+        if (!area || !chiave) return { stato: 400, corpo: { ok: false, msg: 'Indichi il tavolo e l\'orario.' } };
+        const rif = rifAzienda(db, evento, azId);
+        let voce = null, motivo = '';
+        await db.runTransaction(async t => {
+            const snap = await t.get(rif);
+            const corrente = M.normalizzaAziendaB2B(snap.exists ? snap.data() : null, evento, azId);
+            if (!corrente.esiste) { motivo = 'azienda'; return; }
+            const e = corrente.esigenze.filter(x => x.id === eId)[0] || null;
+            if (!e) { motivo = 'sparita'; return; }
+            if (e.stato === 'assegnata') { motivo = 'gia-assegnata'; return; }
+            voce = e;
+            const esigenze = corrente.esigenze.map(x => x.id === eId
+                ? Object.assign({}, x, { stato: 'assegnata' }) : x);
+            const fuori = Object.assign({}, corrente, {
+                esigenze: esigenze, rev: corrente.rev + 1,
+                aggiornato: { quando: Date.now(), da: chi }
+            });
+            delete fuori.esiste;
+            t.set(rif, fuori);
+        });
+        if (!voce) {
+            return {
+                stato: motivo === 'azienda' ? 404 : 409,
+                corpo: {
+                    ok: false, motivo: motivo || 'errore',
+                    msg: motivo === 'gia-assegnata'
+                        ? 'Questa esigenza è già stata portata a un tavolo da qualcun altro: ricarichi il riepilogo.'
+                        : 'Questa esigenza non c\'è più: ricarichi il riepilogo.'
+                }
+            };
+        }
+        const azienda = await leggiAzienda(db, evento, azId);
+        const ref = referenteDi(azienda, voce.perDoc) || (azienda.referenti || [])[0] || {};
+        const preso = await prendiSlot(db, {
+            evento: evento, area: area, chiave: chiave, da: chi, staff: true,
+            scelta: SCELTA_ESIGENZA, forzato: body.forzato === true,
+            persona: {
+                doc: ref.doc, nome: ref.nome, email: ref.email, telefono: ref.telefono, ruolo: ref.ruolo,
+                azienda: azienda.nome, aziendaId: azId, aziendaNome: azienda.nome,
+                perChi: voce.perChi, perRuolo: voce.perRuolo, perDoc: voce.perDoc,
+                // sul foglio del desk si legge di cosa si tratta: e' una
+                // domanda dell'impresa, non un tema del convegno
+                nota: voce.testo
+            }
+        });
+        if (!preso.ok) {
+            // l'esigenza torna aperta: "assegnata" senza orario non la vedrebbe piu' nessuno
+            try {
+                await db.runTransaction(async t => {
+                    const snap = await t.get(rif);
+                    const corrente = M.normalizzaAziendaB2B(snap.exists ? snap.data() : null, evento, azId);
+                    if (!corrente.esiste) return;
+                    const esigenze = corrente.esigenze.map(x => x.id === eId
+                        ? Object.assign({}, x, { stato: 'aperta' }) : x);
+                    const fuori = Object.assign({}, corrente, { esigenze: esigenze, rev: corrente.rev + 1 });
+                    delete fuori.esiste;
+                    t.set(rif, fuori);
+                });
+            } catch (_) { /* niente */ }
+            return { stato: 409, corpo: preso };
+        }
+        try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
+        if (body.avvisa !== false) {
+            try {
+                /* La mail parte SEMPRE, e per il desk Revilaw e' l'unico modo
+                   che l'impresa ha di saperlo: quel tavolo nel suo modulo non
+                   c'e', quindi l'ora e il posto dove presentarsi stanno solo
+                   qui e sul foglio allegato. */
+                const inv = await inviaConfermaAzienda(db, evento, azId,
+                    areaInterna(area) ? 'desk' : 'assegnazione');
+                preso.avvisati = inv.a || [];
+            } catch (e) {
+                preso.avvisati = [];
+                preso.avvisoNonPartito = String((e && e.message) || e).slice(0, 200);
+            }
+        }
+        if (ctx.segnaCambiamento) { try { await ctx.segnaCambiamento(db); } catch (_) { /* niente */ } }
+        return { stato: 200, corpo: Object.assign({ aziendaId: azId, esigenzaId: eId, interno: areaInterna(area) }, preso) };
     }
 
     /* --- salvataggio della configurazione ---

@@ -396,6 +396,11 @@ const TITOLI_B2B = {
     prenotazione: 'Prenotazione confermata',
     spostamento: 'Incontro spostato',
     assegnazione: 'Nuovo incontro assegnato',
+    /* IL DESK REVILAW. Ha un titolo suo perche' e' la sola cosa che
+       l'azienda non ha chiesto: nel suo modulo quel tavolo non c'e', e
+       questa mail - con il foglio allegato - e' l'unico posto dove legge
+       l'ora e il punto in cui presentarsi. */
+    desk: 'Appuntamento al desk Revilaw',
     disdetta: 'Incontro annullato'
 };
 function confermaB2BAzienda(dati, link) {
@@ -415,13 +420,16 @@ function confermaB2BAzienda(dati, link) {
     const saluto = 'Gentile ' + (azienda || 'ospite') + ',';
     const sommario = saluto + ' ' + (motivo === 'disdetta'
         ? 'uno degli incontri B2B prenotati non è più in programma. Qui sotto trova la situazione aggiornata.'
-        : (motivo === 'assegnazione'
+        : (motivo === 'desk'
+            ? 'per la questione che ci avete segnalato Vi aspettiamo al desk Revilaw: qui sotto l\'orario, '
+            + 'e in allegato il foglio da presentare.'
+            : (motivo === 'assegnazione'
             ? 'abbiamo trovato posto per una delle Vostre preferenze: qui sotto gli incontri, con gli orari.'
             : (motivo === 'spostamento'
                 ? 'abbiamo dovuto spostare un incontro: qui sotto gli orari aggiornati.'
                 : 'la prenotazione agli incontri B2B'
                 + (evNome ? ' del convegno di ' + evNome : '') + ' è registrata: '
-                + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo con gli orari.')));
+                + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo con gli orari.'))));
     const vociIncontri = tavoli.map(t => {
         const ore = ORARI.oreDaFrase(t.orario);
         return {

@@ -1109,8 +1109,43 @@ L'invito B2B non e un sondaggio di gradimento: e la convocazione con cui
 Revilaw chiama le aziende agli incontri. Ogni argomento del convegno e un
 tavolo, piu la revisione legale e la certificazione ISO, che tappe del
 programma non sono ma tavoli si; gli argomenti tenuti da due persone hanno
-anche il loro secondo tavolo. Dieci tavoli in tutto (`lib/temi-b2b.js`,
+anche il loro secondo tavolo. Dodici tavoli in tutto (`lib/temi-b2b.js`,
 `AREE_B2B`), e ci sono solo quelli che si tengono davvero.
+
+### Tavoli GEMELLI e tavoli INTERNI
+
+Due proprieta' su `AREE_B2B` dicono come un tavolo si comporta:
+
+- `gemelloDi` - il secondo tavolo di uno stesso argomento. Per chi organizza
+  restano DUE tavoli (due referenti, due griglie, due chiusure); per l'azienda
+  sono UNO con il doppio dei posti. Il modulo mostra una voce per famiglia
+  (`famiglieB2B`, `slotDiFamiglia`), la stessa ora si prenota due volte e a
+  quale dei due gemelli finisce lo decide `prendiSlot` DENTRO la transazione -
+  il primo libero, il capofila per primo. Prima il modulo li elencava tutti e
+  due con lo stesso titolo: sembrava un errore, e all'impresa toccava scegliere
+  una cosa che non e' sua;
+- `interno` - il desk Revilaw. Nasce ACCESO (`normalizzaAree`: e' l'unico
+  caso in cui `attiva` vale true senza che nessuno l'abbia toccato), non
+  compare nell'invito ne' nel modulo, e `prendiSlot` lo rifiuta a chi non
+  e' lo staff. Ci si arriva solo da `esigenza-assegna`: l'azienda lo legge
+  nella mail, con il foglio allegato.
+
+Chi assegna dall'area riservata passa `staff: true`: il tavolo e' quello
+PRECISO che ha scelto (spostare sul gemello e' una decisione, non un ripiego),
+i controlli restano accesi e i tavoli interni sono ammessi. `forzato` e'
+un'altra cosa ancora: spegne anche i controlli.
+
+### Le altre esigenze
+
+Tre azioni, in `agenda-b2b.js`: `esigenza-segna` (gestita/riaperta),
+`esigenza-cancella` (sparisce; non si "scarta" come le preferenze, perche' e'
+testo libero e tenerne memoria non serve a nessuno) e `esigenza-assegna`, che
+la porta a un tavolo. Quest'ultima prende l'orario con `scelta = 4`
+(`SCELTA_ESIGENZA`) e non con 2 o 3: "il posto della stessa azienda con la
+stessa preferenza" e' la regola con cui il modello decide quale incontro
+liberare, e senza un numero suo portare un'esigenza al desk cancellerebbe la
+seconda preferenza gia' fissata a quell'impresa. Prove:
+`prove/desk-revilaw.prove.js`.
 
 Chi riceve la mail sceglie **l'ORARIO** del suo incontro: la giornata di ogni
 tavolo e divisa in appuntamenti e se ne prenota **uno** (vedi "L'agenda a
