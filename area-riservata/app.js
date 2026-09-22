@@ -20220,13 +20220,23 @@
         function fraseElenco() {
             if (unica) return '';
             if (quantiSegnati) return 'Nell\'elenco ci sono <b>solo le aziende scelte</b> (colonna "'
-                + esc(COL_INVITO_B2B) + '" del file, oppure scelte a mano qui sotto): '
+                + esc(COL_INVITO_B2B) + '" del file, oppure aggiunte a mano qui sotto): '
                 + 'agli incontri non si invitano tutti gli iscritti.';
-            return 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno '
-                + 'di persona, e chi segue online o è aderente Revilaw resta fuori.';
+            return 'L\'elenco &egrave; <b>vuoto</b>: agli incontri B2B si invitano solo le aziende che scegli. '
+                + 'Importa il file con "s&igrave;" nella colonna "' + esc(COL_INVITO_B2B) + '", '
+                + 'oppure aggiungi un\'azienda a mano qui sotto. '
+                + 'Restano fuori comunque chi segue online e gli aderenti Revilaw: gli incontri si fanno di persona.';
         }
         riconta();
-        let soloSegnati = quantiSegnati > 0;
+        /* SEMPRE e soltanto le aziende scelte. Agli incontri B2B non si
+           invitano tutti gli iscritti: l'elenco arriva dal file, o lo si
+           costruisce a mano qui dentro. Prima, finche' nel foglio non c'era
+           nessuno segnato, la finestra si apriva con TUTTI gli iscritti in
+           sala gia' spuntati e il pulsante "Invia l'invito" acceso: bastava
+           un clic di troppo per mandare l'invito a duecento aziende che
+           nessuno aveva scelto. Ora finche' non si importa niente l'elenco
+           resta vuoto, e la finestra spiega come riempirlo. */
+        const soloSegnati = true;
         function componiCandidati() {
             const perEmail = {};
             const fuori = [];
@@ -20251,7 +20261,12 @@
             return fuori;
         }
         let candidati = componiCandidati();
-        if (!candidati.length) { toast('Nessun iscritto con indirizzo email in questo elenco.', 'rosso'); return; }
+        /* Un elenco vuoto non e' piu' un errore: e' il punto di partenza, ed e'
+           proprio da questa finestra che lo si riempie (Importa il file,
+           Aggiungi un'azienda). Chiuderla qui vorrebbe dire non poter mai
+           cominciare. Per l'invito a UNA azienda sola vale ancora: quella
+           scheda esiste, e se non ha un indirizzo l'invito non parte. */
+        if (unica && !candidati.length) { toast('Questa scheda non ha un indirizzo email: l\'invito non parte.', 'rosso'); return; }
         /* Le aziende, riconosciute anche quando la ragione sociale e' scritta in
            modi diversi o manca del tutto (vedi raggruppaPerAzienda). Chi non ha
            ne' azienda ne' dominio aziendale finisce in una voce sua, in fondo:
@@ -20567,22 +20582,30 @@
                 + '<input type="search" id="ib-cerca-az" placeholder="Cerca un\'azienda, un nome o un indirizzo..." value="' + esc(filtroAz) + '">'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="1">Spunta le mostrate</button>'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="0">Togli le mostrate</button></div>'
+                /* La spunta "solo le aziende scelte" non c'e' piu': non esiste
+                   un altro elenco da vedere. Al suo posto il conto di cosa c'e'
+                   dentro, che prima stava scritto nell'etichetta della spunta. */
                 + (quantiSegnati
-                    ? '<label class="ib-az-solo"><input type="checkbox" id="ib-solo-segnati"' + (soloSegnati ? ' checked' : '') + '> '
-                    + 'Solo le aziende scelte nel file <span class="hint">(colonna "' + esc(COL_INVITO_B2B) + '": '
-                    + quantiSegnati + (quantiSegnati === 1 ? ' persona segnata' : ' persone segnate') + ')</span></label>'
+                    ? '<div class="hint" style="margin:6px 0 0;">Elenco scelto: <b>' + quantiSegnati + '</b> '
+                    + (quantiSegnati === 1 ? 'persona segnata' : 'persone segnate')
+                    + ' (colonna "' + esc(COL_INVITO_B2B) + '" del file, o aggiunte a mano).</div>'
                     : '')
                 + '<div class="nl-dest-lista ib-az-lista">' + (visibili.length
                     ? visibili.map(riga).join('')
-                    : '<div class="hint" style="padding:10px;">Nessuna azienda corrisponde alla ricerca.</div>') + '</div>'
+                    /* Vuoto per la ricerca o vuoto davvero sono due cose diverse,
+                       e la seconda ha bisogno di sapere cosa premere. */
+                    : '<div class="hint" style="padding:10px;">' + (aziende.length
+                        ? 'Nessuna azienda corrisponde alla ricerca.'
+                        : 'Ancora nessuna azienda. Premi <b>Importa il file</b> qui sopra, '
+                        + 'oppure <b>Aggiungi un\'azienda</b> per scriverne una.') + '</div>') + '</div>'
                 + '<div class="hint" style="margin-top:6px;"><b>' + nScelte + '</b> di ' + aziende.length
                 + (aziende.length === 1 ? ' azienda' : ' aziende') + ' spuntate &middot; <b>' + destinatari().length + '</b> '
                 + (destinatari().length === 1 ? 'destinatario' : 'destinatari')
                 + (q ? ' &middot; la ricerca ne mostra ' + visibili.length + ', le spunte fuori ricerca restano' : '') + '</div>'
                 + (quantiSegnati && soloSegnati
-                    ? '<div class="hint" style="margin-top:4px;">In elenco ci sono <b>solo</b> le aziende scelte nel foglio: '
+                    ? '<div class="hint" style="margin-top:4px;">In elenco ci sono <b>solo</b> le aziende scelte: '
                     + 'per cambiarle segna "si" nella colonna "' + esc(COL_INVITO_B2B) + '" e reimporta il file aggiornato, '
-                    + 'oppure togli la spunta qui sopra per vedere tutti gli iscritti in sala.'
+                    + 'oppure togli una riga dall\'elenco con il suo pulsante.'
                     + (segnatiFuoriSala ? ' <span class="ev-ko">' + segnatiFuoriSala
                         + (segnatiFuoriSala === 1 ? ' persona segnata nel file non &egrave; in sala' : ' persone segnate nel file non sono in sala')
                         + ' (online o aderenti Revilaw): a loro l\'invito non parte.</span>' : '')
@@ -20610,8 +20633,6 @@
                 spostamentoAperto = '';
                 disegnaAziende();
             }));
-            const solo = document.getElementById('ib-solo-segnati');
-            if (solo) solo.addEventListener('change', () => { soloSegnati = solo.checked; ricomponi(true); });
             cont.querySelectorAll('.ib-az-segna').forEach(b => b.addEventListener('click', () => {
                 const g = aziende.filter(x => x.chiave === b.getAttribute('data-segna'))[0];
                 if (!g) return;
@@ -20633,11 +20654,11 @@
                         x.extra[COL_INVITO_B2B] = valore;
                     }));
                     riconta();
-                    /* Tolta l'ultima azienda segnata non resterebbe niente da
-                       guardare, e nemmeno la spunta per tornare indietro: si
-                       torna da soli a vedere tutti gli iscritti in sala. */
-                    if (!quantiSegnati) soloSegnati = false;
-                    ricomponi(!quantiSegnati);
+                    /* Tolta l'ultima azienda l'elenco resta vuoto, e va bene
+                       cosi': da qui lo si riempie di nuovo. Prima si tornava da
+                       soli a mostrare tutti gli iscritti in sala, che e' l'elenco
+                       che non si vuole vedere. */
+                    ricomponi(false);
                     esito(valore ? g.nome + ' è fra le aziende da invitare.'
                         : g.nome + ' non è più fra le aziende da invitare: resta fra gli iscritti.');
                     try {
@@ -20710,7 +20731,6 @@
                    si e' saputo niente. Il messaggio d'errore e' la spia. */
                 if (_evMsg || !_evIscrizioni) { if (poi) poi(false); return; }
                 riconta();
-                if (!quantiSegnati) soloSegnati = false;
                 ricomponi(azzera !== false);
                 ridisegnaEventiSeLibero();
                 if (poi) poi(true);
@@ -20767,9 +20787,11 @@
                all'evento, dove magari sono arrivate dal modulo del sito: si
                torna indietro rimettendole, e nel frattempo nessuno perde il
                posto in sala;
-             - CANCELLARE toglie le iscrizioni dall'evento. Non si torna
-               indietro, e serve quando quelle schede sono entrate per sbaglio
-               - un file caricato due volte, un elenco che non c'entrava. */
+             Una sola strada, e reversibile. Di qui si passava anche per
+               CANCELLARE le iscrizioni dall'evento: stava accanto a "Togli
+               dagli inviti", si somigliavano, e una delle due non si disfa.
+               Per quello c'e' la finestra dell'elenco iscritti, dove si
+               cancella guardando le schede che si stanno cancellando. */
         let svuotaAperto = false;
         function disegnaSvuota() {
             const box = document.getElementById('ib-svuota-conf');
@@ -20783,16 +20805,11 @@
             box.innerHTML = '<div class="ib-svuota">'
                 + '<div><b>Svuoto l\'elenco?</b> Riguarda ' + quali + ' (' + persone
                 + (persone === 1 ? ' referente' : ' referenti') + ').</div>'
-                + '<div class="hint" style="margin:6px 0 0;"><b>Togli dagli inviti</b>: spegne la scelta e basta. '
-                + 'Le persone restano iscritte all\'evento e non ricevono niente; rimetterle è questione di un clic. '
-                + (Auth.eAdmin()
-                    ? '<b>Cancella le iscrizioni</b>: le toglie proprio dall\'evento, e non si torna indietro. '
-                    + 'Serve quando quelle schede sono entrate per sbaglio.'
-                    : 'Cancellare le iscrizioni può farlo solo l\'amministratore.')
-                + '</div>'
+                + '<div class="hint" style="margin:6px 0 0;">Le persone <b>restano iscritte all\'evento</b> '
+                + 'e non ricevono niente: si spegne solo la scelta per gli inviti, e rimetterle è questione di un clic. '
+                + 'Da qui non si cancella nessuna iscrizione.</div>'
                 + '<div class="ib-svuota-azioni">'
                 + '<button type="button" class="btn btn-sm btn-primary" id="ib-sv-togli">Togli dagli inviti</button>'
-                + (Auth.eAdmin() ? '<button type="button" class="btn btn-sm btn-danger" id="ib-sv-canc">Cancella le iscrizioni</button>' : '')
                 + '<button type="button" class="btn btn-sm btn-ghost" id="ib-sv-no">Annulla</button>'
                 + '<span class="hint" id="ib-sv-esito"></span></div></div>';
             const dice = (t, ko) => {
@@ -20807,20 +20824,6 @@
                 const docs = [];
                 gruppi.forEach(g => g.persone.forEach(c => (c.docs || []).filter(Boolean).forEach(d => docs.push(d))));
                 spegniTutte(docs, bT, dice, gruppi.length);
-            });
-            const bC = document.getElementById('ib-sv-canc');
-            if (bC) bC.addEventListener('click', () => {
-                if (!gruppi.length) { dice('Non c\'è niente da cancellare.', true); return; }
-                const ids = [];
-                gruppi.forEach(g => g.persone.forEach(c => (c.righe || []).forEach(r => { if (r.id) ids.push(r.id); })));
-                /* Una cancellazione non si disfa: la seconda domanda porta il
-                   numero vero e la parola "definitivamente", perche' la prima
-                   la si e' gia' premuta pensando di svuotare un elenco. */
-                if (!confirm('Cancello definitivamente ' + ids.length
-                    + (ids.length === 1 ? ' iscrizione' : ' iscrizioni') + ' di ' + gruppi.length
-                    + (gruppi.length === 1 ? ' azienda' : ' aziende') + ' da questo evento?\n\n'
-                    + 'Non si torna indietro. Se volevi solo non mandare l\'invito, usa "Togli dagli inviti".')) return;
-                cancellaTutte(ids, bC, dice, gruppi.length);
             });
         }
         /* Le due operazioni in blocco. Vanno A LOTTI perche' il servizio ne
@@ -20853,36 +20856,6 @@
                 }, true);
                 toast('Elenco degli inviti svuotato.', 'verde');
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco inviti B2B svuotato', 'sistema', ev.id, null, quanteAziende + ' aziende'); } catch (e) { }
-            });
-        }
-        function cancellaTutte(ids, bottone, dice, quanteAziende) {
-            const testoPrec = bottone.textContent;
-            bottone.disabled = true;
-            const lotti = aLotti(ids, 200);
-            let fatte = 0, errore = '';
-            const passo = i => {
-                if (i >= lotti.length || errore) return Promise.resolve();
-                bottone.textContent = 'Cancello... (' + Math.min(ids.length, (i + 1) * 200) + ' di ' + ids.length + ')';
-                return Cloud.operaPresenza({ azione: 'cancella', evento: ev.id, idIscritti: lotti[i] })
-                    .then(r => {
-                        if (!r || !r.ok) { errore = (r && r.msg) || 'Cancellazione non riuscita.'; return; }
-                        fatte += (r.cancellate || lotti[i].length);
-                        return passo(i + 1);
-                    });
-            };
-            passo(0).then(() => {
-                bottone.disabled = false; bottone.textContent = testoPrec;
-                if (errore) { dice(errore + (fatte ? ' (' + fatte + ' già cancellate)' : ''), true); return; }
-                svuotaAperto = false;
-                // le presenze e le spunte della tabella sotto parlano di righe
-                // che non ci sono piu': si tolgono, come fa la finestra dell'elenco
-                ids.forEach(id => { delete _evPresenze[id]; _evSelezionate.delete(id); });
-                rileggi(fatta => {
-                    if (!fatta) { toast('Iscrizioni cancellate, ma la rilettura non è riuscita: chiudi e riapri la finestra.', 'rosso'); return; }
-                    diceElenco(fatte + (fatte === 1 ? ' iscrizione cancellata' : ' iscrizioni cancellate') + '.');
-                }, true);
-                toast(fatte + (fatte === 1 ? ' iscrizione cancellata.' : ' iscrizioni cancellate.'), 'verde');
-                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni cancellate dagli inviti B2B', 'sistema', ev.id, null, quanteAziende + ' aziende, ' + fatte + ' schede'); } catch (e) { }
             });
         }
         /* L'AZIENDA AGGIUNTA A MANO. Nasce come un'iscrizione in presenza gia'
