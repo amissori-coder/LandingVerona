@@ -196,6 +196,19 @@ module.exports = async (req, res) => {
             return;
         }
         const cella = (riga, i) => (i >= 0 && riga[i] != null) ? testo(riga[i], 2000) : '';
+        /* LA COLONNA DEGLI INVITI B2B. Agli incontri non si invitano tutti gli
+           iscritti: si invitano le aziende scelte, e la scelta si fa qui,
+           segnando "si" accanto a chi deve riceverlo.
+           E' l'unica colonna che deve poter dire anche di NO. Tutte le altre si
+           scrivono solo quando hanno un valore, perche' un elenco parziale non
+           deve cancellare quello che si sapeva gia'; questa invece e' una
+           SELEZIONE, e il file si reimporta proprio per cambiarla: se la cella
+           lasciata vuota non cancellasse il "si" della volta prima, l'azienda
+           tolta dall'elenco resterebbe invitata senza che nulla lo mostri.
+           L'etichetta si riscrive sempre uguale ("Invito B2B") perche' l'area
+           riservata quella cerca, comunque sia scritta nel foglio. */
+        const ETICHETTA_INVITO_B2B = 'Invito B2B';
+        const iInvito = intest.findIndex(h => h === 'invito b2b' || h === 'invito_b2b' || h === 'invito b2b?');
 
         // 4) scrittura a blocchi (il limite di un batch Firestore e 500 operazioni)
         const db = admin.firestore();
@@ -220,12 +233,13 @@ module.exports = async (req, res) => {
             // l'area riservata puo' mostrarle su richiesta senza perdere nulla
             const extra = {};
             for (let c = 0; c < riga.length; c++) {
-                if (campoDi[c]) continue;
+                if (campoDi[c] || c === iInvito) continue;
                 const et = String(righe[0][c] == null ? '' : righe[0][c]).trim();
                 const val = cella(riga, c);
                 if (!et || !val) continue;
                 extra[et.slice(0, 60)] = val.slice(0, 300);
             }
+            if (iInvito >= 0) extra[ETICHETTA_INVITO_B2B] = cella(riga, iInvito).slice(0, 60);
             const rif = db.collection('iscrizioni').doc(idDocumento(em, data, nome, cognome));
             batch.set(rif, {
                 data: data, pagina: pagina, nome: testo(nome, 120), cognome: testo(cognome, 120),
