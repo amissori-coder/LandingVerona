@@ -1754,11 +1754,19 @@ sta guardando: `b2b-azienda-elimina` libera tutti i suoi orari, toglie le sue
 richieste, cancella il documento - e da quel momento il suo collegamento non
 apre piu' niente, quindi non puo' piu' prenotare.
 
-Subito dopo si **spegne anche la colonna `Invito B2B`** sulle schede dei suoi
-referenti (`invito-b2b-segna` con valore vuoto, come fa la finestra degli
-inviti): senza, l'azienda resterebbe nell'elenco degli inviti - e' quella
-colonna a tenercela - e al primo invio le si rifarebbe il documento. Tolta di
-qua, tornerebbe di la'.
+**E l'invito sparisce dalle schede dei referenti**, nella stessa azione: senza
+quel pezzo l'azienda tornava. La scheda di ogni referente continuava a portare
+`b2bAzienda` - la chiave con cui il suo **collegamento personale** apre il modulo
+dell'impresa - e la colonna `Invito B2B`, che e' quella che la tiene nell'elenco
+degli inviti: bastava riaprire un collegamento, o un altro giro di inviti, e il
+documento si rifaceva con dentro gli stessi referenti. Tolta di qua, tornava di
+la'. Si azzerano `b2bAzienda`, `b2bInvito`, `b2bProgramma`, `b2bAppuntamento`,
+`b2bScelte` e la colonna della scelta; **l'iscrizione all'evento resta**, che e'
+un'altra decisione e si prende dall'elenco degli iscritti.
+
+Lo fa il SERVIZIO e non il browser con una seconda chiamata: se il browser si
+chiude a meta', l'azienda tornerebbe. E il riepilogo non elenca gli inviti
+**revocati**: chi lo guarda cerca chi viene, non chi non viene piu'.
 
 #### Tre provenienze, tre cose diverse da poter fare
 

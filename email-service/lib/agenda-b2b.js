@@ -1214,7 +1214,9 @@ async function esegui(ctx) {
             corpo: {
                 ok: true, evento: evento, eventoDati: agenda.eventoDati, giornata: agenda.giornata,
                 desk: desk, esigenze: esigenze, richieste: pren.richieste || [],
-                aziende: aziende.map(az => ({
+                /* Gli inviti REVOCATI non sono aziende invitate: chi guarda il
+                   riepilogo cerca chi viene, non chi non viene piu'. */
+                aziende: aziende.filter(az => !(az.invito && az.invito.revocato)).map(az => ({
                     id: az.id, nome: az.nome, piva: az.piva,
                     referenti: az.referenti, incontri: conIncontro[az.id] || 0,
                     coda: codaViva(az, pren).filter(c => c.stato === 'attesa').length,
@@ -1645,9 +1647,36 @@ async function esegui(ctx) {
         });
         // le schede dei referenti non portano piu' un incontro che non c'e'
         try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
+        /* CHI ERANO I SUOI REFERENTI: si leggono PRIMA di cancellare il
+           documento, perche' dopo non c'e' piu' niente da leggere. */
+        const azienda = await leggiAzienda(db, evento, azId);
+        const schede = (azienda.referenti || []).map(r => r.doc).filter(Boolean);
         try { await rifAzienda(db, evento, azId).delete(); } catch (_) { /* il documento non c'era */ }
+        /* E L'INVITO SPARISCE ANCHE DALLE LORO SCHEDE.
+           Senza questo pezzo l'azienda tornava: la scheda di ogni referente
+           continuava a portare `b2bAzienda` - che e' la chiave con cui il suo
+           collegamento personale apre il modulo dell'impresa - e la colonna
+           "Invito B2B", che e' quella che la tiene nell'elenco degli inviti.
+           Bastava che qualcuno riaprisse un collegamento, o che partisse un
+           altro giro di inviti, e il documento si rifaceva con dentro gli
+           stessi referenti. Tolta di qua, tornava di la'.
+           Si toglie tutto quello che l'invito aveva scritto: la chiave
+           dell'azienda, l'invito, la copia del programma, l'appuntamento e la
+           colonna della scelta. L'iscrizione all'evento resta: quella si
+           cancella dall'elenco degli iscritti, ed e' un'altra decisione. */
+        let scheDaPulite = 0;
+        for (let i = 0; i < schede.length; i++) {
+            try {
+                await db.collection('iscrizioni').doc(schede[i]).set({
+                    b2bAzienda: null, b2bInvito: null, b2bProgramma: null,
+                    b2bAppuntamento: null, b2bScelte: [],
+                    extra: { 'Invito B2B': '' }
+                }, { merge: true });
+                scheDaPulite++;
+            } catch (_) { /* la scheda non c'e' piu': e' quello che volevamo */ }
+        }
         if (ctx.segnaCambiamento) { try { await ctx.segnaCambiamento(db); } catch (_) { /* niente */ } }
-        return { stato: 200, corpo: { ok: true, liberati: liberati } };
+        return { stato: 200, corpo: { ok: true, liberati: liberati, schede: scheDaPulite } };
     }
 
     /* ============================================================

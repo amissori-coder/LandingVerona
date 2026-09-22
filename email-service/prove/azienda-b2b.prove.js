@@ -766,6 +766,44 @@ function slotDi(area, ora) {
         esigi(dueVolte.length === 1, 'e a quel tavolo c\'e un orario occupato solo', JSON.stringify(dueVolte));
     });
 
+    await prova('22) Tolta dagli incontri, un azienda non torna e non prenota piu', async () => {
+        /* Non bastava cancellare il documento dell'azienda: la scheda di ogni
+           referente continuava a portare la chiave dell'impresa - quella con
+           cui il suo collegamento personale apre il modulo - e la colonna
+           "Invito B2B", che e' cio' che la tiene nell'elenco degli inviti.
+           Bastava riaprire un collegamento, o un altro giro di inviti, e il
+           documento si rifaceva con dentro gli stessi referenti: tolta di qua,
+           tornava di la'. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }]);
+        const letto = await chiamaAzienda('p:04641610235', { azione: 'b2b-azienda-leggi' });
+        await chiamaAzienda('p:04641610235', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'merito-creditizio', ora: '10:00', perDoc: 'sergio' }, coda: [], esigenze: []
+        });
+        esigi(!!slotDi('merito-creditizio', '10:00'), 'l\'azienda ha il suo incontro');
+        esigi(!!dati.get('iscrizioni/sergio').b2bAzienda, 'e la scheda del referente porta la chiave dell\'impresa');
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'b2b-azienda-elimina', aziendaId: idAziendaDi('p:04641610235') });
+        esigi(r.ok === true && (r.liberati || []).length === 1, 'si toglie, e l\'orario torna libero');
+        esigi(!slotDi('merito-creditizio', '10:00'), 'quell\'ora e libera per un\'altra impresa');
+        esigi(!documentoAzienda('p:04641610235'), 'il documento dell\'azienda non c\'e piu');
+        const scheda = dati.get('iscrizioni/sergio');
+        esigi(!scheda.b2bAzienda && !scheda.b2bInvito, 'e la scheda del referente non porta piu l\'invito');
+        esigi(!((scheda.extra || {})['Invito B2B'] || ''),
+            'nemmeno la colonna che la teneva nell\'elenco degli inviti', JSON.stringify(scheda.extra));
+        esigi(!!scheda.email, 'l\'iscrizione all\'evento invece resta: quella si cancella da un\'altra parte');
+        // e il collegamento non apre piu' niente: non puo' piu' prenotare
+        const dopo = await chiamaAzienda('p:04641610235', { azione: 'b2b-azienda-leggi' });
+        esigi(dopo._stato === 403, 'il collegamento dell\'azienda non apre piu niente', 'stato=' + dopo._stato);
+        const res = risposta();
+        await iscrizione({ method: 'POST', headers: {}, body: { d: 'sergio', t: NL.firmaCompleta('sergio'), azione: 'b2b-leggi' } }, res);
+        esigi(res._s !== 200 || (res._j || {}).modo !== 'azienda',
+            'e nemmeno il collegamento personale del referente', 'stato=' + res._s);
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });
