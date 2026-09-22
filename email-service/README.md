@@ -1169,6 +1169,22 @@ li' non si puo' dire.
 La copia nascosta a chi manda parte una volta per azienda, non una per
 referente. La risposta porta `inviate` (le aziende) e `mail` (i messaggi).
 
+### "Assegnata" lo dicono le prenotazioni, non la memoria
+
+Una preferenza in coda e un'altra esigenza diventano `assegnata` quando gli si
+da' un orario, ma l'orario vive in un altro documento e si puo' annullare da
+li'. Senza ritorno, quelle restavano assegnate per sempre: il riepilogo non le
+mostrava piu' fra quelle da assegnare (sono "fatte") e il modulo dell'azienda
+continuava a dire "questo incontro e' gia' fissato". Due schermi che raccontano
+due cose diverse, e nessuno dei due quella vera.
+
+Adesso `agenda-libera` riapre quello che aveva portato li' l'incontro
+(`rilasciaCoda` per la coda, `riapriEsigenzeAssegnate` per le esigenze), e in
+lettura `codaViva` / `esigenzeVive` (in `lib/agenda-modello.js`) confrontano lo
+stato scritto con le prenotazioni vere: se l'incontro non c'e' piu', la voce
+torna in attesa. Il secondo serve per quello che e' gia' rimasto indietro - una
+riga di verita' che non dipende dall'essere passati dal punto giusto.
+
 ### Le altre esigenze
 
 Tre azioni, in `agenda-b2b.js`: `esigenza-segna` (gestita/riaperta),

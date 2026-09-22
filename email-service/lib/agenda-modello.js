@@ -759,6 +759,47 @@ async function leggiAziendeB2B(db, evento) {
    diventano tre regole diverse - e la piu' vecchia e' quella che
    l'impresa ha letto quando ha deciso.
 ========================================================= */
+/* =========================================================
+   QUELLO CHE E' "ASSEGNATO" LO DICONO LE PRENOTAZIONI
+   ---------------------------------------------------------
+   Una preferenza in coda e un'altra esigenza diventano "assegnata"
+   quando gli si da' un orario. L'orario pero' vive in un altro
+   documento (b2bPrenotazioni) e si puo' annullare da li': se
+   l'annullamento non torna indietro a riaprirle, quelle restano
+   assegnate per sempre. Il riepilogo allora non le mostra piu' fra
+   quelle da assegnare - sono "fatte" - e il modulo dell'azienda
+   continua a dire "questo incontro e' gia' fissato". Due schermi che
+   raccontano due cose diverse, e nessuno dei due quella vera.
+   Chi annulla adesso le riapre (vedi agenda-b2b.js), ma quello che e'
+   gia' rimasto indietro va letto per quello che e': qui lo stato
+   scritto si confronta con le prenotazioni vere, e se l'incontro non
+   c'e' piu' la voce torna in attesa. Una riga di verita' che non
+   dipende dall'essere passati dal punto giusto.
+========================================================= */
+function codaViva(azienda, prenotazioni) {
+    const nostri = appuntamentiAzienda(prenotazioni, (azienda || {}).id);
+    return ((azienda || {}).coda || []).map(c => {
+        if (c.stato !== 'assegnata') return c;
+        const a = c.assegnato || {};
+        const vivo = a.area && a.chiave
+            && nostri.some(x => x.area === a.area && x.chiave === a.chiave);
+        return vivo ? c : Object.assign({}, c, { stato: 'attesa', assegnato: null });
+    });
+}
+/* Le esigenze, con lo stesso metro. Qui pero' non si sa QUALE incontro sia
+   nato da quale esigenza - non c'e' un identificativo che le leghi - quindi
+   si contano: se gli incontri nati da un'esigenza sono meno delle esigenze
+   segnate assegnate, quelle in piu' tornano aperte. */
+function esigenzeVive(azienda, prenotazioni) {
+    const nostri = appuntamentiAzienda(prenotazioni, (azienda || {}).id);
+    let coperte = nostri.filter(x => (Number(x.dati.scelta) || 1) === SCELTA_ESIGENZA).length;
+    return ((azienda || {}).esigenze || []).map(e => {
+        if (e.stato !== 'assegnata') return e;
+        if (coperte > 0) { coperte--; return e; }
+        return Object.assign({}, e, { stato: 'aperta' });
+    });
+}
+
 function regoleB2B(giornata) {
     const g = normalizzaGiornata(giornata);
     return [
@@ -788,6 +829,6 @@ module.exports = {
     corpoPrenotazioni, appuntamentoDaLiberare, appuntamentiAzienda, slotDi,
     MAX_REFERENTI, MAX_ESIGENZE, TESTO_ESIGENZA,
     rifAziende, nomeDocAzienda, rifAzienda, aziendaVuota, normalizzaAziendaB2B,
-    leggiAzienda, leggiAziendeB2B, regoleB2B,
+    leggiAzienda, leggiAziendeB2B, regoleB2B, codaViva, esigenzeVive,
     orariPresi, chiDiSlot, bloccoSuPrenotazioni
 };

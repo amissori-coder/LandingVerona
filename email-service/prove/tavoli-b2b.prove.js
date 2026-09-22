@@ -104,5 +104,28 @@ prova('4) Le regole della prenotazione: servizio e mail dicono la stessa cosa', 
     });
 });
 
+prova('5) La mail d\'invito elenca un tavolo per ARGOMENTO', () => {
+    /* I gemelli sono due tavoli veri per chi organizza, ma per chi riceve
+       l'invito sono un argomento solo: leggerlo due volte di fila - "Modello
+       231 e TCF" e "Modello 231 e TCF - secondo tavolo" - sembra un errore di
+       chi ha scritto la mail. E il desk Revilaw non si propone a nessuno. */
+    const MODELLO = require(path.join(__dirname, '..', 'lib', 'agenda-modello.js'));
+    const g = { inizio: '10:00', fine: '17:00', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 };
+    const m = AREA.invitoB2BAzienda({
+        evento: { titolo: 'Napoli', quando: '2 ottobre 2026' },
+        giornata: g, regole: MODELLO.regoleB2B(g),
+        aree: SERVIZIO.AREE_B2B.map(a => ({ id: a.id, nome: a.nome, descrizione: a.nome }))
+    });
+    const elenco = (m.testo.split('I tavoli della giornata:')[1] || '').split('\n\n')[0];
+    const righe = elenco.split('\n').filter(x => x.trim().indexOf('- ') === 0);
+    esigi(righe.length === SERVIZIO.famiglieB2B().length,
+        'in elenco c\'e una riga per argomento (' + righe.length + ' righe, '
+        + SERVIZIO.famiglieB2B().length + ' argomenti)', righe.join(' | '));
+    esigi(!/secondo tavolo/i.test(m.html) && !/secondo tavolo/i.test(m.testo),
+        'nessun "secondo tavolo" nella mail: quello e affare nostro');
+    esigi(!/Desk Revilaw/.test(elenco), 'e nemmeno il desk interno, che non si prenota');
+    esigi(!/[\u2013\u2014]/.test(m.testo), 'e non ci sono trattini lunghi: si scrive con il trattino normale');
+});
+
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
 process.exit(ko ? 1 : 0);
