@@ -1188,6 +1188,39 @@ Due cose che, sbagliate, fanno danno e sono sotto prova
 Il **testo semplice** resta pulito: li' un carattere invisibile non serve a
 nessuno.
 
+### La forma dell'invito B2B
+
+Giustificato vuol dire **tutto** il corpo, non i soli paragrafi: le voci
+dell'elenco "Come funziona", le righe del riquadro "Quando e dove", le note in
+coda. Basta un blocco lasciato a bandiera perche' la pagina si veda montata da
+due mani diverse, e sono proprio i blocchi che si aggiungono dopo a
+dimenticarselo. Fuori restano il **titolo** della testata (un titolo non si
+giustifica) e il **piede**, centrato apposta.
+
+Le tre sezioni del corpo - "Quando e dove", "I tavoli della giornata", "Come
+funziona" - hanno una forma sola (`sezione` dentro `invitoB2BAzienda`):
+etichetta in alto, contenuto sotto, filetto blu a sinistra. Prima erano due
+riquadri disegnati a mano e, in mezzo, un titoletto nudo per i tavoli: tre pesi
+diversi nella stessa pagina.
+
+Dei tavoli si scrive **solo il titolo**. La descrizione dice in una riga e mezza
+quello che il titolo dice in tre parole, e ripetuta nove volte trasformava
+l'elenco in una colonna di grigio in cui non si distingueva piu' un tavolo
+dall'altro: chi legge deve poter scorrere gli argomenti con l'occhio e fermarsi
+sul suo. Per esteso stanno sulla pagina di prenotazione, dove si sceglie
+davvero.
+
+L'ordine e' quello in cui si legge: perche' scriviamo, quando e dove, che cosa
+si puo' scegliere, come si sceglie, e **solo a quel punto** il pulsante. Le due
+note sul collegamento - chi altri l'ha ricevuto, fin dove lo si puo' passare -
+stanno in coda: quella sui colleghi stava fra le regole e il pulsante, e
+interrompeva proprio nel punto in cui chi legge ha finito di capire e sta per
+prenotare.
+
+Le prove stanno in `prove/mail-invito-forma.prove.js`: ritagliano il corpo dalla
+mail vera, cercano i blocchi di prosa (trenta lettere in su, cioe' quelli che
+vanno a capo davvero) e pretendono il giustificato su tutti.
+
 ### Una mail per indirizzo, e nomina gli altri
 
 L'invito e' dell'AZIENDA - un collegamento solo, le stesse scelte - ma i

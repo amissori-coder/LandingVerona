@@ -47,19 +47,24 @@ function prova(nome, fn) {
 const MORBIDO = '\u00ad';
 const GIORNATA = { inizio: '10:00', fine: '17:30', pranzoDa: '13:30', pranzoA: '14:30', durata: 30 };
 /* La sillabazione non si chiama da fuori: si guarda quello che ESCE dalla
-   mail, che poi e' l'unica cosa che conta. Le parole si infilano nella
-   descrizione di un tavolo dell'invito e si rileggono con i trattini in
-   chiaro. */
+   mail, che poi e' l'unica cosa che conta. Le parole si infilano in una
+   REGOLA dell'invito ("Come funziona") - testo lungo del corpo, che e'
+   quello su cui la sillabazione lavora - e si rileggono con i trattini in
+   chiaro.
+   I due paletti servono a ritagliare il pezzo dall'HTML senza dipendere da
+   come e' fatta la marcatura intorno, e sono corti apposta: sotto le otto
+   lettere non si sillaba niente, quindi arrivano interi e si ritrovano. */
 function comeEscono(parole) {
     const m = NL.invitoB2BAzienda({
         evento: { titolo: 'Napoli', quando: '2 ottobre 2026' },
-        giornata: GIORNATA, regole: MODELLO.regoleB2B(GIORNATA),
-        aree: [{ id: 'esg', nome: 'ESG', descrizione: parole.join(' ') }]
+        giornata: GIORNATA, aree: [{ id: 'esg', nome: 'ESG' }],
+        regole: ['QUI ' + parole.join(' ') + ' FINE']
     });
     const t = m.html.split(MORBIDO).join('-');
-    const da = t.indexOf('color:' + NL.COLORI.tenue + ';"> - ');
-    if (da < 0) throw new Error('la descrizione del tavolo non e nella mail');
-    return t.slice(da).split('">')[1].split('</span>')[0].replace(/^ - /, '').split(' ');
+    const da = t.indexOf('QUI ');
+    const a = t.indexOf(' FINE', da);
+    if (da < 0 || a < 0) throw new Error('le parole non sono nella mail');
+    return t.slice(da + 'QUI '.length, a).split(' ');
 }
 
 prova('1) Le parole si spezzano dove vuole l\'italiano', () => {
