@@ -90,6 +90,18 @@ function aCapo(testo, corpo, dentro) {
     if (riga) righe.push(riga);
     return righe.length ? righe : [''];
 }
+/* Un testo lungo tagliato all'ultima parola intera. Serve alla domanda
+   dell'impresa, che e' un campo libero: qualcuno ci scrive due righe, qualcuno
+   venti, e venti righe spingerebbero fuori pagina l'incontro dopo. Si taglia
+   fra le parole - "...autorizza" in fondo a un foglio sembra un guasto - e si
+   mettono i puntini, che dicono che il seguito esiste. */
+function accorcia(testo, quante) {
+    const t = String(testo == null ? '' : testo).replace(/\s+/g, ' ').trim();
+    if (t.length <= quante) return t;
+    const tagliato = t.slice(0, quante);
+    const spazio = tagliato.lastIndexOf(' ');
+    return (spazio > quante * 0.6 ? tagliato.slice(0, spazio) : tagliato).replace(/[ ,;:.]+$/, '') + '...';
+}
 
 /* Il foglio si scrive dall'alto verso il basso, ma il PDF conta le
    coordinate dal basso: `Foglio` tiene il conto di dove siamo arrivati
@@ -270,8 +282,18 @@ function contenutoPagina(dati) {
             const diverso = t.prenotatoDa && t.perChi
                 && t.prenotatoDa.trim().toLowerCase() !== t.perChi.trim().toLowerCase();
             const righeDa = diverso ? aCapo('prenotato da ' + t.prenotatoDa, corpoCon - 0.5, DENTRO - LARGA_ORA - 8) : [];
+            /* DI CHE COSA SI PARLA. Gli incontri nati da una domanda
+               dell'impresa - al desk Revilaw quasi sempre - sul foglio erano
+               una riga con l'ora e un nome di tavolo, e nient'altro: chi lo
+               presenta non ricorda quale delle sue domande sia, e chi lo legge
+               di la' non sa perche' quella persona sia seduta li'. La domanda
+               si stampa per intero, sotto l'incontro, e si taglia solo se
+               dovesse mangiarsi mezza pagina. */
+            const righeNota = t.nota
+                ? aCapo('\u00ab' + accorcia(t.nota, 240) + '\u00bb', corpoCon, DENTRO - LARGA_ORA - 8).slice(0, 3)
+                : [];
             const altezza = Math.max(righeOra.length, righeNome.length) * passoNome
-                + (righeCon.length + righePer.length + righeDa.length) * passoCon + (stretti ? 8 : 12);
+                + (righeCon.length + righePer.length + righeDa.length + righeNota.length) * passoCon + (stretti ? 8 : 12);
             if (f.y + altezza > limiteElenco) { saltati++; return; }
             const alto = f.y;
             if (n && !saltati) f.linea(LATO + 4, alto - 10, A4.larghezza - LATO, C.bordo, 0.6);
@@ -293,9 +315,16 @@ function contenutoPagina(dati) {
                     x: LATO + LARGA_ORA, corpo: corpoCon, grassetto: true, colore: C.scuro
                 });
             });
-            righeDa.forEach((riga, i) => {
+            righeNota.forEach((riga, i) => {
                 f.testo(riga, {
                     alto: alto + righeNome.length * passoNome + (righeCon.length + righePer.length + i) * passoCon,
+                    x: LATO + LARGA_ORA, corpo: corpoCon, colore: C.tenue
+                });
+            });
+            righeDa.forEach((riga, i) => {
+                f.testo(riga, {
+                    alto: alto + righeNome.length * passoNome
+                        + (righeCon.length + righePer.length + righeNota.length + i) * passoCon,
                     x: LATO + LARGA_ORA, corpo: corpoCon - 0.5, colore: C.tenue
                 });
             });

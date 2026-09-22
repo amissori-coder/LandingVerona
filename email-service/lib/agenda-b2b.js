@@ -930,8 +930,12 @@ async function scriviProgrammaAzienda(db, evento, aziendaId) {
    e quattro volte il tempo di una funzione che ne ha trenta secondi in
    tutto; e chi legge non saprebbe che anche gli altri l'hanno ricevuta.
    `motivo` dice perche' parte: una prenotazione nuova, uno spostamento
-   deciso da noi, una preferenza assegnata, un incontro tolto. */
-async function inviaConfermaAzienda(db, evento, aziendaId, motivo) {
+   deciso da noi, una preferenza assegnata, un incontro tolto.
+   `extra.questione` e' la domanda dell'impresa che ha fatto nascere
+   l'incontro (il desk Revilaw e' quasi sempre questo): la mail la RIPORTA,
+   altrimenti dice "per la questione che ci avete segnalato" senza dire
+   quale - e a un'impresa che ce ne ha scritte tre non serve a niente. */
+async function inviaConfermaAzienda(db, evento, aziendaId, motivo, extra) {
     const ev = idEvento(evento);
     const agenda = await leggiAgenda(db, ev);
     const azienda = await leggiAzienda(db, ev, aziendaId);
@@ -957,7 +961,11 @@ async function inviaConfermaAzienda(db, evento, aziendaId, motivo) {
             orario: fraseOrario(x.ora, String(x.dati.fine || '')),
             perChi: String(x.dati.perChi || ''), perRuolo: String(x.dati.perRuolo || ''),
             prenotatoDa: String(x.dati.nome || ''),
-            scelta: Number(x.dati.scelta) || 1
+            scelta: Number(x.dati.scelta) || 1,
+            /* Di che cosa si parla, quando l'incontro nasce da una domanda
+               dell'impresa: sul foglio del desk vale quanto l'ora, perche' e'
+               l'unica riga che dice perche' quelle due persone si siedono. */
+            nota: String(x.dati.nota || '')
         })),
         coda: azienda.coda.filter(c => c.stato === 'attesa')
             .map(c => ({ nome: nomeArea(c.area), pos: c.pos, perChi: c.perChi })),
@@ -966,6 +974,10 @@ async function inviaConfermaAzienda(db, evento, aziendaId, motivo) {
            leggerla due volte farebbe credere che sia rimasta in sospeso. */
         esigenze: azienda.esigenze.filter(e => e.stato !== 'assegnata')
             .map(e => ({ testo: e.testo, perChi: e.perChi })),
+        // la domanda che ha fatto nascere QUESTO appuntamento, quando c'e'
+        questione: (extra && extra.questione && String(extra.questione.testo || '').trim())
+            ? { testo: String(extra.questione.testo || ''), perChi: String(extra.questione.perChi || '') }
+            : null,
         motivo: String(motivo || 'prenotazione')
     };
     const link = NL.linkB2BAzienda(ev, aziendaId);
@@ -1407,7 +1419,8 @@ async function esegui(ctx) {
                    c'e', quindi l'ora e il posto dove presentarsi stanno solo
                    qui e sul foglio allegato. */
                 const inv = await inviaConfermaAzienda(db, evento, azId,
-                    areaInterna(area) ? 'desk' : 'assegnazione');
+                    areaInterna(area) ? 'desk' : 'assegnazione',
+                    { questione: { testo: voce.testo, perChi: voce.perChi } });
                 preso.avvisati = inv.a || [];
             } catch (e) {
                 preso.avvisati = [];

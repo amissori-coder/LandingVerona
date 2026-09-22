@@ -143,6 +143,10 @@ process.env.NEWSLETTER_SECRET = 'segreto-di-prova';
 
 const RADICE = path.join(__dirname, '..');
 const AGENDA = require(path.join(RADICE, 'lib/agenda-b2b.js'));
+// il foglio allegato si legge come lo legge un lettore di PDF: dentro il file
+// il testo sta in Latin-1, e cercarci una parola accentata senza convertirla
+// darebbe verde per il motivo sbagliato
+const PDF = require(path.join(RADICE, 'lib/pdf-prenotazione.js'));
 const NL = require(path.join(RADICE, 'lib/newsletter.js'));
 const iscrizione = require(path.join(RADICE, 'api/iscrizione-nuova.js'));
 const PRESENZE = require(path.join(RADICE, 'api/presenze.js'));
@@ -382,6 +386,14 @@ async function prenota(chiave, area, ora, coda, esigenze) {
 
     await prova('5) Un\'altra esigenza si porta al desk, e la mail arriva con il foglio', async () => {
         await dueAziende();
+        /* Alfa con DUE referenti: l'appuntamento e' dell'impresa, e chi si
+           presenta al desk puo' non essere chi ha scritto la domanda. Con un
+           referente solo non si vedrebbe se la mail arriva a tutti. */
+        mettiReferente('anna@alfa.it|1', 'Anna', 'Neri', 'Alfa Srl', 'anna@alfa.it', '09302991212');
+        await invita([{
+            chiave: 'p:09302991212', nome: 'Alfa Srl', piva: '09302991212',
+            referenti: [{ id: 'mario@alfa.it|1', doc: 'mario@alfa.it|1' }, { id: 'anna@alfa.it|1', doc: 'anna@alfa.it|1' }]
+        }], ['modello-231', 'modello-231-b', 'merito-creditizio']);
         const doc = docDi('p:09302991212');
         await prenota('p:09302991212', 'merito-creditizio', '10:00', [],
             [{ perDoc: doc, testo: 'Vorremmo capire come si apre una posizione a Bagnoli.' }]);
@@ -407,6 +419,23 @@ async function prenota(chiave, area, ora, coda, esigenze) {
         esigi((m.attachments || []).length === 1 && /pdf/.test((m.attachments || [{}])[0].contentType || ''),
             'con il foglio in PDF allegato');
         esigi(/11:00/.test(String(m.text || '')), 'e dentro c\'e\' l\'ora a cui presentarsi');
+        /* LA QUESTIONE, per intero. "Per la questione che ci avete segnalato"
+           non basta: un'impresa che ce ne ha scritte tre non sa quale, e chi
+           si presenta al desk nemmeno. Sta nella mail e sul foglio, che sono
+           i due fogli che quella mattina qualcuno avra' in mano. */
+        esigi(/Bagnoli/.test(String(m.text || '')), 'e la questione, per intero, non solo il fatto che ce n\'era una');
+        esigi(/Bagnoli/.test(String(m.html || '')), 'anche nella versione con la grafica');
+        const foglio = (m.attachments || [{}])[0].content;
+        const dentroPdf = foglio ? PDF.inLatin1(foglio.toString('latin1')) : '';
+        esigi(/Desk Revilaw/.test(dentroPdf), 'e sul foglio da presentare c\'e\' scritto Desk Revilaw');
+        esigi(/Bagnoli/.test(dentroPdf), 'con sotto la questione di cui si parlera\'');
+        /* A TUTTI I REFERENTI. L'appuntamento e' dell'impresa: chi si presenta
+           al desk puo' non essere chi ha scritto la domanda, e una mail sola a
+           una persona sola lascia gli altri senza l'ora. */
+        const destinatari = String(m.to || '').split(',').map(x => x.trim()).filter(Boolean);
+        esigi(destinatari.length === 2 && destinatari.indexOf('mario@alfa.it') >= 0
+            && destinatari.indexOf('anna@alfa.it') >= 0,
+            'e la mail va a TUTTI i referenti dell\'azienda', String(m.to || ''));
         const dopo = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
         esigi(!(dopo.aree || []).some(a => /Revilaw/i.test(a.nome)),
             'nel modulo il desk continua a non comparire, nemmeno adesso che ci ha un appuntamento');

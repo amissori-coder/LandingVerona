@@ -419,6 +419,13 @@ function confermaB2BAzienda(dati, link) {
     const quanti = tavoli.length;
     const coda = Array.isArray(d.coda) ? d.coda : [];
     const esigenze = Array.isArray(d.esigenze) ? d.esigenze : [];
+    /* LA QUESTIONE CHE HA FATTO NASCERE L'APPUNTAMENTO. "Per la questione che
+       ci avete segnalato" non basta: un'impresa che ce ne ha scritte tre non
+       sa quale, e chi si presenta al desk nemmeno. Si riporta per intero, con
+       il nominativo di chi l'ha posta. */
+    const questione = (d.questione && String(d.questione.testo || '').trim())
+        ? { testo: String(d.questione.testo || '').trim(), perChi: String(d.questione.perChi || '').trim() }
+        : null;
     const azienda = String(d.azienda || d.nome || '');
     const referenti = Array.isArray(d.referenti) ? d.referenti : [];
     const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
@@ -427,8 +434,8 @@ function confermaB2BAzienda(dati, link) {
     const sommario = saluto + ' ' + (motivo === 'disdetta'
         ? 'uno degli incontri B2B prenotati non è più in programma. Qui sotto trova la situazione aggiornata.'
         : (motivo === 'desk'
-            ? 'per la questione che ci avete segnalato Vi aspettiamo al desk Revilaw: qui sotto l\'orario, '
-            + 'e in allegato il foglio da presentare.'
+            ? 'per la questione che ci avete segnalato Vi aspettiamo al desk Revilaw: qui sotto la questione '
+            + 'e l\'orario, e in allegato il foglio da presentare.'
             : (motivo === 'assegnazione'
             ? 'abbiamo trovato posto per una delle Vostre preferenze: qui sotto gli incontri, con gli orari.'
             : (motivo === 'spostamento'
@@ -477,6 +484,16 @@ function confermaB2BAzienda(dati, link) {
                 ? occhiello(quanti === 1 ? 'L\'incontro prenotato' : 'Gli incontri prenotati')
                 + spazio(4) + tabellaIncontri(vociIncontri) + spazio(28)
                 : '')
+            /* Subito sotto l'incontro, non in fondo: chi apre questa mail
+               vuole sapere l'ora e di che cosa si parlera', e le due cose si
+               leggono insieme o non si leggono. */
+            + (questione
+                ? occhiello('La questione che ci avete segnalato') + spazio(6)
+                + paragrafo('\u00ab' + questione.testo + '\u00bb')
+                + (questione.perChi ? spazio(4) + '<tr><td style="' + FONTE + 'font-size:14px;line-height:22px;color:'
+                    + C.tenue + ';">' + esc('Posta da ' + questione.perChi) + '</td></tr>' : '')
+                + spazio(28)
+                : '')
             + (vociCoda.length
                 ? occhiello('In attesa di un orario') + spazio(4) + elencoSemplice(vociCoda)
                 + spazio(10) + paragrafo(fraseCoda) + spazio(28)
@@ -510,6 +527,8 @@ function confermaB2BAzienda(dati, link) {
                 return '- ' + (quando ? quando + ', ' : '') + t.nome
                     + (t.perChi ? ' - per ' + t.perChi : '');
             }).join('\n')) : 'Nessun incontro prenotato.',
+        questione ? ('La questione che ci avete segnalato:\n\u00ab' + questione.testo + '\u00bb'
+            + (questione.perChi ? '\nPosta da ' + questione.perChi : '')) : '',
         vociCoda.length ? ('In attesa di un orario:\n' + vociCoda.map(v => '- ' + v).join('\n') + '\n' + fraseCoda) : '',
         vociEsigenze.length ? ('Ci avete segnalato:\n' + vociEsigenze.map(v => '- ' + v).join('\n')) : '',
         fraseDesk,

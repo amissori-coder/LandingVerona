@@ -1135,6 +1135,33 @@ PRECISO che ha scelto (spostare sul gemello e' una decisione, non un ripiego),
 i controlli restano accesi e i tavoli interni sono ammessi. `forzato` e'
 un'altra cosa ancora: spegne anche i controlli.
 
+#### La mail del desk dice QUALE questione
+
+"Per la questione che ci avete segnalato" non basta: un'impresa che ce ne ha
+scritte tre non sa quale, e chi si presenta al desk nemmeno. `esigenza-assegna`
+passa ora la domanda a `inviaConfermaAzienda` (quarto argomento,
+`{ questione: { testo, perChi } }`), e la mail la riporta per intero in un
+blocco suo - "La questione che ci avete segnalato" - subito sotto gli incontri:
+chi apre questa mail vuole sapere l'ora e di che cosa si parlera', e le due cose
+si leggono insieme o non si leggono.
+
+Sul **foglio allegato** la stessa domanda sta sotto l'incontro (`nota` sul
+tavolo, stampata da `lib/pdf-prenotazione.js`), accorciata a 240 caratteri e a
+tre righe: e' un campo libero, e venti righe spingerebbero fuori pagina
+l'incontro dopo. Vale per qualunque incontro con una nota, non solo per il
+desk: e' l'unica riga che dice perche' quelle due persone si siedono.
+
+Attenzione a `normalizzaTavoli` (`lib/orari-b2b.js`): riduce ogni tavolo ai
+campi che elenca, e quello che non e' elencato **sparisce senza un errore**,
+prima della mail e prima del foglio. `nota` ha dovuto essere aggiunta li',
+come a suo tempo i nominativi.
+
+La mail parte **a tutti i referenti** dell'azienda, in un messaggio solo:
+l'appuntamento e' dell'impresa, e chi si presenta al desk puo' non essere chi
+ha scritto la domanda. Lo fa gia' `inviaConfermaAzienda` per costruzione (una
+mail, tutti gli indirizzi), e `prove/desk-revilaw.prove.js` adesso lo verifica
+riga per riga invece di darlo per scontato.
+
 ### La sezione "Solo incontri B2B"
 
 Un'azienda aggiunta a mano dalla finestra degli inviti e' invitata agli
