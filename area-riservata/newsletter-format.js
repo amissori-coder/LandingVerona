@@ -328,18 +328,17 @@
     const LATO = 40;                 // margine laterale: lascia 520px di colonna di testo
     // "mso-line-height-rule:exactly" serve a Outlook: senza, ignora l'interlinea
     const FONTE = 'font-family:' + FONT + ';mso-line-height-rule:exactly;';
-    /* IL TESTO VA A BANDIERA, allineato a sinistra.
-       Era giustificato, e si vedeva: giustificare vuol dire allargare gli
-       spazi fra le parole finche' la riga non arriva in fondo, e in una mail
-       non c'e' niente che spezzi le parole a fine riga - i programmi di posta
-       non sillabano, e quelli che ci provano (Apple Mail) sono una minoranza.
-       Su una colonna di 520px il risultato erano i "fiumi" bianchi che
-       attraversano il paragrafo: la prima cosa che fa sembrare una mail fatta
-       in casa. A bandiera le parole restano a distanza costante e il margine
-       destro e' irregolare, che e' come si scrive una lettera.
-       La sillabazione si chiede lo stesso: chi la sa fare chiude anche le
-       righe corte, e `lang="it"` sull'involucro dice con quali regole. */
-    const ALLINEA = 'text-align:left;'
+    /* IL TESTO E' GIUSTIFICATO: e' il modo in cui questo studio scrive, ed e'
+       una scelta di chi firma le lettere, non del programma che le compone.
+       Giustificare vuol dire pero' allargare gli spazi fra le parole finche'
+       la riga arriva in fondo, e in una mail non c'e' niente che spezzi le
+       parole a fine riga: su una colonna di 520px si aprono i "fiumi" bianchi
+       che attraversano il paragrafo. La sillabazione li chiude, e si chiede
+       in tutti i modi che i programmi di posta conoscono (`lang="it"`
+       sull'involucro dice con quali regole spezzare). Dove non la sanno fare
+       - Outlook per primo - gli spazi restano larghi: e' il prezzo del
+       giustificato, e lo si paga sapendolo. */
+    const ALLINEA = 'text-align:justify;text-justify:inter-word;'
         + '-webkit-hyphens:auto;-moz-hyphens:auto;-ms-hyphens:auto;hyphens:auto;';
 
     /* Riga vuota di altezza fissa: in una mail lo spazio si fa cosi', non con
@@ -1424,6 +1423,18 @@
        elenco sarebbe un invito a prenotare una cosa che non si prenota. */
     const AREE_INTERNE_B2B = ['desk-revilaw', 'desk-revilaw-b'];
     const areaInternaB2B = id => AREE_INTERNE_B2B.indexOf(String(id || '')) >= 0;
+    /* I SECONDI TAVOLI di uno stesso argomento. Per chi organizza sono due
+       tavoli veri, con due referenti e due griglie di orari; per chi riceve
+       l'invito e' un argomento solo, e vederlo scritto due volte di fila -
+       "Modello 231 e TCF" e "Modello 231 e TCF - secondo tavolo" - sembra un
+       errore di chi ha scritto la mail. Nell'elenco dei tavoli ci va il
+       capofila, e basta. */
+    const SECONDI_B2B = {
+        'modello-231-b': 'modello-231',
+        'rating-legalita-b': 'rating-legalita',
+        'desk-revilaw-b': 'desk-revilaw'
+    };
+    const capofilaB2B = id => SECONDI_B2B[String(id || '')] || String(id || '');
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
        caselle e per quello a orari. Stanno qui in tre funzioni e non
        ricopiate in due punti, perche' sono la faccia della mail: due copie
@@ -1703,7 +1714,17 @@
         dati = dati || {};
         const ev = dati.evento || {};
         const g = dati.giornata || {};
-        const aree = (dati.aree || []).filter(a => a && a.nome && !areaInternaB2B(a.id));
+        /* Un argomento, una riga: i secondi tavoli e i tavoli interni non si
+           elencano. Si tiene il PRIMO che arriva per ciascun argomento, cosi'
+           l'ordine resta quello della giornata. */
+        const visti = {};
+        const aree = (dati.aree || []).filter(a => {
+            if (!a || !a.nome || areaInternaB2B(a.id)) return false;
+            const capo = capofilaB2B(a.id);
+            if (visti[capo]) return false;
+            visti[capo] = true;
+            return true;
+        });
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'Gli incontri B2B della Vostra azienda - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
@@ -1723,7 +1744,7 @@
            quello che permette di decidere prima di aprire il collegamento. */
         const elencoTavoli = '<tr><td>' + elencoPunti(
             aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + esc(a.nome) + '</span>'
-                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> &ndash; ' + esc(a.descrizione) + '</span>' : '')),
+                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> - ' + esc(a.descrizione) + '</span>' : '')),
             'font-size:15px;line-height:24px;color:' + C.testo + ';') + '</td></tr>';
         const regole = (dati.regole || []);
         const elencoRegole = regole.length
@@ -2262,7 +2283,8 @@
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
         passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
-        invitoB2BAzienda: invitoB2BAzienda, regoleB2B: regoleB2B, areaInternaB2B: areaInternaB2B,
+        invitoB2BAzienda: invitoB2BAzienda, regoleB2B: regoleB2B,
+        areaInternaB2B: areaInternaB2B, capofilaB2B: capofilaB2B,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };

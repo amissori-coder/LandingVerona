@@ -473,6 +473,53 @@ async function prenota(chiave, area, ora, coda, esigenze) {
         esigi(!!letto.prima, 'la prima preferenza invece resta dov\'era');
     });
 
+    await prova('10) Annullato l\'incontro, la preferenza torna fra quelle da assegnare', async () => {
+        await dueAziende();
+        const doc = docDi('p:09302991212');
+        await prenota('p:09302991212', 'merito-creditizio', '10:00',
+            [{ pos: 2, area: 'modello-231', perDoc: doc }]);
+        const az = documentoAzienda('p:09302991212');
+        const codaId = (az.coda || [])[0].id;
+        const a = await staff({
+            azione: 'coda-assegna', aziendaId: az.id, codaId: codaId,
+            area: 'modello-231', ora: '11:00'
+        });
+        esigi(a.stato === 200, 'la seconda preferenza si assegna');
+        const dopoAss = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
+        esigi((dopoAss.coda || [])[0].stato === 'assegnata', 'e nel modulo risulta fissata');
+        // ora si annulla quell'incontro dal riepilogo
+        const b = await staff({ azione: 'agenda-libera', area: 'modello-231', chiave: '1100', avvisa: false });
+        esigi(b.stato === 200, 'l\'incontro si annulla');
+        esigi(!slotDi('modello-231', '11:00'), 'e l\'orario torna libero');
+        const dopo = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
+        esigi((dopo.coda || []).length === 1 && dopo.coda[0].stato === 'attesa',
+            'nel modulo la preferenza non dice piu "gia fissato": e di nuovo in attesa',
+            JSON.stringify(dopo.coda));
+        const r = await staff({ azione: 'riepilogo' });
+        const desk = (r.corpo.desk || []).filter(d => d.id === 'modello-231')[0] || {};
+        esigi((desk.coda || []).length === 1,
+            'e nel riepilogo torna fra le preferenze da assegnare: i due schermi dicono la stessa cosa',
+            JSON.stringify((desk.coda || []).map(c => c.aziendaNome)));
+    });
+
+    await prova('11) Annullato l\'appuntamento al desk, l\'esigenza torna aperta', async () => {
+        await dueAziende();
+        const doc = docDi('p:09302991212');
+        await prenota('p:09302991212', '', '', [], [{ perDoc: doc, testo: 'Una domanda nostra.' }]);
+        const az = documentoAzienda('p:09302991212');
+        const eId = (az.esigenze || [])[0].id;
+        await staff({ azione: 'esigenza-assegna', aziendaId: az.id, esigenzaId: eId, area: 'desk-revilaw', ora: '11:00' });
+        esigi((documentoAzienda('p:09302991212').esigenze || [])[0].stato === 'assegnata', 'l\'esigenza risulta portata al desk');
+        await staff({ azione: 'agenda-libera', area: 'desk-revilaw', chiave: '1100', avvisa: false });
+        const dopo = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
+        esigi((dopo.esigenze || []).length === 1,
+            'annullato l\'appuntamento, la domanda torna in elenco invece di sparire per sempre',
+            JSON.stringify(dopo.esigenze));
+        const r = await staff({ azione: 'riepilogo' });
+        esigi((r.corpo.esigenze || []).filter(e => e.stato === 'aperta').length === 1,
+            'e nel riepilogo torna fra quelle da guardare');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })();

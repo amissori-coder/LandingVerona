@@ -20276,6 +20276,29 @@
            l'elenco dei tavoli: qui non se ne fa una seconda copia. */
         const interna = id => !!(window.RV_NEWSLETTER && RV_NEWSLETTER.areaInternaB2B && RV_NEWSLETTER.areaInternaB2B(id));
         const attive = agenda.aree.filter(x => x.attiva && !interna(x.id));
+        /* I TAVOLI COME LI VEDE L'AZIENDA: uno per argomento. I due tavoli
+           gemelli di uno stesso tema sono due per noi - due referenti, due
+           griglie - ma per chi riceve l'invito sono un argomento solo, e
+           leggerlo due volte di fila ("Modello 231 e TCF" e "Modello 231 e
+           TCF - secondo tavolo") sembra un errore di chi ha scritto la mail.
+           Si sommano gli orari liberi dei gemelli, che e' quello che conta
+           davvero: quanti posti restano su quell'argomento. */
+        const capofila = id => (window.RV_NEWSLETTER && RV_NEWSLETTER.capofilaB2B)
+            ? RV_NEWSLETTER.capofilaB2B(id) : id;
+        const famiglie = [];
+        attive.forEach(a => {
+            const capo = capofila(a.id);
+            const gia = famiglie.filter(f => f.id === capo)[0];
+            if (gia) {
+                gia.liberi += a.liberi; gia.occupati += a.occupati;
+                a.referenti.forEach(r => { if (!gia.referenti.some(x => x.nome === r.nome)) gia.referenti.push(r); });
+                return;
+            }
+            famiglie.push({
+                id: capo, nome: nomeAreaB2B(capo) || a.nome,
+                liberi: a.liberi, occupati: a.occupati, referenti: a.referenti.slice()
+            });
+        });
         if (!attive.length) {
             toast('Nessun tavolo attivo: aprine almeno uno dalla giornata, sotto "La giornata degli incontri", e riprova.', 'rosso');
             return;
@@ -20448,7 +20471,7 @@
                     titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
                     luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
                 },
-                aree: attive.map(a => Object.assign({}, defArea(a.id), { referenti: a.referenti })),
+                aree: famiglie.map(a => Object.assign({}, defArea(a.id), { referenti: a.referenti })),
                 giornata: agenda.giornata,
                 regole: RV_NEWSLETTER.regoleB2B(agenda.giornata)
             });
@@ -20473,13 +20496,13 @@
                 : '<span class="ev-ko">nessun referente</span>') + '</span>'
             + '<span class="ib-area-posti">' + a.liberi + (a.liberi === 1 ? ' orario libero' : ' orari liberi')
             + ' &middot; ' + a.occupati + ' prenotati</span></span></div>';
-        const liberiTotali = attive.reduce((n, a) => n + a.liberi, 0);
+        const liberiTotali = famiglie.reduce((n, a) => n + a.liberi, 0);
         const campoArea = '<div class="campo"><label>I tavoli dell\'invito</label>'
             + '<div class="hint" style="margin:-2px 0 8px;">L\'invito &egrave; uno solo e copre <b>tutti</b> i tavoli attivi: '
             + 'ogni azienda ne indica <b>tre in ordine</b>, e solo la prima prenota davvero un orario. '
             + 'In tutto ci sono <b>' + liberiTotali + (liberiTotali === 1 ? ' orario libero' : ' orari liberi') + '</b>. '
             + 'Orari, durata e referenti si cambiano dalla finestra <b>La giornata</b>.</div>'
-            + '<div class="ib-aree">' + attive.map(rigaArea).join('') + '</div>'
+            + '<div class="ib-aree">' + famiglie.map(rigaArea).join('') + '</div>'
             + '<div id="ib-area-avviso" class="hint"></div></div>';
         const campoAziende = unica
             ? '<div class="campo"><label>Azienda</label><div class="hint" style="margin-top:0;">'
@@ -21083,7 +21106,7 @@
         function aggiornaAvvisoArea() {
             const box = document.getElementById('ib-area-avviso');
             if (!box) return;
-            const senzaRef = attive.filter(a => !a.referenti.length);
+            const senzaRef = famiglie.filter(a => !a.referenti.length);
             const n = unitaInvito().length;
             const pezzi = [];
             if (senzaRef.length) pezzi.push('<span class="ev-ko">' + senzaRef.length

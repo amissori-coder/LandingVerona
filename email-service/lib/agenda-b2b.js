@@ -73,7 +73,7 @@ const {
     slotDiArea, slotDiFamiglia, gemelliPrenotabili, areeComposte, appuntamentoDi, chiusureDaPalco,
     gemelliDi, capofilaDi, areaInterna, famiglieB2B, SCELTA_ESIGENZA,
     corpoPrenotazioni, appuntamentoDaLiberare, appuntamentiAzienda,
-    rifAzienda, normalizzaAziendaB2B, leggiAzienda, leggiAziendeB2B, regoleB2B,
+    rifAzienda, normalizzaAziendaB2B, leggiAzienda, leggiAziendeB2B, regoleB2B, codaViva, esigenzeVive,
     MAX_ESIGENZE, TESTO_ESIGENZA,
     orariPresi, chiDiSlot, bloccoSuPrenotazioni
 } = M;
@@ -681,7 +681,7 @@ async function letturaAzienda(db, evento, aziendaId) {
            scelte ancora vive: l'azienda le rivedeva selezionate, credeva
            di averle ancora e non ne sceglieva altre. Quello che le
            abbiamo tolto deve sparire anche da li'. */
-        coda: azienda.coda.filter(c => c.stato !== 'scartata').map(c => ({
+        coda: codaViva(azienda, pren).filter(c => c.stato !== 'scartata').map(c => ({
             id: c.id, pos: c.pos, area: capofilaDi(c.area) || c.area, areaNome: nomeArea(capofilaDi(c.area) || c.area),
             perChi: c.perChi, perDoc: c.perDoc, stato: c.stato,
             ora: c.assegnato ? c.assegnato.ora : ''
@@ -691,7 +691,7 @@ async function letturaAzienda(db, evento, aziendaId) {
            sua ora, e rimandarla indietro come domanda aperta farebbe credere
            all'impresa che sia rimasta in sospeso - togliendole anche l'unica
            riga libera per scrivercene un'altra. */
-        esigenze: azienda.esigenze.filter(e => e.stato !== 'assegnata').map(e => ({
+        esigenze: esigenzeVive(azienda, pren).filter(e => e.stato !== 'assegnata').map(e => ({
             id: e.id, perChi: e.perChi, perDoc: e.perDoc, testo: e.testo, stato: e.stato
         })),
         rev: azienda.rev,
@@ -856,6 +856,35 @@ async function segnaCodaAssegnata(db, evento, aziendaId, codaId, dove, chi) {
    Su ciascuna scheda: `b2bAppuntamento` e' l'incontro di QUELLA persona
    (quello dove il nominativo e' lei); `b2bScelte` sono i tavoli
    dell'AZIENDA, perche' la colonna "B2B prenotati" ora racconta l'impresa. */
+/* LE ESIGENZE PORTATE A UN TAVOLO CHE IL TAVOLO NON CE L'HANNO PIU'.
+   Un'esigenza assegnata e' un incontro: se quell'orario viene annullato,
+   l'esigenza resta "assegnata" e non la vede piu' nessuno - ne' fra le
+   domande aperte del riepilogo ne' nel modulo dell'azienda, che quella riga
+   se la ritrova occupata. Si riaprono tutte quelle che non hanno piu' un
+   incontro, invece di indovinare quale fosse: un'impresa ne ha una. */
+async function riapriEsigenzeAssegnate(db, evento, aziendaId) {
+    const ev = idEvento(evento);
+    const pren = await leggiPrenotazioni(db, ev);
+    const quanti = appuntamentiAzienda(pren, aziendaId)
+        .filter(x => (Number(x.dati.scelta) || 1) === SCELTA_ESIGENZA).length;
+    const rif = rifAzienda(db, ev, aziendaId);
+    await db.runTransaction(async t => {
+        const snap = await t.get(rif);
+        const corrente = normalizzaAziendaB2B(snap.exists ? snap.data() : null, ev, aziendaId);
+        if (!corrente.esiste) return;
+        const assegnate = corrente.esigenze.filter(e => e.stato === 'assegnata');
+        if (assegnate.length <= quanti) return;   // ognuna ha ancora il suo incontro
+        const esigenze = corrente.esigenze.map(e => e.stato === 'assegnata'
+            ? Object.assign({}, e, { stato: 'aperta' }) : e);
+        const fuori = Object.assign({}, corrente, {
+            esigenze: esigenze, rev: corrente.rev + 1,
+            aggiornato: { quando: Date.now(), da: 'annullamento' }
+        });
+        delete fuori.esiste;
+        t.set(rif, fuori);
+    });
+}
+
 async function scriviProgrammaAzienda(db, evento, aziendaId) {
     const ev = idEvento(evento);
     const azienda = await leggiAzienda(db, ev, aziendaId);
@@ -1068,7 +1097,7 @@ async function esegui(ctx) {
                mettono in fila duecento decisioni prese a mano: chi non ha
                ancora niente viene prima di chi ha gia' un tavolo. */
             coda: aziende.reduce((fuori, az) => {
-                az.coda.forEach(c => {
+                codaViva(az, pren).forEach(c => {
                     if (c.area !== a.id || c.stato !== 'attesa') return;
                     fuori.push({
                         id: c.id, pos: c.pos, aziendaId: az.id, aziendaNome: az.nome,
@@ -1083,7 +1112,7 @@ async function esegui(ctx) {
                 : (x.haGiaUnIncontro ? 1 : -1))
         }));
         const esigenze = [];
-        aziende.forEach(az => az.esigenze.forEach(e => esigenze.push({
+        aziende.forEach(az => esigenzeVive(az, pren).forEach(e => esigenze.push({
             id: e.id, aziendaId: az.id, aziendaNome: az.nome,
             perChi: e.perChi, perRuolo: e.perRuolo, testo: e.testo,
             quando: e.quando, stato: e.stato,
@@ -1098,7 +1127,8 @@ async function esegui(ctx) {
                 aziende: aziende.map(az => ({
                     id: az.id, nome: az.nome, piva: az.piva,
                     referenti: az.referenti, incontri: conIncontro[az.id] || 0,
-                    coda: az.coda.length, esigenze: az.esigenze.length,
+                    coda: codaViva(az, pren).filter(c => c.stato === 'attesa').length,
+                    esigenze: esigenzeVive(az, pren).filter(e => e.stato !== 'assegnata').length,
                     invito: az.invito, link: NL.linkB2BAzienda(evento, az.id)
                 })),
                 conti: {
@@ -1494,6 +1524,22 @@ async function esegui(ctx) {
         const liberata = r.chi || {};
         const azId = String(liberata.aziendaId || '');
         if (azId) {
+            /* QUELLO CHE AVEVA PORTATO QUI QUELL'INCONTRO TORNA IN ATTESA.
+               Un incontro fissato nasce da una preferenza in coda o da
+               un'altra esigenza, e quella resta segnata "assegnata": se si
+               annulla l'orario e non la si riapre, la preferenza non compare
+               piu' fra quelle da assegnare - nel riepilogo sparisce - ma nel
+               modulo l'azienda continua a leggere "questo incontro e' gia'
+               fissato". Due schermi che raccontano due cose diverse, e nessuno
+               dei due quella vera. */
+            if (liberata.codaId) {
+                try { await rilasciaCoda(db, evento, azId, String(liberata.codaId), chi, 'attesa'); }
+                catch (_) { /* lo slot e' libero: e' quello che conta */ }
+            }
+            if ((Number(liberata.scelta) || 1) === SCELTA_ESIGENZA) {
+                try { await riapriEsigenzeAssegnate(db, evento, azId); }
+                catch (_) { /* lo slot e' libero: e' quello che conta */ }
+            }
             // la copia sulle schede si rifa' per intero: cosi' l'incontro tolto
             // sparisce da tutte, e non resta a dire che esiste ancora
             try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* lo slot e' libero: e' quello che conta */ }

@@ -99,7 +99,7 @@ function testata(titolo, sommario) {
             + spazio(12)
             + '<tr><td class="h1" style="' + FONTE + 'font-size:30px;line-height:38px;color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + esc(titolo) + '</td></tr>'
             + spazio(16)
-            + '<tr><td class="lead par" style="' + FONTE + 'font-size:18px;line-height:29px;color:' + C.suScuro + ';text-align:left;-webkit-hyphens:auto;hyphens:auto;">' + esc(sommario) + '</td></tr>'
+            + '<tr><td class="lead par" style="' + FONTE + 'font-size:18px;line-height:29px;color:' + C.suScuro + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">' + esc(sommario) + '</td></tr>'
         )
         + '</td></tr>'
         + '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -120,13 +120,14 @@ function box(righe) {
         + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
         + '<tr><td style="padding:16px 22px;">' + tabella(righe) + '</td></tr></table>';
 }
-/* A BANDIERA e non giustificato: in una mail non c'e' niente che spezzi le
-   parole a fine riga, quindi giustificare vuol dire solo allargare gli spazi
-   fra una parola e l'altra finche' la riga arriva in fondo - e su una colonna
-   stretta vengono i "fiumi" bianchi che attraversano il paragrafo. La stessa
-   scelta vale per gli inviti (area-riservata/newsletter-format.js, ALLINEA). */
+/* GIUSTIFICATO, con la sillabazione richiesta: e' il modo in cui questo studio
+   scrive. Senza sillabazione giustificare allarga gli spazi fra le parole
+   finche' la riga arriva in fondo, e su una colonna stretta si vedono i "fiumi"
+   bianchi: dove il programma di posta sa spezzare le parole non succede, dove
+   non lo sa fare e' il prezzo del giustificato. Stessa scelta negli inviti
+   (area-riservata/newsletter-format.js, ALLINEA). */
 function paragrafo(t) {
-    return '<tr><td class="par" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';text-align:left;-webkit-hyphens:auto;hyphens:auto;">' + esc(t) + '</td></tr>';
+    return '<tr><td class="par" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">' + esc(t) + '</td></tr>';
 }
 function bottone(testoBtn, url) {
     return '<tr><td align="center" style="text-align:center;">'
@@ -229,7 +230,7 @@ function confermaSito(dati, link) {
             + spazio(28)
             + bottone('Modifica o annulla l\'iscrizione', link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:left;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
         + piede(MOTIVO));
@@ -361,7 +362,7 @@ function confermaB2B(dati, link) {
             + spazio(28)
             + bottone('Modifica la prenotazione', link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:left;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         )
         + piede(MOTIVO));
     const testo = ['PRENOTAZIONE CONFERMATA', sommario,
@@ -484,7 +485,7 @@ function confermaB2BAzienda(dati, link) {
             + bottone(quanti ? 'Rivedi le prenotazioni' : 'Scegli un incontro', link)
             + spazio(24)
             + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue
-            + ';text-align:left;-webkit-hyphens:auto;hyphens:auto;">Il collegamento vale per tutta ' + esc(azienda || 'l\'azienda')
+            + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento vale per tutta ' + esc(azienda || 'l\'azienda')
             + ': lo può usare anche un Suo collega, e le scelte sono le stesse per tutti. '
             + 'Le chiediamo di non diffonderlo fuori dall\'azienda.</td></tr>'
         )
