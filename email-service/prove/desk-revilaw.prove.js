@@ -412,6 +412,8 @@ async function prenota(chiave, area, ora, coda, esigenze) {
             'nel modulo il desk continua a non comparire, nemmeno adesso che ci ha un appuntamento');
         esigi(!(dopo.assegnati || []).some(x => /Revilaw/i.test(x.areaNome)),
             'e nemmeno fra gli incontri assegnati');
+        esigi((dopo.esigenze || []).length === 0,
+            'e la domanda non torna fra quelle aperte: e\' diventata un incontro, e la riga libera resta libera');
     });
 
     await prova('6) La stessa esigenza non si porta a un tavolo due volte', async () => {
@@ -451,6 +453,24 @@ async function prenota(chiave, area, ora, coda, esigenze) {
         const r = await staff({ azione: 'esigenza-cancella', aziendaId: az.id, esigenzaId: eId }, false);
         esigi(r.stato === 403, 'chi guarda e basta viene respinto');
         esigi((documentoAzienda('p:09302991212').esigenze || []).length === 1, 'e l\'esigenza resta dov\'era');
+    });
+
+    await prova('9) Una preferenza scartata dal riepilogo sparisce anche dal modulo', async () => {
+        await dueAziende();
+        const doc = docDi('p:09302991212');
+        await prenota('p:09302991212', 'merito-creditizio', '10:00',
+            [{ pos: 2, area: 'modello-231', perDoc: doc }]);
+        const az = documentoAzienda('p:09302991212');
+        const codaId = (az.coda || [])[0].id;
+        const r = await staff({ azione: 'coda-scarta', aziendaId: az.id, codaId: codaId });
+        esigi(r.stato === 200, 'la preferenza si scarta');
+        esigi((documentoAzienda('p:09302991212').coda || [])[0].stato === 'scartata',
+            'e da noi resta scritta: il giorno dopo qualcuno chiedera\' perche\' quell\'impresa non ha avuto il secondo incontro');
+        const letto = await chiamaAzienda('p:09302991212', { azione: 'b2b-azienda-leggi' });
+        esigi((letto.coda || []).length === 0,
+            'nel modulo pero\' non c\'e\' piu\': tornava selezionata, e l\'azienda credeva di averla ancora',
+            JSON.stringify(letto.coda));
+        esigi(!!letto.prima, 'la prima preferenza invece resta dov\'era');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

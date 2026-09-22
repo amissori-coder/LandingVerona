@@ -1135,6 +1135,19 @@ PRECISO che ha scelto (spostare sul gemello e' una decisione, non un ripiego),
 i controlli restano accesi e i tavoli interni sono ammessi. `forzato` e'
 un'altra cosa ancora: spegne anche i controlli.
 
+### Una mail per indirizzo, e nomina gli altri
+
+L'invito e' dell'AZIENDA - un collegamento solo, le stesse scelte - ma i
+messaggi partono uno per **indirizzo**. La frase "questo invito e' arrivato
+anche a ..." elencava tutti i referenti, compreso chi la stava leggendo, che si
+vedeva annunciare se stesso; adesso ciascuno legge gli ALTRI. Due persone che
+condividono la casella ricevono una mail sola e vengono nominate tutte e due:
+chi apre quella posta e' uno dei due e non sappiamo quale, quindi "gli altri"
+li' non si puo' dire.
+
+La copia nascosta a chi manda parte una volta per azienda, non una per
+referente. La risposta porta `inviate` (le aziende) e `mail` (i messaggi).
+
 ### Le altre esigenze
 
 Tre azioni, in `agenda-b2b.js`: `esigenza-segna` (gestita/riaperta),
