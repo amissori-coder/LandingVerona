@@ -100,6 +100,7 @@ const COL_INVITO_B2B = eval('(' + APP.slice(
     APP.indexOf('const COL_INVITO_B2B = ') + 'const COL_INVITO_B2B = '.length,
     APP.indexOf(';', APP.indexOf('const COL_INVITO_B2B = '))) + ')');
 const segnatoInvitoB2B = daAppJs('segnatoInvitoB2B');
+const aLotti = daAppJs('aLotti');
 const daInvitareB2B = daAppJs('daInvitareB2B');
 const iscrittiPerInvitoB2B = daAppJs('iscrittiPerInvitoB2B');
 /* modalitaDi legge le presenze dalla chiusura dell'app: qui la modalita' la
@@ -207,6 +208,22 @@ esigi(tutti.join(' ') === 'mario@alfa.it luisa@alfa.it gino@beta.it',
     'togliendo la spunta tornano tutti quelli in sala', tutti.join(' '));
 esigi(!iscrittiPerInvitoB2B('ev', null, true).length && !iscrittiPerInvitoB2B('ev', [], false).length,
     'e senza iscritti non si sbaglia: non c\'e\' nessuno da invitare');
+
+console.log('\n8) Svuotare l\'elenco: le schede si mandano a lotti');
+/* "Svuota l'elenco" tocca tutte le schede insieme, e il servizio ne accetta
+   trecento per chiamata: oltre quel tetto la richiesta viene respinta e
+   l'elenco resterebbe svuotato a meta', senza che nulla lo dica. */
+const centoventidue = [];
+for (let i = 0; i < 245; i++) centoventidue.push('doc' + i);
+const lotti = aLotti(centoventidue, 200);
+esigi(lotti.length === 2 && lotti[0].length === 200 && lotti[1].length === 45,
+    'duecentoquarantacinque schede diventano due lotti, non una richiesta sola che verrebbe respinta',
+    lotti.map(x => x.length).join('+'));
+esigi([].concat.apply([], lotti).join(',') === centoventidue.join(','),
+    'e messi in fila i lotti sono l\'elenco di partenza, nello stesso ordine: nessuna scheda persa o ripetuta');
+esigi(aLotti([], 200).length === 0 && aLotti(null, 200).length === 0,
+    'un elenco vuoto non fa partire nessuna chiamata');
+esigi(aLotti(['a', 'b'], 0).length === 2, 'un tetto assurdo non fa sparire niente: al peggio un lotto per scheda');
 
 console.log('\n' + ok + ' verde, ' + ko + ' ROSSO');
 process.exit(ko ? 1 : 0);

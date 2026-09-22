@@ -211,6 +211,18 @@ prova('Se non ne esiste nessuna lo dice, invece di rispondere "fatto"', async ()
     esigi(/ricarica/i.test(r.corpo.msg || ''), 'e dice cosa fare: ricaricare l\'elenco');
 });
 
+prova('Oltre trecento schede si rifiuta, invece di farne trecento e dire "fatto"', async () => {
+    scenario();
+    const troppe = [];
+    for (let i = 0; i < 301; i++) troppe.push('doc' + i);
+    const r = await chiama({ azione: 'invito-b2b-segna', evento: EV, docs: troppe, valore: 'si' });
+    esigi(r.stato === 400 && /volta sola/i.test(r.corpo.msg || ''),
+        'la richiesta viene respinta e dice perche\'', JSON.stringify(r.corpo).slice(0, 160));
+    // trecento esatte, con dentro una scheda vera: il tetto e' l'unica cosa in prova
+    const r2 = await chiama({ azione: 'invito-b2b-segna', evento: EV, docs: troppe.slice(0, 299).concat([DOC_MARIO]), valore: 'si' });
+    esigi(r2.stato === 200 && r2.corpo.scritte === 1, 'trecento esatte invece passano', 'stato=' + r2.stato);
+});
+
 prova('Chi non manda gli inviti non tocca l\'elenco', async () => {
     scenario();
     sessione = 'desk@esempio.it';

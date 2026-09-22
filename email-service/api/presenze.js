@@ -1240,9 +1240,15 @@ module.exports = async (req, res) => {
                 return;
             }
             const docs = (Array.isArray(body.docs) ? body.docs : [])
-                .map(x => testo(x, 400)).filter(Boolean).slice(0, 300);
+                .map(x => testo(x, 400)).filter(Boolean);
             if (!docs.length && idIscritto) docs.push(idIscrizione(idIscritto));
             if (!docs.length) { res.status(400).json({ ok: false, msg: 'Nessuna scheda indicata.' }); return; }
+            /* Oltre il tetto si RIFIUTA, non si taglia. Tagliare in silenzio
+               vorrebbe dire rispondere "fatto" avendo toccato le prime
+               trecento: chi ha premuto "Svuota l'elenco" si ritroverebbe
+               mezzo elenco ancora invitato senza sospettarlo. Chi chiama
+               divide in lotti (aLotti, in area-riservata/app.js). */
+            if (docs.length > 300) { res.status(400).json({ ok: false, msg: 'Troppe schede in una volta sola.' }); return; }
             // solo "si" o il vuoto: qualunque altra parola qui sarebbe una
             // risposta che l'area riservata poi non sa piu' rileggere
             const valore = testo(body.valore, 10).toLowerCase() === 'si' ? 'si' : '';
