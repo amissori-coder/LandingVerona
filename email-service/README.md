@@ -1688,6 +1688,30 @@ Si chiude da due parti:
   chi assegna dal riepilogo legge che quell'incontro e' stato tolto - e' un
   incontro che sparisce da un foglio gia' spedito.
 
+#### Chi assegna viene fermato prima, non dopo
+
+La rete dentro la transazione ("vale l'ultimo") serve a non lasciare due
+incontri appesi, non a far sparire in silenzio un incontro che sta gia' su un
+foglio spedito. Quindi `coda-assegna`, `esigenza-assegna` e `b2b-sposta`
+**rifiutano** (`motivo: 'stesso-tavolo'`) una destinazione dove quell'impresa ha
+gia' qualcosa, e dicono che cosa e a che ora (`occupatoDaLei`):
+
+- un suo **incontro** su quel tavolo - la prima preferenza, una gia' assegnata,
+  un'altra questione portata li';
+- un'altra sua **preferenza in attesa** su quel tavolo: spostare la terza dove
+  ha gia' chiesto la seconda vorrebbe dire assegnarle due volte lo stesso
+  argomento appena la seconda trova posto.
+
+Il confronto e' per **famiglia** (i gemelli sono un tavolo solo) e i tavoli
+**interni** restano sempre possibili: il desk Revilaw e' nostro, non e' una
+delle sue preferenze. `forzato: true` passa sopra la regola - e allora vale la
+rete di `prendiSlot`, con `doppiLiberati` a dire che cosa e' stato tolto.
+
+Nel riepilogo le tendine non propongono nemmeno quei tavoli
+(`tavoliVietatiPer`): il servizio rifiuta comunque, ma un giro perso e' un giro
+perso mentre si ha al telefono l'impresa. Spostando un incontro, il tavolo da
+cui si parte non e' un divieto - e' proprio quello che si sta liberando.
+
 #### Togliere un'azienda dagli incontri, dal riepilogo
 
 Un'azienda che non viene piu' - o che e' stata cancellata dagli iscritti -
@@ -1698,6 +1722,12 @@ comando c'e' ora sempre (amministratore), e l'identificativo e' quello che si
 sta guardando: `b2b-azienda-elimina` libera tutti i suoi orari, toglie le sue
 richieste, cancella il documento - e da quel momento il suo collegamento non
 apre piu' niente, quindi non puo' piu' prenotare.
+
+Subito dopo si **spegne anche la colonna `Invito B2B`** sulle schede dei suoi
+referenti (`invito-b2b-segna` con valore vuoto, come fa la finestra degli
+inviti): senza, l'azienda resterebbe nell'elenco degli inviti - e' quella
+colonna a tenercela - e al primo invio le si rifarebbe il documento. Tolta di
+qua, tornerebbe di la'.
 
 #### Tre provenienze, tre cose diverse da poter fare
 

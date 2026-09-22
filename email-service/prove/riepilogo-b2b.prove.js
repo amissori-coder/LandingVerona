@@ -59,6 +59,9 @@ const pezzi = [
     ritaglia('function bolloScelta(', '{', '}'),
     ritaglia('function bolloCoda(', '{', '}'),
     ritaglia('function liberiDi(', '{', '}'),
+    ritaglia('function capofilaRb(', '{', '}'),
+    ritaglia('function tavoliVietatiPer(', '{', '}'),
+    ritaglia('function vietatiSenzaQuesto(', '{', '}'),
     ritaglia('function tendinaDove(', '{', '}'),
     ritaglia('function disegnaRiepilogoB2B(', '{', '}')
 ].join('\n');
@@ -76,15 +79,19 @@ function esc(s) {
 /* Chi guarda: per queste prove e' l'amministratore, che e' l'unico a cui la
    vista per azienda mostra il comando per toglierla dagli incontri. */
 const Auth = { eAdmin: () => true };
-const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'collegaRiepilogoB2B', 'Auth',
+/* I due tavoli gemelli sono un tavolo solo, e chi lo sa e' il formato delle
+   mail: nell'app si legge da window.RV_NEWSLETTER, qui si prende il modulo
+   vero invece di ricopiarne la tabella. */
+const window = { RV_NEWSLETTER: require(path.join(__dirname, '..', '..', 'area-riservata', 'newsletter-format.js')) };
+const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'collegaRiepilogoB2B', 'Auth', 'window',
     'let _rb = null, _rbAperto = "", _rbVista = "tavoli", _rbAzienda = "";\n'
     + pezzi
     + '\nreturn {'
-    + '  disegna: (rb, vista, az) => { _rb = rb; _rbVista = vista || "tavoli"; _rbAzienda = az || ""; '
+    + '  disegna: (rb, vista, az, aperto) => { _rb = rb; _rbVista = vista || "tavoli"; _rbAzienda = az || ""; _rbAperto = aperto || ""; '
     + '    disegnaRiepilogoB2B({ id: "napoli-2026-10-02" }); return document.getElementById("rb-corpo").innerHTML; },'
     + '  sceltaB2B: sceltaB2B, SCELTE_B2B: SCELTE_B2B'
     + '};'
-)(esc, documentoFinto, () => true, () => { }, Auth);
+)(esc, documentoFinto, () => true, () => { }, Auth, window);
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -210,6 +217,19 @@ prova('E si vede QUELLA azienda, non le altre', () => {
     esigi(h.indexOf('Beta Srl') < 0, 'di Beta non c\'e\' traccia', 'ne resta qualcosa');
     esigi(h.indexOf('Gino Verdi') < 0, 'nemmeno dei suoi nominativi');
     esigi(h.indexOf('rating') < 0, 'nemmeno delle sue domande');
+});
+
+prova('Non si propone un tavolo dove quell azienda ha gia qualcosa', () => {
+    /* A un tavolo un'impresa ci va una volta sola. Il servizio rifiuta
+       comunque, ma una tendina che offre una destinazione impossibile fa
+       perdere un giro a chi assegna - e il giro lo fa mentre ha al telefono
+       l'impresa. */
+    const h = AMBIENTE.disegna(RB, 'tavoli', '', 'coda|c1');
+    const dentro = h.split('rb-dove-area')[1].split('</select>')[0];
+    esigi(dentro.indexOf('Merito creditizio') < 0,
+        'il tavolo dove Alfa ha gia la prima preferenza non e in elenco', dentro.slice(0, 200));
+    esigi(dentro.indexOf('Desk Revilaw') >= 0,
+        'il desk interno invece si: non e una delle sue preferenze');
 });
 
 prova('Da qui si toglie un azienda dagli incontri', () => {

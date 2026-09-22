@@ -17959,8 +17959,47 @@
         const d = ((_rb && _rb.desk) || []).filter(x => x.id === id)[0];
         return d ? d.slot.filter(s => s.stato === 'libero') : [];
     }
-    function tendinaDove(prefisso, areaScelta) {
-        const desk = ((_rb && _rb.desk) || []).filter(d => d.attiva);
+    /* DOVE QUELL'AZIENDA NON PUO' ANDARE. A un tavolo ci va una volta sola:
+       se ci ha gia' un incontro, o ci ha gia' indicato un'altra preferenza,
+       quel tavolo non si propone nemmeno. Il servizio rifiuta comunque - e'
+       li' che la regola vale - ma una tendina che offre una destinazione
+       impossibile fa perdere un giro a chi assegna, e il giro lo fa mentre
+       ha al telefono l'impresa.
+       Il confronto e' per ARGOMENTO: i due gemelli sono un tavolo solo, e
+       i tavoli interni (il desk Revilaw) restano sempre possibili, perche'
+       non sono fra le preferenze dell'impresa. */
+    function capofilaRb(id) {
+        // sempre da `window`, anche la seconda volta: nel browser e' lo stesso
+        // oggetto, ma cosi' la funzione si puo' provare fuori da una pagina
+        return (window.RV_NEWSLETTER && window.RV_NEWSLETTER.capofilaB2B)
+            ? window.RV_NEWSLETTER.capofilaB2B(id) : String(id || '');
+    }
+    function tavoliVietatiPer(aziendaId, codaId) {
+        const fuori = {};
+        if (!aziendaId) return fuori;
+        ((_rb && _rb.desk) || []).forEach(d => {
+            if (d.interno) return;
+            (d.slot || []).forEach(s => {
+                if (s.stato === 'occupato' && s.chi && s.chi.aziendaId === aziendaId) fuori[capofilaRb(d.id)] = true;
+            });
+            (d.coda || []).forEach(v => {
+                if (v.aziendaId === aziendaId && v.id !== codaId) fuori[capofilaRb(d.id)] = true;
+            });
+        });
+        return fuori;
+    }
+    /* Spostando un incontro, il tavolo DA CUI si parte non e' un divieto: e'
+       proprio quello che si sta liberando. Si toglie dall'elenco dei vietati,
+       altrimenti spostare un incontro di mezz'ora sullo stesso tavolo -
+       la cosa che si fa piu' spesso - diventerebbe impossibile. */
+    function vietatiSenzaQuesto(aziendaId, areaPartenza) {
+        const fuori = tavoliVietatiPer(aziendaId, '');
+        delete fuori[capofilaRb(areaPartenza)];
+        return fuori;
+    }
+    function tendinaDove(prefisso, areaScelta, vietati) {
+        const fuori = vietati || {};
+        const desk = ((_rb && _rb.desk) || []).filter(d => d.attiva && !fuori[capofilaRb(d.id)]);
         const area = areaScelta || (desk[0] || {}).id || '';
         const liberi = liberiDi(area);
         return '<select class="rb-dove-area" data-p="' + esc(prefisso) + '">'
@@ -18006,7 +18045,9 @@
                     + '<button class="btn btn-sm btn-ghost rb-libera" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Annulla</button>'
                     + '</span>' : '')
                 + (spostaAperto
-                    ? '<div class="rb-dove">Sposta a: ' + tendinaDove('sposta|' + d.id + '|' + s.chiave, d.id)
+                    ? '<div class="rb-dove">Sposta a: '
+                    + tendinaDove('sposta|' + d.id + '|' + s.chiave, d.id,
+                        vietatiSenzaQuesto((s.chi || {}).aziendaId, d.id))
                     + '<button class="btn btn-sm btn-primary rb-sposta-ok" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Sposta e avvisa</button>'
                     + '<button class="btn btn-sm btn-ghost rb-annulla">Lascia stare</button></div>'
                     : '')
@@ -18027,7 +18068,8 @@
                     + '<button class="btn btn-sm btn-ghost rb-scarta" data-coda="' + esc(v.id) + '" data-az="' + esc(v.aziendaId) + '">Scarta</button>'
                     + '</span>' : '')
                 + (aperto
-                    ? '<div class="rb-dove">Orario: ' + tendinaDove('coda|' + v.id, d.id)
+                    ? '<div class="rb-dove">Orario: '
+                    + tendinaDove('coda|' + v.id, d.id, tavoliVietatiPer(v.aziendaId, v.id))
                     + '<button class="btn btn-sm btn-primary rb-assegna-ok" data-coda="' + esc(v.id) + '" data-az="' + esc(v.aziendaId) + '">Assegna e avvisa</button>'
                     + '<button class="btn btn-sm btn-ghost rb-annulla">Lascia stare</button></div>'
                     : '')
@@ -18076,7 +18118,8 @@
                         + 'data-id="' + esc(e.id) + '">Cancella</button>'
                         + '</span>' : '')
                     + (aperto
-                        ? '<div class="rb-dove">Tavolo e orario: ' + tendinaDove('esig|' + e.id, '')
+                        ? '<div class="rb-dove">Tavolo e orario: '
+                        + tendinaDove('esig|' + e.id, '', tavoliVietatiPer(e.aziendaId, ''))
                         + '<button class="btn btn-sm btn-primary rb-esig-ok" data-id="' + esc(e.id) + '" '
                         + 'data-az="' + esc(e.aziendaId) + '">Porta e avvisa</button>'
                         + '<button class="btn btn-sm btn-ghost rb-annulla">Lascia stare</button>'
@@ -18156,26 +18199,25 @@
                 + (az.piva ? '<span class="hint">P.IVA ' + esc(az.piva) + '</span>' : '')
                 + '<span class="hint">' + inc.length + (inc.length === 1 ? ' incontro fissato' : ' incontri fissati')
                 + ' &middot; ' + cod.length + ' in attesa &middot; ' + esig.length
-                + (esig.length === 1 ? ' esigenza' : ' esigenze') + '</span></div>'
+                + (esig.length === 1 ? ' esigenza' : ' esigenze') + '</span>'
+                /* TOGLIERLA DAGLI INCONTRI, da qui e non solo dalla finestra
+                   degli inviti. Li' il comando funziona solo se la scheda del
+                   referente porta ancora l'identificativo dell'azienda B2B:
+                   se quello manca - o l'iscrizione e' stata cancellata -
+                   l'impresa resta negli incontri con i suoi orari impegnati e
+                   non la si toglie piu' da nessuna parte. Qui l'identificativo
+                   c'e' di sicuro: e' quello che si sta guardando. */
+                + (Auth.eAdmin() ? '<span class="rb-az"><button class="btn btn-sm btn-ghost rb-az-elimina" data-az="'
+                    + esc(az.id) + '" data-nome="' + esc(az.nome) + '" data-docs="'
+                    + esc((az.referenti || []).map(r => r.doc).filter(Boolean).join('|')) + '">Togli dagli incontri</button></span>' : '')
+                + '</div>'
                 + (chi.length ? '<div class="rb-riga"><span class="rb-chi">' + chi.join(' &nbsp;&middot;&nbsp; ') + '</span></div>' : '')
                 /* Il collegamento al SUO modulo: e' la pagina che l'azienda
                    vede, ed e' l'unico modo di controllare davvero che cosa le
                    compare - al telefono, mentre ce l'hai dall'altra parte. */
                 + (az.link ? '<div class="rb-riga"><span class="rb-chi"><a href="' + esc(az.link)
                     + '" target="_blank" rel="noopener">Apri il modulo di questa azienda</a>'
-                    + '<span class="hint">\u00e8 la pagina che vede lei</span></span>'
-                    /* TOGLIERLA DAGLI INCONTRI, da qui. Un'azienda che non
-                       viene piu' - o che e' stata cancellata dagli iscritti -
-                       restava negli incontri con i suoi orari impegnati: la si
-                       poteva togliere solo dalla finestra degli inviti, e solo
-                       se la sua scheda portava ancora l'identificativo. Qui
-                       l'identificativo c'e' di sicuro, perche' e' quello che
-                       si sta guardando. Gli orari tornano liberi e il suo
-                       collegamento smette di aprire: da quel momento non puo'
-                       piu' prenotare niente. */
-                    + (Auth.eAdmin() ? '<span class="rb-az"><button class="btn btn-sm btn-ghost rb-az-elimina" data-az="'
-                        + esc(az.id) + '" data-nome="' + esc(az.nome) + '">Togli dagli incontri</button></span>' : '')
-                    + '</div>' : '')
+                    + '<span class="hint">\u00e8 la pagina che vede lei</span></span></div>' : '')
                 + '</div>'
                 + blocco('Incontri fissati', 'hanno un orario: al desk risultano a nome suo',
                     inc.map(x => rigaSlot(x.d, x.s, true)).join(''),
@@ -18221,12 +18263,23 @@
         }));
         box.querySelectorAll('.rb-az-elimina').forEach(b => b.addEventListener('click', () => {
             if (!confirm('Tolgo "' + b.dataset.nome + '" dagli incontri B2B?\n\n'
-                + 'Gli orari che aveva prenotato tornano liberi e il suo collegamento smette di funzionare: '
-                + 'da quel momento non puo\' piu\' prenotare niente. Non parte nessuna mail.\n\n'
+                + 'Gli orari che aveva prenotato tornano liberi, il suo collegamento smette di funzionare '
+                + '(da quel momento non puo\' piu\' prenotare niente) e sparisce anche dall\'elenco degli inviti. '
+                + 'L\'iscrizione all\'evento resta. Non parte nessuna mail.\n\n'
                 + 'Non si torna indietro.')) return;
+            const docs = String(b.dataset.docs || '').split('|').filter(Boolean);
             chiama({ azione: 'b2b-azienda-elimina', aziendaId: b.dataset.az }, r => {
                 _rbAzienda = '';
                 const n = (r.liberati || []).length;
+                /* E SI SPEGNE ANCHE LA SCELTA. Senza, l'azienda resta
+                   nell'elenco degli inviti B2B (e' la colonna "Invito B2B" a
+                   tenercela) e al primo invio le si rifa' il documento: tolta
+                   di qua, tornerebbe di la'. */
+                if (docs.length) {
+                    aLotti(docs, 200).reduce((p, lotto) => p.then(() =>
+                        Cloud.operaPresenza({ azione: 'invito-b2b-segna', evento: ev.id, docs: lotto, valore: '' })),
+                        Promise.resolve()).catch(() => { });
+                }
                 return b.dataset.nome + ' non e\' piu\' negli incontri'
                     + (n ? ': ' + n + (n === 1 ? ' orario torna libero.' : ' orari tornano liberi.') : '.');
             });
