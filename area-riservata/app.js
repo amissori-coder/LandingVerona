@@ -20767,7 +20767,11 @@
                 evento: {
                     titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
                     luogo: ev.luogo || '', indirizzo: ev.indirizzo || '',
-                    scadenzaB2B: ev.scadenzaB2B || ''
+                    scadenzaB2B: ev.scadenzaB2B || '',
+                    // la pagina del convegno: e' li' che vive il programma dei
+                    // lavori, e l'invito dice di guardarlo prima di scegliere
+                    // l'orario dell'incontro
+                    url: ev.urlPagina ? SITO_PUBBLICO + ev.urlPagina : ''
                 },
                 aree: famiglie.map(a => Object.assign({}, defArea(a.id), { referenti: a.referenti })),
                 giornata: agenda.giornata,

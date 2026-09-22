@@ -1244,6 +1244,20 @@ stanno in coda: quella sui colleghi stava fra le regole e il pulsante, e
 interrompeva proprio nel punto in cui chi legge ha finito di capire e sta per
 prenotare.
 
+### L'invito ricorda di guardare il programma dei lavori
+
+Gli incontri corrono **a margine dei lavori in sala**, e la scaletta si aggiorna
+fino agli ultimi giorni: chi sceglie un orario senza averla riletta rischia di
+prendersi l'incontro proprio durante l'intervento per cui era venuto, e a quel
+punto salta l'uno o salta l'altro. La riga sta nel riquadro "Quando e dove" -
+dove si parla della giornata - con il collegamento alla pagina del convegno
+(`urlPagina` in `EVENTI_DEF`, che arriva alla mail come `evento.url`), perche'
+la scaletta vive li' e li' si aggiorna da se'.
+
+Senza quell'indirizzo resta il consiglio **senza** il collegamento: meglio una
+frase in meno che un link a vuoto. Le prove stanno in
+`prove/mail-invito-forma.prove.js`, con e senza pagina dell'evento.
+
 ### Un invito riservato, e si legge prima di aprire la mail
 
 L'oggetto e' **"Invito riservato agli incontri B2B - Next Generation Business,

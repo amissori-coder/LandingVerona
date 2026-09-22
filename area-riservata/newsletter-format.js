@@ -1873,10 +1873,26 @@
             + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
             + dentro + '</td></tr></table></td></tr>';
         const quandoDove = [ev.quando, ev.luogo].filter(Boolean).join(' - ');
+        /* IL PROGRAMMA DEI LAVORI, da guardare PRIMA di scegliere l'ora.
+           Gli incontri corrono a margine dei lavori in sala, e la scaletta si
+           aggiorna fino agli ultimi giorni: chi sceglie un orario senza averla
+           riletta rischia di prendersi l'incontro proprio durante l'intervento
+           per cui era venuto - e a quel punto o salta l'uno o salta l'altro.
+           Il collegamento e' quello della pagina del convegno, dove la
+           scaletta vive e si aggiorna da se'; se non c'e', resta il consiglio
+           senza il collegamento invece di un link a vuoto. */
+        const urlEvento = urlSicuro(ev.url || '');
+        const rigaProgramma = 'Il programma dei lavori in sala si aggiorna fino agli ultimi giorni: lo verifichi '
+            + 'prima di scegliere l\'orario, così l\'incontro non Le capita durante un intervento a cui teneva.';
         const sezioneQuandoDove = quandoDove || ev.indirizzo
             ? sezione('Quando e dove',
                 '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">' + testoHtml(quandoDove) + '</div>'
-                + (ev.indirizzo ? '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(ev.indirizzo) + '</div>' : ''))
+                + (ev.indirizzo ? '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(ev.indirizzo) + '</div>' : '')
+                + '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + 'padding-top:8px;">'
+                + testoHtml(rigaProgramma)
+                + (urlEvento ? ' <a href="' + esc(urlEvento) + '" style="color:' + C.blu + ';text-decoration:underline;font-weight:bold;">'
+                    + 'Il programma dei lavori</a>' : '')
+                + '</div>')
             : '';
         /* I TAVOLI, tutti: l'invito e' uno solo e l'impresa sceglie fra
            questi. Elencarli qui - e non solo sulla pagina - e' quello che
@@ -1965,6 +1981,7 @@
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.',
             'Gli incontri non sono aperti a tutti gli iscritti: i posti ai desk sono limitati e l\'invito va alle imprese che scegliamo una per una. La Vostra è fra queste.',
             'Gli incontri si tengono a margine dei lavori in sala, ai desk riservati.',
+            rigaProgramma + (urlEvento ? '\nIl programma dei lavori: ' + urlEvento : ''),
             ((ev.quando || ev.luogo) ? 'Quando e dove: ' + [ev.quando, ev.luogo].filter(Boolean).join(' - ')
                 + (ev.indirizzo ? ', ' + ev.indirizzo : '') : ''),
             (aree.length ? 'I tavoli della giornata:\n' + aree.map(a => '- ' + a.nome).join('\n') : ''),

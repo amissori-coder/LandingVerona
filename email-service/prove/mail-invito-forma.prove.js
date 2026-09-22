@@ -58,7 +58,8 @@ function mail() {
     return NL.invitoB2BAzienda({
         evento: {
             titolo: 'Napoli', quando: '2 ottobre 2026', sottotitolo: 'Costruire l\'impresa del futuro',
-            luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli'
+            luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli',
+            scadenzaB2B: '30 settembre', url: 'https://nextgenerationbusiness.it/napoli_ottobre_2026/'
         },
         aree: AREE, giornata: GIORNATA, regole: MODELLO.regoleB2B(GIORNATA)
     });
@@ -170,13 +171,45 @@ prova('Il corpo dice perche proprio a loro, e in coda a chi resta', () => {
         'e la nota in coda lo ripete nominando l impresa');
 });
 
-prova('Le tre sezioni hanno la stessa forma', () => {
+prova('Ricorda di guardare il programma dei lavori, prima di scegliere l ora', () => {
+    /* Gli incontri corrono a margine dei lavori in sala, e la scaletta si
+       aggiorna fino agli ultimi giorni: chi sceglie un orario senza averla
+       riletta rischia di prendersi l'incontro proprio durante l'intervento per
+       cui era venuto, e a quel punto salta l'uno o salta l'altro. */
+    const m = mail();
+    const html = senzaTrattini(m.html);
+    esigi(/programma dei lavori in sala si aggiorna/.test(html), 'la mail lo ricorda');
+    esigi(/prima di scegliere l'orario/.test(html), 'e dice quando guardarlo: prima di scegliere');
+    esigi(html.indexOf('https://nextgenerationbusiness.it/napoli_ottobre_2026/') > 0,
+        'con il collegamento alla pagina del convegno, dove la scaletta vive');
+    esigi(/programma dei lavori in sala si aggiorna/.test(m.testo)
+        && m.testo.indexOf('https://nextgenerationbusiness.it/napoli_ottobre_2026/') > 0,
+        'e lo stesso nel testo semplice');
+    // senza indirizzo resta il consiglio, non un collegamento a vuoto
+    const senzaUrl = NL.invitoB2BAzienda({
+        evento: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel' },
+        aree: AREE, giornata: GIORNATA, regole: MODELLO.regoleB2B(GIORNATA)
+    });
+    esigi(/programma dei lavori in sala si aggiorna/.test(senzaTrattini(senzaUrl.html)),
+        'senza la pagina dell evento il consiglio resta');
+    esigi(senzaUrl.html.indexOf('Il programma dei lavori</a>') < 0,
+        'ma non si inventa un collegamento che non c e');
+});
+
+prova('Le sezioni hanno tutte la stessa forma', () => {
     /* Prima erano due riquadri disegnati a mano e in mezzo un titoletto nudo:
-       tre pesi diversi nella stessa pagina. Qui si conta che i riquadri siano
-       tre, cioe' che nessuna delle tre sezioni sia tornata a farsi da se'. */
-    const corpo = corpoDi(mail().html);
-    const quanti = corpo.split('border-left:3px solid').length - 1;
-    esigi(quanti === 3, 'i riquadri del corpo sono tre', 'contati: ' + quanti);
+       tre pesi diversi nella stessa pagina. Qui si contano i riquadri, cioe'
+       si verifica che nessuna sezione sia tornata a farsi da se'. Con la
+       scadenza sono quattro - quando e dove, i tavoli, come funziona, entro
+       quando - e senza sono tre. */
+    const quanti = corpoDi(mail().html).split('border-left:3px solid').length - 1;
+    esigi(quanti === 4, 'con la scadenza i riquadri del corpo sono quattro', 'contati: ' + quanti);
+    const senzaScadenza = NL.invitoB2BAzienda({
+        evento: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Eurostars Excelsior' },
+        aree: AREE, giornata: GIORNATA, regole: MODELLO.regoleB2B(GIORNATA)
+    });
+    const senza = corpoDi(senzaScadenza.html).split('border-left:3px solid').length - 1;
+    esigi(senza === 3, 'e senza scadenza sono tre: quel riquadro non compare vuoto', 'contati: ' + senza);
 });
 
 console.log('\nLa forma della mail d\'invito B2B\n');
