@@ -1363,7 +1363,11 @@
         { nome: 'Revisione legale', descrizione: 'revisione legale dei conti e collegio sindacale' },
         { nome: 'Certificazione ISO', descrizione: 'certificazioni ISO e sistemi di gestione: qualità, ambiente e sicurezza' },
         { nome: 'Rating di legalita', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
-        { nome: 'Rating di legalita - secondo tavolo', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' }
+        { nome: 'Rating di legalita - secondo tavolo', descrizione: 'rating di legalità: requisiti, benefici e premialità nei bandi e nel dialogo con le banche' },
+        /* Interno: sta nell'elenco perche' gli identificativi devono combaciare
+           con quelli del servizio, ma agli inviti non si propone mai (vedi
+           `interna` qui sotto e argomentiB2B nel servizio). */
+        { nome: 'Desk Revilaw', descrizione: 'il banco dove si chiede di noi: incarichi, rete e servizi Revilaw', interna: true }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
@@ -1371,8 +1375,20 @@
     const AREE_B2B = [
         'merito-creditizio', 'adeguati-assetti', 'esg',
         'modello-231', 'modello-231-b', 'finanza-agevolata',
-        'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b'
-    ].map((id, i) => ({ id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione }));
+        'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b',
+        'desk-revilaw'
+    ].map((id, i) => ({
+        id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione,
+        /* `gruppo`: il secondo tavolo di un argomento non e' un argomento a se'.
+           `interna`: il tavolo nostro, che negli inviti non si offre.
+           Sono le stesse due proprieta' di lib/temi-b2b.js nel servizio. */
+        gruppo: { 'modello-231-b': 'modello-231', 'rating-legalita-b': 'rating-legalita' }[id] || '',
+        interna: TEMI_B2B[i].interna === true
+    }));
+    /* Gli ARGOMENTI da offrire in un invito: un capogruppo per volta, senza i
+       secondi tavoli e senza i tavoli nostri. E' l'elenco che finisce nella
+       mail e nel modulo dell'ospite. */
+    const ARGOMENTI_B2B = AREE_B2B.filter(a => !a.gruppo && !a.interna);
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
        caselle e per quello a orari. Stanno qui in tre funzioni e non
        ricopiate in due punti, perche' sono la faccia della mail: due copie
@@ -2209,7 +2225,7 @@
     return {
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
-        SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B, AREE_B2B: AREE_B2B,
+        SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B, AREE_B2B: AREE_B2B, ARGOMENTI_B2B: ARGOMENTI_B2B,
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
         passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,

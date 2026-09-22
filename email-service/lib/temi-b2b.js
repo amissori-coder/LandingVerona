@@ -8,6 +8,23 @@
    un orario ospita una prenotazione sola, quindi due referenti che
    ricevono in parallelo sono due tavoli.
 
+   MA CHI PRENOTA NON DEVE SAPERLO. Due tavoli sullo stesso
+   argomento sono un dettaglio della nostra organizzazione: per
+   l'impresa invitata c'e' UN argomento e UN elenco di orari, e le
+   10:00 sono libere finche' c'e' posto su almeno uno dei due. Il
+   conto dei posti lo teniamo noi (`gruppo`), e quando si prenota si
+   riempie PRIMA il tavolo principale - quello del referente che
+   l'argomento lo porta sul palco - e solo dopo il secondo.
+   Il campo `gruppo` dice a quale argomento un tavolo appartiene;
+   l'ordine dell'elenco dice quale si riempie per primo.
+
+   TAVOLI INTERNI (`interna`). Il desk Revilaw non e' un argomento
+   del convegno: e' il banco dove si chiede di noi. Non compare fra
+   le scelte dell'invito ne' nel modulo dell'ospite, e ci si finisce
+   solo perche' lo decide chi organizza. Sta nell'elenco lo stesso,
+   perche' un incontro assegnato li' e' un incontro come gli altri:
+   ha un orario, una conferma e un foglio per il desk.
+
    L'elenco sta qui, in un posto solo, perche' lo usano TRE pezzi del
    servizio: presenze.js (che con l'invito riceve l'area e l'orario di
    ciascun tavolo e deve poter scartare le etichette che non conosce),
@@ -69,7 +86,7 @@ const AREE_B2B = [
        tavolo resta prenotabile - e chi invita sceglie a quale dei due
        convoca l'impresa. Sta accanto al suo gemello, non in fondo: chi
        guarda l'elenco deve vedere subito che sono lo stesso argomento. */
-    { id: 'modello-231-b', nome: 'Modello 231 e TCF - secondo tavolo' },
+    { id: 'modello-231-b', nome: 'Modello 231 e TCF - secondo tavolo', gruppo: 'modello-231' },
     { id: 'finanza-agevolata', nome: 'Finanza agevolata' },
     /* I due tavoli che non sono tappe del programma: la revisione legale,
        che e' il mestiere di casa, e la certificazione ISO. Ci sono lo
@@ -77,7 +94,10 @@ const AREE_B2B = [
     { id: 'revisione', nome: 'Revisione legale' },
     { id: 'certificazione-iso', nome: 'Certificazione ISO' },
     { id: 'rating-legalita', nome: 'Rating di legalita' },
-    { id: 'rating-legalita-b', nome: 'Rating di legalita - secondo tavolo' }
+    { id: 'rating-legalita-b', nome: 'Rating di legalita - secondo tavolo', gruppo: 'rating-legalita' },
+    /* In fondo, come vuole la regola dell'ordine. Interno: non si invita
+       nessuno al desk Revilaw, ci si assegna. */
+    { id: 'desk-revilaw', nome: 'Desk Revilaw', interna: true }
 ];
 
 // le sole etichette, nello stesso ordine: la forma con cui gli orari e le
@@ -106,6 +126,46 @@ function idArea(nome) {
     return a ? a.id : (NOMI_STORICI[k] || '');
 }
 
+/* =========================================================
+   I GRUPPI: piu' tavoli, un argomento solo
+   ------------------------------------------------------------
+   `gruppoDi` dice sotto quale argomento un tavolo va mostrato: per un
+   tavolo normale e' se stesso, per un secondo tavolo e' il suo gemello.
+   `tavoliDelGruppo` li rida' NELL'ORDINE IN CUI SI RIEMPIONO - prima il
+   principale, poi i secondi - ed e' quest'ordine che manda le prime
+   prenotazioni al referente che tiene l'argomento.
+========================================================= */
+function gruppoDi(id) {
+    const a = areaDa(id);
+    if (!a) return '';
+    return a.gruppo && areaDa(a.gruppo) ? a.gruppo : a.id;
+}
+// e' un secondo tavolo? (serve a non mostrarlo come argomento a se')
+function eSecondario(id) { const a = areaDa(id); return !!(a && a.gruppo); }
+// e' un tavolo nostro, che negli inviti non si offre?
+function eInterna(id) { const a = areaDa(id); return !!(a && a.interna); }
+/* I tavoli di un argomento, nell'ordine in cui si riempiono. Un id che non
+   e' un capogruppo torna la lista del SUO gruppo: chi chiama puo' passare
+   indifferentemente 'modello-231' o 'modello-231-b' e ottiene la stessa
+   coppia, sempre nello stesso ordine. */
+function tavoliDelGruppo(id) {
+    const g = gruppoDi(id);
+    if (!g) return [];
+    return AREE_B2B.filter(a => (a.gruppo && areaDa(a.gruppo) ? a.gruppo : a.id) === g).map(a => a.id);
+}
+/* Gli ARGOMENTI: un capogruppo per volta, senza i secondi tavoli. E' l'elenco
+   che vede chi prenota e chi sceglie a cosa invitare un'impresa. Con
+   `conInterne` si aggiungono i tavoli nostri: lo fa solo l'area riservata. */
+function argomentiB2B(conInterne) {
+    return AREE_B2B.filter(a => !a.gruppo && (conInterne ? true : !a.interna))
+        .map(a => ({ id: a.id, nome: a.nome, interna: !!a.interna, tavoli: tavoliDelGruppo(a.id) }));
+}
+/* Il nome dell'ARGOMENTO di un tavolo: il secondo tavolo del 231 si chiama
+   "Modello 231 e Tax Control Framework" dovunque l'ospite lo legga - mail,
+   foglio del desk, riepilogo -, perche' e' li' che ha l'appuntamento. Il
+   nome vero del tavolo resta per noi. */
+function nomeArgomento(id) { return nomeArea(gruppoDi(id)); }
+
 /* Etichette storiche del form del sito che non coincidono alla lettera con i
    tavoli: si riportano comunque come caselle gia' spuntate, cosi' chi ha
    scelto dal sito si ritrova le sue preferenze e puo' modificarle. Le chiavi
@@ -122,4 +182,7 @@ const ALIAS_B2B = {
     'modello 231 e rating di legalita': [3, 8]
 };
 
-module.exports = { AREE_B2B, TEMI_B2B, ALIAS_B2B, areaDa, nomeArea, idArea };
+module.exports = {
+    AREE_B2B, TEMI_B2B, ALIAS_B2B, areaDa, nomeArea, idArea,
+    gruppoDi, eSecondario, eInterna, tavoliDelGruppo, argomentiB2B, nomeArgomento
+};

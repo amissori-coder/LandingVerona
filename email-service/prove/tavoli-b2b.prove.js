@@ -61,12 +61,22 @@ prova('1) Gli identificativi e le etichette: servizio e area riservata', () => {
 });
 
 prova('2) Le descrizioni lunghe: area riservata e pagina dell\'ospite', () => {
+    /* Il confronto e' sui tavoli che l'ospite puo' vedere: i tavoli INTERNI -
+       il desk Revilaw - stanno nell'elenco perche' gli identificativi devono
+       combaciare con quelli del servizio, ma nella mail e nella pagina non
+       compaiono mai, e pretenderne la descrizione li' vorrebbe dire
+       annunciarli a chi non deve sapere che esistono. */
+    const offerti = AREA.TEMI_B2B.filter(t => t.interna !== true);
     const pagina = temiDellaPagina();
-    esigi(pagina.length === AREA.TEMI_B2B.length,
-        'la pagina ne descrive tanti quanti ne propone la mail (' + pagina.length + ' e ' + AREA.TEMI_B2B.length + ')');
-    const diverse = AREA.TEMI_B2B.filter((t, i) => pagina[i] !== t.descrizione);
+    esigi(pagina.length === offerti.length,
+        'la pagina ne descrive tanti quanti ne propone la mail (' + pagina.length + ' e ' + offerti.length + ')');
+    const diverse = offerti.filter((t, i) => pagina[i] !== t.descrizione);
     esigi(!diverse.length, 'e la descrizione di ciascun tavolo e la stessa, alla lettera'
         + (diverse.length ? ' - non torna: ' + diverse.map(x => x.nome).join(', ') : ''));
+    /* E che un tavolo interno non finisca per sbaglio in mezzo a quelli
+       offerti: e' la riga che si accorgerebbe del contrario. */
+    esigi(AREA.ARGOMENTI_B2B.every(a => !a.interna && !a.gruppo),
+        'fra gli argomenti da invitare non ci sono ne tavoli interni ne secondi tavoli');
 });
 
 prova('3) Gli alias del modulo del sito portano su tavoli che esistono', () => {
