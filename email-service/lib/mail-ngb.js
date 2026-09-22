@@ -427,12 +427,12 @@ function confermaB2BAzienda(dati, link) {
         return {
             ora: (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : '',
             nome: t.nome + ((!ore.inizio && t.orario) ? ' - ' + t.orario : ''),
-            con: t.con || '', per: t.perChi || ''
+            con: '', per: t.perChi || ''
         };
     });
     const fraseDesk = quanti
         ? 'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
-        + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Al tavolo La attende il professionista indicato qui sopra.'
+        + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Al tavolo Vi attendono i nostri professionisti.'
         : 'Al momento non risulta nessun incontro prenotato per la Vostra azienda: può sceglierne uno dal pulsante qui sotto.';
     const fraseCoda = 'Non sono prenotazioni: finché non arriva una nostra mail con l\'orario, al desk non risulta '
         + 'nessun incontro a questi tavoli.';
@@ -487,7 +487,7 @@ function confermaB2BAzienda(dati, link) {
                 const ore = ORARI.oreDaFrase(t.orario);
                 const quando = (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : (t.orario || '');
                 return '- ' + (quando ? quando + ', ' : '') + t.nome
-                    + (t.con ? ' (con ' + t.con + ')' : '') + (t.perChi ? ' - per ' + t.perChi : '');
+                    + (t.perChi ? ' - per ' + t.perChi : '');
             }).join('\n')) : 'Nessun incontro prenotato.',
         vociCoda.length ? ('In attesa di un orario:\n' + vociCoda.map(v => '- ' + v).join('\n') + '\n' + fraseCoda) : '',
         vociEsigenze.length ? ('Ci avete segnalato:\n' + vociEsigenze.map(v => '- ' + v).join('\n')) : '',

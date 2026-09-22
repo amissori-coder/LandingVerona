@@ -1643,7 +1643,9 @@
            referente e' uno solo;
          {{B2B}} - il collegamento dell'azienda alla pagina.
        `dati`: { evento: {titolo, quando, sottotitolo, luogo, indirizzo},
-       aree: [{nome, descrizione, referenti:[{nome, ruolo}]}],
+       aree: [{nome, descrizione}] (di chi tiene il tavolo non si scrive:
+       e' un nome che puo' cambiare fino al giorno prima, e l'impresa
+       sceglie l'argomento, non la persona),
        giornata: {inizio, fine, pranzoDa, pranzoA, durata} }.
     ========================================================= */
     function invitoB2BAzienda(dati) {
@@ -1669,12 +1671,9 @@
            sceglie fra questi. Elencarli qui - e non solo sulla pagina - e'
            quello che permette di decidere prima di aprire il collegamento. */
         const elencoTavoli = '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">'
-            + aree.map(a => {
-                const chi = (a.referenti || []).filter(r => r && r.nome)
-                    .map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ');
-                return '&bull;&nbsp; <b>' + esc(a.nome) + '</b>'
-                    + (chi ? '<span style="color:' + C.tenue + ';"> - con ' + esc(chi) + '</span>' : '');
-            }).join('<br>')
+            + aree.map(a => '&bull;&nbsp; <b>' + esc(a.nome) + '</b>'
+                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> - ' + esc(a.descrizione) + '</span>' : ''))
+                .join('<br>')
             + '</td></tr>';
         const regole = (dati.regole || []);
         const elencoRegole = regole.length
@@ -1720,11 +1719,8 @@
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.',
             ((ev.quando || ev.luogo) ? 'Quando e dove: ' + [ev.quando, ev.luogo].filter(Boolean).join(' - ')
                 + (ev.indirizzo ? ', ' + ev.indirizzo : '') : ''),
-            (aree.length ? 'I tavoli della giornata:\n' + aree.map(a => {
-                const chi = (a.referenti || []).filter(r => r && r.nome)
-                    .map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ');
-                return '- ' + a.nome + (chi ? ' (con ' + chi + ')' : '');
-            }).join('\n') : ''),
+            (aree.length ? 'I tavoli della giornata:\n'
+                + aree.map(a => '- ' + a.nome + (a.descrizione ? ' - ' + a.descrizione : '')).join('\n') : ''),
             (regole.length ? 'Come funziona:\n' + regole.map(x => '- ' + x).join('\n') : ''),
             '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
             'Scelga i Vostri incontri: ' + SEGNAPOSTO_B2B,
@@ -1747,8 +1743,8 @@
         return [
             'Un invito per azienda: indichi il nominativo di chi partecipa a ciascun incontro, '
             + 'e può essere una persona diversa da un tavolo all\'altro.',
-            'La PRIMA preferenza prenota davvero: sceglie il tavolo E l\'orario, e da quel momento quell\'orario è Suo.',
-            'La SECONDA e la TERZA sono solo il TAVOLO: se restano posti l\'orario glielo assegniamo noi e Le scriviamo. '
+            'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo.',
+            'La seconda e la terza sono solo il tavolo: se restano posti l\'orario glielo assegniamo noi e Le scriviamo. '
             + 'Finché non arriva quella mail non c\'è nessun orario a Suo nome.',
             'Ogni incontro dura ' + durata + ' minuti, fra le ' + inizio + ' e le ' + fine
             + (g.pranzoDa && g.pranzoA ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',

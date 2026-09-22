@@ -338,7 +338,7 @@ function slotDi(area, ora) {
         esigi(r.ok && r.modo === 'azienda', 'la pagina si apre in modalita azienda');
         esigi(r.azienda.nome === 'Alfa S.r.l.' && r.referenti.length === 2, 'sa di che impresa e chi sono i referenti');
         esigi(r.referenti[0].doc === 'mario' && r.referenti[0].email === undefined, 'la tendina dei nominativi non porta gli indirizzi');
-        esigi(Array.isArray(r.regole) && r.regole.length === 5 && /PRIMA preferenza prenota davvero/.test(r.regole[1]),
+        esigi(Array.isArray(r.regole) && r.regole.length === 5 && /prima preferenza prenota davvero/.test(r.regole[1]),
             'le regole di prenotazione arrivano dal servizio, scritte una volta sola');
         esigi(r.aree.length === 3, 'i tavoli sono quelli dell\'invito, tutti');
         esigi(r.prima === null && r.coda.length === 0, 'e all\'inizio non c\'e nessuna scelta');

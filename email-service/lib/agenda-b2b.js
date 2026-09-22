@@ -579,9 +579,12 @@ async function letturaAzienda(db, evento, aziendaId) {
     const aree = daMostrare.map(id => {
         const cfg = (agenda.aree || {})[id] || areaVuota();
         const slot = slotDiArea(agenda, pren, id, voci);
+        /* Del tavolo si manda l'ARGOMENTO e la nota, non chi lo tiene per noi:
+           e' un nome che puo' cambiare fino al giorno prima, e l'impresa
+           sceglie il tema di cui vuole parlare. Quello che non si manda non
+           si puo' nemmeno stampare per sbaglio. */
         return {
             id: id, nome: nomeArea(id), nota: cfg.nota,
-            referenti: cfg.referenti.map(r => ({ nome: r.nome, ruolo: r.ruolo, azienda: r.azienda })),
             slot: slot.map(s => {
                 const suo = s.chi && String(s.chi.aziendaId || '') === String(aziendaId || '');
                 return {
@@ -839,17 +842,15 @@ async function inviaConfermaAzienda(db, evento, aziendaId, motivo) {
             titolo: String(evd.titolo || '') || 'Next Generation Business',
             quando: String(evd.quando || ''), luogo: String(evd.luogo || ''), indirizzo: String(evd.indirizzo || '')
         },
-        tavoli: nostri.map(x => {
-            const cfg = (agenda.aree || {})[x.area] || areaVuota();
-            return {
-                nome: nomeArea(x.area),
-                orario: fraseOrario(x.ora, String(x.dati.fine || '')),
-                con: cfg.referenti.map(r => r.nome + (r.ruolo ? ' (' + r.ruolo + ')' : '')).join(', '),
-                perChi: String(x.dati.perChi || ''), perRuolo: String(x.dati.perRuolo || ''),
-                prenotatoDa: String(x.dati.nome || ''),
-                scelta: Number(x.dati.scelta) || 1
-            };
-        }),
+        // nella mail e sul foglio del desk: l'argomento, l'ora e il nominativo
+        // di chi viene. Chi tiene il tavolo per noi non si nomina.
+        tavoli: nostri.map(x => ({
+            nome: nomeArea(x.area),
+            orario: fraseOrario(x.ora, String(x.dati.fine || '')),
+            perChi: String(x.dati.perChi || ''), perRuolo: String(x.dati.perRuolo || ''),
+            prenotatoDa: String(x.dati.nome || ''),
+            scelta: Number(x.dati.scelta) || 1
+        })),
         coda: azienda.coda.filter(c => c.stato === 'attesa')
             .map(c => ({ nome: nomeArea(c.area), pos: c.pos, perChi: c.perChi })),
         esigenze: azienda.esigenze.map(e => ({ testo: e.testo, perChi: e.perChi })),

@@ -556,7 +556,10 @@ function areeComposte(agenda, prenotazioni, voci) {
    appena cambiato le scelte, invece di cancellargliele.
 ========================================================= */
 const MAX_REFERENTI = 8;
-const MAX_ESIGENZE = 5;
+/* Una riga sola di "altre esigenze": e' una domanda in piu', non una
+   quarta scelta. Con cinque righe diventava un elenco di desideri da
+   leggere a mano la sera prima, e le preferenze restano tre. */
+const MAX_ESIGENZE = 1;
 const TESTO_ESIGENZA = 600;
 
 function rifAziende(db) { return db.collection('b2bAziende'); }
@@ -681,8 +684,8 @@ function regoleB2B(giornata) {
     return [
         'Un invito per azienda: indichi il nominativo di chi partecipa a ciascun incontro, '
         + 'e può essere una persona diversa da un tavolo all\'altro.',
-        'La PRIMA preferenza prenota davvero: sceglie il tavolo E l\'orario, e da quel momento quell\'orario è Suo.',
-        'La SECONDA e la TERZA sono solo il TAVOLO: se restano posti l\'orario glielo assegniamo noi e Le scriviamo. '
+        'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo.',
+        'La seconda e la terza sono solo il tavolo: se restano posti l\'orario glielo assegniamo noi e Le scriviamo. '
         + 'Finché non arriva quella mail non c\'è nessun orario a Suo nome.',
         'Ogni incontro dura ' + g.durata + ' minuti, fra le ' + g.inizio + ' e le ' + g.fine
         + (g.pranzoDa ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',

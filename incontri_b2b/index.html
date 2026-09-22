@@ -37,8 +37,8 @@
         .regole li { margin-bottom: 6px; }
         .pref { border: 1px solid var(--bordo); border-radius: 8px; padding: 12px 14px; margin-top: 12px; background: #fff; }
         .pref.bloccata { background: var(--chiaro); border-style: dashed; }
-        .pref-et { font-size: 0.85rem; font-weight: bold; color: var(--tenue); text-transform: uppercase; letter-spacing: 0.04em; }
-        .pref-et.grande { margin-top: 22px; font-size: 0.95rem; color: var(--navy); }
+        .pref-et { font-size: 0.92rem; font-weight: bold; color: var(--navy); letter-spacing: 0.01em; }
+        .pref-et.grande { margin-top: 22px; font-size: 1.02rem; color: var(--navy); }
         .pref-righe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
         .pref-righe select, .esigenza select { font: inherit; font-size: 16px; padding: 9px 10px; border: 1px solid var(--bordo); border-radius: 6px; background: #fff; color: var(--testo); flex: 1 1 200px; }
         .mini { font-size: 0.85rem; color: var(--tenue); margin-top: 6px; }
@@ -356,12 +356,6 @@
                 var d = parseInt(String(g && g.durata || 30), 10);
                 return d > 0 ? d : 30;
             }
-            function referentiTesto(a) {
-                var chi = (a.referenti || []).map(function (r) {
-                    return r.nome + (r.ruolo ? ' - ' + r.ruolo : '') + (r.azienda ? ' (' + r.azienda + ')' : '');
-                });
-                return chi.length ? chi.join(', ') : '';
-            }
             function htmlSlot(a, s) {
                 var mio = s.stato === 'mio';
                 var libero = s.stato === 'libero' || mio;
@@ -375,10 +369,8 @@
                     + esc(s.ora) + '<span class="et">' + esc(et) + '</span></button>';
             }
             function htmlArea(a) {
-                var chi = referentiTesto(a);
+                // come sopra: il tema del tavolo, non chi ci siede per noi
                 return '<div class="area"><h2>' + esc(a.nome) + '</h2>'
-                    + (chi ? '<div class="area-con">Con <b>' + esc(chi) + '</b></div>'
-                        : '<div class="area-con">Le confermeremo il professionista che La accogliera al tavolo.</div>')
                     + (a.nota ? '<div class="area-nota">' + esc(a.nota) + '</div>' : '')
                     + '<div class="griglia">' + a.slot.map(function (s) { return htmlSlot(a, s); }).join('') + '</div>'
                     + '<div class="legenda">' + (a.liberi
@@ -517,12 +509,10 @@
                quella la cosa da cercare in casella. */
             function fattoSlot(r, e) {
                 var area = (r.aree || []).filter(function (a) { return a.id === e.area; })[0] || {};
-                var chi = referentiTesto(area);
                 box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
                     + '<h2>Incontro prenotato</h2>'
                     + '<p>La aspettiamo al tavolo <b>' + esc(e.areaNome || area.nome || '') + '</b>'
-                    + '<br>dalle <b>' + esc(e.ora) + '</b> alle <b>' + esc(e.fine) + '</b>'
-                    + (chi ? '<br>con ' + esc(chi) : '') + '</p>'
+                    + '<br>dalle <b>' + esc(e.ora) + '</b> alle <b>' + esc(e.fine) + '</b></p>'
                     + (e.mailInviata
                         ? '<p style="margin-top:12px;">Le abbiamo mandato una mail di conferma con il <b>foglio da presentare al desk</b> in allegato: '
                         + 'lo porti stampato o sul telefono.</p>'
@@ -581,10 +571,11 @@
                     + esc(s.ora) + '<span class="et">' + esc(et) + '</span></button>';
             }
             function htmlAreaAz(a) {
-                var chi = referentiTesto(a);
+                /* Del tavolo si dice l'ARGOMENTO e basta. Chi lo tiene per noi
+                   non si scrive: e' un nome che puo' cambiare fino all'ultimo
+                   giorno, e l'impresa sceglie il tema di cui vuole parlare, non
+                   la persona con cui parlarne. */
                 return '<div class="area"><h2>' + esc(a.nome) + '</h2>'
-                    + (chi ? '<div class="area-con">Con <b>' + esc(chi) + '</b></div>'
-                        : '<div class="area-con">Le confermeremo il professionista che Vi accogliera al tavolo.</div>')
                     + (a.nota ? '<div class="area-nota">' + esc(a.nota) + '</div>' : '')
                     + '<div class="griglia">' + a.slot.map(function (s) { return htmlSlotAz(a, s); }).join('') + '</div>'
                     + '<div class="legenda">' + (a.liberi
@@ -675,9 +666,9 @@
                     + '<div class="pref-righe" style="margin-bottom:10px;">' + tendinaChi('chi1', r.prima ? r.prima.perDoc : '', referenti) + '</div>'
                     + aree.map(htmlAreaAz).join('')
                     + vocePref(2) + vocePref(3)
-                    + '<div class="campo"><label>Altre questioni che vorreste approfondire (facoltativo)</label>'
-                    + '<div id="esigenze">' + righeEsigenze() + '</div>'
-                    + '<button type="button" class="mini-btn" id="piu-esigenze">+ Aggiungi una riga</button></div>'
+                    + '<div class="campo"><label>Un\'altra questione che vorreste approfondire (facoltativo)</label>'
+                    + '<div class="mini" style="margin:-2px 0 6px;">Le preferenze restano tre: questa &egrave; una domanda in pi&ugrave;, non un quarto incontro.</div>'
+                    + '<div id="esigenze">' + righeEsigenze() + '</div></div>'
                     + '<div class="azioni"><button type="button" class="invia" id="salva-az">Salvo le nostre scelte</button>'
                     + '<div class="esito" id="esito"></div></div>';
                 box.querySelectorAll('.slot').forEach(function (b) {
@@ -688,20 +679,6 @@
                         var e = document.getElementById('esito');
                         if (e) { e.className = 'esito'; e.textContent = ''; }
                     });
-                });
-                var piu = document.getElementById('piu-esigenze');
-                if (piu) piu.addEventListener('click', function () {
-                    var dove = document.getElementById('esigenze');
-                    if (dove.querySelectorAll('.esigenza').length >= (r.maxEsigenze || 5)) {
-                        piu.disabled = true;
-                        return;
-                    }
-                    var i = dove.querySelectorAll('.esigenza').length;
-                    var nuova = document.createElement('div');
-                    nuova.className = 'esigenza';
-                    nuova.innerHTML = tendinaChi('esigenzaChi' + i, '', referenti)
-                        + '<textarea class="esigenza-testo" maxlength="600" placeholder="Un\'altra questione che vorreste approfondire"></textarea>';
-                    dove.appendChild(nuova);
                 });
                 document.getElementById('salva-az').addEventListener('click', salvaAzienda);
             }
