@@ -20185,12 +20185,33 @@
            Se nessuno e' segnato la colonna non e' mai stata compilata: allora
            valgono tutti, come prima, altrimenti la finestra si aprirebbe vuota
            per gli eventi che questa colonna non ce l'hanno mai avuta. */
-        const quantiSegnati = unica ? 0 : iscrittiPerInvitoB2B(ev, _evIscrizioni, true).length;
-        /* Segnati nel foglio ma non in sala: sono scelte che NON diventeranno un
-           invito, e tacerlo vorrebbe dire lasciar credere che la mail sia
-           partita anche a loro. Si contano per poterlo dire sotto l'elenco. */
-        const segnatiFuoriSala = unica ? 0 : (_evIscrizioni || []).filter(r =>
-            r.email && segnatoInvitoB2B(r) && !daInvitareB2B(modalitaDi(ev, r))).length;
+        /* I due conti si rifanno a ogni cambiamento, perche' l'elenco si tocca
+           SENZA uscire da qui: si importa il file, si aggiunge un'azienda a
+           mano, se ne toglie una. Se restassero quelli dell'apertura la
+           finestra racconterebbe l'elenco di prima.
+           "Segnati fuori sala" sono scelte che non diventeranno un invito
+           (seguono online, o sono aderenti Revilaw): tacerle vorrebbe dire
+           lasciar credere che la mail sia partita anche a loro. */
+        let quantiSegnati = 0, segnatiFuoriSala = 0;
+        function riconta() {
+            quantiSegnati = unica ? 0 : iscrittiPerInvitoB2B(ev, _evIscrizioni, true).length;
+            segnatiFuoriSala = unica ? 0 : (_evIscrizioni || []).filter(r =>
+                r.email && segnatoInvitoB2B(r) && !daInvitareB2B(modalitaDi(ev, r))).length;
+            const t = document.getElementById('ib-testa-elenco');
+            if (t) t.innerHTML = fraseElenco();
+        }
+        /* Da dove viene l'elenco che si sta guardando. Si riscrive insieme ai
+           conti: dopo un'importazione la finestra deve dire l'elenco di adesso,
+           non quello con cui l'hai aperta. */
+        function fraseElenco() {
+            if (unica) return '';
+            if (quantiSegnati) return 'Nell\'elenco ci sono <b>solo le aziende scelte</b> (colonna "'
+                + esc(COL_INVITO_B2B) + '" del file, oppure scelte a mano qui sotto): '
+                + 'agli incontri non si invitano tutti gli iscritti.';
+            return 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno '
+                + 'di persona, e chi segue online o è aderente Revilaw resta fuori.';
+        }
+        riconta();
         let soloSegnati = quantiSegnati > 0;
         function componiCandidati() {
             const perEmail = {};
@@ -20328,10 +20349,7 @@
             + 'Dalla pagina sceglie <b>un orario</b> fra quelli ancora liberi del tavolo che scegli qui sotto.'
             : 'Scegli le aziende da invitare: parte <b>una mail per azienda</b>, indirizzata a tutti i suoi referenti iscritti insieme, '
             + 'con un collegamento unico che apre le scelte dell\'impresa - tre preferenze in ordine, e il nominativo di chi partecipa. '
-            + (quantiSegnati
-                ? 'Nell\'elenco ci sono <b>solo le aziende scelte nel foglio</b> (colonna "' + esc(COL_INVITO_B2B) + '" con "sì"): '
-                + 'agli incontri non si invitano tutti gli iscritti. Per cambiare la scelta reimporta il file aggiornato. '
-                : 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno di persona, e chi segue online o è aderente Revilaw resta fuori. ')
+            + '<span id="ib-testa-elenco">' + fraseElenco() + '</span> '
             + 'Chi l\'ha già ricevuta la riceve di nuovo. Ogni invito torna in copia nascosta anche a te. '
             + 'Gli orari prenotati compaiono nell\'elenco (colonne "B2B prenotati" e "Orario B2B") e nell\'agenda della giornata.';
         /* Il tavolo si sceglie da un elenco di riquadri e non da una tendina:
@@ -20356,7 +20374,20 @@
         const campoAziende = unica
             ? '<div class="campo"><label>Azienda</label><div class="hint" style="margin-top:0;">'
             + esc(unica.azienda ? String(unica.azienda).trim() : 'Non indicata') + '</div></div>'
-            : '<div class="campo"><label>Aziende da invitare</label><div id="ib-aziende"></div></div>';
+            : '<div class="campo"><label>Aziende da invitare</label>'
+            /* L'elenco si fa QUI. Prima il file si caricava da un'altra finestra
+               e le aziende si aggiungevano da un'altra ancora: per correggere
+               un elenco bisognava sapere che esistevano, uscire, rientrare e
+               ritrovare il punto. Le tre cose che lo cambiano - importarlo,
+               aggiungerne una a mano, toglierne una - stanno dove l'elenco si
+               guarda. */
+            + '<div class="ib-elenco-cmd">'
+            + '<button type="button" class="btn btn-sm btn-secondary" id="ib-imp">Importa il file</button>'
+            + '<button type="button" class="btn btn-sm btn-secondary" id="ib-mano">Aggiungi un\'azienda</button>'
+            + '<input type="file" id="ib-file" accept=".csv,text/csv,text/plain" style="display:none;">'
+            + '<span class="hint" id="ib-imp-esito"></span></div>'
+            + '<div id="ib-mano-form"></div>'
+            + '<div id="ib-aziende"></div></div>';
         apriModale('<h2>Invito agli incontri B2B - ' + esc(unica ? nomeUnica : (ev.titolo + ', ' + ev.quando)) + '</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">' + testaHint + '</p>'
             + campoArea
@@ -20469,6 +20500,11 @@
                 ? aziende.filter(a => ((a.nome || 'senza azienda') + ' '
                     + a.persone.map(p => p.nome + ' ' + p.email + ' ' + p.ruolo).join(' ')).toLowerCase().indexOf(q) >= 0)
                 : aziende;
+            /* Un'azienda e' "nell'elenco degli inviti" quando almeno un suo
+               referente e' segnato: la scelta e' dell'impresa, e i referenti
+               della stessa impresa si invitano sempre insieme, in una mail
+               sola. */
+            const segnataDel = a => a.persone.some(c => (c.righe || []).some(segnatoInvitoB2B));
             /* La riga NON e' piu' una <label> che contiene tutto: dentro una
                label ogni clic - sul pulsante della tendina, su "Sposta", su un
                campo - fa scattare la casella di spunta. La label resta piccola,
@@ -20483,6 +20519,17 @@
                    ne raccoglie due senza spiegarlo sembra un errore del programma. */
                 + (a.varianti.length ? '<span class="ib-az-alias"> anche ' + esc(a.varianti.join(', ')) + '</span>' : '')
                 + '</span></label>'
+                /* Togliere un'azienda dall'elenco vuol dire cancellare la sua
+                   scelta, non l'iscrizione: la persona resta fra gli iscritti,
+                   semplicemente non e' fra chi riceve l'invito. E il contrario
+                   si fa dalla stessa riga, quando si guardano tutti gli
+                   iscritti in sala: e' li' che si vede chi manca. */
+                + '<button type="button" class="ib-az-segna" data-segna="' + esc(a.chiave) + '"'
+                + ' data-val="' + (segnataDel(a) ? '' : 'si') + '"'
+                + ' title="' + (segnataDel(a)
+                    ? 'Toglie questa azienda dalle invitate. Resta fra gli iscritti.'
+                    : 'Mette questa azienda fra quelle da invitare.') + '">'
+                + (segnataDel(a) ? 'Togli' : 'Metti') + '</button>'
                 + '<button type="button" class="ib-az-apri" data-az="' + esc(a.chiave) + '" '
                 + 'aria-expanded="' + (aperte.has(a.chiave) ? 'true' : 'false') + '">'
                 + '<span class="ib-az-num">' + a.persone.length + (a.persone.length === 1 ? ' referente' : ' referenti') + '</span>'
@@ -20540,7 +20587,43 @@
                 disegnaAziende();
             }));
             const solo = document.getElementById('ib-solo-segnati');
-            if (solo) solo.addEventListener('change', () => { soloSegnati = solo.checked; ricomponi(); });
+            if (solo) solo.addEventListener('change', () => { soloSegnati = solo.checked; ricomponi(true); });
+            cont.querySelectorAll('.ib-az-segna').forEach(b => b.addEventListener('click', () => {
+                const g = aziende.filter(x => x.chiave === b.getAttribute('data-segna'))[0];
+                if (!g) return;
+                const valore = b.getAttribute('data-val');
+                /* Tutte le schede dei suoi referenti: una persona puo' avere piu'
+                   iscrizioni allo stesso evento, e segnarne una sola la
+                   lascerebbe mezza invitata. */
+                const docs = [];
+                g.persone.forEach(c => (c.docs || []).filter(Boolean).forEach(d => docs.push(d)));
+                if (!docs.length) { esito('Questa azienda non ha schede da segnare: ricarica l\'elenco.', true); return; }
+                b.disabled = true;
+                Cloud.operaPresenza({ azione: 'invito-b2b-segna', evento: ev.id, docs: docs, valore: valore }).then(r => {
+                    b.disabled = false;
+                    if (!r || !r.ok) { esito((r && r.msg) || 'Non riuscito.', true); return; }
+                    // la copia in memoria si allinea subito, senza rileggere
+                    // tutto: sono le stesse righe che l'elenco sta mostrando
+                    g.persone.forEach(c => (c.righe || []).forEach(x => {
+                        x.extra = x.extra || {};
+                        x.extra[COL_INVITO_B2B] = valore;
+                    }));
+                    riconta();
+                    /* Tolta l'ultima azienda segnata non resterebbe niente da
+                       guardare, e nemmeno la spunta per tornare indietro: si
+                       torna da soli a vedere tutti gli iscritti in sala. */
+                    if (!quantiSegnati) soloSegnati = false;
+                    ricomponi(!quantiSegnati);
+                    esito(valore ? g.nome + ' è fra le aziende da invitare.'
+                        : g.nome + ' non è più fra le aziende da invitare: resta fra gli iscritti.');
+                    try {
+                        Audit.registra(Auth.utenteCorrente, 'Evento: scelta inviti B2B', 'sistema', ev.id, null,
+                            [{ campo: g.nome, prima: valore ? 'fuori' : 'invitata', dopo: valore ? 'invitata' : 'fuori' }]);
+                    } catch (e) { }
+                    _evUltimoTentativo[ev.id] = 0;
+                    caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
+                });
+            }));
             cont.querySelectorAll('[data-tutteaz]').forEach(b => b.addEventListener('click', () => {
                 const dentro = b.getAttribute('data-tutteaz') === '1';
                 visibili.forEach(a => { if (dentro) scelte.add(a.chiave); else scelte.delete(a.chiave); });
@@ -20560,15 +20643,154 @@
            spunte. Le spunte si rimettono tutte, com'erano all'apertura - tenere
            quelle di prima vorrebbe dire lasciare escluse aziende che con l'altro
            elenco non c'erano nemmeno, senza che nulla lo mostri. */
-        function ricomponi() {
+        function ricomponi(azzera) {
             candidati = componiCandidati();
             aziende = raggruppaPerAzienda(candidati);
-            scelte.clear(); conosciute.clear();
-            aziende.forEach(a => { scelte.add(a.chiave); conosciute.add(a.chiave); });
-            aperte.clear();
+            if (azzera) {
+                scelte.clear(); conosciute.clear();
+                aziende.forEach(a => { scelte.add(a.chiave); conosciute.add(a.chiave); });
+                aperte.clear();
+            } else {
+                /* Togliendo una sola azienda le spunte delle altre restano dove
+                   sono: azzerarle rimetterebbe in partenza una selezione appena
+                   fatta a mano, e chi ha premuto voleva toccare una riga sola.
+                   Le aziende mai viste prima entrano spuntate, come all'apertura. */
+                allineaScelte();
+            }
             spostamentoAperto = ''; spostaScelta = ''; spostaNuova = '';
             disegnaAziende();
             aggiornaAvvisoArea();
+        }
+        /* L'elenco riletto dal server. Serve dopo un'importazione e dopo
+           un'azienda aggiunta a mano: quelle schede qui dentro non ci sono, e
+           l'unico modo di averle e' rileggere. */
+        function rileggi(poi, azzera, tentativo) {
+            /* Una lettura puo' essere gia' in volo (l'elenco sotto si aggiorna da
+               solo): se si chiedesse adesso, caricaIscrizioni tornerebbe indietro
+               senza chiamare nessuno e il messaggio resterebbe li' a dire
+               "rileggo" per sempre. Si riprova, ma non all'infinito. */
+            if (_evInFlight && (tentativo || 0) < 10) {
+                setTimeout(() => rileggi(poi, azzera, (tentativo || 0) + 1), 500);
+                return;
+            }
+            _evUltimoTentativo[ev.id] = 0;
+            _evIscrizioni = null; _evFirma = '';
+            caricaIscrizioni(ev, () => {
+                /* Lettura non riuscita: _evIscrizioni torna un elenco VUOTO, non
+                   nullo, e disegnarlo direbbe "nessuna azienda" quando invece non
+                   si e' saputo niente. Il messaggio d'errore e' la spia. */
+                if (_evMsg || !_evIscrizioni) { if (poi) poi(false); return; }
+                riconta();
+                if (!quantiSegnati) soloSegnati = false;
+                ricomponi(azzera !== false);
+                ridisegnaEventiSeLibero();
+                if (poi) poi(true);
+            }, true);
+        }
+        /* I comandi che CAMBIANO l'elenco: il file, l'azienda aggiunta a mano.
+           Stanno fuori da disegnaAziende perche' quella parte della finestra
+           non si riscrive a ogni spunta. */
+        let manoAperto = false;
+        function diceElenco(testo, ko) {
+            const e = document.getElementById('ib-imp-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        }
+        function collegaElenco() {
+            const bImp = document.getElementById('ib-imp');
+            const file = document.getElementById('ib-file');
+            if (bImp && file) {
+                bImp.addEventListener('click', () => file.click());
+                file.addEventListener('change', () => {
+                    const f = file.files && file.files[0];
+                    if (!f) return;
+                    const lettore = new FileReader();
+                    lettore.onerror = () => diceElenco('Il file non si legge.', true);
+                    lettore.onload = () => {
+                        bImp.disabled = true; bImp.textContent = 'Importo...';
+                        diceElenco('Importazione in corso, può richiedere qualche secondo.');
+                        Cloud.importaIscrizioni(String(lettore.result || ''), ev.pagina, ev.quando).then(r => {
+                            bImp.disabled = false; bImp.textContent = 'Importa il file';
+                            file.value = '';
+                            if (!r.ok) { diceElenco(r.msg || 'Importazione non riuscita.', true); return; }
+                            rileggi(fatta => {
+                                if (!fatta) { diceElenco('File importato, ma l\'elenco non si è riletto: chiudi e riapri la finestra.', true); return; }
+                                diceElenco(r.importate + ' righe importate su ' + r.lette + ' lette: in elenco ci sono '
+                                    + aziende.length + (aziende.length === 1 ? ' azienda.' : ' aziende.'));
+                            }, true);
+                            try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco B2B importato', 'sistema', ev.id, null, r.importate + ' righe'); } catch (e) { }
+                        });
+                    };
+                    lettore.readAsText(f, 'utf-8');
+                });
+            }
+            const bMano = document.getElementById('ib-mano');
+            if (bMano) bMano.addEventListener('click', () => { manoAperto = !manoAperto; disegnaMano(); });
+        }
+        /* L'AZIENDA AGGIUNTA A MANO. Nasce come un'iscrizione in presenza gia'
+           scelta per gli incontri, perche' e' quello che si sta facendo: se
+           nascesse senza la scelta sparirebbe dall'elenco da cui la si sta
+           aggiungendo. Nessuna mail di conferma parte: l'unica che ricevera' e'
+           l'invito, quando si preme Invia.
+           La partita IVA si chiede qui e non altrove: e' la chiave con cui si
+           riconosce l'impresa al momento di spedire, e due societa' dello
+           stesso gruppo senza di essa si ritroverebbero un collegamento solo. */
+        function disegnaMano() {
+            const box = document.getElementById('ib-mano-form');
+            if (!box) return;
+            if (!manoAperto) { box.innerHTML = ''; return; }
+            const campo = (id, et, tipo, largo) => '<label class="ib-mano-campo' + (largo ? ' largo' : '') + '">'
+                + '<span>' + esc(et) + '</span><input type="' + (tipo || 'text') + '" id="' + id + '"></label>';
+            box.innerHTML = '<div class="ib-mano">'
+                + '<div class="hint" style="margin:0 0 8px;">Un\'azienda che nel file non c\'era. Entra fra gli iscritti '
+                + '<b>in presenza</b> di questo evento e fra le aziende da invitare, e <b>non riceve nessuna mail</b> adesso: '
+                + 'la prima sarà l\'invito. Servono <b>azienda</b>, <b>nome</b> e <b>indirizzo email</b>; '
+                + 'la <b>partita IVA</b> è quella che tiene distinte due società scritte quasi uguali.</div>'
+                + '<div class="ib-mano-righe">'
+                + campo('ib-m-az', 'Azienda', 'text', true) + campo('ib-m-piva', 'Partita IVA')
+                + campo('ib-m-nome', 'Nome') + campo('ib-m-cognome', 'Cognome')
+                + campo('ib-m-email', 'Email', 'email', true) + campo('ib-m-ruolo', 'Ruolo')
+                + '</div>'
+                + '<div class="ib-mano-azioni"><button type="button" class="btn btn-sm btn-primary" id="ib-mano-ok">Aggiungi all\'elenco</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost" id="ib-mano-no">Chiudi</button>'
+                + '<span class="hint" id="ib-mano-esito"></span></div></div>';
+            const dice = (t, ko) => {
+                const e = document.getElementById('ib-mano-esito');
+                if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
+            };
+            const val = id => String((document.getElementById(id) || {}).value || '').trim();
+            const no = document.getElementById('ib-mano-no');
+            if (no) no.addEventListener('click', () => { manoAperto = false; disegnaMano(); });
+            const ok = document.getElementById('ib-mano-ok');
+            if (ok) ok.addEventListener('click', () => {
+                const azienda = val('ib-m-az'), nome = val('ib-m-nome'), email = val('ib-m-email').toLowerCase();
+                if (!azienda) { dice('Scrivi la ragione sociale.', true); return; }
+                if (!nome) { dice('Scrivi il nome del referente.', true); return; }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { dice('Serve un indirizzo email valido: l\'invito è una mail.', true); return; }
+                ok.disabled = true; ok.textContent = 'Aggiungo...';
+                const finito = () => { ok.disabled = false; ok.textContent = 'Aggiungi all\'elenco'; };
+                Cloud.operaPresenza({
+                    azione: 'aggiungi', evento: ev.id, pagina: ev.pagina, modalita: 'presenza',
+                    portale: { id: 'altro', nome: 'Aggiunta per il B2B' }, invitoB2B: true,
+                    campi: {
+                        nome: nome, cognome: val('ib-m-cognome'), email: email, azienda: azienda,
+                        ruolo: val('ib-m-ruolo'), piva: val('ib-m-piva'), partecipanti: '1'
+                    }
+                }).then(r => {
+                    finito();
+                    if (!r || !r.ok) { dice((r && r.msg) || 'Non sono riuscito ad aggiungerla.', true); return; }
+                    rileggi(fatta => {
+                        if (!fatta) { dice('Aggiunta, ma l\'elenco non si è riletto: chiudi e riapri la finestra.', true); return; }
+                        ['ib-m-az', 'ib-m-piva', 'ib-m-nome', 'ib-m-cognome', 'ib-m-email', 'ib-m-ruolo']
+                            .forEach(id => { const c = document.getElementById(id); if (c) c.value = ''; });
+                        dice(azienda + ' aggiunta all\'elenco.');
+                        const c = document.getElementById('ib-m-az'); if (c) c.focus();
+                    }, false);
+                    toast(azienda + ' aggiunta alle aziende da invitare.', 'verde');
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: azienda aggiunta agli inviti B2B', 'sistema', ev.id, null, azienda + ' - ' + email); } catch (e) { }
+                });
+            });
+            const primo = document.getElementById('ib-m-az');
+            if (primo) primo.focus();
         }
         /* I comandi del riquadro "sposta", ricollegati a ogni ridisegno perche'
            l'elenco si riscrive per intero. */
@@ -20630,7 +20852,7 @@
                 caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
             }).catch(() => { finito(); esito('Servizio non raggiungibile.', true); });
         }
-        if (!unica) disegnaAziende();
+        if (!unica) { disegnaAziende(); collegaElenco(); }
         aggiornaInvio();
         /* Sotto i riquadri si dice sempre come sta il tavolo scelto: quanti
            orari restano e chi lo tiene. Scoprire al momento dell'invio che

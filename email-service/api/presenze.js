@@ -160,6 +160,23 @@ const PORTALI = {
     telefono: 'Telefono o di persona',
     altro: 'Altra piattaforma'
 };
+/* LE COLONNE AGGIUNTIVE di una scheda inserita a mano. Portale e partecipanti
+   ci sono sempre; le altre due arrivano solo da chi aggiunge un'azienda per gli
+   incontri B2B, e sono quelle che rendono quella scheda utilizzabile:
+     - "P.IVA" e' la chiave con cui si riconosce l'impresa quando si invita:
+       due societa' dello stesso gruppo hanno la stessa ragione sociale e
+       finirebbero con un collegamento solo, buono per cambiarsi la
+       prenotazione a vicenda;
+     - "Invito B2B" e' la scelta: l'azienda aggiunta a mano dalla finestra
+       degli inviti nasce gia' scelta, altrimenti non comparirebbe nell'elenco
+       da cui la si sta aggiungendo. */
+function colonneAggiunte(portaleNome, partecipanti, campi, body) {
+    const extra = { Portale: portaleNome, Partecipanti: String(partecipanti) };
+    const piva = CHIAVI.normalizzaPiva((campi || {}).piva);
+    if (piva) extra['P.IVA'] = piva;
+    if (body && body.invitoB2B === true) extra['Invito B2B'] = 'si';
+    return extra;
+}
 function emailValida(e) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 }
@@ -455,10 +472,10 @@ module.exports = async (req, res) => {
             : [];
         const idIscritto = testo(body.idIscritto, 300);
         if (!evento) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
-        // "aggiungi" crea la scheda; "invita-b2b" e "sposta-modalita" portano il
-        // proprio elenco di destinatari: sono le sole azioni senza un iscritto da
-        // indicare qui
-        const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'invita-b2b-azienda', 'sposta-modalita'];
+        // "aggiungi" crea la scheda; "invita-b2b", "sposta-modalita" e
+        // "invito-b2b-segna" portano il proprio elenco di schede: sono le sole
+        // azioni senza un iscritto da indicare qui
+        const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'invita-b2b-azienda', 'sposta-modalita', 'invito-b2b-segna'];
         if (CON_ELENCO_PROPRIO.indexOf(azione) < 0 && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
@@ -496,7 +513,7 @@ module.exports = async (req, res) => {
                 portale: portaleId,
                 portaleNome: portaleNome,
                 partecipanti: partecipanti,
-                extra: { Portale: portaleNome, Partecipanti: String(partecipanti) },
+                extra: colonneAggiunte(portaleNome, partecipanti, c, body),
                 origine: 'manuale',
                 inserito: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() },
                 ricevuto: admin.firestore.FieldValue.serverTimestamp()
@@ -1205,6 +1222,58 @@ module.exports = async (req, res) => {
                 // sociale: la compone il servizio, cosi' e' una sola
                 traccia: tracciaSpostamento({ prima: prima, dopo: nuovaAzienda, daNome: firma.daNome, quando: firma.quando })
             });
+            return;
+        }
+
+        /* LA SCELTA DELLE AZIENDE DA INVITARE AL B2B, fatta a mano.
+           Di norma si fa nel foglio che si importa (colonna "Invito B2B"), ma
+           l'elenco si ritocca anche dalla finestra degli inviti: si toglie
+           un'azienda che non deve riceverlo, se ne aggiunge una che nel foglio
+           non c'era. E' la stessa colonna aggiuntiva, scritta da qui: cosi' un
+           file reimportato dopo continua a comandare, senza due verita' che si
+           contraddicono.
+           Il valore vuoto CANCELLA la scelta e non tocca nient'altro: la
+           persona resta iscritta, semplicemente non e' fra gli invitati. */
+        if (azione === 'invito-b2b-segna') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono scegliere le aziende da invitare l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            const docs = (Array.isArray(body.docs) ? body.docs : [])
+                .map(x => testo(x, 400)).filter(Boolean).slice(0, 300);
+            if (!docs.length && idIscritto) docs.push(idIscrizione(idIscritto));
+            if (!docs.length) { res.status(400).json({ ok: false, msg: 'Nessuna scheda indicata.' }); return; }
+            // solo "si" o il vuoto: qualunque altra parola qui sarebbe una
+            // risposta che l'area riservata poi non sa piu' rileggere
+            const valore = testo(body.valore, 10).toLowerCase() === 'si' ? 'si' : '';
+            /* PRIMA SI GUARDA SE CI SONO. La scrittura e' a sovrapposizione, e
+               una sovrapposizione su un documento che non esiste lo CREA: un
+               identificativo vecchio rimasto in una pagina aperta da ieri
+               farebbe nascere una scheda fatta di una colonna sola, senza nome
+               ne' indirizzo, che poi comparirebbe fra gli iscritti. Si leggono
+               a mazzi da cento (getAll li prende in un colpo) e quelle che non
+               ci sono si contano, invece di inventarle. */
+            let scritte = 0, nonTrovate = 0;
+            let lotto = db.batch(), nelLotto = 0;
+            for (let i = 0; i < docs.length; i += 100) {
+                const rif = docs.slice(i, i + 100).map(d => db.collection('iscrizioni').doc(d));
+                const snap = await db.getAll.apply(db, rif);
+                snap.forEach(x => {
+                    if (!x.exists) { nonTrovate++; return; }
+                    /* La colonna si scrive SEMPRE, anche vuota: e' una scelta, e
+                       la scelta di ieri va cancellata, non lasciata sotto. */
+                    lotto.set(x.ref, { extra: { 'Invito B2B': valore } }, { merge: true });
+                    scritte++; nelLotto++;
+                });
+                if (nelLotto >= 400) { await lotto.commit(); lotto = db.batch(); nelLotto = 0; }
+            }
+            if (nelLotto) await lotto.commit();
+            if (!scritte) {
+                res.status(400).json({ ok: false, msg: 'Schede non trovate: ricarica l\'elenco e riprova.' });
+                return;
+            }
+            await segnaCambiamento(db);
+            res.status(200).json({ ok: true, scritte: scritte, nonTrovate: nonTrovate, valore: valore });
             return;
         }
 
