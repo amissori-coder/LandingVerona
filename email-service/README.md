@@ -1822,6 +1822,32 @@ sovrapposizione di una mappa unisce le chiavi invece di sostituirle.
 Un file **senza** quella colonna non tocca la scelta gia' fatta: non ne parla.
 Le prove stanno in `prove/scelta-invito-b2b.prove.js`.
 
+### Ritoccare l'elenco senza il file (`invito-b2b-segna`)
+
+La stessa colonna si scrive dalla finestra degli inviti, con l'azione
+`invito-b2b-segna` di `/api/presenze` (`docs`, `valore` = `si` o vuoto; stessi
+permessi dell'invio degli inviti). Toglie e mette **l'azienda intera**, cioe'
+tutte le schede dei suoi referenti: l'invito e' uno per impresa.
+
+Due cose che l'azione fa apposta:
+
+- **legge prima di scrivere** (`getAll` a mazzi da cento). La scrittura e' a
+  sovrapposizione, e una sovrapposizione su un documento che non esiste lo
+  **crea**: un identificativo vecchio rimasto in una pagina aperta da ieri
+  farebbe nascere una scheda fatta di una colonna sola, senza nome ne'
+  indirizzo, che comparirebbe fra gli iscritti. Le schede che non ci sono si
+  contano (`nonTrovate`) invece di inventarle;
+- **non cancella niente**: spegne la colonna e basta. Chi non riceve l'invito
+  resta iscritto all'evento.
+
+L'azione `aggiungi` accetta ora `invitoB2B: true` e `campi.piva`, per l'azienda
+aggiunta a mano dalla finestra degli inviti: nasce gia' scelta (altrimenti
+sparirebbe dall'elenco da cui la si aggiunge) e con la partita IVA ridotta alle
+sole cifre. Senza `mail` nel corpo non parte nessuna conferma, che e' quello che
+serve qui: la prima mail che quell'impresa ricevera' e' l'invito.
+
+Le prove stanno in `prove/elenco-inviti-b2b.prove.js`.
+
 ### Quante letture costa (e la copia condivisa)
 
 L'archivio si legge dalla **copia condivisa** di `lib/copia-iscrizioni.js`, la

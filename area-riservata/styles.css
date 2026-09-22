@@ -1615,6 +1615,29 @@ label.ib-area input { width: auto; margin: 2px 0 0; flex: none; }
    tendina, su "Sposta", su un campo - farebbe scattare la casella di spunta.
    La label resta attorno alla sola casella e al nome. */
 .ib-az-lista { max-height: 420px; }
+/* i comandi che CAMBIANO l'elenco delle aziende: il file, l'azienda aggiunta
+   a mano. Stanno sopra l'elenco, dove l'elenco si guarda. */
+.ib-elenco-cmd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+.ib-elenco-cmd .hint { margin: 0; }
+.ib-mano {
+    border: 1px solid var(--grigio-200); border-radius: 8px; padding: 10px;
+    background: #f8fafc; margin: 0 0 10px;
+}
+.ib-mano-righe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+label.ib-mano-campo { display: flex; flex-direction: column; gap: 3px; margin: 0; font-weight: 400; }
+label.ib-mano-campo.largo { grid-column: 1 / -1; }
+label.ib-mano-campo > span { font-size: 0.76rem; color: var(--grigio-400); }
+label.ib-mano-campo input { width: 100%; margin: 0; }
+.ib-mano-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+@media (max-width: 640px) { .ib-mano-righe { grid-template-columns: 1fr; } }
+/* "Togli"/"Metti" sulla riga dell'azienda: tocca la scelta, non l'iscrizione */
+.ib-az-segna {
+    flex: none; background: none; border: 1px solid var(--grigio-200); border-radius: 6px;
+    cursor: pointer; padding: 1px 8px; font: inherit; font-size: 0.74rem;
+    color: var(--grigio-400); white-space: nowrap;
+}
+.ib-az-segna:hover { color: var(--blu-700); border-color: var(--blu-700); }
+.ib-az-segna[disabled] { opacity: 0.5; cursor: default; }
 /* la spunta "solo le aziende scelte nel file": sta sopra l'elenco perche'
    decide CHI si vede, non come lo si vede, e chi apre la finestra deve
    accorgersene prima di leggere la lista e crederla completa. */
