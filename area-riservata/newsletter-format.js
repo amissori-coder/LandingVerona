@@ -297,7 +297,113 @@
     }
     /* Il testo scritto a mano nei campi semplici (titoli, sommari) puo' contenere
        a capo: diventano <br>, il resto viene protetto. */
-    function testoHtml(s) { return esc(s).replace(/\n/g, '<br>'); }
+    /* =========================================================
+       LA SILLABAZIONE, fatta da noi
+       ---------------------------------------------------------
+       Il testo di queste mail e' giustificato, ed e' una scelta di
+       chi le firma. Giustificare pero' vuol dire allargare gli spazi
+       fra le parole finche' la riga arriva in fondo, e in una mail
+       non c'e' niente che spezzi le parole a fine riga: i programmi
+       di posta non sillabano, e `hyphens:auto` lo capiscono in
+       pochi (Outlook no, Gmail su molti schermi nemmeno). Su una
+       colonna di 520px il risultato sono i "fiumi" bianchi che
+       attraversano il paragrafo - la cosa che fa sembrare una mail
+       fatta in casa.
+       La soluzione che funziona DAPPERTUTTO e' mettere i punti di
+       sillabazione nel testo: il trattino morbido (U+00AD) e' un
+       carattere, non uno stile, e ogni programma di posta sa che li'
+       puo' andare a capo - e che se non ci va, non si vede niente.
+       Le regole sono quelle dell'italiano, e sono poche:
+         - i gruppi di vocali non si spezzano mai (e' la regola che
+           ci evita di sbagliare sui dittonghi e sugli iati);
+         - una consonante fra due vocali va con la vocale dopo
+           (ca-sa);
+         - due consonanti uguali si dividono (as-set-ti), e cosi'
+           tutte le coppie che una parola italiana non userebbe per
+           cominciare (por-ta);
+         - restano invece attaccate alla vocale dopo la s impura
+           (tra-spor-ti), i digrammi (ban-che, le-gno, fa-mi-glia) e
+           muta + liquida (con-cre-ta);
+         - niente trattino se da una parte resterebbero meno di tre
+           lettere: "a-zienda" a fine riga si legge come un errore.
+       Si applica alle sole parole fatte di lettere: indirizzi,
+       collegamenti e numeri non si toccano. E solo nell'HTML: nel
+       testo semplice un carattere invisibile non serve a nessuno. */
+    const VOCALI_IT = 'aeiouàáâèéêìíîòóôùúûäëïöüy';
+    const DIGRAFI_IT = ['ch', 'gh', 'gn', 'gl', 'sc'];
+    const MUTA_LIQUIDA_IT = ['bl', 'br', 'cl', 'cr', 'dl', 'dr', 'fl', 'fr', 'gl', 'gr', 'pl', 'pr', 'tl', 'tr', 'vl', 'vr'];
+    function sillabeIt(parola) {
+        const p = String(parola || '');
+        if (p.length < 4) return [p];
+        const voc = c => VOCALI_IT.indexOf(String(c || '').toLowerCase()) >= 0;
+        const pezzi = [];
+        let i = 0;
+        while (i < p.length) {
+            const v = voc(p[i]);
+            let j = i;
+            while (j < p.length && voc(p[j]) === v) j++;
+            pezzi.push({ v: v, t: p.slice(i, j) });
+            i = j;
+        }
+        const fuori = [];
+        let corrente = '';
+        for (let k = 0; k < pezzi.length; k++) {
+            const pz = pezzi[k];
+            if (pz.v) { corrente += pz.t; continue; }
+            if (!pezzi[k + 1]) { corrente += pz.t; continue; }   // consonanti finali
+            const c = pz.t.toLowerCase();
+            let avanti = pz.t, resta = '';
+            if (c.length >= 2) {
+                const due = c.slice(0, 2);
+                // la s impura vale solo davanti a un'ALTRA consonante: "ss" si divide
+                const sImpura = c[0] === 's' && c[1] !== 's';
+                const attaccato = sImpura || DIGRAFI_IT.indexOf(due) >= 0
+                    || (c.length === 2 && MUTA_LIQUIDA_IT.indexOf(due) >= 0);
+                if (!attaccato || (c.length > 2 && !sImpura)) {
+                    resta = pz.t.slice(0, 1);
+                    avanti = pz.t.slice(1);
+                }
+            }
+            fuori.push(corrente + resta);
+            corrente = avanti;
+        }
+        if (corrente) fuori.push(corrente);
+        return fuori.filter(Boolean);
+    }
+    const MORBIDO = '­';
+    /* I SEGNAPOSTO NON SI TOCCANO. {{REFERENTI}}, {{AZIENDA}}, {{COMPLETA}}:
+       sono parole lunghe fatte di sole lettere, quindi la sillabazione ci
+       infilerebbe dentro i suoi trattini invisibili - e chi poi sostituisce
+       cerca "{{REFERENTI}}" alla lettera, non lo trova piu', e al destinatario
+       arriva la mail con il segnaposto stampato dentro. Si sillaba quello che
+       sta FUORI dalle graffe, e le graffe restano come stavano. */
+    function conSillabe(testo) {
+        return String(testo == null ? '' : testo)
+            .split(/(\{\{[^}]*\}\})/)
+            .map(pezzo => (pezzo.indexOf('{{') === 0 ? pezzo : sillabaPezzo(pezzo)))
+            .join('');
+    }
+    /* Si guarda il TOKEN intero, non la parola: "segreteria@revilaw.it" e
+       "nextgenerationbusiness.it/incontri" contengono parole lunghissime, e
+       infilarci dentro dei trattini invisibili le renderebbe inutili da
+       copiare - un indirizzo si seleziona, si incolla e deve funzionare.
+       Si sillaba solo quello che e' una parola e basta. */
+    function sillabaPezzo(testo) {
+        return String(testo == null ? '' : testo).replace(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9@._\/:+-]*/g, parola => {
+            if (!/^[A-Za-zÀ-ÿ]{8,}$/.test(parola)) return parola;
+            const s = sillabeIt(parola);
+            if (s.length < 2) return parola;
+            let fuori = '', fatte = 0;
+            for (let i = 0; i < s.length; i++) {
+                // almeno tre lettere da una parte e dall'altra
+                if (i > 0 && fatte >= 3 && (parola.length - fatte) >= 3) fuori += MORBIDO;
+                fuori += s[i];
+                fatte += s[i].length;
+            }
+            return fuori;
+        });
+    }
+    function testoHtml(s) { return esc(conSillabe(s)).replace(/\n/g, '<br>'); }
 
     /* =========================================================
        PEZZI DELLA MAIL
@@ -427,13 +533,18 @@
        due celle - il pallino in una, il testo nell'altra - le righe che vanno
        a capo restano sotto il testo, com'e' giusto, e in una mail questo e'
        l'unico modo che funziona dappertutto. */
-    function elencoPunti(voci, stile, colorePunto) {
+    function elencoPunti(voci, stile, colorePunto, numerato) {
         const righe = (voci || []).filter(x => x !== '' && x != null);
         if (!righe.length) return '';
+        /* Numerato quando le voci sono una SEQUENZA - prima si sceglie, poi si
+           prenota, poi arriva la mail: l'ordine e' l'informazione, e un elenco
+           puntato lo nasconde. */
+        const largo = numerato ? 22 : 14;
         return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + righe.map((v, i) => '<tr>'
-                + '<td valign="top" width="14" style="' + FONTE + stile + 'width:14px;color:' + (colorePunto || C.accento) + ';'
-                + (i ? 'padding-top:6px;' : '') + '">&bull;</td>'
+                + '<td valign="top" width="' + largo + '" style="' + FONTE + stile + 'width:' + largo + 'px;color:'
+                + (colorePunto || C.accento) + ';' + (numerato ? 'font-weight:bold;' : '') + (i ? 'padding-top:6px;' : '') + '">'
+                + (numerato ? (i + 1) + '.' : '&bull;') + '</td>'
                 + '<td valign="top" style="' + FONTE + stile + (i ? 'padding-top:6px;' : '') + '">' + v + '</td>'
                 + '</tr>').join('')
             + '</table>';
@@ -1743,8 +1854,8 @@
            sceglie fra questi. Elencarli qui - e non solo sulla pagina - e'
            quello che permette di decidere prima di aprire il collegamento. */
         const elencoTavoli = '<tr><td>' + elencoPunti(
-            aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + esc(a.nome) + '</span>'
-                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> - ' + esc(a.descrizione) + '</span>' : '')),
+            aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + testoHtml(a.nome) + '</span>'
+                + (a.descrizione ? '<span style="color:' + C.tenue + ';"> - ' + testoHtml(a.descrizione) + '</span>' : '')),
             'font-size:15px;line-height:24px;color:' + C.testo + ';') + '</td></tr>';
         const regole = (dati.regole || []);
         const elencoRegole = regole.length
@@ -1752,7 +1863,7 @@
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
             + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:8px;">Come funziona</div>'
-            + elencoPunti(regole.map(esc), 'font-size:14px;line-height:23px;color:' + C.scuro + ';', C.blu)
+            + elencoPunti(regole.map(x => testoHtml(x)), 'font-size:14px;line-height:23px;color:' + C.scuro + ';', C.blu, true)
             + '</td></tr></table></td></tr>'
             : '';
         const bottone = '<tr><td align="center" style="text-align:center;">'
@@ -1769,7 +1880,7 @@
             spazio(30)
             + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
             + spazio(14)
-            + par('Per questo riserviamo alla Vostra azienda un incontro con i nostri professionisti, su uno dei tavoli della giornata.')
+            + par('Gli incontri si tengono a margine dei lavori in sala, ai desk riservati: qui sotto trova gli argomenti, e dal pulsante in fondo sceglie quello che Vi interessa e l\'orario.')
             + ((ev.quando || ev.luogo) ? spazio(18) + riquadro('Quando e dove',
                 [ev.quando, ev.luogo].filter(Boolean).join(' - '), ev.indirizzo || '') : '')
             + (aree.length ? spazio(22) + capoletto('I tavoli della giornata') + spazio(8) + elencoTavoli : '')
