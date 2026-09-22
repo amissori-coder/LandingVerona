@@ -1418,6 +1418,128 @@ async function esegui(ctx) {
         return { stato: 200, corpo: Object.assign({ aziendaId: azId, esigenzaId: eId, interno: areaInterna(area) }, preso) };
     }
 
+    /* ============================================================
+       ALLINEARE GLI INCONTRI AL PROGRAMMA NUOVO
+       ------------------------------------------------------------
+       Il programma non si salva se manda sul palco qualcuno che a
+       quell'ora tiene un tavolo con un'impresa gia' prenotata: sono
+       due impegni presi con due persone diverse, e uno dei due
+       salterebbe. Fin qui il servizio diceva soltanto di no, e
+       rimetterli a posto a mano voleva dire aprire il riepilogo,
+       cercare quegli orari, spostarli uno per uno e tornare indietro
+       a risalvare.
+       Questa azione li sposta. Riceve la scaletta NUOVA - quella che
+       si sta salvando, non quella scritta - e per ogni incontro che
+       ci finisce sotto cerca un altro posto:
+         1. la STESSA ORA sul tavolo gemello, se c'e': l'impresa tiene
+            l'orario che si era scelta, e cambia solo chi la riceve;
+         2. altrimenti l'ora piu' vicina, sullo stesso argomento -
+            fra i gemelli, perche' il tema l'ha scelto lei.
+       Quello che si trova dev'essere libero, non chiuso a mano e non
+       coperto dal palco SECONDO LA SCALETTA NUOVA: spostare un
+       incontro dentro un altro impegno vorrebbe dire rifare questo
+       giro domani. Chi non trova posto resta dov'e' e si dice: a
+       quell'impresa si telefona, non le si cancella l'incontro.
+       Una mail sola per azienda, alla fine: chi ha due incontri
+       spostati non deve ricevere due volte lo stesso foglio.
+    ============================================================ */
+    if (azione === 'b2b-allinea') {
+        const voci = Array.isArray(body.voci) ? body.voci : null;
+        if (!voci) return { stato: 400, corpo: { ok: false, msg: 'Programma mancante.' } };
+        const agenda = await leggiAgenda(db, evento);
+        let pren = await leggiPrenotazioni(db, evento);
+        const scontri = PRG.conflittiConPrenotazioni(voci, areeComposte(agenda, pren, voci));
+        if (!scontri.length) {
+            return { stato: 200, corpo: { ok: true, spostati: [], nonSpostati: [], msg: 'Nessun incontro da spostare.' } };
+        }
+        /* Gli orari da liberare, senza doppioni: due voci della scaletta
+           possono coprire lo stesso incontro, e spostarlo due volte
+           vorrebbe dire mandarlo avanti e indietro. */
+        const daSpostare = [];
+        scontri.forEach(c => (c.chiavi || []).forEach(k => {
+            if (!daSpostare.some(x => x.area === c.areaId && x.chiave === k)) {
+                daSpostare.push({ area: c.areaId, chiave: k, chi: c.chi, voce: c.voce });
+            }
+        }));
+        const ordineSlot = slotDellaGiornata(agenda.giornata);
+        const spostati = [], nonSpostati = [], aziendeToccate = [];
+        for (const g of daSpostare) {
+            pren = await leggiPrenotazioni(db, evento);
+            const partenza = M.slotDi(pren, g.area, g.chiave);
+            if (!partenza) continue;                   // qualcuno l'ha gia' liberato
+            const persona = partenza.dati || {};
+            const tavoli = gemelliDi(g.area).filter(id => (((agenda.aree || {})[id]) || {}).attiva === true);
+            /* Gli orari candidati, in ordine di vicinanza a quello di prima:
+               chi si era scelto le 11:00 preferisce le 11:30 alle 15:00. */
+            const daMin = minutiOra(oraDaChiave(g.chiave));
+            const ore = ordineSlot.slice().sort((a, b) =>
+                Math.abs(minutiOra(a.ora) - daMin) - Math.abs(minutiOra(b.ora) - daMin));
+            let dove = null;
+            for (const ora of ore) {
+                for (const id of tavoli) {
+                    // la stessa ora sullo stesso tavolo e' quella da cui si scappa
+                    if (id === g.area && ora.chiave === g.chiave) continue;
+                    const cfg = (agenda.aree || {})[id] || areaVuota();
+                    if (cfg.chiusi.indexOf(ora.chiave) >= 0) continue;
+                    if (chiusureDaPalco(agenda.giornata, voci, cfg.referenti)[ora.chiave]) continue;
+                    if (((pren.aree || {})[id] || {})[ora.chiave]) continue;
+                    dove = { area: id, chiave: ora.chiave };
+                    break;
+                }
+                if (dove) break;
+            }
+            if (!dove) {
+                nonSpostati.push({
+                    azienda: String(persona.aziendaNome || persona.azienda || ''),
+                    area: nomeArea(g.area), ora: oraDaChiave(g.chiave), chi: g.chi
+                });
+                continue;
+            }
+            const preso = await prendiSlot(db, {
+                evento: evento, area: dove.area, chiave: dove.chiave, da: chi,
+                staff: true, forzato: true,       // il posto l'abbiamo scelto noi, con la scaletta nuova in mano
+                scelta: Number(persona.scelta) || 1, codaId: String(persona.codaId || ''),
+                slotDa: { area: g.area, chiave: g.chiave }, persona: persona
+            });
+            if (!preso.ok) {
+                nonSpostati.push({
+                    azienda: String(persona.aziendaNome || persona.azienda || ''),
+                    area: nomeArea(g.area), ora: oraDaChiave(g.chiave), chi: g.chi, msg: preso.msg || ''
+                });
+                continue;
+            }
+            spostati.push({
+                azienda: String(persona.aziendaNome || persona.azienda || ''),
+                da: { area: nomeArea(g.area), ora: oraDaChiave(g.chiave) },
+                a: { area: nomeArea(dove.area), ora: preso.ora },
+                chi: g.chi, voce: g.voce
+            });
+            const azId = String(persona.aziendaId || '');
+            if (azId) {
+                if (persona.codaId) {
+                    try {
+                        await segnaCodaAssegnata(db, evento, azId, String(persona.codaId),
+                            { area: dove.area, chiave: dove.chiave, ora: preso.ora, fine: preso.fine }, chi);
+                    } catch (_) { /* l'orario e' preso: e' quello che conta */ }
+                }
+                if (aziendeToccate.indexOf(azId) < 0) aziendeToccate.push(azId);
+            } else if (persona.doc) {
+                try { await scriviAppuntamento(db, persona.doc, Object.assign({ evento: evento }, preso), undefined); } catch (_) { /* niente */ }
+            }
+        }
+        const avvisati = [];
+        for (const azId of aziendeToccate) {
+            try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
+            if (body.avvisa === false) continue;
+            try {
+                const inv = await inviaConfermaAzienda(db, evento, azId, 'spostamento');
+                (inv.a || []).forEach(x => avvisati.push(x));
+            } catch (_) { /* l'incontro e' spostato: la mail si rimanda dal riepilogo */ }
+        }
+        if (ctx.segnaCambiamento) { try { await ctx.segnaCambiamento(db); } catch (_) { /* niente */ } }
+        return { stato: 200, corpo: { ok: true, spostati: spostati, nonSpostati: nonSpostati, avvisati: avvisati } };
+    }
+
     /* --- salvataggio della configurazione ---
        Le aree arrivano una alla volta (chi modifica sta guardando quella):
        si riscrivono SOLO quelle presenti nella richiesta, cosi' due

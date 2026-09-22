@@ -1185,6 +1185,31 @@ stato scritto con le prenotazioni vere: se l'incontro non c'e' piu', la voce
 torna in attesa. Il secondo serve per quello che e' gia' rimasto indietro - una
 riga di verita' che non dipende dall'essere passati dal punto giusto.
 
+### Allineare gli incontri al programma nuovo (`b2b-allinea`)
+
+Salvare un programma che manda sul palco chi tiene un tavolo con un'impresa
+gia' prenotata viene rifiutato (`conflittiConPrenotazioni`, in
+`lib/programma-evento.js`). Dire soltanto di no pero' vuol dire mandare chi
+organizza ad aprire il riepilogo, cercare quegli orari, spostarli uno per uno e
+tornare indietro a risalvare - e intanto il programma nuovo resta fuori.
+
+`b2b-allinea` riceve la scaletta NUOVA (quella che si sta salvando, non quella
+scritta) e sposta gli incontri che ci finiscono sotto:
+
+1. la **stessa ora sul tavolo gemello**, quando c'e': l'impresa tiene l'orario
+   che si era scelta e cambia solo chi la riceve;
+2. altrimenti l'**ora piu' vicina** sullo stesso argomento (fra i gemelli: il
+   tema l'ha scelto lei).
+
+La destinazione dev'essere libera, non chiusa a mano e non coperta dal palco
+**secondo la scaletta nuova** - spostare un incontro dentro un altro impegno
+vorrebbe dire rifare il giro domani - e per questo il posto lo sceglie l'azione
+e lo prende con `forzato`, perche' `prendiSlot` da solo leggerebbe la scaletta
+ancora salvata. Chi non trova posto resta dov'e' e torna in risposta
+(`nonSpostati`): a quell'impresa si telefona, non le si cancella l'incontro.
+Una mail per azienda alla fine, non una per incontro. Prove:
+`prove/desk-revilaw.prove.js`.
+
 ### Le altre esigenze
 
 Tre azioni, in `agenda-b2b.js`: `esigenza-segna` (gestita/riaperta),

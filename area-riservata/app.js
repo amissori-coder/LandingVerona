@@ -19629,8 +19629,24 @@
             ? 'Il programma non si salva: un impegno sovrapposto a una prenotazione B2B'
             : 'Il programma non si salva: ' + gravi.length + ' impegni sovrapposti a prenotazioni B2B'),
             gravi.map(c => c.testo).concat(gravi.length
-                ? ['Sposta la voce del programma, oppure libera la prenotazione dal suo orario qui sotto (la crocetta): sono due impegni presi con due persone diverse.']
+                ? ['Sposta la voce del programma, libera la prenotazione dal suo orario qui sotto (la crocetta), '
+                + 'oppure lascia che gli incontri si spostino da sé con il pulsante qui sotto: sono due impegni presi con due persone diverse.']
                 : []))
+            /* IL PULSANTE CHE RIMETTE A POSTO GLI INCONTRI. Dire soltanto di no
+               vuol dire mandare chi organizza ad aprire il riepilogo, cercare
+               quegli orari, spostarli uno per uno e tornare qui a risalvare -
+               e intanto il programma nuovo resta fuori. Il servizio quegli
+               incontri li sa spostare: stessa ora sul tavolo gemello quando
+               c'e', altrimenti l'ora piu' vicina sullo stesso argomento. */
+            + (gravi.length && puoAggiungereIscrizioni()
+                ? '<div class="prg-segn errore" style="margin-top:8px;">'
+                + '<button type="button" class="btn btn-sm btn-primary" id="prg-allinea">'
+                + 'Allinea gli incontri B2B al programma</button>'
+                + '<div class="hint" style="margin-top:6px;">Sposta gli incontri che finiscono sotto il palco: '
+                + 'tiene l\'ora e cambia tavolo quando c\'è il gemello libero, altrimenti sposta all\'ora più vicina '
+                + 'dello stesso argomento. A ogni azienda toccata parte <b>una</b> mail con il foglio aggiornato. '
+                + 'Chi non trova posto resta dov\'è e te lo dico: a quelli si telefona.</div></div>'
+                : '')
             + blocco('attenzione', 'Orari B2B da chiudere (si salva lo stesso)', daChiudere.map(c => c.testo))
             + blocco('avviso', 'Da sistemare nella scaletta (si salva lo stesso)', avvisi.map(a => a.testo));
     }
@@ -19638,7 +19654,44 @@
     // pagina non deve muoversi sotto le mani
     function aggiornaSegnalazioni(ev) {
         const box = document.getElementById('prg-segnalazioni');
-        if (box) box.innerHTML = segnalazioniHtml(ev);
+        if (box) { box.innerHTML = segnalazioniHtml(ev); collegaAllinea(ev); }
+    }
+    /* L'allineamento vero: si manda al servizio la scaletta che si sta
+       salvando - non quella scritta, che e' ancora quella di prima - e lui
+       sposta gli incontri che ci finiscono sotto. Poi si rilegge l'agenda,
+       cosi' gli orari nuovi compaiono al posto giusto e il rosso sparisce. */
+    function collegaAllinea(ev) {
+        const b = document.getElementById('prg-allinea');
+        if (!b) return;
+        b.addEventListener('click', () => {
+            const gravi = conflittiPrg(ev, _prgVoci).filter(c => c.grave).length;
+            if (!confirm('Sposto gli incontri B2B che si sovrappongono al programma nuovo?\n\n'
+                + 'Riguarda ' + gravi + (gravi === 1 ? ' impegno' : ' impegni') + '. '
+                + 'A ogni azienda toccata parte una mail con il foglio aggiornato.')) return;
+            b.disabled = true; b.textContent = 'Allineo...';
+            Cloud.agendaB2B({ azione: 'b2b-allinea', evento: ev.id, voci: _prgVoci, avvisa: true }).then(r => {
+                b.disabled = false; b.textContent = 'Allinea gli incontri B2B al programma';
+                if (!r || !r.ok) { esitoGiornata((r && r.msg) || 'Allineamento non riuscito.', true); return; }
+                const mossi = (r.spostati || []).length, fermi = (r.nonSpostati || []).length;
+                caricaAgendaB2B(ev, () => {
+                    disegnaGiornata(ev);
+                    esitoGiornata(mossi
+                        ? mossi + (mossi === 1 ? ' incontro spostato' : ' incontri spostati')
+                        + ' (' + (r.avvisati || []).length + ' avvisati)'
+                        + (fermi ? '. ' + fermi + (fermi === 1 ? ' non ha trovato posto: ' : ' non hanno trovato posto: ')
+                            + r.nonSpostati.map(x => (x.azienda || 'un\'azienda') + ' alle ' + x.ora).join(', ')
+                            + '. A quelli telefona.' : '. Adesso il programma si salva.')
+                        : 'Nessun incontro da spostare.', !!fermi);
+                }, true);
+                try {
+                    Audit.registra(Auth.utenteCorrente, 'Evento: incontri B2B allineati al programma', 'sistema', ev.id, null,
+                        mossi + ' spostati, ' + fermi + ' fermi');
+                } catch (e) { }
+            }).catch(() => {
+                b.disabled = false; b.textContent = 'Allinea gli incontri B2B al programma';
+                esitoGiornata('Servizio non raggiungibile.', true);
+            });
+        });
     }
     /* UNA VOCE, compatta: l'orario in una riga sola ("09:00 -> 09:30"), il
        tipo, il titolo. Sotto, chi e' sul palco e la nota. */
@@ -19737,6 +19790,9 @@
         return gruppo('sponsor', 'Sponsor e relatori') + gruppo('aderenti', 'Aderenti Revilaw');
     }
     function collegaGiornata(ev, radice, puo) {
+        // il pulsante dell'allineamento sta fra le segnalazioni, che si
+        // ridisegnano da sole: si ricollega a ogni giro, come tutto il resto
+        collegaAllinea(ev);
         if (!puo) return;
         // ---- il programma: si compone, e si salva col suo pulsante ----
         const bozza = radice.querySelector('#prg-bozza');
