@@ -1135,6 +1135,17 @@ PRECISO che ha scelto (spostare sul gemello e' una decisione, non un ripiego),
 i controlli restano accesi e i tavoli interni sono ammessi. `forzato` e'
 un'altra cosa ancora: spegne anche i controlli.
 
+### La sezione "Solo incontri B2B"
+
+Un'azienda aggiunta a mano dalla finestra degli inviti e' invitata agli
+INCONTRI, non al convegno: messa fra gli iscritti in presenza farebbe contare
+un posto che nessuno occupera', e il totale in sala e' proprio il numero con cui
+si prepara la sala. Nasce quindi con `modalita: 'b2b'` - una quinta sezione
+(`MODALITA_SCELTE` in `api/presenze.js`, `SEZIONI_MODALITA` in
+`area-riservata/app.js`) che vale `sala: false` come l'online, ma che
+`daInvitareB2B` comprende: agli incontri ci va, in sala no. Da li' si sposta in
+presenza come qualunque altra riga, se poi viene anche al convegno.
+
 ### Una mail per indirizzo, e nomina gli altri
 
 L'invito e' dell'AZIENDA - un collegamento solo, le stesse scelte - ma i
