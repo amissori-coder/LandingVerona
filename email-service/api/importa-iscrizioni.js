@@ -212,7 +212,45 @@ module.exports = async (req, res) => {
 
         // 4) scrittura a blocchi (il limite di un batch Firestore e 500 operazioni)
         const db = admin.firestore();
-        let importate = 0, saltate = 0;
+        /* ============================================================
+           UN FILE DI INVITI B2B NON AGGIUNGE ISCRITTI
+           ------------------------------------------------------------
+           Le aziende che si segnano per gli incontri sono gente GIA'
+           ISCRITTA all'evento: il file serve a dire quali di loro
+           invitare, non a registrarne di nuove. Scrivendole come fa
+           un'importazione normale nascevano schede nuove - il nome del
+           documento porta dentro la data, e la data del foglio non e'
+           quella con cui la persona si era iscritta - quindi lo stesso
+           ospite compariva due volte in elenco e contava due posti in
+           sala. Le presenze le tiene quel conto li'.
+           Quindi, quando il file ha la colonna "Invito B2B":
+             - le righe che trovano il loro iscritto (stesso indirizzo,
+               stesso evento) AGGIORNANO quella scheda: la scelta, e la
+               partita IVA se nel foglio c'e' e sulla scheda no;
+             - le righe che non lo trovano NON si scrivono. Si contano
+               e si riportano indietro, perche' una riga saltata in
+               silenzio e' un'azienda che non ricevera' l'invito senza
+               che nessuno sappia perche'. Chi organizza la aggiunge a
+               mano dalla finestra degli inviti, dove si vede cosa si
+               sta creando.
+           Senza quella colonna non cambia niente: l'importazione degli
+           iscritti resta quella di sempre.
+        ============================================================ */
+        let giaIscritti = null;
+        if (iInvito >= 0) {
+            giaIscritti = new Map();
+            const tutte = await db.collection('iscrizioni').select('email', 'pagina', 'azienda').get();
+            tutte.forEach(d => {
+                const x = d.data() || {};
+                const em = String(x.email || '').toLowerCase().trim();
+                if (!em) return;
+                const k = chiave(x.pagina) + '|' + em;
+                if (!giaIscritti.has(k)) giaIscritti.set(k, []);
+                giaIscritti.get(k).push({ id: d.id, azienda: String(x.azienda || '').trim() });
+            });
+        }
+        let importate = 0, saltate = 0, aggiornate = 0, nonIscritte = 0;
+        const nonTrovate = [];
         let batch = db.batch(), nelBatch = 0;
         for (let i = 1; i < righe.length; i++) {
             const riga = righe[i];
@@ -240,6 +278,27 @@ module.exports = async (req, res) => {
                 extra[et.slice(0, 60)] = val.slice(0, 300);
             }
             if (iInvito >= 0) extra[ETICHETTA_INVITO_B2B] = cella(riga, iInvito).slice(0, 60);
+            /* Il file degli inviti B2B segna chi c'e' gia', e basta. */
+            if (giaIscritti) {
+                const trovate = em ? (giaIscritti.get(chiave(pagina) + '|' + em) || []) : [];
+                if (!trovate.length) {
+                    nonIscritte++;
+                    if (nonTrovate.length < 25) nonTrovate.push(em || (nome + ' ' + cognome).trim());
+                    continue;
+                }
+                const azFile = cella(riga, iAzienda);
+                trovate.forEach(t => {
+                    const patch = { extra: extra, importato: true };
+                    // la ragione sociale si scrive solo se la scheda non ce l'ha:
+                    // quello che la persona ha dichiarato non si sovrascrive
+                    if (azFile && !t.azienda) patch.azienda = azFile;
+                    batch.set(db.collection('iscrizioni').doc(t.id), patch, { merge: true });
+                    nelBatch++;
+                });
+                aggiornate++;
+                if (nelBatch >= 400) { await batch.commit(); batch = db.batch(); nelBatch = 0; }
+                continue;
+            }
             const rif = db.collection('iscrizioni').doc(idDocumento(em, data, nome, cognome));
             batch.set(rif, {
                 data: data, pagina: pagina, nome: testo(nome, 120), cognome: testo(cognome, 120),
@@ -253,7 +312,14 @@ module.exports = async (req, res) => {
         if (nelBatch) await batch.commit();
         await segnaCambiamento(db);
 
-        res.status(200).json({ ok: true, lette: righe.length - 1, importate: importate, saltate: saltate, fonte: fonte });
+        res.status(200).json({
+            ok: true, lette: righe.length - 1, saltate: saltate, fonte: fonte,
+            // con la colonna degli inviti si AGGIORNA e non si importa: il conto
+            // che l'area riservata mostra deve dire quello che e' successo
+            importate: giaIscritti ? aggiornate : importate,
+            soloInviti: !!giaIscritti,
+            aggiornate: aggiornate, nonIscritte: nonIscritte, nonTrovate: nonTrovate
+        });
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Importazione iscrizioni non riuscita:', motivo);

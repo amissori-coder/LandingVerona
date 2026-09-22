@@ -1858,7 +1858,31 @@ resterebbe fra gli invitati - la scrittura e' a sovrapposizione (`merge`), e la
 sovrapposizione di una mappa unisce le chiavi invece di sostituirle.
 
 Un file **senza** quella colonna non tocca la scelta gia' fatta: non ne parla.
-Le prove stanno in `prove/scelta-invito-b2b.prove.js`.
+
+### Un file di inviti NON aggiunge iscritti
+
+Le aziende che si segnano per gli incontri sono gente **gia' iscritta**
+all'evento: il file dice quali di loro invitare, non ne registra di nuove.
+Scrivendole come fa un'importazione normale nascevano schede nuove - il nome
+del documento porta dentro la data, e la data del foglio non e' quella con cui
+la persona si era iscritta - quindi lo stesso ospite compariva due volte in
+elenco e contava **due posti in sala**.
+
+Quando il file ha la colonna `Invito B2B`, l'importazione quindi:
+
+- legge una volta sola tutta la collezione `iscrizioni` (`select` di email,
+  pagina e azienda) e ne fa un indice `pagina|email`;
+- le righe che trovano il loro iscritto **aggiornano quella scheda**: la
+  scelta, la partita IVA del foglio, e la ragione sociale solo se la scheda
+  non ce l'ha (quello che la persona ha dichiarato non si sovrascrive);
+- le righe che non lo trovano **non si scrivono**. Si contano (`nonIscritte`)
+  e si riportano indietro (`nonTrovate`, i primi venticinque): una riga
+  saltata in silenzio e' un'azienda che non ricevera' l'invito senza che
+  nessuno sappia perche'. Si aggiungono a mano dalla finestra degli inviti.
+
+La risposta porta `soloInviti: true` e `aggiornate`, cosi' l'area riservata
+dice "segnate" invece di "importate". Le prove stanno in
+`prove/scelta-invito-b2b.prove.js`.
 
 ### Ritoccare l'elenco senza il file (`invito-b2b-segna`)
 
