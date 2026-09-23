@@ -975,8 +975,9 @@ le 8. Per ogni record `programmato` previsto per oggi:
    dell'area riservata. Restano fuori chi ha annullato, chi e' stato
    cancellato, chi e' segnato **assente**, chi non ha un indirizzo valido; un
    indirizzo riceve **una** mail anche se ha due iscrizioni;
-2. personalizza: `{{NOME}}` diventa il **nome di battesimo** ("Ciao Maria",
-   non "Ciao Maria Rossi"), `{{COMPLETA}}` il collegamento personale firmato
+2. personalizza: `{{NOME}}` diventa **nome e cognome** ("Gentile Maria
+   Rossi": le mail al singolo danno del Lei; un nome scritto tutto maiuscolo
+   o tutto minuscolo si rimette in forma), `{{COMPLETA}}` il collegamento personale firmato
    della scheda (`lib/newsletter.js`, `linkCompleta`), da cui si correggono i
    dati o si rinuncia;
 3. spedisce **una mail per destinatario**, con Reply-To a chi ha programmato,
@@ -999,28 +1000,55 @@ quattro alla volta** (`IN_PARALLELO`) invece che una dietro l'altra, e
 trecento iscritti stanno in un paio di minuti. La copia a chi ha programmato
 parte solo al primo giro.
 
-**Chi si iscrive dopo l'invio non resta senza.** A differenza delle
-comunicazioni, l'avanzamento **non si cancella** a fine invio: da li' in poi
-e' la memoria di chi ha ricevuto quel promemoria. A ogni giro, per ogni
-evento e per ogni serie (in sala, online), il servizio prende **l'ultimo
-promemoria gia' partito** e lo manda a chi, fra gli iscritti di adesso, non
-l'ha ricevuto: chi si e' iscritto dopo, chi e' stato spostato in quella serie
-dopo. Solo l'ultimo, non tutti quelli vecchi: chi si iscrive a una settimana
-dall'evento riceve "manca una settimana", non anche "mancano due". I recuperi
-partono con il giro delle 8 e fino al giorno dell'evento compreso: chi si
-iscrive oggi riceve domattina, entro le ventiquattro ore. Sul record restano `invio.recuperi`
-(quanti) e `invio.ultimoRecupero`; per un recupero non parte la copia a chi ha
-programmato. Un record spedito **prima** che questa memoria esistesse non ha
-l'elenco di chi ha ricevuto: al primo passaggio lo si ricostruisce con gli
-iscritti di adesso, senza spedire, e da li' in poi entrano solo i nuovi.
+**I giorni che mancano si contano la mattina dell'invio**
+(`lib/promemoria-tempo.js`). I testi non scrivono "manca una settimana": portano
+segnaposti che il servizio riempie il giorno in cui la mail parte davvero.
+`{{MANCANO}}`/`{{mancano}}` diventa "Mancano 5 giorni" o "manca un giorno",
+`{{QUANDO}}`/`{{quando}}` "Domani", "oggi" o "venerdì 2 ottobre",
+`{{CHIUSURA_B2B}}` "il 30 settembre", "domani" o "oggi". Un paragrafo segnato
+`se: 'B2B'` (nell'HTML fra `<!--SE_B2B-->` e `<!--/SE_B2B-->`, nel solo testo fra
+`[[SE_B2B]]` e `[[/SE_B2B]]`) vale fino al giorno di chiusura delle prenotazioni
+compreso, e dopo sparisce. Le date vengono dal record: `giornoEvento` e
+`chiusuraB2B`, che l'area riservata ricava da `scadenzaB2B` della scheda
+dell'evento. La stessa funzione ha una copia gemella in
+`area-riservata/promemoria-eventi.js` per l'anteprima, e una prova le confronta
+giorno per giorno.
+
+**Chi arriva dopo: il benvenuto** (solo promemoria con `recupera: true`, cioe'
+confermati con i testi nuovi). Chi entra in una serie dopo che la sua mail
+`benvenuto` e' partita - si e' iscritto dopo, oppure e' stato spostato fra sala
+e online - e da quella serie non ha ancora ricevuto niente, la mattina seguente
+riceve la mail `benvenuto`, che e' la mail completa (programma e informazioni
+essenziali), con i giorni ricalcolati e il paragrafo B2B solo se le
+prenotazioni sono ancora aperte. Poi segue il calendario di tutti. Le regole:
+
+- **una mail al giorno a persona.** Il benvenuto gira prima delle mail del
+  giorno; se quella mattina per gli altri parte una mail normale della serie,
+  chi riceve il benvenuto viene segnato come servito anche in quella, e non la
+  riceve in doppio;
+- **la vigilia e la mattina dell'evento hanno la precedenza** (`soloIlGiorno`):
+  quel giorno arrivano a tutti, anche a chi si e' appena iscritto, e il
+  benvenuto non parte;
+- **le altre mail perse non si recuperano**: il benvenuto le contiene;
+- **mai dopo il giorno dell'evento**, e mai con i promemoria della prima
+  versione.
+
+"Ha gia' ricevuto qualcosa dalla serie" si legge dalla memoria degli invii: a
+fine invio l'avanzamento in `comunicazioniInvio/promemoria~<id>` **non si
+cancella**, e resta l'elenco (in impronte) di chi ha ricevuto ogni promemoria.
+Sul record del benvenuto restano `invio.recuperi` (quanti) e
+`invio.ultimoRecupero`; per un benvenuto non parte la copia a chi ha
+programmato. La copia della mail del giorno parte comunque: il "primo giro" si
+riconosce dalle mail davvero spedite, non da chi e' gia' segnato.
 
 **Un promemoria vecchio non parte.** Un promemoria appartiene al suo giorno:
 "a domani" spedito il giorno dopo e' peggio di niente. Se il giro trova un
 record previsto per un giorno **gia' passato** (servizio fermo, cron non
 attivo, giorno gia' finito quando lo si e' confermato) lo segna `scaduto`, con
 il motivo, e non lo spedisce; l'unica eccezione e' un invio rimasto a meta' il
-giorno prima, che si completa. Dall'area riservata compare "Non partito" con
-il pulsante per riprogrammarlo. I giorni si contano nell'ora di Roma.
+giorno prima, che si completa. Dopo il giorno dell'evento non parte niente,
+nemmeno il resto di un invio a meta'. Dall'area riservata compare "Non
+partito" con il pulsante per riprogrammarlo. I giorni si contano nell'ora di Roma.
 
 **Il record si tocca per campo, in transazione** (`applicaPatch`): l'area
 riservata riscrive il documento intero quando qualcuno programma o sospende, e
@@ -1029,7 +1057,7 @@ browser, `PromemoriaEventi.salvaUna` non riporta mai indietro un record che il
 servizio ha gia' segnato inviato.
 
 Stati del record: `programmato` (parte all'ora scelta), `sospeso` (fermo
-finche' non lo si riprende), `inviato` (e da allora recupera chi arriva dopo),
+finche' non lo si riprende), `inviato` (se e' il `benvenuto`, da allora va a chi arriva dopo),
 `scaduto`. Una proposta senza record
 non e' niente: e' solo un testo pronto nell'elenco.
 
@@ -1038,9 +1066,10 @@ Nessuna variabile nuova: usa `CRON_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`
 dall'account di servizio) gia' configurati. Le prove stanno in
 `prove/promemoria-eventi.prove.js` (`node prove/promemoria-eventi.prove.js`,
 niente da installare): a chi parte e a chi no, la personalizzazione, il tempo
-finito a meta', lo scaduto, i record non dovuti, i recuperi di chi si iscrive
-dopo (solo l'ultimo della serie, la mattina dopo, non oltre l'evento, e la
-ricostruzione della memoria per i record spediti prima).
+finito a meta', lo scaduto, i record non dovuti, i giorni contati il giorno
+dell'invio, il benvenuto a chi arriva dopo (una mail al giorno, la precedenza
+della vigilia e della mattina, il paragrafo B2B a scadenza, il cambio di serie)
+e le due copie del calcolo dei giorni, confrontate giorno per giorno.
 
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 

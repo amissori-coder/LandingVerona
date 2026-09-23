@@ -2258,18 +2258,22 @@
             .replace(/[\r\n]+/g, ' ').trim();
         const anteprima = String(dati.anteprima || '');
         const titolo = String(dati.titolo || ('Ci vediamo a ' + (ev.titolo || 'Napoli')));
-        const sommario = String(dati.sommario || ('Ciao ' + SEGNAPOSTO_NOME + ', ti scriviamo per ricordarti il convegno'
+        const sommario = String(dati.sommario || ('Gentile ' + SEGNAPOSTO_NOME + ', Le ricordiamo il convegno'
             + (quandoEv ? ' di ' + quandoEv : '') + '.'));
         /* Un paragrafo puo' essere una stringa, oppure {titolo, testo} o
            {titolo, elenco}: il titolo e' un sopratitolo di sezione, l'elenco
            una lista di punti brevi. Ogni voce vuota si salta. */
         const paragrafi = (dati.paragrafi || []).map(p => {
             if (p == null) return null;
-            if (typeof p === 'string') return p.trim() ? { titolo: '', testo: p.trim(), elenco: [] } : null;
+            if (typeof p === 'string') return p.trim() ? { titolo: '', testo: p.trim(), elenco: [], se: '' } : null;
             const t = String(p.titolo || '').trim();
             const x = String(p.testo || '').trim();
             const el = Array.isArray(p.elenco) ? p.elenco.map(v => String(v || '').trim()).filter(Boolean) : [];
-            return (t || x || el.length) ? { titolo: t, testo: x, elenco: el } : null;
+            /* `se: 'B2B'`: il paragrafo vale solo finche' le prenotazioni B2B
+               sono aperte. Qui si segna, e il servizio lo toglie la mattina
+               dell'invio se quel giorno sono gia' chiuse. */
+            const se = String(p.se || '').replace(/[^A-Z0-9_]/gi, '').toUpperCase();
+            return (t || x || el.length) ? { titolo: t, testo: x, elenco: el, se: se } : null;
         }).filter(Boolean);
         const righe = (dati.righe || []).filter(r => Array.isArray(r) && r[0] && r[1]);
         const programma = (dati.programma || []).filter(v => v && v.nome);
@@ -2313,7 +2317,8 @@
             if (p.titolo) h += sopratitolo(p.titolo) + spazio(10);
             if (p.testo) h += par(p.testo);
             if (p.elenco.length) h += (p.testo ? spazio(8) : '') + elenco(p.elenco);
-            return h;
+            // blocco a scadenza: un commento prima e dopo, spazio compreso
+            return p.se ? '<!--SE_' + p.se + '-->' + h + '<!--/SE_' + p.se + '-->' : h;
         }).join('');
 
         const riga = (et, val) => '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
@@ -2362,11 +2367,13 @@
             + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
             + '</td></tr>' : '';
         const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
-        const fraseLink = 'Se non puoi più partecipare, o se i tuoi dati sono da correggere, puoi farlo dal '
-            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">tuo collegamento personale</a>. '
-            + 'Vale solo per la tua iscrizione: ti chiediamo di non inoltrarlo.';
-        const fraseLinkTesto = 'Se non puoi più partecipare, o se i tuoi dati sono da correggere, puoi farlo dal tuo collegamento personale: '
-            + SEGNAPOSTO_COMPLETA + ' (vale solo per la tua iscrizione: ti chiediamo di non inoltrarlo).';
+        /* Al Lei, come tutte le mail al singolo: il registro non si mescola
+           nella stessa lettera. */
+        const fraseLink = 'Se non potrà più partecipare, o se i Suoi dati sono da correggere, può farlo dal '
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
+            + 'Vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.';
+        const fraseLinkTesto = 'Se non potrà più partecipare, o se i Suoi dati sono da correggere, può farlo dal Suo collegamento personale: '
+            + SEGNAPOSTO_COMPLETA + ' (vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo).';
         const code = (nota || linkPersonale)
             ? spazio(24) + piccolo((nota ? testoHtml(nota) : '') + (nota && linkPersonale ? '<br><br>' : '') + (linkPersonale ? fraseLink : ''))
             : '';
@@ -2374,7 +2381,7 @@
         const corpo = cella(tabellaInterna(
             spazio(30)
             + corpoParagrafi
-            + (box ? spazio(26) + box : '')
+            + (box ? (corpoParagrafi ? spazio(26) : '') + box : '')
             + tabellaProgramma
             + rigaBottone
             + code
@@ -2391,7 +2398,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_PROMEMORIA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -2405,18 +2412,22 @@
             if (p.titolo) pezzi.push(p.titolo.toUpperCase());
             if (p.testo) pezzi.push(p.testo);
             if (p.elenco.length) pezzi.push(p.elenco.map(v => '- ' + v).join('\n'));
-            parti.push(pezzi.join('\n'));
+            const blocco = pezzi.join('\n');
+            parti.push(p.se ? '[[SE_' + p.se + ']]' + blocco + '[[/SE_' + p.se + ']]' : blocco);
         });
         if (righe.length) parti.push(righe.map(r => r[0] + ': ' + r[1]).join('\n'));
         if (programma.length) parti.push('IL PROGRAMMA\n' + programma.map(v => (v.ora ? v.ora + '  ' : '') + v.nome).join('\n'));
         if (btn) parti.push(btn.testo + ': ' + btn.url);
         if (nota) parti.push(nota);
         if (linkPersonale) parti.push(fraseLinkTesto);
-        parti.push('--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_ONLINE, 'Informativa privacy: ' + PRIVACY);
+        parti.push('--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA, 'Informativa privacy: ' + PRIVACY);
         const testo = parti.filter(Boolean).join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };
     }
+    /* La riga in coda ai promemoria: impersonale, cosi' sta bene sotto una
+       lettera al Lei (MOTIVO_ONLINE da' del tu, ed e' di un'altra mail). */
+    const MOTIVO_PROMEMORIA = 'Questa email è inviata agli iscritti all\'evento: non è una comunicazione promozionale.';
 
 
     /* =========================================================

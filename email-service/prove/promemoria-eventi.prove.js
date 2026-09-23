@@ -10,10 +10,12 @@
    giuste e a quelle sole: la sezione decisa da chi organizza vince
    su quella dichiarata, chi ha annullato o e' cancellato resta fuori,
    un indirizzo riceve una mail sola; che {{NOME}} e {{COMPLETA}}
-   diventano il nome di battesimo e il collegamento personale; che il
-   tempo finito a meta' non fa rispedire; che un promemoria vecchio
-   di un giorno non parte e viene segnato; che una modifica fatta
-   dall'area riservata nel frattempo non si perde.
+   diventano nome e cognome e il collegamento personale; che i giorni
+   che mancano si contano la mattina dell'invio; che chi arriva dopo
+   riceve il benvenuto, una mail al giorno, con la precedenza alla
+   vigilia e alla mattina dell'evento; che il tempo finito a meta' non
+   fa rispedire; che un promemoria di un giorno passato non parte; che
+   una modifica fatta dall'area riservata nel frattempo non si perde.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -165,7 +167,8 @@ function recBase(extra) {
         id: 'napoli-2026-10-02~s1', evento: 'napoli-2026-10-02', filtro: 'napoli', proposta: 's1', nome: 'Due settimane prima',
         sezioni: ['presenza', 'aderenti', 'sponsor'], quando: Date.parse('2026-09-16T22:00:00Z'), stato: 'programmato',
         mail: { oggetto: 'Ciao {{NOME}}, ci vediamo a Napoli', html: '<p>Ciao {{NOME}}</p><a href="{{COMPLETA}}">link</a>', testo: 'Ciao {{NOME}}\n{{COMPLETA}}' },
-        creato: { da: 'a.missori@emvas.tax', daNome: 'Alessandro Missori', il: 1 }
+        creato: { da: 'a.missori@emvas.tax', daNome: 'Alessandro Missori', il: 1 },
+        recupera: true
     }, extra || {});
 }
 const aChi = () => posta.map(m => m.to).sort();
@@ -184,17 +187,20 @@ await prova('1) Parte in sala e non online; la sezione decisa vince su quella di
     const c = iscr('carla@esempio.it', 'Carla', 'Rossi', { modalita: 'presenza' });   // dichiara presenza...
     const d = iscr('dario@esempio.it', 'Dario', 'Neri', { modalita: 'aderenti' });    // aderenti (dal modulo)
     const e = iscr('elena@altro.it', 'Elena', 'Gialli', { pagina: 'Roma 29 Aprile 2026 - Manifestazione di interesse' });
-    mettiIscrizioni([a, b, c, d, e], [
+    const f = iscr('franco@esempio.it', 'Franco', 'Blu', { modalita: 'b2b' });      // invitato ai soli incontri B2B
+    const g = iscr('gina@esempio.it', 'Gina', 'Viola');                                // si iscrive in sala...
+    mettiIscrizioni([a, b, c, d, e, f, g], [
         { evento: 'napoli-2026-10-02', idIscritto: idDi(b), modalita: 'presenza' },   // ...ma chi organizza lo ha messo in sala
-        { evento: 'napoli-2026-10-02', idIscritto: idDi(c), modalita: 'online' }      // ...ma chi organizza lo ha spostato online
+        { evento: 'napoli-2026-10-02', idIscritto: idDi(c), modalita: 'online' },     // ...ma chi organizza lo ha spostato online
+        { evento: 'napoli-2026-10-02', idIscritto: idDi(g), modalita: 'b2b' }         // ...ma poi e' passata ai soli B2B
     ]);
     mettiPromemoria([recBase()]);
     const r = await giro();
     esigi(r._stato === 200 && r.inviati === 1, 'un promemoria inviato (' + JSON.stringify(r) + ')');
     const dest = posta.filter(m => !/^\[Copia per te\]/.test(m.subject)).map(m => m.to).sort();
-    esigi(JSON.stringify(dest) === JSON.stringify(['anna@esempio.it', 'bruno@esempio.it', 'dario@esempio.it']), 'a chi: anna, bruno (in sala per decisione), dario (aderenti); non carla (online), non elena (Roma) - ' + dest.join(', '));
+    esigi(JSON.stringify(dest) === JSON.stringify(['anna@esempio.it', 'bruno@esempio.it', 'dario@esempio.it']), 'a chi: anna, bruno (in sala per decisione), dario (aderenti); non carla (online), non elena (Roma), non franco e gina (soli B2B) - ' + dest.join(', '));
     const ma = posta.find(m => m.to === 'anna@esempio.it');
-    esigi(ma.subject === 'Ciao Anna, ci vediamo a Napoli', 'nome di battesimo nell\'oggetto: ' + ma.subject);
+    esigi(ma.subject === 'Ciao Anna Maria Verdi, ci vediamo a Napoli', 'nome e cognome nell\'oggetto: ' + ma.subject);
     esigi(/\/completa_iscrizione\/\?d=anna-esempio-it&t=/.test(ma.html), 'collegamento personale firmato della scheda nel corpo');
     esigi(ma.replyTo === 'a.missori@emvas.tax', 'le risposte tornano a chi ha programmato');
     const copia = posta.find(m => /^\[Copia per te\]/.test(m.subject));
@@ -263,7 +269,7 @@ await prova('5) Non dovuti: futuro, sospeso, inviato, senza mail restano fermi; 
     mettiPromemoria([
         recBase({ id: 'f', quando: Date.parse('2026-09-23T22:00:00Z') }),   // previsto per il 24
         recBase({ id: 's', stato: 'sospeso' }),
-        recBase({ id: 'i', stato: 'inviato', invio: { il: 1, inviate: 1 } }),   // senza memoria: si ricostruisce, non si rispedisce
+        recBase({ id: 'i', stato: 'inviato', invio: { il: 1, inviate: 1 } }),   // gia' inviato, e non e' un benvenuto: fermo
         recBase({ id: 'm', mail: null }),
         recBase({ id: 'd' })
     ]);
@@ -278,102 +284,170 @@ await prova('5) Non dovuti: futuro, sospeso, inviato, senza mail restano fermi; 
     void set0;
 });
 
-await prova('8) Chi si iscrive DOPO l\'invio riceve lo stesso promemoria al giro dopo, una volta sola', async () => {
+/* ---- I giorni che mancano e il benvenuto a chi arriva dopo ---- */
+// giorni in ora di Roma: la mezzanotte di Roma e' le 22 UTC del giorno prima (ora legale)
+const giorno = iso => Date.parse(iso + 'T00:00:00+02:00');
+const alle8 = iso => Date.parse(iso + 'T08:05:00+02:00');
+const noCopia = () => posta.filter(m => !/^\[Copia/.test(m.subject));
+function recW(extra) {
+    return recBase(Object.assign({
+        id: 'n~sala-programma', proposta: 'sala-programma', benvenuto: true, chiusuraB2B: '2026-09-30', giornoEvento: '2026-10-02',
+        quando: giorno('2026-09-25'),
+        mail: {
+            oggetto: '{{MANCANO}} a Napoli: ciao {{NOME}}',
+            html: '<p>{{mancano}} | {{QUANDO}}</p><!--SE_B2B--><p>PRENOTA entro {{CHIUSURA_B2B}}</p><!--/SE_B2B-->',
+            testo: '{{mancano}}\n\n[[SE_B2B]]PRENOTA entro {{CHIUSURA_B2B}}[[/SE_B2B]]\n\nfine'
+        }
+    }, extra || {}));
+}
+function recNormale(id, iso, extra) {
+    return recBase(Object.assign({ id: id, proposta: id, quando: giorno(iso), giornoEvento: '2026-10-02',
+        mail: { oggetto: id + ' {{MANCANO}} {{NOME}}', html: '<p>' + id + '</p>', testo: id } }, extra || {}));
+}
+
+await prova('8) I giorni che mancano si contano la mattina dell\'invio; il blocco B2B vale fino alla chiusura', async () => {
     azzera();
+    orologio = alle8('2026-09-25');
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
-    mettiPromemoria([recBase()]);
+    mettiPromemoria([recW()]);
     await giro();
-    esigi(posta.filter(m => !/^\[Copia/.test(m.subject)).map(m => m.to).join() === 'anna@esempio.it', 'primo giro: anna');
-    // il giorno dopo si iscrive bruno; carla era gia' iscritta ma e' online
-    orologio += 24 * 60 * 60 * 1000;
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('bruno@esempio.it', 'Bruno', 'Bianchi'), iscr('carla@esempio.it', 'Carla', 'Rossi', { modalita: 'online' })], []);
+    const m = noCopia()[0];
+    esigi(m && m.subject === 'Mancano 7 giorni a Napoli: ciao Anna Verdi', 'oggetto del 25 settembre: ' + (m && m.subject));
+    esigi(/mancano 7 giorni \| Venerdì 2 ottobre/.test(m.html) && /PRENOTA entro il 30 settembre/.test(m.html), 'corpo: giorni, giorno dell\'evento e chiusura B2B');
+    esigi(/PRENOTA entro il 30 settembre/.test(m.text) && !/\[\[/.test(m.text), 'anche il solo testo, senza segni rimasti');
+});
+
+await prova('9) Benvenuto: chi arriva dopo riceve la mail completa la mattina dopo, con i giorni ricalcolati, una volta sola', async () => {
+    azzera();
+    orologio = alle8('2026-09-25');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recW()]);
+    await giro();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('bruno@esempio.it', 'Bruno', 'Bianchi')], []);
     posta.length = 0;
+    orologio = alle8('2026-09-26');
     const r = await giro();
-    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'bruno@esempio.it' && /Ciao Bruno/.test(posta[0].subject), 'recupero: solo bruno, con il suo nome (' + posta.map(m => m.to).join() + ')');
-    esigi(!posta.some(m => /^\[Copia/.test(m.subject)), 'nessuna copia a chi ha programmato per un recupero');
-    let rec = leggiPromemoria('napoli-2026-10-02~s1');
-    esigi(rec.stato === 'inviato' && rec.invio.inviate === 1 && rec.invio.recuperi === 1 && rec.invio.ultimoRecupero === Date.now(), 'il record conta 1 inviata e 1 recupero');
+    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'bruno@esempio.it', 'il 26: solo bruno (' + posta.map(x => x.to).join() + ')');
+    esigi(posta[0].subject === 'Mancano 6 giorni a Napoli: ciao Bruno Bianchi', 'con i giorni del 26: ' + posta[0].subject);
+    esigi(!posta.some(x => /^\[Copia/.test(x.subject)), 'nessuna copia a chi ha programmato per un benvenuto');
+    const w = leggiPromemoria('n~sala-programma');
+    esigi(w.invio.recuperi === 1 && w.invio.inviate === 1, 'il record conta 1 inviata e 1 benvenuto');
     posta.length = 0;
+    orologio = alle8('2026-09-27');
     const r2 = await giro();
-    esigi(r2.recuperi === 0 && posta.length === 0, 'al giro dopo non riparte niente');
+    esigi(r2.recuperi === 0 && posta.length === 0, 'il 27 niente');
 });
 
-await prova('9) Con due promemoria gia\' partiti, il nuovo iscritto riceve SOLO l\'ultimo; e per serie', async () => {
+await prova('10) Una mail al giorno: chi arriva la vigilia di una mail normale riceve il benvenuto AL SUO POSTO', async () => {
     azzera();
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('zoe@esempio.it', 'Zoe', 'Blu', { modalita: 'online' })], []);
-    mettiPromemoria([
-        recBase({ id: 'n~s1', proposta: 's1', quando: Date.parse('2026-09-09T22:00:00Z'), mail: { oggetto: 'Due settimane {{NOME}}', html: '<p>s1</p>' } }),
-        recBase({ id: 'n~s2', proposta: 's2', quando: Date.parse('2026-09-15T22:00:00Z'), mail: { oggetto: 'Una settimana {{NOME}}', html: '<p>s2</p>' } }),
-        recBase({ id: 'n~o1', proposta: 'o1', sezioni: ['online'], quando: Date.parse('2026-09-09T22:00:00Z'), mail: { oggetto: 'Online {{NOME}}', html: '<p>o1</p>' } })
-    ]);
-    orologio = Date.parse('2026-09-10T06:05:00Z');   // il 10 alle 8: partono s1 (anna) e o1 (zoe)
-    await giro();
-    orologio = Date.parse('2026-09-16T06:05:00Z');   // il 16 alle 8: parte s2 (anna)
-    await giro();
-    esigi(posta.filter(m => !/^\[Copia/.test(m.subject)).length === 3, 'i tre promemoria partono, ciascuno alla sua ora');
-    orologio += 60 * 60 * 1000;
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('zoe@esempio.it', 'Zoe', 'Blu', { modalita: 'online' }),
-        iscr('nuovo@esempio.it', 'Nuovo', 'Ospite'), iscr('remoto@esempio.it', 'Remoto', 'Web', { modalita: 'online' })], []);
-    posta.length = 0;
-    const r = await giro();
-    const dest = posta.map(m => m.to + ': ' + m.subject).sort();
-    esigi(r.recuperi === 2 && dest.length === 2, 'due recuperi (' + dest.join(' | ') + ')');
-    esigi(dest[0] === 'nuovo@esempio.it: Una settimana Nuovo', 'l\'ospite nuovo riceve "una settimana", non "due settimane"');
-    esigi(dest[1] === 'remoto@esempio.it: Online Remoto', 'l\'iscritto online riceve l\'ultimo della serie online');
-    esigi(leggiPromemoria('n~s1').invio.recuperi === undefined && leggiPromemoria('n~s2').invio.recuperi === 1, 'il recupero e\' contato sul solo ultimo');
-});
-
-await prova('10) Chi si iscrive nel pomeriggio riceve la mattina dopo; non oltre il giorno dell\'evento', async () => {
-    azzera();
+    orologio = alle8('2026-09-25');
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
-    mettiPromemoria([recBase()]);
+    mettiPromemoria([recW(), recNormale('n~sala-presenza', '2026-09-29')]);
     await giro();
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('notte@esempio.it', 'Notte', 'Buia')], []);
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('carla@esempio.it', 'Carla', 'Rossi')], []);
     posta.length = 0;
-    orologio = Date.parse('2026-09-18T06:05:00Z');   // il giro delle 8 del giorno dopo
-    let r = await giro();
-    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'notte@esempio.it', 'la mattina dopo parte, entro le ventiquattro ore');
-    // dopo il giorno dell'evento (2 ottobre) non si recupera piu'
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('notte@esempio.it', 'Notte', 'Buia'), iscr('tardi@esempio.it', 'Tardi', 'Vero')], []);
-    posta.length = 0;
-    orologio = Date.parse('2026-10-03T08:00:00Z');
-    r = await giro();
-    esigi(r.recuperi === 0 && posta.length === 0, 'il 3 ottobre nessun recupero');
-    const I = cron._interni;
-    esigi(I.fineEvento({ evento: 'napoli-2026-10-02' }) === Date.parse('2026-10-02T23:59:59+02:00') && I.fineEvento({ evento: 'tutti' }) === 0, 'la fine dell\'evento si legge dall\'identificativo; senza data niente');
-    esigi(I.giornoRoma(Date.parse('2026-09-16T22:30:00Z')) === '2026-09-17' && I.giornoRoma(Date.parse('2026-09-17T06:05:00Z')) === '2026-09-17', 'il giorno si conta a Roma, non in UTC');
+    orologio = alle8('2026-09-29');
+    const r = await giro();
+    const a = noCopia().map(m => m.to + ': ' + m.subject).sort();
+    esigi(a.length === 2 && a[0] === 'anna@esempio.it: n~sala-presenza Mancano 3 giorni Anna Verdi' && a[1] === 'carla@esempio.it: Mancano 3 giorni a Napoli: ciao Carla Rossi',
+        'anna la mail del giorno, carla il benvenuto e basta (' + a.join(' | ') + ')');
+    esigi(posta.some(m => /^\[Copia per te\] n~sala-presenza/.test(m.subject)), 'la copia della mail del giorno parte lo stesso');
+    esigi(r.recuperi === 1 && leggiPromemoria('n~sala-presenza').invio.inviate === 1, 'la mail del giorno conta una sola inviata');
 });
 
-await prova('11) Un promemoria spedito PRIMA della memoria: al primo passaggio si ricostruisce, senza rispedire', async () => {
+await prova('11) La vigilia e la mattina dell\'evento hanno la precedenza: quel giorno niente benvenuto', async () => {
     azzera();
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('bruno@esempio.it', 'Bruno', 'Bianchi')], []);
-    // record gia' inviato dal servizio vecchio: nessun documento di avanzamento
-    mettiPromemoria([recBase({ stato: 'inviato', invio: { il: 1, inviate: 2 } })]);
-    let r = await giro();
-    esigi(r.recuperi === 0 && posta.length === 0, 'nessuna mail: anna e bruno non si sa se l\'hanno avuta, e non si rischia il doppione');
-    const mem = dati.get('comunicazioniInvio/promemoria~napoli-2026-10-02~s1');
-    esigi(mem && mem.serviti.length === 2, 'la memoria e\' ricostruita con i due iscritti di adesso');
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('bruno@esempio.it', 'Bruno', 'Bianchi'), iscr('dopo@esempio.it', 'Dopo', 'Nuovo')], []);
-    orologio += 15 * 60 * 1000;
-    r = await giro();
-    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'dopo@esempio.it', 'chi arriva dopo la ricostruzione la riceve');
+    orologio = alle8('2026-09-25');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recW(),
+        recNormale('n~sala-vigilia', '2026-10-01', { soloIlGiorno: true, mail: { oggetto: '{{QUANDO}} a Napoli {{NOME}}', html: '<p>vigilia</p>', testo: 'vigilia' } }),
+        recNormale('n~sala-mattina', '2026-10-02', { soloIlGiorno: true })]);
+    await giro();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('dario@esempio.it', 'Dario', 'Neri')], []);
+    posta.length = 0;
+    orologio = alle8('2026-10-01');
+    const r = await giro();
+    const a = noCopia().map(m => m.to + ': ' + m.subject).sort();
+    esigi(r.recuperi === 0 && a.length === 2 && a[1] === 'dario@esempio.it: Domani a Napoli Dario Neri', 'il 1° ottobre dario riceve la vigilia, con "Domani" (' + a.join(' | ') + ')');
+    posta.length = 0;
+    orologio = alle8('2026-10-02');
+    const r2 = await giro();
+    esigi(r2.recuperi === 0 && noCopia().length === 2, 'il 2 ottobre la mattina a tutti, niente benvenuto');
 });
 
-await prova('12) Spostato di serie dopo l\'invio: riceve l\'ultimo della serie nuova', async () => {
+await prova('12) Il blocco B2B nel benvenuto: il giorno della chiusura dice "oggi", dopo sparisce', async () => {
     azzera();
-    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('bruno@esempio.it', 'Bruno', 'Bianchi')], []);
-    mettiPromemoria([
-        recBase({ id: 'n~s1', proposta: 's1', mail: { oggetto: 'Sala {{NOME}}', html: '<p>s1</p>' } }),
-        recBase({ id: 'n~o1', proposta: 'o1', sezioni: ['online'], mail: { oggetto: 'Online {{NOME}}', html: '<p>o1</p>' } })
-    ]);
+    orologio = alle8('2026-09-25');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recW()]);
     await giro();
-    // chi organizza sposta bruno online
-    orologio += 60 * 60 * 1000;
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('ugo@esempio.it', 'Ugo', 'Primo')], []);
+    posta.length = 0;
+    orologio = alle8('2026-09-30');
+    await giro();
+    esigi(posta.length === 1 && /PRENOTA entro oggi/.test(posta[0].html) && /mancano 2 giorni/.test(posta[0].html), 'il 30: "entro oggi", mancano 2 giorni');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('ugo@esempio.it', 'Ugo', 'Primo'), iscr('eva@esempio.it', 'Eva', 'Tarda')], []);
+    posta.length = 0;
+    orologio = alle8('2026-10-01');
+    await giro();
+    esigi(posta.length === 1 && posta[0].to === 'eva@esempio.it' && !/PRENOTA/.test(posta[0].html) && !/PRENOTA/.test(posta[0].text), 'il 1° ottobre: niente invito a prenotare');
+    esigi(posta.length === 1 && /manca un giorno \| Domani/.test(posta[0].html), 'e i giorni del 1° ottobre');
+});
+
+await prova('13) Spostato di serie dopo l\'invio: riceve il benvenuto della serie nuova', async () => {
+    azzera();
+    orologio = alle8('2026-09-25');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('bruno@esempio.it', 'Bruno', 'Bianchi')], []);
+    mettiPromemoria([recW(), recW({ id: 'n~online-programma', proposta: 'online-programma', sezioni: ['online'], mail: { oggetto: 'Online {{MANCANO}} {{NOME}}', html: '<p>online</p>', testo: 'online' } })]);
+    await giro();
+    esigi(noCopia().length === 2, 'il 25 la mail in sala ai due');
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('bruno@esempio.it', 'Bruno', 'Bianchi')],
         [{ evento: 'napoli-2026-10-02', idIscritto: idDi(iscr('bruno@esempio.it', 'Bruno', 'Bianchi')), modalita: 'online' }]);
     posta.length = 0;
+    orologio = alle8('2026-09-27');
     const r = await giro();
-    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'bruno@esempio.it' && /^Online/.test(posta[0].subject), 'bruno riceve il promemoria online');
+    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'bruno@esempio.it' && posta[0].subject === 'Online Mancano 5 giorni Bruno Bianchi', 'bruno riceve il benvenuto online (' + posta.map(m => m.subject).join() + ')');
+});
+
+await prova('14) Solo i promemoria con i testi nuovi fanno da benvenuto', async () => {
+    azzera();
+    orologio = alle8('2026-09-25');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recW({ recupera: undefined })]);
+    await giro();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('tardi@esempio.it', 'Tardi', 'Nuovo')], []);
+    posta.length = 0;
+    orologio = alle8('2026-09-26');
+    const r = await giro();
+    esigi(r.recuperi === 0 && posta.length === 0, 'prima versione: niente benvenuto');
+});
+
+await prova('15) Dopo il giorno dell\'evento non parte niente, nemmeno il resto di un invio a meta\'', async () => {
+    azzera();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recBase({ quando: Date.parse('2026-10-01T22:00:00Z'), invio: { inCorso: true, il: 1, inviate: 5 } })]);
+    orologio = Date.parse('2026-10-03T06:05:00Z');
+    const r = await giro();
+    const rec = leggiPromemoria('napoli-2026-10-02~s1');
+    esigi(r.scaduti === 1 && posta.length === 0, 'il 3 ottobre nessuna mail');
+    esigi(rec.stato === 'scaduto' && rec.invio.inCorso === false && rec.invio.inviate === 5, 'segnato scaduto, con il conto di quelle gia\' partite');
+});
+
+await prova('16) Le due copie del calcolo dei giorni (servizio e anteprima) dicono le stesse cose, giorno per giorno', async () => {
+    const T1 = require(path.join(RADICE, 'lib/promemoria-tempo.js'));
+    const T2 = require(path.join(RADICE, '..', 'area-riservata', 'promemoria-eventi.js')).tempo;
+    const campione = '{{MANCANO}} / {{mancano}} / {{QUANDO}} / {{quando}} / {{CHIUSURA_B2B}} <!--SE_B2B-->b2b<!--/SE_B2B--> [[SE_B2B]]b2b[[/SE_B2B]]';
+    let uguali = 0, giorni = 0;
+    for (let d = Date.UTC(2026, 8, 15); d <= Date.UTC(2026, 9, 5); d += 86400000) {
+        const iso = new Date(d).toISOString().slice(0, 10);
+        for (const ch of ['2026-09-30', '']) {
+            giorni++;
+            if (T1.applica(campione, T1.frasi(iso, '2026-10-02', ch)) === T2.applica(campione, T2.frasi(iso, '2026-10-02', ch))) uguali++;
+        }
+    }
+    esigi(uguali === giorni, 'uguali in ' + uguali + ' casi su ' + giorni);
+    const P = require(path.join(RADICE, '..', 'area-riservata', 'promemoria-eventi.js'));
+    esigi(P.giornoDaTesto('30 settembre', '2026-10-02') === '2026-09-30' && P.giornoDaTesto('', '2026-10-02') === '', '"30 settembre" diventa 2026-09-30');
 });
 
 await prova('6) Chiamata senza segreto: rifiutata', async () => {
@@ -383,12 +457,14 @@ await prova('6) Chiamata senza segreto: rifiutata', async () => {
     esigi(res._s === 401, '401 senza Authorization');
 });
 
-await prova('7) Le funzioni interne: identificativo della riga come in api/iscrizioni.js, nome di battesimo', async () => {
+await prova('7) Le funzioni interne: identificativo della riga come in api/iscrizioni.js, nome e cognome nel saluto', async () => {
     const I = cron._interni;
     esigi(I.idRiga({ email: 'Anna@Esempio.it', data: '10/09/2026 11:00:00' }) === 'anna@esempio.it|10/09/2026 11:00:00', 'id dalla email in minuscolo e dalla data');
     esigi(I.idRiga({ nome: 'Élise', cognome: 'Müller', data: 'x' }) === 'elise.muller|x', 'senza email: nome.cognome senza accenti');
-    esigi(I.nomeSaluto({ nome: 'Anna Maria', cognome: 'Verdi' }) === 'Anna' && I.nomeSaluto({ nome: '', cognome: 'Verdi' }) === 'Verdi' && I.nomeSaluto({}) === 'ospite', 'saluto: primo nome, poi cognome, poi ospite');
+    esigi(I.nomeSaluto({ nome: 'Anna Maria', cognome: 'Verdi' }) === 'Anna Maria Verdi' && I.nomeSaluto({ nome: '', cognome: 'Verdi' }) === 'Verdi' && I.nomeSaluto({}) === 'ospite', 'saluto: nome e cognome, poi quello che c\'e\', poi ospite');
     esigi(I.nomeSaluto({ nome: 'Mario Rossi', cognome: '' }) === 'Mario Rossi', 'nome pieno in un campo solo: resta com\'e\'');
+    esigi(I.nomeSaluto({ nome: 'MARIO', cognome: 'DE LUCA' }) === 'Mario De Luca' && I.nomeSaluto({ nome: 'anna', cognome: 'd\'amico' }) === 'Anna D\'Amico', 'tutto maiuscolo o tutto minuscolo: rimesso in forma');
+    esigi(I.nomeSaluto({ nome: 'Anna', cognome: 'McArthur' }) === 'Anna McArthur', 'maiuscole gia\' al loro posto: non si toccano');
 });
 
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
