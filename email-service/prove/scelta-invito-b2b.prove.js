@@ -115,6 +115,7 @@ const aLotti = daAppJs('aLotti');
 const daInvitareB2B = daAppJs('daInvitareB2B');
 const iscrittiPerInvitoB2B = daAppJs('iscrittiPerInvitoB2B');
 const natoPerInvitiB2B = daAppJs('natoPerInvitiB2B');
+const fraseEsitoInviti = daAppJs('fraseEsitoInviti');
 /* modalitaDi legge le presenze dalla chiusura dell'app: qui la modalita' la
    porta la riga stessa, che e' quanto basta a questa prova. */
 const modalitaDi = (ev, r) => String(r.modalita || 'presenza');
@@ -391,6 +392,34 @@ esigi(inFinestra.join(' ') === 'nino@delta.it rita@gamma.it',
    sarebbero cento finestre da chiudere per qualcosa che non e' successo. */
 esigi(conSezione.every(x => natoPerInvitiB2B(x)),
     'mentre l\'avviso "nuove iscrizioni dal sito" non ne annuncia nessuna');
+
+console.log('\n15) La frase che racconta l\'importazione, compreso il servizio indietro');
+/* Il sito e il servizio stanno su due macchine diverse e si aggiornano per
+   conto loro: per qualche minuto la finestra e' quella nuova e dall'altra
+   parte risponde ancora quella vecchia. Quando e' successo, a video si e'
+   letto "nessuna azienda segnata... 122 righe non le ho potute usare", che
+   manda a cercare il guasto nel file - dove non c'e'. La risposta nuova porta
+   sempre "create", anche a zero: la chiave che manca e' il segno. */
+const vecchioServizio = fraseEsitoInviti({ ok: true, lette: 122, soloInviti: true, aggiornate: 0, nonIscritte: 122 }, 0);
+esigi(/servizio non e ancora aggiornato/.test(vecchioServizio.testo) && vecchioServizio.ko,
+    'il servizio indietro si riconosce e si dice, invece di dare la colpa al file', vecchioServizio.testo);
+esigi(/reimport/.test(vecchioServizio.testo),
+    'e si dice che cosa fare: reimportare lo stesso file, che non crea doppioni');
+const tutteCreate = fraseEsitoInviti({ ok: true, lette: 122, soloInviti: true, aggiornate: 0, create: 122, nonIscritte: 0 }, 100);
+esigi(/122 aziende aggiunte per i soli incontri/.test(tutteCreate.testo) && !tutteCreate.ko,
+    'il caso vero: centoventidue aggiunte, nessun allarme', tutteCreate.testo);
+esigi(/in elenco ci sono 100 aziende/.test(tutteCreate.testo), 'e quante ne sono finite in elenco');
+const miste = fraseEsitoInviti({ ok: true, lette: 10, soloInviti: true, aggiornate: 3, create: 5, nonIscritte: 2, nonTrovate: ['a@b.it', 'c@d.it'] }, 8);
+esigi(/3 aziende segnate fra gli iscritti, 5 aziende aggiunte per i soli incontri/.test(miste.testo),
+    'le tre strade si leggono separate', miste.testo);
+esigi(/a@b.it, c@d.it/.test(miste.testo) && miste.ko,
+    'e le righe rimaste indietro si dicono con i loro indirizzi');
+const zeroVere = fraseEsitoInviti({ ok: true, lette: 4, soloInviti: true, aggiornate: 0, create: 0, nonIscritte: 4, nonTrovate: ['a@b.it'] }, 0);
+esigi(/nessuna azienda segnata/.test(zeroVere.testo) && !/servizio non e ancora/.test(zeroVere.testo),
+    'con il servizio nuovo uno zero e uno zero: non si accusa nessuno di essere vecchio', zeroVere.testo);
+const normale = fraseEsitoInviti({ ok: true, lette: 50, importate: 48, saltate: 2 });
+esigi(/48 righe importate su 50 lette \(2 righe vuote saltate\)/.test(normale.testo) && !normale.ko,
+    'e un\'importazione normale resta quella di sempre', normale.testo);
 
 console.log('\n' + ok + ' verde, ' + ko + ' ROSSO');
 process.exit(ko ? 1 : 0);
