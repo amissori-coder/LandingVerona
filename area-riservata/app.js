@@ -23361,9 +23361,39 @@
         return '<h3 style="margin:18px 0 6px;">Chi riceve, a oggi</h3>'
             + '<p class="hint" style="margin:0 0 8px;max-width:none;">In sala <b>' + d.sala.length + '</b> (ospiti, aderenti Revilaw, sponsor e relatori), online <b>' + d.online.length + '</b>.'
             + (note.length ? ' Non ricevono: ' + esc(note.join(', ')) + '.' : '')
-            + ' Il conto definitivo lo fa il servizio alle 20 del giorno d\'invio.</p>'
+            + ' Il conto definitivo lo fa il servizio al momento di ogni invio.</p>'
+            + '<div style="margin:0 0 10px;"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest">Scarica i destinatari (CSV)</button></div>'
             + '<details class="pm-elenco"><summary><b>In sala</b>: ' + d.sala.length + ' persone</summary>' + tab(d.sala, true) + '</details>'
             + '<details class="pm-elenco" style="margin-top:6px;"><summary><b>Online</b>: ' + d.online.length + ' persone</summary>' + tab(d.online, false) + '</details>';
+    }
+    /* I destinatari in un file: una riga per persona, con la serie, la
+       sezione e gli invii che la riguardano (data, ora, stato). Si apre in
+       Excel: separatore punto e virgola, come le altre esportazioni. */
+    function esportaDestinatariPromemoria(ev) {
+        const d = elenchiPromemoria(ev);
+        if (!d.caricato) { toast('Aspetta il caricamento delle iscrizioni e riprova.', 'rosso'); return; }
+        const invii = serie => righePromemoria(ev)
+            .filter(r => serieDiSezioni(r.sezioni) === serie && r.stato !== 'scaduto')
+            .map(r => quandoPromemoria(r.quando) + ' ore ' + oraGiro(r.rec || r.prop)
+                + (r.stato === 'proposta' ? ' (da confermare)' : r.stato === 'sospeso' ? ' (sospeso)' : r.stato === 'inviato' ? ' (inviato)' : ''))
+            .join('; ');
+        const inviiSala = invii('sala'), inviiOnline = invii('online');
+        const righe = [['Serie', 'Sezione', 'Nome e cognome', 'Azienda', 'Email', 'Invii']];
+        d.sala.forEach(r => righe.push(['In sala', sezioneDef(r.sezione).nome, r.nome, r.azienda, r.email, inviiSala]));
+        d.online.forEach(r => righe.push(['Online', 'Online', r.nome, r.azienda, r.email, inviiOnline]));
+        const csv = righe.map(r => r.map(v => {
+            let x = String(v == null ? '' : v).replace(/"/g, '""');
+            // evita l'interpretazione come formula in Excel
+            if (/^[=+\-@\t\r]/.test(x)) x = "'" + x;
+            return '"' + x + '"';
+        }).join(';')).join('\r\n');
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'destinatari_promemoria_' + ev.id + '_' + oggiISO() + '.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        Audit.registra(Auth.utenteCorrente, 'Evento: esportati i destinatari dei promemoria', 'sistema', ev.id, null, (d.sala.length + d.online.length) + ' destinatari');
     }
     /* LA SCHEDA SULLA PAGINA: una riga di riassunto e il pulsante. */
     function promemoriaEventiHtml(ev) {
@@ -23473,6 +23503,8 @@
         document.getElementById('pm-el-chiudi').addEventListener('click', chiudiModale);
         const cont = document.getElementById('modale-contenitore');
         collegaAzioniPromemoria(ev, cont);
+        const bDest = cont.querySelector('#pm-scarica-dest');
+        if (bDest) bDest.addEventListener('click', () => esportaDestinatariPromemoria(ev));
         // la riga su cui si stava lavorando torna sotto gli occhi
         const ev_ = cont.querySelector('tr.pm-evidenziata');
         if (ev_ && ev_.scrollIntoView) ev_.scrollIntoView({ block: 'center' });
