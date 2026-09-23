@@ -1851,13 +1851,25 @@
            iscritti, e una mail del genere si apre la settimana dopo. Questa
            non va a tutti - va alle imprese scelte una per una - e chi la
            riceve deve saperlo dalla riga dell'elenco, non a meta' del testo.
-           Le tre parole stanno in TESTA all'oggetto perche' i telefoni lo
+           Le due parole stanno in TESTA all'oggetto perche' i telefoni lo
            tagliano dopo una quarantina di caratteri, e quello che conta deve
            stare prima del taglio. Poi lo ripetono l'anteprima (la riga grigia
            accanto all'oggetto), il titolo della testata e la nota in coda:
            quattro posti, la stessa parola, perche' e' la premessa di tutto il
-           resto. */
-        const oggetto = 'Invito riservato agli incontri B2B - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+           resto.
+           E SUBITO DOPO C'E' IL NOME DELL'IMPRESA, perche' "riservato" da solo
+           e' quello che scrive chiunque mandi la stessa mail a duemila
+           indirizzi: la parola che non si puo' falsificare e' il nome
+           dell'azienda, e chi la legge nell'elenco della posta sa in un colpo
+           che quella riga riguarda lui e non una lista. Prima del nome restano
+           venti caratteri, quindi anche su un telefono la ragione sociale
+           rientra quasi sempre per intero.
+           Il nome resta un SEGNAPOSTO: la mail si compone una volta sola per
+           tutte le aziende, e a sostituirlo - nell'oggetto come nel testo - e'
+           il servizio al momento dell'invio, che e' l'unico a sapere a chi
+           sta spedendo. */
+        const oggetto = 'Invito riservato per ' + SEGNAPOSTO_NOME
+            + ' - Incontri B2B, Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
         const anteprima = 'Un invito riservato alla Vostra impresa: indicate chi partecipa e tre preferenze. La prima è una prenotazione.';
         const scadenza = String((dati.evento || {}).scadenzaB2B || '').trim();
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', Vi rivolgiamo un invito riservato: nel corso del convegno "'

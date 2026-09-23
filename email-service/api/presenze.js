@@ -813,7 +813,17 @@ module.exports = async (req, res) => {
                             // AZIENDA: una per referente sarebbe la stessa mail
                             // tre volte nella sua casella
                             bcc: k === 0 ? ccnOperatore(email, emailSessione, p.a) : undefined,
-                            subject: oggettoBase,
+                            /* ANCHE L'OGGETTO porta il nome dell'impresa, e
+                               anche l'oggetto passa di qui: la mail si compone
+                               una volta sola per tutte le aziende, con i
+                               segnaposto dentro, e chi sa a chi sta spedendo e'
+                               soltanto questo punto. Finche' l'oggetto non
+                               passava dalla sostituzione, un segnaposto messo
+                               li' sarebbe partito scritto per esteso - il
+                               peggior modo di dire a un'impresa che la lettera
+                               non era per lei. Le virgolette non si mettono:
+                               un oggetto non e' HTML. */
+                            subject: sostituisci(oggettoBase, false, colleghi),
                             text: testoBase ? sostituisci(testoBase, false, colleghi) : undefined,
                             html: sostituisci(htmlBase, true, colleghi)
                         });

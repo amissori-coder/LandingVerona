@@ -252,7 +252,7 @@ async function invita(aziende, aree, forza) {
             forza: forza !== false,
             eventoDati: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48', scadenzaB2B: '30 settembre' },
             mail: {
-                oggetto: 'Incontri B2B',
+                oggetto: 'Invito riservato per {{NOME}} - Incontri B2B',
                 html: '<p>Gentile {{NOME}},</p>{{SE_COLLEGHI}}<p>Questo invito e arrivato anche a {{REFERENTI}}.</p>{{/SE_COLLEGHI}}<p><a href="{{B2B}}">Scelga</a></p>',
                 testo: 'Gentile {{NOME}}. {{SE_COLLEGHI}}Anche a {{REFERENTI}}.{{/SE_COLLEGHI}} {{B2B}}'
             }
@@ -898,6 +898,44 @@ function slotDi(area, ora) {
             esigi(String(annullata.html).indexOf(frase) >= 0 && String(annullata.testo).indexOf(frase) >= 0,
                 'la stessa frase nell HTML e nel solo testo: "' + frase + '"');
         });
+    });
+
+    await prova('25) L\'oggetto porta il nome dell\'impresa, e il segnaposto non esce mai', async () => {
+        /* L'oggetto e' la riga che decide se una mail si apre, e "invito
+           riservato" da solo e' quello che scrive chiunque mandi la stessa
+           lettera a duemila indirizzi: la parola che non si puo' falsificare e'
+           il nome dell'azienda. La mail pero' si compone UNA VOLTA SOLA per
+           tutte, con i segnaposto dentro, e a sostituirli e' il servizio: se
+           l'oggetto non passasse di li' - e per molto tempo non ci passava -
+           partirebbe con "{{NOME}}" scritto per esteso, che e' il peggior modo
+           di dire a un'impresa che la lettera non era per lei. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        mettiReferente('anna', 'Anna', 'Bianchi', 'EMVAS S.r.l.', 'anna@emvas.tax', '09876543210');
+        posta.length = 0;
+        await invita([
+            { chiave: 'p:04641610235', nome: 'REVILAW S.P.A.', piva: '04641610235', referenti: [{ doc: 'sergio' }] },
+            { chiave: 'p:09876543210', nome: 'EMVAS S.r.l.', piva: '09876543210', referenti: [{ doc: 'anna' }] }
+        ]);
+        esigi(posta.length === 2, 'partono due mail, una per azienda', 'mail: ' + posta.length);
+        const oggetti = posta.map(m => String(m.subject || ''));
+        esigi(!oggetti.some(o => /\{\{/.test(o)),
+            'nessun segnaposto rimasto scritto nell oggetto', oggetti.join(' | '));
+        const perRevilaw = posta.filter(m => m.to === 'sergiomiele@revilaw.it')[0];
+        const perEmvas = posta.filter(m => m.to === 'anna@emvas.tax')[0];
+        esigi(String((perRevilaw || {}).subject || '').indexOf('REVILAW S.P.A.') >= 0,
+            'ognuna porta nell oggetto il nome della SUA impresa', String((perRevilaw || {}).subject || ''));
+        esigi(String((perEmvas || {}).subject || '').indexOf('EMVAS S.r.l.') >= 0,
+            'e l altra il nome dell altra', String((perEmvas || {}).subject || ''));
+        /* Il nome si scrive com'e': un oggetto non e' HTML, e le virgolette di
+           "EMVAS S.r.l." non devono diventare entita'. */
+        esigi(!/&amp;|&quot;|&#/.test(oggetti.join(' ')), 'e senza le virgolette dell HTML, che in un oggetto si leggono');
+        /* La riga d'apertura del testo continua a nominare l'impresa: l'oggetto
+           si aggiunge, non sostituisce. */
+        esigi(String((perEmvas || {}).text || '').indexOf('Gentile EMVAS S.r.l.') >= 0,
+            'e dentro la lettera il saluto resta quello di prima');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
