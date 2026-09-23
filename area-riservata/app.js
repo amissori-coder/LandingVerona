@@ -1804,7 +1804,12 @@
                     // un file con la colonna degli inviti B2B non aggiunge iscritti:
                     // aggiorna chi c'e' gia' e riporta indietro chi non ha trovato
                     soloInviti: data.soloInviti === true,
-                    aggiornate: data.aggiornate || 0, create: data.create || 0,
+                    aggiornate: data.aggiornate || 0,
+                    /* "create" passa COM'E', anche quando non c'e': la chiave
+                       assente e' l'unico segno che dall'altra parte c'e'
+                       ancora il servizio vecchio, e schiacciarla a zero
+                       cancellerebbe proprio quel segno. */
+                    create: data.create,
                     nonIscritte: data.nonIscritte || 0,
                     nonTrovate: Array.isArray(data.nonTrovate) ? data.nonTrovate : []
                 };
@@ -15681,6 +15686,58 @@
     const COL_PREF_ISCRIZIONE = 'Interessi';
     const COL_SPOSTATO = 'Spostamento azienda';
     const COL_INVITO_B2B = 'Invito B2B';
+    /* COM'E' ANDATA L'IMPORTAZIONE DEGLI INVITI, detto in una frase sola.
+       Le righe di un file di inviti prendono tre strade - segnata, creata,
+       lasciata indietro - e la frase sta in un posto solo perche' i punti da
+       cui si importa sono due (la finestra degli inviti e "Eventi > Importa
+       dal foglio") e due frasi diverse per la stessa risposta si allontanano
+       al primo ritocco.
+       IL SERVIZIO INDIETRO. La risposta nuova porta sempre "create", anche
+       quando vale zero; quella vecchia non ha proprio quella chiave. E'
+       l'unico modo, da qui, di distinguere "il file non va bene" da "il
+       servizio non e' ancora quello nuovo" - due cose che a video si
+       leggevano identiche ("nessuna azienda segnata... non le ho potute
+       usare"), e che mandano a cercare il guasto in due posti opposti: nel
+       file, dove non c'e', invece che nel servizio. */
+    function fraseEsitoInviti(r, quanteInElenco) {
+        const dati = r || {};
+        const lette = dati.lette || 0;
+        if (dati.soloInviti && typeof dati.create !== 'number') {
+            return {
+                testo: 'Il file e stato letto (' + lette + (lette === 1 ? ' riga' : ' righe')
+                    + '), ma il servizio non e ancora aggiornato: questa versione non sa creare le aziende '
+                    + 'che al convegno non sono iscritte, e le riporta indietro tutte. Attendi che il '
+                    + 'servizio si aggiorni e reimporta lo stesso file: reimportarlo non crea doppioni.',
+                ko: true
+            };
+        }
+        if (!dati.soloInviti) {
+            return {
+                testo: (dati.importate || 0) + ' righe importate su ' + lette + ' lette'
+                    + (dati.saltate ? ' (' + dati.saltate + ' righe vuote saltate)' : '') + '.',
+                ko: false
+            };
+        }
+        const fatte = [];
+        if (dati.aggiornate) fatte.push(dati.aggiornate
+            + (dati.aggiornate === 1 ? ' azienda segnata fra gli iscritti' : ' aziende segnate fra gli iscritti'));
+        if (dati.create) fatte.push(dati.create
+            + (dati.create === 1 ? ' azienda aggiunta per i soli incontri' : ' aziende aggiunte per i soli incontri'));
+        const nonTrovate = Array.isArray(dati.nonTrovate) ? dati.nonTrovate : [];
+        const fuori = dati.nonIscritte
+            ? ' ' + dati.nonIscritte + (dati.nonIscritte === 1 ? ' riga non l\'ho potuta usare' : ' righe non le ho potute usare')
+            + (nonTrovate.length ? ' (' + nonTrovate.slice(0, 5).join(', ') + (dati.nonIscritte > 5 ? '…' : '') + ')' : '')
+            + ': non sono segnate "si" e non risultano iscritte. Aggiungile con "Aggiungi un\'azienda".'
+            : '';
+        return {
+            testo: (fatte.join(', ') || 'nessuna azienda segnata') + ' su ' + lette + ' lette'
+                + (typeof quanteInElenco === 'number'
+                    ? ': in elenco ci sono ' + quanteInElenco + (quanteInElenco === 1 ? ' azienda.' : ' aziende.')
+                    : '.')
+                + fuori,
+            ko: !!dati.nonIscritte
+        };
+    }
     /* Vale come "scelto" tutto cio' che in un foglio vuol dire si: chi compila
        scrive "si", "SI", "x", "1", e una colonna che accetta solo una di queste
        forme lascerebbe fuori aziende senza dirlo. Il vuoto, "no" e "0" no. */
@@ -21255,33 +21312,11 @@
                             if (!r.ok) { diceElenco(r.msg || 'Importazione non riuscita.', true); return; }
                             rileggi(fatta => {
                                 if (!fatta) { diceElenco('File importato, ma l\'elenco non si è riletto: chiudi e riapri la finestra.', true); return; }
-                                /* CHE COSA E' SUCCESSO, in tre numeri diversi.
-                                   Le righe di un file di inviti prendono tre
-                                   strade, e confonderle e' costato un'ora: chi
-                                   era gia' iscritto viene SEGNATO sulla sua
-                                   scheda; chi non lo era nasce come AZIENDA DEI
-                                   SOLI INCONTRI, fuori dall'elenco della sala;
-                                   e quello che non si e' potuto fare - una riga
-                                   senza il "si" e senza una scheda da segnare -
-                                   si dice per intero, con i primi indirizzi,
-                                   perche' una riga saltata in silenzio e'
-                                   un'azienda che scopri il 2 ottobre. */
-                                const fuori = r.nonIscritte
-                                    ? ' ' + r.nonIscritte + (r.nonIscritte === 1
-                                        ? ' riga non l\'ho potuta usare'
-                                        : ' righe non le ho potute usare')
-                                    + (r.nonTrovate.length ? ' (' + r.nonTrovate.slice(0, 5).join(', ')
-                                        + (r.nonIscritte > 5 ? '…' : '') + ')' : '')
-                                    + ': non sono segnate "si" e non risultano iscritte. Aggiungile con "Aggiungi un\'azienda".'
-                                    : '';
-                                const fatte = [];
-                                if (r.aggiornate) fatte.push(r.aggiornate + (r.aggiornate === 1 ? ' azienda segnata fra gli iscritti' : ' aziende segnate fra gli iscritti'));
-                                if (r.create) fatte.push(r.create + (r.create === 1 ? ' azienda aggiunta per i soli incontri' : ' aziende aggiunte per i soli incontri'));
-                                diceElenco((r.soloInviti
-                                    ? (fatte.join(', ') || 'nessuna azienda segnata')
-                                    : r.importate + ' righe importate') + ' su ' + r.lette + ' lette: in elenco ci sono '
-                                    + aziende.length + (aziende.length === 1 ? ' azienda.' : ' aziende.') + fuori,
-                                    !!r.nonIscritte);
+                                /* CHE COSA E' SUCCESSO: la frase la compone
+                                   fraseEsitoInviti, una sola per i due punti
+                                   da cui si importa. */
+                                const esito = fraseEsitoInviti(r, aziende.length);
+                                diceElenco(esito.testo, esito.ko);
                             }, true);
                             try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco B2B importato', 'sistema', ev.id, null, r.importate + ' righe'); } catch (e) { }
                         });
@@ -22682,15 +22717,8 @@
                 scelto ? scelto.id : '').then(r => {
                 if (bottone) { bottone.disabled = false; bottone.textContent = testoPrec; }
                 if (!r.ok) { mostra(r.msg || 'Importazione non riuscita.', true); return; }
-                mostra(r.soloInviti
-                    ? 'Inviti B2B: ' + r.aggiornate + ' aziende segnate fra gli iscritti'
-                    + (r.create ? ' e ' + r.create + ' aggiunte per i soli incontri (fuori dall\'elenco della sala)' : '')
-                    + ', su ' + r.lette + ' righe lette.'
-                    + (r.nonIscritte ? ' ' + r.nonIscritte + ' righe non le ho potute usare: non sono segnate "si" '
-                        + 'e non risultano iscritte a questo evento.' : '')
-                    : 'Importate ' + r.importate + ' iscrizioni su ' + r.lette + ' righe lette'
-                    + (r.saltate ? ' (' + r.saltate + ' righe vuote saltate)' : '') + '.',
-                    !!r.nonIscritte);
+                const esito = fraseEsitoInviti(r);
+                mostra(esito.testo, esito.ko);
                 _evIscrizioni = null; _evFirma = '';
                 caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
             });
