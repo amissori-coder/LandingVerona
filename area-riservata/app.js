@@ -23362,22 +23362,45 @@
     const RE_EMAIL_PM = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     function elenchiPromemoria(ev) {
         const out = { sala: [], online: [], senzaEmail: 0, doppie: 0, assenti: 0, caricato: _evIscrizioni !== null };
-        const visti = {};
+        /* Il conto che porta dai numeri della testata (POSTI: un'iscrizione
+           con accompagnatori vale piu' persone) agli indirizzi a cui parte
+           la mail. Per serie, perche' il servizio lavora per serie: chi e'
+           sia in sala sia online riceve in tutte e due. */
+        const conto = () => ({ posti: 0, iscrizioni: 0, assenti: 0, senzaEmail: 0, doppie: 0 });
+        out.conti = { sala: conto(), online: conto() };
+        const visti = { sala: {}, online: {} };
         soloIscritti(ev, _evIscrizioni || []).forEach(r => {
-            const p = EventiPresenze.di(ev.id, r.id) || {};
-            if (String(p.stato || '') === 'assente') { out.assenti++; return; }
             const m = modalitaDi(ev, r);
+            const serie = m === 'online' ? 'online' : 'sala';
+            const c = out.conti[serie];
+            c.posti += partecipantiDi(r);
+            c.iscrizioni++;
+            const p = EventiPresenze.di(ev.id, r.id) || {};
+            if (String(p.stato || '') === 'assente') { c.assenti++; out.assenti++; return; }
             const email = String(r.email || '').trim().toLowerCase();
-            if (!RE_EMAIL_PM.test(email)) { out.senzaEmail++; return; }
-            if (visti[email]) { out.doppie++; return; }
-            visti[email] = true;
+            if (!RE_EMAIL_PM.test(email)) { c.senzaEmail++; out.senzaEmail++; return; }
+            if (visti[serie][email]) { c.doppie++; out.doppie++; return; }
+            visti[serie][email] = true;
             const T = RV_PROMEMORIA.tempo;
             const riga = { nome: (T.formaNome(r.nome) + ' ' + T.formaNome(r.cognome)).trim(), azienda: T.formaAzienda(r.azienda), email: email, sezione: m };
-            (m === 'online' ? out.online : out.sala).push(riga);
+            out[serie].push(riga);
         });
         const ord = (a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, 'it');
         out.sala.sort(ord); out.online.sort(ord);
         return out;
+    }
+    /* "371 posti in testata - 21 accompagnatori - 4 assenti - ... = 340":
+       la riga che fa quadrare il riquadro della testata con i destinatari. */
+    function quadraturaPromemoria(c, destinatari) {
+        const pezzi = [];
+        const extra = c.posti - c.iscrizioni;
+        if (extra > 0) pezzi.push('− ' + extra + ' accompagnator' + (extra === 1 ? 'e' : 'i') + ' (stessa iscrizione, una mail)');
+        if (c.assenti) pezzi.push('− ' + c.assenti + ' segnat' + (c.assenti === 1 ? 'o' : 'i') + ' assent' + (c.assenti === 1 ? 'e' : 'i'));
+        if (c.senzaEmail) pezzi.push('− ' + c.senzaEmail + ' senza email valida');
+        if (c.doppie) pezzi.push('− ' + c.doppie + ' indirizz' + (c.doppie === 1 ? 'o' : 'i') + ' già present' + (c.doppie === 1 ? 'e' : 'i'));
+        return '<div class="pm-quadra"><b>' + c.posti + '</b> in testata'
+            + (pezzi.length ? '<br>' + pezzi.join('<br>') : '')
+            + '<br>= <b>' + destinatari + '</b> destinatar' + (destinatari === 1 ? 'io' : 'i') + '</div>';
     }
     /* I destinatari in un file: una riga per persona, con la serie, la
        sezione e gli invii che la riguardano (data, ora, stato). Si apre in
@@ -23541,23 +23564,20 @@
         const perSez = {};
         dest.sala.forEach(r => { perSez[r.sezione] = (perSez[r.sezione] || 0) + 1; });
         const dettaglioSala = RV_PROMEMORIA.SERIE.sala.sezioni.map(id => sezioneDef(id).nome + ' ' + (perSez[id] || 0)).join(' · ');
-        const esclusi = [];
-        if (dest.assenti) esclusi.push(dest.assenti + ' segnat' + (dest.assenti === 1 ? 'o' : 'i') + ' assent' + (dest.assenti === 1 ? 'e' : 'i'));
-        if (dest.doppie) esclusi.push(dest.doppie + ' indirizz' + (dest.doppie === 1 ? 'o doppio' : 'i doppi'));
-        if (dest.senzaEmail) esclusi.push(dest.senzaEmail + ' senza email valida');
-        const tessera = (titolo, n, sotto) => '<div class="pm-tessera"><div class="pm-tessera-tit">' + titolo + '</div>'
+        const tessera = (titolo, n, sotto, conto) => '<div class="pm-tessera"><div class="pm-tessera-tit">' + titolo + '</div>'
             + '<div class="pm-tessera-num">' + (dest.caricato ? n : '<span class="pm-attesa">…</span>') + '</div>'
-            + '<div class="hint">' + (dest.caricato ? sotto : 'caricamento degli iscritti in corso') + '</div></div>';
+            + '<div class="hint">' + (dest.caricato ? sotto : 'caricamento degli iscritti in corso') + '</div>'
+            + (dest.caricato && conto ? quadraturaPromemoria(conto, n) : '') + '</div>';
         const sezione = (serie, titolo, sotto, lista, conSezione) => '<section class="pm-serie">'
             + '<div class="pm-serie-testa"><h3>' + titolo + '</h3><span class="hint">' + sotto + '</span></div>'
             + tabellaPromemoriaHtml(ev, serie, dest)
             + (dest.caricato ? '<details class="pm-elenco"><summary>Elenco dei destinatari ' + (serie === 'online' ? 'online' : 'in sala') + ' (' + lista.length + ')</summary>' + elencoPersoneHtml(lista, conSezione) + '</details>' : '')
             + '</section>';
         return '<div class="pm-riepilogo">'
-            + tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala))
-            + tessera('Destinatari online', dest.online.length, 'sezione Online')
+            + tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala), dest.conti.sala)
+            + tessera('Destinatari online', dest.online.length, 'sezione Online', dest.conti.online)
             + '<div class="pm-riepilogo-azioni"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest"' + (dest.caricato ? '' : ' disabled') + '>Scarica i destinatari (CSV)</button>'
-            + (esclusi.length ? '<div class="hint">Non ricevono: ' + esc(esclusi.join(', ')) + '; né gli invitati ai soli incontri B2B.</div>' : '<div class="hint">Non ricevono gli assenti e gli invitati ai soli incontri B2B.</div>')
+            + '<div class="hint">In testata si contano i <b>posti</b>; qui gli <b>indirizzi</b> a cui parte la mail: una per iscrizione, niente agli assenti e a chi non ha un\'email valida. Gli invitati ai soli incontri B2B non sono in nessuno dei due conti.</div>'
             + '</div></div>'
             + sezione('sala', 'In sala', 'ospiti in presenza, aderenti Revilaw, sponsor e relatori', dest.sala, true)
             + sezione('online', 'Online', 'chi segue la diretta', dest.online, false);
