@@ -29,23 +29,31 @@
    mentre il primo sta spedendo. Se il tempo finisce a meta', il record
    resta dovuto e il giro dopo riprende da chi manca.
 
-   CHI SI ISCRIVE DOPO L'INVIO NON RESTA SENZA (solo per i promemoria
-   confermati con `recupera: true`, cioe' scritti senza conti alla rovescia). Un promemoria inviato
-   e' la memoria di chi l'ha ricevuto (il documento dell'avanzamento
-   NON si cancella a fine invio, come per le comunicazioni: qui serve
-   dopo). A ogni giro, per ogni evento e per ogni serie - in sala,
-   online - si prende l'ULTIMO promemoria gia' partito e lo si manda a
-   chi, fra gli iscritti di adesso, non l'ha ricevuto: chi si e'
-   iscritto dopo, chi e' stato spostato in quella serie dopo. Solo
-   l'ultimo, non tutti quelli vecchi: chi si iscrive a una settimana
-   dall'evento riceve "manca una settimana", non anche "mancano due".
-   Si recupera fino al giorno dell'evento compreso: chi si iscrive oggi
-   riceve domattina alle 8, entro le ventiquattro ore.
-   Un record spedito dal servizio PRIMA che questa memoria esistesse
-   non ha l'elenco di chi ha ricevuto: al primo passaggio lo si
-   ricostruisce con gli iscritti di adesso (senza spedire), e da li' in
-   poi entrano solo i nuovi. Meglio un nuovo iscritto in meno che
-   trecento mail doppie.
+   I GIORNI CHE MANCANO SI CONTANO LA MATTINA DELL'INVIO. I testi non
+   scrivono "manca una settimana": portano segnaposti ({{MANCANO}},
+   {{QUANDO}}, {{CHIUSURA_B2B}}, il blocco SE_B2B) che qui diventano le
+   parole giuste per il giorno in cui la mail parte davvero
+   (lib/promemoria-tempo.js). Cosi' la stessa mail e' vera sia il giorno
+   per cui e' programmata sia giorni dopo, come benvenuto.
+
+   CHI ARRIVA DOPO: IL BENVENUTO. Chi entra in una serie dopo che la
+   prima mail e' partita (si e' iscritto dopo, oppure e' stato spostato
+   dall'online alla sala o viceversa) e da quella serie non ha ancora
+   ricevuto niente, la mattina dopo riceve la mail COMPLETA della serie -
+   quella segnata `benvenuto`: programma e informazioni essenziali - con i
+   giorni ricalcolati e il blocco B2B solo se le prenotazioni sono ancora
+   aperte. Da li' segue il calendario di tutti. Le regole:
+     - una mail al giorno a persona, mai due: se quella mattina per gli
+       altri parte una mail "normale" della serie, lui riceve il benvenuto
+       al suo posto (il benvenuto contiene gia' quello che serve);
+     - le mail legate al loro giorno (`soloIlGiorno`: la vigilia e la
+       mattina dell'evento) vincono: quel giorno arrivano a tutti, anche a
+       chi si e' appena iscritto, e il benvenuto non parte;
+     - le altre mail perse non si recuperano: il benvenuto le copre;
+     - solo promemoria confermati con i testi nuovi (`recupera: true`), e
+       mai dopo il giorno dell'evento.
+   Il benvenuto parte PRIMA delle mail del giorno, cosi' chi lo riceve
+   viene segnato come servito anche nella mail normale di quella mattina.
 
    UN PROMEMORIA VECCHIO NON PARTE. Un promemoria appartiene al SUO
    giorno: "a domani" spedito il giorno dopo e' peggio di niente. Se il
@@ -70,6 +78,7 @@ const nodemailer = require('nodemailer');
 const C = require('../lib/copia-iscrizioni');
 const NL = require('../lib/newsletter');
 const AV = require('../lib/comunicazioni-avanzamento');
+const TEMPO = require('../lib/promemoria-tempo');
 
 /* Stessi tre numeri di cron-comunicazioni: il budget sta DENTRO il
    maxDuration di vercel.json (300 s) con un minuto per scrivere l'esito;
@@ -188,12 +197,18 @@ function fineEvento(rec) {
 }
 function serieDi(rec) { return (Array.isArray(rec.sezioni) ? rec.sezioni : []).indexOf('online') >= 0 ? 'online' : 'sala'; }
 
+/* Il giorno dell'evento, "aaaa-mm-gg": dal record, o dalla coda dell'identificativo. */
+function giornoEventoDi(rec) {
+    return String(rec.giornoEvento || '') || ((/(\d{4}-\d{2}-\d{2})$/.exec(String(rec.evento || '')) || [])[1] || '');
+}
 function personalizza(rec, d) {
     const m = rec.mail || {};
     const link = d.doc ? NL.linkCompleta(d.doc) : (BASE + '/');
-    const ogg = String(m.oggetto || 'Promemoria - Next Generation Business').replace(/[\r\n]+/g, ' ').split('{{NOME}}').join(d.nome);
-    const html = String(m.html || '').split('{{NOME}}').join(esc(d.nome)).split('{{COMPLETA}}').join(link);
-    const testo = m.testo ? String(m.testo).split('{{NOME}}').join(d.nome).split('{{COMPLETA}}').join(link) : undefined;
+    // le parole che dipendono dal giorno in cui la mail parte DAVVERO
+    const f = TEMPO.frasi(giornoRoma(Date.now()), giornoEventoDi(rec), String(rec.chiusuraB2B || ''));
+    const ogg = TEMPO.applica(String(m.oggetto || 'Promemoria - Next Generation Business').replace(/[\r\n]+/g, ' '), f).split('{{NOME}}').join(d.nome);
+    const html = TEMPO.applica(String(m.html || ''), f).split('{{NOME}}').join(esc(d.nome)).split('{{COMPLETA}}').join(link);
+    const testo = m.testo ? TEMPO.applica(String(m.testo), f).split('{{NOME}}').join(d.nome).split('{{COMPLETA}}').join(link) : undefined;
     return { subject: ogg, html: html, text: testo };
 }
 
@@ -208,6 +223,7 @@ async function inviaUno(trans, rec, destinatari, avanz, opz) {
     const dd = destinatari.filter(d => !avanz.serviti.has(AV.impronta(d.email)));
     let inviati = 0, tentati = 0, restanti = false;
     const falliti = [];
+    const servite = [];   // le impronte di chi e' stato provato in questo giro
     let impronte = [], delta = { inviati: 0, falliti: [] };
     const scarica = async () => {
         if (!inviati || !impronte.length) return;
@@ -249,13 +265,14 @@ async function inviaUno(trans, rec, destinatari, avanz, opz) {
             else { falliti.push({ email: x.d.email, motivo: x.motivo }); delta.falliti.push({ email: x.d.email, motivo: x.motivo }); }
             // servito vuol dire TENTATO: un indirizzo che da' errore non si ritenta per sempre
             impronte.push(AV.impronta(x.d.email));
+            servite.push(AV.impronta(x.d.email));
         });
         if (impronte.length >= PASSO_SALVATAGGIO) await scarica();
     }
     await scarica();
     // tutto quello che si e' provato e' fallito: e' un guasto del canale, non un invio
     if (tentati && !inviati && !restanti) throw new Error('nessuna mail inviata');
-    return { inviati: inviati, falliti: falliti, restanti: restanti, tentati: tentati };
+    return { inviati: inviati, falliti: falliti, restanti: restanti, tentati: tentati, servite: servite };
 }
 
 /* Patch di UN record dentro archivio/promemoriaEventi, in transazione e per
@@ -278,74 +295,77 @@ async function applicaPatch(db, id, patch) {
     });
 }
 
-/* I RECUPERI: l'ultimo promemoria gia' partito di ogni serie, a chi non
-   l'ha ricevuto. Rilegge l'archivio fresco (i dovuti appena spediti in
-   questo giro sono gia' "inviato", e la loro memoria e' completa: per
-   loro non c'e' niente da recuperare). Restituisce { recuperi: n }. */
-async function giroRecuperi(db, scadenza, giro, trasportoDi) {
-    const ora = Date.now();
-    const snap = await db.collection('archivio').doc(DOC).get();
-    let lista = [];
-    if (snap.exists && typeof snap.data().json === 'string') { try { lista = JSON.parse(snap.data().json) || []; } catch (_) { lista = []; } }
-    /* Si recupera SOLO un promemoria confermato con `recupera: true`, che
-       l'area riservata scrive dalla seconda versione dei testi in poi: quei
-       testi non hanno conti alla rovescia ("manca una settimana") e restano
-       veri qualunque giorno arrivino. Un promemoria della prima versione no:
-       mandato a chi si iscrive cinque giorni prima direbbe una cosa falsa. */
-    const inviati = lista.filter(r => r && r.stato === 'inviato' && r.recupera === true && r.mail && r.mail.html
-        && Number(r.quando) > 0 && Number(r.quando) <= ora && fineEvento(r) && ora <= fineEvento(r));
-    // per evento e serie, il piu' recente
-    const ultimi = {};
-    inviati.forEach(r => {
-        const k = String(r.evento || '') + '|' + serieDi(r);
-        if (!ultimi[k] || Number(r.quando) > Number(ultimi[k].quando)) ultimi[k] = r;
-    });
-    let recuperi = 0;
-    let arch = null;
-    for (const k of Object.keys(ultimi)) {
+/* IL BENVENUTO a chi entra in una serie dopo che la prima mail e' partita.
+   Gira PRIMA delle mail del giorno. Per ogni evento e serie:
+     - la mail di benvenuto e' il promemoria `benvenuto` gia' inviato;
+     - oggi non c'e' una mail `soloIlGiorno` della serie in partenza (se
+       c'e', arriva a tutti e basta);
+     - si mandano a chi e' nella serie adesso e non ha ancora ricevuto
+       niente da nessun promemoria della serie;
+     - chi lo riceve si segna come servito anche nelle mail normali della
+       serie che partono stamattina: una mail al giorno, non due.
+   Restituisce { benvenuti: n }. */
+async function giroBenvenuto(db, lista, ora, scadenza, giro, archDi, trasportoDi) {
+    const oggi = giornoRoma(ora);
+    const nuovi = lista.filter(r => r && r.recupera === true && r.mail && r.mail.html);
+    const gruppi = {};
+    nuovi.forEach(r => { const k = String(r.evento || '') + '|' + serieDi(r); (gruppi[k] = gruppi[k] || []).push(r); });
+    let benvenuti = 0;
+    for (const k of Object.keys(gruppi)) {
         if (Date.now() > scadenza) break;
-        const rec = ultimi[k];
+        const serie = gruppi[k];
+        const w = serie.filter(r => r.benvenuto === true && r.stato === 'inviato')
+            .sort((a, b) => Number(a.quando) - Number(b.quando))[0];
+        if (!w) continue;
+        if (!fineEvento(w) || ora > fineEvento(w)) continue;
+        const diOggi = serie.filter(r => r.stato === 'programmato' && Number(r.quando) > 0 && giornoRoma(Number(r.quando)) === oggi);
+        if (diOggi.some(r => r.soloIlGiorno === true)) continue;
         try {
-            if (!arch) arch = await C.archivio(db);
-            const r = risolviDestinatari(arch, rec);
-            if (!r.destinatari.length) continue;
-            const chiaveAv = 'promemoria~' + rec.id;
+            const arch = await archDi();
+            const dest = risolviDestinatari(arch, w).destinatari;
+            if (!dest.length) continue;
+            // chi ha gia' ricevuto qualcosa da questa serie, da qualunque suo promemoria
+            const ricevuto = new Set();
+            for (const r of serie) {
+                const st = await AV.apri(db, 'promemoria~' + r.id, r.quando);
+                st.serviti.forEach(x => ricevuto.add(x));
+            }
+            const daServire = dest.filter(d => !ricevuto.has(AV.impronta(d.email)));
+            if (!daServire.length) continue;
+            const chiaveAv = 'promemoria~' + w.id;
             const preso = await AV.prendiLucchetto(db, chiaveAv, giro, LUCCHETTO_MS);
             if (!preso) continue;
             try {
-                const stato = await AV.apri(db, chiaveAv, rec.quando);
-                const segna = (impronte, delta) => AV.segna(db, chiaveAv, rec.quando, impronte, delta);
-                /* Senza memoria di chi ha ricevuto (record spedito prima che la
-                   memoria esistesse) la si ricostruisce con gli iscritti di
-                   adesso, senza spedire: non si sa chi manca, e rispedire a
-                   tutti e' peggio. */
-                if (!stato.serviti.size && Number((rec.invio || {}).inviate || 0) > 0) {
-                    await segna(r.destinatari.map(d => AV.impronta(d.email)), { inviati: 0, falliti: [] });
-                    continue;
+                const stato = await AV.apri(db, chiaveAv, w.quando);
+                const esito = await inviaUno(trasportoDi(), w, daServire, {
+                    serviti: stato.serviti, scadenza: scadenza,
+                    segna: (impronte, delta) => AV.segna(db, chiaveAv, w.quando, impronte, delta)
+                }, { primoGiro: false });
+                // stamattina, per loro, il benvenuto prende il posto della mail normale
+                if (esito.servite.length) {
+                    for (const r of diOggi) {
+                        await AV.segna(db, 'promemoria~' + r.id, r.quando, esito.servite, { inviati: 0, falliti: [] });
+                    }
                 }
-                const mancanti = r.destinatari.filter(d => !stato.serviti.has(AV.impronta(d.email)));
-                if (!mancanti.length) continue;
-                const esito = await inviaUno(trasportoDi(), rec, mancanti, { serviti: stato.serviti, scadenza: scadenza, segna: segna }, { primoGiro: false });
                 if (!esito.inviati && !esito.falliti.length) continue;
-                recuperi += esito.inviati;
-                const prima = rec.invio || {};
-                const dettaglio = (prima.dettaglioFalliti || []).concat(esito.falliti || []).slice(0, 100);
-                await applicaPatch(db, rec.id, {
+                benvenuti += esito.inviati;
+                const prima = w.invio || {};
+                await applicaPatch(db, w.id, {
                     invio: Object.assign({}, prima, {
                         recuperi: Number(prima.recuperi || 0) + esito.inviati,
                         ultimoRecupero: Date.now(),
                         falliti: Number(prima.falliti || 0) + (esito.falliti || []).length,
-                        dettaglioFalliti: dettaglio
+                        dettaglioFalliti: (prima.dettaglioFalliti || []).concat(esito.falliti || []).slice(0, 100)
                     })
                 });
             } finally {
                 await AV.mollaLucchetto(db, chiaveAv);
             }
         } catch (e) {
-            console.error('Recupero promemoria non riuscito (' + (rec.id || '?') + '):', String((e && e.message) || e).slice(0, 300));
+            console.error('Benvenuto promemoria non riuscito (' + (w.id || '?') + '):', String((e && e.message) || e).slice(0, 300));
         }
     }
-    return { recuperi: recuperi };
+    return { benvenuti: benvenuti };
 }
 
 module.exports = async (req, res) => {
@@ -369,6 +389,16 @@ module.exports = async (req, res) => {
         let arch = null;
         let trans = null;
         let inviatiTot = 0, sospesi = 0, scaduti = 0;
+        const archDi = async () => { if (!arch) arch = await C.archivio(db); return arch; };
+        const trasportoDi = () => { if (!trans) trans = trasporto(); return trans; };
+        /* Prima il benvenuto a chi e' arrivato dopo: cosi' viene segnato nelle
+           mail normali di stamattina, che quindi non gli arrivano in doppio. */
+        let recuperi = 0;
+        try {
+            recuperi = (await giroBenvenuto(db, lista, ora, scadenza, giro, archDi, trasportoDi)).benvenuti;
+        } catch (e) {
+            console.error('Cron promemoria, benvenuto:', String((e && e.message) || e).slice(0, 300));
+        }
         for (const rec of dovuti) {
             if (Date.now() > scadenza) { sospesi++; continue; }
             try {
@@ -409,7 +439,10 @@ module.exports = async (req, res) => {
                     const esito = await inviaUno(trans, rec, r.destinatari, {
                         serviti: stato.serviti, scadenza: scadenza,
                         segna: (impronte, delta) => AV.segna(db, chiaveAv, rec.quando, impronte, delta)
-                    }, { primoGiro: !stato.serviti.size && !stato.inviati });
+                    /* primo giro = nessuna mail ancora partita davvero. Non conta chi e'
+                       gia' segnato: il benvenuto di stamattina segna i nuovi arrivati
+                       senza mandare questa mail, e la copia deve partire lo stesso. */
+                    }, { primoGiro: !stato.inviati });
                     const n = stato.inviati + esito.inviati;
                     const falliti = stato.falliti.concat(esito.falliti || []);
                     if (esito.restanti) {
@@ -435,13 +468,6 @@ module.exports = async (req, res) => {
                 console.error('Promemoria non inviato (' + (rec.id || '?') + '):', String((e && e.message) || e).slice(0, 300));
             }
         }
-        let recuperi = 0;
-        try {
-            const r = await giroRecuperi(db, scadenza, giro, () => { if (!trans) trans = trasporto(); return trans; });
-            recuperi = r.recuperi;
-        } catch (e) {
-            console.error('Cron promemoria, recuperi:', String((e && e.message) || e).slice(0, 300));
-        }
         res.status(200).json({ ok: true, inviati: inviatiTot, sospesi: sospesi, scaduti: scaduti, recuperi: recuperi });
     } catch (e) {
         console.error('Cron promemoria: errore', String((e && e.message) || e).slice(0, 300));
@@ -450,4 +476,4 @@ module.exports = async (req, res) => {
 };
 
 // esposti per le prove (prove/promemoria-eventi.prove.js)
-module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, formaNome, idRiga, fineEvento, giornoRoma, serieDi };
+module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, formaNome, idRiga, fineEvento, giornoRoma, giornoEventoDi, serieDi };

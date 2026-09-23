@@ -2265,11 +2265,15 @@
            una lista di punti brevi. Ogni voce vuota si salta. */
         const paragrafi = (dati.paragrafi || []).map(p => {
             if (p == null) return null;
-            if (typeof p === 'string') return p.trim() ? { titolo: '', testo: p.trim(), elenco: [] } : null;
+            if (typeof p === 'string') return p.trim() ? { titolo: '', testo: p.trim(), elenco: [], se: '' } : null;
             const t = String(p.titolo || '').trim();
             const x = String(p.testo || '').trim();
             const el = Array.isArray(p.elenco) ? p.elenco.map(v => String(v || '').trim()).filter(Boolean) : [];
-            return (t || x || el.length) ? { titolo: t, testo: x, elenco: el } : null;
+            /* `se: 'B2B'`: il paragrafo vale solo finche' le prenotazioni B2B
+               sono aperte. Qui si segna, e il servizio lo toglie la mattina
+               dell'invio se quel giorno sono gia' chiuse. */
+            const se = String(p.se || '').replace(/[^A-Z0-9_]/gi, '').toUpperCase();
+            return (t || x || el.length) ? { titolo: t, testo: x, elenco: el, se: se } : null;
         }).filter(Boolean);
         const righe = (dati.righe || []).filter(r => Array.isArray(r) && r[0] && r[1]);
         const programma = (dati.programma || []).filter(v => v && v.nome);
@@ -2313,7 +2317,8 @@
             if (p.titolo) h += sopratitolo(p.titolo) + spazio(10);
             if (p.testo) h += par(p.testo);
             if (p.elenco.length) h += (p.testo ? spazio(8) : '') + elenco(p.elenco);
-            return h;
+            // blocco a scadenza: un commento prima e dopo, spazio compreso
+            return p.se ? '<!--SE_' + p.se + '-->' + h + '<!--/SE_' + p.se + '-->' : h;
         }).join('');
 
         const riga = (et, val) => '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
@@ -2407,7 +2412,8 @@
             if (p.titolo) pezzi.push(p.titolo.toUpperCase());
             if (p.testo) pezzi.push(p.testo);
             if (p.elenco.length) pezzi.push(p.elenco.map(v => '- ' + v).join('\n'));
-            parti.push(pezzi.join('\n'));
+            const blocco = pezzi.join('\n');
+            parti.push(p.se ? '[[SE_' + p.se + ']]' + blocco + '[[/SE_' + p.se + ']]' : blocco);
         });
         if (righe.length) parti.push(righe.map(r => r[0] + ': ' + r[1]).join('\n'));
         if (programma.length) parti.push('IL PROGRAMMA\n' + programma.map(v => (v.ora ? v.ora + '  ' : '') + v.nome).join('\n'));
