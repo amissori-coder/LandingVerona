@@ -1861,15 +1861,23 @@
            e' quello che scrive chiunque mandi la stessa mail a duemila
            indirizzi: la parola che non si puo' falsificare e' il nome
            dell'azienda, e chi la legge nell'elenco della posta sa in un colpo
-           che quella riga riguarda lui e non una lista. Prima del nome restano
-           venti caratteri, quindi anche su un telefono la ragione sociale
+           che quella riga riguarda lui e non una lista. Prima del nome stanno
+           tredici caratteri, quindi anche su un telefono la ragione sociale
            rientra quasi sempre per intero.
+           "IMPORTANTE" SI SCRIVE COSI', con la sola iniziale maiuscola. Tutta
+           in maiuscolo e' una delle cose che i filtri della posta pesano - e
+           questa e' posta che arriva a chi non ci ha mai scritto, quindi il
+           margine non c'e' - e in una lettera che da' del Voi e parla di
+           adeguati assetti stonerebbe come un cartello. Una parola sola,
+           davanti, senza punti esclamativi: dice che la riga chiede una
+           decisione, e il resto dell'oggetto dice quale.
            Il nome resta un SEGNAPOSTO: la mail si compone una volta sola per
            tutte le aziende, e a sostituirlo - nell'oggetto come nel testo - e'
            il servizio al momento dell'invio, che e' l'unico a sapere a chi
            sta spedendo. */
-        const oggetto = 'Invito riservato per ' + SEGNAPOSTO_NOME
-            + ' - Incontri B2B, Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const oggetto = 'Importante - ' + SEGNAPOSTO_NOME
+            + ': invito riservato agli incontri B2B, Next Generation Business'
+            + (quandoEv ? ', ' + quandoEv : '');
         const anteprima = 'Un invito riservato alla Vostra impresa: indicate chi partecipa e tre preferenze. La prima è una prenotazione.';
         const scadenza = String((dati.evento || {}).scadenzaB2B || '').trim();
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', Vi rivolgiamo un invito riservato: nel corso del convegno "'

@@ -1290,9 +1290,17 @@ frase in meno che un link a vuoto. Le prove stanno in
 
 ### Un invito riservato, e si legge prima di aprire la mail
 
-L'oggetto e' **"Invito riservato per {{NOME}} - Incontri B2B, Next Generation
-Business, ..."**, e a spedire diventa *"Invito riservato per ANTUR S.R.L.
-BENEFIT - ..."*. In una casella piena l'oggetto e' spesso l'unica riga che
+L'oggetto e' **"Importante - {{NOME}}: invito riservato agli incontri B2B, Next
+Generation Business, ..."**, e a spedire diventa *"Importante - ANTUR S.R.L.
+BENEFIT: invito riservato agli incontri B2B, ..."*.
+
+**"Importante" con la sola iniziale maiuscola.** Tutto in maiuscolo e' una delle
+cose che i filtri della posta pesano, e questa e' posta che arriva a chi non ci
+ha mai scritto: il margine non c'e'. In una lettera che da' del Voi e parla di
+adeguati assetti, poi, un IMPORTANTE stonerebbe come un cartello. Una parola
+sola, davanti, senza punti esclamativi. La prova
+`prove/mail-invito-forma.prove.js` tiene fuori le maiuscole piene e i punti
+esclamativi. In una casella piena l'oggetto e' spesso l'unica riga che
 qualcuno legge: "Gli incontri B2B della Vostra azienda" si scambiava per una
 comunicazione di servizio mandata a tutti gli iscritti, e una mail del genere si
 apre la settimana dopo. Questa non va a tutti - va alle imprese scelte una per
@@ -1302,7 +1310,8 @@ dell'elenco.
 **Il nome dell'impresa subito dopo**, perche' "riservato" da solo e' quello che
 scrive chiunque mandi la stessa lettera a duemila indirizzi: la parola che non
 si puo' falsificare e' la ragione sociale di chi legge. Prima del nome stanno
-venti caratteri, quindi anche su un telefono rientra quasi sempre per intero.
+tredici caratteri: anche "COMPAGNIA UNICA LAVORATORI PORTUALI", trentacinque
+caratteri, rientra nei primi quaranta che un telefono mostra.
 
 Il nome resta un **segnaposto**: la mail si compone una volta sola per tutte le
 aziende, e a sostituirlo e' il servizio al momento dell'invio, che e' l'unico a
