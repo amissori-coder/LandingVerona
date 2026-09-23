@@ -31,8 +31,8 @@
 
    Il servizio spedisce UNA VOLTA AL GIORNO, alle 20: di una proposta si
    sceglie il giorno, non l'ora. La vigilia parte la sera prima
-   dell'evento; una mail "della mattina" non c'e', perche' la sera del
-   giorno dell'evento sarebbe tardi.
+   dell'evento. L'eccezione e' la mail della mattina dell'evento
+   (`mattina: true`), che parte da un secondo giro alle 7.
 
    Ogni proposta: { id, nome, sezioni: 'sala'|'online', giorniPrima,
    campi: ['linkDiretta'], mail: { oggetto, anteprima, titolo,
@@ -211,6 +211,23 @@
                     linkPersonale: true
                 }
             },
+            {
+                id: 'sala-mattina', serie: 'sala', giorniPrima: 0, soloIlGiorno: true, mattina: true,
+                nome: 'La mattina dell\'evento, alle 7: messaggio breve con la mappa',
+                mail: {
+                    oggetto: 'Oggi a Napoli: arrivi prima delle 9.00, Via Partenope 48',
+                    anteprima: 'Hotel Eurostars Excelsior. Apertura dei lavori alle 9.30.',
+                    titolo: 'La aspettiamo stamattina',
+                    sommario: 'Gentile ' + NOME + ', oggi è il giorno di Next Generation Business: La aspettiamo all\'Hotel Eurostars Excelsior.',
+                    paragrafi: [
+                        'La sala è al completo: Le consigliamo di arrivare prima delle 9.00, così la registrazione è veloce e i lavori cominciano puntuali alle 9.30.'
+                    ],
+                    righe: [['Arrivo', 'Prima delle 9.00'], ['Inizio dei lavori', '9.30'], ['Dove', NAPOLI.dove]],
+                    pulsante: { testo: 'Apri la mappa', url: NAPOLI.mappa },
+                    nota: '',
+                    linkPersonale: false
+                }
+            },
 
             /* -------------------------- ONLINE ------------------------- */
             {
@@ -249,7 +266,7 @@
                     paragrafi: [
                         {
                             titolo: 'Prima del 2 ottobre', elenco: [
-                                'Il collegamento e le credenziali arrivano a questo indirizzo in un messaggio a parte: quando arriva, lo tenga da parte',
+                                'Il collegamento e le credenziali arrivano a questo indirizzo in un messaggio a parte: se non lo vede nella posta in arrivo, lo cerchi nella posta indesiderata (spam)',
                                 'Provi per tempo il computer, il tablet o lo smartphone che userà, con l\'audio acceso',
                                 'Se pensa di seguire solo alcune sessioni, qui sotto trova gli orari'
                             ]
@@ -272,9 +289,26 @@
                     titolo: 'Gli accessi, a portata di mano',
                     sommario: 'Gentile ' + NOME + ', Le ricordiamo che venerdì 2 ottobre i lavori di Next Generation Business cominciano alle 9.30, in diretta da Napoli.',
                     paragrafi: [
-                        'Il collegamento e le credenziali di accesso Le sono stati inviati per email in un messaggio a parte: Le conviene ritrovarlo adesso, così venerdì mattina è tutto pronto. Se non lo trova, controlli anche la posta indesiderata; se non c\'è, risponda a questa email e glielo rimandiamo.'
+                        'Il collegamento e le credenziali di accesso Le sono stati inviati per email in un messaggio a parte: Le conviene ritrovarlo adesso, così venerdì mattina è tutto pronto. Se non lo trova nella posta in arrivo, lo cerchi nella posta indesiderata (spam).'
                     ],
                     righe: [['Quando', 'Venerdì 2 ottobre, dalle 9.30'], ['Partecipazione', 'Online, in diretta']],
+                    pulsante: null,
+                    nota: '',
+                    linkPersonale: false
+                }
+            },
+            {
+                id: 'online-mattina', serie: 'online', giorniPrima: 0, soloIlGiorno: true, mattina: true,
+                nome: 'La mattina dell\'evento, alle 7: messaggio breve, la diretta comincia',
+                mail: {
+                    oggetto: 'La diretta comincia alle 9.30',
+                    anteprima: 'Next Generation Business, in diretta da Napoli: collegamento e accessi sono nella mail che Le abbiamo inviato.',
+                    titolo: 'Oggi in diretta',
+                    sommario: 'Gentile ' + NOME + ', i lavori di Next Generation Business cominciano alle 9.30.',
+                    paragrafi: [
+                        'Per collegarsi usi il collegamento e le credenziali che trova nella mail con gli accessi. Se non la trova nella posta in arrivo, la cerchi nella posta indesiderata (spam).'
+                    ],
+                    righe: [],
                     pulsante: null,
                     nota: '',
                     linkPersonale: false

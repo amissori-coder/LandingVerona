@@ -450,6 +450,36 @@ await prova('16) Le due copie del calcolo dei giorni (servizio e anteprima) dico
     esigi(P.giornoDaTesto('30 settembre', '2026-10-02') === '2026-09-30' && P.giornoDaTesto('', '2026-10-02') === '', '"30 settembre" diventa 2026-09-30');
 });
 
+await prova('17) La mail della mattina dell\'evento parte solo dal giro delle 7; la sera dell\'evento niente benvenuto', async () => {
+    const mattina = require('../api/promemoria-eventi-mattina');
+    const giroMattina = async () => {
+        const res = { _s: 0, _j: null, status(n) { this._s = n; return this; }, json(o) { this._j = o; return this; } };
+        await mattina({ method: 'GET', headers: { authorization: 'Bearer segreto-di-prova' } }, res);
+        return Object.assign({ _stato: res._s }, res._j || {});
+    };
+    azzera();
+    orologio = alle8('2026-09-25');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recW(),
+        recNormale('n~sala-vigilia', '2026-10-01', { soloIlGiorno: true }),
+        recNormale('n~sala-mattina', '2026-10-02', { soloIlGiorno: true, mattina: true })]);
+    await giro();
+    posta.length = 0;
+    orologio = alle8('2026-10-01');
+    const rm = await giroMattina();
+    esigi(rm._stato === 200 && noCopia().length === 0 && rm.recuperi === 0, 'il giro delle 7 del 1° ottobre non manda la vigilia, che e\' della sera');
+    await giro();
+    esigi(noCopia().length === 1, 'la vigilia parte dal giro della sera');
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('dario@esempio.it', 'Dario', 'Neri')], []);
+    posta.length = 0;
+    orologio = alle8('2026-10-02');
+    const r = await giro();
+    esigi(noCopia().length === 0 && r.recuperi === 0, 'il 2 ottobre il giro della sera non manda la mail della mattina ne\' il benvenuto');
+    const r2 = await giroMattina();
+    const a = noCopia().map(m => m.to).sort();
+    esigi(r2.inviati === 1 && JSON.stringify(a) === JSON.stringify(['anna@esempio.it', 'dario@esempio.it']), 'il giro delle 7 la manda a tutti, anche a chi si e\' iscritto la sera prima (' + a.join(', ') + ')');
+});
+
 await prova('6) Chiamata senza segreto: rifiutata', async () => {
     azzera();
     const res = { _s: 0, status(n) { this._s = n; return this; }, json() { return this; } };
