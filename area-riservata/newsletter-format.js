@@ -2258,7 +2258,7 @@
             .replace(/[\r\n]+/g, ' ').trim();
         const anteprima = String(dati.anteprima || '');
         const titolo = String(dati.titolo || ('Ci vediamo a ' + (ev.titolo || 'Napoli')));
-        const sommario = String(dati.sommario || ('Ciao ' + SEGNAPOSTO_NOME + ', ti scriviamo per ricordarti il convegno'
+        const sommario = String(dati.sommario || ('Gentile ' + SEGNAPOSTO_NOME + ', Le ricordiamo il convegno'
             + (quandoEv ? ' di ' + quandoEv : '') + '.'));
         /* Un paragrafo puo' essere una stringa, oppure {titolo, testo} o
            {titolo, elenco}: il titolo e' un sopratitolo di sezione, l'elenco
@@ -2362,11 +2362,13 @@
             + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
             + '</td></tr>' : '';
         const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
-        const fraseLink = 'Se non puoi più partecipare, o se i tuoi dati sono da correggere, puoi farlo dal '
-            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">tuo collegamento personale</a>. '
-            + 'Vale solo per la tua iscrizione: ti chiediamo di non inoltrarlo.';
-        const fraseLinkTesto = 'Se non puoi più partecipare, o se i tuoi dati sono da correggere, puoi farlo dal tuo collegamento personale: '
-            + SEGNAPOSTO_COMPLETA + ' (vale solo per la tua iscrizione: ti chiediamo di non inoltrarlo).';
+        /* Al Lei, come tutte le mail al singolo: il registro non si mescola
+           nella stessa lettera. */
+        const fraseLink = 'Se non potrà più partecipare, o se i Suoi dati sono da correggere, può farlo dal '
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
+            + 'Vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.';
+        const fraseLinkTesto = 'Se non potrà più partecipare, o se i Suoi dati sono da correggere, può farlo dal Suo collegamento personale: '
+            + SEGNAPOSTO_COMPLETA + ' (vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo).';
         const code = (nota || linkPersonale)
             ? spazio(24) + piccolo((nota ? testoHtml(nota) : '') + (nota && linkPersonale ? '<br><br>' : '') + (linkPersonale ? fraseLink : ''))
             : '';
@@ -2374,7 +2376,7 @@
         const corpo = cella(tabellaInterna(
             spazio(30)
             + corpoParagrafi
-            + (box ? spazio(26) + box : '')
+            + (box ? (corpoParagrafi ? spazio(26) : '') + box : '')
             + tabellaProgramma
             + rigaBottone
             + code
@@ -2391,7 +2393,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_PROMEMORIA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -2412,11 +2414,14 @@
         if (btn) parti.push(btn.testo + ': ' + btn.url);
         if (nota) parti.push(nota);
         if (linkPersonale) parti.push(fraseLinkTesto);
-        parti.push('--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_ONLINE, 'Informativa privacy: ' + PRIVACY);
+        parti.push('--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA, 'Informativa privacy: ' + PRIVACY);
         const testo = parti.filter(Boolean).join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };
     }
+    /* La riga in coda ai promemoria: impersonale, cosi' sta bene sotto una
+       lettera al Lei (MOTIVO_ONLINE da' del tu, ed e' di un'altra mail). */
+    const MOTIVO_PROMEMORIA = 'Questa email è inviata agli iscritti all\'evento: non è una comunicazione promozionale.';
 
 
     /* =========================================================

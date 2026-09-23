@@ -23252,6 +23252,8 @@
             else if (r.stato === 'programmato' && passato(r.quando)) stato += '<div class="hint">giorno passato: verrà segnato non partito</div>';
             else if (r.stato === 'proposta') stato += '<div class="hint">non parte finché non confermi</div>';
             else if (r.stato === 'scaduto') stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
+            // un promemoria della prima versione: testi vecchi, e non va a chi si iscrive dopo
+            if (r.rec && !r.prop) stato += '<div class="hint ev-ko">prima versione dei testi: ' + (r.stato === 'programmato' ? 'toglila, o partirà con i testi vecchi' : 'non va a chi si iscrive dopo') + '</div>';
             const chiave = r.rec ? r.rec.id : idPromemoria(ev, r.prop.id);
             const idProp = r.prop ? r.prop.id : (r.rec ? r.rec.proposta : '');
             const btn = (cl, az, testo) => '<button class="btn btn-sm ' + cl + ' pm-az" data-az="' + az + '" data-id="' + esc(chiave) + '" data-prop="' + esc(idProp) + '">' + testo + '</button>';
@@ -23344,7 +23346,7 @@
        sezioni scelte, un indirizzo una mail. E' un conteggio di oggi, e lo si
        dice: il servizio rilegge l'elenco al momento dell'invio. */
     function destinatariPromemoria(ev, sezioni) {
-        const out = { totale: 0, perSezione: {}, senzaEmail: 0, primoNome: '' };
+        const out = { totale: 0, perSezione: {}, senzaEmail: 0, nomeEsempio: '' };
         const visti = {};
         (_evIscrizioni || []).forEach(r => {
             const m = modalitaDi(ev, r);
@@ -23355,7 +23357,7 @@
             visti[e] = true;
             out.totale++;
             out.perSezione[m] = (out.perSezione[m] || 0) + 1;
-            if (!out.primoNome) out.primoNome = String(r.nome || '').trim().split(/\s+/)[0] || '';
+            if (!out.nomeEsempio) out.nomeEsempio = (String(r.nome || '').trim() + ' ' + String(r.cognome || '').trim()).trim();
         });
         return out;
     }
@@ -23471,7 +23473,7 @@
             if (!m) return null;
             const d = destinatariPromemoria(ev, sezioniScelte());
             return m.html
-                .split(RV_PROMEMORIA.SEGNAPOSTO_NOME).join(esc(d.primoNome || 'Maria'))
+                .split(RV_PROMEMORIA.SEGNAPOSTO_NOME).join(esc(d.nomeEsempio || 'Maria Rossi'))
                 .split(RV_PROMEMORIA.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });
         anteprimaSegueCampi(ant);
@@ -23503,6 +23505,11 @@
                 sezioni: sez, quando: quando, stato: 'programmato',
                 mail: { oggetto: mail.oggetto, html: mail.html, testo: mail.testo },
                 testi: t, campi: valori(), campiRichiesti: campiRichiesti.slice(),
+                /* Chi si iscrive dopo l'invio lo riceve la mattina seguente: lo
+                   dice questa riga, che il servizio pretende. I promemoria della
+                   prima versione non l'hanno, e i loro testi con il conto alla
+                   rovescia non vanno a chi arriva in ritardo. */
+                recupera: true,
                 creato: rec && rec.creato ? rec.creato : firmaPromemoria(u),
                 aggiornato: rec ? firmaPromemoria(u) : null
             };

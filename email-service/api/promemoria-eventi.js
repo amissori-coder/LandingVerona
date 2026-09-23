@@ -29,7 +29,8 @@
    mentre il primo sta spedendo. Se il tempo finisce a meta', il record
    resta dovuto e il giro dopo riprende da chi manca.
 
-   CHI SI ISCRIVE DOPO L'INVIO NON RESTA SENZA. Un promemoria inviato
+   CHI SI ISCRIVE DOPO L'INVIO NON RESTA SENZA (solo per i promemoria
+   confermati con `recupera: true`, cioe' scritti senza conti alla rovescia). Un promemoria inviato
    e' la memoria di chi l'ha ricevuto (il documento dell'avanzamento
    NON si cancella a fine invio, come per le comunicazioni: qui serve
    dopo). A ogni giro, per ogni evento e per ogni serie - in sala,
@@ -119,15 +120,19 @@ function idRiga(v) {
     const em = String(v.email || '');
     return (em.toLowerCase() || (chiave(v.nome) + '.' + chiave(v.cognome))) + '|' + String(v.data || '');
 }
-/* Il nome con cui si saluta: quello di battesimo, quando cognome e nome
-   sono due campi. "Ciao Maria" e' il tono di queste mail; "Ciao Maria
-   Rossi" no. Se il campo nome e' vuoto si ripiega sul cognome, e in mancanza
-   di tutto su "ospite". */
+/* Un nome scritto tutto maiuscolo o tutto minuscolo ("MARIO ROSSI",
+   "anna d'amico") si rimette in forma; uno scritto con le maiuscole al loro
+   posto ("Anna De Luca", "McArthur") si lascia com'e'. */
+function formaNome(s) {
+    const t = String(s || '').trim().replace(/\s+/g, ' ');
+    if (!t || (t !== t.toUpperCase() && t !== t.toLowerCase())) return t;
+    return t.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+}
+/* Il nome con cui si saluta: nome e cognome. Le mail al singolo aprono con
+   "Gentile nome cognome" e danno del Lei, come la conferma dell'iscrizione;
+   "Gentile Maria" da solo suonerebbe confidenziale. Se manca tutto, "ospite". */
 function nomeSaluto(v) {
-    const n = String(v.nome || '').trim();
-    const c = String(v.cognome || '').trim();
-    if (n && c) return n.split(/\s+/)[0];
-    return n || c || 'ospite';
+    return (formaNome(v.nome) + ' ' + formaNome(v.cognome)).trim() || 'ospite';
 }
 
 /* Gli iscritti a cui scrivere ADESSO: { destinatari: [{email, nome, doc}],
@@ -214,7 +219,7 @@ async function inviaUno(trans, rec, destinatari, avanz, opz) {
        altre mail dell'area riservata - ma una sola, non una per
        destinatario. Se non parte non e' un guasto dell'invio. */
     if (opz && opz.primoGiro && reEmail.test(creatoDa)) {
-        const nomeOp = String((rec.creato && rec.creato.daNome) || '').trim().split(/\s+/)[0] || 'collega';
+        const nomeOp = formaNome((rec.creato && rec.creato.daNome) || '') || 'collega';
         const copia = personalizza(rec, { email: creatoDa, nome: nomeOp, doc: '' });
         try {
             await trans.sendMail({ from: from, replyTo: replyTo, to: creatoDa, subject: '[Copia per te] ' + copia.subject, text: copia.text, html: copia.html });
@@ -282,8 +287,13 @@ async function giroRecuperi(db, scadenza, giro, trasportoDi) {
     const snap = await db.collection('archivio').doc(DOC).get();
     let lista = [];
     if (snap.exists && typeof snap.data().json === 'string') { try { lista = JSON.parse(snap.data().json) || []; } catch (_) { lista = []; } }
-    const inviati = lista.filter(r => r && r.stato === 'inviato' && r.mail && r.mail.html && Number(r.quando) > 0 && Number(r.quando) <= ora
-        && fineEvento(r) && ora <= fineEvento(r));
+    /* Si recupera SOLO un promemoria confermato con `recupera: true`, che
+       l'area riservata scrive dalla seconda versione dei testi in poi: quei
+       testi non hanno conti alla rovescia ("manca una settimana") e restano
+       veri qualunque giorno arrivino. Un promemoria della prima versione no:
+       mandato a chi si iscrive cinque giorni prima direbbe una cosa falsa. */
+    const inviati = lista.filter(r => r && r.stato === 'inviato' && r.recupera === true && r.mail && r.mail.html
+        && Number(r.quando) > 0 && Number(r.quando) <= ora && fineEvento(r) && ora <= fineEvento(r));
     // per evento e serie, il piu' recente
     const ultimi = {};
     inviati.forEach(r => {
@@ -362,6 +372,17 @@ module.exports = async (req, res) => {
         for (const rec of dovuti) {
             if (Date.now() > scadenza) { sospesi++; continue; }
             try {
+                /* Dopo il giorno dell'evento non parte niente, nemmeno il resto
+                   di un invio rimasto a meta': "oggi si comincia" il giorno
+                   dopo e' peggio di nessuna mail. */
+                if (fineEvento(rec) && ora > fineEvento(rec)) {
+                    await applicaPatch(db, rec.id, {
+                        stato: 'scaduto',
+                        invio: Object.assign({}, rec.invio || {}, { inCorso: false, il: ora, motivo: 'Il giorno dell\'evento era già passato: non è partito niente.' })
+                    });
+                    scaduti++;
+                    continue;
+                }
                 if (giornoRoma(Number(rec.quando)) < oggi && !(rec.invio && rec.invio.inCorso)) {
                     await applicaPatch(db, rec.id, {
                         stato: 'scaduto',
@@ -429,4 +450,4 @@ module.exports = async (req, res) => {
 };
 
 // esposti per le prove (prove/promemoria-eventi.prove.js)
-module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, idRiga, fineEvento, giornoRoma, serieDi };
+module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, formaNome, idRiga, fineEvento, giornoRoma, serieDi };

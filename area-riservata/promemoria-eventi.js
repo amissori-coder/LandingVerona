@@ -20,8 +20,11 @@
 
    La forma della mail (testata, riquadro, pulsante, piede) sta in
    newsletter-format.js (promemoriaEvento): qui ci sono solo le
-   parole. Regole del testo: si da' del tu, come il modulo del sito;
-   niente trattini lunghi (nelle mail dello studio non ci vanno);
+   parole. Regole del testo: si da' del Lei e si apre con "Gentile nome
+   cognome", come le altre mail al singolo; niente trattini lunghi (nelle
+   mail dello studio non ci vanno); nessun conto alla rovescia ("manca una
+   settimana"), perche' la stessa mail puo' arrivare giorni dopo a chi si
+   iscrive in ritardo: si scrive la data;
    {{NOME}} e {{COMPLETA}} li sostituisce il servizio per
    destinatario; {{LINK_DIRETTA}} lo sostituisce l'area riservata
    con il collegamento scritto da chi programma (campo "linkDiretta").
@@ -69,147 +72,119 @@
         }
     };
 
-    /* --- Napoli, venerdi' 2 ottobre 2026 --- */
+    /* --- Napoli, venerdi' 2 ottobre 2026 ---
+       SECONDA VERSIONE, dopo le osservazioni di Sergio Miele (15 settembre)
+       e con il programma aggiornato sulla pagina dell'evento:
+         - quattro mail per serie invece di cinque, senza quella che a due
+           settimane raccontava di nuovo gli argomenti (sembrava promozionale);
+         - NESSUN CONTO ALLA ROVESCIA nei testi ("manca una settimana"): chi
+           si iscrive dopo riceve l'ultimo promemoria partito della sua serie,
+           e un "manca una settimana" arrivato a cinque giorni sarebbe falso.
+           Si scrive la data, che resta vera qualunque giorno arrivi;
+         - il programma con i titoli esatti delle sessioni, e gli orari veri:
+           lavori 9.00-17.30, incontri B2B 10.00-17.00 e solo su invito;
+         - Lei e "Gentile nome cognome", come le altre mail al singolo.
+       Gli identificativi sono nuovi apposta: un promemoria confermato con la
+       prima versione resta in elenco come riga a parte, riconoscibile, e il
+       servizio non lo manda a chi si iscrive dopo (vedi "recupera"). */
     const NAPOLI = {
-        quando: 'Venerdì 2 ottobre 2026, dalle 9.00 alle 18.30',
         dove: 'Hotel Eurostars Excelsior, Via Partenope 48, Napoli',
         mappa: 'https://maps.google.com/?q=Eurostars+Hotel+Excelsior+Via+Partenope+48+Napoli',
-        pagina: SITO + '/napoli_ottobre_2026/',
-        programmaPdf: SITO + '/napoli_ottobre_2026/brochure-napoli-2026.pdf',
-        tappe: [
-            'Adeguati assetti',
-            'Governance e controllo di gestione',
-            'Modello 231 e Tax Control Framework',
-            'Rating di Legalità',
-            'ESG e sostenibilità',
-            'Finanza agevolata',
-            'Merito creditizio',
-            'Bagnoli e America\'s Cup 2027'
-        ],
-        /* gli orari della diretta: quelli del programma pubblicato, che sono
-           indicativi e lo si dice nella mail */
-        programmaDiretta: [
-            { ora: '9.30', nome: 'Apertura dei lavori e keynote introduttiva' },
-            { ora: '10.00', nome: 'Adeguati assetti' },
-            { ora: '10.40', nome: 'Modello 231 e Tax Control Framework' },
-            { ora: '11.40', nome: 'Rating di Legalità' },
-            { ora: '12.10', nome: 'Sostenibilità e fattori ESG' },
-            { ora: '13.00', nome: 'Finanza agevolata e strumenti di finanza innovativa' },
-            { ora: '14.30', nome: 'Tavola rotonda: come banche e imprese valutano il merito creditizio' },
-            { ora: '15.40', nome: 'Invitalia: Bagnoli e America\'s Cup 2027' }
+        programmaPagina: SITO + '/napoli_ottobre_2026/#programma',
+        /* I titoli ESATTI delle sessioni, come sulla pagina dell'evento: una
+           sessione che non c'e' non si inventa, e una che cambia nome la si
+           cambia qui. */
+        programma: [
+            { ora: '9.00', nome: 'Registrazione e welcome coffee', sala: true },
+            { ora: '9.30', nome: 'Apertura ufficiale dei lavori' },
+            { ora: '9.50', nome: 'Keynote introduttivo' },
+            { ora: '10.00', nome: 'Il futuro della Piccola Industria italiana' },
+            { ora: '10.30', nome: 'Adeguati assetti e continuità aziendale' },
+            { ora: '11.10', nome: 'Modello 231 e Tax Control Framework' },
+            { ora: '11.50', nome: 'Sostenibilità e fattori ESG' },
+            { ora: '12.40', nome: 'Finanza agevolata' },
+            { ora: '13.30', nome: 'Lunch buffet e networking', sala: true },
+            { ora: '14.30', nome: 'Rating di Legalità' },
+            { ora: '15.00', nome: 'Banche' },
+            { ora: '15.50', nome: 'Invitalia e MCC · Bagnoli e America\'s Cup 2027' },
+            { ora: '16.40', nome: 'Sessione Questions and Answers' },
+            { ora: '17.10', nome: 'Conclusioni e chiusura dei lavori' }
         ]
     };
-    const PERCORSO = 'Non sarà il solito convegno. Per un\'intera giornata prenderemo idealmente l\'imprenditore per mano e lo accompagneremo '
-        + 'lungo un percorso in otto tappe: dagli adeguati assetti al Modello 231 e al Tax Control Framework, dal Rating di Legalità '
-        + 'all\'ESG, fino alla finanza agevolata, al merito creditizio e alle grandi opportunità del territorio, Bagnoli e '
-        + 'l\'America\'s Cup 2027. Ogni intervento completa il precedente, e tutto è pensato per essere applicato in azienda da lunedì.';
-    const RIGHE_SALA = [['Quando', NAPOLI.quando], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee']];
-    const NOTA_DIRETTA = 'Il collegamento è riservato agli iscritti: ti chiediamo di non condividerlo pubblicamente.';
+    // per la sala tutto; per la diretta non la registrazione, e il pranzo e' una pausa
+    const PROGRAMMA_SALA = NAPOLI.programma.map(v => ({ ora: v.ora, nome: v.nome }));
+    const PROGRAMMA_DIRETTA = NAPOLI.programma
+        .filter(v => v.nome !== 'Registrazione e welcome coffee')
+        .map(v => ({ ora: v.ora, nome: v.nome === 'Lunch buffet e networking' ? 'Pausa pranzo' : v.nome }));
+    const RISERVATO = 'Il collegamento è riservato agli iscritti: Le chiediamo di non condividerlo.';
 
     const PROPOSTE = {
         'napoli-2026-10-02': [
             /* ------------------------- IN SALA ------------------------- */
             {
-                id: 's1', serie: 'sala', giorniPrima: 15,
-                nome: 'Due settimane prima: il percorso della giornata',
+                id: 'sala-programma', serie: 'sala', giorniPrima: 7,
+                nome: 'Una settimana prima: programma e informazioni essenziali',
                 mail: {
-                    oggetto: 'Mancano due settimane a Napoli: ecco il percorso della giornata',
-                    anteprima: 'Venerdì 2 ottobre all\'Hotel Eurostars Excelsior: otto tappe per costruire l\'impresa del futuro.',
-                    titolo: 'Ci vediamo fra due settimane',
-                    sommario: 'Ciao ' + NOME + ', il tuo posto in sala per Next Generation Business Napoli è riservato: venerdì 2 ottobre ci vediamo all\'Hotel Eurostars Excelsior. Ecco cosa ti aspetta.',
+                    oggetto: 'Next Generation Business, venerdì 2 ottobre a Napoli: il programma della giornata',
+                    anteprima: 'Hotel Eurostars Excelsior, Via Partenope 48. Registrazione dalle 9.00, lavori fino alle 17.30.',
+                    titolo: 'Venerdì 2 ottobre, a Napoli',
+                    sommario: 'Gentile ' + NOME + ', Le ricordiamo il Suo appuntamento con Next Generation Business: La aspettiamo in sala venerdì 2 ottobre all\'Hotel Eurostars Excelsior di Napoli.',
                     paragrafi: [
-                        PERCORSO,
-                        { titolo: 'Le otto tappe', elenco: NAPOLI.tappe },
-                        'Per tutta la giornata, in parallelo ai lavori, gli incontri B2B: confronti riservati fra imprese, professionisti, banche e sponsor, per trasformare le idee della giornata in relazioni concrete.'
+                        'La giornata si apre alle 9.00 con la registrazione e il welcome coffee e si chiude alle 17.30. Qui sotto trova la scaletta; il programma completo, con i nomi dei relatori, è sul sito.'
                     ],
-                    righe: [['Quando', NAPOLI.quando], ['Dove', NAPOLI.dove], ['Partecipazione', 'Gratuita, con il posto riservato in sala']],
-                    pulsante: { testo: 'Scarica il programma', url: NAPOLI.programmaPdf },
-                    nota: 'Il programma della giornata è sul sito e lo aggiorniamo man mano che arrivano le conferme dei relatori.',
-                    linkPersonale: true
-                }
-            },
-            {
-                id: 's2', serie: 'sala', giorniPrima: 8,
-                nome: 'Una settimana prima: come arrivare e orari',
-                mail: {
-                    oggetto: 'Una settimana a Napoli: come arrivare, orari e cosa aspettarti',
-                    anteprima: 'Registrazione dalle 9.00 in Via Partenope 48. Tutto quello che serve sapere prima di venerdì 2 ottobre.',
-                    titolo: 'Manca una settimana',
-                    sommario: 'Ciao ' + NOME + ', venerdì prossimo ci vediamo a Napoli. Qui trovi le informazioni pratiche per arrivare con calma e goderti la giornata.',
-                    paragrafi: [
-                        { titolo: 'Dove e quando', testo: 'L\'Hotel Eurostars Excelsior è in Via Partenope 48, sul lungomare, a due passi da Castel dell\'Ovo. La registrazione apre alle 9.00 con il welcome coffee, i lavori cominciano alle 9.30 e la giornata si chiude alle 18.30. Gli incontri B2B si tengono per tutta la giornata, in parallelo ai lavori.' },
-                        { titolo: 'Come arrivare', testo: 'In auto: l\'hotel non ha un parcheggio riservato ai partecipanti, ma nella zona di Santa Lucia e Chiaia ci sono diversi garage a pagamento. In treno: da Napoli Centrale bastano circa quindici minuti di taxi. In aereo: da Capodichino l\'autobus Alibus arriva fino al Molo Beverello, a un quarto d\'ora a piedi dall\'hotel.' },
-                        {
-                            titolo: 'Cosa aspettarti', elenco: [
-                                'Welcome coffee alle 9.00, coffee break a metà mattina e nel pomeriggio',
-                                'Lunch buffet alle 13.30, compreso nella partecipazione',
-                                'Otto interventi in sequenza e una tavola rotonda con banche e imprese',
-                                'Gli incontri B2B durante tutta la giornata, per chi si è prenotato: ognuno al suo orario'
-                            ]
-                        },
-                        'Per i professionisti presenti in sala: il convegno è in corso di accreditamento presso l\'Ordine dei Dottori Commercialisti e degli Esperti Contabili di Napoli per i crediti formativi. Se sei iscritto all\'Ordine, segnalalo al desk quando ti registri.'
-                    ],
-                    righe: RIGHE_SALA,
-                    pulsante: { testo: 'Apri la mappa', url: NAPOLI.mappa },
-                    nota: 'Al desk basterà il tuo nome: il badge lo troverai già pronto.',
-                    linkPersonale: true
-                }
-            },
-            {
-                id: 's3', serie: 'sala', giorniPrima: 3,
-                nome: 'Tre giorni prima: il posto ti aspetta (o liberalo)',
-                mail: {
-                    oggetto: 'Tre giorni a Napoli: il tuo posto ti aspetta',
-                    anteprima: 'Venerdì 2 ottobre, ore 9.00. Se non puoi più esserci, dillo con un clic: il posto andrà a chi lo sta aspettando.',
-                    titolo: 'Tre giorni e ci siamo',
-                    sommario: 'Ciao ' + NOME + ', venerdì è il grande giorno. Stiamo preparando la sala e i badge, e vorremmo essere sicuri di averti con noi.',
-                    paragrafi: [
-                        'Se i tuoi programmi sono cambiati e non potrai venire, non serve scriverci: basta un clic dal tuo collegamento personale, in fondo a questa mail. È un gesto che conta, perché le richieste sono più dei posti e ogni sedia libera andrà a qualcuno che la sta aspettando.',
-                        { titolo: 'Gli incontri B2B', testo: 'Durante tutta la giornata, in parallelo ai lavori, imprese, professionisti, banche e sponsor si incontrano ai tavoli tematici: assetti, governance, 231 e Tax Control Framework, Rating di Legalità, ESG, finanza agevolata, merito creditizio, Bagnoli e America\'s Cup. Se ti sei prenotato, porta il foglio della prenotazione con gli orari dei tuoi incontri (stampato o sul telefono) e presentalo al desk "Incontri B2B". Se non l\'hai ancora fatto e ti interessa, rispondi a questa mail.' },
-                        {
-                            titolo: 'Da portare con te', elenco: [
-                                'I biglietti da visita: al desk basta il tuo nome, ma agli incontri B2B servono davvero',
-                                'Le domande che vuoi fare ai relatori: c\'è spazio per il confronto',
-                                'Se sei un professionista iscritto all\'Ordine dei Commercialisti di Napoli, segnalalo al desk: i crediti formativi sono per chi è presente in sala'
-                            ]
-                        }
-                    ],
-                    righe: RIGHE_SALA,
-                    pulsante: { testo: 'Rivedi il programma', url: NAPOLI.pagina + '#programma' },
+                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.00 alle 17.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee']],
+                    programma: PROGRAMMA_SALA,
+                    pulsante: { testo: 'Il programma con i relatori', url: NAPOLI.programmaPagina },
                     nota: '',
                     linkPersonale: true
                 }
             },
             {
-                id: 's4', serie: 'sala', giorniPrima: 1,
-                nome: 'La sera prima: a domani',
+                id: 'sala-presenza', serie: 'sala', giorniPrima: 3,
+                nome: 'Tre giorni prima: conferma della presenza e incontri B2B',
                 mail: {
-                    oggetto: 'A domani! Ci vediamo alle 9.00 all\'Excelsior',
-                    anteprima: 'Via Partenope 48, Napoli. Registrazione dalle 9.00, si comincia alle 9.30.',
-                    titolo: 'A domani',
-                    sommario: 'Ciao ' + NOME + ', è tutto pronto: domani mattina ti aspettiamo a Napoli per Next Generation Business. Qui sotto i tre dati che servono.',
+                    oggetto: 'Venerdì 2 ottobre: la Sua presenza in sala e gli incontri B2B',
+                    anteprima: 'Se non potrà esserci, ce lo dica: il posto andrà a chi è in lista d\'attesa.',
+                    titolo: 'La Sua presenza in sala',
+                    sommario: 'Gentile ' + NOME + ', stiamo preparando la sala e i badge per venerdì 2 ottobre e contiamo sulla Sua presenza.',
                     paragrafi: [
-                        'Arriva con calma: la registrazione apre alle 9.00 con il welcome coffee e i lavori iniziano alle 9.30. Al desk basta il tuo nome, il badge è già pronto. Se hai prenotato gli incontri B2B, ricordati il foglio della prenotazione con i tuoi orari.',
-                        'Porta con te curiosità e domande: il percorso della giornata è pensato per essere applicato in azienda da lunedì, non per restare sulla carta.'
+                        'Se verrà, non deve fare nulla: il badge La aspetta al desk. Se invece non potrà esserci, La preghiamo di dircelo dal pulsante qui sotto: la sala è al completo e il Suo posto andrà a una delle persone in lista d\'attesa.',
+                        { titolo: 'Gli incontri B2B', testo: 'Si svolgono dalle 10.00 alle 17.00, in parallelo ai lavori, e sono riservati a chi ha ricevuto l\'invito. Ogni incontro ha il suo orario, così da poter seguire anche le sessioni in sala. Se ha prenotato i Suoi incontri, porti il foglio della prenotazione, stampato o sul telefono, e lo presenti al desk "Incontri B2B".' }
                     ],
-                    righe: [['Quando', 'Domani, venerdì 2 ottobre, dalle 9.00 alle 18.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee']],
+                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.00 alle 17.30'], ['Dove', NAPOLI.dove], ['Incontri B2B', 'Dalle 10.00 alle 17.00, su invito']],
+                    pulsante: { testo: 'Modifica o annulla l\'iscrizione', url: COMPLETA },
+                    nota: 'Il pulsante porta alla Sua iscrizione e vale solo per Lei: Le chiediamo di non inoltrare questa email.',
+                    linkPersonale: false
+                }
+            },
+            {
+                id: 'sala-vigilia', serie: 'sala', giorniPrima: 1,
+                nome: 'Il giorno prima: orari, indirizzo e ultime indicazioni',
+                mail: {
+                    oggetto: 'Venerdì 2 ottobre: orari e indirizzo per la giornata',
+                    anteprima: 'Registrazione dalle 9.00 all\'Hotel Eurostars Excelsior, Via Partenope 48.',
+                    titolo: 'Tutto pronto per il 2 ottobre',
+                    sommario: 'Gentile ' + NOME + ', ecco le ultime indicazioni per la giornata di venerdì 2 ottobre.',
+                    paragrafi: [
+                        'La registrazione apre alle 9.00 con il welcome coffee; i lavori cominciano alle 9.30 e si chiudono alle 17.30. Al desk basta il Suo nome: il badge è già pronto. Se ha prenotato gli incontri B2B, ricordi il foglio della prenotazione con i Suoi orari.',
+                        'Per i professionisti presenti in sala: il convegno è in corso di accreditamento presso l\'Ordine dei Dottori Commercialisti e degli Esperti Contabili di Napoli. Chi è iscritto all\'Ordine lo segnali al desk al momento della registrazione.'
+                    ],
+                    righe: [['Quando', 'Venerdì 2 ottobre, dalle 9.00 alle 17.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee']],
                     pulsante: { testo: 'Apri la mappa', url: NAPOLI.mappa },
-                    nota: 'Per qualunque cosa, rispondi a questa mail.',
+                    nota: '',
                     linkPersonale: true
                 }
             },
             {
-                id: 's5', serie: 'sala', giorniPrima: 0,
-                nome: 'La mattina stessa: oggi si comincia',
+                id: 'sala-mattina', serie: 'sala', giorniPrima: 0,
+                nome: 'La mattina dell\'evento: messaggio breve con la mappa',
                 mail: {
-                    oggetto: 'Buongiorno! Oggi si comincia: Via Partenope 48, dalle 9.00',
-                    anteprima: 'Hotel Eurostars Excelsior, Napoli. Registrazione e welcome coffee dalle 9.00.',
-                    titolo: 'Oggi si comincia',
-                    sommario: 'Buongiorno ' + NOME + ', oggi è il giorno di Next Generation Business Napoli. Ti aspettiamo dalle 9.00 all\'Hotel Eurostars Excelsior.',
-                    paragrafi: [
-                        'Questa mail è fatta per stare nel telefono: qui sotto trovi indirizzo e orari, e con il pulsante apri subito la mappa. Al desk basta il tuo nome. Buona giornata, e a fra poco.'
-                    ],
-                    righe: [['Quando', 'Oggi, dalle 9.00 alle 18.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee'], ['Inizio lavori', '9.30']],
+                    oggetto: 'Oggi a Napoli: registrazione dalle 9.00 in Via Partenope 48',
+                    anteprima: 'Hotel Eurostars Excelsior. Apertura dei lavori alle 9.30.',
+                    titolo: 'La aspettiamo stamattina',
+                    sommario: 'Gentile ' + NOME + ', oggi è il giorno di Next Generation Business: La aspettiamo all\'Hotel Eurostars Excelsior dalle 9.00.',
+                    paragrafi: [],
+                    righe: [['Registrazione', 'Dalle 9.00'], ['Apertura dei lavori', '9.30'], ['Dove', NAPOLI.dove]],
                     pulsante: { testo: 'Apri la mappa', url: NAPOLI.mappa },
                     nota: '',
                     linkPersonale: false
@@ -218,102 +193,79 @@
 
             /* -------------------------- ONLINE ------------------------- */
             {
-                id: 'o1', serie: 'online', giorniPrima: 15,
-                nome: 'Due settimane prima: il percorso che seguirai online',
+                id: 'online-programma', serie: 'online', giorniPrima: 7,
+                nome: 'Una settimana prima: programma e modalità della diretta',
                 mail: {
-                    oggetto: 'Mancano due settimane: il percorso che seguirai online',
-                    anteprima: 'Venerdì 2 ottobre, in diretta da Napoli: otto tappe per costruire l\'impresa del futuro.',
-                    titolo: 'Ci vediamo online fra due settimane',
-                    sommario: 'Ciao ' + NOME + ', la tua partecipazione online a Next Generation Business Napoli è registrata: venerdì 2 ottobre seguirai i lavori in diretta. Ecco cosa ti aspetta.',
-                    paragrafi: [
-                        PERCORSO,
-                        { titolo: 'Le otto tappe', elenco: NAPOLI.tappe },
-                        'Il collegamento per seguire la diretta arriverà a questo stesso indirizzo pochi giorni prima dell\'evento, insieme alle istruzioni: da adesso a quel momento non devi fare nulla.'
-                    ],
-                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30'], ['Partecipazione', 'Online, in diretta'], ['Collegamento', 'Ti arriverà per email pochi giorni prima']],
-                    pulsante: { testo: 'Scarica il programma', url: NAPOLI.programmaPdf },
-                    nota: 'Il programma della giornata è sul sito e lo aggiorniamo man mano che arrivano le conferme dei relatori.',
-                    linkPersonale: true
-                }
-            },
-            {
-                id: 'o2', serie: 'online', giorniPrima: 8,
-                nome: 'Una settimana prima: come funzionerà la diretta',
-                mail: {
-                    oggetto: 'Una settimana all\'evento: come funzionerà la diretta',
-                    anteprima: 'Cosa ti serve per seguire Next Generation Business Napoli online, e a che ora collegarti.',
-                    titolo: 'Manca una settimana',
-                    sommario: 'Ciao ' + NOME + ', venerdì prossimo Next Generation Business va in scena a Napoli, e tu lo seguirai in diretta. Ecco come funzionerà.',
+                    oggetto: 'Next Generation Business, venerdì 2 ottobre: il programma e la diretta',
+                    anteprima: 'I lavori in diretta dalle 9.30. Il collegamento Le arriverà nei giorni precedenti.',
+                    titolo: 'La diretta del 2 ottobre',
+                    sommario: 'Gentile ' + NOME + ', Le ricordiamo che venerdì 2 ottobre potrà seguire in diretta i lavori di Next Generation Business da Napoli.',
                     paragrafi: [
                         {
-                            titolo: 'Cosa ti serve', elenco: [
-                                'Un computer, un tablet o un telefono con una buona connessione',
-                                'Cuffie o un ambiente tranquillo: la giornata è lunga e vale la pena seguirla con attenzione',
-                                'Il collegamento, che ti manderemo per email nei giorni prima dell\'evento'
+                            titolo: 'Come funziona la diretta', elenco: [
+                                'Il collegamento Le arriverà a questo indirizzo nei giorni che precedono l\'evento, e di nuovo la mattina stessa',
+                                'Basta un computer, un tablet o uno smartphone con una buona connessione',
+                                'La diretta segue i lavori in sala; gli incontri B2B si svolgono in presenza e non vengono trasmessi'
                             ]
                         },
-                        { titolo: 'A che ora collegarti', testo: 'I lavori cominciano alle 9.30: collegati qualche minuto prima, così hai il tempo di sistemare audio e video. La diretta segue tutta la giornata di lavori, dalla mattina al pomeriggio. Gli incontri B2B si svolgono in sala, durante la giornata, e non vengono trasmessi.' },
-                        'Se nel frattempo preferisci venire di persona, rispondi a questa mail: se in sala si è liberato un posto, te lo diamo volentieri.'
+                        'Se si è iscritto quando la sala era già al completo, è in lista d\'attesa: se si libera un posto Le scriviamo, e decide Lei se venire di persona.'
                     ],
-                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30'], ['Partecipazione', 'Online, in diretta'], ['Collegamento', 'Arriva per email nei giorni prima']],
-                    pulsante: { testo: 'Scarica il programma', url: NAPOLI.programmaPdf },
+                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30 alle 17.30'], ['Partecipazione', 'Online, in diretta'], ['Collegamento', 'Le arriverà per email nei giorni precedenti']],
+                    programma: PROGRAMMA_DIRETTA,
+                    pulsante: { testo: 'Il programma con i relatori', url: NAPOLI.programmaPagina },
                     nota: '',
                     linkPersonale: true
                 }
             },
             {
-                id: 'o3', serie: 'online', giorniPrima: 2, campi: ['linkDiretta'],
-                nome: 'Due giorni prima: il collegamento alla diretta',
+                id: 'online-collegamento', serie: 'online', giorniPrima: 2, campi: ['linkDiretta'],
+                nome: 'Due giorni prima: invio del collegamento',
                 mail: {
-                    oggetto: 'Il tuo collegamento per seguire Next Generation Business Napoli',
-                    anteprima: 'Venerdì 2 ottobre dalle 9.30: ecco il collegamento e le istruzioni per la diretta.',
-                    titolo: 'Ecco il collegamento',
-                    sommario: 'Ciao ' + NOME + ', come promesso ecco il collegamento per seguire venerdì 2 ottobre la diretta di Next Generation Business da Napoli. Conservalo: ti servirà la mattina dell\'evento.',
+                    oggetto: 'Il Suo collegamento alla diretta di venerdì 2 ottobre',
+                    anteprima: 'Lo conservi: Le servirà venerdì mattina, dalle 9.30.',
+                    titolo: 'Il Suo collegamento',
+                    sommario: 'Gentile ' + NOME + ', ecco il collegamento per seguire venerdì 2 ottobre la diretta di Next Generation Business. Lo conservi: Le servirà venerdì mattina.',
                     paragrafi: [
-                        'Venerdì apri il pulsante qui sotto qualche minuto prima delle 9.30. Il collegamento è lo stesso per tutta la giornata: se la connessione cade, basta riaprirlo.',
-                        { titolo: 'Se il pulsante non funziona', testo: 'Copia e incolla questo indirizzo nel browser: ' + LINK_DIRETTA },
-                        'Gli orari sono indicativi e possono scorrere di qualche minuto. Gli incontri B2B si svolgono in sala, durante la giornata, e non fanno parte della diretta.'
+                        'Venerdì apra il pulsante qui sotto qualche minuto prima delle 9.30. Il collegamento vale per tutta la giornata: se la connessione cade, basta riaprirlo.',
+                        'Se il pulsante non funziona, copi questo indirizzo nel browser: ' + LINK_DIRETTA
                     ],
                     righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30'], ['Partecipazione', 'Online, in diretta']],
-                    programma: NAPOLI.programmaDiretta,
                     pulsante: { testo: 'Apri la diretta', url: LINK_DIRETTA },
-                    nota: NOTA_DIRETTA,
+                    nota: RISERVATO,
                     linkPersonale: true
                 }
             },
             {
-                id: 'o4', serie: 'online', giorniPrima: 1, campi: ['linkDiretta'],
-                nome: 'La sera prima: a domani, con il collegamento',
+                id: 'online-vigilia', serie: 'online', giorniPrima: 1, campi: ['linkDiretta'],
+                nome: 'Il giorno prima: nuovo invio del collegamento',
                 mail: {
-                    oggetto: 'A domani! Tieni a portata di mano il collegamento',
-                    anteprima: 'Domani dalle 9.30 la diretta di Next Generation Business da Napoli. Il collegamento è qui.',
-                    titolo: 'A domani',
-                    sommario: 'Ciao ' + NOME + ', è tutto pronto: domani mattina alle 9.30 comincia la diretta di Next Generation Business da Napoli. Ti rimandiamo il collegamento, così domani non devi cercarlo.',
+                    oggetto: 'Di nuovo il collegamento per la diretta di venerdì 2 ottobre',
+                    anteprima: 'I lavori cominciano alle 9.30: il collegamento è qui.',
+                    titolo: 'Il collegamento, a portata di mano',
+                    sommario: 'Gentile ' + NOME + ', Le rimandiamo il collegamento per seguire la diretta di venerdì 2 ottobre, così non dovrà cercarlo.',
                     paragrafi: [
-                        'Collegati qualche minuto prima delle 9.30 per sistemare audio e video. Se il pulsante non funziona, copia questo indirizzo nel browser: ' + LINK_DIRETTA,
-                        'Porta con te curiosità e domande: il percorso della giornata è pensato per essere applicato in azienda da lunedì, non per restare sulla carta.'
+                        'Si colleghi qualche minuto prima delle 9.30. Se il pulsante non funziona, copi questo indirizzo nel browser: ' + LINK_DIRETTA
                     ],
-                    righe: [['Quando', 'Domani, venerdì 2 ottobre, dalle 9.30'], ['Partecipazione', 'Online, in diretta']],
+                    righe: [['Quando', 'Venerdì 2 ottobre, dalle 9.30']],
                     pulsante: { testo: 'Apri la diretta', url: LINK_DIRETTA },
-                    nota: NOTA_DIRETTA,
+                    nota: RISERVATO,
                     linkPersonale: false
                 }
             },
             {
-                id: 'o5', serie: 'online', giorniPrima: 0, campi: ['linkDiretta'],
-                nome: 'La mattina stessa: oggi si comincia, con il collegamento',
+                id: 'online-mattina', serie: 'online', giorniPrima: 0, campi: ['linkDiretta'],
+                nome: 'La mattina dell\'evento: messaggio breve con il collegamento',
                 mail: {
-                    oggetto: 'Buongiorno! Oggi si comincia: ecco il collegamento alla diretta',
-                    anteprima: 'Dalle 9.30 in diretta da Napoli. Apri il collegamento qualche minuto prima.',
-                    titolo: 'Oggi si comincia',
-                    sommario: 'Buongiorno ' + NOME + ', oggi è il giorno di Next Generation Business Napoli. La diretta comincia alle 9.30: il collegamento è qui sotto.',
+                    oggetto: 'La diretta comincia alle 9.30: ecco il collegamento',
+                    anteprima: 'Next Generation Business, in diretta da Napoli.',
+                    titolo: 'Oggi in diretta',
+                    sommario: 'Gentile ' + NOME + ', i lavori di Next Generation Business cominciano alle 9.30: il collegamento è qui sotto.',
                     paragrafi: [
-                        'Apri il pulsante qualche minuto prima delle 9.30. Il collegamento vale per tutta la giornata: se cade, riaprilo. Se il pulsante non funziona, copia questo indirizzo nel browser: ' + LINK_DIRETTA,
-                        'Buona giornata, e a fra poco.'
+                        'Se il pulsante non funziona, copi questo indirizzo nel browser: ' + LINK_DIRETTA
                     ],
-                    righe: [['Quando', 'Oggi, dalle 9.30'], ['Partecipazione', 'Online, in diretta']],
+                    righe: [],
                     pulsante: { testo: 'Apri la diretta', url: LINK_DIRETTA },
-                    nota: NOTA_DIRETTA,
+                    nota: RISERVATO,
                     linkPersonale: false
                 }
             }

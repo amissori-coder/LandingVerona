@@ -975,8 +975,9 @@ le 8. Per ogni record `programmato` previsto per oggi:
    dell'area riservata. Restano fuori chi ha annullato, chi e' stato
    cancellato, chi e' segnato **assente**, chi non ha un indirizzo valido; un
    indirizzo riceve **una** mail anche se ha due iscrizioni;
-2. personalizza: `{{NOME}}` diventa il **nome di battesimo** ("Ciao Maria",
-   non "Ciao Maria Rossi"), `{{COMPLETA}}` il collegamento personale firmato
+2. personalizza: `{{NOME}}` diventa **nome e cognome** ("Gentile Maria
+   Rossi": le mail al singolo danno del Lei; un nome scritto tutto maiuscolo
+   o tutto minuscolo si rimette in forma), `{{COMPLETA}}` il collegamento personale firmato
    della scheda (`lib/newsletter.js`, `linkCompleta`), da cui si correggono i
    dati o si rinuncia;
 3. spedisce **una mail per destinatario**, con Reply-To a chi ha programmato,
@@ -999,7 +1000,12 @@ quattro alla volta** (`IN_PARALLELO`) invece che una dietro l'altra, e
 trecento iscritti stanno in un paio di minuti. La copia a chi ha programmato
 parte solo al primo giro.
 
-**Chi si iscrive dopo l'invio non resta senza.** A differenza delle
+**Chi si iscrive dopo l'invio non resta senza** (seconda versione dei testi
+in poi). Si recupera solo un promemoria confermato con `recupera: true`, che
+l'area riservata scrive dal 23 settembre: quei testi non hanno conti alla
+rovescia ("manca una settimana") e scrivono la data, quindi restano veri
+qualunque giorno arrivino. Un promemoria della prima versione non si recupera:
+mandato a chi si iscrive cinque giorni prima direbbe una cosa falsa. A differenza delle
 comunicazioni, l'avanzamento **non si cancella** a fine invio: da li' in poi
 e' la memoria di chi ha ricevuto quel promemoria. A ogni giro, per ogni
 evento e per ogni serie (in sala, online), il servizio prende **l'ultimo
@@ -1019,8 +1025,9 @@ iscritti di adesso, senza spedire, e da li' in poi entrano solo i nuovi.
 record previsto per un giorno **gia' passato** (servizio fermo, cron non
 attivo, giorno gia' finito quando lo si e' confermato) lo segna `scaduto`, con
 il motivo, e non lo spedisce; l'unica eccezione e' un invio rimasto a meta' il
-giorno prima, che si completa. Dall'area riservata compare "Non partito" con
-il pulsante per riprogrammarlo. I giorni si contano nell'ora di Roma.
+giorno prima, che si completa. Dopo il giorno dell'evento non parte niente,
+nemmeno il resto di un invio a meta'. Dall'area riservata compare "Non
+partito" con il pulsante per riprogrammarlo. I giorni si contano nell'ora di Roma.
 
 **Il record si tocca per campo, in transazione** (`applicaPatch`): l'area
 riservata riscrive il documento intero quando qualcuno programma o sospende, e
