@@ -351,18 +351,18 @@ function slotDi(area, ora) {
         esigi(r.ok && r.modo === 'azienda', 'la pagina si apre in modalita azienda');
         esigi(r.azienda.nome === 'Alfa S.r.l.' && r.referenti.length === 2, 'sa di che impresa e chi sono i referenti');
         esigi(r.referenti[0].doc === 'mario' && r.referenti[0].email === undefined, 'la tendina dei nominativi non porta gli indirizzi');
-        esigi(Array.isArray(r.regole) && r.regole.length === 7 && /prima preferenza prenota davvero/.test(r.regole[1]),
+        esigi(Array.isArray(r.regole) && r.regole.length === 7 && /prima preferenza \u00e8 una prenotazione vera e propria/.test(r.regole[1]),
             'le regole di prenotazione arrivano dal servizio, scritte una volta sola');
         /* Le tre cose che chi prenota sbaglia piu' spesso, e che le regole
            devono dire per intero: come si cambia la prima (si sposta da se',
            senza disdire nulla), che cosa sono la seconda e la terza (non
            prenotano), e che una volta assegnate non si spostano ma si possono
            solo annullare. */
-        esigi(/Non serve annullarla prima/.test(r.regole[2]),
+        esigi(/Non occorre annullarla prima/.test(r.regole[2]),
             'e dicono che la prima si sposta senza doverla annullare');
-        esigi(/non prenotano niente/.test(r.regole[3]),
+        esigi(/non costituiscono una prenotazione/.test(r.regole[3]),
             'che la seconda e la terza non prenotano niente');
-        esigi(/\u00e8 confermato/.test(r.regole[4]) && /lo annulli/.test(r.regole[4]),
+        esigi(/\u00e8 confermato/.test(r.regole[4]) && /potete annullarlo/.test(r.regole[4]),
             'e che un orario assegnato e confermato: si puo solo annullare');
         esigi(r.aree.length === 3, 'i tavoli sono quelli dell\'invito, tutti');
         esigi(r.prima === null && r.coda.length === 0, 'e all\'inizio non c\'e nessuna scelta');
@@ -401,20 +401,20 @@ function slotDi(area, ora) {
            sulla pagina, dopo il salvataggio: due versioni diverse della stessa
            regola la farebbero sembrare incerta, e questa prova le tiene legate. */
         const unaRiga = (posta[0].text || '').replace(/\n/g, ' ');
-        esigi(/avanzano posti dopo le prime preferenze di tutti/.test(unaRiga),
-            'e che diventano un incontro solo se a quel tavolo avanzano posti');
-        esigi(/l'orario lo scegliamo noi fra quelli rimasti/.test(unaRiga),
-            'e che l orario lo scegliamo noi fra quelli rimasti');
-        esigi(/sono confermati/.test(unaRiga) && /lo annulli/.test(unaRiga),
+        esigi(/restano posti dopo le prime preferenze di tutte le imprese/.test(unaRiga),
+            'e che diventano un incontro solo se a quel tavolo restano posti');
+        esigi(/l'orario lo assegniamo noi fra quelli rimasti/.test(unaRiga),
+            'e che l orario lo assegniamo noi fra quelli rimasti');
+        esigi(/sono confermati/.test(unaRiga) && /potete annullarlo/.test(unaRiga),
             'e che un orario assegnato e confermato: si puo solo annullare');
-        esigi(/La prima preferenza invece si sposta da se/.test(unaRiga),
+        esigi(/La prima preferenza, invece, si sposta da s\u00e9/.test(unaRiga),
             'mentre la prima si sposta da se, senza annullare nulla');
         esigi(/30 settembre/.test(unaRiga), 'e entro quando si sceglie');
         const pagina = require('fs').readFileSync(
             require('path').join(__dirname, '..', '..', 'incontri_b2b', 'index.html'), 'utf8');
         /* Il testo della pagina sta in un sorgente che va a capo dove gli
            pare: si cerca un pezzo che sopravviva all'andare a capo. */
-        esigi(/posti dopo le prime preferenze di tutti/.test(pagina),
+        esigi(/posti dopo le prime preferenze di tutte le imprese/.test(pagina),
             'la pagina, dopo il salvataggio, dice la stessa cosa');
         const prg = dati.get('iscrizioni/mario').b2bProgramma;
         esigi(prg && prg.incontri.length === 1 && prg.attesa.length === 1,
@@ -534,7 +534,7 @@ function slotDi(area, ora) {
         });
         esigi(r._stato === 200 && r.ok, 'l\'orario si libera');
         esigi(posta.length === 1 && /annullato/i.test(posta[0].subject || ''), 'e l\'azienda riceve la disdetta');
-        esigi(/Rivedi le prenotazioni|Scegli un incontro/.test(posta[0].text || ''), 'con il collegamento per riprenotare');
+        esigi(/Rivedete le prenotazioni|Scegliete un incontro/.test(posta[0].text || ''), 'con il collegamento per riprenotare');
         const prg = dati.get('iscrizioni/anna').b2bProgramma;
         esigi(prg.incontri.length === 1, 'e la copia sulle schede non racconta piu un incontro che non c\'e');
     });
@@ -799,8 +799,8 @@ function slotDi(area, ora) {
         const testoMail = String((posta[0] || {}).text || '');
         esigi(/Merito creditizio/.test(testoMail) && /10:00/.test(testoMail),
             'dentro c\'e l\'incontro annullato, con la sua ora');
-        esigi(/collegamento[\s\S]*non apre pi\u00f9 nulla/i.test(testoMail),
-            'e che il collegamento non apre piu nulla');
+        esigi(/collegamento[\s\S]*non \u00e8 pi\u00f9 attivo/i.test(testoMail),
+            'e che il collegamento non e piu attivo');
         esigi(/iscrizione al convegno resta/.test(testoMail),
             'e che l\'iscrizione al convegno non c\'entra: chi legge "annullato" pensa di essere stato tolto dall\'evento');
         /* NESSUN PULSANTE: non c'e' piu' niente da aprire, e un pulsante che
@@ -843,7 +843,7 @@ function slotDi(area, ora) {
             'e senza l\'elenco di incontri che non ha mai avuto');
         esigi(/collegamento per prenotare non \u00e8 pi\u00f9 valido/i.test(t),
             'dice l\'unica cosa che lo riguarda');
-        esigi(!/non apre pi\u00f9 nulla/i.test(t),
+        esigi(!/Anche il collegamento/i.test(t),
             'e non la dice due volte: lo ha gia detto la riga d apertura');
         // e chi non vuole avvisare puo' non farlo
         azzera();
@@ -858,6 +858,46 @@ function slotDi(area, ora) {
         });
         esigi(posta.length === 0, 'con avvisa: false non parte niente');
         esigi(!documentoAzienda('p:04641610235'), 'ma l\'azienda e tolta lo stesso');
+    });
+
+    await prova('24) Le mail all\'azienda danno del VOI, tutte e in ogni riga', async () => {
+        /* L'invito e' dell'IMPRESA - lo stesso collegamento lo aprono piu'
+           referenti - quindi in queste lettere si da' del Voi. Il registro si
+           rompe dai pezzi aggiunti dopo: l'etichetta di un pulsante, una nota
+           in coda, la riga del piede. Qui si guardano la conferma delle
+           prenotazioni e l'avviso di annullamento, riga per riga. */
+        const MAIL = require(path.join(__dirname, '..', 'lib', 'mail-ngb.js'));
+        const evento = { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Excelsior', scadenzaB2B: '30 settembre' };
+        const tavoli = [{ nome: 'Merito creditizio', orario: '10:00 - 10:30', perChi: 'Giorgia Bianchi' }];
+        const lettere = [
+            MAIL.confermaB2BAzienda({ evento: evento, azienda: 'EMVAS S.r.l.', tavoli: tavoli,
+                coda: [{ pos: 2, nome: 'Adeguati assetti', perChi: 'Giorgia Bianchi' }] }, 'https://x/'),
+            MAIL.confermaB2BAzienda({ evento: evento, azienda: 'EMVAS S.r.l.', tavoli: [] }, 'https://x/'),
+            MAIL.invitoB2BAnnullato({ evento: evento, azienda: 'EMVAS S.r.l.', tavoli: tavoli }),
+            MAIL.invitoB2BAnnullato({ evento: evento, azienda: 'EMVAS S.r.l.', tavoli: [] })
+        ];
+        const daTu = [/\bla tua\b/i, /\bil tuo\b/i, /\bScegli\b/, /\bRivedi\b/, /\bpuoi\b/, /\bricevi\b/i, /\btrovi\b/];
+        let pulite = 0;
+        lettere.forEach((m, i) => {
+            const tutto = String(m.html) + '\n' + String(m.testo);
+            const sporca = daTu.filter(r => r.test(tutto));
+            if (!sporca.length) pulite++;
+            else esigi(false, 'la lettera ' + (i + 1) + ' da del tu', sporca.map(r => r.source).join(' '));
+        });
+        esigi(pulite === lettere.length, 'nessuna delle quattro lettere da del tu');
+        /* E la riga del piede dice il vero: sono mail degli incontri B2B, non
+           la conferma di un'iscrizione al convegno. */
+        lettere.forEach(m => {
+            esigi(/riguarda gli incontri B2B del convegno/.test(String(m.html)), 'il piede dice che si tratta degli incontri B2B');
+            esigi(!/conferma della tua iscrizione/.test(String(m.html)), 'e non parla della conferma d iscrizione');
+        });
+        /* Le versioni a solo testo non restano indietro: chi ha la posta senza
+           HTML legge le stesse frasi, non quelle di due ritocchi fa. */
+        const annullata = MAIL.invitoB2BAnnullato({ evento: evento, azienda: 'EMVAS S.r.l.', tavoli: tavoli });
+        ['non è più valido', 'Anche il collegamento', 'iscrizione al convegno resta invariata'].forEach(frase => {
+            esigi(String(annullata.html).indexOf(frase) >= 0 && String(annullata.testo).indexOf(frase) >= 0,
+                'la stessa frase nell HTML e nel solo testo: "' + frase + '"');
+        });
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

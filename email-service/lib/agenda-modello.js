@@ -816,18 +816,26 @@ function esigenzeVive(azienda, prenotazioni) {
 function regoleB2B(giornata, scadenza) {
     const g = normalizzaGiornata(giornata);
     const entro = testo(scadenza, 60);
+    /* SI DA' DEL VOI, in tutte le mail del B2B e in questa pagina.
+       L'invito e' dell'IMPRESA e lo stesso collegamento lo aprono piu'
+       referenti: il "Lei" parlerebbe a una persona sola, e infatti i testi
+       scivolavano da un registro all'altro nella stessa frase - "alla Vostra
+       impresa... Le dedichiamo". Due registri mescolati sono la cosa che
+       piu' fa sembrare scritta male una lettera per il resto corretta. */
     return [
-        'Un invito per azienda: indichi il nominativo di chi partecipa a ciascun incontro, '
-        + 'e può essere una persona diversa da un tavolo all\'altro.',
-        'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo. '
-        + 'Gli orari che vede liberi sono quelli liberi adesso: appena un\'impresa ne prende uno, a tutti gli altri sparisce.',
+        'L\'invito è per l\'azienda: per ciascun incontro indicate il nominativo della persona che vi '
+        + 'parteciperà, che può essere diversa da un tavolo all\'altro.',
+        'La prima preferenza è una prenotazione vera e propria: scegliete il tavolo e l\'orario, e da quel '
+        + 'momento quell\'orario è riservato a Voi. Gli orari indicati come liberi sono quelli disponibili in '
+        + 'questo momento: appena un\'impresa ne occupa uno, non compare più alle altre.',
         /* COME SI CAMBIA LA PRIMA. E' la domanda che arriva per prima, e la
            risposta e' rassicurante: non bisogna disdire per poi rischiare di
-           restare senza niente - si preme l'orario nuovo e la prenotazione si
-           sposta, in un'operazione sola. Non dirlo lasciava credere il
+           restare senza niente - si sceglie il nuovo orario e la prenotazione
+           si sposta, in un'operazione sola. Non dirlo lasciava credere il
            contrario, che e' il modo piu' facile per perdere un posto. */
-        'Per cambiare orario o tavolo della prima preferenza prema quello nuovo e salvi: la prenotazione si sposta, '
-        + 'e l\'ora di prima torna libera nello stesso momento. Non serve annullarla prima.',
+        'Per cambiare orario o tavolo della prima preferenza è sufficiente selezionare il nuovo orario e '
+        + 'salvare: la prenotazione si sposta e quella precedente si libera nello stesso momento. Non occorre '
+        + 'annullarla prima.',
         /* LA SECONDA E LA TERZA NON SONO PRENOTAZIONI, e va detto per intero:
            non sono un orario che aspetta conferma, sono una preferenza che
            diventera' un incontro solo se dopo le prime preferenze di tutti
@@ -836,22 +844,22 @@ function regoleB2B(giornata, scadenza) {
            incontro. Detto a meta', chi legge si aspetta "il suo orario, da
            confermare", e il giorno del convegno si presenta a un'ora che non
            gli abbiamo mai dato. */
-        'La seconda e la terza sono solo il tavolo, e non prenotano niente: diventano un incontro solo se a quel '
-        + 'tavolo avanzano posti dopo le prime preferenze di tutti, e l\'orario lo scegliamo noi fra quelli rimasti - '
-        + 'anche lontano da quello del primo incontro. Glielo diciamo per mail: finché non arriva, a Suo nome non '
-        + 'c\'è nessun orario.',
+        'La seconda e la terza preferenza indicano soltanto il tavolo e non costituiscono una prenotazione: '
+        + 'diventano un incontro solo se a quel tavolo restano posti dopo le prime preferenze di tutte le imprese, '
+        + 'e l\'orario lo assegniamo noi fra quelli rimasti, anche distante da quello del primo incontro. Ve lo '
+        + 'comunichiamo per email: fino a quel momento non risulta alcun orario a Vostro nome.',
         /* E UNA VOLTA ASSEGNATE non si toccano piu': l'orario e' quello, e
            l'unica cosa che l'impresa puo' fare e' rinunciarci. Detto cosi' -
            "confermato, oppure annullatelo" - non resta la terza possibilita'
            che nessuno puo' dare, cioe' spostarlo di un'ora. */
-        'Una volta che gliene abbiamo assegnato uno, quell\'orario è confermato: da questa pagina non si sposta '
-        + 'e non se ne può chiedere un altro. Se non Le va bene lo annulli: torna libero per un\'altra impresa, e '
-        + 'la Sua preferenza resta in lista per un orario diverso.',
+        'Una volta assegnato, quell\'orario è confermato: dalla pagina non può essere spostato né '
+        + 'sostituito. Se non fosse compatibile con i Vostri impegni potete annullarlo: l\'orario torna '
+        + 'disponibile per un\'altra impresa e la Vostra preferenza resta in lista per un orario diverso.',
         'Ogni incontro dura ' + g.durata + ' minuti, fra le ' + g.inizio + ' e le ' + g.fine
         + (g.pranzoDa ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',
-        'Può cambiare tutto da questa pagina ' + (entro ? 'entro il ' + entro : 'fino al giorno del convegno')
-        + ': a ogni modifica riceve una mail nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
-        + (entro ? ' Dopo il ' + entro + ' chiudiamo gli abbinamenti e assegniamo gli orari rimasti.' : '')
+        'Potete modificare le Vostre scelte dalla pagina ' + (entro ? 'entro il ' + entro : 'fino al giorno del convegno')
+        + ': a ogni modifica riceverete una email con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
+        + (entro ? ' Dopo il ' + entro + ' chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.' : '')
     ];
 }
 
