@@ -563,4 +563,89 @@ function confermaB2BAzienda(dati, link) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { confermaSito, confermaVariazioni, confermaB2B, confermaB2BAzienda, nomeEvento };
+/* ============================================================
+   L'INVITO AGLI INCONTRI B2B, ANNULLATO
+   ------------------------------------------------------------
+   Quando togliamo un'azienda dagli incontri - perche' non viene
+   piu', perche' era un doppione, perche' l'abbiamo invitata per
+   sbaglio - dall'altra parte c'e' chi quel collegamento ce l'ha
+   in casella, e magari un foglio con un'ora sopra.
+   Senza una riga da noi succede la cosa peggiore: si presenta al
+   desk a un'ora che per noi non esiste piu', oppure apre il
+   collegamento il giorno prima, legge "non valido" e pensa a un
+   guasto nostro. Questa mail dice le due cose che servono - gli
+   incontri che aveva non ci sono piu' (elencati, cosi' sa quali) e
+   il collegamento non apre piu' - e a chi scrivere se e' un errore.
+   Nessun pulsante: non c'e' piu' niente da aprire, e un pulsante
+   che porta a una pagina che rifiuta sarebbe una beffa.
+   `dati`: { azienda, evento:{titolo,quando,luogo,indirizzo},
+   pagina, tavoli:[{nome,orario,perChi}] }.
+============================================================ */
+function invitoB2BAnnullato(dati) {
+    const d = dati || {};
+    const ev = d.evento || {};
+    const evNome = [ev.titolo, ev.quando].filter(Boolean).join(', ') || nomeEvento(d.pagina);
+    const azienda = String(d.azienda || d.nome || '');
+    const tavoli = ORARI.ordinaPerOrario(ORARI.normalizzaTavoli(d.tavoli));
+    const quanti = tavoli.length;
+    const titolo = quanti ? 'Incontri B2B annullati' : 'Invito agli incontri B2B annullato';
+    const oggetto = titolo + ' - Next Generation Business' + (evNome ? ', ' + evNome : '');
+    const saluto = 'Gentile ' + (azienda || 'ospite') + ',';
+    const sommario = saluto + ' ' + (quanti
+        ? 'gli incontri B2B che avevate prenotato sono stati annullati e il collegamento per prenotare non '
+        + 'è più valido.'
+        : 'l\'invito agli incontri B2B è stato annullato: il collegamento per prenotare non è più valido.');
+    const vociIncontri = tavoli.map(t => {
+        const ore = ORARI.oreDaFrase(t.orario);
+        return {
+            ora: (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : '',
+            nome: t.nome + ((!ore.inizio && t.orario) ? ' - ' + t.orario : ''),
+            con: '', per: t.perChi || ''
+        };
+    });
+    const html = involucro(oggetto, titolo + (evNome ? ' - ' + evNome : ''),
+        testata(titolo, sommario)
+        + corpo(
+            (quanti
+                ? occhiello(quanti === 1 ? 'L\'incontro annullato' : 'Gli incontri annullati')
+                + spazio(4) + tabellaIncontri(vociIncontri) + spazio(10)
+                + paragrafo('Questi orari non sono più a Vostro nome: il ' + (ev.quando || 'giorno del convegno')
+                    + ' al desk non risulterà nessun appuntamento, e il foglio che avete ricevuto non vale più.')
+                + spazio(28)
+                /* "Anche il collegamento" solo se prima si e' parlato
+                   d'altro: a chi non aveva prenotato niente lo ha gia' detto
+                   il sommario, e ripeterlo da solo suona come un secondo
+                   annuncio di una cosa sola. */
+                + paragrafo('E il collegamento con cui sceglievate gli incontri non apre più nulla.')
+                + spazio(22)
+                : '')
+            /* L'ISCRIZIONE AL CONVEGNO NON C'ENTRA, e va detto: chi legge
+               "annullato" pensa di essere stato tolto dall'evento, e magari
+               non si presenta. Gli incontri B2B sono una cosa a parte. */
+            + paragrafo('Questo riguarda soltanto gli incontri B2B: l\'eventuale iscrizione al convegno resta '
+                + 'com\'era, e non c\'è niente da rifare.')
+            + spazio(22)
+            + paragrafo('Se si tratta di un errore, o se desiderate essere reinseriti, scriva a '
+                + 'info@nextgenerationbusiness.it e sistemiamo noi.')
+        )
+        + piede(MOTIVO));
+    const testo = [titolo.toUpperCase(), sommario,
+        quanti ? ((quanti === 1 ? 'Incontro annullato:' : 'Incontri annullati:') + '\n'
+            + tavoli.map(t => {
+                const ore = ORARI.oreDaFrase(t.orario);
+                const quando = (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : (t.orario || '');
+                return '- ' + (quando ? quando + ', ' : '') + t.nome + (t.perChi ? ' - per ' + t.perChi : '');
+            }).join('\n')) : '',
+        quanti ? ('Questi orari non sono più a Vostro nome: il ' + (ev.quando || 'giorno del convegno')
+            + ' al desk non risulterà nessun appuntamento, e il foglio che avete ricevuto non vale più.') : '',
+        quanti ? 'E il collegamento con cui sceglievate gli incontri non apre più nulla.' : '',
+        'Questo riguarda soltanto gli incontri B2B: l\'eventuale iscrizione al convegno resta com\'era, '
+        + 'e non c\'è niente da rifare.',
+        'Se si tratta di un errore, o se desiderate essere reinseriti, scriva a info@nextgenerationbusiness.it '
+        + 'e sistemiamo noi.',
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+module.exports = { confermaSito, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };

@@ -1768,6 +1768,25 @@ Lo fa il SERVIZIO e non il browser con una seconda chiamata: se il browser si
 chiude a meta', l'azienda tornerebbe. E il riepilogo non elenca gli inviti
 **revocati**: chi lo guarda cerca chi viene, non chi non viene piu'.
 
+**E glielo si dice** (`MNGB.invitoB2BAnnullato`). Dall'altra parte c'e' chi quel
+collegamento ce l'ha in casella, e magari un foglio con un'ora sopra: senza una
+riga da noi si presenta al desk a un'ora che per noi non esiste piu', oppure apre
+il collegamento, legge "non valido" e pensa a un guasto nostro. La mail ha due
+facce, decise da quello che aveva prenotato:
+
+- **con incontri**: oggetto "Incontri B2B annullati", l'elenco di quelli tolti
+  con ora e nominativo, e che il foglio ricevuto non vale piu';
+- **senza**: oggetto "Invito agli incontri B2B annullato", e l'unica cosa che lo
+  riguarda - il collegamento non apre piu' nulla. Nessun elenco di incontri che
+  non ha mai avuto.
+
+In tutti e due i casi si dice che **l'iscrizione al convegno non c'entra** - chi
+legge "annullato" pensa di essere stato tolto dall'evento e rischia di non
+presentarsi - e a chi scrivere se e' un errore. **Nessun pulsante**: non c'e'
+piu' niente da aprire, e un pulsante che porta a una pagina che rifiuta sarebbe
+una beffa. `avvisa: false` la salta; se la posta non risponde, l'azienda resta
+tolta lo stesso e la risposta lo dice (`avvisoNonPartito`).
+
 #### Tre provenienze, tre cose diverse da poter fare
 
 Le tre righe del riepilogo non si governano allo stesso modo, e confonderle

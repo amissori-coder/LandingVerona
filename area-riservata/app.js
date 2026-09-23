@@ -18264,8 +18264,9 @@
             if (!confirm('Tolgo "' + b.dataset.nome + '" dagli incontri B2B?\n\n'
                 + 'Gli orari che aveva prenotato tornano liberi, l\'invito sparisce dalle schede dei suoi '
                 + 'referenti e il collegamento smette di funzionare: da quel momento non puo\' piu\' prenotare '
-                + 'niente, e non torna nell\'elenco degli inviti. L\'iscrizione all\'evento resta. '
-                + 'Non parte nessuna mail.\n\n'
+                + 'niente, e non torna nell\'elenco degli inviti. L\'iscrizione all\'evento resta.\n\n'
+                + 'AI SUOI REFERENTI PARTE UNA MAIL che dice quali incontri sono stati annullati e che il '
+                + 'collegamento non vale piu\'.\n\n'
                 + 'Non si torna indietro.')) return;
             /* Tutto il resto lo fa il servizio, in un colpo solo: libera gli
                orari, cancella il documento e toglie l'invito dalle schede dei
@@ -18275,10 +18276,15 @@
             chiama({ azione: 'b2b-azienda-elimina', aziendaId: b.dataset.az }, r => {
                 _rbAzienda = '';
                 const n = (r.liberati || []).length;
+                const av = (r.avvisati || []).length;
                 return b.dataset.nome + ' non e\' piu\' negli incontri'
                     + (n ? ': ' + n + (n === 1 ? ' orario torna libero' : ' orari tornano liberi') : '')
                     + (r.schede ? ', e l\'invito e\' tolto da ' + r.schede
-                        + (r.schede === 1 ? ' scheda.' : ' schede.') : '.');
+                        + (r.schede === 1 ? ' scheda' : ' schede') : '')
+                    + '. ' + (av
+                        ? 'Avvisati ' + av + (av === 1 ? ' referente.' : ' referenti.')
+                        : (r.avvisoNonPartito ? 'Avviso NON partito: ' + r.avvisoNonPartito
+                            : 'Nessun referente da avvisare.'));
             });
         }));
         const sceltaAz = document.getElementById('rb-az-scelta');
@@ -21371,8 +21377,11 @@
                per gli incontri. Se e' anche iscritta al convegno la sua
                iscrizione resta: non e' questo il posto per cancellarla, e chi
                preme qui sta guardando gli inviti, non l'elenco.
-           Nessuna mail: e' una decisione nostra, e a chi va avvisato si
-           telefona. */
+           E UNA MAIL PARTE, dal servizio: dall'altra parte c'e' chi quel
+           collegamento ce l'ha in casella, e magari un foglio con un'ora
+           sopra. Senza una riga da noi si presenta al desk a un'ora che per
+           noi non esiste piu', oppure apre il collegamento e legge "non
+           valido" pensando a un guasto nostro. */
         /* L'identificativo con cui l'azienda vive nel B2B. Non si ricalcola qui:
            lo ha scritto il servizio sulle schede al momento dell'invito
            (`aziendaB2B`), e ricalcolarlo nel browser vorrebbe dire rifare a
@@ -21396,7 +21405,8 @@
             });
             if (!confirm('Elimino "' + g.nome + '" dagli incontri B2B?\n\n'
                 + 'Gli orari che aveva prenotato tornano liberi e il suo collegamento smette di funzionare. '
-                + 'Non parte nessuna mail: se l\'azienda va avvisata, glielo dici tu.\n\n'
+                + 'Ai suoi referenti parte una mail che dice quali incontri sono stati annullati e che il '
+                + 'collegamento non vale piu\'.\n\n'
                 + (soloIncontri
                     ? 'Questa azienda esisteva solo per gli incontri: vengono cancellate anche le sue '
                     + (ids.length === 1 ? 'scheda' : ids.length + ' schede') + ', e non si torna indietro.'

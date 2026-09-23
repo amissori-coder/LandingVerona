@@ -786,8 +786,27 @@ function slotDi(area, ora) {
         });
         esigi(!!slotDi('merito-creditizio', '10:00'), 'l\'azienda ha il suo incontro');
         esigi(!!dati.get('iscrizioni/sergio').b2bAzienda, 'e la scheda del referente porta la chiave dell\'impresa');
+        posta.length = 0;
         const r = await chiamaPresenze({ sezione: 'b2b', azione: 'b2b-azienda-elimina', aziendaId: idAziendaDi('p:04641610235') });
         esigi(r.ok === true && (r.liberati || []).length === 1, 'si toglie, e l\'orario torna libero');
+        /* E GLIELO SI DICE. Dall'altra parte c'e' chi quel collegamento ce
+           l'ha in casella, e un foglio con un'ora sopra: senza una riga da noi
+           si presenta al desk a un'ora che per noi non esiste piu'. */
+        esigi(posta.length === 1 && posta[0].to === 'sergiomiele@revilaw.it',
+            'e all\'azienda parte l\'avviso', String((posta[0] || {}).to || ''));
+        esigi(/annullati/i.test(String((posta[0] || {}).subject || '')),
+            'con l\'oggetto che lo dice', String((posta[0] || {}).subject || ''));
+        const testoMail = String((posta[0] || {}).text || '');
+        esigi(/Merito creditizio/.test(testoMail) && /10:00/.test(testoMail),
+            'dentro c\'e l\'incontro annullato, con la sua ora');
+        esigi(/collegamento[\s\S]*non apre pi\u00f9 nulla/i.test(testoMail),
+            'e che il collegamento non apre piu nulla');
+        esigi(/iscrizione al convegno resta/.test(testoMail),
+            'e che l\'iscrizione al convegno non c\'entra: chi legge "annullato" pensa di essere stato tolto dall\'evento');
+        /* NESSUN PULSANTE: non c'e' piu' niente da aprire, e un pulsante che
+           porta a una pagina che rifiuta sarebbe una beffa. */
+        esigi(!/incontri_b2b/.test(String((posta[0] || {}).html || '')),
+            'e nessun collegamento alla pagina di prenotazione, che rifiuterebbe');
         esigi(!slotDi('merito-creditizio', '10:00'), 'quell\'ora e libera per un\'altra impresa');
         esigi(!documentoAzienda('p:04641610235'), 'il documento dell\'azienda non c\'e piu');
         const scheda = dati.get('iscrizioni/sergio');
@@ -802,6 +821,43 @@ function slotDi(area, ora) {
         await iscrizione({ method: 'POST', headers: {}, body: { d: 'sergio', t: NL.firmaCompleta('sergio'), azione: 'b2b-leggi' } }, res);
         esigi(res._s !== 200 || (res._j || {}).modo !== 'azienda',
             'e nemmeno il collegamento personale del referente', 'stato=' + res._s);
+    });
+
+    await prova('23) Senza prenotazioni, l\'avviso dice solo che il collegamento non vale piu', async () => {
+        /* Chi non aveva ancora prenotato non deve leggersi un elenco di
+           incontri annullati che non ha mai avuto: gli si dice l'unica cosa
+           che lo riguarda, cioe' che quel collegamento non apre piu'. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }]);
+        posta.length = 0;
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'b2b-azienda-elimina', aziendaId: idAziendaDi('p:04641610235') });
+        esigi(r.ok === true && (r.liberati || []).length === 0, 'non c\'era niente da liberare');
+        esigi(posta.length === 1, 'ma l\'avviso parte lo stesso');
+        const t = String((posta[0] || {}).text || '');
+        esigi(/Invito agli incontri B2B annullato/i.test(String((posta[0] || {}).subject || '')),
+            'con un oggetto suo: non "incontri annullati", che non ne aveva', String((posta[0] || {}).subject || ''));
+        esigi(!/Incontri annullati:|Incontro annullato:/.test(t),
+            'e senza l\'elenco di incontri che non ha mai avuto');
+        esigi(/collegamento per prenotare non \u00e8 pi\u00f9 valido/i.test(t),
+            'dice l\'unica cosa che lo riguarda');
+        esigi(!/non apre pi\u00f9 nulla/i.test(t),
+            'e non la dice due volte: lo ha gia detto la riga d apertura');
+        // e chi non vuole avvisare puo' non farlo
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }]);
+        posta.length = 0;
+        await chiamaPresenze({
+            sezione: 'b2b', azione: 'b2b-azienda-elimina',
+            aziendaId: idAziendaDi('p:04641610235'), avvisa: false
+        });
+        esigi(posta.length === 0, 'con avvisa: false non parte niente');
+        esigi(!documentoAzienda('p:04641610235'), 'ma l\'azienda e tolta lo stesso');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
