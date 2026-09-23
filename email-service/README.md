@@ -1290,17 +1290,20 @@ frase in meno che un link a vuoto. Le prove stanno in
 
 ### Un invito riservato, e si legge prima di aprire la mail
 
-L'oggetto e' **"Importante - {{NOME}}: invito riservato agli incontri B2B, Next
+L'oggetto e' **"Importante - {{NOME}}: INVITO RISERVATO agli incontri B2B, Next
 Generation Business, ..."**, e a spedire diventa *"Importante - ANTUR S.R.L.
-BENEFIT: invito riservato agli incontri B2B, ..."*.
+BENEFIT: INVITO RISERVATO agli incontri B2B, ..."*.
 
-**"Importante" con la sola iniziale maiuscola.** Tutto in maiuscolo e' una delle
+**Due registri, e non e' una svista.** "Importante" ha la sola iniziale
+maiuscola, "INVITO RISERVATO" e' tutto maiuscolo: la prima e' la parola che dice
+di aprire la mail, le seconde sono quelle che dicono che non e' una circolare,
+ed e' su quelle che si vuole l'occhio. Un oggetto tutto maiuscolo e' una delle
 cose che i filtri della posta pesano, e questa e' posta che arriva a chi non ci
-ha mai scritto: il margine non c'e'. In una lettera che da' del Voi e parla di
-adeguati assetti, poi, un IMPORTANTE stonerebbe come un cartello. Una parola
-sola, davanti, senza punti esclamativi. La prova
-`prove/mail-invito-forma.prove.js` tiene fuori le maiuscole piene e i punti
-esclamativi. In una casella piena l'oggetto e' spesso l'unica riga che
+ha mai scritto: alzare la voce su DUE parole soltanto, senza punti esclamativi,
+dentro una riga per il resto normale, e' quanto si puo' fare senza pagarlo alla
+consegna. La prova `prove/mail-invito-forma.prove.js` conta le parole maiuscole
+dell'oggetto e pretende che siano esattamente quelle due (le sigle con cifre o
+punti, come "B2B", non contano). In una casella piena l'oggetto e' spesso l'unica riga che
 qualcuno legge: "Gli incontri B2B della Vostra azienda" si scambiava per una
 comunicazione di servizio mandata a tutti gli iscritti, e una mail del genere si
 apre la settimana dopo. Questa non va a tutti - va alle imprese scelte una per
