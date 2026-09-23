@@ -15975,6 +15975,8 @@
                 _evRev = (typeof r.rev === 'number') ? r.rev : null;
                 // si tiene in memoria per evento: rientrando, l'elenco e' subito a video
                 _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato, rev: _evRev };
+                // la finestra dei promemoria, se e' aperta, prende subito i numeri nuovi
+                if (cambiato || !document.querySelector('#pm-el-dinamico[data-pronto="1"]')) aggiornaElencoPromemoriaAperto();
             } else {
                 const msg = (r && r.msg) || 'Lettura non riuscita.';
                 cambiato = (msg !== _evMsg);
@@ -16198,6 +16200,18 @@
         { id: 'b2b', nome: 'Solo incontri B2B', breve: 'solo B2B', sala: false, fuoriElenco: true, dove: 'fra gli invitati ai soli incontri B2B', vai: 'Sposta fra gli invitati ai soli incontri B2B' }
     ];
     function sezioneDef(id) { return SEZIONI_MODALITA.find(x => x.id === id) || SEZIONI_MODALITA[0]; }
+    /* Nomi e aziende A VIDEO scritti tutti allo stesso modo ("MARIO ROSSI" ->
+       "Mario Rossi", "verdi srl" -> "Verdi S.r.l."), con la stessa regola
+       delle mail (promemoria-eventi.js). Il dato salvato non cambia. */
+    function nomePersonaVisto(r) {
+        const T = window.RV_PROMEMORIA && RV_PROMEMORIA.tempo;
+        const n = T ? (T.formaNome(r.nome) + ' ' + T.formaNome(r.cognome)) : ((r.nome || '') + ' ' + (r.cognome || ''));
+        return n.trim();
+    }
+    function aziendaVista(a) {
+        const T = window.RV_PROMEMORIA && RV_PROMEMORIA.tempo;
+        return T ? T.formaAzienda(a) : String(a || '');
+    }
     function modalitaDi(ev, r) {
         const p = EventiPresenze.di(ev.id, r.id) || {};
         const scelta = String(p.modalita || (r && r.modalita) || '').toLowerCase();
@@ -17065,7 +17079,7 @@
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
                 + cellaDataOra(r.data)
-                + '<td class="cliente-cella" data-label="Nome">' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
+                + '<td class="cliente-cella" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>'
                 /* Sotto la ragione sociale, se c'e', da dove viene questa persona:
                    spostarla d'azienda e' una decisione di chi organizza, non un
                    dato dell'iscritto, e chi legge la tabella deve poterlo sapere
@@ -17080,7 +17094,7 @@
                    e', e il resto sta nel suggerimento, ragione sociale
                    dell'invito compresa quando non coincide con quella digitata
                    (l'unica che combacia con l'altro elenco). */
-                + ((t, inv) => '<td data-label="Azienda">' + esc(r.azienda)
+                + ((t, inv) => '<td data-label="Azienda">' + esc(aziendaVista(r.azienda))
                     + (inv && inv.codice
                         ? ' <span class="ev-sel" title="Azienda selezionata: registrata con il codice '
                         + esc(inv.codice) + ' riservato all\'invito'
@@ -23357,7 +23371,8 @@
             if (!RE_EMAIL_PM.test(email)) { out.senzaEmail++; return; }
             if (visti[email]) { out.doppie++; return; }
             visti[email] = true;
-            const riga = { nome: ((r.nome || '') + ' ' + (r.cognome || '')).trim(), azienda: r.azienda || '', email: email, sezione: m };
+            const T = RV_PROMEMORIA.tempo;
+            const riga = { nome: (T.formaNome(r.nome) + ' ' + T.formaNome(r.cognome)).trim(), azienda: T.formaAzienda(r.azienda), email: email, sezione: m };
             (m === 'online' ? out.online : out.sala).push(riga);
         });
         const ord = (a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, 'it');
@@ -23452,10 +23467,10 @@
            giorni..."), non con i segnaposti. */
         const oggettoDelGiorno = r => {
             const T = RV_PROMEMORIA.tempo;
-            if (!r.quando || !T || !ev.giorno) return r.oggetto;
+            if (!r.quando || !T || !ev.giorno) return String(r.oggetto || '').split('{{AZIENDA}}').join('[azienda]');
             const d = new Date(r.quando);
             const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-            return T.applica(String(r.oggetto || ''), T.frasi(iso, ev.giorno, RV_PROMEMORIA.giornoDaTesto(ev.scadenzaB2B || '', ev.giorno) || ''));
+            return T.applica(String(r.oggetto || ''), T.frasi(iso, ev.giorno, RV_PROMEMORIA.giornoDaTesto(ev.scadenzaB2B || '', ev.giorno) || '')).split('{{AZIENDA}}').join('[azienda]');
         };
         /* Quante persone: per un invio gia' fatto, quante l'hanno ricevuta;
            altrimenti quante la riceverebbero adesso, nelle sezioni della riga. */
@@ -23518,11 +23533,11 @@
                 + (conSezione ? '<td>' + esc(sezioneDef(r.sezione).nome) + '</td>' : '') + '</tr>').join('')
             + '</tbody></table></div>';
     }
-    function modaleElencoPromemoria(ev) {
-        if (!window.RV_PROMEMORIA) return;
+    /* La parte della finestra che dipende dagli iscritti: il riepilogo e le
+       due serie. Sta in un contenitore suo (#pm-el-dinamico), cosi' quando
+       arrivano gli iscritti si rifa' solo questa, senza riaprire la finestra. */
+    function contenutoElencoPromemoria(ev) {
         const dest = elenchiPromemoria(ev);
-        const conta = (n, uno, molti) => '<b>' + n + '</b> ' + (n === 1 ? uno : molti);
-        // quanti per sezione, in sala
         const perSez = {};
         dest.sala.forEach(r => { perSez[r.sezione] = (perSez[r.sezione] || 0) + 1; });
         const dettaglioSala = RV_PROMEMORIA.SERIE.sala.sezioni.map(id => sezioneDef(id).nome + ' ' + (perSez[id] || 0)).join(' · ');
@@ -23531,35 +23546,60 @@
         if (dest.doppie) esclusi.push(dest.doppie + ' indirizz' + (dest.doppie === 1 ? 'o doppio' : 'i doppi'));
         if (dest.senzaEmail) esclusi.push(dest.senzaEmail + ' senza email valida');
         const tessera = (titolo, n, sotto) => '<div class="pm-tessera"><div class="pm-tessera-tit">' + titolo + '</div>'
-            + '<div class="pm-tessera-num">' + (dest.caricato ? n : '-') + '</div>'
-            + '<div class="hint">' + (dest.caricato ? sotto : 'in caricamento') + '</div></div>';
+            + '<div class="pm-tessera-num">' + (dest.caricato ? n : '<span class="pm-attesa">…</span>') + '</div>'
+            + '<div class="hint">' + (dest.caricato ? sotto : 'caricamento degli iscritti in corso') + '</div></div>';
         const sezione = (serie, titolo, sotto, lista, conSezione) => '<section class="pm-serie">'
             + '<div class="pm-serie-testa"><h3>' + titolo + '</h3><span class="hint">' + sotto + '</span></div>'
             + tabellaPromemoriaHtml(ev, serie, dest)
             + (dest.caricato ? '<details class="pm-elenco"><summary>Elenco dei destinatari ' + (serie === 'online' ? 'online' : 'in sala') + ' (' + lista.length + ')</summary>' + elencoPersoneHtml(lista, conSezione) + '</details>' : '')
             + '</section>';
-        apriModale('<h2>Promemoria agli iscritti</h2>'
-            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi: la sera <b>alle 20</b>, il giorno dell\'evento <b>alle 7</b>. '
-            + 'A ogni invio il sistema rilegge gli iscritti: i numeri qui sotto sono quelli di oggi.</p>'
-            + '<div class="pm-riepilogo">'
+        return '<div class="pm-riepilogo">'
             + tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala))
             + tessera('Destinatari online', dest.online.length, 'sezione Online')
             + '<div class="pm-riepilogo-azioni"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest"' + (dest.caricato ? '' : ' disabled') + '>Scarica i destinatari (CSV)</button>'
             + (esclusi.length ? '<div class="hint">Non ricevono: ' + esc(esclusi.join(', ')) + '; né gli invitati ai soli incontri B2B.</div>' : '<div class="hint">Non ricevono gli assenti e gli invitati ai soli incontri B2B.</div>')
             + '</div></div>'
             + sezione('sala', 'In sala', 'ospiti in presenza, aderenti Revilaw, sponsor e relatori', dest.sala, true)
-            + sezione('online', 'Online', 'chi segue la diretta', dest.online, false)
+            + sezione('online', 'Online', 'chi segue la diretta', dest.online, false);
+    }
+    function collegaElencoPromemoria(ev, radice) {
+        collegaAzioniPromemoria(ev, radice);
+        const bDest = radice.querySelector('#pm-scarica-dest');
+        if (bDest) bDest.addEventListener('click', () => esportaDestinatariPromemoria(ev));
+    }
+    /* Arrivati (o cambiati) gli iscritti: se la finestra dei promemoria e'
+       aperta sull'evento a video, si rifanno numeri ed elenchi al loro posto. */
+    function aggiornaElencoPromemoriaAperto() {
+        const box = document.getElementById('pm-el-dinamico');
+        if (!box || !window.RV_PROMEMORIA) return;
+        const ev = eventoCorrente();
+        if (!ev || box.dataset.ev !== ev.id) return;
+        // gli elenchi aperti restano aperti
+        const aperti = Array.from(box.querySelectorAll('details.pm-elenco')).map(d => d.open);
+        box.innerHTML = contenutoElencoPromemoria(ev);
+        box.dataset.pronto = _evIscrizioni !== null ? '1' : '';
+        Array.from(box.querySelectorAll('details.pm-elenco')).forEach((d, i) => { if (aperti[i]) d.open = true; });
+        collegaElencoPromemoria(ev, box);
+    }
+    function modaleElencoPromemoria(ev) {
+        if (!window.RV_PROMEMORIA) return;
+        apriModale('<h2>Promemoria agli iscritti</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi: la sera <b>alle 20</b>, il giorno dell\'evento <b>alle 7</b>. '
+            + 'A ogni invio il sistema rilegge gli iscritti: i numeri qui sotto sono quelli di oggi.</p>'
+            + '<div id="pm-el-dinamico" data-ev="' + esc(ev.id) + '" data-pronto="' + (_evIscrizioni !== null ? '1' : '') + '">' + contenutoElencoPromemoria(ev) + '</div>'
             + '<details class="pm-come"><summary>Come funziona</summary><p class="hint" style="max-width:none;margin:6px 0 0;">'
             + 'Apri una riga: vedi la mail com\'è davvero, correggi i testi, scegli il giorno e le sezioni, e conferma. I giorni che mancano si calcolano il giorno dell\'invio. '
+            + 'Nell\'oggetto {{AZIENDA}} diventa il nome dell\'azienda di chi riceve. '
             + 'Chi si iscrive <b>dopo</b> la prima mail riceve alla prima sera utile la mail completa della sua serie, con i giorni ricalcolati, e poi segue il calendario: '
             + 'una mail al giorno, e la vigilia ha la precedenza. La sezione che conta è quella decisa da voi, non quella dichiarata iscrivendosi.</p></details>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="pm-el-chiudi">Chiudi</button></div>',
             { classe: 'larga' });
         document.getElementById('pm-el-chiudi').addEventListener('click', chiudiModale);
         const cont = document.getElementById('modale-contenitore');
-        collegaAzioniPromemoria(ev, cont);
-        const bDest = cont.querySelector('#pm-scarica-dest');
-        if (bDest) bDest.addEventListener('click', () => esportaDestinatariPromemoria(ev));
+        collegaElencoPromemoria(ev, document.getElementById('pm-el-dinamico'));
+        /* Iscritti non ancora arrivati: la lettura parte adesso, e appena
+           risponde i numeri compaiono qui senza riaprire nulla. */
+        if (_evIscrizioni === null && !_evInFlight && !ev.tutti) caricaIscrizioni(ev, () => aggiornaElencoPromemoriaAperto());
         // la riga su cui si stava lavorando torna sotto gli occhi
         const ev_ = cont.querySelector('tr.pm-evidenziata');
         if (ev_ && ev_.scrollIntoView) ev_.scrollIntoView({ block: 'center' });
@@ -23631,7 +23671,7 @@
             visti[e] = true;
             out.totale++;
             out.perSezione[m] = (out.perSezione[m] || 0) + 1;
-            if (!out.nomeEsempio) out.nomeEsempio = (String(r.nome || '').trim() + ' ' + String(r.cognome || '').trim()).trim();
+            if (!out.nomeEsempio) out.nomeEsempio = (RV_PROMEMORIA.tempo.formaNome(r.nome) + ' ' + RV_PROMEMORIA.tempo.formaNome(r.cognome)).trim();
         });
         return out;
     }
@@ -23707,7 +23747,8 @@
                 + '<button class="btn btn-sm btn-primary" id="pm-testi-nuovi" style="margin-top:8px;">Usa i testi aggiornati</button></div>'
                 : '')
             + '<details class="ev-colonne" style="margin:4px 0 12px;"' + (rec && rec.testi && !opz.testiNuovi ? ' open' : '') + '><summary>Correggi i testi</summary><div style="margin-top:8px;">'
-            + '<div class="campo"><label>Oggetto</label><input id="pm-oggetto" value="' + esc(testi.oggetto || '') + '"' + dis + ' style="max-width:none;"></div>'
+            + '<div class="campo"><label>Oggetto</label><input id="pm-oggetto" value="' + esc(testi.oggetto || '') + '"' + dis + ' style="max-width:none;">'
+            + '<div class="hint">{{AZIENDA}} diventa il nome dell\'azienda di chi riceve; se manca, sparisce con il trattino.</div></div>'
             + '<div class="campo"><label>Titolo</label><input id="pm-titolo" value="' + esc(testi.titolo || '') + '"' + dis + ' style="max-width:none;"></div>'
             + '<div class="campo"><label>Apertura</label><textarea id="pm-sommario" rows="3"' + dis + ' style="max-width:none;">' + esc(testi.sommario || '') + '</textarea>'
             + '<div class="hint">{{NOME}} diventa il nome di chi legge.</div></div>'

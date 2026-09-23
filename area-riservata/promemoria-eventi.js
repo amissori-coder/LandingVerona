@@ -135,7 +135,7 @@
        quando si conferma: un promemoria confermato con una versione
        precedente l'area riservata lo segnala, perche' riaprendolo si
        possano prendere i testi nuovi. Va cambiata a ogni revisione. */
-    const VERSIONE_TESTI = '2026-09-23-formale';
+    const VERSIONE_TESTI = '2026-09-24-importante';
     const PROPOSTE = {
         'napoli-2026-10-02': [
             /* ------------------------- IN SALA ------------------------- */
@@ -143,7 +143,7 @@
                 id: 'sala-programma', serie: 'sala', giorniPrima: 8, benvenuto: true,
                 nome: 'Otto giorni prima: programma e informazioni essenziali',
                 mail: {
-                    oggetto: '{{MANCANO}} a Next Generation Business: il programma dei lavori',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} a Next Generation Business: il programma dei lavori',
                     anteprima: 'Venerdì 2 ottobre 2026, Hotel Eurostars Excelsior di Napoli. Registrazione dalle ore 9.00.',
                     titolo: 'Venerdì 2 ottobre 2026, Napoli',
                     sommario: 'Gentile ' + NOME + ', {{mancano}} a Next Generation Business, che si terrà venerdì 2 ottobre 2026 presso l\'Hotel Eurostars Excelsior di Napoli. Siamo lieti di confermarLe la partecipazione in presenza.',
@@ -163,7 +163,7 @@
                 id: 'sala-sabato', serie: 'sala', giorniPrima: 6,
                 nome: 'Sabato 26: incontri B2B, networking e arrivo',
                 mail: {
-                    oggetto: '{{MANCANO}} a Next Generation Business: incontri B2B e networking',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} a Next Generation Business: incontri B2B e networking',
                     anteprima: 'Le informazioni sugli incontri B2B e sui momenti di networking della giornata del 2 ottobre.',
                     titolo: 'Incontri B2B e networking',
                     sommario: 'Gentile ' + NOME + ', {{mancano}} a Next Generation Business. Oltre alle sessioni in programma, la giornata offrirà diverse occasioni di confronto tra imprese, professionisti e relatori.',
@@ -183,7 +183,7 @@
                 id: 'sala-presenza', serie: 'sala', giorniPrima: 3,
                 nome: 'Tre giorni prima: conferma della presenza e incontri B2B',
                 mail: {
-                    oggetto: '{{MANCANO}} a Next Generation Business: la Sua partecipazione in sala',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} a Next Generation Business: la Sua partecipazione in sala',
                     anteprima: 'Qualora non potesse partecipare, La preghiamo di comunicarcelo: il posto sarà assegnato a chi è in lista d\'attesa.',
                     titolo: 'La Sua partecipazione in sala',
                     sommario: 'Gentile ' + NOME + ', {{mancano}} a Next Generation Business e l\'organizzazione sta ultimando la predisposizione della sala e dei badge nominativi.',
@@ -202,7 +202,7 @@
                 id: 'sala-vigilia', serie: 'sala', giorniPrima: 1, soloIlGiorno: true,
                 nome: 'Il giorno prima: orari, indirizzo e ultime indicazioni',
                 mail: {
-                    oggetto: 'Next Generation Business si terrà {{quando}}: orari e indicazioni per l\'arrivo',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business si terrà {{quando}}: orari e indicazioni per l\'arrivo',
                     anteprima: 'La sala sarà al completo: La invitiamo a presentarsi prima delle ore 9.00.',
                     titolo: 'Le ultime indicazioni',
                     sommario: 'Gentile ' + NOME + ', in vista della giornata di {{quando}} Le trasmettiamo le ultime indicazioni organizzative.',
@@ -221,7 +221,7 @@
                 id: 'sala-mattina', serie: 'sala', giorniPrima: 0, soloIlGiorno: true, mattina: true,
                 nome: 'La mattina dell\'evento, alle 7: messaggio breve con la mappa',
                 mail: {
-                    oggetto: 'Next Generation Business si tiene oggi: registrazione dalle ore 9.00',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business si tiene oggi: registrazione dalle ore 9.00',
                     anteprima: 'Hotel Eurostars Excelsior, Via Partenope 48, Napoli. Inizio dei lavori alle ore 9.30.',
                     titolo: 'La attendiamo questa mattina',
                     sommario: 'Gentile ' + NOME + ', Le ricordiamo che Next Generation Business si terrà oggi presso l\'Hotel Eurostars Excelsior di Napoli.',
@@ -240,7 +240,7 @@
                 id: 'online-programma', serie: 'online', giorniPrima: 8, benvenuto: true,
                 nome: 'Otto giorni prima: programma e modalità della diretta',
                 mail: {
-                    oggetto: '{{MANCANO}} alla diretta di Next Generation Business: il programma dei lavori',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} alla diretta di Next Generation Business: il programma dei lavori',
                     anteprima: 'Venerdì 2 ottobre 2026, in diretta dalle ore 9.30. Le credenziali di accesso Le saranno inviate con un messaggio separato.',
                     titolo: 'La diretta del 2 ottobre',
                     sommario: 'Gentile ' + NOME + ', {{mancano}} a Next Generation Business: venerdì 2 ottobre 2026 potrà seguire in diretta i lavori da Napoli.',
@@ -265,7 +265,7 @@
                 id: 'online-sabato', serie: 'online', giorniPrima: 6,
                 nome: 'Sabato 26: come seguire al meglio la diretta',
                 mail: {
-                    oggetto: '{{MANCANO}} alla diretta di Next Generation Business: indicazioni per il collegamento',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} alla diretta di Next Generation Business: indicazioni per il collegamento',
                     anteprima: 'Alcune indicazioni per seguire al meglio la diretta del 2 ottobre e gli orari delle sessioni.',
                     titolo: 'Indicazioni per il collegamento',
                     sommario: 'Gentile ' + NOME + ', {{mancano}} alla diretta di Next Generation Business. Di seguito alcune indicazioni utili per seguire i lavori nelle migliori condizioni.',
@@ -290,7 +290,7 @@
                 id: 'online-vigilia', serie: 'online', giorniPrima: 1, soloIlGiorno: true,
                 nome: 'Il giorno prima: ritrovi il collegamento e gli accessi',
                 mail: {
-                    oggetto: 'Next Generation Business in diretta {{quando}}: le credenziali di accesso',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business in diretta {{quando}}: le credenziali di accesso',
                     anteprima: 'I lavori avranno inizio alle ore 9.30. Collegamento e credenziali sono contenuti nel messaggio con gli accessi.',
                     titolo: 'Le credenziali di accesso',
                     sommario: 'Gentile ' + NOME + ', Le ricordiamo che {{quando}}, venerdì 2 ottobre, i lavori di Next Generation Business avranno inizio alle ore 9.30, in diretta da Napoli.',
@@ -307,7 +307,7 @@
                 id: 'online-mattina', serie: 'online', giorniPrima: 0, soloIlGiorno: true, mattina: true,
                 nome: 'La mattina dell\'evento, alle 7: messaggio breve, la diretta comincia',
                 mail: {
-                    oggetto: 'Next Generation Business: la diretta inizia alle ore 9.30',
+                    oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business: la diretta inizia alle ore 9.30',
                     anteprima: 'In diretta da Napoli. Collegamento e credenziali sono contenuti nel messaggio con gli accessi.',
                     titolo: 'Oggi in diretta',
                     sommario: 'Gentile ' + NOME + ', Le ricordiamo che i lavori di Next Generation Business avranno inizio oggi alle ore 9.30.',
@@ -361,7 +361,51 @@
                 .replace(/\[\[SE_B2B\]\]([\s\S]*?)\[\[\/SE_B2B\]\]/g, (m, dentro) => f.b2bAperto ? dentro : '');
             return out.replace(/\n{3,}/g, '\n\n');
         }
-        return { frasi: frasi, applica: applica, giorniTra: giorniTra, giornoEsteso: giornoEsteso, dataEstesa: dataEstesa };
+        /* NOMI E AZIENDE SCRITTI TUTTI ALLO STESSO MODO.
+           Persone: chi scrive tutto maiuscolo o tutto minuscolo ("MARIO ROSSI",
+           "anna d'amico") diventa "Mario Rossi", "Anna D'Amico"; chi ha gia' messo
+           le maiuscole al loro posto ("McArthur") resta com'e'.
+           Aziende: stessa regola per le parole, le preposizioni in mezzo restano
+           minuscole ("Studio di Consulenza"), e la forma societaria si scrive
+           sempre nello stesso modo: S.r.l., S.r.l.s., S.p.A., S.a.s., S.n.c.,
+           S.c.a r.l., S.s. */
+        const FORME = [
+            [/(^|[\s,])s\.?\s?c\.?\s?a\.?\s?r\.?\s?l\.?(?=$|[\s,])/gi, 'S.c.a r.l.'],
+            [/(^|[\s,])s\.?\s?c\.?\s?r\.?\s?l\.?(?=$|[\s,])/gi, 'S.c.r.l.'],
+            [/(^|[\s,])s\.?\s?r\.?\s?l\.?\s?s\.?(?=$|[\s,])/gi, 'S.r.l.s.'],
+            [/(^|[\s,])s\.?\s?r\.?\s?l\.?(?=$|[\s,])/gi, 'S.r.l.'],
+            [/(^|[\s,])s\.?\s?p\.?\s?a\.?(?=$|[\s,])/gi, 'S.p.A.'],
+            [/(^|[\s,])s\.?\s?a\.?\s?s\.?(?=$|[\s,])/gi, 'S.a.s.'],
+            [/(^|[\s,])s\.?\s?n\.?\s?c\.?(?=$|[\s,])/gi, 'S.n.c.']
+        ];
+        const PICCOLE = ['di', 'e', 'ed', 'del', 'della', 'delle', 'dei', 'degli', 'dello', 'da', 'in', 'per', 'con', 'a', 'al', 'alla', 'and', 'of', '&'];
+        function maiuscoleAPosto(t) {
+            return t.toLowerCase().replace(/(^|[\s'’\-./(])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+        }
+        function formaNome(s) {
+            const t = String(s || '').trim().replace(/\s+/g, ' ');
+            if (!t || (t !== t.toUpperCase() && t !== t.toLowerCase())) return t;
+            return maiuscoleAPosto(t);
+        }
+        function formaAzienda(s) {
+            let t = String(s || '').trim().replace(/\s+/g, ' ');
+            if (!t) return '';
+            if (t === t.toUpperCase() || t === t.toLowerCase()) {
+                t = maiuscoleAPosto(t).split(' ').map((w, i) => (i && PICCOLE.indexOf(w.toLowerCase()) >= 0) ? w.toLowerCase() : w).join(' ');
+            }
+            FORME.forEach(f => { t = t.replace(f[0], (m, a) => a + f[1]); });
+            // "Alfa S.r.l" e "Alfa, S.r.l.": la virgola prima della forma societaria non serve
+            return t.replace(/\s*,\s*(S\.(?:r\.l\.s?|p\.A|a\.s|n\.c|c\.a r\.l|c\.r\.l)\.?)$/, ' $1').replace(/\s+/g, ' ').trim();
+        }
+        /* {{AZIENDA}} nell'oggetto: il nome dell'azienda di chi riceve. Se
+           l'azienda non c'e', sparisce con il suo separatore (" - ", ": ", ", "). */
+        function conAzienda(s, azienda) {
+            const a = formaAzienda(azienda);
+            const x = String(s || '');
+            if (a) return x.split('{{AZIENDA}}').join(a);
+            return x.replace(/\s*[-–|:,]\s*\{\{AZIENDA\}\}/g, '').replace(/\{\{AZIENDA\}\}\s*[-–|:,]?\s*/g, '').trim();
+        }
+        return { frasi: frasi, applica: applica, giorniTra: giorniTra, giornoEsteso: giornoEsteso, dataEstesa: dataEstesa, formaNome: formaNome, formaAzienda: formaAzienda, conAzienda: conAzienda };
     })();
 
     /* "30 settembre" (come lo scrive la scheda dell'evento) -> "2026-09-30",

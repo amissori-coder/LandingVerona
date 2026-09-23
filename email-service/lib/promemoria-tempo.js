@@ -64,4 +64,49 @@ function applica(s, f) {
     return out.replace(/\n{3,}/g, '\n\n');
 }
 
-module.exports = { frasi, applica, giorniTra, giornoEsteso, dataEstesa };
+/* NOMI E AZIENDE SCRITTI TUTTI ALLO STESSO MODO.
+   Persone: chi scrive tutto maiuscolo o tutto minuscolo ("MARIO ROSSI",
+   "anna d'amico") diventa "Mario Rossi", "Anna D'Amico"; chi ha gia' messo
+   le maiuscole al loro posto ("McArthur") resta com'e'.
+   Aziende: stessa regola per le parole, le preposizioni in mezzo restano
+   minuscole ("Studio di Consulenza"), e la forma societaria si scrive
+   sempre nello stesso modo: S.r.l., S.r.l.s., S.p.A., S.a.s., S.n.c.,
+   S.c.a r.l., S.s. */
+const FORME = [
+    [/(^|[\s,])s\.?\s?c\.?\s?a\.?\s?r\.?\s?l\.?(?=$|[\s,])/gi, 'S.c.a r.l.'],
+    [/(^|[\s,])s\.?\s?c\.?\s?r\.?\s?l\.?(?=$|[\s,])/gi, 'S.c.r.l.'],
+    [/(^|[\s,])s\.?\s?r\.?\s?l\.?\s?s\.?(?=$|[\s,])/gi, 'S.r.l.s.'],
+    [/(^|[\s,])s\.?\s?r\.?\s?l\.?(?=$|[\s,])/gi, 'S.r.l.'],
+    [/(^|[\s,])s\.?\s?p\.?\s?a\.?(?=$|[\s,])/gi, 'S.p.A.'],
+    [/(^|[\s,])s\.?\s?a\.?\s?s\.?(?=$|[\s,])/gi, 'S.a.s.'],
+    [/(^|[\s,])s\.?\s?n\.?\s?c\.?(?=$|[\s,])/gi, 'S.n.c.']
+];
+const PICCOLE = ['di', 'e', 'ed', 'del', 'della', 'delle', 'dei', 'degli', 'dello', 'da', 'in', 'per', 'con', 'a', 'al', 'alla', 'and', 'of', '&'];
+function maiuscoleAPosto(t) {
+    return t.toLowerCase().replace(/(^|[\s'’\-./(])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+}
+function formaNome(s) {
+    const t = String(s || '').trim().replace(/\s+/g, ' ');
+    if (!t || (t !== t.toUpperCase() && t !== t.toLowerCase())) return t;
+    return maiuscoleAPosto(t);
+}
+function formaAzienda(s) {
+    let t = String(s || '').trim().replace(/\s+/g, ' ');
+    if (!t) return '';
+    if (t === t.toUpperCase() || t === t.toLowerCase()) {
+        t = maiuscoleAPosto(t).split(' ').map((w, i) => (i && PICCOLE.indexOf(w.toLowerCase()) >= 0) ? w.toLowerCase() : w).join(' ');
+    }
+    FORME.forEach(f => { t = t.replace(f[0], (m, a) => a + f[1]); });
+    // "Alfa S.r.l" e "Alfa, S.r.l.": la virgola prima della forma societaria non serve
+    return t.replace(/\s*,\s*(S\.(?:r\.l\.s?|p\.A|a\.s|n\.c|c\.a r\.l|c\.r\.l)\.?)$/, ' $1').replace(/\s+/g, ' ').trim();
+}
+/* {{AZIENDA}} nell'oggetto: il nome dell'azienda di chi riceve. Se
+   l'azienda non c'e', sparisce con il suo separatore (" - ", ": ", ", "). */
+function conAzienda(s, azienda) {
+    const a = formaAzienda(azienda);
+    const x = String(s || '');
+    if (a) return x.split('{{AZIENDA}}').join(a);
+    return x.replace(/\s*[-–|:,]\s*\{\{AZIENDA\}\}/g, '').replace(/\{\{AZIENDA\}\}\s*[-–|:,]?\s*/g, '').trim();
+}
+
+module.exports = { frasi, applica, giorniTra, giornoEsteso, dataEstesa, formaNome, formaAzienda, conAzienda };
