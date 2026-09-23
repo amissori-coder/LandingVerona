@@ -147,10 +147,11 @@ prova('Che e un invito riservato si legge prima di aprire la mail', () => {
     /* In una casella piena l'oggetto e' spesso l'unica riga che qualcuno
        legge: se non dice che l'invito e' riservato, la mail passa per una
        comunicazione di servizio mandata a tutti e si apre la settimana dopo.
-       Le tre parole stanno in TESTA, prima del taglio che i telefoni fanno
-       dopo una quarantina di caratteri. */
+       Le parole che contano stanno prima del taglio che i telefoni fanno dopo
+       una quarantina di caratteri: "Importante", il nome dell'impresa e, per
+       le ragioni sociali corte, anche "invito riservato". */
     const m = mail();
-    esigi(/^Invito riservato/.test(m.oggetto), 'l oggetto comincia da li', m.oggetto);
+    esigi(/invito riservato/i.test(m.oggetto), 'l oggetto lo dice', m.oggetto);
     esigi(m.oggetto.indexOf('Invito riservato') < 40, 'e la parte che conta sta prima del taglio');
     const html = senzaTrattini(m.html);
     esigi(/riservat/i.test(html.slice(0, html.indexOf('Revilaw S.p.A.'))),
@@ -283,16 +284,28 @@ prova('L oggetto nomina l impresa, e il nome resta un segnaposto', () => {
     const m = mail();
     esigi(m.oggetto.indexOf(NL.SEGNAPOSTO_NOME) >= 0,
         'l oggetto porta il segnaposto del nome, non un nome scritto a mano', m.oggetto);
-    esigi(m.oggetto.indexOf('Invito riservato') === 0,
-        'e comincia con "Invito riservato": e la prima cosa che si legge in elenco', m.oggetto);
+    esigi(m.oggetto.indexOf('Importante') === 0,
+        'e comincia con "Importante": e la prima cosa che si legge in elenco', m.oggetto);
+    /* "Importante" si scrive con la sola iniziale maiuscola: tutto in
+       maiuscolo e' una delle cose che i filtri della posta pesano, e questa e'
+       posta che arriva a chi non ci ha mai scritto. */
+    esigi(m.oggetto.indexOf('IMPORTANTE') < 0 && !/!/.test(m.oggetto),
+        'non urla: niente maiuscole piene ne punti esclamativi', m.oggetto);
+    esigi(m.oggetto.indexOf('invito riservato') > 0,
+        'e dice comunque che e un invito riservato', m.oggetto);
     /* Prima del nome ci devono stare poche parole: i telefoni tagliano
-       l'oggetto dopo una quarantina di caratteri, e il nome deve rientrare. */
-    esigi(m.oggetto.indexOf(NL.SEGNAPOSTO_NOME) <= 24,
+       l'oggetto dopo una quarantina di caratteri, e il nome deve rientrare
+       anche quando la ragione sociale e' lunga. */
+    esigi(m.oggetto.indexOf(NL.SEGNAPOSTO_NOME) <= 16,
         'il nome arriva presto, prima del taglio dei telefoni',
         'a ' + m.oggetto.indexOf(NL.SEGNAPOSTO_NOME) + ' caratteri');
+    const lungo = m.oggetto.split(NL.SEGNAPOSTO_NOME).join('COMPAGNIA UNICA LAVORATORI PORTUALI');
+    esigi(lungo.slice(0, 40).indexOf('COMPAGNIA UNICA LAVORATORI') >= 0,
+        'e con una ragione sociale di 35 caratteri si legge lo stesso nei primi quaranta',
+        lungo.slice(0, 40));
     const vero = m.oggetto.split(NL.SEGNAPOSTO_NOME).join('COMPAGNIA UNICA LAVORATORI PORTUALI');
     esigi(vero.indexOf('{{') < 0, 'sostituito, non resta niente da sostituire', vero);
-    esigi(vero.indexOf('Incontri B2B') >= 0 && vero.indexOf('Napoli') >= 0,
+    esigi(/incontri B2B/i.test(vero) && vero.indexOf('Napoli') >= 0,
         'e restano di che si tratta e dove', vero);
     /* L'oggetto e' una riga di intestazione: dentro non ci vanno a capo, che
        la spezzerebbero in due. */
