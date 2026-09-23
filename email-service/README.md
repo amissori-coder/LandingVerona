@@ -2516,6 +2516,60 @@ La risposta porta `soloInviti: true`, `aggiornate` e `create`, cosi' l'area
 riservata dice quante ne ha segnate e quante ne ha aggiunte. Le prove stanno in
 `prove/scelta-invito-b2b.prove.js`.
 
+### Il secondo elenco: di partenza sono spuntate solo le nuove
+
+Gli inviti non si mandano tutti lo stesso giorno. Si importa un elenco, si
+spedisce, e qualche giorno dopo se ne importa un altro: la finestra allora
+contiene le aziende di ieri **e** quelle di oggi, e chi preme Invia ne vuole
+una meta' sola.
+
+Finche' l'elenco era uno solo, aprire la finestra con **tutte spuntate** era la
+risposta giusta: erano tutte da invitare. Dal secondo elenco in poi e' la
+risposta pericolosa - basta premere Invia e partono cento inviti ripetuti a chi
+li ha gia' avuti - ed e' anche la piu' scomoda, perche' l'unica difesa sarebbe
+togliere cento spunte a mano, che su cento righe non fa nessuno.
+
+Adesso, quando almeno un'azienda risulta gia' invitata, la finestra si apre con
+spuntate **solo le nuove**, e sopra l'elenco compaiono tre viste: **Mai
+invitate**, **Gia' invitate**, **Tutte**, ciascuna con il suo numero. Le viste
+compaiono solo quando c'e' qualcosa da dividere: al primo invio sono tutte
+nuove, e tre pulsanti di cui due vuoti sarebbero rumore.
+
+Chi vuole rimandare l'invito a chi l'ha gia' ricevuto lo puo' fare: cambia
+vista e spunta. E' una cosa che si fa **apposta**, non per inerzia, e resta
+possibile perche' l'invito e' la convocazione agli incontri, non un sondaggio
+da mandare una volta sola.
+
+**Da dove si sa chi e' gia' stato invitato.** Dalla scheda, non dal browser:
+quando la mail parte, `invita-b2b-azienda` scrive `b2bAzienda` su ogni
+referente con l'identificativo dell'impresa, l'evento e il giorno. Il browser
+non lo ricalcola - non saprebbe da dove - e non lo tiene in memoria, che
+durerebbe quanto la finestra aperta. La lettura e' una whitelist campo per
+campo, quindi `quando` va esposto esplicitamente (`aziendaB2B` in
+`api/iscrizioni.js`): senza, "invitata il 22/09" non si potrebbe nemmeno
+scrivere accanto al nome.
+
+Tre regole decidono, e stanno **fuori dalla finestra** (`invitoB2BDi`,
+`aziendaGiaInvitata`, `daSpuntareB2B` in `area-riservata/app.js`) per una
+ragione pratica: sono le uniche che stabiliscono se un invito parte due volte,
+e dentro una chiusura non si potrebbero provare.
+
+- **L'invito di un altro evento non conta.** Un'impresa invitata a Verona a
+  marzo non e' invitata a Napoli: le schede sono le stesse, l'evento no. Senza
+  questo controllo, al primo invio di un convegno nuovo meta' elenco
+  risulterebbe gia' invitato e resterebbe fuori senza che nulla lo dica.
+- **Basta un referente.** Un gruppo conta come gia' invitato se almeno uno dei
+  suoi referenti ce l'ha: il collegamento e' dell'impresa ed e' lo stesso per
+  tutti, quindi chi e' stato aggiunto dopo non ne ha bisogno di un altro. Il
+  suo caso pero' si vede scritto in riga ("1 referente aggiunto dopo"), perche'
+  e' l'unico in cui rimandare l'invito serve davvero.
+- **La vista e la ricerca sono due setacci diversi**, e "Spunta le mostrate"
+  legge quello che entrambi lasciano passare: quello che si spunta e'
+  esattamente quello che si ha davanti, che e' l'unica cosa che rende sicuro un
+  pulsante che spunta a mazzi.
+
+Le prove stanno in `prove/scelta-invito-b2b.prove.js`.
+
 ### Ritoccare l'elenco senza il file (`invito-b2b-segna`)
 
 La stessa colonna si scrive dalla finestra degli inviti, con l'azione

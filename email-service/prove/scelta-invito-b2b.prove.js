@@ -116,6 +116,11 @@ const daInvitareB2B = daAppJs('daInvitareB2B');
 const iscrittiPerInvitoB2B = daAppJs('iscrittiPerInvitoB2B');
 const natoPerInvitiB2B = daAppJs('natoPerInvitiB2B');
 const fraseEsitoInviti = daAppJs('fraseEsitoInviti');
+const invitoB2BDi = daAppJs('invitoB2BDi');
+const invitatiDelGruppo = daAppJs('invitatiDelGruppo');
+const aziendaGiaInvitata = daAppJs('aziendaGiaInvitata');
+const primoInvioB2B = daAppJs('primoInvioB2B');
+const daSpuntareB2B = daAppJs('daSpuntareB2B');
 /* modalitaDi legge le presenze dalla chiusura dell'app: qui la modalita' la
    porta la riga stessa, che e' quanto basta a questa prova. */
 const modalitaDi = (ev, r) => String(r.modalita || 'presenza');
@@ -420,6 +425,61 @@ esigi(/nessuna azienda segnata/.test(zeroVere.testo) && !/servizio non e ancora/
 const normale = fraseEsitoInviti({ ok: true, lette: 50, importate: 48, saltate: 2 });
 esigi(/48 righe importate su 50 lette \(2 righe vuote saltate\)/.test(normale.testo) && !normale.ko,
     'e un\'importazione normale resta quella di sempre', normale.testo);
+
+console.log('\n16) Il secondo elenco: di partenza sono spuntate solo le nuove');
+/* Il caso vero: cento aziende invitate ieri, venti importate stamattina. Se la
+   finestra si aprisse con tutte spuntate - com'era - basterebbe premere Invia
+   per rimandare l'invito a chi l'ha gia' ricevuto, e l'unica difesa sarebbe
+   togliere cento spunte a mano, che su cento righe non fa nessuno. */
+const EV = 'napoli-2026-10-02';
+const conInvito = (nome, quando) => ({ riga: { aziendaB2B: { id: 'az-' + nome, evento: EV, quando: quando || 0 } } });
+const senzaInvito = () => ({ riga: {} });
+const gruppo = (chiave, persone) => ({ chiave: chiave, persone: persone });
+const vecchie = [];
+for (let i = 0; i < 100; i++) vecchie.push(gruppo('v' + i, [conInvito('v' + i, 1758600000000)]));
+const nuove = [];
+for (let i = 0; i < 20; i++) nuove.push(gruppo('n' + i, [senzaInvito()]));
+const tutte = vecchie.concat(nuove);
+esigi(primoInvioB2B(tutte, EV) === false, 'la finestra sa che non e il primo invio');
+const spuntate = tutte.filter(g => daSpuntareB2B(g, EV, primoInvioB2B(tutte, EV)));
+esigi(spuntate.length === 20 && spuntate.every(g => g.chiave.indexOf('n') === 0),
+    'e di partenza sono spuntate le venti nuove, nessuna delle cento di ieri',
+    'spuntate: ' + spuntate.length);
+
+console.log('\n17) Al PRIMO invio invece sono spuntate tutte');
+/* Quando nessuna e' stata ancora invitata, "solo le nuove" e "tutte" sono la
+   stessa cosa: ma se la regola guardasse solo la bandiera, il primo invio si
+   aprirebbe con l'elenco giusto per caso. Qui si verifica che ci si arrivi
+   apposta. */
+const primaVolta = nuove.slice();
+esigi(primoInvioB2B(primaVolta, EV) === true, 'nessuna invitata: e il primo invio');
+esigi(primaVolta.every(g => daSpuntareB2B(g, EV, true)), 'e sono spuntate tutte, come e sempre stato');
+
+console.log('\n18) L\'invito di un ALTRO evento non conta');
+/* Un'impresa invitata a Verona a marzo non e' invitata a Napoli: le schede
+   sono le stesse, l'evento no. Senza questo controllo, al primo invio di un
+   convegno nuovo meta' elenco risulterebbe gia' invitato e resterebbe fuori. */
+const altrove = gruppo('x', [{ riga: { aziendaB2B: { id: 'az-x', evento: 'verona-2026-03-27', quando: 1 } } }]);
+esigi(!invitoB2BDi(altrove.persone[0].riga, EV), 'l invito di Verona non vale per Napoli');
+esigi(!aziendaGiaInvitata(altrove, EV), 'quindi per Napoli quell azienda e nuova');
+esigi(!!invitoB2BDi(altrove.persone[0].riga, 'verona-2026-03-27'), 'ma per Verona resta invitata');
+/* Una scheda senza identificativo d'azienda non e' un invito: il servizio lo
+   scrive solo quando la mail e' partita davvero. */
+esigi(!invitoB2BDi({ aziendaB2B: { id: '', evento: EV } }, EV), 'e una scheda senza id non e un invito');
+esigi(!invitoB2BDi({}, EV) && !invitoB2BDi(null, EV), 'ne lo e una scheda che non ne parla');
+
+console.log('\n19) Il referente aggiunto DOPO l\'invito');
+/* L'invito e' uno per impresa e il collegamento e' lo stesso per tutti: chi e'
+   stato aggiunto dopo non ne ha bisogno di un altro, quindi l'azienda resta
+   "gia invitata" e non si ripropone da se'. Ma quanti sono senza si conta,
+   perche' e' l'unico caso in cui rimandarlo serve davvero. */
+const mista = gruppo('m', [conInvito('m', 1758600000000), senzaInvito()]);
+esigi(aziendaGiaInvitata(mista, EV), 'basta un referente con l invito perche l azienda risulti invitata');
+esigi(invitatiDelGruppo(mista, EV) === 1 && mista.persone.length === 2,
+    'e si sa che uno dei due e arrivato dopo');
+esigi(!daSpuntareB2B(mista, EV, false), 'di partenza non si rispunta: il collegamento ce l ha gia');
+esigi(invitatiDelGruppo({ persone: [] }, EV) === 0 && !aziendaGiaInvitata(null, EV),
+    'e un gruppo vuoto non manda in errore niente');
 
 console.log('\n' + ok + ' verde, ' + ko + ' ROSSO');
 process.exit(ko ? 1 : 0);
