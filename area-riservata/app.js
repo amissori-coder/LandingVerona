@@ -21054,6 +21054,12 @@
             + campoArea
             + campoAziende
             + '<div id="ib-anteprima" style="margin-top:10px;">'
+            /* L'OGGETTO, scritto sopra l'anteprima. Adesso porta il nome
+               dell'impresa, quindi cambia da una mail all'altra: lasciarlo
+               invisibile vorrebbe dire spedire centoventi oggetti diversi
+               senza averne letto nemmeno uno. Qui si vede con il nome di
+               un'azienda vera fra quelle spuntate, non con il segnaposto. */
+            + '<div class="hint" id="ib-oggetto" style="margin-bottom:6px;"></div>'
             + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
             + '<div id="ib-esito" class="ev-imp-esito"></div>'
@@ -21798,8 +21804,20 @@
         anteprimaSegueCampi(anteprimaMail('ib', () => {
             const m = mailDi();
             if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
+            /* Il nome con cui si guarda l'anteprima: la PRIMA azienda spuntata,
+               non un nome inventato. L'oggetto ora la nomina, e la domanda che
+               ci si fa guardando l'anteprima e' proprio come viene con un nome
+               vero - i nomi delle imprese sono lunghi, e in un oggetto si
+               vede. */
+            const primaScelta = aziende.filter(a => scelte.has(a.chiave))[0];
+            const nomeEsempio = unica ? nomeUnica : ((primaScelta && primaScelta.nome) || 'Nome dell\'azienda');
+            const rigaOggetto = document.getElementById('ib-oggetto');
+            if (rigaOggetto) {
+                rigaOggetto.innerHTML = '<b>Oggetto:</b> '
+                    + esc(m.oggetto.split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(nomeEsempio));
+            }
             return m.html
-                .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(unica ? nomeUnica : 'Mario Rossi'))
+                .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeEsempio))
                 .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
         }));
         document.getElementById('ib-si').addEventListener('click', () => {

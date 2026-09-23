@@ -273,6 +273,32 @@ prova('La riga in coda dice perche questa email e arrivata', () => {
     esigi(!!qui && qui === la, 'e le due copie sono identiche alla lettera', String(qui) + ' | ' + String(la));
 });
 
+prova('L oggetto nomina l impresa, e il nome resta un segnaposto', () => {
+    /* "Invito riservato" e' quello che scrive chiunque mandi la stessa lettera
+       a duemila indirizzi. La parola che non si puo' falsificare e' il nome
+       dell'azienda: chi scorre la posta capisce in un colpo che quella riga
+       riguarda lui e non una lista. Il nome pero' non si puo' scrivere qui: la
+       mail si compone UNA VOLTA SOLA per tutte le aziende, e chi sa a chi sta
+       spedendo e' il servizio. */
+    const m = mail();
+    esigi(m.oggetto.indexOf(NL.SEGNAPOSTO_NOME) >= 0,
+        'l oggetto porta il segnaposto del nome, non un nome scritto a mano', m.oggetto);
+    esigi(m.oggetto.indexOf('Invito riservato') === 0,
+        'e comincia con "Invito riservato": e la prima cosa che si legge in elenco', m.oggetto);
+    /* Prima del nome ci devono stare poche parole: i telefoni tagliano
+       l'oggetto dopo una quarantina di caratteri, e il nome deve rientrare. */
+    esigi(m.oggetto.indexOf(NL.SEGNAPOSTO_NOME) <= 24,
+        'il nome arriva presto, prima del taglio dei telefoni',
+        'a ' + m.oggetto.indexOf(NL.SEGNAPOSTO_NOME) + ' caratteri');
+    const vero = m.oggetto.split(NL.SEGNAPOSTO_NOME).join('COMPAGNIA UNICA LAVORATORI PORTUALI');
+    esigi(vero.indexOf('{{') < 0, 'sostituito, non resta niente da sostituire', vero);
+    esigi(vero.indexOf('Incontri B2B') >= 0 && vero.indexOf('Napoli') >= 0,
+        'e restano di che si tratta e dove', vero);
+    /* L'oggetto e' una riga di intestazione: dentro non ci vanno a capo, che
+       la spezzerebbero in due. */
+    esigi(!/[\r\n]/.test(m.oggetto), 'nessun a capo dentro l oggetto');
+});
+
 console.log('\nLa forma della mail d\'invito B2B\n');
 for (const p of prove) {
     console.log('\n' + p.titolo);

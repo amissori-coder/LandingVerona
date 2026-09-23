@@ -1290,15 +1290,37 @@ frase in meno che un link a vuoto. Le prove stanno in
 
 ### Un invito riservato, e si legge prima di aprire la mail
 
-L'oggetto e' **"Invito riservato agli incontri B2B - Next Generation Business,
-..."**. In una casella piena l'oggetto e' spesso l'unica riga che qualcuno
-legge: "Gli incontri B2B della Vostra azienda" si scambiava per una
+L'oggetto e' **"Invito riservato per {{NOME}} - Incontri B2B, Next Generation
+Business, ..."**, e a spedire diventa *"Invito riservato per ANTUR S.R.L.
+BENEFIT - ..."*. In una casella piena l'oggetto e' spesso l'unica riga che
+qualcuno legge: "Gli incontri B2B della Vostra azienda" si scambiava per una
 comunicazione di servizio mandata a tutti gli iscritti, e una mail del genere si
 apre la settimana dopo. Questa non va a tutti - va alle imprese scelte una per
 una, con la colonna `Invito B2B` - e chi la riceve deve saperlo dalla riga
 dell'elenco.
 
-Le tre parole stanno in **testa** all'oggetto perche' i telefoni lo tagliano
+**Il nome dell'impresa subito dopo**, perche' "riservato" da solo e' quello che
+scrive chiunque mandi la stessa lettera a duemila indirizzi: la parola che non
+si puo' falsificare e' la ragione sociale di chi legge. Prima del nome stanno
+venti caratteri, quindi anche su un telefono rientra quasi sempre per intero.
+
+Il nome resta un **segnaposto**: la mail si compone una volta sola per tutte le
+aziende, e a sostituirlo e' il servizio al momento dell'invio, che e' l'unico a
+sapere a chi sta spedendo. Vale anche per l'oggetto - `subject` passa da
+`sostituisci()` in `invita-b2b-azienda` come il testo e l'HTML. Finche' non ci
+passava, un segnaposto messo li' sarebbe partito **scritto per esteso**, che e'
+il peggior modo di dire a un'impresa che la lettera non era per lei;
+`prove/azienda-b2b.prove.js` manda due inviti a due aziende diverse e controlla
+che ciascuna riceva il proprio nome e che di `{{` non resti traccia. Le
+virgolette dell'HTML nell'oggetto non si mettono: un oggetto non e' HTML, e
+`&amp;` li' si legge.
+
+Nella finestra degli inviti l'oggetto si **vede**, sopra l'anteprima, gia'
+scritto con il nome della prima azienda spuntata: ora che cambia da una mail
+all'altra, lasciarlo invisibile vorrebbe dire spedire centoventi oggetti diversi
+senza averne letto nemmeno uno.
+
+Le due parole stanno in **testa** all'oggetto perche' i telefoni lo tagliano
 dopo una quarantina di caratteri, e quello che conta deve stare prima del
 taglio. Poi lo ripetono l'anteprima (la riga grigia accanto all'oggetto), il
 titolo della testata, il sommario e la nota in coda ("Questo invito e' riservato
