@@ -530,6 +530,7 @@ d'ambiente non ne parte nessuno.
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
 | `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
+| `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo le mail della mattina dell'evento (`mattina: true`); il giro delle 20 le lascia stare |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a

@@ -3,9 +3,13 @@
    ------------------------------------------------------------
    Vercel richiama questo endpoint UNA VOLTA AL GIORNO, alle 20 di
    Roma (vedi vercel.json: 18 UTC, che con l'ora solare diventano le
-   19). Un giro solo, per scelta di chi organizza: i promemoria sono
-   posta della sera, e chi si iscrive durante il giorno riceve il suo
-   la sera stessa, al piu' tardi entro le ventiquattro ore.
+   19). I promemoria sono posta della sera, e chi si iscrive durante il
+   giorno riceve il suo la sera stessa, al piu' tardi entro le
+   ventiquattro ore.
+   L'eccezione e' la mail della MATTINA dell'evento (record con
+   `mattina: true`): la sera del giorno dell'evento sarebbe tardi, e la
+   spedisce un secondo giro alle 7 (api/promemoria-eventi-mattina.js),
+   che tocca solo quelle. Il giro delle 20 le lascia stare.
 
    Legge archivio/promemoriaEventi - i promemoria che chi organizza ha
    CONFERMATO dall'area riservata, con la mail gia' composta - e per
@@ -321,6 +325,8 @@ async function giroBenvenuto(db, lista, ora, scadenza, giro, archDi, trasportoDi
             .sort((a, b) => Number(a.quando) - Number(b.quando))[0];
         if (!w) continue;
         if (!fineEvento(w) || ora > fineEvento(w)) continue;
+        // il giorno dell'evento, la sera, la mail completa non serve piu'
+        if (giornoEventoDi(w) && oggi >= giornoEventoDi(w)) continue;
         const diOggi = serie.filter(r => r.stato === 'programmato' && Number(r.quando) > 0 && giornoRoma(Number(r.quando)) === oggi);
         if (diOggi.some(r => r.soloIlGiorno === true)) continue;
         try {
@@ -371,11 +377,13 @@ async function giroBenvenuto(db, lista, ora, scadenza, giro, archDi, trasportoDi
     return { benvenuti: benvenuti };
 }
 
-module.exports = async (req, res) => {
+module.exports = async (req, res, opz) => {
     const segreto = String(process.env.CRON_SECRET || '').trim();
     const auth = String((req.headers || {})['authorization'] || '');
     if (!segreto || auth !== 'Bearer ' + segreto) { res.status(401).json({ ok: false, msg: 'Non autorizzato' }); return; }
 
+    // il giro delle 7: solo le mail della mattina dell'evento
+    const giroMattina = !!(opz && opz.mattina);
     const inizio = Date.now();
     const scadenza = inizio + BUDGET_MS;
     const giro = 'run-' + inizio.toString(36);
@@ -388,7 +396,10 @@ module.exports = async (req, res) => {
         const ora = Date.now();
         const oggi = giornoRoma(ora);
         // dovuto = previsto per oggi, o per un giorno gia' passato (che sotto diventa scaduto)
-        const dovuti = lista.filter(r => r && r.stato === 'programmato' && Number(r.quando) > 0 && giornoRoma(Number(r.quando)) <= oggi && r.mail && r.mail.html);
+        const dovuti = lista.filter(r => r && r.stato === 'programmato' && Number(r.quando) > 0 && giornoRoma(Number(r.quando)) <= oggi && r.mail && r.mail.html)
+            /* la mail della mattina parte solo dal giro delle 7; quello delle
+               20 la tocca solo se il suo giorno e' passato (per dirla scaduta) */
+            .filter(r => giroMattina ? r.mattina === true : !(r.mattina === true && giornoRoma(Number(r.quando)) === oggi));
         let arch = null;
         let trans = null;
         let inviatiTot = 0, sospesi = 0, scaduti = 0;
@@ -397,7 +408,7 @@ module.exports = async (req, res) => {
         /* Prima il benvenuto a chi e' arrivato dopo: cosi' viene segnato nelle
            mail normali di stamattina, che quindi non gli arrivano in doppio. */
         let recuperi = 0;
-        try {
+        if (!giroMattina) try {
             recuperi = (await giroBenvenuto(db, lista, ora, scadenza, giro, archDi, trasportoDi)).benvenuti;
         } catch (e) {
             console.error('Cron promemoria, benvenuto:', String((e && e.message) || e).slice(0, 300));
@@ -419,7 +430,7 @@ module.exports = async (req, res) => {
                 if (giornoRoma(Number(rec.quando)) < oggi && !(rec.invio && rec.invio.inCorso)) {
                     await applicaPatch(db, rec.id, {
                         stato: 'scaduto',
-                        invio: { il: ora, inviate: 0, motivo: 'Il giorno scelto era già passato quando il servizio è passato (gira una volta al giorno, alle 20): non è partito niente. Riprogrammalo con un giorno nuovo.' }
+                        invio: { il: ora, inviate: 0, motivo: 'Il giorno scelto era già passato quando il servizio è passato (gira una volta al giorno, alle ' + (rec.mattina === true ? '7' : '20') + '): non è partito niente. Riprogrammalo con un giorno nuovo.' }
                     });
                     scaduti++;
                     continue;
