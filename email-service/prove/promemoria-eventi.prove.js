@@ -501,6 +501,33 @@ await prova('18) Oggetto con IMPORTANTE e l\'azienda di chi riceve; nomi e azien
     esigi(casi.every(c => T1.formaAzienda(c) === T2.formaAzienda(c) && T1.formaNome(c) === T2.formaNome(c) && T1.conAzienda('A - {{AZIENDA}} - B', c) === T2.conAzienda('A - {{AZIENDA}} - B', c)), 'servizio e anteprima scrivono nomi e aziende allo stesso modo');
 });
 
+await prova('19) Ogni promemoria parte alla sua ora: 8 dal giro delle 8, 20 da quello delle 20', async () => {
+    const lancia = modulo => async () => {
+        const res = { _s: 0, _j: null, status(n) { this._s = n; return this; }, json(o) { this._j = o; return this; } };
+        await require(modulo)({ method: 'GET', headers: { authorization: 'Bearer segreto-di-prova' } }, res);
+        return Object.assign({ _stato: res._s }, res._j || {});
+    };
+    const giro8 = lancia('../api/promemoria-eventi-ore8'), giro7 = lancia('../api/promemoria-eventi-mattina');
+    azzera();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recNormale('n~sala-sabato', '2026-09-26', { ora: 8 }), recNormale('n~sala-presenza', '2026-09-26')]);
+    orologio = alle8('2026-09-26');
+    await giro7();
+    esigi(noCopia().length === 0, 'il giro delle 7 non manda nulla');
+    const r8 = await giro8();
+    const dopo8 = noCopia().length;
+    esigi(r8._stato === 200 && r8.inviati === 1 && dopo8 === 1, 'il giro delle 8 manda solo quella delle 8 (' + dopo8 + ')');
+    await giro();
+    esigi(noCopia().length === 2, 'il giro delle 20 manda quella delle 20, e non rimanda quella delle 8 (' + noCopia().length + ')');
+    // una delle 8 rimasta in un giorno passato
+    azzera();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recNormale('n~x', '2026-09-26', { ora: 8 })]);
+    orologio = alle8('2026-09-27');
+    await giro8();
+    esigi(noCopia().length === 0 && leggiPromemoria('n~x').stato === 'scaduto' && /alle 8/.test(leggiPromemoria('n~x').invio.motivo), 'il giorno dopo non parte: segnata non partita, e dice alle 8');
+});
+
 await prova('6) Chiamata senza segreto: rifiutata', async () => {
     azzera();
     const res = { _s: 0, status(n) { this._s = n; return this; }, json() { return this; } };
