@@ -1775,7 +1775,7 @@
         },
 
         /* Importazione una tantum: csv vuoto = leggi direttamente dal foglio. */
-        async importaIscrizioni(csv, pagina, dataPredefinita) {
+        async importaIscrizioni(csv, pagina, dataPredefinita, evento) {
             let url = window.RV_IMPORTA_ISCRIZIONI_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'importa-iscrizioni$1');
             if (!url) return { ok: false, msg: 'Servizio non configurato.' };
@@ -1786,7 +1786,15 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, csv: csv || '', pagina: pagina || '', dataPredefinita: dataPredefinita || '' })
+                    /* L'EVENTO serve al solo file degli inviti B2B: le aziende
+                       che non risultano iscritte nascono come aziende dei soli
+                       incontri, e la loro sezione ("Solo incontri B2B") si
+                       scrive in un documento che porta nel nome l'evento.
+                       Senza, il servizio non le crea e le riporta indietro. */
+                    body: JSON.stringify({
+                        idToken, csv: csv || '', pagina: pagina || '',
+                        dataPredefinita: dataPredefinita || '', evento: evento || ''
+                    })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Importazione non riuscita (' + r.status + ').') };
@@ -1796,7 +1804,8 @@
                     // un file con la colonna degli inviti B2B non aggiunge iscritti:
                     // aggiorna chi c'e' gia' e riporta indietro chi non ha trovato
                     soloInviti: data.soloInviti === true,
-                    aggiornate: data.aggiornate || 0, nonIscritte: data.nonIscritte || 0,
+                    aggiornate: data.aggiornate || 0, create: data.create || 0,
+                    nonIscritte: data.nonIscritte || 0,
                     nonTrovate: Array.isArray(data.nonTrovate) ? data.nonTrovate : []
                 };
             } catch (e) {
@@ -21240,27 +21249,36 @@
                     lettore.onload = () => {
                         bImp.disabled = true; bImp.textContent = 'Importo...';
                         diceElenco('Importazione in corso, può richiedere qualche secondo.');
-                        Cloud.importaIscrizioni(String(lettore.result || ''), ev.pagina, ev.quando).then(r => {
+                        Cloud.importaIscrizioni(String(lettore.result || ''), ev.pagina, ev.quando, ev.id).then(r => {
                             bImp.disabled = false; bImp.textContent = 'Importa il file';
                             file.value = '';
                             if (!r.ok) { diceElenco(r.msg || 'Importazione non riuscita.', true); return; }
                             rileggi(fatta => {
                                 if (!fatta) { diceElenco('File importato, ma l\'elenco non si è riletto: chiudi e riapri la finestra.', true); return; }
-                                /* Il file segna chi e' gia' iscritto: non aggiunge
-                                   nessuno. Le righe che un iscritto non lo hanno
-                                   trovato si dicono, con i primi indirizzi: sono
-                                   aziende che non riceveranno l'invito, e
-                                   tacerle vorrebbe dire scoprirlo il 2 ottobre. */
+                                /* CHE COSA E' SUCCESSO, in tre numeri diversi.
+                                   Le righe di un file di inviti prendono tre
+                                   strade, e confonderle e' costato un'ora: chi
+                                   era gia' iscritto viene SEGNATO sulla sua
+                                   scheda; chi non lo era nasce come AZIENDA DEI
+                                   SOLI INCONTRI, fuori dall'elenco della sala;
+                                   e quello che non si e' potuto fare - una riga
+                                   senza il "si" e senza una scheda da segnare -
+                                   si dice per intero, con i primi indirizzi,
+                                   perche' una riga saltata in silenzio e'
+                                   un'azienda che scopri il 2 ottobre. */
                                 const fuori = r.nonIscritte
                                     ? ' ' + r.nonIscritte + (r.nonIscritte === 1
-                                        ? ' riga non risulta iscritta all\'evento e non l\'ho aggiunta'
-                                        : ' righe non risultano iscritte all\'evento e non le ho aggiunte')
+                                        ? ' riga non l\'ho potuta usare'
+                                        : ' righe non le ho potute usare')
                                     + (r.nonTrovate.length ? ' (' + r.nonTrovate.slice(0, 5).join(', ')
                                         + (r.nonIscritte > 5 ? '…' : '') + ')' : '')
-                                    + ': aggiungile con "Aggiungi un\'azienda".'
+                                    + ': non sono segnate "si" e non risultano iscritte. Aggiungile con "Aggiungi un\'azienda".'
                                     : '';
+                                const fatte = [];
+                                if (r.aggiornate) fatte.push(r.aggiornate + (r.aggiornate === 1 ? ' azienda segnata fra gli iscritti' : ' aziende segnate fra gli iscritti'));
+                                if (r.create) fatte.push(r.create + (r.create === 1 ? ' azienda aggiunta per i soli incontri' : ' aziende aggiunte per i soli incontri'));
                                 diceElenco((r.soloInviti
-                                    ? r.aggiornate + (r.aggiornate === 1 ? ' azienda segnata' : ' aziende segnate')
+                                    ? (fatte.join(', ') || 'nessuna azienda segnata')
                                     : r.importate + ' righe importate') + ' su ' + r.lette + ' lette: in elenco ci sono '
                                     + aziende.length + (aziende.length === 1 ? ' azienda.' : ' aziende.') + fuori,
                                     !!r.nonIscritte);
@@ -22638,8 +22656,10 @@
             + '<div class="hint">Una colonna <b>"' + esc(COL_INVITO_B2B) + '"</b> con "sì" sceglie le aziende che compariranno '
             + 'nella finestra degli inviti agli incontri. È l\'unica colonna in cui la cella lasciata in bianco '
             + '<b>cancella</b> la scelta fatta prima: si cambia idea correggendo il file e reimportandolo. '
-            + 'Un file con quella colonna <b>non aggiunge iscritti</b>: segna chi è già iscritto a questo evento, '
-            + 'e le righe che non trovano il loro iscritto te le riporta senza scriverle.</div>'
+            + 'Un file con quella colonna <b>non aggiunge iscritti al convegno</b>: chi è già iscritto viene segnato '
+            + 'sulla sua scheda, e le aziende segnate che iscritte non sono nascono <b>per i soli incontri B2B</b> '
+            + '— fuori dall\'elenco della sala, senza occupare un posto, come se le avessi aggiunte a mano dalla '
+            + 'finestra degli inviti.</div>'
             + '<div class="campo"><label for="imp-evento">A quale evento appartiene</label><select id="imp-evento">'
             + '<option value="">Come indicato nella colonna Pagina</option>'
             + EVENTI_DEF.filter(x => !x.tutti).map(x => '<option value="' + esc(x.id) + '"'
@@ -22658,13 +22678,16 @@
             // l'evento scelto viene impresso su ogni riga, per gli elenchi che non
             // hanno la colonna Pagina (i file esportati dai gestionali, di solito)
             const scelto = EVENTI_DEF.find(x => x.id === ((document.getElementById('imp-evento') || {}).value || ''));
-            Cloud.importaIscrizioni(csv, scelto ? scelto.pagina : '', scelto ? scelto.quando : '').then(r => {
+            Cloud.importaIscrizioni(csv, scelto ? scelto.pagina : '', scelto ? scelto.quando : '',
+                scelto ? scelto.id : '').then(r => {
                 if (bottone) { bottone.disabled = false; bottone.textContent = testoPrec; }
                 if (!r.ok) { mostra(r.msg || 'Importazione non riuscita.', true); return; }
                 mostra(r.soloInviti
-                    ? 'Segnate ' + r.aggiornate + ' aziende per gli inviti B2B, su ' + r.lette + ' righe lette.'
-                    + (r.nonIscritte ? ' ' + r.nonIscritte + ' righe non risultano iscritte a questo evento: '
-                        + 'non le ho aggiunte, perché il file degli inviti sceglie fra chi c\'è già.' : '')
+                    ? 'Inviti B2B: ' + r.aggiornate + ' aziende segnate fra gli iscritti'
+                    + (r.create ? ' e ' + r.create + ' aggiunte per i soli incontri (fuori dall\'elenco della sala)' : '')
+                    + ', su ' + r.lette + ' righe lette.'
+                    + (r.nonIscritte ? ' ' + r.nonIscritte + ' righe non le ho potute usare: non sono segnate "si" '
+                        + 'e non risultano iscritte a questo evento.' : '')
                     : 'Importate ' + r.importate + ' iscrizioni su ' + r.lette + ' righe lette'
                     + (r.saltate ? ' (' + r.saltate + ' righe vuote saltate)' : '') + '.',
                     !!r.nonIscritte);

@@ -2427,14 +2427,20 @@ sovrapposizione di una mappa unisce le chiavi invece di sostituirle.
 
 Un file **senza** quella colonna non tocca la scelta gia' fatta: non ne parla.
 
-### Un file di inviti NON aggiunge iscritti
+### Un file di inviti non aggiunge iscritti al convegno
 
-Le aziende che si segnano per gli incontri sono gente **gia' iscritta**
-all'evento: il file dice quali di loro invitare, non ne registra di nuove.
-Scrivendole come fa un'importazione normale nascevano schede nuove - il nome
-del documento porta dentro la data, e la data del foglio non e' quella con cui
-la persona si era iscritta - quindi lo stesso ospite compariva due volte in
-elenco e contava **due posti in sala**.
+Le aziende che si segnano per gli incontri **non sono** gli iscritti all'evento:
+sono imprese scelte una per una, che vengono al desk per il loro appuntamento e
+non ai lavori in sala. Quasi nessuna di loro si e' iscritta.
+
+Per un po' l'importazione le ha semplicemente **saltate**: scriverle come fa
+un'importazione normale faceva nascere schede nuove - il nome del documento
+porta dentro la data, e la data del foglio non e' quella con cui la persona si
+era iscritta - quindi lo stesso ospite compariva due volte in elenco e contava
+**due posti in sala**. La regola pero' rispondeva alla domanda sbagliata: non
+c'era nessun ospite da duplicare, perche' non erano iscritti. Il risultato,
+davanti al file vero, e' stato *"0 aziende segnate su 122 lette"*, e cento
+aziende da aggiungere a mano una per una.
 
 Quando il file ha la colonna `Invito B2B`, l'importazione quindi:
 
@@ -2443,13 +2449,41 @@ Quando il file ha la colonna `Invito B2B`, l'importazione quindi:
 - le righe che trovano il loro iscritto **aggiornano quella scheda**: la
   scelta, la partita IVA del foglio, e la ragione sociale solo se la scheda
   non ce l'ha (quello che la persona ha dichiarato non si sovrascrive);
-- le righe che non lo trovano **non si scrivono**. Si contano (`nonIscritte`)
-  e si riportano indietro (`nonTrovate`, i primi venticinque): una riga
-  saltata in silenzio e' un'azienda che non ricevera' l'invito senza che
-  nessuno sappia perche'. Si aggiungono a mano dalla finestra degli inviti.
+- le righe **segnate** che un iscritto non lo trovano **nascono**, come
+  **aziende dei soli incontri**: la stessa scheda che crea "Aggiungi
+  un'azienda" dalla finestra degli inviti - bandiera `soloB2B` sulla scheda,
+  sezione **"Solo incontri B2B"** fra le presenze - che in elenco non compare e
+  nel totale della sala non conta;
+- le righe **non segnate** che un iscritto non lo trovano non si scrivono mai:
+  la cella vuota dice di NON invitare quell'azienda, e crearla per poi non
+  invitarla riempirebbe l'archivio di schede che nessuno ha chiesto. Si contano
+  (`nonIscritte`) e si riportano indietro (`nonTrovate`, i primi venticinque).
 
-La risposta porta `soloInviti: true` e `aggiornate`, cosi' l'area riservata
-dice "segnate" invece di "importate". Le prove stanno in
+**Il posto in sala resta salvo lo stesso**, che era la ragione della regola di
+prima. La sezione di una scheda non sta sulla scheda: sta fra le presenze, in
+un documento che si chiama `evento~iscritto`. Senza l'identificativo
+dell'evento quella sezione non si puo' scrivere, e una scheda senza sezione
+vale "in presenza" e si porta via un posto - percio' **senza `evento` nel corpo
+della richiesta non si crea niente** e le righe tornano indietro come prima. Lo
+manda la finestra degli inviti (`ev.id`), e lo manda "Eventi > Importa dal
+foglio" con l'evento scelto nella tendina.
+
+Il nome del documento delle presenze lo compongono due punti diversi
+(`idDoc` in `api/presenze.js`, `idPresenza` in `api/importa-iscrizioni.js`) e
+devono restare identici alla lettera: scritti diversi, la sezione sarebbe di
+nessuno e la scheda tornerebbe a contare un posto.
+`prove/scelta-invito-b2b.prove.js` mette i due corpi uno accanto all'altro.
+
+**Reimportare non duplica.** L'identificativo della scheda e' `indirizzo|data`,
+lo stesso del modulo del sito: la seconda importazione trova le aziende che ha
+creato la prima fra gli iscritti dell'evento e le **aggiorna**. Vale anche il
+ripensamento: tolto il "si" dal file, la scelta si spegne anche sulle schede
+nate da noi. Due referenti sulla stessa casella restano due schede solo se nel
+file hanno **date diverse** (basta un secondo): con la stessa data una delle
+due sparirebbe dentro l'altra.
+
+La risposta porta `soloInviti: true`, `aggiornate` e `create`, cosi' l'area
+riservata dice quante ne ha segnate e quante ne ha aggiunte. Le prove stanno in
 `prove/scelta-invito-b2b.prove.js`.
 
 ### Ritoccare l'elenco senza il file (`invito-b2b-segna`)

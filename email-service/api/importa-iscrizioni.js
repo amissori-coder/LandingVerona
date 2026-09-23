@@ -66,9 +66,19 @@ function chiave(s) {
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
 }
+function idGrezzo(email, data, nome, cognome) {
+    return (email || (chiave(nome) + '.' + chiave(cognome))) + '|' + data;
+}
 function idDocumento(email, data, nome, cognome) {
-    const base = (email || (chiave(nome) + '.' + chiave(cognome))) + '|' + data;
+    const base = idGrezzo(email, data, nome, cognome);
     return base.replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
+}
+/* Il nome del documento delle presenze: la sezione di una scheda non sta sulla
+   scheda ma li', ed e' composto come lo compone /api/presenze - "evento~id",
+   con l'identificativo dell'iscritto per esteso. Scritto diverso, la sezione
+   sarebbe di nessuno. */
+function idPresenza(evento, idIscritto) {
+    return (evento + '~' + idIscritto).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 400);
 }
 
 /* Lettore CSV completo: gestisce virgolette, virgole e a capo dentro i campi,
@@ -187,6 +197,14 @@ module.exports = async (req, res) => {
         // elenchi senza colonna Data: si usa quella indicata, cosi' ogni riga ha comunque
         // un identificativo stabile e due omonimi non finiscono sulla stessa scheda
         const dataFissa = testo(body.dataPredefinita, 40);
+        /* L'EVENTO (il suo identificativo, non la pagina). Serve solo al file
+           degli inviti, e serve per una ragione precisa: la SEZIONE di una
+           scheda non sta sulla scheda, sta fra le presenze, in un documento
+           che si chiama "evento~iscritto". Senza l'evento un'azienda nuova
+           nascerebbe senza sezione, cioe' in sala, e conterebbe un posto che
+           nessuno occupera'. Quindi senza non si crea niente: si riporta
+           indietro, come prima. */
+        const evento = testo(body.evento, 60);
         if (iPagina < 0 && !paginaFissa) {
             res.status(400).json({ ok: false, msg: 'Manca la colonna Pagina e non e stato indicato l\'evento.' });
             return;
@@ -209,6 +227,17 @@ module.exports = async (req, res) => {
            riservata quella cerca, comunque sia scritta nel foglio. */
         const ETICHETTA_INVITO_B2B = 'Invito B2B';
         const iInvito = intest.findIndex(h => h === 'invito b2b' || h === 'invito_b2b' || h === 'invito b2b?');
+        /* VALE COME SCELTA tutto cio' che in un foglio vuol dire si: chi
+           compila scrive "si", "SI", "x", "1". La stessa lista la legge
+           l'area riservata (segnatoInvitoB2B in app.js): se le due si
+           allontanassero, un'azienda segnata in un modo verrebbe creata qui e
+           non comparirebbe di la', o il contrario. */
+        const SI = ['si', 's', 'x', '1', 'true', 'y', 'yes', 'ok', 'vero', 'invitare'];
+        function valeSi(v) {
+            let t = String(v == null ? '' : v).trim().toLowerCase();
+            t = t.normalize ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : t;
+            return !!t && SI.indexOf(t) >= 0;
+        }
 
         // 4) scrittura a blocchi (il limite di un batch Firestore e 500 operazioni)
         const db = admin.firestore();
@@ -227,12 +256,26 @@ module.exports = async (req, res) => {
              - le righe che trovano il loro iscritto (stesso indirizzo,
                stesso evento) AGGIORNANO quella scheda: la scelta, e la
                partita IVA se nel foglio c'e' e sulla scheda no;
-             - le righe che non lo trovano NON si scrivono. Si contano
-               e si riportano indietro, perche' una riga saltata in
-               silenzio e' un'azienda che non ricevera' l'invito senza
-               che nessuno sappia perche'. Chi organizza la aggiunge a
-               mano dalla finestra degli inviti, dove si vede cosa si
-               sta creando.
+             - le righe che non lo trovano, e sono segnate "si", NASCONO
+               come AZIENDE DEI SOLI INCONTRI: la stessa scheda che fa
+               "Aggiungi un'azienda" dalla finestra degli inviti
+               (bandiera soloB2B, sezione "Solo incontri B2B"), che in
+               elenco non compare e nel totale della sala non conta.
+               Perche' l'elenco delle aziende da invitare non e' l'elenco
+               degli iscritti: sono imprese scelte una per una, che
+               vengono al desk per il loro appuntamento e non al
+               convegno, e quasi nessuna di loro si e' iscritta.
+               Crearle a mano una per una, cento volte, non e' un lavoro
+               che si puo' chiedere a qualcuno.
+               Il posto in sala resta salvo lo stesso, che era la
+               ragione della regola di prima: senza sezione la scheda
+               varrebbe "in presenza" e conterebbe un posto, quindi
+               senza l'identificativo dell'evento - l'unico modo di
+               scrivere quella sezione - non si crea niente e si
+               riporta indietro come prima;
+             - le righe che non lo trovano e NON sono segnate non si
+               scrivono mai: dicono di non invitare quell'azienda, e
+               crearla per poi non invitarla non ha senso.
            Senza quella colonna non cambia niente: l'importazione degli
            iscritti resta quella di sempre.
         ============================================================ */
@@ -249,7 +292,7 @@ module.exports = async (req, res) => {
                 giaIscritti.get(k).push({ id: d.id, azienda: String(x.azienda || '').trim() });
             });
         }
-        let importate = 0, saltate = 0, aggiornate = 0, nonIscritte = 0;
+        let importate = 0, saltate = 0, aggiornate = 0, nonIscritte = 0, create = 0;
         const nonTrovate = [];
         let batch = db.batch(), nelBatch = 0;
         for (let i = 1; i < righe.length; i++) {
@@ -282,8 +325,40 @@ module.exports = async (req, res) => {
             if (giaIscritti) {
                 const trovate = em ? (giaIscritti.get(chiave(pagina) + '|' + em) || []) : [];
                 if (!trovate.length) {
-                    nonIscritte++;
-                    if (nonTrovate.length < 25) nonTrovate.push(em || (nome + ' ' + cognome).trim());
+                    /* NON E' ISCRITTA. Se e' segnata, e sappiamo in che evento
+                       metterla, nasce qui come azienda dei soli incontri:
+                       fuori dall'elenco della sala, senza posto, esattamente
+                       come se l'avessero aggiunta a mano dalla finestra degli
+                       inviti. Altrimenti si riporta indietro e la aggiunge
+                       chi organizza, che e' quello che succedeva sempre. */
+                    if (!valeSi(cella(riga, iInvito)) || !evento) {
+                        nonIscritte++;
+                        if (nonTrovate.length < 25) nonTrovate.push(em || (nome + ' ' + cognome).trim());
+                        continue;
+                    }
+                    const idPer = idGrezzo(em, data, nome, cognome);
+                    batch.set(db.collection('iscrizioni').doc(idDocumento(em, data, nome, cognome)), {
+                        data: data, pagina: pagina, nome: testo(nome, 120), cognome: testo(cognome, 120),
+                        email: em, azienda: cella(riga, iAzienda), ruolo: cella(riga, iRuolo),
+                        telefono: cella(riga, iTel), messaggio: cella(riga, iMsg),
+                        extra: extra, importato: true, partecipanti: 1,
+                        /* NATA PER GLI INVITI B2B, e non dal sito: l'avviso
+                           "N nuove iscrizioni dal sito" non deve annunciarla.
+                           Cento righe importate vorrebbero dire cento finestre
+                           da chiudere per una cosa che non e' successa. */
+                        soloB2B: true,
+                        inserito: { da: email, daNome: email, collab: false, quando: Date.now() }
+                    }, { merge: true });
+                    nelBatch++;
+                    /* LA SEZIONE, che e' quello che tiene il posto in sala
+                       libero: sta fra le presenze, non sulla scheda. */
+                    batch.set(db.collection('presenze').doc(idPresenza(evento, idPer)), {
+                        evento: evento, idIscritto: idPer, modalita: 'b2b',
+                        da: email, daNome: email, collab: false, quando: Date.now()
+                    }, { merge: true });
+                    nelBatch++;
+                    create++;
+                    if (nelBatch >= 400) { await batch.commit(); batch = db.batch(); nelBatch = 0; }
                     continue;
                 }
                 const azFile = cella(riga, iAzienda);
@@ -318,7 +393,8 @@ module.exports = async (req, res) => {
             // che l'area riservata mostra deve dire quello che e' successo
             importate: giaIscritti ? aggiornate : importate,
             soloInviti: !!giaIscritti,
-            aggiornate: aggiornate, nonIscritte: nonIscritte, nonTrovate: nonTrovate
+            aggiornate: aggiornate, create: create,
+            nonIscritte: nonIscritte, nonTrovate: nonTrovate
         });
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
