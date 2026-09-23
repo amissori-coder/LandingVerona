@@ -1618,6 +1618,19 @@ async function esegui(ctx) {
         }
         const azId = testo(body.aziendaId, 40);
         if (!azId) return { stato: 400, corpo: { ok: false, msg: 'Azienda non indicata.' } };
+        /* PRIMA di toccare qualunque cosa: chi e', chi sono i suoi referenti e
+           che cosa aveva prenotato. Dopo non c'e' piu' niente da leggere, e
+           sono esattamente le cose che servono per avvisarla. */
+        const azienda = await leggiAzienda(db, evento, azId);
+        const agendaEv = await leggiAgenda(db, evento);
+        const suoi = appuntamentiAzienda(await leggiPrenotazioni(db, evento), azId).map(x => ({
+            nome: nomeArea(x.area),
+            orario: fraseOrario(x.ora, String(x.dati.fine || '')),
+            perChi: String(x.dati.perChi || '')
+        }));
+        const aChi = Array.from(new Set((azienda.referenti || [])
+            .map(r => String(r.email || '').toLowerCase())
+            .filter(x => x && EMAIL_RE.test(x))));
         const rif = rifPrenotazioni(db, evento);
         let liberati = [];
         await db.runTransaction(async t => {
@@ -1647,9 +1660,6 @@ async function esegui(ctx) {
         });
         // le schede dei referenti non portano piu' un incontro che non c'e'
         try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
-        /* CHI ERANO I SUOI REFERENTI: si leggono PRIMA di cancellare il
-           documento, perche' dopo non c'e' piu' niente da leggere. */
-        const azienda = await leggiAzienda(db, evento, azId);
         const schede = (azienda.referenti || []).map(r => r.doc).filter(Boolean);
         try { await rifAzienda(db, evento, azId).delete(); } catch (_) { /* il documento non c'era */ }
         /* E L'INVITO SPARISCE ANCHE DALLE LORO SCHEDE.
@@ -1675,8 +1685,49 @@ async function esegui(ctx) {
                 scheDaPulite++;
             } catch (_) { /* la scheda non c'e' piu': e' quello che volevamo */ }
         }
+        /* E GLIELO SI DICE. Dall'altra parte c'e' chi quel collegamento ce
+           l'ha in casella, e magari un foglio con un'ora sopra: senza una
+           riga da noi si presenta al desk a un'ora che per noi non esiste
+           piu', oppure apre il collegamento e legge "non valido" pensando a
+           un guasto nostro. La mail dice che cosa non c'e' piu' - gli
+           incontri, elencati, e il collegamento - e a chi scrivere se e' un
+           errore. Se non ha indirizzi, o la posta non risponde, l'azienda
+           resta tolta lo stesso: l'avviso e' importante, ma non e' la
+           ragione per cui si e' premuto quel pulsante. */
+        let avvisati = [];
+        let avvisoNonPartito = '';
+        if (body.avvisa !== false && aChi.length) {
+            try {
+                const evd = agendaEv.eventoDati || {};
+                const m = MNGB.invitoB2BAnnullato({
+                    azienda: azienda.nome, pagina: String(evd.pagina || ''),
+                    evento: {
+                        titolo: String(evd.titolo || '') || 'Next Generation Business',
+                        quando: String(evd.quando || ''), luogo: String(evd.luogo || ''),
+                        indirizzo: String(evd.indirizzo || '')
+                    },
+                    tavoli: suoi
+                });
+                const trans = trasporto();
+                await trans.sendMail({
+                    from: mittenteMail(), to: aChi.join(', '),
+                    subject: m.oggetto, text: m.testo, html: m.html
+                });
+                try { trans.close(); } catch (_) { /* niente */ }
+                avvisati = aChi;
+            } catch (e) {
+                avvisoNonPartito = String((e && e.message) || e).slice(0, 200);
+                console.error('Avviso di annullamento non inviato a', aChi.join(', '), ':', avvisoNonPartito);
+            }
+        }
         if (ctx.segnaCambiamento) { try { await ctx.segnaCambiamento(db); } catch (_) { /* niente */ } }
-        return { stato: 200, corpo: { ok: true, liberati: liberati, schede: scheDaPulite } };
+        return {
+            stato: 200,
+            corpo: {
+                ok: true, liberati: liberati, schede: scheDaPulite,
+                avvisati: avvisati, avvisoNonPartito: avvisoNonPartito
+            }
+        };
     }
 
     /* ============================================================
