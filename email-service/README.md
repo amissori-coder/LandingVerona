@@ -529,7 +529,7 @@ d'ambiente non ne parte nessuno.
 | `/api/programma-newsletter` | `*/15 * * * *` — ogni quarto d'ora | manda avanti le newsletter programmate, un lotto per volta |
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
-| `/api/promemoria-eventi` | `0 6 * * *` — una volta al giorno, alle 8 del mattino di Roma (le 7 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
+| `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -961,8 +961,8 @@ composta** (formato NGB, con i segnaposti `{{NOME}}` e `{{COMPLETA}}` ancora al
 loro posto), il giorno (a mezzanotte, ora di chi programma), le sezioni, chi
 l'ha programmata.
 
-Il lavoro programmato passa **una volta al giorno, alle 8 del mattino** di
-Roma (`vercel.json`: `0 6 * * *`, che con l'ora solare diventano le 7). Un
+Il lavoro programmato passa **una volta al giorno, alle 20** di
+Roma (`vercel.json`: `0 18 * * *`, che con l'ora solare diventano le 19). Un
 giro solo, per scelta di chi organizza: di un promemoria si sceglie **il
 giorno**, non l'ora, e l'area riservata non lascia confermare per oggi dopo
 le 8. Per ogni record `programmato` previsto per oggi:
@@ -995,12 +995,12 @@ con l'impronta di chi ha gia' ricevuto; un lucchetto tiene fuori un secondo
 giro mentre il primo spedisce. Se il budget (240 s dentro i 300 di
 `maxDuration`) finisce a meta', il record resta `programmato` con
 `invio.inCorso` e il conteggio, e il giro dopo riprende da chi manca. Con un
-giro al giorno "il giro dopo" e' domattina: per questo le mail partono **a
+giro al giorno "il giro dopo" e' domani sera: per questo le mail partono **a
 quattro alla volta** (`IN_PARALLELO`) invece che una dietro l'altra, e
 trecento iscritti stanno in un paio di minuti. La copia a chi ha programmato
 parte solo al primo giro.
 
-**I giorni che mancano si contano la mattina dell'invio**
+**I giorni che mancano si contano la sera dell'invio**
 (`lib/promemoria-tempo.js`). I testi non scrivono "manca una settimana": portano
 segnaposti che il servizio riempie il giorno in cui la mail parte davvero.
 `{{MANCANO}}`/`{{mancano}}` diventa "Mancano 5 giorni" o "manca un giorno",
@@ -1017,16 +1017,16 @@ giorno per giorno.
 **Chi arriva dopo: il benvenuto** (solo promemoria con `recupera: true`, cioe'
 confermati con i testi nuovi). Chi entra in una serie dopo che la sua mail
 `benvenuto` e' partita - si e' iscritto dopo, oppure e' stato spostato fra sala
-e online - e da quella serie non ha ancora ricevuto niente, la mattina seguente
+e online - e da quella serie non ha ancora ricevuto niente, alla prima sera utile
 riceve la mail `benvenuto`, che e' la mail completa (programma e informazioni
 essenziali), con i giorni ricalcolati e il paragrafo B2B solo se le
 prenotazioni sono ancora aperte. Poi segue il calendario di tutti. Le regole:
 
 - **una mail al giorno a persona.** Il benvenuto gira prima delle mail del
-  giorno; se quella mattina per gli altri parte una mail normale della serie,
+  giorno; se quella sera per gli altri parte una mail normale della serie,
   chi riceve il benvenuto viene segnato come servito anche in quella, e non la
   riceve in doppio;
-- **la vigilia e la mattina dell'evento hanno la precedenza** (`soloIlGiorno`):
+- **la vigilia ha la precedenza** (`soloIlGiorno`):
   quel giorno arrivano a tutti, anche a chi si e' appena iscritto, e il
   benvenuto non parte;
 - **le altre mail perse non si recuperano**: il benvenuto le contiene;

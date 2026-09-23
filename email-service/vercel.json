@@ -4,7 +4,7 @@
     { "path": "/api/programma-newsletter", "schedule": "*/15 * * * *" },
     { "path": "/api/presenze", "schedule": "*/15 * * * *" },
     { "path": "/api/invii-programmati", "schedule": "*/10 * * * *" },
-    { "path": "/api/promemoria-eventi", "schedule": "0 6 * * *" }
+    { "path": "/api/promemoria-eventi", "schedule": "0 18 * * *" }
   ],
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },

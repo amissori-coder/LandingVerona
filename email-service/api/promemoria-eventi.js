@@ -1,11 +1,11 @@
 /* ============================================================
    Cron: i promemoria agli iscritti di un evento (sezione Eventi)
    ------------------------------------------------------------
-   Vercel richiama questo endpoint UNA VOLTA AL GIORNO, alle 8 del
-   mattino di Roma (vedi vercel.json: 6 UTC, che con l'ora solare
-   diventano le 7). Un giro solo, per scelta di chi organizza: i
-   promemoria sono posta del mattino, e chi si iscrive nel pomeriggio
-   riceve il suo la mattina dopo, entro le ventiquattro ore.
+   Vercel richiama questo endpoint UNA VOLTA AL GIORNO, alle 20 di
+   Roma (vedi vercel.json: 18 UTC, che con l'ora solare diventano le
+   19). Un giro solo, per scelta di chi organizza: i promemoria sono
+   posta della sera, e chi si iscrive durante il giorno riceve il suo
+   la sera stessa, al piu' tardi entro le ventiquattro ore.
 
    Legge archivio/promemoriaEventi - i promemoria che chi organizza ha
    CONFERMATO dall'area riservata, con la mail gia' composta - e per
@@ -419,7 +419,7 @@ module.exports = async (req, res) => {
                 if (giornoRoma(Number(rec.quando)) < oggi && !(rec.invio && rec.invio.inCorso)) {
                     await applicaPatch(db, rec.id, {
                         stato: 'scaduto',
-                        invio: { il: ora, inviate: 0, motivo: 'Il giorno scelto era già passato quando il servizio è passato (gira una volta al giorno, alle 8): non è partito niente. Riprogrammalo con un giorno nuovo.' }
+                        invio: { il: ora, inviate: 0, motivo: 'Il giorno scelto era già passato quando il servizio è passato (gira una volta al giorno, alle 20): non è partito niente. Riprogrammalo con un giorno nuovo.' }
                     });
                     scaduti++;
                     continue;
