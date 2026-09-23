@@ -188,6 +188,13 @@ function piede(motivo) {
         + '</td></tr>';
 }
 const MOTIVO = 'Ricevi questa email come conferma della tua iscrizione all\'evento: non è una comunicazione promozionale.';
+/* IL MOTIVO IN CODA, per le mail del B2B. Quella riga in fondo dice a chi
+   legge perche' gli e' arrivata questa email, e sotto un invito agli incontri
+   diceva "conferma della tua iscrizione": una cosa che non era vera - l'invito
+   non conferma niente - e per giunta detta del tu in una lettera che da' del
+   Lei o del Voi. Questa e' impersonale apposta: la stessa riga va bene sotto
+   la lettera all'impresa e sotto quella alla singola persona. */
+const MOTIVO_B2B = 'Questa email riguarda gli incontri B2B del convegno Next Generation Business: non è una comunicazione promozionale.';
 
 /* --- Conferma di un'iscrizione arrivata dal form del sito ---
    `dati`: { nome, cognome, email, azienda, pagina, data, modalita }; `link` e'
@@ -364,7 +371,7 @@ function confermaB2B(dati, link) {
             + spazio(24)
             + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         )
-        + piede(MOTIVO));
+        + piede(MOTIVO_B2B));
     const testo = ['PRENOTAZIONE CONFERMATA', sommario,
         'Convegno: Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : ''))
         + (ev.quando ? '\nGiorno: ' + ev.quando : '')
@@ -374,7 +381,7 @@ function confermaB2B(dati, link) {
         fraseDesk,
         'Modifica la prenotazione: ' + link,
         'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
-        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
         'Informativa privacy: ' + PRIVACY].join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }
@@ -435,18 +442,18 @@ function confermaB2BAzienda(dati, link) {
     const oggetto = titolo + ' - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
     const saluto = 'Gentile ' + (azienda || 'ospite') + ',';
     const sommario = saluto + ' ' + (motivo === 'disdetta'
-        ? 'uno degli incontri B2B prenotati non è più in programma. Qui sotto trova la situazione aggiornata.'
+        ? 'uno degli incontri B2B prenotati non è più in programma. Di seguito la situazione aggiornata.'
         : (motivo === 'desk'
-            ? 'per la questione che ci avete segnalato Vi aspettiamo al desk Revilaw: qui sotto la questione '
-            + 'e l\'orario, e in allegato il foglio da presentare.'
+            ? 'in merito alla questione che ci avete segnalato Vi attendiamo al desk Revilaw: di seguito la '
+            + 'questione e l\'orario, e in allegato il foglio da presentare.'
             : (motivo === 'assegnazione'
-            ? 'a quel tavolo è avanzato un posto e lo abbiamo dato a una delle Vostre preferenze: '
-            + 'l\'orario lo abbiamo scelto noi fra quelli rimasti. Qui sotto gli incontri, con gli orari.'
+            ? 'a quel tavolo si è reso disponibile un posto e lo abbiamo assegnato a una delle Vostre '
+            + 'preferenze, con l\'orario scelto fra quelli rimasti. Di seguito gli incontri, con i relativi orari.'
             : (motivo === 'spostamento'
-                ? 'abbiamo dovuto spostare un incontro: qui sotto gli orari aggiornati.'
+                ? 'abbiamo dovuto spostare un incontro: di seguito gli orari aggiornati.'
                 : 'la prenotazione agli incontri B2B'
                 + (evNome ? ' del convegno di ' + evNome : '') + ' è registrata: '
-                + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo con gli orari.'))));
+                + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', di seguito il riepilogo con gli orari.'))));
     const vociIncontri = tavoli.map(t => {
         const ore = ORARI.oreDaFrase(t.orario);
         return {
@@ -456,32 +463,42 @@ function confermaB2BAzienda(dati, link) {
         };
     });
     const fraseDesk = quanti
-        ? 'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
-        + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Al tavolo Vi attendono i nostri professionisti.'
-        : 'Al momento non risulta nessun incontro prenotato per la Vostra azienda: può sceglierne uno dal pulsante qui sotto.';
+        ? 'In allegato trovate il foglio della prenotazione, con gli orari di ciascun incontro: è sufficiente '
+        + 'presentarlo al desk "Incontri B2B" all\'ingresso, stampato oppure dal telefono. Ai tavoli Vi attendono '
+        + 'i nostri professionisti.'
+        : 'Al momento non risulta alcun incontro prenotato per la Vostra azienda: potete sceglierne uno dal '
+        + 'pulsante qui sotto.';
     /* CHE COSA NE SARA', e non solo che cosa non sono. "Non sono
        prenotazioni" lasciava in sospeso la domanda vera - qualcuno ci
        pensera'? - e la risposta c'e': se al tavolo restano posti l'orario lo
        assegniamo noi. Stessa frase sulla pagina, dopo il salvataggio: e' la
        stessa cosa detta nello stesso momento, e due versioni diverse la
        farebbero sembrare una regola incerta. */
-    const fraseCoda = 'Non sono prenotazioni: sono preferenze. Diventano un incontro solo se a quel tavolo avanzano '
-        + 'posti dopo le prime preferenze di tutti, e l\'orario lo scegliamo noi fra quelli rimasti - anche lontano '
-        + 'da quello del primo incontro. Glielo diciamo con una mail come questa: finché non arriva, al desk non '
-        + 'risulta nessun incontro a questi tavoli.';
+    const fraseCoda = 'Non sono prenotazioni, ma preferenze: diventano un incontro solo se a quel tavolo restano '
+        + 'posti dopo le prime preferenze di tutte le imprese, e l\'orario lo assegniamo noi fra quelli rimasti, '
+        + 'anche distante da quello del primo incontro. Ve lo comunichiamo con una email come questa: fino a quel '
+        + 'momento al desk non risulta alcun incontro a questi tavoli.';
     /* CHE COSA SI PUO' FARE DI UN ORARIO CHE NON VA BENE. L'orario delle
        preferenze lo scegliamo noi, quindi puo' cadere quando quella persona
        non c'e': dirlo soltanto qui sarebbe inutile se poi non si potesse fare
        niente, e infatti adesso dalla pagina si annulla - il posto torna
        libero per un'altra impresa e la preferenza resta in lista. */
-    const fraseAnnulla = 'Gli orari che Le abbiamo assegnato noi - quelli nati dalla seconda o dalla terza preferenza - '
-        + 'sono confermati: dalla pagina non si spostano e non se ne può chiedere un altro. Se uno non Le va bene lo '
-        + 'annulli: torna libero per un\'altra impresa, e la Sua preferenza resta in lista per un orario diverso. '
-        + 'La prima preferenza invece si sposta da se\': basta scegliere un altro orario dalla pagina, senza annullare nulla.';
+    const fraseAnnulla = 'Gli orari assegnati da noi - quelli derivanti dalla seconda o dalla terza preferenza - '
+        + 'sono confermati: dalla pagina non possono essere spostati né sostituiti. Qualora uno di essi non fosse '
+        + 'compatibile con i Vostri impegni, potete annullarlo: l\'orario torna disponibile per un\'altra impresa e '
+        + 'la Vostra preferenza resta in lista per un orario diverso. La prima preferenza, invece, si sposta da sé: '
+        + 'è sufficiente scegliere un altro orario dalla pagina, senza annullare nulla.';
+    const fraseModifica = 'Potete modificare le scelte dal pulsante qui sotto: a ogni modifica riceverete una email '
+        + 'con il foglio aggiornato, e vale sempre l\'ultimo emesso.';
     const fraseEntro = entro
-        ? 'Può scegliere e cambiare entro il ' + entro + ': dopo quella data chiudiamo gli abbinamenti e '
-        + 'assegniamo gli orari rimasti.'
+        ? 'Potete scegliere e modificare le Vostre preferenze entro il ' + entro + ': dopo tale data chiudiamo '
+        + 'gli abbinamenti e assegniamo gli orari rimanenti.'
         : '';
+    /* L'ETICHETTA DEL PULSANTE, scritta una volta per la mail e per la
+       versione a solo testo. Diceva "Rivedi" e "Scegli" - del tu - dentro una
+       lettera che da' del Voi dalla prima riga all'ultima: un'incoerenza che
+       si nota proprio dove l'occhio si ferma. */
+    const etichettaPulsante = quanti ? 'Rivedete le prenotazioni' : 'Scegliete un incontro';
     const vociCoda = coda.map(c => (c.pos === 3 ? 'terza' : 'seconda') + ' preferenza: ' + c.nome
         + (c.perChi ? ' - per ' + c.perChi : ''));
     const vociEsigenze = esigenze.map(e => (e.perChi ? e.perChi + ': ' : '') + e.testo);
@@ -521,20 +538,19 @@ function confermaB2BAzienda(dati, link) {
                 : '')
             + paragrafo(fraseDesk)
             + spazio(22)
-            + paragrafo('Potete cambiare le scelte dal pulsante qui sotto: a ogni modifica arriva una mail nuova con '
-                + 'il foglio aggiornato, e vale sempre l\'ultimo emesso.')
+            + paragrafo(fraseModifica)
             + spazio(16)
             + paragrafo(fraseAnnulla)
             + (fraseEntro ? spazio(16) + paragrafo(fraseEntro) : '')
             + spazio(28)
-            + bottone(quanti ? 'Rivedi le prenotazioni' : 'Scegli un incontro', link)
+            + bottone(etichettaPulsante, link)
             + spazio(24)
             + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue
-            + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento vale per tutta ' + esc(azienda || 'l\'azienda')
-            + ': lo può usare anche un Suo collega, e le scelte sono le stesse per tutti. '
-            + 'Le chiediamo di non diffonderlo fuori dall\'azienda.</td></tr>'
+            + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento vale per l\'intera '
+            + esc(azienda || 'azienda') + ': può essere utilizzato anche da un Vostro collega, e le scelte sono '
+            + 'le stesse per tutti. Vi chiediamo di non diffonderlo all\'esterno.</td></tr>'
         )
-        + piede(MOTIVO));
+        + piede(MOTIVO_B2B));
     const testo = [titolo.toUpperCase(), sommario,
         'Convegno: Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : ''))
         + (ev.quando ? '\nGiorno: ' + ev.quando : '')
@@ -553,12 +569,13 @@ function confermaB2BAzienda(dati, link) {
         vociCoda.length ? ('Preferenze in attesa di un orario:\n' + vociCoda.map(v => '- ' + v).join('\n') + '\n' + fraseCoda) : '',
         vociEsigenze.length ? ('Ci avete segnalato:\n' + vociEsigenze.map(v => '- ' + v).join('\n')) : '',
         fraseDesk,
+        fraseModifica,
         fraseAnnulla,
         fraseEntro,
-        'Rivedi le prenotazioni: ' + link,
-        'Il collegamento vale per tutta ' + (azienda || 'l\'azienda') + ': lo può usare anche un Suo collega. '
-        + 'Le chiediamo di non diffonderlo fuori dall\'azienda.',
-        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        etichettaPulsante + ': ' + link,
+        'Il collegamento vale per l\'intera ' + (azienda || 'azienda') + ': può essere utilizzato anche da un '
+        + 'Vostro collega. Vi chiediamo di non diffonderlo all\'esterno.',
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
         'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }
@@ -595,6 +612,16 @@ function invitoB2BAnnullato(dati) {
         ? 'gli incontri B2B che avevate prenotato sono stati annullati e il collegamento per prenotare non '
         + 'è più valido.'
         : 'l\'invito agli incontri B2B è stato annullato: il collegamento per prenotare non è più valido.');
+    /* LE FRASI, scritte una volta sola. Le legge sia chi riceve l'HTML sia
+       chi riceve il solo testo, e scriverle due volte vuol dire che al primo
+       ritocco una delle due resta indietro senza che nessuno se ne accorga. */
+    const fraseOrari = 'Questi orari non sono più a Vostro nome: il ' + (ev.quando || 'giorno del convegno')
+        + ' al desk non risulterà alcun appuntamento, e il foglio che avete ricevuto non è più valido.';
+    const fraseCollegamento = 'Anche il collegamento con cui sceglievate gli incontri non è più attivo.';
+    const fraseIscrizione = 'Il presente annullamento riguarda soltanto gli incontri B2B: l\'eventuale '
+        + 'iscrizione al convegno resta invariata, e non occorre alcun adempimento da parte Vostra.';
+    const fraseErrore = 'Qualora si trattasse di un errore, o desideraste essere reinseriti, Vi preghiamo di '
+        + 'scrivere a info@nextgenerationbusiness.it: provvederemo noi.';
     const vociIncontri = tavoli.map(t => {
         const ore = ORARI.oreDaFrase(t.orario);
         return {
@@ -609,26 +636,23 @@ function invitoB2BAnnullato(dati) {
             (quanti
                 ? occhiello(quanti === 1 ? 'L\'incontro annullato' : 'Gli incontri annullati')
                 + spazio(4) + tabellaIncontri(vociIncontri) + spazio(10)
-                + paragrafo('Questi orari non sono più a Vostro nome: il ' + (ev.quando || 'giorno del convegno')
-                    + ' al desk non risulterà nessun appuntamento, e il foglio che avete ricevuto non vale più.')
+                + paragrafo(fraseOrari)
                 + spazio(28)
                 /* "Anche il collegamento" solo se prima si e' parlato
                    d'altro: a chi non aveva prenotato niente lo ha gia' detto
                    il sommario, e ripeterlo da solo suona come un secondo
                    annuncio di una cosa sola. */
-                + paragrafo('E il collegamento con cui sceglievate gli incontri non apre più nulla.')
+                + paragrafo(fraseCollegamento)
                 + spazio(22)
                 : '')
             /* L'ISCRIZIONE AL CONVEGNO NON C'ENTRA, e va detto: chi legge
                "annullato" pensa di essere stato tolto dall'evento, e magari
                non si presenta. Gli incontri B2B sono una cosa a parte. */
-            + paragrafo('Questo riguarda soltanto gli incontri B2B: l\'eventuale iscrizione al convegno resta '
-                + 'com\'era, e non c\'è niente da rifare.')
+            + paragrafo(fraseIscrizione)
             + spazio(22)
-            + paragrafo('Se si tratta di un errore, o se desiderate essere reinseriti, scriva a '
-                + 'info@nextgenerationbusiness.it e sistemiamo noi.')
+            + paragrafo(fraseErrore)
         )
-        + piede(MOTIVO));
+        + piede(MOTIVO_B2B));
     const testo = [titolo.toUpperCase(), sommario,
         quanti ? ((quanti === 1 ? 'Incontro annullato:' : 'Incontri annullati:') + '\n'
             + tavoli.map(t => {
@@ -636,14 +660,11 @@ function invitoB2BAnnullato(dati) {
                 const quando = (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : (t.orario || '');
                 return '- ' + (quando ? quando + ', ' : '') + t.nome + (t.perChi ? ' - per ' + t.perChi : '');
             }).join('\n')) : '',
-        quanti ? ('Questi orari non sono più a Vostro nome: il ' + (ev.quando || 'giorno del convegno')
-            + ' al desk non risulterà nessun appuntamento, e il foglio che avete ricevuto non vale più.') : '',
-        quanti ? 'E il collegamento con cui sceglievate gli incontri non apre più nulla.' : '',
-        'Questo riguarda soltanto gli incontri B2B: l\'eventuale iscrizione al convegno resta com\'era, '
-        + 'e non c\'è niente da rifare.',
-        'Se si tratta di un errore, o se desiderate essere reinseriti, scriva a info@nextgenerationbusiness.it '
-        + 'e sistemiamo noi.',
-        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        quanti ? fraseOrari : '',
+        quanti ? fraseCollegamento : '',
+        fraseIscrizione,
+        fraseErrore,
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
         'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }

@@ -106,11 +106,11 @@ prova('Anche le regole e le note, che si aggiungono per ultime', () => {
     const corpo = corpoDi(m.html);
     const blocchi = blocchiDiProsa(corpo);
     const con = t => blocchi.filter(b => b.testo.indexOf(t) >= 0)[0];
-    const regola = con('La prima preferenza prenota davvero');
+    const regola = con('La prima preferenza \u00e8 una prenotazione vera e propria');
     esigi(regola && GIUSTIFICATO.test(regola.stile), 'la regola dell elenco numerato e giustificata');
-    const nota = con('Le chiediamo di non diffonderlo');
+    const nota = con('Vi chiediamo di non diffonderlo');
     esigi(nota && GIUSTIFICATO.test(nota.stile), 'e cosi la nota in coda sul collegamento');
-    const saluti = con('Nell\'attesa di incontrarVi');
+    const saluti = con('In attesa di incontrarVi');
     esigi(saluti && GIUSTIFICATO.test(saluti.stile), 'e i saluti');
 });
 
@@ -133,8 +133,8 @@ prova('L ordine e quello in cui si legge', () => {
     const quandoDove = dove('Quando e dove');
     const tavoli = dove('I tavoli della giornata');
     const regole = dove('Come funziona');
-    const bottone = dove('Scelga i Vostri incontri');
-    const saluti = dove('Gli orari si assegnano');
+    const bottone = dove('Scegliete i Vostri incontri');
+    const saluti = dove('Gli orari vengono assegnati');
     const note = dove('{{SE_COLLEGHI}}');
     esigi(apertura > 0 && apertura < quandoDove, 'prima si dice perche scriviamo');
     esigi(quandoDove < tavoli, 'poi quando e dove');
@@ -178,11 +178,11 @@ prova('Ricorda di guardare il programma dei lavori, prima di scegliere l ora', (
        cui era venuto, e a quel punto salta l'uno o salta l'altro. */
     const m = mail();
     const html = senzaTrattini(m.html);
-    esigi(/programma dei lavori in sala si aggiorna/.test(html), 'la mail lo ricorda');
+    esigi(/programma dei lavori in sala viene aggiornato/.test(html), 'la mail lo ricorda');
     esigi(/prima di scegliere l'orario/.test(html), 'e dice quando guardarlo: prima di scegliere');
     esigi(html.indexOf('https://nextgenerationbusiness.it/napoli_ottobre_2026/') > 0,
         'con il collegamento alla pagina del convegno, dove la scaletta vive');
-    esigi(/programma dei lavori in sala si aggiorna/.test(m.testo)
+    esigi(/programma dei lavori in sala viene aggiornato/.test(m.testo)
         && m.testo.indexOf('https://nextgenerationbusiness.it/napoli_ottobre_2026/') > 0,
         'e lo stesso nel testo semplice');
     // senza indirizzo resta il consiglio, non un collegamento a vuoto
@@ -190,7 +190,7 @@ prova('Ricorda di guardare il programma dei lavori, prima di scegliere l ora', (
         evento: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel' },
         aree: AREE, giornata: GIORNATA, regole: MODELLO.regoleB2B(GIORNATA)
     });
-    esigi(/programma dei lavori in sala si aggiorna/.test(senzaTrattini(senzaUrl.html)),
+    esigi(/programma dei lavori in sala viene aggiornato/.test(senzaTrattini(senzaUrl.html)),
         'senza la pagina dell evento il consiglio resta');
     esigi(senzaUrl.html.indexOf('Il programma dei lavori</a>') < 0,
         'ma non si inventa un collegamento che non c e');
@@ -210,6 +210,67 @@ prova('Le sezioni hanno tutte la stessa forma', () => {
     });
     const senza = corpoDi(senzaScadenza.html).split('border-left:3px solid').length - 1;
     esigi(senza === 3, 'e senza scadenza sono tre: quel riquadro non compare vuoto', 'contati: ' + senza);
+});
+
+prova('La lettera e una sola: HTML e solo testo dicono le stesse parole', () => {
+    /* Le tre frasi d'apertura erano scritte due volte - una per l'HTML, una
+       per la versione a solo testo - e al primo ritocco si sono allontanate:
+       l'HTML diceva "e' stata concepita" e il testo "e' stata pensata", per
+       mesi, senza che nessuno se ne accorgesse. Adesso sono scritte una volta
+       sola; questa prova serve perche' non tornino a essere due. */
+    const m = mail();
+    const html = senzaTrattini(m.html);
+    const testo = senzaTrattini(m.testo);
+    const apertura = [
+        'L\'iniziativa e stata concepita non soltanto come un momento di approfondimento',
+        'l\'invito e rivolto alle imprese selezionate una per una',
+        'presso i desk riservati'
+    ];
+    /* Gli apostrofi e gli accenti si confrontano a occhio nudo: nell'HTML
+       passano dall'escape, quindi si cerca la frase senza accenti. */
+    const piano = s => String(s || '').replace(/[àèéìòù]/g, x => 'aeeiou'['àèéìòù'.indexOf(x)]);
+    apertura.forEach(frase => {
+        esigi(piano(html).indexOf(piano(frase)) >= 0, 'nell HTML: "' + frase.slice(0, 40) + '..."');
+        esigi(piano(testo).indexOf(piano(frase)) >= 0, 'e nella versione a solo testo, parola per parola');
+    });
+});
+
+prova('Si da del VOI, dalla prima riga all ultima', () => {
+    /* L'invito e' dell'IMPRESA - lo stesso collegamento lo aprono piu'
+       referenti - quindi si da' del Voi. Mescolare i registri nella stessa
+       lettera ("alla Vostra impresa... Le dedichiamo") e' la cosa che piu' fa
+       sembrare scritta male una lettera per il resto corretta, e capita
+       proprio ai pezzi aggiunti dopo: un pulsante, una nota in coda. */
+    const m = mail();
+    const tutto = senzaTrattini(m.html) + '\n' + senzaTrattini(m.testo);
+    const daTu = [/\bla tua\b/i, /\bil tuo\b/i, /\bscegli\b/, /\bpuoi\b/, /\btrovi\b/, /\bricevi\b/];
+    daTu.forEach(r => esigi(!r.test(tutto), 'niente ' + r.source + ': la lettera non da del tu',
+        (tutto.match(r) || [''])[0]));
+    esigi(/Scegliete i Vostri incontri/.test(senzaTrattini(m.html)), 'il pulsante da del Voi come il resto');
+    esigi(/Vi porgiamo i nostri più cordiali saluti/.test(senzaTrattini(m.html)), 'e la chiusura e quella di una lettera');
+});
+
+prova('La riga in coda dice perche questa email e arrivata', () => {
+    /* Sotto l'invito c'era scritto "conferma della tua iscrizione all'evento":
+       non era vero - un invito non conferma niente - ed era detto del tu.
+       La riga del B2B e' impersonale apposta, cosi' vale anche sotto le
+       lettere che danno del Lei alla singola persona. */
+    const m = mail();
+    esigi(/riguarda gli incontri B2B del convegno/.test(senzaTrattini(m.html)),
+        'nel piede c e la riga degli incontri B2B');
+    esigi(!/conferma della tua iscrizione/.test(senzaTrattini(m.html) + m.testo),
+        'e non quella della conferma d iscrizione, che qui non c entra');
+    /* Le due copie - quella dell'area riservata e quella del servizio -
+       devono dire la stessa cosa: sono la stessa riga sotto lettere diverse. */
+    const fs = require('fs');
+    const leggi = (f, nome) => {
+        const src = fs.readFileSync(f, 'utf8');
+        const m2 = new RegExp('const ' + nome + " = '((?:[^'\\\\]|\\\\.)*)'").exec(src);
+        return m2 ? m2[1].split('\\\'').join('\'') : null;
+    };
+    const qui = leggi(path.join(__dirname, '..', '..', 'area-riservata', 'newsletter-format.js'), 'MOTIVO_B2B');
+    const la = leggi(path.join(__dirname, '..', 'lib', 'mail-ngb.js'), 'MOTIVO_B2B');
+    esigi(!!qui && qui === la, 'e le due copie sono identiche alla lettera', String(qui) + ' | ' + String(la));
 });
 
 console.log('\nLa forma della mail d\'invito B2B\n');

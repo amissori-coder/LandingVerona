@@ -1196,6 +1196,15 @@
        il servizio la spedisce cosi' com'e'.
     ========================================================= */
     const MOTIVO_CONFERMA = 'Ricevi questa email come conferma della tua iscrizione all\'evento: non è una comunicazione promozionale.';
+    /* IL MOTIVO IN CODA, per le mail del B2B. Quella riga in fondo dice a chi
+       legge perche' gli e' arrivata questa email, e sotto un invito agli
+       incontri diceva "conferma della tua iscrizione": una cosa che non era
+       vera - l'invito non conferma niente - e per giunta detta del tu in una
+       lettera che da' del Lei o del Voi. Questa e' impersonale apposta: la
+       stessa riga va bene sotto la lettera all'impresa e sotto quella alla
+       singola persona. E' la gemella di MOTIVO_B2B del servizio
+       (email-service/lib/mail-ngb.js): stessa riga, stesse parole. */
+    const MOTIVO_B2B = 'Questa email riguarda gli incontri B2B del convegno Next Generation Business: non è una comunicazione promozionale.';
     function confermaEvento(dati) {
         dati = dati || {};
         const ev = dati.evento || {};
@@ -1583,7 +1592,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_CONFERMA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_B2B) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
     }
@@ -1653,7 +1662,7 @@
 
         const corpo = cella(tabellaInterna(
             spazio(30)
-            + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
+            + par('L\'iniziativa è stata concepita non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
             + spazio(14)
             + par('Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.')
             + ((ev.quando || ev.luogo) ? spazio(18) + riquadroOrario : '')
@@ -1698,7 +1707,7 @@
                 + '\nNella stessa pagina vede le scelte degli altri referenti della Sua azienda.',
             chiusura,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
-            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
             'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };
@@ -1759,7 +1768,7 @@
             + 'Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.';
         const corpo = cella(tabellaInterna(
             spazio(30)
-            + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
+            + par('L\'iniziativa è stata concepita non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
             + spazio(14)
             + par('Per questo desideriamo offrirLe un incontro riservato, nel corso della giornata, con i nostri professionisti'
                 + (area.descrizione ? ' su ' + area.descrizione : '') + '.')
@@ -1792,7 +1801,7 @@
             'Scelga il Suo orario: ' + SEGNAPOSTO_B2B,
             chiusura,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
-            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
             'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
         return { oggetto: oggetto, html: html, testo: testo };
     }
@@ -1849,10 +1858,11 @@
            quattro posti, la stessa parola, perche' e' la premessa di tutto il
            resto. */
         const oggetto = 'Invito riservato agli incontri B2B - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
-        const anteprima = 'Un invito riservato alla Vostra impresa: indichi chi partecipa e tre preferenze. La prima prenota davvero.';
+        const anteprima = 'Un invito riservato alla Vostra impresa: indicate chi partecipa e tre preferenze. La prima è una prenotazione.';
         const scadenza = String((dati.evento || {}).scadenzaB2B || '').trim();
-        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', questo è un invito riservato alla Vostra impresa: nel corso del convegno "'
-            + nomeConvegno + '"' + (quandoEv ? ' di ' + quandoEv : '') + ' Le dedichiamo degli incontri B2B con i nostri professionisti.';
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', Vi rivolgiamo un invito riservato: nel corso del convegno "'
+            + nomeConvegno + '"' + (quandoEv ? ' di ' + quandoEv : '')
+            + ' mettiamo a disposizione della Vostra impresa alcuni incontri B2B con i nostri professionisti.';
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* La nota in coda, in corpo minore: le due cose che riguardano il
            COLLEGAMENTO e non l'incontro (chi altri l'ha ricevuto, fin dove lo
@@ -1882,8 +1892,9 @@
            scaletta vive e si aggiorna da se'; se non c'e', resta il consiglio
            senza il collegamento invece di un link a vuoto. */
         const urlEvento = urlSicuro(ev.url || '');
-        const rigaProgramma = 'Il programma dei lavori in sala si aggiorna fino agli ultimi giorni: lo verifichi '
-            + 'prima di scegliere l\'orario, così l\'incontro non Le capita durante un intervento a cui teneva.';
+        const rigaProgramma = 'Il programma dei lavori in sala viene aggiornato fino agli ultimi giorni: Vi '
+            + 'invitiamo a consultarlo prima di scegliere l\'orario, così che l\'incontro non si sovrapponga a '
+            + 'un intervento di Vostro interesse.';
         const sezioneQuandoDove = quandoDove || ev.indirizzo
             ? sezione('Quando e dove',
                 '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">' + testoHtml(quandoDove) + '</div>'
@@ -1917,21 +1928,35 @@
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
             + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
-            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scelga i Vostri incontri</a>'
+            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scegliete i Vostri incontri</a>'
             + '</td></tr></table></td></tr>';
-        const fraseColleghi = 'Questo invito è arrivato anche a {{REFERENTI}}: è un invito solo per {{AZIENDA}}, '
-            + 'e le scelte si vedono e si modificano dallo stesso collegamento, chiunque di voi lo apra.';
-        const fraseCollegamento = 'Questo invito è riservato a {{AZIENDA}}: il collegamento vale per tutta l\'impresa e lo può '
-            + 'usare anche un Suo collega, ma Le chiediamo di non diffonderlo fuori dall\'azienda.';
+        const fraseColleghi = 'Questo invito è stato inviato anche a {{REFERENTI}}: è un unico invito per '
+            + '{{AZIENDA}}, e le scelte sono visibili e modificabili dallo stesso collegamento, da chiunque di Voi lo apra.';
+        const fraseCollegamento = 'Questo invito è riservato a {{AZIENDA}}: il collegamento vale per l\'intera '
+            + 'impresa e può essere utilizzato anche da un Vostro collega. Vi chiediamo di non diffonderlo all\'esterno.';
         /* ENTRO QUANDO. Gli abbinamenti li chiudiamo prima del convegno - le
            seconde e le terze si assegnano con quello che avanza - e una data
            precisa fa scegliere; "appena puo'" non e' una data. Se non c'e' la
            frase si toglie da se', invece di inventarne una. */
         const entro = String(ev.scadenzaB2B || '').trim();
-        const chiusura = 'Gli orari si assegnano a chi prenota per primo'
+        const chiusura = 'Gli orari vengono assegnati in ordine di prenotazione'
             + (entro ? ', e le scelte si chiudono il ' + entro : '')
-            + ': Le consigliamo di scegliere appena può. '
-            + 'Nell\'attesa di incontrarVi' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.';
+            + ': Vi suggeriamo di procedere quanto prima. '
+            + 'In attesa di incontrarVi' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Vi porgiamo i nostri più cordiali saluti.';
+        /* L'APERTURA, scritta una volta sola. Queste tre frasi le legge sia
+           chi riceve l'HTML sia chi riceve il solo testo, ed erano scritte
+           due volte: al primo ritocco le due versioni si sono allontanate -
+           l'HTML diceva "concepita" e il testo "pensata" - e nessuna prova se
+           ne accorgeva. Scritte qui, la lettera resta una sola.
+           La seconda frase e' quella che l'oggetto promette: dice come stanno
+           le cose e basta - i desk hanno pochi posti, le imprese le
+           selezioniamo una per una - senza promettere numeri che non
+           conosciamo. */
+        const apertura = [
+            'L\'iniziativa è stata concepita non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.',
+            'Gli incontri non sono aperti a tutti gli iscritti: i posti ai desk sono limitati e l\'invito è rivolto alle imprese selezionate una per una. La Vostra è fra queste.',
+            'Gli incontri si tengono a margine dei lavori in sala, presso i desk riservati: qui di seguito trovate gli argomenti e le modalità di prenotazione, e dal pulsante potrete scegliere i tavoli di Vostro interesse e l\'orario.'
+        ];
         /* L'ORDINE IN CUI SI LEGGE.
            Prima perche' scriviamo, poi quando e dove, poi che cosa si puo'
            scegliere, poi come si sceglie: a quel punto - e non prima - il
@@ -1941,16 +1966,7 @@
            riguarda il collegamento, quindi sta in coda accanto all'altra. */
         const corpo = cella(tabellaInterna(
             spazio(30)
-            + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
-            + spazio(14)
-            /* Perche' proprio a loro: e' la frase che l'oggetto promette, e in
-               un paragrafo corto si legge anche da chi scorre. Dice come stanno
-               le cose e basta - i desk hanno pochi posti, le imprese le
-               scegliamo una per una - senza promettere numeri che non
-               conosciamo. */
-            + par('Gli incontri non sono aperti a tutti gli iscritti: i posti ai desk sono limitati e l\'invito va alle imprese che scegliamo una per una. La Vostra è fra queste.')
-            + spazio(14)
-            + par('Gli incontri si tengono a margine dei lavori in sala, ai desk riservati: qui sotto trova gli argomenti e come funziona la prenotazione, e dal pulsante sceglie i tavoli che Vi interessano e l\'orario.')
+            + apertura.map(t => par(t)).join(spazio(14))
             + (sezioneQuandoDove ? spazio(24) + sezioneQuandoDove : '')
             + (sezioneTavoli ? spazio(16) + sezioneTavoli : '')
             + (sezioneRegole ? spazio(16) + sezioneRegole : '')
@@ -1962,7 +1978,7 @@
                     '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">'
                     + testoHtml('Le scelte si chiudono il ' + scadenza + '.') + '</div>'
                     + '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">'
-                    + testoHtml('Dopo quella data chiudiamo gli abbinamenti e assegniamo gli orari rimasti.') + '</div>')
+                    + testoHtml('Dopo tale data chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.') + '</div>')
                 : '')
             + spazio(30)
             + bottone
@@ -1978,21 +1994,19 @@
         // la versione a solo testo dice le stesse cose nello stesso ordine: chi
         // la riceve (posta che non mostra l'HTML) legge la stessa lettera
         const testo = ['INVITO RISERVATO AGLI INCONTRI B2B', sommario,
-            'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.',
-            'Gli incontri non sono aperti a tutti gli iscritti: i posti ai desk sono limitati e l\'invito va alle imprese che scegliamo una per una. La Vostra è fra queste.',
-            'Gli incontri si tengono a margine dei lavori in sala, ai desk riservati.',
+            apertura.join('\n\n'),
             rigaProgramma + (urlEvento ? '\nIl programma dei lavori: ' + urlEvento : ''),
             ((ev.quando || ev.luogo) ? 'Quando e dove: ' + [ev.quando, ev.luogo].filter(Boolean).join(' - ')
                 + (ev.indirizzo ? ', ' + ev.indirizzo : '') : ''),
             (aree.length ? 'I tavoli della giornata:\n' + aree.map(a => '- ' + a.nome).join('\n') : ''),
             (regole.length ? 'Come funziona:\n' + regole.map((x, i) => (i + 1) + '. ' + x).join('\n') : ''),
             (scadenza ? 'Entro quando: le scelte si chiudono il ' + scadenza
-                + '. Dopo quella data chiudiamo gli abbinamenti e assegniamo gli orari rimasti.' : ''),
-            'Scelga i Vostri incontri: ' + SEGNAPOSTO_B2B,
+                + '. Dopo tale data chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.' : ''),
+            'Scegliete i Vostri incontri: ' + SEGNAPOSTO_B2B,
             chiusura,
             '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
             fraseCollegamento,
-            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
             'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
         return { oggetto: oggetto, html: html, testo: testo };
     }
@@ -2014,18 +2028,26 @@
             pranzoDa: gg.pranzoDa || '', pranzoA: gg.pranzoA || ''
         };
         const entro = String(scadenza == null ? '' : scadenza).trim().slice(0, 60);
+        /* SI DA' DEL VOI, in tutte le mail del B2B e in questa pagina.
+           L'invito e' dell'IMPRESA e lo stesso collegamento lo aprono piu'
+           referenti: il "Lei" parlerebbe a una persona sola, e infatti i testi
+           scivolavano da un registro all'altro nella stessa frase - "alla Vostra
+           impresa... Le dedichiamo". Due registri mescolati sono la cosa che
+           piu' fa sembrare scritta male una lettera per il resto corretta. */
         return [
-            'Un invito per azienda: indichi il nominativo di chi partecipa a ciascun incontro, '
-            + 'e può essere una persona diversa da un tavolo all\'altro.',
-            'La prima preferenza prenota davvero: sceglie il tavolo e l\'orario, e da quel momento quell\'orario è Suo. '
-            + 'Gli orari che vede liberi sono quelli liberi adesso: appena un\'impresa ne prende uno, a tutti gli altri sparisce.',
+            'L\'invito è per l\'azienda: per ciascun incontro indicate il nominativo della persona che vi '
+            + 'parteciperà, che può essere diversa da un tavolo all\'altro.',
+            'La prima preferenza è una prenotazione vera e propria: scegliete il tavolo e l\'orario, e da quel '
+            + 'momento quell\'orario è riservato a Voi. Gli orari indicati come liberi sono quelli disponibili in '
+            + 'questo momento: appena un\'impresa ne occupa uno, non compare più alle altre.',
             /* COME SI CAMBIA LA PRIMA. E' la domanda che arriva per prima, e la
                risposta e' rassicurante: non bisogna disdire per poi rischiare di
-               restare senza niente - si preme l'orario nuovo e la prenotazione si
-               sposta, in un'operazione sola. Non dirlo lasciava credere il
+               restare senza niente - si sceglie il nuovo orario e la prenotazione
+               si sposta, in un'operazione sola. Non dirlo lasciava credere il
                contrario, che e' il modo piu' facile per perdere un posto. */
-            'Per cambiare orario o tavolo della prima preferenza prema quello nuovo e salvi: la prenotazione si sposta, '
-            + 'e l\'ora di prima torna libera nello stesso momento. Non serve annullarla prima.',
+            'Per cambiare orario o tavolo della prima preferenza è sufficiente selezionare il nuovo orario e '
+            + 'salvare: la prenotazione si sposta e quella precedente si libera nello stesso momento. Non occorre '
+            + 'annullarla prima.',
             /* LA SECONDA E LA TERZA NON SONO PRENOTAZIONI, e va detto per intero:
                non sono un orario che aspetta conferma, sono una preferenza che
                diventera' un incontro solo se dopo le prime preferenze di tutti
@@ -2034,22 +2056,22 @@
                incontro. Detto a meta', chi legge si aspetta "il suo orario, da
                confermare", e il giorno del convegno si presenta a un'ora che non
                gli abbiamo mai dato. */
-            'La seconda e la terza sono solo il tavolo, e non prenotano niente: diventano un incontro solo se a quel '
-            + 'tavolo avanzano posti dopo le prime preferenze di tutti, e l\'orario lo scegliamo noi fra quelli rimasti - '
-            + 'anche lontano da quello del primo incontro. Glielo diciamo per mail: finché non arriva, a Suo nome non '
-            + 'c\'è nessun orario.',
+            'La seconda e la terza preferenza indicano soltanto il tavolo e non costituiscono una prenotazione: '
+            + 'diventano un incontro solo se a quel tavolo restano posti dopo le prime preferenze di tutte le imprese, '
+            + 'e l\'orario lo assegniamo noi fra quelli rimasti, anche distante da quello del primo incontro. Ve lo '
+            + 'comunichiamo per email: fino a quel momento non risulta alcun orario a Vostro nome.',
             /* E UNA VOLTA ASSEGNATE non si toccano piu': l'orario e' quello, e
                l'unica cosa che l'impresa puo' fare e' rinunciarci. Detto cosi' -
                "confermato, oppure annullatelo" - non resta la terza possibilita'
                che nessuno puo' dare, cioe' spostarlo di un'ora. */
-            'Una volta che gliene abbiamo assegnato uno, quell\'orario è confermato: da questa pagina non si sposta '
-            + 'e non se ne può chiedere un altro. Se non Le va bene lo annulli: torna libero per un\'altra impresa, e '
-            + 'la Sua preferenza resta in lista per un orario diverso.',
+            'Una volta assegnato, quell\'orario è confermato: dalla pagina non può essere spostato né '
+            + 'sostituito. Se non fosse compatibile con i Vostri impegni potete annullarlo: l\'orario torna '
+            + 'disponibile per un\'altra impresa e la Vostra preferenza resta in lista per un orario diverso.',
             'Ogni incontro dura ' + g.durata + ' minuti, fra le ' + g.inizio + ' e le ' + g.fine
             + (g.pranzoDa ? ', esclusa la pausa pranzo (' + g.pranzoDa + '-' + g.pranzoA + ')' : '') + '.',
-            'Può cambiare tutto da questa pagina ' + (entro ? 'entro il ' + entro : 'fino al giorno del convegno')
-            + ': a ogni modifica riceve una mail nuova con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
-            + (entro ? ' Dopo il ' + entro + ' chiudiamo gli abbinamenti e assegniamo gli orari rimasti.' : '')
+            'Potete modificare le Vostre scelte dalla pagina ' + (entro ? 'entro il ' + entro : 'fino al giorno del convegno')
+            + ': a ogni modifica riceverete una email con il foglio aggiornato, e vale sempre l\'ultimo emesso.'
+            + (entro ? ' Dopo il ' + entro + ' chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.' : '')
         ];
     }
 

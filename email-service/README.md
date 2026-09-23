@@ -1934,6 +1934,43 @@ fondo al foglio c'e la data di emissione, perche vale sempre l'ultimo.
   servizio non ha una tabella degli eventi - sta nell'area riservata - e tenerne
   una seconda qui vorrebbe dire vederle divergere.
 
+### Come sono scritte: si da' del Voi, e la lettera e' una sola
+
+Le mail del B2B all'impresa - l'invito (`invitoB2BAzienda`, nell'area
+riservata), la conferma delle prenotazioni (`confermaB2BAzienda`) e l'avviso di
+annullamento (`invitoB2BAnnullato`) - **danno del Voi**, dalla prima riga
+all'ultima. Non e' un vezzo: l'invito e' dell'AZIENDA, e lo stesso collegamento
+lo aprono piu' referenti, quindi il destinatario e' un'impresa e non una
+persona. Le mail al singolo iscritto (`confermaB2B`, `invitoB2BArea`) danno del
+Lei, e va bene cosi': cambia il destinatario, non lo stile.
+
+Quello che non si puo' fare e' **mescolarli nella stessa lettera**. "Alla Vostra
+impresa... Le dedichiamo" e' la cosa che piu' fa sembrare scritta male una
+lettera per il resto corretta, e capita sempre ai pezzi aggiunti dopo:
+l'etichetta di un pulsante ("Rivedi le prenotazioni" dentro una lettera che da'
+del Voi), una nota in coda, la riga del piede.
+`prove/mail-invito-forma.prove.js` e `prove/azienda-b2b.prove.js` passano le
+lettere al setaccio cercando le forme del tu.
+
+**La riga in fondo** (`MOTIVO_B2B`, in due copie gemelle: `lib/mail-ngb.js` e
+`area-riservata/newsletter-format.js`) dice perche' quella email e' arrivata.
+Sotto l'invito c'era scritto *"Ricevi questa email come conferma della tua
+iscrizione all'evento"*: non era vero - un invito non conferma niente - ed era
+detto del tu. Ora e' impersonale apposta, cosi' vale anche sotto le lettere che
+danno del Lei. Le due copie devono restare identiche alla lettera, e una prova
+le mette una accanto all'altra.
+
+**Ogni mail ha due versioni**, l'HTML e il solo testo, e dicono le stesse cose
+nello stesso ordine: chi ha la posta che non mostra l'HTML legge la stessa
+lettera. Il modo in cui si allontanano e' sempre lo stesso - la frase e'
+scritta due volte, si ritocca quella dell'HTML e l'altra resta indietro: e'
+successo davvero (l'HTML diceva "e' stata concepita" e il testo "e' stata
+pensata"). Le frasi che le due versioni si dividono si scrivono percio' **una
+volta sola**, in una costante (`apertura` nell'invito, `fraseOrari`,
+`fraseCollegamento`, `fraseIscrizione`, `fraseErrore` nell'annullamento,
+`fraseModifica` e `fraseAnnulla` nella conferma), e le prove controllano che la
+stessa frase si trovi in tutte e due.
+
 ### Un orario per ogni tavolo (il modo PRECEDENTE, ancora vivo)
 
 Come funzionavano gli inviti prima dell'agenda a slot. Non si mandano piu cosi
