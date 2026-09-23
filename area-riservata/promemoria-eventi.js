@@ -51,6 +51,11 @@
     const NOME = '{{NOME}}';
     const COMPLETA = '{{COMPLETA}}';
     const LINK_DIRETTA = '{{LINK_DIRETTA}}';
+    /* La scadenza delle prenotazioni B2B non si scrive qui: sta con i dati
+       dell'evento nell'area riservata (scadenzaB2B), perche' la citano anche
+       l'invito, il modulo e le conferme, e due copie prima o poi direbbero due
+       date diverse. componi() la mette al posto di questo segnaposto. */
+    const SCADENZA_B2B = '{{SCADENZA_B2B}}';
 
     /* Le sezioni a cui una serie si rivolge. "In sala" sono le tre sezioni
        che occupano un posto (ospiti, aderenti Revilaw, sponsor e relatori):
@@ -133,9 +138,10 @@
                     titolo: 'Venerdì 2 ottobre, a Napoli',
                     sommario: 'Gentile ' + NOME + ', Le ricordiamo il Suo appuntamento con Next Generation Business: La aspettiamo in sala venerdì 2 ottobre all\'Hotel Eurostars Excelsior di Napoli.',
                     paragrafi: [
-                        'La giornata si apre alle 9.00 con la registrazione e il welcome coffee e si chiude alle 17.30. Qui sotto trova la scaletta; il programma completo, con i nomi dei relatori, è sul sito.'
+                        'La giornata si apre alle 9.00 con la registrazione e il welcome coffee e si chiude alle 17.30; alle 13.30 è offerto un lunch buffet. Qui sotto trova la scaletta; il programma completo, con i nomi dei relatori, è sul sito.',
+                        { titolo: 'Incontri B2B', testo: 'Se ha ricevuto l\'invito agli incontri B2B e non ha ancora prenotato i Suoi appuntamenti, Le consigliamo di farlo al più presto dal collegamento contenuto nell\'invito: gli orari disponibili sono limitati e le prenotazioni si chiudono il ' + SCADENZA_B2B + '.' }
                     ],
-                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.00 alle 17.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee']],
+                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.00 alle 17.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee'], ['Pranzo', 'Lunch buffet offerto, alle 13.30']],
                     programma: PROGRAMMA_SALA,
                     pulsante: { testo: 'Il programma con i relatori', url: NAPOLI.programmaPagina },
                     nota: '',
@@ -152,7 +158,7 @@
                     sommario: 'Gentile ' + NOME + ', stiamo preparando la sala e i badge per venerdì 2 ottobre e contiamo sulla Sua presenza.',
                     paragrafi: [
                         'Se verrà, non deve fare nulla: il badge La aspetta al desk. Se invece non potrà esserci, La preghiamo di dircelo dal pulsante qui sotto: la sala è al completo e il Suo posto andrà a una delle persone in lista d\'attesa.',
-                        { titolo: 'Gli incontri B2B', testo: 'Si svolgono dalle 10.00 alle 17.00, in parallelo ai lavori, e sono riservati a chi ha ricevuto l\'invito. Ogni incontro ha il suo orario, così da poter seguire anche le sessioni in sala. Se ha prenotato i Suoi incontri, porti il foglio della prenotazione, stampato o sul telefono, e lo presenti al desk "Incontri B2B".' }
+                        { titolo: 'Gli incontri B2B', testo: 'Si svolgono dalle 10.00 alle 17.00, in parallelo ai lavori, e sono riservati a chi ha ricevuto l\'invito. Se lo ha ricevuto e non ha ancora prenotato, lo faccia al più presto dal collegamento contenuto nell\'invito: gli orari disponibili sono limitati e le prenotazioni si chiudono il ' + SCADENZA_B2B + '. Se ha già prenotato, porti il foglio della prenotazione, stampato o sul telefono, e lo presenti al desk "Incontri B2B".' }
                     ],
                     righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.00 alle 17.30'], ['Dove', NAPOLI.dove], ['Incontri B2B', 'Dalle 10.00 alle 17.00, su invito']],
                     pulsante: { testo: 'Modifica o annulla l\'iscrizione', url: COMPLETA },
@@ -164,15 +170,16 @@
                 id: 'sala-vigilia', serie: 'sala', giorniPrima: 1,
                 nome: 'Il giorno prima: orari, indirizzo e ultime indicazioni',
                 mail: {
-                    oggetto: 'Venerdì 2 ottobre: orari e indirizzo per la giornata',
-                    anteprima: 'Registrazione dalle 9.00 all\'Hotel Eurostars Excelsior, Via Partenope 48.',
+                    oggetto: 'Venerdì 2 ottobre: arrivo alle 9.00, orari e indirizzo',
+                    anteprima: 'La sala sarà al completo: Le chiediamo di arrivare alle 9.00, all\'apertura della registrazione.',
                     titolo: 'Tutto pronto per il 2 ottobre',
                     sommario: 'Gentile ' + NOME + ', ecco le ultime indicazioni per la giornata di venerdì 2 ottobre.',
                     paragrafi: [
-                        'La registrazione apre alle 9.00 con il welcome coffee; i lavori cominciano alle 9.30 e si chiudono alle 17.30. Al desk basta il Suo nome: il badge è già pronto. Se ha prenotato gli incontri B2B, ricordi il foglio della prenotazione con i Suoi orari.',
+                        { titolo: 'Arrivi in anticipo', testo: 'La sala sarà al completo. Per rispettare gli orari della giornata Le chiediamo di arrivare alle 9.00, quando apre la registrazione con il welcome coffee: così ciascuno ha il tempo di ritirare il badge e prendere posto, e i lavori cominciano puntuali alle 9.30.' },
+                        'Al desk basta il Suo nome: il badge è già pronto. Alle 13.30 è offerto a tutti un lunch buffet; i lavori si chiudono alle 17.30. Se ha prenotato gli incontri B2B, ricordi il foglio della prenotazione con i Suoi orari.',
                         'Per i professionisti presenti in sala: il convegno è in corso di accreditamento presso l\'Ordine dei Dottori Commercialisti e degli Esperti Contabili di Napoli. Chi è iscritto all\'Ordine lo segnali al desk al momento della registrazione.'
                     ],
-                    righe: [['Quando', 'Venerdì 2 ottobre, dalle 9.00 alle 17.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee']],
+                    righe: [['Arrivo', 'Alle 9.00, all\'apertura della registrazione'], ['Inizio dei lavori', '9.30'], ['Pranzo', 'Lunch buffet offerto, alle 13.30'], ['Dove', NAPOLI.dove]],
                     pulsante: { testo: 'Apri la mappa', url: NAPOLI.mappa },
                     nota: '',
                     linkPersonale: true
@@ -186,8 +193,10 @@
                     anteprima: 'Hotel Eurostars Excelsior. Apertura dei lavori alle 9.30.',
                     titolo: 'La aspettiamo stamattina',
                     sommario: 'Gentile ' + NOME + ', oggi è il giorno di Next Generation Business: La aspettiamo all\'Hotel Eurostars Excelsior dalle 9.00.',
-                    paragrafi: [],
-                    righe: [['Registrazione', 'Dalle 9.00'], ['Apertura dei lavori', '9.30'], ['Dove', NAPOLI.dove]],
+                    paragrafi: [
+                        'La sala è al completo: arrivi alle 9.00, così la registrazione è veloce e i lavori cominciano puntuali alle 9.30.'
+                    ],
+                    righe: [['Arrivo', 'Alle 9.00'], ['Inizio dei lavori', '9.30'], ['Dove', NAPOLI.dove]],
                     pulsante: { testo: 'Apri la mappa', url: NAPOLI.mappa },
                     nota: '',
                     linkPersonale: false
@@ -334,27 +343,30 @@
         const NL = formato || (typeof RV_NEWSLETTER !== 'undefined' ? RV_NEWSLETTER : null);
         if (!NL || typeof NL.promemoriaEvento !== 'function') return null;
         const m = mail || {};
+        /* i campi di chi programma e, dai dati dell'evento, la scadenza B2B */
+        const scadenza = String((evento || {}).scadenzaB2B || 'giorno prima dell\'evento');
+        const sost = (x, v) => conCampi(x, v).split(SCADENZA_B2B).join(scadenza);
         const par = (m.paragrafi || []).map(p => {
-            if (typeof p === 'string') return conCampi(p, valori);
-            return { titolo: conCampi(p.titolo, valori), testo: conCampi(p.testo, valori), elenco: (p.elenco || []).map(v => conCampi(v, valori)) };
+            if (typeof p === 'string') return sost(p, valori);
+            return { titolo: sost(p.titolo, valori), testo: sost(p.testo, valori), elenco: (p.elenco || []).map(v => sost(v, valori)) };
         });
         return NL.promemoriaEvento({
             evento: evento || {},
-            oggetto: conCampi(m.oggetto, valori),
-            anteprima: conCampi(m.anteprima, valori),
-            titolo: conCampi(m.titolo, valori),
-            sommario: conCampi(m.sommario, valori),
+            oggetto: sost(m.oggetto, valori),
+            anteprima: sost(m.anteprima, valori),
+            titolo: sost(m.titolo, valori),
+            sommario: sost(m.sommario, valori),
             paragrafi: par,
-            righe: (m.righe || []).map(r => [conCampi(r[0], valori), conCampi(r[1], valori)]),
+            righe: (m.righe || []).map(r => [sost(r[0], valori), sost(r[1], valori)]),
             programma: m.programma || [],
-            pulsante: m.pulsante ? { testo: conCampi(m.pulsante.testo, valori), url: conCampi(m.pulsante.url, valori) } : null,
-            nota: conCampi(m.nota, valori),
+            pulsante: m.pulsante ? { testo: sost(m.pulsante.testo, valori), url: sost(m.pulsante.url, valori) } : null,
+            nota: sost(m.nota, valori),
             linkPersonale: m.linkPersonale !== false
         });
     }
 
     return {
-        SERIE: SERIE, CAMPI: CAMPI, SEGNAPOSTO_NOME: NOME, SEGNAPOSTO_COMPLETA: COMPLETA,
+        SERIE: SERIE, CAMPI: CAMPI, SEGNAPOSTO_NOME: NOME, SEGNAPOSTO_COMPLETA: COMPLETA, SEGNAPOSTO_SCADENZA_B2B: SCADENZA_B2B,
         proposteDi: proposteDi, proposta: proposta, serieDi: serieDi, quandoProposto: quandoProposto,
         aTesto: aTesto, daTesto: daTesto, conCampi: conCampi, campiMancanti: campiMancanti, componi: componi
     };

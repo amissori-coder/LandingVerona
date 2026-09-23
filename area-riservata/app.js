@@ -23453,7 +23453,8 @@
             oggetto: $id('pm-oggetto').value.trim(), titolo: $id('pm-titolo').value.trim(), sommario: $id('pm-sommario').value.trim(),
             paragrafi: RV_PROMEMORIA.daTesto($id('pm-corpo').value), nota: $id('pm-nota').value.trim()
         });
-        const evDef = { titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '', luogo: ev.luogo || '', indirizzo: ev.indirizzo || '' };
+        // la scadenza B2B viene dai dati dell'evento: un posto solo, come per l'invito e le conferme
+        const evDef = { titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '', luogo: ev.luogo || '', indirizzo: ev.indirizzo || '', scadenzaB2B: ev.scadenzaB2B || '' };
         const aggiornaConta = () => {
             const d = destinatariPromemoria(ev, sezioniScelte());
             const el = $id('pm-conta');
