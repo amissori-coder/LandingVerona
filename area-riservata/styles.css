@@ -3750,3 +3750,27 @@ button.prg-slot:hover:not([disabled]) { border-color: var(--blu-700); }
 @media (max-width: 900px) {
     .prg-colonne { grid-template-columns: 1fr; }
 }
+
+/* Promemoria agli iscritti: riepilogo dei destinatari e mail divise per serie */
+.pm-riepilogo { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; margin: 0 0 18px; }
+.pm-tessera { flex: 1 1 200px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-700); border-radius: 8px; padding: 10px 14px; }
+.pm-tessera-tit { font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--blu-700); }
+.pm-tessera-num { font-size: 26px; font-weight: 700; color: var(--blu-900); line-height: 1.2; margin: 2px 0; }
+.pm-riepilogo-azioni { flex: 1 1 240px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.pm-riepilogo-azioni .btn { align-self: flex-start; }
+.pm-riepilogo .hint { text-align: left; }
+.pm-serie { margin: 0 0 20px; }
+.pm-serie-testa { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; border-bottom: 2px solid var(--blu-700); padding-bottom: 4px; margin-bottom: 8px; }
+.pm-serie-testa h3 { margin: 0; font-size: 16px; color: var(--blu-900); }
+table.dati.pm-tabella td { vertical-align: top; }
+table.dati.pm-tabella td.pm-quando { white-space: nowrap; width: 100px; }
+table.dati.pm-tabella td.pm-dest { white-space: nowrap; width: 110px; }
+.pm-tabella td.pm-stato { width: 190px; }
+.pm-tabella td.pm-azioni { white-space: nowrap; text-align: right; }
+.pm-tabella td.pm-azioni .btn + .btn { margin-left: 4px; }
+.pm-elenco { margin-top: 8px; }
+.pm-elenco > summary, .pm-come > summary { cursor: pointer; font-weight: 600; color: var(--blu-700); }
+.pm-come { margin: 4px 0 8px; }
+@media (max-width: 720px) {
+    .pm-tabella td.pm-stato, .pm-tabella td.pm-dest { width: auto; }
+}

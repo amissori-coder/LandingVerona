@@ -23346,26 +23346,6 @@
         out.sala.sort(ord); out.online.sort(ord);
         return out;
     }
-    function elenchiDestinatariHtml(ev) {
-        const d = elenchiPromemoria(ev);
-        if (!d.caricato) return '<p class="hint" style="margin:14px 0 0;">Gli elenchi di chi riceve compaiono appena le iscrizioni sono caricate.</p>';
-        const tab = (lista, conSezione) => '<div class="tabella-wrap" style="box-shadow:none;max-height:320px;overflow:auto;"><table class="dati"><thead><tr>'
-            + '<th>#</th><th>Nome</th><th>Azienda</th><th>Email</th>' + (conSezione ? '<th>Sezione</th>' : '') + '</tr></thead><tbody>'
-            + lista.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.nome) + '</td><td>' + esc(r.azienda) + '</td><td>' + esc(r.email) + '</td>'
-                + (conSezione ? '<td>' + esc(sezioneDef(r.sezione).breve) + '</td>' : '') + '</tr>').join('')
-            + '</tbody></table></div>';
-        const note = [];
-        if (d.assenti) note.push(d.assenti + ' segnat' + (d.assenti === 1 ? 'o' : 'i') + ' assent' + (d.assenti === 1 ? 'e' : 'i'));
-        if (d.doppie) note.push(d.doppie + ' indirizz' + (d.doppie === 1 ? 'o doppio' : 'i doppi'));
-        if (d.senzaEmail) note.push(d.senzaEmail + ' senza email valida');
-        return '<h3 style="margin:18px 0 6px;">Chi riceve, a oggi</h3>'
-            + '<p class="hint" style="margin:0 0 8px;max-width:none;">In sala <b>' + d.sala.length + '</b> (ospiti, aderenti Revilaw, sponsor e relatori), online <b>' + d.online.length + '</b>.'
-            + (note.length ? ' Non ricevono: ' + esc(note.join(', ')) + '.' : '')
-            + ' Il conto definitivo lo fa il servizio al momento di ogni invio.</p>'
-            + '<div style="margin:0 0 10px;"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest">Scarica i destinatari (CSV)</button></div>'
-            + '<details class="pm-elenco"><summary><b>In sala</b>: ' + d.sala.length + ' persone</summary>' + tab(d.sala, true) + '</details>'
-            + '<details class="pm-elenco" style="margin-top:6px;"><summary><b>Online</b>: ' + d.online.length + ' persone</summary>' + tab(d.online, false) + '</details>';
-    }
     /* I destinatari in un file: una riga per persona, con la serie, la
        sezione e gli invii che la riguardano (data, ora, stato). Si apre in
        Excel: separatore punto e virgola, come le altre esportazioni. */
@@ -23442,8 +23422,12 @@
         collegaPromemoria(ev);
     }
     /* L'ELENCO, in una finestra: una riga per promemoria, con stato e azioni. */
-    function tabellaPromemoriaHtml(ev) {
-        const righe = righePromemoria(ev);
+    /* L'ELENCO, in una finestra, diviso per serie: in sala e online. Per
+       ogni serie i destinatari di oggi e, sotto, le sue mail in ordine di
+       data, ciascuna con quante persone la riceverebbero adesso. */
+    function tabellaPromemoriaHtml(ev, serie, dest) {
+        const righe = righePromemoria(ev).filter(r => serieDiSezioni(r.sezioni) === serie);
+        if (!righe.length) return '<p class="hint">Nessuna mail per questa serie.</p>';
         const puo = puoGestireInviti();
         const passato = ts => ts && ts < Date.now();
         /* L'oggetto come lo leggera' chi lo riceve quel giorno ("Mancano 8
@@ -23455,18 +23439,35 @@
             const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             return T.applica(String(r.oggetto || ''), T.frasi(iso, ev.giorno, RV_PROMEMORIA.giornoDaTesto(ev.scadenzaB2B || '', ev.giorno) || ''));
         };
+        /* Quante persone: per un invio gia' fatto, quante l'hanno ricevuta;
+           altrimenti quante la riceverebbero adesso, nelle sezioni della riga. */
+        const destinatari = r => {
+            const inv = r.rec && r.rec.invio;
+            if (r.stato === 'inviato' && inv) {
+                const n = Number(inv.inviate || 0) + Number(inv.recuperi || 0);
+                return '<b>' + n + '</b><div class="hint">ricevut' + (n === 1 ? 'a' : 'e') + '</div>';
+            }
+            if (!dest.caricato) return '<span class="hint">-</span>';
+            const sez = r.sezioni || [];
+            const lista = serie === 'online' ? dest.online : dest.sala.filter(x => sez.indexOf(x.sezione) >= 0);
+            const parziale = serie === 'sala' && sez.length < RV_PROMEMORIA.SERIE.sala.sezioni.length;
+            return '<b>' + lista.length + '</b><div class="hint">' + (lista.length === 1 ? 'persona' : 'persone')
+                + (parziale ? ': ' + esc(sez.map(id => sezioneDef(id).breve).join(', ')) : '') + '</div>';
+        };
+        /* "Otto giorni prima: programma e..." -> "Programma e...": la data
+           sta gia' nella prima colonna. */
+        const nomeBreve = n => { const t = String(n || '').replace(/^[^:]{0,40}:\s*/, ''); return t ? t.charAt(0).toUpperCase() + t.slice(1) : String(n || ''); };
         const rigaHtml = r => {
             const st = STATI_PROMEMORIA[r.stato] || STATI_PROMEMORIA.proposta;
             const inv = r.rec && r.rec.invio;
             let stato = '<span class="badge ' + st.classe + '">' + esc(st.nome) + '</span>';
-            if (r.stato === 'inviato' && inv) stato += '<div class="hint">' + esitoPromemoriaBreve(inv) + '</div>';
+            if (r.stato === 'inviato' && inv) stato += '<div class="hint">il ' + esc(fmtDataOra(inv.il)) + (inv.falliti ? ', <span class="ev-ko">' + inv.falliti + ' non recapitat' + (inv.falliti === 1 ? 'a' : 'e') + '</span>' : '') + '</div>';
             else if (inv && inv.inCorso) stato += '<div class="hint">in corso: <b>' + (inv.inviate || 0) + '</b> inviate</div>';
-            else if (r.stato === 'programmato' && inizioGiorno(r.quando) === inizioGiorno(Date.now())) stato += '<div class="hint">' + (giroDiOggiPassato(r.rec || r.prop) ? 'il giro delle ' + oraGiro(r.rec || r.prop) + ' di oggi è già passato: riprogrammalo' : 'parte ' + quandoGiro(r.rec || r.prop, true)) + '</div>';
+            else if (r.stato === 'programmato' && inizioGiorno(r.quando) === inizioGiorno(Date.now())) stato += '<div class="hint">' + (giroDiOggiPassato(r.rec || r.prop) ? 'il giro di oggi è già passato: riprogrammalo' : 'parte ' + quandoGiro(r.rec || r.prop, true)) + '</div>';
             else if (r.stato === 'programmato' && passato(r.quando)) stato += '<div class="hint">giorno passato: verrà segnato non partito</div>';
-            else if (r.stato === 'proposta') stato += '<div class="hint">non parte finché non confermi</div>';
             else if (r.stato === 'scaduto') stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
-            // un promemoria della prima versione: testi vecchi, e non va a chi si iscrive dopo
             if (r.rec && r.prop && (r.stato === 'programmato' || r.stato === 'sospeso') && r.rec.versioneTesti !== RV_PROMEMORIA.VERSIONE_TESTI) stato += '<div class="hint ev-ko">testi della versione precedente: aprila e usa i testi aggiornati</div>';
+            // un promemoria della prima versione: testi vecchi, e non va a chi si iscrive dopo
             if (r.rec && !r.prop) stato += '<div class="hint ev-ko">prima versione dei testi: ' + (r.stato === 'programmato' ? 'toglila, o partirà con i testi vecchi' : 'non va a chi si iscrive dopo') + '</div>';
             const chiave = r.rec ? r.rec.id : idPromemoria(ev, r.prop.id);
             const idProp = r.prop ? r.prop.id : (r.rec ? r.rec.proposta : '');
@@ -23474,30 +23475,66 @@
             let azioni = '';
             if (puo) {
                 if (r.stato === 'proposta') azioni = btn('btn-primary', 'apri', 'Apri e programma');
-                else if (r.stato === 'programmato') azioni = btn('btn-secondary', 'apri', 'Apri') + (inv && inv.inCorso ? '' : btn('btn-secondary', 'sospendi', 'Sospendi') + btn('btn-ghost', 'elimina', 'Elimina'));
-                else if (r.stato === 'sospeso') azioni = btn('btn-secondary', 'apri', 'Apri') + btn('btn-primary', 'riprendi', passato(r.quando) ? 'Riprogramma' : 'Riprendi') + btn('btn-ghost', 'elimina', 'Elimina');
+                else if (r.stato === 'programmato') azioni = btn('btn-secondary', 'apri', 'Apri') + (inv && inv.inCorso ? '' : btn('btn-ghost', 'sospendi', 'Sospendi') + btn('btn-ghost', 'elimina', 'Elimina'));
+                else if (r.stato === 'sospeso') azioni = btn('btn-primary', 'riprendi', passato(r.quando) ? 'Riprogramma' : 'Riprendi') + btn('btn-secondary', 'apri', 'Apri') + btn('btn-ghost', 'elimina', 'Elimina');
                 else if (r.stato === 'scaduto') azioni = btn('btn-primary', 'apri', 'Riprogramma') + btn('btn-ghost', 'elimina', 'Elimina');
                 else azioni = btn('btn-secondary', 'apri', 'Apri');
             } else if (r.rec) azioni = btn('btn-secondary', 'apri', 'Apri');
             return '<tr data-riga="' + esc(chiave) + '"' + (_pmEvidenziata[ev.id] === chiave ? ' class="pm-evidenziata"' : '') + '>'
-                + '<td style="white-space:nowrap;">' + esc(quandoPromemoria(r.quando)) + '</td>'
-                + '<td style="white-space:nowrap;">' + esc(etichettaSezioniPromemoria(r.sezioni)) + '</td>'
-                + '<td><b>' + esc(r.nome) + '</b><div class="hint">' + esc(oggettoDelGiorno(r)) + '</div></td>'
-                + '<td>' + stato + '</td>'
-                + '<td style="white-space:nowrap;text-align:right;">' + azioni + '</td></tr>';
+                + '<td class="pm-quando"><b>' + esc(quandoPromemoria(r.quando)) + '</b><div class="hint">ore ' + oraGiro(r.rec || r.prop) + '</div></td>'
+                + '<td><b>' + esc(nomeBreve(r.nome)) + '</b><div class="hint">' + esc(oggettoDelGiorno(r)) + '</div></td>'
+                + '<td class="pm-dest">' + destinatari(r) + '</td>'
+                + '<td class="pm-stato">' + stato + '</td>'
+                + '<td class="pm-azioni">' + azioni + '</td></tr>';
         };
-        return '<div class="tabella-wrap" style="box-shadow:none;"><table class="dati"><thead><tr>'
-            + '<th>Quando</th><th>A chi</th><th>Promemoria</th><th>Stato</th><th></th></tr></thead><tbody>'
+        return '<div class="tabella-wrap" style="box-shadow:none;"><table class="dati pm-tabella"><thead><tr>'
+            + '<th>Quando</th><th>Mail</th><th>Destinatari</th><th>Stato</th><th></th></tr></thead><tbody>'
             + righe.map(rigaHtml).join('') + '</tbody></table></div>';
+    }
+    /* L'elenco delle persone di una serie, da aprire sotto le sue mail. */
+    function elencoPersoneHtml(lista, conSezione) {
+        if (!lista.length) return '<p class="hint" style="margin:8px 0 0;">Nessun destinatario, a oggi.</p>';
+        return '<div class="tabella-wrap" style="box-shadow:none;max-height:320px;overflow:auto;margin-top:8px;"><table class="dati"><thead><tr>'
+            + '<th>#</th><th>Nome e cognome</th><th>Azienda</th><th>Email</th>' + (conSezione ? '<th>Sezione</th>' : '') + '</tr></thead><tbody>'
+            + lista.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.nome) + '</td><td>' + esc(r.azienda) + '</td><td>' + esc(r.email) + '</td>'
+                + (conSezione ? '<td>' + esc(sezioneDef(r.sezione).nome) + '</td>' : '') + '</tr>').join('')
+            + '</tbody></table></div>';
     }
     function modaleElencoPromemoria(ev) {
         if (!window.RV_PROMEMORIA) return;
+        const dest = elenchiPromemoria(ev);
+        const conta = (n, uno, molti) => '<b>' + n + '</b> ' + (n === 1 ? uno : molti);
+        // quanti per sezione, in sala
+        const perSez = {};
+        dest.sala.forEach(r => { perSez[r.sezione] = (perSez[r.sezione] || 0) + 1; });
+        const dettaglioSala = RV_PROMEMORIA.SERIE.sala.sezioni.map(id => sezioneDef(id).nome + ' ' + (perSez[id] || 0)).join(' · ');
+        const esclusi = [];
+        if (dest.assenti) esclusi.push(dest.assenti + ' segnat' + (dest.assenti === 1 ? 'o' : 'i') + ' assent' + (dest.assenti === 1 ? 'e' : 'i'));
+        if (dest.doppie) esclusi.push(dest.doppie + ' indirizz' + (dest.doppie === 1 ? 'o doppio' : 'i doppi'));
+        if (dest.senzaEmail) esclusi.push(dest.senzaEmail + ' senza email valida');
+        const tessera = (titolo, n, sotto) => '<div class="pm-tessera"><div class="pm-tessera-tit">' + titolo + '</div>'
+            + '<div class="pm-tessera-num">' + (dest.caricato ? n : '-') + '</div>'
+            + '<div class="hint">' + (dest.caricato ? sotto : 'in caricamento') + '</div></div>';
+        const sezione = (serie, titolo, sotto, lista, conSezione) => '<section class="pm-serie">'
+            + '<div class="pm-serie-testa"><h3>' + titolo + '</h3><span class="hint">' + sotto + '</span></div>'
+            + tabellaPromemoriaHtml(ev, serie, dest)
+            + (dest.caricato ? '<details class="pm-elenco"><summary>Elenco dei destinatari ' + (serie === 'online' ? 'online' : 'in sala') + ' (' + lista.length + ')</summary>' + elencoPersoneHtml(lista, conSezione) + '</details>' : '')
+            + '</section>';
         apriModale('<h2>Promemoria agli iscritti</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;max-width:none;">Due serie, <b>in sala</b> (ospiti, aderenti Revilaw, sponsor e relatori) e <b>online</b>. '
-            + 'Apri una riga: vedi la mail com\'è davvero, correggi quello che vuoi, scegli il giorno e le sezioni, e conferma. Parte <b>solo</b> quello che confermi, '
-            + '<b>alle 20</b> del giorno scelto (la mail della mattina dell\'evento alle 7), a chi risulta iscritto in quel momento. I giorni che mancano si calcolano il giorno dell\'invio. Chi si iscrive <b>dopo</b> la prima mail riceve alla prima sera utile la mail completa della sua serie, con i giorni ricalcolati, e poi segue il calendario: una mail al giorno, e la vigilia ha la precedenza.</p>'
-            + tabellaPromemoriaHtml(ev)
-            + elenchiDestinatariHtml(ev)
+            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi: la sera <b>alle 20</b>, il giorno dell\'evento <b>alle 7</b>. '
+            + 'A ogni invio il sistema rilegge gli iscritti: i numeri qui sotto sono quelli di oggi.</p>'
+            + '<div class="pm-riepilogo">'
+            + tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala))
+            + tessera('Destinatari online', dest.online.length, 'sezione Online')
+            + '<div class="pm-riepilogo-azioni"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest"' + (dest.caricato ? '' : ' disabled') + '>Scarica i destinatari (CSV)</button>'
+            + (esclusi.length ? '<div class="hint">Non ricevono: ' + esc(esclusi.join(', ')) + '; né gli invitati ai soli incontri B2B.</div>' : '<div class="hint">Non ricevono gli assenti e gli invitati ai soli incontri B2B.</div>')
+            + '</div></div>'
+            + sezione('sala', 'In sala', 'ospiti in presenza, aderenti Revilaw, sponsor e relatori', dest.sala, true)
+            + sezione('online', 'Online', 'chi segue la diretta', dest.online, false)
+            + '<details class="pm-come"><summary>Come funziona</summary><p class="hint" style="max-width:none;margin:6px 0 0;">'
+            + 'Apri una riga: vedi la mail com\'è davvero, correggi i testi, scegli il giorno e le sezioni, e conferma. I giorni che mancano si calcolano il giorno dell\'invio. '
+            + 'Chi si iscrive <b>dopo</b> la prima mail riceve alla prima sera utile la mail completa della sua serie, con i giorni ricalcolati, e poi segue il calendario: '
+            + 'una mail al giorno, e la vigilia ha la precedenza. La sezione che conta è quella decisa da voi, non quella dichiarata iscrivendosi.</p></details>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="pm-el-chiudi">Chiudi</button></div>',
             { classe: 'larga' });
         document.getElementById('pm-el-chiudi').addEventListener('click', chiudiModale);
