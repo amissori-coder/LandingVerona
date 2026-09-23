@@ -3774,3 +3774,4 @@ table.dati.pm-tabella td.pm-dest { white-space: nowrap; width: 110px; }
 @media (max-width: 720px) {
     .pm-tabella td.pm-stato, .pm-tabella td.pm-dest { width: auto; }
 }
+.pm-quadra { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--grigio-200); font-size: 12.5px; line-height: 1.55; color: var(--grigio-600); text-align: left; }
