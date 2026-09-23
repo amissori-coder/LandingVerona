@@ -167,7 +167,13 @@ function aziendaB2B(v) {
     if (!a || !String(a.id || '').trim()) return null;
     return {
         id: String(a.id || ''), nome: String(a.nome || ''),
-        piva: String(a.piva || ''), evento: String(a.evento || '')
+        piva: String(a.piva || ''), evento: String(a.evento || ''),
+        /* QUANDO le e' stato mandato l'invito. Lo scrive il servizio nello
+           stesso momento in cui la mail parte, e serve alla finestra degli
+           inviti per dividere le aziende gia' invitate da quelle nuove: senza
+           una data, "gia' invitata" non si puo' nemmeno scrivere accanto al
+           nome, e chi importa un secondo elenco non ha modo di distinguerle. */
+        quando: typeof a.quando === 'number' ? a.quando : 0
     };
 }
 /* Il programma dell'AZIENDA, ricopiato su ogni scheda dei suoi referenti: gli
