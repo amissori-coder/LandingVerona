@@ -2291,7 +2291,7 @@
                 + spazio(24)
                 + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
                 + spazio(12)
-                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(titolo) + '</td></tr>'
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;' + ALLINEA + '">' + testoHtml(titolo) + '</td></tr>'
                 + spazio(16)
                 + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
@@ -2305,7 +2305,7 @@
         /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
            lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
            l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
-        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(t) + '</td></tr>';
+        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* Elenco puntato a tabelle: i <ul> in Outlook rientrano a caso. */
         const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + voci.map(v => '<tr>'
@@ -2322,7 +2322,7 @@
         }).join('');
 
         const riga = (et, val) => '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
-            + '<td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>';
+            + '<td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
         const box = righe.length
             ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
@@ -2332,11 +2332,11 @@
            la forma in cui si legge un programma, la stessa della mail di
            prenotazione B2B. */
         const tabellaProgramma = programma.length
-            ? spazio(26) + sopratitolo('Il programma') + spazio(4)
+            ? spazio(26) + sopratitolo('Programma dei lavori') + spazio(4)
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + programma.map(v => '<tr>'
                 + '<td width="70" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 14px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
-                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.nome) + '</td></tr>').join('')
+                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
             + '</table></td></tr>'
             : '';
         /* Il pulsante. Se l'indirizzo e' il segnaposto del collegamento
@@ -2369,11 +2369,14 @@
         const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
         /* Al Lei, come tutte le mail al singolo: il registro non si mescola
            nella stessa lettera. */
-        const fraseLink = 'Se non potrà più partecipare, o se i Suoi dati sono da correggere, può farlo dal '
+        const fraseLink = 'Qualora non potesse più partecipare o desiderasse modificare i Suoi dati, può farlo attraverso il '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
-            + 'Vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.';
-        const fraseLinkTesto = 'Se non potrà più partecipare, o se i Suoi dati sono da correggere, può farlo dal Suo collegamento personale: '
-            + SEGNAPOSTO_COMPLETA + ' (vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo).';
+            + 'Il collegamento è riservato alla Sua iscrizione: La preghiamo di non inoltrarlo.';
+        const fraseLinkTesto = 'Qualora non potesse più partecipare o desiderasse modificare i Suoi dati, può farlo attraverso il Suo collegamento personale: '
+            + SEGNAPOSTO_COMPLETA + ' (riservato alla Sua iscrizione: La preghiamo di non inoltrarlo).';
+        /* I saluti in chiusura, come in una lettera. */
+        const saluti = spazio(28) + '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">'
+            + 'Cordiali saluti,<br><strong>La Segreteria organizzativa</strong><br>Next Generation Business</td></tr>';
         const code = (nota || linkPersonale)
             ? spazio(24) + piccolo((nota ? testoHtml(nota) : '') + (nota && linkPersonale ? '<br><br>' : '') + (linkPersonale ? fraseLink : ''))
             : '';
@@ -2384,6 +2387,7 @@
             + (box ? (corpoParagrafi ? spazio(26) : '') + box : '')
             + tabellaProgramma
             + rigaBottone
+            + saluti
             + code
         ));
 
@@ -2418,6 +2422,7 @@
         if (righe.length) parti.push(righe.map(r => r[0] + ': ' + r[1]).join('\n'));
         if (programma.length) parti.push('IL PROGRAMMA\n' + programma.map(v => (v.ora ? v.ora + '  ' : '') + v.nome).join('\n'));
         if (btn) parti.push(btn.testo + ': ' + btn.url);
+        parti.push('Cordiali saluti,\nLa Segreteria organizzativa\nNext Generation Business');
         if (nota) parti.push(nota);
         if (linkPersonale) parti.push(fraseLinkTesto);
         parti.push('--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA, 'Informativa privacy: ' + PRIVACY);
@@ -2427,7 +2432,7 @@
     }
     /* La riga in coda ai promemoria: impersonale, cosi' sta bene sotto una
        lettera al Lei (MOTIVO_ONLINE da' del tu, ed e' di un'altra mail). */
-    const MOTIVO_PROMEMORIA = 'Questa email è inviata agli iscritti all\'evento: non è una comunicazione promozionale.';
+    const MOTIVO_PROMEMORIA = 'La presente comunicazione è inviata agli iscritti all\'evento e non ha carattere promozionale.';
 
 
     /* =========================================================

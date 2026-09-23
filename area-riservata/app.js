@@ -23310,6 +23310,7 @@
             else if (r.stato === 'proposta') stato += '<div class="hint">non parte finché non confermi</div>';
             else if (r.stato === 'scaduto') stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
             // un promemoria della prima versione: testi vecchi, e non va a chi si iscrive dopo
+            if (r.rec && r.prop && (r.stato === 'programmato' || r.stato === 'sospeso') && r.rec.versioneTesti !== RV_PROMEMORIA.VERSIONE_TESTI) stato += '<div class="hint ev-ko">testi della versione precedente: aprila e usa i testi aggiornati</div>';
             if (r.rec && !r.prop) stato += '<div class="hint ev-ko">prima versione dei testi: ' + (r.stato === 'programmato' ? 'toglila, o partirà con i testi vecchi' : 'non va a chi si iscrive dopo') + '</div>';
             const chiave = r.rec ? r.rec.id : idPromemoria(ev, r.prop.id);
             const idProp = r.prop ? r.prop.id : (r.rec ? r.rec.proposta : '');
@@ -23438,7 +23439,10 @@
         const inviato = !!(rec && rec.stato === 'inviato');
         const inCorso = !!(rec && rec.invio && rec.invio.inCorso);
         const soloLettura = !puo || inviato || inCorso;
-        const testi = (rec && rec.testi) || (prop && prop.mail) || {};
+        /* Confermato con testi di una versione precedente: si puo' ripartire
+           dai testi aggiornati del catalogo (opz.testiNuovi). */
+        const testiVecchi = !!(rec && prop && rec.stato !== 'inviato' && rec.versioneTesti !== RV_PROMEMORIA.VERSIONE_TESTI);
+        const testi = (opz.testiNuovi && prop && prop.mail) || (rec && rec.testi) || (prop && prop.mail) || {};
         const campiRichiesti = (prop && prop.campi) || (rec && rec.campiRichiesti) || [];
         /* Il collegamento alla diretta si scrive una volta: se un altro
            promemoria di questo evento lo ha gia', si parte da quello. */
@@ -23451,7 +23455,7 @@
         const quando0 = rec ? rec.quando : RV_PROMEMORIA.quandoProposto(prop, ev.giorno);
         const sezioni0 = rec ? (rec.sezioni || []) : RV_PROMEMORIA.SERIE[prop.serie].sezioni.slice();
         const serie = serieDiSezioni(sezioni0);
-        const nome = (rec && rec.nome) || (prop && prop.nome) || '';
+        const nome = (opz.testiNuovi && prop && prop.nome) || (rec && rec.nome) || (prop && prop.nome) || '';
         const isoData = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
         const dis = soloLettura ? ' disabled' : '';
 
@@ -23484,7 +23488,12 @@
             + '<div class="campo"><label>A chi</label>' + sezioniHtml
             + '<div class="hint" id="pm-conta"></div></div>'
             + campiHtml
-            + '<details class="ev-colonne" style="margin:4px 0 12px;"' + (rec && rec.testi ? ' open' : '') + '><summary>Correggi i testi</summary><div style="margin-top:8px;">'
+            + (testiVecchi && !opz.testiNuovi && !soloLettura
+                ? '<div class="card" style="margin:0 0 12px;padding:10px 14px;border-left:3px solid var(--ambra-600, #b45309);"><strong>Testi di una versione precedente</strong>'
+                + '<div class="hint">Questo promemoria è stato confermato prima della revisione dei testi e della grafica. Carica i testi aggiornati, controlla l\'anteprima e conferma di nuovo.</div>'
+                + '<button class="btn btn-sm btn-primary" id="pm-testi-nuovi" style="margin-top:8px;">Usa i testi aggiornati</button></div>'
+                : '')
+            + '<details class="ev-colonne" style="margin:4px 0 12px;"' + (rec && rec.testi && !opz.testiNuovi ? ' open' : '') + '><summary>Correggi i testi</summary><div style="margin-top:8px;">'
             + '<div class="campo"><label>Oggetto</label><input id="pm-oggetto" value="' + esc(testi.oggetto || '') + '"' + dis + ' style="max-width:none;"></div>'
             + '<div class="campo"><label>Titolo</label><input id="pm-titolo" value="' + esc(testi.titolo || '') + '"' + dis + ' style="max-width:none;"></div>'
             + '<div class="campo"><label>Apertura</label><textarea id="pm-sommario" rows="3"' + dis + ' style="max-width:none;">' + esc(testi.sommario || '') + '</textarea>'
@@ -23547,6 +23556,11 @@
         const x = document.querySelector('#modale-contenitore .mw-close');
         if (x) x.addEventListener('click', () => setTimeout(() => torna(false), 0));
         $id('pm-no').addEventListener('click', () => { chiudiModale(); torna(false); });
+        const bNuovi = $id('pm-testi-nuovi');
+        if (bNuovi) bNuovi.addEventListener('click', () => {
+            chiudiModale();
+            modalePromemoria(ev, idProposta, idRecord, Object.assign({}, opz, { testiNuovi: true }));
+        });
         if (soloLettura) return;
         $id('pm-si').addEventListener('click', () => {
             const sez = sezioniScelte();
@@ -23582,6 +23596,7 @@
                 // la mail della mattina dell'evento: parte dal giro delle 7
                 mattina: !!((prop && prop.mattina) || (rec && rec.mattina)),
                 chiusuraB2B: chiusuraB2B,
+                versioneTesti: RV_PROMEMORIA.VERSIONE_TESTI,
                 creato: rec && rec.creato ? rec.creato : firmaPromemoria(u),
                 aggiornato: rec ? firmaPromemoria(u) : null
             };
