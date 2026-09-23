@@ -168,6 +168,9 @@ function risolviDestinatari(arch, rec) {
         /* La sezione: la decisione di chi organizza (presenze) vince su quella
            dichiarata iscrivendosi; vuoto o sconosciuto vale in presenza. */
         let m = String(p.modalita || v.modalita || '').toLowerCase();
+        /* Gli invitati ai SOLI incontri B2B non sono iscritti al convegno: in
+           sala non si siedono e la diretta non la seguono. Nessun promemoria. */
+        if (m === 'b2b') { out.esclusi++; return; }
         if (SEZIONI.indexOf(m) < 0) m = 'presenza';
         if (sezioni.indexOf(m) < 0) return;
         const email = String(v.email || '').trim().toLowerCase();

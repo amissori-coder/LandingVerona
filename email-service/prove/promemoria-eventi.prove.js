@@ -187,15 +187,18 @@ await prova('1) Parte in sala e non online; la sezione decisa vince su quella di
     const c = iscr('carla@esempio.it', 'Carla', 'Rossi', { modalita: 'presenza' });   // dichiara presenza...
     const d = iscr('dario@esempio.it', 'Dario', 'Neri', { modalita: 'aderenti' });    // aderenti (dal modulo)
     const e = iscr('elena@altro.it', 'Elena', 'Gialli', { pagina: 'Roma 29 Aprile 2026 - Manifestazione di interesse' });
-    mettiIscrizioni([a, b, c, d, e], [
+    const f = iscr('franco@esempio.it', 'Franco', 'Blu', { modalita: 'b2b' });      // invitato ai soli incontri B2B
+    const g = iscr('gina@esempio.it', 'Gina', 'Viola');                                // si iscrive in sala...
+    mettiIscrizioni([a, b, c, d, e, f, g], [
         { evento: 'napoli-2026-10-02', idIscritto: idDi(b), modalita: 'presenza' },   // ...ma chi organizza lo ha messo in sala
-        { evento: 'napoli-2026-10-02', idIscritto: idDi(c), modalita: 'online' }      // ...ma chi organizza lo ha spostato online
+        { evento: 'napoli-2026-10-02', idIscritto: idDi(c), modalita: 'online' },     // ...ma chi organizza lo ha spostato online
+        { evento: 'napoli-2026-10-02', idIscritto: idDi(g), modalita: 'b2b' }         // ...ma poi e' passata ai soli B2B
     ]);
     mettiPromemoria([recBase()]);
     const r = await giro();
     esigi(r._stato === 200 && r.inviati === 1, 'un promemoria inviato (' + JSON.stringify(r) + ')');
     const dest = posta.filter(m => !/^\[Copia per te\]/.test(m.subject)).map(m => m.to).sort();
-    esigi(JSON.stringify(dest) === JSON.stringify(['anna@esempio.it', 'bruno@esempio.it', 'dario@esempio.it']), 'a chi: anna, bruno (in sala per decisione), dario (aderenti); non carla (online), non elena (Roma) - ' + dest.join(', '));
+    esigi(JSON.stringify(dest) === JSON.stringify(['anna@esempio.it', 'bruno@esempio.it', 'dario@esempio.it']), 'a chi: anna, bruno (in sala per decisione), dario (aderenti); non carla (online), non elena (Roma), non franco e gina (soli B2B) - ' + dest.join(', '));
     const ma = posta.find(m => m.to === 'anna@esempio.it');
     esigi(ma.subject === 'Ciao Anna Maria Verdi, ci vediamo a Napoli', 'nome e cognome nell\'oggetto: ' + ma.subject);
     esigi(/\/completa_iscrizione\/\?d=anna-esempio-it&t=/.test(ma.html), 'collegamento personale firmato della scheda nel corpo');
