@@ -136,11 +136,8 @@ function idRiga(v) {
 /* Un nome scritto tutto maiuscolo o tutto minuscolo ("MARIO ROSSI",
    "anna d'amico") si rimette in forma; uno scritto con le maiuscole al loro
    posto ("Anna De Luca", "McArthur") si lascia com'e'. */
-function formaNome(s) {
-    const t = String(s || '').trim().replace(/\s+/g, ' ');
-    if (!t || (t !== t.toUpperCase() && t !== t.toLowerCase())) return t;
-    return t.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
-}
+// la regola sta in lib/promemoria-tempo.js, la stessa dell'area riservata
+function formaNome(s) { return TEMPO.formaNome(s); }
 /* Il nome con cui si saluta: nome e cognome. Le mail al singolo aprono con
    "Gentile nome cognome" e danno del Lei, come la conferma dell'iscrizione;
    "Gentile Maria" da solo suonerebbe confidenziale. Se manca tutto, "ospite". */
@@ -181,7 +178,7 @@ function risolviDestinatari(arch, rec) {
         if (!email || !reEmail.test(email)) { out.senzaEmail++; return; }
         if (visti[email]) { out.doppie++; return; }
         visti[email] = true;
-        out.destinatari.push({ email: email, nome: nomeSaluto(v), doc: String(v._doc || '') });
+        out.destinatari.push({ email: email, nome: nomeSaluto(v), azienda: TEMPO.formaAzienda(v.azienda), doc: String(v._doc || '') });
     });
     return out;
 }
@@ -213,9 +210,10 @@ function personalizza(rec, d) {
     const link = d.doc ? NL.linkCompleta(d.doc) : (BASE + '/');
     // le parole che dipendono dal giorno in cui la mail parte DAVVERO
     const f = TEMPO.frasi(giornoRoma(Date.now()), giornoEventoDi(rec), String(rec.chiusuraB2B || ''));
-    const ogg = TEMPO.applica(String(m.oggetto || 'Promemoria - Next Generation Business').replace(/[\r\n]+/g, ' '), f).split('{{NOME}}').join(d.nome);
-    const html = TEMPO.applica(String(m.html || ''), f).split('{{NOME}}').join(esc(d.nome)).split('{{COMPLETA}}').join(link);
-    const testo = m.testo ? TEMPO.applica(String(m.testo), f).split('{{NOME}}').join(d.nome).split('{{COMPLETA}}').join(link) : undefined;
+    // {{AZIENDA}}: l'azienda di chi riceve; se non c'e', sparisce con il suo separatore
+    const ogg = TEMPO.conAzienda(TEMPO.applica(String(m.oggetto || 'Promemoria - Next Generation Business').replace(/[\r\n]+/g, ' '), f), d.azienda).split('{{NOME}}').join(d.nome);
+    const html = TEMPO.conAzienda(TEMPO.applica(String(m.html || ''), f), esc(d.azienda || '')).split('{{NOME}}').join(esc(d.nome)).split('{{COMPLETA}}').join(link);
+    const testo = m.testo ? TEMPO.conAzienda(TEMPO.applica(String(m.testo), f), d.azienda).split('{{NOME}}').join(d.nome).split('{{COMPLETA}}').join(link) : undefined;
     return { subject: ogg, html: html, text: testo };
 }
 

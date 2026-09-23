@@ -480,6 +480,27 @@ await prova('17) La mail della mattina dell\'evento parte solo dal giro delle 7;
     esigi(r2.inviati === 1 && JSON.stringify(a) === JSON.stringify(['anna@esempio.it', 'dario@esempio.it']), 'il giro delle 7 la manda a tutti, anche a chi si e\' iscritto la sera prima (' + a.join(', ') + ')');
 });
 
+await prova('18) Oggetto con IMPORTANTE e l\'azienda di chi riceve; nomi e aziende scritti allo stesso modo', async () => {
+    azzera();
+    mettiIscrizioni([
+        iscr('anna@esempio.it', 'ANNA MARIA', 'VERDI', { azienda: 'VERDI SRL' }),
+        iscr('bruno@esempio.it', 'bruno', 'de luca', { azienda: 'banca di credito cooperativo spa' }),
+        iscr('carla@esempio.it', 'Carla', 'McArthur', { azienda: '' })
+    ], []);
+    mettiPromemoria([recBase({ quando: Date.parse('2026-09-23T22:00:00Z'), mail: { oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} a Napoli', html: '<title>IMPORTANTE - {{AZIENDA}} - x</title><p>Gentile {{NOME}}</p>', testo: 'Gentile {{NOME}}' } })]);
+    orologio = alle8('2026-09-24');
+    await giro();
+    const ogg = {};
+    noCopia().forEach(m => { ogg[m.to] = m.subject + ' | ' + (/Gentile ([^<]+)</.exec(m.html) || [])[1]; });
+    esigi(ogg['anna@esempio.it'] === 'IMPORTANTE - Verdi S.r.l. - Mancano 8 giorni a Napoli | Anna Maria Verdi', 'anna: ' + ogg['anna@esempio.it']);
+    esigi(ogg['bruno@esempio.it'] === 'IMPORTANTE - Banca di Credito Cooperativo S.p.A. - Mancano 8 giorni a Napoli | Bruno De Luca', 'bruno: ' + ogg['bruno@esempio.it']);
+    esigi(ogg['carla@esempio.it'] === 'IMPORTANTE - Mancano 8 giorni a Napoli | Carla McArthur', 'carla senza azienda: il trattino sparisce - ' + ogg['carla@esempio.it']);
+    const T1 = require(path.join(RADICE, 'lib/promemoria-tempo.js'));
+    const T2 = require(path.join(RADICE, '..', 'area-riservata', 'promemoria-eventi.js')).tempo;
+    const casi = ['VERDI SRL', 'alfa s.r.l', 'Gamma, SRL', 'McKinsey & Company', 'studio rossi & associati sas', 'MARIO DE LUCA', "anna d'amico", ''];
+    esigi(casi.every(c => T1.formaAzienda(c) === T2.formaAzienda(c) && T1.formaNome(c) === T2.formaNome(c) && T1.conAzienda('A - {{AZIENDA}} - B', c) === T2.conAzienda('A - {{AZIENDA}} - B', c)), 'servizio e anteprima scrivono nomi e aziende allo stesso modo');
+});
+
 await prova('6) Chiamata senza segreto: rifiutata', async () => {
     azzera();
     const res = { _s: 0, status(n) { this._s = n; return this; }, json() { return this; } };
