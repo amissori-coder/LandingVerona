@@ -1864,19 +1864,21 @@
            che quella riga riguarda lui e non una lista. Prima del nome stanno
            tredici caratteri, quindi anche su un telefono la ragione sociale
            rientra quasi sempre per intero.
-           "IMPORTANTE" SI SCRIVE COSI', con la sola iniziale maiuscola. Tutta
-           in maiuscolo e' una delle cose che i filtri della posta pesano - e
-           questa e' posta che arriva a chi non ci ha mai scritto, quindi il
-           margine non c'e' - e in una lettera che da' del Voi e parla di
-           adeguati assetti stonerebbe come un cartello. Una parola sola,
-           davanti, senza punti esclamativi: dice che la riga chiede una
-           decisione, e il resto dell'oggetto dice quale.
+           DUE REGISTRI, E NON E' UNA SVISTA. "Importante" ha la sola iniziale
+           maiuscola, "INVITO RISERVATO" e' tutto maiuscolo: la prima e' la
+           parola che dice di aprire la mail, le seconde sono quelle che dicono
+           che non e' una circolare, ed e' su quelle che si vuole l'occhio.
+           Un oggetto tutto maiuscolo e' una delle cose che i filtri della
+           posta pesano, e questa e' posta che arriva a chi non ci ha mai
+           scritto: alzare la voce su DUE parole soltanto - senza punti
+           esclamativi, dentro una riga per il resto normale - e' quanto si
+           puo' fare senza pagarlo alla consegna.
            Il nome resta un SEGNAPOSTO: la mail si compone una volta sola per
            tutte le aziende, e a sostituirlo - nell'oggetto come nel testo - e'
            il servizio al momento dell'invio, che e' l'unico a sapere a chi
            sta spedendo. */
         const oggetto = 'Importante - ' + SEGNAPOSTO_NOME
-            + ': invito riservato agli incontri B2B, Next Generation Business'
+            + ': INVITO RISERVATO agli incontri B2B, Next Generation Business'
             + (quandoEv ? ', ' + quandoEv : '');
         const anteprima = 'Un invito riservato alla Vostra impresa: indicate chi partecipa e tre preferenze. La prima è una prenotazione.';
         const scadenza = String((dati.evento || {}).scadenzaB2B || '').trim();

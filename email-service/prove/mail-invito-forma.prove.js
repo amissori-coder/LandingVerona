@@ -286,13 +286,19 @@ prova('L oggetto nomina l impresa, e il nome resta un segnaposto', () => {
         'l oggetto porta il segnaposto del nome, non un nome scritto a mano', m.oggetto);
     esigi(m.oggetto.indexOf('Importante') === 0,
         'e comincia con "Importante": e la prima cosa che si legge in elenco', m.oggetto);
-    /* "Importante" si scrive con la sola iniziale maiuscola: tutto in
-       maiuscolo e' una delle cose che i filtri della posta pesano, e questa e'
-       posta che arriva a chi non ci ha mai scritto. */
+    /* DUE REGISTRI, e non e' una svista: "Importante" con la sola iniziale,
+       "INVITO RISERVATO" tutto maiuscolo. Un oggetto tutto maiuscolo e' una
+       delle cose che i filtri pesano, e questa e' posta che arriva a chi non
+       ci ha mai scritto: si alza la voce su due parole, non su tutta la riga. */
+    esigi(m.oggetto.indexOf('INVITO RISERVATO') > 0,
+        'e dice a voce alta che e un invito riservato', m.oggetto);
     esigi(m.oggetto.indexOf('IMPORTANTE') < 0 && !/!/.test(m.oggetto),
-        'non urla: niente maiuscole piene ne punti esclamativi', m.oggetto);
-    esigi(m.oggetto.indexOf('invito riservato') > 0,
-        'e dice comunque che e un invito riservato', m.oggetto);
+        'ma non urla tutta la riga: niente altre maiuscole piene ne punti esclamativi', m.oggetto);
+    const parole = m.oggetto.replace(NL.SEGNAPOSTO_NOME, 'Azienda').split(/[\s,:-]+/).filter(Boolean);
+    const urlate = parole.filter(p => p.length > 2 && p === p.toUpperCase()
+        && /[A-Z]/.test(p) && !/[0-9.]/.test(p));
+    esigi(urlate.join(' ') === 'INVITO RISERVATO',
+        'e le uniche due parole maiuscole sono quelle', urlate.join(' '));
     /* Prima del nome ci devono stare poche parole: i telefoni tagliano
        l'oggetto dopo una quarantina di caratteri, e il nome deve rientrare
        anche quando la ragione sociale e' lunga. */
