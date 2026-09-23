@@ -135,8 +135,8 @@
         'napoli-2026-10-02': [
             /* ------------------------- IN SALA ------------------------- */
             {
-                id: 'sala-programma', serie: 'sala', giorniPrima: 9, benvenuto: true,
-                nome: 'Nove giorni prima: programma e informazioni essenziali',
+                id: 'sala-programma', serie: 'sala', giorniPrima: 8, benvenuto: true,
+                nome: 'Otto giorni prima: programma e informazioni essenziali',
                 mail: {
                     oggetto: '{{MANCANO}} a Next Generation Business: il programma della giornata',
                     anteprima: 'Venerdì 2 ottobre all\'Hotel Eurostars Excelsior di Napoli. Registrazione dalle 9.00, lavori fino alle 17.30.',
@@ -231,8 +231,8 @@
 
             /* -------------------------- ONLINE ------------------------- */
             {
-                id: 'online-programma', serie: 'online', giorniPrima: 9, benvenuto: true,
-                nome: 'Nove giorni prima: programma e modalità della diretta',
+                id: 'online-programma', serie: 'online', giorniPrima: 8, benvenuto: true,
+                nome: 'Otto giorni prima: programma e modalità della diretta',
                 mail: {
                     oggetto: '{{MANCANO}} alla diretta di Next Generation Business: il programma',
                     anteprima: 'I lavori in diretta dalle 9.30. Collegamento e accessi arrivano in un messaggio a parte.',
