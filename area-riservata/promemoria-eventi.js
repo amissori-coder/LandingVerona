@@ -84,6 +84,10 @@
          - il programma con i titoli esatti delle sessioni, e gli orari veri:
            lavori 9.00-17.30, incontri B2B 10.00-17.00 e solo su invito;
          - Lei e "Gentile nome cognome", come le altre mail al singolo.
+       La mail con il collegamento e le credenziali di accesso alla diretta
+       NON e' qui: la manda chi organizza, a parte, perche' contiene gli
+       accessi. Le due mail online che seguono la richiamano senza ripeterne
+       il contenuto.
        Gli identificativi sono nuovi apposta: un promemoria confermato con la
        prima versione resta in elenco come riga a parte, riconoscibile, e il
        servizio non lo manda a chi si iscrive dopo (vedi "recupera"). */
@@ -116,7 +120,6 @@
     const PROGRAMMA_DIRETTA = NAPOLI.programma
         .filter(v => v.nome !== 'Registrazione e welcome coffee')
         .map(v => ({ ora: v.ora, nome: v.nome === 'Lunch buffet e networking' ? 'Pausa pranzo' : v.nome }));
-    const RISERVATO = 'Il collegamento è riservato agli iscritti: Le chiediamo di non condividerlo.';
 
     const PROPOSTE = {
         'napoli-2026-10-02': [
@@ -197,20 +200,20 @@
                 nome: 'Una settimana prima: programma e modalità della diretta',
                 mail: {
                     oggetto: 'Next Generation Business, venerdì 2 ottobre: il programma e la diretta',
-                    anteprima: 'I lavori in diretta dalle 9.30. Il collegamento Le arriverà nei giorni precedenti.',
+                    anteprima: 'I lavori in diretta dalle 9.30. Collegamento e accessi Le arriveranno nei giorni precedenti.',
                     titolo: 'La diretta del 2 ottobre',
                     sommario: 'Gentile ' + NOME + ', Le ricordiamo che venerdì 2 ottobre potrà seguire in diretta i lavori di Next Generation Business da Napoli.',
                     paragrafi: [
                         {
                             titolo: 'Come funziona la diretta', elenco: [
-                                'Il collegamento Le arriverà a questo indirizzo nei giorni che precedono l\'evento, e di nuovo la mattina stessa',
+                                'Il collegamento e le credenziali di accesso Le arriveranno a questo indirizzo nei giorni che precedono l\'evento, in un messaggio a parte',
                                 'Basta un computer, un tablet o uno smartphone con una buona connessione',
                                 'La diretta segue i lavori in sala; gli incontri B2B si svolgono in presenza e non vengono trasmessi'
                             ]
                         },
                         'Se si è iscritto quando la sala era già al completo, è in lista d\'attesa: se si libera un posto Le scriviamo, e decide Lei se venire di persona.'
                     ],
-                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30 alle 17.30'], ['Partecipazione', 'Online, in diretta'], ['Collegamento', 'Le arriverà per email nei giorni precedenti']],
+                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30 alle 17.30'], ['Partecipazione', 'Online, in diretta'], ['Collegamento e accessi', 'In un messaggio a parte, nei giorni precedenti']],
                     programma: PROGRAMMA_DIRETTA,
                     pulsante: { testo: 'Il programma con i relatori', url: NAPOLI.programmaPagina },
                     nota: '',
@@ -218,54 +221,36 @@
                 }
             },
             {
-                id: 'online-collegamento', serie: 'online', giorniPrima: 2, campi: ['linkDiretta'],
-                nome: 'Due giorni prima: invio del collegamento',
+                id: 'online-vigilia', serie: 'online', giorniPrima: 1,
+                nome: 'Il giorno prima: ritrovi il collegamento e gli accessi',
                 mail: {
-                    oggetto: 'Il Suo collegamento alla diretta di venerdì 2 ottobre',
-                    anteprima: 'Lo conservi: Le servirà venerdì mattina, dalle 9.30.',
-                    titolo: 'Il Suo collegamento',
-                    sommario: 'Gentile ' + NOME + ', ecco il collegamento per seguire venerdì 2 ottobre la diretta di Next Generation Business. Lo conservi: Le servirà venerdì mattina.',
+                    oggetto: 'Venerdì 2 ottobre in diretta: tenga a portata di mano gli accessi',
+                    anteprima: 'I lavori cominciano alle 9.30. Collegamento e credenziali sono nella mail con gli accessi.',
+                    titolo: 'Gli accessi, a portata di mano',
+                    sommario: 'Gentile ' + NOME + ', Le ricordiamo che venerdì 2 ottobre i lavori di Next Generation Business cominciano alle 9.30, in diretta da Napoli.',
                     paragrafi: [
-                        'Venerdì apra il pulsante qui sotto qualche minuto prima delle 9.30. Il collegamento vale per tutta la giornata: se la connessione cade, basta riaprirlo.',
-                        'Se il pulsante non funziona, copi questo indirizzo nel browser: ' + LINK_DIRETTA
+                        'Il collegamento e le credenziali di accesso Le sono stati inviati per email in un messaggio a parte: Le conviene ritrovarlo adesso, così venerdì mattina è tutto pronto. Se non lo trova, controlli anche la posta indesiderata; se non c\'è, risponda a questa email e glielo rimandiamo.'
                     ],
-                    righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30'], ['Partecipazione', 'Online, in diretta']],
-                    pulsante: { testo: 'Apri la diretta', url: LINK_DIRETTA },
-                    nota: RISERVATO,
-                    linkPersonale: true
-                }
-            },
-            {
-                id: 'online-vigilia', serie: 'online', giorniPrima: 1, campi: ['linkDiretta'],
-                nome: 'Il giorno prima: nuovo invio del collegamento',
-                mail: {
-                    oggetto: 'Di nuovo il collegamento per la diretta di venerdì 2 ottobre',
-                    anteprima: 'I lavori cominciano alle 9.30: il collegamento è qui.',
-                    titolo: 'Il collegamento, a portata di mano',
-                    sommario: 'Gentile ' + NOME + ', Le rimandiamo il collegamento per seguire la diretta di venerdì 2 ottobre, così non dovrà cercarlo.',
-                    paragrafi: [
-                        'Si colleghi qualche minuto prima delle 9.30. Se il pulsante non funziona, copi questo indirizzo nel browser: ' + LINK_DIRETTA
-                    ],
-                    righe: [['Quando', 'Venerdì 2 ottobre, dalle 9.30']],
-                    pulsante: { testo: 'Apri la diretta', url: LINK_DIRETTA },
-                    nota: RISERVATO,
+                    righe: [['Quando', 'Venerdì 2 ottobre, dalle 9.30'], ['Partecipazione', 'Online, in diretta']],
+                    pulsante: null,
+                    nota: '',
                     linkPersonale: false
                 }
             },
             {
-                id: 'online-mattina', serie: 'online', giorniPrima: 0, campi: ['linkDiretta'],
-                nome: 'La mattina dell\'evento: messaggio breve con il collegamento',
+                id: 'online-mattina', serie: 'online', giorniPrima: 0,
+                nome: 'La mattina dell\'evento: messaggio breve, la diretta comincia',
                 mail: {
-                    oggetto: 'La diretta comincia alle 9.30: ecco il collegamento',
-                    anteprima: 'Next Generation Business, in diretta da Napoli.',
+                    oggetto: 'La diretta comincia alle 9.30',
+                    anteprima: 'Next Generation Business, in diretta da Napoli: collegamento e accessi sono nella mail che Le abbiamo inviato.',
                     titolo: 'Oggi in diretta',
-                    sommario: 'Gentile ' + NOME + ', i lavori di Next Generation Business cominciano alle 9.30: il collegamento è qui sotto.',
+                    sommario: 'Gentile ' + NOME + ', i lavori di Next Generation Business cominciano alle 9.30.',
                     paragrafi: [
-                        'Se il pulsante non funziona, copi questo indirizzo nel browser: ' + LINK_DIRETTA
+                        'Per collegarsi usi il collegamento e le credenziali che trova nella mail con gli accessi. Se non la trova, risponda a questa email.'
                     ],
                     righe: [],
-                    pulsante: { testo: 'Apri la diretta', url: LINK_DIRETTA },
-                    nota: RISERVATO,
+                    pulsante: null,
+                    nota: '',
                     linkPersonale: false
                 }
             }
