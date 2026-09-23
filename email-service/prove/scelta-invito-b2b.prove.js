@@ -114,6 +114,7 @@ const segnatoInvitoB2B = daAppJs('segnatoInvitoB2B');
 const aLotti = daAppJs('aLotti');
 const daInvitareB2B = daAppJs('daInvitareB2B');
 const iscrittiPerInvitoB2B = daAppJs('iscrittiPerInvitoB2B');
+const natoPerInvitiB2B = daAppJs('natoPerInvitiB2B');
 /* modalitaDi legge le presenze dalla chiusura dell'app: qui la modalita' la
    porta la riga stessa, che e' quanto basta a questa prova. */
 const modalitaDi = (ev, r) => String(r.modalita || 'presenza');
@@ -132,9 +133,19 @@ const risposta = () => {
     r.end = () => r;
     return r;
 };
-async function importa(csv) {
+async function importa(csv, evento) {
     const res = risposta();
-    await IMPORTA({ method: 'POST', body: { idToken: 't', csv: csv, pagina: 'Napoli 2 Ottobre 2026' } }, res);
+    await IMPORTA({
+        method: 'POST',
+        body: {
+            idToken: 't', csv: csv, pagina: 'Napoli 2 Ottobre 2026',
+            /* L'EVENTO lo manda la finestra degli inviti, ed e' quello che
+               permette di far nascere le aziende non iscritte nella sezione
+               giusta. Le prove di prima non lo mandano apposta: cosi' si vede
+               che senza continua a valere la regola di sempre. */
+            evento: evento || ''
+        }
+    }, res);
     return res._j || {};
 }
 /* Una scheda gia' presente fra gli iscritti: e' il punto di partenza di
@@ -256,6 +267,130 @@ esigi([].concat.apply([], lotti).join(',') === centoventidue.join(','),
 esigi(aLotti([], 200).length === 0 && aLotti(null, 200).length === 0,
     'un elenco vuoto non fa partire nessuna chiamata');
 esigi(aLotti(['a', 'b'], 0).length === 2, 'un tetto assurdo non fa sparire niente: al peggio un lotto per scheda');
+
+console.log('\n9) L\'azienda segnata che iscritta non e\' NASCE, per i soli incontri');
+/* Il file degli inviti non sceglie fra gli iscritti: sceglie fra le imprese,
+   e quasi nessuna di loro si e' iscritta al convegno - vengono al desk per il
+   loro appuntamento. Prima queste righe si riportavano indietro tutte, e
+   davanti a un elenco di cento aziende voleva dire aggiungerle a mano cento
+   volte. Ora nascono qui, come le fa "Aggiungi un'azienda". */
+dati = {};
+mettiIscritto('vecchia-1', 'mario@alfa.it', 'Napoli 2 Ottobre 2026', {});
+const r9 = await importa([INTEST,
+    riga('Mario', 'mario@alfa.it', '333', 'si'),
+    riga('Rita', 'rita@gamma.it', '335', 'si')].join('\n'), 'napoli-2026-10-02');
+esigi(r9.aggiornate === 1 && r9.create === 1 && r9.nonIscritte === 0,
+    'una segnata, una creata, nessuna lasciata indietro', JSON.stringify(r9));
+// i punti e le barre nel nome di un documento non si possono usare: diventano trattini
+const nata = dati['iscrizioni/rita@gamma-it|01-09-2026'];
+esigi(!!nata, 'la scheda c\'e\'', Object.keys(dati).join(' | '));
+esigi(nata && nata.soloB2B === true,
+    'e porta la bandiera dei soli incontri: l\'avviso "nuove iscrizioni dal sito" non la annuncia');
+esigi(nata && segnatoInvitoB2B(nata), 'nasce gia\' scelta, altrimenti sparirebbe dall\'elenco da cui la si importa');
+esigi(nata && nata.extra['P.IVA'] === '09302991212',
+    'con la partita IVA del foglio: senza, al momento di spedire l\'impresa non si riconosce');
+esigi(nata && nata.azienda === 'Alfa Srl' && nata.email === 'rita@gamma.it', 'e con ragione sociale e indirizzo');
+/* IL POSTO IN SALA. E' la ragione per cui queste righe non si scrivevano: una
+   scheda senza sezione vale "in presenza" e conta un posto che nessuno
+   occupera'. La sezione non sta sulla scheda, sta fra le presenze. */
+const pres = dati['presenze/napoli-2026-10-02~rita@gamma-it|01-09-2026'];
+esigi(!!pres && pres.modalita === 'b2b',
+    'e nelle presenze c\'e\' la sezione "Solo incontri B2B": in sala non occupa nessun posto',
+    JSON.stringify(pres || null));
+esigi(pres && pres.idIscritto === 'rita@gamma.it|01/09/2026',
+    'con l\'identificativo dell\'iscritto per esteso, come lo scrive /api/presenze');
+/* Il nome di quel documento lo compone anche /api/presenze, e le due scritture
+   devono combaciare alla lettera: scritte diverse, la sezione sarebbe di
+   nessuno e la scheda tornerebbe a contare un posto. */
+const SORGENTE_PRES = fs.readFileSync(path.join(__dirname, '..', 'api', 'presenze.js'), 'utf8');
+const SORGENTE_IMP = fs.readFileSync(path.join(__dirname, '..', 'api', 'importa-iscrizioni.js'), 'utf8');
+const corpoDi = (src, firma) => {
+    const i = src.indexOf(firma);
+    if (i < 0) return '';
+    return src.slice(i + firma.length, src.indexOf('}', i)).replace(/\s+/g, ' ').trim();
+};
+esigi(corpoDi(SORGENTE_PRES, 'function idDoc(evento, idIscritto) {')
+    === corpoDi(SORGENTE_IMP, 'function idPresenza(evento, idIscritto) {'),
+    'e il nome di quel documento si compone allo stesso modo nei due punti che lo scrivono',
+    corpoDi(SORGENTE_IMP, 'function idPresenza(evento, idIscritto) {'));
+
+console.log('\n10) Senza il "si" non nasce niente');
+/* La cella vuota dice di NON invitare quell'azienda: crearla per poi non
+   invitarla non ha senso, e riempirebbe l'archivio di schede che nessuno ha
+   chiesto. */
+dati = {};
+const r10 = await importa([INTEST, riga('Rita', 'rita@gamma.it', '335', '')].join('\n'), 'napoli-2026-10-02');
+esigi(!schede().length, 'nessuna scheda', 'schede: ' + schede().length);
+esigi(r10.create === 0 && r10.nonIscritte === 1, 'e la riga si riporta indietro come sempre', JSON.stringify(r10));
+
+console.log('\n11) Senza l\'evento non si crea niente, e si dice');
+/* La sezione porta nel nome l'evento: senza, l'azienda nascerebbe "in sala" e
+   si porterebbe via un posto. Meglio non crearla e dirlo. */
+dati = {};
+const r11 = await importa([INTEST, riga('Rita', 'rita@gamma.it', '335', 'si')].join('\n'));
+esigi(!schede().length, 'nessuna scheda creata a occhi chiusi');
+esigi(r11.create === 0 && r11.nonIscritte === 1 && (r11.nonTrovate || [])[0] === 'rita@gamma.it',
+    'la riga torna indietro, con il suo indirizzo', JSON.stringify(r11));
+
+console.log('\n12) Reimportare lo stesso file non fa nascere doppioni');
+/* L'identificativo della scheda e' "indirizzo|data", lo stesso del modulo del
+   sito: la seconda importazione riscrive la stessa scheda invece di
+   affiancarne un'altra. E' quello che permette di correggere il file e
+   ripassarlo senza pulire niente. */
+dati = {};
+const file12 = [INTEST, riga('Rita', 'rita@gamma.it', '335', 'si')].join('\n');
+await importa(file12, 'napoli-2026-10-02');
+const r12 = await importa(file12, 'napoli-2026-10-02');
+esigi(schede().length === 1, 'una scheda sola dopo due importazioni', 'schede: ' + schede().length);
+/* La seconda volta non la crea: la TROVA. La scheda che abbiamo creato noi e'
+   a tutti gli effetti un'iscritta di questo evento, quindi il passaggio
+   successivo la segna come segna tutte le altre - ed e' giusto cosi': da li'
+   in avanti quell'azienda ha una scheda sua, e il file la aggiorna. */
+esigi(r12.create === 0 && r12.aggiornate === 1,
+    'la seconda volta non la crea: la trova e la aggiorna, come ogni altra scheda', JSON.stringify(r12));
+/* E il ripensamento continua a valere: tolta dal file, l'azienda creata
+   smette di essere invitata. */
+await importa([INTEST, riga('Rita', 'rita@gamma.it', '335', '')].join('\n'), 'napoli-2026-10-02');
+esigi(!segnatoInvitoB2B(schede()[0]),
+    'e se poi la si toglie dal file, la scelta si spegne anche sulla scheda creata da noi');
+
+console.log('\n13) Due referenti sulla stessa casella restano due schede');
+/* Capita spesso: due soci, una casella sola. L'identificativo porta dentro la
+   DATA, e nel file le due righe si scrivono a un secondo di distanza: con la
+   stessa data una delle due sparirebbe dentro l'altra, e l'invito
+   arriverebbe con un nome solo. */
+dati = {};
+const r13 = await importa([INTEST,
+    '01/09/2026 09:00:00,Laura,Rossi,laura@balzano.it,Balzano Srl,07307010632,333,si',
+    '01/09/2026 09:00:01,Livio,Rossi,laura@balzano.it,Balzano Srl,07307010632,333,si'].join('\n'),
+    'napoli-2026-10-02');
+esigi(r13.create === 2 && schede().length === 2,
+    'due schede, una per referente', 'create: ' + r13.create + ', schede: ' + schede().length);
+esigi(schede().map(x => x.nome).sort().join(',') === 'Laura,Livio', 'e ciascuna con il suo nome');
+
+console.log('\n14) Dall\'importazione alla finestra degli inviti, senza passare per le mani di nessuno');
+/* La prova che conta: importato il file, quelle aziende si devono VEDERE nella
+   finestra da cui si spedisce. Fra l'importazione e la finestra ci sono due
+   setacci - la scelta sulla scheda e la sezione - e basta che uno dei due non
+   combaci perche' l'elenco resti vuoto come prima, che e' esattamente quello
+   che e' successo la prima volta. */
+dati = {};
+const r14 = await importa([INTEST,
+    riga('Rita', 'rita@gamma.it', '335', 'si'),
+    riga('Nino', 'nino@delta.it', '336', 'si')].join('\n'), 'napoli-2026-10-02');
+esigi(r14.create === 2, 'due aziende create dal file', JSON.stringify(r14));
+/* La finestra legge le schede con accanto la loro sezione: qui si ricompone
+   quello che fa l'area riservata, leggendo le presenze appena scritte. */
+const conSezione = schede().map(x => Object.assign({}, x, {
+    modalita: (dati['presenze/napoli-2026-10-02~' + (x.email + '|' + x.data).replace(/[\/\\.#$\[\]]/g, '-')] || {}).modalita || 'presenza'
+}));
+const inFinestra = iscrittiPerInvitoB2B('napoli-2026-10-02', conSezione).map(r => r.email).sort();
+esigi(inFinestra.join(' ') === 'nino@delta.it rita@gamma.it',
+    'e tutte e due compaiono nella finestra degli inviti, pronte da spedire', inFinestra.join(' '));
+/* E l'avviso delle nuove iscrizioni non le annuncia: cento righe importate
+   sarebbero cento finestre da chiudere per qualcosa che non e' successo. */
+esigi(conSezione.every(x => natoPerInvitiB2B(x)),
+    'mentre l\'avviso "nuove iscrizioni dal sito" non ne annuncia nessuna');
 
 console.log('\n' + ok + ' verde, ' + ko + ' ROSSO');
 process.exit(ko ? 1 : 0);
