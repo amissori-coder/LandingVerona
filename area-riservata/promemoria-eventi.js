@@ -29,10 +29,10 @@
    destinatario; {{LINK_DIRETTA}} lo sostituisce l'area riservata
    con il collegamento scritto da chi programma (campo "linkDiretta").
 
-   Il servizio spedisce UNA VOLTA AL GIORNO, alle 20: di una proposta si
-   sceglie il giorno, non l'ora. La vigilia parte la sera prima
-   dell'evento. L'eccezione e' la mail della mattina dell'evento
-   (`mattina: true`), che parte da un secondo giro alle 7.
+   Il servizio passa tre volte al giorno, alle 7, alle 8 e alle 20: ogni
+   proposta ha la sua ora (`ora`, se manca 20) e di una proposta si sceglie
+   il giorno. Per Napoli: 24 e 29 settembre alle 20, sabato 26 e 1° ottobre
+   alle 8, la mattina dell'evento alle 7.
 
    Ogni proposta: { id, nome, sezioni: 'sala'|'online', giorniPrima,
    campi: ['linkDiretta'], mail: { oggetto, anteprima, titolo,
@@ -160,7 +160,7 @@
                 }
             },
             {
-                id: 'sala-sabato', serie: 'sala', giorniPrima: 6,
+                id: 'sala-sabato', serie: 'sala', giorniPrima: 6, ora: 8,
                 nome: 'Sabato 26: incontri B2B, networking e arrivo',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} a Next Generation Business: incontri B2B e networking',
@@ -199,7 +199,7 @@
                 }
             },
             {
-                id: 'sala-vigilia', serie: 'sala', giorniPrima: 1, soloIlGiorno: true,
+                id: 'sala-vigilia', serie: 'sala', giorniPrima: 1, soloIlGiorno: true, ora: 8,
                 nome: 'Il giorno prima: orari, indirizzo e ultime indicazioni',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business si terrà {{quando}}: orari e indicazioni per l\'arrivo',
@@ -218,7 +218,7 @@
                 }
             },
             {
-                id: 'sala-mattina', serie: 'sala', giorniPrima: 0, soloIlGiorno: true, mattina: true,
+                id: 'sala-mattina', serie: 'sala', giorniPrima: 0, soloIlGiorno: true, mattina: true, ora: 7,
                 nome: 'La mattina dell\'evento, alle 7: messaggio breve con la mappa',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business si tiene oggi: registrazione dalle ore 9.00',
@@ -262,7 +262,7 @@
                 }
             },
             {
-                id: 'online-sabato', serie: 'online', giorniPrima: 6,
+                id: 'online-sabato', serie: 'online', giorniPrima: 6, ora: 8,
                 nome: 'Sabato 26: come seguire al meglio la diretta',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} alla diretta di Next Generation Business: indicazioni per il collegamento',
@@ -287,7 +287,7 @@
                 }
             },
             {
-                id: 'online-vigilia', serie: 'online', giorniPrima: 1, soloIlGiorno: true,
+                id: 'online-vigilia', serie: 'online', giorniPrima: 1, soloIlGiorno: true, ora: 8,
                 nome: 'Il giorno prima: ritrovi il collegamento e gli accessi',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business in diretta {{quando}}: le credenziali di accesso',
@@ -304,7 +304,7 @@
                 }
             },
             {
-                id: 'online-mattina', serie: 'online', giorniPrima: 0, soloIlGiorno: true, mattina: true,
+                id: 'online-mattina', serie: 'online', giorniPrima: 0, soloIlGiorno: true, mattina: true, ora: 7,
                 nome: 'La mattina dell\'evento, alle 7: messaggio breve, la diretta comincia',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - Next Generation Business: la diretta inizia alle ore 9.30',

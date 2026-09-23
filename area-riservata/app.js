@@ -23314,9 +23314,16 @@
        oggi dopo le 8 non partirebbe piu': si dice prima. */
     /* Due giri: alle 20 tutte le mail, alle 7 solo quella della mattina
        dell'evento (`mattina` sulla proposta e sul record). */
-    function oraGiro(x) { return x && x.mattina ? 7 : 20; }
+    function oraGiro(x) {
+        const o = Number(x && x.ora);
+        if (o === 7 || o === 8 || o === 20) return o;
+        return x && x.mattina ? 7 : 20;
+    }
     function giroDiOggiPassato(x) { return new Date().getHours() >= oraGiro(x); }
-    function quandoGiro(x, oggi) { return x && x.mattina ? (oggi ? 'stamattina alle 7' : 'alle 7 del mattino') : (oggi ? 'stasera alle 20' : 'alle 20'); }
+    function quandoGiro(x, oggi) {
+        const o = oraGiro(x);
+        return o < 12 ? (oggi ? 'stamattina alle ' + o : 'alle ' + o + ' del mattino') : (oggi ? 'stasera alle ' + o : 'alle ' + o);
+    }
     function inizioGiorno(ts) { const d = new Date(ts); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime(); }
     function serieDiSezioni(sezioni) {
         return (sezioni || []).indexOf('online') >= 0 ? 'online' : 'sala';
@@ -23523,6 +23530,7 @@
             else if (r.stato === 'programmato' && passato(r.quando)) stato += '<div class="hint">giorno passato: verrà segnato non partito</div>';
             else if (r.stato === 'scaduto') stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
             if (r.rec && r.prop && (r.stato === 'programmato' || r.stato === 'sospeso') && r.rec.versioneTesti !== RV_PROMEMORIA.VERSIONE_TESTI) stato += '<div class="hint ev-ko">testi della versione precedente: aprila e usa i testi aggiornati</div>';
+            else if (r.rec && r.prop && (r.stato === 'programmato' || r.stato === 'sospeso') && oraGiro(r.rec) !== oraGiro(r.prop)) stato += '<div class="hint ev-ko">confermata per le ' + oraGiro(r.rec) + ': aprila e conferma di nuovo per farla partire alle ' + oraGiro(r.prop) + '</div>';
             // un promemoria della prima versione: testi vecchi, e non va a chi si iscrive dopo
             if (r.rec && !r.prop) stato += '<div class="hint ev-ko">prima versione dei testi: ' + (r.stato === 'programmato' ? 'toglila, o partirà con i testi vecchi' : 'non va a chi si iscrive dopo') + '</div>';
             const chiave = r.rec ? r.rec.id : idPromemoria(ev, r.prop.id);
@@ -23604,7 +23612,7 @@
     function modaleElencoPromemoria(ev) {
         if (!window.RV_PROMEMORIA) return;
         apriModale('<h2>Promemoria agli iscritti</h2>'
-            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi: la sera <b>alle 20</b>, il giorno dell\'evento <b>alle 7</b>. '
+            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi, all\'ora indicata sotto la data di ogni riga (<b>20</b>, <b>8</b> o <b>7</b>). '
             + 'A ogni invio il sistema rilegge gli iscritti: i numeri qui sotto sono quelli di oggi.</p>'
             + '<div id="pm-el-dinamico" data-ev="' + esc(ev.id) + '" data-pronto="' + (_evIscrizioni !== null ? '1' : '') + '">' + contenutoElencoPromemoria(ev) + '</div>'
             + '<details class="pm-come"><summary>Come funziona</summary><p class="hint" style="max-width:none;margin:6px 0 0;">'
@@ -23647,11 +23655,11 @@
                 torna(true);
             } else if (az === 'riprendi') {
                 // a data gia' passata si riapre la finestra per sceglierne una nuova
-                if (!r.quando || inizioGiorno(r.quando) < inizioGiorno(Date.now()) || (inizioGiorno(r.quando) === inizioGiorno(Date.now()) && giroDiOggiPassato({ mattina: r.mattina || (prop && prop.mattina) }))) { modalePromemoria(ev, prop, id, { torna: torna }); return; }
+                if (!r.quando || inizioGiorno(r.quando) < inizioGiorno(Date.now()) || (inizioGiorno(r.quando) === inizioGiorno(Date.now()) && giroDiOggiPassato(r))) { modalePromemoria(ev, prop, id, { torna: torna }); return; }
                 r.stato = 'programmato'; r.aggiornato = firmaPromemoria(u);
                 PromemoriaEventi.salvaUna(r);
                 Audit.registra(u, 'Evento: promemoria ripreso', 'sistema', ev.id, null, r.nome || r.id);
-                toast('Promemoria di nuovo programmato per ' + quandoPromemoria(r.quando) + ', ' + quandoGiro({ mattina: r.mattina || (prop && prop.mattina) }) + '.', 'verde');
+                toast('Promemoria di nuovo programmato per ' + quandoPromemoria(r.quando) + ', ' + quandoGiro(r) + '.', 'verde');
                 torna(true);
             } else if (az === 'elimina') {
                 apriModale('<h2>Togliere la programmazione?</h2>'
@@ -23757,7 +23765,7 @@
 
         const colonnaForm = esitoInvio
             + '<div class="campo"><label>Giorno</label><input type="date" id="pm-data" value="' + esc(isoData(quando0)) + '"' + (soloLettura ? '' : ' min="' + esc(isoData(Date.now())) + '"') + dis + '>'
-            + '<div class="hint">Parte <b>' + quandoGiro({ mattina: !!((prop && prop.mattina) || (rec && rec.mattina)) }) + '</b> di questo giorno, a chi risulta iscritto in quel momento. I giorni che mancano si calcolano quel giorno: l\'anteprima li mostra già così.</div></div>'
+            + '<div class="hint">Parte <b>' + quandoGiro((prop || rec)) + '</b> di questo giorno, a chi risulta iscritto in quel momento. I giorni che mancano si calcolano quel giorno: l\'anteprima li mostra già così.</div></div>'
             + '<div class="campo"><label>A chi</label>' + sezioniHtml
             + '<div class="hint" id="pm-conta"></div></div>'
             + campiHtml
@@ -23847,7 +23855,7 @@
             const quando = new Date(+md[1], +md[2] - 1, +md[3], 0, 0, 0, 0).getTime();
             const oggi0 = inizioGiorno(Date.now());
             if (quando < oggi0) { esito('Quel giorno è passato: scegline uno da oggi in poi.', true); return; }
-            if (quando === oggi0 && giroDiOggiPassato({ mattina: !!((prop && prop.mattina) || (rec && rec.mattina)) })) { esito('Il giro delle ' + oraGiro({ mattina: !!((prop && prop.mattina) || (rec && rec.mattina)) }) + ' di oggi è già passato: scegli da domani in poi.', true); return; }
+            if (quando === oggi0 && giroDiOggiPassato((prop || rec))) { esito('Il giro delle ' + oraGiro((prop || rec)) + ' di oggi è già passato: scegli da domani in poi.', true); return; }
             const t = testiCorrenti();
             if (!t.oggetto) { esito('L\'oggetto non può essere vuoto.', true); return; }
             const mail = RV_PROMEMORIA.componi(t, evDef, valori(), RV_NEWSLETTER);
@@ -23867,8 +23875,9 @@
                 // la mail completa della serie, e quelle legate al loro giorno
                 benvenuto: !!((prop && prop.benvenuto) || (rec && rec.benvenuto)),
                 soloIlGiorno: !!((prop && prop.soloIlGiorno) || (rec && rec.soloIlGiorno)),
-                // la mail della mattina dell'evento: parte dal giro delle 7
+                // la mail della mattina dell'evento, e l'ora di partenza (7, 8 o 20)
                 mattina: !!((prop && prop.mattina) || (rec && rec.mattina)),
+                ora: oraGiro(prop || rec),
                 chiusuraB2B: chiusuraB2B,
                 versioneTesti: RV_PROMEMORIA.VERSIONE_TESTI,
                 creato: rec && rec.creato ? rec.creato : firmaPromemoria(u),

@@ -5,7 +5,8 @@
     { "path": "/api/presenze", "schedule": "*/15 * * * *" },
     { "path": "/api/invii-programmati", "schedule": "*/10 * * * *" },
     { "path": "/api/promemoria-eventi", "schedule": "0 18 * * *" },
-    { "path": "/api/promemoria-eventi-mattina", "schedule": "0 5 * * *" }
+    { "path": "/api/promemoria-eventi-mattina", "schedule": "0 5 * * *" },
+    { "path": "/api/promemoria-eventi-ore8", "schedule": "0 6 * * *" }
   ],
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },
@@ -20,6 +21,7 @@
     "api/invii-programmati.js": { "maxDuration": 300 },
     "api/sblocco-incarico.js": { "maxDuration": 30 },
     "api/promemoria-eventi.js": { "maxDuration": 300 },
-    "api/promemoria-eventi-mattina.js": { "maxDuration": 300 }
+    "api/promemoria-eventi-mattina.js": { "maxDuration": 300 },
+    "api/promemoria-eventi-ore8.js": { "maxDuration": 300 }
   }
 }
