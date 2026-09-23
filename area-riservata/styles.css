@@ -1704,6 +1704,16 @@ label.ib-az-spunta input[type="checkbox"] { width: auto; margin: 0; padding: 0; 
 .ib-az-riga.escluso label.ib-az-spunta { color: var(--grigio-400); }
 .ib-az-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ib-az-alias { color: var(--grigio-400); font-weight: 400; font-size: 0.76rem; }
+/* GIA' INVITATA / MAI INVITATA, accanto al nome dell'azienda. Due colori
+   diversi perche' e' l'unica cosa che si cerca con l'occhio quando si importa
+   un secondo elenco: ambra chi l'invito ce l'ha gia', verde chi lo aspetta. */
+.ib-az-stato {
+    flex: none; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
+    padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+}
+.ib-az-stato.invitata { background: var(--ambra-bg); color: var(--ambra); }
+.ib-az-stato.nuova { background: var(--verde-bg); color: var(--verde); }
+.ib-viste { margin: 0 0 8px; }
 label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--blu-900); }
 .ib-az-apri {
     display: flex; align-items: center; gap: 6px; flex: none;

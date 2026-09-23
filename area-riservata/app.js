@@ -15686,6 +15686,52 @@
     const COL_PREF_ISCRIZIONE = 'Interessi';
     const COL_SPOSTATO = 'Spostamento azienda';
     const COL_INVITO_B2B = 'Invito B2B';
+    /* ---- CHI E' GIA' STATO INVITATO AGLI INCONTRI ----
+       Lo dice la SCHEDA, non il browser: quando l'invito parte, il servizio
+       scrive "b2bAzienda" su ogni referente con l'identificativo dell'impresa,
+       l'evento e il giorno. Il browser non lo ricalcola - non saprebbe da dove
+       - e non lo tiene in memoria, che durerebbe quanto la finestra aperta.
+       Queste tre regole stanno qui, fuori dalla finestra, per una ragione
+       pratica: sono le uniche che decidono se un invito parte due volte, e
+       dentro una chiusura non si potrebbero provare. */
+    function invitoB2BDi(riga, eventoId) {
+        const a = (riga && riga.aziendaB2B) || null;
+        if (!a || !String(a.id || '').trim()) return null;
+        // un invito di un ALTRO evento non conta: le imprese si invitano per convegno
+        if (a.evento && eventoId && a.evento !== eventoId) return null;
+        return a;
+    }
+    /* Un gruppo conta come gia' invitato se ALMENO UNO dei suoi referenti ce
+       l'ha: l'invito e' uno per impresa e il collegamento e' lo stesso per
+       tutti, quindi chi e' stato aggiunto dopo non ne ha bisogno di un altro. */
+    function invitatiDelGruppo(gruppo, eventoId) {
+        return ((gruppo && gruppo.persone) || []).filter(c => invitoB2BDi(c && c.riga, eventoId)).length;
+    }
+    function aziendaGiaInvitata(gruppo, eventoId) { return invitatiDelGruppo(gruppo, eventoId) > 0; }
+    function quandoInvitoB2B(gruppo, eventoId) {
+        return ((gruppo && gruppo.persone) || []).reduce((max, c) => {
+            const a = invitoB2BDi(c && c.riga, eventoId);
+            return (a && typeof a.quando === 'number' && a.quando > max) ? a.quando : max;
+        }, 0);
+    }
+    /* ---- CHE COSA E' SPUNTATO QUANDO SI APRE LA FINESTRA ----
+       Finche' l'elenco era uno solo, "tutte" era la risposta giusta: erano
+       tutte da invitare. Dal SECONDO elenco in poi e' la risposta pericolosa -
+       basta premere Invia e partono cento inviti ripetuti a chi li ha gia'
+       avuti - ed e' anche la piu' scomoda, perche' costringe a togliere le
+       spunte una per una, che su cento righe nessuno fa.
+       Quindi: se qualcuna e' gia' stata invitata sono spuntate SOLO LE NUOVE;
+       se non lo e' nessuna (il primo invio) restano spuntate tutte, che li' e'
+       quello che serve. Rimandare l'invito a chi l'ha gia' ricevuto resta
+       possibile: si cambia vista e si spunta. E' una cosa che si fa apposta,
+       non per inerzia. */
+    function primoInvioB2B(gruppi, eventoId) {
+        return !(gruppi || []).some(g => aziendaGiaInvitata(g, eventoId));
+    }
+    function daSpuntareB2B(gruppo, eventoId, primo) {
+        return !!primo || !aziendaGiaInvitata(gruppo, eventoId);
+    }
+
     /* COM'E' ANDATA L'IMPORTAZIONE DEGLI INVITI, detto in una frase sola.
        Le righe di un file di inviti prendono tre strade - segnata, creata,
        lasciata indietro - e la frase sta in un posto solo perche' i punti da
@@ -20825,14 +20871,40 @@
            ne' azienda ne' dominio aziendale finisce in una voce sua, in fondo:
            resta comunque invitabile, invece di sparire per un campo vuoto. */
         let aziende = raggruppaPerAzienda(candidati);
-        const scelte = new Set(aziende.map(a => a.chiave));   // di partenza: tutte
+        /* ---- CHI E' GIA' STATO INVITATO ----
+           Lo dice la scheda, non il browser: al momento dell'invito il servizio
+           scrive "aziendaB2B" su ogni referente, con l'evento e il giorno. Un
+           gruppo conta come gia' invitato se almeno uno dei suoi referenti ce
+           l'ha per QUESTO evento: l'invito e' uno per impresa, e chi e' stato
+           aggiunto dopo condivide lo stesso collegamento. */
+        const quantiInvitati = g => invitatiDelGruppo(g, ev.id);
+        const giaInvitata = g => aziendaGiaInvitata(g, ev.id);
+        const quandoInvito = g => quandoInvitoB2B(g, ev.id);
+        /* ---- CHE COSA E' SPUNTATO ALL'APERTURA ----
+           Finche' l'elenco era uno solo, "tutte" era la risposta giusta: erano
+           tutte da invitare. Dal secondo elenco in poi e' la risposta
+           pericolosa - basta premere Invia e partono cento inviti ripetuti a
+           chi li ha gia' avuti - e anche la piu' scomoda, perche' costringe a
+           togliere a mano le spunte una per una.
+           Quindi: se qualcuna e' gia' stata invitata, di partenza sono spuntate
+           SOLO LE NUOVE. Se non lo e' nessuna (il primo invio) restano spuntate
+           tutte, che li' e' quello che serve. Resta possibile rimandare
+           l'invito a chi l'ha gia' ricevuto: si cambia vista e si spunta: e'
+           una cosa che si fa apposta, non per inerzia. */
+        const primoInvio = primoInvioB2B(aziende, ev.id);
+        const daSpuntare = a => daSpuntareB2B(a, ev.id, primoInvio);
+        const scelte = new Set(aziende.filter(daSpuntare).map(a => a.chiave));
+        /* La vista dell'elenco: tutte, solo le nuove, solo quelle gia'
+           invitate. E' il modo di prendere "le nuove" in due gesti - si sceglie
+           la vista e si preme "Spunta le mostrate" - invece che una per una. */
+        let vistaAz = primoInvio ? 'tutte' : 'nuove';
         /* Le aziende gia' viste. Serve dopo uno spostamento: se nasce un'impresa
            nuova (il referente e' finito in una ragione sociale che prima non
            c'era) va spuntata come lo erano tutte all'apertura, altrimenti quella
            persona sparisce dai destinatari senza che nulla lo dica. */
-        const conosciute = new Set(scelte);
+        const conosciute = new Set(aziende.map(a => a.chiave));
         const allineaScelte = () => aziende.forEach(a => {
-            if (!conosciute.has(a.chiave)) { conosciute.add(a.chiave); scelte.add(a.chiave); }
+            if (!conosciute.has(a.chiave)) { conosciute.add(a.chiave); if (daSpuntare(a)) scelte.add(a.chiave); }
         });
         const aperte = new Set();     // le tendine aperte, per farle sopravvivere al ridisegno
         let filtroAz = '';
@@ -21082,9 +21154,23 @@
            qualcosa di diverso da quello che si ha davanti. */
         function aziendeMostrate() {
             const q = filtroAz.trim().toLowerCase();
-            if (!q) return aziende;
-            return aziende.filter(a => ((a.nome || 'senza azienda') + ' '
+            /* Due setacci, e vanno applicati tutti e due: la vista dice CHI, la
+               ricerca dice QUALE. "Spunta le mostrate" legge questa stessa
+               funzione, quindi quello che si spunta e' esattamente quello che
+               si ha davanti - che e' l'unica cosa che rende sicuro un pulsante
+               che spunta a mazzi. */
+            const perVista = vistaAz === 'nuove' ? aziende.filter(a => !giaInvitata(a))
+                : (vistaAz === 'invitate' ? aziende.filter(giaInvitata) : aziende);
+            if (!q) return perVista;
+            return perVista.filter(a => ((a.nome || 'senza azienda') + ' '
                 + a.persone.map(p => p.nome + ' ' + p.email + ' ' + p.ruolo).join(' ')).toLowerCase().indexOf(q) >= 0);
+        }
+        // il giorno dell'invito, corto: accanto al nome serve la data, non l'ora
+        function giornoCorto(quando) {
+            if (!quando) return '';
+            try {
+                return new Date(quando).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+            } catch (e) { return ''; }
         }
         function disegnaAziende() {
             const cont = document.getElementById('ib-aziende');
@@ -21111,6 +21197,19 @@
                    ne raccoglie due senza spiegarlo sembra un errore del programma. */
                 + (a.varianti.length ? '<span class="ib-az-alias"> anche ' + esc(a.varianti.join(', ')) + '</span>' : '')
                 + '</span></label>'
+                /* GIA' INVITATA, scritto accanto al nome. Senza, la vista
+                   "mai invitate" sarebbe una magia: si vedrebbe un elenco piu'
+                   corto senza sapere perche'. E il referente aggiunto dopo
+                   l'invito si dice, perche' e' l'unico caso in cui rimandare
+                   l'invito a un'azienda gia' invitata serve davvero. */
+                + (giaInvitata(a)
+                    ? '<span class="ib-az-stato invitata">invitata'
+                    + (giornoCorto(quandoInvito(a)) ? ' il ' + esc(giornoCorto(quandoInvito(a))) : '')
+                    + (quantiInvitati(a) < a.persone.length
+                        ? ', ' + (a.persone.length - quantiInvitati(a)) + ' referente'
+                        + (a.persone.length - quantiInvitati(a) === 1 ? ' aggiunto dopo' : 'i aggiunti dopo') : '')
+                    + '</span>'
+                    : '<span class="ib-az-stato nuova">mai invitata</span>')
                 /* Togliere un'azienda dall'elenco vuol dire cancellare la sua
                    scelta, non l'iscrizione: la persona resta fra gli iscritti
                    all'evento, semplicemente non e' fra chi riceve l'invito. */
@@ -21133,7 +21232,23 @@
                     ? '<div class="ib-az-persone">' + a.persone.map(schedaReferente).join('') + '</div>' : '')
                 + '</div>';
             const nScelte = aziende.filter(a => scelte.has(a.chiave)).length;
-            cont.innerHTML = '<div class="nl-dest-barra" style="margin-top:0;">'
+            const nNuove = aziende.filter(a => !giaInvitata(a)).length;
+            const nInvitate = aziende.length - nNuove;
+            /* Le tre viste compaiono solo quando servono, cioe' quando c'e'
+               davvero qualcosa da dividere: al primo invio sono tutte nuove, e
+               tre pulsanti di cui due vuoti sarebbero solo rumore. */
+            const viste = nInvitate
+                ? '<div class="rb-viste ib-viste">'
+                + '<button type="button" class="rb-vista-b' + (vistaAz === 'nuove' ? ' scelta' : '') + '" data-vaz="nuove">'
+                + 'Mai invitate (' + nNuove + ')</button>'
+                + '<button type="button" class="rb-vista-b' + (vistaAz === 'invitate' ? ' scelta' : '') + '" data-vaz="invitate">'
+                + 'Gi&agrave; invitate (' + nInvitate + ')</button>'
+                + '<button type="button" class="rb-vista-b' + (vistaAz === 'tutte' ? ' scelta' : '') + '" data-vaz="tutte">'
+                + 'Tutte (' + aziende.length + ')</button>'
+                + '</div>'
+                : '';
+            cont.innerHTML = viste
+                + '<div class="nl-dest-barra" style="margin-top:0;">'
                 + '<input type="search" id="ib-cerca-az" placeholder="Cerca un\'azienda, un nome o un indirizzo..." value="' + esc(filtroAz) + '">'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="1">Spunta le mostrate</button>'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="0">Togli le mostrate</button></div>'
@@ -21146,6 +21261,13 @@
                 + '<div class="hint" style="margin-top:6px;"><b>' + nScelte + '</b> di ' + aziende.length
                 + (aziende.length === 1 ? ' azienda' : ' aziende') + ' spuntate &middot; <b>' + destinatari().length + '</b> '
                 + (destinatari().length === 1 ? 'destinatario' : 'destinatari')
+                /* Quante gia' invitate NON riceveranno niente: e' il numero che
+                   risponde alla domanda vera di chi importa un secondo elenco,
+                   cioe' "sto per riscrivere a quelli di ieri?". */
+                + (nInvitate
+                    ? ' &middot; ' + aziende.filter(a => giaInvitata(a) && !scelte.has(a.chiave)).length
+                    + ' gi&agrave; invitate escluse'
+                    : '')
                 + (q ? ' &middot; la ricerca ne mostra ' + visibili.length + ', le spunte fuori ricerca restano' : '') + '</div>'
                 + (segnatiFuoriSala
                     ? '<div class="hint" style="margin-top:4px;"><span class="ev-ko">' + segnatiFuoriSala
@@ -21157,6 +21279,10 @@
                 + 'Apri una riga per vedere i referenti e, se serve, spostarne uno in un\'altra azienda.</div>';
             const listaNuova = cont.querySelector('.ib-az-lista');
             if (listaNuova && scorrimento) listaNuova.scrollTop = scorrimento;
+            cont.querySelectorAll('.rb-vista-b[data-vaz]').forEach(b => b.addEventListener('click', () => {
+                vistaAz = b.getAttribute('data-vaz');
+                disegnaAziende();
+            }));
             const cerca = document.getElementById('ib-cerca-az');
             if (cerca) cerca.addEventListener('input', () => {
                 filtroAz = cerca.value;
