@@ -2205,6 +2205,17 @@ ul {
     max-height: 104px;
 }
 
+/* REMI e' l'unico marchio della riga su tessera scura, e la tessera arriva
+   fino al bordo dell'immagine: a parita' di altezza un pieno scuro pesa piu'
+   di un lockup aperto, quindi si tiene qualche pixel sotto i vicini. Il file
+   fornito e' piccolo (273px) e rifilato stretto - tronca l'ultima I del
+   logotipo e la E di "D'ARTE" - quindi non lo si tira oltre il necessario:
+   la stessa immagine, e lo stesso taglio, sono nella brochure. */
+.partner-brand-img-remi {
+    max-width: 196px;
+    max-height: 87px;
+}
+
 /* Termitaly e' un logotipo orizzontale lungo (3,8:1) con il payoff sulla
    seconda riga: come Fineco il limite che conta e' la larghezza, l'altezza
    resta solo da guardia. */
@@ -2878,6 +2889,11 @@ ul {
         max-height: 94px;
     }
 
+    .partner-brand-img-remi {
+        max-width: 176px;
+        max-height: 78px;
+    }
+
     .partner-brand-img-termitaly {
         max-width: 216px;
         max-height: 58px;
@@ -3106,6 +3122,11 @@ ul {
     .partner-brand-img-edilsivisa {
         max-width: 96px;
         max-height: 86px;
+    }
+
+    .partner-brand-img-remi {
+        max-width: 163px;
+        max-height: 72px;
     }
 
     .partner-brand-img-termitaly {
