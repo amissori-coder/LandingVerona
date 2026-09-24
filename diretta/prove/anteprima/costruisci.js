@@ -33,7 +33,15 @@ const REPO = path.resolve(QUI, '../../..');
 const OUT = path.resolve(QUI, '../risultati/anteprima');
 const MOTORE = path.join(QUI, 'motore');
 
-function leggi(rel) { return fs.readFileSync(path.join(REPO, rel), 'utf8'); }
+/* Il carattere U+FFFD (quello che compare al posto delle lettere quando la
+   codifica di un file e' sbagliata) gestione.js lo usa apposta, per
+   riconoscere i CSV rovinati. Chi pubblica l'anteprima lo rifiuta: negli
+   script diventa la sua sequenza di escape, che vale uguale sia nelle
+   stringhe sia nelle espressioni regolari. */
+function leggi(rel) {
+    const t = fs.readFileSync(path.join(REPO, rel), 'utf8');
+    return /\.js$/.test(rel) ? t.split('\ufffd').join('\\uFFFD') : t;
+}
 function scrivi(rel, testo) {
     const p = path.join(OUT, rel);
     fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -148,7 +156,8 @@ async function costruisci() {
     RITOCCHI_GESTIONE.forEach(([a, b, n]) => { gestione = ritocca(gestione, 'gestione.js', a, b, n); });
     scrivi('diretta/gestione/gestione.js', gestione);
 
-    ['diretta/nome-utente.js', 'diretta/diretta.css', 'diretta/gestione/gestione.css'].forEach(f => copia(f));
+    ['diretta/diretta.css', 'diretta/gestione/gestione.css'].forEach(f => copia(f));
+    scrivi('diretta/nome-utente.js', leggi('diretta/nome-utente.js'));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');
     copia('diretta/prove/anteprima/pagina.js', 'anteprima/pagina.js');
     copia('diretta/prove/anteprima/player-anteprima.js', 'anteprima/player-anteprima.js');
