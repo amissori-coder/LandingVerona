@@ -520,7 +520,7 @@ function contaAscolti(page) {
             await videoVa(p, 20000, 'il video dopo la pausa');
         });
 
-        await prova('DASH pubblico (dash.js): la diretta parte, con la barra per tornare indietro e la qualità', async () => {
+        await prova('DASH pubblico (dash.js): la diretta parte, con «IN DIRETTA» e la barra per tornare indietro', async () => {
             const da = Date.now();
             await cambiaVideo(F.FLUSSO_PUBBLICO_DASH, '');
             await aspetta(() => primaDa(pc.richieste, /\.mpd$/, da), 30000, 'il manifesto DASH');
@@ -528,10 +528,14 @@ function contaAscolti(page) {
             await videoVa(p, 60000, 'il flusso pubblico DASH');
             await aspetta(() => visibile(p, '#barra-dvr'), 15000, 'la barra per tornare indietro');
             await aspetta(() => visibile(p, '#indicatore-live'), 15000, '«IN DIRETTA»');
-            await aspetta(async () => (await p.locator('#sel-qualita option').count()) >= 3, 15000, 'le qualità del DASH');
-            const voci = await p.locator('#sel-qualita option').allInnerTexts();
-            vero(voci[0] === 'Automatica' && voci.length >= 3 && new Set(voci).size === voci.length, 'qualità: ' + voci.join(', '));
             await foto(p, 'dash-computer');
+        });
+
+        await prova('DASH pubblico: la scelta della qualità (Automatica e le due altezze del flusso, 720p e 480p)', async () => {
+            await aspetta(async () => (await p.locator('#sel-qualita option').count()) >= 3, 15000,
+                'le qualità del DASH (il selettore ha ' + await p.locator('#sel-qualita option').count() + ' voci)');
+            const voci = await p.locator('#sel-qualita option').allInnerTexts();
+            vero(voci[0] === 'Automatica' && voci.indexOf('720p') > 0 && voci.indexOf('480p') > 0 && new Set(voci).size === voci.length, 'qualità: ' + voci.join(', '));
         });
 
         console.log('\nComputer: il link firmato (firma nginx, dal servizio)');

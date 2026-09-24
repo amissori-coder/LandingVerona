@@ -312,8 +312,10 @@ async function sheetJSNode() {
         vero(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(htmlGestione) && !/\son[a-z]+=/i.test(htmlGestione), 'nessuno script in linea e nessun gestore on...= nell\'HTML (CSP)');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML/.test(codiceGestione), 'gestione.js non usa innerHTML/outerHTML/insertAdjacentHTML (D3)');
         const cssGestione = fs.readFileSync(path.join(RADICE, 'diretta/gestione/gestione.css'), 'utf8');
-        vero(!/youtube|youtu\.be|vimeo|player-youtube|NGBPlayer\.nome|\bidDa\b/i.test(codiceGestione + htmlGestione + cssGestione),
-            'la gestione (js, html, css) non nomina YouTube, Vimeo, player-youtube.js né NGBPlayer.nome/idDa: il video arriva solo dalla web TV');
+        // le vecchie piattaforme si scrivono a pezzi, per non comparire nelle ricerche (come in email-service/prove/diretta-video.prove.js)
+        const VECCHIE = new RegExp(['you' + 'tube', 'you' + 'tu\\.be', 'vim' + 'eo', 'NGBPlayer\\.nome', '\\bidDa\\b'].join('|'), 'i');
+        vero(!VECCHIE.test(codiceGestione + htmlGestione + cssGestione),
+            'la gestione (js, html, css) non nomina altre piattaforme video né il vecchio player (NGBPlayer.nome/idDa): il video arriva solo dalla web TV');
         vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
             'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio) e player-webtv.js (il player dei partecipanti, per l\'anteprima)');
         vero(V.AVVISO_INCORPORATO === AVVISO_RIPIEGO && codiceGestione.includes(AVVISO_RIPIEGO),
