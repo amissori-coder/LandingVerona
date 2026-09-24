@@ -372,6 +372,14 @@ si vedono.
    55 secondi dopo il primo, così un dispositivo appena entrato non viene mai
    espulso per sbaglio). È un **deterrente** contro la condivisione delle
    credenziali, non una barriera assoluta (per il motivo del punto 5).
+7. **Un'eccezione alla nostra schermata di pausa, su iPhone e iPad.** Se chi
+   guarda preme "Attiva l'audio" e Safari ferma il video (succede quando il
+   browser non accetta l'audio partito da uno script), il video fermo **resta
+   visibile** con l'invito "Tocca il video per attivare l'audio.": il tocco deve
+   arrivare al player di YouTube, e la nostra schermata lo impedirebbe. In quel
+   momento YouTube può mostrare il suo pulsante di avvio e i suoi segni. Basta
+   un tocco (o il nostro Play) e la diretta riparte; le pause decise da voi in
+   *Regia* e la fine della diretta mostrano sempre la nostra schermata.
 
 ---
 
@@ -577,11 +585,11 @@ non si scopre chi è iscritto.
   fuori una persona sbagliando la password al posto suo.
 - **Risposte uguali**: "password dimenticata" e "primo accesso" dei gestori
   rispondono sempre con lo stesso testo e in 2,5-2,9 secondi, così non si
-  scopre chi è iscritto. Limite noto: se Brevo o Google rispondono molto
-  lentamente, la risposta per un account esistente può arrivare più tardi (per
-  evitarlo del tutto servirebbe spedire dopo la risposta con `waitUntil` di
-  Vercel, una dipendenza in più che non abbiamo aggiunto); ogni account può
-  generare al massimo 3 di queste email al giorno. Tetti orari a finestra
+  scopre chi è iscritto. Anche quando Brevo o Google sono lenti: allo scadere
+  dei 2,5-2,9 secondi la risposta parte comunque e l'invio finisce dopo, con
+  `waitUntil` di Vercel (per questo `api/diretta-accesso.js` ha fino a 60
+  secondi in `vercel.json`); ogni account può generare al massimo 3 di queste
+  email al giorno. Tetti orari a finestra
   fissa: "password dimenticata" 20 richieste all'ora per rete e 200 email
   all'ora in tutto; "primo accesso" dei gestori 10 all'ora per rete e 20 email
   all'ora (tetto separato, così un'ondata di richieste dei partecipanti non
@@ -709,7 +717,7 @@ il servizio risponde "attendi un minuto" e lo scrive nel log.
 
 ## 10. Le prove
 
-Tutte in `diretta/prove/` (più tre nel servizio, `email-service/prove/`).
+Tutte in `diretta/prove/` (più quattro nel servizio, `email-service/prove/`).
 Girano contro gli **emulatori di Firebase** (nessun progetto vero, nessuna
 email vera: la posta diventa righe di un file) e con **Playwright** su
 Chromium. YouTube, che dalla rete di prova non si raggiunge, è sostituito da un
@@ -729,13 +737,14 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-nome-utente.prove.js` | la regola del nome utente: accenti, apostrofi (anche tipografici), trattini, punti, cognomi composti, doppi nomi, maiuscole, spazi, lettere straniere, cirillico e greco, omonimi, doppioni, anteprima; la copia del servizio è identica a quella del sito | RISULTATO_nome-utente |
 | `email-service/prove/diretta-password.prove.js` | 10 caratteri, niente 0/O/o/1/l/I/i, 20.000 password tutte diverse, nessuna password nei log o in Firestore | RISULTATO_password |
 | `email-service/prove/diretta-mail.prove.js` | le email: HTML e testo, credenziali in carattere a spaziatura fissa, collegamenti, date, assistenza, niente trattini lunghi, niente HTML iniettato, promemoria mai con la password | RISULTATO_email |
+| `email-service/prove/diretta-accesso-tempi.prove.js` | "password dimenticata" e "primo accesso" dei gestori rispondono sempre in 2,5-2,9 s, anche con Brevo lento (il resto finisce dopo, con `waitUntil`); un token scaduto fa uscire, un intoppo di Google (rete, chiavi pubbliche non scaricate) no | RISULTATO_tempi |
 | `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo | RISULTATO_regole |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio | RISULTATO_separazione |
 | `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con 20 "Mario Rossi" ciascuno, omonimi, correzioni: **zero account doppi, zero nomi utente doppi** | RISULTATO_doppioni |
-| `accesso.prova.js` | accesso con "Mario Rossi", 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), password dimenticata a risposta e tempi uguali, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico | RISULTATO_accesso |
+| `accesso.prova.js` | accesso con "Mario Rossi", 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete), risposte e tempi uguali, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico | RISULTATO_accesso |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password | RISULTATO_coda |
-| `pagina.prova.js` | la pagina della diretta su computer, iPhone (senza schermo intero, come Safari) e tablet: attesa, messa in onda, audio, pausa, tastiera, schermo intero, cambio del video, errori, connessione persa, pausa dell'evento, fine e ritorno in onda, un solo dispositivo, reimpostazione | RISULTATO_pagina |
-| `gestione.prova.js` | la gestione contro il servizio vero: anteprima di un file con tutti i casi, creazione a gruppi con "Riprendi", ricerca e azioni, regia, email, esportazione Excel riletta | RISULTATO_gestione |
+| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): attesa, messa in onda, audio (anche rifiutato dal browser), pausa, tastiera, schermo intero, cambio del video, errori, connessione persa, pausa dell'evento, fine e ritorno in onda, reimpostazione; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, player che nasce lento, anteprima del gestore, componenti di Firebase che non si scaricano | RISULTATO_pagina |
+| `gestione.prova.js` | la gestione contro il servizio vero, su computer e tablet: anteprima di un file CSV ed Excel con tutti i casi (omonimi, doppioni, email sbagliate, correzioni, conferme), creazione a gruppi con "Riprendi", ricerca e azioni sul partecipante, regia (in onda, pausa, termina, cambio del link provato prima, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta | RISULTATO_gestione |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento | RISULTATO_sito |
 | `e2e.prova.js` | **il percorso completo con tutto vero** tranne YouTube: il gestore si attiva dall'email, crea evento e partecipanti, manda le credenziali; Mario le legge dalla posta, entra dal telefono, aspetta, va in onda, schermo intero, cambio del link, connessione persa, pagina riaperta, un minuto di presenza, esce, password dimenticata, accesso automatico; fine ed esportazione | RISULTATO_e2e |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |

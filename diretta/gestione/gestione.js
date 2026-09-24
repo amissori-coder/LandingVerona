@@ -353,7 +353,13 @@
             if (!u) throw new ErroreServizio(401, 'non-autenticato', 'Sessione scaduta: accedi di nuovo.');
             let token;
             try { token = await u.getIdToken(tentativo > 0); }
-            catch (_) { throw new ErroreServizio(401, 'non-autenticato', 'Sessione scaduta: accedi di nuovo.'); }
+            catch (e) {
+                // senza rete il token non si rinnova: non e' una sessione scaduta, non si esce
+                if (e && e.code === 'auth/network-request-failed') {
+                    throw new ErroreServizio(0, 'rete', 'Connessione assente o servizio non raggiungibile: controlla la rete e riprova.');
+                }
+                throw new ErroreServizio(401, 'non-autenticato', 'Sessione scaduta: accedi di nuovo.');
+            }
             let r;
             try {
                 r = await fetch(cfg.servizio + '/diretta-gestione', {

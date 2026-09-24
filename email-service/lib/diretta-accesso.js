@@ -484,16 +484,38 @@ async function chiudiTentativi(ctx, rif) {
    PASSWORD DIMENTICATA E ACCESSO DEI GESTORI
    ============================================================ */
 
+/* Vercel lascia finire un lavoro dopo la risposta solo se glielo si chiede
+   (waitUntil). E' lo stesso aggancio che usa il pacchetto @vercel/functions,
+   letto qui direttamente per non aggiungere una dipendenza al servizio.
+   Fuori da Vercel (server locale, prove) non c'e': restituisce false. */
+function lasciaFinire(lavoro) {
+    try {
+        const rc = globalThis[Symbol.for('@vercel/request-context')];
+        const c = rc && typeof rc.get === 'function' ? rc.get() : null;
+        if (c && typeof c.waitUntil === 'function') { c.waitUntil(lavoro); return true; }
+    } catch (_) { /* nessun aggancio */ }
+    return false;
+}
+
 /* Tutto quello che c'e' dentro gira, ma la risposta parte solo quando
    e' passato il tempo fissato all'inizio (2,5 s + fino a 0,4 s a caso):
    un account che esiste e uno che non esiste, un invio riuscito e uno
-   fallito, rispondono dopo lo stesso tempo. */
+   fallito, rispondono dopo lo stesso tempo. Se il lavoro dura di piu'
+   (Brevo lento), la risposta parte lo stesso allo scadere e il lavoro
+   finisce dopo, con waitUntil: il tempo della risposta non dice nulla
+   nemmeno in quel caso. Solo fuori da Vercel si aspetta la fine. */
 async function aDurataCostante(etichetta, fn) {
     const fine = Date.now() + 2500 + crypto.randomInt(400);
-    try {
-        await fn();
-    } catch (e) {
+    const lavoro = Promise.resolve().then(fn).catch(e => {
         console.error('[diretta] ' + etichetta + ': ' + D.perLog(e));
+    });
+    const finito = await Promise.race([
+        lavoro.then(() => true),
+        pausa(Math.max(0, fine - Date.now())).then(() => false)
+    ]);
+    if (!finito) {
+        if (!lasciaFinire(lavoro)) await lavoro;
+        return;
     }
     const resto = fine - Date.now();
     if (resto > 0) await pausa(resto);
@@ -657,8 +679,9 @@ async function aggiornaPermessi(ctx, req) {
     const m = /^Bearer\s+(.+)$/i.exec(String((req.headers || {}).authorization || ''));
     if (!m) throw C.errore(401, 'Accesso richiesto', 'non-autenticato');
     let tok;
-    try { tok = await ctx.auth.verifyIdToken(m[1], true); } catch (_) {
-        throw C.errore(401, 'La sessione è scaduta: accedi di nuovo.', 'non-autenticato');
+    try { tok = await ctx.auth.verifyIdToken(m[1], true); } catch (e) {
+        if (C.tokenNonValido(e)) throw C.errore(401, 'La sessione è scaduta: accedi di nuovo.', 'non-autenticato');
+        throw C.errore(503, 'Servizio di accesso momentaneamente non disponibile: riprova tra qualche secondo.', 'riprova');
     }
     const [snapP, snapS] = await ctx.db.getAll(ctx.db.collection('partecipanti').doc(tok.uid), ctx.db.collection('sessioni').doc(tok.uid));
     if (!snapP.exists) throw C.errore(403, 'Questo account non è un partecipante della diretta.', 'non-partecipante');
@@ -669,6 +692,6 @@ async function aggiornaPermessi(ctx, req) {
 
 module.exports = {
     entra, passwordDimenticata, gestoreAccesso, aggiornaPermessi,
-    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword,
+    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante,
     MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO
 };

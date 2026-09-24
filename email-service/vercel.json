@@ -26,7 +26,7 @@
     "api/promemoria-eventi-ore8.js": { "maxDuration": 300 },
     "api/diretta-cron.js": { "maxDuration": 300 },
     "api/diretta-gestione.js": { "maxDuration": 60 },
-    "api/diretta-accesso.js": { "maxDuration": 15 },
+    "api/diretta-accesso.js": { "maxDuration": 60 },
     "api/diretta-stato.js": { "maxDuration": 10 }
   }
 }

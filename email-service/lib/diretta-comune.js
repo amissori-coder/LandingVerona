@@ -209,18 +209,25 @@ function eGestore(email) {
     const e = String(email || '').trim().toLowerCase();
     return !!e && !eEmailTecnica(e) && gestori().has(e);
 }
+/* Perche' verifyIdToken ha rifiutato il token? Un token scaduto, revocato
+   o sbagliato (true) fa uscire la persona; un intoppo di Google (false:
+   rete, chiavi pubbliche non scaricate, errore interno) no, si riprova.
+   Attenzione: firebase-admin da' 'auth/argument-error' sia a un token
+   sbagliato sia alle chiavi pubbliche che non si scaricano (in quel caso
+   il messaggio e' quello dell'errore di rete): si distinguono dal testo. */
+function tokenNonValido(e) {
+    const c = String((e && (e.code || (e.errorInfo && e.errorInfo.code))) || '');
+    const msg = String((e && e.message) || '');
+    if (c === 'auth/argument-error' && /making request|fetching|socket|ECONN|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|timeout|network/i.test(msg)) return false;
+    return /^auth\/(id-token-expired|id-token-revoked|argument-error|invalid-id-token|user-disabled|user-not-found)$/.test(c);
+}
 async function verificaGestore(ctx, req) {
     const h = String((req.headers || {}).authorization || '');
     const m = /^Bearer\s+(.+)$/i.exec(h);
     if (!m) throw errore(401, 'Accesso richiesto', 'non-autenticato');
     let tok;
     try { tok = await ctx.auth.verifyIdToken(m[1], true); } catch (e) {
-        // un token scaduto, revocato o sbagliato fa uscire il gestore; un intoppo
-        // di Google (rete, chiavi pubbliche non scaricate) no: si riprova
-        const c = String((e && (e.code || (e.errorInfo && e.errorInfo.code))) || '');
-        if (/^auth\/(id-token-expired|id-token-revoked|argument-error|invalid-id-token|user-disabled|user-not-found)$/.test(c)) {
-            throw errore(401, 'Sessione scaduta: accedi di nuovo', 'non-autenticato');
-        }
+        if (tokenNonValido(e)) throw errore(401, 'Sessione scaduta: accedi di nuovo', 'non-autenticato');
         throw errore(503, 'Servizio di accesso momentaneamente non disponibile: riprova tra qualche secondo.', 'riprova');
     }
     const email = String(tok.email || '').toLowerCase();
@@ -267,5 +274,5 @@ module.exports = {
     errore, cors, corpo, rispondiErrore, testo, ipDi, impronta, improntaIp, intero,
     istanteRoma, dataRoma, oraRoma, dataEstesa, oraLeggibile, scartoRoma,
     dominioTecnico, emailTecnica, eEmailTecnica, baseSito, linkDiretta, assistenza,
-    idYouTube, gestori, eGestore, verificaGestore, consumaGettone, aGruppi, pausa
+    idYouTube, gestori, eGestore, tokenNonValido, verificaGestore, consumaGettone, aGruppi, pausa
 };

@@ -690,6 +690,7 @@
         stato.anteprima = false;
 
         if (!utente) {
+            sdkCaricato(); // la vista di accesso non usa Firestore
             stato.nomePersona = '';
             stato.nomeUtente = '';
             stato.sessione = '';
@@ -770,6 +771,7 @@
         stato.nomePersona = claims.email || utente.email || 'Gestore';
         const id = parametro('anteprima');
         if (!ID_EVENTO_VALIDO.test(id)) {
+            sdkCaricato();
             mostraVista('gestore', { fuoco: true });
             return;
         }
@@ -777,6 +779,7 @@
         stato.anteprima = true;
         stato.nomePersona = 'Anteprima (gestore)';
         preparaFirestore().then(() => {
+            sdkCaricato();
             if (gen !== stato.generazione) return;
             ascoltaEvento(id, true, gen);
         }, e => { if (gen === stato.generazione) sdkNonCaricato(e); });
@@ -785,6 +788,7 @@
     async function avviaPartecipante(utente, claims, gen) {
         let F;
         try { F = await preparaFirestore(); } catch (e) { if (gen === stato.generazione) sdkNonCaricato(e); return; }
+        sdkCaricato();
         if (gen !== stato.generazione) return;
 
         let profilo;
@@ -863,15 +867,21 @@
         return validi.slice().sort((a, b) => ms(b.inizio) - ms(a.inizio))[0].id;
     }
 
-    /* 'ok' | 'disattivato' | 'errore' */
+    /* 'ok' | 'disattivato' | 'riprova' (rete o intoppo del servizio: non
+       si esce, si riprova) | 'errore' (sessione da rifare) */
     async function aggiornaPermessi() {
         const u = fb.auth && fb.auth.currentUser;
         if (!u) return 'errore';
+        const diRete = e => codiceDi(e) === 'auth/network-request-failed';
         let token;
-        try { token = await u.getIdToken(); } catch (e) { return 'errore'; }
+        try { token = await u.getIdToken(); } catch (e) { return diRete(e) ? 'riprova' : 'errore'; }
         const r = await chiamaServizio({ azione: 'aggiorna-permessi' }, token);
-        if (!r.ok) return r.codice === 'disattivato' ? 'disattivato' : 'errore';
-        try { await u.getIdToken(true); } catch (e) { return 'errore'; }
+        if (!r.ok) {
+            if (r.codice === 'disattivato') return 'disattivato';
+            if (r.codice === 'riprova' || r.codice === 'rete' || r.statoHttp === 0 || r.statoHttp >= 500) return 'riprova';
+            return 'errore';
+        }
+        try { await u.getIdToken(true); } catch (e) { return diRete(e) ? 'riprova' : 'errore'; }
         return 'ok';
     }
 
@@ -937,6 +947,17 @@
                     const esito = await aggiornaPermessi();
                     if (gen !== stato.generazione) return;
                     if (esito === 'ok') { ascoltaEvento(id, true, gen); return; }
+                    if (esito === 'riprova') {
+                        // rete o servizio momentaneamente giu': non si esce, si riprova tra poco
+                        rete.erroreLettura = true;
+                        aggiornaConnessione();
+                        setTimeout(() => {
+                            if (gen !== stato.generazione) return;
+                            rete.erroreLettura = false;
+                            ascoltaEvento(id, false, gen);
+                        }, 5000);
+                        return;
+                    }
                     await esciConMessaggio(esito === 'disattivato' ? 'disattivato' : 'accedi-di-nuovo');
                     return;
                 }
@@ -2032,7 +2053,6 @@
             sdkNonCaricato(e);
             return;
         }
-        sdkCaricato();
         fb.A.onAuthStateChanged(fb.auth, u => { gestisciUtente(u); });
     }
 
