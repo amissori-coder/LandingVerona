@@ -589,10 +589,19 @@ Player: `https://storage.googleapis.com/shaka-live-assets/player-source.m3u8`):
   partecipanti vedono "Pausa: si riprende alle 14.30", non la fine.
 - **"Avviso a tutti"**: una riga che compare in cima alla pagina di tutti
   ("Problema tecnico: riprendiamo tra 5 minuti").
-- **Cambio del video**: incolla il nuovo link; la regia lo prova prima in una
-  piccola anteprima e lo blocca se il video non si può usare (se la web TV non
-  ha ancora cominciato a trasmettere, lo salva con un avviso). Chi guarda passa
-  al nuovo video da solo, senza ricaricare.
+- **Cambio del link**: incolla il nuovo link (principale o di riserva) e
+  "Prova il link": la regia lo prova come nella scheda *Evento* (§5.2), anche in
+  una piccola anteprima, e lo blocca se non si può usare (se la web TV non ha
+  ancora cominciato a trasmettere, lo salva dopo una conferma). Chi guarda passa
+  al nuovo link da solo, senza ricaricare. Cambiare solo la riserva non
+  disturba chi sta guardando il principale.
+- **Link in uso per tutti**: la regia mostra quale link stanno guardando i
+  partecipanti. **"Passa alla riserva per tutti"** e **"Torna al link principale
+  per tutti"** li spostano tutti insieme, senza ricaricare; con il link già
+  scelto compare **"Riporta tutti sul link principale"** (o *sulla riserva*),
+  che riporta anche chi era passato da solo all'altro link per un guasto.
+  **"Guarda"** apre in anteprima il principale o la riserva, come lo vedono i
+  partecipanti (anche con i link firmati).
 - Alla fine, **"Termina"**. Se la riapri ("Vai in onda" di nuovo), le pagine
   ripartono.
 

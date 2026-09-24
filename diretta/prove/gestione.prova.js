@@ -988,7 +988,8 @@ async function sheetJSNode() {
         vero(entraAnna.stato === 200 && entraAnna.dati.nomeUtente === 'annamariadeluca' && !!entraAnna.dati.token, 'con quella password Anna Maria entra davvero nella diretta (diretta-accesso «entra»)');
         await foto('password', true);
         await $('#btn-chiudi-password').click();
-        vero(await testo('#password-mostrata') === '', 'chiusa la finestra, la password sparisce dalla pagina');
+        // l'evento 'close' della finestra arriva un attimo dopo il clic: si aspetta
+        vero(await aspetta(async () => await testo('#password-mostrata') === '', 3000, 'password tolta').catch(() => false), 'chiusa la finestra, la password sparisce dalla pagina');
         await (await rp('robertomoretti')).locator('summary').click();
         await (await rp('robertomoretti')).locator('button[data-op="disattiva"]').click();
         await confermaDialogo(/Disattivare l'account/);
