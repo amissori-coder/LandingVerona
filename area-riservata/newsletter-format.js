@@ -1018,8 +1018,18 @@
                ".lead" NON si tocca: e' del sommario nella testata. */
             + '  .att{font-size:18px!important;line-height:28px!important;}\n'
             + '  .t1{font-size:21px!important;line-height:29px!important;}\n'
+            /* Promemoria: sul telefono il riquadro dei dati respira meno. */
+            + '  .pmbox{padding:14px 16px!important;}\n'
             + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
             + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
+            + '}\n'
+            /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini piu'
+               stretti, e nei promemoria il testo va a sinistra, perche' su una
+               colonna cosi' stretta il giustificato apre buchi fra le parole. */
+            + '@media only screen and (max-width:400px){\n'
+            + '  .px{padding-left:18px!important;padding-right:18px!important;}\n'
+            + '  .pmj{text-align:left!important;}\n'
+            + '  .h1{font-size:22px!important;line-height:29px!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
             + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
@@ -2450,9 +2460,9 @@
                 + spazio(24)
                 + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
                 + spazio(12)
-                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;' + ALLINEA + '">' + testoHtml(titolo) + '</td></tr>'
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;text-align:left;">' + testoHtml(titolo) + '</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
+                + '<tr><td class="lead par pmj" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -2460,16 +2470,16 @@
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
            lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
            l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
-        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';text-align:left;">' + testoHtml(t) + '</td></tr>';
         /* Elenco puntato a tabelle: i <ul> in Outlook rientrano a caso. */
         const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + voci.map(v => '<tr>'
                 + '<td width="18" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.accento + ';font-weight:bold;padding:2px 0;">&bull;</td>'
-                + '<td valign="top" class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
+                + '<td valign="top" class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
             + '</table></td></tr>';
         const corpoParagrafi = paragrafi.map((p, i) => {
             let h = i ? spazio(p.titolo ? 26 : 18) : '';
@@ -2480,12 +2490,17 @@
             return p.se ? '<!--SE_' + p.se + '-->' + h + '<!--/SE_' + p.se + '-->' : h;
         }).join('');
 
-        const riga = (et, val) => '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
-            + '<td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
+        /* Etichetta SOPRA e valore sotto, a tutta larghezza: su un telefono
+           stretto due colonne lasciavano al valore tre parole per riga, con i
+           buchi del giustificato. Cosi' si legge bene ovunque, anche nelle app
+           di posta che ignorano il foglio di stile. I valori sono dati brevi:
+           a sinistra. */
+        const riga = (et, val, i) => '<tr><td class="bxet" valign="top" style="' + FONTE + 'font-size:12px;line-height:18px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:' + (i ? 12 : 0) + 'px 0 2px;text-align:left;">' + testoHtml(et) + '</td></tr>'
+            + '<tr><td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:0;text-align:left;">' + testoHtml(val) + '</td></tr>';
         const box = righe.length
             ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
-            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe.map(r => riga(r[0], r[1])).join('')) + '</td></tr></table></td></tr>'
+            + '<tr><td class="pmbox" style="padding:16px 22px;">' + tabellaInterna(righe.map((r, i) => riga(r[0], r[1], i)).join('')) + '</td></tr></table></td></tr>'
             : '';
         /* Il programma come un orario: a sinistra l'ora, a destra la voce. E'
            la forma in cui si legge un programma, la stessa della mail di
@@ -2494,8 +2509,8 @@
             ? spazio(26) + sopratitolo('Programma dei lavori') + spazio(4)
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + programma.map(v => '<tr>'
-                + '<td width="70" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 14px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
-                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
+                + '<td width="62" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 12px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
+                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';text-align:left;">' + testoHtml(v.nome) + '</td></tr>').join('')
             + '</table></td></tr>'
             : '';
         /* Il pulsante. Se l'indirizzo e' il segnaposto del collegamento
@@ -2525,7 +2540,7 @@
         const rigaBottone = bottone ? spazio(28) + '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
             + '</td></tr>' : '';
-        const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
+        const piccolo = t => '<tr><td class="par pmj" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
         /* Al Lei, come tutte le mail al singolo: il registro non si mescola
            nella stessa lettera. */
         const fraseLink = 'Qualora non potesse più partecipare o desiderasse modificare i Suoi dati, può farlo attraverso il '
