@@ -532,6 +532,7 @@ d'ambiente non ne parte nessuno.
 | `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 | `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo i promemoria con `ora: 7` (la mattina dell'evento) |
 | `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre e 1° ottobre); benvenuto e giorni passati restano al giro delle 20 |
+| `/api/promemoria-eventi-ore22` | `0 20 * * *` — alle 22 di Roma (le 21 con l'ora solare) | spedisce solo i promemoria con `ora: 22` (per Napoli la prima mail del 24 settembre) |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a

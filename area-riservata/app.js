@@ -23338,7 +23338,7 @@
        dell'evento (`mattina` sulla proposta e sul record). */
     function oraGiro(x) {
         const o = Number(x && x.ora);
-        if (o === 7 || o === 8 || o === 20) return o;
+        if (o === 7 || o === 8 || o === 20 || o === 22) return o;
         return x && x.mattina ? 7 : 20;
     }
     function giroDiOggiPassato(x) { return new Date().getHours() >= oraGiro(x); }
@@ -23634,7 +23634,7 @@
     function modaleElencoPromemoria(ev) {
         if (!window.RV_PROMEMORIA) return;
         apriModale('<h2>Promemoria agli iscritti</h2>'
-            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi, all\'ora indicata sotto la data di ogni riga (<b>20</b>, <b>8</b> o <b>7</b>). '
+            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi, all\'ora indicata sotto la data di ogni riga (<b>7</b>, <b>8</b>, <b>20</b> o <b>22</b>). '
             + 'A ogni invio il sistema rilegge gli iscritti: i numeri qui sotto sono quelli di oggi.</p>'
             + '<div id="pm-el-dinamico" data-ev="' + esc(ev.id) + '" data-pronto="' + (_evIscrizioni !== null ? '1' : '') + '">' + contenutoElencoPromemoria(ev) + '</div>'
             + '<details class="pm-come"><summary>Come funziona</summary><p class="hint" style="max-width:none;margin:6px 0 0;">'
