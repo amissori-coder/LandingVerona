@@ -219,11 +219,24 @@ Progetto Vercel di sempre (`revilaw-email`, cartella `email-service`) →
 | `DIRETTA_CONCORRENZA` | `4` | quante email in parallelo dentro un giro |
 | `DIRETTA_PAUSA_MS` | `300` | pausa fra un gruppo di email e il successivo |
 | `DIRETTA_MAX_GIORNO` | `0` (nessun tetto) | tetto di email della diretta al giorno: impostalo se il piano Brevo ha un limite giornaliero (§4) |
+| `DIRETTA_AUTH_AL_SECONDO` | `8` | quante modifiche agli account Firebase al secondo (creazione, nuove password): tiene lontani i limiti di Google; non serve cambiarlo |
 
 **Già presenti, riusate così come sono**: `SMTP_HOST`, `SMTP_PORT`,
 `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL`, `APP_BASE_URL`,
 `ALLOWED_ORIGIN`, `CRON_SECRET`, `BREVO_API_KEY` (quest'ultima serve per
 vedere le email **respinte**, §4).
+
+**Solo per le prove in locale** (non vanno mai messe su Vercel, e comunque
+funzionano solo con gli emulatori): `DIRETTA_EMULATORE`, `DIRETTA_PROGETTO`,
+`DIRETTA_POSTA_FINTA` (la posta diventa un file in `diretta/prove/risultati/`),
+`DIRETTA_POSTA_RIFIUTA`, `DIRETTA_POSTA_ERRORE_ACCOUNT`,
+`DIRETTA_POSTA_ERRORE_MESSAGGIO`, `DIRETTA_POSTA_INCERTA`,
+`DIRETTA_POSTA_RITARDO_MS`, `DIRETTA_BREVO_API`.
+
+**Il lavoro programmato** `api/diretta-cron` gira ogni 5 minuti (è in
+`email-service/vercel.json`): `maxDuration` 300 s, budget interno 240 s,
+lucchetto 330 s (le chiamate a mano dalla gestione: 40 s e 90 s). Se non c'è
+niente da fare esce subito con poche letture.
 
 Dopo aver aggiunto le variabili: *Deployments* → l'ultimo → *Redeploy*.
 
@@ -249,6 +262,13 @@ e scopre solo dopo che l'indirizzo non esiste. Lo stato **respinta** arriva
 quindi dall'API di Brevo (rimbalzi, indirizzi bloccati o non validi), letta dal
 pulsante "Aggiorna esiti" della gestione e dal lavoro programmato: serve
 `BREVO_API_KEY` (già presente per la newsletter).
+
+**I promemoria** (giorno prima e un'ora prima, da attivare per ogni evento)
+partono solo a chi ha già ricevuto le credenziali (stato *inviata*) e ha
+l'account attivo, **mai con la password**: contengono il collegamento, il nome
+utente e "Non trovi la password? Usa «Password dimenticata?»". Ognuno parte una
+volta sola per persona; il giorno è scritto sull'ora vera ("domani alle 9.00",
+"oggi alle 9.00", con "(ora italiana)").
 
 **Quando Brevo si ferma** (credito o tetto finiti, autenticazione, ritmo
 troppo alto) la coda **si ferma** e lo dice in gestione, senza segnare in
@@ -493,6 +513,12 @@ sull'account e si mettono nell'email (o si mostrano una volta in gestione con
 nuova**: quella vecchia non la conosce più nessuno e smette di funzionare (chi
 è collegato dovrà rientrare entro un'ora).
 
+**Account disattivato.** Chi prova a entrare con un account disattivato legge
+lo stesso messaggio di una password sbagliata ("Nome utente o password non
+corretti. Se il problema continua, scrivi all'assistenza"): Google risponde
+"disattivato" anche con la password sbagliata, e dirlo rivelerebbe quali
+account esistono. Chi assiste le persone al telefono deve saperlo.
+
 **Password dimenticata.** La persona scrive il nome utente oppure la sua email;
 il servizio manda il collegamento per sceglierne una nuova all'email vera
 (vale un'ora, una volta). La risposta è sempre la stessa, anche nei tempi, così
@@ -630,9 +656,46 @@ il servizio risponde "attendi un minuto" e lo scrive nel log.
 
 ## 10. Le prove
 
-*Da completare con i comandi e i risultati.*
+Tutte in `diretta/prove/` (più tre nel servizio, `email-service/prove/`).
+Girano contro gli **emulatori di Firebase** (nessun progetto vero, nessuna
+email vera: la posta diventa righe di un file) e con **Playwright** su
+Chromium. YouTube, che dalla rete di prova non si raggiunge, è sostituito da un
+finto YouTube (`finto-youtube.js`) che si comporta come il player vero per
+quello che usa la pagina.
 
----
+```bash
+cd diretta/prove
+npm install                    # una volta: firebase-tools, firebase, playwright
+node esegui-tutte.js           # tutte, circa 15 minuti
+bash carico.sh                 # la prova di carico, circa 8 minuti
+node e2e.prova.js              # solo il percorso completo
+```
+
+| Prova | Che cosa dimostra | Esito |
+|---|---|---|
+| `email-service/prove/diretta-nome-utente.prove.js` | la regola del nome utente: accenti, apostrofi (anche tipografici), trattini, punti, cognomi composti, doppi nomi, maiuscole, spazi, lettere straniere, cirillico e greco, omonimi, doppioni, anteprima; la copia del servizio è identica a quella del sito | RISULTATO_nome-utente |
+| `email-service/prove/diretta-password.prove.js` | 10 caratteri, niente 0/O/o/1/l/I/i, 20.000 password tutte diverse, nessuna password nei log o in Firestore | RISULTATO_password |
+| `email-service/prove/diretta-mail.prove.js` | le email: HTML e testo, credenziali in carattere a spaziatura fissa, collegamenti, date, assistenza, niente trattini lunghi, niente HTML iniettato, promemoria mai con la password | RISULTATO_email |
+| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo | RISULTATO_regole |
+| `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio | RISULTATO_separazione |
+| `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con 20 "Mario Rossi" ciascuno, omonimi, correzioni: **zero account doppi, zero nomi utente doppi** | RISULTATO_doppioni |
+| `accesso.prova.js` | accesso con "Mario Rossi", 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), password dimenticata a risposta e tempi uguali, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico | RISULTATO_accesso |
+| `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password | RISULTATO_coda |
+| `pagina.prova.js` | la pagina della diretta su computer, iPhone (senza schermo intero, come Safari) e tablet: attesa, messa in onda, audio, pausa, tastiera, schermo intero, cambio del video, errori, connessione persa, pausa dell'evento, fine e ritorno in onda, un solo dispositivo, reimpostazione | RISULTATO_pagina |
+| `gestione.prova.js` | la gestione contro il servizio vero: anteprima di un file con tutti i casi, creazione a gruppi con "Riprendi", ricerca e azioni, regia, email, esportazione Excel riletta | RISULTATO_gestione |
+| `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento | RISULTATO_sito |
+| `e2e.prova.js` | **il percorso completo con tutto vero** tranne YouTube: il gestore si attiva dall'email, crea evento e partecipanti, manda le credenziali; Mario le legge dalla posta, entra dal telefono, aspetta, va in onda, schermo intero, cambio del link, connessione persa, pagina riaperta, un minuto di presenza, esce, password dimenticata, accesso automatico; fine ed esportazione | RISULTATO_e2e |
+| `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
+
+**Cosa le prove non coprono** (e va provato a mano, vedi §12): YouTube vero
+(la rete di prova non lo raggiunge), Safari vero su iPhone e iPad (Playwright
+usa Chromium, che simula il telefono ma non è Safari), Firefox ed Edge, Brevo
+vero, il progetto Firebase vero (quote, indici, limiti di Google).
+
+**Gli screenshot** di consegna sono in [`diretta/screenshot/`](screenshot/)
+(telefono e computer: accesso, attesa, diretta, gestione con l'anteprima del
+caricamento, email, popup della home, sezione di Napoli). Si rifanno con
+`node diretta/prove/screenshot-finali.js` dopo le prove.
 
 ## 11. Cambiare piattaforma video
 
@@ -657,4 +720,74 @@ Con loro anche il selettore della qualità comincia a funzionare (livelli HLS).
 
 ## 12. Cosa devi fare tu
 
-*Da completare.*
+In ordine, pensando all'evento di Napoli del **2 ottobre** (oggi è il 24
+settembre: c'è tempo, ma non tanto).
+
+**Subito (oggi o domani)**
+
+1. [ ] **YouTube**: se il canale non ha mai trasmesso dal vivo, attiva le dirette
+   (fino a 24 ore di attesa). Poi crea la diretta di Napoli: **non in elenco**,
+   **incorporamento consentito**, non per bambini, nessuna limitazione d'età,
+   DVR attivo, chiave di streaming persistente (§5).
+2. [ ] **Progetto Firebase `ngb-eventi`** (§2.2): crealo, passa a **Blaze** e
+   imposta l'**avviso di budget** (10 €); Firestore `(default)` in `eur3` o
+   `europe-west8`; Authentication con **Email/password**, **registrazione e
+   eliminazione da parte degli utenti disattivate**, protezione contro
+   l'enumerazione attiva, dominio `nextgenerationbusiness.it` autorizzato.
+3. [ ] **`diretta/config.js`**: copia i valori dell'app web al posto di
+   `DA_COMPILARE` (e l'ID del progetto, se non è `ngb-eventi`).
+4. [ ] **Regole e indici**: `firebase deploy --only firestore:rules,firestore:indexes`
+   da `diretta/firebase/` (o a mano dalla console), e aspetta che gli indici
+   siano *Attivati*.
+5. [ ] **Chiavi**: genera la chiave di servizio (JSON → base64) e crea la
+   **chiave API del server** limitata a Identity Toolkit API e Token Service API;
+   limita la chiave del browser ai referrer `https://nextgenerationbusiness.it/*`.
+6. [ ] **Vercel** (§3): aggiungi `DIRETTA_FIREBASE_SERVICE_ACCOUNT`,
+   `DIRETTA_FIREBASE_API_KEY`, `DIRETTA_ADMIN_EMAILS` (e, se vuoi,
+   `DIRETTA_ASSISTENZA_TELEFONO` con un numero **presidiato il giorno
+   dell'evento**, e `DIRETTA_PROGETTO_ATTESO` se l'ID è diverso). Controlla che ci
+   siano già `BREVO_API_KEY` e `CRON_SECRET`. Poi *Redeploy*. Da questo momento
+   parte anche il lavoro programmato ogni 5 minuti.
+7. [ ] **Brevo** (§4): verifica il piano (servono circa **3.100 email** fra il
+   26 settembre e il 2 ottobre, oltre alle altre email dello studio: il piano
+   gratuito da 300 al giorno non basta; se il piano ha un tetto giornaliero
+   imposta `DIRETTA_MAX_GIORNO`), SPF/DKIM/DMARC del dominio verificati, e
+   valuta di spegnere il tracciamento dei clic per le email transazionali.
+8. [ ] **Pubblica** questo ramo sul sito (unisci la richiesta di modifica):
+   popup e pulsanti compaiono da soli dal 25 settembre.
+
+**Prima di inviare le credenziali (entro il 26-27 settembre)**
+
+9. [ ] Entra in `/diretta/gestione/` con "Primo accesso" (§6.1).
+10. [ ] Crea l'evento **`napoli-2026`** con gli orari veri e il link YouTube
+    (stesso identificativo e stessi orari di `assets/diretta-stato.js`: se li
+    cambi, aggiorna anche quel file).
+11. [ ] **Prova generale** con un evento di prova e 3-4 persone vere (tu e dei
+    colleghi): email di prova, credenziali, accesso **da un iPhone con Safari,
+    da un telefono Android, da un computer con Chrome, Firefox ed Edge**, "Vai in
+    onda" con la diretta di prova di YouTube, "Attiva l'audio", schermo intero,
+    pausa, cambio del link, "Password dimenticata?", esportazione. Su iPhone
+    prova anche con il **Risparmio energetico** attivo.
+12. [ ] Prova sul progetto vero il **contatore dei collegati** e
+    l'**esportazione** (servono gli indici del passo 4) e, se possibile, un
+    piccolo carico: 300 accessi in 2 minuti con account di prova (§9).
+13. [ ] Carica il file degli iscritti online, controlla l'anteprima, crea gli
+    account, "Invia email di prova a me", poi **"Invia le credenziali"**.
+
+**Il giorno prima (1° ottobre)**
+
+14. [ ] "Aggiorna esiti", correggi gli indirizzi respinti, "Reinvia a chi non
+    l'ha ricevuta". Tieni a portata di mano il numero dell'assistenza e la
+    sezione 7 ("account disattivato", "password dimenticata").
+
+**Il 2 ottobre**: *Regia* → "Vai in onda" quando YouTube trasmette; "Pausa" a
+pranzo; "Termina" alla fine; poi *Esporta* per gli attestati. Dopo l'evento,
+rendi privato il video su YouTube se non deve restare visibile.
+
+**Da decidere con calma** (non bloccano Napoli)
+
+- Per quanto tempo tenere accessi e presenze (dati personali: per esempio 12
+  mesi) e se aggiungere una pulizia automatica; l'informativa privacy è già
+  collegata dalla pagina di accesso e dalle email.
+- Se un giorno servirà impedire del tutto la condivisione del link del video:
+  passare a Vimeo, Mux o Cloudflare Stream (§11).

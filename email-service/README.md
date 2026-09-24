@@ -3040,3 +3040,17 @@ Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
 `invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa
 a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
 **l'iscrizione resta valida**: e' informazione di servizio, non una condizione.
+
+## Diretta degli eventi (`/api/diretta-*`)
+
+Quattro funzioni e le loro librerie (`api/diretta-*.js`, `lib/diretta-*.js`)
+servono la nuova area `/diretta/`: accesso dei partecipanti con nome utente e
+password, gestione, stato pubblico "in onda" e un lavoro programmato ogni 5
+minuti (`/api/diretta-cron`: `maxDuration` 300 s, budget 240 s, lucchetto
+330 s). Usano un progetto Firebase **separato** (`ngb-eventi`) con la sua
+chiave, `DIRETTA_FIREBASE_SERVICE_ACCOUNT`, e un'app firebase-admin con nome
+proprio: non toccano l'app e i dati di queste funzioni, e le funzioni esistenti
+non sono cambiate. Condividono solo le variabili `SMTP_*` (Brevo),
+`APP_BASE_URL`, `ALLOWED_ORIGIN`, `CRON_SECRET` e `BREVO_API_KEY`. Tutto il
+resto (variabili nuove, passi di configurazione, prove, stime) sta in
+[`diretta/README.md`](../diretta/README.md).
