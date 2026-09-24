@@ -33,7 +33,7 @@
                       prova del link prima di salvarlo (al massimo 30
                       al minuto per gestore; con idEvento si prova il
                       link firmato come lo ricevera' chi guarda)
-     link-firmato     { idEvento, sorgente } -> { url, scade }
+     link-firmato     { idEvento, sorgente } -> { url, scade, validoSecondi }
                       per l'anteprima della regia
    Il modulo delle email si carica solo quando serve (e' un file a parte:
    se mancasse, il resto della gestione funziona lo stesso).

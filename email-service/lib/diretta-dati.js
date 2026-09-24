@@ -399,7 +399,8 @@ async function salvaEvento(ctx, ingresso) {
             ? leggiVideo(e.videoUrl, e.videoId) : { videoUrl: prima.videoUrl, videoId: prima.videoId };
         const riserva = e.riservaUrl !== undefined
             ? leggiVideo(e.riservaUrl, '') : { videoUrl: prima.riservaUrl, videoId: prima.riservaId };
-        const firma = F.normalizza(e.firma, ris.firma);
+        // con Akamai l'acl ricavata dal percorso del flusso deve essere valida: lo si dice subito, non alla prima firma
+        const firma = F.normalizza(e.firma, ris.firma, [principale.videoId, riserva.videoId].filter(Boolean));
         if (firma.errore) throw C.errore(400, firma.errore, 'firma');
         const nuoviRis = riservatiVideo(principale, riserva, firma.firma);
         const programma = e.programma !== undefined ? leggiProgramma(e.programma) : (vecchio.programma || []);

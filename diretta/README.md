@@ -377,7 +377,7 @@ Il servizio fa la prova con le dovute cautele: solo indirizzi https pubblici
   **"Torna in diretta"** solo quando si è rimasti indietro, **qualità**
   ("Automatica" più le qualità del flusso), **schermo intero** del nostro riquadro
   (anche su iPhone e iPad). Tastiera: spazio (play/pausa), F (schermo intero),
-  M (muto), frecce (volume).
+  M (muto), frecce (volume: su e destra alzano, giù e sinistra abbassano).
 - **Tornare indietro nella diretta**: se la web TV tiene una finestra DVR di
   almeno un minuto, sotto il video compare la barra per tornare indietro
   ("−2:30"); se non c'è, la barra non compare.
@@ -388,6 +388,10 @@ Il servizio fa la prova con le dovute cautele: solo indirizzi https pubblici
 - Niente menu del tasto destro sul video, niente "scarica video"
   (`controlsList="nodownload"`), niente picture-in-picture né trasmissione ad
   altri dispositivi.
+- Le **scorciatoie da tastiera** valgono quando il riquadro del video ha il
+  fuoco (dopo un clic sul video, con Tab, o a schermo intero): così frecce e
+  spazio scorrono la pagina come sempre quando si legge il programma, e chi usa
+  un lettore di schermo non attiva comandi per sbaglio.
 - **Ritardo** rispetto alla sala: quello dell'HLS, di solito 3 segmenti (con
   segmenti da 6 secondi, circa 20 secondi). La prova del link lo stima.
 
@@ -400,14 +404,22 @@ Il servizio fa la prova con le dovute cautele: solo indirizzi https pubblici
   8-24, poi fra 15 e 45 s): mille persone non riprovano mai nello stesso
   secondo. Quando riparte, riparte dal punto live.
 - Il player se ne accorge da solo anche quando il video resta fermo senza dare
-  errori: più di 12 secondi fermo mentre dovrebbe andare vale come un guasto.
+  errori (più di 12 secondi fermo mentre dovrebbe andare) e quando la web TV
+  continua a servire la stessa playlist senza nuovi pezzi (l'encoder si è
+  fermato ma il server risponde): se il punto live non avanza per più di 20
+  secondi (o di 3 segmenti) vale come un guasto. Il video si considera ripartito
+  solo quando va **e** il punto live avanza.
+- Se a cadere è la **rete di chi guarda** (telefono senza campo, wifi senza
+  internet), la pagina non passa alla riserva: aspetta che la rete torni e
+  riparte dal link di prima.
 - Se la web TV chiude la diretta e al suo posto il link dà la registrazione, la
   pagina resta su "Stiamo ricollegando la diretta…" e non mostra l'evento
   dall'inizio.
 - **Link di riserva**: nella gestione puoi mettere un secondo link (un altro
   server della web TV o un altro canale). Se il link in uso non funziona per
   **più di 20 secondi**, ogni pagina passa **da sola** all'altro (fra 20 e 24
-  secondi: anche qui qualche secondo casuale, perché non passino tutti insieme).
+  secondi: anche qui qualche secondo casuale, perché non passino tutti insieme,
+  anche se un tentativo è ancora in corso).
   Se un browser non sa riprodurre uno dei due link (per esempio un DASH su un
   vecchio iPhone), passa subito all'altro.
 - **In *Regia*** vedi quale link è in uso per tutti e puoi **passare a mano alla
@@ -440,9 +452,13 @@ Il servizio fa la prova con le dovute cautele: solo indirizzi https pubblici
   quelli valgono per qualche ora).
 - Con i link firmati la pagina chiede il suo link al servizio con qualche
   secondo casuale di attesa (mille persone non chiedono nello stesso istante)
-  e ne chiede uno nuovo quando è passato l'80% della validità: in quel momento
-  il video si ricarica (1-2 secondi) e riparte dal punto live, con l'audio
-  com'era.
+  e ne chiede uno nuovo quando è passato l'80% della validità: il player usa la
+  firma nuova per le richieste che seguono **senza ricaricare il video** (chi è
+  in pausa o indietro nella diretta resta dov'è). Solo su un iPhone che legge
+  l'HLS da solo il video si ricarica per un paio di secondi. La validità la
+  conta il servizio (`validoSecondi`): un computer con l'orologio sbagliato non
+  cambia niente. Principale e riserva hanno ciascuno il suo link firmato, e chi
+  ha già un link valido non lo richiede.
 - La firma sta nella query del link della playlist; il player la aggiunge anche
   alle richieste delle playlist delle singole qualità e dei segmenti verso lo
   stesso server. Su **Safari, iPhone e iPad** questo il browser da solo non lo
@@ -513,8 +529,8 @@ Player: `https://storage.googleapis.com/shaka-live-assets/player-source.m3u8`):
    "Stiamo ricollegando la diretta…" e poi il video riparte da solo.
 5. **Link firmati** (se la web TV li usa): ripeti il punto 2 su iPhone e iPad
    con la firma attiva, e lascia la pagina aperta oltre l'80% della durata
-   scelta (con una durata di 1 ora, dopo 48 minuti): il video si ricarica da
-   solo in un paio di secondi.
+   scelta (con una durata di 1 ora, dopo 48 minuti): il video continua (su
+   iPhone si ricarica da solo in un paio di secondi).
 6. Ripeti con un telefono **Android** (Chrome) e un computer con **Chrome,
    Edge e Firefox** (lì lavora hls.js).
 
@@ -951,14 +967,17 @@ window.NGBPlayer = {
 };
 // istanza:
 player.carica(url, { firmato });   // sempre dal punto live; firmato: true per un link firmato a tempo
+player.aggiornaFirma(url);         // link firmato rinnovato: firma nuova senza ricaricare il video
 player.play(); player.pausa(); player.alterna();
 player.muto(); player.smuto(); player.eMuto(); player.volume(0-100); player.leggiVolume();
-player.vaiAlLive(); player.finestra();   // { posizione, inizio, fine, ritardo, dvr, diretta }
+player.vaiAlLive(); player.finestra();   // { posizione, inizio, fine, ritardo, dvr, diretta, avanza }
 player.cerca(secondi);   // un punto fra finestra().inizio e finestra().fine (per esempio fine - 120)
 player.livelliQualita(); player.impostaQualita(v);
 player.stato(); player.mostra(true|false); player.distruggi();
 player.capacita();   // { comandi, qualita, dvr }: comandi false = pagina incorporata, restano i suoi
+player.avvioBloccato();   // true se il browser non l'ha fatto partire da solo (serve un tocco)
 // onErrore({ codice }): 'rete', 'media', 'segnale', 'lento', 'libreria', 'browser', 'link'
+// finestra().avanza: il bordo live cresce davvero (una playlist "ferma" resta false)
 ```
 
 Il player non riprova da solo dopo un errore: ricollegamento, attese e

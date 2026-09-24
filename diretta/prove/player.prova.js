@@ -120,11 +120,11 @@ const PROVA_JS = `(function () {
     function r(x) { window.registro.push({ t: Date.now(), x: x }); }
     window.nuovoPlayer = function () {
         if (window.pl) window.pl.distruggi();
-        window.registro = []; window.tempi = []; window.qualita = [];
+        window.registro = []; window.tempi = []; window.qualita = []; window.messaggi = [];
         window.pl = NGBPlayer.crea(document.getElementById('c'), {
             onPronto: function () { r('pronto'); },
             onStato: function (s) { r('stato:' + s); },
-            onErrore: function (e) { r('errore:' + e.codice); },
+            onErrore: function (e) { r('errore:' + e.codice); window.messaggi.push(e.codice + ': ' + e.messaggio); },
             onVolume: function (v) { r('volume:' + (v.muto ? 'muto' : v.volume)); },
             onTempo: function (t) { window.tempi.push(t); if (window.tempi.length > 400) window.tempi.shift(); },
             onQualita: function (l) { window.qualita.push(l); }
@@ -498,6 +498,9 @@ function server(usaSostituto) {
             vero(await page.evaluate(() => pl.capacita().dvr === false), 'capacita().dvr falso');
             const lq = await page.evaluate(() => pl.livelliQualita().map(v => v.etichetta).join(','));
             vero(lq === 'Automatica,360p,180p', 'qualità della diretta locale: ' + lq);
+            // una diretta vera va avanti: il bordo cresce (segmenti da 2 s)
+            const va = await aspettaChe(() => pl.finestra().avanza === true, null, 15000);
+            vero(va, 'diretta locale: finestra().avanza diventa vero (il bordo live cresce)');
 
             /* ---------- 6b. link firmato: la firma su ogni richiesta dello stesso server ---------- */
             // senza { firmato: true } la playlist della qualita' sullo stesso server arriva senza firma: 403
@@ -524,6 +527,108 @@ function server(usaSostituto) {
             vero(conFirma && firmate.webtv.length > 3 && firmate.webtv.every(r => r.ok) && segmentiFirmati.length > 0,
                 'link firmato: la diretta parte e la firma è su tutte le ' + firmate.webtv.length + ' richieste dello stesso server (' + segmentiFirmati.length + ' segmenti)');
             vero(firmate.altro.length > 0 && firmate.altro.every(q => !/md5=|expires=/.test(q)), 'le richieste verso un altro server (' + firmate.altro.length + ') restano senza firma');
+
+            // un link firmato di 1500 caratteri (la firma puo' allungarlo): il tipo si legge dal percorso, e parte
+            await page.evaluate(() => nuovoPlayer());
+            await page.evaluate(u => pl.carica(u, { firmato: true }), WEBTV + '/firmato/master.m3u8?' + FIRMA + '&coda=' + 'x'.repeat(1500));
+            const lungo = await aspettaChe(() => !!ultimo('stato:riproduzione') || !!ultimo('errore:'), null, 30000);
+            vero(lungo && await page.evaluate(() => !!ultimo('stato:riproduzione') && !ultimo('errore:link')), 'link firmato di 1500 caratteri: niente errore «link», la diretta parte');
+
+            /* aggiornaFirma(): il link firmato rinnovato, SENZA ricaricare. La
+               playlist principale e' quella di una qualita' (la libreria la
+               richiede di continuo con la firma VECCHIA nell'indirizzo): la
+               firma vecchia deve sparire e al suo posto andare la nuova. */
+            await page.evaluate(() => nuovoPlayer());
+            await page.evaluate(u => pl.carica(u, { firmato: true }), WEBTV + '/firmato/stream_0.m3u8?' + FIRMA);
+            const media = await aspettaChe(() => pl.stato() === 'riproduzione', null, 30000);
+            await aspetta(2500);
+            await page.evaluate(() => {
+                const v = document.querySelector('#c video');
+                v.dataset.segno = 'prima-della-firma';
+                window.ricaricato = 0;
+                v.addEventListener('emptied', () => { window.ricaricato++; });
+                pl.pausa();
+            });
+            await aspetta(800);
+            const primaFirma = await page.evaluate(() => ({ t: document.querySelector('#c video').currentTime, n: registro.length }));
+            const tFirma = Date.now();
+            await page.evaluate(u => pl.aggiornaFirma(u), WEBTV + '/firmato/stream_0.m3u8?' + FIRMA_NUOVA);
+            await aspetta(7000);
+            const dopoFirma = await page.evaluate(n => ({
+                segno: document.querySelector('#c video').dataset.segno, ricaricato: window.ricaricato,
+                fermo: document.querySelector('#c video').paused, t: document.querySelector('#c video').currentTime,
+                stati: registro.slice(n).map(r => r.x).filter(x => /^(stato|errore)/.test(x))
+            }), primaFirma.n);
+            const richiesteDopo = firmate.webtv.filter(r => r.t > tFirma + 300);
+            vero(media && dopoFirma.segno === 'prima-della-firma' && dopoFirma.ricaricato === 0 && dopoFirma.stati.length === 0,
+                'aggiornaFirma(): il video NON si ricarica (stesso <video>, nessun cambio di stato: ' + JSON.stringify(dopoFirma.stati) + ')');
+            vero(dopoFirma.fermo && Math.abs(dopoFirma.t - primaFirma.t) < 0.05, 'aggiornaFirma(): la pausa e la posizione restano (' + primaFirma.t.toFixed(2) + ' -> ' + dopoFirma.t.toFixed(2) + ')');
+            vero(richiesteDopo.length > 0 && richiesteDopo.every(r => r.firma === 'nuova' && r.ok),
+                'aggiornaFirma(): le ' + richiesteDopo.length + ' richieste dopo (la playlist, ricaricata in pausa) portano solo la firma nuova (' + richiesteDopo.map(r => r.firma).join(',') + ')');
+            await page.evaluate(() => pl.play());
+            await aspettaChe(() => pl.stato() === 'riproduzione', null, 15000);
+            await aspetta(4000);
+            const segDopo = firmate.webtv.filter(r => r.t > tFirma + 300 && /\.m4s$/.test(r.percorso));
+            vero(segDopo.length > 0 && segDopo.every(r => r.firma === 'nuova' && r.ok), 'aggiornaFirma(): ripartito, i ' + segDopo.length + ' segmenti nuovi hanno la firma nuova');
+
+            // un link non valido mentre il video va: il flusso di prima si spegne (niente audio dietro la schermata d'errore)
+            await page.evaluate(() => { registro = []; pl.carica('https://webtv.prova.test/video/prova.mp4'); });
+            await aspetta(500);
+            const spento = await page.evaluate(() => { const v = document.querySelector('#c video'); return { errore: !!ultimo('errore:link'), fermo: !v || v.paused, src: v ? (v.getAttribute('src') || '') : '', dati: v ? v.readyState : 0 }; });
+            vero(spento.errore && spento.fermo && !spento.src && spento.dati === 0, 'link non valido durante la diretta: «link», e il flusso di prima si spegne (niente src, nessun dato: ' + JSON.stringify(spento) + ')');
+
+            /* ---------- 6c. playlist FERMA: l'encoder si e' spento, la rete di distribuzione serve ancora l'ultima playlist ---------- */
+            ferma.clear();
+            ['master.m3u8', 'stream_0.m3u8', 'stream_1.m3u8', 'init_0.mp4', 'init_1.mp4'].forEach(n => { const f = path.join(HLS_LOCALE, n); if (fs.existsSync(f)) ferma.set(n, fs.readFileSync(f)); });
+            ['stream_0.m3u8', 'stream_1.m3u8'].forEach(n => {
+                String(ferma.get(n) || '').split('\n').filter(r => /\.m4s\s*$/.test(r)).forEach(r => { const f = path.join(HLS_LOCALE, r.trim()); if (fs.existsSync(f)) ferma.set(r.trim(), fs.readFileSync(f)); });
+            });
+            /* Il video rigioca gli ultimi secondi e poi si fermerebbe (e dopo 12 s
+               lo direbbe il segnale fermo): qui lo si fa andare a un decimo della
+               velocita', cosi' non si ferma mai, e l'errore puo' venire SOLO dal
+               controllo del bordo live che non cresce. */
+            await page.evaluate(() => nuovoPlayer());
+            const f0 = Date.now();
+            await page.evaluate(u => pl.carica(u), WEBTV + '/ferma/master.m3u8');
+            const fermaParte = await aspettaChe(() => !!ultimo('stato:riproduzione'), null, 20000);
+            await page.evaluate(() => { document.querySelector('#c video').playbackRate = 0.1; });
+            await aspetta(3000);
+            const avanzaFerma = await page.evaluate(() => pl.finestra());
+            const fermaErr = await aspettaChe(() => !!ultimo('errore:'), null, 45000);
+            const quando = Math.round((Date.now() - f0) / 1000);
+            const qualeFerma = await page.evaluate(() => ({ codici: registro.filter(r => /^errore:/.test(r.x)).map(r => r.x), messaggi: messaggi.slice(), fermo: document.querySelector('#c video').paused }));
+            await page.evaluate(() => { const v = document.querySelector('#c video'); if (v) v.playbackRate = 1; });
+            vero(fermaParte && avanzaFerma.diretta === true && avanzaFerma.avanza === false, 'playlist ferma: il video rigioca gli ultimi secondi, ma finestra().avanza resta falso (' + JSON.stringify({ diretta: avanzaFerma.diretta, avanza: avanzaFerma.avanza }) + ')');
+            vero(fermaErr && qualeFerma.codici.length === 1 && qualeFerma.codici[0] === 'errore:segnale' && /non va avanti/.test(qualeFerma.messaggi[0] || '') && quando >= 18 && quando <= 26,
+                'playlist ferma (il video non si ferma mai): UN errore «segnale» per il bordo fermo dopo ' + quando + ' s (3 segmenti, almeno 20 s): ' + qualeFerma.messaggi.join(' | '));
+
+            /* ---------- 6d. l'avvio automatico rifiutato (iPhone in risparmio energetico) ---------- */
+            await page.evaluate(() => {
+                window.playVero = HTMLMediaElement.prototype.play;
+                HTMLMediaElement.prototype.play = function () { return Promise.reject(new DOMException('rifiutato', 'NotAllowedError')); };
+                nuovoPlayer();
+            });
+            await page.evaluate(u => pl.carica(u), WEBTV + '/sospeso/master.m3u8');
+            const bloccatoOk = await aspettaChe(() => pl.avvioBloccato() === true, null, 15000);
+            const nonAvviati = await page.evaluate(() => registro.filter(r => r.x === 'stato:non-avviato').length);
+            vero(bloccatoOk && nonAvviati >= 2, 'avvio rifiutato dal browser: avvioBloccato() e onStato «non-avviato» ridetto alla pagina (' + nonAvviati + ' volte), anche senza metadati');
+            await aspetta(17000);
+            vero(await page.evaluate(() => !ultimo('errore:lento')), 'avvio bloccato: niente «lento» dopo 17 s (il video aspetta un tocco, non e\' lento)');
+            const b0 = Date.now();
+            await page.evaluate(() => { HTMLMediaElement.prototype.play = window.playVero; pl.play(); });
+            const lentoDopo = await aspettaChe(() => !!ultimo('errore:lento'), null, 25000);
+            const dopoTocco = Math.round((Date.now() - b0) / 1000);
+            vero(lentoDopo && !(await page.evaluate(() => pl.avvioBloccato())) && dopoTocco >= 13 && dopoTocco <= 20, 'dopo il tocco (play()) il conto del «lento» riparte da li\' (' + dopoTocco + ' s)');
+
+            // 'lento' non scatta con la pagina nascosta (una scheda in secondo piano)
+            await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); nuovoPlayer(); });
+            await page.evaluate(u => pl.carica(u), WEBTV + '/muto/master.m3u8');
+            await aspetta(18000);
+            const lentoNascosta = await page.evaluate(() => !!ultimo('errore:lento'));
+            const v0 = Date.now();
+            await page.evaluate(() => { delete document.visibilityState; });
+            const lentoVisibile = await aspettaChe(() => !!ultimo('errore:lento'), null, 10000);
+            vero(!lentoNascosta && lentoVisibile && Date.now() - v0 < 7000, 'pagina nascosta: niente «lento» (18 s); tornata visibile, «lento» dopo ' + Math.round((Date.now() - v0) / 1000) + ' s');
         } else {
             vero(false, 'ffmpeg non trovato (pip install imageio-ffmpeg, oppure FFMPEG=/percorso/ffmpeg)');
         }
@@ -539,6 +644,14 @@ function server(usaSostituto) {
         const fr = page.frameLocator('#c iframe');
         vero(await fr.locator('#player-webtv').count() === 1, 'il player della web TV si vede nel riquadro');
         await page.screenshot({ path: path.join(FOTO, '04-incorporato.png') });
+        // nascosto: svuotato (about:blank, il suo audio si ferma); rimostrato: ricaricato
+        await page.evaluate(() => { registro = []; pl.mostra(false); });
+        const vuoto = await page.evaluate(() => document.querySelector('#c iframe').getAttribute('src'));
+        await page.evaluate(() => pl.mostra(true));
+        const riempito = await aspettaChe(() => /\/player\/napoli$/.test(document.querySelector('#c iframe').getAttribute('src')), null, 3000);
+        await aspetta(1000);
+        vero(vuoto === 'about:blank' && riempito && await fr.locator('#player-webtv').count() === 1 && await page.evaluate(() => !ultimo('errore:')),
+            'player incorporato nascosto: svuotato (' + vuoto + '); rimostrato: ricaricato');
 
         // una diretta non ancora partita (playlist 404): onErrore 'rete', presto
         await page.evaluate(() => { registro = []; });

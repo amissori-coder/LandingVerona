@@ -291,8 +291,10 @@
            crescere. bordoMax: il bordo piu' avanti visto (secondi; per
            hls.js il numero dell'ultimo segmento, livello per livello);
            bordoDa: quando e' cresciuto l'ultima volta (o da quando si
-           conta); passoBordo: il passo piu' lungo visto (la durata di un
-           segmento, dove la libreria non la dice). */
+           conta); passoBordo: il passo piu' corto visto (circa la durata
+           di un segmento, dove la libreria non la dice: un ricaricamento
+           della playlist in ritardo fa passi di due segmenti, mai meno di
+           uno). */
         var bordoMax = NaN;
         var bordoDa = 0;
         var bordoAvanzato = false;
