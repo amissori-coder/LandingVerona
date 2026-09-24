@@ -162,28 +162,6 @@ function assistenza() {
     };
 }
 
-/* ---------- il video ----------
-   Si accetta quello che si copia da YouTube: il link della pagina
-   (watch?v=), quello breve (youtu.be/), quello della diretta (/live/),
-   quello da incorporare (/embed/) o il solo identificativo. */
-function idYouTube(v) {
-    const s = String(v || '').trim();
-    if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-    let u;
-    try { u = new URL(/^https?:\/\//i.test(s) ? s : 'https://' + s); } catch (_) { return ''; }
-    const host = u.hostname.replace(/^www\.|^m\./, '').toLowerCase();
-    let id = '';
-    if (host === 'youtu.be') id = u.pathname.split('/')[1] || '';
-    else if (/(^|\.)youtube(-nocookie)?\.com$/.test(host)) {
-        if (u.searchParams.get('v')) id = u.searchParams.get('v');
-        else {
-            const m = /^\/(embed|live|shorts|v)\/([^/?#]+)/.exec(u.pathname);
-            if (m) id = m[2];
-        }
-    }
-    return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : '';
-}
-
 /* ---------- i gestori ----------
    Nessun ruolo: un elenco fisso di email nella variabile
    DIRETTA_ADMIN_EMAILS (separate da virgola, spazio o a capo). Ogni
@@ -274,5 +252,5 @@ module.exports = {
     errore, cors, corpo, rispondiErrore, testo, ipDi, impronta, improntaIp, intero,
     istanteRoma, dataRoma, oraRoma, dataEstesa, oraLeggibile, scartoRoma,
     dominioTecnico, emailTecnica, eEmailTecnica, baseSito, linkDiretta, assistenza,
-    idYouTube, gestori, eGestore, tokenNonValido, verificaGestore, consumaGettone, aGruppi, pausa
+    gestori, eGestore, tokenNonValido, verificaGestore, consumaGettone, aGruppi, pausa
 };

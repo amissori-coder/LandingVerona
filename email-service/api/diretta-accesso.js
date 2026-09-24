@@ -14,6 +14,13 @@
          -> sempre { ok, msg } uguale, dopo lo stesso tempo
      { azione: 'aggiorna-permessi' }  con Authorization: Bearer <idToken>
          -> { ok, aggiornati }
+     { azione: 'link-video', idEvento, sorgente }  con Authorization: Bearer <idToken>
+         -> { ok, url, scade }   il link del video (principale o
+            'riserva'), firmato se la web TV usa i link firmati; scade
+            in millisecondi (null senza firma). Solo a chi e' iscritto,
+            con l'account attivo, mentre l'evento e' in onda; 60 l'ora.
+            errori: 401, 403 'non-iscritto'/'disattivato', 409
+                    'non-in-onda', 404 'nessun-link', 429 'attendi'
 
    La logica sta in lib/diretta-accesso.js: qui solo la porta (CORS,
    metodo, lettura del corpo, risposta). Nessuna risposta si salva nelle
@@ -46,6 +53,8 @@ module.exports = async (req, res) => {
             risposta = await A.gestoreAccesso(ctx, { email: b.email, ip: ip });
         } else if (azione === 'aggiorna-permessi') {
             risposta = await A.aggiornaPermessi(ctx, req);
+        } else if (azione === 'link-video') {
+            risposta = await A.linkVideo(ctx, req, b);
         } else {
             throw C.errore(400, 'Azione sconosciuta', 'azione');
         }

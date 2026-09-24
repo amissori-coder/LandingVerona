@@ -20,10 +20,22 @@
    Cosi' nemmeno due caricamenti contemporanei dello stesso file
    possono creare due volte la stessa persona o lo stesso nome.
 
-   IL VIDEO. Il link del video vive in eventiRiservati/{id}, che solo
-   il server legge. Nel documento pubblico dell'evento (quello che la
-   pagina ascolta) l'identificativo del video compare SOLO mentre si e'
-   in onda: prima e dopo, chi ha un account non puo' ricavarlo.
+   IL VIDEO. Arriva SOLO dal canale streaming di una web TV (flusso HLS
+   .m3u8, DASH .mpd o, come ripiego, la pagina del suo player). I link
+   (principale e di riserva) e la firma dei link a tempo vivono in
+   eventiRiservati/{id}, che solo il server legge:
+     videoUrl, videoId        il link principale (pulito) e il valore
+                              che riceve il player
+     riservaUrl, riservaId    il link di riserva ('' se non c'e')
+     firma                    { schema, segreto, durataOre, parametri }
+                              (lib/diretta-firma.js): il segreto non
+                              esce MAI dal servizio
+   Nel documento pubblico dell'evento (quello che la pagina ascolta)
+   videoId e videoRiserva compaiono SOLO mentre si e' in onda: prima e
+   dopo, chi ha un account non puo' ricavarli. Nello stesso documento
+   `sorgente` ('principale' o 'riserva': la scelta della regia per
+   tutti) e `videoFirmato` (la pagina chiede il link firmato al
+   servizio); videoAggiornato cambia quando cambia uno di questi.
 
    IL DOCUMENTO DELL'EVENTO COSTA CARO. Mille persone lo ascoltano: ogni
    scrittura sono mille letture. Per questo qui si scrive solo quando
@@ -34,13 +46,15 @@ const crypto = require('crypto');
 const C = require('./diretta-comune');
 const N = require('./diretta-nome-utente');
 const V = require('./diretta-sorgente-video');
+const F = require('./diretta-firma');
+const { indirizzoPubblico, eIndirizzoIp } = require('./diretta-prova-link');
 const { passwordSegreta, generaPassword } = require('./diretta-password');
 const { conLimite } = require('./diretta-auth');
 
 const RE_ID_EVENTO = /^[a-z0-9][a-z0-9-]{2,40}$/;
 const RE_UID = /^[A-Za-z0-9_-]{1,128}$/;
 const RE_PAGINA = /^\/[a-z0-9_\/-]*\/?$/;
-const RE_VIDEO_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const SORGENTI = ['principale', 'riserva'];
 const STATI_EVENTO = ['programmato', 'in_onda', 'pausa', 'terminato'];
 const MAX_EVENTI_PERSONA = 20;
 const MAX_RIGHE_CREA = 50;
@@ -181,14 +195,24 @@ function transazione(ctx, fn) {
    ============================================================ */
 
 /* L'evento come lo vede la gestione: i campi del documento (con i
-   tempi in millisecondi) piu' il link e l'identificativo del video
-   impostati, che stanno nel documento riservato. */
+   tempi in millisecondi) piu' i link del video impostati e la firma,
+   che stanno nel documento riservato. Della firma si dice solo se la
+   chiave c'e' (segretoImpostato): la chiave non esce MAI. */
 function eventoJSON(id, dati, riservati) {
     const out = jsonDi(dati);
+    const r = riservati || {};
     out.id = id;
-    out.videoUrl = (riservati && riservati.videoUrl) || '';
-    out.videoId = (riservati && riservati.videoId) || '';
+    out.videoUrl = r.videoUrl || '';
+    out.videoId = r.videoId || '';
+    out.videoTipo = V.tipoDi(out.videoId);
     out.videoInOnda = (dati && dati.videoId) || '';
+    out.riservaUrl = r.riservaUrl || '';
+    out.riservaId = r.riservaId || '';
+    out.riservaTipo = V.tipoDi(out.riservaId);
+    out.riservaInOnda = (dati && dati.videoRiserva) || '';
+    out.sorgente = dati && dati.sorgente === 'riserva' ? 'riserva' : 'principale';
+    out.videoFirmato = F.attiva(r.firma);
+    out.firma = F.pubblica(r.firma);
     return out;
 }
 
@@ -249,27 +273,73 @@ function leggiProgramma(v) {
 }
 
 /* Il video. Il gestore incolla quello che gli da' la web TV (il link
-   HLS .m3u8, il link del suo player o il codice da incorporare) oppure un
-   link di YouTube: le regole sono in diretta-sorgente-video.js, le stesse
-   della gestione e del player. Si salva il valore che il player riceve:
-   l'indirizzo https (web TV) o l'identificativo (YouTube). L'identificativo
-   mandato dalla gestione (NGBPlayer.idDa) vale solo senza link, o per un
-   player futuro che qui non si conosce ancora (lettere, numeri, - e _). */
+   HLS .m3u8, il link DASH .mpd, il link del suo player o il codice da
+   incorporare): le regole sono in diretta-sorgente-video.js, le stesse
+   della gestione e del player. Si salva il valore che il player riceve,
+   l'indirizzo https normalizzato, sia come link (videoUrl) sia come
+   valore (videoId). Decide il servizio: con il link, l'identificativo
+   mandato dalla pagina non conta; senza link, l'identificativo si legge
+   con le stesse regole. Vale per il link principale e per la riserva.
+   Un indirizzo IP interno o privato scritto per intero non si salva. */
 function leggiVideo(videoUrl, videoId) {
     // il codice da incorporare puo' essere lungo: si legge tutto, si salva solo l'indirizzo
     const incollato = String(videoUrl == null ? '' : videoUrl).trim().slice(0, 4000);
-    const id = String(videoId || '').trim();
-    if (incollato) {
-        const s = V.leggi(incollato);
-        if (s && !s.errore) return { videoUrl: s.tipo === 'youtube' ? C.testo(incollato, 500) : s.valore, videoId: s.valore };
-        if (id && RE_VIDEO_ID.test(id)) return { videoUrl: C.testo(incollato, 500), videoId: id };
-        throw C.errore(400, V.messaggio(s), 'video');
+    const testo = incollato || String(videoId == null ? '' : videoId).trim().slice(0, 4000);
+    if (!testo) return { videoUrl: '', videoId: '' };
+    const s = V.leggi(testo);
+    if (!s || s.errore) throw C.errore(400, V.messaggio(s), 'video');
+    const host = new URL(s.valore).hostname;
+    if (eIndirizzoIp(host) && !indirizzoPubblico(host)) {
+        throw C.errore(400, 'Il link porta a un indirizzo interno o privato: serve l\'indirizzo pubblico della web TV.', 'video');
     }
-    if (!id) return { videoUrl: '', videoId: '' };
-    const s = V.leggi(id);
-    if (s && !s.errore) return { videoUrl: '', videoId: s.valore };
-    if (RE_VIDEO_ID.test(id)) return { videoUrl: '', videoId: id };
-    throw C.errore(400, 'Identificativo del video non valido.', 'video');
+    return { videoUrl: s.valore, videoId: s.valore };
+}
+
+/* I dati riservati del video (link, riserva, firma) come si salvano. */
+function riservatiVideo(principale, riserva, firma) {
+    if (riserva.videoId && !principale.videoId) {
+        throw C.errore(400, 'Il link di riserva serve solo insieme al link principale: inserisci prima quello principale.', 'riserva');
+    }
+    return {
+        videoUrl: principale.videoUrl, videoId: principale.videoId,
+        riservaUrl: riserva.videoUrl, riservaId: riserva.videoId,
+        firma: firma
+    };
+}
+function riservatiDa(r) {
+    return {
+        videoUrl: r.videoUrl || '', videoId: r.videoId || '',
+        riservaUrl: r.riservaUrl || '', riservaId: r.riservaId || '',
+        firma: F.pulita(r.firma)
+    };
+}
+// un valore salvato prima (per esempio di un player che non c'e' piu') non si pubblica
+function riproducibile(valore) {
+    return V.tipoDi(valore) ? valore : '';
+}
+
+/* I campi del video nel documento pubblico, per lo stato dato: videoId
+   e videoRiserva solo in onda, sorgente sempre (torna 'principale' se
+   la riserva non c'e' piu'), videoFirmato solo in onda. Restituisce
+   solo quelli che cambiano (vuoto se niente cambia: il documento
+   dell'evento costa mille letture a ogni scrittura). */
+function campiVideo(pubblico, ris, stato) {
+    const p = pubblico || {};
+    const inOnda = stato === 'in_onda';
+    const riserva = riproducibile(ris.riservaId || '');
+    const attuali = {
+        videoId: p.videoId || '', videoRiserva: p.videoRiserva || '',
+        sorgente: p.sorgente === 'riserva' ? 'riserva' : 'principale', videoFirmato: p.videoFirmato === true
+    };
+    const nuovi = {
+        videoId: inOnda ? riproducibile(ris.videoId || '') : '',
+        videoRiserva: inOnda ? riserva : '',
+        sorgente: attuali.sorgente === 'riserva' && !riserva ? 'principale' : attuali.sorgente,
+        videoFirmato: inOnda ? F.attiva(ris.firma) : false
+    };
+    const cambiati = {};
+    Object.keys(nuovi).forEach(k => { if (nuovi[k] !== attuali[k]) cambiati[k] = nuovi[k]; });
+    return cambiati;
 }
 
 // due valori (anche con Timestamp e liste) sono uguali?
@@ -288,7 +358,11 @@ function uguali(a, b) {
 }
 
 /* evento-salva: crea un evento nuovo o modifica quello esistente.
-   Nella modifica i campi che non arrivano restano come sono. */
+   Nella modifica i campi che non arrivano restano come sono. Per il
+   video: videoUrl (e videoId) il link principale, riservaUrl il link di
+   riserva ('' lo toglie), firma { schema, segreto?, durataOre?,
+   parametri? } i link firmati (segreto assente o '' = si tiene quello
+   salvato; schema 'nessuna' cancella anche il segreto). */
 async function salvaEvento(ctx, ingresso) {
     const e = ingresso || {};
     const nuovo = e.nuovo === true;
@@ -319,9 +393,15 @@ async function salvaEvento(ctx, ingresso) {
         const inizio = C.istanteRoma(data, oraInizio);
         const fine = C.istanteRoma(data, oraFine);
         if (!(fine > inizio)) throw C.errore(400, 'L\'ora di fine deve venire dopo quella di inizio.', 'orari');
-        const video = leggiVideo(
-            e.videoUrl !== undefined ? e.videoUrl : ris.videoUrl,
-            e.videoUrl !== undefined || e.videoId !== undefined ? e.videoId : ris.videoId);
+        // il video: quello che non arriva resta com'e' (senza rileggerlo)
+        const prima = riservatiDa(ris);
+        const principale = e.videoUrl !== undefined || e.videoId !== undefined
+            ? leggiVideo(e.videoUrl, e.videoId) : { videoUrl: prima.videoUrl, videoId: prima.videoId };
+        const riserva = e.riservaUrl !== undefined
+            ? leggiVideo(e.riservaUrl, '') : { videoUrl: prima.riservaUrl, videoId: prima.riservaId };
+        const firma = F.normalizza(e.firma, ris.firma);
+        if (firma.errore) throw C.errore(400, firma.errore, 'firma');
+        const nuoviRis = riservatiVideo(principale, riserva, firma.firma);
         const programma = e.programma !== undefined ? leggiProgramma(e.programma) : (vecchio.programma || []);
         const paginaEvento = String(val('paginaEvento', '') || '').trim();
         if (paginaEvento && !RE_PAGINA.test(paginaEvento)) throw C.errore(400, 'Pagina dell\'evento non valida (per esempio /napoli_ottobre_2026/).', 'pagina');
@@ -330,35 +410,38 @@ async function salvaEvento(ctx, ingresso) {
         const promemoria = { giornoPrima: prom.giornoPrima === true, oraPrima: prom.oraPrima === true };
 
         const stato = vecchio.stato || 'programmato';
-        const videoPubblico = stato === 'in_onda' ? video.videoId : '';
         const ts = adessoTs(ctx);
         const campi = {
             titolo, luogo, data, oraInizio, oraFine,
             inizio: ctx.Timestamp.fromMillis(inizio), fine: ctx.Timestamp.fromMillis(fine),
-            videoId: videoPubblico, programma, paginaEvento, unSoloDispositivo, promemoria
+            programma, paginaEvento, unSoloDispositivo, promemoria
         };
         if (nuovo) {
             tx.create(rif, Object.assign(campi, {
+                videoId: '', videoRiserva: '', sorgente: 'principale', videoFirmato: false,
                 stato: 'programmato', statoAggiornato: ts, videoAggiornato: ts, ripresa: '', avviso: '', creato: ts, aggiornato: ts
             }));
         } else {
             const cambiati = {};
             Object.keys(campi).forEach(k => { if (!uguali(campi[k], vecchio[k])) cambiati[k] = campi[k]; });
+            const video = campiVideo(vecchio, nuoviRis, stato);
+            if (Object.keys(video).length) Object.assign(cambiati, video, { videoAggiornato: ts });
             if (Object.keys(cambiati).length) {
-                if (cambiati.videoId !== undefined) cambiati.videoAggiornato = ts;
                 cambiati.aggiornato = ts;
                 tx.update(rif, cambiati);
             }
         }
-        if (nuovo || video.videoUrl !== (ris.videoUrl || '') || video.videoId !== (ris.videoId || '')) {
-            tx.set(rifRis, { videoUrl: video.videoUrl, videoId: video.videoId, aggiornato: ts });
+        if (nuovo || !uguali(nuoviRis, prima)) {
+            tx.set(rifRis, Object.assign({}, nuoviRis, { aggiornato: ts }));
         }
     });
     return (await leggiEvento(ctx, id)).json;
 }
 
 /* evento-stato: programmato, in onda, in pausa, terminato. Il video
-   passa nel documento pubblico solo andando in onda. */
+   (principale, riserva, videoFirmato) passa nel documento pubblico solo
+   andando in onda, e ne esce uscendo; la sorgente scelta dalla regia
+   resta. */
 async function cambiaStato(ctx, { idEvento, stato, ripresa }) {
     const id = controllaIdEvento(idEvento);
     if (STATI_EVENTO.indexOf(stato) < 0) throw C.errore(400, 'Stato non valido.', 'stato');
@@ -370,38 +453,86 @@ async function cambiaStato(ctx, { idEvento, stato, ripresa }) {
         const [snap, snapRis] = await tx.getAll(rif, rifRis);
         if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
         const v = snap.data();
-        const videoId = stato === 'in_onda' ? ((snapRis.exists && snapRis.data().videoId) || '') : '';
+        const video = campiVideo(v, snapRis.exists ? snapRis.data() : {}, stato);
         const ts = adessoTs(ctx);
         const agg = {};
         if (v.stato !== stato) { agg.stato = stato; agg.statoAggiornato = ts; }
-        if ((v.videoId || '') !== videoId) { agg.videoId = videoId; agg.videoAggiornato = ts; }
+        if (Object.keys(video).length) Object.assign(agg, video, { videoAggiornato: ts });
         if ((v.ripresa || '') !== oraRipresa) agg.ripresa = oraRipresa;
         if (Object.keys(agg).length) { agg.aggiornato = ts; tx.update(rif, agg); }
     });
     return (await leggiEvento(ctx, id)).json;
 }
 
-/* evento-video: il nuovo link va nel documento riservato; se si e' in
-   onda, anche nel documento pubblico (chi guarda passa al nuovo video
-   da solo). */
-async function cambiaVideo(ctx, { idEvento, videoUrl, videoId }) {
+/* evento-video: il nuovo link (e, se arriva, la nuova riserva: '' la
+   toglie, assente resta com'e') va nel documento riservato; se si e'
+   in onda, anche nel documento pubblico (chi guarda passa al nuovo
+   video da solo, senza ricaricare la pagina). */
+async function cambiaVideo(ctx, { idEvento, videoUrl, videoId, riservaUrl }) {
     const id = controllaIdEvento(idEvento);
-    const video = leggiVideo(videoUrl, videoId);
+    const principale = leggiVideo(videoUrl, videoId);
+    const nuovaRiserva = riservaUrl !== undefined ? leggiVideo(riservaUrl, '') : null;
     const rif = ctx.db.collection('eventi').doc(id);
     const rifRis = ctx.db.collection('eventiRiservati').doc(id);
     await transazione(ctx, async tx => {
         const [snap, snapRis] = await tx.getAll(rif, rifRis);
         if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
         const v = snap.data();
-        const r = snapRis.exists ? snapRis.data() : {};
+        const prima = riservatiDa(snapRis.exists ? snapRis.data() : {});
+        const riserva = nuovaRiserva || { videoUrl: prima.riservaUrl, videoId: prima.riservaId };
+        const nuoviRis = riservatiVideo(principale, riserva, prima.firma);
         const ts = adessoTs(ctx);
-        if (video.videoUrl !== (r.videoUrl || '') || video.videoId !== (r.videoId || '')) {
-            tx.set(rifRis, { videoUrl: video.videoUrl, videoId: video.videoId, aggiornato: ts });
-        }
-        const pubblico = v.stato === 'in_onda' ? video.videoId : '';
-        if ((v.videoId || '') !== pubblico) tx.update(rif, { videoId: pubblico, videoAggiornato: ts, aggiornato: ts });
+        if (!uguali(nuoviRis, prima)) tx.set(rifRis, Object.assign({}, nuoviRis, { aggiornato: ts }));
+        const video = campiVideo(v, nuoviRis, v.stato);
+        if (Object.keys(video).length) tx.update(rif, Object.assign(video, { videoAggiornato: ts, aggiornato: ts }));
     });
     return (await leggiEvento(ctx, id)).json;
+}
+
+/* evento-sorgente: la regia sceglie per tutti il link principale o
+   quello di riserva (anche fuori onda: vale quando si va in onda). La
+   pagina di chi guarda passa all'altro link senza ricaricare. */
+async function cambiaSorgente(ctx, { idEvento, sorgente }) {
+    const id = controllaIdEvento(idEvento);
+    if (SORGENTI.indexOf(sorgente) < 0) throw C.errore(400, 'Scegli il link principale o quello di riserva.', 'sorgente');
+    const rif = ctx.db.collection('eventi').doc(id);
+    const rifRis = ctx.db.collection('eventiRiservati').doc(id);
+    await transazione(ctx, async tx => {
+        const [snap, snapRis] = await tx.getAll(rif, rifRis);
+        if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
+        const r = snapRis.exists ? snapRis.data() : {};
+        if (sorgente === 'riserva' && !riproducibile(r.riservaId || '')) {
+            throw C.errore(400, 'Non c\'è un link di riserva: inseriscilo nella scheda dell\'evento e salva.', 'sorgente');
+        }
+        const attuale = snap.data().sorgente === 'riserva' ? 'riserva' : 'principale';
+        if (attuale !== sorgente) {
+            const ts = adessoTs(ctx);
+            tx.update(rif, { sorgente: sorgente, videoAggiornato: ts, aggiornato: ts });
+        }
+    });
+    return (await leggiEvento(ctx, id)).json;
+}
+
+/* Il link da riprodurre, firmato se l'evento usa i link firmati della
+   web TV: per chi guarda (link-video, solo in onda) e per l'anteprima
+   della regia (link-firmato). -> { url, scade } (scade in ms, null
+   senza firma). Il segreto resta qui. */
+async function linkVideo(ctx, { idEvento, sorgente, soloInOnda }) {
+    const id = controllaIdEvento(idEvento);
+    const quale = sorgente === undefined || sorgente === null || sorgente === '' ? 'principale' : sorgente;
+    if (SORGENTI.indexOf(quale) < 0) throw C.errore(400, 'Scegli il link principale o quello di riserva.', 'sorgente');
+    const [snap, snapRis] = await ctx.db.getAll(ctx.db.collection('eventi').doc(id), ctx.db.collection('eventiRiservati').doc(id));
+    if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
+    if (soloInOnda && snap.data().stato !== 'in_onda') throw errorePubblico(409, 'non-in-onda', 'La diretta non è in onda in questo momento.');
+    const r = riservatiDa(snapRis.exists ? snapRis.data() : {});
+    const url = riproducibile(quale === 'riserva' ? r.riservaId : r.videoId);
+    if (!url) throw errorePubblico(404, 'nessun-link', quale === 'riserva' ? 'Non c\'è un link di riserva.' : 'Il video della diretta non è ancora impostato.');
+    try {
+        return F.firma(url, r.firma, ctx.adesso());
+    } catch (_) {
+        // mai il motivo con i dati della firma: solo che non e' riuscita
+        throw C.errore(500, 'La firma del link non è riuscita: controlla le impostazioni dei link firmati.', 'firma');
+    }
 }
 
 /* evento-avviso: una riga per tutti ("problema tecnico, torniamo tra
@@ -1012,13 +1143,13 @@ async function esporta(ctx, idEvento) {
 module.exports = {
     // attrezzi e risposte
     ms, jsonDi, errorePubblico, rispondi, perLog, controllaIdEvento, controllaUid, nuovoUid, listaEventi, stessaLista,
-    inParallelo, conRiprova, radiceDi, emailMascherata, leggiProgramma, normalizzaOra, leggiVideo,
+    inParallelo, conRiprova, radiceDi, emailMascherata, leggiProgramma, normalizzaOra, leggiVideo, campiVideo,
     // eventi
-    eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaAvviso, scegliEvento,
+    eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaSorgente, linkVideo, cambiaAvviso, scegliEvento,
     // partecipanti
     partecipanteJSON, elencoPartecipanti, anteprima, crea, operazionePartecipante, impostaClaims, allineaClaims,
     cancellaTentativi,
     // collegati ed esportazione
     connessi, esporta,
-    RE_ID_EVENTO, STATI_EVENTO, MAX_RIGHE_CREA
+    RE_ID_EVENTO, STATI_EVENTO, SORGENTI, MAX_RIGHE_CREA
 };

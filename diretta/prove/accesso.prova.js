@@ -50,6 +50,15 @@
    - 'aggiorna-permessi' ripara i claims.
    - diretta-stato: pubblico, con Cache-Control, mai il video; il video
      nel documento dell'evento solo in onda.
+   - Il video della web TV: link principale e di riserva (la riserva
+     nel documento dell'evento solo in onda), 'evento-sorgente' (la
+     regia passa tutti alla riserva e torna al principale; 400 senza
+     riserva), i link firmati (videoFirmato; la chiave non esce mai,
+     ne' nelle risposte ne' nei log), 'link-video' per chi e' iscritto
+     (url con la firma giusta; non iscritto, senza token, evento non in
+     onda: rifiutato; al massimo 60 l'ora), 'link-firmato' per la
+     gestione, 'prova-link' che rifiuta http e indirizzi privati, con il
+     suo limite per gestore.
    - Un solo dispositivo: il secondo accesso cambia la sessione ammessa
      e le regole rifiutano la presenza del primo dispositivo.
    - Un iscritto con uno spazio invisibile U+200B nell'email (caricato
@@ -85,6 +94,11 @@ const RISULTATI = path.resolve(__dirname, 'risultati');
 const POSTA = path.join(RISULTATI, 'posta-accesso.jsonl');
 const LOG_SERVER = path.join(RISULTATI, 'server-accesso.log');
 const GESTORE = 'gestore@prova.it';
+// i link della web TV (il video arriva solo da li')
+const LINK_WEBTV = 'https://webtv.esempio.it/live/napoli/playlist.m3u8';
+const LINK_RISERVA = 'https://riserva.webtv.esempio.it/live/napoli/playlist.m3u8';
+const LINK_NUOVO = 'https://webtv.esempio.it/live/napoli-bis/playlist.m3u8';
+const SEGRETO_FIRMA = 'firma-' + crypto.randomBytes(9).toString('hex');
 const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 const UA_ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36';
 
@@ -294,6 +308,133 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
     return persone;
 }
 
+// un ID token fresco per una persona (come dopo l'accesso), senza passare dalla password
+async function tokenDi(uid) {
+    const r = await rest('signInWithCustomToken', { token: await auth.createCustomToken(uid), returnSecureToken: true });
+    return r.dati.idToken;
+}
+// la firma nginx (secure_link) che la web TV si aspetta: base64url(md5(scadenza + percorso + ' ' + chiave))
+function md5Nginx(scadenza, percorso, chiave) {
+    return crypto.createHash('md5').update(scadenza + percorso + ' ' + chiave).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/* ---------- il video della web TV: riserva, regia, link firmati, prova del link (evento in onda) ---------- */
+async function provaVideoWebTv(tokG, P, segrete) {
+    console.log('\nIl video della web TV: riserva, regia, link firmati, prova del link');
+    const leggiEv = async () => (await db.collection('eventi').doc(EVENTO).get()).data();
+    const prima = await leggiEv();
+    vero(prima.videoId === LINK_WEBTV && prima.videoRiserva === LINK_RISERVA && prima.sorgente === 'principale', 'in onda: principale e riserva pubblicati, sorgente principale');
+
+    // la regia passa tutti alla riserva e torna al principale
+    const aRiserva = await gestione({ azione: 'evento-sorgente', idEvento: EVENTO, sorgente: 'riserva' }, tokG);
+    const dopoRiserva = await leggiEv();
+    vero(aRiserva.stato === 200 && aRiserva.dati.evento.sorgente === 'riserva' && dopoRiserva.sorgente === 'riserva'
+        && dopoRiserva.videoAggiornato.toMillis() > prima.videoAggiornato.toMillis(), 'evento-sorgente riserva: tutti passano alla riserva (sorgente e videoAggiornato cambiano)');
+    const sorgenteStrana = await gestione({ azione: 'evento-sorgente', idEvento: EVENTO, sorgente: 'terza' }, tokG);
+    uguale(sorgenteStrana.stato, 400, 'evento-sorgente con una sorgente sconosciuta: 400');
+    const senzaRiserva = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: LINK_WEBTV, riservaUrl: '' }, tokG);
+    const tolta = await leggiEv();
+    vero(senzaRiserva.stato === 200 && senzaRiserva.dati.evento.riservaUrl === '' && tolta.videoRiserva === '' && tolta.sorgente === 'principale',
+        'tolta la riserva (riservaUrl \'\') mentre la regia la usava: si torna al principale');
+    const rifiutoRiserva = await gestione({ azione: 'evento-sorgente', idEvento: EVENTO, sorgente: 'riserva' }, tokG);
+    vero(rifiutoRiserva.stato === 400 && /riserva/.test(rifiutoRiserva.dati.msg || ''), 'evento-sorgente riserva senza un link di riserva: 400 («' + rifiutoRiserva.dati.msg + '»)');
+    const rimessa = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: LINK_WEBTV, riservaUrl: LINK_RISERVA }, tokG);
+    vero(rimessa.stato === 200 && (await leggiEv()).videoRiserva === LINK_RISERVA, 'la riserva rimessa con evento-video: pubblicata subito (in onda)');
+    const soloRiserva = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '', riservaUrl: LINK_RISERVA }, tokG);
+    uguale(soloRiserva.stato, 400, 'una riserva senza il link principale: 400');
+    const riservaCattiva = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, riservaUrl: 'http://riserva.webtv.esempio.it/a.m3u8' } }, tokG);
+    vero(riservaCattiva.stato === 400 && /https:\/\//.test(riservaCattiva.dati.msg || ''), 'evento-salva con una riserva in http: 400 con il motivo');
+    const torna = await gestione({ azione: 'evento-sorgente', idEvento: EVENTO, sorgente: 'principale' }, tokG);
+    vero(torna.stato === 200 && (await leggiEv()).sorgente === 'principale', 'evento-sorgente principale: si torna al link principale');
+
+    // i link firmati (nginx secure_link)
+    segrete.push(SEGRETO_FIRMA);
+    const conFirma = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, firma: { schema: 'nginx', segreto: SEGRETO_FIRMA, durataOre: 2 } } }, tokG);
+    const f = conFirma.dati.evento && conFirma.dati.evento.firma;
+    vero(conFirma.stato === 200 && conFirma.dati.evento.videoFirmato === true && f && f.schema === 'nginx' && f.durataOre === 2 && f.segretoImpostato === true && !('segreto' in f),
+        'evento-salva con la firma: videoFirmato, segretoImpostato, niente chiave nella risposta', conFirma.testo.slice(0, 300));
+    vero(conFirma.testo.indexOf(SEGRETO_FIRMA) < 0, 'la chiave segreta non compare nella risposta');
+    const docFirmato = await leggiEv();
+    vero(docFirmato.videoFirmato === true && docFirmato.videoId === LINK_WEBTV, 'in onda: videoFirmato nel documento dell\'evento (la pagina chiedera\' il link firmato)');
+    vero(JSON.stringify(docFirmato).indexOf(SEGRETO_FIRMA) < 0, 'la chiave non e\' nel documento pubblico');
+    vero(((await db.collection('eventiRiservati').doc(EVENTO).get()).data().firma || {}).segreto === SEGRETO_FIRMA, 'la chiave sta solo nel documento riservato');
+    const tieni = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, firma: { schema: 'nginx', segreto: '', durataOre: 6 } } }, tokG);
+    vero(tieni.stato === 200 && tieni.dati.evento.firma.durataOre === 6 && ((await db.collection('eventiRiservati').doc(EVENTO).get()).data().firma || {}).segreto === SEGRETO_FIRMA,
+        'segreto \'\': la chiave salvata resta (cambia solo la durata)');
+    const senzaChiave = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, firma: { schema: 'akamai' } } }, tokG);
+    vero(senzaChiave.stato === 400 && /esadecimale/.test(senzaChiave.dati.msg || '') && senzaChiave.testo.indexOf(SEGRETO_FIRMA) < 0, 'akamai con una chiave non esadecimale: 400, e la chiave non compare');
+    const elencoF = await gestione({ azione: 'eventi' }, tokG);
+    vero(elencoF.stato === 200 && elencoF.testo.indexOf(SEGRETO_FIRMA) < 0 && elencoF.dati.eventi[0].firma.segretoImpostato === true, 'eventi: la firma senza la chiave');
+
+    // link-video: chi e' iscritto riceve il link firmato
+    const tokMario = await tokenDi(P.mariorossi.uid);
+    const t0 = Date.now();
+    const lv = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: tokMario });
+    const u = lv.dati.url ? new URL(lv.dati.url) : null;
+    const scad = u ? u.searchParams.get('expires') : '';
+    vero(lv.stato === 200 && u && lv.dati.url.indexOf(LINK_WEBTV + '?md5=') === 0 && /^\d{10}$/.test(scad), 'link-video (iscritto, in onda): 200 con l\'url firmato ' + (lv.dati.url || lv.testo));
+    vero(u && u.searchParams.get('md5') === md5Nginx(scad, '/live/napoli/playlist.m3u8', SEGRETO_FIRMA), 'la firma e\' quella che la web TV verifica (md5 di scadenza + percorso + chiave)');
+    vero(lv.dati.scade === Number(scad) * 1000 && lv.dati.scade >= t0 + 6 * 3600 * 1000 - 5000 && lv.dati.scade <= Date.now() + 6 * 3600 * 1000 + 1000, 'scade tra 6 ore (in millisecondi)');
+    vero(lv.testo.indexOf(SEGRETO_FIRMA) < 0 && lv.h.get('cache-control') === 'no-store', 'la risposta non contiene la chiave e non si tiene in cache');
+    const lvR = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'riserva' }, { token: tokMario });
+    vero(lvR.stato === 200 && lvR.dati.url.indexOf(LINK_RISERVA + '?md5=') === 0, 'link-video della riserva: firmato anche quello');
+    const lvSenza = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, {});
+    const lvGestore = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: tokG });
+    const lvFalso = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: 'non.un.token' });
+    vero(lvSenza.stato === 401 && lvFalso.stato === 401 && lvGestore.stato === 403 && !lvSenza.dati.url && !lvGestore.dati.url,
+        'link-video senza token o con un token falso: 401; con il token del gestore (non partecipante): 403');
+    const lvAltro = await chiama('diretta-accesso', { azione: 'link-video', idEvento: 'milano-2099', sorgente: 'principale' }, { token: tokMario });
+    vero(lvAltro.stato === 403 && lvAltro.dati.codice === 'non-iscritto', 'link-video di un evento a cui non e\' iscritto: 403 non-iscritto');
+    await db.collection('sessioni').doc(P.mariorossi.uid).update({ stato: 'disattivato' });
+    const lvDis = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: tokMario });
+    await db.collection('sessioni').doc(P.mariorossi.uid).update({ stato: 'attivo' });
+    vero(lvDis.stato === 403 && lvDis.dati.codice === 'disattivato', 'link-video con l\'account disattivato: 403 (anche con un token ancora valido)');
+
+    // link-firmato: l'anteprima della regia
+    const lf = await gestione({ azione: 'link-firmato', idEvento: EVENTO, sorgente: 'riserva' }, tokG);
+    vero(lf.stato === 200 && lf.dati.url.indexOf(LINK_RISERVA + '?md5=') === 0 && lf.dati.scade > Date.now(), 'link-firmato (gestione): il link della riserva firmato');
+    const lfMario = await gestione({ azione: 'link-firmato', idEvento: EVENTO, sorgente: 'principale' }, tokMario);
+    uguale(lfMario.stato, 403, 'link-firmato con il token di un partecipante: 403');
+
+    // prova-link: http e indirizzi privati rifiutati senza scaricare niente
+    const pHttp = await gestione({ azione: 'prova-link', link: 'http://webtv.esempio.it/live/napoli/playlist.m3u8', idEvento: EVENTO }, tokG);
+    vero(pHttp.stato === 200 && pHttp.dati.esito === 'errore' && pHttp.dati.problemi.some(p => p.codice === 'https' && p.grave && /nextgenerationbusiness\.it/.test(p.testoWebTv)) && pHttp.dati.urlProva === '',
+        'prova-link http: esito errore «https» con il testo per la web TV', pHttp.testo.slice(0, 300));
+    for (const link of ['https://127.0.0.1/live/playlist.m3u8', 'https://10.0.0.1:8443/live/playlist.m3u8', 'https://169.254.169.254/latest/meta-data/', 'https://[::1]/live.m3u8']) {
+        const pp = await gestione({ azione: 'prova-link', link: link }, tokG);
+        vero(pp.stato === 200 && pp.dati.esito === 'errore' && pp.dati.problemi.length === 1 && pp.dati.problemi[0].codice === 'non-pubblico' && pp.dati.info.raggiungibile === false,
+            'prova-link ' + link + ': rifiutato (non-pubblico)', pp.testo.slice(0, 300));
+    }
+    const pRtmp = await gestione({ azione: 'prova-link', link: 'rtmp://ingest.webtv.esempio.it/live/chiave' }, tokG);
+    vero(pRtmp.stato === 200 && pRtmp.dati.esito === 'errore' && pRtmp.dati.problemi[0].codice === 'rtmp', 'prova-link RTMP: «rtmp»');
+    const pMario = await gestione({ azione: 'prova-link', link: 'http://x.it/a.m3u8' }, tokMario);
+    uguale(pMario.stato, 403, 'prova-link con il token di un partecipante: 403');
+    let rifiutate = 0, fatte = 0;
+    for (let i = 0; i < 32 && !rifiutate; i++) {
+        const r = await gestione({ azione: 'prova-link', link: 'http://webtv.esempio.it/' + i + '.m3u8' }, tokG);
+        if (r.stato === 429 && r.dati.codice === 'attendi') rifiutate++; else if (r.stato === 200) fatte++;
+    }
+    // prima del giro: 6 prove (http, 4 indirizzi privati, RTMP); quella del partecipante si ferma prima
+    vero(rifiutate === 1 && fatte + 6 === 30, 'prova-link: al massimo 30 al minuto per gestore, poi 429 (dopo ' + (fatte + 6) + ' prove)');
+
+    // il tetto di link-video: 60 l'ora per persona
+    // prima del giro Mario ne ha gia' usate 4 (principale, riserva, evento non suo, account disattivato)
+    let lvOk = 0, lv429 = 0;
+    for (let i = 0; i < 62 && !lv429; i++) {
+        const r = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: tokMario });
+        if (r.stato === 429) lv429++; else if (r.stato === 200) lvOk++;
+    }
+    vero(lv429 === 1 && lvOk + 4 === 60, 'link-video: al massimo 60 l\'ora per persona, poi 429 (' + (lvOk + 4) + ' richieste prima)');
+
+    // senza firma: il link com'e'
+    const via = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, firma: { schema: 'nessuna' } } }, tokG);
+    const docVia = await leggiEv();
+    vero(via.stato === 200 && via.dati.evento.videoFirmato === false && via.dati.evento.firma.segretoImpostato === false && docVia.videoFirmato === false
+        && ((await db.collection('eventiRiservati').doc(EVENTO).get()).data().firma || {}).segreto === '', 'firma \'nessuna\': videoFirmato false e la chiave cancellata');
+    const lfNessuna = await gestione({ azione: 'link-firmato', idEvento: EVENTO, sorgente: 'principale' }, tokG);
+    vero(lfNessuna.stato === 200 && lfNessuna.dati.url === LINK_WEBTV && lfNessuna.dati.scade === null, 'senza firma link-firmato restituisce il link com\'e\' (scade null)');
+}
+
 (async () => {
     const emulatori = await assicuraEmulatori();
     let contatore = null, server = null;
@@ -356,14 +497,20 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
         const ev = await gestione({
             azione: 'evento-salva', evento: {
                 nuovo: true, id: EVENTO, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
-                data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+                data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: LINK_WEBTV, riservaUrl: LINK_RISERVA,
                 programma: '09.00 Accoglienza e registrazione\n09.30 Apertura dei lavori', paginaEvento: '/napoli_ottobre_2026/',
                 unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }
             }
         }, tokG);
-        vero(ev.stato === 200 && ev.dati.evento.videoId === 'abcdefghijk', 'evento creato (la gestione vede il video impostato)');
+        vero(ev.stato === 200 && ev.dati.evento.videoId === LINK_WEBTV && ev.dati.evento.videoTipo === 'hls' && ev.dati.evento.riservaId === LINK_RISERVA,
+            'evento creato (la gestione vede il link della web TV e quello di riserva)', ev.testo.slice(0, 300));
+        vero(ev.dati.evento && ev.dati.evento.sorgente === 'principale' && ev.dati.evento.videoFirmato === false && ev.dati.evento.firma && ev.dati.evento.firma.schema === 'nessuna',
+            'evento nuovo: sorgente principale, nessuna firma');
         const docEv = (await db.collection('eventi').doc(EVENTO).get()).data();
-        vero(docEv.videoId === '' && docEv.videoUrl === undefined, 'documento pubblico dell\'evento: nessun video finche\' non si va in onda (DECISIONI D6)');
+        vero(docEv.videoId === '' && docEv.videoRiserva === '' && docEv.videoUrl === undefined && docEv.riservaUrl === undefined && docEv.sorgente === 'principale' && docEv.videoFirmato === false,
+            'documento pubblico dell\'evento: nessun video (ne\' principale ne\' riserva) finche\' non si va in onda (DECISIONI D6)');
+        const risEv = (await db.collection('eventiRiservati').doc(EVENTO).get()).data();
+        vero(risEv.videoUrl === LINK_WEBTV && risEv.riservaUrl === LINK_RISERVA && risEv.riservaId === LINK_RISERVA, 'i link stanno nel documento riservato');
         const persone = [
             ['Mario', 'Rossi', 'mario.rossi@esempio.it'], ['Luigi', 'Verdi', 'luigi.verdi@esempio.it'], ['Anna', 'Bianchi', 'anna.bianchi@esempio.it'],
             ['Carla', 'Neri', 'carla.neri@esempio.it'], ['Dario', 'Blu', 'dario.blu@esempio.it'], ['Elena', 'Gialli', 'elena.gialli@esempio.it']
@@ -481,7 +628,7 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
         const corpoStato = JSON.parse(testoStato);
         vero(stato1.status === 200 && corpoStato.stato === 'programmato' && corpoStato.titolo && corpoStato.inizio && corpoStato.fine, 'GET pubblico: stato "programmato", titolo e orari');
         uguale(Object.keys(corpoStato).sort(), ['fine', 'id', 'inizio', 'ok', 'paginaEvento', 'ripresa', 'stato', 'titolo'], 'solo i campi pubblici');
-        vero(!/video|abcdefghijk/i.test(testoStato), 'nessuna traccia del video nella risposta');
+        vero(!/video|webtv|riserva/i.test(testoStato), 'nessuna traccia del video nella risposta');
         uguale(stato1.headers.get('cache-control'), 'public, max-age=20, s-maxage=30, stale-while-revalidate=60', 'Cache-Control');
         uguale(stato1.headers.get('access-control-allow-origin'), '*', 'Access-Control-Allow-Origin: *');
         const cattivo = await fetch(API + '/diretta-stato?evento=NAPOLI!!');
@@ -489,7 +636,10 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
         const assente = await fetch(API + '/diretta-stato?evento=inesistente-2099');
         vero(assente.status === 404 && (await assente.json()).ok === false, 'evento inesistente: { ok: false }');
         const inOnda = await gestione({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' }, tokG);
-        vero(inOnda.stato === 200 && (await db.collection('eventi').doc(EVENTO).get()).data().videoId === 'abcdefghijk', 'in onda: il video compare nel documento dell\'evento');
+        const docInOnda = (await db.collection('eventi').doc(EVENTO).get()).data();
+        vero(inOnda.stato === 200 && docInOnda.videoId === LINK_WEBTV && docInOnda.videoRiserva === LINK_RISERVA && docInOnda.sorgente === 'principale' && docInOnda.videoFirmato === false,
+            'in onda: il link principale e la riserva compaiono nel documento dell\'evento');
+        vero(inOnda.dati.evento.videoInOnda === LINK_WEBTV && inOnda.dati.evento.riservaInOnda === LINK_RISERVA, 'la gestione vede cosa ricevono i partecipanti (videoInOnda, riservaInOnda)');
         const tInOnda = Date.now();
 
         console.log('\nUn solo dispositivo');
@@ -550,14 +700,17 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
 
         const pausaEv = await gestione({ azione: 'evento-stato', idEvento: EVENTO, stato: 'pausa', ripresa: '14.30' }, tokG);
         const inPausa = (await db.collection('eventi').doc(EVENTO).get()).data();
-        vero(pausaEv.stato === 200 && inPausa.stato === 'pausa' && inPausa.ripresa === '14:30' && inPausa.videoId === '', 'pausa con ripresa alle 14:30: il video esce dal documento pubblico');
+        vero(pausaEv.stato === 200 && inPausa.stato === 'pausa' && inPausa.ripresa === '14:30' && inPausa.videoId === '' && inPausa.videoRiserva === '',
+            'pausa con ripresa alle 14:30: il video (anche la riserva) esce dal documento pubblico');
         const avviso = await gestione({ azione: 'evento-avviso', idEvento: EVENTO, avviso: '  Problema tecnico: torniamo tra 5 minuti ' }, tokG);
         vero(avviso.stato === 200 && (await db.collection('eventi').doc(EVENTO).get()).data().avviso === 'Problema tecnico: torniamo tra 5 minuti', 'avviso a tutti scritto nel documento dell\'evento');
         await gestione({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' }, tokG);
         const ripreso = (await db.collection('eventi').doc(EVENTO).get()).data();
-        vero(ripreso.stato === 'in_onda' && ripreso.videoId === 'abcdefghijk' && ripreso.ripresa === '', 'di nuovo in onda: il video torna');
-        const nuovoVideo = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://youtu.be/zyxwvutsrqp?si=condiviso' }, tokG);
-        vero(nuovoVideo.stato === 200 && (await db.collection('eventi').doc(EVENTO).get()).data().videoId === 'zyxwvutsrqp', 'cambio del video in onda: chi guarda riceve il nuovo id');
+        vero(ripreso.stato === 'in_onda' && ripreso.videoId === LINK_WEBTV && ripreso.videoRiserva === LINK_RISERVA && ripreso.ripresa === '', 'di nuovo in onda: il video e la riserva tornano');
+        const nuovoVideo = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: LINK_NUOVO }, tokG);
+        const dopoCambio = (await db.collection('eventi').doc(EVENTO).get()).data();
+        vero(nuovoVideo.stato === 200 && dopoCambio.videoId === LINK_NUOVO && dopoCambio.videoRiserva === LINK_RISERVA,
+            'cambio del video in onda: chi guarda riceve il nuovo link (la riserva, non mandata, resta)');
         // la web TV: il link HLS e il player incorporato si salvano come indirizzo (lo decide il servizio, non la pagina)
         const webtv = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8?token=x', videoId: 'altro' }, tokG);
         vero(webtv.stato === 200 && (await db.collection('eventi').doc(EVENTO).get()).data().videoId === 'https://webtv.esempio.it/live/napoli/playlist.m3u8?token=x',
@@ -565,12 +718,20 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
         const incorporato = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '<iframe src="https://player.webtv.esempio.it/embed/9?a=1&amp;b=2"></iframe>' }, tokG);
         vero(incorporato.stato === 200 && incorporato.dati.evento.videoId === 'https://player.webtv.esempio.it/embed/9?a=1&b=2', 'il codice da incorporare della web TV: si salva l\'indirizzo del player');
         const altroPlayer = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '', videoId: 'vimeo-123456789' }, tokG);
-        vero(altroPlayer.stato === 200 && altroPlayer.dati.evento.videoId === 'vimeo-123456789', 'un id mandato dalla gestione senza link (un player futuro) e\' accettato');
+        vero(altroPlayer.stato === 400, 'un identificativo che non e\' un link della web TV: 400 (il video arriva solo dalla web TV)');
+        const linkFile = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://webtv.esempio.it/archivio/replica.mp4' }, tokG);
+        vero(linkFile.stato === 400 && /file video/.test(linkFile.dati.msg || ''), 'un file video (non una diretta): 400 con il motivo');
+        const linkPrivato = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://10.0.0.8/live/playlist.m3u8' }, tokG);
+        vero(linkPrivato.stato === 400 && /interno o privato/.test(linkPrivato.dati.msg || ''), 'un indirizzo IP privato: 400');
         const linkHttp = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'http://example.com/diretta.m3u8' }, tokG);
         vero(linkHttp.stato === 400 && /https:\/\//.test(linkHttp.dati.msg || ''), 'un link http: 400 con il motivo');
         const linkRtmp = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'rtmp://ingest.example.com/live/chiave' }, tokG);
         vero(linkRtmp.stato === 400 && /RTMP/.test(linkRtmp.dati.msg || ''), 'un link per trasmettere (RTMP): 400 con il motivo');
-        await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://www.youtube.com/live/abcdefghijk' }, tokG);
+        const dash = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://dash.webtv.esempio.it/live/napoli/manifest.mpd' }, tokG);
+        vero(dash.stato === 200 && dash.dati.evento.videoTipo === 'dash', 'un flusso DASH (.mpd) si salva');
+        await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: LINK_WEBTV }, tokG);
+
+        await provaVideoWebTv(tokG, P, segrete);
 
         const conn = await gestione({ azione: 'connessi', idEvento: EVENTO }, tokG);
         vero(conn.stato === 200 && conn.dati.connessi === 1 && conn.dati.quando > 0, 'connessi: 1 (la presenza scritta poco fa)');
@@ -583,6 +744,8 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
 
         const togli = await gestione({ azione: 'partecipante', uid: P.darioblu.uid, idEvento: EVENTO, operazione: 'rimuovi-evento' }, tokG);
         vero(togli.stato === 200 && JSON.stringify(((await auth.getUser(P.darioblu.uid)).customClaims || {}).eventi) === '[]', 'togli dall\'evento: claims senza eventi');
+        const linkDario = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: await tokenDi(P.darioblu.uid) });
+        vero(linkDario.stato === 403 && linkDario.dati.codice === 'non-iscritto' && !linkDario.dati.url, 'link-video di chi non e\' (piu\') iscritto all\'evento: 403 non-iscritto');
         const senzaEventi = await entra('darioblu', P.darioblu.password, { ip: '10.0.3.2' });
         vero(senzaEventi.stato === 403 && senzaEventi.dati.codice === 'nessun-evento', 'e senza eventi non entra (403 nessun-evento)');
 
@@ -676,14 +839,17 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
         await pausa(Math.max(0, 15500 - (Date.now() - tInOnda)));
         const stato2 = await fetch(API + '/diretta-stato?evento=' + EVENTO);
         const testo2 = await stato2.text();
-        vero(JSON.parse(testo2).stato === 'in_onda' && !/video|abcdefghijk/i.test(testo2), 'passata la memoria di 15 s: "in_onda", e ancora nessun video');
+        vero(JSON.parse(testo2).stato === 'in_onda' && !/video|webtv|riserva/i.test(testo2), 'passata la memoria di 15 s: "in_onda", e ancora nessun video');
         await gestione({ azione: 'evento-stato', idEvento: EVENTO, stato: 'terminato' }, tokG);
-        vero((await db.collection('eventi').doc(EVENTO).get()).data().videoId === '', 'terminato: il video sparisce dal documento dell\'evento');
+        const finito = (await db.collection('eventi').doc(EVENTO).get()).data();
+        vero(finito.videoId === '' && finito.videoRiserva === '' && finito.videoFirmato === false, 'terminato: il video (principale, riserva, videoFirmato) sparisce dal documento dell\'evento');
+        const linkFinito = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: await tokenDi(P.elenagialli.uid) });
+        vero(linkFinito.stato === 409 && linkFinito.dati.codice === 'non-in-onda' && !linkFinito.dati.url, 'link-video con l\'evento non in onda: 409 non-in-onda');
 
         console.log('\nLog del servizio');
         await pausa(200);
         const log = fs.readFileSync(LOG_SERVER, 'utf8');
-        vero(segrete.every(s => log.indexOf(s) < 0), 'nessuna password nei log del servizio');
+        vero(segrete.every(s => log.indexOf(s) < 0), 'nessuna password (e nessuna chiave dei link firmati) nei log del servizio');
         vero(!/@esempio\.it|@raffica\.prova|gestore@prova\.it/i.test(log), 'nessun indirizzo email nei log del servizio');
     } catch (e) {
         console.error(e);

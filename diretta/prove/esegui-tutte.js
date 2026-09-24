@@ -33,6 +33,8 @@ const PROVE = [
     { nome: 'email', cartella: SERVIZIO, file: 'prove/diretta-mail.prove.js' },
     { nome: 'tempi', cartella: SERVIZIO, file: 'prove/diretta-accesso-tempi.prove.js' },
     { nome: 'video', cartella: SERVIZIO, file: 'prove/diretta-video.prove.js' },
+    { nome: 'firma', cartella: SERVIZIO, file: 'prove/diretta-firma.prove.js' },
+    { nome: 'prova-link', cartella: SERVIZIO, file: 'prove/diretta-prova-link.prove.js' },
     { nome: 'regole', cartella: QUI, file: 'regole.prova.js', emulatore: true },
     { nome: 'separazione', cartella: QUI, file: 'separazione.prova.js', emulatore: true },
     { nome: 'doppioni', cartella: QUI, file: 'doppioni.prova.js' },

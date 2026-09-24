@@ -51,6 +51,11 @@
    - AGGIORNA-PERMESSI (DECISIONI T8): se i claims del token di una
      persona non corrispondono ai suoi eventi, li rimette in ordine.
 
+   - LINK-VIDEO: se la web TV usa i link firmati a tempo, la pagina di
+     chi guarda chiede qui il link firmato (principale o riserva). Solo
+     a chi e' iscritto all'evento, con l'account attivo, mentre si e' in
+     onda; al massimo 60 richieste l'ora per persona.
+
    Nei log non finiscono mai password, token, nomi utente scritti dalle
    persone o indirizzi email.
    ============================================================ */
@@ -80,6 +85,7 @@ const TETTO_RESET_RETE = 20;              // richieste all'ora dalla stessa rete
 const TETTO_RESET_ORA = 200;              // email di reimpostazione all'ora, in tutto
 const TETTO_GESTORE_RETE = 10;            // richieste all'ora dalla stessa rete
 const TETTO_GESTORI_ORA = 20;             // email ai gestori all'ora, in tutto (un tetto loro)
+const TETTO_LINK_VIDEO = 60;              // link firmati del video all'ora, per persona
 
 const MSG_CREDENZIALI = 'Nome utente o password non corretti. Se il problema continua, scrivi all\'assistenza.';
 const MSG_DISATTIVATO = 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
@@ -690,8 +696,40 @@ async function aggiornaPermessi(ctx, req) {
     return { aggiornati: await D.allineaClaims(ctx, tok.uid) };
 }
 
+/* ============================================================
+   LINK-VIDEO
+   ============================================================ */
+
+/* Il link firmato del video per chi guarda. La pagina lo chiede solo
+   quando l'evento dice videoFirmato (con un'attesa casuale, cosi' mille
+   persone non chiedono nello stesso istante) e lo rinnova verso la
+   scadenza. Controlli: token valido (senza chiedere a Google delle
+   revoche, che con mille persone insieme costerebbe mille chiamate:
+   lo stato dell'account si legge nei dati della diretta, come fanno le
+   regole), account attivo, iscritto all'evento, evento in onda, link
+   presente. Nei log niente di personale (vedi D.rispondi). */
+async function linkVideo(ctx, req, b) {
+    const m = /^Bearer\s+(.+)$/i.exec(String((req.headers || {}).authorization || ''));
+    if (!m) throw C.errore(401, 'Accesso richiesto', 'non-autenticato');
+    let tok;
+    try { tok = await ctx.auth.verifyIdToken(m[1]); } catch (e) {
+        if (C.tokenNonValido(e)) throw C.errore(401, 'La sessione è scaduta: accedi di nuovo.', 'non-autenticato');
+        throw C.errore(503, 'Servizio di accesso momentaneamente non disponibile: riprova tra qualche secondo.', 'riprova');
+    }
+    const idEvento = D.controllaIdEvento(b.idEvento);
+    if (!await C.consumaGettone(ctx, 'limiti', 'linkvideo_' + tok.uid, { maxFinestra: TETTO_LINK_VIDEO, finestraMs: ORA })) {
+        throw D.errorePubblico(429, 'attendi', 'Troppe richieste del video in poco tempo: riprova tra qualche minuto.', { attesaSecondi: 300 });
+    }
+    const [snapP, snapS] = await ctx.db.getAll(ctx.db.collection('partecipanti').doc(tok.uid), ctx.db.collection('sessioni').doc(tok.uid));
+    if (!snapP.exists) throw C.errore(403, 'Questo account non è un partecipante della diretta.', 'non-partecipante');
+    const p = snapP.data();
+    if (p.stato !== 'attivo' || (snapS.exists && snapS.data().stato !== 'attivo')) throw D.errorePubblico(403, 'disattivato', MSG_DISATTIVATO);
+    if (!Array.isArray(p.eventi) || p.eventi.indexOf(idEvento) < 0) throw D.errorePubblico(403, 'non-iscritto', 'Non risulti iscritto a questa diretta.');
+    return D.linkVideo(ctx, { idEvento: idEvento, sorgente: b.sorgente, soloInOnda: true });
+}
+
 module.exports = {
-    entra, passwordDimenticata, gestoreAccesso, aggiornaPermessi,
+    entra, passwordDimenticata, gestoreAccesso, aggiornaPermessi, linkVideo,
     attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante,
     MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO
 };
