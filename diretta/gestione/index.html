@@ -7,8 +7,11 @@
          file .js (lo impone la regola qui sotto). La regola dice al browser da
          dove puo' caricare codice, stili, font e dati: se un giorno un nome o
          un'azienda contenessero del codice, il browser si rifiuterebbe di
-         eseguirlo. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https:; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+         eseguirlo. Il video arriva solo dalla web TV: media-src, connect-src
+         e frame-src aperti agli indirizzi https servono all'anteprima (il
+         flusso HLS/DASH letto dal player, la prova del link dal browser, la
+         pagina da incorporare), worker-src blob: a hls.js. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https:; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <title>Gestione della diretta | Next Generation Business</title>
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#0A2844">
@@ -18,7 +21,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260924c">
+    <link rel="stylesheet" href="gestione.css?v=20260924w">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -146,20 +149,112 @@
                                     <input type="time" id="ev-ora-fine" name="oraFine" required>
                                 </div>
                             </div>
-                            <div class="campo campo-intero">
-                                <!-- nome della piattaforma, segnaposto e frase su «Non in elenco»
-                                     li adatta gestione.js al player caricato (NGBPlayer.nome) -->
-                                <label for="ev-video">Link del video (<span class="nome-piattaforma">web TV</span>)</label>
-                                <input type="text" inputmode="url" id="ev-video" name="videoUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-video-aiuto" placeholder="https://…/playlist.m3u8 (o il codice da incorporare)">
-                                <p id="ev-video-aiuto" class="aiuto"><span data-solo-piattaforma="webtv">Chiedi alla web TV il link HLS della diretta (finisce con .m3u8): si vede con i nostri comandi e la scelta della qualità. Vanno bene anche il link del suo player o il codice da incorporare (allora audio e pausa si regolano con i comandi della web TV), e un link YouTube. </span><span data-solo-piattaforma="youtube">La diretta su YouTube va impostata come «Non in elenco» con l'incorporamento consentito. </span>
-                                    Il link non compare mai nel codice pubblico: i partecipanti lo ricevono solo mentre l'evento è in onda.
-                                    Un link nuovo lo provo qui sotto con lo stesso player dei partecipanti prima di salvarlo.
-                                    Puoi lasciarlo vuoto e inserirlo più tardi dalla scheda Regia.</p>
+                            <!-- ======== IL VIDEO: il canale della web TV ========
+                                 Ogni link ha gli stessi pezzi, che gestione.js trova dall'id del
+                                 campo: <id>-tipo (che cosa ho riconosciuto), <id>-incorporato
+                                 (l'avviso del ripiego), <id>-esito (il risultato della prova),
+                                 <id>-anteprima (il player dei partecipanti) e btn-prova-<id>. -->
+                            <div class="campo campo-intero link-video">
+                                <label for="ev-video">Link della diretta</label>
+                                <div class="link-riga">
+                                    <input type="text" inputmode="url" id="ev-video" name="videoUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-video-aiuto ev-video-tipo" placeholder="https://…/playlist.m3u8">
+                                    <button type="button" id="btn-prova-ev-video" class="btn btn-secondario btn-prova-link" aria-label="Prova il link della diretta">Prova il link</button>
+                                </div>
+                                <p id="ev-video-aiuto" class="aiuto">Chiedi alla web TV il link del flusso HLS del canale (finisce con .m3u8; va bene anche DASH, .mpd):
+                                    lo riproduce il nostro player, con i nostri comandi e senza loghi. La pagina del loro player o il codice
+                                    da incorporare vanno bene solo come ripiego. Il link resta riservato: i partecipanti lo ricevono solo mentre
+                                    l'evento è in onda. Puoi lasciarlo vuoto e inserirlo più tardi dalla scheda Regia.</p>
+                                <p id="ev-video-tipo" class="link-tipo" role="status" hidden></p>
+                                <div id="ev-video-incorporato" class="allerta" role="alert" hidden></div>
+                                <div id="ev-video-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link della diretta" hidden></div>
                                 <div id="ev-video-anteprima" class="video-anteprima" hidden>
                                     <div class="video-anteprima-cornice"></div>
                                     <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
                                 </div>
                             </div>
+                            <div class="campo campo-intero link-video">
+                                <label for="ev-riserva">Link di riserva <span class="facoltativo">(facoltativo)</span></label>
+                                <div class="link-riga">
+                                    <input type="text" inputmode="url" id="ev-riserva" name="riservaUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-riserva-aiuto ev-riserva-tipo" placeholder="https://…/playlist.m3u8 (un altro server o un altro canale)">
+                                    <button type="button" id="btn-prova-ev-riserva" class="btn btn-secondario btn-prova-link" aria-label="Prova il link di riserva">Prova il link</button>
+                                </div>
+                                <p id="ev-riserva-aiuto" class="aiuto">Un secondo link della stessa diretta: un altro server della web TV o un altro canale.
+                                    Se il link principale non funziona per più di 20 secondi, il player di ciascun partecipante passa da solo
+                                    alla riserva; dalla scheda Regia puoi anche passare alla riserva a mano, per tutti.</p>
+                                <p id="ev-riserva-tipo" class="link-tipo" role="status" hidden></p>
+                                <div id="ev-riserva-incorporato" class="allerta" role="alert" hidden></div>
+                                <div id="ev-riserva-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link di riserva" hidden></div>
+                                <div id="ev-riserva-anteprima" class="video-anteprima" hidden>
+                                    <div class="video-anteprima-cornice"></div>
+                                    <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                </div>
+                            </div>
+
+                            <!-- I link firmati: chiusi di base, servono solo se la web TV li chiede.
+                                 La chiave segreta si scrive e basta: il servizio non la rimanda mai
+                                 indietro, dice solo se ce n'e' una (segretoImpostato). -->
+                            <details id="ev-firma" class="campo-intero firma">
+                                <summary><span class="firma-titolo">Link firmati (se la web TV li usa)</span> <span id="ev-firma-riassunto" class="firma-riassunto">nessuna firma</span></summary>
+                                <div class="firma-corpo">
+                                    <p class="aiuto">Alcune web TV accettano solo link «firmati»: con una chiave segreta che vi danno loro, il nostro
+                                        servizio prepara per ogni partecipante collegato un link che scade dopo qualche ora. Così un link girato
+                                        ad altri smette presto di funzionare. Se la web TV non ve ne ha parlato, lascia «Nessuna firma».</p>
+                                    <fieldset class="gruppo-opzioni firma-schemi">
+                                        <legend>Tipo di firma</legend>
+                                        <label class="opzione"><input type="radio" name="ev-firma-schema" value="nessuna" checked>
+                                            <span><strong>Nessuna firma.</strong> Il link si usa così com'è.</span></label>
+                                        <label class="opzione"><input type="radio" name="ev-firma-schema" value="nginx">
+                                            <span><strong>nginx secure_link.</strong> Server nginx con il modulo secure_link: il link riceve una firma e una scadenza (di solito i parametri «md5» ed «expires»).</span></label>
+                                        <label class="opzione"><input type="radio" name="ev-firma-schema" value="akamai">
+                                            <span><strong>Akamai EdgeAuth (Token Auth 2.0).</strong> Rete Akamai: il link riceve un gettone firmato (di solito il parametro «hdnts»).</span></label>
+                                    </fieldset>
+                                    <div id="ev-firma-campi" class="griglia-campi firma-campi" hidden>
+                                        <div class="campo campo-largo">
+                                            <label for="ev-firma-segreto">Chiave segreta</label>
+                                            <div class="campo-password">
+                                                <input type="password" id="ev-firma-segreto" autocomplete="new-password" spellcheck="false" autocapitalize="off" maxlength="512" aria-describedby="ev-firma-segreto-aiuto">
+                                                <button type="button" id="btn-mostra-segreto" class="mostra-password" aria-label="Mostra la chiave segreta" aria-pressed="false">
+                                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                </button>
+                                            </div>
+                                            <p id="ev-firma-segreto-aiuto" class="aiuto">La chiave che vi ha dato la web TV. Si scrive e basta: resta sul servizio e non si rilegge più, nemmeno da qui.</p>
+                                        </div>
+                                        <div class="campo">
+                                            <label for="ev-firma-durata">Durata di ogni link (ore)</label>
+                                            <input type="number" id="ev-firma-durata" min="1" max="24" step="1" value="6" inputmode="numeric" aria-describedby="ev-firma-durata-aiuto">
+                                            <p id="ev-firma-durata-aiuto" class="aiuto">Da 1 a 24. Con 6 ore un link copiato smette presto di funzionare; chi guarda riceve da solo un link nuovo prima che scada.</p>
+                                        </div>
+                                        <div class="campo" data-schema="nginx">
+                                            <label for="ev-firma-nome-firma">Nome del parametro della firma</label>
+                                            <input type="text" id="ev-firma-nome-firma" maxlength="40" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="md5" aria-describedby="ev-firma-nginx-aiuto">
+                                        </div>
+                                        <div class="campo" data-schema="nginx">
+                                            <label for="ev-firma-nome-scadenza">Nome del parametro della scadenza</label>
+                                            <input type="text" id="ev-firma-nome-scadenza" maxlength="40" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="expires" aria-describedby="ev-firma-nginx-aiuto">
+                                        </div>
+                                        <p id="ev-firma-nginx-aiuto" class="aiuto campo-intero" data-schema="nginx">Lasciali vuoti per usare «md5» ed «expires»: cambiali solo se la web TV usa nomi diversi.</p>
+                                        <div class="campo campo-largo" data-schema="nginx">
+                                            <label for="ev-firma-percorso">Che cosa si firma</label>
+                                            <select id="ev-firma-percorso" aria-describedby="ev-firma-percorso-aiuto">
+                                                <option value="intero">Il link del flusso (predefinito)</option>
+                                                <option value="cartella">La cartella del flusso (vale anche per i segmenti video)</option>
+                                            </select>
+                                            <p id="ev-firma-percorso-aiuto" class="aiuto">Scegli «la cartella» solo se la web TV controlla la stessa firma anche sui segmenti video: chiedilo a loro.</p>
+                                        </div>
+                                        <div class="campo" data-schema="akamai">
+                                            <label for="ev-firma-nome-parametro">Nome del parametro</label>
+                                            <input type="text" id="ev-firma-nome-parametro" maxlength="40" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="hdnts" aria-describedby="ev-firma-parametro-aiuto">
+                                            <p id="ev-firma-parametro-aiuto" class="aiuto">Vuoto = «hdnts», quello di Akamai.</p>
+                                        </div>
+                                        <div class="campo campo-largo" data-schema="akamai">
+                                            <label for="ev-firma-acl">Percorsi ammessi (acl)</label>
+                                            <input type="text" id="ev-firma-acl" maxlength="500" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="/live/napoli/*" aria-describedby="ev-firma-acl-aiuto">
+                                            <p id="ev-firma-acl-aiuto" class="aiuto">Lascialo vuoto per usare la cartella del flusso seguita da «*» (per esempio /live/napoli/*).</p>
+                                        </div>
+                                        <p class="aiuto campo-intero">La prova dei link usa la firma già salvata: dopo averla cambiata salva l'evento e riprova il link.</p>
+                                    </div>
+                                </div>
+                            </details>
                             <div class="campo campo-intero">
                                 <label for="ev-programma">Programma <span class="facoltativo">(una voce per riga)</span></label>
                                 <textarea id="ev-programma" name="programma" rows="7" aria-describedby="ev-programma-aiuto" placeholder="09.00 Accoglienza e registrazione&#10;09.30 Saluti istituzionali"></textarea>
@@ -266,20 +361,78 @@
 
                         <div class="riquadro regia-video-riquadro">
                             <h2>Video</h2>
-                            <p class="regia-dettaglio">Video attuale: <span id="regia-video-attuale" class="testo-fisso">nessuno</span></p>
+                            <!-- quale link guardano tutti: la scelta della regia (eventi.sorgente) -->
+                            <p class="sorgente-riga">In uso per tutti:
+                                <span id="regia-sorgente" class="bollino-sorgente" data-sorgente="principale">link principale</span></p>
+                            <dl class="link-salvati">
+                                <div class="link-salvato" data-ruolo="principale">
+                                    <dt>Link principale <span class="in-uso" hidden>· in uso</span></dt>
+                                    <dd>
+                                        <span id="regia-video-attuale" class="testo-fisso">nessuno</span>
+                                        <span id="regia-video-tipo-attuale" class="link-salvato-tipo"></span>
+                                        <button type="button" id="btn-guarda-principale" class="btn btn-secondario btn-mini" aria-label="Guarda il link principale" hidden>Guarda</button>
+                                    </dd>
+                                </div>
+                                <div class="link-salvato" data-ruolo="riserva">
+                                    <dt>Link di riserva <span class="in-uso" hidden>· in uso</span></dt>
+                                    <dd>
+                                        <span id="regia-riserva-attuale" class="testo-fisso">nessuno</span>
+                                        <span id="regia-riserva-tipo-attuale" class="link-salvato-tipo"></span>
+                                        <button type="button" id="btn-guarda-riserva" class="btn btn-secondario btn-mini" aria-label="Guarda il link di riserva" hidden>Guarda</button>
+                                    </dd>
+                                </div>
+                            </dl>
                             <p id="regia-video-pubblico" class="aiuto"></p>
-                            <form id="form-video" class="riga-campo" novalidate>
-                                <label for="regia-video" class="solo-lettori">Nuovo link del video (<span class="nome-piattaforma">web TV</span>)</label>
-                                <input type="text" inputmode="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Incolla il link della web TV (o il codice da incorporare)">
-                                <button type="submit" id="btn-cambia-video" class="btn btn-primario">Cambia video</button>
-                            </form>
-                            <p class="aiuto">Prima di applicarlo lo provo qui sotto con lo stesso player dei partecipanti: se
-                                il video non si può usare, te lo dico e non cambio niente (se la web TV non ha ancora cominciato a trasmettere, te lo segnalo ma lo salvo). Durante la diretta, chi è collegato passa al nuovo video da solo.</p>
-                            <p id="msg-video" class="msg" role="status" hidden></p>
-                            <div id="regia-video-anteprima" class="video-anteprima" hidden>
-                                <div class="video-anteprima-cornice"></div>
-                                <button type="button" id="btn-chiudi-anteprima-video" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                            <p id="regia-firma-attuale" class="aiuto" hidden></p>
+                            <div class="sorgente-comandi">
+                                <button type="button" id="btn-sorgente" class="btn btn-secondario" aria-describedby="sorgente-aiuto">Passa alla riserva per tutti</button>
                             </div>
+                            <p id="sorgente-aiuto" class="aiuto">Se il link in uso si blocca per più di 20 secondi, il player di ciascun partecipante passa da solo
+                                all'altro. Con questo pulsante decidi tu, per tutti: chi guarda passa da solo, senza ricaricare la pagina.</p>
+                            <p id="msg-sorgente" class="msg" role="status" hidden></p>
+                            <div id="regia-attuale-anteprima" class="video-anteprima" hidden>
+                                <div class="video-anteprima-cornice"></div>
+                                <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                            </div>
+
+                            <h3 class="titoletto-video">Cambia i link</h3>
+                            <form id="form-video" novalidate>
+                                <div class="campo link-video">
+                                    <label for="regia-video">Link della diretta</label>
+                                    <div class="link-riga">
+                                        <input type="text" inputmode="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="regia-video-tipo" placeholder="https://…/playlist.m3u8">
+                                        <button type="button" id="btn-prova-regia-video" class="btn btn-secondario btn-prova-link" aria-label="Prova il link della diretta">Prova il link</button>
+                                    </div>
+                                    <p id="regia-video-tipo" class="link-tipo" role="status" hidden></p>
+                                    <div id="regia-video-incorporato" class="allerta" role="alert" hidden></div>
+                                    <div id="regia-video-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link della diretta" hidden></div>
+                                    <div id="regia-video-anteprima" class="video-anteprima" hidden>
+                                        <div class="video-anteprima-cornice"></div>
+                                        <button type="button" id="btn-chiudi-anteprima-video" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                    </div>
+                                </div>
+                                <div class="campo link-video">
+                                    <label for="regia-riserva">Link di riserva <span class="facoltativo">(facoltativo)</span></label>
+                                    <div class="link-riga">
+                                        <input type="text" inputmode="url" id="regia-riserva" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="regia-riserva-tipo" placeholder="https://…/playlist.m3u8 (un altro server o un altro canale)">
+                                        <button type="button" id="btn-prova-regia-riserva" class="btn btn-secondario btn-prova-link" aria-label="Prova il link di riserva">Prova il link</button>
+                                    </div>
+                                    <p id="regia-riserva-tipo" class="link-tipo" role="status" hidden></p>
+                                    <div id="regia-riserva-incorporato" class="allerta" role="alert" hidden></div>
+                                    <div id="regia-riserva-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link di riserva" hidden></div>
+                                    <div id="regia-riserva-anteprima" class="video-anteprima" hidden>
+                                        <div class="video-anteprima-cornice"></div>
+                                        <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                    </div>
+                                </div>
+                                <div class="azioni">
+                                    <button type="submit" id="btn-cambia-video" class="btn btn-primario">Applica i link</button>
+                                </div>
+                            </form>
+                            <p class="aiuto">Prima di applicarli provo i link cambiati, come nella scheda Evento: se un link non si può usare te lo dico
+                                e non cambio niente; se ci sono solo avvisi (per esempio la web TV non ha ancora cominciato a trasmettere) ti chiedo
+                                conferma. Durante la diretta, chi è collegato passa al nuovo link da solo.</p>
+                            <p id="msg-video" class="msg" role="status" hidden></p>
                         </div>
 
                         <div class="riquadro regia-anteprima">
@@ -642,11 +795,10 @@
 
     <script src="../config.js?v=20260924b"></script>
     <script src="../nome-utente.js?v=20260924b"></script>
-    <!-- lo stesso player della pagina dei partecipanti (web TV, e YouTube se
-         serve): serve all'anteprima del video in regia e a riconoscere il link (idDa) -->
-    <script src="../sorgente-video.js?v=20260924f"></script>
-    <script src="../player-youtube.js?v=20260924c"></script>
-    <script src="../player-webtv.js?v=20260924f"></script>
-    <script src="gestione.js?v=20260924e"></script>
+    <!-- le regole del link della web TV (le stesse del player e del servizio)
+         e lo stesso player della pagina dei partecipanti, per l'anteprima -->
+    <script src="../sorgente-video.js?v=20260924w"></script>
+    <script src="../player-webtv.js?v=20260924w"></script>
+    <script src="gestione.js?v=20260924w"></script>
 </body>
 </html>

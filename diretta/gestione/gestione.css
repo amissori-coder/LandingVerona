@@ -150,7 +150,7 @@ img { max-width: 100%; height: auto; }
 .campo label, .campo > span.etichetta { font-size: 0.85rem; font-weight: 600; color: var(--scuro); }
 .facoltativo { font-weight: 500; color: var(--tenue-2); }
 input[type="text"], input[type="email"], input[type="password"], input[type="url"], input[type="search"],
-input[type="date"], input[type="time"], select, textarea {
+input[type="date"], input[type="time"], input[type="number"], select, textarea {
     width: 100%; min-height: 42px; padding: 9px 12px;
     border: 1px solid #CBD5E1; border-radius: 6px; background: #fff; color: var(--testo);
     font-size: 0.95rem;
@@ -362,7 +362,8 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
     50% { opacity: 0.55; box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .stato-punto, .pillola-stato::before, .rotella, .btn[aria-busy="true"]::after { animation: none !important; }
+    .stato-punto, .pillola-stato::before, .rotella, .btn[aria-busy="true"]::after, .link-tipo::before { animation: none !important; }
+    .firma > summary::before { transition: none; }
 }
 .regia-orari { text-align: center; color: var(--tenue); font-size: 0.92rem; margin-bottom: 18px; }
 .regia-comandi { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 12px; }
@@ -390,6 +391,153 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .regia-connessi .aiuto { margin-bottom: 12px; }
 .riga-campo { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .riga-campo input, .riga-campo select { flex: 1 1 260px; }
+
+/* ---------- il video: i link della web TV ----------
+   Ogni link (principale e riserva, nella scheda Evento e in Regia) ha
+   sotto di se': la riga di cio' che ho riconosciuto (o della prova in
+   corso), l'avviso del ripiego per la pagina da incorporare, il
+   riquadro dell'esito della prova e l'anteprima. Colore + parola,
+   sempre: verde "si puo' usare", ambra "da controllare", rosso "non si
+   puo' usare"; nei problemi "da correggere" e "attenzione". */
+.link-riga { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+.link-riga input { flex: 1 1 280px; min-width: 0; }
+.link-riga .btn { flex: 0 0 auto; }
+
+.link-tipo {
+    position: relative; padding-left: 20px;
+    font-size: 0.86rem; line-height: 1.5; color: var(--tenue);
+}
+.link-tipo::before {
+    content: ''; position: absolute; left: 2px; top: 0.42em;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--chiaro-blu);
+}
+.link-tipo strong { color: var(--scuro); }
+.link-tipo[data-tono="ok"]::before { background: var(--verde); }
+.link-tipo[data-tono="avviso"]::before { background: var(--ambra-bordo); }
+.link-tipo[data-tono="errore"] { color: var(--rosso-scuro); font-weight: 600; }
+.link-tipo[data-tono="errore"]::before { background: var(--rosso); }
+.link-tipo[data-tono="errore"] strong { color: var(--rosso-scuro); }
+/* la prova in corso: al posto del pallino, la rotellina */
+.link-tipo[data-tono="info"]::before {
+    width: 12px; height: 12px; top: 0.34em; left: 1px; background: transparent;
+    border: 2px solid var(--su-scuro); border-top-color: var(--blu);
+    animation: gira 0.8s linear infinite;
+}
+
+/* l'avviso del ripiego (pagina da incorporare): deve saltare all'occhio */
+.allerta {
+    position: relative; display: flex; flex-direction: column; gap: 4px;
+    padding: 14px 16px 14px 54px; border-radius: 8px;
+    background: var(--ambra-bg); border: 2px solid var(--ambra-bordo); border-left-width: 6px;
+    color: #4A3200; font-size: 0.92rem; line-height: 1.5;
+}
+.allerta::before {
+    content: '!'; position: absolute; left: 14px; top: 13px;
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ambra); color: #fff; font-weight: 900; font-size: 1rem; line-height: 1;
+}
+.allerta-titolo { color: #3D2800; font-size: 0.98rem; }
+
+/* il risultato della prova */
+.esito-prova {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 14px 16px; border-radius: 8px;
+    border: 1px solid var(--bordo); border-left-width: 6px; background: #fff;
+}
+.esito-prova[data-esito="ok"] { border-left-color: var(--verde); background: #F6FBF8; }
+.esito-prova[data-esito="avviso"] { border-left-color: var(--ambra-bordo); background: #FFFCF3; }
+.esito-prova[data-esito="errore"] { border-left-color: var(--rosso); background: #FFF8F7; }
+.esito-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.esito-bollo {
+    display: inline-block; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--accento); color: #fff;
+}
+.esito-prova[data-esito="ok"] .esito-bollo { background: var(--verde); }
+.esito-prova[data-esito="avviso"] .esito-bollo { background: #F5C451; color: #3D2800; }
+.esito-prova[data-esito="errore"] .esito-bollo { background: var(--rosso); }
+.esito-titolo { color: var(--scuro); font-size: 0.95rem; line-height: 1.4; }
+.esito-righe { padding-left: 20px; display: flex; flex-direction: column; gap: 3px; font-size: 0.86rem; color: var(--tenue); }
+.esito-sottotitolo {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tenue-2);
+}
+.esito-problemi { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.esito-problema {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 10px; align-items: baseline;
+    padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; line-height: 1.45;
+    background: var(--ambra-bg); color: #5C3D00;
+}
+.esito-problema[data-gravita="grave"] { background: var(--rosso-bg); color: var(--rosso-scuro); }
+.problema-etichetta {
+    padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--ambra-bordo); color: #3D2800;
+}
+.esito-problema[data-gravita="grave"] .problema-etichetta { background: var(--rosso); color: #fff; }
+.esito-problema .testo-webtv { grid-column: 1 / -1; }
+
+/* il testo pronto da girare alla web TV */
+.testo-webtv {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 12px 14px; border-radius: 8px; background: #fff; border: 1px dashed #B8C4D2; color: var(--testo);
+}
+.testo-webtv-etichetta {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tenue-2);
+}
+.testo-webtv-corpo { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.55; }
+.testo-webtv-azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.testo-webtv-esito { font-size: 0.82rem; font-weight: 600; color: var(--verde); }
+.testo-webtv-esito:empty { display: none; }
+
+/* i link firmati: una sezione chiusa, con il riassunto sempre in vista */
+.firma { border: 1px solid var(--bordo); border-radius: 8px; background: #fff; min-width: 0; }
+.firma > summary {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
+    padding: 12px 16px; cursor: pointer; list-style: none; border-radius: 8px;
+    font-weight: 700; font-size: 0.92rem; color: var(--scuro);
+}
+.firma > summary::-webkit-details-marker { display: none; }
+.firma > summary::before { content: '\25B8'; color: var(--accento); transition: transform .15s ease; display: inline-block; }
+.firma[open] > summary::before { transform: rotate(90deg); }
+.firma > summary:hover { background: var(--chiaro); }
+.firma-riassunto { font-size: 0.8rem; font-weight: 600; color: var(--tenue-2); }
+.firma-riassunto[data-attiva="si"] { color: var(--blu); background: var(--blu-velo); padding: 1px 9px; border-radius: 6px; }
+.firma-corpo { display: flex; flex-direction: column; gap: 14px; padding: 2px 16px 18px; }
+.firma .gruppo-opzioni { margin-top: 0; }
+@media (min-width: 900px) {
+    #form-evento .firma-campi { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    #form-evento .firma-campi .campo-largo { grid-column: 1 / -1; }
+}
+
+/* regia: quale link guardano tutti, e i link salvati */
+.sorgente-riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 12px; font-weight: 600; color: var(--scuro); }
+.bollino-sorgente {
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
+    font-size: 0.78rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
+    background: var(--verde-bg); color: var(--verde); border: 1px solid #B7DFC7;
+}
+.bollino-sorgente::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.bollino-sorgente[data-sorgente="riserva"] { background: var(--ambra-bg); color: #5C3D00; border-color: var(--ambra-bordo); }
+.link-salvati { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.link-salvato { padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--chiaro); }
+.link-salvato[data-in-uso="si"] { background: #fff; border-color: #B7DFC7; box-shadow: inset 5px 0 0 var(--verde); padding-left: 16px; }
+.link-salvato[data-ruolo="riserva"][data-in-uso="si"] { border-color: var(--ambra-bordo); box-shadow: inset 5px 0 0 var(--ambra-bordo); }
+.link-salvato dt {
+    margin-bottom: 4px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tenue-2);
+}
+.in-uso { color: var(--verde); }
+.link-salvato[data-ruolo="riserva"] .in-uso { color: var(--ambra); }
+.link-salvato dd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.86rem; }
+.link-salvato .testo-fisso { flex: 1 1 100%; font-size: 0.82rem; font-weight: 600; }
+.link-salvato-tipo { color: var(--tenue); font-size: 0.8rem; }
+.link-salvato-tipo:empty { display: none; }
+.sorgente-comandi { margin: 12px 0 8px; }
+.sorgente-comandi .btn { white-space: normal; text-align: center; }
+#msg-sorgente, #msg-video { margin-top: 10px; }
+.titoletto-video { margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--bordo); }
+#form-video { display: flex; flex-direction: column; gap: 18px; margin-bottom: 10px; }
+#form-video .azioni { margin-top: 0; }
 
 /* ---------- caricamento e anteprima ---------- */
 .carica-riga { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -683,6 +831,9 @@ tr.riga-nota { background: var(--blu-velo); }
     .legenda dt { flex-basis: 90px; }
 }
 @media (max-width: 560px) {
+    /* il problema della prova: l'etichetta sopra, il testo sotto a tutta larghezza */
+    .esito-problema { grid-template-columns: minmax(0, 1fr); }
+    .esito-problema .problema-etichetta { justify-self: start; }
     .tabella tbody tr { grid-template-columns: minmax(0, 1fr); }
     .griglia-due { grid-template-columns: 1fr; }
     .testata-utente { margin-left: auto; }
