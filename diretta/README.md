@@ -92,12 +92,12 @@ state toccate, a parte `vercel.json` che elenca il nuovo lavoro programmato):
 
 | Raccolta | Chi la legge | Contenuto |
 |---|---|---|
-| `eventi/{idEvento}` | i partecipanti di quell'evento, i gestori | titolo, data, orari, stato, programma; l'identificativo del video **solo mentre è in onda** |
+| `eventi/{idEvento}` | i partecipanti di quell'evento, i gestori | titolo, data, orari, stato, programma; il link del video (e quello di riserva, e quale dei due è in uso) **solo mentre è in onda**; con i link firmati è il link senza firma, che da solo non basta (quello firmato lo dà il servizio a ciascuno) |
 | `partecipanti/{uid}` | solo la persona stessa | nome utente, nome, cognome, email, azienda, eventi, stato delle email, ultimo accesso |
 | `nomiUtente/{nomeUtente}` | solo il server | → uid: garantisce che un nome utente esista una volta sola |
 | `indirizzi/{email}` | solo il server | → uid: garantisce che un'email abbia un solo account |
 | `sessioni/{uid}` | solo il server | account attivo o disattivato, dispositivo ammesso |
-| `eventiRiservati/{idEvento}` | solo il server | il link del video come l'ha incollato il gestore |
+| `eventiRiservati/{idEvento}` | solo il server | il link del video e quello di riserva come li ha incollati il gestore; la chiave segreta dei link firmati |
 | `presenze/{idEvento}_{uid}` | solo il server (scritta dal partecipante con regole strette) | primo e ultimo segnale, minuti collegati durante la diretta, collegamenti |
 | `accessi/{auto}` | solo il server | un documento per ogni accesso riuscito |
 | `tentativi*`, `limiti`, `code`, `contatori`, `stato`, `gestoriAccount` | solo il server | protezioni, coda delle email, cache |
@@ -399,9 +399,17 @@ Il servizio fa la prova con le dovute cautele: solo indirizzi https pubblici
   **senza ricaricare**, con attese **crescenti e casuali** (1-3 s, poi 2-6, 4-12,
   8-24, poi fra 15 e 45 s): mille persone non riprovano mai nello stesso
   secondo. Quando riparte, riparte dal punto live.
+- Il player se ne accorge da solo anche quando il video resta fermo senza dare
+  errori: più di 12 secondi fermo mentre dovrebbe andare vale come un guasto.
+- Se la web TV chiude la diretta e al suo posto il link dà la registrazione, la
+  pagina resta su "Stiamo ricollegando la diretta…" e non mostra l'evento
+  dall'inizio.
 - **Link di riserva**: nella gestione puoi mettere un secondo link (un altro
   server della web TV o un altro canale). Se il link in uso non funziona per
-  **più di 20 secondi**, ogni pagina passa **da sola** all'altro.
+  **più di 20 secondi**, ogni pagina passa **da sola** all'altro (fra 20 e 24
+  secondi: anche qui qualche secondo casuale, perché non passino tutti insieme).
+  Se un browser non sa riprodurre uno dei due link (per esempio un DASH su un
+  vecchio iPhone), passa subito all'altro.
 - **In *Regia*** vedi quale link è in uso per tutti e puoi **passare a mano alla
   riserva (o tornare al principale) per tutti**: chi guarda cambia da solo, senza
   ricaricare. La scelta della regia vale più del passaggio automatico.
@@ -430,6 +438,18 @@ Il servizio fa la prova con le dovute cautele: solo indirizzi https pubblici
   VLC, per esempio). La limitazione al dominio è un ostacolo per i browser, non
   per un programma. Solo i link firmati a tempo lo impediscono davvero (e anche
   quelli valgono per qualche ora).
+- Con i link firmati la pagina chiede il suo link al servizio con qualche
+  secondo casuale di attesa (mille persone non chiedono nello stesso istante)
+  e ne chiede uno nuovo quando è passato l'80% della validità: in quel momento
+  il video si ricarica (1-2 secondi) e riparte dal punto live, con l'audio
+  com'era.
+- La firma sta nella query del link della playlist; il player la aggiunge anche
+  alle richieste delle playlist delle singole qualità e dei segmenti verso lo
+  stesso server. Su **Safari, iPhone e iPad** questo il browser da solo non lo
+  permette: con un link firmato anche lì si usa hls.js (iPhone da iOS 17.1,
+  iPad, Mac). Su un iPhone più vecchio la web TV deve mettere la firma negli
+  indirizzi scritti dentro le playlist (quasi tutte le CDN lo fanno da sole:
+  domanda 6 del §5.7).
 
 ### 5.6 La banda: 1000 persone insieme
 
@@ -491,7 +511,11 @@ Player: `https://storage.googleapis.com/shaka-live-assets/player-source.m3u8`):
    tutti" in *Regia* fa passare tutti subito.
 4. **Rete**: metti il telefono in modalità aereo per 10 secondi e poi toglila:
    "Stiamo ricollegando la diretta…" e poi il video riparte da solo.
-5. Ripeti con un telefono **Android** (Chrome) e un computer con **Chrome,
+5. **Link firmati** (se la web TV li usa): ripeti il punto 2 su iPhone e iPad
+   con la firma attiva, e lascia la pagina aperta oltre l'80% della durata
+   scelta (con una durata di 1 ora, dopo 48 minuti): il video si ricarica da
+   solo in un paio di secondi.
+6. Ripeti con un telefono **Android** (Chrome) e un computer con **Chrome,
    Edge e Firefox** (lì lavora hls.js).
 
 ---
@@ -917,13 +941,21 @@ window.NGBPlayer = {
     idDa(testo)   // il valore da salvare dal link incollato, oppure ''
 };
 // istanza:
-player.carica(url); player.play(); player.pausa(); player.alterna();
+player.carica(url, { firmato });   // sempre dal punto live; firmato: true per un link firmato a tempo
+player.play(); player.pausa(); player.alterna();
 player.muto(); player.smuto(); player.eMuto(); player.volume(0-100); player.leggiVolume();
-player.vaiAlLive(); player.cerca(secondi); player.finestra();   // { posizione, inizio, fine, ritardo, dvr, diretta }
+player.vaiAlLive(); player.finestra();   // { posizione, inizio, fine, ritardo, dvr, diretta }
+player.cerca(secondi);   // un punto fra finestra().inizio e finestra().fine (per esempio fine - 120)
 player.livelliQualita(); player.impostaQualita(v);
 player.stato(); player.mostra(true|false); player.distruggi();
 player.capacita();   // { comandi, qualita, dvr }: comandi false = pagina incorporata, restano i suoi
+// onErrore({ codice }): 'rete', 'media', 'segnale', 'lento', 'libreria', 'browser', 'link'
 ```
+
+Il player non riprova da solo dopo un errore: ricollegamento, attese e
+passaggio alla riserva li decide la pagina (`diretta.js`), che chiama di nuovo
+`carica()`. Il `<video>` resta lo stesso fra un `carica()` e l'altro (chi ha
+attivato l'audio lo ritrova).
 
 Oggi `player-webtv.js` sceglie da solo secondo il link: HLS (nativo su Safari,
 hls.js altrove), DASH (dash.js) o la pagina della web TV incorporata. Che cosa

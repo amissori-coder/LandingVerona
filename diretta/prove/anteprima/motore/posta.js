@@ -9,7 +9,7 @@
    ============================================================ */
 'use strict';
 
-const CHIAVE = 'ngbAnteprimaPosta.v2';
+const CHIAVE = 'ngbAnteprimaPosta.v3';
 const MASSIMO = 80;
 
 const posta = {
