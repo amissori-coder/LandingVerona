@@ -55,11 +55,11 @@ const path = require('path');
 const crypto = require('crypto');
 const C = require('./diretta-comune');
 const M = require('./diretta-mail');
+const N = require('./diretta-nome-utente');
 const { generaPassword } = require('./diretta-password');
 
 const STATI = ['da inviare', 'in coda', 'invio', 'inviata', 'respinta', 'errore', 'incerto'];
 const RE_ID_EVENTO = /^[a-z0-9][a-z0-9-]{2,40}$/;
-const RE_EMAIL = /^[^@\s<>"',;]+@[^@\s<>"',;]+\.[^@\s<>"',;]+$/;
 const MINUTO = 60 * 1000;
 const GIORNO = 24 * 60 * MINUTO;
 // dopo quanto un 'invio' rimasto a meta' diventa 'incerto'
@@ -83,7 +83,13 @@ const CACHE_ESITI_MS = 10 * MINUTO;
 const OGNI_ESITI_CRON_MS = 30 * MINUTO;
 const PER_PAGINA_BREVO = 2500;
 const MAX_PAGINE_BREVO = 4;
-const TIPI_RIMBALZO = ['hardBounces', 'softBounces', 'blocked', 'invalid'];
+/* Solo i rifiuti PERMANENTI (DECISIONI T2 e D14: 'respinta' = il
+   destinatario non ricevera' mai). Un softBounce (casella piena, server
+   del destinatario momentaneamente giu') non dice niente di definitivo, e
+   puo' riguardare un'altra email allo stesso indirizzo: segnare
+   'respinta' credenziali gia' consegnate farebbe partire, con "Reinvia a
+   chi non l'ha ricevuta", una password nuova che cancella quella buona. */
+const TIPI_RIMBALZO = ['hardBounces', 'blocked', 'invalid'];
 /* Chi riceve i promemoria: SOLO chi ha le credenziali per quell'evento
    in stato 'inviata' (e l'account attivo). Non chi e' ancora 'da
    inviare', 'in coda', 'respinta', 'errore' o 'incerto': un promemoria
@@ -113,6 +119,14 @@ function millis(v) {
 }
 function voce(dati, idEvento) {
     return (dati && dati.invii && dati.invii[idEvento]) || {};
+}
+/* L'indirizzo a cui si spedisce: UNA regola sola, la stessa del
+   caricamento (lib/diretta-dati.js) e di "una email = un account":
+   l'indirizzo normalizzato, senza spazi ne' caratteri invisibili, in
+   minuscolo, controllato con emailValida. Per i profili caricati prima
+   che si salvasse cosi' si ricava dall'email scritta. */
+function indirizzoDi(dati) {
+    return String((dati && (dati.emailNorm || N.emailNormalizzata(dati.email))) || '');
 }
 function rifCoda(ctx, idEvento) { return ctx.db.collection('code').doc(idEvento); }
 function rifPartecipanti(ctx) { return ctx.db.collection('partecipanti'); }
@@ -481,7 +495,7 @@ function nonInviabile(d, idEvento) {
     if (d.stato !== 'attivo') return 'Account disattivato: riattivalo prima di inviare le credenziali';
     if (!d.authCreato) return 'Account non ancora creato: ricarica il file per completarlo';
     if (!(Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0)) return 'La persona non è iscritta a questo evento';
-    if (!RE_EMAIL.test(String(d.email || '').trim())) return 'Indirizzo email non valido';
+    if (!N.emailValida(indirizzoDi(d))) return 'Indirizzo email non valido';
     return '';
 }
 async function reclama(ctx, ref, idEvento, opz) {
@@ -526,7 +540,7 @@ async function inviaUna(ctx, trasporto, idEvento, evento, uid, dati) {
         sostituisce: sostituzione(dati, idEvento), adesso: ctx.adesso()
     });
     try {
-        await spedisci(trasporto, { a: String(dati.email || '').trim(), mail: mail, custom: 'diretta|' + idEvento + '|' + uid, tipo: 'credenziali' });
+        await spedisci(trasporto, { a: indirizzoDi(dati), mail: mail, custom: 'diretta|' + idEvento + '|' + uid, tipo: 'credenziali' });
         return { stato: 'inviata' };
     } catch (e) {
         return classifica(e);
@@ -806,8 +820,8 @@ async function ripristina(ctx, ref, idEvento, prec) {
    vero (un giorno prima, un'ora prima), cosi' le parole sono giuste. */
 const ESEMPIO = { nome: 'Mario', cognome: 'Rossi', nomeUtente: 'mariorossi', password: 'Esempio7Kq' };
 async function inviaProva(ctx, opz) {
-    const a = String((opz && opz.a) || '').trim();
-    if (!RE_EMAIL.test(a)) throw C.errore(400, 'Indirizzo per la prova non valido', 'a');
+    const a = N.emailNormalizzata((opz && opz.a) || '');
+    if (!N.emailValida(a)) throw C.errore(400, 'Indirizzo per la prova non valido', 'a');
     const idEvento = validaEvento(opz && opz.idEvento);
     const tipo = String((opz && opz.tipo) || 'credenziali');
     const evento = await leggiEvento(ctx, idEvento);
@@ -851,8 +865,8 @@ async function inviaReimpostazione(ctx, opz) {
     const o = opz || {};
     let trasporto = null;
     try {
-        const a = String(o.a || '').trim();
-        if (!RE_EMAIL.test(a)) return { ok: false, motivo: 'indirizzo non valido' };
+        const a = N.emailNormalizzata(o.a || '');
+        if (!N.emailValida(a)) return { ok: false, motivo: 'indirizzo non valido' };
         const mail = M.reimpostazione({
             nome: o.nome, cognome: o.cognome, nomeUtente: o.nomeUtente, link: o.link, perGestore: !!o.perGestore,
             assistenza: C.assistenza(), adesso: ctx.adesso()
@@ -939,7 +953,7 @@ async function destinatariPromemoria(ctx, idEvento, evento, inviate, cd) {
     if (!aperti.length) return out;
     if (aperti.some(t => fatti[t])) {
         const snap = await conStato(ctx, idEvento, STATI_PROMEMORIA[0])
-            .select('stato', 'authCreato', 'email', 'eventi', new ctx.FieldPath('invii', idEvento, 'stato'), new ctx.FieldPath('promemoria', idEvento))
+            .select('stato', 'authCreato', 'email', 'emailNorm', 'eventi', new ctx.FieldPath('invii', idEvento, 'stato'), new ctx.FieldPath('promemoria', idEvento))
             .get();
         snap.docs.forEach(doc => {
             const d = doc.data();
@@ -958,9 +972,10 @@ async function destinatariPromemoria(ctx, idEvento, evento, inviate, cd) {
    I RIMBALZI LETTI DA BREVO
    "Inviata" vuol dire solo che Brevo ha preso in carico il messaggio.
    Se poi la casella non esiste o il server del destinatario rifiuta, lo
-   sa Brevo: glielo si chiede per tipo di evento (hardBounces,
-   softBounces, blocked, invalid) e per finestra di date, e si segnano
-   'respinta' le persone con un rimbalzo arrivato DOPO il loro invio.
+   sa Brevo: glielo si chiede per tipo di evento, SOLO i rifiuti
+   permanenti (hardBounces, blocked, invalid: vedi TIPI_RIMBALZO), e per
+   finestra di date, e si segnano 'respinta' le persone con un rimbalzo
+   arrivato DOPO il loro invio.
    Senza BREVO_API_KEY i rimbalzi non si vedono (e lo si dice).
    La quota di Brevo (300 chiamate l'ora per /smtp, condivise con il
    resto dello studio) si protegge con una cache di 10 minuti in
@@ -1018,8 +1033,13 @@ async function rimbalziBrevo(ctx, dal) {
             if (!r.ok) return { ok: false, msg: r.stato === 429 ? 'Brevo: troppe richieste, riprova fra qualche minuto.' : 'Brevo non ha risposto (' + r.stato + ').' };
             const eventi = (r.dati && Array.isArray(r.dati.events)) ? r.dati.events : [];
             eventi.forEach(ev => {
-                const em = String((ev && ev.email) || '').trim().toLowerCase();
+                const em = N.emailNormalizzata(ev && ev.email);
                 if (!em) return;
+                /* Si e' chiesto un tipo solo, ma se Brevo mescolasse nella
+                   risposta un rifiuto temporaneo (i nomi cambiano forma da un
+                   endpoint all'altro: softBounce, soft_bounce, deferred) lo si
+                   scarta qui: non e' mai un motivo per dire 'respinta'. */
+                if (/soft|defer/.test(String((ev && ev.event) || '').toLowerCase().replace(/[\s_-]/g, ''))) return;
                 (righe[em] = righe[em] || []).push({ tipo: tipo, quando: Date.parse(String(ev.date || '')) || 0, motivo: pulisciMotivo(ev.reason) });
             });
             if (eventi.length < PER_PAGINA_BREVO) break;
@@ -1030,7 +1050,7 @@ async function rimbalziBrevo(ctx, dal) {
     await ref.set({ quando: ora, dal: inizio, righe: tenute });
     return { ok: true, righe: tenute, quando: ora };
 }
-const NOMI_RIMBALZO = { hardBounces: 'rimbalzo definitivo', softBounces: 'rimbalzo temporaneo', blocked: 'bloccata da Brevo', invalid: 'indirizzo non valido' };
+const NOMI_RIMBALZO = { hardBounces: 'rimbalzo definitivo', blocked: 'bloccata da Brevo', invalid: 'indirizzo non valido' };
 /* -> { respinte, letto, disponibile, aggiornato?, msg? } */
 async function aggiornaEsiti(ctx, opz) {
     const idEvento = validaEvento(opz && opz.idEvento);
@@ -1044,7 +1064,7 @@ async function aggiornaEsiti(ctx, opz) {
     snap.docs.forEach(doc => {
         const d = doc.data();
         const quando = millis(voce(d, idEvento).inviata);
-        const em = String(d.emailNorm || d.email || '').trim().toLowerCase();
+        const em = indirizzoDi(d);
         if (!em || !Number.isFinite(quando)) return;
         inviate.push({ ref: doc.ref, email: em, quando: quando });
         dal = Math.min(dal, quando);
@@ -1055,7 +1075,9 @@ async function aggiornaEsiti(ctx, opz) {
     let respinte = 0;
     for (const p of inviate) {
         // un rimbalzo vale solo se e' arrivato dopo QUESTO invio (un minuto di tolleranza sugli orologi)
-        const rimbalzo = (b.righe[p.email] || []).filter(x => x.quando >= p.quando - MINUTO).sort((x, y) => y.quando - x.quando)[0];
+        // (solo i tipi permanenti: una cache scritta prima di questa regola puo' contenere anche altro)
+        const rimbalzo = (b.righe[p.email] || []).filter(x => TIPI_RIMBALZO.indexOf(x.tipo) >= 0 && x.quando >= p.quando - MINUTO)
+            .sort((x, y) => y.quando - x.quando)[0];
         if (!rimbalzo) continue;
         const cambiata = await ctx.db.runTransaction(async tx => {
             const s = await tx.get(p.ref);
@@ -1118,7 +1140,7 @@ function vuolePromemoria(d, idEvento, tipo) {
     const segno = ((d.promemoria || {})[idEvento] || {})[tipo];
     return segno == null && d.stato === 'attivo' && d.authCreato === true
         && Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0
-        && STATI_PROMEMORIA.indexOf(voce(d, idEvento).stato) >= 0 && RE_EMAIL.test(String(d.email || '').trim());
+        && STATI_PROMEMORIA.indexOf(voce(d, idEvento).stato) >= 0 && N.emailValida(indirizzoDi(d));
 }
 async function promemoriaUna(ctx, trasporto, ref, idEvento, evento, tipo) {
     const campo = new ctx.FieldPath('promemoria', idEvento, tipo);
@@ -1136,7 +1158,7 @@ async function promemoriaUna(ctx, trasporto, ref, idEvento, evento, tipo) {
         paginaEvento: evento.paginaEvento, assistenza: C.assistenza(), adesso: ctx.adesso()
     });
     try {
-        await spedisci(trasporto, { a: String(dati.email).trim(), mail: mail, custom: 'diretta|' + idEvento + '|' + ref.id, tipo: 'promemoria-' + tipo });
+        await spedisci(trasporto, { a: indirizzoDi(dati), mail: mail, custom: 'diretta|' + idEvento + '|' + ref.id, tipo: 'promemoria-' + tipo });
         await ref.update(campo, ts(ctx)).catch(e => log('promemoria partito ma non registrato (resta "invio")', e));
         return { stato: 'inviata' };
     } catch (e) {

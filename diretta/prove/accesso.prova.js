@@ -32,6 +32,13 @@
    - 20 accessi CONTEMPORANEI sbagliati per lo stesso nome dalla stessa
      rete: al massimo 5 arrivano alla verifica, gli altri 429.
    - 5 errori da una rete non bloccano lo stesso nome da un'altra rete.
+   - Un accesso riuscito restituisce subito il tentativo della rete
+     (tentativiIp/{rete}_{finestra}: inCorso torna a 0, falliti 0).
+   - 100 accessi CONTEMPORANEI sbagliati da una rete, con 100 nomi
+     diversi: al massimo 40 arrivano alla verifica, poi la rete aspetta
+     (anche con la password giusta), mentre da un'altra rete si entra.
+   - 60 "password dimenticata" CONTEMPORANEE da una rete, per 60 persone
+     diverse: al massimo 20 email; tutte le richieste contate.
    - Password dimenticata con nome utente, con email, con nome o email
      inesistenti: sempre la stessa risposta, dopo lo stesso tempo; con
      la posta finta, l'email con /diretta/reimposta.html?oobCode= arriva
@@ -45,6 +52,9 @@
      nel documento dell'evento solo in onda.
    - Un solo dispositivo: il secondo accesso cambia la sessione ammessa
      e le regole rifiutano la presenza del primo dispositivo.
+   - Un iscritto con uno spazio invisibile U+200B nell'email (caricato
+     cosi', o rimasto cosi' da prima della regola unica) riceve
+     credenziali e reimpostazione all'indirizzo giusto.
    - Nei log del servizio non compaiono password ne' indirizzi email.
    Esce con 1 se qualcosa e' rosso.
    ============================================================ */
@@ -235,6 +245,54 @@ async function creaPresenza(idToken, uid, sessione) {
 }
 const password = () => 'Pr' + crypto.randomBytes(6).toString('base64url') + '7k';
 const coppia = (nome, ip) => db.collection('tentativi').doc(nome + '_' + C.improntaIp(ip));
+// il contatore della rete per la finestra fissa di 15 minuti che contiene `quando` (come lo calcola il servizio)
+const QUINDICI_MINUTI = 15 * 60 * 1000;
+async function contatoreRete(ip, t0, t1) {
+    const ids = Array.from(new Set([Math.floor(t0 / QUINDICI_MINUTI), Math.floor(t1 / QUINDICI_MINUTI)]));
+    const somma = { inCorso: 0, falliti: 0 };
+    for (const f of ids) {
+        const d = (await db.collection('tentativiIp').doc(C.improntaIp(ip) + '_' + f).get()).data() || {};
+        somma.inCorso += Number(d.inCorso) || 0;
+        somma.falliti += Number(d.falliti) || 0;
+    }
+    return somma;
+}
+/* Una raffica non deve cadere a cavallo di due finestre dei limiti (15
+   minuti per l'accesso, un'ora per "password dimenticata"): se manca
+   poco al cambio, si aspetta che passi. */
+async function fuoriDalBordo(finestraMs, margineMs) {
+    const resto = finestraMs - (Date.now() % finestraMs);
+    if (resto < margineMs) { console.log('       (attesa di ' + Math.ceil(resto / 1000) + ' s: la finestra dei limiti sta per cambiare)'); await pausa(resto + 500); }
+}
+/* Tante persone in un colpo, direttamente con firebase-admin (come fa
+   coda.prova.js): account Auth con l'email tecnica dell'uid e i
+   documenti come li scrive 'crea'. Servono solo a dare nomi e indirizzi
+   veri alle raffiche; stanno in un evento a parte, per non cambiare i
+   conti dell'evento di Napoli. */
+async function creaPersoneVeloci(quante, prefisso, idEvento) {
+    const persone = Array.from({ length: quante }, (_, i) => {
+        const nomeUtente = prefisso + i;
+        return { uid: 'p' + crypto.randomBytes(10).toString('hex'), nomeUtente: nomeUtente, email: nomeUtente + '@raffica.prova' };
+    });
+    const r = await auth.importUsers(persone.map(p => ({ uid: p.uid, email: C.emailTecnica(p.uid), displayName: 'Prova ' + p.nomeUtente, customClaims: { eventi: [idEvento] } })));
+    if (r.failureCount) throw new Error('importUsers: ' + r.failureCount + ' falliti');
+    const ora = admin.firestore.Timestamp.now();
+    for (const gruppo of C.aGruppi(persone, 100)) {
+        const b = db.batch();
+        gruppo.forEach(p => {
+            b.set(db.collection('partecipanti').doc(p.uid), {
+                uid: p.uid, nomeUtente: p.nomeUtente, nome: 'Prova', cognome: p.nomeUtente, email: p.email, emailNorm: p.email, azienda: '',
+                idEvento: idEvento, eventi: [idEvento], stato: 'attivo', authCreato: true, ultimoAccesso: null,
+                invii: {}, promemoria: {}, creato: ora, aggiornato: ora
+            });
+            b.set(db.collection('nomiUtente').doc(p.nomeUtente), { uid: p.uid, base: p.nomeUtente, creato: ora });
+            b.set(db.collection('indirizzi').doc(p.email), { uid: p.uid, creato: ora });
+            b.set(db.collection('sessioni').doc(p.uid), { stato: 'attivo', sessioneAttiva: null, aggiornato: ora });
+        });
+        await b.commit();
+    }
+    return persone;
+}
 
 (async () => {
     const emulatori = await assicuraEmulatori();
@@ -322,12 +380,16 @@ const coppia = (nome, ip) => db.collection('tentativi').doc(nome + '_' + C.impro
         /* ================= ENTRA ================= */
         console.log('\nAccesso');
         const v0 = verifiche;
+        const tMario = Date.now();
         const mario = await entra('  MARIO   Rossi ', P.mariorossi.password, { ip: '10.0.0.9' });
         vero(mario.stato === 200 && mario.dati.nomeUtente === 'mariorossi' && mario.dati.idEvento === EVENTO && !!mario.dati.token,
             '"  MARIO   Rossi " entra come mariorossi', mario.stato + ' ' + mario.testo.slice(0, 200));
         vero(!/password/i.test(Object.keys(mario.dati).join(',')) && mario.dati.nome === 'Mario' && /^[0-9a-f]{24}$/.test(mario.dati.sessione),
             'risposta: token, sessione, evento, nome (niente password)');
         uguale(verifiche - v0, 1, 'una verifica della password (Identity Toolkit)');
+        const reteMario = await contatoreRete('10.0.0.9', tMario, Date.now());
+        vero(reteMario.inCorso === 0 && reteMario.falliti === 0,
+            'accesso riuscito: il tentativo della rete e\' gia\' restituito (inCorso ' + reteMario.inCorso + ', falliti ' + reteMario.falliti + ')');
         const sess = await rest('signInWithCustomToken', { token: mario.dati.token, returnSecureToken: true });
         const idTokMario = sess.dati.idToken;
         vero(!!idTokMario && JSON.stringify(contenuto(idTokMario).eventi) === '["napoli-2026"]', 'il token funziona (signInWithCustomToken) e porta il claim eventi ["napoli-2026"]');
@@ -525,6 +587,82 @@ const coppia = (nome, ip) => db.collection('tentativi').doc(nome + '_' + C.impro
             uguale((await entra('luigiverdi', P.luigiverdi.password, { ip: '10.0.3.3' })).stato, 401, 'dopo il reinvio la vecchia password non vale piu\'');
         }
 
+        /* ================= RAFFICHE DA UNA RETE ================= */
+        console.log('\n100 accessi CONTEMPORANEI sbagliati da una rete, con 100 nomi diversi');
+        const raffica = await creaPersoneVeloci(100, 'raffica', 'raffica-2026');
+        await fuoriDalBordo(QUINDICI_MINUTI, 15000);
+        const ipR = '10.0.5.1';
+        const v5 = verifiche;
+        const tR = Date.now();
+        const cento = await Promise.all(raffica.map((p, i) => entra(p.nomeUtente, 'Sbagliata' + i, { ip: ipR })));
+        const arrivateR = verifiche - v5;
+        const conta = st => cento.filter(r => r.stato === st).length;
+        console.log('       (risposte 401: ' + conta(401) + ', 429: ' + conta(429) + ', 503: ' + conta(503) + '; verifiche arrivate a Google: ' + arrivateR + '; ' + (Date.now() - tR) + ' ms)');
+        vero(arrivateR <= 40 && conta(401) <= 40, 'arrivate alla verifica: ' + arrivateR + ' (al massimo 40); risposte "password sbagliata": ' + conta(401));
+        vero(conta(401) + conta(429) + conta(503) === 100 && conta(429) > 0, 'le altre si fermano PRIMA della verifica (429 attendi: ' + conta(429) + ', 503 riprova: ' + conta(503) + ')');
+        vero(conta(401) === arrivateR && arrivateR >= 20, 'ogni 401 e\' una verifica vera, e la rete ha avuto i suoi tentativi (' + arrivateR + ')');
+        vero(cento.filter(r => r.stato === 429).every(r => r.dati.codice === 'attendi' && r.dati.attesaSecondi >= 290), '429 con l\'attesa della rete (almeno 5 minuti)');
+        const reteR = await contatoreRete(ipR, tR, Date.now());
+        vero(reteR.falliti === conta(401) && reteR.inCorso === 0, 'contatore della rete: falliti ' + reteR.falliti + ', in corso ' + reteR.inCorso + ' (nessun tentativo rimasto appeso)');
+        const bloccoR = (await db.collection('tentativiIp').doc(C.improntaIp(ipR)).get()).data() || {};
+        vero(bloccoR.bloccatoFino > Date.now() + 4 * 60000, 'la rete e\' bloccata per almeno 5 minuti (tentativiIp/<rete>.bloccatoFino)');
+        const vR = verifiche;
+        const giustaBloccata = await entra('elenagialli', P.elenagialli.password, { ip: ipR });
+        vero(giustaBloccata.stato === 429 && verifiche === vR, 'dalla rete bloccata anche la password giusta aspetta, senza verifica');
+        const altraRete = await entra('elenagialli', P.elenagialli.password, { ip: '10.0.5.2' });
+        uguale(altraRete.stato, 200, 'da un\'altra rete la stessa persona entra');
+
+        console.log('\n60 "password dimenticata" CONTEMPORANEE da una rete, per 60 persone diverse');
+        await fuoriDalBordo(60 * 60 * 1000, 20000);
+        const postaPrimaR = leggiPosta().length;
+        const tDim = Date.now();
+        const sessanta = await Promise.all(raffica.slice(0, 60).map(p => chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: p.nomeUtente }, { ip: '10.0.6.1' })));
+        vero(sessanta.every(r => r.stato === 200 && r.testo === sessanta[0].testo), 'sempre la stessa risposta (' + sessanta.length + ' richieste, ' + (Date.now() - tDim) + ' ms)');
+        const limiteRete = (await db.collection('limiti').doc('resetip_' + C.improntaIp('10.0.6.1') + '_' + Math.floor(tDim / 3600000)).get()).data() || {};
+        vero(limiteRete.conteggio === 60, 'tutte le richieste contate, nessuna persa nella raffica (conteggio ' + limiteRete.conteggio + ')');
+        if (invioPresente) {
+            await pausa(300);
+            const resetR = leggiPosta().slice(postaPrimaR).filter(m => /@raffica\.prova$/.test(String(m.a)));
+            /* Al massimo 20: il conteggio e' "incremento e poi rilettura", senza transazione, e in una
+               raffica la rilettura di una richiesta vede anche i +1 arrivati subito dopo; quindi ne
+               possono passare meno di 20, mai di piu'. */
+            vero(resetR.length <= 20 && resetR.length >= 1, 'email di reimpostazione partite: ' + resetR.length + ' (al massimo 20 all\'ora dalla stessa rete)');
+            vero(new Set(resetR.map(m => m.a)).size === resetR.length, 'a persone tutte diverse, una email ciascuna');
+            const postaAltra = leggiPosta().length;
+            await chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: raffica[70].nomeUtente }, { ip: '10.0.6.2' });
+            await pausa(300);
+            vero(leggiPosta().slice(postaAltra).filter(m => m.a === raffica[70].email).length === 1, 'da un\'altra rete la richiesta passa (il tetto e\' per rete)');
+        }
+
+        /* ================= L'INDIRIZZO CON LO SPAZIO INVISIBILE ================= */
+        console.log('\nUn\'email con lo spazio invisibile U+200B (copiato da Excel)');
+        const creaZ = await gestione({
+            azione: 'crea', idEvento: EVENTO, righe: [
+                { riga: 2, nome: 'Zeno', cognome: 'Invisibile', email: 'Zeno.Invisibile@esempio.it\u200b', azienda: 'Prova srl' },
+                { riga: 3, nome: 'Ugo', cognome: 'Vecchio', email: 'ugo.vecchio@esempio.it', azienda: 'Prova srl' }
+            ]
+        }, tokG);
+        const [rZ, rU] = creaZ.dati.risultati || [{}, {}];
+        const pZ = rZ.uid ? (await db.collection('partecipanti').doc(rZ.uid).get()).data() : {};
+        vero(creaZ.stato === 200 && rZ.esito === 'creato' && pZ.email === 'zeno.invisibile@esempio.it' && pZ.emailNorm === pZ.email,
+            'caricato con U+200B: si salva l\'indirizzo normalizzato (' + JSON.stringify(pZ.email) + ')');
+        // un profilo caricato PRIMA della regola unica: nel campo email c'e' ancora il carattere invisibile
+        if (rU.uid) await db.collection('partecipanti').doc(rU.uid).update({ email: 'Ugo.Vecchio@esempio.it\u200b ' });
+        if (invioPresente) {
+            const postaZ = leggiPosta().length;
+            const reZ = await gestione({ azione: 'partecipante', uid: rZ.uid, idEvento: EVENTO, operazione: 'reinvia' }, tokG);
+            const reU = await gestione({ azione: 'partecipante', uid: rU.uid, idEvento: EVENTO, operazione: 'reinvia' }, tokG);
+            vero(reZ.stato === 200 && reU.stato === 200 && reZ.dati.invio.stato === 'inviata' && reU.dati.invio.stato === 'inviata',
+                'credenziali inviate a tutti e due (anche al profilo con U+200B nel campo email)', reZ.testo.slice(0, 160) + ' / ' + reU.testo.slice(0, 160));
+            const credZ = leggiPosta().slice(postaZ).filter(m => m.tipo === 'credenziali');
+            uguale(credZ.map(m => m.a).sort(), ['ugo.vecchio@esempio.it', 'zeno.invisibile@esempio.it'], 'le credenziali arrivano agli indirizzi giusti, senza il carattere invisibile');
+            const postaU = leggiPosta().length;
+            await chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: 'Ugo Vecchio' }, { ip: '10.0.7.1' });
+            await pausa(300);
+            const resetU = leggiPosta().slice(postaU);
+            vero(resetU.length === 1 && resetU[0].a === 'ugo.vecchio@esempio.it', 'password dimenticata: il collegamento va all\'indirizzo normalizzato (' + JSON.stringify(resetU.map(m => m.a)) + ')');
+        }
+
         console.log('\nStato pubblico dopo la messa in onda');
         await pausa(Math.max(0, 15500 - (Date.now() - tInOnda)));
         const stato2 = await fetch(API + '/diretta-stato?evento=' + EVENTO);
@@ -537,7 +675,7 @@ const coppia = (nome, ip) => db.collection('tentativi').doc(nome + '_' + C.impro
         await pausa(200);
         const log = fs.readFileSync(LOG_SERVER, 'utf8');
         vero(segrete.every(s => log.indexOf(s) < 0), 'nessuna password nei log del servizio');
-        vero(!/@esempio\.it|gestore@prova\.it/i.test(log), 'nessun indirizzo email nei log del servizio');
+        vero(!/@esempio\.it|@raffica\.prova|gestore@prova\.it/i.test(log), 'nessun indirizzo email nei log del servizio');
     } catch (e) {
         console.error(e);
         rossi++;

@@ -35,7 +35,11 @@
         password di prima non vale piu', e chi entra in un secondo
         evento legge che la password nuova vale per tutti.
      I. tetto giornaliero (statoCoda: limiteRaggiunto, rimasteOggi);
-        rimbalzi letti da un Brevo finto (con cache; esitiDisponibili).
+        rimbalzi letti da un Brevo finto (con cache; esitiDisponibili):
+        solo i rifiuti permanenti, un softBounce non cambia lo stato.
+     L. indirizzi scritti con uno spazio invisibile U+200B, uno spazio
+        in mezzo, un apostrofo: validi per il caricamento, quindi anche
+        per l'invio, e le email vanno all'indirizzo normalizzato.
      J. promemoria del giorno prima e dell'ora prima con l'orologio
         spostato (ctx.adesso): partono una volta sola, senza password,
         solo sugli eventi dove sono attivi, e SOLO a chi ha le
@@ -248,7 +252,7 @@ async function creaPersone(idEvento, da, quante, opz) {
         persone.push({
             i: i, uid: 'p' + require('crypto').randomBytes(10).toString('hex'),
             nome: nome, cognome: cognome, nomeUtente: NU.conNumero(base, basiUsate[base]), base: base,
-            email: (i % 9 === 0 ? ' Persona' + i + '@Coda.Prova ' : indirizzo(i)).trim(),
+            email: opz.email ? opz.email(i - da) : (i % 9 === 0 ? ' Persona' + i + '@Coda.Prova ' : indirizzo(i)).trim(),
             disattivato: (opz.disattivati || []).indexOf(i) >= 0,
             senzaAccount: (opz.senzaAccount || []).indexOf(i) >= 0
         });
@@ -649,23 +653,36 @@ async function prova() {
     const incFine = await invio.avanzaCoda(ctx, { idEvento: EVENTO_INCERTO, budgetMs: 5000 });
     vero(incFine.finito && !incFine.bloccato && (perUid('credenziali', EVENTO_INCERTO)[quattro[1].uid] || []).length === 1, 'coda vuota: finita, blocco tolto, e l\'incerto non si rispedisce');
 
-    // il Brevo finto: due rimbalzi nuovi, uno vecchio, uno di un indirizzo che non e' della diretta
+    /* il Brevo finto: due rimbalzi nuovi, uno vecchio, uno di un indirizzo che non e' della diretta;
+       e due rifiuti TEMPORANEI (softBounce, casella piena) su credenziali gia' consegnate: uno lo
+       darebbe la domanda "event=softBounces" (che il servizio non deve piu' fare), l'altro arriva
+       mescolato nella risposta degli hardBounces. Nessuno dei due deve cambiare lo stato (T2, D14). */
     const inviateOra = await conStato(EVENTO, 'inviata');
     const rimbalzati = inviateOra.slice(0, 2).map(d => d.data().emailNorm);
     const vecchio = inviateOra[2].data().emailNorm;
+    const soffice = inviateOra[3];
+    const sofficeMescolato = inviateOra[4];
     let chiamateBrevo = 0;
+    const tipiChiesti = new Set();
     brevoFinto = http.createServer((req, res) => {
         chiamateBrevo++;
         const u = new URL(req.url, 'http://x');
         res.setHeader('content-type', 'application/json');
         if (req.headers['api-key'] !== 'chiave-finta' || u.pathname !== '/v3/smtp/statistics/events') { res.statusCode = 401; res.end('{}'); return; }
-        if (u.searchParams.get('event') !== 'hardBounces') { res.statusCode = 404; res.end('{"code":"not_found"}'); return; }
+        const tipo = u.searchParams.get('event');
+        tipiChiesti.add(tipo);
         const adesso = new Date(ctx.adesso()).toISOString();
+        if (tipo === 'softBounces') {
+            res.end(JSON.stringify({ events: [{ email: soffice.data().emailNorm, date: adesso, event: 'softBounces', reason: 'mailbox full' }] }));
+            return;
+        }
+        if (tipo !== 'hardBounces') { res.statusCode = 404; res.end('{"code":"not_found"}'); return; }
         res.end(JSON.stringify({ events: [
             { email: rimbalzati[0], date: adesso, event: 'hardBounces', reason: 'mailbox does not exist' },
             { email: rimbalzati[1].toUpperCase(), date: adesso, event: 'hardBounces', reason: '<b>user unknown</b>' },
             { email: vecchio, date: '2020-01-01T10:00:00.000+02:00', event: 'hardBounces', reason: 'vecchio' },
-            { email: 'estraneo@altro-studio.it', date: adesso, event: 'hardBounces', reason: 'non nostro' }
+            { email: 'estraneo@altro-studio.it', date: adesso, event: 'hardBounces', reason: 'non nostro' },
+            { email: sofficeMescolato.data().emailNorm, date: adesso, event: 'soft_bounce', reason: '452 mailbox full' }
         ] }));
     });
     await new Promise(r => brevoFinto.listen(0, '127.0.0.1', r));
@@ -677,6 +694,11 @@ async function prova() {
     vero((await invio.statoCoda(ctx, { idEvento: EVENTO })).esitiDisponibili === true, 'con BREVO_API_KEY: statoCoda.esitiDisponibili = true');
     const esiti = await invio.aggiornaEsiti(ctx, { idEvento: EVENTO });
     vero(esiti.letto && esiti.respinte === 2, 'rimbalzi letti: ' + esiti.respinte + ' persone passano a "respinta" (il rimbalzo vecchio non conta)');
+    vero(!tipiChiesti.has('softBounces') && tipiChiesti.has('hardBounces'), 'a Brevo si chiedono solo i rifiuti permanenti: ' + Array.from(tipiChiesti).join(', ') + ' (niente softBounces)');
+    const statoSoffice = (await soffice.ref.get()).data().invii[EVENTO];
+    const statoMescolato = (await sofficeMescolato.ref.get()).data().invii[EVENTO];
+    vero(statoSoffice.stato === 'inviata' && statoMescolato.stato === 'inviata',
+        'un softBounce (casella piena) non cambia lo stato: le credenziali consegnate restano "inviata" (' + statoSoffice.stato + ', ' + statoMescolato.stato + ')');
     const r0 = (await ctx.db.collection('indirizzi').doc(rimbalzati[1]).get()).data().uid;
     const motivoR = (await ctx.db.collection('partecipanti').doc(r0).get()).data().invii[EVENTO];
     vero(motivoR.stato === 'respinta' && /Segnalata da Brevo/.test(motivoR.errore) && !/<b>/.test(motivoR.errore), 'il motivo arriva da Brevo, ripulito dai tag');
@@ -687,6 +709,38 @@ async function prova() {
     vero(chiamateBrevo === chiamatePrima && esiti2.respinte === 0, 'seconda lettura entro 10 minuti: dalla cache, nessuna chiamata a Brevo');
     delete process.env.BREVO_API_KEY;
     delete process.env.DIRETTA_BREVO_API;
+
+    /* ---------- L ---------- */
+    titolo('L. Indirizzi con spazi, caratteri invisibili e apostrofi: una sola regola per controllare e spedire');
+    /* Profili caricati PRIMA che il caricamento salvasse l'indirizzo
+       normalizzato: nel campo email c'e' ancora quello del file (uno
+       spazio invisibile U+200B copiato da Excel, uno spazio in mezzo, un
+       apostrofo, un BOM e un "word joiner"). Sono tutti validi per
+       emailValida (quella del caricamento), e devono ricevere le
+       credenziali all'indirizzo GIUSTO: niente U+200B che nodemailer
+       trasformerebbe in un dominio punycode, niente "indirizzo non valido". */
+    const EVENTO_INDIRIZZI = 'indirizzi-2026';
+    const SCRITTI = ['Zeta.Invisibile@Coda.Prova​', 'luigi.verdi @coda.prova', 'n.d\'angelo@coda.prova', '﻿o⁠brien@coda.prova '];
+    const GIUSTI = ['zeta.invisibile@coda.prova', 'luigi.verdi@coda.prova', 'n.d\'angelo@coda.prova', 'obrien@coda.prova'];
+    await creaEvento(EVENTO_INDIRIZZI, 'Prova degli indirizzi', '2026-11-22', { giornoPrima: false, oraPrima: false });
+    const strani = await creaPersone(EVENTO_INDIRIZZI, 500000, SCRITTI.length, { email: k => SCRITTI[k] });
+    vero(strani.every((p, k) => p.email === SCRITTI[k]), 'profili con l\'email come era scritta nel file (U+200B compreso)');
+    const accInd = await invio.accoda(ctx, { idEvento: EVENTO_INDIRIZZI, chi: 'da-inviare' });
+    vero(accInd.accodate === SCRITTI.length && accInd.saltate === 0, 'accodate tutte e ' + accInd.accodate + ' (nessuna scartata come "indirizzo non valido")');
+    const finInd = await finoAllaFine(EVENTO_INDIRIZZI, 'indirizzi');
+    vero(finInd.inviate === SCRITTI.length && finInd.errori === 0, 'credenziali inviate: ' + finInd.inviate + ', errori: ' + finInd.errori);
+    const postaInd = perUid('credenziali', EVENTO_INDIRIZZI);
+    const arrivi = strani.map(p => ((postaInd[p.uid] || [])[0] || {}).a);
+    vero(arrivi[0] === 'zeta.invisibile@coda.prova' && arrivi[0].indexOf('​') < 0,
+        'l\'iscritto con lo spazio invisibile U+200B nell\'email riceve le credenziali all\'indirizzo giusto: ' + JSON.stringify(arrivi[0]));
+    vero(JSON.stringify(arrivi) === JSON.stringify(GIUSTI), 'ognuno all\'indirizzo normalizzato: ' + arrivi.join(', '));
+    vero(strani.every(p => (postaInd[p.uid] || []).length === 1), 'una email di credenziali a testa');
+    const eventoInd = Object.assign({ id: EVENTO_INDIRIZZI }, (await ctx.db.collection('eventi').doc(EVENTO_INDIRIZZI).get()).data(), { promemoria: { giornoPrima: true, oraPrima: true } });
+    const dpInd = await I.destinatariPromemoria(ctx, EVENTO_INDIRIZZI, eventoInd, SCRITTI.length, { promemoria: { giorno: { cominciato: ctx.adesso() } } });
+    vero(dpInd.giorno === SCRITTI.length && dpInd.ora === SCRITTI.length, 'contati uno per uno, tutti riceverebbero i promemoria (giorno ' + dpInd.giorno + ', ora ' + dpInd.ora + ')');
+    const resetInd = await invio.inviaReimpostazione(ctx, { a: SCRITTI[0], nome: 'Zeta', nomeUtente: strani[0].nomeUtente, link: C.baseSito() + '/diretta/reimposta.html?oobCode=abc&u=' + strani[0].nomeUtente });
+    const ultimaResetInd = leggiPosta().filter(m => m.tipo === 'reimpostazione').pop();
+    vero(resetInd.ok && ultimaResetInd.a === 'zeta.invisibile@coda.prova', 'anche la reimpostazione va all\'indirizzo normalizzato: ' + JSON.stringify(ultimaResetInd.a));
 
     /* ---------- J ---------- */
     titolo('J. I promemoria, con l\'orologio spostato');

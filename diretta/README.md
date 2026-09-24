@@ -273,7 +273,9 @@ credenziali e promemoria.
 e scopre solo dopo che l'indirizzo non esiste. Lo stato **respinta** arriva
 quindi dall'API di Brevo (rimbalzi, indirizzi bloccati o non validi), letta dal
 pulsante "Aggiorna esiti" della gestione e dal lavoro programmato: serve
-`BREVO_API_KEY` (già presente per la newsletter).
+`BREVO_API_KEY` (già presente per la newsletter). Contano solo i rifiuti
+permanenti (indirizzo inesistente, bloccato o non valido): un rimbalzo
+temporaneo (casella piena) non cambia lo stato.
 
 **I promemoria** (giorno prima e un'ora prima, da attivare per ogni evento)
 partono solo a chi ha già ricevuto le credenziali (stato *inviata*) e ha
@@ -497,7 +499,9 @@ maiuscole e spazi: diventa `mariorossi` con la stessa regola.
 
 **Nessun utente doppio, a tre livelli:**
 1. **Stessa email = stessa persona = un account.** Il confronto ignora
-   maiuscole e spazi (anche quelli invisibili che arrivano da Excel). Se
+   maiuscole e spazi (anche quelli invisibili che arrivano da Excel). Gli
+   indirizzi si salvano e si usano per le email già ripuliti: in gestione
+   compaiono quindi in minuscolo. Se
    l'email c'è già, o compare due volte nel file, non si crea niente di nuovo:
    la persona viene solo aggiunta all'evento. Ricaricare lo stesso file non
    crea niente.
@@ -549,15 +553,26 @@ non si scopre chi è iscritto.
 - **Tentativi**: dopo 5 password sbagliate di fila dallo stesso dispositivo o
   rete, attesa crescente (30 s, 1 min, 2 min… fino a 15 min). In più un tetto
   largo per nome utente da qualunque provenienza (50 errori all'ora) e uno per
-  indirizzo IP. Il blocco non è solo sul nome, apposta: altrimenti chiunque
-  potrebbe tenere fuori una persona sbagliando la password al posto suo.
+  rete: al massimo 40 password sbagliate ogni quarto d'ora (finestre fisse:
+  :00, :15, :30, :45), poi tutta la rete aspetta almeno 5 minuti. Il tentativo
+  si conta **prima** della verifica, quindi i limiti reggono anche a raffiche
+  di richieste simultanee (la prova: su 100 tentativi simultanei ne arrivano
+  alla verifica 40); gli accessi riusciti restituiscono subito il loro
+  tentativo, e se molte persone della stessa rete entrano nello stesso secondo
+  al massimo si aspetta qualche secondo e compare "riprova", mai un blocco. Il
+  blocco non è solo sul nome, apposta: altrimenti chiunque potrebbe tenere
+  fuori una persona sbagliando la password al posto suo.
 - **Risposte uguali**: "password dimenticata" e "primo accesso" dei gestori
   rispondono sempre con lo stesso testo e in 2,5-2,9 secondi, così non si
   scopre chi è iscritto. Limite noto: se Brevo o Google rispondono molto
   lentamente, la risposta per un account esistente può arrivare più tardi (per
   evitarlo del tutto servirebbe spedire dopo la risposta con `waitUntil` di
   Vercel, una dipendenza in più che non abbiamo aggiunto); ogni account può
-  generare al massimo 3 di queste email al giorno.
+  generare al massimo 3 di queste email al giorno. Tetti orari a finestra
+  fissa: "password dimenticata" 20 richieste all'ora per rete e 200 email
+  all'ora in tutto; "primo accesso" dei gestori 10 all'ora per rete e 20 email
+  all'ora (tetto separato, così un'ondata di richieste dei partecipanti non
+  blocca i gestori). In una raffica ne passano meno, mai di più.
 - **Gestori**: l'elenco sta nella variabile `DIRETTA_ADMIN_EMAILS` e si
   controlla a ogni chiamata; l'account di gestione lo attiva solo il servizio
   ("Primo accesso o password dimenticata" nella pagina di gestione), e chi
@@ -637,28 +652,32 @@ di gestione** (40 chiamate `crea` da 25 righe, con molti omonimi apposta), poi
 ognuno, a un istante casuale dentro i 2 minuti, fa quello che fa la pagina:
 accesso con il nome utente scritto con maiuscole e spazi, token, lettura del
 profilo e dell'evento con le regole vere, primo segnale di presenza a un ritardo
-casuale (0-60 s) e il secondo 60 secondi dopo. Risultato dell'ultima esecuzione
-(24 settembre 2026, questa macchina: 4 processori):
+casuale (0-60 s) e il secondo 60 secondi dopo. Risultato dell'ultima esecuzione,
+sul codice definitivo (24 settembre 2026, questa macchina: 4 processori, con
+altre prove che giravano in parallelo):
 
 | Passo | n | p50 | p95 | p99 | massimo |
 |---|---:|---:|---:|---:|---:|
-| accesso (funzione `diretta-accesso`: blocco dei tentativi, verifica, token) | 1000 | 30 ms | 51 ms | 76 ms | 114 ms |
-| accesso a Firebase con il token | 1000 | 3 ms | 6 ms | 11 ms | 23 ms |
-| lettura del profilo (regole) | 1000 | 5 ms | 15 ms | 51 ms | 680 ms |
-| lettura dell'evento (regole) | 1000 | 7 ms | 20 ms | 114 ms | 269 ms |
-| primo segnale di presenza | 1000 | 9 ms | 15 ms | 23 ms | 104 ms |
-| segnale "continua" (+60 s, regole con l'orario del server) | 1000 | 9 ms | 14 ms | 40 ms | 62 ms |
-| `crea` (25 righe, nella preparazione) | 40 | 6,1 s | 6,8 s | 6,9 s | 6,9 s |
+| accesso (funzione `diretta-accesso`: blocco dei tentativi, verifica, token) | 1000 | 43 ms | 108 ms | 181 ms | 217 ms |
+| accesso a Firebase con il token | 1000 | 4 ms | 12 ms | 23 ms | 43 ms |
+| lettura del profilo (regole) | 1000 | 7 ms | 28 ms | 72 ms | 889 ms |
+| lettura dell'evento (regole) | 1000 | 9 ms | 38 ms | 94 ms | 376 ms |
+| primo segnale di presenza | 1000 | 10 ms | 24 ms | 54 ms | 197 ms |
+| segnale "continua" (+60 s, regole con l'orario del server) | 1000 | 9 ms | 19 ms | 54 ms | 80 ms |
+| `crea` (25 righe, nella preparazione) | 40 | 6,1 s | 6,9 s | 6,9 s | 6,9 s |
 
 - **Errori: nessuno** su 6000 operazioni; 1000 presenze scritte, tutte con il
   secondo segnale accettato dalle regole.
-- **Picco di accessi in un secondo: 17; picco di scritture di presenza in un
-  secondo: 24** (su 1000 persone): la partenza casuale funziona, non arrivano
+- **Picco di accessi in un secondo: 16; picco di scritture di presenza in un
+  secondo: 23** (su 1000 persone): la partenza casuale funziona, non arrivano
   mai tutte insieme.
 - Creazione dei 1000 account: **250 secondi** (circa 4 al secondo: è il
   limitatore delle scritture su Firebase Auth, 8 al secondo, che tiene lontani i
   limiti di Google; con la pagina di gestione sono 40 gruppi da 25).
-- Il contatore della gestione alla fine ne vedeva 956: la prova smette di
+- Tutti i 1000 accessi arrivano dallo stesso indirizzo (127.0.0.1): nessuno è
+  stato bloccato o rallentato dal limite per rete, che conta solo le password
+  sbagliate.
+- Il contatore della gestione alla fine ne vedeva 948: la prova smette di
   mandare segnali dopo il secondo, e chi era arrivato nei primi secondi aveva
   l'ultimo segnale da più di 150 secondi (la soglia del "collegato adesso").
 
@@ -823,6 +842,9 @@ rendi privato il video su YouTube se non deve restare visibile.
 
 **Da decidere con calma** (non bloccano Napoli)
 
+- Facoltativo: in *Firestore* → *TTL*, una regola sul campo `scade` per i
+  gruppi di raccolte `tentativiIp` e `limiti`, così i contatori dei limiti
+  vecchi si cancellano da soli (senza, restano ma non danno fastidio).
 - Per quanto tempo tenere accessi e presenze (dati personali: per esempio 12
   mesi) e se aggiungere una pulizia automatica; l'informativa privacy è già
   collegata dalla pagina di accesso e dalle email.

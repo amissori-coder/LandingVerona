@@ -23,7 +23,10 @@
    5. Una persona gia' presente aggiunta a un secondo evento: nessun
       account nuovo, claims aggiornati con i due eventi.
    6. La correzione di nome e cognome: nome utente ricalcolato, vecchio
-      nome liberato, controllo dei doppioni (anche sull'email).
+      nome liberato insieme ai suoi contatori dei tentativi (e solo ai
+      suoi), controllo dei doppioni (anche sull'email).
+   E in piu': l'indirizzo si salva normalizzato (anche con uno spazio
+   invisibile U+200B copiato da Excel), lo stesso a cui si spedira'.
    7. Un nome utente scritto a mano gia' occupato: il servizio ne
       assegna un altro e lo dice.
    8. Un account rimasto a meta' (Auth non creato) si completa
@@ -262,6 +265,13 @@ async function controllaTutto(ctx, titolo) {
         uguale(conta(tutte, 'creato'), 1, 'mandate tutte insieme al servizio: UN solo account per Carla Neri');
         const uidCarla = tutte.filter(r => r.riga <= 5).map(r => r.uid);
         vero(new Set(uidCarla).size === 1, 'le quattro righe di Carla puntano allo stesso uid');
+        const pCarla = (await ctx.db.collection('partecipanti').doc(uidCarla[0]).get()).data();
+        vero(pCarla.email === 'carla.neri@prova.it' && pCarla.emailNorm === 'carla.neri@prova.it',
+            'si salva l\'indirizzo normalizzato, lo stesso a cui si spedira\' (' + JSON.stringify(pCarla.email) + ')');
+        const zwsp = (await dati.crea(ctx, { idEvento: 'napoli-2026', righe: [{ riga: 7, nome: 'Zeno', cognome: 'Invisibile', email: 'Zeno.Invisibile@Prova.it\u200b', azienda: '' }] })).risultati[0];
+        const pZeno = zwsp.uid ? (await ctx.db.collection('partecipanti').doc(zwsp.uid).get()).data() : {};
+        vero(zwsp.esito === 'creato' && pZeno.email === 'zeno.invisibile@prova.it' && pZeno.email.indexOf('\u200b') < 0,
+            'un\'email con lo spazio invisibile U+200B si salva senza (' + JSON.stringify(pZeno.email) + ')');
         vero(tutte.find(r => r.riga === 6).esito === 'gia-nell-evento', 'A.MARIO0@Prova.it e\' la persona gia\' creata con a.mario0@prova.it');
 
         /* 3. caricamenti contemporanei */
@@ -344,10 +354,23 @@ async function controllaTutto(ctx, titolo) {
         console.log('\n7. Correzione di nome e cognome');
         const tre = primo.risultati.find(r => r.nomeUtente === 'mariorossi3');
         const emailTre = fileA.find(x => x.riga === tre.riga).email;
+        /* i contatori dei tentativi del vecchio nome (due reti) e, accanto, quelli di nomi vicini
+           ("mariorossi30", "mariorossi31", "mariorossi3a"): si devono cancellare i primi e solo quelli */
+        const reti = [C.improntaIp('10.7.0.1'), C.improntaIp('10.7.0.2')];
+        const tentativo = { falliti: 4, bloccatoFino: Date.now() + 60000, aggiornato: Date.now() };
+        const suoi = reti.map(r => 'mariorossi3_' + r);
+        const vicini = ['mariorossi30_' + reti[0], 'mariorossi31_' + reti[1], 'mariorossi3a_' + reti[0]];
+        await Promise.all(suoi.concat(vicini).map(id => ctx.db.collection('tentativi').doc(id).set(tentativo)));
+        await ctx.db.collection('tentativiNome').doc('mariorossi3').set({ falliti: 12, inizioFinestra: Date.now(), bloccatoFino: 0, aggiornato: Date.now() });
         const corr1 = await dati.operazionePartecipante(ctx, { uid: tre.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Maria', cognome: 'Rossi', azienda: 'Rossi srl', email: emailTre });
         vero(corr1.nomeUtenteCambiato && corr1.partecipante.nomeUtente === 'mariarossi', 'Mario -> Maria Rossi: nome utente ricalcolato in mariarossi');
         const liberato = await ctx.db.collection('nomiUtente').doc('mariorossi3').get();
         vero(!liberato.exists, 'il vecchio nome mariorossi3 e\' liberato');
+        const restiSuoi = await Promise.all(suoi.map(id => ctx.db.collection('tentativi').doc(id).get()));
+        const restiVicini = await Promise.all(vicini.map(id => ctx.db.collection('tentativi').doc(id).get()));
+        vero(restiSuoi.every(d => !d.exists) && !(await ctx.db.collection('tentativiNome').doc('mariorossi3').get()).exists,
+            'cancellati i tentativi del vecchio nome (mariorossi3_<rete> su due reti e tentativiNome): chi lo ricevera\' non eredita errori ne\' blocchi');
+        vero(restiVicini.every(d => d.exists), 'restano quelli dei nomi vicini (mariorossi30, mariorossi31, mariorossi3a)');
         const u3 = await ctx.auth.getUser(tre.uid);
         vero(u3.displayName === 'Maria Rossi' && u3.email === C.emailTecnica(tre.uid), 'Auth: nome visualizzato aggiornato, email tecnica invariata (nessuna sessione chiusa)');
         // una persona diversa (riga 14, Nicolò D'Angelo) corretta in "Mario Rossi": prende il primo numero libero (mariorossi3)
@@ -363,9 +386,9 @@ async function controllaTutto(ctx, titolo) {
             await dati.operazionePartecipante(ctx, { uid: luca.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Mario', cognome: 'Rossi', azienda: '', email: ' A.MARIO0@prova.it' });
         } catch (e) { occupata = e; }
         vero(occupata && occupata.stato === 409, 'correggere l\'email con quella di un\'altra persona: rifiutato (409)');
-        const corr3 = await dati.operazionePartecipante(ctx, { uid: luca.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Luca', cognome: 'Rossi', azienda: 'X', email: 'luca.nuova@prova.it', mantieniNomeUtente: true });
+        const corr3 = await dati.operazionePartecipante(ctx, { uid: luca.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Luca', cognome: 'Rossi', azienda: 'X', email: ' Luca.Nuova@prova.it\u200b', mantieniNomeUtente: true });
         vero(!corr3.nomeUtenteCambiato && corr3.partecipante.nomeUtente === 'mariorossi3' && corr3.partecipante.email === 'luca.nuova@prova.it',
-            'con "mantieni il nome utente": nome utente invariato, email spostata');
+            'con "mantieni il nome utente": nome utente invariato, email spostata e salvata normalizzata (' + JSON.stringify(corr3.partecipante.email) + ')');
         const indVecchio = await ctx.db.collection('indirizzi').doc(N.emailNormalizzata(fileA[12].email)).get();
         const indNuovo = await ctx.db.collection('indirizzi').doc('luca.nuova@prova.it').get();
         vero(!indVecchio.exists && indNuovo.exists && indNuovo.data().uid === luca.uid, 'la prenotazione dell\'email si sposta (vecchia liberata, nuova presa)');

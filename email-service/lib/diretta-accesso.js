@@ -25,10 +25,20 @@
      cosi' venti richieste sbagliate che arrivano nello stesso istante
      non passano tutte (ne passano cinque, le altre aspettano). Se poi la
      password e' giusta, la coppia si cancella e il tentativo si restituisce.
-     In piu' tentativiIp/{impronta} conta i soli fallimenti di una rete
-     (40 in 15 minuti -> 5 minuti di attesa), senza transazione e senza
-     scrivere niente sugli accessi riusciti: cento colleghi dietro lo
-     stesso IP aziendale non si bloccano a vicenda.
+
+   - LA RETE: al massimo 40 password sbagliate ogni 15 minuti dalla
+     stessa rete (poi almeno 5 minuti di attesa per tutta la rete). E'
+     il limite contro chi prova tanti nomi diversi da un posto solo.
+     Anche qui il tentativo si conta PRIMA della verifica (vedi
+     prenotaRete): un contatore per finestra fissa di 15 minuti,
+     tentativiIp/{impronta}_{finestra}, con un incremento seguito da
+     una rilettura, senza transazione. Cento richieste sbagliate che
+     arrivano insieme non passano tutte: la rilettura di ciascuna
+     comprende il proprio incremento e quelli arrivati prima, e solo 40
+     possono vedere un numero entro il tetto. Un accesso riuscito (o
+     finito per un motivo che non e' una password sbagliata) restituisce
+     subito il suo tentativo: cento colleghi dietro lo stesso IP
+     aziendale non consumano il tetto e non si bloccano a vicenda.
 
    - NOMI INESISTENTI: stessa risposta e tempi simili a una password
      sbagliata (DECISIONI T1), ma senza chiedere niente a Google.
@@ -60,10 +70,16 @@ const ATTESA_BASE_MS = 30 * 1000;         // 30 s, 60 s, 120 s...
 const ATTESA_MASSIMA_MS = 15 * MINUTO;
 const TETTO_NOME = 50;                    // errori in un'ora sullo stesso nome, da qualunque rete
 const BLOCCO_NOME_MS = 15 * MINUTO;
-const TETTO_IP = 40;                      // errori in 15 minuti dalla stessa rete
-const FINESTRA_IP_MS = 15 * MINUTO;
-const BLOCCO_IP_MS = 5 * MINUTO;
+const TETTO_IP = 40;                      // errori in una finestra di 15 minuti dalla stessa rete
+const FINESTRA_IP_MS = 15 * MINUTO;       // finestre fisse: :00, :15, :30, :45
+const BLOCCO_IP_MS = 5 * MINUTO;          // raggiunto il tetto, la rete aspetta almeno tanto
+const ATTESA_RETE_MS = 3000;              // quanto si aspetta il proprio turno se tanti entrano insieme
 const ATTESA_GOOGLE_MS = 8000;
+// i tetti di "password dimenticata" e "primo accesso" dei gestori (DECISIONI D9)
+const TETTO_RESET_RETE = 20;              // richieste all'ora dalla stessa rete
+const TETTO_RESET_ORA = 200;              // email di reimpostazione all'ora, in tutto
+const TETTO_GESTORE_RETE = 10;            // richieste all'ora dalla stessa rete
+const TETTO_GESTORI_ORA = 20;             // email ai gestori all'ora, in tutto (un tetto loro)
 
 const MSG_CREDENZIALI = 'Nome utente o password non corretti. Se il problema continua, scrivi all\'assistenza.';
 const MSG_DISATTIVATO = 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
@@ -122,7 +138,8 @@ function rifTentativi(ctx, nome, impIp) {
     return {
         coppia: ctx.db.collection('tentativi').doc(nome + '_' + impIp),
         nome: ctx.db.collection('tentativiNome').doc(nome),
-        ip: ctx.db.collection('tentativiIp').doc(impIp)
+        // il blocco della rete: puo' durare oltre la fine della finestra
+        bloccoIp: ctx.db.collection('tentativiIp').doc(impIp)
     };
 }
 
@@ -176,27 +193,100 @@ async function restituisci(ctx, rif) {
     }
 }
 
+/* ---------- la rete ----------
+   tentativiIp/{impronta}_{finestra} (finestre fisse di 15 minuti) ha due
+   contatori:
+     inCorso: le verifiche prenotate e non ancora finite;
+     falliti: le verifiche finite con una password sbagliata (o un nome
+              che non esiste).
+   Ogni tentativo fa +1 su inCorso e POI rilegge il documento: passa se
+   falliti + inCorso (il proprio compreso) non supera il tetto. Alla fine
+   il tentativo si chiude: -1 su inCorso e, se era sbagliato, +1 su
+   falliti, nella stessa scrittura. Per questo nessuna raffica passa il
+   tetto: chi rilegge vede, oltre a se', tutti i tentativi gia' passati,
+   finiti o ancora in volo, e ne passano al massimo 40 che finiscono
+   male. Niente transazioni (la rete di un'azienda che entra tutta alle
+   9 non deve mettersi in fila dietro le ripartenze di Firestore) e mai
+   una scrittura che azzera: solo incrementi, con merge.
+   Oltre il tetto ci sono due casi diversi:
+   - i falliti sono gia' 40: la rete ha finito i suoi errori. Si scrive
+     il blocco in tentativiIp/{impronta} (almeno 5 minuti, e comunque
+     fino alla fine della finestra) e si risponde "attendi";
+   - i falliti sono meno, ma ci sono tante verifiche in volo insieme
+     (un ufficio che entra tutto nello stesso secondo): non e' un
+     abuso, e le verifiche in volo di solito vanno bene e liberano il
+     posto. Si restituisce il tentativo, si aspetta un attimo (a caso,
+     per non ripartire tutti insieme) e si riprova, per al massimo 3
+     secondi; poi "riprova tra qualche secondo", senza bloccare niente.
+   Un tentativo prenotato e mai chiuso (la funzione fermata da Vercel a
+   meta') resta contato solo fino alla fine della sua finestra. */
+function rifFinestraIp(ctx, impIp, ora) {
+    const finestra = Math.floor(ora / FINESTRA_IP_MS);
+    return {
+        rif: ctx.db.collection('tentativiIp').doc(impIp + '_' + finestra),
+        fine: (finestra + 1) * FINESTRA_IP_MS
+    };
+}
+// il campo per un'eventuale regola TTL di Firestore (i contatori vecchi si cancellano da soli)
+function scadenza(ctx, fineFinestra) {
+    return ctx.Timestamp.fromMillis(fineFinestra + GIORNO);
+}
+function incrementoRete(ctx, finestra) {
+    return finestra.rif.set({ inCorso: ctx.FieldValue.increment(1), scade: scadenza(ctx, finestra.fine) }, { merge: true });
+}
+async function restituisciRete(ctx, finestra) {
+    try { await finestra.rif.set({ inCorso: ctx.FieldValue.increment(-1) }, { merge: true }); }
+    catch (e) { console.error('[diretta] conteggio della rete: ' + D.perLog(e)); }
+}
 // quanto manca alla fine del blocco della rete (0 = libera)
 function bloccoIp(snap, ora) {
-    const d = snap && snap.exists ? snap.data() : {};
-    const fino = Number(d.bloccatoFino) || 0;
+    const fino = snap && snap.exists ? Number(snap.get('bloccatoFino')) || 0 : 0;
     return fino > ora ? fino - ora : 0;
 }
-/* Un fallimento in piu' per la rete: senza transazione (increment),
-   partendo da quello che si era letto all'inizio. */
-async function contaFallimentoIp(ctx, rifIp, snap, ora) {
-    try {
-        const d = snap && snap.exists ? snap.data() : {};
-        if (!(snap && snap.exists) || ora - (Number(d.inizioFinestra) || 0) >= FINESTRA_IP_MS) {
-            await rifIp.set({ falliti: 1, inizioFinestra: ora, bloccatoFino: 0 });
-            return;
+
+/* Il turno della rete per un tentativo il cui +1 e' GIA' scritto nella
+   `finestra` (e' partito insieme alle letture iniziali: un'andata e
+   ritorno in meno). -> la prenotazione, da chiudere con chiudiRete.
+   Se non tocca a lui lancia "attendi" o "riprova", dopo aver gia'
+   restituito il tentativo. */
+async function prenotaRete(ctx, rif, impIp, finestra) {
+    const limite = Date.now() + ATTESA_RETE_MS;
+    let f = finestra;
+    for (let giro = 1; ; giro++) {
+        const snap = await f.rif.get();
+        const falliti = Math.max(0, Number(snap.get('falliti')) || 0);
+        const inCorso = Math.max(0, Number(snap.get('inCorso')) || 0);
+        if (falliti + inCorso <= TETTO_IP) return { finestra: f, chiusura: null };
+        await restituisciRete(ctx, f);
+        const ora = ctx.adesso();
+        if (falliti >= TETTO_IP) {
+            const fino = Math.max(ora + BLOCCO_IP_MS, f.fine);
+            try { await rif.bloccoIp.set({ bloccatoFino: fino, aggiornato: ora, scade: scadenza(ctx, fino) }, { merge: true }); }
+            catch (e) { console.error('[diretta] blocco della rete non scritto: ' + D.perLog(e)); }
+            console.error('[diretta] accesso: una rete ha raggiunto il tetto di ' + TETTO_IP + ' errori, attesa di ' + Math.ceil((fino - ora) / MINUTO) + ' minuti');
+            throw attendi(fino - ora);
         }
-        const agg = { falliti: ctx.FieldValue.increment(1) };
-        if ((Number(d.falliti) || 0) + 1 >= TETTO_IP) agg.bloccatoFino = ora + BLOCCO_IP_MS;
-        await rifIp.set(agg, { merge: true });
-    } catch (e) {
-        console.error('[diretta] conteggio della rete: ' + D.perLog(e));
+        if (Date.now() >= limite) {
+            console.error('[diretta] accesso: troppe verifiche insieme dalla stessa rete (' + inCorso + ' in corso)');
+            throw D.errorePubblico(503, 'riprova', 'Il servizio è molto richiesto in questo momento: riprova tra qualche secondo.');
+        }
+        await pausa(100 + crypto.randomInt(150 * Math.min(giro, 4)));
+        f = rifFinestraIp(ctx, impIp, ctx.adesso());
+        await incrementoRete(ctx, f);
     }
+}
+/* Il tentativo e' finito: si restituisce il posto e, se la password era
+   sbagliata, lo si conta fra i falliti, nella stessa scrittura. Una
+   volta sola: una seconda chiamata aspetta la prima. */
+function chiudiRete(ctx, rete, fallito) {
+    if (!rete) return Promise.resolve();
+    if (!rete.chiusura) {
+        const agg = { inCorso: ctx.FieldValue.increment(-1) };
+        if (fallito) agg.falliti = ctx.FieldValue.increment(1);
+        rete.chiusura = rete.finestra.rif.set(agg, { merge: true })
+            .catch(e => console.error('[diretta] conteggio della rete: ' + D.perLog(e)));
+    }
+    return rete.chiusura;
 }
 
 /* ============================================================
@@ -262,16 +352,43 @@ async function entra(ctx, ingresso) {
     const password = typeof ingresso.password === 'string' ? ingresso.password : '';
     if (!nome || !password) throw D.errorePubblico(400, 'credenziali', 'Scrivi il nome utente e la password.');
     if (password.length > 200) throw D.errorePubblico(401, 'credenziali', MSG_CREDENZIALI, { rimasti: ERRORI_DI_FILA });
-    const db = ctx.db;
     const inizio = ctx.adesso();
     const impIp = C.improntaIp(ingresso.ip);
     const rif = rifTentativi(ctx, nome, impIp);
 
-    // la rete e il nome si leggono insieme (nessuna transazione: letture semplici)
-    const [snapIp, snapNome] = await Promise.all([rif.ip.get(), db.collection('nomiUtente').doc(nome).get()]);
-    const attesaRete = bloccoIp(snapIp, inizio);
-    if (attesaRete) throw attendi(attesaRete);
+    /* Il blocco della rete e il nome si leggono insieme, e intanto parte
+       il +1 della rete (vedi prenotaRete): nessuna transazione. */
+    const finestra = rifFinestraIp(ctx, impIp, inizio);
+    let incrementato = false;
+    const incremento = incrementoRete(ctx, finestra).then(() => { incrementato = true; });
+    let snapBlocco, snapNome;
+    try {
+        [snapBlocco, snapNome] = await Promise.all([rif.bloccoIp.get(), ctx.db.collection('nomiUtente').doc(nome).get(), incremento]);
+    } catch (e) {
+        await incremento.catch(() => {});
+        if (incrementato) await restituisciRete(ctx, finestra);
+        throw e;
+    }
+    const attesaRete = bloccoIp(snapBlocco, inizio);
+    if (attesaRete) {
+        await restituisciRete(ctx, finestra);
+        throw attendi(attesaRete);
+    }
+    const rete = await prenotaRete(ctx, rif, impIp, finestra);
 
+    /* Da qui il tentativo della rete e' prenotato e si chiude SEMPRE:
+       come fallito appena si sa che la password era sbagliata, altrimenti
+       restituito (qui nel finally, se non e' gia' stato fatto). */
+    try {
+        return await verificaEdEntra(ctx, ingresso, { nome, password, rif, rete, snapNome });
+    } finally {
+        await chiudiRete(ctx, rete, false);
+    }
+}
+
+/* Il resto di "entra", con il tentativo della rete gia' prenotato. */
+async function verificaEdEntra(ctx, ingresso, { nome, password, rif, rete, snapNome }) {
+    const db = ctx.db;
     const pren = await prenota(ctx, rif);
     if (pren.bloccatoPerMs) throw attendi(pren.bloccatoPerMs);
 
@@ -286,11 +403,13 @@ async function entra(ctx, ingresso) {
     }
 
     if (verifica.esito === 'fallita') {
-        await contaFallimentoIp(ctx, rif.ip, snapIp, ctx.adesso());
+        await chiudiRete(ctx, rete, true);
         const ora = ctx.adesso();
         if (pren.bloccatoFino > ora) throw attendi(pren.bloccatoFino - ora);
         throw D.errorePubblico(401, 'credenziali', MSG_CREDENZIALI, { rimasti: Math.max(0, ERRORI_DI_FILA - pren.falliti) });
     }
+    // qualunque altro esito non e' una password sbagliata: la rete riavra' subito il suo tentativo
+    chiudiRete(ctx, rete, false);
     if (verifica.esito === 'troppi') {
         await restituisci(ctx, rif);
         throw attendi(60 * 1000);
@@ -380,26 +499,33 @@ async function aDurataCostante(etichetta, fn) {
     if (resto > 0) await pausa(resto);
 }
 
-/* Un contatore per finestra SENZA transazione (increment): serve ai
-   limiti condivisi da tante richieste nello stesso momento (la stessa
-   rete aziendale, il tetto complessivo delle reimpostazioni). Con una
-   transazione le richieste contemporanee si metterebbero in fila, e ogni
-   ripartenza di Firestore costa un secondo: la risposta non arriverebbe
-   piu' "sempre dopo lo stesso tempo". Al confine del tetto puo' passare
-   qualche richiesta in piu': per un limite anti-abuso va bene. I limiti
-   per singola persona restano invece transazionali (consumaGettone). */
+/* Un contatore per finestra fissa SENZA transazione: serve ai limiti
+   condivisi da tante richieste nello stesso momento (la stessa rete
+   aziendale, il tetto complessivo delle email). Con una transazione le
+   richieste contemporanee si metterebbero in fila, e ogni ripartenza di
+   Firestore costa un secondo: la risposta non arriverebbe piu' "sempre
+   dopo lo stesso tempo".
+   Prima si conta, poi si rilegge: limiti/{chiave}_{numero della finestra}
+   riceve +1 (increment, con merge: niente si azzera mai) e la rilettura
+   comprende il proprio +1 e tutti quelli arrivati prima. Cosi' anche in
+   una raffica di sessanta richieste nello stesso istante al massimo
+   `massimo` possono vedere un numero entro il tetto: le altre si
+   fermano. In una raffica ne passano anche MENO (la rilettura di una
+   richiesta vede pure i +1 arrivati subito dopo il suo): si sbaglia
+   dalla parte della prudenza, e solo quando da una rete arrivano decine
+   di richieste nello stesso secondo, che non e' un uso normale di
+   "password dimenticata". Una finestra nuova e' un documento nuovo:
+   niente da azzerare. Ogni
+   richiesta conta, anche quelle che poi si fermano (DECISIONI D9: il
+   gettone della rete si consuma prima di cercare). I limiti per singola
+   persona restano transazionali (consumaGettone). */
 async function contaInFinestra(ctx, chiave, massimo, finestraMs) {
-    const rif = ctx.db.collection('limiti').doc(chiave);
     const ora = ctx.adesso();
+    const finestra = Math.floor(ora / finestraMs);
+    const rif = ctx.db.collection('limiti').doc(chiave + '_' + finestra);
+    await rif.set({ conteggio: ctx.FieldValue.increment(1), scade: scadenza(ctx, (finestra + 1) * finestraMs) }, { merge: true });
     const snap = await rif.get();
-    const d = snap.exists ? snap.data() : {};
-    if (!snap.exists || ora - (Number(d.inizioFinestra) || 0) >= finestraMs) {
-        await rif.set({ conteggio: 1, inizioFinestra: ora, ultimo: ora });
-        return true;
-    }
-    if ((Number(d.conteggio) || 0) >= massimo) return false;
-    await rif.set({ conteggio: ctx.FieldValue.increment(1), ultimo: ora }, { merge: true });
-    return true;
+    return (Number(snap.get('conteggio')) || 0) <= massimo;
 }
 
 /* Il collegamento di Firebase per la nuova password, riscritto sulla
@@ -422,7 +548,8 @@ async function spedisciReimpostazione(ctx, dati) {
 
 /* password-dimenticata: la persona scrive il nome utente oppure la sua
    email (quella vera, con cui si e' iscritta). Se l'account c'e' ed e'
-   attivo, il collegamento parte verso la sua email vera; in ogni caso
+   attivo, il collegamento parte verso la sua email vera (l'indirizzo
+   normalizzato, lo stesso a cui arrivano le credenziali); in ogni caso
    la risposta e' la stessa. I limiti: 20 richieste l'ora dalla stessa
    rete (contate prima di cercare, anche per i nomi inesistenti), per
    persona una ogni 2 minuti e al massimo 3 al giorno, e 200 all'ora in
@@ -430,7 +557,7 @@ async function spedisciReimpostazione(ctx, dati) {
 async function passwordDimenticata(ctx, { identificativo, ip }) {
     await aDurataCostante('reimpostazione', async () => {
         const impIp = C.improntaIp(ip);
-        if (!await contaInFinestra(ctx, 'resetip_' + impIp, 20, ORA)) {
+        if (!await contaInFinestra(ctx, 'resetip_' + impIp, TETTO_RESET_RETE, ORA)) {
             console.error('[diretta] reimpostazione: limite della rete raggiunto');
             return;
         }
@@ -452,17 +579,19 @@ async function passwordDimenticata(ctx, { identificativo, ip }) {
         const [snapP, snapS] = await db.getAll(db.collection('partecipanti').doc(uid), db.collection('sessioni').doc(uid));
         const p = snapP.exists ? snapP.data() : null;
         if (!p || p.stato !== 'attivo' || p.authCreato !== true || (snapS.exists && snapS.data().stato !== 'attivo')) return;
-        if (!N.emailValida(p.emailNorm || p.email)) return;
+        // una sola regola per l'indirizzo: quello normalizzato (anche per i profili caricati prima che si salvasse cosi')
+        const indirizzo = p.emailNorm || N.emailNormalizzata(p.email);
+        if (!N.emailValida(indirizzo)) return;
         if (!await C.consumaGettone(ctx, 'limiti', 'reset_' + uid, { pausaMs: 2 * MINUTO, maxFinestra: 3, finestraMs: GIORNO })) {
             console.error('[diretta] reimpostazione: limite della persona raggiunto');
             return;
         }
-        if (!await contaInFinestra(ctx, 'reset_globale', 200, ORA)) {
+        if (!await contaInFinestra(ctx, 'reset_globale', TETTO_RESET_ORA, ORA)) {
             console.error('[diretta] reimpostazione: tetto orario complessivo raggiunto');
             return;
         }
         const link = await linkReimpostazione(ctx, C.emailTecnica(uid), '&u=' + encodeURIComponent(p.nomeUtente || ''));
-        await spedisciReimpostazione(ctx, { a: p.email, nome: p.nome || '', cognome: p.cognome || '', nomeUtente: p.nomeUtente || '', link: link, perGestore: false });
+        await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', nomeUtente: p.nomeUtente || '', link: link, perGestore: false });
     });
     return { msg: MSG_DIMENTICATA };
 }
@@ -473,11 +602,14 @@ async function passwordDimenticata(ctx, { identificativo, ip }) {
    email verificata, claim "gestore", niente claim "eventi". Se qualcuno
    si era registrato da solo con quell'email (con la chiave pubblica del
    progetto si puo'), la password cambia e le sue sessioni si chiudono:
-   perde l'accesso, e il collegamento arriva al vero titolare. */
+   perde l'accesso, e il collegamento arriva al vero titolare.
+   I gestori hanno un tetto orario tutto loro ('gestore_globale'): un'ondata
+   di "password dimenticata" dei partecipanti non deve togliere ai gestori
+   il collegamento per entrare in gestione proprio quel giorno. */
 async function gestoreAccesso(ctx, { email, ip }) {
     await aDurataCostante('accesso gestore', async () => {
         const impIp = C.improntaIp(ip);
-        if (!await contaInFinestra(ctx, 'gestoreip_' + impIp, 10, ORA)) {
+        if (!await contaInFinestra(ctx, 'gestoreip_' + impIp, TETTO_GESTORE_RETE, ORA)) {
             console.error('[diretta] accesso gestore: limite della rete raggiunto');
             return;
         }
@@ -487,8 +619,8 @@ async function gestoreAccesso(ctx, { email, ip }) {
             console.error('[diretta] accesso gestore: limite della persona raggiunto');
             return;
         }
-        if (!await contaInFinestra(ctx, 'reset_globale', 200, ORA)) {
-            console.error('[diretta] accesso gestore: tetto orario complessivo raggiunto');
+        if (!await contaInFinestra(ctx, 'gestore_globale', TETTO_GESTORI_ORA, ORA)) {
+            console.error('[diretta] accesso gestore: tetto orario dei gestori raggiunto');
             return;
         }
         let utente = null;

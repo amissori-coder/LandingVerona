@@ -662,8 +662,12 @@ async function creaRiga(ctx, idEvento, r) {
     const nome = C.testo(r.nome, 80);
     const cognome = C.testo(r.cognome, 80);
     const azienda = C.testo(r.azienda, 120);
-    const email = String(r.email == null ? '' : r.email).trim().slice(0, 254);
-    const emailNorm = N.emailNormalizzata(email);
+    /* Una sola regola per l'indirizzo: si salva (in `email` e in
+       `emailNorm`) e si spedisce quello normalizzato, senza spazi ne'
+       caratteri invisibili (quelli che arrivano da Excel) e in minuscolo.
+       E' lo stesso che garantisce "una email = un account", ed e' quello
+       che emailValida ha controllato: niente seconda regola in invio. */
+    const emailNorm = N.emailNormalizzata(String(r.email == null ? '' : r.email).slice(0, 400));
     if (!emailNorm) return esito('errore', { motivo: 'Email mancante.' });
     if (!N.emailValida(emailNorm)) return esito('errore', { motivo: 'Email non valida.' });
     if (!nome || !cognome) return esito('errore', { motivo: 'Nome o cognome vuoto.' });
@@ -702,7 +706,7 @@ async function creaRiga(ctx, idEvento, r) {
             tx.create(rifInd, { uid: uidNuovo, creato: ts });
             tx.create(db.collection('nomiUtente').doc(libero.nome), { uid: uidNuovo, base: radice, creato: ts });
             tx.create(db.collection('partecipanti').doc(uidNuovo), {
-                uid: uidNuovo, nomeUtente: libero.nome, nome: nome, cognome: cognome, email: email, emailNorm: emailNorm,
+                uid: uidNuovo, nomeUtente: libero.nome, nome: nome, cognome: cognome, email: emailNorm, emailNorm: emailNorm,
                 azienda: azienda, idEvento: idEvento, eventi: [idEvento], stato: 'attivo', authCreato: false,
                 ultimoAccesso: null, invii: { [idEvento]: { stato: 'da inviare', aggiornato: ts, tentativi: 0 } },
                 promemoria: {}, creato: ts, aggiornato: ts
@@ -838,8 +842,8 @@ async function correggi(ctx, uid, idEvento, b) {
         const snap = await tx.get(rifP);
         if (!snap.exists) throw C.errore(404, 'Partecipante inesistente.', 'partecipante');
         const d = snap.data();
-        const email = b.email !== undefined ? String(b.email || '').trim().slice(0, 254) : (d.email || '');
-        const emailNorm = N.emailNormalizzata(email);
+        // la stessa regola di `crea`: si salva l'indirizzo normalizzato (vale anche per i profili di prima)
+        const emailNorm = N.emailNormalizzata(b.email !== undefined ? String(b.email || '').slice(0, 400) : (d.emailNorm || d.email || ''));
         if (!N.emailValida(emailNorm)) throw C.errore(400, 'Email non valida.', 'email');
         const cambiaEmail = emailNorm !== d.emailNorm;
         const cambiaNome = !mantieni && nuovaBase !== N.nomeUtenteBase(d.nome, d.cognome);
@@ -861,7 +865,7 @@ async function correggi(ctx, uid, idEvento, b) {
         // ...poi le scritture
         const ts = adessoTs(ctx);
         const nomeUtente = cambiaNome ? libero.nome : d.nomeUtente;
-        const agg = { nome: nome, cognome: cognome, azienda: azienda, email: email, emailNorm: emailNorm, nomeUtente: nomeUtente, aggiornato: ts };
+        const agg = { nome: nome, cognome: cognome, azienda: azienda, email: emailNorm, emailNorm: emailNorm, nomeUtente: nomeUtente, aggiornato: ts };
         if (cambiaNome && nomeUtente !== d.nomeUtente) {
             if (!libero.mio) tx.create(db.collection('nomiUtente').doc(nomeUtente), { uid: uid, base: nuovaBase, creato: ts });
             if (nomeVecchio && nomeVecchio.exists && nomeVecchio.data().uid === uid) tx.delete(nomeVecchio.ref);
@@ -895,13 +899,23 @@ async function correggi(ctx, uid, idEvento, b) {
     };
 }
 
-// i contatori dei tentativi di un nome che non esiste piu'
+/* I contatori dei tentativi di un nome che non esiste piu': le coppie
+   tentativi/{nome}_{rete} e il tetto tentativiNome/{nome}. Se il nome
+   liberato tocca poi a un'altra persona (un nuovo omonimo), non deve
+   ereditare gli errori o il blocco di chi lo aveva prima.
+   Le coppie di quel nome sono i documenti da "{nome}_" (compreso) a
+   "{nome}`" (escluso): il carattere ` viene subito dopo _ nella tabella
+   dei caratteri, e i nomi utente sono solo [a-z0-9] (le impronte delle
+   reti solo [0-9a-f]), quindi nessun altro nome ci cade in mezzo:
+   "mariorossi30_..." sta prima di "mariorossi3_", "mariorossi3a..." dopo
+   "mariorossi3`". Niente caratteri invisibili nel limite: si leggono
+   male e si scambiano per un intervallo vuoto. */
 async function cancellaTentativi(ctx, nomeUtente) {
     if (!nomeUtente) return;
     try {
         const coppie = await ctx.db.collection('tentativi')
             .where(ctx.FieldPath.documentId(), '>=', nomeUtente + '_')
-            .where(ctx.FieldPath.documentId(), '<', nomeUtente + '_').get();
+            .where(ctx.FieldPath.documentId(), '<', nomeUtente + '`').get();
         const batch = ctx.db.batch();
         coppie.docs.slice(0, 399).forEach(d => batch.delete(d.ref));
         batch.delete(ctx.db.collection('tentativiNome').doc(nomeUtente));
