@@ -2,43 +2,42 @@
    IL PLAYER DELL'ANTEPRIMA: un video di prova disegnato nel browser
    ------------------------------------------------------------
    Nell'anteprima non si possono caricare video da altri siti (la
-   pagina che la ospita non lo permette): niente web TV e niente
-   YouTube. Al loro posto questo player, con la STESSA interfaccia di
-   player-webtv.js e player-youtube.js:
+   pagina che la ospita non lo permette): niente canale della web TV.
+   Al suo posto questo player, con la STESSA interfaccia di
+   player-webtv.js:
 
        window.NGBPlayer = { nome, crea(contenitore, opzioni), idDa(url) }
 
-   E' anche la prova pratica di quello che dice il README (§11): per
-   cambiare piattaforma basta un file con queste funzioni. La pagina
-   della diretta e la regia non sanno quale player stanno usando.
+   La pagina della diretta e la regia non sanno quale player stanno
+   usando: qui si vedono i nostri comandi veri (qualita', «IN DIRETTA»,
+   «Torna in diretta», la barra per tornare indietro) su una diretta
+   finta, cominciata 4 minuti prima e con una finestra di 5 minuti.
 
-   Il "video" e' un palco disegnato su un canvas: l'ora che scorre,
-   l'identificativo del video caricato (cosi' si vede il cambio di
-   link della regia), e un indicatore dell'audio quando e' attivo.
+   Il "video" e' un palco disegnato su un canvas: l'ora che scorre
+   (quella della diretta: indietro, se si e' tornati indietro), il link
+   caricato (cosi' si vede il cambio di link della regia), la qualita'
+   scelta e un indicatore dell'audio quando e' attivo.
    ============================================================ */
 (function () {
     'use strict';
 
-    // come in player-webtv.js: accetta gli stessi link (sorgente-video.js), o almeno quelli di YouTube
+    // come in player-webtv.js: accetta gli stessi link (sorgente-video.js), o almeno un indirizzo https
     function idDa(indirizzo) {
         var S = window.NGBSorgenteVideo;
         if (S) { var v = S.leggi(indirizzo); return v && !v.errore ? v.valore : ''; }
         var s = String(indirizzo == null ? '' : indirizzo).trim();
-        if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-        var u;
-        try { u = new URL(/^https?:\/\//i.test(s) ? s : 'https://' + s); } catch (e) { return ''; }
-        var host = u.hostname.replace(/^www\.|^m\./, '').toLowerCase();
-        var id = '';
-        if (host === 'youtu.be') id = u.pathname.split('/')[1] || '';
-        else if (/(^|\.)youtube(-nocookie)?\.com$/.test(host)) {
-            if (u.searchParams.get('v')) id = u.searchParams.get('v');
-            else {
-                var m = /^\/(embed|live|shorts|v)\/([^/?#]+)/.exec(u.pathname);
-                if (m) id = m[2];
-            }
-        }
-        return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : '';
+        try { var u = new URL(s); return u.protocol === 'https:' ? u.href : ''; } catch (e) { return ''; }
     }
+
+    // la diretta finta: cominciata 4 minuti prima di carica(), finestra per tornare indietro di 5 minuti
+    var GIA_IN_ONDA_S = 240;
+    var FINESTRA_S = 300;
+    var LIVELLI = [
+        { valore: '-1', etichetta: 'Automatica' },
+        { valore: '2', etichetta: '720p' },
+        { valore: '1', etichetta: '480p' },
+        { valore: '0', etichetta: '360p' }
+    ];
 
     // un indirizzo lungo della web TV si accorcia: dominio e ultimo pezzo del percorso
     function etichettaVideo(v) {
@@ -58,8 +57,11 @@
         var muto = true, vol = 100;
         var inizio = performance.now();
         var fermoA = null;          // quando si e' messo in pausa (per il "sei indietro")
-        var ritardoMs = 0;          // quanto si e' indietro rispetto alla diretta
+        var ritardoMs = 0;          // quanto si e' indietro rispetto alla diretta (pause escluse)
+        var origine = 0;            // quando e' "cominciata" la diretta finta (Date.now())
+        var qualita = '-1';
         var timer = [];
+        var timerTempo = null;
 
         function avvisa(nome, dati) {
             var f = opzioni[nome];
@@ -147,9 +149,9 @@
             var ora = Date.now() - ritardoMs;
             ctx.textAlign = 'left';
             ctx.font = '700 ' + Math.round(u * 0.3) + 'px Inter, Arial, sans-serif';
-            var etichetta = ritardoMs > 3000 ? 'IN DIFFERITA' : 'DIRETTA DI PROVA';
+            var etichetta = ritardoMs > 10000 ? 'IN DIFFERITA' : 'DIRETTA DI PROVA';
             var lw = ctx.measureText(etichetta).width + u * 0.6;
-            ctx.fillStyle = ritardoMs > 3000 ? '#5b6b7d' : '#c8102e';
+            ctx.fillStyle = ritardoMs > 10000 ? '#5b6b7d' : '#c8102e';
             ctx.fillRect(u * 0.35, u * 0.35, lw, u * 0.5);
             ctx.fillStyle = '#fff'; ctx.fillText(etichetta, u * 0.65, u * 0.61);
             ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -161,7 +163,8 @@
             ctx.fillStyle = '#fff'; ctx.font = '700 ' + Math.round(u * 0.34) + 'px Inter, Arial, sans-serif';
             ctx.fillText('Apertura dei lavori', u * 0.65, H - u * 1.08);
             ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = '500 ' + Math.round(u * 0.24) + 'px Inter, Arial, sans-serif';
-            ctx.fillText('Video: ' + etichettaVideo(idCorrente) + '  ·  al posto della web TV in questa anteprima', u * 0.65, H - u * 0.72);
+            var q = LIVELLI.filter(function (l) { return l.valore === qualita; })[0];
+            ctx.fillText('Video: ' + etichettaVideo(idCorrente) + '  ·  ' + (q ? q.etichetta : 'Automatica') + '  ·  al posto della web TV in questa anteprima', u * 0.65, H - u * 0.72);
 
             // l'audio, quando e' attivo: barrette che si muovono
             if (!muto && vol > 0) {
@@ -173,6 +176,16 @@
             }
         }
 
+        /* ---------- il tempo della diretta finta ---------- */
+        function finestra() {
+            if (!tela || !origine) return { posizione: 0, inizio: 0, fine: 0, ritardo: 0, dvr: false, diretta: false };
+            var fine = (Date.now() - origine) / 1000;
+            var inizio = Math.max(0, fine - FINESTRA_S);
+            var ritardo = Math.min(fine - inizio, (ritardoMs + (fermoA !== null ? Date.now() - fermoA : 0)) / 1000);
+            return { posizione: fine - ritardo, inizio: inizio, fine: fine, ritardo: ritardo, dvr: true, diretta: true };
+        }
+        function tempo() { if (tela && origine) avvisa('onTempo', finestra()); }
+
         /* ---------- l'interfaccia ---------- */
         function carica(id) {
             id = String(id == null ? '' : id);
@@ -181,14 +194,19 @@
             idCorrente = id;
             ritardoMs = 0;
             fermoA = null;
+            qualita = '-1';
+            origine = Date.now() - GIA_IN_ONDA_S * 1000;
             monta();
             if (tela) tela._disegnato = false;
             if (primo && !muto) { muto = true; avvisaVolume(); }
+            if (!timerTempo) timerTempo = setInterval(tempo, 1000);
             imposta('buffering');
             dopo(primo ? 700 : 400, function () {
                 if (distrutto || idCorrente !== id) return;
-                if (primo) avvisa('onPronto');
+                avvisa('onPronto');
+                avvisa('onQualita', LIVELLI.slice());
                 imposta('riproduzione');
+                tempo();
             });
         }
         function play() {
@@ -196,18 +214,32 @@
             if (fermoA !== null) { ritardoMs += Date.now() - fermoA; fermoA = null; }
             tela._disegnato = false;
             imposta('riproduzione');
+            tempo();
         }
         function pausa() {
             if (!tela) return;
             if (fermoA === null) fermoA = Date.now();
             imposta('pausa');
+            tempo();
         }
         function alterna() { if (statoCorrente === 'riproduzione' || statoCorrente === 'buffering') pausa(); else play(); }
         function vaiAlLive() {
             ritardoMs = 0; fermoA = null;
             if (tela) tela._disegnato = false;
             imposta('buffering');
-            dopo(300, function () { if (!distrutto) imposta('riproduzione'); });
+            dopo(300, function () { if (!distrutto) { imposta('riproduzione'); tempo(); } });
+        }
+        // come player-webtv.js: `secondi` nella scala di finestra(), fra inizio e fine
+        function cerca(secondi) {
+            var f = finestra();
+            var s = Number(secondi);
+            if (!f.diretta || !isFinite(s)) return;
+            if (s >= f.fine - 1) { vaiAlLive(); return; }
+            s = Math.max(f.inizio, Math.min(f.fine, s));
+            ritardoMs = (f.fine - s) * 1000;
+            if (fermoA !== null) fermoA = Date.now();
+            if (tela) tela._disegnato = false;
+            tempo();
         }
 
         return {
@@ -217,14 +249,20 @@
             eMuto: function () { return muto; },
             volume: function (n) { vol = Math.max(0, Math.min(100, Math.round(Number(n) || 0))); avvisaVolume(); },
             leggiVolume: function () { return vol; },
-            vaiAlLive: vaiAlLive,
-            livelliQualita: function () { return []; },
-            impostaQualita: function () { /* nell'anteprima c'e' una sola qualita' */ },
+            vaiAlLive: vaiAlLive, cerca: cerca, finestra: finestra,
+            livelliQualita: function () { return tela ? LIVELLI.slice() : []; },
+            impostaQualita: function (v) {
+                var s = String(v);
+                qualita = LIVELLI.some(function (l) { return l.valore === s; }) ? s : '-1';
+                if (tela) tela._disegnato = false;
+            },
             stato: function () { return statoCorrente; },
             mostra: function (si) { visibile = !!si; if (tela) tela._disegnato = false; applicaVisibilita(); },
+            capacita: function () { return { comandi: true, qualita: !!tela, dvr: finestra().dvr }; },
             distruggi: function () {
                 distrutto = true;
                 cancelAnimationFrame(anim);
+                clearInterval(timerTempo);
                 timer.forEach(clearTimeout);
                 if (osservatore) osservatore.disconnect();
                 if (tela && tela.parentNode) tela.parentNode.removeChild(tela);

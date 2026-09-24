@@ -1,10 +1,12 @@
 /* ============================================================
-   ANTEPRIMA - Buffer e process per il codice del servizio nel browser
+   ANTEPRIMA - Buffer, process e i timer per il codice del servizio nel browser
    ------------------------------------------------------------
    esbuild li "inietta": dove il codice di email-service/ scrive
-   Buffer o process senza dichiararli, usa questi. Solo quello che
-   il servizio della diretta adopera davvero: base64, base64url,
-   hex e utf8; process.env con le variabili dell'anteprima.
+   Buffer, process, setTimeout o clearTimeout senza dichiararli, usa
+   questi. Solo quello che il servizio della diretta adopera davvero:
+   base64, base64url, hex e utf8; process.env con le variabili
+   dell'anteprima; i timer con unref() (la prova del link lo usa), che
+   nel browser non c'e'.
    ============================================================ */
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -45,6 +47,7 @@ export class Buffer extends Uint8Array {
         return new Buffer(Array.from(dati || []));
     }
     static isBuffer(x) { return x instanceof Buffer; }
+    static alloc(n) { return new Buffer(Math.max(0, Number(n) || 0)); }
     static concat(elenco) {
         const tot = elenco.reduce((n, b) => n + b.length, 0);
         const out = new Buffer(tot);
@@ -78,3 +81,19 @@ export const process = {
     hrtime: Object.assign(() => [0, 0], { bigint: () => BigInt(Math.round(performance.now() * 1e6)) })
 };
 
+
+/* I timer di Node: setTimeout restituisce un oggetto con unref()/ref();
+   clearTimeout accetta sia quello sia il numero del browser. */
+const timerBrowser = globalThis.setTimeout.bind(globalThis);
+const fermaBrowser = globalThis.clearTimeout.bind(globalThis);
+export function setTimeout(fn, ms, ...argomenti) {
+    const id = timerBrowser(fn, ms, ...argomenti);
+    return {
+        id: id,
+        unref() { return this; },
+        ref() { return this; },
+        hasRef() { return true; },
+        [Symbol.toPrimitive]() { return id; }
+    };
+}
+export function clearTimeout(t) { fermaBrowser(t && typeof t === 'object' ? t.id : t); }

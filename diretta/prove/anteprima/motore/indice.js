@@ -38,6 +38,7 @@ const cli = require('./cliente');
 const servizio = require('./servizio');
 const posta = require('./posta');
 const semina = require('./semina');
+const webtvFinta = require('./webtv-finta');
 
 const archivio = new A.Archivio();
 adm.usa(archivio);
@@ -79,6 +80,8 @@ const NGBA = {
     },
 
     daPagina: servizio.daPagina,
+    // la web TV finta (*.esempio.it): anche per le richieste delle pagine (anteprima/pagina.js)
+    webtvFinta: webtvFinta,
     dimenticaFinestra: cli.dimenticaFinestra,
     utenteDi: cli.utenteDi,
     esciDa(dispositivo) { cli.chiudiSessione(dispositivo); },

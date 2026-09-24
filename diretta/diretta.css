@@ -790,6 +790,52 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .btn-live .punto-live { background: #FF4D5E; }
 .btn-live:hover .punto-live { background: #fff; }
 .btn-live .testo-corto { display: none; }
+/* al punto live: l'indicatore rosso (non si preme: e' uno stato) */
+.indicatore-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--rosso);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.indicatore-live .punto-live { background: #fff; }
+
+/* la barra per tornare indietro nella diretta (DVR) */
+.barra-dvr {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 16px 0;
+    background: #0B1F33;
+    color: #fff;
+}
+.dvr {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 40px;
+    margin: 0;
+    background: transparent;
+    accent-color: var(--rosso);
+    cursor: pointer;
+}
+.dvr-etichetta {
+    flex: 0 0 auto;
+    min-width: 5.2em;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--su-scuro);
+    white-space: nowrap;
+}
 .sel-qualita {
     min-height: 48px;
     padding: 4px 8px;
@@ -805,6 +851,8 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .riquadro-video[data-comandi="ridotti"] #btn-muto,
 .riquadro-video[data-comandi="ridotti"] .volume,
 .riquadro-video[data-comandi="ridotti"] .btn-live,
+.riquadro-video[data-comandi="ridotti"] .indicatore-live,
+.riquadro-video[data-comandi="ridotti"] .barra-dvr,
 .riquadro-video[data-comandi="ridotti"] .sel-qualita { display: none; }
 
 /* ---------- schermo intero ---------- */
@@ -987,11 +1035,23 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
         white-space: nowrap; border: 0;
     }
     .btn-live .testo-corto { display: inline; }
+    .indicatore-live { padding: 4px 9px; gap: 6px; font-size: 11.5px; letter-spacing: .06em; }
+    /* sul telefono la barra si prende con il dito: 48 px di altezza */
+    .barra-dvr { padding: 2px 12px 0; gap: 10px; }
+    .dvr { height: 48px; }
+    .dvr-etichetta { font-size: 13.5px; min-width: 4.6em; }
     .voce-programma { grid-template-columns: 56px minmax(0, 1fr); padding: 10px 6px; }
     .dialogo-azioni .btn { flex: 1 1 auto; }
 }
+/* telefoni stretti: play, audio, «IN DIRETTA», qualita' e schermo intero devono stare in una riga */
+@media (max-width: 380px) {
+    .barra-comandi { padding: 6px 4px; }
+    .indicatore-live { padding: 4px 7px; gap: 5px; font-size: 11px; letter-spacing: .02em; }
+    .btn-live { padding: 6px 10px; }
+}
 @media (max-width: 360px) {
     .volume { width: 64px; }
+    .sel-qualita { max-width: 7.6em; }
     .testata-marchio img { width: 84px; }
 }
 

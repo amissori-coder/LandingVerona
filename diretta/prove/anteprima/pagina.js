@@ -6,7 +6,9 @@
    loro script. Fa tre cose, e nient'altro:
    1. le chiamate al servizio (fetch verso https://anteprima.invalid/api,
       l'indirizzo del servizio in anteprima/config.js) vanno alle
-      funzioni vere dentro il motore, non in rete;
+      funzioni vere dentro il motore, non in rete; quelle per la web TV
+      di esempio (*.esempio.it, la prova del CORS della gestione) alla
+      web TV finta del motore (motore/webtv-finta.js);
    2. i collegamenti fra le pagine della diretta (/diretta/,
       /diretta/gestione/, /diretta/reimposta.html) restano dentro
       l'anteprima; quelli verso il sito si aprono in una scheda nuova;
@@ -30,6 +32,7 @@
     var fetchVero = window.fetch ? window.fetch.bind(window) : null;
     window.fetch = function (url, init) {
         var indirizzo = String((url && url.url) || url);
+        if (M.webtvFinta && M.webtvFinta.serve(indirizzo)) return M.webtvFinta.fetch(indirizzo, init);
         if (indirizzo.indexOf('https://anteprima.invalid/api/') !== 0) return fetchVero(url, init);
         init = init || {};
         var intestazioni = {};

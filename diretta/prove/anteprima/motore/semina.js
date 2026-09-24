@@ -129,4 +129,5 @@ function serveSemina(archivio) {
     return !s || s.giorno !== giornoDiOggi();
 }
 
-module.exports = { semina, serveSemina, ID_EVENTO, GESTORE, PARTECIPANTI };
+// gestione(): una chiamata alla gestione come il gestore di prova (la usano anche le prove della diretta)
+module.exports = { semina, serveSemina, gestione, ID_EVENTO, GESTORE, PARTECIPANTI };
