@@ -17,7 +17,10 @@
    (leggiVideo, usata da salvaEvento e cambiaVideo per il link
    principale e per la riserva; campiVideo, che decide cosa va nel
    documento pubblico; eventoJSON, che non mostra mai la chiave della
-   firma) fa la cosa giusta.
+   firma; cambiaSorgente, la scelta principale/riserva della regia, che
+   aggiorna videoAggiornato a OGNI comando, anche quando la scelta resta
+   la stessa: e' la "riconferma" che riporta sul link scelto chi ci era
+   passato da solo dopo un guasto) fa la cosa giusta.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -105,8 +108,34 @@ vero(V.AVVISO_INCORPORATO === 'Con questo tipo di link non possiamo togliere il 
 vero(V.messaggio(V.leggi('https://webtv.esempio.it/a.m3u8')) === V.descrizione('hls'), 'messaggio di un link valido: la sua descrizione');
 vero(JSON.stringify(V.TIPI) === '["hls","dash","incorporato"]', 'i tipi: hls, dash, incorporato');
 
-/* ---------- il servizio: leggiVideo, campiVideo, eventoJSON ---------- */
+/* ---------- il servizio: leggiVideo, campiVideo, eventoJSON, cambiaSorgente ---------- */
 const D = require('../lib/diretta-dati');
+
+/* Un Firestore in memoria, quanto basta a cambiaSorgente e leggiEvento:
+   documenti per percorso, transazioni (getAll, update) e getAll. */
+function mem0(ms) { return { toMillis: () => ms }; }
+function memoria(iniziali) {
+    const m = { dati: JSON.parse(JSON.stringify(iniziali, (k, v) => (v && typeof v.toMillis === 'function' ? { __ms: v.toMillis() } : v))), scritture: [], ora: 0 };
+    Object.keys(m.dati).forEach(k => Object.keys(m.dati[k]).forEach(c => { const v = m.dati[k][c]; if (v && v.__ms !== undefined) m.dati[k][c] = mem0(v.__ms); }));
+    const rif = percorso => ({ percorso: percorso });
+    const foto = r => ({ exists: !!m.dati[r.percorso], data: () => Object.assign({}, m.dati[r.percorso]) });
+    m.ctx = {
+        adesso: () => m.ora,
+        Timestamp: { fromMillis: mem0 },
+        db: {
+            collection: nome => ({ doc: id => rif(nome + '/' + id) }),
+            getAll: async (...r) => r.map(foto),
+            runTransaction: async fn => {
+                const scritte = [];
+                const tx = { getAll: async (...r) => r.map(foto), update: (r, campi) => scritte.push([r, campi]) };
+                const esito = await fn(tx);
+                scritte.forEach(([r, campi]) => { Object.assign(m.dati[r.percorso], campi); m.scritture.push(r.percorso); });
+                return esito;
+            }
+        }
+    };
+    return m;
+}
 (async () => {
     try {
         const a = D.leggiVideo('https://webtv.esempio.it/live/napoli/playlist.m3u8?token=x', '');
@@ -167,6 +196,39 @@ const D = require('../lib/diretta-dati');
         const vuoto = D.eventoJSON('x-2026', { titolo: 'X' }, {});
         vero(vuoto.sorgente === 'principale' && vuoto.videoFirmato === false && vuoto.riservaUrl === '' && vuoto.firma.schema === 'nessuna' && vuoto.firma.segretoImpostato === false,
             'eventoJSON di un evento di prima (senza i campi nuovi): valori predefiniti');
+
+        /* cambiaSorgente (evento-sorgente), con un Firestore in memoria:
+           ogni comando della regia aggiorna videoAggiornato, anche quando
+           la scelta resta la stessa (la pagina di chi guarda annulla cosi'
+           il passaggio automatico all'altro link). */
+        const mem = memoria({
+            'eventi/napoli-2026': { titolo: 'Napoli', stato: 'in_onda', videoId: ris.videoId, videoRiserva: ris.riservaId, sorgente: 'principale', videoAggiornato: mem0(1000) },
+            'eventiRiservati/napoli-2026': { videoUrl: ris.videoId, videoId: ris.videoId, riservaUrl: ris.riservaId, riservaId: ris.riservaId, firma: { schema: 'nessuna' } },
+            'eventi/roma-2026': { titolo: 'Roma', stato: 'in_onda', videoId: ris.videoId, videoRiserva: '', sorgente: 'principale', videoAggiornato: mem0(1000) },
+            'eventiRiservati/roma-2026': { videoUrl: ris.videoId, videoId: ris.videoId, riservaUrl: '', riservaId: '', firma: { schema: 'nessuna' } }
+        });
+        const pub = () => mem.dati['eventi/napoli-2026'];
+        mem.ora = 2000;
+        let js = await D.cambiaSorgente(mem.ctx, { idEvento: 'napoli-2026', sorgente: 'riserva' });
+        vero(pub().sorgente === 'riserva' && pub().videoAggiornato.toMillis() === 2000 && js.sorgente === 'riserva',
+            'evento-sorgente: la regia passa alla riserva per tutti (sorgente e videoAggiornato)');
+        mem.ora = 3000;
+        await D.cambiaSorgente(mem.ctx, { idEvento: 'napoli-2026', sorgente: 'riserva' });
+        vero(pub().sorgente === 'riserva' && pub().videoAggiornato.toMillis() === 3000, 'evento-sorgente: la stessa scelta ripetuta (riserva) aggiorna comunque videoAggiornato');
+        mem.ora = 4000;
+        await D.cambiaSorgente(mem.ctx, { idEvento: 'napoli-2026', sorgente: 'principale' });
+        mem.ora = 5000;
+        js = await D.cambiaSorgente(mem.ctx, { idEvento: 'napoli-2026', sorgente: 'principale' });
+        vero(pub().sorgente === 'principale' && pub().videoAggiornato.toMillis() === 5000 && js.sorgente === 'principale',
+            'evento-sorgente: «Torna al link principale per tutti» con la regia gia\' sul principale aggiorna videoAggiornato (riporta chi era passato da solo alla riserva)');
+        vero(mem.scritture.filter(w => w === 'eventi/napoli-2026').length === 4, 'evento-sorgente: una scrittura del documento pubblico per ogni comando (4)');
+        let senza = null;
+        try { await D.cambiaSorgente(mem.ctx, { idEvento: 'roma-2026', sorgente: 'riserva' }); } catch (x) { senza = x; }
+        vero(senza && senza.stato === 400 && /Non c'è un link di riserva/.test(senza.message) && mem.dati['eventi/roma-2026'].videoAggiornato.toMillis() === 1000,
+            'evento-sorgente: la riserva senza riserva -> 400, e niente scritto');
+        let strana = null;
+        try { await D.cambiaSorgente(mem.ctx, { idEvento: 'napoli-2026', sorgente: 'altro' }); } catch (x) { strana = x; }
+        vero(strana && strana.stato === 400, 'evento-sorgente: una scelta che non e\' principale/riserva -> 400');
     } catch (e) {
         rossi++;
         console.log('ROSSO  prova del servizio interrotta: ' + (e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e));

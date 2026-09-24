@@ -21,7 +21,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260924w">
+    <link rel="stylesheet" href="gestione.css?v=20260924x">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -384,11 +384,15 @@
                             </dl>
                             <p id="regia-video-pubblico" class="aiuto"></p>
                             <p id="regia-firma-attuale" class="aiuto" hidden></p>
-                            <div class="sorgente-comandi">
-                                <button type="button" id="btn-sorgente" class="btn btn-secondario" aria-describedby="sorgente-aiuto">Passa alla riserva per tutti</button>
+                            <!-- due pulsanti fissi, uno per link: quello del link gia' scelto compare
+                                 solo in onda e "riconferma" la scelta (riporta chi era passato da solo
+                                 all'altro link dopo un guasto); le scritte le mette gestione.js -->
+                            <div class="sorgente-comandi" data-sorgente="principale">
+                                <button type="button" id="btn-sorgente-riserva" class="btn btn-secondario" aria-describedby="sorgente-aiuto">Passa alla riserva per tutti</button>
+                                <button type="button" id="btn-sorgente-principale" class="btn btn-secondario" aria-describedby="sorgente-aiuto" hidden>Riporta tutti sul link principale</button>
                             </div>
                             <p id="sorgente-aiuto" class="aiuto">Se il link in uso si blocca per più di 20 secondi, il player di ciascun partecipante passa da solo
-                                all'altro. Con questo pulsante decidi tu, per tutti: chi guarda passa da solo, senza ricaricare la pagina.</p>
+                                all'altro. Con questi pulsanti decidi tu, per tutti: chi guarda passa da solo, senza ricaricare la pagina.</p>
                             <p id="msg-sorgente" class="msg" role="status" hidden></p>
                             <div id="regia-attuale-anteprima" class="video-anteprima" hidden>
                                 <div class="video-anteprima-cornice"></div>
@@ -798,7 +802,7 @@
     <!-- le regole del link della web TV (le stesse del player e del servizio)
          e lo stesso player della pagina dei partecipanti, per l'anteprima -->
     <script src="../sorgente-video.js?v=20260924w"></script>
-    <script src="../player-webtv.js?v=20260924w"></script>
-    <script src="gestione.js?v=20260924w"></script>
+    <script src="../player-webtv.js?v=20260924x"></script>
+    <script src="gestione.js?v=20260924x"></script>
 </body>
 </html>

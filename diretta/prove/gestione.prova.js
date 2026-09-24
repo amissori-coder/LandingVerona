@@ -5,8 +5,9 @@
        cd diretta/prove && node gestione.prova.js
 
    Avvia da sola gli emulatori di Firebase (Firestore 8580, Auth
-   9580) e server-locale.js (funzioni vere api/diretta-*.js sulla
-   3580, sito sulla 8590), apre la gestione in Chromium con la
+   9580), server-locale.js (funzioni vere api/diretta-*.js sulla
+   3580, sito sulla 8590) e una diretta HLS vera trasmessa da ffmpeg
+   (flusso-prova.js), apre la gestione in Chromium con la
    Content-Security-Policy vera e alla fine chiude tutto.
 
    IL SERVIZIO E' QUELLO VERO. Ogni chiamata della pagina arriva alle
@@ -16,6 +17,22 @@
    DIRETTA_POSTA_FINTA), da cui la prova legge i collegamenti e le
    password come farebbe una persona dalla sua casella.
 
+   IL VIDEO ARRIVA SOLO DALLA WEB TV, qui quella di prova di
+   flusso-prova.js su https://webtv.prova.test: una diretta HLS vera
+   (ffmpeg, VP9 + Opus, due qualita') in risultati/webtv-gestione/, con
+   /live/ e /riserva/ (i due "server"), /senza-cors/ (manca
+   Access-Control-Allow-Origin), /spento/ (404: la diretta non e' ancora
+   partita), /player/napoli (la pagina da incorporare, il ripiego),
+   /player/bloccata (X-Frame-Options: DENY) e /documento.pdf. La vede:
+   - il browser (anteprima con il player vero, lettura CORS dal nostro
+     sito), con instradaWebTv (context.route);
+   - il SERVIZIO, che prova il link da Node con le sue protezioni SSRF:
+     server-locale.js parte con DIRETTA_PROVE_WEBTV=<cartella> e passa
+     a provaLink un fetch e un lookup finti SOLO per i nomi di prova
+     (*.prova.test -> un indirizzo pubblico, interno.prova.test -> un
+     indirizzo privato); tutto il resto (127.0.0.1 compreso) segue le
+     strade vere del servizio. Niente rete esterna per il video.
+
    COME SI OTTENGONO I CASI DIFFICILI, senza fingere le risposte:
    - il gestore si attiva con «Primo accesso» (gestore-accesso): il
      collegamento arriva nella posta finta e la nuova password si
@@ -23,7 +40,8 @@
      che fa reimposta.html con confirmPasswordReset);
    - il caricamento "contemporaneo" di un altro gestore e' una
      chiamata vera a 'crea' fatta da qui, fra l'anteprima e la
-     creazione;
+     creazione; lo stesso per il link cambiato da un altro gestore
+     ('evento-video');
    - il blocco di Brevo, il tetto giornaliero e il giro automatico
      lento si ottengono RIAVVIANDO server-locale.js con gli interruttori
      della posta finta del servizio (DIRETTA_POSTA_ERRORE_ACCOUNT=1:
@@ -33,35 +51,70 @@
      scrivono con firebase-admin nei documenti presenze/, e gli accessi
      sono chiamate vere a diretta-accesso 'entra' con le password lette
      dalle email.
-   UNICO context.route (page.route) DELLA PROVA: la rete che cade
-   durante 'crea', per provare «Riprendi». Il primo tentativo del
-   secondo gruppo arriva al servizio ma la risposta si perde (la
-   creazione e' avvenuta), i due seguenti non partono proprio: e' il
-   guasto che il servizio vero non sa produrre a comando. Tutte le
-   altre risposte sono quelle del servizio.
+   UNICO page.route SUL SERVIZIO: la rete che cade durante 'crea', per
+   provare «Riprendi». Il primo tentativo del secondo gruppo arriva al
+   servizio ma la risposta si perde (la creazione e' avvenuta), i due
+   seguenti non partono proprio: e' il guasto che il servizio vero non
+   sa produrre a comando. Tutte le altre risposte sono quelle del
+   servizio.
 
    COSA DIMOSTRA. Accesso del gestore (password sbagliata, account fuori
    elenco, account "registrato da solo" che perde l'accesso e primo
    accesso con il collegamento); creazione dell'evento di Napoli;
-   caricamento di esempio-partecipanti.csv con ogni problema evidenziato
-   e il pulsante di creazione spento; correzioni in linea, esclusione e
-   conferma degli omonimi; creazione a gruppi di 25 con un nome preso nel
+   IL LINK DELLA WEB TV: riconosciuto da solo mentre lo si scrive, con la
+   spiegazione (HLS .m3u8 col nostro player, DASH .mpd, pagina o codice
+   <iframe> da incorporare con l'avviso del ripiego ben visibile, parola
+   per parola), rifiutato con il motivo senza chiamare nessuno (http://,
+   rtmp://, file .mp4, testo che non e' un link); la prova prima di
+   salvare: il flusso che funziona («Si può usare», qualita', diretta,
+   anteprima con il player vero), il CORS mancante («Da controllare», il
+   testo pronto per la web TV e «Copia il testo per la web TV»), il
+   flusso che non risponde (404: «Salvare lo stesso?»), la pagina con
+   X-Frame-Options DENY, il PDF, l'indirizzo privato scritto per intero e
+   il nome che porta nella rete interna («Non si può usare»: niente
+   salvato); il link principale e quello di riserva salvati nel
+   documento riservato, e il documento pubblico eventi/<id> seguito per
+   tutta la prova (onSnapshot): i link solo in videoId/videoRiserva e
+   solo in onda, mai videoUrl, mai la firma. Caricamento di
+   esempio-partecipanti.csv con ogni problema evidenziato e il pulsante
+   di creazione spento; correzioni in linea, esclusione e conferma
+   degli omonimi; creazione a gruppi di 25 con un nome preso nel
    frattempo e la rete che cade (Riprendi, zero doppioni); elenco con
    ricerca; invio singolo, reinvio rifiutato entro un minuto (409 con il
    testo del servizio), nuova password, disattivazione, correzioni (R3,
    anche «Rossii» -> «Rossi» a credenziali partite: la finestra chiede se
-   mantenere il nome utente); regia (in onda, pausa con il video tolto ai
-   partecipanti, cambio del video provato prima, messaggio sul link che
-   segue NGBPlayer.nome, avviso, contatore dei collegati); il video
-   cambiato dalla scheda Evento (provato con il player, e mai rimesso
-   vecchio da un modulo aperto da tempo); email di prova, invio a tutti
-   fermato da Brevo, «Riprova adesso», tetto del giorno, giro automatico
-   che lavora insieme alla pagina, reinvio a chi non l'ha ricevuta, esiti
+   mantenere il nome utente); regia (in onda, pausa con i link tolti ai
+   partecipanti, la riserva cambiata durante la diretta, «Passa alla
+   riserva per tutti» e «Torna al link principale per tutti» con
+   eventi.sorgente, «Riporta tutti sul link principale» che con la regia
+   gia' sul principale aggiorna comunque videoAggiornato (riporta chi era
+   passato da solo alla riserva), «Guarda», il link principale cambiato
+   per tutti dopo la prova, una pagina non incorporabile bloccata,
+   avviso, contatore dei collegati); il link cambiato dalla scheda
+   Evento (provato, e mai
+   rimesso vecchio da un modulo aperto da tempo); i LINK FIRMATI (nginx
+   secure_link: la chiave si salva, non torna MAI in nessuna risposta del
+   servizio, non e' nei documenti pubblici ne' nei log del servizio;
+   link-firmato con md5 ed expires giusti, l'anteprima e la prova con il
+   link firmato, la firma tolta); email di prova, invio a tutti fermato
+   da Brevo, «Riprova adesso», tetto del giorno, giro automatico che
+   lavora insieme alla pagina, reinvio a chi non l'ha ricevuta, esiti
    senza BREVO_API_KEY; esportazione in Excel con due fogli; la testata
    compatta sul telefono (390 e 360 px). Il file di esempio usa solo
    indirizzi su domini riservati (example.com, .example, .invalid).
    Screenshot in risultati/screenshot-gestione/ (computer 1440x900, tablet
-   820x1180, testata del telefono). Esce con 1 se qualcosa e' rosso.
+   820x1180, testata del telefono) e in
+   risultati/screenshot-gestione-webtv/, <nome>-computer.png (1440x900) e
+   <nome>-telefono.png (390x844, a volte con il seguito -telefono-2.png):
+     01-ripiego-iframe-evento   l'avviso del ripiego nella scheda Evento
+                                (codice <iframe> incollato e provato)
+     02-ripiego-iframe-regia    lo stesso avviso in Regia
+     03-prova-riuscita          «Si può usare», con l'anteprima che va
+     04-cors-da-controllare     «Da controllare» per il CORS, con il testo
+                                per la web TV e «Copia il testo per la web TV»
+     05-regia-riserva           la regia con la riserva in uso per tutti
+                                e «Guarda» sulla riserva
+   Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -76,12 +129,18 @@ process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + PORTE.firestore;
 const RADICE = path.resolve(__dirname, '../..');
 const RISULTATI = path.join(__dirname, 'risultati');
 const FOTO = path.join(RISULTATI, 'screenshot-gestione');
+const FOTO_WEBTV = path.join(RISULTATI, 'screenshot-gestione-webtv');
 const POSTA = path.join(RISULTATI, 'posta-gestione.jsonl');
+// la cartella della diretta di prova (ffmpeg): la leggono il browser e il servizio
+const CARTELLA_WEBTV = path.join(RISULTATI, 'webtv-gestione');
 fs.mkdirSync(FOTO, { recursive: true });
+fs.mkdirSync(FOTO_WEBTV, { recursive: true });
 
 const admin = require(path.join(RADICE, 'email-service/node_modules/firebase-admin'));
 const { chromium } = require('./node_modules/playwright');
 const { preparaContesto } = require('./rete-prove');
+const WT = require('./flusso-prova');
+const V = require(path.join(RADICE, 'diretta/sorgente-video.js'));
 
 const SITO = 'http://127.0.0.1:' + PORTE.statico;
 const API = 'http://127.0.0.1:' + PORTE.api + '/api';
@@ -99,10 +158,38 @@ const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleW
 // l'alfabeto di lib/diretta-password.js: niente 0/O/o, 1/l/I/i
 const RE_PASSWORD = /^[A-HJKMNP-Za-hjkmnp-z2-9]{10}$/;
 
+/* I link della web TV di prova (flusso-prova.js). */
+const WEBTV = WT.WEBTV;
+const LINK = {
+    live: WEBTV + '/live/master.m3u8',
+    riserva: WEBTV + '/riserva/master.m3u8',
+    senzaCors: WEBTV + '/senza-cors/master.m3u8',
+    spento: WEBTV + '/spento/master.m3u8',
+    dash: WEBTV + '/live/manifest.mpd',
+    pagina: WEBTV + '/player/napoli',
+    bloccata: WEBTV + '/player/bloccata',
+    pdf: WEBTV + '/documento.pdf',
+    // lo stesso flusso con un altro indirizzo: il "nuovo" link durante la diretta
+    canale2: WEBTV + '/live/master.m3u8?canale=2',
+    altroGestore: WEBTV + '/live/master.m3u8?canale=3',
+    dallEvento: WEBTV + '/live/master.m3u8?canale=4',
+    ipPrivato: 'https://127.0.0.1/live/master.m3u8',
+    nomeInterno: 'https://interno.prova.test/live/master.m3u8'
+};
+const CODICE_IFRAME = '<iframe src="' + WEBTV + '/player/napoli?canale=1&amp;autoplay=1" width="640" height="360" frameborder="0" allowfullscreen></iframe>';
+// l'avviso del ripiego, parola per parola (richiesta del cliente)
+const AVVISO_RIPIEGO = 'Con questo tipo di link non possiamo togliere il logo della web TV né usare i nostri comandi: chiedete alla web TV il link .m3u8';
+const SITO_PUBBLICO = 'https://nextgenerationbusiness.it';
+// la chiave dei link firmati: si scrive una volta e non deve tornare MAI indietro
+const SEGRETO = 'Chiave-Segreta-nginx-7Qx9-prova';
+
 /* Le variabili del servizio in ogni fase della prova. La base e' quella
-   chiesta: posta finta nella cartella risultati/, un solo gestore, e
-   l'indirizzo di Chloé che il "server di posta" rifiuta (550). */
+   chiesta: posta finta nella cartella risultati/, un solo gestore,
+   l'indirizzo di Chloé che il "server di posta" rifiuta (550) e la web TV
+   di prova per la prova dei link (DIRETTA_PROVE_WEBTV: vedi
+   server-locale.js). */
 const SERVIZIO_BASE = {
+    DIRETTA_PROVE_WEBTV: CARTELLA_WEBTV,
     DIRETTA_POSTA_FINTA: POSTA,
     DIRETTA_ADMIN_EMAILS: EMAIL_GESTORE,
     DIRETTA_POSTA_RIFIUTA: 'chloe.dupont@dupont.invalid',
@@ -127,10 +214,13 @@ function avvia(argomenti, pronto, nome, env) {
             env: Object.assign({}, process.env, { FORCE_COLOR: '0' }, env || {})
         });
         figlio.uscita = '';
+        // tutta l'uscita, senza tagli (per cercarci la chiave dei link firmati)
+        figlio.tuttaUscita = '';
         let partito = false;
         const limite = setTimeout(() => { figlio.kill('SIGTERM'); rifiuta(new Error(nome + ' non partito in tempo:\n' + figlio.uscita.slice(-2000))); }, 150000);
         const leggi = d => {
             figlio.uscita = (figlio.uscita + d.toString()).slice(-200000);
+            figlio.tuttaUscita += d.toString();
             if (!partito && pronto.test(figlio.uscita)) { partito = true; clearTimeout(limite); risolvi(figlio); }
         };
         figlio.stdout.on('data', leggi);
@@ -153,7 +243,7 @@ const uscitaServer = [];
 async function avviaServer(extra, descrizione, fermo) {
     // prima di spegnerlo si aspetta che la pagina non abbia richieste in viaggio
     if (fermo) await fermo();
-    if (server) { uscitaServer.push(server.uscita); await ferma(server); server = null; }
+    if (server) { uscitaServer.push(server.tuttaUscita); await ferma(server); server = null; }
     const env = Object.assign({}, SERVIZIO_BASE, extra || {});
     server = await avvia([path.join(__dirname, 'server-locale.js'), '--api', String(PORTE.api), '--statico', String(PORTE.statico),
         '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], /SERVER LOCALE PRONTO/, 'server locale', env);
@@ -210,7 +300,8 @@ async function sheetJSNode() {
    LA PROVA
    ============================================================ */
 (async () => {
-    let emulatori = null, browser = null;
+    let emulatori = null, browser = null, trasmissione = null, smettiDiGuardare = null, paginaAperta = null;
+    const erroriPaginaAperta = [];
     const t0 = Date.now();
     try {
         const { XLSX, impronta } = await sheetJSNode();
@@ -220,8 +311,15 @@ async function sheetJSNode() {
         const htmlGestione = fs.readFileSync(path.join(RADICE, 'diretta/gestione/index.html'), 'utf8');
         vero(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(htmlGestione) && !/\son[a-z]+=/i.test(htmlGestione), 'nessuno script in linea e nessun gestore on...= nell\'HTML (CSP)');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML/.test(codiceGestione), 'gestione.js non usa innerHTML/outerHTML/insertAdjacentHTML (D3)');
-        vero(!/Non riconosco un video YouTube/.test(codiceGestione) && /P\.nome/.test(codiceGestione),
-            'i messaggi sul link del video non nominano YouTube: dipendono da NGBPlayer.nome (per cambiare piattaforma)');
+        const cssGestione = fs.readFileSync(path.join(RADICE, 'diretta/gestione/gestione.css'), 'utf8');
+        vero(!/youtube|youtu\.be|vimeo|player-youtube|NGBPlayer\.nome|\bidDa\b/i.test(codiceGestione + htmlGestione + cssGestione),
+            'la gestione (js, html, css) non nomina YouTube, Vimeo, player-youtube.js né NGBPlayer.nome/idDa: il video arriva solo dalla web TV');
+        vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
+            'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio) e player-webtv.js (il player dei partecipanti, per l\'anteprima)');
+        vero(V.AVVISO_INCORPORATO === AVVISO_RIPIEGO && codiceGestione.includes(AVVISO_RIPIEGO),
+            'l\'avviso del ripiego è quello chiesto, parola per parola, in sorgente-video.js (e uguale nel ripiego di gestione.js)');
+        vero(fs.readFileSync(path.join(RADICE, 'diretta/sorgente-video.js'), 'utf8') === fs.readFileSync(path.join(RADICE, 'email-service/lib/diretta-sorgente-video.js'), 'utf8'),
+            'sorgente-video.js e la copia del servizio (lib/diretta-sorgente-video.js) sono identiche: gestione e servizio riconoscono i link allo stesso modo');
         const csvEsempio = fs.readFileSync(path.join(__dirname, 'esempio-partecipanti.csv'), 'utf8');
         const indirizziEsempio = csvEsempio.split(/\r?\n/).slice(1).map(r => (r.split(';')[2] || '').trim()).filter(e => e.includes('@'));
         const riservato = e => /@(?:[^@\s]+\.)?(example\.com|example\.org|example\.net)$|\.(example|test|invalid)$/i.test(e);
@@ -229,8 +327,13 @@ async function sheetJSNode() {
             'esempio-partecipanti.csv: tutti gli indirizzi (' + indirizziEsempio.length + ') su domini riservati che non ricevono posta (example.com, .example, .invalid…)',
             indirizziEsempio.filter(e => !riservato(e)).join(', '));
 
-        console.log('\n-- avvio di emulatori e servizio vero (porte ' + JSON.stringify(PORTE) + ')');
+        console.log('\n-- avvio della diretta di prova (ffmpeg), degli emulatori e del servizio vero (porte ' + JSON.stringify(PORTE) + ')');
         try { fs.unlinkSync(POSTA); } catch (_) { /* non c'era */ }
+        fs.rmSync(path.join(CARTELLA_WEBTV, 'controllo.json'), { force: true });
+        fs.readdirSync(FOTO_WEBTV).filter(f => /\.png$/.test(f)).forEach(f => fs.unlinkSync(path.join(FOTO_WEBTV, f)));
+        trasmissione = await WT.avviaTrasmissione(CARTELLA_WEBTV);
+        vero(fs.existsSync(path.join(CARTELLA_WEBTV, 'hls/master.m3u8')) && fs.readdirSync(path.join(CARTELLA_WEBTV, 'hls')).filter(f => /\.m4s$/.test(f)).length >= 6,
+            'la web TV di prova trasmette: diretta HLS vera (ffmpeg, due qualità) in ' + path.relative(__dirname, CARTELLA_WEBTV));
         emulatori = await avvia([path.join(__dirname, 'avvia-emulatori.js'), '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], /EMULATORI PRONTI/, 'emulatori');
         await avviaServer();
 
@@ -238,6 +341,13 @@ async function sheetJSNode() {
         const auth = app.auth();
         const db = app.firestore();
         const Ts = admin.firestore.Timestamp;
+        /* Il documento pubblico dell'evento, come lo riceve ogni iscritto
+           (l'unico ascolto della pagina della diretta): se ne tiene ogni
+           versione, per controllare alla fine che i link della web TV ci
+           siano stati SOLO in videoId/videoRiserva e SOLO in onda. */
+        const versioniPubblico = [];
+        smettiDiGuardare = db.doc('eventi/' + ID).onSnapshot(sn => { if (sn.exists) versioniPubblico.push(sn.data()); },
+            e => versioniPubblico.push({ erroreAscolto: String(e && e.message) }));
         // qualcuno fuori elenco, e qualcuno che si e' registrato da solo con l'email del gestore
         await auth.createUser({ email: EMAIL_CURIOSO, password: PASSWORD_CURIOSO, emailVerified: true });
         await auth.createUser({ email: EMAIL_GESTORE, password: PASSWORD_ABUSIVA, emailVerified: false });
@@ -262,6 +372,10 @@ async function sheetJSNode() {
         });
         const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, locale: 'it-IT', timezoneId: 'Europe/Rome' });
         await preparaContesto(context, {});
+        // la web TV di prova vista dal browser (registrata dopo preparaContesto: le sue regole vincono)
+        const webtv = await WT.instradaWebTv(context, CARTELLA_WEBTV);
+        // «Copia il testo per la web TV» usa gli appunti del sistema
+        await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: SITO });
         await context.addInitScript(p => {
             window.NGB_DIRETTA_PROVE = p;
             /* Solo un cronometro: quando partono e quando tornano le chiamate
@@ -286,9 +400,11 @@ async function sheetJSNode() {
         }, { firestore: PORTE.firestore, auth: PORTE.auth, api: API });
 
         const page = await context.newPage();
+        paginaAperta = page;
+        page.on('pageerror', e => erroriPaginaAperta.push(e.stack || e.message));
         const erroriConsole = [];
         const erroriPagina = [];
-        page.on('console', m => { if (m.type() === 'error') erroriConsole.push(m.text()); });
+        page.on('console', m => { if (m.type() === 'error') erroriConsole.push({ testo: m.text(), url: (m.location() && m.location().url) || '' }); });
         page.on('pageerror', e => erroriPagina.push(e.message));
 
         /* Il registro delle chiamate della pagina al servizio: si guarda, non
@@ -313,6 +429,20 @@ async function sheetJSNode() {
             }
         });
         const chiamate = azione => registro.filter(c => c.azione === azione);
+        /* Tutte le risposte del servizio alla pagina, per intero: servono a
+           leggere quello che la pagina ha ricevuto (per esempio l'esito di
+           prova-link) e a controllare che la chiave dei link firmati non
+           torni MAI indietro. */
+        const risposteServizio = [];
+        page.on('response', async r => {
+            if (!/\/api\/diretta-/.test(r.url()) || r.request().method() !== 'POST') return;
+            let azione = '';
+            try { azione = JSON.parse(r.request().postData() || '{}').azione || ''; } catch (_) { azione = ''; }
+            const voce = { azione: azione, stato: r.status(), corpo: null };
+            risposteServizio.push(voce);
+            try { voce.corpo = await r.text(); } catch (_) { voce.corpo = ''; }
+        });
+        const risposte = azione => risposteServizio.filter(r => r.azione === azione && r.corpo !== null).map(r => { try { return JSON.parse(r.corpo); } catch (_) { return null; } });
         // le richieste della pagina al servizio ancora in viaggio (prima di riavviarlo)
         let inViaggio = 0;
         const eDelServizio = req => /\/api\/diretta-/.test(req.url()) && req.method() === 'POST';
@@ -375,11 +505,16 @@ async function sheetJSNode() {
             await page.setViewportSize({ width: 1440, height: 900 });
             await pausa(150);
         }
-        async function confermaDialogo(atteso) {
-            await $('#dialogo-conferma').waitFor({ state: 'visible', timeout: 5000 });
+        // la finestra di conferma: il titolo e il testo attesi (e, se dato, il pulsante), poi «OK»
+        async function confermaDialogo(atteso, etichettaOk) {
+            await $('#dialogo-conferma').waitFor({ state: 'visible', timeout: 30000 });
             const titolo = await testo('#conferma-titolo');
             const corpo = await testo('#conferma-testo') + ' ' + await testo('#conferma-dettagli');
-            if (atteso) vero(atteso.test(titolo + ' ' + corpo), 'conferma chiesta: «' + titolo + '»', corpo);
+            const ok = await testo('#conferma-ok');
+            if (atteso) {
+                vero(atteso.test(titolo + ' ' + corpo) && (!etichettaOk || ok === etichettaOk),
+                    'conferma chiesta: «' + titolo + '»' + (etichettaOk ? ', pulsante «' + ok + '»' : ''), corpo + ' | ' + ok);
+            }
             await $('#conferma-ok').click();
             await $('#dialogo-conferma').waitFor({ state: 'hidden', timeout: 5000 });
             return titolo + ' ' + corpo;
@@ -388,6 +523,86 @@ async function sheetJSNode() {
         const riga = n => $('#tabella-anteprima tr[data-riga="' + n + '"]');
         const classeRiga = async n => (await riga(n).getAttribute('class')) || '';
         const avvisi = async () => (await $('#avvisi').textContent()) || '';
+
+        /* ---------- i link della web TV: attrezzi ---------- */
+        // scrive un link nel campo e lo fa riconoscere subito (come uscendo dal campo)
+        async function scriviLink(id, valore) {
+            await $('#' + id).fill(valore);
+            await $('#' + id).dispatchEvent('change');
+            return {
+                tipo: await testo('#' + id + '-tipo'),
+                tono: await $('#' + id + '-tipo').getAttribute('data-tono'),
+                allerta: await $('#' + id + '-incorporato').isVisible() ? await testo('#' + id + '-incorporato') : ''
+            };
+        }
+        /* «Prova il link» (con il link scritto prima, se dato): aspetta la
+           fine della prova e legge il riquadro dell'esito, la riga sotto il
+           campo, l'avviso del ripiego e la risposta del servizio. */
+        async function provaLink(id, valore) {
+            if (valore !== undefined) await $('#' + id).fill(valore);
+            const prima = chiamate('prova-link').length;
+            await $('#btn-prova-' + id).click();
+            await aspetta(async () => await $('#btn-prova-' + id).getAttribute('aria-busy') !== 'true', 40000, 'prova del link ' + (valore || ''));
+            const conEsito = await $('#' + id + '-esito').isVisible();
+            let servizio = null;
+            if (chiamate('prova-link').length > prima) {
+                servizio = await aspetta(async () => {
+                    const rr = risposteServizio.filter(x => x.azione === 'prova-link');
+                    const ultima = rr[rr.length - 1];
+                    return rr.length >= chiamate('prova-link').length && ultima.corpo !== null ? JSON.parse(ultima.corpo) : null;
+                }, 5000, 'risposta di prova-link');
+            }
+            return {
+                esito: conEsito ? await $('#' + id + '-esito').getAttribute('data-esito') : '',
+                bollo: conEsito ? await testo('#' + id + '-esito .esito-bollo') : '',
+                titolo: conEsito ? await testo('#' + id + '-esito .esito-titolo') : '',
+                testo: conEsito ? await testo('#' + id + '-esito') : '',
+                tipo: await testo('#' + id + '-tipo'),
+                allerta: await $('#' + id + '-incorporato').isVisible() ? await testo('#' + id + '-incorporato') : '',
+                chiamate: chiamate('prova-link').length - prima,
+                servizio: servizio
+            };
+        }
+        // il video di un'anteprima va davvero: pronto, con l'immagine, e il tempo avanza
+        async function videoVa(sel) {
+            const leggi = () => page.evaluate(s => {
+                const v = document.querySelector(s + ' video');
+                return v ? { t: v.currentTime, pronto: v.readyState, larghezza: v.videoWidth } : null;
+            }, sel);
+            return aspetta(async () => {
+                const a = await leggi();
+                await pausa(700);
+                const b = await leggi();
+                return !!(a && b && b.t > a.t && b.pronto >= 2 && b.larghezza > 0);
+            }, 20000, 'video che va in ' + sel).catch(() => false);
+        }
+        /* Le foto per la web TV (risultati/screenshot-gestione-webtv/):
+           quello che vede il gestore sullo schermo, al computer (1440x900)
+           e al telefono (390x844), con il pezzo che interessa appena sotto
+           la testata (che resta in cima scorrendo). seguitoTelefono: sul
+           telefono una seconda foto, piu' in basso (-telefono-2.png). */
+        async function fotoWebTv(nome, selettore, seguitoTelefono) {
+            const scorri = sel => page.evaluate(q => {
+                const n = document.querySelector(q);
+                const t = document.querySelector('.testata');
+                const alto = t ? t.getBoundingClientRect().height : 0;
+                window.scrollTo(0, Math.max(0, n.getBoundingClientRect().top + window.scrollY - alto - 16));
+            }, sel);
+            for (const [dispositivo, vista] of [['computer', { width: 1440, height: 900 }], ['telefono', { width: 390, height: 844 }]]) {
+                await page.setViewportSize(vista);
+                await pausa(400);
+                await scorri(selettore);
+                await pausa(400);
+                await page.screenshot({ path: path.join(FOTO_WEBTV, nome + '-' + dispositivo + '.png') });
+                if (dispositivo === 'telefono' && seguitoTelefono) {
+                    await scorri(seguitoTelefono);
+                    await pausa(300);
+                    await page.screenshot({ path: path.join(FOTO_WEBTV, nome + '-telefono-2.png') });
+                }
+            }
+            await page.setViewportSize({ width: 1440, height: 900 });
+            await pausa(200);
+        }
 
         /* ---------- 1. accesso e attivazione del gestore ---------- */
         console.log('\n-- accesso del gestore');
@@ -450,7 +665,7 @@ async function sheetJSNode() {
         vero(await page.locator('#sel-evento option[value="roma-2026"]').count() === 1 && /Dati dell'evento/.test(await testo('#titolo-form-evento')),
             'l\'elenco degli eventi arriva dal servizio (azione eventi) e si apre l\'ultimo evento');
 
-        /* ---------- 2. evento di Napoli ---------- */
+        /* ---------- 2. evento di Napoli, con il link della web TV ---------- */
         console.log('\n-- creazione dell\'evento di Napoli');
         await $('#btn-nuovo-evento').click();
         vero(await $('#tab-partecipanti').isDisabled(), 'con un evento nuovo non ancora salvato le altre schede sono spente');
@@ -458,30 +673,144 @@ async function sheetJSNode() {
         await $('#ev-luogo').fill('Napoli · Hotel Eurostars Excelsior');
         await $('#ev-data').fill('2026-10-02');
         vero(await $('#ev-id').inputValue() === ID, 'identificativo proposto dal luogo e dall\'anno: ' + await $('#ev-id').inputValue());
-        await $('#ev-ora-inizio').fill('17:30');
-        await $('#ev-ora-fine').fill('09:00');
-        await $('#ev-video').fill('https://www.youtube.com/live/abcdefghijk');
         await $('#ev-programma').fill('09.00 Accoglienza e registrazione\n09.30 Saluti istituzionali\n10:00 - Adeguati assetti e governance\n13.00 Pausa pranzo\n17.30 Chiusura dei lavori');
         await $('#ev-pagina').fill('napoli_ottobre_2026');
         await $('#ev-promemoria-giorno').check();
+
+        console.log('\n-- il link della web TV: che cosa riconosce la gestione mentre lo si scrive');
+        let r = await scriviLink('ev-video', LINK.live);
+        vero(r.tono === 'ok' && r.tipo.includes(V.descrizione('hls')) && /Premi «Prova il link»/.test(r.tipo) && !r.allerta,
+            'link .m3u8: «' + r.tipo + '» (flusso HLS, il nostro player), nessun avviso');
+        r = await scriviLink('ev-video', LINK.dash);
+        vero(r.tono === 'ok' && r.tipo.includes('Flusso DASH (.mpd): lo riproduce il nostro player.') && !r.allerta, 'link .mpd: «' + r.tipo + '»');
+        r = await scriviLink('ev-video', LINK.pagina);
+        vero(r.tono === 'avviso' && r.tipo.includes('Pagina della web TV da incorporare: è un ripiego (vedi avviso).') && r.allerta.includes(AVVISO_RIPIEGO),
+            'pagina del player della web TV: riconosciuta come ripiego, e compare l\'avviso «' + AVVISO_RIPIEGO + '»', JSON.stringify(r));
+        const allerta = await page.evaluate(() => {
+            const n = document.querySelector('#ev-video-incorporato');
+            const cs = getComputedStyle(n);
+            const b = n.getBoundingClientRect();
+            const campo = document.querySelector('#ev-video').getBoundingClientRect();
+            return { ruolo: n.getAttribute('role'), sfondo: cs.backgroundColor, bordo: parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderTopWidth),
+                alto: Math.round(b.height), largo: Math.round(b.width), campoLargo: Math.round(campo.width), sottoIlCampo: b.top - campo.bottom,
+                titolo: (n.querySelector('.allerta-titolo') || {}).textContent || '', pesoTitolo: n.querySelector('.allerta-titolo') ? getComputedStyle(n.querySelector('.allerta-titolo')).fontWeight : '' };
+        });
+        vero(allerta.ruolo === 'alert' && allerta.sfondo !== 'rgba(0, 0, 0, 0)' && allerta.bordo > 0 && allerta.alto >= 48 && allerta.largo >= allerta.campoLargo * 0.9
+            && allerta.sottoIlCampo >= 0 && allerta.sottoIlCampo < 80 && /solo un ripiego/.test(allerta.titolo) && Number(allerta.pesoTitolo) >= 600,
+            'l\'avviso del ripiego è ben visibile: riquadro colorato e bordato subito sotto il campo, largo quanto il campo, titolo in grassetto, role="alert" (letto subito dai lettori di schermo)', JSON.stringify(allerta));
+        r = await scriviLink('ev-video', CODICE_IFRAME);
+        vero(r.tono === 'avviso' && r.tipo.includes('ripiego') && r.allerta.includes(AVVISO_RIPIEGO), 'il codice <iframe src="…"> della web TV incollato: riconosciuto (si prende l\'indirizzo del player) con lo stesso avviso');
+        const rifiutati = [
+            ['http://webtv.prova.test/live/master.m3u8', /https:\/\//, 'http://'],
+            ['rtmp://webtv.prova.test/live/chiave-di-trasmissione', /per trasmettere \(RTMP\/RTSP\/SRT\), non per guardare/, 'rtmp://'],
+            [WEBTV + '/registrazioni/napoli.mp4', /file video.*non una diretta/, 'file .mp4'],
+            ['la diretta di Napoli sul canale 5', /Non riconosco un link valido/, 'testo che non è un link'],
+            ['<iframe width="640" height="360" allowfullscreen></iframe>', /non trovo l'indirizzo del player/, 'codice da incorporare senza src']
+        ];
+        for (const [link, atteso, nome] of rifiutati) {
+            r = await scriviLink('ev-video', link);
+            const esitoProva = await provaLink('ev-video');
+            vero(r.tono === 'errore' && atteso.test(r.tipo) && !r.allerta && esitoProva.chiamate === 0 && !esitoProva.esito
+                && await $('#ev-video').getAttribute('aria-invalid') === 'true' && atteso.test(esitoProva.tipo),
+                nome + ' rifiutato subito, con il motivo e senza chiamare il servizio: «' + r.tipo + '»', JSON.stringify([r, esitoProva]));
+        }
+        vero(chiamate('prova-link').length === 0 && webtv.richieste.length === 0, 'fin qui nessuna chiamata al servizio e nessuna richiesta alla web TV: il riconoscimento è tutto nella pagina (sorgente-video.js)');
+
+        console.log('\n-- la prova del link prima di salvare');
+        // la pagina della web TV da incorporare: si puo', ma e' un ripiego
+        let p = await provaLink('ev-video', CODICE_IFRAME);
+        vero(p.chiamate === 1 && p.esito === 'avviso' && p.bollo === 'Da controllare' && p.titolo === 'Pagina della web TV da incorporare (ripiego): si può incorporare'
+            && p.allerta.includes(AVVISO_RIPIEGO) && p.servizio && p.servizio.valore === LINK.pagina + '?canale=1&autoplay=1',
+            'codice <iframe>: il servizio prende l\'indirizzo del player (&amp; -> &), la pagina si può incorporare: «Da controllare» — «' + p.titolo + '»', JSON.stringify(p).slice(0, 600));
+        vero(/È un ripiego \(vedi l'avviso qui sopra\)/.test(p.testo) && await $('#ev-video-esito .testo-webtv').count() === 1 && /link diretto del flusso HLS \(\.m3u8\)/.test(await testo('#ev-video-esito .testo-webtv-corpo')),
+            'nel risultato il ripiego non ripete l\'avviso, e c\'è la richiesta pronta per la web TV: il link .m3u8');
+        await aspetta(async () => (await $('#ev-video-anteprima iframe').count()) === 1, 10000, 'anteprima della pagina incorporata');
+        vero(await $('#ev-video-anteprima').isVisible() && (await $('#ev-video-anteprima iframe').getAttribute('src')) === LINK.pagina + '?canale=1&autoplay=1'
+            && /Anteprima: la pagina della web TV compare qui sotto, con i suoi comandi e i suoi loghi/.test(p.testo),
+            'anteprima: la pagina della web TV compare sotto il campo, con i suoi comandi e i suoi loghi (il player in modalità iframe)');
+        await fotoWebTv('01-ripiego-iframe-evento', 'label[for="ev-video"]', '#ev-video-esito');
+
+        p = await provaLink('ev-video', LINK.bloccata);
+        vero(p.esito === 'errore' && p.bollo === 'Non si può usare' && /X-Frame-Options: DENY/.test(p.testo) && !(await $('#ev-video-anteprima').isVisible())
+            && await $('#ev-video').getAttribute('aria-invalid') === 'true',
+            'pagina con X-Frame-Options: DENY: «Non si può usare», con il motivo (il loro server vieta l\'incorporamento), nessuna anteprima — «' + p.titolo + '»');
+        p = await provaLink('ev-video', LINK.pdf);
+        vero(p.esito === 'errore' && p.bollo === 'Non si può usare' && /non apre una pagina web da incorporare \(tipo: application\/pdf\)/.test(p.testo),
+            'un PDF: «Non si può usare» — non è né un flusso né una pagina da incorporare');
+        const richiesteWebTvPrima = webtv.richieste.length;
+        const richiestePrivate = [];
+        page.on('request', q => { if (/^https:\/\/(127\.0\.0\.1|interno\.prova\.test)\//.test(q.url())) richiestePrivate.push(q.url()); });
+        p = await provaLink('ev-video', LINK.ipPrivato);
+        vero(p.esito === 'errore' && p.titolo === 'Indirizzo non pubblico: non si può usare' && /indirizzo interno o privato \(127\.0\.0\.1\)/.test(p.testo),
+            'https://127.0.0.1/…: il servizio rifiuta l\'indirizzo privato senza scaricarlo (SSRF) — «' + p.titolo + '»', p.testo);
+        p = await provaLink('ev-video', LINK.nomeInterno);
+        vero(p.esito === 'errore' && p.titolo === 'Indirizzo non pubblico: non si può usare' && /interno\.prova\.test/.test(p.testo),
+            'un nome che il DNS porta nella rete interna (interno.prova.test -> 10.20.30.40): rifiutato anche lui');
+        vero(richiestePrivate.length === 0 && webtv.richieste.length === richiesteWebTvPrima, 'per gli indirizzi privati nemmeno il browser prova a collegarsi (niente anteprima)', richiestePrivate.join(' '));
+
+        // il server della web TV non consente la lettura dal nostro sito (CORS)
+        p = await provaLink('ev-video', LINK.senzaCors);
+        const testoCors = await testo('#ev-video-esito .testo-webtv-corpo');
+        vero(p.esito === 'avviso' && p.bollo === 'Da controllare' && /non consente la riproduzione dal nostro sito/.test(p.testo)
+            && /Confermato dal browser: la lettura dal nostro sito è bloccata \(CORS\)/.test(p.testo),
+            'CORS mancante: «Da controllare», lo dice il servizio e lo conferma il browser (lettura dal nostro dominio bloccata)', p.testo);
+        vero(/^Buongiorno,/.test(testoCors) && testoCors.includes(LINK.senzaCors) && testoCors.includes('Access-Control-Allow-Origin: ' + SITO_PUBBLICO) && /Grazie e buona giornata\.$/.test(testoCors),
+            'il testo pronto da girare alla web TV: il link, l\'intestazione da abilitare e il nostro dominio', testoCors);
+        await $('#ev-video-esito .testo-webtv button').first().click();
+        await aspetta(async () => /Testo (copiato|selezionato)/.test(await testo('#ev-video-esito .testo-webtv-esito')), 5000, 'copia del testo');
+        const appunti = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''));
+        vero(await testo('#ev-video-esito .testo-webtv button') === 'Copia il testo per la web TV' && /Testo copiato/.test(await testo('#ev-video-esito .testo-webtv-esito')) && appunti === testoCors,
+            '«Copia il testo per la web TV»: il testo è negli appunti, pronto da incollare nell\'email — «' + await testo('#ev-video-esito .testo-webtv-esito') + '»');
+        await fotoWebTv('04-cors-da-controllare', 'label[for="ev-video"]', '#ev-video-esito .esito-sottotitolo');
+
+        // il flusso che funziona
+        p = await provaLink('ev-video', LINK.live);
+        vero(p.esito === 'ok' && p.bollo === 'Si può usare' && p.titolo === 'Flusso HLS in diretta, 2 qualità (360p, 180p), non si può tornare indietro'
+            && p.servizio.info.diretta === true && p.servizio.info.corsOk === true && p.servizio.info.qualita.length === 2,
+            'il link che funziona: «Si può usare» — «' + p.titolo + '»', JSON.stringify(p.servizio && p.servizio.info));
+        vero(/Qualità: 360p \(1,0 Mbit\/s\), 180p \(0,3 Mbit\/s\)/.test(p.testo) && /Segmenti da 2 secondi/.test(p.testo)
+            && /Dal browser il link si legge/.test(p.testo) && /Anteprima: il video si vede qui sotto con il player dei partecipanti/.test(p.testo),
+            'nel risultato: le qualità, i segmenti, la lettura dal browser (CORS ok) e l\'anteprima', p.testo);
+        vero(await $('#ev-video-anteprima video').count() === 1 && await videoVa('#ev-video-anteprima'), 'l\'anteprima sotto il campo è il player vero dei partecipanti, e il video va (il tempo avanza)');
+        await fotoWebTv('03-prova-riuscita', 'label[for="ev-video"]', '#ev-video-esito .esito-righe');
+        vero(chiamate('evento-salva').length === 0, 'fin qui nessun salvataggio: le prove non salvano niente');
+
+        await $('#ev-ora-inizio').fill('17:30');
+        await $('#ev-ora-fine').fill('09:00');
         await $('#btn-salva-evento').click();
         vero(await $('#ev-ora-fine').getAttribute('aria-invalid') === 'true' && /dopo quella di inizio/.test(await testo('#msg-evento')), 'fine prima dell\'inizio: errore sul campo, niente chiamata al servizio');
         vero(chiamate('evento-salva').length === 0, 'nessun salvataggio con dati sbagliati');
         await $('#ev-ora-inizio').fill('09:00');
         await $('#ev-ora-fine').fill('17:30');
+        // la riserva e' un flusso che non risponde ancora (404): si salva solo dopo averlo confermato
+        await scriviLink('ev-riserva', LINK.spento);
+        const proveAlSalvataggio = chiamate('prova-link').length;
         await $('#btn-salva-evento').click();
+        const domandaSpento = await confermaDialogo(/Salvare lo stesso\?.*Link di riserva: .*il flusso non c'è \(errore 404\)/s, 'Salva lo stesso');
+        vero(/i partecipanti potrebbero non vedere il video/.test(domandaSpento), 'flusso che non risponde (404, la diretta non è ancora partita): «Salvare lo stesso?» con il motivo, e si salva solo con «Salva lo stesso»');
         await aspetta(async () => /Evento creato/.test(await testo('#msg-evento')), 10000, 'evento creato');
+        vero(chiamate('prova-link').length === proveAlSalvataggio + 1, 'al salvataggio si prova solo la riserva: la prova del link principale di poco fa (stesso testo) vale ancora');
+        vero(/Ricorda i problemi segnalati dalla prova/.test(await testo('#msg-evento')), 'dopo il salvataggio lo ricorda: «' + await testo('#msg-evento') + '»');
         const salvato = chiamate('evento-salva')[0].dati.evento;
-        vero(salvato.nuovo === true && salvato.id === ID && salvato.paginaEvento === '/napoli_ottobre_2026/' && salvato.videoId === 'abcdefghijk',
-            'evento-salva riceve id, pagina normalizzata e videoId ricavato dal link', JSON.stringify(salvato));
+        vero(salvato.nuovo === true && salvato.id === ID && salvato.paginaEvento === '/napoli_ottobre_2026/' && salvato.videoUrl === LINK.live && salvato.videoId === LINK.live
+            && salvato.riservaUrl === LINK.spento && !('firma' in salvato),
+            'evento-salva riceve id, pagina normalizzata, il link principale (videoUrl, videoId) e quello di riserva (riservaUrl)', JSON.stringify(salvato));
         vero(salvato.programma.length === 5 && salvato.programma[2].ora === '10.00' && salvato.programma[2].titolo === 'Adeguati assetti e governance',
             'programma letto riga per riga ("10:00 - Titolo" diventa {ora: "10.00", titolo})', JSON.stringify(salvato.programma));
         const [docEv, docRis] = await Promise.all([db.doc('eventi/' + ID).get(), db.doc('eventiRiservati/' + ID).get()]);
-        vero(docEv.exists && docEv.data().videoId === '' && !('videoUrl' in docEv.data()) && docRis.data().videoId === 'abcdefghijk'
-            && docEv.data().inizio.toMillis() === Date.parse('2026-10-02T09:00:00+02:00') && docEv.data().programma.length === 5,
-            'sul servizio: evento con inizio alle 9.00 di Roma, e il video solo nel documento riservato finché non si va in onda (D6)');
+        const ris = docRis.data();
+        vero(ris.videoUrl === LINK.live && ris.videoId === LINK.live && ris.riservaUrl === LINK.spento && ris.riservaId === LINK.spento && ris.firma && ris.firma.schema === 'nessuna',
+            'nel documento riservato (solo il servizio lo legge): videoUrl/videoId e riservaUrl/riservaId', JSON.stringify(ris));
+        vero(docEv.exists && docEv.data().videoId === '' && docEv.data().videoRiserva === '' && docEv.data().sorgente === 'principale' && docEv.data().videoFirmato === false
+            && !JSON.stringify(docEv.data()).includes(WEBTV) && docEv.data().inizio.toMillis() === Date.parse('2026-10-02T09:00:00+02:00') && docEv.data().programma.length === 5,
+            'nel documento pubblico eventi/' + ID + ' nessun link finché non si va in onda (videoId e videoRiserva vuoti), inizio alle 9.00 di Roma');
         vero(await $('#sel-evento').inputValue() === ID && await testo('#stato-testata') === 'In attesa', 'evento selezionato, stato «In attesa» in testata');
         vero(await $('#ev-id').evaluate(n => n.readOnly), 'dopo la creazione l\'identificativo non si cambia più');
+        vero(await $('#ev-video').inputValue() === LINK.live && await $('#ev-riserva').inputValue() === LINK.spento && /Link salvato\./.test(await testo('#ev-video-tipo')),
+            'il modulo mostra i due link salvati («Link salvato.»)');
+        const dalServizio = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, videoUrl: LINK.ipPrivato }, tokGestore);
+        vero(dalServizio.stato === 400 && /indirizzo interno o privato/.test(dalServizio.dati.msg) && (await db.doc('eventiRiservati/' + ID).get()).data().videoId === LINK.live,
+            'anche chiamando il servizio a mano un indirizzo privato non si salva (400: «' + dalServizio.dati.msg + '»)');
         await foto('evento');
 
         /* ---------- 3. caricamento e anteprima ---------- */
@@ -725,83 +1054,136 @@ async function sheetJSNode() {
             }, typeof campi === 'function' ? campi(p) : (campi || {}))));
             await lotto.commit();
         };
+        const docPubblico = async () => (await db.doc('eventi/' + ID).get()).data();
+        const docRiservato = async () => (await db.doc('eventiRiservati/' + ID).get()).data();
         await segnala(persone.slice(0, 31));
         await page.click('[data-scheda="regia"]');
         await aspetta(async () => await testo('#num-connessi') === '31', 10000, 'collegati');
         vero(await testo('#regia-stato-testo') === 'IN ATTESA', 'stato grande: IN ATTESA');
         vero(/su 38 iscritti/.test(await testo('#connessi-dettaglio')), 'contatore dei collegati dal servizio: 31, accanto agli iscritti di adesso (' + await testo('#connessi-dettaglio') + ')');
+        vero(await testo('#regia-video-attuale') === LINK.live && await testo('#regia-video-tipo-attuale') === '(flusso HLS)' && await testo('#regia-riserva-attuale') === LINK.spento
+            && await testo('#regia-sorgente') === 'link principale' && /solo mentre la diretta è in onda/.test(await testo('#regia-video-pubblico')),
+            'regia: i due link salvati con il loro tipo, «In uso per tutti: link principale», e che ai partecipanti arrivano solo in onda');
+        vero(await $('#btn-sorgente-riserva').isEnabled() && await testo('#btn-sorgente-riserva') === 'Passa alla riserva per tutti' && await $('#btn-sorgente-principale').isHidden(),
+            'fuori onda un solo pulsante: «Passa alla riserva per tutti»');
         await $('#btn-in-onda').click();
-        const domandaOnda = await confermaDialogo(/Mandare in onda.*Il video è impostato \(abcdefghijk\)/s);
+        const domandaOnda = await confermaDialogo(/Mandare in onda.*Il link della diretta è impostato \(flusso HLS, con la riserva\)/s, 'Vai in onda');
         vero(/previsto per venerdì 2 ottobre 2026, non per oggi/.test(domandaOnda), 'oggi non è il giorno dell\'evento: la conferma lo dice (evento sbagliato nel menu?)');
         await aspetta(async () => await $('#regia-stato').getAttribute('data-stato') === 'in_onda', 5000, 'in onda');
         vero(await testo('#regia-stato-testo') === 'IN ONDA' && await testo('#stato-testata') === 'In onda', 'IN ONDA, grande in regia e in testata');
         vero(await $('#btn-in-onda').isDisabled() && !(await $('#btn-termina').isDisabled()) && !(await $('#btn-pausa').isDisabled()), 'in onda: «Vai in onda» spento, «Termina» e «Pausa» accesi');
-        vero((await db.doc('eventi/' + ID).get()).data().videoId === 'abcdefghijk' && /stanno guardando questo video/.test(await testo('#regia-video-pubblico')),
-            'in onda il servizio pubblica il video per i partecipanti, e la regia lo dice (videoInOnda)');
+        let pub = await docPubblico();
+        vero(pub.videoId === LINK.live && pub.videoRiserva === LINK.spento && pub.sorgente === 'principale' && pub.videoFirmato === false
+            && /stanno guardando il link principale/.test(await testo('#regia-video-pubblico')),
+            'in onda il servizio pubblica i due link per i partecipanti (videoId, videoRiserva, sorgente), e la regia lo dice', JSON.stringify(pub));
         await segnala(persone.slice(31, 36));
         const primaDelTimer = chiamate('connessi').length;
         await page.clock.fastForward(21000);
         await aspetta(async () => chiamate('connessi').length > primaDelTimer && await testo('#num-connessi') === '36', 10000, 'aggiornamento dei collegati');
         vero(true, 'dopo 20 secondi il contatore si aggiorna da solo (36: cinque persone in più si sono collegate)');
+
         // link che non si possono usare: il motivo preciso (sorgente-video.js), niente chiamato
-        await $('#regia-video').fill('http://example.com/diretta/playlist.m3u8');
+        console.log('\n-- i link in regia, durante la diretta');
+        await scriviLink('regia-video', 'http://example.com/diretta/playlist.m3u8');
         await $('#btn-cambia-video').click();
         await aspetta(async () => /https:\/\//.test(await testo('#msg-video')), 5000, 'link http rifiutato');
         const msgHttp = await testo('#msg-video');
-        await $('#regia-video').fill('rtmp://ingest.example.com/live/chiave');
+        await scriviLink('regia-video', 'rtmp://ingest.example.com/live/chiave');
         await $('#btn-cambia-video').click();
         await aspetta(async () => /RTMP/.test(await testo('#msg-video')), 5000, 'link RTMP rifiutato');
         const msgRtmp = await testo('#msg-video');
-        vero(chiamate('evento-video').length === 0, 'link che non si possono usare rifiutati con il motivo, niente chiamato («' + msgHttp + '» / «' + msgRtmp + '»)');
-        // con un player che non e' la web TV, i messaggi seguono il suo nome (NGBPlayer.nome), mai "YouTube" fisso
-        await page.evaluate(() => {
-            if (!window.NGBPlayer) return;
-            window.__idDaVero = window.NGBPlayer.idDa;
-            window.NGBPlayer.nome = 'vimeo';
-            window.NGBPlayer.idDa = () => '';
-        });
-        await $('#regia-video').fill('https://example.com/diretta');
+        vero(chiamate('evento-video').length === 0 && chiamate('prova-link').length === proveAlSalvataggio + 1,
+            'link che non si possono usare rifiutati con il motivo, senza provarli e senza cambiare niente («' + msgHttp + '» / «' + msgRtmp + '»)');
+        // il ripiego si riconosce anche qui, con lo stesso avviso
+        r = await scriviLink('regia-video', LINK.pagina);
+        vero(r.allerta.includes(AVVISO_RIPIEGO) && await $('#regia-video-incorporato').getAttribute('role') === 'alert', 'in regia la pagina da incorporare fa comparire lo stesso avviso del ripiego');
+        await fotoWebTv('02-ripiego-iframe-regia', 'label[for="regia-video"]');
+
+        // la riserva cambiata durante la diretta: prima provata, poi confermata
+        await scriviLink('regia-video', LINK.live);
+        await scriviLink('regia-riserva', LINK.riserva);
         await $('#btn-cambia-video').click();
-        await aspetta(async () => /di Vimeo/.test(await testo('#msg-video')), 5000, 'messaggio con la piattaforma');
-        const msgVimeo = await testo('#msg-video');
-        await page.evaluate(() => { if (window.NGBPlayer) { window.NGBPlayer.nome = 'webtv'; window.NGBPlayer.idDa = window.__idDaVero; } });
-        vero(/Non riconosco un video di Vimeo in questo link.*vimeo\.com/.test(msgVimeo) && !/YouTube/.test(msgVimeo) && chiamate('evento-video').length === 0,
-            'link non riconosciuto da un altro player: il messaggio segue NGBPlayer.nome («' + msgVimeo + '»), niente chiamato');
-        // il video: prima provato con il player, poi cambiato per tutti
-        const conPlayer = await page.evaluate(() => !!(window.NGBPlayer && window.NGBPlayer.crea));
-        if (conPlayer) {
-            await $('#regia-video').fill('https://youtu.be/errore12345');
-            await $('#btn-cambia-video').click();
-            await aspetta(async () => /non si può usare/.test(await testo('#msg-video')), 15000, 'errore del video');
-            vero(chiamate('evento-video').length === 0, 'video non incorporabile (errore 150 del player): bloccato con il motivo, niente cambiato — «' + await testo('#msg-video') + '»');
-        } else vero(true, '(player-youtube.js assente: prova dell\'errore del video saltata)');
-        await $('#regia-video').fill('https://www.youtube.com/watch?v=zyxwvutsrqp');
+        await confermaDialogo(/Cambiare il link di riserva\?.*chi è collegato resta sul link principale, che non cambia/s, 'Salva la riserva');
+        await aspetta(async () => /Link di riserva aggiornato/.test(await testo('#msg-video')), 20000, 'riserva cambiata');
+        let cv = chiamate('evento-video').pop().dati;
+        vero(cv.riservaUrl === LINK.riserva && cv.videoUrl === LINK.live && !('videoId' in cv), 'evento-video riceve la nuova riserva (il link principale resta quello)', JSON.stringify(cv));
+        vero((await docRiservato()).riservaUrl === LINK.riserva && (await docPubblico()).videoRiserva === LINK.riserva && await testo('#regia-riserva-attuale') === LINK.riserva,
+            'sul servizio: nuova riserva nel documento riservato e, in onda, subito anche nel documento dei partecipanti');
+
+        // «Passa alla riserva per tutti»
+        const aggiornatoPrima = (await docPubblico()).videoAggiornato.toMillis();
+        await $('#btn-sorgente-riserva').click();
+        await confermaDialogo(/Passare alla riserva per tutti\?.*passa da solo al link di riserva in pochi secondi/s, 'Passa alla riserva');
+        await aspetta(async () => await testo('#regia-sorgente') === 'link di riserva', 10000, 'riserva per tutti');
+        pub = await docPubblico();
+        vero(chiamate('evento-sorgente').pop().dati.sorgente === 'riserva' && pub.sorgente === 'riserva' && pub.videoAggiornato.toMillis() > aggiornatoPrima,
+            '«Passa alla riserva per tutti»: evento-sorgente, e nel documento dei partecipanti sorgente «riserva» (videoAggiornato cambia)');
+        vero(await aspetta(async () => await $('#regia-sorgente').getAttribute('data-sorgente') === 'riserva' && await $('.link-salvato[data-ruolo="riserva"]').getAttribute('data-in-uso') === 'si'
+            && await testo('#btn-sorgente-principale') === 'Torna al link principale per tutti' && await testo('#btn-sorgente-riserva') === 'Riporta tutti sulla riserva'
+            && /Riserva in uso per tutti/.test(await testo('#msg-sorgente')), 5000, 'regia sulla riserva').catch(() => false),
+            'la regia lo mostra: bollino «link di riserva», riga della riserva «in uso», «Torna al link principale per tutti» (e «Riporta tutti sulla riserva»)');
+        // «Guarda»: la riserva come la vedono i partecipanti
+        await $('#btn-guarda-riserva').click();
+        await aspetta(async () => /Link di riserva: qui sotto lo vedi come lo vedono i partecipanti/.test(await testo('#msg-sorgente')), 25000, 'guarda la riserva');
+        vero(await $('#regia-attuale-anteprima video').count() === 1 && await videoVa('#regia-attuale-anteprima') && webtv.richieste.some(q => /^\/riserva\/.*\.m4s$/.test(q)),
+            '«Guarda» sulla riserva: l\'anteprima con il player dei partecipanti legge i segmenti di /riserva/ e il video va');
+        await fotoWebTv('05-regia-riserva', '.regia-video-riquadro', '#msg-sorgente');
+        // «Torna al link principale per tutti»
+        await $('#btn-sorgente-principale').click();
+        await confermaDialogo(/Tornare al link principale per tutti\?/, 'Torna al principale');
+        await aspetta(async () => await testo('#regia-sorgente') === 'link principale', 10000, 'principale per tutti');
+        pub = await docPubblico();
+        vero(chiamate('evento-sorgente').pop().dati.sorgente === 'principale' && pub.sorgente === 'principale'
+            && await aspetta(async () => await testo('#btn-sorgente-riserva') === 'Passa alla riserva per tutti' && await testo('#btn-sorgente-principale') === 'Riporta tutti sul link principale', 5000, 'pulsanti').catch(() => false),
+            '«Torna al link principale per tutti»: sorgente di nuovo «principale» per tutti');
+        // di nuovo sul principale, per chi ci era passato da solo: la regia "riconferma"
+        const aggiornatoRiconferma = pub.videoAggiornato.toMillis();
+        await pausa(20);
+        await $('#btn-sorgente-principale').click();
+        await confermaDialogo(/Riportare tutti sul link principale\?.*Chi è passato da solo alla riserva.*torna al principale/s, 'Riporta tutti sul principale');
+        await aspetta(async () => /Link principale confermato per tutti/.test(await testo('#msg-sorgente')), 10000, 'riconferma del principale');
+        pub = await docPubblico();
+        vero(pub.sorgente === 'principale' && pub.videoAggiornato.toMillis() > aggiornatoRiconferma,
+            '«Riporta tutti sul link principale» con la regia già sul principale: il servizio aggiorna comunque videoAggiornato (chi era passato da solo alla riserva torna al principale)');
+
+        // il link principale durante la diretta: una pagina che non si puo' incorporare si blocca
+        const videoPrima = chiamate('evento-video').length;
+        await scriviLink('regia-video', LINK.bloccata);
         await $('#btn-cambia-video').click();
-        await confermaDialogo(/Cambiare il video per tutti/);
-        await aspetta(async () => /zyxwvutsrqp/.test(await testo('#regia-video-attuale')), 15000, 'video cambiato');
-        const cv = chiamate('evento-video').pop().dati;
-        vero(cv.videoId === 'zyxwvutsrqp' && cv.videoUrl === 'https://www.youtube.com/watch?v=zyxwvutsrqp', 'evento-video riceve videoUrl e videoId (R21)');
-        vero((await db.doc('eventi/' + ID).get()).data().videoId === 'zyxwvutsrqp', 'sul servizio: chi è collegato passa subito al nuovo video (documento pubblico aggiornato)');
-        if (conPlayer) vero(await $('#regia-video-anteprima').isVisible(), 'anteprima del video in regia con lo stesso player dei partecipanti');
+        await aspetta(async () => /non si può usare/.test(await testo('#msg-video')), 30000, 'pagina bloccata in regia');
+        vero(chiamate('evento-video').length === videoPrima && /Non ho cambiato niente/.test(await testo('#msg-video')) && (await docPubblico()).videoId === LINK.live,
+            'una pagina con X-Frame-Options DENY in regia: provata, bloccata con il motivo, niente cambiato — «' + await testo('#msg-video') + '»');
+        // un link nuovo che funziona: provato e poi cambiato per tutti
+        await scriviLink('regia-video', LINK.canale2);
+        await $('#btn-cambia-video').click();
+        await confermaDialogo(/Cambiare il link per tutti\?.*chi è collegato passa al nuovo link da solo/s, 'Cambia il link');
+        await aspetta(async () => /Link della diretta aggiornato: i partecipanti collegati passano al nuovo link/.test(await testo('#msg-video')), 20000, 'link cambiato');
+        cv = chiamate('evento-video').pop().dati;
+        vero(cv.videoId === LINK.canale2 && cv.videoUrl === LINK.canale2 && !('riservaUrl' in cv), 'evento-video riceve videoUrl e videoId (la riserva, non cambiata, non si manda)', JSON.stringify(cv));
+        vero((await docPubblico()).videoId === LINK.canale2 && await testo('#regia-video-attuale') === LINK.canale2,
+            'sul servizio: chi è collegato passa subito al nuovo link (documento pubblico aggiornato), e la regia lo mostra');
+        vero(await $('#regia-video-anteprima video').count() === 1 && /Si può usare/.test(await testo('#regia-video-esito')),
+            'il link provato prima di cambiarlo: «Si può usare», con l\'anteprima del player dei partecipanti sotto il campo');
         // avviso a tutti
         await $('#regia-avviso').fill('Problema tecnico: torniamo tra 5 minuti');
         await $('#btn-avviso').click();
         await confermaDialogo(/Pubblicare l'avviso/);
         await aspetta(async () => /torniamo tra 5 minuti/.test(await testo('#regia-avviso-attuale')), 5000, 'avviso');
-        vero((await db.doc('eventi/' + ID).get()).data().avviso === 'Problema tecnico: torniamo tra 5 minuti', 'avviso a tutti pubblicato (evento-avviso, nel documento che i partecipanti ascoltano)');
+        vero((await docPubblico()).avviso === 'Problema tecnico: torniamo tra 5 minuti', 'avviso a tutti pubblicato (evento-avviso, nel documento che i partecipanti ascoltano)');
         // pausa con orario di ripresa e ripresa
         await $('#regia-ripresa').fill('14:30');
         await $('#btn-pausa').click();
         await confermaDialogo(/Mettere in pausa.*14\.30/s);
         await aspetta(async () => await $('#regia-stato').getAttribute('data-stato') === 'pausa', 5000, 'pausa');
         vero(await testo('#regia-stato-testo') === 'IN PAUSA' && /si riprende alle 14\.30/.test(await testo('#regia-orari')) && await $('#btn-riprendi').isVisible(), 'pausa: IN PAUSA, orario di ripresa, pulsante «Riprendi»');
-        const inPausa = (await db.doc('eventi/' + ID).get()).data();
-        vero(chiamate('evento-stato').pop().dati.ripresa === '14:30' && inPausa.stato === 'pausa' && inPausa.ripresa === '14:30' && inPausa.videoId === '',
-            'evento-stato {stato: pausa, ripresa: 14:30}: in pausa il video sparisce anche dal documento dei partecipanti (R7)');
+        const inPausa = await docPubblico();
+        vero(chiamate('evento-stato').pop().dati.ripresa === '14:30' && inPausa.stato === 'pausa' && inPausa.ripresa === '14:30' && inPausa.videoId === '' && inPausa.videoRiserva === '',
+            'evento-stato {stato: pausa, ripresa: 14:30}: in pausa i due link spariscono anche dal documento dei partecipanti (R7)');
         await $('#btn-riprendi').click();
         await confermaDialogo(/Riprendere la diretta/);
         await aspetta(async () => await $('#regia-stato').getAttribute('data-stato') === 'in_onda', 5000, 'ripresa');
-        vero((await db.doc('eventi/' + ID).get()).data().videoId === 'zyxwvutsrqp', 'ripresa: di nuovo IN ONDA, con il video');
+        pub = await docPubblico();
+        vero(pub.videoId === LINK.canale2 && pub.videoRiserva === LINK.riserva, 'ripresa: di nuovo IN ONDA, con i due link');
         // termina: la conferma dice quanti sono collegati; qui si annulla
         await $('#btn-termina').click();
         await $('#dialogo-conferma').waitFor({ state: 'visible' });
@@ -811,48 +1193,46 @@ async function sheetJSNode() {
         await $('#dialogo-conferma').waitFor({ state: 'hidden' });
         vero(await $('#regia-stato').getAttribute('data-stato') === 'in_onda', 'Esc annulla: la diretta resta in onda');
 
-        /* Il video si puo' cambiare anche dalla scheda Evento. Prima: un altro
-           gestore (qui una chiamata vera al servizio) cambia il video dalla sua
-           regia; in questa pagina il modulo dell'evento e' rimasto aperto con il
-           link di prima. Correggere il luogo NON deve rimettere il video vecchio. */
-        console.log('\n-- il video dalla scheda Evento');
-        const altroGestore = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, videoUrl: 'https://youtu.be/altrogestor', videoId: 'altrogestor' }, tokGestore);
-        vero(altroGestore.stato === 200 && (await db.doc('eventi/' + ID).get()).data().videoId === 'altrogestor', 'un altro gestore cambia il video dalla sua regia (altrogestor)');
+        /* Il link si puo' cambiare anche dalla scheda Evento. Prima: un altro
+           gestore (qui una chiamata vera al servizio) lo cambia dalla sua
+           regia; in questa pagina il modulo dell'evento e' rimasto aperto con
+           il link di prima. Correggere il luogo NON deve rimettere il link vecchio. */
+        console.log('\n-- il link dalla scheda Evento');
+        const altroGestore = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, videoUrl: LINK.altroGestore }, tokGestore);
+        vero(altroGestore.stato === 200 && (await docPubblico()).videoId === LINK.altroGestore, 'un altro gestore cambia il link dalla sua regia (…?canale=3)');
         await page.click('[data-scheda="evento"]');
-        vero(/zyxwvutsrqp/.test(await $('#ev-video').inputValue()), 'qui il modulo dell\'evento mostra ancora il link di prima (nessuno lo ha ricaricato)');
+        vero(await $('#ev-video').inputValue() === LINK.canale2, 'qui il modulo dell\'evento mostra ancora il link di prima (nessuno lo ha ricaricato)');
         const salvaPrima = chiamate('evento-salva').length;
         await $('#ev-luogo').fill('Napoli · Hotel Eurostars Excelsior, Sala Posillipo');
         await $('#btn-salva-evento').click();
         await aspetta(async () => /Modifiche salvate/.test(await testo('#msg-evento')), 10000, 'luogo salvato');
         const soloLuogo = chiamate('evento-salva').slice(salvaPrima).pop().dati.evento;
-        const [pubblicoDopo, riservatoDopo] = await Promise.all([db.doc('eventi/' + ID).get(), db.doc('eventiRiservati/' + ID).get()]);
-        vero(!('videoUrl' in soloLuogo) && !('videoId' in soloLuogo) && pubblicoDopo.data().luogo === 'Napoli · Hotel Eurostars Excelsior, Sala Posillipo',
-            'correggendo il luogo il link non si manda (non era stato toccato)', JSON.stringify(soloLuogo));
-        vero(pubblicoDopo.data().videoId === 'altrogestor' && riservatoDopo.data().videoId === 'altrogestor',
-            'e il video dell\'altro gestore resta: nessuno torna al video vecchio');
-        vero(/altrogestor/.test(await $('#ev-video').inputValue()), 'dopo il salvataggio il modulo mostra il link attuale');
-        if (conPlayer) {
-            // un link nuovo scritto qui si prova con il player, come in Regia: se non si puo' incorporare, niente salvato
-            const salvaPrimaErrore = chiamate('evento-salva').length;
-            await $('#ev-video').fill('https://youtu.be/errore12345');
-            await $('#btn-salva-evento').click();
-            await aspetta(async () => /non si può usare/.test(await testo('#msg-evento')), 15000, 'video bloccato dalla scheda Evento');
-            vero(chiamate('evento-salva').length === salvaPrimaErrore && await $('#ev-video').getAttribute('aria-invalid') === 'true'
-                && (await db.doc('eventiRiservati/' + ID).get()).data().videoId === 'altrogestor',
-                'dalla scheda Evento un video non incorporabile (errore 150 del player) si blocca con il motivo e non si salva — «' + await testo('#msg-evento') + '»');
-        } else vero(true, '(player-youtube.js assente: prova del video bloccato dalla scheda Evento saltata)');
-        await $('#ev-video').fill('https://www.youtube.com/watch?v=nuovovideo1');
+        const [pubblicoDopo, riservatoDopo] = await Promise.all([docPubblico(), docRiservato()]);
+        vero(!('videoUrl' in soloLuogo) && !('videoId' in soloLuogo) && !('riservaUrl' in soloLuogo) && !('firma' in soloLuogo) && pubblicoDopo.luogo === 'Napoli · Hotel Eurostars Excelsior, Sala Posillipo',
+            'correggendo il luogo i link e la firma non si mandano (non erano stati toccati)', JSON.stringify(soloLuogo));
+        vero(pubblicoDopo.videoId === LINK.altroGestore && riservatoDopo.videoId === LINK.altroGestore && riservatoDopo.riservaUrl === LINK.riserva,
+            'e il link dell\'altro gestore resta: nessuno torna al link vecchio');
+        vero(await $('#ev-video').inputValue() === LINK.altroGestore, 'dopo il salvataggio il modulo mostra il link attuale');
+        // un link nuovo scritto qui si prova come in Regia: se non si puo' usare, niente salvato
+        const salvaPrimaErrore = chiamate('evento-salva').length;
+        await scriviLink('ev-video', LINK.bloccata);
         await $('#btn-salva-evento').click();
-        await confermaDialogo(/Cambiare il video per tutti.*in onda/s);
-        await aspetta(async () => /Modifiche salvate.*nuovo video/.test(await testo('#msg-evento')), 15000, 'video cambiato dalla scheda Evento');
+        await aspetta(async () => /non si può usare/.test(await testo('#msg-evento')), 30000, 'link bloccato dalla scheda Evento');
+        vero(chiamate('evento-salva').length === salvaPrimaErrore && await $('#ev-video').getAttribute('aria-invalid') === 'true'
+            && /Non ho salvato niente/.test(await testo('#msg-evento')) && (await docRiservato()).videoId === LINK.altroGestore,
+            'dalla scheda Evento una pagina non incorporabile si blocca con il motivo e non si salva — «' + await testo('#msg-evento') + '»');
+        await scriviLink('ev-video', LINK.dallEvento);
+        await $('#btn-salva-evento').click();
+        await confermaDialogo(/Cambiare il link per tutti\?.*in onda/s, 'Cambia il link');
+        await aspetta(async () => /Modifiche salvate.*I partecipanti collegati ricevono i link nuovi/.test(await testo('#msg-evento')), 15000, 'link cambiato dalla scheda Evento');
         const dallEvento = chiamate('evento-salva').pop().dati.evento;
-        vero(dallEvento.videoId === 'nuovovideo1' && (await db.doc('eventi/' + ID).get()).data().videoId === 'nuovovideo1',
+        vero(dallEvento.videoId === LINK.dallEvento && !('riservaUrl' in dallEvento) && (await docPubblico()).videoId === LINK.dallEvento,
             'un link nuovo dalla scheda Evento: provato, confermato (in onda) e applicato a tutti');
-        if (conPlayer) vero(await $('#ev-video-anteprima').isVisible() && (await $('#ev-video-anteprima iframe').count()) === 1,
-            'l\'anteprima del nuovo video compare sotto il campo, con lo stesso player dei partecipanti');
+        vero(await $('#ev-video-anteprima').isVisible() && (await $('#ev-video-anteprima video').count()) === 1,
+            'l\'anteprima del nuovo link compare sotto il campo, con il player dei partecipanti');
         await page.click('[data-scheda="regia"]');
-        vero(/nuovovideo1/.test(await testo('#regia-video-attuale')) && await $('#ev-video-anteprima').isHidden(),
-            'la regia mostra il video appena scelto; l\'anteprima della scheda Evento si chiude cambiando scheda');
+        vero(await testo('#regia-video-attuale') === LINK.dallEvento && await $('#ev-video-anteprima').isHidden(),
+            'la regia mostra il link appena scelto; l\'anteprima della scheda Evento si chiude cambiando scheda');
         // vedi come un partecipante
         const [nuovaScheda] = await Promise.all([context.waitForEvent('page'), $('#btn-anteprima').click()]);
         await nuovaScheda.waitForLoadState('domcontentloaded').catch(() => {});
@@ -868,6 +1248,80 @@ async function sheetJSNode() {
         }
         await nuovaScheda.close();
         await foto('regia');
+
+        /* ---------- 6b. i link firmati ----------
+           La web TV di prova non controlla la firma (la ignora): qui si prova
+           che la chiave si salva, non esce MAI dal servizio, e che i link
+           firmati (link-firmato, prova-link) sono giusti per nginx secure_link. */
+        console.log('\n-- link firmati');
+        await page.click('[data-scheda="evento"]');
+        await $('#ev-firma > summary').click();
+        vero(await $('#ev-firma').evaluate(n => n.open) && await testo('#ev-firma-riassunto') === 'nessuna firma' && await $('#ev-firma-campi').isHidden(),
+            'la sezione «Link firmati (se la web TV li usa)» si apre: «nessuna firma», nessun campo');
+        await page.check('input[name="ev-firma-schema"][value="nginx"]');
+        vero(await $('#ev-firma-campi').isVisible() && /nginx secure_link · 6 ore · manca la chiave/.test(await testo('#ev-firma-riassunto'))
+            && await $('#ev-firma-segreto').getAttribute('type') === 'password' && await $('#ev-firma-nome-firma').isVisible() && await $('#ev-firma-acl').isHidden(),
+            'nginx secure_link: la chiave in un campo password, i parametri di nginx (non quelli di Akamai), «manca la chiave»');
+        const salvaFirmaPrima = chiamate('evento-salva').length;
+        await $('#btn-salva-evento').click();
+        vero(await $('#ev-firma-segreto').getAttribute('aria-invalid') === 'true' && /scrivi la chiave segreta/.test(await testo('#msg-evento')) && chiamate('evento-salva').length === salvaFirmaPrima,
+            'senza la chiave non si salva: «' + await testo('#msg-evento') + '»');
+        await $('#ev-firma-segreto').fill(SEGRETO);
+        await $('#ev-firma-durata').fill('2');
+        vero(/nginx secure_link · 2 ore · chiave da salvare/.test(await testo('#ev-firma-riassunto')), 'il riassunto segue: «' + await testo('#ev-firma-riassunto') + '»');
+        await $('#btn-salva-evento').click();
+        await aspetta(async () => /Modifiche salvate.*La chiave segreta è salvata sul servizio/.test(await testo('#msg-evento')), 10000, 'firma salvata');
+        const conFirma = chiamate('evento-salva').pop().dati.evento;
+        vero(conFirma.firma && conFirma.firma.schema === 'nginx' && conFirma.firma.segreto === SEGRETO && conFirma.firma.durataOre === 2 && !('videoUrl' in conFirma),
+            'evento-salva riceve la firma (schema nginx, la chiave, 2 ore), e solo quella', JSON.stringify(Object.assign({}, conFirma.firma, { segreto: '…' })));
+        const rispostaFirma = await aspetta(async () => { const rr = risposte('evento-salva'); return rr.length ? rr[rr.length - 1] : null; }, 5000, 'risposta di evento-salva');
+        vero(rispostaFirma.evento.firma.schema === 'nginx' && rispostaFirma.evento.firma.segretoImpostato === true && !('segreto' in rispostaFirma.evento.firma) && rispostaFirma.evento.videoFirmato === true,
+            'la risposta dice solo che la chiave c\'è (firma.segretoImpostato), mai la chiave', JSON.stringify(rispostaFirma.evento.firma));
+        vero(await $('#ev-firma-segreto').inputValue() === '' && await $('#ev-firma-segreto').getAttribute('placeholder') === 'Chiave impostata'
+            && /nginx secure_link · 2 ore · chiave impostata/.test(await testo('#ev-firma-riassunto')),
+            'dopo il salvataggio il campo della chiave si svuota: «Chiave impostata», e non si rilegge più');
+        const risFirma = await docRiservato();
+        pub = await docPubblico();
+        vero(risFirma.firma.schema === 'nginx' && risFirma.firma.segreto === SEGRETO && risFirma.firma.durataOre === 2 && pub.videoFirmato === true && !JSON.stringify(pub).includes(SEGRETO),
+            'sul servizio: la chiave solo nel documento riservato; per i partecipanti (in onda) solo videoFirmato: true');
+        // «Guarda» chiede al servizio il link firmato (link-firmato), come la pagina dei partecipanti
+        await page.click('[data-scheda="regia"]');
+        vero(/Link firmati: nginx secure_link, ogni link vale 2 ore\./.test(await testo('#regia-firma-attuale')), 'la regia dice che i link sono firmati: «' + await testo('#regia-firma-attuale') + '»');
+        const indirizziPrima = webtv.indirizzi.length;
+        await $('#btn-guarda-principale').click();
+        await aspetta(async () => /Link principale: qui sotto lo vedi come lo vedono i partecipanti, con un link firmato come il loro/.test(await testo('#msg-sorgente')), 25000, 'guarda con la firma');
+        const firmato = await aspetta(async () => { const rr = risposte('link-firmato'); return rr.length ? rr[rr.length - 1] : null; }, 5000, 'risposta di link-firmato');
+        const uFirmato = new URL(firmato.url);
+        const scadenza = Number(uFirmato.searchParams.get('expires'));
+        const md5Atteso = crypto.createHash('md5').update(scadenza + '/live/master.m3u8 ' + SEGRETO).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        vero(chiamate('link-firmato').pop().dati.sorgente === 'principale' && uFirmato.origin + uFirmato.pathname === WEBTV + '/live/master.m3u8' && uFirmato.searchParams.get('canale') === '4'
+            && uFirmato.searchParams.get('md5') === md5Atteso && Math.abs(scadenza - (Date.now() / 1000 + 2 * 3600)) < 300 && firmato.scade === scadenza * 1000,
+            'link-firmato: il link principale con md5 = base64url(md5(expires + percorso + " " + chiave)) ed expires fra 2 ore (nginx secure_link)', firmato.url);
+        await videoVa('#regia-attuale-anteprima');
+        const perAnteprima = webtv.indirizzi.slice(indirizziPrima).filter(q => /^\/live\//.test(q));
+        vero(perAnteprima.length >= 3 && perAnteprima.every(q => q.includes('md5=' + md5Atteso) && q.includes('expires=' + scadenza)),
+            'l\'anteprima usa il link firmato, e il player mette la firma anche sulle playlist delle qualità e sui segmenti (' + perAnteprima.length + ' richieste)', perAnteprima.slice(0, 4).join(' '));
+        // la prova del link, con la firma dell'evento
+        p = await provaLink('regia-video');
+        vero(p.esito === 'ok' && p.servizio && /[?&]md5=/.test(p.servizio.urlProva) && /Provato con la firma impostata per l'evento/.test(p.testo),
+            'la prova del link in regia usa il link firmato come lo riceverà chi guarda (urlProva con md5 ed expires)', p.servizio && p.servizio.urlProva);
+        const direttaRiserva = await api('diretta-gestione', { azione: 'link-firmato', idEvento: ID, sorgente: 'riserva' }, tokGestore);
+        const uRiserva = new URL(direttaRiserva.dati.url);
+        const md5Riserva = crypto.createHash('md5').update(uRiserva.searchParams.get('expires') + '/riserva/master.m3u8 ' + SEGRETO).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        vero(direttaRiserva.stato === 200 && uRiserva.pathname === '/riserva/master.m3u8' && uRiserva.searchParams.get('md5') === md5Riserva && !JSON.stringify(direttaRiserva.dati).includes(SEGRETO),
+            'link-firmato anche per la riserva (chiamata vera al servizio), senza la chiave nella risposta');
+        // la firma tolta: la chiave salvata si cancella
+        await page.click('[data-scheda="evento"]');
+        if (!(await $('#ev-firma').evaluate(n => n.open))) await $('#ev-firma > summary').click();
+        await page.check('input[name="ev-firma-schema"][value="nessuna"]');
+        await $('#btn-salva-evento').click();
+        await confermaDialogo(/Togliere i link firmati\?.*la chiave segreta salvata viene cancellata/s, 'Togli la firma');
+        await aspetta(async () => /Modifiche salvate/.test(await testo('#msg-evento')), 10000, 'firma tolta');
+        const senzaFirma = await docRiservato();
+        vero(senzaFirma.firma.schema === 'nessuna' && senzaFirma.firma.segreto === '' && (await docPubblico()).videoFirmato === false && await testo('#ev-firma-riassunto') === 'nessuna firma',
+            'firma tolta: la chiave è cancellata dal servizio e i partecipanti tornano al link com\'è (videoFirmato false)');
+        vero(registro.filter(c => JSON.stringify(c.dati).includes(SEGRETO)).length === 1,
+            'la pagina ha mandato la chiave una volta sola (il salvataggio), mai nelle prove o nelle altre richieste');
 
         /* ---------- 7. email ---------- */
         console.log('\n-- email');
@@ -1172,13 +1626,41 @@ async function sheetJSNode() {
         vero(erroriPagina.length === 0, 'nessun errore JavaScript nella pagina', erroriPagina.join('\n'));
         /* attesi: le risposte 4xx provocate apposta (password sbagliata, non
            gestore, reinvio entro un minuto, email gia' usata), le richieste di
-           'crea' interrotte apposta (rete caduta) e lo script in linea del
-           finto YouTube (srcdoc), che la CSP vera blocca come deve */
-        const inattesi = erroriConsole.filter(t => !/Failed to load resource: the server responded with a status of (400|401|403|409)/.test(t)
-            && !/Failed to load resource: net::ERR_(CONNECTION_RESET|INTERNET_DISCONNECTED)/.test(t)
-            && !/Refused to execute inline script/.test(t));
-        vero(inattesi.length === 0, 'nessun errore inatteso nella console', inattesi.join('\n'));
-        uscitaServer.push(server.uscita);
+           'crea' interrotte apposta (rete caduta) e, dalla web TV di prova, i
+           flussi che non rispondono apposta (404) e le letture che il browser
+           blocca per il CORS mancante (/senza-cors/) */
+        const dallaWebTv = e => e.url.startsWith(WEBTV) || e.testo.includes(WEBTV);
+        const inattesi = erroriConsole.filter(e => !/Failed to load resource: the server responded with a status of (400|401|403|409)/.test(e.testo)
+            && !/Failed to load resource: net::ERR_(CONNECTION_RESET|INTERNET_DISCONNECTED)/.test(e.testo)
+            && !(dallaWebTv(e) && /status of (404|503)|CORS policy|net::ERR_FAILED/.test(e.testo)));
+        vero(inattesi.length === 0, 'nessun errore inatteso nella console', inattesi.map(e => e.testo + ' (' + e.url + ')').join('\n'));
+        uscitaServer.push(server.tuttaUscita);
+
+        /* ---------- 12b. il documento pubblico e la chiave dei link firmati ---------- */
+        smettiDiGuardare();
+        smettiDiGuardare = null;
+        const conLink = versioniPubblico.filter(d => d.videoId || d.videoRiserva);
+        const fuoriRegola = versioniPubblico.filter(d => {
+            if (d.erroreAscolto) return true;
+            if (JSON.stringify(d).includes(SEGRETO)) return true;
+            if (['videoUrl', 'riservaUrl', 'riservaId', 'firma'].some(k => k in d)) return true;
+            if (JSON.stringify(Object.assign({}, d, { videoId: '', videoRiserva: '' })).includes(WEBTV)) return true;
+            return d.stato !== 'in_onda' && !!(d.videoId || d.videoRiserva);
+        });
+        vero(versioniPubblico.length >= 12 && conLink.length >= 8 && fuoriRegola.length === 0,
+            'il documento pubblico eventi/' + ID + ', seguito per tutta la prova (' + versioniPubblico.length + ' versioni, ' + conLink.length + ' con i link): i link della web TV solo in videoId/videoRiserva e solo in onda, mai videoUrl/riservaUrl/firma, mai la chiave',
+            JSON.stringify(fuoriRegola.slice(0, 2)));
+        const conChiave = risposteServizio.filter(x => String(x.corpo || '').includes(SEGRETO));
+        vero(risposteServizio.length > 50 && risposteServizio.filter(x => x.corpo === null).length === 0 && conChiave.length === 0,
+            'la chiave dei link firmati non torna in nessuna delle ' + risposteServizio.length + ' risposte del servizio alla pagina (lette tutte, per intero)', conChiave.map(x => x.azione).join(', '));
+        const raccolte = await db.listCollections();
+        const doveChiave = [];
+        for (const c of raccolte) {
+            (await c.get()).docs.forEach(d => { if (JSON.stringify(d.data()).includes(SEGRETO)) doveChiave.push(c.id + '/' + d.id); });
+        }
+        vero(doveChiave.length === 0, 'la chiave non è in nessun documento di Firestore (' + raccolte.length + ' raccolte; tolta la firma, nemmeno in eventiRiservati)', doveChiave.join(', '));
+        vero(uscitaServer.join('\n').length > 0 && !uscitaServer.join('\n').includes(SEGRETO) && !fs.readFileSync(POSTA, 'utf8').includes(SEGRETO),
+            'la chiave non è nei log del servizio (tutta l\'uscita di server-locale.js, ' + uscitaServer.length + ' avvii) né nella posta');
         const guasti = uscitaServer.join('\n').split('\n').filter(r => /\[server-locale\]|Errore non gestito|TypeError|ReferenceError/.test(r));
         vero(guasti.length === 0, 'nessun errore non gestito nelle funzioni del servizio', guasti.slice(0, 5).join('\n'));
         const tuttaLaPosta = JSON.stringify(leggiPosta().filter(m => m.tipo !== 'credenziali' && m.tipo !== 'prova-credenziali').map(m => m.testo));
@@ -1186,13 +1668,23 @@ async function sheetJSNode() {
     } catch (e) {
         rossi++;
         console.log('ROSSO la prova si è interrotta: ' + (e && e.stack || e));
+        if (paginaAperta) {
+            // com'era la pagina in quel momento: una foto e i messaggi visibili
+            await paginaAperta.screenshot({ path: path.join(RISULTATI, 'gestione-interrotta.png') }).catch(() => {});
+            const messaggi = await paginaAperta.evaluate(() => Array.from(document.querySelectorAll('.msg:not([hidden]), .link-tipo:not([hidden]), .esito-prova:not([hidden])'))
+                .map(n => '#' + n.id + ': ' + n.textContent.trim().slice(0, 300))).catch(() => []);
+            console.log('--- messaggi visibili nella pagina (foto in risultati/gestione-interrotta.png) ---\n' + messaggi.join('\n'));
+            if (erroriPaginaAperta.length) console.log('--- errori JavaScript della pagina ---\n' + erroriPaginaAperta.join('\n'));
+        }
         if (server && server.uscita) console.log('--- ultime righe del servizio ---\n' + server.uscita.slice(-3000));
     } finally {
+        if (smettiDiGuardare) smettiDiGuardare();
         if (browser) await browser.close().catch(() => {});
+        if (trasmissione) trasmissione.ferma();
         await ferma(server);
         await ferma(emulatori);
     }
     console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi (' + Math.round((Date.now() - t0) / 1000) + ' s)');
-    console.log('screenshot in ' + path.relative(process.cwd(), FOTO));
+    console.log('screenshot in ' + path.relative(process.cwd(), FOTO) + ' e ' + path.relative(process.cwd(), FOTO_WEBTV));
     process.exit(rossi ? 1 : 0);
 })();

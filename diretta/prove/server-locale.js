@@ -15,6 +15,21 @@
    avvia-emulatori.js) e NON spediscono email: con la posta finta
    ogni messaggio diventa una riga JSON in risultati/posta.jsonl.
    Le variabili d'ambiente gia' impostate vincono su quelle qui sotto.
+
+   LA WEB TV DI PROVA PER IL SERVIZIO (solo con DIRETTA_PROVE_WEBTV).
+   La prova del link (azione 'prova-link' di diretta-gestione) scarica
+   il link da qui, da Node, con le protezioni SSRF del servizio (DNS
+   vero, indirizzi privati rifiutati): la web TV finta delle prove,
+   https://webtv.prova.test (flusso-prova.js), per il DNS non esiste.
+   Con DIRETTA_PROVE_WEBTV=<cartella della trasmissione> (quella data a
+   avviaTrasmissione) si sostituisce, SOLO in questo processo,
+   provaLink del modulo lib/diretta-prova-link.js con una che passa a
+   quella vera un fetch e un lookup finti (servizioWebTv di
+   flusso-prova.js): webtv.prova.test risponde come nel browser,
+   interno.prova.test porta a un indirizzo privato, tutto il resto va
+   per le strade vere. api/diretta-gestione.js chiama PL.provaLink al
+   momento, quindi vede la sostituzione. Il servizio vero non ne sa
+   niente: senza la variabile qui non cambia nulla.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -49,6 +64,19 @@ const predefinite = {
     DIRETTA_PAUSA_MS: '0'
 };
 Object.keys(predefinite).forEach(k => { if (process.env[k] == null) process.env[k] = predefinite[k]; });
+
+/* ---------- la web TV di prova per la prova del link (vedi sopra) ---------- */
+if (process.env.DIRETTA_PROVE_WEBTV) {
+    const PL = require(path.join(RADICE, 'email-service/lib/diretta-prova-link'));
+    const { servizioWebTv } = require('./flusso-prova');
+    const dns = require('dns');
+    const finti = servizioWebTv(path.resolve(process.env.DIRETTA_PROVE_WEBTV), {
+        fetchVero: PL.fetchSicuro,
+        lookupVero: (host, opzioni) => dns.promises.lookup(host, opzioni || { all: true, verbatim: true })
+    });
+    const provaVera = PL.provaLink;
+    PL.provaLink = (link, opzioni) => provaVera(link, Object.assign({}, opzioni || {}, { fetch: finti.fetch, lookup: finti.lookup }));
+}
 
 /* ---------- le funzioni ---------- */
 function adattaRisposta(res) {

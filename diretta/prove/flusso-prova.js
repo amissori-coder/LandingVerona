@@ -21,7 +21,12 @@
       secondi), da poter rompere a comando:
           /live/master.m3u8      il link principale
           /riserva/master.m3u8   il link di riserva (stesso contenuto, altro "server")
-          /senza-cors/master.m3u8  come /live ma senza Access-Control-Allow-Origin
+          /senza-cors/master.m3u8  come /live, ma il CORS non consente il nostro sito:
+                                 Access-Control-Allow-Origin e' solo quello della web TV
+                                 (https://webtv.prova.test). Non si puo' semplicemente
+                                 togliere l'intestazione: se manca, route.fulfill di
+                                 Playwright la aggiunge da solo con l'origine della pagina
+                                 (playwright issue 12929) e il browser leggerebbe tutto
           /spento/master.m3u8    404 finche' controllo.spentoAcceso e' false
           /player/napoli         una pagina da incorporare (il ripiego)
           /player/bloccata       una pagina con X-Frame-Options: DENY
@@ -29,6 +34,28 @@
       controllo = { principaleGiu, riservaGiu, spentoAcceso }: con
       principaleGiu (o riservaGiu) true, playlist e segmenti di quel
       percorso rispondono 503, come un server caduto.
+      Le risposte le decide UNA funzione, rispostaWebTv(url, controllo,
+      cartella) -> { status, headers, body }, che usano:
+      - il browser di Playwright: instradaWebTv(context, cartella), con
+        context.route (niente server, niente certificati);
+      - il SERVIZIO, cioe' la prova del link (azione 'prova-link',
+        email-service/lib/diretta-prova-link.js), che scarica il link da
+        Node e non dal browser: webtv.prova.test non esiste nel DNS, e il
+        servizio rifiuta gli indirizzi privati (127.0.0.1 compreso, la
+        protezione SSRF). Per le prove server-locale.js, SOLO con la
+        variabile DIRETTA_PROVE_WEBTV=<cartella della trasmissione>,
+        passa a provaLink un fetch e un lookup finti fatti qui
+        (servizioWebTv): il lookup risponde per *.prova.test con un
+        indirizzo pubblico (93.184.216.34) e per interno.prova.test con
+        un indirizzo privato (10.20.30.40: un nome che porta nella rete
+        interna, che il servizio deve rifiutare); il fetch risponde per
+        webtv.prova.test con rispostaWebTv. Tutti gli altri nomi e
+        indirizzi seguono le strade VERE del servizio (DNS vero,
+        fetchSicuro con i suoi controlli). Il controllo lato servizio
+        e' quello predefinito, oppure quello scritto in
+        <cartella>/controllo.json (scriviControllo), riletto a ogni
+        richiesta. Niente di tutto questo entra nel servizio vero: e'
+        solo in questo file e in server-locale.js.
 
    Serve ffmpeg: quello nel PATH, quello di FFMPEG=/percorso, oppure
    quello del pacchetto Python imageio-ffmpeg (pip install imageio-ffmpeg).
@@ -38,6 +65,8 @@
        const trasmissione = await F.avviaTrasmissione(cartella);   // { ferma() }
        const controllo = await F.instradaWebTv(context, cartella);
        await F.inoltraPubblico(context);
+       // nel processo del servizio (server-locale.js):
+       const { fetch, lookup } = F.servizioWebTv(cartella, { fetchVero, lookupVero });
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -89,32 +118,88 @@ const PAGINA_PLAYER = '<!doctype html><html lang="it"><head><meta charset="utf-8
     + '<body style="margin:0;background:#111a33;color:#fff;font:20px sans-serif;display:grid;place-items:center;height:100vh">'
     + '<p id="player-webtv">Player della web TV (prova) · logo della web TV</p></body></html>';
 
-/* Le risposte della web TV finta. Tutto passa da context.route: niente
-   server, niente certificati. */
+const CONTROLLO_PREDEFINITO = { principaleGiu: false, riservaGiu: false, spentoAcceso: false };
+
+/* La risposta della web TV finta a un indirizzo (solo il percorso conta:
+   la query, per esempio la firma di un link firmato, si ignora).
+   -> { status, headers, body } (body: stringa o Buffer) */
+function rispostaWebTv(url, controllo, cartella) {
+    const c = Object.assign({}, CONTROLLO_PREDEFINITO, controllo || {});
+    const u = new URL(url);
+    const cors = { 'access-control-allow-origin': '*', 'cache-control': 'no-cache' };
+    const nonTrovato = { status: 404, headers: cors, body: 'non trovato' };
+    if (u.pathname === '/player/napoli') return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: PAGINA_PLAYER };
+    if (u.pathname === '/player/bloccata') return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'x-frame-options': 'DENY' }, body: PAGINA_PLAYER };
+    if (u.pathname === '/documento.pdf') return { status: 200, headers: Object.assign({ 'content-type': 'application/pdf' }, cors), body: '%PDF-1.4 prova' };
+    const m = /^\/(live|riserva|senza-cors|spento)\/([^/]+)$/.exec(u.pathname);
+    if (!m) return nonTrovato;
+    const [, percorso, file] = m;
+    if ((percorso === 'live' && c.principaleGiu) || (percorso === 'riserva' && c.riservaGiu)) {
+        return { status: 503, headers: cors, body: 'servizio non disponibile' };
+    }
+    if (percorso === 'spento' && !c.spentoAcceso) return nonTrovato;
+    const f = path.join(cartella, 'hls', path.basename(file));
+    if (!fs.existsSync(f)) return nonTrovato;
+    let corpo;
+    try { corpo = fs.readFileSync(f); } catch (_) { return nonTrovato; }   // un segmento appena cancellato da ffmpeg
+    const intestazioni = { 'content-type': /\.m3u8$/.test(f) ? 'application/vnd.apple.mpegurl' : 'video/mp4', 'cache-control': 'no-cache' };
+    intestazioni['access-control-allow-origin'] = percorso === 'senza-cors' ? WEBTV : '*';
+    return { status: 200, headers: intestazioni, body: corpo };
+}
+
+/* La web TV finta vista dal browser: tutto passa da context.route.
+   controllo.richieste: i percorsi chiesti; controllo.indirizzi: percorso
+   e query (per vedere, per esempio, la firma di un link firmato). */
 async function instradaWebTv(context, cartella, opzioni) {
-    const controllo = Object.assign({ principaleGiu: false, riservaGiu: false, spentoAcceso: false, richieste: [] }, opzioni || {});
-    const dove = path.join(cartella, 'hls');
+    const controllo = Object.assign({}, CONTROLLO_PREDEFINITO, { richieste: [], indirizzi: [] }, opzioni || {});
     await context.route(WEBTV + '/**', route => {
-        const u = new URL(route.request().url());
+        const url = route.request().url();
+        const u = new URL(url);
         controllo.richieste.push(u.pathname);
-        const cors = { 'access-control-allow-origin': '*', 'cache-control': 'no-cache' };
-        if (u.pathname === '/player/napoli') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA_PLAYER });
-        if (u.pathname === '/player/bloccata') return route.fulfill({ status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'x-frame-options': 'DENY' }, body: PAGINA_PLAYER });
-        if (u.pathname === '/documento.pdf') return route.fulfill({ status: 200, headers: Object.assign({ 'content-type': 'application/pdf' }, cors), body: '%PDF-1.4 prova' });
-        const m = /^\/(live|riserva|senza-cors|spento)\/([^/]+)$/.exec(u.pathname);
-        if (!m) return route.fulfill({ status: 404, headers: cors, body: 'non trovato' });
-        const [, percorso, file] = m;
-        if ((percorso === 'live' && controllo.principaleGiu) || (percorso === 'riserva' && controllo.riservaGiu)) {
-            return route.fulfill({ status: 503, headers: cors, body: 'servizio non disponibile' });
-        }
-        if (percorso === 'spento' && !controllo.spentoAcceso) return route.fulfill({ status: 404, headers: cors, body: 'non trovato' });
-        const f = path.join(dove, path.basename(file));
-        if (!fs.existsSync(f)) return route.fulfill({ status: 404, headers: cors, body: 'non trovato' });
-        const intestazioni = { 'content-type': /\.m3u8$/.test(f) ? 'application/vnd.apple.mpegurl' : 'video/mp4', 'cache-control': 'no-cache' };
-        if (percorso !== 'senza-cors') intestazioni['access-control-allow-origin'] = '*';
-        return route.fulfill({ status: 200, headers: intestazioni, body: fs.readFileSync(f) });
+        controllo.indirizzi.push(u.pathname + u.search);
+        const r = rispostaWebTv(url, controllo, cartella);
+        return route.fulfill({ status: r.status, headers: r.headers, body: r.body });
     });
     return controllo;
+}
+
+/* ---------- la web TV finta vista dal SERVIZIO (solo per le prove) ---------- */
+const IP_PUBBLICO_FINTO = '93.184.216.34';
+const IP_INTERNO_FINTO = '10.20.30.40';
+const FILE_CONTROLLO = 'controllo.json';
+
+// il controllo per il servizio (un altro processo): <cartella>/controllo.json, se c'e'
+function leggiControllo(cartella) {
+    try { return Object.assign({}, CONTROLLO_PREDEFINITO, JSON.parse(fs.readFileSync(path.join(cartella, FILE_CONTROLLO), 'utf8'))); } catch (_) { return Object.assign({}, CONTROLLO_PREDEFINITO); }
+}
+function scriviControllo(cartella, controllo) {
+    const c = {};
+    Object.keys(CONTROLLO_PREDEFINITO).forEach(k => { c[k] = !!(controllo || {})[k]; });
+    fs.writeFileSync(path.join(cartella, FILE_CONTROLLO), JSON.stringify(c));
+}
+
+/* fetch e lookup per provaLink (stesse firme di quelli veri del servizio:
+   fetch(url, { method, redirect, signal, headers }) -> Response,
+   lookup(host, { all: true, verbatim: true }) -> [{ address, family }]).
+   Solo i nomi di prova sono finti; il resto va a fetchVero / lookupVero. */
+function servizioWebTv(cartella, vere) {
+    const fetchVero = vere && vere.fetchVero;
+    const lookupVero = vere && vere.lookupVero;
+    const lookup = (host, opzioni) => {
+        const h = String(host || '').toLowerCase();
+        if (h === 'interno.prova.test') return Promise.resolve([{ address: IP_INTERNO_FINTO, family: 4 }]);
+        if (/(^|\.)prova\.test$/.test(h)) return Promise.resolve([{ address: IP_PUBBLICO_FINTO, family: 4 }]);
+        return lookupVero(host, opzioni);
+    };
+    const fetch = async (url, init) => {
+        let u = null;
+        try { u = new URL(url); } catch (_) { u = null; }
+        if (!u || u.hostname !== new URL(WEBTV).hostname) return fetchVero(url, init);
+        if (init && init.signal && init.signal.aborted) throw Object.assign(new Error('interrotta'), { name: 'AbortError' });
+        const r = rispostaWebTv(url, leggiControllo(cartella), cartella);
+        return new Response(r.body, { status: r.status, headers: r.headers });
+    };
+    return { fetch, lookup };
 }
 
 /* Il flusso pubblico di Shaka, inoltrato da Node senza cache. */
@@ -135,4 +220,7 @@ async function inoltraPubblico(context) {
     return conteggio;
 }
 
-module.exports = { WEBTV, FLUSSO_PUBBLICO_HLS, FLUSSO_PUBBLICO_DASH, trovaFfmpeg, avviaTrasmissione, instradaWebTv, inoltraPubblico };
+module.exports = {
+    WEBTV, FLUSSO_PUBBLICO_HLS, FLUSSO_PUBBLICO_DASH, IP_PUBBLICO_FINTO, IP_INTERNO_FINTO, trovaFfmpeg, avviaTrasmissione,
+    rispostaWebTv, instradaWebTv, inoltraPubblico, servizioWebTv, leggiControllo, scriviControllo
+};

@@ -11,6 +11,12 @@
    separazione questo file accende un emulatore apposta. Alla fine un
    riepilogo con i numeri di ciascuna, anche in
    risultati/riepilogo.json. Esce con 1 se qualcosa e' rosso.
+
+   Le prove del video (pagina, e2e, player, webtv) trasmettono una
+   diretta di prova con ffmpeg (quello di sistema, FFMPEG=/percorso,
+   oppure pip install imageio-ffmpeg); player e webtv usano anche il
+   flusso pubblico di prova di Shaka Player (storage.googleapis.com),
+   quindi vogliono la rete.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -44,6 +50,7 @@ const PROVE = [
     { nome: 'gestione', cartella: QUI, file: 'gestione.prova.js' },
     { nome: 'sito', cartella: QUI, file: 'sito.prova.js' },
     { nome: 'e2e', cartella: QUI, file: 'e2e.prova.js' },
+    { nome: 'player', cartella: QUI, file: 'player.prova.js' },
     { nome: 'webtv', cartella: QUI, file: 'webtv.prova.js' },
     { nome: 'anteprima', cartella: QUI, file: 'anteprima/anteprima.prova.js' }
 ];

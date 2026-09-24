@@ -15,9 +15,16 @@
    (context.route) e la risposta 'entra' porta un gettone VERO creato
    con firebase-admin sull'emulatore. Tutto il resto e' vero: le
    regole di Firestore, l'SDK di Firebase da gstatic, l'ascolto
-   dell'evento, le scritture di presenza, la CSP della pagina.
-   YouTube e' il finto YouTube (finto-youtube.js): la rete di prova
-   non lo raggiunge.
+   dell'evento, le scritture di presenza, la CSP della pagina, il
+   player (player-webtv.js con hls.js).
+   Il video arriva dalla WEB TV FINTA di flusso-prova.js
+   (https://webtv.prova.test): una diretta HLS vera trasmessa da
+   ffmpeg (VP9 + Opus, 360p e 180p, segmenti da 2 secondi, finestra
+   di 40 s: niente barra per tornare indietro). Serve ffmpeg (quello
+   di sistema, FFMPEG=/percorso, oppure pip install imageio-ffmpeg).
+   I casi della web TV (riserva, flusso pubblico con la finestra per
+   tornare indietro, DASH, ripiego incorporato, link firmati) li prova
+   webtv.prova.js, con il servizio vero come regia.
 
    Chromium, due dispositivi: computer 1366x900 e "iPhone" 390x844
    (isMobile, hasTouch, user agent di Safari su iPhone, e SENZA le API
@@ -26,16 +33,23 @@
    COSA DIMOSTRA. Accesso scrivendo " Mario Rossi " (ripulito in
    mariorossi); vista di attesa con conto alla rovescia e programma; la
    regia (qui firebase-admin) manda in onda e la pagina passa da sola
-   alla diretta, con il player sul dominio youtube-nocookie e i
-   parametri del contratto; "Attiva l'audio"; play/pausa (in pausa il
-   video e' nascosto e al suo posto c'e' la nostra schermata); tasti
-   spazio, F, M e frecce; schermo intero (anche finto, su iPhone);
-   cambio del video durante la diretta senza ricaricare; video in
-   errore; connessione persa e ritrovata; la presenza scritta dopo il
-   ritardo casuale; ricarica senza nuovo accesso; pausa dell'evento con
-   l'avviso a tutti; fine; ritorno in onda dopo la fine; Esci con
-   conferma; password dimenticata; reimpostazione della password (anche
-   con un collegamento scaduto). E nessuna violazione della CSP.
+   alla diretta: il video della web TV scorre nel NOSTRO <video>
+   (playsinline, muto all'avvio, senza i comandi del browser, con
+   controlsList="nodownload", senza picture-in-picture, senza menu del
+   tasto destro), «IN DIRETTA» rosso, la scelta della qualita'
+   (Automatica, 360p, 180p: cambia davvero le righe del video); il
+   grande «Attiva l'audio»; play/pausa (in pausa il video e' nascosto e
+   al suo posto c'e' la nostra schermata, con «Torna in diretta»);
+   tasti spazio, F, M e frecce; schermo intero (anche finto, su
+   iPhone); «Torna in diretta» dopo la pausa riporta al punto live;
+   cambio del link durante la diretta senza ricaricare (stesso <video>,
+   nessun ascolto Firestore in piu'); un link non valido («Video non
+   disponibile», chiaro, e la pagina non si rompe); connessione persa e
+   ritrovata; la presenza scritta dopo il ritardo casuale; ricarica
+   senza nuovo accesso; pausa dell'evento con l'avviso a tutti; fine;
+   ritorno in onda dopo la fine; Esci con conferma; password
+   dimenticata; reimpostazione della password (anche con un
+   collegamento scaduto). E nessuna violazione della CSP.
 
    E I CASI DELLA REVISIONE (ognuno falliva prima delle correzioni):
    - un solo dispositivo, DUE contesti veri: A entra e segnala, B entra
@@ -46,9 +60,10 @@
      (come su iPhone in secondo piano) l'altra scrive dopo 90 s;
    - localStorage bloccato: la sessione resta quella dell'accesso e i
      minuti si contano;
-   - player che nasce lento: niente "Avvia la diretta" prima del tempo e
-     mai l'iframe visibile sotto una nostra schermata; "Avvia la diretta"
-     vero (autoplay bloccato) al posto del video;
+   - player che nasce lento (hls.js che arriva dopo 6 s): niente
+     "Avvia la diretta" prima del tempo e mai il video visibile sotto
+     una nostra schermata; "Avvia la diretta" vero (autoplay bloccato
+     dal browser) al posto del video;
    - audio rifiutato dal browser: "Attiva l'audio" ricompare e il muto
      dice il vero; pausa imposta dal browser (Safari): il video resta
      toccabile;
@@ -59,7 +74,7 @@
      tentativo; codice rotto: "browser non aggiornato");
    - "Connessione persa" mai davanti al video o ai comandi; avviso della
      regia a schermo intero; pulsanti di almeno 48 px e "Torna in
-     diretta" con il suo nome anche sul telefono.
+     diretta" con il suo nome anche sul telefono (dove si legge «Live»).
    Screenshot in risultati/screenshot-pagina/. Esce con 1 se qualcosa
    e' rosso.
    ============================================================ */
@@ -84,7 +99,13 @@ process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + PORTE.firestore;
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:' + PORTE.auth;
 const admin = require(path.resolve(__dirname, '../../email-service/node_modules/firebase-admin'));
 const { chromium } = require('playwright');
-const { preparaContesto, FINTO_YT } = require('./rete-prove');
+const { preparaContesto } = require('./rete-prove');
+const F = require('./flusso-prova');
+
+// la web TV finta: il link principale e un secondo link (per il cambio durante la diretta)
+const CARTELLA_WEBTV = path.resolve(__dirname, 'risultati/webtv-prova-pagina');
+const LINK = F.WEBTV + '/live/master.m3u8';
+const LINK_NUOVO = F.WEBTV + '/riserva/master.m3u8';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -189,6 +210,50 @@ async function fermaFigli() {
     }
 }
 
+/* ---------- il video nella pagina ---------- */
+// il <video> e il riquadro: che cosa si vede adesso
+const statoVideo = page => page.evaluate(() => {
+    const v = document.querySelector('#video-player video');
+    const a = document.getElementById('area-video');
+    const sv = document.getElementById('schermo-video');
+    return {
+        presente: !!v,
+        t: v ? v.currentTime : 0,
+        fermo: v ? v.paused : true,
+        muto: v ? v.muted : true,
+        volume: v ? Math.round(v.volume * 100) : 0,
+        h: v ? v.videoHeight : 0,
+        visibile: v ? getComputedStyle(v).visibility === 'visible' : false,
+        bordo: v && v.seekable.length ? v.seekable.end(v.seekable.length - 1) : 0,
+        schermata: a ? a.getAttribute('data-schermata') : '',
+        tipo: sv && !sv.hidden ? sv.getAttribute('data-tipo') : ''
+    };
+});
+// il video scorre: visibile, in riproduzione, il tempo avanza e nessuna nostra schermata davanti
+async function videoVa(page, ms, cosa) {
+    return aspetta(async () => {
+        const a = await statoVideo(page);
+        if (!a.presente || a.fermo || !a.visibile || a.schermata !== 'video') return null;
+        await pausa(1200);
+        const b = await statoVideo(page);
+        return !b.fermo && b.visibile && b.schermata === 'video' && b.t > a.t + 0.4 ? b : null;
+    }, ms, cosa);
+}
+/* Gli ascolti su Firestore aperti e chiusi (addTarget/removeTarget nel
+   canale Listen dell'SDK): durante la diretta la pagina ne tiene UNO,
+   sull'evento. */
+function contaAscolti(page) {
+    const c = { aperti: 0, chiusi: 0 };
+    page.on('request', q => {
+        if (!/google\.firestore\.v1\.Firestore\/Listen\//.test(q.url())) return;
+        let d = q.postData() || '';
+        try { d = decodeURIComponent(d.replace(/\+/g, ' ')); } catch (e) { /* resta com'e' */ }
+        c.aperti += (d.match(/"addTarget"/g) || []).length;
+        c.chiusi += (d.match(/"removeTarget"/g) || []).length;
+    });
+    return c;
+}
+
 /* ---------- dati dell'evento ---------- */
 const PROGRAMMA = [
     ['09.00', 'Registrazione e welcome coffee'], ['09.30', 'Apertura ufficiale dei lavori'], ['09.50', 'Keynote introduttivo'],
@@ -219,8 +284,10 @@ function eventoIniziale(T) {
 
 (async () => {
     let browser = null;
+    let trasmissione = null;
     try {
-        /* ---------- 1. emulatori e sito ---------- */
+        /* ---------- 1. la diretta della web TV finta, emulatori e sito ---------- */
+        const inTrasmissione = F.avviaTrasmissione(CARTELLA_WEBTV);
         if (!(await portaOccupata(PORTE.firestore)) || !(await portaOccupata(PORTE.auth))) {
             console.log('avvio degli emulatori (firestore ' + PORTE.firestore + ', auth ' + PORTE.auth + ')...');
             await avviaEmulatori();
@@ -229,6 +296,7 @@ function eventoIniziale(T) {
             await avvia('sito', ['server-locale.js', '--api', String(PORTE.api), '--statico', String(PORTE.statico),
                 '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], 'SERVER LOCALE PRONTO', 30000);
         }
+        trasmissione = await inTrasmissione;
 
         /* ---------- 2. dati nell'emulatore ---------- */
         await fetch('http://127.0.0.1:' + PORTE.firestore + '/emulator/v1/projects/' + PROGETTO + '/databases/(default)/documents', { method: 'DELETE' });
@@ -269,11 +337,11 @@ function eventoIniziale(T) {
             await db.doc('eventi/' + id).set(Object.assign({
                 titolo, luogo: 'Napoli', data: oggiRoma, oraInizio: '00:00', oraFine: '23:59',
                 inizio: T.fromMillis(ORA - 3600e3), fine: T.fromMillis(ORA + 6 * 3600e3),
-                videoId: 'hhhhhhhhhhh', videoAggiornato: T.now(), stato: 'in_onda', statoAggiornato: T.now(),
+                videoId: LINK, videoAggiornato: T.now(), stato: 'in_onda', statoAggiornato: T.now(),
                 programma: [], paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false,
                 promemoria: { giornoPrima: false, oraPrima: false }, avviso: '', creato: T.now(), aggiornato: T.now()
             }, extra || {}));
-            await db.doc('eventiRiservati/' + id).set({ videoUrl: 'https://youtu.be/hhhhhhhhhhh', videoId: 'hhhhhhhhhhh', aggiornato: T.now() });
+            await db.doc('eventiRiservati/' + id).set({ videoUrl: LINK, videoId: LINK, aggiornato: T.now() });
         }
         await eventoProva('ev-unico', 'Prova: un solo dispositivo', { unSoloDispositivo: true });
         await eventoProva('ev-schede', 'Prova: due schede');
@@ -368,18 +436,19 @@ function eventoIniziale(T) {
         /* ---------- 4. il browser ---------- */
         browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 
-        /* extra (facoltativo): { prove: tempi della presenza, youtube: un finto
-           YouTube diverso, ritardoApiMs: l'API di YouTube che arriva tardi,
-           initScript: codice da eseguire in ogni pagina prima di tutto } */
+        /* extra (facoltativo): { prove: tempi della presenza, ritardoLibreriaMs:
+           hls.js (diretta/hls.min.js) che arriva tardi, initScript: codice da
+           eseguire in ogni pagina prima di tutto } */
         async function nuovoContesto(opzioni, senzaSchermoIntero, extra) {
             extra = extra || {};
             const context = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opzioni));
             await preparaContesto(context, {});
-            if (extra.youtube) {
-                // registrata dopo quella di preparaContesto: Playwright usa questa
-                await context.route('https://www.youtube.com/iframe_api*', async route => {
-                    if (extra.ritardoApiMs) await pausa(extra.ritardoApiMs);
-                    try { await route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: extra.youtube }); } catch (e) { /* pagina gia' chiusa */ }
+            // la web TV finta (registrata dopo preparaContesto: vince lei); controllo.richieste: i percorsi chiesti
+            const webtv = await F.instradaWebTv(context, CARTELLA_WEBTV);
+            if (extra.ritardoLibreriaMs) {
+                await context.route('**/diretta/hls.min.js', async route => {
+                    await pausa(extra.ritardoLibreriaMs);
+                    try { await route.continue(); } catch (e) { /* pagina gia' chiusa */ }
                 });
             }
             await context.route(API + '/diretta-accesso', servizio);
@@ -407,16 +476,16 @@ function eventoIniziale(T) {
             const page = await context.newPage();
             page.__erroriPagina = [];
             page.on('pageerror', e => page.__erroriPagina.push(String(e && e.message || e)));
-            return { context, page };
+            page.__ascolti = contaAscolti(page);
+            return { context, page, webtv };
         }
         const vistaE = (page, v, ms) => page.waitForSelector('body[data-vista="' + v + '"]', { timeout: ms || 15000 });
         const visibile = (page, sel) => page.locator(sel).isVisible();
-        const comandiDa = (page, da) => page.evaluate(n => (window.__fintoYT ? window.__fintoYT.comandi.slice(n) : []), da);
-        const numComandi = page => page.evaluate(() => (window.__fintoYT ? window.__fintoYT.comandi.length : 0));
         const foto = (page, nome, intera) => page.screenshot({ path: path.join(FOTO, nome + '.png'), fullPage: !!intera });
-        const statoIframe = page => page.evaluate(() => {
-            const f = document.querySelector('#video-player iframe');
-            return f ? getComputedStyle(f).visibility : 'assente';
+        // il nostro <video>: 'assente', 'visible' o 'hidden' (nascosto sotto una nostra schermata)
+        const visibilitaVideo = page => page.evaluate(() => {
+            const v = document.querySelector('#video-player video');
+            return v ? getComputedStyle(v).visibility : 'assente';
         });
         const vistaDi = page => page.getAttribute('body', 'data-vista');
         async function accedi(page, nome, password, indirizzo) {
@@ -425,15 +494,6 @@ function eventoIniziale(T) {
             await page.fill('#campo-nome-utente', nome);
             await page.fill('#campo-password', password);
             await page.click('#btn-entra');
-        }
-        // il finto YouTube con qualche riga cambiata (la sostituzione deve riuscire)
-        function fintoYT(cambi) {
-            let codice = FINTO_YT;
-            cambi.forEach(([da, a]) => {
-                if (codice.indexOf(da) < 0) throw new Error('finto YouTube: non trovo «' + da + '»');
-                codice = codice.replace(da, a);
-            });
-            return codice;
         }
         // le prove lunghe girano in sottofondo; l'esito si raccoglie alla fine
         const inSottofondo = fn => fn().then(v => ({ ok: true, v }), e => ({ ok: false, e }));
@@ -485,7 +545,7 @@ function eventoIniziale(T) {
                 const secondi = Math.round((Date.now() - tA) / 1000);
                 vero(/altro dispositivo/.test(await A.page.textContent('#messaggio-titolo')), 'titolo su A: ' + await A.page.textContent('#messaggio-titolo'));
                 vero(/Accedi di nuovo qui/.test(await A.page.textContent('#btn-messaggio-azione')), 'bottone su A');
-                vero(await A.page.locator('#video-player iframe').count() === 0, 'il video resta acceso su A');
+                vero(await A.page.locator('#video-player video, #video-player iframe').count() === 0, 'il video resta acceso su A');
                 vero(!(await A.page.locator('#btn-esci').isVisible()), 'A ancora collegato');
                 await foto(A.page, 'altro-dispositivo-computer');
 
@@ -657,78 +717,101 @@ function eventoIniziale(T) {
             await foto(p, 'attesa-computer', true);
         });
 
-        await prova('la regia manda in onda: la pagina passa da sola alla diretta', async () => {
-            await evento.update({ stato: 'in_onda', videoId: 'aaaaaaaaaaa', statoAggiornato: T.now() });
+        await prova('la regia manda in onda: la pagina passa da sola alla diretta e il video della web TV scorre', async () => {
+            await evento.update({ stato: 'in_onda', videoId: LINK, statoAggiornato: T.now() });
             await vistaE(p, 'diretta', 15000);
-            await p.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 15000 });
+            await videoVa(p, 30000, 'la diretta della web TV');
             vero((await p.textContent('#stato-evento')).trim() === 'IN DIRETTA', 'bollino: ' + await p.textContent('#stato-evento'));
             vero(await p.getAttribute('#stato-evento', 'data-stato') === 'in_onda', 'bollino non rosso');
+            vero(pc.webtv.richieste.some(r => /^\/live\/stream_\d+\.m3u8$/.test(r)) && pc.webtv.richieste.some(r => /^\/live\/.*\.m4s$/.test(r)), 'playlist e segmenti della web TV non chiesti');
         });
 
-        await prova('player YouTube: dominio nocookie e parametri del contratto', async () => {
-            const o = await p.evaluate(() => {
-                const x = window.__fintoYT.opzioni;
-                return { host: x.host, videoId: x.videoId, pv: x.playerVars };
+        await prova('il player della web TV: il nostro <video> muto, senza comandi del browser, senza «scarica» né menu del tasto destro; «IN DIRETTA» e la qualità', async () => {
+            const a = await p.evaluate(() => {
+                const v = document.querySelector('#video-player video');
+                return {
+                    quanti: document.querySelectorAll('#video-player video, #video-player iframe').length,
+                    playsinline: v.playsInline === true && v.hasAttribute('playsinline'), muto: v.muted, controlli: v.controls,
+                    lista: v.getAttribute('controlslist') || '', nodownload: !!(v.controlsList && v.controlsList.contains('nodownload')),
+                    pip: v.disablePictureInPicture === true, remoto: v.disableRemotePlayback === true
+                };
             });
-            vero(o.host === 'https://www.youtube-nocookie.com', 'host ' + o.host);
-            vero(o.videoId === 'aaaaaaaaaaa', 'videoId ' + o.videoId);
-            const attesi = { autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, disablekb: 1, iv_load_policy: 3, fs: 0, cc_load_policy: 0, enablejsapi: 1, origin: SITO };
-            for (const k of Object.keys(attesi)) vero(o.pv[k] === attesi[k], 'playerVars.' + k + ' = ' + o.pv[k]);
+            vero(a.quanti === 1, 'elementi del video: ' + a.quanti);
+            vero(a.playsinline && a.muto && !a.controlli, 'playsinline/muto/comandi del browser: ' + JSON.stringify(a));
+            vero(/\bnodownload\b/.test(a.lista) && a.nodownload, 'controlsList: «' + a.lista + '»');
+            vero(a.pip && a.remoto, 'picture-in-picture o trasmissione ad altri schermi possibili');
+            // un vero clic destro sul video: il menu non si apre (l'evento arriva annullato)
+            await p.evaluate(() => { window.__menu = null; window.addEventListener('contextmenu', e => { window.__menu = e.defaultPrevented; }, { once: true }); });
+            const box = await p.locator('#video-player video').boundingBox();
+            await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+            await pausa(200);
+            vero(await p.evaluate(() => window.__menu) === true, 'il menu del tasto destro non e\' annullato');
             vero(await visibile(p, '#btn-attiva-audio'), '"Attiva l\'audio" non visibile');
-            vero(!(await visibile(p, '#sel-qualita')), 'il selettore della qualita\' si vede con YouTube');
             // "Attiva l'audio" NON sta sopra il video
             const v = await p.locator('#area-video').boundingBox();
             const b = await p.locator('#btn-attiva-audio').boundingBox();
             vero(b.y >= v.y + v.height - 1, 'il pulsante dell\'audio si sovrappone al video');
+            await aspetta(() => visibile(p, '#indicatore-live'), 10000, '«IN DIRETTA» accanto ai comandi');
+            vero(!(await visibile(p, '#btn-live')), '«Torna in diretta» al punto live');
+            vero(!(await visibile(p, '#barra-dvr')), 'la barra per tornare indietro senza la finestra della web TV');
+            await aspetta(() => visibile(p, '#sel-qualita'), 10000, 'la scelta della qualità');
+            const voci = await p.locator('#sel-qualita option').allInnerTexts();
+            vero(voci.join(',') === 'Automatica,360p,180p', 'qualità: ' + voci.join(', '));
             await foto(p, 'diretta-computer');
         });
 
-        await prova('"Attiva l\'audio": smuto, volume 100 e play nello stesso clic', async () => {
-            const da = await numComandi(p);
+        await prova('"Attiva l\'audio": il video suona (volume pieno) e continua, nello stesso clic', async () => {
             await p.click('#btn-attiva-audio');
-            const c = (await comandiDa(p, da)).map(x => x.comando + (x.valore != null ? ':' + x.valore : ''));
-            vero(c.slice(0, 3).join(',') === 'smuto,volume:100,play', 'comandi: ' + c.join(','));
             await p.waitForSelector('#btn-attiva-audio', { state: 'hidden' });
+            const s = await statoVideo(p);
+            vero(!s.muto && s.volume === 100 && !s.fermo, 'dopo il clic: ' + JSON.stringify({ muto: s.muto, volume: s.volume, fermo: s.fermo }));
             vero(await p.getAttribute('#btn-muto', 'data-muto') === '0', 'il bottone del muto non si aggiorna');
             await pausa(900);
             vero(!(await visibile(p, '#suggerimento-audio')), 'suggerimento audio mostrato a torto');
         });
 
-        await prova('pausa: il video si nasconde e al suo posto compare la nostra schermata', async () => {
-            const da = await numComandi(p);
+        await prova('la qualità: scelta 180p il video passa a 180 righe, poi di nuovo «Automatica»', async () => {
+            await p.selectOption('#sel-qualita', { label: '180p' });
+            await aspetta(async () => { const s = await statoVideo(p); return s.h === 180 && !s.fermo; }, 20000, 'il video a 180 righe');
+            await p.selectOption('#sel-qualita', { label: 'Automatica' });
+            vero(await p.inputValue('#sel-qualita') === '-1', 'selettore: ' + await p.inputValue('#sel-qualita'));
+            vero(!(await statoVideo(p)).fermo, 'il video si e\' fermato');
+        });
+
+        await prova('pausa: il video si nasconde, al suo posto la nostra schermata, e compare «Torna in diretta»', async () => {
             await p.click('#btn-play');
             await p.waitForSelector('#schermo-pausa', { state: 'visible' });
-            vero((await comandiDa(p, da)).some(x => x.comando === 'pausa'), 'comando pausa non arrivato');
-            vero(await statoIframe(p) === 'hidden', 'il video resta visibile sotto la schermata');
+            vero((await statoVideo(p)).fermo, 'il video non si e\' fermato');
+            vero(await visibilitaVideo(p) === 'hidden', 'il video resta visibile sotto la schermata');
             const a = await p.locator('#area-video').boundingBox();
             const s = await p.locator('#schermo-pausa').boundingBox();
             vero(Math.abs(a.x - s.x) < 1 && Math.abs(a.width - s.width) < 1 && Math.abs(a.height - s.height) < 1, 'la schermata non occupa il posto del video');
+            await aspetta(() => visibile(p, '#btn-live'), 5000, '«Torna in diretta» in pausa');
+            vero(!(await visibile(p, '#indicatore-live')), '«IN DIRETTA» in pausa');
             await foto(p, 'pausa-computer');
             await p.click('#btn-riprendi');
             await p.waitForSelector('#schermo-pausa', { state: 'hidden' });
-            vero(await statoIframe(p) === 'visible', 'il video non ricompare');
+            await videoVa(p, 10000, 'il video dopo «Riprendi»');
         });
 
         await prova('tastiera: spazio pausa/play, M muto, frecce volume', async () => {
             await p.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
-            let da = await numComandi(p);
             await p.keyboard.press('Space');
             await p.waitForSelector('#schermo-pausa', { state: 'visible' });
+            vero((await statoVideo(p)).fermo, 'spazio: il video non si ferma');
             await p.keyboard.press('Space');
             await p.waitForSelector('#schermo-pausa', { state: 'hidden' });
-            let c = (await comandiDa(p, da)).map(x => x.comando);
-            vero(c.join(',') === 'pausa,play', 'spazio: ' + c.join(','));
-            da = await numComandi(p);
+            await aspetta(async () => !(await statoVideo(p)).fermo, 5000, 'spazio: il video riparte');
             await p.keyboard.press('m');
+            await aspetta(async () => (await statoVideo(p)).muto, 3000, 'M: il video diventa muto');
+            vero(await p.getAttribute('#btn-muto', 'data-muto') === '1', 'M: il bottone del muto non segue');
             await p.keyboard.press('m');
-            c = (await comandiDa(p, da)).map(x => x.comando);
-            vero(c.join(',') === 'muto,smuto', 'M: ' + c.join(','));
-            da = await numComandi(p);
+            await aspetta(async () => !(await statoVideo(p)).muto, 3000, 'M: il video torna a suonare');
             await p.keyboard.press('ArrowDown');
             await p.keyboard.press('ArrowDown');
+            vero((await statoVideo(p)).volume === 80, 'frecce giù: volume ' + (await statoVideo(p)).volume);
             await p.keyboard.press('ArrowUp');
-            c = (await comandiDa(p, da)).map(x => x.comando + ':' + x.valore);
-            vero(c.join(',') === 'volume:90,volume:80,volume:90', 'frecce: ' + c.join(','));
+            vero((await statoVideo(p)).volume === 90, 'freccia su: volume ' + (await statoVideo(p)).volume);
             vero(await p.inputValue('#volume') === '90', 'cursore del volume: ' + await p.inputValue('#volume'));
         });
 
@@ -738,6 +821,7 @@ function eventoIniziale(T) {
             const dim = await p.locator('#riquadro-video').boundingBox();
             vero(dim.width >= 1300 && dim.height >= 850, 'riquadro non a schermo intero: ' + JSON.stringify(dim));
             vero(await visibile(p, '#barra-comandi'), 'i nostri comandi non ci sono a schermo intero');
+            vero(await visibile(p, '#indicatore-live') && await visibile(p, '#sel-qualita'), '«IN DIRETTA» o la qualità spariscono a schermo intero');
             await p.keyboard.press('f');
             await p.waitForSelector('#riquadro-video[data-intero="0"]');
             await p.click('#btn-schermo-intero');
@@ -767,12 +851,21 @@ function eventoIniziale(T) {
             await p.waitForSelector('#avviso-evento', { state: 'hidden', timeout: 10000 });
         });
 
-        await prova('"Torna in diretta" salta al momento attuale (e si chiama cosi\' anche per i lettori di schermo)', async () => {
+        await prova('"Torna in diretta" (e si chiama cosi\' anche per i lettori di schermo): dopo la pausa riporta al punto live, con «IN DIRETTA»', async () => {
+            await p.click('#btn-play');
+            await p.waitForSelector('#schermo-pausa', { state: 'visible' });
+            await aspetta(() => visibile(p, '#btn-live'), 5000, '«Torna in diretta»');
             vero(await p.getByRole('button', { name: 'Torna in diretta' }).count() === 1, 'pulsante senza nome');
-            const da = await numComandi(p);
+            await pausa(6000);
+            const prima = await statoVideo(p);
             await p.click('#btn-live');
-            const c = (await comandiDa(p, da)).map(x => x.comando);
-            vero(c[0] === 'seek' && c.indexOf('play') > 0, 'comandi: ' + c.join(','));
+            await p.waitForSelector('#schermo-pausa', { state: 'hidden', timeout: 5000 });
+            const dopo = await videoVa(p, 15000, 'il video al punto live');
+            vero(dopo.bordo - dopo.t < 10 && dopo.bordo - dopo.t < prima.bordo - prima.t - 2,
+                'non e\' tornato al punto live: ' + (prima.bordo - prima.t).toFixed(1) + ' s -> ' + (dopo.bordo - dopo.t).toFixed(1) + ' s dal bordo');
+            await aspetta(() => visibile(p, '#indicatore-live'), 10000, '«IN DIRETTA» di nuovo');
+            vero(!(await visibile(p, '#btn-live')), '«Torna in diretta» resta al punto live');
+            await p.waitForFunction(() => /Di nuovo in diretta/.test(document.getElementById('annuncio').textContent), null, { timeout: 3000 });
         });
 
         await prova('la presenza viene scritta dopo il ritardo casuale (regole vere)', async () => {
@@ -790,25 +883,39 @@ function eventoIniziale(T) {
             vero(d2.ultimo.toMillis() === d.ultimo.toMillis(), 'un secondo segnale prima di 55 s');
         });
 
-        await prova('la regia cambia il video: il player carica il nuovo id senza ricaricare la pagina', async () => {
-            await p.evaluate(() => { window.__segnoPagina = 'ancora-qui'; });
-            const giocatori = await p.evaluate(() => window.__fintoYT.giocatori.length);
-            await evento.update({ videoId: 'bbbbbbbbbbb', videoAggiornato: T.now() });
-            await p.waitForFunction(() => window.__fintoYT.comandi.some(c => c.comando === 'carica' && c.valore === 'bbbbbbbbbbb'), null, { timeout: 10000 });
+        await prova('la regia cambia il link: il video riparte dal nuovo senza ricaricare la pagina, con lo stesso <video> e la stessa lettura in ascolto', async () => {
+            await p.evaluate(() => { window.__segnoPagina = 'ancora-qui'; document.querySelector('#video-player video').dataset.segno = 'lo-stesso'; });
+            const ascolti = Object.assign({}, p.__ascolti);
+            vero(ascolti.aperti >= 1, 'la prova non vede l\'ascolto su Firestore: ' + JSON.stringify(ascolti));
+            const da = pc.webtv.richieste.length;
+            await evento.update({ videoId: LINK_NUOVO, videoAggiornato: T.now() });
+            await aspetta(() => pc.webtv.richieste.slice(da).some(r => /^\/riserva\/.*\.m4s$/.test(r)), 15000, 'i segmenti del link nuovo');
+            await videoVa(p, 15000, 'il video del link nuovo');
+            const n = pc.webtv.richieste.length;
+            await pausa(3000);
+            vero(!pc.webtv.richieste.slice(n).some(r => /^\/live\//.test(r)), 'il player legge ancora il link di prima');
             vero(await p.evaluate(() => window.__segnoPagina) === 'ancora-qui', 'la pagina si e\' ricaricata');
-            vero(await p.evaluate(() => window.__fintoYT.giocatori.length) === giocatori, 'e\' stato creato un player nuovo');
-            vero(await statoIframe(p) === 'visible', 'video non visibile dopo il cambio');
+            vero(await p.evaluate(() => { const v = document.querySelectorAll('#video-player video'); return v.length === 1 && v[0].dataset.segno === 'lo-stesso'; }), 'e\' stato creato un <video> nuovo');
+            vero(p.__ascolti.aperti === ascolti.aperti && p.__ascolti.chiusi === ascolti.chiusi, 'ascolti su Firestore aperti o chiusi: ' + JSON.stringify({ prima: ascolti, dopo: p.__ascolti }));
+            vero(!(await statoVideo(p)).muto, 'l\'audio attivato si e\' perso con il cambio di link');
         });
 
-        await prova('video in errore: "Video non disponibile" al posto del video, poi un video buono torna', async () => {
-            await evento.update({ videoId: 'errore00000', videoAggiornato: T.now() });
-            await p.waitForSelector('#schermo-video', { state: 'visible', timeout: 10000 });
-            vero(/Video non disponibile/.test(await p.textContent('#schermo-video-titolo')), 'testo: ' + await p.textContent('#schermo-video-titolo'));
-            vero(await statoIframe(p) === 'hidden', 'il video in errore resta visibile');
+        await prova('un link non valido: «Video non disponibile» al posto del video, chiaro, la pagina non si rompe; poi un link buono torna da solo', async () => {
+            // un file (non una diretta), poi un id di 11 caratteri rimasto dal player di prima: valori che il servizio non salva piu'
+            await evento.update({ videoId: F.WEBTV + '/video/prova.mp4', videoAggiornato: T.now() });
+            await aspetta(async () => (await statoVideo(p)).tipo === 'errore', 10000, '«Video non disponibile»');
+            vero(/Video non disponibile/.test(await p.textContent('#schermo-video-titolo')), 'titolo: ' + await p.textContent('#schermo-video-titolo'));
+            vero(/non è valido/.test(await p.textContent('#schermo-video-testo')), 'testo: ' + await p.textContent('#schermo-video-testo'));
+            vero(await visibilitaVideo(p) !== 'visible', 'il video in errore resta visibile');
+            vero(!(await visibile(p, '#btn-attiva-audio')) && await p.isDisabled('#btn-play'), '«Attiva l\'audio» o il play con il video non disponibile');
             await foto(p, 'errore-video-computer');
-            await evento.update({ videoId: 'ccccccccccc', videoAggiornato: T.now() });
-            await p.waitForFunction(() => window.__fintoYT.comandi.some(c => c.comando === 'carica' && c.valore === 'ccccccccccc'), null, { timeout: 10000 });
+            await evento.update({ videoId: 'aaaaaaaaaaa', videoAggiornato: T.now() });
+            await pausa(1500);
+            vero((await statoVideo(p)).tipo === 'errore' && await vistaDi(p) === 'diretta', 'con un id del player di prima: ' + JSON.stringify(await statoVideo(p)));
+            await evento.update({ videoId: LINK, videoAggiornato: T.now() });
             await p.waitForSelector('#schermo-video', { state: 'hidden', timeout: 10000 });
+            await videoVa(p, 20000, 'il video buono');
+            vero(p.__erroriPagina.length === 0, 'errori: ' + p.__erroriPagina.join(' | '));
         });
 
         await prova('connessione persa: avviso dopo qualche secondo, poi sparisce al ritorno', async () => {
@@ -824,11 +931,12 @@ function eventoIniziale(T) {
 
         await prova('ricarica della pagina: nessun nuovo accesso, di nuovo in diretta', async () => {
             const prima = quante('entra');
+            const da = pc.webtv.richieste.length;
             await p.reload();
             await vistaE(p, 'diretta', 30000);
-            await p.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 15000 });
+            await videoVa(p, 30000, 'il video dopo la ricarica');
             vero(quante('entra') === prima, 'la pagina ha rifatto l\'accesso');
-            vero(await p.evaluate(() => window.__fintoYT.opzioni.videoId) === 'ccccccccccc', 'video dopo la ricarica');
+            vero(pc.webtv.richieste.slice(da).some(r => /^\/live\/.*\.m4s$/.test(r)), 'video dopo la ricarica: non il link attuale');
         });
 
         await prova('pausa dell\'evento con avviso a tutti: vista pausa con l\'orario di ripresa', async () => {
@@ -837,11 +945,11 @@ function eventoIniziale(T) {
             vero(/si riprende alle 14\.30/.test(await p.textContent('#pausa-titolo')), 'titolo: ' + await p.textContent('#pausa-titolo'));
             vero(await visibile(p, '#avviso-evento'), 'avviso a tutti non visibile');
             vero(/Problema tecnico/.test(await p.textContent('#avviso-evento')), 'testo dell\'avviso');
-            vero(await p.locator('#video-player iframe').count() === 0, 'il player resta vivo in pausa');
+            vero(await p.locator('#video-player video, #video-player iframe').count() === 0, 'il player resta vivo in pausa');
             await foto(p, 'pausa-evento-computer');
-            await evento.update({ stato: 'in_onda', videoId: 'ddddddddddd', avviso: '' });
+            await evento.update({ stato: 'in_onda', videoId: LINK, avviso: '' });
             await vistaE(p, 'diretta', 10000);
-            await p.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 10000 });
+            await videoVa(p, 30000, 'il video dopo la pausa dell\'evento');
             vero(!(await visibile(p, '#avviso-evento')), 'avviso non tolto');
         });
 
@@ -849,11 +957,13 @@ function eventoIniziale(T) {
             await evento.update({ stato: 'terminato', videoId: '', statoAggiornato: T.now() });
             await vistaE(p, 'fine', 10000);
             vero(await p.getAttribute('#fine-link-evento', 'href') === '/napoli_ottobre_2026/', 'link alla pagina dell\'evento');
-            vero(await p.locator('#video-player iframe').count() === 0, 'il player resta vivo a fine diretta');
+            vero(await p.locator('#video-player video, #video-player iframe').count() === 0, 'il player resta vivo a fine diretta');
             await foto(p, 'fine-computer');
-            await evento.update({ stato: 'in_onda', videoId: 'eeeeeeeeeee', statoAggiornato: T.now() });
+            const da = pc.webtv.richieste.length;
+            await evento.update({ stato: 'in_onda', videoId: LINK_NUOVO, statoAggiornato: T.now() });
             await vistaE(p, 'diretta', 10000);
-            await p.waitForFunction(() => window.__fintoYT.opzioni && window.__fintoYT.opzioni.videoId === 'eeeeeeeeeee', null, { timeout: 10000 });
+            await aspetta(() => pc.webtv.richieste.slice(da).some(r => /^\/riserva\/.*\.m4s$/.test(r)), 15000, 'il video del nuovo link');
+            await videoVa(p, 20000, 'il video di nuovo in onda');
         });
 
         await prova('Esci chiede conferma e torna alla vista di accesso', async () => {
@@ -867,7 +977,7 @@ function eventoIniziale(T) {
             await vistaE(p, 'accesso', 10000);
             vero(await p.evaluate(() => localStorage.getItem('ngbDirettaSessione')) === null, 'sessione non tolta');
             vero(await p.inputValue('#campo-nome-utente') === 'mariorossi', 'nome utente non riproposto');
-            vero(await p.locator('#video-player iframe').count() === 0, 'il player resta vivo dopo l\'uscita');
+            vero(await p.locator('#video-player video, #video-player iframe').count() === 0, 'il player resta vivo dopo l\'uscita');
             vero(!(await visibile(p, '#btn-esci')), 'Esci ancora visibile');
         });
 
@@ -955,7 +1065,7 @@ function eventoIniziale(T) {
             vero((await q.textContent('#nome-persona')).trim() === 'gestore@prova.it', 'nome nella testata');
             await q.goto(SITO + '/diretta/?anteprima=' + EVENTO);
             await vistaE(q, 'diretta', 20000);
-            await q.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 15000 });
+            await videoVa(q, 30000, 'il video nell\'anteprima');
             vero(await visibile(q, '#avviso-anteprima'), 'avviso di anteprima non visibile');
             vero(/Nessuna presenza registrata/.test(await q.textContent('#avviso-anteprima')), 'testo dell\'anteprima');
             await foto(q, 'anteprima-gestore-computer');
@@ -1092,35 +1202,61 @@ function eventoIniziale(T) {
             setInterval(() => {
                 const area = document.getElementById('area-video');
                 if (!area || document.body.getAttribute('data-vista') !== 'diretta') return;
-                const f = document.querySelector('#video-player iframe');
+                const v = document.querySelector('#video-player video');
                 const sv = document.getElementById('schermo-video');
                 const sp = document.getElementById('schermo-pausa');
                 window.__registroSchermo.push({
                     t: Date.now() - t0,
                     schermata: area.getAttribute('data-schermata'),
-                    iframe: f ? getComputedStyle(f).visibility : 'assente',
+                    video: v ? getComputedStyle(v).visibility : 'assente',
+                    pronto: !!(v && v.readyState >= 1),
                     nostra: !sv.hidden || !sp.hidden,
                     avvia: !sv.hidden && !document.getElementById('btn-avvia-diretta').hidden
                 });
             }, 50);
         };
-        await prova('player che nasce lento (API dopo 11 s, onReady dopo 1,5 s): niente «Avvia la diretta», mai il video SOTTO una nostra schermata', async () => {
-            const lento = fintoYT([['}, 60);', '}, 1500);']]);
-            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: lento, ritardoApiMs: 11000, prove: { ritardoPresenzaMs: 999999 }, initScript: registraSchermo });
+        /* Il browser che blocca l'autoplay (come un iPhone in risparmio
+           energetico): play() viene rifiutato finche' la persona non tocca la
+           pagina dopo l'arrivo del video (qui: il tocco su «Avvia la
+           diretta»; il clic su «Entra» di prima non vale), e l'attributo
+           autoplay non vale. */
+        const autoplayBloccato = () => {
+            const play = HTMLMediaElement.prototype.play;
+            let toccato = false;
+            document.addEventListener('click', e => { if (e.target && e.target.closest && e.target.closest('#btn-avvia-diretta')) toccato = true; }, true);
+            HTMLMediaElement.prototype.play = function () {
+                if (toccato) return play.call(this);
+                return Promise.reject(new DOMException('autoplay bloccato (prova)', 'NotAllowedError'));
+            };
+            Object.defineProperty(HTMLMediaElement.prototype, 'autoplay', { configurable: true, get() { return false; }, set() { /* ignorato */ } });
+        };
+        // il browser rifiuta l'audio: togliere il muto non ha effetto
+        const audioRifiutato = () => {
+            const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
+            Object.defineProperty(HTMLMediaElement.prototype, 'muted', { configurable: true, get: d.get, set(v) { if (v) d.set.call(this, true); } });
+        };
+        // come Safari: quando gli si toglie il muto senza un tocco DENTRO il video, lo ferma
+        const pausaDiSafari = () => {
+            const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
+            Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
+                configurable: true, get: d.get,
+                set(v) { d.set.call(this, v); if (!v) { const el = this; setTimeout(() => el.pause(), 100); } }
+            });
+        };
+
+        await prova('player che nasce lento (hls.js arriva dopo 6 s): niente «Avvia la diretta», mai il video SOTTO una nostra schermata', async () => {
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { ritardoLibreriaMs: 6000, prove: { ritardoPresenzaMs: 999999 }, initScript: registraSchermo });
             try {
                 await accedi(C.page, 'paolovideo', PASSWORD_PROVA);
                 await vistaE(C.page, 'diretta', 30000);
-                await C.page.waitForFunction(() => {
-                    const f = document.querySelector('#video-player iframe');
-                    return f && getComputedStyle(f).visibility === 'visible' && window.__fintoYT && window.__fintoYT.ultimo
-                        && window.__fintoYT.ultimo.getPlayerState() === 1 && document.getElementById('area-video').getAttribute('data-schermata') === 'video';
-                }, null, { timeout: 30000 });
+                await videoVa(C.page, 40000, 'il video dopo la libreria lenta');
                 await pausa(3500);    // oltre i 3 s del "fermo"
                 const reg = await C.page.evaluate(() => window.__registroSchermo);
-                vero(reg.some(x => x.iframe === 'assente') && reg.some(x => x.schermata === 'errore'), 'la prova non ha visto il player lento (attesa e «video non disponibile»)');
+                const attesa = reg.filter(x => x.video !== 'assente' && !x.pronto);
+                vero(attesa.length && attesa[attesa.length - 1].t - attesa[0].t >= 4000, 'la prova non ha visto il player lento (' + (attesa.length ? attesa[attesa.length - 1].t - attesa[0].t : 0) + ' ms senza video)');
                 const avvia = reg.filter(x => x.avvia);
                 vero(!avvia.length, '«Avvia la diretta» mentre il player nasceva, a ' + (avvia[0] && avvia[0].t) + ' ms');
-                const sotto = reg.filter(x => x.nostra && x.iframe === 'visible');
+                const sotto = reg.filter(x => x.nostra && x.video === 'visible');
                 vero(!sotto.length, 'video visibile sotto la schermata «' + (sotto[0] && sotto[0].schermata) + '» a ' + (sotto[0] && sotto[0].t) + ' ms');
                 vero(reg[reg.length - 1].schermata === 'video', 'alla fine: ' + reg[reg.length - 1].schermata);
                 vero(C.page.__erroriPagina.length === 0, 'errori: ' + C.page.__erroriPagina.join(' | '));
@@ -1130,39 +1266,39 @@ function eventoIniziale(T) {
         });
 
         await prova('in onda ma il dispositivo non avvia il video (autoplay bloccato): «Avvia la diretta» AL POSTO del video dopo 3 s, e poi il video', async () => {
-            const bloccato = fintoYT([["if (String(pv.autoplay) === '1') self._cambia(STATI.PLAYING);", '']]);
-            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: bloccato, prove: { ritardoPresenzaMs: 999999 } });
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 }, initScript: autoplayBloccato });
             try {
                 const pg = C.page;
                 await accedi(pg, 'paolovideo', PASSWORD_PROVA);
                 await vistaE(pg, 'diretta', 30000);
-                await pg.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 15000 });
+                await pg.waitForSelector('#video-player video', { state: 'attached', timeout: 15000 });
                 const t0 = Date.now();
-                await pg.waitForSelector('#btn-avvia-diretta', { state: 'visible', timeout: 10000 });
+                await pg.waitForSelector('#btn-avvia-diretta', { state: 'visible', timeout: 20000 });
                 vero(Date.now() - t0 >= 2000, '«Avvia la diretta» troppo presto');
-                vero(await statoIframe(pg) === 'hidden', 'il video resta visibile sotto «Avvia la diretta»');
+                vero((await statoVideo(pg)).fermo, 'il video e\' partito da solo: la prova non ha bloccato l\'autoplay');
+                vero(await visibilitaVideo(pg) === 'hidden', 'il video resta visibile sotto «Avvia la diretta»');
+                vero(/La diretta è pronta/.test(await pg.textContent('#schermo-video-titolo')), 'titolo: ' + await pg.textContent('#schermo-video-titolo'));
                 await foto(pg, 'avvia-la-diretta-computer');
                 await pg.click('#btn-avvia-diretta');
                 await pg.waitForFunction(() => document.getElementById('area-video').getAttribute('data-schermata') === 'video', null, { timeout: 5000 });
-                vero(await statoIframe(pg) === 'visible', 'il video non ricompare');
-                vero((await comandiDa(pg, 0)).some(x => x.comando === 'play'), 'play non chiesto');
+                const s = await videoVa(pg, 15000, 'il video dopo «Avvia la diretta»');
+                vero(!s.muto, 'dopo «Avvia la diretta» il video resta muto');
             } finally {
                 await C.context.close().catch(() => {});
             }
         });
 
         await prova('il browser rifiuta l\'audio: «Attiva l\'audio» ricompare e il pulsante del muto dice il vero', async () => {
-            const sordo = fintoYT([["Player.prototype.unMute = function () { this._traccia('smuto'); this._muto = false; };",
-                "Player.prototype.unMute = function () { this._traccia('smuto'); };"]]);
-            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: sordo, prove: { ritardoPresenzaMs: 999999 } });
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 }, initScript: audioRifiutato });
             try {
                 const pg = C.page;
                 await accedi(pg, 'paolovideo', PASSWORD_PROVA);
                 await vistaE(pg, 'diretta', 30000);
+                await videoVa(pg, 30000, 'la diretta');
                 await pg.waitForSelector('#btn-attiva-audio', { state: 'visible', timeout: 15000 });
                 await pg.click('#btn-attiva-audio');
                 await pausa(1300);
-                vero(await pg.evaluate(() => window.__fintoYT.ultimo.isMuted()), 'la prova non ha rifiutato l\'audio');
+                vero((await statoVideo(pg)).muto, 'la prova non ha rifiutato l\'audio');
                 vero(await visibile(pg, '#btn-attiva-audio'), '«Attiva l\'audio» sparito con il video ancora muto');
                 vero(await pg.getAttribute('#btn-muto', 'data-muto') === '1', 'il pulsante del muto dice «audio attivo»');
                 vero(/Audio disattivato/.test(await pg.getAttribute('#btn-muto', 'aria-label')), 'etichetta: ' + await pg.getAttribute('#btn-muto', 'aria-label'));
@@ -1174,27 +1310,27 @@ function eventoIniziale(T) {
         });
 
         await prova('il browser ferma il video quando si chiede l\'audio (come Safari): il video resta visibile e toccabile, niente nostra schermata di pausa', async () => {
-            const safari = fintoYT([["Player.prototype.unMute = function () { this._traccia('smuto'); this._muto = false; };",
-                "Player.prototype.unMute = function () { this._traccia('smuto'); this._muto = false; var me = this; setTimeout(function () { me._cambia(STATI.PAUSED); }, 100); };"]]);
-            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: safari, prove: { ritardoPresenzaMs: 999999 } });
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 }, initScript: pausaDiSafari });
             try {
                 const pg = C.page;
                 await accedi(pg, 'paolovideo', PASSWORD_PROVA);
                 await vistaE(pg, 'diretta', 30000);
+                await videoVa(pg, 30000, 'la diretta');
                 await pg.waitForSelector('#btn-attiva-audio', { state: 'visible', timeout: 15000 });
                 await pg.click('#btn-attiva-audio');
                 await pausa(1300);
-                vero(await pg.evaluate(() => window.__fintoYT.ultimo.getPlayerState()) === 2, 'la prova non ha fermato il video');
+                vero((await statoVideo(pg)).fermo, 'la prova non ha fermato il video');
                 vero(!(await visibile(pg, '#schermo-pausa')), 'la nostra schermata di pausa copre il video da toccare');
-                vero(await statoIframe(pg) === 'visible', 'video nascosto');
+                vero(await visibilitaVideo(pg) === 'visible', 'video nascosto');
                 vero(await visibile(pg, '#suggerimento-audio') && /Tocca il video/.test(await pg.textContent('#suggerimento-audio')), 'suggerimento mancante');
-                // la persona tocca il video: YouTube riparte, con l'audio
-                await pg.evaluate(() => window.__fintoYT.ultimo.playVideo());
+                // la persona tocca il video: riparte, con l'audio
+                await pg.evaluate(() => document.querySelector('#video-player video').play());
                 await pg.waitForSelector('#suggerimento-audio', { state: 'hidden', timeout: 5000 });
+                vero(!(await statoVideo(pg)).muto, 'dopo il tocco il video e\' muto');
                 // una pausa chiesta con i nostri comandi mostra invece la nostra schermata
                 await pg.click('#btn-play');
                 await pg.waitForSelector('#schermo-pausa', { state: 'visible', timeout: 5000 });
-                vero(await statoIframe(pg) === 'hidden', 'in pausa il video resta visibile');
+                vero(await visibilitaVideo(pg) === 'hidden', 'in pausa il video resta visibile');
             } finally {
                 await C.context.close().catch(() => {});
             }
@@ -1266,10 +1402,13 @@ function eventoIniziale(T) {
             await foto(t, 'attesa-telefono', true);
         });
 
-        await prova('telefono: in onda, niente cursore del volume su iPhone, "Attiva l\'audio" grande', async () => {
-            await evento.update({ stato: 'in_onda', videoId: 'fffffffffff' });
+        await prova('telefono: in onda, il video scorre, niente cursore del volume su iPhone, "Attiva l\'audio" grande', async () => {
+            await evento.update({ stato: 'in_onda', videoId: LINK });
             await vistaE(t, 'diretta', 15000);
-            await t.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 15000 });
+            await videoVa(t, 30000, 'la diretta sul telefono');
+            vero(await t.evaluate(() => document.querySelector('#video-player video').playsInline === true), 'il video non resta nella pagina (playsinline)');
+            await aspetta(() => visibile(t, '#indicatore-live'), 10000, '«IN DIRETTA»');
+            await aspetta(() => visibile(t, '#sel-qualita'), 10000, 'la qualità');
             vero(!(await visibile(t, '#volume')), 'cursore del volume visibile su iPhone');
             vero(await visibile(t, '#btn-muto'), 'manca il bottone del muto');
             const b = await t.locator('#btn-attiva-audio').boundingBox();
@@ -1295,16 +1434,36 @@ function eventoIniziale(T) {
             vero(!(await t.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'classe rimasta');
         });
 
-        await prova('telefono: pulsanti di almeno 48 px, «Torna in diretta» ha il suo nome anche se si vede «Live»', async () => {
+        await prova('telefono: pulsanti di almeno 48 px, tutto dentro la barra, «Torna in diretta» ha il suo nome anche se si vede «Live»', async () => {
+            // al punto live: «IN DIRETTA», la qualita' e lo schermo intero stanno nella barra
+            const barra = await t.evaluate(() => {
+                const r = document.getElementById('barra-comandi').getBoundingClientRect();
+                return ['indicatore-live', 'sel-qualita', 'btn-schermo-intero'].map(id => {
+                    const b = document.getElementById(id).getBoundingClientRect();
+                    return { id, dentro: b.width > 0 && b.left >= r.left - 0.5 && b.right <= r.right + 0.5 };
+                });
+            });
+            vero(barra.every(x => x.dentro), 'fuori dalla barra: ' + barra.filter(x => !x.dentro).map(x => x.id).join(', '));
+            // «Torna in diretta» c'e' quando si e' indietro: qui, in pausa
+            await t.tap('#btn-play');
+            await t.waitForSelector('#schermo-pausa', { state: 'visible' });
+            await aspetta(() => visibile(t, '#btn-live'), 5000, '«Torna in diretta» in pausa');
             const live = t.getByRole('button', { name: 'Torna in diretta' });
             vero(await live.count() === 1 && await live.isVisible(), 'pulsante «Torna in diretta» senza nome');
             vero((await t.textContent('#btn-live')).indexOf('Live') >= 0 && await t.locator('#btn-live .testo-corto').isVisible(), 'a vista non dice «Live»');
-            for (const id of ['btn-live', 'btn-esci', 'btn-play', 'btn-muto', 'btn-schermo-intero', 'btn-attiva-audio']) {
+            for (const id of ['btn-live', 'btn-esci', 'btn-play', 'btn-muto', 'btn-schermo-intero', 'btn-attiva-audio', 'btn-riprendi']) {
                 const el = t.locator('#' + id);
                 if (!(await el.isVisible())) continue;
                 const b = await el.boundingBox();
                 vero(b.height >= 48 && b.width >= 44, '#' + id + ' misura ' + Math.round(b.width) + 'x' + Math.round(b.height));
             }
+            const larghezza = await t.evaluate(() => document.documentElement.scrollWidth);
+            vero(larghezza <= 390, 'la pagina scorre in orizzontale: ' + larghezza);
+            await foto(t, 'torna-in-diretta-telefono');
+            await t.tap('#btn-live');
+            await t.waitForSelector('#schermo-pausa', { state: 'hidden', timeout: 5000 });
+            await videoVa(t, 15000, 'il video dopo «Live»');
+            await aspetta(() => visibile(t, '#indicatore-live'), 10000, '«IN DIRETTA» dopo «Live»');
         });
 
         await prova('telefono: l\'avviso della regia si vede anche nello pseudo schermo intero, sotto il video', async () => {
@@ -1363,7 +1522,7 @@ function eventoIniziale(T) {
         await prova('telefono: pausa con la nostra schermata', async () => {
             await t.tap('#btn-play');
             await t.waitForSelector('#schermo-pausa', { state: 'visible' });
-            vero(await statoIframe(t) === 'hidden', 'video visibile in pausa');
+            vero(await visibilitaVideo(t) === 'hidden', 'video visibile in pausa');
             await foto(t, 'pausa-telefono');
             await t.tap('#btn-riprendi');
             await t.waitForSelector('#schermo-pausa', { state: 'hidden' });
@@ -1381,7 +1540,7 @@ function eventoIniziale(T) {
 
         /* =================== TABLET (solo foto) =================== */
         await prova('tablet 820x1180: diretta', async () => {
-            await evento.update({ stato: 'in_onda', videoId: 'ggggggggggg' });
+            await evento.update({ stato: 'in_onda', videoId: LINK });
             const tab = await nuovoContesto({ viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
             await tab.page.goto(SITO + '/diretta/?emulatori=1');
             await vistaE(tab.page, 'accesso', 30000);
@@ -1389,7 +1548,7 @@ function eventoIniziale(T) {
             await tab.page.fill('#campo-password', passwordIniziale);
             await tab.page.tap('#btn-entra');
             await vistaE(tab.page, 'diretta', 20000);
-            await tab.page.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 15000 });
+            await videoVa(tab.page, 30000, 'la diretta sul tablet');
             const larghezza = await tab.page.evaluate(() => document.documentElement.scrollWidth);
             vero(larghezza <= 820, 'la pagina scorre in orizzontale: ' + larghezza);
             await foto(tab.page, 'diretta-tablet', true);
@@ -1416,6 +1575,7 @@ function eventoIniziale(T) {
         console.log('ROSSO (interruzione) ' + String((e && e.stack) || e));
     } finally {
         if (browser) await browser.close().catch(() => {});
+        if (trasmissione) trasmissione.ferma();
         await fermaFigli();
     }
     console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi' + (rossiElenco.length ? ':\n - ' + rossiElenco.join('\n - ') : ''));

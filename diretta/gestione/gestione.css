@@ -378,8 +378,9 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .regia-avviso textarea { min-height: 64px; }
 .regia-avviso .azioni { margin-top: 10px; }
 .video-anteprima { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+/* un'anteprima, non il video della sala: al computer non piu' larga di 720px */
 .video-anteprima-cornice {
-    width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden;
+    width: 100%; max-width: 720px; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden;
 }
 .video-anteprima-cornice > * { position: relative; width: 100%; height: 100%; }
 .video-anteprima-cornice iframe { width: 100%; height: 100%; border: 0; display: block; }
@@ -532,8 +533,10 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .link-salvato .testo-fisso { flex: 1 1 100%; font-size: 0.82rem; font-weight: 600; }
 .link-salvato-tipo { color: var(--tenue); font-size: 0.8rem; }
 .link-salvato-tipo:empty { display: none; }
-.sorgente-comandi { margin: 12px 0 8px; }
+.sorgente-comandi { margin: 12px 0 8px; display: flex; flex-wrap: wrap; gap: 8px 10px; }
 .sorgente-comandi .btn { white-space: normal; text-align: center; }
+/* prima il pulsante che cambia link, poi quello che riconferma la scelta */
+.sorgente-comandi[data-sorgente="riserva"] #btn-sorgente-principale { order: -1; }
 #msg-sorgente, #msg-video { margin-top: 10px; }
 .titoletto-video { margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--bordo); }
 #form-video { display: flex; flex-direction: column; gap: 18px; margin-bottom: 10px; }

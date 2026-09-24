@@ -56,8 +56,8 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     }
     await env.clearFirestore();
     await semina(async db => {
-        await setDoc(doc(db, 'eventi/napoli-2026'), { titolo: 'Napoli', stato: 'in_onda', videoId: 'abcdefghijk' });
-        await setDoc(doc(db, 'eventi/milano-2026'), { titolo: 'Milano', stato: 'programmato', videoId: 'zzzzzzzzzzz' });
+        await setDoc(doc(db, 'eventi/napoli-2026'), { titolo: 'Napoli', stato: 'in_onda', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8' });
+        await setDoc(doc(db, 'eventi/milano-2026'), { titolo: 'Milano', stato: 'programmato', videoId: '' });
         await setDoc(doc(db, 'partecipanti/anna'), { nomeUtente: 'annabianchi', stato: 'attivo', eventi: ['napoli-2026'] });
         await setDoc(doc(db, 'partecipanti/bruno'), { nomeUtente: 'brunoverdi', stato: 'attivo', eventi: ['milano-2026'] });
         await setDoc(doc(db, 'partecipanti/carla'), { nomeUtente: 'carlaneri', stato: 'disattivato', eventi: ['napoli-2026'] });
@@ -67,7 +67,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await setDoc(doc(db, 'sessioni/bruno'), { stato: 'attivo', sessioneAttiva: null });
         await setDoc(doc(db, 'sessioni/carla'), { stato: 'disattivato', sessioneAttiva: null });
         await setDoc(doc(db, 'sessioni/dario'), { stato: 'attivo', sessioneAttiva: 'telefono' });
-        await setDoc(doc(db, 'eventiRiservati/napoli-2026'), { videoUrl: 'https://youtu.be/abcdefghijk', videoId: 'abcdefghijk' });
+        await setDoc(doc(db, 'eventiRiservati/napoli-2026'), { videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8' });
         await setDoc(doc(db, 'nomiUtente/annabianchi'), { uid: 'anna', base: 'annabianchi' });
         await setDoc(doc(db, 'indirizzi/anna@x.it'), { uid: 'anna' });
         await setDoc(doc(db, 'accessi/a1'), { uid: 'anna', idEvento: 'napoli-2026' });
@@ -103,7 +103,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il gestore NON legge i nomi utente dal browser', () => assertFails(getDoc(doc(gestore, 'nomiUtente/annabianchi'))));
 
     console.log('\nScritture vietate');
-    await prova('il partecipante NON modifica l\'evento (es. il video)', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'aaaaaaaaaaa' })));
+    await prova('il partecipante NON modifica l\'evento (es. il video)', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://altro.esempio.it/live/playlist.m3u8' })));
     await prova('il partecipante NON modifica il proprio profilo', () => assertFails(updateDoc(doc(anna, 'partecipanti/anna'), { stato: 'attivo', sessioneAttiva: null })));
     await prova('il partecipante NON crea eventi', () => assertFails(setDoc(doc(anna, 'eventi/nuovo'), { titolo: 'x' })));
     await prova('il partecipante NON prenota nomi utente', () => assertFails(setDoc(doc(anna, 'nomiUtente/zzz'), { uid: 'anna' })));

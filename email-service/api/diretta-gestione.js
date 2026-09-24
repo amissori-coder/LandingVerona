@@ -24,7 +24,10 @@
                       la risposta dice solo firma.segretoImpostato)
      evento-video     { idEvento, videoUrl, videoId?, riservaUrl? }
      evento-sorgente  { idEvento, sorgente: 'principale'|'riserva' }
-                      la regia sceglie per tutti quale link usare
+                      la regia sceglie per tutti quale link usare;
+                      anche ripetere la stessa scelta vale (aggiorna
+                      videoAggiornato): riporta chi era passato da
+                      solo all'altro link dopo un guasto
      prova-link       { link, idEvento? } -> { esito, tipo, valore,
                       titolo, righe, problemi, info, urlProva }: la
                       prova del link prima di salvarlo (al massimo 30

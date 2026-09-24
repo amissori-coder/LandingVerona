@@ -11,11 +11,15 @@
    (risultati/cache-rete/), cosi' le prove ripetute non dipendono
    dalla rete e girano piu' veloci.
 
-   Due eccezioni:
-   - https://www.youtube.com/iframe_api risponde con il finto
-     YouTube (finto-youtube.js): YouTube e' bloccato da questa rete;
+   Le eccezioni:
    - l'indirizzo pubblico del servizio (revilaw-email.vercel.app)
-     si puo' deviare sul server locale con `deviaServizio`.
+     si puo' deviare sul server locale (opz.servizio) o far
+     rispondere dalla prova (opz.statoDiretta);
+   - il video della diretta (la web TV finta https://webtv.prova.test
+     e il flusso pubblico di prova, che cambia a ogni secondo e non va
+     in cache) lo instradano le prove con flusso-prova.js
+     (instradaWebTv, inoltraPubblico), registrate DOPO preparaContesto:
+     Playwright usa l'ultima regola registrata.
 
    Uso:  const { preparaContesto } = require('./rete-prove');
          await preparaContesto(context, { servizio: 'http://127.0.0.1:3100/api' });
@@ -30,7 +34,6 @@ if (!process.env.NODE_USE_ENV_PROXY) process.env.NODE_USE_ENV_PROXY = '1';
 
 const CACHE = path.resolve(__dirname, 'risultati/cache-rete');
 fs.mkdirSync(CACHE, { recursive: true });
-const FINTO_YT = fs.readFileSync(path.resolve(__dirname, 'finto-youtube.js'), 'utf8');
 
 function chiave(url) {
     return crypto.createHash('sha256').update(url).digest('hex').slice(0, 40);
@@ -56,8 +59,6 @@ async function scarica(url, intestazioni) {
    (per provare popup e pulsante senza server). */
 async function preparaContesto(context, opz) {
     opz = opz || {};
-    await context.route('https://www.youtube.com/iframe_api*', route =>
-        route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FINTO_YT }));
     await context.route(/^https:\/\/revilaw-email\.vercel\.app\/api\//, async route => {
         const req = route.request();
         if (opz.statoDiretta && /\/api\/diretta-stato/.test(req.url())) {
@@ -71,7 +72,7 @@ async function preparaContesto(context, opz) {
     await context.route(/^https:\/\//, async route => {
         const req = route.request();
         const url = req.url();
-        if (/^https:\/\/(www\.youtube\.com|revilaw-email\.vercel\.app)\//.test(url)) return route.fallback();
+        if (/^https:\/\/revilaw-email\.vercel\.app\//.test(url)) return route.fallback();
         if (req.method() !== 'GET') return route.abort();
         // i video della home (decine di MB) e le statistiche non servono alle
         // prove: consegnati in un colpo solo fanno cadere il browser
@@ -85,4 +86,4 @@ async function preparaContesto(context, opz) {
     });
 }
 
-module.exports = { preparaContesto, FINTO_YT };
+module.exports = { preparaContesto };

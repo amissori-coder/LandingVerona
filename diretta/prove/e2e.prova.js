@@ -1,5 +1,5 @@
 /* ============================================================
-   PROVE - dall'inizio alla fine, con tutto vero (tranne YouTube)
+   PROVE - dall'inizio alla fine, con tutto vero (tranne la web TV)
    ------------------------------------------------------------
        node diretta/prove/e2e.prova.js
 
@@ -9,8 +9,10 @@
    Firestore, emulatori di Firebase, pagine VERE del sito, posta finta
    (una riga JSON per email, in risultati/posta-e2e.jsonl, da cui la
    prova legge i collegamenti e le credenziali come li leggerebbe una
-   persona). YouTube e' il finto YouTube: la rete di prova non lo
-   raggiunge.
+   persona). Il video arriva dalla web TV finta di flusso-prova.js
+   (https://webtv.prova.test): una diretta HLS vera trasmessa da ffmpeg
+   (serve ffmpeg: quello di sistema, FFMPEG=/percorso, oppure pip
+   install imageio-ffmpeg), riprodotta dal player vero della pagina.
 
    Avvia e ferma da sola: emulatori (firestore 8880, auth 9880) e
    server locale (api 3880, sito 8890).
@@ -26,9 +28,10 @@
        e trova l'attesa con il conto alla rovescia e il programma;
        Anna Maria De Luca entra dal computer scrivendo "Anna Maria De Luca";
     4. il gestore manda in onda: le pagine passano da sole alla
-       diretta; schermo intero (anche il finto schermo intero
-       dell'iPhone); il gestore cambia il link: il video cambia senza
-       ricaricare; il contatore dei collegati li vede;
+       diretta e il video della web TV scorre nel nostro player;
+       schermo intero (anche il finto schermo intero dell'iPhone); il
+       gestore cambia il link: il video riparte dal nuovo senza
+       ricaricare la pagina; il contatore dei collegati li vede;
     5. connessione persa e ritrovata; la pagina riaperta non chiede di
        nuovo l'accesso;
     6. un minuto intero di diretta: la presenza aggiunge 60 secondi
@@ -63,6 +66,10 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:' + PORTE.auth;
 const admin = require(path.resolve(__dirname, '../../email-service/node_modules/firebase-admin'));
 const { chromium } = require('playwright');
 const { preparaContesto } = require('./rete-prove');
+const F = require('./flusso-prova');
+const CARTELLA_WEBTV = path.join(RISULTATI, 'webtv-e2e');
+const LINK = F.WEBTV + '/live/master.m3u8';
+const LINK_NUOVO = F.WEBTV + '/riserva/master.m3u8';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -154,16 +161,40 @@ const PARTECIPANTI = [
     { nome: 'Giulia', cognome: 'Esposito', email: 'giulia.esposito@esempio.it', azienda: 'Esposito & figli' }
 ];
 
+/* ---------- il video nella pagina ---------- */
+const statoVideo = page => page.evaluate(() => {
+    const v = document.querySelector('#video-player video');
+    const a = document.getElementById('area-video');
+    return {
+        presente: !!v, t: v ? v.currentTime : 0, fermo: v ? v.paused : true,
+        visibile: v ? getComputedStyle(v).visibility === 'visible' : false,
+        schermata: a ? a.getAttribute('data-schermata') : ''
+    };
+});
+// il video scorre: visibile, in riproduzione, il tempo avanza e nessuna nostra schermata davanti
+async function videoVa(page, ms, cosa) {
+    return aspetta(async () => {
+        const a = await statoVideo(page);
+        if (!a.presente || a.fermo || !a.visibile || a.schermata !== 'video') return null;
+        await pausa(1200);
+        const b = await statoVideo(page);
+        return !b.fermo && b.visibile && b.schermata === 'video' && b.t > a.t + 0.4 ? b : null;
+    }, ms, cosa);
+}
+
 (async () => {
     let browser;
+    let trasmissione = null;
     try {
-        /* ---------- 0. emulatori e server ---------- */
+        /* ---------- 0. la diretta della web TV finta, emulatori e server ---------- */
         for (const p of Object.values(PORTE)) vero(!(await portaOccupata(p)), 'porta ' + p + ' gia\' occupata: chiudi le prove rimaste accese');
-        console.log('Avvio di emulatori e server locale...');
+        console.log('Avvio della diretta di prova (ffmpeg), di emulatori e server locale...');
+        const inTrasmissione = F.avviaTrasmissione(CARTELLA_WEBTV);
         await avvia('emulatori', ['avvia-emulatori.js', '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], 'EMULATORI PRONTI', 150000);
         await avvia('server locale', ['server-locale.js', '--api', String(PORTE.api), '--statico', String(PORTE.statico),
             '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], 'SERVER LOCALE PRONTO', 30000,
         { DIRETTA_POSTA_FINTA: POSTA, DIRETTA_ADMIN_EMAILS: GESTORE, DIRETTA_AUTH_AL_SECONDO: '40' });
+        trasmissione = await inTrasmissione;
         const app = admin.initializeApp({ projectId: PROGETTO }, 'e2e');
         const db = app.firestore();
 
@@ -171,6 +202,8 @@ const PARTECIPANTI = [
         async function contesto(opzioni, senzaSchermoIntero) {
             const context = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opzioni));
             await preparaContesto(context, {});
+            // la web TV finta (dopo preparaContesto: vince lei); webtv.richieste: i percorsi chiesti
+            const webtv = await F.instradaWebTv(context, CARTELLA_WEBTV);
             await context.addInitScript(porte => {
                 window.NGB_DIRETTA_PROVE = porte;
                 try { sessionStorage.setItem('ngbDirettaEmulatori', '1'); } catch (e) { /* niente */ }
@@ -190,7 +223,7 @@ const PARTECIPANTI = [
             const page = await context.newPage();
             page.__errori = [];
             page.on('pageerror', e => page.__errori.push(String(e && e.message || e)));
-            return { context, page };
+            return { context, page, webtv };
         }
         const vista = (page, v, ms) => page.waitForSelector('body[data-vista="' + v + '"]', { timeout: ms || 20000 });
         const foto = (page, nome, intera) => page.screenshot({ path: path.join(FOTO, nome + '.png'), fullPage: !!intera });
@@ -240,7 +273,7 @@ const PARTECIPANTI = [
         await prova('crea l\'evento di Napoli', async () => {
             const r = await g({ azione: 'evento-salva', evento: {
                 id: EVENTO, nuovo: true, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
-                data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: 'https://youtu.be/aaaaaaaaaaa',
+                data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: LINK,
                 programma: '09.00 Accoglienza e registrazione\n09.30 Apertura dei lavori\n10.00 Adeguati assetti e governance\n13.00 Pausa pranzo\n17.30 Chiusura',
                 paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: true, oraPrima: true }
             } });
@@ -334,16 +367,20 @@ const PARTECIPANTI = [
 
         /* ---------- 4. in onda ---------- */
         console.log('\n4. In onda');
-        await prova('il gestore manda in onda: le pagine passano da sole alla diretta', async () => {
+        await prova('il gestore manda in onda: le pagine passano da sole alla diretta e il video della web TV scorre nel nostro player', async () => {
             await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' });
             await vista(iphone.page, 'diretta');
             await vista(computer.page, 'diretta');
-            const o = await computer.page.evaluate(() => window.__fintoYT && window.__fintoYT.opzioni);
-            vero(o && o.host === 'https://www.youtube-nocookie.com', 'host: ' + (o && o.host));
-            vero(o.videoId === 'aaaaaaaaaaa', 'video: ' + o.videoId);
-            const pv = o.playerVars || {};
-            ['controls', 'rel', 'playsinline', 'disablekb'].forEach(k => vero(String(pv[k]) === (k === 'controls' || k === 'rel' ? '0' : '1'), k + '=' + pv[k]));
-            vero(String(pv.iv_load_policy) === '3' && String(pv.mute) === '1', 'iv_load_policy/mute');
+            const pubblico = (await db.doc('eventi/' + EVENTO).get()).data();
+            vero(pubblico.videoId === LINK && !pubblico.videoUrl, 'documento pubblico: ' + JSON.stringify({ v: pubblico.videoId, u: pubblico.videoUrl }));
+            for (const c of [computer, iphone]) {
+                await videoVa(c.page, 30000, 'la diretta');
+                vero(c.webtv.richieste.some(r => /^\/live\/.*\.m4s$/.test(r)), 'segmenti della web TV non chiesti');
+                vero(await c.page.evaluate(() => { const v = document.querySelector('#video-player video'); return v.muted && !v.controls && /nodownload/.test(v.getAttribute('controlslist') || ''); }),
+                    'il video non parte muto, o ha i comandi del browser, o si puo\' scaricare');
+                await aspetta(() => c.page.locator('#indicatore-live').isVisible(), 10000, '«IN DIRETTA»');
+                await aspetta(() => c.page.locator('#sel-qualita').isVisible(), 10000, 'la scelta della qualità');
+            }
             await foto(computer.page, '05-diretta-computer');
             await foto(iphone.page, '06-diretta-telefono');
         });
@@ -357,14 +394,22 @@ const PARTECIPANTI = [
             await foto(iphone.page, '07-schermo-intero-telefono');
             await iphone.page.click('#btn-schermo-intero');
         });
-        await prova('il gestore cambia il link durante la diretta: il video cambia senza ricaricare', async () => {
-            const primo = await computer.page.evaluate(() => window.__fintoYT.giocatori.length);
-            await g({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://www.youtube.com/live/bbbbbbbbbbb?si=condiviso' });
-            await aspetta(() => computer.page.evaluate(() => window.__fintoYT.comandi.some(c => c.comando === 'carica' && c.valore === 'bbbbbbbbbbb')), 15000, 'nuovo video sul computer');
-            await aspetta(() => iphone.page.evaluate(() => window.__fintoYT.comandi.some(c => c.comando === 'carica' && c.valore === 'bbbbbbbbbbb')), 15000, 'nuovo video sull\'iPhone');
-            vero(await computer.page.evaluate(() => window.__fintoYT.giocatori.length) === primo, 'la pagina ha ricreato il player (ricarica)');
+        await prova('il gestore cambia il link durante la diretta: il video riparte dal nuovo senza ricaricare la pagina', async () => {
+            const da = {};
+            for (const c of [computer, iphone]) {
+                await c.page.evaluate(() => { window.__segnoPagina = 'ancora-qui'; document.querySelector('#video-player video').dataset.segno = 'lo-stesso'; });
+                da[c === computer ? 'computer' : 'iphone'] = c.webtv.richieste.length;
+            }
+            // incollato con uno spazio e un #: il servizio lo pulisce
+            await g({ azione: 'evento-video', idEvento: EVENTO, videoUrl: ' ' + LINK_NUOVO + '#dal-sito ' });
+            for (const [c, nome] of [[computer, 'computer'], [iphone, 'iphone']]) {
+                await aspetta(() => c.webtv.richieste.slice(da[nome]).some(r => /^\/riserva\/.*\.m4s$/.test(r)), 15000, 'il nuovo link sul ' + nome);
+                await videoVa(c.page, 20000, 'il video del nuovo link sul ' + nome);
+                vero(await c.page.evaluate(() => window.__segnoPagina) === 'ancora-qui', 'la pagina si e\' ricaricata (' + nome + ')');
+                vero(await c.page.evaluate(() => document.querySelector('#video-player video').dataset.segno === 'lo-stesso'), 'la pagina ha ricreato il video (' + nome + ')');
+            }
             const pubblico = (await db.doc('eventi/' + EVENTO).get()).data();
-            vero(pubblico.videoId === 'bbbbbbbbbbb' && !pubblico.videoUrl, 'documento pubblico: ' + JSON.stringify({ v: pubblico.videoId, u: pubblico.videoUrl }));
+            vero(pubblico.videoId === LINK_NUOVO && !pubblico.videoUrl, 'documento pubblico: ' + JSON.stringify({ v: pubblico.videoId, u: pubblico.videoUrl }));
         });
         // fuori dalla finestra oraria dell'evento (qui la data e' fra otto giorni) le
         // pagine cominciano a segnalarsi dopo la messa in onda, al loro giro: fino a 60 s
@@ -385,9 +430,10 @@ const PARTECIPANTI = [
             await computer.context.setOffline(false);
             await computer.page.waitForSelector('#avviso-connessione', { state: 'hidden', timeout: 30000 });
         });
-        await prova('riaprendo la pagina non si rifa\' l\'accesso', async () => {
+        await prova('riaprendo la pagina non si rifa\' l\'accesso, e il video riparte', async () => {
             await iphone.page.reload();
             await vista(iphone.page, 'diretta', 30000);
+            await videoVa(iphone.page, 30000, 'il video dopo la riapertura');
         });
 
         /* ---------- 6. un minuto di diretta ---------- */
@@ -468,6 +514,7 @@ const PARTECIPANTI = [
         console.log('ROSSO (interruzione) ' + (e && e.stack || e));
     } finally {
         if (browser) await browser.close().catch(() => {});
+        if (trasmissione) trasmissione.ferma();
         ferma();
     }
     console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi');

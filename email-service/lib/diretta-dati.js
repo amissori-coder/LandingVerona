@@ -491,7 +491,11 @@ async function cambiaVideo(ctx, { idEvento, videoUrl, videoId, riservaUrl }) {
 
 /* evento-sorgente: la regia sceglie per tutti il link principale o
    quello di riserva (anche fuori onda: vale quando si va in onda). La
-   pagina di chi guarda passa all'altro link senza ricaricare. */
+   pagina di chi guarda passa all'altro link senza ricaricare. Ogni
+   comando aggiorna videoAggiornato, ANCHE se la scelta resta la stessa:
+   e' cosi' che la regia riporta sul link scelto chi ci era passato da
+   solo (dopo 20 secondi di guasto il player passa all'altro link, e la
+   pagina annulla quel passaggio quando la regia "riconferma"). */
 async function cambiaSorgente(ctx, { idEvento, sorgente }) {
     const id = controllaIdEvento(idEvento);
     if (SORGENTI.indexOf(sorgente) < 0) throw C.errore(400, 'Scegli il link principale o quello di riserva.', 'sorgente');
@@ -504,11 +508,8 @@ async function cambiaSorgente(ctx, { idEvento, sorgente }) {
         if (sorgente === 'riserva' && !riproducibile(r.riservaId || '')) {
             throw C.errore(400, 'Non c\'è un link di riserva: inseriscilo nella scheda dell\'evento e salva.', 'sorgente');
         }
-        const attuale = snap.data().sorgente === 'riserva' ? 'riserva' : 'principale';
-        if (attuale !== sorgente) {
-            const ts = adessoTs(ctx);
-            tx.update(rif, { sorgente: sorgente, videoAggiornato: ts, aggiornato: ts });
-        }
+        const ts = adessoTs(ctx);
+        tx.update(rif, { sorgente: sorgente, videoAggiornato: ts, aggiornato: ts });
     });
     return (await leggiEvento(ctx, id)).json;
 }

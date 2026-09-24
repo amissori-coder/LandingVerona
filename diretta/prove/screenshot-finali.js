@@ -13,8 +13,15 @@
       computer, e le salva in JPEG (qualita' 82) in diretta/screenshot/,
       con i nomi in ordine: accesso, attesa, diretta, gestione con
       l'anteprima, email, popup della home, sezione di Napoli.
+      La diretta dalla web TV (telefono 390x844, computer 1440x900) la
+      fotografa webtv.prova.js: il player in diretta (con «IN DIRETTA»,
+      i comandi e la qualita'), indietro nella diretta con la barra e
+      «Torna in diretta», «Stiamo ricollegando la diretta…», «Video
+      non disponibile» e il ripiego incorporato; l'avviso del ripiego
+      nella gestione lo fotografa gestione.prova.js.
    Va lanciato DOPO le prove (esegui-tutte.js, e2e.prova.js,
-   anteprima-email.js --screenshot).
+   anteprima-email.js --screenshot). Le foto che una prova non ha
+   lasciato si segnalano con «manca» (e restano quelle di prima).
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -88,7 +95,7 @@ async function inJpeg(browser, sorgente, destinazione) {
         const token = (await r.json()).idToken;
         await chiama('diretta-gestione', { azione: 'evento-salva', evento: {
             id: 'napoli-2026', nuovo: true, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
-            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: 'https://youtu.be/aaaaaaaaaaa',
+            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
             programma: [{ ora: '09.00', titolo: 'Accoglienza e registrazione' }, { ora: '09.30', titolo: 'Apertura dei lavori' }],
             paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: true, oraPrima: true }
         } }, token).catch(() => {});
@@ -131,12 +138,19 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['01-accesso-computer', 'screenshot-pagina/accesso-computer.png'],
             ['02-attesa-telefono', 'screenshot-e2e/03-attesa-telefono.png'],
             ['02-attesa-computer', 'screenshot-e2e/04-attesa-computer.png'],
-            ['03-diretta-telefono', 'screenshot-e2e/06-diretta-telefono.png'],
-            ['03-diretta-computer', 'screenshot-e2e/05-diretta-computer.png'],
+            ['03-diretta-telefono', 'screenshot-webtv/diretta-telefono.png'],
+            ['03-diretta-computer', 'screenshot-webtv/diretta-computer.png'],
+            ['03-diretta-indietro-telefono', 'screenshot-webtv/dvr-telefono.png'],
+            ['03-diretta-indietro-computer', 'screenshot-webtv/dvr-computer.png'],
+            ['03-diretta-ricollegamento-telefono', 'screenshot-webtv/ricollegamento-telefono.png'],
+            ['03-diretta-ricollegamento-computer', 'screenshot-webtv/ricollegamento-computer.png'],
+            ['03-diretta-non-disponibile-telefono', 'screenshot-webtv/non-disponibile-telefono.png'],
+            ['03-diretta-non-disponibile-computer', 'screenshot-webtv/non-disponibile-computer.png'],
+            ['03-diretta-incorporata-telefono', 'screenshot-webtv/incorporato-telefono.png'],
             ['03-diretta-schermo-intero-telefono', 'screenshot-e2e/07-schermo-intero-telefono.png'],
-            ['03-diretta-webtv-telefono', 'screenshot-webtv/diretta-webtv-telefono.png'],
-            ['03-diretta-webtv-incorporata-telefono', 'screenshot-webtv/diretta-webtv-incorporato-telefono.png'],
             ['03-pausa-evento-computer', 'screenshot-pagina/pausa-evento-computer.png'],
+            ['04-gestione-ripiego-iframe-telefono', 'screenshot-gestione-webtv/01-ripiego-iframe-evento-telefono.png'],
+            ['04-gestione-ripiego-iframe-computer', 'screenshot-gestione-webtv/01-ripiego-iframe-evento-computer.png'],
             ['04-gestione-anteprima-telefono', 'gestione-anteprima-telefono.png'],
             ['04-gestione-anteprima-computer', 'gestione-anteprima-computer.png'],
             ['04-gestione-regia-computer', 'screenshot-gestione/computer-regia.png'],
@@ -151,6 +165,11 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['07-napoli-sezione-computer', 'screenshot-sito/napoli-sezione-computer-in-diretta.png'],
             ['07-napoli-menu-telefono', 'screenshot-sito/napoli-barra-telefono-in-diretta.png']
         ];
+        // le foto di prima che non si fanno piu' (il player di prima, i nomi vecchi)
+        ['03-diretta-webtv-telefono', '03-diretta-webtv-incorporata-telefono'].forEach(n => {
+            const f = path.join(DEST, n + '.jpg');
+            if (fs.existsSync(f)) { fs.unlinkSync(f); console.log('tolta ' + n + '.jpg'); }
+        });
         for (const [nome, sorgente] of scelta) {
             const s = path.join(RIS, sorgente);
             if (!fs.existsSync(s)) { console.log('manca ' + sorgente); continue; }

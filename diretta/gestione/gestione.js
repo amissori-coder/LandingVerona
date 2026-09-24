@@ -737,6 +737,9 @@
         $('#ev-firma').open = false;
         riempiSelectEventi();
         compilaFormEvento(null);
+        // la pillola della testata era dell'evento scelto prima: uno nuovo non ha ancora uno stato
+        $('#stato-testata').textContent = '';
+        $('#stato-testata').dataset.stato = '';
         abilitaSchede(false);
         mostraScheda('evento', false);
         $('#ev-titolo').focus();
@@ -1252,7 +1255,7 @@
                 domanda = { titolo: 'Togliere il video?', testo: fraseOnda, dettagli: dettagli, ok: 'Togli il video', pericolo: true };
             } else if (fraseOnda) {
                 domanda = videoCambiato
-                    ? { titolo: 'Cambiare il video per tutti?', testo: fraseOnda, dettagli: dettagli, ok: 'Cambia il video' }
+                    ? { titolo: 'Cambiare il link per tutti?', testo: fraseOnda, dettagli: dettagli, ok: 'Cambia il link' }
                     : { titolo: 'Cambiare il link di riserva?', testo: fraseOnda, dettagli: dettagli, ok: evento.riservaUrl ? 'Salva la riserva' : 'Togli la riserva' };
             } else if (riservaInUsoTolta) {
                 domanda = { titolo: 'Togliere il link di riserva?', testo: 'In regia hai scelto la riserva per tutti.', dettagli: dettagli, ok: 'Togli la riserva', pericolo: true };
@@ -1341,10 +1344,19 @@
         imposta('#btn-termina', !!ev && s !== 'terminato');
         imposta('#btn-pausa', !!ev && s === 'in_onda');
         imposta('#btn-riprogramma', !!ev && s !== 'programmato');
-        // principale <-> riserva: si passa alla riserva solo se c'e'
+        /* principale / riserva per tutti: un pulsante per link. Quello del
+           link gia' scelto "riconferma" la scelta (riporta chi era passato
+           da solo all'altro link dopo un guasto): serve solo in onda. Senza
+           riserva nessuno puo' passare all'altro link: niente da scegliere. */
         const suRiserva = !!ev && ev.sorgente === 'riserva';
-        if (!occupato('#btn-sorgente')) $('#btn-sorgente').textContent = suRiserva ? 'Torna al link principale per tutti' : 'Passa alla riserva per tutti';
-        imposta('#btn-sorgente', !!ev && (suRiserva || !!ev.riservaUrl));
+        const conRiserva = !!ev && !!ev.riservaUrl;
+        $('.sorgente-comandi').dataset.sorgente = suRiserva ? 'riserva' : 'principale';
+        if (!occupato('#btn-sorgente-riserva')) $('#btn-sorgente-riserva').textContent = suRiserva ? 'Riporta tutti sulla riserva' : 'Passa alla riserva per tutti';
+        if (!occupato('#btn-sorgente-principale')) $('#btn-sorgente-principale').textContent = suRiserva ? 'Torna al link principale per tutti' : 'Riporta tutti sul link principale';
+        $('#btn-sorgente-riserva').hidden = suRiserva && s !== 'in_onda';
+        $('#btn-sorgente-principale').hidden = !suRiserva && s !== 'in_onda';
+        imposta('#btn-sorgente-riserva', conRiserva);
+        imposta('#btn-sorgente-principale', !!ev && (suRiserva || conRiserva));
     }
 
     async function cambiaStato(nuovo, bottone) {
@@ -1556,10 +1568,17 @@
         let timer = null;
         campo.addEventListener('input', () => {
             campo.removeAttribute('aria-invalid');
+            // l'errore di «Applica i link» parlava del link di prima: cambiato il link, sparisce
+            if (id.indexOf('regia-') === 0 && $('#msg-video').classList.contains('msg-errore')) nascondiMsg('#msg-video');
             clearTimeout(timer);
             timer = setTimeout(() => riconosciLink(id), 500);
         });
         campo.addEventListener('change', () => { clearTimeout(timer); riconosciLink(id); });
+        /* Un link incollato si riconosce subito, non dopo la pausa della
+           scrittura: la riga sotto il campo compare prima che si prema un
+           pulsante (comparendo al clic, sposterebbe il pulsante sotto il
+           puntatore e il clic andrebbe perso). */
+        campo.addEventListener('paste', () => { clearTimeout(timer); timer = setTimeout(() => riconosciLink(id), 0); });
         $('#btn-prova-' + id).addEventListener('click', () => { provaLink(id); });
     });
 
@@ -1654,14 +1673,20 @@
             const P = window.NGBPlayer;
             if (P && typeof P.crea === 'function') {
                 mostraTipo(id, 'Prova in corso: apro l\'anteprima con il player dei partecipanti…', 'info');
-                const a = await provaVideo(r.urlProva || r.valore, $('#' + id + '-anteprima'));
+                // un urlProva diverso dal link e' il link firmato dal servizio (la firma dell'evento)
+                const firmato = !!r.urlProva && r.urlProva !== r.valore;
+                const a = await provaVideo(r.urlProva || r.valore, $('#' + id + '-anteprima'), firmato);
                 if (superata()) return annullata;
                 r.anteprima = a;
                 // un'anteprima che non parte per un motivo gia' detto (server spento, CORS...) non e' un problema in piu'
                 const giaDetto = r.problemi.some(p => GIA_SPIEGANO_ANTEPRIMA[p.codice]) || (!!r.browser && r.browser.esito !== 'ok');
                 if (a.annullata) r.righe.push('Anteprima chiusa prima della fine della prova.');
                 else if (a.saltata) r.righe.push('Anteprima non disponibile in questa pagina: controlla con «Vedi come un partecipante».');
-                else if ((!a.ok || a.avviso) && giaDetto) r.righe.push('Anteprima: il video per ora non parte, per il problema segnalato qui sotto.');
+                else if ((!a.ok || a.avviso) && giaDetto) {
+                    r.righe.push('Anteprima: il video per ora non parte, per il problema segnalato qui sotto.');
+                    // un riquadro nero non aggiunge niente al motivo gia' detto: si chiude
+                    chiudiAnteprimaVideo();
+                }
                 else if (!a.ok) aggiungiProblema(r, { codice: 'anteprima', messaggio: 'Anteprima: ' + a.motivo });
                 else if (a.avviso) aggiungiProblema(r, { codice: 'anteprima', messaggio: a.avviso });
                 else r.righe.push(r.tipo === 'incorporato'
@@ -1892,8 +1917,12 @@
     }
     document.querySelectorAll('.btn-chiudi-anteprima-video').forEach(b => b.addEventListener('click', chiudiAnteprimaVideo));
 
-    // -> { ok, motivo?, saltata?, avviso?, annullata? }
-    function provaVideo(url, box) {
+    /* firmato: il link porta la firma a tempo della web TV; il player la
+       aggiunge anche alle playlist delle qualita' e ai segmenti, come fa
+       la pagina dei partecipanti (senza, una web TV che controlla la firma
+       su tutto rifiuterebbe l'anteprima).
+       -> { ok, motivo?, saltata?, avviso?, annullata? } */
+    function provaVideo(url, box, firmato) {
         const P = window.NGBPlayer;
         if (!P || typeof P.crea !== 'function') return Promise.resolve({ ok: true, saltata: true });
         chiudiAnteprimaVideo();
@@ -1939,7 +1968,7 @@
                         fine({ ok: true, avviso: 'Per ora a questo indirizzo non vedo la diretta (' + motivoVideo(err) + '). Se la web TV non ha ancora cominciato a trasmettere è normale: quando trasmette, riprova il link.' });
                     }
                 });
-                if (stato.anteprimaVideo && typeof stato.anteprimaVideo.carica === 'function') stato.anteprimaVideo.carica(url);
+                if (stato.anteprimaVideo && typeof stato.anteprimaVideo.carica === 'function') stato.anteprimaVideo.carica(url, { firmato: firmato === true });
             } catch (_) {
                 fine({ ok: true, saltata: true });
             }
@@ -2025,21 +2054,39 @@
         $('#sorgente-aiuto').textContent = ev && !ev.riservaUrl && !suRiserva
             ? 'Non c\'è un link di riserva: inseriscilo qui sotto per poterci passare in caso di problemi.'
             : 'Se il link in uso si blocca per più di 20 secondi, il player di ciascun partecipante passa da solo all\'altro. '
-              + 'Con questo pulsante decidi tu, per tutti: chi guarda passa da solo, senza ricaricare la pagina.';
+              + 'Con questi pulsanti decidi tu, per tutti: chi guarda passa da solo, senza ricaricare la pagina'
+              + (s === 'in_onda' ? '; «Riporta tutti…» riporta sul link scelto anche chi era passato da solo all\'altro.' : '.');
     }
 
-    // principale <-> riserva per tutti (evento-sorgente)
-    $('#btn-sorgente').addEventListener('click', async () => {
+    /* principale / riserva per tutti (evento-sorgente). Scegliere il link
+       gia' scelto vale come "riconferma": il servizio aggiorna comunque
+       videoAggiornato e la pagina di chi guarda annulla il passaggio
+       automatico all'altro link. */
+    async function scegliSorgente(verso, bottone) {
         const ev = stato.evento;
         if (!ev) return;
         nascondiMsg('#msg-sorgente');
-        const verso = ev.sorgente === 'riserva' ? 'principale' : 'riserva';
         if (verso === 'riserva' && !ev.riservaUrl) {
             mostraMsg('#msg-sorgente', 'Non c\'è un link di riserva: inseriscilo qui sotto e applicalo, poi potrai passarci.', 'errore');
             return;
         }
         const inOnda = ev.stato === 'in_onda';
-        const ok = await conferma(verso === 'riserva' ? {
+        const riconferma = verso === (ev.sorgente === 'riserva' ? 'riserva' : 'principale');
+        const ok = await conferma(riconferma ? (verso === 'riserva' ? {
+            titolo: 'Riportare tutti sulla riserva?',
+            testo: inOnda
+                ? 'La riserva è già la scelta per tutti. Chi è passato da solo al link principale (per un guasto della riserva) torna sulla riserva in pochi secondi, senza ricaricare la pagina.'
+                : 'La riserva è già la scelta per tutti: quando la diretta andrà in onda, tutti partiranno dalla riserva.',
+            dettagli: ['Riserva: ' + linkBreve(ev.riservaUrl)],
+            ok: 'Riporta tutti sulla riserva'
+        } : {
+            titolo: 'Riportare tutti sul link principale?',
+            testo: inOnda
+                ? 'Il link principale è già la scelta per tutti. Chi è passato da solo alla riserva (dopo un guasto di più di 20 secondi) torna al principale in pochi secondi, senza ricaricare la pagina.'
+                : 'Il link principale è già la scelta per tutti: quando la diretta andrà in onda, tutti partiranno dal principale.',
+            dettagli: ev.videoUrl ? ['Principale: ' + linkBreve(ev.videoUrl)] : [],
+            ok: 'Riporta tutti sul principale'
+        }) : verso === 'riserva' ? {
             titolo: 'Passare alla riserva per tutti?',
             testo: inOnda
                 ? 'Chi sta guardando passa da solo al link di riserva in pochi secondi, senza ricaricare la pagina.'
@@ -2055,16 +2102,24 @@
             ok: 'Torna al principale'
         });
         if (!ok) return;
-        await conAttesa($('#btn-sorgente'), async () => {
+        await conAttesa(bottone, async () => {
             try {
                 const r = await chiama('evento-sorgente', { idEvento: ev.id, sorgente: verso });
                 if (stato.idEvento !== ev.id) return;
                 aggiornaEvento(r && r.evento ? r.evento : Object.assign({}, ev, { sorgente: verso }));
-                mostraMsg('#msg-sorgente', (verso === 'riserva' ? 'Riserva in uso per tutti' : 'Link principale in uso per tutti')
-                    + (inOnda ? ': chi guarda passa da solo, in pochi secondi.' : ': vale da quando la diretta va in onda.'), 'ok');
+                if (riconferma) {
+                    mostraMsg('#msg-sorgente', (verso === 'riserva' ? 'Riserva confermata per tutti' : 'Link principale confermato per tutti')
+                        + (inOnda ? ': chi era passato da solo all\'altro link torna ' + (verso === 'riserva' ? 'sulla riserva' : 'al principale') + ' in pochi secondi.'
+                            : ': vale da quando la diretta va in onda.'), 'ok');
+                } else {
+                    mostraMsg('#msg-sorgente', (verso === 'riserva' ? 'Riserva in uso per tutti' : 'Link principale in uso per tutti')
+                        + (inOnda ? ': chi guarda passa da solo, in pochi secondi.' : ': vale da quando la diretta va in onda.'), 'ok');
+                }
             } catch (e) { erroreGenerico(e, '#msg-sorgente'); }
         });
-    });
+    }
+    $('#btn-sorgente-riserva').addEventListener('click', () => scegliSorgente('riserva', $('#btn-sorgente-riserva')));
+    $('#btn-sorgente-principale').addEventListener('click', () => scegliSorgente('principale', $('#btn-sorgente-principale')));
 
     /* "Guarda": l'anteprima di un link salvato. Se la web TV usa i link
        firmati, il servizio ne prepara uno (link-firmato), come per i
@@ -2074,6 +2129,7 @@
         if (!ev) return;
         const testo = sorgente === 'riserva' ? ev.riservaUrl : ev.videoUrl;
         let url = (sorgente === 'riserva' ? ev.riservaId : ev.videoId) || '';
+        let firmato = false;
         if (!url) { const l = leggiLink(testo); url = l && !l.errore ? l.valore : ''; }
         if (!url) return;
         const nome = sorgente === 'riserva' ? 'Link di riserva' : 'Link principale';
@@ -2082,14 +2138,14 @@
             if (ev.videoFirmato) {
                 try {
                     const r = await chiama('link-firmato', { idEvento: ev.id, sorgente: sorgente });
-                    if (r && typeof r.url === 'string' && /^https:\/\//i.test(r.url)) url = r.url;
+                    if (r && typeof r.url === 'string' && /^https:\/\//i.test(r.url)) { url = r.url; firmato = true; }
                 } catch (e) {
                     if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return; }
                     mostraMsg('#msg-sorgente', 'Non ho ottenuto il link firmato (' + senzaPunto(e && e.msg) + '): provo il link senza firma, che la web TV potrebbe rifiutare.', 'attenzione');
                 }
             }
             if (stato.idEvento !== ev.id) return;
-            const a = await provaVideo(url, $('#regia-attuale-anteprima'));
+            const a = await provaVideo(url, $('#regia-attuale-anteprima'), firmato);
             if (a.annullata || stato.idEvento !== ev.id) return;
             if (!a.ok) mostraMsg('#msg-sorgente', nome + ': ' + a.motivo, 'errore');
             else if (a.avviso) mostraMsg('#msg-sorgente', nome + ': ' + a.avviso, 'attenzione');

@@ -113,7 +113,7 @@ async function prepara() {
     await g({
         azione: 'evento-salva', evento: {
             id: EVENTO, nuovo: true, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
-            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: 'https://youtu.be/abcdefghijk',
+            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
             programma: '09.00 Accoglienza\n09.30 Apertura dei lavori', paginaEvento: '/napoli_ottobre_2026/',
             unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }
         }

@@ -1242,6 +1242,14 @@
             testo: 'Il dispositivo non ha avviato il video da solo (succede, per esempio, con il risparmio energetico).'
         }
     };
+    /* La schermata 'errore' per un link che non e' un flusso (il player
+       dice 'link': un valore che il servizio non salverebbe, per esempio
+       rimasto da prima): il browser non c'entra, e cambiare browser non
+       servirebbe. Il prossimo link della regia arriva da solo. */
+    const ERRORE_LINK = {
+        titolo: 'Video non disponibile',
+        testo: 'Il collegamento al video della diretta non è valido. Resta su questa pagina: appena la regia lo corregge, il video compare qui da solo, senza ricaricare.'
+    };
 
     function creaPlayer() {
         if (!window.NGBPlayer || typeof window.NGBPlayer.crea !== 'function') {
@@ -1392,6 +1400,8 @@
         video.qualitaApplicata = video.qualita === 'Automatica';
         // un link firmato: il player aggiunge la firma anche alle richieste dei segmenti
         video.player.carica(url, { firmato: video.firmato });
+        // e nemmeno le sue qualita': il selettore aspetta quelle del link nuovo (onPronto)
+        preparaQualita(true);
         aggiornaSchermo();
     }
 
@@ -1614,7 +1624,7 @@
         $('area-video').setAttribute('data-schermata', s);
         mostra('schermo-pausa', s === 'pausa');
         const sv = $('schermo-video');
-        const t = SCHERMATE[s];
+        const t = s === 'errore' && video.errore && video.errore.codice === 'link' ? ERRORE_LINK : SCHERMATE[s];
         if (t) {
             if ($('schermo-video-titolo').textContent !== t.titolo) testo('schermo-video-titolo', t.titolo);
             if ($('schermo-video-testo').textContent !== t.testo) testo('schermo-video-testo', t.testo);
@@ -1634,7 +1644,8 @@
         const play = $('btn-play');
         play.setAttribute('data-stato', inRiproduzione ? 'riproduzione' : 'pausa');
         play.setAttribute('aria-label', inRiproduzione ? 'Metti in pausa' : 'Riproduci');
-        play.disabled = !conVideo || ricollega.attivo;
+        // niente da riprodurre durante il ricollegamento o con il video non disponibile
+        play.disabled = !conVideo || ricollega.attivo || schermataAttuale() === 'errore';
         const muto = $('btn-muto');
         muto.setAttribute('data-muto', video.muto ? '1' : '0');
         muto.setAttribute('aria-pressed', video.muto ? 'true' : 'false');
@@ -1864,7 +1875,8 @@
             sel.appendChild(o);
         });
         const scelta = livelli.filter(l => String(l.etichetta) === video.qualita)[0];
-        if (!scelta) video.qualita = 'Automatica';
+        // senza elenco (il link nuovo non si e' ancora presentato) la scelta della persona resta
+        if (!scelta && livelli.length) video.qualita = 'Automatica';
         sel.value = scelta ? String(scelta.valore) : '-1';
         if (scelta && !video.qualitaApplicata && String(scelta.valore) !== '-1') p.impostaQualita(scelta.valore);
         if (livelli.length) video.qualitaApplicata = true;
