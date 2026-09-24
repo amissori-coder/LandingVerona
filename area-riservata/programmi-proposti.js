@@ -151,7 +151,7 @@
                 },
                 {
                     tipo: 'tavola', dalle: '15:30', alle: '16:20',
-                    titolo: 'Invitalia e MCC. Bagnoli e America\'s Cup',
+                    titolo: 'Invitalia e SIMEST. Bagnoli e America\'s Cup',
                     nota: 'Sviluppo del territorio e opportunità per le imprese. Dal programma: modera Sergio Miele '
                         + '(Revilaw); Sergio Schisani (Presidente di Invitalia); Carlo de Simone (SIMEST).'
                 },

@@ -111,7 +111,7 @@
             { ora: '12.40', nome: 'Finanza agevolata' },
             { ora: '13.30', nome: 'Lunch buffet e networking', sala: true },
             { ora: '14.30', nome: 'Banche' },
-            { ora: '15.30', nome: 'Invitalia e MCC · Bagnoli e America\'s Cup 2027' },
+            { ora: '15.30', nome: 'Invitalia e SIMEST · Bagnoli e America\'s Cup 2027' },
             { ora: '16.20', nome: 'Rating di Legalità' },
             { ora: '17.00', nome: 'Conclusioni e chiusura dei lavori' }
         ]
