@@ -1028,26 +1028,18 @@
             + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
             + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
             + '}\n'
-            /* SUL TELEFONO IL TESTO VA A BANDIERA. Il giustificato e' il modo
-               in cui questo studio scrive, e sopra i 480px resta. Ma
-               giustificare vuol dire allargare gli spazi finche' la riga
-               arriva in fondo, e su una colonna da una quarantina di caratteri
-               basta una parola che non si spezza - una ragione sociale come
-               "COMPAGNIA UNICA LAVORATORI PORTUALI" - perche' la riga si apra
-               in voragini: "Gentile      COMPAGNIA      UNICA". La
-               sillabazione salva le parole comuni, non i nomi propri in
-               maiuscolo. Sotto questa misura, quindi, si va a bandiera: e' la
-               regola di sempre della composizione, non un ripiego.
-               Il commento resta QUI e non nel foglio di stile: quello viaggia
-               dentro ogni mail spedita, e Gmail taglia i messaggi oltre i
-               102KB. */
-            + '@media only screen and (max-width:480px){.par,.lead{text-align:left!important;}}\n'
-            /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini piu'
-               stretti, e nei promemoria il testo va a sinistra, perche' su una
-               colonna cosi' stretta il giustificato apre buchi fra le parole. */
+            /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini
+               piu' stretti, per lasciare alla colonna qualche carattere in piu'.
+               IL TESTO RESTA GIUSTIFICATO ANCHE QUI. Su una colonna cosi'
+               stretta il giustificato apre buchi fra le parole, e per un po'
+               sotto una certa misura si era andati a bandiera: e' una scelta di
+               chi firma le lettere, non del programma che le compone, ed e'
+               stata fatta - giustificato sempre, su ogni schermo. Quello che si
+               puo' fare per i buchi si fa: la sillabazione (ALLINEA, e la
+               regola ".par" qui sopra) spezza le parole comuni e riduce lo
+               spazio da recuperare a fine riga. */
             + '@media only screen and (max-width:400px){\n'
             + '  .px{padding-left:18px!important;padding-right:18px!important;}\n'
-            + '  .pmj{text-align:left!important;}\n'
             + '  .h1{font-size:22px!important;line-height:29px!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'

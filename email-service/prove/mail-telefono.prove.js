@@ -12,11 +12,11 @@
        maiuscole, spaziate, in grassetto - reggono i 13, non meno.
      - il CONTRASTO. Un grigio chiaro su fondo chiaro sparisce al
        sole. La soglia e' quella delle linee guida, 4,5 a 1.
-     - il GIUSTIFICATO su colonna stretta. Giustificare vuol dire
-       allargare gli spazi finche' la riga arriva in fondo: a una
-       quarantina di caratteri basta una ragione sociale in maiuscolo
-       che non si spezza perche' la riga si apra in voragini. Sotto i
-       480px si va a bandiera.
+     - il GIUSTIFICATO, che NON si tocca: e' il modo in cui questo
+       studio scrive, su ogni schermo. Su colonna stretta apre buchi
+       fra le parole, e per un po' sotto i 480px si era andati a
+       bandiera; e' stato deciso il contrario, e qui si controlla che
+       la bandiera non torni. Contro i buchi resta la sillabazione.
      - le LARGHEZZE FISSE. La colonna dell'ora, 110px comodi su 600,
        su 320 si prende il 39% della riga e spezza in tre il nome del
        tavolo.
@@ -91,10 +91,17 @@ prova('Il foglio di stile dice al telefono che cosa fare', () => {
         esigi(/-webkit-text-size-adjust:100%/.test(html) || /text-size-adjust/.test(html),
             nome + ': impedisce al telefono di ingrandire il testo da se');
         esigi(/max-width:620px/.test(html), nome + ': ha la regola per la colonna stretta');
-        /* SOTTO I 480px SI VA A BANDIERA: e' la riga che salva le lettere
-           indirizzate alle imprese dal nome lungo. */
-        esigi(/max-width:480px\)\{[^}]*text-align:left!important/.test(html),
-            nome + ': e sotto i 480px il testo va a bandiera');
+        esigi(/text-align:justify/.test(html), nome + ': e il testo e giustificato');
+        /* IL GIUSTIFICATO NON SI TOCCA, nemmeno sul telefono: e' il modo in
+           cui questo studio scrive le lettere, ed e' una scelta di chi le
+           firma. Per un po' sotto i 480px si era andati a bandiera - i buchi
+           fra le parole su una colonna stretta - ed e' stato deciso il
+           contrario: qui si controlla che non torni, perche' e' il genere di
+           riga che si riaggiunge "per leggibilita'" senza chiedere. */
+        esigi(!/text-align:left!important/.test(html),
+            nome + ': il testo resta giustificato a ogni larghezza');
+        /* Quello che si PUO' fare per i buchi si fa: spezzare le parole. */
+        esigi(/hyphens:auto/.test(html), nome + ': e la sillabazione riduce i buchi del giustificato');
         esigi(/\.btnlink\{display:block!important/.test(html) || !/btnlink/.test(html),
             nome + ': il pulsante prende tutta la riga');
     });
@@ -124,7 +131,10 @@ prova('Le due copie del foglio di stile dicono la stessa cosa', () => {
        delle mail si legge bene e meta' no, e non lo scopre nessuno. */
     const area = NL.invitoB2BAziendaBreve(DATI).html;
     const servizio = MNGB.confermaB2BAzienda({ evento: EVENTO, azienda: AZIENDA, tavoli: TAVOLI }, 'https://x/').html;
-    ['max-width:620px', 'max-width:480px', 'text-align:left!important', '.px{padding-left:24px!important'].forEach(regola => {
+    /* Si confrontano le regole che riguardano TUTTE le mail. Quella della
+       colonna dell'ora sta solo dove c'e' quella colonna, ed e' giusto che il
+       foglio di stile dell'area riservata non se la porti dietro. */
+    ['max-width:620px', 'hyphens:auto', '.px{padding-left:24px!important'].forEach(regola => {
         esigi(area.indexOf(regola) >= 0 && servizio.indexOf(regola) >= 0,
             'tutte e due hanno "' + regola + '"');
     });
