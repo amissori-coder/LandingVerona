@@ -40,8 +40,8 @@
    (Automatica, 360p, 180p: cambia davvero le righe del video); il
    grande «Attiva l'audio»; play/pausa (in pausa il video e' nascosto e
    al suo posto c'e' la nostra schermata, con «Torna in diretta»);
-   tasti spazio, F, M e frecce; schermo intero (anche finto, su
-   iPhone); «Torna in diretta» dopo la pausa riporta al punto live;
+   tasti spazio, F, M e frecce con il fuoco sul lettore (dopo un clic
+   sul video); schermo intero (anche finto, su iPhone); «Torna in diretta» dopo la pausa riporta al punto live;
    cambio del link durante la diretta senza ricaricare (stesso <video>,
    nessun ascolto Firestore in piu'); un link non valido («Video non
    disponibile», chiaro, e la pagina non si rompe); connessione persa e
@@ -794,8 +794,10 @@ function eventoIniziale(T) {
             await videoVa(p, 10000, 'il video dopo «Riprendi»');
         });
 
-        await prova('tastiera: spazio pausa/play, M muto, frecce volume', async () => {
-            await p.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+        await prova('tastiera, con il fuoco sul lettore (dopo un clic sul video): spazio pausa/play, M muto, frecce volume', async () => {
+            // un clic sul video porta il fuoco sul riquadro del lettore: da li' valgono le scorciatoie
+            await p.click('#area-video');
+            vero(await p.evaluate(() => document.activeElement === document.getElementById('riquadro-video')), 'dopo il clic sul video il fuoco non e\' sul lettore');
             await p.keyboard.press('Space');
             await p.waitForSelector('#schermo-pausa', { state: 'visible' });
             vero((await statoVideo(p)).fermo, 'spazio: il video non si ferma');
@@ -816,6 +818,7 @@ function eventoIniziale(T) {
         });
 
         await prova('schermo intero sul nostro riquadro (tasto F e pulsante)', async () => {
+            await p.focus('#riquadro-video');
             await p.keyboard.press('f');
             await p.waitForSelector('#riquadro-video[data-intero="1"]');
             const dim = await p.locator('#riquadro-video').boundingBox();
@@ -835,7 +838,7 @@ function eventoIniziale(T) {
             await p.waitForSelector('#avviso-evento', { state: 'visible', timeout: 10000 });
             await p.waitForFunction(() => /Avviso: Problema tecnico/.test(document.getElementById('annuncio').textContent), null, { timeout: 5000 });
             vero(!(await visibile(p, '#avviso-intero')), 'la copia nel riquadro si vede anche fuori dallo schermo intero');
-            await p.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+            await p.focus('#riquadro-video');
             await p.keyboard.press('f');
             await p.waitForSelector('#riquadro-video[data-intero="1"]');
             await p.waitForSelector('#avviso-intero', { state: 'visible', timeout: 5000 });
@@ -907,6 +910,8 @@ function eventoIniziale(T) {
             vero(/Video non disponibile/.test(await p.textContent('#schermo-video-titolo')), 'titolo: ' + await p.textContent('#schermo-video-titolo'));
             vero(/non è valido/.test(await p.textContent('#schermo-video-testo')), 'testo: ' + await p.textContent('#schermo-video-testo'));
             vero(await visibilitaVideo(p) !== 'visible', 'il video in errore resta visibile');
+            // il video di prima (con l'audio attivo) non continua di nascosto
+            vero((await statoVideo(p)).fermo, 'il video di prima continua a suonare sotto «Video non disponibile»');
             vero(!(await visibile(p, '#btn-attiva-audio')) && await p.isDisabled('#btn-play'), '«Attiva l\'audio» o il play con il video non disponibile');
             await foto(p, 'errore-video-computer');
             await evento.update({ videoId: 'aaaaaaaaaaa', videoAggiornato: T.now() });

@@ -2,7 +2,7 @@
    PROVE - tutte, una dopo l'altra
    ------------------------------------------------------------
        cd diretta/prove && npm install      (una volta)
-       node esegui-tutte.js                 (circa 15 minuti)
+       node esegui-tutte.js                 (circa 45 minuti)
        node esegui-tutte.js --carico        (anche il carico: +8 minuti)
        node esegui-tutte.js --solo regole,e2e
 

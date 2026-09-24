@@ -458,6 +458,13 @@ function contaAscolti(page) {
             vero(/collegamento al video .* non è valido/.test(t) && !/browser/i.test(t), 'testo poco chiaro: ' + t);
             vero(!(await visibile(p, '#btn-attiva-audio')), '«Attiva l\'audio» con il video non disponibile');
             vero(await p.getAttribute('body', 'data-vista') === 'diretta', 'vista: ' + await p.getAttribute('body', 'data-vista'));
+            // quello che c'era prima (qui il player incorporato) non resta acceso di nascosto
+            const resto = await p.evaluate(() => ({
+                iframe: !!document.querySelector('#video-player iframe'),
+                va: Array.from(document.querySelectorAll('#video-player video')).some(v => !v.paused)
+            }));
+            vero(!resto.iframe && !resto.va, 'il video di prima resta acceso sotto «Video non disponibile» (se ne sentirebbe l\'audio): ' + JSON.stringify(resto));
+            vero(await p.getAttribute('#riquadro-video', 'data-comandi') === 'pieni', 'restano i comandi ridotti del player incorporato di prima');
             await foto(p, 'non-disponibile-computer');
             await cambiaVideo(LIVE, RISERVA);
             await videoVa(p, 25000, 'il video di nuovo');
