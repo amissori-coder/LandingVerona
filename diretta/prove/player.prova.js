@@ -17,7 +17,20 @@
      su OGNI richiesta, playlist delle qualita' e segmenti compresi; una
      qualita' sta su un altro server, che la firma non deve riceverla;
    - la pagina di un player da incorporare, un link che non risponde,
-     una diretta non ancora partita, un link che non e' un flusso.
+     una diretta non ancora partita, un link che non e' un flusso;
+   - le correzioni della revisione: una playlist live FERMA (l'encoder
+     spento, la rete di distribuzione che serve ancora l'ultima playlist:
+     'segnale' dopo ~20 s, e finestra().avanza resta falso), il menu
+     qualita' DASH in un riquadro di 1000 px, un segmento DASH perso
+     (errore 27 di dash.js: nessun errore alla pagina), aggiornaFirma()
+     che cambia la firma SENZA ricaricare (stesso <video>, pausa e
+     posizione restano, le richieste dopo portano la firma nuova, quella
+     vecchia sparisce anche dalla playlist principale), un link firmato
+     di 1500 caratteri, un link non valido che spegne il flusso di prima,
+     il video zittito mentre e' nascosto, muto/volume che non fanno
+     ripartire, l'avvio automatico rifiutato (avvioBloccato, niente
+     'lento'), niente 'lento' con la pagina nascosta, il player
+     incorporato svuotato (about:blank) quando si nasconde.
 
    Il Chromium di Playwright non esce in rete da solo (il proxy di
    questo ambiente ricifra il traffico con un suo certificato): le
@@ -165,13 +178,21 @@ function server(usaSostituto) {
     const errori = [];
     const inoltri = { n: 0, falliti: 0, bloccati: 0, segmenti: [] };
     let bloccaSegmenti = false;
+    // un segmento video del DASH pubblico che non arriva mai (404 a ogni tentativo): l'errore 27 di dash.js
+    const perso = { attivo: false, url: '', richieste: 0 };
     const firmate = { webtv: [], altro: [] };
+    // la diretta locale "fermata": una fotografia dei file (playlist e segmenti) che non cambia piu'
+    const ferma = new Map();
+    // le due firme del link firmato (aggiornaFirma): la web TV finta le accetta tutte e due
+    const FIRMA_NUOVA = 'md5=Nuova_Firma-9&expires=2147483600';
     try {
         const context = await browser.newContext({ viewport: { width: 900, height: 600 }, locale: 'it-IT' });
         // la diretta pubblica: da Node, senza cache
         await context.route(SHAKA + '**', async route => {
             const url = route.request().url();
             if (bloccaSegmenti && /\.mp4(\?|$)/.test(url)) { inoltri.bloccati++; return route.abort('connectionreset'); }
+            if (perso.attivo && !perso.url && /\/video_[^/]*_\d+\.mp4(\?|$)/.test(url)) perso.url = url.split('?')[0];
+            if (perso.url && url.split('?')[0] === perso.url) { perso.richieste++; return route.fulfill({ status: 404, headers: { 'access-control-allow-origin': '*' }, body: 'perso' }); }
             if (/\.mp4(\?|$)/.test(url)) inoltri.segmenti.push(url);
             inoltri.n++;
             try {
@@ -197,8 +218,12 @@ function server(usaSostituto) {
             const cors = { 'access-control-allow-origin': '*', 'cache-control': 'no-cache' };
             // la diretta firmata: senza la firma esatta (anche sui segmenti) 403
             if (u.pathname.startsWith('/firmato/')) {
-                const ok = u.search.slice(1).split('&').indexOf('md5=Ab_c-12%2B3') >= 0 && u.search.indexOf('expires=2147483647') >= 0;
-                firmate.webtv.push({ percorso: u.pathname, ok: ok });
+                const coppie = u.search.slice(1).split('&');
+                const vecchia = coppie.indexOf('md5=Ab_c-12%2B3') >= 0 && coppie.indexOf('expires=2147483647') >= 0;
+                const nuova = coppie.indexOf('md5=Nuova_Firma-9') >= 0 && coppie.indexOf('expires=2147483600') >= 0;
+                const unaSola = coppie.filter(c => /^md5=/.test(c)).length === 1 && coppie.filter(c => /^expires=/.test(c)).length === 1;
+                const ok = (vecchia || nuova) && unaSola;
+                firmate.webtv.push({ percorso: u.pathname, ok: ok, firma: !unaSola ? 'mista' : vecchia ? 'vecchia' : nuova ? 'nuova' : 'nessuna', t: Date.now() });
                 if (!ok) return route.fulfill({ status: 403, headers: cors, body: 'firma mancante' });
                 const nome = path.basename(u.pathname);
                 const f = path.join(HLS_LOCALE, nome);
@@ -207,6 +232,19 @@ function server(usaSostituto) {
                 // la qualita' bassa sta su un altro server
                 if (nome === 'master.m3u8') corpo = Buffer.from(corpo.toString('utf8').replace(/^stream_1\.m3u8$/m, ALTRO + '/live/stream_1.m3u8'));
                 return route.fulfill({ status: 200, headers: Object.assign({ 'content-type': /\.m3u8$/.test(f) ? 'application/vnd.apple.mpegurl' : 'video/mp4' }, cors), body: corpo });
+            }
+            // la diretta fermata: sempre la stessa playlist (senza ENDLIST) e gli stessi segmenti
+            if (u.pathname.startsWith('/ferma/')) {
+                const nome = path.basename(u.pathname);
+                if (!ferma.has(nome)) return route.fulfill({ status: 404, headers: cors, body: 'non trovato' });
+                return route.fulfill({ status: 200, headers: Object.assign({ 'content-type': /\.m3u8$/.test(nome) ? 'application/vnd.apple.mpegurl' : 'video/mp4' }, cors), body: ferma.get(nome) });
+            }
+            // playlist che arrivano, segmenti mai (niente metadati): per l'avvio bloccato
+            if (u.pathname.startsWith('/sospeso/')) {
+                const nome = path.basename(u.pathname);
+                if (!/\.m3u8$/.test(nome)) return;       // non risponde mai
+                const f = path.join(HLS_LOCALE, nome);
+                if (fs.existsSync(f)) return route.fulfill({ status: 200, headers: Object.assign({ 'content-type': 'application/vnd.apple.mpegurl' }, cors), body: fs.readFileSync(f) });
             }
             if (u.pathname === '/player/napoli') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>Player</title><body style="margin:0;background:#113;color:#fff;display:grid;place-items:center;height:100vh"><p id="player-webtv">Player della web TV (prova)</p></body>' });
             if (u.pathname.startsWith('/muto/')) return;       // non risponde mai
@@ -319,6 +357,10 @@ function server(usaSostituto) {
         await aspetta(6000);
         const p2 = await finestra();
         vero(await page.evaluate(() => pl.stato()) === 'pausa' && p2.ritardo > p1.ritardo + 3, 'in pausa il ritardo cresce (' + p1.ritardo.toFixed(1) + ' -> ' + p2.ritardo.toFixed(1) + ' s)');
+        // l'audio non fa ripartire un video in pausa (i tasti M e le frecce della pagina passano di qui)
+        await page.evaluate(() => { pl.smuto(); pl.volume(60); pl.muto(); pl.smuto(); pl.volume(100); pl.muto(); });
+        await aspetta(1500);
+        vero(await page.evaluate(() => pl.stato() === 'pausa' && document.querySelector('#c video').paused), 'in pausa, smuto(), muto() e volume() non fanno ripartire il video');
         await page.evaluate(() => pl.vaiAlLive());
         vero(await aspettaChe(() => pl.stato() === 'riproduzione' && pl.finestra().ritardo < 10, null, 20000), 'dalla pausa, vaiAlLive() riparte dal punto live');
 
@@ -333,11 +375,17 @@ function server(usaSostituto) {
         vero(stesso.segno === 'uno' && stesso.quanti === 1, 'un nuovo carica() riusa lo stesso <video> (l\'audio resta concesso)');
         await page.evaluate(() => pl.muto());
 
-        // mostra(false): il video resta vivo ma non si vede
-        await page.evaluate(() => pl.mostra(false));
-        const nascosto = await page.evaluate(() => { const v = document.querySelector('#c video'); return v.style.visibility === 'hidden' && v.getAttribute('aria-hidden') === 'true'; });
+        // mostra(false): il video resta vivo ma non si vede, e non si sente (l'audio della persona resta)
+        await page.evaluate(() => { registro = []; pl.smuto(); pl.mostra(false); });
+        await aspetta(300);
+        const nascosto = await page.evaluate(() => { const v = document.querySelector('#c video'); return { vis: v.style.visibility === 'hidden' && v.getAttribute('aria-hidden') === 'true', muto: v.muted, suo: pl.eMuto(), fermo: v.paused }; });
         await page.evaluate(() => pl.mostra(true));
-        vero(nascosto, 'mostra(false) nasconde il video (anche ai lettori di schermo)');
+        await aspetta(300);
+        const rivisto = await page.evaluate(() => ({ muto: document.querySelector('#c video').muted, avvisi: registro.filter(r => /^volume:/.test(r.x)).map(r => r.x) }));
+        vero(nascosto.vis, 'mostra(false) nasconde il video (anche ai lettori di schermo)');
+        vero(nascosto.muto === true && nascosto.suo === false && !nascosto.fermo && rivisto.muto === false && rivisto.avvisi.indexOf('volume:muto') < 0,
+            'nascosto il video va avanti MUTO (niente audio dietro una schermata), l\'audio della persona resta e torna quando si rimostra (' + JSON.stringify([nascosto, rivisto]) + ')');
+        await page.evaluate(() => pl.muto());
 
         /* ---------- 4. segnale fermo: i segmenti non arrivano piu' ---------- */
         await page.evaluate(() => { registro = []; });
@@ -392,6 +440,49 @@ function server(usaSostituto) {
         const segD = inoltri.segmenti.slice();
         vero(dFirmato && segD.length > 0 && segD.every(u => /[?&]tok=prova-1&scade=99$|[?&]tok=prova-1(&|$)/.test(u) && /scade=99/.test(u)),
             'DASH firmato: la firma è su tutti i ' + segD.length + ' segmenti chiesti da dash.js');
+
+        /* DASH in un riquadro largo 1000 px: il menu qualita' c'e' (con
+           limitBitrateByPortal di dash.js 5 le rappresentazioni piu' larghe
+           del riquadro sparivano, e con loro il menu). E un segmento perso:
+           dash.js lo riprova, poi da' l'errore 27 (DOWNLOAD_ERROR_ID_CONTENT);
+           la pagina non deve saperne niente, il video va avanti. */
+        await page.evaluate(() => {
+            document.getElementById('c').style.cssText = 'width:1000px;height:562px';
+            // una spia sugli errori di dash.js (per sapere che il 27 e' arrivato davvero)
+            window.erroriDash = [];
+            if (!window.dashjs.MediaPlayer.spiato) {
+                const vero = window.dashjs.MediaPlayer;
+                const spia = function () {
+                    const fabbrica = vero.apply(this, arguments);
+                    const crea = fabbrica.create;
+                    fabbrica.create = function () {
+                        const pp = crea.apply(this, arguments);
+                        pp.on(vero.events.ERROR, e => window.erroriDash.push(Number(e && e.error && e.error.code)));
+                        return pp;
+                    };
+                    return fabbrica;
+                };
+                Object.keys(vero).forEach(k => { spia[k] = vero[k]; });
+                spia.spiato = true;
+                window.dashjs.MediaPlayer = spia;
+            }
+            nuovoPlayer();
+        });
+        await page.evaluate(u => pl.carica(u), DASH_PUBBLICO);
+        const d1000 = await aspettaChe(() => pl.stato() === 'riproduzione' && pl.livelliQualita().length >= 3, null, 45000);
+        const menu1000 = await page.evaluate(() => pl.livelliQualita().map(v => v.etichetta));
+        vero(d1000 && menu1000.indexOf('720p') > 0, 'DASH in un riquadro di 1000 px: il menu qualità c\'è (' + menu1000.join(', ') + ')');
+        perso.attivo = true;
+        const persoOk = await aspettaChe(() => window.erroriDash.indexOf(27) >= 0, null, 40000);
+        await aspetta(3000);
+        const dopoPerso = await video();
+        await aspetta(3000);
+        const dopoPerso2 = await video();
+        const erroriPerso = await page.evaluate(() => registro.filter(r => /^errore:/.test(r.x)).map(r => r.x));
+        vero(persoOk && erroriPerso.length === 0 && dopoPerso2.t > dopoPerso.t + 1.5,
+            'un segmento DASH perso (' + perso.richieste + ' richieste, dash.js da\' l\'errore 27): nessun errore alla pagina (' + erroriPerso.join(',') + '), il video va avanti (' + dopoPerso.t.toFixed(1) + ' -> ' + dopoPerso2.t.toFixed(1) + ')');
+        perso.attivo = false;
+        await page.evaluate(() => { document.getElementById('c').style.cssText = ''; });
 
         /* ---------- 6. la diretta locale: finestra corta, niente DVR ---------- */
         if (ffmpeg) {

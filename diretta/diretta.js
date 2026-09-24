@@ -1159,30 +1159,51 @@
        di riserva, facoltativo), sorgente (quale dei due vuole la regia
        per tutti) e videoFirmato (la web TV vuole link firmati a tempo).
        Un campo che manca vale: nessuna riserva, il principale, nessuna
-       firmaVideo.
+       firma.
 
        RICOLLEGAMENTO. Se il player da' un errore (la web TV non risponde,
-       il segnale e' fermo, il video non si presenta) o la diretta
-       "finisce" mentre la regia la tiene in onda, al posto del video
-       compare «Stiamo ricollegando la diretta…» e la pagina riprova DA
-       SOLA, senza ricaricarsi, con attese crescenti e casuali (1-3 s,
-       2-6, 4-12, 8-24, poi sempre 15-45 s): mille persone non riprovano
-       mai nello stesso secondo. Ogni tentativo riparte dal punto live;
-       il ricollegamento finisce quando il video riparte.
+       il segnale e' fermo, la diretta non va avanti, il video non si
+       presenta) o la diretta "finisce" mentre la regia la tiene in onda,
+       al posto del video compare «Stiamo ricollegando la diretta…» e la
+       pagina riprova DA SOLA, senza ricaricarsi, con attese crescenti e
+       casuali (1-3 s, 2-6, 4-12, 8-24, poi sempre 15-45 s): mille persone
+       non riprovano mai nello stesso secondo. Ogni tentativo riparte dal
+       punto live. Il ricollegamento finisce quando il video riparte E la
+       diretta va avanti (il bordo live cresce: finestra().avanza del
+       player): una playlist "ferma" (l'encoder spento, la rete di
+       distribuzione che serve ancora gli ultimi secondi) si fa rigiocare
+       ma non e' una ripresa. Un guasto e' "nuovo" (il conto per la
+       riserva riparte) solo dopo 60 s di video buono; le attese tornano
+       brevi dopo 120 s.
 
-       RISERVA. Dopo 20 secondi di guasto continuo del link in uso, se
-       c'e' l'altro (la riserva, o il principale se si era sulla riserva)
-       si passa all'altro. La regia comanda: quando cambia la sua scelta
-       (o il link, o riconferma la scelta), il passaggio automatico si
-       annulla e vale la sua.
+       RISERVA. Un timer a parte: 20 secondi (piu' 0-4 a caso: mille
+       persone non passano tutte nello stesso istante) dopo l'inizio del
+       guasto, se c'e' l'altro link (la riserva, o il principale se si
+       era sulla riserva) si passa all'altro, anche con un tentativo in
+       corso (carica() interrompe il precedente). Il tempo in cui manca
+       la rete di QUESTO dispositivo (navigator.onLine falso, o Firestore
+       scollegato anche lui) non conta, e allora non si passa: l'altro
+       link non aiuterebbe, e ci si resterebbe a rete tornata. La regia
+       comanda: quando cambia la sua scelta, la riconferma, o cambia il
+       link che si era lasciato per il guasto, il passaggio automatico si
+       annulla e vale la sua. Cambiare l'ALTRO link (per esempio solo la
+       riserva, mentre tutti guardano il principale) non ricarica niente.
 
        LINK FIRMATI. Con videoFirmato il link vero si chiede al servizio
-       (azione 'link-video', con il token della persona; nell'anteprima
-       del gestore 'link-firmato' della gestione) dopo un'attesa casuale
-       fra 0 e 2 secondi, e si rinnova all'80% della sua validita'. Nei
-       ricollegamenti si riusa finche' vale (il servizio ne concede 60
-       l'ora a persona); se fallisce tre volte di fila se ne chiede uno
-       nuovo.
+       (azione 'link-video', con il token della persona e la sessione del
+       dispositivo; nell'anteprima del gestore 'link-firmato' della
+       gestione) dopo un'attesa casuale fra 0 e 2 secondi. Uno per link
+       (principale e riserva), riusati finche' valgono: con tutti e due
+       giu' i passaggi avanti e indietro non chiedono ogni volta un link
+       nuovo (il servizio ne concede 60 l'ora a persona); se uno fallisce
+       tre volte di fila se ne chiede uno nuovo. La scadenza si calcola
+       sull'orologio del dispositivo (validoSecondi del servizio: un
+       orologio avanti o indietro non cambia niente) e il link in uso si
+       rinnova all'80% della validita': il player cambia solo la firma
+       delle richieste che seguono (aggiornaFirma), senza ricaricare il
+       video (restano pausa, posizione e qualita'). Un no del servizio per
+       la persona (account disattivato, dispositivo sostituito, non piu'
+       iscritta) da' il suo messaggio, come nel resto della pagina.
        --------------------------------------------------------------- */
     const video = {
         player: null,
@@ -1196,6 +1217,7 @@
         base: '',                 // il valore del link in uso (quello dell'evento)
         nonRiproducibili: {},     // i link che questo browser non sa riprodurre
         attesaLink: false,        // si aspetta il link firmato dal servizio
+        giroCarica: 0,            // ogni avviaSorgente() invalida l'attesa del link firmato di quello prima
         stato: 'non-avviato',
         errore: null,
         pronto: false,            // il player ha detto onPronto dall'ultimo carica()
@@ -1210,15 +1232,27 @@
         qualita: 'Automatica',    // l'etichetta scelta dalla persona
         qualitaApplicata: true,   // la scelta e' gia' passata al player dopo l'ultimo carica()
         firmaQualita: '',
-        okDa: 0,                  // da quando il video va (per capire se un guasto e' nuovo)
+        okDa: 0,                  // da quando il video va DAVVERO (la diretta va avanti): un guasto e' nuovo?
         timerFermo: null,
         timerSuggerimento: null
     };
-    const ricollega = { attivo: false, tentativi: 0, guastoDa: 0, timer: null };
+    // timer: il prossimo tentativo; timerRiserva: il passaggio all'altro link
+    const ricollega = { attivo: false, tentativi: 0, guastoDa: 0, timer: null, timerRiserva: null };
     const ATTESE_RICOLLEGAMENTO = [[1000, 3000], [2000, 6000], [4000, 12000], [8000, 24000], [15000, 45000]];
     const GUASTO_PRIMA_DELLA_RISERVA_MS = 20000;
-    // il link firmato in uso: per quale link, fino a quando, e il suo rinnovo
-    const firmaVideo = { sorgente: '', base: '', url: '', scade: 0, preso: 0, fallimenti: 0, giro: 0, timer: null, fermoFino: 0 };
+    const SPARPAGLIO_RISERVA_MS = 4000;
+    // quanto video buono (con la diretta che va avanti) fa di un guasto un guasto "nuovo"
+    const RIPRESA_BUONA_MS = 60000;       // il conto per la riserva riparte
+    const RIPRESA_PIENA_MS = 120000;      // le attese fra i tentativi tornano brevi
+    /* I link firmati, uno per link: quello del principale e quello della
+       riserva (base: il link dell'evento da cui viene; scade: sull'orologio
+       di questo dispositivo; giro: cresce a ogni richiesta e a ogni cambio
+       del link, e una risposta arrivata dopo non si tiene). fermoFino: il
+       servizio ha chiesto di aspettare (troppe richieste: vale per tutti e
+       due, e' la persona che ha finito le sue 60 l'ora). */
+    function nuovaFirma() { return { base: '', url: '', scade: 0, preso: 0, fallimenti: 0, giro: 0, timer: null }; }
+    const firme = { principale: nuovaFirma(), riserva: nuovaFirma() };
+    const servizioLink = { fermoFino: 0 };
     // oltre questo ritardo dal punto live si e' "indietro": compare «Torna in diretta»
     const SOGLIA_RITARDO = 10;
     const PASSO_DVR = 5;
@@ -1278,12 +1312,12 @@
                    registrazione (ripartirebbe dall'inizio dell'evento): finche'
                    la regia tiene in onda si resta su «Stiamo ricollegando» e si
                    riprova, fino a quando il flusso torna in diretta. */
-                if (s === 'riproduzione' && ricollega.attivo && video.eraDiretta && video.eraDiretta === video.base && !flussoInDiretta()) {
+                if (s === 'riproduzione' && ricollega.attivo && !video.attesaLink && video.eraDiretta && video.eraDiretta === video.base && !flussoInDiretta()) {
                     video.player.pausa();
                     guasto();
                     return;
                 }
-                if (s === 'riproduzione') videoRiparte();
+                if (s === 'riproduzione') controllaRipresa();
                 if (s === 'riproduzione' || s === 'buffering') {
                     video.fermo = false;
                     video.pausaNostra = false;
@@ -1298,11 +1332,15 @@
                 if (video.pausaDelBrowser) mostraSuggerimento('Tocca il video per attivare l\'audio.');
                 // la web TV ha chiuso il flusso della diretta mentre la regia la tiene in onda: si ricollega
                 // (una registrazione arrivata alla fine invece resta li')
-                if (s === 'fine' && stato.evento && stato.evento.stato === 'in_onda' && video.eraDiretta === video.base) guasto();
-                if (s === 'non-avviato' && video.pronto) controllaFermo();
+                if (s === 'fine' && !video.attesaLink && stato.evento && stato.evento.stato === 'in_onda' && video.eraDiretta === video.base) guasto();
+                // il video aspetta un tocco: dopo onPronto, o subito se il browser ha rifiutato l'avvio (T3)
+                if (s === 'non-avviato' && (video.pronto || avvioBloccato())) controllaFermo();
                 aggiornaSchermo();
             },
-            onErrore: err => erroreVideo(err || { codice: 'errore' }),
+            /* Mentre si aspetta il link firmato, il player ha ancora il flusso
+               di prima (un tentativo fallito, o il link che si sta lasciando):
+               i suoi errori non contano, sta per arrivare quello nuovo. */
+            onErrore: err => { if (!video.attesaLink) erroreVideo(err || { codice: 'errore' }); },
             onVolume: v => {
                 video.muto = !!v.muto;
                 video.volume = Number(v.volume) || 0;
@@ -1311,6 +1349,8 @@
             onTempo: t => {
                 video.tempo = t || null;
                 if (t && t.diretta) video.eraDiretta = video.base;
+                // la diretta si vede andare avanti adesso: e' ripresa (o, la prima volta, va bene da qui)
+                if ((ricollega.attivo || !video.okDa) && video.stato === 'riproduzione') controllaRipresa();
                 aggiornaDiretta();
             },
             onQualita: () => preparaQualita(false)
@@ -1336,25 +1376,53 @@
 
     /* Ogni aggiornamento dell'evento in onda passa di qui: il cambio di
        link della regia (o della scelta principale/riserva) arriva cosi' a
-       chi e' gia' collegato, senza ricaricare la pagina. */
+       chi e' gia' collegato, senza ricaricare la pagina.
+       Si ricarica il video SOLO se cambia quello che si sta guardando: il
+       link in uso, la scelta (principale/riserva) o i link firmati.
+       Cambiare l'altro link (di solito la riserva) non tocca nessuno: con
+       mille persone collegate, ricaricare tutti vorrebbe dire perdere la
+       posizione nella finestra e la qualita', e con i link firmati mille
+       richieste al servizio. Di un link cambiato si dimenticano solo le
+       sue cose (link firmato, "non riproducibile"). */
     function aggiornaSorgenti(d) {
-        const principale = String(d.videoId || '');
-        const riserva = String(d.videoRiserva || '');
+        const nuovi = { principale: String(d.videoId || ''), riserva: String(d.videoRiserva || '') };
         const firmato = d.videoFirmato === true;
         const regia = d.sorgente === 'riserva' ? 'riserva' : 'principale';
         const aggiornato = ms(d.videoAggiornato);
-        const linkCambiati = principale !== video.link.principale || riserva !== video.link.riserva || firmato !== video.firmato;
-        const regiaHaDetto = regia !== video.regia || aggiornato !== video.aggiornato;
-        video.link = { principale: principale, riserva: riserva };
+        const cambiati = ['principale', 'riserva'].filter(x => nuovi[x] !== video.link[x]);
+        const firmaCambiata = firmato !== video.firmato;
+        /* La regia "parla" quando cambia la sua scelta, o quando la
+           riconferma: evento-sorgente rinnova videoAggiornato anche con la
+           stessa scelta, ed e' il modo di riportare tutti sul link scelto.
+           videoAggiornato cambia pero' anche con un link nuovo: quello non
+           e' una riconferma (lo decide il link cambiato, qui sotto). */
+        const regiaHaDetto = regia !== video.regia || (aggiornato !== video.aggiornato && !cambiati.length && !firmaCambiata);
+        video.link = nuovi;
         video.firmato = firmato;
         video.regia = regia;
         video.aggiornato = aggiornato;
-        if (linkCambiati) { dimenticaFirma(); video.nonRiproducibili = {}; }
+        if (firmaCambiata) {
+            // i link firmati si accendono o si spengono: si riparte da capo con tutti e due
+            dimenticaFirme();
+            video.nonRiproducibili = {};
+            video.auto = '';
+        }
+        cambiati.forEach(x => {
+            dimenticaFirma(x);
+            delete video.nonRiproducibili[x];
+            // cambia il link che si era lasciato per un guasto: forse la regia l'ha sistemato, si torna alla sua scelta
+            if (video.auto && video.auto !== x) video.auto = '';
+        });
         // la regia comanda: il passaggio automatico all'altro link si annulla
-        if (linkCambiati || regiaHaDetto) video.auto = '';
+        if (regiaHaDetto) video.auto = '';
         const s = sorgenteInUso();
         const base = video.link[s] || '';
-        if (!linkCambiati && s === video.sorgente && base === video.base && (video.player || !base)) { aggiornaSchermo(); return; }
+        if (!firmaCambiata && s === video.sorgente && base === video.base && (video.player || !base)) {
+            // il video che si guarda resta quello: niente ricarica. Una riserva arrivata adesso vale per il guasto in corso
+            if (ricollega.guastoDa && ricollega.attivo) programmaRiserva();
+            aggiornaSchermo();
+            return;
+        }
         // un link nuovo, o l'altro link: si riparte puliti
         azzeraRicollegamento();
         video.qualita = 'Automatica';
@@ -1370,10 +1438,11 @@
         video.pronto = false;
         clearTimeout(video.timerFermo);
         if (!riprova) video.errore = null;
+        const giro = ++video.giroCarica;
+        video.attesaLink = false;
         if (!video.base) {
             // in onda, ma la regia non ha ancora messo il link: «Il video sta per arrivare»
             video.id = '';
-            video.attesaLink = false;
             if (video.player) video.player.pausa();
             aggiornaSchermo();
             return;
@@ -1381,12 +1450,11 @@
         if (!video.player) creaPlayer();
         if (!video.player) { aggiornaSchermo(); return; }
         if (!video.firmato) { caricaNelPlayer(video.base); return; }
-        const giro = ++firmaVideo.giro;
         const base = video.base;
         video.attesaLink = true;
         aggiornaSchermo();
         linkFirmato(s, base, riprova).then(url => {
-            if (giro !== firmaVideo.giro || vista !== 'diretta' || video.sorgente !== s || video.base !== base) return;
+            if (giro !== video.giroCarica || vista !== 'diretta' || video.sorgente !== s || video.base !== base) return;
             video.attesaLink = false;
             if (url) caricaNelPlayer(url);
             else guasto();
@@ -1432,63 +1500,133 @@
     function guasto() {
         if (!video.player || !video.base || vista !== 'diretta') return;
         const adesso = Date.now();
-        // il video andava da un po': e' un guasto nuovo (e dopo 30 s buoni le attese tornano brevi)
+        /* Il video andava bene (con la diretta che andava avanti) da un po':
+           e' un guasto nuovo. Da 60 s il conto per la riserva riparte, da
+           120 s anche le attese tornano brevi. Meno di cosi' e' lo stesso
+           guasto che continua (una diretta che va e viene): il conto non
+           riparte, e la riserva arriva lo stesso. Una playlist ferma che
+           rigioca gli ultimi secondi non arriva mai a okDa (vedi
+           controllaRipresa). */
         if (video.okDa) {
-            if (adesso - video.okDa >= 10000) ricollega.guastoDa = 0;
-            if (adesso - video.okDa >= 30000) ricollega.tentativi = 0;
+            if (adesso - video.okDa >= RIPRESA_BUONA_MS) ricollega.guastoDa = 0;
+            if (adesso - video.okDa >= RIPRESA_PIENA_MS) ricollega.tentativi = 0;
             video.okDa = 0;
         }
-        if (!ricollega.guastoDa) ricollega.guastoDa = adesso;
+        // senza rete su questo dispositivo il tempo non conta per la riserva
+        if (!ricollega.guastoDa || reteDelDispositivoGiu()) ricollega.guastoDa = adesso;
         if (!ricollega.attivo) {
             ricollega.attivo = true;
             nascondiSuggerimento();
         }
         programmaRicollegamento(0);
+        programmaRiserva();
         aggiornaSchermo();
     }
+    // il prossimo tentativo sullo stesso link, con le attese crescenti e casuali
     function programmaRicollegamento(minimoMs) {
         if (ricollega.timer) return;
         const passo = ATTESE_RICOLLEGAMENTO[Math.min(ricollega.tentativi, ATTESE_RICOLLEGAMENTO.length - 1)];
         ricollega.tentativi++;
-        let attesa = passo[0] + casuale(passo[1] - passo[0]);
-        /* Con l'altro link a disposizione, il passaggio avviene fra 20 e 24
-           secondi dopo l'inizio del guasto (non al tentativo successivo, che
-           potrebbe essere molto piu' in la'): i 4 secondi a caso evitano che
-           tutti passino alla riserva nello stesso istante. */
-        if (altroLink()) {
-            const alCambio = ricollega.guastoDa + GUASTO_PRIMA_DELLA_RISERVA_MS + casuale(4000) - Date.now();
-            attesa = Math.min(attesa, Math.max(1000 + casuale(2000), alCambio));
-        }
+        const attesa = passo[0] + casuale(passo[1] - passo[0]);
         ricollega.timer = setTimeout(ritenta, Math.max(minimoMs || 0, attesa));
+    }
+    /* Il passaggio all'altro link: un timer a parte, fra 20 e 24 secondi
+       dopo l'inizio del guasto (i 4 secondi a caso: mille persone non
+       passano tutte nello stesso istante), qualunque cosa stia facendo il
+       tentativo in corso (uno che non risponde finirebbe solo con 'lento',
+       15 s dopo). Se l'inizio del guasto e' gia' lontano (una diretta che
+       va e viene), fra 0 e 2 secondi. */
+    function programmaRiserva() {
+        if (ricollega.timerRiserva || !ricollega.guastoDa || !altroLink()) return;
+        const tra = ricollega.guastoDa + GUASTO_PRIMA_DELLA_RISERVA_MS + casuale(SPARPAGLIO_RISERVA_MS) - Date.now();
+        ricollega.timerRiserva = setTimeout(passaAllAltroLink, Math.max(casuale(2000), tra));
+    }
+    function passaAllAltroLink() {
+        ricollega.timerRiserva = null;
+        if (!video.player || !video.base || vista !== 'diretta' || !ricollega.attivo) return;
+        const altro = altroLink();
+        if (!altro) return;
+        /* La rete che manca e' quella di questo dispositivo (wifi caduto,
+           telefono senza campo): l'altro link non servirebbe, e ci si
+           resterebbe anche a rete tornata. Il conto riparte da adesso. */
+        if (reteDelDispositivoGiu()) {
+            ricollega.guastoDa = Date.now();
+            programmaRiserva();
+            return;
+        }
+        // l'altro link e' il prossimo tentativo (carica() interrompe quello in corso)
+        clearTimeout(ricollega.timer);
+        ricollega.timer = null;
+        video.auto = altro;
+        // l'altro link ha i suoi 20 secondi: se va giu' anche lui, si torna indietro
+        ricollega.guastoDa = Date.now();
+        // dopo un guasto si torna alla qualita' automatica: e' quella che si adatta alla rete
+        video.qualita = 'Automatica';
+        annuncia(altro === 'riserva' ? 'Passiamo al collegamento di riserva.' : 'Torniamo al collegamento principale.');
+        avviaSorgente(altro, true);
+        programmaRiserva();
+        aggiornaSchermo();
     }
     function ritenta() {
         ricollega.timer = null;
         if (!video.player || !video.base || vista !== 'diretta' || !ricollega.attivo) return;
+        // un tentativo senza la rete del dispositivo non conta per la riserva
+        if (reteDelDispositivoGiu()) ricollega.guastoDa = Date.now();
+        // senza rete del tutto (lo dice il sistema) non si prova nemmeno: si aspetta 'online', o il giro dopo
+        if (navigator.onLine === false) { programmaRicollegamento(0); return; }
         // dopo un guasto si torna alla qualita' automatica: e' quella che si adatta alla rete
         video.qualita = 'Automatica';
-        const altro = altroLink();
-        if (altro && Date.now() - ricollega.guastoDa >= GUASTO_PRIMA_DELLA_RISERVA_MS) {
-            video.auto = altro;
-            ricollega.guastoDa = Date.now();
-            annuncia(altro === 'riserva' ? 'Passiamo al collegamento di riserva.' : 'Torniamo al collegamento principale.');
-            avviaSorgente(altro, true);
-            return;
-        }
         avviaSorgente(video.sorgente, true);
     }
-    // il video va di nuovo: il ricollegamento e' finito
-    function videoRiparte() {
+    /* La rete di QUESTO dispositivo e' giu'? Il sistema lo sa
+       (navigator.onLine falso: wifi o dati spenti), oppure non risponde
+       nemmeno Firestore (i server di Google, che non cadono con la web
+       TV: se manca anche lui, e' la rete di chi guarda, per esempio un
+       wifi collegato ma senza internet). */
+    function reteDelDispositivoGiu() {
+        return navigator.onLine === false || rete.daCache;
+    }
+    // la rete del dispositivo e' tornata: il tempo senza rete non conta, e si riprova subito (a caso entro 3 s)
+    function reteTornata() {
+        if (ricollega.guastoDa) ricollega.guastoDa = Date.now();
+        if (!ricollega.attivo || vista !== 'diretta') return;
+        /* il prossimo tentativo subito, con un'attesa casuale breve (mille
+           persone tornano in rete insieme quando torna il wifi della sala) */
+        clearTimeout(ricollega.timer);
+        ricollega.timer = setTimeout(ritenta, casuale(3000));
+        clearTimeout(ricollega.timerRiserva);
+        ricollega.timerRiserva = null;
+        programmaRiserva();
+    }
+    /* Il video va di nuovo: e' davvero ripreso? Solo se riproduce E la
+       diretta va avanti (il bordo live cresce: finestra().avanza del
+       player; una registrazione, o un player che non lo sa dire, vale
+       come si'). Una playlist ferma rigioca gli ultimi secondi e poi si
+       ferma: non e' una ripresa. Niente «La diretta è ripresa.» a ogni
+       giro, la schermata del ricollegamento resta (il player, nascosto,
+       non si sente) e il conto per la riserva continua. */
+    function controllaRipresa() {
+        if (!video.player || video.attesaLink || video.stato !== 'riproduzione' || !direttaVaAvanti()) return;
         video.errore = null;
-        video.okDa = Date.now();
+        if (!video.okDa) video.okDa = Date.now();
         if (ricollega.attivo) {
             fineRicollegamento();
             annuncia('La diretta è ripresa.');
+            aggiornaSchermo();
         }
+    }
+    function direttaVaAvanti() {
+        try {
+            const f = video.player.finestra();
+            return !f || !f.diretta || f.avanza !== false;
+        } catch (e) { return true; }
     }
     function fineRicollegamento() {
         ricollega.attivo = false;
         clearTimeout(ricollega.timer);
         ricollega.timer = null;
+        clearTimeout(ricollega.timerRiserva);
+        ricollega.timerRiserva = null;
     }
     function azzeraRicollegamento() {
         fineRicollegamento();
@@ -1499,16 +1637,21 @@
 
     /* ---------- i link firmati ---------- */
     function aspettaMs(n) { return new Promise(r => setTimeout(r, n)); }
-    function dimenticaFirma() {
-        clearTimeout(firmaVideo.timer);
-        firmaVideo.giro++;
-        Object.assign(firmaVideo, { sorgente: '', base: '', url: '', scade: 0, preso: 0, fallimenti: 0, timer: null });
+    // il link `s` e' cambiato (o i link firmati si accendono/spengono): il suo link firmato non vale piu'
+    function dimenticaFirma(s) {
+        const f = firme[s];
+        if (!f) return;
+        clearTimeout(f.timer);
+        Object.assign(f, nuovaFirma(), { giro: f.giro + 1 });
     }
+    function dimenticaFirme() { dimenticaFirma('principale'); dimenticaFirma('riserva'); }
     // il servizio: 'link-video' per chi partecipa, 'link-firmato' della gestione nell'anteprima del gestore
     async function chiediLink(s) {
         const u = fb.auth && fb.auth.currentUser;
         if (!u || !stato.idEvento) return { ok: false, codice: 'non-autenticato', statoHttp: 401 };
         const dati = { azione: stato.anteprima ? 'link-firmato' : 'link-video', idEvento: stato.idEvento, sorgente: s };
+        // la sessione del dispositivo: con "un solo dispositivo" il servizio non da' il video a quello sostituito
+        if (!stato.anteprima) dati.sessione = sessioneDispositivo();
         const funzione = stato.anteprima ? 'diretta-gestione' : 'diretta-accesso';
         let r = null;
         for (let tentativo = 0; tentativo < 2; tentativo++) {
@@ -1520,66 +1663,123 @@
         }
         return r;
     }
+    /* La firma puo' allungare il link oltre i 1000 caratteri di un link
+       incollato: se ne accettano 4000 (il player ne legge il tipo dal solo
+       percorso). */
     function linkValido(r) { return !!(r && r.ok && typeof r.url === 'string' && /^https:\/\//i.test(r.url) && r.url.length < 4000); }
+    /* La scadenza di un link firmato sull'orologio di QUESTO dispositivo.
+       Il servizio dice quanti secondi vale (validoSecondi); `scade` e'
+       invece dell'orologio del server, e un computer con l'ora avanti di
+       un'ora, con link da un'ora, lo vedrebbe gia' scaduto: rinnovo ogni
+       30 s, il tetto del servizio finito in mezz'ora, poi minuti senza
+       video. Senza validoSecondi (un servizio di prima) `scade` vale solo
+       se con il nostro orologio ha senso (fra 5 minuti e 25 ore); se no la
+       scadenza e' sconosciuta, e il link si usa finche' funziona. */
+    function scadenzaDi(r) {
+        const v = Number(r.validoSecondi);
+        if (isFinite(v) && v > 0) return Date.now() + v * 1000;
+        const s = Number(r.scade) || 0;
+        const resto = s - Date.now();
+        return resto > 5 * 60000 && resto < 25 * 3600000 ? s : 0;
+    }
+    /* Il servizio ha detto di no per la PERSONA (non per la rete): si dice
+       come nel resto della pagina, invece di ricollegare all'infinito. */
+    async function linkNegato(r) {
+        if (!r || stato.anteprima) return false;
+        const c = String(r.codice || '');
+        if (c === 'disattivato') { await esciConMessaggio('disattivato'); return true; }
+        if (c === 'altro-dispositivo') { await esciConMessaggio('altro-dispositivo'); return true; }
+        if (c === 'non-iscritto' || c === 'non-partecipante') { await esciConMessaggio('accedi-di-nuovo'); return true; }
+        return false;
+    }
+    function ricordaAttesa(r) {
+        if (r && (r.codice === 'attendi' || r.statoHttp === 429)) {
+            servizioLink.fermoFino = Date.now() + Math.min(3600, Math.max(30, Number(r.attesaSecondi) || 300)) * 1000;
+        }
+    }
     /* Il link firmato per `s`: quello che si ha, se vale ancora (per
        almeno un minuto) e non ha gia' fallito tre volte; altrimenti uno
        nuovo dal servizio. '' se non c'e' modo di averlo adesso. */
     async function linkFirmato(s, base, riprova) {
+        const f = firme[s];
         const adesso = Date.now();
-        const valido = !!firmaVideo.url && firmaVideo.sorgente === s && firmaVideo.base === base && (!firmaVideo.scade || firmaVideo.scade - adesso > 60000);
-        if (valido && riprova) firmaVideo.fallimenti++;
-        if (valido && firmaVideo.fallimenti < 3) return firmaVideo.url;
+        const valido = !!f.url && f.base === base && (!f.scade || f.scade - adesso > 60000);
+        if (valido && riprova) f.fallimenti++;
+        if (valido && f.fallimenti < 3) {
+            // si torna su un link lasciato prima: il suo rinnovo riparte
+            if (!f.timer) programmaRinnovo(s);
+            return f.url;
+        }
         // il servizio ha chiesto di aspettare (troppe richieste): intanto si usa quello che c'e'
-        if (adesso < firmaVideo.fermoFino) return valido ? firmaVideo.url : '';
+        if (adesso < servizioLink.fermoFino) return valido ? f.url : '';
+        // una risposta arrivata dopo una richiesta piu' nuova (o dopo un cambio del link) non si tiene
+        const giro = ++f.giro;
         // mai mille richieste nello stesso istante
         await aspettaMs(casuale(2000));
         const r = await chiediLink(s);
         if (linkValido(r)) {
-            clearTimeout(firmaVideo.timer);
-            Object.assign(firmaVideo, { sorgente: s, base: base, url: r.url, scade: Number(r.scade) || 0, preso: Date.now(), fallimenti: 0, timer: null });
-            programmaRinnovo();
+            if (giro === f.giro) {
+                clearTimeout(f.timer);
+                Object.assign(f, { base: base, url: r.url, scade: scadenzaDi(r), preso: Date.now(), fallimenti: 0, timer: null });
+                programmaRinnovo(s);
+            }
             return r.url;
         }
-        if (r && r.codice === 'disattivato') { await esciConMessaggio('disattivato'); return ''; }
-        if (r && (r.codice === 'attendi' || r.statoHttp === 429)) {
-            firmaVideo.fermoFino = Date.now() + Math.min(3600, Math.max(30, Number(r.attesaSecondi) || 300)) * 1000;
-        }
-        return valido ? firmaVideo.url : '';
+        if (await linkNegato(r)) return '';
+        ricordaAttesa(r);
+        return valido && f.base === base && f.url ? f.url : '';
     }
     // il rinnovo all'80% della validita' (mai prima di 30 secondi)
-    function programmaRinnovo() {
-        clearTimeout(firmaVideo.timer);
-        firmaVideo.timer = null;
-        if (!firmaVideo.scade || !firmaVideo.url) return;
-        const durata = Math.max(0, firmaVideo.scade - firmaVideo.preso);
-        firmaVideo.timer = setTimeout(rinnovaFirma, Math.max(30000, firmaVideo.preso + durata * 0.8 - Date.now()));
+    function programmaRinnovo(s) {
+        const f = firme[s];
+        clearTimeout(f.timer);
+        f.timer = null;
+        if (!f.scade || !f.url) return;
+        const durata = Math.max(0, f.scade - f.preso);
+        f.timer = setTimeout(() => rinnovaFirma(s), Math.max(30000, f.preso + durata * 0.8 - Date.now()));
     }
-    async function rinnovaFirma() {
-        firmaVideo.timer = null;
-        const s = firmaVideo.sorgente;
-        const base = firmaVideo.base;
-        const giro = firmaVideo.giro;
-        if (!video.firmato || vista !== 'diretta' || !video.player || s !== video.sorgente || base !== video.base) return;
-        await aspettaMs(casuale(2000));
-        const r = await chiediLink(s);
-        if (giro !== firmaVideo.giro || vista !== 'diretta' || s !== video.sorgente || base !== video.base) return;
-        if (linkValido(r)) {
-            Object.assign(firmaVideo, { url: r.url, scade: Number(r.scade) || 0, preso: Date.now(), fallimenti: 0 });
-            programmaRinnovo();
-            // il video riparte con il link nuovo; durante un ricollegamento lo usera' il prossimo tentativo
-            if (!ricollega.attivo && !video.attesaLink) caricaNelPlayer(r.url);
+    /* Si rinnova solo il link in uso (l'altro, se servira', si rinnova
+       quando lo si riprende: linkFirmato). Il video NON si ricarica: il
+       player cambia la firma delle richieste che seguono (aggiornaFirma),
+       e restano pausa, posizione nella finestra e qualita'. */
+    async function rinnovaFirma(s) {
+        const f = firme[s];
+        f.timer = null;
+        const base = f.base;
+        if (!video.firmato || vista !== 'diretta' || !video.player || !f.url || s !== video.sorgente || base !== video.base) return;
+        if (Date.now() < servizioLink.fermoFino) {
+            if (f.scade - Date.now() > 60000) f.timer = setTimeout(() => rinnovaFirma(s), Math.max(30000, servizioLink.fermoFino - Date.now() + casuale(30000)));
             return;
         }
-        if (r && r.codice === 'disattivato') { esciConMessaggio('disattivato'); return; }
+        const giro = ++f.giro;
+        await aspettaMs(casuale(2000));
+        const r = await chiediLink(s);
+        if (giro !== f.giro || vista !== 'diretta' || f.base !== base) return;
+        if (linkValido(r)) {
+            Object.assign(f, { url: r.url, scade: scadenzaDi(r), preso: Date.now(), fallimenti: 0 });
+            programmaRinnovo(s);
+            if (s === video.sorgente && base === video.base && video.id && !video.attesaLink) {
+                video.id = r.url;
+                const p = video.player;
+                // (un player senza aggiornaFirma: si ricarica, ma non in mezzo a un ricollegamento)
+                if (p && typeof p.aggiornaFirma === 'function') p.aggiornaFirma(r.url);
+                else if (p && !ricollega.attivo) caricaNelPlayer(r.url);
+            }
+            return;
+        }
+        if (await linkNegato(r)) return;
+        ricordaAttesa(r);
         // non riuscito: si riprova tra un minuto circa, finche' il link vale
-        if (firmaVideo.scade - Date.now() > 60000) firmaVideo.timer = setTimeout(rinnovaFirma, 45000 + casuale(30000));
+        if (f.scade - Date.now() > 60000) f.timer = setTimeout(() => rinnovaFirma(s), 45000 + casuale(30000));
     }
 
     function distruggiPlayer() {
         clearTimeout(video.timerFermo);
         clearTimeout(video.timerSuggerimento);
         azzeraRicollegamento();
-        dimenticaFirma();
+        dimenticaFirme();
+        // un link firmato ancora in arrivo non trova piu' niente da caricare
+        video.giroCarica++;
         if (video.player) { try { video.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
         Object.assign(video, {
             player: null, id: '', link: { principale: '', riserva: '' }, regia: '', aggiornato: 0, auto: '',
@@ -1595,11 +1795,18 @@
 
     /* T3: in onda ma il player resta fermo (iPhone in risparmio energetico,
        autoplay bloccato): dopo 3 secondi, al posto del video, un grande
-       "Avvia la diretta". */
+       "Avvia la diretta". Anche se i metadati non arrivano (su iPhone,
+       senza play(), possono non arrivare mai): il player dice che il
+       browser ha rifiutato l'avvio (avvioBloccato), e intanto non da'
+       'lento' (niente ricollegamento per un video che aspetta un tocco). */
+    function avvioBloccato() {
+        const p = video.player;
+        try { return !!(p && typeof p.avvioBloccato === 'function' && p.avvioBloccato()); } catch (e) { return false; }
+    }
     function controllaFermo() {
         clearTimeout(video.timerFermo);
         video.timerFermo = setTimeout(() => {
-            if (video.player && video.id && video.pronto && video.player.stato() === 'non-avviato') {
+            if (video.player && video.id && (video.pronto || avvioBloccato()) && video.player.stato() === 'non-avviato') {
                 video.fermo = true;
                 // il video c'e' e aspetta solo un tocco: niente piu' «Stiamo ricollegando»
                 if (ricollega.attivo) fineRicollegamento();
@@ -1824,13 +2031,13 @@
         if (video.stato === 'riproduzione' || video.stato === 'buffering') { video.pausaNostra = true; p.pausa(); }
         else { video.fermo = false; video.pausaNostra = false; p.play(); }
     }
+    // solo l'audio: un video in pausa resta in pausa (a far partire con l'audio c'e' «Attiva l'audio»)
     function alternaMuto() {
         const p = video.player;
         if (!p) return;
         if (video.muto) {
             p.smuto();
             if (!video.volume) p.volume(50);
-            if (video.stato !== 'riproduzione') p.play();
         } else {
             p.muto();
         }
@@ -1929,6 +2136,8 @@
                 const p = richiesta.call(r);
                 if (p && typeof p.then === 'function') {
                     p.then(() => {
+                        // il fuoco sul riquadro: le scorciatoie valgono anche a schermo intero
+                        fuocoAlRiquadro();
                         // sui telefoni Android, in orizzontale (se il sistema lo consente)
                         try { if (screen.orientation && screen.orientation.lock && window.matchMedia('(pointer: coarse)').matches) screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* non consentito */ }
                     }, () => entraFinto());
@@ -1940,20 +2149,29 @@
         entraFinto();
     }
 
-    /* ---------- tastiera ---------- */
+    /* ---------- tastiera ----------
+       Spazio (pausa), F (schermo intero), M (audio), frecce (volume) valgono
+       SOLO con il fuoco sul riquadro del video (ci si arriva con Tab, e ci
+       va da solo con un clic sul video) o a schermo intero: un tasto di
+       una lettera sola non deve fare qualcosa mentre si fa altro nella
+       pagina (WCAG 2.1.4), e fuori dal riquadro frecce e spazio scorrono
+       la pagina, come sempre (fino al programma). Mai su un elemento che
+       quei tasti li usa gia': campi, pulsanti (lo spazio li preme), link,
+       elenchi, cursori (le frecce li muovono), anche dentro il riquadro. */
+    const USANO_I_TASTI = 'input, textarea, select, button, a[href], summary, iframe, [contenteditable=""], [contenteditable="true"], [role="button"], [role="slider"]';
     function tasti(e) {
         if (!$('dialogo-conferma').hidden) return;
         if (e.key === 'Escape' && intero.finto) { e.preventDefault(); esciFinto(); return; }
         if (vista !== 'diretta' || e.ctrlKey || e.metaKey || e.altKey) return;
-        const t = e.target;
-        const tag = t && t.tagName ? t.tagName : '';
-        const campoTesto = tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)
-            || (tag === 'INPUT' && t.type !== 'range');
-        if (campoTesto) return;
+        const t = e.target && e.target.nodeType === 1 ? e.target : null;
+        const r = $('riquadro-video');
+        const aSchermoIntero = intero.finto || elementoSchermoIntero() === r;
+        const nelRiquadro = !!(t && r.contains(t));
+        const fuocoSullaPagina = !t || t === document.body || t === document.documentElement;
+        if (!nelRiquadro && !(aSchermoIntero && fuocoSullaPagina)) return;
+        if (t && t.closest && t.closest(USANO_I_TASTI)) return;
         const k = e.key;
         if (k === ' ' || k === 'Spacebar') {
-            // sui bottoni lo spazio li preme gia': non si fa due volte
-            if (tag === 'BUTTON' || tag === 'A') return;
             e.preventDefault();
             alternaPlay();
         } else if (k === 'f' || k === 'F') {
@@ -1963,14 +2181,21 @@
             e.preventDefault();
             alternaMuto();
         } else if (k === 'ArrowUp' || k === 'ArrowRight' || k === 'Up' || k === 'Right') {
-            if (tag === 'INPUT' || IOS) return;    // sul cursore del volume le frecce fanno gia' il loro lavoro
+            if (IOS) return;    // su iPhone e iPad il volume e' dei tasti del dispositivo
             e.preventDefault();
             cambiaVolume(10);
         } else if (k === 'ArrowDown' || k === 'ArrowLeft' || k === 'Down' || k === 'Left') {
-            if (tag === 'INPUT' || IOS) return;
+            if (IOS) return;
             e.preventDefault();
             cambiaVolume(-10);
         }
+    }
+    // dopo un clic sul video (non sui pulsanti delle nostre schermate) il fuoco va sul riquadro: le scorciatoie valgono
+    function fuocoAlRiquadro(e) {
+        if (e && e.target && e.target.closest && e.target.closest(USANO_I_TASTI)) return;
+        const r = $('riquadro-video');
+        if (document.activeElement === r) return;
+        try { r.focus({ preventScroll: true }); } catch (err) { /* niente */ }
     }
 
     function preparaComandi() {
@@ -2001,6 +2226,7 @@
             if (video.muto) p.smuto();
         });
         document.addEventListener('keydown', tasti);
+        $('area-video').addEventListener('click', fuocoAlRiquadro);
         document.addEventListener('fullscreenchange', aggiornaStatoIntero);
         document.addEventListener('webkitfullscreenchange', aggiornaStatoIntero);
         /* T3: dopo un clic dentro il player incorporato della web TV il
@@ -2335,6 +2561,8 @@
         if (rete.daCache === daCache) return;
         rete.daCache = daCache;
         aggiornaConnessione();
+        // Firestore di nuovo collegato: anche la rete del dispositivo e' tornata (vedi reteDelDispositivoGiu)
+        if (!daCache) reteTornata();
     }
     function mostraAvvisoConnessione(si) {
         mostra('avviso-connessione', si);
@@ -2370,13 +2598,8 @@
         window.addEventListener('offline', aggiornaConnessione);
         window.addEventListener('online', () => {
             aggiornaConnessione();
-            /* la rete e' tornata: il prossimo tentativo del video subito, con
-               un'attesa casuale breve (mille persone tornano in rete insieme
-               quando torna il wifi della sala) */
-            if (ricollega.attivo) {
-                clearTimeout(ricollega.timer);
-                ricollega.timer = setTimeout(ritenta, casuale(3000));
-            }
+            // la rete e' tornata: il video riprova subito, e il tempo senza rete non conta per la riserva
+            reteTornata();
         });
         // la pagina si chiude o va in secondo piano per sempre: il lucchetto della presenza passa alle altre schede
         window.addEventListener('pagehide', rilasciaLucchetto);

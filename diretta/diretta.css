@@ -602,6 +602,11 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 @supports not (aspect-ratio: 16 / 9) {
     .area-video { height: 0; padding-top: 56.25%; }
 }
+/* il riquadro si raggiunge con Tab (le scorciatoie da tastiera valgono con il
+   fuoco qui): un contorno bianco ben visibile sul fondo scuro, che segue gli
+   angoli arrotondati; a schermo intero sta dentro lo schermo */
+.riquadro-video:focus-visible { outline: 3px solid #fff; outline-offset: 3px; border-radius: 14px; }
+.riquadro-video[data-intero="1"]:focus-visible { outline-offset: -3px; border-radius: 0; }
 .video-player { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
 .video-player iframe { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; border: 0; display: block; }
 
@@ -1016,6 +1021,7 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
     /* il video da bordo a bordo, come nelle app */
     .fascia-video { padding: 0; }
     .riquadro-video { border-radius: 0; min-width: 0; }
+    .riquadro-video:focus-visible { border-radius: 0; outline-offset: -3px; }
     .striscia-audio { padding: 12px 12px 4px; }
     .btn-attiva-audio { max-width: none; min-height: 58px; }
     .barra-comandi { gap: 2px; padding: 6px 6px; }
@@ -1059,6 +1065,7 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
 @media (max-height: 520px) and (orientation: landscape) {
     .fascia-video { padding: 0; }
     .riquadro-video { max-width: calc((100vh - 110px) * 16 / 9); max-width: calc((100dvh - 110px) * 16 / 9); border-radius: 0; }
+    .riquadro-video:focus-visible { border-radius: 0; outline-offset: -3px; }
 }
 
 /* chi ha chiesto meno animazioni */

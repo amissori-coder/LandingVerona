@@ -706,8 +706,16 @@ async function aggiornaPermessi(ctx, req) {
    scadenza. Controlli: token valido (senza chiedere a Google delle
    revoche, che con mille persone insieme costerebbe mille chiamate:
    lo stato dell'account si legge nei dati della diretta, come fanno le
-   regole), account attivo, iscritto all'evento, evento in onda, link
-   presente. Nei log niente di personale (vedi D.rispondi). */
+   regole), account attivo, dispositivo ammesso, iscritto all'evento,
+   evento in onda, link presente. Il dispositivo si controlla come fanno
+   le regole di Firestore per i segnali di presenza (sessioneValida):
+   con "un solo dispositivo" sessioni/{uid}.sessioneAttiva e' la sessione
+   dell'ultimo accesso, e un dispositivo sostituito (la sua sessione,
+   b.sessione, e' un'altra) non riceve piu' link: 403 'altro-dispositivo'
+   (la pagina lo dice come per la presenza). Senza "un solo dispositivo"
+   sessioneAttiva e' null e vale ogni dispositivo. La risposta:
+   { url, scade, validoSecondi } (vedi lib/diretta-firma.js). Nei log
+   niente di personale (vedi D.rispondi). */
 async function linkVideo(ctx, req, b) {
     const m = /^Bearer\s+(.+)$/i.exec(String((req.headers || {}).authorization || ''));
     if (!m) throw C.errore(401, 'Accesso richiesto', 'non-autenticato');
@@ -723,7 +731,12 @@ async function linkVideo(ctx, req, b) {
     const [snapP, snapS] = await ctx.db.getAll(ctx.db.collection('partecipanti').doc(tok.uid), ctx.db.collection('sessioni').doc(tok.uid));
     if (!snapP.exists) throw C.errore(403, 'Questo account non è un partecipante della diretta.', 'non-partecipante');
     const p = snapP.data();
-    if (p.stato !== 'attivo' || (snapS.exists && snapS.data().stato !== 'attivo')) throw D.errorePubblico(403, 'disattivato', MSG_DISATTIVATO);
+    const s = snapS.exists ? snapS.data() : null;
+    if (p.stato !== 'attivo' || (s && s.stato !== 'attivo')) throw D.errorePubblico(403, 'disattivato', MSG_DISATTIVATO);
+    const ammessa = s && typeof s.sessioneAttiva === 'string' && s.sessioneAttiva ? s.sessioneAttiva : null;
+    if (ammessa && String(b.sessione || '') !== ammessa) {
+        throw D.errorePubblico(403, 'altro-dispositivo', 'La diretta è stata aperta da un altro dispositivo: per guardarla qui, accedi di nuovo.');
+    }
     if (!Array.isArray(p.eventi) || p.eventi.indexOf(idEvento) < 0) throw D.errorePubblico(403, 'non-iscritto', 'Non risulti iscritto a questa diretta.');
     return D.linkVideo(ctx, { idEvento: idEvento, sorgente: b.sorgente, soloInOnda: true });
 }

@@ -10,39 +10,64 @@
    opzioni (tutte facoltative):
        onPronto()                        il video si presenta (metadati letti)
        onStato(s)                        'non-avviato' | 'riproduzione' | 'pausa' | 'buffering' | 'fine'
+                                         (se il browser rifiuta l'avvio automatico, 'non-avviato'
+                                         arriva comunque, anche se lo era gia': vedi avvioBloccato())
        onErrore({ codice, messaggio })   vedi CODICI D'ERRORE
        onVolume({ volume, muto })
-       onTempo({ posizione, inizio, fine, ritardo, dvr, diretta })   circa una volta al secondo
+       onTempo({ posizione, inizio, fine, ritardo, dvr, diretta, avanza })   circa una volta al secondo
        onQualita(livelli)                l'elenco delle qualita' e' cambiato (come livelliQualita())
 
    istanza:
        carica(url, { firmato })
                           il link: sempre da capo, dal punto live. firmato: true se e' un
                           link firmato a tempo (vedi LINK FIRMATI)
+       aggiornaFirma(url) il link firmato rinnovato (stesso flusso, firma nuova): le richieste
+                          che seguono portano la firma nuova SENZA ricaricare il video (restano
+                          pausa, posizione nella finestra e qualita'). Solo dove non si puo'
+                          (HLS letto da Safari, player incorporato) si ricarica, e chi era in
+                          pausa resta in pausa. Un url di un altro flusso = carica().
        play() pausa() alterna() muto() smuto() eMuto() volume(0-100) leggiVolume()
+                          muto(), smuto() e volume() cambiano solo l'audio: un video in pausa
+                          resta in pausa (per farlo partire con l'audio: smuto() e play())
        vaiAlLive()        il punto live, e riparte
        cerca(secondi)     va a quel punto, nella STESSA scala di finestra() (fra inizio e fine)
-       finestra()         { posizione, inizio, fine, ritardo, dvr, diretta }
+       finestra()         { posizione, inizio, fine, ritardo, dvr, diretta, avanza }
                             posizione: dove si e' (secondi, la scala del video)
                             inizio:    il punto piu' vecchio a cui si puo' tornare
                             fine:      il punto live (dove porta vaiAlLive)
                             ritardo:   secondi dietro il punto live (0 = in diretta)
                             dvr:       si puo' tornare indietro: e' una diretta e fine-inizio >= 60 s
                             diretta:   e' una diretta (non una registrazione)
+                            avanza:    la diretta va davvero avanti: dall'ultimo carica() il
+                                       bordo live (l'ultimo pezzo della playlist) e' cresciuto
+                                       almeno una volta. false finche' non lo si e' visto
+                                       crescere (una playlist "ferma" resta false); true per una
+                                       registrazione, o se il motore non lo sa misurare
        livelliQualita()   [{ valore: '-1', etichetta: 'Automatica' }, { valore, etichetta: '720p' }, ...]
                           una voce per altezza, senza doppioni; [] se c'e' una qualita' sola
        impostaQualita(valore)
        stato()  mostra(bool)  distruggi()
+                          mostra(false): il video resta vivo ma non si vede e non si sente
+                          (muto finche' non torna visibile); il player incorporato si svuota
+                          (about:blank: il suo audio si ferma) e si ricarica quando si rimostra
        capacita()         { comandi, qualita, dvr }
+       avvioBloccato()    true se il browser ha rifiutato di far partire il video da solo
+                          (iPhone in risparmio energetico): serve un tocco, play(); intanto
+                          'lento' non scatta
 
    CODICI D'ERRORE (onErrore): 'rete' (la web TV non risponde, dopo i
    tentativi previsti dalla libreria), 'media' (il video non si
-   decodifica), 'segnale' (fermo da piu' di 12 s mentre dovrebbe andare),
-   'lento' (non pronto in 15 s), 'libreria' (hls.js o dash.js non
-   scaricati), 'browser' (questo browser non riproduce il flusso),
-   'link' (il link non e' un flusso). Il player NON riprova da solo
-   dopo un errore: il ricollegamento (attese crescenti e casuali, link di
-   riserva) lo decide la pagina, che chiama di nuovo carica().
+   decodifica), 'segnale' (fermo da piu' di 12 s mentre dovrebbe andare,
+   OPPURE la diretta non va avanti: il bordo live non cresce da piu' di
+   3 segmenti, e comunque almeno 20 s, mentre si guarda: e' la playlist
+   "ferma" di un encoder spento che la rete di distribuzione continua a
+   servire, senza errori, con gli ultimi secondi), 'lento' (non pronto
+   in 15 s, contati solo con la pagina in vista e l'avvio non bloccato),
+   'libreria' (hls.js o dash.js non scaricati), 'browser' (questo
+   browser non riproduce il flusso), 'link' (il link non e' un flusso).
+   Il player NON riprova da solo dopo un errore: il ricollegamento
+   (attese crescenti e casuali, link di riserva) lo decide la pagina,
+   che chiama di nuovo carica().
 
    COME SI RIPRODUCE (il tipo lo dice sorgente-video.js):
      - 'hls' (.m3u8), IL CASO PRINCIPALE. Su Safari (iPhone, iPad, Mac)
@@ -53,7 +78,9 @@
        recoverMediaError() e poi swapAudioCodec() + recoverMediaError(),
        come prevede la libreria, prima di dirlo alla pagina.
      - 'dash' (.mpd): dash.js 5.2.1 (diretta/dash.all.min.js, scaricato
-       solo quando serve), bitrate iniziale basso e ABR.
+       solo quando serve), bitrate iniziale basso e ABR. Un segmento
+       perso (dopo i tentativi della libreria) non e' un errore: se il
+       video si ferma lo dice il controllo del segnale.
      - 'incorporato': la pagina del player della web TV in un iframe. E'
        il ripiego: audio, pausa e qualita' si regolano con i SUOI comandi
        (una pagina non puo' comandare il player di un altro sito), e i
@@ -75,6 +102,16 @@
    aggiungono i parametri della firma che mancano (hls.js: xhrSetup;
    dash.js: addRequestInterceptor), cosi' come sono scritti (senza
    ricodificarli); le richieste verso altri server restano com'erano.
+   Il tipo di un link firmato si legge dal solo percorso (la firma puo'
+   allungare il link oltre i 1000 caratteri che sorgente-video.js
+   accetta per un link incollato). Quando la firma si rinnova,
+   aggiornaFirma() cambia i parametri che si aggiungono: le playlist
+   delle qualita' (e il .mpd) si richiedono di continuo durante una
+   diretta, e cosi' la firma nuova arriva da sola alle richieste che
+   seguono, senza ricaricare il video. I parametri di una firma
+   precedente si sostituiscono (nella playlist principale e in quelle
+   che la ripetono); quelli che la web TV scrive da se' nelle sue
+   playlist, con altri valori, restano.
    Safari da solo non lo permette: con un link firmato anche su Safari
    (iPhone da iOS 17.1, iPad, Mac) si usa hls.js, se il browser ha
    MediaSource o ManagedMediaSource; senza, resta il browser (e la web
@@ -94,6 +131,13 @@
 
     var ATTESA_PRONTO_MS = 15000;     // 'lento': il video non si presenta entro questo tempo
     var SEGNALE_FERMO_MS = 12000;     // 'segnale': fermo per piu' di cosi', mentre dovrebbe andare
+    /* 'segnale' anche quando la diretta non va avanti: il bordo live fermo
+       da piu' di 3 segmenti, e mai meno di 20 s (una playlist si ricarica
+       ogni segmento circa: 3 giri a vuoto non sono un caso). Finche' non
+       si conosce la durata dei segmenti (HLS di Safari, DASH: la si
+       ricava dai passi del bordo) si aspettano 30 s. */
+    var BORDO_FERMO_MINIMO_S = 20;
+    var BORDO_FERMO_IGNOTO_S = 30;
     var FINESTRA_DVR_MINIMA = 60;     // secondi: sotto, niente barra per tornare indietro
     var TIPI = { hls: 1, dash: 1, incorporato: 1 };
 
@@ -165,8 +209,13 @@
 
     /* La firma di un link: una funzione che, per un indirizzo dello stesso
        server (https), aggiunge i parametri della query del link firmato
-       che mancano, scritti com'erano. null se il link non ha query. */
-    function firmaDi(urlFirmato) {
+       che mancano, scritti com'erano. null se il link non ha query.
+       vecchie: le coppie "nome=valore" (scritte com'erano) delle firme
+       precedenti dello stesso flusso: dove compaiono ancora (la playlist
+       principale, o una playlist che le ripete) si tolgono, e al loro
+       posto va la firma nuova. Una coppia con lo stesso nome ma un altro
+       valore l'ha scritta la web TV nella sua playlist: resta. */
+    function firmaDi(urlFirmato, vecchie) {
         var base;
         try { base = new URL(urlFirmato); } catch (e) { return null; }
         var grezza = base.search ? base.search.slice(1) : '';
@@ -174,20 +223,32 @@
         var coppie = grezza.split('&').filter(Boolean).map(function (x) {
             return { chiave: chiaveDi(x), grezza: x };
         });
-        return function (indirizzo) {
+        var superate = {};
+        (vecchie || []).forEach(function (x) { superate[x] = true; });
+        coppie.forEach(function (c) { delete superate[c.grezza]; });
+        var f = function (indirizzo) {
             var u;
             try { u = new URL(indirizzo, base.href); } catch (e) { return indirizzo; }
             if (u.protocol !== 'https:' || u.host !== base.host) return indirizzo;
             var q = u.search ? u.search.slice(1) : '';
-            var presenti = q ? q.split('&').map(chiaveDi) : [];
+            var resto = q ? q.split('&').filter(function (x) { return x && !superate[x]; }) : [];
+            var presenti = resto.map(chiaveDi);
             var mancano = coppie.filter(function (c) { return presenti.indexOf(c.chiave) < 0; });
-            if (!mancano.length) return indirizzo;
-            return u.origin + u.pathname + '?' + (q ? q + '&' : '') + mancano.map(function (c) { return c.grezza; }).join('&');
+            if (!mancano.length && resto.length === (q ? q.split('&').filter(Boolean).length : 0)) return indirizzo;
+            var tutte = resto.concat(mancano.map(function (c) { return c.grezza; }));
+            return u.origin + u.pathname + (tutte.length ? '?' + tutte.join('&') : '') + u.hash;
         };
+        f.host = base.host;
+        f.coppie = coppie.map(function (c) { return c.grezza; }).concat(Object.keys(superate));
+        return f;
     }
     function chiaveDi(coppia) {
         var k = String(coppia).split('=')[0];
         try { return decodeURIComponent(k.replace(/\+/g, ' ')); } catch (e) { return k; }
+    }
+    // l'indirizzo senza query e senza #: per il tipo di un link firmato e per riconoscere lo stesso flusso
+    function senzaQuery(url) {
+        try { var u = new URL(url); u.search = ''; u.hash = ''; return u.href; } catch (e) { return ''; }
     }
 
     /* ============================================================
@@ -221,14 +282,35 @@
         // HLS di Safari: quanto sta dietro il bordo della finestra il punto in cui il browser gioca "in diretta"
         var margineNativo = NaN;
         var misuraMargine = false;
+        var prontoDa = 0;           // quando sono arrivati i metadati (per sapere se l'avvio e' stato immediato)
         // segnale fermo
         var ultimaPosizione = -1;
         var fermoDa = 0;
         var segnalato = false;
+        /* la diretta va avanti? il bordo live (fine della playlist) visto
+           crescere. bordoMax: il bordo piu' avanti visto (secondi; per
+           hls.js il numero dell'ultimo segmento, livello per livello);
+           bordoDa: quando e' cresciuto l'ultima volta (o da quando si
+           conta); passoBordo: il passo piu' lungo visto (la durata di un
+           segmento, dove la libreria non la dice). */
+        var bordoMax = NaN;
+        var bordoDa = 0;
+        var bordoAvanzato = false;
+        var passoBordo = NaN;
+        var ultimoSN = {};          // hls.js: livello -> numero dell'ultimo segmento della sua playlist
+        var bordoSegnalato = false;
+        // l'avvio automatico rifiutato dal browser (serve un tocco): niente 'lento'
+        var bloccato = false;
+        // il player incorporato svuotato da mostra(false): l'indirizzo da ricaricare
+        var iframeDa = '';
         // qualita': l'ultimo elenco dato alla pagina
         var firmaQualita = '';
         // link firmato: aggiunge la firma alle richieste verso lo stesso server (null = link non firmato)
         var conFirma = null;
+        // l'ultimo link dato a carica() (per aggiornaFirma: e' lo stesso flusso?)
+        var urlCaricato = '';
+        // un rinnovo della firma che ha dovuto ricaricare (Safari): chi era in pausa resta in pausa
+        var restaInPausa = false;
 
         function avvisa(nome, dati) {
             var f = opzioni[nome];
@@ -246,11 +328,38 @@
         // niente menu del tasto destro sul riquadro del video (ne' "salva video con nome")
         contenitore.addEventListener('contextmenu', annulla);
 
+        /* visibility e non display: il video resta vivo, ma non si vede ne'
+           si raggiunge con Tab. E non si sente: dietro una schermata della
+           pagina («Stiamo ricollegando…», un errore) non deve suonare niente
+           (per esempio un tentativo che riparte prima che la pagina lo
+           mostri). L'audio della persona (mutoNostro) non cambia: torna
+           quando il video torna visibile. Il player incorporato non si puo'
+           zittire da fuori: si svuota (about:blank) e si ricarica dopo. */
         function applicaVisibilita() {
             if (!el) return;
-            // visibility e non display: il video resta vivo, ma non si vede ne' si raggiunge con Tab
             el.style.visibility = visibile ? '' : 'hidden';
             if (visibile) el.removeAttribute('aria-hidden'); else el.setAttribute('aria-hidden', 'true');
+            if (modo === 'video') {
+                applicaAudio();
+            } else if (modo === 'iframe') {
+                /* solo un player gia' caricato: uno che sta ancora arrivando (un
+                   tentativo del ricollegamento, nascosto finche' non si presenta)
+                   deve poter finire di caricarsi, o non si presenterebbe mai */
+                if (!visibile && pronto && !iframeDa && el.getAttribute('src') && el.getAttribute('src') !== 'about:blank') {
+                    iframeDa = el.getAttribute('src');
+                    el.setAttribute('src', 'about:blank');
+                } else if (visibile && iframeDa) {
+                    el.setAttribute('src', iframeDa);
+                    iframeDa = '';
+                }
+            }
+        }
+        // l'audio che il <video> deve avere adesso: quello della persona, se si vede
+        function mutoAdesso() { return mutoNostro || !visibile; }
+        function applicaAudio() {
+            if (!el || modo !== 'video') return;
+            var m = mutoAdesso();
+            if (el.muted !== m) el.muted = m;
         }
 
         /* ---------- il motore (hls.js, dash.js o il browser) ---------- */
@@ -274,17 +383,33 @@
             ultimaPosizione = -1;
             fermoDa = 0;
             segnalato = false;
+            azzeraBordo();
+            bloccato = false;
+            prontoDa = 0;
             if (el && modo === 'video') {
                 try { el.pause(); el.removeAttribute('src'); el.load(); } catch (e) { /* niente */ }
+                if (restaInPausa) el.autoplay = true;
             }
+            restaInPausa = false;
+        }
+        function azzeraBordo() {
+            bordoMax = NaN;
+            bordoDa = 0;
+            bordoAvanzato = false;
+            passoBordo = NaN;
+            ultimoSN = {};
+            bordoSegnalato = false;
         }
         function togliElemento() {
             fermaMotore();
             clearInterval(timerTempo);
             timerTempo = null;
+            // il player incorporato: prima svuotato (il suo audio si ferma subito), poi tolto
+            if (el && modo === 'iframe') { try { el.setAttribute('src', 'about:blank'); } catch (e) { /* niente */ } }
             if (el && el.parentNode) el.parentNode.removeChild(el);
             el = null;
             modo = '';
+            iframeDa = '';
         }
 
         function nuovoVideo() {
@@ -309,11 +434,18 @@
             v.addEventListener('contextmenu', annulla);
             v.addEventListener('play', function () { if (v.readyState < 3) imposta('buffering'); });
             v.addEventListener('playing', function () {
+                bloccato = false;
                 imposta('riproduzione');
+                /* Safari: il punto in cui gioca "in diretta" si misura solo su un
+                   avvio immediato (entro 4 s dai metadati). Partito dopo (un tocco
+                   su «Avvia la diretta» un minuto piu' tardi, il risparmio
+                   energetico, un video rimasto fermo) il video non e' al punto
+                   live e la misura direbbe un ritardo che non c'e': allora vale
+                   il ritardo tipico (vedi margineSafari). */
                 if (misuraMargine) {
                     misuraMargine = false;
                     var b = bordo();
-                    if (isFinite(b)) margineNativo = Math.max(0, Math.min(40, b - v.currentTime));
+                    if (isFinite(b) && prontoDa && Date.now() - prontoDa <= 4000) margineNativo = Math.max(0, b - v.currentTime);
                 }
                 tempo();
             });
@@ -329,14 +461,19 @@
             v.addEventListener('loadedmetadata', function () {
                 if (el !== v || pronto || !motore) return;
                 pronto = true;
+                prontoDa = Date.now();
                 clearTimeout(timerPronto);
                 timerPronto = null;
                 if (motore === 'nativo') misuraMargine = true;
                 avvisa('onPronto');
+                // ricaricato per la firma nuova (Safari) mentre la persona era in pausa: resta in pausa
+                if (restaInPausa) imposta('pausa');
                 aggiornaQualita();
                 tempo();
             });
             v.addEventListener('volumechange', function () {
+                // nascosto, l'ha zittito il player stesso (mostra(false)): l'audio della persona resta quello
+                if (!visibile) return;
                 // il browser (o un tocco sul video su iPhone) ha cambiato l'audio: la pagina lo deve sapere
                 var m = v.muted || v.volume === 0;
                 if (m !== mutoNostro) { mutoNostro = m; avvisaVolume(); }
@@ -368,28 +505,43 @@
            ricollegamento) si prova con l'audio; se il browser non lo concede
            si riparte muti e la pagina rimette «Attiva l'audio». Se il browser
            rifiuta anche muto (iPhone in risparmio energetico) lo stato resta
-           "non-avviato" e la pagina mostra «Avvia la diretta». */
+           "non-avviato", e lo si RIDICE alla pagina (bloccaAvvio): lo era
+           gia' dal carica(), e senza un avviso la pagina non saprebbe di
+           dover mostrare «Avvia la diretta» (su iPhone, senza play(), i
+           metadati possono non arrivare mai: niente onPronto). Intanto
+           'lento' non scatta. Gli altri rifiuti di play() non contano: un
+           nuovo carica() (AbortError) o un flusso che non va (lo dicono gli
+           eventi del video e della libreria). */
         function parti(gen) {
             var v = el;
             if (!v || modo !== 'video') return;
-            v.muted = mutoNostro;
+            applicaAudio();
+            // ricaricato per la firma nuova mentre la persona era in pausa: non riparte da solo
+            if (restaInPausa) { v.autoplay = false; return; }
             var p;
             try { p = v.play(); } catch (e) { p = null; }
             if (!p || typeof p.catch !== 'function') return;
             p.catch(function (e) {
                 if (gen !== generazione || el !== v || !v.paused) return;
-                if (e && e.name === 'AbortError') return;       // un nuovo carica() ha interrotto questo
+                if (!e || e.name !== 'NotAllowedError') return;
                 if (!v.muted) {
                     v.muted = true;
                     mutoNostro = true;
                     avvisaVolume();
                     var p2;
                     try { p2 = v.play(); } catch (e2) { p2 = null; }
-                    if (p2 && typeof p2.catch === 'function') p2.catch(function () { if (gen === generazione && el === v && v.paused) imposta('non-avviato'); });
+                    if (p2 && typeof p2.catch === 'function') {
+                        p2.catch(function (e2) { if (gen === generazione && el === v && v.paused && e2 && e2.name === 'NotAllowedError') bloccaAvvio(); });
+                    }
                     return;
                 }
-                imposta('non-avviato');
+                bloccaAvvio();
             });
+        }
+        function bloccaAvvio() {
+            bloccato = true;
+            statoCorrente = 'non-avviato';
+            avvisa('onStato', 'non-avviato');
         }
 
         /* ---------- HLS con hls.js ---------- */
@@ -401,10 +553,14 @@
                 errore('browser', 'Questo browser non riesce a riprodurre la diretta: prova con Chrome, Safari, Edge o Firefox aggiornati.');
                 return;
             }
-            var firma = conFirma;
             var h = new Hls({
-                // link firmato: la firma anche sulle playlist delle qualita' e sui segmenti dello stesso server
-                xhrSetup: firma ? function (xhr, indirizzo) { xhr.open('GET', firma(indirizzo), true); } : undefined,
+                /* link firmato: la firma anche sulle playlist delle qualita' e sui
+                   segmenti dello stesso server. Si legge conFirma a ogni richiesta:
+                   dopo aggiornaFirma() le richieste che seguono portano la nuova */
+                xhrSetup: conFirma ? function (xhr, indirizzo) {
+                    var f = conFirma;
+                    xhr.open('GET', f ? f(indirizzo) : indirizzo, true);
+                } : undefined,
                 // si parte dalla qualita' che sta in 0,5 Mbit/s, poi sale da sola secondo la rete
                 startLevel: -1,
                 abrEwmaDefaultEstimate: 500000,
@@ -431,9 +587,13 @@
                 if (hls !== h || !d || !d.details) return;
                 hlsLive = !!d.details.live;
                 durataSegmento = numero(d.details.targetduration);
+                // ogni playlist della diretta (anche i ricaricamenti): e' arrivato un segmento nuovo?
+                if (hlsLive) notaSegmento(d.level, numero(d.details.endSN));
             });
             // la qualita' in uso e' cambiata: l'elenco segue i codec del livello nuovo
             h.on(E.LEVEL_SWITCHED, function () { if (hls === h) aggiornaQualita(); });
+            // la libreria ha tolto (o aggiunto) delle qualita', per esempio una che non si scarica piu': il menu segue
+            h.on(E.LEVELS_UPDATED, function () { if (hls === h) aggiornaQualita(); });
             // un segmento arrivato: la rete va di nuovo, i tentativi ripartono da zero
             h.on(E.FRAG_BUFFERED, function () { if (hls === h) tentRete = 0; });
             h.on(E.ERROR, function (ev, d) { erroreHls(h, d); });
@@ -498,10 +658,16 @@
                 debug: { logLevel: dashjs.Debug.LOG_LEVEL_NONE },
                 streaming: {
                     abr: {
-                        // si parte basso (kbit/s), poi sale da sola; mai piu' righe di quelle del riquadro
+                        // si parte basso (kbit/s), poi sale da sola secondo la rete
                         initialBitrate: { video: 500 },
                         autoSwitchBitrate: { video: true, audio: true },
-                        limitBitrateByPortal: true
+                        /* NIENTE limite sulla grandezza del riquadro: in dash.js 5
+                           limitBitrateByPortal toglie dall'elenco (anche dal menu
+                           qualita') le rappresentazioni piu' larghe del <video> in
+                           pixel CSS: in un riquadro di 1100 px il 1080p e il 720p
+                           sparivano e si restava a 480p. La partenza bassa e l'ABR
+                           bastano a non sprecare banda sul telefono. */
+                        limitBitrateByPortal: false
                     },
                     // niente ricordo della qualita' dell'ultima volta: si riparte sempre bassi
                     lastBitrateCachingInfo: { enabled: false },
@@ -509,10 +675,12 @@
                 }
             });
             if (conFirma) {
-                // link firmato: la firma anche sui segmenti (e sugli aggiornamenti del .mpd) dello stesso server
-                var firma = conFirma;
+                /* link firmato: la firma anche sui segmenti (e sugli aggiornamenti
+                   del .mpd) dello stesso server; conFirma si legge a ogni richiesta
+                   (aggiornaFirma) */
                 p.addRequestInterceptor(function (richiesta) {
-                    if (richiesta && richiesta.url) richiesta.url = firma(richiesta.url);
+                    var f = conFirma;
+                    if (f && richiesta && richiesta.url) richiesta.url = f(richiesta.url);
                     return Promise.resolve(richiesta);
                 });
             }
@@ -526,19 +694,29 @@
             p.initialize(v, url, true);
         }
         /* dash.js riprova da solo (retryAttempts); quello che arriva qui e' gia'
-           un errore vero. Tranne la sincronizzazione dell'ora con il server
-           (codice 16) e i sottotitoli (33): non fermano il video. */
+           un errore vero. Tranne:
+           - la sincronizzazione dell'ora con il server (16) e i sottotitoli
+             (33): non fermano il video;
+           - un segmento (27) o un indice di segmenti (26) che non arriva
+             nemmeno dopo i tentativi della libreria: e' UN pezzo perso (un
+             404 isolato della rete di distribuzione), dash.js va avanti con
+             quelli dopo. Ricollegare e ricaricare tutti per questo sarebbe
+             peggio del buco: se il video si ferma davvero, lo dice il
+             controllo del segnale (fermo, o diretta che non va avanti);
+           - un .mpd della diretta senza flussi (32): puo' capitare per un
+             attimo, mentre l'encoder riparte; e' la rete (si riprova), non
+             il browser. */
         function erroreDash(p, e) {
             if (dash !== p) return;
             var c = Number(e && e.error && e.error.code);
-            if (c === 16 || c === 33) return;
-            if ([10, 11, 12, 15, 17, 18, 19, 25, 26, 27, 28, 29, 31].indexOf(c) >= 0) {
+            if (c === 16 || c === 33 || c === 26 || c === 27) return;
+            if ([10, 11, 12, 15, 17, 18, 19, 25, 28, 29, 31, 32].indexOf(c) >= 0) {
                 errore('rete', c === 10 || c === 11 || c === 25
                     ? 'La diretta non è raggiungibile: forse non è ancora partita.'
                     : 'La diretta si è interrotta.');
                 return;
             }
-            if (c === 23 || c === 32 || c === 35) { errore('browser', 'Questo browser non riesce a riprodurre la diretta: prova con Chrome, Edge o Firefox aggiornati.'); return; }
+            if (c === 23 || c === 35) { errore('browser', 'Questo browser non riesce a riprodurre la diretta: prova con Chrome, Edge o Firefox aggiornati.'); return; }
             errore('media', 'Il video della diretta non si riesce a decodificare.');
         }
 
@@ -560,7 +738,8 @@
             f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
             f.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:0;background:#000;display:block;';
             f.addEventListener('load', function () {
-                if (el !== f || gen !== generazione) return;
+                // la pagina vuota messa da mostra(false) non e' il player della web TV
+                if (el !== f || gen !== generazione || iframeDa || f.getAttribute('src') === 'about:blank') return;
                 clearTimeout(timerPronto);
                 timerPronto = null;
                 pronto = true;
@@ -587,8 +766,21 @@
             if (motore === 'dash') { try { return !!dash && dash.isDynamic(); } catch (e) { return false; } }
             return el.duration === Infinity;
         }
+        /* Safari: quanto sta dietro il bordo il punto in cui il browser gioca
+           "in diretta". Il ritardo tipico e' di 3 segmenti (e' quello che
+           Apple chiede ai player, e quello che usa hls.js qui sopra), con la
+           durata dei segmenti vista nei passi del bordo; finche' non la si
+           conosce, 3 segmenti da 6 s (la durata che Apple consiglia). La
+           misura dell'avvio (vedi 'playing') vale se c'e', ma mai oltre il
+           tipico (e un poco): un avvio arrivato tardi non sposta il punto
+           live di un minuto. */
+        function margineSafari() {
+            var tipico = 3 * (isFinite(passoBordo) && passoBordo > 0 ? passoBordo : 6);
+            if (!isFinite(margineNativo)) return tipico;
+            return Math.max(0, Math.min(margineNativo, tipico + 2));
+        }
         function finestra() {
-            var vuota = { posizione: 0, inizio: 0, fine: 0, ritardo: 0, dvr: false, diretta: false };
+            var vuota = { posizione: 0, inizio: 0, fine: 0, ritardo: 0, dvr: false, diretta: false, avanza: true };
             if (!el || modo !== 'video' || !pronto) return vuota;
             var posizione = numero(el.currentTime) || 0;
             var s = el.seekable;
@@ -607,13 +799,13 @@
                     if (isFinite(obiettivo) && isFinite(b)) fine = b - obiettivo;
                 } catch (e) { /* dash.js non ancora pronto */ }
             } else if (motore === 'nativo' && isFinite(b)) {
-                fine = b - (isFinite(margineNativo) ? margineNativo : 0);
+                fine = b - margineSafari();
             }
             if (!diretta) {
                 // una registrazione: la finestra e' tutto il video
                 if (!isFinite(inizio)) inizio = 0;
                 var d = numero(el.duration);
-                return { posizione: posizione, inizio: inizio, fine: isFinite(d) ? d : (isFinite(b) ? b : posizione), ritardo: 0, dvr: false, diretta: false };
+                return { posizione: posizione, inizio: inizio, fine: isFinite(d) ? d : (isFinite(b) ? b : posizione), ritardo: 0, dvr: false, diretta: false, avanza: true };
             }
             // senza un punto live dalla libreria: 3 segmenti dal bordo
             if (!isFinite(fine) && isFinite(b)) fine = b - 3 * (isFinite(durataSegmento) && durataSegmento > 0 ? durataSegmento : 4);
@@ -626,10 +818,77 @@
                 fine: fine,
                 ritardo: ritardo,
                 dvr: fine - inizio >= FINESTRA_DVR_MINIMA,
-                diretta: true
+                diretta: true,
+                avanza: vaAvanti()
             };
         }
         function tempo() { if (el && modo === 'video' && pronto) avvisa('onTempo', finestra()); }
+
+        /* ============================================================
+           LA DIRETTA VA AVANTI? (il bordo live)
+           ============================================================
+           Un encoder che si ferma non sempre fa un errore: la rete di
+           distribuzione puo' continuare a servire l'ultima playlist della
+           diretta (senza la riga di fine), e la libreria rigioca gli
+           ultimi secondi, si ferma, e riparte da capo a ogni carica(). Il
+           video "va", ma e' vecchio. Si guarda allora il bordo live: con
+           hls.js il numero dell'ultimo segmento di ogni playlist che arriva
+           (livello per livello: le qualita' possono essere numerate
+           diversamente); con dash.js la fine della finestra; con Safari la
+           fine di seekable. Se non cresce da piu' di 3 segmenti (almeno
+           20 s) mentre si guarda: 'segnale'. */
+        function notaSegmento(livello, sn) {
+            if (!isFinite(sn)) return;
+            var adesso = Date.now();
+            if (!bordoDa) bordoDa = adesso;          // si conta dalla prima playlist
+            var prima = ultimoSN[livello];
+            if (prima === undefined || sn > prima) ultimoSN[livello] = sn;
+            bordoMax = isFinite(bordoMax) ? Math.max(bordoMax, sn) : sn;
+            if (prima !== undefined && sn > prima) {
+                bordoDa = adesso;
+                bordoAvanzato = true;
+                bordoSegnalato = false;
+            }
+        }
+        // dash.js e Safari: il bordo in secondi (un passo di almeno mezzo secondo e' un segmento nuovo)
+        function notaBordo(valore) {
+            if (!isFinite(valore)) return;
+            var adesso = Date.now();
+            if (!isFinite(bordoMax)) { bordoMax = valore; bordoDa = adesso; return; }
+            var passo = valore - bordoMax;
+            if (passo < 0.5) return;
+            passoBordo = isFinite(passoBordo) ? Math.min(passoBordo, passo) : passo;
+            bordoMax = valore;
+            bordoDa = adesso;
+            bordoAvanzato = true;
+            bordoSegnalato = false;
+        }
+        // finestra().avanza: il bordo e' cresciuto dall'ultimo carica(), o non si sa misurarlo
+        function vaAvanti() {
+            if (bordoAvanzato) return true;
+            return !isFinite(bordoMax) && prontoDa > 0 && Date.now() - prontoDa > BORDO_FERMO_IGNOTO_S * 1000;
+        }
+        function controllaBordo(nascosta) {
+            if (motore === 'nativo') notaBordo(bordo());
+            else if (motore === 'dash' && dash) {
+                try { var w = dash.getDvrWindow(); if (w) notaBordo(numero(w.end)); } catch (e) { /* dash.js non ancora pronto */ }
+            }
+            if (!bordoDa || !eDiretta()) return;
+            var adesso = Date.now();
+            /* Il conto vale solo mentre si guarda la diretta: in pausa, con la
+               pagina nascosta (il browser rallenta timer e richieste) o molto
+               indietro nella finestra (c'e' ancora video da mostrare: se si
+               arriva al bordo fermo, il video si ferma e lo dice il segnale)
+               riparte da adesso. */
+            if (el.paused || nascosta || finestra().ritardo > 60) { bordoDa = adesso; return; }
+            var durata = motore === 'hls' ? durataSegmento : passoBordo;
+            var limite = (isFinite(durata) && durata > 0 ? Math.max(3 * durata, BORDO_FERMO_MINIMO_S) : BORDO_FERMO_IGNOTO_S) * 1000;
+            // un errore solo per guasto: se il segnale fermo l'ha gia' detto, basta quello
+            if (!bordoSegnalato && !segnalato && adesso - bordoDa > limite) {
+                bordoSegnalato = true;
+                errore('segnale', 'La diretta non va avanti: dalla web TV non arrivano immagini nuove.');
+            }
+        }
 
         /* Ogni secondo: il tempo alla pagina, e il controllo del segnale.
            "Fermo" vuol dire: dovrebbe andare (non in pausa, pagina in vista),
@@ -643,6 +902,9 @@
             if (!pronto) return;
             var t = el.currentTime;
             var nascosta = document.visibilityState === 'hidden';
+            controllaBordo(nascosta);
+            // la pagina puo' aver reagito all'errore con un nuovo carica(), o distruggendo il player
+            if (!el || modo !== 'video' || !pronto) return;
             var inAttesa = statoCorrente === 'buffering' || el.readyState < 3;
             if (el.paused || el.ended || nascosta || !inAttesa || t !== ultimaPosizione) {
                 ultimaPosizione = t;
@@ -651,7 +913,7 @@
                 return;
             }
             if (!fermoDa) fermoDa = Date.now();
-            if (!segnalato && Date.now() - fermoDa >= SEGNALE_FERMO_MS) {
+            if (!segnalato && !bordoSegnalato && Date.now() - fermoDa >= SEGNALE_FERMO_MS) {
                 segnalato = true;
                 errore('segnale', 'Il segnale della diretta si è fermato.');
             }
@@ -751,11 +1013,30 @@
         function carica(url, opz) {
             if (distrutto) return;
             url = String(url == null ? '' : url).trim();
-            var t = url ? tipoDi(url) : '';
-            if (!TIPI[t]) { errore('link', 'Il link del video non è valido.'); return; }
+            var firmato = !!(opz && opz.firmato === true);
+            /* Un link firmato: il tipo dal solo percorso (la firma sta nella
+               query, e puo' allungare il link oltre i 1000 caratteri che
+               sorgente-video.js accetta per un link incollato a mano). */
+            var t = url ? tipoDi(firmato ? senzaQuery(url) : url) : '';
+            if (!TIPI[t]) {
+                /* Niente di quello che c'era resta acceso: la pagina mette la
+                   sua schermata d'errore al posto del video, e dietro non deve
+                   continuare a suonare il flusso di prima (per esempio durante
+                   il rinnovo di un link firmato). */
+                generazione++;
+                if (modo === 'iframe') togliElemento(); else fermaMotore();
+                urlCaricato = '';
+                conFirma = null;
+                statoCorrente = 'non-avviato';
+                errore('link', 'Il link del video non è valido.');
+                return;
+            }
             var gen = ++generazione;
             fermaMotore();
-            conFirma = opz && opz.firmato === true ? firmaDi(url) : null;
+            urlCaricato = url;
+            conFirma = firmato ? firmaDi(url) : null;
+            // (interno) il rinnovo della firma su Safari ricarica: chi era in pausa resta in pausa
+            restaInPausa = !!(opz && opz.restaInPausa) && t !== 'incorporato';
             firmaQualita = '';
             statoCorrente = '';
             imposta('non-avviato');
@@ -764,7 +1045,7 @@
 
             var v = assicuraVideo();
             attendiPronto(gen);
-            v.muted = mutoNostro;
+            applicaAudio();
             // con un link firmato anche Safari passa da hls.js, se puo' (vedi LINK FIRMATI)
             if (t === 'hls' && hlsNativo(v) && !(conFirma && (window.ManagedMediaSource || window.MediaSource))) { avviaNativo(v, url, gen); return; }
             var libreria = t === 'hls' ? caricaScript(URL_HLS, 'Hls') : caricaScript(URL_DASH, 'dashjs');
@@ -775,33 +1056,64 @@
                 if (!distrutto && gen === generazione) errore('libreria', 'Il componente video non si è caricato.');
             });
         }
+
+        /* Il link firmato rinnovato (vedi LINK FIRMATI). Stesso flusso: con
+           hls.js e dash.js cambia solo la firma che si aggiunge alle
+           richieste (quelle che seguono: la playlist delle qualita' si
+           richiede ogni pochi secondi, e cosi' la firma nuova arriva da
+           sola), senza toccare il video. Safari (il browser chiede da se'
+           playlist e segmenti) e il player incorporato non si possono
+           cambiare da fuori: li' si ricarica, e chi era in pausa resta in
+           pausa (la posizione nella finestra, su Safari, si perde). Un link
+           di un altro flusso, o un flusso caricato senza firma: carica(). */
+        function aggiornaFirma(url) {
+            if (distrutto) return;
+            url = String(url == null ? '' : url).trim();
+            if (!url) return;
+            if (!el || !urlCaricato || !conFirma || senzaQuery(url) !== senzaQuery(urlCaricato)) { carica(url, { firmato: true }); return; }
+            if (modo === 'video' && motore !== 'nativo') {
+                var nuova = firmaDi(url, conFirma.coppie);
+                if (nuova) { conFirma = nuova; urlCaricato = url; return; }
+            }
+            carica(url, { firmato: true, restaInPausa: modo === 'video' && statoCorrente === 'pausa' });
+        }
         function attendiPronto(gen) {
             clearTimeout(timerPronto);
-            timerPronto = setTimeout(function () {
-                if (!distrutto && gen === generazione && !pronto) errore('lento', 'La diretta non risponde.');
+            timerPronto = setTimeout(function controlla() {
+                timerPronto = null;
+                if (distrutto || gen !== generazione || pronto) return;
+                /* Una scheda in secondo piano (il browser rallenta richieste e
+                   timer) o un avvio bloccato (il video aspetta un tocco) non
+                   sono una diretta lenta: nessun 'lento', che farebbe
+                   ricollegare e magari passare alla riserva. Si riguarda tra
+                   5 secondi. */
+                if (bloccato || document.visibilityState === 'hidden') { timerPronto = setTimeout(controlla, 5000); return; }
+                errore('lento', 'La diretta non risponde.');
             }, ATTESA_PRONTO_MS);
         }
         function play() {
             if (modo !== 'video' || !el) return;
+            // la persona chiede di vedere: l'avvio non e' piu' bloccato, e 'lento' riparte da adesso
+            if (bloccato) { bloccato = false; if (!pronto) attendiPronto(generazione); }
             var p;
             try { p = el.play(); } catch (e) { p = null; }
             if (p && typeof p.catch === 'function') p.catch(function () { /* il browser ha detto di no: resta in pausa */ });
         }
         function pausa() { if (modo === 'video' && el) el.pause(); }
         function alterna() { if (statoCorrente === 'riproduzione' || statoCorrente === 'buffering') pausa(); else play(); }
-        function muto() { mutoNostro = true; if (modo === 'video' && el) el.muted = true; avvisaVolume(); }
+        // l'audio e basta: un video in pausa resta in pausa
+        function muto() { mutoNostro = true; applicaAudio(); avvisaVolume(); }
         function smuto() {
             mutoNostro = false;
             if (modo === 'video' && el) {
-                el.muted = false;
+                applicaAudio();
                 if (el.volume === 0) { try { el.volume = (volumeNostro || 100) / 100; } catch (e) { /* niente */ } }
-                if (el.paused) play();
             }
             avvisaVolume();
         }
-        // lo stato VERO del <video> (il browser puo' aver rifiutato l'audio)
+        // lo stato VERO del <video> (il browser puo' aver rifiutato l'audio); nascosto, quello della persona
         function eMuto() {
-            if (modo === 'video' && el) return !!el.muted;
+            if (modo === 'video' && el) return visibile ? !!el.muted : mutoNostro;
             return modo === 'iframe' ? false : mutoNostro;
         }
         function volume(n) {
@@ -842,6 +1154,7 @@
         }
 
         function stato() { return statoCorrente; }
+        function avvioBloccato() { return bloccato; }
         function mostra(si) { visibile = !!si; applicaVisibilita(); }
         function distruggi() {
             distrutto = true;
@@ -858,11 +1171,12 @@
         }
 
         return {
-            carica: carica, play: play, pausa: pausa, alterna: alterna,
+            carica: carica, aggiornaFirma: aggiornaFirma, play: play, pausa: pausa, alterna: alterna,
             muto: muto, smuto: smuto, eMuto: eMuto, volume: volume, leggiVolume: leggiVolume,
             vaiAlLive: vaiAlLive, cerca: cerca, finestra: finestra,
             livelliQualita: livelliQualita, impostaQualita: impostaQualita,
-            stato: stato, mostra: mostra, distruggi: distruggi, capacita: capacita
+            stato: stato, mostra: mostra, distruggi: distruggi, capacita: capacita,
+            avvioBloccato: avvioBloccato
         };
     }
 

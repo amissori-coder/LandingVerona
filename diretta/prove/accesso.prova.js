@@ -55,8 +55,9 @@
      regia passa tutti alla riserva e torna al principale; 400 senza
      riserva), i link firmati (videoFirmato; la chiave non esce mai,
      ne' nelle risposte ne' nei log), 'link-video' per chi e' iscritto
-     (url con la firma giusta; non iscritto, senza token, evento non in
-     onda: rifiutato; al massimo 60 l'ora), 'link-firmato' per la
+     (url con la firma giusta e validoSecondi; non iscritto, senza token,
+     evento non in onda, dispositivo sostituito con "un solo
+     dispositivo": rifiutato; al massimo 60 l'ora), 'link-firmato' per la
      gestione, 'prova-link' che rifiuta http e indirizzi privati, con il
      suo limite per gestore.
    - Un solo dispositivo: il secondo accesso cambia la sessione ammessa
@@ -375,6 +376,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
     vero(lv.stato === 200 && u && lv.dati.url.indexOf(LINK_WEBTV + '?md5=') === 0 && /^\d{10}$/.test(scad), 'link-video (iscritto, in onda): 200 con l\'url firmato ' + (lv.dati.url || lv.testo));
     vero(u && u.searchParams.get('md5') === md5Nginx(scad, '/live/napoli/playlist.m3u8', SEGRETO_FIRMA), 'la firma e\' quella che la web TV verifica (md5 di scadenza + percorso + chiave)');
     vero(lv.dati.scade === Number(scad) * 1000 && lv.dati.scade >= t0 + 6 * 3600 * 1000 - 5000 && lv.dati.scade <= Date.now() + 6 * 3600 * 1000 + 1000, 'scade tra 6 ore (in millisecondi)');
+    vero(lv.dati.validoSecondi === 6 * 3600, 'validoSecondi: 21600 (la pagina calcola la scadenza sul suo orologio) — ' + lv.dati.validoSecondi);
     vero(lv.testo.indexOf(SEGRETO_FIRMA) < 0 && lv.h.get('cache-control') === 'no-store', 'la risposta non contiene la chiave e non si tiene in cache');
     const lvR = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'riserva' }, { token: tokMario });
     vero(lvR.stato === 200 && lvR.dati.url.indexOf(LINK_RISERVA + '?md5=') === 0, 'link-video della riserva: firmato anche quello');
@@ -656,9 +658,18 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const pres1 = await creaPresenza(tok1, P.elenagialli.uid, primo.dati.sessione);
         const pres2 = await creaPresenza(tok2, P.elenagialli.uid, secondo.dati.sessione);
         vero(pres1 === 403 && pres2 === 200, 'le regole rifiutano la presenza del primo dispositivo (' + pres1 + ') e accettano quella del secondo (' + pres2 + ')');
+        // il link del video, come la presenza: al dispositivo sostituito niente piu' link
+        const lv1 = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale', sessione: primo.dati.sessione }, { token: tok1 });
+        const lv2 = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale', sessione: secondo.dati.sessione }, { token: tok2 });
+        const lvSenzaSessione = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: tok2 });
+        vero(lv1.stato === 403 && lv1.dati.codice === 'altro-dispositivo' && !lv1.dati.url && lv2.stato === 200 && lv2.dati.url === LINK_WEBTV
+            && lvSenzaSessione.stato === 403 && lvSenzaSessione.dati.codice === 'altro-dispositivo',
+            'link-video: il dispositivo sostituito riceve 403 altro-dispositivo (' + lv1.stato + '), quello ammesso il link (' + lv2.stato + '), senza sessione 403 (' + lvSenzaSessione.stato + ')');
         await gestione({ azione: 'evento-salva', evento: { id: EVENTO, unSoloDispositivo: false } }, tokG);
         const libero = await entra('elenagialli', P.elenagialli.password, { ip: '10.0.1.2' });
         vero(libero.stato === 200 && (await db.collection('sessioni').doc(P.elenagialli.uid).get()).data().sessioneAttiva === null, 'tolta l\'opzione, nessuna sessione ammessa in particolare');
+        const lvLibero = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale', sessione: primo.dati.sessione }, { token: tok1 });
+        vero(lvLibero.stato === 200, 'senza "un solo dispositivo" il link va a ogni dispositivo (' + lvLibero.stato + ')');
 
         console.log('\nPassword dimenticata');
         const postaPrima = leggiPosta().length;

@@ -5,12 +5,13 @@
     <!-- Content-Security-Policy: la pagina carica codice solo da se' stessa e
          dall'SDK di Firebase (gstatic); hls.js e dash.js sono file del sito. Nessuno
          script scritto nella pagina: tutto sta nei file .js qui accanto (DECISIONI
-         D3). Il video della web TV (flusso HLS o DASH, o la sua pagina incorporata)
+         D3); SheetJS (l'Excel) serve solo alla gestione, non qui. Il video della web
+         TV (flusso HLS o DASH, o la sua pagina incorporata)
          puo' arrivare da qualunque indirizzo https: media-src, connect-src e
          frame-src lo permettono; blob: serve al video di hls.js e dash.js
          (media-src) e al lavoro in secondo piano di hls.js (worker-src). Quando si
          conosce il dominio della web TV si puo' restringere (README). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https:; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https:; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <!-- viewport-fit=cover: su iPhone la pagina usa anche le zone attorno alla tacca
          (le distanze giuste le mette il CSS con env(safe-area-inset-*)) -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -27,12 +28,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20260924g">
+    <link rel="stylesheet" href="diretta.css?v=20260924p">
     <script src="config.js?v=20260924c" defer></script>
     <script src="nome-utente.js?v=20260924c" defer></script>
     <script src="sorgente-video.js?v=20260924g" defer></script>
-    <script src="player-webtv.js?v=20260924g" defer></script>
-    <script src="diretta.js?v=20260924h" defer></script>
+    <script src="player-webtv.js?v=20260924p" defer></script>
+    <script src="diretta.js?v=20260924p" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -201,7 +202,11 @@
                      Niente sta DAVANTI al video: pausa e messaggi (anche «Stiamo
                      ricollegando la diretta…») prendono il suo posto, i comandi stanno
                      sotto. -->
-                <div id="riquadro-video" class="riquadro-video" tabindex="-1" data-intero="0">
+                <!-- Il riquadro si raggiunge con Tab (e ci va il fuoco con un clic sul
+                     video): con il fuoco qui valgono le scorciatoie da tastiera (spazio, F,
+                     M, frecce), e solo qui (diretta.js, "tastiera"). -->
+                <p id="aiuto-scorciatoie" class="solo-lettori">Scorciatoie da tastiera, con il lettore selezionato: Spazio mette in pausa e riprende, F schermo intero, M attiva o disattiva l'audio, frecce su e giù per il volume.</p>
+                <div id="riquadro-video" class="riquadro-video" tabindex="0" role="group" aria-label="Lettore della diretta" aria-describedby="aiuto-scorciatoie" data-intero="0">
                     <div id="area-video" class="area-video" data-schermata="arrivo">
                         <div id="video-player" class="video-player"></div>
                         <div id="schermo-pausa" class="schermo schermo-pausa" hidden>
@@ -285,7 +290,7 @@
                         <li>Non senti niente? Premi <strong>«Attiva l'audio»</strong> e controlla il volume del dispositivo.</li>
                         <li>Il video si è fermato? Resta sulla pagina: se il segnale si interrompe, lo ricolleghiamo da soli.</li>
                         <li>Sei rimasto indietro? Premi <strong>«Torna in diretta»</strong>.</li>
-                        <li>Scorciatoie da tastiera: <kbd>Spazio</kbd> pausa, <kbd>F</kbd> schermo intero, <kbd>M</kbd> audio, frecce per il volume.</li>
+                        <li>Scorciatoie da tastiera (con un clic sul video, o raggiungendolo con <kbd>Tab</kbd>): <kbd>Spazio</kbd> pausa, <kbd>F</kbd> schermo intero, <kbd>M</kbd> audio, frecce per il volume.</li>
                     </ul>
                     <p class="aiuto" data-aiuto></p>
                 </div>

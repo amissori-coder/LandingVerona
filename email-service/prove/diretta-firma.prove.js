@@ -18,6 +18,12 @@
    - la query della web TV resta com'e' e una firma vecchia si
      sostituisce, non si raddoppia;
    - 'nessuna' lascia il link com'e';
+   - validoSecondi: i secondi di validita' da adesso, uguali per un
+     orologio qualsiasi (la pagina calcola la scadenza sul suo);
+   - akamai: un'acl con '~' (separa i campi del token) o '!' fuori posto,
+     e un percorso del flusso con '~' o '!' (l'acl ricavata), rifiutati
+     con un messaggio chiaro: in normalizza (anche con gli indirizzi del
+     flusso) e in firma (mai un token rotto);
    - normalizza: le regole di evento-salva (chiave obbligatoria, chiave
      tenuta se non arriva, 'nessuna' la cancella, durata 1-24 ore,
      chiave esadecimale per Akamai, parametri controllati);
@@ -94,9 +100,39 @@ vero(a2.url === 'https://cdn.webtv.it/hls/master.m3u8?__token__=exp=1800000000~a
     'akamai: acl e nome del parametro cambiati (' + a2.url + ')');
 if (conOpenssl) vero(hmacOpenssl('exp=1800000000~acl=/hls/*', CHIAVE_AK2) === '616ccdc84b7c55f6621e219a2be717271973096d88343885420193515797d2bb', 'openssl conferma (acl cambiata)');
 
+/* ---------- validoSecondi: la validita' da adesso, per l'orologio della pagina ---------- */
+vero(n1.validoSecondi === 6 * 3600 && a1.validoSecondi === 6 * 3600, 'validoSecondi: 6 ore (21600 s) per nginx e akamai (' + n1.validoSecondi + ', ' + a1.validoSecondi + ')');
+const unOra = F.firma('https://webtv.esempio.it/live/pl.m3u8', Object.assign({}, NGINX, { durataOre: 1 }), ADESSO + 999);
+vero(unOra.validoSecondi === 3600 && unOra.scade === (Math.floor((ADESSO + 999) / 1000) + 3600) * 1000,
+    'validoSecondi con 1 ora: 3600, scade = adesso del servizio + 1 ora (' + unOra.validoSecondi + ')');
+
+/* ---------- akamai: acl che romperebbero il token ---------- */
+let rotto = null;
+try { F.firma('https://cdn.webtv.it/~canale/live/pl.m3u8', AKAMAI, ADESSO); } catch (e) { rotto = e; }
+vero(rotto && rotto.codice === 'acl' && /~/.test(rotto.message) && /ACL/.test(rotto.message) && rotto.message.indexOf(CHIAVE_AK) < 0,
+    'akamai: un percorso con ~ (acl ricavata) non fa un token rotto: errore chiaro, senza la chiave (' + (rotto && rotto.message) + ')');
+let rotto2 = null;
+try { F.firma('https://cdn.webtv.it/live!napoli/pl.m3u8', AKAMAI, ADESSO); } catch (e) { rotto2 = e; }
+vero(rotto2 && rotto2.codice === 'acl', 'akamai: un percorso con ! (acl ricavata): errore');
+const aMano = F.firma('https://cdn.webtv.it/~canale/live/pl.m3u8', { schema: 'akamai', segreto: CHIAVE_AK, durataOre: 6, parametri: { acl: '/*' } }, ADESSO);
+vero(/~acl=\/\*~hmac=[0-9a-f]{64}$/.test(aMano.url) && (aMano.url.match(/~/g) || []).length === 3,
+    'akamai: con l\'acl scritta a mano (/*) lo stesso percorso si firma, e il token ha solo i suoi due ~ (' + aMano.url + ')');
+vero(F.problemaAcl('https://cdn.webtv.it/~canale/live/pl.m3u8', AKAMAI).length > 0 && F.problemaAcl('https://cdn.webtv.it/live/pl.m3u8', AKAMAI) === ''
+    && F.problemaAcl('https://cdn.webtv.it/~canale/pl.m3u8', NGINX) === '', 'problemaAcl: solo per akamai, solo per il percorso con ~');
+vero(/ACL/.test(F.normalizza({ schema: 'akamai', segreto: CHIAVE_AK, parametri: { acl: '/live/!x' } }, null).errore || '')
+    && /ACL/.test(F.normalizza({ schema: 'akamai', segreto: CHIAVE_AK, parametri: { acl: '/live/*!' } }, null).errore || '')
+    && /ACL/.test(F.normalizza({ schema: 'akamai', segreto: CHIAVE_AK, parametri: { acl: '/a/*!b/*' } }, null).errore || ''),
+    'acl con ! fuori posto (non fra due percorsi che cominciano con /): errore');
+const dueAcl = F.normalizza({ schema: 'akamai', segreto: CHIAVE_AK, parametri: { acl: '/live/*!/riserva/*' } }, null);
+vero(dueAcl.firma && dueAcl.firma.parametri.acl === '/live/*!/riserva/*', 'acl con due percorsi separati da ! (come vuole EdgeAuth): ok');
+const conLink = F.normalizza({ schema: 'akamai', segreto: CHIAVE_AK }, null, ['https://cdn.webtv.it/live/pl.m3u8', 'https://cdn.webtv.it/~riserva/pl.m3u8']);
+vero(/«~» o «!»/.test(conLink.errore || '') && /ACL a mano/.test(conLink.errore || ''), 'normalizza con gli indirizzi del flusso: il percorso della riserva con ~ si dice subito (' + conLink.errore + ')');
+vero(F.normalizza({ schema: 'akamai', segreto: CHIAVE_AK, parametri: { acl: '/*' } }, null, ['https://cdn.webtv.it/~riserva/pl.m3u8']).firma,
+    'normalizza: con l\'acl scritta a mano il percorso con ~ va bene');
+
 /* ---------- nessuna ---------- */
 const nessuna = F.firma('https://webtv.esempio.it/live/pl.m3u8?t=1', { schema: 'nessuna' }, ADESSO);
-vero(nessuna.url === 'https://webtv.esempio.it/live/pl.m3u8?t=1' && nessuna.scade === null, '\'nessuna\': il link resta com\'e\', senza scadenza');
+vero(nessuna.url === 'https://webtv.esempio.it/live/pl.m3u8?t=1' && nessuna.scade === null && nessuna.validoSecondi === null, '\'nessuna\': il link resta com\'e\', senza scadenza');
 vero(F.firma('https://webtv.esempio.it/live/pl.m3u8', null, ADESSO).url === 'https://webtv.esempio.it/live/pl.m3u8', 'senza impostazioni: il link resta com\'e\'');
 let senzaChiave = '';
 try { F.firma('https://webtv.esempio.it/live/pl.m3u8', { schema: 'nginx', segreto: '' }, ADESSO); } catch (e) { senzaChiave = e.message; }

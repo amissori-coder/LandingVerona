@@ -25,12 +25,30 @@
      con l'HMAC calcolato con la chiave (esadecimale) su
      "exp=<scadenza>~acl=<acl>". L'acl predefinito e' la cartella del
      flusso seguita da '*' (vale per playlist e segmenti); nome del
-     parametro e acl si possono cambiare.
+     parametro e acl si possono cambiare. Nel token '~' separa i campi e
+     '!' separa piu' acl: un'acl con '~' (o un percorso del flusso con
+     '~' o '!', da cui si ricaverebbe l'acl) romperebbe il token, e la web
+     TV rifiuterebbe ogni richiesta. Si rifiuta con un messaggio chiaro:
+     l'acl scritta a mano (piu' percorsi si separano con '!', ognuno che
+     comincia con /), e quella ricavata dal percorso (bisogna scriverla a
+     mano, per esempio /*). EdgeAuth potrebbe anche codificare l'acl
+     ("escape early"), ma solo se la web TV l'ha configurato allo stesso
+     modo: meglio un errore chiaro che un token che non passa.
 
    firma(url, { schema, segreto, durataOre, parametri }, adesso)
-     -> { url, scade }   (scade in millisecondi, null senza firma)
-   normalizza(ingresso, salvata) -> { firma } oppure { errore }
-     (la lettura di quello che manda la gestione, con i controlli)
+     -> { url, scade, validoSecondi }
+        scade: la scadenza in millisecondi, sull'orologio del SERVIZIO
+        (null senza firma); validoSecondi: quanti secondi vale da adesso
+        (null senza firma). La pagina calcola la scadenza sul proprio
+        orologio con validoSecondi: un dispositivo con l'ora sbagliata di
+        un'ora, con scade, vedrebbe i link gia' scaduti (o validi un'ora
+        di troppo).
+   normalizza(ingresso, salvata, link?) -> { firma } oppure { errore }
+     (la lettura di quello che manda la gestione, con i controlli; link:
+     facoltativo, gli indirizzi del flusso che si firmeranno, per
+     controllare l'acl che se ne ricava)
+   problemaAcl(url, firma) -> '' oppure la frase per la persona (l'acl di
+     Akamai per quell'indirizzo non si puo' usare)
    pubblica(firma) -> quello che la gestione puo' vedere (MAI la chiave)
    ============================================================ */
 'use strict';
@@ -42,7 +60,9 @@ const DURATA_MINIMA = 1;
 const DURATA_MASSIMA = 24;
 const LUNGHEZZA_CHIAVE = 512;
 const RE_NOME_PARAMETRO = /^[A-Za-z0-9_.-]{1,40}$/;
-const RE_ACL = /^\/[^\s~&#?"'<>\\]{0,499}$/;
+// un percorso dell'acl di Akamai: comincia con /, niente spazi, ~ (separa i campi del token), ! (separa le acl), & # ? " ' < > \
+const RE_PERCORSO_ACL = /^\/[^\s~!&#?"'<>\\]*$/;
+const LUNGHEZZA_ACL = 500;
 const PREDEFINITI = {
     nginx: { nomeFirma: 'md5', nomeScadenza: 'expires', percorso: 'intero' },
     akamai: { nomeParametro: 'hdnts', acl: '' }
@@ -89,27 +109,56 @@ function parametriCompleti(schema, parametri) {
     return Object.assign({}, PREDEFINITI[schema] || {}, parametri || {});
 }
 
+/* L'acl di Akamai scritta a mano: uno o piu' percorsi separati da '!',
+   ognuno che comincia con / (per esempio /live/napoli/* oppure
+   /live/*!/riserva/*). */
+function aclValida(acl) {
+    const a = String(acl || '');
+    return a.length > 0 && a.length <= LUNGHEZZA_ACL && a.split('!').every(p => RE_PERCORSO_ACL.test(p));
+}
+// l'acl per quell'indirizzo: quella scritta a mano, oppure la cartella del flusso + '*'
+function aclPer(url, parametri) {
+    const p = parametriCompleti('akamai', parametri);
+    return p.acl || (cartellaDi(new URL(url).pathname) + '*');
+}
+const MSG_ACL_PERCORSO = 'Il percorso del flusso contiene «~» o «!», che nel token di Akamai separano i campi e le ACL: scrivi l\'ACL a mano nei parametri dei link firmati (per esempio /* oppure la cartella del flusso senza quei caratteri, con *).';
+function problemaAcl(url, cfg) {
+    const c = cfg || {};
+    if (c.schema !== 'akamai' || !url) return '';
+    let acl;
+    try { acl = aclPer(url, c.parametri); } catch (_) { return ''; }
+    if (aclValida(acl)) return '';
+    return parametriCompleti('akamai', c.parametri).acl ? 'ACL dei link firmati non valida.' : MSG_ACL_PERCORSO;
+}
+
 function firma(url, cfg, adesso) {
     const c = cfg || {};
     const schema = c.schema || 'nessuna';
-    if (!url || schema === 'nessuna') return { url: String(url || ''), scade: null };
+    if (!url || schema === 'nessuna') return { url: String(url || ''), scade: null, validoSecondi: null };
     if (SCHEMI.indexOf(schema) < 0) throw new Error('schema di firma sconosciuto');
     if (!c.segreto) throw new Error('firma senza chiave segreta');
     const ora = Number.isFinite(adesso) ? adesso : Date.now();
     const durata = Number.isInteger(c.durataOre) && c.durataOre >= DURATA_MINIMA && c.durataOre <= DURATA_MASSIMA ? c.durataOre : DURATA_PREDEFINITA;
     const scadenza = Math.floor(ora / 1000) + durata * 3600;
+    // i secondi di validita' da adesso: la pagina li conta sul proprio orologio
+    const validoSecondi = scadenza - Math.floor(ora / 1000);
     const p = parametriCompleti(schema, c.parametri);
     const u = new URL(url);
     if (schema === 'nginx') {
         const percorso = p.percorso === 'cartella' ? cartellaDi(percorsoDecodificato(u)) : percorsoDecodificato(u);
         const md5 = md5Nginx(String(scadenza) + percorso + ' ' + c.segreto);
-        return { url: conParametri(url, [[p.nomeFirma, md5], [p.nomeScadenza, String(scadenza)]]), scade: scadenza * 1000 };
+        return { url: conParametri(url, [[p.nomeFirma, md5], [p.nomeScadenza, String(scadenza)]]), scade: scadenza * 1000, validoSecondi: validoSecondi };
     }
-    // akamai
-    const acl = p.acl || (cartellaDi(u.pathname) + '*');
+    // akamai: mai un token con un'acl che lo romperebbe (vedi sopra)
+    const acl = aclPer(url, p);
+    if (!aclValida(acl)) {
+        const e = new Error(problemaAcl(url, c) || 'ACL dei link firmati non valida.');
+        e.codice = 'acl';
+        throw e;
+    }
     const campi = 'exp=' + scadenza + '~acl=' + acl;
     const token = campi + '~hmac=' + hmacAkamai(campi, c.segreto);
-    return { url: conParametri(url, [[p.nomeParametro, token]]), scade: scadenza * 1000 };
+    return { url: conParametri(url, [[p.nomeParametro, token]]), scade: scadenza * 1000, validoSecondi: validoSecondi };
 }
 
 /* La firma salvata, ripulita e con i valori predefiniti (anche per gli
@@ -132,7 +181,7 @@ function pulita(salvata) {
    - segreto assente o '': si tiene quello salvato;
    - schema 'nessuna': via anche la chiave.
    Restituisce { firma } oppure { errore: 'frase per la persona' }. */
-function normalizza(ingresso, salvata) {
+function normalizza(ingresso, salvata, link) {
     const vecchia = pulita(salvata);
     if (ingresso === undefined) return { firma: vecchia };
     if (!ingresso || typeof ingresso !== 'object' || Array.isArray(ingresso)) return { errore: 'Impostazioni dei link firmati non valide.' };
@@ -174,10 +223,16 @@ function normalizza(ingresso, salvata) {
         if (nome && !RE_NOME_PARAMETRO.test(nome)) return { errore: 'Nome di parametro non valido: «' + nome.slice(0, 40) + '» (lettere, numeri, _ . -).' };
         if (nome) parametri.nomeParametro = nome;
         const acl = testo(grezzi.acl);
-        if (acl && !RE_ACL.test(acl)) return { errore: 'ACL non valida: comincia con / (per esempio /live/napoli/*), senza spazi né ~ & # ?.' };
+        if (acl && !aclValida(acl)) {
+            return { errore: 'ACL non valida: ogni percorso comincia con / (per esempio /live/napoli/*), più percorsi si separano con «!», senza spazi né «~» (nel token di Akamai separa i campi) & # ?.' };
+        }
         if (acl) parametri.acl = acl;
     }
-    return { firma: { schema: schema, segreto: segreto, durataOre: durata, parametri: parametri } };
+    const nuova = { schema: schema, segreto: segreto, durataOre: durata, parametri: parametri };
+    // l'acl ricavata dagli indirizzi del flusso (senza un'acl scritta a mano): anche quella deve andare
+    const problema = (Array.isArray(link) ? link : []).map(u => problemaAcl(u, nuova)).filter(Boolean)[0];
+    if (problema) return { errore: problema };
+    return { firma: nuova };
 }
 
 // quello che vede la gestione: MAI la chiave, solo se c'e'
@@ -193,6 +248,6 @@ function attiva(salvata) {
 
 module.exports = {
     SCHEMI, DURATA_PREDEFINITA, DURATA_MINIMA, DURATA_MASSIMA, PREDEFINITI,
-    firma, normalizza, pubblica, pulita, attiva,
+    firma, normalizza, pubblica, pulita, attiva, problemaAcl, aclValida,
     md5Nginx, hmacAkamai, cartellaDi, conParametri, base64url
 };
