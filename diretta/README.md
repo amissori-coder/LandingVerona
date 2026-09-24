@@ -24,7 +24,7 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 2. [Il progetto Firebase `ngb-eventi`](#2-il-progetto-firebase-ngb-eventi)
 3. [Le variabili su Vercel](#3-le-variabili-su-vercel)
 4. [Brevo](#4-brevo)
-5. [YouTube: la diretta e i limiti che non si possono togliere](#5-youtube-la-diretta-e-i-limiti-che-non-si-possono-togliere)
+5. [Il video: la web TV (e YouTube, se serve)](#5-il-video-la-web-tv-e-youtube-se-serve)
 6. [Come si usa: dalla settimana prima al giorno dopo](#6-come-si-usa-dalla-settimana-prima-al-giorno-dopo)
 7. [Nomi utente, doppioni, password](#7-nomi-utente-doppioni-password)
 8. [Sicurezza: cosa è protetto e come](#8-sicurezza-cosa-è-protetto-e-come)
@@ -45,7 +45,7 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
             ── accesso con il token ───────────────────────────────────────▶  Authentication
             ── UNA lettura in ascolto: eventi/{idEvento} ───────────────────▶  Firestore (regole)
             ── un segnale di presenza al minuto ────────────────────────────▶  Firestore (regole)
-            ── video ───────────────────────────────▶  YouTube (youtube-nocookie.com)
+            ── video ───────────────────────────────▶  la web TV (HLS o suo player) o YouTube
 
  /diretta/gestione/ ── token del gestore ──▶ api/diretta-gestione ─────────────▶  Firestore + Auth
                                             api/diretta-cron (ogni 5 min) ─ email ─▶ Brevo
@@ -57,7 +57,10 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 | File | Che cosa fa |
 |---|---|
 | `diretta/index.html`, `diretta.css`, `diretta.js` | la pagina dei partecipanti |
-| `diretta/player-youtube.js` | il player: **l'unico codice che parla con YouTube**, usato da pagina e regia (vedi [§11](#11-cambiare-piattaforma-video)) |
+| `diretta/player-webtv.js` | il player: la **web TV** (link HLS `.m3u8` con i nostri comandi, file video, oppure il player della web TV incorporato) e, per i link YouTube, `player-youtube.js`; usato da pagina e regia (vedi [§5](#5-il-video-la-web-tv-e-youtube-se-serve) e [§11](#11-cambiare-piattaforma-video)) |
+| `diretta/sorgente-video.js` | che cosa è il link incollato (HLS, file, player da incorporare, YouTube) e perché un link è rifiutato: **una sola** regola per gestione, player e servizio |
+| `diretta/hls.min.js` | hls.js 1.7.3 "light" (Apache 2.0, licenza in `hls.js-LICENSE.txt`): legge l'HLS dove il browser non lo fa da solo; si scarica solo quando serve |
+| `diretta/player-youtube.js` | il player di YouTube: **l'unico codice che parla con YouTube** |
 | `diretta/nome-utente.js` | la regola del nome utente, **una sola** per tutto il sistema |
 | `diretta/config.js` | configurazione web del progetto Firebase e indirizzo del servizio |
 | `diretta/reimposta.html` | scelta della nuova password |
@@ -301,7 +304,76 @@ riparte al giro successivo.
 
 ---
 
-## 5. YouTube: la diretta e i limiti che non si possono togliere
+## 5. Il video: la web TV (e YouTube, se serve)
+
+La diretta arriva da un **canale di streaming di una web TV**. Il sistema
+accetta anche YouTube (§5.2), per esempio come riserva.
+
+### 5.1 La web TV
+
+**Che cosa chiedere alla web TV** (una email basta):
+
+1. **Il link HLS della diretta**, quello che finisce con `.m3u8` (per esempio
+   `https://…/live/napoli/playlist.m3u8`), **in https**. È il formato migliore:
+   si guarda nel nostro player, con i nostri comandi, la scelta della qualità e
+   "Torna in diretta", senza marchi né suggerimenti di altri.
+2. Che quel link sia **leggibile dal nostro sito**: sui loro server ci deve
+   essere l'intestazione **CORS** `Access-Control-Allow-Origin` (con `*` oppure
+   con `https://nextgenerationbusiness.it`). Quasi tutti i CDN la mettono già; se
+   manca, su Chrome, Edge e Firefox il video non parte (su iPhone sì) e la pagina
+   dice "Video non disponibile".
+3. **Capacità per 1000 persone insieme**: il video lo trasmette la web TV, non il
+   nostro sito. A 2-3 Mbit/s a testa sono 2-3 Gbit/s: chiedi conferma che il
+   loro CDN li regga.
+4. In alternativa (o come riserva) **il codice da incorporare** del loro player
+   (`<iframe src="…">`) o il link della pagina del player, con l'incorporamento
+   consentito sul nostro dominio. Funziona, ma audio, pausa e qualità si
+   regolano con i comandi del loro player (una pagina non può comandare il
+   player di un altro sito): dei nostri resta lo schermo intero.
+5. Un **link di prova attivo qualche giorno prima**, anche lo stesso della
+   diretta con un segnale di prova, per la prova generale.
+
+**Che cosa si incolla nella gestione.** In *Evento* o in *Regia*: il link
+`.m3u8`, oppure il link del player, oppure tutto il codice `<iframe …>` (se ne
+prende solo l'indirizzo). Vanno bene anche un file video (`.mp4`, `.webm`) e un
+link YouTube. Si rifiutano, con il motivo: gli indirizzi `http://`, quelli per
+**trasmettere** (`rtmp://`, `rtsp://`, `srt://`: sono per il programma di regia,
+non per chi guarda), i link DASH (`.mpd`) e i link con nome utente e password.
+Le regole sono in `diretta/sorgente-video.js`, le stesse per gestione, player e
+servizio.
+
+**Il link si può mettere prima che la web TV trasmetta.** La regia prova ogni
+link nuovo con il player: se all'indirizzo non c'è ancora niente, lo salva lo
+stesso con un avviso. Chi è collegato vede "Video non disponibile, riproviamo da
+soli ogni 20 secondi" e, appena la web TV comincia a trasmettere, il video parte
+da solo, senza ricaricare. Lo stesso se la trasmissione cade e riparte.
+
+**Come si vede.**
+- Su **iPhone, iPad e Safari** l'HLS lo legge il browser; su **Chrome, Edge,
+  Firefox e Android** lo legge hls.js (`diretta/hls.min.js`, 386 KB, scaricato
+  solo per le dirette HLS).
+- **Qualità**: se la web TV trasmette più qualità (per esempio 1080p, 720p,
+  480p), compare il selettore con "Automatica" e le singole qualità (su iPhone
+  la sceglie Safari).
+- **Ritardo** rispetto alla sala: quello dell'HLS, di solito 10-30 secondi;
+  dipende da come trasmette la web TV.
+- Il resto è come prima: parte muto con "Attiva l'audio", schermo intero del
+  nostro riquadro (anche su iPhone), tastiera, pausa e fine con le nostre
+  schermate. Su iPhone il volume resta ai tasti del telefono.
+
+**Il link si può condividere**, come quello di YouTube: arriva al browser solo
+dopo l'accesso e solo mentre si è in onda, ma chi è dentro può copiarlo. Se la
+web TV offre link con un **token che scade** (`…/playlist.m3u8?token=…`), usa
+quello: il sistema lo accetta così com'è.
+
+**Sicurezza della pagina (CSP).** Per accettare una web TV qualsiasi, le pagine
+permettono video, playlist e player incorporati da qualunque indirizzo `https:`
+(`media-src`, `connect-src` e `frame-src` in testa a `diretta/index.html`,
+`reimposta.html` e `gestione/index.html`); il codice (`script-src`) resta
+limitato come prima. Quando conosci i domini della web TV puoi restringere quei
+tre punti ai loro (per esempio `https://*.webtv-esempio.it`).
+
+### 5.2 Se la diretta è su YouTube
 
 **Da fare SUBITO** se il canale non ha mai trasmesso dal vivo: la prima
 attivazione delle dirette su un canale YouTube può richiedere **fino a 24 ore**
@@ -398,7 +470,7 @@ si vedono.
 
 1. **Evento** (scheda *Evento*): identificativo (per Napoli `napoli-2026`,
    lo stesso scritto in `assets/diretta-stato.js`), titolo, luogo, data, ora
-   di inizio e di fine, link della diretta YouTube, programma (una voce per
+   di inizio e di fine, link della diretta (web TV, §5), programma (una voce per
    riga: `09.00 Accoglienza`), pagina dell'evento (`/napoli_ottobre_2026/`),
    le caselle dei **promemoria** (giorno prima, un'ora prima: accanto c'è quante
    persone li riceveranno) e, se serve, **"un solo dispositivo"**.
@@ -445,7 +517,7 @@ si vedono.
 
 ### 6.4 Il giorno dell'evento (scheda *Regia*)
 
-- Quando YouTube è in onda, **"Vai in onda"**: tutte le pagine aperte passano da
+- Quando la web TV trasmette, **"Vai in onda"**: tutte le pagine aperte passano da
   sole dall'attesa alla diretta. Il contatore mostra le persone collegate in
   questo momento (si aggiorna ogni 20 secondi).
 - **Pausa** (con l'orario di ripresa, facoltativo) e **Riprendi**: in pausa i
@@ -453,8 +525,9 @@ si vedono.
 - **"Avviso a tutti"**: una riga che compare in cima alla pagina di tutti
   ("Problema tecnico: riprendiamo tra 5 minuti").
 - **Cambio del video**: incolla il nuovo link; la regia lo prova prima in una
-  piccola anteprima e lo blocca se YouTube non lo fa vedere. Chi guarda passa al
-  nuovo video da solo, senza ricaricare.
+  piccola anteprima e lo blocca se il video non si può usare (se la web TV non
+  ha ancora cominciato a trasmettere, lo salva con un avviso). Chi guarda passa
+  al nuovo video da solo, senza ricaricare.
 - Alla fine, **"Termina"**. Se la riapri ("Vai in onda" di nuovo), le pagine
   ripartono.
 
@@ -659,7 +732,8 @@ al contatore) ma non aggiunge minuti.
 | **Totale del giorno** | **~6.000** (Napoli: ~8.000) |
 
 Il piano Pro include 1 milione di chiamate al mese: la diretta ne usa lo
-0,6 %. Nessuna funzione è sul percorso del video (lo trasmette YouTube).
+0,6 %. Nessuna funzione è sul percorso del video: lo trasmette la web TV (a
+1000 persone insieme, 2-3 Gbit/s: vanno chiesti a lei, §5.1).
 
 ### Firebase Authentication e Brevo
 
@@ -777,7 +851,8 @@ fatti alle pagine per farle girare lì (da dove si caricano l'SDK e SheetJS, la
 navigazione fra le pagine) sono elencati in `anteprima/costruisci.js`, che si
 ferma se non li trova: l'anteprima non può restare indietro rispetto al codice.
 
-**Cosa le prove non coprono** (e va provato a mano, vedi §12): YouTube vero
+**Cosa le prove non coprono** (e va provato a mano, vedi §12): la web TV vera
+(il suo link, il CORS dei suoi server, la capacità con 1000 persone), YouTube vero
 (la rete di prova non lo raggiunge), Safari vero su iPhone e iPad (Playwright
 usa Chromium, che simula il telefono ma non è Safari), Firefox ed Edge, Brevo
 vero, il progetto Firebase vero (quote, indici, limiti di Google).
@@ -789,40 +864,44 @@ caricamento, email, popup della home, sezione di Napoli). Si rifanno con
 
 ## 11. Cambiare piattaforma video
 
-Tutto quello che riguarda YouTube sta in **`diretta/player-youtube.js`**: la
-pagina della diretta e la regia della gestione usano solo questa interfaccia.
+La pagina della diretta e la regia della gestione parlano con il video solo
+attraverso questa interfaccia (`window.NGBPlayer`):
 
 ```js
 window.NGBPlayer = {
-    nome: 'youtube',
+    nome: 'webtv',
     crea(contenitore, { onPronto, onStato, onErrore, onVolume }),  // -> istanza
-    idDa(url)   // l'identificativo del video dal link incollato, oppure ''
+    idDa(url)   // il valore da salvare dal link incollato, oppure ''
 };
 // istanza:
-player.carica(id); player.play(); player.pausa(); player.alterna();
+player.carica(valore); player.play(); player.pausa(); player.alterna();
 player.muto(); player.smuto(); player.eMuto(); player.volume(0-100); player.leggiVolume();
 player.vaiAlLive(); player.livelliQualita(); player.impostaQualita(v);
 player.stato(); player.mostra(true|false); player.distruggi();
+player.capacita();   // { comandi, qualita }: comandi false = player incorporato, restano i suoi
 ```
 
-Per passare a Vimeo, Mux o Cloudflare Stream:
+Oggi `diretta/player-webtv.js` sceglie da solo secondo il link: HLS e file
+video in un `<video>` nostro (hls.js dove serve), il player della web TV
+incorporato, oppure YouTube (`diretta/player-youtube.js`, caricato prima). Che
+cosa è un link lo decide `diretta/sorgente-video.js`, la stessa regola del
+servizio (`email-service/lib/diretta-sorgente-video.js`, copia identica
+controllata dalle prove).
 
-1. scrivi `diretta/player-vimeo.js` (o `-mux`, `-cloudflare`) con la **stessa
-   interfaccia**, compresa `idDa` (identificativo di al massimo 64 caratteri fra
-   lettere, numeri, `_` e `-`: il servizio accetta così com'è quello che la
-   gestione gli manda);
-2. cambia la riga `<script src="player-youtube.js">` in `diretta/index.html` e
-   quella `<script src="../player-youtube.js">` in `diretta/gestione/index.html`;
-3. aggiungi i domini del fornitore alla `Content-Security-Policy` in testa alle
-   stesse due pagine (`frame-src` e `script-src` per il player, per esempio
-   `https://player.vimeo.com`; `connect-src` e `media-src` con `blob:` per i
-   flussi HLS, per esempio `https://stream.mux.com` o `https://videodelivery.net`).
+Per aggiungere un fornitore con un'API propria (Vimeo, Mux, Cloudflare Stream):
+
+1. scrivi `diretta/player-<nome>.js` con la **stessa interfaccia**;
+2. insegna a `sorgente-video.js` a riconoscerne i link (e ricopialo in
+   `email-service/lib/diretta-sorgente-video.js`), e a `player-webtv.js` a
+   passargli quei link, come fa con YouTube;
+3. aggiungi la riga `<script>` in `diretta/index.html` e in
+   `diretta/gestione/index.html`, e i domini del fornitore alla
+   `Content-Security-Policy` (`script-src` per il suo codice).
 
 La gestione adatta testi, esempi di link ed errori al nome dichiarato dal
-player (`NGBPlayer.nome`, tabella `PIATTAFORME` in `gestione/gestione.js`, che
-conosce già YouTube, Vimeo, Mux e Cloudflare). Il servizio non va toccato. Con quei fornitori anche il selettore della qualità
-comincia a funzionare (livelli HLS), e con Vimeo (domini consentiti) o con Mux e
-Cloudflare (indirizzi firmati) si può impedire la condivisione del link.
+player (`NGBPlayer.nome`, tabella `PIATTAFORME` in `gestione/gestione.js`).
+Mux e Cloudflare danno comunque un link HLS: per loro basta incollarlo, come per
+la web TV.
 
 ## 12. Cosa devi fare tu
 
@@ -831,10 +910,11 @@ settembre: c'è tempo, ma non tanto).
 
 **Subito (oggi o domani)**
 
-1. [ ] **YouTube**: se il canale non ha mai trasmesso dal vivo, attiva le dirette
-   (fino a 24 ore di attesa). Poi crea la diretta di Napoli: **non in elenco**,
-   **incorporamento consentito**, non per bambini, nessuna limitazione d'età,
-   DVR attivo, chiave di streaming persistente (§5).
+1. [ ] **Web TV** (§5.1): chiedi il **link HLS `.m3u8` in https** della diretta
+   di Napoli, con **CORS** attivo per il nostro dominio, la conferma che il loro
+   CDN regge **1000 persone insieme**, e un **link di prova** attivo nei giorni
+   prima (in alternativa, il codice da incorporare del loro player). Mandami il
+   link appena ce l'hai: lo provo e, se vuoi, restringo la CSP ai loro domini.
 2. [ ] **Progetto Firebase `ngb-eventi`** (§2.2): crealo, passa a **Blaze** e
    imposta l'**avviso di budget** (10 €); Firestore `(default)` in `eur3` o
    `europe-west8`; Authentication con **Email/password**, **registrazione e
@@ -867,13 +947,13 @@ settembre: c'è tempo, ma non tanto).
 **Prima di inviare le credenziali (entro il 26-27 settembre)**
 
 9. [ ] Entra in `/diretta/gestione/` con "Primo accesso" (§6.1).
-10. [ ] Crea l'evento **`napoli-2026`** con gli orari veri e il link YouTube
+10. [ ] Crea l'evento **`napoli-2026`** con gli orari veri e il link della web TV
     (stesso identificativo e stessi orari di `assets/diretta-stato.js`: se li
     cambi, aggiorna anche quel file).
 11. [ ] **Prova generale** con un evento di prova e 3-4 persone vere (tu e dei
     colleghi): email di prova, credenziali, accesso **da un iPhone con Safari,
     da un telefono Android, da un computer con Chrome, Firefox ed Edge**, "Vai in
-    onda" con la diretta di prova di YouTube, "Attiva l'audio", schermo intero,
+    onda" con il link di prova della web TV, "Attiva l'audio", la qualità, schermo intero,
     pausa, cambio del link, "Password dimenticata?", esportazione. Su iPhone
     prova anche con il **Risparmio energetico** attivo.
 12. [ ] Prova sul progetto vero il **contatore dei collegati** e
@@ -888,9 +968,10 @@ settembre: c'è tempo, ma non tanto).
     l'ha ricevuta". Tieni a portata di mano il numero dell'assistenza e la
     sezione 7 ("account disattivato", "password dimenticata").
 
-**Il 2 ottobre**: *Regia* → "Vai in onda" quando YouTube trasmette; "Pausa" a
-pranzo; "Termina" alla fine; poi *Esporta* per gli attestati. Dopo l'evento,
-rendi privato il video su YouTube se non deve restare visibile.
+**Il 2 ottobre**: *Regia* → "Vai in onda" quando la web TV trasmette; "Pausa"
+a pranzo; "Termina" alla fine; poi *Esporta* per gli attestati. Dopo l'evento,
+chiedi alla web TV di disattivare il link se la registrazione non deve restare
+visibile.
 
 **Da decidere con calma** (non bloccano Napoli)
 

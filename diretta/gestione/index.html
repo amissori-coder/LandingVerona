@@ -8,7 +8,7 @@
          dove puo' caricare codice, stili, font e dati: se un giorno un nome o
          un'azienda contenessero del codice, il browser si rifiuterebbe di
          eseguirlo. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://ngb-eventi.firebaseapp.com; connect-src 'self' https://revilaw-email.vercel.app https://*.googleapis.com https://firestore.googleapis.com wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https:; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <title>Gestione della diretta | Next Generation Business</title>
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#0A2844">
@@ -149,9 +149,9 @@
                             <div class="campo campo-intero">
                                 <!-- nome della piattaforma, segnaposto e frase su «Non in elenco»
                                      li adatta gestione.js al player caricato (NGBPlayer.nome) -->
-                                <label for="ev-video">Link del video <span class="nome-piattaforma">YouTube</span></label>
-                                <input type="url" id="ev-video" name="videoUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-video-aiuto" placeholder="https://www.youtube.com/live/…">
-                                <p id="ev-video-aiuto" class="aiuto"><span data-solo-piattaforma="youtube">La diretta su YouTube va impostata come «Non in elenco» con l'incorporamento consentito. </span>
+                                <label for="ev-video">Link del video (<span class="nome-piattaforma">web TV</span>)</label>
+                                <input type="text" inputmode="url" id="ev-video" name="videoUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-video-aiuto" placeholder="https://…/playlist.m3u8 (o il codice da incorporare)">
+                                <p id="ev-video-aiuto" class="aiuto"><span data-solo-piattaforma="webtv">Chiedi alla web TV il link HLS della diretta (finisce con .m3u8): si vede con i nostri comandi e la scelta della qualità. Vanno bene anche il link del suo player o il codice da incorporare (allora audio e pausa si regolano con i comandi della web TV), e un link YouTube. </span><span data-solo-piattaforma="youtube">La diretta su YouTube va impostata come «Non in elenco» con l'incorporamento consentito. </span>
                                     Il link non compare mai nel codice pubblico: i partecipanti lo ricevono solo mentre l'evento è in onda.
                                     Un link nuovo lo provo qui sotto con lo stesso player dei partecipanti prima di salvarlo.
                                     Puoi lasciarlo vuoto e inserirlo più tardi dalla scheda Regia.</p>
@@ -269,12 +269,12 @@
                             <p class="regia-dettaglio">Video attuale: <span id="regia-video-attuale" class="testo-fisso">nessuno</span></p>
                             <p id="regia-video-pubblico" class="aiuto"></p>
                             <form id="form-video" class="riga-campo" novalidate>
-                                <label for="regia-video" class="solo-lettori">Nuovo link del video <span class="nome-piattaforma">YouTube</span></label>
-                                <input type="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Incolla il link YouTube della diretta">
+                                <label for="regia-video" class="solo-lettori">Nuovo link del video (<span class="nome-piattaforma">web TV</span>)</label>
+                                <input type="text" inputmode="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Incolla il link della web TV (o il codice da incorporare)">
                                 <button type="submit" id="btn-cambia-video" class="btn btn-primario">Cambia video</button>
                             </form>
                             <p class="aiuto">Prima di applicarlo lo provo qui sotto con lo stesso player dei partecipanti: se
-                                <span class="nome-piattaforma">YouTube</span> non lo consente, te lo dico e non cambio niente. Durante la diretta, chi è collegato passa al nuovo video da solo.</p>
+                                il video non si può usare, te lo dico e non cambio niente (se la web TV non ha ancora cominciato a trasmettere, te lo segnalo ma lo salvo). Durante la diretta, chi è collegato passa al nuovo video da solo.</p>
                             <p id="msg-video" class="msg" role="status" hidden></p>
                             <div id="regia-video-anteprima" class="video-anteprima" hidden>
                                 <div class="video-anteprima-cornice"></div>
@@ -642,9 +642,11 @@
 
     <script src="../config.js?v=20260924b"></script>
     <script src="../nome-utente.js?v=20260924b"></script>
-    <!-- lo stesso player della pagina dei partecipanti: serve all'anteprima del
-         video in regia e a riconoscere l'identificativo dal link (idDa) -->
+    <!-- lo stesso player della pagina dei partecipanti (web TV, e YouTube se
+         serve): serve all'anteprima del video in regia e a riconoscere il link (idDa) -->
+    <script src="../sorgente-video.js?v=20260924f"></script>
     <script src="../player-youtube.js?v=20260924c"></script>
-    <script src="gestione.js?v=20260924d"></script>
+    <script src="../player-webtv.js?v=20260924f"></script>
+    <script src="gestione.js?v=20260924e"></script>
 </body>
 </html>

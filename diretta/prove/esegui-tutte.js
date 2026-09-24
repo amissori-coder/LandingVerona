@@ -32,6 +32,7 @@ const PROVE = [
     { nome: 'password', cartella: SERVIZIO, file: 'prove/diretta-password.prove.js' },
     { nome: 'email', cartella: SERVIZIO, file: 'prove/diretta-mail.prove.js' },
     { nome: 'tempi', cartella: SERVIZIO, file: 'prove/diretta-accesso-tempi.prove.js' },
+    { nome: 'video', cartella: SERVIZIO, file: 'prove/diretta-video.prove.js' },
     { nome: 'regole', cartella: QUI, file: 'regole.prova.js', emulatore: true },
     { nome: 'separazione', cartella: QUI, file: 'separazione.prova.js', emulatore: true },
     { nome: 'doppioni', cartella: QUI, file: 'doppioni.prova.js' },
@@ -41,6 +42,7 @@ const PROVE = [
     { nome: 'gestione', cartella: QUI, file: 'gestione.prova.js' },
     { nome: 'sito', cartella: QUI, file: 'sito.prova.js' },
     { nome: 'e2e', cartella: QUI, file: 'e2e.prova.js' },
+    { nome: 'webtv', cartella: QUI, file: 'webtv.prova.js' },
     { nome: 'anteprima', cartella: QUI, file: 'anteprima/anteprima.prova.js' }
 ];
 const EMULATORE = { firestore: 8980, auth: 9980 };

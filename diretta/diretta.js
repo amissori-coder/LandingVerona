@@ -18,7 +18,8 @@
           ricaricare: quando la regia manda in onda, il video compare.
 
    PERCHE' COSI'.
-   - 1000 persone collegate insieme: il video lo trasmette YouTube;
+   - 1000 persone collegate insieme: il video lo trasmette la web TV
+     (o YouTube);
      Firebase porta solo un documento piccolo (l'evento) a ciascuno
      e riceve un segnale di presenza al massimo ogni 60 secondi per
      persona, con partenze sparse a caso (mai 1000 scritture nello
@@ -33,8 +34,9 @@
    - La sessione resta aperta sul dispositivo (persistenza locale di
      Firebase): chi chiude e riapre la pagina non rifa' l'accesso.
 
-   Il player e' in player-youtube.js (window.NGBPlayer): per cambiare
-   fornitore si cambia solo quel file. La configurazione (progetto
+   Il player e' in player-webtv.js (window.NGBPlayer): la web TV (link
+   HLS, file video o player incorporato) e, se il link e' di YouTube,
+   player-youtube.js. Per cambiare fornitore si cambiano solo quei file. La configurazione (progetto
    Firebase, indirizzo del servizio, modalita' prove) e' in config.js.
    La pulizia del nome utente e' in nome-utente.js (la stessa del
    servizio).
@@ -1195,6 +1197,8 @@
             onPronto: () => {
                 video.errore = null;
                 video.fermo = false;
+                // con la web TV (HLS) le qualita' si conoscono solo adesso
+                preparaQualita();
                 controllaFermo();
                 aggiornaSchermo();
             },
@@ -1351,8 +1355,21 @@
         vol.disabled = !conVideo;
         vol.hidden = IOS;
         $('btn-live').disabled = !conVideo;
-        mostra('btn-attiva-audio', conVideo && video.muto && !video.errore);
+        /* Il player della web TV incorporato (iframe di un altro sito) ha i
+           suoi comandi e i nostri non lo raggiungono: restano solo lo schermo
+           intero e l'indicazione di usare i comandi del player. */
+        const ridotti = comandiRidotti();
+        $('riquadro-video').setAttribute('data-comandi', ridotti ? 'ridotti' : 'pieni');
+        testo('riga-comandi-aiuto', ridotti
+            ? 'Audio e pausa si regolano con i comandi del player; qui sotto lo schermo intero.'
+            : 'Usa i pulsanti qui sotto per l\'audio e lo schermo intero.');
+        mostra('btn-attiva-audio', conVideo && video.muto && !video.errore && !ridotti);
         aggiornaStriscia();
+    }
+    function comandiRidotti() {
+        const p = video.player;
+        if (!p || !video.id || typeof p.capacita !== 'function') return false;
+        try { return p.capacita().comandi === false; } catch (e) { return false; }
     }
     // la striscia sotto il video c'e' solo se ha qualcosa da dire
     function aggiornaStriscia() {
@@ -1458,7 +1475,7 @@
             o.textContent = String(l.etichetta);
             sel.appendChild(o);
         });
-        // con YouTube la qualita' la sceglie YouTube: il selettore resta nascosto
+        // con YouTube (e con l'HLS di Safari) la qualita' la sceglie il player: il selettore resta nascosto
         sel.hidden = !(livelli && livelli.length);
     }
 

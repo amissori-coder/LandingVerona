@@ -30,7 +30,12 @@ const esbuild = require('esbuild');
 
 const QUI = __dirname;
 const REPO = path.resolve(QUI, '../../..');
-const OUT = path.resolve(QUI, '../risultati/anteprima');
+/* Con --player-vero (lo usa diretta/prove/webtv.prova.js) le pagine tengono
+   il player VERO (player-webtv.js, player-youtube.js, hls.min.js) e la loro
+   CSP: serve a provare la web TV sulle pagine vere, in locale. Non e' la
+   versione da pubblicare: li' i video di altri siti non si caricano. */
+const PLAYER_VERO = process.argv.indexOf('--player-vero') >= 0;
+const OUT = path.resolve(QUI, PLAYER_VERO ? '../risultati/anteprima-vera' : '../risultati/anteprima');
 const MOTORE = path.join(QUI, 'motore');
 
 /* Il carattere U+FFFD (quello che compare al posto delle lettere quando la
@@ -135,10 +140,16 @@ function riferimentiDalGuscio(html, cartellaPagina, file) {
 
 function pagina(rel, cartella, conPlayer) {
     let html = leggi(rel);
-    html = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\s*/i, '');
+    if (!PLAYER_VERO) html = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\s*/i, '');
     html = riferimentiDalGuscio(html, cartella, rel);
-    if (conPlayer) html = ritocca(html, rel, '"diretta/player-youtube.js"', '"anteprima/player-anteprima.js"');
-    if (/player-youtube/.test(html)) throw new Error('player-youtube ancora presente in ' + rel);
+    if (conPlayer && !PLAYER_VERO) {
+        // un solo player, quello dell'anteprima, al posto di YouTube e della web TV
+        html = ritocca(html, rel, '"diretta/player-youtube.js"', '"anteprima/player-anteprima.js"');
+        const prima = html.length;
+        html = html.replace(/\s*<script src="diretta\/player-webtv\.js"( defer)?><\/script>/, '');
+        if (html.length === prima) throw new Error('RITOCCO NON APPLICABILE in ' + rel + ': manca lo script di player-webtv.js');
+    }
+    if (!PLAYER_VERO && /player-youtube|player-webtv/.test(html)) throw new Error('player vero ancora presente in ' + rel);
     return html;
 }
 
@@ -158,6 +169,8 @@ async function costruisci() {
 
     ['diretta/diretta.css', 'diretta/gestione/gestione.css'].forEach(f => copia(f));
     scrivi('diretta/nome-utente.js', leggi('diretta/nome-utente.js'));
+    scrivi('diretta/sorgente-video.js', leggi('diretta/sorgente-video.js'));
+    if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-youtube.js', 'diretta/hls.min.js'].forEach(f => copia(f));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');
     copia('diretta/prove/anteprima/pagina.js', 'anteprima/pagina.js');
     copia('diretta/prove/anteprima/player-anteprima.js', 'anteprima/player-anteprima.js');

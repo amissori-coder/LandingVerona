@@ -1,9 +1,10 @@
 /* ============================================================
    IL PLAYER DELL'ANTEPRIMA: un video di prova disegnato nel browser
    ------------------------------------------------------------
-   Nell'anteprima YouTube non si puo' incorporare (la pagina che la
-   ospita non permette iframe verso altri siti). Al suo posto questo
-   player, con la STESSA interfaccia di player-youtube.js:
+   Nell'anteprima non si possono caricare video da altri siti (la
+   pagina che la ospita non lo permette): niente web TV e niente
+   YouTube. Al loro posto questo player, con la STESSA interfaccia di
+   player-webtv.js e player-youtube.js:
 
        window.NGBPlayer = { nome, crea(contenitore, opzioni), idDa(url) }
 
@@ -18,8 +19,10 @@
 (function () {
     'use strict';
 
-    // come in player-youtube.js: accetta gli stessi link
+    // come in player-webtv.js: accetta gli stessi link (sorgente-video.js), o almeno quelli di YouTube
     function idDa(indirizzo) {
+        var S = window.NGBSorgenteVideo;
+        if (S) { var v = S.leggi(indirizzo); return v && !v.errore ? v.valore : ''; }
         var s = String(indirizzo == null ? '' : indirizzo).trim();
         if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
         var u;
@@ -35,6 +38,12 @@
             }
         }
         return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : '';
+    }
+
+    // un indirizzo lungo della web TV si accorcia: dominio e ultimo pezzo del percorso
+    function etichettaVideo(v) {
+        if (!/^https:\/\//.test(v)) return v;
+        try { var u = new URL(v); var pezzi = u.pathname.split('/').filter(Boolean); return u.hostname + (pezzi.length > 1 ? '/…/' : '/') + (pezzi.pop() || ''); } catch (e) { return v; }
     }
 
     var riduciMovimento = false;
@@ -152,7 +161,7 @@
             ctx.fillStyle = '#fff'; ctx.font = '700 ' + Math.round(u * 0.34) + 'px Inter, Arial, sans-serif';
             ctx.fillText('Apertura dei lavori', u * 0.65, H - u * 1.08);
             ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = '500 ' + Math.round(u * 0.24) + 'px Inter, Arial, sans-serif';
-            ctx.fillText('Video caricato: ' + idCorrente + '  ·  al posto di YouTube in questa anteprima', u * 0.65, H - u * 0.72);
+            ctx.fillText('Video: ' + etichettaVideo(idCorrente) + '  ·  al posto della web TV in questa anteprima', u * 0.65, H - u * 0.72);
 
             // l'audio, quando e' attivo: barrette che si muovono
             if (!muto && vol > 0) {
@@ -210,7 +219,7 @@
             leggiVolume: function () { return vol; },
             vaiAlLive: vaiAlLive,
             livelliQualita: function () { return []; },
-            impostaQualita: function () { /* come con YouTube: niente */ },
+            impostaQualita: function () { /* nell'anteprima c'e' una sola qualita' */ },
             stato: function () { return statoCorrente; },
             mostra: function (si) { visibile = !!si; if (tela) tela._disegnato = false; applicaVisibilita(); },
             distruggi: function () {

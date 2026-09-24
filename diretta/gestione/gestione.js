@@ -186,6 +186,9 @@
         if (P && typeof P.idDa === 'function') {
             try { return String(P.idDa(url) || ''); } catch (_) { return ''; }
         }
+        // senza player: le stesse regole del servizio (sorgente-video.js), o almeno quelle di YouTube
+        const S = window.NGBSorgenteVideo;
+        if (S) { const v = S.leggi(url); return v && !v.errore ? v.valore : ''; }
         return idYouTube(url);
     }
 
@@ -195,6 +198,7 @@
        "YouTube" da nessuna parte. Senza player valgono le regole di YouTube
        (idYouTube qui sopra), quindi anche i testi. */
     const PIATTAFORME = {
+        webtv: { nome: 'web TV', esempi: '', segnaposto: 'https://…/playlist.m3u8 (o il codice da incorporare)' },
         youtube: { nome: 'YouTube', esempi: 'youtube.com/watch?v=…, youtu.be/…, youtube.com/live/…', segnaposto: 'https://www.youtube.com/live/…' },
         vimeo: { nome: 'Vimeo', esempi: 'vimeo.com/…, vimeo.com/event/…', segnaposto: 'https://vimeo.com/…' },
         mux: { nome: 'Mux', esempi: '', segnaposto: '' },
@@ -208,8 +212,11 @@
         const nome = chiave ? P.nome.trim() : '';
         return { chiave: chiave, nome: nome ? nome.charAt(0).toUpperCase() + nome.slice(1) : '', esempi: '', segnaposto: '' };
     }
-    function msgLinkNonRiconosciuto() {
+    function msgLinkNonRiconosciuto(url) {
         const p = piattaforma();
+        // la web TV: il motivo preciso (http invece di https, link RTMP, DASH...) lo sa sorgente-video.js
+        const S = window.NGBSorgenteVideo;
+        if (p.chiave === 'webtv' && S) return S.messaggio(S.leggi(url));
         return 'Non riconosco un video' + (p.nome ? ' di ' + p.nome : '') + ' in questo link: incolla il link della pagina del video o della diretta'
             + (p.esempi ? ' (' + p.esempi + ')' : '') + '.';
     }
@@ -219,7 +226,9 @@
         document.querySelectorAll('.nome-piattaforma').forEach(n => { n.textContent = p.nome; });
         document.querySelectorAll('[data-solo-piattaforma]').forEach(n => { n.hidden = n.dataset.soloPiattaforma !== p.chiave; });
         $('#ev-video').placeholder = p.segnaposto;
-        $('#regia-video').placeholder = 'Incolla il link' + (p.nome ? ' ' + p.nome : '') + ' della diretta';
+        $('#regia-video').placeholder = p.chiave === 'webtv'
+            ? 'Incolla il link della web TV (o il codice da incorporare)'
+            : 'Incolla il link' + (p.nome ? ' ' + p.nome : '') + ' della diretta';
     }
 
     /* ============================================================
@@ -979,7 +988,7 @@
         if (!/^\d{2}:\d{2}$/.test(oraFine)) segna('#ev-ora-fine', 'Ora di fine mancante.');
         else if (/^\d{2}:\d{2}$/.test(oraInizio) && oraFine <= oraInizio) segna('#ev-ora-fine', 'L\'ora di fine deve venire dopo quella di inizio.');
         const videoId = videoUrl ? idVideoDa(videoUrl) : '';
-        if (videoUrl && !videoId) segna('#ev-video', msgLinkNonRiconosciuto());
+        if (videoUrl && !videoId) segna('#ev-video', msgLinkNonRiconosciuto(videoUrl));
         if (pagina && !/^\/[a-z0-9_\/-]*\/?$/.test(pagina)) segna('#ev-pagina', 'Pagina dell\'evento: solo il percorso, per esempio /napoli_ottobre_2026/.');
         if (programma.errori.length) { $('#ev-programma').setAttribute('aria-invalid', 'true'); errori.push.apply(errori, programma.errori); }
 
@@ -1316,6 +1325,13 @@
                             fine({ ok: true, avviso: 'L\'anteprima non si è caricata (' + ((err && err.messaggio) || codice) + '): controlla il video con «Vedi come un partecipante».' });
                             return;
                         }
+                        /* La web TV: il link si mette di solito PRIMA che la diretta parta,
+                           quando all'indirizzo non c'e' ancora niente. Non si blocca: si
+                           avvisa, e si ricontrolla quando la web TV trasmette. */
+                        if (codice === 'rete' || codice === 'media' || codice === 'browser') {
+                            fine({ ok: true, avviso: 'Per ora a questo indirizzo non vedo la diretta (' + ((err && err.messaggio) || codice) + '). Se la web TV non ha ancora cominciato a trasmettere è normale: quando trasmette, controlla con «Vedi come un partecipante».' });
+                            return;
+                        }
                         fine({ ok: false, codice: codice, motivo: motivoVideo(err) });
                     }
                 });
@@ -1335,7 +1351,7 @@
         const b = $('#btn-cambia-video');
         if (url && !id) {
             $('#regia-video').setAttribute('aria-invalid', 'true');
-            mostraMsg('#msg-video', msgLinkNonRiconosciuto(), 'errore');
+            mostraMsg('#msg-video', msgLinkNonRiconosciuto(url), 'errore');
             return;
         }
         $('#regia-video').removeAttribute('aria-invalid');

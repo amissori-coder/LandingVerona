@@ -800,6 +800,12 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 }
 /* su iPhone e iPad il volume si regola solo con i tasti del dispositivo */
 .ios .volume { display: none; }
+/* il player della web TV incorporato ha i suoi comandi: dei nostri resta lo schermo intero */
+.riquadro-video[data-comandi="ridotti"] #btn-play,
+.riquadro-video[data-comandi="ridotti"] #btn-muto,
+.riquadro-video[data-comandi="ridotti"] .volume,
+.riquadro-video[data-comandi="ridotti"] .btn-live,
+.riquadro-video[data-comandi="ridotti"] .sel-qualita { display: none; }
 
 /* ---------- schermo intero ---------- */
 .riquadro-video:fullscreen,
@@ -967,6 +973,10 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
     .barra-comandi { gap: 2px; padding: 6px 6px; }
     .volume { width: 84px; }
     .btn-live { padding: 6px 12px; }
+    /* con la scelta della qualita' (web TV) sul telefono non c'e' posto per il
+       cursore del volume: il volume lo danno i tasti del telefono, il muto resta */
+    .barra-comandi:has(.sel-qualita:not([hidden])) .volume { display: none; }
+    .sel-qualita { max-width: 7.2em; padding: 4px 4px; font-size: 13px; }
     /* «Live» a vista; «Torna in diretta» resta il nome del pulsante per i
        lettori di schermo (nascosto solo alla vista, non con display:none) */
     .btn-live .testo-lungo {

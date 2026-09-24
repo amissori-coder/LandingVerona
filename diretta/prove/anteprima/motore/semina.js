@@ -85,7 +85,7 @@ async function semina(archivio, avanzamento) {
             titolo: 'Next Generation Business 2026 · Napoli',
             luogo: 'Napoli · Hotel Eurostars Excelsior',
             data: orari.data, oraInizio: orari.oraInizio, oraFine: orari.oraFine,
-            videoUrl: 'https://youtu.be/NGBdiretta1',
+            videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
             programma: [
                 { ora: orari.oraInizio.replace(':', '.'), titolo: 'Apertura dei lavori' },
                 { ora: '', titolo: 'Governance e controlli: cosa cambia per le imprese' },

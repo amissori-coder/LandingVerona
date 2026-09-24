@@ -743,19 +743,30 @@ async function sheetJSNode() {
         await page.clock.fastForward(21000);
         await aspetta(async () => chiamate('connessi').length > primaDelTimer && await testo('#num-connessi') === '36', 10000, 'aggiornamento dei collegati');
         vero(true, 'dopo 20 secondi il contatore si aggiorna da solo (36: cinque persone in più si sono collegate)');
-        // un link che non e' di un video: il messaggio nomina la piattaforma del player (NGBPlayer.nome)
-        await $('#regia-video').fill('https://example.com/diretta');
+        // link che non si possono usare: il motivo preciso (sorgente-video.js), niente chiamato
+        await $('#regia-video').fill('http://example.com/diretta/playlist.m3u8');
         await $('#btn-cambia-video').click();
-        await aspetta(async () => /Non riconosco un video/.test(await testo('#msg-video')), 5000, 'link non riconosciuto');
-        const msgYouTube = await testo('#msg-video');
-        await page.evaluate(() => { if (window.NGBPlayer) window.NGBPlayer.nome = 'vimeo'; });
+        await aspetta(async () => /https:\/\//.test(await testo('#msg-video')), 5000, 'link http rifiutato');
+        const msgHttp = await testo('#msg-video');
+        await $('#regia-video').fill('rtmp://ingest.example.com/live/chiave');
+        await $('#btn-cambia-video').click();
+        await aspetta(async () => /RTMP/.test(await testo('#msg-video')), 5000, 'link RTMP rifiutato');
+        const msgRtmp = await testo('#msg-video');
+        vero(chiamate('evento-video').length === 0, 'link che non si possono usare rifiutati con il motivo, niente chiamato («' + msgHttp + '» / «' + msgRtmp + '»)');
+        // con un player che non e' la web TV, i messaggi seguono il suo nome (NGBPlayer.nome), mai "YouTube" fisso
+        await page.evaluate(() => {
+            if (!window.NGBPlayer) return;
+            window.__idDaVero = window.NGBPlayer.idDa;
+            window.NGBPlayer.nome = 'vimeo';
+            window.NGBPlayer.idDa = () => '';
+        });
+        await $('#regia-video').fill('https://example.com/diretta');
         await $('#btn-cambia-video').click();
         await aspetta(async () => /di Vimeo/.test(await testo('#msg-video')), 5000, 'messaggio con la piattaforma');
         const msgVimeo = await testo('#msg-video');
-        await page.evaluate(() => { if (window.NGBPlayer) window.NGBPlayer.nome = 'youtube'; });
-        vero(/Non riconosco un video di YouTube in questo link.*youtu\.be/.test(msgYouTube) && /Non riconosco un video di Vimeo in questo link.*vimeo\.com/.test(msgVimeo)
-            && !/YouTube/.test(msgVimeo) && chiamate('evento-video').length === 0,
-            'link non riconosciuto: il messaggio segue NGBPlayer.nome («' + msgVimeo + '»), niente chiamato');
+        await page.evaluate(() => { if (window.NGBPlayer) { window.NGBPlayer.nome = 'webtv'; window.NGBPlayer.idDa = window.__idDaVero; } });
+        vero(/Non riconosco un video di Vimeo in questo link.*vimeo\.com/.test(msgVimeo) && !/YouTube/.test(msgVimeo) && chiamate('evento-video').length === 0,
+            'link non riconosciuto da un altro player: il messaggio segue NGBPlayer.nome («' + msgVimeo + '»), niente chiamato');
         // il video: prima provato con il player, poi cambiato per tutti
         const conPlayer = await page.evaluate(() => !!(window.NGBPlayer && window.NGBPlayer.crea));
         if (conPlayer) {

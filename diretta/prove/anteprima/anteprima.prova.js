@@ -99,7 +99,7 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await P.locator('body[data-vista="diretta"]').waitFor({ timeout: 20000 });
         vero(true, 'la pagina del partecipante passa alla diretta da sola');
         await P.locator('canvas.ngb-player-anteprima').waitFor({ timeout: 10000 });
-        vero(true, 'il video di prova e\' al posto di YouTube');
+        vero(true, 'il video di prova e\' al posto della web TV');
         await page.waitForTimeout(1500);
         await page.screenshot({ path: path.join(FOTO, '04-diretta.png') });
 

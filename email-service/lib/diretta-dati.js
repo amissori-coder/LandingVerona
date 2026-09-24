@@ -33,6 +33,7 @@
 const crypto = require('crypto');
 const C = require('./diretta-comune');
 const N = require('./diretta-nome-utente');
+const V = require('./diretta-sorgente-video');
 const { passwordSegreta, generaPassword } = require('./diretta-password');
 const { conLimite } = require('./diretta-auth');
 
@@ -247,16 +248,28 @@ function leggiProgramma(v) {
     return out;
 }
 
-/* Il video: l'identificativo lo puo' mandare la gestione (ricavato dal
-   player in uso, cosi' il server non e' legato a YouTube), altrimenti
-   lo si ricava dal link di YouTube. */
+/* Il video. Il gestore incolla quello che gli da' la web TV (il link
+   HLS .m3u8, il link del suo player o il codice da incorporare) oppure un
+   link di YouTube: le regole sono in diretta-sorgente-video.js, le stesse
+   della gestione e del player. Si salva il valore che il player riceve:
+   l'indirizzo https (web TV) o l'identificativo (YouTube). L'identificativo
+   mandato dalla gestione (NGBPlayer.idDa) vale solo senza link, o per un
+   player futuro che qui non si conosce ancora (lettere, numeri, - e _). */
 function leggiVideo(videoUrl, videoId) {
-    const url = C.testo(videoUrl, 500);
-    let id = String(videoId || '').trim();
-    if (id && !RE_VIDEO_ID.test(id)) throw C.errore(400, 'Identificativo del video non valido.', 'video');
-    if (!id && url) id = C.idYouTube(url);
-    if (url && !id) throw C.errore(400, 'Link del video non riconosciuto: incolla il link della diretta di YouTube.', 'video');
-    return { videoUrl: url, videoId: id };
+    // il codice da incorporare puo' essere lungo: si legge tutto, si salva solo l'indirizzo
+    const incollato = String(videoUrl == null ? '' : videoUrl).trim().slice(0, 4000);
+    const id = String(videoId || '').trim();
+    if (incollato) {
+        const s = V.leggi(incollato);
+        if (s && !s.errore) return { videoUrl: s.tipo === 'youtube' ? C.testo(incollato, 500) : s.valore, videoId: s.valore };
+        if (id && RE_VIDEO_ID.test(id)) return { videoUrl: C.testo(incollato, 500), videoId: id };
+        throw C.errore(400, V.messaggio(s), 'video');
+    }
+    if (!id) return { videoUrl: '', videoId: '' };
+    const s = V.leggi(id);
+    if (s && !s.errore) return { videoUrl: '', videoId: s.valore };
+    if (RE_VIDEO_ID.test(id)) return { videoUrl: '', videoId: id };
+    throw C.errore(400, 'Identificativo del video non valido.', 'video');
 }
 
 // due valori (anche con Timestamp e liste) sono uguali?
@@ -999,7 +1012,7 @@ async function esporta(ctx, idEvento) {
 module.exports = {
     // attrezzi e risposte
     ms, jsonDi, errorePubblico, rispondi, perLog, controllaIdEvento, controllaUid, nuovoUid, listaEventi, stessaLista,
-    inParallelo, conRiprova, radiceDi, emailMascherata, leggiProgramma, normalizzaOra,
+    inParallelo, conRiprova, radiceDi, emailMascherata, leggiProgramma, normalizzaOra, leggiVideo,
     // eventi
     eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaAvviso, scegliEvento,
     // partecipanti

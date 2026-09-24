@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <!-- Content-Security-Policy: la pagina carica codice solo da se' stessa, dall'SDK
          di Firebase (gstatic) e dall'API di YouTube. Nessuno script scritto nella
-         pagina: tutto sta nei file .js qui accanto (DECISIONI D3). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://ngb-eventi.firebaseapp.com; connect-src 'self' https://revilaw-email.vercel.app https://*.googleapis.com https://firestore.googleapis.com wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+         pagina: tutto sta nei file .js qui accanto (DECISIONI D3). Il video della
+         web TV (HLS, file o player incorporato) puo' arrivare da qualunque indirizzo
+         https: media-src, connect-src e frame-src lo permettono. Quando si conosce il
+         dominio della web TV si puo' restringere (README, §5). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https:; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <!-- viewport-fit=cover: su iPhone la pagina usa anche le zone attorno alla tacca
          (le distanze giuste le mette il CSS con env(safe-area-inset-*)) -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -22,11 +25,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20260924c">
+    <link rel="stylesheet" href="diretta.css?v=20260924f">
     <script src="config.js?v=20260924c" defer></script>
     <script src="nome-utente.js?v=20260924c" defer></script>
+    <script src="sorgente-video.js?v=20260924f" defer></script>
     <script src="player-youtube.js?v=20260924c" defer></script>
-    <script src="diretta.js?v=20260924e" defer></script>
+    <script src="player-webtv.js?v=20260924f" defer></script>
+    <script src="diretta.js?v=20260924f" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
