@@ -6,7 +6,11 @@
  * - Ha la PRECEDENZA su tutti gli altri popup della home: quando sta per
  *   comparire imposta subito window.__dirPromoPlanned (bando-tipo-popup.js e
  *   fcd-popup.js, caricati dopo, si ritirano) e all'apertura marca come visti
- *   anche quei due popup (mai due popup nella stessa sessione).
+ *   anche quei due popup (mai due popup nella stessa sessione). Vale anche
+ *   al contrario: quei due, quando si aprono, segnano dirPromoSeen, cosi'
+ *   se la finestra della diretta si apre a sessione iniziata (il 25
+ *   settembre alle 9.00, con la scheda gia' aperta) il popup della diretta
+ *   non arriva dopo un altro.
  * - Compare SOLO sulla home page e solo nella finestra di date dell'evento:
  *   da NGBDiretta.EVENTO.mostraDaGiorni giorni prima dell'inizio fino alla
  *   fine, poi si spegne da solo (niente da togliere a mano dopo l'evento).

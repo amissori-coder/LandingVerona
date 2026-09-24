@@ -467,6 +467,14 @@ precisione di un paio di minuti per collegamento.
   (sul telefono una pillola accanto al pulsante del menu), e la sezione **"Segui
   la diretta"** sotto la prima schermata. Mentre si è in onda, bollino rosso
   **"IN DIRETTA"**; in pausa "In pausa"; dopo la fine "La diretta si è conclusa".
+- **Dettagli**: fra 1000 e 1199 px (portatili piccoli, iPad in orizzontale),
+  finché la voce "Diretta" è nel menu, il menu della pagina di Napoli è a
+  tendina con la pillola "Diretta" accanto (non c'era spazio per una voce in
+  più); dopo la fine della diretta torna su una riga come prima. La pillola
+  della home sta sotto gli avvisi del sito (esito del modulo newsletter, banner
+  degli eventi). Se nella stessa sessione si è già visto il popup del bando o
+  del FCD, quello della diretta non compare (resta la pillola): mai due popup
+  nella stessa sessione.
 - **Da dove arriva lo stato "in onda"**: `api/diretta-stato`, con la cache CDN
   di Vercel (una lettura di Firestore ogni 30 secondi circa, qualunque sia il
   numero dei visitatori), chiesto solo da 3 ore prima a 3 ore dopo l'evento. Il
@@ -768,7 +776,9 @@ Per passare a Vimeo, Mux o Cloudflare Stream:
    `https://player.vimeo.com`; `connect-src` e `media-src` con `blob:` per i
    flussi HLS, per esempio `https://stream.mux.com` o `https://videodelivery.net`).
 
-Il servizio non va toccato. Con quei fornitori anche il selettore della qualità
+La gestione adatta testi, esempi di link ed errori al nome dichiarato dal
+player (`NGBPlayer.nome`, tabella `PIATTAFORME` in `gestione/gestione.js`, che
+conosce già YouTube, Vimeo, Mux e Cloudflare). Il servizio non va toccato. Con quei fornitori anche il selettore della qualità
 comincia a funzionare (livelli HLS), e con Vimeo (domini consentiti) o con Mux e
 Cloudflare (indirizzi firmati) si può impedire la condivisione del link.
 

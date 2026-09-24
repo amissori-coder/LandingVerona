@@ -43,7 +43,11 @@
         diretta terminata in anticipo: non si prenota piu';
       - prefers-reduced-motion: niente animazioni ne' transizioni;
       - telefono: popup e pillola stanno nello schermo, niente
-        scorrimento orizzontale.
+        scorrimento orizzontale; gli avvisi del sito (l'esito del modulo
+        newsletter) passano sopra la pillola;
+      - la finestra della diretta che si apre a sessione iniziata (25
+        settembre, 8.58 -> 9.01): chi ha gia' visto il popup del bando o
+        quello FCD in quella scheda non vede anche quello della diretta.
    3. Pagina di Napoli: voce "Diretta" nel menu subito prima di "Save
       the date" (anche su telefono, a menu aperto, e nel menu a tendina
       fino a 1199px), pillola "Diretta" accanto all'hamburger fuori dal
@@ -53,7 +57,9 @@
       in pausa, con ricontrollo ogni 60 s (una richiesta per pagina, non
       una per indicatore); dopo la fine "La diretta si è conclusa" e voce
       di menu e pillola nascoste, anche se si sfora e poi si termina;
-      menu su una riga senza sovrapporsi al marchio da 1200px in su.
+      menu su una riga senza sovrapporsi al marchio da 1200px in su; fra
+      1000 e 1199px menu a tendina finche' c'e' la voce Diretta, e di nuovo
+      su una riga (come prima della diretta) dopo la fine.
    Screenshot in risultati/screenshot-sito/.
    Esce con 1 se qualcosa e' rosso.
 
@@ -251,13 +257,18 @@ async function pillola(page) {
 async function provaFile() {
     console.log('\n[file]');
     const home = fs.readFileSync(path.join(RADICE, 'index.html'), 'utf8');
-    const ordine = ['diretta-stato.js" data-pillola', 'diretta-popup.js"', 'bando-tipo-popup.js"', 'fcd-popup.js"']
-        .map(f => home.indexOf('<script src="/assets/' + f + ' defer></script>'));
+    // con o senza ?v= (la versione serve alla cache di GitHub Pages)
+    const ordine = [/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" data-pillola defer><\/script>/, /<script src="\/assets\/diretta-popup\.js(\?v=\w+)?" defer><\/script>/,
+        /<script src="\/assets\/bando-tipo-popup\.js(\?v=\w+)?" defer><\/script>/, /<script src="\/assets\/fcd-popup\.js(\?v=\w+)?" defer><\/script>/]
+        .map(re => home.search(re));
     vero(ordine.every(i => i > 0) && ordine.every((x, i) => i === 0 || x > ordine[i - 1]),
         'home: stato (con data-pillola), popup della diretta, bando e FCD caricati in quest\'ordine, tutti defer');
     for (const f of ['bando-tipo-popup.js', 'fcd-popup.js']) {
         const s = fs.readFileSync(path.join(RADICE, 'assets', f), 'utf8');
         vero((s.match(/if \(window\.__dirPromoPlanned\) return;/g) || []).length === 1, f + ': una guardia che cede la precedenza alla diretta');
+        // dentro open(): all'apertura segna come visto anche il popup della diretta
+        const apertura = s.slice(s.indexOf('function open()'), s.indexOf('function close()'));
+        vero((apertura.match(/ss\(false, "dirPromoSeen", "1"\);/g) || []).length === 1, f + ': all\'apertura segna dirPromoSeen (niente popup della diretta dopo, nella stessa sessione)');
     }
     const popup = fs.readFileSync(path.join(RADICE, 'assets/diretta-popup.js'), 'utf8');
     const stato = fs.readFileSync(path.join(RADICE, 'assets/diretta-stato.js'), 'utf8');
@@ -268,9 +279,10 @@ async function provaFile() {
     vero(testa.includes('se cambi data o orario in Gestione, aggiorna anche qui; d\'inverno +01:00'),
         'diretta-stato.js: in cima l\'avviso "se cambi data o orario in Gestione, aggiorna anche qui; d\'inverno +01:00"');
     vero(/timeZone: FUSO/.test(stato) && /var FUSO = "Europe\/Rome"/.test(stato), 'diretta-stato.js: il giorno di Roma con Intl (timeZone Europe/Rome)');
+    vero(/#dirPillola\{[^}]*z-index:9990;/.test(stato), 'pillola: z-index 9990, sotto gli avvisi del sito (9998-9999) e sopra la barra (1000)');
     const napoli = fs.readFileSync(path.join(RADICE, 'napoli_ottobre_2026/index.html'), 'utf8');
-    vero(/styles\.css\?v=17/.test(napoli), 'Napoli: versione del foglio di stile aggiornata (?v=17)');
-    vero(/<script src="\/assets\/diretta-stato\.js" defer><\/script>\s*<\/body>/.test(napoli), 'Napoli: diretta-stato.js caricato in fondo alla pagina');
+    vero(/styles\.css\?v=18/.test(napoli), 'Napoli: versione del foglio di stile aggiornata (?v=18)');
+    vero(/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" defer><\/script>\s*<\/body>/.test(napoli), 'Napoli: diretta-stato.js caricato in fondo alla pagina');
     // niente trattini lunghi nei testi scritti per la diretta
     const sezione = napoli.slice(napoli.indexOf('<!-- Segui la diretta'), napoli.indexOf('<!-- L\'Evento -->'));
     const barra = napoli.slice(napoli.indexOf('<nav class="navbar"'), napoli.indexOf('</nav>'));
@@ -439,6 +451,36 @@ async function provaHome() {
         const pl = await pillola(p);
         uguale([pl.visibile, pl.testo], [true, 'Diretta Napoli 2 ottobre'], 'dalle 9.00 (7 giorni prima) la pillola compare da sola, senza ricaricare');
         uguale(v.richieste.length, 0, 'senza nessuna richiesta allo stato');
+        await v.ctx.close();
+    }
+
+    /* La finestra della diretta si apre il 25 settembre alle 9.00. Chi ha
+       visto il popup del bando (o quello FCD) poco prima, nella stessa
+       scheda, e torna sulla home dopo le 9.00 non deve vedere un secondo
+       popup: bando e FCD, aprendosi, segnano anche dirPromoSeen. */
+    for (const [id, bandoSpento, descrizione] of [['btPromo', false, 'il popup del bando'], ['fcdPromo', true, 'il popup FCD (bando disattivato)']]) {
+        console.log('\n[home: la finestra si apre a sessione iniziata, dopo ' + descrizione + ']');
+        const v = await visitatore(COMPUTER);
+        if (bandoSpento) await v.ctx.addInitScript(() => { try { localStorage.setItem('btPromoHidden', '1'); } catch (e) { /* niente */ } });
+        const p = await v.scheda('2026-09-25T08:58:00+02:00');
+        await p.goto(HOME);
+        vero(await aspettaPopup(p, id), 'alle 8.58 del 25 settembre compare ' + descrizione);
+        uguale([await nelDom(p), await p.evaluate(() => window.NGBDiretta.fase())], [[id], 'fuori'], 'un solo popup, la finestra della diretta non e\' ancora aperta');
+        uguale(await p.evaluate(() => sessionStorage.getItem('dirPromoSeen')), '1', 'aprendosi segna come visto anche il popup della diretta');
+        await chiudiPopup(p);
+        await passa(p, 3 * MINUTO);
+        uguale((await pillola(p)).visibile, true, 'alle 9.01 la finestra si apre: compare la pillola');
+        await p.reload();
+        await p.waitForLoadState('load');
+        await p.waitForTimeout(QUIETE_MS);
+        uguale([await p.evaluate(() => window.NGBDiretta.fase()), await nelDom(p)], ['prima', []],
+            'tornando sulla home nella stessa sessione, a finestra aperta: nessun secondo popup (ne\' diretta, ne\' bando, ne\' FCD)');
+        uguale((await pillola(p)).visibile, true, 'la pillola della diretta invece c\'e\'');
+        const nuova = await v.scheda(); // nuova scheda = nuova sessione, stesso orologio
+        await nuova.goto(HOME);
+        vero(await aspettaPopup(nuova, 'dirPromo'), 'in una nuova sessione il popup della diretta compare (ha la precedenza)');
+        uguale(await nelDom(nuova), ['dirPromo'], 'e resta l\'unico');
+        vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         await v.ctx.close();
     }
 
@@ -777,6 +819,23 @@ async function provaHome() {
             'la pillola sta nello schermo, in primo piano, alta ' + (pl.rett && pl.rett.altezza) + 'px (' + pl.testo + ')');
         vero(await senzaScorrimentoOrizzontale(p), 'e non fa scorrere la pagina di lato');
         await scatta(p, 'pillola-home-telefono-' + nome);
+        /* Gli avvisi del sito passano sopra la pillola: sul telefono l'esito
+           del modulo newsletter (showNgbNotification di script.js, in basso
+           a destra, largo quasi tutto lo schermo) le si sovrappone, e deve
+           leggersi intero. */
+        const avv = await p.evaluate(() => {
+            showNgbNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
+            const n = document.querySelector('.ngb-notification').getBoundingClientRect();
+            const a = document.getElementById('dirPillola').getBoundingClientRect();
+            const x1 = Math.max(n.left, a.left), x2 = Math.min(n.right, a.right), y1 = Math.max(n.top, a.top), y2 = Math.min(n.bottom, a.bottom);
+            if (x2 <= x1 || y2 <= y1) return { sovrapposti: false };
+            const sopra = document.elementFromPoint((x1 + x2) / 2, (y1 + y2) / 2);
+            return { sovrapposti: true, larghezza: Math.round(x2 - x1), avviso: !!(sopra && sopra.closest('.ngb-notification')) };
+        });
+        vero(avv.sovrapposti && avv.avviso, 'l\'avviso del modulo newsletter si sovrappone alla pillola (' + (avv.larghezza || 0) + 'px) e le passa sopra');
+        await p.waitForTimeout(450); // fine della comparsa dell'avviso (foto nitida)
+        await scatta(p, 'pillola-home-telefono-avviso-' + nome);
+        await p.evaluate(() => { const n = document.querySelector('.ngb-notification'); if (n) n.remove(); });
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         await v.ctx.close();
     }
@@ -1030,6 +1089,48 @@ async function provaNapoli() {
         await p.click('#navToggle');
         const vis = await p.locator('#navDiretta').isVisible();
         uguale([primo, vis], [['flex', 'IN DIRETTA'], true], '1100px (tablet orizzontale): menu a tendina con la pillola IN DIRETTA accanto, e aperto mostra la voce Diretta');
+        await v.ctx.close();
+    }
+
+    /* Fra 1000 e 1199px il menu a tendina serve solo finche' c'e' la voce
+       Diretta: dopo la fine la voce sparisce e il menu torna su una riga,
+       com'era prima della diretta (portatili da 1024px, iPad in orizzontale). */
+    console.log('\n[Napoli: fra 1000 e 1199px, prima e dopo la fine]');
+    async function menuNapoli(page) {
+        return page.evaluate(() => {
+            const menu = document.getElementById('navMenu').getBoundingClientRect();
+            const marchio = document.querySelector('.nav-brand-group').getBoundingClientRect();
+            const img = document.querySelector('.logo-mark-img').getBoundingClientRect();
+            const voci = Array.from(document.querySelectorAll('#navMenu > li')).filter(li => li.getBoundingClientRect().width > 0);
+            const centri = voci.map(li => { const b = li.getBoundingClientRect(); return b.top + b.height / 2; });
+            return {
+                hamburger: getComputedStyle(document.getElementById('navToggle')).display !== 'none',
+                voci: voci.length,
+                righe: voci.length && Math.max.apply(null, centri) - Math.min.apply(null, centri) < 6 ? 1 : 2,
+                margine: Math.round(menu.left - Math.max(marchio.right, img.right)),
+                fuori: menu.right > window.innerWidth,
+                diretta: !!document.getElementById('navDiretta').getBoundingClientRect().width
+            };
+        });
+    }
+    for (const larghezza of [1000, 1024, 1100, 1199]) {
+        for (const [quando, stato, descrizione] of [['2026-10-02T19:00:00+02:00', 'terminato', 'alle 19 del 2 ottobre'], ['2026-10-03T10:00:00+02:00', 'in_onda', 'il 3 ottobre']]) {
+            const v = await visitatore({ viewport: { width: larghezza, height: 800 } }, stato);
+            const p = await v.scheda(quando);
+            await p.goto(NAPOLI);
+            await p.waitForFunction(() => document.documentElement.getAttribute('data-diretta') === 'conclusa', null, { timeout: 5000 }).catch(() => {});
+            const m = await menuNapoli(p);
+            vero(!m.hamburger && m.voci === 8 && m.righe === 1 && !m.fuori && m.margine >= 10 && !m.diretta,
+                larghezza + 'px, ' + descrizione + ' (diretta conclusa): niente hamburger, le 8 voci su una riga come prima, ' + m.margine + 'px dal marchio');
+            if (larghezza === 1024 && stato === 'terminato') await scatta(p, 'napoli-menu-1024-conclusa', { clip: { x: 0, y: 0, width: 1024, height: 90 } });
+            await v.ctx.close();
+        }
+        const v = await visitatore({ viewport: { width: larghezza, height: 800 } }, 'programmato');
+        const p = await v.scheda('2026-09-26T10:00:00+02:00');
+        await p.goto(NAPOLI);
+        await p.waitForTimeout(800);
+        const m = await menuNapoli(p);
+        vero(m.hamburger && m.voci === 0, larghezza + 'px, 26 settembre (voce Diretta nel menu): menu a tendina, chiuso');
         await v.ctx.close();
     }
 

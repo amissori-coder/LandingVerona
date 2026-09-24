@@ -364,12 +364,16 @@
   // Un collegamento discreto in basso a sinistra, per tutta la finestra
   // dell'evento: resta anche dopo "Non mostrare più" del popup e porta alla
   // diretta con un tocco. Sta sopra ogni contenuto della pagina (z-index
-  // 10000: i banner del sito arrivano a 9999) ma sotto i popup (2147482000)
-  // e il banner dei cookie, che deve restare usabile.
+  // 9990: la barra del sito e' a 1000) ma sotto gli avvisi del sito, che
+  // sul telefono le passano sopra e che devono leggersi interi (i banner
+  // degli eventi, 9998, e l'esito del modulo newsletter, showNgbNotification
+  // di script.js, 9999: resta pochi secondi ed e' l'unico riscontro
+  // dell'iscrizione), sotto i popup (2147482000) e sotto il banner dei
+  // cookie, che deve restare usabile.
   var CSS_PILLOLA = ''
     + '#dirPillola{position:fixed;left:16px;bottom:16px;'
     + 'left:max(16px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));'
-    + 'z-index:10000;display:inline-flex;align-items:center;gap:9px;box-sizing:border-box;'
+    + 'z-index:9990;display:inline-flex;align-items:center;gap:9px;box-sizing:border-box;'
     + 'max-width:calc(100vw - 32px);min-height:46px;padding:10px 16px 10px 14px;border-radius:999px;'
     + 'background:linear-gradient(135deg,#0A1C2E 0%,#164068 60%,#1F5688 100%);'
     + 'border:1px solid rgba(255,255,255,.16);color:#fff!important;text-decoration:none!important;'

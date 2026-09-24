@@ -178,6 +178,7 @@
       root.hidden = false;
       ss(false, SS_SEEN, "1");    // conta come "visto" in questa sessione
       ss(false, SS_BT_SEEN, "1"); // niente secondo popup nella stessa sessione
+      ss(false, "dirPromoSeen", "1"); // nemmeno quello della diretta, se la sua finestra si apre dopo
       // doppio rAF: la transizione parte a stili applicati e layout stabile,
       // senza il "salto" del reflow forzato
       requestAnimationFrame(function () {

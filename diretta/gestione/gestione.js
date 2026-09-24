@@ -81,6 +81,7 @@
         // seguito da questa pagina e da che pulsante e' partita la coda
         posta: { conteggi: {}, coda: {}, ciclo: null, risposta: null, ultimoChi: '' },
         anteprimaVideo: null,
+        annullaProvaVideo: null,   // chiude la prova del video in corso, se c'e'
         inCorrezione: null
     };
 
@@ -186,6 +187,39 @@
             try { return String(P.idDa(url) || ''); } catch (_) { return ''; }
         }
         return idYouTube(url);
+    }
+
+    /* La piattaforma del video la dice il player caricato (NGBPlayer.nome):
+       i testi che la nominano (etichette, esempi di link, errori) seguono
+       lui, cosi' passando a Vimeo, Mux o Cloudflare Stream non resta scritto
+       "YouTube" da nessuna parte. Senza player valgono le regole di YouTube
+       (idYouTube qui sopra), quindi anche i testi. */
+    const PIATTAFORME = {
+        youtube: { nome: 'YouTube', esempi: 'youtube.com/watch?v=…, youtu.be/…, youtube.com/live/…', segnaposto: 'https://www.youtube.com/live/…' },
+        vimeo: { nome: 'Vimeo', esempi: 'vimeo.com/…, vimeo.com/event/…', segnaposto: 'https://vimeo.com/…' },
+        mux: { nome: 'Mux', esempi: '', segnaposto: '' },
+        cloudflare: { nome: 'Cloudflare Stream', esempi: '', segnaposto: '' }
+    };
+    function piattaforma() {
+        const P = window.NGBPlayer;
+        const chiave = P && typeof P.nome === 'string' ? P.nome.trim().toLowerCase() : 'youtube';
+        if (PIATTAFORME[chiave]) return Object.assign({ chiave: chiave }, PIATTAFORME[chiave]);
+        // un player che qui non si conosce: si usa il nome che dichiara
+        const nome = chiave ? P.nome.trim() : '';
+        return { chiave: chiave, nome: nome ? nome.charAt(0).toUpperCase() + nome.slice(1) : '', esempi: '', segnaposto: '' };
+    }
+    function msgLinkNonRiconosciuto() {
+        const p = piattaforma();
+        return 'Non riconosco un video' + (p.nome ? ' di ' + p.nome : '') + ' in questo link: incolla il link della pagina del video o della diretta'
+            + (p.esempi ? ' (' + p.esempi + ')' : '') + '.';
+    }
+    // etichette e segnaposto della pagina, scritti nell'HTML per YouTube
+    function adattaTestiPiattaforma() {
+        const p = piattaforma();
+        document.querySelectorAll('.nome-piattaforma').forEach(n => { n.textContent = p.nome; });
+        document.querySelectorAll('[data-solo-piattaforma]').forEach(n => { n.hidden = n.dataset.soloPiattaforma !== p.chiave; });
+        $('#ev-video').placeholder = p.segnaposto;
+        $('#regia-video').placeholder = 'Incolla il link' + (p.nome ? ' ' + p.nome : '') + ' della diretta';
     }
 
     /* ============================================================
@@ -655,8 +689,23 @@
         if (stato.idEvento === ev.id) {
             stato.evento = ev;
             aggiornaStatoEvento();
+            if (!stato.nuovo) aggiornaCampoVideo(ev);
         }
         riempiSelectEventi();
+    }
+
+    /* Il link nella scheda Evento segue quello del servizio (per esempio
+       dopo un cambio dalla Regia), a meno che il gestore lo stia
+       modificando: in quel caso resta quello che ha scritto, e al
+       salvataggio vale come una sua scelta esplicita. */
+    function aggiornaCampoVideo(ev) {
+        const campo = $('#ev-video');
+        const nuovo = ev.videoUrl || '';
+        if (campo.value.trim() === (campo.dataset.iniziale || '')) {
+            campo.value = nuovo;
+            campo.removeAttribute('aria-invalid');
+        }
+        campo.dataset.iniziale = nuovo;
     }
 
     function nuovoEvento() {
@@ -721,9 +770,46 @@
             $('#' + t.getAttribute('aria-controls')).hidden = !attiva;
         });
         if (nome === 'regia') avviaConnessi(); else fermaConnessi();
+        /* L'anteprima di un video provato in un'altra scheda non serve piu'
+           (e continuerebbe a scaricare il video): si chiude, ma non a meta'
+           della prova, che aspetta ancora la risposta del player. */
+        const anteprimaAperta = document.querySelector('.video-anteprima:not([hidden])');
+        if (anteprimaAperta && !stato.annullaProvaVideo && !$('#scheda-' + nome).contains(anteprimaAperta)) chiudiAnteprimaVideo();
+        mostraSchedaAttiva(TAB.find(t => t.dataset.scheda === nome));
         if (nome === 'email') aggiornaStatoEmail().catch(e => erroreGenerico(e, '#msg-email'));
         if (nome === 'partecipanti' && stato.partecipantiDi !== stato.idEvento) caricaPartecipanti();
     }
+
+    /* ---------- le schede sul telefono ----------
+       Su uno schermo stretto le cinque schede non stanno tutte in una riga
+       e scorrono di lato. Perche' si capisca che ce ne sono altre, la
+       testata riceve le classi altre-a-destra / altre-a-sinistra: il foglio
+       di stile (solo sotto i 900px) sfuma il bordo e mette una freccia. La
+       scheda scelta si porta sempre in vista, anche quando la si sceglie
+       con le frecce della tastiera. Dove le schede ci stanno, niente. */
+    const BARRA_SCHEDE = document.querySelector('.schede');
+    const TESTATA = document.querySelector('.testata');
+    function aggiornaIndizioSchede() {
+        const s = BARRA_SCHEDE;
+        const max = s.scrollWidth - s.clientWidth;
+        TESTATA.classList.toggle('altre-a-destra', max > 1 && s.scrollLeft < max - 1);
+        TESTATA.classList.toggle('altre-a-sinistra', max > 1 && s.scrollLeft > 1);
+    }
+    function mostraSchedaAttiva(tab) {
+        const s = BARRA_SCHEDE;
+        if (tab && s.scrollWidth > s.clientWidth) {
+            const margine = 36; // la sfumatura sul bordo: la scheda scelta deve restarne fuori
+            const b = tab.getBoundingClientRect();
+            const c = s.getBoundingClientRect();
+            if (b.left < c.left + margine) s.scrollLeft -= c.left + margine - b.left;
+            else if (b.right > c.right - margine) s.scrollLeft += b.right - (c.right - margine);
+        }
+        aggiornaIndizioSchede();
+    }
+    BARRA_SCHEDE.addEventListener('scroll', aggiornaIndizioSchede, { passive: true });
+    window.addEventListener('resize', () => mostraSchedaAttiva(TAB.find(t => t.getAttribute('aria-selected') === 'true')));
+    // i caratteri del sito arrivano dopo la pagina e cambiano la larghezza delle schede
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(aggiornaIndizioSchede).catch(() => { /* niente */ });
 
     TAB.forEach(t => {
         t.addEventListener('click', () => mostraScheda(t.dataset.scheda));
@@ -757,7 +843,9 @@
         $('#ev-data').value = ev ? ev.data || '' : '';
         $('#ev-ora-inizio').value = ev ? ev.oraInizio || '' : '';
         $('#ev-ora-fine').value = ev ? ev.oraFine || '' : '';
+        // il link con cui si apre il modulo: al salvataggio si manda solo se cambiato
         $('#ev-video').value = ev ? ev.videoUrl || '' : '';
+        $('#ev-video').dataset.iniziale = $('#ev-video').value;
         $('#ev-programma').value = ev && Array.isArray(ev.programma) ? ev.programma.map(v => (v.ora ? v.ora + ' ' : '') + (v.titolo || '')).join('\n') : '';
         $('#ev-pagina').value = ev ? ev.paginaEvento || '' : '';
         $('#ev-un-dispositivo').checked = !!(ev && ev.unSoloDispositivo);
@@ -885,7 +973,7 @@
         if (!/^\d{2}:\d{2}$/.test(oraFine)) segna('#ev-ora-fine', 'Ora di fine mancante.');
         else if (/^\d{2}:\d{2}$/.test(oraInizio) && oraFine <= oraInizio) segna('#ev-ora-fine', 'L\'ora di fine deve venire dopo quella di inizio.');
         const videoId = videoUrl ? idVideoDa(videoUrl) : '';
-        if (videoUrl && !videoId) segna('#ev-video', 'Non riconosco un video YouTube in questo link: incolla il link della pagina del video o della diretta (youtube.com/watch?v=…, youtu.be/…, youtube.com/live/…).');
+        if (videoUrl && !videoId) segna('#ev-video', msgLinkNonRiconosciuto());
         if (pagina && !/^\/[a-z0-9_\/-]*\/?$/.test(pagina)) segna('#ev-pagina', 'Pagina dell\'evento: solo il percorso, per esempio /napoli_ottobre_2026/.');
         if (programma.errori.length) { $('#ev-programma').setAttribute('aria-invalid', 'true'); errori.push.apply(errori, programma.errori); }
 
@@ -913,22 +1001,61 @@
             if (primo) primo.focus();
             return;
         }
-        if (!stato.nuovo && stato.evento && evento.videoUrl !== (stato.evento.videoUrl || '') && stato.evento.stato === 'in_onda') {
-            const ok = await conferma({ titolo: 'Cambiare il video per tutti?', testo: 'La diretta è in onda: chi è collegato passa al nuovo video da solo, in pochi secondi.', ok: 'Cambia il video' });
-            if (!ok) return;
-        }
+        /* Il link del video si manda solo se il gestore l'ha cambiato qui.
+           Il campo e' stato riempito quando si e' aperto l'evento: se nel
+           frattempo il video e' stato cambiato dalla Regia (da un altro
+           gestore, o da un'altra scheda del browser), rimandare quel valore
+           per correggere, per esempio, il titolo rimetterebbe a tutti il
+           video vecchio. Senza videoUrl il servizio tiene quello che ha. */
+        const campoVideo = $('#ev-video');
+        const eraNuovo = stato.nuovo;
+        const videoCambiato = eraNuovo || evento.videoUrl !== (campoVideo.dataset.iniziale || '');
+        if (!videoCambiato) { delete evento.videoUrl; delete evento.videoId; }
+        const inOnda = !eraNuovo && !!stato.evento && stato.evento.stato === 'in_onda';
         $('#ev-pagina').value = evento.paginaEvento;
         await conAttesa($('#btn-salva-evento'), async () => {
+            /* Un link nuovo si prova prima di salvarlo, con lo stesso player dei
+               partecipanti e le stesse regole della Regia (R8): un video che la
+               piattaforma non lascia incorporare si blocca qui, non quando la
+               diretta va in onda. */
+            let prova = { ok: true };
+            if (videoCambiato && evento.videoId) {
+                mostraMsg('#msg-evento', 'Controllo del video in corso…', 'info');
+                prova = await provaVideo(evento.videoId, $('#ev-video-anteprima'));
+                // nel frattempo si e' passati a un altro evento: questo salvataggio non vale piu'
+                if (eraNuovo ? !stato.nuovo : stato.idEvento !== evento.id) { nascondiMsg('#msg-evento'); return; }
+                if (prova.annullata) { mostraMsg('#msg-evento', 'Controllo del video interrotto (anteprima chiusa): non ho salvato niente.', 'info'); return; }
+                if (!prova.ok) {
+                    campoVideo.setAttribute('aria-invalid', 'true');
+                    mostraMsg('#msg-evento', 'Questo video non si può usare: ' + prova.motivo + ' Non ho salvato niente.', 'errore');
+                    campoVideo.focus();
+                    return;
+                }
+                nascondiMsg('#msg-evento');
+            }
+            if (videoCambiato && inOnda) {
+                const ok = await conferma(evento.videoUrl ? {
+                    titolo: 'Cambiare il video per tutti?',
+                    testo: 'La diretta è in onda: chi è collegato passa al nuovo video da solo, in pochi secondi.'
+                        + (prova.avviso ? '\n' + prova.avviso : '') + (prova.saltata ? '\nL\'anteprima del video non è disponibile in questa pagina: controlla con «Vedi come un partecipante».' : ''),
+                    ok: 'Cambia il video'
+                } : {
+                    titolo: 'Togliere il video?',
+                    testo: 'La diretta è in onda: i partecipanti vedranno «Il video sta per arrivare» finché non ne inserisci un altro.',
+                    ok: 'Togli il video', pericolo: true
+                });
+                if (!ok) return;
+            }
             try {
-                const eraNuovo = stato.nuovo;
                 const r = await chiama('evento-salva', { evento: evento });
                 if (eraNuovo) r.evento.iscritti = r.evento.iscritti || 0;
                 stato.nuovo = false;
                 aggiornaEvento(r.evento);
                 selezionaEvento(r.evento.id);
-                mostraMsg('#msg-evento', eraNuovo
+                const notaVideo = videoCambiato && evento.videoUrl && prova.avviso ? ' ' + prova.avviso : '';
+                mostraMsg('#msg-evento', (eraNuovo
                     ? 'Evento creato. Ora carica i partecipanti dalla scheda Partecipanti.'
-                    : 'Modifiche salvate.', 'ok');
+                    : 'Modifiche salvate.' + (videoCambiato && inOnda ? (evento.videoUrl ? ' I partecipanti collegati passano al nuovo video.' : ' Video tolto.') : '')) + notaVideo, 'ok');
                 // orari e caselle dei promemoria cambiano chi li riceve e quando
                 if (!eraNuovo) aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
             } catch (err) {
@@ -1111,11 +1238,14 @@
     $('#btn-aggiorna-connessi').addEventListener('click', () => conAttesa($('#btn-aggiorna-connessi'), aggiornaConnessi));
 
     /* ---------- il video ----------
-       Prima di cambiarlo per tutti lo si prova qui con lo stesso player
-       della pagina dei partecipanti: se YouTube non consente di
-       incorporarlo (errori 101/150/153), o il video non esiste (100), lo
-       si scopre ora e non davanti a mille persone. */
-    const MOTIVI_VIDEO = {
+       Prima di cambiarlo lo si prova qui con lo stesso player della
+       pagina dei partecipanti, dalla Regia come dalla scheda Evento: se
+       la piattaforma non consente di incorporarlo, o il video non esiste,
+       lo si scopre ora e non davanti a mille persone.
+       I codici qui sotto sono quelli del player di YouTube (101/150/153:
+       incorporamento non consentito, 100: video inesistente); un altro
+       player manda il suo messaggio, che si mostra cosi' com'e'. */
+    const MOTIVI_YOUTUBE = {
         2: 'l\'identificativo del video non è valido.',
         5: 'il player non riesce a riprodurlo.',
         100: 'il video non esiste, è privato o è stato rimosso.',
@@ -1123,27 +1253,33 @@
         150: 'il proprietario non consente di incorporarlo in altri siti (su YouTube: consenti l\'incorporamento).',
         153: 'YouTube rifiuta la richiesta di questa pagina: controlla che l\'incorporamento sia consentito.'
     };
+    function motivoVideo(err) {
+        const codice = err && err.codice;
+        const noto = piattaforma().chiave === 'youtube' ? MOTIVI_YOUTUBE[codice] : '';
+        return noto || (err && err.messaggio) || ('errore ' + codice + ' del player.');
+    }
 
+    // una sola anteprima alla volta, nel riquadro della scheda da cui la si chiede;
+    // chiuderla a meta' della prova la interrompe (e non si cambia niente)
     function chiudiAnteprimaVideo() {
+        if (stato.annullaProvaVideo) stato.annullaProvaVideo();
         const p = stato.anteprimaVideo;
         stato.anteprimaVideo = null;
         if (p && typeof p.distruggi === 'function') { try { p.distruggi(); } catch (_) { /* gia' distrutto */ } }
-        const box = $('#regia-video-anteprima');
-        if (box) {
+        document.querySelectorAll('.video-anteprima').forEach(box => {
             box.hidden = true;
             svuota(box.querySelector('.video-anteprima-cornice'));
-        }
+        });
     }
-    $('#btn-chiudi-anteprima-video').addEventListener('click', chiudiAnteprimaVideo);
+    document.querySelectorAll('.btn-chiudi-anteprima-video').forEach(b => b.addEventListener('click', chiudiAnteprimaVideo));
 
-    // -> { ok, motivo?, saltata? }
-    function provaVideo(id) {
+    // -> { ok, motivo?, saltata?, avviso?, annullata? }
+    function provaVideo(id, box) {
         const P = window.NGBPlayer;
         if (!P || typeof P.crea !== 'function') return Promise.resolve({ ok: true, saltata: true });
         chiudiAnteprimaVideo();
-        const box = $('#regia-video-anteprima');
         const cornice = box.querySelector('.video-anteprima-cornice');
-        const posto = el('div', { id: 'regia-video-player' });
+        const posto = el('div', { id: box.id + '-player' });
         cornice.appendChild(posto);
         box.hidden = false;
         return new Promise(risolvi => {
@@ -1152,9 +1288,12 @@
             const fine = esito => {
                 if (finito) return;
                 finito = true;
+                if (stato.annullaProvaVideo === annulla) stato.annullaProvaVideo = null;
                 clearTimeout(limite);
                 risolvi(esito);
             };
+            const annulla = () => fine({ ok: false, annullata: true });
+            stato.annullaProvaVideo = annulla;
             // se il player non dice niente entro 10 s non si blocca il gestore:
             // lo si avvisa di controllare dalla pagina dei partecipanti
             const limite = setTimeout(() => fine({ ok: true, avviso: pronto ? '' : 'L\'anteprima non ha risposto: controlla il video con «Vedi come un partecipante».' }), 10000);
@@ -1171,7 +1310,7 @@
                             fine({ ok: true, avviso: 'L\'anteprima non si è caricata (' + ((err && err.messaggio) || codice) + '): controlla il video con «Vedi come un partecipante».' });
                             return;
                         }
-                        fine({ ok: false, codice: codice, motivo: MOTIVI_VIDEO[codice] || (err && err.messaggio) || ('errore ' + codice + ' del player.') });
+                        fine({ ok: false, codice: codice, motivo: motivoVideo(err) });
                     }
                 });
                 if (stato.anteprimaVideo && typeof stato.anteprimaVideo.carica === 'function') stato.anteprimaVideo.carica(id);
@@ -1190,7 +1329,7 @@
         const b = $('#btn-cambia-video');
         if (url && !id) {
             $('#regia-video').setAttribute('aria-invalid', 'true');
-            mostraMsg('#msg-video', 'Non riconosco un video YouTube in questo link: incolla il link della pagina del video o della diretta (youtube.com/watch?v=…, youtu.be/…, youtube.com/live/…).', 'errore');
+            mostraMsg('#msg-video', msgLinkNonRiconosciuto(), 'errore');
             return;
         }
         $('#regia-video').removeAttribute('aria-invalid');
@@ -1199,7 +1338,10 @@
             let prova = { ok: true };
             if (id) {
                 mostraMsg('#msg-video', 'Controllo del video in corso…', 'info');
-                prova = await provaVideo(id);
+                prova = await provaVideo(id, $('#regia-video-anteprima'));
+                // nel frattempo si e' passati a un altro evento: non si cambia niente
+                if (stato.idEvento !== ev.id) { nascondiMsg('#msg-video'); return; }
+                if (prova.annullata) { mostraMsg('#msg-video', 'Controllo del video interrotto (anteprima chiusa): non ho cambiato niente.', 'info'); return; }
                 if (!prova.ok) {
                     mostraMsg('#msg-video', 'Questo video non si può usare: ' + prova.motivo + ' Non ho cambiato niente.', 'errore');
                     return;
@@ -1220,8 +1362,8 @@
             if (!ok) return;
             try {
                 const r = await chiama('evento-video', { idEvento: ev.id, videoUrl: url, videoId: id });
+                // aggiornaEvento rimette nella scheda Evento il link appena applicato
                 aggiornaEvento(r.evento);
-                $('#ev-video').value = r.evento.videoUrl || '';
                 $('#regia-video').value = '';
                 mostraMsg('#msg-video', url ? 'Video aggiornato' + (inOnda ? ': i partecipanti collegati passano al nuovo video.' : '.') : 'Video tolto.', 'ok');
             } catch (err) { erroreGenerico(err, '#msg-video'); }
@@ -1300,8 +1442,10 @@
 
     $('#link-modello').addEventListener('click', e => {
         e.preventDefault();
-        // il BOM iniziale fa aprire il file a Excel con gli accenti giusti
-        const testo = '﻿nome;cognome;email;azienda\r\nMario;Rossi;mario.rossi@esempio.it;Esempio S.r.l.\r\n';
+        // il BOM iniziale fa aprire il file a Excel con gli accenti giusti; la riga
+        // d'esempio usa un dominio riservato (example.com) che non riceve posta:
+        // se restasse nel file, le credenziali non finirebbero a uno sconosciuto
+        const testo = '﻿nome;cognome;email;azienda\r\nMario;Rossi;mario.rossi@example.com;Esempio S.r.l.\r\n';
         const url = URL.createObjectURL(new Blob([testo], { type: 'text/csv;charset=utf-8' }));
         const a = el('a', { href: url, download: 'modello-partecipanti.csv' });
         document.body.appendChild(a);
@@ -2455,16 +2599,28 @@
         apriDialogo($('#dialogo-correggi'));
         $('#corr-nome').focus();
     }
+    /* La stessa regola del servizio (correggi in lib/diretta-dati.js): il
+       nome utente si ricalcola quando la base di nome e cognome cambia, e
+       diventa il primo libero fra base, base2, base3… (quello attuale vale
+       come libero). Resta com'e' solo se coincide proprio con la nuova base:
+       "mariorossii" corretto in Rossi diventa il primo libero fra
+       "mariorossi", "mariorossi2"..., e anche "mariorossi3" puo' diventare
+       "mariorossi2" se nel frattempo si e' liberato. Per questo non basta
+       che il nome attuale cominci con la base: la scelta «Mantieni» (con le
+       credenziali gia' spedite) deve comparire. */
     function anteprimaNomeCorretto() {
         const p = stato.inCorrezione;
         if (!p) return;
         const base = NU.nomeUtenteBase($('#corr-nome').value, $('#corr-cognome').value);
         const baseAttuale = NU.nomeUtenteBase(p.nome, p.cognome);
-        const cambia = !!base && base !== baseAttuale && !String(p.nomeUtente || '').startsWith(base);
+        const attuale = String(p.nomeUtente || '');
+        const cambia = !!base && base !== baseAttuale && attuale !== base;
         let testo;
         if (!base) testo = 'Da questo nome e cognome non resta nessuna lettera a-z: correggili.';
-        else if (!cambia) testo = 'Il nome utente resta ' + p.nomeUtente + '.';
-        else testo = 'Il nome utente cambierebbe da ' + p.nomeUtente + ' a ' + base + ' (o ' + base + '2, ' + base + '3… se è già usato).';
+        else if (!cambia) testo = 'Il nome utente resta ' + attuale + '.';
+        else if (new RegExp('^' + base + '\\d+$').test(attuale)) {
+            testo = 'Il nome utente verrebbe ricalcolato: il primo libero fra ' + base + ', ' + base + '2, ' + base + '3… (potrebbe non restare ' + attuale + ').';
+        } else testo = 'Il nome utente cambierebbe da ' + attuale + ' a ' + base + ' (o ' + base + '2, ' + base + '3… se è già usato).';
         $('#corr-anteprima-nome').textContent = testo;
         // credenziali gia' partite: si sceglie se tenere il nome utente che la persona ha gia'
         // ('incerto': l'email potrebbe essere arrivata, vale come spedita)
@@ -2929,6 +3085,7 @@
     /* ============================================================
        VIA
        ============================================================ */
+    adattaTestiPiattaforma();
     avvio().catch(() => {
         mostraMessaggio('Gestione non disponibile', 'Si è verificato un errore imprevisto durante l\'avvio: ricarica la pagina.', () => location.reload());
     });

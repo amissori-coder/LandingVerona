@@ -4483,13 +4483,24 @@ html[data-diretta="conclusa"] .diretta-riquadro {
    (secondo che dica "Diretta" o "IN DIRETTA"): fra 1000 e 1199px non sta
    piu' su una riga e le voci finirebbero sopra il marchio. In quella fascia
    vale quindi lo stesso menu a tendina di sotto i 999px (regole copiate
-   da quel blocco, identiche). */
+   da quel blocco, identiche), con la pillola Diretta accanto all'hamburger.
+   Solo finche' la voce Diretta c'e': dopo la fine della diretta
+   (<html data-diretta="conclusa">, scritto da /assets/diretta-stato.js) la
+   voce sparisce, il menu torna largo come prima e quindi su una riga, come
+   prima della diretta. Senza JavaScript l'attributo manca e la voce resta:
+   vale il menu a tendina. La condizione sta dentro :where(), che non
+   aggiunge specificita': ogni regola pesa esattamente come quella del
+   blocco sotto i 999px (e le regole della voce Diretta e della brochure
+   continuano a vincere come prima). I browser senza :where (precedenti al
+   2021) ignorano il blocco e tengono il menu su una riga. Le regole della
+   voce e della pillola nel blocco "fino a 1199px" qui sotto restano come
+   sono: dopo la fine voce e pillola sono nascoste ([data-diretta-aperta]). */
 @media (min-width: 1000px) and (max-width: 1199px) {
-    .nav-toggle {
+    :where(html:not([data-diretta="conclusa"])) .nav-toggle {
         display: flex;
     }
 
-    .nav-menu {
+    :where(html:not([data-diretta="conclusa"])) .nav-menu {
         position: absolute;
         top: 100%;
         left: 0;
@@ -4505,28 +4516,28 @@ html[data-diretta="conclusa"] .diretta-riquadro {
         box-shadow: 0 18px 34px rgba(0, 0, 0, 0.35);
     }
 
-    .nav-menu.active {
+    :where(html:not([data-diretta="conclusa"])) .nav-menu.active {
         display: flex;
     }
 
-    .nav-menu li {
+    :where(html:not([data-diretta="conclusa"])) .nav-menu li {
         width: 100%;
     }
 
-    .nav-menu a {
+    :where(html:not([data-diretta="conclusa"])) .nav-menu a {
         font-size: 0.95rem;
         display: block;
         padding: 11px 4px;
         white-space: normal;
     }
 
-    .nav-menu a.nav-brochure {
+    :where(html:not([data-diretta="conclusa"])) .nav-menu a.nav-brochure {
         display: inline-flex;
         width: auto;
         margin-top: 8px;
     }
 
-    .nav-cta {
+    :where(html:not([data-diretta="conclusa"])) .nav-cta {
         text-align: center;
         width: 100%;
         padding: 14px 22px;

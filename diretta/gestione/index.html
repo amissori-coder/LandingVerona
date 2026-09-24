@@ -18,7 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260924b">
+    <link rel="stylesheet" href="gestione.css?v=20260924c">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -91,7 +91,7 @@
                     <span id="stato-testata" class="pillola-stato" data-stato="" aria-live="polite"></span>
                     <button type="button" id="btn-nuovo-evento" class="btn btn-chiaro">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                        Nuovo evento
+                        <span>Nuovo<span class="parola-evento"> evento</span></span>
                     </button>
                 </div>
                 <div class="testata-utente">
@@ -147,11 +147,18 @@
                                 </div>
                             </div>
                             <div class="campo campo-intero">
-                                <label for="ev-video">Link del video YouTube</label>
+                                <!-- nome della piattaforma, segnaposto e frase su «Non in elenco»
+                                     li adatta gestione.js al player caricato (NGBPlayer.nome) -->
+                                <label for="ev-video">Link del video <span class="nome-piattaforma">YouTube</span></label>
                                 <input type="url" id="ev-video" name="videoUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-video-aiuto" placeholder="https://www.youtube.com/live/…">
-                                <p id="ev-video-aiuto" class="aiuto">La diretta su YouTube va impostata come «Non in elenco» con l'incorporamento consentito.
+                                <p id="ev-video-aiuto" class="aiuto"><span data-solo-piattaforma="youtube">La diretta su YouTube va impostata come «Non in elenco» con l'incorporamento consentito. </span>
                                     Il link non compare mai nel codice pubblico: i partecipanti lo ricevono solo mentre l'evento è in onda.
+                                    Un link nuovo lo provo qui sotto con lo stesso player dei partecipanti prima di salvarlo.
                                     Puoi lasciarlo vuoto e inserirlo più tardi dalla scheda Regia.</p>
+                                <div id="ev-video-anteprima" class="video-anteprima" hidden>
+                                    <div class="video-anteprima-cornice"></div>
+                                    <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                </div>
                             </div>
                             <div class="campo campo-intero">
                                 <label for="ev-programma">Programma <span class="facoltativo">(una voce per riga)</span></label>
@@ -262,16 +269,16 @@
                             <p class="regia-dettaglio">Video attuale: <span id="regia-video-attuale" class="testo-fisso">nessuno</span></p>
                             <p id="regia-video-pubblico" class="aiuto"></p>
                             <form id="form-video" class="riga-campo" novalidate>
-                                <label for="regia-video" class="solo-lettori">Nuovo link del video YouTube</label>
+                                <label for="regia-video" class="solo-lettori">Nuovo link del video <span class="nome-piattaforma">YouTube</span></label>
                                 <input type="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Incolla il link YouTube della diretta">
                                 <button type="submit" id="btn-cambia-video" class="btn btn-primario">Cambia video</button>
                             </form>
-                            <p class="aiuto">Prima di applicarlo lo provo qui sotto con lo stesso player dei partecipanti: se YouTube
-                                non lo consente, te lo dico e non cambio niente. Durante la diretta, chi è collegato passa al nuovo video da solo.</p>
+                            <p class="aiuto">Prima di applicarlo lo provo qui sotto con lo stesso player dei partecipanti: se
+                                <span class="nome-piattaforma">YouTube</span> non lo consente, te lo dico e non cambio niente. Durante la diretta, chi è collegato passa al nuovo video da solo.</p>
                             <p id="msg-video" class="msg" role="status" hidden></p>
                             <div id="regia-video-anteprima" class="video-anteprima" hidden>
-                                <div class="video-anteprima-cornice"><div id="regia-video-player"></div></div>
-                                <button type="button" id="btn-chiudi-anteprima-video" class="btn btn-secondario btn-piccolo">Chiudi l'anteprima del video</button>
+                                <div class="video-anteprima-cornice"></div>
+                                <button type="button" id="btn-chiudi-anteprima-video" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
                             </div>
                         </div>
 
@@ -637,7 +644,7 @@
     <script src="../nome-utente.js?v=20260924b"></script>
     <!-- lo stesso player della pagina dei partecipanti: serve all'anteprima del
          video in regia e a riconoscere l'identificativo dal link (idDa) -->
-    <script src="../player-youtube.js?v=20260924b"></script>
-    <script src="gestione.js?v=20260924b"></script>
+    <script src="../player-youtube.js?v=20260924c"></script>
+    <script src="gestione.js?v=20260924c"></script>
 </body>
 </html>

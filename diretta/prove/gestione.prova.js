@@ -48,14 +48,20 @@
    conferma degli omonimi; creazione a gruppi di 25 con un nome preso nel
    frattempo e la rete che cade (Riprendi, zero doppioni); elenco con
    ricerca; invio singolo, reinvio rifiutato entro un minuto (409 con il
-   testo del servizio), nuova password, disattivazione, correzioni (R3);
-   regia (in onda, pausa con il video tolto ai partecipanti, cambio del
-   video provato prima, avviso, contatore dei collegati); email di prova,
-   invio a tutti fermato da Brevo, «Riprova adesso», tetto del giorno,
-   giro automatico che lavora insieme alla pagina, reinvio a chi non
-   l'ha ricevuta, esiti senza BREVO_API_KEY; esportazione in Excel con
-   due fogli. Screenshot in risultati/screenshot-gestione/ (computer
-   1440x900 e tablet 820x1180). Esce con 1 se qualcosa e' rosso.
+   testo del servizio), nuova password, disattivazione, correzioni (R3,
+   anche «Rossii» -> «Rossi» a credenziali partite: la finestra chiede se
+   mantenere il nome utente); regia (in onda, pausa con il video tolto ai
+   partecipanti, cambio del video provato prima, messaggio sul link che
+   segue NGBPlayer.nome, avviso, contatore dei collegati); il video
+   cambiato dalla scheda Evento (provato con il player, e mai rimesso
+   vecchio da un modulo aperto da tempo); email di prova, invio a tutti
+   fermato da Brevo, «Riprova adesso», tetto del giorno, giro automatico
+   che lavora insieme alla pagina, reinvio a chi non l'ha ricevuta, esiti
+   senza BREVO_API_KEY; esportazione in Excel con due fogli; la testata
+   compatta sul telefono (390 e 360 px). Il file di esempio usa solo
+   indirizzi su domini riservati (example.com, .example, .invalid).
+   Screenshot in risultati/screenshot-gestione/ (computer 1440x900, tablet
+   820x1180, testata del telefono). Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -99,7 +105,7 @@ const RE_PASSWORD = /^[A-HJKMNP-Za-hjkmnp-z2-9]{10}$/;
 const SERVIZIO_BASE = {
     DIRETTA_POSTA_FINTA: POSTA,
     DIRETTA_ADMIN_EMAILS: EMAIL_GESTORE,
-    DIRETTA_POSTA_RIFIUTA: 'chloe.dupont@dupont.fr',
+    DIRETTA_POSTA_RIFIUTA: 'chloe.dupont@dupont.invalid',
     DIRETTA_MAX_GIORNO: '0',
     DIRETTA_POSTA_ERRORE_ACCOUNT: '',
     DIRETTA_POSTA_RITARDO_MS: '0'
@@ -214,6 +220,14 @@ async function sheetJSNode() {
         const htmlGestione = fs.readFileSync(path.join(RADICE, 'diretta/gestione/index.html'), 'utf8');
         vero(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(htmlGestione) && !/\son[a-z]+=/i.test(htmlGestione), 'nessuno script in linea e nessun gestore on...= nell\'HTML (CSP)');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML/.test(codiceGestione), 'gestione.js non usa innerHTML/outerHTML/insertAdjacentHTML (D3)');
+        vero(!/Non riconosco un video YouTube/.test(codiceGestione) && /P\.nome/.test(codiceGestione),
+            'i messaggi sul link del video non nominano YouTube: dipendono da NGBPlayer.nome (per cambiare piattaforma)');
+        const csvEsempio = fs.readFileSync(path.join(__dirname, 'esempio-partecipanti.csv'), 'utf8');
+        const indirizziEsempio = csvEsempio.split(/\r?\n/).slice(1).map(r => (r.split(';')[2] || '').trim()).filter(e => e.includes('@'));
+        const riservato = e => /@(?:[^@\s]+\.)?(example\.com|example\.org|example\.net)$|\.(example|test|invalid)$/i.test(e);
+        vero(indirizziEsempio.length === 41 && indirizziEsempio.every(riservato),
+            'esempio-partecipanti.csv: tutti gli indirizzi (' + indirizziEsempio.length + ') su domini riservati che non ricevono posta (example.com, .example, .invalid…)',
+            indirizziEsempio.filter(e => !riservato(e)).join(', '));
 
         console.log('\n-- avvio di emulatori e servizio vero (porte ' + JSON.stringify(PORTE) + ')');
         try { fs.unlinkSync(POSTA); } catch (_) { /* non c'era */ }
@@ -421,8 +435,8 @@ async function sheetJSNode() {
         const tokGestore = await tokenDi(EMAIL_GESTORE, PASSWORD_GESTORE);
         const s1 = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'roma-2026', nuovo: true, titolo: 'Next Generation Business 2026 · Roma', luogo: 'Roma', data: '2026-04-17', oraInizio: '09:00', oraFine: '17:00', videoUrl: '', programma: [], paginaEvento: '/roma_aprile_2026/' } }, tokGestore);
         const s2 = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [
-            { riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@altra-azienda.it', azienda: 'Altra Azienda S.p.A.' },
-            { riga: 3, nome: 'Giulia', cognome: 'Ferri', email: 'giulia.ferri@esempio.it', azienda: 'Ferri Consulting' }
+            { riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@altra-azienda.example', azienda: 'Altra Azienda S.p.A.' },
+            { riga: 3, nome: 'Giulia', cognome: 'Ferri', email: 'giulia.ferri@ferri-consulting.example', azienda: 'Ferri Consulting' }
         ] }, tokGestore);
         const s3 = await api('diretta-gestione', { azione: 'evento-stato', idEvento: 'roma-2026', stato: 'terminato' }, tokGestore);
         vero(s1.stato === 200 && s2.stato === 200 && s3.stato === 200 && s2.dati.risultati.every(x => x.esito === 'creato'),
@@ -497,7 +511,7 @@ async function sheetJSNode() {
             'nomi utente: cirillico traslitterato, accenti e apostrofi (anche tipografici) tolti, spazi ripuliti');
         vero(await nu(5) === 'giuliaferri' && await riga(5).locator('input.nome-utente-riga').evaluate(n => n.readOnly), 'persona già presente (email con maiuscole e spazi): nome utente esistente, non modificabile');
         const problemi2 = await riga(2).locator('.problemi').textContent();
-        vero(/Mario Rossi, Altra Azienda S\.p\.A\., m\*\*\*@altra-azienda\.it/.test(problemi2), 'l\'omonimo dice chi usa già il nome, con l\'email mascherata (dettagliOccupati del servizio)', problemi2);
+        vero(/Mario Rossi, Altra Azienda S\.p\.A\., m\*\*\*@altra-azienda\.example/.test(problemi2), 'l\'omonimo dice chi usa già il nome, con l\'email mascherata (dettagliOccupati del servizio)', problemi2);
         vero(await riga(2).locator('input.conferma-omonimo').count() === 1 && await riga(4).locator('input.conferma-omonimo').count() === 0, 'la casella di conferma c\'è solo sugli omonimi numerati');
         vero(await riga(36).locator('input.conferma-doppione').count() === 1, 'stessa email con nome diverso: casella «È la stessa persona»');
         vero(await riga(6).locator('input.campo-email').getAttribute('aria-invalid') === 'true', 'email mancante: campo segnato');
@@ -515,14 +529,14 @@ async function sheetJSNode() {
 
         console.log('\n-- correzioni in linea');
         const nAnteprima = chiamate('anteprima').length;
-        await riga(7).locator('input.campo-email').fill('francesca.esposito@esposito.it');
+        await riga(7).locator('input.campo-email').fill('francesca.esposito@esposito.example');
         await aspetta(async () => (await classeRiga(7)).includes('esito-nuovo'), 5000, 'riga 7 corretta');
         vero(true, 'riga 7: email corretta, ora «nuovo account»');
-        await riga(6).locator('input.campo-email').fill('luca.bianchi@bianchi-impianti.it');
+        await riga(6).locator('input.campo-email').fill('luca.bianchi@bianchi-impianti.example');
         await riga(9).locator('input.campo-cognome').fill('Verdi');
         await riga(8).locator('input.escludi-riga').check();
         await riga(32).locator('input.nome-utente-riga').fill('wangxiaoming');
-        await riga(36).locator('input.campo-email').fill('marco.galli@studiogalli.it');
+        await riga(36).locator('input.campo-email').fill('marco.galli@studiogalli.example');
         await aspetta(async () => (await classeRiga(8)).includes('esito-escluso') && (await classeRiga(6)).includes('esito-nuovo')
             && (await classeRiga(9)).includes('esito-nuovo') && (await classeRiga(32)).includes('esito-nuovo') && (await classeRiga(36)).includes('esito-nuovo'), 5000, 'correzioni');
         vero(true, 'righe 6, 9, 32, 36 corrette e riga 8 esclusa');
@@ -531,7 +545,7 @@ async function sheetJSNode() {
         await aspetta(async () => !/Controllo dei dati/.test(await testo('#motivo-blocco')), 5000, 'fine controllo');
         const seconde = chiamate('anteprima').slice(nAnteprima).map(c => c.dati);
         const emailRichieste = [].concat.apply([], seconde.map(d => d.emails));
-        vero(emailRichieste.includes('francesca.esposito@esposito.it') && emailRichieste.includes('marco.galli@studiogalli.it') && emailRichieste.length <= 4,
+        vero(emailRichieste.includes('francesca.esposito@esposito.example') && emailRichieste.includes('marco.galli@studiogalli.example') && emailRichieste.length <= 4,
             'dopo le correzioni si chiedono al servizio solo le email nuove (' + emailRichieste.length + '), non tutto il file');
         // un nome utente scritto a mano gia' occupato (lo dice il servizio: nomi richiesti)
         await riga(44).locator('input.nome-utente-riga').fill('mariorossi');
@@ -551,7 +565,7 @@ async function sheetJSNode() {
         /* ---------- 4. creazione a gruppi, con un nome preso nel frattempo e la rete che cade ---------- */
         console.log('\n-- creazione degli account');
         // un altro gestore, proprio adesso, carica Nicolò D'Angelo (un'altra persona) in un altro evento
-        const altro = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [{ riga: 9, nome: 'Nicolò', cognome: 'D\'Angelo', email: 'nicolo.dangelo@altro-caricamento.it', azienda: 'Altro Studio' }] }, tokGestore);
+        const altro = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [{ riga: 9, nome: 'Nicolò', cognome: 'D\'Angelo', email: 'nicolo.dangelo@altro-caricamento.example', azienda: 'Altro Studio' }] }, tokGestore);
         vero(altro.stato === 200 && altro.dati.risultati[0].nomeUtente === 'nicolodangelo', 'nel frattempo un altro caricamento (vero) prende «nicolodangelo»');
         guastoCrea.restanti = 3;
         guastoCrea.perse = 1;
@@ -601,8 +615,8 @@ async function sheetJSNode() {
         const cerca = async q => { await $('#cerca-partecipanti').fill(q); await pausa(80); return visibiliElenco(); };
         let v = await cerca('ivanpetrov');
         vero(v.length === 1 && v[0] === await uidDi('ivanpetrov'), 'ricerca per nome utente');
-        v = await cerca('deluca-figli.it');
-        vero(v.length === 2, 'ricerca per email (2 persone di deluca-figli.it)', v.length);
+        v = await cerca('deluca-figli.example');
+        vero(v.length === 2, 'ricerca per email (2 persone di deluca-figli.example)', v.length);
         v = await cerca('Ferri Consulting');
         vero(v.length === 1 && v[0] === await uidDi('giuliaferri'), 'ricerca per azienda');
         v = await cerca('mario rossi');
@@ -618,15 +632,21 @@ async function sheetJSNode() {
         await confermaDialogo(/Inviare adesso le credenziali/);
         await aspetta(async () => (await (await rp('ivanpetrov')).locator('.stato-email').textContent()) === 'inviata', 10000, 'invio');
         vero(/stato-inviata/.test(await (await rp('ivanpetrov')).locator('.stato-email').getAttribute('class')), '«Invia ora»: stato email della persona «inviata», con il colore giusto');
-        const letteraIvan = postaPer('ivan.petrov@petrov-trading.ru', 'credenziali');
+        const letteraIvan = postaPer('ivan.petrov@petrov-trading.example', 'credenziali');
         vero(letteraIvan.length === 1 && /Nome utente:\s*ivanpetrov/.test(letteraIvan[0].testo) && RE_PASSWORD.test(passwordDa(letteraIvan[0])),
             'nella casella di Ivan: una email con il suo nome utente e una password di 10 caratteri senza lettere ambigue');
+        const elenchiPrimaDel409 = chiamate('partecipanti').length;
         await (await rp('ivanpetrov')).locator('button[data-op="reinvia"]').click();
         const avvisoReinvio = await confermaDialogo(/Reinviare le credenziali/);
         vero(/smetterà di funzionare.*entro un'ora/s.test(avvisoReinvio), 'il reinvio avverte che la password attuale smette di funzionare (T9)');
         await aspetta(async () => /meno di un minuto fa/.test(await avvisi()), 10000, '409 del reinvio');
         vero(true, 'reinvio entro un minuto: il servizio risponde 409 e la pagina mostra il suo testo: «' + ((await $('#avvisi .avviso').last().textContent()) || '').trim() + '»');
-        vero(postaPer('ivan.petrov@petrov-trading.ru', 'credenziali').length === 1, 'e nessuna seconda email è partita');
+        vero(postaPer('ivan.petrov@petrov-trading.example', 'credenziali').length === 1, 'e nessuna seconda email è partita');
+        /* dopo un 409 la pagina rilegge l'elenco e ridisegna le righe: si
+           aspetta che abbia finito, altrimenti il menu «Altro» aperto qui
+           sotto verrebbe sostituito (chiuso) a meta' del clic */
+        await aspetta(() => chiamate('partecipanti').length > elenchiPrimaDel409, 10000, 'elenco riletto dopo il 409');
+        await calma();
         await (await rp('annamariadeluca')).locator('summary').click();
         await (await rp('annamariadeluca')).locator('button[data-op="rigenera"]').click();
         await confermaDialogo(/Nuova password|nuova password/);
@@ -674,9 +694,20 @@ async function sheetJSNode() {
         const ivanDopo = await partecipante('ivanpetrov');
         vero(corr.mantieniNomeUtente === true && ivanDopo && ivanDopo.cognome === 'Petrova' && ivanDopo.invii[ID].stato === 'inviata',
             'scelta predefinita «Mantieni»: mantieniNomeUtente true, nome utente e credenziali restano validi');
+        // di nuovo Petrov: la nuova base e' proprio il nome utente attuale, che resta com'e' (anche per il servizio)
+        await (await rp('ivanpetrov')).locator('button[data-op="correggi"]').click();
+        await $('#dialogo-correggi').waitFor({ state: 'visible' });
+        await $('#corr-cognome').fill('Petrov');
+        vero(/resta ivanpetrov/.test(await testo('#corr-anteprima-nome')) && await $('#corr-scelta-nome').isHidden(),
+            'cognome rimesso a «Petrov»: la nuova base coincide con il nome utente, la finestra dice che resta e non chiede niente');
+        await $('#btn-corr-salva').click();
+        await $('#dialogo-correggi').waitFor({ state: 'hidden' });
+        const ivanDiNuovo = await partecipante('ivanpetrov');
+        vero(ivanDiNuovo && ivanDiNuovo.cognome === 'Petrov' && ivanDiNuovo.invii[ID].stato === 'inviata',
+            'sul servizio: stesso nome utente e credenziali ancora «inviata», come annunciato');
         // email gia' di un altro: 409 mostrato nella finestra
         await (await rp('elenaricci')).locator('button[data-op="correggi"]').click();
-        await $('#corr-email').fill('giulia.ferri@esempio.it');
+        await $('#corr-email').fill('giulia.ferri@ferri-consulting.example');
         await $('#btn-corr-salva').click();
         await aspetta(async () => /appartiene già a un'altra persona/.test(await testo('#msg-correggi')), 5000, '409');
         vero(await $('#corr-email').getAttribute('aria-invalid') === 'true', 'email già usata da un\'altra persona: il 409 del servizio è mostrato nella finestra, niente salvato');
@@ -712,6 +743,19 @@ async function sheetJSNode() {
         await page.clock.fastForward(21000);
         await aspetta(async () => chiamate('connessi').length > primaDelTimer && await testo('#num-connessi') === '36', 10000, 'aggiornamento dei collegati');
         vero(true, 'dopo 20 secondi il contatore si aggiorna da solo (36: cinque persone in più si sono collegate)');
+        // un link che non e' di un video: il messaggio nomina la piattaforma del player (NGBPlayer.nome)
+        await $('#regia-video').fill('https://example.com/diretta');
+        await $('#btn-cambia-video').click();
+        await aspetta(async () => /Non riconosco un video/.test(await testo('#msg-video')), 5000, 'link non riconosciuto');
+        const msgYouTube = await testo('#msg-video');
+        await page.evaluate(() => { if (window.NGBPlayer) window.NGBPlayer.nome = 'vimeo'; });
+        await $('#btn-cambia-video').click();
+        await aspetta(async () => /di Vimeo/.test(await testo('#msg-video')), 5000, 'messaggio con la piattaforma');
+        const msgVimeo = await testo('#msg-video');
+        await page.evaluate(() => { if (window.NGBPlayer) window.NGBPlayer.nome = 'youtube'; });
+        vero(/Non riconosco un video di YouTube in questo link.*youtu\.be/.test(msgYouTube) && /Non riconosco un video di Vimeo in questo link.*vimeo\.com/.test(msgVimeo)
+            && !/YouTube/.test(msgVimeo) && chiamate('evento-video').length === 0,
+            'link non riconosciuto: il messaggio segue NGBPlayer.nome («' + msgVimeo + '»), niente chiamato');
         // il video: prima provato con il player, poi cambiato per tutti
         const conPlayer = await page.evaluate(() => !!(window.NGBPlayer && window.NGBPlayer.crea));
         if (conPlayer) {
@@ -755,6 +799,49 @@ async function sheetJSNode() {
         await page.keyboard.press('Escape');
         await $('#dialogo-conferma').waitFor({ state: 'hidden' });
         vero(await $('#regia-stato').getAttribute('data-stato') === 'in_onda', 'Esc annulla: la diretta resta in onda');
+
+        /* Il video si puo' cambiare anche dalla scheda Evento. Prima: un altro
+           gestore (qui una chiamata vera al servizio) cambia il video dalla sua
+           regia; in questa pagina il modulo dell'evento e' rimasto aperto con il
+           link di prima. Correggere il luogo NON deve rimettere il video vecchio. */
+        console.log('\n-- il video dalla scheda Evento');
+        const altroGestore = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, videoUrl: 'https://youtu.be/altrogestor', videoId: 'altrogestor' }, tokGestore);
+        vero(altroGestore.stato === 200 && (await db.doc('eventi/' + ID).get()).data().videoId === 'altrogestor', 'un altro gestore cambia il video dalla sua regia (altrogestor)');
+        await page.click('[data-scheda="evento"]');
+        vero(/zyxwvutsrqp/.test(await $('#ev-video').inputValue()), 'qui il modulo dell\'evento mostra ancora il link di prima (nessuno lo ha ricaricato)');
+        const salvaPrima = chiamate('evento-salva').length;
+        await $('#ev-luogo').fill('Napoli · Hotel Eurostars Excelsior, Sala Posillipo');
+        await $('#btn-salva-evento').click();
+        await aspetta(async () => /Modifiche salvate/.test(await testo('#msg-evento')), 10000, 'luogo salvato');
+        const soloLuogo = chiamate('evento-salva').slice(salvaPrima).pop().dati.evento;
+        const [pubblicoDopo, riservatoDopo] = await Promise.all([db.doc('eventi/' + ID).get(), db.doc('eventiRiservati/' + ID).get()]);
+        vero(!('videoUrl' in soloLuogo) && !('videoId' in soloLuogo) && pubblicoDopo.data().luogo === 'Napoli · Hotel Eurostars Excelsior, Sala Posillipo',
+            'correggendo il luogo il link non si manda (non era stato toccato)', JSON.stringify(soloLuogo));
+        vero(pubblicoDopo.data().videoId === 'altrogestor' && riservatoDopo.data().videoId === 'altrogestor',
+            'e il video dell\'altro gestore resta: nessuno torna al video vecchio');
+        vero(/altrogestor/.test(await $('#ev-video').inputValue()), 'dopo il salvataggio il modulo mostra il link attuale');
+        if (conPlayer) {
+            // un link nuovo scritto qui si prova con il player, come in Regia: se non si puo' incorporare, niente salvato
+            const salvaPrimaErrore = chiamate('evento-salva').length;
+            await $('#ev-video').fill('https://youtu.be/errore12345');
+            await $('#btn-salva-evento').click();
+            await aspetta(async () => /non si può usare/.test(await testo('#msg-evento')), 15000, 'video bloccato dalla scheda Evento');
+            vero(chiamate('evento-salva').length === salvaPrimaErrore && await $('#ev-video').getAttribute('aria-invalid') === 'true'
+                && (await db.doc('eventiRiservati/' + ID).get()).data().videoId === 'altrogestor',
+                'dalla scheda Evento un video non incorporabile (errore 150 del player) si blocca con il motivo e non si salva — «' + await testo('#msg-evento') + '»');
+        } else vero(true, '(player-youtube.js assente: prova del video bloccato dalla scheda Evento saltata)');
+        await $('#ev-video').fill('https://www.youtube.com/watch?v=nuovovideo1');
+        await $('#btn-salva-evento').click();
+        await confermaDialogo(/Cambiare il video per tutti.*in onda/s);
+        await aspetta(async () => /Modifiche salvate.*nuovo video/.test(await testo('#msg-evento')), 15000, 'video cambiato dalla scheda Evento');
+        const dallEvento = chiamate('evento-salva').pop().dati.evento;
+        vero(dallEvento.videoId === 'nuovovideo1' && (await db.doc('eventi/' + ID).get()).data().videoId === 'nuovovideo1',
+            'un link nuovo dalla scheda Evento: provato, confermato (in onda) e applicato a tutti');
+        if (conPlayer) vero(await $('#ev-video-anteprima').isVisible() && (await $('#ev-video-anteprima iframe').count()) === 1,
+            'l\'anteprima del nuovo video compare sotto il campo, con lo stesso player dei partecipanti');
+        await page.click('[data-scheda="regia"]');
+        vero(/nuovovideo1/.test(await testo('#regia-video-attuale')) && await $('#ev-video-anteprima').isHidden(),
+            'la regia mostra il video appena scelto; l\'anteprima della scheda Evento si chiude cambiando scheda');
         // vedi come un partecipante
         const [nuovaScheda] = await Promise.all([context.waitForEvent('page'), $('#btn-anteprima').click()]);
         await nuovaScheda.waitForLoadState('domcontentloaded').catch(() => {});
@@ -878,8 +965,8 @@ async function sheetJSNode() {
         /* ---------- 8. esportazione ---------- */
         console.log('\n-- esportazione');
         // due accessi veri (con le password arrivate per email) e due presenze del giorno dell'evento
-        const pwIvan = passwordDa(postaPer('ivan.petrov@petrov-trading.ru', 'credenziali').pop());
-        const pwAnna = passwordDa(postaPer('annamaria.deluca@deluca-figli.it', 'credenziali').pop());
+        const pwIvan = passwordDa(postaPer('ivan.petrov@petrov-trading.example', 'credenziali').pop());
+        const pwAnna = passwordDa(postaPer('annamaria.deluca@deluca-figli.example', 'credenziali').pop());
         const e1 = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'ivanpetrov', password: pwIvan }, null, { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36' });
         const e2 = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'annamariadeluca', password: pwAnna }, null, { 'User-Agent': UA_IPHONE });
         vero(e1.stato === 200 && e2.stato === 200, 'Ivan e Anna Maria entrano con le credenziali ricevute per email', JSON.stringify([e1.dati, e2.dati]).slice(0, 300));
@@ -916,9 +1003,9 @@ async function sheetJSNode() {
         XLSX.utils.book_append_sheet(wbProva, XLSX.utils.aoa_to_sheet([['Note'], ['Elenco degli iscritti nel secondo foglio']]), 'Note');
         XLSX.utils.book_append_sheet(wbProva, XLSX.utils.aoa_to_sheet([
             ['Nominativo', 'Posta elettronica', 'Ragione sociale'],
-            ['De Luca Anna Maria', 'annamaria.deluca@deluca-figli.it', 'De Luca & Figli S.p.A.'],
-            ['Bruno Carla', 'carla.bruno@bruno.it', 'Bruno Srl'],
-            ['Van der Berg Jan', 'jan@vanderberg.nl', 'VDB BV']
+            ['De Luca Anna Maria', 'annamaria.deluca@deluca-figli.example', 'De Luca & Figli S.p.A.'],
+            ['Bruno Carla', 'carla.bruno@bruno.example', 'Bruno Srl'],
+            ['Van der Berg Jan', 'jan@vanderberg.example', 'VDB BV']
         ]), 'Iscritti');
         const bufXlsx = Buffer.from(XLSX.write(wbProva, { type: 'array', bookType: 'xlsx' }));
         await $('#file-partecipanti').setInputFiles({ name: 'iscritti-due-fogli.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: bufXlsx });
@@ -935,7 +1022,7 @@ async function sheetJSNode() {
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 3 && /righe lette/.test(await testo('#riepilogo-anteprima')), 10000, 'anteprima abbinata');
         vero((await classeRiga(2)).includes('esito-gia-nell-evento'), 'Anna Maria De Luca è già nell\'evento (lo dice il servizio): nessun nuovo account');
         await $('#btn-annulla-caricamento').click();
-        const csvRotto = Buffer.from('nome;cognome;email\nNicolÃ²;Rossi;nicolo@esempio.it\nAnna;Neri;anna.neri@esempio.it\n', 'utf8');
+        const csvRotto = Buffer.from('nome;cognome;email\nNicolÃ²;Rossi;nicolo@esempio.example\nAnna;Neri;anna.neri@esempio.example\n', 'utf8');
         await $('#file-partecipanti').setInputFiles({ name: 'codifica-sbagliata.csv', mimeType: 'text/csv', buffer: csvRotto });
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 2 && /righe lette/.test(await testo('#riepilogo-anteprima')), 10000, 'anteprima codifica');
         vero((await classeRiga(2)).includes('esito-errore') && /codifica/.test(await riga(2).locator('.problemi').textContent()), 'caratteri «Ã²»: problema grave «codifica del file sbagliata» (R9)');
@@ -952,6 +1039,39 @@ async function sheetJSNode() {
             'la persona tolta dall\'evento risulta «già registrata, da aggiungere» (nessun secondo account)');
         vero(await $('#btn-crea-account').isDisabled(), 'con le righe originali in errore il pulsante resta spento');
         await $('#btn-annulla-caricamento').click();
+
+        /* ---------- 9b. un refuso nel cognome, a credenziali partite (R3) ----------
+           «Rossii» corretto in «Rossi»: il nome utente mariorossii comincia con
+           la nuova base mariorossi, ma il servizio lo ricalcolerebbe comunque
+           (sarebbe mariorossi5) e le credenziali spedite smetterebbero di
+           valere. La finestra deve dirlo e chiedere se mantenerlo. */
+        console.log('\n-- correzione «Rossii» -> «Rossi» con le credenziali già inviate');
+        const refuso = await api('diretta-gestione', { azione: 'crea', idEvento: ID, righe: [
+            { riga: 2, nome: 'Mario', cognome: 'Rossii', email: 'mario.rossii@refuso.example', azienda: 'Refuso S.r.l.' }] }, tokGestore);
+        vero(refuso.stato === 200 && refuso.dati.risultati[0].nomeUtente === 'mariorossii', 'un iscritto con un refuso nel cognome (dal servizio vero): nome utente mariorossii');
+        await $('#btn-aggiorna-partecipanti').click();
+        await aspetta(async () => (await page.locator('#tabella-partecipanti td.col-nome-utente', { hasText: /^mariorossii$/ }).count()) === 1, 10000, 'mariorossii in elenco');
+        await (await rp('mariorossii')).locator('button[data-op="reinvia"]').click();
+        await confermaDialogo(/Inviare adesso le credenziali/);
+        await aspetta(async () => (await (await rp('mariorossii')).locator('.stato-email').textContent()) === 'inviata', 20000, 'credenziali a mariorossii');
+        const pwRossii = passwordDa(postaPer('mario.rossii@refuso.example', 'credenziali').pop());
+        vero(RE_PASSWORD.test(pwRossii), 'le credenziali di mariorossii sono partite');
+        await (await rp('mariorossii')).locator('button[data-op="correggi"]').click();
+        await $('#dialogo-correggi').waitFor({ state: 'visible' });
+        await $('#corr-cognome').fill('Rossi');
+        vero(await $('#corr-scelta-nome').isVisible() && /cambierebbe da mariorossii a mariorossi/.test(await testo('#corr-anteprima-nome')),
+            '«Rossii» -> «Rossi» con le credenziali già inviate: la finestra dice che il nome utente cambierebbe e chiede se mantenerlo — «' + await testo('#corr-anteprima-nome') + '»');
+        vero(await $('input[name="corr-nome-utente"][value="mantieni"]').isChecked(), 'la scelta proposta è «Mantieni il nome utente attuale»');
+        await $('#btn-corr-salva').click();
+        await $('#dialogo-correggi').waitFor({ state: 'hidden' });
+        const corrRossii = chiamate('partecipante').filter(c => c.dati.operazione === 'correggi').pop().dati;
+        const rossiiDopo = await partecipante('mariorossii');
+        const [nRossii, nRossi5] = await Promise.all([db.doc('nomiUtente/mariorossii').get(), db.doc('nomiUtente/mariorossi5').get()]);
+        vero(corrRossii.mantieniNomeUtente === true && rossiiDopo && rossiiDopo.cognome === 'Rossi' && rossiiDopo.invii[ID].stato === 'inviata'
+            && nRossii.exists && nRossii.data().uid === rossiiDopo.uid && !nRossi5.exists,
+            '«Mantieni»: cognome corretto, il nome utente resta mariorossii (nessun mariorossi5) e le credenziali restano «inviata»');
+        const entraRossii = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'mariorossii', password: pwRossii });
+        vero(entraRossii.stato === 200 && entraRossii.dati.cognome === 'Rossi', 'e con il nome utente e la password dell\'email Mario entra davvero');
 
         /* ---------- 10. accessibilita' e tastiera ---------- */
         console.log('\n-- accessibilità');
@@ -972,11 +1092,65 @@ async function sheetJSNode() {
         await page.keyboard.press('End');
         vero(await $('#tab-esporta').getAttribute('aria-selected') === 'true', 'schede: Fine porta all\'ultima');
 
+        /* ---------- 10b. la testata sul telefono ----------
+           Sul telefono la testata (che resta in cima scorrendo) e' compatta: una
+           riga con marchio, stato e pulsanti piccoli, il menu degli eventi a tutta
+           larghezza su una riga sua, le schede che scorrono con un indizio. */
+        console.log('\n-- testata sul telefono');
+        const misuraTestata = () => page.evaluate(() => {
+            const r = s => document.querySelector(s).getBoundingClientRect();
+            const t = r('.testata'), sel = r('#sel-evento'), pil = r('#stato-testata'), nuovo = r('#btn-nuovo-evento'), esci = r('#btn-gestore-esci');
+            const s = document.querySelector('.schede');
+            const scelta = document.querySelector('.schede [aria-selected="true"]').getBoundingClientRect();
+            const c = s.getBoundingClientRect();
+            const centro = b => b.top + b.height / 2;
+            return {
+                altezza: Math.round(t.height), finestra: window.innerWidth, selLargo: Math.round(sel.width),
+                selSotto: sel.top >= Math.max(pil.bottom, nuovo.bottom, esci.bottom) - 1,
+                unaRiga: [pil, nuovo].every(b => Math.abs(centro(b) - centro(esci)) < 4),
+                bottoni: Math.round(Math.max(nuovo.height, esci.height)),
+                titolo: r('.testata-titolo').width > 1,
+                orizzontale: document.documentElement.scrollWidth > window.innerWidth,
+                sceltaInVista: scelta.left >= c.left - 1 && scelta.right <= c.right + 1,
+                classi: document.querySelector('.testata').className,
+                sfumatura: getComputedStyle(s).webkitMaskImage || getComputedStyle(s).maskImage || 'none',
+                freccia: getComputedStyle(document.querySelector('.testata'), '::after').content
+            };
+        });
+        const alComputer = await misuraTestata();
+        await page.setViewportSize({ width: 390, height: 844 });
+        await pausa(400);
+        const a390 = await misuraTestata();
+        vero(a390.altezza <= 150, '390px: testata compatta, alta ' + a390.altezza + 'px (prima era 212)');
+        vero(a390.selSotto && a390.selLargo >= a390.finestra - 32, 'il menu degli eventi sta su una riga sua, largo quanto lo schermo (' + a390.selLargo + 'px): il titolo non è più tagliato');
+        vero(a390.unaRiga && a390.bottoni <= 36, 'stato, «Nuovo evento» ed «Esci» su una riga, pulsanti più piccoli (' + a390.bottoni + 'px)');
+        vero(!a390.orizzontale && a390.sceltaInVista, 'niente scorrimento orizzontale della pagina, la scheda scelta si vede');
+        await page.screenshot({ path: path.join(FOTO, 'telefono-testata-390.png'), clip: { x: 0, y: 0, width: 390, height: 320 } });
+        await page.setViewportSize({ width: 360, height: 780 });
+        await pausa(400);
+        const a360 = await misuraTestata();
+        vero(/altre-a-sinistra/.test(a360.classi) && !/altre-a-destra/.test(a360.classi) && a360.sceltaInVista && a360.sfumatura !== 'none' && a360.freccia === 'none',
+            '360px: le schede scorrono; con «Esporta» scelta la riga va in fondo e il bordo sinistro sfuma (altre schede prima)', JSON.stringify(a360));
+        await $('#tab-evento').click();
+        await pausa(300);
+        const b360 = await misuraTestata();
+        vero(/altre-a-destra/.test(b360.classi) && b360.sceltaInVista && b360.sfumatura !== 'none' && /›/.test(b360.freccia),
+            'scelta «Evento», la riga torna all\'inizio: sfumatura e freccia «›» sul bordo destro dicono che ci sono altre schede', JSON.stringify(b360));
+        await page.screenshot({ path: path.join(FOTO, 'telefono-testata-360.png'), clip: { x: 0, y: 0, width: 360, height: 300 } });
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await pausa(400);
+        const dopo = await misuraTestata();
+        vero(dopo.altezza === alComputer.altezza && dopo.titolo && !/altre-a-/.test(dopo.classi) && dopo.selLargo < 600,
+            'sul computer la testata resta com\'era (alta ' + dopo.altezza + 'px, con il titolo, senza indizi)');
+
         /* ---------- 11. la sessione resta, poi si esce ---------- */
         console.log('\n-- sessione');
         await page.reload();
         await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
-        vero(await testo('#gestore-connesso') === EMAIL_GESTORE && await $('#sel-evento').inputValue() === ID, 'ricaricando la pagina la sessione resta aperta e l\'evento resta scelto');
+        // la gestione si mostra subito e l'elenco degli eventi arriva un attimo dopo dal servizio
+        const sceltoDopoRicarica = await aspetta(async () => await $('#sel-evento').inputValue() === ID, 10000, 'evento scelto dopo la ricarica').catch(() => false);
+        vero(await testo('#gestore-connesso') === EMAIL_GESTORE && sceltoDopoRicarica, 'ricaricando la pagina la sessione resta aperta e l\'evento resta scelto',
+            await $('#sel-evento').inputValue());
         await $('#btn-gestore-esci').click();
         await $('#form-gestore').waitFor({ state: 'visible', timeout: 10000 });
         vero(true, '«Esci»: di nuovo alla schermata di accesso');

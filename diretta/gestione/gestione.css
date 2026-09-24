@@ -691,3 +691,78 @@ tr.riga-nota { background: var(--blu-velo); }
     .filtri label { flex: 1 1 auto; justify-content: center; padding: 8px 8px; }
     .dialogo-azioni .btn { flex: 1 1 auto; }
 }
+
+/* ---------- schede che scorrono di lato: l'indizio ----------
+   Quando le schede non stanno in una riga (sul telefono) scorrono di lato:
+   gestione.js mette sulla testata altre-a-destra / altre-a-sinistra, e qui
+   il bordo della riga sfuma e compare una freccia. Sopra i 900px le
+   schede ci stanno sempre e queste classi non arrivano mai. */
+@media (max-width: 900px) {
+    .testata.altre-a-destra .schede {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent calc(100% - 8px));
+        mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent calc(100% - 8px));
+    }
+    .testata.altre-a-sinistra .schede {
+        -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 56px), transparent calc(100% - 8px));
+        mask-image: linear-gradient(to left, #000 calc(100% - 56px), transparent calc(100% - 8px));
+    }
+    .testata.altre-a-destra.altre-a-sinistra .schede {
+        -webkit-mask-image: linear-gradient(to right, transparent 8px, #000 56px, #000 calc(100% - 56px), transparent calc(100% - 8px));
+        mask-image: linear-gradient(to right, transparent 8px, #000 56px, #000 calc(100% - 56px), transparent calc(100% - 8px));
+    }
+    /* la freccia sta sulla testata (fuori dalla riga sfumata) e lascia
+       passare il tocco alla scheda che c'e' sotto */
+    .testata.altre-a-destra::after,
+    .testata.altre-a-sinistra::before {
+        position: absolute; bottom: 0; height: var(--altezza-schede, 49px);
+        display: flex; align-items: center; padding: 0 6px 3px;
+        font-size: 1.35rem; font-weight: 700; line-height: 1; color: #fff; opacity: 0.9;
+        pointer-events: none;
+    }
+    .testata.altre-a-destra::after { content: '\203A'; right: 2px; }
+    .testata.altre-a-sinistra::before { content: '\2039'; left: 2px; }
+}
+
+/* ---------- telefono: testata compatta ----------
+   La testata resta in cima mentre si scorre, quindi sul telefono deve
+   occupare poco: una riga con il marchio, lo stato e i due pulsanti (piu'
+   piccoli), una con il menu degli eventi a tutta larghezza (cosi' il nome
+   dell'evento si legge), poi le schede. Il titolo "Gestione della diretta"
+   resta per i lettori di schermo. Gli elementi di .testata-evento (menu,
+   stato, "Nuovo evento") si dispongono uno per uno nella riga della
+   testata (display: contents), senza cambiare l'HTML dei computer. */
+@media (max-width: 600px) {
+    .testata { --altezza-schede: 42px; }
+    .testata-riga { padding: 8px 12px; gap: 8px; }
+    .testata-marchio { order: 1; }
+    .testata-marchio img { width: 66px; }
+    .testata-marchio > div {
+        position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    .testata-evento { display: contents; }
+    .pillola-stato { order: 2; padding: 4px 9px; gap: 5px; font-size: 0.64rem; letter-spacing: 0.06em; }
+    .pillola-stato::before { width: 7px; height: 7px; }
+    #btn-nuovo-evento { order: 3; margin-left: auto; min-height: 34px; padding: 5px 10px; gap: 5px; font-size: 0.8rem; }
+    #btn-nuovo-evento svg { width: 14px; height: 14px; }
+    .testata-utente { order: 4; margin-left: 0; }
+    #btn-gestore-esci { min-height: 34px; padding: 5px 12px; font-size: 0.8rem; }
+    .testata-evento select {
+        order: 5; flex: 1 1 100%; max-width: none;
+        min-height: 38px; padding: 6px 10px; font-size: 0.9rem;
+    }
+    .schede { padding: 0 6px; gap: 0; }
+    .schede [role="tab"] { padding: 10px 10px 8px; font-size: 0.86rem; }
+}
+/* i telefoni piu' stretti: "Nuovo evento" diventa "Nuovo" (il nome intero
+   resta per i lettori di schermo) e sotto i 360px il marchio lascia il
+   posto allo stato e ai pulsanti, che cosi' restano su una riga */
+@media (max-width: 374px) {
+    #btn-nuovo-evento .parola-evento {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+}
+@media (max-width: 359px) {
+    .testata-marchio img { display: none; }
+}
