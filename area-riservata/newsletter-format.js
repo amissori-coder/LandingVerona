@@ -1042,12 +1042,17 @@
                dentro ogni mail spedita, e Gmail taglia i messaggi oltre i
                102KB. */
             + '@media only screen and (max-width:480px){.par,.lead{text-align:left!important;}}\n'
-            /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini piu'
-               stretti, e nei promemoria il testo va a sinistra, perche' su una
-               colonna cosi' stretta il giustificato apre buchi fra le parole. */
+            /* I PROMEMORIA agli iscritti (classe pmj) restano giustificati anche
+               sul telefono: e' la scelta di chi li firma. Il riquadro dei dati li'
+               e' su una colonna sola, a tutta larghezza, e la sillabazione e'
+               accesa: le righe restano lunghe abbastanza. */
+            + '@media only screen and (max-width:480px){.par.pmj,.lead.pmj{text-align:justify!important;}}\n'
+            /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini
+               piu' stretti, per lasciare al testo giustificato la riga piu' lunga
+               possibile, e la sillabazione anche nei promemoria. */
             + '@media only screen and (max-width:400px){\n'
             + '  .px{padding-left:18px!important;padding-right:18px!important;}\n'
-            + '  .pmj{text-align:left!important;}\n'
+            + '  .pmj{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}\n'
             + '  .h1{font-size:22px!important;line-height:29px!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
@@ -2479,7 +2484,7 @@
                 + spazio(24)
                 + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
                 + spazio(12)
-                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;text-align:left;">' + testoHtml(titolo) + '</td></tr>'
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;' + ALLINEA + '">' + testoHtml(titolo) + '</td></tr>'
                 + spazio(16)
                 + '<tr><td class="lead par pmj" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
@@ -2493,7 +2498,7 @@
         /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
            lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
            l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
-        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';text-align:left;">' + testoHtml(t) + '</td></tr>';
+        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* Elenco puntato a tabelle: i <ul> in Outlook rientrano a caso. */
         const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + voci.map(v => '<tr>'
@@ -2514,8 +2519,8 @@
            buchi del giustificato. Cosi' si legge bene ovunque, anche nelle app
            di posta che ignorano il foglio di stile. I valori sono dati brevi:
            a sinistra. */
-        const riga = (et, val, i) => '<tr><td class="bxet" valign="top" style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:' + (i ? 12 : 0) + 'px 0 2px;text-align:left;">' + testoHtml(et) + '</td></tr>'
-            + '<tr><td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:0;text-align:left;">' + testoHtml(val) + '</td></tr>';
+        const riga = (et, val, i) => '<tr><td class="bxet" valign="top" style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:' + (i ? 12 : 0) + 'px 0 2px;' + ALLINEA + '">' + testoHtml(et) + '</td></tr>'
+            + '<tr><td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
         const box = righe.length
             ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
@@ -2529,7 +2534,7 @@
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + programma.map(v => '<tr>'
                 + '<td width="62" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 12px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
-                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';text-align:left;">' + testoHtml(v.nome) + '</td></tr>').join('')
+                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
             + '</table></td></tr>'
             : '';
         /* Il pulsante. Se l'indirizzo e' il segnaposto del collegamento
