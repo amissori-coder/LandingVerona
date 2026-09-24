@@ -1028,28 +1028,21 @@
             + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
             + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
             + '}\n'
-            /* SUL TELEFONO IL TESTO VA A BANDIERA. Il giustificato e' il modo
-               in cui questo studio scrive, e sopra i 480px resta. Ma
-               giustificare vuol dire allargare gli spazi finche' la riga
-               arriva in fondo, e su una colonna da una quarantina di caratteri
-               basta una parola che non si spezza - una ragione sociale come
-               "COMPAGNIA UNICA LAVORATORI PORTUALI" - perche' la riga si apra
-               in voragini: "Gentile      COMPAGNIA      UNICA". La
-               sillabazione salva le parole comuni, non i nomi propri in
-               maiuscolo. Sotto questa misura, quindi, si va a bandiera: e' la
-               regola di sempre della composizione, non un ripiego.
-               Il commento resta QUI e non nel foglio di stile: quello viaggia
-               dentro ogni mail spedita, e Gmail taglia i messaggi oltre i
-               102KB. */
-            + '@media only screen and (max-width:480px){.par,.lead{text-align:left!important;}}\n'
-            /* I PROMEMORIA agli iscritti (classe pmj) restano giustificati anche
-               sul telefono: e' la scelta di chi li firma. Il riquadro dei dati li'
-               e' su una colonna sola, a tutta larghezza, e la sillabazione e'
-               accesa: le righe restano lunghe abbastanza. */
-            + '@media only screen and (max-width:480px){.par.pmj,.lead.pmj{text-align:justify!important;}}\n'
+            /* IL TESTO E' GIUSTIFICATO SU OGNI SCHERMO, telefono compreso.
+               Su una colonna da una quarantina di caratteri il giustificato apre
+               buchi fra le parole - una ragione sociale in maiuscolo che non si
+               spezza li allarga fino alla voragine - e per un po' sotto una
+               certa misura si era andati a bandiera. E' stato deciso il
+               contrario: il giustificato e' il modo in cui questo studio scrive
+               le lettere, ed e' una scelta di chi le firma, non del programma
+               che le compone.
+               Contro i buchi resta quello che si puo' fare davvero, cioe'
+               spezzare le parole: la sillabazione sta negli stili delle celle
+               (ALLINEA) e qui nel foglio di stile, per le due classi che
+               portano prosa (".par" e ".pmj" dei promemoria). */
             /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini
-               piu' stretti, per lasciare al testo giustificato la riga piu' lunga
-               possibile, e la sillabazione anche nei promemoria. */
+               piu' stretti, per lasciare al testo giustificato la riga piu'
+               lunga possibile. */
             + '@media only screen and (max-width:400px){\n'
             + '  .px{padding-left:18px!important;padding-right:18px!important;}\n'
             + '  .pmj{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}\n'

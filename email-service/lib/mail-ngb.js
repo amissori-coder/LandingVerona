@@ -85,12 +85,11 @@ function involucro(oggetto, anteprima, corpoInterno) {
         /* le righe del riquadro si impilano: etichetta sopra, valore sotto */
         + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
         + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}}\n'
-        /* SUL TELEFONO IL TESTO VA A BANDIERA, come nelle mail composte
-           dall'area riservata (newsletter-format.js, stessa regola): sotto i
-           480px la colonna e' di una quarantina di caratteri, e basta una
-           parola che non si spezza - una ragione sociale in maiuscolo -
-           perche' il giustificato apra voragini fra le parole. */
-        + '@media only screen and (max-width:480px){.par,.lead{text-align:left!important;}'
+        /* IL TESTO RESTA GIUSTIFICATO ANCHE SUL TELEFONO, come nelle mail
+           composte dall'area riservata: e' una scelta di chi firma le lettere.
+           Qui sotto resta solo la colonna dell'ora, che e' una larghezza e non
+           un allineamento. */
+        + '@media only screen and (max-width:480px){'
         + '.ora{width:62px!important;white-space:normal!important;padding-right:10px!important;}}\n'
         + '</style>\n</head>\n'
         + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'

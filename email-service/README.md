@@ -1331,13 +1331,18 @@ stesse, e nessuna si vede rileggendo il testo:
   (`#94A3B8` su fondo chiaro, 2,4 a 1) e' passata al grigio del resto del
   piede, e il navy-glow sopra il titolo (`#5B89B8` sul fondo scuro, 4,1 a 1) e'
   stato schiarito a `#7FA8CE`, che sta a 6 a 1 e resta piu' tenue del sommario.
-- **Il giustificato su colonna stretta.** Giustificare vuol dire allargare gli
-  spazi finche' la riga arriva in fondo: a una quarantina di caratteri basta
-  una ragione sociale in maiuscolo che non si spezza perche' la riga si apra in
-  voragini ("Gentile      COMPAGNIA      UNICA"). La sillabazione salva le
-  parole comuni, non i nomi propri. **Sotto i 480px si va a bandiera**, sopra
-  resta giustificato: e' la regola di sempre della composizione, non un
-  ripiego.
+- **Il giustificato, che non si tocca.** Giustificare vuol dire allargare gli
+  spazi finche' la riga arriva in fondo, e su una colonna da una quarantina di
+  caratteri basta una ragione sociale in maiuscolo che non si spezza perche' la
+  riga si apra in voragini ("Gentile      COMPAGNIA      UNICA"). Per un po'
+  sotto i 480px si era andati a bandiera; **e' stato deciso il contrario**: il
+  giustificato e' il modo in cui questo studio scrive le lettere, su ogni
+  schermo, ed e' una scelta di chi le firma. Contro i buchi resta quello che si
+  puo' fare davvero, cioe' **spezzare le parole**: `hyphens:auto` sta sia negli
+  stili delle celle (`ALLINEA`) sia nel foglio di stile (`.par`), e riduce lo
+  spazio da recuperare a fine riga. La prova controlla che la bandiera **non
+  torni**: e' il genere di riga che si riaggiunge "per leggibilita'" senza
+  chiedere.
 - **Le larghezze fisse.** La colonna dell'ora, 110px comodi su 600, su 320 si
   prende il 39% della riga e spezza in tre il nome del tavolo. Sotto i 480px si
   stringe a 62 e l'ora va a capo fra le due ("10:00 -" sopra, "10:30" sotto):
