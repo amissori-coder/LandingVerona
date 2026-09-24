@@ -881,17 +881,28 @@ il servizio risponde "attendi un minuto" e lo scrive nel log.
 
 ## 10. Le prove
 
-Tutte in `diretta/prove/` (più quattro nel servizio, `email-service/prove/`).
+Tutte in `diretta/prove/` (più sette nel servizio, `email-service/prove/`).
 Girano contro gli **emulatori di Firebase** (nessun progetto vero, nessuna
 email vera: la posta diventa righe di un file) e con **Playwright** su
-Chromium. YouTube, che dalla rete di prova non si raggiunge, è sostituito da un
-finto YouTube (`finto-youtube.js`) che si comporta come il player vero per
-quello che usa la pagina.
+Chromium. Il video arriva da due fonti di prova (`flusso-prova.js`):
+
+- una **web TV di prova** su `https://webtv.prova.test`: una diretta HLS vera
+  trasmessa da **ffmpeg** (due qualità, segmenti da 2 secondi) che si può
+  rompere a comando: link principale che cade, riserva, server senza CORS,
+  diretta non ancora partita, pagina del player da incorporare, pagina che
+  non si può incorporare. Anche la prova del link del servizio la raggiunge
+  (solo nelle prove: `server-locale.js` con `DIRETTA_PROVE_WEBTV`);
+- la **diretta pubblica di prova di Shaka Player** (Google), fatta apposta per
+  provare i player: `https://storage.googleapis.com/shaka-live-assets/player-source.m3u8`
+  e `.mpd`, sempre accesa, con più qualità e un'ora di DVR. Il browser di
+  prova non esce in rete da solo: queste richieste passano da Node, senza
+  cache.
 
 ```bash
 cd diretta/prove
 npm install                    # una volta: firebase-tools, firebase, playwright
-node esegui-tutte.js           # tutte, circa 15 minuti
+pip install imageio-ffmpeg     # una volta, se ffmpeg non c'è già
+node esegui-tutte.js           # tutte, circa 25 minuti
 bash carico.sh                 # la prova di carico, circa 8 minuti
 node e2e.prova.js              # solo il percorso completo
 ```
@@ -899,24 +910,35 @@ node e2e.prova.js              # solo il percorso completo
 | Prova | Che cosa dimostra | Esito |
 |---|---|---|
 | `email-service/prove/diretta-nome-utente.prove.js` | la regola del nome utente: accenti, apostrofi (anche tipografici), trattini, punti, cognomi composti, doppi nomi, maiuscole, spazi, lettere straniere, cirillico e greco, omonimi, doppioni, anteprima; la copia del servizio è identica a quella del sito | 91 verdi, 0 rossi |
-| `email-service/prove/diretta-password.prove.js` | 10 caratteri, niente 0/O/o/1/l/I/i, 20.000 password tutte diverse, nessuna password nei log o in Firestore | 9 verdi, 0 rossi |
+| `email-service/prove/diretta-password.prove.js` | 10 caratteri, niente 0/O/o/1/l/I/i, 20.000 password tutte diverse, nessuna password (né chiave dei link firmati) nei log o in Firestore | 9 verdi, 0 rossi |
 | `email-service/prove/diretta-mail.prove.js` | le email: HTML e testo, credenziali in carattere a spaziatura fissa, collegamenti, date, assistenza, niente trattini lunghi, niente HTML iniettato, promemoria mai con la password | 196 verdi, 0 rossi |
 | `email-service/prove/diretta-accesso-tempi.prove.js` | "password dimenticata" e "primo accesso" dei gestori rispondono sempre in 2,5-2,9 s, anche con Brevo lento (il resto finisce dopo, con `waitUntil`); un token scaduto fa uscire, un intoppo di Google (rete, chiavi pubbliche non scaricate) no | 26 verdi, 0 rossi |
-| `email-service/prove/diretta-video.prove.js` | il link del video: link HLS `.m3u8` (anche con token), file video, link e codice da incorporare del player della web TV, YouTube; rifiutati con il motivo http, RTMP/RTSP/SRT, DASH, link con credenziali; la copia del servizio è identica a quella del sito | 53 verdi, 0 rossi |
+| `email-service/prove/diretta-video.prove.js` | il link del video: HLS `.m3u8` (anche con token), DASH `.mpd`, pagina e codice da incorporare del player della web TV; rifiutati con il motivo http, RTMP/RTSP/SRT, file video, link con credenziali, indirizzi interni; link principale e di riserva, sorgente scelta dalla regia (anche riconfermata), nessun link nel documento pubblico fuori onda; la copia del servizio è identica a quella del sito | 93 verdi, 0 rossi |
+| `email-service/prove/diretta-firma.prove.js` | i link firmati a tempo: nginx `secure_link` (con il vettore della documentazione di nginx) e Akamai EdgeAuth, durata, `validoSecondi`, acl non valide rifiutate, la chiave mai restituita | 59 verdi, 0 rossi |
+| `email-service/prove/diretta-prova-link.prove.js` | la prova del link: playlist HLS principale e di una qualità, diretta o registrazione, qualità, DVR, codec, CORS su playlist e segmento, DASH, pagine incorporabili o no (`X-Frame-Options`, `frame-ancestors`), indirizzi interni rifiutati anche dopo un redirect o con il DNS che cambia, tempi e dimensioni massime | 102 verdi, 0 rossi |
 | `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo | 61 verdi, 0 rossi |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio | 14 verdi, 0 rossi |
 | `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con 20 "Mario Rossi" ciascuno, omonimi, correzioni: **zero account doppi, zero nomi utente doppi** | 81 verdi, 0 rossi |
-| `accesso.prova.js` | accesso con "Mario Rossi", 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete), risposte e tempi uguali, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati | 110 verdi, 0 rossi |
+| `accesso.prova.js` | accesso con "Mario Rossi", 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete), risposte e tempi uguali, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda e dal dispositivo ammesso | 159 verdi, 0 rossi |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password | 144 verdi, 0 rossi |
-| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): attesa, messa in onda, audio (anche rifiutato dal browser), pausa, tastiera, schermo intero, cambio del video, errori, connessione persa, pausa dell'evento, fine e ritorno in onda, reimpostazione; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, player che nasce lento, anteprima del gestore, componenti di Firebase che non si scaricano | 51 verdi, 0 rossi |
-| `gestione.prova.js` | la gestione contro il servizio vero, su computer e tablet: anteprima di un file CSV ed Excel con tutti i casi (omonimi, doppioni, email sbagliate, correzioni, conferme), creazione a gruppi con "Riprendi", ricerca e azioni sul partecipante, regia (in onda, pausa, termina, cambio del link provato prima, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta | 220 verdi, 0 rossi |
+| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari), con la web TV di prova: attesa, messa in onda, avvio muto con il grande «Attiva l'audio» e l'audio che poi si sente, il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità (scegliendo 180p il video passa davvero a 180 righe), pausa e «Torna in diretta», scorciatoie (spazio, F, M, frecce) con il fuoco sul video, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa, pausa dell'evento, fine e ritorno in onda, reimpostazione; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano | 52 verdi, 0 rossi |
+| `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel con tutti i casi (omonimi, doppioni, email sbagliate, correzioni, conferme), creazione a gruppi con "Riprendi", ricerca e azioni sul partecipante; **il link della web TV**: tipo riconosciuto con la spiegazione (HLS, DASH, pagina, codice `<iframe>`), avviso del ripiego ben visibile, link rifiutati con il motivo, prova del link (funziona; CORS mancante con il testo per la web TV e "Copia"; non risponde e "Salva lo stesso"; pagina non incorporabile; indirizzo interno), riserva, "Passa alla riserva per tutti" e ritorno, "Guarda", link firmati (la chiave non esce mai: né nelle risposte, né in Firestore, né nei log, né nella posta); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta | 290 verdi, 0 rossi |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento | 282 verdi, 0 rossi |
-| `e2e.prova.js` | **il percorso completo con tutto vero** tranne YouTube: il gestore si attiva dall'email, crea evento e partecipanti, manda le credenziali; Mario le legge dalla posta, entra dal telefono, aspetta, va in onda, schermo intero, cambio del link, connessione persa, pagina riaperta, un minuto di presenza, esce, password dimenticata, accesso automatico; fine ed esportazione | 24 verdi, 0 rossi |
-| `webtv.prova.js` | **la web TV sulle pagine vere**, con una diretta HLS vera trasmessa da ffmpeg (due qualità): la regia incolla e prova il link, va in onda, il partecipante la vede nel nostro player (qualità, audio, pausa, «Torna in diretta»); player della web TV incorporato; file video; diretta non ancora partita che poi parte da sola; link sbagliati rifiutati; nessuna violazione della CSP. Serve ffmpeg (`pip install imageio-ffmpeg` basta) | 23 verdi, 0 rossi |
+| `e2e.prova.js` | **il percorso completo con tutto vero** (la web TV è quella di prova): il gestore si attiva dall'email, crea evento e partecipanti, manda le credenziali; Mario le legge dalla posta, entra dal telefono, aspetta, va in onda e vede il video della web TV, schermo intero, cambio del link (incollato con spazi e `#`) senza ricaricare, connessione persa, pagina riaperta, un minuto di presenza, esce, password dimenticata, accesso automatico; fine ed esportazione | 24 verdi, 0 rossi |
+| `webtv.prova.js` | **la web TV con la regia vera** (emulatori e servizio vero): il link principale cade → "Stiamo ricollegando la diretta…", tentativi distanziati e passaggio da solo alla riserva, senza ricaricare; la regia manda tutti sulla riserva e li riporta; diretta che non risponde e poi parte da sola; ripiego incorporato (niente nostri comandi); link non valido; **flusso pubblico HLS di Shaka**: barra DVR di un'ora, indietro di 2 minuti, «Torna in diretta», qualità; **DASH di Shaka**: parte, DVR, qualità; link firmato nginx: la firma arriva su playlist e segmenti, verificata con un calcolo indipendente; telefono 390×844; nessuna violazione della CSP | 21 verdi, 0 rossi |
+| `player.prova.js` | **il player da solo**, con i flussi pubblici HLS e DASH di Shaka e la diretta ffmpeg: avvio, attributi del `<video>`, qualità senza doppioni (HLS e DASH, anche in un riquadro stretto), DVR, `cerca` e `vaiAlLive`, segnale fermo, **playlist ferma** (la web TV risponde ma la diretta non avanza), link firmati e rinnovo della firma **senza ricaricare**, link firmato molto lungo, pezzo di DASH perso che non ferma niente, link incorporato che tace quando è nascosto, 404, link che non risponde, avvio bloccato, pagina nascosta | 76 verdi, 0 rossi |
 | `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 18 verdi, 0 rossi |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
-Ultimo giro completo, sul codice di questo branch: **1403 controlli verdi, 0 rossi** (24 settembre 2026).
+Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch:
+**1798 controlli verdi, 0 rossi** (24 settembre 2026).
+
+Durante lo sviluppo le regole del ricollegamento sono state provate anche con
+una simulazione (il codice della pagina con un orologio finto, 2000 casi
+casuali per ogni situazione): passaggio alla riserva fra 20 e 24 secondi dal
+guasto, anche con la playlist ferma; con la rete di chi guarda giù per 25-40
+secondi nessuno passa alla riserva; cambiare solo la riserva non ricarica
+nessuno.
 
 ### L'anteprima con accessi di prova
 
@@ -933,9 +955,12 @@ node anteprima/anteprima.prova.js  # la prova: percorso completo nel browser
 Dentro ci sono le **pagine vere** (`diretta/index.html`, `reimposta.html`,
 `gestione/`) e il **servizio vero** (`email-service/api/diretta-*.js`),
 impacchettato con un Firebase finto in memoria che applica le stesse regole di
-`firestore.rules`. Le email finiscono nella scheda «Posta di prova», al posto di
-YouTube c'è un video di prova (`anteprima/player-anteprima.js`, con la stessa
-interfaccia del player vero) e l'esportazione Excel si apre in una finestra.
+`firestore.rules`. Le email finiscono nella scheda «Posta di prova», al posto
+della web TV c'è un video di prova (`anteprima/player-anteprima.js`, con la
+stessa interfaccia del player vero; con `node anteprima/costruisci.js
+--player-vero` c'è invece il player vero con una web TV finta su
+`*.esempio.it`, anche per la prova del link) e l'esportazione Excel si apre in
+una finestra.
 Accessi di prova: `mariorossi`, `annamariadeluca`, `nicolodangelo` e
 `mariorossi2` (le password sono nella guida dell'anteprima), regia
 `gestore@anteprima.it`. L'evento di prova è sempre di oggi. I pochi ritocchi
@@ -944,15 +969,24 @@ navigazione fra le pagine) sono elencati in `anteprima/costruisci.js`, che si
 ferma se non li trova: l'anteprima non può restare indietro rispetto al codice.
 
 **Cosa le prove non coprono** (e va provato a mano, vedi §12): la web TV vera
-(il suo link, il CORS dei suoi server, la capacità con 1000 persone), YouTube vero
-(la rete di prova non lo raggiunge), Safari vero su iPhone e iPad (Playwright
-usa Chromium, che simula il telefono ma non è Safari), Firefox ed Edge, Brevo
-vero, il progetto Firebase vero (quote, indici, limiti di Google).
+(il suo link, il CORS dei suoi server, la sua firma dei link, la capacità con
+1000 persone: §5.7), Safari vero su iPhone e iPad con l'HLS letto dal browser
+(Playwright usa Chromium, che simula il telefono ma non è Safari: §5.8), il
+codec H.264 (il Chromium delle prove non lo ha: le dirette di prova sono in
+VP9/AV1), Firefox ed Edge, Brevo vero, il progetto Firebase vero (quote,
+indici, limiti di Google).
 
 **Gli screenshot** di consegna sono in [`diretta/screenshot/`](screenshot/)
-(telefono e computer: accesso, attesa, diretta, gestione con l'anteprima del
-caricamento, email, popup della home, sezione di Napoli). Si rifanno con
-`node diretta/prove/screenshot-finali.js` dopo le prove.
+(telefono e computer: accesso, attesa, **diretta con «IN DIRETTA»**, **indietro
+nella diretta con «Torna in diretta»**, **"Stiamo ricollegando la diretta…"**,
+video non disponibile, ripiego incorporato, schermo intero, gestione con
+l'anteprima del caricamento e con **l'avviso del ripiego iframe**, email, popup
+della home, sezione di Napoli). Si rifanno con
+`node diretta/prove/screenshot-finali.js` dopo le prove. Le foto della
+gestione del link (ripiego nella scheda Evento e in Regia, prova riuscita, CORS
+da controllare con il testo per la web TV, regia con la riserva) sono in
+`diretta/prove/risultati/screenshot-gestione-webtv/` (non versionata: le rifà
+`gestione.prova.js`).
 
 ## 11. Cambiare piattaforma video
 
@@ -1045,13 +1079,18 @@ settembre: c'è tempo, ma non tanto).
 9. [ ] Entra in `/diretta/gestione/` con "Primo accesso" (§6.1).
 10. [ ] Crea l'evento **`napoli-2026`** con gli orari veri e il link della web TV
     (stesso identificativo e stessi orari di `assets/diretta-stato.js`: se li
-    cambi, aggiorna anche quel file).
+    cambi, aggiorna anche quel file). "Prova il link" e, se la gestione mostra
+    un testo per la web TV (CORS, link `.m3u8` al posto della pagina da
+    incorporare), inoltraglielo. Metti anche il **link di riserva** e, se la web
+    TV usa i link firmati, la sezione **"Link firmati"** (§5.5).
 11. [ ] **Prova generale** con un evento di prova e 3-4 persone vere (tu e dei
     colleghi): email di prova, credenziali, accesso **da un iPhone con Safari,
     da un telefono Android, da un computer con Chrome, Firefox ed Edge**, "Vai in
     onda" con il link di prova della web TV, "Attiva l'audio", la qualità, schermo intero,
-    pausa, cambio del link, "Password dimenticata?", esportazione. Su iPhone
-    prova anche con il **Risparmio energetico** attivo.
+    pausa e "Torna in diretta", cambio del link, "Passa alla riserva per tutti",
+    "Password dimenticata?", esportazione. Su iPhone prova anche con il
+    **Risparmio energetico** attivo. I passi per Safari, iPhone e iPad sono nel
+    §5.8.
 12. [ ] Prova sul progetto vero il **contatore dei collegati** e
     l'**esportazione** (servono gli indici del passo 4) e, se possibile, un
     piccolo carico: 300 accessi in 2 minuti con account di prova (§9).
@@ -1077,5 +1116,7 @@ visibile.
 - Per quanto tempo tenere accessi e presenze (dati personali: per esempio 12
   mesi) e se aggiungere una pulizia automatica; l'informativa privacy è già
   collegata dalla pagina di accesso e dalle email.
-- Se un giorno servirà impedire del tutto la condivisione del link del video:
-  passare a Vimeo, Mux o Cloudflare Stream (§11).
+- Se servirà impedire la condivisione del link del video: chiedere alla web TV
+  i **link firmati a tempo** (§5.5: la gestione e il servizio sono già pronti per
+  nginx e Akamai); per un altro sistema di firma si aggiunge uno schema in
+  `email-service/lib/diretta-firma.js`.
