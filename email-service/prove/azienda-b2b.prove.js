@@ -324,8 +324,15 @@ function slotDi(area, ora) {
             'e l\'azienda resta scritta su TUTTE le schede, non solo sulla prima');
         esigi(posta.every(m => (m.html || '').indexOf(idAziendaDi('p:01234567891')) > 0),
             'il collegamento e lo stesso in tutte e due: e dell\'azienda, non della persona');
-        esigi(posta.filter(m => m.bcc).length === 1,
+        const conCopia = posta.filter(m => m.bcc);
+        esigi(conCopia.length === 1,
             'e la copia nascosta a chi manda parte una volta per azienda, non una per referente');
+        /* CHE DENTRO CI SIA L'INDIRIZZO GIUSTO, non solo che il campo esista:
+           una copia nascosta a nessuno e' indistinguibile, da qui, da una
+           copia nascosta che funziona - e la si scopre il giorno che serve
+           dimostrare che l'invito e' partito. */
+        esigi(JSON.stringify((conCopia[0] || {}).bcc) === '[\"staff@revilaw.it\"]',
+            'e in copia c e chi ha premuto Invia', JSON.stringify((conCopia[0] || {}).bcc));
     });
 
     await prova('2) Due persone sulla stessa casella: una mail, due schede', async () => {
@@ -936,6 +943,68 @@ function slotDi(area, ora) {
            si aggiunge, non sostituisce. */
         esigi(String((perEmvas || {}).text || '').indexOf('Gentile EMVAS S.r.l.') >= 0,
             'e dentro la lettera il saluto resta quello di prima');
+    });
+
+    await prova('26) Chi preme il pulsante si ritrova in copia nascosta', async () => {
+        /* Ogni mail che parte da un comando dell'area riservata torna in copia
+           nascosta a chi l'ha fatta partire: e' la prova che e' partita, e con
+           che testo. Il manuale lo promette da sempre; le mail dell'agenda -
+           un orario assegnato, un incontro spostato, una prenotazione
+           disdetta, un'azienda tolta - partivano senza.
+           E il rovescio conta quanto il dritto: quando a prenotare e' L'IMPRESA
+           dalla sua pagina, chi ha premuto e' lei, non c'e' nessun operatore, e
+           in copia non deve finire nessuno. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {}, 'esg': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }]);
+
+        // 1) prenota l'IMPRESA, dalla sua pagina: nessun operatore in copia
+        posta.length = 0;
+        const letto = await chiamaAzienda('p:04641610235', { azione: 'b2b-azienda-leggi' });
+        posta.length = 0;
+        const salva = await chiamaAzienda('p:04641610235', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'merito-creditizio', ora: '10:00', perDoc: 'sergio' },
+            coda: [{ pos: 2, area: 'esg', perDoc: 'sergio' }]
+        });
+        esigi(salva.ok === true, 'l azienda prenota dalla pagina');
+        esigi(posta.length === 1 && !posta[0].bcc,
+            'e la ricevuta le arriva senza copia a nessuno: qui non c e nessun operatore',
+            JSON.stringify((posta[0] || {}).bcc));
+
+        // 2) lo STAFF assegna la seconda preferenza: la copia c'e'
+        posta.length = 0;
+        const az = idAziendaDi('p:04641610235');
+        const voce = documentoAzienda('p:04641610235').coda.filter(c => c.pos === 2)[0];
+        await chiamaPresenze({ sezione: 'b2b', azione: 'coda-assegna', aziendaId: az, codaId: voce.id, area: 'esg', ora: '12:00' });
+        esigi(posta.length === 1 && JSON.stringify(posta[0].bcc) === '["staff@revilaw.it"]',
+            'assegnando un orario, la mail torna in copia a chi ha premuto',
+            JSON.stringify((posta[0] || {}).bcc));
+
+        // 3) lo STAFF sposta un incontro
+        posta.length = 0;
+        await chiamaPresenze({
+            sezione: 'b2b', azione: 'b2b-sposta',
+            daArea: 'merito-creditizio', daChiave: '1000', aArea: 'merito-creditizio', aOra: '11:00'
+        });
+        esigi(posta.length === 1 && JSON.stringify(posta[0].bcc) === '["staff@revilaw.it"]',
+            'e spostandolo pure', JSON.stringify((posta[0] || {}).bcc));
+
+        // 4) lo STAFF disdice
+        posta.length = 0;
+        await chiamaPresenze({ sezione: 'b2b', azione: 'agenda-libera', area: 'merito-creditizio', chiave: '1100' });
+        esigi(posta.length === 1 && JSON.stringify(posta[0].bcc) === '["staff@revilaw.it"]',
+            'e disdicendo un incontro', JSON.stringify((posta[0] || {}).bcc));
+
+        // 5) lo STAFF toglie l'azienda dagli incontri
+        posta.length = 0;
+        await chiamaPresenze({ sezione: 'b2b', azione: 'b2b-azienda-elimina', aziendaId: az });
+        esigi(posta.length === 1 && JSON.stringify(posta[0].bcc) === '["staff@revilaw.it"]',
+            'e togliendo l azienda dagli incontri', JSON.stringify((posta[0] || {}).bcc));
+        esigi(!/staff@revilaw\.it/.test(String((posta[0] || {}).to || '')),
+            'in copia NASCOSTA: fra i destinatari veri non compare');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

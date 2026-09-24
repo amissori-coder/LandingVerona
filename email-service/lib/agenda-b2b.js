@@ -495,6 +495,26 @@ function trasporto() {
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
     });
 }
+/* LA COPIA NASCOSTA A CHI HA PREMUTO IL PULSANTE.
+   Ogni mail che parte da un comando dell'area riservata torna in copia
+   nascosta a chi l'ha fatta partire: cosi' ha agli atti che e' partita
+   davvero, e con che testo. Vale per l'invito, e da ora anche per le mail che
+   nascono da un gesto dello staff sull'agenda - un orario assegnato, un
+   incontro spostato, una prenotazione disdetta, un'azienda tolta dagli
+   incontri - che finora partivano senza, mentre il manuale prometteva il
+   contrario.
+   NON vale per le mail che nasce dall'impresa: quando e' lei a prenotare dalla
+   pagina, chi ha premuto e' lei, e non c'e' nessun operatore da mettere in
+   copia. Percio' l'indirizzo lo passa chi chiama, e quando non c'e' non si
+   inventa.
+   Chi e' gia' fra i destinatari non si mette anche in copia: riceverebbe la
+   stessa mail due volte. */
+function ccnDiChiAgisce(chi, destinatari) {
+    const e = String(chi || '').trim().toLowerCase();
+    if (!e || e.indexOf('@') < 0) return undefined;
+    const gia = (destinatari || []).map(x => String(x || '').trim().toLowerCase());
+    return gia.indexOf(e) >= 0 ? undefined : [e];
+}
 function mittenteMail() {
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
     const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
@@ -1064,6 +1084,9 @@ async function inviaConfermaAzienda(db, evento, aziendaId, motivo, extra) {
     const messaggio = {
         from: mittenteMail(), to: a.join(', '), subject: m.oggetto, text: m.testo, html: m.html
     };
+    // in copia nascosta chi ha premuto, se a premere e' stato qualcuno dello staff
+    const ccn = ccnDiChiAgisce(extra && extra.ccn, a);
+    if (ccn) messaggio.bcc = ccn;
     // senza incontri non c'e' foglio da presentare: allegare una pagina vuota
     // sarebbe peggio di non allegarla
     if (dati.tavoli.length) {
@@ -1328,7 +1351,7 @@ async function esegui(ctx) {
             try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
             if (body.avvisa !== false) {
                 try {
-                    const inv = await inviaConfermaAzienda(db, evento, azId, 'spostamento');
+                    const inv = await inviaConfermaAzienda(db, evento, azId, 'spostamento', { ccn: chi });
                     preso.avvisati = inv.a || [];
                 } catch (e) {
                     preso.avvisati = [];
@@ -1391,7 +1414,7 @@ async function esegui(ctx) {
         try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
         if (body.avvisa !== false) {
             try {
-                const inv = await inviaConfermaAzienda(db, evento, azId, 'assegnazione');
+                const inv = await inviaConfermaAzienda(db, evento, azId, 'assegnazione', { ccn: chi });
                 preso.avvisati = inv.a || [];
             } catch (e) {
                 preso.avvisati = [];
@@ -1583,7 +1606,7 @@ async function esegui(ctx) {
                    qui e sul foglio allegato. */
                 const inv = await inviaConfermaAzienda(db, evento, azId,
                     areaInterna(area) ? 'desk' : 'assegnazione',
-                    { questione: { testo: voce.testo, perChi: voce.perChi } });
+                    { questione: { testo: voce.testo, perChi: voce.perChi }, ccn: chi });
                 preso.avvisati = inv.a || [];
             } catch (e) {
                 preso.avvisati = [];
@@ -1709,10 +1732,13 @@ async function esegui(ctx) {
                     tavoli: suoi
                 });
                 const trans = trasporto();
-                await trans.sendMail({
+                const messaggio = {
                     from: mittenteMail(), to: aChi.join(', '),
                     subject: m.oggetto, text: m.testo, html: m.html
-                });
+                };
+                const ccn = ccnDiChiAgisce(chi, aChi);
+                if (ccn) messaggio.bcc = ccn;
+                await trans.sendMail(messaggio);
                 try { trans.close(); } catch (_) { /* niente */ }
                 avvisati = aChi;
             } catch (e) {
@@ -1844,7 +1870,7 @@ async function esegui(ctx) {
             try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* la copia si rifara' */ }
             if (body.avvisa === false) continue;
             try {
-                const inv = await inviaConfermaAzienda(db, evento, azId, 'spostamento');
+                const inv = await inviaConfermaAzienda(db, evento, azId, 'spostamento', { ccn: chi });
                 (inv.a || []).forEach(x => avvisati.push(x));
             } catch (_) { /* l'incontro e' spostato: la mail si rimanda dal riepilogo */ }
         }
@@ -1979,7 +2005,7 @@ async function esegui(ctx) {
             try { await scriviProgrammaAzienda(db, evento, azId); } catch (_) { /* lo slot e' libero: e' quello che conta */ }
             if (body.avvisa !== false) {
                 try {
-                    const inv = await inviaConfermaAzienda(db, evento, azId, 'disdetta');
+                    const inv = await inviaConfermaAzienda(db, evento, azId, 'disdetta', { ccn: chi });
                     r.avvisati = inv.a || [];
                 } catch (e) {
                     r.avvisati = [];

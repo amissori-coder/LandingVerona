@@ -1289,6 +1289,31 @@ Senza quell'indirizzo resta il consiglio **senza** il collegamento: meglio una
 frase in meno che un link a vuoto. Le prove stanno in
 `prove/mail-invito-forma.prove.js`, con e senza pagina dell'evento.
 
+### La copia nascosta a chi preme il pulsante
+
+Ogni mail che parte da un comando dell'area riservata torna in **copia
+nascosta** a chi l'ha fatta partire: e' la prova che e' partita, e con che
+testo. Il manuale lo prometteva da sempre; le mail dell'agenda B2B - un orario
+assegnato (`coda-assegna`, `esigenza-assegna`), un incontro spostato
+(`b2b-sposta`), una prenotazione disdetta (`agenda-libera`), un'azienda tolta
+dagli incontri (`b2b-azienda-elimina`) - partivano **senza**.
+
+Ora la portano. L'indirizzo lo passa chi chiama (`{ ccn: chi }` a
+`inviaConfermaAzienda`, dove `chi` e' `ctx.email`), e la regola sta in un posto
+solo: `ccnDiChiAgisce` in `lib/agenda-b2b.js`.
+
+**Il rovescio conta quanto il dritto.** Quando a prenotare e' l'**impresa**
+dalla sua pagina (`b2b-azienda-salva` in `api/iscrizione-nuova.js`), chi ha
+premuto e' lei: non c'e' nessun operatore, e in copia non deve finire nessuno.
+Percio' l'indirizzo lo passa chi chiama e, quando non c'e', non si inventa. Chi
+e' gia' fra i destinatari non si mette anche in copia, che sarebbe la stessa
+mail due volte.
+
+`prove/azienda-b2b.prove.js` percorre i cinque casi uno per uno: la prenotazione
+dell'impresa (nessuna copia), l'assegnazione, lo spostamento, la disdetta e
+l'eliminazione (copia a chi ha premuto), e controlla che l'indirizzo stia in
+`bcc` e non fra i destinatari veri.
+
 ### Due versioni della stessa mail, e la scelta e' di chi spedisce
 
 L'invito B2B si compone in due forme, e nella finestra degli inviti si sceglie
