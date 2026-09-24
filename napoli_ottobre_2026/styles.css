@@ -4067,17 +4067,24 @@ ul {
     }
 }
 
-/* ===== Diretta: voce di menu, sezione "Segui la diretta", indicatore =====
+/* ===== Diretta: voce di menu, pillola, sezione "Segui la diretta" =====
    La diretta del convegno si apre su /diretta/, un'area a parte con le
    credenziali mandate via email agli iscritti online. Da questa pagina ci
-   sono due accessi: la voce "Diretta" nel menu, accanto a "Save the date",
-   e la fascia subito sotto la hero. Tutti e due portano l'indicatore rosso
-   IN DIRETTA (.indicatore-live), che nasce nascosto e si accende solo
-   mentre si e' in onda: lo decide /assets/diretta-stato.js, che nel giorno
-   dell'evento scrive anche lo stato in <html data-diretta-stato="...">. */
+   sono tre accessi: la voce "Diretta" nel menu, accanto a "Save the date",
+   la pillola "Diretta" accanto all'hamburger quando il menu e' a scomparsa,
+   e la fascia subito sotto la hero. Tutti portano l'indicatore rosso
+   IN DIRETTA (.indicatore-live), acceso solo mentre si e' in onda, e la
+   scritta "in pausa" (.indicatore-pausa) durante una pausa; dopo la fine
+   voce e pillola spariscono ([data-diretta-aperta]) e la fascia dice che
+   la diretta si e' conclusa ([data-diretta-conclusa]). Lo decide
+   /assets/diretta-stato.js, che scrive anche la condizione in
+   <html data-diretta="prima|oggi|in_onda|pausa|conclusa"> per gli stili. */
 
 /* L'attributo hidden deve vincere sul display dei componenti qui sotto. */
-.indicatore-live[hidden] {
+.indicatore-live[hidden],
+.indicatore-pausa[hidden],
+[data-diretta-aperta][hidden],
+[data-diretta-conclusa][hidden] {
     display: none !important;
 }
 
@@ -4114,15 +4121,45 @@ ul {
     100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 
-/* --- Voce di menu: pillola rossa, si distingue da brochure e save the date --- */
+/* "In pausa": niente rosso ne' pulsazioni (non si e' in onda), due barre
+   ambra davanti alla scritta */
+.indicatore-pausa {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 100px;
+    background: #FCEFD2;
+    border: 1px solid #EFC56B;
+    color: #6B4400;
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.indicatore-pausa::before {
+    content: '';
+    box-sizing: border-box;
+    width: 9px;
+    height: 10px;
+    border-left: 3px solid #D08A0E;
+    border-right: 3px solid #D08A0E;
+    flex-shrink: 0;
+}
+
+/* --- Voce di menu: pillola rossa piena, si distingue da brochure e save the date --- */
 .nav-menu a.nav-diretta {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    border: 1.5px solid var(--accent-light);
+    border: 1.5px solid var(--accent);
     border-radius: 100px;
-    background: rgba(177, 33, 59, 0.28);
+    background: var(--accent);
     color: var(--white);
     font-weight: 700;
     letter-spacing: 0.4px;
@@ -4132,8 +4169,8 @@ ul {
 
 .nav-menu a.nav-diretta:hover,
 .nav-menu a.nav-diretta:focus-visible {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--accent-dark);
+    border-color: var(--accent-dark);
     color: var(--white);
 }
 
@@ -4142,8 +4179,8 @@ ul {
     outline-offset: 2px;
 }
 
-/* pallino rosso fisso davanti a "Diretta": in onda diventa quello bianco
-   che pulsa, dentro l'indicatore */
+/* pallino bianco fisso davanti a "Diretta": in onda diventa quello che
+   pulsa, dentro l'indicatore */
 .nav-diretta-testo {
     display: inline-flex;
     align-items: center;
@@ -4155,13 +4192,17 @@ ul {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--accent-light);
-    box-shadow: 0 0 0 3px rgba(214, 58, 85, 0.25);
+    background: var(--white);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22);
     flex-shrink: 0;
 }
 
-/* in onda la pillola diventa rossa piena e dice solo IN DIRETTA */
-.nav-menu a.nav-diretta .indicatore-live {
+/* in onda la pillola si accende (rosso piu' vivo, alone che pulsa) e dice
+   solo IN DIRETTA; in pausa dice "Diretta in pausa", con le due barre al
+   posto del pallino. Valgono per la voce di menu e per la pillola accanto
+   all'hamburger. */
+.nav-menu a.nav-diretta .indicatore-live,
+.nav-pillola-diretta .indicatore-live {
     padding: 0;
     background: none;
     box-shadow: none;
@@ -4169,14 +4210,52 @@ ul {
     letter-spacing: 1.2px;
 }
 
-html[data-diretta-stato="in_onda"] .nav-diretta-testo {
+.nav-menu a.nav-diretta .indicatore-pausa,
+.nav-pillola-diretta .indicatore-pausa {
+    padding: 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font-size: inherit;
+    font-weight: 500;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    opacity: 0.9;
+}
+
+.nav-menu a.nav-diretta .indicatore-pausa::before,
+.nav-pillola-diretta .indicatore-pausa::before {
     display: none;
 }
 
-html[data-diretta-stato="in_onda"] .nav-menu a.nav-diretta {
+html[data-diretta="in_onda"] .nav-diretta-testo {
+    display: none;
+}
+
+html[data-diretta="pausa"] .nav-diretta-testo::before {
+    box-sizing: border-box;
+    width: 8px;
+    height: 9px;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    border-left: 2.5px solid var(--white);
+    border-right: 2.5px solid var(--white);
+}
+
+html[data-diretta="in_onda"] .nav-menu a.nav-diretta,
+html[data-diretta="in_onda"] .nav-pillola-diretta {
     background: #C8203F;
     border-color: #C8203F;
     animation: direttaAlone 2.2s ease-out infinite;
+}
+
+/* --- Pillola "Diretta" accanto all'hamburger ---
+   Col menu a scomparsa (fino a 1199px, vedi sotto) la voce Diretta resta
+   nascosta finche' non si apre il menu: questa pillola la tiene a un
+   tocco, nella barra, fuori dal menu. Sopra i 1199px non serve. */
+.nav-pillola-diretta {
+    display: none;
 }
 
 @keyframes direttaAlone {
@@ -4335,8 +4414,31 @@ html[data-diretta-stato="in_onda"] .nav-menu a.nav-diretta {
 }
 
 /* in onda il pulsante si accende di rosso intorno */
-html[data-diretta-stato="in_onda"] .btn-diretta {
+html[data-diretta="in_onda"] .btn-diretta {
     animation: direttaAlone 2.2s ease-out infinite;
+}
+
+/* dopo la fine resta solo il testo: una colonna */
+html[data-diretta="conclusa"] .diretta-riquadro {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* le due righe di chiusura sono brevi e l'indirizzo email non si spezza:
+   giustificate lascerebbero buchi fra le parole */
+.diretta-testo [data-diretta-conclusa] p {
+    text-align: left;
+}
+
+.diretta-testo a {
+    color: var(--white);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+}
+
+.diretta-testo a:hover {
+    color: #DCE9F6;
 }
 
 .diretta-note {
@@ -4370,15 +4472,87 @@ html[data-diretta-stato="in_onda"] .btn-diretta {
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 3px;
+    overflow-wrap: anywhere;
 }
 
 .diretta-note a:hover {
     color: #DCE9F6;
 }
 
-/* Menu a tendina (fino a 999px): la voce Diretta diventa un pulsante
-   largo quanto il menu, subito sopra "Save the date", ben visibile. */
-@media (max-width: 999px) {
+/* Con la voce Diretta il menu esteso e' piu' largo di circa 120-150px
+   (secondo che dica "Diretta" o "IN DIRETTA"): fra 1000 e 1199px non sta
+   piu' su una riga e le voci finirebbero sopra il marchio. In quella fascia
+   vale quindi lo stesso menu a tendina di sotto i 999px (regole copiate
+   da quel blocco, identiche). */
+@media (min-width: 1000px) and (max-width: 1199px) {
+    .nav-toggle {
+        display: flex;
+    }
+
+    .nav-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        display: none;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        padding: 12px 20px 18px;
+        background: rgba(10, 40, 68, 0.98);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.35);
+    }
+
+    .nav-menu.active {
+        display: flex;
+    }
+
+    .nav-menu li {
+        width: 100%;
+    }
+
+    .nav-menu a {
+        font-size: 0.95rem;
+        display: block;
+        padding: 11px 4px;
+        white-space: normal;
+    }
+
+    .nav-menu a.nav-brochure {
+        display: inline-flex;
+        width: auto;
+        margin-top: 8px;
+    }
+
+    .nav-cta {
+        text-align: center;
+        width: 100%;
+        padding: 14px 22px;
+        margin-top: 8px;
+    }
+}
+
+/* Da 1200px il menu torna su una riga: la barra si allarga un poco
+   rispetto al contenuto (1200 invece di 1140) e lo spazio fra le voci
+   smette di crescere oltre i 16px, cosi' anche con "IN DIRETTA" resta
+   margine davanti al marchio fino agli schermi piu' larghi. */
+@media (min-width: 1200px) {
+    .navbar .nav-container {
+        max-width: 1200px;
+    }
+
+    .nav-menu {
+        gap: clamp(12px, 1.1vw, 16px);
+    }
+}
+
+/* Menu a tendina (fino a 1199px): la voce Diretta diventa un pulsante
+   largo quanto il menu, subito sopra "Save the date", ben visibile; e nella
+   barra, a menu chiuso, compare la pillola accanto all'hamburger (spinta
+   a destra, subito prima dell'hamburger). */
+@media (max-width: 1199px) {
     .nav-menu a.nav-diretta {
         display: flex;
         justify-content: center;
@@ -4388,6 +4562,86 @@ html[data-diretta-stato="in_onda"] .btn-diretta {
         font-size: 0.85rem;
         letter-spacing: 0.5px;
         text-transform: uppercase;
+    }
+
+    .nav-pillola-diretta {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-left: auto;
+        min-height: 38px;
+        padding: 7px 15px;
+        border: 1.5px solid var(--accent);
+        border-radius: 100px;
+        background: var(--accent);
+        color: var(--white);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        line-height: 1.2;
+        text-transform: uppercase;
+        white-space: nowrap;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    }
+
+    /* area di tocco piu' grande della pillola (38px + 2 x 5,5px = 49px di
+       altezza), senza allargare la barra: l'inset parte dall'interno del
+       bordo di 1,5px */
+    .nav-pillola-diretta::after {
+        content: '';
+        position: absolute;
+        inset: -7px -5px;
+    }
+
+    .nav-pillola-diretta:hover,
+    .nav-pillola-diretta:focus-visible {
+        background: var(--accent-dark);
+        border-color: var(--accent-dark);
+        color: var(--white);
+    }
+
+    .nav-pillola-diretta:focus-visible {
+        outline: 2px solid var(--white);
+        outline-offset: 2px;
+    }
+
+    /* In pausa la pillola dice solo IN PAUSA, con le due barre (come IN
+       DIRETTA in onda): "Diretta in pausa" non starebbe nella barra dei
+       telefoni. "Diretta" resta per i lettori di schermo. */
+    html[data-diretta="pausa"] .nav-pillola-diretta .nav-diretta-testo {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .nav-pillola-diretta .indicatore-pausa {
+        font-weight: 700;
+        opacity: 1;
+    }
+
+    .nav-pillola-diretta .indicatore-pausa::before {
+        display: block;
+        border-left-color: var(--white);
+        border-right-color: var(--white);
+    }
+}
+
+/* telefoni stretti: la pillola si fa piu' compatta e la barra resta in
+   una riga (marchio, pillola, hamburger) */
+@media (max-width: 380px) {
+    .nav-container {
+        gap: 12px;
+    }
+
+    .nav-pillola-diretta {
+        padding: 7px 11px;
+        font-size: 0.74rem;
+        letter-spacing: 0.3px;
     }
 }
 
@@ -4420,8 +4674,9 @@ html[data-diretta-stato="in_onda"] .btn-diretta {
 
 @media (prefers-reduced-motion: reduce) {
     .indicatore-live-punto,
-    html[data-diretta-stato="in_onda"] .nav-menu a.nav-diretta,
-    html[data-diretta-stato="in_onda"] .btn-diretta {
+    html[data-diretta="in_onda"] .nav-menu a.nav-diretta,
+    html[data-diretta="in_onda"] .nav-pillola-diretta,
+    html[data-diretta="in_onda"] .btn-diretta {
         animation: none;
     }
 

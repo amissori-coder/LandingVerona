@@ -46,7 +46,7 @@ async function scarica(url, intestazioni) {
     const r = await fetch(url, { headers: { 'user-agent': intestazioni['user-agent'] || 'Mozilla/5.0 Chrome/140 Safari/537.36' } });
     const corpo = Buffer.from(await r.arrayBuffer());
     const meta = { stato: r.status, tipo: r.headers.get('content-type') || 'application/octet-stream' };
-    if (r.ok) { fs.writeFileSync(fileDati, corpo); fs.writeFileSync(fileMeta, JSON.stringify(meta)); }
+    if (r.ok && corpo.length < 5 * 1024 * 1024) { fs.writeFileSync(fileDati, corpo); fs.writeFileSync(fileMeta, JSON.stringify(meta)); }
     return { meta, corpo };
 }
 
@@ -73,6 +73,9 @@ async function preparaContesto(context, opz) {
         const url = req.url();
         if (/^https:\/\/(www\.youtube\.com|revilaw-email\.vercel\.app)\//.test(url)) return route.fallback();
         if (req.method() !== 'GET') return route.abort();
+        // i video della home (decine di MB) e le statistiche non servono alle
+        // prove: consegnati in un colpo solo fanno cadere il browser
+        if (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(url) || /googletagmanager|google-analytics|iubenda/.test(url)) return route.abort();
         try {
             const { meta, corpo } = await scarica(url, req.headers());
             await route.fulfill({ status: meta.stato, contentType: meta.tipo, headers: { 'access-control-allow-origin': '*' }, body: corpo });

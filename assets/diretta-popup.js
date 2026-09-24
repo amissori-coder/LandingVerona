@@ -11,10 +11,13 @@
  *   da NGBDiretta.EVENTO.mostraDaGiorni giorni prima dell'inizio fino alla
  *   fine, poi si spegne da solo (niente da togliere a mano dopo l'evento).
  * - Il giorno dell'evento cambia testo: "Siamo in diretta: accedi" con
- *   l'indicatore rosso IN DIRETTA mentre si e' in onda, "Oggi in diretta
- *   dalle 9.00" prima. Lo stato arriva da NGBDiretta.leggi (endpoint con
- *   cache, chiesto solo quel giorno): mai una chiamata a Firebase.
- * - Una volta per sessione; "Non mostrare piu" vale per questo evento.
+ *   l'indicatore rosso IN DIRETTA mentre si e' in onda, "La diretta è in
+ *   pausa" durante una pausa (senza indicatore), "Oggi in diretta dalle
+ *   9.00" prima. Lo stato arriva da NGBDiretta.leggi (endpoint con cache,
+ *   chiesto solo quel giorno): mai una chiamata a Firebase. Se la diretta
+ *   risulta gia' conclusa, il popup non compare.
+ * - Una volta per sessione; "Non mostrare piu" vale per questo evento e
+ *   solo per il popup: la pillola fissa della home (diretta-stato.js) resta.
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo;
  *   rispetta prefers-reduced-motion (niente movimento, niente pulsazioni).
  * Percorsi root-relative: il sito e servito dalla radice del dominio.
@@ -25,8 +28,9 @@
   // --- Configurazione ---------------------------------------------------
   var D = window.NGBDiretta;
   // Senza diretta-stato.js non si sa quando comparire: niente popup, e gli
-  // altri due si comportano come prima.
-  if (!D || !D.EVENTO) return;
+  // altri due si comportano come prima. (Anche con una sua copia vecchia
+  // ancora in cache, senza condizione(): i due file si aggiornano insieme.)
+  if (!D || !D.EVENTO || typeof D.condizione !== "function") return;
   var EVENTO = D.EVENTO;
   var SHOW_DELAY_MS = 900;
   // Il giorno dell'evento il testo dipende dallo stato: si aspetta la
@@ -59,8 +63,7 @@
   // Se in questa scheda si e' gia letto che la diretta e' terminata (finita
   // prima dell'orario previsto), non ha piu senso prenotarsi: lascia il posto
   // agli altri popup.
-  var giaLetto = D.ultimo && D.ultimo();
-  if (faseIniziale === "oggi" && giaLetto && giaLetto.stato === "terminato") return;
+  if (D.condizione(D.ultimo()) === "conclusa") return;
 
   // Tutte le guardie superate: questo popup comparira. Il flag, impostato
   // subito (in modo sincrono), dice a bando-tipo-popup.js e fcd-popup.js,
@@ -83,10 +86,19 @@
       sotto: "Il convegno di Napoli si segue online: tieni a portata di mano il nome utente "
         + "e la password che hai ricevuto via email."
     },
-    inOnda: {
+    in_onda: {
       titolo: "Siamo in diretta: accedi",
       sotto: "Il convegno di Napoli è in corso: entra con il nome utente e la password "
         + "che hai ricevuto via email."
+    },
+    // l'orario di ripresa c'e' solo se il gestore l'ha scritto
+    pausa: {
+      titolo: "La diretta è in pausa",
+      sotto: function (ripresa) {
+        return (ripresa ? "Il convegno di Napoli riprende alle " + ripresa + " (ora italiana). "
+          : "Il convegno di Napoli riprende a breve. ")
+          + "Intanto puoi già entrare con il nome utente e la password che hai ricevuto via email.";
+      }
     }
   };
 
@@ -128,6 +140,13 @@
     + 'box-shadow:0 0 0 0 rgba(255,255,255,.8);animation:dirpPulse 1.6s infinite;}'
     + '@keyframes dirpPulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.75);}'
     + '70%{box-shadow:0 0 0 7px rgba(255,255,255,0);}100%{box-shadow:0 0 0 0 rgba(255,255,255,0);}}'
+    /* in pausa: niente rosso ne' pulsazioni, due barre ambra */
+    + '#dirPromo .dirp-pausa{position:relative;z-index:1;display:inline-flex;align-items:center;gap:9px;'
+    + 'background:rgba(245,193,92,.16);border:1px solid rgba(245,193,92,.5);color:#FBE3B2;font-weight:800;'
+    + 'font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 13px 6px 11px;'
+    + 'border-radius:999px;margin:0 0 16px;}'
+    + '#dirPromo .dirp-pausa-segno{box-sizing:border-box;width:9px;height:10px;'
+    + 'border-left:3px solid #F5C15C;border-right:3px solid #F5C15C;}'
     + '#dirPromo h2{position:relative;z-index:1;font-family:Montserrat,Inter,system-ui,sans-serif;color:#fff;'
     + 'font-size:25px;line-height:1.22;font-weight:800;letter-spacing:-.3px;margin:0 0 10px;}'
     + '#dirPromo .dirp-sub{position:relative;z-index:1;color:rgba(255,255,255,.84);'
@@ -141,6 +160,10 @@
     + 'color:#404a5a;font-size:13.5px;line-height:1.5;}'
     + '#dirPromo .dirp-info svg{flex:0 0 auto;width:17px;height:17px;margin-top:1px;color:#2A5A85;}'
     + '#dirPromo .dirp-info b{color:#0A2844;}'
+    + '#dirPromo .dirp-info a{color:#164068;font-weight:600;text-decoration:underline;'
+    + 'text-underline-offset:2px;overflow-wrap:anywhere;}'
+    + '#dirPromo .dirp-info a:hover{color:#0A2844;}'
+    + '#dirPromo .dirp-info a:focus-visible{outline:2px solid #164068;outline-offset:2px;border-radius:3px;}'
 
     /* azioni */
     + '#dirPromo .dirp-actions{display:flex;flex-direction:column;gap:6px;}'
@@ -180,7 +203,10 @@
     + '@media (max-width:520px){#dirPromo{padding:14px;}#dirPromo .dirp-head{padding:22px 20px 20px;}'
     + '#dirPromo .dirp-body{padding:18px 20px 20px;}#dirPromo h2{font-size:21px;padding-right:30px;}'
     + '#dirPromo .dirp-info li{font-size:13px;}}'
-    + '@media (prefers-reduced-motion:reduce){#dirPromo .dirp-backdrop,#dirPromo .dirp-card{transition:none;}'
+    /* movimento ridotto: anche le regole .is-open (piu specifiche) vanno
+       spente, altrimenti l'entrata resterebbe animata */
+    + '@media (prefers-reduced-motion:reduce){#dirPromo .dirp-backdrop,#dirPromo .dirp-card,'
+    + '#dirPromo.is-open .dirp-backdrop,#dirPromo.is-open .dirp-card{transition:none;}'
     + '#dirPromo .dirp-card{transform:none;}#dirPromo .dirp-live-dot{animation:none;}'
     + '#dirPromo .dirp-cta::after{animation:none;display:none;}#dirPromo .dirp-cta:hover{transform:none;}}';
 
@@ -195,7 +221,7 @@
     + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect>'
     + '<line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line>'
     + '<line x1="3" y1="10" x2="21" y2="10"></line></svg>';
-  var iconKey = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+  var iconEmail = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
     + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"></rect>'
     + '<path d="m22 7-10 6L2 7"></path></svg>';
   var iconArrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
@@ -213,14 +239,16 @@
     + '<div class="dirp-head">'
     + '<span class="dirp-eyebrow">' + iconLive + '<span class="dirp-eyebrow-testo"></span></span>'
     + '<span class="dirp-live" hidden><span class="dirp-live-dot" aria-hidden="true"></span>IN DIRETTA</span>'
+    + '<span class="dirp-pausa" hidden><span class="dirp-pausa-segno" aria-hidden="true"></span>In pausa</span>'
     + '<h2 id="dirPromoTitle"></h2>'
     + '<p class="dirp-sub" id="dirPromoDesc"></p>'
     + '</div>'
     + '<div class="dirp-body">'
     + '<ul class="dirp-info">'
     + '<li>' + iconCal + '<span class="dirp-quando"></span></li>'
-    + '<li>' + iconKey + '<span>Gli <b>iscritti online</b> ricevono <b>via email nome utente e password</b> '
-    + 'per entrare nella diretta. Non trovi l&rsquo;email? Guarda anche nella posta indesiderata.</span></li>'
+    + '<li>' + iconEmail + '<span>Gli <b>iscritti online</b> ricevono <b>via email nome utente e password</b> '
+    + 'per entrare nella diretta. Non trovi le credenziali? Controlla la posta indesiderata o scrivi a '
+    + '<a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></span></li>'
     + '</ul>'
     + '<div class="dirp-actions">'
     + '<a class="dirp-cta" href=""><span>Accedi alla diretta</span>' + iconArrow + '</a>'
@@ -259,17 +287,18 @@
     root.querySelector(".dirp-eyebrow-testo").textContent = eyebrow;
     root.querySelector(".dirp-quando").textContent = quando;
 
-    // I testi dipendono dalla fase (giorni prima / giorno dell'evento) e,
-    // il giorno dell'evento, dallo stato letto dal servizio.
+    // I testi dipendono dalla condizione (giorni prima, giorno dell'evento,
+    // in onda, in pausa), cioe' da data e stato letto dal servizio.
     function scriviTesti(dati) {
-      var f = D.fase();
-      var inOnda = f === "oggi" && !!(dati && dati.stato === "in_onda");
-      var t = inOnda ? TESTI.inOnda : (f === "oggi" ? TESTI.oggi : TESTI.prima);
+      var c = D.condizione(dati);
+      var t = TESTI[c] || TESTI.prima;
       root.querySelector("#dirPromoTitle").textContent = t.titolo;
-      root.querySelector(".dirp-sub").textContent = t.sotto;
-      root.querySelector(".dirp-live").hidden = !inOnda;
-      root.querySelector(".dirp-eyebrow").hidden = inOnda;
-      root.setAttribute("data-dirp-stato", inOnda ? "in_onda" : f);
+      root.querySelector(".dirp-sub").textContent =
+        typeof t.sotto === "function" ? t.sotto(dati && dati.ripresa) : t.sotto;
+      root.querySelector(".dirp-live").hidden = c !== "in_onda";
+      root.querySelector(".dirp-pausa").hidden = c !== "pausa";
+      root.querySelector(".dirp-eyebrow").hidden = c === "in_onda" || c === "pausa";
+      root.setAttribute("data-dirp-stato", TESTI[c] ? c : "prima");
     }
     scriviTesti(null);
 
@@ -359,7 +388,7 @@
       // la pagina e' rimasta aperta oltre la fine: il popup non serve piu'
       if (f !== "prima" && f !== "oggi") return;
       // diretta gia' terminata (prima dell'orario previsto): niente popup
-      if (f === "oggi" && dati && dati.stato === "terminato") return;
+      if (D.condizione(dati) === "conclusa") return;
       scriviTesti(dati);
       open();
     }
@@ -368,7 +397,7 @@
         dati = d;
         statoPronto = true;
         // arrivato tardi, a popup gia' aperto: si aggiorna il testo
-        if (isOpen && !isClosing && !(d && d.stato === "terminato")) scriviTesti(d);
+        if (isOpen && !isClosing && D.condizione(d) !== "conclusa") scriviTesti(d);
         prova();
       });
     }

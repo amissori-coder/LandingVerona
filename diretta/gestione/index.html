@@ -34,6 +34,7 @@
         <div class="carta-messaggio" role="alert">
             <h1 id="messaggio-titolo">Gestione non disponibile</h1>
             <p id="messaggio-testo"></p>
+            <button type="button" id="btn-messaggio-riprova" class="btn btn-primario" hidden>Riprova</button>
         </div>
     </div>
 
@@ -67,7 +68,8 @@
                 <p class="accesso-nota">Area riservata ai gestori della diretta: l'accesso è consentito solo
                     agli indirizzi autorizzati. Al primo accesso scrivi la tua email qui sopra e premi
                     «Primo accesso o password dimenticata»: ti arriva un collegamento per scegliere la password.</p>
-                <p class="accesso-nota">Sei un partecipante? La diretta è su <a href="/diretta/">nextgenerationbusiness.it/diretta</a>.</p>
+                <p class="accesso-nota">Sei un partecipante? La diretta è su <a href="/diretta/">nextgenerationbusiness.it/diretta</a>.
+                    · <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a></p>
             </form>
         </div>
     </main>
@@ -122,7 +124,7 @@
                                 <input type="text" id="ev-id" name="id" maxlength="41" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-id-aiuto" placeholder="napoli-2026">
                                 <p id="ev-id-aiuto" class="aiuto">Lettere minuscole, numeri e trattini. Non si cambia dopo la creazione.</p>
                             </div>
-                            <div class="campo campo-largo">
+                            <div class="campo campo-titolo">
                                 <label for="ev-titolo">Titolo</label>
                                 <input type="text" id="ev-titolo" name="titolo" maxlength="140" required autocomplete="off" placeholder="Next Generation Business 2026 · Napoli">
                             </div>
@@ -144,14 +146,14 @@
                                     <input type="time" id="ev-ora-fine" name="oraFine" required>
                                 </div>
                             </div>
-                            <div class="campo campo-largo">
+                            <div class="campo campo-intero">
                                 <label for="ev-video">Link del video YouTube</label>
                                 <input type="url" id="ev-video" name="videoUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-video-aiuto" placeholder="https://www.youtube.com/live/…">
                                 <p id="ev-video-aiuto" class="aiuto">La diretta su YouTube va impostata come «Non in elenco» con l'incorporamento consentito.
                                     Il link non compare mai nel codice pubblico: i partecipanti lo ricevono solo mentre l'evento è in onda.
                                     Puoi lasciarlo vuoto e inserirlo più tardi dalla scheda Regia.</p>
                             </div>
-                            <div class="campo campo-largo">
+                            <div class="campo campo-intero">
                                 <label for="ev-programma">Programma <span class="facoltativo">(una voce per riga)</span></label>
                                 <textarea id="ev-programma" name="programma" rows="7" aria-describedby="ev-programma-aiuto" placeholder="09.00 Accoglienza e registrazione&#10;09.30 Saluti istituzionali"></textarea>
                                 <p id="ev-programma-aiuto" class="aiuto">Ora e titolo, per esempio «09.00 Accoglienza e registrazione». Massimo 40 voci. Compare nella schermata di attesa.</p>
@@ -179,6 +181,7 @@
                                 <input type="checkbox" id="ev-promemoria-ora" name="promemoriaOra">
                                 <span><strong>Promemoria un'ora prima dell'inizio.</strong> Stesso contenuto, parte da solo.</span>
                             </label>
+                            <p id="promemoria-destinatari" class="aiuto" aria-live="polite"></p>
                         </fieldset>
 
                         <div class="azioni">
@@ -192,51 +195,91 @@
             <!-- ======== SCHEDA REGIA ======== -->
             <section id="scheda-regia" class="scheda" role="tabpanel" aria-labelledby="tab-regia" hidden>
                 <div class="regia-griglia">
-                    <div class="riquadro regia-stato-riquadro">
-                        <h2>Stato della diretta</h2>
-                        <div id="regia-stato" class="stato-grande" data-stato="" role="status" aria-live="polite">
-                            <span class="stato-punto" aria-hidden="true"></span>
-                            <span id="regia-stato-testo">—</span>
+                    <!-- due colonne indipendenti: a sinistra i comandi, a destra quello che si
+                         guarda (collegati, video). Sotto i 1100px diventano una colonna sola,
+                         nell'ordine in cui servono durante la diretta. -->
+                    <div class="regia-colonna">
+                        <div class="riquadro regia-stato-riquadro">
+                            <h2>Stato della diretta</h2>
+                            <div id="regia-stato" class="stato-grande" data-stato="" role="status" aria-live="polite">
+                                <span class="stato-punto" aria-hidden="true"></span>
+                                <span id="regia-stato-testo">—</span>
+                            </div>
+                            <p id="regia-orari" class="regia-orari"></p>
+                            <p id="regia-avviso-orario" class="msg msg-attenzione" hidden></p>
+                            <div class="regia-comandi">
+                                <button type="button" id="btn-in-onda" class="btn btn-onda btn-grande">
+                                    <span class="stato-punto" aria-hidden="true"></span><span class="etichetta-btn">Vai in onda</span>
+                                </button>
+                                <button type="button" id="btn-riprendi" class="btn btn-onda btn-grande" hidden>
+                                    <span class="stato-punto" aria-hidden="true"></span>Riprendi la diretta
+                                </button>
+                                <button type="button" id="btn-termina" class="btn btn-scuro btn-grande">Termina la diretta</button>
+                            </div>
+                            <div class="regia-pausa">
+                                <div class="campo">
+                                    <label for="regia-ripresa">Si riprende alle <span class="facoltativo">(facoltativo)</span></label>
+                                    <input type="time" id="regia-ripresa">
+                                </div>
+                                <button type="button" id="btn-pausa" class="btn btn-secondario">Metti in pausa</button>
+                                <button type="button" id="btn-riprogramma" class="btn btn-secondario">Riporta in attesa</button>
+                            </div>
+                            <p class="aiuto">Ogni comando chiede conferma. I partecipanti collegati vedono il cambio da soli, senza ricaricare la pagina.
+                                In pausa il video sparisce e compare «Pausa», con l'orario di ripresa se lo indichi.</p>
+                            <p id="msg-regia" class="msg" role="status" hidden></p>
                         </div>
-                        <p id="regia-orari" class="regia-orari"></p>
-                        <div class="regia-comandi">
-                            <button type="button" id="btn-in-onda" class="btn btn-onda btn-grande">
-                                <span class="stato-punto" aria-hidden="true"></span>Vai in onda
+
+                        <div class="riquadro regia-avviso">
+                            <h2>Avviso a tutti</h2>
+                            <p class="regia-dettaglio">Una riga che compare in cima alla pagina di tutti i partecipanti, in qualunque momento
+                                (per esempio «Problema tecnico: torniamo tra 5 minuti»).</p>
+                            <p class="regia-dettaglio">Avviso attuale: <strong id="regia-avviso-attuale">nessuno</strong></p>
+                            <form id="form-avviso" novalidate>
+                                <label for="regia-avviso" class="solo-lettori">Testo dell'avviso</label>
+                                <textarea id="regia-avviso" rows="2" maxlength="200" placeholder="Problema tecnico: torniamo tra 5 minuti"></textarea>
+                                <div class="azioni">
+                                    <button type="submit" id="btn-avviso" class="btn btn-primario">Pubblica l'avviso</button>
+                                    <button type="button" id="btn-togli-avviso" class="btn btn-secondario">Togli l'avviso</button>
+                                    <span id="avviso-caratteri" class="conta" aria-live="polite"></span>
+                                </div>
+                            </form>
+                            <p id="msg-avviso" class="msg" role="status" hidden></p>
+                        </div>
+                    </div>
+                    <div class="regia-colonna">
+                        <div class="riquadro regia-connessi">
+                            <h2>Collegati adesso</h2>
+                            <p class="numero-grande"><span id="num-connessi">–</span></p>
+                            <p id="connessi-dettaglio" class="regia-dettaglio">persone con la pagina aperta negli ultimi due minuti e mezzo</p>
+                            <p id="connessi-aggiornato" class="aiuto">Si aggiorna da solo ogni 20 secondi mentre questa scheda è aperta.</p>
+                            <button type="button" id="btn-aggiorna-connessi" class="btn btn-secondario btn-piccolo">Aggiorna adesso</button>
+                        </div>
+
+                        <div class="riquadro regia-video-riquadro">
+                            <h2>Video</h2>
+                            <p class="regia-dettaglio">Video attuale: <span id="regia-video-attuale" class="testo-fisso">nessuno</span></p>
+                            <form id="form-video" class="riga-campo" novalidate>
+                                <label for="regia-video" class="solo-lettori">Nuovo link del video YouTube</label>
+                                <input type="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Incolla il link YouTube della diretta">
+                                <button type="submit" id="btn-cambia-video" class="btn btn-primario">Cambia video</button>
+                            </form>
+                            <p class="aiuto">Prima di applicarlo lo provo qui sotto con lo stesso player dei partecipanti: se YouTube
+                                non lo consente, te lo dico e non cambio niente. Durante la diretta, chi è collegato passa al nuovo video da solo.</p>
+                            <p id="msg-video" class="msg" role="status" hidden></p>
+                            <div id="regia-video-anteprima" class="video-anteprima" hidden>
+                                <div class="video-anteprima-cornice"><div id="regia-video-player"></div></div>
+                                <button type="button" id="btn-chiudi-anteprima-video" class="btn btn-secondario btn-piccolo">Chiudi l'anteprima del video</button>
+                            </div>
+                        </div>
+
+                        <div class="riquadro regia-anteprima">
+                            <h2>Vedi come un partecipante</h2>
+                            <p class="regia-dettaglio">Apre la pagina della diretta in una nuova scheda, come la vede chi è iscritto. Nessuna presenza viene registrata.</p>
+                            <button type="button" id="btn-anteprima" class="btn btn-secondario">
+                                Apri l'anteprima
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3h7v7M10 14L21 3M21 14v7H3V3h7"/></svg>
                             </button>
-                            <button type="button" id="btn-termina" class="btn btn-scuro btn-grande">Termina la diretta</button>
-                            <button type="button" id="btn-riprogramma" class="btn btn-secondario">Riporta in attesa</button>
                         </div>
-                        <p class="aiuto">Ogni comando chiede conferma. I partecipanti collegati vedono il cambio da soli, senza ricaricare la pagina.</p>
-                        <p id="msg-regia" class="msg" role="status" hidden></p>
-                    </div>
-
-                    <div class="riquadro regia-connessi">
-                        <h2>Collegati adesso</h2>
-                        <p class="numero-grande"><span id="num-connessi" aria-live="polite">–</span></p>
-                        <p id="connessi-dettaglio" class="regia-dettaglio">persone con la pagina aperta negli ultimi due minuti e mezzo</p>
-                        <p id="connessi-aggiornato" class="aiuto">Si aggiorna da solo ogni 20 secondi mentre questa scheda è aperta.</p>
-                        <button type="button" id="btn-aggiorna-connessi" class="btn btn-secondario btn-piccolo">Aggiorna adesso</button>
-                    </div>
-
-                    <div class="riquadro regia-video-riquadro">
-                        <h2>Video</h2>
-                        <p class="regia-dettaglio">Video attuale: <span id="regia-video-attuale" class="testo-fisso">nessuno</span></p>
-                        <form id="form-video" class="riga-campo" novalidate>
-                            <label for="regia-video" class="solo-lettori">Nuovo link del video YouTube</label>
-                            <input type="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Incolla il link YouTube della diretta">
-                            <button type="submit" id="btn-cambia-video" class="btn btn-primario">Cambia video</button>
-                        </form>
-                        <p class="aiuto">Se lo cambi durante la diretta, chi è collegato passa al nuovo video da solo, in pochi secondi.</p>
-                        <p id="msg-video" class="msg" role="status" hidden></p>
-                    </div>
-
-                    <div class="riquadro regia-anteprima">
-                        <h2>Vedi come un partecipante</h2>
-                        <p class="regia-dettaglio">Apre la pagina della diretta in una nuova scheda, come la vede chi è iscritto. Nessuna presenza viene registrata.</p>
-                        <button type="button" id="btn-anteprima" class="btn btn-secondario">
-                            Apri l'anteprima
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3h7v7M10 14L21 3M21 14v7H3V3h7"/></svg>
-                        </button>
                     </div>
                 </div>
             </section>
@@ -262,13 +305,62 @@
                     </div>
                     <p id="msg-caricamento" class="msg" role="status" hidden></p>
 
+                    <div id="scelta-foglio" class="campo campo-foglio" hidden>
+                        <label for="sel-foglio">Foglio del file</label>
+                        <select id="sel-foglio"></select>
+                    </div>
+
+                    <div id="abbina-colonne" class="abbina" hidden>
+                        <h3>Abbina le colonne</h3>
+                        <p id="abbina-spiegazione" class="riquadro-sotto"></p>
+                        <div class="griglia-campi abbina-griglia">
+                            <div class="campo">
+                                <label for="abb-intestazione">Riga delle intestazioni</label>
+                                <select id="abb-intestazione"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-nome">Nome</label>
+                                <select id="abb-nome"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-cognome">Cognome</label>
+                                <select id="abb-cognome"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-email">Email</label>
+                                <select id="abb-email"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-azienda">Azienda <span class="facoltativo">(facoltativa)</span></label>
+                                <select id="abb-azienda"></select>
+                            </div>
+                        </div>
+                        <fieldset id="abb-ordine" class="gruppo-opzioni" hidden>
+                            <legend>Nome e cognome stanno nella stessa colonna: in che ordine?</legend>
+                            <label class="opzione"><input type="radio" name="abb-ordine" value="nome-cognome" checked> <span><strong>Nome Cognome</strong> (Mario Rossi)</span></label>
+                            <label class="opzione"><input type="radio" name="abb-ordine" value="cognome-nome"> <span><strong>Cognome Nome</strong> (Rossi Mario)</span></label>
+                        </fieldset>
+                        <p class="aiuto">Se nome e cognome sono nella stessa colonna, scegli la stessa colonna per tutti e due. Ecco come leggo le prime righe:</p>
+                        <div class="tabella-contenitore">
+                            <table id="abb-esempio" class="tabella">
+                                <caption class="solo-lettori">Prime righe lette con l'abbinamento scelto</caption>
+                                <thead><tr><th scope="col" class="num">Riga</th><th scope="col">Nome</th><th scope="col">Cognome</th><th scope="col">Email</th><th scope="col">Azienda</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div class="azioni">
+                            <button type="button" id="btn-abbina-continua" class="btn btn-primario">Continua con l'anteprima</button>
+                            <button type="button" id="btn-abbina-annulla" class="btn btn-secondario">Annulla</button>
+                        </div>
+                    </div>
+
                     <div id="anteprima-caricamento" class="anteprima" hidden>
                         <div id="riepilogo-anteprima" class="riepilogo" aria-live="polite"></div>
                         <div class="anteprima-barra">
                             <fieldset class="filtri" id="filtro-anteprima">
                                 <legend class="solo-lettori">Righe da mostrare</legend>
                                 <label><input type="radio" name="filtro-anteprima" value="tutte" checked> Tutte</label>
-                                <label><input type="radio" name="filtro-anteprima" value="problemi"> Solo problemi</label>
+                                <label><input type="radio" name="filtro-anteprima" value="problemi"> Solo da controllare</label>
                                 <label><input type="radio" name="filtro-anteprima" value="da-sistemare"> Solo da sistemare</label>
                             </fieldset>
                             <span id="conta-anteprima" class="conta"></span>
@@ -280,14 +372,13 @@
                                 <thead>
                                     <tr>
                                         <th scope="col" class="num">Riga</th>
-                                        <th scope="col">Esito</th>
+                                        <th scope="col">Esito e scelte</th>
                                         <th scope="col">Nome</th>
                                         <th scope="col">Cognome</th>
                                         <th scope="col">Email</th>
                                         <th scope="col">Azienda</th>
                                         <th scope="col">Nome utente</th>
                                         <th scope="col">Controlli</th>
-                                        <th scope="col">Scelte</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -299,10 +390,12 @@
                                 <button type="button" id="btn-annulla-caricamento" class="btn btn-secondario">Annulla il caricamento</button>
                             </div>
                             <p id="motivo-blocco" class="motivo-blocco" aria-live="polite"></p>
+                            <button type="button" id="btn-riprova-verifica" class="btn btn-secondario btn-piccolo" hidden>Riprova il controllo</button>
                         </div>
                         <div id="avanzamento-crea" class="avanzamento" hidden>
                             <div class="barra" role="progressbar" aria-label="Creazione degli account" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="barra-piena"></span></div>
                             <p class="avanzamento-testo" aria-live="polite"></p>
+                            <button type="button" id="btn-riprendi-crea" class="btn btn-primario" hidden>Riprendi</button>
                         </div>
                     </div>
 
@@ -412,7 +505,8 @@
                         <p class="regia-dettaglio">Le email partono in coda, a gruppi e con pause, nel limite del piano Brevo.
                             Se chiudi la pagina l'invio continua da solo ogni 5 minuti, e nessuno riceve due volte la stessa email.</p>
                         <div class="azioni-colonna">
-                            <button type="button" id="btn-invia-tutti" class="btn btn-primario">Invia le credenziali a chi non le ha ancora</button>
+                            <button type="button" id="btn-invia-tutti" class="btn btn-primario" aria-describedby="nota-disattivati">Invia le credenziali a chi non le ha ancora</button>
+                            <p id="nota-disattivati" class="aiuto" hidden></p>
                             <button type="button" id="btn-reinvia-non-ricevute" class="btn btn-secondario">Reinvia a chi non l'ha ricevuta</button>
                             <button type="button" id="btn-aggiorna-esiti" class="btn btn-secondario">Aggiorna le email respinte da Brevo</button>
                         </div>
@@ -497,6 +591,13 @@
                     </div>
                 </div>
                 <p id="corr-anteprima-nome" class="riquadro-nota" aria-live="polite"></p>
+                <fieldset id="corr-scelta-nome" class="gruppo-opzioni" hidden>
+                    <legend>Le credenziali sono già state inviate</legend>
+                    <label class="opzione"><input type="radio" name="corr-nome-utente" value="mantieni" checked>
+                        <span><strong>Mantieni il nome utente attuale</strong> (<span id="corr-nome-attuale" class="testo-fisso"></span>): la persona continua a entrare con le credenziali che ha.</span></label>
+                    <label class="opzione"><input type="radio" name="corr-nome-utente" value="cambia">
+                        <span><strong>Cambialo e rimanda le credenziali</strong>: il vecchio nome utente smette di funzionare.</span></label>
+                </fieldset>
                 <p id="msg-correggi" class="msg msg-errore" role="alert" hidden></p>
             </div>
             <div class="dialogo-azioni">
@@ -525,6 +626,9 @@
 
     <script src="../config.js?v=20260924a"></script>
     <script src="../nome-utente.js?v=20260924a"></script>
+    <!-- lo stesso player della pagina dei partecipanti: serve all'anteprima del
+         video in regia e a riconoscere l'identificativo dal link (idDa) -->
+    <script src="../player-youtube.js?v=20260924a"></script>
     <script src="gestione.js?v=20260924a"></script>
 </body>
 </html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <!-- stessa Content-Security-Policy della pagina della diretta (DECISIONI D3) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://ngb-eventi.firebaseapp.com; connect-src 'self' https://revilaw-email.vercel.app https://*.googleapis.com https://firestore.googleapis.com wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Nuova password | Diretta Next Generation Business</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0A2844">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="diretta.css?v=20260924">
+    <script src="config.js?v=20260924" defer></script>
+    <script src="nome-utente.js?v=20260924" defer></script>
+    <!-- la logica e' in diretta.js (sezione "REIMPOSTAZIONE DELLA PASSWORD"):
+         nessuno script scritto nella pagina, per la CSP -->
+    <script src="diretta.js?v=20260924" defer></script>
+</head>
+<body data-pagina="reimposta" data-vista="accesso">
+
+    <header class="testata">
+        <div class="testata-riga">
+            <div class="testata-marchio">
+                <img src="/assets/logo-revilaw-bianco.png" alt="Revilaw S.p.A." width="371" height="115">
+            </div>
+            <div class="testata-evento">
+                <div class="testata-sopra">
+                    <span class="testata-sopratitolo">Next Generation Business · Diretta</span>
+                </div>
+                <p class="titolo-evento">La diretta degli eventi</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="contenuto">
+        <section class="vista vista-centrata">
+            <div class="carta carta-accesso">
+                <div class="carta-intestazione">
+                    <img class="marchio-carta" src="/assets/logo-revilaw-mark.png" alt="" width="1484" height="1182">
+                    <h1 class="titolo-carta">Scegli la nuova password</h1>
+                    <p class="sottotitolo" id="reimposta-sottotitolo" role="status" aria-live="polite">Verifica del collegamento in corso…</p>
+                </div>
+
+                <!-- fuori dal modulo: resta visibile anche quando il modulo sparisce
+                     (collegamento scaduto, password salvata) -->
+                <p id="msg-reimposta" class="messaggio messaggio-reimposta" role="status" aria-live="polite"></p>
+
+                <!-- senza autocomplete="off": il gestore delle password del browser
+                     deve poter AGGIORNARE la password salvata per questo nome utente -->
+                <form id="form-reimposta" class="modulo" novalidate hidden>
+                    <div class="campo" id="riga-nome-reset">
+                        <label for="nome-utente-reset" id="etichetta-nome-reset">Nome utente</label>
+                        <input type="text" id="nome-utente-reset" name="username" autocomplete="username" readonly>
+                    </div>
+                    <div class="campo">
+                        <label for="campo-nuova">Nuova password</label>
+                        <div class="campo-con-bottone">
+                            <input type="password" id="campo-nuova" name="new-password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="aiuto-nuova">
+                            <button type="button" id="btn-mostra-nuova" class="btn-occhio" aria-pressed="false" aria-label="Mostra le password">
+                                <svg class="icona icona-occhio" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="icona icona-occhio-chiuso" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                            </button>
+                        </div>
+                        <p class="aiuto-campo" id="aiuto-nuova">Almeno 8 caratteri, con almeno una lettera e un numero.</p>
+                    </div>
+                    <div class="campo">
+                        <label for="campo-ripeti">Ripeti la nuova password</label>
+                        <input type="password" id="campo-ripeti" name="new-password-ripeti" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+                    </div>
+                    <button type="submit" id="btn-salva-password" class="btn btn-primario btn-pieno">
+                        <span class="btn-testo">Salva la password</span>
+                    </button>
+                </form>
+
+                <p class="azioni-stato">
+                    <a id="link-dopo-reimposta" class="btn btn-primario" href="/diretta/" hidden>Vai alla diretta</a>
+                    <a id="link-nuovo-collegamento" class="btn btn-primario" href="/diretta/?dimenticata=1" hidden>Richiedi un nuovo collegamento</a>
+                </p>
+
+                <div class="carta-piede">
+                    <p><a id="link-reimposta-accesso" href="/diretta/">Torna all'accesso</a></p>
+                    <p class="aiuto" data-aiuto></p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="piede">
+        <p>
+            <span>Revilaw S.p.A.</span>
+            <span aria-hidden="true">·</span>
+            <a data-assistenza-link href="mailto:info@nextgenerationbusiness.it">Assistenza</a>
+        </p>
+    </footer>
+</body>
+</html>

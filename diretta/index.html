@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <!-- Content-Security-Policy: la pagina carica codice solo da se' stessa, dall'SDK
+         di Firebase (gstatic) e dall'API di YouTube. Nessuno script scritto nella
+         pagina: tutto sta nei file .js qui accanto (DECISIONI D3). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://ngb-eventi.firebaseapp.com; connect-src 'self' https://revilaw-email.vercel.app https://*.googleapis.com https://firestore.googleapis.com wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <!-- viewport-fit=cover: su iPhone la pagina usa anche le zone attorno alla tacca
+         (le distanze giuste le mette il CSS con env(safe-area-inset-*)) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Diretta | Next Generation Business</title>
+    <meta name="description" content="La diretta degli eventi Next Generation Business, riservata agli iscritti.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0A2844">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <link rel="apple-touch-icon" href="/assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
+         a ogni modifica, il browser scarica subito la versione nuova -->
+    <link rel="stylesheet" href="diretta.css?v=20260924">
+    <script src="config.js?v=20260924" defer></script>
+    <script src="nome-utente.js?v=20260924" defer></script>
+    <script src="player-youtube.js?v=20260924" defer></script>
+    <script src="diretta.js?v=20260924" defer></script>
+</head>
+<body data-pagina="diretta" data-vista="caricamento">
+
+    <!-- ====================== TESTATA ====================== -->
+    <header class="testata">
+        <div class="testata-riga">
+            <div class="testata-marchio">
+                <img src="/assets/logo-revilaw-bianco.png" alt="Revilaw S.p.A." width="371" height="115">
+            </div>
+            <div class="testata-evento">
+                <div class="testata-sopra">
+                    <span class="testata-sopratitolo">Next Generation Business · Diretta</span>
+                    <span id="stato-evento" class="stato-evento" data-stato="" hidden><span class="punto-live" aria-hidden="true"></span><span id="stato-evento-testo">IN DIRETTA</span></span>
+                </div>
+                <h1 id="titolo-evento" class="titolo-evento">La diretta degli eventi</h1>
+            </div>
+            <div class="testata-persona" id="blocco-persona" hidden>
+                <span class="persona">
+                    <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+                    <span class="solo-lettori">Collegato come </span><span id="nome-persona"></span>
+                </span>
+                <button id="btn-esci" class="btn-esci" type="button">
+                    <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/></svg>
+                    <span>Esci</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- avvisi che valgono per tutte le viste -->
+    <div id="avviso-anteprima" class="avviso avviso-anteprima" role="status" hidden>
+        <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>Anteprima: vedi come un partecipante. Nessuna presenza registrata.</span>
+    </div>
+    <div id="avviso-evento" class="avviso avviso-evento" role="status" aria-live="polite" hidden>
+        <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <span id="avviso-evento-testo"></span>
+    </div>
+
+    <main id="contenuto" class="contenuto">
+
+        <!-- ====================== CARICAMENTO ====================== -->
+        <section id="vista-caricamento" class="vista vista-centrata" data-vista-di="caricamento">
+            <div class="caricamento" role="status">
+                <span class="rotella" aria-hidden="true"></span>
+                <p>Caricamento della diretta…</p>
+                <!-- compare da sola dopo qualche secondo (solo CSS): se il codice della
+                     pagina non parte, almeno si sa perche' e che cosa fare -->
+                <p class="caricamento-lento">Ci sta mettendo più del solito. Se la pagina resta ferma, il browser potrebbe non essere aggiornato: prova con Chrome, Safari, Edge o Firefox recenti.</p>
+            </div>
+            <noscript><p class="nota-noscript">Per vedere la diretta serve JavaScript attivo nel browser.</p></noscript>
+        </section>
+
+        <!-- ====================== ACCESSO ====================== -->
+        <section id="vista-accesso" class="vista vista-centrata" data-vista-di="accesso" hidden>
+            <div class="carta carta-accesso">
+                <div class="carta-intestazione">
+                    <img class="marchio-carta" src="/assets/logo-revilaw-mark.png" alt="" width="1484" height="1182">
+                    <h2 id="titolo-accesso" tabindex="-1" data-fuoco>Accedi alla diretta</h2>
+                    <p class="sottotitolo">Scrivi il nome utente e la password che hai ricevuto via email.</p>
+                </div>
+                <form id="form-accesso" class="modulo" novalidate>
+                    <div class="campo">
+                        <label for="campo-nome-utente">Nome utente</label>
+                        <input type="text" id="campo-nome-utente" name="username" inputmode="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="es. mariorossi" aria-describedby="aiuto-nome-utente">
+                        <p class="aiuto-campo" id="aiuto-nome-utente">Di solito è il nome e il cognome attaccati, tutto minuscolo.</p>
+                    </div>
+                    <div class="campo">
+                        <label for="campo-password">Password</label>
+                        <div class="campo-con-bottone">
+                            <input type="password" id="campo-password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+                            <button type="button" id="btn-mostra-password" class="btn-occhio" aria-pressed="false" aria-controls="campo-password" aria-label="Mostra la password">
+                                <svg class="icona icona-occhio" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="icona icona-occhio-chiuso" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <p id="msg-accesso" class="messaggio" role="status" aria-live="polite"></p>
+                    <button type="submit" id="btn-entra" class="btn btn-primario btn-pieno">
+                        <span class="btn-testo">Entra</span>
+                    </button>
+                    <p class="riga-link">
+                        <a href="?dimenticata=1" id="link-dimenticata">Password dimenticata?</a>
+                    </p>
+                </form>
+                <div class="carta-piede">
+                    <p>Non hai ricevuto nome utente e password? Controlla la posta indesiderata o <a data-assistenza-link href="mailto:info@nextgenerationbusiness.it">scrivici</a>.</p>
+                    <p class="aiuto" data-aiuto></p>
+                    <p class="privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa sulla privacy</a></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====================== PASSWORD DIMENTICATA ====================== -->
+        <section id="vista-dimenticata" class="vista vista-centrata" data-vista-di="dimenticata" hidden>
+            <div class="carta carta-accesso">
+                <div class="carta-intestazione">
+                    <img class="marchio-carta" src="/assets/logo-revilaw-mark.png" alt="" width="1484" height="1182">
+                    <h2 tabindex="-1" data-fuoco>Password dimenticata</h2>
+                    <p class="sottotitolo">Scrivi il tuo nome utente oppure l'email con cui ti sei iscritto: ti mandiamo un collegamento per scegliere una nuova password.</p>
+                </div>
+                <form id="form-dimenticata" class="modulo" novalidate>
+                    <div class="campo">
+                        <label for="campo-identificativo">Nome utente o email</label>
+                        <input type="text" id="campo-identificativo" name="identificativo" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="es. mariorossi oppure mario@esempio.it">
+                    </div>
+                    <p id="msg-dimenticata" class="messaggio" role="status" aria-live="polite"></p>
+                    <button type="submit" id="btn-invia-reset" class="btn btn-primario btn-pieno">
+                        <span class="btn-testo">Invia il collegamento</span>
+                    </button>
+                    <p class="riga-link">
+                        <a href="./" id="link-torna-accesso">Torna all'accesso</a>
+                    </p>
+                </form>
+                <div class="carta-piede">
+                    <p class="aiuto" data-aiuto></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====================== ATTESA ====================== -->
+        <section id="vista-attesa" class="vista" data-vista-di="attesa" hidden>
+            <div class="fascia-scura">
+                <div class="attesa-eroe">
+                    <span class="etichetta-chiara"><span class="punto-attesa" aria-hidden="true"></span>Diretta in programma</span>
+                    <h2 id="attesa-titolo" tabindex="-1" data-fuoco>La diretta inizia tra</h2>
+                    <div id="conto-alla-rovescia" class="conto" role="timer" aria-label="Tempo che manca all'inizio della diretta">
+                        <div class="conto-voce"><span id="conto-giorni" class="conto-numero">00</span><span class="conto-etichetta">Giorni</span></div>
+                        <div class="conto-voce"><span id="conto-ore" class="conto-numero">00</span><span class="conto-etichetta">Ore</span></div>
+                        <div class="conto-voce"><span id="conto-minuti" class="conto-numero">00</span><span class="conto-etichetta">Minuti</span></div>
+                        <div class="conto-voce"><span id="conto-secondi" class="conto-numero">00</span><span class="conto-etichetta">Secondi</span></div>
+                    </div>
+                    <ul class="dettagli-evento">
+                        <li id="attesa-quando-riga"><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span id="attesa-quando"></span></li>
+                        <li id="attesa-luogo-riga" hidden><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span id="attesa-luogo"></span></li>
+                    </ul>
+                    <p class="nota-chiara">Non serve ricaricare la pagina: quando la diretta comincia, il video compare qui da solo.</p>
+                </div>
+            </div>
+            <div class="griglia-carte">
+                <div class="carta carta-programma" id="carta-programma">
+                    <h3>Il programma</h3>
+                    <ol id="programma" class="programma"></ol>
+                    <p class="nota-programma">Orari in ora italiana.</p>
+                </div>
+                <div class="carta carta-consigli">
+                    <h3>Prima di cominciare</h3>
+                    <ul class="consigli">
+                        <li>Il video parte <strong>senza audio</strong>: quando compare, premi il pulsante <strong>«Attiva l'audio»</strong>.</li>
+                        <li>Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
+                        <li>Se chiudi la pagina, al ritorno non serve rifare l'accesso su questo dispositivo.</li>
+                    </ul>
+                    <p class="aiuto" data-aiuto></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====================== DIRETTA ====================== -->
+        <section id="vista-diretta" class="vista" data-vista-di="diretta" hidden>
+            <h2 class="solo-lettori" tabindex="-1" data-fuoco>Video della diretta</h2>
+            <div class="fascia-video">
+                <!-- Il riquadro e' quello che va a schermo intero: video E nostri comandi.
+                     Niente sta DAVANTI al video (regole di YouTube): pausa e messaggi
+                     prendono il suo posto, i comandi stanno sotto. -->
+                <div id="riquadro-video" class="riquadro-video" tabindex="-1" data-intero="0">
+                    <div id="area-video" class="area-video" data-schermata="arrivo">
+                        <div id="video-player" class="video-player"></div>
+                        <div id="schermo-pausa" class="schermo schermo-pausa" hidden>
+                            <button type="button" id="btn-riprendi" class="btn-riprendi" aria-label="Riprendi la diretta">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+                            <p class="schermo-titolo">Diretta in pausa</p>
+                            <p class="schermo-testo">Premi per riprendere, oppure «Torna in diretta» per rivedere il momento attuale.</p>
+                        </div>
+                        <div id="schermo-video" class="schermo schermo-video" role="status" hidden>
+                            <span class="schermo-icona" aria-hidden="true"></span>
+                            <p id="schermo-video-titolo" class="schermo-titolo"></p>
+                            <p id="schermo-video-testo" class="schermo-testo"></p>
+                            <button type="button" id="btn-avvia-diretta" class="btn btn-chiaro" hidden>
+                                <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                                <span>Avvia la diretta</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="striscia-audio" class="striscia-audio">
+                        <button type="button" id="btn-attiva-audio" class="btn-attiva-audio" hidden>
+                            <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+                            <span>Attiva l'audio</span>
+                        </button>
+                        <p id="suggerimento-audio" class="suggerimento-audio" role="status" aria-live="polite" hidden></p>
+                    </div>
+                    <p class="riga-comandi-aiuto" id="riga-comandi-aiuto">Usa i pulsanti qui sotto per l'audio e lo schermo intero.</p>
+                    <div id="barra-comandi" class="barra-comandi" role="toolbar" aria-label="Comandi del video">
+                        <button type="button" id="btn-play" class="btn-comando" data-stato="pausa" aria-label="Riproduci">
+                            <svg class="icona icona-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                            <svg class="icona icona-pausa" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+                        </button>
+                        <button type="button" id="btn-muto" class="btn-comando" data-muto="1" aria-pressed="true" aria-label="Audio disattivato: premi per attivarlo">
+                            <svg class="icona icona-muto" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M23 9l-6 6M17 9l6 6"/></svg>
+                            <svg class="icona icona-audio" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+                        </button>
+                        <label class="solo-lettori" for="volume">Volume</label>
+                        <input type="range" id="volume" class="volume" min="0" max="100" step="5" value="0" aria-valuetext="Audio disattivato">
+                        <span class="spazio-flessibile"></span>
+                        <button type="button" id="btn-live" class="btn-live">
+                            <span class="punto-live" aria-hidden="true"></span>
+                            <span class="testo-lungo">Torna in diretta</span><span class="testo-corto" aria-hidden="true">Live</span>
+                        </button>
+                        <label class="solo-lettori" for="sel-qualita">Qualità del video</label>
+                        <select id="sel-qualita" class="sel-qualita" hidden></select>
+                        <button type="button" id="btn-schermo-intero" class="btn-comando" aria-label="Schermo intero">
+                            <svg class="icona icona-intero" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                            <svg class="icona icona-esci-intero" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="griglia-carte">
+                <div class="carta carta-programma" id="carta-programma-diretta">
+                    <h3>Il programma</h3>
+                    <ol id="programma-diretta" class="programma"></ol>
+                    <p class="nota-programma">Orari in ora italiana.</p>
+                </div>
+                <div class="carta carta-consigli">
+                    <h3>Se qualcosa non va</h3>
+                    <ul class="consigli">
+                        <li>Non senti niente? Premi <strong>«Attiva l'audio»</strong> e controlla il volume del dispositivo.</li>
+                        <li>Il video è fermo o in ritardo? Premi <strong>«Torna in diretta»</strong>.</li>
+                        <li>Scorciatoie da tastiera: <kbd>Spazio</kbd> pausa, <kbd>F</kbd> schermo intero, <kbd>M</kbd> audio, frecce per il volume.</li>
+                    </ul>
+                    <p class="aiuto" data-aiuto></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====================== PAUSA DELL'EVENTO ====================== -->
+        <section id="vista-pausa" class="vista vista-centrata" data-vista-di="pausa" hidden>
+            <div class="carta carta-stato">
+                <span class="icona-grande icona-pausa-evento" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M8 5h3v14H8zM13 5h3v14h-3z"/></svg>
+                </span>
+                <h2 id="pausa-titolo" tabindex="-1" data-fuoco>Pausa</h2>
+                <p id="pausa-testo" class="testo-stato">La diretta riprende a breve.</p>
+                <p class="nota">Resta pure su questa pagina: quando si riprende, il video torna da solo.</p>
+            </div>
+        </section>
+
+        <!-- ====================== FINE ====================== -->
+        <section id="vista-fine" class="vista vista-centrata" data-vista-di="fine" hidden>
+            <div class="carta carta-stato">
+                <span class="icona-grande icona-fine" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+                </span>
+                <h2 tabindex="-1" data-fuoco>La diretta è terminata</h2>
+                <p class="testo-stato">Grazie per aver seguito <strong id="fine-titolo-evento">l'evento</strong>.</p>
+                <p class="azioni-stato">
+                    <a id="fine-link-evento" class="btn btn-primario" href="/" hidden>Vai alla pagina dell'evento</a>
+                    <a class="btn btn-secondario" href="/">Vai al sito</a>
+                </p>
+            </div>
+        </section>
+
+        <!-- ====================== MESSAGGI ====================== -->
+        <section id="vista-messaggio" class="vista vista-centrata" data-vista-di="messaggio" hidden>
+            <div class="carta carta-stato" role="status" aria-live="polite">
+                <span class="icona-grande icona-messaggio" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>
+                </span>
+                <h2 id="messaggio-titolo" tabindex="-1" data-fuoco></h2>
+                <p id="messaggio-testo" class="testo-stato"></p>
+                <p class="azioni-stato">
+                    <button type="button" id="btn-messaggio-azione" class="btn btn-primario" hidden></button>
+                </p>
+                <p class="aiuto" data-aiuto></p>
+            </div>
+        </section>
+
+        <!-- ====================== GESTORE ====================== -->
+        <section id="vista-gestore" class="vista vista-centrata" data-vista-di="gestore" hidden>
+            <div class="carta carta-stato">
+                <span class="icona-grande icona-messaggio" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+                </span>
+                <h2 tabindex="-1" data-fuoco>Sei entrato con un account di gestione</h2>
+                <p class="testo-stato">Da qui i partecipanti vedono la diretta. Per guardarla come loro, apri la gestione e usa «Vedi come un partecipante».</p>
+                <p class="azioni-stato">
+                    <a class="btn btn-primario" href="/diretta/gestione/">Vai alla gestione</a>
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="piede">
+        <p>
+            <span>Revilaw S.p.A.</span>
+            <span aria-hidden="true">·</span>
+            <a data-assistenza-link href="mailto:info@nextgenerationbusiness.it">Assistenza</a>
+            <span id="piede-evento-sep" aria-hidden="true" hidden>·</span>
+            <a id="link-pagina-evento" href="/" hidden>Pagina dell'evento</a>
+        </p>
+    </footer>
+
+    <!-- connessione persa: compare dopo qualche secondo senza rete, sopra tutto -->
+    <div id="avviso-connessione" class="avviso-connessione" role="status" aria-live="polite" hidden>
+        <span class="rotella rotella-piccola" aria-hidden="true"></span>
+        <span>Connessione persa: nuovo tentativo in corso…</span>
+    </div>
+
+    <!-- conferme (Esci, cambio di utente) -->
+    <div id="dialogo-conferma" class="dialogo" hidden>
+        <div class="dialogo-sfondo" data-chiudi-dialogo></div>
+        <div class="dialogo-carta" role="dialog" aria-modal="true" aria-labelledby="dialogo-titolo" aria-describedby="dialogo-testo" tabindex="-1">
+            <h2 id="dialogo-titolo"></h2>
+            <p id="dialogo-testo"></p>
+            <div class="dialogo-azioni">
+                <button type="button" id="btn-conferma-no" class="btn btn-secondario"></button>
+                <button type="button" id="btn-conferma-si" class="btn btn-primario"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- annunci per chi usa un lettore di schermo (per esempio "la diretta è cominciata") -->
+    <div id="annuncio" class="solo-lettori" role="status" aria-live="polite"></div>
+</body>
+</html>

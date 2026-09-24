@@ -56,7 +56,10 @@ for (const [re, cosa] of vietati) {
     const colpevoli = codiceDiretta.filter(f => {
         const testo = fs.readFileSync(f, 'utf8')
             // i commenti possono spiegare la separazione nominando l'altro progetto
-            .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+            .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+            // l'unico uso ammesso: il controllo che la chiave della diretta NON sia
+            // quella dello studio (lib/diretta-firebase.js, controllaProgetto)
+            .replace(/progettoDi\(process\.env\.FIREBASE_SERVICE_ACCOUNT\)/g, '');
         return re.test(testo);
     });
     vero(colpevoli.length === 0, 'la diretta non usa ' + cosa + (colpevoli.length ? ': ' + colpevoli.map(f => path.relative(RADICE, f)).join(', ') : ''));

@@ -36,15 +36,17 @@ else fs.writeFileSync(path.join(cartella, 'firestore.rules'),
     'rules_version = "2";\nservice cloud.firestore { match /databases/{database}/documents { match /{d=**} { allow read, write: if false; } } }\n');
 if (fs.existsSync(indici)) fs.copyFileSync(indici, path.join(cartella, 'firestore.indexes.json'));
 
-// le porte "di servizio" (hub, log, websocket) si ricavano da quella di Firestore
+// le porte "di servizio" (hub, log, websocket) si ricavano da quella di Firestore,
+// in tre fasce separate: due istanze con porte Firestore diverse non si
+// scontrano mai (prima hub e log stavano nella stessa fascia e si sovrapponevano)
 const scarto = portaFirestore - 8080;
 fs.writeFileSync(path.join(cartella, 'firebase.json'), JSON.stringify({
     firestore: { rules: 'firestore.rules' },
     emulators: {
         auth: { port: portaAuth, host: '127.0.0.1' },
-        firestore: { port: portaFirestore, host: '127.0.0.1', websocketPort: 9150 + scarto },
-        hub: { port: 4400 + scarto, host: '127.0.0.1' },
-        logging: { port: 4500 + scarto, host: '127.0.0.1' },
+        firestore: { port: portaFirestore, host: '127.0.0.1', websocketPort: 16400 + scarto },
+        hub: { port: 14400 + scarto, host: '127.0.0.1' },
+        logging: { port: 15400 + scarto, host: '127.0.0.1' },
         ui: { enabled: false }
     }
 }, null, 2));

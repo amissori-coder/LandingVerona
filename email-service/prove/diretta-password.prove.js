@@ -57,7 +57,10 @@ const sospetti = [];
 cartelle.forEach(c => fs.readdirSync(c).filter(f => /^diretta-.*\.js$/.test(f)).forEach(f => {
     const righe = fs.readFileSync(path.join(c, f), 'utf8').split('\n');
     righe.forEach((r, i) => {
-        if (/console\.(log|error|warn|info)\([^)]*password/i.test(r)) sospetti.push(f + ':' + (i + 1) + ' (log)');
+        // i testi tra virgolette non contano: "verifica della password" in un log
+        // e' una frase, non una password; conta una VARIABILE che finisce nel log
+        const senzaTesti = r.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, "''").replace(/`[^`$]*`/g, "''");
+        if (/console\.(log|error|warn|info)\([^)]*password/i.test(senzaTesti)) sospetti.push(f + ':' + (i + 1) + ' (log)');
         if (/\.(set|update|add|create)\(\{[^}]*\bpassword\s*:/i.test(r)) sospetti.push(f + ':' + (i + 1) + ' (scrittura)');
     });
 }));
