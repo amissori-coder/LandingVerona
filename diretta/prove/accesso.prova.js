@@ -418,7 +418,7 @@ const coppia = (nome, ip) => db.collection('tentativi').doc(nome + '_' + C.impro
         const testoStato = await stato1.text();
         const corpoStato = JSON.parse(testoStato);
         vero(stato1.status === 200 && corpoStato.stato === 'programmato' && corpoStato.titolo && corpoStato.inizio && corpoStato.fine, 'GET pubblico: stato "programmato", titolo e orari');
-        uguale(Object.keys(corpoStato).sort(), ['fine', 'id', 'inizio', 'ok', 'paginaEvento', 'stato', 'titolo'], 'solo i campi pubblici');
+        uguale(Object.keys(corpoStato).sort(), ['fine', 'id', 'inizio', 'ok', 'paginaEvento', 'ripresa', 'stato', 'titolo'], 'solo i campi pubblici');
         vero(!/video|abcdefghijk/i.test(testoStato), 'nessuna traccia del video nella risposta');
         uguale(stato1.headers.get('cache-control'), 'public, max-age=20, s-maxage=30, stale-while-revalidate=60', 'Cache-Control');
         uguale(stato1.headers.get('access-control-allow-origin'), '*', 'Access-Control-Allow-Origin: *');

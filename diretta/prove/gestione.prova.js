@@ -1,44 +1,64 @@
 /* ============================================================
    PROVE - la pagina di GESTIONE della diretta (/diretta/gestione/)
+   contro il SERVIZIO VERO
    ------------------------------------------------------------
        cd diretta/prove && node gestione.prova.js
 
-   Avvia da sola gli emulatori di Firebase (Auth sulla 9580,
-   Firestore sulla 8580) e il sito in locale (8590), poi apre la
-   gestione in Chromium con la Content-Security-Policy vera, e alla
-   fine chiude tutto.
+   Avvia da sola gli emulatori di Firebase (Firestore 8580, Auth
+   9580) e server-locale.js (funzioni vere api/diretta-*.js sulla
+   3580, sito sulla 8590), apre la gestione in Chromium con la
+   Content-Security-Policy vera e alla fine chiude tutto.
 
-   IL SERVIZIO E' FINTO, DI PROPOSITO. Le chiamate della pagina a
-   api/diretta-gestione e api/diretta-accesso le intercetta questa
-   prova e risponde con un piccolo servizio in memoria che segue il
-   contratto (sezione 5.2): eventi, anteprima, crea con la
-   prenotazione dei nomi utente, partecipanti, operazioni, email,
-   connessi, esportazione. Cosi' la prova guarda SOLO la pagina (le
-   funzioni vere hanno le loro prove: doppioni, accesso, coda) e
-   puo' simulare quello che con il servizio vero e' difficile da
-   ottenere a comando: un nome utente preso da un caricamento
-   contemporaneo, un'email respinta, il contatore dei collegati.
-   Il token del gestore invece e' VERO: l'utente sta nell'emulatore
-   di Auth e il finto servizio lo verifica con firebase-admin, come
-   fa verificaGestore.
+   IL SERVIZIO E' QUELLO VERO. Ogni chiamata della pagina arriva alle
+   funzioni di email-service (diretta-gestione, diretta-accesso,
+   diretta-cron) che leggono e scrivono gli emulatori; le email vanno
+   nella posta finta del servizio (risultati/posta-gestione.jsonl,
+   DIRETTA_POSTA_FINTA), da cui la prova legge i collegamenti e le
+   password come farebbe una persona dalla sua casella.
 
-   COSA DIMOSTRA. Accesso del gestore (password sbagliata, primo
-   accesso, account che non e' un gestore); creazione dell'evento di
-   Napoli; caricamento di esempio-partecipanti.csv con ogni problema
-   evidenziato dalla classe giusta e il pulsante di creazione spento;
-   correzioni in linea, esclusione e conferma degli omonimi che lo
-   accendono; creazione a gruppi di 25 senza doppioni; elenco con
-   ricerca; reinvio, nuova password mostrata una volta, disattivazione,
-   correzione; regia (in onda con conferma, pausa, cambio del video
-   provato prima, avviso, contatore dei collegati); email di prova e
-   invio a tutti con l'avanzamento; esportazione in Excel con due
-   fogli, riletta con la stessa SheetJS. Screenshot in
-   risultati/screenshot-gestione/ (computer 1440x900 e tablet 820x1180).
-   Esce con 1 se qualcosa e' rosso.
+   COME SI OTTENGONO I CASI DIFFICILI, senza fingere le risposte:
+   - il gestore si attiva con «Primo accesso» (gestore-accesso): il
+     collegamento arriva nella posta finta e la nuova password si
+     sceglie con l'emulatore di Auth (accounts:resetPassword, quello
+     che fa reimposta.html con confirmPasswordReset);
+   - il caricamento "contemporaneo" di un altro gestore e' una
+     chiamata vera a 'crea' fatta da qui, fra l'anteprima e la
+     creazione;
+   - il blocco di Brevo, il tetto giornaliero e il giro automatico
+     lento si ottengono RIAVVIANDO server-locale.js con gli interruttori
+     della posta finta del servizio (DIRETTA_POSTA_ERRORE_ACCOUNT=1:
+     accesso SMTP rifiutato; DIRETTA_MAX_GIORNO; DIRETTA_POSTA_RITARDO_MS)
+     e chiamando davvero api/diretta-cron;
+   - i segnali di presenza (che scrive la pagina dei partecipanti) si
+     scrivono con firebase-admin nei documenti presenze/, e gli accessi
+     sono chiamate vere a diretta-accesso 'entra' con le password lette
+     dalle email.
+   UNICO context.route (page.route) DELLA PROVA: la rete che cade
+   durante 'crea', per provare «Riprendi». Il primo tentativo del
+   secondo gruppo arriva al servizio ma la risposta si perde (la
+   creazione e' avvenuta), i due seguenti non partono proprio: e' il
+   guasto che il servizio vero non sa produrre a comando. Tutte le
+   altre risposte sono quelle del servizio.
+
+   COSA DIMOSTRA. Accesso del gestore (password sbagliata, account fuori
+   elenco, account "registrato da solo" che perde l'accesso e primo
+   accesso con il collegamento); creazione dell'evento di Napoli;
+   caricamento di esempio-partecipanti.csv con ogni problema evidenziato
+   e il pulsante di creazione spento; correzioni in linea, esclusione e
+   conferma degli omonimi; creazione a gruppi di 25 con un nome preso nel
+   frattempo e la rete che cade (Riprendi, zero doppioni); elenco con
+   ricerca; invio singolo, reinvio rifiutato entro un minuto (409 con il
+   testo del servizio), nuova password, disattivazione, correzioni (R3);
+   regia (in onda, pausa con il video tolto ai partecipanti, cambio del
+   video provato prima, avviso, contatore dei collegati); email di prova,
+   invio a tutti fermato da Brevo, «Riprova adesso», tetto del giorno,
+   giro automatico che lavora insieme alla pagina, reinvio a chi non
+   l'ha ricevuta, esiti senza BREVO_API_KEY; esportazione in Excel con
+   due fogli. Screenshot in risultati/screenshot-gestione/ (computer
+   1440x900 e tablet 820x1180). Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
@@ -50,48 +70,66 @@ process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + PORTE.firestore;
 const RADICE = path.resolve(__dirname, '../..');
 const RISULTATI = path.join(__dirname, 'risultati');
 const FOTO = path.join(RISULTATI, 'screenshot-gestione');
+const POSTA = path.join(RISULTATI, 'posta-gestione.jsonl');
 fs.mkdirSync(FOTO, { recursive: true });
 
 const admin = require(path.join(RADICE, 'email-service/node_modules/firebase-admin'));
 const { chromium } = require('./node_modules/playwright');
 const { preparaContesto } = require('./rete-prove');
-const NU = require(path.join(RADICE, 'diretta/nome-utente.js'));
 
 const SITO = 'http://127.0.0.1:' + PORTE.statico;
 const API = 'http://127.0.0.1:' + PORTE.api + '/api';
+const AUTH_REST = 'http://127.0.0.1:' + PORTE.auth + '/identitytoolkit.googleapis.com/v1';
 const EMAIL_GESTORE = 'gestore@prova.it';
 const PASSWORD_GESTORE = 'Gestione-2026-prova';
+// la password di chi si era "registrato da solo" con l'email del gestore
+const PASSWORD_ABUSIVA = 'Mi-registro-da-solo-1';
 const EMAIL_CURIOSO = 'curioso@prova.it';
-// in elenco ma mai attivato da "Primo accesso": niente claim gestore
-const EMAIL_NUOVO = 'nuovo.gestore@prova.it';
-const PASSWORD_NUOVO = 'Nuovo-2026-prova';
-const GESTORI = [EMAIL_GESTORE, EMAIL_NUOVO];
 const PASSWORD_CURIOSO = 'Curioso-2026-prova';
 const ID = 'napoli-2026';
 const SHEETJS_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 const SHEETJS_IMPRONTA = 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT';
+const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+// l'alfabeto di lib/diretta-password.js: niente 0/O/o, 1/l/I/i
+const RE_PASSWORD = /^[A-HJKMNP-Za-hjkmnp-z2-9]{10}$/;
+
+/* Le variabili del servizio in ogni fase della prova. La base e' quella
+   chiesta: posta finta nella cartella risultati/, un solo gestore, e
+   l'indirizzo di Chloé che il "server di posta" rifiuta (550). */
+const SERVIZIO_BASE = {
+    DIRETTA_POSTA_FINTA: POSTA,
+    DIRETTA_ADMIN_EMAILS: EMAIL_GESTORE,
+    DIRETTA_POSTA_RIFIUTA: 'chloe.dupont@dupont.fr',
+    DIRETTA_MAX_GIORNO: '0',
+    DIRETTA_POSTA_ERRORE_ACCOUNT: '',
+    DIRETTA_POSTA_RITARDO_MS: '0'
+};
 
 let rossi = 0, verdi = 0;
 function vero(cond, descrizione, dettaglio) {
     if (cond) { verdi++; console.log('  ok  ' + descrizione); }
-    else { rossi++; console.log('ROSSO ' + descrizione + (dettaglio !== undefined ? '\n       ' + String(dettaglio).slice(0, 400) : '')); }
+    else { rossi++; console.log('ROSSO ' + descrizione + (dettaglio !== undefined ? '\n       ' + String(dettaglio).slice(0, 600) : '')); }
     return !!cond;
 }
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
 /* ---------- processi di appoggio ---------- */
-function avvia(argomenti, pronto, nome, cartella) {
+function avvia(argomenti, pronto, nome, env) {
     return new Promise((risolvi, rifiuta) => {
-        const figlio = spawn(process.execPath, argomenti, { cwd: cartella || __dirname, stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, { FORCE_COLOR: '0' }) });
-        let uscita = '';
-        const limite = setTimeout(() => { figlio.kill('SIGTERM'); rifiuta(new Error(nome + ' non partito in tempo:\n' + uscita.slice(-2000))); }, 150000);
+        const figlio = spawn(process.execPath, argomenti, {
+            cwd: __dirname, stdio: ['ignore', 'pipe', 'pipe'],
+            env: Object.assign({}, process.env, { FORCE_COLOR: '0' }, env || {})
+        });
+        figlio.uscita = '';
+        let partito = false;
+        const limite = setTimeout(() => { figlio.kill('SIGTERM'); rifiuta(new Error(nome + ' non partito in tempo:\n' + figlio.uscita.slice(-2000))); }, 150000);
         const leggi = d => {
-            uscita += d.toString();
-            if (pronto.test(uscita)) { clearTimeout(limite); risolvi(figlio); }
+            figlio.uscita = (figlio.uscita + d.toString()).slice(-200000);
+            if (!partito && pronto.test(figlio.uscita)) { partito = true; clearTimeout(limite); risolvi(figlio); }
         };
         figlio.stdout.on('data', leggi);
         figlio.stderr.on('data', leggi);
-        figlio.on('exit', c => { clearTimeout(limite); rifiuta(new Error(nome + ' uscito (' + c + '):\n' + uscita.slice(-2000))); });
+        figlio.on('exit', c => { clearTimeout(limite); if (!partito) rifiuta(new Error(nome + ' uscito (' + c + '):\n' + figlio.uscita.slice(-2000))); });
     });
 }
 function ferma(figlio) {
@@ -104,35 +142,43 @@ function ferma(figlio) {
     });
 }
 
-/* Gli emulatori si avviano con avvia-emulatori.js. Quello script ricava le
-   porte "di servizio" (hub, log, websocket) dalla porta di Firestore con uno
-   scarto di 100 per prova: hub 4400+scarto e log 4500+scarto. Due prove che
-   girano INSIEME con porte a 100 di distanza (8480 e 8580) si pestano: il log
-   dell'una (4900) e' l'hub dell'altra. In quel caso, e solo in quello, si
-   riparte con una configurazione propria che tiene hub, log e websocket
-   accanto alla porta di Firestore di questa prova (8583, 8584, 8585). */
-async function avviaEmulatori() {
-    try {
-        return await avvia([path.join(__dirname, 'avvia-emulatori.js'), '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], /EMULATORI PRONTI/, 'emulatori');
-    } catch (e) {
-        if (!/port taken|not open|could not start/i.test(e.message)) throw e;
-        console.log('   (porte di servizio degli emulatori occupate da un\'altra prova in parallelo: riparto con hub, log e websocket su '
-            + (PORTE.firestore + 3) + '-' + (PORTE.firestore + 5) + ')');
-        const cartella = fs.mkdtempSync(path.join(os.tmpdir(), 'ngb-gestione-emulatori-'));
-        fs.copyFileSync(path.resolve(__dirname, '../firebase/firestore.rules'), path.join(cartella, 'firestore.rules'));
-        fs.writeFileSync(path.join(cartella, 'firebase.json'), JSON.stringify({
-            firestore: { rules: 'firestore.rules' },
-            emulators: {
-                auth: { port: PORTE.auth, host: '127.0.0.1' },
-                firestore: { port: PORTE.firestore, host: '127.0.0.1', websocketPort: PORTE.firestore + 5 },
-                hub: { port: PORTE.firestore + 3, host: '127.0.0.1' },
-                logging: { port: PORTE.firestore + 4, host: '127.0.0.1' },
-                ui: { enabled: false }
-            }
-        }));
-        const firebase = path.join(__dirname, 'node_modules/.bin/firebase');
-        return avvia([firebase, 'emulators:start', '--only', 'auth,firestore', '--project', 'demo-ngb-eventi'], /All emulators ready/, 'emulatori (configurazione propria)', cartella);
-    }
+let server = null;
+const uscitaServer = [];
+async function avviaServer(extra, descrizione, fermo) {
+    // prima di spegnerlo si aspetta che la pagina non abbia richieste in viaggio
+    if (fermo) await fermo();
+    if (server) { uscitaServer.push(server.uscita); await ferma(server); server = null; }
+    const env = Object.assign({}, SERVIZIO_BASE, extra || {});
+    server = await avvia([path.join(__dirname, 'server-locale.js'), '--api', String(PORTE.api), '--statico', String(PORTE.statico),
+        '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], /SERVER LOCALE PRONTO/, 'server locale', env);
+    if (descrizione) console.log('   (servizio riavviato: ' + descrizione + ')');
+    return server;
+}
+
+/* ---------- il servizio visto da qui (come farebbe un altro gestore) ---------- */
+async function postJSON(url, corpo, intestazioni) {
+    const r = await fetch(url, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, intestazioni || {}), body: JSON.stringify(corpo) });
+    let j = null;
+    try { j = await r.json(); } catch (_) { j = null; }
+    return { stato: r.status, dati: j };
+}
+async function api(funzione, corpo, token, intestazioni) {
+    return postJSON(API + '/' + funzione, corpo, Object.assign(token ? { Authorization: 'Bearer ' + token } : {}, intestazioni || {}));
+}
+async function tokenDi(email, password) {
+    const r = await postJSON(AUTH_REST + '/accounts:signInWithPassword?key=finta', { email: email, password: password, returnSecureToken: true });
+    return r.stato === 200 ? r.dati.idToken : null;
+}
+
+/* ---------- la posta finta ---------- */
+function leggiPosta() {
+    if (!fs.existsSync(POSTA)) return [];
+    return fs.readFileSync(POSTA, 'utf8').split('\n').filter(Boolean).map(r => JSON.parse(r));
+}
+const postaPer = (indirizzo, tipo) => leggiPosta().filter(m => m.a === indirizzo && (!tipo || m.tipo === tipo));
+function passwordDa(messaggio) {
+    const m = /Password:\s*(\S+)/.exec(String(messaggio && messaggio.testo || ''));
+    return m ? m[1] : '';
 }
 
 /* ---------- SheetJS anche in Node, per rileggere l'Excel scaricato ---------- */
@@ -155,334 +201,10 @@ async function sheetJSNode() {
 }
 
 /* ============================================================
-   IL FINTO SERVIZIO (in memoria, secondo il contratto)
-   ============================================================ */
-function conNumero(base, n) { return n > 1 ? base + n : base; }
-const ALFABETO_PASSWORD = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-function passwordFinta() { let s = ''; for (let i = 0; i < 10; i++) s += ALFABETO_PASSWORD[crypto.randomInt(ALFABETO_PASSWORD.length)]; return s; }
-function idYouTube(v) {
-    const s = String(v || '').trim();
-    if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-    try {
-        const u = new URL(/^https?:\/\//i.test(s) ? s : 'https://' + s);
-        const id = u.searchParams.get('v') || (u.hostname === 'youtu.be' ? u.pathname.slice(1) : ((/^\/(live|embed)\/([^/?#]+)/.exec(u.pathname) || [])[2] || ''));
-        return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : '';
-    } catch (_) { return ''; }
-}
-
-class FintoServizio {
-    constructor(auth) {
-        this.auth = auth;
-        this.chiamate = [];
-        this.eventi = new Map();
-        this.partecipanti = new Map();
-        this.nomiUtente = new Map();
-        this.indirizzi = new Map();
-        this.connessi = 37;
-        this.creaGruppi = [];
-        this.creaEmail = [];
-        this.creaQuando = [];
-        this.avanzaQuando = [];
-        this.concorrenzaSimulata = false;
-        this.guastiCrea = 0;       // quante chiamate "crea" far fallire dopo il primo gruppo
-        this.creaFallite = 0;
-        // un evento passato, con due persone gia' registrate: servono all'anteprima
-        const ieri = Date.parse('2026-04-17T09:00:00+02:00');
-        this.eventi.set('roma-2026', {
-            id: 'roma-2026', titolo: 'Next Generation Business 2026 · Roma', luogo: 'Roma', data: '2026-04-17', oraInizio: '09:00', oraFine: '17:00',
-            inizio: ieri, fine: ieri + 8 * 3600e3, videoUrl: '', videoId: '', stato: 'terminato', statoAggiornato: ieri + 8 * 3600e3,
-            programma: [], paginaEvento: '/roma_aprile_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false },
-            avviso: '', creato: ieri - 30 * 864e5, aggiornato: ieri
-        });
-        this.aggiungi({ uid: 'p-mario-roma', nomeUtente: 'mariorossi', nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@altra-azienda.it', azienda: 'Altra Azienda S.p.A.', eventi: ['roma-2026'], inviata: true });
-        this.aggiungi({ uid: 'p-giulia', nomeUtente: 'giuliaferri', nome: 'Giulia', cognome: 'Ferri', email: 'giulia.ferri@esempio.it', azienda: 'Ferri Consulting', eventi: ['roma-2026'], inviata: true });
-    }
-
-    aggiungi(d) {
-        const invii = {};
-        d.eventi.forEach(e => { invii[e] = d.inviata ? { stato: 'inviata', inviata: Date.now() - 864e5, tentativi: 1 } : { stato: 'da inviare', tentativi: 0 }; });
-        const p = {
-            uid: d.uid, nomeUtente: d.nomeUtente, nome: d.nome, cognome: d.cognome, email: d.email, emailNorm: NU.emailNormalizzata(d.email),
-            azienda: d.azienda || '', idEvento: d.eventi[0], eventi: d.eventi.slice(), stato: 'attivo', ultimoAccesso: null, invii: invii
-        };
-        this.partecipanti.set(p.uid, p);
-        this.nomiUtente.set(p.nomeUtente, { uid: p.uid, base: NU.nomeUtenteBase(p.nome, p.cognome) });
-        this.indirizzi.set(p.emailNorm, p.uid);
-        return p;
-    }
-
-    eventoJSON(e) {
-        const iscritti = Array.from(this.partecipanti.values()).filter(p => p.eventi.includes(e.id)).length;
-        return Object.assign({}, e, { iscritti: iscritti });
-    }
-    partecipanteJSON(p, id) {
-        return {
-            uid: p.uid, nomeUtente: p.nomeUtente, nome: p.nome, cognome: p.cognome, email: p.email, azienda: p.azienda,
-            stato: p.stato, idEvento: p.idEvento, invio: p.invii[id] || { stato: 'da inviare' }, ultimoAccesso: p.ultimoAccesso, authCreato: true
-        };
-    }
-    delEvento(id) { return Array.from(this.partecipanti.values()).filter(p => p.eventi.includes(id)); }
-
-    // la prenotazione del nome utente come nel contratto (5.2, crea c)
-    prenota(desiderato, base, uid) {
-        const re = new RegExp('^' + base + '(\\d+)?$');
-        const radice = re.test(desiderato) ? base : desiderato;
-        const m = re.exec(desiderato);
-        const da = radice === base && m && m[1] ? Number(m[1]) : 1;
-        for (let n = da; n < da + 60; n++) {
-            const c = conNumero(radice, n);
-            if (!this.nomiUtente.has(c)) { this.nomiUtente.set(c, { uid: uid, base: radice }); return c; }
-        }
-        return '';
-    }
-
-    async gestisci(route) {
-        const req = route.request();
-        const origine = req.headers()['origin'] || '*';
-        const intestazioni = {
-            'access-control-allow-origin': origine, 'access-control-allow-headers': 'Content-Type, Authorization',
-            'access-control-allow-methods': 'POST, OPTIONS', vary: 'Origin'
-        };
-        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: intestazioni });
-        let corpo = {};
-        try { corpo = JSON.parse(req.postData() || '{}'); } catch (_) { corpo = {}; }
-        let esito;
-        try {
-            esito = /diretta-accesso/.test(req.url()) ? this.accesso(corpo) : await this.gestione(corpo, req.headers()['authorization'] || '');
-        } catch (e) {
-            esito = [500, { ok: false, codice: 'errore', msg: 'Errore del finto servizio: ' + e.message }];
-        }
-        this.chiamate.push({ azione: corpo.azione, dati: corpo, stato: esito[0], quando: Date.now() });
-        return route.fulfill({ status: esito[0], contentType: 'application/json; charset=utf-8', headers: intestazioni, body: JSON.stringify(esito[1]) });
-    }
-
-    accesso(corpo) {
-        if (corpo.azione === 'gestore-accesso') return [200, { ok: true, msg: 'Se l\'indirizzo è tra i gestori, ti abbiamo scritto.' }];
-        return [400, { ok: false, codice: 'azione', msg: 'Azione sconosciuta' }];
-    }
-
-    async gestione(d, autorizzazione) {
-        const m = /^Bearer\s+(.+)$/i.exec(autorizzazione);
-        if (!m) return [401, { ok: false, codice: 'non-autenticato', msg: 'Accesso richiesto' }];
-        let tok;
-        try { tok = await this.auth.verifyIdToken(m[1], true); } catch (_) { return [401, { ok: false, codice: 'non-autenticato', msg: 'Sessione scaduta: accedi di nuovo' }]; }
-        if (!GESTORI.includes(tok.email) || tok.email_verified !== true || (tok.firebase || {}).sign_in_provider !== 'password') {
-            return [403, { ok: false, codice: 'non-gestore', msg: 'Questo account non è tra i gestori della diretta' }];
-        }
-        if (tok.gestore !== true) return [403, { ok: false, codice: 'non-gestore', msg: 'Usa «Primo accesso o password dimenticata» per attivare l\'account di gestione' }];
-        const f = this['_' + String(d.azione || '').replace(/-/g, '_')];
-        if (typeof f !== 'function') return [400, { ok: false, codice: 'azione', msg: 'Azione sconosciuta: ' + d.azione }];
-        return f.call(this, d, tok);
-    }
-
-    _chi_sono(d, tok) { return [200, { ok: true, email: tok.email }]; }
-    _eventi() {
-        const l = Array.from(this.eventi.values()).sort((a, b) => b.inizio - a.inizio).map(e => this.eventoJSON(e));
-        return [200, { ok: true, eventi: l }];
-    }
-    _evento_salva(d) {
-        const e = d.evento || {};
-        if (String(e.titolo || '').length < 3) return [400, { ok: false, codice: 'dati', msg: 'Titolo troppo corto' }];
-        if (!(e.oraFine > e.oraInizio)) return [400, { ok: false, codice: 'dati', msg: 'Orari non validi' }];
-        if (e.nuovo) {
-            if (!/^[a-z0-9][a-z0-9-]{2,40}$/.test(e.id)) return [400, { ok: false, codice: 'dati', msg: 'Identificativo non valido' }];
-            if (this.eventi.has(e.id)) return [409, { ok: false, codice: 'esiste', msg: 'Esiste già un evento con l\'identificativo ' + e.id }];
-        }
-        const vecchio = this.eventi.get(e.id) || { stato: 'programmato', creato: Date.now(), avviso: '' };
-        const programma = Array.isArray(e.programma) ? e.programma : [];
-        const ev = Object.assign({}, vecchio, {
-            id: e.id, titolo: e.titolo, luogo: e.luogo || '', data: e.data, oraInizio: e.oraInizio, oraFine: e.oraFine,
-            inizio: Date.parse(e.data + 'T' + e.oraInizio + ':00+02:00'), fine: Date.parse(e.data + 'T' + e.oraFine + ':00+02:00'),
-            videoUrl: e.videoUrl || '', videoId: e.videoId || idYouTube(e.videoUrl), programma: programma,
-            paginaEvento: e.paginaEvento || '', unSoloDispositivo: !!e.unSoloDispositivo,
-            promemoria: { giornoPrima: !!(e.promemoria && e.promemoria.giornoPrima), oraPrima: !!(e.promemoria && e.promemoria.oraPrima) },
-            aggiornato: Date.now()
-        });
-        this.eventi.set(ev.id, ev);
-        return [200, { ok: true, evento: this.eventoJSON(ev) }];
-    }
-    _evento_stato(d) {
-        const e = this.eventi.get(d.idEvento);
-        if (!e) return [404, { ok: false, codice: 'evento', msg: 'Evento inesistente' }];
-        if (!['programmato', 'in_onda', 'pausa', 'terminato'].includes(d.stato)) return [400, { ok: false, codice: 'dati', msg: 'Stato non valido' }];
-        e.stato = d.stato;
-        e.statoAggiornato = Date.now();
-        e.ripresa = d.stato === 'pausa' ? String(d.ripresa || '') : '';
-        return [200, { ok: true, evento: this.eventoJSON(e) }];
-    }
-    _evento_video(d) {
-        const e = this.eventi.get(d.idEvento);
-        e.videoUrl = d.videoUrl || '';
-        e.videoId = d.videoId || idYouTube(d.videoUrl);
-        e.videoAggiornato = Date.now();
-        return [200, { ok: true, evento: this.eventoJSON(e) }];
-    }
-    _evento_avviso(d) {
-        const e = this.eventi.get(d.idEvento);
-        e.avviso = String(d.avviso || '').slice(0, 200);
-        return [200, { ok: true, evento: this.eventoJSON(e) }];
-    }
-    _anteprima(d) {
-        const perEmail = {};
-        (d.emails || []).forEach(em => {
-            const uid = this.indirizzi.get(em);
-            if (uid) { const p = this.partecipanti.get(uid); perEmail[em] = { uid: uid, nomeUtente: p.nomeUtente, nome: p.nome, cognome: p.cognome, eventi: p.eventi.slice() }; }
-        });
-        const basi = new Set(d.basi || []);
-        const nomi = new Set(d.nomi || []);
-        const occupati = [];
-        const dettagliOccupati = {};
-        this.nomiUtente.forEach((v, nome) => {
-            if (basi.has(v.base) || nomi.has(nome)) {
-                occupati.push(nome);
-                const p = this.partecipanti.get(v.uid);
-                if (p && basi.has(v.base)) dettagliOccupati[nome] = { nome: p.nome, cognome: p.cognome, azienda: p.azienda, emailMascherata: p.email[0] + '***@' + p.email.split('@')[1] };
-            }
-        });
-        return [200, { ok: true, esistenti: { perEmail: perEmail, occupati: occupati, dettagliOccupati: dettagliOccupati } }];
-    }
-    _crea(d) {
-        const righe = Array.isArray(d.righe) ? d.righe : [];
-        if (righe.length > 50) return [400, { ok: false, codice: 'troppe', msg: 'Al massimo 50 righe per chiamata' }];
-        // un guasto del servizio a meta' caricamento (dopo il primo gruppo)
-        if (this.guastiCrea > 0 && this.creaGruppi.length >= 1) {
-            this.guastiCrea--;
-            this.creaFallite++;
-            return [503, { ok: false, codice: 'errore', msg: 'Errore del servizio: riprova tra poco.' }];
-        }
-        this.creaGruppi.push(righe.length);
-        this.creaQuando.push(Date.now());
-        // un altro gestore, nello stesso istante, ha preso "nicolodangelo"
-        if (!this.concorrenzaSimulata) {
-            this.concorrenzaSimulata = true;
-            this.aggiungi({ uid: 'p-altro-caricamento', nomeUtente: 'nicolodangelo', nome: 'Nicolò', cognome: 'D\'Angelo', email: 'nicolo.dangelo@altro-caricamento.it', eventi: ['roma-2026'] });
-        }
-        const id = d.idEvento;
-        const risultati = righe.map(r => {
-            const emailNorm = NU.emailNormalizzata(r.email);
-            this.creaEmail.push(emailNorm);
-            if (!NU.emailValida(emailNorm) || !String(r.nome || '').trim() || !String(r.cognome || '').trim() || /[<>]/.test(r.nome + r.cognome)) {
-                return { riga: r.riga, esito: 'errore', nomeUtente: '', nomeUtenteCambiato: false, uid: '', motivo: 'Dati non validi' };
-            }
-            const esistente = this.indirizzi.get(emailNorm);
-            if (esistente) {
-                const p = this.partecipanti.get(esistente);
-                if (p.eventi.includes(id)) return { riga: r.riga, esito: 'gia-nell-evento', nomeUtente: p.nomeUtente, nomeUtenteCambiato: false, uid: p.uid, motivo: '' };
-                p.eventi = [id].concat(p.eventi.filter(x => x !== id)).slice(0, 20);
-                p.idEvento = id;
-                p.invii[id] = { stato: 'da inviare', tentativi: 0 };
-                return { riga: r.riga, esito: 'aggiunto', nomeUtente: p.nomeUtente, nomeUtenteCambiato: false, uid: p.uid, motivo: '' };
-            }
-            const base = NU.nomeUtenteBase(r.nome, r.cognome);
-            const desiderato = NU.pulisciNomeUtente(r.nomeUtente) || base;
-            const uid = 'p' + crypto.randomBytes(10).toString('hex');
-            const nome = this.prenota(desiderato, base, uid);
-            this.nomiUtente.delete(nome);
-            this.aggiungi({ uid: uid, nomeUtente: nome, nome: r.nome, cognome: r.cognome, email: String(r.email).trim(), azienda: r.azienda, eventi: [id] });
-            return { riga: r.riga, esito: 'creato', nomeUtente: nome, nomeUtenteCambiato: nome !== desiderato, uid: uid, motivo: '' };
-        });
-        return [200, { ok: true, risultati: risultati }];
-    }
-    _partecipanti(d) {
-        return [200, { ok: true, partecipanti: this.delEvento(d.idEvento).map(p => this.partecipanteJSON(p, d.idEvento)) }];
-    }
-    _partecipante(d) {
-        const p = this.partecipanti.get(d.uid);
-        const id = d.idEvento;
-        if (!p) return [404, { ok: false, codice: 'assente', msg: 'Partecipante inesistente' }];
-        switch (d.operazione) {
-            case 'reinvia': {
-                const inv = p.invii[id] = Object.assign({}, p.invii[id], { stato: p.emailNorm === 'chloe.dupont@dupont.fr' ? 'respinta' : 'inviata', aggiornato: Date.now() });
-                if (inv.stato === 'inviata') inv.inviata = Date.now();
-                inv.tentativi = (inv.tentativi || 0) + 1;
-                return [200, { ok: true, invio: { stato: inv.stato } }];
-            }
-            case 'rigenera': return [200, { ok: true, password: passwordFinta() }];
-            case 'disattiva': p.stato = 'disattivato'; return [200, { ok: true, partecipante: this.partecipanteJSON(p, id) }];
-            case 'riattiva': p.stato = 'attivo'; return [200, { ok: true, partecipante: this.partecipanteJSON(p, id) }];
-            case 'rimuovi-evento':
-                p.eventi = p.eventi.filter(x => x !== id);
-                delete p.invii[id];
-                return [200, { ok: true }];
-            case 'correggi': {
-                const emailNorm = NU.emailNormalizzata(d.email);
-                const di = this.indirizzi.get(emailNorm);
-                if (di && di !== p.uid) return [409, { ok: false, codice: 'email-occupata', msg: 'Questa email è già di un altro partecipante.' }];
-                if (emailNorm !== p.emailNorm) { this.indirizzi.delete(p.emailNorm); this.indirizzi.set(emailNorm, p.uid); p.emailNorm = emailNorm; p.email = String(d.email).trim(); }
-                const nuovaBase = NU.nomeUtenteBase(d.nome, d.cognome);
-                let cambiato = false;
-                if (nuovaBase !== NU.nomeUtenteBase(p.nome, p.cognome) && !d.mantieniNomeUtente) {
-                    const vecchio = p.nomeUtente;
-                    const nuovo = this.prenota(nuovaBase, nuovaBase, p.uid);
-                    this.nomiUtente.delete(vecchio);
-                    p.nomeUtente = nuovo;
-                    cambiato = true;
-                    if (p.invii[id] && p.invii[id].stato === 'inviata') p.invii[id] = { stato: 'da inviare', tentativi: p.invii[id].tentativi || 0 };
-                }
-                p.nome = d.nome; p.cognome = d.cognome; p.azienda = d.azienda || '';
-                return [200, { ok: true, partecipante: this.partecipanteJSON(p, id), nomeUtenteCambiato: cambiato }];
-            }
-            default: return [400, { ok: false, codice: 'operazione', msg: 'Operazione sconosciuta' }];
-        }
-    }
-    conteggi(id) {
-        const k = { 'da inviare': 0, 'in coda': 0, 'invio': 0, 'inviata': 0, 'respinta': 0, 'errore': 0, 'incerto': 0 };
-        this.delEvento(id).forEach(p => { const s = (p.invii[id] || {}).stato || 'da inviare'; k[s] = (k[s] || 0) + 1; });
-        return k;
-    }
-    _email_stato(d) {
-        const k = this.conteggi(d.idEvento);
-        const destinatari = this.delEvento(d.idEvento).filter(p => p.stato === 'attivo' && (p.invii[d.idEvento] || {}).stato === 'inviata').length;
-        return [200, { ok: true, conteggi: k, coda: { attiva: k['in coda'] > 0 }, destinatariPromemoria: destinatari }];
-    }
-    _email_prova() { return [200, { ok: true }]; }
-    _email_accoda(d) {
-        let n = 0;
-        this.delEvento(d.idEvento).forEach(p => {
-            const inv = p.invii[d.idEvento] || {};
-            const si = d.chi === 'da-inviare' ? inv.stato === 'da inviare' : ((inv.stato === 'respinta' || inv.stato === 'errore') && !p.ultimoAccesso);
-            if (si && p.stato === 'attivo') { p.invii[d.idEvento] = Object.assign({}, inv, { stato: 'in coda' }); n++; }
-        });
-        return [200, { ok: true, accodate: n }];
-    }
-    _email_avanza(d) {
-        this.avanzaQuando.push(Date.now());
-        const inCoda = this.delEvento(d.idEvento).filter(p => (p.invii[d.idEvento] || {}).stato === 'in coda');
-        let inviate = 0, respinte = 0;
-        inCoda.slice(0, 10).forEach(p => {
-            const inv = p.invii[d.idEvento];
-            inv.tentativi = (inv.tentativi || 0) + 1;
-            if (p.emailNorm === 'chloe.dupont@dupont.fr') { inv.stato = 'respinta'; respinte++; }
-            else { inv.stato = 'inviata'; inv.inviata = Date.now(); inviate++; }
-        });
-        const rimaste = Math.max(0, inCoda.length - 10);
-        return [200, { ok: true, inviate: inviate, respinte: respinte, errori: 0, rimaste: rimaste, bloccato: false, finito: rimaste === 0 }];
-    }
-    _email_esiti() { return [200, { ok: true, respinte: 0, letto: false }]; }
-    _connessi() { const n = this.connessi; this.connessi += 5; return [200, { ok: true, connessi: n, quando: Date.now() }]; }
-    _esporta(d) {
-        const e = this.eventi.get(d.idEvento);
-        const persone = this.delEvento(d.idEvento).map(p => {
-            const j = this.partecipanteJSON(p, d.idEvento);
-            // Ivan e' rimasto collegato piu' della durata dell'evento: i minuti vanno limitati
-            if (p.nomeUtente === 'ivanpetrov') j.presenza = { primo: e.inizio + 3 * 60e3, ultimo: e.fine + 5 * 60e3, secondi: 40000, collegamenti: 2 };
-            else if (p.nomeUtente === 'annamariadeluca') j.presenza = { primo: e.inizio + 15 * 60e3, ultimo: e.inizio + 135 * 60e3, secondi: 7200, collegamenti: 1 };
-            else j.presenza = null;
-            return j;
-        });
-        const accessi = [
-            { quando: e.inizio - 10 * 60e3, nomeUtente: 'ivanpetrov', nome: 'Иван', cognome: 'Петров', azienda: 'Petrov Trading', dispositivo: 'Mac · Chrome' },
-            { quando: e.inizio + 10 * 60e3, nomeUtente: 'annamariadeluca', nome: 'Anna Maria', cognome: 'De Luca', azienda: 'De Luca & Figli S.p.A.', dispositivo: 'iPhone · Safari' }
-        ];
-        return [200, { ok: true, evento: this.eventoJSON(e), partecipanti: persone, accessi: accessi }];
-    }
-}
-
-/* ============================================================
    LA PROVA
    ============================================================ */
 (async () => {
-    let emulatori = null, server = null, browser = null;
+    let emulatori = null, browser = null;
     const t0 = Date.now();
     try {
         const { XLSX, impronta } = await sheetJSNode();
@@ -493,32 +215,56 @@ class FintoServizio {
         vero(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(htmlGestione) && !/\son[a-z]+=/i.test(htmlGestione), 'nessuno script in linea e nessun gestore on...= nell\'HTML (CSP)');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML/.test(codiceGestione), 'gestione.js non usa innerHTML/outerHTML/insertAdjacentHTML (D3)');
 
-        console.log('\n-- avvio di emulatori e sito (porte ' + JSON.stringify(PORTE) + ')');
-        emulatori = await avviaEmulatori();
-        server = await avvia([path.join(__dirname, 'server-locale.js'), '--api', String(PORTE.api), '--statico', String(PORTE.statico), '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], /SERVER LOCALE PRONTO/, 'server locale');
+        console.log('\n-- avvio di emulatori e servizio vero (porte ' + JSON.stringify(PORTE) + ')');
+        try { fs.unlinkSync(POSTA); } catch (_) { /* non c'era */ }
+        emulatori = await avvia([path.join(__dirname, 'avvia-emulatori.js'), '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], /EMULATORI PRONTI/, 'emulatori');
+        await avviaServer();
 
         const app = admin.initializeApp({ projectId: 'demo-ngb-eventi' }, 'prova-gestione');
         const auth = app.auth();
-        const gestore = await auth.createUser({ email: EMAIL_GESTORE, password: PASSWORD_GESTORE, emailVerified: true });
-        await auth.setCustomUserClaims(gestore.uid, { gestore: true });
+        const db = app.firestore();
+        const Ts = admin.firestore.Timestamp;
+        // qualcuno fuori elenco, e qualcuno che si e' registrato da solo con l'email del gestore
         await auth.createUser({ email: EMAIL_CURIOSO, password: PASSWORD_CURIOSO, emailVerified: true });
-        await auth.createUser({ email: EMAIL_NUOVO, password: PASSWORD_NUOVO, emailVerified: true });
-        const servizio = new FintoServizio(auth);
-        const inizioNapoli = Date.parse('2026-10-02T09:00:00+02:00');
-        await app.firestore().doc('eventi/' + ID).set({
-            titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior', data: '2026-10-02',
-            oraInizio: '09:00', oraFine: '17:30', inizio: admin.firestore.Timestamp.fromMillis(inizioNapoli),
-            fine: admin.firestore.Timestamp.fromMillis(inizioNapoli + 8.5 * 3600e3), videoId: 'abcdefghijk', stato: 'in_onda',
-            programma: [{ ora: '09.00', titolo: 'Accoglienza e registrazione' }], paginaEvento: '/napoli_ottobre_2026/',
-            unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }
-        });
+        await auth.createUser({ email: EMAIL_GESTORE, password: PASSWORD_ABUSIVA, emailVerified: false });
 
-        browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+        const partecipante = async nome => {
+            const s = await db.collection('partecipanti').where('nomeUtente', '==', nome).get();
+            return s.empty ? null : Object.assign({ uid: s.docs[0].id }, s.docs[0].data());
+        };
+        const uidDi = async nome => ((await partecipante(nome)) || {}).uid;
+        const delEvento = async () => (await db.collection('partecipanti').where('eventi', 'array-contains', ID).get()).docs.map(d => Object.assign({ uid: d.id }, d.data()));
+        const statiEmail = async () => {
+            const k = {};
+            (await delEvento()).forEach(p => { const s = ((p.invii || {})[ID] || {}).stato || 'da inviare'; k[s] = (k[s] || 0) + 1; });
+            return k;
+        };
+
+        // lingua del sistema italiana: i campi data e ora del browser si mostrano
+        // come li vede il gestore (14:30 e 02/10/2026, non 02:30 PM e 10/02/2026)
+        browser = await chromium.launch({
+            executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--lang=it-IT'],
+            env: Object.assign({}, process.env, { LANG: 'it_IT.UTF-8', LANGUAGE: 'it', LC_ALL: 'it_IT.UTF-8' })
+        });
         const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, locale: 'it-IT', timezoneId: 'Europe/Rome' });
         await preparaContesto(context, {});
-        await context.route(/^http:\/\/127\.0\.0\.1:3580\/api\/diretta-(gestione|accesso)/, route => servizio.gestisci(route));
         await context.addInitScript(p => {
             window.NGB_DIRETTA_PROVE = p;
+            /* Solo un cronometro: quando partono e quando tornano le chiamate
+               della pagina al servizio, misurato DENTRO la pagina (serve alla
+               pausa fra i gruppi di 'crea'; da fuori i tempi arrivano sfasati). */
+            window.__tempiServizio = [];
+            const fetchVero = window.fetch;
+            window.fetch = function (indirizzo, opzioni) {
+                const voce = { azione: '', inizio: performance.now(), fine: null };
+                if (typeof indirizzo === 'string' && /\/api\/diretta-/.test(indirizzo)) {
+                    try { voce.azione = JSON.parse((opzioni && opzioni.body) || '{}').azione || ''; } catch (_) { /* niente */ }
+                    window.__tempiServizio.push(voce);
+                }
+                return fetchVero.apply(this, arguments).then(
+                    r => { voce.fine = performance.now(); return r; },
+                    e => { voce.fine = performance.now(); throw e; });
+            };
             window.__violazioniCSP = [];
             document.addEventListener('securitypolicyviolation', e => {
                 window.__violazioniCSP.push(e.violatedDirective + ' ' + e.blockedURI + ' ' + (e.sourceFile || ''));
@@ -530,12 +276,66 @@ class FintoServizio {
         const erroriPagina = [];
         page.on('console', m => { if (m.type() === 'error') erroriConsole.push(m.text()); });
         page.on('pageerror', e => erroriPagina.push(e.message));
+
+        /* Il registro delle chiamate della pagina al servizio: si guarda, non
+           si tocca (page.on). Le risposte di email-avanza servono a vedere
+           come la pagina segue la coda. */
+        const registro = [];
+        const risposteAvanza = [];
+        page.on('request', req => {
+            if (req.method() !== 'POST' || !/\/api\/diretta-(gestione|accesso)$/.test(req.url())) return;
+            let dati = {};
+            try { dati = JSON.parse(req.postData() || '{}'); } catch (_) { dati = {}; }
+            registro.push({ azione: dati.azione, dati: dati, quando: Date.now() });
+        });
+        page.on('requestfinished', async req => {
+            if (req.method() !== 'POST' || !/\/api\/diretta-gestione$/.test(req.url())) return;
+            let dati = {};
+            try { dati = JSON.parse(req.postData() || '{}'); } catch (_) { return; }
+            if (dati.azione === 'email-avanza') {
+                const risposta = await req.response().catch(() => null);
+                const j = risposta ? await risposta.json().catch(() => null) : null;
+                risposteAvanza.push({ quando: Date.now(), dati: j });
+            }
+        });
+        const chiamate = azione => registro.filter(c => c.azione === azione);
+        // le richieste della pagina al servizio ancora in viaggio (prima di riavviarlo)
+        let inViaggio = 0;
+        const eDelServizio = req => /\/api\/diretta-/.test(req.url()) && req.method() === 'POST';
+        page.on('request', req => { if (eDelServizio(req)) inViaggio++; });
+        page.on('requestfinished', req => { if (eDelServizio(req)) inViaggio--; });
+        page.on('requestfailed', req => { if (eDelServizio(req)) inViaggio--; });
+
+        /* L'unico guasto finto: la rete che cade durante 'crea'. */
+        const creaRichieste = [];
+        const guastoCrea = { restanti: 0, perse: 0 };
+        await page.route(API + '/diretta-gestione', async route => {
+            const req = route.request();
+            let dati = {};
+            try { dati = JSON.parse(req.postData() || '{}'); } catch (_) { dati = {}; }
+            if (req.method() !== 'POST' || dati.azione !== 'crea') return route.continue();
+            const n = creaRichieste.length;
+            creaRichieste.push({ quando: Date.now(), righe: (dati.righe || []).length, emails: (dati.righe || []).map(r => r.email).join('|'), esito: 'passata' });
+            if (n >= 1 && guastoCrea.restanti > 0) {
+                guastoCrea.restanti--;
+                if (guastoCrea.perse > 0) {
+                    // arriva al servizio (che crea gli account), ma la risposta si perde
+                    guastoCrea.perse--;
+                    creaRichieste[n].esito = 'risposta persa';
+                    await route.fetch().catch(() => null);
+                    return route.abort('connectionreset');
+                }
+                creaRichieste[n].esito = 'non partita';
+                return route.abort('internetdisconnected');
+            }
+            return route.continue();
+        });
+
         await page.clock.install();
 
         const $ = s => page.locator(s);
         const testo = async s => (await $(s).textContent() || '').trim();
         const visibile = s => $(s).isVisible();
-        const chiamate = azione => servizio.chiamate.filter(c => c.azione === azione);
         const aspetta = async (fn, ms, descr) => {
             const fine = Date.now() + (ms || 10000);
             let ultimo;
@@ -570,10 +370,12 @@ class FintoServizio {
             await $('#dialogo-conferma').waitFor({ state: 'hidden', timeout: 5000 });
             return titolo + ' ' + corpo;
         }
+        const calma = () => aspetta(async () => { if (inViaggio > 0) return false; await pausa(400); return inViaggio === 0; }, 20000, 'richieste in viaggio');
         const riga = n => $('#tabella-anteprima tr[data-riga="' + n + '"]');
         const classeRiga = async n => (await riga(n).getAttribute('class')) || '';
+        const avvisi = async () => (await $('#avvisi').textContent()) || '';
 
-        /* ---------- 1. accesso ---------- */
+        /* ---------- 1. accesso e attivazione del gestore ---------- */
         console.log('\n-- accesso del gestore');
         await page.goto(SITO + '/diretta/gestione/?emulatori=1');
         await $('#form-gestore').waitFor({ state: 'visible', timeout: 30000 });
@@ -585,28 +387,54 @@ class FintoServizio {
         await aspetta(async () => /non corretti/.test(await testo('#msg-gestore')), 10000, 'messaggio password sbagliata');
         vero(true, 'password sbagliata: «' + await testo('#msg-gestore') + '»');
 
-        await $('#link-gestore-reset').click();
-        await aspetta(async () => /tra i gestori/.test(await testo('#msg-gestore')), 10000, 'primo accesso');
-        const ga = chiamate('gestore-accesso');
-        vero(ga.length === 1 && ga[0].dati.email === EMAIL_GESTORE, '«Primo accesso o password dimenticata» chiama diretta-accesso {azione: gestore-accesso} con l\'email scritta');
-
         await $('#gestore-email').fill(EMAIL_CURIOSO);
         await $('#gestore-password').fill(PASSWORD_CURIOSO);
         await $('#btn-gestore-entra').click();
         await aspetta(async () => /non è tra i gestori/.test(await testo('#msg-gestore')) && await visibile('#form-gestore'), 15000, 'rifiuto del non gestore');
-        vero(true, 'un account che non è in elenco viene respinto e scollegato: «' + await testo('#msg-gestore') + '»');
-        await $('#gestore-email').fill(EMAIL_NUOVO);
-        await $('#gestore-password').fill(PASSWORD_NUOVO);
+        vero(true, 'un account che non è in elenco viene respinto dal servizio e scollegato: «' + await testo('#msg-gestore') + '»');
+
+        // l'email e' in elenco, ma l'account l'aveva creato qualcun altro (con la chiave pubblica si puo')
+        await $('#gestore-email').fill(EMAIL_GESTORE);
+        await $('#gestore-password').fill(PASSWORD_ABUSIVA);
         await $('#btn-gestore-entra').click();
         await aspetta(async () => /Primo accesso o password dimenticata/.test(await testo('#msg-gestore')) && await visibile('#form-gestore'), 15000, 'gestore non attivato');
-        vero(true, 'un gestore in elenco ma non ancora attivato riceve l\'indicazione giusta: «' + await testo('#msg-gestore') + '»');
+        vero(true, 'email in elenco ma account non attivato: il servizio lo rifiuta e indica la strada: «' + await testo('#msg-gestore') + '»');
 
-        await $('#gestore-email').fill(EMAIL_GESTORE);
+        await $('#gestore-password').fill('');
+        await $('#link-gestore-reset').click();
+        await aspetta(async () => /tra i gestori/.test(await testo('#msg-gestore')), 15000, 'primo accesso');
+        const ga = chiamate('gestore-accesso');
+        vero(ga.length === 1 && ga[0].dati.email === EMAIL_GESTORE, '«Primo accesso o password dimenticata» chiama diretta-accesso {azione: gestore-accesso} con l\'email scritta');
+        const lettera = postaPer(EMAIL_GESTORE, 'reimpostazione').pop();
+        const link = lettera && /https?:\/\/\S+?reimposta\.html\?oobCode=[^\s"<]+/.exec(lettera.testo + ' ' + lettera.html);
+        vero(!!link && link[0].startsWith(SITO + '/diretta/reimposta.html?oobCode=') && /[?&]per=gestione\b/.test(link[0]),
+            'nella casella del gestore arriva il collegamento per la password (reimposta.html?…&per=gestione)', link && link[0]);
+        vero(!(await tokenDi(EMAIL_GESTORE, PASSWORD_ABUSIVA)), 'chi si era registrato da solo con quell\'email perde l\'accesso: la sua password non vale più (D2)');
+        const oob = new URL(link[0].replace(/&amp;/g, '&')).searchParams.get('oobCode');
+        const reset = await postJSON(AUTH_REST + '/accounts:resetPassword?key=finta', { oobCode: oob, newPassword: PASSWORD_GESTORE });
+        vero(reset.stato === 200, 'il collegamento funziona: la nuova password del gestore è impostata (come fa reimposta.html)', JSON.stringify(reset.dati));
+        const utenteGestore = await auth.getUserByEmail(EMAIL_GESTORE);
+        vero(utenteGestore.customClaims && utenteGestore.customClaims.gestore === true && utenteGestore.emailVerified === true,
+            'l\'account di gestione ora ha il claim «gestore» e l\'email verificata (messi solo dal servizio)');
+
+        // un evento passato, preparato con il servizio vero dal "gestore" stesso
+        const tokGestore = await tokenDi(EMAIL_GESTORE, PASSWORD_GESTORE);
+        const s1 = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'roma-2026', nuovo: true, titolo: 'Next Generation Business 2026 · Roma', luogo: 'Roma', data: '2026-04-17', oraInizio: '09:00', oraFine: '17:00', videoUrl: '', programma: [], paginaEvento: '/roma_aprile_2026/' } }, tokGestore);
+        const s2 = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [
+            { riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@altra-azienda.it', azienda: 'Altra Azienda S.p.A.' },
+            { riga: 3, nome: 'Giulia', cognome: 'Ferri', email: 'giulia.ferri@esempio.it', azienda: 'Ferri Consulting' }
+        ] }, tokGestore);
+        const s3 = await api('diretta-gestione', { azione: 'evento-stato', idEvento: 'roma-2026', stato: 'terminato' }, tokGestore);
+        vero(s1.stato === 200 && s2.stato === 200 && s3.stato === 200 && s2.dati.risultati.every(x => x.esito === 'creato'),
+            'preparato con il servizio l\'evento passato di Roma, con Mario Rossi e Giulia Ferri', JSON.stringify([s1.dati, s2.dati, s3.dati]).slice(0, 400));
+
         await $('#gestore-password').fill(PASSWORD_GESTORE);
         await $('#btn-gestore-entra').click();
         await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
-        vero(await testo('#gestore-connesso') === EMAIL_GESTORE, 'gestore collegato: la testata mostra la sua email');
-        vero(await page.locator('#sel-evento option[value="roma-2026"]').count() === 1, 'l\'elenco degli eventi arriva dal servizio (azione eventi)');
+        vero(await testo('#gestore-connesso') === EMAIL_GESTORE, 'gestore collegato con la password scelta dal collegamento: la testata mostra la sua email');
+        await aspetta(async () => await $('#sel-evento').inputValue() === 'roma-2026', 10000, 'elenco degli eventi');
+        vero(await page.locator('#sel-evento option[value="roma-2026"]').count() === 1 && /Dati dell'evento/.test(await testo('#titolo-form-evento')),
+            'l\'elenco degli eventi arriva dal servizio (azione eventi) e si apre l\'ultimo evento');
 
         /* ---------- 2. evento di Napoli ---------- */
         console.log('\n-- creazione dell\'evento di Napoli');
@@ -634,6 +462,10 @@ class FintoServizio {
             'evento-salva riceve id, pagina normalizzata e videoId ricavato dal link', JSON.stringify(salvato));
         vero(salvato.programma.length === 5 && salvato.programma[2].ora === '10.00' && salvato.programma[2].titolo === 'Adeguati assetti e governance',
             'programma letto riga per riga ("10:00 - Titolo" diventa {ora: "10.00", titolo})', JSON.stringify(salvato.programma));
+        const [docEv, docRis] = await Promise.all([db.doc('eventi/' + ID).get(), db.doc('eventiRiservati/' + ID).get()]);
+        vero(docEv.exists && docEv.data().videoId === '' && !('videoUrl' in docEv.data()) && docRis.data().videoId === 'abcdefghijk'
+            && docEv.data().inizio.toMillis() === Date.parse('2026-10-02T09:00:00+02:00') && docEv.data().programma.length === 5,
+            'sul servizio: evento con inizio alle 9.00 di Roma, e il video solo nel documento riservato finché non si va in onda (D6)');
         vero(await $('#sel-evento').inputValue() === ID && await testo('#stato-testata') === 'In attesa', 'evento selezionato, stato «In attesa» in testata');
         vero(await $('#ev-id').evaluate(n => n.readOnly), 'dopo la creazione l\'identificativo non si cambia più');
         await foto('evento');
@@ -643,7 +475,7 @@ class FintoServizio {
         await page.click('[data-scheda="partecipanti"]');
         const [modello] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), $('#link-modello').click()]);
         const testoModello = fs.readFileSync(await modello.path(), 'utf8');
-        vero(modello.suggestedFilename() === 'modello-partecipanti.csv' && /^\ufeffnome;cognome;email;azienda\r\n/.test(testoModello), '«Scarica il modello CSV»: nome;cognome;email;azienda, con il BOM per Excel');
+        vero(modello.suggestedFilename() === 'modello-partecipanti.csv' && /^﻿nome;cognome;email;azienda\r\n/.test(testoModello), '«Scarica il modello CSV»: nome;cognome;email;azienda, con il BOM per Excel');
         await $('#file-partecipanti').setInputFiles(path.join(__dirname, 'esempio-partecipanti.csv'));
         await $('#anteprima-caricamento').waitFor({ state: 'visible', timeout: 20000 });
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 42 && /righe lette/.test(await testo('#riepilogo-anteprima')), 15000, 'anteprima con 42 righe');
@@ -660,11 +492,12 @@ class FintoServizio {
             vero(attese[n].every(c => cl.split(/\s+/).includes(c)), 'riga ' + n + ': ' + attese[n].join(' '), cl);
         }
         const nu = async n => riga(n).locator('input.nome-utente-riga').inputValue();
-        vero(await nu(2) === 'mariorossi2' && await nu(11) === 'mariorossi3' && await nu(12) === 'mariorossi4', 'omonimi numerati: mariorossi2, mariorossi3, mariorossi4 (mariorossi è già di un altro)');
+        vero(await nu(2) === 'mariorossi2' && await nu(11) === 'mariorossi3' && await nu(12) === 'mariorossi4', 'omonimi numerati: mariorossi2, mariorossi3, mariorossi4 (mariorossi è già di Mario Rossi di Roma)');
         vero(await nu(13) === 'ivanpetrov' && await nu(4) === 'nicolodangelo' && await nu(24) === 'carmeladauria' && await nu(25) === 'carloconti',
             'nomi utente: cirillico traslitterato, accenti e apostrofi (anche tipografici) tolti, spazi ripuliti');
         vero(await nu(5) === 'giuliaferri' && await riga(5).locator('input.nome-utente-riga').evaluate(n => n.readOnly), 'persona già presente (email con maiuscole e spazi): nome utente esistente, non modificabile');
-        vero(/Altra Azienda/.test(await riga(2).locator('.problemi').textContent()), 'l\'omonimo dice chi usa già il nome (dettagliOccupati)');
+        const problemi2 = await riga(2).locator('.problemi').textContent();
+        vero(/Mario Rossi, Altra Azienda S\.p\.A\., m\*\*\*@altra-azienda\.it/.test(problemi2), 'l\'omonimo dice chi usa già il nome, con l\'email mascherata (dettagliOccupati del servizio)', problemi2);
         vero(await riga(2).locator('input.conferma-omonimo').count() === 1 && await riga(4).locator('input.conferma-omonimo').count() === 0, 'la casella di conferma c\'è solo sugli omonimi numerati');
         vero(await riga(36).locator('input.conferma-doppione').count() === 1, 'stessa email con nome diverso: casella «È la stessa persona»');
         vero(await riga(6).locator('input.campo-email').getAttribute('aria-invalid') === 'true', 'email mancante: campo segnato');
@@ -700,7 +533,7 @@ class FintoServizio {
         const emailRichieste = [].concat.apply([], seconde.map(d => d.emails));
         vero(emailRichieste.includes('francesca.esposito@esposito.it') && emailRichieste.includes('marco.galli@studiogalli.it') && emailRichieste.length <= 4,
             'dopo le correzioni si chiedono al servizio solo le email nuove (' + emailRichieste.length + '), non tutto il file');
-        // un nome utente scritto a mano gia' occupato
+        // un nome utente scritto a mano gia' occupato (lo dice il servizio: nomi richiesti)
         await riga(44).locator('input.nome-utente-riga').fill('mariorossi');
         await aspetta(async () => (await classeRiga(44)).includes('esito-errore'), 5000, 'nome occupato');
         vero(/già usato/.test(await riga(44).locator('.problemi').textContent()), 'nome utente scritto a mano già occupato: errore sulla riga');
@@ -715,32 +548,50 @@ class FintoServizio {
         vero(/Tutto pronto/.test(await testo('#motivo-blocco')) && /Crea 38 account e aggiungi 1 persona già registrata/.test(await testo('#btn-crea-account')),
             'pulsante acceso: «' + await testo('#btn-crea-account') + '»');
 
-        /* ---------- 4. creazione a gruppi ---------- */
+        /* ---------- 4. creazione a gruppi, con un nome preso nel frattempo e la rete che cade ---------- */
         console.log('\n-- creazione degli account');
-        servizio.guastiCrea = 3;
+        // un altro gestore, proprio adesso, carica Nicolò D'Angelo (un'altra persona) in un altro evento
+        const altro = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [{ riga: 9, nome: 'Nicolò', cognome: 'D\'Angelo', email: 'nicolo.dangelo@altro-caricamento.it', azienda: 'Altro Studio' }] }, tokGestore);
+        vero(altro.stato === 200 && altro.dati.risultati[0].nomeUtente === 'nicolodangelo', 'nel frattempo un altro caricamento (vero) prende «nicolodangelo»');
+        guastoCrea.restanti = 3;
+        guastoCrea.perse = 1;
         await $('#btn-crea-account').click();
         await confermaDialogo(/Creare 38 account.*NON partono/s);
-        // il secondo gruppo fallisce tre volte (un tentativo e due nuovi tentativi): la pagina si ferma
-        await $('#btn-riprendi-crea').waitFor({ state: 'visible', timeout: 20000 });
-        vero(/Caricamento interrotto al gruppo 2 di 2.*Riprendi.*non si duplicano/.test(await testo('#avanzamento-crea .avanzamento-testo')) && servizio.creaFallite === 3,
-            'servizio in errore a metà: dopo 3 tentativi la creazione si ferma e propone «Riprendi» (R18) — «' + await testo('#avanzamento-crea .avanzamento-testo') + '»');
+        await $('#btn-riprendi-crea').waitFor({ state: 'visible', timeout: 30000 });
+        vero(/Caricamento interrotto al gruppo 2 di 2.*Riprendi.*non si duplicano/.test(await testo('#avanzamento-crea .avanzamento-testo')),
+            'la rete cade al secondo gruppo: dopo 3 tentativi la creazione si ferma e propone «Riprendi» (R18) — «' + await testo('#avanzamento-crea .avanzamento-testo') + '»');
         vero(await $('#btn-crea-account').isDisabled() && /Creazione interrotta/.test(await testo('#motivo-blocco')) && !(await $('#btn-annulla-caricamento').isDisabled()),
             'intanto «Crea» resta spento e si può anche annullare');
+        vero((await delEvento()).length === 39, 'il primo tentativo del secondo gruppo era arrivato al servizio: nell\'evento ci sono già tutte le 39 persone');
         await $('#btn-riprendi-crea').click();
         await $('#esito-crea').waitFor({ state: 'visible', timeout: 30000 });
         vero(true, '«Riprendi»: la creazione riparte dal gruppo interrotto e si completa');
-        vero(JSON.stringify(servizio.creaGruppi) === JSON.stringify([25, 14]), 'crea chiamata a gruppi di 25: ' + JSON.stringify(servizio.creaGruppi));
-        vero(servizio.creaQuando.length === 2 && servizio.creaQuando[1] - servizio.creaQuando[0] >= 290, 'pausa fra un gruppo e l\'altro (' + (servizio.creaQuando[1] - servizio.creaQuando[0]) + ' ms)');
-        const inviate = servizio.creaEmail;
-        vero(new Set(inviate).size === inviate.length && inviate.length === 39, 'nessuna email inviata due volte a crea (' + inviate.length + ' righe, tutte diverse)');
-        const quante = em => inviate.filter(e => e === em).length;
-        vero(!inviate.includes('giovanni.russo@russotrasporti.it') && quante('mario.rossi@rossi-srl.it') === 1 && quante('lucia.ferraro@ferraro.it') === 1 && quante('info@studiogalli.it') === 1,
-            'a crea non arrivano la riga esclusa né i doppioni');
+        vero(JSON.stringify(creaRichieste.map(c => c.righe)) === JSON.stringify([25, 14, 14, 14, 14])
+            && JSON.stringify(creaRichieste.map(c => c.esito)) === JSON.stringify(['passata', 'risposta persa', 'non partita', 'non partita', 'passata']),
+            'crea a gruppi di 25: ' + creaRichieste.map(c => c.righe + ' (' + c.esito + ')').join(', '));
+        vero(new Set(creaRichieste.slice(1).map(c => c.emails)).size === 1, 'il gruppo interrotto si rimanda identico (stesse righe, stessi nomi utente)');
+        // misurata nella pagina: dall'arrivo della risposta del primo gruppo alla partenza del secondo
+        const tempiCrea = await page.evaluate(() => window.__tempiServizio.filter(x => x.azione === 'crea'));
+        const pausaGruppi = Math.round(tempiCrea[1].inizio - tempiCrea[0].fine);
+        // 300 ms nella pagina; l'orologio finto di Playwright puo' anticipare un timer di qualche ms
+        vero(tempiCrea.length === 5 && pausaGruppi >= 290, 'pausa fra un gruppo e l\'altro (' + pausaGruppi + ' ms)');
+        const riepilogoCrea = await testo('#esito-crea-riepilogo');
+        vero(/24\s*account creati/.test(riepilogoCrea) && /1\s*persona aggiunta/.test(riepilogoCrea) && /14\s*righe già completate dal tentativo interrotto/.test(riepilogoCrea),
+            'riepilogo onesto: 24 creati, 1 aggiunta, 14 completate dal tentativo interrotto', riepilogoCrea);
         const cambiato = $('#tabella-esito-crea tr.nome-cambiato');
-        vero(await cambiato.count() === 1 && /nicolodangelo2/.test(await cambiato.textContent()), 'nome utente preso nel frattempo da un altro caricamento: evidenziato (nicolodangelo → nicolodangelo2)');
-        vero(/38/.test(await testo('#esito-crea-riepilogo')) && /aggiunta all'evento/.test(await testo('#esito-crea-riepilogo')), 'riepilogo: 38 creati, 1 aggiunta all\'evento');
-        const nomiCreati = Array.from(servizio.nomiUtente.keys());
-        vero(new Set(nomiCreati).size === nomiCreati.length, 'zero nomi utente doppi nel finto servizio');
+        vero(await cambiato.count() === 1 && /nicolodangelo\s*→\s*nicolodangelo2/.test(await cambiato.textContent()), 'nome utente preso nel frattempo da un altro caricamento: evidenziato (nicolodangelo → nicolodangelo2)');
+        // zero doppioni, contati sul servizio
+        const tutti = (await db.collection('partecipanti').get()).docs.map(d => Object.assign({ uid: d.id }, d.data()));
+        const nomi = (await db.collection('nomiUtente').get()).docs;
+        const inNapoli = tutti.filter(p => (p.eventi || []).includes(ID));
+        const utentiAuth = (await auth.listUsers(1000)).users;
+        vero(inNapoli.length === 39 && tutti.length === 41, 'sul servizio: 39 persone nell\'evento, 41 partecipanti in tutto (38 nuovi + Mario, Giulia e Nicolò di Roma)', inNapoli.length + ' / ' + tutti.length);
+        vero(new Set(tutti.map(p => p.emailNorm)).size === tutti.length && new Set(tutti.map(p => p.nomeUtente)).size === tutti.length,
+            'zero account doppi e zero nomi utente doppi (per email e per nome utente)');
+        vero(nomi.length === tutti.length && nomi.every(d => tutti.some(p => p.uid === d.data().uid && p.nomeUtente === d.id)),
+            'ogni nome utente prenotato appartiene a una sola persona, e nessuna prenotazione è rimasta orfana');
+        vero(utentiAuth.filter(u => /^p[0-9a-f]{20}$/.test(u.uid)).length === 41 && tutti.every(p => p.authCreato === true),
+            'un account di accesso per persona (41), tutti completi');
 
         /* ---------- 5. elenco e ricerca ---------- */
         console.log('\n-- elenco dei partecipanti');
@@ -748,91 +599,119 @@ class FintoServizio {
         vero(true, 'elenco: 39 persone (38 nuove + Giulia già registrata)');
         const visibiliElenco = () => page.evaluate(() => Array.from(document.querySelectorAll('#tabella-partecipanti tbody tr')).filter(t => !t.hidden).map(t => t.dataset.uid));
         const cerca = async q => { await $('#cerca-partecipanti').fill(q); await pausa(80); return visibiliElenco(); };
-        const uidDi = nome => Array.from(servizio.partecipanti.values()).find(p => p.nomeUtente === nome).uid;
         let v = await cerca('ivanpetrov');
-        vero(v.length === 1 && v[0] === uidDi('ivanpetrov'), 'ricerca per nome utente');
+        vero(v.length === 1 && v[0] === await uidDi('ivanpetrov'), 'ricerca per nome utente');
         v = await cerca('deluca-figli.it');
         vero(v.length === 2, 'ricerca per email (2 persone di deluca-figli.it)', v.length);
         v = await cerca('Ferri Consulting');
-        vero(v.length === 1 && v[0] === 'p-giulia', 'ricerca per azienda');
+        vero(v.length === 1 && v[0] === await uidDi('giuliaferri'), 'ricerca per azienda');
         v = await cerca('mario rossi');
         vero(v.length === 3, 'ricerca «mario rossi»: i tre omonimi', v.length);
         v = await cerca('NUNEZ');
         vero(v.length === 1, 'ricerca senza accenti e maiuscole («NUNEZ» trova Núñez)');
         await cerca('');
         vero((await visibiliElenco()).length === 39 && /\(39\)/.test(await testo('#conta-partecipanti')), 'ricerca vuota: tutti');
-        await foto('partecipanti');
 
         console.log('\n-- azioni sul partecipante');
-        const rp = nome => $('#tabella-partecipanti tr[data-uid="' + uidDi(nome) + '"]');
-        await rp('ivanpetrov').locator('button[data-op="reinvia"]').click();
+        const rp = async nome => $('#tabella-partecipanti tr[data-uid="' + await uidDi(nome) + '"]');
+        await (await rp('ivanpetrov')).locator('button[data-op="reinvia"]').click();
         await confermaDialogo(/Inviare adesso le credenziali/);
-        await aspetta(async () => (await rp('ivanpetrov').locator('.stato-email').textContent()) === 'inviata', 5000, 'invio');
-        vero(true, '«Invia ora»: stato email della persona «inviata», con il colore giusto');
-        vero(/stato-inviata/.test(await rp('ivanpetrov').locator('.stato-email').getAttribute('class')), 'classe stato-inviata');
-        await rp('ivanpetrov').locator('button[data-op="reinvia"]').click();
+        await aspetta(async () => (await (await rp('ivanpetrov')).locator('.stato-email').textContent()) === 'inviata', 10000, 'invio');
+        vero(/stato-inviata/.test(await (await rp('ivanpetrov')).locator('.stato-email').getAttribute('class')), '«Invia ora»: stato email della persona «inviata», con il colore giusto');
+        const letteraIvan = postaPer('ivan.petrov@petrov-trading.ru', 'credenziali');
+        vero(letteraIvan.length === 1 && /Nome utente:\s*ivanpetrov/.test(letteraIvan[0].testo) && RE_PASSWORD.test(passwordDa(letteraIvan[0])),
+            'nella casella di Ivan: una email con il suo nome utente e una password di 10 caratteri senza lettere ambigue');
+        await (await rp('ivanpetrov')).locator('button[data-op="reinvia"]').click();
         const avvisoReinvio = await confermaDialogo(/Reinviare le credenziali/);
         vero(/smetterà di funzionare.*entro un'ora/s.test(avvisoReinvio), 'il reinvio avverte che la password attuale smette di funzionare (T9)');
-        await rp('annamariadeluca').locator('summary').click();
-        await rp('annamariadeluca').locator('button[data-op="rigenera"]').click();
+        await aspetta(async () => /meno di un minuto fa/.test(await avvisi()), 10000, '409 del reinvio');
+        vero(true, 'reinvio entro un minuto: il servizio risponde 409 e la pagina mostra il suo testo: «' + ((await $('#avvisi .avviso').last().textContent()) || '').trim() + '»');
+        vero(postaPer('ivan.petrov@petrov-trading.ru', 'credenziali').length === 1, 'e nessuna seconda email è partita');
+        await (await rp('annamariadeluca')).locator('summary').click();
+        await (await rp('annamariadeluca')).locator('button[data-op="rigenera"]').click();
         await confermaDialogo(/Nuova password|nuova password/);
         await $('#dialogo-password').waitFor({ state: 'visible', timeout: 5000 });
         const pw = await testo('#password-mostrata');
-        vero(/^[A-HJ-NP-Za-km-z2-9]{10}$/.test(pw) && await testo('#password-nome-utente') === 'annamariadeluca', 'nuova password mostrata una volta, in chiaro solo nella finestra');
+        vero(RE_PASSWORD.test(pw) && await testo('#password-nome-utente') === 'annamariadeluca', 'nuova password mostrata una volta, in chiaro solo nella finestra');
+        const entraAnna = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'Anna Maria De Luca', password: pw });
+        vero(entraAnna.stato === 200 && entraAnna.dati.nomeUtente === 'annamariadeluca' && !!entraAnna.dati.token, 'con quella password Anna Maria entra davvero nella diretta (diretta-accesso «entra»)');
         await foto('password', true);
         await $('#btn-chiudi-password').click();
         vero(await testo('#password-mostrata') === '', 'chiusa la finestra, la password sparisce dalla pagina');
-        await rp('robertomoretti').locator('summary').click();
-        await rp('robertomoretti').locator('button[data-op="disattiva"]').click();
+        await (await rp('robertomoretti')).locator('summary').click();
+        await (await rp('robertomoretti')).locator('button[data-op="disattiva"]').click();
         await confermaDialogo(/Disattivare l'account/);
-        await aspetta(async () => /disattivato/.test(await rp('robertomoretti').getAttribute('class') || ''), 5000, 'disattivato');
-        vero(await rp('robertomoretti').locator('button[data-op="riattiva"]').count() === 1, 'disattivato: la riga lo dice e offre «Riattiva»');
-        await rp('sarabarbieri').locator('summary').click();
-        await rp('sarabarbieri').locator('button[data-op="rimuovi-evento"]').click();
+        await aspetta(async () => /disattivato/.test(await (await rp('robertomoretti')).getAttribute('class') || ''), 5000, 'disattivato');
+        vero(await (await rp('robertomoretti')).locator('button[data-op="riattiva"]').count() === 1, 'disattivato: la riga lo dice e offre «Riattiva»');
+        const uidRoberto = await uidDi('robertomoretti');
+        const [sessRoberto, authRoberto] = await Promise.all([db.doc('sessioni/' + uidRoberto).get(), auth.getUser(uidRoberto)]);
+        vero(sessRoberto.data().stato === 'disattivato' && authRoberto.disabled === true, 'sul servizio: sessioni/{uid} «disattivato» e account di accesso disabilitato');
+        const uidSara = await uidDi('sarabarbieri');
+        await (await rp('sarabarbieri')).locator('summary').click();
+        await (await rp('sarabarbieri')).locator('button[data-op="rimuovi-evento"]').click();
         await confermaDialogo(/Togliere da questo evento/);
         await aspetta(async () => (await $('#tabella-partecipanti tbody tr').count()) === 38, 5000, 'tolta');
-        vero(true, '«Togli da questo evento»: la persona sparisce dall\'elenco dell\'evento (l\'account resta)');
+        const sara = (await db.doc('partecipanti/' + uidSara).get()).data();
+        vero(!sara.eventi.includes(ID) && sara.stato === 'attivo', '«Togli da questo evento»: la persona sparisce dall\'elenco dell\'evento, l\'account resta attivo');
         // correzione con ricalcolo del nome utente
-        await rp('chloelhoteldupont').locator('button[data-op="correggi"]').click();
+        await (await rp('chloelhoteldupont')).locator('button[data-op="correggi"]').click();
         await $('#dialogo-correggi').waitFor({ state: 'visible' });
         await $('#corr-cognome').fill('Dupont');
         vero(/chloedupont/.test(await testo('#corr-anteprima-nome')) && await $('#corr-scelta-nome').isHidden(), 'la finestra mostra il nuovo nome utente prima di salvare');
         await $('#btn-corr-salva').click();
         await $('#dialogo-correggi').waitFor({ state: 'hidden' });
         await aspetta(async () => (await page.locator('#tabella-partecipanti td.col-nome-utente', { hasText: /^chloedupont$/ }).count()) === 1, 5000, 'nome ricalcolato');
-        vero(true, 'correzione del cognome: nome utente ricalcolato (chloelhoteldupont → chloedupont)');
+        vero(/da chloelhoteldupont a chloedupont/.test(await avvisi()), 'correzione del cognome: nome utente ricalcolato, e l\'avviso dice da che cosa a che cosa (nomeUtentePrecedente)');
+        const [nVecchio, nNuovo] = await Promise.all([db.doc('nomiUtente/chloelhoteldupont').get(), db.doc('nomiUtente/chloedupont').get()]);
+        vero(!nVecchio.exists && nNuovo.exists, 'sul servizio: il vecchio nome utente è stato liberato, il nuovo prenotato');
         // credenziali gia' partite: si chiede se tenere il nome utente (R3)
-        await rp('ivanpetrov').locator('button[data-op="correggi"]').click();
+        await (await rp('ivanpetrov')).locator('button[data-op="correggi"]').click();
         await $('#corr-cognome').fill('Petrova');
         vero(await $('#corr-scelta-nome').isVisible(), 'credenziali già inviate e nome che cambierebbe: si chiede se mantenerlo');
         await $('#btn-corr-salva').click();
         await $('#dialogo-correggi').waitFor({ state: 'hidden' });
         const corr = chiamate('partecipante').filter(c => c.dati.operazione === 'correggi').pop().dati;
-        vero(corr.mantieniNomeUtente === true && servizio.partecipanti.get(uidDi('ivanpetrov')).cognome === 'Petrova', 'scelta predefinita «Mantieni»: mantieniNomeUtente true, nome utente invariato');
+        const ivanDopo = await partecipante('ivanpetrov');
+        vero(corr.mantieniNomeUtente === true && ivanDopo && ivanDopo.cognome === 'Petrova' && ivanDopo.invii[ID].stato === 'inviata',
+            'scelta predefinita «Mantieni»: mantieniNomeUtente true, nome utente e credenziali restano validi');
         // email gia' di un altro: 409 mostrato nella finestra
-        await rp('elenaricci').locator('button[data-op="correggi"]').click();
+        await (await rp('elenaricci')).locator('button[data-op="correggi"]').click();
         await $('#corr-email').fill('giulia.ferri@esempio.it');
         await $('#btn-corr-salva').click();
-        await aspetta(async () => /già di un altro/.test(await testo('#msg-correggi')), 5000, '409');
-        vero(await $('#corr-email').getAttribute('aria-invalid') === 'true', 'email già usata da un\'altra persona: errore nella finestra, niente salvato');
+        await aspetta(async () => /appartiene già a un'altra persona/.test(await testo('#msg-correggi')), 5000, '409');
+        vero(await $('#corr-email').getAttribute('aria-invalid') === 'true', 'email già usata da un\'altra persona: il 409 del servizio è mostrato nella finestra, niente salvato');
         await $('#btn-corr-annulla').click();
 
         /* ---------- 6. regia ---------- */
         console.log('\n-- regia');
+        /* I segnali di presenza li scrive la pagina dei partecipanti, uno al
+           minuto: qui si scrivono direttamente (firebase-admin) per 31 persone. */
+        const persone = (await delEvento()).filter(p => p.stato === 'attivo').sort((a, b) => a.nomeUtente.localeCompare(b.nomeUtente));
+        const segnala = async (elenco, campi) => {
+            const lotto = db.batch();
+            elenco.forEach(p => lotto.set(db.doc('presenze/' + ID + '_' + p.uid), Object.assign({
+                uid: p.uid, idEvento: ID, primo: Ts.now(), ultimo: Ts.now(), secondi: 0, collegamenti: 1, sessione: 'prova-' + p.uid.slice(1, 9)
+            }, typeof campi === 'function' ? campi(p) : (campi || {}))));
+            await lotto.commit();
+        };
+        await segnala(persone.slice(0, 31));
         await page.click('[data-scheda="regia"]');
-        await aspetta(async () => await testo('#num-connessi') === '37', 5000, 'collegati');
+        await aspetta(async () => await testo('#num-connessi') === '31', 10000, 'collegati');
         vero(await testo('#regia-stato-testo') === 'IN ATTESA', 'stato grande: IN ATTESA');
-        vero(true, 'contatore dei collegati: 37, con l\'orario di aggiornamento');
+        vero(/su 38 iscritti/.test(await testo('#connessi-dettaglio')), 'contatore dei collegati dal servizio: 31, accanto agli iscritti di adesso (' + await testo('#connessi-dettaglio') + ')');
         await $('#btn-in-onda').click();
-        const domandaOnda = await confermaDialogo(/Mandare in onda.*Il video è impostato/s);
+        const domandaOnda = await confermaDialogo(/Mandare in onda.*Il video è impostato \(abcdefghijk\)/s);
         vero(/previsto per venerdì 2 ottobre 2026, non per oggi/.test(domandaOnda), 'oggi non è il giorno dell\'evento: la conferma lo dice (evento sbagliato nel menu?)');
         await aspetta(async () => await $('#regia-stato').getAttribute('data-stato') === 'in_onda', 5000, 'in onda');
         vero(await testo('#regia-stato-testo') === 'IN ONDA' && await testo('#stato-testata') === 'In onda', 'IN ONDA, grande in regia e in testata');
         vero(await $('#btn-in-onda').isDisabled() && !(await $('#btn-termina').isDisabled()) && !(await $('#btn-pausa').isDisabled()), 'in onda: «Vai in onda» spento, «Termina» e «Pausa» accesi');
+        vero((await db.doc('eventi/' + ID).get()).data().videoId === 'abcdefghijk' && /stanno guardando questo video/.test(await testo('#regia-video-pubblico')),
+            'in onda il servizio pubblica il video per i partecipanti, e la regia lo dice (videoInOnda)');
+        await segnala(persone.slice(31, 36));
         const primaDelTimer = chiamate('connessi').length;
         await page.clock.fastForward(21000);
-        await aspetta(async () => chiamate('connessi').length > primaDelTimer && await testo('#num-connessi') !== '37', 5000, 'aggiornamento dei collegati');
-        vero(true, 'dopo 20 secondi il contatore si aggiorna da solo (' + await testo('#num-connessi') + ')');
+        await aspetta(async () => chiamate('connessi').length > primaDelTimer && await testo('#num-connessi') === '36', 10000, 'aggiornamento dei collegati');
+        vero(true, 'dopo 20 secondi il contatore si aggiorna da solo (36: cinque persone in più si sono collegate)');
         // il video: prima provato con il player, poi cambiato per tutti
         const conPlayer = await page.evaluate(() => !!(window.NGBPlayer && window.NGBPlayer.crea));
         if (conPlayer) {
@@ -847,28 +726,31 @@ class FintoServizio {
         await aspetta(async () => /zyxwvutsrqp/.test(await testo('#regia-video-attuale')), 15000, 'video cambiato');
         const cv = chiamate('evento-video').pop().dati;
         vero(cv.videoId === 'zyxwvutsrqp' && cv.videoUrl === 'https://www.youtube.com/watch?v=zyxwvutsrqp', 'evento-video riceve videoUrl e videoId (R21)');
-        if (conPlayer) vero(await $('#regia-video-anteprima').isVisible() && await page.evaluate(() => (window.__fintoYT.comandi || []).length >= 0), 'anteprima del video in regia con lo stesso player dei partecipanti');
+        vero((await db.doc('eventi/' + ID).get()).data().videoId === 'zyxwvutsrqp', 'sul servizio: chi è collegato passa subito al nuovo video (documento pubblico aggiornato)');
+        if (conPlayer) vero(await $('#regia-video-anteprima').isVisible(), 'anteprima del video in regia con lo stesso player dei partecipanti');
         // avviso a tutti
         await $('#regia-avviso').fill('Problema tecnico: torniamo tra 5 minuti');
         await $('#btn-avviso').click();
         await confermaDialogo(/Pubblicare l'avviso/);
         await aspetta(async () => /torniamo tra 5 minuti/.test(await testo('#regia-avviso-attuale')), 5000, 'avviso');
-        vero(chiamate('evento-avviso').pop().dati.avviso === 'Problema tecnico: torniamo tra 5 minuti', 'avviso a tutti pubblicato (evento-avviso)');
+        vero((await db.doc('eventi/' + ID).get()).data().avviso === 'Problema tecnico: torniamo tra 5 minuti', 'avviso a tutti pubblicato (evento-avviso, nel documento che i partecipanti ascoltano)');
         // pausa con orario di ripresa e ripresa
         await $('#regia-ripresa').fill('14:30');
         await $('#btn-pausa').click();
         await confermaDialogo(/Mettere in pausa.*14\.30/s);
         await aspetta(async () => await $('#regia-stato').getAttribute('data-stato') === 'pausa', 5000, 'pausa');
         vero(await testo('#regia-stato-testo') === 'IN PAUSA' && /si riprende alle 14\.30/.test(await testo('#regia-orari')) && await $('#btn-riprendi').isVisible(), 'pausa: IN PAUSA, orario di ripresa, pulsante «Riprendi»');
-        vero(chiamate('evento-stato').pop().dati.ripresa === '14:30', 'evento-stato {stato: pausa, ripresa: 14:30}');
+        const inPausa = (await db.doc('eventi/' + ID).get()).data();
+        vero(chiamate('evento-stato').pop().dati.ripresa === '14:30' && inPausa.stato === 'pausa' && inPausa.ripresa === '14:30' && inPausa.videoId === '',
+            'evento-stato {stato: pausa, ripresa: 14:30}: in pausa il video sparisce anche dal documento dei partecipanti (R7)');
         await $('#btn-riprendi').click();
         await confermaDialogo(/Riprendere la diretta/);
         await aspetta(async () => await $('#regia-stato').getAttribute('data-stato') === 'in_onda', 5000, 'ripresa');
-        vero(true, 'ripresa: di nuovo IN ONDA');
+        vero((await db.doc('eventi/' + ID).get()).data().videoId === 'zyxwvutsrqp', 'ripresa: di nuovo IN ONDA, con il video');
         // termina: la conferma dice quanti sono collegati; qui si annulla
         await $('#btn-termina').click();
         await $('#dialogo-conferma').waitFor({ state: 'visible' });
-        vero(/Terminare la diretta per tutti \(\d+ collegati\)/.test(await testo('#conferma-titolo')), 'la conferma di «Termina» dice quante persone sono collegate: «' + await testo('#conferma-titolo') + '»');
+        vero(/Terminare la diretta per tutti \(36 collegati\)/.test(await testo('#conferma-titolo')), 'la conferma di «Termina» dice quante persone sono collegate: «' + await testo('#conferma-titolo') + '»');
         vero(await page.evaluate(() => document.activeElement && document.activeElement.id) === 'conferma-annulla', 'per «Termina» il fuoco parte da «Annulla»');
         await page.keyboard.press('Escape');
         await $('#dialogo-conferma').waitFor({ state: 'hidden' });
@@ -893,40 +775,118 @@ class FintoServizio {
         console.log('\n-- email');
         await page.click('[data-scheda="email"]');
         await aspetta(async () => /\(36\)/.test(await testo('#btn-invia-tutti')), 5000, 'conteggi email');
-        // l'etichetta del pulsante puo' arrivare (dall'elenco) prima dei conteggi (da email-stato)
         const conteggiOk = await aspetta(async () => await testo('#conteggi-email li[data-stato="da inviare"] .conteggio-num') === '37'
             && await testo('#conteggi-email li[data-stato="inviata"] .conteggio-num') === '1', 5000, 'conteggi').catch(() => false);
-        vero(conteggiOk, 'conteggi per stato: 37 da inviare, 1 inviata (quella mandata a mano)', await testo('#conteggi-email'));
-        vero(true, 'il pulsante dice a quante persone partirà davvero: (36), l\'account disattivato non si conta');
+        vero(conteggiOk, 'conteggi per stato dal servizio: 37 da inviare, 1 inviata (quella mandata a mano)', await testo('#conteggi-email'));
+        vero(/1 persona «da inviare» ha l'account disattivato/.test(await testo('#nota-disattivati')), 'il pulsante dice a quante persone partirà davvero (36): l\'account disattivato non si conta, e la nota lo spiega');
+        vero(/manca BREVO_API_KEY/.test(await testo('#nota-esiti')) && await visibile('#nota-esiti'), 'senza BREVO_API_KEY lo si dice subito, accanto al pulsante degli esiti (esitiDisponibili)');
+        vero(/Promemoria del giorno prima: attivo\. Parte da solo giovedì 1 ottobre 2026 dalle 9\.00: oggi lo riceverebbero 1 persona/.test(await testo('#promemoria-stato')),
+            'promemoria del giorno prima: quando parte e a quante persone arriverebbe oggi (destinatariPromemoria.giorno)', await testo('#promemoria-stato'));
         await $('#sel-tipo-prova').selectOption('credenziali');
         await $('#btn-email-prova').click();
-        await aspetta(async () => /Email di prova inviata a gestore@prova\.it/.test(await testo('#msg-email-prova')), 5000, 'prova');
-        vero(chiamate('email-prova').pop().dati.tipo === 'credenziali', '«Invia email di prova a me» (tipo credenziali)');
+        await aspetta(async () => /Email di prova inviata a gestore@prova\.it/.test(await testo('#msg-email-prova')), 10000, 'prova');
+        const prova = postaPer(EMAIL_GESTORE, 'prova-credenziali');
+        vero(chiamate('email-prova').pop().dati.tipo === 'credenziali' && prova.length === 1 && /EMAIL DI PROVA/.test(prova[0].testo + prova[0].oggetto),
+            '«Invia email di prova a me»: nella casella del gestore arriva l\'email con la scritta EMAIL DI PROVA');
+
+        // Brevo rifiuta l'accesso SMTP (account sospeso, chiave cambiata): per tutti, prima del DATA
+        await avviaServer({ DIRETTA_POSTA_ERRORE_ACCOUNT: '1' }, 'server di posta che rifiuta l\'accesso', calma);
+        const credenzialiPrima = leggiPosta().filter(m => m.tipo === 'credenziali').length;
         await $('#btn-invia-tutti').click();
         await confermaDialogo(/Inviare le credenziali a 36 persone/);
+        await aspetta(async () => await visibile('#btn-riprova-invio') && /Invio fermo/.test(await testo('#coda-bloccata')), 20000, 'blocco di Brevo');
+        vero(/535/.test(await testo('#coda-bloccata')) && /36 persone restano in coda/.test(await testo('#coda-bloccata')),
+            'blocco del server di posta: la pagina dice il motivo del servizio e che nessuno è stato saltato — «' + await testo('#coda-bloccata') + '»');
+        vero(/Invio fermo per un problema del server di posta/.test(await testo('#avanzamento-email .avanzamento-testo')), 'l\'avanzamento si ferma e lo dice (niente tentativi a raffica: riprova il giro automatico)');
+        const kBlocco = await statiEmail();
+        vero(kBlocco['in coda'] === 36 && leggiPosta().filter(m => m.tipo === 'credenziali').length === credenzialiPrima,
+            'sul servizio: 36 persone ancora in coda e nessuna email partita', JSON.stringify(kBlocco));
+        const bloccoSalvato = (await db.doc('code/' + ID).get()).data().bloccato;
+        vero(bloccoSalvato && /535/.test(bloccoSalvato.motivo) && bloccoSalvato.quando > 0, 'code/' + ID + '.bloccato = {motivo, quando}, come lo legge la pagina');
+
+        // Brevo di nuovo a posto, ma con un tetto di 20 email al giorno
+        await avviaServer({ DIRETTA_MAX_GIORNO: '20' }, 'server di posta a posto, tetto di 20 email al giorno', calma);
+        await $('#btn-riprova-invio').click();
+        await aspetta(async () => /Limite di oggi raggiunto/.test(await testo('#coda-bloccata')), 30000, 'tetto del giorno');
+        const kLimite = await statiEmail();
+        const restano = kLimite['in coda'];
+        vero(kLimite.inviata === 21 && restano >= 15 && restano <= 16 && (await db.doc('code/' + ID).get()).data().bloccato == null,
+            '«Riprova adesso»: il blocco si toglie e la coda riparte, fino al tetto (20 email oggi)', JSON.stringify(kLimite));
+        vero(new RegExp('Limite di oggi raggiunto: le restanti ' + restano + ' partono domani da sole').test(await testo('#coda-bloccata')) && await $('#btn-riprova-invio').isHidden(),
+            'tetto del giorno: «' + await testo('#coda-bloccata') + '» (R13)');
+        vero(/Invio fermo per il limite di oggi/.test(await testo('#avanzamento-email .avanzamento-testo')), 'l\'avanzamento dice che il resto parte domani');
+        await foto('email-limite');
+        await page.click('[data-scheda="partecipanti"]');
+        await aspetta(async () => (await page.locator('#tabella-partecipanti .stato-email.stato-in-coda').count()) === restano, 10000, 'stati nell\'elenco');
+        vero(await page.locator('#tabella-partecipanti .stato-email.stato-inviata').count() === 21, 'nell\'elenco gli stati delle email: inviate, in coda, da inviare');
+        await foto('partecipanti');
+        await page.click('[data-scheda="email"]');
+
+        /* Il giorno dopo (qui: il servizio riavviato senza tetto) la coda la manda
+           avanti il giro automatico, api/diretta-cron, chiamato davvero. Le email
+           sono lente (1 s l'una): mentre il cron lavora, la pagina lo segue. */
+        await avviaServer({ DIRETTA_POSTA_RITARDO_MS: '1000' }, 'nessun tetto, server di posta lento', calma);
+        const giroPrima = (await db.doc('code/' + ID).get()).data().giro || null;
+        const cron = fetch(API + '/diretta-cron', { headers: { Authorization: 'Bearer prova' } }).then(r => r.json()).catch(e => ({ errore: e.message }));
+        await aspetta(async () => {
+            const d = (await db.doc('code/' + ID).get()).data();
+            return d.giro && d.giro !== giroPrima && d.lucchettoFino > Date.now();
+        }, 15000, 'il cron prende il lucchetto');
+        const avanzaPrima = risposteAvanza.length;
+        await $('#btn-aggiorna-email').click();
         await aspetta(async () => /Invio completato/.test(await testo('#avanzamento-email .avanzamento-testo')), 60000, 'invio completato');
-        const k = servizio.conteggi(ID);
-        vero(k.inviata === 36 && k.respinta === 1 && k['in coda'] === 0 && k['da inviare'] === 1, 'invio a tutti completato (resta solo l\'account disattivato): ' + JSON.stringify(k));
-        const aq = servizio.avanzaQuando;
-        const intervalli = aq.slice(1).map((t, i) => t - aq[i]);
-        vero(aq.length >= 4 && intervalli.every(x => x >= 1900), 'email-avanza in ciclo con una pausa di 2 s fra le chiamate (' + aq.length + ' chiamate, minimo ' + Math.min.apply(null, intervalli) + ' ms)');
+        const esitoCron = await cron;
+        const seguite = risposteAvanza.slice(avanzaPrima);
+        vero(seguite.some(x => x.dati && x.dati.occupato === true), 'la pagina trova il giro automatico al lavoro (occupato) e lo segue senza spedire niente', JSON.stringify(seguite.map(x => x.dati)));
+        const intervalli = seguite.slice(1).map((x, i) => x.quando - seguite[i].quando);
+        vero(seguite.length >= 2 && intervalli.every(x => x >= 4500), 'mentre un altro giro lavora la pagina chiede più piano (' + intervalli.join(', ') + ' ms fra le chiamate)');
+        const codaCron = (esitoCron.code || []).find(c => c.idEvento === ID);
+        vero(codaCron && codaCron.inviate >= restano - 1, 'il cron ha spedito il resto della coda (' + (codaCron && codaCron.inviate) + ')', JSON.stringify(esitoCron).slice(0, 300));
+        const k = await statiEmail();
+        vero(k.inviata === 36 && k.respinta === 1 && !k['in coda'] && k['da inviare'] === 1, 'invio a tutti completato (resta solo l\'account disattivato): ' + JSON.stringify(k));
         vero(await testo('#conteggi-email li[data-stato="inviata"] .conteggio-num') === '36' && await testo('#conteggi-email li[data-stato="respinta"] .conteggio-num') === '1', 'i conteggi colorati si aggiornano (36 inviate, 1 respinta)');
+        const perIndirizzo = {};
+        leggiPosta().filter(m => m.tipo === 'credenziali').forEach(m => { perIndirizzo[m.a] = (perIndirizzo[m.a] || 0) + 1; });
+        vero(Object.keys(perIndirizzo).length === 36 && Object.values(perIndirizzo).every(n => n === 1),
+            'nella posta: 36 persone con UNA sola email di credenziali ciascuna, nonostante blocco, tetto e due giri insieme', JSON.stringify(perIndirizzo).slice(0, 300));
         await aspetta(async () => /\(1\)/.test(await testo('#btn-reinvia-non-ricevute')), 5000, 'non ricevute');
-        vero(/1 persona «da inviare» ha l'account disattivato/.test(await testo('#nota-disattivati')), 'la scheda spiega perché «1 da inviare» non parte: account disattivato');
         await foto('email');
         await $('#btn-reinvia-non-ricevute').click();
         await confermaDialogo(/Reinviare a chi non l'ha ricevuta/);
         await aspetta(() => chiamate('email-accoda').some(c => c.dati.chi === 'non-ricevuta'), 5000, 'riaccodata');
         vero(true, '«Reinvia a chi non l\'ha ricevuta» riaccoda con chi: non-ricevuta');
-        await aspetta(async () => /Invio completato/.test(await testo('#avanzamento-email .avanzamento-testo')), 30000, 'secondo invio');
+        await aspetta(async () => /Invio completato: 0 inviate, 1 respinta/.test(await testo('#avanzamento-email .avanzamento-testo')), 30000, 'secondo invio');
+        vero(true, 'Chloé viene respinta di nuovo (l\'indirizzo è sbagliato): «' + await testo('#avanzamento-email .avanzamento-testo') + '»');
         await $('#btn-aggiorna-esiti').click();
         await aspetta(async () => /manca BREVO_API_KEY/.test(await testo('#msg-email')), 5000, 'esiti');
-        vero(true, 'senza BREVO_API_KEY la gestione lo dice (R13)');
+        vero(true, 'senza BREVO_API_KEY la gestione lo dice anche quando si chiedono gli esiti (R13)');
+        await page.click('[data-scheda="evento"]');
+        vero(/Parte da solo giovedì 1 ottobre 2026 dalle 9\.00: oggi lo riceverebbero 36 persone/.test(await testo('#prom-dest-giorno'))
+            && /Se lo attivi, oggi lo riceverebbero 36 persone/.test(await testo('#prom-dest-ora')),
+            'accanto alle caselle dei promemoria: a quante persone arriverebbero (36, chi ha le credenziali)', await testo('#prom-dest-giorno') + ' | ' + await testo('#prom-dest-ora'));
         await page.click('[data-scheda="partecipanti"]');
-        vero(/stato-respinta/.test(await rp('chloedupont').locator('.stato-email').getAttribute('class')), 'nell\'elenco la persona respinta ha lo stato rosso «respinta»');
+        vero(/stato-respinta/.test(await (await rp('chloedupont')).locator('.stato-email').getAttribute('class')), 'nell\'elenco la persona respinta ha lo stato rosso «respinta»');
+        /* Il giro dei promemoria lo fa il cron nella sua finestra (dal 1 ottobre):
+           qui se ne scrive con firebase-admin il segno finale, quello che il
+           servizio lascia in code/{id}.promemoria.giorno, per vedere come la
+           gestione lo racconta. */
+        await db.doc('code/' + ID).set({ promemoria: { giorno: { cominciato: Date.now() - 90000, quando: Date.now(), finito: true, inviate: 36 } } }, { merge: true });
+        await page.click('[data-scheda="email"]');
+        await aspetta(async () => /Promemoria del giorno prima: attivo\. Già partito: 36 email inviate \(ultimo giro \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\)/.test(await testo('#promemoria-stato')), 10000, 'promemoria partito');
+        vero(true, 'promemoria già partito: la scheda Email lo dice con il numero del servizio (coda.promemoria.giorno)');
 
         /* ---------- 8. esportazione ---------- */
         console.log('\n-- esportazione');
+        // due accessi veri (con le password arrivate per email) e due presenze del giorno dell'evento
+        const pwIvan = passwordDa(postaPer('ivan.petrov@petrov-trading.ru', 'credenziali').pop());
+        const pwAnna = passwordDa(postaPer('annamaria.deluca@deluca-figli.it', 'credenziali').pop());
+        const e1 = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'ivanpetrov', password: pwIvan }, null, { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36' });
+        const e2 = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'annamariadeluca', password: pwAnna }, null, { 'User-Agent': UA_IPHONE });
+        vero(e1.stato === 200 && e2.stato === 200, 'Ivan e Anna Maria entrano con le credenziali ricevute per email', JSON.stringify([e1.dati, e2.dati]).slice(0, 300));
+        const inizio = Date.parse('2026-10-02T09:00:00+02:00');
+        const fine = Date.parse('2026-10-02T17:30:00+02:00');
+        await segnala([await partecipante('ivanpetrov')], { primo: Ts.fromMillis(inizio + 3 * 60e3), ultimo: Ts.fromMillis(fine + 5 * 60e3), secondi: 40000, collegamenti: 2 });
+        await segnala([await partecipante('annamariadeluca')], { primo: Ts.fromMillis(inizio + 15 * 60e3), ultimo: Ts.fromMillis(inizio + 135 * 60e3), secondi: 7200, collegamenti: 1 });
         await page.click('[data-scheda="esporta"]');
         const [scarico] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), $('#btn-esporta').click()]);
         const nomeFile = scarico.suggestedFilename();
@@ -939,10 +899,13 @@ class FintoServizio {
         const fa = XLSX.utils.sheet_to_json(wb.Sheets.Accessi, { header: 1, defval: '' });
         vero(fp[0].join('|') === 'Nome utente|Nome|Cognome|Email|Azienda|Account|Email credenziali|Inviata il|Primo collegamento|Ultimo segnale|Minuti collegati (durante la diretta)|Collegamenti|Ultimo accesso',
             'colonne del foglio Partecipanti come da contratto');
-        vero(fa[0].join('|') === 'Quando|Nome utente|Nome|Cognome|Azienda|Dispositivo' && fa.length === 3, 'foglio Accessi con le sue colonne e 2 accessi');
+        // tre accessi veri: Anna Maria con la password rigenerata, poi Ivan e Anna Maria con quelle delle email
+        vero(fa[0].join('|') === 'Quando|Nome utente|Nome|Cognome|Azienda|Dispositivo' && fa.length === 4, 'foglio Accessi con le sue colonne e i 3 accessi veri', fa.length);
+        const annaAccesso = fa.filter(r => r[1] === 'annamariadeluca').pop();
+        vero(annaAccesso && annaAccesso[5] === 'iPhone · Safari' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(annaAccesso[0]), 'accesso di Anna Maria: data e ora di Roma, dispositivo «iPhone · Safari»', annaAccesso && annaAccesso.join('|'));
         const ivan = fp.find(r => r[0] === 'ivanpetrov');
         vero(ivan && ivan[10] === 510 && ivan[11] === 2, 'minuti limitati alla durata dell\'evento: 40000 s collegati -> 510 minuti (8 ore e mezza)', ivan && ivan.join('|'));
-        vero(ivan && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(ivan[8]) && ivan[8] === '02/10/2026 09:03', 'date in ora di Roma «02/10/2026 09:03»', ivan && ivan[8]);
+        vero(ivan && ivan[8] === '02/10/2026 09:03' && ivan[6] === 'inviata' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(ivan[12]), 'date in ora di Roma «02/10/2026 09:03», stato delle credenziali e ultimo accesso', ivan && ivan.join('|'));
         vero(fp.filter(r => r[0] && r[0] !== 'Nome utente' && !/^Minuti stimati/.test(r[0])).length === 38 && /^Minuti stimati/.test(fp[fp.length - 1][0]), '38 partecipanti e, in fondo, la nota sui minuti (T13)');
         vero(/Scaricato/.test(await testo('#msg-esporta')), 'messaggio di conferma dell\'esportazione');
 
@@ -969,8 +932,8 @@ class FintoServizio {
         const esempio = await page.evaluate(() => Array.from(document.querySelectorAll('#abb-esempio tbody tr')).map(tr => Array.from(tr.cells).map(c => c.textContent)));
         vero(esempio[0][1] === 'Anna Maria' && esempio[0][2] === 'De Luca' && esempio[2][1] === 'Jan' && esempio[2][2] === 'Van der Berg', 'ordine «Cognome Nome»: il cognome si prende con le particelle (De Luca, Van der Berg)', JSON.stringify(esempio));
         await $('#btn-abbina-continua').click();
-        await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 3, 10000, 'anteprima abbinata');
-        vero((await classeRiga(2)).includes('esito-gia-nell-evento'), 'Anna Maria De Luca è già nell\'evento: nessun nuovo account');
+        await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 3 && /righe lette/.test(await testo('#riepilogo-anteprima')), 10000, 'anteprima abbinata');
+        vero((await classeRiga(2)).includes('esito-gia-nell-evento'), 'Anna Maria De Luca è già nell\'evento (lo dice il servizio): nessun nuovo account');
         await $('#btn-annulla-caricamento').click();
         const csvRotto = Buffer.from('nome;cognome;email\nNicolÃ²;Rossi;nicolo@esempio.it\nAnna;Neri;anna.neri@esempio.it\n', 'utf8');
         await $('#file-partecipanti').setInputFiles({ name: 'codifica-sbagliata.csv', mimeType: 'text/csv', buffer: csvRotto });
@@ -1018,19 +981,27 @@ class FintoServizio {
         await $('#form-gestore').waitFor({ state: 'visible', timeout: 10000 });
         vero(true, '«Esci»: di nuovo alla schermata di accesso');
 
-        /* ---------- 12. errori della pagina ---------- */
+        /* ---------- 12. errori della pagina e del servizio ---------- */
         const csp = await page.evaluate(() => window.__violazioniCSP);
         vero(csp.length === 0, 'nessuna violazione della Content-Security-Policy', csp.join('\n'));
         vero(erroriPagina.length === 0, 'nessun errore JavaScript nella pagina', erroriPagina.join('\n'));
-        // attesi: le risposte 4xx provocate apposta (password sbagliata, non gestore, email gia' usata),
-        // i 503 del guasto simulato durante la creazione
-        // e lo script in linea del finto YouTube (srcdoc), che la CSP vera blocca come deve
-        const inattesi = erroriConsole.filter(t => !/Failed to load resource: the server responded with a status of (400|401|403|409|503)/.test(t)
+        /* attesi: le risposte 4xx provocate apposta (password sbagliata, non
+           gestore, reinvio entro un minuto, email gia' usata), le richieste di
+           'crea' interrotte apposta (rete caduta) e lo script in linea del
+           finto YouTube (srcdoc), che la CSP vera blocca come deve */
+        const inattesi = erroriConsole.filter(t => !/Failed to load resource: the server responded with a status of (400|401|403|409)/.test(t)
+            && !/Failed to load resource: net::ERR_(CONNECTION_RESET|INTERNET_DISCONNECTED)/.test(t)
             && !/Refused to execute inline script/.test(t));
         vero(inattesi.length === 0, 'nessun errore inatteso nella console', inattesi.join('\n'));
+        uscitaServer.push(server.uscita);
+        const guasti = uscitaServer.join('\n').split('\n').filter(r => /\[server-locale\]|Errore non gestito|TypeError|ReferenceError/.test(r));
+        vero(guasti.length === 0, 'nessun errore non gestito nelle funzioni del servizio', guasti.slice(0, 5).join('\n'));
+        const tuttaLaPosta = JSON.stringify(leggiPosta().filter(m => m.tipo !== 'credenziali' && m.tipo !== 'prova-credenziali').map(m => m.testo));
+        vero(!/Password:\s*\S/.test(tuttaLaPosta), 'nessuna password nelle email che non sono di credenziali (promemoria, reimpostazione)');
     } catch (e) {
         rossi++;
         console.log('ROSSO la prova si è interrotta: ' + (e && e.stack || e));
+        if (server && server.uscita) console.log('--- ultime righe del servizio ---\n' + server.uscita.slice(-3000));
     } finally {
         if (browser) await browser.close().catch(() => {});
         await ferma(server);

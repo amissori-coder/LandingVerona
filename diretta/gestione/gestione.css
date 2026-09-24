@@ -520,6 +520,7 @@ tr.da-confermare:not(.esito-errore) { background: var(--ambra-bg); }
     background: linear-gradient(90deg, var(--accento), var(--blu)); transition: width .4s ease;
 }
 .avanzamento.finito .barra-piena { background: var(--verde); }
+.avanzamento.fermo .barra-piena { background: var(--ambra-bordo); }
 .avanzamento-testo { font-size: 0.9rem; font-weight: 600; color: var(--scuro); }
 
 .esito-crea { margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--bordo); display: flex; flex-direction: column; gap: 12px; }
@@ -593,6 +594,7 @@ tr.riga-nota { background: var(--blu-velo); }
 /* quante persone riceverebbero ciascun promemoria, sotto la sua casella */
 .prom-destinatari { display: block; margin-top: 4px; font-size: 0.82rem; color: var(--blu); font-weight: 600; }
 .prom-destinatari:empty { display: none; }
+#promemoria-stato .riga-promemoria { display: block; }
 .email-griglia { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .legenda { display: grid; gap: 10px 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .legenda > div { display: flex; gap: 12px; align-items: baseline; }

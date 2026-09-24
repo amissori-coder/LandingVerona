@@ -483,6 +483,7 @@
         stato.eventi = [];
         stato.idEvento = '';
         stato.evento = null;
+        stato.nuovo = false;
         stato.partecipanti = [];
         stato.perUid = new Map();
         stato.partecipantiDi = '';
@@ -579,6 +580,9 @@
     async function caricaEventi(preferito) {
         const r = await chiama('eventi');
         stato.eventi = Array.isArray(r.eventi) ? r.eventi.slice() : [];
+        // se nel frattempo il gestore ha gia' premuto "Nuovo evento", non gli si
+        // cambia il modulo sotto le mani: l'elenco si aggiorna e basta
+        if (stato.nuovo) { riempiSelectEventi(); return; }
         let id = preferito && stato.eventi.some(e => e.id === preferito) ? preferito : '';
         if (!id) id = eventoPredefinito();
         riempiSelectEventi();
@@ -809,7 +813,7 @@
         const chi = conNumero(n, 'persona', 'persone');
         if (giro && giro.cominciato) return 'In corso: ' + conNumero(inviate, 'email inviata', 'email inviate') + ', ne mancano ' + n + '.';
         if (!attivo) return 'Se lo attivi, oggi lo riceverebbero ' + chi + '.';
-        const quando = Date.now() >= f.da ? 'al prossimo giro automatico (entro 5 minuti)' : 'da ' + dataEstesa(f.da) + ' alle ' + oraLeggibile(f.da);
+        const quando = Date.now() >= f.da ? 'al prossimo giro automatico (entro 5 minuti)' : dataEstesa(f.da) + ' dalle ' + oraLeggibile(f.da);
         return 'Parte da solo ' + quando + ': oggi lo riceverebbero ' + chi + '.';
     }
     function aggiornaDestinatariPromemoria() {
@@ -925,6 +929,8 @@
                 mostraMsg('#msg-evento', eraNuovo
                     ? 'Evento creato. Ora carica i partecipanti dalla scheda Partecipanti.'
                     : 'Modifiche salvate.', 'ok');
+                // orari e caselle dei promemoria cambiano chi li riceve e quando
+                if (!eraNuovo) aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
             } catch (err) {
                 if (err.stato === 409) {
                     $('#ev-id').setAttribute('aria-invalid', 'true');
@@ -1095,7 +1101,10 @@
     }
     function aggiornaDettaglioConnessi() {
         const ev = stato.evento;
-        const iscritti = ev && ev.iscritti != null ? ev.iscritti : null;
+        // l'elenco caricato e' piu' fresco del conteggio arrivato con gli eventi
+        // (qualcuno puo' essere stato tolto o aggiunto nel frattempo)
+        const iscritti = stato.partecipantiDi === stato.idEvento ? stato.partecipanti.length
+            : (ev && ev.iscritti != null ? ev.iscritti : null);
         $('#connessi-dettaglio').textContent = 'persone con la pagina aperta negli ultimi due minuti e mezzo'
             + (iscritti != null ? ', su ' + conNumero(iscritti, 'iscritto', 'iscritti') : '');
     }
@@ -2200,6 +2209,7 @@
             stato.partecipantiDi = id;
             disegnaPartecipanti();
             aggiornaEtichetteEmail();
+            aggiornaDettaglioConnessi();
         } catch (e) {
             if (id !== stato.idEvento) return;
             vuoto.hidden = false;
@@ -2287,6 +2297,7 @@
         if (tr) tr.remove();
         filtraPartecipanti();
         aggiornaEtichetteEmail();
+        aggiornaDettaglioConnessi();
     }
 
     function corrispondeFiltroEmail(p, f) {
@@ -2512,6 +2523,17 @@
 
     /* ============================================================
        SCHEDA EMAIL
+       ------------------------------------------------------------
+       Tutto arriva da api/diretta-gestione (lib/diretta-invio.js):
+       - email-stato: i conteggi per stato; la coda (attiva, inCorso,
+         bloccato { motivo, quando }, promemoria.<tipo>); quante persone
+         riceverebbero i promemoria (destinatariPromemoria { giorno, ora });
+         se i rimbalzi di Brevo si possono leggere (esitiDisponibili); il
+         tetto del giorno (limiteRaggiunto, rimasteOggi);
+       - email-accoda: mette in coda, e toglie un blocco precedente
+         (chiedere di nuovo l'invio e' la decisione di riprovare);
+       - email-avanza: un giro della coda (vedi avviaCicloEmail);
+       - email-esiti: i rimbalzi letti da Brevo, se c'e' la chiave.
        ============================================================ */
     async function aggiornaStatoEmail() {
         const id = stato.idEvento;
@@ -2524,25 +2546,21 @@
         disegnaConteggi();
         aggiornaEtichetteEmail();
         aggiornaDestinatariPromemoria();
-        const ev = stato.evento;
-        const prom = ev && ev.promemoria ? ev.promemoria : {};
-        $('#promemoria-stato').textContent = 'Promemoria automatici: il giorno prima ' + (prom.giornoPrima ? 'attivo' : 'non attivo')
-            + ', un\'ora prima ' + (prom.oraPrima ? 'attivo' : 'non attivo') + ' (si cambiano nella scheda Evento).';
-        // il blocco dell'account Brevo o il tetto giornaliero: il gestore deve saperlo
-        const blocco = stato.posta.coda.bloccato;
-        const limite = r.limiteRaggiunto || stato.posta.coda.limiteRaggiunto;
-        const rimasteOggi = r.rimasteOggi != null ? r.rimasteOggi : stato.posta.coda.rimasteOggi;
-        if (blocco && typeof blocco === 'object' && blocco.motivo) {
-            mostraMsg('#coda-bloccata', 'Invio fermo: ' + blocco.motivo + (blocco.quando ? ' (dalle ' + oraLeggibile(blocco.quando) + ')' : '')
-                + '. Il servizio riprova da solo ogni 5 minuti.', 'errore');
-        } else if (limite) {
-            const n = Number(stato.posta.conteggi['in coda'] || rimasteOggi || 0);
-            mostraMsg('#coda-bloccata', 'Limite di oggi raggiunto: ' + (n ? 'le restanti ' + n + ' partono' : 'le restanti partono') + ' domani da sole.', 'attenzione');
-        } else nascondiMsg('#coda-bloccata');
-        // un invio gia' avviato (da questa pagina prima di ricaricarla, o da
-        // un altro gestore) si riprende da solo
+        disegnaStatoPromemoria();
+        disegnaCodaFerma();
+        // senza BREVO_API_KEY "inviata" vuol dire solo "accettata da Brevo": lo si dice subito
+        const nota = $('#nota-esiti');
+        nota.hidden = r.esitiDisponibili !== false;
+        nota.textContent = r.esitiDisponibili === false
+            ? 'Esiti dei rimbalzi non disponibili (manca BREVO_API_KEY sul servizio): «inviata» vuol dire accettata dal server di posta.' : '';
+        /* Un invio gia' avviato (da questa pagina prima di ricaricarla, da un
+           altro gestore o dal giro automatico) si segue da solo. Non se la
+           coda e' ferma per un blocco o per il tetto del giorno: li' la pagina
+           non ha niente da aggiungere al giro automatico. */
         const inCoda = Number(stato.posta.conteggi['in coda'] || 0);
-        if (inCoda > 0 && stato.posta.coda.attiva !== false && !limite && !(blocco && blocco.motivo) && !(stato.posta.ciclo && stato.posta.ciclo.attivo)) {
+        const coda = stato.posta.coda;
+        if (inCoda > 0 && (coda.attiva !== false || coda.inCorso) && !r.limiteRaggiunto && !codaBloccata()
+            && !(stato.posta.ciclo && stato.posta.ciclo.attivo)) {
             avviaCicloEmail(0);
         }
         return r;
@@ -2550,6 +2568,58 @@
     $('#btn-aggiorna-email').addEventListener('click', () => conAttesa($('#btn-aggiorna-email'), async () => {
         try { await aggiornaStatoEmail(); } catch (e) { erroreGenerico(e, '#msg-email'); }
     }));
+
+    // il blocco del server di posta registrato dal servizio: { motivo, quando } oppure null
+    function codaBloccata() {
+        const b = (stato.posta.coda || {}).bloccato;
+        return b && typeof b === 'object' && b.motivo ? b : null;
+    }
+
+    /* Perche' la coda e' ferma, detto a chi deve decidere che cosa fare.
+       - Blocco del server di posta (account Brevo sospeso, accesso
+         rifiutato, troppi invii): nessuno viene saltato, le persone restano
+         in coda. Il giro automatico riprova ogni 5 minuti; «Riprova adesso»
+         serve quando il problema su Brevo e' stato risolto.
+       - Tetto giornaliero (DIRETTA_MAX_GIORNO): le restanti partono domani
+         da sole, non c'e' niente da fare. */
+    function disegnaCodaFerma() {
+        const r = stato.posta.risposta || {};
+        const blocco = codaBloccata();
+        const inCoda = Number((stato.posta.conteggi || {})['in coda'] || 0);
+        const bottone = $('#btn-riprova-invio');
+        const quando = blocco && blocco.quando ? ', alle ' + oraLeggibile(blocco.quando) : '';
+        if (blocco && inCoda > 0) {
+            mostraMsg('#coda-bloccata', 'Invio fermo: il server di posta ha rifiutato l\'invio per tutti («' + blocco.motivo + '»' + quando + '). '
+                + 'Nessuno è stato saltato: ' + conNumero(inCoda, 'persona resta', 'persone restano') + ' in coda. '
+                + 'Il servizio riprova da solo ogni 5 minuti; se hai risolto il problema su Brevo, premi «Riprova adesso».', 'errore');
+            bottone.hidden = false;
+        } else if (r.limiteRaggiunto) {
+            const n = Number(r.rimasteOggi || inCoda || 0);
+            mostraMsg('#coda-bloccata', 'Limite di oggi raggiunto: ' + (n ? 'le restanti ' + n.toLocaleString('it-IT') + ' partono' : 'le restanti partono')
+                + ' domani da sole.', 'attenzione');
+            bottone.hidden = true;
+        } else if (blocco) {
+            // nessuno in coda: l'ultimo invio (per esempio un "Reinvia") e' stato rifiutato
+            mostraMsg('#coda-bloccata', 'L\'ultimo invio è stato rifiutato dal server di posta («' + blocco.motivo + '»' + quando + '): '
+                + 'controlla l\'account Brevo prima di inviare di nuovo.', 'attenzione');
+            bottone.hidden = true;
+        } else {
+            nascondiMsg('#coda-bloccata');
+            bottone.hidden = true;
+        }
+    }
+
+    // i promemoria, in una riga per tipo (si attivano nella scheda Evento)
+    function disegnaStatoPromemoria() {
+        const ev = stato.evento;
+        const prom = ev && ev.promemoria ? ev.promemoria : {};
+        const riga = (nome, attivo, tipo) => el('span', { classe: 'riga-promemoria', testo: (nome + ': ' + (attivo ? 'attivo' : 'non attivo') + '. ' + descriviPromemoria(tipo)).trim() + ' ' });
+        const p = $('#promemoria-stato');
+        svuota(p);
+        p.appendChild(riga('Promemoria del giorno prima', prom.giornoPrima, 'giorno'));
+        p.appendChild(riga('Promemoria di un\'ora prima', prom.oraPrima, 'ora'));
+        p.appendChild(el('span', { classe: 'riga-promemoria', testo: 'Si attivano nella scheda Evento.' }));
+    }
 
     function disegnaConteggi() {
         const k = stato.posta.conteggi || {};
@@ -2604,6 +2674,13 @@
         } catch (e) { erroreGenerico(e, '#msg-email-prova'); }
     }));
 
+    // "email-accoda" risponde { accodate, saltate }: le saltate non si possono raggiungere
+    function testoAccodate(r, messe) {
+        const saltate = Number(r.saltate || 0);
+        return conNumero(Number(r.accodate || 0), 'email ' + messe[0], 'email ' + messe[1]) + ' in coda'
+            + (saltate ? ' (' + conNumero(saltate, 'persona saltata', 'persone saltate') + ': account disattivato o non completo)' : '');
+    }
+
     $('#btn-invia-tutti').addEventListener('click', async () => {
         const n = daInviareAttivi();
         if (!n) return;
@@ -2621,8 +2698,8 @@
             try {
                 const r = await chiama('email-accoda', { idEvento: stato.idEvento, chi: 'da-inviare' });
                 if (!r.accodate) { mostraMsg('#msg-email', 'Nessuna email da inviare: tutti hanno già le credenziali o sono in coda.', 'info'); return; }
-                mostraMsg('#msg-email', conNumero(r.accodate, 'email messa', 'email messe') + ' in coda: l\'invio è partito.', 'ok');
-                avviaCicloEmail(r.accodate);
+                mostraMsg('#msg-email', testoAccodate(r, ['messa', 'messe']) + ': l\'invio è partito.', 'ok');
+                avviaCicloEmail(r.accodate, 'da-inviare');
             } catch (e) { erroreGenerico(e, '#msg-email'); }
         });
     });
@@ -2643,17 +2720,40 @@
             try {
                 const r = await chiama('email-accoda', { idEvento: stato.idEvento, chi: 'non-ricevuta' });
                 if (!r.accodate) { mostraMsg('#msg-email', 'Nessuna email da reinviare.', 'info'); return; }
-                mostraMsg('#msg-email', conNumero(r.accodate, 'email rimessa', 'email rimesse') + ' in coda.', 'ok');
-                avviaCicloEmail(r.accodate);
+                mostraMsg('#msg-email', testoAccodate(r, ['rimessa', 'rimesse']) + '.', 'ok');
+                avviaCicloEmail(r.accodate, 'non-ricevuta');
             } catch (e) { erroreGenerico(e, '#msg-email'); }
         });
     });
 
+    /* «Riprova adesso», solo con la coda ferma per un blocco del server di
+       posta: si chiede di nuovo l'invio con lo stesso pulsante che l'aveva
+       avviato (il servizio toglie il blocco e le persone gia' in coda
+       restano in coda), e il giro riparte subito invece di aspettare quello
+       automatico. Nessuno riceve due email: la presa in carico di ogni
+       persona resta transazionale. */
+    $('#btn-riprova-invio').addEventListener('click', () => conAttesa($('#btn-riprova-invio'), async () => {
+        const chi = stato.posta.ultimoChi || 'da-inviare';
+        try {
+            const r = await chiama('email-accoda', { idEvento: stato.idEvento, chi: chi });
+            stato.posta.coda = Object.assign({}, stato.posta.coda, { bloccato: null, attiva: true });
+            disegnaCodaFerma();
+            mostraMsg('#msg-email', 'Coda rimessa in moto' + (r.accodate ? ' (' + testoAccodate(r, ['aggiunta', 'aggiunte']) + ')' : '') + ': l\'invio riparte.', 'ok');
+            avviaCicloEmail(Number(r.accodate || 0), chi);
+        } catch (e) { erroreGenerico(e, '#msg-email'); }
+    }));
+
     $('#btn-aggiorna-esiti').addEventListener('click', () => conAttesa($('#btn-aggiorna-esiti'), async () => {
         try {
             const r = await chiama('email-esiti', { idEvento: stato.idEvento });
-            if (r.letto === false) mostraMsg('#msg-email', 'Esiti dei rimbalzi non disponibili (manca BREVO_API_KEY sul servizio): le email respinte si vedono solo quando il server di posta le rifiuta subito.', 'attenzione');
-            else mostraMsg('#msg-email', 'Esiti aggiornati da Brevo: ' + conNumero(Number(r.respinte || 0), 'email respinta', 'email respinte') + ' in più.', 'ok');
+            const respinte = Number(r.respinte || 0);
+            if (r.disponibile === false) {
+                mostraMsg('#msg-email', 'Esiti dei rimbalzi non disponibili (manca BREVO_API_KEY sul servizio): le email respinte si vedono solo quando il server di posta le rifiuta subito.', 'attenzione');
+            } else if (r.letto === false) {
+                mostraMsg('#msg-email', 'Esiti non aggiornati: ' + (r.msg || 'Brevo non ha risposto, riprova fra qualche minuto.'), 'errore');
+            } else {
+                mostraMsg('#msg-email', 'Esiti aggiornati da Brevo: ' + (respinte ? conNumero(respinte, 'email respinta', 'email respinte') + ' in più' : 'nessuna nuova email respinta') + '.', 'ok');
+            }
             await aggiornaStatoEmail();
             await caricaPartecipanti();
         } catch (e) { erroreGenerico(e, '#msg-email'); }
@@ -2661,18 +2761,32 @@
 
     /* ---------- l'invio che avanza ----------
        Finche' la pagina e' aperta, una chiamata "email-avanza" ogni 2
-       secondi: ognuna manda un gruppo nel limite di Brevo. Se la pagina si
-       chiude, il lavoro programmato del servizio (ogni 5 minuti) porta a
-       termine la coda: qui si guadagna solo tempo. Il servizio ha un
-       lucchetto: due pagine aperte, o la pagina e il lavoro programmato,
-       non spediscono mai due volte la stessa email. */
-    async function avviaCicloEmail(totale) {
+       secondi; ognuna manda avanti la coda finche' ha tempo (fino a 40 s,
+       a gruppi e con pause). Se la pagina si chiude, il giro automatico del
+       servizio (ogni 5 minuti) porta a termine la coda: qui si guadagna
+       solo tempo. Il servizio ha un lucchetto: due pagine aperte, o la
+       pagina e il giro automatico, non spediscono mai due volte la stessa
+       email. Che cosa puo' rispondere email-avanza:
+         { inviate, respinte, errori, incerti, rimaste, finito }
+         occupato: true   -> un altro giro sta lavorando: lo si segue, piu' piano;
+         inPausa: true    -> la coda e' ferma per un blocco di poco fa e il servizio
+                             aspetta ancora riprovaTraSecondi prima di ritentare;
+         bloccato: '...'  -> il server di posta ha rifiutato per tutti: ci si
+                             ferma (riprova il giro automatico, o «Riprova adesso»);
+         limiteGiorno     -> tetto giornaliero pieno: le restanti partono domani.
+       Insistere da qui su un blocco non servirebbe: con Brevo semmai lo allunga. */
+    async function avviaCicloEmail(totale, chi) {
+        if (chi) stato.posta.ultimoChi = chi;
         const esistente = stato.posta.ciclo;
         if (esistente && esistente.attivo && esistente.idEvento === stato.idEvento) {
             esistente.totale += totale || 0;
             return;
         }
-        const ciclo = stato.posta.ciclo = { attivo: true, idEvento: stato.idEvento, totale: totale || 0, inviate: 0, respinte: 0, errori: 0, rimaste: null, erroriRete: 0, finito: false, nota: '' };
+        const ciclo = stato.posta.ciclo = {
+            attivo: true, idEvento: stato.idEvento, totale: totale || 0,
+            inviate: 0, respinte: 0, errori: 0, incerti: 0, rimaste: null,
+            erroriRete: 0, finito: false, fermo: '', seguito: false, nota: ''
+        };
         aggiornaEtichetteEmail();
         disegnaAvanzamentoEmail(ciclo);
         while (ciclo.attivo && ciclo.idEvento === stato.idEvento && stato.utente) {
@@ -2694,40 +2808,70 @@
             ciclo.inviate += Number(r.inviate || 0);
             ciclo.respinte += Number(r.respinte || 0);
             ciclo.errori += Number(r.errori || 0);
-            ciclo.rimaste = r.rimaste != null ? Number(r.rimaste) : ciclo.rimaste;
-            const fatte = ciclo.inviate + ciclo.respinte + ciclo.errori;
+            ciclo.incerti += Number(r.incerti || 0);
+            if (r.rimaste != null) ciclo.rimaste = Number(r.rimaste);
+            const fatte = ciclo.inviate + ciclo.respinte + ciclo.errori + ciclo.incerti;
             if (ciclo.rimaste != null && fatte + ciclo.rimaste > ciclo.totale) ciclo.totale = fatte + ciclo.rimaste;
-            const blocco = r.bloccato && typeof r.bloccato === 'object' ? r.bloccato : null;
-            ciclo.nota = blocco ? 'Invio fermo: ' + (blocco.motivo || 'problema con il server di posta') + '. Il servizio riprova da solo ogni 5 minuti.'
-                : (r.bloccato ? 'Un altro giro di invio è già in corso (automatico o da un\'altra pagina): seguo l\'avanzamento.' : '');
-            disegnaAvanzamentoEmail(ciclo);
+            let attesa = PAUSA_EMAIL_MS;
+            // l'ordine conta: anche "occupato" e "inPausa" riportano il motivo di un blocco precedente
+            if (r.occupato) {
+                ciclo.seguito = true;
+                ciclo.nota = 'Un altro giro di invio è già in corso (automatico o da un\'altra pagina): seguo l\'avanzamento.';
+                attesa = PAUSA_OCCUPATO_MS;
+            } else if (r.inPausa) {
+                ciclo.fermo = 'bloccato';
+                const s = Number(r.riprovaTraSecondi || 0);
+                ciclo.nota = 'Dopo un blocco del server di posta il servizio aspetta ancora ' + (s ? 'circa ' + conNumero(s, 'secondo', 'secondi') : 'qualche istante')
+                    + ' prima di ritentare.';
+            } else if (r.bloccato) {
+                ciclo.fermo = 'bloccato';
+                ciclo.nota = 'Il server di posta ha rifiutato l\'invio («' + (typeof r.bloccato === 'object' ? r.bloccato.motivo : r.bloccato) + '»).';
+            } else if (r.limiteGiorno) {
+                ciclo.fermo = 'limite';
+            } else if (r.finito || ciclo.rimaste === 0) {
+                ciclo.finito = true;
+            }
+            // prima i numeri del servizio, poi il testo: cosi' dicono la stessa cosa
             try { await aggiornaStatoEmail(); } catch (_) { /* il prossimo giro la riprova */ }
-            if (blocco) break;
-            if (r.finito || ciclo.rimaste === 0) { ciclo.finito = true; break; }
-            const k = stato.posta.risposta || {};
-            if (k.limiteRaggiunto || (stato.posta.coda && stato.posta.coda.limiteRaggiunto)) break;
-            await pausa(r.bloccato ? 5000 : PAUSA_EMAIL_MS);
+            disegnaAvanzamentoEmail(ciclo);
+            if (ciclo.fermo || ciclo.finito) break;
+            // il tetto del giorno puo' essersi riempito anche per un altro giro
+            if ((stato.posta.risposta || {}).limiteRaggiunto) { ciclo.fermo = 'limite'; break; }
+            await pausa(attesa);
         }
         ciclo.attivo = false;
         disegnaAvanzamentoEmail(ciclo);
         aggiornaEtichetteEmail();
+        // "l'invio è partito" non serve piu': adesso parla la barra dell'avanzamento
+        if (ciclo.finito && ciclo.idEvento === stato.idEvento) nascondiMsg('#msg-email');
         if (ciclo.idEvento === stato.idEvento && stato.utente) caricaPartecipanti();
     }
 
     function disegnaAvanzamentoEmail(ciclo) {
         const box = $('#avanzamento-email');
         box.hidden = false;
-        const fatte = ciclo.inviate + ciclo.respinte + ciclo.errori;
+        const fatte = ciclo.inviate + ciclo.respinte + ciclo.errori + ciclo.incerti;
         const totale = Math.max(ciclo.totale, fatte + (ciclo.rimaste || 0));
         const pct = ciclo.finito ? 100 : (totale ? Math.round(Math.max(0, totale - (ciclo.rimaste == null ? totale : ciclo.rimaste)) * 100 / totale) : 0);
         box.classList.toggle('finito', ciclo.finito);
+        box.classList.toggle('fermo', !!ciclo.fermo);
         box.querySelector('.barra').setAttribute('aria-valuenow', String(pct));
         box.querySelector('.barra-piena').style.width = pct + '%';
+        const dettagli = conNumero(ciclo.inviate, 'inviata', 'inviate') + ', ' + conNumero(ciclo.respinte, 'respinta', 'respinte') + ', '
+            + conNumero(ciclo.errori, 'errore', 'errori') + (ciclo.incerti ? ', ' + conNumero(ciclo.incerti, 'incerta', 'incerte') : '');
+        const restano = ciclo.rimaste ? ' · restano ' + ciclo.rimaste.toLocaleString('it-IT') : '';
         let testo;
-        const dettagli = conNumero(ciclo.inviate, 'inviata', 'inviate') + ', ' + conNumero(ciclo.respinte, 'respinta', 'respinte') + ', ' + conNumero(ciclo.errori, 'errore', 'errori');
-        if (ciclo.finito) testo = 'Invio completato: ' + dettagli + '.';
-        else if (ciclo.attivo) testo = 'Invio in corso: ' + dettagli + (ciclo.rimaste != null ? ' · restano ' + ciclo.rimaste : '') + '.';
-        else testo = 'Invio seguito da questa pagina fermo: ' + dettagli + (ciclo.rimaste ? ' · restano ' + ciclo.rimaste + ' (le manda il servizio ogni 5 minuti)' : '') + '.';
+        if (ciclo.finito && ciclo.seguito) {
+            // ha spedito (anche) un altro giro: contano i numeri dell'evento, non quelli di questa pagina
+            const k = stato.posta.conteggi || {};
+            testo = 'Invio completato, anche dal giro automatico: in tutto ' + conNumero(Number(k.inviata || 0), 'inviata', 'inviate') + ', '
+                + conNumero(Number(k.respinta || 0), 'respinta', 'respinte') + ', ' + conNumero(Number(k.errore || 0), 'errore', 'errori') + '.';
+        } else if (ciclo.finito) testo = 'Invio completato: ' + dettagli + '.';
+        else if (ciclo.fermo === 'bloccato') testo = 'Invio fermo per un problema del server di posta: ' + dettagli + restano + '.';
+        else if (ciclo.fermo === 'limite') testo = 'Invio fermo per il limite di oggi: ' + dettagli + restano + ' (partono domani da sole).';
+        else if (ciclo.attivo) testo = 'Invio in corso: ' + dettagli + restano + '.';
+        else testo = 'Invio seguito da questa pagina fermo: ' + dettagli + (ciclo.rimaste ? restano + ' (le manda il servizio ogni 5 minuti)' : '') + '.';
+        if (ciclo.incerti) testo += ' Le email «incerte» potrebbero essere arrivate: non si rimandano da sole, guardale nella scheda Partecipanti.';
         box.querySelector('.avanzamento-testo').textContent = testo + (ciclo.nota ? ' ' + ciclo.nota : '');
     }
 
@@ -2761,7 +2905,8 @@
                 ]);
             });
             righe.push([]);
-            righe.push([NOTA_MINUTI]);
+            // la nota la scrive il servizio (che limita i minuti), questa e' la stessa se manca
+            righe.push([r.nota || NOTA_MINUTI]);
             const accessi = (r.accessi || []).slice().sort((a, b) => (a.quando || 0) - (b.quando || 0));
             const righeAccessi = [COLONNE_ACCESSI].concat(accessi.map(a => [dataOra(a.quando), a.nomeUtente || '', a.nome || '', a.cognome || '', a.azienda || '', a.dispositivo || '']));
 
