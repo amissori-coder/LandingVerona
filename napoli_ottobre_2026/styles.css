@@ -2065,14 +2065,18 @@ ul {
     flex-wrap: wrap;
 }
 
-/* La riga Sponsor porta quattro marchi, due dei quali sono lockup orizzontali
-   molto larghi: in fila indiana nei 928px utili del palco (960 meno i 16 di
-   padding per lato) resterebbero cosi' piccoli da non leggersi. Si tengono
-   percio' su due righe da due, i marchi compatti sopra e i due lockup sotto,
-   e ciascuno mantiene una misura leggibile. */
+/* La riga Sponsor porta ormai undici marchi di formato molto diverso: lockup
+   impilati quasi quadrati, logotipi orizzontali lunghissimi e un lockup
+   verticale. Stretta a 560px si allungherebbe in cinque o sei file; si apre
+   percio' a tutti i 928px utili del palco (960 meno i 16 di padding per lato)
+   e si lascia che il flex vada a capo da solo: restano tre file da 3, 3 e 5.
+   Il passo orizzontale resta a 48px, quello originario, e la larghezza piena
+   serve tutta: la terza fila misura 918px e con 880 l'ultimo marchio
+   traboccava su una riga tutta sua. Il passo verticale e' piu' stretto
+   perche' le file si leggano come file e non come una griglia. */
 .partners-logos-sponsor {
-    gap: 48px;
-    max-width: 560px;
+    gap: 44px 48px;
+    max-width: 928px;
 }
 
 .partner-brand {
@@ -2191,6 +2195,40 @@ ul {
 .partner-brand-img-spaceup {
     max-width: 130px;
     max-height: 104px;
+}
+
+/* Edilsivisa e' un lockup impilato quasi quadrato (1,0:1), marchio pieno sopra
+   e logotipo sotto: come Petti&co e Space Up il limite che conta e' l'altezza,
+   la larghezza e' da guardia. */
+.partner-brand-img-edilsivisa {
+    max-width: 116px;
+    max-height: 104px;
+}
+
+/* Termitaly e' un logotipo orizzontale lungo (3,8:1) con il payoff sulla
+   seconda riga: come Fineco il limite che conta e' la larghezza, l'altezza
+   resta solo da guardia. */
+.partner-brand-img-termitaly {
+    max-width: 240px;
+    max-height: 64px;
+}
+
+/* DGV accosta un marchio pieno al logotipo (2,0:1): il pieno rosso e' molto
+   compatto e si impone gia' da solo, percio' il blocco sta sotto la misura
+   dei lockup orizzontali piu' chiari. */
+.partner-brand-img-dgv {
+    max-width: 176px;
+    max-height: 90px;
+}
+
+/* Wolters Kluwer e' l'unico lockup verticale della sezione (0,7:1): il tondo
+   sopra e il logotipo su due righe sotto. Pareggiarlo in altezza agli impilati
+   quasi quadrati lo ridurrebbe a 72px di larghezza e le due righe di testo
+   diventerebbero illeggibili; gli si concede percio' altezza in piu', che la
+   sagoma stretta ripaga occupando comunque meno spazio dei vicini. */
+.partner-brand-img-wolters {
+    max-width: 96px;
+    max-height: 132px;
 }
 
 /* Sponsor tecnico. RS Group e' l'unico marchio della sezione su fondo pieno
@@ -2835,6 +2873,26 @@ ul {
         max-height: 94px;
     }
 
+    .partner-brand-img-edilsivisa {
+        max-width: 104px;
+        max-height: 94px;
+    }
+
+    .partner-brand-img-termitaly {
+        max-width: 216px;
+        max-height: 58px;
+    }
+
+    .partner-brand-img-dgv {
+        max-width: 158px;
+        max-height: 81px;
+    }
+
+    .partner-brand-img-wolters {
+        max-width: 86px;
+        max-height: 119px;
+    }
+
     .partner-brand-img-rsgroup {
         max-width: 150px;
         max-height: 150px;
@@ -3043,6 +3101,26 @@ ul {
     .partner-brand-img-spaceup {
         max-width: 108px;
         max-height: 86px;
+    }
+
+    .partner-brand-img-edilsivisa {
+        max-width: 96px;
+        max-height: 86px;
+    }
+
+    .partner-brand-img-termitaly {
+        max-width: 199px;
+        max-height: 53px;
+    }
+
+    .partner-brand-img-dgv {
+        max-width: 146px;
+        max-height: 75px;
+    }
+
+    .partner-brand-img-wolters {
+        max-width: 80px;
+        max-height: 110px;
     }
 
     .partner-brand-img-rsgroup {
