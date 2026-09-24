@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=15">
+    <link rel="stylesheet" href="styles.css?v=16">
 
     <!-- Structured Data (JSON-LD): BusinessEvent -->
     <script type="application/ld+json">
@@ -171,6 +171,7 @@
                 <li><a href="#sede">Sede</a></li>
                 <li><a href="#partner">Organizzazione</a></li>
                 <li><a href="../assets/Brochure-Revilaw.pdf" download class="nav-brochure">Scarica la brochure</a></li>
+                <li><a href="/diretta/" class="nav-diretta" id="navDiretta"><span class="indicatore-live" hidden><span class="indicatore-live-punto" aria-hidden="true"></span>IN DIRETTA</span><span class="nav-diretta-testo">Diretta</span></a></li>
                 <li><a href="#accreditamento" class="nav-cta">Save the date</a></li>
             </ul>
         </div>
@@ -250,6 +251,38 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Scarica il save the date
             </a>
+        </div>
+    </section>
+
+    <!-- Segui la diretta: l'accesso all'area della diretta (/diretta/).
+         Le credenziali le manda il servizio via email agli iscritti online;
+         l'indicatore rosso IN DIRETTA si accende da solo mentre si e' in
+         onda (/assets/diretta-stato.js, solo il giorno dell'evento). -->
+    <section class="diretta-fascia" id="diretta" aria-labelledby="direttaTitolo">
+        <div class="container">
+            <div class="diretta-riquadro">
+                <div class="diretta-testo">
+                    <span class="diretta-occhiello">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 19.1a10 10 0 0 1 0-14.2"/><path d="M7.8 16.2a6 6 0 0 1 0-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4"/><path d="M19.1 4.9a10 10 0 0 1 0 14.2"/></svg>
+                        Diretta online &middot; 2 ottobre 2026
+                    </span>
+                    <h2 class="diretta-titolo" id="direttaTitolo">Segui la diretta</h2>
+                    <p>Venerd&igrave; 2 ottobre, dalle 9.00 alle 17.30, il convegno si segue anche online, in diretta, da computer, tablet o telefono.</p>
+                    <p>Le credenziali, <strong>nome utente e password</strong>, arrivano <strong>via email agli iscritti online</strong> nei giorni precedenti l&rsquo;evento. Il giorno del convegno premi &laquo;Accedi alla diretta&raquo; e inseriscile: la pagina resta collegata anche se la chiudi e la riapri.</p>
+                </div>
+                <div class="diretta-azione">
+                    <a href="/diretta/" class="btn-diretta" id="btnDirettaNapoli">
+                        <span class="indicatore-live" hidden><span class="indicatore-live-punto" aria-hidden="true"></span>IN DIRETTA</span>
+                        <span class="btn-diretta-testo">Accedi alla diretta</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                    <ul class="diretta-note">
+                        <li>Non trovi l&rsquo;email? Guarda anche nella posta indesiderata.</li>
+                        <li>Password dimenticata? La reimposti dalla pagina di accesso.</li>
+                        <li>Non ti sei ancora iscritto? <a href="#accreditamento">Iscriviti online</a></li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -1335,5 +1368,6 @@
     </footer>
 
     <script src="script.js"></script>
+    <script src="/assets/diretta-stato.js" defer></script>
 </body>
 </html>

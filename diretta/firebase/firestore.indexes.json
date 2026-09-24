@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "presenze",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "idEvento", "order": "ASCENDING" },
+        { "fieldPath": "ultimo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "accessi",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "idEvento", "order": "ASCENDING" },
+        { "fieldPath": "quando", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

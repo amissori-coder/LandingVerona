@@ -1,0 +1,142 @@
+rules_version = '2';
+
+/* ============================================================
+   Regole Firestore della Diretta (progetto "ngb-eventi")
+   ------------------------------------------------------------
+   Il progetto e' separato da quello dell'area riservata: qui
+   dentro ci sono solo eventi, partecipanti e presenze.
+
+   Chi legge che cosa:
+   - un partecipante legge il PROPRIO profilo e l'evento (o gli
+     eventi) a cui e' iscritto, e nient'altro. Gli eventi a cui e'
+     iscritto stanno nel suo token (custom claim "eventi"), messo
+     dal server: nessuna lettura in piu' per controllarlo;
+   - un gestore (claim "gestore", messo dal server solo alle email
+     dell'elenco DIRETTA_ADMIN_EMAILS) legge gli eventi, per
+     l'anteprima "vedi come un partecipante";
+   - tutto il resto (nomi utente, indirizzi, accessi, tentativi,
+     code di invio) lo legge e lo scrive SOLO il server, che usa la
+     chiave di servizio e non passa da queste regole.
+
+   L'unica scrittura concessa ai browser e' il segnale di presenza,
+   al massimo uno ogni 50 secondi, con l'orario messo dal server di
+   Firebase (request.time) e non dal telefono di chi scrive.
+   ============================================================ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- chi e' ----------
+    function autenticato() {
+      return request.auth != null;
+    }
+    function gestore() {
+      return autenticato() && request.auth.token.get('gestore', false) == true;
+    }
+    function iscrittoA(idEvento) {
+      return autenticato()
+        && request.auth.token.get('eventi', []) is list
+        && idEvento in request.auth.token.get('eventi', []);
+    }
+    /* Lo stato dell'account (attivo o disattivato) e la sessione del
+       dispositivo ammesso stanno in sessioni/{uid}, che il browser non
+       puo' leggere: cosi' nessuno puo' copiarsi la sessione di un altro
+       dispositivo per aggirare "un solo dispositivo". */
+    function sessione() {
+      return get(/databases/$(database)/documents/sessioni/$(request.auth.uid)).data;
+    }
+    function accountAttivo() {
+      return sessione().stato == 'attivo';
+    }
+
+    // ---------- eventi: titolo, orari, stato, video ----------
+    match /eventi/{idEvento} {
+      // un account disattivato smette di leggere l'evento anche se il suo
+      // token (che dura fino a un'ora) e' ancora valido
+      allow get: if (iscrittoA(idEvento) && accountAttivo()) || gestore();
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // ---------- il proprio profilo, e solo quello ----------
+    match /partecipanti/{uid} {
+      allow get: if autenticato() && request.auth.uid == uid;
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // ---------- presenza: il contatore dei collegati e i minuti ----------
+    /* Un documento per persona e per evento: presenze/{idEvento}_{uid}.
+       Due forme di scrittura:
+       - "nuovo collegamento" (apertura della pagina, ritorno dopo una
+         pausa lunga, altro dispositivo): collegamenti +1, minuti fermi;
+       - "continua" (ogni 60 secondi): secondi +60 se l'evento e' in onda,
+         oppure fermi; solo se l'ultimo segnale e' di al massimo 150 s fa,
+         cosi' il tempo in cui la pagina era chiusa non si conta mai.
+       In entrambi i casi: non prima di 50 s dal segnale precedente. Il
+       minuto in piu' vale solo se sono passati almeno 58 s e se l'evento
+       e' davvero in onda (lo si rilegge qui, non ci si fida del browser):
+       i minuti servono agli attestati e non devono potersi gonfiare.
+       La sessione si rilegge a ogni segnale: un account disattivato, o
+       una sessione soppiantata da un altro dispositivo (eventi a un
+       solo dispositivo), smette subito di poter scrivere, e la pagina
+       se ne accorge. */
+    function sessioneValida(idSessione) {
+      let s = sessione();
+      return s.stato == 'attivo'
+        && (s.get('sessioneAttiva', null) == null || s.sessioneAttiva == idSessione);
+    }
+    function inOnda(idEvento) {
+      return get(/databases/$(database)/documents/eventi/$(idEvento)).data.stato == 'in_onda';
+    }
+    function sessioneBenFatta(s) {
+      return s is string && s.size() > 0 && s.size() <= 40;
+    }
+
+    match /presenze/{idPresenza} {
+      allow read: if false;
+      allow delete: if false;
+
+      allow create: if autenticato()
+        && request.resource.data.keys().hasOnly(['uid', 'idEvento', 'primo', 'ultimo', 'secondi', 'collegamenti', 'sessione'])
+        && request.resource.data.keys().hasAll(['uid', 'idEvento', 'primo', 'ultimo', 'secondi', 'collegamenti', 'sessione'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.idEvento is string
+        && idPresenza == request.resource.data.idEvento + '_' + request.auth.uid
+        && iscrittoA(request.resource.data.idEvento)
+        && request.resource.data.primo == request.time
+        && request.resource.data.ultimo == request.time
+        && request.resource.data.secondi == 0
+        && request.resource.data.collegamenti == 1
+        && sessioneBenFatta(request.resource.data.sessione)
+        && sessioneValida(request.resource.data.sessione);
+
+      allow update: if autenticato()
+        && resource.data.uid == request.auth.uid
+        && iscrittoA(resource.data.idEvento)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimo', 'secondi', 'collegamenti', 'sessione'])
+        && request.resource.data.ultimo == request.time
+        && request.time >= resource.data.ultimo + duration.value(50, 's')
+        && sessioneBenFatta(request.resource.data.sessione)
+        && (
+          // continua: stessa sessione, segnale recente, al massimo un minuto in piu'
+          (request.resource.data.collegamenti == resource.data.collegamenti
+            && request.resource.data.sessione == resource.data.sessione
+            && request.time <= resource.data.ultimo + duration.value(150, 's')
+            && (request.resource.data.secondi == resource.data.secondi
+              || (request.resource.data.secondi == resource.data.secondi + 60
+                && request.time >= resource.data.ultimo + duration.value(58, 's')
+                && inOnda(resource.data.idEvento))))
+          ||
+          // nuovo collegamento: un collegamento in piu', minuti fermi
+          (request.resource.data.collegamenti == resource.data.collegamenti + 1
+            && request.resource.data.secondi == resource.data.secondi)
+        )
+        && sessioneValida(request.resource.data.sessione);
+    }
+
+    // ---------- tutto il resto: solo il server ----------
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}

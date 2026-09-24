@@ -4066,3 +4066,373 @@ ul {
         font-size: 0.74rem;
     }
 }
+
+/* ===== Diretta: voce di menu, sezione "Segui la diretta", indicatore =====
+   La diretta del convegno si apre su /diretta/, un'area a parte con le
+   credenziali mandate via email agli iscritti online. Da questa pagina ci
+   sono due accessi: la voce "Diretta" nel menu, accanto a "Save the date",
+   e la fascia subito sotto la hero. Tutti e due portano l'indicatore rosso
+   IN DIRETTA (.indicatore-live), che nasce nascosto e si accende solo
+   mentre si e' in onda: lo decide /assets/diretta-stato.js, che nel giorno
+   dell'evento scrive anche lo stato in <html data-diretta-stato="...">. */
+
+/* L'attributo hidden deve vincere sul display dei componenti qui sotto. */
+.indicatore-live[hidden] {
+    display: none !important;
+}
+
+.indicatore-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 100px;
+    background: #C8203F;
+    color: var(--white);
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(200, 32, 63, 0.35);
+}
+
+.indicatore-live-punto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--white);
+    flex-shrink: 0;
+    animation: direttaPunto 1.6s ease-out infinite;
+}
+
+@keyframes direttaPunto {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.75); }
+    70%  { box-shadow: 0 0 0 7px rgba(255, 255, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* --- Voce di menu: pillola rossa, si distingue da brochure e save the date --- */
+.nav-menu a.nav-diretta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1.5px solid var(--accent-light);
+    border-radius: 100px;
+    background: rgba(177, 33, 59, 0.28);
+    color: var(--white);
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.nav-menu a.nav-diretta::after { display: none !important; }
+
+.nav-menu a.nav-diretta:hover,
+.nav-menu a.nav-diretta:focus-visible {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--white);
+}
+
+.nav-menu a.nav-diretta:focus-visible {
+    outline: 2px solid var(--white);
+    outline-offset: 2px;
+}
+
+/* pallino rosso fisso davanti a "Diretta": in onda diventa quello bianco
+   che pulsa, dentro l'indicatore */
+.nav-diretta-testo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-diretta-testo::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    box-shadow: 0 0 0 3px rgba(214, 58, 85, 0.25);
+    flex-shrink: 0;
+}
+
+/* in onda la pillola diventa rossa piena e dice solo IN DIRETTA */
+.nav-menu a.nav-diretta .indicatore-live {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    font-size: 0.78rem;
+    letter-spacing: 1.2px;
+}
+
+html[data-diretta-stato="in_onda"] .nav-diretta-testo {
+    display: none;
+}
+
+html[data-diretta-stato="in_onda"] .nav-menu a.nav-diretta {
+    background: #C8203F;
+    border-color: #C8203F;
+    animation: direttaAlone 2.2s ease-out infinite;
+}
+
+@keyframes direttaAlone {
+    0%   { box-shadow: 0 0 0 0 rgba(214, 58, 85, 0.55); }
+    70%  { box-shadow: 0 0 0 10px rgba(214, 58, 85, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(214, 58, 85, 0); }
+}
+
+/* --- Fascia "Segui la diretta", subito dopo la hero --- */
+.diretta-fascia {
+    position: relative;
+    padding: 64px 0;
+    background: var(--white);
+    scroll-margin-top: 70px;
+}
+
+.diretta-riquadro {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 48px;
+    padding: 44px 48px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #0A1C2E 0%, #164068 55%, #1F5688 100%);
+    color: var(--white);
+    box-shadow: var(--shadow-xl);
+}
+
+/* filo rosso in alto e alone chiaro in un angolo, come le testate del sito */
+.diretta-riquadro::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light) 45%, rgba(214, 58, 85, 0));
+}
+
+.diretta-riquadro::after {
+    content: '';
+    position: absolute;
+    top: -120px;
+    right: -90px;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(122, 178, 232, 0.26), rgba(122, 178, 232, 0) 68%);
+    pointer-events: none;
+}
+
+.diretta-testo,
+.diretta-azione {
+    position: relative;
+    z-index: 1;
+}
+
+.diretta-occhiello {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 6px 13px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #DCE9F6;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+}
+
+.diretta-occhiello svg {
+    color: var(--accent-light);
+    flex-shrink: 0;
+}
+
+.diretta-titolo {
+    font-family: var(--font-display);
+    font-size: clamp(1.7rem, 3.2vw, 2.3rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--white);
+    margin-bottom: 14px;
+}
+
+.diretta-testo p {
+    font-size: 0.97rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.78);
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.diretta-testo p + p {
+    margin-top: 10px;
+}
+
+.diretta-testo strong {
+    color: var(--white);
+    font-weight: 600;
+}
+
+.diretta-azione {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+}
+
+.btn-diretta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 18px 26px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--white);
+    background: var(--white);
+    color: var(--navy-dark);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-align: center;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+    transition: background 0.3s ease, color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-diretta svg {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.btn-diretta:hover,
+.btn-diretta:focus-visible {
+    background: transparent;
+    color: var(--white);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+}
+
+.btn-diretta:hover svg {
+    transform: translateX(3px);
+}
+
+.btn-diretta:focus-visible {
+    outline: 2px solid var(--accent-light);
+    outline-offset: 3px;
+}
+
+/* in onda il pulsante si accende di rosso intorno */
+html[data-diretta-stato="in_onda"] .btn-diretta {
+    animation: direttaAlone 2.2s ease-out infinite;
+}
+
+.diretta-note {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding-left: 2px;
+}
+
+.diretta-note li {
+    position: relative;
+    padding-left: 16px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.diretta-note li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.62em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-light);
+}
+
+.diretta-note a {
+    color: var(--white);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.diretta-note a:hover {
+    color: #DCE9F6;
+}
+
+/* Menu a tendina (fino a 999px): la voce Diretta diventa un pulsante
+   largo quanto il menu, subito sopra "Save the date", ben visibile. */
+@media (max-width: 999px) {
+    .nav-menu a.nav-diretta {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        margin-top: 10px;
+        padding: 13px 22px;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+}
+
+@media (max-width: 860px) {
+    .diretta-riquadro {
+        grid-template-columns: 1fr;
+        gap: 28px;
+        padding: 36px 32px;
+    }
+}
+
+@media (max-width: 560px) {
+    .diretta-fascia {
+        padding: 40px 0;
+    }
+
+    .diretta-riquadro {
+        padding: 30px 22px 26px;
+    }
+
+    .diretta-testo p {
+        font-size: 0.92rem;
+    }
+
+    .btn-diretta {
+        padding: 16px 18px;
+        font-size: 0.88rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .indicatore-live-punto,
+    html[data-diretta-stato="in_onda"] .nav-menu a.nav-diretta,
+    html[data-diretta-stato="in_onda"] .btn-diretta {
+        animation: none;
+    }
+
+    .btn-diretta,
+    .btn-diretta svg {
+        transition: none;
+    }
+
+    .btn-diretta:hover,
+    .btn-diretta:focus-visible,
+    .btn-diretta:hover svg {
+        transform: none;
+    }
+}

@@ -7,6 +7,8 @@
  *   prima, imposta window.__btPromoPlanned): compare solo quando quello non
  *   deve comparire (es. disattivato con "non mostrare piu"), e quando compare
  *   marca come visto anche quel popup (mai due popup nella stessa sessione).
+ * - Cede la precedenza anche al popup della diretta (diretta-popup.js,
+ *   caricato prima, imposta window.__dirPromoPlanned) nei giorni dell'evento.
  * - Entra a pagina carica, con transizione morbida (doppio rAF, ease-out lungo).
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo.
  * Percorsi root-relative: il sito e servito dalla radice del dominio.
@@ -45,6 +47,9 @@
   // Il popup Bando-tipo ha la precedenza sulla home: se sta per comparire
   // (bando-tipo-popup.js e caricato prima e imposta il flag), non sovrapporsi.
   if (window.__btPromoPlanned) return;
+  // Lo stesso vale per il popup della diretta, che ha la precedenza su tutti
+  // (diretta-popup.js e caricato prima e imposta il flag).
+  if (window.__dirPromoPlanned) return;
 
   // --- Stili (iniettati una sola volta) ---------------------------------
   var css = ''
