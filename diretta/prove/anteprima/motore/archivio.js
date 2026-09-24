@@ -192,7 +192,7 @@ function soddisfa(valore, op, atteso) {
 }
 
 /* ---------------- l'archivio ---------------- */
-const CHIAVE_SALVATAGGIO = 'ngbAnteprimaDiretta.v1';
+const CHIAVE_SALVATAGGIO = 'ngbAnteprimaDiretta.v2';   // v2: evento con il link della web TV
 
 function inJson(v) {
     if (v instanceof Timestamp) return { __ts: v.toMillis() };

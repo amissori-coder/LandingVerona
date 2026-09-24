@@ -558,10 +558,18 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
         vero(ripreso.stato === 'in_onda' && ripreso.videoId === 'abcdefghijk' && ripreso.ripresa === '', 'di nuovo in onda: il video torna');
         const nuovoVideo = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://youtu.be/zyxwvutsrqp?si=condiviso' }, tokG);
         vero(nuovoVideo.stato === 200 && (await db.collection('eventi').doc(EVENTO).get()).data().videoId === 'zyxwvutsrqp', 'cambio del video in onda: chi guarda riceve il nuovo id');
-        const altroPlayer = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://vimeo.com/123456789', videoId: '123456789' }, tokG);
-        vero(altroPlayer.stato === 200 && altroPlayer.dati.evento.videoId === '123456789', 'un id mandato dalla gestione (altro player) e\' accettato');
-        const linkCattivo = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://example.com/video' }, tokG);
-        uguale(linkCattivo.stato, 400, 'un link che non e\' di YouTube, senza id: 400');
+        // la web TV: il link HLS e il player incorporato si salvano come indirizzo (lo decide il servizio, non la pagina)
+        const webtv = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8?token=x', videoId: 'altro' }, tokG);
+        vero(webtv.stato === 200 && (await db.collection('eventi').doc(EVENTO).get()).data().videoId === 'https://webtv.esempio.it/live/napoli/playlist.m3u8?token=x',
+            'il link HLS della web TV: chi guarda riceve l\'indirizzo (l\'id mandato dalla pagina non conta)');
+        const incorporato = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '<iframe src="https://player.webtv.esempio.it/embed/9?a=1&amp;b=2"></iframe>' }, tokG);
+        vero(incorporato.stato === 200 && incorporato.dati.evento.videoId === 'https://player.webtv.esempio.it/embed/9?a=1&b=2', 'il codice da incorporare della web TV: si salva l\'indirizzo del player');
+        const altroPlayer = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '', videoId: 'vimeo-123456789' }, tokG);
+        vero(altroPlayer.stato === 200 && altroPlayer.dati.evento.videoId === 'vimeo-123456789', 'un id mandato dalla gestione senza link (un player futuro) e\' accettato');
+        const linkHttp = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'http://example.com/diretta.m3u8' }, tokG);
+        vero(linkHttp.stato === 400 && /https:\/\//.test(linkHttp.dati.msg || ''), 'un link http: 400 con il motivo');
+        const linkRtmp = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'rtmp://ingest.example.com/live/chiave' }, tokG);
+        vero(linkRtmp.stato === 400 && /RTMP/.test(linkRtmp.dati.msg || ''), 'un link per trasmettere (RTMP): 400 con il motivo');
         await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://www.youtube.com/live/abcdefghijk' }, tokG);
 
         const conn = await gestione({ azione: 'connessi', idEvento: EVENTO }, tokG);

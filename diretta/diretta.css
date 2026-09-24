@@ -976,7 +976,7 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
     /* con la scelta della qualita' (web TV) sul telefono non c'e' posto per il
        cursore del volume: il volume lo danno i tasti del telefono, il muto resta */
     .barra-comandi:has(.sel-qualita:not([hidden])) .volume { display: none; }
-    .sel-qualita { max-width: 7.2em; padding: 4px 4px; font-size: 13px; }
+    .sel-qualita { max-width: 8.4em; padding: 4px 2px; font-size: 12.5px; }
     /* «Live» a vista; «Torna in diretta» resta il nome del pulsante per i
        lettori di schermo (nascosto solo alla vista, non con display:none) */
     .btn-live .testo-lungo {
