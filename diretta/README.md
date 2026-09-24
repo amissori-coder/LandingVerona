@@ -57,7 +57,7 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 | File | Che cosa fa |
 |---|---|
 | `diretta/index.html`, `diretta.css`, `diretta.js` | la pagina dei partecipanti |
-| `diretta/player-youtube.js` | il player: **l'unico file che parla con YouTube** (vedi [§11](#11-cambiare-piattaforma-video)) |
+| `diretta/player-youtube.js` | il player: **l'unico codice che parla con YouTube**, usato da pagina e regia (vedi [§11](#11-cambiare-piattaforma-video)) |
 | `diretta/nome-utente.js` | la regola del nome utente, **una sola** per tutto il sistema |
 | `diretta/config.js` | configurazione web del progetto Firebase e indirizzo del servizio |
 | `diretta/reimposta.html` | scelta della nuova password |
@@ -66,6 +66,13 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 | `diretta/prove/` | prove automatiche (emulatori, Playwright, carico) |
 | `assets/diretta-stato.js` | legge "in onda sì/no" con la cache, per popup e pulsante |
 | `assets/diretta-popup.js` | il popup "Diretta Napoli" della home |
+
+**La cache dei file.** GitHub Pages fa tenere i file ai browser per 10 minuti,
+e non si può cambiare. Quando modifichi un file di `diretta/`, cambia il `?v=`
+nei collegamenti delle pagine che lo caricano (`index.html`, `reimposta.html`,
+`gestione/index.html`), così nessuno si ritrova con file di versioni diverse.
+Le modifiche ad `assets/diretta-stato.js` (date e orari di `EVENTO`) arrivano
+ai visitatori entro 10 minuti.
 
 **Funzioni nuove del servizio** (`email-service/`, stesso progetto Vercel di
 sempre, nomi che cominciano con `diretta-`; le funzioni esistenti non sono
@@ -116,9 +123,9 @@ attestati) da solo fa 1000 × 60 = 60.000 scritture all'ora: Spark ne concede
 **20.000 al giorno** e le finirebbe dopo **circa 20 minuti di diretta**. Quando
 la quota finisce, Firestore rifiuta **tutto**, accessi compresi, fino alla
 mezzanotte del Pacifico (le 9.00 di Roma). I conti completi sono in
-[§9](#9-tenuta-con-1000-persone-stime-e-piani): su Blaze la giornata costa
-**meno di 1 euro** (la quota gratuita giornaliera resta, si paga solo quello che
-la supera).
+[§9](#9-tenuta-con-1000-persone-stime-e-piani): su Blaze una diretta di 3 ore
+costa **meno di 1 $** e la giornata intera di Napoli **circa 1,2 $** (poco più
+di 1 €): la quota gratuita giornaliera resta, si paga solo quello che la supera.
 
 Blaze non ha un tetto di spesa: per questo si imposta un **avviso di budget**
 (passo 3 qui sotto).
@@ -158,6 +165,11 @@ Blaze non ha un tetto di spesa: per questo si imposta un **avviso di budget**
    posto di `DA_COMPILARE` (e correggi `authDomain`, `projectId`,
    `storageBucket` se l'ID del progetto è diverso). Finché ci sono
    `DA_COMPILARE` la pagina dice "Diretta non ancora configurata".
+   Nello stesso file compila **`assistenza.email` e `assistenza.telefono`**
+   con gli stessi valori di `DIRETTA_ASSISTENZA_EMAIL` e
+   `DIRETTA_ASSISTENZA_TELEFONO` (§3): le variabili di Vercel valgono per le
+   email, `config.js` per le pagine. Senza, le pagine mostrano solo
+   `info@nextgenerationbusiness.it`.
 7. **Regole e indici.** Dal computer, nella cartella `diretta/firebase/`:
    ```bash
    npx firebase-tools login
@@ -213,7 +225,7 @@ Progetto Vercel di sempre (`revilaw-email`, cartella `email-service`) →
 |---|---|---|
 | `DIRETTA_PROGETTO_ATTESO` | `ngb-eventi` | l'ID del progetto, se è diverso (§2.2 passo 1): la chiave di servizio deve essere di quel progetto |
 | `DIRETTA_ASSISTENZA_EMAIL` | `info@nextgenerationbusiness.it` | il contatto per l'assistenza nelle email (anche Reply-To) |
-| `DIRETTA_ASSISTENZA_TELEFONO` | *(vuoto)* | un numero di telefono per l'assistenza, se c'è |
+| `DIRETTA_ASSISTENZA_TELEFONO` | *(vuoto)* | un numero di telefono per l'assistenza, se c'è (nelle email; per le pagine scrivilo anche in `diretta/config.js`) |
 | `DIRETTA_DOMINIO_TECNICO` | `utenti.diretta.nextgenerationbusiness.it` | il dominio delle email tecniche (non riceve posta, non va creato) |
 | `DIRETTA_MAX_LOTTO` | `40` | quante email per giro della coda |
 | `DIRETTA_CONCORRENZA` | `4` | quante email in parallelo dentro un giro |
@@ -382,7 +394,9 @@ si vedono.
    anche "Nominativo" in una colonna sola, "E-mail", "Società"…: se la pagina
    non le riconosce, ti chiede di abbinarle; se il file ha più fogli, di
    sceglierlo). C'è un file di esempio con tutti i casi:
-   `diretta/prove/esempio-partecipanti.csv`.
+   `diretta/prove/esempio-partecipanti.csv` (indirizzi finti su domini che non
+   ricevono posta: serve solo a vedere l'anteprima in un evento di prova, **non
+   inviare le credenziali agli indirizzi del file**).
    L'**anteprima** mostra riga per riga il nome utente che verrà assegnato e i
    problemi, a colori: email mancanti o non valide, nome o cognome vuoti,
    doppioni nel file, persone già presenti, omonimi con il numero proposto (e chi
@@ -537,6 +551,13 @@ non si scopre chi è iscritto.
   largo per nome utente da qualunque provenienza (50 errori all'ora) e uno per
   indirizzo IP. Il blocco non è solo sul nome, apposta: altrimenti chiunque
   potrebbe tenere fuori una persona sbagliando la password al posto suo.
+- **Risposte uguali**: "password dimenticata" e "primo accesso" dei gestori
+  rispondono sempre con lo stesso testo e in 2,5-2,9 secondi, così non si
+  scopre chi è iscritto. Limite noto: se Brevo o Google rispondono molto
+  lentamente, la risposta per un account esistente può arrivare più tardi (per
+  evitarlo del tutto servirebbe spedire dopo la risposta con `waitUntil` di
+  Vercel, una dipendenza in più che non abbiamo aggiunto); ogni account può
+  generare al massimo 3 di queste email al giorno.
 - **Gestori**: l'elenco sta nella variabile `DIRETTA_ADMIN_EMAILS` e si
   controlla a ogni chiamata; l'account di gestione lo attiva solo il servizio
   ("Primo accesso o password dimenticata" nella pagina di gestione), e chi
@@ -699,24 +720,38 @@ caricamento, email, popup della home, sezione di Napoli). Si rifanno con
 
 ## 11. Cambiare piattaforma video
 
-Tutto quello che riguarda YouTube sta in **`diretta/player-youtube.js`**. La
-pagina usa solo questa interfaccia:
+Tutto quello che riguarda YouTube sta in **`diretta/player-youtube.js`**: la
+pagina della diretta e la regia della gestione usano solo questa interfaccia.
 
 ```js
-const player = NGBPlayer.crea(elemento, { onPronto, onStato, onErrore, onVolume });
-player.carica(idVideo); player.play(); player.pausa(); player.alterna();
+window.NGBPlayer = {
+    nome: 'youtube',
+    crea(contenitore, { onPronto, onStato, onErrore, onVolume }),  // -> istanza
+    idDa(url)   // l'identificativo del video dal link incollato, oppure ''
+};
+// istanza:
+player.carica(id); player.play(); player.pausa(); player.alterna();
 player.muto(); player.smuto(); player.eMuto(); player.volume(0-100); player.leggiVolume();
 player.vaiAlLive(); player.livelliQualita(); player.impostaQualita(v);
 player.stato(); player.mostra(true|false); player.distruggi();
 ```
 
-Per passare a Vimeo, Mux o Cloudflare Stream si scrive un
-`player-vimeo.js` (o `-mux`, `-cloudflare`) con la stessa interfaccia, si
-cambia la riga `<script src="player-youtube.js">` in `diretta/index.html` e,
-nella gestione, si incolla l'identificativo del video della nuova piattaforma.
-Con loro anche il selettore della qualità comincia a funzionare (livelli HLS).
+Per passare a Vimeo, Mux o Cloudflare Stream:
 
----
+1. scrivi `diretta/player-vimeo.js` (o `-mux`, `-cloudflare`) con la **stessa
+   interfaccia**, compresa `idDa` (identificativo di al massimo 64 caratteri fra
+   lettere, numeri, `_` e `-`: il servizio accetta così com'è quello che la
+   gestione gli manda);
+2. cambia la riga `<script src="player-youtube.js">` in `diretta/index.html` e
+   quella `<script src="../player-youtube.js">` in `diretta/gestione/index.html`;
+3. aggiungi i domini del fornitore alla `Content-Security-Policy` in testa alle
+   stesse due pagine (`frame-src` e `script-src` per il player, per esempio
+   `https://player.vimeo.com`; `connect-src` e `media-src` con `blob:` per i
+   flussi HLS, per esempio `https://stream.mux.com` o `https://videodelivery.net`).
+
+Il servizio non va toccato. Con quei fornitori anche il selettore della qualità
+comincia a funzionare (livelli HLS), e con Vimeo (domini consentiti) o con Mux e
+Cloudflare (indirizzi firmati) si può impedire la condivisione del link.
 
 ## 12. Cosa devi fare tu
 
@@ -735,7 +770,8 @@ settembre: c'è tempo, ma non tanto).
    eliminazione da parte degli utenti disattivate**, protezione contro
    l'enumerazione attiva, dominio `nextgenerationbusiness.it` autorizzato.
 3. [ ] **`diretta/config.js`**: copia i valori dell'app web al posto di
-   `DA_COMPILARE` (e l'ID del progetto, se non è `ngb-eventi`).
+   `DA_COMPILARE` (e l'ID del progetto, se non è `ngb-eventi`), e compila
+   `assistenza.email` e `assistenza.telefono`.
 4. [ ] **Regole e indici**: `firebase deploy --only firestore:rules,firestore:indexes`
    da `diretta/firebase/` (o a mano dalla console), e aspetta che gli indici
    siano *Attivati*.
@@ -745,7 +781,8 @@ settembre: c'è tempo, ma non tanto).
 6. [ ] **Vercel** (§3): aggiungi `DIRETTA_FIREBASE_SERVICE_ACCOUNT`,
    `DIRETTA_FIREBASE_API_KEY`, `DIRETTA_ADMIN_EMAILS` (e, se vuoi,
    `DIRETTA_ASSISTENZA_TELEFONO` con un numero **presidiato il giorno
-   dell'evento**, e `DIRETTA_PROGETTO_ATTESO` se l'ID è diverso). Controlla che ci
+   dell'evento**, lo stesso scritto in `config.js`, e `DIRETTA_PROGETTO_ATTESO`
+   se l'ID è diverso). Controlla che ci
    siano già `BREVO_API_KEY` e `CRON_SECRET`. Poi *Redeploy*. Da questo momento
    parte anche il lavoro programmato ogni 5 minuti.
 7. [ ] **Brevo** (§4): verifica il piano (servono circa **3.100 email** fra il

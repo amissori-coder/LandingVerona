@@ -214,7 +214,15 @@ async function verificaGestore(ctx, req) {
     const m = /^Bearer\s+(.+)$/i.exec(h);
     if (!m) throw errore(401, 'Accesso richiesto', 'non-autenticato');
     let tok;
-    try { tok = await ctx.auth.verifyIdToken(m[1], true); } catch (_) { throw errore(401, 'Sessione scaduta: accedi di nuovo', 'non-autenticato'); }
+    try { tok = await ctx.auth.verifyIdToken(m[1], true); } catch (e) {
+        // un token scaduto, revocato o sbagliato fa uscire il gestore; un intoppo
+        // di Google (rete, chiavi pubbliche non scaricate) no: si riprova
+        const c = String((e && (e.code || (e.errorInfo && e.errorInfo.code))) || '');
+        if (/^auth\/(id-token-expired|id-token-revoked|argument-error|invalid-id-token|user-disabled|user-not-found)$/.test(c)) {
+            throw errore(401, 'Sessione scaduta: accedi di nuovo', 'non-autenticato');
+        }
+        throw errore(503, 'Servizio di accesso momentaneamente non disponibile: riprova tra qualche secondo.', 'riprova');
+    }
     const email = String(tok.email || '').toLowerCase();
     const provider = tok.firebase && tok.firebase.sign_in_provider;
     if (!eGestore(email) || tok.email_verified !== true || tok.gestore !== true || provider !== 'password') {
