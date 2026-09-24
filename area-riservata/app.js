@@ -23598,18 +23598,20 @@
             if (!rec || (rec.stato !== 'programmato' && rec.stato !== 'sospeso') || (rec.invio && rec.invio.inCorso)) return;
             const prop = RV_PROMEMORIA.proposta(ev.id, rec.proposta);
             if (!prop || !rec.testi) return;
-            const fatti = fattiDelCatalogo(prop);
-            const diversi = Object.keys(fatti).some(k => JSON.stringify(rec.testi[k]) !== JSON.stringify(fatti[k]));
-            if (!diversi) return;
-            const testi = Object.assign({}, rec.testi, fatti);
+            /* Si ricompone con i dati del catalogo e con la forma della mail di
+               oggi: se il risultato e' diverso da quello salvato (programma
+               cambiato, o la grafica rivista, per esempio per i telefoni) si
+               salva il nuovo. I testi scritti da chi ha confermato restano. */
+            const testi = Object.assign({}, rec.testi, fattiDelCatalogo(prop));
             const mail = RV_PROMEMORIA.componi(testi, evDef, rec.campi || {}, RV_NEWSLETTER);
             if (!mail || !mail.html) return;
+            if (rec.mail && rec.mail.html === mail.html && rec.mail.oggetto === mail.oggetto && JSON.stringify(rec.testi) === JSON.stringify(testi)) return;
             PromemoriaEventi.salvaUna(Object.assign({}, rec, { testi: testi, mail: { oggetto: mail.oggetto, html: mail.html, testo: mail.testo } }));
             n++;
         });
         if (n) {
-            Audit.registra(Auth.utenteCorrente, 'Evento: programma aggiornato nei promemoria confermati', 'sistema', ev.id, null, n + ' promemoria');
-            toast('Programma aggiornato in ' + n + (n === 1 ? ' promemoria già confermato.' : ' promemoria già confermati.'), 'verde');
+            Audit.registra(Auth.utenteCorrente, 'Evento: promemoria confermati aggiornati (programma e forma della mail)', 'sistema', ev.id, null, n + ' promemoria');
+            toast('Aggiornat' + (n === 1 ? 'o 1 promemoria già confermato' : 'i ' + n + ' promemoria già confermati') + ' con il programma e la grafica attuali.', 'verde');
         }
         return n;
     }
