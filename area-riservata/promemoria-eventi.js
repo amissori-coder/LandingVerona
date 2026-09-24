@@ -135,12 +135,12 @@
        quando si conferma: un promemoria confermato con una versione
        precedente l'area riservata lo segnala, perche' riaprendolo si
        possano prendere i testi nuovi. Va cambiata a ogni revisione. */
-    const VERSIONE_TESTI = '2026-09-24-importante';
+    const VERSIONE_TESTI = '2026-09-24-programma';
     const PROPOSTE = {
         'napoli-2026-10-02': [
             /* ------------------------- IN SALA ------------------------- */
             {
-                id: 'sala-programma', serie: 'sala', giorniPrima: 8, benvenuto: true,
+                id: 'sala-programma', serie: 'sala', giorniPrima: 8, benvenuto: true, ora: 22,
                 nome: 'Otto giorni prima: programma e informazioni essenziali',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} a Next Generation Business: il programma dei lavori',
@@ -237,7 +237,7 @@
 
             /* -------------------------- ONLINE ------------------------- */
             {
-                id: 'online-programma', serie: 'online', giorniPrima: 8, benvenuto: true,
+                id: 'online-programma', serie: 'online', giorniPrima: 8, benvenuto: true, ora: 22,
                 nome: 'Otto giorni prima: programma e modalità della diretta',
                 mail: {
                     oggetto: 'IMPORTANTE - {{AZIENDA}} - {{MANCANO}} alla diretta di Next Generation Business: il programma dei lavori',
