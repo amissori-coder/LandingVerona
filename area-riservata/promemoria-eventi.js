@@ -103,17 +103,17 @@
             { ora: '9.00', nome: 'Registrazione e welcome coffee', sala: true },
             { ora: '9.30', nome: 'Apertura ufficiale dei lavori' },
             { ora: '9.50', nome: 'Keynote introduttivo' },
-            { ora: '10.00', nome: 'Il futuro della Piccola Industria italiana' },
-            { ora: '10.30', nome: 'Adeguati assetti e continuità aziendale' },
-            { ora: '11.10', nome: 'Modello 231 e Tax Control Framework' },
+            { ora: '10.00', nome: 'Adeguati assetti e continuità aziendale' },
+            { ora: '10.30', nome: 'Il futuro della Piccola Industria italiana' },
+            { ora: '11.00', nome: 'Modello 231 e Tax Control Framework' },
+            { ora: '11.30', nome: 'Coffee break', sala: true },
             { ora: '11.50', nome: 'Sostenibilità e fattori ESG' },
             { ora: '12.40', nome: 'Finanza agevolata' },
             { ora: '13.30', nome: 'Lunch buffet e networking', sala: true },
-            { ora: '14.30', nome: 'Rating di Legalità' },
-            { ora: '15.00', nome: 'Banche' },
-            { ora: '15.50', nome: 'Invitalia e MCC · Bagnoli e America\'s Cup 2027' },
-            { ora: '16.40', nome: 'Sessione Questions and Answers' },
-            { ora: '17.10', nome: 'Conclusioni e chiusura dei lavori' }
+            { ora: '14.30', nome: 'Banche' },
+            { ora: '15.30', nome: 'Invitalia e MCC · Bagnoli e America\'s Cup 2027' },
+            { ora: '16.20', nome: 'Rating di Legalità' },
+            { ora: '17.00', nome: 'Conclusioni e chiusura dei lavori' }
         ]
     };
     // per la sala tutto; per la diretta non la registrazione, e il pranzo e' una pausa

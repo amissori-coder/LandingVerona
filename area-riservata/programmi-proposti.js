@@ -67,9 +67,14 @@
            quelle che compongono la giornata e che il pubblico legge; la
            durata nell'area riservata si ricava da sole.
            AGGIORNATA al programma pubblicato: quattordici voci dalle 09:00
-           alle 17:30, con la tavola rotonda sulla Piccola Industria alle
-           10:00 - dove Fausto Bianchi e' passato dai saluti - e il Rating di
-           Legalita' che apre i lavori del pomeriggio, dopo il pranzo.
+           alle 17:30. La mattina apre con gli adeguati assetti alle 10:00,
+           poi la Piccola Industria di Fausto Bianchi e il 231, tre tavole da
+           mezz'ora, e una pausa caffe' alle 11:30. Il pomeriggio va dalle
+           banche a Invitalia al Rating di Legalita', che ora chiude le
+           tavole invece di aprirle. La sessione di domande e risposte non
+           c'e' piu': i trenta minuti che occupava sono passati alle
+           conclusioni, perche' la giornata finisca alle 17:30 come dichiarato
+           in ogni altro punto della pagina.
            I RELATORI ORA SI SANNO TUTTI, moderatori compresi, e stanno nelle
            note voce per voce: non c'e' piu' nessun "da completare". Restano
            nella NOTA e non fra i partecipanti, come vuole questo file: sul
@@ -98,22 +103,27 @@
                 },
                 {
                     tipo: 'tavola', dalle: '10:00', alle: '10:30',
+                    titolo: 'Adeguati assetti e continuità aziendale',
+                    nota: 'Prevenzione, monitoraggio e segnali di crisi. Dal programma: modera Sergio Miele (Revilaw); '
+                        + 'Stefano Pizzutelli (Revilaw); Andrea Missori (Revilaw).'
+                },
+                {
+                    tipo: 'tavola', dalle: '10:30', alle: '11:00',
                     titolo: 'Il futuro della Piccola Industria italiana',
                     nota: 'Dialogo con il Presidente nazionale di Piccola Industria Confindustria. Dal programma: '
                         + 'modera Sergio Miele (Revilaw); Fausto Bianchi (Vice Presidente Nazionale Confindustria e '
                         + 'Presidente Nazionale Piccola Industria).'
                 },
                 {
-                    tipo: 'tavola', dalle: '10:30', alle: '11:10',
-                    titolo: 'Adeguati assetti e continuità aziendale',
-                    nota: 'Prevenzione, monitoraggio e segnali di crisi. Dal programma: modera Sergio Miele (Revilaw); '
-                        + 'Stefano Pizzutelli (Revilaw); Andrea Missori (Revilaw).'
-                },
-                {
-                    tipo: 'tavola', dalle: '11:10', alle: '11:50',
+                    tipo: 'tavola', dalle: '11:00', alle: '11:30',
                     titolo: 'Modello 231 e Tax Control Framework',
                     nota: 'Governance, presidio dei rischi e conformità. Dal programma: modera Sergio Miele (Revilaw); '
                         + 'Melo Martella (Revilaw); Luca La Barbera (ADVANT NCTM).'
+                },
+                {
+                    tipo: 'coffee', dalle: '11:30', alle: '11:50',
+                    titolo: 'Coffee break',
+                    nota: 'Pausa e networking fra i lavori della mattina.'
                 },
                 {
                     tipo: 'tavola', dalle: '11:50', alle: '12:40',
@@ -134,30 +144,25 @@
                     nota: ''
                 },
                 {
-                    tipo: 'tavola', dalle: '14:30', alle: '15:00',
-                    titolo: 'Rating di Legalità',
-                    nota: 'Requisiti, benefici e riflessi sul merito creditizio. Dal programma: modera Sergio Miele '
-                        + '(Revilaw); Francesca Rogai (ADVANT NCTM); Antonella Candelieri (Revilaw).'
-                },
-                {
-                    tipo: 'tavola', dalle: '15:00', alle: '15:50',
+                    tipo: 'tavola', dalle: '14:30', alle: '15:30',
                     titolo: 'Banche. Tavola rotonda',
                     nota: 'Merito creditizio e dialogo banca-impresa. Dal programma: modera Sergio Miele (Revilaw); '
                         + 'Federica Tortora (Intesa Sanpaolo); Michele Nevola (Intesa Sanpaolo).'
                 },
                 {
-                    tipo: 'tavola', dalle: '15:50', alle: '16:40',
+                    tipo: 'tavola', dalle: '15:30', alle: '16:20',
                     titolo: 'Invitalia e MCC. Bagnoli e America\'s Cup',
                     nota: 'Sviluppo del territorio e opportunità per le imprese. Dal programma: modera Sergio Miele '
                         + '(Revilaw); Sergio Schisani (Presidente di Invitalia); Carlo de Simone (SIMEST).'
                 },
                 {
-                    tipo: 'intervento', dalle: '16:40', alle: '17:10',
-                    titolo: 'Sessione Questions and Answers',
-                    nota: 'Domande dal pubblico. Dal programma: Sergio Miele (Revilaw).'
+                    tipo: 'tavola', dalle: '16:20', alle: '17:00',
+                    titolo: 'Rating di Legalità',
+                    nota: 'Requisiti, benefici e riflessi sul merito creditizio. Dal programma: modera Sergio Miele '
+                        + '(Revilaw); Francesca Rogai (ADVANT NCTM); Antonella Candelieri (Revilaw).'
                 },
                 {
-                    tipo: 'chiusura', dalle: '17:10', alle: '17:30',
+                    tipo: 'chiusura', dalle: '17:00', alle: '17:30',
                     titolo: 'Conclusioni e chiusura dei lavori',
                     nota: 'Sintesi, prossimi passi e networking finale. Dal programma: Sergio Miele (Revilaw).'
                 }
