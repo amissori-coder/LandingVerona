@@ -1,0 +1,317 @@
+<title>Anteprima della diretta</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Anteprima della diretta degli eventi Next Generation Business, con accessi di prova e dati finti.">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+    --blu: #0a2844;
+    --blu-scuro: #06182b;
+    --oro: #b8923f;
+    --rosso: #c8102e;
+    --verde: #1f7a4d;
+    --fondo: #eef2f6;
+    --carta: #ffffff;
+    --riga: #d5dde6;
+    --testo: #0f1e2e;
+    --tenue: #536274;
+    --campo: #f6f8fb;
+    --ombra: 0 1px 2px rgba(10, 40, 68, .08), 0 8px 24px rgba(10, 40, 68, .08);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --testata: 112px;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --fondo: #07131f; --carta: #0e2133; --riga: #22384e; --testo: #e6edf5; --tenue: #9fb0c2; --campo: #0a1a2a;
+        --oro: #d4b16a; --verde: #4cc38a; --ombra: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+        color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --fondo: #07131f; --carta: #0e2133; --riga: #22384e; --testo: #e6edf5; --tenue: #9fb0c2; --campo: #0a1a2a;
+    --oro: #d4b16a; --verde: #4cc38a; --ombra: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--fondo); color: var(--testo); font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, input { font: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--oro); outline-offset: 2px; }
+
+/* ---------- testata ---------- */
+.testata { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: linear-gradient(120deg, var(--blu-scuro), var(--blu) 60%, #174a78); color: #fff; }
+.testata-riga { display: flex; align-items: center; gap: 16px; padding: 12px 16px 8px; flex-wrap: wrap; }
+.marchio { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.marchio img { height: 30px; width: auto; display: block; }
+.marchio .divisore { width: 1px; height: 30px; background: rgba(255,255,255,.3); }
+.marchio small { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+.marchio strong { display: block; font: 800 17px/1.2 Montserrat, Inter, sans-serif; }
+.nota-prova { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: rgba(255,255,255,.85); }
+.nota-prova::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--oro); }
+.bottone-chiaro { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.bottone-chiaro:hover { background: rgba(255,255,255,.2); }
+.schede { display: flex; gap: 2px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; }
+.schede::-webkit-scrollbar { display: none; }
+.schede button { flex: none; background: none; border: 0; color: rgba(255,255,255,.78); padding: 10px 14px 12px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; display: inline-flex; align-items: center; gap: 8px; }
+.schede button[aria-selected="true"] { color: #fff; border-bottom-color: var(--oro); }
+.schede button:hover { color: #fff; }
+.conta { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--rosso); color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
+.conta:empty { display: none; }
+.stato-evento { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.14); }
+.stato-evento[data-stato="in_onda"] { background: var(--rosso); }
+
+/* ---------- pannelli ---------- */
+main { padding-inline: 16px; padding-block: 16px 32px; }
+.pannello[hidden] { display: none !important; }
+.carta { background: var(--carta); border: 1px solid var(--riga); border-radius: 12px; box-shadow: var(--ombra); }
+
+/* guida */
+.guida { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: start; }
+.guida > .apertura { grid-column: 1 / -1; padding: 20px 22px; }
+.apertura h1 { font: 800 clamp(20px, 3vw, 26px)/1.25 Montserrat, Inter, sans-serif; margin: 0 0 8px; text-wrap: balance; }
+.apertura p { margin: 0; max-width: 78ch; color: var(--tenue); }
+.apertura .evento { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; }
+.apertura .evento b { color: var(--testo); }
+.blocco { padding: 18px 20px; }
+.blocco h2 { font: 800 16px/1.3 Montserrat, Inter, sans-serif; margin: 0 0 4px; }
+.blocco > p { margin: 0 0 12px; color: var(--tenue); font-size: 14px; }
+.accessi { width: 100%; border-collapse: collapse; font-size: 14px; }
+.accessi th { text-align: left; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--tenue); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--riga); }
+.accessi td { padding: 9px 8px; border-bottom: 1px solid var(--riga); vertical-align: middle; }
+.accessi tr:last-child td { border-bottom: 0; }
+.accessi .chi small { display: block; color: var(--tenue); font-size: 12.5px; }
+.credenziale { font-family: var(--mono); font-size: 13.5px; background: var(--campo); border: 1px solid var(--riga); border-radius: 6px; padding: 2px 7px; white-space: nowrap; cursor: copy; }
+.bottone { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--blu); background: var(--blu); color: #fff; font-weight: 600; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.bottone:hover { filter: brightness(1.12); }
+.bottone.secondario { background: transparent; color: var(--testo); border-color: var(--riga); }
+.bottone.secondario:hover { border-color: var(--tenue); filter: none; }
+:root[data-theme="dark"] .bottone:not(.secondario) { background: #2c6aa6; border-color: #2c6aa6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bottone:not(.secondario) { background: #2c6aa6; border-color: #2c6aa6; } }
+.omonimo { font-size: 11.5px; font-weight: 700; color: var(--oro); margin-left: 4px; }
+.regia { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; font-size: 14px; margin-bottom: 12px; }
+.regia dt { color: var(--tenue); }
+.regia dd { margin: 0; }
+.passi { margin: 0; padding: 0; list-style: none; counter-reset: passo; display: grid; gap: 12px; }
+.passi li { counter-increment: passo; display: grid; grid-template-columns: 28px 1fr; gap: 10px; font-size: 14px; }
+.passi li::before { content: counter(passo); width: 26px; height: 26px; border-radius: 50%; background: var(--blu); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+:root[data-theme="dark"] .passi li::before { background: #2c6aa6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .passi li::before { background: #2c6aa6; } }
+.passi b { display: block; }
+.passi p { margin: 2px 0 6px; color: var(--tenue); }
+.differenze { margin: 0; padding-left: 18px; color: var(--tenue); font-size: 14px; display: grid; gap: 6px; }
+.differenze b { color: var(--testo); }
+.copiato { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--blu-scuro); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13.5px; z-index: 60; }
+
+/* pagine in iframe */
+.strumenti { max-width: 1400px; margin: 0 auto 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.strumenti .chi { font-size: 13.5px; color: var(--tenue); margin-right: auto; }
+.strumenti .chi b { color: var(--testo); }
+.segmenti { display: inline-flex; border: 1px solid var(--riga); border-radius: 8px; overflow: hidden; }
+.segmenti button { border: 0; background: var(--carta); color: var(--testo); padding: 6px 12px; cursor: pointer; font-size: 13.5px; }
+.segmenti button[aria-pressed="true"] { background: var(--blu); color: #fff; }
+.cornice { margin: 0 auto; max-width: 1400px; border-radius: 12px; overflow: hidden; border: 1px solid var(--riga); background: #06182b; box-shadow: var(--ombra); }
+.cornice iframe { display: block; width: 100%; height: calc(100dvh - var(--testata) - 90px); min-height: 560px; border: 0; background: #06182b; }
+.cornice.telefono { max-width: 390px; border-radius: 28px; border: 8px solid #10263c; }
+.cornice.telefono iframe { height: min(844px, calc(100dvh - var(--testata) - 100px)); min-height: 600px; }
+
+/* posta */
+.posta { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.elenco-posta { overflow: hidden; }
+.elenco-posta h2, .lettore h2 { font: 800 15px/1.3 Montserrat, Inter, sans-serif; margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--riga); }
+.elenco-posta ul { list-style: none; margin: 0; padding: 0; max-height: calc(100dvh - var(--testata) - 110px); overflow-y: auto; }
+.elenco-posta li button { width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--riga); padding: 10px 16px 10px 26px; cursor: pointer; color: inherit; display: grid; gap: 2px; position: relative; }
+.elenco-posta li button:hover { background: var(--campo); }
+.elenco-posta li button[aria-current="true"] { background: var(--campo); box-shadow: inset 3px 0 0 var(--oro); }
+.elenco-posta li button.non-letto::before { content: ""; position: absolute; left: 10px; top: 16px; width: 8px; height: 8px; border-radius: 50%; background: var(--rosso); }
+.elenco-posta .ogg { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elenco-posta .meta { font-size: 12.5px; color: var(--tenue); display: flex; gap: 8px; flex-wrap: wrap; }
+.tipo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 4px; background: var(--campo); border: 1px solid var(--riga); }
+.vuoto { padding: 18px 16px; color: var(--tenue); font-size: 14px; }
+.lettore { min-height: 300px; }
+.lettore .intestazione { padding: 12px 16px; border-bottom: 1px solid var(--riga); display: grid; gap: 4px; font-size: 13.5px; }
+.lettore .intestazione .ogg { font-weight: 700; font-size: 15px; }
+.lettore .intestazione .riga-meta { color: var(--tenue); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.lettore .azioni { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--riga); }
+.lettore iframe { display: block; width: 100%; height: calc(100dvh - var(--testata) - 220px); min-height: 480px; border: 0; background: #fff; border-radius: 0 0 12px 12px; }
+.lettore pre { margin: 0; padding: 16px; white-space: pre-wrap; font: 13.5px/1.55 var(--mono); max-height: calc(100dvh - var(--testata) - 220px); overflow: auto; }
+
+/* sovrapposto: "Vedi come un partecipante" e l'esportazione */
+.sopra { position: fixed; inset: 0; z-index: 50; background: rgba(4, 12, 22, .72); display: grid; place-items: center; padding: 16px; }
+.sopra .finestra { width: min(1200px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.sopra .titolo-finestra { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--riga); }
+.sopra .titolo-finestra h2 { font: 800 15px/1.3 Montserrat, Inter, sans-serif; margin: 0 auto 0 0; }
+.sopra iframe { width: 100%; height: min(860px, calc(100dvh - 120px)); border: 0; background: #06182b; display: block; }
+.sopra .excel { overflow: auto; padding: 12px 16px 16px; font-size: 13px; }
+.sopra .excel table { border-collapse: collapse; }
+.sopra .excel td { border: 1px solid var(--riga); padding: 4px 8px; white-space: nowrap; }
+.sopra .excel tr:first-child td { font-weight: 700; background: var(--campo); }
+.sopra .excel p { margin: 0 0 10px; color: var(--tenue); }
+
+/* preparazione */
+.preparazione { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: var(--fondo); padding: 16px; }
+.preparazione .carta { padding: 24px 26px; max-width: 460px; width: 100%; }
+.preparazione h2 { font: 800 18px/1.3 Montserrat, Inter, sans-serif; margin: 0 0 6px; }
+.preparazione p { margin: 0; color: var(--tenue); }
+.barra-avanzamento { height: 4px; border-radius: 2px; background: var(--riga); overflow: hidden; margin-top: 16px; }
+.barra-avanzamento span { display: block; height: 100%; width: 40%; background: var(--oro); animation: scorri 1.4s ease-in-out infinite; }
+@keyframes scorri { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+.errore { color: var(--rosso); }
+.preparazione[hidden], .sopra[hidden] { display: none; }
+.solo-lettori { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 900px) {
+    .guida { grid-template-columns: minmax(0, 1fr); }
+    .posta { grid-template-columns: minmax(0, 1fr); }
+    .elenco-posta ul { max-height: 280px; }
+    .nota-prova { display: none; }
+}
+@media (max-width: 520px) {
+    main { padding-inline: 10px; }
+    .cornice.telefono { border-width: 0; border-radius: 12px; }
+    .accessi thead { display: none; }
+    .accessi tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--riga); }
+    .accessi tr:last-child { border-bottom: 0; }
+    .accessi td { padding: 0; border: 0; min-width: 0; }
+    .accessi td.chi { grid-column: 1 / -1; }
+    .accessi .credenziale { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+    .marchio .divisore, .marchio img { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .barra-avanzamento span { animation: none; width: 100%; } }
+</style>
+
+<div class="testata" id="testata">
+    <div class="testata-riga">
+        <div class="marchio">
+            <img src="assets/logo-revilaw-bianco.png" alt="Revilaw S.p.A." width="371" height="115">
+            <span class="divisore" aria-hidden="true"></span>
+            <div><small>Next Generation Business · Diretta</small><strong>Anteprima con accessi di prova</strong></div>
+        </div>
+        <span class="nota-prova">Dati di prova: nulla esce da questo browser</span>
+        <button type="button" class="bottone-chiaro" id="btn-ricomincia">Ricomincia da capo</button>
+    </div>
+    <nav class="schede" role="tablist" aria-label="Sezioni dell'anteprima">
+        <button type="button" role="tab" id="tab-guida" aria-controls="pannello-guida" aria-selected="true" data-scheda="guida">Guida e accessi</button>
+        <button type="button" role="tab" id="tab-partecipante" aria-controls="pannello-partecipante" aria-selected="false" tabindex="-1" data-scheda="partecipante">Partecipante</button>
+        <button type="button" role="tab" id="tab-gestione" aria-controls="pannello-gestione" aria-selected="false" tabindex="-1" data-scheda="gestione">Gestione <span class="stato-evento" id="stato-evento" data-stato="">…</span></button>
+        <button type="button" role="tab" id="tab-posta" aria-controls="pannello-posta" aria-selected="false" tabindex="-1" data-scheda="posta">Posta di prova <span class="conta" id="conta-posta" aria-label="non lette"></span></button>
+    </nav>
+</div>
+
+<main>
+    <!-- ================= GUIDA ================= -->
+    <section class="pannello" id="pannello-guida" role="tabpanel" aria-labelledby="tab-guida">
+        <div class="guida">
+            <div class="carta apertura">
+                <h1>Prova la diretta come la vedranno i partecipanti e la regia</h1>
+                <p>Le pagine sono quelle vere della diretta, con il servizio vero dietro. I dati invece sono finti e restano in questo browser: nessuna email parte davvero (arrivano nella scheda «Posta di prova»), non c'è nessun progetto Firebase, e al posto di YouTube c'è un video di prova.</p>
+                <div class="evento" id="info-evento"></div>
+            </div>
+
+            <div class="carta blocco">
+                <h2>Accessi dei partecipanti</h2>
+                <p>Per la scheda «Partecipante» (la pagina /diretta/). Il nome utente si può scrivere anche come «Mario Rossi».</p>
+                <table class="accessi">
+                    <thead><tr><th scope="col">Persona</th><th scope="col">Nome utente</th><th scope="col">Password</th><th scope="col"><span class="solo-lettori">Azione</span></th></tr></thead>
+                    <tbody id="tabella-accessi"></tbody>
+                </table>
+            </div>
+
+            <div class="carta blocco">
+                <h2>Accesso della regia</h2>
+                <p>Per la scheda «Gestione» (la pagina /diretta/gestione/).</p>
+                <dl class="regia">
+                    <dt>Email</dt><dd><span class="credenziale" id="gestore-email" title="Copia">…</span></dd>
+                    <dt>Password</dt><dd><span class="credenziale" id="gestore-password" title="Copia">…</span></dd>
+                </dl>
+                <button type="button" class="bottone" id="btn-usa-gestore">Entra nella gestione</button>
+            </div>
+
+            <div class="carta blocco">
+                <h2>Cosa provare, in ordine</h2>
+                <ol class="passi">
+                    <li><div><b>Entra come partecipante</b><p>«Entra» accanto a Mario Rossi: vedi l'attesa con il conto alla rovescia e il programma.</p></div></li>
+                    <li><div><b>Manda in onda dalla regia</b><p>Gestione → Regia → «Vai in onda». Torna su Partecipante: la pagina è passata alla diretta da sola. Prova «Attiva l'audio», lo schermo intero e i tasti spazio, F, M.</p></div></li>
+                    <li><div><b>Cambia il video, metti in pausa, termina</b><p>In Regia incolla un altro link YouTube qualsiasi: il video di prova mostra il nuovo identificativo. Poi pausa con un messaggio, e «Termina».</p></div></li>
+                    <li><div><b>Carica un file di iscritti</b><p>41 righe con omonimi, doppioni, email sbagliate e nomi da correggere: guarda l'anteprima riga per riga.</p><button type="button" class="bottone secondario" id="btn-file-esempio">Carica il file di esempio</button></div></li>
+                    <li><div><b>Manda le credenziali</b><p>Gestione → Email → «Invia le credenziali». Le email arrivano in «Posta di prova» con nome utente e password: funzionano davvero.</p></div></li>
+                    <li><div><b>Password dimenticata, disattivazione</b><p>Dal partecipante, «Password dimenticata?»: il collegamento arriva nella posta. Poi in Gestione → Partecipanti disattiva Mario Rossi mentre guarda.</p></div></li>
+                </ol>
+            </div>
+
+            <div class="carta blocco">
+                <h2>Cosa cambia rispetto al sito vero</h2>
+                <ul class="differenze">
+                    <li><b>Il video.</b> Qui YouTube non si può incorporare: c'è un video di prova disegnato nel browser, con la stessa interfaccia del player vero.</li>
+                    <li><b>Le email.</b> Nessuna parte: le vedi in «Posta di prova», uguali a quelle vere.</li>
+                    <li><b>I file.</b> L'esportazione Excel si apre in una finestra invece di scaricarsi.</li>
+                    <li><b>L'evento</b> è sempre di oggi e ricomincia ogni giorno; «Ricomincia da capo» lo rifà subito.</li>
+                    <li><b>I dispositivi.</b> «Partecipante» e «Gestione» sono come due dispositivi diversi, ciascuno con il suo accesso.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= PARTECIPANTE ================= -->
+    <section class="pannello" id="pannello-partecipante" role="tabpanel" aria-labelledby="tab-partecipante" hidden>
+        <div class="strumenti">
+            <span class="chi" id="chi-partecipante"></span>
+            <div class="segmenti" role="group" aria-label="Formato">
+                <button type="button" id="formato-telefono" aria-pressed="true">Telefono</button>
+                <button type="button" id="formato-computer" aria-pressed="false">Computer</button>
+            </div>
+            <button type="button" class="bottone secondario" id="btn-ricarica-partecipante">Ricarica la pagina</button>
+        </div>
+        <div class="cornice telefono" id="cornice-partecipante">
+            <iframe id="fr-partecipante" title="La pagina della diretta, come la vede il partecipante" allow="fullscreen; autoplay" allowfullscreen></iframe>
+        </div>
+    </section>
+
+    <!-- ================= GESTIONE ================= -->
+    <section class="pannello" id="pannello-gestione" role="tabpanel" aria-labelledby="tab-gestione" hidden>
+        <div class="strumenti">
+            <span class="chi" id="chi-gestione"></span>
+            <button type="button" class="bottone secondario" id="btn-ricarica-gestione">Ricarica la pagina</button>
+        </div>
+        <div class="cornice">
+            <iframe id="fr-gestione" title="La gestione della diretta"></iframe>
+        </div>
+    </section>
+
+    <!-- ================= POSTA ================= -->
+    <section class="pannello" id="pannello-posta" role="tabpanel" aria-labelledby="tab-posta" hidden>
+        <div class="posta">
+            <div class="carta elenco-posta">
+                <h2>Posta di prova</h2>
+                <ul id="elenco-posta"></ul>
+            </div>
+            <div class="carta lettore" id="lettore">
+                <div class="vuoto">Scegli un'email a sinistra.</div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div class="sopra" id="sopra" hidden>
+    <div class="carta finestra" role="dialog" aria-modal="true" aria-labelledby="titolo-sopra">
+        <div class="titolo-finestra">
+            <h2 id="titolo-sopra"></h2>
+            <button type="button" class="bottone secondario" id="btn-chiudi-sopra">Chiudi</button>
+        </div>
+        <div id="corpo-sopra"></div>
+    </div>
+</div>
+
+<div class="preparazione" id="preparazione" role="status" aria-live="polite">
+    <div class="carta">
+        <h2>Preparo l'anteprima</h2>
+        <p id="testo-preparazione">Creo l'evento di prova e gli accessi…</p>
+        <div class="barra-avanzamento" aria-hidden="true"><span></span></div>
+    </div>
+</div>
+
+<script src="anteprima/motore.js"></script>
+<script src="anteprima/pagine.js"></script>
+<script src="anteprima/guscio.js"></script>

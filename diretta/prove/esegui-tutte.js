@@ -40,7 +40,8 @@ const PROVE = [
     { nome: 'pagina', cartella: QUI, file: 'pagina.prova.js' },
     { nome: 'gestione', cartella: QUI, file: 'gestione.prova.js' },
     { nome: 'sito', cartella: QUI, file: 'sito.prova.js' },
-    { nome: 'e2e', cartella: QUI, file: 'e2e.prova.js' }
+    { nome: 'e2e', cartella: QUI, file: 'e2e.prova.js' },
+    { nome: 'anteprima', cartella: QUI, file: 'anteprima/anteprima.prova.js' }
 ];
 const EMULATORE = { firestore: 8980, auth: 9980 };
 

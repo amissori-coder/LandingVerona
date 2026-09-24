@@ -747,9 +747,35 @@ node e2e.prova.js              # solo il percorso completo
 | `gestione.prova.js` | la gestione contro il servizio vero, su computer e tablet: anteprima di un file CSV ed Excel con tutti i casi (omonimi, doppioni, email sbagliate, correzioni, conferme), creazione a gruppi con "Riprendi", ricerca e azioni sul partecipante, regia (in onda, pausa, termina, cambio del link provato prima, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta | 219 verdi, 0 rossi |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento | 282 verdi, 0 rossi |
 | `e2e.prova.js` | **il percorso completo con tutto vero** tranne YouTube: il gestore si attiva dall'email, crea evento e partecipanti, manda le credenziali; Mario le legge dalla posta, entra dal telefono, aspetta, va in onda, schermo intero, cambio del link, connessione persa, pagina riaperta, un minuto di presenza, esce, password dimenticata, accesso automatico; fine ed esportazione | 24 verdi, 0 rossi |
+| `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 18 verdi, 0 rossi |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
-Ultimo giro completo, sul codice di questo branch: **1305 controlli verdi, 0 rossi** (24 settembre 2026).
+Ultimo giro completo, sul codice di questo branch: **1323 controlli verdi, 0 rossi** (24 settembre 2026).
+
+### L'anteprima con accessi di prova
+
+Per far provare la diretta prima che esistano il progetto Firebase e le
+variabili su Vercel c'è un'**anteprima** che gira tutta nel browser:
+
+```bash
+cd diretta/prove
+npm install                        # una volta (serve esbuild)
+node anteprima/costruisci.js       # crea risultati/anteprima/ (non versionata)
+node anteprima/anteprima.prova.js  # la prova: percorso completo nel browser
+```
+
+Dentro ci sono le **pagine vere** (`diretta/index.html`, `reimposta.html`,
+`gestione/`) e il **servizio vero** (`email-service/api/diretta-*.js`),
+impacchettato con un Firebase finto in memoria che applica le stesse regole di
+`firestore.rules`. Le email finiscono nella scheda «Posta di prova», al posto di
+YouTube c'è un video di prova (`anteprima/player-anteprima.js`, con la stessa
+interfaccia del player vero) e l'esportazione Excel si apre in una finestra.
+Accessi di prova: `mariorossi`, `annamariadeluca`, `nicolodangelo` e
+`mariorossi2` (le password sono nella guida dell'anteprima), regia
+`gestore@anteprima.it`. L'evento di prova è sempre di oggi. I pochi ritocchi
+fatti alle pagine per farle girare lì (da dove si caricano l'SDK e SheetJS, la
+navigazione fra le pagine) sono elencati in `anteprima/costruisci.js`, che si
+ferma se non li trova: l'anteprima non può restare indietro rispetto al codice.
 
 **Cosa le prove non coprono** (e va provato a mano, vedi §12): YouTube vero
 (la rete di prova non lo raggiunge), Safari vero su iPhone e iPad (Playwright
