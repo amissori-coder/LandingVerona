@@ -21,7 +21,8 @@
 const ORARI = require('./orari-b2b');
 
 const C = {
-    scuro: '#0A2844', blu: '#164068', accento: '#2A5A85', chiaroBlu: '#5B89B8',
+    // chiaroBlu schiarito per il contrasto sul fondo scuro (gemello di newsletter-format.js)
+    scuro: '#0A2844', blu: '#164068', accento: '#2A5A85', chiaroBlu: '#7FA8CE',
     suScuro: '#C8DAEA', testo: '#1E293B', tenue: '#475569',
     bordo: '#E2E8F0', sfondo: '#F1F5F9', chiaro: '#F4F8FB', bianco: '#FFFFFF'
 };
@@ -63,6 +64,13 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '<meta name="color-scheme" content="light" />\n<meta name="supported-color-schemes" content="light" />\n'
         + '<title>' + esc(oggetto) + '</title>\n'
         + '<style type="text/css">\n'
+        /* I telefoni ingrandiscono da se' il testo che giudicano piccolo, e
+           nel farlo scompaginano la colonna: qui si dice di non farlo, perche'
+           le misure le abbiamo gia' scelte noi (e nessuna scende sotto i 13px).
+           Manca a questo involucro da sempre: quello dell'area riservata ce
+           l'ha, e le mail si vedevano diverse a seconda di chi le aveva
+           composte. */
+        + 'body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}\n'
         + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
         + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
         + 'img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}\n'
@@ -77,6 +85,13 @@ function involucro(oggetto, anteprima, corpoInterno) {
         /* le righe del riquadro si impilano: etichetta sopra, valore sotto */
         + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
         + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}}\n'
+        /* SUL TELEFONO IL TESTO VA A BANDIERA, come nelle mail composte
+           dall'area riservata (newsletter-format.js, stessa regola): sotto i
+           480px la colonna e' di una quarantina di caratteri, e basta una
+           parola che non si spezza - una ragione sociale in maiuscolo -
+           perche' il giustificato apra voragini fra le parole. */
+        + '@media only screen and (max-width:480px){.par,.lead{text-align:left!important;}'
+        + '.ora{width:62px!important;white-space:normal!important;padding-right:10px!important;}}\n'
         + '</style>\n</head>\n'
         + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
         + preheader
@@ -95,7 +110,7 @@ function testata(titolo, sommario) {
             + '<img src="' + LOGO_BIANCO + '" width="150" alt="Revilaw - Revisione legale" '
             + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;font-family:' + FONT + ';font-size:18px;font-weight:bold;color:' + C.bianco + ';"></a></td></tr>'
             + spazio(24)
-            + '<tr><td style="' + FONTE + 'font-size:12px;line-height:17px;letter-spacing:2px;text-transform:uppercase;color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
+            + '<tr><td style="' + FONTE + 'font-size:13px;line-height:19px;letter-spacing:1.8px;text-transform:uppercase;color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
             + spazio(12)
             + '<tr><td class="h1" style="' + FONTE + 'font-size:30px;line-height:38px;color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + esc(titolo) + '</td></tr>'
             + spazio(16)
@@ -112,7 +127,7 @@ function testata(titolo, sommario) {
    quattro righe strette. */
 function rigaBox(et, val) {
     if (!val) return '';
-    return '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + esc(et) + '</td>'
+    return '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + esc(et) + '</td>'
         + '<td class="bxv" valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';padding:5px 0;">' + esc(val) + '</td></tr>';
 }
 function box(righe) {
@@ -141,7 +156,7 @@ function bottone(testoBtn, url) {
    staccare "i Suoi incontri" dai dati dell'evento, che sono due cose diverse e
    in un riquadro solo si leggevano come una lista sola. */
 function occhiello(t) {
-    return '<tr><td style="' + FONTE + 'font-size:12px;line-height:18px;letter-spacing:1.6px;text-transform:uppercase;'
+    return '<tr><td style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1.4px;text-transform:uppercase;'
         + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';">' + esc(t) + '</td></tr>';
 }
 /* Gli incontri come un orario: a sinistra l'ora, a destra l'argomento. E'
@@ -150,7 +165,16 @@ function occhiello(t) {
    niente che l'ora non dicesse gia'. */
 function tabellaIncontri(voci) {
     const riga = v => '<tr>'
-        + '<td width="110" valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.blu
+        /* La colonna dell'ora ha una larghezza fissa perche' le ore si devono
+           leggere incolonnate: su 600px 110 pixel sono il posto che serve.
+           Su un telefono da 320 diventano il 39% della riga, e il nome del
+           tavolo - "Modello 231 e Tax Control Framework" - si spezza in tre
+           righe per fare posto a "10:00 - 10:30". Da li' in giu' la colonna
+           si stringe e l'ora puo' andare a capo fra le due: "10:00 -" sopra e
+           "10:30" sotto si leggono benissimo, e il nome del tavolo riprende
+           la larghezza che gli serve. Senza togliere il "a capo" la colonna
+           non si stringerebbe comunque, perche' a tenerla larga e' il testo. */
+        + '<td width="110" class="ora" valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.blu
         + ';white-space:nowrap;font-weight:bold;padding:7px 14px 7px 0;border-bottom:1px solid ' + C.bordo + ';">'
         + esc(v.ora || '&nbsp;').replace('&amp;nbsp;', '&nbsp;') + '</td>'
         + '<td valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.scuro
@@ -173,7 +197,7 @@ function corpo(righe) {
     return '<tr><td class="px" style="padding:0 ' + LATO + 'px;' + FONTE + '">' + tabella(spazio(30) + righe) + '</td></tr>';
 }
 function piede(motivo) {
-    const riga = (stile, dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:12px;line-height:20px;' + stile + 'text-align:center;">' + dentro + '</td></tr>';
+    const riga = (stile, dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:14px;line-height:22px;' + stile + 'text-align:center;">' + dentro + '</td></tr>';
     const link = 'color:' + C.tenue + ';text-decoration:underline;';
     return spazio(36) + '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
         + tabella(
@@ -183,7 +207,7 @@ function piede(motivo) {
             + riga('color:' + C.tenue + ';', '<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
                 + ' &nbsp;&middot;&nbsp; <a href="' + SITO + '" style="' + link + '">nextgenerationbusiness.it</a>')
             + spazio(8)
-            + riga('color:#94A3B8;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            + riga('color:' + C.tenue + ';', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
         )
         + '</td></tr>';
 }
@@ -237,7 +261,7 @@ function confermaSito(dati, link) {
             + spazio(28)
             + bottone('Modifica o annulla l\'iscrizione', link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
         + piede(MOTIVO));
@@ -369,7 +393,7 @@ function confermaB2B(dati, link) {
             + spazio(28)
             + bottone('Modifica la prenotazione', link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         )
         + piede(MOTIVO_B2B));
     const testo = ['PRENOTAZIONE CONFERMATA', sommario,
@@ -545,7 +569,7 @@ function confermaB2BAzienda(dati, link) {
             + spazio(28)
             + bottone(etichettaPulsante, link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue
             + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento vale per l\'intera '
             + esc(azienda || 'azienda') + ': può essere utilizzato anche da un Vostro collega, e le scelte sono '
             + 'le stesse per tutti. Vi chiediamo di non diffonderlo all\'esterno.</td></tr>'
