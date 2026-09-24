@@ -23577,6 +23577,42 @@
             + '<th>Quando</th><th>Mail</th><th>Destinatari</th><th>Stato</th><th></th></tr></thead><tbody>'
             + righe.map(rigaHtml).join('') + '</tbody></table></div>';
     }
+    /* I dati che nelle mail non si correggono a mano - il programma, il
+       riquadro con data e sede, l'anteprima, il pulsante - vengono dal
+       catalogo. */
+    function fattiDelCatalogo(prop) {
+        const m = (prop && prop.mail) || null;
+        if (!m) return {};
+        const f = {};
+        ['programma', 'righe', 'anteprima', 'pulsante', 'linkPersonale'].forEach(k => { if (k in m) f[k] = m[k]; });
+        return f;
+    }
+    /* Le righe gia' confermate (non ancora partite) con un programma o un
+       riquadro diversi dal catalogo si rifanno qui: i testi scritti da chi
+       ha confermato restano, cambiano solo i dati. Torna quante ne ha rifatte. */
+    function aggiornaFattiPromemoria(ev) {
+        if (!window.RV_PROMEMORIA || !window.RV_NEWSLETTER || !puoGestireInviti()) return 0;
+        const evDef = { titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '', luogo: ev.luogo || '', indirizzo: ev.indirizzo || '' };
+        let n = 0;
+        PromemoriaEventi.diEvento(ev.id).forEach(rec => {
+            if (!rec || (rec.stato !== 'programmato' && rec.stato !== 'sospeso') || (rec.invio && rec.invio.inCorso)) return;
+            const prop = RV_PROMEMORIA.proposta(ev.id, rec.proposta);
+            if (!prop || !rec.testi) return;
+            const fatti = fattiDelCatalogo(prop);
+            const diversi = Object.keys(fatti).some(k => JSON.stringify(rec.testi[k]) !== JSON.stringify(fatti[k]));
+            if (!diversi) return;
+            const testi = Object.assign({}, rec.testi, fatti);
+            const mail = RV_PROMEMORIA.componi(testi, evDef, rec.campi || {}, RV_NEWSLETTER);
+            if (!mail || !mail.html) return;
+            PromemoriaEventi.salvaUna(Object.assign({}, rec, { testi: testi, mail: { oggetto: mail.oggetto, html: mail.html, testo: mail.testo } }));
+            n++;
+        });
+        if (n) {
+            Audit.registra(Auth.utenteCorrente, 'Evento: programma aggiornato nei promemoria confermati', 'sistema', ev.id, null, n + ' promemoria');
+            toast('Programma aggiornato in ' + n + (n === 1 ? ' promemoria già confermato.' : ' promemoria già confermati.'), 'verde');
+        }
+        return n;
+    }
     /* L'elenco delle persone di una serie, da aprire sotto le sue mail. */
     function elencoPersoneHtml(lista, conSezione) {
         if (!lista.length) return '<p class="hint" style="margin:8px 0 0;">Nessun destinatario, a oggi.</p>';
@@ -23633,6 +23669,7 @@
     }
     function modaleElencoPromemoria(ev) {
         if (!window.RV_PROMEMORIA) return;
+        aggiornaFattiPromemoria(ev);
         apriModale('<h2>Promemoria agli iscritti</h2>'
             + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi, all\'ora indicata sotto la data di ogni riga (<b>7</b>, <b>8</b>, <b>20</b> o <b>22</b>). '
             + 'A ogni invio il sistema rilegge gli iscritti: i numeri qui sotto sono quelli di oggi.</p>'
@@ -23822,7 +23859,10 @@
         const esito = (t, ko) => { const e = $id('pm-esito'); if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : ''; };
         const sezioniScelte = () => Array.from(document.querySelectorAll('.pm-sez')).filter(c => c.checked).map(c => c.value);
         const valori = () => { const v = {}; campiRichiesti.forEach(k => { const el = $id('pm-campo-' + k); v[k] = el ? el.value.trim() : (valoriCampi[k] || ''); }); return v; };
-        const testiCorrenti = () => Object.assign({}, testi, {
+        /* Il programma e il riquadro dei dati non si scrivono a mano: vengono
+           SEMPRE dal catalogo (promemoria-eventi.js, allineato al sito). Una
+           riga confermata prima di un cambio di programma lo prende da qui. */
+        const testiCorrenti = () => Object.assign({}, testi, fattiDelCatalogo(prop), {
             oggetto: $id('pm-oggetto').value.trim(), titolo: $id('pm-titolo').value.trim(), sommario: $id('pm-sommario').value.trim(),
             paragrafi: RV_PROMEMORIA.daTesto($id('pm-corpo').value), nota: $id('pm-nota').value.trim()
         });
