@@ -53,9 +53,12 @@
     const CHIAVE_SESSIONE = 'ngbDirettaSessione';   // identificativo del dispositivo per "un solo dispositivo"
     const CHIAVE_NOME = 'ngbDirettaNomeUtente';     // per riproporre il nome utente
     const CHIAVE_SEGNALE = 'ngbDirettaPresenza';    // ultimo segnale di presenza (fra schede e ricariche)
+    // sessionStorage: quante volte di fila l'SDK di Firebase non si e' scaricato (per allungare le attese)
+    const CHIAVE_RIPROVA_SDK = 'ngbDirettaRiprovaSdk';
 
     const PAGINA_EVENTO_VALIDA = /^\/[a-z0-9_/-]*\/?$/;
     const ID_EVENTO_VALIDO = /^[a-z0-9-]{3,41}$/;
+    const SESSIONE_VALIDA = /^[A-Za-z0-9_-]{1,40}$/;
 
     /* iPhone e iPad (anche l'iPad che si presenta come un Mac): il volume
        si regola solo con i tasti del dispositivo, e lo schermo intero di un
@@ -280,6 +283,7 @@
         document.body.setAttribute('data-vista', nome);
         document.querySelectorAll('[data-vista-di]').forEach(el => { el.hidden = el.getAttribute('data-vista-di') !== nome; });
         aggiornaTestata();
+        posizionaAvvisoConnessione();
         if (nome !== 'diretta') esciSchermoIntero();
         if (cambiata) window.scrollTo(0, 0);
         if (opzioni && opzioni.fuoco) {
@@ -293,9 +297,24 @@
         mostra('blocco-persona', conPersona);
         testo('nome-persona', stato.nomePersona);
         mostra('avviso-anteprima', stato.anteprima && conPersona);
+        // in anteprima il pulsante chiude solo l'anteprima (vedi chiudiAnteprima)
+        const etichettaEsci = stato.anteprima ? 'Chiudi l\'anteprima' : 'Esci';
+        if ($('btn-esci-testo').textContent !== etichettaEsci) testo('btn-esci-testo', etichettaEsci);
+
+        /* L'avviso a tutti della regia (R7). Sta in cima alla pagina e, a
+           schermo intero, anche nella striscia sotto il video (la testata li'
+           non si vede). Le due scritte non sono "regioni live": un'area che
+           compare gia' piena molti lettori di schermo non la annunciano, quindi
+           il testo nuovo si annuncia a parte, una volta. */
         const avviso = stato.evento && conPersona ? String(stato.evento.avviso || '').trim().slice(0, 200) : '';
-        if ($('avviso-evento-testo').textContent !== avviso) testo('avviso-evento-testo', avviso);
+        if ($('avviso-evento-testo').textContent !== avviso) {
+            testo('avviso-evento-testo', avviso);
+            testo('avviso-intero-testo', avviso);
+        }
         mostra('avviso-evento', !!avviso);
+        $('avviso-intero').setAttribute('data-attivo', avviso ? '1' : '0');
+        if (avviso && avviso !== stato.avvisoMostrato) annuncia('Avviso: ' + avviso);
+        stato.avvisoMostrato = avviso;
         const s = stato.evento && conPersona ? stato.evento.stato : '';
         const badge = $('stato-evento');
         badge.setAttribute('data-stato', s || '');
@@ -320,6 +339,12 @@
             titolo: 'Non riusciamo a caricare la diretta',
             testo: 'Controlla la connessione a internet e riprova.',
             azione: 'Riprova', fai: () => location.reload()
+        },
+        // i componenti della pagina (da gstatic) non sono arrivati: quasi sempre la rete
+        'sdk-rete': {
+            titolo: 'Non riusciamo a caricare la diretta',
+            testo: 'La connessione a internet sembra assente o molto lenta. Riproviamo da soli tra pochi secondi: resta su questa pagina.',
+            azione: 'Riprova adesso', fai: () => location.reload()
         },
         'disattivato': {
             titolo: 'Il tuo accesso è stato disattivato',
@@ -380,6 +405,15 @@
         sessioneIniziata: false,  // in questa pagina c'e' stato un utente collegato
         motivoUscita: null,       // null | 'esci' | 'messaggio'
         appenaEntrato: false,
+        /* L'identificativo di questo dispositivo per "un solo dispositivo",
+           tenuto ANCHE in memoria: se il browser non concede localStorage
+           (cookie e dati dei siti bloccati), la sessione non deve cambiare a
+           ogni segnale di presenza (le regole la confrontano ogni volta). */
+        sessione: '',
+        // l'evento scelto dal servizio all'accesso: la pagina lo preferisce,
+        // cosi' "un solo dispositivo" vale sull'evento che la persona guarda
+        eventoAccesso: '',
+        avvisoMostrato: '',
         timerConto: null,
         timerProgramma: null,
         firmaProgramma: ''
@@ -443,7 +477,9 @@
     function mostraDimenticata() {
         mostraVista('dimenticata', { fuoco: false });
         const id = $('campo-identificativo');
-        if (!id.value) id.value = $('campo-nome-utente').value.trim();
+        // dal link "password dimenticata" delle email (?u=mariorossi&dimenticata=1)
+        // il campo di accesso e' ancora vuoto: il nome utente arriva dal link
+        if (!id.value) id.value = $('campo-nome-utente').value.trim() || pulisciNome(parametro('u'));
         msg('msg-dimenticata', '');
         if (!puntatoreGrossolano()) { try { id.focus({ preventScroll: true }); } catch (e) { id.focus(); } }
     }
@@ -529,10 +565,18 @@
         b.disabled = true;
         testo(b.querySelector('.btn-testo'), 'Accesso in corso…');
         msg('msg-accesso', '');
-        const r = await chiamaServizio({ azione: 'entra', nomeUtente: nomeUtente, password: password });
+        /* L'evento del link dell'email (&e=, R4) va anche al servizio: e' su
+           quello che il servizio decide "un solo dispositivo". Senza, con due
+           eventi il servizio potrebbe decidere su un evento e la pagina
+           mostrare l'altro. */
+        const dalLink = parametro('e');
+        const r = await chiamaServizio({
+            azione: 'entra', nomeUtente: nomeUtente, password: password,
+            idEvento: ID_EVENTO_VALIDO.test(dalLink) ? dalLink : undefined
+        });
         if (r.ok && r.token) {
-            const sessione = /^[A-Za-z0-9_-]{1,40}$/.test(String(r.sessione || '')) ? String(r.sessione) : idCasuale(12);
-            archivio.scrivi(CHIAVE_SESSIONE, sessione);
+            ricordaSessione(r.sessione);
+            stato.eventoAccesso = ID_EVENTO_VALIDO.test(String(r.idEvento || '')) ? String(r.idEvento) : '';
             archivio.scrivi(CHIAVE_NOME, pulisciNome(r.nomeUtente || nomeUtente));
             stato.appenaEntrato = true;
             accesso.errori = 0;
@@ -558,6 +602,12 @@
             msg('msg-accesso', 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.', 'errore');
             return;
         }
+        // password giusta, ma la persona non e' (piu') iscritta a nessun evento
+        // (per esempio dopo «Togli da questo evento» in gestione)
+        if (codice === 'nessun-evento') {
+            msg('msg-accesso', 'Non risulti iscritto a nessuna diretta. Scrivi all\'assistenza.', 'errore');
+            return;
+        }
         if (codice === 'credenziali' || r.statoHttp === 401) {
             accesso.errori++;
             let t = 'Nome utente o password non corretti.';
@@ -576,7 +626,8 @@
             $('campo-password').select();
             return;
         }
-        if (codice === 'riprova') { msg('msg-accesso', 'Il servizio è lento: riprova tra qualche secondo.', 'errore'); return; }
+        // il servizio spiega perche' (lento, oppure molti accessi insieme dalla stessa rete)
+        if (codice === 'riprova') { msg('msg-accesso', (r.msg && String(r.msg).length < 200 ? String(r.msg) : 'Il servizio è lento: riprova tra qualche secondo.'), 'errore'); return; }
         if (codice === 'rete') {
             msg('msg-accesso', 'Non riusciamo a raggiungere il servizio: controlla la connessione a internet e riprova.', 'errore');
             return;
@@ -641,6 +692,8 @@
         if (!utente) {
             stato.nomePersona = '';
             stato.nomeUtente = '';
+            stato.sessione = '';
+            stato.eventoAccesso = '';
             const motivo = stato.motivoUscita;
             stato.motivoUscita = null;
             if (motivo === 'messaggio') {
@@ -726,12 +779,12 @@
         preparaFirestore().then(() => {
             if (gen !== stato.generazione) return;
             ascoltaEvento(id, true, gen);
-        }, () => { if (gen === stato.generazione) mostraMessaggio('browser'); });
+        }, e => { if (gen === stato.generazione) sdkNonCaricato(e); });
     }
 
     async function avviaPartecipante(utente, claims, gen) {
         let F;
-        try { F = await preparaFirestore(); } catch (e) { if (gen === stato.generazione) mostraMessaggio('browser'); return; }
+        try { F = await preparaFirestore(); } catch (e) { if (gen === stato.generazione) sdkNonCaricato(e); return; }
         if (gen !== stato.generazione) return;
 
         let profilo;
@@ -791,8 +844,9 @@
     /* Piu' eventi: in onda > il prossimo in programma > il piu' recente.
        Il link dell'email (&e=) ha la precedenza se e' uno dei suoi (R4). */
     async function scegliEvento(F, eventi, idPreferito, gen) {
-        const dalLink = parametro('e');
-        if (ID_EVENTO_VALIDO.test(dalLink) && eventi.indexOf(dalLink) >= 0) return dalLink;
+        // prima il link dell'email, poi l'evento su cui il servizio ha deciso all'accesso
+        const preferito = [parametro('e'), stato.eventoAccesso].filter(x => ID_EVENTO_VALIDO.test(x) && eventi.indexOf(x) >= 0)[0];
+        if (preferito) return preferito;
         if (eventi.length <= 1) return eventi[0];
         const candidati = eventi.slice(0, 5);
         const letti = await Promise.all(candidati.map(id =>
@@ -821,20 +875,38 @@
         return 'ok';
     }
 
+    function dimenticaSessione() {
+        archivio.togli(CHIAVE_SESSIONE);
+        stato.sessione = '';
+        stato.eventoAccesso = '';
+    }
+
     async function esci(nomeDaProporre) {
         stato.motivoUscita = 'esci';
         fermaTutto();
-        archivio.togli(CHIAVE_SESSIONE);
+        dimenticaSessione();
         try { if (fb.auth) await fb.A.signOut(fb.auth); } catch (e) { /* fuori comunque */ }
         stato.utente = null;
         stato.nomePersona = '';
         mostraAccesso(nomeDaProporre ? { nome: nomeDaProporre } : {});
     }
 
+    /* Anteprima del gestore: la sessione di Firebase e' la stessa della
+       gestione (stessa app, stesso browser: e' cosi' che l'anteprima si apre
+       senza un nuovo accesso). Un signOut qui chiuderebbe anche la regia
+       aperta nell'altra scheda, magari durante la diretta: il pulsante
+       invece chiude solo l'anteprima. */
+    function chiudiAnteprima() {
+        try { window.close(); } catch (e) { /* non chiudibile: sotto */ }
+        // una scheda aperta a mano (non da «Vedi come un partecipante») il
+        // browser non la lascia chiudere: si torna alla gestione
+        setTimeout(() => { if (!window.closed) location.href = '/diretta/gestione/'; }, 300);
+    }
+
     async function esciConMessaggio(tipo) {
         stato.motivoUscita = 'messaggio';
         fermaTutto();
-        archivio.togli(CHIAVE_SESSIONE);
+        dimenticaSessione();
         mostraMessaggio(tipo);
         try { if (fb.auth && fb.auth.currentUser) await fb.A.signOut(fb.auth); else stato.motivoUscita = null; }
         catch (e) { stato.motivoUscita = null; }
@@ -1058,6 +1130,9 @@
         muto: true,
         volume: 100,
         fermo: false,           // in onda ma il dispositivo non l'ha avviato (T3)
+        pausaNostra: false,     // la pausa l'ha chiesta la persona con i nostri comandi
+        audioTentato: 0,        // quando si e' provato ad attivare l'audio
+        pausaDelBrowser: false, // il browser ha fermato il video appena gli si e' chiesto l'audio
         timerFermo: null,
         timerRiprova: null,
         timerSuggerimento: null
@@ -1092,8 +1167,13 @@
         video.player = window.NGBPlayer.crea($('video-player'), {
             // il velo che blocca i clic resta spento: vedi player-youtube.js
             livelloTrasparente: false,
+            /* Il conto dei 3 secondi di "fermo" parte da qui (e da onStato
+               'non-avviato'), MAI dalla richiesta del video: finche' il player
+               nasce (API di YouTube lenta, telefono lento) non e' fermo, sta
+               arrivando, e "Avvia la diretta" non deve comparire. */
             onPronto: () => {
                 video.errore = null;
+                video.fermo = false;
                 controllaFermo();
                 aggiornaSchermo();
             },
@@ -1102,10 +1182,18 @@
                 if (s === 'riproduzione' || s === 'buffering') {
                     video.fermo = false;
                     video.errore = null;
+                    video.pausaNostra = false;
                     clearTimeout(video.timerRiprova);
                     video.timerRiprova = null;
                     if (s === 'riproduzione' && !video.muto) nascondiSuggerimento();
                 }
+                /* Safari (iPhone, iPad) ferma il video quando gli si chiede
+                   l'audio senza un tocco DENTRO il video. Se la pausa arriva
+                   subito dopo "Attiva l'audio" e non l'ha chiesta la persona,
+                   il video resta visibile (niente nostra schermata di pausa):
+                   deve poterlo toccare, come dice il suggerimento. */
+                video.pausaDelBrowser = s === 'pausa' && !video.pausaNostra && Date.now() - video.audioTentato < 3000;
+                if (video.pausaDelBrowser) mostraSuggerimento('Tocca il video per attivare l\'audio.');
                 if (s === 'fine' && stato.evento && stato.evento.stato === 'in_onda') {
                     // la diretta si e' fermata dal lato di chi trasmette: si riprova ogni 20-30 s
                     programmaRiprova(20000 + casuale(10000));
@@ -1143,9 +1231,9 @@
         if (!video.player) creaPlayer();
         if (video.player) {
             // il cambio di link della regia arriva qui: il player cambia video
-            // senza che la pagina si ricarichi
+            // senza che la pagina si ricarichi (il controllo del "fermo" lo
+            // fanno onPronto e onStato, quando il player risponde)
             video.player.carica(id);
-            controllaFermo();
         }
         aggiornaSchermo();
     }
@@ -1161,6 +1249,9 @@
         video.errore = null;
         video.fermo = false;
         video.muto = true;
+        video.pausaNostra = false;
+        video.pausaDelBrowser = false;
+        video.audioTentato = 0;
         nascondiSuggerimento();
         esciSchermoIntero();
     }
@@ -1173,7 +1264,6 @@
         video.timerRiprova = null;
         if (!video.player || !video.id || vista !== 'diretta') return;
         video.player.carica(video.id);
-        controllaFermo();
         // se anche questo tentativo non va, il prossimo lo decide onErrore/onStato
         if (video.errore || video.stato === 'fine') programmaRiprova(20000 + casuale(10000));
     }
@@ -1195,7 +1285,7 @@
         if (!video.id) return 'arrivo';
         if (video.errore) return 'errore';
         if (video.stato === 'fine') return 'interrotto';
-        if (video.stato === 'pausa') return 'pausa';
+        if (video.stato === 'pausa' && !video.pausaDelBrowser) return 'pausa';
         if (video.fermo) return 'avvia';
         return 'video';
     }
@@ -1261,44 +1351,60 @@
         aggiornaStriscia();
     }
 
+    /* Dopo aver chiesto l'audio: il browser l'ha concesso davvero? Se il
+       player e' ancora muto (il browser ha ignorato la richiesta), la pagina
+       torna "muta" anche nei comandi: "Attiva l'audio" ricompare e il
+       pulsante del muto dice il vero. Se il video si e' fermato, un tocco sul
+       video (che resta visibile, vedi pausaDelBrowser) lo fa ripartire. */
+    function controllaAudio(testoFermo) {
+        const p = video.player;
+        if (!p) return;
+        if (p.eMuto()) {
+            p.muto();
+            mostraSuggerimento('Tocca il video per attivare l\'audio.');
+        } else if (['riproduzione', 'buffering'].indexOf(p.stato()) < 0) {
+            mostraSuggerimento(testoFermo);
+        } else {
+            nascondiSuggerimento();
+        }
+    }
+
     /* T3: tutto nello STESSO gestore del clic (i browser concedono l'audio
        solo come risposta diretta a un gesto della persona). */
     function attivaAudio() {
         const p = video.player;
         if (!p) return;
         video.fermo = false;
+        video.pausaNostra = false;
+        video.audioTentato = Date.now();
         p.smuto();
         p.volume(100);
         p.play();
         aggiornaSchermo();
         clearTimeout(video.timerSuggerimento);
-        video.timerSuggerimento = setTimeout(() => {
-            if (!video.player) return;
-            if (video.player.eMuto() || video.player.stato() !== 'riproduzione') mostraSuggerimento('Tocca il video per attivare l\'audio.');
-            else nascondiSuggerimento();
-        }, 800);
+        video.timerSuggerimento = setTimeout(() => controllaAudio('Tocca il video per attivare l\'audio.'), 800);
     }
 
     function avviaDaFermo() {
         const p = video.player;
         if (!p) return;
         video.fermo = false;
+        video.pausaNostra = false;
+        video.audioTentato = Date.now();
         p.mostra(true);
         p.smuto();
         p.volume(100);
         p.play();
         aggiornaSchermo();
         clearTimeout(video.timerSuggerimento);
-        video.timerSuggerimento = setTimeout(() => {
-            if (video.player && video.player.stato() !== 'riproduzione') mostraSuggerimento('Tocca il video per avviarlo.');
-        }, 1500);
+        video.timerSuggerimento = setTimeout(() => controllaAudio('Tocca il video per avviarlo.'), 1500);
     }
 
     function alternaPlay() {
         const p = video.player;
         if (!p || !video.id) return;
-        if (video.stato === 'riproduzione' || video.stato === 'buffering') p.pausa();
-        else { video.fermo = false; p.play(); }
+        if (video.stato === 'riproduzione' || video.stato === 'buffering') { video.pausaNostra = true; p.pausa(); }
+        else { video.fermo = false; video.pausaNostra = false; p.play(); }
     }
     function alternaMuto() {
         const p = video.player;
@@ -1427,11 +1533,11 @@
 
     function preparaComandi() {
         $('btn-play').addEventListener('click', alternaPlay);
-        $('btn-riprendi').addEventListener('click', () => { if (video.player) video.player.play(); });
+        $('btn-riprendi').addEventListener('click', () => { if (video.player) { video.pausaNostra = false; video.player.play(); } });
         $('btn-muto').addEventListener('click', alternaMuto);
         $('btn-attiva-audio').addEventListener('click', attivaAudio);
         $('btn-avvia-diretta').addEventListener('click', avviaDaFermo);
-        $('btn-live').addEventListener('click', () => { if (video.player) { video.fermo = false; video.player.vaiAlLive(); } });
+        $('btn-live').addEventListener('click', () => { if (video.player) { video.fermo = false; video.pausaNostra = false; video.player.vaiAlLive(); } });
         $('btn-schermo-intero').addEventListener('click', alternaSchermoIntero);
         $('sel-qualita').addEventListener('change', e => { if (video.player) video.player.impostaQualita(e.target.value); });
         $('volume').addEventListener('input', e => {
@@ -1475,16 +1581,28 @@
          ripristinano mai il timer: quando la regia manda in onda, le
          1000 pagine aperte NON scrivono tutte insieme;
        - mai meno di 55 s dopo l'ultimo segnale riuscito (anche di una
-         pagina precedente: ricarica), una sola scrittura alla volta,
-         niente scritture senza rete, una sola scheda per dispositivo;
+         pagina precedente: ricarica) e nemmeno dopo l'ultimo rifiutato,
+         una sola scrittura alla volta, niente scritture senza rete, una
+         sola scheda per dispositivo;
        - primo segnale della pagina = "nuovo collegamento" (se il
          documento non c'e', lo si crea); poi "continua", con +60 secondi
          solo se l'evento e' in onda. Se si e' rimasti muti per piu' di
-         140 s, di nuovo "nuovo collegamento";
+         140 s, o se il segnale precedente e' stato rifiutato, di nuovo
+         "nuovo collegamento";
        - se le regole rifiutano, si guarda il proprio profilo: account
-         disattivato -> messaggio e uscita; evento a un solo dispositivo
-         -> "Hai aperto la diretta da un altro dispositivo"; altrimenti
-         nessun messaggio e si riprova al giro dopo.
+         disattivato -> messaggio e uscita, subito. "Hai aperto la diretta
+         da un altro dispositivo" (eventi a un solo dispositivo) invece
+         SOLO dopo DUE rifiuti di fila, il secondo dei quali su un "nuovo
+         collegamento" mandato almeno 55 secondi dopo il primo. Un rifiuto
+         solo non prova niente: il dispositivo appena entrato (quello
+         buono) si vede rifiutare il primo segnale se il vecchio ha
+         scritto meno di 50 s prima (le regole lo impongono); un segnale
+         rimasto in coda senza rete arriva oltre i 150 s del "continua";
+         la regia che mette in pausa proprio in quel momento toglie il
+         minuto in piu'. In tutti questi casi il segnale del giro dopo
+         (un "nuovo collegamento", un minuto piu' tardi) passa. Il vecchio
+         dispositivo invece, soppiantato davvero, si vede rifiutare anche
+         quello: esce con il messaggio al secondo giro (un paio di minuti).
        --------------------------------------------------------------- */
     const presenza = {
         attiva: false,
@@ -1492,10 +1610,14 @@
         inCorso: false,
         primoFatto: false,
         ultimoRiuscito: 0,
+        ultimoRifiutato: 0,
+        rifiuti: 0,              // segnali rifiutati di fila da questa scheda
+        forzaNuovo: false,       // dopo un rifiuto, il segnale successivo e' un "nuovo collegamento"
         scheda: idCasuale(8),
-        lucchetto: false,
-        lucchettoChiesto: false
+        lucchetto: { nome: '', tenuto: false, chiesto: false, rilascia: null, giro: 0 }
     };
+    // una scheda senza il lucchetto scrive solo se le altre tacciono da tanto cosi'
+    const SILENZIO_ALTRE_SCHEDE_MS = 90000;
 
     function tempiPresenza() {
         const p = (CFG && CFG.prove) || null;   // solo in modalita' prove (config.js)
@@ -1506,34 +1628,68 @@
     }
 
     function avviaPresenza() {
-        if (presenza.attiva || stato.anteprima || !stato.utente) return;
+        if (presenza.attiva || stato.anteprima || !stato.utente || !stato.idEvento) return;
         presenza.attiva = true;
         presenza.primoFatto = false;
         presenza.ultimoRiuscito = 0;
-        prendiLucchetto();
+        presenza.ultimoRifiutato = 0;
+        presenza.rifiuti = 0;
+        presenza.forzaNuovo = false;
+        prendiLucchetto(nomeLucchetto());
         presenza.timer = setTimeout(giroPresenza, casuale(tempiPresenza().ritardo));
     }
     function fermaPresenza() {
         presenza.attiva = false;
         clearTimeout(presenza.timer);
         presenza.timer = null;
+        rilasciaLucchetto();
     }
 
-    /* Una sola scheda scrive: quella che tiene il lucchetto del browser per
-       tutta la sua vita. Senza navigator.locks (Safari vecchi), si guarda
-       l'ultimo segnale lasciato in localStorage dalle altre schede. */
-    function prendiLucchetto() {
-        if (presenza.lucchetto || presenza.lucchettoChiesto) return;
-        if (!navigator.locks || typeof navigator.locks.request !== 'function') return;
-        presenza.lucchettoChiesto = true;
+    /* Una sola scheda per dispositivo scrive: di norma quella che tiene il
+       lucchetto del browser (navigator.locks). Il lucchetto ha il nome
+       dell'evento e della persona: due schede su due eventi diversi non si
+       ostacolano. Si rilascia quando la pagina smette di segnalare (uscita,
+       cambio di persona, fine dell'evento) e quando la pagina viene chiusa
+       o messa da parte (pagehide). E siccome una scheda che lo tiene puo'
+       restare sospesa (iPhone: le schede in secondo piano si congelano),
+       le altre scrivono comunque se da 90 s nessuna scheda ha lasciato il
+       suo segnale in localStorage (la regola dei 50 s evita i doppioni).
+       Senza navigator.locks (Safari vecchi) vale solo il segnale. */
+    function nomeLucchetto() {
+        return 'ngb-presenza-' + stato.idEvento + '_' + (stato.utente ? stato.utente.uid : '');
+    }
+    function conLucchetti() {
+        return !!(navigator.locks && typeof navigator.locks.request === 'function');
+    }
+    function prendiLucchetto(nome) {
+        const l = presenza.lucchetto;
+        if (!conLucchetti() || !nome) return;
+        if (l.nome === nome && (l.tenuto || l.chiesto)) return;
+        rilasciaLucchetto();
+        const giro = ++l.giro;
+        l.nome = nome;
+        l.chiesto = true;
         try {
-            navigator.locks.request('ngb-presenza', { ifAvailable: true }, lucchetto => {
-                presenza.lucchettoChiesto = false;
-                if (!lucchetto) return undefined;
-                presenza.lucchetto = true;
-                return new Promise(() => { /* tenuto finche' la pagina resta aperta */ });
-            }).catch(() => { presenza.lucchettoChiesto = false; });
-        } catch (e) { presenza.lucchettoChiesto = false; }
+            navigator.locks.request(nome, { ifAvailable: true }, lucchetto => {
+                // nel frattempo la pagina l'ha lasciato (uscita, altro evento): lo si restituisce subito
+                if (l.giro !== giro) return undefined;
+                l.chiesto = false;
+                if (!lucchetto) return undefined;       // lo tiene un'altra scheda
+                l.tenuto = true;
+                // tenuto finche' qualcuno non chiama l.rilascia()
+                return new Promise(risolvi => { l.rilascia = risolvi; });
+            }).catch(() => { if (l.giro === giro) l.chiesto = false; });
+        } catch (e) { l.chiesto = false; }
+    }
+    function rilasciaLucchetto() {
+        const l = presenza.lucchetto;
+        l.giro++;
+        const r = l.rilascia;
+        l.rilascia = null;
+        l.tenuto = false;
+        l.chiesto = false;
+        l.nome = '';
+        if (r) { try { r(); } catch (e) { /* gia' rilasciato */ } }
     }
     function leggiSegnale() {
         try {
@@ -1541,13 +1697,14 @@
             return s && typeof s.quando === 'number' ? s : null;
         } catch (e) { return null; }
     }
-    function questaSchedaScrive() {
-        if (navigator.locks && typeof navigator.locks.request === 'function') {
-            if (!presenza.lucchetto) prendiLucchetto();
-            return presenza.lucchetto;
+    /* altraSchedaAttiva: un'altra scheda di questo dispositivo ha segnalato
+       la stessa presenza da meno di 90 s. */
+    function questaSchedaScrive(altraSchedaAttiva) {
+        if (conLucchetti()) {
+            prendiLucchetto(nomeLucchetto());
+            if (presenza.lucchetto.tenuto) return true;
         }
-        const s = leggiSegnale();
-        return !(s && s.scheda !== presenza.scheda && Date.now() - s.quando < 70000);
+        return !altraSchedaAttiva;
     }
 
     function nellaFinestra(ev) {
@@ -1561,13 +1718,21 @@
         return t >= i - 60 * 60000 && t <= f + 30 * 60000;
     }
 
+    /* La sessione del dispositivo: quella che il servizio ha dato all'accesso.
+       Prima localStorage (condiviso fra le schede e le ricariche), poi la
+       memoria della pagina: con localStorage bloccato un identificativo
+       nuovo a ogni segnale farebbe rifiutare tutti i "continua" (zero
+       minuti) e, con "un solo dispositivo", ogni segnale. */
+    function ricordaSessione(s) {
+        stato.sessione = SESSIONE_VALIDA.test(String(s || '')) ? String(s) : idCasuale(12);
+        archivio.scrivi(CHIAVE_SESSIONE, stato.sessione);
+    }
     function sessioneDispositivo() {
-        let s = archivio.leggi(CHIAVE_SESSIONE);
-        if (!s || !/^[A-Za-z0-9_-]{1,40}$/.test(s)) {
-            s = idCasuale(12);
-            archivio.scrivi(CHIAVE_SESSIONE, s);
-        }
-        return s;
+        const s = archivio.leggi(CHIAVE_SESSIONE);
+        if (s && SESSIONE_VALIDA.test(s)) return s;
+        if (!stato.sessione) stato.sessione = idCasuale(12);
+        archivio.scrivi(CHIAVE_SESSIONE, stato.sessione);
+        return stato.sessione;
     }
 
     async function giroPresenza() {
@@ -1583,34 +1748,49 @@
         const utente = fb.auth && fb.auth.currentUser;
         if (!presenza.attiva || presenza.inCorso || stato.anteprima || !utente || !fb.F || !ev || !stato.idEvento) return;
         if (['attesa', 'diretta', 'pausa'].indexOf(vista) < 0 || !nellaFinestra(ev)) return;
-        if (navigator.onLine === false || !questaSchedaScrive()) return;
+        if (navigator.onLine === false) return;
 
         const chiave = stato.idEvento + '_' + utente.uid;
+        const adesso = Date.now();
         const s = leggiSegnale();
-        const ultimo = Math.max(presenza.ultimoRiuscito, s && s.chiave === chiave ? s.quando : 0);
-        if (ultimo && Date.now() - ultimo < 55000) return;
+        const segnale = s && s.chiave === chiave ? s : null;
+        const altraSchedaAttiva = !!(segnale && segnale.scheda !== presenza.scheda && adesso - segnale.quando < SILENZIO_ALTRE_SCHEDE_MS);
+        // un'altra scheda di questo dispositivo scrive senza rifiuti: la
+        // sessione del dispositivo e' buona, i rifiuti di prima non contano piu'
+        if (altraSchedaAttiva) presenza.rifiuti = 0;
+        // l'ultimo segnale riuscito, di questa scheda o di un'altra (anche di prima di una ricarica)
+        const ultimoScritto = Math.max(presenza.ultimoRiuscito, segnale ? segnale.quando : 0);
+        const ultimo = Math.max(ultimoScritto, presenza.ultimoRifiutato);
+        if (ultimo && adesso - ultimo < 55000) return;
+        if (!questaSchedaScrive(altraSchedaAttiva)) return;
 
         const F = fb.F;
         const rif = F.doc(fb.db, 'presenze', chiave);
         const sessione = sessioneDispositivo();
-        const nuovo = !presenza.primoFatto || (presenza.ultimoRiuscito && Date.now() - presenza.ultimoRiuscito > 140000);
+        const nuovo = presenza.forzaNuovo || !presenza.primoFatto || (presenza.ultimoRiuscito && adesso - presenza.ultimoRiuscito > 140000);
+        const piuUnMinuto = ev.stato === 'in_onda' && adesso - ultimoScritto >= 58000;
         const gen = stato.generazione;
         presenza.inCorso = true;
         let esito;
         try {
             esito = nuovo
                 ? await nuovoCollegamento(F, rif, utente.uid, stato.idEvento, sessione)
-                : await continua(F, rif, sessione, ev.stato === 'in_onda' && Date.now() - presenza.ultimoRiuscito >= 58000);
+                : await continua(F, rif, sessione, piuUnMinuto);
         } finally {
             presenza.inCorso = false;
         }
         if (gen !== stato.generazione) return;
         if (esito === 'ok') {
             presenza.primoFatto = true;
+            presenza.forzaNuovo = false;
+            presenza.rifiuti = 0;
             presenza.ultimoRiuscito = Date.now();
             archivio.scrivi(CHIAVE_SEGNALE, JSON.stringify({ scheda: presenza.scheda, quando: presenza.ultimoRiuscito, chiave: chiave }));
         } else if (esito === 'negato') {
-            await diagnosiPresenza(utente.uid, ultimo, gen);
+            presenza.rifiuti++;
+            presenza.forzaNuovo = true;
+            presenza.ultimoRifiutato = Date.now();
+            await diagnosiPresenza(utente.uid, presenza.rifiuti >= 2, ultimoScritto, gen);
         }
     }
 
@@ -1646,15 +1826,28 @@
             await F.updateDoc(rif, dati);
             return 'ok';
         } catch (e) {
+            if (!negato(e)) throw e;
+        }
+        if (!piuUnMinuto) return 'negato';
+        /* Il minuto in piu' vale solo se l'evento e' in onda nel momento in
+           cui la scrittura arriva (le regole lo rileggono): se la regia ha
+           appena messo in pausa o terminato, il segnale senza minuto passa, e
+           il rifiuto non va contato. */
+        try {
+            await F.updateDoc(rif, { ultimo: F.serverTimestamp(), sessione: sessione });
+            return 'ok';
+        } catch (e) {
             if (negato(e)) return 'negato';
             throw e;
         }
     }
 
-    async function diagnosiPresenza(uid, ultimoPrima, gen) {
-        // un segnale riuscito da meno di un minuto (ricarica): il rifiuto e'
-        // per i tempi delle regole, non per la persona
-        if (ultimoPrima && Date.now() - ultimoPrima < 60000) return;
+    /* confermato: e' il secondo rifiuto di fila (vedi sopra). ultimoScritto:
+       l'ultimo segnale riuscito conosciuto da questo dispositivo. */
+    async function diagnosiPresenza(uid, confermato, ultimoScritto, gen) {
+        // un segnale riuscito da meno di un minuto (ricarica, altra scheda):
+        // il rifiuto e' per i tempi delle regole, non per la persona
+        if (ultimoScritto && Date.now() - ultimoScritto < 60000) return;
         const F = fb.F;
         let p = null;
         try {
@@ -1662,8 +1855,9 @@
             p = snap.exists() ? snap.data() : null;
         } catch (e) { return; }
         if (gen !== stato.generazione) return;
+        // l'account disattivato si vede dal profilo, scritto dal server: basta un rifiuto
         if (!p || p.stato === 'disattivato') { await esciConMessaggio('disattivato'); return; }
-        if (stato.evento && stato.evento.unSoloDispositivo === true) { await esciConMessaggio('altro-dispositivo'); }
+        if (confermato && stato.evento && stato.evento.unSoloDispositivo === true) await esciConMessaggio('altro-dispositivo');
     }
 
     /* ---------------------------------------------------------------
@@ -1671,12 +1865,30 @@
        ---------------------------------------------------------------
        Avviso "Connessione persa" solo dopo 5 secondi di assenza (niente
        lampeggi per un attimo di rete che manca). Firestore si ricollega
-       da solo; il video, se era in errore, riparte appena torna la rete. */
-    const rete = { daCache: false, erroreLettura: false, persaDa: 0, timer: null };
+       da solo; il video, se era in errore, riparte appena torna la rete.
+
+       Dove sta l'avviso: nelle viste senza video e' un riquadro fisso in
+       basso; nella vista della diretta invece entra nel riquadro del
+       video, in cima, SOPRA l'area del video (non davanti: il video si
+       sposta un poco in giu' finche' la rete manca). Fisso in basso
+       copriva il video (telefono in orizzontale) o i comandi (e
+       intercettava i tocchi), e davanti al video non va mai niente. In
+       cima al riquadro si vede sempre: sul telefono in verticale, in
+       orizzontale (dove quello che sta sotto il video resta fuori dallo
+       schermo) e a schermo intero. L'avviso non e' una "regione live"
+       (compare gia' pieno: molti lettori di schermo non lo leggerebbero):
+       lo si annuncia a parte, e cosi' il ritorno. */
+    const rete = { daCache: false, erroreLettura: false, persaDa: 0, timer: null, avvisata: false };
     function segnaCache(daCache) {
         if (rete.daCache === daCache) return;
         rete.daCache = daCache;
         aggiornaConnessione();
+    }
+    function mostraAvvisoConnessione(si) {
+        mostra('avviso-connessione', si);
+        if (si && !rete.avvisata) annuncia('Connessione persa: nuovo tentativo in corso.');
+        else if (!si && rete.avvisata) annuncia('Connessione ritrovata.');
+        rete.avvisata = si;
     }
     function aggiornaConnessione() {
         const persa = navigator.onLine === false || rete.daCache || rete.erroreLettura;
@@ -1684,13 +1896,23 @@
         rete.timer = null;
         if (!persa) {
             rete.persaDa = 0;
-            mostra('avviso-connessione', false);
+            mostraAvvisoConnessione(false);
             return;
         }
         if (!rete.persaDa) rete.persaDa = Date.now();
         const manca = 5000 - (Date.now() - rete.persaDa);
-        if (manca <= 0) mostra('avviso-connessione', true);
+        if (manca <= 0) mostraAvvisoConnessione(true);
         else rete.timer = setTimeout(aggiornaConnessione, manca + 20);
+    }
+    function posizionaAvvisoConnessione() {
+        const avviso = $('avviso-connessione');
+        const riquadro = $('riquadro-video');
+        if (!avviso || !riquadro) return;
+        if (vista === 'diretta') {
+            if (avviso.parentNode !== riquadro) riquadro.insertBefore(avviso, $('area-video'));
+        } else if (avviso.parentNode === riquadro) {
+            document.body.insertBefore(avviso, $('dialogo-conferma'));
+        }
     }
     function preparaRete() {
         window.addEventListener('offline', aggiornaConnessione);
@@ -1701,6 +1923,44 @@
                 riprovaVideo();
             }
         });
+        // la pagina si chiude o va in secondo piano per sempre: il lucchetto della presenza passa alle altre schede
+        window.addEventListener('pagehide', rilasciaLucchetto);
+    }
+
+    /* I componenti di Firebase (da gstatic) non si sono scaricati. Quasi
+       sempre e' la rete (debole o assente all'apertura): allora si dice
+       quello, e si riprova da soli ricaricando la pagina (un import() fallito
+       resta ricordato dal browser per tutta la vita della pagina: il nuovo
+       tentativo sicuro e' la ricarica), appena torna la rete oppure dopo
+       un'attesa che cresce a ogni fallimento (20 s, 40 s... fino a 5 minuti).
+       "Il browser non e' aggiornato" resta per gli errori del codice
+       (SyntaxError: un browser che non capisce l'SDK). */
+    function erroreDiRete(e) {
+        const nome = String((e && e.name) || '');
+        if (nome === 'SyntaxError') return false;
+        if (navigator.onLine === false) return true;
+        return nome === 'TypeError' || /fetch|network|failed to load|importing a module|dynamically imported/i.test(String((e && e.message) || ''));
+    }
+    let ricaricaProgrammata = false;
+    function sdkNonCaricato(e) {
+        if (!erroreDiRete(e)) { mostraMessaggio('browser'); return; }
+        mostraMessaggio('sdk-rete');
+        if (ricaricaProgrammata) return;
+        ricaricaProgrammata = true;
+        let volte = 0;
+        try { volte = Number(sessionStorage.getItem(CHIAVE_RIPROVA_SDK)) || 0; } catch (err) { volte = 0; }
+        try { sessionStorage.setItem(CHIAVE_RIPROVA_SDK, String(volte + 1)); } catch (err) { /* niente */ }
+        const attesa = Math.min(300000, 20000 * Math.pow(2, Math.min(volte, 4)));
+        window.addEventListener('online', () => location.reload(), { once: true });
+        const prova = () => {
+            // senza rete una ricarica mostrerebbe la pagina d'errore del browser, che non riprova piu'
+            if (navigator.onLine === false) { setTimeout(prova, 5000); return; }
+            location.reload();
+        };
+        setTimeout(prova, attesa);
+    }
+    function sdkCaricato() {
+        try { sessionStorage.removeItem(CHIAVE_RIPROVA_SDK); } catch (e) { /* niente */ }
     }
 
     /* ---------------------------------------------------------------
@@ -1751,7 +2011,13 @@
         preparaComandi();
         preparaRete();
         $('btn-esci').addEventListener('click', async () => {
-            const si = await chiediConferma({
+            if (stato.anteprima) { chiudiAnteprima(); return; }
+            // il gestore entrato qui (vista 'gestore') condivide la sessione con la gestione
+            const si = await chiediConferma(vista === 'gestore' ? {
+                titolo: 'Vuoi uscire?',
+                testo: 'Uscirai anche dalla gestione della diretta, anche se è aperta in altre schede di questo browser.',
+                si: 'Esci', no: 'Resta'
+            } : {
                 titolo: 'Vuoi uscire dalla diretta?',
                 testo: 'Per rientrare ti serviranno di nuovo il nome utente e la password.',
                 si: 'Esci', no: 'Resta'
@@ -1763,9 +2029,10 @@
         try {
             await preparaAuth();
         } catch (e) {
-            mostraMessaggio('browser');
+            sdkNonCaricato(e);
             return;
         }
+        sdkCaricato();
         fb.A.onAuthStateChanged(fb.auth, u => { gestisciUtente(u); });
     }
 
@@ -1817,7 +2084,10 @@
         try {
             await preparaAuth();
         } catch (e) {
-            testo('reimposta-sottotitolo', 'Il browser non è aggiornato: prova con Chrome, Safari, Edge o Firefox recenti.');
+            // come nella pagina della diretta: quasi sempre e' la rete, non il browser
+            testo('reimposta-sottotitolo', erroreDiRete(e)
+                ? 'Non riusciamo a caricare la pagina: controlla la connessione a internet e ricarica la pagina.'
+                : 'Il browser non è aggiornato: prova con Chrome, Safari, Edge o Firefox recenti.');
             return;
         }
         let email = '';
@@ -1880,11 +2150,12 @@
             const r = await chiamaServizio({ azione: 'entra', nomeUtente: nomeUtente, password: p1 });
             if (r.ok && r.token) {
                 try {
-                    const sessione = /^[A-Za-z0-9_-]{1,40}$/.test(String(r.sessione || '')) ? String(r.sessione) : idCasuale(12);
-                    archivio.scrivi(CHIAVE_SESSIONE, sessione);
+                    ricordaSessione(r.sessione);
                     archivio.scrivi(CHIAVE_NOME, nomeUtente);
                     await fb.A.signInWithCustomToken(fb.auth, r.token);
-                    location.replace('/diretta/');
+                    // l'evento su cui il servizio ha deciso all'accesso: la diretta apre quello
+                    const e = String(r.idEvento || '');
+                    location.replace('/diretta/' + (ID_EVENTO_VALIDO.test(e) ? '?e=' + encodeURIComponent(e) : ''));
                     return;
                 } catch (e) { /* sotto: si entra a mano */ }
             }

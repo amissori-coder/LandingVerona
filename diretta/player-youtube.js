@@ -261,6 +261,13 @@
                         }
                     }
                 });
+                /* L'iframe nasce adesso (YouTube lo mette al posto del
+                   segnaposto), ma onReady arriva piu' tardi. Se intanto la
+                   pagina ha chiesto di nasconderlo (una nostra schermata al
+                   suo posto: errore, nuovo tentativo, pausa), deve nascere
+                   gia' nascosto: mai un video visibile SOTTO una nostra
+                   schermata. */
+                applicaVisibilita();
             }, function () {
                 if (distrutto || ospite !== mio) return;
                 attesaScaduta = true;

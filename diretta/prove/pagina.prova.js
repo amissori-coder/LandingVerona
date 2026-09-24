@@ -36,6 +36,30 @@
    l'avviso a tutti; fine; ritorno in onda dopo la fine; Esci con
    conferma; password dimenticata; reimpostazione della password (anche
    con un collegamento scaduto). E nessuna violazione della CSP.
+
+   E I CASI DELLA REVISIONE (ognuno falliva prima delle correzioni):
+   - un solo dispositivo, DUE contesti veri: A entra e segnala, B entra
+     entro 50 s (il suo primo segnale e' rifiutato dalle regole): B
+     resta dentro, A esce con "altro dispositivo" al secondo rifiuto;
+   - il lucchetto della presenza: due schede su due eventi diversi
+     scrivono entrambe; con la scheda che tiene il lucchetto congelata
+     (come su iPhone in secondo piano) l'altra scrive dopo 90 s;
+   - localStorage bloccato: la sessione resta quella dell'accesso e i
+     minuti si contano;
+   - player che nasce lento: niente "Avvia la diretta" prima del tempo e
+     mai l'iframe visibile sotto una nostra schermata; "Avvia la diretta"
+     vero (autoplay bloccato) al posto del video;
+   - audio rifiutato dal browser: "Attiva l'audio" ricompare e il muto
+     dice il vero; pausa imposta dal browser (Safari): il video resta
+     toccabile;
+   - anteprima del gestore: "Chiudi l'anteprima" non scollega la
+     gestione aperta nell'altra scheda;
+   - 403 'nessun-evento' all'accesso; &e= mandato al servizio; il link
+     ?u=...&dimenticata=1; SDK di Firebase non scaricato (rete: nuovo
+     tentativo; codice rotto: "browser non aggiornato");
+   - "Connessione persa" mai davanti al video o ai comandi; avviso della
+     regia a schermo intero; pulsanti di almeno 48 px e "Torna in
+     diretta" con il suo nome anche sul telefono.
    Screenshot in risultati/screenshot-pagina/. Esce con 1 se qualcosa
    e' rosso.
    ============================================================ */
@@ -60,7 +84,7 @@ process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + PORTE.firestore;
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:' + PORTE.auth;
 const admin = require(path.resolve(__dirname, '../../email-service/node_modules/firebase-admin'));
 const { chromium } = require('playwright');
-const { preparaContesto } = require('./rete-prove');
+const { preparaContesto, FINTO_YT } = require('./rete-prove');
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -237,6 +261,52 @@ function eventoIniziale(T) {
         await db.doc('eventiRiservati/' + EVENTO).set({ videoUrl: '', videoId: '', aggiornato: T.now() });
         await evento.set(eventoIniziale(T));
 
+        /* Eventi e persone dei casi della revisione: ognuno il suo, cosi' le prove
+           lunghe (che girano in sottofondo) non toccano l'evento di Napoli. */
+        const ORA = Date.now();
+        const oggiRoma = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ORA));
+        async function eventoProva(id, titolo, extra) {
+            await db.doc('eventi/' + id).set(Object.assign({
+                titolo, luogo: 'Napoli', data: oggiRoma, oraInizio: '00:00', oraFine: '23:59',
+                inizio: T.fromMillis(ORA - 3600e3), fine: T.fromMillis(ORA + 6 * 3600e3),
+                videoId: 'hhhhhhhhhhh', videoAggiornato: T.now(), stato: 'in_onda', statoAggiornato: T.now(),
+                programma: [], paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false,
+                promemoria: { giornoPrima: false, oraPrima: false }, avviso: '', creato: T.now(), aggiornato: T.now()
+            }, extra || {}));
+            await db.doc('eventiRiservati/' + id).set({ videoUrl: 'https://youtu.be/hhhhhhhhhhh', videoId: 'hhhhhhhhhhh', aggiornato: T.now() });
+        }
+        await eventoProva('ev-unico', 'Prova: un solo dispositivo', { unSoloDispositivo: true });
+        await eventoProva('ev-schede', 'Prova: due schede');
+        await eventoProva('ev-lontano', 'Prova: evento di domani', { stato: 'programmato', videoId: '', inizio: T.fromMillis(ORA + 26 * 3600e3), fine: T.fromMillis(ORA + 30 * 3600e3) });
+        await eventoProva('ev-in-onda', 'Prova: evento in onda');
+        await eventoProva('ev-archivio', 'Prova: senza localStorage', { unSoloDispositivo: true });
+        await eventoProva('ev-video', 'Prova: il player');
+
+        // una password sola per queste persone (mai stampata)
+        const PASSWORD_PROVA = 'Prova' + crypto.randomBytes(5).toString('hex') + '7';
+        const utentiProva = {};
+        async function nuovoPartecipante(nomeUtente, nome, cognome, eventi) {
+            const id = 'p' + crypto.randomBytes(10).toString('hex');
+            await auth.createUser({ uid: id, email: id + '@' + DOMINIO_TECNICO, password: PASSWORD_PROVA, displayName: nome + ' ' + cognome });
+            await auth.setCustomUserClaims(id, { eventi });
+            await db.doc('partecipanti/' + id).set({
+                uid: id, nomeUtente, nome, cognome, email: nomeUtente + '@esempio.it', emailNorm: nomeUtente + '@esempio.it', azienda: 'Prova Srl',
+                idEvento: eventi[0], eventi, stato: 'attivo', authCreato: true, ultimoAccesso: null, invii: {}, creato: T.now(), aggiornato: T.now()
+            });
+            await db.doc('sessioni/' + id).set({ stato: 'attivo', sessioneAttiva: null, aggiornato: T.now() });
+            await db.doc('nomiUtente/' + nomeUtente).set({ uid: id, base: nomeUtente, creato: T.now() });
+            utentiProva[nomeUtente] = { uid: id, nome, cognome, eventi, sessioni: [] };
+        }
+        await nuovoPartecipante('saracambio', 'Sara', 'Cambio', ['ev-unico']);
+        await nuovoPartecipante('giuliaschede', 'Giulia', 'Schede', ['ev-schede']);
+        await nuovoPartecipante('elenadue', 'Elena', 'Due', ['ev-lontano', 'ev-in-onda']);
+        await nuovoPartecipante('luciasenza', 'Lucia', 'Senza', ['ev-archivio']);
+        await nuovoPartecipante('paolovideo', 'Paolo', 'Video', ['ev-video']);
+        const presenzaDi = async (idEvento, id) => {
+            const s = await db.doc('presenze/' + idEvento + '_' + id).get();
+            return s.exists ? s.data() : null;
+        };
+
         /* ---------- 3. il finto servizio di accesso ---------- */
         const chiamate = [];              // [{azione, nomeUtente?, identificativo?}] (mai le password)
         const sessioniRilasciate = [];
@@ -248,8 +318,28 @@ function eventoIniziale(T) {
             const risposta = (stato, dati) => route.fulfill({ status: stato, headers: cors, contentType: 'application/json', body: JSON.stringify(dati) });
             let corpo = {};
             try { corpo = JSON.parse(req.postData() || '{}'); } catch (e) { corpo = {}; }
-            chiamate.push({ azione: corpo.azione, nomeUtente: corpo.nomeUtente, identificativo: corpo.identificativo, conToken: !!req.headers().authorization });
+            chiamate.push({
+                azione: corpo.azione, nomeUtente: corpo.nomeUtente, identificativo: corpo.identificativo, conToken: !!req.headers().authorization,
+                idEvento: corpo.idEvento, conIdEvento: Object.prototype.hasOwnProperty.call(corpo, 'idEvento')
+            });
             if (corpo.azione === 'entra') {
+                // password giusta, ma nessun evento (per esempio dopo «Togli da questo evento»)
+                if (corpo.nomeUtente === 'senzaeventi') {
+                    return risposta(403, { ok: false, codice: 'nessun-evento', msg: 'Non risulti iscritto a nessuna diretta. Scrivi all\'assistenza.' });
+                }
+                /* Le persone dei casi della revisione: come il servizio vero
+                   (lib/diretta-accesso.js), l'evento e' quello chiesto dal link se e'
+                   tra i suoi, e con "un solo dispositivo" la sessione nuova diventa
+                   quella ammessa in sessioni/{uid}. */
+                const u = utentiProva[corpo.nomeUtente];
+                if (u && corpo.password === PASSWORD_PROVA) {
+                    const id = u.eventi.indexOf(corpo.idEvento) >= 0 ? corpo.idEvento : u.eventi[0];
+                    const ev = (await db.doc('eventi/' + id).get()).data() || {};
+                    const sessione = crypto.randomBytes(12).toString('hex');
+                    await db.doc('sessioni/' + u.uid).set({ stato: 'attivo', sessioneAttiva: ev.unSoloDispositivo === true ? sessione : null, aggiornato: T.now() }, { merge: true });
+                    u.sessioni.push(sessione);
+                    return risposta(200, { ok: true, token: await auth.createCustomToken(u.uid), sessione, idEvento: id, nome: u.nome, cognome: u.cognome, nomeUtente: corpo.nomeUtente });
+                }
                 /* Scorciatoia SOLO di questa prova per avere nella pagina una sessione da
                    gestore (i gestori veri entrano dalla gestione con email e password) */
                 if (corpo.nomeUtente === 'gestoreprova' && passwordValide.has(corpo.password)) {
@@ -272,14 +362,26 @@ function eventoIniziale(T) {
             if (corpo.azione === 'aggiorna-permessi') return risposta(200, { ok: true, aggiornati: false });
             return risposta(400, { ok: false, codice: 'azione', msg: 'Azione sconosciuta' });
         }
-        const quante = azione => chiamate.filter(c => c.azione === azione).length;
+        // solo le chiamate delle prove "a vista": quelle lunghe, in sottofondo, entrano con le loro persone
+        const quante = azione => chiamate.filter(c => c.azione === azione && !utentiProva[c.nomeUtente]).length;
 
         /* ---------- 4. il browser ---------- */
         browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 
-        async function nuovoContesto(opzioni, senzaSchermoIntero) {
+        /* extra (facoltativo): { prove: tempi della presenza, youtube: un finto
+           YouTube diverso, ritardoApiMs: l'API di YouTube che arriva tardi,
+           initScript: codice da eseguire in ogni pagina prima di tutto } */
+        async function nuovoContesto(opzioni, senzaSchermoIntero, extra) {
+            extra = extra || {};
             const context = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opzioni));
             await preparaContesto(context, {});
+            if (extra.youtube) {
+                // registrata dopo quella di preparaContesto: Playwright usa questa
+                await context.route('https://www.youtube.com/iframe_api*', async route => {
+                    if (extra.ritardoApiMs) await pausa(extra.ritardoApiMs);
+                    try { await route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: extra.youtube }); } catch (e) { /* pagina gia' chiusa */ }
+                });
+            }
             await context.route(API + '/diretta-accesso', servizio);
             await context.addInitScript(porte => {
                 window.NGB_DIRETTA_PROVE = porte;
@@ -290,7 +392,8 @@ function eventoIniziale(T) {
                         window.__violazioniCsp.push(e.violatedDirective + ' ' + e.blockedURI + ' ' + (e.sourceFile || ''));
                     });
                 }
-            }, { firestore: PORTE.firestore, auth: PORTE.auth, api: API, ritardoPresenzaMs: 400, intervalloPresenzaMs: 1500 });
+            }, Object.assign({ firestore: PORTE.firestore, auth: PORTE.auth, api: API, ritardoPresenzaMs: 400, intervalloPresenzaMs: 1500 }, extra.prove || {}));
+            if (extra.initScript) await context.addInitScript(extra.initScript);
             if (senzaSchermoIntero) {
                 // come su iPhone: Safari non manda a schermo intero un riquadro qualsiasi
                 await context.addInitScript(() => {
@@ -315,6 +418,171 @@ function eventoIniziale(T) {
             const f = document.querySelector('#video-player iframe');
             return f ? getComputedStyle(f).visibility : 'assente';
         });
+        const vistaDi = page => page.getAttribute('body', 'data-vista');
+        async function accedi(page, nome, password, indirizzo) {
+            await page.goto(indirizzo || SITO + '/diretta/?emulatori=1');
+            await vistaE(page, 'accesso', 30000);
+            await page.fill('#campo-nome-utente', nome);
+            await page.fill('#campo-password', password);
+            await page.click('#btn-entra');
+        }
+        // il finto YouTube con qualche riga cambiata (la sostituzione deve riuscire)
+        function fintoYT(cambi) {
+            let codice = FINTO_YT;
+            cambi.forEach(([da, a]) => {
+                if (codice.indexOf(da) < 0) throw new Error('finto YouTube: non trovo «' + da + '»');
+                codice = codice.replace(da, a);
+            });
+            return codice;
+        }
+        // le prove lunghe girano in sottofondo; l'esito si raccoglie alla fine
+        const inSottofondo = fn => fn().then(v => ({ ok: true, v }), e => ({ ok: false, e }));
+        async function esitoDi(promessa) {
+            const r = await promessa;
+            if (!r.ok) throw r.e;
+            return r.v;
+        }
+        const tempiVeloci = { ritardoPresenzaMs: 300, intervalloPresenzaMs: 2000 };
+
+        /* =================== PROVE LUNGHE (in sottofondo) ===================
+           Le regole impongono 50 s fra due segnali: queste prove durano minuti,
+           e girano insieme a tutte le altre. */
+
+        /* 1. Un solo dispositivo, due dispositivi VERI: A entra e segnala; B entra
+              entro 50 s. Il primo segnale di B e' rifiutato (troppo vicino a quello
+              di A): prima delle correzioni B, il dispositivo buono, veniva fatto
+              uscire con "altro dispositivo". Ora B resta dentro e al giro dopo
+              segnala; A, soppiantato davvero, esce con il messaggio al secondo
+              rifiuto di fila. */
+        async function scenarioCambioDispositivo() {
+            const u = utentiProva.saracambio;
+            const A = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: tempiVeloci });
+            const B = await nuovoContesto({
+                viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+            }, true, { prove: tempiVeloci });
+            try {
+                await accedi(A.page, 'saracambio', PASSWORD_PROVA);
+                await vistaE(A.page, 'diretta', 30000);
+                const sessA = u.sessioni[u.sessioni.length - 1];
+                const primo = await aspetta(() => presenzaDi('ev-unico', u.uid), 20000, 'primo segnale di A');
+                vero(primo.sessione === sessA && primo.collegamenti === 1, 'primo segnale di A: ' + JSON.stringify({ collegamenti: primo.collegamenti }));
+                const tA = primo.ultimo.toMillis();
+
+                await accedi(B.page, 'saracambio', PASSWORD_PROVA);
+                await vistaE(B.page, 'diretta', 30000);
+                const sessB = u.sessioni[u.sessioni.length - 1];
+                vero((await db.doc('sessioni/' + u.uid).get()).data().sessioneAttiva === sessB, 'il servizio non ha ammesso B');
+                // il primo segnale di B parte entro 300 ms: arriva meno di 50 s dopo quello di A
+                await pausa(8000);
+                vero(Date.now() - tA < 45000, 'prova troppo lenta: il segnale di B non e\' caduto nei 50 s');
+                const dopoB = await presenzaDi('ev-unico', u.uid);
+                vero(dopoB.sessione === sessA && dopoB.collegamenti === 1, 'il primo segnale di B doveva essere rifiutato: ' + JSON.stringify({ collegamenti: dopoB.collegamenti }));
+                vero(await vistaDi(B.page) === 'diretta', 'B, il dispositivo ammesso, e\' stato fatto uscire dopo UN solo rifiuto (vista ' + await vistaDi(B.page) + ': «' + await B.page.textContent('#messaggio-titolo') + '»)');
+
+                // A: il secondo rifiuto di fila (un "nuovo collegamento" un minuto dopo il primo) lo fa uscire
+                await A.page.waitForSelector('body[data-vista="messaggio"]', { timeout: 180000 });
+                const secondi = Math.round((Date.now() - tA) / 1000);
+                vero(/altro dispositivo/.test(await A.page.textContent('#messaggio-titolo')), 'titolo su A: ' + await A.page.textContent('#messaggio-titolo'));
+                vero(/Accedi di nuovo qui/.test(await A.page.textContent('#btn-messaggio-azione')), 'bottone su A');
+                vero(await A.page.locator('#video-player iframe').count() === 0, 'il video resta acceso su A');
+                vero(!(await A.page.locator('#btn-esci').isVisible()), 'A ancora collegato');
+                await foto(A.page, 'altro-dispositivo-computer');
+
+                // B e' ancora dentro, e il suo "nuovo collegamento" e' passato
+                vero(await vistaDi(B.page) === 'diretta', 'B non e\' piu\' in diretta: ' + await vistaDi(B.page));
+                const ora = await presenzaDi('ev-unico', u.uid);
+                vero(ora.sessione === sessB && ora.collegamenti >= 2, 'il segnale di B non e\' mai passato: ' + JSON.stringify({ collegamenti: ora.collegamenti, diB: ora.sessione === sessB }));
+                vero((await db.doc('sessioni/' + u.uid).get()).data().sessioneAttiva === sessB, 'sessione ammessa cambiata');
+                vero(B.page.__erroriPagina.length === 0 && A.page.__erroriPagina.length === 0, 'errori: ' + A.page.__erroriPagina.concat(B.page.__erroriPagina).join(' | '));
+                await A.page.click('#btn-messaggio-azione');
+                await vistaE(A.page, 'accesso', 5000);
+                return secondi;
+            } finally {
+                await A.context.close().catch(() => {});
+                await B.context.close().catch(() => {});
+            }
+        }
+
+        /* 2. Due schede sullo STESSO evento: la prima tiene il lucchetto e segnala;
+              poi si ferma (come una scheda sospesa in secondo piano su iPhone:
+              qui la ferma il debugger di Chromium, che blocca il suo codice ma
+              le lascia il lucchetto). La seconda, che la persona sta guardando,
+              prima non scriveva mai; ora scrive quando le altre tacciono da 90 s. */
+        async function scenarioSchedaCongelata() {
+            const u = utentiProva.giuliaschede;
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: tempiVeloci });
+            try {
+                const a = C.page;
+                await accedi(a, 'giuliaschede', PASSWORD_PROVA);
+                await vistaE(a, 'diretta', 30000);
+                const primo = await aspetta(() => presenzaDi('ev-schede', u.uid), 20000, 'primo segnale della scheda A');
+                const tA = primo.ultimo.toMillis();
+                const b = await C.context.newPage();
+                b.__erroriPagina = [];
+                b.on('pageerror', e => b.__erroriPagina.push(String(e && e.message || e)));
+                await b.goto(SITO + '/diretta/?emulatori=1');
+                await vistaE(b, 'diretta', 30000);
+                await b.bringToFront();
+                const cdp = await C.context.newCDPSession(a);
+                await cdp.send('Debugger.enable');
+                await cdp.send('Debugger.pause');
+                const dopo = await aspetta(async () => {
+                    const d = await presenzaDi('ev-schede', u.uid);
+                    return d && d.collegamenti >= 2 ? d : null;
+                }, 150000, 'segnale della scheda B');
+                const attesa = Math.round((dopo.ultimo.toMillis() - tA) / 1000);
+                vero(attesa >= 85, 'la scheda B ha scritto mentre la A segnalava ancora (dopo ' + attesa + ' s)');
+                vero(b.__erroriPagina.length === 0, 'errori: ' + b.__erroriPagina.join(' | '));
+                return attesa;
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        }
+
+        /* 3. localStorage bloccato (Safari "Blocca tutti i cookie", dati dei siti
+              bloccati): la sessione del dispositivo resta quella dell'accesso (in
+              memoria), anche con "un solo dispositivo", e i minuti si contano.
+              Prima: una sessione nuova a ogni segnale, rifiutata dalle regole. */
+        async function scenarioSenzaLocalStorage() {
+            const u = utentiProva.luciasenza;
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, {
+                // un minuto vero fra i segnali: il +60 vale solo dopo almeno 58 s
+                prove: { ritardoPresenzaMs: 300, intervalloPresenzaMs: 60000 },
+                initScript: () => {
+                    try {
+                        Object.defineProperty(window, 'localStorage', {
+                            configurable: true,
+                            get() { throw new DOMException('I dati dei siti sono bloccati', 'SecurityError'); }
+                        });
+                    } catch (e) { /* niente */ }
+                }
+            });
+            try {
+                await accedi(C.page, 'luciasenza', PASSWORD_PROVA);
+                await vistaE(C.page, 'diretta', 30000);
+                vero(await C.page.evaluate(() => { try { window.localStorage.getItem('x'); return false; } catch (e) { return true; } }), 'localStorage non bloccato');
+                const sess = u.sessioni[u.sessioni.length - 1];
+                const primo = await aspetta(() => presenzaDi('ev-archivio', u.uid), 20000, 'primo segnale');
+                vero(primo.sessione === sess, 'il primo segnale non usa la sessione data all\'accesso');
+                const d = await aspetta(async () => {
+                    const x = await presenzaDi('ev-archivio', u.uid);
+                    return x && x.secondi >= 60 ? x : null;
+                }, 110000, 'un minuto contato');
+                vero(d.sessione === sess && d.collegamenti === 1, JSON.stringify({ collegamenti: d.collegamenti, stessa: d.sessione === sess }));
+                vero(await vistaDi(C.page) === 'diretta', 'vista: ' + await vistaDi(C.page));
+                vero(C.page.__erroriPagina.length === 0, 'errori: ' + C.page.__erroriPagina.join(' | '));
+                return d.secondi;
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        }
+
+        const lunghe = {
+            cambio: inSottofondo(scenarioCambioDispositivo),
+            congelata: inSottofondo(scenarioSchedaCongelata),
+            senzaArchivio: inSottofondo(scenarioSenzaLocalStorage)
+        };
 
         /* =================== COMPUTER =================== */
         console.log('\nComputer 1366x900');
@@ -364,7 +632,7 @@ function eventoIniziale(T) {
             await p.fill('#campo-password', passwordIniziale);
             await p.click('#btn-entra');
             await vistaE(p, 'attesa', 20000);
-            const ultima = chiamate.filter(c => c.azione === 'entra').pop();
+            const ultima = chiamate.filter(c => c.azione === 'entra' && !utentiProva[c.nomeUtente]).pop();
             vero(ultima.nomeUtente === 'mariorossi', 'nome utente inviato: ' + ultima.nomeUtente);
             vero((await p.textContent('#nome-persona')).trim() === 'Mario Rossi', 'nome della persona: ' + await p.textContent('#nome-persona'));
             vero(/Napoli/.test(await p.textContent('#titolo-evento')), 'titolo evento: ' + await p.textContent('#titolo-evento'));
@@ -478,7 +746,29 @@ function eventoIniziale(T) {
             await p.waitForSelector('#riquadro-video[data-intero="0"]');
         });
 
-        await prova('"Torna in diretta" salta al momento attuale', async () => {
+        await prova('avviso a tutti durante la diretta: in cima, annunciato, e a schermo intero nella striscia SOTTO il video', async () => {
+            await evento.update({ avviso: 'Problema tecnico: torniamo tra 5 minuti.' });
+            await p.waitForSelector('#avviso-evento', { state: 'visible', timeout: 10000 });
+            await p.waitForFunction(() => /Avviso: Problema tecnico/.test(document.getElementById('annuncio').textContent), null, { timeout: 5000 });
+            vero(!(await visibile(p, '#avviso-intero')), 'la copia nel riquadro si vede anche fuori dallo schermo intero');
+            await p.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+            await p.keyboard.press('f');
+            await p.waitForSelector('#riquadro-video[data-intero="1"]');
+            await p.waitForSelector('#avviso-intero', { state: 'visible', timeout: 5000 });
+            vero(/Problema tecnico/.test(await p.textContent('#avviso-intero')), 'testo: ' + await p.textContent('#avviso-intero'));
+            const v = await p.locator('#area-video').boundingBox();
+            const a = await p.locator('#avviso-intero').boundingBox();
+            vero(a.y >= v.y + v.height - 1, 'l\'avviso sta sopra il video');
+            vero(a.y + a.height <= 900 + 1, 'l\'avviso esce dallo schermo');
+            await foto(p, 'avviso-schermo-intero-computer');
+            await p.keyboard.press('f');
+            await p.waitForSelector('#riquadro-video[data-intero="0"]');
+            await evento.update({ avviso: '' });
+            await p.waitForSelector('#avviso-evento', { state: 'hidden', timeout: 10000 });
+        });
+
+        await prova('"Torna in diretta" salta al momento attuale (e si chiama cosi\' anche per i lettori di schermo)', async () => {
+            vero(await p.getByRole('button', { name: 'Torna in diretta' }).count() === 1, 'pulsante senza nome');
             const da = await numComandi(p);
             await p.click('#btn-live');
             const c = (await comandiDa(p, da)).map(x => x.comando);
@@ -596,6 +886,12 @@ function eventoIniziale(T) {
             await vistaE(p, 'dimenticata', 20000);
         });
 
+        await prova('il link «password dimenticata» delle email (?u=mariorossi&dimenticata=1) scrive già il nome utente', async () => {
+            await p.goto(SITO + '/diretta/?u=mariorossi&dimenticata=1');
+            await vistaE(p, 'dimenticata', 20000);
+            vero(await p.inputValue('#campo-identificativo') === 'mariorossi', 'campo: «' + await p.inputValue('#campo-identificativo') + '»');
+        });
+
         await prova('reimpostazione: collegamento scaduto -> "Richiedi un nuovo collegamento"', async () => {
             await p.goto(SITO + '/diretta/reimposta.html?oobCode=codice-inventato&u=mariorossi');
             await p.waitForSelector('#link-nuovo-collegamento', { state: 'visible', timeout: 20000 });
@@ -637,7 +933,7 @@ function eventoIniziale(T) {
         await pc.context.close();
 
         /* =================== CASI PARTICOLARI =================== */
-        console.log('\nCasi particolari (gestore, un solo dispositivo, account disattivato)');
+        console.log('\nCasi particolari (gestore, accesso, account disattivato)');
         const cp = await nuovoContesto({ viewport: { width: 1366, height: 900 } });
         const q = cp.page;
         const entraCome = async (nome, password) => {
@@ -663,25 +959,41 @@ function eventoIniziale(T) {
             vero(await visibile(q, '#avviso-anteprima'), 'avviso di anteprima non visibile');
             vero(/Nessuna presenza registrata/.test(await q.textContent('#avviso-anteprima')), 'testo dell\'anteprima');
             await foto(q, 'anteprima-gestore-computer');
+            // in anteprima il pulsante chiude l'anteprima, non scollega (vedi la prova con la gestione vera)
+            vero((await q.textContent('#btn-esci')).trim() === 'Chiudi l\'anteprima', 'pulsante in anteprima: «' + (await q.textContent('#btn-esci')).trim() + '»');
             await pausa(3000);
             vero(!(await db.doc('presenze/' + EVENTO + '_' + uidGestore).get()).exists, 'l\'anteprima ha scritto una presenza');
-            await esciDa(q);
+            // dalla vista del gestore "Esci" scollega: la conferma dice che esce anche dalla gestione
+            await q.goto(SITO + '/diretta/');
+            await vistaE(q, 'gestore', 20000);
+            vero((await q.textContent('#btn-esci')).trim() === 'Esci', 'pulsante nella vista del gestore');
+            await q.click('#btn-esci');
+            await q.waitForSelector('#dialogo-conferma', { state: 'visible' });
+            vero(/anche dalla gestione/.test(await q.textContent('#dialogo-testo')), 'conferma: ' + await q.textContent('#dialogo-testo'));
+            await q.click('#btn-conferma-si');
+            await vistaE(q, 'accesso', 10000);
         });
 
-        await prova('un solo dispositivo: la sessione e\' di un altro dispositivo -> messaggio e uscita', async () => {
-            await evento.update({ unSoloDispositivo: true });
-            await db.doc('sessioni/' + uid).update({ sessioneAttiva: 'sessione-di-un-altro-dispositivo' });
+        await prova('accesso di chi non è iscritto a nessun evento (403 nessun-evento): il messaggio giusto, non «errore del servizio»', async () => {
+            await entraCome('senzaeventi', 'una-password-qualsiasi');
+            await q.waitForFunction(() => /Non risulti iscritto a nessuna diretta/.test(document.getElementById('msg-accesso').textContent), null, { timeout: 10000 });
+            vero(!/Errore del servizio/.test(await q.textContent('#msg-accesso')), 'messaggio generico');
+            vero(await vistaDi(q) === 'accesso', 'vista: ' + await vistaDi(q));
+        });
+
+        await prova('il link dell\'email con &e=: l\'evento va anche al servizio; un valore non valido no', async () => {
+            await q.goto(SITO + '/diretta/?e=' + EVENTO);
             await entraCome('mariorossi', passwordIniziale);
-            await vistaE(q, 'messaggio', 20000);
-            vero(/altro dispositivo/.test(await q.textContent('#messaggio-titolo')), 'titolo: ' + await q.textContent('#messaggio-titolo'));
-            vero(/Accedi di nuovo qui/.test(await q.textContent('#btn-messaggio-azione')), 'bottone');
-            vero(await q.locator('#video-player iframe').count() === 0, 'il video resta acceso');
-            vero(!(await visibile(q, '#btn-esci')), 'ancora collegato');
-            await foto(q, 'altro-dispositivo-computer');
-            await q.click('#btn-messaggio-azione');
-            await vistaE(q, 'accesso', 5000);
-            await evento.update({ unSoloDispositivo: false });
-            await db.doc('sessioni/' + uid).update({ sessioneAttiva: null });
+            await q.waitForSelector('body[data-vista="diretta"], body[data-vista="attesa"]', { timeout: 20000 });
+            const c = chiamate.filter(x => x.azione === 'entra' && x.nomeUtente === 'mariorossi').pop();
+            vero(c.idEvento === EVENTO, 'idEvento mandato: ' + c.idEvento);
+            await esciDa(q);
+            await q.goto(SITO + '/diretta/?e=' + encodeURIComponent('../Napoli 2026'));
+            await entraCome('mariorossi', passwordIniziale);
+            await q.waitForSelector('body[data-vista="diretta"], body[data-vista="attesa"]', { timeout: 20000 });
+            const c2 = chiamate.filter(x => x.azione === 'entra' && x.nomeUtente === 'mariorossi').pop();
+            vero(!c2.conIdEvento, 'mandato un idEvento non valido: ' + c2.idEvento);
+            await esciDa(q);
         });
 
         await prova('account disattivato: messaggio chiaro, niente diretta', async () => {
@@ -698,6 +1010,232 @@ function eventoIniziale(T) {
             vero(q.__erroriPagina.length === 0, 'errori: ' + q.__erroriPagina.join(' | '));
         });
         await cp.context.close();
+
+        /* =================== ANTEPRIMA DALLA GESTIONE VERA =================== */
+        console.log('\nAnteprima del gestore con la gestione aperta');
+        await prova('«Vedi come un partecipante» e poi «Chiudi l\'anteprima»: la gestione aperta nell\'altra scheda resta collegata', async () => {
+            const G = await nuovoContesto({ viewport: { width: 1366, height: 900 } }, false, { prove: { ritardoPresenzaMs: 999999 } });
+            try {
+                const g = G.page;
+                await g.goto(SITO + '/diretta/gestione/?emulatori=1');
+                await g.waitForSelector('#gestore-email', { state: 'visible', timeout: 30000 });
+                await g.fill('#gestore-email', 'gestore@prova.it');
+                await g.fill('#gestore-password', passwordIniziale);
+                await g.click('#btn-gestore-entra');
+                await g.waitForSelector('body[data-vista="app"]', { timeout: 30000 });
+                // la gestione ha caricato gli eventi e ne ha scelto uno
+                await g.waitForFunction(() => { const s = document.getElementById('sel-evento'); return s && s.value; }, null, { timeout: 30000 });
+                await g.click('[data-scheda="regia"]');
+                await g.waitForSelector('#btn-anteprima', { state: 'visible', timeout: 10000 });
+                const [ant] = await Promise.all([G.context.waitForEvent('page', { timeout: 15000 }), g.click('#btn-anteprima')]);
+                ant.__erroriPagina = [];
+                ant.on('pageerror', e => ant.__erroriPagina.push(String(e && e.message || e)));
+                await ant.waitForSelector('#avviso-anteprima:not([hidden])', { timeout: 30000 });
+                vero((await ant.textContent('#btn-esci')).trim() === 'Chiudi l\'anteprima', 'pulsante: «' + (await ant.textContent('#btn-esci')).trim() + '»');
+                const chiusa = ant.waitForEvent('close', { timeout: 10000 }).then(() => 'chiusa', () => '');
+                const tornata = ant.waitForURL(/\/diretta\/gestione\//, { timeout: 10000 }).then(() => 'gestione', () => '');
+                await ant.click('#btn-esci');
+                const come = await Promise.race([chiusa, tornata]);
+                vero(come, 'l\'anteprima non si e\' chiusa e non e\' tornata alla gestione');
+                // prima delle correzioni qui la gestione tornava al modulo di accesso
+                await pausa(4000);
+                vero(await vistaDi(g) === 'app', 'la gestione e\' stata scollegata: vista ' + await vistaDi(g));
+                vero(!(await g.locator('#form-gestore').isVisible()), 'modulo di accesso della gestione visibile');
+                await g.reload();
+                await g.waitForSelector('body[data-vista="app"]', { timeout: 30000 });
+                vero(ant.__erroriPagina.length === 0, 'errori: ' + ant.__erroriPagina.join(' | '));
+            } finally {
+                await G.context.close().catch(() => {});
+            }
+        });
+
+        /* =================== LUCCHETTO DELLA PRESENZA =================== */
+        console.log('\nPresenza con due schede');
+        await prova('due schede su due eventi diversi: il lucchetto e\' per evento, la scheda in onda segnala (e i lucchetti si rilasciano all\'uscita)', async () => {
+            const u = utentiProva.elenadue;
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: tempiVeloci });
+            try {
+                const a = C.page;
+                await accedi(a, 'elenadue', PASSWORD_PROVA, SITO + '/diretta/?emulatori=1&e=ev-lontano');
+                await vistaE(a, 'attesa', 30000);
+                vero(chiamate.filter(x => x.azione === 'entra' && x.nomeUtente === 'elenadue').pop().idEvento === 'ev-lontano', 'evento del link non mandato al servizio');
+                await pausa(1500);
+                const b = await C.context.newPage();
+                await b.goto(SITO + '/diretta/?emulatori=1&e=ev-in-onda');
+                await vistaE(b, 'diretta', 30000);
+                const d = await aspetta(() => presenzaDi('ev-in-onda', u.uid), 15000, 'segnale della scheda in onda');
+                vero(d.collegamenti === 1, 'collegamenti ' + d.collegamenti);
+                vero(!(await presenzaDi('ev-lontano', u.uid)), 'segnale sull\'evento di domani (fuori dalla finestra)');
+                const tenuti = await b.evaluate(async () => (await navigator.locks.query()).held.map(l => l.name).filter(n => /^ngb-presenza/.test(n)).sort());
+                vero(tenuti.length === 2 && tenuti[0] === 'ngb-presenza-ev-in-onda_' + u.uid && tenuti[1] === 'ngb-presenza-ev-lontano_' + u.uid, 'lucchetti: ' + tenuti.join(', '));
+                await b.click('#btn-esci');
+                await b.click('#btn-conferma-si');
+                await vistaE(b, 'accesso', 10000);
+                await vistaE(a, 'accesso', 10000);
+                const dopo = await aspetta(async () => {
+                    const l = await b.evaluate(async () => (await navigator.locks.query()).held.map(x => x.name).filter(n => /^ngb-presenza/.test(n)));
+                    return l.length === 0 ? 'liberi' : '';
+                }, 5000, 'lucchetti rilasciati').catch(e => e.message);
+                vero(dopo === 'liberi', 'lucchetti ancora tenuti dopo l\'uscita: ' + dopo);
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        });
+
+        /* =================== IL PLAYER NEI CASI DIFFICILI =================== */
+        console.log('\nIl player nei casi difficili');
+        // registra ogni 50 ms che cosa mostra il riquadro del video
+        const registraSchermo = () => {
+            if (window.top !== window) return;
+            window.__registroSchermo = [];
+            const t0 = Date.now();
+            setInterval(() => {
+                const area = document.getElementById('area-video');
+                if (!area || document.body.getAttribute('data-vista') !== 'diretta') return;
+                const f = document.querySelector('#video-player iframe');
+                const sv = document.getElementById('schermo-video');
+                const sp = document.getElementById('schermo-pausa');
+                window.__registroSchermo.push({
+                    t: Date.now() - t0,
+                    schermata: area.getAttribute('data-schermata'),
+                    iframe: f ? getComputedStyle(f).visibility : 'assente',
+                    nostra: !sv.hidden || !sp.hidden,
+                    avvia: !sv.hidden && !document.getElementById('btn-avvia-diretta').hidden
+                });
+            }, 50);
+        };
+        await prova('player che nasce lento (API dopo 11 s, onReady dopo 1,5 s): niente «Avvia la diretta», mai il video SOTTO una nostra schermata', async () => {
+            const lento = fintoYT([['}, 60);', '}, 1500);']]);
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: lento, ritardoApiMs: 11000, prove: { ritardoPresenzaMs: 999999 }, initScript: registraSchermo });
+            try {
+                await accedi(C.page, 'paolovideo', PASSWORD_PROVA);
+                await vistaE(C.page, 'diretta', 30000);
+                await C.page.waitForFunction(() => {
+                    const f = document.querySelector('#video-player iframe');
+                    return f && getComputedStyle(f).visibility === 'visible' && window.__fintoYT && window.__fintoYT.ultimo
+                        && window.__fintoYT.ultimo.getPlayerState() === 1 && document.getElementById('area-video').getAttribute('data-schermata') === 'video';
+                }, null, { timeout: 30000 });
+                await pausa(3500);    // oltre i 3 s del "fermo"
+                const reg = await C.page.evaluate(() => window.__registroSchermo);
+                vero(reg.some(x => x.iframe === 'assente') && reg.some(x => x.schermata === 'errore'), 'la prova non ha visto il player lento (attesa e «video non disponibile»)');
+                const avvia = reg.filter(x => x.avvia);
+                vero(!avvia.length, '«Avvia la diretta» mentre il player nasceva, a ' + (avvia[0] && avvia[0].t) + ' ms');
+                const sotto = reg.filter(x => x.nostra && x.iframe === 'visible');
+                vero(!sotto.length, 'video visibile sotto la schermata «' + (sotto[0] && sotto[0].schermata) + '» a ' + (sotto[0] && sotto[0].t) + ' ms');
+                vero(reg[reg.length - 1].schermata === 'video', 'alla fine: ' + reg[reg.length - 1].schermata);
+                vero(C.page.__erroriPagina.length === 0, 'errori: ' + C.page.__erroriPagina.join(' | '));
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        });
+
+        await prova('in onda ma il dispositivo non avvia il video (autoplay bloccato): «Avvia la diretta» AL POSTO del video dopo 3 s, e poi il video', async () => {
+            const bloccato = fintoYT([["if (String(pv.autoplay) === '1') self._cambia(STATI.PLAYING);", '']]);
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: bloccato, prove: { ritardoPresenzaMs: 999999 } });
+            try {
+                const pg = C.page;
+                await accedi(pg, 'paolovideo', PASSWORD_PROVA);
+                await vistaE(pg, 'diretta', 30000);
+                await pg.waitForSelector('#video-player iframe[data-finto-youtube]', { timeout: 15000 });
+                const t0 = Date.now();
+                await pg.waitForSelector('#btn-avvia-diretta', { state: 'visible', timeout: 10000 });
+                vero(Date.now() - t0 >= 2000, '«Avvia la diretta» troppo presto');
+                vero(await statoIframe(pg) === 'hidden', 'il video resta visibile sotto «Avvia la diretta»');
+                await foto(pg, 'avvia-la-diretta-computer');
+                await pg.click('#btn-avvia-diretta');
+                await pg.waitForFunction(() => document.getElementById('area-video').getAttribute('data-schermata') === 'video', null, { timeout: 5000 });
+                vero(await statoIframe(pg) === 'visible', 'il video non ricompare');
+                vero((await comandiDa(pg, 0)).some(x => x.comando === 'play'), 'play non chiesto');
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        });
+
+        await prova('il browser rifiuta l\'audio: «Attiva l\'audio» ricompare e il pulsante del muto dice il vero', async () => {
+            const sordo = fintoYT([["Player.prototype.unMute = function () { this._traccia('smuto'); this._muto = false; };",
+                "Player.prototype.unMute = function () { this._traccia('smuto'); };"]]);
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: sordo, prove: { ritardoPresenzaMs: 999999 } });
+            try {
+                const pg = C.page;
+                await accedi(pg, 'paolovideo', PASSWORD_PROVA);
+                await vistaE(pg, 'diretta', 30000);
+                await pg.waitForSelector('#btn-attiva-audio', { state: 'visible', timeout: 15000 });
+                await pg.click('#btn-attiva-audio');
+                await pausa(1300);
+                vero(await pg.evaluate(() => window.__fintoYT.ultimo.isMuted()), 'la prova non ha rifiutato l\'audio');
+                vero(await visibile(pg, '#btn-attiva-audio'), '«Attiva l\'audio» sparito con il video ancora muto');
+                vero(await pg.getAttribute('#btn-muto', 'data-muto') === '1', 'il pulsante del muto dice «audio attivo»');
+                vero(/Audio disattivato/.test(await pg.getAttribute('#btn-muto', 'aria-label')), 'etichetta: ' + await pg.getAttribute('#btn-muto', 'aria-label'));
+                vero(await visibile(pg, '#suggerimento-audio') && /Tocca il video/.test(await pg.textContent('#suggerimento-audio')), 'suggerimento mancante');
+                await foto(pg, 'audio-rifiutato-computer');
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        });
+
+        await prova('il browser ferma il video quando si chiede l\'audio (come Safari): il video resta visibile e toccabile, niente nostra schermata di pausa', async () => {
+            const safari = fintoYT([["Player.prototype.unMute = function () { this._traccia('smuto'); this._muto = false; };",
+                "Player.prototype.unMute = function () { this._traccia('smuto'); this._muto = false; var me = this; setTimeout(function () { me._cambia(STATI.PAUSED); }, 100); };"]]);
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { youtube: safari, prove: { ritardoPresenzaMs: 999999 } });
+            try {
+                const pg = C.page;
+                await accedi(pg, 'paolovideo', PASSWORD_PROVA);
+                await vistaE(pg, 'diretta', 30000);
+                await pg.waitForSelector('#btn-attiva-audio', { state: 'visible', timeout: 15000 });
+                await pg.click('#btn-attiva-audio');
+                await pausa(1300);
+                vero(await pg.evaluate(() => window.__fintoYT.ultimo.getPlayerState()) === 2, 'la prova non ha fermato il video');
+                vero(!(await visibile(pg, '#schermo-pausa')), 'la nostra schermata di pausa copre il video da toccare');
+                vero(await statoIframe(pg) === 'visible', 'video nascosto');
+                vero(await visibile(pg, '#suggerimento-audio') && /Tocca il video/.test(await pg.textContent('#suggerimento-audio')), 'suggerimento mancante');
+                // la persona tocca il video: YouTube riparte, con l'audio
+                await pg.evaluate(() => window.__fintoYT.ultimo.playVideo());
+                await pg.waitForSelector('#suggerimento-audio', { state: 'hidden', timeout: 5000 });
+                // una pausa chiesta con i nostri comandi mostra invece la nostra schermata
+                await pg.click('#btn-play');
+                await pg.waitForSelector('#schermo-pausa', { state: 'visible', timeout: 5000 });
+                vero(await statoIframe(pg) === 'hidden', 'in pausa il video resta visibile');
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        });
+
+        /* =================== CARICAMENTO DELL'SDK =================== */
+        console.log('\nSDK di Firebase non scaricato');
+        await prova('SDK non scaricato per la rete: «Non riusciamo a caricare la diretta» (non «browser non aggiornato») e nuovo tentativo da solo al ritorno della rete', async () => {
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 } });
+            const blocca = route => route.abort('internetdisconnected');
+            try {
+                const pg = C.page;
+                await C.context.route('**/firebasejs/*/firebase-auth.js', blocca);
+                await pg.goto(SITO + '/diretta/?emulatori=1');
+                await vistaE(pg, 'messaggio', 30000);
+                vero(/Non riusciamo a caricare la diretta/.test(await pg.textContent('#messaggio-titolo')), 'titolo: ' + await pg.textContent('#messaggio-titolo'));
+                vero(await visibile(pg, '#btn-messaggio-azione'), 'nessun pulsante per riprovare');
+                await foto(pg, 'sdk-rete-computer');
+                await C.context.unroute('**/firebasejs/*/firebase-auth.js', blocca);
+                // la rete va e torna: la pagina si ricarica da sola
+                await C.context.setOffline(true);
+                await pausa(500);
+                await C.context.setOffline(false);
+                await vistaE(pg, 'accesso', 30000);
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        });
+
+        await prova('SDK scaricato ma che il browser non capisce (SyntaxError): «Il browser non è aggiornato»', async () => {
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 } });
+            try {
+                const pg = C.page;
+                await C.context.route('**/firebasejs/*/firebase-auth.js', route => route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: 'export const x = ;' }));
+                await pg.goto(SITO + '/diretta/?emulatori=1');
+                await vistaE(pg, 'messaggio', 30000);
+                vero(/Il browser non è aggiornato/.test(await pg.textContent('#messaggio-titolo')), 'titolo: ' + await pg.textContent('#messaggio-titolo'));
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        });
 
         /* =================== TELEFONO (iPhone) =================== */
         console.log('\nTelefono 390x844 (iPhone, senza API di schermo intero)');
@@ -718,6 +1256,8 @@ function eventoIniziale(T) {
             vero(corpo >= 18, 'testo base ' + corpo + ' px');
             const h = (await t.locator('#btn-entra').boundingBox()).height;
             vero(h >= 48, 'pulsante Entra alto ' + h);
+            const hd = (await t.locator('#link-dimenticata').boundingBox()).height;
+            vero(hd >= 48, '«Password dimenticata?» alto ' + hd);
             await t.evaluate(() => document.fonts && document.fonts.ready);
             await foto(t, 'accesso-telefono', true);
             await t.fill('#campo-password', passwordIniziale);
@@ -755,6 +1295,71 @@ function eventoIniziale(T) {
             vero(!(await t.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'classe rimasta');
         });
 
+        await prova('telefono: pulsanti di almeno 48 px, «Torna in diretta» ha il suo nome anche se si vede «Live»', async () => {
+            const live = t.getByRole('button', { name: 'Torna in diretta' });
+            vero(await live.count() === 1 && await live.isVisible(), 'pulsante «Torna in diretta» senza nome');
+            vero((await t.textContent('#btn-live')).indexOf('Live') >= 0 && await t.locator('#btn-live .testo-corto').isVisible(), 'a vista non dice «Live»');
+            for (const id of ['btn-live', 'btn-esci', 'btn-play', 'btn-muto', 'btn-schermo-intero', 'btn-attiva-audio']) {
+                const el = t.locator('#' + id);
+                if (!(await el.isVisible())) continue;
+                const b = await el.boundingBox();
+                vero(b.height >= 48 && b.width >= 44, '#' + id + ' misura ' + Math.round(b.width) + 'x' + Math.round(b.height));
+            }
+        });
+
+        await prova('telefono: l\'avviso della regia si vede anche nello pseudo schermo intero, sotto il video', async () => {
+            await evento.update({ avviso: 'Riprendiamo alle 14.30.' });
+            await t.waitForSelector('#avviso-evento', { state: 'visible', timeout: 10000 });
+            await t.tap('#btn-schermo-intero');
+            await t.waitForSelector('#riquadro-video[data-intero="1"]');
+            await t.waitForSelector('#avviso-intero', { state: 'visible', timeout: 5000 });
+            const v = await t.locator('#area-video').boundingBox();
+            const a = await t.locator('#avviso-intero').boundingBox();
+            vero(a.y >= v.y + v.height - 1 && a.y + a.height <= 844 + 1, 'avviso fuori posto: ' + JSON.stringify({ a, v }));
+            await foto(t, 'avviso-schermo-intero-telefono');
+            await t.tap('#btn-schermo-intero');
+            await t.waitForSelector('#riquadro-video[data-intero="0"]');
+            await evento.update({ avviso: '' });
+            await t.waitForSelector('#avviso-evento', { state: 'hidden', timeout: 10000 });
+        });
+
+        await prova('telefono: «Connessione persa» in cima al riquadro del video, visibile e mai davanti al video o ai comandi (verticale, orizzontale, schermo intero)', async () => {
+            const misura = () => t.evaluate(() => {
+                const r = id => { const b = document.getElementById(id).getBoundingClientRect(); return { alto: b.top, basso: b.bottom }; };
+                return {
+                    avviso: r('avviso-connessione'), video: r('area-video'), comandi: r('barra-comandi'),
+                    dentro: document.getElementById('riquadro-video').contains(document.getElementById('avviso-connessione')),
+                    altezza: window.innerHeight
+                };
+            });
+            const controlla = async come => {
+                const m = await misura();
+                vero(m.dentro, come + ': l\'avviso non e\' nel riquadro del video');
+                // sopra il video, non davanti; e quindi nemmeno sui comandi, che stanno sotto il video
+                vero(m.avviso.basso <= m.video.alto + 0.5, come + ': l\'avviso copre il video ' + JSON.stringify(m));
+                vero(m.video.basso <= m.comandi.alto + 0.5, come + ': il video copre i comandi ' + JSON.stringify(m));
+                vero(m.avviso.alto >= -0.5 && m.avviso.basso <= m.altezza + 0.5, come + ': l\'avviso e\' fuori dallo schermo ' + JSON.stringify(m));
+                return m;
+            };
+            await tel.context.setOffline(true);
+            await t.waitForSelector('#avviso-connessione', { state: 'visible', timeout: 15000 });
+            await controlla('verticale');
+            await t.tap('#btn-schermo-intero');
+            await t.waitForSelector('#riquadro-video[data-intero="1"]');
+            const m = await controlla('schermo intero');
+            vero(m.comandi.basso <= m.altezza + 0.5, 'a schermo intero i comandi escono dallo schermo');
+            await foto(t, 'connessione-persa-schermo-intero-telefono');
+            await t.tap('#btn-schermo-intero');
+            await t.waitForSelector('#riquadro-video[data-intero="0"]');
+            await t.setViewportSize({ width: 844, height: 390 });
+            await pausa(300);
+            await controlla('orizzontale');
+            await foto(t, 'connessione-persa-orizzontale-telefono');
+            await t.setViewportSize({ width: 390, height: 844 });
+            await tel.context.setOffline(false);
+            await t.waitForSelector('#avviso-connessione', { state: 'hidden', timeout: 30000 });
+        });
+
         await prova('telefono: pausa con la nostra schermata', async () => {
             await t.tap('#btn-play');
             await t.waitForSelector('#schermo-pausa', { state: 'visible' });
@@ -789,6 +1394,20 @@ function eventoIniziale(T) {
             vero(larghezza <= 820, 'la pagina scorre in orizzontale: ' + larghezza);
             await foto(tab.page, 'diretta-tablet', true);
             await tab.context.close();
+        });
+
+        /* =================== L'ESITO DELLE PROVE LUNGHE =================== */
+        console.log('\nProve lunghe (partite all\'inizio, in sottofondo)');
+        await prova('un solo dispositivo, due dispositivi veri: B entra entro 50 s da A e resta dentro; A esce con «altro dispositivo» al secondo rifiuto', async () => {
+            const s = await esitoDi(lunghe.cambio);
+            console.log('       (A e\' uscito ' + s + ' s dopo il suo ultimo segnale riuscito)');
+        });
+        await prova('due schede sullo stesso evento, quella col lucchetto congelata: l\'altra segnala dopo 90 s di silenzio', async () => {
+            const s = await esitoDi(lunghe.congelata);
+            console.log('       (la seconda scheda ha segnalato ' + s + ' s dopo l\'ultimo segnale della prima)');
+        });
+        await prova('localStorage bloccato: la sessione resta quella dell\'accesso («un solo dispositivo») e il minuto si conta', async () => {
+            await esitoDi(lunghe.senzaArchivio);
         });
 
         await app.delete();

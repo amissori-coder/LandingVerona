@@ -367,7 +367,10 @@ si vedono.
    controllo vero: Vimeo con i domini consentiti, oppure Mux o Cloudflare Stream
    con indirizzi firmati (§11).
 6. **"Un solo dispositivo"** (opzione per evento) scollega il primo dispositivo
-   quando si entra dal secondo: è un **deterrente** contro la condivisione delle
+   quando si entra dal secondo, **entro circa due minuti** con il messaggio "Hai
+   aperto la diretta da un altro dispositivo" (serve un secondo rifiuto almeno
+   55 secondi dopo il primo, così un dispositivo appena entrato non viene mai
+   espulso per sbaglio). È un **deterrente** contro la condivisione delle
    credenziali, non una barriera assoluta (per il motivo del punto 5).
 
 ---
@@ -428,7 +431,9 @@ si vedono.
   email, azienda o nome utente → **"Nuova password da comunicare a voce"** (la
   vedi una volta sola) oppure **"Reinvia credenziali"** (email con una password
   nuova: la vecchia smette di funzionare).
-- Prova il link: *Regia* → **"Vedi come un partecipante"**.
+- Prova il link: *Regia* → **"Vedi come un partecipante"** (si apre in una
+  scheda nuova, senza registrare presenze; "Chiudi l'anteprima" non ti fa uscire
+  dalla gestione).
 
 ### 6.4 Il giorno dell'evento (scheda *Regia*)
 

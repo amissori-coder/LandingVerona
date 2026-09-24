@@ -22,11 +22,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20260924">
-    <script src="config.js?v=20260924" defer></script>
-    <script src="nome-utente.js?v=20260924" defer></script>
-    <script src="player-youtube.js?v=20260924" defer></script>
-    <script src="diretta.js?v=20260924" defer></script>
+    <link rel="stylesheet" href="diretta.css?v=20260924c">
+    <script src="config.js?v=20260924c" defer></script>
+    <script src="nome-utente.js?v=20260924c" defer></script>
+    <script src="player-youtube.js?v=20260924c" defer></script>
+    <script src="diretta.js?v=20260924d" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -48,20 +48,23 @@
                     <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
                     <span class="solo-lettori">Collegato come </span><span id="nome-persona"></span>
                 </span>
+                <!-- nell'anteprima del gestore diventa «Chiudi l'anteprima» (diretta.js) -->
                 <button id="btn-esci" class="btn-esci" type="button">
                     <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/></svg>
-                    <span>Esci</span>
+                    <span id="btn-esci-testo">Esci</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- avvisi che valgono per tutte le viste -->
+    <!-- avvisi che valgono per tutte le viste. L'avviso della regia non e' una
+         "regione live" (compare gia' pieno e molti lettori di schermo non lo
+         leggerebbero): diretta.js lo annuncia a parte in #annuncio. -->
     <div id="avviso-anteprima" class="avviso avviso-anteprima" role="status" hidden>
         <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
         <span>Anteprima: vedi come un partecipante. Nessuna presenza registrata.</span>
     </div>
-    <div id="avviso-evento" class="avviso avviso-evento" role="status" aria-live="polite" hidden>
+    <div id="avviso-evento" class="avviso avviso-evento" hidden>
         <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
         <span id="avviso-evento-testo"></span>
     </div>
@@ -211,6 +214,13 @@
                             </button>
                         </div>
                     </div>
+                    <!-- l'avviso della regia anche a schermo intero (la testata li' non si
+                         vede): SOTTO il video, mai sopra. Solo visivo, il testo e' lo
+                         stesso dell'avviso in cima, gia' annunciato. -->
+                    <div id="avviso-intero" class="avviso-intero" data-attivo="0" aria-hidden="true">
+                        <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                        <span id="avviso-intero-testo"></span>
+                    </div>
                     <div id="striscia-audio" class="striscia-audio">
                         <button type="button" id="btn-attiva-audio" class="btn-attiva-audio" hidden>
                             <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
@@ -231,6 +241,7 @@
                         <label class="solo-lettori" for="volume">Volume</label>
                         <input type="range" id="volume" class="volume" min="0" max="100" step="5" value="0" aria-valuetext="Audio disattivato">
                         <span class="spazio-flessibile"></span>
+                        <!-- sul telefono si vede «Live»: «Torna in diretta» resta per i lettori di schermo -->
                         <button type="button" id="btn-live" class="btn-live">
                             <span class="punto-live" aria-hidden="true"></span>
                             <span class="testo-lungo">Torna in diretta</span><span class="testo-corto" aria-hidden="true">Live</span>
@@ -329,8 +340,12 @@
         </p>
     </footer>
 
-    <!-- connessione persa: compare dopo qualche secondo senza rete, sopra tutto -->
-    <div id="avviso-connessione" class="avviso-connessione" role="status" aria-live="polite" hidden>
+    <!-- connessione persa: compare dopo qualche secondo senza rete. Nella vista
+         della diretta diretta.js lo sposta dentro il riquadro del video, in cima,
+         sopra il video e mai davanti (fisso in basso copriva il video o i
+         comandi); nelle altre viste resta fisso in basso. Lo annuncia diretta.js
+         in #annuncio. -->
+    <div id="avviso-connessione" class="avviso-connessione" hidden>
         <span class="rotella rotella-piccola" aria-hidden="true"></span>
         <span>Connessione persa: nuovo tentativo in corso…</span>
     </div>
