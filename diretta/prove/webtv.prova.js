@@ -172,6 +172,7 @@ const server = http.createServer((req, res) => {
         vero(s2.muto === true, 'parte muta (autoplay), come con YouTube');
         vero(await P.locator('#riquadro-video').getAttribute('data-comandi') === 'pieni', 'con l\'HLS i comandi sono tutti nostri');
         await page.screenshot({ path: path.join(FOTO, '01-webtv-hls.png') });
+        await page.locator('#cornice-partecipante').screenshot({ path: path.join(FOTO, 'diretta-webtv-telefono.png') });
 
         // la qualita': Automatica, 360p, 180p
         const opzioni = await P.locator('#sel-qualita option').allInnerTexts();
@@ -215,6 +216,7 @@ const server = http.createServer((req, res) => {
             && !(await P.locator('#btn-schermo-intero').isHidden()) && await P.locator('#btn-attiva-audio').isHidden(),
             'player incorporato: niente play/volume nostri, resta lo schermo intero');
         await page.screenshot({ path: path.join(FOTO, '02-webtv-incorporato.png') });
+        await page.locator('#cornice-partecipante').screenshot({ path: path.join(FOTO, 'diretta-webtv-incorporato-telefono.png') });
 
         // 4. un file video
         await page.locator('#tab-gestione').click();

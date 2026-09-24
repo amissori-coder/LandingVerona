@@ -134,6 +134,8 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['03-diretta-telefono', 'screenshot-e2e/06-diretta-telefono.png'],
             ['03-diretta-computer', 'screenshot-e2e/05-diretta-computer.png'],
             ['03-diretta-schermo-intero-telefono', 'screenshot-e2e/07-schermo-intero-telefono.png'],
+            ['03-diretta-webtv-telefono', 'screenshot-webtv/diretta-webtv-telefono.png'],
+            ['03-diretta-webtv-incorporata-telefono', 'screenshot-webtv/diretta-webtv-incorporato-telefono.png'],
             ['03-pausa-evento-computer', 'screenshot-pagina/pausa-evento-computer.png'],
             ['04-gestione-anteprima-telefono', 'gestione-anteprima-telefono.png'],
             ['04-gestione-anteprima-computer', 'gestione-anteprima-computer.png'],
