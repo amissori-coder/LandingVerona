@@ -20999,9 +20999,19 @@
            L'impresa ne indichera' tre in ordine dalla pagina, quindi elencarli
            qui - con chi li tiene - e' quello che le permette di decidere prima
            di aprire il collegamento. */
+        /* DUE VERSIONI DELLA STESSA MAIL, e la scelta e' di chi spedisce.
+           La LETTERA spiega e arriva al pulsante alla fine: e' quella giusta
+           per un'impresa che non ci conosce. La BREVE mette il pulsante
+           subito, sopra ogni spiegazione: e' quella giusta per chi apre la
+           posta dal telefono fra due riunioni, e per un secondo giro a chi la
+           lettera lunga non l'ha letta. L'oggetto e' lo stesso per tutte e
+           due. */
+        let versioneMail = 'lunga';
         const mailDi = () => {
             if (!window.RV_NEWSLETTER || !RV_NEWSLETTER.invitoB2BAzienda) return null;
-            return RV_NEWSLETTER.invitoB2BAzienda({
+            const comporre = (versioneMail === 'breve' && RV_NEWSLETTER.invitoB2BAziendaBreve)
+                ? RV_NEWSLETTER.invitoB2BAziendaBreve : RV_NEWSLETTER.invitoB2BAzienda;
+            return comporre({
                 evento: {
                     titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
                     luogo: ev.luogo || '', indirizzo: ev.indirizzo || '',
@@ -21067,12 +21077,15 @@
             + '<p class="hint" style="margin:-4px 0 12px;">' + testaHint + '</p>'
             + campoArea
             + campoAziende
+            /* La scelta fra le due versioni sta SOPRA l'anteprima e FUORI da
+               essa: l'anteprima e' la risposta alla domanda che pone - quale
+               delle due mando? - ma si puo' nascondere, e la scelta no. */
+            + '<div class="rb-viste ib-viste" style="margin:10px 0 0;">'
+            + '<button type="button" class="rb-vista-b scelta" data-vmail="lunga">Lettera completa</button>'
+            + '<button type="button" class="rb-vista-b" data-vmail="breve">Versione breve</button>'
+            + '<span class="hint" style="margin-left:8px;">La breve mette il pulsante per prenotare in cima.</span>'
+            + '</div>'
             + '<div id="ib-anteprima" style="margin-top:10px;">'
-            /* L'OGGETTO, scritto sopra l'anteprima. Adesso porta il nome
-               dell'impresa, quindi cambia da una mail all'altra: lasciarlo
-               invisibile vorrebbe dire spedire centoventi oggetti diversi
-               senza averne letto nemmeno uno. Qui si vede con il nome di
-               un'azienda vera fra quelle spuntate, non con il segnaposto. */
             + '<div class="hint" id="ib-oggetto" style="margin-bottom:6px;"></div>'
             + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
@@ -21815,7 +21828,7 @@
            cambia con l'argomento e con chi lo tiene, ed e' l'unico modo di
            accorgersi che si sta per convocare duecento imprese al tavolo
            sbagliato. */
-        anteprimaSegueCampi(anteprimaMail('ib', () => {
+        const antInvito = anteprimaMail('ib', () => {
             const m = mailDi();
             if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
             /* Il nome con cui si guarda l'anteprima: la PRIMA azienda spuntata,
@@ -21833,6 +21846,15 @@
             return m.html
                 .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeEsempio))
                 .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
+        });
+        anteprimaSegueCampi(antInvito);
+        const pulsantiVersione = document.querySelectorAll('#modale-contenitore [data-vmail]');
+        pulsantiVersione.forEach(b => b.addEventListener('click', () => {
+            versioneMail = b.getAttribute('data-vmail');
+            pulsantiVersione.forEach(x => {
+                x.classList.toggle('scelta', x.getAttribute('data-vmail') === versioneMail);
+            });
+            antInvito.aggiorna();
         }));
         document.getElementById('ib-si').addEventListener('click', () => {
             const unita = unitaInvito();

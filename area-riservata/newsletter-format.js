@@ -1827,6 +1827,16 @@
        sceglie l'argomento, non la persona),
        giornata: {inizio, fine, pranzoDa, pranzoA, durata} }.
     ========================================================= */
+    /* L'OGGETTO DELL'INVITO B2B, per tutte e due le versioni della mail.
+       La lettera lunga e quella breve sono due modi di dire la stessa cosa, ma
+       l'oggetto e' lo stesso: e' la riga su cui si decide se aprire, e averne
+       due da tenere allineate a mano vorrebbe dire ritoccarne una e scoprire
+       l'altra fra un mese, in una casella altrui. */
+    function oggettoInvitoB2B(quandoEv) {
+        return 'Importante - ' + SEGNAPOSTO_NOME
+            + ': INVITO RISERVATO agli incontri B2B, Next Generation Business'
+            + (quandoEv ? ', ' + quandoEv : '');
+    }
     function invitoB2BAzienda(dati) {
         dati = dati || {};
         const ev = dati.evento || {};
@@ -1877,9 +1887,7 @@
            tutte le aziende, e a sostituirlo - nell'oggetto come nel testo - e'
            il servizio al momento dell'invio, che e' l'unico a sapere a chi
            sta spedendo. */
-        const oggetto = 'Importante - ' + SEGNAPOSTO_NOME
-            + ': INVITO RISERVATO agli incontri B2B, Next Generation Business'
-            + (quandoEv ? ', ' + quandoEv : '');
+        const oggetto = oggettoInvitoB2B(quandoEv);
         const anteprima = 'Un invito riservato alla Vostra impresa: indicate chi partecipa e tre preferenze. La prima è una prenotazione.';
         const scadenza = String((dati.evento || {}).scadenzaB2B || '').trim();
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', Vi rivolgiamo un invito riservato: nel corso del convegno "'
@@ -2026,6 +2034,135 @@
                 + '. Dopo tale data chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.' : ''),
             'Scegliete i Vostri incontri: ' + SEGNAPOSTO_B2B,
             chiusura,
+            '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
+            fraseCollegamento,
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
+    /* =========================================================
+       INVITO B2B ALL'AZIENDA - LA VERSIONE BREVE
+       ---------------------------------------------------------
+       La stessa cosa della lettera lunga, detta a chi non la
+       leggera'. Sono due mail per due modi di aprire la posta, non
+       una buona e una brutta:
+         - la LETTERA (invitoB2BAzienda) spiega, e chi la legge
+           arriva al pulsante avendo gia' deciso. E' quella giusta
+           per un'impresa che non ci conosce, o per un primo invito;
+         - questa mette il PULSANTE SUBITO, sopra ogni spiegazione:
+           chi la apre dal telefono, fra due riunioni, ha davanti la
+           sola cosa che gli serve fare. Il resto - quando, dove, i
+           tavoli, entro quando - sta sotto, per chi scorre.
+       Quello che NON cambia e' l'oggetto: e' lo stesso della lettera
+       lunga, scritto in un posto solo, perche' e' la riga su cui si
+       decide se aprire e non ha senso averne due versioni da tenere
+       allineate a mano.
+       Le regole della prenotazione qui non ci sono per intero: sono
+       sette frasi, e sette frasi sopra un pulsante sono esattamente
+       quello che questa mail vuole evitare. Stanno sulla pagina, dove
+       si prenota, e una riga qui dice che ci sono.
+       Stessi segnaposto della lettera lunga ({{NOME}}, {{AZIENDA}},
+       {{REFERENTI}}, {{SE_COLLEGHI}}, {{B2B}}): a sostituirli e' il
+       servizio, che e' l'unico a sapere a chi sta spedendo.
+    ========================================================= */
+    function invitoB2BAziendaBreve(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        /* Un argomento, una riga, come nella lettera lunga: i secondi tavoli e
+           il desk interno non si elencano. */
+        const visti = {};
+        const aree = (dati.aree || []).filter(a => {
+            if (!a || !a.nome || areaInternaB2B(a.id)) return false;
+            const capo = capofilaB2B(a.id);
+            if (visti[capo]) return false;
+            visti[capo] = true;
+            return true;
+        });
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
+        /* L'OGGETTO E' LO STESSO della lettera lunga: si compone di la' e si
+           legge di qua. Due oggetti diversi per la stessa cosa vorrebbero dire
+           ritoccarne uno e dimenticare l'altro. */
+        const oggetto = oggettoInvitoB2B(quandoEv);
+        const anteprima = 'Il collegamento per scegliere i Vostri incontri B2B: bastano due minuti.';
+        /* Il sommario della testata e' corto apposta: dice chi siamo, che cosa
+           c'e' da fare e quanto ci vuole. Tutto il resto viene dopo il
+           pulsante. */
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', Vi invitiamo agli incontri B2B del convegno "'
+            + nomeConvegno + '"' + (quandoEv ? ' di ' + quandoEv : '')
+            + ': colloqui riservati con i nostri professionisti, da prenotare dal pulsante qui sotto.';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const sezione = (etichetta, dentro) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
+            + '<tr><td style="padding:16px 22px;">'
+            + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
+            + dentro + '</td></tr></table></td></tr>';
+        const bottone = '<tr><td align="center" style="text-align:center;">'
+            + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
+            + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
+            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:16px 34px;font-family:' + FONT
+            + ';font-size:17px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Prenotate i Vostri incontri</a>'
+            + '</td></tr></table></td></tr>';
+        const entro = String(ev.scadenzaB2B || '').trim();
+        const quandoDove = [ev.quando, ev.luogo].filter(Boolean).join(' - ')
+            + (ev.indirizzo ? ', ' + ev.indirizzo : '');
+        const durata = parseInt((dati.giornata || {}).durata, 10) > 0 ? parseInt(dati.giornata.durata, 10) : 30;
+        /* Le quattro cose che servono per decidere, una riga l'una: quanto
+           dura, quando e dove, entro quando, e che il collegamento e'
+           dell'impresa. Non sono le regole - quelle stanno sulla pagina - sono
+           i fatti. */
+        const fatti = [
+            'Ogni incontro dura ' + durata + ' minuti e si tiene a margine dei lavori in sala, ai desk riservati.',
+            (quandoDove ? 'Quando e dove: ' + quandoDove + '.' : ''),
+            (entro ? 'Le prenotazioni si chiudono il ' + entro + ', e gli orari si assegnano in ordine di arrivo.' : 'Gli orari si assegnano in ordine di arrivo.'),
+            'Dal collegamento scegliete i tavoli di Vostro interesse, l\'orario e il nominativo di chi partecipa.'
+        ].filter(Boolean);
+        const fraseColleghi = 'Questo invito è stato inviato anche a {{REFERENTI}}: è un unico invito per '
+            + '{{AZIENDA}}, e le scelte sono visibili e modificabili dallo stesso collegamento, da chiunque di Voi lo apra.';
+        const fraseCollegamento = 'Questo invito è riservato a {{AZIENDA}}: il collegamento vale per l\'intera '
+            + 'impresa e può essere utilizzato anche da un Vostro collega. Vi chiediamo di non diffonderlo all\'esterno.';
+        const corpo = cella(tabellaInterna(
+            /* IL PULSANTE PER PRIMO. E' tutta la differenza fra questa mail e
+               l'altra: chi la apre dal telefono, fra due riunioni, deve avere
+               davanti la sola cosa che gli serve fare, non un paragrafo da cui
+               ricavarla. */
+            spazio(26)
+            + bottone
+            + spazio(10)
+            + '<tr><td align="center" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:center;">'
+            + testoHtml('Bastano due minuti, e le scelte si possono cambiare fino alla chiusura.') + '</td></tr>'
+            + spazio(26)
+            + (aree.length
+                ? sezione('I tavoli fra cui scegliere', elencoPunti(
+                    aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + testoHtml(a.nome) + '</span>'),
+                    'font-size:15px;line-height:26px;color:' + C.testo + ';' + ALLINEA, C.blu))
+                + spazio(16)
+                : '')
+            + sezione('In breve', elencoPunti(fatti.map(x => testoHtml(x)),
+                'font-size:14px;line-height:23px;color:' + C.scuro + ';' + ALLINEA, C.blu))
+            + spazio(24)
+            + par('L\'invito non è aperto a tutti gli iscritti: i posti ai desk sono limitati ed è rivolto alle imprese '
+                + 'selezionate una per una. Sulla pagina trovate le poche regole della prenotazione, e restiamo a '
+                + 'disposizione per qualsiasi chiarimento.')
+            + spazio(22)
+            + '{{SE_COLLEGHI}}' + nota(fraseColleghi) + spazio(10) + '{{/SE_COLLEGHI}}'
+            + nota(fraseCollegamento)
+        ));
+        const html = involucro(oggetto, anteprima,
+            testaB2B('Invito riservato agli incontri B2B', sommario) + copertinaB2B()
+            + corpo + spazio(36) + piedeB2B());
+        // la versione a solo testo dice le stesse cose nello stesso ordine, e il
+        // collegamento sta in cima come sta in cima il pulsante
+        const testo = ['INVITO RISERVATO AGLI INCONTRI B2B', sommario,
+            'Prenotate i Vostri incontri: ' + SEGNAPOSTO_B2B,
+            'Bastano due minuti, e le scelte si possono cambiare fino alla chiusura.',
+            (aree.length ? 'I tavoli fra cui scegliere:\n' + aree.map(a => '- ' + a.nome).join('\n') : ''),
+            'In breve:\n' + fatti.map(x => '- ' + x).join('\n'),
+            'L\'invito non è aperto a tutti gli iscritti: i posti ai desk sono limitati ed è rivolto alle imprese '
+            + 'selezionate una per una. Sulla pagina trovate le poche regole della prenotazione, e restiamo a '
+            + 'disposizione per qualsiasi chiarimento.',
             '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
             fraseCollegamento,
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
@@ -2573,7 +2710,8 @@
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
         passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
-        invitoB2BAzienda: invitoB2BAzienda, regoleB2B: regoleB2B,
+        invitoB2BAzienda: invitoB2BAzienda, invitoB2BAziendaBreve: invitoB2BAziendaBreve,
+        regoleB2B: regoleB2B,
         areaInternaB2B: areaInternaB2B, capofilaB2B: capofilaB2B,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante

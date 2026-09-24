@@ -1289,6 +1289,45 @@ Senza quell'indirizzo resta il consiglio **senza** il collegamento: meglio una
 frase in meno che un link a vuoto. Le prove stanno in
 `prove/mail-invito-forma.prove.js`, con e senza pagina dell'evento.
 
+### Due versioni della stessa mail, e la scelta e' di chi spedisce
+
+L'invito B2B si compone in due forme, e nella finestra degli inviti si sceglie
+quale mandare (due pulsanti sopra l'anteprima, che la segue):
+
+- **Lettera completa** (`invitoB2BAzienda`): spiega perche' scriviamo, quando e
+  dove, i tavoli, le sette regole della prenotazione, e arriva al pulsante alla
+  fine. E' quella giusta per un'impresa che non ci conosce, o per un primo
+  invito: chi ci arriva ha gia' deciso.
+- **Versione breve** (`invitoB2BAziendaBreve`): il **pulsante per prenotare sta
+  in cima**, sopra ogni spiegazione. E' quella giusta per chi apre la posta dal
+  telefono fra due riunioni, e per un secondo giro a chi la lettera lunga non
+  l'ha letta. Sotto il pulsante restano i tavoli, e in un riquadro "In breve" le
+  quattro cose che servono per decidere: quanto dura un incontro, quando e dove,
+  entro quando si prenota, che cosa si sceglie dal collegamento.
+
+Non sono una buona e una brutta: sono due modi di aprire la posta.
+
+**Che cosa NON cambia fra le due.** L'oggetto, che si compone in un posto solo
+(`oggettoInvitoB2B`): e' la riga su cui si decide se aprire, e averne due da
+tenere allineate a mano vorrebbe dire ritoccarne una e scoprire l'altra fra un
+mese, in una casella altrui. E i **segnaposto** (`{{NOME}}`, `{{AZIENDA}}`,
+`{{REFERENTI}}`, `{{SE_COLLEGHI}}`, `{{B2B}}`), che sono gli stessi: a
+sostituirli e' il servizio, e un nome diverso in una delle due vorrebbe dire una
+mail spedita con `{{AZIENDA}}` scritto dentro.
+
+**Le sette regole nella breve non ci sono.** Sono sette frasi, ed e'
+esattamente quello che questa mail evita: stanno sulla pagina, dove si prenota,
+e una riga dice che ci sono. La prova `prove/mail-invito-forma.prove.js`
+verifica che prima del pulsante non ci sia **ne' un riquadro ne' un paragrafo**
+di prosa (altrimenti non sarebbe piu' una seconda versione: sarebbe la prima, un
+po' piu' corta), che il testo sia meno della meta' di quello della lettera, che
+l'oggetto sia lo stesso, che i segnaposto ci siano tutti e che anche qui si dia
+del Voi e si scriva giustificato.
+
+Il servizio non sa quale delle due gli arriva, e non deve saperlo: la mail gli
+arriva **gia' composta** dall'area riservata (`mail: {oggetto, html, testo}` nel
+corpo di `invita-b2b-azienda`), come per tutte le altre.
+
 ### Un invito riservato, e si legge prima di aprire la mail
 
 L'oggetto e' **"Importante - {{NOME}}: INVITO RISERVATO agli incontri B2B, Next
