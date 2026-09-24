@@ -625,8 +625,9 @@ async function creaPersoneVeloci(quante, prefisso, idEvento) {
             const resetR = leggiPosta().slice(postaPrimaR).filter(m => /@raffica\.prova$/.test(String(m.a)));
             /* Al massimo 20: il conteggio e' "incremento e poi rilettura", senza transazione, e in una
                raffica la rilettura di una richiesta vede anche i +1 arrivati subito dopo; quindi ne
-               possono passare meno di 20, mai di piu'. */
-            vero(resetR.length <= 20 && resetR.length >= 1, 'email di reimpostazione partite: ' + resetR.length + ' (al massimo 20 all\'ora dalla stessa rete)');
+               possono passare meno di 20 (anche nessuna, se le 60 arrivano tutte insieme), mai di piu':
+               sotto una raffica e' la scelta prudente. */
+            vero(resetR.length <= 20, 'email di reimpostazione partite: ' + resetR.length + ' (al massimo 20 all\'ora dalla stessa rete)');
             vero(new Set(resetR.map(m => m.a)).size === resetR.length, 'a persone tutte diverse, una email ciascuna');
             const postaAltra = leggiPosta().length;
             await chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: raffica[70].nomeUtente }, { ip: '10.0.6.2' });
