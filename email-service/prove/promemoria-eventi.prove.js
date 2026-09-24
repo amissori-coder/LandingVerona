@@ -507,7 +507,7 @@ await prova('19) Ogni promemoria parte alla sua ora: 8 dal giro delle 8, 20 da q
         await require(modulo)({ method: 'GET', headers: { authorization: 'Bearer segreto-di-prova' } }, res);
         return Object.assign({ _stato: res._s }, res._j || {});
     };
-    const giro8 = lancia('../api/promemoria-eventi-ore8'), giro7 = lancia('../api/promemoria-eventi-mattina');
+    const giro8 = lancia('../api/promemoria-eventi-ore8'), giro7 = lancia('../api/promemoria-eventi-mattina'), giro22 = lancia('../api/promemoria-eventi-ore22');
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
     mettiPromemoria([recNormale('n~sala-sabato', '2026-09-26', { ora: 8 }), recNormale('n~sala-presenza', '2026-09-26')]);
@@ -519,6 +519,15 @@ await prova('19) Ogni promemoria parte alla sua ora: 8 dal giro delle 8, 20 da q
     esigi(r8._stato === 200 && r8.inviati === 1 && dopo8 === 1, 'il giro delle 8 manda solo quella delle 8 (' + dopo8 + ')');
     await giro();
     esigi(noCopia().length === 2, 'il giro delle 20 manda quella delle 20, e non rimanda quella delle 8 (' + noCopia().length + ')');
+    // una delle 22: solo dal giro delle 22
+    azzera();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recNormale('n~sera', '2026-09-24', { ora: 22 })]);
+    orologio = alle8('2026-09-24');
+    await giro();
+    esigi(noCopia().length === 0, 'il giro delle 20 non manda quella delle 22');
+    const r22 = await giro22();
+    esigi(r22.inviati === 1 && noCopia().length === 1 && /Mancano 8 giorni/.test(noCopia()[0].subject), 'il giro delle 22 la manda, con i giorni di oggi');
     // una delle 8 rimasta in un giorno passato
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);

@@ -51,7 +51,12 @@
         scuro: '#0A2844',       // navy-dark del sito
         blu: '#164068',         // navy
         accento: '#2A5A85',     // navy-light: filetti e segni
-        chiaroBlu: '#5B89B8',   // navy-glow: segni su fondo scuro
+        /* NAVY-GLOW, schiarito. Sul fondo scuro il tono di prima (#5B89B8)
+           dava 4,1 a 1 di contrasto: sotto la soglia delle linee guida, e
+           su un telefono al sole la riga sopra il titolo spariva. Questo
+           sta a 6 a 1 e resta piu' tenue del sommario, che e' il suo
+           compito. */
+        chiaroBlu: '#7FA8CE',   // navy-glow: segni su fondo scuro
         suScuro: '#C8DAEA',     // testo tenue sopra il blu
         azzurro: '#8bb8d4',
         testo: '#1E293B',
@@ -427,9 +432,9 @@
         sezione: 'font-size:20px;line-height:28px;',
         sommario: 'font-size:18px;line-height:29px;',
         corpo: 'font-size:16px;line-height:27px;',
-        etichetta: 'font-size:12px;line-height:17px;letter-spacing:1.6px;text-transform:uppercase;',
-        occhiello: 'font-size:12px;line-height:17px;letter-spacing:2px;text-transform:uppercase;',
-        piede: 'font-size:12px;line-height:20px;'
+        etichetta: 'font-size:13px;line-height:19px;letter-spacing:1.4px;text-transform:uppercase;',
+        occhiello: 'font-size:13px;line-height:19px;letter-spacing:1.8px;text-transform:uppercase;',
+        piede: 'font-size:14px;line-height:22px;'
     };
     const LATO = 40;                 // margine laterale: lascia 520px di colonna di testo
     // "mso-line-height-rule:exactly" serve a Outlook: senza, ignora l'interlinea
@@ -628,7 +633,7 @@
     }
     /* L'etichetta si emette GIA' maiuscola invece di usare text-transform, che il
        motore di Word non conosce: su Outlook resterebbe minuscola. */
-    const ETI = 'font-size:12px;line-height:17px;letter-spacing:1.6px;';
+    const ETI = 'font-size:13px;line-height:19px;letter-spacing:1.4px;';
     function etichettaFase(f, colore) {
         return '<div style="' + FONTE + ETI + 'color:' + colore + ';font-weight:bold;">' + esc(f.etichetta.toUpperCase()) + '</div>';
     }
@@ -1018,8 +1023,30 @@
                ".lead" NON si tocca: e' del sommario nella testata. */
             + '  .att{font-size:18px!important;line-height:28px!important;}\n'
             + '  .t1{font-size:21px!important;line-height:29px!important;}\n'
+            /* Promemoria: sul telefono il riquadro dei dati respira meno. */
+            + '  .pmbox{padding:14px 16px!important;}\n'
             + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
             + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
+            + '}\n'
+            /* IL TESTO E' GIUSTIFICATO SU OGNI SCHERMO, telefono compreso.
+               Su una colonna da una quarantina di caratteri il giustificato apre
+               buchi fra le parole - una ragione sociale in maiuscolo che non si
+               spezza li allarga fino alla voragine - e per un po' sotto una
+               certa misura si era andati a bandiera. E' stato deciso il
+               contrario: il giustificato e' il modo in cui questo studio scrive
+               le lettere, ed e' una scelta di chi le firma, non del programma
+               che le compone.
+               Contro i buchi resta quello che si puo' fare davvero, cioe'
+               spezzare le parole: la sillabazione sta negli stili delle celle
+               (ALLINEA) e qui nel foglio di stile, per le due classi che
+               portano prosa (".par" e ".pmj" dei promemoria). */
+            /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini
+               piu' stretti, per lasciare al testo giustificato la riga piu'
+               lunga possibile. */
+            + '@media only screen and (max-width:400px){\n'
+            + '  .px{padding-left:18px!important;padding-right:18px!important;}\n'
+            + '  .pmj{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}\n'
+            + '  .h1{font-size:22px!important;line-height:29px!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
             + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
@@ -1147,7 +1174,7 @@
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(PRIVACY) + '" style="' + linkPiede() + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede() + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + anno)
+                + rigaPiede('color:' + C.tenue + ';', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + anno)
             )
             + '</td></tr>';
 
@@ -1253,7 +1280,7 @@
         /* Il riepilogo: etichetta e valore, una riga per dato. Solo le righe che
            hanno un valore: una cella vuota fa credere che manchi qualcosa. */
         const riga = (et, val) => val
-            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
             + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
             : '';
         const righe = riga('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business')
@@ -1294,7 +1321,7 @@
                segnaposto {{COMPLETA}}, che il servizio sostituisce con
                l'indirizzo firmato al momento dell'invio. */
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Devi correggere qualcosa o annullare l\'iscrizione? '
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Devi correggere qualcosa o annullare l\'iscrizione? '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Fallo dal tuo collegamento personale</a>, senza scriverci.</td></tr>'
         ));
 
@@ -1311,7 +1338,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_CONFERMA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_CONFERMA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -1391,7 +1418,7 @@
             + '</td></tr>';
 
         const riga = (et, val) => val
-            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
             + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
             : '';
         const box = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
@@ -1436,7 +1463,7 @@
             + bottone
             + '</td></tr></table></td></tr>'
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Se qualcosa non torna, rispondi a questa email.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Se qualcosa non torna, rispondi a questa email.</td></tr>'
         ));
 
         const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
@@ -1450,7 +1477,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_RICHIESTA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_RICHIESTA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -1592,7 +1619,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_B2B) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_B2B) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
     }
@@ -1653,11 +1680,11 @@
         const riquadroOrario = '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Quando e dove</span><br>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Quando e dove</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">'
             + esc([ev.quando, ev.luogo].filter(Boolean).join(' - ')) + '</span>'
-            + (ev.indirizzo ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(ev.indirizzo) + '</span>' : '')
-            + '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">L\'orario di ciascun incontro è indicato qui sotto, accanto al suo argomento.</span>'
+            + (ev.indirizzo ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">' + esc(ev.indirizzo) + '</span>' : '')
+            + '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">L\'orario di ciascun incontro è indicato qui sotto, accanto al suo argomento.</span>'
             + '</td></tr></table></td></tr>';
 
         const corpo = cella(tabellaInterna(
@@ -1679,9 +1706,9 @@
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">La Sua scelta attuale</span><br>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">La Sua scelta attuale</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">{{TEMI}}</span><br>'
-            + '<span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.</span>'
+            + '<span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.</span>'
             + '</td></tr></table></td></tr>'
             + '{{/SE_TEMI}}'
             + spazio(18)
@@ -1691,7 +1718,7 @@
             + spazio(26)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
 
         const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piedeB2B());
@@ -1746,9 +1773,9 @@
         const riquadro = (etichetta, forte, sotto) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">' + esc(etichetta) + '</span><br>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">' + esc(etichetta) + '</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">' + esc(forte) + '</span>'
-            + (sotto ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(sotto) + '</span>' : '')
+            + (sotto ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">' + esc(sotto) + '</span>' : '')
             + '</td></tr></table></td></tr>';
         const chiTiene = referenti.map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ');
         /* La frase sugli orari e' la regola del gioco, e va detta prima del
@@ -1786,7 +1813,7 @@
             + spazio(26)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
         const html = involucro(oggetto, anteprima,
             testaB2B('Un incontro riservato per la Sua impresa', sommario) + copertinaB2B()
@@ -1898,7 +1925,7 @@
            COLLEGAMENTO e non l'incontro (chi altri l'ha ricevuto, fin dove lo
            si puo' passare). In fondo e piccole, ma giustificate come il resto:
            sono l'ultima cosa che si legge, non un'avvertenza da contratto. */
-        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* UN SOLO RIQUADRO PER TUTTE LE SEZIONI.
            Prima ce n'erano due disegnati a mano ("Quando e dove", "Come
            funziona") e in mezzo un titoletto nudo per i tavoli: tre blocchi
@@ -1910,7 +1937,7 @@
         const sezione = (etichetta, dentro) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:16px 22px;">'
-            + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
+            + '<div style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
             + dentro + '</td></tr></table></td></tr>';
         const quandoDove = [ev.quando, ev.luogo].filter(Boolean).join(' - ');
         /* IL PROGRAMMA DEI LAVORI, da guardare PRIMA di scegliere l'ora.
@@ -1928,8 +1955,8 @@
         const sezioneQuandoDove = quandoDove || ev.indirizzo
             ? sezione('Quando e dove',
                 '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">' + testoHtml(quandoDove) + '</div>'
-                + (ev.indirizzo ? '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(ev.indirizzo) + '</div>' : '')
-                + '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + 'padding-top:8px;">'
+                + (ev.indirizzo ? '<div style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(ev.indirizzo) + '</div>' : '')
+                + '<div style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + 'padding-top:8px;">'
                 + testoHtml(rigaProgramma)
                 + (urlEvento ? ' <a href="' + esc(urlEvento) + '" style="color:' + C.blu + ';text-decoration:underline;font-weight:bold;">'
                     + 'Il programma dei lavori</a>' : '')
@@ -2007,7 +2034,7 @@
                 ? spazio(20) + sezione('Entro quando',
                     '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">'
                     + testoHtml('Le scelte si chiudono il ' + scadenza + '.') + '</div>'
-                    + '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">'
+                    + '<div style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
                     + testoHtml('Dopo tale data chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.') + '</div>')
                 : '')
             + spazio(30)
@@ -2093,11 +2120,11 @@
             + nomeConvegno + '"' + (quandoEv ? ' di ' + quandoEv : '')
             + ': colloqui riservati con i nostri professionisti, da prenotare dal pulsante qui sotto.';
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
-        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const sezione = (etichetta, dentro) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:16px 22px;">'
-            + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
+            + '<div style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
             + dentro + '</td></tr></table></td></tr>';
         const bottone = '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
@@ -2131,7 +2158,7 @@
             spazio(26)
             + bottone
             + spazio(10)
-            + '<tr><td align="center" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:center;">'
+            + '<tr><td align="center" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:center;">'
             + testoHtml('Bastano due minuti, e le scelte si possono cambiare fino alla chiusura.') + '</td></tr>'
             + spazio(26)
             + (aree.length
@@ -2306,7 +2333,7 @@
             + '</td></tr>';
 
         const riga = (et, val) => val
-            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
             + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
             : '';
         /* Nel riepilogo NON c'e' la sede: chi legge questa mail non deve
@@ -2345,7 +2372,7 @@
             + par('Pochi giorni prima dell\'evento riceverà a questo stesso indirizzo il collegamento e le istruzioni per seguire i lavori online. '
                 + 'Da adesso a quel momento non deve fare nulla: pensiamo noi a scriverLe.')
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
             + 'Se preferisce rinunciare, o se i Suoi dati sono da correggere, può farlo dal '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
             + 'Il collegamento vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
@@ -2362,7 +2389,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -2452,7 +2479,7 @@
                 + spazio(12)
                 + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;' + ALLINEA + '">' + testoHtml(titolo) + '</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
+                + '<tr><td class="lead par pmj" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -2460,7 +2487,7 @@
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
            lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
            l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
@@ -2469,7 +2496,7 @@
         const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + voci.map(v => '<tr>'
                 + '<td width="18" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.accento + ';font-weight:bold;padding:2px 0;">&bull;</td>'
-                + '<td valign="top" class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
+                + '<td valign="top" class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
             + '</table></td></tr>';
         const corpoParagrafi = paragrafi.map((p, i) => {
             let h = i ? spazio(p.titolo ? 26 : 18) : '';
@@ -2480,12 +2507,17 @@
             return p.se ? '<!--SE_' + p.se + '-->' + h + '<!--/SE_' + p.se + '-->' : h;
         }).join('');
 
-        const riga = (et, val) => '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
-            + '<td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
+        /* Etichetta SOPRA e valore sotto, a tutta larghezza: su un telefono
+           stretto due colonne lasciavano al valore tre parole per riga, con i
+           buchi del giustificato. Cosi' si legge bene ovunque, anche nelle app
+           di posta che ignorano il foglio di stile. I valori sono dati brevi:
+           a sinistra. */
+        const riga = (et, val, i) => '<tr><td class="bxet" valign="top" style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:' + (i ? 12 : 0) + 'px 0 2px;' + ALLINEA + '">' + testoHtml(et) + '</td></tr>'
+            + '<tr><td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
         const box = righe.length
             ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
-            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe.map(r => riga(r[0], r[1])).join('')) + '</td></tr></table></td></tr>'
+            + '<tr><td class="pmbox" style="padding:16px 22px;">' + tabellaInterna(righe.map((r, i) => riga(r[0], r[1], i)).join('')) + '</td></tr></table></td></tr>'
             : '';
         /* Il programma come un orario: a sinistra l'ora, a destra la voce. E'
            la forma in cui si legge un programma, la stessa della mail di
@@ -2494,7 +2526,7 @@
             ? spazio(26) + sopratitolo('Programma dei lavori') + spazio(4)
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + programma.map(v => '<tr>'
-                + '<td width="70" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 14px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
+                + '<td width="62" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 12px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
                 + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
             + '</table></td></tr>'
             : '';
@@ -2525,7 +2557,7 @@
         const rigaBottone = bottone ? spazio(28) + '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
             + '</td></tr>' : '';
-        const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
+        const piccolo = t => '<tr><td class="par pmj" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
         /* Al Lei, come tutte le mail al singolo: il registro non si mescola
            nella stessa lettera. */
         const fraseLink = 'Qualora non potesse più partecipare o desiderasse modificare i Suoi dati, può farlo attraverso il '
@@ -2561,7 +2593,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_PROMEMORIA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_PROMEMORIA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 

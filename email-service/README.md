@@ -532,6 +532,7 @@ d'ambiente non ne parte nessuno.
 | `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 | `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo i promemoria con `ora: 7` (la mattina dell'evento) |
 | `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre e 1° ottobre); benvenuto e giorni passati restano al giro delle 20 |
+| `/api/promemoria-eventi-ore22` | `0 20 * * *` — alle 22 di Roma (le 21 con l'ora solare) | spedisce solo i promemoria con `ora: 22` (per Napoli la prima mail del 24 settembre) |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -1313,6 +1314,50 @@ mail due volte.
 dell'impresa (nessuna copia), l'assegnazione, lo spostamento, la disdetta e
 l'eliminazione (copia a chi ha premuto), e controlla che l'indirizzo stia in
 `bcc` e non fra i destinatari veri.
+
+### Che si leggano sul telefono
+
+Quasi tutti aprono la posta dal telefono, e una mail composta su una colonna da
+600 pixel li' arriva stretta a 320. Le cose che si rompono sono sempre le
+stesse, e nessuna si vede rileggendo il testo:
+
+- **Il corpo troppo piccolo.** Sotto i **14px** una frase intera, su un
+  telefono, si legge storcendo gli occhi. Le etichette - corte, maiuscole,
+  spaziate, in grassetto - reggono i **13**, non meno. Erano a 12 e 13: le
+  misure sono salite di un passo **ovunque**, non solo sul telefono, cosi' non
+  ci sono due rese da tenere allineate.
+- **Il contrasto.** Un grigio chiaro su fondo chiaro sparisce al sole. La
+  soglia e' quella delle linee guida, **4,5 a 1**: la riga del motivo in fondo
+  (`#94A3B8` su fondo chiaro, 2,4 a 1) e' passata al grigio del resto del
+  piede, e il navy-glow sopra il titolo (`#5B89B8` sul fondo scuro, 4,1 a 1) e'
+  stato schiarito a `#7FA8CE`, che sta a 6 a 1 e resta piu' tenue del sommario.
+- **Il giustificato, che non si tocca.** Giustificare vuol dire allargare gli
+  spazi finche' la riga arriva in fondo, e su una colonna da una quarantina di
+  caratteri basta una ragione sociale in maiuscolo che non si spezza perche' la
+  riga si apra in voragini ("Gentile      COMPAGNIA      UNICA"). Per un po'
+  sotto i 480px si era andati a bandiera; **e' stato deciso il contrario**: il
+  giustificato e' il modo in cui questo studio scrive le lettere, su ogni
+  schermo, ed e' una scelta di chi le firma. Contro i buchi resta quello che si
+  puo' fare davvero, cioe' **spezzare le parole**: `hyphens:auto` sta sia negli
+  stili delle celle (`ALLINEA`) sia nel foglio di stile (`.par`), e riduce lo
+  spazio da recuperare a fine riga. La prova controlla che la bandiera **non
+  torni**: e' il genere di riga che si riaggiunge "per leggibilita'" senza
+  chiedere.
+- **Le larghezze fisse.** La colonna dell'ora, 110px comodi su 600, su 320 si
+  prende il 39% della riga e spezza in tre il nome del tavolo. Sotto i 480px si
+  stringe a 62 e l'ora va a capo fra le due ("10:00 -" sopra, "10:30" sotto):
+  senza togliere il "a capo" la colonna non si stringerebbe comunque, perche' a
+  tenerla larga e' il testo.
+- **`text-size-adjust`.** I telefoni ingrandiscono da se' il testo che giudicano
+  piccolo, e nel farlo scompaginano la colonna. L'involucro dell'area riservata
+  lo impediva da sempre, quello del servizio no: le mail si vedevano diverse a
+  seconda di chi le aveva composte.
+
+Le prove stanno in `prove/mail-telefono.prove.js`, e leggono l'HTML vero senza
+aprire un browser: le misure stanno scritte nel foglio di stile e negli stili
+delle celle. Controllano anche che le **due copie** delle regole - l'involucro
+dell'area riservata e quello del servizio - dicano la stessa cosa: se una resta
+indietro, meta' delle mail si legge bene e meta' no, e non lo scopre nessuno.
 
 ### Due versioni della stessa mail, e la scelta e' di chi spedisce
 
