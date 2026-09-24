@@ -25,7 +25,7 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 3. [Le variabili su Vercel](#3-le-variabili-su-vercel)
 4. [Brevo](#4-brevo)
 5. [YouTube: la diretta e i limiti che non si possono togliere](#5-youtube-la-diretta-e-i-limiti-che-non-si-possono-togliere)
-6. [Il giorno prima e il giorno dell'evento](#6-il-giorno-prima-e-il-giorno-dellevento)
+6. [Come si usa: dalla settimana prima al giorno dopo](#6-come-si-usa-dalla-settimana-prima-al-giorno-dopo)
 7. [Nomi utente, doppioni, password](#7-nomi-utente-doppioni-password)
 8. [Sicurezza: cosa è protetto e come](#8-sicurezza-cosa-è-protetto-e-come)
 9. [Tenuta con 1000 persone: stime e piani](#9-tenuta-con-1000-persone-stime-e-piani)
@@ -338,26 +338,106 @@ si vedono.
 
 ---
 
-## 6. Il giorno prima e il giorno dell'evento
+## 6. Come si usa: dalla settimana prima al giorno dopo
 
-*Da completare con il flusso della gestione dopo le prove (bozza):*
+### 6.1 Il primo accesso del gestore
 
-1. **Settimana prima.** In gestione: crea l'evento (titolo, data, orari,
-   programma, link YouTube), carica il file degli iscritti online, controlla
-   l'anteprima, crea gli account. "Invia email di prova a me", controlla la
-   posta, poi "Invia a tutti". Attiva i promemoria (giorno prima, ora prima).
-2. **Giorno prima.** Controlla in gestione le email respinte o in errore,
-   correggi gli indirizzi, "Reinvia a chi non l'ha ricevuta". Prova il link
-   YouTube con "Vedi come un partecipante".
-3. **Giorno dell'evento.** Scheda *Regia*: quando YouTube è in onda, premi
-   **Vai in onda** (la pagina di tutti passa da sola dall'attesa alla diretta).
-   Il contatore mostra le persone collegate. Se il video cambia, incolla il
-   nuovo link: chi guarda passa al nuovo video senza ricaricare. Alla fine,
-   **Termina**.
-4. **Dopo.** *Esporta*: file Excel con partecipanti e accessi (chi, quando, per
-   quanto tempo) per gli attestati.
+1. Apri `https://nextgenerationbusiness.it/diretta/gestione/` e premi
+   **"Primo accesso o password dimenticata"**; scrivi la tua email (deve essere
+   in `DIRETTA_ADMIN_EMAILS`).
+2. Arriva un'email con il collegamento: scegli la password (almeno 8 caratteri,
+   con lettere e numeri). Il collegamento vale un'ora.
+3. Entra con email e password. La sessione resta aperta sul dispositivo.
 
----
+### 6.2 La settimana prima
+
+1. **Evento** (scheda *Evento*): identificativo (per Napoli `napoli-2026`,
+   lo stesso scritto in `assets/diretta-stato.js`), titolo, luogo, data, ora
+   di inizio e di fine, link della diretta YouTube, programma (una voce per
+   riga: `09.00 Accoglienza`), pagina dell'evento (`/napoli_ottobre_2026/`),
+   le caselle dei **promemoria** (giorno prima, un'ora prima: accanto c'è quante
+   persone li riceveranno) e, se serve, **"un solo dispositivo"**.
+2. **Partecipanti** (scheda *Partecipanti*): carica il file degli iscritti
+   online, CSV o Excel, con le colonne nome, cognome, email, azienda (vanno bene
+   anche "Nominativo" in una colonna sola, "E-mail", "Società"…: se la pagina
+   non le riconosce, ti chiede di abbinarle; se il file ha più fogli, di
+   sceglierlo). C'è un file di esempio con tutti i casi:
+   `diretta/prove/esempio-partecipanti.csv`.
+   L'**anteprima** mostra riga per riga il nome utente che verrà assegnato e i
+   problemi, a colori: email mancanti o non valide, nome o cognome vuoti,
+   doppioni nel file, persone già presenti, omonimi con il numero proposto (e chi
+   usa già quel nome), un indirizzo condiviso da persone diverse, un file salvato
+   con la codifica sbagliata (lettere come `Ã²`). Il filtro "Solo da controllare"
+   mostra solo quelle. Per ogni riga puoi correggere, escludere o confermare;
+   **"Crea gli account" resta spento finché c'è qualcosa da sistemare**. Gli
+   account si creano a gruppi di 25 (circa 4 al secondo, per non superare i
+   limiti di Firebase); se la rete cade, "Riprendi" continua senza doppioni.
+   Ricaricare lo stesso file più tardi non crea niente di doppio.
+3. **Email** (scheda *Email*): **"Invia email di prova a me"** e controlla la
+   tua casella (anche sul telefono). Poi **"Invia le credenziali a chi non le ha
+   ancora (N)"**. L'invio va avanti a gruppi finché la pagina è aperta; se la
+   chiudi, lo porta avanti il lavoro programmato ogni 5 minuti. Per ogni persona
+   vedi lo stato: *da inviare*, *in coda*, *inviata*, *respinta*, *errore*,
+   *incerto* (l'invio si è interrotto a metà: forse è partita; si reinvia solo a
+   mano, dopo aver controllato). Nessuno riceve mai due volte la stessa email.
+
+### 6.3 Il giorno prima
+
+- *Email* → **"Aggiorna esiti"**: legge da Brevo gli indirizzi che hanno
+  rimbalzato (servono `BREVO_API_KEY`).
+- Correggi gli indirizzi respinti (*Partecipanti* → **Correggi**) e premi
+  **"Reinvia a chi non l'ha ricevuta (N)"**: solo respinte ed errori, mai chi è
+  già entrato.
+- Chi telefona perché non trova la password: *Partecipanti* → cerca per nome,
+  email, azienda o nome utente → **"Nuova password da comunicare a voce"** (la
+  vedi una volta sola) oppure **"Reinvia credenziali"** (email con una password
+  nuova: la vecchia smette di funzionare).
+- Prova il link: *Regia* → **"Vedi come un partecipante"**.
+
+### 6.4 Il giorno dell'evento (scheda *Regia*)
+
+- Quando YouTube è in onda, **"Vai in onda"**: tutte le pagine aperte passano da
+  sole dall'attesa alla diretta. Il contatore mostra le persone collegate in
+  questo momento (si aggiorna ogni 20 secondi).
+- **Pausa** (con l'orario di ripresa, facoltativo) e **Riprendi**: in pausa i
+  partecipanti vedono "Pausa: si riprende alle 14.30", non la fine.
+- **"Avviso a tutti"**: una riga che compare in cima alla pagina di tutti
+  ("Problema tecnico: riprendiamo tra 5 minuti").
+- **Cambio del video**: incolla il nuovo link; la regia lo prova prima in una
+  piccola anteprima e lo blocca se YouTube non lo fa vedere. Chi guarda passa al
+  nuovo video da solo, senza ricaricare.
+- Alla fine, **"Termina"**. Se la riapri ("Vai in onda" di nuovo), le pagine
+  ripartono.
+
+### 6.5 Dopo
+
+*Esporta* → file Excel con due fogli: **Partecipanti** (stato dell'account e
+delle email, primo collegamento, ultimo segnale, **minuti collegati durante la
+diretta**, numero di collegamenti, ultimo accesso) e **Accessi** (ogni accesso:
+quando, chi, da che dispositivo). I minuti sono stimati dalla pagina (un
+segnale al minuto, verificato dalle regole con l'orario del server, limitato
+alla durata dell'evento): adatti agli attestati di partecipazione, con una
+precisione di un paio di minuti per collegamento.
+
+### 6.6 Il sito: popup, pillola e pagina di Napoli
+
+- **Home**: dal 25 settembre (7 giorni prima) fino alla fine della diretta
+  compare una volta per sessione il popup **"Diretta Napoli"**, con la
+  precedenza sugli altri popup (quel giorno non compaiono). Il giorno
+  dell'evento, se è in onda, dice **"Siamo in diretta: accedi"** con il bollino
+  rosso. "Non mostrare più" lo spegne; resta comunque, in basso a sinistra, una
+  piccola **pillola fissa "Diretta Napoli"** per tutta la finestra.
+- **Pagina di Napoli**: voce **"Diretta"** nel menu, accanto a "Save the date"
+  (sul telefono una pillola accanto al pulsante del menu), e la sezione **"Segui
+  la diretta"** sotto la prima schermata. Mentre si è in onda, bollino rosso
+  **"IN DIRETTA"**; in pausa "In pausa"; dopo la fine "La diretta si è conclusa".
+- **Da dove arriva lo stato "in onda"**: `api/diretta-stato`, con la cache CDN
+  di Vercel (una lettura di Firestore ogni 30 secondi circa, qualunque sia il
+  numero dei visitatori), chiesto solo da 3 ore prima a 3 ore dopo l'evento. Il
+  bollino può arrivare con **1-2 minuti di ritardo** rispetto alla regia.
+- **Per un nuovo evento** (o se cambiano data e orario): aggiorna `EVENTO` in
+  cima ad `assets/diretta-stato.js` (date con il fuso: `+02:00` d'estate,
+  `+01:00` d'inverno).
 
 ## 7. Nomi utente, doppioni, password
 
@@ -502,9 +582,49 @@ Il piano Pro include 1 milione di chiamate al mese: la diretta ne usa lo
 
 Account con email e password: gratuiti. Brevo: vedi §4 (~3.100 email).
 
-### Cosa la prova di carico dimostra e cosa no
+### La prova di carico: 1000 accessi in 2 minuti
 
-*Risultati da inserire dopo l'esecuzione di `diretta/prove/carico.prova.js`.*
+`diretta/prove/carico.sh` (emulatori di Firebase + funzioni vere del servizio
+in locale + `carico.prova.js`). Prima si creano **1000 partecipanti con l'API
+di gestione** (40 chiamate `crea` da 25 righe, con molti omonimi apposta), poi
+ognuno, a un istante casuale dentro i 2 minuti, fa quello che fa la pagina:
+accesso con il nome utente scritto con maiuscole e spazi, token, lettura del
+profilo e dell'evento con le regole vere, primo segnale di presenza a un ritardo
+casuale (0-60 s) e il secondo 60 secondi dopo. Risultato dell'ultima esecuzione
+(24 settembre 2026, questa macchina: 4 processori):
+
+| Passo | n | p50 | p95 | p99 | massimo |
+|---|---:|---:|---:|---:|---:|
+| accesso (funzione `diretta-accesso`: blocco dei tentativi, verifica, token) | 1000 | 30 ms | 51 ms | 76 ms | 114 ms |
+| accesso a Firebase con il token | 1000 | 3 ms | 6 ms | 11 ms | 23 ms |
+| lettura del profilo (regole) | 1000 | 5 ms | 15 ms | 51 ms | 680 ms |
+| lettura dell'evento (regole) | 1000 | 7 ms | 20 ms | 114 ms | 269 ms |
+| primo segnale di presenza | 1000 | 9 ms | 15 ms | 23 ms | 104 ms |
+| segnale "continua" (+60 s, regole con l'orario del server) | 1000 | 9 ms | 14 ms | 40 ms | 62 ms |
+| `crea` (25 righe, nella preparazione) | 40 | 6,1 s | 6,8 s | 6,9 s | 6,9 s |
+
+- **Errori: nessuno** su 6000 operazioni; 1000 presenze scritte, tutte con il
+  secondo segnale accettato dalle regole.
+- **Picco di accessi in un secondo: 17; picco di scritture di presenza in un
+  secondo: 24** (su 1000 persone): la partenza casuale funziona, non arrivano
+  mai tutte insieme.
+- Creazione dei 1000 account: **250 secondi** (circa 4 al secondo: è il
+  limitatore delle scritture su Firebase Auth, 8 al secondo, che tiene lontani i
+  limiti di Google; con la pagina di gestione sono 40 gruppi da 25).
+- Il contatore della gestione alla fine ne vedeva 956: la prova smette di
+  mandare segnali dopo il secondo, e chi era arrivato nei primi secondi aveva
+  l'ultimo segnale da più di 150 secondi (la soglia del "collegato adesso").
+
+**Cosa la prova NON dimostra.** Gli emulatori non sono i server di Google:
+non applicano le quote di Spark, non chiedono gli indici compositi, non
+limitano per IP né per account (`TOO_MANY_ATTEMPTS_TRY_LATER` di Identity
+Toolkit) e non addebitano le letture delle regole; il servizio gira qui in
+un solo processo e non su Vercel. La prova dice che il nostro codice regge il
+volume **senza errori, senza contese e senza doppioni**; i tempi veri di
+Google e Vercel sono di solito migliori ma vanno misurati sul progetto vero
+(vedi [§12](#12-cosa-devi-fare-tu): prova con 300 accessi di prova la settimana
+prima). Se Google dovesse limitare gli accessi che partono dagli IP di Vercel,
+il servizio risponde "attendi un minuto" e lo scrive nel log.
 
 ---
 

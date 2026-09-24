@@ -45,6 +45,8 @@
     const GRUPPO_CREA = 25;
     const PAUSA_CREA_MS = 300;
     const PAUSA_EMAIL_MS = 2000;
+    // un altro giro di invio sta lavorando (il cron o un'altra pagina): si guarda piu' piano
+    const PAUSA_OCCUPATO_MS = 5000;
     const OGNI_CONNESSI_MS = 20000;
     const MAX_RIGHE = 5000;
     const MAX_BYTE_FILE = 15 * 1024 * 1024;
@@ -75,7 +77,9 @@
         file: null,            // il file aperto: cartella di lavoro, foglio, abbinamento
         caricamento: null,     // l'anteprima in corso
         connessi: { timer: null, ultimo: null, inCorso: false },
-        posta: { conteggi: {}, coda: {}, ciclo: null, risposta: null },
+        // la scheda Email: l'ultima risposta di email-stato, il giro di invio
+        // seguito da questa pagina e da che pulsante e' partita la coda
+        posta: { conteggi: {}, coda: {}, ciclo: null, risposta: null, ultimoChi: '' },
         anteprimaVideo: null,
         inCorrezione: null
     };
@@ -619,9 +623,11 @@
             chiudiAnteprimaVideo();
             annullaCaricamento();
             if (stato.posta.ciclo) stato.posta.ciclo.attivo = false;
-            stato.posta = { conteggi: {}, coda: {}, ciclo: null, risposta: null };
+            stato.posta = { conteggi: {}, coda: {}, ciclo: null, risposta: null, ultimoChi: '' };
             disegnaConteggi();
             $('#avanzamento-email').hidden = true;
+            nascondiMsg('#coda-bloccata');
+            $('#btn-riprova-invio').hidden = true;
             $('#num-connessi').textContent = '–';
             stato.connessi.ultimo = null;
             stato.partecipanti = [];
@@ -765,12 +771,53 @@
         aggiornaDestinatariPromemoria();
     }
 
+    /* ---------- i promemoria: a chi arrivano e a che punto sono ----------
+       Il servizio (email-stato) dice quante persone riceverebbero ciascun
+       promemoria da adesso in poi (destinatariPromemoria: { giorno, ora }:
+       solo chi ha le credenziali «inviata» e l'account attivo) e, in
+       coda.promemoria.<tipo>, se il giro e' cominciato o finito
+       ({ cominciato, quando, finito, inviate }). La finestra in cui ciascuno
+       puo' partire e' la stessa di lib/diretta-invio.js: il giorno prima da
+       24 ore prima dell'inizio (fino a un'ora prima, se c'e' anche l'altro),
+       l'ora prima da 60 minuti prima fino alla fine. */
+    const ORA_MS = 60 * 60 * 1000;
+    function finestraPromemoria(ev, tipo) {
+        if (!ev || !ev.inizio || !ev.fine || ev.stato === 'terminato') return null;
+        const p = ev.promemoria || {};
+        if (tipo === 'giorno') return { da: ev.inizio - 24 * ORA_MS, a: p.oraPrima ? ev.inizio - ORA_MS : ev.inizio };
+        return { da: ev.inizio - ORA_MS, a: ev.fine };
+    }
+    function destinatariDi(tipo) {
+        const d = stato.posta.risposta && stato.posta.risposta.destinatariPromemoria;
+        if (typeof d === 'number') return d;
+        return d && typeof d[tipo] === 'number' ? d[tipo] : null;
+    }
+    // una riga per promemoria: "partirà da solo da ..." / "già partito" / "il momento è passato"
+    function descriviPromemoria(tipo) {
+        const ev = stato.evento;
+        if (!ev || stato.nuovo || !stato.posta.risposta) return '';
+        const attivo = !!(ev.promemoria && ev.promemoria[tipo === 'giorno' ? 'giornoPrima' : 'oraPrima']);
+        const giro = ((stato.posta.coda || {}).promemoria || {})[tipo] || null;
+        const inviate = giro ? Number(giro.inviate || 0) : 0;
+        if (giro && giro.finito) {
+            return 'Già partito: ' + conNumero(inviate, 'email inviata', 'email inviate') + (giro.quando ? ' (ultimo giro ' + dataOra(giro.quando) + ')' : '') + '.';
+        }
+        const f = finestraPromemoria(ev, tipo);
+        if (!f || Date.now() >= f.a) return attivo || giro ? 'Il momento di questo promemoria è passato: non parte più.' : '';
+        const n = destinatariDi(tipo);
+        if (n == null) return '';
+        const chi = conNumero(n, 'persona', 'persone');
+        if (giro && giro.cominciato) return 'In corso: ' + conNumero(inviate, 'email inviata', 'email inviate') + ', ne mancano ' + n + '.';
+        if (!attivo) return 'Se lo attivi, oggi lo riceverebbero ' + chi + '.';
+        const quando = Date.now() >= f.da ? 'al prossimo giro automatico (entro 5 minuti)' : 'da ' + dataEstesa(f.da) + ' alle ' + oraLeggibile(f.da);
+        return 'Parte da solo ' + quando + ': oggi lo riceverebbero ' + chi + '.';
+    }
     function aggiornaDestinatariPromemoria() {
-        const r = stato.posta.risposta;
-        const n = r && typeof r.destinatariPromemoria === 'number' ? r.destinatariPromemoria : null;
-        $('#promemoria-destinatari').textContent = stato.nuovo || n == null ? ''
-            : 'I promemoria arrivano solo a chi ha già ricevuto le credenziali e ha l\'account attivo: oggi '
-              + conNumero(n, 'persona', 'persone') + '.';
+        $('#prom-dest-giorno').textContent = descriviPromemoria('giorno');
+        $('#prom-dest-ora').textContent = descriviPromemoria('ora');
+        $('#promemoria-destinatari').textContent = stato.nuovo ? ''
+            : 'I promemoria arrivano solo a chi ha già ricevuto le credenziali e ha l\'account attivo, mai con la password. '
+              + 'Le caselle valgono dopo «Salva le modifiche».';
     }
 
     // per un evento nuovo l'identificativo si propone da solo (luogo + anno)
@@ -911,6 +958,16 @@
         aggiornaAvvisoOrario();
 
         $('#regia-video-attuale').textContent = ev && ev.videoUrl ? (ev.videoId ? ev.videoId + ' · ' : '') + ev.videoUrl : 'nessuno';
+        /* Il link vive in un documento riservato del servizio: ai partecipanti
+           l'identificativo arriva solo mentre si e' in onda (videoInOnda e'
+           quello che vedono adesso). Qui si dice in chiaro che cosa vedono. */
+        let pubblico = '';
+        if (ev && ev.videoId) {
+            if (ev.videoInOnda && ev.videoInOnda === ev.videoId) pubblico = 'I partecipanti collegati stanno guardando questo video.';
+            else if (ev.videoInOnda) pubblico = 'I partecipanti stanno ancora ricevendo il video precedente (' + ev.videoInOnda + '): aggiorna la pagina tra qualche secondo.';
+            else pubblico = 'I partecipanti lo ricevono solo mentre la diretta è in onda: prima e dopo il link resta riservato.';
+        } else if (ev && s === 'in_onda') pubblico = 'Nessun video impostato: i partecipanti vedono «Il video sta per arrivare».';
+        $('#regia-video-pubblico').textContent = pubblico;
         $('#regia-avviso-attuale').textContent = ev && ev.avviso ? '«' + ev.avviso + '»' : 'nessuno';
         if (ev && ev.ripresa && !$('#regia-ripresa').value) $('#regia-ripresa').value = ev.ripresa;
         aggiornaPulsantiRegia();
@@ -1965,7 +2022,7 @@
         if (!ok || c !== stato.caricamento) return;
         c.creazione = {
             inCorso: true, finita: false,
-            gruppi: [], indice: 0, risultati: [],
+            gruppi: [], indice: 0, risultati: [], ritentati: new Set(),
             previsti: new Map(daInviare.map(o => [o.riga, o])),
             totale: daInviare.length
         };
@@ -2020,6 +2077,11 @@
                     // gli errori di rete e del servizio si riprovano: la creazione
                     // e' "idempotente", le righe gia' fatte non si duplicano
                     const riprovabile = !e.stato || e.stato === 429 || e.stato >= 500;
+                    /* Con la rete caduta (o il servizio fermato a meta') la richiesta
+                       puo' essere arrivata e il gruppo creato, senza che la risposta
+                       tornasse: al nuovo tentativo quelle righe risultano «gia'
+                       nell'evento». Lo si ricorda per dirlo giusto nel risultato. */
+                    if (!e.stato || e.stato >= 500) cr.ritentati.add(cr.indice);
                     if (!riprovabile || tentativo >= 2) {
                         cr.inCorso = false;
                         aggiornaAvanzamentoCrea(c, 'Caricamento interrotto al gruppo ' + (cr.indice + 1) + ' di ' + cr.gruppi.length
@@ -2035,7 +2097,9 @@
                     await pausa(1500 * (tentativo + 1));
                 }
             }
-            cr.risultati.push.apply(cr.risultati, Array.isArray(r.risultati) ? r.risultati : []);
+            const risultati = Array.isArray(r.risultati) ? r.risultati : [];
+            if (cr.ritentati.has(cr.indice)) risultati.forEach(x => { if (x.esito === 'gia-nell-evento') x.dalTentativo = true; });
+            cr.risultati.push.apply(cr.risultati, risultati);
             cr.indice++;
             aggiornaAvanzamentoCrea(c);
             if (cr.indice < cr.gruppi.length) await pausa(PAUSA_CREA_MS);
@@ -2047,9 +2111,15 @@
 
     function creazioneFinita(c) {
         const cr = c.creazione;
-        const k = { creato: 0, aggiunto: 0, 'gia-nell-evento': 0, errore: 0 };
-        cr.risultati.forEach(x => { k[x.esito] = (k[x.esito] || 0) + 1; });
-        const cambiati = cr.risultati.filter(x => x.nomeUtenteCambiato && x.esito === 'creato');
+        const k = { creato: 0, aggiunto: 0, 'gia-nell-evento': 0, errore: 0, dalTentativo: 0 };
+        cr.risultati.forEach(x => {
+            if (x.dalTentativo) k.dalTentativo++;
+            else k[x.esito] = (k[x.esito] || 0) + 1;
+        });
+        // il nome utente conta come "cambiato" solo per chi e' stato creato adesso
+        // (o dal tentativo interrotto): chi esisteva gia' tiene il suo
+        const eCambiato = x => !!x.nomeUtenteCambiato && (x.esito === 'creato' || !!x.dalTentativo);
+        const cambiati = cr.risultati.filter(eCambiato);
         aggiornaAvanzamentoCrea(c, 'Creazione completata: ' + cr.risultati.length + ' di ' + cr.totale + ' righe elaborate.');
         sbloccaCaricamento(true);
         $('#anteprima-caricamento').hidden = true;
@@ -2058,35 +2128,48 @@
         svuota(riepilogo);
         riepilogo.appendChild(gettone(k.creato, plurale(k.creato, 'account creato', 'account creati'), 'verde'));
         if (k.aggiunto) riepilogo.appendChild(gettone(k.aggiunto, plurale(k.aggiunto, 'persona aggiunta all\'evento', 'persone aggiunte all\'evento'), 'blu'));
+        if (k.dalTentativo) riepilogo.appendChild(gettone(k.dalTentativo, plurale(k.dalTentativo, 'riga già completata dal tentativo interrotto', 'righe già completate dal tentativo interrotto'), 'verde'));
         if (k['gia-nell-evento']) riepilogo.appendChild(gettone(k['gia-nell-evento'], 'già nell\'evento', 'blu'));
         if (cambiati.length) riepilogo.appendChild(gettone(cambiati.length, plurale(cambiati.length, 'nome utente cambiato', 'nomi utente cambiati'), 'ambra'));
         riepilogo.appendChild(gettone(k.errore, plurale(k.errore, 'errore', 'errori'), k.errore ? 'rosso' : ''));
 
         const tb = $('#tabella-esito-crea tbody');
         svuota(tb);
-        cr.risultati.filter(x => x.esito === 'errore' || x.nomeUtenteCambiato).forEach(x => {
+        /* Qui sotto solo le righe da guardare: gli errori, i nomi utente
+           diversi dall'anteprima e le note del servizio (per esempio una
+           persona gia' registrata con l'account disattivato). */
+        const ESITO_RIGA = { creato: 'Creato', aggiunto: 'Aggiunta all\'evento', 'gia-nell-evento': 'Già nell\'evento' };
+        cr.risultati.filter(x => x.esito === 'errore' || eCambiato(x) || x.motivo).forEach(x => {
             const o = cr.previsti.get(x.riga) || {};
+            const cambiato = eCambiato(x);
             const nomeCella = el('td', { 'data-label': 'Nome utente' });
-            if (x.nomeUtenteCambiato && o.nomeUtente && o.nomeUtente !== x.nomeUtente) {
+            if (cambiato && o.nomeUtente && o.nomeUtente !== x.nomeUtente) {
                 nomeCella.appendChild(el('span', { classe: 'nome-cambiato-testo' }, [el('del', { testo: o.nomeUtente }), ' → ', x.nomeUtente || '']));
             } else nomeCella.textContent = x.nomeUtente || '';
-            tb.appendChild(el('tr', { classe: x.esito === 'errore' ? 'riga-errore' : 'nome-cambiato', dati: { riga: String(x.riga) } }, [
+            const esito = x.esito === 'errore' ? 'Errore' : (cambiato ? 'Creato con un altro nome utente' : (ESITO_RIGA[x.esito] || x.esito));
+            const nota = x.esito === 'errore' ? (x.motivo || 'Errore non specificato')
+                : [cambiato ? 'Il nome proposto era stato preso nel frattempo (per esempio da un caricamento contemporaneo).' : '', x.motivo || ''].filter(Boolean).join(' ');
+            tb.appendChild(el('tr', { classe: x.esito === 'errore' ? 'riga-errore' : (cambiato ? 'nome-cambiato' : 'riga-nota'), dati: { riga: String(x.riga) } }, [
                 el('td', { classe: 'num', 'data-label': 'Riga', testo: x.riga }),
                 el('td', { 'data-label': 'Persona', testo: [o.nome, o.cognome].filter(Boolean).join(' ') }),
-                el('td', { 'data-label': 'Esito', testo: x.esito === 'errore' ? 'Errore' : 'Creato con un altro nome utente' }),
+                el('td', { 'data-label': 'Esito', testo: esito }),
                 nomeCella,
-                el('td', { 'data-label': 'Nota', classe: 'largo', testo: x.esito === 'errore' ? (x.motivo || 'Errore non specificato') : 'Il nome proposto era stato preso nel frattempo (per esempio da un caricamento contemporaneo).' })
+                el('td', { 'data-label': 'Nota', classe: 'largo', testo: nota })
             ]));
         });
         $('#esito-crea-contenitore').hidden = !tb.firstChild;
         $('#esito-crea-nota').textContent = (tb.firstChild ? 'Qui sotto solo le righe da guardare; tutte le altre hanno il nome utente dell\'anteprima. ' : '')
+            + (k.dalTentativo ? 'Il collegamento era caduto a metà: ' + conNumero(k.dalTentativo, 'riga era già stata completata', 'righe erano già state completate')
+                + ' dal tentativo interrotto, senza doppioni. ' : '')
             + (k.errore ? 'Le righe in errore si possono completare ricaricando lo stesso file: non si crea niente di doppio. ' : '')
             + 'Le credenziali si inviano dalla scheda Email.';
         $('#esito-crea').hidden = false;
         $('#nome-file').textContent = '';
         stato.file = null;
         $('#esito-crea').scrollIntoView({ block: 'nearest' });
-        avviso('Creazione completata: ' + conNumero(k.creato, 'account creato', 'account creati') + (k.aggiunto ? ', ' + k.aggiunto + ' aggiunti all\'evento' : '') + '.', k.errore ? 'errore' : 'ok');
+        avviso('Creazione completata: ' + conNumero(k.creato + k.dalTentativo, 'riga completata', 'righe completate')
+            + (k.aggiunto ? ', ' + conNumero(k.aggiunto, 'persona aggiunta', 'persone aggiunte') + ' all\'evento' : '')
+            + (k.errore ? ', ' + conNumero(k.errore, 'errore', 'errori') : '') + '.', k.errore ? 'errore' : 'ok');
         // elenco e conteggi aggiornati
         caricaPartecipanti();
         chiama('eventi').then(r => {
@@ -2301,7 +2384,17 @@
                 avviso(detto[op], op === 'reinvia' && statoInvio(nuovo) !== 'inviata' ? 'errore' : 'ok');
                 const stessoBottone = riga.querySelector('button[data-op="' + (op === 'disattiva' ? 'riattiva' : op === 'riattiva' ? 'disattiva' : op) + '"]');
                 if (stessoBottone && !menu) stessoBottone.focus();
-            } catch (e) { erroreGenerico(e); }
+            } catch (e) {
+                /* 409: il servizio spiega perche' no con una frase sua ("Credenziali
+                   inviate meno di un minuto fa...", "Invio già in corso...", "Account
+                   disattivato: riattivalo prima..."). La si mostra cosi' com'e', e
+                   si rilegge l'elenco: lo stato della persona puo' essere cambiato
+                   nel frattempo (un altro gestore, il giro automatico). */
+                if (e && e.stato === 409) {
+                    avviso((op === 'reinvia' ? 'Credenziali non inviate a ' : 'Operazione non eseguita per ') + chi + ': ' + e.msg, 'errore');
+                    caricaPartecipanti();
+                } else erroreGenerico(e);
+            }
         });
         if (op === 'reinvia') aggiornaStatoEmail().catch(() => { /* si vede nella scheda Email */ });
     }
@@ -2363,7 +2456,8 @@
         else testo = 'Il nome utente cambierebbe da ' + p.nomeUtente + ' a ' + base + ' (o ' + base + '2, ' + base + '3… se è già usato).';
         $('#corr-anteprima-nome').textContent = testo;
         // credenziali gia' partite: si sceglie se tenere il nome utente che la persona ha gia'
-        $('#corr-scelta-nome').hidden = !(cambia && statoInvio(p) === 'inviata');
+        // ('incerto': l'email potrebbe essere arrivata, vale come spedita)
+        $('#corr-scelta-nome').hidden = !(cambia && (statoInvio(p) === 'inviata' || statoInvio(p) === 'incerto'));
     }
     ['#corr-nome', '#corr-cognome'].forEach(s => $(s).addEventListener('input', anteprimaNomeCorretto));
     $('#btn-corr-annulla').addEventListener('click', () => chiudiDialogo($('#dialogo-correggi'), 'annulla'));
@@ -2397,10 +2491,15 @@
                 chiudiDialogo($('#dialogo-correggi'), 'ok');
                 const riga = sostituisciPartecipante(nuovo);
                 if (r.nomeUtenteCambiato) {
-                    avviso('Nuovo nome utente: ' + nuovo.nomeUtente + '. ' + (statoInvio(nuovo) === 'da inviare'
-                        ? 'Premi «Invia ora» per mandare le credenziali aggiornate.'
+                    const prima = r.nomeUtentePrecedente || p.nomeUtente || '';
+                    avviso('Nome utente cambiato' + (prima ? ' da ' + prima : '') + ' a ' + nuovo.nomeUtente + '. ' + (statoInvio(nuovo) === 'da inviare'
+                        ? 'Premi «Invia ora» per mandare le credenziali con il nuovo nome utente.'
                         : 'Ricordati di reinviare le credenziali.'), 'ok');
-                } else avviso('Dati di ' + [nuovo.nome, nuovo.cognome].join(' ') + ' corretti.', 'ok');
+                } else if (statoInvio(p) === 'respinta' && statoInvio(nuovo) === 'da inviare') {
+                    // email corretta dopo un rifiuto: il servizio la rimette "da inviare" (R3)
+                    avviso('Email di ' + [nuovo.nome, nuovo.cognome].join(' ') + ' corretta: premi «Invia ora» per mandare le credenziali al nuovo indirizzo.', 'ok');
+                } else avviso('Dati di ' + [nuovo.nome, nuovo.cognome].join(' ') + ' corretti.'
+                    + (nuovo.nomeUtente === p.nomeUtente && mantieni ? ' Il nome utente resta ' + nuovo.nomeUtente + '.' : ''), 'ok');
                 const b = riga.querySelector('button[data-op="correggi"]');
                 if (b) b.focus();
             } catch (err) {

@@ -708,7 +708,8 @@ async function provaHome() {
         const p = await v.scheda('2026-10-02T21:00:00+02:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'btPromo'), 'compare il popup del bando');
-        uguale((await pillola(p)).visibile, false, 'nessuna pillola');
+        const pl = await pillola(p);
+        uguale([pl.presente, pl.visibile], [false, false], 'nessuna pillola (non viene nemmeno costruita)');
         await passa(p, 2 * MINUTO);
         uguale(v.richieste.length, 0, 'nessuna richiesta allo stato');
         await v.ctx.close();

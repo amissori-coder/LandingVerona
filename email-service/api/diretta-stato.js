@@ -2,7 +2,7 @@
    Diretta degli eventi: lo stato pubblico di un evento
    ------------------------------------------------------------
    GET /api/diretta-stato?evento=napoli-2026
-     -> { ok, id, titolo, stato, inizio, fine, paginaEvento }
+     -> { ok, id, titolo, stato, inizio, fine, paginaEvento, ripresa }
         (inizio e fine in millisecondi; MAI il video)
 
    La leggono il pulsante "Diretta" della pagina di Napoli e il popup
@@ -48,7 +48,9 @@ async function leggi(idEvento) {
             quando: ora, codice: 200,
             corpo: {
                 ok: true, id: idEvento, titolo: String(d.titolo || ''), stato: String(d.stato || 'programmato'),
-                inizio: ms(d.inizio), fine: ms(d.fine), paginaEvento: String(d.paginaEvento || '')
+                inizio: ms(d.inizio), fine: ms(d.fine), paginaEvento: String(d.paginaEvento || ''),
+                // in pausa, l'orario di ripresa che il gestore ha scritto (il sito lo mostra)
+                ripresa: d.stato === 'pausa' && /^\d{1,2}[:.]\d{2}$/.test(String(d.ripresa || '')) ? String(d.ripresa) : ''
             }
         };
     }

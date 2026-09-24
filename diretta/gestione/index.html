@@ -18,7 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260924a">
+    <link rel="stylesheet" href="gestione.css?v=20260924b">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -175,11 +175,13 @@
                             </label>
                             <label class="opzione">
                                 <input type="checkbox" id="ev-promemoria-giorno" name="promemoriaGiorno">
-                                <span><strong>Promemoria il giorno prima.</strong> Email automatica con il link della diretta e il nome utente (mai la password).</span>
+                                <span><strong>Promemoria il giorno prima.</strong> Email automatica con il link della diretta e il nome utente (mai la password).
+                                    <span id="prom-dest-giorno" class="prom-destinatari"></span></span>
                             </label>
                             <label class="opzione">
                                 <input type="checkbox" id="ev-promemoria-ora" name="promemoriaOra">
-                                <span><strong>Promemoria un'ora prima dell'inizio.</strong> Stesso contenuto, parte da solo.</span>
+                                <span><strong>Promemoria un'ora prima dell'inizio.</strong> Stesso contenuto, parte da solo.
+                                    <span id="prom-dest-ora" class="prom-destinatari"></span></span>
                             </label>
                             <p id="promemoria-destinatari" class="aiuto" aria-live="polite"></p>
                         </fieldset>
@@ -258,6 +260,7 @@
                         <div class="riquadro regia-video-riquadro">
                             <h2>Video</h2>
                             <p class="regia-dettaglio">Video attuale: <span id="regia-video-attuale" class="testo-fisso">nessuno</span></p>
+                            <p id="regia-video-pubblico" class="aiuto"></p>
                             <form id="form-video" class="riga-campo" novalidate>
                                 <label for="regia-video" class="solo-lettori">Nuovo link del video YouTube</label>
                                 <input type="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Incolla il link YouTube della diretta">
@@ -479,7 +482,12 @@
                         <div class="barra" role="progressbar" aria-label="Invio delle email" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="barra-piena"></span></div>
                         <p class="avanzamento-testo" aria-live="polite"></p>
                     </div>
-                    <p id="coda-bloccata" class="msg msg-errore" role="alert" hidden></p>
+                    <div class="coda-ferma">
+                        <p id="coda-bloccata" class="msg msg-errore" role="alert" hidden></p>
+                        <!-- Solo con la coda fermata da un blocco del server di posta: rimette in
+                             moto la coda subito, senza aspettare il giro automatico di 5 minuti. -->
+                        <button type="button" id="btn-riprova-invio" class="btn btn-primario btn-piccolo" hidden>Riprova adesso</button>
+                    </div>
                     <p id="promemoria-stato" class="aiuto"></p>
                 </div>
 
@@ -508,7 +516,8 @@
                             <button type="button" id="btn-invia-tutti" class="btn btn-primario" aria-describedby="nota-disattivati">Invia le credenziali a chi non le ha ancora</button>
                             <p id="nota-disattivati" class="aiuto" hidden></p>
                             <button type="button" id="btn-reinvia-non-ricevute" class="btn btn-secondario">Reinvia a chi non l'ha ricevuta</button>
-                            <button type="button" id="btn-aggiorna-esiti" class="btn btn-secondario">Aggiorna le email respinte da Brevo</button>
+                            <button type="button" id="btn-aggiorna-esiti" class="btn btn-secondario" aria-describedby="nota-esiti">Aggiorna le email respinte da Brevo</button>
+                            <p id="nota-esiti" class="aiuto" hidden></p>
                         </div>
                         <p id="msg-email" class="msg" role="status" hidden></p>
                     </div>
@@ -624,11 +633,11 @@
 
     <div id="avvisi" class="avvisi" role="status" aria-live="polite"></div>
 
-    <script src="../config.js?v=20260924a"></script>
-    <script src="../nome-utente.js?v=20260924a"></script>
+    <script src="../config.js?v=20260924b"></script>
+    <script src="../nome-utente.js?v=20260924b"></script>
     <!-- lo stesso player della pagina dei partecipanti: serve all'anteprima del
          video in regia e a riconoscere l'identificativo dal link (idDa) -->
-    <script src="../player-youtube.js?v=20260924a"></script>
-    <script src="gestione.js?v=20260924a"></script>
+    <script src="../player-youtube.js?v=20260924b"></script>
+    <script src="gestione.js?v=20260924b"></script>
 </body>
 </html>

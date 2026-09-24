@@ -8,7 +8,11 @@
    nome utente mariorossi, password Esempio7Kq), cosi' come le
    compone il servizio (email-service/lib/diretta-mail.js):
      credenziali.html            le credenziali (primo invio)
+     credenziali-omonimo.html    le credenziali di un omonimo (mariorossi2:
+                                 "il tuo nome utente finisce con il numero 2")
      credenziali-reinvio.html    il reinvio ("sostituisce le precedenti")
+     credenziali-altro-evento.html  chi aveva gia' le credenziali di un
+                                 altro evento (stesso nome utente, password nuova)
      credenziali-prova.html      l'email di prova per il gestore
      promemoria-giorno.html      il giorno prima
      promemoria-ora.html         un'ora prima
@@ -38,6 +42,7 @@ const C = require(path.join(RADICE, 'email-service/lib/diretta-comune'));
 const CARTELLA = path.resolve(__dirname, 'risultati/email');
 
 const EVENTO = {
+    id: 'napoli-2026',
     titolo: 'Next Generation Business 2026 · Napoli',
     luogo: 'Napoli · Hotel Eurostars Excelsior',
     data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30',
@@ -47,20 +52,24 @@ const EVENTO = {
 };
 const PERSONA = { nome: 'Mario', cognome: 'Rossi', nomeUtente: 'mariorossi', password: 'Esempio7Kq' };
 const ASSISTENZA = C.assistenza();
+// il collegamento personale (/diretta/?u=mariorossi&e=napoli-2026) lo compone diretta-mail.js da nome utente ed evento
 const comuni = {
-    evento: EVENTO, nome: PERSONA.nome, cognome: PERSONA.cognome, nomeUtente: PERSONA.nomeUtente,
-    link: C.linkDiretta(PERSONA.nomeUtente), paginaEvento: EVENTO.paginaEvento, assistenza: ASSISTENZA
+    evento: EVENTO, idEvento: EVENTO.id, nome: PERSONA.nome, cognome: PERSONA.cognome, nomeUtente: PERSONA.nomeUtente,
+    paginaEvento: EVENTO.paginaEvento, assistenza: ASSISTENZA
 };
+const QUANDO_CREDENZIALI = C.istanteRoma('2026-09-28', '10:00');
 const LINK_RESET = C.baseSito() + '/diretta/reimposta.html?oobCode=ESEMPIO-codice-monouso&u=' + PERSONA.nomeUtente;
 
 const EMAIL = [
-    ['credenziali', 'Credenziali (primo invio)', M.credenziali(Object.assign({ password: PERSONA.password, adesso: C.istanteRoma('2026-09-28', '10:00') }, comuni))],
-    ['credenziali-reinvio', 'Credenziali (reinvio)', M.credenziali(Object.assign({ password: 'Nuova4Hwz8', sostituisce: true }, comuni))],
-    ['credenziali-prova', 'Email di prova per il gestore', M.credenziali(Object.assign({ password: PERSONA.password, prova: true }, comuni))],
+    ['credenziali', 'Credenziali (primo invio)', M.credenziali(Object.assign({ password: PERSONA.password, adesso: QUANDO_CREDENZIALI }, comuni))],
+    ['credenziali-omonimo', 'Credenziali di un omonimo (nome utente con il numero)', M.credenziali(Object.assign({}, comuni, { nomeUtente: 'mariorossi2', password: 'Esempio3Wp', adesso: QUANDO_CREDENZIALI }))],
+    ['credenziali-reinvio', 'Credenziali (reinvio: sostituisce le precedenti)', M.credenziali(Object.assign({ password: 'Nuova4Hwz8', sostituisce: 'evento', adesso: QUANDO_CREDENZIALI }, comuni))],
+    ['credenziali-altro-evento', 'Credenziali di chi le aveva già per un altro evento', M.credenziali(Object.assign({ password: 'Nuova6Rtk9', sostituisce: 'altro-evento', adesso: QUANDO_CREDENZIALI }, comuni))],
+    ['credenziali-prova', 'Email di prova per il gestore', M.credenziali(Object.assign({ password: PERSONA.password, prova: true, adesso: QUANDO_CREDENZIALI }, comuni))],
     ['promemoria-giorno', 'Promemoria del giorno prima', M.promemoria(Object.assign({ tipo: 'giorno', adesso: EVENTO.inizio - 24 * 3600e3 }, comuni))],
     ['promemoria-ora', 'Promemoria dell\'ora prima', M.promemoria(Object.assign({ tipo: 'ora', adesso: EVENTO.inizio - 3600e3 }, comuni))],
-    ['reimpostazione', 'Password dimenticata', M.reimpostazione({ nome: 'Mario Rossi', nomeUtente: PERSONA.nomeUtente, link: LINK_RESET, assistenza: ASSISTENZA })],
-    ['reimpostazione-gestore', 'Primo accesso di un gestore', M.reimpostazione({ perGestore: true, link: C.baseSito() + '/diretta/reimposta.html?oobCode=ESEMPIO&per=gestione', assistenza: ASSISTENZA })]
+    ['reimpostazione', 'Password dimenticata', M.reimpostazione({ nome: 'Mario Rossi', nomeUtente: PERSONA.nomeUtente, link: LINK_RESET, assistenza: ASSISTENZA, adesso: QUANDO_CREDENZIALI })],
+    ['reimpostazione-gestore', 'Primo accesso di un gestore', M.reimpostazione({ perGestore: true, link: C.baseSito() + '/diretta/reimposta.html?oobCode=ESEMPIO&per=gestione', assistenza: ASSISTENZA, adesso: QUANDO_CREDENZIALI })]
 ];
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }

@@ -525,6 +525,7 @@ tr.da-confermare:not(.esito-errore) { background: var(--ambra-bg); }
 .esito-crea { margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--bordo); display: flex; flex-direction: column; gap: 12px; }
 tr.nome-cambiato { background: var(--ambra-bg); }
 tr.riga-errore { background: var(--rosso-bg); }
+tr.riga-nota { background: var(--blu-velo); }
 .nome-cambiato-testo { font-family: var(--carattere-fisso); font-weight: 700; }
 .nome-cambiato-testo del { color: var(--tenue-2); font-weight: 400; }
 
@@ -584,6 +585,14 @@ tr.riga-errore { background: var(--rosso-bg); }
 .conteggi-email li[data-stato="incerto"] { border-top-color: var(--ambra-bordo); }
 .conteggi-email li[data-stato="incerto"] .conteggio-num { color: var(--ambra); }
 .conteggi-email li.zero .conteggio-num { color: #94A3B8; }
+/* la coda ferma (blocco del server di posta, tetto del giorno): il perche'
+   e, se serve, il pulsante per ripartire, uno accanto all'altro */
+.coda-ferma { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.coda-ferma .msg { flex: 1 1 360px; }
+.coda-ferma .btn { flex: 0 0 auto; }
+/* quante persone riceverebbero ciascun promemoria, sotto la sua casella */
+.prom-destinatari { display: block; margin-top: 4px; font-size: 0.82rem; color: var(--blu); font-weight: 600; }
+.prom-destinatari:empty { display: none; }
 .email-griglia { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .legenda { display: grid; gap: 10px 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .legenda > div { display: flex; gap: 12px; align-items: baseline; }
