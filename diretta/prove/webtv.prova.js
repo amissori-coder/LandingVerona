@@ -749,14 +749,14 @@ function contaAscolti(page) {
             const prima = {};
             for (const c of [pc, ip]) prima[c === pc ? 'pc' : 'ip'] = { nav: await segnaPagina(c, 'cambio-indirizzo'), ascolti: Object.assign({}, c.ascolti) };
             // incollato con uno spazio: il servizio lo pulisce
-            await cambiaAzoto(' ' + azotoCanale(30) + ' ');
+            await cambiaAzoto(' ' + azotoCanale(92) + ' ');
             for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
                 await iframeAzotoGiusto(c.page, 'livetv92', nome);
                 const x = prima[c === pc ? 'pc' : 'ip'];
                 await nonRicaricata(c, 'cambio-indirizzo', x.nav, nome);
                 vero(c.ascolti.aperti === x.ascolti.aperti && c.ascolti.chiusi === x.ascolti.chiusi, nome + ': ascolti su Firestore aperti o chiusi: ' + JSON.stringify({ prima: x.ascolti, dopo: c.ascolti }));
             }
-            vero((await pubblico()).videoId === azotoCanale(30), 'documento pubblico: ' + (await pubblico()).videoId);
+            vero((await pubblico()).videoId === azotoCanale(92), 'documento pubblico: ' + (await pubblico()).videoId);
         });
 
         await prova('A -> B -> A con evento-player: senza ricaricare la pagina e senza aprire altri ascolti su Firestore; in B il nostro <video> con i nostri comandi', async () => {
@@ -795,7 +795,7 @@ function contaAscolti(page) {
         await prova('il player di Azoto non risponde: a 15 s (non prima) «La diretta sta arrivando, attendi qualche secondo» SOTTO il riquadro, con «Ricarica il video» (computer e telefono)', async () => {
             await i.setViewportSize({ width: 390, height: 844 });
             for (const c of [pc, ip]) { c.azoto.fermo = true; await segnaTempiLento(c.page, 'livetv93'); }
-            await cambiaAzoto(azotoCanale(31));
+            await cambiaAzoto(azotoCanale(93));
             await Promise.all([pc, ip].map(c => c.page.waitForFunction(() => window.__tempiLento.avviso > 0, null, { timeout: 30000 })));
             for (const [c, nome] of [[pc, 'computer'], [ip, 'telefono']]) {
                 const t = await c.page.evaluate(() => window.__tempiLento);
