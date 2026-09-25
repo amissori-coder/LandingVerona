@@ -95,15 +95,13 @@ const pausa = ms => new Promise(r => setTimeout(r, ms));
 /* Il browser non esce MAI in rete da solo: quello che serve lo danno le
    regole di rete-prove.js e flusso-prova.js (context.route). Senza proxy
    e senza DNS (tranne 127.0.0.1) qualunque richiesta sfuggita alle regole
-   fallisce (mai la rete vera di Azoto); e senza l'isolamento dei siti
-   l'iframe di Azoto resta nel processo della pagina, cosi' il rimando 301
-   del suo player (.../player -> .../player/) passa sempre dalle regole
-   (con l'iframe in un processo a parte, a volte la richiesta rimandata
-   sfuggiva alle regole e andava verso la rete vera). */
+   fallisce invece di uscire: mai la rete vera di Azoto (il 25/09 il
+   rimando 301 del player finto sfuggiva alle regole e andava verso
+   l'Azoto vero; ora lo segue instradaAzoto, e questa e' la rete di
+   sicurezza). */
 const LANCIO = {
     executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    args: ['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process',
-        '--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
+    args: ['--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
 };
 
 /* ---------- esito ---------- */
@@ -250,6 +248,12 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             await preparaContesto(context, {});
             // il player di Azoto finto (dopo preparaContesto: vince lei); azoto.richieste: i percorsi chiesti
             const azoto = await F.instradaAzoto(context);
+            /* La prova di connessione dell'SDK di Firestore dopo un guasto di rete
+               (un'immagine di www.google.com): qui la rete di prova la rifiuta (403),
+               in realta' c'e'. La si da' com'e' davvero, un gif di un pixel. */
+            await context.route(/^https:\/\/www\.google\.com\/images\/cleardot\.gif/, r => r.fulfill({
+                status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+            }));
             await context.addInitScript(porte => {
                 window.NGB_DIRETTA_PROVE = porte;
                 try { sessionStorage.setItem('ngbDirettaEmulatori', '1'); } catch (e) { /* niente */ }
@@ -275,8 +279,14 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             page.__console = [];
             page.on('console', m => {
                 if (m.type() !== 'error') return;
+                const dove = m.location() && m.location().url ? m.location().url : '';
                 if (page.__senzaRete && /ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED|Failed to fetch|Could not reach Cloud Firestore/i.test(m.text())) return;
-                page.__console.push(m.text());
+                /* Il canale di ascolto dell'SDK di Firestore che il server chiude
+                   (400, sessione del canale finita: succede quando la pagina esce o
+                   riapre l'ascolto): l'SDK ne apre da solo uno nuovo. Non e' un errore
+                   della pagina; qualunque altro errore in console si': */
+                if (/status of 400/.test(m.text()) && /\/google\.firestore\.v1\.Firestore\/(Listen|Write)\/channel\?/.test(dove)) { page.__canaleChiuso = (page.__canaleChiuso || 0) + 1; return; }
+                page.__console.push(m.text() + (dove ? ' [' + dove + ']' : ''));
             });
             // ogni richiesta verso azotosolutions.com (anche azoto-player.js, che non si deve mai caricare)
             const richiesteAzoto = [];

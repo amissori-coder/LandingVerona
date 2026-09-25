@@ -157,15 +157,13 @@ const pausa = ms => new Promise(r => setTimeout(r, ms));
 /* Il browser non esce MAI in rete da solo: quello che serve lo danno le
    regole di rete-prove.js e flusso-prova.js (context.route). Senza proxy
    e senza DNS (tranne 127.0.0.1) qualunque richiesta sfuggita alle regole
-   fallisce (mai la rete vera di Azoto); e senza l'isolamento dei siti
-   l'iframe di Azoto resta nel processo della pagina, cosi' il rimando 301
-   del suo player (.../player -> .../player/) passa sempre dalle regole
-   (con l'iframe in un processo a parte, a volte la richiesta rimandata
-   sfuggiva alle regole e andava verso la rete vera). */
+   fallisce invece di uscire: mai la rete vera di Azoto (il 25/09 il
+   rimando 301 del player finto sfuggiva alle regole e andava verso
+   l'Azoto vero; ora lo segue instradaAzoto, e questa e' la rete di
+   sicurezza). */
 const LANCIO = {
     executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    args: ['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process',
-        '--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
+    args: ['--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
 };
 
 /* ---------- esito ---------- */
@@ -532,7 +530,7 @@ function contaAscolti(page) {
             page.on('pageerror', e => page.__errori.push(String(e && e.message || e)));
             // gli errori in console (di tutte le cornici, anche quella di Azoto)
             page.__console = [];
-            page.on('console', m => { if (m.type() === 'error') page.__console.push(m.text()); });
+            page.on('console', m => { if (m.type() === 'error') page.__console.push(m.text() + (m.location() && m.location().url ? ' [' + m.location().url + ']' : '')); });
             // ogni richiesta verso azotosolutions.com, e i caricamenti della pagina (una ricarica li conta)
             const richiesteAzoto = [];
             page.on('request', q => { if (/^https:\/\/([a-z0-9-]+\.)*azotosolutions\.com[:/]/.test(q.url())) richiesteAzoto.push(q.url()); });
