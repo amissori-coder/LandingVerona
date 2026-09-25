@@ -16871,6 +16871,17 @@
             : 'Iscrizione precedente alla conferma via mail: indirizzo confermato d\'ufficio';
         return ' <span class="ev-mail-ok" title="' + esc(titolo) + '" aria-label="' + esc(titolo) + '">&#10003;</span>';
     }
+    /* LA MAIL DI CONFERMA NON E' PARTITA: il server di posta l'ha rifiutata
+       quando la persona si e' iscritta. Prima finiva nei log del servizio e
+       basta; ora sta sulla scheda, e qui si legge il motivo. Si mostra solo il
+       fallimento: una mail partita non ha niente da dire. */
+    function esitoMailDi(r) {
+        const m = r && r.mailConferma;
+        if (!m || m.ok) return '';
+        const titolo = 'Mail di conferma NON inviata' + (m.quando ? ' il ' + fmtDataOra(m.quando) : '')
+            + (m.errore ? ': ' + m.errore : '') + '. Dal menu della riga si puo\' rimandare.';
+        return ' <span class="ev-mail-ko" title="' + esc(titolo) + '" aria-label="' + esc(titolo) + '">mail non inviata</span>';
+    }
 
     /* LE SEZIONI SOPRA L'ELENCO. Non e' un filtro qualunque: e' il modo in cui
        si guarda una cosa per volta - la sala, gli aderenti, chi segue online -
@@ -17160,7 +17171,7 @@
                     + '</td>')
                     ((r.extra || {})[COL_SPOSTATO] || '', r.invito)
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
-                + '<td data-label="Email">' + emailInterrompibile(r.email) + baffettoEmail(r, lista) + '</td>'
+                + '<td data-label="Email">' + emailInterrompibile(r.email) + baffettoEmail(r, lista) + esitoMailDi(r) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
                    foglio storico, che raccoglieva gli stessi form): si scrive

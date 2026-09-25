@@ -3122,6 +3122,9 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    non allarga la colonna e non va a capo da solo. Anche nella vista a schede
    sul telefono sta attaccato all'indirizzo. */
 .ev-mail-ok { display: inline-block; vertical-align: baseline; margin-left: 4px; color: var(--verde); font-weight: 700; font-size: 1em; line-height: 1; white-space: nowrap; cursor: help; }
+/* La mail di conferma rifiutata dal server di posta: piccolo, rosso, con il
+   motivo nel suggerimento. */
+.ev-mail-ko { display: inline-block; vertical-align: baseline; margin-left: 5px; padding: 0 5px; border: 1px solid #B1213B; border-radius: 3px; color: #B1213B; font-size: 0.78em; font-weight: 600; white-space: nowrap; cursor: help; }
 
 /* ---- la finestra delle aziende --------------------------------------
    Non e' un avviso, e' un posto dove si lavora: c'e' dentro una tabella con
