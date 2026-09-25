@@ -87,7 +87,8 @@ function sorgenteAggiornata() {
         const f = path.join(DIRETTA, 'sorgente-video.js');
         delete require.cache[require.resolve(f)];
         const V = require(f);
-        return V.tipoDi('https://webtv.esempio.it/live/a.mpd') === 'dash'
+        return typeof V.perFlusso === 'function'
+            && V.tipoDi('https://webtv.esempio.it/live/a.mpd') === 'dash'
             && V.tipoDi('https://webtv.esempio.it/live/a.m3u8') === 'hls'
             && V.tipoDi(AZOTO) === 'incorporato'
             && V.tipoDi('https://webtv.esempio.it/player/napoli') === ''
@@ -108,7 +109,8 @@ const SOSTITUTO = `(function () {
         if (u.hostname !== 'cdn.azotosolutions.com' || u.port) return { errore: 'non-azoto' };
         return { tipo: 'incorporato', valore: u.href };
     }
-    window.NGBSorgenteVideo = { leggi: leggi, tipoDi: function (v) { var s = leggi(v); return s && !s.errore ? s.tipo : ''; } };
+    function perFlusso(v) { var s = leggi(v); return s && s.tipo === 'incorporato' ? { errore: 'e-azoto' } : s; }
+    window.NGBSorgenteVideo = { leggi: leggi, perFlusso: perFlusso, tipoDi: function (v) { var s = leggi(v); return s && !s.errore ? s.tipo : ''; } };
 })();`;
 
 const PAGINA = usaSostituto => '<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Prova del player</title>'

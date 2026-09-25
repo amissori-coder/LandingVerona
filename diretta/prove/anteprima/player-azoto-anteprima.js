@@ -7,7 +7,7 @@
    riquadro «Player Azoto (anteprima)», con la STESSA interfaccia di
    diretta/player-azoto.js:
 
-       window.NGBPlayerAzoto = { nome, crea(contenitore, opzioni), eAzoto(url) }
+       window.NGBPlayerAzoto = { nome, crea(contenitore, opzioni) }
        istanza: carica(url, { titolo }), ricarica(), aggiornaTitolo(t),
                 mostra(bool), distruggi(), stato(), capacita()
 
@@ -28,16 +28,12 @@
     'use strict';
 
     var ATTESA_PRONTO_MS = 15000;
-    var HOST_RIPIEGO = ['cdn.azotosolutions.com'];
 
+    // la regola di sorgente-video.js, come player-azoto.js (senza quel file nessun indirizzo vale)
     function eAzoto(url) {
         var V = window.NGBSorgenteVideo;
-        if (V && typeof V.eAzoto === 'function') {
-            try { return V.eAzoto(url) === true; } catch (e) { return false; }
-        }
-        var u;
-        try { u = new URL(String(url == null ? '' : url).trim()); } catch (e) { return false; }
-        return u.protocol === 'https:' && !u.username && !u.password && u.port === '' && HOST_RIPIEGO.indexOf(u.hostname.toLowerCase()) >= 0;
+        if (!V || typeof V.eAzoto !== 'function') return false;
+        try { return V.eAzoto(url) === true; } catch (e) { return false; }
     }
 
     // un pezzo del riquadro: un elemento con il suo stile e il suo testo
@@ -163,5 +159,5 @@
         };
     }
 
-    window.NGBPlayerAzoto = { nome: 'azoto-anteprima', crea: crea, eAzoto: eAzoto };
+    window.NGBPlayerAzoto = { nome: 'azoto-anteprima', crea: crea };
 })();

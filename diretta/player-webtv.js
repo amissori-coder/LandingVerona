@@ -191,17 +191,17 @@
         } catch (e) { return ''; }
     }
 
-    // il valore da dare a carica() per un link incollato: solo un flusso ('' altrimenti)
+    /* il valore da dare a carica() per un link incollato: solo un flusso
+       ('' altrimenti), con la regola del campo «Flusso diretto» della
+       gestione (sorgente-video.js, perFlusso) */
     function idDa(testo) {
         var V = window.NGBSorgenteVideo;
-        var s;
-        if (V && typeof V.perFlusso === 'function') s = V.perFlusso(testo);
-        else if (V && typeof V.leggi === 'function') s = V.leggi(testo);
-        else {
-            var t = String(testo == null ? '' : testo).trim();
-            return TIPI[tipoDi(t)] ? new URL(t).href : '';
+        if (V && typeof V.perFlusso === 'function') {
+            var s = V.perFlusso(testo);
+            return s && !s.errore && TIPI[s.tipo] ? s.valore : '';
         }
-        return s && !s.errore && TIPI[s.tipo] ? s.valore : '';
+        var t = String(testo == null ? '' : testo).trim();
+        return TIPI[tipoDi(t)] ? new URL(t).href : '';
     }
 
     /* Su Safari (iPhone, iPad, Mac) l'HLS lo legge il browser. Chrome e Edge

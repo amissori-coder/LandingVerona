@@ -1212,15 +1212,12 @@
     };
 
     /* L'indirizzo e' di un player di Azoto? La regola e' una sola, in
-       sorgente-video.js (eAzoto: https e solo gli host di HOST_AZOTO);
-       player-azoto.js ne ha la stessa copia per quando manca. */
+       sorgente-video.js (eAzoto: un indirizzo https, porta normale, solo
+       gli host di HOST_AZOTO), la stessa del servizio e di player-azoto.js. */
     function eAzoto(url) {
-        if (typeof url !== 'string' || !url) return false;
         const V = window.NGBSorgenteVideo;
-        const P = window.NGBPlayerAzoto;
-        const f = V && typeof V.eAzoto === 'function' ? V.eAzoto : (P && typeof P.eAzoto === 'function' ? P.eAzoto : null);
-        if (!f) return false;
-        try { return f(url) === true; } catch (e) { return false; }
+        if (typeof url !== 'string' || !url || !V || typeof V.eAzoto !== 'function') return false;
+        try { return V.eAzoto(url) === true; } catch (e) { return false; }
     }
     function modoDi(d) {
         const t = d ? d.tipoPlayer : '';

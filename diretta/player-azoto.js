@@ -12,7 +12,7 @@
    La pagina dei partecipanti e l'anteprima della gestione parlano con
    questa interfaccia:
 
-       window.NGBPlayerAzoto = { nome: 'azoto', crea(contenitore, opzioni), eAzoto(url) }
+       window.NGBPlayerAzoto = { nome: 'azoto', crea(contenitore, opzioni) }
 
    opzioni (facoltative):
        onPronto()                        l'iframe ha caricato la pagina di Azoto
@@ -25,7 +25,8 @@
                                                   e se il load arriva dopo arriva anche
                                                   onPronto
                                          'link':  l'indirizzo non e' un player Azoto
-                                                  (NGBSorgenteVideo.eAzoto): niente
+                                                  (NGBSorgenteVideo.eAzoto; anche se
+                                                  sorgente-video.js non c'e'): niente
                                                   iframe, quello di prima si toglie
 
    istanza:
@@ -48,8 +49,10 @@
    nella pagina non entra MAI HTML incollato dalla gestione, e nemmeno
    il codice che ha dato Azoto (div + iframe + script). Dal loro codice
    si tiene solo l'indirizzo (lo estrae e lo controlla il servizio,
-   sorgente-video.js), e qui lo si ricontrolla: solo https e solo gli
-   host di Azoto (HOST_AZOTO). Gli attributi:
+   sorgente-video.js), e qui lo si ricontrolla con la STESSA regola
+   (NGBSorgenteVideo.eAzoto: un indirizzo https, porta normale, solo
+   gli host di HOST_AZOTO). Senza sorgente-video.js nessun indirizzo
+   vale: niente iframe. Gli attributi:
      - allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
        e allowfullscreen: il player di Azoto puo' partire da solo (se il
        browser lo concede), andare a schermo intero, in picture-in-picture
@@ -84,23 +87,15 @@
     'use strict';
 
     var ATTESA_PRONTO_MS = 15000;     // 'lento': nessun load entro questo tempo
-    // gli host del player Azoto, se sorgente-video.js non li dice (un solo posto: HOST_AZOTO li')
-    var HOST_RIPIEGO = ['cdn.azotosolutions.com'];
     var PERMESSI = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
 
-    /* L'indirizzo e' di un player Azoto? Lo decide sorgente-video.js (lo
-       stesso file della gestione e del servizio); senza, le stesse regole
-       qui: https, porta standard, niente credenziali, host di Azoto. */
+    /* L'indirizzo e' di un player Azoto? Lo decide SOLO sorgente-video.js
+       (lo stesso file della gestione e del servizio: HOST_AZOTO sta li').
+       Senza quel file, no. */
     function eAzoto(url) {
         var V = window.NGBSorgenteVideo;
-        if (V && typeof V.eAzoto === 'function') {
-            try { return V.eAzoto(url) === true; } catch (e) { return false; }
-        }
-        var host = V && Array.isArray(V.HOST_AZOTO) && V.HOST_AZOTO.length ? V.HOST_AZOTO : HOST_RIPIEGO;
-        var u;
-        try { u = new URL(String(url == null ? '' : url).trim()); } catch (e) { return false; }
-        return u.protocol === 'https:' && !u.username && !u.password && (u.port === '' || u.port === '443')
-            && host.indexOf(u.hostname.toLowerCase()) >= 0;
+        if (!V || typeof V.eAzoto !== 'function') return false;
+        try { return V.eAzoto(url) === true; } catch (e) { return false; }
     }
 
     /* ============================================================
@@ -236,5 +231,5 @@
         };
     }
 
-    window.NGBPlayerAzoto = { nome: 'azoto', crea: crea, eAzoto: eAzoto };
+    window.NGBPlayerAzoto = { nome: 'azoto', crea: crea };
 })();
