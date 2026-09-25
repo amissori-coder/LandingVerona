@@ -1759,7 +1759,8 @@ non solo a video.
 **I TAVOLI DOPPI sono due tavoli.** Un orario di un tavolo ospita UNA
 prenotazione sola, quindi un argomento tenuto da due persone in parallelo ha
 due voci in `AREE_B2B` (`modello-231` e `modello-231-b`, `rating-legalita` e
-`rating-legalita-b`, `merito-creditizio` e `desk-revilaw-b`): ognuna con i suoi
+`rating-legalita-b`, `merito-creditizio` e `desk-revilaw-b`, `finanza-agevolata`
+e `finanza-agevolata-b`): ognuna con i suoi
 referenti, i suoi orari e le sue chiusure, cosi se uno dei due e sul palco
 l'altro continua a ricevere. Chi invita sceglie a quale dei due convocare
 l'impresa. L'azienda invece vede **una voce sola con il doppio dei posti**:
@@ -1780,6 +1781,17 @@ l'argomento e l'ora sono suoi, a quale dei due professionisti mandarla no.
 > **In agenda quel tavolo va dato al referente giusto.** Il tavolo si attiva
 > quando gli si assegna un referente: se ci fosse rimasta la persona del desk
 > della segreteria, si ritroverebbe seduta a un tavolo di merito creditizio.
+
+
+> **`finanza-agevolata-b` e' un POSTO IN PIU', non un desk nuovo.** La richiesta
+> era "un altro slot per ogni orario sullo stesso tavolo": nel modello pero' un
+> orario di un tavolo tiene UNA prenotazione (`aree[tavolo][ora]` e' una casella
+> sola), quindi il secondo posto alle 10:00 e' per forza una seconda voce in
+> `AREE_B2B`, che si fonde con la prima nella stessa famiglia. Per l'azienda non
+> cambia niente: vede "Finanza agevolata" con due posti a ogni ora, e il nome
+> resta quello di sempre. Per chi organizza e' una riga in piu' in agenda, a cui
+> va dato **il referente che siede in quel secondo posto**: due imprese alla
+> stessa ora sono due persone, o una persona che ne riceve due insieme.
 
 **L'area invitata sta sulla SCHEDA, non nel collegamento**
 (`b2bInvito.aree` + `b2bInvito.eventoId`, scritti da `invita-b2b` con

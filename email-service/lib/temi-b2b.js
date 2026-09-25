@@ -100,7 +100,18 @@ const AREE_B2B = [
        indice, e spostarla sposterebbe le scelte gia' fatte.
        Non e' piu' `interno`: adesso l'azienda lo vede - anzi non lo vede come
        tavolo a se', vede il merito creditizio con il doppio degli orari. */
-    { id: 'desk-revilaw-b', nome: 'Merito creditizio - secondo tavolo', gemelloDi: 'merito-creditizio' }
+    { id: 'desk-revilaw-b', nome: 'Merito creditizio - secondo tavolo', gemelloDi: 'merito-creditizio' },
+    /* UN POSTO IN PIU' PER OGNI ORARIO SULLA FINANZA AGEVOLATA. Nel modello un
+       orario di un tavolo tiene UNA prenotazione (`aree[tavolo][ora]` e' una
+       casella sola): il secondo posto alle 10:00 e' quindi una seconda voce
+       qui, che si fonde con la prima nella stessa famiglia. Per l'azienda non
+       cambia niente - vede "Finanza agevolata" con due posti a ogni ora, come
+       per il merito creditizio e il 231 - e per chi organizza e' una riga in
+       piu' in agenda, a cui dare il referente che siede in quel secondo posto.
+       Sta in FONDO e non accanto alla finanza agevolata: l'ordine di questo
+       elenco e' quello con cui viaggiano le prenotazioni vecchie, per indice,
+       e infilare una riga in mezzo sposterebbe le scelte gia' fatte. */
+    { id: 'finanza-agevolata-b', nome: 'Finanza agevolata - secondo posto', gemelloDi: 'finanza-agevolata' }
 ];
 
 // le sole etichette, nello stesso ordine: la forma con cui gli orari e le

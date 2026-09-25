@@ -1021,11 +1021,13 @@ function slotDi(area, ora) {
         dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
         mettiAgenda({
             'merito-creditizio': { referenti: [{ nome: 'Filippo Lo Piccolo', ruolo: 'Partner' }] },
-            'desk-revilaw-b': { referenti: [{ nome: 'Marco Rossi', ruolo: 'Senior' }] }
+            'desk-revilaw-b': { referenti: [{ nome: 'Marco Rossi', ruolo: 'Senior' }] },
+            'finanza-agevolata': { referenti: [{ nome: 'Sara Ventura', ruolo: 'Partner' }] },
+            'finanza-agevolata-b': { referenti: [{ nome: 'Luca Bianchi', ruolo: 'Senior' }] }
         });
         mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
         await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }],
-            ['merito-creditizio', 'desk-revilaw-b']);
+            ['merito-creditizio', 'desk-revilaw-b', 'finanza-agevolata', 'finanza-agevolata-b']);
         const letto = await chiamaAzienda('p:04641610235', { azione: 'b2b-azienda-leggi' });
         esigi(letto.ok === true, 'la pagina dell azienda si apre');
         const voci = (letto.aree || []).filter(a => /Merito creditizio/i.test(a.nome || ''));
@@ -1054,6 +1056,17 @@ function slotDi(area, ora) {
         esigi(quello.posti === 1 && quello.stato !== 'occupato',
             'e alle ' + ora + ' resta un posto libero, sull altro tavolo',
             JSON.stringify(quello));
+        /* LA FINANZA AGEVOLATA ha lo stesso trattamento, ma per un'altra
+           ragione: non e' un desk convertito, e' un posto in piu' a ogni ora
+           sullo stesso argomento. Per l'azienda le due cose si vedono uguali,
+           ed e' il punto. */
+        const fin = (letto.aree || []).filter(a => /Finanza agevolata/i.test(a.nome || ''));
+        esigi(fin.length === 1 && fin[0].nome === 'Finanza agevolata',
+            'anche la finanza agevolata e una voce sola, con il nome di sempre',
+            fin.map(a => a.nome).join(' | '));
+        const slotFin = (fin[0] || {}).slot || [];
+        esigi(slotFin.length > 0 && slotFin.every(x => x.posti === 2),
+            'e ogni suo orario ha due posti (' + slotFin.filter(x => x.posti === 2).length + ' su ' + slotFin.length + ')');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

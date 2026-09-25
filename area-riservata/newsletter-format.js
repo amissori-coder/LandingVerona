@@ -1584,7 +1584,11 @@
            delle prenotazioni gia' prese), il nome e la descrizione no. La
            descrizione e' quella del merito creditizio, perche' per chi legge
            e' lo stesso incontro. */
-        { nome: 'Merito creditizio - secondo tavolo', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' }
+        { nome: 'Merito creditizio - secondo tavolo', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' },
+        /* Il posto in piu' a ogni orario della finanza agevolata: stessa
+           descrizione della prima, perche' per chi legge e' lo stesso
+           incontro. */
+        { nome: 'Finanza agevolata - secondo posto', descrizione: 'finanza agevolata e sostegno agli investimenti' }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
@@ -1593,7 +1597,7 @@
         'merito-creditizio', 'adeguati-assetti', 'esg',
         'modello-231', 'modello-231-b', 'finanza-agevolata',
         'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b',
-        'desk-revilaw', 'desk-revilaw-b'
+        'desk-revilaw', 'desk-revilaw-b', 'finanza-agevolata-b'
     ].map((id, i) => ({ id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione }));
     /* I tavoli INTERNI non si propongono a nessuno. La regola sta anche qui
        perche' qui si compone la mail d'invito, e un tavolo interno finito in
@@ -1611,7 +1615,8 @@
         'rating-legalita-b': 'rating-legalita',
         // era il secondo desk della segreteria, ora e' il secondo tavolo del
         // merito creditizio: l'identificativo non si cambia, il capofila si'
-        'desk-revilaw-b': 'merito-creditizio'
+        'desk-revilaw-b': 'merito-creditizio',
+        'finanza-agevolata-b': 'finanza-agevolata'
     };
     const capofilaB2B = id => SECONDI_B2B[String(id || '')] || String(id || '');
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
