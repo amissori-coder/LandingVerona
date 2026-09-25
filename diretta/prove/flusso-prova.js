@@ -57,6 +57,28 @@
         richiesta. Niente di tutto questo entra nel servizio vero: e'
         solo in questo file e in server-locale.js.
 
+   3. Un PLAYER DI AZOTO FINTO su https://cdn.azotosolutions.com, al posto
+      di quello vero (le prove non dipendono mai dalla rete di Azoto: il
+      player vero carica librerie da cdn.jsdelivr.net e il flusso da
+      server che questo ambiente non raggiunge). Imita quello che
+      abbiamo visto del vero (vedi diretta/README.md, §5.1):
+          /cloudtv/<canale>/player    301 verso .../player/ (come il vero)
+          /cloudtv/<canale>/player/   la pagina del player: "Player Azoto
+                                      (prova)", il nome del canale e un suo
+                                      pulsante #play-azoto (un clic lo segna
+                                      in body[data-premuto]: prova che niente
+                                      di nostro copre i comandi di Azoto)
+                                      <canale> = livetv<numero>
+          /cloudtv/lento/player/      non risponde MAI (i 15 secondi)
+          /cloudtv/bloccato/player/   X-Frame-Options: DENY
+          /cloudtv/altrove/player/    302 verso un altro sito
+      controlloAzoto = { fermo }: con fermo true TUTTE le pagine del player
+      non rispondono (la web TV caduta), finche' torna false.
+      rispostaAzoto(url, controllo) -> { status, headers, body } oppure
+      { mai: true }; instradaAzoto(context) per il browser; per il
+      servizio lo stesso fetch finto di servizioWebTv (qui sotto), che
+      risponde anche per cdn.azotosolutions.com senza DNS ne' rete.
+
    Serve ffmpeg: quello nel PATH, quello di FFMPEG=/percorso, oppure
    quello del pacchetto Python imageio-ffmpeg (pip install imageio-ffmpeg).
 
@@ -64,6 +86,7 @@
        const F = require('./flusso-prova');
        const trasmissione = await F.avviaTrasmissione(cartella);   // { ferma() }
        const controllo = await F.instradaWebTv(context, cartella);
+       const azoto = await F.instradaAzoto(context);          // { fermo, richieste }
        await F.inoltraPubblico(context);
        // nel processo del servizio (server-locale.js):
        const { fetch, lookup } = F.servizioWebTv(cartella, { fetchVero, lookupVero });
@@ -163,6 +186,53 @@ async function instradaWebTv(context, cartella, opzioni) {
     return controllo;
 }
 
+/* ---------- il player di Azoto finto ---------- */
+const AZOTO = 'https://cdn.azotosolutions.com';
+const PLAYER_AZOTO = AZOTO + '/cloudtv/livetv29/player';
+
+function paginaAzoto(canale) {
+    return '<!doctype html><html lang="it"><head><meta charset="utf-8"><title>AzotoSolutions (prova)</title>'
+        + '<style>html,body{margin:0;height:100%;background:#000;color:#fff;font:18px sans-serif}'
+        + 'main{height:100%;display:grid;place-content:center;text-align:center;gap:10px}'
+        + '#play-azoto{font:inherit;padding:10px 22px;border-radius:6px;border:0;background:#2b6cb0;color:#fff;cursor:pointer}</style></head>'
+        + '<body><main><p id="player-azoto-finto"><strong>Player Azoto (prova)</strong></p><p id="canale-azoto">' + canale + '</p>'
+        + '<p><button id="play-azoto" type="button">&#9654; play (comandi di Azoto)</button></p></main>'
+        + '<script>document.getElementById("play-azoto").addEventListener("click",function(){document.body.setAttribute("data-premuto","si")})</script>'
+        + '</body></html>';
+}
+
+/* La risposta del player di Azoto finto. { mai: true } = non rispondere. */
+function rispostaAzoto(url, controllo) {
+    const c = controllo || {};
+    const u = new URL(url);
+    const html = { 'content-type': 'text/html; charset=UTF-8' };
+    if (c.fermo) return { mai: true };
+    const m = /^\/cloudtv\/([a-z0-9]+)\/player(\/?)$/.exec(u.pathname);
+    if (!m) return { status: 404, headers: html, body: '<!doctype html><title>404</title>Not Found' };
+    const [, canale, barra] = m;
+    if (!barra) return { status: 301, headers: Object.assign({ location: AZOTO + u.pathname + '/' + u.search }, html), body: '' };
+    if (canale === 'lento') return { mai: true };
+    if (canale === 'bloccato') return { status: 200, headers: Object.assign({ 'x-frame-options': 'DENY' }, html), body: paginaAzoto(canale) };
+    if (canale === 'altrove') return { status: 302, headers: Object.assign({ location: WEBTV + '/player/napoli' }, html), body: '' };
+    if (!/^livetv\d+$/.test(canale)) return { status: 404, headers: html, body: '<!doctype html><title>404</title>Not Found' };
+    return { status: 200, headers: html, body: paginaAzoto(canale) };
+}
+
+/* Il player di Azoto finto visto dal browser. controllo.fermo si puo'
+   cambiare in ogni momento; le richieste "mai" restano appese (le chiude
+   la fine del contesto). */
+async function instradaAzoto(context, opzioni) {
+    const controllo = Object.assign({ fermo: false, richieste: [] }, opzioni || {});
+    await context.route(/^https:\/\/cdn\.azotosolutions\.com\//, route => {
+        const url = route.request().url();
+        controllo.richieste.push(new URL(url).pathname);
+        const r = rispostaAzoto(url, controllo);
+        if (r.mai) return undefined;
+        return route.fulfill({ status: r.status, headers: r.headers, body: r.body });
+    });
+    return controllo;
+}
+
 /* ---------- la web TV finta vista dal SERVIZIO (solo per le prove) ---------- */
 const IP_PUBBLICO_FINTO = '93.184.216.34';
 const IP_INTERNO_FINTO = '10.20.30.40';
@@ -175,6 +245,7 @@ function leggiControllo(cartella) {
 function scriviControllo(cartella, controllo) {
     const c = {};
     Object.keys(CONTROLLO_PREDEFINITO).forEach(k => { c[k] = !!(controllo || {})[k]; });
+    c.azoto = { fermo: !!((controllo || {}).azoto || {}).fermo };
     fs.writeFileSync(path.join(cartella, FILE_CONTROLLO), JSON.stringify(c));
 }
 
@@ -188,14 +259,24 @@ function servizioWebTv(cartella, vere) {
     const lookup = (host, opzioni) => {
         const h = String(host || '').toLowerCase();
         if (h === 'interno.prova.test') return Promise.resolve([{ address: IP_INTERNO_FINTO, family: 4 }]);
-        if (/(^|\.)prova\.test$/.test(h)) return Promise.resolve([{ address: IP_PUBBLICO_FINTO, family: 4 }]);
+        if (/(^|\.)prova\.test$/.test(h) || h === 'cdn.azotosolutions.com') return Promise.resolve([{ address: IP_PUBBLICO_FINTO, family: 4 }]);
         return lookupVero(host, opzioni);
     };
     const fetch = async (url, init) => {
         let u = null;
         try { u = new URL(url); } catch (_) { u = null; }
-        if (!u || u.hostname !== new URL(WEBTV).hostname) return fetchVero(url, init);
         if (init && init.signal && init.signal.aborted) throw Object.assign(new Error('interrotta'), { name: 'AbortError' });
+        if (u && u.hostname === 'cdn.azotosolutions.com') {
+            const a = rispostaAzoto(url, leggiControllo(cartella).azoto);
+            if (a.mai) {
+                // come un server che non risponde: finisce solo con il tempo massimo del servizio
+                return new Promise((_, rifiuta) => {
+                    if (init && init.signal) init.signal.addEventListener('abort', () => rifiuta(Object.assign(new Error('interrotta'), { name: 'AbortError' })));
+                });
+            }
+            return new Response(a.status === 301 || a.status === 302 ? null : a.body, { status: a.status, headers: a.headers });
+        }
+        if (!u || u.hostname !== new URL(WEBTV).hostname) return fetchVero(url, init);
         const r = rispostaWebTv(url, leggiControllo(cartella), cartella);
         return new Response(r.body, { status: r.status, headers: r.headers });
     };
@@ -221,6 +302,6 @@ async function inoltraPubblico(context) {
 }
 
 module.exports = {
-    WEBTV, FLUSSO_PUBBLICO_HLS, FLUSSO_PUBBLICO_DASH, IP_PUBBLICO_FINTO, IP_INTERNO_FINTO, trovaFfmpeg, avviaTrasmissione,
-    rispostaWebTv, instradaWebTv, inoltraPubblico, servizioWebTv, leggiControllo, scriviControllo
+    WEBTV, FLUSSO_PUBBLICO_HLS, FLUSSO_PUBBLICO_DASH, IP_PUBBLICO_FINTO, IP_INTERNO_FINTO, AZOTO, PLAYER_AZOTO, trovaFfmpeg, avviaTrasmissione,
+    rispostaWebTv, instradaWebTv, rispostaAzoto, instradaAzoto, paginaAzoto, inoltraPubblico, servizioWebTv, leggiControllo, scriviControllo
 };

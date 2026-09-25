@@ -24,7 +24,7 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 2. [Il progetto Firebase `ngb-eventi`](#2-il-progetto-firebase-ngb-eventi)
 3. [Le variabili su Vercel](#3-le-variabili-su-vercel)
 4. [Brevo](#4-brevo)
-5. [Il video: il canale della web TV](#5-il-video-il-canale-della-web-tv)
+5. [Il video: il player di Azoto](#5-il-video-il-player-di-azoto)
 6. [Come si usa: dalla settimana prima al giorno dopo](#6-come-si-usa-dalla-settimana-prima-al-giorno-dopo)
 7. [Nomi utente, doppioni, password](#7-nomi-utente-doppioni-password)
 8. [Sicurezza: cosa è protetto e come](#8-sicurezza-cosa-è-protetto-e-come)
@@ -45,7 +45,8 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
             ── accesso con il token ───────────────────────────────────────▶  Authentication
             ── UNA lettura in ascolto: eventi/{idEvento} ───────────────────▶  Firestore (regole)
             ── un segnale di presenza al minuto ────────────────────────────▶  Firestore (regole)
-            ── video ───────────────────────────────▶  la web TV (HLS/DASH, dalla sua CDN)
+            ── video ───────────────────────────────▶  Azoto: il suo player in un iframe (A)
+                                                        o il flusso .m3u8 (B), dalla sua CDN
 
  /diretta/gestione/ ── token del gestore ──▶ api/diretta-gestione ─────────────▶  Firestore + Auth
                                             api/diretta-cron (ogni 5 min) ─ email ─▶ Brevo
@@ -57,9 +58,10 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 | File | Che cosa fa |
 |---|---|
 | `diretta/index.html`, `diretta.css`, `diretta.js` | la pagina dei partecipanti |
-| `diretta/player-webtv.js` | il player: il nostro `<video>` per i flussi **HLS** e **DASH** della web TV (e la pagina della web TV incorporata, come ripiego), usato da pagina e regia (vedi [§5](#5-il-video-il-canale-della-web-tv)) |
-| `diretta/sorgente-video.js` | che cosa è il link incollato (HLS, DASH, pagina da incorporare) e perché un link è rifiutato: **una sola** regola per gestione, player e servizio |
-| `diretta/hls.min.js`, `diretta/dash.all.min.js` | hls.js 1.7.3 "light" (Apache 2.0) e dash.js 5.2.1 (BSD), versioni fissate e salvate nel sito (licenze accanto); si scaricano solo quando servono |
+| `diretta/player-azoto.js` | **modalità A**: il player di Azoto in un iframe costruito dal nostro codice (solo indirizzi di `cdn.azotosolutions.com`), usato da pagina e regia (vedi [§5](#5-il-video-il-player-di-azoto)) |
+| `diretta/player-webtv.js` | **modalità B**: il nostro `<video>` per il flusso diretto **HLS** (e DASH), usato da pagina e regia |
+| `diretta/sorgente-video.js` | che cosa è quello che si incolla (codice o indirizzo del player Azoto, flusso HLS o DASH), gli indirizzi ammessi (`HOST_AZOTO`) e perché un link è rifiutato: **una sola** regola per gestione, pagina e servizio |
+| `diretta/hls.min.js`, `diretta/dash.all.min.js` | hls.js 1.7.3 "light" (Apache 2.0) e dash.js 5.2.1 (BSD), versioni fissate e salvate nel sito (licenze accanto); si scaricano solo in modalità B |
 | `diretta/nome-utente.js` | la regola del nome utente, **una sola** per tutto il sistema |
 | `diretta/config.js` | configurazione web del progetto Firebase e indirizzo del servizio |
 | `diretta/reimposta.html` | scelta della nuova password |
@@ -92,12 +94,12 @@ state toccate, a parte `vercel.json` che elenca il nuovo lavoro programmato):
 
 | Raccolta | Chi la legge | Contenuto |
 |---|---|---|
-| `eventi/{idEvento}` | i partecipanti di quell'evento, i gestori | titolo, data, orari, stato, programma; il link del video (e quello di riserva, e quale dei due è in uso) **solo mentre è in onda**; con i link firmati è il link senza firma, che da solo non basta (quello firmato lo dà il servizio a ciascuno) |
+| `eventi/{idEvento}` | i partecipanti di quell'evento, i gestori | titolo, data, orari, stato, programma; il tipo di player (Azoto o flusso diretto); l'indirizzo del player o il link del flusso (e quello di riserva, e quale dei due è in uso) **solo mentre è in onda**; con i link firmati è il link senza firma, che da solo non basta (quello firmato lo dà il servizio a ciascuno) |
 | `partecipanti/{uid}` | solo la persona stessa | nome utente, nome, cognome, email, azienda, eventi, stato delle email, ultimo accesso |
 | `nomiUtente/{nomeUtente}` | solo il server | → uid: garantisce che un nome utente esista una volta sola |
 | `indirizzi/{email}` | solo il server | → uid: garantisce che un'email abbia un solo account |
 | `sessioni/{uid}` | solo il server | account attivo o disattivato, dispositivo ammesso |
-| `eventiRiservati/{idEvento}` | solo il server | il link del video e quello di riserva come li ha incollati il gestore; la chiave segreta dei link firmati |
+| `eventiRiservati/{idEvento}` | solo il server | il tipo di player, l'indirizzo del player Azoto (solo l'indirizzo, mai il codice incollato), il link del flusso e quello di riserva; la chiave segreta dei link firmati |
 | `presenze/{idEvento}_{uid}` | solo il server (scritta dal partecipante con regole strette) | primo e ultimo segnale, minuti collegati durante la diretta, collegamenti |
 | `accessi/{auto}` | solo il server | un documento per ogni accesso riuscito |
 | `tentativi*`, `limiti`, `code`, `contatori`, `stato`, `gestoriAccount` | solo il server | protezioni, coda delle email, cache |
@@ -303,174 +305,194 @@ riparte al giro successivo.
 
 ---
 
-## 5. Il video: il canale della web TV
+## 5. Il video: il player di Azoto
 
-La diretta arriva dal **canale streaming della web TV**. Il nostro sito non
-trasmette video: la pagina lo prende direttamente dai server della web TV,
-dopo l'accesso.
+La diretta la trasmette la web TV **Azoto Solutions**. Il nostro sito non
+trasmette video: la pagina mostra il video che arriva dai server di Azoto,
+solo dopo l'accesso. Per ogni evento la gestione ha il campo **"Tipo di
+player"**, con due modalità:
 
-### 5.1 Che link si può usare
+| Modalità | Quando si usa | Che cosa vede chi guarda |
+|---|---|---|
+| **A. Player Azoto (iframe)**, quella predefinita | **adesso**: Azoto ci ha dato il codice del suo player | il player di Azoto dentro la nostra pagina, con i **suoi** comandi (play, volume, qualità) |
+| **B. Flusso diretto (.m3u8)** | quando Azoto ci darà il link diretto del flusso (domanda 3 del [§5.8](#58-le-domande-per-azoto-pronte-da-inoltrare)) | il **nostro** player: nessun logo, i nostri comandi, "Attiva l'audio", "Torna in diretta", link di riserva |
 
-Nella gestione (scheda *Evento* o *Regia*) incolli quello che ti dà la web TV.
-Il sistema riconosce da solo che cos'è e lo scrive accanto al campo:
+Si passa da una modalità all'altra anche **durante la diretta**, dalla scheda
+*Regia*: chi è collegato cambia da solo, senza ricaricare la pagina (è sempre
+l'unica lettura in ascolto sull'evento).
 
-| Che cosa incolli | Che cosa succede |
-|---|---|
-| **Link HLS** che finisce con `.m3u8` (anche con `?token=…` dopo): **il caso principale** | il **nostro player**: nostri comandi, nessun logo di altri, scelta della qualità, "Torna in diretta", barra per tornare indietro se la web TV lo consente |
-| **Link DASH** che finisce con `.mpd` | il nostro player, con dash.js |
-| **Pagina del player della web TV**, o tutto il suo codice da incorporare (`<iframe src="…">`) | **ripiego**: il video si vede, ma con i comandi e i loghi della web TV. La gestione lo dice con un avviso ben visibile: *"Con questo tipo di link non possiamo togliere il logo della web TV né usare i nostri comandi: chiedete alla web TV il link .m3u8"* |
-| Qualunque altra cosa | **rifiutata con il motivo**: indirizzi `http://`, indirizzi per **trasmettere** (`rtmp://`, `rtsp://`, `srt://`: sono per il programma di regia della web TV, non per chi guarda), file video (`.mp4`, `.ts`…: non sono una diretta), link con nome utente e password, indirizzi non pubblici, pagine che la web TV non permette di incorporare |
+### 5.1 Il player di Azoto, visto da vicino
 
-Le regole stanno in `diretta/sorgente-video.js`, le stesse per gestione, player e
-servizio (`email-service/lib/diretta-sorgente-video.js` ne è una copia identica,
-controllata dalle prove).
+Prima di scrivere il codice abbiamo aperto il codice che ci ha dato Azoto
+(25 settembre 2026):
 
-### 5.2 La prova del link, prima di salvarlo
+```html
+<div class='azoto-player-container'>
+<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv29/player' frameborder='0' scrolling='no' allowfullscreen></iframe>
+</div>
+<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>
+```
 
-Ogni link nuovo si prova con **"Prova il link"** (e comunque prima di salvare):
+- **Lo script `azoto-player.js`** (1,6 KB) fa solo due cose: ridimensiona il
+  riquadro in 16:9 (senza superare l'altezza della finestra) e mette margini
+  zero e **sfondo nero a tutta la pagina che lo carica**. Non comunica con la
+  pagina (niente `postMessage`), non dice se la diretta è partita. **Non lo
+  carichiamo**: il 16:9 lo fa il nostro CSS, e il nero rovinerebbe la nostra
+  grafica. Per questo `azotosolutions.com` non compare nemmeno nella
+  Content-Security-Policy.
+- **La pagina del player** (`cdn.azotosolutions.com/cloudtv/livetv29/player/`)
+  usa **OvenPlayer** (un player libero) e carica tre librerie da
+  `cdn.jsdelivr.net` **senza una versione fissata** (`@latest`): possono cambiare
+  da un giorno all'altro senza che Azoto lo decida.
+- **Peer-to-peer**: una di quelle librerie (`swarmcloud-hls`) fa scambiare pezzi
+  del video **fra gli spettatori** (WebRTC), coordinati dai server di
+  `meshify.cloud` e con i server STUN di Google e Twilio. È attiva da sola: chi
+  guarda usa anche la **propria connessione in uscita** e il suo **indirizzo IP**
+  è visibile agli altri spettatori e a quei servizi. Sta dentro il player di
+  Azoto: da fuori non si può spegnere. Va chiesto ad Azoto (domanda 8) e va
+  tenuto presente nell'informativa privacy.
+- **Avvio**: il player prova a partire da solo **con l'audio**; i browser di
+  solito lo bloccano e il player non prova a partire muto. Quindi spesso (su
+  iPhone sempre) chi guarda deve **toccare play** nel player: per questo la
+  nota sotto il video.
+- **Parametri**: nessuno. Avvio, audio, colori sono fissi nel codice di Azoto;
+  l'indirizzo non accetta opzioni.
+- **Logo**: nel codice del player non c'è; l'immagine d'attesa è tutta nera.
+  Se un logo c'è, è nel video stesso: si vedrà alla prova con la diretta accesa.
+- **Link diretti**: nella pagina ci sono i link del flusso (HLS `.m3u8` e DASH
+  `.mpd`, con due server di riserva). **Non li usiamo** finché Azoto non ce li
+  conferma: potrebbero cambiare o essere riservati a loro. Il CORS di quei
+  server (se permettono la riproduzione dal nostro sito) non l'abbiamo potuto
+  verificare: è la domanda 3.
+- **Nessuna protezione**: la pagina del player si apre e si incorpora da
+  **qualsiasi sito**, anche senza sapere da dove arriva la richiesta (niente
+  `X-Frame-Options`, niente `frame-ancestors`, nessun controllo del referrer).
+  Vedi il §5.5.
+- In caso di errore il player di Azoto si ricarica da solo dopo un secondo.
 
-1. **Dal servizio** (`prova-link`): si scarica la playlist (o la pagina) e si
-   dice che cosa c'è: diretta o registrazione, quante qualità e quali, se si può
-   tornare indietro e di quanto, la durata dei segmenti (e quindi il ritardo
-   sul vivo), i codec, e se il server della web TV **permette la riproduzione
-   dal nostro sito** (intestazioni CORS sulla playlist e su un segmento). Per le
-   pagine da incorporare: se la web TV permette di incorporarle da noi
-   (`X-Frame-Options`, `frame-ancestors`).
-2. **Dal browser** della gestione: una lettura vera del link da
-   `nextgenerationbusiness.it`, per confermare il CORS;
-3. con **il player vero**, in una piccola anteprima.
+### 5.2 Modalità A: il player di Azoto nella nostra pagina
 
-Per ogni problema la gestione mostra una frase comprensibile e, quando la
-soluzione è della web TV, **il testo pronto da girarle** con "Copia il testo
-per la web TV" (per esempio: la richiesta dell'intestazione
-`Access-Control-Allow-Origin: https://nextgenerationbusiness.it`, o di permettere
-l'incorporamento con `frame-ancestors https://nextgenerationbusiness.it`).
+- **Nella gestione** si incolla il codice di Azoto **oppure** solo l'indirizzo del
+  player. Il sistema ne estrae e salva **solo l'indirizzo**, e accetta soltanto
+  indirizzi `https://cdn.azotosolutions.com/…`. L'HTML incollato non si salva e
+  non entra mai nella pagina (potrebbe contenere codice malevolo): script,
+  `onload`, altri tag e iframe di altri siti vengono ignorati o rifiutati.
+- **L'iframe lo costruisce il nostro codice** (`diretta/player-azoto.js`), con
+  `allow="autoplay; fullscreen; picture-in-picture; encrypted-media"`,
+  `allowfullscreen`, `referrerpolicy="strict-origin-when-cross-origin"`,
+  `scrolling="no"` e il titolo accessibile "Diretta: *titolo dell'evento*". Il
+  riquadro è 16:9 e si adatta a ogni schermo, senza bande e senza barre di
+  scorrimento.
+- **L'indirizzo arriva dal database solo dopo l'accesso**, solo agli iscritti a
+  quell'evento e solo mentre è in onda: l'iframe esiste solo per chi è entrato
+  con nome utente e password, e non compare nel codice pubblico.
+- **Prima dell'inizio, in pausa e dopo la fine** la pagina mostra le nostre
+  schermate (attesa, pausa, chiusura) **al posto** dell'iframe, che si crea solo
+  quando la regia va in onda e sparisce quando esce di onda: nessuno vede la
+  schermata vuota della web TV.
+- **Sopra e sotto il riquadro solo la nostra grafica**: titolo dell'evento,
+  "IN DIRETTA", nome della persona, "Esci". **Niente sopra l'iframe**: i comandi
+  di Azoto (play, volume, qualità) sono gli unici di questa modalità e devono
+  restare cliccabili.
+- **Sotto il video**: il nostro pulsante **"Schermo intero"** (ingrandisce il
+  riquadro; su iPhone, dove una pagina non può mettere a schermo intero un
+  iframe, passa a una **vista a pagina intera orizzontale**, con il pulsante per
+  uscire fuori dal video) e la nota fissa: *"Non senti l'audio? Premi il pulsante
+  del volume nel player. Il video si blocca? Ricarica la pagina."*
+- **Se il player non risponde entro 15 secondi**, sotto il video compare "La
+  diretta sta arrivando, attendi qualche secondo" con il pulsante **"Ricarica
+  il video"**, che ricrea solo l'iframe (non la pagina). Il messaggio sparisce
+  da solo appena il player risponde. Attenzione: da fuori si sa solo se la
+  pagina del player è arrivata, non se il video sta andando (Azoto non lo
+  comunica: domanda 5).
 
-- **Si blocca il salvataggio** solo quando il link non potrà mai funzionare:
-  non è https, non è né un flusso né una pagina, è un file, è per trasmettere,
-  contiene credenziali, è un indirizzo non pubblico, la pagina non si può
-  incorporare, il contenuto non è davvero HLS o DASH.
+### 5.3 Modalità B: il flusso diretto (quando Azoto lo darà)
+
+Quando Azoto ci darà il link `.m3u8`, lo si incolla nel campo **"Flusso diretto"**,
+lo si prova e si sceglie la modalità B (anche durante la diretta, dalla *Regia*).
+Il player è in un file a parte (`diretta/player-webtv.js`): la modalità si
+cambia senza toccare il resto.
+
+- **HLS**: su **Safari, iPhone e iPad** lo legge il browser; su **Chrome, Edge,
+  Firefox e Android** lo legge **hls.js 1.7.3** (`diretta/hls.min.js`, libreria
+  libera Apache 2.0, versione fissata e salvata nel sito). Se Azoto desse un
+  link DASH (`.mpd`) funziona anche quello, con dash.js 5.2.1 salvato nel sito.
+- **Nessun logo di terzi**, **comandi nostri**: play/pausa, muto e volume,
+  **"IN DIRETTA"** al punto live, **"Torna in diretta"** solo quando si è rimasti
+  indietro, **qualità** ("Automatica" più quelle del flusso, partendo dalla più
+  bassa), **schermo intero** anche su iPhone e iPad, barra per tornare indietro
+  se il flusso lo permette. Tastiera (con il fuoco sul video): spazio, F, M,
+  frecce per il volume.
+- **Parte senza audio** con il grande pulsante **"Attiva l'audio"**.
+- Niente menu del tasto destro, niente "scarica video", niente
+  picture-in-picture.
+- **Se il flusso si interrompe**: "Stiamo ricollegando la diretta…" e nuovi
+  tentativi **da soli, senza ricaricare**, con attese **crescenti e casuali**
+  (1-3 s, 2-6, 4-12, 8-24, poi 15-45 s: mille persone non riprovano mai nello
+  stesso secondo). Il player si accorge anche di un video fermo senza errori e
+  di una playlist che non avanza.
+- **Link di riserva**: se il link in uso non funziona per **più di 20 secondi**
+  (fra 20 e 24, con qualche secondo casuale), ogni pagina passa **da sola**
+  all'altro. Se a cadere è la rete di chi guarda, non si passa alla riserva. In
+  *Regia*: "Passa alla riserva per tutti" e "Torna al link principale per tutti".
+- **Link firmati a tempo**, se Azoto li usa: vedi il §5.5.
+
+### 5.4 La prova del link, prima di salvarlo
+
+Ogni indirizzo nuovo si prova con **"Prova"** (e comunque prima di salvare):
+
+- **Player Azoto**: il servizio controlla che la pagina del player risponda e
+  che si possa incorporare nel nostro sito; poi un'anteprima nella gestione.
+- **Flusso diretto**: il servizio scarica la playlist e dice se è una diretta,
+  quante qualità ha, se si può tornare indietro, il ritardo stimato e se il
+  server **permette la riproduzione dal nostro sito** (CORS); il browser della
+  gestione lo conferma; poi un'anteprima con il player vero. Quando la
+  correzione tocca alla web TV, la gestione prepara il **testo da girarle**.
+- **Si rifiuta subito**, con il motivo: indirizzi `http://`, indirizzi di altri
+  siti nel campo del player Azoto, un `.m3u8` nel campo del player (va nel
+  campo del flusso) e viceversa, link per trasmettere (`rtmp://`…), file video,
+  link con nome utente e password, indirizzi interni.
 - **Si salva dopo una conferma** quando il problema può risolversi prima della
-  diretta: il link non risponde o dà 404 (la web TV non trasmette ancora: è
-  normale giorni prima), il CORS manca (va chiesto alla web TV), è una
-  registrazione invece di una diretta, il flusso è solo in HEVC (su Firefox e su
-  molti computer Windows non si vede: meglio chiedere anche H.264), il ripiego
-  della pagina da incorporare.
+  diretta (per esempio il flusso non risponde ancora, o manca il CORS).
 
-Il servizio fa la prova con le dovute cautele: solo indirizzi https pubblici
-(niente indirizzi interni, nemmeno dopo un redirect), al massimo 3 redirect,
-8 secondi per richiesta, 256 KB letti, 30 prove al minuto per gestore.
+Le regole stanno in `diretta/sorgente-video.js`, le stesse per gestione, pagina e
+servizio (`email-service/lib/diretta-sorgente-video.js` ne è una copia identica,
+controllata dalle prove). L'elenco degli indirizzi ammessi per il player è in
+`HOST_AZOTO`, in cima a quel file.
 
-### 5.3 Il nostro player
+### 5.5 Chi può vedere la diretta: il limite, detto chiaramente
 
-- **HLS**: su **Safari, iPhone e iPad** lo legge il browser (riproduzione
-  nativa); su **Chrome, Edge, Firefox e Android** lo legge **hls.js 1.7.3**
-  (`diretta/hls.min.js`, libreria libera Apache 2.0, versione fissata e salvata
-  nel sito, 386 KB, scaricata solo per le dirette HLS).
-- **DASH**: **dash.js 5.2.1** (`diretta/dash.all.min.js`, licenza BSD, salvato nel
-  sito, scaricato solo per le dirette DASH). Su iPhone il DASH funziona solo
-  dove Safari lo permette (iOS 17.1 e successivi): **meglio l'HLS**.
-- **Nessun logo e nessun marchio di terzi**: il `<video>` è nostro.
-- **Comandi nella grafica del sito**: play/pausa, muto e volume (su iPhone e iPad
-  il volume si regola solo con i tasti del telefono: Apple non lo permette a una
-  pagina web), indicatore rosso **"IN DIRETTA"** quando si è al punto live,
-  **"Torna in diretta"** solo quando si è rimasti indietro, **qualità**
-  ("Automatica" più le qualità del flusso), **schermo intero** del nostro riquadro
-  (anche su iPhone e iPad). Tastiera: spazio (play/pausa), F (schermo intero),
-  M (muto), frecce (volume: su e destra alzano, giù e sinistra abbassano).
-- **Tornare indietro nella diretta**: se la web TV tiene una finestra DVR di
-  almeno un minuto, sotto il video compare la barra per tornare indietro
-  ("−2:30"); se non c'è, la barra non compare.
-- **Qualità adattiva**: si parte dalla qualità più bassa e si sale da soli in
-  base alla connessione, così chi è su rete mobile non si blocca.
-- **Parte senza audio** (i browser bloccano l'audio automatico) con il grande
-  pulsante **"Attiva l'audio"**.
-- Niente menu del tasto destro sul video, niente "scarica video"
-  (`controlsList="nodownload"`), niente picture-in-picture né trasmissione ad
-  altri dispositivi.
-- Le **scorciatoie da tastiera** valgono quando il riquadro del video ha il
-  fuoco (dopo un clic sul video, con Tab, o a schermo intero): così frecce e
-  spazio scorrono la pagina come sempre quando si legge il programma, e chi usa
-  un lettore di schermo non attiva comandi per sbaglio.
-- **Ritardo** rispetto alla sala: quello dell'HLS, di solito 3 segmenti (con
-  segmenti da 6 secondi, circa 20 secondi). La prova del link lo stima.
+- **Modalità A**: l'indirizzo del player di Azoto non è nel codice pubblico e
+  arriva solo a chi è entrato, ma **una volta aperta la diretta chiunque può
+  copiarlo** (dagli strumenti del browser) **e girarlo ad altri**: la pagina di
+  Azoto oggi si apre da qualsiasi sito e anche direttamente. Da parte nostra
+  non si può impedire. **La protezione vera la può dare solo Azoto**, limitando
+  il player al nostro dominio (domanda 1 del §5.8).
+- **Modalità B**: stesso limite per il link `.m3u8`, a meno che Azoto usi **link
+  firmati a tempo**. La gestione e il servizio sono già pronti (sezione "Link
+  firmati" della gestione, schemi **nginx `secure_link`** e **Akamai EdgeAuth**):
+  ogni partecipante riceve un link **suo, che scade**, e la chiave segreta resta
+  nel servizio. Senza link firmati, la sola limitazione al dominio (CORS e
+  referrer) ferma i browser ma non un programma come VLC.
 
-### 5.4 Se il flusso si interrompe: ricollegamento e link di riserva
+### 5.6 La sicurezza della pagina (Content-Security-Policy)
 
-- Se il flusso si ferma o la rete cade, il player prima prova i recuperi previsti
-  dalla libreria (hls.js: riprendere il caricamento, ricostruire la decodifica),
-  poi la pagina mostra **"Stiamo ricollegando la diretta…"** e riprova da sola,
-  **senza ricaricare**, con attese **crescenti e casuali** (1-3 s, poi 2-6, 4-12,
-  8-24, poi fra 15 e 45 s): mille persone non riprovano mai nello stesso
-  secondo. Quando riparte, riparte dal punto live.
-- Il player se ne accorge da solo anche quando il video resta fermo senza dare
-  errori (più di 12 secondi fermo mentre dovrebbe andare) e quando la web TV
-  continua a servire la stessa playlist senza nuovi pezzi (l'encoder si è
-  fermato ma il server risponde): se il punto live non avanza per più di 20
-  secondi (o di 3 segmenti) vale come un guasto. Il video si considera ripartito
-  solo quando va **e** il punto live avanza.
-- Se a cadere è la **rete di chi guarda** (telefono senza campo, wifi senza
-  internet), la pagina non passa alla riserva: aspetta che la rete torni e
-  riparte dal link di prima.
-- Se la web TV chiude la diretta e al suo posto il link dà la registrazione, la
-  pagina resta su "Stiamo ricollegando la diretta…" e non mostra l'evento
-  dall'inizio.
-- **Link di riserva**: nella gestione puoi mettere un secondo link (un altro
-  server della web TV o un altro canale). Se il link in uso non funziona per
-  **più di 20 secondi**, ogni pagina passa **da sola** all'altro (fra 20 e 24
-  secondi: anche qui qualche secondo casuale, perché non passino tutti insieme,
-  anche se un tentativo è ancora in corso).
-  Se un browser non sa riprodurre uno dei due link (per esempio un DASH su un
-  vecchio iPhone), passa subito all'altro.
-- **In *Regia*** vedi quale link è in uso per tutti e puoi **passare a mano alla
-  riserva (o tornare al principale) per tutti**: chi guarda cambia da solo, senza
-  ricaricare. La scelta della regia vale più del passaggio automatico.
-- **Cambio del link durante l'evento**: come prima, chi è collegato passa al
-  nuovo flusso da solo (l'unica lettura in ascolto sull'evento).
+La pagina della diretta dice al browser da dove può caricare le cose:
 
-### 5.5 Chi può vedere il link
+- **`frame-src https://cdn.azotosolutions.com`**: l'unico iframe possibile è il
+  player di Azoto.
+- **`script-src 'self' https://www.gstatic.com`**: solo il codice del nostro sito
+  (compresa hls.js, salvata nel sito) e l'SDK di Firebase. Non serve
+  `azotosolutions.com`, perché il loro script non lo carichiamo (§5.1).
+- `connect-src` e `media-src` per ora ammettono ogni indirizzo `https:`: servono
+  alla modalità B, e il server del flusso `.m3u8` di Azoto non lo conosciamo
+  ancora. Quando Azoto darà il link, si restringono al suo dominio (una riga in
+  `diretta/index.html`).
 
-- Il link **non è nel codice pubblico**: arriva dal database solo dopo
-  l'accesso, solo agli iscritti a quell'evento e solo mentre è in onda.
-- **Link firmati a tempo** (se la web TV li usa): nella gestione, sezione
-  **"Link firmati"**, scegli lo schema, incolli la chiave segreta che ti dà la
-  web TV (resta solo nel servizio: la pagina non la vede mai, nemmeno la
-  gestione dopo averla salvata) e la durata (predefinita 6 ore). Ogni
-  partecipante collegato riceve allora dal servizio (`link-video`) un link
-  **suo, che scade**. Schemi pronti: **nginx `secure_link`** (parametri `md5` ed
-  `expires`) e **Akamai EdgeAuth** (`hdnts=…`). Se la web TV ne usa un altro,
-  si aggiunge in `email-service/lib/diretta-firma.js`. La web TV deve accettare
-  la firma anche sui segmenti (firmando la cartella del flusso: opzione
-  "cartella" per nginx, acl con `*` per Akamai).
-- **Link limitati al nostro dominio**: la web TV può accettare solo le richieste
-  che arrivano da `https://nextgenerationbusiness.it` (intestazioni `Origin` e
-  `Referer`, che il browser manda da solo). Da parte nostra non serve niente.
-- **Limite, detto chiaramente**: **senza link firmati, chi ha il link `.m3u8`
-  può girarlo ad altri**, e lo può aprire anche fuori dal nostro sito (con
-  VLC, per esempio). La limitazione al dominio è un ostacolo per i browser, non
-  per un programma. Solo i link firmati a tempo lo impediscono davvero (e anche
-  quelli valgono per qualche ora).
-- Con i link firmati la pagina chiede il suo link al servizio con qualche
-  secondo casuale di attesa (mille persone non chiedono nello stesso istante)
-  e ne chiede uno nuovo quando è passato l'80% della validità: il player usa la
-  firma nuova per le richieste che seguono **senza ricaricare il video** (chi è
-  in pausa o indietro nella diretta resta dov'è). Solo su un iPhone che legge
-  l'HLS da solo il video si ricarica per un paio di secondi. La validità la
-  conta il servizio (`validoSecondi`): un computer con l'orologio sbagliato non
-  cambia niente. Principale e riserva hanno ciascuno il suo link firmato, e chi
-  ha già un link valido non lo richiede.
-- La firma sta nella query del link della playlist; il player la aggiunge anche
-  alle richieste delle playlist delle singole qualità e dei segmenti verso lo
-  stesso server. Su **Safari, iPhone e iPad** questo il browser da solo non lo
-  permette: con un link firmato anche lì si usa hls.js (iPhone da iOS 17.1,
-  iPad, Mac). Su un iPhone più vecchio la web TV deve mettere la firma negli
-  indirizzi scritti dentro le playlist (quasi tutte le CDN lo fanno da sole:
-  domanda 6 del §5.7).
+### 5.7 La banda: 1000 persone insieme
 
-### 5.6 La banda: 1000 persone insieme
-
-Il video lo trasmette la **rete di distribuzione (CDN) della web TV**, non il
-nostro sito. La banda che serve, con 1000 persone collegate insieme:
+Il video lo trasmette la **rete di distribuzione (CDN) di Azoto**, non il nostro
+sito. La banda che serve, con 1000 persone collegate insieme:
 
 | Qualità | Bitrate tipico | 1000 persone |
 |---|---|---|
@@ -478,61 +500,62 @@ nostro sito. La banda che serve, con 1000 persone collegate insieme:
 | 720p | ~2,5-3 Mbit/s | **~3 Gbit/s** |
 | 1080p | ~4,5-6 Mbit/s | ~5-6 Gbit/s |
 
-In pratica (qualità adattiva, telefoni e computer insieme) si sta fra 2 e 4
-Gbit/s al picco, e circa **1-1,5 TB di traffico in 3 ore**. Per una CDN
-professionale non è molto; per un singolo server sì. La domanda 3 qui sotto
-serve a questo.
+In pratica si sta fra 2 e 4 Gbit/s al picco, circa **1-1,5 TB di traffico in 3
+ore**. Il peer-to-peer del player di Azoto (§5.1) sposta una parte di questo
+traffico sulle connessioni degli spettatori. La domanda 4 serve a sapere se
+Azoto regge.
 
-### 5.7 Le domande da fare alla web TV (pronte da inoltrare)
+### 5.8 Le domande per Azoto (pronte da inoltrare)
 
 > Buongiorno,
 > il 2 ottobre trasmetteremo in diretta l'evento Next Generation Business di
-> Napoli sul nostro sito, https://nextgenerationbusiness.it, con il nostro player,
-> per circa 1000 persone collegate insieme. Per prepararci vi chiediamo:
+> Napoli sul nostro sito, https://nextgenerationbusiness.it, con il vostro player
+> livetv29, per circa 1000 persone collegate insieme. Vi chiediamo:
 >
-> 1. Ci date un link diretto **HLS (.m3u8) in https**, oltre alla pagina da incorporare?
-> 2. Il vostro server consente la riproduzione dal dominio **nextgenerationbusiness.it**
->    (intestazioni CORS `Access-Control-Allow-Origin` sulla playlist e sui segmenti)?
-> 3. Reggete **1000 spettatori contemporanei**? Con quale rete di distribuzione (CDN)
->    e quale banda?
-> 4. Il flusso ha **più qualità** (adattivo)? Quali risoluzioni e bitrate?
-> 5. C'è una **finestra DVR** per tornare indietro nella diretta? Di quanti minuti?
-> 6. Supportate **link firmati a tempo** o **limitati al nostro dominio**? Con quale
->    sistema (per esempio nginx secure_link, Akamai EdgeAuth, altro)?
-> 7. Avete un **link di riserva** su un altro server?
-> 8. Possiamo fare una **prova con il flusso vero** qualche giorno prima?
-> 9. Qual è il **ritardo** della diretta rispetto al vivo?
+> 1. Potete limitare il player livetv29 al solo dominio nextgenerationbusiness.it,
+>    così che non si apra da altri siti o copiando il link?
+> 2. Potete togliere il vostro logo dal player (versione senza marchio)?
+> 3. Ci date anche il link diretto HLS (.m3u8) in https, con CORS abilitato per
+>    nextgenerationbusiness.it?
+> 4. Reggete 1000 spettatori contemporanei? Il flusso ha più qualità (adattivo)?
+> 5. Il player accetta parametri (avvio automatico, muto, colori)? Comunica con la
+>    pagina (postMessage) per sapere se la diretta è partita?
+> 6. Avete un canale o un server di riserva in caso di problemi?
+> 7. Qual è il ritardo rispetto al vivo? Possiamo fare una prova qualche giorno prima?
+> 8. Il player usa la libreria swarmcloud-hls, che fa scambiare il video fra gli
+>    spettatori (peer-to-peer, WebRTC, server meshify.cloud): si può disattivare
+>    per il nostro evento? Se resta attivo, dove sono i server e che dati
+>    trattano (serve per la nostra informativa privacy)? E potete fissare le
+>    versioni delle librerie caricate da cdn.jsdelivr.net (oggi "@latest")?
 >
 > Grazie.
 
-### 5.8 Provare su iPhone, iPad e Safari (a mano)
+La domanda 8 l'abbiamo aggiunta noi dopo aver letto il codice del player (§5.1).
 
-Le prove automatiche usano Chromium, che l'HLS non lo legge da solo: il ramo
-"Safari" del player (riproduzione nativa) si prova a mano, con il link di prova
-della web TV (o, prima di averlo, con il flusso pubblico di prova di Shaka
-Player: `https://storage.googleapis.com/shaka-live-assets/player-source.m3u8`):
+### 5.9 Provare su iPhone, iPad e Safari (a mano)
 
-1. Crea un evento di prova nella gestione, incolla il link, "Prova il link",
-   salva, "Vai in onda".
-2. Entra con un partecipante di prova da **iPhone con Safari** (e da iPad, e da
-   un Mac con Safari). Controlla: il video parte **muto** da solo (o compare
-   "Avvia la diretta" con il Risparmio energetico); **"Attiva l'audio"** porta
-   l'audio (il volume con i tasti del telefono); **schermo intero** del nostro
-   riquadro, con i nostri comandi; **"IN DIRETTA"** rosso; metti in pausa 30
-   secondi e riparti: compare **"Torna in diretta"** e riporta al punto live;
-   la **barra per tornare indietro** se la web TV ha il DVR; ruota il telefono.
-3. **Caduta e riserva**: con la riserva inserita, chiedi alla web TV di fermare
-   il flusso principale (o metti un link principale che non risponde):
-   entro circa 20 secondi la pagina passa alla riserva; "Passa alla riserva per
-   tutti" in *Regia* fa passare tutti subito.
-4. **Rete**: metti il telefono in modalità aereo per 10 secondi e poi toglila:
-   "Stiamo ricollegando la diretta…" e poi il video riparte da solo.
-5. **Link firmati** (se la web TV li usa): ripeti il punto 2 su iPhone e iPad
-   con la firma attiva, e lascia la pagina aperta oltre l'80% della durata
-   scelta (con una durata di 1 ora, dopo 48 minuti): il video continua (su
-   iPhone si ricarica da solo in un paio di secondi).
-6. Ripeti con un telefono **Android** (Chrome) e un computer con **Chrome,
-   Edge e Firefox** (lì lavora hls.js).
+Le prove automatiche usano Chromium e una pagina finta al posto del player di
+Azoto (per non dipendere dalla loro rete): il player vero, Safari e iPhone si
+provano a mano, con Azoto che trasmette una prova:
+
+1. Crea un evento di prova nella gestione, "Tipo di player": **Player Azoto**,
+   incolla il codice di Azoto, "Prova", salva, "Vai in onda".
+2. Entra con un partecipante di prova da **iPhone con Safari** (e da iPad, e da un
+   Mac con Safari). Controlla: il player compare solo dopo "Vai in onda"; si
+   avvia con un tocco su play; l'audio si sente (volume del player o tasti del
+   telefono); **"Schermo intero"** dà la vista a pagina intera orizzontale e si
+   esce con il pulsante; la nota sotto il video; ruota il telefono.
+3. **Regia**: cambia l'indirizzo del player durante la prova (o metti lo stesso):
+   le pagine aperte si aggiornano da sole. "Termina": il player sparisce e
+   compare la nostra schermata di chiusura.
+4. **Rete**: modalità aereo per 20 secondi e poi toglila: se il player non torna,
+   dopo 15 secondi compare "Ricarica il video".
+5. Ripeti con un telefono **Android** (Chrome) e un computer con **Chrome, Edge e
+   Firefox**.
+6. Quando Azoto darà il link `.m3u8`: incollalo nel campo del flusso diretto,
+   "Prova", poi in *Regia* "Passa al flusso diretto per tutti", e ripeti i punti
+   2-5 (qui con i nostri comandi, "Attiva l'audio", "Torna in diretta" e la
+   riserva).
 
 ---
 
@@ -551,7 +574,8 @@ Player: `https://storage.googleapis.com/shaka-live-assets/player-source.m3u8`):
 
 1. **Evento** (scheda *Evento*): identificativo (per Napoli `napoli-2026`,
    lo stesso scritto in `assets/diretta-stato.js`), titolo, luogo, data, ora
-   di inizio e di fine, link della diretta (web TV, §5), programma (una voce per
+   di inizio e di fine, **tipo di player** e codice (o indirizzo) del player di
+   Azoto (§5), programma (una voce per
    riga: `09.00 Accoglienza`), pagina dell'evento (`/napoli_ottobre_2026/`),
    le caselle dei **promemoria** (giorno prima, un'ora prima: accanto c'è quante
    persone li riceveranno) e, se serve, **"un solo dispositivo"**.
@@ -598,21 +622,28 @@ Player: `https://storage.googleapis.com/shaka-live-assets/player-source.m3u8`):
 
 ### 6.4 Il giorno dell'evento (scheda *Regia*)
 
-- Quando la web TV trasmette, **"Vai in onda"**: tutte le pagine aperte passano da
-  sole dall'attesa alla diretta. Il contatore mostra le persone collegate in
+- Quando Azoto trasmette, **"Vai in onda"**: tutte le pagine aperte passano da
+  sole dall'attesa alla diretta (il player compare solo adesso). Il contatore mostra le persone collegate in
   questo momento (si aggiorna ogni 20 secondi).
 - **Pausa** (con l'orario di ripresa, facoltativo) e **Riprendi**: in pausa i
   partecipanti vedono "Pausa: si riprende alle 14.30", non la fine.
 - **"Avviso a tutti"**: una riga che compare in cima alla pagina di tutti
   ("Problema tecnico: riprendiamo tra 5 minuti").
-- **Cambio del link**: incolla il nuovo link (principale o di riserva) e
-  "Prova il link": la regia lo prova come nella scheda *Evento* (§5.2), anche in
+- **Tipo di player per tutti**: la regia mostra la modalità in uso. **"Passa al
+  flusso diretto per tutti"** e **"Torna al player Azoto per tutti"** spostano
+  tutti insieme, senza ricaricare (il flusso diretto si può scegliere solo
+  quando c'è il link `.m3u8`).
+- **Cambio del player Azoto**: nella parte *Player Azoto* incolla il nuovo codice
+  o indirizzo, "Prova il player", "Cambia il player": chi guarda passa al nuovo
+  indirizzo da solo. **"Guarda"** apre il player in anteprima.
+- **Solo in modalità B, cambio del link del flusso**: incolla il nuovo link
+  (principale o di riserva) e "Prova il link": la regia lo prova (§5.4), anche in
   una piccola anteprima, e lo blocca se non si può usare (se la web TV non ha
   ancora cominciato a trasmettere, lo salva dopo una conferma). Chi guarda passa
   al nuovo link da solo, senza ricaricare. Cambiare solo la riserva non
   disturba chi sta guardando il principale.
-- **Link in uso per tutti**: la regia mostra quale link stanno guardando i
-  partecipanti. **"Passa alla riserva per tutti"** e **"Torna al link principale
+- **Solo in modalità B, link in uso per tutti**: la regia mostra quale link del
+  flusso stanno guardando i partecipanti. **"Passa alla riserva per tutti"** e **"Torna al link principale
   per tutti"** li spostano tutti insieme, senza ricaricare; con il link già
   scelto compare **"Riporta tutti sul link principale"** (o *sulla riserva*),
   che riporta anche chi era passato da solo all'altro link per un guasto.
@@ -822,8 +853,8 @@ al contatore) ma non aggiunge minuti.
 | **Totale del giorno** | **~6.000** (Napoli: ~8.000) |
 
 Il piano Pro include 1 milione di chiamate al mese: la diretta ne usa lo
-0,6 %. Nessuna funzione è sul percorso del video: lo trasmette la web TV (a
-1000 persone insieme, circa 3 Gbit/s: vanno chiesti a lei, §5.6 e §5.7).
+0,6 %. Nessuna funzione è sul percorso del video: lo trasmette Azoto (a
+1000 persone insieme, circa 3 Gbit/s: vanno chiesti a loro, §5.7 e §5.8).
 
 ### Firebase Authentication e Brevo
 
@@ -991,7 +1022,23 @@ da controllare con il testo per la web TV, regia con la riserva) sono in
 ## 11. Cambiare piattaforma video
 
 La pagina della diretta e la regia della gestione parlano con il video solo
-attraverso questa interfaccia (`window.NGBPlayer`, in `diretta/player-webtv.js`):
+attraverso due player con un'interfaccia simile, uno per modalità; quale usare
+lo dice `tipoPlayer` dell'evento.
+
+**Modalità A** (`window.NGBPlayerAzoto`, in `diretta/player-azoto.js`):
+
+```js
+window.NGBPlayerAzoto = { nome: 'azoto', crea(contenitore, { onPronto, onErrore }) };   // -> istanza
+player.carica(url, { titolo });   // crea l'iframe (solo indirizzi di HOST_AZOTO)
+player.ricarica();                // ricrea solo l'iframe ("Ricarica il video")
+player.aggiornaTitolo(t); player.mostra(true|false); player.distruggi();
+player.stato();      // 'vuoto', 'caricamento', 'pronto', 'lento', 'nascosto', 'link'
+player.capacita();   // { comandi: false, qualita: false, dvr: false }: i comandi sono quelli di Azoto
+// onPronto(): la pagina del player è arrivata (evento load dell'iframe)
+// onErrore({ codice }): 'lento' (15 s senza risposta), 'link' (indirizzo non ammesso)
+```
+
+**Modalità B** (`window.NGBPlayer`, in `diretta/player-webtv.js`):
 
 ```js
 window.NGBPlayer = {
@@ -1008,7 +1055,7 @@ player.vaiAlLive(); player.finestra();   // { posizione, inizio, fine, ritardo, 
 player.cerca(secondi);   // un punto fra finestra().inizio e finestra().fine (per esempio fine - 120)
 player.livelliQualita(); player.impostaQualita(v);
 player.stato(); player.mostra(true|false); player.distruggi();
-player.capacita();   // { comandi, qualita, dvr }: comandi false = pagina incorporata, restano i suoi
+player.capacita();   // { comandi, qualita, dvr }
 player.avvioBloccato();   // true se il browser non l'ha fatto partire da solo (serve un tocco)
 // onErrore({ codice }): 'rete', 'media', 'segnale', 'lento', 'libreria', 'browser', 'link'
 // finestra().avanza: il bordo live cresce davvero (una playlist "ferma" resta false)
@@ -1019,32 +1066,40 @@ passaggio alla riserva li decide la pagina (`diretta.js`), che chiama di nuovo
 `carica()`. Il `<video>` resta lo stesso fra un `carica()` e l'altro (chi ha
 attivato l'audio lo ritrova).
 
-Oggi `player-webtv.js` sceglie da solo secondo il link: HLS (nativo su Safari,
-hls.js altrove), DASH (dash.js) o la pagina della web TV incorporata. Che cosa
-è un link lo decide `diretta/sorgente-video.js`, la stessa regola del servizio.
+`player-webtv.js` legge l'HLS (nativo su Safari, hls.js altrove) e il DASH
+(dash.js). Che cosa è un link lo decide `diretta/sorgente-video.js`, la stessa
+regola del servizio.
 
-Per un fornitore con un'API propria (per esempio un player di una piattaforma
-video che non dà un link HLS): scrivi `diretta/player-<nome>.js` con la stessa
-interfaccia, insegna a `sorgente-video.js` a riconoscerne i link (e ricopialo in
-`email-service/lib/diretta-sorgente-video.js`), aggiungi la riga `<script>` in
-`diretta/index.html` e in `diretta/gestione/index.html` e i domini nella
-`Content-Security-Policy`. Mux e Cloudflare Stream danno comunque un link HLS:
-per loro basta incollarlo, come per la web TV.
+- **Se Azoto cambia dominio del player** (per esempio un altro `cdn…`):
+  aggiungilo a `HOST_AZOTO` in `diretta/sorgente-video.js` (e ricopia il file in
+  `email-service/lib/diretta-sorgente-video.js`) e nel `frame-src` della
+  Content-Security-Policy di `diretta/index.html`, `diretta/reimposta.html` e
+  `diretta/gestione/index.html`.
+- **Per un'altra web TV con un player da incorporare**: stessa cosa, con il suo
+  dominio (e i testi che nominano Azoto).
+- **Per un fornitore che dà un link HLS** (Mux, Cloudflare Stream, un'altra web
+  TV): basta la modalità B, incollando il link.
 
 ## 12. Cosa devi fare tu
 
-In ordine, pensando all'evento di Napoli del **2 ottobre** (oggi è il 24
+In ordine, pensando all'evento di Napoli del **2 ottobre** (oggi è il 25
 settembre: c'è tempo, ma non tanto).
 
 **Subito (oggi o domani)**
 
-1. [ ] **Web TV**: manda alla web TV **le 9 domande del §5.7** (il testo è pronto
-   da copiare). Ti servono: il **link HLS `.m3u8` in https** (e, se c'è, un link
-   di **riserva** su un altro server), il **CORS** attivo per
-   `nextgenerationbusiness.it`, la conferma che reggono **1000 persone insieme**
-   (circa 3 Gbit/s, §5.6), se usano **link firmati** (e con quale sistema), e un
-   **link di prova** attivo qualche giorno prima. Mandami il link appena ce l'hai:
-   lo provo e, se vuoi, restringo la CSP ai loro domini.
+1. [ ] **Azoto**: manda ad Azoto **le domande del §5.8** (il testo è pronto da
+   copiare). Le più importanti: **limitare il player `livetv29` al nostro
+   dominio** (oggi si apre da qualsiasi sito: è l'unica vera protezione, §5.5),
+   il **peer-to-peer** del loro player (domanda 8: serve anche per
+   l'informativa privacy), la conferma che reggono **1000 persone insieme**
+   (circa 3 Gbit/s, §5.7) e una **prova con la diretta accesa** qualche giorno
+   prima. Se ti danno il **link `.m3u8`** (con il CORS per
+   `nextgenerationbusiness.it`), mandamelo: lo provo e si può passare alla
+   modalità B; allora restringo anche `connect-src` e `media-src` della CSP al
+   loro dominio (§5.6).
+   - [ ] **Privacy**: con chi cura l'informativa, valuta il peer-to-peer del
+     player di Azoto (indirizzi IP degli spettatori scambiati fra loro e con i
+     servizi `meshify.cloud`, Google e Twilio: §5.1) finché Azoto non lo spegne.
 2. [ ] **Progetto Firebase `ngb-eventi`** (§2.2): crealo, passa a **Blaze** e
    imposta l'**avviso di budget** (10 €); Firestore `(default)` in `eur3` o
    `europe-west8`; Authentication con **Email/password**, **registrazione e
@@ -1077,20 +1132,20 @@ settembre: c'è tempo, ma non tanto).
 **Prima di inviare le credenziali (entro il 26-27 settembre)**
 
 9. [ ] Entra in `/diretta/gestione/` con "Primo accesso" (§6.1).
-10. [ ] Crea l'evento **`napoli-2026`** con gli orari veri e il link della web TV
-    (stesso identificativo e stessi orari di `assets/diretta-stato.js`: se li
-    cambi, aggiorna anche quel file). "Prova il link" e, se la gestione mostra
-    un testo per la web TV (CORS, link `.m3u8` al posto della pagina da
-    incorporare), inoltraglielo. Metti anche il **link di riserva** e, se la web
-    TV usa i link firmati, la sezione **"Link firmati"** (§5.5).
+10. [ ] Crea l'evento **`napoli-2026`** con gli orari veri (stesso
+    identificativo e stessi orari di `assets/diretta-stato.js`: se li cambi,
+    aggiorna anche quel file), "Tipo di player": **Player Azoto**, e incolla il
+    **codice che vi ha dato Azoto** (si salva solo l'indirizzo). "Prova il
+    player". Il flusso diretto lascialo vuoto finché Azoto non dà il `.m3u8`.
 11. [ ] **Prova generale** con un evento di prova e 3-4 persone vere (tu e dei
     colleghi): email di prova, credenziali, accesso **da un iPhone con Safari,
     da un telefono Android, da un computer con Chrome, Firefox ed Edge**, "Vai in
-    onda" con il link di prova della web TV, "Attiva l'audio", la qualità, schermo intero,
-    pausa e "Torna in diretta", cambio del link, "Passa alla riserva per tutti",
+    onda" con Azoto che trasmette una prova: il player compare, play e volume nel
+    player, "Schermo intero" (su iPhone la vista orizzontale), pausa dell'evento
+    (il player sparisce e torna), cambio del player dalla *Regia*, "Termina",
     "Password dimenticata?", esportazione. Su iPhone prova anche con il
     **Risparmio energetico** attivo. I passi per Safari, iPhone e iPad sono nel
-    §5.8.
+    §5.9.
 12. [ ] Prova sul progetto vero il **contatore dei collegati** e
     l'**esportazione** (servono gli indici del passo 4) e, se possibile, un
     piccolo carico: 300 accessi in 2 minuti con account di prova (§9).
@@ -1103,10 +1158,10 @@ settembre: c'è tempo, ma non tanto).
     l'ha ricevuta". Tieni a portata di mano il numero dell'assistenza e la
     sezione 7 ("account disattivato", "password dimenticata").
 
-**Il 2 ottobre**: *Regia* → "Vai in onda" quando la web TV trasmette; "Pausa"
+**Il 2 ottobre**: *Regia* → "Vai in onda" quando Azoto trasmette; "Pausa"
 a pranzo; "Termina" alla fine; poi *Esporta* per gli attestati. Dopo l'evento,
-chiedi alla web TV di disattivare il link se la registrazione non deve restare
-visibile.
+chiedi ad Azoto di spegnere il canale `livetv29` (il suo indirizzo, una volta
+copiato, resta apribile da chiunque finché è acceso).
 
 **Da decidere con calma** (non bloccano Napoli)
 
@@ -1116,7 +1171,8 @@ visibile.
 - Per quanto tempo tenere accessi e presenze (dati personali: per esempio 12
   mesi) e se aggiungere una pulizia automatica; l'informativa privacy è già
   collegata dalla pagina di accesso e dalle email.
-- Se servirà impedire la condivisione del link del video: chiedere alla web TV
-  i **link firmati a tempo** (§5.5: la gestione e il servizio sono già pronti per
-  nginx e Akamai); per un altro sistema di firma si aggiunge uno schema in
-  `email-service/lib/diretta-firma.js`.
+- Se servirà impedire davvero la condivisione del video: con il player di Azoto
+  serve la limitazione al dominio da parte loro (domanda 1); con il flusso
+  diretto, i **link firmati a tempo** (§5.5: la gestione e il servizio sono già
+  pronti per nginx e Akamai; per un altro sistema di firma si aggiunge uno schema
+  in `email-service/lib/diretta-firma.js`).

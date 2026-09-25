@@ -73,6 +73,8 @@ async function preparaContesto(context, opz) {
         const req = route.request();
         const url = req.url();
         if (/^https:\/\/revilaw-email\.vercel\.app\//.test(url)) return route.fallback();
+        // il player di Azoto: mai la rete vera nelle prove (lo finge flusso-prova.js, instradaAzoto)
+        if (/^https:\/\/[a-z0-9.-]*azotosolutions\.com[:/]/.test(url)) return route.fallback();
         if (req.method() !== 'GET') return route.abort();
         // i video della home (decine di MB) e le statistiche non servono alle
         // prove: consegnati in un colpo solo fanno cadere il browser
