@@ -18292,7 +18292,7 @@
         };
         const deskHtml = (_rb.desk || []).filter(d => d.attiva || d.occupati || d.coda.length).map(d => {
             const presi = d.slot.filter(s => s.stato === 'occupato');
-            return '<div class="rb-desk' + (d.interno ? ' rb-interno' : '') + '"><div class="rb-desk-testa"><b>' + esc(d.nome) + '</b>'
+            return '<div class="rb-desk' + (d.interno ? ' rb-interno' : '') + '"><div class="rb-desk-testa"><b>' + esc(etichettaTavoloB2B(d)) + '</b>'
                 + (d.interno ? '<span class="rb-pos">solo nostro</span>' : '')
                 + (d.referenti.length ? '<span class="hint">con ' + esc(d.referenti.map(r => r.nome).join(', ')) + '</span>'
                     : (d.interno ? '' : '<span class="ev-ko">nessun referente</span>'))
@@ -19606,7 +19606,27 @@
         const a = areeB2BDef().filter(x => x.id === id)[0];
         return a ? a.nome : String(id || '');
     }
-    function areeB2BDef() { return (window.RV_NEWSLETTER && RV_NEWSLETTER.AREE_B2B) || []; }
+    /* L'ETICHETTA DEL TAVOLO, QUANDO LA CONOSCIAMO QUI.
+       I nomi dei tavoli arrivano dal servizio insieme agli orari, e il
+       servizio e' su un'altra macchina che si aggiorna per conto suo: per
+       qualche minuto - o finche' non riparte - risponde con le etichette di
+       ieri. Il giorno che un tavolo cambia nome si vede quello vecchio, e non
+       c'e' modo di capire perche'.
+       L'etichetta pero' e' una cosa che sappiamo anche noi: sta in
+       RV_NEWSLETTER.AREE_B2B, che viaggia con il sito. La si preferisce
+       quando l'identificativo e' fra quelli che conosciamo; se e' un tavolo
+       che il servizio ha e noi no, resta la sua - meglio un nome vecchio che
+       nessun nome. Gli identificativi, quelli, non si toccano mai: e' il nome
+       a poter cambiare. */
+    function etichettaTavoloB2B(x) {
+        const a = areeB2BDef().filter(y => y.id === (x && x.id))[0];
+        return (a && a.nome) || String((x && x.nome) || '');
+    }
+    /* Si legge SEMPRE da window: nel browser e' la stessa cosa, ma fuori -
+       quando una prova ritaglia questa funzione da app.js per provarla - il
+       globale nudo non esiste e solleva un errore invece di rispondere. E'
+       gia' successo con capofilaRb. */
+    function areeB2BDef() { return (window.RV_NEWSLETTER && window.RV_NEWSLETTER.AREE_B2B) || []; }
     // il tavolo nella copia locale dell'agenda: e' li' che si scrive prima di
     // mandare al servizio
     function areaLocale(id) { return ((_agB2B && _agB2B.aree) || []).filter(x => x.id === id)[0] || null; }
@@ -20009,7 +20029,7 @@
            stato normale, e undici righe rosse non fanno guardare quella che
            conta. */
         const testa = '<div class="ag-testa" data-apri="' + esc(x.id) + '">'
-            + '<span class="ag-nome">' + esc(x.nome) + '</span>' + stato
+            + '<span class="ag-nome">' + esc(etichettaTavoloB2B(x)) + '</span>' + stato
             + (bloccato ? '<span class="prg-lucchetto" title="' + esc(x.occupati + (x.occupati === 1 ? ' orario prenotato: è bloccato' : ' orari prenotati: sono bloccati')) + '">&#128274;</span>' : '')
             + '<span class="ag-chi">' + (chi ? esc(chi)
                 : (x.attiva ? '<span class="ev-ko">nessun referente</span>' : '<span class="hint">da organizzare</span>')) + '</span>'
