@@ -71,6 +71,10 @@ const CENE = require('../lib/cene-evento');
    tocco. Stesso genere di endpoint delle cene (pubblico, con freno per IP),
    con in piu' la chiave stampata sul cartello: senza, non risponde nulla. */
 const DESK = require('../lib/accredito-desk');
+/* La conferma dell'indirizzo email dal pulsante nella mail di iscrizione:
+   azione pubblica, aperta dal collegamento firmato, con il freno per scheda
+   e non per IP (lib/conferma-email.js spiega perche'). */
+const CONFERMA = require('../lib/conferma-email');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -1240,6 +1244,8 @@ module.exports = async (req, res) => {
            cambiare idea. Li' il freno e' un altro, per singola scheda. */
         const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva',
             'b2b-slot-prenota', 'b2b-slot-richiedi',
+            // la conferma dell'indirizzo: firmata, e con un freno suo per scheda
+            'conferma-email',
             // il collegamento d'azienda ce l'hanno in piu' persone dello stesso
             // ufficio: a maggior ragione qui il freno per indirizzo IP se lo
             // mangerebbero fra loro
@@ -1330,6 +1336,13 @@ module.exports = async (req, res) => {
            "presenza-segna" lo segna presente. Tutte e due rispondono "non
            trovato" a chi non ha la chiave del cartello o prova fuori dai
            giorni dell'evento: la ragione sta in lib/accredito-desk.js. */
+        if (azione === 'conferma-email') {
+            const cred4 = leggiServiceAccount();
+            initAdmin(cred4);
+            const r = await CONFERMA.conferma(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
         if (azione === 'presenza-cerca' || azione === 'presenza-segna') {
             const cred3 = leggiServiceAccount();
             initAdmin(cred3);
@@ -1516,7 +1529,9 @@ module.exports = async (req, res) => {
                         pagina: pagina, data: data, modalita: scheda.modalita || '',
                         listaAttesa: scheda.listaAttesa === true
                     },
-                    NL.linkCompleta(idDoc));
+                    NL.linkCompleta(idDoc),
+                    // il pulsante "conferma il tuo indirizzo", in cima alla mail
+                    NL.linkConfermaEmail(idDoc));
                 await trasporto().sendMail({
                     from: mittenteMail(), to: email,
                     subject: m.oggetto, text: m.testo, html: m.html

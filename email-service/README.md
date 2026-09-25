@@ -1113,6 +1113,58 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
+## Conferma dell'indirizzo email (`lib/conferma-email.js`)
+
+La mail di conferma dell'iscrizione (`confermaSito` in `lib/mail-ngb.js`, e la
+gemella composta dall'area riservata in `newsletter-format.js` per le schede
+inserite a mano) porta **in cima** un pulsante "Conferma il tuo indirizzo
+email". Chi lo tocca apre `/conferma_email/?d=<idDoc>&t=<firma>`; la pagina
+chiama il servizio e sulla scheda resta `emailConfermata: { quando, come }`.
+Nell'area riservata e' il **baffetto verde** accanto all'indirizzo, il
+riquadro "indirizzi confermati" in testa all'evento, e la voce "Rimanda la
+mail di conferma" nel menu della riga per chi non ce l'ha ancora.
+
+- **La firma** (`NL.firmaConfermaEmail`, `NL.linkConfermaEmail`): stesso
+  segreto degli altri collegamenti personali, contesto suo
+  (`conferma-email|<idDoc>`). Il token che conferma l'indirizzo non apre
+  `/completa_iscrizione/`, che scrive, e viceversa. Nessuna variabile nuova.
+- **`azione: "conferma-email"`** su `/api/iscrizione-nuova`, con `d` e `t`.
+  Firma cattiva: `403` e nessuna lettura. Scrive `emailConfermata: { quando,
+  come: 'mail' }` con merge, **idempotente** (la seconda apertura risponde
+  `gia: true` con la data della prima e non riscrive), poi alza la revisione.
+  Risponde solo `{ ok, gia, quando, nome, evento }`: mai email o telefono, la
+  pagina e' raggiungibile da chiunque abbia il collegamento. Il freno e' per
+  **scheda** (20 in 10 minuti), non per IP: dieci persone dello stesso
+  ufficio confermano nello stesso minuto.
+- **Perche' la pagina conferma con una POST dallo script** e non aprendosi:
+  gli antispam aziendali (Safe Links di Outlook, i proxy di sicurezza)
+  visitano ogni collegamento della mail prima della persona, ma non eseguono
+  JavaScript. Se bastasse aprire l'indirizzo, ogni iscritto risulterebbe
+  confermato da un robot.
+- **Il pregresso.** Chi era iscritto prima che la mail avesse il pulsante -
+  in sala, aderente, sponsor o online - e' confermato d'ufficio e non riceve
+  nessuna mail: `azione: "conferma-email-pregresso"` su `/api/presenze`
+  (**solo amministratore**, con `filtro` = la parola dell'evento, es.
+  `napoli`) scrive `{ come: 'pregresso', da }` su tutte le schede dell'evento
+  senza il campo, a lotti da 400, e salta chi lo ha gia' - dalla mail o da un
+  lancio precedente. Nell'area riservata e' il pulsante **"Segna confermati
+  gli iscritti finora"**, che compare finche' c'e' qualcuno senza baffetto.
+  Le righe del foglio Google storico non hanno una scheda: `/api/iscrizioni`
+  le restituisce gia' come pregresso. Il suggerimento sul baffetto dice
+  quale dei due e'.
+- **L'ORDINE CONTA: prima si pubblica il servizio con la mail nuova, poi si
+  preme il pulsante del pregresso su ogni evento aperto** (Napoli in testa).
+  Al contrario chi si iscrive nel mezzo riceverebbe la mail E verrebbe
+  segnato d'ufficio: non e' grave (chi clicca dopo resta "pregresso", il
+  campo c'e' gia'), ma e' un baffetto che dice meno del vero.
+- **`azione: "richiedi-conferma-email"`** su `/api/presenze` (tutti gli
+  abilitati agli Eventi): rispedisce la stessa mail dell'iscrizione dal
+  sito, composta dal servizio (il pulsante porta una firma che solo il
+  servizio conosce), una volta ogni 10 minuti per scheda; sulla scheda resta
+  `emailConfermaRimandata: { da, daNome, quando }`. A chi ha gia' confermato
+  risponde `gia: true` senza spedire.
+- **Le prove**: `node prove/conferma-email.prove.js` (Firestore finto).
+
 ## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
 
 Il giorno del convegno al desk c'e' un cartello con un QR (lo produce

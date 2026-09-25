@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#164068">
+
+<!-- ============================================================
+     CONFERMA DELL'INDIRIZZO EMAIL - Next Generation Business
+     ------------------------------------------------------------
+     Si apre dal pulsante "Conferma il tuo indirizzo email" nella
+     mail di iscrizione: l'indirizzo porta l'identificativo della
+     scheda (d) e una firma (t). La pagina chiama il servizio, che
+     verifica la firma e scrive sulla scheda che l'indirizzo e'
+     confermato; nell'area riservata compare il baffetto verde.
+
+     PERCHE' CONFERMA CON UNA POST E NON APRENDOSI. Gli antispam
+     aziendali (Safe Links di Outlook, i proxy di sicurezza)
+     visitano ogni collegamento della mail prima che la persona lo
+     veda, ma non eseguono JavaScript: se bastasse aprire l'indirizzo,
+     ogni iscritto risulterebbe confermato da un robot. Qui la
+     conferma parte dallo script, che un robot non esegue.
+
+     Niente accesso, niente password: il collegamento e' personale e
+     vale per quella sola scheda. Il servizio risponde il minimo -
+     nome e nome dell'evento - perche' la pagina e' raggiungibile da
+     chiunque abbia il collegamento.
+     ============================================================ -->
+
+<title>Conferma il tuo indirizzo | Next Generation Business</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="apple-touch-icon" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --blu: #164068; --blu-chiaro: #2c6ca8; --blu-tenue: #eaf0f7;
+    --inchiostro: #16202e; --inchiostro-tenue: #5b6878;
+    --riga: #dce3ea; --fondo: #f4f6f9; --bianco: #ffffff;
+    --avviso: #8d5c14; --ok: #1f6b57;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: var(--fondo); color: var(--inchiostro);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 16px; line-height: 1.55; -webkit-text-size-adjust: 100%; padding-bottom: 3rem;
+}
+h1, h2, .evento, button { font-family: 'Montserrat', system-ui, sans-serif; }
+.foglio { max-width: 34rem; margin: 0 auto; padding: 0 1rem; }
+.testata { background: var(--blu); color: #fff; padding: 1.5rem 1rem 1.75rem; margin-bottom: 1rem; }
+.testata .foglio { padding: 0 1rem; }
+.evento { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.72; }
+.saluto { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-top: 0.5rem; }
+
+.stato { background: var(--bianco); border: 1px solid var(--riga); padding: 1.75rem 1.25rem; text-align: center; }
+.stato h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 0.5rem; }
+.stato p { font-size: 0.9375rem; color: var(--inchiostro-tenue); }
+.stato p + p { margin-top: 0.6rem; }
+.stato--avviso { border-top: 3px solid var(--avviso); }
+.stato--ok { border-top: 4px solid var(--ok); }
+.segno {
+    width: 4.25rem; height: 4.25rem; border-radius: 50%; background: var(--ok); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.9rem;
+}
+.chi { font-family: 'Montserrat', sans-serif; font-size: 1.125rem; font-weight: 700; color: var(--inchiostro); margin-top: 0.4rem; }
+.quando { font-size: 0.8125rem; color: var(--inchiostro-tenue); margin-top: 0.75rem; font-variant-numeric: tabular-nums; }
+a.pulsante, button.pulsante {
+    display: block; width: 100%; margin-top: 1.25rem; padding: 0.85rem; min-height: 44px;
+    background: var(--blu); color: #fff; text-decoration: none; text-align: center;
+    font-family: 'Montserrat', sans-serif; font-size: 0.9375rem; font-weight: 700; border: 0; cursor: pointer;
+}
+a.pulsante:hover, button.pulsante:hover { background: #0f3153; }
+a.pulsante:focus-visible, button.pulsante:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px; }
+.nascosto { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="testata">
+    <div class="foglio">
+        <span class="evento">Next Generation Business</span>
+        <h1 class="saluto" id="titolo">Conferma del tuo indirizzo</h1>
+    </div>
+</div>
+
+<div class="foglio">
+    <div id="stato" class="stato">
+        <div id="segno" class="segno nascosto" aria-hidden="true">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <h2 id="statoTitolo">Un attimo</h2>
+        <p id="statoTesto">Stiamo confermando il tuo indirizzo.</p>
+        <div id="chi" class="chi nascosto"></div>
+        <div id="quando" class="quando nascosto"></div>
+        <button type="button" id="riprova" class="pulsante nascosto">Riprova</button>
+        <a id="vaiEvento" class="pulsante nascosto" href="https://nextgenerationbusiness.it/">Vai alla pagina dell&rsquo;evento</a>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+    var SCADENZA_MS = 10000;
+    var el = function (id) { return document.getElementById(id); };
+    var mostra = function (id, si) { el(id).classList.toggle('nascosto', !si); };
+
+    var q = new URLSearchParams(location.search);
+    var d = (q.get('d') || '').trim(), t = (q.get('t') || '').trim();
+
+    function stato(tipo, titolo, testo) {
+        var s = el('stato');
+        s.classList.toggle('stato--avviso', tipo === 'avviso');
+        s.classList.toggle('stato--ok', tipo === 'ok');
+        mostra('segno', tipo === 'ok');
+        el('statoTitolo').textContent = titolo;
+        el('statoTesto').textContent = testo;
+    }
+    function quandoIt(ms) {
+        var n = new Date(ms), p = function (x) { return String(x).padStart(2, '0'); };
+        return p(n.getDate()) + '/' + p(n.getMonth() + 1) + '/' + n.getFullYear() + ' alle ' + p(n.getHours()) + ':' + p(n.getMinutes());
+    }
+    /* La pagina dell'evento, dal suo nome ("Napoli 2 Ottobre 2026" ->
+       /napoli_ottobre_2026/): un rimando di cortesia, non una condizione. */
+    function paginaEvento(nome) {
+        var m = /^(\w+)\s+\d+\s+(\w+)\s+(\d{4})/.exec(String(nome || ''));
+        if (!m) return 'https://nextgenerationbusiness.it/';
+        return 'https://nextgenerationbusiness.it/' + m[1].toLowerCase() + '_' + m[2].toLowerCase() + '_' + m[3] + '/';
+    }
+
+    function conferma() {
+        stato('', 'Un attimo', 'Stiamo confermando il tuo indirizzo.');
+        mostra('riprova', false); mostra('chi', false); mostra('quando', false); mostra('vaiEvento', false);
+        var ctrl = ('AbortController' in window) ? new AbortController() : null;
+        var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, SCADENZA_MS);
+        fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: JSON.stringify({ azione: 'conferma-email', d: d, t: t }),
+            signal: ctrl ? ctrl.signal : undefined
+        }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j._stato = r.status; return j; }); })
+            .then(function (r) {
+                if (r && r.ok) {
+                    stato('ok', r.gia ? 'Indirizzo già confermato' : 'Indirizzo confermato, grazie',
+                        (r.gia ? 'Lo avevi già confermato' + (r.quando ? ' il ' + quandoIt(r.quando) : '') + ': non devi fare altro.'
+                            : 'Da adesso sappiamo che le comunicazioni su ' + (r.evento || 'Next Generation Business') + ' ti arrivano.'));
+                    if (r.nome) { el('chi').textContent = r.nome; mostra('chi', true); }
+                    if (!r.gia && r.quando) { el('quando').textContent = quandoIt(r.quando); mostra('quando', true); }
+                    el('vaiEvento').href = paginaEvento(r.evento);
+                    mostra('vaiEvento', true);
+                } else if (r && (r._stato === 403 || r._stato === 404)) {
+                    stato('avviso', 'Collegamento non valido', 'Questo collegamento non è valido o non è più attivo. Apri la mail di iscrizione e tocca di nuovo il pulsante; se il problema resta, scrivici a info@nextgenerationbusiness.it.');
+                } else {
+                    throw new Error('servizio');
+                }
+            })
+            .catch(function () {
+                stato('avviso', 'Connessione assente', 'Non riusciamo a raggiungere il servizio. Riprova fra qualche secondo: il collegamento resta valido.');
+                mostra('riprova', true);
+            })
+            .finally(function () { clearTimeout(timer); });
+    }
+
+    el('riprova').addEventListener('click', conferma);
+
+    if (!d || !t) {
+        stato('avviso', 'Collegamento non completo', 'Questo collegamento non è completo: apri la mail di iscrizione e tocca di nuovo il pulsante "Conferma il tuo indirizzo email".');
+    } else {
+        conferma();
+    }
+})();
+</script>
+
+</body>
+</html>
