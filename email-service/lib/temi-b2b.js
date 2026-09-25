@@ -86,7 +86,21 @@ const AREE_B2B = [
        il posto dove presentarsi ci sono, quello che non c'e' e' il modo di
        scegliersela da soli. Anche lui ha il suo secondo tavolo. */
     { id: 'desk-revilaw', nome: 'Desk Revilaw', interno: true },
-    { id: 'desk-revilaw-b', nome: 'Desk Revilaw - secondo tavolo', interno: true, gemelloDi: 'desk-revilaw' }
+    /* IL SECONDO TAVOLO DEL MERITO CREDITIZIO, e l'identificativo dice ancora
+       "desk-revilaw-b" perche' questo tavolo NASCE come secondo desk Revilaw e
+       poi e' stato convertito: il merito creditizio e' l'argomento piu'
+       richiesto, e il desk interno ne serviva uno solo.
+       L'identificativo non si e' cambiato perche' e' la chiave con cui il
+       tavolo viaggia fra invito, prenotazione e agenda: riscriverlo avrebbe
+       staccato dal loro tavolo gli appuntamenti gia' presi e le chiusure gia'
+       decise. E' esattamente il caso per cui id e nome sono due cose diverse
+       (vedi il cappello di questo file): il nome si ritocca, l'id no.
+       Per la stessa ragione la riga resta IN FONDO e non accanto al merito
+       creditizio: l'ordine e' quello con cui viaggiano le prenotazioni per
+       indice, e spostarla sposterebbe le scelte gia' fatte.
+       Non e' piu' `interno`: adesso l'azienda lo vede - anzi non lo vede come
+       tavolo a se', vede il merito creditizio con il doppio degli orari. */
+    { id: 'desk-revilaw-b', nome: 'Merito creditizio - secondo tavolo', gemelloDi: 'merito-creditizio' }
 ];
 
 // le sole etichette, nello stesso ordine: la forma con cui gli orari e le
@@ -145,7 +159,10 @@ function nomeArea(id) { const a = areaDa(id); return a ? a.nome : ''; }
    tavolo di quella convocazione sparirebbe senza che nessuno lo veda. */
 const NOMI_STORICI = {
     // quando il rating di legalita' stava ancora insieme al 231
-    'modello 231 e rating di legalita': 'modello-231'
+    'modello 231 e rating di legalita': 'modello-231',
+    // quando desk-revilaw-b era il secondo desk della segreteria, prima di
+    // diventare il secondo tavolo del merito creditizio
+    'desk revilaw - secondo tavolo': 'desk-revilaw-b'
 };
 // dall'etichetta corta all'identificativo (gli inviti vecchi parlano per nome)
 function idArea(nome) {
