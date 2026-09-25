@@ -223,6 +223,18 @@ const BIANCHI = { data: '21/09/2026 11:00:00', nome: 'Anna', cognome: 'Bianchi',
         esigi(n.corpo.trovato === false, 'nemmeno per nome');
     });
 
+    await prova('Chi sta in "Solo incontri B2B" non e\' un iscritto: il desk non lo propone', async () => {
+        azzera();
+        iscrivi('a', Object.assign({}, ROSSI, { soloB2B: true }));
+        const r = await DESK.cerca(db, corpo({ email: ROSSI.email }));
+        esigi(r.corpo.trovato === false, 'la scheda nata dagli inviti B2B non si trova');
+        azzera();
+        iscrivi('b', BIANCHI);
+        dati.set('presenze/' + DESK.idDocPresenza(EVENTO, DESK.idIscrittoDi(BIANCHI)), { evento: EVENTO, idIscritto: DESK.idIscrittoDi(BIANCHI), modalita: 'b2b' });
+        const s = await DESK.cerca(db, corpo({ email: BIANCHI.email }));
+        esigi(s.corpo.trovato === false, 'nemmeno chi organizza ha spostato fra gli invitati ai soli incontri');
+    });
+
     await prova('Le schede inserite a mano (pagina corta) si trovano lo stesso', async () => {
         azzera();
         iscrivi('m', Object.assign({}, BIANCHI, { pagina: 'Napoli 2 Ottobre 2026' }));

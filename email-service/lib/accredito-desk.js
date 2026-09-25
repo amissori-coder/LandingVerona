@@ -163,7 +163,14 @@ async function schedeEvento(db, ev) {
         if (v.annullato) return;
         const id = idIscrittoDi(v);
         if (cancellate[id]) return;
-        righe.push({ id: id, scheda: v, presenza: presenze[id] || null });
+        const r = { id: id, scheda: v, presenza: presenze[id] || null };
+        /* La sezione "Solo incontri B2B" sta FUORI dall'elenco degli iscritti
+           nell'area riservata: sono imprese convocate ai tavoli, non persone
+           iscritte al convegno (le schede nate dagli inviti hanno anche
+           `soloB2B`). Il desk vale per l'elenco: chi e' li' dentro e si
+           presenta compila il questionario e diventa un iscritto in sala. */
+        if (v.soloB2B === true || modalitaEffettiva(r) === 'b2b') return;
+        righe.push(r);
     });
     return righe;
 }
