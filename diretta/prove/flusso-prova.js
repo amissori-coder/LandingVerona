@@ -220,13 +220,29 @@ function rispostaAzoto(url, controllo) {
 
 /* Il player di Azoto finto visto dal browser. controllo.fermo si puo'
    cambiare in ogni momento; le richieste "mai" restano appese (le chiude
-   la fine del contesto). */
+   la fine del contesto).
+   I rimandi verso lo stesso player (il 301 verso .../player/) si seguono
+   QUI: la richiesta che segue un rimando finto (route.fulfill con un 301)
+   Chromium non la fa passare da context.route, e andrebbe in rete, verso
+   l'Azoto vero (visto il 25/09: l'iframe finiva su chrome-error con
+   ERR_CERT_AUTHORITY_INVALID, e il canale "lento" sembrava caricato).
+   controllo.richieste registra comunque tutti e due i percorsi, come se
+   li avesse chiesti il browser. Un rimando verso un altro sito (altrove)
+   resta al browser, come con il vero: nelle nostre pagine lo blocca la
+   CSP (frame-src solo Azoto). */
 async function instradaAzoto(context, opzioni) {
     const controllo = Object.assign({ fermo: false, richieste: [] }, opzioni || {});
     await context.route(/^https:\/\/cdn\.azotosolutions\.com\//, route => {
-        const url = route.request().url();
+        let url = route.request().url();
         controllo.richieste.push(new URL(url).pathname);
-        const r = rispostaAzoto(url, controllo);
+        let r = rispostaAzoto(url, controllo);
+        for (let salti = 0; !r.mai && (r.status === 301 || r.status === 302) && salti < 5; salti++) {
+            const verso = new URL(r.headers.location, url);
+            if (verso.origin !== AZOTO) break;
+            url = verso.href;
+            controllo.richieste.push(verso.pathname);
+            r = rispostaAzoto(url, controllo);
+        }
         if (r.mai) return undefined;
         return route.fulfill({ status: r.status, headers: r.headers, body: r.body });
     });
