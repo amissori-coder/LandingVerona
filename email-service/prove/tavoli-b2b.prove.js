@@ -133,5 +133,64 @@ prova('5) La mail d\'invito elenca un tavolo per ARGOMENTO', () => {
     esigi(!/[\u2013\u2014]/.test(m.testo), 'e non ci sono trattini lunghi: si scrive con il trattino normale');
 });
 
+prova('6) Il secondo tavolo del merito creditizio', () => {
+    /* Era il secondo desk della segreteria ed e' stato convertito:
+       l'identificativo resta "desk-revilaw-b" perche' e' la chiave con cui
+       viaggiano le prenotazioni gia' prese, il nome e la famiglia no. E'
+       proprio il caso per cui id e nome sono due cose diverse, e vale la pena
+       che una prova lo dica: chi legge l'elenco e trova un "desk-revilaw-b"
+       fra i tavoli del merito creditizio deve capire che e' voluto. */
+    const a = SERVIZIO.areaDa('desk-revilaw-b');
+    esigi(!!a, 'il tavolo c e ancora, con il suo identificativo di sempre');
+    esigi(a && !a.interno, 'non e piu interno: l azienda lo vede');
+    esigi(SERVIZIO.capofilaDi('desk-revilaw-b') === 'merito-creditizio',
+        'e sta nella famiglia del merito creditizio', SERVIZIO.capofilaDi('desk-revilaw-b'));
+    esigi(SERVIZIO.gemelliDi('merito-creditizio').join(',') === 'merito-creditizio,desk-revilaw-b',
+        'che ora ha due tavoli, il capofila per primo', SERVIZIO.gemelliDi('merito-creditizio').join(','));
+    /* UN desk interno resta, e uno solo: quello dove si portano le esigenze
+       che a un tavolo del convegno non appartengono. */
+    const interni = SERVIZIO.AREE_B2B.filter(x => x.interno).map(x => x.id);
+    esigi(interni.join(',') === 'desk-revilaw', 'e il desk interno resta uno solo', interni.join(','));
+    /* L'ORDINE non e' cambiato: le prenotazioni vecchie viaggiano per indice,
+       e spostare la riga sposterebbe le scelte gia' fatte. */
+    esigi(SERVIZIO.AREE_B2B[SERVIZIO.AREE_B2B.length - 1].id === 'desk-revilaw-b',
+        'la riga e rimasta in fondo, dove era');
+    /* Il nome di prima resta riconoscibile: un invito partito mesi fa parla
+       ancora per nome. */
+    esigi(SERVIZIO.idArea('Desk Revilaw - secondo tavolo') === 'desk-revilaw-b',
+        'e il nome vecchio porta ancora al suo tavolo');
+    /* L'AZIENDA vede una voce sola per il merito creditizio. */
+    const fam = SERVIZIO.famiglieB2B().filter(f => f.id === 'merito-creditizio')[0];
+    esigi(fam && fam.aree.length === 2, 'per l azienda e un argomento solo, con due tavoli dentro');
+    esigi(!/secondo tavolo/i.test(JSON.stringify(SERVIZIO.famiglieB2B())),
+        'e "secondo tavolo" non compare in nessuna voce che l azienda legge');
+});
+
+prova('7) L\'etichetta del tavolo la scrive il sito, quando la conosce', () => {
+    /* I nomi dei tavoli arrivano dal servizio insieme agli orari, e il
+       servizio sta su un'altra macchina che si aggiorna per conto suo: il
+       giorno che un tavolo cambia nome, l'area riservata continuerebbe a
+       mostrare quello vecchio finche' il servizio non riparte, senza che si
+       capisca perche'. Il nome pero' e' una cosa che il sito sa da se'. */
+    const APP = fs.readFileSync(path.join(RADICE, 'area-riservata', 'app.js'), 'utf8');
+    const ritaglia = nome => {
+        const i = APP.indexOf('function ' + nome + '(');
+        let j = APP.indexOf('{', i), n = 0, fine = -1;
+        for (; j < APP.length; j++) {
+            if (APP[j] === '{') n++;
+            else if (APP[j] === '}') { n--; if (!n) { fine = j + 1; break; } }
+        }
+        return APP.slice(i, fine);
+    };
+    const AREE = [{ id: 'desk-revilaw-b', nome: 'Merito creditizio - secondo tavolo' }];
+    const etichetta = new Function('areeB2BDef', 'return ' + ritaglia('etichettaTavoloB2B'))(() => AREE);
+    esigi(etichetta({ id: 'desk-revilaw-b', nome: 'Desk Revilaw - secondo tavolo' }) === 'Merito creditizio - secondo tavolo',
+        'con il servizio indietro vale il nome che conosce il sito');
+    esigi(etichetta({ id: 'tavolo-che-non-conosciamo', nome: 'Tavolo nuovo' }) === 'Tavolo nuovo',
+        'ma un tavolo che il sito non conosce tiene il suo: meglio un nome vecchio che nessun nome');
+    esigi(etichetta({ id: 'desk-revilaw-b' }) === 'Merito creditizio - secondo tavolo',
+        'e se il servizio non manda il nome, il sito ce l ha lo stesso');
+});
+
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
 process.exit(ko ? 1 : 0);
