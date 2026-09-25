@@ -1579,7 +1579,12 @@
            l'invito non lo propone mai - chi compone la mail toglie i tavoli
            interni. Ci si finisce solo perche' lo decide chi organizza. */
         { nome: 'Desk Revilaw', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' },
-        { nome: 'Desk Revilaw - secondo tavolo', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' }
+        /* Il SECONDO desk Revilaw e' diventato il secondo tavolo del merito
+           creditizio: l'identificativo resta "desk-revilaw-b" (e' la chiave
+           delle prenotazioni gia' prese), il nome e la descrizione no. La
+           descrizione e' quella del merito creditizio, perche' per chi legge
+           e' lo stesso incontro. */
+        { nome: 'Merito creditizio - secondo tavolo', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
@@ -1593,7 +1598,7 @@
     /* I tavoli INTERNI non si propongono a nessuno. La regola sta anche qui
        perche' qui si compone la mail d'invito, e un tavolo interno finito in
        elenco sarebbe un invito a prenotare una cosa che non si prenota. */
-    const AREE_INTERNE_B2B = ['desk-revilaw', 'desk-revilaw-b'];
+    const AREE_INTERNE_B2B = ['desk-revilaw'];
     const areaInternaB2B = id => AREE_INTERNE_B2B.indexOf(String(id || '')) >= 0;
     /* I SECONDI TAVOLI di uno stesso argomento. Per chi organizza sono due
        tavoli veri, con due referenti e due griglie di orari; per chi riceve
@@ -1604,7 +1609,9 @@
     const SECONDI_B2B = {
         'modello-231-b': 'modello-231',
         'rating-legalita-b': 'rating-legalita',
-        'desk-revilaw-b': 'desk-revilaw'
+        // era il secondo desk della segreteria, ora e' il secondo tavolo del
+        // merito creditizio: l'identificativo non si cambia, il capofila si'
+        'desk-revilaw-b': 'merito-creditizio'
     };
     const capofilaB2B = id => SECONDI_B2B[String(id || '')] || String(id || '');
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a

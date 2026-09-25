@@ -1759,9 +1759,27 @@ non solo a video.
 **I TAVOLI DOPPI sono due tavoli.** Un orario di un tavolo ospita UNA
 prenotazione sola, quindi un argomento tenuto da due persone in parallelo ha
 due voci in `AREE_B2B` (`modello-231` e `modello-231-b`, `rating-legalita` e
-`rating-legalita-b`): ognuna con i suoi referenti, i suoi orari e le sue
-chiusure, cosi se uno dei due e sul palco l'altro continua a ricevere. Chi
-invita sceglie a quale dei due convocare l'impresa.
+`rating-legalita-b`, `merito-creditizio` e `desk-revilaw-b`): ognuna con i suoi
+referenti, i suoi orari e le sue chiusure, cosi se uno dei due e sul palco
+l'altro continua a ricevere. Chi invita sceglie a quale dei due convocare
+l'impresa. L'azienda invece vede **una voce sola con il doppio dei posti**:
+l'argomento e l'ora sono suoi, a quale dei due professionisti mandarla no.
+
+> **`desk-revilaw-b` e il secondo tavolo del MERITO CREDITIZIO**, non un desk
+> della segreteria: era nato cosi' ed e' stato convertito, perche' il merito
+> creditizio e l'argomento piu' richiesto e il desk interno ne serviva uno
+> solo. **L'identificativo non e stato cambiato**: e la chiave con cui il
+> tavolo viaggia fra invito, prenotazione e agenda, e riscriverlo avrebbe
+> staccato dal loro tavolo gli appuntamenti gia presi e le chiusure gia
+> decise. Per la stessa ragione la riga resta in fondo all'elenco e non accanto
+> al merito creditizio: l'ordine e quello con cui viaggiano le prenotazioni per
+> indice. E' il caso per cui `id` e `nome` sono due cose diverse. Il nome di
+> prima resta in `NOMI_STORICI`, perche' un invito partito mesi fa parla ancora
+> per nome.
+>
+> **In agenda quel tavolo va dato al referente giusto.** Il tavolo si attiva
+> quando gli si assegna un referente: se ci fosse rimasta la persona del desk
+> della segreteria, si ritroverebbe seduta a un tavolo di merito creditizio.
 
 **L'area invitata sta sulla SCHEDA, non nel collegamento**
 (`b2bInvito.aree` + `b2bInvito.eventoId`, scritti da `invita-b2b` con
