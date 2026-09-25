@@ -16,10 +16,20 @@
      HLS, una registrazione (VOD), solo HEVC, una sola qualita'.
    - DASH: dynamic con timeShiftBufferDepth e le altezze, static
      (registrazione), manifest non valido, senza CORS.
-   - Pagina da incorporare: si puo' (con l'avviso del ripiego),
+   - Il player di Azoto (l'unica pagina da incorporare): si puo' ->
+     esito ok (la modalita' predefinita non e' un problema: l'avviso sui
+     comandi di Azoto e' una riga informativa), anche dal codice che da'
+     Azoto e con il salto /player -> /player/ del server vero;
      X-Frame-Options DENY e SAMEORIGIN, CSP frame-ancestors che ci
      include o no (e che vince su X-Frame-Options), non HTML, un flusso
-     HLS senza .m3u8, il link .m3u8 trovato dentro la pagina.
+     HLS senza .m3u8, 404, un salto verso un altro sito (il browser lo
+     bloccherebbe: 'non-azoto'); il link .m3u8 trovato nella pagina si
+     segnala ma NON si propone (va confermato da Azoto); la firma
+     dell'evento non si applica al player.
+   - Una pagina che non e' il player di Azoto (un'altra web TV, un
+     iframe di un altro sito, il codice con un iframe malevolo davanti,
+     azotosolutions.com senza cdn., un'altra porta): 'non-azoto' grave,
+     e nessuna richiesta parte (nemmeno il DNS).
    - SICUREZZA: http, indirizzo IP privato, nome che si risolve in un
      indirizzo privato (anche uno solo fra tanti, anche IPv6), redirect
      verso un indirizzo privato o verso http, troppi redirect, DNS che
@@ -278,35 +288,51 @@ function webtv(opz) {
         }
         vero(PL.durataIso('PT1H30M') === 5400 && PL.durataIso('PT59.5S') === 59.5 && PL.durataIso('P1DT1S') === 86401 && PL.durataIso('') === null && PL.durataIso('PT') === null, 'durate ISO 8601 (PT1H30M, PT59.5S, P1DT1S)');
 
-        /* ================= PAGINA DA INCORPORARE ================= */
-        const PAGINA = 'https://player.webtv.esempio.it/embed/napoli';
+        /* ================= IL PLAYER DI AZOTO ================= */
+        const PAGINA = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
+        const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv29/player' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
         const html = (h, corpo) => { const p = {}; p[PAGINA] = { corpo: corpo || '<!doctype html><html><body><video></video></body></html>', h: Object.assign({ 'content-type': 'text/html; charset=utf-8' }, h || {}) }; return p; };
         {
-            const { r } = await prova(PAGINA, html());
-            const p = problema(r, 'incorporato');
-            vero(r.esito === 'avviso' && r.tipo === 'incorporato' && r.info.incorporabile === true && codici(r) === 'incorporato', 'pagina incorporabile: avviso «incorporato» (il ripiego)', JSON.stringify(r.problemi));
-            vero(p && p.messaggio === V.AVVISO_INCORPORATO && !p.grave, 'il messaggio e\' AVVISO_INCORPORATO');
-            vero(p && p.testoWebTv.indexOf('.m3u8') >= 0 && p.testoWebTv.indexOf(PAGINA) >= 0 && p.testoWebTv.indexOf(SITO) >= 0, 'testo per la web TV: chiede il link .m3u8, con la pagina e il dominio');
-            vero(r.titolo === 'Pagina della web TV da incorporare (ripiego): si può incorporare' && r.urlProva === PAGINA, 'titolo: «' + r.titolo + '»');
+            const { r, w } = await prova(PAGINA, html());
+            vero(r.esito === 'ok' && r.tipo === 'incorporato' && r.valore === PAGINA && r.info.incorporabile === true && r.problemi.length === 0,
+                'player Azoto incorporabile: esito ok, nessun problema (e\' la modalita\' predefinita)', JSON.stringify(r.problemi));
+            vero(r.righe.indexOf(V.AVVISO_INCORPORATO) >= 0 && r.righe.indexOf(V.descrizione('incorporato')) >= 0, 'l\'avviso sui comandi di Azoto e\' una riga informativa: ' + JSON.stringify(r.righe));
+            vero(r.titolo === 'Player Azoto: si può incorporare nella nostra pagina' && r.urlProva === PAGINA && r.info.raggiungibile === true, 'titolo: «' + r.titolo + '»');
+            vero(w.registro.length === 1 && w.registro[0].headers.origin === SITO && /text\/html/.test(w.registro[0].headers.accept), 'una sola richiesta, come la farebbe l\'iframe (Accept text/html, Origin del nostro sito)');
+        }
+        {
+            // il server vero: /player rimanda a /player/, e la pagina ha dentro i link del flusso
+            const pag = {};
+            pag[PAGINA] = { stato: 301, h: { location: PAGINA + '/' } };
+            pag[PAGINA + '/'] = {
+                corpo: '<!DOCTYPE html><html><head><title>AzotoSolutions</title></head><body><div id="player"></div><script>var sorgenti = [{ type: "hls", file: "https://load-balancer.azotosolutions.com/cdnedge29/smil:live29.smil/playlist.m3u8" }, { type: "dash", file: "https://load-balancer.azotosolutions.com/cdnedge29/smil:live29.smil/manifest.mpd" }];</script></body></html>',
+                h: { 'content-type': 'text/html; charset=UTF-8' }
+            };
+            const { r, w } = await prova(CODICE_AZOTO, pag);
+            vero(r.esito === 'ok' && r.valore === PAGINA && w.registro.length === 2 && r.righe.some(x => /rimanda a https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\//.test(x)),
+                'il codice di Azoto: si prova l\'indirizzo del player, e il salto /player -> /player/ va bene', JSON.stringify(r));
+            const riga = r.righe.find(x => /\.m3u8/.test(x) && /load-balancer/.test(x)) || '';
+            vero(/fatevelo confermare da Azoto/.test(riga) && !/provalo|meglio/i.test(riga), 'il link .m3u8 dentro la pagina si segnala ma non si propone: va confermato da Azoto («' + riga + '»)');
         }
         for (const [xfo, desc] of [['DENY', 'DENY'], ['SAMEORIGIN', 'SAMEORIGIN'], ['deny', 'deny (minuscolo)'], ['SAMEORIGIN, ALLOWALL', 'valori in conflitto']]) {
             const { r } = await prova(PAGINA, html({ 'x-frame-options': xfo }));
             const p = problema(r, 'non-incorporabile');
             vero(r.esito === 'errore' && p && p.grave && r.info.incorporabile === false && /X-Frame-Options/.test(p.messaggio), 'X-Frame-Options ' + desc + ': «non-incorporabile» grave', JSON.stringify(r.problemi));
-            vero(p && p.testoWebTv.indexOf('frame-ancestors ' + SITO) >= 0 && r.urlProva === '', 'testo per la web TV con frame-ancestors del nostro dominio; niente urlProva');
+            vero(p && p.testoWebTv.indexOf('frame-ancestors ' + SITO) >= 0 && p.testoWebTv.indexOf(PAGINA) >= 0 && r.urlProva === '', 'testo per Azoto con frame-ancestors del nostro dominio e il loro player; niente urlProva');
         }
         {
             const { r } = await prova(PAGINA, html({ 'x-frame-options': 'ALLOW-FROM https://nextgenerationbusiness.it' }));
-            vero(r.info.incorporabile === true, 'X-Frame-Options ALLOW-FROM (ignorato dai browser): incorporabile');
+            vero(r.info.incorporabile === true && r.esito === 'ok', 'X-Frame-Options ALLOW-FROM (ignorato dai browser): incorporabile');
         }
         {
             const { r } = await prova(PAGINA, html({ 'content-security-policy': 'default-src \'self\'; frame-ancestors \'self\' https://nextgenerationbusiness.it', 'x-frame-options': 'DENY' }));
-            vero(r.esito === 'avviso' && r.info.incorporabile === true && r.righe.some(x => /frame-ancestors/.test(x)), 'CSP frame-ancestors che ci include (e vince su X-Frame-Options DENY): incorporabile');
+            vero(r.esito === 'ok' && r.info.incorporabile === true && r.righe.some(x => /frame-ancestors/.test(x)), 'CSP frame-ancestors che ci include (e vince su X-Frame-Options DENY): incorporabile');
         }
         {
             const { r } = await prova(PAGINA, html({ 'content-security-policy': 'frame-ancestors \'self\' https://altro-sito.it' }));
             const p = problema(r, 'non-incorporabile');
             vero(r.esito === 'errore' && p && /frame-ancestors 'self' https:\/\/altro-sito\.it/.test(p.messaggio), 'CSP frame-ancestors che non ci include: «non-incorporabile» (' + (p && p.messaggio) + ')');
+            vero(r.titolo === 'Il player Azoto non si può incorporare', 'titolo: «' + r.titolo + '»');
         }
         {
             const { r } = await prova(PAGINA, html({ 'content-security-policy': 'frame-ancestors \'none\'' }));
@@ -329,7 +355,8 @@ function webtv(opz) {
         {
             const p = {}; p[PAGINA] = { corpo: '{"a":1}', h: { 'content-type': 'application/json' } };
             const { r } = await prova(PAGINA, p);
-            vero(r.esito === 'errore' && problema(r, 'non-html') && /application\/json/.test(problema(r, 'non-html').messaggio), 'pagina che non e\' HTML: «non-html» grave');
+            vero(r.esito === 'errore' && problema(r, 'non-html') && /application\/json/.test(problema(r, 'non-html').messaggio) && r.titolo === 'Non è la pagina del player Azoto',
+                'l\'indirizzo non apre una pagina HTML: «non-html» grave («' + r.titolo + '»)');
         }
         {
             const p = {}; p[PAGINA] = { corpo: '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nx.m3u8\n', h: { 'content-type': 'application/x-mpegurl' } };
@@ -337,14 +364,52 @@ function webtv(opz) {
             vero(r.esito === 'errore' && /non finisce con \.m3u8/.test(problema(r, 'non-html').messaggio), 'un flusso HLS senza .m3u8 nel link: lo dice');
         }
         {
-            const corpo = '<!doctype html><html><script>var sorgente = "https:\\/\\/cdn.webtv.esempio.it\\/live\\/napoli\\/index.m3u8?t=1";</script></html>';
-            const { r } = await prova(PAGINA, html({}, corpo));
-            vero(r.righe.some(x => x.indexOf('https://cdn.webtv.esempio.it/live/napoli/index.m3u8?t=1') >= 0), 'il link .m3u8 dentro la pagina si propone come flusso diretto');
-        }
-        {
             const p = {}; p[PAGINA] = { stato: 404 };
             const { r } = await prova(PAGINA, p);
-            vero(r.esito === 'avviso' && codici(r) === 'incorporato,non-trovato' && /non trovata/.test(r.titolo), 'pagina 404: avviso con il titolo «' + r.titolo + '»');
+            vero(r.esito === 'avviso' && codici(r) === 'non-trovato' && /la pagina del player non c'è/.test(r.problemi[0].messaggio) && r.titolo === 'Player Azoto: pagina non trovata (errore 404)',
+                'player 404: avviso «non-trovato» con il titolo «' + r.titolo + '»', JSON.stringify(r.problemi));
+        }
+        {
+            const p = {}; p[PAGINA] = 'timeout';
+            const { r } = await prova(PAGINA, p);
+            vero(r.esito === 'avviso' && codici(r) === 'non-risponde' && r.titolo === 'Player Azoto: non risponde' && /player Azoto/.test(r.problemi[0].messaggio), 'player che non risponde: «' + r.titolo + '»');
+        }
+        for (const verso of ['https://ladro.example.com/player', 'https://cdn.azotosolutions.com:8443/player', 'https://azotosolutions.com/player']) {
+            const p = {}; p[PAGINA] = { stato: 302, h: { location: verso } }; p[verso] = { corpo: '<!doctype html><html></html>', h: { 'content-type': 'text/html' } };
+            const { r } = await prova(PAGINA, p);
+            const pr = problema(r, 'non-azoto');
+            vero(r.esito === 'errore' && pr && pr.grave && /rimanda a un altro sito/.test(pr.messaggio) && r.titolo === 'Il player Azoto rimanda a un altro sito' && r.info.incorporabile === false && r.urlProva === '',
+                'il player rimanda a un altro sito (' + verso + '): «non-azoto» grave (il browser bloccherebbe il salto)', JSON.stringify(r.problemi));
+        }
+        {
+            // con la firma dell'evento: il player di Azoto si prova com'e' (la firma e' del flusso)
+            const { r, w } = await prova(PAGINA, html(), null, { firma: u => u + '?md5=abc&expires=1800000000' });
+            vero(r.esito === 'ok' && r.urlProva === PAGINA && w.registro[0].url === PAGINA && !r.righe.some(x => /firma/.test(x)), 'con la firma dell\'evento il player di Azoto si prova senza firma');
+        }
+
+        /* ---------- quello che non e' il player di Azoto: rifiutato senza scaricare niente ---------- */
+        for (const link of [
+            'https://player.webtv.esempio.it/embed/napoli',
+            'https://www.webtv-qualunque.com/canale/diretta',
+            '<iframe src="https://player.webtv.esempio.it/embed/9?a=1&amp;b=2"></iframe>',
+            "<iframe src='https://ladro.example.com/x'></iframe>" + CODICE_AZOTO,
+            'https://azotosolutions.com/cloudtv/livetv29/player',
+            'https://cdn.azotosolutions.com:8443/cloudtv/livetv29/player',
+            'https://cdn.azotosolutions.com.ladro.it/cloudtv/livetv29/player'
+        ]) {
+            const { r, w } = await prova(link, html());
+            const p = problema(r, 'non-azoto');
+            vero(r.esito === 'errore' && codici(r) === 'non-azoto' && p.grave && /cdn\.azotosolutions\.com/.test(p.messaggio) && p.testoWebTv === ''
+                && r.titolo === 'Non è il player Azoto: indirizzo non consentito' && r.tipo === '' && r.urlProva === '' && w.registro.length === 0 && w.risolti.length === 0,
+            'non e\' il player di Azoto: «non-azoto» grave, nessuna richiesta ne\' DNS: ' + link.slice(0, 70), JSON.stringify(r));
+        }
+        for (const [link, codice] of [
+            ["<script>alert(1)</script><iframe src='javascript:alert(1)'></iframe>", 'formato'],
+            ['<img src=x onerror=alert(1)>', 'formato'],
+            ['data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==', 'formato']
+        ]) {
+            const { r, w } = await prova(link, html());
+            vero(r.esito === 'errore' && codici(r) === codice && w.registro.length === 0, 'codice malevolo come link: «' + codice + '», nessuna richiesta: ' + link.slice(0, 60));
         }
 
         /* ================= SICUREZZA ================= */
@@ -360,7 +425,9 @@ function webtv(opz) {
         }
         {
             const { r, w } = await prova('https://169.254.169.254/latest/meta-data/', {});
-            vero(r.esito === 'errore' && codici(r) === 'non-pubblico' && r.tipo === 'incorporato' && w.registro.length === 0, 'i metadati del cloud (169.254.169.254) come pagina: solo «non-pubblico», nessuna richiesta');
+            vero(r.esito === 'errore' && codici(r) === 'non-azoto' && w.registro.length === 0 && w.risolti.length === 0, 'i metadati del cloud (169.254.169.254) come pagina: non e\' il player di Azoto, nessuna richiesta');
+            const { r: r2, w: w2 } = await prova('https://169.254.169.254/latest/playlist.m3u8', {});
+            vero(r2.esito === 'errore' && codici(r2) === 'non-pubblico' && w2.registro.length === 0, 'i metadati del cloud come flusso: «non-pubblico», nessuna richiesta');
         }
         {
             const { r, w } = await prova('https://interno.webtv.esempio.it/live/playlist.m3u8', {}, { 'interno.webtv.esempio.it': '10.0.0.7' });
@@ -474,8 +541,8 @@ function webtv(opz) {
         vero(/https/.test(http), 'fetchSicuro: solo https');
 
         /* ---------- ogni problema ha il suo messaggio; i gravi sono quelli del contratto ---------- */
-        vero(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash'].every(c => PL.GRAVI.has(c))
-            && ['cors', 'cors-segmenti', 'solo-hevc', 'registrazione', 'incorporato', 'non-risponde', 'non-trovato', 'rifiutato'].every(c => !PL.GRAVI.has(c)),
+        vero(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-azoto', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash'].every(c => PL.GRAVI.has(c))
+            && ['cors', 'cors-segmenti', 'solo-hevc', 'registrazione', 'non-risponde', 'non-trovato', 'rifiutato'].every(c => !PL.GRAVI.has(c)),
         'problemi gravi (non si salva) e avvisi (si salva dopo conferma) come da contratto');
     } catch (e) {
         rossi++;

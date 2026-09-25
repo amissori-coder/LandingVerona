@@ -14,9 +14,18 @@
      CORS sulla playlist e su un segmento (richiesta Range piccola).
    - DASH (.mpd): type dynamic/static, timeShiftBufferDepth, le altezze
      delle Representation, il CORS sul manifest.
-   - Pagina da incorporare: risposta 200, text/html, X-Frame-Options e
-     Content-Security-Policy frame-ancestors confrontati con il nostro
-     sito (https://nextgenerationbusiness.it).
+   - Il player di Azoto (la pagina da incorporare, l'unica ammessa: un
+     indirizzo https di cdn.azotosolutions.com, vedi HOST_AZOTO in
+     diretta-sorgente-video.js): risposta 200, text/html, X-Frame-Options
+     e Content-Security-Policy frame-ancestors confrontati con il nostro
+     sito (https://nextgenerationbusiness.it), e che non rimandi a un
+     altro sito (la nostra pagina ammette negli iframe solo
+     cdn.azotosolutions.com: il browser bloccherebbe il salto). La
+     pagina di qualunque altro sito non si prova nemmeno: e' l'errore
+     grave 'non-azoto'. Che si incorpori il player di Azoto e' la
+     modalita' predefinita, non un problema: se va tutto bene l'esito e'
+     'ok', e l'avviso sui comandi di Azoto (AVVISO_INCORPORATO) e' solo
+     una riga informativa.
 
    SICUREZZA (SSRF). La prova la chiede un gestore, ma a scaricare e'
    il nostro server: non deve poter diventare una porta verso la rete
@@ -34,6 +43,8 @@
    - ogni richiesta ha 8 secondi, tutta la prova al massimo 25; di ogni
      risposta si leggono al massimo 256 KB.
    Per le prove si possono passare `fetch` e `lookup` finti (opzioni).
+   Con la firma dell'evento (opzioni.firma) si prova firmato solo un
+   flusso (HLS o DASH): la firma e' del flusso, non del player di Azoto.
 
    provaLink(link, opzioni) ->
      { esito: 'ok'|'avviso'|'errore', tipo, valore, titolo, righe,
@@ -61,7 +72,7 @@ const PREDEFINITE = {
 const UA = 'NGB-ProvaLink/1.0 (+' + ORIGINE_SITO + ')';
 
 // i problemi che impediscono di salvare il link
-const GRAVI = new Set(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash']);
+const GRAVI = new Set(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-azoto', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash']);
 
 /* ============================================================
    GLI INDIRIZZI PUBBLICI
@@ -368,9 +379,9 @@ const TESTI = {
     'cors-segmenti': (ctx, link) => lettera(perSito(ctx) + ' riproduciamo il vostro flusso con il nostro player. La playlist ' + link + ' consente la riproduzione dal nostro sito, ma i segmenti video no: manca l\'intestazione CORS sui segmenti (.ts/.m4s). Potete aggiungere anche lì «Access-Control-Allow-Origin: ' + ctx.origine + '» (oppure «*»)?'),
     'solo-hevc': (ctx, link) => lettera(perSito(ctx) + ' il flusso ' + link + ' è solo in HEVC (H.265), che molti computer con Chrome e Firefox non riproducono. Potete aggiungere le stesse qualità in H.264 (AVC), con l\'audio in AAC?'),
     registrazione: (ctx, link) => lettera(perSito(ctx) + ' il link ' + link + ' risulta una registrazione (VOD) e non il canale in diretta. È un link di prova? Ci mandate il link della diretta, quello che useremo il giorno dell\'evento?'),
-    incorporato: (ctx, link) => lettera(perSito(ctx) + ' vorremmo usare il nostro player, senza loghi e con i nostri comandi. Oltre alla pagina da incorporare (' + link + '), ci potete dare il link diretto del flusso HLS (.m3u8) in https, con le intestazioni CORS che consentono la riproduzione dal dominio ' + ctx.origine + '?'),
-    'non-incorporabile': (ctx, link, motivo) => lettera(perSito(ctx) + ' la pagina ' + link + ' non si può incorporare nel nostro sito perché il vostro server lo vieta (' + motivo + '). Ci potete dare il link HLS (.m3u8) in https, oppure consentire l\'incorporamento dal nostro dominio (Content-Security-Policy: frame-ancestors ' + ctx.origine + ')?'),
-    'non-html': (ctx, link) => lettera(perSito(ctx) + ' il link ' + link + ' non apre né un flusso HLS (.m3u8) né una pagina da incorporare. Ci mandate il link HLS (.m3u8) in https della diretta?')
+    'non-incorporabile': (ctx, link, motivo) => lettera(perSito(ctx) + ' il vostro player ' + link + ' non si può incorporare nel nostro sito perché il vostro server lo vieta (' + motivo + '). Potete consentire l\'incorporamento dal nostro dominio (Content-Security-Policy: frame-ancestors ' + ctx.origine + ')? In alternativa, ci date il link HLS (.m3u8) in https?'),
+    'non-html': (ctx, link) => lettera(perSito(ctx) + ' l\'indirizzo ' + link + ' non apre la pagina del vostro player. Ci confermate l\'indirizzo del player da incorporare nel nostro sito (il codice <iframe>)?'),
+    'altro-sito': (ctx, link, verso) => lettera(perSito(ctx) + ' il vostro player ' + link + ' rimanda a un altro sito (' + verso + '), che il nostro sito non può incorporare. Ci confermate l\'indirizzo definitivo del player su ' + V.HOST_AZOTO.join(' o ') + '?')
 };
 
 // un intoppo della richiesta -> il problema per la persona
@@ -401,11 +412,14 @@ function problemaDa(ctx, r, e, link, cosa) {
     aggiungi(r, 'non-risponde', chi + ' ' + d[0] + '.', TESTI['non-risponde'](ctx, link, d[1]));
 }
 
-// una risposta con uno stato che non e' 2xx -> il problema per la persona
-function problemaStato(ctx, r, stato, link, cosa) {
+/* Una risposta con uno stato che non e' 2xx -> il problema per la
+   persona. `cosa`: chi risponde; `pagina`: e' la pagina del player di
+   Azoto (non un flusso). */
+function problemaStato(ctx, r, stato, link, cosa, pagina) {
     const chi = cosa || 'Il server della web TV';
     if (stato === 404 || stato === 410) {
-        aggiungi(r, 'non-trovato', chi + ' risponde ma il flusso non c\'è (errore ' + stato + '): se la diretta non è ancora cominciata è normale, altrimenti il link è sbagliato.', TESTI['non-trovato'](ctx, link, stato));
+        const manca = pagina ? 'la pagina del player non c\'è' : 'il flusso non c\'è';
+        aggiungi(r, 'non-trovato', chi + ' risponde ma ' + manca + ' (errore ' + stato + '): se la diretta non è ancora cominciata può essere normale, altrimenti il link è sbagliato.', TESTI['non-trovato'](ctx, link, stato));
     } else if (stato === 401 || stato === 403 || stato === 451 || stato === 407) {
         const firma = ctx.firmaAttiva ? ' Il link è stato provato con la firma impostata per l\'evento: controlla la chiave segreta e i parametri dei link firmati.' : '';
         aggiungi(r, 'rifiutato', chi + ' rifiuta la richiesta (errore ' + stato + '): il link potrebbe richiedere un token, essere scaduto o essere limitato a certi siti o paesi.' + firma, TESTI.rifiutato(ctx, link, stato));
@@ -606,17 +620,17 @@ function titoloFlusso(nome, r, nVarianti, media) {
     return 'Flusso ' + nome + ' in diretta, ' + qualita + ', ' + indietro;
 }
 function titoloIntoppo(r, pagina) {
-    const p = r.problemi.find(x => x.codice !== 'incorporato');
+    const p = r.problemi[0];
     if (!p) return '';
     if (pagina) {
         return {
             'non-pubblico': 'Indirizzo non pubblico: non si può usare',
-            'https': 'La pagina rimanda a un indirizzo http',
-            'credenziali': 'La pagina rimanda a un indirizzo con credenziali',
-            'non-trovato': 'Pagina della web TV da incorporare (ripiego): non trovata',
-            'rifiutato': 'Pagina della web TV da incorporare (ripiego): accesso negato',
-            'non-risponde': 'Pagina della web TV da incorporare (ripiego): non risponde'
-        }[p.codice] || 'La pagina della web TV non si può provare';
+            'https': 'Il player Azoto rimanda a un indirizzo http',
+            'credenziali': 'Il player Azoto rimanda a un indirizzo con credenziali',
+            'non-trovato': 'Player Azoto: pagina non trovata',
+            'rifiutato': 'Player Azoto: accesso negato',
+            'non-risponde': 'Player Azoto: non risponde'
+        }[p.codice] || 'Il player Azoto non si può provare';
     }
     return {
         'non-pubblico': 'Indirizzo non pubblico: non si può usare',
@@ -718,7 +732,7 @@ async function provaDash(ctx, r, url, link) {
 }
 
 /* ============================================================
-   LA PAGINA DA INCORPORARE
+   IL PLAYER DI AZOTO (la pagina da incorporare)
    ============================================================ */
 
 // le liste frame-ancestors di tutte le politiche CSP (null se nessuna le ha)
@@ -763,18 +777,30 @@ function xfoConsente(intestazioni) {
     return { ok: true, motivo: '' };
 }
 
-async function provaIncorporato(ctx, r, url, link) {
-    aggiungi(r, 'incorporato', V.AVVISO_INCORPORATO, TESTI.incorporato(ctx, link));
+/* Il player di Azoto: la pagina si scarica come la scaricherebbe
+   l'iframe (i reindirizzamenti si seguono), e si guarda se il browser la
+   mostrerebbe dentro la nostra pagina. */
+async function provaAzoto(ctx, r, url, link) {
     let risp;
     try { risp = await richiesta(ctx, url, { intestazioni: { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' } }); } catch (e) {
-        problemaDa(ctx, r, e, link, 'La pagina della web TV');
+        problemaDa(ctx, r, e, link, 'Il server del player Azoto');
         r.titolo = titoloIntoppo(r, true);
         return;
     }
     r.info.raggiungibile = true;
     if (risp.redirect.length) r.righe.push('Il link rimanda a ' + risp.url.slice(0, 200) + '.');
+    // la nostra pagina ammette negli iframe solo il player di Azoto: un salto verso un altro sito il browser lo blocca
+    if (!V.eAzoto(risp.url)) {
+        let verso = risp.url;
+        try { verso = new URL(risp.url).host; } catch (_) { /* resta l'indirizzo */ }
+        verso = String(verso).slice(0, 200);
+        aggiungi(r, 'non-azoto', 'Il player Azoto rimanda a un altro sito (' + verso + '): nella nostra pagina il browser lo bloccherebbe (si incorpora solo ' + V.HOST_AZOTO.join(', ') + ').', TESTI['altro-sito'](ctx, link, verso));
+        r.info.incorporabile = false;
+        r.titolo = 'Il player Azoto rimanda a un altro sito';
+        return;
+    }
     if (risp.stato < 200 || risp.stato >= 300) {
-        problemaStato(ctx, r, risp.stato, link, 'La pagina della web TV');
+        problemaStato(ctx, r, risp.stato, link, 'Il server del player Azoto', true);
         r.titolo = titoloIntoppo(r, true) + ' (errore ' + risp.stato + ')';
         return;
     }
@@ -782,13 +808,13 @@ async function provaIncorporato(ctx, r, url, link) {
     const inizio = risp.testo.replace(/^﻿/, '').trimStart().slice(0, 200);
     const html = /text\/html|application\/xhtml\+xml/.test(tipo) || (!tipo && /^(<!doctype html|<html)/i.test(inizio));
     if (!html) {
-        let motivo = 'Il link non apre una pagina web da incorporare' + (tipo ? ' (tipo: ' + tipo.split(';')[0].slice(0, 60) + ')' : '') + '.';
-        if (/^#EXTM3U/.test(inizio)) motivo = 'La risposta è un flusso HLS, ma il link non finisce con .m3u8: il player non lo riconoscerebbe. Chiedete alla web TV il link che finisce con .m3u8.';
-        else if (/<(?:[A-Za-z0-9_]+:)?MPD\b/.test(inizio) || /dash\+xml/.test(tipo)) motivo = 'La risposta è un flusso DASH, ma il link non finisce con .mpd: il player non lo riconoscerebbe. Chiedete alla web TV il link che finisce con .mpd (o meglio il link .m3u8).';
-        else if (/^video\/|mpegurl|mp2t/.test(tipo)) motivo = 'Il link è un file video o un flusso, non una pagina da incorporare: chiedete alla web TV il link che finisce con .m3u8.';
+        let motivo = 'L\'indirizzo non apre la pagina del player Azoto' + (tipo ? ' (tipo: ' + tipo.split(';')[0].slice(0, 60) + ')' : '') + '.';
+        if (/^#EXTM3U/.test(inizio)) motivo = 'La risposta è un flusso HLS, ma il link non finisce con .m3u8: il player non lo riconoscerebbe. Per il flusso diretto serve il link che finisce con .m3u8 (nel campo «Flusso diretto (.m3u8)»).';
+        else if (/<(?:[A-Za-z0-9_]+:)?MPD\b/.test(inizio) || /dash\+xml/.test(tipo)) motivo = 'La risposta è un flusso DASH, ma il link non finisce con .mpd: il player non lo riconoscerebbe. Per il flusso diretto serve il link che finisce con .mpd (o meglio il link .m3u8).';
+        else if (/^video\/|mpegurl|mp2t/.test(tipo)) motivo = 'L\'indirizzo è un file video o un flusso, non la pagina del player Azoto.';
         aggiungi(r, 'non-html', motivo, TESTI['non-html'](ctx, link));
         r.info.incorporabile = false;
-        r.titolo = 'Non è una pagina da incorporare';
+        r.titolo = 'Non è la pagina del player Azoto';
         return;
     }
     let originePagina = '';
@@ -807,19 +833,22 @@ async function provaIncorporato(ctx, r, url, link) {
     }
     r.info.incorporabile = ok;
     if (!ok) {
-        aggiungi(r, 'non-incorporabile', 'La pagina della web TV non si può incorporare nel nostro sito: il loro server lo vieta (' + motivo + ').', TESTI['non-incorporabile'](ctx, link, motivo));
-        r.titolo = 'La pagina della web TV non si può incorporare';
+        aggiungi(r, 'non-incorporabile', 'Il player Azoto non si può incorporare nel nostro sito: il loro server lo vieta (' + motivo + ').', TESTI['non-incorporabile'](ctx, link, motivo));
+        r.titolo = 'Il player Azoto non si può incorporare';
     } else {
-        r.titolo = 'Pagina della web TV da incorporare (ripiego): si può incorporare';
-        r.righe.push('La pagina si può incorporare nel nostro sito, ma con i comandi e i loghi della web TV.');
+        r.titolo = 'Player Azoto: si può incorporare nella nostra pagina';
+        r.righe.push(V.AVVISO_INCORPORATO);
     }
-    // un link .m3u8 dentro la pagina: forse e' il flusso diretto
+    /* Un link .m3u8 dentro la pagina: forse e' il flusso diretto. Si dice
+       che c'e', ma non si propone di usarlo: il flusso diretto si usa
+       solo quando Azoto lo conferma (potrebbe cambiare o essere
+       riservato a loro). */
     const trovati = [];
     const reM3u8 = /https:\/\/[^\s"'<>\\]+?\.m3u8(?:\?[^\s"'<>\\]*)?/gi;
     const sorgente = risp.testo.replace(/\\\//g, '/');
     let m;
     while ((m = reM3u8.exec(sorgente)) && trovati.length < 2) { if (trovati.indexOf(m[0]) < 0) trovati.push(m[0].slice(0, 300)); }
-    trovati.forEach(t => r.righe.push('Nella pagina c\'è un link .m3u8 che potrebbe essere il flusso diretto: ' + t + ' (provalo con «Prova il link»: se funziona è meglio del ripiego).'));
+    trovati.forEach(t => r.righe.push('Nella pagina del player c\'è un link .m3u8: ' + t + '. Potrebbe essere il flusso diretto, ma prima di usarlo fatevelo confermare da Azoto.'));
 }
 
 /* ============================================================
@@ -835,7 +864,7 @@ async function provaLink(link, opzioni) {
     const ctx = {
         fetch: o.fetch || fetchSicuro, lookup: o.lookup || lookupPredefinito,
         origine: String(o.origine || ORIGINE_SITO).replace(/\/+$/, ''), timeoutMs: o.timeoutMs, maxByte: o.maxByte,
-        maxRedirect: o.maxRedirect, fine: Date.now() + o.budgetMs, firmaAttiva: typeof o.firma === 'function'
+        maxRedirect: o.maxRedirect, fine: Date.now() + o.budgetMs, firmaAttiva: false
     };
     const s = V.leggi(incollato);
     if (!s || s.errore) {
@@ -849,13 +878,15 @@ async function provaLink(link, opzioni) {
         aggiungi(r, codice, V.messaggio(s), testi[codice] || '');
         r.titolo = {
             https: 'Link in http: serve https', rtmp: 'Link per trasmettere, non per guardare', credenziali: 'Link con nome utente e password',
-            file: 'È un file video, non una diretta'
+            file: 'È un file video, non una diretta', 'non-azoto': 'Non è il player Azoto: indirizzo non consentito'
         }[codice] || (s ? 'Link non valido' : 'Nessun link');
         return chiudi(r);
     }
     r.tipo = s.tipo;
     r.valore = s.valore;
     let daProvare = s.valore;
+    // la firma e' del flusso: il player di Azoto si prova com'e'
+    ctx.firmaAttiva = typeof o.firma === 'function' && s.tipo !== 'incorporato';
     if (ctx.firmaAttiva) {
         try { daProvare = String(o.firma(s.valore) || s.valore); } catch (_) { daProvare = s.valore; }
     }
@@ -872,7 +903,7 @@ async function provaLink(link, opzioni) {
     r.righe.push(V.descrizione(s.tipo));
     if (s.tipo === 'hls') await provaHls(ctx, r, daProvare, s.valore);
     else if (s.tipo === 'dash') await provaDash(ctx, r, daProvare, s.valore);
-    else await provaIncorporato(ctx, r, daProvare, s.valore);
+    else await provaAzoto(ctx, r, daProvare, s.valore);
     if (ctx.firmaAttiva && r.info.raggiungibile) r.righe.push('Provato con la firma impostata per l\'evento (link firmato a tempo).');
     return chiudi(r);
 }

@@ -713,7 +713,10 @@ async function aggiornaPermessi(ctx, req) {
    dell'ultimo accesso, e un dispositivo sostituito (la sua sessione,
    b.sessione, e' un'altra) non riceve piu' link: 403 'altro-dispositivo'
    (la pagina lo dice come per la presenza). Senza "un solo dispositivo"
-   sessioneAttiva e' null e vale ogni dispositivo. La risposta:
+   sessioneAttiva e' null e vale ogni dispositivo. Il link c'e' solo per
+   il flusso diretto (tipoPlayer 'flusso'): con il player di Azoto
+   l'indirizzo arriva gia' nel documento dell'evento, e qui la risposta
+   e' 409 'non-flusso' (lo decide D.linkVideo). La risposta:
    { url, scade, validoSecondi } (vedi lib/diretta-firma.js). Nei log
    niente di personale (vedi D.rispondi). */
 async function linkVideo(ctx, req, b) {

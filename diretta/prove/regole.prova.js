@@ -18,7 +18,11 @@
    (orario del server, uno ogni 50 s, un minuto alla volta, niente
    tempo contato quando la pagina era chiusa). Che un account
    disattivato o soppiantato da un altro dispositivo smette di
-   scrivere. Che il gestore legge gli eventi e basta.
+   scrivere. Che il gestore legge gli eventi e basta. Che il video
+   dell'evento (tipoPlayer, l'indirizzo del player di Azoto o il
+   flusso) lo legge solo chi e' iscritto e lo scrive solo il servizio;
+   gli indirizzi salvati (eventiRiservati) non li legge nessuno dal
+   browser.
    Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
@@ -56,8 +60,9 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     }
     await env.clearFirestore();
     await semina(async db => {
-        await setDoc(doc(db, 'eventi/napoli-2026'), { titolo: 'Napoli', stato: 'in_onda', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8' });
-        await setDoc(doc(db, 'eventi/milano-2026'), { titolo: 'Milano', stato: 'programmato', videoId: '' });
+        // il video come lo scrive il servizio: il player di Azoto (tipoPlayer 'azoto') o il flusso diretto ('flusso')
+        await setDoc(doc(db, 'eventi/napoli-2026'), { titolo: 'Napoli', stato: 'in_onda', tipoPlayer: 'azoto', videoId: 'https://cdn.azotosolutions.com/cloudtv/livetv29/player', videoRiserva: '', videoFirmato: false });
+        await setDoc(doc(db, 'eventi/milano-2026'), { titolo: 'Milano', stato: 'programmato', tipoPlayer: 'flusso', videoId: '' });
         await setDoc(doc(db, 'partecipanti/anna'), { nomeUtente: 'annabianchi', stato: 'attivo', eventi: ['napoli-2026'] });
         await setDoc(doc(db, 'partecipanti/bruno'), { nomeUtente: 'brunoverdi', stato: 'attivo', eventi: ['milano-2026'] });
         await setDoc(doc(db, 'partecipanti/carla'), { nomeUtente: 'carlaneri', stato: 'disattivato', eventi: ['napoli-2026'] });
@@ -67,7 +72,10 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await setDoc(doc(db, 'sessioni/bruno'), { stato: 'attivo', sessioneAttiva: null });
         await setDoc(doc(db, 'sessioni/carla'), { stato: 'disattivato', sessioneAttiva: null });
         await setDoc(doc(db, 'sessioni/dario'), { stato: 'attivo', sessioneAttiva: 'telefono' });
-        await setDoc(doc(db, 'eventiRiservati/napoli-2026'), { videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8' });
+        await setDoc(doc(db, 'eventiRiservati/napoli-2026'), {
+            tipoPlayer: 'azoto', azotoUrl: 'https://cdn.azotosolutions.com/cloudtv/livetv29/player',
+            videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8'
+        });
         await setDoc(doc(db, 'nomiUtente/annabianchi'), { uid: 'anna', base: 'annabianchi' });
         await setDoc(doc(db, 'indirizzi/anna@x.it'), { uid: 'anna' });
         await setDoc(doc(db, 'accessi/a1'), { uid: 'anna', idEvento: 'napoli-2026' });
@@ -86,6 +94,10 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
 
     console.log('\nLetture');
     await prova('il partecipante legge il proprio evento', () => assertSucceeds(getDoc(doc(anna, 'eventi/napoli-2026'))));
+    await prova('nel proprio evento in onda legge il tipo di player e l\'indirizzo del player di Azoto (solo dopo l\'accesso)', async () => {
+        const d = (await assertSucceeds(getDoc(doc(anna, 'eventi/napoli-2026')))).data();
+        if (d.tipoPlayer !== 'azoto' || d.videoId !== 'https://cdn.azotosolutions.com/cloudtv/livetv29/player') throw new Error('letto: ' + JSON.stringify(d));
+    });
     await prova('il partecipante NON legge un altro evento', () => assertFails(getDoc(doc(anna, 'eventi/milano-2026'))));
     await prova('il partecipante NON elenca gli eventi', () => assertFails(getDocs(collection(anna, 'eventi'))));
     await prova('il partecipante legge il proprio profilo', () => assertSucceeds(getDoc(doc(anna, 'partecipanti/anna'))));
@@ -104,6 +116,9 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
 
     console.log('\nScritture vietate');
     await prova('il partecipante NON modifica l\'evento (es. il video)', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://altro.esempio.it/live/playlist.m3u8' })));
+    await prova('il partecipante NON cambia il tipo di player', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { tipoPlayer: 'flusso' })));
+    await prova('il partecipante NON sostituisce l\'indirizzo del player di Azoto', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://ladro.esempio.it/player' })));
+    await prova('il gestore NON cambia il player dal browser (scrive solo il servizio)', () => assertFails(updateDoc(doc(gestore, 'eventi/napoli-2026'), { tipoPlayer: 'flusso' })));
     await prova('il partecipante NON modifica il proprio profilo', () => assertFails(updateDoc(doc(anna, 'partecipanti/anna'), { stato: 'attivo', sessioneAttiva: null })));
     await prova('il partecipante NON crea eventi', () => assertFails(setDoc(doc(anna, 'eventi/nuovo'), { titolo: 'x' })));
     await prova('il partecipante NON prenota nomi utente', () => assertFails(setDoc(doc(anna, 'nomiUtente/zzz'), { uid: 'anna' })));

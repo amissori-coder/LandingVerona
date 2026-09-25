@@ -48,9 +48,19 @@
      registra da solo con l'email del gestore riceve 403 e, dopo
      'gestore-accesso', perde l'accesso; il gestore attivato entra.
    - 'aggiorna-permessi' ripara i claims.
-   - diretta-stato: pubblico, con Cache-Control, mai il video; il video
-     nel documento dell'evento solo in onda.
-   - Il video della web TV: link principale e di riserva (la riserva
+   - diretta-stato: pubblico, con Cache-Control, mai il video (ne' il
+     tipo di player); il video nel documento dell'evento solo in onda.
+   - Il player di Azoto (la modalita' predefinita): l'evento si crea
+     con il codice che da' Azoto e si salva SOLO l'indirizzo; in onda
+     il documento dell'evento ha tipoPlayer 'azoto' e l'indirizzo del
+     player, senza riserva ne' firma; link-video e link-firmato
+     rispondono 409 'non-flusso'; codice malevolo, un indirizzo non di
+     Azoto, un flusso nel campo di Azoto e Azoto nel campo del flusso:
+     400 con il motivo; 'evento-player' passa tutti al flusso diretto e
+     indietro (A -> B -> A in onda, la riconferma aggiorna
+     videoAggiornato, 400 senza l'indirizzo della modalita'), e
+     'evento-video' cambia l'indirizzo di Azoto in diretta.
+   - Il flusso diretto della web TV: link principale e di riserva (la riserva
      nel documento dell'evento solo in onda), 'evento-sorgente' (la
      regia passa tutti alla riserva e torna al principale; 400 senza
      riserva), i link firmati (videoFirmato; la chiave non esce mai,
@@ -95,7 +105,11 @@ const RISULTATI = path.resolve(__dirname, 'risultati');
 const POSTA = path.join(RISULTATI, 'posta-accesso.jsonl');
 const LOG_SERVER = path.join(RISULTATI, 'server-accesso.log');
 const GESTORE = 'gestore@prova.it';
-// i link della web TV (il video arriva solo da li')
+// il player di Azoto (la modalita' predefinita) e il codice che Azoto da' da incollare nel sito
+const LINK_AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
+const LINK_AZOTO_30 = 'https://cdn.azotosolutions.com/cloudtv/livetv30/player';
+const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='" + LINK_AZOTO + "' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
+// i link del flusso diretto della web TV (la modalita' 'flusso')
 const LINK_WEBTV = 'https://webtv.esempio.it/live/napoli/playlist.m3u8';
 const LINK_RISERVA = 'https://riserva.webtv.esempio.it/live/napoli/playlist.m3u8';
 const LINK_NUOVO = 'https://webtv.esempio.it/live/napoli-bis/playlist.m3u8';
@@ -402,13 +416,20 @@ async function provaVideoWebTv(tokG, P, segrete) {
     const pHttp = await gestione({ azione: 'prova-link', link: 'http://webtv.esempio.it/live/napoli/playlist.m3u8', idEvento: EVENTO }, tokG);
     vero(pHttp.stato === 200 && pHttp.dati.esito === 'errore' && pHttp.dati.problemi.some(p => p.codice === 'https' && p.grave && /nextgenerationbusiness\.it/.test(p.testoWebTv)) && pHttp.dati.urlProva === '',
         'prova-link http: esito errore «https» con il testo per la web TV', pHttp.testo.slice(0, 300));
-    for (const link of ['https://127.0.0.1/live/playlist.m3u8', 'https://10.0.0.1:8443/live/playlist.m3u8', 'https://169.254.169.254/latest/meta-data/', 'https://[::1]/live.m3u8']) {
+    // (la pagina dei metadati, https://169.254.169.254/latest/meta-data/, non si prova nemmeno: non e' il player di Azoto)
+    for (const link of ['https://127.0.0.1/live/playlist.m3u8', 'https://10.0.0.1:8443/live/playlist.m3u8', 'https://169.254.169.254/latest/meta-data/live.m3u8', 'https://[::1]/live.m3u8']) {
         const pp = await gestione({ azione: 'prova-link', link: link }, tokG);
         vero(pp.stato === 200 && pp.dati.esito === 'errore' && pp.dati.problemi.length === 1 && pp.dati.problemi[0].codice === 'non-pubblico' && pp.dati.info.raggiungibile === false,
             'prova-link ' + link + ': rifiutato (non-pubblico)', pp.testo.slice(0, 300));
     }
     const pRtmp = await gestione({ azione: 'prova-link', link: 'rtmp://ingest.webtv.esempio.it/live/chiave' }, tokG);
     vero(pRtmp.stato === 200 && pRtmp.dati.esito === 'errore' && pRtmp.dati.problemi[0].codice === 'rtmp', 'prova-link RTMP: «rtmp»');
+    // una pagina che non e' il player di Azoto, e il codice con un iframe di un altro sito davanti: errore grave, niente scaricato
+    for (const link of ['https://player.webtv.esempio.it/embed/9', "<iframe src='https://ladro.esempio.it/p'></iframe>" + CODICE_AZOTO]) {
+        const pa = await gestione({ azione: 'prova-link', link: link, idEvento: EVENTO }, tokG);
+        vero(pa.stato === 200 && pa.dati.esito === 'errore' && pa.dati.problemi.length === 1 && pa.dati.problemi[0].codice === 'non-azoto' && pa.dati.problemi[0].grave
+            && pa.dati.info.raggiungibile === false && pa.dati.urlProva === '', 'prova-link ' + link.slice(0, 50) + ': non e\' il player di Azoto (non-azoto, grave)', pa.testo.slice(0, 300));
+    }
     const pMario = await gestione({ azione: 'prova-link', link: 'http://x.it/a.m3u8' }, tokMario);
     uguale(pMario.stato, 403, 'prova-link con il token di un partecipante: 403');
     let rifiutate = 0, fatte = 0;
@@ -416,8 +437,8 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const r = await gestione({ azione: 'prova-link', link: 'http://webtv.esempio.it/' + i + '.m3u8' }, tokG);
         if (r.stato === 429 && r.dati.codice === 'attendi') rifiutate++; else if (r.stato === 200) fatte++;
     }
-    // prima del giro: 6 prove (http, 4 indirizzi privati, RTMP); quella del partecipante si ferma prima
-    vero(rifiutate === 1 && fatte + 6 === 30, 'prova-link: al massimo 30 al minuto per gestore, poi 429 (dopo ' + (fatte + 6) + ' prove)');
+    // prima del giro: 8 prove (http, 4 indirizzi privati, RTMP, 2 non di Azoto); quella del partecipante si ferma prima
+    vero(rifiutate === 1 && fatte + 8 === 30, 'prova-link: al massimo 30 al minuto per gestore, poi 429 (dopo ' + (fatte + 8) + ' prove)');
 
     // il tetto di link-video: 60 l'ora per persona
     // prima del giro Mario ne ha gia' usate 4 (principale, riserva, evento non suo, account disattivato)
@@ -435,6 +456,33 @@ async function provaVideoWebTv(tokG, P, segrete) {
         && ((await db.collection('eventiRiservati').doc(EVENTO).get()).data().firma || {}).segreto === '', 'firma \'nessuna\': videoFirmato false e la chiave cancellata');
     const lfNessuna = await gestione({ azione: 'link-firmato', idEvento: EVENTO, sorgente: 'principale' }, tokG);
     vero(lfNessuna.stato === 200 && lfNessuna.dati.url === LINK_WEBTV && lfNessuna.dati.scade === null, 'senza firma link-firmato restituisce il link com\'e\' (scade null)');
+
+    // la regia passa tutti al player di Azoto e torna al flusso (A <- B -> A), in onda
+    console.log('\nevento-player: dal flusso diretto al player di Azoto e ritorno, in onda');
+    const tokAnna = await tokenDi(P.annabianchi.uid);
+    const pb = await leggiEv();
+    const aAzoto = await gestione({ azione: 'evento-player', idEvento: EVENTO, tipoPlayer: 'azoto' }, tokG);
+    const dopoA = await leggiEv();
+    vero(aAzoto.stato === 200 && aAzoto.dati.evento.tipoPlayer === 'azoto' && dopoA.tipoPlayer === 'azoto' && dopoA.videoId === LINK_AZOTO_30
+        && dopoA.videoRiserva === '' && dopoA.videoFirmato === false && dopoA.videoAggiornato.toMillis() > pb.videoAggiornato.toMillis(),
+    'evento-player azoto: tutti passano al player di Azoto (videoId = il suo indirizzo, niente riserva ne\' firma, videoAggiornato cambia)', aAzoto.testo.slice(0, 300));
+    await pausa(5);
+    const riconferma = await gestione({ azione: 'evento-player', idEvento: EVENTO, tipoPlayer: 'azoto' }, tokG);
+    const dopoR = await leggiEv();
+    vero(riconferma.stato === 200 && dopoR.tipoPlayer === 'azoto' && dopoR.videoAggiornato.toMillis() > dopoA.videoAggiornato.toMillis(),
+        'evento-player azoto di nuovo (riconferma): videoAggiornato cambia comunque (riporta tutti sul player scelto)');
+    const lvA = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: tokAnna });
+    const lfA = await gestione({ azione: 'link-firmato', idEvento: EVENTO, sorgente: 'principale' }, tokG);
+    vero(lvA.stato === 409 && lvA.dati.codice === 'non-flusso' && !lvA.dati.url && lfA.stato === 409 && lfA.dati.codice === 'non-flusso' && !lfA.dati.url,
+        'con il player di Azoto link-video e link-firmato rispondono 409 non-flusso (' + lvA.stato + ', ' + lfA.stato + ')');
+    const strano = await gestione({ azione: 'evento-player', idEvento: EVENTO, tipoPlayer: 'iframe' }, tokG);
+    uguale(strano.stato, 400, 'evento-player con una modalita\' sconosciuta: 400');
+    const aFlusso = await gestione({ azione: 'evento-player', idEvento: EVENTO, tipoPlayer: 'flusso' }, tokG);
+    const dopoB = await leggiEv();
+    vero(aFlusso.stato === 200 && dopoB.tipoPlayer === 'flusso' && dopoB.videoId === LINK_WEBTV && dopoB.videoRiserva === LINK_RISERVA && dopoB.videoAggiornato.toMillis() > dopoR.videoAggiornato.toMillis(),
+        'evento-player flusso: tutti tornano al flusso diretto (principale e riserva)');
+    const lvB = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: tokAnna });
+    vero(lvB.stato === 200 && lvB.dati.url === LINK_WEBTV, 'con il flusso diretto link-video torna a dare il link');
 }
 
 (async () => {
@@ -499,7 +547,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const ev = await gestione({
             azione: 'evento-salva', evento: {
                 nuovo: true, id: EVENTO, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
-                data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: LINK_WEBTV, riservaUrl: LINK_RISERVA,
+                data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', azotoUrl: CODICE_AZOTO, videoUrl: LINK_WEBTV, riservaUrl: LINK_RISERVA,
                 programma: '09.00 Accoglienza e registrazione\n09.30 Apertura dei lavori', paginaEvento: '/napoli_ottobre_2026/',
                 unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }
             }
@@ -508,11 +556,16 @@ async function provaVideoWebTv(tokG, P, segrete) {
             'evento creato (la gestione vede il link della web TV e quello di riserva)', ev.testo.slice(0, 300));
         vero(ev.dati.evento && ev.dati.evento.sorgente === 'principale' && ev.dati.evento.videoFirmato === false && ev.dati.evento.firma && ev.dati.evento.firma.schema === 'nessuna',
             'evento nuovo: sorgente principale, nessuna firma');
+        vero(ev.dati.evento && ev.dati.evento.tipoPlayer === 'azoto' && ev.dati.evento.azotoUrl === LINK_AZOTO && ev.dati.evento.azotoInOnda === '',
+            'evento nuovo con il codice di Azoto: player Azoto (il predefinito), e del codice resta solo l\'indirizzo del player');
         const docEv = (await db.collection('eventi').doc(EVENTO).get()).data();
-        vero(docEv.videoId === '' && docEv.videoRiserva === '' && docEv.videoUrl === undefined && docEv.riservaUrl === undefined && docEv.sorgente === 'principale' && docEv.videoFirmato === false,
-            'documento pubblico dell\'evento: nessun video (ne\' principale ne\' riserva) finche\' non si va in onda (DECISIONI D6)');
+        vero(docEv.videoId === '' && docEv.videoRiserva === '' && docEv.videoUrl === undefined && docEv.riservaUrl === undefined && docEv.azotoUrl === undefined
+            && docEv.sorgente === 'principale' && docEv.videoFirmato === false && docEv.tipoPlayer === 'azoto',
+        'documento pubblico dell\'evento: tipoPlayer \'azoto\' e nessun video (ne\' Azoto ne\' il flusso) finche\' non si va in onda (DECISIONI D6)');
         const risEv = (await db.collection('eventiRiservati').doc(EVENTO).get()).data();
-        vero(risEv.videoUrl === LINK_WEBTV && risEv.riservaUrl === LINK_RISERVA && risEv.riservaId === LINK_RISERVA, 'i link stanno nel documento riservato');
+        vero(risEv.videoUrl === LINK_WEBTV && risEv.riservaUrl === LINK_RISERVA && risEv.riservaId === LINK_RISERVA && risEv.azotoUrl === LINK_AZOTO && risEv.tipoPlayer === 'azoto',
+            'gli indirizzi stanno nel documento riservato');
+        vero(!/[<>]|script|iframe/.test(JSON.stringify(risEv) + JSON.stringify(docEv)), 'del codice incollato non resta niente in Firestore (niente tag, niente script)');
         const persone = [
             ['Mario', 'Rossi', 'mario.rossi@esempio.it'], ['Luigi', 'Verdi', 'luigi.verdi@esempio.it'], ['Anna', 'Bianchi', 'anna.bianchi@esempio.it'],
             ['Carla', 'Neri', 'carla.neri@esempio.it'], ['Dario', 'Blu', 'dario.blu@esempio.it'], ['Elena', 'Gialli', 'elena.gialli@esempio.it']
@@ -630,7 +683,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const corpoStato = JSON.parse(testoStato);
         vero(stato1.status === 200 && corpoStato.stato === 'programmato' && corpoStato.titolo && corpoStato.inizio && corpoStato.fine, 'GET pubblico: stato "programmato", titolo e orari');
         uguale(Object.keys(corpoStato).sort(), ['fine', 'id', 'inizio', 'ok', 'paginaEvento', 'ripresa', 'stato', 'titolo'], 'solo i campi pubblici');
-        vero(!/video|webtv|riserva/i.test(testoStato), 'nessuna traccia del video nella risposta');
+        vero(!/video|webtv|riserva|azoto|tipoPlayer|player/i.test(testoStato), 'nessuna traccia del video (ne\' del tipo di player) nella risposta');
         uguale(stato1.headers.get('cache-control'), 'public, max-age=20, s-maxage=30, stale-while-revalidate=60', 'Cache-Control');
         uguale(stato1.headers.get('access-control-allow-origin'), '*', 'Access-Control-Allow-Origin: *');
         const cattivo = await fetch(API + '/diretta-stato?evento=NAPOLI!!');
@@ -638,10 +691,19 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const assente = await fetch(API + '/diretta-stato?evento=inesistente-2099');
         vero(assente.status === 404 && (await assente.json()).ok === false, 'evento inesistente: { ok: false }');
         const inOnda = await gestione({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' }, tokG);
+        const docAzoto = (await db.collection('eventi').doc(EVENTO).get()).data();
+        vero(inOnda.stato === 200 && docAzoto.tipoPlayer === 'azoto' && docAzoto.videoId === LINK_AZOTO && docAzoto.videoRiserva === '' && docAzoto.videoFirmato === false,
+            'in onda con il player di Azoto: nel documento dell\'evento l\'indirizzo del player, niente riserva ne\' firma');
+        vero(inOnda.dati.evento.azotoInOnda === LINK_AZOTO && inOnda.dati.evento.riservaInOnda === '', 'la gestione vede cosa ricevono i partecipanti (azotoInOnda)');
+        const lvAzoto = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: await tokenDi(P.luigiverdi.uid) });
+        vero(lvAzoto.stato === 409 && lvAzoto.dati.codice === 'non-flusso' && !lvAzoto.dati.url, 'link-video con il player di Azoto: 409 non-flusso (l\'indirizzo arriva gia\' nel documento dell\'evento)');
+        const passaFlusso = await gestione({ azione: 'evento-player', idEvento: EVENTO, tipoPlayer: 'flusso' }, tokG);
         const docInOnda = (await db.collection('eventi').doc(EVENTO).get()).data();
-        vero(inOnda.stato === 200 && docInOnda.videoId === LINK_WEBTV && docInOnda.videoRiserva === LINK_RISERVA && docInOnda.sorgente === 'principale' && docInOnda.videoFirmato === false,
-            'in onda: il link principale e la riserva compaiono nel documento dell\'evento');
-        vero(inOnda.dati.evento.videoInOnda === LINK_WEBTV && inOnda.dati.evento.riservaInOnda === LINK_RISERVA, 'la gestione vede cosa ricevono i partecipanti (videoInOnda, riservaInOnda)');
+        vero(passaFlusso.stato === 200 && docInOnda.tipoPlayer === 'flusso' && docInOnda.videoId === LINK_WEBTV && docInOnda.videoRiserva === LINK_RISERVA && docInOnda.sorgente === 'principale'
+            && docInOnda.videoFirmato === false && docInOnda.videoAggiornato.toMillis() > docAzoto.videoAggiornato.toMillis(),
+        'evento-player flusso, in onda: il link principale e la riserva compaiono nel documento dell\'evento (videoAggiornato cambia)');
+        vero(passaFlusso.dati.evento.videoInOnda === LINK_WEBTV && passaFlusso.dati.evento.riservaInOnda === LINK_RISERVA && passaFlusso.dati.evento.azotoInOnda === '',
+            'la gestione vede cosa ricevono i partecipanti (videoInOnda, riservaInOnda)');
         const tInOnda = Date.now();
 
         console.log('\nUn solo dispositivo');
@@ -727,7 +789,23 @@ async function provaVideoWebTv(tokG, P, segrete) {
         vero(webtv.stato === 200 && (await db.collection('eventi').doc(EVENTO).get()).data().videoId === 'https://webtv.esempio.it/live/napoli/playlist.m3u8?token=x',
             'il link HLS della web TV: chi guarda riceve l\'indirizzo (l\'id mandato dalla pagina non conta)');
         const incorporato = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '<iframe src="https://player.webtv.esempio.it/embed/9?a=1&amp;b=2"></iframe>' }, tokG);
-        vero(incorporato.stato === 200 && incorporato.dati.evento.videoId === 'https://player.webtv.esempio.it/embed/9?a=1&b=2', 'il codice da incorporare della web TV: si salva l\'indirizzo del player');
+        vero(incorporato.stato === 400 && /non è il link di un flusso diretto/.test(incorporato.dati.msg || ''), 'la pagina da incorporare di un\'altra web TV nel campo del flusso: 400 («' + incorporato.dati.msg + '»)');
+        const azotoNelFlusso = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: CODICE_AZOTO }, tokG);
+        vero(azotoNelFlusso.stato === 400 && azotoNelFlusso.dati.codice === 'video' && /va nel campo «Player Azoto»/.test(azotoNelFlusso.dati.msg || ''),
+            'il codice di Azoto nel campo del flusso: 400 («' + azotoNelFlusso.dati.msg + '»)');
+        const flussoInAzoto = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, azotoUrl: LINK_WEBTV } }, tokG);
+        vero(flussoInAzoto.stato === 400 && flussoInAzoto.dati.codice === 'azoto' && /va nel campo «Flusso diretto \(\.m3u8\)»/.test(flussoInAzoto.dati.msg || ''),
+            'un .m3u8 nel campo del player Azoto: 400 («' + flussoInAzoto.dati.msg + '»)');
+        const malevolo = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, azotoUrl: "<script>alert(1)</script><iframe src='https://ladro.esempio.it/p' onload='alert(1)'></iframe>" + CODICE_AZOTO } }, tokG);
+        vero(malevolo.stato === 400 && malevolo.dati.codice === 'azoto' && /cdn\.azotosolutions\.com/.test(malevolo.dati.msg || ''), 'codice malevolo (script e un iframe di un altro sito davanti): 400 («' + malevolo.dati.msg + '»)');
+        const nonAzoto = await gestione({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: 'https://azotosolutions.com/cloudtv/livetv29/player' }, tokG);
+        vero(nonAzoto.stato === 400 && nonAzoto.dati.codice === 'azoto', 'azotosolutions.com senza cdn.: 400');
+        const primaCambioAzoto = (await db.collection('eventi').doc(EVENTO).get()).data();
+        const cambioAzoto = await gestione({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: "<iframe src='" + LINK_AZOTO_30 + "'></iframe>" }, tokG);
+        const dopoCambioAzoto = (await db.collection('eventi').doc(EVENTO).get()).data();
+        vero(cambioAzoto.stato === 200 && cambioAzoto.dati.evento.azotoUrl === LINK_AZOTO_30 && dopoCambioAzoto.videoId === primaCambioAzoto.videoId
+            && dopoCambioAzoto.videoAggiornato.toMillis() === primaCambioAzoto.videoAggiornato.toMillis(),
+        'evento-video con l\'indirizzo di Azoto mentre si usa il flusso: cambia solo nel documento riservato (chi guarda non se ne accorge)');
         const altroPlayer = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '', videoId: 'vimeo-123456789' }, tokG);
         vero(altroPlayer.stato === 400, 'un identificativo che non e\' un link della web TV: 400 (il video arriva solo dalla web TV)');
         const linkFile = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: 'https://webtv.esempio.it/archivio/replica.mp4' }, tokG);
@@ -850,7 +928,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
         await pausa(Math.max(0, 15500 - (Date.now() - tInOnda)));
         const stato2 = await fetch(API + '/diretta-stato?evento=' + EVENTO);
         const testo2 = await stato2.text();
-        vero(JSON.parse(testo2).stato === 'in_onda' && !/video|webtv|riserva/i.test(testo2), 'passata la memoria di 15 s: "in_onda", e ancora nessun video');
+        vero(JSON.parse(testo2).stato === 'in_onda' && !/video|webtv|riserva|azoto|tipoPlayer|player/i.test(testo2), 'passata la memoria di 15 s: "in_onda", e ancora nessun video (ne\' il tipo di player)');
         await gestione({ azione: 'evento-stato', idEvento: EVENTO, stato: 'terminato' }, tokG);
         const finito = (await db.collection('eventi').doc(EVENTO).get()).data();
         vero(finito.videoId === '' && finito.videoRiserva === '' && finito.videoFirmato === false, 'terminato: il video (principale, riserva, videoFirmato) sparisce dal documento dell\'evento');

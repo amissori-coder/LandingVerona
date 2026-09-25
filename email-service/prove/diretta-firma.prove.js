@@ -27,7 +27,12 @@
    - normalizza: le regole di evento-salva (chiave obbligatoria, chiave
      tenuta se non arriva, 'nessuna' la cancella, durata 1-24 ore,
      chiave esadecimale per Akamai, parametri controllati);
-   - pubblica non mostra MAI la chiave.
+   - pubblica non mostra MAI la chiave;
+   - la firma e' solo del flusso diretto: con il player di Azoto
+     (tipoPlayer 'azoto') l'indirizzo del player non si firma, il
+     documento pubblico non dice videoFirmato e link-video /
+     link-firmato rispondono 409 'non-flusso' (senza la chiave nel
+     messaggio); con il flusso diretto il link si firma.
    Se openssl c'e', i valori attesi si ricalcolano anche con openssl.
    ============================================================ */
 'use strict';
@@ -177,5 +182,28 @@ vero(JSON.stringify(pub).indexOf('segreto-salvato') < 0, 'pubblica: la chiave no
 vero(F.pubblica(undefined).schema === 'nessuna' && F.pubblica(undefined).segretoImpostato === false, 'pubblica di un evento senza firma');
 vero(F.attiva(SALVATA) === true && F.attiva({ schema: 'nginx', segreto: '' }) === false && F.attiva(null) === false, 'attiva: solo con schema e chiave');
 
-console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi');
-process.exit(rossi ? 1 : 0);
+/* ---------- la firma e' solo del flusso diretto (non del player di Azoto) ---------- */
+const D = require('../lib/diretta-dati');
+const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
+const FLUSSO = 'https://webtv.esempio.it/live/napoli/playlist.m3u8';
+const conAzoto = { tipoPlayer: 'azoto', azotoUrl: AZOTO, videoUrl: FLUSSO, videoId: FLUSSO, riservaUrl: '', riservaId: '', firma: NGINX };
+const campiAzoto = D.campiVideo({}, conAzoto, 'in_onda');
+vero(campiAzoto.videoId === AZOTO && campiAzoto.videoFirmato === undefined, 'player Azoto con la firma impostata: l\'indirizzo del player si pubblica com\'e\', videoFirmato resta false');
+const campiFlusso = D.campiVideo({}, Object.assign({}, conAzoto, { tipoPlayer: 'flusso' }), 'in_onda');
+vero(campiFlusso.videoId === FLUSSO && campiFlusso.videoFirmato === true, 'flusso diretto con la firma: videoFirmato (la pagina chiede il link firmato)');
+function ctxFinto(ris) {
+    const docs = { 'eventi/napoli-2026': { stato: 'in_onda' }, 'eventiRiservati/napoli-2026': ris };
+    return { adesso: () => ADESSO, db: { collection: n => ({ doc: id => n + '/' + id }), getAll: async (...r) => r.map(k => ({ exists: !!docs[k], data: () => docs[k] })) } };
+}
+(async () => {
+    for (const soloInOnda of [true, false]) {
+        let e = null;
+        try { await D.linkVideo(ctxFinto(conAzoto), { idEvento: 'napoli-2026', sorgente: 'principale', soloInOnda: soloInOnda }); } catch (x) { e = x; }
+        vero(e && e.stato === 409 && e.codice === 'non-flusso' && String(e.message).indexOf(NGINX.segreto) < 0,
+            (soloInOnda ? 'link-video' : 'link-firmato') + ' con il player Azoto: 409 non-flusso, nessuna firma (' + (e && e.message) + ')');
+    }
+    const firmato = await D.linkVideo(ctxFinto(Object.assign({}, conAzoto, { tipoPlayer: 'flusso' })), { idEvento: 'napoli-2026', sorgente: 'principale', soloInOnda: true });
+    vero(firmato.url === F.firma(FLUSSO, NGINX, ADESSO).url && firmato.validoSecondi === 6 * 3600, 'link-video con il flusso diretto: il link firmato (' + firmato.url + ')');
+    console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi');
+    process.exit(rossi ? 1 : 0);
+})();

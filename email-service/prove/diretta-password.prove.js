@@ -10,8 +10,10 @@
    sempre almeno una maiuscola, una minuscola e una cifra, e che su
    20.000 password non ne esce mai una uguale a un'altra. E che nel
    codice delle funzioni della diretta nessuna password finisce in
-   un log o in una scrittura su Firestore, e nessuna chiave segreta
-   dei link firmati (segreto) finisce in un log.
+   un log o in una scrittura su Firestore, nessuna chiave segreta dei
+   link firmati (segreto) finisce in un log, e nemmeno il codice del
+   player di Azoto incollato nella gestione (azotoUrl: potrebbe
+   contenere di tutto).
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -61,11 +63,11 @@ cartelle.forEach(c => fs.readdirSync(c).filter(f => /^diretta-.*\.js$/.test(f)).
         // i testi tra virgolette non contano: "verifica della password" in un log
         // e' una frase, non una password; conta una VARIABILE che finisce nel log
         const senzaTesti = r.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, "''").replace(/`[^`$]*`/g, "''");
-        if (/console\.(log|error|warn|info)\([^)]*(password|segreto)/i.test(senzaTesti)) sospetti.push(f + ':' + (i + 1) + ' (log)');
+        if (/console\.(log|error|warn|info)\([^)]*(password|segreto|azoto)/i.test(senzaTesti)) sospetti.push(f + ':' + (i + 1) + ' (log)');
         if (/\.(set|update|add|create)\(\{[^}]*\bpassword\s*:/i.test(r)) sospetti.push(f + ':' + (i + 1) + ' (scrittura)');
     });
 }));
-vero(sospetti.length === 0, 'nessuna password (o chiave dei link firmati) nei log, nessuna password nelle scritture: ' + sospetti.join(', '));
+vero(sospetti.length === 0, 'nessuna password (o chiave dei link firmati, o codice di Azoto incollato) nei log, nessuna password nelle scritture: ' + sospetti.join(', '));
 
 console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi');
 process.exit(rossi ? 1 : 0);

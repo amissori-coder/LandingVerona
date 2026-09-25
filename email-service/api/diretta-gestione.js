@@ -9,32 +9,53 @@
 
    Le azioni (campo `azione`) e dove sta la logica:
      chi-sono, eventi, evento-salva, evento-stato, evento-video,
-     evento-sorgente, evento-avviso, link-firmato, anteprima, crea,
-     partecipanti, partecipante, connessi, esporta
+     evento-player, evento-sorgente, evento-avviso, link-firmato,
+     anteprima, crea, partecipanti, partecipante, connessi, esporta
                                                -> lib/diretta-dati.js
      prova-link                                -> lib/diretta-prova-link.js
      email-prova, email-accoda, email-avanza,
      email-stato, email-esiti                  -> lib/diretta-invio.js
 
-   Il video (arriva SOLO dalla web TV):
-     evento-salva     evento: { ..., videoUrl, riservaUrl, firma }
-                      (riservaUrl '' toglie la riserva, assente la
-                      lascia; firma { schema, segreto?, durataOre?,
-                      parametri? }: la chiave non torna MAI indietro,
-                      la risposta dice solo firma.segretoImpostato)
-     evento-video     { idEvento, videoUrl, videoId?, riservaUrl? }
+   Il video (arriva SOLO dalla web TV Azoto, in due modalita':
+   tipoPlayer 'azoto' = il player di Azoto in un iframe, la
+   predefinita; 'flusso' = il flusso diretto .m3u8 nel nostro player):
+     evento-salva     evento: { ..., tipoPlayer, azotoUrl, videoUrl,
+                      riservaUrl, firma }
+                      azotoUrl: il codice che da' Azoto o l'indirizzo
+                      del player; si salva SOLO l'indirizzo, e solo se
+                      e' https di cdn.azotosolutions.com (400 campo
+                      'azoto' altrimenti). videoUrl e riservaUrl: il
+                      flusso diretto, solo HLS o DASH (l'indirizzo di
+                      Azoto li' -> 400 campo 'video'). tipoPlayer
+                      'flusso' senza il flusso principale -> 400 campo
+                      'tipoPlayer'. '' toglie un indirizzo, assente lo
+                      lascia com'e'. firma { schema, segreto?,
+                      durataOre?, parametri? } (i link firmati del
+                      flusso): la chiave non torna MAI indietro, la
+                      risposta dice solo firma.segretoImpostato
+     evento-video     { idEvento, azotoUrl?, videoUrl?, videoId?,
+                      riservaUrl? } il cambio degli indirizzi durante
+                      la diretta (solo quelli che arrivano)
+     evento-player    { idEvento, tipoPlayer: 'azoto'|'flusso' }
+                      -> { evento }: la regia passa tutti a quella
+                      modalita', anche in onda; serve il suo indirizzo
+                      (400 campo 'tipoPlayer'); anche ripetere la
+                      stessa scelta vale (aggiorna videoAggiornato)
      evento-sorgente  { idEvento, sorgente: 'principale'|'riserva' }
-                      la regia sceglie per tutti quale link usare;
+                      la regia sceglie per tutti quale flusso usare;
                       anche ripetere la stessa scelta vale (aggiorna
                       videoAggiornato): riporta chi era passato da
                       solo all'altro link dopo un guasto
      prova-link       { link, idEvento? } -> { esito, tipo, valore,
                       titolo, righe, problemi, info, urlProva }: la
                       prova del link prima di salvarlo (al massimo 30
-                      al minuto per gestore; con idEvento si prova il
-                      link firmato come lo ricevera' chi guarda)
+                      al minuto per gestore; con idEvento un flusso si
+                      prova firmato, come lo ricevera' chi guarda; una
+                      pagina che non e' il player di Azoto e' l'errore
+                      grave 'non-azoto')
      link-firmato     { idEvento, sorgente } -> { url, scade, validoSecondi }
-                      per l'anteprima della regia
+                      per l'anteprima della regia; solo in modalita'
+                      'flusso' (409 'non-flusso' con il player Azoto)
    Il modulo delle email si carica solo quando serve (e' un file a parte:
    se mancasse, il resto della gestione funziona lo stesso).
    ============================================================ */
@@ -83,9 +104,11 @@ async function gestore(ctx, req) {
 }
 
 /* prova-link: il servizio scarica il link e dice che cosa ha capito.
-   Con idEvento, se l'evento usa i link firmati, si prova il link
-   firmato (come lo ricevera' chi guarda). Un tetto per gestore: ogni
-   prova sono fino a qualche richiesta verso l'esterno. */
+   Con idEvento, se l'evento usa i link firmati, un flusso si prova
+   firmato (come lo ricevera' chi guarda; il player di Azoto no: la
+   firma e' solo per il flusso, e provaLink la usa solo li'). Un tetto
+   per gestore: ogni prova sono fino a qualche richiesta verso
+   l'esterno. */
 async function provaLink(ctx, b, g) {
     if (!await C.consumaGettone(ctx, 'limiti', 'provalink_' + g.uid, { maxFinestra: PROVE_LINK_MINUTO, finestraMs: 60 * 1000 })) {
         throw D.errorePubblico(429, 'attendi', 'Troppe prove di link in un minuto: riprova tra poco.', { attesaSecondi: 60 });
@@ -105,7 +128,8 @@ const AZIONI = {
     'eventi': async ctx => ({ eventi: await D.elencoEventi(ctx) }),
     'evento-salva': async (ctx, b) => ({ evento: await D.salvaEvento(ctx, b.evento) }),
     'evento-stato': async (ctx, b) => ({ evento: await D.cambiaStato(ctx, { idEvento: b.idEvento, stato: b.stato, ripresa: b.ripresa }) }),
-    'evento-video': async (ctx, b) => ({ evento: await D.cambiaVideo(ctx, { idEvento: b.idEvento, videoUrl: b.videoUrl, videoId: b.videoId, riservaUrl: b.riservaUrl }) }),
+    'evento-video': async (ctx, b) => ({ evento: await D.cambiaVideo(ctx, { idEvento: b.idEvento, azotoUrl: b.azotoUrl, videoUrl: b.videoUrl, videoId: b.videoId, riservaUrl: b.riservaUrl }) }),
+    'evento-player': async (ctx, b) => ({ evento: await D.cambiaPlayer(ctx, { idEvento: b.idEvento, tipoPlayer: b.tipoPlayer }) }),
     'evento-sorgente': async (ctx, b) => ({ evento: await D.cambiaSorgente(ctx, { idEvento: b.idEvento, sorgente: b.sorgente }) }),
     'link-firmato': async (ctx, b) => D.linkVideo(ctx, { idEvento: b.idEvento, sorgente: b.sorgente, soloInOnda: false }),
     'prova-link': async (ctx, b, g) => provaLink(ctx, b, g),

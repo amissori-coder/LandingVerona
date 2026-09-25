@@ -15,17 +15,20 @@
      { azione: 'aggiorna-permessi' }  con Authorization: Bearer <idToken>
          -> { ok, aggiornati }
      { azione: 'link-video', idEvento, sorgente, sessione }  con Authorization: Bearer <idToken>
-         -> { ok, url, scade, validoSecondi }   il link del video
-            (principale o 'riserva'), firmato se la web TV usa i link
-            firmati; scade in millisecondi sull'orologio del servizio,
+         -> { ok, url, scade, validoSecondi }   il link del flusso
+            diretto (principale o 'riserva'), firmato se la web TV usa i
+            link firmati; solo quando l'evento usa il flusso diretto
+            (tipoPlayer 'flusso': con il player Azoto la pagina non lo
+            chiede, e la risposta e' 409 'non-flusso'); scade in
+            millisecondi sull'orologio del servizio,
             validoSecondi i secondi di validita' da adesso (per
             l'orologio della pagina); null tutti e due senza firma. Solo
             a chi e' iscritto, con l'account attivo, dal dispositivo
             ammesso (sessione: quella data all'accesso, se l'evento vuole
             un solo dispositivo), mentre l'evento e' in onda; 60 l'ora.
             errori: 401, 403 'non-iscritto'/'disattivato'/
-                    'altro-dispositivo', 409 'non-in-onda', 404
-                    'nessun-link', 429 'attendi'
+                    'altro-dispositivo', 409 'non-in-onda'/'non-flusso',
+                    404 'nessun-link', 429 'attendi'
 
    La logica sta in lib/diretta-accesso.js: qui solo la porta (CORS,
    metodo, lettura del corpo, risposta). Nessuna risposta si salva nelle

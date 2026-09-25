@@ -20,22 +20,36 @@
    Cosi' nemmeno due caricamenti contemporanei dello stesso file
    possono creare due volte la stessa persona o lo stesso nome.
 
-   IL VIDEO. Arriva SOLO dal canale streaming di una web TV (flusso HLS
-   .m3u8, DASH .mpd o, come ripiego, la pagina del suo player). I link
-   (principale e di riserva) e la firma dei link a tempo vivono in
+   IL VIDEO. Arriva SOLO dalla web TV Azoto, in una delle due modalita'
+   che la gestione sceglie per ogni evento (tipoPlayer):
+     'azoto'   il player di Azoto in un iframe (la predefinita);
+     'flusso'  il flusso diretto (.m3u8, o .mpd) nel nostro player,
+               per quando Azoto ce lo dara'.
+   Gli indirizzi e la firma dei link a tempo vivono in
    eventiRiservati/{id}, che solo il server legge:
-     videoUrl, videoId        il link principale (pulito) e il valore
-                              che riceve il player
-     riservaUrl, riservaId    il link di riserva ('' se non c'e')
+     tipoPlayer               'azoto' | 'flusso' (assente = 'azoto')
+     azotoUrl                 l'indirizzo del player di Azoto ('' se
+                              non c'e' ancora): del codice incollato si
+                              salva SOLO l'indirizzo, e solo se e' di
+                              cdn.azotosolutions.com
+     videoUrl, videoId        il flusso principale (pulito) e il valore
+                              che riceve il player (solo HLS o DASH)
+     riservaUrl, riservaId    il flusso di riserva ('' se non c'e')
      firma                    { schema, segreto, durataOre, parametri }
                               (lib/diretta-firma.js): il segreto non
                               esce MAI dal servizio
+   Flusso, riserva e firma valgono solo per la modalita' 'flusso'.
    Nel documento pubblico dell'evento (quello che la pagina ascolta)
-   videoId e videoRiserva compaiono SOLO mentre si e' in onda: prima e
-   dopo, chi ha un account non puo' ricavarli. Nello stesso documento
-   `sorgente` ('principale' o 'riserva': la scelta della regia per
-   tutti) e `videoFirmato` (la pagina chiede il link firmato al
-   servizio); videoAggiornato cambia quando cambia uno di questi.
+   tipoPlayer c'e' sempre (la pagina sceglie il player); videoId (in
+   modalita' 'azoto' l'indirizzo di Azoto, in modalita' 'flusso' il
+   flusso principale) compare SOLO mentre si e' in onda: prima e dopo,
+   chi ha un account non puo' ricavarlo. Solo per il flusso e solo in
+   onda anche videoRiserva e videoFirmato (la pagina chiede il link
+   firmato al servizio); `sorgente` ('principale' o 'riserva': la
+   scelta della regia per tutti) resta anche fuori onda.
+   videoAggiornato cambia quando cambia uno di questi campi (anche
+   tipoPlayer) e a ogni comando della regia (evento-sorgente,
+   evento-player), anche quando conferma la scelta di prima.
 
    IL DOCUMENTO DELL'EVENTO COSTA CARO. Mille persone lo ascoltano: ogni
    scrittura sono mille letture. Per questo qui si scrive solo quando
@@ -55,6 +69,10 @@ const RE_ID_EVENTO = /^[a-z0-9][a-z0-9-]{2,40}$/;
 const RE_UID = /^[A-Za-z0-9_-]{1,128}$/;
 const RE_PAGINA = /^\/[a-z0-9_\/-]*\/?$/;
 const SORGENTI = ['principale', 'riserva'];
+const TIPI_PLAYER = ['azoto', 'flusso'];
+const MSG_SERVE_FLUSSO = 'Per il flusso diretto serve prima il link .m3u8: inseriscilo nel campo «Flusso diretto (.m3u8)».';
+const MSG_SERVE_AZOTO = 'Per il player Azoto serve prima il suo indirizzo: incolla il codice (o l\'indirizzo) del player nel campo «Player Azoto».';
+const MSG_FLUSSO_IN_USO = 'Il flusso diretto è in uso per tutti: per togliere il link .m3u8 torna prima al player Azoto.';
 const STATI_EVENTO = ['programmato', 'in_onda', 'pausa', 'terminato'];
 const MAX_EVENTI_PERSONA = 20;
 const MAX_RIGHE_CREA = 50;
@@ -195,19 +213,28 @@ function transazione(ctx, fn) {
    ============================================================ */
 
 /* L'evento come lo vede la gestione: i campi del documento (con i
-   tempi in millisecondi) piu' i link del video impostati e la firma,
-   che stanno nel documento riservato. Della firma si dice solo se la
-   chiave c'e' (segretoImpostato): la chiave non esce MAI. */
+   tempi in millisecondi) piu' la modalita' del video, gli indirizzi
+   impostati e la firma, che stanno nel documento riservato. Della firma
+   si dice solo se la chiave c'e' (segretoImpostato): la chiave non esce
+   MAI. videoInOnda e' il videoId pubblico (quello che ricevono i
+   partecipanti, in qualunque modalita'); azotoInOnda lo stesso, ma solo
+   se e' il player di Azoto. */
 function eventoJSON(id, dati, riservati) {
     const out = jsonDi(dati);
-    const r = riservati || {};
+    const r = riservatiDa(riservati);
+    const pubblico = dati || {};
+    // un documento di prima, senza tipoPlayer: come fa la pagina, lo dice l'indirizzo
+    const tipoPubblico = pubblico.tipoPlayer || (V.eAzoto(pubblico.videoId) ? 'azoto' : 'flusso');
     out.id = id;
-    out.videoUrl = r.videoUrl || '';
-    out.videoId = r.videoId || '';
+    out.tipoPlayer = r.tipoPlayer;
+    out.azotoUrl = r.azotoUrl;
+    out.azotoInOnda = tipoPubblico === 'azoto' ? (pubblico.videoId || '') : '';
+    out.videoUrl = r.videoUrl;
+    out.videoId = r.videoId;
     out.videoTipo = V.tipoDi(out.videoId);
-    out.videoInOnda = (dati && dati.videoId) || '';
-    out.riservaUrl = r.riservaUrl || '';
-    out.riservaId = r.riservaId || '';
+    out.videoInOnda = pubblico.videoId || '';
+    out.riservaUrl = r.riservaUrl;
+    out.riservaId = r.riservaId;
     out.riservaTipo = V.tipoDi(out.riservaId);
     out.riservaInOnda = (dati && dati.videoRiserva) || '';
     out.sorgente = dati && dati.sorgente === 'riserva' ? 'riserva' : 'principale';
@@ -272,21 +299,21 @@ function leggiProgramma(v) {
     return out;
 }
 
-/* Il video. Il gestore incolla quello che gli da' la web TV (il link
-   HLS .m3u8, il link DASH .mpd, il link del suo player o il codice da
-   incorporare): le regole sono in diretta-sorgente-video.js, le stesse
-   della gestione e del player. Si salva il valore che il player riceve,
+/* Il flusso diretto (modalita' 'flusso'). Il gestore incolla il link
+   che gli da' la web TV (HLS .m3u8 o DASH .mpd): le regole sono in
+   diretta-sorgente-video.js (perFlusso), le stesse della gestione e del
+   player; l'indirizzo del player di Azoto qui si rifiuta, con il
+   messaggio che dice dove va. Si salva il valore che il player riceve,
    l'indirizzo https normalizzato, sia come link (videoUrl) sia come
    valore (videoId). Decide il servizio: con il link, l'identificativo
    mandato dalla pagina non conta; senza link, l'identificativo si legge
-   con le stesse regole. Vale per il link principale e per la riserva.
+   con le stesse regole. Vale per il flusso principale e per la riserva.
    Un indirizzo IP interno o privato scritto per intero non si salva. */
 function leggiVideo(videoUrl, videoId) {
-    // il codice da incorporare puo' essere lungo: si legge tutto, si salva solo l'indirizzo
     const incollato = String(videoUrl == null ? '' : videoUrl).trim().slice(0, 4000);
     const testo = incollato || String(videoId == null ? '' : videoId).trim().slice(0, 4000);
     if (!testo) return { videoUrl: '', videoId: '' };
-    const s = V.leggi(testo);
+    const s = V.perFlusso(testo);
     if (!s || s.errore) throw C.errore(400, V.messaggio(s), 'video');
     const host = new URL(s.valore).hostname;
     if (eIndirizzoIp(host) && !indirizzoPubblico(host)) {
@@ -295,47 +322,85 @@ function leggiVideo(videoUrl, videoId) {
     return { videoUrl: s.valore, videoId: s.valore };
 }
 
-/* I dati riservati del video (link, riserva, firma) come si salvano. */
-function riservatiVideo(principale, riserva, firma) {
+/* Il player di Azoto (modalita' 'azoto'). Il gestore incolla il codice
+   che gli ha dato Azoto (<div ...><iframe src='...'></iframe></div>
+   <script ...></script>) oppure solo l'indirizzo del player: le regole
+   sono in diretta-sorgente-video.js (perAzoto). Del codice si prende
+   SOLO l'indirizzo del primo iframe, e solo se e' di
+   cdn.azotosolutions.com: l'HTML incollato non si salva MAI (ne' qui
+   ne' altrove), l'iframe lo costruisce la pagina. '' = nessun player. */
+function leggiAzoto(azotoUrl) {
+    // il codice puo' essere lungo: si legge tutto (fino a 4000 caratteri), si salva solo l'indirizzo
+    const testo = String(azotoUrl == null ? '' : azotoUrl).trim().slice(0, 4000);
+    if (!testo) return '';
+    const s = V.perAzoto(testo);
+    if (!s || s.errore) throw C.errore(400, V.messaggio(s), 'azoto');
+    return s.valore;
+}
+
+/* I dati riservati del video come si salvano: la modalita', il player
+   di Azoto, il flusso principale e la riserva, la firma. */
+function riservatiVideo({ tipoPlayer, azotoUrl, principale, riserva, firma }) {
     if (riserva.videoId && !principale.videoId) {
         throw C.errore(400, 'Il link di riserva serve solo insieme al link principale: inserisci prima quello principale.', 'riserva');
     }
     return {
+        tipoPlayer: tipoPlayer === 'flusso' ? 'flusso' : 'azoto', azotoUrl: azotoUrl || '',
         videoUrl: principale.videoUrl, videoId: principale.videoId,
         riservaUrl: riserva.videoUrl, riservaId: riserva.videoId,
         firma: firma
     };
 }
-function riservatiDa(r) {
+/* I dati riservati come sono salvati, con i valori predefiniti. Un
+   evento salvato prima delle due modalita' (niente tipoPlayer e niente
+   azotoUrl) con l'indirizzo del player di Azoto nel link principale:
+   quell'indirizzo e' il suo player Azoto, e il flusso non c'e'. */
+function riservatiDa(ris) {
+    const r = ris || {};
+    const diPrima = r.tipoPlayer === undefined && r.azotoUrl === undefined && V.eAzoto(r.videoId);
     return {
-        videoUrl: r.videoUrl || '', videoId: r.videoId || '',
+        tipoPlayer: r.tipoPlayer === 'flusso' ? 'flusso' : 'azoto',
+        azotoUrl: diPrima ? r.videoId : (r.azotoUrl || ''),
+        videoUrl: diPrima ? '' : (r.videoUrl || ''), videoId: diPrima ? '' : (r.videoId || ''),
         riservaUrl: r.riservaUrl || '', riservaId: r.riservaId || '',
         firma: F.pulita(r.firma)
     };
 }
-// un valore salvato prima (per esempio di un player che non c'e' piu') non si pubblica
-function riproducibile(valore) {
-    return V.tipoDi(valore) ? valore : '';
+/* Un valore salvato si pubblica solo se il player di quella modalita'
+   lo sa usare: per il flusso HLS o DASH, per Azoto il suo player (un
+   valore di prima, per esempio la pagina di un'altra web TV, no). */
+function flussoValido(valore) {
+    const t = V.tipoDi(valore);
+    return t === 'hls' || t === 'dash' ? valore : '';
+}
+function azotoValido(valore) {
+    return V.eAzoto(valore) ? valore : '';
 }
 
-/* I campi del video nel documento pubblico, per lo stato dato: videoId
-   e videoRiserva solo in onda, sorgente sempre (torna 'principale' se
-   la riserva non c'e' piu'), videoFirmato solo in onda. Restituisce
-   solo quelli che cambiano (vuoto se niente cambia: il documento
-   dell'evento costa mille letture a ogni scrittura). */
+/* I campi del video nel documento pubblico, per lo stato dato:
+   tipoPlayer sempre; videoId solo in onda (l'indirizzo di Azoto o il
+   flusso principale, secondo la modalita'); videoRiserva e videoFirmato
+   solo in onda e solo per il flusso; sorgente sempre (torna
+   'principale' se la riserva non c'e' piu'). Restituisce solo quelli
+   che cambiano (vuoto se niente cambia: il documento dell'evento costa
+   mille letture a ogni scrittura). */
 function campiVideo(pubblico, ris, stato) {
     const p = pubblico || {};
+    const r = riservatiDa(ris);
     const inOnda = stato === 'in_onda';
-    const riserva = riproducibile(ris.riservaId || '');
+    const flusso = r.tipoPlayer === 'flusso';
+    const riserva = flussoValido(r.riservaId);
     const attuali = {
+        tipoPlayer: p.tipoPlayer || '',
         videoId: p.videoId || '', videoRiserva: p.videoRiserva || '',
         sorgente: p.sorgente === 'riserva' ? 'riserva' : 'principale', videoFirmato: p.videoFirmato === true
     };
     const nuovi = {
-        videoId: inOnda ? riproducibile(ris.videoId || '') : '',
-        videoRiserva: inOnda ? riserva : '',
+        tipoPlayer: r.tipoPlayer,
+        videoId: !inOnda ? '' : (flusso ? flussoValido(r.videoId) : azotoValido(r.azotoUrl)),
+        videoRiserva: inOnda && flusso ? riserva : '',
         sorgente: attuali.sorgente === 'riserva' && !riserva ? 'principale' : attuali.sorgente,
-        videoFirmato: inOnda ? F.attiva(ris.firma) : false
+        videoFirmato: inOnda && flusso ? F.attiva(r.firma) : false
     };
     const cambiati = {};
     Object.keys(nuovi).forEach(k => { if (nuovi[k] !== attuali[k]) cambiati[k] = nuovi[k]; });
@@ -359,10 +424,16 @@ function uguali(a, b) {
 
 /* evento-salva: crea un evento nuovo o modifica quello esistente.
    Nella modifica i campi che non arrivano restano come sono. Per il
-   video: videoUrl (e videoId) il link principale, riservaUrl il link di
-   riserva ('' lo toglie), firma { schema, segreto?, durataOre?,
-   parametri? } i link firmati (segreto assente o '' = si tiene quello
-   salvato; schema 'nessuna' cancella anche il segreto). */
+   video: tipoPlayer 'azoto' | 'flusso' (la modalita'; un evento nuovo
+   senza tipoPlayer e' 'azoto'), azotoUrl il codice o l'indirizzo del
+   player di Azoto ('' lo toglie; si salva solo l'indirizzo), videoUrl
+   (e videoId) il flusso principale, riservaUrl il flusso di riserva (''
+   lo toglie), firma { schema, segreto?, durataOre?, parametri? } i link
+   firmati del flusso (segreto assente o '' = si tiene quello salvato;
+   schema 'nessuna' cancella anche il segreto). La modalita' 'flusso'
+   vuole il flusso principale (400 campo 'tipoPlayer', o 'video' se lo
+   si toglie mentre e' in uso); 'azoto' si salva anche senza indirizzo
+   (lo si inserisce piu' tardi). */
 async function salvaEvento(ctx, ingresso) {
     const e = ingresso || {};
     const nuovo = e.nuovo === true;
@@ -395,14 +466,22 @@ async function salvaEvento(ctx, ingresso) {
         if (!(fine > inizio)) throw C.errore(400, 'L\'ora di fine deve venire dopo quella di inizio.', 'orari');
         // il video: quello che non arriva resta com'e' (senza rileggerlo)
         const prima = riservatiDa(ris);
+        if (e.tipoPlayer !== undefined && TIPI_PLAYER.indexOf(e.tipoPlayer) < 0) {
+            throw C.errore(400, 'Tipo di player non valido: scegli «Player Azoto» o «Flusso diretto».', 'tipoPlayer');
+        }
+        const tipoPlayer = e.tipoPlayer !== undefined ? e.tipoPlayer : prima.tipoPlayer;
+        const azotoUrl = e.azotoUrl !== undefined ? leggiAzoto(e.azotoUrl) : prima.azotoUrl;
         const principale = e.videoUrl !== undefined || e.videoId !== undefined
             ? leggiVideo(e.videoUrl, e.videoId) : { videoUrl: prima.videoUrl, videoId: prima.videoId };
         const riserva = e.riservaUrl !== undefined
             ? leggiVideo(e.riservaUrl, '') : { videoUrl: prima.riservaUrl, videoId: prima.riservaId };
+        if (tipoPlayer === 'flusso' && !flussoValido(principale.videoId)) {
+            throw e.tipoPlayer === 'flusso' ? C.errore(400, MSG_SERVE_FLUSSO, 'tipoPlayer') : C.errore(400, MSG_FLUSSO_IN_USO, 'video');
+        }
         // con Akamai l'acl ricavata dal percorso del flusso deve essere valida: lo si dice subito, non alla prima firma
         const firma = F.normalizza(e.firma, ris.firma, [principale.videoId, riserva.videoId].filter(Boolean));
         if (firma.errore) throw C.errore(400, firma.errore, 'firma');
-        const nuoviRis = riservatiVideo(principale, riserva, firma.firma);
+        const nuoviRis = riservatiVideo({ tipoPlayer: tipoPlayer, azotoUrl: azotoUrl, principale: principale, riserva: riserva, firma: firma.firma });
         const programma = e.programma !== undefined ? leggiProgramma(e.programma) : (vecchio.programma || []);
         const paginaEvento = String(val('paginaEvento', '') || '').trim();
         if (paginaEvento && !RE_PAGINA.test(paginaEvento)) throw C.errore(400, 'Pagina dell\'evento non valida (per esempio /napoli_ottobre_2026/).', 'pagina');
@@ -419,7 +498,7 @@ async function salvaEvento(ctx, ingresso) {
         };
         if (nuovo) {
             tx.create(rif, Object.assign(campi, {
-                videoId: '', videoRiserva: '', sorgente: 'principale', videoFirmato: false,
+                tipoPlayer: nuoviRis.tipoPlayer, videoId: '', videoRiserva: '', sorgente: 'principale', videoFirmato: false,
                 stato: 'programmato', statoAggiornato: ts, videoAggiornato: ts, ripresa: '', avviso: '', creato: ts, aggiornato: ts
             }));
         } else {
@@ -440,9 +519,10 @@ async function salvaEvento(ctx, ingresso) {
 }
 
 /* evento-stato: programmato, in onda, in pausa, terminato. Il video
-   (principale, riserva, videoFirmato) passa nel documento pubblico solo
-   andando in onda, e ne esce uscendo; la sorgente scelta dalla regia
-   resta. */
+   (l'indirizzo di Azoto, oppure principale, riserva e videoFirmato del
+   flusso) passa nel documento pubblico solo andando in onda, e ne esce
+   uscendo; la modalita' (tipoPlayer) e la sorgente scelta dalla regia
+   restano. */
 async function cambiaStato(ctx, { idEvento, stato, ripresa }) {
     const id = controllaIdEvento(idEvento);
     if (STATI_EVENTO.indexOf(stato) < 0) throw C.errore(400, 'Stato non valido.', 'stato');
@@ -465,13 +545,18 @@ async function cambiaStato(ctx, { idEvento, stato, ripresa }) {
     return (await leggiEvento(ctx, id)).json;
 }
 
-/* evento-video: il nuovo link (e, se arriva, la nuova riserva: '' la
-   toglie, assente resta com'e') va nel documento riservato; se si e'
-   in onda, anche nel documento pubblico (chi guarda passa al nuovo
-   video da solo, senza ricaricare la pagina). */
-async function cambiaVideo(ctx, { idEvento, videoUrl, videoId, riservaUrl }) {
+/* evento-video: il cambio degli indirizzi durante la diretta. Arrivano
+   solo quelli da cambiare: azotoUrl (il player di Azoto), videoUrl (e
+   videoId: il flusso principale), riservaUrl (il flusso di riserva);
+   '' toglie, assente resta com'e'. Vanno nel documento riservato; se si
+   e' in onda e l'indirizzo e' quello della modalita' in uso, anche nel
+   documento pubblico (chi guarda passa al nuovo video da solo, senza
+   ricaricare la pagina). Il flusso principale in uso per tutti non si
+   toglie (prima si torna al player di Azoto). */
+async function cambiaVideo(ctx, { idEvento, azotoUrl, videoUrl, videoId, riservaUrl }) {
     const id = controllaIdEvento(idEvento);
-    const principale = leggiVideo(videoUrl, videoId);
+    const nuovoAzoto = azotoUrl !== undefined ? leggiAzoto(azotoUrl) : null;
+    const nuovoPrincipale = videoUrl !== undefined || videoId !== undefined ? leggiVideo(videoUrl, videoId) : null;
     const nuovaRiserva = riservaUrl !== undefined ? leggiVideo(riservaUrl, '') : null;
     const rif = ctx.db.collection('eventi').doc(id);
     const rifRis = ctx.db.collection('eventiRiservati').doc(id);
@@ -480,8 +565,15 @@ async function cambiaVideo(ctx, { idEvento, videoUrl, videoId, riservaUrl }) {
         if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
         const v = snap.data();
         const prima = riservatiDa(snapRis.exists ? snapRis.data() : {});
-        const riserva = nuovaRiserva || { videoUrl: prima.riservaUrl, videoId: prima.riservaId };
-        const nuoviRis = riservatiVideo(principale, riserva, prima.firma);
+        const principale = nuovoPrincipale || { videoUrl: prima.videoUrl, videoId: prima.videoId };
+        if (prima.tipoPlayer === 'flusso' && !flussoValido(principale.videoId)) throw C.errore(400, MSG_FLUSSO_IN_USO, 'video');
+        const nuoviRis = riservatiVideo({
+            tipoPlayer: prima.tipoPlayer,
+            azotoUrl: nuovoAzoto !== null ? nuovoAzoto : prima.azotoUrl,
+            principale: principale,
+            riserva: nuovaRiserva || { videoUrl: prima.riservaUrl, videoId: prima.riservaId },
+            firma: prima.firma
+        });
         const ts = adessoTs(ctx);
         if (!uguali(nuoviRis, prima)) tx.set(rifRis, Object.assign({}, nuoviRis, { aggiornato: ts }));
         const video = campiVideo(v, nuoviRis, v.stato);
@@ -505,8 +597,8 @@ async function cambiaSorgente(ctx, { idEvento, sorgente }) {
     await transazione(ctx, async tx => {
         const [snap, snapRis] = await tx.getAll(rif, rifRis);
         if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
-        const r = snapRis.exists ? snapRis.data() : {};
-        if (sorgente === 'riserva' && !riproducibile(r.riservaId || '')) {
+        const r = riservatiDa(snapRis.exists ? snapRis.data() : {});
+        if (sorgente === 'riserva' && !flussoValido(r.riservaId)) {
             throw C.errore(400, 'Non c\'è un link di riserva: inseriscilo nella scheda dell\'evento e salva.', 'sorgente');
         }
         const ts = adessoTs(ctx);
@@ -515,10 +607,39 @@ async function cambiaSorgente(ctx, { idEvento, sorgente }) {
     return (await leggiEvento(ctx, id)).json;
 }
 
-/* Il link da riprodurre, firmato se l'evento usa i link firmati della
-   web TV: per chi guarda (link-video, solo in onda) e per l'anteprima
-   della regia (link-firmato). -> { url, scade } (scade in ms, null
-   senza firma). Il segreto resta qui. */
+/* evento-player: la regia passa tutti al player di Azoto ('azoto') o
+   al flusso diretto ('flusso'), anche durante la diretta: la pagina di
+   chi guarda cambia player da sola, senza ricaricare. Serve l'indirizzo
+   di quella modalita' (400 campo 'tipoPlayer' altrimenti). Come per
+   evento-sorgente, ogni comando aggiorna videoAggiornato ANCHE se la
+   modalita' resta la stessa: la "riconferma" riporta tutti sul player
+   scelto (per esempio chi e' rimasto indietro con un player bloccato). */
+async function cambiaPlayer(ctx, { idEvento, tipoPlayer }) {
+    const id = controllaIdEvento(idEvento);
+    if (TIPI_PLAYER.indexOf(tipoPlayer) < 0) throw C.errore(400, 'Scegli il player Azoto o il flusso diretto.', 'tipoPlayer');
+    const rif = ctx.db.collection('eventi').doc(id);
+    const rifRis = ctx.db.collection('eventiRiservati').doc(id);
+    await transazione(ctx, async tx => {
+        const [snap, snapRis] = await tx.getAll(rif, rifRis);
+        if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
+        const v = snap.data();
+        const prima = riservatiDa(snapRis.exists ? snapRis.data() : {});
+        if (tipoPlayer === 'flusso' && !flussoValido(prima.videoId)) throw C.errore(400, MSG_SERVE_FLUSSO, 'tipoPlayer');
+        if (tipoPlayer === 'azoto' && !azotoValido(prima.azotoUrl)) throw C.errore(400, MSG_SERVE_AZOTO, 'tipoPlayer');
+        const nuoviRis = Object.assign({}, prima, { tipoPlayer: tipoPlayer });
+        const ts = adessoTs(ctx);
+        if (!uguali(nuoviRis, prima) || !snapRis.exists) tx.set(rifRis, Object.assign({}, nuoviRis, { aggiornato: ts }));
+        tx.update(rif, Object.assign(campiVideo(v, nuoviRis, v.stato), { videoAggiornato: ts, aggiornato: ts }));
+    });
+    return (await leggiEvento(ctx, id)).json;
+}
+
+/* Il link del flusso da riprodurre, firmato se l'evento usa i link
+   firmati della web TV: per chi guarda (link-video, solo in onda) e per
+   l'anteprima della regia (link-firmato). Solo in modalita' 'flusso':
+   con il player di Azoto non c'e' un link da dare (409 'non-flusso').
+   -> { url, scade, validoSecondi } (scade in ms, null senza firma). Il
+   segreto resta qui. */
 async function linkVideo(ctx, { idEvento, sorgente, soloInOnda }) {
     const id = controllaIdEvento(idEvento);
     const quale = sorgente === undefined || sorgente === null || sorgente === '' ? 'principale' : sorgente;
@@ -527,7 +648,8 @@ async function linkVideo(ctx, { idEvento, sorgente, soloInOnda }) {
     if (!snap.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
     if (soloInOnda && snap.data().stato !== 'in_onda') throw errorePubblico(409, 'non-in-onda', 'La diretta non è in onda in questo momento.');
     const r = riservatiDa(snapRis.exists ? snapRis.data() : {});
-    const url = riproducibile(quale === 'riserva' ? r.riservaId : r.videoId);
+    if (r.tipoPlayer !== 'flusso') throw errorePubblico(409, 'non-flusso', 'La diretta usa il player Azoto: il link del flusso non serve.');
+    const url = flussoValido(quale === 'riserva' ? r.riservaId : r.videoId);
     if (!url) throw errorePubblico(404, 'nessun-link', quale === 'riserva' ? 'Non c\'è un link di riserva.' : 'Il video della diretta non è ancora impostato.');
     try {
         return F.firma(url, r.firma, ctx.adesso());
@@ -1145,13 +1267,13 @@ async function esporta(ctx, idEvento) {
 module.exports = {
     // attrezzi e risposte
     ms, jsonDi, errorePubblico, rispondi, perLog, controllaIdEvento, controllaUid, nuovoUid, listaEventi, stessaLista,
-    inParallelo, conRiprova, radiceDi, emailMascherata, leggiProgramma, normalizzaOra, leggiVideo, campiVideo,
+    inParallelo, conRiprova, radiceDi, emailMascherata, leggiProgramma, normalizzaOra, leggiVideo, leggiAzoto, campiVideo, riservatiDa,
     // eventi
-    eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaSorgente, linkVideo, cambiaAvviso, scegliEvento,
+    eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaSorgente, cambiaPlayer, linkVideo, cambiaAvviso, scegliEvento,
     // partecipanti
     partecipanteJSON, elencoPartecipanti, anteprima, crea, operazionePartecipante, impostaClaims, allineaClaims,
     cancellaTentativi,
     // collegati ed esportazione
     connessi, esporta,
-    RE_ID_EVENTO, STATI_EVENTO, SORGENTI, MAX_RIGHE_CREA
+    RE_ID_EVENTO, STATI_EVENTO, SORGENTI, TIPI_PLAYER, MAX_RIGHE_CREA
 };
