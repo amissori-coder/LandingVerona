@@ -87,7 +87,7 @@ body { margin: 0; background: #eee; }
 .indirizzo { margin-top: 3mm; font-family: ui-monospace, Consolas, monospace; font-size: 12pt; color: #16202e; word-break: break-all; max-width: 160mm; }
 .passi { margin: 8mm 0 0; padding: 0; list-style: none; width: 100%; max-width: 160mm; text-align: left; font-family: 'Inter', 'Segoe UI', Arial, sans-serif; }
 .passi li { display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; align-items: start; font-size: 12.5pt; line-height: 1.4; margin-bottom: 3.5mm; }
-.passi b { display: inline-flex; width: 9mm; height: 9mm; border-radius: 50%; background: #164068; color: #fff; align-items: center; justify-content: center; font-size: 12pt; }
+.passi li > b { display: inline-flex; width: 9mm; height: 9mm; border-radius: 50%; background: #164068; color: #fff; align-items: center; justify-content: center; font-size: 12pt; }
 .piede { position: absolute; bottom: 12mm; left: 18mm; right: 18mm; font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #5b6878; }
 </style>
 </head>
@@ -105,9 +105,10 @@ body { margin: 0; background: #eee; }
     <div class="qr">${qr}</div>
     <div class="indirizzo">${fuga(link)}</div>
     <ol class="passi">
-        <li><b>1</b><span>Scrivi l&rsquo;email con cui ti sei iscritto, se lo hai fatto: se ti troviamo basta un tocco.</span></li>
+        <li><b>1</b><span>Scrivi l&rsquo;email con cui ti sei iscritto, se lo hai fatto: se ti troviamo basta un tocco e sei dentro.</span></li>
         <li><b>2</b><span>Se non risulti, compila il questionario direttamente dal telefono.</span></li>
-        <li><b>3</b><span>Mostra la schermata verde al desk e accomodati in sala.</span></li>
+        <li><b>3</b><span>Apri l&rsquo;email che ti arriva e tocca <strong>&laquo;Conferma il tuo indirizzo&raquo;</strong>: ricevi subito l&rsquo;invito in PDF.</span></li>
+        <li><b>4</b><span>Mostra l&rsquo;invito al desk, anche dal telefono, e accomodati in sala.</span></li>
     </ol>
     <div class="piede">Il QR non si legge? Scrivi l&rsquo;indirizzo qui sopra nel browser, oppure chiedi al desk Revilaw: ti registriamo noi.</div>
 </div>
