@@ -65,12 +65,28 @@ const db = {
 };
 const adminFinto = { firestore: { FieldValue: { increment: n => ({ __incrementa: n }) } } };
 
+// ---------- SMTP finto ----------
+const posta = [];
+let rompiInvio = 0;
+const nodemailerFinto = {
+    createTransport: () => ({
+        sendMail: async (msg) => {
+            if (rompiInvio > 0) { rompiInvio--; throw new Error('server di posta non raggiungibile'); }
+            posta.push(msg);
+            return { response: '250 ok' };
+        }
+    })
+};
+
 // ---------- intercetta i require ----------
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return adminFinto;
+    if (nome === 'nodemailer') return nodemailerFinto;
     return veroRequire.apply(this, arguments);
 };
+process.env.SMTP_HOST = 'smtp.prova'; process.env.SMTP_USER = 'u'; process.env.SMTP_PASS = 'p';
+process.env.SMTP_FROM_EMAIL = 'noreply@ngb.it';
 process.env.NEWSLETTER_SECRET = 'segreto-di-prova';
 process.env.APP_BASE_URL = 'https://nextgenerationbusiness.it';
 
@@ -90,7 +106,7 @@ async function prova(titolo, fn) {
     try { await fn(); }
     catch (e) { ko++; console.log('  KO   eccezione: ' + (e && e.stack)); }
 }
-function azzera() { dati.clear(); commit = 0; orologio = Date.parse('2026-09-26T10:00:00+02:00'); }
+function azzera() { dati.clear(); commit = 0; posta.length = 0; rompiInvio = 0; orologio = Date.parse('2026-09-26T10:00:00+02:00'); }
 const PAGINA = 'Napoli 2 Ottobre 2026 - Manifestazione di interesse';
 const ID = 'mario-rossi@esempio-it|20-09-2026 10:00:00';
 const ROSSI = { pagina: PAGINA, data: '20/09/2026 10:00:00', nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', telefono: '333', azienda: 'Rossi Srl' };
@@ -141,6 +157,38 @@ const token = () => NL.firmaConfermaEmail(ID);
         dati.set('iscrizioni/senza', { pagina: PAGINA, nome: 'Posto', cognome: 'Due' });
         const z = await CONF.conferma(db, { d: 'senza', t: NL.firmaConfermaEmail('senza') });
         esigi(z.stato === 400, 'una scheda-partecipante senza email non ha niente da confermare');
+    });
+
+    await prova('Dopo la conferma parte l\'invito, con il PDF, una volta sola', async () => {
+        azzera();
+        dati.set('iscrizioni/' + ID, Object.assign({}, ROSSI));
+        const r = await CONF.conferma(db, { d: ID, t: token() });
+        esigi(r.corpo.ok && r.corpo.invito === true && r.corpo.online === false, 'la risposta dice che l\'invito e\' partito');
+        esigi(posta.length === 1 && posta[0].to === ROSSI.email, 'una mail, all\'iscritto');
+        esigi(/Il tuo invito/.test(posta[0].subject) && /esibiscilo al desk/.test(posta[0].html), 'e\' la mail dell\'invito');
+        esigi(/Hotel Eurostars Excelsior/.test(posta[0].html) && /2 ottobre 2026/.test(posta[0].text), 'con giorno e sede di Napoli');
+        const all = posta[0].attachments || [];
+        esigi(all.length === 1 && all[0].contentType === 'application/pdf' && /^Invito-NGB-Mario-Rossi\.pdf$/.test(all[0].filename), 'con l\'invito in PDF allegato');
+        esigi(Buffer.isBuffer(all[0].content) && all[0].content.slice(0, 5).toString('latin1') === '%PDF-' && /%%EOF/.test(all[0].content.toString('latin1')), 'e il PDF e\' un PDF intero');
+        const s = dati.get('iscrizioni/' + ID);
+        esigi(s.mailInvito && s.mailInvito.ok === true, 'sulla scheda: invito partito');
+        const r2 = await CONF.conferma(db, { d: ID, t: token() });
+        esigi(r2.corpo.gia === true && posta.length === 1, 'la seconda apertura non rimanda l\'invito');
+    });
+
+    await prova('Chi segue online riceve la conferma senza PDF; se la posta e\' giu\' la conferma resta', async () => {
+        azzera();
+        dati.set('iscrizioni/on', Object.assign({}, ROSSI, { email: 'on@line.it', modalita: 'online' }));
+        const r = await CONF.conferma(db, { d: 'on', t: NL.firmaConfermaEmail('on') });
+        esigi(r.corpo.invito === true && r.corpo.online === true, 'online: mail partita, segnalato come online');
+        esigi(posta.length === 1 && !posta[0].attachments && /Indirizzo confermato/.test(posta[0].subject) && /collegamento/.test(posta[0].html), 'senza allegato, con il promemoria del collegamento');
+        azzera();
+        dati.set('iscrizioni/' + ID, Object.assign({}, ROSSI));
+        rompiInvio = 1;
+        const k = await CONF.conferma(db, { d: ID, t: token() });
+        esigi(k.corpo.ok && k.corpo.gia === false && k.corpo.invito === false, 'posta giu\': l\'indirizzo e\' confermato lo stesso, l\'invito no');
+        const s = dati.get('iscrizioni/' + ID);
+        esigi(s.emailConfermata.come === 'mail' && s.mailInvito.ok === false && /non raggiungibile/.test(s.mailInvito.errore), 'sulla scheda: confermato, invito non partito con il motivo');
     });
 
     await prova('Il freno e\' per scheda', async () => {

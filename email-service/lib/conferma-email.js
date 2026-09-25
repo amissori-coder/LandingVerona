@@ -31,8 +31,76 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const nodemailer = require('nodemailer');
 const NL = require('./newsletter');
 const MNGB = require('./mail-ngb');
+const INVITO = require('./pdf-invito');
+
+/* LA SECONDA MAIL: l'invito. Dopo la conferma parte una mail con l'invito
+   in PDF da esibire all'ingresso (per chi segue online, il promemoria che il
+   collegamento arriva prima dell'evento). E' quello che rende "confermato"
+   una cosa che si ha in mano: la registrazione non e' completa finche' non
+   si clicca, e questa mail lo dice.
+   I dati dell'evento stanno qui, per titolo del modulo: il servizio non ha
+   un posto suo dove leggerli, e un invito senza giorno e indirizzo non e'
+   un invito. Un evento che non e' in elenco riceve la mail con il solo
+   nome. */
+const DETTAGLI_EVENTO = [
+    { se: /napoli/i, quando: 'Venerdì 2 ottobre 2026', orario: 'Registrazione dalle 9.00, lavori dalle 9.30 alle 17.30', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli' }
+];
+function dettagliEvento(pagina) {
+    const d = DETTAGLI_EVENTO.find(x => x.se.test(String(pagina || '')));
+    return d ? { quando: d.quando, orario: d.orario, luogo: d.luogo, indirizzo: d.indirizzo } : {};
+}
+function trasporto() {
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: (Number(process.env.SMTP_PORT) || 465) === 465,
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    });
+}
+function mittente() {
+    const ind = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+    const nome = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+    return '"' + nome + '" <' + ind + '>';
+}
+function adessoInItalia() {
+    const f = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+    const p = {};
+    f.formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
+    return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute;
+}
+/* Compone e spedisce l'invito. Restituisce { ok, errore }: se non parte, la
+   conferma dell'indirizzo resta valida e l'area riservata puo' rimandarla. */
+async function spedisciInvito(idDoc, scheda) {
+    const online = String(scheda.modalita || '').toLowerCase() === 'online';
+    const evento = dettagliEvento(scheda.pagina);
+    const dati = {
+        nome: testo(scheda.nome, 120), cognome: testo(scheda.cognome, 120),
+        azienda: testo(scheda.azienda, 200), ruolo: testo(scheda.ruolo, 200),
+        pagina: scheda.pagina, evento: Object.assign({ titolo: MNGB.nomeEvento(scheda.pagina) }, evento),
+        modalita: online ? 'online' : 'presenza'
+    };
+    const m = MNGB.invitoIngresso(dati, NL.linkCompleta(idDoc));
+    const messaggio = { from: mittente(), to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html };
+    if (!online) {
+        const nomeCompleto = (dati.nome + ' ' + dati.cognome).trim();
+        messaggio.attachments = [{
+            filename: INVITO.nomeFileInvito(nomeCompleto),
+            content: INVITO.pdfInvito({ nome: nomeCompleto, azienda: dati.azienda, ruolo: dati.ruolo, evento: dati.evento, online: false, emessoIl: adessoInItalia() }),
+            contentType: 'application/pdf'
+        }];
+    }
+    try {
+        await trasporto().sendMail(messaggio);
+        return { ok: true };
+    } catch (e) {
+        const motivo = String((e && e.message) || e).slice(0, 200);
+        console.error('Invito a', scheda.email, 'non inviato:', motivo);
+        return { ok: false, errore: motivo };
+    }
+}
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -97,7 +165,12 @@ async function conferma(db, body) {
     const quando = Date.now();
     await rif.set({ emailConfermata: { quando: quando, come: 'mail' } }, { merge: true });
     await segnaCambiamento(db);
-    return { stato: 200, corpo: { ok: true, gia: false, quando: quando, nome: nome, evento: evento } };
+    // la seconda mail, con l'invito: parte una volta, alla prima conferma
+    const invito = await spedisciInvito(idDoc, scheda);
+    try {
+        await rif.set({ mailInvito: { quando: Date.now(), ok: invito.ok === true, errore: testo(invito.errore, 200) } }, { merge: true });
+    } catch (e) { /* informazione, non condizione */ }
+    return { stato: 200, corpo: { ok: true, gia: false, quando: quando, nome: nome, evento: evento, invito: invito.ok === true, online: String(scheda.modalita || '').toLowerCase() === 'online' } };
 }
 
 /* ---------- azione "conferma-email-pregresso" (area riservata, amministratore) ----------
@@ -147,4 +220,4 @@ function confermata(scheda) {
     return !!(c && typeof c === 'object' && c.quando);
 }
 
-module.exports = { conferma, pregresso, mailDiConferma, confermata, RL_MAX };
+module.exports = { conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, RL_MAX };

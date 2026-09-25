@@ -167,7 +167,7 @@ function bloccoConferma(url) {
         + '<tr><td class="par" style="' + FONTE + 'padding:18px 22px 14px;font-size:16px;line-height:26px;color:' + C.testo
         + ';background-color:' + C.chiaro + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">'
         + '<b style="color:' + C.scuro + ';">Un tocco per confermare il tuo indirizzo.</b> '
-        + 'Così sappiamo che le comunicazioni sull\'evento - il programma, il collegamento per seguirlo, i promemoria - ti arrivano davvero.</td></tr>'
+        + 'Subito dopo ti mandiamo una seconda email con l\'invito in PDF da esibire all\'ingresso: senza la conferma l\'iscrizione non è completa.</td></tr>'
         + '<tr><td style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
         + '<td align="center" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;">'
@@ -268,11 +268,16 @@ function confermaSito(dati, link, linkConferma) {
     const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata'
         + (online ? ' per la partecipazione online' : '') + '.';
     const attesa = online && dati && dati.listaAttesa === true;
+    /* Con il collegamento di conferma la mail e' il PRIMO passo: la richiesta
+       e' ricevuta, il posto arriva con l'invito dopo la conferma. Senza (le
+       mail composte prima di questa modifica) resta la frase di sempre. */
     const apertura = online
-        ? 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
+        ? 'La tua richiesta di partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
             + (attesa ? ' I posti in sala sono esauriti, ma ti abbiamo inserito in lista d\'attesa: se se ne libera uno ti scriviamo, e decidi tu se venire di persona.' : '')
             + ' Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
-        : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.';
+        : (linkConferma
+            ? 'La tua richiesta è registrata. Conferma il tuo indirizzo dal pulsante qui sopra: riceverai subito l\'invito in PDF da esibire all\'ingresso. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante in fondo puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
+            : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.');
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
         testata('Iscrizione ricevuta', sommario)
         + corpo(
@@ -310,6 +315,57 @@ function confermaSito(dati, link, linkConferma) {
         'Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo.',
         '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
         'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+/* --- L'invito, dopo la conferma dell'indirizzo ---
+   La seconda mail: l'indirizzo e' confermato, e in allegato c'e' l'invito
+   in PDF da esibire all'ingresso (per chi segue online, il promemoria che
+   il collegamento arriva prima dell'evento). `dati`: { nome, cognome,
+   azienda, pagina, evento: {quando, luogo, indirizzo, orario}, modalita };
+   `link` e' il collegamento per modificare o annullare. */
+function invitoIngresso(dati, link) {
+    const evento = nomeEvento(dati.pagina);
+    const ev = dati.evento || {};
+    const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
+    const online = String(dati.modalita || '').toLowerCase() === 'online';
+    const oggetto = (online ? 'Indirizzo confermato' : 'Il tuo invito') + ' - Next Generation Business, ' + evento;
+    const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
+    const sommario = saluto + ' il tuo indirizzo è confermato'
+        + (online ? ': la tua partecipazione online a ' + evento + ' è registrata.' : ' e la tua iscrizione a ' + evento + ' è completa.');
+    const apertura = online
+        ? 'Qualche giorno prima dell\'evento ti invieremo a questo indirizzo il collegamento e le istruzioni per seguire i lavori in diretta.'
+        : 'In allegato trovi il tuo invito in PDF: esibiscilo al desk all\'ingresso, anche dal telefono, e ti consegniamo il badge. Se qualcosa cambia, dal pulsante qui sotto puoi correggere i tuoi dati o annullare la partecipazione, senza scriverci.';
+    const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+    const html = involucro(oggetto, online ? 'Indirizzo confermato: la tua partecipazione online è registrata.' : 'Il tuo invito a ' + evento + ' è in allegato: esibiscilo all\'ingresso.',
+        testata(online ? 'Indirizzo confermato' : 'Il tuo invito', sommario)
+        + corpo(
+            paragrafo(apertura)
+            + spazio(22)
+            + '<tr><td>' + box(
+                rigaBox('Evento', 'Next Generation Business - ' + evento)
+                + rigaBox('Giorno', ev.quando)
+                + rigaBox('Orario', ev.orario)
+                + rigaBox('Dove', dove)
+                + rigaBox('Partecipazione', online ? 'Online, in diretta' : 'In sala')
+                + rigaBox('Iscritto', nomeCompleto)
+                + rigaBox('Azienda', dati.azienda)
+            ) + '</td></tr>'
+            + spazio(28)
+            + bottone('Modifica o annulla l\'iscrizione', link)
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
+            + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
+        )
+        + piede(MOTIVO));
+    const testo = [online ? 'INDIRIZZO CONFERMATO' : 'IL TUO INVITO', sommario, apertura,
+        'Evento: Next Generation Business - ' + evento
+        + (ev.quando ? '\nGiorno: ' + ev.quando : '') + (ev.orario ? '\nOrario: ' + ev.orario : '') + (dove ? '\nDove: ' + dove : '')
+        + '\nPartecipazione: ' + (online ? 'Online, in diretta' : 'In sala')
+        + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '') + (dati.azienda ? '\nAzienda: ' + dati.azienda : ''),
+        'Modifica o annulla l\'iscrizione: ' + link,
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        'Informativa privacy: ' + PRIVACY].join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
@@ -729,4 +785,4 @@ function invitoB2BAnnullato(dati) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { confermaSito, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };
+module.exports = { confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };

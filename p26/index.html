@@ -560,9 +560,14 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
             .then(function (esiti) {
                 if (!esiti[0] && !esiti[1]) throw new Error('nessuna strada');
                 fine((payload.nome + ' ' + payload.cognome).trim());
+                /* La registrazione NON e' completa finche' non si conferma
+                   l'indirizzo dalla mail: la schermata lo dice, e dice cosa
+                   arriva dopo (l'invito in PDF). */
+                el('fineTitolo').textContent = 'Richiesta ricevuta';
+                el('fineTesto').textContent = 'Controlla la posta: ti abbiamo mandato una email con il pulsante “Conferma il tuo indirizzo”. Toccalo e riceverai una seconda email con l’invito in PDF da esibire all’ingresso.';
                 if (!esiti[1]) {
-                    // iscritto sul foglio ma non segnato presente: lo dice, cosi' passa dal desk
-                    el('fineTesto').textContent = 'La tua iscrizione è registrata. Passa dal desk Revilaw all’ingresso per farti segnare presente: la rete della sala non ha risposto.';
+                    // iscritto sul foglio ma non sul servizio: nessuna mail e' partita, si passa dal desk
+                    el('fineTesto').textContent = 'La tua richiesta è registrata, ma la rete della sala non ha risposto: passa dal desk Revilaw all’ingresso e ti registriamo noi.';
                 }
             })
             .catch(function () {
@@ -574,6 +579,10 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
     /* ---------- passo 3 ---------- */
     function fine(nomeCompleto) {
         niente();
+        // la schermata di chi era gia' iscritto e si e' segnato presente: chi si
+        // registra adesso la riscrive subito dopo, con la mail da confermare
+        el('fineTitolo').textContent = 'Sei registrato';
+        el('fineTesto').textContent = 'Benvenuto a Next Generation Business. Mostra questa schermata al desk e accomodati in sala.';
         el('fineChi').textContent = nomeCompleto;
         el('fineQuando').textContent = 'Napoli, ' + adessoIt().slice(0, 16);
         vai('passoFine');

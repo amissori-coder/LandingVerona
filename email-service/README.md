@@ -1157,6 +1157,18 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   Al contrario chi si iscrive nel mezzo riceverebbe la mail E verrebbe
   segnato d'ufficio: non e' grave (chi clicca dopo resta "pregresso", il
   campo c'e' gia'), ma e' un baffetto che dice meno del vero.
+- **La seconda mail: l'invito.** Alla prima conferma (non a quelle dopo) il
+  servizio spedisce una seconda mail: per chi e' in sala "Il tuo invito", con
+  l'**invito in PDF** allegato da esibire all'ingresso anche dal telefono
+  (`lib/pdf-invito.js`, stesso Foglio del PDF degli incontri B2B); per chi
+  segue online "Indirizzo confermato", senza allegato, con il promemoria del
+  collegamento. Giorno, orario e sede stanno in `DETTAGLI_EVENTO` di
+  `lib/conferma-email.js`, per titolo del modulo. L'esito resta sulla scheda
+  in `mailInvito: { quando, ok, errore }`; se la posta e' giu' l'indirizzo
+  resta confermato e la pagina lo dice ("all'ingresso basta il tuo nome").
+  Da qui la mail di iscrizione dice "richiesta registrata", non "posto
+  riservato": l'iscrizione e' completa dopo il clic, e le pagine (sito, QR
+  al desk, cartello) lo spiegano nello stesso modo.
 - **`azione: "richiedi-conferma-email"`** su `/api/presenze` (tutti gli
   abilitati agli Eventi): rispedisce la stessa mail dell'iscrizione dal
   sito, composta dal servizio (il pulsante porta una firma che solo il
