@@ -151,10 +151,20 @@ prova('6) Il secondo tavolo del merito creditizio', () => {
        che a un tavolo del convegno non appartengono. */
     const interni = SERVIZIO.AREE_B2B.filter(x => x.interno).map(x => x.id);
     esigi(interni.join(',') === 'desk-revilaw', 'e il desk interno resta uno solo', interni.join(','));
-    /* L'ORDINE non e' cambiato: le prenotazioni vecchie viaggiano per indice,
-       e spostare la riga sposterebbe le scelte gia' fatte. */
-    esigi(SERVIZIO.AREE_B2B[SERVIZIO.AREE_B2B.length - 1].id === 'desk-revilaw-b',
-        'la riga e rimasta in fondo, dove era');
+    /* L'ORDINE NON SI TOCCA: le prenotazioni vecchie viaggiano per INDICE, e
+       infilare o spostare una riga sposterebbe le scelte gia' fatte da un
+       argomento all'altro. Si scrive per intero, cosi' la prova non dice solo
+       "l'ultima e' quella giusta" ma "nessuna si e' mossa": le voci nuove si
+       aggiungono in fondo, e questo elenco e' il posto dove ci si accorge se
+       qualcuno ne ha messa una in mezzo. */
+    const ORDINE = [
+        'merito-creditizio', 'adeguati-assetti', 'esg', 'modello-231', 'modello-231-b',
+        'finanza-agevolata', 'revisione', 'certificazione-iso', 'rating-legalita',
+        'rating-legalita-b', 'desk-revilaw', 'desk-revilaw-b', 'finanza-agevolata-b'
+    ];
+    esigi(SERVIZIO.AREE_B2B.map(x => x.id).join(',') === ORDINE.join(','),
+        'e l ordine dei tavoli e quello di sempre, con le voci nuove in fondo',
+        SERVIZIO.AREE_B2B.map(x => x.id).join(','));
     /* Il nome di prima resta riconoscibile: un invito partito mesi fa parla
        ancora per nome. */
     esigi(SERVIZIO.idArea('Desk Revilaw - secondo tavolo') === 'desk-revilaw-b',
@@ -190,6 +200,29 @@ prova('7) L\'etichetta del tavolo la scrive il sito, quando la conosce', () => {
         'ma un tavolo che il sito non conosce tiene il suo: meglio un nome vecchio che nessun nome');
     esigi(etichetta({ id: 'desk-revilaw-b' }) === 'Merito creditizio - secondo tavolo',
         'e se il servizio non manda il nome, il sito ce l ha lo stesso');
+});
+
+prova('8) Un posto in piu a ogni orario della finanza agevolata', () => {
+    /* Nel modello un orario di un tavolo tiene UNA prenotazione
+       (aree[tavolo][ora] e' una casella sola): il secondo posto alle 10:00 e'
+       quindi una seconda voce nell'elenco, che si fonde con la prima nella
+       stessa famiglia. Per l'azienda non cambia niente - vede "Finanza
+       agevolata" con due posti a ogni ora - e per chi organizza e' una riga in
+       piu' in agenda, a cui dare il referente che siede in quel posto. */
+    esigi(SERVIZIO.capofilaDi('finanza-agevolata-b') === 'finanza-agevolata',
+        'il secondo posto sta nella famiglia della finanza agevolata');
+    esigi(SERVIZIO.gemelliDi('finanza-agevolata').join(',') === 'finanza-agevolata,finanza-agevolata-b',
+        'che ora ha due posti per orario, il capofila per primo');
+    const fam = SERVIZIO.famiglieB2B().filter(f => f.id === 'finanza-agevolata')[0];
+    esigi(fam && fam.aree.length === 2 && fam.nome === 'Finanza agevolata',
+        'ma per l azienda resta una voce sola, che si chiama come si e sempre chiamata');
+    esigi(!SERVIZIO.areaDa('finanza-agevolata-b').interno,
+        'non e un tavolo interno: partecipa alla fusione degli orari');
+    /* I TRE ELENCHI restano identici: e' la prova 1 di questo file a
+       controllarlo, e questa riga serve a ricordare che le voci nuove vanno
+       aggiunte in tutti e tre. */
+    esigi(AREA.AREE_B2B.filter(a => a.id === 'finanza-agevolata-b').length === 1,
+        'e la voce c e anche nell elenco dell area riservata');
 });
 
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
