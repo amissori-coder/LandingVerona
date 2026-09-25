@@ -851,14 +851,9 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 }
 /* su iPhone e iPad il volume si regola solo con i tasti del dispositivo */
 .ios .volume { display: none; }
-/* il player della web TV incorporato ha i suoi comandi: dei nostri resta lo schermo intero */
-.riquadro-video[data-comandi="ridotti"] #btn-play,
-.riquadro-video[data-comandi="ridotti"] #btn-muto,
-.riquadro-video[data-comandi="ridotti"] .volume,
-.riquadro-video[data-comandi="ridotti"] .btn-live,
-.riquadro-video[data-comandi="ridotti"] .indicatore-live,
-.riquadro-video[data-comandi="ridotti"] .barra-dvr,
-.riquadro-video[data-comandi="ridotti"] .sel-qualita { display: none; }
+/* le parti della modalita' A (il player di Azoto): nascoste in modalita' B */
+.btn-schermo-intero-testo,
+.nota-azoto { display: none; }
 
 /* ---------- schermo intero ---------- */
 .riquadro-video:fullscreen,
@@ -900,6 +895,204 @@ html.schermo-intero-finto body { overflow: hidden; height: 100%; overscroll-beha
     padding: var(--sicuro-alto) var(--sicuro-destra) 0 var(--sicuro-sinistra);
 }
 .riquadro-video.schermo-intero-finto .barra-comandi { padding-bottom: calc(8px + var(--sicuro-basso)); }
+
+/* ====================== MODALITA' A: IL PLAYER DI AZOTO ======================
+   html.modo-azoto (lo mette diretta.js): il video e' l'iframe del player di
+   Azoto (.player-azoto), con i SUOI comandi. Dei nostri, sotto il video, resta
+   solo «Schermo intero» (con la scritta) e la nota fissa; se il player tarda,
+   l'avviso dei 15 secondi, anche lui SOTTO. Niente mai sopra l'iframe.
+   IL 16:9. La pagina di Azoto (OvenPlayer) si fa alta 9/16 della sua
+   larghezza: in un riquadro piu' alto lascerebbe una banda vuota, in uno piu'
+   basso taglierebbe i suoi comandi (con una barra di scorrimento, se non ci
+   fosse scrolling="no"). Per questo il riquadro dell'iframe e' SEMPRE 16:9:
+   nella pagina lo e' .area-video (aspect-ratio); a schermo intero e' il 16:9
+   piu' grande che sta nello schermo (vedi sotto), con le bande nere nostre
+   intorno quando lo schermo ha un'altra forma. */
+
+/* i consigli che valgono per una modalita' sola (data-solo in index.html) */
+html.modo-azoto [data-solo="flusso"],
+html:not(.modo-azoto) [data-solo="azoto"] { display: none; }
+
+/* i comandi della modalita' B non ci sono */
+html.modo-azoto #btn-play,
+html.modo-azoto #btn-muto,
+html.modo-azoto .volume,
+html.modo-azoto .spazio-flessibile,
+html.modo-azoto .indicatore-live,
+html.modo-azoto .btn-live,
+html.modo-azoto .sel-qualita,
+html.modo-azoto .barra-dvr,
+html.modo-azoto .striscia-audio,
+html.modo-azoto .riga-comandi-aiuto { display: none; }
+
+/* sotto il video: la nota a sinistra e «Schermo intero» a destra (sul
+   telefono uno sotto l'altro). La griglia mette la nota nella riga del
+   pulsante anche se nel codice viene dopo (dense). */
+html.modo-azoto .riquadro-video {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-auto-flow: row dense;
+    /* sul computer il video, la nota e il pulsante stanno tutti nello schermo */
+    max-width: min(1180px, calc((100vh - 245px) * 16 / 9));
+    max-width: min(1180px, calc((100dvh - 245px) * 16 / 9));
+}
+html.modo-azoto .riquadro-video > * { grid-column: 1 / -1; }
+html.modo-azoto .riquadro-video > .nota-azoto {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    margin: 0;
+    padding: 10px 8px 10px 18px;
+    background: #0B1F33;
+    color: var(--su-scuro);
+    font-size: 14.5px;
+    line-height: 1.45;
+}
+html.modo-azoto .riquadro-video > .barra-comandi {
+    grid-column: 2;
+    align-self: stretch;
+    justify-content: flex-end;
+    padding: 10px 14px 10px 8px;
+}
+html.modo-azoto #btn-schermo-intero {
+    width: auto;
+    gap: 9px;
+    padding: 0 20px 0 15px;
+    border: 1.5px solid rgba(255, 255, 255, .5);
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 15.5px;
+    white-space: nowrap;
+}
+/* il colore al passaggio del mouse solo dove c'e' un mouse: su iPhone resterebbe acceso dopo il tocco */
+@media (hover: hover) {
+    html.modo-azoto #btn-schermo-intero:hover { background: #fff; color: var(--scuro); }
+}
+html.modo-azoto .btn-schermo-intero-testo { display: inline; }
+
+/* il player non e' arrivato in 15 secondi: sotto il riquadro, con «Ricarica il video» */
+.avviso-lento {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 14px;
+    padding: 10px 16px;
+    background: var(--ambra-sfondo);
+    color: var(--ambra-testo);
+    border-top: 1px solid var(--ambra-bordo);
+    font-weight: 700;
+    font-size: 15.5px;
+    line-height: 1.4;
+    text-align: center;
+}
+.avviso-lento > .icona { width: 22px; height: 22px; }
+.btn-ricarica-video {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 8px 20px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--blu);
+    color: #fff;
+    font-weight: 700;
+    font-size: 15.5px;
+    white-space: nowrap;
+}
+.btn-ricarica-video:hover { background: var(--scuro); }
+.btn-ricarica-video .icona { width: 20px; height: 20px; }
+.btn-ricarica-video:focus-visible { outline-color: var(--scuro); }
+
+/* ---------- modalita' A a schermo intero (vero o finto) ----------
+   Il riquadro e' una griglia: in cima l'avviso di connessione (se c'e'), poi
+   il palco (.area-video, tutto lo spazio che resta) e sotto gli avvisi (15
+   secondi, regia). L'iframe (#video-player) e' il 16:9 piu' grande che sta
+   nel palco lasciando libero l'angolo in basso a destra, dove sta il
+   pulsante per uscire: quando lo schermo e' piu' largo del 16:9 le bande
+   nere sono ai lati e il pulsante sta nella banda di destra; quando e' piu'
+   alto, sotto. Le misure del palco arrivano dalle unita' cqw/cqh
+   (container-type: size): valgono anche per il riquadro ruotato di iPhone. */
+html.modo-azoto .riquadro-video[data-intero="1"] {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    background: #000;
+}
+html.modo-azoto .riquadro-video[data-intero="1"] > .avviso-connessione { grid-row: 1; }
+html.modo-azoto .riquadro-video[data-intero="1"] > .area-video {
+    grid-row: 2;
+    grid-column: 1;
+    width: auto;
+    height: auto;
+    aspect-ratio: auto;
+    padding-top: 0;
+    container-type: size;
+}
+html.modo-azoto .riquadro-video[data-intero="1"] > .avviso-lento { grid-row: 3; }
+html.modo-azoto .riquadro-video[data-intero="1"] > .avviso-intero { grid-row: 4; }
+html.modo-azoto .riquadro-video[data-intero="1"] > .nota-azoto { display: none; }
+/* il pulsante per uscire: nell'angolo del palco che l'iframe lascia libero */
+html.modo-azoto .riquadro-video[data-intero="1"] > .barra-comandi {
+    grid-row: 2;
+    grid-column: 1;
+    align-self: end;
+    justify-self: end;
+    z-index: 1;
+    margin: 8px;
+    padding: 0;
+    background: transparent;
+}
+html.modo-azoto .riquadro-video[data-intero="1"] #btn-schermo-intero {
+    width: 48px;
+    padding: 0;
+    background: rgba(11, 31, 51, .85);
+}
+@media (hover: hover) {
+    html.modo-azoto .riquadro-video[data-intero="1"] #btn-schermo-intero:hover { background: #fff; }
+}
+html.modo-azoto .riquadro-video[data-intero="1"] .btn-schermo-intero-testo { display: none; }
+@supports (width: 1cqw) {
+    html.modo-azoto .riquadro-video[data-intero="1"] .video-player {
+        /* la banda che serve al pulsante: 48 px piu' 8 di margine per parte */
+        --banda: 64px;
+        /* il 16:9 piu' largo fra: bande ai lati (larghe almeno --banda) e banda sotto (alta almeno --banda) */
+        --largo: max(min(100cqw - 2 * var(--banda), 100cqh * 16 / 9), min(100cqh - var(--banda), 100cqw * 9 / 16) * 16 / 9);
+        top: max(0px, (100cqh - var(--banda) - var(--largo) * 9 / 16) / 2);
+        left: calc((100cqw - var(--largo)) / 2);
+        right: auto;
+        bottom: auto;
+        width: var(--largo);
+        height: calc(var(--largo) * 9 / 16);
+    }
+}
+/* lo pseudo schermo intero: anche sotto, lontano dalla barra di iPhone */
+html.modo-azoto .riquadro-video.schermo-intero-finto {
+    padding: var(--sicuro-alto) var(--sicuro-destra) var(--sicuro-basso) var(--sicuro-sinistra);
+}
+/* iPhone in verticale: la vista a pagina intera ORIZZONTALE. Il riquadro e'
+   largo quanto lo schermo e' alto, alto quanto e' largo, e ruotato di 90
+   gradi (in senso orario: si guarda girando il telefono con la parte alta a
+   sinistra). Le zone sicure ruotano con lui: la tacca (in alto sul telefono)
+   e' a sinistra del video, la barra di iPhone (in basso) a destra. Girando
+   davvero il telefono lo schermo diventa orizzontale e la vista si
+   raddrizza da sola (questa regola non vale piu'). */
+@media (orientation: portrait) {
+    html.modo-azoto .riquadro-video.schermo-intero-finto {
+        top: 50%;
+        left: 50%;
+        right: auto;
+        bottom: auto;
+        width: 100vh;
+        width: 100dvh;
+        height: 100vw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        padding: var(--sicuro-destra) var(--sicuro-basso) var(--sicuro-sinistra) var(--sicuro-alto);
+    }
+}
 
 /* ====================== STATI: PAUSA, FINE, MESSAGGI ====================== */
 .carta-stato {
@@ -972,7 +1165,8 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
 /* ====================== TABLET ====================== */
 @media (max-width: 1024px) {
     .griglia-carte { grid-template-columns: minmax(0, 1fr); }
-    .riquadro-video { max-width: 100%; }
+    .riquadro-video,
+    html.modo-azoto .riquadro-video { max-width: 100%; }
 }
 
 @media (max-width: 900px) {
@@ -1048,6 +1242,22 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
     .dvr-etichetta { font-size: 13.5px; min-width: 4.6em; }
     .voce-programma { grid-template-columns: 56px minmax(0, 1fr); padding: 10px 6px; }
     .dialogo-azioni .btn { flex: 1 1 auto; }
+
+    /* modalita' A: «Schermo intero» sotto il video, poi la nota */
+    html.modo-azoto .riquadro-video { grid-template-columns: minmax(0, 1fr); }
+    html.modo-azoto .riquadro-video > .nota-azoto,
+    html.modo-azoto .riquadro-video > .barra-comandi { grid-column: 1 / -1; }
+    html.modo-azoto .riquadro-video > .barra-comandi { justify-content: center; padding: 12px 12px 2px; }
+    html.modo-azoto .riquadro-video > .nota-azoto { justify-content: center; text-align: center; padding: 8px 16px 14px; }
+    /* l'avviso dei 15 secondi: icona e testo su una riga, il pulsante sotto */
+    .avviso-lento {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        justify-items: start;
+        padding: 12px 14px;
+        text-align: left;
+    }
+    .btn-ricarica-video { grid-column: 1 / -1; justify-self: center; }
 }
 /* telefoni stretti: play, audio, «IN DIRETTA», qualita' e schermo intero devono stare in una riga */
 @media (max-width: 380px) {
@@ -1066,6 +1276,8 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
     .fascia-video { padding: 0; }
     .riquadro-video { max-width: calc((100vh - 110px) * 16 / 9); max-width: calc((100dvh - 110px) * 16 / 9); border-radius: 0; }
     .riquadro-video:focus-visible { border-radius: 0; outline-offset: -3px; }
+    /* modalita' A: sotto il video solo la riga con la nota e «Schermo intero» */
+    html.modo-azoto .riquadro-video { max-width: calc((100vh - 72px) * 16 / 9); max-width: calc((100dvh - 72px) * 16 / 9); }
 }
 
 /* chi ha chiesto meno animazioni */

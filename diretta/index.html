@@ -3,15 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <!-- Content-Security-Policy: la pagina carica codice solo da se' stessa e
-         dall'SDK di Firebase (gstatic); hls.js e dash.js sono file del sito. Nessuno
-         script scritto nella pagina: tutto sta nei file .js qui accanto (DECISIONI
-         D3); SheetJS (l'Excel) serve solo alla gestione, non qui. Il video della web
-         TV (flusso HLS o DASH, o la sua pagina incorporata)
-         puo' arrivare da qualunque indirizzo https: media-src, connect-src e
-         frame-src lo permettono; blob: serve al video di hls.js e dash.js
-         (media-src) e al lavoro in secondo piano di hls.js (worker-src). Quando si
-         conosce il dominio della web TV si puo' restringere (README). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https:; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+         dall'SDK di Firebase (gstatic); hls.js e dash.js sono file del sito, e
+         lo script di Azoto (azoto-player.js) NON si carica: non serve (il 16:9 lo
+         fa il nostro CSS) e metterebbe lo sfondo nero alla pagina (vedi
+         player-azoto.js). Nessuno script scritto nella pagina: tutto sta nei
+         file .js qui accanto (DECISIONI D3); SheetJS (l'Excel) serve solo alla
+         gestione, non qui.
+         frame-src: SOLO il player di Azoto (modalita' A): nessun'altra pagina
+         puo' entrare in un iframe di questa pagina, qualunque cosa arrivi dai dati.
+         Il flusso diretto (modalita' B, HLS o DASH) puo' arrivare da qualunque
+         indirizzo https: media-src e connect-src lo permettono, perche' il dominio
+         del flusso di Azoto ancora non si conosce (README: come restringerli
+         quando lo si sa); blob: serve al video di hls.js e dash.js (media-src) e
+         al lavoro in secondo piano di hls.js (worker-src). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <!-- viewport-fit=cover: su iPhone la pagina usa anche le zone attorno alla tacca
          (le distanze giuste le mette il CSS con env(safe-area-inset-*)) -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -28,12 +33,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20260924p">
+    <link rel="stylesheet" href="diretta.css?v=20260925a">
     <script src="config.js?v=20260924c" defer></script>
     <script src="nome-utente.js?v=20260924c" defer></script>
-    <script src="sorgente-video.js?v=20260924g" defer></script>
-    <script src="player-webtv.js?v=20260924q" defer></script>
-    <script src="diretta.js?v=20260924p" defer></script>
+    <script src="sorgente-video.js?v=20260925a" defer></script>
+    <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
+    <script src="player-azoto.js?v=20260925a" defer></script>
+    <script src="player-webtv.js?v=20260925a" defer></script>
+    <script src="diretta.js?v=20260925a" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -184,8 +191,11 @@
                 </div>
                 <div class="carta carta-consigli">
                     <h3>Prima di cominciare</h3>
+                    <!-- data-solo: il consiglio vale solo per una modalita' del video
+                         (html.modo-azoto / html.modo-flusso, diretta.css) -->
                     <ul class="consigli">
-                        <li>Il video parte <strong>senza audio</strong>: quando compare, premi il pulsante <strong>«Attiva l'audio»</strong>.</li>
+                        <li data-solo="flusso">Il video parte <strong>senza audio</strong>: quando compare, premi il pulsante <strong>«Attiva l'audio»</strong>.</li>
+                        <li data-solo="azoto">Quando il video compare, se non parte da solo premi il tasto <strong>play</strong> nel player; l'audio si regola con il <strong>pulsante del volume</strong> del player.</li>
                         <li>Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
                         <li>Se chiudi la pagina, al ritorno non serve rifare l'accesso su questo dispositivo.</li>
                     </ul>
@@ -201,7 +211,12 @@
                 <!-- Il riquadro e' quello che va a schermo intero: video E nostri comandi.
                      Niente sta DAVANTI al video: pausa e messaggi (anche «Stiamo
                      ricollegando la diretta…») prendono il suo posto, i comandi stanno
-                     sotto. -->
+                     sotto. Due modalita' (html.modo-azoto / html.modo-flusso, diretta.js):
+                     A) nel riquadro 16:9 l'iframe del player di Azoto (.player-azoto, con
+                        i SUOI comandi: niente mai sopra) e sotto solo «Schermo intero», la
+                        nota fissa (#nota-azoto) e, se il player non arriva in 15 s,
+                        #avviso-lento con «Ricarica il video»;
+                     B) il nostro <video> con tutti i nostri comandi. -->
                 <!-- Il riquadro si raggiunge con Tab (e ci va il fuoco con un clic sul
                      video): con il fuoco qui valgono le scorciatoie da tastiera (spazio, F,
                      M, frecce), e solo qui (diretta.js, "tastiera"). -->
@@ -225,6 +240,18 @@
                                 <span>Avvia la diretta</span>
                             </button>
                         </div>
+                    </div>
+                    <!-- modalita' A: il player di Azoto non e' arrivato in 15 secondi. SOTTO
+                         il riquadro, mai sopra l'iframe; il testo lo mette diretta.js appena
+                         compare (cosi' la regione "status" lo annuncia). «Ricarica il video»
+                         ricrea solo l'iframe. -->
+                    <div id="avviso-lento" class="avviso-lento" role="status" hidden>
+                        <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                        <span id="avviso-lento-testo" class="avviso-lento-testo"></span>
+                        <button type="button" id="btn-ricarica-video" class="btn-ricarica-video">
+                            <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+                            <span>Ricarica il video</span>
+                        </button>
                     </div>
                     <!-- l'avviso della regia anche a schermo intero (la testata li' non si
                          vede): SOTTO il video, mai sopra. Solo visivo, il testo e' lo
@@ -271,11 +298,16 @@
                         </button>
                         <label class="solo-lettori" for="sel-qualita">Qualità del video</label>
                         <select id="sel-qualita" class="sel-qualita" hidden></select>
-                        <button type="button" id="btn-schermo-intero" class="btn-comando" aria-label="Schermo intero">
+                        <!-- la scritta si vede in modalita' A (e' il nostro unico comando); a
+                             schermo intero resta l'icona, nelle bande nere accanto al video -->
+                        <button type="button" id="btn-schermo-intero" class="btn-comando" aria-label="Schermo intero" title="Schermo intero">
                             <svg class="icona icona-intero" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
                             <svg class="icona icona-esci-intero" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+                            <span id="btn-schermo-intero-testo" class="btn-schermo-intero-testo">Schermo intero</span>
                         </button>
                     </div>
+                    <!-- modalita' A: la nota fissa per chi ha problemi (i comandi sono di Azoto) -->
+                    <p id="nota-azoto" class="nota-azoto">Non senti l'audio? Premi il pulsante del volume nel player. Il video si blocca? Ricarica la pagina.</p>
                 </div>
             </div>
             <div class="griglia-carte">
@@ -287,10 +319,14 @@
                 <div class="carta carta-consigli">
                     <h3>Se qualcosa non va</h3>
                     <ul class="consigli">
-                        <li>Non senti niente? Premi <strong>«Attiva l'audio»</strong> e controlla il volume del dispositivo.</li>
-                        <li>Il video si è fermato? Resta sulla pagina: se il segnale si interrompe, lo ricolleghiamo da soli.</li>
-                        <li>Sei rimasto indietro? Premi <strong>«Torna in diretta»</strong>.</li>
-                        <li>Scorciatoie da tastiera (con un clic sul video, o raggiungendolo con <kbd>Tab</kbd>): <kbd>Spazio</kbd> pausa, <kbd>F</kbd> schermo intero, <kbd>M</kbd> audio, frecce per il volume.</li>
+                        <li data-solo="flusso">Non senti niente? Premi <strong>«Attiva l'audio»</strong> e controlla il volume del dispositivo.</li>
+                        <li data-solo="flusso">Il video si è fermato? Resta sulla pagina: se il segnale si interrompe, lo ricolleghiamo da soli.</li>
+                        <li data-solo="flusso">Sei rimasto indietro? Premi <strong>«Torna in diretta»</strong>.</li>
+                        <li data-solo="flusso">Scorciatoie da tastiera (con un clic sul video, o raggiungendolo con <kbd>Tab</kbd>): <kbd>Spazio</kbd> pausa, <kbd>F</kbd> schermo intero, <kbd>M</kbd> audio, frecce per il volume.</li>
+                        <li data-solo="azoto">Il video non parte? Premi il tasto <strong>play</strong> al centro del player.</li>
+                        <li data-solo="azoto">Non senti niente? Premi il <strong>pulsante del volume</strong> nel player e controlla il volume del dispositivo.</li>
+                        <li data-solo="azoto">Il video si blocca? <strong>Ricarica la pagina</strong>: non serve rifare l'accesso.</li>
+                        <li data-solo="azoto">Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
                     </ul>
                     <p class="aiuto" data-aiuto></p>
                 </div>

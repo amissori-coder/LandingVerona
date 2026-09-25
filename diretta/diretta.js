@@ -27,18 +27,24 @@
    - Il link del video non sta nel codice pubblico: il suo
      identificativo arriva dentro il documento dell'evento, che
      Firestore consegna solo agli iscritti, e solo mentre si e' in
-     onda (DECISIONI D6).
+     onda (DECISIONI D6). Anche l'indirizzo del player di Azoto: il
+     suo iframe si crea solo per chi e' entrato, e solo in onda.
    - Niente HTML costruito con i dati: nomi, titoli, programma,
      avvisi e risposte del servizio finiscono nella pagina solo come
      testo (textContent). Le icone sono gia' scritte in index.html.
    - La sessione resta aperta sul dispositivo (persistenza locale di
      Firebase): chi chiude e riapre la pagina non rifa' l'accesso.
 
-   Il player e' in player-webtv.js (window.NGBPlayer): il canale
-   streaming della web TV (HLS, DASH o, come ripiego, la sua pagina
-   incorporata). Ricollegamento, link di riserva e link firmati sono
-   qui sotto (IL VIDEO E I NOSTRI COMANDI). La configurazione (progetto
-   Firebase, indirizzo del servizio, modalita' prove) e' in config.js.
+   Il video ha due modalita', scelte dalla regia per ogni evento
+   (eventi.tipoPlayer; vedi IL VIDEO: DUE MODALITA'):
+     A) il player di Azoto in un iframe: player-azoto.js
+        (window.NGBPlayerAzoto), con i comandi di Azoto;
+     B) il flusso diretto (.m3u8) nel nostro <video>: player-webtv.js
+        (window.NGBPlayer), con i nostri comandi; ricollegamento, link
+        di riserva e link firmati sono qui sotto (IL VIDEO E I NOSTRI
+        COMANDI).
+   La configurazione (progetto Firebase, indirizzo del servizio,
+   modalita' prove) e' in config.js.
    La pulizia del nome utente e' in nome-utente.js (la stessa del
    servizio).
 
@@ -984,6 +990,8 @@
         stato.evento = d;
         const titolo = String(d.titolo || 'Diretta').trim();
         document.title = titolo + ' · Diretta | Next Generation Business';
+        // la modalita' del video (A: Azoto, B: flusso) vale anche fuori onda: comandi e consigli giusti
+        impostaModoPagina(modoDi(d));
         aggiornaDettagli(d);
         aggiornaProgramma(d, false);
         aggiornaLinkEvento(d.paginaEvento);
@@ -1142,17 +1150,195 @@
         if (!stato.timerProgramma) {
             stato.timerProgramma = setInterval(() => { if (stato.evento) aggiornaProgramma(stato.evento, false); }, 30000);
         }
-        aggiornaSorgenti(d);
+        aggiornaVideo(d);
     }
 
     /* ---------------------------------------------------------------
-       IL VIDEO E I NOSTRI COMANDI
+       IL VIDEO: DUE MODALITA'
        ---------------------------------------------------------------
-       Il video arriva SOLO dal canale streaming della web TV e lo
-       riproduce player-webtv.js (window.NGBPlayer): il flusso HLS (o
-       DASH) nel NOSTRO <video>, con i nostri comandi sotto; la pagina
-       della web TV incorporata solo come ripiego (allora restano i suoi
-       comandi e i suoi loghi).
+       La regia sceglie per ogni evento come arriva il video
+       (eventi.tipoPlayer):
+         A) 'azoto'  il player della web TV Azoto dentro un iframe
+                     (player-azoto.js, window.NGBPlayerAzoto). E' la
+                     modalita' predefinita. Play, volume, qualita' (e
+                     l'eventuale logo) sono di Azoto; di nostro, sotto il
+                     video, solo «Schermo intero» e la nota fissa per chi
+                     ha problemi. Sopra e sotto il riquadro solo la nostra
+                     grafica (titolo, «IN DIRETTA», nome, «Esci»).
+         B) 'flusso' il flusso diretto (.m3u8) nel NOSTRO player
+                     (player-webtv.js, window.NGBPlayer), con i nostri
+                     comandi, il ricollegamento, la riserva e i link
+                     firmati: tutto come prima (IL VIDEO E I NOSTRI
+                     COMANDI, qui sotto).
+       Il passaggio da una all'altra (anche in piena diretta) e il cambio
+       d'indirizzo arrivano dall'unico ascolto dell'evento, come ogni
+       altra cosa: il player dell'altra modalita' si toglie del tutto
+       (timer, link firmati, iframe) e si crea quello nuovo, senza
+       ricaricare la pagina. Lo schermo intero resta: il riquadro e' lo
+       stesso, e cambia solo il suo aspetto. Sulla pagina la modalita' e'
+       la classe html.modo-azoto / html.modo-flusso: il CSS mostra i
+       comandi e i consigli giusti (anche nell'attesa, prima della
+       diretta), e le scorciatoie da tastiera la seguono.
+       Gli eventi di prima (senza tipoPlayer): 'azoto' se il link in onda
+       e' un indirizzo di Azoto, altrimenti 'flusso'.
+
+       MODALITA' A, IN PRATICA. L'iframe esiste SOLO in onda: attesa,
+       pausa e fine sono le nostre schermate, e uscendo di onda l'iframe
+       si distrugge (nessuno vede la schermata vuota della web TV). In
+       onda senza indirizzo: «Il video sta per arrivare»; con un
+       indirizzo che non e' di Azoto: «Video non disponibile». Niente sta
+       mai SOPRA l'iframe: bloccherebbe i comandi di Azoto, gli unici. Se
+       in 15 secondi la pagina di Azoto non arriva, SOTTO il riquadro
+       compare «La diretta sta arrivando, attendi qualche secondo» con
+       «Ricarica il video» (ricrea solo l'iframe); sparisce appena la
+       pagina arriva. Niente ricollegamento automatico: la pagina di
+       Azoto riprova da sola in caso d'errore, e mille iframe ricaricati
+       nello stesso momento peserebbero su Azoto proprio quando fatica.
+       Un nuovo indirizzo dalla regia ricrea l'iframe; lo stesso
+       indirizzo (un aggiornamento dell'evento che non lo tocca) no.
+       --------------------------------------------------------------- */
+    let modoVideo = '';           // il player nella vista della diretta: 'azoto' | 'flusso' | '' (nessuno)
+    const azoto = {
+        player: null,
+        url: '',                  // l'indirizzo in uso (eventi.videoId, in onda)
+        titolo: '',
+        errore: ''                // '' | 'link' (indirizzo non di Azoto) | 'player' (player-azoto.js non caricato)
+    };
+    const TESTO_LENTO = 'La diretta sta arrivando, attendi qualche secondo';
+    // la descrizione del riquadro per i lettori di schermo (aria-describedby), secondo la modalita'
+    const AIUTO_TASTI = {
+        flusso: 'Scorciatoie da tastiera, con il lettore selezionato: Spazio mette in pausa e riprende, F schermo intero, M attiva o disattiva l\'audio, frecce su e giù per il volume.',
+        azoto: 'Scorciatoia da tastiera, con il lettore selezionato: F schermo intero. Play, audio e qualità si regolano con i comandi del player della diretta.'
+    };
+
+    /* L'indirizzo e' di un player di Azoto? La regola e' una sola, in
+       sorgente-video.js (eAzoto: https e solo gli host di HOST_AZOTO);
+       player-azoto.js ne ha la stessa copia per quando manca. */
+    function eAzoto(url) {
+        if (typeof url !== 'string' || !url) return false;
+        const V = window.NGBSorgenteVideo;
+        const P = window.NGBPlayerAzoto;
+        const f = V && typeof V.eAzoto === 'function' ? V.eAzoto : (P && typeof P.eAzoto === 'function' ? P.eAzoto : null);
+        if (!f) return false;
+        try { return f(url) === true; } catch (e) { return false; }
+    }
+    function modoDi(d) {
+        const t = d ? d.tipoPlayer : '';
+        if (t === 'azoto' || t === 'flusso') return t;
+        return d && eAzoto(String(d.videoId || '')) ? 'azoto' : 'flusso';
+    }
+    function impostaModoPagina(m) {
+        const h = document.documentElement;
+        h.classList.toggle('modo-azoto', m === 'azoto');
+        h.classList.toggle('modo-flusso', m !== 'azoto');
+        const aiuto = AIUTO_TASTI[m] || AIUTO_TASTI.flusso;
+        if ($('aiuto-scorciatoie').textContent !== aiuto) testo('aiuto-scorciatoie', aiuto);
+    }
+
+    // ogni aggiornamento dell'evento in onda: la modalita', poi il suo player
+    function aggiornaVideo(d) {
+        const m = modoDi(d);
+        if (m !== modoVideo) {
+            const cambio = !!modoVideo;
+            if (modoVideo === 'azoto') distruggiAzoto();
+            else if (modoVideo === 'flusso') distruggiFlusso();
+            modoVideo = m;
+            if (cambio) {
+                annuncia(m === 'azoto' ? 'Il video è cambiato: audio e pausa ora si regolano con i comandi del player.'
+                    : 'Il video è cambiato: audio e pausa ora si regolano con i pulsanti sotto il video.');
+            }
+        }
+        if (m === 'azoto') aggiornaAzoto(d);
+        else aggiornaSorgenti(d);
+    }
+
+    /* ---------- modalita' A: il player di Azoto ---------- */
+    function aggiornaAzoto(d) {
+        const url = String(d.videoId || '');
+        const titolo = String(d.titolo || 'Diretta').trim();
+        if (!url) {
+            // in onda, ma la regia non ha ancora messo l'indirizzo: «Il video sta per arrivare», niente iframe
+            if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
+            Object.assign(azoto, { player: null, url: '', errore: '' });
+            mostraLento(false);
+            aggiornaSchermo();
+            return;
+        }
+        if (!azoto.player && !creaAzoto()) { aggiornaSchermo(); return; }
+        if (url === azoto.url) {
+            // lo stesso indirizzo: niente ricarica (magari e' cambiato solo il titolo)
+            if (titolo !== azoto.titolo) {
+                azoto.titolo = titolo;
+                if (typeof azoto.player.aggiornaTitolo === 'function') azoto.player.aggiornaTitolo(titolo);
+            }
+            aggiornaSchermo();
+            return;
+        }
+        // un indirizzo nuovo (o il primo): l'iframe si ricrea da zero
+        Object.assign(azoto, { url: url, titolo: titolo, errore: '' });
+        mostraLento(false);
+        azoto.player.carica(url, { titolo: titolo });
+        aggiornaSchermo();
+    }
+    function creaAzoto() {
+        const P = window.NGBPlayerAzoto;
+        if (!P || typeof P.crea !== 'function') {
+            azoto.errore = 'player';
+            return null;
+        }
+        azoto.errore = '';
+        azoto.player = P.crea($('video-player'), {
+            // la pagina di Azoto e' arrivata: via l'avviso dei 15 secondi
+            onPronto: () => {
+                mostraLento(false);
+                aggiornaSchermo();
+            },
+            onErrore: e => {
+                const c = String((e && e.codice) || '');
+                if (c === 'lento') { mostraLento(true); return; }
+                // 'link': l'indirizzo non e' di Azoto (il player non ha creato l'iframe)
+                azoto.errore = c || 'link';
+                mostraLento(false);
+                aggiornaSchermo();
+            }
+        });
+        return azoto.player;
+    }
+    function distruggiAzoto() {
+        if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
+        Object.assign(azoto, { player: null, url: '', titolo: '', errore: '' });
+        mostraLento(false);
+    }
+    /* «La diretta sta arrivando, attendi qualche secondo», SOTTO il
+       riquadro. E' una regione "status": il testo entra un attimo DOPO
+       che l'avviso e' comparso, cosi' i lettori di schermo lo leggono (un
+       riquadro che compare gia' pieno molti non lo annunciano). */
+    function mostraLento(si) {
+        const el = $('avviso-lento');
+        if (!el || el.hidden === !si) return;
+        el.hidden = !si;
+        testo('avviso-lento-testo', '');
+        if (si) setTimeout(() => { if (!el.hidden) testo('avviso-lento-testo', TESTO_LENTO); }, 60);
+    }
+    // «Ricarica il video»: solo l'iframe, non la pagina
+    function ricaricaVideoAzoto() {
+        if (!azoto.player || !azoto.url) return;
+        const conFuoco = $('avviso-lento').contains(document.activeElement);
+        mostraLento(false);
+        azoto.player.ricarica();
+        annuncia('Ricarico il video.');
+        // il pulsante sparisce sotto le dita: il fuoco va sul riquadro, non si perde
+        if (conFuoco) { try { $('riquadro-video').focus({ preventScroll: true }); } catch (e) { /* niente */ } }
+    }
+
+    /* ---------------------------------------------------------------
+       IL VIDEO E I NOSTRI COMANDI (modalita' B, il flusso diretto)
+       ---------------------------------------------------------------
+       In modalita' B il video arriva dal flusso diretto della web TV e
+       lo riproduce player-webtv.js (window.NGBPlayer): il flusso HLS (o
+       DASH) nel NOSTRO <video>, con i nostri comandi sotto. (La
+       modalita' A, il player di Azoto, e' qui sopra: IL VIDEO: DUE
+       MODALITA'.)
 
        I LINK. L'evento (l'unico ascolto su Firestore) porta, solo mentre
        si e' in onda: videoId (il link principale), videoRiserva (quello
@@ -1773,7 +1959,16 @@
         if (f.scade - Date.now() > 60000) f.timer = setTimeout(() => rinnovaFirma(s), 45000 + casuale(30000));
     }
 
+    /* Via tutti e due i player (fuori onda, cambio di persona, uscita):
+       il nostro (B) e l'iframe di Azoto (A); e lo schermo intero. */
     function distruggiPlayer() {
+        distruggiAzoto();
+        distruggiFlusso();
+        modoVideo = '';
+        esciSchermoIntero();
+    }
+    // il player della modalita' B e tutto il suo stato (timer, ricollegamento, link firmati)
+    function distruggiFlusso() {
         clearTimeout(video.timerFermo);
         clearTimeout(video.timerSuggerimento);
         azzeraRicollegamento();
@@ -1790,7 +1985,7 @@
         });
         dvr.trascinando = false;
         nascondiSuggerimento();
-        esciSchermoIntero();
+        preparaQualita(true);
     }
 
     /* T3: in onda ma il player resta fermo (iPhone in risparmio energetico,
@@ -1816,6 +2011,13 @@
     }
 
     function schermataAttuale() {
+        /* modalita' A: la nostra schermata solo senza iframe (nessun
+           indirizzo ancora, o uno che non e' di Azoto); l'iframe, quando
+           c'e', non ha mai niente davanti */
+        if (modoVideo === 'azoto') {
+            if (azoto.errore) return 'errore';
+            return azoto.url ? 'video' : 'arrivo';
+        }
         if (!video.base || (video.attesaLink && !video.id && !ricollega.attivo)) return 'arrivo';
         if (ricollega.attivo) return 'ricollegamento';
         if (video.errore && ['browser', 'link', 'player'].indexOf(String(video.errore.codice)) >= 0) return 'errore';
@@ -1831,7 +2033,8 @@
         $('area-video').setAttribute('data-schermata', s);
         mostra('schermo-pausa', s === 'pausa');
         const sv = $('schermo-video');
-        const t = s === 'errore' && video.errore && video.errore.codice === 'link' ? ERRORE_LINK : SCHERMATE[s];
+        const codiceErrore = modoVideo === 'azoto' ? azoto.errore : String((video.errore && video.errore.codice) || '');
+        const t = s === 'errore' && codiceErrore === 'link' ? ERRORE_LINK : SCHERMATE[s];
         if (t) {
             if ($('schermo-video-titolo').textContent !== t.titolo) testo('schermo-video-titolo', t.titolo);
             if ($('schermo-video-testo').textContent !== t.testo) testo('schermo-video-testo', t.testo);
@@ -1864,22 +2067,12 @@
         vol.setAttribute('aria-valuetext', video.muto ? 'Audio disattivato' : 'Volume ' + valore + ' per cento');
         vol.disabled = !conVideo;
         vol.hidden = IOS;
-        /* Il player della web TV incorporato (iframe di un altro sito) ha i
-           suoi comandi e i nostri non lo raggiungono: restano solo lo schermo
-           intero e l'indicazione di usare i comandi del player. */
-        const ridotti = comandiRidotti();
-        $('riquadro-video').setAttribute('data-comandi', ridotti ? 'ridotti' : 'pieni');
-        testo('riga-comandi-aiuto', ridotti
-            ? 'Audio e pausa si regolano con i comandi del player; qui sotto lo schermo intero.'
-            : 'Usa i pulsanti qui sotto per l\'audio e lo schermo intero.');
-        mostra('btn-attiva-audio', conVideo && video.muto && !video.errore && !ricollega.attivo && !ridotti);
+        /* In modalita' A (il player di Azoto) il nostro player non c'e' e
+           questi comandi restano spenti: il CSS (html.modo-azoto) li toglie,
+           e sotto il video restano «Schermo intero» e la nota. */
+        mostra('btn-attiva-audio', conVideo && video.muto && !video.errore && !ricollega.attivo);
         aggiornaDiretta();
         aggiornaStriscia();
-    }
-    function comandiRidotti() {
-        const p = video.player;
-        if (!p || !video.id || typeof p.capacita !== 'function') return false;
-        try { return p.capacita().comandi === false; } catch (e) { return false; }
     }
 
     /* ---------- in diretta, indietro, la barra per tornare indietro ----------
@@ -1890,7 +2083,7 @@
         const t = video.tempo;
         const s = schermataAttuale();
         const conVideo = !!(video.player && video.id) && (s === 'video' || s === 'pausa');
-        const inDiretta = !!(t && t.diretta) && conVideo && !comandiRidotti();
+        const inDiretta = !!(t && t.diretta) && conVideo;
         const indietro = inDiretta && (t.ritardo > SOGLIA_RITARDO || video.stato === 'pausa');
         mostra('indicatore-live', inDiretta && !indietro);
         const live = $('btn-live');
@@ -2064,8 +2257,8 @@
        altezza, le da' il player). La scelta della persona si ricorda per
        etichetta ("720p") e vale anche dopo un rinnovo del link; dopo un
        guasto o un link nuovo si torna ad «Automatica». Senza scelta (una
-       sola qualita', HLS letto da Safari, player incorporato) il selettore
-       non c'e'. */
+       sola qualita', HLS letto da Safari, modalita' A) il selettore non
+       c'e'. */
     function preparaQualita(forza) {
         const sel = $('sel-qualita');
         const p = video.player;
@@ -2090,14 +2283,30 @@
         sel.hidden = !livelli.length;
     }
 
-    /* ---------- schermo intero: il NOSTRO riquadro, con i nostri comandi ---------- */
+    /* ---------- schermo intero: il NOSTRO riquadro ----------
+       Va a schermo intero il riquadro (requestFullscreen, webkit dove
+       serve), non il video: in modalita' B con i nostri comandi sotto, in
+       modalita' A con l'iframe di Azoto (i suoi comandi) e il nostro
+       pulsante per uscire. Dove il browser non manda a schermo intero un
+       riquadro qualsiasi (iPhone: Safari lo fa solo con i <video>) c'e'
+       lo pseudo schermo intero ("finto"): il riquadro fisso sopra tutta
+       la pagina. In modalita' A, con il telefono in verticale, lo pseudo
+       schermo intero e' la vista a pagina intera ORIZZONTALE: il riquadro
+       ruotato di 90 gradi (lo fa il CSS, diretta.css, "MODALITA' A"),
+       con il pulsante per uscire nelle bande nere, mai sopra l'iframe;
+       girando il telefono la vista si raddrizza da sola. Esc esce. */
     let intero = { finto: false, scorrimento: 0 };
     function elementoSchermoIntero() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function aggiornaStatoIntero() {
         const r = $('riquadro-video');
         const attivo = intero.finto || elementoSchermoIntero() === r;
         r.setAttribute('data-intero', attivo ? '1' : '0');
-        $('btn-schermo-intero').setAttribute('aria-label', attivo ? 'Esci dallo schermo intero' : 'Schermo intero');
+        const b = $('btn-schermo-intero');
+        const etichetta = attivo ? 'Esci dallo schermo intero' : 'Schermo intero';
+        b.setAttribute('aria-label', etichetta);
+        b.setAttribute('title', etichetta);
+        // la scritta del pulsante (si vede in modalita' A, dove e' il nostro unico comando)
+        testo('btn-schermo-intero-testo', etichetta);
     }
     function entraFinto() {
         const r = $('riquadro-video');
@@ -2171,6 +2380,9 @@
         if (!nelRiquadro && !(aSchermoIntero && fuocoSullaPagina)) return;
         if (t && t.closest && t.closest(USANO_I_TASTI)) return;
         const k = e.key;
+        /* modalita' A: play, audio e volume sono del player di Azoto (dentro
+           il suo iframe, con i suoi tasti): qui resta solo F */
+        if (modoVideo === 'azoto' && k !== 'f' && k !== 'F') return;
         if (k === ' ' || k === 'Spacebar') {
             e.preventDefault();
             alternaPlay();
@@ -2229,18 +2441,11 @@
         $('area-video').addEventListener('click', fuocoAlRiquadro);
         document.addEventListener('fullscreenchange', aggiornaStatoIntero);
         document.addEventListener('webkitfullscreenchange', aggiornaStatoIntero);
-        /* T3: dopo un clic dentro il player incorporato della web TV il
-           focus resta nel suo iframe e le scorciatoie non arriverebbero piu'
-           alla pagina: lo si riprende e lo si rimette sul riquadro. */
-        window.addEventListener('blur', () => {
-            setTimeout(() => {
-                const a = document.activeElement;
-                if (vista === 'diretta' && a && a.tagName === 'IFRAME') {
-                    try { a.blur(); } catch (e) { /* niente */ }
-                    try { $('riquadro-video').focus({ preventScroll: true }); } catch (e) { /* niente */ }
-                }
-            }, 0);
-        });
+        /* Modalita' A: il fuoco che entra nell'iframe di Azoto (un clic sul
+           suo player, o Tab) resta li'. I comandi del suo player, anche da
+           tastiera, sono gli unici: riprendere il fuoco per le nostre
+           scorciatoie li renderebbe irraggiungibili. */
+        $('btn-ricarica-video').addEventListener('click', ricaricaVideoAzoto);
         if (IOS) document.documentElement.classList.add('ios');
     }
 

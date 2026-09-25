@@ -7,8 +7,9 @@
    1. le chiamate al servizio (fetch verso https://anteprima.invalid/api,
       l'indirizzo del servizio in anteprima/config.js) vanno alle
       funzioni vere dentro il motore, non in rete; quelle per la web TV
-      di esempio (*.esempio.it, la prova del CORS della gestione) alla
-      web TV finta del motore (motore/webtv-finta.js);
+      di esempio (*.esempio.it, la prova del CORS della gestione) e per
+      il player di Azoto (cdn.azotosolutions.com) alla web TV finta del
+      motore (motore/webtv-finta.js);
    2. i collegamenti fra le pagine della diretta (/diretta/,
       /diretta/gestione/, /diretta/reimposta.html) restano dentro
       l'anteprima; quelli verso il sito si aprono in una scheda nuova;

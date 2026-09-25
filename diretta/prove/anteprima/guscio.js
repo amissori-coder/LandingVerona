@@ -261,7 +261,8 @@
         try {
             data = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', weekday: 'long', day: 'numeric', month: 'long' }).format(ev.inizio.toDate());
         } catch (e) { data = ev.data; }
-        [['Evento', ev.titolo], ['Quando', data + ', dalle ' + ev.oraInizio.replace(':', '.') + ' alle ' + ev.oraFine.replace(':', '.')], ['Stato', STATI[ev.stato] || ev.stato]]
+        [['Evento', ev.titolo], ['Quando', data + ', dalle ' + ev.oraInizio.replace(':', '.') + ' alle ' + ev.oraFine.replace(':', '.')], ['Stato', STATI[ev.stato] || ev.stato],
+            ['Video', ev.tipoPlayer === 'flusso' ? 'flusso diretto (.m3u8)' : 'player Azoto (iframe)']]
             .forEach(function (x) { info.appendChild(crea('span', {}, [crea('b', { testo: x[0] + ': ' }), document.createTextNode(x[1])])); });
     }
     M.archivio.ascolta('eventi/' + ID_EVENTO, aggiornaEvento);

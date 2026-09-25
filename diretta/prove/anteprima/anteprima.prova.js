@@ -8,7 +8,11 @@
    iframe con sandbox, con una CSP che ammette gli script solo dalla
    stessa origine e da cdnjs, e SENZA frame-src (gli iframe srcdoc
    devono funzionare lo stesso). Percorso: accesso di Mario Rossi,
-   attesa, regia che manda in onda, video nella pagina del partecipante,
+   attesa, regia che manda in onda, video nella pagina del partecipante
+   (modalita' A: il riquadro «Player Azoto (anteprima)», con sotto solo
+   «Schermo intero» e la nota), la regia che passa tutti al flusso
+   diretto (modalita' B: il video di prova con i nostri comandi) e poi
+   di nuovo ad Azoto, senza ricaricare la pagina del partecipante;
    posta con le credenziali, file di esempio con l'anteprima, "Vedi
    come un partecipante", esportazione, password dimenticata.
    Screenshot in risultati/screenshot-anteprima/. Esce con 1 se
@@ -98,10 +102,38 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await A.locator('#tab-partecipante').click();
         await P.locator('body[data-vista="diretta"]').waitFor({ timeout: 20000 });
         vero(true, 'la pagina del partecipante passa alla diretta da sola');
-        await P.locator('canvas.ngb-player-anteprima').waitFor({ timeout: 10000 });
-        vero(true, 'il video di prova e\' al posto della web TV');
-        await page.waitForTimeout(1500);
+        // modalita' A: il riquadro di prova al posto dell'iframe di Azoto; dei nostri comandi solo «Schermo intero» e la nota
+        await P.locator('.player-azoto-anteprima').waitFor({ timeout: 10000 });
+        await page.waitForTimeout(1000);
+        const modoA = await P.locator('html').evaluate(h => {
+            const vede = id => { const e = document.getElementById(id); return !!e && !!(e.offsetWidth || e.offsetHeight); };
+            return { azoto: h.classList.contains('modo-azoto'), intero: vede('btn-schermo-intero'), nota: vede('nota-azoto'), play: vede('btn-play'), audio: vede('btn-attiva-audio'), iframe: document.querySelectorAll('iframe').length };
+        });
+        vero(modoA.azoto && modoA.intero && modoA.nota && !modoA.play && !modoA.audio && modoA.iframe === 0,
+            'modalità A: il riquadro «Player Azoto (anteprima)», sotto solo «Schermo intero» e la nota ' + JSON.stringify(modoA));
         await page.screenshot({ path: path.join(FOTO, '04-diretta.png') });
+
+        // la regia passa tutti al flusso diretto (modalita' B) e poi torna ad Azoto: la pagina del partecipante segue da sola
+        await P.locator('html').evaluate(() => { window.__nonRicaricata = true; });
+        await A.locator('#tab-gestione').click();
+        await G.locator('#btn-passa-flusso').click();
+        await G.locator('#conferma-ok').click();
+        await A.locator('#tab-partecipante').click();
+        await P.locator('canvas.ngb-player-anteprima').waitFor({ timeout: 15000 });
+        await page.waitForTimeout(1200);
+        const modoB = await P.locator('html').evaluate(h => ({
+            flusso: h.classList.contains('modo-flusso'), play: !!document.getElementById('btn-play').offsetWidth,
+            nota: !!document.getElementById('nota-azoto').offsetWidth, azoto: !!document.querySelector('.player-azoto-anteprima')
+        }));
+        vero(modoB.flusso && modoB.play && !modoB.nota && !modoB.azoto, 'la regia passa al flusso diretto: il video di prova con i nostri comandi ' + JSON.stringify(modoB));
+        await page.screenshot({ path: path.join(FOTO, '04b-flusso.png') });
+        await A.locator('#tab-gestione').click();
+        await G.locator('#btn-passa-azoto').click();
+        await G.locator('#conferma-ok').click();
+        await A.locator('#tab-partecipante').click();
+        await P.locator('.player-azoto-anteprima').waitFor({ timeout: 15000 });
+        vero(await P.locator('canvas.ngb-player-anteprima').count() === 0 && await P.locator('html').evaluate(() => window.__nonRicaricata === true),
+            'e torna al player Azoto, senza ricaricare la pagina');
 
         // 3. posta: le credenziali di Mario con la password della guida
         await A.locator('#tab-posta').click();

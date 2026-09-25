@@ -206,7 +206,7 @@ main { padding-inline: 16px; padding-block: 16px 32px; }
         <div class="guida">
             <div class="carta apertura">
                 <h1>Prova la diretta come la vedranno i partecipanti e la regia</h1>
-                <p>Le pagine sono quelle vere della diretta, con il servizio vero dietro. I dati invece sono finti e restano in questo browser: nessuna email parte davvero (arrivano nella scheda «Posta di prova»), non c'è nessun progetto Firebase, e al posto della web TV c'è un video di prova.</p>
+                <p>Le pagine sono quelle vere della diretta, con il servizio vero dietro. I dati invece sono finti e restano in questo browser: nessuna email parte davvero (arrivano nella scheda «Posta di prova»), non c'è nessun progetto Firebase, e al posto del video vero ci sono quelli di prova: un riquadro «Player Azoto (anteprima)» al posto del player di Azoto e un video disegnato nel browser al posto del flusso diretto.</p>
                 <div class="evento" id="info-evento"></div>
             </div>
 
@@ -233,8 +233,9 @@ main { padding-inline: 16px; padding-block: 16px 32px; }
                 <h2>Cosa provare, in ordine</h2>
                 <ol class="passi">
                     <li><div><b>Entra come partecipante</b><p>«Entra» accanto a Mario Rossi: vedi l'attesa con il conto alla rovescia e il programma.</p></div></li>
-                    <li><div><b>Manda in onda dalla regia</b><p>Gestione → Regia → «Vai in onda». Torna su Partecipante: la pagina è passata alla diretta da sola. Prova «Attiva l'audio», lo schermo intero e i tasti spazio, F, M; la barra sotto il video per tornare indietro di qualche minuto e «Torna in diretta»; la scelta della qualità.</p></div></li>
-                    <li><div><b>Cambia il video, metti in pausa, termina</b><p>In Regia incolla un altro link della web TV (per esempio https://webtv.esempio.it/live/sala2/playlist.m3u8) e provalo: qui risponde una web TV finta (i link con /spenta/ fanno la diretta non ancora partita). Il video di prova mostra il nuovo indirizzo. Poi pausa con un messaggio, e «Termina».</p></div></li>
+                    <li><div><b>Manda in onda dalla regia</b><p>Gestione → Regia → «Vai in onda». Torna su Partecipante: la pagina è passata alla diretta da sola, con il player Azoto (qui il riquadro di prova, sul sito con i comandi di Azoto). Sotto il video ci sono solo «Schermo intero» (sul telefono la vista a pagina intera orizzontale) e la nota per chi non sente l'audio.</p></div></li>
+                    <li><div><b>Passa al flusso diretto e torna ad Azoto</b><p>In Regia «Passa al flusso diretto per tutti»: la pagina del partecipante passa da sola al nostro player (qui il video di prova), con «Attiva l'audio», la qualità, la barra per tornare indietro, «Torna in diretta» e i tasti spazio, F, M. Poi «Torna al player Azoto per tutti».</p></div></li>
+                    <li><div><b>Cambia il video, metti in pausa, termina</b><p>In Regia cambia l'indirizzo del player Azoto (per esempio https://cdn.azotosolutions.com/cloudtv/livetv30/player): il riquadro mostra il nuovo indirizzo. Con /lento/ nel percorso (https://cdn.azotosolutions.com/cloudtv/lento/player) il player non arriva mai: dopo 15 secondi compare «La diretta sta arrivando» con «Ricarica il video». Per il flusso diretto qui risponde una web TV finta (https://webtv.esempio.it/…/playlist.m3u8; i link con /spenta/ fanno la diretta non ancora partita). Poi pausa con un messaggio, e «Termina».</p></div></li>
                     <li><div><b>Carica un file di iscritti</b><p>41 righe con omonimi, doppioni, email sbagliate e nomi da correggere: guarda l'anteprima riga per riga.</p><button type="button" class="bottone secondario" id="btn-file-esempio">Carica il file di esempio</button></div></li>
                     <li><div><b>Manda le credenziali</b><p>Gestione → Email → «Invia le credenziali». Le email arrivano in «Posta di prova» con nome utente e password: funzionano davvero.</p></div></li>
                     <li><div><b>Password dimenticata, disattivazione</b><p>Dal partecipante, «Password dimenticata?»: il collegamento arriva nella posta. Poi in Gestione → Partecipanti disattiva Mario Rossi mentre guarda.</p></div></li>
@@ -244,7 +245,7 @@ main { padding-inline: 16px; padding-block: 16px 32px; }
             <div class="carta blocco">
                 <h2>Cosa cambia rispetto al sito vero</h2>
                 <ul class="differenze">
-                    <li><b>Il video.</b> Qui la pagina non può caricare video da altri siti: al posto della diretta della web TV c'è un video di prova disegnato nel browser, con la stessa interfaccia del player vero (qualità e finestra di 5 minuti per tornare indietro sono finte). Anche la web TV che risponde a «Prova il link» è finta: solo gli indirizzi *.esempio.it.</li>
+                    <li><b>Il video.</b> Qui la pagina non può caricare pagine e video da altri siti: al posto del player di Azoto c'è il riquadro «Player Azoto (anteprima)», al posto del flusso diretto un video di prova disegnato nel browser, con la stessa interfaccia dei player veri (qualità e finestra di 5 minuti per tornare indietro sono finte). Anche la web TV che risponde a «Prova» è finta: solo gli indirizzi *.esempio.it e cdn.azotosolutions.com.</li>
                     <li><b>Le email.</b> Nessuna parte: le vedi in «Posta di prova», uguali a quelle vere.</li>
                     <li><b>I file.</b> L'esportazione Excel si apre in una finestra invece di scaricarsi.</li>
                     <li><b>L'evento</b> è sempre di oggi e ricomincia ogni giorno; «Ricomincia da capo» lo rifà subito.</li>

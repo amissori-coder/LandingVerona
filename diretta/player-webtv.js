@@ -1,9 +1,19 @@
 /* ============================================================
-   IL PLAYER DELLA DIRETTA: il canale streaming della web TV
+   IL PLAYER DEL FLUSSO DIRETTO (modalita' B della diretta)
    ------------------------------------------------------------
-   L'UNICO player della diretta. La pagina dei partecipanti
-   (diretta.js) e l'anteprima della regia (gestione/) parlano solo con
-   questa interfaccia, senza sapere come arriva il video:
+   La diretta ha due modalita', scelte dalla regia per ogni evento
+   (eventi.tipoPlayer, vedi diretta.js):
+     A) 'azoto'  -> player-azoto.js: il player di Azoto in un iframe,
+                    con i SUOI comandi (la modalita' predefinita);
+     B) 'flusso' -> QUESTO file: il flusso diretto della web TV (HLS
+                    .m3u8, o DASH .mpd) nel NOSTRO <video>, con i nostri
+                    comandi e senza loghi. Si usa quando la web TV da' il
+                    link del flusso.
+   Qui arrivano SOLO flussi: un indirizzo che non e' un .m3u8 o un .mpd
+   (per esempio la pagina del player di Azoto) da' l'errore 'link'.
+   La pagina dei partecipanti (diretta.js) e l'anteprima della regia
+   (gestione/) parlano solo con questa interfaccia, senza sapere come
+   arriva il video:
 
        window.NGBPlayer = { nome: 'webtv', crea(contenitore, opzioni), idDa(testo) }
 
@@ -24,8 +34,8 @@
        aggiornaFirma(url) il link firmato rinnovato (stesso flusso, firma nuova): le richieste
                           che seguono portano la firma nuova SENZA ricaricare il video (restano
                           pausa, posizione nella finestra e qualita'). Solo dove non si puo'
-                          (HLS letto da Safari, player incorporato) si ricarica, e chi era in
-                          pausa resta in pausa. Un url di un altro flusso = carica().
+                          (HLS letto da Safari) si ricarica, e chi era in pausa resta in
+                          pausa. Un url di un altro flusso = carica().
        play() pausa() alterna() muto() smuto() eMuto() volume(0-100) leggiVolume()
                           muto(), smuto() e volume() cambiano solo l'audio: un video in pausa
                           resta in pausa (per farlo partire con l'audio: smuto() e play())
@@ -48,9 +58,8 @@
        impostaQualita(valore)
        stato()  mostra(bool)  distruggi()
                           mostra(false): il video resta vivo ma non si vede e non si sente
-                          (muto finche' non torna visibile); il player incorporato si svuota
-                          (about:blank: il suo audio si ferma) e si ricarica quando si rimostra
-       capacita()         { comandi, qualita, dvr }
+                          (muto finche' non torna visibile)
+       capacita()         { comandi, qualita, dvr } (comandi: sempre true, sono i nostri)
        avvioBloccato()    true se il browser ha rifiutato di far partire il video da solo
                           (iPhone in risparmio energetico): serve un tocco, play(); intanto
                           'lento' non scatta
@@ -64,7 +73,8 @@
    servire, senza errori, con gli ultimi secondi), 'lento' (non pronto
    in 15 s, contati solo con la pagina in vista e l'avvio non bloccato),
    'libreria' (hls.js o dash.js non scaricati), 'browser' (questo
-   browser non riproduce il flusso), 'link' (il link non e' un flusso).
+   browser non riproduce il flusso), 'link' (il link non e' un flusso:
+   niente <video>, e quello di prima si spegne).
    Il player NON riprova da solo dopo un errore: il ricollegamento
    (attese crescenti e casuali, link di riserva) lo decide la pagina,
    che chiama di nuovo carica().
@@ -81,10 +91,8 @@
        solo quando serve), bitrate iniziale basso e ABR. Un segmento
        perso (dopo i tentativi della libreria) non e' un errore: se il
        video si ferma lo dice il controllo del segnale.
-     - 'incorporato': la pagina del player della web TV in un iframe. E'
-       il ripiego: audio, pausa e qualita' si regolano con i SUOI comandi
-       (una pagina non puo' comandare il player di un altro sito), e i
-       suoi loghi restano. capacita().comandi e' false.
+   La pagina di un player da incorporare (il player di Azoto) NON passa
+   di qui: la mostra player-azoto.js, nella modalita' A.
    Il <video> e' nostro, senza comandi del browser (li disegna la
    pagina), senza "scarica", senza picture-in-picture ne' trasmissione ad
    altri schermi, senza menu del tasto destro. Parte muto (i browser
@@ -119,8 +127,7 @@
 
    LA WEB TV DEVE: dare un link https; permettere la lettura del flusso
    da nextgenerationbusiness.it (intestazione CORS
-   Access-Control-Allow-Origin su playlist e segmenti); per il player
-   incorporato, permettere l'incorporamento nel nostro sito.
+   Access-Control-Allow-Origin su playlist e segmenti).
    ============================================================ */
 (function () {
     'use strict';
@@ -139,7 +146,8 @@
     var BORDO_FERMO_MINIMO_S = 20;
     var BORDO_FERMO_IGNOTO_S = 30;
     var FINESTRA_DVR_MINIMA = 60;     // secondi: sotto, niente barra per tornare indietro
-    var TIPI = { hls: 1, dash: 1, incorporato: 1 };
+    // i soli tipi di questo player (la pagina di un player, 'incorporato', e' di player-azoto.js)
+    var TIPI = { hls: 1, dash: 1 };
 
     /* ---------- le librerie, una volta sola e solo se servono ---------- */
     var promesse = {};
@@ -167,7 +175,9 @@
     }
 
     /* Il tipo del link: lo decide sorgente-video.js (lo stesso file della
-       gestione e del servizio); senza, lo si deduce dal percorso. */
+       gestione e del servizio); senza, lo si deduce dal percorso. Qui
+       contano solo 'hls' e 'dash': qualunque altra cosa e' un 'link'
+       sbagliato per questo player. */
     function tipoDi(url) {
         var V = window.NGBSorgenteVideo;
         if (V && typeof V.tipoDi === 'function') return String(V.tipoDi(url) || '');
@@ -177,18 +187,21 @@
             var p = u.pathname.toLowerCase();
             if (/\.m3u8$/.test(p)) return 'hls';
             if (/\.mpd$/.test(p)) return 'dash';
-            return 'incorporato';
+            return '';
         } catch (e) { return ''; }
     }
 
+    // il valore da dare a carica() per un link incollato: solo un flusso ('' altrimenti)
     function idDa(testo) {
         var V = window.NGBSorgenteVideo;
-        if (V && typeof V.leggi === 'function') {
-            var s = V.leggi(testo);
-            return s && !s.errore ? s.valore : '';
+        var s;
+        if (V && typeof V.perFlusso === 'function') s = V.perFlusso(testo);
+        else if (V && typeof V.leggi === 'function') s = V.leggi(testo);
+        else {
+            var t = String(testo == null ? '' : testo).trim();
+            return TIPI[tipoDi(t)] ? new URL(t).href : '';
         }
-        var t = String(testo == null ? '' : testo).trim();
-        return tipoDi(t) ? new URL(t).href : '';
+        return s && !s.errore && TIPI[s.tipo] ? s.valore : '';
     }
 
     /* Su Safari (iPhone, iPad, Mac) l'HLS lo legge il browser. Chrome e Edge
@@ -256,8 +269,8 @@
        ============================================================ */
     function crea(contenitore, opzioni) {
         opzioni = opzioni || {};
-        var el = null;              // il <video> (riusato fra un carica() e l'altro) o l'iframe
-        var modo = '';              // 'video' | 'iframe' | ''
+        var el = null;              // il <video> (riusato fra un carica() e l'altro)
+        var modo = '';              // 'video' | '' (nessun <video> ancora)
         var motore = '';            // 'nativo' | 'hls' | 'dash' | '' (con modo 'video')
         var hls = null;
         var dash = null;
@@ -303,8 +316,6 @@
         var bordoSegnalato = false;
         // l'avvio automatico rifiutato dal browser (serve un tocco): niente 'lento'
         var bloccato = false;
-        // il player incorporato svuotato da mostra(false): l'indirizzo da ricaricare
-        var iframeDa = '';
         // qualita': l'ultimo elenco dato alla pagina
         var firmaQualita = '';
         // link firmato: aggiunge la firma alle richieste verso lo stesso server (null = link non firmato)
@@ -335,26 +346,12 @@
            pagina («Stiamo ricollegando…», un errore) non deve suonare niente
            (per esempio un tentativo che riparte prima che la pagina lo
            mostri). L'audio della persona (mutoNostro) non cambia: torna
-           quando il video torna visibile. Il player incorporato non si puo'
-           zittire da fuori: si svuota (about:blank) e si ricarica dopo. */
+           quando il video torna visibile. */
         function applicaVisibilita() {
             if (!el) return;
             el.style.visibility = visibile ? '' : 'hidden';
             if (visibile) el.removeAttribute('aria-hidden'); else el.setAttribute('aria-hidden', 'true');
-            if (modo === 'video') {
-                applicaAudio();
-            } else if (modo === 'iframe') {
-                /* solo un player gia' caricato: uno che sta ancora arrivando (un
-                   tentativo del ricollegamento, nascosto finche' non si presenta)
-                   deve poter finire di caricarsi, o non si presenterebbe mai */
-                if (!visibile && pronto && !iframeDa && el.getAttribute('src') && el.getAttribute('src') !== 'about:blank') {
-                    iframeDa = el.getAttribute('src');
-                    el.setAttribute('src', 'about:blank');
-                } else if (visibile && iframeDa) {
-                    el.setAttribute('src', iframeDa);
-                    iframeDa = '';
-                }
-            }
+            if (modo === 'video') applicaAudio();
         }
         // l'audio che il <video> deve avere adesso: quello della persona, se si vede
         function mutoAdesso() { return mutoNostro || !visibile; }
@@ -406,12 +403,9 @@
             fermaMotore();
             clearInterval(timerTempo);
             timerTempo = null;
-            // il player incorporato: prima svuotato (il suo audio si ferma subito), poi tolto
-            if (el && modo === 'iframe') { try { el.setAttribute('src', 'about:blank'); } catch (e) { /* niente */ } }
             if (el && el.parentNode) el.parentNode.removeChild(el);
             el = null;
             modo = '';
-            iframeDa = '';
         }
 
         function nuovoVideo() {
@@ -729,31 +723,6 @@
             parti(gen);
         }
 
-        /* ---------- la pagina della web TV, incorporata ---------- */
-        function montaIframe(url, gen) {
-            togliElemento();
-            var f = document.createElement('iframe');
-            modo = 'iframe';
-            f.title = 'Video della diretta (player della web TV)';
-            f.setAttribute('allow', 'autoplay; fullscreen; encrypted-media');
-            f.setAttribute('allowfullscreen', '');
-            f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-            f.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:0;background:#000;display:block;';
-            f.addEventListener('load', function () {
-                // la pagina vuota messa da mostra(false) non e' il player della web TV
-                if (el !== f || gen !== generazione || iframeDa || f.getAttribute('src') === 'about:blank') return;
-                clearTimeout(timerPronto);
-                timerPronto = null;
-                pronto = true;
-                avvisa('onPronto');
-                imposta('riproduzione');
-            });
-            f.src = url;
-            el = f;
-            contenitore.appendChild(f);
-            applicaVisibilita();
-        }
-
         /* ============================================================
            IL TEMPO: dove si e', la finestra, il punto live
            ============================================================ */
@@ -1026,7 +995,7 @@
                    continuare a suonare il flusso di prima (per esempio durante
                    il rinnovo di un link firmato). */
                 generazione++;
-                if (modo === 'iframe') togliElemento(); else fermaMotore();
+                fermaMotore();
                 urlCaricato = '';
                 conFirma = null;
                 statoCorrente = 'non-avviato';
@@ -1038,12 +1007,10 @@
             urlCaricato = url;
             conFirma = firmato ? firmaDi(url) : null;
             // (interno) il rinnovo della firma su Safari ricarica: chi era in pausa resta in pausa
-            restaInPausa = !!(opz && opz.restaInPausa) && t !== 'incorporato';
+            restaInPausa = !!(opz && opz.restaInPausa);
             firmaQualita = '';
             statoCorrente = '';
             imposta('non-avviato');
-
-            if (t === 'incorporato') { montaIframe(url, gen); attendiPronto(gen); return; }
 
             var v = assicuraVideo();
             attendiPronto(gen);
@@ -1064,10 +1031,10 @@
            richieste (quelle che seguono: la playlist delle qualita' si
            richiede ogni pochi secondi, e cosi' la firma nuova arriva da
            sola), senza toccare il video. Safari (il browser chiede da se'
-           playlist e segmenti) e il player incorporato non si possono
-           cambiare da fuori: li' si ricarica, e chi era in pausa resta in
-           pausa (la posizione nella finestra, su Safari, si perde). Un link
-           di un altro flusso, o un flusso caricato senza firma: carica(). */
+           playlist e segmenti) non si puo' cambiare da fuori: li' si
+           ricarica, e chi era in pausa resta in pausa (la posizione nella
+           finestra si perde). Un link di un altro flusso, o un flusso
+           caricato senza firma: carica(). */
         function aggiornaFirma(url) {
             if (distrutto) return;
             url = String(url == null ? '' : url).trim();
@@ -1116,7 +1083,7 @@
         // lo stato VERO del <video> (il browser puo' aver rifiutato l'audio); nascosto, quello della persona
         function eMuto() {
             if (modo === 'video' && el) return visibile ? !!el.muted : mutoNostro;
-            return modo === 'iframe' ? false : mutoNostro;
+            return mutoNostro;
         }
         function volume(n) {
             n = Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
@@ -1166,7 +1133,7 @@
         }
         function capacita() {
             return {
-                comandi: modo !== 'iframe',
+                comandi: true,
                 qualita: livelliQualita().length > 0,
                 dvr: finestra().dvr
             };

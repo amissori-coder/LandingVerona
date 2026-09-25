@@ -15,9 +15,13 @@
    - il servizio VERO (email-service/api/diretta-*.js e lib/), impacchettato
      con esbuild in anteprima/motore.js insieme a un Firebase finto in
      memoria (motore/) e alla posta di prova;
-   - un video di prova al posto del canale della web TV
-     (player-anteprima.js), con la stessa interfaccia di player-webtv.js
-     (anche la finestra per tornare indietro e le qualita', finte);
+   - i due player della diretta sostituiti da quelli di prova, con la
+     stessa interfaccia: al posto del player di Azoto in iframe
+     (modalita' A, player-azoto.js) un riquadro «Player Azoto
+     (anteprima)» (player-azoto-anteprima.js); al posto del flusso
+     diretto (modalita' B, player-webtv.js) un video di prova disegnato
+     nel browser (player-anteprima.js, anche con la finestra per tornare
+     indietro e le qualita', finte);
    - il guscio (guscio.html -> index.html): le schede Guida, Partecipante,
      Gestione e Posta di prova.
    Ogni ritocco controlla di trovare il testo da cambiare: se diretta.js
@@ -32,9 +36,10 @@ const esbuild = require('esbuild');
 const QUI = __dirname;
 const REPO = path.resolve(QUI, '../../..');
 /* Con --player-vero (lo usa diretta/prove/webtv.prova.js) le pagine tengono
-   il player VERO (player-webtv.js con hls.min.js e dash.all.min.js) e la
-   loro CSP: serve a provare la web TV sulle pagine vere, in locale. Non e'
-   la versione da pubblicare: li' i video di altri siti non si caricano. */
+   i player VERI (player-azoto.js; player-webtv.js con hls.min.js e
+   dash.all.min.js) e la loro CSP: serve a provare la web TV sulle pagine
+   vere, in locale. Non e' la versione da pubblicare: li' i video e le
+   pagine di altri siti non si caricano. */
 const PLAYER_VERO = process.argv.indexOf('--player-vero') >= 0;
 const OUT = path.resolve(QUI, PLAYER_VERO ? '../risultati/anteprima-vera' : '../risultati/anteprima');
 const MOTORE = path.join(QUI, 'motore');
@@ -143,18 +148,23 @@ function riferimentiDalGuscio(html, cartellaPagina, file) {
     }).replace(/\?v=[0-9a-z]+"/gi, '"');
 }
 
-function pagina(rel, cartella, conPlayer) {
+/* azotoObbligato: la pagina DEVE caricare player-azoto.js (la diretta);
+   la gestione lo carica per l'anteprima della regia, se c'e' si sostituisce. */
+function pagina(rel, cartella, conPlayer, azotoObbligato) {
     let html = leggi(rel);
     if (!PLAYER_VERO) html = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\s*/i, '');
     html = riferimentiDalGuscio(html, cartella, rel);
     if (conPlayer && !PLAYER_VERO) {
-        // un solo player, quello dell'anteprima, al posto di quello della web TV
+        // i player dell'anteprima al posto di quelli veri: il flusso diretto (B) e il player di Azoto (A)
         html = ritocca(html, rel, '"diretta/player-webtv.js"', '"anteprima/player-anteprima.js"');
+        if (azotoObbligato || html.indexOf('"diretta/player-azoto.js"') >= 0) {
+            html = ritocca(html, rel, '"diretta/player-azoto.js"', '"anteprima/player-azoto-anteprima.js"');
+        }
     }
     // nessun altro player: se una pagina ne carica ancora uno, la costruzione si ferma
-    const altri = html.match(/<script src="diretta\/player-(?!webtv\.js")[^"]*"/g);
+    const altri = html.match(/<script src="diretta\/player-(?!webtv\.js"|azoto\.js")[^"]*"/g);
     if (altri) throw new Error('script di un player sconosciuto in ' + rel + ': ' + altri.join(', '));
-    if (!PLAYER_VERO && /player-webtv/.test(html)) throw new Error('player vero ancora presente in ' + rel);
+    if (!PLAYER_VERO && /<script src="[^"]*player-(webtv|azoto)\.js"/.test(html)) throw new Error('player vero ancora presente in ' + rel);
     return html;
 }
 
@@ -175,14 +185,15 @@ async function costruisci() {
     ['diretta/diretta.css', 'diretta/gestione/gestione.css'].forEach(f => copia(f));
     scrivi('diretta/nome-utente.js', leggi('diretta/nome-utente.js'));
     scrivi('diretta/sorgente-video.js', leggi('diretta/sorgente-video.js'));
-    if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
+    if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-azoto.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');
     copia('diretta/prove/anteprima/pagina.js', 'anteprima/pagina.js');
     copia('diretta/prove/anteprima/player-anteprima.js', 'anteprima/player-anteprima.js');
+    copia('diretta/prove/anteprima/player-azoto-anteprima.js', 'anteprima/player-azoto-anteprima.js');
     fs.readdirSync(path.join(QUI, 'sdk')).forEach(f => copia('diretta/prove/anteprima/sdk/' + f, 'anteprima/sdk/' + f));
 
     const pagine = {
-        diretta: pagina('diretta/index.html', '/diretta/', true),
+        diretta: pagina('diretta/index.html', '/diretta/', true, true),
         reimposta: pagina('diretta/reimposta.html', '/diretta/', false),
         gestione: pagina('diretta/gestione/index.html', '/diretta/gestione/', true)
     };

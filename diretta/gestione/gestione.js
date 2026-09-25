@@ -88,6 +88,10 @@
         proveInCorso: {},
         // la firma dei link com'e' salvata sul servizio (senza la chiave, che non torna mai)
         firmaSalvata: { schema: 'nessuna', durataOre: 6, parametri: {}, segretoImpostato: false },
+        // il tipo di player com'e' salvato sul servizio ('azoto' | 'flusso')
+        tipoSalvato: 'azoto',
+        // in Regia: per quale evento e quale modo si sono aperte le due parti del video
+        blocchiRegia: '',
         inCorrezione: null
     };
 
@@ -166,43 +170,75 @@
         return String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
     }
 
-    /* ---------- il link della web TV ----------
-       Il video arriva SOLO dal canale streaming di una web TV. Che cosa
-       sia un link (flusso HLS, flusso DASH, pagina da incorporare, o
-       niente di buono e perche') lo dice diretta/sorgente-video.js, lo
-       stesso file che usano il player e il servizio: qui le regole non
-       si ripetono. Se quel file non si fosse caricato il link non si
-       blocca qui: lo controllano comunque la prova e il servizio. */
+    /* ---------- il video: due modi ----------
+       A) il player di Azoto dentro la nostra pagina (un iframe): e' il
+          modo predefinito. Dal codice che Azoto ci ha dato si salva SOLO
+          l'indirizzo https del player; l'iframe lo costruisce il nostro
+          codice (player-azoto.js). Il codice incollato qui resta testo:
+          non entra MAI nella pagina e non parte mai verso il servizio.
+       B) il flusso diretto (.m3u8, o .mpd) riprodotto dal nostro player
+          (player-webtv.js): per quando Azoto ci dara' il link.
+       Che cosa sia un testo incollato (un player Azoto, un flusso, o
+       niente di buono e perche') lo dice diretta/sorgente-video.js
+       (perAzoto, perFlusso), lo stesso file che usano il player e il
+       servizio: qui le regole non si ripetono. Se quel file non si fosse
+       caricato un flusso non si blocca qui (lo controllano comunque la
+       prova e il servizio), mentre il codice di Azoto non si legge:
+       estrarne l'indirizzo tocca solo a quelle regole. */
     const SV = window.NGBSorgenteVideo || null;
     const SITO = 'https://nextgenerationbusiness.it';
-    const AVVISO_INCORPORATO = (SV && SV.AVVISO_INCORPORATO)
-        || 'Con questo tipo di link non possiamo togliere il logo della web TV né usare i nostri comandi: chiedete alla web TV il link .m3u8';
-    // i nomi brevi dei tipi, per le frasi della regia
-    const NOMI_TIPO = { hls: 'flusso HLS', dash: 'flusso DASH', incorporato: 'pagina della web TV da incorporare' };
+    // la nota fissa sotto il campo del player Azoto (in sorgente-video.js: AVVISO_INCORPORATO)
+    const NOTA_AZOTO = (SV && SV.AVVISO_INCORPORATO)
+        || 'Con il player Azoto restano i comandi (e l\'eventuale logo) di Azoto: per usare i nostri comandi serve il link .m3u8 del flusso diretto, da chiedere ad Azoto.';
+    document.querySelectorAll('.nota-azoto').forEach(n => { n.textContent = NOTA_AZOTO; });
+    // i nomi brevi, per le frasi della regia
+    const NOMI_TIPO = { hls: 'flusso HLS', dash: 'flusso DASH', incorporato: 'player Azoto' };
+    const NOMI_PLAYER = { azoto: 'Player Azoto', flusso: 'Flusso diretto' };
+    // i campi del player Azoto; gli altri (ev-video, ev-riserva, regia-video, regia-riserva) sono il flusso diretto
+    const CAMPI_AZOTO = { 'ev-azoto': true, 'regia-azoto': true };
 
-    // -> null (vuoto) | { tipo, valore } | { errore, messaggio }
-    function leggiLink(testo) {
+    /* Il player Azoto: il codice incollato o l'indirizzo.
+       -> null (vuoto) | { tipo: 'incorporato', valore, daCodice } | { errore, messaggio } */
+    function leggiAzoto(testo) {
+        const s = String(testo || '').trim();
+        if (!s) return null;
+        if (!SV || typeof SV.perAzoto !== 'function') {
+            return { errore: 'regole', messaggio: 'Non riesco a leggere il player Azoto: manca il file con le regole dei link (sorgente-video.js). Ricarica la pagina.' };
+        }
+        const r = SV.perAzoto(s);
+        if (!r) return null;
+        if (r.errore) return { errore: r.errore, messaggio: SV.messaggio(r) };
+        return { tipo: r.tipo || 'incorporato', valore: r.valore, daCodice: /<iframe\b/i.test(s) };
+    }
+    /* Il flusso diretto: solo HLS o DASH.
+       -> null (vuoto) | { tipo: 'hls'|'dash', valore } | { errore, messaggio } */
+    function leggiFlusso(testo) {
         const s = String(testo || '').trim();
         if (!s) return null;
         if (!SV) {
             return /^https:\/\/\S+$/i.test(s) ? { tipo: '', valore: s }
                 : { errore: 'formato', messaggio: 'Serve un indirizzo che comincia con https://.' };
         }
-        const r = SV.leggi(s);
+        // (un sorgente-video.js di prima rimasto nella cache del browser: le sue regole, ma solo i flussi)
+        const r = typeof SV.perFlusso === 'function' ? SV.perFlusso(s) : SV.leggi(s);
         if (!r) return null;
         if (r.errore) return { errore: r.errore, messaggio: SV.messaggio(r) };
+        if (r.tipo !== 'hls' && r.tipo !== 'dash') return { errore: 'formato', messaggio: SV.messaggio({ errore: 'formato' }) };
         return { tipo: r.tipo, valore: r.valore };
     }
+    function leggiCampo(id, testo) { return CAMPI_AZOTO[id] ? leggiAzoto(testo) : leggiFlusso(testo); }
     function tipoDi(valore) {
         if (!valore) return '';
         if (SV && typeof SV.tipoDi === 'function') return SV.tipoDi(valore) || '';
-        const l = leggiLink(valore);
+        const l = leggiFlusso(valore);
         return l && !l.errore ? l.tipo : '';
     }
     function descrizioneTipo(tipo) {
         if (SV && typeof SV.descrizione === 'function') return SV.descrizione(tipo) || '';
         return NOMI_TIPO[tipo] ? NOMI_TIPO[tipo].charAt(0).toUpperCase() + NOMI_TIPO[tipo].slice(1) + '.' : '';
     }
+    // il modo scelto per un evento: 'azoto' se non e' detto (gli eventi di prima)
+    function tipoPlayerDi(ev) { return ev && ev.tipoPlayer === 'flusso' ? 'flusso' : 'azoto'; }
     // un link lungo (con i suoi gettoni) si accorcia per le frasi: server e ultimo pezzo del percorso
     function linkBreve(url) {
         try {
@@ -660,10 +696,13 @@
             chiudiAnteprimaVideo();
             dimenticaProve();
             $('#ev-firma').open = false;
+            riempiCampoLink('regia-azoto', ev.azotoUrl);
             riempiCampoLink('regia-video', ev.videoUrl);
             riempiCampoLink('regia-riserva', ev.riservaUrl);
             nascondiMsg('#msg-video');
             nascondiMsg('#msg-sorgente');
+            nascondiMsg('#msg-azoto');
+            nascondiMsg('#msg-player');
             annullaCaricamento();
             if (stato.posta.ciclo) stato.posta.ciclo.attivo = false;
             stato.posta = { conteggi: {}, coda: {}, ciclo: null, risposta: null, ultimoChi: '' };
@@ -695,17 +734,21 @@
             stato.evento = ev;
             aggiornaStatoEvento();
             if (!stato.nuovo) {
+                seguiCampoLink('ev-azoto', ev.azotoUrl);
                 seguiCampoLink('ev-video', ev.videoUrl);
                 seguiCampoLink('ev-riserva', ev.riservaUrl);
                 seguiFirma(ev);
+                seguiTipoPlayer(ev);
             }
+            seguiCampoLink('regia-azoto', ev.azotoUrl);
             seguiCampoLink('regia-video', ev.videoUrl);
             seguiCampoLink('regia-riserva', ev.riservaUrl);
         }
         riempiSelectEventi();
     }
 
-    /* I link nei campi (scheda Evento e Regia) seguono quelli del servizio
+    /* I link nei campi (scheda Evento e Regia: il player Azoto e i link
+       del flusso) seguono quelli del servizio
        (per esempio dopo un cambio fatto dall'altra scheda o da un altro
        gestore), a meno che il gestore li stia modificando: in quel caso
        resta quello che ha scritto, e al salvataggio vale come una sua
@@ -871,9 +914,11 @@
         $('#ev-ora-inizio').value = ev ? ev.oraInizio || '' : '';
         $('#ev-ora-fine').value = ev ? ev.oraFine || '' : '';
         // i link con cui si apre il modulo: al salvataggio si mandano solo se cambiati
+        riempiCampoLink('ev-azoto', ev ? ev.azotoUrl : '');
         riempiCampoLink('ev-video', ev ? ev.videoUrl : '');
         riempiCampoLink('ev-riserva', ev ? ev.riservaUrl : '');
         compilaFirma(ev);
+        compilaTipoPlayer(ev);
         $('#ev-programma').value = ev && Array.isArray(ev.programma) ? ev.programma.map(v => (v.ora ? v.ora + ' ' : '') + (v.titolo || '')).join('\n') : '';
         $('#ev-pagina').value = ev ? ev.paginaEvento || '' : '';
         $('#ev-un-dispositivo').checked = !!(ev && ev.unSoloDispositivo);
@@ -1120,6 +1165,73 @@
         return { firma: firma, cambiata: cambiata, tolta: false };
     }
 
+    /* ---------- il tipo di player ----------
+       «Player Azoto (iframe)» e' il predefinito. «Flusso diretto (.m3u8)»
+       si puo' scegliere solo con un link del flusso valido nel riquadro
+       «Flusso diretto» (il servizio rifiuterebbe comunque la modalita'
+       senza un flusso salvato): finche' manca, l'opzione e' spenta e dice
+       perche'. stato.tipoSalvato e' la scelta com'e' sul servizio: al
+       salvataggio il tipo si manda solo se cambiato qui. */
+    const RADIO_TIPO = Array.from(document.querySelectorAll('input[name="ev-tipo-player"]'));
+    const RADIO_FLUSSO = RADIO_TIPO.find(r => r.value === 'flusso');
+    function tipoScelto() {
+        const r = RADIO_TIPO.find(x => x.checked);
+        return r && r.value === 'flusso' ? 'flusso' : 'azoto';
+    }
+    function scegliTipo(tipo) {
+        RADIO_TIPO.forEach(r => { r.checked = r.value === tipo; r.removeAttribute('aria-invalid'); });
+    }
+    function compilaTipoPlayer(ev) {
+        stato.tipoSalvato = ev ? tipoPlayerDi(ev) : 'azoto';
+        scegliTipo(stato.tipoSalvato);
+        aggiornaVistaTipoPlayer();
+    }
+    // un cambio arrivato dal servizio (per esempio dalla Regia): il modulo lo segue, se qui non si e' scelto altro
+    function seguiTipoPlayer(ev) {
+        const nuovo = tipoPlayerDi(ev);
+        if (tipoScelto() === stato.tipoSalvato) scegliTipo(nuovo);
+        stato.tipoSalvato = nuovo;
+        aggiornaVistaTipoPlayer();
+    }
+    // il link del flusso nel campo e' valido (un .m3u8 o un .mpd)?
+    function flussoPronto() {
+        const l = leggiFlusso($('#ev-video').value);
+        return !!l && !l.errore;
+    }
+    function aggiornaVistaTipoPlayer() {
+        const tipo = tipoScelto();
+        const pronto = flussoPronto();
+        // gia' scelto resta sceglibile: se il link manca lo dice il salvataggio
+        RADIO_FLUSSO.disabled = !pronto && tipo !== 'flusso';
+        RADIO_FLUSSO.closest('.opzione').classList.toggle('spenta', RADIO_FLUSSO.disabled);
+        // (la classe al posto di :has(), che manca nei browser meno recenti)
+        $('#ev-tipo-player').dataset.errore = RADIO_TIPO.some(r => r.getAttribute('aria-invalid') === 'true') ? 'si' : '';
+        const nota = $('#ev-tipo-flusso-nota');
+        if (pronto) {
+            nota.textContent = 'Il link del flusso è pronto nel riquadro «Flusso diretto (.m3u8)» qui sotto.';
+            nota.dataset.tono = 'ok';
+        } else if (tipo === 'flusso') {
+            nota.textContent = 'Manca un link .m3u8 valido nel riquadro «Flusso diretto (.m3u8)» qui sotto: senza, questa scelta non si può salvare.';
+            nota.dataset.tono = 'errore';
+        } else {
+            nota.textContent = 'Si può scegliere quando c\'è il link .m3u8 del flusso, nel riquadro «Flusso diretto (.m3u8)» qui sotto.';
+            nota.dataset.tono = '';
+        }
+        const daSalvare = stato.nuovo || tipo !== stato.tipoSalvato;
+        ['azoto', 'flusso'].forEach(t => {
+            const blocco = $('#blocco-' + t);
+            const inUso = t === tipo;
+            blocco.dataset.inUso = inUso ? 'si' : '';
+            const bollo = blocco.querySelector('.blocco-uso');
+            bollo.textContent = inUso ? (daSalvare ? 'scelto' : 'in uso') : 'non in uso';
+            bollo.dataset.stato = inUso ? 'si' : '';
+        });
+    }
+    RADIO_TIPO.forEach(r => r.addEventListener('change', () => {
+        RADIO_TIPO.forEach(x => x.removeAttribute('aria-invalid'));
+        aggiornaVistaTipoPlayer();
+    }));
+
     function leggiFormEvento() {
         const errori = [];
         const segna = (sel, testo) => { $(sel).setAttribute('aria-invalid', 'true'); errori.push(testo); };
@@ -1130,6 +1242,8 @@
         const data = $('#ev-data').value;
         const oraInizio = $('#ev-ora-inizio').value;
         const oraFine = $('#ev-ora-fine').value;
+        const tipo = tipoScelto();
+        const azotoTesto = $('#ev-azoto').value.trim();
         const videoUrl = $('#ev-video').value.trim();
         const riservaUrl = $('#ev-riserva').value.trim();
         const pagina = normalizzaPagina($('#ev-pagina').value);
@@ -1143,39 +1257,60 @@
         if (!/^\d{2}:\d{2}$/.test(oraFine)) segna('#ev-ora-fine', 'Ora di fine mancante.');
         else if (/^\d{2}:\d{2}$/.test(oraInizio) && oraFine <= oraInizio) segna('#ev-ora-fine', 'L\'ora di fine deve venire dopo quella di inizio.');
         /* I link si controllano solo se cambiati qui: uno salvato prima con
-           regole diverse non deve impedire di correggere, per esempio, il titolo. */
+           regole diverse non deve impedire di correggere, per esempio, il
+           titolo. Il player Azoto e' "cambiato" solo se l'indirizzo che se
+           ne ricava e' diverso da quello salvato (lo stesso player incollato
+           come codice non cambia niente). */
+        const azotoIniziale = $('#ev-azoto').dataset.iniziale || '';
+        const la = leggiAzoto(azotoTesto);
+        const azotoCambiato = stato.nuovo ? !!azotoTesto
+            : azotoTesto !== azotoIniziale && !(la && !la.errore && la.valore === azotoIniziale);
+        if (azotoCambiato && la && la.errore) segna('#ev-azoto', 'Player Azoto: ' + la.messaggio);
         const videoCambiato = stato.nuovo || videoUrl !== ($('#ev-video').dataset.iniziale || '');
         const riservaCambiata = stato.nuovo || riservaUrl !== ($('#ev-riserva').dataset.iniziale || '');
-        const lp = leggiLink(videoUrl);
-        const lr = leggiLink(riservaUrl);
-        if (videoCambiato && lp && lp.errore) segna('#ev-video', 'Link della diretta: ' + lp.messaggio);
+        const lp = leggiFlusso(videoUrl);
+        const lr = leggiFlusso(riservaUrl);
+        if (videoCambiato && lp && lp.errore) segna('#ev-video', 'Link del flusso: ' + lp.messaggio);
         if (riservaCambiata && lr && lr.errore) segna('#ev-riserva', 'Link di riserva: ' + lr.messaggio);
         if (videoCambiato || riservaCambiata) {
-            if (riservaUrl && !videoUrl) segna('#ev-riserva', 'Il link di riserva serve insieme al link della diretta: inserisci prima quello.');
+            if (riservaUrl && !videoUrl) segna('#ev-riserva', 'Il link di riserva serve insieme al link del flusso: inserisci prima quello.');
             else if (lp && lr && !lp.errore && !lr.errore && lp.valore === lr.valore) {
-                segna('#ev-riserva', 'Il link di riserva è uguale a quello della diretta: inserisci un link diverso (un altro server o un altro canale) oppure lascialo vuoto.');
+                segna('#ev-riserva', 'Il link di riserva è uguale a quello del flusso: inserisci un link diverso (un altro server o un altro canale) oppure lascialo vuoto.');
             }
+        }
+        // il flusso diretto senza un flusso valido: il servizio lo rifiuterebbe
+        if (tipo === 'flusso' && !(lp && !lp.errore) && !(videoCambiato && lp && lp.errore)) {
+            segna('input[name="ev-tipo-player"][value="flusso"]', 'Tipo di player: per il flusso diretto serve prima il link .m3u8, nel riquadro «Flusso diretto (.m3u8)».');
         }
         if (pagina && !/^\/[a-z0-9_\/-]*\/?$/.test(pagina)) segna('#ev-pagina', 'Pagina dell\'evento: solo il percorso, per esempio /napoli_ottobre_2026/.');
         if (programma.errori.length) { $('#ev-programma').setAttribute('aria-invalid', 'true'); errori.push.apply(errori, programma.errori); }
         const firma = leggiFirma(segna);
 
+        const evento = {
+            id: stato.nuovo ? id : stato.idEvento,
+            nuovo: stato.nuovo,
+            titolo: titolo, luogo: luogo, data: data, oraInizio: oraInizio, oraFine: oraFine,
+            videoUrl: videoUrl, videoId: lp && !lp.errore ? lp.valore : '',
+            riservaUrl: riservaUrl,
+            programma: programma.voci,
+            paginaEvento: pagina,
+            unSoloDispositivo: $('#ev-un-dispositivo').checked,
+            promemoria: { giornoPrima: $('#ev-promemoria-giorno').checked, oraPrima: $('#ev-promemoria-ora').checked }
+        };
+        // al servizio va solo l'indirizzo ricavato qui, mai il codice incollato
+        if (azotoCambiato) evento.azotoUrl = la && !la.errore ? la.valore : '';
+        const tipoCambiato = stato.nuovo || tipo !== stato.tipoSalvato;
+        if (tipoCambiato) evento.tipoPlayer = tipo;
         return {
             errori: errori,
+            tipo: tipo,
+            tipoCambiato: tipoCambiato,
+            azotoCambiato: azotoCambiato,
+            azotoDaCodice: !!(la && la.daCodice),
             videoCambiato: videoCambiato,
             riservaCambiata: riservaCambiata,
             firma: firma,
-            evento: {
-                id: stato.nuovo ? id : stato.idEvento,
-                nuovo: stato.nuovo,
-                titolo: titolo, luogo: luogo, data: data, oraInizio: oraInizio, oraFine: oraFine,
-                videoUrl: videoUrl, videoId: lp && !lp.errore ? lp.valore : '',
-                riservaUrl: riservaUrl,
-                programma: programma.voci,
-                paginaEvento: pagina,
-                unSoloDispositivo: $('#ev-un-dispositivo').checked,
-                promemoria: { giornoPrima: $('#ev-promemoria-giorno').checked, oraPrima: $('#ev-promemoria-ora').checked }
-            }
+            evento: evento
         };
     }
 
@@ -1183,6 +1318,7 @@
         e.preventDefault();
         const letto = leggiFormEvento();
         const evento = letto.evento;
+        aggiornaVistaTipoPlayer();
         if (letto.errori.length) {
             mostraMsg('#msg-evento', letto.errori.join(' '), 'errore');
             const primo = $('#form-evento [aria-invalid="true"]');
@@ -1199,9 +1335,13 @@
            i link sono stati cambiati dalla Regia (da un altro gestore, o da
            un'altra scheda del browser), rimandare quei valori per correggere,
            per esempio, il titolo rimetterebbe a tutti i link vecchi. Senza
-           videoUrl / riservaUrl il servizio tiene quelli che ha. Lo stesso
-           per la firma: si manda solo se cambiata. */
+           videoUrl / riservaUrl / azotoUrl il servizio tiene quelli che ha.
+           Lo stesso per il tipo di player e per la firma: si mandano solo se
+           cambiati. */
         const eraNuovo = stato.nuovo;
+        const tipo = letto.tipo;
+        const tipoCambiato = letto.tipoCambiato && !eraNuovo;
+        const azotoCambiato = letto.azotoCambiato;
         const videoCambiato = letto.videoCambiato;
         const riservaCambiata = letto.riservaCambiata;
         if (!videoCambiato) { delete evento.videoUrl; delete evento.videoId; }
@@ -1212,11 +1352,13 @@
         $('#ev-pagina').value = evento.paginaEvento;
         await conAttesa($('#btn-salva-evento'), async () => {
             /* Un link nuovo si prova prima di salvarlo (la prova di «Prova il
-               link», se fatta da poco sullo stesso testo, vale): con esito
-               'errore' non si salva niente, con 'avviso' si chiede conferma. */
+               player» / «Prova il link», se fatta da poco sullo stesso testo,
+               vale): con esito 'errore' non si salva niente, con 'avviso' si
+               chiede conferma. */
             const avvisi = [];
             const daProvare = [];
-            if (videoCambiato && evento.videoUrl) daProvare.push({ id: 'ev-video', etichetta: 'Link della diretta' });
+            if (azotoCambiato && evento.azotoUrl) daProvare.push({ id: 'ev-azoto', etichetta: 'Player Azoto' });
+            if (videoCambiato && evento.videoUrl) daProvare.push({ id: 'ev-video', etichetta: 'Link del flusso' });
             if (riservaCambiata && evento.riservaUrl) daProvare.push({ id: 'ev-riserva', etichetta: 'Link di riserva' });
             for (const x of daProvare) {
                 mostraMsg('#msg-evento', 'Prova in corso: ' + x.etichetta.toLowerCase() + '…', 'info');
@@ -1237,13 +1379,17 @@
 
             // una sola domanda per tutto: gli avvisi della prova, il cambio durante la diretta, la firma tolta
             const tolto = videoCambiato && !evento.videoUrl && !!(evPrima && evPrima.videoUrl);
+            const azotoTolto = azotoCambiato && !evento.azotoUrl && !!(evPrima && evPrima.azotoUrl);
             const riservaTolta = riservaCambiata && !evento.riservaUrl && !!(evPrima && evPrima.riservaUrl);
             const riservaInUsoTolta = riservaTolta && !!evPrima && evPrima.sorgente === 'riserva';
-            const fraseOnda = inOnda && (videoCambiato || riservaCambiata)
-                ? testoCambioInOnda(evPrima, { principale: videoCambiato, riserva: riservaCambiata, principaleTolto: tolto, riservaTolta: riservaTolta }) : '';
+            const fraseOnda = inOnda ? frasiCambioInOnda(evPrima, {
+                tipo: tipo, tipoCambiato: tipoCambiato, azoto: azotoCambiato, azotoTolto: azotoTolto,
+                principale: videoCambiato, riserva: riservaCambiata, principaleTolto: tolto, riservaTolta: riservaTolta
+            }).join('\n') : '';
             const dettagli = avvisi.slice();
-            if (riservaInUsoTolta && !inOnda) dettagli.push('La riserva è la scelta della regia: togliendola, quando la diretta andrà in onda si partirà dal link principale.');
+            if (riservaInUsoTolta && !inOnda) dettagli.push('La riserva è la scelta della regia: togliendola, quando si userà il flusso diretto si partirà dal link principale.');
             if (letto.firma.tolta) dettagli.push('Link firmati: si tolgono, e la chiave segreta salvata viene cancellata.');
+            const suAzoto = tipo === 'azoto';
             let domanda = null;
             if (avvisi.length) {
                 domanda = {
@@ -1251,18 +1397,24 @@
                     testo: 'La prova ha trovato dei problemi: finché non sono risolti, i partecipanti potrebbero non vedere il video.' + (fraseOnda ? '\n' + fraseOnda : ''),
                     dettagli: dettagli, ok: 'Salva lo stesso'
                 };
-            } else if (tolto && inOnda) {
-                domanda = { titolo: 'Togliere il video?', testo: fraseOnda, dettagli: dettagli, ok: 'Togli il video', pericolo: true };
+            } else if (inOnda && suAzoto && azotoTolto) {
+                domanda = { titolo: 'Togliere il player Azoto?', testo: fraseOnda, dettagli: dettagli, ok: 'Togli il player', pericolo: true };
             } else if (fraseOnda) {
-                domanda = videoCambiato
-                    ? { titolo: 'Cambiare il link per tutti?', testo: fraseOnda, dettagli: dettagli, ok: 'Cambia il link' }
-                    : { titolo: 'Cambiare il link di riserva?', testo: fraseOnda, dettagli: dettagli, ok: evento.riservaUrl ? 'Salva la riserva' : 'Togli la riserva' };
+                if (tipoCambiato) {
+                    domanda = { titolo: 'Cambiare il tipo di player per tutti?', testo: fraseOnda, dettagli: dettagli, ok: tipo === 'flusso' ? 'Passa al flusso diretto' : 'Torna al player Azoto' };
+                } else if (suAzoto) {
+                    domanda = { titolo: 'Cambiare il player per tutti?', testo: fraseOnda, dettagli: dettagli, ok: 'Cambia il player' };
+                } else {
+                    domanda = videoCambiato
+                        ? { titolo: 'Cambiare il link per tutti?', testo: fraseOnda, dettagli: dettagli, ok: 'Cambia il link' }
+                        : { titolo: 'Cambiare il link di riserva?', testo: fraseOnda, dettagli: dettagli, ok: evento.riservaUrl ? 'Salva la riserva' : 'Togli la riserva' };
+                }
             } else if (riservaInUsoTolta) {
                 domanda = { titolo: 'Togliere il link di riserva?', testo: 'In regia hai scelto la riserva per tutti.', dettagli: dettagli, ok: 'Togli la riserva', pericolo: true };
             } else if (letto.firma.tolta) {
                 domanda = {
                     titolo: 'Togliere i link firmati?',
-                    testo: 'I partecipanti riceveranno il link della web TV così com\'è, senza firma.',
+                    testo: 'I partecipanti riceveranno il link del flusso così com\'è, senza firma.',
                     dettagli: dettagli, ok: 'Togli la firma', pericolo: true
                 };
             }
@@ -1274,9 +1426,16 @@
                 aggiornaEvento(r.evento);
                 selezionaEvento(r.evento.id);
                 const detto = [eraNuovo ? 'Evento creato. Ora carica i partecipanti dalla scheda Partecipanti.' : 'Modifiche salvate.'];
-                if (fraseOnda) detto.push(tolto ? 'Video tolto.' : 'I partecipanti collegati ricevono i link nuovi.');
+                if (tipoCambiato) {
+                    detto.push(inOnda
+                        ? (tipo === 'flusso' ? 'I partecipanti collegati passano al flusso diretto.' : 'I partecipanti collegati tornano al player Azoto.')
+                        : 'Tipo di player: ' + (tipo === 'flusso' ? 'flusso diretto (.m3u8).' : 'player Azoto.'));
+                } else if (fraseOnda) {
+                    detto.push(suAzoto ? (azotoTolto ? 'Player Azoto tolto.' : 'I partecipanti collegati passano al nuovo player Azoto.') : 'I partecipanti collegati ricevono i link nuovi.');
+                }
+                if (azotoCambiato && evento.azotoUrl && letto.azotoDaCodice) detto.push('Dal codice di Azoto ho salvato solo l\'indirizzo del player.');
                 if (evento.firma && evento.firma.segreto) detto.push('La chiave segreta è salvata sul servizio.');
-                if (avvisi.length) detto.push('Ricorda i problemi segnalati dalla prova: riprova il link quando la web TV li ha risolti.');
+                if (avvisi.length) detto.push('Ricorda i problemi segnalati dalla prova: riprova quando Azoto li ha risolti.');
                 mostraMsg('#msg-evento', detto.join(' '), 'ok');
                 // orari e caselle dei promemoria cambiano chi li riceve e quando
                 if (!eraNuovo) aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
@@ -1284,6 +1443,13 @@
                 if (err.stato === 409) {
                     $('#ev-id').setAttribute('aria-invalid', 'true');
                     mostraMsg('#msg-evento', err.msg || 'Esiste già un evento con questo identificativo: scegline un altro.', 'errore');
+                } else if (err.stato === 400 && err.codice === 'azoto') {
+                    $('#ev-azoto').setAttribute('aria-invalid', 'true');
+                    erroreGenerico(err, '#msg-evento');
+                } else if (err.stato === 400 && err.codice === 'tipoPlayer') {
+                    RADIO_FLUSSO.setAttribute('aria-invalid', 'true');
+                    aggiornaVistaTipoPlayer();
+                    erroreGenerico(err, '#msg-evento');
                 } else erroreGenerico(err, '#msg-evento');
             }
         });
@@ -1344,17 +1510,27 @@
         imposta('#btn-termina', !!ev && s !== 'terminato');
         imposta('#btn-pausa', !!ev && s === 'in_onda');
         imposta('#btn-riprogramma', !!ev && s !== 'programmato');
+        /* il player per tutti: si vede il pulsante che porta all'altro modo,
+           acceso solo se l'altro modo ha il suo link (il flusso .m3u8 per il
+           flusso diretto, l'indirizzo per il player Azoto) */
+        const tipo = tipoPlayerDi(ev);
+        $('#btn-passa-flusso').hidden = !!ev && tipo === 'flusso';
+        $('#btn-passa-azoto').hidden = !ev || tipo !== 'flusso';
+        imposta('#btn-passa-flusso', !!ev && !!ev.videoId);
+        imposta('#btn-passa-azoto', !!ev && !!ev.azotoUrl);
         /* principale / riserva per tutti: un pulsante per link. Quello del
            link gia' scelto "riconferma" la scelta (riporta chi era passato
-           da solo all'altro link dopo un guasto): serve solo in onda. Senza
-           riserva nessuno puo' passare all'altro link: niente da scegliere. */
+           da solo all'altro link dopo un guasto): serve solo in onda e con il
+           flusso diretto in uso. Senza riserva nessuno puo' passare all'altro
+           link: niente da scegliere. */
         const suRiserva = !!ev && ev.sorgente === 'riserva';
         const conRiserva = !!ev && !!ev.riservaUrl;
-        $('.sorgente-comandi').dataset.sorgente = suRiserva ? 'riserva' : 'principale';
+        const flussoInOnda = s === 'in_onda' && tipo === 'flusso';
+        $('.sorgente-comandi[data-sorgente]').dataset.sorgente = suRiserva ? 'riserva' : 'principale';
         if (!occupato('#btn-sorgente-riserva')) $('#btn-sorgente-riserva').textContent = suRiserva ? 'Riporta tutti sulla riserva' : 'Passa alla riserva per tutti';
         if (!occupato('#btn-sorgente-principale')) $('#btn-sorgente-principale').textContent = suRiserva ? 'Torna al link principale per tutti' : 'Riporta tutti sul link principale';
-        $('#btn-sorgente-riserva').hidden = suRiserva && s !== 'in_onda';
-        $('#btn-sorgente-principale').hidden = !suRiserva && s !== 'in_onda';
+        $('#btn-sorgente-riserva').hidden = suRiserva && !flussoInOnda;
+        $('#btn-sorgente-principale').hidden = !suRiserva && !flussoInOnda;
         imposta('#btn-sorgente-riserva', conRiserva);
         imposta('#btn-sorgente-principale', !!ev && (suRiserva || conRiserva));
     }
@@ -1369,14 +1545,21 @@
         } else if (nuovo === 'in_onda') {
             // un evento di un altro giorno in onda e' quasi sempre l'evento sbagliato nel menu
             const altroGiorno = ev.inizio && dataOra(ev.inizio).slice(0, 10) !== dataOra(Date.now()).slice(0, 10);
+            const vistaSubito = ' Chi è collegato lo vede subito; chi apre la pagina entra direttamente nella diretta.';
+            let video;
+            if (tipoPlayerDi(ev) === 'azoto') {
+                video = ev.azotoUrl
+                    ? 'Si usa il player Azoto (' + linkBreve(ev.azotoUrl) + ').' + vistaSubito
+                    : 'L\'indirizzo del player Azoto NON è impostato: finché non lo inserisci, i partecipanti vedranno «Il video sta per arrivare».';
+            } else {
+                video = ev.videoId
+                    ? 'Si usa il flusso diretto (' + (NOMI_TIPO[tipoDi(ev.videoId)] || 'web TV') + (ev.riservaUrl ? ', con la riserva' : ', senza riserva') + ').'
+                      + (ev.sorgente === 'riserva' ? ' Si parte dal link di riserva, come hai scelto in regia.' : '') + vistaSubito
+                    : 'Il link del flusso diretto NON è impostato: finché non lo inserisci, i partecipanti vedranno «Il video sta per arrivare».';
+            }
             domanda = {
                 titolo: 'Mandare in onda la diretta?',
-                testo: (ev.videoId
-                    ? 'Il link della diretta è impostato (' + (NOMI_TIPO[tipoDi(ev.videoId)] || 'web TV') + (ev.riservaUrl ? ', con la riserva' : ', senza riserva') + ').'
-                      + (ev.sorgente === 'riserva' ? ' Si parte dal link di riserva, come hai scelto in regia.' : '')
-                      + ' Chi è collegato lo vede subito; chi apre la pagina entra direttamente nella diretta.'
-                      + (tipoDi(ev.sorgente === 'riserva' && ev.riservaId ? ev.riservaId : ev.videoId) === 'incorporato' ? '\nAttenzione, il link è una pagina da incorporare (un ripiego). ' + AVVISO_INCORPORATO : '')
-                    : 'Il link della diretta NON è impostato: finché non lo inserisci, i partecipanti vedranno «Il video sta per arrivare».')
+                testo: video
                     + (altroGiorno ? '\nAttenzione: «' + (ev.titolo || ev.id) + '» è previsto per ' + dataEstesa(ev.inizio) + ', non per oggi. Controlla di aver scelto l\'evento giusto.' : ''),
                 ok: 'Vai in onda', stile: 'btn-onda'
             };
@@ -1466,32 +1649,36 @@
     $('#btn-aggiorna-connessi').addEventListener('click', () => conAttesa($('#btn-aggiorna-connessi'), aggiornaConnessi));
 
     /* ============================================================
-       IL VIDEO: I LINK DELLA WEB TV E LA LORO PROVA
+       IL VIDEO: IL PLAYER AZOTO, I LINK DEL FLUSSO E LA LORO PROVA
        ------------------------------------------------------------
-       Quattro campi che si comportano allo stesso modo: il link
-       principale e quello di riserva, nella scheda Evento e nella
-       Regia. Per ognuno:
-       - mentre lo si scrive, la riga sotto dice che cosa ho riconosciuto
-         (sorgente-video.js) e, per una pagina da incorporare, compare
-         l'avviso del ripiego (sempre, finche' il link resta quello);
-       - "Prova il link": (a) il controllo qui, senza chiamare nessuno;
-         (b) la prova del servizio (prova-link: il server della web TV,
-         il flusso, le qualita', il CORS, se la pagina si incorpora);
-         (c) la lettura dal browser, cioe' dal nostro dominio, come la
-         faranno i partecipanti; (d) l'anteprima con il player vero.
+       Sei campi che si comportano allo stesso modo, nella scheda Evento
+       e nella Regia: il player Azoto (ev-azoto, regia-azoto) e il link
+       principale e di riserva del flusso diretto (ev-video, ev-riserva,
+       regia-video, regia-riserva). Per ognuno:
+       - mentre lo si scrive (o lo si incolla), la riga sotto dice che
+         cosa ho riconosciuto (sorgente-video.js): per il player Azoto
+         l'indirizzo che si salva, preso dal codice incollato;
+       - "Prova": (a) il controllo qui, senza chiamare nessuno; (b) la
+         prova del servizio (prova-link: la pagina del player Azoto e se
+         si puo' incorporare; il server del flusso, le qualita', il
+         CORS); (c) per un flusso, la lettura dal browser, cioe' dal
+         nostro dominio, come la faranno i partecipanti; (d) l'anteprima
+         con il player vero (player-azoto.js o player-webtv.js).
        Se il servizio non risponde la prova non si ferma: restano (a),
        (c) e (d), e l'esito e' almeno un avviso (mai un blocco).
        Al salvataggio: 'errore' ferma, 'avviso' chiede conferma.
+       Al servizio, del player Azoto, va solo l'indirizzo: mai il codice.
        ============================================================ */
-    const CAMPI_LINK = ['ev-video', 'ev-riserva', 'regia-video', 'regia-riserva'];
+    const CAMPI_LINK = ['ev-azoto', 'ev-video', 'ev-riserva', 'regia-azoto', 'regia-video', 'regia-riserva'];
     const DI_RISERVA = { 'ev-riserva': true, 'regia-riserva': true };
     // una prova fatta da poco sullo stesso testo vale anche per il salvataggio
     const VALIDITA_PROVA_MS = 10 * 60 * 1000;
     const ATTESA_LETTURA_MS = 8000;
+    // la frase segue "il link" / "il player"
     const ESITI_PROVA = {
-        ok: { parola: 'Si può usare', frase: 'il link si può usare.' },
+        ok: { parola: 'Si può usare', frase: 'si può usare.' },
         avviso: { parola: 'Da controllare', frase: 'si può usare, ma leggi gli avvisi qui sotto.' },
-        errore: { parola: 'Non si può usare', frase: 'questo link non si può usare (il motivo è qui sotto).' }
+        errore: { parola: 'Non si può usare', frase: 'non si può usare (il motivo è qui sotto).' }
     };
     const GRAVITA = { ok: 0, avviso: 1, errore: 2 };
     // i problemi della prova che spiegano gia' perche' l'anteprima non parte
@@ -1499,9 +1686,9 @@
     function piuGrave(a, b) { return GRAVITA[b] > GRAVITA[a] ? b : a; }
     function senzaPunto(t) { return String(t || '').trim().replace(/[.:;]+$/, ''); }
 
-    // la riga sotto il campo: che cosa ho riconosciuto, o a che punto e' la prova
+    // la riga sotto il campo: che cosa ho riconosciuto (per Azoto: <id>-indirizzo), o a che punto e' la prova
     function mostraTipo(id, contenuto, tono) {
-        const n = $('#' + id + '-tipo');
+        const n = $('#' + id + (CAMPI_AZOTO[id] ? '-indirizzo' : '-tipo'));
         svuota(n);
         if (!contenuto) { n.hidden = true; return; }
         (Array.isArray(contenuto) ? contenuto : [contenuto]).forEach(x => {
@@ -1511,36 +1698,36 @@
         n.hidden = false;
     }
 
-    // l'avviso ben visibile per la pagina da incorporare (role="alert" nell'HTML)
-    function mostraAllertaIncorporato(id, si) {
-        const n = $('#' + id + '-incorporato');
-        if (!si) { n.hidden = true; svuota(n); return; }
-        if (!n.hidden && n.firstChild) return;   // gia' visibile: l'annuncio non si ripete
-        svuota(n);
-        n.appendChild(el('strong', { classe: 'allerta-titolo', testo: 'Attenzione: questo link è solo un ripiego.' }));
-        n.appendChild(el('span', { testo: AVVISO_INCORPORATO }));
-        n.hidden = false;
-    }
-
-    // mentre si scrive: che cosa ho riconosciuto. La prova fatta su questo stesso testo resta.
+    /* Mentre si scrive: che cosa ho riconosciuto. La prova fatta su questo
+       stesso testo resta. Del player Azoto si mostra SUBITO l'indirizzo che
+       si salverebbe (quello preso dal codice incollato), come testo. */
     function riconosciLink(id) {
         const campo = $('#' + id);
         const testo = campo.value.trim();
         const p = stato.prove[id];
         if (p && p.testo === testo) return;
         if (p) dimenticaProva(id);
-        const l = leggiLink(testo);
+        const l = leggiCampo(id, testo);
         if (!l || l.errore) {
             mostraTipo(id, l ? l.messaggio : '', 'errore');
-            mostraAllertaIncorporato(id, false);
             return;
         }
-        const salvato = testo === (campo.dataset.iniziale || '');
+        const iniziale = campo.dataset.iniziale || '';
+        if (CAMPI_AZOTO[id]) {
+            const salvato = !!iniziale && (testo === iniziale || l.valore === iniziale);
+            mostraTipo(id, [
+                el('strong', { testo: salvato ? 'Player salvato:' : 'Indirizzo del player:' }), ' ',
+                el('span', { classe: 'testo-fisso', testo: l.valore }),
+                l.daCodice ? ' Preso dal codice di Azoto: si salva solo questo indirizzo, il resto del codice si scarta.' : '',
+                salvato ? '' : ' Premi «Prova il player» per controllarlo.'
+            ], 'ok');
+            return;
+        }
+        const salvato = testo === iniziale;
         mostraTipo(id, [
             el('strong', { testo: salvato ? 'Link salvato.' : 'Link riconosciuto.' }),
             ' ' + (descrizioneTipo(l.tipo) || 'Il tipo lo controlla la prova.') + (salvato ? '' : ' Premi «Prova il link» per controllarlo.')
-        ], l.tipo === 'incorporato' ? 'avviso' : 'ok');
-        mostraAllertaIncorporato(id, l.tipo === 'incorporato');
+        ], 'ok');
     }
 
     function dimenticaProva(id) {
@@ -1566,14 +1753,19 @@
     CAMPI_LINK.forEach(id => {
         const campo = $('#' + id);
         let timer = null;
+        // il player Azoto si riconosce quasi subito (e' quasi sempre incollato); i link del flusso dopo una pausa
+        const attesa = CAMPI_AZOTO[id] ? 150 : 500;
         campo.addEventListener('input', () => {
             campo.removeAttribute('aria-invalid');
-            // l'errore di «Applica i link» parlava del link di prima: cambiato il link, sparisce
-            if (id.indexOf('regia-') === 0 && $('#msg-video').classList.contains('msg-errore')) nascondiMsg('#msg-video');
+            // l'errore di «Applica i link» / «Cambia il player» parlava del link di prima: cambiato il link, sparisce
+            const msg = id === 'regia-azoto' ? '#msg-azoto' : '#msg-video';
+            if (id.indexOf('regia-') === 0 && $(msg).classList.contains('msg-errore')) nascondiMsg(msg);
+            // «Flusso diretto (.m3u8)» si puo' scegliere solo con un link valido: si ricontrolla a ogni tasto
+            if (id === 'ev-video') aggiornaVistaTipoPlayer();
             clearTimeout(timer);
-            timer = setTimeout(() => riconosciLink(id), 500);
+            timer = setTimeout(() => riconosciLink(id), attesa);
         });
-        campo.addEventListener('change', () => { clearTimeout(timer); riconosciLink(id); });
+        campo.addEventListener('change', () => { clearTimeout(timer); riconosciLink(id); if (id === 'ev-video') aggiornaVistaTipoPlayer(); });
         /* Un link incollato si riconosce subito, non dopo la pausa della
            scrittura: la riga sotto il campo compare prima che si prema un
            pulsante (comparendo al clic, sposterebbe il pulsante sotto il
@@ -1619,6 +1811,7 @@
     // -> { testo, esito: 'ok'|'avviso'|'errore'|'annullata'|'vuoto', tipo, valore, titolo, righe, problemi, ... }
     async function eseguiProva(id, testo) {
         const campo = $('#' + id);
+        const azoto = !!CAMPI_AZOTO[id];
         const idEvento = stato.nuovo ? '' : stato.idEvento;
         // la prova vale per questo testo e questo evento: se nel frattempo cambiano, si butta
         const superata = () => campo.value.trim() !== testo || (stato.nuovo ? '' : stato.idEvento) !== idEvento;
@@ -1626,11 +1819,11 @@
         dimenticaProva(id);
 
         // (a) il controllo qui: vuoto o sbagliato si dice subito, senza chiamare nessuno
-        const l = leggiLink(testo);
+        const l = leggiCampo(id, testo);
         if (!l || l.errore) {
-            const motivo = l ? l.messaggio : (DI_RISERVA[id] ? 'Incolla il link di riserva.' : (SV ? SV.messaggio(null) : 'Incolla il link della diretta.'));
+            const motivo = l ? l.messaggio
+                : (azoto ? 'Incolla il codice o l\'indirizzo del player Azoto.' : (DI_RISERVA[id] ? 'Incolla il link di riserva.' : 'Incolla il link del flusso (.m3u8).'));
             campo.setAttribute('aria-invalid', 'true');
-            mostraAllertaIncorporato(id, false);
             mostraTipo(id, motivo, 'errore');
             campo.focus();
             return { testo: testo, esito: l ? 'errore' : 'vuoto', tipo: '', valore: '', titolo: motivo, righe: [], problemi: [], quando: Date.now(), idEvento: idEvento };
@@ -1642,26 +1835,27 @@
             titolo: '', righe: [], problemi: [], info: null,
             servizio: false, browser: null, anteprima: null
         };
-        mostraAllertaIncorporato(id, l.tipo === 'incorporato');
 
-        // (b) la prova del servizio
-        mostraTipo(id, 'Prova in corso: il servizio controlla il server della web TV…', 'info');
+        // (b) la prova del servizio: del player Azoto si manda solo l'indirizzo, mai il codice incollato
+        mostraTipo(id, azoto ? 'Prova in corso: il servizio controlla il player Azoto…' : 'Prova in corso: il servizio controlla il server della web TV…', 'info');
+        const link = azoto ? l.valore : testo;
         try {
-            const s = await chiama('prova-link', idEvento ? { link: testo, idEvento: idEvento } : { link: testo });
-            leggiRispostaProva(r, s);
+            const s = await chiama('prova-link', idEvento ? { link: link, idEvento: idEvento } : { link: link });
+            leggiRispostaProva(r, s, azoto);
         } catch (e) {
             if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return annullata; }
             r.esito = 'avviso';
-            r.titolo = 'Il servizio non ha risposto: ho provato il link solo dal browser';
-            r.righe.push('Il servizio non ha risposto alla prova («' + senzaPunto((e && e.msg) || 'nessuna risposta')
-                + '»): ho fatto solo i controlli dal browser, che non vedono tutto (per esempio le qualità del flusso e i segmenti video).'
-                + (stato.firmaSalvata.schema !== 'nessuna' ? ' Senza il servizio provo il link senza firma: la web TV potrebbe rifiutarlo.' : ''));
+            r.titolo = azoto ? 'Il servizio non ha risposto: ho provato il player solo dal browser' : 'Il servizio non ha risposto: ho provato il link solo dal browser';
+            r.righe.push(azoto
+                ? 'Il servizio non ha risposto alla prova («' + senzaPunto((e && e.msg) || 'nessuna risposta') + '»): qui sotto c\'è solo l\'anteprima dal browser.'
+                : 'Il servizio non ha risposto alla prova («' + senzaPunto((e && e.msg) || 'nessuna risposta')
+                  + '»): ho fatto solo i controlli dal browser, che non vedono tutto (per esempio le qualità del flusso e i segmenti video).'
+                  + (stato.firmaSalvata.schema !== 'nessuna' ? ' Senza il servizio provo il link senza firma: la web TV potrebbe rifiutarlo.' : ''));
         }
         if (superata()) return annullata;
-        mostraAllertaIncorporato(id, r.tipo === 'incorporato');
 
-        // (c) la lettura dal browser, dal nostro dominio (solo per i flussi: la pagina da incorporare non ne ha bisogno)
-        if ((r.tipo === 'hls' || r.tipo === 'dash') && r.esito !== 'errore') {
+        // (c) la lettura dal browser, dal nostro dominio (solo per i flussi: il player Azoto non ne ha bisogno)
+        if (!azoto && (r.tipo === 'hls' || r.tipo === 'dash') && r.esito !== 'errore') {
             mostraTipo(id, 'Prova in corso: leggo il link dal browser, come faranno i partecipanti…', 'info');
             r.browser = await leggiDalBrowser(r.urlProva);
             if (superata()) return annullata;
@@ -1670,12 +1864,18 @@
 
         // (d) l'anteprima con il player dei partecipanti
         if (r.esito !== 'errore') {
-            const P = window.NGBPlayer;
+            const P = azoto ? window.NGBPlayerAzoto : window.NGBPlayer;
             if (P && typeof P.crea === 'function') {
                 mostraTipo(id, 'Prova in corso: apro l\'anteprima con il player dei partecipanti…', 'info');
-                // un urlProva diverso dal link e' il link firmato dal servizio (la firma dell'evento)
-                const firmato = !!r.urlProva && r.urlProva !== r.valore;
-                const a = await provaVideo(r.urlProva || r.valore, $('#' + id + '-anteprima'), firmato);
+                let a;
+                if (azoto) {
+                    // l'indirizzo ricavato qui, lo stesso che si salva
+                    a = await provaAzoto(l.valore, $('#' + id + '-anteprima'), titoloAnteprima(id));
+                } else {
+                    // un urlProva diverso dal link e' il link firmato dal servizio (la firma dell'evento)
+                    const firmato = !!r.urlProva && r.urlProva !== r.valore;
+                    a = await provaVideo(r.urlProva || r.valore, $('#' + id + '-anteprima'), firmato);
+                }
                 if (superata()) return annullata;
                 r.anteprima = a;
                 // un'anteprima che non parte per un motivo gia' detto (server spento, CORS...) non e' un problema in piu'
@@ -1683,15 +1883,18 @@
                 if (a.annullata) r.righe.push('Anteprima chiusa prima della fine della prova.');
                 else if (a.saltata) r.righe.push('Anteprima non disponibile in questa pagina: controlla con «Vedi come un partecipante».');
                 else if ((!a.ok || a.avviso) && giaDetto) {
-                    r.righe.push('Anteprima: il video per ora non parte, per il problema segnalato qui sotto.');
+                    r.righe.push(azoto ? 'Anteprima: il player per ora non si vede, per il problema segnalato qui sotto.' : 'Anteprima: il video per ora non parte, per il problema segnalato qui sotto.');
                     // un riquadro nero non aggiunge niente al motivo gia' detto: si chiude
                     chiudiAnteprimaVideo();
                 }
                 else if (!a.ok) aggiungiProblema(r, { codice: 'anteprima', messaggio: 'Anteprima: ' + a.motivo });
                 else if (a.avviso) aggiungiProblema(r, { codice: 'anteprima', messaggio: a.avviso });
-                else r.righe.push(r.tipo === 'incorporato'
-                    ? 'Anteprima: la pagina della web TV compare qui sotto, con i suoi comandi e i suoi loghi.'
-                    : 'Anteprima: il video si vede qui sotto con il player dei partecipanti (parte senza audio).');
+                else if (azoto) {
+                    r.righe.push(giaDetto
+                        ? 'Anteprima: qui sotto quello che mostra adesso l\'indirizzo del player.'
+                        : 'Anteprima: il player Azoto compare qui sotto, con i suoi comandi (se non parte da solo premi play; il volume si regola nel player).');
+                }
+                else r.righe.push('Anteprima: il video si vede qui sotto con il player dei partecipanti (parte senza audio).');
             } else {
                 r.righe.push('Anteprima non disponibile in questa pagina (il player non si è caricato): controlla con «Vedi come un partecipante».');
             }
@@ -1701,12 +1904,16 @@
         if (!(r.anteprima && r.anteprima.annullata)) stato.prove[id] = r;
         if (r.esito === 'errore') campo.setAttribute('aria-invalid', 'true');
         disegnaEsito(id, r);
-        mostraTipo(id, [el('strong', { testo: 'Prova finita:' }), ' ' + ESITI_PROVA[r.esito].frase], r.esito);
+        const frase = (azoto ? 'il player' : 'il link') + ' ' + ESITI_PROVA[r.esito].frase;
+        mostraTipo(id, azoto
+            ? [el('strong', { testo: 'Prova finita:' }), ' ' + frase + ' Indirizzo del player: ', el('span', { classe: 'testo-fisso', testo: l.valore })]
+            : [el('strong', { testo: 'Prova finita:' }), ' ' + frase], r.esito);
         return r;
     }
 
-    // la risposta di prova-link, presa con prudenza (un servizio piu' vecchio o piu' nuovo non rompe la pagina)
-    function leggiRispostaProva(r, s) {
+    /* la risposta di prova-link, presa con prudenza (un servizio piu' vecchio
+       o piu' nuovo non rompe la pagina). azoto: la prova del player Azoto. */
+    function leggiRispostaProva(r, s, azoto) {
         r.servizio = true;
         r.esito = Object.prototype.hasOwnProperty.call(GRAVITA, s.esito) ? s.esito : 'avviso';
         if (s.tipo) r.tipo = String(s.tipo);
@@ -1721,6 +1928,18 @@
         }));
         r.info = s.info && typeof s.info === 'object' ? s.info : null;
         if (typeof s.urlProva === 'string' && /^https:\/\//i.test(s.urlProva)) r.urlProva = s.urlProva;
+        /* Con il player Azoto «restano i comandi di Azoto» non e' un problema
+           da sistemare: e' il modo scelto, e la nota e' gia' sotto il campo.
+           Non conta (da sola non chiede conferme al salvataggio) e non si
+           ripete nel riquadro della prova. */
+        if (azoto) {
+            const nota = senzaPunto(NOTA_AZOTO);
+            r.righe = r.righe.filter(t => senzaPunto(t) !== nota);
+            if (r.problemi.some(p => p.codice === 'incorporato')) {
+                r.problemi = r.problemi.filter(p => p.codice !== 'incorporato');
+                if (r.esito === 'avviso' && !r.problemi.length) r.esito = 'ok';
+            }
+        }
     }
 
     function aggiungiProblema(r, p) {
@@ -1829,13 +2048,9 @@
             box.appendChild(el('p', { classe: 'esito-sottotitolo', testo: problemi.length === 1 ? 'Da sistemare' : 'Da sistemare (' + problemi.length + ')' }));
             const ul = el('ul', { classe: 'esito-problemi' });
             problemi.forEach((p, i) => {
-                // il ripiego lo dice gia' l'avviso sopra il riquadro: qui non si ripete la stessa frase
-                const messaggio = p.codice === 'incorporato' && senzaPunto(p.messaggio) === senzaPunto(AVVISO_INCORPORATO)
-                    ? 'È un ripiego (vedi l\'avviso qui sopra): conviene chiedere alla web TV il link del flusso .m3u8.'
-                    : p.messaggio;
                 const li = el('li', { classe: 'esito-problema', dati: { gravita: p.grave ? 'grave' : 'avviso' } }, [
                     el('span', { classe: 'problema-etichetta', testo: p.grave ? 'Da correggere' : 'Attenzione' }),
-                    el('span', { classe: 'problema-testo', testo: messaggio })
+                    el('span', { classe: 'problema-testo', testo: p.messaggio })
                 ]);
                 if (p.testoWebTv) li.appendChild(riquadroTestoWebTv(id + '-webtv-' + i, p.testoWebTv));
                 ul.appendChild(li);
@@ -1975,6 +2190,62 @@
         });
     }
 
+    /* ---------- (d) l'anteprima del player Azoto ----------
+       Lo stesso player-azoto.js della pagina dei partecipanti: l'iframe lo
+       crea il nostro codice, con l'indirizzo ricavato qui (mai con il
+       codice incollato), e il player ricontrolla da se' che sia un
+       indirizzo di Azoto. Pronto = la pagina del player si e' caricata
+       nell'iframe; 'lento' = 15 secondi senza caricarsi; 'link' = non e'
+       un indirizzo di Azoto. Il player di Azoto non dice altro alla nostra
+       pagina (niente messaggi): se il video parte si vede solo guardando.
+       -> { ok, motivo?, saltata?, avviso?, annullata? } */
+    const ATTESA_AZOTO_MS = 17000;
+    // il titolo dell'iframe ("Diretta: <titolo>"), come per i partecipanti
+    function titoloAnteprima(id) {
+        const scritto = id && id.indexOf('ev-') === 0 ? $('#ev-titolo').value.trim() : '';
+        return scritto || (stato.evento && stato.evento.titolo) || 'anteprima';
+    }
+    function provaAzoto(url, box, titolo) {
+        const PA = window.NGBPlayerAzoto;
+        if (!PA || typeof PA.crea !== 'function') return Promise.resolve({ ok: true, saltata: true });
+        chiudiAnteprimaVideo();
+        const cornice = box.querySelector('.video-anteprima-cornice');
+        const posto = el('div', { id: box.id + '-player', classe: 'anteprima-azoto' });
+        cornice.appendChild(posto);
+        box.hidden = false;
+        return new Promise(risolvi => {
+            let finito = false;
+            const fine = esito => {
+                if (finito) return;
+                finito = true;
+                if (stato.annullaProvaVideo === annulla) stato.annullaProvaVideo = null;
+                clearTimeout(limite);
+                risolvi(esito);
+            };
+            const annulla = () => fine({ ok: false, annullata: true });
+            stato.annullaProvaVideo = annulla;
+            // se il player non dice niente (non dovrebbe succedere: a 15 s dice 'lento') non si blocca il gestore
+            const limite = setTimeout(() => fine({
+                ok: true, avviso: 'Il player Azoto non ha risposto: controlla con «Vedi come un partecipante».'
+            }), ATTESA_AZOTO_MS);
+            try {
+                stato.anteprimaVideo = PA.crea(posto, {
+                    onPronto: () => fine({ ok: true }),
+                    onErrore: err => {
+                        if (err && err.codice === 'link') {
+                            fine({ ok: false, codice: 'link', motivo: 'il player accetta solo un indirizzo https di cdn.azotosolutions.com.' });
+                            return;
+                        }
+                        fine({ ok: true, avviso: 'Il player Azoto non si è caricato entro 15 secondi: se Azoto non ha ancora acceso il canale è normale, altrimenti controlla con «Vedi come un partecipante».' });
+                    }
+                });
+                stato.anteprimaVideo.carica(url, { titolo: titolo });
+            } catch (_) {
+                fine({ ok: true, saltata: true });
+            }
+        });
+    }
+
     /* ---------- il salvataggio dei link: il verdetto della prova ----------
        -> { fermo: true, messaggio, tono } oppure { avvisi: [righe per la conferma] } */
     function verdettoProva(p, etichetta) {
@@ -2006,43 +2277,117 @@
         return 'La diretta è in onda: chi è collegato resta sul link ' + (suRiserva ? 'di riserva' : 'principale') + ', che non cambia; il link nuovo vale se si passa all\'altro.';
     }
 
+    /* Le frasi per chi e' collegato quando si salva l'evento durante la
+       diretta. Contano solo i cambi che chi guarda vede: il tipo di player,
+       il player Azoto se e' in uso, i link del flusso se e' in uso. o:
+       { tipo (quello che si salva), tipoCambiato, azoto, azotoTolto,
+       principale, riserva, principaleTolto, riservaTolta }. */
+    function frasiCambioInOnda(ev, o) {
+        if (o.tipoCambiato) {
+            return [o.tipo === 'flusso'
+                ? 'La diretta è in onda: chi è collegato passa dal player Azoto al flusso diretto da solo, in pochi secondi, senza ricaricare la pagina.'
+                : 'La diretta è in onda: chi è collegato torna dal flusso diretto al player Azoto da solo, in pochi secondi, senza ricaricare la pagina.'];
+        }
+        if (o.tipo === 'azoto') {
+            if (!o.azoto) return [];
+            return [o.azotoTolto
+                ? 'La diretta è in onda con il player Azoto: togliendolo, i partecipanti vedranno «Il video sta per arrivare» finché non ne inserisci un altro.'
+                : 'La diretta è in onda con il player Azoto: chi è collegato passa al nuovo indirizzo da solo, in pochi secondi, senza ricaricare la pagina.'];
+        }
+        return o.principale || o.riserva ? [testoCambioInOnda(ev, o)] : [];
+    }
+
     /* ============================================================
-       REGIA: I LINK IN USO
+       REGIA: IL PLAYER E I LINK IN USO
        ============================================================ */
     function aggiornaVideoRegia() {
         const ev = stato.evento;
         const s = ev ? ev.stato || 'programmato' : '';
+        const tipo = tipoPlayerDi(ev);
         const suRiserva = !!ev && ev.sorgente === 'riserva';
+
+        // il player che vedono tutti (eventi.tipoPlayer)
+        const bollinoTipo = $('#regia-tipo-player');
+        bollinoTipo.dataset.tipo = tipo;
+        bollinoTipo.textContent = NOMI_PLAYER[tipo];
+        document.querySelectorAll('.regia-video-riquadro .blocco-uso').forEach(n => {
+            const inUso = n.dataset.uso === tipo;
+            n.textContent = inUso ? 'in uso' : 'non in uso';
+            n.dataset.stato = inUso ? 'si' : '';
+        });
+        /* Si apre la parte del modo in uso e si chiude l'altra: una volta per
+           evento e per modo (poi le apre e chiude il gestore, e un
+           aggiornamento qualunque non gliele cambia sotto le mani). */
+        const chiave = ev ? ev.id + '|' + tipo : '';
+        if (chiave !== stato.blocchiRegia) {
+            stato.blocchiRegia = chiave;
+            $('#regia-blocco-azoto').open = tipo === 'azoto';
+            $('#regia-blocco-flusso').open = tipo === 'flusso';
+        }
+        $('#regia-azoto-riassunto').textContent = ev && ev.azotoUrl ? linkBreve(ev.azotoUrl) : 'nessun indirizzo';
+        $('#regia-flusso-riassunto').textContent = ev && ev.videoUrl ? linkBreve(ev.videoUrl) + (ev.riservaUrl ? ' + riserva' : '') : 'nessun link';
+
+        // il player Azoto salvato
+        $('#regia-azoto-attuale').textContent = (ev && ev.azotoUrl) || 'nessuno';
+        $('#btn-guarda-azoto').hidden = !(ev && ev.azotoUrl);
+        document.querySelector('.link-salvato[data-ruolo="azoto"]').dataset.inUso = ev && ev.azotoUrl && tipo === 'azoto' ? 'si' : '';
+
+        // i link del flusso: quale si usa (eventi.sorgente) vale quando il flusso diretto e' in uso
         const bollino = $('#regia-sorgente');
         bollino.dataset.sorgente = suRiserva ? 'riserva' : 'principale';
         bollino.textContent = suRiserva ? 'link di riserva' : 'link principale';
+        $('#regia-sorgente-etichetta').textContent = tipo === 'flusso' ? 'Link in uso per tutti:' : 'Link scelto per il flusso diretto:';
         [
             { ruolo: 'principale', url: ev && ev.videoUrl, valore: ev && ev.videoId, testo: '#regia-video-attuale', tipo: '#regia-video-tipo-attuale', guarda: '#btn-guarda-principale' },
             { ruolo: 'riserva', url: ev && ev.riservaUrl, valore: ev && ev.riservaId, testo: '#regia-riserva-attuale', tipo: '#regia-riserva-tipo-attuale', guarda: '#btn-guarda-riserva' }
         ].forEach(x => {
             $(x.testo).textContent = x.url || 'nessuno';
             const t = x.url ? tipoDi(x.valore || x.url) : '';
-            $(x.tipo).textContent = t === 'incorporato' ? '(pagina da incorporare: è un ripiego)' : (NOMI_TIPO[t] ? '(' + NOMI_TIPO[t] + ')' : '');
+            $(x.tipo).textContent = NOMI_TIPO[t] ? '(' + NOMI_TIPO[t] + ')' : '';
             $(x.guarda).hidden = !x.url;
             const riga = document.querySelector('.link-salvato[data-ruolo="' + x.ruolo + '"]');
-            const inUso = !!ev && (x.ruolo === 'riserva') === suRiserva;
+            const scelto = !!ev && (x.ruolo === 'riserva') === suRiserva;
+            const inUso = scelto && tipo === 'flusso';
             riga.dataset.inUso = inUso ? 'si' : '';
-            riga.querySelector('.in-uso').hidden = !inUso;
+            riga.querySelector('.in-uso').hidden = !scelto;
+            riga.querySelector('.in-uso').textContent = inUso ? '· in uso' : '· scelto';
         });
 
-        /* I link vivono in un documento riservato del servizio: ai partecipanti
-           arrivano solo mentre si e' in onda (videoInOnda e riservaInOnda sono
-           quelli che vedono adesso). Qui si dice in chiaro che cosa vedono. */
+        /* Il player Azoto e i link vivono in un documento riservato del
+           servizio: ai partecipanti arriva solo quello del modo in uso, e
+           solo mentre si e' in onda (azotoInOnda, videoInOnda e riservaInOnda
+           sono quelli che vedono adesso). Qui si dice in chiaro che cosa vedono. */
         let pubblico = '';
-        if (ev && ev.videoId) {
-            const nomeInUso = suRiserva ? 'il link di riserva' : 'il link principale';
+        if (ev && tipo === 'azoto') {
+            const inOndaAzoto = ev.azotoInOnda != null ? ev.azotoInOnda : (ev.videoInOnda || '');
+            if (ev.azotoUrl) {
+                if (s === 'in_onda' && inOndaAzoto === ev.azotoUrl) pubblico = 'I partecipanti collegati stanno guardando il player Azoto.';
+                else if (s === 'in_onda') pubblico = 'I partecipanti stanno ancora ricevendo il player precedente: aggiorna la pagina tra qualche secondo.';
+                else pubblico = 'L\'indirizzo del player Azoto arriva ai partecipanti solo mentre la diretta è in onda, e solo dopo l\'accesso: prima e dopo resta riservato.';
+            } else if (s === 'in_onda') pubblico = 'Nessun player Azoto impostato: i partecipanti vedono «Il video sta per arrivare». Inserisci l\'indirizzo qui sotto.';
+            else pubblico = 'Manca l\'indirizzo del player Azoto: inseriscilo qui sotto, o nella scheda Evento, prima di andare in onda.';
+        } else if (ev && ev.videoId) {
+            const nomeInUso = suRiserva ? 'il flusso diretto (link di riserva)' : 'il flusso diretto (link principale)';
             const pubblicati = ev.videoInOnda === ev.videoId && (ev.riservaInOnda == null || (ev.riservaInOnda || '') === (ev.riservaId || ''));
             if (s === 'in_onda' && pubblicati) pubblico = 'I partecipanti collegati stanno guardando ' + nomeInUso + '.';
             else if (s === 'in_onda' && ev.videoInOnda) pubblico = 'I partecipanti stanno ancora ricevendo i link precedenti: aggiorna la pagina tra qualche secondo.';
             else pubblico = 'I partecipanti ricevono i link solo mentre la diretta è in onda: prima e dopo restano riservati.'
                 + (suRiserva ? ' Quando andrà in onda, partiranno dal link di riserva.' : '');
-        } else if (ev && s === 'in_onda') pubblico = 'Nessun link impostato: i partecipanti vedono «Il video sta per arrivare».';
+        } else if (ev && s === 'in_onda') pubblico = 'Nessun link del flusso impostato: i partecipanti vedono «Il video sta per arrivare».';
         $('#regia-video-pubblico').textContent = pubblico;
+
+        // che cosa serve per passare all'altro modo
+        let aiutoPlayer = '';
+        if (ev && tipo === 'azoto') {
+            aiutoPlayer = ev.videoId
+                ? 'Il flusso diretto è pronto (' + linkBreve(ev.videoUrl || ev.videoId) + '): passandoci, chi guarda vede il nostro player, senza ricaricare la pagina.'
+                : 'Per passare al flusso diretto serve il link .m3u8, da chiedere ad Azoto: inseriscilo qui sotto, in «Flusso diretto (.m3u8)», o nella scheda Evento.';
+        } else if (ev) {
+            aiutoPlayer = ev.azotoUrl
+                ? 'Se il flusso diretto dà problemi puoi tornare al player Azoto: chi guarda passa da solo, senza ricaricare la pagina.'
+                : 'Per tornare al player Azoto serve il suo indirizzo: inseriscilo qui sotto, in «Player Azoto».';
+        }
+        $('#regia-player-aiuto').textContent = aiutoPlayer;
 
         const f = ev ? firmaDa(ev) : null;
         const firmata = !!ev && (ev.videoFirmato === true || (f && f.schema !== 'nessuna'));
@@ -2055,8 +2400,137 @@
             ? 'Non c\'è un link di riserva: inseriscilo qui sotto per poterci passare in caso di problemi.'
             : 'Se il link in uso si blocca per più di 20 secondi, il player di ciascun partecipante passa da solo all\'altro. '
               + 'Con questi pulsanti decidi tu, per tutti: chi guarda passa da solo, senza ricaricare la pagina'
-              + (s === 'in_onda' ? '; «Riporta tutti…» riporta sul link scelto anche chi era passato da solo all\'altro.' : '.');
+              + (s === 'in_onda' && tipo === 'flusso' ? '; «Riporta tutti…» riporta sul link scelto anche chi era passato da solo all\'altro.' : '.')
+              + (tipo === 'azoto' ? ' Vale quando si usa il flusso diretto.' : '');
     }
+
+    /* ---------- il player per tutti (evento-player) ----------
+       Il flusso diretto o il player Azoto, anche durante la diretta: chi
+       guarda cambia da solo, senza ricaricare la pagina (la pagina dei
+       partecipanti segue eventi.tipoPlayer con l'unico ascolto che ha). */
+    async function passaPlayer(verso, bottone) {
+        const ev = stato.evento;
+        if (!ev) return;
+        nascondiMsg('#msg-player');
+        if (verso === 'flusso' && !ev.videoId) {
+            mostraMsg('#msg-player', 'Per passare al flusso diretto serve il link .m3u8: inseriscilo qui sotto, in «Flusso diretto (.m3u8)», oppure nella scheda Evento.', 'errore');
+            return;
+        }
+        if (verso === 'azoto' && !ev.azotoUrl) {
+            mostraMsg('#msg-player', 'Manca l\'indirizzo del player Azoto: inseriscilo qui sotto, in «Player Azoto».', 'errore');
+            return;
+        }
+        const inOnda = ev.stato === 'in_onda';
+        const suRiserva = ev.sorgente === 'riserva' && !!ev.riservaUrl;
+        const ok = await conferma(verso === 'flusso' ? {
+            titolo: 'Passare al flusso diretto per tutti?',
+            testo: inOnda
+                ? 'Chi sta guardando passa dal player Azoto al nostro player (il link .m3u8) da solo, in pochi secondi, senza ricaricare la pagina.'
+                : 'La diretta non è in onda: quando ci andrà, tutti vedranno il flusso diretto con il nostro player.',
+            dettagli: ['Flusso: ' + linkBreve(suRiserva ? ev.riservaUrl : ev.videoUrl) + (suRiserva ? ' (la riserva, come hai scelto in regia)' : '')],
+            ok: 'Passa al flusso diretto'
+        } : {
+            titolo: 'Tornare al player Azoto per tutti?',
+            testo: inOnda
+                ? 'Chi sta guardando torna dal flusso diretto al player Azoto da solo, in pochi secondi, senza ricaricare la pagina.'
+                : 'La diretta non è in onda: quando ci andrà, tutti vedranno il player Azoto.',
+            dettagli: ['Player Azoto: ' + ev.azotoUrl],
+            ok: 'Torna al player Azoto'
+        });
+        if (!ok) return;
+        await conAttesa(bottone, async () => {
+            try {
+                const r = await chiama('evento-player', { idEvento: ev.id, tipoPlayer: verso });
+                if (stato.idEvento !== ev.id) return;
+                aggiornaEvento(r && r.evento ? r.evento : Object.assign({}, ev, { tipoPlayer: verso }));
+                mostraMsg('#msg-player', (verso === 'flusso' ? 'Flusso diretto in uso per tutti' : 'Player Azoto in uso per tutti')
+                    + (inOnda ? ': chi guarda passa da solo, in pochi secondi.' : ': vale da quando la diretta va in onda.'), 'ok');
+            } catch (e) { erroreGenerico(e, '#msg-player'); }
+        });
+        // il pulsante premuto ora e' nascosto: il fuoco passa a quello che riporta indietro
+        const altro = $(verso === 'flusso' ? '#btn-passa-azoto' : '#btn-passa-flusso');
+        if (!altro.hidden && document.activeElement === document.body) altro.focus();
+    }
+    $('#btn-passa-flusso').addEventListener('click', () => passaPlayer('flusso', $('#btn-passa-flusso')));
+    $('#btn-passa-azoto').addEventListener('click', () => passaPlayer('azoto', $('#btn-passa-azoto')));
+
+    /* ---------- il player Azoto salvato: «Guarda» e il cambio (evento-video) ---------- */
+    async function guardaAzoto(bottone) {
+        const ev = stato.evento;
+        if (!ev || !ev.azotoUrl) return;
+        nascondiMsg('#msg-azoto');
+        await conAttesa(bottone, async () => {
+            const a = await provaAzoto(ev.azotoUrl, $('#regia-azoto-attuale-anteprima'), ev.titolo || ev.id);
+            if (a.annullata || stato.idEvento !== ev.id) return;
+            if (!a.ok) mostraMsg('#msg-azoto', 'Player Azoto: ' + a.motivo, 'errore');
+            else if (a.avviso) mostraMsg('#msg-azoto', a.avviso, 'attenzione');
+            else if (a.saltata) mostraMsg('#msg-azoto', 'Player Azoto: anteprima non disponibile in questa pagina, controlla con «Vedi come un partecipante».', 'info');
+            else mostraMsg('#msg-azoto', 'Player Azoto: qui sotto lo vedi come lo vedono i partecipanti, con i comandi di Azoto.', 'ok');
+        });
+    }
+    $('#btn-guarda-azoto').addEventListener('click', () => guardaAzoto($('#btn-guarda-azoto')));
+
+    /* Il cambio dell'indirizzo del player Azoto, anche durante la diretta:
+       si prova, si chiede conferma e si manda al servizio SOLO l'indirizzo
+       (evento-video con azotoUrl). Se il player Azoto e' in uso, chi guarda
+       passa al nuovo indirizzo da solo. */
+    $('#form-azoto').addEventListener('submit', async e => {
+        e.preventDefault();
+        const ev = stato.evento;
+        if (!ev) return;
+        const campo = $('#regia-azoto');
+        nascondiMsg('#msg-azoto');
+        campo.removeAttribute('aria-invalid');
+        const errore = testo => {
+            campo.setAttribute('aria-invalid', 'true');
+            mostraMsg('#msg-azoto', testo, 'errore');
+            campo.focus();
+        };
+        const l = leggiAzoto(campo.value);
+        if (!l) { errore('Incolla il codice o l\'indirizzo del player Azoto.'); return; }
+        if (l.errore) { errore('Player Azoto: ' + l.messaggio); return; }
+        if (l.valore === (ev.azotoUrl || '')) {
+            mostraMsg('#msg-azoto', 'È già il player salvato: incolla un indirizzo diverso, poi premi «Cambia il player».', 'info');
+            return;
+        }
+        await conAttesa($('#btn-cambia-azoto'), async () => {
+            mostraMsg('#msg-azoto', 'Prova in corso: player Azoto…', 'info');
+            const p = await provaPerSalvare('regia-azoto');
+            // nel frattempo si e' passati a un altro evento: non si cambia niente
+            if (stato.idEvento !== ev.id) { nascondiMsg('#msg-azoto'); return; }
+            const v = verdettoProva(p, 'Player Azoto');
+            if (v.fermo) {
+                if (v.messaggio) mostraMsg('#msg-azoto', v.messaggio + '. Non ho cambiato niente.', v.tono);
+                else nascondiMsg('#msg-azoto');
+                if (v.tono === 'errore') campo.focus();
+                return;
+            }
+            nascondiMsg('#msg-azoto');
+            const inOnda = ev.stato === 'in_onda';
+            const conAzoto = tipoPlayerDi(ev) === 'azoto';
+            const frase = !inOnda
+                ? 'La diretta non è in onda: il nuovo indirizzo vale da quando ci andrà' + (conAzoto ? '.' : ' e si userà il player Azoto.')
+                : (conAzoto
+                    ? 'La diretta è in onda con il player Azoto: chi è collegato passa al nuovo indirizzo da solo, in pochi secondi, senza ricaricare la pagina.'
+                    : 'La diretta è in onda con il flusso diretto: chi guarda adesso non vede cambiare niente; il nuovo indirizzo vale quando tornerai al player Azoto.');
+            const ok = await conferma({
+                titolo: 'Cambiare il player per tutti?',
+                testo: (v.avvisi.length ? 'La prova ha trovato dei problemi: finché non sono risolti, i partecipanti potrebbero non vedere il video.\n' : '') + frase,
+                dettagli: ['Nuovo player: ' + l.valore].concat(v.avvisi),
+                ok: v.avvisi.length ? 'Cambia lo stesso' : 'Cambia il player'
+            });
+            if (!ok) return;
+            try {
+                const r = await chiama('evento-video', { idEvento: ev.id, azotoUrl: l.valore });
+                aggiornaEvento(r.evento);
+                // nel campo, al posto del codice incollato, l'indirizzo appena salvato (la prova fatta si chiude)
+                riempiCampoLink('regia-azoto', r.evento.azotoUrl);
+                mostraMsg('#msg-azoto', 'Player Azoto cambiato' + (inOnda && conAzoto ? ': i partecipanti collegati passano al nuovo indirizzo.' : '.')
+                    + (l.daCodice ? ' Dal codice di Azoto ho salvato solo l\'indirizzo del player.' : '')
+                    + (v.avvisi.length ? ' Ricorda i problemi segnalati dalla prova: riprova quando Azoto li ha risolti.' : ''), 'ok');
+            } catch (err) { erroreGenerico(err, '#msg-azoto'); }
+        });
+    });
 
     /* principale / riserva per tutti (evento-sorgente). Scegliere il link
        gia' scelto vale come "riconferma": il servizio aggiorna comunque
@@ -2130,36 +2604,42 @@
         const testo = sorgente === 'riserva' ? ev.riservaUrl : ev.videoUrl;
         let url = (sorgente === 'riserva' ? ev.riservaId : ev.videoId) || '';
         let firmato = false;
-        if (!url) { const l = leggiLink(testo); url = l && !l.errore ? l.valore : ''; }
+        if (!url) { const l = leggiFlusso(testo); url = l && !l.errore ? l.valore : ''; }
         if (!url) return;
         const nome = sorgente === 'riserva' ? 'Link di riserva' : 'Link principale';
         nascondiMsg('#msg-sorgente');
         await conAttesa(bottone, async () => {
-            if (ev.videoFirmato) {
+            // senza il link firmato si prova quello nudo, e lo si dice
+            let nota = '';
+            if (ev.videoFirmato && tipoPlayerDi(ev) !== 'flusso') {
+                // con il player Azoto in uso il servizio non prepara link firmati (409 'non-flusso')
+                nota = ' Provato senza firma: il link firmato si prepara solo con il flusso diretto in uso, e la web TV potrebbe rifiutare il link nudo.';
+            } else if (ev.videoFirmato) {
                 try {
                     const r = await chiama('link-firmato', { idEvento: ev.id, sorgente: sorgente });
                     if (r && typeof r.url === 'string' && /^https:\/\//i.test(r.url)) { url = r.url; firmato = true; }
                 } catch (e) {
                     if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return; }
+                    nota = ' Non ho ottenuto il link firmato (' + senzaPunto(e && e.msg) + '): provato senza firma, che la web TV potrebbe rifiutare.';
                     mostraMsg('#msg-sorgente', 'Non ho ottenuto il link firmato (' + senzaPunto(e && e.msg) + '): provo il link senza firma, che la web TV potrebbe rifiutare.', 'attenzione');
                 }
             }
             if (stato.idEvento !== ev.id) return;
             const a = await provaVideo(url, $('#regia-attuale-anteprima'), firmato);
             if (a.annullata || stato.idEvento !== ev.id) return;
-            if (!a.ok) mostraMsg('#msg-sorgente', nome + ': ' + a.motivo, 'errore');
-            else if (a.avviso) mostraMsg('#msg-sorgente', nome + ': ' + a.avviso, 'attenzione');
-            else if (a.saltata) mostraMsg('#msg-sorgente', nome + ': anteprima non disponibile in questa pagina, controlla con «Vedi come un partecipante».', 'info');
-            else mostraMsg('#msg-sorgente', nome + ': qui sotto lo vedi come lo vedono i partecipanti' + (ev.videoFirmato ? ', con un link firmato come il loro' : '') + '.', 'ok');
+            if (!a.ok) mostraMsg('#msg-sorgente', nome + ': ' + a.motivo + nota, 'errore');
+            else if (a.avviso) mostraMsg('#msg-sorgente', nome + ': ' + a.avviso + nota, 'attenzione');
+            else if (a.saltata) mostraMsg('#msg-sorgente', nome + ': anteprima non disponibile in questa pagina, controlla con «Vedi come un partecipante».' + nota, 'info');
+            else mostraMsg('#msg-sorgente', nome + ': qui sotto lo vedi come lo vedono i partecipanti' + (firmato ? ', con un link firmato come il loro' : '') + '.' + nota, nota ? 'attenzione' : 'ok');
         });
     }
     $('#btn-guarda-principale').addEventListener('click', () => guardaLinkSalvato('principale', $('#btn-guarda-principale')));
     $('#btn-guarda-riserva').addEventListener('click', () => guardaLinkSalvato('riserva', $('#btn-guarda-riserva')));
 
-    /* ---------- cambio dei link dalla Regia (evento-video) ----------
+    /* ---------- cambio dei link del flusso dalla Regia (evento-video) ----------
        Si mandano i link cambiati rispetto a quelli salvati: il principale
-       sempre (il servizio lo vuole; se non e' cambiato e' quello di
-       prima), la riserva solo se cambiata. */
+       sempre (se non e' cambiato e' quello di prima), la riserva solo se
+       cambiata. Chi guarda li vede solo se il flusso diretto e' in uso. */
     $('#form-video').addEventListener('submit', async e => {
         e.preventDefault();
         const ev = stato.evento;
@@ -2178,16 +2658,21 @@
             campo.focus();
         };
         if (!cambiaP && !cambiaR) {
-            mostraMsg('#msg-video', url || riserva ? 'I link sono quelli già salvati: cambiane uno, poi premi «Applica i link».' : 'Incolla il link della diretta.', url || riserva ? 'info' : 'errore');
+            mostraMsg('#msg-video', url || riserva ? 'I link sono quelli già salvati: cambiane uno, poi premi «Applica i link».' : 'Incolla il link del flusso (.m3u8).', url || riserva ? 'info' : 'errore');
             return;
         }
-        const lp = leggiLink(url);
-        const lr = leggiLink(riserva);
-        if (cambiaP && lp && lp.errore) { errore(campoP, 'Link della diretta: ' + lp.messaggio); return; }
+        const lp = leggiFlusso(url);
+        const lr = leggiFlusso(riserva);
+        if (cambiaP && lp && lp.errore) { errore(campoP, 'Link del flusso: ' + lp.messaggio); return; }
         if (cambiaR && lr && lr.errore) { errore(campoR, 'Link di riserva: ' + lr.messaggio); return; }
-        if (riserva && !url) { errore(campoR, 'Il link di riserva serve insieme al link della diretta: inserisci prima quello.'); return; }
+        if (riserva && !url) { errore(campoR, 'Il link di riserva serve insieme al link del flusso: inserisci prima quello.'); return; }
         if (lp && lr && !lp.errore && !lr.errore && lp.valore === lr.valore) {
-            errore(campoR, 'Il link di riserva è uguale a quello della diretta: inserisci un link diverso (un altro server o un altro canale) oppure lascialo vuoto.');
+            errore(campoR, 'Il link di riserva è uguale a quello del flusso: inserisci un link diverso (un altro server o un altro canale) oppure lascialo vuoto.');
+            return;
+        }
+        // senza il flusso principale il flusso diretto non si puo' usare: se e' in uso per tutti, prima si torna al player Azoto
+        if (cambiaP && !url && tipoPlayerDi(ev) === 'flusso') {
+            errore(campoP, 'Il flusso diretto è in uso per tutti: per togliere il link, prima torna al player Azoto («Torna al player Azoto per tutti»).');
             return;
         }
         const b = $('#btn-cambia-video');
@@ -2195,7 +2680,7 @@
             const avvisi = [];
             const dati = { idEvento: ev.id, videoUrl: url };
             const daProvare = [];
-            if (cambiaP && url) daProvare.push({ id: 'regia-video', etichetta: 'Link della diretta' });
+            if (cambiaP && url) daProvare.push({ id: 'regia-video', etichetta: 'Link del flusso' });
             if (cambiaR && riserva) daProvare.push({ id: 'regia-riserva', etichetta: 'Link di riserva' });
             for (const x of daProvare) {
                 mostraMsg('#msg-video', 'Prova in corso: ' + x.etichetta.toLowerCase() + '…', 'info');
@@ -2215,15 +2700,19 @@
             nascondiMsg('#msg-video');
             if (cambiaR) dati.riservaUrl = riserva;
             const inOnda = ev.stato === 'in_onda';
+            // con il player Azoto in uso i link del flusso non li vede nessuno, finche' non si passa al flusso diretto
+            const conFlusso = tipoPlayerDi(ev) === 'flusso';
             const tolto = cambiaP && !url;
             const riservaTolta = cambiaR && !riserva;
             const riservaInUsoTolta = riservaTolta && ev.sorgente === 'riserva';
-            const frase = inOnda ? testoCambioInOnda(ev, { principale: cambiaP, riserva: cambiaR, principaleTolto: tolto, riservaTolta: riservaTolta })
-                : (tolto ? 'L\'evento resterà senza video finché non inserisci un link.'
-                    : (riservaInUsoTolta ? 'La riserva è la scelta della regia: togliendola, quando la diretta andrà in onda si partirà dal link principale.'
-                        : 'I link nuovi valgono da quando la diretta andrà in onda.'));
+            let frase;
+            if (inOnda && conFlusso) frase = testoCambioInOnda(ev, { principale: cambiaP, riserva: cambiaR, principaleTolto: tolto, riservaTolta: riservaTolta });
+            else if (inOnda) frase = 'La diretta è in onda con il player Azoto: chi guarda adesso non vede cambiare niente; i link nuovi valgono quando passerai al flusso diretto.';
+            else if (tolto) frase = 'Il flusso diretto resterà senza link finché non ne inserisci uno: si userà il player Azoto.';
+            else if (riservaInUsoTolta) frase = 'La riserva è la scelta della regia: togliendola, quando si userà il flusso diretto si partirà dal link principale.';
+            else frase = conFlusso ? 'I link nuovi valgono da quando la diretta andrà in onda.' : 'I link nuovi valgono quando passerai al flusso diretto.';
             let domanda;
-            if (tolto) domanda = { titolo: 'Togliere il video?', testo: frase, dettagli: avvisi, ok: 'Togli il video', pericolo: true };
+            if (tolto) domanda = { titolo: 'Togliere il link del flusso?', testo: frase, dettagli: avvisi, ok: 'Togli il link', pericolo: true };
             else if (riservaInUsoTolta && !avvisi.length) domanda = { titolo: 'Togliere il link di riserva?', testo: frase, ok: 'Togli la riserva', pericolo: true };
             else if (avvisi.length) {
                 domanda = {
@@ -2242,10 +2731,10 @@
                 const r = await chiama('evento-video', dati);
                 // aggiornaEvento rimette nei campi (qui e nella scheda Evento) i link appena applicati
                 aggiornaEvento(r.evento);
-                const detto = tolto ? 'Video tolto.'
-                    : (cambiaP && cambiaR ? 'Link aggiornati' : (cambiaP ? 'Link della diretta aggiornato' : (riserva ? 'Link di riserva aggiornato' : 'Link di riserva tolto')))
-                      + (inOnda && !tolto && (cambiaP || ev.sorgente === 'riserva') ? ': i partecipanti collegati passano al nuovo link.' : '.');
-                mostraMsg('#msg-video', detto + (avvisi.length ? ' Ricorda i problemi segnalati dalla prova: riprova il link quando la web TV li ha risolti.' : ''), 'ok');
+                const detto = tolto ? 'Link del flusso tolto.'
+                    : (cambiaP && cambiaR ? 'Link aggiornati' : (cambiaP ? 'Link del flusso aggiornato' : (riserva ? 'Link di riserva aggiornato' : 'Link di riserva tolto')))
+                      + (inOnda && conFlusso && !tolto && (cambiaP || ev.sorgente === 'riserva') ? ': i partecipanti collegati passano al nuovo link.' : '.');
+                mostraMsg('#msg-video', detto + (avvisi.length ? ' Ricorda i problemi segnalati dalla prova: riprova il link quando Azoto li ha risolti.' : ''), 'ok');
             } catch (err) { erroreGenerico(err, '#msg-video'); }
         });
     });

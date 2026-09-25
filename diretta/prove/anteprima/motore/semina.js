@@ -7,7 +7,10 @@
    1. "Primo accesso" del gestore (gestore@anteprima.it): l'account di
       gestione lo crea il servizio; qui si fissa la password di prova;
    2. l'evento "Next Generation Business 2026 · Napoli", di oggi, che
-      comincia tra circa mezz'ora (conto alla rovescia visibile);
+      comincia tra circa mezz'ora (conto alla rovescia visibile), con il
+      video in modalita' A: il player di Azoto (tipoPlayer 'azoto', il
+      suo indirizzo livetv29). C'e' anche un flusso diretto .m3u8 della
+      web TV finta, per passare alla modalita' B dalla regia;
    3. quattro partecipanti, due dei quali omonimi (Mario Rossi e Mario
       Rossi: mariorossi e mariorossi2);
    4. le credenziali, spedite con "Reinvia credenziali": le email sono
@@ -18,6 +21,8 @@ const adm = require('./admin');
 const servizio = require('./servizio');
 
 const ID_EVENTO = 'napoli-anteprima';
+// l'indirizzo del player di Azoto (quello del codice che Azoto ci ha dato)
+const AZOTO_URL = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
 const GESTORE = { email: 'gestore@anteprima.it', password: 'Regia-Napoli-26' };
 const PARTECIPANTI = [
     { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', azienda: 'Rossi Costruzioni srl', password: 'Vesuv9Kaz3' },
@@ -85,6 +90,9 @@ async function semina(archivio, avanzamento) {
             titolo: 'Next Generation Business 2026 · Napoli',
             luogo: 'Napoli · Hotel Eurostars Excelsior',
             data: orari.data, oraInizio: orari.oraInizio, oraFine: orari.oraFine,
+            // modalita' A (il player di Azoto), e il flusso diretto pronto per la B
+            tipoPlayer: 'azoto',
+            azotoUrl: AZOTO_URL,
             videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
             programma: [
                 { ora: orari.oraInizio.replace(':', '.'), titolo: 'Apertura dei lavori' },
@@ -130,4 +138,4 @@ function serveSemina(archivio) {
 }
 
 // gestione(): una chiamata alla gestione come il gestore di prova (la usano anche le prove della diretta)
-module.exports = { semina, serveSemina, gestione, ID_EVENTO, GESTORE, PARTECIPANTI };
+module.exports = { semina, serveSemina, gestione, ID_EVENTO, AZOTO_URL, GESTORE, PARTECIPANTI };

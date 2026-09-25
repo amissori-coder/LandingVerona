@@ -334,6 +334,37 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .opzione:last-child { border-bottom: 0; }
 .opzione input { margin-top: 2px; }
 .opzione strong { color: var(--scuro); }
+.opzione.spenta { cursor: not-allowed; }
+.opzione.spenta strong { color: var(--tenue-2); }
+
+/* il tipo di player e i due riquadri del video (Azoto, flusso diretto) */
+.tipo-player { margin-top: 0; min-width: 0; }
+.tipo-player[data-errore="si"] { border-color: var(--rosso); background: #FFFBFB; }
+.tipo-player .opzione { padding: 10px 4px 12px; }
+.tipo-player > .aiuto { padding: 8px 4px 0; }
+.opzione-riga { display: block; margin-top: 2px; }
+.predefinito {
+    display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px;
+    font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--blu-velo); color: var(--blu);
+}
+.tipo-nota { font-size: 0.84rem; color: var(--tenue-2); }
+.tipo-nota[data-tono="ok"] { color: var(--verde); font-weight: 600; }
+.tipo-nota[data-tono="errore"] { color: var(--rosso-scuro); font-weight: 600; }
+.blocco-player {
+    display: flex; flex-direction: column; gap: 16px; min-width: 0;
+    padding: 14px 18px 18px; border: 1px solid var(--bordo); border-radius: var(--raggio); background: #fff;
+}
+.blocco-player[data-in-uso="si"] { border-color: #B7DFC7; box-shadow: inset 5px 0 0 var(--verde); padding-left: 22px; }
+.blocco-testa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.blocco-testa h3 { font-size: 1rem; }
+.blocco-uso {
+    display: inline-block; padding: 2px 10px; border-radius: 999px; white-space: nowrap;
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--sfondo); color: var(--tenue-2); border: 1px solid var(--bordo);
+}
+.blocco-uso:empty { display: none; }
+.blocco-uso[data-stato="si"] { background: var(--verde-bg); color: var(--verde); border-color: #B7DFC7; }
 
 /* ---------- scheda regia ---------- */
 .regia-griglia { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
@@ -363,7 +394,7 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 }
 @media (prefers-reduced-motion: reduce) {
     .stato-punto, .pillola-stato::before, .rotella, .btn[aria-busy="true"]::after, .link-tipo::before { animation: none !important; }
-    .firma > summary::before { transition: none; }
+    .firma > summary::before, .blocco-regia > summary::before { transition: none; }
 }
 .regia-orari { text-align: center; color: var(--tenue); font-size: 0.92rem; margin-bottom: 18px; }
 .regia-comandi { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 12px; }
@@ -425,20 +456,14 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
     animation: gira 0.8s linear infinite;
 }
 
-/* l'avviso del ripiego (pagina da incorporare): deve saltare all'occhio */
-.allerta {
-    position: relative; display: flex; flex-direction: column; gap: 4px;
-    padding: 14px 16px 14px 54px; border-radius: 8px;
-    background: var(--ambra-bg); border: 2px solid var(--ambra-bordo); border-left-width: 6px;
-    color: #4A3200; font-size: 0.92rem; line-height: 1.5;
+/* il player Azoto: si incolla il codice (piu' righe), sotto l'indirizzo che si salva */
+.link-riga textarea {
+    flex: 1 1 280px; min-width: 0; min-height: 76px;
+    font-family: var(--carattere-fisso); font-size: 0.84rem; line-height: 1.45; word-break: break-all;
 }
-.allerta::before {
-    content: '!'; position: absolute; left: 14px; top: 13px;
-    width: 26px; height: 26px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--ambra); color: #fff; font-weight: 900; font-size: 1rem; line-height: 1;
-}
-.allerta-titolo { color: #3D2800; font-size: 0.98rem; }
+.link-riga-alta { align-items: flex-start; }
+.indirizzo-azoto .testo-fisso { font-size: 0.84rem; color: var(--scuro); }
+.nota-azoto { padding: 8px 12px; border-radius: 6px; background: var(--chiaro); }
 
 /* il risultato della prova */
 .esito-prova {
@@ -459,7 +484,7 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .esito-prova[data-esito="avviso"] .esito-bollo { background: #F5C451; color: #3D2800; }
 .esito-prova[data-esito="errore"] .esito-bollo { background: var(--rosso); }
 .esito-titolo { color: var(--scuro); font-size: 0.95rem; line-height: 1.4; }
-.esito-righe { padding-left: 20px; display: flex; flex-direction: column; gap: 3px; font-size: 0.86rem; color: var(--tenue); }
+.esito-righe { padding-left: 20px; display: flex; flex-direction: column; gap: 3px; font-size: 0.86rem; color: var(--tenue); overflow-wrap: anywhere; }
 .esito-sottotitolo {
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tenue-2);
 }
@@ -511,7 +536,29 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
     #form-evento .firma-campi .campo-largo { grid-column: 1 / -1; }
 }
 
-/* regia: quale link guardano tutti, e i link salvati */
+/* regia: quale player guardano tutti; le due parti del video, che si aprono da sole */
+.bollino-tipo[data-tipo="azoto"] { background: var(--blu-velo); color: var(--blu); border-color: var(--su-scuro); }
+.tipo-comandi { margin-top: 10px; }
+#msg-player, #msg-azoto { margin-top: 10px; }
+.blocco-regia { margin-top: 14px; border: 1px solid var(--bordo); border-radius: 8px; background: #fff; min-width: 0; }
+.blocco-regia > summary {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+    padding: 12px 14px; cursor: pointer; list-style: none; border-radius: 8px;
+    font-weight: 700; font-size: 0.95rem; color: var(--scuro);
+}
+.blocco-regia > summary::-webkit-details-marker { display: none; }
+.blocco-regia > summary::before { content: '\25B8'; color: var(--accento); transition: transform .15s ease; display: inline-block; }
+.blocco-regia[open] > summary::before { transform: rotate(90deg); }
+.blocco-regia > summary:hover { background: var(--chiaro); }
+.blocco-regia[open] > summary { border-bottom: 1px solid var(--bordo); border-radius: 8px 8px 0 0; }
+.blocco-regia-riassunto { flex: 1 1 100%; padding-left: 18px; font-size: 0.8rem; font-weight: 600; color: var(--tenue-2); overflow-wrap: anywhere; }
+.blocco-regia[open] .blocco-regia-riassunto { display: none; }
+.blocco-regia-corpo { padding: 14px 14px 16px; }
+.blocco-regia-corpo > .link-salvati:first-child { margin-top: 0; }
+#form-azoto { margin: 14px 0 10px; }
+#form-azoto .azioni { margin-top: 12px; }
+
+/* regia: quale link del flusso guardano tutti, e i link salvati */
 .sorgente-riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 12px; font-weight: 600; color: var(--scuro); }
 .bollino-sorgente {
     display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
@@ -837,6 +884,9 @@ tr.riga-nota { background: var(--blu-velo); }
     /* il problema della prova: l'etichetta sopra, il testo sotto a tutta larghezza */
     .esito-problema { grid-template-columns: minmax(0, 1fr); }
     .esito-problema .problema-etichetta { justify-self: start; }
+    /* il riquadro del video: meno margine, i campi a tutta larghezza */
+    .blocco-player { padding: 12px 12px 14px; }
+    .blocco-player[data-in-uso="si"] { padding-left: 16px; }
     .tabella tbody tr { grid-template-columns: minmax(0, 1fr); }
     .griglia-due { grid-template-columns: 1fr; }
     .testata-utente { margin-left: auto; }

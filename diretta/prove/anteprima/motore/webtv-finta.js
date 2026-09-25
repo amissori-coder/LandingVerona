@@ -1,6 +1,7 @@
 /* ============================================================
    ANTEPRIMA - la web TV finta (https://webtv.esempio.it e ogni
-   indirizzo *.esempio.it)
+   indirizzo *.esempio.it, piu' il player di Azoto:
+   https://cdn.azotosolutions.com)
    ------------------------------------------------------------
    Nell'anteprima nessuna richiesta esce in rete. Questa e' la web TV
    che risponde al posto di quella vera, per due usi:
@@ -17,7 +18,9 @@
    - ...qualcosa.mpd: una diretta DASH (dynamic), finestra di 5 minuti;
    - i segmenti (.ts, .m4s, .mp4): pochi byte;
    - ogni altro indirizzo: la pagina del player della web TV (HTML,
-     incorporabile);
+     incorporabile); per cdn.azotosolutions.com la pagina del player di
+     Azoto (finta: nell'anteprima al posto dell'iframe c'e' il riquadro
+     di player-azoto-anteprima.js);
    - gli indirizzi con "/spenta/" nel percorso: 404 (una diretta non
      ancora partita).
    Il video vero di questi link nell'anteprima non si vede comunque: al
@@ -26,6 +29,8 @@
 'use strict';
 
 const HOST = /(^|\.)esempio\.it$/i;
+// il player di Azoto (lo stesso host di HOST_AZOTO in sorgente-video.js)
+const HOST_AZOTO = /^cdn\.azotosolutions\.com$/i;
 const DURATA_SEGMENTO = 4;
 const FINESTRA_S = 300;
 const QUALITA = [
@@ -37,7 +42,7 @@ const QUALITA = [
 function serve(indirizzo) {
     try {
         const u = new URL(String(indirizzo));
-        return u.protocol === 'https:' && HOST.test(u.hostname);
+        return u.protocol === 'https:' && (HOST.test(u.hostname) || HOST_AZOTO.test(u.hostname));
     } catch (e) { return false; }
 }
 
@@ -65,9 +70,10 @@ function mpd() {
         + QUALITA.map(q => '      <Representation id="' + q.altezza + '" bandwidth="' + q.banda + '" codecs="avc1.64001f" width="' + q.larghezza + '" height="' + q.altezza + '"/>\n').join('')
         + '    </AdaptationSet>\n  </Period>\n</MPD>\n';
 }
-function pagina() {
-    return '<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Player della web TV</title></head>'
-        + '<body style="margin:0;background:#113;color:#fff;font:20px sans-serif;display:grid;place-items:center;height:100vh"><p>Player della web TV (anteprima)</p></body></html>';
+function pagina(azoto) {
+    const nome = azoto ? 'Player Azoto' : 'Player della web TV';
+    return '<!doctype html><html lang="it"><head><meta charset="utf-8"><title>' + nome + '</title></head>'
+        + '<body style="margin:0;background:#113;color:#fff;font:20px sans-serif;display:grid;place-items:center;height:100vh"><p>' + nome + ' (anteprima)</p></body></html>';
 }
 
 function risposta(corpo, stato, tipo, metodo, extra) {
@@ -93,12 +99,12 @@ async function fetchFinto(indirizzo, init) {
         if (range) return risposta(corpo, 206, /\.ts$/.test(p) ? 'video/mp2t' : 'video/mp4', metodo, { 'content-range': 'bytes 0-187/188' });
         return risposta(corpo, 200, /\.ts$/.test(p) ? 'video/mp2t' : 'video/mp4', metodo);
     }
-    return risposta(pagina(), 200, 'text/html; charset=utf-8', metodo);
+    return risposta(pagina(HOST_AZOTO.test(u.hostname)), 200, 'text/html; charset=utf-8', metodo);
 }
 
-// il DNS finto: ogni *.esempio.it e' un indirizzo pubblico qualsiasi
+// il DNS finto: ogni *.esempio.it (e il player di Azoto) e' un indirizzo pubblico qualsiasi
 async function lookupFinto(host) {
-    if (!HOST.test(String(host || ''))) throw Object.assign(new Error('ENOTFOUND ' + host), { code: 'ENOTFOUND' });
+    if (!HOST.test(String(host || '')) && !HOST_AZOTO.test(String(host || ''))) throw Object.assign(new Error('ENOTFOUND ' + host), { code: 'ENOTFOUND' });
     return [{ address: '93.184.215.14', family: 4 }];
 }
 

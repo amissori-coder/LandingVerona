@@ -1,5 +1,6 @@
 /* ============================================================
-   PROVE - il player della diretta da solo (diretta/player-webtv.js)
+   PROVE - il player del flusso diretto da solo (diretta/player-webtv.js,
+   la modalita' B della diretta)
    ------------------------------------------------------------
        cd diretta/prove && node player.prova.js
 
@@ -16,8 +17,10 @@
    - un link firmato: la web TV finta vuole la firma (?md5=...&expires=...)
      su OGNI richiesta, playlist delle qualita' e segmenti compresi; una
      qualita' sta su un altro server, che la firma non deve riceverla;
-   - la pagina di un player da incorporare, un link che non risponde,
-     una diretta non ancora partita, un link che non e' un flusso;
+   - la pagina del player di Azoto (la modalita' A, che ora e' di
+     player-azoto.js: qui deve dare l'errore 'link', senza iframe), un
+     link che non risponde, una diretta non ancora partita, un link che
+     non e' un flusso;
    - le correzioni della revisione: una playlist live FERMA (l'encoder
      spento, la rete di distribuzione che serve ancora l'ultima playlist:
      'segnale' dopo ~20 s, e finestra().avanza resta falso), il menu
@@ -29,8 +32,7 @@
      di 1500 caratteri, un link non valido che spegne il flusso di prima,
      il video zittito mentre e' nascosto, muto/volume che non fanno
      ripartire, l'avvio automatico rifiutato (avvioBloccato, niente
-     'lento'), niente 'lento' con la pagina nascosta, il player
-     incorporato svuotato (about:blank) quando si nasconde.
+     'lento'), niente 'lento' con la pagina nascosta.
 
    Il Chromium di Playwright non esce in rete da solo (il proxy di
    questo ambiente ricifra il traffico con un suo certificato): le
@@ -77,7 +79,9 @@ function trovaFfmpeg() {
     return r.status === 0 && p ? p : '';
 }
 
-/* sorgente-video.js va bene se conosce i tre tipi del contratto */
+/* sorgente-video.js va bene se conosce i tipi del contratto (la pagina da
+   incorporare solo se e' il player di Azoto) */
+const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
 function sorgenteAggiornata() {
     try {
         const f = path.join(DIRETTA, 'sorgente-video.js');
@@ -85,7 +89,8 @@ function sorgenteAggiornata() {
         const V = require(f);
         return V.tipoDi('https://webtv.esempio.it/live/a.mpd') === 'dash'
             && V.tipoDi('https://webtv.esempio.it/live/a.m3u8') === 'hls'
-            && V.tipoDi('https://webtv.esempio.it/player/napoli') === 'incorporato'
+            && V.tipoDi(AZOTO) === 'incorporato'
+            && V.tipoDi('https://webtv.esempio.it/player/napoli') === ''
             && V.tipoDi('https://webtv.esempio.it/video/a.mp4') === '';
     } catch (e) { return false; }
 }
@@ -100,6 +105,7 @@ const SOSTITUTO = `(function () {
         if (/\\.m3u8$/.test(p)) return { tipo: 'hls', valore: u.href };
         if (/\\.mpd$/.test(p)) return { tipo: 'dash', valore: u.href };
         if (/\\.(mp4|m4v|mov|webm|mkv|avi|flv|ts|m4s)$/.test(p)) return { errore: 'file' };
+        if (u.hostname !== 'cdn.azotosolutions.com' || u.port) return { errore: 'non-azoto' };
         return { tipo: 'incorporato', valore: u.href };
     }
     window.NGBSorgenteVideo = { leggi: leggi, tipoDi: function (v) { var s = leggi(v); return s && !s.errore ? s.tipo : ''; } };
@@ -246,7 +252,6 @@ function server(usaSostituto) {
                 const f = path.join(HLS_LOCALE, nome);
                 if (fs.existsSync(f)) return route.fulfill({ status: 200, headers: Object.assign({ 'content-type': 'application/vnd.apple.mpegurl' }, cors), body: fs.readFileSync(f) });
             }
-            if (u.pathname === '/player/napoli') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>Player</title><body style="margin:0;background:#113;color:#fff;display:grid;place-items:center;height:100vh"><p id="player-webtv">Player della web TV (prova)</p></body>' });
             if (u.pathname.startsWith('/muto/')) return;       // non risponde mai
             if (u.pathname.startsWith('/live/')) {
                 const f = path.join(HLS_LOCALE, path.basename(u.pathname));
@@ -633,25 +638,22 @@ function server(usaSostituto) {
             vero(false, 'ffmpeg non trovato (pip install imageio-ffmpeg, oppure FFMPEG=/percorso/ffmpeg)');
         }
 
-        /* ---------- 7. link incorporato, link che non risponde, diretta spenta, link sbagliato ---------- */
+        /* ---------- 7. il player di Azoto, link che non risponde, diretta spenta, link sbagliato ---------- */
+        /* La pagina del player di Azoto (modalita' A) non e' di questo player:
+           la mostra player-azoto.js. Qui: idDa() vuoto, onErrore 'link', e
+           nel riquadro niente iframe e niente <video>. E nessuna richiesta
+           verso Azoto (nelle prove la rete verso Azoto non si usa: la si conta). */
+        const versoAzoto = [];
+        await context.route('https://cdn.azotosolutions.com/**', route => { versoAzoto.push(route.request().url()); return route.abort(); });
         await page.evaluate(() => nuovoPlayer());
-        await page.evaluate(u => pl.carica(NGBPlayer.idDa(u)), WEBTV + '/player/napoli');
-        const inc = await aspettaChe(() => !!ultimo('pronto') && pl.stato() === 'riproduzione', null, 15000);
-        const incInfo = await page.evaluate(() => ({ iframe: !!document.querySelector('#c iframe'), video: !!document.querySelector('#c video'), cap: pl.capacita(), q: pl.livelliQualita(), f: pl.finestra(), titolo: (document.querySelector('#c iframe') || {}).title }));
-        vero(inc && incInfo.iframe && !incInfo.video, 'link incorporato: la pagina della web TV in un iframe, niente <video>');
-        vero(incInfo.cap.comandi === false && incInfo.cap.qualita === false && incInfo.cap.dvr === false, 'link incorporato: capacita() senza comandi, qualità e DVR');
-        vero(/Video della diretta/.test(incInfo.titolo || ''), 'l\'iframe ha un titolo per i lettori di schermo');
-        const fr = page.frameLocator('#c iframe');
-        vero(await fr.locator('#player-webtv').count() === 1, 'il player della web TV si vede nel riquadro');
-        await page.screenshot({ path: path.join(FOTO, '04-incorporato.png') });
-        // nascosto: svuotato (about:blank, il suo audio si ferma); rimostrato: ricaricato
-        await page.evaluate(() => { registro = []; pl.mostra(false); });
-        const vuoto = await page.evaluate(() => document.querySelector('#c iframe').getAttribute('src'));
-        await page.evaluate(() => pl.mostra(true));
-        const riempito = await aspettaChe(() => /\/player\/napoli$/.test(document.querySelector('#c iframe').getAttribute('src')), null, 3000);
-        await aspetta(1000);
-        vero(vuoto === 'about:blank' && riempito && await fr.locator('#player-webtv').count() === 1 && await page.evaluate(() => !ultimo('errore:')),
-            'player incorporato nascosto: svuotato (' + vuoto + '); rimostrato: ricaricato');
+        const idAzoto = await page.evaluate(u => NGBPlayer.idDa(u), AZOTO);
+        await page.evaluate(u => { registro = []; pl.carica(u); }, AZOTO);
+        await aspetta(500);
+        const azInfo = await page.evaluate(() => ({ link: !!ultimo('errore:link'), iframe: !!document.querySelector('#c iframe'), video: !!document.querySelector('#c video'), cap: pl.capacita(), stato: pl.stato() }));
+        vero(idAzoto === '' && azInfo.link && !azInfo.iframe && !azInfo.video && versoAzoto.length === 0,
+            'il player di Azoto non è un flusso: idDa() vuoto, onErrore «link», niente iframe né <video>, nessuna richiesta ad Azoto');
+        vero(azInfo.cap.comandi === true && azInfo.cap.qualita === false && azInfo.cap.dvr === false && azInfo.stato === 'non-avviato',
+            'capacita(): i comandi sono sempre i nostri (' + JSON.stringify(azInfo.cap) + ')');
 
         // una diretta non ancora partita (playlist 404): onErrore 'rete', presto
         await page.evaluate(() => { registro = []; });
