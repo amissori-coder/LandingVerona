@@ -37,8 +37,10 @@
    nella pagina vera (/diretta/, con la sua CSP, player-azoto.js e
    player-webtv.js), su Chromium: computer 1440x900, iPhone 13
    simulato (devices['iPhone 13'], anche a 390x844, 360x740 e in
-   orizzontale; senza API di schermo intero, come Safari) e telefono
-   390x844 per la modalita' B.
+   orizzontale; come Safari: senza API di schermo intero e senza
+   l'iframe in un processo a parte, vedi LANCIO_IPHONE) e telefono
+   390x844 per la modalita' B. Il browser non esce mai in rete da solo
+   (vedi LANCIO).
 
    COSA DIMOSTRA.
    Modalita' A (il player di Azoto):
@@ -165,6 +167,16 @@ const LANCIO = {
     executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
     args: ['--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
 };
+/* L'iPhone. Safari non mette l'iframe di un altro sito in un processo a
+   parte; Chromium si' ("isolamento dei siti"), e con lo schermo del
+   telefono simulato trasforma il tocco in un clic nel punto sbagliato
+   dell'iframe di Azoto (visto il 25/09: il touchstart arriva al play di
+   Azoto, il click 127 px piu' in alto, di quanto l'iframe dista dalla
+   cima della pagina). Per l'iPhone simulato l'isolamento si spegne, come
+   su Safari; il computer resta come Chrome. */
+const LANCIO_IPHONE = Object.assign({}, LANCIO, {
+    args: LANCIO.args.concat(['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process'])
+});
 
 /* ---------- esito ---------- */
 let verdi = 0, rossi = 0;
@@ -326,7 +338,7 @@ const sopraIframe = page => page.evaluate(() => {
 /* Un clic (o un tocco) VERO, alle coordinate dello schermo, sul pulsante
    play del player di Azoto dentro l'iframe: se qualcosa di nostro stesse
    sopra, il clic arriverebbe a quello e non ad Azoto. */
-async function premiPlayAzoto(page, tocco) {
+async function premiPlayAzoto(page, tocco, nome) {
     const h = await page.$('#video-player iframe');
     const fr = await h.contentFrame();
     await fr.evaluate(() => document.body.removeAttribute('data-premuto'));
@@ -337,10 +349,10 @@ async function premiPlayAzoto(page, tocco) {
         const e = document.elementFromPoint(px, py);
         return e && e.matches('#video-player iframe') ? '' : (e ? e.outerHTML.slice(0, 100) : 'niente');
     }, [x, y]);
-    vero(!sopra, 'sopra il play di Azoto c\'e\': ' + sopra);
+    vero(!sopra, nome + ': sopra il play di Azoto c\'e\': ' + sopra);
     if (tocco) await page.touchscreen.tap(x, y);
     else await page.mouse.click(x, y);
-    await aspetta(() => fr.evaluate(() => document.body.getAttribute('data-premuto') === 'si'), 5000, 'il clic arrivato al play di Azoto');
+    await aspetta(() => fr.evaluate(() => document.body.getAttribute('data-premuto') === 'si'), 5000, nome + ': il ' + (tocco ? 'tocco' : 'clic') + ' arrivato al play di Azoto');
 }
 const premutoDentro = async page => {
     const fr = await frameAzoto(page);
@@ -451,7 +463,7 @@ function contaAscolti(page) {
 }
 
 (async () => {
-    let browser = null;
+    let browser = null, browserIphone = null;
     let trasmissione = null;
     try {
         /* ---------- 0. la diretta di prova, emulatori, servizio ---------- */
@@ -497,8 +509,10 @@ function contaAscolti(page) {
 
         /* ---------- il browser ---------- */
         browser = await chromium.launch(LANCIO);
+        browserIphone = await chromium.launch(LANCIO_IPHONE);
+        // senzaSchermoIntero: l'iPhone (niente API di schermo intero, e l'iframe nel processo della pagina, come su Safari)
         async function contesto(opzioni, senzaSchermoIntero) {
-            const context = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opzioni));
+            const context = await (senzaSchermoIntero ? browserIphone : browser).newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opzioni));
             await preparaContesto(context, {});
             // registrate dopo preparaContesto: vincono loro
             const webtv = await F.instradaWebTv(context, CARTELLA);
@@ -627,7 +641,7 @@ function contaAscolti(page) {
             for (const [c, nome, tocco] of [[pc, 'computer', false], [ip, 'iPhone', true]]) {
                 const sopra = await sopraIframe(c.page);
                 vero(!sopra.length, nome + ': sopra l\'iframe: ' + sopra.join(' | '));
-                await premiPlayAzoto(c.page, tocco);
+                await premiPlayAzoto(c.page, tocco, nome);
             }
         });
 
@@ -710,20 +724,25 @@ function contaAscolti(page) {
                 vero(scorre, cosa + ': la pagina sotto scorre ancora');
                 return m;
             };
-            await i.tap('#btn-schermo-intero');
-            await controlla('iPhone 13 (390x664)');
-            await i.keyboard.press('Escape');
-            await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
-            vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'Esc: classe rimasta');
-            await i.setViewportSize({ width: 390, height: 844 });
-            await pausa(300);
-            await i.tap('#btn-schermo-intero');
-            await controlla('390x844');
-            await foto(i, 'azoto-schermo-intero-telefono');
-            await i.tap('#btn-schermo-intero');
-            await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
-            vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'pulsante: classe rimasta');
-            await controlla16x9(i, 'dopo lo schermo intero');
+            try {
+                await i.tap('#btn-schermo-intero');
+                await controlla('iPhone 13 (390x664)');
+                await i.keyboard.press('Escape');
+                await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
+                vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'Esc: classe rimasta');
+                await i.setViewportSize({ width: 390, height: 844 });
+                await pausa(300);
+                await i.tap('#btn-schermo-intero');
+                await controlla('390x844');
+                await foto(i, 'azoto-schermo-intero-telefono');
+                await i.tap('#btn-schermo-intero');
+                await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
+                vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'pulsante: classe rimasta');
+                await controlla16x9(i, 'dopo lo schermo intero');
+            } finally {
+                // le prove dopo non devono trovare il telefono ancora a schermo intero
+                if (await i.getAttribute('#riquadro-video', 'data-intero').catch(() => '0') === '1') await i.keyboard.press('Escape').catch(() => {});
+            }
         });
 
         await prova('la regia cambia l\'indirizzo del player durante la diretta (livetv29 -> livetv30): iframe nuovo senza ricaricare la pagina, stessa lettura in ascolto', async () => {
@@ -745,21 +764,25 @@ function contaAscolti(page) {
             for (const c of [pc, ip]) prima[c === pc ? 'pc' : 'ip'] = { nav: await segnaPagina(c, 'a-b-a'), ascolti: Object.assign({}, c.ascolti) };
             const da = Date.now();
             await passaA('flusso');
-            vero((await pubblico()).tipoPlayer === 'flusso' && (await pubblico()).videoId === LIVE, 'documento pubblico in B');
-            for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
-                await videoVa(c.page, 30000, nome + ': il flusso della web TV nel nostro <video>');
-                const s = await statoAzoto(c.page);
-                vero(s.quanti === 0 && s.video === 1 && s.modo === 'flusso', nome + ': in B ' + JSON.stringify({ iframe: s.quanti, video: s.video, modo: s.modo }));
-                vero(primaDa(c.richieste, /^\/live\/.*\.m4s$/, da), nome + ': segmenti della web TV non chiesti');
-                vero(!(await visibile(c.page, '#nota-azoto')) && (await c.page.textContent('#btn-schermo-intero-testo')).trim() === 'Schermo intero', nome + ': la nota di Azoto in B');
+            try {
+                vero((await pubblico()).tipoPlayer === 'flusso' && (await pubblico()).videoId === LIVE, 'documento pubblico in B');
+                for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
+                    await videoVa(c.page, 30000, nome + ': il flusso della web TV nel nostro <video>');
+                    const s = await statoAzoto(c.page);
+                    vero(s.quanti === 0 && s.video === 1 && s.modo === 'flusso', nome + ': in B ' + JSON.stringify({ iframe: s.quanti, video: s.video, modo: s.modo }));
+                    vero(primaDa(c.richieste, /^\/live\/.*\.m4s$/, da), nome + ': segmenti della web TV non chiesti');
+                    vero(!(await visibile(c.page, '#nota-azoto')) && (await c.page.textContent('#btn-schermo-intero-testo')).trim() === 'Schermo intero', nome + ': la nota di Azoto in B');
+                }
+                // i nostri comandi (sul computer): play, muto, volume, «Attiva l'audio», «IN DIRETTA», qualita'
+                for (const sel of ['#btn-play', '#btn-muto', '#volume', '#btn-attiva-audio']) vero(await visibile(p, sel), sel + ' non si vede in B');
+                await aspetta(() => visibile(p, '#indicatore-live'), 10000, '«IN DIRETTA» in B');
+                await aspetta(() => visibile(p, '#sel-qualita'), 10000, 'la qualità in B');
+                const consigli = await p.evaluate(() => Array.from(document.querySelectorAll('#vista-diretta li[data-solo]')).map(li => li.getAttribute('data-solo') + ':' + (li.offsetParent !== null)));
+                vero(consigli.filter(x => /^flusso:/.test(x)).every(x => /true$/.test(x)) && consigli.filter(x => /^azoto:/.test(x)).every(x => /false$/.test(x)), 'consigli in B: ' + consigli.join(', '));
+            } finally {
+                // di nuovo il player di Azoto (le prove dopo sono della modalita' A), anche se una verifica di B e' fallita
+                await passaA('azoto');
             }
-            // i nostri comandi (sul computer): play, muto, volume, «Attiva l'audio», «IN DIRETTA», qualita'
-            for (const sel of ['#btn-play', '#btn-muto', '#volume', '#btn-attiva-audio']) vero(await visibile(p, sel), sel + ' non si vede in B');
-            await aspetta(() => visibile(p, '#indicatore-live'), 10000, '«IN DIRETTA» in B');
-            await aspetta(() => visibile(p, '#sel-qualita'), 10000, 'la qualità in B');
-            const consigli = await p.evaluate(() => Array.from(document.querySelectorAll('#vista-diretta li[data-solo]')).map(li => li.getAttribute('data-solo') + ':' + (li.offsetParent !== null)));
-            vero(consigli.filter(x => /^flusso:/.test(x)).every(x => /true$/.test(x)) && consigli.filter(x => /^azoto:/.test(x)).every(x => /false$/.test(x)), 'consigli in B: ' + consigli.join(', '));
-            await passaA('azoto');
             for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
                 await iframeAzotoGiusto(c.page, 'livetv30', nome + ' di nuovo in A');
                 const x = prima[c === pc ? 'pc' : 'ip'];
@@ -1176,6 +1199,7 @@ function contaAscolti(page) {
         console.log('ROSSO (interruzione) ' + String((e && e.stack) || e));
     } finally {
         if (browser) await browser.close().catch(() => {});
+        if (browserIphone) await browserIphone.close().catch(() => {});
         if (trasmissione) trasmissione.ferma();
         figli.forEach(f => { try { f.kill('SIGINT'); } catch (e) { /* gia' fermo */ } });
     }

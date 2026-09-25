@@ -667,6 +667,8 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             vero(r.accessi.length >= 3 && r.accessi.every(x => x.nomeUtente && x.quando), 'accessi: ' + r.accessi.length);
         });
         await prova('nessuna violazione della CSP e nessun errore nelle pagine né in console; mai azoto-player.js', async () => {
+            const chiusi = [iphone, computer, gestione].map(c => c.page.__canaleChiuso || 0).reduce((a, b) => a + b, 0);
+            if (chiusi) console.log('       (canali di ascolto di Firestore chiusi dal server e riaperti dall\'SDK: ' + chiusi + ')');
             for (const [c, nome] of [[iphone, 'iPhone'], [computer, 'computer'], [gestione, 'gestione']]) {
                 const v = await c.page.evaluate(() => window.__violazioniCsp || []).catch(() => []);
                 vero(v.length === 0, nome + ': CSP: ' + v.join(' | '));
