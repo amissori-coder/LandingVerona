@@ -289,8 +289,8 @@ function webtv(opz) {
         vero(PL.durataIso('PT1H30M') === 5400 && PL.durataIso('PT59.5S') === 59.5 && PL.durataIso('P1DT1S') === 86401 && PL.durataIso('') === null && PL.durataIso('PT') === null, 'durate ISO 8601 (PT1H30M, PT59.5S, P1DT1S)');
 
         /* ================= IL PLAYER DI AZOTO ================= */
-        const PAGINA = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
-        const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv29/player' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
+        const PAGINA = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
+        const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv91/player' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
         const html = (h, corpo) => { const p = {}; p[PAGINA] = { corpo: corpo || '<!doctype html><html><body><video></video></body></html>', h: Object.assign({ 'content-type': 'text/html; charset=utf-8' }, h || {}) }; return p; };
         {
             const { r, w } = await prova(PAGINA, html());
@@ -309,7 +309,7 @@ function webtv(opz) {
                 h: { 'content-type': 'text/html; charset=UTF-8' }
             };
             const { r, w } = await prova(CODICE_AZOTO, pag);
-            vero(r.esito === 'ok' && r.valore === PAGINA && w.registro.length === 2 && r.righe.some(x => /rimanda a https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\//.test(x)),
+            vero(r.esito === 'ok' && r.valore === PAGINA && w.registro.length === 2 && r.righe.some(x => /rimanda a https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv91\/player\//.test(x)),
                 'il codice di Azoto: si prova l\'indirizzo del player, e il salto /player -> /player/ va bene', JSON.stringify(r));
             const riga = r.righe.find(x => /\.m3u8/.test(x) && /load-balancer/.test(x)) || '';
             vero(/fatevelo confermare da Azoto/.test(riga) && !/provalo|meglio/i.test(riga), 'il link .m3u8 dentro la pagina si segnala ma non si propone: va confermato da Azoto («' + riga + '»)');
@@ -393,9 +393,9 @@ function webtv(opz) {
             'https://www.webtv-qualunque.com/canale/diretta',
             '<iframe src="https://player.webtv.esempio.it/embed/9?a=1&amp;b=2"></iframe>',
             "<iframe src='https://ladro.example.com/x'></iframe>" + CODICE_AZOTO,
-            'https://azotosolutions.com/cloudtv/livetv29/player',
-            'https://cdn.azotosolutions.com:8443/cloudtv/livetv29/player',
-            'https://cdn.azotosolutions.com.ladro.it/cloudtv/livetv29/player'
+            'https://azotosolutions.com/cloudtv/livetv91/player',
+            'https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player',
+            'https://cdn.azotosolutions.com.ladro.it/cloudtv/livetv91/player'
         ]) {
             const { r, w } = await prova(link, html());
             const p = problema(r, 'non-azoto');

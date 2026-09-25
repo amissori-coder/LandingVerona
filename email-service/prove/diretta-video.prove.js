@@ -57,10 +57,10 @@ function vero(cond, descrizione) {
     else { rossi++; console.log('ROSSO  ' + descrizione); }
 }
 
-const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
-const AZOTO_30 = 'https://cdn.azotosolutions.com/cloudtv/livetv30/player';
+const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
+const AZOTO_30 = 'https://cdn.azotosolutions.com/cloudtv/livetv92/player';
 // il codice che Azoto ha dato, cosi' com'e' (virgolette singole)
-const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv29/player' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
+const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv91/player' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
 const HLS = 'https://webtv.esempio.it/live/napoli/playlist.m3u8';
 const HLS_RISERVA = 'https://riserva.webtv.esempio.it/live/napoli/playlist.m3u8';
 
@@ -97,9 +97,9 @@ const buoni = [
     [CODICE_AZOTO, 'incorporato', AZOTO],
     [AZOTO, 'incorporato', AZOTO],
     ['  ' + AZOTO + '/  ', 'incorporato', AZOTO + '/'],
-    ['https://CDN.AzotoSolutions.COM/cloudtv/livetv29/player', 'incorporato', AZOTO],
-    ['https://cdn.azotosolutions.com:443/cloudtv/livetv29/player', 'incorporato', AZOTO],
-    ['https://cdn.azotosolutions.com/cloudtv/livetv29/player?lingua=it', 'incorporato', AZOTO + '?lingua=it'],
+    ['https://CDN.AzotoSolutions.COM/cloudtv/livetv91/player', 'incorporato', AZOTO],
+    ['https://cdn.azotosolutions.com:443/cloudtv/livetv91/player', 'incorporato', AZOTO],
+    ['https://cdn.azotosolutions.com/cloudtv/livetv91/player?lingua=it', 'incorporato', AZOTO + '?lingua=it'],
     ['<iframe width="640" height="360" src="' + AZOTO + '?a=1&amp;b=2" frameborder="0" allowfullscreen></iframe>', 'incorporato', AZOTO + '?a=1&b=2'],
     ["<IFRAME SRC='" + AZOTO + "'></IFRAME>", 'incorporato', AZOTO],
     ['<div style="padding:56% 0 0"><iframe src=' + AZOTO + ' allow="autoplay"></iframe></div>', 'incorporato', AZOTO],
@@ -127,7 +127,7 @@ const malevoli = [
     ['<iframe src="&#106;avascript:alert(1)"></iframe>', { errore: 'formato' }],
     ['<iframe src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="></iframe>', { errore: 'formato' }],
     ['<iframe src="data:text/html,<script>alert(1)</script>"></iframe>', { errore: 'formato' }],
-    ['<iframe src="//cdn.azotosolutions.com/cloudtv/livetv29/player"></iframe>', { errore: 'formato' }],
+    ['<iframe src="//cdn.azotosolutions.com/cloudtv/livetv91/player"></iframe>', { errore: 'formato' }],
     ["<iframe src='https://ladro.example.com/player'></iframe>", { errore: 'non-azoto' }],
     ["<iframe src='https://ladro.example.com/x'></iframe><iframe src='" + AZOTO + "'></iframe>", { errore: 'non-azoto' }],
     ["<iframe src='" + AZOTO + "'></iframe><iframe src='https://ladro.example.com/x'></iframe>", { valore: AZOTO }],
@@ -152,20 +152,20 @@ malevoli.forEach(([testo, atteso]) => {
 
 /* ---------- l'host: SOLO https di cdn.azotosolutions.com, porta normale ---------- */
 const host = [
-    ['https://azotosolutions.com/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://www.azotosolutions.com/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://cdn2.azotosolutions.com/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://cdn9-ger.azotosolutions.com/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://x.cdn.azotosolutions.com/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://cdn.azotosolutions.com.ladro.it/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://cdn-azotosolutions.com/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://ladro.it/cdn.azotosolutions.com/cloudtv/livetv29/player', 'non-azoto'],
+    ['https://azotosolutions.com/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://www.azotosolutions.com/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://cdn2.azotosolutions.com/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://cdn9-ger.azotosolutions.com/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://x.cdn.azotosolutions.com/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://cdn.azotosolutions.com.ladro.it/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://cdn-azotosolutions.com/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://ladro.it/cdn.azotosolutions.com/cloudtv/livetv91/player', 'non-azoto'],
     ['https://ladro.it/?https://cdn.azotosolutions.com/player', 'non-azoto'],
-    ['https://cdn.azotosolutions.com:8443/cloudtv/livetv29/player', 'non-azoto'],
-    ['https://cdn.azotosolutions.com:80/cloudtv/livetv29/player', 'non-azoto'],
-    ['http://cdn.azotosolutions.com/cloudtv/livetv29/player', 'https'],
-    ['https://cdn.azotosolutions.com@ladro.it/cloudtv/livetv29/player', 'credenziali'],
-    ['https://utente:pw@cdn.azotosolutions.com/cloudtv/livetv29/player', 'credenziali'],
+    ['https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player', 'non-azoto'],
+    ['https://cdn.azotosolutions.com:80/cloudtv/livetv91/player', 'non-azoto'],
+    ['http://cdn.azotosolutions.com/cloudtv/livetv91/player', 'https'],
+    ['https://cdn.azotosolutions.com@ladro.it/cloudtv/livetv91/player', 'credenziali'],
+    ['https://utente:pw@cdn.azotosolutions.com/cloudtv/livetv91/player', 'credenziali'],
     ['https://player.webtv.it/embed/napoli-2026', 'non-azoto'],
     ['https://www.webtv-qualunque.com/canale/diretta', 'non-azoto'],
     ['<iframe width="640" height="360" src="https://player.webtv.it/embed/123?autoplay=1&amp;muted=1"></iframe>', 'non-azoto'],
@@ -334,9 +334,9 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
         [
             ["<iframe src='https://ladro.example.com/player'></iframe>", /solo un indirizzo https di cdn\.azotosolutions\.com/],
             ["<iframe src='https://ladro.example.com/x'></iframe>" + CODICE_AZOTO, /solo un indirizzo https di cdn\.azotosolutions\.com/],
-            ['https://azotosolutions.com/cloudtv/livetv29/player', /solo un indirizzo https di cdn\.azotosolutions\.com/],
-            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv29/player', /solo un indirizzo https di cdn\.azotosolutions\.com/],
-            ['http://cdn.azotosolutions.com/cloudtv/livetv29/player', /https:\/\//],
+            ['https://azotosolutions.com/cloudtv/livetv91/player', /solo un indirizzo https di cdn\.azotosolutions\.com/],
+            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player', /solo un indirizzo https di cdn\.azotosolutions\.com/],
+            ['http://cdn.azotosolutions.com/cloudtv/livetv91/player', /https:\/\//],
             ["<iframe src='javascript:alert(1)'></iframe>", /Non riconosco/],
             ['<img src=x onerror=alert(1)>', /non trovo l'indirizzo del player/],
             [HLS, /^Questo è il link di un flusso diretto: va nel campo «Flusso diretto \(\.m3u8\)»\.$/],

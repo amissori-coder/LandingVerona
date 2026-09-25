@@ -184,7 +184,7 @@ vero(F.attiva(SALVATA) === true && F.attiva({ schema: 'nginx', segreto: '' }) ==
 
 /* ---------- la firma e' solo del flusso diretto (non del player di Azoto) ---------- */
 const D = require('../lib/diretta-dati');
-const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
+const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
 const FLUSSO = 'https://webtv.esempio.it/live/napoli/playlist.m3u8';
 const conAzoto = { tipoPlayer: 'azoto', azotoUrl: AZOTO, videoUrl: FLUSSO, videoId: FLUSSO, riservaUrl: '', riservaId: '', firma: NGINX };
 const campiAzoto = D.campiVideo({}, conAzoto, 'in_onda');

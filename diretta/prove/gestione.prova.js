@@ -21,7 +21,7 @@
    dalla gestione per ogni evento («Tipo di player»):
      A) il PLAYER DI AZOTO in un iframe (la predefinita): qui il player
         finto di flusso-prova.js su https://cdn.azotosolutions.com
-        (/cloudtv/livetv29/player e livetv30, livetv31 per i cambi
+        (/cloudtv/livetv91/player e livetv92, livetv93 per i cambi
         d'indirizzo; /cloudtv/bloccato/ con X-Frame-Options: DENY;
         /cloudtv/altrove/ che rimanda a un altro sito; /cloudtv/lento/
         che non risponde MAI). Le prove non usano MAI la rete vera di
@@ -95,7 +95,7 @@
    iframe di un altro sito, javascript:) non esegue niente
    (window.__attacco resta undefined), non fa partire richieste verso
    altri siti e se ne salva solo l'indirizzo di Azoto; «Prova il player»:
-   livetv29 «Si può usare» con l'anteprima (iframe.player-azoto con gli
+   livetv91 «Si può usare» con l'anteprima (iframe.player-azoto con gli
    attributi del contratto, la pagina del player dentro, i suoi comandi
    che rispondono al clic: niente sopra l'iframe), bloccato
    (X-Frame-Options) e altrove (rimanda fuori) «Non si può usare» senza
@@ -120,7 +120,7 @@
    il testo del servizio), nuova password, disattivazione, correzioni
    (R3, anche «Rossii» -> «Rossi» a credenziali partite: la finestra
    chiede se mantenere il nome utente); REGIA: in onda con il player
-   Azoto («Guarda»), il player cambiato per tutti (livetv29 -> livetv30,
+   Azoto («Guarda»), il player cambiato per tutti (livetv91 -> livetv92,
    dal codice incollato; bloccato rifiutato), i link del flusso cambiati
    mentre si usa Azoto (chi guarda non vede cambiare niente), A -> B -> A
    con «Passa al flusso diretto per tutti» e «Torna al player Azoto per
@@ -207,9 +207,9 @@ const RE_PASSWORD = /^[A-HJKMNP-Za-hjkmnp-z2-9]{10}$/;
 /* Il player di Azoto finto (flusso-prova.js): i canali livetv<N>
    rispondono, gli altri tre sono i guasti da provare. */
 const AZOTO = WT.AZOTO;
-const AZOTO_29 = AZOTO + '/cloudtv/livetv29/player';
-const AZOTO_30 = AZOTO + '/cloudtv/livetv30/player';
-const AZOTO_31 = AZOTO + '/cloudtv/livetv31/player';
+const AZOTO_29 = AZOTO + '/cloudtv/livetv91/player';
+const AZOTO_30 = AZOTO + '/cloudtv/livetv92/player';
+const AZOTO_31 = AZOTO + '/cloudtv/livetv93/player';
 const AZOTO_BLOCCATO = AZOTO + '/cloudtv/bloccato/player';
 const AZOTO_ALTROVE = AZOTO + '/cloudtv/altrove/player';
 const AZOTO_LENTO = AZOTO + '/cloudtv/lento/player';
@@ -862,10 +862,10 @@ async function sheetJSNode() {
         // gli indirizzi che non si accettano: il messaggio di sorgente-video.js, subito, senza chiamare nessuno
         const rifiutatiAzoto = [
             ['https://player.altrosito.example/embed/1', 'non-azoto', 'la pagina di un altro sito'],
-            ['https://azotosolutions.com/cloudtv/livetv29/player', 'non-azoto', 'azotosolutions.com senza «cdn.»'],
-            ['https://cdn.azotosolutions.com.evil.test/cloudtv/livetv29/player', 'non-azoto', 'un sottodominio finto (cdn.azotosolutions.com.evil.test)'],
-            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv29/player', 'non-azoto', 'la porta 8443'],
-            ['http://cdn.azotosolutions.com/cloudtv/livetv29/player', 'https', 'http://'],
+            ['https://azotosolutions.com/cloudtv/livetv91/player', 'non-azoto', 'azotosolutions.com senza «cdn.»'],
+            ['https://cdn.azotosolutions.com.evil.test/cloudtv/livetv91/player', 'non-azoto', 'un sottodominio finto (cdn.azotosolutions.com.evil.test)'],
+            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player', 'non-azoto', 'la porta 8443'],
+            ['http://cdn.azotosolutions.com/cloudtv/livetv91/player', 'https', 'http://'],
             ['<iframe src="javascript:parent.__attacco=\'js\'"></iframe>' + CODICE_AZOTO, 'formato', 'un iframe javascript: prima di quello di Azoto'],
             ['<iframe src="https://cattivo.example/player"></iframe>' + CODICE_AZOTO, 'non-azoto', 'il primo iframe di un altro sito (quello di Azoto dopo)'],
             ['<iframe width="640" height="360" allowfullscreen></iframe>', 'codice', 'un codice senza l\'indirizzo del player'],
@@ -875,7 +875,7 @@ async function sheetJSNode() {
             r = await scriviLink('ev-azoto', valore);
             vero(r.tono === 'errore' && r.tipo === MSG(codice) && r.tag === 0, 'nel campo del player Azoto ' + nome + ': rifiutato subito, «' + r.tipo + '»', JSON.stringify(r));
         }
-        const provaRifiutata = await provaLink('ev-azoto', 'https://cdn.azotosolutions.com.evil.test/cloudtv/livetv29/player');
+        const provaRifiutata = await provaLink('ev-azoto', 'https://cdn.azotosolutions.com.evil.test/cloudtv/livetv91/player');
         vero(provaRifiutata.chiamate === 0 && !provaRifiutata.esito && provaRifiutata.tipo === MSG('non-azoto') && await $('#ev-azoto').getAttribute('aria-invalid') === 'true'
             && !(await $('#ev-azoto-anteprima').isVisible()),
             '«Prova il player» con un indirizzo non consentito: il motivo sotto il campo, senza chiamare il servizio e senza anteprima');
@@ -963,8 +963,8 @@ async function sheetJSNode() {
             && ifr[0].schermoIntero && ifr[0].referrer === 'strict-origin-when-cross-origin' && ifr[0].scrolling === 'no'
             && ifr[0].titolo === 'Diretta: Next Generation Business 2026 · Napoli' && ifr[0].estranei.length === 0,
             'l\'anteprima è player-azoto.js: iframe.player-azoto con allow="autoplay; fullscreen; picture-in-picture; encrypted-media", allowfullscreen, referrerpolicy strict-origin-when-cross-origin, scrolling no e title «Diretta: <titolo>»', JSON.stringify(ifr));
-        const fAzoto = await paginaAzotoIn('#ev-azoto-anteprima', 'livetv29');
-        vero(!!fAzoto && azoto.richieste.slice(richiesteAzotoPrima).join(' ') === '/cloudtv/livetv29/player /cloudtv/livetv29/player/',
+        const fAzoto = await paginaAzotoIn('#ev-azoto-anteprima', 'livetv91');
+        vero(!!fAzoto && azoto.richieste.slice(richiesteAzotoPrima).join(' ') === '/cloudtv/livetv91/player /cloudtv/livetv91/player/',
             'nell\'iframe c\'è la pagina (finta) del player di Azoto: l\'indirizzo salvato, poi il suo /player/ (301, come quello vero)', azoto.richieste.slice(richiesteAzotoPrima).join(' '));
         if (fAzoto) await fAzoto.locator('#play-azoto').click({ timeout: 5000 }).catch(() => {});
         vero(!!ifr[0] && ifr[0].libero && ifr[0].largo >= 300 && ifr[0].alto >= 150 && !!fAzoto && await fAzoto.locator('body').getAttribute('data-premuto') === 'si',
@@ -1355,7 +1355,7 @@ async function sheetJSNode() {
         await aspetta(async () => await testo('#msg-azoto') === 'Player Azoto: qui sotto lo vedi come lo vedono i partecipanti, con i comandi di Azoto.', 20000, '«Guarda» sul player Azoto');
         const ifrRegia = await anteprimaAzoto('#regia-azoto-attuale-anteprima');
         vero(ifrRegia.length === 1 && ifrRegia[0].classe === 'player-azoto' && ifrRegia[0].src === AZOTO_29 && ifrRegia[0].libero
-            && ifrRegia[0].titolo === 'Diretta: Next Generation Business 2026 · Napoli' && !!(await paginaAzotoIn('#regia-azoto-attuale-anteprima', 'livetv29')),
+            && ifrRegia[0].titolo === 'Diretta: Next Generation Business 2026 · Napoli' && !!(await paginaAzotoIn('#regia-azoto-attuale-anteprima', 'livetv91')),
             '«Guarda» sul player Azoto: l\'anteprima con player-azoto.js, con dentro la pagina del player, come la vedono i partecipanti', JSON.stringify(ifrRegia));
         await fotoVideo('03-regia-azoto-in-onda', '.regia-video-riquadro', '#msg-azoto');
         await segnala(persone.slice(31, 36));
@@ -1369,8 +1369,8 @@ async function sheetJSNode() {
         const videoPrimaRegia = chiamate('evento-video').length;
         const provePrimaRegia = chiamate('prova-link').length;
         for (const [valore, atteso] of [
-            ['http://cdn.azotosolutions.com/cloudtv/livetv30/player', 'Player Azoto: ' + MSG('https')],
-            ['https://cdn.azotosolutions.com.evil.test/cloudtv/livetv30/player', 'Player Azoto: ' + MSG('non-azoto')],
+            ['http://cdn.azotosolutions.com/cloudtv/livetv92/player', 'Player Azoto: ' + MSG('https')],
+            ['https://cdn.azotosolutions.com.evil.test/cloudtv/livetv92/player', 'Player Azoto: ' + MSG('non-azoto')],
             [codiceMalevolo('https://cattivo.example/player'), 'Player Azoto: ' + MSG('non-azoto')],
             [LINK.live, 'Player Azoto: ' + MSG('e-flusso')],
             [AZOTO_29, 'È già il player salvato: incolla un indirizzo diverso, poi premi «Cambia il player».']
@@ -1390,12 +1390,12 @@ async function sheetJSNode() {
             && /^Player Azoto: non si può usare\. Il player Azoto non si può incorporare nel nostro sito: il loro server lo vieta \(X-Frame-Options: DENY\)\. Non ho cambiato niente\.$/.test(await testo('#msg-azoto'))
             && (await docPubblico()).videoId === AZOTO_29,
             'un player che il server di Azoto vieta di incorporare, in regia: provato, fermato con il motivo, niente cambiato — «' + await testo('#msg-azoto') + '»');
-        // livetv29 -> livetv30, dal codice di Azoto incollato
+        // livetv91 -> livetv92, dal codice di Azoto incollato
         const aggiornatoPrimaCambio = (await docPubblico()).videoAggiornato.toMillis();
         r = await scriviLink('regia-azoto', codiceAzoto(AZOTO_30));
         vero(r.tipo.startsWith('Indirizzo del player: ' + AZOTO_30 + ' Preso dal codice di Azoto') && r.tag === 0, 'in regia il codice di Azoto si legge come nella scheda Evento: «' + r.tipo + '»');
         await $('#btn-cambia-azoto').click();
-        await confermaDialogo(/^Cambiare il player per tutti\? La diretta è in onda con il player Azoto: chi è collegato passa al nuovo indirizzo da solo, in pochi secondi, senza ricaricare la pagina\. Nuovo player: https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv30\/player/s, 'Cambia il player');
+        await confermaDialogo(/^Cambiare il player per tutti\? La diretta è in onda con il player Azoto: chi è collegato passa al nuovo indirizzo da solo, in pochi secondi, senza ricaricare la pagina\. Nuovo player: https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv92\/player/s, 'Cambia il player');
         await aspetta(async () => /^Player Azoto cambiato/.test(await testo('#msg-azoto')), 20000, 'player cambiato');
         vero(await testo('#msg-azoto') === 'Player Azoto cambiato: i partecipanti collegati passano al nuovo indirizzo. Dal codice di Azoto ho salvato solo l\'indirizzo del player.',
             '«' + await testo('#msg-azoto') + '»');
@@ -1405,7 +1405,7 @@ async function sheetJSNode() {
             'provato prima (prova-link con il solo indirizzo), poi evento-video riceve SOLO l\'indirizzo nuovo (azotoUrl): niente codice, niente link del flusso', cambioAzoto.grezzo);
         pub = await docPubblico();
         vero(pub.tipoPlayer === 'azoto' && pub.videoId === AZOTO_30 && pub.videoAggiornato.toMillis() > aggiornatoPrimaCambio && (await docRiservato()).azotoUrl === AZOTO_30,
-            'sul servizio: livetv29 -> livetv30 per tutti (nel documento dei partecipanti, con videoAggiornato: chi è collegato passa al nuovo player da solo) e nel documento riservato');
+            'sul servizio: livetv91 -> livetv92 per tutti (nel documento dei partecipanti, con videoAggiornato: chi è collegato passa al nuovo player da solo) e nel documento riservato');
         vero(await testo('#regia-azoto-attuale') === AZOTO_30 && await $('#regia-azoto').inputValue() === AZOTO_30 && await testo('#regia-azoto-indirizzo') === 'Player salvato: ' + AZOTO_30,
             'la regia mostra il nuovo player e, nel campo, al posto del codice incollato l\'indirizzo salvato');
 
@@ -1560,12 +1560,12 @@ async function sheetJSNode() {
         const primaDiA = await docPubblico();
         await pausa(20);
         await $('#btn-passa-azoto').click();
-        await confermaDialogo(/^Tornare al player Azoto per tutti\? Chi sta guardando torna dal flusso diretto al player Azoto da solo, in pochi secondi, senza ricaricare la pagina\. Player Azoto: https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv30\/player/s, 'Torna al player Azoto');
+        await confermaDialogo(/^Tornare al player Azoto per tutti\? Chi sta guardando torna dal flusso diretto al player Azoto da solo, in pochi secondi, senza ricaricare la pagina\. Player Azoto: https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv92\/player/s, 'Torna al player Azoto');
         await aspetta(async () => await testo('#regia-tipo-player') === 'Player Azoto', 10000, 'di nuovo il player Azoto');
         pub = await docPubblico();
         vero(chiamate('evento-player').pop().dati.tipoPlayer === 'azoto' && pub.tipoPlayer === 'azoto' && pub.videoId === AZOTO_30 && pub.videoRiserva === '' && pub.videoFirmato === false
             && pub.videoAggiornato.toMillis() > primaDiA.videoAggiornato.toMillis(),
-            '«Torna al player Azoto per tutti»: tipoPlayer «azoto» e videoId di nuovo l\'indirizzo del player (livetv30, quello cambiato in diretta); i link del flusso spariscono dal documento dei partecipanti', JSON.stringify(pub));
+            '«Torna al player Azoto per tutti»: tipoPlayer «azoto» e videoId di nuovo l\'indirizzo del player (livetv92, quello cambiato in diretta); i link del flusso spariscono dal documento dei partecipanti', JSON.stringify(pub));
         vero(await aspetta(async () => await testo('#msg-player') === 'Player Azoto in uso per tutti: chi guarda passa da solo, in pochi secondi.'
             && await nascosto('#btn-passa-azoto') && !(await nascosto('#btn-passa-flusso')) && await aperto('#regia-blocco-azoto') && !(await aperto('#regia-blocco-flusso'))
             && await testo('#regia-video-pubblico') === 'I partecipanti collegati stanno guardando il player Azoto.', 5000, 'regia di nuovo sul player Azoto').catch(() => false),
@@ -1587,7 +1587,7 @@ async function sheetJSNode() {
            player vecchio. */
         console.log('\n-- il video dalla scheda Evento, in onda');
         const altroGestore = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, azotoUrl: AZOTO_31 }, tokGestore);
-        vero(altroGestore.stato === 200 && (await docPubblico()).videoId === AZOTO_31, 'un altro gestore cambia il player dalla sua regia (livetv31)');
+        vero(altroGestore.stato === 200 && (await docPubblico()).videoId === AZOTO_31, 'un altro gestore cambia il player dalla sua regia (livetv93)');
         await page.click('[data-scheda="evento"]');
         vero(await $('#ev-azoto').inputValue() === AZOTO_30, 'qui il modulo dell\'evento mostra ancora il player di prima (nessuno lo ha ricaricato)');
         const salvaPrima = chiamate('evento-salva').length;

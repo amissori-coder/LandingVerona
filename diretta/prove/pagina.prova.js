@@ -1413,11 +1413,11 @@ function eventoIniziale(T) {
             vero((await evAzoto.get()).data().tipoPlayer === undefined, 'la prova doveva usare un evento senza tipoPlayer');
             await accedi(pa, 'annaazoto', PASSWORD_PROVA);
             await vistaE(pa, 'diretta', 30000);
-            await aspetta(async () => (await canaleA(pa)) === 'livetv29', 15000, 'il player di Azoto nell\'iframe');
+            await aspetta(async () => (await canaleA(pa)) === 'livetv91', 15000, 'il player di Azoto nell\'iframe');
             const s = await statoA(pa);
             vero(s.iframe === 1 && s.src === F.PLAYER_AZOTO && s.video === 0 && s.azoto && s.schermata === 'video', 'modalità A: ' + JSON.stringify(s));
             vero(!(await visibile(pa, '#btn-play')) && !(await visibile(pa, '#btn-attiva-audio')) && await visibile(pa, '#nota-azoto') && await visibile(pa, '#btn-schermo-intero'), 'comandi della modalità A');
-            vero(pa.__azoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\/?$/.test(u)), 'richieste ad Azoto: ' + pa.__azoto.join(', '));
+            vero(pa.__azoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv91\/player\/?$/.test(u)), 'richieste ad Azoto: ' + pa.__azoto.join(', '));
         });
 
         await prova('modalità A in onda ma senza indirizzo: «Il video sta per arrivare» al posto del player, niente iframe e nessuna richiesta ad Azoto', async () => {
@@ -1432,7 +1432,7 @@ function eventoIniziale(T) {
         });
 
         await prova('un indirizzo che non è di Azoto (un altro sito, javascript:, un host che finge di essere Azoto): «Video non disponibile», niente iframe, nessuna richiesta a quel sito', async () => {
-            for (const v of [F.WEBTV + '/player/napoli', 'javascript:alert(1)', 'https://cdn.azotosolutions.com.esempio.it/cloudtv/livetv29/player', 'http://cdn.azotosolutions.com/cloudtv/livetv29/player']) {
+            for (const v of [F.WEBTV + '/player/napoli', 'javascript:alert(1)', 'https://cdn.azotosolutions.com.esempio.it/cloudtv/livetv91/player', 'http://cdn.azotosolutions.com/cloudtv/livetv91/player']) {
                 // prima un indirizzo buono, cosi' ogni volta la pagina passa davvero dall'iframe alla schermata
                 await evAzoto.update({ videoId: F.PLAYER_AZOTO, videoAggiornato: T.now() });
                 await aspetta(async () => (await statoA(pa)).iframe === 1, 10000, 'l\'iframe prima di ' + v);
@@ -1443,7 +1443,7 @@ function eventoIniziale(T) {
             }
             await pausa(1000);
             vero(!A.webtv.richieste.some(r => /^\/player\//.test(r)), 'la pagina di un altro sito e\' stata chiesta: ' + A.webtv.richieste.join(', '));
-            vero(pa.__azoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\/?$/.test(u)), 'richieste verso indirizzi non consentiti: ' + pa.__azoto.join(', '));
+            vero(pa.__azoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv91\/player\/?$/.test(u)), 'richieste verso indirizzi non consentiti: ' + pa.__azoto.join(', '));
             vero(!dialoghi.length, 'javascript: e\' stato eseguito: ' + dialoghi.join(' | '));
             await foto(pa, 'azoto-non-consentito-computer');
         });
@@ -1477,7 +1477,7 @@ function eventoIniziale(T) {
             vero(!(await visibile(pa, '#avviso-lento')), 'l\'avviso resta dopo «Ricarica il video»');
             vero(await pa.evaluate(() => window.__segnoPagina) === 'prima-della-ricarica' && pa.__caricamenti === caricamenti, 'la pagina si e\' ricaricata');
             await evAzoto.update({ videoId: F.PLAYER_AZOTO, videoAggiornato: T.now() });
-            await aspetta(async () => (await canaleA(pa)) === 'livetv29', 15000, 'il player buono');
+            await aspetta(async () => (await canaleA(pa)) === 'livetv91', 15000, 'il player buono');
             vero(!(await visibile(pa, '#avviso-lento')), 'l\'avviso resta con il player buono');
         });
 

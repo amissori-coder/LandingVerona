@@ -324,11 +324,13 @@ l'unica lettura in ascolto sull'evento).
 ### 5.1 Il player di Azoto, visto da vicino
 
 Prima di scrivere il codice abbiamo aperto il codice che ci ha dato Azoto
-(25 settembre 2026):
+(25 settembre 2026). È fatto così (`livetvNN` al posto del nostro canale: il
+suo indirizzo vero non si scrive nei file del sito, che sono pubblici; sta solo
+nel database, dove lo inserisce la gestione):
 
 ```html
 <div class='azoto-player-container'>
-<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv29/player' frameborder='0' scrolling='no' allowfullscreen></iframe>
+<iframe src='https://cdn.azotosolutions.com/cloudtv/livetvNN/player' frameborder='0' scrolling='no' allowfullscreen></iframe>
 </div>
 <script src='https://azotosolutions.com/videojs/azoto-player.js'></script>
 ```
@@ -340,7 +342,7 @@ Prima di scrivere il codice abbiamo aperto il codice che ci ha dato Azoto
   carichiamo**: il 16:9 lo fa il nostro CSS, e il nero rovinerebbe la nostra
   grafica. Per questo `azotosolutions.com` non compare nemmeno nella
   Content-Security-Policy.
-- **La pagina del player** (`cdn.azotosolutions.com/cloudtv/livetv29/player/`)
+- **La pagina del player** (`cdn.azotosolutions.com/cloudtv/livetvNN/player/`)
   usa **OvenPlayer** (un player libero) e carica tre librerie da
   `cdn.jsdelivr.net` **senza una versione fissata** (`@latest`): possono cambiare
   da un giorno all'altro senza che Azoto lo decida.
@@ -510,9 +512,10 @@ Azoto regge.
 > Buongiorno,
 > il 2 ottobre trasmetteremo in diretta l'evento Next Generation Business di
 > Napoli sul nostro sito, https://nextgenerationbusiness.it, con il vostro player
-> livetv29, per circa 1000 persone collegate insieme. Vi chiediamo:
+> (il canale che ci avete indicato), per circa 1000 persone collegate insieme.
+> Vi chiediamo:
 >
-> 1. Potete limitare il player livetv29 al solo dominio nextgenerationbusiness.it,
+> 1. Potete limitare il nostro player al solo dominio nextgenerationbusiness.it,
 >    così che non si apra da altri siti o copiando il link?
 > 2. Potete togliere il vostro logo dal player (versione senza marchio)?
 > 3. Ci date anche il link diretto HLS (.m3u8) in https, con CORS abilitato per
@@ -915,8 +918,16 @@ il servizio risponde "attendi un minuto" e lo scrive nel log.
 Tutte in `diretta/prove/` (più sette nel servizio, `email-service/prove/`).
 Girano contro gli **emulatori di Firebase** (nessun progetto vero, nessuna
 email vera: la posta diventa righe di un file) e con **Playwright** su
-Chromium. Il video arriva da due fonti di prova (`flusso-prova.js`):
+Chromium. Il video arriva da tre fonti di prova (`flusso-prova.js`); **nessuna
+prova usa la rete vera di Azoto**:
 
+- un **player di Azoto finto** al posto di quello vero, su
+  `https://cdn.azotosolutions.com/cloudtv/…/player` intercettato dentro il
+  browser (e, per la prova del link, dentro il servizio): una pagina "Player
+  Azoto (prova)" con un suo pulsante play, che imita il vero (il rimando da
+  `/player` a `/player/`), più un player che non risponde mai (i 15 secondi), uno
+  che non si lascia incorporare e uno che rimanda a un altro sito. I canali
+  usati nelle prove sono inventati (`livetv91`, `livetv92`…);
 - una **web TV di prova** su `https://webtv.prova.test`: una diretta HLS vera
   trasmessa da **ffmpeg** (due qualità, segmenti da 2 secondi) che si può
   rompere a comando: link principale che cade, riserva, server senza CORS,
@@ -944,21 +955,21 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-password.prove.js` | 10 caratteri, niente 0/O/o/1/l/I/i, 20.000 password tutte diverse, nessuna password (né chiave dei link firmati) nei log o in Firestore | 9 verdi, 0 rossi |
 | `email-service/prove/diretta-mail.prove.js` | le email: HTML e testo, credenziali in carattere a spaziatura fissa, collegamenti, date, assistenza, niente trattini lunghi, niente HTML iniettato, promemoria mai con la password | 196 verdi, 0 rossi |
 | `email-service/prove/diretta-accesso-tempi.prove.js` | "password dimenticata" e "primo accesso" dei gestori rispondono sempre in 2,5-2,9 s, anche con Brevo lento (il resto finisce dopo, con `waitUntil`); un token scaduto fa uscire, un intoppo di Google (rete, chiavi pubbliche non scaricate) no | 26 verdi, 0 rossi |
-| `email-service/prove/diretta-video.prove.js` | il link del video: HLS `.m3u8` (anche con token), DASH `.mpd`, pagina e codice da incorporare del player della web TV; rifiutati con il motivo http, RTMP/RTSP/SRT, file video, link con credenziali, indirizzi interni; link principale e di riserva, sorgente scelta dalla regia (anche riconfermata), nessun link nel documento pubblico fuori onda; la copia del servizio è identica a quella del sito | 93 verdi, 0 rossi |
-| `email-service/prove/diretta-firma.prove.js` | i link firmati a tempo: nginx `secure_link` (con il vettore della documentazione di nginx) e Akamai EdgeAuth, durata, `validoSecondi`, acl non valide rifiutate, la chiave mai restituita | 59 verdi, 0 rossi |
-| `email-service/prove/diretta-prova-link.prove.js` | la prova del link: playlist HLS principale e di una qualità, diretta o registrazione, qualità, DVR, codec, CORS su playlist e segmento, DASH, pagine incorporabili o no (`X-Frame-Options`, `frame-ancestors`), indirizzi interni rifiutati anche dopo un redirect o con il DNS che cambia, tempi e dimensioni massime | 102 verdi, 0 rossi |
-| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo | 61 verdi, 0 rossi |
+| `email-service/prove/diretta-video.prove.js` | il video: il codice vero di Azoto (si prende solo l'indirizzo), codice malevolo (script, `onload`, `onerror`, `javascript:`, `data:`, iframe di altri siti, due iframe), solo `https://cdn.azotosolutions.com` (niente altri siti, sottodomini, porte, http); il flusso diretto HLS `.m3u8` (anche con token) e DASH `.mpd`; rifiutati con il motivo RTMP/RTSP/SRT, file video, link con credenziali, indirizzi interni, un `.m3u8` nel campo del player e viceversa; tipo di player e passaggio A↔B (`evento-player`), link principale e di riserva, sorgente scelta dalla regia, nessun link nel documento pubblico fuori onda; la copia del servizio è identica a quella del sito | 265 verdi, 0 rossi |
+| `email-service/prove/diretta-firma.prove.js` | i link firmati a tempo: nginx `secure_link` (con il vettore della documentazione di nginx) e Akamai EdgeAuth, durata, `validoSecondi`, acl non valide rifiutate, la chiave mai restituita | 64 verdi, 0 rossi |
+| `email-service/prove/diretta-prova-link.prove.js` | la prova del link: il player di Azoto (si può incorporare? non risponde? rimanda altrove?), un indirizzo che non è di Azoto rifiutato senza nemmeno provarlo; per il flusso diretto playlist HLS principale e di una qualità, diretta o registrazione, qualità, DVR, codec, CORS su playlist e segmento, DASH, pagine incorporabili o no (`X-Frame-Options`, `frame-ancestors`), indirizzi interni rifiutati anche dopo un redirect o con il DNS che cambia, tempi e dimensioni massime | 120 verdi, 0 rossi |
+| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo | 65 verdi, 0 rossi |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio | 14 verdi, 0 rossi |
 | `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con 20 "Mario Rossi" ciascuno, omonimi, correzioni: **zero account doppi, zero nomi utente doppi** | 81 verdi, 0 rossi |
-| `accesso.prova.js` | accesso con "Mario Rossi", 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete), risposte e tempi uguali, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda e dal dispositivo ammesso | 159 verdi, 0 rossi |
+| `accesso.prova.js` | accesso con "Mario Rossi", 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete), risposte e tempi uguali, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player | 177 verdi, 0 rossi |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password | 144 verdi, 0 rossi |
-| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari), con la web TV di prova: attesa, messa in onda, avvio muto con il grande «Attiva l'audio» e l'audio che poi si sente, il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità (scegliendo 180p il video passa davvero a 180 righe), pausa e «Torna in diretta», scorciatoie (spazio, F, M, frecce) con il fuoco sul video, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa, pausa dell'evento, fine e ritorno in onda, reimpostazione; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano | 52 verdi, 0 rossi |
-| `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel con tutti i casi (omonimi, doppioni, email sbagliate, correzioni, conferme), creazione a gruppi con "Riprendi", ricerca e azioni sul partecipante; **il link della web TV**: tipo riconosciuto con la spiegazione (HLS, DASH, pagina, codice `<iframe>`), avviso del ripiego ben visibile, link rifiutati con il motivo, prova del link (funziona; CORS mancante con il testo per la web TV e "Copia"; non risponde e "Salva lo stesso"; pagina non incorporabile; indirizzo interno), riserva, "Passa alla riserva per tutti" e ritorno, "Guarda", link firmati (la chiave non esce mai: né nelle risposte, né in Firestore, né nei log, né nella posta); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta | 290 verdi, 0 rossi |
+| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano | 57 verdi, 0 rossi |
+| `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel con tutti i casi (omonimi, doppioni, email sbagliate, correzioni, conferme), creazione a gruppi con "Riprendi", ricerca e azioni sul partecipante; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta | 371 verdi, 0 rossi |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento | 282 verdi, 0 rossi |
-| `e2e.prova.js` | **il percorso completo con tutto vero** (la web TV è quella di prova): il gestore si attiva dall'email, crea evento e partecipanti, manda le credenziali; Mario le legge dalla posta, entra dal telefono, aspetta, va in onda e vede il video della web TV, schermo intero, cambio del link (incollato con spazi e `#`) senza ricaricare, connessione persa, pagina riaperta, un minuto di presenza, esce, password dimenticata, accesso automatico; fine ed esportazione | 24 verdi, 0 rossi |
-| `webtv.prova.js` | **la web TV con la regia vera** (emulatori e servizio vero): il link principale cade → "Stiamo ricollegando la diretta…", tentativi distanziati e passaggio da solo alla riserva, senza ricaricare; la regia manda tutti sulla riserva e li riporta; diretta che non risponde e poi parte da sola; ripiego incorporato (niente nostri comandi); link non valido; **flusso pubblico HLS di Shaka**: barra DVR di un'ora, indietro di 2 minuti, «Torna in diretta», qualità; **DASH di Shaka**: parte, DVR, qualità; link firmato nginx: la firma arriva su playlist e segmenti, verificata con un calcolo indipendente; telefono 390×844; nessuna violazione della CSP | 21 verdi, 0 rossi |
-| `player.prova.js` | **il player da solo**, con i flussi pubblici HLS e DASH di Shaka e la diretta ffmpeg: avvio, attributi del `<video>`, qualità senza doppioni (HLS e DASH, anche in un riquadro stretto), DVR, `cerca` e `vaiAlLive`, segnale fermo, **playlist ferma** (la web TV risponde ma la diretta non avanza), link firmati e rinnovo della firma **senza ricaricare**, link firmato molto lungo, pezzo di DASH perso che non ferma niente, link incorporato che tace quando è nascosto, 404, link che non risponde, avvio bloccato, pagina nascosta | 76 verdi, 0 rossi |
-| `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 18 verdi, 0 rossi |
+| `e2e.prova.js` | **il percorso completo con tutto vero** (il player di Azoto è quello finto): il gestore si attiva dall'email, crea l'evento **incollando il codice di Azoto** (si salva solo l'indirizzo) e i partecipanti, manda le credenziali; Mario le legge dalla posta, entra dal telefono, aspetta (nessun player), va in onda e compare il player di Azoto (chi non ha fatto l'accesso non riceve l'indirizzo: né nella pagina, né nello stato pubblico, né da Firestore), schermo intero (vero sul computer, la vista orizzontale sull'iPhone), cambio del player senza ricaricare, connessione persa, pagina riaperta, pausa e fine (il player sparisce, restano le nostre schermate), un minuto di presenza, esce, password dimenticata, accesso automatico; esportazione | 26 verdi, 0 rossi |
+| `webtv.prova.js` | **le due modalità con la regia vera** (emulatori e servizio vero), su computer e iPhone. **Player Azoto**: prima dell'accesso nessuna richiesta ad Azoto; l'iframe con gli attributi e il titolo giusti, mai `azoto-player.js`; sotto il video solo «Schermo intero» e la nota; **niente sopra l'iframe** (un clic e un tocco veri sul play di Azoto arrivano); 16:9 senza bande né barre a 1440×900, 390×844, 360×740 e iPhone orizzontale; schermo intero vero sul computer e vista orizzontale sull'iPhone, senza ricaricare l'iframe; cambio del player e A→B→A senza ricaricare la pagina e senza altri ascolti di Firestore; player fermo: avviso a 15 secondi sotto il riquadro, «Ricarica il video» ricrea solo l'iframe; CSP. **Flusso diretto**: principale che cade → "Stiamo ricollegando la diretta…" e riserva; la regia sposta tutti; **flusso pubblico HLS di Shaka** (DVR, «Torna in diretta», qualità) e DASH; link firmati | 32 verdi, 0 rossi |
+| `player.prova.js` | **il player del flusso diretto da solo**, con i flussi pubblici HLS e DASH di Shaka e la diretta ffmpeg: avvio, attributi del `<video>`, qualità senza doppioni, DVR, `cerca` e `vaiAlLive`, segnale fermo, **playlist ferma**, link firmati e rinnovo della firma **senza ricaricare**, link firmato molto lungo, pezzo di DASH perso, un indirizzo di pagina rifiutato ('link'), 404, link che non risponde, avvio bloccato, pagina nascosta | 73 verdi, 0 rossi |
+| `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 20 verdi, 0 rossi |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
 Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch:
@@ -986,12 +997,13 @@ node anteprima/anteprima.prova.js  # la prova: percorso completo nel browser
 Dentro ci sono le **pagine vere** (`diretta/index.html`, `reimposta.html`,
 `gestione/`) e il **servizio vero** (`email-service/api/diretta-*.js`),
 impacchettato con un Firebase finto in memoria che applica le stesse regole di
-`firestore.rules`. Le email finiscono nella scheda «Posta di prova», al posto
-della web TV c'è un video di prova (`anteprima/player-anteprima.js`, con la
-stessa interfaccia del player vero; con `node anteprima/costruisci.js
---player-vero` c'è invece il player vero con una web TV finta su
-`*.esempio.it`, anche per la prova del link) e l'esportazione Excel si apre in
-una finestra.
+`firestore.rules`. Le email finiscono nella scheda «Posta di prova»; al posto
+del player di Azoto c'è un riquadro «Player Azoto (anteprima)»
+(`anteprima/player-azoto-anteprima.js`) e al posto del flusso diretto un video
+di prova (`anteprima/player-anteprima.js`), con le stesse interfacce dei player
+veri (con `node anteprima/costruisci.js --player-vero` c'è invece il player
+vero del flusso con una web TV finta su `*.esempio.it`); l'esportazione Excel
+si apre in una finestra.
 Accessi di prova: `mariorossi`, `annamariadeluca`, `nicolodangelo` e
 `mariorossi2` (le password sono nella guida dell'anteprima), regia
 `gestore@anteprima.it`. L'evento di prova è sempre di oggi. I pochi ritocchi
@@ -999,24 +1011,28 @@ fatti alle pagine per farle girare lì (da dove si caricano l'SDK e SheetJS, la
 navigazione fra le pagine) sono elencati in `anteprima/costruisci.js`, che si
 ferma se non li trova: l'anteprima non può restare indietro rispetto al codice.
 
-**Cosa le prove non coprono** (e va provato a mano, vedi §12): la web TV vera
-(il suo link, il CORS dei suoi server, la sua firma dei link, la capacità con
-1000 persone: §5.7), Safari vero su iPhone e iPad con l'HLS letto dal browser
-(Playwright usa Chromium, che simula il telefono ma non è Safari: §5.8), il
-codec H.264 (il Chromium delle prove non lo ha: le dirette di prova sono in
-VP9/AV1), Firefox ed Edge, Brevo vero, il progetto Firebase vero (quote,
-indici, limiti di Google).
+**Cosa le prove non coprono** (e va provato a mano, vedi §5.9 e §12): **il
+player vero di Azoto** (le prove usano quello finto: il vero carica librerie e
+video da server che l'ambiente delle prove non raggiunge), con il suo audio, i
+suoi comandi e la capacità con 1000 persone; il flusso diretto vero di Azoto
+(il CORS dei loro server); Safari vero su iPhone e iPad (Playwright usa
+Chromium, che simula il telefono ma non è Safari); il codec H.264 (il Chromium
+delle prove non lo ha: le dirette di prova sono in VP9/AV1); Firefox ed Edge;
+Brevo vero; il progetto Firebase vero (quote, indici, limiti di Google).
 
 **Gli screenshot** di consegna sono in [`diretta/screenshot/`](screenshot/)
-(telefono e computer: accesso, attesa, **diretta con «IN DIRETTA»**, **indietro
-nella diretta con «Torna in diretta»**, **"Stiamo ricollegando la diretta…"**,
-video non disponibile, ripiego incorporato, schermo intero, gestione con
-l'anteprima del caricamento e con **l'avviso del ripiego iframe**, email, popup
-della home, sezione di Napoli). Si rifanno con
-`node diretta/prove/screenshot-finali.js` dopo le prove. Le foto della
-gestione del link (ripiego nella scheda Evento e in Regia, prova riuscita, CORS
-da controllare con il testo per la web TV, regia con la riserva) sono in
-`diretta/prove/risultati/screenshot-gestione-webtv/` (non versionata: le rifà
+(telefono e computer): accesso, attesa, **diretta con il player di Azoto**
+(`03-diretta-azoto-*`, con il player finto delle prove), **schermo intero**
+(`03-diretta-azoto-schermo-intero-*`: sul telefono la vista orizzontale, da
+guardare girando la testa), **player che non risponde** con «Ricarica il video»
+(`03-diretta-azoto-lenta-*`), gestione con il campo **«Tipo di player»**
+(`04-gestione-tipo-player-*`), e poi la modalità B (diretta con «IN DIRETTA»,
+«Torna in diretta», "Stiamo ricollegando la diretta…", video non disponibile,
+schermo intero), la gestione con l'anteprima del caricamento, le email, il
+popup della home e la sezione di Napoli. Si rifanno con
+`node diretta/prove/screenshot-finali.js` dopo le prove. Altre foto della
+gestione del player (scheda Evento, prova, regia in modalità A e B) sono in
+`diretta/prove/risultati/screenshot-gestione-azoto/` (non versionata: le rifà
 `gestione.prova.js`).
 
 ## 11. Cambiare piattaforma video
@@ -1088,7 +1104,7 @@ settembre: c'è tempo, ma non tanto).
 **Subito (oggi o domani)**
 
 1. [ ] **Azoto**: manda ad Azoto **le domande del §5.8** (il testo è pronto da
-   copiare). Le più importanti: **limitare il player `livetv29` al nostro
+   copiare). Le più importanti: **limitare il player del nostro canale al nostro
    dominio** (oggi si apre da qualsiasi sito: è l'unica vera protezione, §5.5),
    il **peer-to-peer** del loro player (domanda 8: serve anche per
    l'informativa privacy), la conferma che reggono **1000 persone insieme**
@@ -1160,7 +1176,7 @@ settembre: c'è tempo, ma non tanto).
 
 **Il 2 ottobre**: *Regia* → "Vai in onda" quando Azoto trasmette; "Pausa"
 a pranzo; "Termina" alla fine; poi *Esporta* per gli attestati. Dopo l'evento,
-chiedi ad Azoto di spegnere il canale `livetv29` (il suo indirizzo, una volta
+chiedi ad Azoto di spegnere il nostro canale (il suo indirizzo, una volta
 copiato, resta apribile da chiunque finché è acceso).
 
 **Da decidere con calma** (non bloccano Napoli)

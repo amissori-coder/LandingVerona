@@ -28,7 +28,7 @@
      - il player di Azoto: l'indirizzo della sua pagina oppure tutto il
        codice che Azoto da' da incollare nel sito, per esempio
          <div class='azoto-player-container'>
-         <iframe src='https://cdn.azotosolutions.com/cloudtv/livetv29/player' ...></iframe>
+         <iframe src='https://cdn.azotosolutions.com/cloudtv/livetvNN/player' ...></iframe>
          </div>
          <script src='https://azotosolutions.com/videojs/azoto-player.js'></script>
        Dal codice si prende SOLO l'indirizzo (src) del PRIMO <iframe>:

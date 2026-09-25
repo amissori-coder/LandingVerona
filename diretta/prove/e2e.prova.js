@@ -38,7 +38,7 @@
        l'indirizzo (non e' nell'HTML ne' nel JS pubblico, ne' nello
        stato pubblico della diretta; Firestore non lo da'); schermo
        intero (vero sul computer, la vista orizzontale sull'iPhone); il
-       gestore cambia l'indirizzo del player (livetv29 -> livetv30):
+       gestore cambia l'indirizzo del player (livetv91 -> livetv92):
        l'iframe cambia senza ricaricare la pagina; il contatore dei
        collegati li vede;
     5. connessione persa e ritrovata; la pagina riaperta non chiede di
@@ -87,7 +87,7 @@ const TITOLO = 'Next Generation Business 2026 · Napoli';
 const CODICE_AZOTO = '<div class=\'azoto-player-container\'>\n'
     + '<iframe src=\'' + F.PLAYER_AZOTO + '\' frameborder=\'0\' scrolling=\'no\' allowfullscreen></iframe>\n'
     + '</div>\n<script src=\'https://azotosolutions.com/videojs/azoto-player.js\'></script>';
-const AZOTO_30 = F.AZOTO + '/cloudtv/livetv30/player';
+const AZOTO_30 = F.AZOTO + '/cloudtv/livetv92/player';
 const PERMESSI = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
@@ -460,8 +460,8 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             const pubblico = (await db.doc('eventi/' + EVENTO).get()).data();
             vero(pubblico.tipoPlayer === 'azoto' && pubblico.videoId === F.PLAYER_AZOTO && !pubblico.videoUrl && !pubblico.azotoUrl, 'documento pubblico: ' + JSON.stringify({ t: pubblico.tipoPlayer, v: pubblico.videoId }));
             for (const [c, nome] of [[computer, 'computer'], [iphone, 'iPhone']]) {
-                await iframeAzotoGiusto(c.page, 'livetv29', nome);
-                vero(c.richiesteAzoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\/?$/.test(u)), nome + ': richieste ad Azoto: ' + c.richiesteAzoto.join(', '));
+                await iframeAzotoGiusto(c.page, 'livetv91', nome);
+                vero(c.richiesteAzoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv91\/player\/?$/.test(u)), nome + ': richieste ad Azoto: ' + c.richiesteAzoto.join(', '));
                 vero(await c.page.locator('#nota-azoto').isVisible() && await c.page.locator('#btn-schermo-intero').isVisible() && !(await c.page.locator('#btn-play').isVisible()),
                     nome + ': sotto il video non ci sono solo «Schermo intero» e la nota');
             }
@@ -532,14 +532,14 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             await foto(iphone.page, '07-schermo-intero-telefono');
             await iphone.page.click('#btn-schermo-intero');
             await aspetta(() => iphone.page.evaluate(() => document.getElementById('riquadro-video').getAttribute('data-intero') === '0'), 5000, 'uscita dalla vista a pagina intera');
-            vero(await canaleAzoto(iphone.page) === 'livetv29', 'l\'iframe si e\' perso con lo schermo intero');
+            vero(await canaleAzoto(iphone.page) === 'livetv91', 'l\'iframe si e\' perso con lo schermo intero');
         });
-        await prova('il gestore cambia l\'indirizzo del player durante la diretta (livetv29 -> livetv30): l\'iframe cambia senza ricaricare la pagina', async () => {
+        await prova('il gestore cambia l\'indirizzo del player durante la diretta (livetv91 -> livetv92): l\'iframe cambia senza ricaricare la pagina', async () => {
             for (const c of [computer, iphone]) await c.page.evaluate(() => { window.__segnoPagina = 'ancora-qui'; });
             // incollato con gli spazi intorno: il servizio lo pulisce
             await g({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: ' ' + AZOTO_30 + ' ' });
             for (const [c, nome] of [[computer, 'computer'], [iphone, 'iPhone']]) {
-                await iframeAzotoGiusto(c.page, 'livetv30', nome);
+                await iframeAzotoGiusto(c.page, 'livetv92', nome);
                 vero(await c.page.evaluate(() => window.__segnoPagina) === 'ancora-qui', 'la pagina si e\' ricaricata (' + nome + ')');
             }
             const pubblico = (await db.doc('eventi/' + EVENTO).get()).data();
@@ -570,12 +570,12 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             await computer.page.waitForSelector('#avviso-connessione', { state: 'hidden', timeout: 30000 });
             await pausa(3000);
             computer.page.__senzaRete = false;
-            vero(await canaleAzoto(computer.page) === 'livetv30', 'il player di Azoto non c\'e\' piu\' dopo la connessione persa');
+            vero(await canaleAzoto(computer.page) === 'livetv92', 'il player di Azoto non c\'e\' piu\' dopo la connessione persa');
         });
         await prova('riaprendo la pagina non si rifa\' l\'accesso, e il player di Azoto torna', async () => {
             await iphone.page.reload();
             await vista(iphone.page, 'diretta', 30000);
-            await iframeAzotoGiusto(iphone.page, 'livetv30', 'iPhone dopo la riapertura');
+            await iframeAzotoGiusto(iphone.page, 'livetv92', 'iPhone dopo la riapertura');
         });
 
         /* ---------- 6. un minuto di diretta, una pausa ---------- */
@@ -602,7 +602,7 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' });
             for (const [c, nome] of [[computer, 'computer'], [iphone, 'iPhone']]) {
                 await vista(c.page, 'diretta');
-                await iframeAzotoGiusto(c.page, 'livetv30', nome + ' dopo la pausa');
+                await iframeAzotoGiusto(c.page, 'livetv92', nome + ' dopo la pausa');
             }
         });
 
@@ -636,7 +636,7 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             await iphone.page.click('#btn-salva-password');
             await iphone.page.waitForURL(/\/diretta\/(\?.*)?$/, { timeout: 30000 });
             await vista(iphone.page, 'diretta', 30000);
-            await iframeAzotoGiusto(iphone.page, 'livetv30', 'iPhone dopo la nuova password');
+            await iframeAzotoGiusto(iphone.page, 'livetv92', 'iPhone dopo la nuova password');
         });
         await prova('la vecchia password non vale piu\', la nuova si', async () => {
             const vecchia = await fetch(API + '/diretta-accesso', { method: 'POST', headers: { 'content-type': 'application/json' },

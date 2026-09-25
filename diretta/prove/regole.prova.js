@@ -61,7 +61,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await env.clearFirestore();
     await semina(async db => {
         // il video come lo scrive il servizio: il player di Azoto (tipoPlayer 'azoto') o il flusso diretto ('flusso')
-        await setDoc(doc(db, 'eventi/napoli-2026'), { titolo: 'Napoli', stato: 'in_onda', tipoPlayer: 'azoto', videoId: 'https://cdn.azotosolutions.com/cloudtv/livetv29/player', videoRiserva: '', videoFirmato: false });
+        await setDoc(doc(db, 'eventi/napoli-2026'), { titolo: 'Napoli', stato: 'in_onda', tipoPlayer: 'azoto', videoId: 'https://cdn.azotosolutions.com/cloudtv/livetv91/player', videoRiserva: '', videoFirmato: false });
         await setDoc(doc(db, 'eventi/milano-2026'), { titolo: 'Milano', stato: 'programmato', tipoPlayer: 'flusso', videoId: '' });
         await setDoc(doc(db, 'partecipanti/anna'), { nomeUtente: 'annabianchi', stato: 'attivo', eventi: ['napoli-2026'] });
         await setDoc(doc(db, 'partecipanti/bruno'), { nomeUtente: 'brunoverdi', stato: 'attivo', eventi: ['milano-2026'] });
@@ -73,7 +73,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await setDoc(doc(db, 'sessioni/carla'), { stato: 'disattivato', sessioneAttiva: null });
         await setDoc(doc(db, 'sessioni/dario'), { stato: 'attivo', sessioneAttiva: 'telefono' });
         await setDoc(doc(db, 'eventiRiservati/napoli-2026'), {
-            tipoPlayer: 'azoto', azotoUrl: 'https://cdn.azotosolutions.com/cloudtv/livetv29/player',
+            tipoPlayer: 'azoto', azotoUrl: 'https://cdn.azotosolutions.com/cloudtv/livetv91/player',
             videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8'
         });
         await setDoc(doc(db, 'nomiUtente/annabianchi'), { uid: 'anna', base: 'annabianchi' });
@@ -96,7 +96,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il partecipante legge il proprio evento', () => assertSucceeds(getDoc(doc(anna, 'eventi/napoli-2026'))));
     await prova('nel proprio evento in onda legge il tipo di player e l\'indirizzo del player di Azoto (solo dopo l\'accesso)', async () => {
         const d = (await assertSucceeds(getDoc(doc(anna, 'eventi/napoli-2026')))).data();
-        if (d.tipoPlayer !== 'azoto' || d.videoId !== 'https://cdn.azotosolutions.com/cloudtv/livetv29/player') throw new Error('letto: ' + JSON.stringify(d));
+        if (d.tipoPlayer !== 'azoto' || d.videoId !== 'https://cdn.azotosolutions.com/cloudtv/livetv91/player') throw new Error('letto: ' + JSON.stringify(d));
     });
     await prova('il partecipante NON legge un altro evento', () => assertFails(getDoc(doc(anna, 'eventi/milano-2026'))));
     await prova('il partecipante NON elenca gli eventi', () => assertFails(getDocs(collection(anna, 'eventi'))));

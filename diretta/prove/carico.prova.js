@@ -114,7 +114,7 @@ async function prepara() {
         azione: 'evento-salva', evento: {
             id: EVENTO, nuovo: true, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
             // il player predefinito e' quello di Azoto: in onda il suo indirizzo e' il videoId che le persone leggono
-            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', azotoUrl: 'https://cdn.azotosolutions.com/cloudtv/livetv29/player',
+            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', azotoUrl: 'https://cdn.azotosolutions.com/cloudtv/livetv91/player',
             videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
             programma: '09.00 Accoglienza\n09.30 Apertura dei lavori', paginaEvento: '/napoli_ottobre_2026/',
             unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }

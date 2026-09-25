@@ -106,8 +106,8 @@ const POSTA = path.join(RISULTATI, 'posta-accesso.jsonl');
 const LOG_SERVER = path.join(RISULTATI, 'server-accesso.log');
 const GESTORE = 'gestore@prova.it';
 // il player di Azoto (la modalita' predefinita) e il codice che Azoto da' da incollare nel sito
-const LINK_AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
-const LINK_AZOTO_30 = 'https://cdn.azotosolutions.com/cloudtv/livetv30/player';
+const LINK_AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
+const LINK_AZOTO_30 = 'https://cdn.azotosolutions.com/cloudtv/livetv92/player';
 const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='" + LINK_AZOTO + "' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
 // i link del flusso diretto della web TV (la modalita' 'flusso')
 const LINK_WEBTV = 'https://webtv.esempio.it/live/napoli/playlist.m3u8';
@@ -798,7 +798,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
             'un .m3u8 nel campo del player Azoto: 400 («' + flussoInAzoto.dati.msg + '»)');
         const malevolo = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, azotoUrl: "<script>alert(1)</script><iframe src='https://ladro.esempio.it/p' onload='alert(1)'></iframe>" + CODICE_AZOTO } }, tokG);
         vero(malevolo.stato === 400 && malevolo.dati.codice === 'azoto' && /cdn\.azotosolutions\.com/.test(malevolo.dati.msg || ''), 'codice malevolo (script e un iframe di un altro sito davanti): 400 («' + malevolo.dati.msg + '»)');
-        const nonAzoto = await gestione({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: 'https://azotosolutions.com/cloudtv/livetv29/player' }, tokG);
+        const nonAzoto = await gestione({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: 'https://azotosolutions.com/cloudtv/livetv91/player' }, tokG);
         vero(nonAzoto.stato === 400 && nonAzoto.dati.codice === 'azoto', 'azotosolutions.com senza cdn.: 400');
         const primaCambioAzoto = (await db.collection('eventi').doc(EVENTO).get()).data();
         const cambioAzoto = await gestione({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: "<iframe src='" + LINK_AZOTO_30 + "'></iframe>" }, tokG);

@@ -188,7 +188,7 @@ async function instradaWebTv(context, cartella, opzioni) {
 
 /* ---------- il player di Azoto finto ---------- */
 const AZOTO = 'https://cdn.azotosolutions.com';
-const PLAYER_AZOTO = AZOTO + '/cloudtv/livetv29/player';
+const PLAYER_AZOTO = AZOTO + '/cloudtv/livetv91/player';
 
 function paginaAzoto(canale) {
     return '<!doctype html><html lang="it"><head><meta charset="utf-8"><title>AzotoSolutions (prova)</title>'

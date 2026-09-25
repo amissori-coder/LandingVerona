@@ -65,7 +65,7 @@
      orizzontale (riquadro ruotato di 90 gradi), con il pulsante per
      uscire che non copre l'iframe; Esc e il pulsante escono; l'iframe
      non si ricarica;
-   - la regia cambia l'indirizzo (livetv29 -> livetv30): iframe nuovo,
+   - la regia cambia l'indirizzo (livetv91 -> livetv92): iframe nuovo,
      senza ricaricare la pagina, stessa lettura in ascolto;
    - A -> B -> A con evento-player: senza ricaricare la pagina e senza
      aprire o chiudere ascolti su Firestore; in B il nostro <video> con
@@ -606,9 +606,9 @@ function contaAscolti(page) {
                 const html = await c.page.content();
                 vero(html.indexOf('/cloudtv/') < 0 && !(await c.page.locator('#video-player iframe').count()), nome + ': l\'indirizzo del player o l\'iframe nella pagina prima dell\'accesso');
                 await accedi(c.page);
-                await iframeAzotoGiusto(c.page, 'livetv29', nome);
+                await iframeAzotoGiusto(c.page, 'livetv91', nome);
                 // solo la pagina del player (e il 301 verso .../player/); mai azoto-player.js ne' altro di Azoto
-                vero(c.richiesteAzoto.length >= 1 && c.richiesteAzoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\/?$/.test(u)),
+                vero(c.richiesteAzoto.length >= 1 && c.richiesteAzoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv91\/player\/?$/.test(u)),
                     nome + ': richieste ad Azoto: ' + c.richiesteAzoto.join(', '));
                 vero(!c.chiamate.some(x => x.azione === 'link-video'), nome + ': in modalità A la pagina ha chiesto il link del flusso al servizio');
                 vero((await c.page.textContent('#stato-evento')).trim() === 'IN DIRETTA', nome + ': bollino «' + (await c.page.textContent('#stato-evento')).trim() + '»');
@@ -745,13 +745,13 @@ function contaAscolti(page) {
             }
         });
 
-        await prova('la regia cambia l\'indirizzo del player durante la diretta (livetv29 -> livetv30): iframe nuovo senza ricaricare la pagina, stessa lettura in ascolto', async () => {
+        await prova('la regia cambia l\'indirizzo del player durante la diretta (livetv91 -> livetv92): iframe nuovo senza ricaricare la pagina, stessa lettura in ascolto', async () => {
             const prima = {};
             for (const c of [pc, ip]) prima[c === pc ? 'pc' : 'ip'] = { nav: await segnaPagina(c, 'cambio-indirizzo'), ascolti: Object.assign({}, c.ascolti) };
             // incollato con uno spazio: il servizio lo pulisce
             await cambiaAzoto(' ' + azotoCanale(30) + ' ');
             for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
-                await iframeAzotoGiusto(c.page, 'livetv30', nome);
+                await iframeAzotoGiusto(c.page, 'livetv92', nome);
                 const x = prima[c === pc ? 'pc' : 'ip'];
                 await nonRicaricata(c, 'cambio-indirizzo', x.nav, nome);
                 vero(c.ascolti.aperti === x.ascolti.aperti && c.ascolti.chiusi === x.ascolti.chiusi, nome + ': ascolti su Firestore aperti o chiusi: ' + JSON.stringify({ prima: x.ascolti, dopo: c.ascolti }));
@@ -784,7 +784,7 @@ function contaAscolti(page) {
                 await passaA('azoto');
             }
             for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
-                await iframeAzotoGiusto(c.page, 'livetv30', nome + ' di nuovo in A');
+                await iframeAzotoGiusto(c.page, 'livetv92', nome + ' di nuovo in A');
                 const x = prima[c === pc ? 'pc' : 'ip'];
                 await nonRicaricata(c, 'a-b-a', x.nav, nome);
                 vero(c.ascolti.aperti === x.ascolti.aperti && c.ascolti.chiusi === x.ascolti.chiusi, nome + ': ascolti su Firestore aperti o chiusi: ' + JSON.stringify({ prima: x.ascolti, dopo: c.ascolti }));
@@ -794,7 +794,7 @@ function contaAscolti(page) {
 
         await prova('il player di Azoto non risponde: a 15 s (non prima) «La diretta sta arrivando, attendi qualche secondo» SOTTO il riquadro, con «Ricarica il video» (computer e telefono)', async () => {
             await i.setViewportSize({ width: 390, height: 844 });
-            for (const c of [pc, ip]) { c.azoto.fermo = true; await segnaTempiLento(c.page, 'livetv31'); }
+            for (const c of [pc, ip]) { c.azoto.fermo = true; await segnaTempiLento(c.page, 'livetv93'); }
             await cambiaAzoto(azotoCanale(31));
             await Promise.all([pc, ip].map(c => c.page.waitForFunction(() => window.__tempiLento.avviso > 0, null, { timeout: 30000 })));
             for (const [c, nome] of [[pc, 'computer'], [ip, 'telefono']]) {
@@ -811,7 +811,7 @@ function contaAscolti(page) {
                 vero(m.avviso.y >= m.video.y + m.video.h - 0.5, nome + ': l\'avviso non sta sotto il video ' + JSON.stringify(m));
                 vero(m.pulsante.h >= 48 && nelloSchermo(m.pulsante, m.finestra), nome + ': «Ricarica il video» ' + JSON.stringify(m.pulsante));
                 const s = await statoAzoto(c.page);
-                vero(s.quanti === 1 && /livetv31/.test(s.src) && s.schermata === 'video' && !s.schermo, nome + ': l\'iframe non resta al suo posto ' + JSON.stringify(s));
+                vero(s.quanti === 1 && /livetv93/.test(s.src) && s.schermata === 'video' && !s.schermo, nome + ': l\'iframe non resta al suo posto ' + JSON.stringify(s));
                 const sopra = await sopraIframe(c.page);
                 vero(!sopra.length, nome + ': sopra l\'iframe: ' + sopra.join(' | '));
                 await foto(c.page, nome === 'computer' ? 'azoto-lenta-computer' : 'azoto-lenta-telefono');
@@ -822,11 +822,11 @@ function contaAscolti(page) {
             const nav = await segnaPagina(pc, 'ricarica');
             await p.evaluate(() => { document.querySelector('#video-player iframe').dataset.segno = 'vecchio'; });
             const ascolti = Object.assign({}, pc.ascolti);
-            const n0 = pc.richiesteAzoto.filter(u => /livetv31\/player/.test(u)).length;
+            const n0 = pc.richiesteAzoto.filter(u => /livetv93\/player/.test(u)).length;
             await p.click('#btn-ricarica-video');
-            await aspetta(() => p.evaluate(() => { const f = document.querySelectorAll('#video-player iframe'); return f.length === 1 && !f[0].dataset.segno && /livetv31/.test(f[0].src); }), 5000, 'l\'iframe nuovo');
+            await aspetta(() => p.evaluate(() => { const f = document.querySelectorAll('#video-player iframe'); return f.length === 1 && !f[0].dataset.segno && /livetv93/.test(f[0].src); }), 5000, 'l\'iframe nuovo');
             vero(!(await visibile(p, '#avviso-lento')), 'l\'avviso resta dopo «Ricarica il video»');
-            await aspetta(() => pc.richiesteAzoto.filter(u => /livetv31\/player/.test(u)).length > n0, 5000, 'la pagina del player chiesta di nuovo');
+            await aspetta(() => pc.richiesteAzoto.filter(u => /livetv93\/player/.test(u)).length > n0, 5000, 'la pagina del player chiesta di nuovo');
             await nonRicaricata(pc, 'ricarica', nav, 'computer');
             vero(pc.ascolti.aperti === ascolti.aperti && pc.ascolti.chiusi === ascolti.chiusi, 'ascolti su Firestore: ' + JSON.stringify({ prima: ascolti, dopo: pc.ascolti }));
             vero(await p.evaluate(() => document.activeElement === document.getElementById('riquadro-video')), 'il fuoco si e\' perso (doveva andare sul riquadro)');
@@ -838,7 +838,7 @@ function contaAscolti(page) {
             for (const c of [pc, ip]) { c.azoto.fermo = false; c.trattieni.rilascia(); }
             await i.waitForSelector('#avviso-lento', { state: 'hidden', timeout: 10000 });
             for (const [c, nome] of [[pc, 'computer'], [ip, 'telefono']]) {
-                await iframeAzotoGiusto(c.page, 'livetv31', nome);
+                await iframeAzotoGiusto(c.page, 'livetv93', nome);
             }
             await pausa(1000);
             vero(!(await visibile(p, '#avviso-lento')) && !(await visibile(i, '#avviso-lento')), 'l\'avviso e\' tornato');

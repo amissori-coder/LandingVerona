@@ -81,7 +81,7 @@ function trovaFfmpeg() {
 
 /* sorgente-video.js va bene se conosce i tipi del contratto (la pagina da
    incorporare solo se e' il player di Azoto) */
-const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
+const AZOTO = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
 function sorgenteAggiornata() {
     try {
         const f = path.join(DIRETTA, 'sorgente-video.js');

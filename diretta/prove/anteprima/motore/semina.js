@@ -9,7 +9,7 @@
    2. l'evento "Next Generation Business 2026 · Napoli", di oggi, che
       comincia tra circa mezz'ora (conto alla rovescia visibile), con il
       video in modalita' A: il player di Azoto (tipoPlayer 'azoto', il
-      suo indirizzo livetv29). C'e' anche un flusso diretto .m3u8 della
+      suo indirizzo: un canale inventato, livetv91). C'e' anche un flusso diretto .m3u8 della
       web TV finta, per passare alla modalita' B dalla regia;
    3. quattro partecipanti, due dei quali omonimi (Mario Rossi e Mario
       Rossi: mariorossi e mariorossi2);
@@ -22,7 +22,7 @@ const servizio = require('./servizio');
 
 const ID_EVENTO = 'napoli-anteprima';
 // l'indirizzo del player di Azoto (quello del codice che Azoto ci ha dato)
-const AZOTO_URL = 'https://cdn.azotosolutions.com/cloudtv/livetv29/player';
+const AZOTO_URL = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
 const GESTORE = { email: 'gestore@anteprima.it', password: 'Regia-Napoli-26' };
 const PARTECIPANTI = [
     { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', azienda: 'Rossi Costruzioni srl', password: 'Vesuv9Kaz3' },
