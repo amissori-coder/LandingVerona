@@ -192,7 +192,7 @@ function soddisfa(valore, op, atteso) {
 }
 
 /* ---------------- l'archivio ---------------- */
-const CHIAVE_SALVATAGGIO = 'ngbAnteprimaDiretta.v3';   // v3: link di riserva, sorgente in uso, link firmati
+const CHIAVE_SALVATAGGIO = 'ngbAnteprimaDiretta.v4';   // v4: tipo di player (Azoto o flusso diretto)
 
 function inJson(v) {
     if (v instanceof Timestamp) return { __ts: v.toMillis() };
