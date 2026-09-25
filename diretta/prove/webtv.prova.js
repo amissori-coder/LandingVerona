@@ -1,67 +1,109 @@
 /* ============================================================
-   PROVE - la diretta dalla WEB TV nella pagina VERA dei partecipanti
+   PROVE - le due modalita' del video nella pagina VERA dei partecipanti
    ------------------------------------------------------------
        node diretta/prove/webtv.prova.js
 
    Da sola avvia (e alla fine ferma) gli emulatori Firebase (firestore
    8380, auth 9380), il servizio VERO e il sito in locale
-   (server-locale.js: api 3380, sito 8390) e la diretta di prova:
-   - la WEB TV FINTA https://webtv.prova.test (flusso-prova.js): una
-     diretta HLS vera trasmessa da ffmpeg (VP9 + Opus, 360p e 180p,
-     segmenti da 2 s, finestra di 40 s: niente barra per tornare
-     indietro), con /live/ (il link principale), /riserva/ (quello di
-     riserva), /spento/ (una diretta non ancora partita),
-     /player/napoli (la pagina del player da incorporare); il principale
-     si "rompe" a comando (503 su playlist e segmenti);
-   - il FLUSSO PUBBLICO DI PROVA di Shaka Player (Google), in HLS e in
-     DASH: una diretta vera, sempre in onda, con un'ora di finestra per
-     tornare indietro e piu' qualita' (480p, 720p). Il browser non esce
-     in rete da solo: le richieste le fa Node (inoltraPubblico).
+   (server-locale.js: api 3380, sito 8390) e la diretta di prova.
+   Il video della diretta ha due modalita', scelte dalla regia per ogni
+   evento («Tipo di player», eventi.tipoPlayer):
+     A) il PLAYER DI AZOTO in un iframe (la predefinita): qui il player
+        FINTO di flusso-prova.js (instradaAzoto) su
+        https://cdn.azotosolutions.com/cloudtv/livetv<N>/player (301
+        verso .../player/, come il vero), con il suo pulsante #play-azoto.
+        Le prove non usano MAI la rete vera di Azoto;
+     B) il FLUSSO DIRETTO nel NOSTRO player:
+        - la WEB TV FINTA https://webtv.prova.test (flusso-prova.js): una
+          diretta HLS vera trasmessa da ffmpeg (VP9 + Opus, 360p e 180p,
+          segmenti da 2 s, finestra di 40 s: niente barra per tornare
+          indietro), con /live/ (il link principale), /riserva/ (quello
+          di riserva), /spento/ (una diretta non ancora partita); il
+          principale si "rompe" a comando (503 su playlist e segmenti);
+        - il FLUSSO PUBBLICO DI PROVA di Shaka Player (Google), in HLS e
+          in DASH: una diretta vera, sempre in onda, con un'ora di
+          finestra per tornare indietro e piu' qualita' (480p, 720p). Il
+          browser non esce in rete da solo: le richieste le fa Node
+          (inoltraPubblico).
    Serve ffmpeg (quello di sistema, FFMPEG=/percorso, oppure pip
    install imageio-ffmpeg).
 
    La regia e' quella vera: le azioni dell'API di gestione
-   (evento-salva, evento-stato, evento-video, evento-sorgente) con un
-   gestore dell'emulatore. Il partecipante entra con nome utente e
-   password (azione 'entra' vera) nella pagina vera (/diretta/, con la
-   sua CSP e player-webtv.js), su Chromium: computer 1440x900 e
-   telefono 390x844 (iPhone: user agent di Safari, niente API di
-   schermo intero).
+   (evento-salva, evento-stato, evento-video, evento-player,
+   evento-sorgente) con un gestore dell'emulatore. L'evento si crea
+   incollando il CODICE che ha dato Azoto (si salva solo l'indirizzo) e
+   il link del flusso; senza «Tipo di player» e' 'azoto'. Il
+   partecipante entra con nome utente e password (azione 'entra' vera)
+   nella pagina vera (/diretta/, con la sua CSP, player-azoto.js e
+   player-webtv.js), su Chromium: computer 1440x900, iPhone 13
+   simulato (devices['iPhone 13'], anche a 390x844, 360x740 e in
+   orizzontale; senza API di schermo intero, come Safari) e telefono
+   390x844 per la modalita' B.
 
    COSA DIMOSTRA.
-   - La diretta HLS della web TV parte da sola nel NOSTRO player, muta,
+   Modalita' A (il player di Azoto):
+   - prima dell'accesso nessuna richiesta ad Azoto e l'indirizzo non e'
+     nella pagina; dopo l'accesso, in onda, l'iframe del player con
+     allow="autoplay; fullscreen; picture-in-picture; encrypted-media",
+     allowfullscreen, referrerpolicy="strict-origin-when-cross-origin",
+     scrolling="no" e il titolo «Diretta: <titolo dell'evento>»; mai
+     azoto-player.js, mai richieste al servizio per il link;
+   - sotto il video solo «Schermo intero» e la nota fissa; niente
+     comandi del nostro player; i consigli della modalita' A;
+   - NESSUN livello sopra l'iframe: centro e angoli del riquadro sono
+     l'iframe, e un clic (e un tocco) VERO sul play di Azoto arriva al
+     suo player (body[data-premuto="si"] dentro l'iframe);
+   - riquadro 16:9 senza bande ne' barre di scorrimento (nemmeno dentro
+     il player) a 1440x900, 390x664, 390x844, 360x740 e con l'iPhone in
+     orizzontale (750x342);
+   - la tastiera: con il fuoco sul riquadro vale solo F;
+   - «Schermo intero»: sul computer lo schermo intero vero del riquadro,
+     con l'iframe 16:9 piu' grande possibile e il pulsante per uscire
+     fuori dall'iframe; sull'iPhone la vista a pagina intera
+     orizzontale (riquadro ruotato di 90 gradi), con il pulsante per
+     uscire che non copre l'iframe; Esc e il pulsante escono; l'iframe
+     non si ricarica;
+   - la regia cambia l'indirizzo (livetv29 -> livetv30): iframe nuovo,
+     senza ricaricare la pagina, stessa lettura in ascolto;
+   - A -> B -> A con evento-player: senza ricaricare la pagina e senza
+     aprire o chiudere ascolti su Firestore; in B il nostro <video> con
+     i nostri comandi;
+   - il player che non risponde: a 15 s (non prima) «La diretta sta
+     arrivando, attendi qualche secondo» SOTTO il riquadro, con
+     «Ricarica il video», che ricrea SOLO l'iframe (la pagina non si
+     ricarica); quando Azoto torna il messaggio sparisce da solo;
+   - nessuna violazione della CSP, nessun errore nella pagina ne' in
+     console.
+   Modalita' B (il flusso diretto, come prima):
+   - la diretta HLS della web TV parte da sola nel NOSTRO player, muta,
      con «Attiva l'audio»; «IN DIRETTA» rosso; niente barra per tornare
      indietro quando la web TV non tiene una finestra; qualita'
      Automatica, 360p, 180p (la scelta cambia davvero le righe del
-     video).
-   - La regia cambia il link durante la diretta: il video riparte dal
+     video);
+   - la regia cambia il link durante la diretta: il video riparte dal
      nuovo, senza ricaricare la pagina, con lo stesso <video> e la
-     stessa, unica, lettura in ascolto su Firestore (nessun ascolto
-     aperto o chiuso).
-   - Il principale cade (503): al posto del video «Stiamo ricollegando
+     stessa, unica, lettura in ascolto su Firestore;
+   - il principale cade (503): al posto del video «Stiamo ricollegando
      la diretta…», nuovi tentativi distanziati, e dopo PIU' di 20
      secondi di guasto il passaggio da solo alla riserva, senza
      ricaricare. La regia poi riporta tutti sul principale, li manda
-     sulla riserva e li riporta ancora (evento-sorgente).
-   - Una diretta che non risponde ancora (404): «Stiamo ricollegando»;
-     appena la web TV trasmette, il video parte da solo.
-   - Il link della pagina del player (ripiego, anche come codice
-     <iframe>): il player della web TV nel nostro riquadro, senza i
-     nostri comandi (restano schermo intero e l'indicazione).
-   - Un link non valido nel documento dell'evento: la pagina non si
+     sulla riserva e li riporta ancora (evento-sorgente);
+   - una diretta che non risponde ancora (404): «Stiamo ricollegando»;
+     appena la web TV trasmette, il video parte da solo;
+   - un link non valido nel documento dell'evento: la pagina non si
      rompe e dice chiaramente «Video non disponibile», poi torna da
-     sola quando il link e' buono.
-   - Il flusso pubblico HLS di Shaka: la barra per tornare indietro;
+     sola quando il link e' buono;
+   - il flusso pubblico HLS di Shaka: la barra per tornare indietro;
      indietro di 2 minuti con la barra -> «Torna in diretta» (e niente
      «IN DIRETTA»), l'etichetta «−2:00»; «Torna in diretta» riporta al
-     punto live; dalla pausa idem; la qualita' 480p.
-   - Il flusso pubblico DASH (dash.js): parte, barra e qualita'.
-   - Il link firmato (firma nginx): la pagina chiede il link al
+     punto live; dalla pausa idem; la qualita' 480p;
+   - il flusso pubblico DASH (dash.js): parte, barra e qualita';
+   - il link firmato (firma nginx): la pagina chiede il link al
      servizio (link-video), la firma arriva su playlist e segmenti, e
-     la chiave non esce mai.
-   - Sul telefono: tutto dentro lo schermo (barra, «Live», qualita',
-     schermo intero), schermate leggibili.
-   - Nessuna violazione della CSP, nessun errore nella pagina.
+     la chiave non esce mai;
+   - sul telefono: tutto dentro lo schermo (barra, «Live», qualita',
+     schermo intero), schermate leggibili;
+   - nessuna violazione della CSP, nessun errore nella pagina.
    Screenshot (computer 1440x900, telefono 390x844) in
    risultati/screenshot-webtv/: li raccoglie screenshot-finali.js.
    Esce con 1 se qualcosa e' rosso.
@@ -88,18 +130,43 @@ fs.readdirSync(FOTO).filter(f => /\.png$/.test(f)).forEach(f => fs.unlinkSync(pa
 process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + PORTE.firestore;
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:' + PORTE.auth;
 const admin = require(path.resolve(__dirname, '../../email-service/node_modules/firebase-admin'));
-const { chromium } = require('playwright');
+const { chromium, devices } = require('playwright');
 const { preparaContesto } = require('./rete-prove');
 const F = require('./flusso-prova');
 
 const LIVE = F.WEBTV + '/live/master.m3u8';
 const RISERVA = F.WEBTV + '/riserva/master.m3u8';
 const SPENTO = F.WEBTV + '/spento/master.m3u8';
-const INCORPORATO = '<iframe src="' + F.WEBTV + '/player/napoli" width="640" height="360" allowfullscreen></iframe>';
 const SEGRETO = 'chiave-segreta-della-web-tv-' + crypto.randomBytes(4).toString('hex');
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+// l'iPhone 13 di Playwright, con la densita' dei pixel delle altre foto del telefono
+const IPHONE_13 = Object.assign({}, devices['iPhone 13'], { deviceScaleFactor: 2 });
+
+// il codice che ha dato Azoto, com'e' (virgolette singole, lo script): si salva solo l'indirizzo
+const CODICE_AZOTO = '<div class=\'azoto-player-container\'>\n'
+    + '<iframe src=\'' + F.PLAYER_AZOTO + '\' frameborder=\'0\' scrolling=\'no\' allowfullscreen></iframe>\n'
+    + '</div>\n<script src=\'https://azotosolutions.com/videojs/azoto-player.js\'></script>';
+const azotoCanale = n => F.AZOTO + '/cloudtv/livetv' + n + '/player';
+const TITOLO = 'Next Generation Business 2026 · Napoli';
+const TESTO_LENTO = 'La diretta sta arrivando, attendi qualche secondo';
+const NOTA_AZOTO = 'Non senti l\'audio? Premi il pulsante del volume nel player. Il video si blocca? Ricarica la pagina.';
+const PERMESSI = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
+
+/* Il browser non esce MAI in rete da solo: quello che serve lo danno le
+   regole di rete-prove.js e flusso-prova.js (context.route). Senza proxy
+   e senza DNS (tranne 127.0.0.1) qualunque richiesta sfuggita alle regole
+   fallisce (mai la rete vera di Azoto); e senza l'isolamento dei siti
+   l'iframe di Azoto resta nel processo della pagina, cosi' il rimando 301
+   del suo player (.../player -> .../player/) passa sempre dalle regole
+   (con l'iframe in un processo a parte, a volte la richiesta rimandata
+   sfuggiva alle regole e andava verso la rete vera). */
+const LANCIO = {
+    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    args: ['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process',
+        '--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
+};
 
 /* ---------- esito ---------- */
 let verdi = 0, rossi = 0;
@@ -198,6 +265,165 @@ async function videoVa(page, ms, cosa) {
 }
 const visibile = (page, sel) => page.locator(sel).isVisible();
 
+/* ---------- la modalita' A (il player di Azoto) vista dalla prova ---------- */
+// l'iframe del player di Azoto e la pagina intorno
+const statoAzoto = page => page.evaluate(() => {
+    const tutti = document.querySelectorAll('#video-player iframe');
+    const f = tutti[0];
+    const h = document.documentElement.classList;
+    return {
+        quanti: tutti.length,
+        src: f ? f.getAttribute('src') : '',
+        classe: f ? f.className : '',
+        allow: f ? f.getAttribute('allow') : '',
+        allowfullscreen: f ? f.hasAttribute('allowfullscreen') : false,
+        referrerpolicy: f ? f.getAttribute('referrerpolicy') : '',
+        scrolling: f ? f.getAttribute('scrolling') : '',
+        titolo: f ? f.getAttribute('title') : '',
+        nelRiquadro: !!(f && document.getElementById('riquadro-video').contains(f)),
+        video: document.querySelectorAll('#video-player video').length,
+        modo: h.contains('modo-azoto') ? 'azoto' : (h.contains('modo-flusso') ? 'flusso' : ''),
+        schermata: document.getElementById('area-video').getAttribute('data-schermata'),
+        schermo: !document.getElementById('schermo-video').hidden,
+        lento: !document.getElementById('avviso-lento').hidden
+    };
+});
+// il canale scritto dal player di Azoto finto dentro l'iframe ('' se la pagina non e' arrivata)
+async function canaleAzoto(page) {
+    const h = await page.$('#video-player iframe');
+    const fr = h && await h.contentFrame();
+    if (!fr) return '';
+    try { return String(await fr.textContent('#canale-azoto', { timeout: 500 }) || '').trim(); } catch (e) { return ''; }
+}
+async function frameAzoto(page) {
+    const h = await page.$('#video-player iframe');
+    return h ? h.contentFrame() : null;
+}
+// l'iframe c'e', con gli attributi giusti, e dentro c'e' il player di quel canale
+async function iframeAzotoGiusto(page, canale, cosa) {
+    await aspetta(async () => (await canaleAzoto(page)) === canale, 15000, cosa + ': il player di Azoto ' + canale + ' nell\'iframe');
+    const s = await statoAzoto(page);
+    vero(s.quanti === 1 && s.nelRiquadro, cosa + ': iframe ' + s.quanti + ', nel riquadro ' + s.nelRiquadro);
+    vero(s.src === F.AZOTO + '/cloudtv/' + canale + '/player', cosa + ': src ' + s.src);
+    vero(s.classe === 'player-azoto', cosa + ': classe «' + s.classe + '»');
+    vero(s.allow === PERMESSI && s.allowfullscreen, cosa + ': allow «' + s.allow + '», allowfullscreen ' + s.allowfullscreen);
+    vero(s.referrerpolicy === 'strict-origin-when-cross-origin', cosa + ': referrerpolicy «' + s.referrerpolicy + '»');
+    vero(s.scrolling === 'no', cosa + ': scrolling «' + s.scrolling + '»');
+    vero(s.titolo === 'Diretta: ' + TITOLO, cosa + ': titolo «' + s.titolo + '»');
+    vero(s.video === 0 && s.modo === 'azoto', cosa + ': <video> ' + s.video + ', modo ' + s.modo);
+    vero(s.schermata === 'video' && !s.schermo && !s.lento, cosa + ': schermata ' + s.schermata + ', nostra schermata ' + s.schermo + ', avviso ' + s.lento);
+    return s;
+}
+// niente sopra l'iframe: il centro e gli angoli (dentro di poco) sono l'iframe stesso
+const sopraIframe = page => page.evaluate(() => {
+    const f = document.querySelector('#video-player iframe');
+    const b = f.getBoundingClientRect();
+    const punti = [[0.5, 0.5], [0.03, 0.03], [0.97, 0.03], [0.03, 0.97], [0.97, 0.97], [0.5, 0.95]];
+    return punti.map(([px, py]) => {
+        const x = b.left + b.width * px, y = b.top + b.height * py;
+        const e = document.elementFromPoint(x, y);
+        return e === f ? '' : (e ? e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className ? '.' + String(e.className).trim().replace(/\s+/g, '.') : '') : 'niente') + ' a ' + Math.round(x) + ',' + Math.round(y);
+    }).filter(Boolean);
+});
+/* Un clic (o un tocco) VERO, alle coordinate dello schermo, sul pulsante
+   play del player di Azoto dentro l'iframe: se qualcosa di nostro stesse
+   sopra, il clic arriverebbe a quello e non ad Azoto. */
+async function premiPlayAzoto(page, tocco) {
+    const h = await page.$('#video-player iframe');
+    const fr = await h.contentFrame();
+    await fr.evaluate(() => document.body.removeAttribute('data-premuto'));
+    const fb = await h.boundingBox();
+    const bb = await fr.evaluate(() => { const b = document.getElementById('play-azoto').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+    const x = fb.x + bb.x, y = fb.y + bb.y;
+    const sopra = await page.evaluate(([px, py]) => {
+        const e = document.elementFromPoint(px, py);
+        return e && e.matches('#video-player iframe') ? '' : (e ? e.outerHTML.slice(0, 100) : 'niente');
+    }, [x, y]);
+    vero(!sopra, 'sopra il play di Azoto c\'e\': ' + sopra);
+    if (tocco) await page.touchscreen.tap(x, y);
+    else await page.mouse.click(x, y);
+    await aspetta(() => fr.evaluate(() => document.body.getAttribute('data-premuto') === 'si'), 5000, 'il clic arrivato al play di Azoto');
+}
+const premutoDentro = async page => {
+    const fr = await frameAzoto(page);
+    return fr ? fr.evaluate(() => document.body.getAttribute('data-premuto') === 'si').catch(() => false) : false;
+};
+// il riquadro dell'iframe: 16:9, senza bande, senza barre di scorrimento (nemmeno dentro il player)
+async function controlla16x9(page, cosa) {
+    const m = await page.evaluate(() => {
+        const r = el => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+        const f = document.querySelector('#video-player iframe');
+        return {
+            iframe: r(f), area: r(document.getElementById('area-video')),
+            largoPagina: document.documentElement.scrollWidth, finestra: window.innerWidth, scrolling: f.getAttribute('scrolling')
+        };
+    });
+    const fr = await frameAzoto(page);
+    const dentro = await fr.evaluate(() => ({
+        w: window.innerWidth, h: window.innerHeight,
+        sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight,
+        cw: document.documentElement.clientWidth, ch: document.documentElement.clientHeight
+    }));
+    const f = m.iframe, a = m.area;
+    vero(Math.abs(f.w / f.h - 16 / 9) < 0.01, cosa + ': l\'iframe non e\' 16:9 (' + f.w.toFixed(1) + 'x' + f.h.toFixed(1) + ')');
+    vero(Math.abs(f.x - a.x) < 1 && Math.abs(f.y - a.y) < 1 && Math.abs(f.w - a.w) < 1 && Math.abs(f.h - a.h) < 1, cosa + ': bande intorno all\'iframe ' + JSON.stringify({ iframe: f, riquadro: a }));
+    vero(f.x >= -0.5 && f.x + f.w <= m.finestra + 0.5, cosa + ': l\'iframe esce dallo schermo ' + JSON.stringify(f));
+    vero(m.largoPagina <= m.finestra, cosa + ': la pagina scorre di lato (' + m.largoPagina + ' px su ' + m.finestra + ')');
+    vero(m.scrolling === 'no', cosa + ': scrolling «' + m.scrolling + '»');
+    vero(dentro.sw <= dentro.cw && dentro.sh <= dentro.ch, cosa + ': barre di scorrimento dentro il player ' + JSON.stringify(dentro));
+    vero(Math.abs(dentro.w / dentro.h - 16 / 9) < 0.02, cosa + ': il player di Azoto non ha uno spazio 16:9 ' + JSON.stringify(dentro));
+    return Object.assign(m, { dentro });
+}
+const siToccano = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+// lo schermo intero in modalita' A: il riquadro, l'iframe, il pulsante per uscire
+const misuraIntero = page => page.evaluate(() => {
+    const r = el => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+    const q = document.getElementById('riquadro-video');
+    const f = document.querySelector('#video-player iframe');
+    const b = document.getElementById('btn-schermo-intero');
+    const cf = f.getBoundingClientRect();
+    const centro = document.elementFromPoint(cf.left + cf.width / 2, cf.top + cf.height / 2);
+    return {
+        vero: document.fullscreenElement === q, finto: document.documentElement.classList.contains('schermo-intero-finto'),
+        intero: q.getAttribute('data-intero'), trasformazione: getComputedStyle(q).transform,
+        riquadro: r(q), riquadroLocale: { w: q.offsetWidth, h: q.offsetHeight },
+        iframe: r(f), iframeLocale: { w: f.offsetWidth, h: f.offsetHeight },
+        pulsante: r(b), etichetta: b.getAttribute('aria-label'), testo: document.getElementById('btn-schermo-intero-testo').textContent,
+        centroIframe: centro === f, finestra: { w: window.innerWidth, h: window.innerHeight },
+        nota: getComputedStyle(document.getElementById('nota-azoto')).display !== 'none'
+    };
+});
+function nelloSchermo(b, finestra) {
+    return b.x >= -0.5 && b.y >= -0.5 && b.x + b.w <= finestra.w + 0.5 && b.y + b.h <= finestra.h + 0.5;
+}
+/* Il player di Azoto che non risponde E che poi torna. Con controllo.fermo
+   di flusso-prova.js le richieste restano appese per sempre; questa
+   regola (registrata DOPO instradaAzoto: vince lei) le tiene da parte
+   mentre controllo.fermo e' vero, e rilascia() le passa al player finto,
+   che con fermo tornato falso risponde: e' "Azoto che torna". */
+async function trattieniAzoto(context, controllo) {
+    const appese = [];
+    await context.route(/^https:\/\/cdn\.azotosolutions\.com\//, route => {
+        if (controllo.fermo) { appese.push(route); return undefined; }
+        return route.fallback();
+    });
+    return {
+        appese: () => appese.length,
+        rilascia() { const r = appese.splice(0); r.forEach(x => x.fallback().catch(() => {})); return r.length; }
+    };
+}
+// tempi misurati DENTRO la pagina: quando nasce l'iframe di quel canale e quando compare l'avviso dei 15 s
+const segnaTempiLento = (page, canale) => page.evaluate(c => {
+    const t = window.__tempiLento = { iframe: 0, avviso: 0 };
+    const vp = document.getElementById('video-player');
+    new MutationObserver(() => {
+        const f = vp.querySelector('iframe');
+        if (f && !t.iframe && f.getAttribute('src').indexOf('/' + c + '/') > 0) t.iframe = performance.now();
+    }).observe(vp, { childList: true });
+    const av = document.getElementById('avviso-lento');
+    new MutationObserver(() => { if (!av.hidden && !t.avviso) t.avviso = performance.now(); }).observe(av, { attributes: true, attributeFilter: ['hidden'] });
+}, canale);
+
 /* Le richieste alla web TV finta e al flusso pubblico, con l'ora:
    registroWebTv(page) -> [{ t, percorso, query }] (per il flusso pubblico
    il percorso comincia con /shaka-live-assets/) */
@@ -252,29 +478,36 @@ function contaAscolti(page) {
         })).json();
         vero(accesso.idToken, 'accesso del gestore non riuscito');
         const g = corpo => chiama('diretta-gestione', corpo, accesso.idToken);
+        // l'evento: il codice di Azoto incollato com'e' e il flusso diretto (principale e riserva); «Tipo di player» non scelto
         const EVENTO_DATI = {
-            id: EVENTO, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
-            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: LIVE, riservaUrl: RISERVA,
+            id: EVENTO, titolo: TITOLO, luogo: 'Napoli · Hotel Eurostars Excelsior',
+            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', azotoUrl: CODICE_AZOTO, videoUrl: LIVE, riservaUrl: RISERVA,
             programma: '09.00 Accoglienza e registrazione\n09.30 Apertura dei lavori\n13.00 Pausa pranzo\n17.30 Chiusura',
             paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }
         };
-        await g({ azione: 'evento-salva', evento: Object.assign({ nuovo: true }, EVENTO_DATI) });
+        const creato = await g({ azione: 'evento-salva', evento: Object.assign({ nuovo: true }, EVENTO_DATI) });
+        vero(creato.evento.tipoPlayer === 'azoto' && creato.evento.azotoUrl === F.PLAYER_AZOTO, 'evento creato: ' + JSON.stringify({ tipo: creato.evento.tipoPlayer, azoto: creato.evento.azotoUrl }));
         const creati = await g({ azione: 'crea', idEvento: EVENTO, righe: [{ riga: 2, nome: 'Luca', cognome: 'Bianchi', email: 'luca.bianchi@esempio.it', azienda: 'Bianchi srl', nomeUtente: 'lucabianchi' }] });
         const persona = creati.risultati[0];
         await app.auth().updateUser(persona.uid, { password: PASSWORD });
         await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' });
         // la regia cambia il video (e la riserva: '' la toglie, assente resta com'e')
         const cambiaVideo = (videoUrl, riservaUrl) => g(Object.assign({ azione: 'evento-video', idEvento: EVENTO, videoUrl }, riservaUrl !== undefined ? { riservaUrl } : {}));
+        const cambiaAzoto = azotoUrl => g({ azione: 'evento-video', idEvento: EVENTO, azotoUrl });
+        const passaA = tipoPlayer => g({ azione: 'evento-player', idEvento: EVENTO, tipoPlayer });
         const pubblico = async () => (await db.doc('eventi/' + EVENTO).get()).data();
 
         /* ---------- il browser ---------- */
-        browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+        browser = await chromium.launch(LANCIO);
         async function contesto(opzioni, senzaSchermoIntero) {
             const context = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opzioni));
             await preparaContesto(context, {});
             // registrate dopo preparaContesto: vincono loro
             const webtv = await F.instradaWebTv(context, CARTELLA);
             const pubblicoInoltrato = await F.inoltraPubblico(context);
+            // il player di Azoto finto (mai la rete vera) e, sopra, la regola per fermarlo e farlo tornare
+            const azoto = await F.instradaAzoto(context);
+            const trattieni = await trattieniAzoto(context, azoto);
             // l'ora per dash.js (mai dalla cache delle prove)
             await context.route(/^https:\/\/time\.akamai\.com\//, r => r.fulfill({ status: 200, headers: { 'content-type': 'text/plain', 'access-control-allow-origin': '*' }, body: new Date().toISOString() }));
             await context.addInitScript(porte => {
@@ -285,16 +518,32 @@ function contaAscolti(page) {
                 }
             }, { firestore: PORTE.firestore, auth: PORTE.auth, api: API, ritardoPresenzaMs: 999999 });
             if (senzaSchermoIntero) {
+                // come Safari su iPhone: nessun elemento qualsiasi va a schermo intero
                 await context.addInitScript(() => {
                     const via = (o, k) => { try { Object.defineProperty(o, k, { value: undefined, configurable: true, writable: true }); } catch (e) { /* niente */ } };
                     via(Element.prototype, 'requestFullscreen');
                     via(Element.prototype, 'webkitRequestFullscreen');
                     try { Object.defineProperty(Document.prototype, 'fullscreenEnabled', { get: () => false, configurable: true }); } catch (e) { /* niente */ }
+                    try { Object.defineProperty(Document.prototype, 'webkitFullscreenEnabled', { get: () => false, configurable: true }); } catch (e) { /* niente */ }
                 });
             }
             const page = await context.newPage();
             page.__errori = [];
             page.on('pageerror', e => page.__errori.push(String(e && e.message || e)));
+            // gli errori in console (di tutte le cornici, anche quella di Azoto)
+            page.__console = [];
+            page.on('console', m => { if (m.type() === 'error') page.__console.push(m.text()); });
+            // ogni richiesta verso azotosolutions.com, e i caricamenti della pagina (una ricarica li conta)
+            const richiesteAzoto = [];
+            page.on('request', q => { if (/^https:\/\/([a-z0-9-]+\.)*azotosolutions\.com[:/]/.test(q.url())) richiesteAzoto.push(q.url()); });
+            // le richieste ad Azoto non riuscite (non quelle interrotte perche' l'iframe e' stato tolto)
+            const falliteAzoto = [];
+            page.on('requestfailed', q => {
+                const e = String((q.failure() || {}).errorText || '');
+                if (/azotosolutions\.com/.test(q.url()) && !/ERR_ABORTED/.test(e)) falliteAzoto.push(q.url() + ' ' + e);
+            });
+            const navigazioni = { n: 0 };
+            page.on('framenavigated', f => { if (f === page.mainFrame()) navigazioni.n++; });
             const richieste = registroWebTv(page);
             const ascolti = contaAscolti(page);
             const chiamate = [];
@@ -304,27 +553,299 @@ function contaAscolti(page) {
                 try { c = JSON.parse(q.postData() || '{}'); } catch (e) { c = {}; }
                 chiamate.push({ t: Date.now(), azione: c.azione, sorgente: c.sorgente });
             });
-            return { context, page, webtv, pubblicoInoltrato, richieste, ascolti, chiamate };
+            return { context, page, webtv, pubblicoInoltrato, azoto, trattieni, richiesteAzoto, falliteAzoto, navigazioni, richieste, ascolti, chiamate };
         }
-        async function entra(page) {
+        async function apri(page) {
             await page.goto(SITO + '/diretta/?emulatori=1');
             await page.waitForSelector('body[data-vista="accesso"]', { timeout: 30000 });
+        }
+        async function accedi(page) {
             await page.fill('#campo-nome-utente', 'lucabianchi');
             await page.fill('#campo-password', PASSWORD);
             await page.click('#btn-entra');
             await page.waitForSelector('body[data-vista="diretta"]', { timeout: 30000 });
         }
+        async function entra(page) {
+            await apri(page);
+            await accedi(page);
+        }
         const foto = (page, nome) => page.screenshot({ path: path.join(FOTO, nome + '.png') });
         // dopo quando (ms) la pagina ha chiesto alla web TV un file di quel percorso?
         const primaDa = (richieste, re, da) => richieste.find(r => r.t >= da && re.test(r.percorso));
+        // la pagina si e' ricaricata? (una variabile globale messa prima, i caricamenti della pagina)
+        const segnaPagina = (c, segno) => c.page.evaluate(s => { window.__segnoPagina = s; document.getElementById('riquadro-video').dataset.segno = s; }, segno).then(() => c.navigazioni.n);
+        async function nonRicaricata(c, segno, navigazioniPrima, cosa) {
+            const s = await c.page.evaluate(() => [window.__segnoPagina, document.getElementById('riquadro-video').dataset.segno]);
+            vero(s[0] === segno && s[1] === segno && c.navigazioni.n === navigazioniPrima, cosa + ': la pagina si e\' ricaricata (' + JSON.stringify({ segni: s, caricamenti: c.navigazioni.n - navigazioniPrima }) + ')');
+        }
 
-        /* =================== COMPUTER =================== */
-        console.log('\nComputer 1440x900: la web TV finta (ffmpeg)');
+        /* =================== MODALITA' A: IL PLAYER DI AZOTO =================== */
+        console.log('\nModalità A (il player di Azoto finto): computer 1440x900 e iPhone 13 (senza API di schermo intero)');
         const pc = await contesto({ viewport: { width: 1440, height: 900 } });
+        const ip = await contesto(IPHONE_13, true);
         const p = pc.page;
+        const i = ip.page;
 
-        await prova('la diretta HLS della web TV parte da sola nel nostro player: muta, con «Attiva l\'audio»', async () => {
-            await entra(p);
+        await prova('prima dell\'accesso nessuna richiesta ad Azoto e l\'indirizzo non è nella pagina; dopo l\'accesso l\'iframe del player con gli attributi e il titolo giusti', async () => {
+            for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
+                await apri(c.page);
+                await pausa(1500);
+                vero(!c.richiesteAzoto.length && !c.azoto.richieste.length, nome + ': richieste ad Azoto prima dell\'accesso: ' + c.richiesteAzoto.join(', '));
+                const html = await c.page.content();
+                vero(html.indexOf('/cloudtv/') < 0 && !(await c.page.locator('#video-player iframe').count()), nome + ': l\'indirizzo del player o l\'iframe nella pagina prima dell\'accesso');
+                await accedi(c.page);
+                await iframeAzotoGiusto(c.page, 'livetv29', nome);
+                // solo la pagina del player (e il 301 verso .../player/); mai azoto-player.js ne' altro di Azoto
+                vero(c.richiesteAzoto.length >= 1 && c.richiesteAzoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\/?$/.test(u)),
+                    nome + ': richieste ad Azoto: ' + c.richiesteAzoto.join(', '));
+                vero(!c.chiamate.some(x => x.azione === 'link-video'), nome + ': in modalità A la pagina ha chiesto il link del flusso al servizio');
+                vero((await c.page.textContent('#stato-evento')).trim() === 'IN DIRETTA', nome + ': bollino «' + (await c.page.textContent('#stato-evento')).trim() + '»');
+            }
+            const pb = await pubblico();
+            vero(pb.tipoPlayer === 'azoto' && pb.videoId === F.PLAYER_AZOTO && !pb.videoRiserva, 'documento pubblico: ' + JSON.stringify({ t: pb.tipoPlayer, v: pb.videoId, r: pb.videoRiserva }));
+            vero(pc.ascolti.aperti >= 1, 'la prova non vede l\'ascolto su Firestore (canale Listen): ' + JSON.stringify(pc.ascolti));
+        });
+
+        await prova('sotto il video solo la nostra grafica: «Schermo intero» e la nota fissa; niente comandi del nostro player; i consigli della modalità A', async () => {
+            vero(await visibile(p, '#btn-schermo-intero') && (await p.textContent('#btn-schermo-intero-testo')).trim() === 'Schermo intero', '«Schermo intero» con la scritta');
+            vero(await visibile(p, '#nota-azoto') && (await p.textContent('#nota-azoto')).trim() === NOTA_AZOTO, 'nota: «' + (await p.textContent('#nota-azoto')).trim() + '»');
+            for (const sel of ['#btn-play', '#btn-muto', '#volume', '#btn-attiva-audio', '#indicatore-live', '#btn-live', '#sel-qualita', '#barra-dvr', '#riga-comandi-aiuto', '#avviso-lento', '#schermo-video', '#schermo-pausa']) {
+                vero(!(await visibile(p, sel)), sel + ' si vede in modalità A');
+            }
+            // la nota e il pulsante stanno SOTTO il video, non sopra
+            const v = await p.locator('#area-video').boundingBox();
+            for (const sel of ['#nota-azoto', '#btn-schermo-intero']) {
+                const b = await p.locator(sel).boundingBox();
+                vero(b.y >= v.y + v.height - 0.5, sel + ' non sta sotto il video');
+            }
+            const consigli = await p.evaluate(() => Array.from(document.querySelectorAll('#vista-diretta li[data-solo]')).map(li => li.getAttribute('data-solo') + ':' + (li.offsetParent !== null)));
+            vero(consigli.filter(x => /^azoto:/.test(x)).every(x => /true$/.test(x)) && consigli.filter(x => /^flusso:/.test(x)).every(x => /false$/.test(x)) && consigli.some(x => /^azoto/.test(x)),
+                'consigli: ' + consigli.join(', '));
+            vero(/Luca Bianchi/.test(await p.textContent('#nome-persona')) && await visibile(p, '#btn-esci') && (await p.textContent('#titolo-evento')).trim() === TITOLO, 'testata: nome, «Esci» o titolo');
+            vero(/F schermo intero/.test(await p.textContent('#aiuto-scorciatoie')) && !/Spazio/.test(await p.textContent('#aiuto-scorciatoie')), 'aiuto per la tastiera: ' + await p.textContent('#aiuto-scorciatoie'));
+        });
+
+        await prova('nessun livello sopra l\'iframe: centro e angoli del riquadro sono l\'iframe, e un clic (e un tocco) vero sul play di Azoto arriva al suo player', async () => {
+            for (const [c, nome, tocco] of [[pc, 'computer', false], [ip, 'iPhone', true]]) {
+                const sopra = await sopraIframe(c.page);
+                vero(!sopra.length, nome + ': sopra l\'iframe: ' + sopra.join(' | '));
+                await premiPlayAzoto(c.page, tocco);
+            }
+        });
+
+        await prova('riquadro 16:9 senza bande né barre di scorrimento: 1440x900, iPhone 13 (390x664), 390x844, 360x740 e iPhone in orizzontale (750x342)', async () => {
+            await controlla16x9(p, '1440x900');
+            await p.evaluate(() => document.fonts && document.fonts.ready);
+            await foto(p, 'azoto-computer');
+            await controlla16x9(i, '390x664');
+            for (const [w, h] of [[390, 844], [360, 740], [devices['iPhone 13 landscape'].viewport.width, devices['iPhone 13 landscape'].viewport.height]]) {
+                await i.setViewportSize({ width: w, height: h });
+                await pausa(400);
+                await controlla16x9(i, w + 'x' + h);
+                if (w === 390) {
+                    await i.evaluate(() => document.fonts && document.fonts.ready);
+                    await foto(i, 'azoto-telefono');
+                }
+            }
+            await i.setViewportSize(IPHONE_13.viewport);
+            await pausa(300);
+        });
+
+        await prova('tastiera in modalità A, con il fuoco sul riquadro: vale solo F; spazio, M e frecce restano alla pagina (e al player di Azoto)', async () => {
+            await p.evaluate(() => {
+                window.__tasti = [];
+                window.addEventListener('keydown', e => window.__tasti.push(e.key + ':' + (e.defaultPrevented ? 'preso' : 'libero')));
+            });
+            await p.focus('#riquadro-video');
+            for (const k of ['Space', 'm', 'ArrowUp', 'ArrowDown']) await p.keyboard.press(k);
+            vero(await p.getAttribute('#riquadro-video', 'data-intero') === '0', 'un tasto diverso da F ha cambiato lo schermo intero');
+            await p.focus('#riquadro-video');
+            await p.keyboard.press('f');
+            await p.waitForSelector('#riquadro-video[data-intero="1"]', { timeout: 5000 });
+            await p.keyboard.press('f');
+            await p.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
+            const tasti = await p.evaluate(() => window.__tasti);
+            vero(tasti.join(',') === ' :libero,m:libero,ArrowUp:libero,ArrowDown:libero,f:preso,f:preso', 'tasti: ' + tasti.join(', '));
+            await p.evaluate(() => window.scrollTo(0, 0));
+            vero(p.__errori.length === 0, 'errori: ' + p.__errori.join(' | '));
+        });
+
+        await prova('«Schermo intero» sul computer: il riquadro va davvero a schermo intero, iframe 16:9 più grande possibile e il pulsante per uscire fuori dall\'iframe', async () => {
+            await p.click('#btn-schermo-intero');
+            await p.waitForFunction(() => document.fullscreenElement === document.getElementById('riquadro-video'), null, { timeout: 5000 });
+            await pausa(300);
+            const m = await misuraIntero(p);
+            vero(m.vero && m.intero === '1', 'schermo intero: ' + JSON.stringify({ vero: m.vero, intero: m.intero }));
+            vero(Math.abs(m.riquadro.w - m.finestra.w) < 1 && Math.abs(m.riquadro.h - m.finestra.h) < 1, 'riquadro ' + JSON.stringify(m.riquadro));
+            vero(Math.abs(m.iframe.w / m.iframe.h - 16 / 9) < 0.01, 'iframe non 16:9: ' + JSON.stringify(m.iframe));
+            // il 16:9 piu' grande che lascia 64 px per il pulsante (qui, 1440x900, e' largo quanto lo schermo)
+            const massimo = Math.max(Math.min(m.finestra.w - 128, m.finestra.h * 16 / 9), Math.min(m.finestra.h - 64, m.finestra.w * 9 / 16) * 16 / 9);
+            vero(m.iframe.w >= massimo - 2, 'iframe piccolo: ' + m.iframe.w.toFixed(0) + ' px invece di ' + massimo.toFixed(0));
+            vero(!siToccano(m.pulsante, m.iframe) && nelloSchermo(m.pulsante, m.finestra), 'il pulsante per uscire copre l\'iframe o esce dallo schermo ' + JSON.stringify({ p: m.pulsante, f: m.iframe }));
+            vero(m.pulsante.w >= 48 && m.pulsante.h >= 48 && m.etichetta === 'Esci dallo schermo intero', 'pulsante: ' + JSON.stringify({ p: m.pulsante, e: m.etichetta }));
+            vero(m.centroIframe && !m.nota, 'qualcosa sopra l\'iframe, o la nota a schermo intero');
+            vero(await premutoDentro(p), 'l\'iframe si e\' ricaricato andando a schermo intero');
+            await foto(p, 'azoto-schermo-intero-computer');
+            await p.click('#btn-schermo-intero');
+            await p.waitForFunction(() => !document.fullscreenElement && document.getElementById('riquadro-video').getAttribute('data-intero') === '0', null, { timeout: 5000 });
+            vero(await p.getAttribute('#btn-schermo-intero', 'aria-label') === 'Schermo intero', 'etichetta dopo l\'uscita');
+        });
+
+        await prova('«Schermo intero» su iPhone (niente API di schermo intero): vista a pagina intera orizzontale, pulsante per uscire che non copre l\'iframe; Esc e il pulsante escono', async () => {
+            vero(await i.evaluate(() => typeof Element.prototype.requestFullscreen === 'undefined' && document.documentElement.classList.contains('ios')), 'la prova non simula iPhone');
+            const controlla = async cosa => {
+                await i.waitForSelector('#riquadro-video[data-intero="1"]', { timeout: 5000 });
+                await pausa(300);
+                const m = await misuraIntero(i);
+                const t = /matrix\(([^)]+)\)/.exec(m.trasformazione);
+                const n = t ? t[1].split(',').map(Number) : [];
+                vero(m.finto && !m.vero, cosa + ': non e\' lo pseudo schermo intero ' + JSON.stringify({ finto: m.finto, vero: m.vero }));
+                vero(n.length === 6 && Math.abs(n[0]) < 0.01 && Math.abs(n[1] - 1) < 0.01 && Math.abs(n[2] + 1) < 0.01 && Math.abs(n[3]) < 0.01, cosa + ': il riquadro non e\' ruotato di 90 gradi: ' + m.trasformazione);
+                vero(Math.abs(m.riquadro.x) < 1 && Math.abs(m.riquadro.y) < 1 && Math.abs(m.riquadro.w - m.finestra.w) < 1 && Math.abs(m.riquadro.h - m.finestra.h) < 1, cosa + ': non copre lo schermo ' + JSON.stringify({ r: m.riquadro, f: m.finestra }));
+                vero(m.riquadroLocale.w > m.riquadroLocale.h && Math.abs(m.riquadroLocale.w - m.finestra.h) < 1, cosa + ': la vista non e\' orizzontale ' + JSON.stringify(m.riquadroLocale));
+                vero(Math.abs(m.iframeLocale.w / m.iframeLocale.h - 16 / 9) < 0.01 && m.iframe.h > m.iframe.w, cosa + ': iframe ' + JSON.stringify({ locale: m.iframeLocale, schermo: m.iframe }));
+                vero(!siToccano(m.pulsante, m.iframe) && nelloSchermo(m.pulsante, m.finestra), cosa + ': il pulsante per uscire copre l\'iframe o esce dallo schermo ' + JSON.stringify({ p: m.pulsante, f: m.iframe }));
+                vero(m.pulsante.w >= 47.5 && m.pulsante.h >= 47.5 && m.etichetta === 'Esci dallo schermo intero', cosa + ': pulsante ' + JSON.stringify({ p: m.pulsante, e: m.etichetta }));
+                vero(m.centroIframe, cosa + ': qualcosa sopra l\'iframe');
+                vero(await premutoDentro(i), cosa + ': l\'iframe si e\' ricaricato');
+                const scorre = await i.evaluate(() => getComputedStyle(document.documentElement).overflow === 'hidden' && getComputedStyle(document.body).overflow === 'hidden');
+                vero(scorre, cosa + ': la pagina sotto scorre ancora');
+                return m;
+            };
+            await i.tap('#btn-schermo-intero');
+            await controlla('iPhone 13 (390x664)');
+            await i.keyboard.press('Escape');
+            await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
+            vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'Esc: classe rimasta');
+            await i.setViewportSize({ width: 390, height: 844 });
+            await pausa(300);
+            await i.tap('#btn-schermo-intero');
+            await controlla('390x844');
+            await foto(i, 'azoto-schermo-intero-telefono');
+            await i.tap('#btn-schermo-intero');
+            await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
+            vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'pulsante: classe rimasta');
+            await controlla16x9(i, 'dopo lo schermo intero');
+        });
+
+        await prova('la regia cambia l\'indirizzo del player durante la diretta (livetv29 -> livetv30): iframe nuovo senza ricaricare la pagina, stessa lettura in ascolto', async () => {
+            const prima = {};
+            for (const c of [pc, ip]) prima[c === pc ? 'pc' : 'ip'] = { nav: await segnaPagina(c, 'cambio-indirizzo'), ascolti: Object.assign({}, c.ascolti) };
+            // incollato con uno spazio: il servizio lo pulisce
+            await cambiaAzoto(' ' + azotoCanale(30) + ' ');
+            for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
+                await iframeAzotoGiusto(c.page, 'livetv30', nome);
+                const x = prima[c === pc ? 'pc' : 'ip'];
+                await nonRicaricata(c, 'cambio-indirizzo', x.nav, nome);
+                vero(c.ascolti.aperti === x.ascolti.aperti && c.ascolti.chiusi === x.ascolti.chiusi, nome + ': ascolti su Firestore aperti o chiusi: ' + JSON.stringify({ prima: x.ascolti, dopo: c.ascolti }));
+            }
+            vero((await pubblico()).videoId === azotoCanale(30), 'documento pubblico: ' + (await pubblico()).videoId);
+        });
+
+        await prova('A -> B -> A con evento-player: senza ricaricare la pagina e senza aprire altri ascolti su Firestore; in B il nostro <video> con i nostri comandi', async () => {
+            const prima = {};
+            for (const c of [pc, ip]) prima[c === pc ? 'pc' : 'ip'] = { nav: await segnaPagina(c, 'a-b-a'), ascolti: Object.assign({}, c.ascolti) };
+            const da = Date.now();
+            await passaA('flusso');
+            vero((await pubblico()).tipoPlayer === 'flusso' && (await pubblico()).videoId === LIVE, 'documento pubblico in B');
+            for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
+                await videoVa(c.page, 30000, nome + ': il flusso della web TV nel nostro <video>');
+                const s = await statoAzoto(c.page);
+                vero(s.quanti === 0 && s.video === 1 && s.modo === 'flusso', nome + ': in B ' + JSON.stringify({ iframe: s.quanti, video: s.video, modo: s.modo }));
+                vero(primaDa(c.richieste, /^\/live\/.*\.m4s$/, da), nome + ': segmenti della web TV non chiesti');
+                vero(!(await visibile(c.page, '#nota-azoto')) && (await c.page.textContent('#btn-schermo-intero-testo')).trim() === 'Schermo intero', nome + ': la nota di Azoto in B');
+            }
+            // i nostri comandi (sul computer): play, muto, volume, «Attiva l'audio», «IN DIRETTA», qualita'
+            for (const sel of ['#btn-play', '#btn-muto', '#volume', '#btn-attiva-audio']) vero(await visibile(p, sel), sel + ' non si vede in B');
+            await aspetta(() => visibile(p, '#indicatore-live'), 10000, '«IN DIRETTA» in B');
+            await aspetta(() => visibile(p, '#sel-qualita'), 10000, 'la qualità in B');
+            const consigli = await p.evaluate(() => Array.from(document.querySelectorAll('#vista-diretta li[data-solo]')).map(li => li.getAttribute('data-solo') + ':' + (li.offsetParent !== null)));
+            vero(consigli.filter(x => /^flusso:/.test(x)).every(x => /true$/.test(x)) && consigli.filter(x => /^azoto:/.test(x)).every(x => /false$/.test(x)), 'consigli in B: ' + consigli.join(', '));
+            await passaA('azoto');
+            for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
+                await iframeAzotoGiusto(c.page, 'livetv30', nome + ' di nuovo in A');
+                const x = prima[c === pc ? 'pc' : 'ip'];
+                await nonRicaricata(c, 'a-b-a', x.nav, nome);
+                vero(c.ascolti.aperti === x.ascolti.aperti && c.ascolti.chiusi === x.ascolti.chiusi, nome + ': ascolti su Firestore aperti o chiusi: ' + JSON.stringify({ prima: x.ascolti, dopo: c.ascolti }));
+            }
+            vero(!(await visibile(p, '#btn-play')) && await visibile(p, '#nota-azoto'), 'di nuovo in A: restano i nostri comandi o manca la nota');
+        });
+
+        await prova('il player di Azoto non risponde: a 15 s (non prima) «La diretta sta arrivando, attendi qualche secondo» SOTTO il riquadro, con «Ricarica il video» (computer e telefono)', async () => {
+            await i.setViewportSize({ width: 390, height: 844 });
+            for (const c of [pc, ip]) { c.azoto.fermo = true; await segnaTempiLento(c.page, 'livetv31'); }
+            await cambiaAzoto(azotoCanale(31));
+            await Promise.all([pc, ip].map(c => c.page.waitForFunction(() => window.__tempiLento.avviso > 0, null, { timeout: 30000 })));
+            for (const [c, nome] of [[pc, 'computer'], [ip, 'telefono']]) {
+                const t = await c.page.evaluate(() => window.__tempiLento);
+                const dopo = (t.avviso - t.iframe) / 1000;
+                console.log('       (' + nome + ': l\'avviso ' + dopo.toFixed(2) + ' s dopo l\'iframe)');
+                vero(t.iframe > 0 && dopo >= 14.9 && dopo <= 17, nome + ': avviso dopo ' + dopo.toFixed(2) + ' s (deve essere 15)');
+                await c.page.waitForFunction(t => document.getElementById('avviso-lento-testo').textContent === t, TESTO_LENTO, { timeout: 2000 });
+                vero(await c.page.getAttribute('#avviso-lento', 'role') === 'status', nome + ': l\'avviso non e\' una regione "status"');
+                const m = await c.page.evaluate(() => {
+                    const r = id => { const b = document.getElementById(id).getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+                    return { avviso: r('avviso-lento'), video: r('area-video'), pulsante: r('btn-ricarica-video'), dentro: document.getElementById('riquadro-video').contains(document.getElementById('avviso-lento')), finestra: { w: innerWidth, h: innerHeight } };
+                });
+                vero(m.avviso.y >= m.video.y + m.video.h - 0.5, nome + ': l\'avviso non sta sotto il video ' + JSON.stringify(m));
+                vero(m.pulsante.h >= 48 && nelloSchermo(m.pulsante, m.finestra), nome + ': «Ricarica il video» ' + JSON.stringify(m.pulsante));
+                const s = await statoAzoto(c.page);
+                vero(s.quanti === 1 && /livetv31/.test(s.src) && s.schermata === 'video' && !s.schermo, nome + ': l\'iframe non resta al suo posto ' + JSON.stringify(s));
+                const sopra = await sopraIframe(c.page);
+                vero(!sopra.length, nome + ': sopra l\'iframe: ' + sopra.join(' | '));
+                await foto(c.page, nome === 'computer' ? 'azoto-lenta-computer' : 'azoto-lenta-telefono');
+            }
+        });
+
+        await prova('«Ricarica il video» ricrea SOLO l\'iframe: la pagina non si ricarica (variabile globale), stesso riquadro, stessa lettura in ascolto', async () => {
+            const nav = await segnaPagina(pc, 'ricarica');
+            await p.evaluate(() => { document.querySelector('#video-player iframe').dataset.segno = 'vecchio'; });
+            const ascolti = Object.assign({}, pc.ascolti);
+            const n0 = pc.richiesteAzoto.filter(u => /livetv31\/player/.test(u)).length;
+            await p.click('#btn-ricarica-video');
+            await aspetta(() => p.evaluate(() => { const f = document.querySelectorAll('#video-player iframe'); return f.length === 1 && !f[0].dataset.segno && /livetv31/.test(f[0].src); }), 5000, 'l\'iframe nuovo');
+            vero(!(await visibile(p, '#avviso-lento')), 'l\'avviso resta dopo «Ricarica il video»');
+            await aspetta(() => pc.richiesteAzoto.filter(u => /livetv31\/player/.test(u)).length > n0, 5000, 'la pagina del player chiesta di nuovo');
+            await nonRicaricata(pc, 'ricarica', nav, 'computer');
+            vero(pc.ascolti.aperti === ascolti.aperti && pc.ascolti.chiusi === ascolti.chiusi, 'ascolti su Firestore: ' + JSON.stringify({ prima: ascolti, dopo: pc.ascolti }));
+            vero(await p.evaluate(() => document.activeElement === document.getElementById('riquadro-video')), 'il fuoco si e\' perso (doveva andare sul riquadro)');
+            // il telefono non ha premuto niente: il suo avviso resta
+            vero(await visibile(i, '#avviso-lento'), 'l\'avviso del telefono e\' sparito senza che Azoto tornasse');
+        });
+
+        await prova('quando Azoto torna il messaggio sparisce da solo e si vede il player (telefono: senza toccare niente)', async () => {
+            for (const c of [pc, ip]) { c.azoto.fermo = false; c.trattieni.rilascia(); }
+            await i.waitForSelector('#avviso-lento', { state: 'hidden', timeout: 10000 });
+            for (const [c, nome] of [[pc, 'computer'], [ip, 'telefono']]) {
+                await iframeAzotoGiusto(c.page, 'livetv31', nome);
+            }
+            await pausa(1000);
+            vero(!(await visibile(p, '#avviso-lento')) && !(await visibile(i, '#avviso-lento')), 'l\'avviso e\' tornato');
+        });
+
+        await prova('modalità A: nessuna violazione della CSP (frame-src solo il player di Azoto), nessun errore nella pagina né in console', async () => {
+            const csp = await p.getAttribute('meta[http-equiv="Content-Security-Policy"]', 'content');
+            const frameSrc = (/(?:^|;)\s*frame-src ([^;]*)/.exec(csp) || [])[1];
+            vero(frameSrc && frameSrc.trim() === 'https://cdn.azotosolutions.com', 'frame-src: «' + frameSrc + '»');
+            vero(!/azotosolutions/.test((/(?:^|;)\s*script-src ([^;]*)/.exec(csp) || [])[1] || ''), 'script di Azoto ammessi nella CSP');
+            for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
+                const v = await c.page.evaluate(() => window.__violazioniCsp || []);
+                vero(v.length === 0, nome + ': CSP: ' + v.join(' | '));
+                vero(c.page.__errori.length === 0, nome + ': errori: ' + c.page.__errori.join(' | '));
+                vero(c.page.__console.length === 0, nome + ': errori in console: ' + c.page.__console.join(' | '));
+                vero(c.richiesteAzoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv\d+\/player\/?$/.test(u)), nome + ': richieste ad Azoto: ' + c.richiesteAzoto.filter(u => !/cloudtv/.test(u)).join(', '));
+                vero(!c.falliteAzoto.length, nome + ': richieste ad Azoto non riuscite (uscite dalle regole della prova?): ' + c.falliteAzoto.join(' | '));
+            }
+        });
+        await ip.context.close();
+        // da qui la modalita' B: la console del computer vedra' anche gli errori voluti (503 della web TV)
+        pc.page.__console.length = 0;
+
+        /* =================== MODALITA' B: IL FLUSSO DIRETTO =================== */
+        console.log('\nModalità B, computer 1440x900: la web TV finta (ffmpeg)');
+
+        await prova('la regia passa al flusso diretto (evento-player): la diretta HLS della web TV parte da sola nel nostro player, muta, con «Attiva l\'audio»', async () => {
+            await passaA('flusso');
             const s = await videoVa(p, 30000, 'la diretta che va');
             vero(s.muto === true, 'il video non parte muto');
             vero(await visibile(p, '#btn-attiva-audio'), '«Attiva l\'audio» non si vede');
@@ -430,25 +951,6 @@ function contaAscolti(page) {
             vero(await p.evaluate(() => window.__segnoPagina) === 'prima-del-guasto', 'la pagina si e\' ricaricata');
         });
 
-        await prova('il ripiego: il player della web TV incorporato (codice <iframe>), con i suoi comandi e il nostro schermo intero', async () => {
-            await cambiaVideo(INCORPORATO, '');
-            const fr = p.frameLocator('#video-player iframe');
-            await fr.locator('#player-webtv').waitFor({ timeout: 15000 });
-            await aspetta(async () => await p.getAttribute('#riquadro-video', 'data-comandi') === 'ridotti', 10000, 'comandi ridotti');
-            vero(!(await p.locator('#video-player video').count()), 'resta un <video>');
-            vero(await p.getAttribute('#video-player iframe', 'src') === F.WEBTV + '/player/napoli', 'src dell\'iframe: ' + await p.getAttribute('#video-player iframe', 'src'));
-            for (const sel of ['#btn-play', '#btn-muto', '#btn-attiva-audio', '#indicatore-live', '#btn-live', '#sel-qualita', '#barra-dvr']) {
-                vero(!(await visibile(p, sel)), sel + ' si vede con il player incorporato');
-            }
-            vero(await visibile(p, '#btn-schermo-intero'), 'manca lo schermo intero');
-            vero(/comandi del player/.test(await p.textContent('#riga-comandi-aiuto')), 'indicazione: ' + await p.textContent('#riga-comandi-aiuto'));
-            await p.click('#btn-schermo-intero');
-            await p.waitForSelector('#riquadro-video[data-intero="1"]', { timeout: 5000 });
-            await p.click('#btn-schermo-intero');
-            await p.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
-            await foto(p, 'incorporato-computer');
-        });
-
         await prova('un link non valido nel documento dell\'evento: la pagina non si rompe, «Video non disponibile» chiaro, poi il video torna da solo', async () => {
             // un valore che il servizio non salverebbe mai (un file, non una diretta): scritto a mano
             await db.doc('eventi/' + EVENTO).update({ videoId: F.WEBTV + '/video/prova.mp4', videoRiserva: '', videoAggiornato: T.now() });
@@ -458,20 +960,19 @@ function contaAscolti(page) {
             vero(/collegamento al video .* non è valido/.test(t) && !/browser/i.test(t), 'testo poco chiaro: ' + t);
             vero(!(await visibile(p, '#btn-attiva-audio')), '«Attiva l\'audio» con il video non disponibile');
             vero(await p.getAttribute('body', 'data-vista') === 'diretta', 'vista: ' + await p.getAttribute('body', 'data-vista'));
-            // quello che c'era prima (qui il player incorporato) non resta acceso di nascosto
+            // il video di prima non resta acceso di nascosto (se ne sentirebbe l'audio), e nessun iframe
             const resto = await p.evaluate(() => ({
                 iframe: !!document.querySelector('#video-player iframe'),
                 va: Array.from(document.querySelectorAll('#video-player video')).some(v => !v.paused)
             }));
             vero(!resto.iframe && !resto.va, 'il video di prima resta acceso sotto «Video non disponibile» (se ne sentirebbe l\'audio): ' + JSON.stringify(resto));
-            vero(await p.getAttribute('#riquadro-video', 'data-comandi') === 'pieni', 'restano i comandi ridotti del player incorporato di prima');
             await foto(p, 'non-disponibile-computer');
             await cambiaVideo(LIVE, RISERVA);
             await videoVa(p, 25000, 'il video di nuovo');
             vero(!(await visibile(p, '#schermo-video')), 'la schermata d\'errore resta');
         });
 
-        console.log('\nComputer: il flusso pubblico di Shaka Player (HLS e DASH, un\'ora di finestra)');
+        console.log('\nModalità B, computer: il flusso pubblico di Shaka Player (HLS e DASH, un\'ora di finestra)');
         await prova('HLS pubblico: la diretta parte, «IN DIRETTA», la barra per tornare indietro (un\'ora), qualità 480p', async () => {
             const da = Date.now();
             await cambiaVideo(F.FLUSSO_PUBBLICO_HLS, '');
@@ -545,12 +1046,12 @@ function contaAscolti(page) {
             vero(voci[0] === 'Automatica' && voci.indexOf('720p') > 0 && voci.indexOf('480p') > 0 && new Set(voci).size === voci.length, 'qualità: ' + voci.join(', '));
         });
 
-        console.log('\nComputer: il link firmato (firma nginx, dal servizio)');
+        console.log('\nModalità B, computer: il link firmato (firma nginx, dal servizio)');
         await prova('link firmato: la pagina chiede il link al servizio (link-video) e la firma arriva su playlist e segmenti; la chiave non esce', async () => {
             const da = Date.now();
             await g({ azione: 'evento-salva', evento: Object.assign({}, EVENTO_DATI, { nuovo: false, firma: { schema: 'nginx', segreto: SEGRETO, durataOre: 6 } }) });
             const pb = await pubblico();
-            vero(pb.videoFirmato === true && pb.videoId === LIVE, 'documento pubblico: ' + JSON.stringify({ firmato: pb.videoFirmato, id: pb.videoId }));
+            vero(pb.videoFirmato === true && pb.videoId === LIVE && pb.tipoPlayer === 'flusso', 'documento pubblico: ' + JSON.stringify({ firmato: pb.videoFirmato, id: pb.videoId, tipo: pb.tipoPlayer }));
             vero(JSON.stringify(pb).indexOf(SEGRETO) < 0, 'la chiave e\' nel documento pubblico');
             const master = await aspetta(() => primaDa(pc.richieste, /^\/live\/master\.m3u8$/, da), 20000, 'la playlist firmata');
             await aspetta(() => pc.richieste.filter(r => r.t >= master.t && /^\/live\/.*\.m4s$/.test(r.percorso)).length >= 2, 20000, 'i segmenti');
@@ -580,8 +1081,8 @@ function contaAscolti(page) {
         });
         await pc.context.close();
 
-        /* =================== TELEFONO =================== */
-        console.log('\nTelefono 390x844 (iPhone, senza API di schermo intero)');
+        /* =================== TELEFONO (modalita' B) =================== */
+        console.log('\nModalità B, telefono 390x844 (iPhone, senza API di schermo intero)');
         const tel = await contesto({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: IPHONE }, true);
         const t = tel.page;
         // ogni comando visibile della barra sta dentro lo schermo, senza scorrere di lato
@@ -661,14 +1162,6 @@ function contaAscolti(page) {
             await aspetta(async () => (await statoVideo(t)).tipo === 'errore', 10000, '«Video non disponibile»');
             await schermataLeggibile('video non disponibile');
             await foto(t, 'non-disponibile-telefono');
-        });
-
-        await prova('telefono: il ripiego incorporato, con lo schermo intero', async () => {
-            await cambiaVideo(INCORPORATO, '');
-            await t.frameLocator('#video-player iframe').locator('#player-webtv').waitFor({ timeout: 15000 });
-            await aspetta(async () => await t.getAttribute('#riquadro-video', 'data-comandi') === 'ridotti', 10000, 'comandi ridotti');
-            await dentroLoSchermo('incorporato');
-            await foto(t, 'incorporato-telefono');
             await cambiaVideo(LIVE, RISERVA);
             await videoVa(t, 25000, 'di nuovo la diretta');
         });

@@ -13,15 +13,26 @@
       computer, e le salva in JPEG (qualita' 82) in diretta/screenshot/,
       con i nomi in ordine: accesso, attesa, diretta, gestione con
       l'anteprima, email, popup della home, sezione di Napoli.
-      La diretta dalla web TV (telefono 390x844, computer 1440x900) la
-      fotografa webtv.prova.js: il player in diretta (con «IN DIRETTA»,
-      i comandi e la qualita'), indietro nella diretta con la barra e
-      «Torna in diretta», «Stiamo ricollegando la diretta…», «Video
-      non disponibile» e il ripiego incorporato; l'avviso del ripiego
-      nella gestione lo fotografa gestione.prova.js.
+      La diretta ha due modalita' (telefono 390x844, computer 1440x900):
+      - A, il player di Azoto in un iframe (la predefinita): la
+        fotografa webtv.prova.js (03-diretta-azoto-*): in diretta, a
+        schermo intero (sul computer lo schermo intero vero; sul
+        telefono la vista a pagina intera orizzontale di iPhone, con il
+        riquadro ruotato: la foto e' lo schermo del telefono tenuto in
+        verticale) e con il player che non risponde (dopo 15 s «La
+        diretta sta arrivando, attendi qualche secondo»); l'attesa la
+        fotografa e2e.prova.js (02-attesa-*), che usa la modalita' A;
+      - B, il flusso diretto nel nostro player: webtv.prova.js (con
+        «IN DIRETTA», i comandi e la qualita'; indietro nella diretta
+        con la barra e «Torna in diretta»; «Stiamo ricollegando la
+        diretta…»; «Video non disponibile») e pagina.prova.js (lo
+        schermo intero del telefono, la pausa dell'evento).
+      La gestione con il campo «Tipo di player» la fotografa
+      gestione.prova.js (04-gestione-tipo-player-*).
    Va lanciato DOPO le prove (esegui-tutte.js, e2e.prova.js,
    anteprima-email.js --screenshot). Le foto che una prova non ha
-   lasciato si segnalano con «manca» (e restano quelle di prima).
+   lasciato si segnalano con «manca» (e restano quelle di prima); quelle
+   che non si fanno piu' si tolgono.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -38,11 +49,26 @@ const GESTORE = 'gestore@prova.it';
 const PW = 'GestioneNapoli2026';
 fs.mkdirSync(DEST, { recursive: true });
 
+/* Il browser non esce MAI in rete da solo: quello che serve lo danno le
+   regole di rete-prove.js e flusso-prova.js (context.route). Senza proxy
+   e senza DNS (tranne 127.0.0.1) qualunque richiesta sfuggita alle regole
+   fallisce (mai la rete vera di Azoto); e senza l'isolamento dei siti
+   l'iframe di Azoto resta nel processo della pagina, cosi' il rimando 301
+   del suo player (.../player -> .../player/) passa sempre dalle regole
+   (con l'iframe in un processo a parte, a volte la richiesta rimandata
+   sfuggiva alle regole e andava verso la rete vera). */
+const LANCIO = {
+    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    args: ['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process',
+        '--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
+};
+
 process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + PORTE.firestore;
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:' + PORTE.auth;
 const admin = require(path.resolve(__dirname, '../../email-service/node_modules/firebase-admin'));
 const { chromium } = require('playwright');
 const { preparaContesto } = require('./rete-prove');
+const F = require('./flusso-prova');
 
 const figli = [];
 function avvia(argomenti, pronto, env) {
@@ -79,7 +105,7 @@ async function inJpeg(browser, sorgente, destinazione) {
 }
 
 (async () => {
-    const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+    const browser = await chromium.launch(LANCIO);
     try {
         /* ---------- 1. la gestione con l'anteprima, telefono e computer ---------- */
         await avvia(['avvia-emulatori.js', '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], 'EMULATORI PRONTI');
@@ -95,7 +121,7 @@ async function inJpeg(browser, sorgente, destinazione) {
         const token = (await r.json()).idToken;
         await chiama('diretta-gestione', { azione: 'evento-salva', evento: {
             id: 'napoli-2026', nuovo: true, titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli · Hotel Eurostars Excelsior',
-            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
+            data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30', azotoUrl: F.PLAYER_AZOTO, videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
             programma: [{ ora: '09.00', titolo: 'Accoglienza e registrazione' }, { ora: '09.30', titolo: 'Apertura dei lavori' }],
             paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: true, oraPrima: true }
         } }, token).catch(() => {});
@@ -108,6 +134,8 @@ async function inJpeg(browser, sorgente, destinazione) {
         ]) {
             const context = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opz));
             await preparaContesto(context, {});
+            // il player di Azoto finto: la gestione non deve mai arrivare alla rete vera di Azoto
+            await F.instradaAzoto(context);
             await context.addInitScript(p => { window.NGB_DIRETTA_PROVE = p; try { sessionStorage.setItem('ngbDirettaEmulatori', '1'); } catch (e) { /* niente */ } },
                 { firestore: PORTE.firestore, auth: PORTE.auth, api: API });
             const page = await context.newPage();
@@ -138,6 +166,12 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['01-accesso-computer', 'screenshot-pagina/accesso-computer.png'],
             ['02-attesa-telefono', 'screenshot-e2e/03-attesa-telefono.png'],
             ['02-attesa-computer', 'screenshot-e2e/04-attesa-computer.png'],
+            ['03-diretta-azoto-telefono', 'screenshot-webtv/azoto-telefono.png'],
+            ['03-diretta-azoto-computer', 'screenshot-webtv/azoto-computer.png'],
+            ['03-diretta-azoto-schermo-intero-telefono', 'screenshot-webtv/azoto-schermo-intero-telefono.png'],
+            ['03-diretta-azoto-schermo-intero-computer', 'screenshot-webtv/azoto-schermo-intero-computer.png'],
+            ['03-diretta-azoto-lenta-telefono', 'screenshot-webtv/azoto-lenta-telefono.png'],
+            ['03-diretta-azoto-lenta-computer', 'screenshot-webtv/azoto-lenta-computer.png'],
             ['03-diretta-telefono', 'screenshot-webtv/diretta-telefono.png'],
             ['03-diretta-computer', 'screenshot-webtv/diretta-computer.png'],
             ['03-diretta-indietro-telefono', 'screenshot-webtv/dvr-telefono.png'],
@@ -146,11 +180,10 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['03-diretta-ricollegamento-computer', 'screenshot-webtv/ricollegamento-computer.png'],
             ['03-diretta-non-disponibile-telefono', 'screenshot-webtv/non-disponibile-telefono.png'],
             ['03-diretta-non-disponibile-computer', 'screenshot-webtv/non-disponibile-computer.png'],
-            ['03-diretta-incorporata-telefono', 'screenshot-webtv/incorporato-telefono.png'],
-            ['03-diretta-schermo-intero-telefono', 'screenshot-e2e/07-schermo-intero-telefono.png'],
+            ['03-diretta-schermo-intero-telefono', 'screenshot-pagina/diretta-schermo-intero-telefono.png'],
             ['03-pausa-evento-computer', 'screenshot-pagina/pausa-evento-computer.png'],
-            ['04-gestione-ripiego-iframe-telefono', 'screenshot-gestione-webtv/01-ripiego-iframe-evento-telefono.png'],
-            ['04-gestione-ripiego-iframe-computer', 'screenshot-gestione-webtv/01-ripiego-iframe-evento-computer.png'],
+            ['04-gestione-tipo-player-telefono', 'screenshot-gestione-azoto/01-evento-tipo-player-telefono.png'],
+            ['04-gestione-tipo-player-computer', 'screenshot-gestione-azoto/01-evento-tipo-player-computer.png'],
             ['04-gestione-anteprima-telefono', 'gestione-anteprima-telefono.png'],
             ['04-gestione-anteprima-computer', 'gestione-anteprima-computer.png'],
             ['04-gestione-regia-computer', 'screenshot-gestione/computer-regia.png'],
@@ -165,8 +198,9 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['07-napoli-sezione-computer', 'screenshot-sito/napoli-sezione-computer-in-diretta.png'],
             ['07-napoli-menu-telefono', 'screenshot-sito/napoli-barra-telefono-in-diretta.png']
         ];
-        // le foto di prima che non si fanno piu' (il player di prima, i nomi vecchi)
-        ['03-diretta-webtv-telefono', '03-diretta-webtv-incorporata-telefono'].forEach(n => {
+        // le foto di prima che non si fanno piu' (il player di prima, i nomi vecchi, il ripiego incorporato di altri siti)
+        ['03-diretta-webtv-telefono', '03-diretta-webtv-incorporata-telefono', '03-diretta-incorporata-telefono',
+            '04-gestione-ripiego-iframe-telefono', '04-gestione-ripiego-iframe-computer'].forEach(n => {
             const f = path.join(DEST, n + '.jpg');
             if (fs.existsSync(f)) { fs.unlinkSync(f); console.log('tolta ' + n + '.jpg'); }
         });

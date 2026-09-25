@@ -22,9 +22,15 @@
    ffmpeg (VP9 + Opus, 360p e 180p, segmenti da 2 secondi, finestra
    di 40 s: niente barra per tornare indietro). Serve ffmpeg (quello
    di sistema, FFMPEG=/percorso, oppure pip install imageio-ffmpeg).
-   I casi della web TV (riserva, flusso pubblico con la finestra per
-   tornare indietro, DASH, ripiego incorporato, link firmati) li prova
-   webtv.prova.js, con il servizio vero come regia.
+   Qui gli eventi non hanno «Tipo di player» (come quelli salvati prima
+   delle due modalita'): con un link .m3u8 la pagina sceglie da sola il
+   flusso diretto (modalita' B), con l'indirizzo del player di Azoto la
+   modalita' A. I casi della web TV (riserva, flusso pubblico con la
+   finestra per tornare indietro, DASH, link firmati) e quelli della
+   modalita' A con il servizio vero (cambio d'indirizzo, A -> B -> A, i
+   15 secondi, lo schermo intero, il 16:9) li prova webtv.prova.js, con
+   il servizio vero come regia; il percorso completo in modalita' A,
+   e2e.prova.js.
 
    Chromium, due dispositivi: computer 1366x900 e "iPhone" 390x844
    (isMobile, hasTouch, user agent di Safari su iPhone, e SENZA le API
@@ -50,6 +56,18 @@
    ritorno in onda dopo la fine; Esci con conferma; password
    dimenticata; reimpostazione della password (anche con un
    collegamento scaduto). E nessuna violazione della CSP.
+
+   LA MODALITA' A (il player di Azoto finto di flusso-prova.js, mai la
+   rete vera di Azoto), con la regia che scrive qui il documento
+   dell'evento: un evento di prima senza «Tipo di player» con
+   l'indirizzo di Azoto passa da solo al player di Azoto (iframe);
+   in onda senza indirizzo «Il video sta per arrivare» (niente iframe,
+   nessuna richiesta ad Azoto); un indirizzo che non e' di Azoto (un
+   altro sito, javascript:, un host che finge di essere Azoto) «Video
+   non disponibile», niente iframe e nessuna richiesta a quel sito; il
+   player che non risponde mai (/cloudtv/lento/): a 15 s l'avviso sotto
+   il riquadro, «Ricarica il video» ricrea solo l'iframe; la CSP blocca
+   un iframe di qualunque altro sito (frame-src solo Azoto).
 
    E I CASI DELLA REVISIONE (ognuno falliva prima delle correzioni):
    - un solo dispositivo, DUE contesti veri: A entra e segnala, B entra
@@ -108,6 +126,20 @@ const LINK = F.WEBTV + '/live/master.m3u8';
 const LINK_NUOVO = F.WEBTV + '/riserva/master.m3u8';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
+
+/* Il browser non esce MAI in rete da solo: quello che serve lo danno le
+   regole di rete-prove.js e flusso-prova.js (context.route). Senza proxy
+   e senza DNS (tranne 127.0.0.1) qualunque richiesta sfuggita alle regole
+   fallisce (mai la rete vera di Azoto); e senza l'isolamento dei siti
+   l'iframe di Azoto resta nel processo della pagina, cosi' il rimando 301
+   del suo player (.../player -> .../player/) passa sempre dalle regole
+   (con l'iframe in un processo a parte, a volte la richiesta rimandata
+   sfuggiva alle regole e andava verso la rete vera). */
+const LANCIO = {
+    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    args: ['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process',
+        '--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
+};
 
 /* ---------- esito delle prove ---------- */
 let verdi = 0, rossi = 0;
@@ -349,6 +381,8 @@ function eventoIniziale(T) {
         await eventoProva('ev-in-onda', 'Prova: evento in onda');
         await eventoProva('ev-archivio', 'Prova: senza localStorage', { unSoloDispositivo: true });
         await eventoProva('ev-video', 'Prova: il player');
+        // un evento salvato prima delle due modalita': niente tipoPlayer, in onda con l'indirizzo del player di Azoto
+        await eventoProva('ev-azoto', 'Prova: il player di Azoto', { videoId: F.PLAYER_AZOTO });
 
         // una password sola per queste persone (mai stampata)
         const PASSWORD_PROVA = 'Prova' + crypto.randomBytes(5).toString('hex') + '7';
@@ -370,6 +404,7 @@ function eventoIniziale(T) {
         await nuovoPartecipante('elenadue', 'Elena', 'Due', ['ev-lontano', 'ev-in-onda']);
         await nuovoPartecipante('luciasenza', 'Lucia', 'Senza', ['ev-archivio']);
         await nuovoPartecipante('paolovideo', 'Paolo', 'Video', ['ev-video']);
+        await nuovoPartecipante('annaazoto', 'Anna', 'Azoto', ['ev-azoto']);
         const presenzaDi = async (idEvento, id) => {
             const s = await db.doc('presenze/' + idEvento + '_' + id).get();
             return s.exists ? s.data() : null;
@@ -434,7 +469,7 @@ function eventoIniziale(T) {
         const quante = azione => chiamate.filter(c => c.azione === azione && !utentiProva[c.nomeUtente]).length;
 
         /* ---------- 4. il browser ---------- */
-        browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+        browser = await chromium.launch(LANCIO);
 
         /* extra (facoltativo): { prove: tempi della presenza, ritardoLibreriaMs:
            hls.js (diretta/hls.min.js) che arriva tardi, initScript: codice da
@@ -445,6 +480,8 @@ function eventoIniziale(T) {
             await preparaContesto(context, {});
             // la web TV finta (registrata dopo preparaContesto: vince lei); controllo.richieste: i percorsi chiesti
             const webtv = await F.instradaWebTv(context, CARTELLA_WEBTV);
+            // il player di Azoto finto (mai la rete vera di Azoto); azoto.richieste: i percorsi chiesti
+            const azoto = await F.instradaAzoto(context);
             if (extra.ritardoLibreriaMs) {
                 await context.route('**/diretta/hls.min.js', async route => {
                     await pausa(extra.ritardoLibreriaMs);
@@ -477,7 +514,12 @@ function eventoIniziale(T) {
             page.__erroriPagina = [];
             page.on('pageerror', e => page.__erroriPagina.push(String(e && e.message || e)));
             page.__ascolti = contaAscolti(page);
-            return { context, page, webtv };
+            // ogni richiesta verso azotosolutions.com, e i caricamenti della pagina (una ricarica li conta)
+            page.__azoto = [];
+            page.on('request', q => { if (/^https:\/\/([a-z0-9-]+\.)*azotosolutions\.com[:/]/.test(q.url())) page.__azoto.push(q.url()); });
+            page.__caricamenti = 0;
+            page.on('framenavigated', f => { if (f === page.mainFrame()) page.__caricamenti++; });
+            return { context, page, webtv, azoto };
         }
         const vistaE = (page, v, ms) => page.waitForSelector('body[data-vista="' + v + '"]', { timeout: ms || 15000 });
         const visibile = (page, sel) => page.locator(sel).isVisible();
@@ -660,7 +702,9 @@ function eventoIniziale(T) {
 
         await prova('la pagina ha la CSP e il viewport per iPhone (viewport-fit=cover)', async () => {
             const csp = await p.getAttribute('meta[http-equiv="Content-Security-Policy"]', 'content');
-            vero(/script-src 'self' https:\/\/www\.gstatic\.com/.test(csp) && /object-src 'none'/.test(csp), 'CSP mancante o diversa');
+            vero(/script-src 'self' https:\/\/www\.gstatic\.com;/.test(csp) && /object-src 'none'/.test(csp), 'CSP mancante o diversa');
+            // negli iframe SOLO il player di Azoto; e nessuno script di Azoto (azoto-player.js non si carica)
+            vero(/(^|;)\s*frame-src https:\/\/cdn\.azotosolutions\.com;/.test(csp), 'frame-src: ' + (/frame-src[^;]*/.exec(csp) || [''])[0]);
             const vp = await p.getAttribute('meta[name="viewport"]', 'content');
             vero(/viewport-fit=cover/.test(vp), 'viewport senza viewport-fit=cover');
             const inLinea = await p.evaluate(() => Array.from(document.scripts).filter(s => !s.src && s.type !== 'application/ld+json').length);
@@ -1340,6 +1384,114 @@ function eventoIniziale(T) {
                 await C.context.close().catch(() => {});
             }
         });
+
+        /* =================== MODALITA' A, CON LA REGIA QUI =================== */
+        console.log('\nModalità A (il player di Azoto finto), con la regia che scrive qui il documento dell\'evento');
+        const evAzoto = db.doc('eventi/ev-azoto');
+        // l'iframe del player di Azoto e che cosa mostra il riquadro
+        const statoA = pg => pg.evaluate(() => {
+            const f = document.querySelectorAll('#video-player iframe');
+            return {
+                iframe: f.length, src: f[0] ? f[0].getAttribute('src') : '', video: document.querySelectorAll('#video-player video').length,
+                azoto: document.documentElement.classList.contains('modo-azoto'),
+                schermata: document.getElementById('area-video').getAttribute('data-schermata'),
+                titolo: document.getElementById('schermo-video').hidden ? '' : document.getElementById('schermo-video-titolo').textContent,
+                testo: document.getElementById('schermo-video').hidden ? '' : document.getElementById('schermo-video-testo').textContent
+            };
+        });
+        // il canale scritto dal player finto dentro l'iframe ('' se la pagina non e' arrivata)
+        const canaleA = async pg => {
+            const h = await pg.$('#video-player iframe');
+            const fr = h && await h.contentFrame();
+            if (!fr) return '';
+            try { return String(await fr.textContent('#canale-azoto', { timeout: 500 }) || '').trim(); } catch (e) { return ''; }
+        };
+        const A = await nuovoContesto({ viewport: { width: 1366, height: 900 } }, false, { prove: { ritardoPresenzaMs: 999999 } });
+        const pa = A.page;
+        const dialoghi = [];
+        pa.on('dialog', d => { dialoghi.push(d.message()); d.dismiss().catch(() => {}); });
+
+        await prova('un evento di prima, senza «Tipo di player», con l\'indirizzo di Azoto: la pagina sceglie da sola il player di Azoto (iframe, niente nostri comandi)', async () => {
+            vero((await evAzoto.get()).data().tipoPlayer === undefined, 'la prova doveva usare un evento senza tipoPlayer');
+            await accedi(pa, 'annaazoto', PASSWORD_PROVA);
+            await vistaE(pa, 'diretta', 30000);
+            await aspetta(async () => (await canaleA(pa)) === 'livetv29', 15000, 'il player di Azoto nell\'iframe');
+            const s = await statoA(pa);
+            vero(s.iframe === 1 && s.src === F.PLAYER_AZOTO && s.video === 0 && s.azoto && s.schermata === 'video', 'modalità A: ' + JSON.stringify(s));
+            vero(!(await visibile(pa, '#btn-play')) && !(await visibile(pa, '#btn-attiva-audio')) && await visibile(pa, '#nota-azoto') && await visibile(pa, '#btn-schermo-intero'), 'comandi della modalità A');
+            vero(pa.__azoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\/?$/.test(u)), 'richieste ad Azoto: ' + pa.__azoto.join(', '));
+        });
+
+        await prova('modalità A in onda ma senza indirizzo: «Il video sta per arrivare» al posto del player, niente iframe e nessuna richiesta ad Azoto', async () => {
+            await evAzoto.update({ tipoPlayer: 'azoto', videoId: '', videoAggiornato: T.now() });
+            await aspetta(async () => (await statoA(pa)).schermata === 'arrivo', 10000, '«Il video sta per arrivare»');
+            const s = await statoA(pa);
+            vero(s.iframe === 0 && s.video === 0 && s.azoto && s.titolo === 'Il video sta per arrivare', 'senza indirizzo: ' + JSON.stringify(s));
+            const n = pa.__azoto.length;
+            await pausa(1500);
+            vero(pa.__azoto.length === n, 'richieste ad Azoto senza indirizzo');
+            await foto(pa, 'azoto-in-arrivo-computer');
+        });
+
+        await prova('un indirizzo che non è di Azoto (un altro sito, javascript:, un host che finge di essere Azoto): «Video non disponibile», niente iframe, nessuna richiesta a quel sito', async () => {
+            for (const v of [F.WEBTV + '/player/napoli', 'javascript:alert(1)', 'https://cdn.azotosolutions.com.esempio.it/cloudtv/livetv29/player', 'http://cdn.azotosolutions.com/cloudtv/livetv29/player']) {
+                // prima un indirizzo buono, cosi' ogni volta la pagina passa davvero dall'iframe alla schermata
+                await evAzoto.update({ videoId: F.PLAYER_AZOTO, videoAggiornato: T.now() });
+                await aspetta(async () => (await statoA(pa)).iframe === 1, 10000, 'l\'iframe prima di ' + v);
+                await evAzoto.update({ videoId: v, videoAggiornato: T.now() });
+                await aspetta(async () => (await statoA(pa)).schermata === 'errore', 10000, '«Video non disponibile» per ' + v);
+                const s = await statoA(pa);
+                vero(s.iframe === 0 && s.video === 0 && s.titolo === 'Video non disponibile' && /non è valido/.test(s.testo), v + ': ' + JSON.stringify(s));
+            }
+            await pausa(1000);
+            vero(!A.webtv.richieste.some(r => /^\/player\//.test(r)), 'la pagina di un altro sito e\' stata chiesta: ' + A.webtv.richieste.join(', '));
+            vero(pa.__azoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv29\/player\/?$/.test(u)), 'richieste verso indirizzi non consentiti: ' + pa.__azoto.join(', '));
+            vero(!dialoghi.length, 'javascript: e\' stato eseguito: ' + dialoghi.join(' | '));
+            await foto(pa, 'azoto-non-consentito-computer');
+        });
+
+        await prova('il player di Azoto che non risponde mai (/cloudtv/lento/): a 15 s l\'avviso sotto il riquadro; «Ricarica il video» ricrea solo l\'iframe; con un indirizzo buono l\'avviso sparisce', async () => {
+            await pa.evaluate(() => {
+                const t = window.__tempiLento = { iframe: 0, avviso: 0 };
+                const vp = document.getElementById('video-player');
+                new MutationObserver(() => { const f = vp.querySelector('iframe'); if (f && !t.iframe && /\/lento\//.test(f.getAttribute('src'))) t.iframe = performance.now(); }).observe(vp, { childList: true });
+                const av = document.getElementById('avviso-lento');
+                new MutationObserver(() => { if (!av.hidden && !t.avviso) t.avviso = performance.now(); }).observe(av, { attributes: true, attributeFilter: ['hidden'] });
+            });
+            await evAzoto.update({ videoId: F.AZOTO + '/cloudtv/lento/player', videoAggiornato: T.now() });
+            await pa.waitForFunction(() => window.__tempiLento.avviso > 0, null, { timeout: 30000 });
+            const t = await pa.evaluate(() => window.__tempiLento);
+            const dopo = (t.avviso - t.iframe) / 1000;
+            console.log('       (l\'avviso ' + dopo.toFixed(2) + ' s dopo l\'iframe)');
+            vero(t.iframe > 0 && dopo >= 14.9 && dopo <= 17, 'avviso dopo ' + dopo.toFixed(2) + ' s (deve essere 15)');
+            await pa.waitForFunction(() => document.getElementById('avviso-lento-testo').textContent === 'La diretta sta arrivando, attendi qualche secondo', null, { timeout: 2000 });
+            const v = await pa.locator('#area-video').boundingBox();
+            const a = await pa.locator('#avviso-lento').boundingBox();
+            vero(a.y >= v.y + v.height - 0.5, 'l\'avviso non sta sotto il video');
+            vero((await statoA(pa)).iframe === 1, 'l\'iframe che aspetta non c\'e\' piu\'');
+            // «Ricarica il video»: solo l'iframe
+            await pa.evaluate(() => { window.__segnoPagina = 'prima-della-ricarica'; document.querySelector('#video-player iframe').dataset.segno = 'vecchio'; });
+            const caricamenti = pa.__caricamenti;
+            const n0 = A.azoto.richieste.filter(r => r === '/cloudtv/lento/player').length;
+            await pa.click('#btn-ricarica-video');
+            await aspetta(() => pa.evaluate(() => { const f = document.querySelectorAll('#video-player iframe'); return f.length === 1 && !f[0].dataset.segno; }), 5000, 'l\'iframe nuovo');
+            await aspetta(() => A.azoto.richieste.filter(r => r === '/cloudtv/lento/player').length > n0, 5000, 'il player chiesto di nuovo');
+            vero(!(await visibile(pa, '#avviso-lento')), 'l\'avviso resta dopo «Ricarica il video»');
+            vero(await pa.evaluate(() => window.__segnoPagina) === 'prima-della-ricarica' && pa.__caricamenti === caricamenti, 'la pagina si e\' ricaricata');
+            await evAzoto.update({ videoId: F.PLAYER_AZOTO, videoAggiornato: T.now() });
+            await aspetta(async () => (await canaleA(pa)) === 'livetv29', 15000, 'il player buono');
+            vero(!(await visibile(pa, '#avviso-lento')), 'l\'avviso resta con il player buono');
+        });
+
+        await prova('modalità A: nessuna violazione della CSP e nessun errore; e la CSP blocca un iframe di un altro sito (frame-src solo Azoto)', async () => {
+            vero((await pa.evaluate(() => window.__violazioniCsp)).length === 0, 'violazioni: ' + (await pa.evaluate(() => window.__violazioniCsp)).join(' | '));
+            vero(pa.__erroriPagina.length === 0, 'errori: ' + pa.__erroriPagina.join(' | '));
+            // un iframe verso un'altra pagina, messo qui dalla prova: il browser lo rifiuta senza nemmeno chiederla
+            await pa.evaluate(u => { const f = document.createElement('iframe'); f.src = u; document.body.appendChild(f); }, F.WEBTV + '/player/napoli');
+            await aspetta(() => pa.evaluate(() => window.__violazioniCsp.some(v => /^frame-src https:\/\/webtv\.prova\.test(\/|\s|$)/.test(v))), 5000, 'la violazione frame-src');
+            vero(!A.webtv.richieste.some(r => /^\/player\//.test(r)), 'la pagina dell\'altro sito e\' stata scaricata');
+        });
+        await A.context.close();
 
         /* =================== CARICAMENTO DELL'SDK =================== */
         console.log('\nSDK di Firebase non scaricato');
