@@ -484,7 +484,9 @@ module.exports = async (req, res) => {
         // "aggiungi" crea la scheda; "invita-b2b", "sposta-modalita" e
         // "invito-b2b-segna" portano il proprio elenco di schede: sono le sole
         // azioni senza un iscritto da indicare qui
-        const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'invita-b2b-azienda', 'sposta-modalita', 'invito-b2b-segna'];
+        const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'invita-b2b-azienda', 'sposta-modalita', 'invito-b2b-segna',
+            // il pregresso della conferma email lavora su tutto l'evento: nessun iscritto da indicare
+            'conferma-email-pregresso'];
         if (CON_ELENCO_PROPRIO.indexOf(azione) < 0 && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
