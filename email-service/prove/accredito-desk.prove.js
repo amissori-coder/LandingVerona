@@ -129,9 +129,9 @@ const BIANCHI = { data: '21/09/2026 11:00:00', nome: 'Anna', cognome: 'Bianchi',
     await prova('Fuori dai giorni dell\'evento: tutto chiuso', async () => {
         azzera();
         iscrivi('a', ROSSI);
-        orologio = Date.parse('2026-09-28T10:00:00+02:00');
+        orologio = Date.parse('2026-09-20T10:00:00+02:00');
         const r = await DESK.cerca(db, corpo({ email: ROSSI.email }));
-        esigi(r.corpo.trovato === false, 'il 28 settembre la ricerca non risponde');
+        esigi(r.corpo.trovato === false, 'il 20 settembre la ricerca non risponde');
         orologio = Date.parse('2026-10-01T00:30:00+02:00');
         esigi(DESK.aperto(Object.assign({ id: EVENTO }, DESK.EVENTI[EVENTO])), 'il 1 ottobre alle 0.30 di Roma e\' aperto (a UTC e\' ancora il 30 settembre)');
         orologio = Date.parse('2026-10-04T08:00:00+02:00');

@@ -204,7 +204,7 @@ segna nessuno: e' voluto, il servizio non risponde a chi non ha la chiave del
 cartello. Sceglila di lettere e numeri, 12-20 caratteri, e non scriverla nel
 repo. Il file `out/` e' gia' escluso.
 
-La pagina funziona solo dal 1 al 3 ottobre: fuori da quei giorni il cartello
+La pagina funziona dal 25 settembre al 3 ottobre: fuori da quei giorni il cartello
 e' carta.
 
 **Piano B, senza rete.** La lista stampata di `out/codici.csv` e una penna:
