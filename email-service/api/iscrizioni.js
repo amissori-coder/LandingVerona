@@ -446,6 +446,15 @@ module.exports = async (req, res) => {
                        lettura e' una whitelist campo per campo: senza questa
                        riga il campo resterebbe sul database e il baffetto non
                        comparirebbe mai. */
+                    /* Com'e' andata la mail di conferma dell'iscrizione: quando
+                       fallisce, l'area riservata lo scrive accanto all'indirizzo
+                       con il motivo dato dal server di posta. Whitelist: senza
+                       questa riga resterebbe nei log e basta. */
+                    mailConferma: (v.mailConferma && typeof v.mailConferma === 'object') ? {
+                        quando: typeof v.mailConferma.quando === 'number' ? v.mailConferma.quando : 0,
+                        ok: v.mailConferma.ok === true,
+                        errore: String(v.mailConferma.errore || '')
+                    } : null,
                     emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {
                         quando: typeof v.emailConfermata.quando === 'number' ? v.emailConfermata.quando : 0,
                         come: String(v.emailConfermata.come || 'mail')

@@ -230,6 +230,21 @@ function idDocumento(email, data, nome, cognome) {
 }
 
 
+/* COM'E' ANDATA LA MAIL DI CONFERMA, scritto sulla scheda. Un invio che
+   fallisce finiva solo nei log del servizio, dove nessuno guarda: chi
+   organizza vedeva l'iscritto e basta, e chi si era iscritto aspettava una
+   mail che non sarebbe arrivata. Con `mailConferma` sulla scheda l'area
+   riservata puo' dire "mail non inviata" accanto all'indirizzo, con il
+   motivo che ha dato il server di posta. E' informazione, non condizione:
+   se questa scrittura fallisce l'iscrizione resta com'e'. */
+async function tracciaMail(db, idDoc, esito) {
+    try {
+        await db.collection('iscrizioni').doc(idDoc).set({
+            mailConferma: { quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200) }
+        }, { merge: true });
+    } catch (e) { /* la mail e' gia' partita o gia' fallita: qui non cambia niente */ }
+}
+
 /* Segna che i dati sono cambiati, cosi la lettura sa che deve rileggere. */
 async function segnaCambiamento(db) {
     try {
@@ -1536,8 +1551,11 @@ module.exports = async (req, res) => {
                     from: mittenteMail(), to: email,
                     subject: m.oggetto, text: m.testo, html: m.html
                 });
+                await tracciaMail(admin.firestore(), idDoc, { ok: true });
             } catch (e) {
-                console.error('Conferma iscrizione dal sito non inviata:', String((e && e.message) || e).slice(0, 200));
+                const motivo = String((e && e.message) || e).slice(0, 200);
+                console.error('Conferma iscrizione dal sito non inviata:', motivo);
+                await tracciaMail(admin.firestore(), idDoc, { ok: false, errore: motivo });
             }
         }
 
