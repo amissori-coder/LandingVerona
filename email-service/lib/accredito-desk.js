@@ -158,7 +158,9 @@ async function schedeEvento(db, ev) {
     const righe = [];
     (arch.iscrizioni || []).forEach(v => {
         if (!v || chiave(v.pagina).indexOf(ev.filtro) < 0) return;
-        if (v.annullata === true) return;   // annullata dall'intestatario, dal modulo "completa i dati"
+        // annullata dall'intestatario dal modulo "completa i dati": l'area
+        // riservata la nasconde, e il desk non deve proporla a nessuno
+        if (v.annullato) return;
         const id = idIscrittoDi(v);
         if (cancellate[id]) return;
         righe.push({ id: id, scheda: v, presenza: presenze[id] || null });

@@ -212,6 +212,17 @@ const BIANCHI = { data: '21/09/2026 11:00:00', nome: 'Anna', cognome: 'Bianchi',
         esigi(r.corpo.trovato === false, 'cancellata: come se non ci fosse');
     });
 
+    await prova('Una scheda ANNULLATA dall\'intestatario non si ritrova', async () => {
+        azzera();
+        // il modulo "completa i dati" scrive `annullato: true` (con la o): e' il
+        // campo che l'area riservata usa per nasconderla, e il desk fa lo stesso
+        iscrivi('a', Object.assign({}, ROSSI, { annullato: true }));
+        const r = await DESK.cerca(db, corpo({ email: ROSSI.email }));
+        esigi(r.corpo.trovato === false, 'annullata: il desk non la propone (era il caso di un indirizzo che risultava di un altro)');
+        const n = await DESK.cerca(db, corpo({ nome: 'Mario', cognome: 'Rossi' }));
+        esigi(n.corpo.trovato === false, 'nemmeno per nome');
+    });
+
     await prova('Le schede inserite a mano (pagina corta) si trovano lo stesso', async () => {
         azzera();
         iscrivi('m', Object.assign({}, BIANCHI, { pagina: 'Napoli 2 Ottobre 2026' }));
