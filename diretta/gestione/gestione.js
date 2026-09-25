@@ -187,10 +187,9 @@
        estrarne l'indirizzo tocca solo a quelle regole. */
     const SV = window.NGBSorgenteVideo || null;
     const SITO = 'https://nextgenerationbusiness.it';
-    // la nota fissa sotto il campo del player Azoto (in sorgente-video.js: AVVISO_INCORPORATO)
-    const NOTA_AZOTO = (SV && SV.AVVISO_INCORPORATO)
-        || 'Con il player Azoto restano i comandi (e l\'eventuale logo) di Azoto: per usare i nostri comandi serve il link .m3u8 del flusso diretto, da chiedere ad Azoto.';
-    document.querySelectorAll('.nota-azoto').forEach(n => { n.textContent = NOTA_AZOTO; });
+    // la nota fissa sotto il campo del player Azoto: il testo e' quello di sorgente-video.js (AVVISO_INCORPORATO)
+    const NOTA_AZOTO = (SV && SV.AVVISO_INCORPORATO) || '';
+    if (NOTA_AZOTO) document.querySelectorAll('.nota-azoto').forEach(n => { n.textContent = NOTA_AZOTO; });
     // i nomi brevi, per le frasi della regia
     const NOMI_TIPO = { hls: 'flusso HLS', dash: 'flusso DASH', incorporato: 'player Azoto' };
     const NOMI_PLAYER = { azoto: 'Player Azoto', flusso: 'Flusso diretto' };
@@ -202,13 +201,14 @@
     function leggiAzoto(testo) {
         const s = String(testo || '').trim();
         if (!s) return null;
-        if (!SV || typeof SV.perAzoto !== 'function') {
+        if (!SV) {
             return { errore: 'regole', messaggio: 'Non riesco a leggere il player Azoto: manca il file con le regole dei link (sorgente-video.js). Ricarica la pagina.' };
         }
         const r = SV.perAzoto(s);
         if (!r) return null;
         if (r.errore) return { errore: r.errore, messaggio: SV.messaggio(r) };
-        return { tipo: r.tipo || 'incorporato', valore: r.valore, daCodice: /<iframe\b/i.test(s) };
+        // daCodice: si e' incollato il codice (come lo riconosce sorgente-video.js), non solo l'indirizzo
+        return { tipo: r.tipo || 'incorporato', valore: r.valore, daCodice: /<[a-z!\/]/i.test(s) };
     }
     /* Il flusso diretto: solo HLS o DASH.
        -> null (vuoto) | { tipo: 'hls'|'dash', valore } | { errore, messaggio } */
@@ -219,11 +219,9 @@
             return /^https:\/\/\S+$/i.test(s) ? { tipo: '', valore: s }
                 : { errore: 'formato', messaggio: 'Serve un indirizzo che comincia con https://.' };
         }
-        // (un sorgente-video.js di prima rimasto nella cache del browser: le sue regole, ma solo i flussi)
-        const r = typeof SV.perFlusso === 'function' ? SV.perFlusso(s) : SV.leggi(s);
+        const r = SV.perFlusso(s);
         if (!r) return null;
         if (r.errore) return { errore: r.errore, messaggio: SV.messaggio(r) };
-        if (r.tipo !== 'hls' && r.tipo !== 'dash') return { errore: 'formato', messaggio: SV.messaggio({ errore: 'formato' }) };
         return { tipo: r.tipo, valore: r.valore };
     }
     function leggiCampo(id, testo) { return CAMPI_AZOTO[id] ? leggiAzoto(testo) : leggiFlusso(testo); }
@@ -1361,7 +1359,7 @@
             if (videoCambiato && evento.videoUrl) daProvare.push({ id: 'ev-video', etichetta: 'Link del flusso' });
             if (riservaCambiata && evento.riservaUrl) daProvare.push({ id: 'ev-riserva', etichetta: 'Link di riserva' });
             for (const x of daProvare) {
-                mostraMsg('#msg-evento', 'Prova in corso: ' + x.etichetta.toLowerCase() + '…', 'info');
+                mostraMsg('#msg-evento', 'Prova in corso: ' + x.etichetta.charAt(0).toLowerCase() + x.etichetta.slice(1) + '…', 'info');
                 const p = await provaPerSalvare(x.id);
                 // nel frattempo si e' passati a un altro evento: questo salvataggio non vale piu'
                 if (eraNuovo ? !stato.nuovo : stato.idEvento !== evento.id) { nascondiMsg('#msg-evento'); return; }
@@ -1443,8 +1441,8 @@
                 if (err.stato === 409) {
                     $('#ev-id').setAttribute('aria-invalid', 'true');
                     mostraMsg('#msg-evento', err.msg || 'Esiste già un evento con questo identificativo: scegline un altro.', 'errore');
-                } else if (err.stato === 400 && err.codice === 'azoto') {
-                    $('#ev-azoto').setAttribute('aria-invalid', 'true');
+                } else if (err.stato === 400 && (err.codice === 'azoto' || err.codice === 'video')) {
+                    $(err.codice === 'azoto' ? '#ev-azoto' : '#ev-video').setAttribute('aria-invalid', 'true');
                     erroreGenerico(err, '#msg-evento');
                 } else if (err.stato === 400 && err.codice === 'tipoPlayer') {
                     RADIO_FLUSSO.setAttribute('aria-invalid', 'true');
@@ -1934,7 +1932,7 @@
            ripete nel riquadro della prova. */
         if (azoto) {
             const nota = senzaPunto(NOTA_AZOTO);
-            r.righe = r.righe.filter(t => senzaPunto(t) !== nota);
+            if (nota) r.righe = r.righe.filter(t => senzaPunto(t) !== nota);
             if (r.problemi.some(p => p.codice === 'incorporato')) {
                 r.problemi = r.problemi.filter(p => p.codice !== 'incorporato');
                 if (r.esito === 'avviso' && !r.problemi.length) r.esito = 'ok';
@@ -2672,7 +2670,7 @@
         }
         // senza il flusso principale il flusso diretto non si puo' usare: se e' in uso per tutti, prima si torna al player Azoto
         if (cambiaP && !url && tipoPlayerDi(ev) === 'flusso') {
-            errore(campoP, 'Il flusso diretto è in uso per tutti: per togliere il link, prima torna al player Azoto («Torna al player Azoto per tutti»).');
+            errore(campoP, 'Il flusso diretto è in uso per tutti: per togliere il link .m3u8 torna prima al player Azoto («Torna al player Azoto per tutti»).');
             return;
         }
         const b = $('#btn-cambia-video');
@@ -2683,7 +2681,7 @@
             if (cambiaP && url) daProvare.push({ id: 'regia-video', etichetta: 'Link del flusso' });
             if (cambiaR && riserva) daProvare.push({ id: 'regia-riserva', etichetta: 'Link di riserva' });
             for (const x of daProvare) {
-                mostraMsg('#msg-video', 'Prova in corso: ' + x.etichetta.toLowerCase() + '…', 'info');
+                mostraMsg('#msg-video', 'Prova in corso: ' + x.etichetta.charAt(0).toLowerCase() + x.etichetta.slice(1) + '…', 'info');
                 const p = await provaPerSalvare(x.id);
                 // nel frattempo si e' passati a un altro evento: non si cambia niente
                 if (stato.idEvento !== ev.id) { nascondiMsg('#msg-video'); return; }
@@ -2735,7 +2733,10 @@
                     : (cambiaP && cambiaR ? 'Link aggiornati' : (cambiaP ? 'Link del flusso aggiornato' : (riserva ? 'Link di riserva aggiornato' : 'Link di riserva tolto')))
                       + (inOnda && conFlusso && !tolto && (cambiaP || ev.sorgente === 'riserva') ? ': i partecipanti collegati passano al nuovo link.' : '.');
                 mostraMsg('#msg-video', detto + (avvisi.length ? ' Ricorda i problemi segnalati dalla prova: riprova il link quando Azoto li ha risolti.' : ''), 'ok');
-            } catch (err) { erroreGenerico(err, '#msg-video'); }
+            } catch (err) {
+                if (err.stato === 400 && err.codice === 'video') campoP.setAttribute('aria-invalid', 'true');
+                erroreGenerico(err, '#msg-video');
+            }
         });
     });
 
