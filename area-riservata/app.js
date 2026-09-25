@@ -16185,6 +16185,10 @@
          vai   - la voce del menu della riga, che e' un comando e quindi un verbo
        Il nome CORTO della riga sta in NOMI_MODALITA: nella colonna "Modalita",
        larga un dito, "Aderenti Revilaw" il browser lo taglierebbe a meta'. */
+    /* L'etichetta nella colonna "Portale" di chi si e' registrato in sala dal
+       QR del cartello: la scrive il servizio (email-service/lib/accredito-desk.js)
+       e qui si conta. Cambiarla da una parte sola vuol dire un contatore a zero. */
+    const PORTALE_DESK = 'Desk (QR)';
     const SEZIONI_MODALITA = [
         { id: 'presenza', nome: 'In presenza', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
         { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti', sala: true, dove: 'fra gli aderenti Revilaw', vai: 'Sposta fra gli aderenti Revilaw' },
@@ -16690,6 +16694,13 @@
             (puoRichiedere && ev.manuale && r.email && r.extra && r.extra.Portale
                 ? '<button type="button" class="ev-menu-voce ev-req" data-id="' + esc(r.id) + '">Chiedi dati partecipanti</button>'
                 : '')
+            /* La mail con il pulsante "conferma il tuo indirizzo", rimandata a
+               chi non ha ancora il baffetto: per tutti gli abilitati, perche'
+               e' la stessa mail che la persona ha gia' ricevuto. Solo sulle
+               schede di Firestore (r.doc): quelle del foglio sono pregresso. */
+            + (!ev.tutti && r.email && r.doc && !confermaEmailDi(r)
+                ? '<button type="button" class="ev-menu-voce ev-conf" data-id="' + esc(r.id) + '">Rimanda la mail di conferma</button>'
+                : '')
             /* GLI INCONTRI B2B SI FANNO IN SALA, e sono per gli ospiti. Chi
                segue online a un tavolo non ci si siede, e chi e' aderente
                Revilaw non e' un'azienda da abbinare a un'altra: e' la rete
@@ -16826,6 +16837,40 @@
         const i = e.indexOf('@');
         return i < 0 ? e : e.slice(0, i + 1) + '<wbr>' + e.slice(i + 1);
     }
+    /* IL BAFFETTO VERDE accanto all'indirizzo: l'indirizzo e' confermato.
+       E' confermato L'INDIRIZZO, non la riga: se la stessa persona ha due
+       iscrizioni e ne ha confermata una, il segno va su tutte e due. Il
+       suggerimento dice come: dal pulsante nella mail, oppure "pregresso"
+       (iscritto prima che la mail avesse il pulsante, segnato d'ufficio).
+       Chi non ha confermato non ha niente: non e' una colpa. */
+    let _evConfCache = { lista: null, mappa: null };
+    function indirizziConfermati(lista) {
+        if (_evConfCache.lista === lista && _evConfCache.mappa) return _evConfCache.mappa;
+        const mappa = new Map();
+        (lista || []).forEach(r => {
+            const c = r && r.emailConfermata;
+            const em = String((r && r.email) || '').trim().toLowerCase();
+            if (!c || !em) return;
+            const prima = mappa.get(em);
+            // fra due conferme dello stesso indirizzo vince quella "dal pulsante"
+            if (!prima || (prima.come !== 'mail' && c.come === 'mail')) mappa.set(em, c);
+        });
+        _evConfCache = { lista: lista, mappa: mappa };
+        return mappa;
+    }
+    function confermaEmailDi(r, lista) {
+        const em = String((r && r.email) || '').trim().toLowerCase();
+        if (!em) return null;
+        return indirizziConfermati(lista || _evIscrizioni).get(em) || null;
+    }
+    function baffettoEmail(r, lista) {
+        const c = confermaEmailDi(r, lista);
+        if (!c) return '';
+        const titolo = c.come === 'mail'
+            ? 'Indirizzo confermato dall\'interessato' + (c.quando ? ' il ' + fmtDataOra(c.quando) : '')
+            : 'Iscrizione precedente alla conferma via mail: indirizzo confermato d\'ufficio';
+        return ' <span class="ev-mail-ok" title="' + esc(titolo) + '" aria-label="' + esc(titolo) + '">&#10003;</span>';
+    }
 
     /* LE SEZIONI SOPRA L'ELENCO. Non e' un filtro qualunque: e' il modo in cui
        si guarda una cosa per volta - la sala, gli aderenti, chi segue online -
@@ -16862,6 +16907,13 @@
                 const p = EventiPresenze.di(ev.id, r.id);
                 return p && (p.stato === 'confermato' || p.stato === 'presente');
             }).length : 0,
+            /* Chi si e' registrato in sala dal QR del cartello, il giorno
+               dell'evento: lo dice la colonna "Portale", che il servizio
+               scrive con questa etichetta (lib/accredito-desk.js). E' il
+               numero che dice quanti sono arrivati senza iscrizione. */
+            desk: lista ? lista.filter(r => (r.extra && r.extra.Portale) === PORTALE_DESK).length : 0,
+            // gli indirizzi (non le righe) con il baffetto verde
+            nConfMail: lista ? indirizziConfermati(lista).size : null,
             conModalita: conModalita,
             postiSezione: postiSezione,
             nInSala: conModalita
@@ -16915,6 +16967,8 @@
         });
         { const el = num('sala'); scriviNumero(el, c.conModalita ? c.nInSala : '-'); if (el) el.setAttribute('title', frase); }
         scriviNumero(num('conf'), c.conf);
+        scriviNumero(num('desk'), c.desk);
+        scriviNumero(num('confmail'), c.nConfMail === null ? '-' : c.nConfMail);
         scriviNumero(num('iscrizioni'), c.nIsc === null ? '-' : c.nIsc);
         scriviNumero(num('partecipanti'), c.nPart === null ? '-' : c.nPart);
         scriviNumero(num('indirizzi'), c.nIndir === null ? '-' : c.nIndir);
@@ -17106,7 +17160,7 @@
                     + '</td>')
                     ((r.extra || {})[COL_SPOSTATO] || '', r.invito)
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
-                + '<td data-label="Email">' + emailInterrompibile(r.email) + '</td>'
+                + '<td data-label="Email">' + emailInterrompibile(r.email) + baffettoEmail(r, lista) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
                    foglio storico, che raccoglieva gli stessi form): si scrive
@@ -17228,7 +17282,7 @@
         // all'amministratore serve l'elenco utenze per dire, persona per persona, se
         // l'abilitazione puo' davvero funzionare (ruolo, utenza attiva)
         if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'eventi') vistaEventi(); });
-        const { nIsc, nPart, nIndir, conf, conModalita, postiSezione, nInSala } = contiEvento(ev);
+        const { nIsc, nPart, nIndir, conf, desk, nConfMail, conModalita, postiSezione, nInSala } = contiEvento(ev);
         /* La somma va scritta da qualche parte, e il posto giusto e' il
            suggerimento dei riquadri che la compongono: "4 in presenza" e "1
            aderenti" non dicono da soli quanti posti servono. */
@@ -17247,6 +17301,15 @@
         const bottoniIscrizioni =
             ((ev.manuale && puoAggiungereIscrizioni()) ? '<button class="btn btn-sm btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
             + (admin ? '<button class="btn btn-sm btn-secondary" id="ev-importa">Importa</button>'
+                /* IL PREGRESSO DELLA CONFERMA EMAIL: chi era iscritto prima
+                   che la mail avesse il pulsante "conferma il tuo indirizzo"
+                   e' confermato d'ufficio. Si preme una volta per evento,
+                   DOPO aver pubblicato il servizio con il pulsante: da li'
+                   in avanti il baffetto lo mettono le persone. Compare finche'
+                   c'e' qualcuno senza baffetto, poi non serve piu'. */
+                + ((!ev.tutti && _evIscrizioni && _evIscrizioni.some(r => r.email && !confermaEmailDi(r, _evIscrizioni)))
+                    ? '<button class="btn btn-sm btn-secondary" id="ev-conf-pregresso" title="Segna come confermati gli indirizzi di chi si è iscritto finora">Segna confermati gli iscritti finora</button>'
+                    : '')
                 + '<button class="btn btn-sm btn-secondary" id="ev-accessi">Accessi</button>'
                 + '<button class="btn btn-sm btn-ghost" id="ev-diag-btn">Diagnostica</button>' : '');
         const statoIscrizioni = (admin
@@ -17312,6 +17375,7 @@
             + '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
+            + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi con il baffetto verde: confermati dal pulsante nella mail di iscrizione, oppure iscritti prima che la mail lo avesse (pregresso)', 'verde', 'confmail')
             + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
                 .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join(''))
             + '</div>'
@@ -17320,6 +17384,7 @@
                 + SEZIONI_MODALITA.filter(x => !inSala(x.id) && !x.fuoriElenco)
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
+                + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
                 + '</div>') + '</div>'
             + cruscotto + avviso + corpo;
 
@@ -17337,6 +17402,20 @@
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
+        const bPre = document.getElementById('ev-conf-pregresso');
+        if (bPre) bPre.addEventListener('click', () => {
+            const senza = (_evIscrizioni || []).filter(r => r.email && !confermaEmailDi(r, _evIscrizioni)).length;
+            if (!confirm('Tutte le ' + senza + ' iscrizioni di questo evento senza baffetto verranno segnate come confermate (indirizzo confermato d\'ufficio, "pregresso").\n\n'
+                + 'Da qui in avanti il baffetto lo mettono solo le persone, dal pulsante nella mail. Va premuto DOPO aver pubblicato il servizio con la mail nuova.\n\nProcedo?')) return;
+            bPre.disabled = true; bPre.textContent = 'Un attimo...';
+            Cloud.operaPresenza({ azione: 'conferma-email-pregresso', evento: ev.id, filtro: ev.filtro || ev.id }).then(r => {
+                if (!r.ok) { bPre.disabled = false; bPre.textContent = 'Segna confermati gli iscritti finora'; toast(r.msg || 'Non riuscito.', 'rosso'); return; }
+                toast('Segnate ' + r.segnate + ' iscrizioni come confermate' + (r.giaConfermate ? ' (' + r.giaConfermate + ' lo erano già)' : '') + '.', 'verde');
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: conferma email pregresso', 'sistema', ev.id, null, r.segnate + ' iscrizioni segnate'); } catch (e) { }
+                _evUltimoTentativo[ev.id] = 0;
+                caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
+            });
+        });
         document.querySelectorAll('.ev-inviti').forEach(b => {
             b.addEventListener('click', () => modaleAziendeInvito(ev, b.dataset.campagna));
         });
@@ -17527,6 +17606,16 @@
             radice.querySelectorAll('.ev-req').forEach(b => b.addEventListener('click', () => {
                 const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
                 if (r) modaleRichiediDati(ev, r);
+            }));
+            radice.querySelectorAll('.ev-conf').forEach(b => b.addEventListener('click', () => {
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                if (!r) return;
+                if (!confirm('Rimando a ' + r.email + ' la mail di iscrizione con il pulsante per confermare l\'indirizzo?')) return;
+                Cloud.operaPresenza({ azione: 'richiedi-conferma-email', evento: ev.id, idIscritto: r.id, doc: r.doc || '' }).then(res => {
+                    if (!res.ok) { toast(res.msg || 'Mail non inviata.', 'rosso'); return; }
+                    toast(res.gia ? 'L\'indirizzo risulta già confermato.' : 'Mail di conferma rimandata a ' + r.email + '.', 'verde');
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: mail di conferma email rimandata', 'sistema', ev.id, null, r.email); } catch (e) { }
+                });
             }));
             radice.querySelectorAll('.ev-b2bi').forEach(b => b.addEventListener('click', () => {
                 const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);

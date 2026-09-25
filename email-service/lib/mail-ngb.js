@@ -151,6 +151,34 @@ function bottone(testoBtn, url) {
         + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">' + esc(testoBtn) + '</a>'
         + '</td></tr></table></td></tr>';
 }
+/* IL BLOCCO "CONFERMA IL TUO INDIRIZZO", in cima alla conferma di iscrizione.
+   Il pulsante e' "a prova di Outlook": la cella di tabella porta sfondo e
+   bordo (Outlook ignora il padding del link), il link dentro e' a blocco
+   pieno e alto almeno 44px (il dito su un telefono), e sotto c'e'
+   l'indirizzo in chiaro per chi non puo' cliccare - Outlook blocca i link
+   finche' non ci si fida del mittente, e certe Gmail su Android li aprono
+   solo con il tocco lungo. Colori sempre espliciti su ogni cella: Gmail e
+   Apple Mail invertono quelli lasciati al default, e un pulsante blu con il
+   testo bianco diventerebbe illeggibile. */
+function bloccoConferma(url) {
+    return '<tr><td style="' + FONTE + '">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+        + '<tr><td class="par" style="' + FONTE + 'padding:18px 22px 14px;font-size:16px;line-height:26px;color:' + C.testo
+        + ';background-color:' + C.chiaro + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">'
+        + '<b style="color:' + C.scuro + ';">Un tocco per confermare il tuo indirizzo.</b> '
+        + 'Così sappiamo che le comunicazioni sull\'evento - il programma, il collegamento per seguirlo, i promemoria - ti arrivano davvero.</td></tr>'
+        + '<tr><td style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
+        + '<td align="center" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;">'
+        + '<a href="' + esc(url) + '" style="display:block;padding:13px 16px;font-family:' + FONT
+        + ';font-size:17px;line-height:22px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Conferma il tuo indirizzo email</a>'
+        + '</td></tr></table></td></tr>'
+        + '<tr><td style="' + FONTE + 'padding:0 22px 16px;font-size:13px;line-height:20px;color:' + C.tenue + ';background-color:' + C.chiaro + ';word-break:break-all;text-align:left;">'
+        + 'Se il pulsante non funziona, copia questo indirizzo nel browser:<br>'
+        + '<a href="' + esc(url) + '" style="color:' + C.accento + ';text-decoration:underline;">' + esc(url) + '</a></td></tr>'
+        + '</table></td></tr>';
+}
 /* Un'etichetta di sezione: piccola, maiuscola, con il filetto sotto. Serve a
    staccare "i Suoi incontri" dai dati dell'evento, che sono due cose diverse e
    in un riquadro solo si leggevano come una lista sola. */
@@ -231,7 +259,7 @@ const MOTIVO_B2B = 'Questa email riguarda gli incontri B2B del convegno Next Gen
    lo dice - altrimenti la coda esiste solo per chi organizza, e chi aspetta
    non sa di aspettare. Vale solo accanto a 'online': a un evento che si segue
    solo da remoto non c'e' nessuna coda, e la riga non compare. */
-function confermaSito(dati, link) {
+function confermaSito(dati, link, linkConferma) {
     const evento = nomeEvento(dati.pagina);
     const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
     const online = String((dati && dati.modalita) || '').toLowerCase() === 'online';
@@ -248,7 +276,13 @@ function confermaSito(dati, link) {
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
         testata('Iscrizione ricevuta', sommario)
         + corpo(
-            paragrafo(apertura)
+            /* Prima di tutto la conferma dell'indirizzo, quando c'e' il
+               collegamento: e' l'unica cosa che chiediamo di fare, e sta
+               sopra il riepilogo perche' e' li' che si legge sul telefono
+               senza scorrere. Le mail composte prima di questa modifica non
+               lo passano e restano come erano. */
+            (linkConferma ? bloccoConferma(linkConferma) + spazio(26) : '')
+            + paragrafo(apertura)
             + spazio(22)
             + '<tr><td>' + box(
                 rigaBox('Evento', 'Next Generation Business - ' + evento)
@@ -264,7 +298,10 @@ function confermaSito(dati, link) {
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
         + piede(MOTIVO));
-    const testo = ['ISCRIZIONE RICEVUTA', sommario, apertura,
+    const testo = ['ISCRIZIONE RICEVUTA', sommario,
+        // nella versione testo il collegamento di conferma sta sulla prima riga utile
+        linkConferma ? 'Conferma il tuo indirizzo email (un clic): ' + linkConferma : '',
+        apertura,
         'Evento: Next Generation Business - ' + evento
         + (online ? '\nPartecipazione: Online' + (attesa ? ' - in lista d\'attesa per la sala' : '') : '')
         + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '')
@@ -272,7 +309,7 @@ function confermaSito(dati, link) {
         'Modifica o annulla l\'iscrizione: ' + link,
         'Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo.',
         '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
-        'Informativa privacy: ' + PRIVACY].join('\n\n');
+        'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }
 

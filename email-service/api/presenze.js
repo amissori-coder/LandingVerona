@@ -72,6 +72,9 @@ function sezioneProgramma(body) { return !!(body && String(body.sezione || '') =
    Stessa storia degli altri archivi: sta in lib/ e si carica solo quando
    arriva una richiesta con sezione: 'cene'. */
 function moduloCene() { return require('../lib/cene-evento'); }
+/* La conferma dell'indirizzo email: il pregresso (amministratore) e il
+   reinvio della mail con il pulsante. Si carica solo quando serve. */
+function moduloConferma() { return require('../lib/conferma-email'); }
 function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'cene'); }
 // la frase che racconta uno spostamento di azienda: la scrivono in due
 // (qui e in iscrizioni.js), quindi sta in un modulo solo
@@ -592,13 +595,15 @@ module.exports = async (req, res) => {
                             // FIRMATO della scheda appena creata: da li' l'iscritto
                             // modifica i dati o annulla l'iscrizione
                             const linkGestione = NL.linkCompleta(idIscrizione(idNuovo));
+                            // e {{CONFERMA}} il collegamento con cui conferma il suo indirizzo
+                            const linkConferma = NL.linkConfermaEmail(idIscrizione(idNuovo));
                             const messaggio = {
                                 from: '"' + fromName + '" <' + fromEmail + '>',
                                 replyTo: email,
                                 to: scheda.email,
                                 subject: oggetto.replace(/[\r\n]/g, ' '),
-                                text: (testoMail ? testoMail.split('{{COMPLETA}}').join(linkGestione) : undefined),
-                                html: html.split('{{COMPLETA}}').join(linkGestione)
+                                text: (testoMail ? testoMail.split('{{COMPLETA}}').join(linkGestione).split('{{CONFERMA}}').join(linkConferma) : undefined),
+                                html: html.split('{{COMPLETA}}').join(linkGestione).split('{{CONFERMA}}').join(linkConferma)
                             };
                             // copia nascosta a chi ha inserito la scheda (ccnOperatore)
                             const ccn = ccnOperatore(email, emailSessione, scheda.email);
@@ -623,6 +628,54 @@ module.exports = async (req, res) => {
            collegamento personale FIRMATO per quella sola scheda, lo si mette al
            posto del segnaposto e si spedisce all'email della scheda, con copia
            nascosta a chi chiede. Stessi permessi dell'inserimento manuale. */
+        /* IL PREGRESSO DELLA CONFERMA EMAIL: chi era iscritto prima che la mail
+           avesse il pulsante e' confermato d'ufficio, un evento per volta. Solo
+           l'amministratore, perche' e' una decisione che riguarda tutto
+           l'elenco e si prende una volta. lib/conferma-email.js spiega. */
+        if (azione === 'conferma-email-pregresso') {
+            if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore può segnare il pregresso.' }); return; }
+            const filtro = testo(body.filtro, 80);
+            if (!filtro) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
+            const r = await moduloConferma().pregresso(db, { filtro: filtro, da: email });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* RIMANDA LA MAIL DI CONFERMA a chi non ha ancora confermato: la stessa
+           mail dell'iscrizione dal sito, composta dal servizio perche' il
+           pulsante porta una firma che solo il servizio conosce. Una volta
+           ogni dieci minuti per scheda: e' una mail a una persona, e chi
+           preme due volte ne manderebbe due. */
+        if (azione === 'richiedi-conferma-email') {
+            const rif = db.collection('iscrizioni').doc(testo(body.doc, 400) || idIscrizione(idIscritto));
+            const snap = await rif.get();
+            if (!snap.exists) { res.status(404).json({ ok: false, msg: 'Scheda non trovata: aggiorna l\'elenco e riprova.' }); return; }
+            const scheda = snap.data() || {};
+            if (!scheda.email) { res.status(400).json({ ok: false, msg: 'La scheda non ha un indirizzo email.' }); return; }
+            const CONF = moduloConferma();
+            if (CONF.confermata(scheda)) { res.status(200).json({ ok: true, gia: true }); return; }
+            const rimandata = scheda.emailConfermaRimandata && typeof scheda.emailConfermaRimandata === 'object' ? scheda.emailConfermaRimandata : null;
+            if (rimandata && typeof rimandata.quando === 'number' && Date.now() - rimandata.quando < 10 * 60 * 1000) {
+                res.status(429).json({ ok: false, msg: 'Mail già rimandata pochi minuti fa: aspetta dieci minuti prima di rimandarla.' });
+                return;
+            }
+            const m = CONF.mailDiConferma(rif.id, scheda);
+            try {
+                const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+                const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+                const messaggio = Object.assign({ from: '"' + fromName + '" <' + fromEmail + '>' }, m);
+                const ccn = ccnOperatore(email, emailSessione, scheda.email);
+                if (ccn) messaggio.bcc = ccn;
+                await trasporto().sendMail(messaggio);
+            } catch (e) {
+                const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+                console.error('Mail di conferma a', scheda.email, 'non rimandata:', motivo);
+                res.status(502).json({ ok: false, msg: 'Mail non inviata: ' + motivo });
+                return;
+            }
+            await rif.set({ emailConfermaRimandata: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() } }, { merge: true });
+            res.status(200).json({ ok: true, mail: { inviata: true } });
+            return;
+        }
         if (azione === 'richiedi-dati') {
             if (!eAdmin && !(await ePartner(db, ruolo))) {
                 res.status(403).json({ ok: false, msg: 'Possono chiedere i dati l\'amministratore, gli equity partner e i founding partner.' });

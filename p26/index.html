@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#164068">
+
+<!-- ============================================================
+     ACCREDITO AL DESK - Next Generation Business, Napoli 2 ottobre 2026
+     ------------------------------------------------------------
+     La pagina che si apre dal QR sul cartello all'ingresso. Serve a
+     chi arriva in sala SENZA essersi iscritto online: dal proprio
+     telefono dice chi e', e
+
+       - se risulta gia' iscritto, con un tocco si segna presente;
+       - se non risulta, compila il questionario (lo stesso del sito)
+         e la presenza e' segnata nella stessa richiesta.
+
+     PERCHE' LA CARTELLA SI CHIAMA "p26"
+     Stessa ragione di /n26/ (le agende personali): l'indirizzo sta
+     dentro un QR, e meno caratteri vuol dire un codice piu' rado che
+     la fotocamera legge al primo colpo anche da lontano.
+
+     LA CHIAVE NELL'INDIRIZZO (#k=...)
+     Il QR porta una chiave che il servizio confronta con quella
+     impostata su Vercel. Senza chiave giusta il servizio risponde
+     "non trovato" e non scrive niente: cosi' "segnami presente" non
+     si puo' fare da casa, e "questo indirizzo e' iscritto?" non
+     diventa un modo per scoprire chi viene al convegno. Il frammento
+     dopo il cancelletto non viaggia verso GitHub Pages: la chiave
+     resta fra il telefono e il servizio.
+
+     DUE STRADE, COME IL MODULO DEL SITO
+     Il questionario nuovo va al foglio Google e a /api/iscrizione-nuova,
+     con lo stesso payload di napoli_ottobre_2026/script.js piu'
+     modalita "presenza", origine "qr-desk" e la chiave. Se il servizio
+     non risponde il foglio riceve comunque l'iscrizione: al desk la
+     presenza si segna a mano dalla lista.
+     ============================================================ -->
+
+<title>Registrati all'ingresso | Next Generation Business Napoli</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="apple-touch-icon" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --blu: #164068;
+    --blu-chiaro: #2c6ca8;
+    --blu-tenue: #eaf0f7;
+    --inchiostro: #16202e;
+    --inchiostro-tenue: #5b6878;
+    --riga: #dce3ea;
+    --fondo: #f4f6f9;
+    --bianco: #ffffff;
+    --avviso: #8d5c14;
+    --errore: #b1213b;
+    --ok: #1f6b57;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: var(--fondo);
+    color: var(--inchiostro);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-text-size-adjust: 100%;
+    padding-bottom: 3rem;
+}
+
+h1, h2, h3, .etichetta, button { font-family: 'Montserrat', system-ui, sans-serif; }
+
+.foglio { max-width: 34rem; margin: 0 auto; padding: 0 1rem; }
+
+/* ---------- testata ---------- */
+
+.testata { background: var(--blu); color: #fff; padding: 1.5rem 1rem 1.75rem; margin-bottom: 1rem; }
+.testata .foglio { padding: 0 1rem; }
+
+.evento {
+    font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    opacity: 0.72; font-family: 'Montserrat', sans-serif;
+}
+.saluto { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-top: 0.5rem; }
+.sotto { font-size: 0.9375rem; opacity: 0.82; margin-top: 0.25rem; }
+
+/* ---------- blocchi ---------- */
+
+.blocco { background: var(--bianco); border: 1px solid var(--riga); padding: 1.1rem 1.15rem; margin-bottom: 1rem; }
+.blocco h2 { font-size: 1.1875rem; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 0.35rem; }
+.blocco p { font-size: 0.9375rem; color: var(--inchiostro-tenue); }
+.blocco p + p { margin-top: 0.6rem; }
+
+.etichetta {
+    font-size: 0.625rem; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--inchiostro-tenue); display: block; margin-bottom: 0.65rem;
+}
+
+/* ---------- modulo ---------- */
+
+.campo { margin-top: 0.9rem; }
+.campo label { display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.3rem; }
+.campo label .fac { font-weight: 400; color: var(--inchiostro-tenue); }
+.campo input[type="text"], .campo input[type="email"], .campo input[type="tel"], .campo select {
+    width: 100%; font: inherit; font-size: 1rem; padding: 0.7rem 0.75rem;
+    border: 1.5px solid var(--riga); background: var(--bianco); color: var(--inchiostro);
+    border-radius: 0; -webkit-appearance: none; appearance: none;
+}
+.campo select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6878' stroke-width='1.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.8rem center; padding-right: 2.2rem;
+}
+.campo input:focus, .campo select:focus { outline: 2px solid var(--blu-chiaro); outline-offset: 1px; border-color: var(--blu-chiaro); }
+.campo input.errore, .campo select.errore { border-color: var(--errore); }
+.campo .msg { display: block; font-size: 0.8125rem; color: var(--errore); margin-top: 0.3rem; min-height: 0; }
+
+.due { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.75rem; }
+@media (max-width: 22rem) { .due { grid-template-columns: 1fr; } }
+
+.spunta, .campo label.spunta { display: flex; gap: 0.65rem; align-items: flex-start; font-size: 0.875rem; font-weight: 400; margin-top: 0.7rem; cursor: pointer; }
+.spunta input { width: 1.15rem; height: 1.15rem; margin-top: 0.15rem; flex: 0 0 auto; accent-color: var(--blu); }
+.spunta.errore span { color: var(--errore); }
+
+.griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.75rem; }
+@media (max-width: 24rem) { .griglia { grid-template-columns: 1fr; } }
+
+button.principale, button.secondario {
+    width: 100%; font-size: 0.9375rem; font-weight: 700; padding: 0.85rem; border: 0; cursor: pointer; margin-top: 1rem;
+}
+button.principale { background: var(--blu); color: #fff; }
+button.principale:hover { background: #0f3153; }
+button.principale[disabled] { opacity: 0.6; cursor: wait; }
+button.secondario { background: var(--bianco); color: var(--blu); border: 1.5px solid var(--blu); }
+button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px; }
+
+.collegamento {
+    background: none; border: 0; color: var(--blu-chiaro); font: inherit; font-size: 0.875rem;
+    text-decoration: underline; cursor: pointer; padding: 0; margin-top: 0.9rem; display: inline-block;
+}
+
+.nota { font-size: 0.8125rem; color: var(--inchiostro-tenue); margin-top: 0.75rem; }
+
+/* ---------- stati ---------- */
+
+.stato { background: var(--bianco); border: 1px solid var(--riga); padding: 1.5rem 1.25rem; text-align: center; }
+.stato h2 { font-size: 1.1875rem; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 0.5rem; }
+.stato p { font-size: 0.9375rem; color: var(--inchiostro-tenue); }
+.stato p + p { margin-top: 0.6rem; }
+.stato--avviso { border-top: 3px solid var(--avviso); }
+
+.trovato { background: var(--blu-tenue); border: 1px solid #c9d8e8; padding: 1rem 1.15rem; margin-top: 0.9rem; }
+.trovato .chi { font-family: 'Montserrat', sans-serif; font-size: 1.125rem; font-weight: 700; }
+.trovato .dove { font-size: 0.9375rem; color: var(--inchiostro-tenue); }
+
+/* la schermata finale e' quella che si mostra allo staff: grande e leggibile a un metro */
+.fine { text-align: center; padding: 1.75rem 1.25rem; border-top: 4px solid var(--ok); }
+.fine .segno {
+    width: 4.25rem; height: 4.25rem; border-radius: 50%; background: var(--ok); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.9rem;
+}
+.fine h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+.fine .chi { font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 700; margin-top: 0.5rem; }
+.fine .quando { font-size: 0.8125rem; color: var(--inchiostro-tenue); margin-top: 0.9rem; font-variant-numeric: tabular-nums; }
+
+.nascosto { display: none !important; }
+</style>
+    <!-- Live reload di sviluppo: si attiva solo aprendo la pagina con ?dev=1,
+         in produzione non carica e non esegue nulla. Vedi assets/dev-reload.js -->
+    <script>try{var d=/[?&]dev=([01])/.exec(location.search);if(d){d[1]==='1'?sessionStorage.setItem('ngbDevReload','1'):sessionStorage.removeItem('ngbDevReload');}if(sessionStorage.getItem('ngbDevReload')==='1'){var s=document.createElement('script');s.src='/assets/dev-reload.js';s.defer=true;document.head.appendChild(s);}}catch(e){}</script>
+</head>
+<body>
+
+<div class="testata">
+    <div class="foglio">
+        <span class="evento">Next Generation Business &middot; Napoli, 2 ottobre</span>
+        <h1 class="saluto">Registrati all&rsquo;ingresso</h1>
+        <p class="sotto">Un minuto dal tuo telefono, poi sei dentro.</p>
+    </div>
+</div>
+
+<div class="foglio">
+
+    <!-- avvisi: chiave mancante, servizio giu', fuori dai giorni dell'evento -->
+    <div id="stato" class="stato nascosto">
+        <h2 id="statoTitolo"></h2>
+        <p id="statoTesto"></p>
+    </div>
+
+    <!-- passo 1: chi sei -->
+    <form id="passoCerca" class="blocco" autocomplete="on" novalidate>
+        <h2>Ti sei gi&agrave; iscritto online?</h2>
+        <p>Scrivi l&rsquo;email con cui ti sei iscritto: se ti troviamo, non devi compilare nulla.</p>
+        <div class="campo">
+            <label for="cercaEmail">La tua email</label>
+            <input type="email" id="cercaEmail" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="nome@azienda.it">
+            <span class="msg" id="cercaEmailMsg"></span>
+        </div>
+        <div id="cercaPerNome" class="nascosto">
+            <div class="due">
+                <div class="campo">
+                    <label for="cercaNome">Nome</label>
+                    <input type="text" id="cercaNome" autocomplete="given-name">
+                </div>
+                <div class="campo">
+                    <label for="cercaCognome">Cognome</label>
+                    <input type="text" id="cercaCognome" autocomplete="family-name">
+                </div>
+            </div>
+            <span class="msg" id="cercaNomeMsg"></span>
+        </div>
+        <button type="submit" class="principale" id="cercaBtn">Continua</button>
+        <button type="button" class="collegamento" id="apriPerNome">Non ricordo con quale email: cerca per nome</button>
+        <button type="button" class="collegamento nascosto" id="saltaCerca">Non mi sono iscritto: vai al questionario</button>
+    </form>
+
+    <!-- passo 2a: trovato -->
+    <div id="passoTrovato" class="blocco nascosto">
+        <h2>Ti abbiamo trovato</h2>
+        <p id="trovatoTesto">Risulti gi&agrave; iscritto. Conferma e sei dentro.</p>
+        <div class="trovato">
+            <div class="chi" id="trovatoChi"></div>
+            <div class="dove" id="trovatoDove"></div>
+        </div>
+        <p id="trovatoOnline" class="nota nascosto">Eri iscritto per la diretta online: da adesso risulti in sala.</p>
+        <button type="button" class="principale" id="segnaBtn">Sono io, segnami presente</button>
+        <button type="button" class="secondario" id="nonSonoIo">Non sono io</button>
+    </div>
+
+    <!-- passo 2b: il questionario -->
+    <form id="passoModulo" class="blocco nascosto" autocomplete="on" novalidate>
+        <h2>Registrati adesso</h2>
+        <p>Non risulti fra gli iscritti: compila qui e sei dentro. I campi con * sono obbligatori.</p>
+
+        <div class="due">
+            <div class="campo">
+                <label for="nome">Nome *</label>
+                <input type="text" id="nome" name="nome" required autocomplete="given-name">
+                <span class="msg" id="nomeMsg"></span>
+            </div>
+            <div class="campo">
+                <label for="cognome">Cognome *</label>
+                <input type="text" id="cognome" name="cognome" required autocomplete="family-name">
+                <span class="msg" id="cognomeMsg"></span>
+            </div>
+        </div>
+        <div class="campo">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false">
+            <span class="msg" id="emailMsg"></span>
+        </div>
+        <div class="campo">
+            <label for="telefono">Telefono <span class="fac">(facoltativo)</span></label>
+            <input type="tel" id="telefono" name="telefono" inputmode="tel" autocomplete="tel">
+        </div>
+        <div class="campo">
+            <label for="azienda">Azienda / Studio *</label>
+            <input type="text" id="azienda" name="azienda" required autocomplete="organization">
+            <span class="msg" id="aziendaMsg"></span>
+        </div>
+        <div class="campo">
+            <label for="ruolo">Ruolo *</label>
+            <input type="text" id="ruolo" name="ruolo" required autocomplete="organization-title" placeholder="La tua qualifica">
+            <span class="msg" id="ruoloMsg"></span>
+        </div>
+
+        <!-- le stesse tendine del modulo del sito: i dati devono restare
+             confrontabili con quelli di chi si e' iscritto da casa -->
+        <div class="campo">
+            <label for="profilo">Ti presenti come *</label>
+            <select id="profilo" name="profilo" required>
+                <option value="">Scegli...</option>
+                <option value="impresa">Impresa</option>
+                <option value="studio">Studio professionale</option>
+                <option value="banca">Banca, investitore o intermediario</option>
+                <option value="ente">Ente, associazione o pubblica amministrazione</option>
+            </select>
+            <span class="msg" id="profiloMsg"></span>
+        </div>
+        <div class="campo">
+            <label for="settore">Settore *</label>
+            <select id="settore" name="settore" required>
+                <option value="">Scegli...</option>
+                <option value="industria">Industria e manifattura</option>
+                <option value="edilizia">Edilizia e impiantistica</option>
+                <option value="commercio">Commercio e distribuzione</option>
+                <option value="servizi">Servizi e professioni</option>
+                <option value="turismo">Turismo e ristorazione</option>
+                <option value="trasporti">Trasporti e logistica</option>
+                <option value="agroalimentare">Agroalimentare</option>
+                <option value="ict">ICT e innovazione</option>
+                <option value="sanita">Sanit&agrave; e servizi alla persona</option>
+                <option value="altro">Altro</option>
+            </select>
+            <span class="msg" id="settoreMsg"></span>
+        </div>
+        <div class="campo">
+            <label for="dimensione">Fatturato annuo *</label>
+            <select id="dimensione" name="dimensione" required>
+                <option value="">Scegli...</option>
+                <option value="fino-2">Fino a 2 milioni</option>
+                <option value="2-10">Da 2 a 10 milioni</option>
+                <option value="10-50">Da 10 a 50 milioni</option>
+                <option value="oltre-50">Oltre 50 milioni</option>
+                <option value="non-applicabile">Non applicabile</option>
+                <option value="riservato">Preferisco non indicarlo</option>
+            </select>
+            <span class="msg" id="dimensioneMsg"></span>
+        </div>
+
+        <div class="campo">
+            <span class="etichetta" id="interessiEtichetta">Di cosa hai bisogno <span class="fac">(anche pi&ugrave; di uno)</span></span>
+            <div class="griglia" role="group" aria-labelledby="interessiEtichetta">
+                <label class="spunta"><input type="checkbox" name="interessi" value="Adeguati assetti"><span>Adeguati assetti</span></label>
+                <label class="spunta"><input type="checkbox" name="interessi" value="Governance e controllo di gestione"><span>Governance e controllo di gestione</span></label>
+                <label class="spunta"><input type="checkbox" name="interessi" value="Modello 231 e Tax Control Framework"><span>Modello 231 e Tax Control Framework</span></label>
+                <label class="spunta"><input type="checkbox" name="interessi" value="Rating di Legalita"><span>Rating di Legalit&agrave;</span></label>
+                <label class="spunta"><input type="checkbox" name="interessi" value="ESG e sostenibilita"><span>ESG e sostenibilit&agrave;</span></label>
+                <label class="spunta"><input type="checkbox" name="interessi" value="Finanza agevolata"><span>Finanza agevolata</span></label>
+                <label class="spunta"><input type="checkbox" name="interessi" value="Merito creditizio"><span>Merito creditizio e rapporto con le banche</span></label>
+                <label class="spunta"><input type="checkbox" name="interessi" value="Bagnoli e America's Cup 2027"><span>Bagnoli e America&rsquo;s Cup 2027</span></label>
+            </div>
+        </div>
+
+        <div class="campo">
+            <label class="spunta" id="privacyRiga"><input type="checkbox" id="privacy" name="privacy" required><span>Acconsento al trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR). *</span></label>
+            <span class="msg" id="privacyMsg"></span>
+            <label class="spunta" id="marketingRiga"><input type="checkbox" id="marketing" name="marketing" required><span>Desidero ricevere aggiornamenti su programma, relatori e future iniziative. *</span></label>
+            <span class="msg" id="marketingMsg"></span>
+        </div>
+
+        <button type="submit" class="principale" id="invioBtn">Registrami</button>
+        <p class="msg" id="invioMsg"></p>
+        <p class="nota">Riceverai la conferma via email. Se qualcosa non funziona, il desk Revilaw all&rsquo;ingresso ti registra a mano.</p>
+    </form>
+
+    <!-- passo 3: dentro -->
+    <div id="passoFine" class="blocco fine nascosto">
+        <div class="segno" aria-hidden="true">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <h2 id="fineTitolo">Sei registrato</h2>
+        <div class="chi" id="fineChi"></div>
+        <p id="fineTesto" style="margin-top:0.6rem">Benvenuto a Next Generation Business. Mostra questa schermata al desk e accomodati in sala.</p>
+        <div class="quando" id="fineQuando"></div>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var SERVIZIO = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+    var FOGLIO = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
+    // la stessa pagina del modulo del sito: e' cosi' che queste iscrizioni
+    // finiscono nella stessa lista dell'area riservata
+    var PAGINA = 'Napoli 2 Ottobre 2026 - Manifestazione di interesse';
+    var EVENTO = 'napoli-2026-10-02';
+    var SCADENZA_MS = 10000;
+
+    var el = function (id) { return document.getElementById(id); };
+    var mostra = function (id, si) { el(id).classList.toggle('nascosto', !si); };
+
+    /* ---------- la chiave del cartello ---------- */
+    function chiaveDaIndirizzo() {
+        var h = (location.hash || '').replace(/^#\/?/, '');
+        var m = /(?:^|&)k=([^&]+)/.exec(h);
+        if (m) return decodeURIComponent(m[1]).trim().slice(0, 80);
+        // l'intero frammento, se e' scritto senza "k="
+        if (h && h.indexOf('=') < 0) return h.trim().slice(0, 80);
+        return new URLSearchParams(location.search).get('k') || '';
+    }
+    var CHIAVE = chiaveDaIndirizzo();
+
+    /* ---------- schermate ---------- */
+    var PASSI = ['passoCerca', 'passoTrovato', 'passoModulo', 'passoFine'];
+    function vai(passo) {
+        PASSI.forEach(function (p) { mostra(p, p === passo); });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function avviso(titolo, testo) {
+        el('statoTitolo').textContent = titolo;
+        el('statoTesto').textContent = testo;
+        el('stato').classList.add('stato--avviso');
+        mostra('stato', true);
+    }
+    function niente() { mostra('stato', false); }
+
+    /* ---------- chiamate al servizio ---------- */
+    function chiama(corpo) {
+        var ctrl = ('AbortController' in window) ? new AbortController() : null;
+        var t = setTimeout(function () { if (ctrl) ctrl.abort(); }, SCADENZA_MS);
+        corpo.chiave = CHIAVE;
+        corpo.evento = EVENTO;
+        corpo.pagina = PAGINA;
+        return fetch(SERVIZIO, {
+            method: 'POST',
+            // text/plain evita la richiesta preliminare del browser; il contenuto e' JSON
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: JSON.stringify(corpo),
+            signal: ctrl ? ctrl.signal : undefined
+        }).then(function (r) { return r.json(); }).finally(function () { clearTimeout(t); });
+    }
+
+    var emailValida = function (e) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); };
+    var v = function (id) { return (el(id).value || '').trim(); };
+
+    /* ---------- passo 1 ---------- */
+    var trovata = null;   // la scheda trovata, con il riferimento cieco per segnarla
+
+    el('apriPerNome').addEventListener('click', function () {
+        mostra('cercaPerNome', true);
+        mostra('apriPerNome', false);
+        mostra('saltaCerca', true);
+        el('cercaNome').focus();
+    });
+    el('saltaCerca').addEventListener('click', function () { apriModulo(); });
+
+    el('passoCerca').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var email = v('cercaEmail').toLowerCase();
+        var nome = v('cercaNome'), cognome = v('cercaCognome');
+        var perNome = !el('cercaPerNome').classList.contains('nascosto');
+        el('cercaEmailMsg').textContent = '';
+        el('cercaNomeMsg').textContent = '';
+        el('cercaEmail').classList.remove('errore');
+        if (email && !emailValida(email)) {
+            el('cercaEmail').classList.add('errore');
+            el('cercaEmailMsg').textContent = 'Controlla l’indirizzo: manca qualcosa.';
+            return;
+        }
+        if (!email && !(perNome && nome && cognome)) {
+            if (perNome) el('cercaNomeMsg').textContent = 'Scrivi nome e cognome, oppure l’email.';
+            else { el('cercaEmail').classList.add('errore'); el('cercaEmailMsg').textContent = 'Scrivi la tua email.'; }
+            return;
+        }
+        var btn = el('cercaBtn');
+        btn.disabled = true; btn.textContent = 'Un attimo…';
+        chiama({ azione: 'presenza-cerca', email: email, nome: nome, cognome: cognome })
+            .then(function (d) {
+                if (d && d.ok && d.trovato) {
+                    trovata = d;
+                    el('trovatoChi').textContent = ((d.nome || '') + ' ' + (d.cognome || '')).trim();
+                    el('trovatoDove').textContent = d.azienda || '';
+                    el('trovatoTesto').textContent = d.perNome
+                        ? 'Abbiamo trovato un’iscrizione con questo nome. Sei tu?'
+                        : (d.giaPresente ? 'Risulti già in sala: se non eri tu, avvisa il desk.' : 'Risulti già iscritto. Conferma e sei dentro.');
+                    mostra('trovatoOnline', d.modalita === 'online');
+                    el('segnaBtn').textContent = d.giaPresente ? 'Sono io' : 'Sono io, segnami presente';
+                    vai('passoTrovato');
+                } else {
+                    /* Non trovato: il questionario, con quello che sappiamo gia'
+                       scritto. Anche quando e' il servizio a non rispondere: il
+                       foglio Google riceve comunque l'iscrizione. */
+                    apriModulo(email, nome, cognome);
+                }
+            })
+            .catch(function () { apriModulo(email, nome, cognome); })
+            .finally(function () { btn.disabled = false; btn.textContent = 'Continua'; });
+    });
+
+    function apriModulo(email, nome, cognome) {
+        if (email) el('email').value = email;
+        if (nome) el('nome').value = nome;
+        if (cognome) el('cognome').value = cognome;
+        vai('passoModulo');
+        var primo = ['nome', 'cognome', 'email', 'azienda'].filter(function (id) { return !v(id); })[0] || 'azienda';
+        el(primo).focus();
+    }
+
+    /* ---------- passo 2a ---------- */
+    el('nonSonoIo').addEventListener('click', function () {
+        trovata = null;
+        apriModulo(v('cercaEmail').toLowerCase(), v('cercaNome'), v('cercaCognome'));
+    });
+    el('segnaBtn').addEventListener('click', function () {
+        if (!trovata) return;
+        var btn = el('segnaBtn');
+        btn.disabled = true; btn.textContent = 'Un attimo…';
+        chiama({ azione: 'presenza-segna', rif: trovata.rif })
+            .then(function (d) {
+                if (d && d.ok && d.trovato) fine(((d.nome || trovata.nome || '') + ' ' + (d.cognome || trovata.cognome || '')).trim());
+                else avvisoDesk();
+            })
+            .catch(avvisoDesk)
+            .finally(function () { btn.disabled = false; btn.textContent = 'Sono io, segnami presente'; });
+    });
+    function avvisoDesk() {
+        avviso('Non siamo riusciti a segnarti', 'La rete della sala non risponde. Vai al desk Revilaw all’ingresso: ti segnano loro, in un attimo.');
+    }
+
+    /* ---------- passo 2b ---------- */
+    var OBBLIGATORI = ['nome', 'cognome', 'email', 'azienda', 'ruolo', 'profilo', 'settore', 'dimensione'];
+    function controlla() {
+        var ok = true, primo = null;
+        OBBLIGATORI.forEach(function (id) {
+            var c = el(id), m = el(id + 'Msg');
+            var vuoto = !v(id);
+            var brutto = id === 'email' && !vuoto && !emailValida(v(id));
+            c.classList.toggle('errore', vuoto || brutto);
+            m.textContent = vuoto ? 'Campo obbligatorio' : (brutto ? 'Controlla l’indirizzo' : '');
+            if ((vuoto || brutto) && ok) { ok = false; primo = c; }
+        });
+        ['privacy', 'marketing'].forEach(function (id) {
+            var manca = !el(id).checked;
+            el(id + 'Riga').classList.toggle('errore', manca);
+            el(id + 'Msg').textContent = manca ? 'Serve il consenso per registrarti' : '';
+            if (manca && ok) { ok = false; primo = el(id); }
+        });
+        if (primo) { primo.scrollIntoView({ behavior: 'smooth', block: 'center' }); primo.focus(); }
+        return ok;
+    }
+    OBBLIGATORI.forEach(function (id) {
+        el(id).addEventListener('input', function () {
+            if (el(id).classList.contains('errore') && v(id)) { el(id).classList.remove('errore'); el(id + 'Msg').textContent = ''; }
+        });
+    });
+
+    function adessoIt() {
+        var n = new Date(), p = function (x) { return String(x).padStart(2, '0'); };
+        return p(n.getDate()) + '/' + p(n.getMonth() + 1) + '/' + n.getFullYear()
+            + ' ' + p(n.getHours()) + ':' + p(n.getMinutes()) + ':' + p(n.getSeconds());
+    }
+
+    el('passoModulo').addEventListener('submit', function (e) {
+        e.preventDefault();
+        el('invioMsg').textContent = '';
+        if (!controlla()) return;
+        var btn = el('invioBtn');
+        btn.disabled = true; btn.textContent = 'Invio in corso…';
+
+        var interessi = Array.prototype.slice.call(document.querySelectorAll('input[name="interessi"]:checked'))
+            .map(function (c) { return c.value; }).join(', ');
+        // lo stesso schema del modulo del sito (napoli_ottobre_2026/script.js)
+        var payload = {
+            data: adessoIt(),
+            pagina: PAGINA,
+            nome: v('nome'), cognome: v('cognome'), email: v('email').toLowerCase(),
+            azienda: v('azienda'), ruolo: v('ruolo'), telefono: v('telefono'),
+            messaggio: '',
+            profilo: v('profilo'), settore: v('settore'), dimensione: v('dimensione'),
+            incontro: '', interessi: interessi, codiceInvito: '',
+            modalita: 'presenza', listaAttesa: false, aderente: false,
+            privacy: el('privacy').checked, marketing: el('marketing').checked,
+            // quello che distingue questa iscrizione da una fatta da casa
+            origine: 'qr-desk'
+        };
+
+        // il foglio Google: la strada che funziona anche se il servizio e' giu'
+        var alFoglio = fetch(FOGLIO, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        // il servizio: scheda su Firestore, presenza segnata, mail di conferma
+        var alServizio = chiama(Object.assign({}, payload)).then(function (d) { return !!(d && d.ok); }).catch(function () { return false; });
+
+        Promise.all([alFoglio.then(function () { return true; }, function () { return false; }), alServizio])
+            .then(function (esiti) {
+                if (!esiti[0] && !esiti[1]) throw new Error('nessuna strada');
+                fine((payload.nome + ' ' + payload.cognome).trim());
+                if (!esiti[1]) {
+                    // iscritto sul foglio ma non segnato presente: lo dice, cosi' passa dal desk
+                    el('fineTesto').textContent = 'La tua iscrizione è registrata. Passa dal desk Revilaw all’ingresso per farti segnare presente: la rete della sala non ha risposto.';
+                }
+            })
+            .catch(function () {
+                btn.disabled = false; btn.textContent = 'Registrami';
+                el('invioMsg').textContent = 'Errore di connessione. Riprova, oppure vai al desk Revilaw all’ingresso.';
+            });
+    });
+
+    /* ---------- passo 3 ---------- */
+    function fine(nomeCompleto) {
+        niente();
+        el('fineChi').textContent = nomeCompleto;
+        el('fineQuando').textContent = 'Napoli, ' + adessoIt().slice(0, 16);
+        vai('passoFine');
+    }
+
+    /* ---------- avvio ---------- */
+    if (!CHIAVE) {
+        /* Senza chiave il servizio risponderebbe sempre "non trovato": meglio
+           dirlo subito che far compilare per niente. Il questionario resta
+           raggiungibile lo stesso: il foglio Google lo riceve comunque. */
+        avviso('Inquadra il QR del cartello', 'Questa pagina si apre dal QR al desk all’ingresso della sala. Se lo hai già inquadrato e vedi questo avviso, riprova dal cartello.');
+        mostra('passoCerca', false);
+        mostra('passoModulo', false);
+    } else {
+        el('cercaEmail').focus();
+    }
+})();
+</script>
+
+</body>
+</html>

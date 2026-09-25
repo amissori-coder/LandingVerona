@@ -174,9 +174,42 @@ con `noindex` nella pagina.
 | 26 settembre | chiusura dell'elenco iscritti per la stampa |
 | 28 settembre | prova di stampa e collaudo con tre telefoni |
 | 29 settembre | badge in stampa, `node pubblica.js`, mail con i link |
+| 29 settembre | `PRESENZA_NAPOLI_CHIAVE` su Vercel, poi `node cartello.js` e stampa del cartello per il desk |
 | 2 ottobre | evento |
 
 Chi si iscrive dopo il 26 prende un badge generico con il codice scritto a mano.
+
+---
+
+## Il cartello per chi arriva senza iscrizione
+
+Al desk ci vuole un cartello con un QR: chi non si e' iscritto online lo
+inquadra, apre `/p26/` dal telefono, e o si ritrova fra gli iscritti (un
+tocco, e' presente) o compila il questionario da li'. Come funziona dietro
+sta nel README di `email-service`, alla voce "Accredito dal QR al desk".
+
+```bash
+PRESENZA_NAPOLI_CHIAVE=lachiave node cartello.js
+```
+
+Esce `out/cartello-accredito.html`: un A4 da aprire nel browser e stampare,
+con le stesse quattro regole dei badge (scala 100%, carta opaca, cornice
+bianca intatta, nero su bianco). Prima di stamparlo in grande, prova il QR
+con tre telefoni.
+
+**La chiave e' una sola, e sta in due posti.** Nel QR, messa da questo
+script, e su Vercel nella variabile `PRESENZA_NAPOLI_CHIAVE` del servizio
+email. Se sono diverse la pagina dice a tutti "non risulti iscritto" e non
+segna nessuno: e' voluto, il servizio non risponde a chi non ha la chiave del
+cartello. Sceglila di lettere e numeri, 12-20 caratteri, e non scriverla nel
+repo. Il file `out/` e' gia' escluso.
+
+La pagina funziona solo dal 1 al 3 ottobre: fuori da quei giorni il cartello
+e' carta.
+
+**Piano B, senza rete.** La lista stampata di `out/codici.csv` e una penna:
+chi non c'e' si scrive a mano e si inserisce dall'area riservata dopo
+("Aggiungi iscrizione", portale "Telefono o di persona").
 
 ---
 

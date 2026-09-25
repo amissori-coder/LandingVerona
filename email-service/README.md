@@ -50,6 +50,7 @@ Serve per generare i link di reimpostazione password.
 | `SMTP_FROM_EMAIL` | `noreply@nextgenerationbusiness.it` |
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
+| `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
 > bloccato gli invii con un `525 5.7.13` (protezione anti-abuso della casella:
@@ -1111,6 +1112,116 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
+
+## Conferma dell'indirizzo email (`lib/conferma-email.js`)
+
+La mail di conferma dell'iscrizione (`confermaSito` in `lib/mail-ngb.js`, e la
+gemella composta dall'area riservata in `newsletter-format.js` per le schede
+inserite a mano) porta **in cima** un pulsante "Conferma il tuo indirizzo
+email". Chi lo tocca apre `/conferma_email/?d=<idDoc>&t=<firma>`; la pagina
+chiama il servizio e sulla scheda resta `emailConfermata: { quando, come }`.
+Nell'area riservata e' il **baffetto verde** accanto all'indirizzo, il
+riquadro "indirizzi confermati" in testa all'evento, e la voce "Rimanda la
+mail di conferma" nel menu della riga per chi non ce l'ha ancora.
+
+- **La firma** (`NL.firmaConfermaEmail`, `NL.linkConfermaEmail`): stesso
+  segreto degli altri collegamenti personali, contesto suo
+  (`conferma-email|<idDoc>`). Il token che conferma l'indirizzo non apre
+  `/completa_iscrizione/`, che scrive, e viceversa. Nessuna variabile nuova.
+- **`azione: "conferma-email"`** su `/api/iscrizione-nuova`, con `d` e `t`.
+  Firma cattiva: `403` e nessuna lettura. Scrive `emailConfermata: { quando,
+  come: 'mail' }` con merge, **idempotente** (la seconda apertura risponde
+  `gia: true` con la data della prima e non riscrive), poi alza la revisione.
+  Risponde solo `{ ok, gia, quando, nome, evento }`: mai email o telefono, la
+  pagina e' raggiungibile da chiunque abbia il collegamento. Il freno e' per
+  **scheda** (20 in 10 minuti), non per IP: dieci persone dello stesso
+  ufficio confermano nello stesso minuto.
+- **Perche' la pagina conferma con una POST dallo script** e non aprendosi:
+  gli antispam aziendali (Safe Links di Outlook, i proxy di sicurezza)
+  visitano ogni collegamento della mail prima della persona, ma non eseguono
+  JavaScript. Se bastasse aprire l'indirizzo, ogni iscritto risulterebbe
+  confermato da un robot.
+- **Il pregresso.** Chi era iscritto prima che la mail avesse il pulsante -
+  in sala, aderente, sponsor o online - e' confermato d'ufficio e non riceve
+  nessuna mail: `azione: "conferma-email-pregresso"` su `/api/presenze`
+  (**solo amministratore**, con `filtro` = la parola dell'evento, es.
+  `napoli`) scrive `{ come: 'pregresso', da }` su tutte le schede dell'evento
+  senza il campo, a lotti da 400, e salta chi lo ha gia' - dalla mail o da un
+  lancio precedente. Nell'area riservata e' il pulsante **"Segna confermati
+  gli iscritti finora"**, che compare finche' c'e' qualcuno senza baffetto.
+  Le righe del foglio Google storico non hanno una scheda: `/api/iscrizioni`
+  le restituisce gia' come pregresso. Il suggerimento sul baffetto dice
+  quale dei due e'.
+- **L'ORDINE CONTA: prima si pubblica il servizio con la mail nuova, poi si
+  preme il pulsante del pregresso su ogni evento aperto** (Napoli in testa).
+  Al contrario chi si iscrive nel mezzo riceverebbe la mail E verrebbe
+  segnato d'ufficio: non e' grave (chi clicca dopo resta "pregresso", il
+  campo c'e' gia'), ma e' un baffetto che dice meno del vero.
+- **`azione: "richiedi-conferma-email"`** su `/api/presenze` (tutti gli
+  abilitati agli Eventi): rispedisce la stessa mail dell'iscrizione dal
+  sito, composta dal servizio (il pulsante porta una firma che solo il
+  servizio conosce), una volta ogni 10 minuti per scheda; sulla scheda resta
+  `emailConfermaRimandata: { da, daNome, quando }`. A chi ha gia' confermato
+  risponde `gia: true` senza spedire.
+- **Le prove**: `node prove/conferma-email.prove.js` (Firestore finto).
+
+## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
+
+Il giorno del convegno al desk c'e' un cartello con un QR (lo produce
+`badge-napoli/cartello.js`). Chi arriva **senza essersi iscritto online** lo
+inquadra e apre `/p26/` dal proprio telefono: scrive l'email (o nome e
+cognome), e
+
+- se **risulta gia' iscritto**, vede nome, cognome e azienda e con un tocco si
+  segna presente, senza ricompilare nulla;
+- se **non risulta**, compila il questionario - gli stessi campi del modulo
+  del sito - e la presenza e' segnata nella stessa richiesta.
+
+Due azioni sull'endpoint pubblico, piu' un caso dell'iscrizione normale:
+
+- `azione: "presenza-cerca"` con `email` e/o `nome` + `cognome`, `evento`
+  (`napoli-2026-10-02`), `chiave`. Cerca fra le schede dell'evento (archivio
+  condiviso di `lib/copia-iscrizioni.js`, cancellate escluse) prima per email
+  normalizzata, poi per nome e cognome senza accenti. Risponde **solo**
+  `{ ok, trovato, rif, nome, cognome, azienda, modalita, giaPresente, perNome }`:
+  mai email, telefono o identificativo. `rif` e' l'impronta
+  dell'identificativo, non l'identificativo (che contiene l'email): chi ha
+  cercato per nome non scopre con quale indirizzo si e' iscritta la persona.
+- `azione: "presenza-segna"` con `rif`, `evento`, `chiave`. Scrive in
+  `presenze` con lo stesso nome di documento di `/api/presenze`
+  (`evento~idIscritto`): `stato: "presente"`, la nota "Accredito QR gg/mm hh:mm"
+  accodata a quella esistente, la firma `da: "qr-desk"` / `daNome: "Accredito
+  QR"`. Chi era iscritto **online** passa in **presenza** (e' in sala, il
+  posto va contato) e la coda per la sala finisce; aderenti e sponsor restano
+  nella loro sezione. Poi alza la revisione, cosi' l'area riservata rilegge.
+- L'**iscrizione nuova** dal telefono e' il payload del sito con in piu'
+  `origine: "qr-desk"` e `chiave`: la scheda viene scritta in `presenza`,
+  senza coda, con `extra.Portale = "Desk (QR)"` (si legge nella colonna
+  Portale dell'elenco, e l'area riservata la conta nel riquadro "registrati al
+  desk"), e la presenza e' scritta subito dopo la scheda. La mail di conferma
+  e' quella normale. Senza la chiave buona, un'iscrizione che si dichiara dal
+  desk e' un'iscrizione dal sito come le altre.
+
+**La chiave.** Le due azioni funzionano solo con `chiave` uguale a
+`PRESENZA_NAPOLI_CHIAVE` (confronto a tempo costante) e **solo dal 1 al 3
+ottobre 2026** (fuso di Roma). Altrimenti rispondono `{ ok: true, trovato:
+false }` senza dire perche' e senza scrivere nulla: "segnami presente" non si
+deve poter fare da casa, e "questo indirizzo e' iscritto?" non deve diventare
+un modo per scoprire chi viene al convegno provando indirizzi. Senza la
+variabile impostata NON esiste una chiave buona: tutto resta spento. La
+chiave sta nel QR come frammento (`/p26/#k=...`), quindi non viaggia verso il
+server della pagina.
+
+**Il freno per IP e' un altro.** Tutta la sala esce dal wifi dell'hotel con
+un indirizzo solo: 8 richieste in 10 minuti le consumerebbero le prime tre
+persone in fila. Le richieste con la chiave buona hanno un freno loro (240 in
+10 minuti per IP), che ferma solo un telefono impazzito.
+
+**Le prove**: `node prove/accredito-desk.prove.js` (Firestore finto, niente
+da installare).
+
+**Il piano B**: senza rete al desk si usa la lista stampata (`badge-napoli`,
+`out/codici.csv`) e si segna a mano dall'area riservata dopo.
 
 ## Incontri B2B
 

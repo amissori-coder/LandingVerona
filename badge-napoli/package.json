@@ -6,7 +6,8 @@
   "scripts": {
     "prepara": "node prepara.js",
     "pubblica": "node pubblica.js",
-    "prova": "node pubblica.js --secco"
+    "prova": "node pubblica.js --secco",
+    "cartello": "node cartello.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",
