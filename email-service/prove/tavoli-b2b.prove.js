@@ -225,5 +225,40 @@ prova('8) Un posto in piu a ogni orario della finanza agevolata', () => {
         'e la voce c e anche nell elenco dell area riservata');
 });
 
+prova('9) Quando il servizio non manda un tavolo, l\'agenda lo dice', () => {
+    /* L'elenco dei tavoli lo tiene il servizio, che sta su un'altra macchina e
+       si aggiorna per conto suo: quando se ne aggiunge uno, per qualche minuto
+       in agenda quella riga non c'e'. E una riga che non c'e' non si vede: si
+       cerca il tavolo nuovo, non lo si trova, e si pensa che la modifica non
+       sia stata fatta. E' successo davvero, due volte.
+       Il sito l'elenco ce l'ha anche lui: basta confrontare. */
+    const APP = fs.readFileSync(path.join(RADICE, 'area-riservata', 'app.js'), 'utf8');
+    const i = APP.indexOf('function tavoliCheMancano(');
+    let j = APP.indexOf('{', i), n = 0, fine = -1;
+    for (; j < APP.length; j++) {
+        if (APP[j] === '{') n++;
+        else if (APP[j] === '}') { n--; if (!n) { fine = j + 1; break; } }
+    }
+    const esc = x => String(x == null ? '' : x);
+    const mancano = new Function('areeB2BDef', 'esc',
+        'return ' + APP.slice(i, fine))(() => AREA.AREE_B2B, esc);
+    /* Il servizio aggiornato: manda tutti i tavoli, e non c'e' niente da dire. */
+    esigi(mancano(AREA.AREE_B2B.map(a => ({ id: a.id }))) === '',
+        'con il servizio aggiornato non si dice niente');
+    /* Il servizio indietro: gli manca l'ultimo arrivato. */
+    const vecchio = AREA.AREE_B2B.filter(a => a.id !== 'finanza-agevolata-b').map(a => ({ id: a.id }));
+    const avviso = mancano(vecchio);
+    esigi(/1 tavolo non arriva/.test(avviso), 'con il servizio indietro si dice quanti mancano', avviso);
+    esigi(avviso.indexOf('Finanza agevolata - secondo posto') >= 0, 'e si dice QUALE', avviso);
+    esigi(/riprova fra qualche minuto/.test(avviso), 'e che cosa fare: aspettare, non rifare');
+    /* Due tavoli mancanti si contano al plurale: e' il caso di chi apre
+       l'agenda subito dopo due modifiche di fila. */
+    const piuVecchio = vecchio.filter(a => a.id !== 'desk-revilaw-b');
+    esigi(/2 tavoli non arrivano/.test(mancano(piuVecchio)), 'e due mancanti si dicono al plurale');
+    /* Un elenco vuoto (agenda mai aperta) non fa dire che mancano tutti: li' non
+       si sta aspettando niente, si sta caricando. */
+    esigi(mancano([]).indexOf('non arrivano') > 0, 'e con l elenco vuoto si dice lo stesso: e la stessa cosa');
+});
+
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
 process.exit(ko ? 1 : 0);

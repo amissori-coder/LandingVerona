@@ -20002,6 +20002,7 @@
                 : '')
             + '</div>';
         return '<div class="ag-tavoli">' + giornata
+            + tavoliCheMancano(a.aree)
             + '<div class="ag-aree">' + (a.aree || []).map(x => areaHtml(ev, x, puo)).join('') + '</div>'
             + '</div>';
     }
@@ -20018,6 +20019,28 @@
         if (!da || !a) return null;
         const g2 = g || {};
         return (a !== g2.fine || da !== g2.inizio) ? { dalle: da, alle: a } : null;
+    }
+    /* I TAVOLI CHE IL SERVIZIO NON MANDA.
+       L'elenco dei tavoli lo tiene il servizio, che sta su un'altra macchina e
+       si aggiorna per conto suo: quando se ne aggiunge uno - un secondo posto
+       su un argomento, un desk convertito - per qualche minuto, o finche' il
+       servizio non riparte, in agenda quella riga NON C'E'. E una riga che non
+       c'e' non si vede: si guarda l'elenco, si cerca il tavolo nuovo, non lo si
+       trova e si pensa che la modifica non sia stata fatta.
+       Il sito pero' l'elenco ce l'ha anche lui (RV_NEWSLETTER.AREE_B2B, la
+       copia che viaggia con la pagina): basta confrontare, e dire quali
+       mancano. Non li si disegna - un tavolo che il servizio non conosce non
+       si potrebbe ne' attivare ne' salvare - si dice che mancano e perche'. */
+    function tavoliCheMancano(aree) {
+        const arrivati = (aree || []).map(x => x.id);
+        const attesi = areeB2BDef().filter(a => arrivati.indexOf(a.id) < 0);
+        if (!attesi.length) return '';
+        return '<div class="ag-avviso"><b>' + attesi.length
+            + (attesi.length === 1 ? ' tavolo non arriva' : ' tavoli non arrivano')
+            + ' dal servizio</b>: ' + esc(attesi.map(a => a.nome).join(', '))
+            + '. Il servizio degli incontri si aggiorna per conto suo e non ha ancora '
+            + (attesi.length === 1 ? 'questo tavolo' : 'questi tavoli')
+            + ': riprova fra qualche minuto. Finché non arriva non lo puoi organizzare da qui.</div>';
     }
     /* Un tavolo: la riga che si apre. Chiusa dice le tre cose che si
        guardano da fuori (se e' attivo, chi lo tiene, quanti posti restano);
