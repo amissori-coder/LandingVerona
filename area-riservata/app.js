@@ -16185,6 +16185,10 @@
          vai   - la voce del menu della riga, che e' un comando e quindi un verbo
        Il nome CORTO della riga sta in NOMI_MODALITA: nella colonna "Modalita",
        larga un dito, "Aderenti Revilaw" il browser lo taglierebbe a meta'. */
+    /* L'etichetta nella colonna "Portale" di chi si e' registrato in sala dal
+       QR del cartello: la scrive il servizio (email-service/lib/accredito-desk.js)
+       e qui si conta. Cambiarla da una parte sola vuol dire un contatore a zero. */
+    const PORTALE_DESK = 'Desk (QR)';
     const SEZIONI_MODALITA = [
         { id: 'presenza', nome: 'In presenza', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
         { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti', sala: true, dove: 'fra gli aderenti Revilaw', vai: 'Sposta fra gli aderenti Revilaw' },
@@ -16862,6 +16866,11 @@
                 const p = EventiPresenze.di(ev.id, r.id);
                 return p && (p.stato === 'confermato' || p.stato === 'presente');
             }).length : 0,
+            /* Chi si e' registrato in sala dal QR del cartello, il giorno
+               dell'evento: lo dice la colonna "Portale", che il servizio
+               scrive con questa etichetta (lib/accredito-desk.js). E' il
+               numero che dice quanti sono arrivati senza iscrizione. */
+            desk: lista ? lista.filter(r => (r.extra && r.extra.Portale) === PORTALE_DESK).length : 0,
             conModalita: conModalita,
             postiSezione: postiSezione,
             nInSala: conModalita
@@ -16915,6 +16924,7 @@
         });
         { const el = num('sala'); scriviNumero(el, c.conModalita ? c.nInSala : '-'); if (el) el.setAttribute('title', frase); }
         scriviNumero(num('conf'), c.conf);
+        scriviNumero(num('desk'), c.desk);
         scriviNumero(num('iscrizioni'), c.nIsc === null ? '-' : c.nIsc);
         scriviNumero(num('partecipanti'), c.nPart === null ? '-' : c.nPart);
         scriviNumero(num('indirizzi'), c.nIndir === null ? '-' : c.nIndir);
@@ -17228,7 +17238,7 @@
         // all'amministratore serve l'elenco utenze per dire, persona per persona, se
         // l'abilitazione puo' davvero funzionare (ruolo, utenza attiva)
         if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'eventi') vistaEventi(); });
-        const { nIsc, nPart, nIndir, conf, conModalita, postiSezione, nInSala } = contiEvento(ev);
+        const { nIsc, nPart, nIndir, conf, desk, conModalita, postiSezione, nInSala } = contiEvento(ev);
         /* La somma va scritta da qualche parte, e il posto giusto e' il
            suggerimento dei riquadri che la compongono: "4 in presenza" e "1
            aderenti" non dicono da soli quanti posti servono. */
@@ -17320,6 +17330,7 @@
                 + SEZIONI_MODALITA.filter(x => !inSala(x.id) && !x.fuoriElenco)
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
+                + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
                 + '</div>') + '</div>'
             + cruscotto + avviso + corpo;
 

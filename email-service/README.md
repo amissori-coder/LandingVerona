@@ -50,6 +50,7 @@ Serve per generare i link di reimpostazione password.
 | `SMTP_FROM_EMAIL` | `noreply@nextgenerationbusiness.it` |
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
+| `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
 > bloccato gli invii con un `525 5.7.13` (protezione anti-abuso della casella:
@@ -1111,6 +1112,64 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
+
+## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
+
+Il giorno del convegno al desk c'e' un cartello con un QR (lo produce
+`badge-napoli/cartello.js`). Chi arriva **senza essersi iscritto online** lo
+inquadra e apre `/p26/` dal proprio telefono: scrive l'email (o nome e
+cognome), e
+
+- se **risulta gia' iscritto**, vede nome, cognome e azienda e con un tocco si
+  segna presente, senza ricompilare nulla;
+- se **non risulta**, compila il questionario - gli stessi campi del modulo
+  del sito - e la presenza e' segnata nella stessa richiesta.
+
+Due azioni sull'endpoint pubblico, piu' un caso dell'iscrizione normale:
+
+- `azione: "presenza-cerca"` con `email` e/o `nome` + `cognome`, `evento`
+  (`napoli-2026-10-02`), `chiave`. Cerca fra le schede dell'evento (archivio
+  condiviso di `lib/copia-iscrizioni.js`, cancellate escluse) prima per email
+  normalizzata, poi per nome e cognome senza accenti. Risponde **solo**
+  `{ ok, trovato, rif, nome, cognome, azienda, modalita, giaPresente, perNome }`:
+  mai email, telefono o identificativo. `rif` e' l'impronta
+  dell'identificativo, non l'identificativo (che contiene l'email): chi ha
+  cercato per nome non scopre con quale indirizzo si e' iscritta la persona.
+- `azione: "presenza-segna"` con `rif`, `evento`, `chiave`. Scrive in
+  `presenze` con lo stesso nome di documento di `/api/presenze`
+  (`evento~idIscritto`): `stato: "presente"`, la nota "Accredito QR gg/mm hh:mm"
+  accodata a quella esistente, la firma `da: "qr-desk"` / `daNome: "Accredito
+  QR"`. Chi era iscritto **online** passa in **presenza** (e' in sala, il
+  posto va contato) e la coda per la sala finisce; aderenti e sponsor restano
+  nella loro sezione. Poi alza la revisione, cosi' l'area riservata rilegge.
+- L'**iscrizione nuova** dal telefono e' il payload del sito con in piu'
+  `origine: "qr-desk"` e `chiave`: la scheda viene scritta in `presenza`,
+  senza coda, con `extra.Portale = "Desk (QR)"` (si legge nella colonna
+  Portale dell'elenco, e l'area riservata la conta nel riquadro "registrati al
+  desk"), e la presenza e' scritta subito dopo la scheda. La mail di conferma
+  e' quella normale. Senza la chiave buona, un'iscrizione che si dichiara dal
+  desk e' un'iscrizione dal sito come le altre.
+
+**La chiave.** Le due azioni funzionano solo con `chiave` uguale a
+`PRESENZA_NAPOLI_CHIAVE` (confronto a tempo costante) e **solo dal 1 al 3
+ottobre 2026** (fuso di Roma). Altrimenti rispondono `{ ok: true, trovato:
+false }` senza dire perche' e senza scrivere nulla: "segnami presente" non si
+deve poter fare da casa, e "questo indirizzo e' iscritto?" non deve diventare
+un modo per scoprire chi viene al convegno provando indirizzi. Senza la
+variabile impostata NON esiste una chiave buona: tutto resta spento. La
+chiave sta nel QR come frammento (`/p26/#k=...`), quindi non viaggia verso il
+server della pagina.
+
+**Il freno per IP e' un altro.** Tutta la sala esce dal wifi dell'hotel con
+un indirizzo solo: 8 richieste in 10 minuti le consumerebbero le prime tre
+persone in fila. Le richieste con la chiave buona hanno un freno loro (240 in
+10 minuti per IP), che ferma solo un telefono impazzito.
+
+**Le prove**: `node prove/accredito-desk.prove.js` (Firestore finto, niente
+da installare).
+
+**Il piano B**: senza rete al desk si usa la lista stampata (`badge-napoli`,
+`out/codici.csv`) e si segna a mano dall'area riservata dopo.
 
 ## Incontri B2B
 

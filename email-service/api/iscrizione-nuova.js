@@ -66,6 +66,11 @@ const CONTATTI = require('../lib/richieste-contatto');
    non fargli una funzione sua: chi conferma arriva da una pagina che non ha
    nient'altro da chiedere al servizio. */
 const CENE = require('../lib/cene-evento');
+/* L'accredito dal QR al desk, il giorno del convegno: chi arriva senza
+   iscrizione si registra dal telefono, chi ce l'ha si segna presente con un
+   tocco. Stesso genere di endpoint delle cene (pubblico, con freno per IP),
+   con in piu' la chiave stampata sul cartello: senza, non risponde nulla. */
+const DESK = require('../lib/accredito-desk');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -154,6 +159,24 @@ function troppiInvii(ip) {
             if (!v.length || ora - v[v.length - 1] > RL_FINESTRA_MS) invii.delete(k);
         }
     }
+    return false;
+}
+/* --- il freno del desk ---
+   In sala centocinquanta telefoni escono dal wifi dell'hotel con UN indirizzo
+   IP: otto richieste in dieci minuti le consumerebbero le prime tre persone
+   in fila, e la quarta si vedrebbe respinta. Le azioni con la chiave del
+   cartello hanno percio' un freno loro, molto piu' largo, che serve solo a
+   fermare un telefono impazzito: la chiave e i giorni dell'evento fanno il
+   resto. */
+const RL_DESK_MAX = 240;
+const desk = new Map();
+function troppeDalDesk(ip) {
+    if (!ip) return false;
+    const ora = Date.now();
+    const elenco = (desk.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
+    if (elenco.length >= RL_DESK_MAX) { desk.set(ip, elenco); return true; }
+    elenco.push(ora);
+    desk.set(ip, elenco);
     return false;
 }
 
@@ -1228,7 +1251,16 @@ module.exports = async (req, res) => {
            dire che tre persone dello stesso studio, aprendo e richiudendo la
            pagina, si mangiano gli invii veri di tutti gli altri. */
         const soloLettura = String(body.azione || '') === 'cena-leggi';
-        if (!conFirma && !soloLettura && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+        /* Il desk del convegno: le due azioni con la chiave del cartello e
+           l'iscrizione compilata li' dal telefono hanno il freno largo, perche'
+           tutta la sala esce da un indirizzo IP solo. Senza chiave buona
+           un'iscrizione che si dichiara "dal desk" e' un modulo come un altro,
+           e paga il freno di tutti. */
+        const azioneDesk = String(body.azione || '') === 'presenza-cerca' || String(body.azione || '') === 'presenza-segna';
+        const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
+        if (dalDesk) {
+            if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
+        } else if (!conFirma && !soloLettura && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
 
         // completamento dei dati (dal collegamento personale nella mail): altra
         // azione, stessa funzione. I form del sito non mandano "azione", quindi
@@ -1290,6 +1322,20 @@ module.exports = async (req, res) => {
             const cred2 = leggiServiceAccount();
             initAdmin(cred2);
             const r = await CENE.ricevi(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* Il desk del convegno. "presenza-cerca" dice se chi ha inquadrato il
+           QR e' gia' iscritto (nome, cognome e azienda, niente altro);
+           "presenza-segna" lo segna presente. Tutte e due rispondono "non
+           trovato" a chi non ha la chiave del cartello o prova fuori dai
+           giorni dell'evento: la ragione sta in lib/accredito-desk.js. */
+        if (azione === 'presenza-cerca' || azione === 'presenza-segna') {
+            const cred3 = leggiServiceAccount();
+            initAdmin(cred3);
+            const r = azione === 'presenza-cerca'
+                ? await DESK.cerca(admin.firestore(), body)
+                : await DESK.segna(admin.firestore(), body);
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -1412,11 +1458,26 @@ module.exports = async (req, res) => {
             scheda.listaAttesa = true;
         }
 
+        /* Compilata dal telefono al desk, con la chiave del cartello: la
+           persona e' in sala, quindi in presenza e senza coda, e nell'elenco
+           si legge da dove viene (colonna "Portale"). Dichiararsi "dal desk"
+           senza la chiave non cambia nulla: e' un'iscrizione dal sito. */
+        const accreditoDesk = dalDesk;
+        if (accreditoDesk) DESK.completaScheda(scheda);
+
         const idDoc = idDocumento(email, data, nome, cognome);
         await admin.firestore().collection('iscrizioni')
             .doc(idDoc)
             .set(scheda, { merge: true });
         await segnaCambiamento(admin.firestore());
+
+        /* La presenza, nella stessa richiesta: chi si e' appena registrato
+           dal telefono non deve fare un secondo passaggio. Se questa parte
+           non riesce l'iscrizione resta valida e al desk si segna a mano. */
+        if (accreditoDesk) {
+            try { await DESK.segnaNuova(admin.firestore(), body, scheda); }
+            catch (e) { console.error('Presenza dal desk non segnata:', String((e && e.message) || e).slice(0, 200)); }
+        }
 
         /* Il ritorno verso l'elenco delle aziende: la scheda dell'azienda
            passa a "iscritta" e si tiene chi si e' registrato. Se qualcosa qui
