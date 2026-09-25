@@ -1203,7 +1203,7 @@ Due azioni sull'endpoint pubblico, piu' un caso dell'iscrizione normale:
   desk e' un'iscrizione dal sito come le altre.
 
 **La chiave.** Le due azioni funzionano solo con `chiave` uguale a
-`PRESENZA_NAPOLI_CHIAVE` (confronto a tempo costante) e **solo dal 1 al 3
+`PRESENZA_NAPOLI_CHIAVE` (confronto a tempo costante) e **solo dal 25 settembre al 3
 ottobre 2026** (fuso di Roma). Altrimenti rispondono `{ ok: true, trovato:
 false }` senza dire perche' e senza scrivere nulla: "segnami presente" non si
 deve poter fare da casa, e "questo indirizzo e' iscritto?" non deve diventare

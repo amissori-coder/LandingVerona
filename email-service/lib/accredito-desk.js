@@ -25,7 +25,7 @@
    senza quella, tutto risponde "non trovato" e non scrive niente. La
    chiave e' stampata su un cartello in sala, quindi la protezione e'
    quella di un cartello: basta, insieme al fatto che le azioni
-   funzionano SOLO nei giorni dell'evento (fuso di Roma).
+   funzionano SOLO dal 25 settembre al 3 ottobre (fuso di Roma).
 
    COSA SI RISPONDE. Il minimo per dire "sei tu?": nome, cognome e
    azienda - quello che e' comunque stampato sul badge. Mai l'email,
@@ -56,7 +56,7 @@ const EVENTI = {
     'napoli-2026-10-02': {
         pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse',
         filtro: 'napoli',
-        dal: '2026-10-01',
+        dal: '2026-09-25',   // aperto in anticipo per le prove con il cartello stampato
         al: '2026-10-03'
     }
 };
