@@ -366,6 +366,34 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .blocco-uso:empty { display: none; }
 .blocco-uso[data-stato="si"] { background: var(--verde-bg); color: var(--verde); border-color: #B7DFC7; }
 
+/* l'interruttore delle iscrizioni dal modulo del sito (vale subito, senza «Salva») */
+.riquadro-iscrizioni { display: flex; flex-direction: column; gap: 12px; }
+.riquadro-iscrizioni .riquadro-testa { margin-bottom: 4px; }
+.interruttore { display: inline-flex; align-items: center; gap: 14px; cursor: pointer; font-weight: 700; color: var(--scuro); font-size: 0.98rem; max-width: 100%; }
+.interruttore input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.interruttore-pista {
+    position: relative; flex: 0 0 auto; width: 52px; height: 30px; border-radius: 999px;
+    background: #CBD5E1; border: 1px solid #94A3B8; transition: background-color .15s ease, border-color .15s ease;
+}
+.interruttore-pista::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(10, 40, 68, 0.3); transition: transform .15s ease;
+}
+.interruttore input:checked + .interruttore-pista { background: var(--verde); border-color: var(--verde); }
+.interruttore input:checked + .interruttore-pista::after { transform: translateX(22px); }
+.interruttore input:focus-visible + .interruttore-pista { outline: 3px solid var(--chiaro-blu); outline-offset: 2px; }
+.interruttore input:disabled + .interruttore-pista { opacity: 0.55; }
+.interruttore input:disabled ~ .interruttore-testo { color: var(--tenue-2); }
+.interruttore:has(input:disabled) { cursor: not-allowed; }
+.interruttore input[aria-busy="true"] + .interruttore-pista { opacity: 0.7; cursor: progress; }
+.interruttore-stato { font-size: 0.9rem; font-weight: 600; color: var(--tenue); }
+.interruttore-stato:empty { display: none; }
+.interruttore-stato[data-tono="acceso"] { color: var(--verde); }
+.iscrizioni-aiuto { max-width: 90ch; }
+@media (prefers-reduced-motion: reduce) {
+    .interruttore-pista, .interruttore-pista::after { transition: none; }
+}
+
 /* ---------- scheda regia ---------- */
 .regia-griglia { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
 .regia-colonna { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
@@ -655,27 +683,28 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
     min-height: 36px; padding: 6px 8px; font-size: 0.86rem; min-width: 110px;
 }
 /* input.classe: deve battere la regola generica degli input qui sopra */
-.tabella-anteprima input.campo-email { min-width: 215px; }
-.tabella-anteprima input.nome-utente-riga { font-family: var(--carattere-fisso); font-weight: 700; min-width: 165px; }
+.tabella-anteprima input.campo-email { min-width: 240px; }
 .tabella-anteprima input.campo-nome, .tabella-anteprima input.campo-cognome { min-width: 105px; }
 .tabella-anteprima td[data-label="Azienda"] { min-width: 115px; }
 .tabella-anteprima td[data-label="Esito e scelte"] { min-width: 165px; }
 .etichette-esito { margin-bottom: 6px; }
-.tabella-anteprima .nome-utente-riga[data-auto="1"] { color: var(--blu); }
+/* gli esiti del servizio (per email): verde il nuovo, blu chi c'e' gia',
+   grigio la riga doppia o esclusa, rosso tutto quello da correggere */
 tr.esito-nuovo td:first-child { border-left-color: var(--verde); }
-tr.esito-esistente { background: #F3F7FC; }
-tr.esito-esistente td:first-child { border-left-color: var(--accento); }
-tr.esito-gia-nell-evento { background: var(--chiaro); }
-tr.esito-gia-nell-evento td:first-child { border-left-color: var(--chiaro-blu); }
-tr.esito-doppione { background: #F8FAFC; color: var(--tenue); }
-tr.esito-doppione td:first-child { border-left-color: #94A3B8; }
+tr.esito-gia-presente { background: #F3F7FC; }
+tr.esito-gia-presente td:first-child { border-left-color: var(--accento); }
+tr.esito-gia-iscritto { background: var(--chiaro); }
+tr.esito-gia-iscritto td:first-child { border-left-color: var(--chiaro-blu); }
+tr.esito-doppia-nel-file { background: #F8FAFC; color: var(--tenue); }
+tr.esito-doppia-nel-file td:first-child { border-left-color: #94A3B8; }
 tr.esito-escluso { background: repeating-linear-gradient(-45deg, #F8FAFC 0 10px, #F1F5F9 10px 20px); color: var(--tenue-2); }
 tr.esito-escluso td:first-child { border-left-color: #CBD5E1; }
 tr.esito-escluso input[type="text"], tr.esito-escluso input[type="email"] { text-decoration: line-through; color: var(--tenue-2); }
-tr.esito-errore { background: var(--rosso-bg); }
-tr.esito-errore td:first-child { border-left-color: var(--rosso); }
-tr.omonimo:not(.esito-errore) td:first-child { border-left-color: var(--ambra-bordo); }
-tr.da-confermare:not(.esito-errore) { background: var(--ambra-bg); }
+tr.da-correggere { background: var(--rosso-bg); }
+tr.da-correggere td:first-child { border-left-color: var(--rosso); }
+/* la stessa email per persone diverse: da correggere, con la striscia ambra che la distingue */
+tr.esito-email-condivisa td:first-child { border-left-color: var(--ambra-bordo); }
+tr.con-avviso:not(.da-correggere) td:first-child { border-left-color: var(--ambra-bordo); }
 .tabella-anteprima input[aria-invalid="true"] { border-color: var(--rosso); background: #fff; }
 
 .etichetta-esito {
@@ -683,20 +712,21 @@ tr.da-confermare:not(.esito-errore) { background: var(--ambra-bg); }
     letter-spacing: 0.02em; white-space: nowrap; margin: 0 4px 4px 0;
 }
 .etichetta-esito.nuovo { background: var(--verde-bg); color: var(--verde); }
-.etichetta-esito.esistente { background: var(--blu-velo); color: var(--blu); }
-.etichetta-esito.gia-nell-evento { background: #E2EAF3; color: var(--accento); }
-.etichetta-esito.doppione { background: #E2E8F0; color: #334155; }
+.etichetta-esito.gia-presente { background: var(--blu-velo); color: var(--blu); }
+.etichetta-esito.gia-iscritto { background: #E2EAF3; color: var(--accento); }
+.etichetta-esito.doppia-nel-file { background: #E2E8F0; color: #334155; }
 .etichetta-esito.escluso { background: #E2E8F0; color: var(--tenue); }
-.etichetta-esito.errore { background: var(--rosso); color: #fff; }
-.etichetta-esito.omonimo { background: #FCE7B2; color: #5C3D00; }
-.etichetta-esito.omonimo-ok { background: var(--verde-bg); color: var(--verde); }
+.etichetta-esito.email-mancante, .etichetta-esito.email-non-valida, .etichetta-esito.nome-mancante,
+.etichetta-esito.nome-non-valido, .etichetta-esito.codifica { background: var(--rosso); color: #fff; }
+.etichetta-esito.email-condivisa { background: #FCE7B2; color: #5C3D00; box-shadow: inset 0 0 0 1px var(--rosso); }
+.etichetta-esito.disattivato { background: #FCE7B2; color: #5C3D00; }
 
 .problemi { list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--tenue); min-width: 220px; }
 .problemi li { padding-left: 14px; position: relative; line-height: 1.4; }
 .problemi li::before { content: ''; position: absolute; left: 0; top: 0.5em; width: 7px; height: 7px; border-radius: 50%; background: #94A3B8; }
 .problemi li.grave { color: var(--rosso-scuro); font-weight: 600; }
 .problemi li.grave::before { background: var(--rosso); }
-.problemi li.omonimo::before { background: var(--ambra-bordo); }
+.problemi li.avviso::before { background: var(--ambra-bordo); }
 .scelte { display: flex; flex-direction: column; gap: 6px; }
 .scelta { display: inline-flex; align-items: center; gap: 7px; font-size: 0.8rem; font-weight: 600; color: var(--scuro); cursor: pointer; white-space: nowrap; }
 
@@ -722,24 +752,31 @@ tr.da-confermare:not(.esito-errore) { background: var(--ambra-bg); }
 .avanzamento-testo { font-size: 0.9rem; font-weight: 600; color: var(--scuro); }
 
 .esito-crea { margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--bordo); display: flex; flex-direction: column; gap: 12px; }
-tr.nome-cambiato { background: var(--ambra-bg); }
+tr.riga-diversa { background: var(--ambra-bg); }
 tr.riga-errore { background: var(--rosso-bg); }
 tr.riga-nota { background: var(--blu-velo); }
-.nome-cambiato-testo { font-family: var(--carattere-fisso); font-weight: 700; }
-.nome-cambiato-testo del { color: var(--tenue-2); font-weight: 400; }
+/* «Account creati. Nessuna email è partita...» e il pulsante per la scheda Email */
+.esito-crea-invio { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+.esito-crea-invio .msg { flex: 1 1 360px; font-weight: 600; }
+.esito-crea-invio .msg[hidden] + .btn { display: none; }
 
 /* ---------- elenco partecipanti ---------- */
 .cerca-riga { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; align-items: flex-end; }
 .campo-cerca { flex: 1 1 320px; }
 .cerca-riga .campo:not(.campo-cerca) { flex: 0 1 240px; }
 .tabella-partecipanti td[data-label="Email"] { min-width: 210px; }
+.tabella-partecipanti .col-email { font-weight: 600; color: var(--scuro); overflow-wrap: anywhere; }
 .tabella-partecipanti td[data-label="Nome e cognome"], .tabella-partecipanti td[data-label="Azienda"] { min-width: 140px; }
 .tabella-partecipanti td[data-label="Ultimo accesso"] { white-space: nowrap; }
-.tabella-partecipanti .col-nome-utente { font-family: var(--carattere-fisso); font-weight: 700; color: var(--scuro); white-space: nowrap; }
 .tabella-partecipanti .persona { font-weight: 600; color: var(--scuro); }
+/* chi si e' iscritto dal modulo del sito (con l'invio automatico): gli altri vengono dal file */
+.origine-modulo {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px; white-space: nowrap;
+    font-size: 0.68rem; font-weight: 700; background: var(--blu-velo); color: var(--blu); border: 1px solid var(--su-scuro);
+}
 .tabella-partecipanti .piccolo { display: block; font-size: 0.76rem; color: var(--tenue-2); }
 .tabella-partecipanti tr.disattivato { background: #F8FAFC; }
-.tabella-partecipanti tr.disattivato .persona, .tabella-partecipanti tr.disattivato .col-nome-utente { color: var(--tenue-2); text-decoration: line-through; }
+.tabella-partecipanti tr.disattivato .persona, .tabella-partecipanti tr.disattivato .col-email { color: var(--tenue-2); text-decoration: line-through; }
 .azioni-riga { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; min-width: 250px; }
 .altre-azioni > summary { list-style: none; }
 .altre-azioni > summary::-webkit-details-marker { display: none; }
@@ -865,16 +902,16 @@ tr.riga-nota { background: var(--blu-velo); }
     .tabella-anteprima td:first-child { border-left: 0; }
     .tabella-anteprima tr { border-left-width: 6px !important; }
     .tabella-anteprima tr.esito-nuovo { border-left-color: var(--verde); }
-    .tabella-anteprima tr.esito-esistente { border-left-color: var(--accento); }
-    .tabella-anteprima tr.esito-gia-nell-evento { border-left-color: var(--chiaro-blu); }
-    .tabella-anteprima tr.esito-doppione { border-left-color: #94A3B8; }
-    .tabella-anteprima tr.esito-errore { border-left-color: var(--rosso); }
-    .tabella-anteprima tr.omonimo:not(.esito-errore) { border-left-color: var(--ambra-bordo); }
+    .tabella-anteprima tr.esito-gia-presente { border-left-color: var(--accento); }
+    .tabella-anteprima tr.esito-gia-iscritto { border-left-color: var(--chiaro-blu); }
+    .tabella-anteprima tr.esito-doppia-nel-file { border-left-color: #94A3B8; }
+    .tabella-anteprima tr.da-correggere { border-left-color: var(--rosso); }
+    .tabella-anteprima tr.esito-email-condivisa, .tabella-anteprima tr.con-avviso:not(.da-correggere) { border-left-color: var(--ambra-bordo); }
     .tabella-anteprima input[type="text"], .tabella-anteprima input[type="email"] { min-width: 0; min-height: 40px; }
     .problemi { min-width: 0; }
     .tabella-vuota { padding: 20px 12px; }
     .anteprima-barra .btn { margin-left: 0; }
-    .tabella-anteprima input.campo-email, .tabella-anteprima input.nome-utente-riga { min-width: 0; }
+    .tabella-anteprima input.campo-email { min-width: 0; }
     .tabella-anteprima td[data-label], .tabella-partecipanti td[data-label] { min-width: 0; }
     .azioni-riga { min-width: 0; }
     .azioni-riga .btn-mini { min-height: 38px; }

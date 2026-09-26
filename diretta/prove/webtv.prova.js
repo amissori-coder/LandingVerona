@@ -33,7 +33,7 @@
    evento-sorgente) con un gestore dell'emulatore. L'evento si crea
    incollando il CODICE che ha dato Azoto (si salva solo l'indirizzo) e
    il link del flusso; senza «Tipo di player» e' 'azoto'. Il
-   partecipante entra con nome utente e password (azione 'entra' vera)
+   partecipante entra con la sua email e la password (azione 'entra' vera)
    nella pagina vera (/diretta/, con la sua CSP, player-azoto.js e
    player-webtv.js), su Chromium: computer 1440x900, iPhone 13
    simulato (devices['iPhone 13'], anche a 390x844, 360x740 e in
@@ -497,8 +497,12 @@ function contaAscolti(page) {
         };
         const creato = await g({ azione: 'evento-salva', evento: Object.assign({ nuovo: true }, EVENTO_DATI) });
         vero(creato.evento.tipoPlayer === 'azoto' && creato.evento.azotoUrl === F.PLAYER_AZOTO, 'evento creato: ' + JSON.stringify({ tipo: creato.evento.tipoPlayer, azoto: creato.evento.azotoUrl }));
-        const creati = await g({ azione: 'crea', idEvento: EVENTO, righe: [{ riga: 2, nome: 'Luca', cognome: 'Bianchi', email: 'luca.bianchi@esempio.it', azienda: 'Bianchi srl', nomeUtente: 'lucabianchi' }] });
+        // il partecipante, caricato come fa la gestione: anteprima per email, poi 'crea' con le righe da creare
+        const anteprima = await g({ azione: 'anteprima', idEvento: EVENTO, righe: [{ riga: 2, nome: 'Luca', cognome: 'Bianchi', email: 'Luca.Bianchi@Esempio.it', azienda: 'Bianchi srl' }] });
+        vero(anteprima.pronto && anteprima.righe[0].esito === 'nuovo' && anteprima.righe[0].crea, 'anteprima del caricamento (per email): ' + JSON.stringify(anteprima.conteggi));
+        const creati = await g({ azione: 'crea', idEvento: EVENTO, righe: anteprima.righe.filter(r => r.crea).map(r => ({ riga: r.riga, nome: r.nome, cognome: r.cognome, email: r.email, azienda: r.azienda })) });
         const persona = creati.risultati[0];
+        vero(persona.esito === 'creato', 'partecipante creato: ' + JSON.stringify(persona));
         await app.auth().updateUser(persona.uid, { password: PASSWORD });
         await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' });
         // la regia cambia il video (e la riserva: '' la toglie, assente resta com'e')
@@ -572,7 +576,7 @@ function contaAscolti(page) {
             await page.waitForSelector('body[data-vista="accesso"]', { timeout: 30000 });
         }
         async function accedi(page) {
-            await page.fill('#campo-nome-utente', 'lucabianchi');
+            await page.fill('#email', 'luca.bianchi@esempio.it');
             await page.fill('#campo-password', PASSWORD);
             await page.click('#btn-entra');
             await page.waitForSelector('body[data-vista="diretta"]', { timeout: 30000 });

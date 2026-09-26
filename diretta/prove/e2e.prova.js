@@ -25,13 +25,26 @@
     2. crea l'evento incollando il CODICE che ha dato Azoto (div,
        iframe e script): il servizio salva solo l'indirizzo del player,
        e il «Tipo di player» e' quello predefinito (Azoto); carica i
-       partecipanti (anteprima e creazione), manda un'email di prova a
-       se' stesso e poi le credenziali a tutti;
-    3. Mario Rossi (su un iPhone) apre il collegamento dell'email:
-       nome utente gia' scritto (e nessuna richiesta ad Azoto), password
-       copiata dall'email, entra e trova l'attesa con il conto alla
-       rovescia e il programma, senza iframe; Anna Maria De Luca entra
-       dal computer scrivendo "Anna Maria De Luca";
+       partecipanti PER EMAIL (anteprima e creazione con le azioni vere
+       della gestione: due Mario Rossi con email diverse sono due
+       persone, la stessa email scritta in due modi e' una persona;
+       creare NON manda email), manda un'email di prova a se' stesso e
+       poi, con «Invia le credenziali», le credenziali a tutti;
+    2b. le iscrizioni dal modulo del sito: il gestore accende dalla
+       gestione «Invia subito la password a chi si iscrive dal modulo del
+       sito»; Luca Nuovo si iscrive online dal modulo di Napoli (la
+       funzione VERA del sito, api/iscrizione-nuova.js, chiamata come la
+       chiama Vercel: server-locale.js monta solo le funzioni della
+       diretta) e la password gli arriva subito nella posta finta; entra
+       con la sua email e quella password; nella gestione compare «dal
+       modulo del sito»; Mario, gia' iscritto, si iscrive di nuovo: niente
+       seconda password;
+    3. Mario Rossi (su un iPhone) apre il collegamento dell'email (che
+       non porta l'indirizzo: e nessuna richiesta ad Azoto), scrive la
+       sua email e la password copiata dall'email, entra e trova l'attesa
+       con il conto alla rovescia e il programma, senza iframe; Anna
+       Maria De Luca entra dal computer scrivendo la sua email con
+       maiuscole e spazi;
     4. il gestore manda in onda: le pagine passano da sole alla
        diretta e compare l'iframe del player di Azoto, con gli attributi
        e il titolo giusti; chi NON ha fatto l'accesso non riceve
@@ -47,8 +60,11 @@
        (le regole lo verificano con l'orario del server); pausa
        dell'evento: la nostra schermata AL POSTO dell'iframe, e alla
        ripresa l'iframe torna;
-    7. Esci; "Password dimenticata?" con l'email: arriva il collegamento
-       all'indirizzo VERO, nuova password, accesso automatico;
+    7. Esci; «Password dimenticata?» con l'email: la risposta di sempre
+       (con lo Spam e «Non sei ancora iscritto? Iscriviti qui.»), il
+       collegamento arriva all'indirizzo VERO (a chi non e' iscritto non
+       parte niente), nuova password, accesso automatico con l'email
+       ricordata; la vecchia password non vale piu';
     8. il gestore termina: l'iframe sparisce, la nostra schermata di
        chiusura; esportazione con presenze e accessi. Nessuna violazione
        della CSP, nessun errore nelle pagine ne' in console.
@@ -58,6 +74,7 @@
 'use strict';
 const fs = require('fs');
 const net = require('net');
+const crypto = require('crypto');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -182,6 +199,51 @@ async function tokenDaPassword(email, password) {
     if (!j.idToken) throw new Error('accesso del gestore fallito: ' + JSON.stringify(j).slice(0, 200));
     return j.idToken;
 }
+
+/* ---------- il modulo del sito (api/iscrizione-nuova.js) ----------
+   server-locale.js monta solo le funzioni della diretta (api/diretta-*):
+   la funzione del modulo del sito si chiama qui, VERA, con req e res
+   finti come la chiama Vercel (come in iscrizioni.prova.js). Due progetti
+   Firebase separati negli emulatori, come in produzione: la scheda
+   dell'iscrizione va nel progetto dello studio (l'app predefinita di
+   firebase-admin, con una chiave finta di "demo-studio-prova"), l'account
+   e l'email della diretta in quello della diretta (demo-ngb-eventi,
+   lib/diretta-firebase.js), nella stessa posta finta di questa prova. La
+   conferma del sito non parte (nessun server di posta su quella porta):
+   il modulo risponde lo stesso. */
+let moduloDelSito = null;
+function modulo() {
+    if (moduloDelSito) return moduloDelSito;
+    const { privateKey } = crypto.generateKeyPairSync('rsa', {
+        modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' }
+    });
+    Object.assign(process.env, {
+        DIRETTA_EMULATORE: '1', DIRETTA_PROGETTO: PROGETTO, DIRETTA_POSTA_FINTA: POSTA, DIRETTA_PAUSA_MS: '0', APP_BASE_URL: SITO,
+        FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ project_id: 'demo-studio-prova', private_key: privateKey, client_email: 'prova@demo-studio-prova.iam.gserviceaccount.com' }),
+        SMTP_HOST: '127.0.0.1', SMTP_PORT: '9', SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna'
+    });
+    moduloDelSito = require(path.resolve(__dirname, '../../email-service/api/iscrizione-nuova.js'));
+    return moduloDelSito;
+}
+let ipModulo = 0;
+async function iscriviDalSito(dati) {
+    const corpo = Object.assign({
+        data: '26/09/2026 10:15:00', pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', azienda: 'Prova srl',
+        ruolo: '', telefono: '', messaggio: '', modalita: 'online', privacy: true, marketing: false
+    }, dati);
+    const req = { method: 'POST', headers: { 'x-forwarded-for': '10.77.0.' + (++ipModulo) }, body: JSON.stringify(corpo) };
+    const res = { stato: 0, corpo: null };
+    res.setHeader = () => {};
+    res.status = c => { res.stato = c; return res; };
+    res.json = d => { res.corpo = d; return res; };
+    res.end = () => res;
+    const t0 = Date.now();
+    await modulo()(req, res);
+    res.ms = Date.now() - t0;
+    return res;
+}
+// «La tua email: ...» e «Password: ...» dall'email delle credenziali
+const passwordDa = m => ((/\nPassword:\s*(\S+)/.exec((m && m.testo) || '')) || [])[1] || '';
 
 const PARTECIPANTI = [
     { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', azienda: 'Rossi Costruzioni srl' },
@@ -360,26 +422,24 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             vero(!/[<>]|script|azoto-player\.js|iframe/i.test(JSON.stringify(riservato)), 'e\' stato salvato l\'HTML incollato: ' + JSON.stringify(riservato).slice(0, 200));
         });
         let risultatiCrea = [];
-        await prova('anteprima e creazione: omonimi numerati, stessa email scritta diversamente = una persona', async () => {
-            const N = require(path.resolve(__dirname, '../nome-utente.js'));
+        await prova('anteprima e creazione PER EMAIL: due Mario Rossi con email diverse = due persone, la stessa email scritta in due modi = una; creare NON manda email', async () => {
             const righe = PARTECIPANTI.map((p, i) => Object.assign({ riga: i + 2 }, p));
-            const emails = righe.map(r => N.emailNormalizzata(r.email));
-            const basi = righe.map(r => N.nomeUtenteBase(r.nome, r.cognome));
-            const ant = await g({ azione: 'anteprima', idEvento: EVENTO, emails, basi, nomi: [] });
-            const analisi = N.analizzaRighe(righe.map(r => Object.assign({}, r, { confermaOmonimo: true })), ant.esistenti, EVENTO);
-            vero(analisi.pronto, 'anteprima non pronta: ' + JSON.stringify(analisi.conteggi));
-            const daCreare = analisi.righe.filter(r => r.esito === 'nuovo' || r.esito === 'esistente')
-                .map(r => ({ riga: r.riga, nome: r.nome, cognome: r.cognome, email: r.email, azienda: r.azienda, nomeUtente: r.nomeUtente }));
-            vero(daCreare.length === 5, 'righe da creare: ' + daCreare.length + ' invece di 5 (la sesta e\' un doppione)');
+            const ant = await g({ azione: 'anteprima', idEvento: EVENTO, righe: righe });
+            vero(ant.pronto && JSON.stringify(ant.righe.map(r => r.esito)) === JSON.stringify(['nuovo', 'nuovo', 'nuovo', 'nuovo', 'nuovo', 'doppia-nel-file'])
+                && ant.conteggi.daCreare === 5 && ant.righe[5].primaRiga === 6, 'anteprima: ' + JSON.stringify(ant.righe.map(r => r.esito)));
+            const daCreare = ant.righe.filter(r => r.crea).map(r => ({ riga: r.riga, nome: r.nome, cognome: r.cognome, email: r.email, azienda: r.azienda }));
+            const postaPrima = posta().length;
             const r = await g({ azione: 'crea', idEvento: EVENTO, righe: daCreare });
             risultatiCrea = r.risultati;
-            const nomi = risultatiCrea.map(x => x.nomeUtente).sort();
-            vero(JSON.stringify(nomi) === JSON.stringify(['annamariadeluca', 'giuliaesposito', 'mariorossi', 'mariorossi2', 'nicolodangelo']), 'nomi utente: ' + nomi.join(', '));
+            vero(risultatiCrea.length === 5 && risultatiCrea.every(x => x.esito === 'creato' && !('nomeUtente' in x)), 'crea: ' + JSON.stringify(risultatiCrea.map(x => x.esito)));
             // ricaricare lo stesso file non crea niente
             const r2 = await g({ azione: 'crea', idEvento: EVENTO, righe: daCreare });
-            vero(r2.risultati.every(x => x.esito === 'gia-nell-evento'), 'il secondo caricamento ha creato qualcosa');
+            vero(r2.risultati.every(x => x.esito === 'gia-iscritto'), 'il secondo caricamento ha creato qualcosa: ' + JSON.stringify(r2.risultati.map(x => x.esito)));
             const utenti = await app.auth().listUsers(1000);
             vero(utenti.users.filter(u => !u.customClaims || !u.customClaims.gestore).length === 5, 'account Auth: ' + utenti.users.length);
+            vero(posta().length === postaPrima, 'creare gli account ha mandato ' + (posta().length - postaPrima) + ' email');
+            const st = await g({ azione: 'email-stato', idEvento: EVENTO });
+            vero(st.conteggi && st.conteggi['da inviare'] === 5, 'credenziali non tutte «da inviare»: ' + JSON.stringify(st.conteggi));
         });
         await prova('"Invia email di prova a me": arriva solo al gestore, marcata come prova', async () => {
             await g({ azione: 'email-prova', idEvento: EVENTO, tipo: 'credenziali' });
@@ -398,15 +458,86 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             const st = await g({ azione: 'email-stato', idEvento: EVENTO });
             vero(st.conteggi && st.conteggi.inviata === 5, 'conteggi: ' + JSON.stringify(st.conteggi));
             PARTECIPANTI.slice(0, 5).forEach(p => {
-                const m = posta().filter(x => aIndirizzo(x, p.email.trim())).find(x => /Password:/.test(x.testo || ''));
+                const email = p.email.trim().toLowerCase();
+                const m = posta().filter(x => aIndirizzo(x, email)).find(x => /Password:/.test(x.testo || ''));
                 vero(m, 'nessuna email di credenziali per ' + p.email);
-                const nu = /Nome utente:\s*(\S+)/.exec(m.testo)[1];
-                const pw = /Password:\s*(\S+)/.exec(m.testo)[1];
-                credenziali[p.email.trim().toLowerCase()] = { nomeUtente: nu, password: pw, link: linkDa(m.testo, /http:\/\/127\.0\.0\.1:\d+\/diretta\/\?[^\s"<>]+/) };
+                const pw = passwordDa(m);
+                vero(m.testo.indexOf('scrivi la tua email ' + email + ' e questa password: ' + pw) >= 0 && /La tua email: /.test(m.testo) && !/nome utente/i.test(m.testo + m.html),
+                    'l\'email delle credenziali di ' + email + ' non dice «scrivi la tua email … e questa password: …»');
+                credenziali[email] = { password: pw, link: linkDa(m.testo, /http:\/\/127\.0\.0\.1:\d+\/diretta\/\?[^\s"<>]+/) };
             });
             vero(posta().filter(x => /Password:/.test(x.testo || '') && !/prova/i.test(x.oggetto || '')).length === 5, 'email di credenziali doppie o mancanti');
             const nessunaInChiaro = (await db.collection('partecipanti').get()).docs.every(d => JSON.stringify(d.data()).indexOf(credenziali['mario.rossi@esempio.it'].password) < 0);
             vero(nessunaInChiaro, 'una password e\' finita in Firestore');
+        });
+
+        /* ---------- 2b. le iscrizioni dal modulo del sito ---------- */
+        console.log('\n2b. Le iscrizioni dal modulo del sito: la password arriva subito');
+        await prova('il gestore accende dalla gestione «Invia subito la password a chi si iscrive dal modulo del sito» (spento di base)', async () => {
+            const gp = gestione.page;
+            await gp.goto(SITO + '/diretta/gestione/');
+            await gp.waitForFunction(ev => document.getElementById('sel-evento').value === ev && !document.getElementById('ev-iscrizioni-auto').disabled, EVENTO, { timeout: 20000 });
+            vero(!(await gp.isChecked('#ev-iscrizioni-auto')), 'l\'interruttore non e\' spento di base');
+            await gp.click('label.interruttore');
+            await gp.waitForSelector('#dialogo-conferma[open]', { timeout: 5000 });
+            vero(/\/napoli_ottobre_2026\//.test(await gp.textContent('#conferma-testo')), 'la conferma non dice la pagina del modulo');
+            await gp.click('#conferma-ok');
+            await gp.waitForFunction(() => document.getElementById('ev-iscrizioni-auto').checked && /Invio automatico acceso/.test(document.getElementById('msg-iscrizioni').textContent), null, { timeout: 10000 });
+            vero((await db.doc('eventiRiservati/' + EVENTO).get()).data().iscrizioniAutomatiche === true, 'sul servizio l\'interruttore e\' ancora spento');
+            await gp.locator('#riquadro-iscrizioni').scrollIntoViewIfNeeded();
+            await foto(gp, '02b-gestione-interruttore');
+        });
+        const LUCA = 'luca.nuovo@esempio.it';
+        let pwLuca = '';
+        await prova('Luca si iscrive online dal modulo del sito (la funzione vera): la risposta di sempre, e la password gli arriva subito', async () => {
+            const prima = posta().length;
+            const r = await iscriviDalSito({ nome: 'Luca', cognome: 'Nuovo', email: ' Luca.Nuovo@Esempio.IT ' });
+            vero(r.stato === 200 && r.corpo && r.corpo.ok === true && r.ms < 10000, 'il modulo del sito: ' + r.stato + ' ' + JSON.stringify(r.corpo) + ' in ' + r.ms + ' ms');
+            const arrivate = posta().slice(prima).filter(x => aIndirizzo(x, LUCA));
+            vero(arrivate.length === 1 && arrivate[0].tipo === 'credenziali', 'email a Luca: ' + JSON.stringify(arrivate.map(x => x.tipo)));
+            pwLuca = passwordDa(arrivate[0]);
+            vero(/^[A-HJ-NP-Za-km-np-z2-9]{10}$/.test(pwLuca) && arrivate[0].testo.indexOf('scrivi la tua email ' + LUCA + ' e questa password: ' + pwLuca) >= 0,
+                'l\'email non dice «scrivi la tua email ' + LUCA + ' e questa password: …»');
+            vero(/Non trovi l'email\? Controlla nella cartella Spam o Promozioni/.test(arrivate[0].testo), 'manca la frase dello Spam');
+            const ind = await db.doc('indirizzi/' + LUCA).get();
+            const p = ind.exists ? (await db.doc('partecipanti/' + ind.data().uid).get()).data() : null;
+            vero(p && p.origine === 'modulo' && p.eventi.join() === EVENTO && p.invii[EVENTO].stato === 'inviata', 'profilo di Luca: ' + JSON.stringify(p && { o: p.origine, e: p.eventi, i: p.invii }));
+            vero(JSON.stringify(p).indexOf(pwLuca) < 0, 'la password e\' finita in Firestore');
+        });
+        await prova('Luca entra nella diretta con la sua email e quella password', async () => {
+            const nuovo = await contesto({ viewport: { width: 1280, height: 860 } });
+            try {
+                await nuovo.page.goto(SITO + '/diretta/');
+                await vista(nuovo.page, 'accesso');
+                await nuovo.page.fill('#email', LUCA);
+                await nuovo.page.fill('#campo-password', pwLuca);
+                await nuovo.page.click('#btn-entra');
+                await vista(nuovo.page, 'attesa');
+                vero(/Luca Nuovo/.test(await nuovo.page.textContent('#nome-persona')), 'nome della persona: ' + await nuovo.page.textContent('#nome-persona'));
+                await foto(nuovo.page, '02c-dal-modulo-entrato');
+                vero(nuovo.page.__errori.length === 0 && nuovo.page.__console.length === 0, 'errori: ' + nuovo.page.__errori.concat(nuovo.page.__console).join(' | '));
+            } finally {
+                await nuovo.context.close().catch(() => {});
+            }
+        });
+        await prova('nella gestione Luca compare «dal modulo del sito», con le credenziali «inviata»', async () => {
+            const gp = gestione.page;
+            await gp.click('[data-scheda="partecipanti"]');
+            await gp.click('#btn-aggiorna-partecipanti');
+            const riga = gp.locator('#tabella-partecipanti tr[data-origine="modulo"]');
+            await riga.waitFor({ timeout: 10000 });
+            vero(await gp.locator('#tabella-partecipanti tbody tr').count() === 6 && await riga.count() === 1, 'righe: ' + await gp.locator('#tabella-partecipanti tbody tr').count());
+            const t = await riga.textContent();
+            vero(/Luca Nuovo/.test(t) && /dal modulo del sito/.test(t) && t.indexOf(LUCA) >= 0 && /inviata/.test(t), 'riga di Luca: ' + t.replace(/\s+/g, ' ').slice(0, 200));
+            await foto(gp, '02d-gestione-dal-modulo');
+        });
+        await prova('Mario, che ha già la password, si iscrive di nuovo dal modulo: nessuna seconda password, nessuna email', async () => {
+            const prima = posta().length;
+            const r = await iscriviDalSito({ nome: 'Mario', cognome: 'Rossi', email: 'Mario.Rossi@esempio.it' });
+            vero(r.stato === 200 && r.corpo.ok === true, 'il modulo: ' + r.stato);
+            vero(posta().length === prima, 'email partite: ' + posta().slice(prima).map(x => x.tipo + ' ' + x.a).join(', '));
+            const entra = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: credenziali['mario.rossi@esempio.it'].password });
+            vero(entra.token, 'la password di Mario non vale piu\'');
         });
 
         /* ---------- 3. i partecipanti entrano ---------- */
@@ -414,15 +545,19 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         const iphone = await contesto({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
             userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' }, true);
         const mario = credenziali['mario.rossi@esempio.it'];
-        await prova('Mario apre il collegamento dell\'email: nome utente gia\' scritto, e nessuna richiesta ad Azoto', async () => {
-            vero(/\?u=mariorossi/.test(mario.link), 'il collegamento non porta il nome utente: ' + mario.link);
+        await prova('Mario apre il collegamento dell\'email (senza il suo indirizzo), la pagina chiede email e password, e nessuna richiesta ad Azoto', async () => {
+            vero(/\/diretta\/\?e=napoli-2026$/.test(mario.link) && !/@|%40|[?&]u=/.test(mario.link), 'il collegamento: ' + mario.link);
             await iphone.page.goto(mario.link);
             await vista(iphone.page, 'accesso');
-            vero(await iphone.page.inputValue('#campo-nome-utente') === 'mariorossi', 'campo non precompilato');
+            vero(await iphone.page.inputValue('#email') === '' && await iphone.page.getAttribute('#email', 'type') === 'email' && await iphone.page.getAttribute('#email', 'autocomplete') === 'username',
+                'campo Email: ' + JSON.stringify(await iphone.page.inputValue('#email')));
+            vero((await iphone.page.textContent('#frase-iscrizione')).trim() === 'Non sei ancora iscritto? Iscriviti qui.' && await iphone.page.isVisible('#frase-iscrizione'),
+                'manca «Non sei ancora iscritto? Iscriviti qui.» sotto il pulsante');
             vero(!iphone.richiesteAzoto.length && !iphone.azoto.richieste.length, 'richieste ad Azoto prima dell\'accesso: ' + iphone.richiesteAzoto.join(', '));
             await foto(iphone.page, '02-accesso-telefono');
         });
-        await prova('Mario entra con la password dell\'email e trova l\'attesa con conto alla rovescia e programma, senza iframe', async () => {
+        await prova('Mario entra con la sua email e la password dell\'email e trova l\'attesa con conto alla rovescia e programma, senza iframe', async () => {
+            await iphone.page.fill('#email', 'mario.rossi@esempio.it');
             await iphone.page.fill('#campo-password', mario.password);
             await iphone.page.click('#btn-entra');
             await vista(iphone.page, 'attesa');
@@ -438,10 +573,10 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         });
         const computer = await contesto({ viewport: { width: 1440, height: 900 } });
         const anna = credenziali['annamaria.deluca@esempio.it'];
-        await prova('Anna Maria entra dal computer scrivendo "Anna Maria De Luca" (maiuscole e spazi)', async () => {
+        await prova('Anna Maria entra dal computer scrivendo la sua email con maiuscole e spazi (" AnnaMaria.DeLuca@Esempio.IT ")', async () => {
             await computer.page.goto(SITO + '/diretta/');
             await vista(computer.page, 'accesso');
-            await computer.page.fill('#campo-nome-utente', ' Anna Maria De Luca ');
+            await computer.page.fill('#email', ' AnnaMaria.DeLuca@Esempio.IT ');
             await computer.page.fill('#campo-password', anna.password);
             await computer.page.click('#btn-entra');
             await vista(computer.page, 'attesa');
@@ -581,7 +716,7 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         /* ---------- 6. un minuto di diretta, una pausa ---------- */
         console.log('\n6. Un minuto intero di diretta (presenza per gli attestati) e una pausa');
         await prova('dopo un minuto la presenza aggiunge 60 secondi, verificati dalle regole', async () => {
-            const uid = risultatiCrea.find(x => x.nomeUtente === 'annamariadeluca').uid;
+            const uid = risultatiCrea.find(x => x.riga === 3).uid;
             const doc = await aspetta(async () => {
                 const d = (await db.doc('presenze/' + EVENTO + '_' + uid).get()).data();
                 return d && d.secondi >= 60 ? d : null;
@@ -614,22 +749,37 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             await vista(iphone.page, 'accesso');
             vero(await nessunIframe(iphone.page), 'il player resta dopo l\'uscita');
         });
-        await prova('"Password dimenticata?" con l\'email: risposta uguale, collegamento all\'indirizzo vero', async () => {
+        const RISPOSTA_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento per scegliere una nuova password. Controlla anche nella cartella Spam o Promozioni.';
+        await prova('«Password dimenticata?» con l\'email: la risposta di sempre (con lo Spam e «Iscriviti qui»), il collegamento all\'indirizzo vero', async () => {
             await iphone.page.click('#link-dimenticata');
             await vista(iphone.page, 'dimenticata');
             const prima = posta().length;
-            await iphone.page.fill('#campo-identificativo', 'Mario.Rossi@Esempio.it');
+            await iphone.page.fill('#email-dimenticata', 'Mario.Rossi@Esempio.it');
             await iphone.page.click('#btn-invia-reset');
-            await iphone.page.waitForFunction(() => /Se l.account esiste/i.test(document.getElementById('msg-dimenticata').textContent), null, { timeout: 15000 });
+            await iphone.page.waitForFunction(() => /Spam o Promozioni/.test(document.getElementById('msg-dimenticata').textContent), null, { timeout: 15000 });
+            vero((await iphone.page.textContent('#msg-dimenticata')).trim() === RISPOSTA_DIMENTICATA, 'risposta: ' + await iphone.page.textContent('#msg-dimenticata'));
+            vero(await iphone.page.isVisible('#frase-iscrizione-dimenticata') && (await iphone.page.textContent('#frase-iscrizione-dimenticata')).trim() === 'Non sei ancora iscritto? Iscriviti qui.',
+                'sotto la risposta manca «Non sei ancora iscritto? Iscriviti qui.»');
             const m = await aspetta(() => posta().slice(prima).find(x => aIndirizzo(x, 'mario.rossi@esempio.it')), 10000, 'email di reimpostazione');
             vero(!posta().slice(prima).some(x => aIndirizzo(x, 'mario.rossi@altra.it')), 'e\' stato scritto all\'omonimo');
+            vero(/Spam o Promozioni/.test(m.testo) && !/nome utente/i.test(m.testo + m.html), 'email di reimpostazione: niente Spam o un «nome utente»');
             mario.reset = linkDa(m.testo || m.html, /http:\/\/127\.0\.0\.1:\d+\/diretta\/reimposta\.html\?[^\s"<>]+/);
-            vero(/[?&]u=mariorossi/.test(mario.reset), 'il collegamento non porta il nome utente: ' + mario.reset);
+            vero(/\?oobCode=/.test(mario.reset) && !/@|%40|[?&]u=/.test(mario.reset), 'il collegamento: ' + mario.reset);
             await foto(iphone.page, '09-dimenticata-telefono');
         });
-        await prova('nuova password e accesso automatico alla diretta', async () => {
+        await prova('«Password dimenticata?» per un\'email che non è iscritta: la stessa risposta, e non parte niente', async () => {
+            const prima = posta().length;
+            await iphone.page.fill('#email-dimenticata', 'nessuno.iscritto@esempio.it');
+            await iphone.page.click('#btn-invia-reset');
+            await iphone.page.waitForFunction(() => !document.getElementById('btn-invia-reset').disabled && /Spam o Promozioni/.test(document.getElementById('msg-dimenticata').textContent), null, { timeout: 15000 });
+            vero((await iphone.page.textContent('#msg-dimenticata')).trim() === RISPOSTA_DIMENTICATA, 'risposta diversa: ' + await iphone.page.textContent('#msg-dimenticata'));
+            await pausa(1500);
+            vero(posta().length === prima, 'e\' partita un\'email: ' + posta().slice(prima).map(x => x.a).join(', '));
+        });
+        await prova('nuova password e accesso automatico alla diretta (l\'email è quella ricordata su questo telefono)', async () => {
             await iphone.page.goto(mario.reset);
             await iphone.page.waitForSelector('#form-reimposta:not([hidden])', { timeout: 20000 });
+            vero(await iphone.page.inputValue('#email-reset') === 'mario.rossi@esempio.it', 'email della reimpostazione: ' + await iphone.page.inputValue('#email-reset'));
             await iphone.page.fill('#campo-nuova', 'NuovaPassword2026');
             await iphone.page.fill('#campo-ripeti', 'NuovaPassword2026');
             await foto(iphone.page, '10-reimposta-telefono');
@@ -640,9 +790,9 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         });
         await prova('la vecchia password non vale piu\', la nuova si', async () => {
             const vecchia = await fetch(API + '/diretta-accesso', { method: 'POST', headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ azione: 'entra', nomeUtente: 'mariorossi', password: mario.password }) });
+                body: JSON.stringify({ azione: 'entra', email: 'mario.rossi@esempio.it', password: mario.password }) });
             vero(vecchia.status === 401, 'vecchia password: ' + vecchia.status);
-            const nuova = await chiama('diretta-accesso', { azione: 'entra', nomeUtente: 'Mario Rossi', password: 'NuovaPassword2026' });
+            const nuova = await chiama('diretta-accesso', { azione: 'entra', email: ' Mario.Rossi@Esempio.it ', password: 'NuovaPassword2026' });
             vero(nuova.token, 'nuova password rifiutata');
         });
 
@@ -661,10 +811,11 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         });
         await prova('esportazione: partecipanti con i minuti e registro degli accessi', async () => {
             const r = await g({ azione: 'esporta', idEvento: EVENTO });
-            vero(r.partecipanti.length === 5, 'partecipanti: ' + r.partecipanti.length);
-            const a = r.partecipanti.find(p => p.nomeUtente === 'annamariadeluca');
+            vero(r.partecipanti.length === 6 && r.partecipanti.every(p => !('nomeUtente' in p)), 'partecipanti: ' + r.partecipanti.length);
+            vero(r.partecipanti.filter(p => p.origine === 'modulo').map(p => p.email).join() === 'luca.nuovo@esempio.it', 'origine: ' + JSON.stringify(r.partecipanti.map(p => p.origine)));
+            const a = r.partecipanti.find(p => p.email === 'annamaria.deluca@esempio.it');
             vero(a && a.presenza && a.presenza.secondi >= 60, 'minuti di Anna Maria: ' + JSON.stringify(a && a.presenza));
-            vero(r.accessi.length >= 3 && r.accessi.every(x => x.nomeUtente && x.quando), 'accessi: ' + r.accessi.length);
+            vero(r.accessi.length >= 4 && r.accessi.every(x => x.email && x.quando && !('nomeUtente' in x)), 'accessi: ' + r.accessi.length);
         });
         await prova('nessuna violazione della CSP e nessun errore nelle pagine né in console; mai azoto-player.js', async () => {
             const chiusi = [iphone, computer, gestione].map(c => c.page.__canaleChiuso || 0).reduce((a, b) => a + b, 0);

@@ -5,14 +5,27 @@
 
    Le prove lasciano i loro screenshot in risultati/ (non versionati).
    Questo file:
-   1. scatta quello che manca: la gestione con l'anteprima del
-      caricamento anche sul TELEFONO (le prove della gestione la
-      guardano su computer e tablet), contro il servizio vero in
-      locale (emulatori firestore 8680 / auth 9680, api 3680, sito 8695);
+   1. scatta quello che manca, contro il servizio vero in locale
+      (emulatori firestore 8680 / auth 9680, api 3680, sito 8695), su
+      telefono (390x844) e computer (1440x900):
+      - l'accesso della diretta con l'EMAIL (01-accesso-*: «Email»,
+        «Password», «Entra», «Password dimenticata?» e «Non sei ancora
+        iscritto? Iscriviti qui.») e «Password dimenticata?» con la
+        risposta di sempre e l'invito a guardare nello Spam
+        (01-accesso-dimenticata-*);
+      - la gestione con l'interruttore «Invia subito la password a chi
+        si iscrive dal modulo del sito», acceso
+        (04-gestione-iscrizioni-automatiche-*);
+      - la gestione con l'anteprima del caricamento per email (le prove
+        della gestione la guardano su computer e tablet): una persona
+        gia' registrata, la stessa email per persone diverse, le righe
+        doppie, le email mancanti o non valide;
    2. raccoglie da risultati/ le schermate richieste, su telefono e
       computer, e le salva in JPEG (qualita' 82) in diretta/screenshot/,
       con i nomi in ordine: accesso, attesa, diretta, gestione con
-      l'anteprima, email, popup della home, sezione di Napoli.
+      l'anteprima e l'interruttore, email (le credenziali con l'email e
+      la password, «Sei iscritto anche a…»), popup della home, sezione
+      di Napoli.
       La diretta ha due modalita' (telefono 390x844, computer 1440x900):
       - A, il player di Azoto in un iframe (la predefinita): la
         fotografa webtv.prova.js (03-diretta-azoto-*): in diretta, a
@@ -30,7 +43,7 @@
       La gestione con il campo «Tipo di player» la fotografa
       gestione.prova.js (04-gestione-tipo-player-*).
    Va lanciato DOPO le prove (esegui-tutte.js, e2e.prova.js,
-   anteprima-email.js --screenshot). Le foto che una prova non ha
+   anteprima-email.js --screenshot: le email si fotografano da li'). Le foto che una prova non ha
    lasciato si segnalano con «manca» (e restano quelle di prima); quelle
    che non si fanno piu' si tolgono.
    ============================================================ */
@@ -123,8 +136,53 @@ async function inJpeg(browser, sorgente, destinazione) {
             programma: [{ ora: '09.00', titolo: 'Accoglienza e registrazione' }, { ora: '09.30', titolo: 'Apertura dei lavori' }],
             paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: true, oraPrima: true }
         } }, token).catch(() => {});
-        // una persona gia' presente, per vedere anche quel caso nell'anteprima
-        await chiama('diretta-gestione', { azione: 'crea', idEvento: 'napoli-2026', righe: [{ riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', azienda: 'Rossi Costruzioni srl', nomeUtente: 'mariorossi' }] }, token).catch(() => {});
+        /* due persone gia' registrate (a un evento passato), per vedere anche quei casi
+           nell'anteprima: Giulia Ferri (riga 5 del file: «Già registrata») e Mario
+           Rossi, la cui email nel file e' scritta per Marta Rossi (riga 12: «Email
+           condivisa») */
+        await chiama('diretta-gestione', { azione: 'evento-salva', evento: {
+            id: 'roma-2026', nuovo: true, titolo: 'Next Generation Business 2026 · Roma', luogo: 'Roma', data: '2026-04-17', oraInizio: '09:00', oraFine: '17:00',
+            programma: [], paginaEvento: '/roma_aprile_2026/'
+        } }, token).catch(() => {});
+        await chiama('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [
+            { riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@altra-azienda.example', azienda: 'Altra Azienda S.p.A.' },
+            { riga: 3, nome: 'Giulia', cognome: 'Ferri', email: 'giulia.ferri@ferri-consulting.example', azienda: 'Ferri Consulting' }
+        ] }, token).catch(() => {});
+        // e una persona dell'evento di Napoli, per l'accesso
+        await chiama('diretta-gestione', { azione: 'crea', idEvento: 'napoli-2026', righe: [{ riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', azienda: 'Rossi Costruzioni srl' }] }, token).catch(() => {});
+        // l'interruttore acceso, com'e' dopo la prima lista
+        await chiama('diretta-gestione', { azione: 'evento-iscrizioni', idEvento: 'napoli-2026', iscrizioniAutomatiche: true }, token);
+
+        /* ---------- l'accesso con l'email e «Password dimenticata?» ---------- */
+        for (const [nome, opz] of [
+            ['telefono', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
+            ['computer', { viewport: { width: 1440, height: 900 } }]
+        ]) {
+            const context = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opz));
+            await preparaContesto(context, {});
+            await F.instradaAzoto(context);
+            await context.addInitScript(p => { window.NGB_DIRETTA_PROVE = p; try { sessionStorage.setItem('ngbDirettaEmulatori', '1'); } catch (e) { /* niente */ } },
+                { firestore: PORTE.firestore, auth: PORTE.auth, api: API });
+            const page = await context.newPage();
+            await page.goto(SITO + '/diretta/?e=napoli-2026');
+            await page.waitForSelector('body[data-vista="accesso"]', { timeout: 30000 });
+            await page.fill('#email', 'mario.rossi@esempio.it');
+            await page.fill('#campo-password', 'Password9Esempio');
+            await page.evaluate(() => document.fonts && document.fonts.ready);
+            await page.waitForTimeout(300);
+            if ((await page.textContent('#frase-iscrizione')).trim() !== 'Non sei ancora iscritto? Iscriviti qui.' || !(await page.isVisible('#frase-iscrizione'))) {
+                throw new Error('accesso: manca «Non sei ancora iscritto? Iscriviti qui.»');
+            }
+            await page.screenshot({ path: path.join(RIS, 'accesso-email-' + nome + '.png') });
+            await page.click('#link-dimenticata');
+            await page.waitForSelector('body[data-vista="dimenticata"]', { timeout: 10000 });
+            await page.fill('#email-dimenticata', 'mario.rossi@esempio.it');
+            await page.click('#btn-invia-reset');
+            await page.waitForFunction(() => /Spam o Promozioni/.test(document.getElementById('msg-dimenticata').textContent), null, { timeout: 15000 });
+            await page.waitForTimeout(300);
+            await page.screenshot({ path: path.join(RIS, 'accesso-dimenticata-' + nome + '.png') });
+            await context.close();
+        }
 
         for (const [nome, opz] of [
             ['telefono', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
@@ -144,9 +202,31 @@ async function inJpeg(browser, sorgente, destinazione) {
             await page.waitForSelector('#sel-evento', { state: 'visible', timeout: 20000 });
             await page.waitForFunction(() => document.querySelector('#sel-evento option[value="napoli-2026"]'), null, { timeout: 20000 });
             await page.selectOption('#sel-evento', 'napoli-2026');
+            // l'interruttore delle iscrizioni dal modulo del sito, nella scheda Evento
+            await page.waitForFunction(() => document.getElementById('ev-iscrizioni-auto').checked, null, { timeout: 10000 });
+            // le righe dei promemoria arrivano un attimo dopo (email-stato) e spostano il riquadro: si aspettano
+            await page.waitForFunction(() => document.getElementById('prom-dest-giorno').textContent.trim() !== '', null, { timeout: 10000 });
+            await page.waitForTimeout(500);
+            /* il riquadro e' l'ultimo della scheda: sul telefono, perche' si veda tutto
+               sotto la testata, lo schermo si allunga quanto serve (larghezza uguale) */
+            const vista = page.viewportSize();
+            const serve = await page.evaluate(() => Math.ceil(document.getElementById('riquadro-iscrizioni').getBoundingClientRect().height
+                + document.querySelector('.testata').getBoundingClientRect().height + 40));
+            if (serve > vista.height) await page.setViewportSize({ width: vista.width, height: serve });
+            await page.evaluate(() => {
+                const el = document.getElementById('riquadro-iscrizioni');
+                const t = document.querySelector('.testata');
+                window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - (t ? t.getBoundingClientRect().height : 0) - 16);
+            });
+            await page.waitForTimeout(300);
+            await page.screenshot({ path: path.join(RIS, 'gestione-iscrizioni-' + nome + '.png') });
+            await page.setViewportSize(vista);
             await page.click('[data-scheda="partecipanti"]');
             await page.locator('#file-partecipanti').setInputFiles(path.join(__dirname, 'esempio-partecipanti.csv'));
-            await page.waitForSelector('#tabella-anteprima tr[data-riga]', { timeout: 20000 });
+            // le righe ci sono tutte; con dei problemi si vedono solo quelle da controllare
+            await page.waitForSelector('#tabella-anteprima tr[data-riga]', { state: 'attached', timeout: 20000 });
+            // gli esiti arrivano dal servizio (anteprima per email)
+            await page.waitForFunction(() => /righe lette/.test(document.getElementById('riepilogo-anteprima').textContent), null, { timeout: 20000 });
             await page.waitForTimeout(800);
             // si parte dal riepilogo dell'anteprima: conteggi e problemi, poi le prime righe
             await page.evaluate(() => {
@@ -160,8 +240,10 @@ async function inJpeg(browser, sorgente, destinazione) {
 
         /* ---------- 2. la raccolta ---------- */
         const scelta = [
-            ['01-accesso-telefono', 'screenshot-e2e/02-accesso-telefono.png'],
-            ['01-accesso-computer', 'screenshot-pagina/accesso-computer.png'],
+            ['01-accesso-telefono', 'accesso-email-telefono.png'],
+            ['01-accesso-computer', 'accesso-email-computer.png'],
+            ['01-accesso-dimenticata-telefono', 'accesso-dimenticata-telefono.png'],
+            ['01-accesso-dimenticata-computer', 'accesso-dimenticata-computer.png'],
             ['02-attesa-telefono', 'screenshot-e2e/03-attesa-telefono.png'],
             ['02-attesa-computer', 'screenshot-e2e/04-attesa-computer.png'],
             ['03-diretta-azoto-telefono', 'screenshot-webtv/azoto-telefono.png'],
@@ -182,12 +264,16 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['03-pausa-evento-computer', 'screenshot-pagina/pausa-evento-computer.png'],
             ['04-gestione-tipo-player-telefono', 'screenshot-gestione-azoto/01-evento-tipo-player-telefono.png'],
             ['04-gestione-tipo-player-computer', 'screenshot-gestione-azoto/01-evento-tipo-player-computer.png'],
+            ['04-gestione-iscrizioni-automatiche-telefono', 'gestione-iscrizioni-telefono.png'],
+            ['04-gestione-iscrizioni-automatiche-computer', 'gestione-iscrizioni-computer.png'],
             ['04-gestione-anteprima-telefono', 'gestione-anteprima-telefono.png'],
             ['04-gestione-anteprima-computer', 'gestione-anteprima-computer.png'],
             ['04-gestione-regia-computer', 'screenshot-gestione/computer-regia.png'],
             ['04-gestione-partecipanti-computer', 'screenshot-gestione/computer-partecipanti.png'],
             ['05-email-credenziali-telefono', 'email/screenshot/credenziali-telefono.png'],
             ['05-email-credenziali-computer', 'email/screenshot/credenziali-computer.png'],
+            ['05-email-iscritto-anche-telefono', 'email/screenshot/iscritto-anche-telefono.png'],
+            ['05-email-iscritto-anche-computer', 'email/screenshot/iscritto-anche-computer.png'],
             ['05-email-promemoria-telefono', 'email/screenshot/promemoria-ora-telefono.png'],
             ['06-popup-home-telefono', 'screenshot-sito/popup-home-telefono-in-diretta.png'],
             ['06-popup-home-computer', 'screenshot-sito/popup-home-computer-in-diretta.png'],

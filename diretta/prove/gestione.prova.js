@@ -112,14 +112,32 @@
    (onSnapshot): tipoPlayer sempre; l'indirizzo di Azoto o i link del
    flusso solo in videoId/videoRiserva, solo in onda e solo quelli della
    modalita' in uso; mai azotoUrl, videoUrl, la firma, ne' HTML.
-   Caricamento di esempio-partecipanti.csv con ogni problema evidenziato
-   e il pulsante di creazione spento; correzioni in linea, esclusione e
-   conferma degli omonimi; creazione a gruppi di 25 con un nome preso
-   nel frattempo e la rete che cade (Riprendi, zero doppioni); elenco
-   con ricerca; invio singolo, reinvio rifiutato entro un minuto (409 con
-   il testo del servizio), nuova password, disattivazione, correzioni
-   (R3, anche «Rossii» -> «Rossi» a credenziali partite: la finestra
-   chiede se mantenere il nome utente); REGIA: in onda con il player
+   SI ENTRA CON L'EMAIL (nessun nome utente). L'interruttore «Invia
+   subito la password a chi si iscrive dal modulo del sito»: spento di
+   base, con la spiegazione; acceso su un'altra pagina gia' accesa (409
+   'iscrizioni-doppie'), senza la pagina dell'evento (400 'pagina'), con
+   la pagina scritta ma non salvata (lo dice la pagina), acceso e spento
+   (eventiRiservati, mai nel documento pubblico), la pagina che non si
+   toglie mentre e' acceso. Caricamento di esempio-partecipanti.csv: la
+   stessa email scritta in modi diversi (maiuscole, spazi) e' la stessa
+   persona («Doppia nel file», «Già registrata» se ha gia' l'account),
+   la stessa email per persone diverse («Email condivisa», nel file o
+   con l'account gia' registrato), email mancanti o non valide, nomi
+   mancanti: gli esiti li da' il servizio (azione 'anteprima', con le
+   righe del file), a colori, e «Crea gli account» resta spento finche'
+   c'e' da correggere; correzioni in linea ed esclusione (ogni volta
+   una nuova anteprima di tutto il file); creazione a gruppi di 25 con
+   l'account di una persona creato nel frattempo da un altro
+   caricamento (aggiunta, niente doppione) e la rete che cade (Riprendi,
+   zero doppioni); «Crea gli account» NON manda nessuna email (posta
+   finta vuota, tutti «da inviare») e lo dice; elenco senza nome utente
+   con ricerca per nome, email e azienda; invio singolo, reinvio
+   rifiutato entro un minuto (409 con il testo del servizio), nuova
+   password da comunicare a voce (e poi «Sei iscritto anche a…» senza
+   password), disattivazione, correzioni: il nome, l'email cambiata a
+   credenziali partite (tornano «da inviare», si entra con la nuova
+   email, «Invia ora» al nuovo indirizzo), l'email di un'altra persona
+   (409 'email-occupata'), l'email respinta corretta (R3); REGIA: in onda con il player
    Azoto («Guarda»), il player cambiato per tutti (livetv91 -> livetv92,
    dal codice incollato; bloccato rifiutato), i link del flusso cambiati
    mentre si usa Azoto (chi guarda non vede cambiare niente), A -> B -> A
@@ -389,6 +407,9 @@ async function sheetJSNode() {
         const htmlGestione = fs.readFileSync(path.join(RADICE, 'diretta/gestione/index.html'), 'utf8');
         vero(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(htmlGestione) && !/\son[a-z]+=/i.test(htmlGestione), 'nessuno script in linea e nessun gestore on...= nell\'HTML (CSP)');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML/.test(codiceGestione), 'gestione.js non usa innerHTML/outerHTML/insertAdjacentHTML (D3)');
+        vero(!/nome-utente\.js|NGBNomeUtente|nomeUtente|analizzaRighe|omonim/i.test(codiceGestione + htmlGestione) && !/nome utente/i.test(htmlGestione)
+            && !fs.existsSync(path.join(RADICE, 'diretta/nome-utente.js')),
+            'si entra con l\'email: la gestione non carica più nome-utente.js (cancellato), non usa window.NGBNomeUtente e in nessun testo della pagina compare un «nome utente»');
         const cssGestione = fs.readFileSync(path.join(RADICE, 'diretta/gestione/gestione.css'), 'utf8');
         // le vecchie piattaforme si scrivono a pezzi, per non comparire nelle ricerche (come in email-service/prove/diretta-video.prove.js)
         const VECCHIE = new RegExp(['you' + 'tube', 'you' + 'tu\\.be', 'vim' + 'eo', 'NGBPlayer\\.nome', '\\bidDa\\b'].join('|'), 'i');
@@ -442,11 +463,14 @@ async function sheetJSNode() {
         await auth.createUser({ email: EMAIL_CURIOSO, password: PASSWORD_CURIOSO, emailVerified: true });
         await auth.createUser({ email: EMAIL_GESTORE, password: PASSWORD_ABUSIVA, emailVerified: false });
 
-        const partecipante = async nome => {
-            const s = await db.collection('partecipanti').where('nomeUtente', '==', nome).get();
-            return s.empty ? null : Object.assign({ uid: s.docs[0].id }, s.docs[0].data());
+        // si entra con l'email: la persona si trova dall'indirizzo (indirizzi/{email} -> uid)
+        const partecipante = async email => {
+            const i = await db.doc('indirizzi/' + email).get();
+            if (!i.exists) return null;
+            const p = await db.doc('partecipanti/' + i.data().uid).get();
+            return p.exists ? Object.assign({ uid: p.id }, p.data()) : null;
         };
-        const uidDi = async nome => ((await partecipante(nome)) || {}).uid;
+        const uidDi = async email => ((await partecipante(email)) || {}).uid;
         const delEvento = async () => (await db.collection('partecipanti').where('eventi', 'array-contains', ID).get()).docs.map(d => Object.assign({ uid: d.id }, d.data()));
         const statiEmail = async () => {
             const k = {};
@@ -1074,241 +1098,379 @@ async function sheetJSNode() {
             'e nel documento riservato non è cambiato niente (azotoUrl ' + risDopoRifiuti.azotoUrl + ')');
         await foto('evento');
 
-        /* ---------- 3. caricamento e anteprima ---------- */
+        /* ---------- 2b. l'interruttore delle iscrizioni dal modulo del sito ----------
+           «Invia subito la password a chi si iscrive dal modulo del sito»:
+           spento di base, vale subito (evento-iscrizioni), acceso vuole la
+           pagina dell'evento (400 'pagina') e una pagina lo puo' avere acceso
+           su un evento solo (409 'iscrizioni-doppie'). */
+        console.log('\n-- «Invia subito la password a chi si iscrive dal modulo del sito»');
+        const interruttore = $('#ev-iscrizioni-auto');
+        const leva = $('label.interruttore');
+        const accesoSulServizio = async id => ((await db.doc('eventiRiservati/' + (id || ID)).get()).data() || {}).iscrizioniAutomatiche;
+        const chiamateInterruttore = () => chiamate('evento-iscrizioni').length;
+        // «Salva le modifiche» del modulo dell'evento: si aspetta la risposta vera del servizio
+        const salvaModulo = async () => {
+            const n = chiamate('evento-salva').length;
+            await $('#btn-salva-evento').click();
+            await aspetta(async () => chiamate('evento-salva').length > n && await $('#btn-salva-evento').getAttribute('aria-busy') !== 'true', 15000, 'salvataggio dell\'evento');
+            return testo('#msg-evento');
+        };
+        vero(await interruttore.getAttribute('role') === 'switch' && (await leva.textContent()).trim() === 'Invia subito la password a chi si iscrive dal modulo del sito'
+            && !(await interruttore.isChecked()) && !(await interruttore.isDisabled()) && await accesoSulServizio() === false,
+            'l\'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» c\'è (role="switch") ed è SPENTO di base, anche sul servizio (eventiRiservati.iscrizioniAutomatiche false)');
+        const aiutoIscrizioni = (await testo('#iscrizioni-aiuto')).replace(/\s+/g, ' ');
+        vero(/Vale per chi si iscrive online dal modulo della «Pagina dell'evento sul sito»/.test(aiutoIscrizioni) && /Sei iscritto anche a…/.test(aiutoIscrizioni)
+            && /accendilo dopo aver caricato e inviato la prima lista/.test(aiutoIscrizioni) && /^Spento:/.test(await testo('#iscrizioni-stato')),
+            'la spiegazione: vale per le iscrizioni online dal modulo della pagina dell\'evento, chi ha già un account riceve «Sei iscritto anche a…», da accendere dopo la prima lista — «' + await testo('#iscrizioni-stato') + '»', aiutoIscrizioni);
+
+        // 409: la stessa pagina ha gia' l'invio automatico acceso su un altro evento (Roma, preparato con il servizio)
+        const romaSullaPagina = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'roma-2026', paginaEvento: '/napoli_ottobre_2026/', iscrizioniAutomatiche: true } }, tokGestore);
+        vero(romaSullaPagina.stato === 200 && romaSullaPagina.dati.evento.iscrizioniAutomatiche === true, 'preparato con il servizio: l\'evento di Roma con la stessa pagina e l\'invio automatico acceso', JSON.stringify(romaSullaPagina.dati).slice(0, 200));
+        await leva.click();
+        await confermaDialogo(/Mandare subito la password a chi si iscrive dal sito\?.*\/napoli_ottobre_2026\/.*Sei iscritto anche a….*seconda password.*prima lista/s, 'Accendi l\'invio automatico');
+        await aspetta(async () => await visibile('#msg-iscrizioni') && await $('#ev-iscrizioni-auto').getAttribute('aria-busy') !== 'true', 10000, 'risposta 409');
+        vero(/già acceso per un altro evento con la stessa pagina \(«Next Generation Business 2026 · Roma»\): spegnilo lì prima di accenderlo qui/.test(await testo('#msg-iscrizioni'))
+            && /msg-errore/.test(await $('#msg-iscrizioni').getAttribute('class')) && !(await interruttore.isChecked()) && await accesoSulServizio() === false
+            && chiamate('evento-iscrizioni').pop().dati.iscrizioniAutomatiche === true,
+            'la stessa pagina ha già l\'invio acceso su Roma: il servizio risponde 409 «iscrizioni-doppie» e la gestione mostra il suo testo, con l\'interruttore di nuovo spento — «' + await testo('#msg-iscrizioni') + '»');
+        const romaDiNuovo = await api('diretta-gestione', { azione: 'evento-iscrizioni', idEvento: 'roma-2026', iscrizioniAutomatiche: false }, tokGestore);
+        const romaPagina = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'roma-2026', paginaEvento: '/roma_aprile_2026/' } }, tokGestore);
+        vero(romaDiNuovo.stato === 200 && romaDiNuovo.dati.evento.iscrizioniAutomatiche === false && romaPagina.stato === 200 && await accesoSulServizio('roma-2026') === false,
+            'a Roma l\'invio automatico si spegne (evento-iscrizioni false) e la pagina torna la sua');
+
+        // 400: senza la pagina dell'evento
+        await $('#ev-pagina').fill('');
+        vero(/Modifiche salvate/.test(await salvaModulo()), 'tolta la pagina dell\'evento (salvato: l\'invio automatico è spento)');
+        await leva.click();
+        await confermaDialogo(/Mandare subito la password/);
+        await aspetta(async () => await visibile('#msg-iscrizioni') && /Pagina dell'evento/.test(await testo('#msg-iscrizioni')), 10000, 'risposta 400');
+        vero(/serve la «Pagina dell'evento» \(per esempio \/napoli_ottobre_2026\/\)\. Scrivila qui sopra, salva l'evento e poi riaccendi l'invio automatico\./.test(await testo('#msg-iscrizioni'))
+            && await $('#ev-pagina').getAttribute('aria-invalid') === 'true' && !(await interruttore.isChecked()) && await accesoSulServizio() === false,
+            'senza la pagina dell\'evento: 400 «pagina» dal servizio, il campo della pagina segnato e l\'interruttore spento — «' + await testo('#msg-iscrizioni') + '»');
+        // una pagina scritta ma non salvata non vale: la pagina lo dice senza chiamare il servizio
+        await $('#ev-pagina').fill('napoli_ottobre_2026');
+        const primaDellaLeva = chiamateInterruttore();
+        await leva.click();
+        await aspetta(async () => /salva prima le modifiche/.test(await testo('#msg-iscrizioni')), 5000, 'pagina non salvata');
+        vero(chiamateInterruttore() === primaDellaLeva && !(await interruttore.isChecked()) && !(await $('#dialogo-conferma').isVisible()),
+            'con la pagina scritta ma non ancora salvata: «' + await testo('#msg-iscrizioni') + '» (nessuna chiamata)');
+        await salvaModulo();
+        vero((await db.doc('eventi/' + ID).get()).data().paginaEvento === '/napoli_ottobre_2026/', 'pagina dell\'evento di nuovo /napoli_ottobre_2026/');
+
+        // acceso
+        await leva.click();
+        await confermaDialogo(/Mandare subito la password/, 'Accendi l\'invio automatico');
+        await aspetta(async () => await interruttore.isChecked() && /Invio automatico acceso/.test(await testo('#msg-iscrizioni')), 10000, 'acceso');
+        const pubblicoConInterruttore = (await db.doc('eventi/' + ID).get()).data();
+        vero(await accesoSulServizio() === true && !('iscrizioniAutomatiche' in pubblicoConInterruttore)
+            && /^Acceso: chi si iscrive online dal modulo di \/napoli_ottobre_2026\/ riceve subito la password\.$/.test(await testo('#iscrizioni-stato')),
+            'acceso: eventiRiservati.iscrizioniAutomatiche true (non nel documento pubblico, che i partecipanti leggono) — «' + await testo('#iscrizioni-stato') + '»');
+        await foto('evento-iscrizioni');
+        // acceso, la pagina non si puo' togliere: evento-salva risponde 400 'pagina'
+        await $('#ev-pagina').fill('');
+        await salvaModulo();
+        vero(/serve la «Pagina dell'evento».*L'invio automatico della password è acceso: spegnilo qui sotto se vuoi togliere la pagina/.test(await testo('#msg-evento'))
+            && await $('#ev-pagina').getAttribute('aria-invalid') === 'true' && (await db.doc('eventi/' + ID).get()).data().paginaEvento === '/napoli_ottobre_2026/',
+            'con l\'invio acceso la pagina non si toglie: 400 «pagina» da evento-salva, niente salvato — «' + await testo('#msg-evento') + '»');
+        await $('#ev-pagina').fill('/napoli_ottobre_2026/');
+        // spento (senza domande: spegnere non manda niente a nessuno)
+        await leva.click();
+        await aspetta(async () => !(await interruttore.isChecked()) && /Invio automatico spento/.test(await testo('#msg-iscrizioni')), 10000, 'spento');
+        vero(await accesoSulServizio() === false && !(await $('#dialogo-conferma').isVisible()), 'spento di nuovo, senza domande: «' + await testo('#msg-iscrizioni') + '»');
+        vero(/Modifiche salvate/.test(await salvaModulo()), 'la pagina dell\'evento di nuovo com\'era, salvata');
+
+        /* ---------- 3. caricamento e anteprima, per EMAIL ---------- */
         console.log('\n-- caricamento di esempio-partecipanti.csv');
         await page.click('[data-scheda="partecipanti"]');
         const [modello] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), $('#link-modello').click()]);
         const testoModello = fs.readFileSync(await modello.path(), 'utf8');
         vero(modello.suggestedFilename() === 'modello-partecipanti.csv' && /^﻿nome;cognome;email;azienda\r\n/.test(testoModello), '«Scarica il modello CSV»: nome;cognome;email;azienda, con il BOM per Excel');
+        const postaPrimaDelFile = leggiPosta().length;
         await $('#file-partecipanti').setInputFiles(path.join(__dirname, 'esempio-partecipanti.csv'));
         await $('#anteprima-caricamento').waitFor({ state: 'visible', timeout: 20000 });
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 42 && /righe lette/.test(await testo('#riepilogo-anteprima')), 15000, 'anteprima con 42 righe');
         vero(true, 'anteprima: 42 righe (la riga vuota del file è saltata)');
-        const attese = {
-            2: ['esito-nuovo', 'omonimo', 'da-confermare'], 3: ['esito-nuovo', 'omonimo'], 4: ['esito-nuovo'], 5: ['esito-esistente'],
-            6: ['esito-errore'], 7: ['esito-errore'], 8: ['esito-errore'], 9: ['esito-errore'], 10: ['esito-doppione'],
-            11: ['esito-nuovo', 'omonimo', 'da-confermare'], 12: ['esito-nuovo', 'omonimo', 'da-confermare'], 13: ['esito-nuovo'],
-            20: ['esito-nuovo', 'omonimo', 'da-confermare'], 31: ['esito-nuovo', 'omonimo', 'da-confermare'], 32: ['esito-errore'],
-            34: ['esito-doppione'], 36: ['esito-doppione', 'da-confermare']
-        };
-        for (const n of Object.keys(attese)) {
-            const cl = await classeRiga(n);
-            vero(attese[n].every(c => cl.split(/\s+/).includes(c)), 'riga ' + n + ': ' + attese[n].join(' '), cl);
-        }
-        const nu = async n => riga(n).locator('input.nome-utente-riga').inputValue();
-        vero(await nu(2) === 'mariorossi2' && await nu(11) === 'mariorossi3' && await nu(12) === 'mariorossi4', 'omonimi numerati: mariorossi2, mariorossi3, mariorossi4 (mariorossi è già di Mario Rossi di Roma)');
-        vero(await nu(13) === 'ivanpetrov' && await nu(4) === 'nicolodangelo' && await nu(24) === 'carmeladauria' && await nu(25) === 'carloconti',
-            'nomi utente: cirillico traslitterato, accenti e apostrofi (anche tipografici) tolti, spazi ripuliti');
-        vero(await nu(5) === 'giuliaferri' && await riga(5).locator('input.nome-utente-riga').evaluate(n => n.readOnly), 'persona già presente (email con maiuscole e spazi): nome utente esistente, non modificabile');
-        const problemi2 = await riga(2).locator('.problemi').textContent();
-        vero(/Mario Rossi, Altra Azienda S\.p\.A\., m\*\*\*@altra-azienda\.example/.test(problemi2), 'l\'omonimo dice chi usa già il nome, con l\'email mascherata (dettagliOccupati del servizio)', problemi2);
-        vero(await riga(2).locator('input.conferma-omonimo').count() === 1 && await riga(4).locator('input.conferma-omonimo').count() === 0, 'la casella di conferma c\'è solo sugli omonimi numerati');
-        vero(await riga(36).locator('input.conferma-doppione').count() === 1, 'stessa email con nome diverso: casella «È la stessa persona»');
-        vero(await riga(6).locator('input.campo-email').getAttribute('aria-invalid') === 'true', 'email mancante: campo segnato');
-        vero(await $('#btn-crea-account').isDisabled(), 'con errori e omonimi da confermare il pulsante di creazione è spento');
-        vero(/correggi o escludi 5 righe in errore/.test(await testo('#motivo-blocco')) && /conferma 5 omonimi/.test(await testo('#motivo-blocco')), 'il motivo del blocco è spiegato: «' + await testo('#motivo-blocco') + '»');
         const primaAnteprima = chiamate('anteprima')[0].dati;
-        vero(primaAnteprima.emails.length === 37 && primaAnteprima.basi.includes('mariorossi') && primaAnteprima.idEvento === ID, 'anteprima: una chiamata con le email valide (' + primaAnteprima.emails.length + ') e le basi del file');
+        vero(chiamate('anteprima').length === 1 && primaAnteprima.idEvento === ID && primaAnteprima.righe.length === 42
+            && primaAnteprima.righe.every(r => JSON.stringify(Object.keys(r).sort()) === JSON.stringify(['azienda', 'cognome', 'email', 'escludi', 'nome', 'riga']) && r.escludi === false),
+            'l\'anteprima la fa il servizio: UNA chiamata con le 42 righe del file (riga, nome, cognome, email, azienda, escludi), nessun nome utente', JSON.stringify(primaAnteprima.righe[0]));
+        const esitiAttesi = {
+            2: 'nuovo', 3: 'nuovo', 4: 'nuovo', 5: 'gia-presente', 6: 'email-mancante', 7: 'email-non-valida', 8: 'nome-mancante', 9: 'nome-mancante',
+            10: 'doppia-nel-file', 11: 'nuovo', 12: 'email-condivisa', 13: 'nuovo', 15: 'nuovo', 25: 'nuovo', 31: 'doppia-nel-file', 32: 'nuovo', 33: 'nuovo',
+            34: 'doppia-nel-file', 35: 'email-condivisa', 36: 'email-condivisa', 44: 'nuovo'
+        };
+        const GRAVI = ['email-mancante', 'email-non-valida', 'nome-mancante', 'nome-non-valido', 'email-condivisa'];
+        const esitiSbagliati = [];
+        for (const n of Object.keys(esitiAttesi)) {
+            const cl = (await classeRiga(n)).split(/\s+/);
+            if (!cl.includes('esito-' + esitiAttesi[n]) || cl.includes('da-correggere') !== GRAVI.includes(esitiAttesi[n])) esitiSbagliati.push(n + ': ' + cl.join(' '));
+        }
+        vero(!esitiSbagliati.length, 'esiti del servizio riga per riga, con i colori: ' + Object.keys(esitiAttesi).map(n => n + ' ' + esitiAttesi[n]).join(', '), esitiSbagliati.join('\n'));
+        const problemiDi = async n => (await riga(n).locator('.problemi').textContent()) || '';
+        const etichettaDi = async n => (await riga(n).locator('.etichette-esito').textContent()) || '';
+        vero(await etichettaDi(5) === 'Già registrata' && /Account già esistente: nessun nuovo account e nessuna password nuova/.test(await problemiDi(5)),
+            'riga 5, Giulia Ferri con « Giulia.Ferri@Ferri-Consulting.EXAMPLE » (maiuscole e spazi): è l\'email del suo account di Roma — «Già registrata», nessun account nuovo, nessuna password nuova');
+        vero(await etichettaDi(10) === 'Doppia nel file' && /Stessa persona e stessa email della riga 2/.test(await problemiDi(10))
+            && /Stessa persona e stessa email della riga 3/.test(await problemiDi(31)) && /Stessa persona e stessa email della riga 33/.test(await problemiDi(34)),
+            'la stessa email scritta in modi diversi è la stessa: MARIO.ROSSI@ROSSI-SRL.EXAMPLE (riga 10), «Annamaria Deluca» con AnnaMaria.DeLuca@Deluca-Figli.EXAMPLE (riga 31), LUCIA.FERRARO@… con uno spazio (riga 34): «Doppia nel file», non va corretta');
+        vero(/La stessa email è anche alla riga 36 \(Marco Galli\): ogni persona deve avere il suo indirizzo/.test(await problemiDi(35)) && /anche alla riga 35 \(Federica Galli\)/.test(await problemiDi(36))
+            && await etichettaDi(35) === 'Email condivisa',
+            'la stessa email per due persone diverse (info@studiogalli.example): «Email condivisa» su tutte e due le righe, da correggere');
+        vero(/Con questa email è già registrato Mario Rossi: se è la stessa persona scrivi il nome come è registrato/.test(await problemiDi(12)),
+            'riga 12, Marta Rossi con l\'email dell\'account di Mario Rossi (Roma): «Email condivisa», da correggere (un account è di una persona sola)');
+        vero((await classeRiga(2)).includes('esito-nuovo') && (await classeRiga(11)).includes('esito-nuovo') && !(await problemiDi(2)) && !(await problemiDi(11))
+            && (await classeRiga(13)).includes('esito-nuovo') && (await classeRiga(32)).includes('esito-nuovo'),
+            'due Mario Rossi con email diverse sono due persone (nessun problema, niente numeri); i nomi in cirillico e in cinese vanno bene così');
+        vero(await riga(6).locator('input.campo-email').getAttribute('aria-invalid') === 'true' && await riga(8).locator('input.campo-nome').getAttribute('aria-invalid') === 'true'
+            && await riga(8).locator('input.campo-cognome').getAttribute('aria-invalid') === null && await riga(9).locator('input.campo-cognome').getAttribute('aria-invalid') === 'true'
+            && await riga(35).locator('input.campo-email').getAttribute('aria-invalid') === 'true',
+            'i campi da correggere sono segnati (l\'email mancante, il nome o il cognome vuoto, l\'email condivisa)');
+        const riepilogoFile = await testo('#riepilogo-anteprima');
+        vero(/42\s*righe lette/.test(riepilogoFile) && /31\s*nuovi account/.test(riepilogoFile) && /1\s*già registrata, da aggiungere/.test(riepilogoFile)
+            && /3\s*doppie nel file/.test(riepilogoFile) && /7\s*da correggere/.test(riepilogoFile), 'riepilogo: ' + riepilogoFile);
+        vero(await $('#btn-crea-account').isDisabled()
+            && await testo('#motivo-blocco') === 'Per creare gli account correggi o escludi 7 righe: 1 email mancante, 1 email non valida, 2 senza nome o cognome, 3 email condivise da persone diverse.',
+            '«Crea gli account» spento finché c\'è da correggere, e il perché: «' + await testo('#motivo-blocco') + '»');
         const visibili = () => page.evaluate(() => Array.from(document.querySelectorAll('#tabella-anteprima tbody tr')).filter(t => !t.hidden).length);
-        vero(await $('input[name="filtro-anteprima"][value="problemi"]').isChecked() && await visibili() === 16, 'con dei problemi si parte dal filtro «Solo da controllare» (16 righe)', await visibili());
+        vero(await $('input[name="filtro-anteprima"][value="problemi"]').isChecked() && await visibili() === 11, 'con dei problemi si parte dal filtro «Solo da controllare» (11 righe)', await visibili());
         await foto('anteprima');
         await page.click('input[name="filtro-anteprima"][value="da-sistemare"] >> xpath=..');
-        vero(await visibili() === 11, 'filtro «Solo da sistemare»: 11 righe (5 errori, 6 da confermare)', await visibili());
+        vero(await visibili() === 7, 'filtro «Solo da sistemare»: le 7 righe da correggere', await visibili());
         await page.click('input[name="filtro-anteprima"][value="tutte"] >> xpath=..');
         vero(await visibili() === 42, 'filtro «Tutte»: 42 righe');
+        vero(leggiPosta().length === postaPrimaDelFile, 'l\'anteprima non manda niente a nessuno');
 
         console.log('\n-- correzioni in linea');
         const nAnteprima = chiamate('anteprima').length;
         await riga(7).locator('input.campo-email').fill('francesca.esposito@esposito.example');
-        await aspetta(async () => (await classeRiga(7)).includes('esito-nuovo'), 5000, 'riga 7 corretta');
-        vero(true, 'riga 7: email corretta, ora «nuovo account»');
+        await aspetta(async () => (await classeRiga(7)).includes('esito-nuovo'), 8000, 'riga 7 corretta');
+        const dopoRiga7 = chiamate('anteprima').slice(nAnteprima);
+        vero(dopoRiga7.length === 1 && dopoRiga7[0].dati.righe.length === 42 && dopoRiga7[0].dati.righe.find(r => r.riga === 7).email === 'francesca.esposito@esposito.example',
+            'riga 7: email corretta, ora «Nuovo account»; al servizio è andata UNA anteprima con tutto il file corretto (dopo una breve pausa, non a ogni tasto)');
         await riga(6).locator('input.campo-email').fill('luca.bianchi@bianchi-impianti.example');
         await riga(9).locator('input.campo-cognome').fill('Verdi');
         await riga(8).locator('input.escludi-riga').check();
-        await riga(32).locator('input.nome-utente-riga').fill('wangxiaoming');
+        await riga(12).locator('input.campo-email').fill('marta.rossi@altra-azienda.example');
         await riga(36).locator('input.campo-email').fill('marco.galli@studiogalli.example');
-        await aspetta(async () => (await classeRiga(8)).includes('esito-escluso') && (await classeRiga(6)).includes('esito-nuovo')
-            && (await classeRiga(9)).includes('esito-nuovo') && (await classeRiga(32)).includes('esito-nuovo') && (await classeRiga(36)).includes('esito-nuovo'), 5000, 'correzioni');
-        vero(true, 'righe 6, 9, 32, 36 corrette e riga 8 esclusa');
-        vero(await nu(9) === 'paoloverdi' && await nu(32) === 'wangxiaoming' && await nu(36) === 'marcogalli', 'il nome utente segue le correzioni (anche quello scritto a mano)');
-        await aspetta(() => chiamate('anteprima').length > nAnteprima, 5000, 'nuova anteprima');
-        await aspetta(async () => !/Controllo dei dati/.test(await testo('#motivo-blocco')), 5000, 'fine controllo');
-        const seconde = chiamate('anteprima').slice(nAnteprima).map(c => c.dati);
-        const emailRichieste = [].concat.apply([], seconde.map(d => d.emails));
-        vero(emailRichieste.includes('francesca.esposito@esposito.example') && emailRichieste.includes('marco.galli@studiogalli.example') && emailRichieste.length <= 4,
-            'dopo le correzioni si chiedono al servizio solo le email nuove (' + emailRichieste.length + '), non tutto il file');
-        // un nome utente scritto a mano gia' occupato (lo dice il servizio: nomi richiesti)
-        await riga(44).locator('input.nome-utente-riga').fill('mariorossi');
-        await aspetta(async () => (await classeRiga(44)).includes('esito-errore'), 5000, 'nome occupato');
-        vero(/già usato/.test(await riga(44).locator('.problemi').textContent()), 'nome utente scritto a mano già occupato: errore sulla riga');
-        await riga(44).locator('input.nome-utente-riga').fill('');
-        await page.locator('#cerca-partecipanti').focus();
-        await aspetta(async () => (await classeRiga(44)).includes('esito-nuovo') && await nu(44) === 'giorgiofontana', 5000, 'nome automatico');
-        vero(true, 'svuotato il campo, torna il nome utente calcolato (giorgiofontana)');
-        vero(await $('#btn-crea-account').isDisabled(), 'ancora spento: restano gli omonimi da confermare');
-        await $('#btn-conferma-omonimi').click();
-        await aspetta(async () => !(await $('#btn-crea-account').isDisabled()), 5000, 'pulsante acceso');
-        vero(!(await classeRiga(2)).includes('da-confermare') && (await classeRiga(2)).includes('omonimo'), 'omonimi confermati: restano evidenziati, non più da confermare');
-        vero(/Tutto pronto/.test(await testo('#motivo-blocco')) && /Crea 38 account e aggiungi 1 persona già registrata/.test(await testo('#btn-crea-account')),
-            'pulsante acceso: «' + await testo('#btn-crea-account') + '»');
+        await aspetta(async () => (await classeRiga(8)).includes('esito-escluso') && (await classeRiga(6)).includes('esito-nuovo') && (await classeRiga(9)).includes('esito-nuovo')
+            && (await classeRiga(12)).includes('esito-nuovo') && (await classeRiga(35)).includes('esito-nuovo') && (await classeRiga(36)).includes('esito-nuovo'), 8000, 'correzioni');
+        vero(!(await problemiDi(35)), 'righe 6, 9 e 12 corrette, riga 8 esclusa; data a Marco Galli la sua email, anche la riga 35 di Federica è a posto (l\'email condivisa era una sola)');
+        vero(chiamate('anteprima').pop().dati.righe.find(r => r.riga === 8).escludi === true, 'l\'esclusione va al servizio (escludi: true) e la riga diventa «Esclusa»');
+        await aspetta(async () => !(await $('#btn-crea-account').isDisabled()), 8000, 'pulsante acceso');
+        const riepilogoPronto = await testo('#riepilogo-anteprima');
+        vero(/Tutto pronto: nessun problema da sistemare\. Creare gli account non manda nessuna email\./.test(await testo('#motivo-blocco'))
+            && await testo('#btn-crea-account') === 'Crea 37 account e aggiungi 1 persona già registrata' && /0\s*da correggere/.test(riepilogoPronto) && /1\s*esclusa/.test(riepilogoPronto),
+            '«Crea gli account» acceso: «' + await testo('#btn-crea-account') + '» — «' + await testo('#motivo-blocco') + '»');
 
-        /* ---------- 4. creazione a gruppi, con un nome preso nel frattempo e la rete che cade ---------- */
-        console.log('\n-- creazione degli account');
-        // un altro gestore, proprio adesso, carica Nicolò D'Angelo (un'altra persona) in un altro evento
-        const altro = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [{ riga: 9, nome: 'Nicolò', cognome: 'D\'Angelo', email: 'nicolo.dangelo@altro-caricamento.example', azienda: 'Altro Studio' }] }, tokGestore);
-        vero(altro.stato === 200 && altro.dati.risultati[0].nomeUtente === 'nicolodangelo', 'nel frattempo un altro caricamento (vero) prende «nicolodangelo»');
+        /* ---------- 4. creazione a gruppi: nessuna email, un account creato nel frattempo, la rete che cade ---------- */
+        console.log('\n-- creazione degli account (non parte nessuna email)');
+        // un altro gestore, proprio adesso, carica Nicolò D'Angelo (la stessa persona, l'email scritta in maiuscolo) nell'evento di Roma
+        const altro = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [{ riga: 9, nome: 'Nicolò', cognome: 'D\'Angelo', email: 'N.DAngelo@StudioDAngelo.EXAMPLE', azienda: 'Studio D\'Angelo' }] }, tokGestore);
+        vero(altro.stato === 200 && altro.dati.risultati[0].esito === 'creato', 'nel frattempo un altro caricamento (vero) crea l\'account di Nicolò D\'Angelo, con la stessa email scritta in maiuscolo', JSON.stringify(altro.dati));
+        const postaPrimaDiCrea = leggiPosta().length;
         guastoCrea.restanti = 3;
         guastoCrea.perse = 1;
         await $('#btn-crea-account').click();
-        await confermaDialogo(/Creare 38 account.*NON partono/s);
+        await confermaDialogo(/Creare 37 account\?.*37 nuovi account: ognuno entrerà con la sua email.*1 persona già registrata aggiunta all'evento, senza un nuovo account e senza una password nuova.*Nessuna email parte adesso: le credenziali partono quando premi «Invia le credenziali» nella scheda Email\./s, 'Crea gli account');
         await $('#btn-riprendi-crea').waitFor({ state: 'visible', timeout: 30000 });
         vero(/Caricamento interrotto al gruppo 2 di 2.*Riprendi.*non si duplicano/.test(await testo('#avanzamento-crea .avanzamento-testo')),
             'la rete cade al secondo gruppo: dopo 3 tentativi la creazione si ferma e propone «Riprendi» (R18) — «' + await testo('#avanzamento-crea .avanzamento-testo') + '»');
         vero(await $('#btn-crea-account').isDisabled() && /Creazione interrotta/.test(await testo('#motivo-blocco')) && !(await $('#btn-annulla-caricamento').isDisabled()),
             'intanto «Crea» resta spento e si può anche annullare');
-        vero((await delEvento()).length === 39, 'il primo tentativo del secondo gruppo era arrivato al servizio: nell\'evento ci sono già tutte le 39 persone');
+        vero((await delEvento()).length === 38, 'il primo tentativo del secondo gruppo era arrivato al servizio: nell\'evento ci sono già tutte le 38 persone');
         await $('#btn-riprendi-crea').click();
         await $('#esito-crea').waitFor({ state: 'visible', timeout: 30000 });
         vero(true, '«Riprendi»: la creazione riparte dal gruppo interrotto e si completa');
-        vero(JSON.stringify(creaRichieste.map(c => c.righe)) === JSON.stringify([25, 14, 14, 14, 14])
+        vero(JSON.stringify(creaRichieste.map(c => c.righe)) === JSON.stringify([25, 13, 13, 13, 13])
             && JSON.stringify(creaRichieste.map(c => c.esito)) === JSON.stringify(['passata', 'risposta persa', 'non partita', 'non partita', 'passata']),
-            'crea a gruppi di 25: ' + creaRichieste.map(c => c.righe + ' (' + c.esito + ')').join(', '));
-        vero(new Set(creaRichieste.slice(1).map(c => c.emails)).size === 1, 'il gruppo interrotto si rimanda identico (stesse righe, stessi nomi utente)');
+            'crea a gruppi di 25 (il servizio ne accetta 50): ' + creaRichieste.map(c => c.righe + ' (' + c.esito + ')').join(', '));
+        vero(new Set(creaRichieste.slice(1).map(c => c.emails)).size === 1, 'il gruppo interrotto si rimanda identico (stesse righe, stesse email)');
+        vero(chiamate('crea').every(c => c.dati.righe.every(r => JSON.stringify(Object.keys(r).sort()) === JSON.stringify(['azienda', 'cognome', 'email', 'nome', 'riga']))),
+            'a «crea» vanno riga, nome, cognome, email e azienda: niente nome utente');
         // misurata nella pagina: dall'arrivo della risposta del primo gruppo alla partenza del secondo
         const tempiCrea = await page.evaluate(() => window.__tempiServizio.filter(x => x.azione === 'crea'));
         const pausaGruppi = Math.round(tempiCrea[1].inizio - tempiCrea[0].fine);
         // 300 ms nella pagina; l'orologio finto di Playwright puo' anticipare un timer di qualche ms
         vero(tempiCrea.length === 5 && pausaGruppi >= 290, 'pausa fra un gruppo e l\'altro (' + pausaGruppi + ' ms)');
         const riepilogoCrea = await testo('#esito-crea-riepilogo');
-        vero(/24\s*account creati/.test(riepilogoCrea) && /1\s*persona aggiunta/.test(riepilogoCrea) && /14\s*righe già completate dal tentativo interrotto/.test(riepilogoCrea),
-            'riepilogo onesto: 24 creati, 1 aggiunta, 14 completate dal tentativo interrotto', riepilogoCrea);
-        const cambiato = $('#tabella-esito-crea tr.nome-cambiato');
-        vero(await cambiato.count() === 1 && /nicolodangelo\s*→\s*nicolodangelo2/.test(await cambiato.textContent()), 'nome utente preso nel frattempo da un altro caricamento: evidenziato (nicolodangelo → nicolodangelo2)');
+        vero(/23\s*account creati/.test(riepilogoCrea) && /2\s*persone aggiunte all'evento/.test(riepilogoCrea) && /13\s*righe già completate dal tentativo interrotto/.test(riepilogoCrea) && /0\s*errori/.test(riepilogoCrea),
+            'riepilogo onesto: 23 creati, 2 aggiunte (Giulia già registrata, Nicolò creato nel frattempo), 13 completate dal tentativo interrotto', riepilogoCrea);
+        vero(await testo('#esito-crea-messaggio') === 'Account creati. Nessuna email è partita: le credenziali partono quando premi «Invia le credenziali» nella scheda Email.'
+            && await visibile('#btn-vai-email'),
+            'dopo la creazione, chiaro: «' + await testo('#esito-crea-messaggio') + '» (con «Vai alla scheda Email»)');
+        const diversa = $('#tabella-esito-crea tr.riga-diversa');
+        vero(await diversa.count() === 1 && /Nicolò D'Angelo/.test(await diversa.textContent()) && /n\.dangelo@studiodangelo\.example/.test(await diversa.textContent())
+            && /creato un account con questa email.*aggiunta all'evento, senza un secondo account/.test(await diversa.textContent()),
+            'la riga andata diversamente dall\'anteprima è evidenziata: Nicolò era «nuovo», ma nel frattempo il suo account è nato altrove — aggiunto all\'evento, niente doppione', await diversa.textContent());
+        // nessuna email: la posta finta non ha ricevuto niente
+        const postaDopoCrea = leggiPosta().slice(postaPrimaDiCrea);
+        const kCrea = await statiEmail();
+        vero(postaDopoCrea.length === 0 && leggiPosta().every(m => m.a === EMAIL_GESTORE) && kCrea['da inviare'] === 38 && Object.keys(kCrea).length === 1,
+            '«Crea gli account» NON manda email: la posta finta è vuota (solo le email del gestore) e le 38 persone sono tutte «da inviare»', JSON.stringify(kCrea) + ' ' + postaDopoCrea.map(m => m.a).join(', '));
         // zero doppioni, contati sul servizio
         const tutti = (await db.collection('partecipanti').get()).docs.map(d => Object.assign({ uid: d.id }, d.data()));
-        const nomi = (await db.collection('nomiUtente').get()).docs;
+        const indirizzi = (await db.collection('indirizzi').get()).docs;
         const inNapoli = tutti.filter(p => (p.eventi || []).includes(ID));
         const utentiAuth = (await auth.listUsers(1000)).users;
-        vero(inNapoli.length === 39 && tutti.length === 41, 'sul servizio: 39 persone nell\'evento, 41 partecipanti in tutto (38 nuovi + Mario, Giulia e Nicolò di Roma)', inNapoli.length + ' / ' + tutti.length);
-        vero(new Set(tutti.map(p => p.emailNorm)).size === tutti.length && new Set(tutti.map(p => p.nomeUtente)).size === tutti.length,
-            'zero account doppi e zero nomi utente doppi (per email e per nome utente)');
-        vero(nomi.length === tutti.length && nomi.every(d => tutti.some(p => p.uid === d.data().uid && p.nomeUtente === d.id)),
-            'ogni nome utente prenotato appartiene a una sola persona, e nessuna prenotazione è rimasta orfana');
-        vero(utentiAuth.filter(u => /^p[0-9a-f]{20}$/.test(u.uid)).length === 41 && tutti.every(p => p.authCreato === true),
-            'un account di accesso per persona (41), tutti completi');
+        vero(inNapoli.length === 38 && tutti.length === 39, 'sul servizio: 38 persone nell\'evento, 39 partecipanti in tutto (36 nuovi + Mario e Giulia di Roma + Nicolò)', inNapoli.length + ' / ' + tutti.length);
+        vero(new Set(tutti.map(p => p.emailNorm)).size === tutti.length && tutti.every(p => p.email === p.emailNorm && p.email === p.email.trim().toLowerCase()),
+            'zero account doppi: un\'email = un account, salvata come si confronta (senza spazi, in minuscolo)');
+        vero(indirizzi.length === tutti.length && indirizzi.every(d => tutti.some(p => p.uid === d.data().uid && p.emailNorm === d.id)),
+            'ogni indirizzo prenotato (indirizzi/{email}) appartiene a una sola persona, e nessuna prenotazione è rimasta orfana');
+        const nicolo = await partecipante('n.dangelo@studiodangelo.example');
+        vero(nicolo && JSON.stringify(nicolo.eventi.slice().sort()) === JSON.stringify(['napoli-2026', 'roma-2026']), 'Nicolò: un account solo, con i due eventi');
+        vero((await db.collection('nomiUtente').get()).size === 0 && tutti.every(p => !('nomeUtente' in p)), 'nessun nome utente: nomiUtente resta vuota e nessun profilo ha il campo nomeUtente');
+        vero(utentiAuth.filter(u => /^p[0-9a-f]{20}$/.test(u.uid)).length === 39 && tutti.every(p => p.authCreato === true),
+            'un account di accesso per persona (39), tutti completi');
 
         /* ---------- 5. elenco e ricerca ---------- */
         console.log('\n-- elenco dei partecipanti');
-        await aspetta(async () => (await $('#tabella-partecipanti tbody tr').count()) === 39, 10000, 'elenco con 39 persone');
-        vero(true, 'elenco: 39 persone (38 nuove + Giulia già registrata)');
+        await aspetta(async () => (await $('#tabella-partecipanti tbody tr').count()) === 38, 10000, 'elenco con 38 persone');
+        const intestazioni = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-partecipanti thead th')).map(t => t.textContent.trim()).join('|'));
+        vero(intestazioni === 'Nome e cognome|Email|Azienda|Account|Email credenziali|Ultimo accesso|Azioni',
+            'elenco: 38 persone (36 nuove, Giulia già registrata, Nicolò) e le colonne senza nome utente: ' + intestazioni);
+        vero(await page.locator('#tabella-partecipanti .stato-email.stato-da-inviare').count() === 38 && await page.locator('#tabella-partecipanti .origine-modulo').count() === 0,
+            'tutte «da inviare»; nessuna «dal modulo del sito» (vengono tutte dal file)');
         const visibiliElenco = () => page.evaluate(() => Array.from(document.querySelectorAll('#tabella-partecipanti tbody tr')).filter(t => !t.hidden).map(t => t.dataset.uid));
         const cerca = async q => { await $('#cerca-partecipanti').fill(q); await pausa(80); return visibiliElenco(); };
-        let v = await cerca('ivanpetrov');
-        vero(v.length === 1 && v[0] === await uidDi('ivanpetrov'), 'ricerca per nome utente');
-        v = await cerca('deluca-figli.example');
-        vero(v.length === 2, 'ricerca per email (2 persone di deluca-figli.example)', v.length);
+        const IVAN = 'ivan.petrov@petrov-trading.example';
+        const ANNA = 'annamaria.deluca@deluca-figli.example';
+        let v = await cerca(IVAN);
+        vero(v.length === 1 && v[0] === await uidDi(IVAN), 'ricerca per email (l\'indirizzo intero)');
+        v = await cerca('PETROV-TRADING');
+        vero(v.length === 1, 'ricerca per un pezzo dell\'email, in maiuscolo');
         v = await cerca('Ferri Consulting');
-        vero(v.length === 1 && v[0] === await uidDi('giuliaferri'), 'ricerca per azienda');
+        vero(v.length === 1 && v[0] === await uidDi('giulia.ferri@ferri-consulting.example'), 'ricerca per azienda');
         v = await cerca('mario rossi');
-        vero(v.length === 3, 'ricerca «mario rossi»: i tre omonimi', v.length);
+        vero(v.length === 2, 'ricerca «mario rossi»: i due omonimi, due persone con email diverse', v.length);
+        v = await cerca('Rossi Mario');
+        vero(v.length === 2, 'anche con cognome e nome al contrario', v.length);
+        v = await cerca('annamariadeluca');
+        vero(v.length === 1 && v[0] === await uidDi(ANNA), 'anche attaccato («annamariadeluca» trova Anna Maria De Luca)');
         v = await cerca('NUNEZ');
         vero(v.length === 1, 'ricerca senza accenti e maiuscole («NUNEZ» trova Núñez)');
         await cerca('');
-        vero((await visibiliElenco()).length === 39 && /\(39\)/.test(await testo('#conta-partecipanti')), 'ricerca vuota: tutti');
+        vero((await visibiliElenco()).length === 38 && /\(38\)/.test(await testo('#conta-partecipanti')), 'ricerca vuota: tutti');
 
         console.log('\n-- azioni sul partecipante');
-        const rp = async nome => $('#tabella-partecipanti tr[data-uid="' + await uidDi(nome) + '"]');
-        await (await rp('ivanpetrov')).locator('button[data-op="reinvia"]').click();
-        await confermaDialogo(/Inviare adesso le credenziali/);
-        await aspetta(async () => (await (await rp('ivanpetrov')).locator('.stato-email').textContent()) === 'inviata', 10000, 'invio');
-        vero(/stato-inviata/.test(await (await rp('ivanpetrov')).locator('.stato-email').getAttribute('class')), '«Invia ora»: stato email della persona «inviata», con il colore giusto');
-        const letteraIvan = postaPer('ivan.petrov@petrov-trading.example', 'credenziali');
-        vero(letteraIvan.length === 1 && /Nome utente:\s*ivanpetrov/.test(letteraIvan[0].testo) && RE_PASSWORD.test(passwordDa(letteraIvan[0])),
-            'nella casella di Ivan: una email con il suo nome utente e una password di 10 caratteri senza lettere ambigue');
+        const rp = async email => $('#tabella-partecipanti tr[data-uid="' + await uidDi(email) + '"]');
+        await (await rp(IVAN)).locator('button[data-op="reinvia"]').click();
+        await confermaDialogo(/Inviare adesso le credenziali.*entrerà con la sua email ivan\.petrov@petrov-trading\.example/s, 'Invia ora');
+        await aspetta(async () => (await (await rp(IVAN)).locator('.stato-email').textContent()) === 'inviata', 10000, 'invio');
+        vero(/stato-inviata/.test(await (await rp(IVAN)).locator('.stato-email').getAttribute('class')), '«Invia ora»: stato email della persona «inviata», con il colore giusto');
+        const letteraIvan = postaPer(IVAN, 'credenziali');
+        const pwIvanPrima = letteraIvan.length ? passwordDa(letteraIvan[0]) : '';
+        vero(letteraIvan.length === 1 && RE_PASSWORD.test(pwIvanPrima) && letteraIvan[0].testo.indexOf('scrivi la tua email ' + IVAN + ' e questa password: ' + pwIvanPrima) >= 0
+            && !/nome utente/i.test(letteraIvan[0].testo + letteraIvan[0].html),
+            'nella casella di Ivan: «… scrivi la tua email ' + IVAN + ' e questa password: …» (10 caratteri senza lettere ambigue), nessun nome utente');
         const elenchiPrimaDel409 = chiamate('partecipanti').length;
-        await (await rp('ivanpetrov')).locator('button[data-op="reinvia"]').click();
+        await (await rp(IVAN)).locator('button[data-op="reinvia"]').click();
         const avvisoReinvio = await confermaDialogo(/Reinviare le credenziali/);
         vero(/smetterà di funzionare.*entro un'ora/s.test(avvisoReinvio), 'il reinvio avverte che la password attuale smette di funzionare (T9)');
         await aspetta(async () => /meno di un minuto fa/.test(await avvisi()), 10000, '409 del reinvio');
         vero(true, 'reinvio entro un minuto: il servizio risponde 409 e la pagina mostra il suo testo: «' + ((await $('#avvisi .avviso').last().textContent()) || '').trim() + '»');
-        vero(postaPer('ivan.petrov@petrov-trading.example', 'credenziali').length === 1, 'e nessuna seconda email è partita');
+        vero(postaPer(IVAN, 'credenziali').length === 1, 'e nessuna seconda email è partita');
         /* dopo un 409 la pagina rilegge l'elenco e ridisegna le righe: si
            aspetta che abbia finito, altrimenti il menu «Altro» aperto qui
            sotto verrebbe sostituito (chiuso) a meta' del clic */
         await aspetta(() => chiamate('partecipanti').length > elenchiPrimaDel409, 10000, 'elenco riletto dopo il 409');
         await calma();
-        await (await rp('annamariadeluca')).locator('summary').click();
-        await (await rp('annamariadeluca')).locator('button[data-op="rigenera"]').click();
+        await (await rp(ANNA)).locator('summary').click();
+        await (await rp(ANNA)).locator('button[data-op="rigenera"]').click();
         await confermaDialogo(/Nuova password|nuova password/);
         await $('#dialogo-password').waitFor({ state: 'visible', timeout: 5000 });
         const pw = await testo('#password-mostrata');
-        vero(RE_PASSWORD.test(pw) && await testo('#password-nome-utente') === 'annamariadeluca', 'nuova password mostrata una volta, in chiaro solo nella finestra');
-        const entraAnna = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'Anna Maria De Luca', password: pw });
-        vero(entraAnna.stato === 200 && entraAnna.dati.nomeUtente === 'annamariadeluca' && !!entraAnna.dati.token, 'con quella password Anna Maria entra davvero nella diretta (diretta-accesso «entra»)');
+        vero(RE_PASSWORD.test(pw) && await testo('#password-email') === ANNA && await testo('#password-persona') === 'Anna Maria De Luca',
+            'nuova password mostrata una volta, in chiaro solo nella finestra, con l\'email con cui Anna Maria entra');
+        const entraAnna = await api('diretta-accesso', { azione: 'entra', email: ' AnnaMaria.DeLuca@Deluca-Figli.example ', password: pw });
+        vero(entraAnna.stato === 200 && entraAnna.dati.email === ANNA && !!entraAnna.dati.token && !('nomeUtente' in entraAnna.dati),
+            'con quella password Anna Maria entra davvero nella diretta (diretta-accesso «entra» con la sua email, scritta con maiuscole e spazi)');
         await foto('password', true);
         await $('#btn-chiudi-password').click();
         // l'evento 'close' della finestra arriva un attimo dopo il clic: si aspetta
         vero(await aspetta(async () => await testo('#password-mostrata') === '', 3000, 'password tolta').catch(() => false), 'chiusa la finestra, la password sparisce dalla pagina');
-        await (await rp('robertomoretti')).locator('summary').click();
-        await (await rp('robertomoretti')).locator('button[data-op="disattiva"]').click();
+        const ROBERTO = 'roberto.moretti@moretti-group.example';
+        await (await rp(ROBERTO)).locator('summary').click();
+        await (await rp(ROBERTO)).locator('button[data-op="disattiva"]').click();
         await confermaDialogo(/Disattivare l'account/);
-        await aspetta(async () => /disattivato/.test(await (await rp('robertomoretti')).getAttribute('class') || ''), 5000, 'disattivato');
-        vero(await (await rp('robertomoretti')).locator('button[data-op="riattiva"]').count() === 1, 'disattivato: la riga lo dice e offre «Riattiva»');
-        const uidRoberto = await uidDi('robertomoretti');
+        await aspetta(async () => /disattivato/.test(await (await rp(ROBERTO)).getAttribute('class') || ''), 5000, 'disattivato');
+        vero(await (await rp(ROBERTO)).locator('button[data-op="riattiva"]').count() === 1, 'disattivato: la riga lo dice e offre «Riattiva»');
+        const uidRoberto = await uidDi(ROBERTO);
         const [sessRoberto, authRoberto] = await Promise.all([db.doc('sessioni/' + uidRoberto).get(), auth.getUser(uidRoberto)]);
         vero(sessRoberto.data().stato === 'disattivato' && authRoberto.disabled === true, 'sul servizio: sessioni/{uid} «disattivato» e account di accesso disabilitato');
-        const uidSara = await uidDi('sarabarbieri');
-        await (await rp('sarabarbieri')).locator('summary').click();
-        await (await rp('sarabarbieri')).locator('button[data-op="rimuovi-evento"]').click();
+        const SARA = 'sara.barbieri@barbieri-design.example';
+        const uidSara = await uidDi(SARA);
+        await (await rp(SARA)).locator('summary').click();
+        await (await rp(SARA)).locator('button[data-op="rimuovi-evento"]').click();
         await confermaDialogo(/Togliere da questo evento/);
-        await aspetta(async () => (await $('#tabella-partecipanti tbody tr').count()) === 38, 5000, 'tolta');
+        await aspetta(async () => (await $('#tabella-partecipanti tbody tr').count()) === 37, 5000, 'tolta');
         const sara = (await db.doc('partecipanti/' + uidSara).get()).data();
         vero(!sara.eventi.includes(ID) && sara.stato === 'attivo', '«Togli da questo evento»: la persona sparisce dall\'elenco dell\'evento, l\'account resta attivo');
-        // correzione con ricalcolo del nome utente
-        await (await rp('chloelhoteldupont')).locator('button[data-op="correggi"]').click();
+
+        console.log('\n-- correzioni: nome, email cambiata, email già di un\'altra persona');
+        const CHLOE = 'chloe.dupont@dupont.invalid';
+        await (await rp(CHLOE)).locator('button[data-op="correggi"]').click();
         await $('#dialogo-correggi').waitFor({ state: 'visible' });
+        vero(/^Si entra con l'email: se la cambi, Chloé L'Hôtel-Dupont entrerà con quella nuova\. La password resta la stessa\.$/.test(await testo('#correggi-sotto'))
+            && await testo('#corr-nota-email') === '' && await page.locator('#dialogo-correggi input[type="radio"]').count() === 0,
+            'la finestra di correzione: «' + await testo('#correggi-sotto') + '», nessuna scelta sul nome utente');
         await $('#corr-cognome').fill('Dupont');
-        vero(/chloedupont/.test(await testo('#corr-anteprima-nome')) && await $('#corr-scelta-nome').isHidden(), 'la finestra mostra il nuovo nome utente prima di salvare');
         await $('#btn-corr-salva').click();
         await $('#dialogo-correggi').waitFor({ state: 'hidden' });
-        await aspetta(async () => (await page.locator('#tabella-partecipanti td.col-nome-utente', { hasText: /^chloedupont$/ }).count()) === 1, 5000, 'nome ricalcolato');
-        vero(/da chloelhoteldupont a chloedupont/.test(await avvisi()), 'correzione del cognome: nome utente ricalcolato, e l\'avviso dice da che cosa a che cosa (nomeUtentePrecedente)');
-        const [nVecchio, nNuovo] = await Promise.all([db.doc('nomiUtente/chloelhoteldupont').get(), db.doc('nomiUtente/chloedupont').get()]);
-        vero(!nVecchio.exists && nNuovo.exists, 'sul servizio: il vecchio nome utente è stato liberato, il nuovo prenotato');
-        // credenziali gia' partite: si chiede se tenere il nome utente (R3)
-        await (await rp('ivanpetrov')).locator('button[data-op="correggi"]').click();
-        await $('#corr-cognome').fill('Petrova');
-        vero(await $('#corr-scelta-nome').isVisible(), 'credenziali già inviate e nome che cambierebbe: si chiede se mantenerlo');
-        await $('#btn-corr-salva').click();
-        await $('#dialogo-correggi').waitFor({ state: 'hidden' });
-        const corr = chiamate('partecipante').filter(c => c.dati.operazione === 'correggi').pop().dati;
-        const ivanDopo = await partecipante('ivanpetrov');
-        vero(corr.mantieniNomeUtente === true && ivanDopo && ivanDopo.cognome === 'Petrova' && ivanDopo.invii[ID].stato === 'inviata',
-            'scelta predefinita «Mantieni»: mantieniNomeUtente true, nome utente e credenziali restano validi');
-        // di nuovo Petrov: la nuova base e' proprio il nome utente attuale, che resta com'e' (anche per il servizio)
-        await (await rp('ivanpetrov')).locator('button[data-op="correggi"]').click();
+        await aspetta(async () => /Dati di Chloé Dupont corretti\./.test(await avvisi()), 5000, 'cognome corretto');
+        const chloe = await partecipante(CHLOE);
+        const corrChloe = chiamate('partecipante').filter(c => c.dati.operazione === 'correggi').pop().dati;
+        vero(chloe && chloe.cognome === 'Dupont' && chloe.email === CHLOE && corrChloe.email === CHLOE && !('mantieniNomeUtente' in corrChloe),
+            'cognome corretto («Dati di Chloé Dupont corretti.»): stessa email, stesso accesso; alla correzione vanno nome, cognome, azienda ed email');
+        // Ivan ha gia' le credenziali: cambiando l'email tornano «da inviare»
+        const IVAN2 = 'i.petrov@petrov-trading.example';
+        await (await rp(IVAN)).locator('button[data-op="correggi"]').click();
         await $('#dialogo-correggi').waitFor({ state: 'visible' });
-        await $('#corr-cognome').fill('Petrov');
-        vero(/resta ivanpetrov/.test(await testo('#corr-anteprima-nome')) && await $('#corr-scelta-nome').isHidden(),
-            'cognome rimesso a «Petrov»: la nuova base coincide con il nome utente, la finestra dice che resta e non chiede niente');
+        await $('#corr-email').fill('  I.Petrov@Petrov-Trading.example ');
+        vero(/erano già partite verso ivan\.petrov@petrov-trading\.example: con la nuova email tornano «da inviare» e le mandi al nuovo indirizzo con «Invia ora»/.test(await testo('#corr-nota-email')),
+            'cambiando l\'email di chi ha già le credenziali la finestra avverte prima di salvare: «' + await testo('#corr-nota-email') + '»');
         await $('#btn-corr-salva').click();
         await $('#dialogo-correggi').waitFor({ state: 'hidden' });
-        const ivanDiNuovo = await partecipante('ivanpetrov');
-        vero(ivanDiNuovo && ivanDiNuovo.cognome === 'Petrov' && ivanDiNuovo.invii[ID].stato === 'inviata',
-            'sul servizio: stesso nome utente e credenziali ancora «inviata», come annunciato');
-        // email gia' di un altro: 409 mostrato nella finestra
-        await (await rp('elenaricci')).locator('button[data-op="correggi"]').click();
+        await aspetta(async () => /Email di Иван Петров cambiata/.test(await avvisi()), 5000, 'email cambiata');
+        const avvisoEmail = await avvisi();
+        vero(/Email di Иван Петров cambiata da ivan\.petrov@petrov-trading\.example a i\.petrov@petrov-trading\.example: adesso entra con la nuova email\. Le credenziali tornano «da inviare»: premi «Invia ora» per mandarle al nuovo indirizzo\./.test(avvisoEmail),
+            'l\'avviso dice da che email a che email (emailPrecedente del servizio) e che le credenziali tornano «da inviare»', avvisoEmail);
+        const corrIvan = chiamate('partecipante').filter(c => c.dati.operazione === 'correggi').pop().dati;
+        const ivanDopo = await partecipante(IVAN2);
+        const [indVecchio, indNuovo] = await Promise.all([db.doc('indirizzi/' + IVAN).get(), db.doc('indirizzi/' + IVAN2).get()]);
+        vero(corrIvan.email === IVAN2 && ivanDopo && ivanDopo.email === IVAN2 && ivanDopo.invii[ID].stato === 'da inviare' && !!ivanDopo.emailCambiata
+            && !indVecchio.exists && indNuovo.exists && indNuovo.data().uid === ivanDopo.uid,
+            'sul servizio: l\'email (normalizzata già nella pagina) è cambiata, l\'indirizzo vecchio è libero, il nuovo è di Ivan, credenziali «da inviare»');
+        await aspetta(async () => (await (await rp(IVAN2)).locator('.stato-email').textContent()) === 'da inviare'
+            && (await (await rp(IVAN2)).locator('.col-email').textContent()) === IVAN2, 5000, 'riga di Ivan aggiornata');
+        const conVecchia = await api('diretta-accesso', { azione: 'entra', email: IVAN, password: pwIvanPrima });
+        const conNuova = await api('diretta-accesso', { azione: 'entra', email: IVAN2, password: pwIvanPrima });
+        vero(conVecchia.stato === 401 && conNuova.stato === 200 && conNuova.dati.email === IVAN2,
+            'con l\'email vecchia non si entra più (401); con quella nuova e la password che ha già, sì (l\'account è lo stesso)');
+        await (await rp(IVAN2)).locator('button[data-op="reinvia"]').click();
+        await confermaDialogo(/Reinviare le credenziali.*i\.petrov@petrov-trading\.example/s, 'Reinvia');
+        await aspetta(async () => (await (await rp(IVAN2)).locator('.stato-email').textContent()) === 'inviata', 10000, 'credenziali al nuovo indirizzo');
+        const letteraNuova = postaPer(IVAN2, 'credenziali');
+        const pwIvanNuova = letteraNuova.length ? passwordDa(letteraNuova[0]) : '';
+        vero(letteraNuova.length === 1 && RE_PASSWORD.test(pwIvanNuova) && letteraNuova[0].testo.indexOf('scrivi la tua email ' + IVAN2 + ' e questa password: ' + pwIvanNuova) >= 0
+            && postaPer(IVAN, 'credenziali').length === 1,
+            '«Reinvia»: le credenziali partono al nuovo indirizzo, con la nuova email e una password nuova; al vecchio indirizzo niente di più');
+        // un'email che e' gia' di un'altra persona: 409 mostrato nella finestra
+        await (await rp('elena.ricci@ricci-partners.example')).locator('button[data-op="correggi"]').click();
         await $('#corr-email').fill('giulia.ferri@ferri-consulting.example');
         await $('#btn-corr-salva').click();
         await aspetta(async () => /appartiene già a un'altra persona/.test(await testo('#msg-correggi')), 5000, '409');
-        vero(await $('#corr-email').getAttribute('aria-invalid') === 'true', 'email già usata da un\'altra persona: il 409 del servizio è mostrato nella finestra, niente salvato');
+        vero(await $('#corr-email').getAttribute('aria-invalid') === 'true' && (await partecipante('elena.ricci@ricci-partners.example')) !== null,
+            'email già usata da un\'altra persona: il 409 «email-occupata» del servizio è mostrato nella finestra, niente salvato — «' + await testo('#msg-correggi') + '»');
         await $('#btn-corr-annulla').click();
+        // gli avvisi brevi (in basso a destra) se ne vanno da soli: la regia si guarda senza niente sopra
+        await aspetta(async () => (await $('#avvisi .avviso').count()) === 0, 15000, 'avvisi spariti');
 
         /* ---------- 6. regia ---------- */
         console.log('\n-- regia');
         /* I segnali di presenza li scrive la pagina dei partecipanti, uno al
            minuto: qui si scrivono direttamente (firebase-admin) per 31 persone. */
-        const persone = (await delEvento()).filter(p => p.stato === 'attivo').sort((a, b) => a.nomeUtente.localeCompare(b.nomeUtente));
+        const persone = (await delEvento()).filter(p => p.stato === 'attivo').sort((a, b) => a.emailNorm.localeCompare(b.emailNorm));
         const segnala = async (elenco, campi) => {
             const lotto = db.batch();
             elenco.forEach(p => lotto.set(db.doc('presenze/' + ID + '_' + p.uid), Object.assign({
@@ -1325,7 +1487,7 @@ async function sheetJSNode() {
         await page.click('[data-scheda="regia"]');
         await aspetta(async () => await testo('#num-connessi') === '31', 10000, 'collegati');
         vero(await testo('#regia-stato-testo') === 'IN ATTESA', 'stato grande: IN ATTESA');
-        vero(/su 38 iscritti/.test(await testo('#connessi-dettaglio')), 'contatore dei collegati dal servizio: 31, accanto agli iscritti di adesso (' + await testo('#connessi-dettaglio') + ')');
+        vero(/su 37 iscritti/.test(await testo('#connessi-dettaglio')), 'contatore dei collegati dal servizio: 31, accanto agli iscritti di adesso (' + await testo('#connessi-dettaglio') + ')');
         vero(await testo('#regia-tipo-player') === 'Player Azoto' && await $('#regia-tipo-player').getAttribute('data-tipo') === 'azoto'
             && !(await nascosto('#btn-passa-flusso')) && await $('#btn-passa-flusso').isEnabled() && await nascosto('#btn-passa-azoto'),
             'regia: «Player in uso per tutti: Player Azoto»; c\'è solo «Passa al flusso diretto per tutti», acceso perché il flusso è salvato');
@@ -1752,11 +1914,11 @@ async function sheetJSNode() {
         /* ---------- 7. email ---------- */
         console.log('\n-- email');
         await page.click('[data-scheda="email"]');
-        await aspetta(async () => /\(36\)/.test(await testo('#btn-invia-tutti')), 5000, 'conteggi email');
-        const conteggiOk = await aspetta(async () => await testo('#conteggi-email li[data-stato="da inviare"] .conteggio-num') === '37'
+        await aspetta(async () => /\(35\)/.test(await testo('#btn-invia-tutti')), 5000, 'conteggi email');
+        const conteggiOk = await aspetta(async () => await testo('#conteggi-email li[data-stato="da inviare"] .conteggio-num') === '36'
             && await testo('#conteggi-email li[data-stato="inviata"] .conteggio-num') === '1', 5000, 'conteggi').catch(() => false);
-        vero(conteggiOk, 'conteggi per stato dal servizio: 37 da inviare, 1 inviata (quella mandata a mano)', await testo('#conteggi-email'));
-        vero(/1 persona «da inviare» ha l'account disattivato/.test(await testo('#nota-disattivati')), 'il pulsante dice a quante persone partirà davvero (36): l\'account disattivato non si conta, e la nota lo spiega');
+        vero(conteggiOk, 'conteggi per stato dal servizio: 36 da inviare, 1 inviata (quella di Ivan, mandata a mano al nuovo indirizzo)', await testo('#conteggi-email'));
+        vero(/1 persona «da inviare» ha l'account disattivato/.test(await testo('#nota-disattivati')), 'il pulsante dice a quante persone partirà davvero (35): l\'account disattivato non si conta, e la nota lo spiega');
         vero(/manca BREVO_API_KEY/.test(await testo('#nota-esiti')) && await visibile('#nota-esiti'), 'senza BREVO_API_KEY lo si dice subito, accanto al pulsante degli esiti (esitiDisponibili)');
         vero(/Promemoria del giorno prima: attivo\. Parte da solo giovedì 1 ottobre 2026 dalle 9\.00: oggi lo riceverebbero 1 persona/.test(await testo('#promemoria-stato')),
             'promemoria del giorno prima: quando parte e a quante persone arriverebbe oggi (destinatariPromemoria.giorno)', await testo('#promemoria-stato'));
@@ -1764,21 +1926,30 @@ async function sheetJSNode() {
         await $('#btn-email-prova').click();
         await aspetta(async () => /Email di prova inviata a gestore@prova\.it/.test(await testo('#msg-email-prova')), 10000, 'prova');
         const prova = postaPer(EMAIL_GESTORE, 'prova-credenziali');
-        vero(chiamate('email-prova').pop().dati.tipo === 'credenziali' && prova.length === 1 && /EMAIL DI PROVA/.test(prova[0].testo + prova[0].oggetto),
-            '«Invia email di prova a me»: nella casella del gestore arriva l\'email con la scritta EMAIL DI PROVA');
+        vero(chiamate('email-prova').pop().dati.tipo === 'credenziali' && prova.length === 1 && /EMAIL DI PROVA/.test(prova[0].testo + prova[0].oggetto)
+            && /scrivi la tua email .+ e questa password: /.test(prova[0].testo) && !/nome utente/i.test(prova[0].testo + prova[0].html),
+            '«Invia email di prova a me»: nella casella del gestore arriva l\'email con la scritta EMAIL DI PROVA («… scrivi la tua email … e questa password: …»)');
+        await $('#sel-tipo-prova').selectOption('iscritto-anche');
+        await $('#btn-email-prova').click();
+        await aspetta(async () => postaPer(EMAIL_GESTORE, 'prova-iscritto-anche').length === 1, 10000, 'prova «anche»');
+        const provaAnche = postaPer(EMAIL_GESTORE, 'prova-iscritto-anche')[0];
+        vero(chiamate('email-prova').pop().dati.tipo === 'iscritto-anche' && /^\[PROVA\] Sei iscritto anche a/.test(provaAnche.oggetto) && !/Password:\s*\S/.test(provaAnche.testo)
+            && /entra con la tua email e la password che hai già/.test(provaAnche.testo),
+            'e la prova di «Sei iscritto anche a…» (per chi ha già una password): senza password', provaAnche.oggetto);
+        await $('#sel-tipo-prova').selectOption('credenziali');
 
         // Brevo rifiuta l'accesso SMTP (account sospeso, chiave cambiata): per tutti, prima del DATA
         await avviaServer({ DIRETTA_POSTA_ERRORE_ACCOUNT: '1' }, 'server di posta che rifiuta l\'accesso', calma);
         const credenzialiPrima = leggiPosta().filter(m => m.tipo === 'credenziali').length;
         await $('#btn-invia-tutti').click();
-        await confermaDialogo(/Inviare le credenziali a 36 persone/);
+        await confermaDialogo(/Inviare le credenziali a 35 persone.*l'email con cui entrare e una password.*Chi ha già una password.*Sei iscritto anche a…/s);
         await aspetta(async () => await visibile('#btn-riprova-invio') && /Invio fermo/.test(await testo('#coda-bloccata')), 20000, 'blocco di Brevo');
-        vero(/535/.test(await testo('#coda-bloccata')) && /36 persone restano in coda/.test(await testo('#coda-bloccata')),
+        vero(/535/.test(await testo('#coda-bloccata')) && /35 persone restano in coda/.test(await testo('#coda-bloccata')),
             'blocco del server di posta: la pagina dice il motivo del servizio e che nessuno è stato saltato — «' + await testo('#coda-bloccata') + '»');
         vero(/Invio fermo per un problema del server di posta/.test(await testo('#avanzamento-email .avanzamento-testo')), 'l\'avanzamento si ferma e lo dice (niente tentativi a raffica: riprova il giro automatico)');
         const kBlocco = await statiEmail();
-        vero(kBlocco['in coda'] === 36 && leggiPosta().filter(m => m.tipo === 'credenziali').length === credenzialiPrima,
-            'sul servizio: 36 persone ancora in coda e nessuna email partita', JSON.stringify(kBlocco));
+        vero(kBlocco['in coda'] === 35 && leggiPosta().filter(m => m.tipo === 'credenziali').length === credenzialiPrima,
+            'sul servizio: 35 persone ancora in coda e nessuna email partita', JSON.stringify(kBlocco));
         const bloccoSalvato = (await db.doc('code/' + ID).get()).data().bloccato;
         vero(bloccoSalvato && /535/.test(bloccoSalvato.motivo) && bloccoSalvato.quando > 0, 'code/' + ID + '.bloccato = {motivo, quando}, come lo legge la pagina');
 
@@ -1788,7 +1959,7 @@ async function sheetJSNode() {
         await aspetta(async () => /Limite di oggi raggiunto/.test(await testo('#coda-bloccata')), 30000, 'tetto del giorno');
         const kLimite = await statiEmail();
         const restano = kLimite['in coda'];
-        vero(kLimite.inviata === 21 && restano >= 15 && restano <= 16 && (await db.doc('code/' + ID).get()).data().bloccato == null,
+        vero(kLimite.inviata === 21 && restano >= 14 && restano <= 15 && (await db.doc('code/' + ID).get()).data().bloccato == null,
             '«Riprova adesso»: il blocco si toglie e la coda riparte, fino al tetto (20 email oggi)', JSON.stringify(kLimite));
         vero(new RegExp('Limite di oggi raggiunto: le restanti ' + restano + ' partono domani da sole').test(await testo('#coda-bloccata')) && await $('#btn-riprova-invio').isHidden(),
             'tetto del giorno: «' + await testo('#coda-bloccata') + '» (R13)');
@@ -1821,12 +1992,23 @@ async function sheetJSNode() {
         const codaCron = (esitoCron.code || []).find(c => c.idEvento === ID);
         vero(codaCron && codaCron.inviate >= restano - 1, 'il cron ha spedito il resto della coda (' + (codaCron && codaCron.inviate) + ')', JSON.stringify(esitoCron).slice(0, 300));
         const k = await statiEmail();
-        vero(k.inviata === 36 && k.respinta === 1 && !k['in coda'] && k['da inviare'] === 1, 'invio a tutti completato (resta solo l\'account disattivato): ' + JSON.stringify(k));
-        vero(await testo('#conteggi-email li[data-stato="inviata"] .conteggio-num') === '36' && await testo('#conteggi-email li[data-stato="respinta"] .conteggio-num') === '1', 'i conteggi colorati si aggiornano (36 inviate, 1 respinta)');
+        vero(k.inviata === 35 && k.respinta === 1 && !k['in coda'] && k['da inviare'] === 1, 'invio a tutti completato (resta solo l\'account disattivato): ' + JSON.stringify(k));
+        vero(await testo('#conteggi-email li[data-stato="inviata"] .conteggio-num') === '35' && await testo('#conteggi-email li[data-stato="respinta"] .conteggio-num') === '1', 'i conteggi colorati si aggiornano (35 inviate, 1 respinta)');
         const perIndirizzo = {};
         leggiPosta().filter(m => m.tipo === 'credenziali').forEach(m => { perIndirizzo[m.a] = (perIndirizzo[m.a] || 0) + 1; });
-        vero(Object.keys(perIndirizzo).length === 36 && Object.values(perIndirizzo).every(n => n === 1),
-            'nella posta: 36 persone con UNA sola email di credenziali ciascuna, nonostante blocco, tetto e due giri insieme', JSON.stringify(perIndirizzo).slice(0, 300));
+        vero(Object.keys(perIndirizzo).length === 35 && Object.values(perIndirizzo).every(n => n === 1) && !perIndirizzo[ANNA],
+            'nella posta: UNA sola email di credenziali per indirizzo (35: le 33 persone senza password e i due indirizzi di Ivan, prima e dopo la correzione), nonostante blocco, tetto e due giri insieme', JSON.stringify(perIndirizzo).slice(0, 300));
+        /* Anna Maria ha la password detta a voce (Nuova password): per lei «Invia le
+           credenziali» decide di mandare «Sei iscritto anche a...», senza una password
+           che cancellerebbe la sua. */
+        const ancheAnna = postaPer(ANNA, 'iscritto-anche');
+        const annaInvio = ((await partecipante(ANNA)).invii || {})[ID] || {};
+        vero(ancheAnna.length === 1 && !/Password:\s*\S/.test(ancheAnna[0].testo) && ancheAnna[0].testo.indexOf(pw) < 0 && annaInvio.stato === 'inviata' && annaInvio.tipo === 'anche',
+            'Anna Maria (password nuova detta a voce) riceve «Sei iscritto anche a…», senza password: la sua resta buona (invio.tipo «anche»)', JSON.stringify(annaInvio));
+        const pAnna = await rp(ANNA);
+        vero(/Sei iscritto anche a…», senza password: usa quella che ha già/.test(await pAnna.locator('td[data-label="Email credenziali"]').textContent()),
+            'e nell\'elenco la sua riga lo dice');
+        vero((await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw })).stato === 200, 'la password detta a voce funziona ancora');
         await aspetta(async () => /\(1\)/.test(await testo('#btn-reinvia-non-ricevute')), 5000, 'non ricevute');
         await foto('email');
         await $('#btn-reinvia-non-ricevute').click();
@@ -1839,32 +2021,31 @@ async function sheetJSNode() {
         await aspetta(async () => /manca BREVO_API_KEY/.test(await testo('#msg-email')), 5000, 'esiti');
         vero(true, 'senza BREVO_API_KEY la gestione lo dice anche quando si chiedono gli esiti (R13)');
         await page.click('[data-scheda="evento"]');
-        vero(/Parte da solo giovedì 1 ottobre 2026 dalle 9\.00: oggi lo riceverebbero 36 persone/.test(await testo('#prom-dest-giorno'))
-            && /Se lo attivi, oggi lo riceverebbero 36 persone/.test(await testo('#prom-dest-ora')),
-            'accanto alle caselle dei promemoria: a quante persone arriverebbero (36, chi ha le credenziali)', await testo('#prom-dest-giorno') + ' | ' + await testo('#prom-dest-ora'));
+        vero(/Parte da solo giovedì 1 ottobre 2026 dalle 9\.00: oggi lo riceverebbero 35 persone/.test(await testo('#prom-dest-giorno'))
+            && /Se lo attivi, oggi lo riceverebbero 35 persone/.test(await testo('#prom-dest-ora')),
+            'accanto alle caselle dei promemoria: a quante persone arriverebbero (35, chi ha le credenziali)', await testo('#prom-dest-giorno') + ' | ' + await testo('#prom-dest-ora'));
         await page.click('[data-scheda="partecipanti"]');
-        vero(/stato-respinta/.test(await (await rp('chloedupont')).locator('.stato-email').getAttribute('class')), 'nell\'elenco la persona respinta ha lo stato rosso «respinta»');
+        vero(/stato-respinta/.test(await (await rp(CHLOE)).locator('.stato-email').getAttribute('class')), 'nell\'elenco la persona respinta ha lo stato rosso «respinta»');
         /* Il giro dei promemoria lo fa il cron nella sua finestra (dal 1 ottobre):
            qui se ne scrive con firebase-admin il segno finale, quello che il
            servizio lascia in code/{id}.promemoria.giorno, per vedere come la
            gestione lo racconta. */
-        await db.doc('code/' + ID).set({ promemoria: { giorno: { cominciato: Date.now() - 90000, quando: Date.now(), finito: true, inviate: 36 } } }, { merge: true });
+        await db.doc('code/' + ID).set({ promemoria: { giorno: { cominciato: Date.now() - 90000, quando: Date.now(), finito: true, inviate: 35 } } }, { merge: true });
         await page.click('[data-scheda="email"]');
-        await aspetta(async () => /Promemoria del giorno prima: attivo\. Già partito: 36 email inviate \(ultimo giro \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\)/.test(await testo('#promemoria-stato')), 10000, 'promemoria partito');
+        await aspetta(async () => /Promemoria del giorno prima: attivo\. Già partito: 35 email inviate \(ultimo giro \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\)/.test(await testo('#promemoria-stato')), 10000, 'promemoria partito');
         vero(true, 'promemoria già partito: la scheda Email lo dice con il numero del servizio (coda.promemoria.giorno)');
 
         /* ---------- 8. esportazione ---------- */
         console.log('\n-- esportazione');
-        // due accessi veri (con le password arrivate per email) e due presenze del giorno dell'evento
-        const pwIvan = passwordDa(postaPer('ivan.petrov@petrov-trading.example', 'credenziali').pop());
-        const pwAnna = passwordDa(postaPer('annamaria.deluca@deluca-figli.example', 'credenziali').pop());
-        const e1 = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'ivanpetrov', password: pwIvan }, null, { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36' });
-        const e2 = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'annamariadeluca', password: pwAnna }, null, { 'User-Agent': UA_IPHONE });
-        vero(e1.stato === 200 && e2.stato === 200, 'Ivan e Anna Maria entrano con le credenziali ricevute per email', JSON.stringify([e1.dati, e2.dati]).slice(0, 300));
+        // due accessi veri, con l'email: Ivan con la password arrivata al nuovo indirizzo, Anna Maria con quella detta a voce
+        const pwIvan = passwordDa(postaPer(IVAN2, 'credenziali').pop());
+        const e1 = await api('diretta-accesso', { azione: 'entra', email: IVAN2, password: pwIvan }, null, { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36' });
+        const e2 = await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw }, null, { 'User-Agent': UA_IPHONE });
+        vero(e1.stato === 200 && e2.stato === 200 && pwIvan === pwIvanNuova, 'Ivan e Anna Maria entrano con la loro email e la loro password', JSON.stringify([e1.dati, e2.dati]).slice(0, 300));
         const inizio = Date.parse('2026-10-02T09:00:00+02:00');
         const fine = Date.parse('2026-10-02T17:30:00+02:00');
-        await segnala([await partecipante('ivanpetrov')], { primo: Ts.fromMillis(inizio + 3 * 60e3), ultimo: Ts.fromMillis(fine + 5 * 60e3), secondi: 40000, collegamenti: 2 });
-        await segnala([await partecipante('annamariadeluca')], { primo: Ts.fromMillis(inizio + 15 * 60e3), ultimo: Ts.fromMillis(inizio + 135 * 60e3), secondi: 7200, collegamenti: 1 });
+        await segnala([await partecipante(IVAN2)], { primo: Ts.fromMillis(inizio + 3 * 60e3), ultimo: Ts.fromMillis(fine + 5 * 60e3), secondi: 40000, collegamenti: 2 });
+        await segnala([await partecipante(ANNA)], { primo: Ts.fromMillis(inizio + 15 * 60e3), ultimo: Ts.fromMillis(inizio + 135 * 60e3), secondi: 7200, collegamenti: 1 });
         await page.click('[data-scheda="esporta"]');
         const [scarico] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), $('#btn-esporta').click()]);
         const nomeFile = scarico.suggestedFilename();
@@ -1875,16 +2056,20 @@ async function sheetJSNode() {
         vero(JSON.stringify(wb.SheetNames) === JSON.stringify(['Partecipanti', 'Accessi']), 'due fogli: ' + wb.SheetNames.join(', '));
         const fp = XLSX.utils.sheet_to_json(wb.Sheets.Partecipanti, { header: 1, defval: '' });
         const fa = XLSX.utils.sheet_to_json(wb.Sheets.Accessi, { header: 1, defval: '' });
-        vero(fp[0].join('|') === 'Nome utente|Nome|Cognome|Email|Azienda|Account|Email credenziali|Inviata il|Primo collegamento|Ultimo segnale|Minuti collegati (durante la diretta)|Collegamenti|Ultimo accesso',
-            'colonne del foglio Partecipanti come da contratto');
-        // tre accessi veri: Anna Maria con la password rigenerata, poi Ivan e Anna Maria con quelle delle email
-        vero(fa[0].join('|') === 'Quando|Nome utente|Nome|Cognome|Azienda|Dispositivo' && fa.length === 4, 'foglio Accessi con le sue colonne e i 3 accessi veri', fa.length);
-        const annaAccesso = fa.filter(r => r[1] === 'annamariadeluca').pop();
+        vero(fp[0].join('|') === 'Nome|Cognome|Email|Azienda|Account|Email credenziali|Inviata il|Primo collegamento|Ultimo segnale|Minuti collegati (durante la diretta)|Collegamenti|Ultimo accesso',
+            'colonne del foglio Partecipanti come da contratto: nessuna colonna del nome utente (l\'email c\'è già)');
+        /* cinque accessi veri, tutti con l'email: Anna Maria con la password detta a voce;
+           Ivan con il nuovo indirizzo e la password di prima; di nuovo Anna Maria (la
+           password detta a voce vale ancora); qui sopra Ivan e Anna Maria */
+        const conEmailGiuste = fa.slice(1).every(r => /^[^@\s]+@[^@\s]+$/.test(r[1]) && r[1] === r[1].toLowerCase());
+        vero(fa[0].join('|') === 'Quando|Email|Nome|Cognome|Azienda|Dispositivo' && fa.length === 6 && conEmailGiuste,
+            'foglio Accessi con le sue colonne (l\'email al posto del nome utente) e i 5 accessi veri', fa.length + ' ' + JSON.stringify(fa.slice(0, 3)));
+        const annaAccesso = fa.filter(r => r[1] === ANNA).pop();
         vero(annaAccesso && annaAccesso[5] === 'iPhone · Safari' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(annaAccesso[0]), 'accesso di Anna Maria: data e ora di Roma, dispositivo «iPhone · Safari»', annaAccesso && annaAccesso.join('|'));
-        const ivan = fp.find(r => r[0] === 'ivanpetrov');
-        vero(ivan && ivan[10] === 510 && ivan[11] === 2, 'minuti limitati alla durata dell\'evento: 40000 s collegati -> 510 minuti (8 ore e mezza)', ivan && ivan.join('|'));
-        vero(ivan && ivan[8] === '02/10/2026 09:03' && ivan[6] === 'inviata' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(ivan[12]), 'date in ora di Roma «02/10/2026 09:03», stato delle credenziali e ultimo accesso', ivan && ivan.join('|'));
-        vero(fp.filter(r => r[0] && r[0] !== 'Nome utente' && !/^Minuti stimati/.test(r[0])).length === 38 && /^Minuti stimati/.test(fp[fp.length - 1][0]), '38 partecipanti e, in fondo, la nota sui minuti (T13)');
+        const ivan = fp.find(r => r[2] === IVAN2);
+        vero(ivan && ivan[9] === 510 && ivan[10] === 2, 'minuti limitati alla durata dell\'evento: 40000 s collegati -> 510 minuti (8 ore e mezza)', ivan && ivan.join('|'));
+        vero(ivan && ivan[7] === '02/10/2026 09:03' && ivan[5] === 'inviata' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(ivan[11]), 'date in ora di Roma «02/10/2026 09:03», stato delle credenziali e ultimo accesso', ivan && ivan.join('|'));
+        vero(fp.filter(r => r[2] && r[2] !== 'Email').length === 37 && /^Minuti stimati/.test(fp[fp.length - 1][0]), '37 partecipanti e, in fondo, la nota sui minuti (T13)');
         vero(/Scaricato/.test(await testo('#msg-esporta')), 'messaggio di conferma dell\'esportazione');
 
         /* ---------- 9. file con colonne da abbinare, piu' fogli, codifica ---------- */
@@ -1911,58 +2096,62 @@ async function sheetJSNode() {
         vero(esempio[0][1] === 'Anna Maria' && esempio[0][2] === 'De Luca' && esempio[2][1] === 'Jan' && esempio[2][2] === 'Van der Berg', 'ordine «Cognome Nome»: il cognome si prende con le particelle (De Luca, Van der Berg)', JSON.stringify(esempio));
         await $('#btn-abbina-continua').click();
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 3 && /righe lette/.test(await testo('#riepilogo-anteprima')), 10000, 'anteprima abbinata');
-        vero((await classeRiga(2)).includes('esito-gia-nell-evento'), 'Anna Maria De Luca è già nell\'evento (lo dice il servizio): nessun nuovo account');
+        vero((await classeRiga(2)).includes('esito-gia-iscritto') && (await classeRiga(3)).includes('esito-nuovo'),
+            'Anna Maria De Luca è già nell\'evento (lo dice il servizio, «Già nell\'evento»): nessun nuovo account; Carla Bruno sì');
         await $('#btn-annulla-caricamento').click();
         const csvRotto = Buffer.from('nome;cognome;email\nNicolÃ²;Rossi;nicolo@esempio.example\nAnna;Neri;anna.neri@esempio.example\n', 'utf8');
         await $('#file-partecipanti').setInputFiles({ name: 'codifica-sbagliata.csv', mimeType: 'text/csv', buffer: csvRotto });
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 2 && /righe lette/.test(await testo('#riepilogo-anteprima')), 10000, 'anteprima codifica');
-        vero((await classeRiga(2)).includes('esito-errore') && /codifica/.test(await riga(2).locator('.problemi').textContent()), 'caratteri «Ã²»: problema grave «codifica del file sbagliata» (R9)');
+        vero((await classeRiga(2)).includes('esito-codifica') && (await classeRiga(2)).includes('da-correggere') && /codifica/.test(await riga(2).locator('.problemi').textContent())
+            && await $('#btn-crea-account').isDisabled() && /1 riga: 1 con la codifica del file sbagliata/.test(await testo('#motivo-blocco')),
+            'caratteri «Ã²»: la pagina aggiunge il problema grave «codifica del file sbagliata» (R9) e «Crea» resta spento — «' + await testo('#motivo-blocco') + '»');
         await $('#btn-annulla-caricamento').click();
 
         // lo stesso file caricato di nuovo: niente da creare
         await $('#file-partecipanti').setInputFiles(path.join(__dirname, 'esempio-partecipanti.csv'));
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 42 && /righe lette/.test(await testo('#riepilogo-anteprima')), 15000, 'ricarico');
-        const esiti = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-anteprima tbody tr')).map(t => t.className));
-        vero(!esiti.some(c => /esito-nuovo/.test(c)) && esiti.filter(c => /esito-gia-nell-evento/.test(c)).length >= 30,
-            'lo stesso file ricaricato: nessun nuovo account, ' + esiti.filter(c => /esito-gia-nell-evento/.test(c)).length + ' righe «già nell\'evento»');
+        const esiti = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-anteprima tbody tr')).map(t => t.dataset.riga + ' ' + t.className));
+        const giaIscritti = esiti.filter(c => /esito-gia-iscritto/.test(c)).length;
+        vero(JSON.stringify(esiti.filter(c => /esito-nuovo/.test(c)).map(c => c.split(' ')[0])) === '["13"]' && giaIscritti === 29,
+            'lo stesso file ricaricato: ' + giaIscritti + ' righe «già nell\'evento»; di nuovo c\'è solo la riga 13, il VECCHIO indirizzo di Ivan (corretto nella gestione: l\'account è dell\'email nuova)');
         // Sara Barbieri era stata tolta dall'evento: ha gia' l'account, torna solo nell'evento
-        vero(esiti.filter(c => /esito-esistente/.test(c)).length === 1 && (await classeRiga(42)).includes('esito-esistente'),
-            'la persona tolta dall\'evento risulta «già registrata, da aggiungere» (nessun secondo account)');
+        vero(esiti.filter(c => /esito-gia-presente/.test(c)).length === 1 && (await classeRiga(42)).includes('esito-gia-presente'),
+            'la persona tolta dall\'evento risulta «Già registrata» (da aggiungere, nessun secondo account)');
+        vero((await classeRiga(15)).includes('esito-email-condivisa') && /Con questa email è già registrato Chloé Dupont/.test(await riga(15).locator('.problemi').textContent()),
+            'riga 15, «Chloé L\'Hôtel-Dupont»: il suo account ora si chiama Chloé Dupont (corretto nella gestione), quindi la riga va sistemata («Email condivisa»: se è la stessa persona si scrive il nome come è registrato)');
+        vero((await classeRiga(41)).includes('esito-gia-iscritto') && (await classeRiga(41)).includes('con-avviso') && /Account disattivato/.test(await riga(41).locator('.etichette-esito').textContent()),
+            'Roberto Moretti, disattivato: «Già nell\'evento» con l\'avviso «Account disattivato»');
         vero(await $('#btn-crea-account').isDisabled(), 'con le righe originali in errore il pulsante resta spento');
         await $('#btn-annulla-caricamento').click();
 
-        /* ---------- 9b. un refuso nel cognome, a credenziali partite (R3) ----------
-           «Rossii» corretto in «Rossi»: il nome utente mariorossii comincia con
-           la nuova base mariorossi, ma il servizio lo ricalcolerebbe comunque
-           (sarebbe mariorossi5) e le credenziali spedite smetterebbero di
-           valere. La finestra deve dirlo e chiedere se mantenerlo. */
-        console.log('\n-- correzione «Rossii» -> «Rossi» con le credenziali già inviate');
-        const refuso = await api('diretta-gestione', { azione: 'crea', idEvento: ID, righe: [
-            { riga: 2, nome: 'Mario', cognome: 'Rossii', email: 'mario.rossii@refuso.example', azienda: 'Refuso S.r.l.' }] }, tokGestore);
-        vero(refuso.stato === 200 && refuso.dati.risultati[0].nomeUtente === 'mariorossii', 'un iscritto con un refuso nel cognome (dal servizio vero): nome utente mariorossii');
-        await $('#btn-aggiorna-partecipanti').click();
-        await aspetta(async () => (await page.locator('#tabella-partecipanti td.col-nome-utente', { hasText: /^mariorossii$/ }).count()) === 1, 10000, 'mariorossii in elenco');
-        await (await rp('mariorossii')).locator('button[data-op="reinvia"]').click();
-        await confermaDialogo(/Inviare adesso le credenziali/);
-        await aspetta(async () => (await (await rp('mariorossii')).locator('.stato-email').textContent()) === 'inviata', 20000, 'credenziali a mariorossii');
-        const pwRossii = passwordDa(postaPer('mario.rossii@refuso.example', 'credenziali').pop());
-        vero(RE_PASSWORD.test(pwRossii), 'le credenziali di mariorossii sono partite');
-        await (await rp('mariorossii')).locator('button[data-op="correggi"]').click();
+        /* ---------- 9b. l'email sbagliata, respinta, corretta (R3) ----------
+           Chloé non ha mai ricevuto le credenziali: il server di posta ha
+           respinto l'indirizzo (.invalid). Corretta l'email, le credenziali
+           tornano «da inviare» e partono al nuovo indirizzo con «Invia ora»;
+           da li' in poi si entra con l'email nuova. */
+        console.log('\n-- email respinta, corretta e credenziali al nuovo indirizzo');
+        const CHLOE2 = 'chloe.dupont@dupont.example';
+        await aspetta(async () => /stato-respinta/.test(await (await rp(CHLOE)).locator('.stato-email').getAttribute('class')), 5000, 'Chloé respinta');
+        await (await rp(CHLOE)).locator('button[data-op="correggi"]').click();
         await $('#dialogo-correggi').waitFor({ state: 'visible' });
-        await $('#corr-cognome').fill('Rossi');
-        vero(await $('#corr-scelta-nome').isVisible() && /cambierebbe da mariorossii a mariorossi/.test(await testo('#corr-anteprima-nome')),
-            '«Rossii» -> «Rossi» con le credenziali già inviate: la finestra dice che il nome utente cambierebbe e chiede se mantenerlo — «' + await testo('#corr-anteprima-nome') + '»');
-        vero(await $('input[name="corr-nome-utente"][value="mantieni"]').isChecked(), 'la scelta proposta è «Mantieni il nome utente attuale»');
+        await $('#corr-email').fill(CHLOE2);
+        vero(/erano già partite verso chloe\.dupont@dupont\.invalid: con la nuova email tornano «da inviare»/.test(await testo('#corr-nota-email')),
+            'l\'email respinta si corregge: la finestra dice che le credenziali tornano «da inviare»');
         await $('#btn-corr-salva').click();
         await $('#dialogo-correggi').waitFor({ state: 'hidden' });
-        const corrRossii = chiamate('partecipante').filter(c => c.dati.operazione === 'correggi').pop().dati;
-        const rossiiDopo = await partecipante('mariorossii');
-        const [nRossii, nRossi5] = await Promise.all([db.doc('nomiUtente/mariorossii').get(), db.doc('nomiUtente/mariorossi5').get()]);
-        vero(corrRossii.mantieniNomeUtente === true && rossiiDopo && rossiiDopo.cognome === 'Rossi' && rossiiDopo.invii[ID].stato === 'inviata'
-            && nRossii.exists && nRossii.data().uid === rossiiDopo.uid && !nRossi5.exists,
-            '«Mantieni»: cognome corretto, il nome utente resta mariorossii (nessun mariorossi5) e le credenziali restano «inviata»');
-        const entraRossii = await api('diretta-accesso', { azione: 'entra', nomeUtente: 'mariorossii', password: pwRossii });
-        vero(entraRossii.stato === 200 && entraRossii.dati.cognome === 'Rossi', 'e con il nome utente e la password dell\'email Mario entra davvero');
+        await aspetta(async () => /Email di Chloé Dupont cambiata da chloe\.dupont@dupont\.invalid a chloe\.dupont@dupont\.example.*tornano «da inviare»/.test(await avvisi()), 5000, 'email di Chloé');
+        await aspetta(async () => (await (await rp(CHLOE2)).locator('.stato-email').textContent()) === 'da inviare', 5000, 'Chloé da inviare');
+        vero(((await partecipante(CHLOE2)).invii[ID] || {}).stato === 'da inviare' && !(await partecipante(CHLOE)),
+            'sul servizio: email nuova, credenziali «da inviare», il vecchio indirizzo non porta più a nessuno');
+        await (await rp(CHLOE2)).locator('button[data-op="reinvia"]').click();
+        await confermaDialogo(/credenziali.*chloe\.dupont@dupont\.example/s);
+        await aspetta(async () => (await (await rp(CHLOE2)).locator('.stato-email').textContent()) === 'inviata', 20000, 'credenziali a Chloé');
+        const letteraChloe = postaPer(CHLOE2, 'credenziali');
+        const pwChloe = letteraChloe.length ? passwordDa(letteraChloe[0]) : '';
+        vero(letteraChloe.length === 1 && letteraChloe[0].testo.indexOf('scrivi la tua email ' + CHLOE2 + ' e questa password: ' + pwChloe) >= 0,
+            '«Invia ora»: le credenziali partono al nuovo indirizzo, con la nuova email');
+        const entraChloe = await api('diretta-accesso', { azione: 'entra', email: 'Chloe.Dupont@Dupont.example', password: pwChloe });
+        vero(entraChloe.stato === 200 && entraChloe.dati.email === CHLOE2, 'e con l\'email nuova e la password dell\'email Chloé entra davvero');
 
         /* ---------- 10. accessibilita' e tastiera ---------- */
         console.log('\n-- accessibilità');
@@ -2121,7 +2310,9 @@ async function sheetJSNode() {
         const guasti = uscitaServer.join('\n').split('\n').filter(r => /\[server-locale\]|Errore non gestito|TypeError|ReferenceError/.test(r));
         vero(guasti.length === 0, 'nessun errore non gestito nelle funzioni del servizio', guasti.slice(0, 5).join('\n'));
         const tuttaLaPosta = JSON.stringify(leggiPosta().filter(m => m.tipo !== 'credenziali' && m.tipo !== 'prova-credenziali').map(m => m.testo));
-        vero(!/Password:\s*\S/.test(tuttaLaPosta), 'nessuna password nelle email che non sono di credenziali (promemoria, reimpostazione)');
+        vero(!/Password:\s*\S/.test(tuttaLaPosta), 'nessuna password nelle email che non sono di credenziali (promemoria, reimpostazione, «Sei iscritto anche a…»)');
+        const conNomeUtente = leggiPosta().filter(m => /nome utente/i.test(m.oggetto + m.testo + m.html));
+        vero(leggiPosta().length >= 30 && conNomeUtente.length === 0, 'in nessuna delle ' + leggiPosta().length + ' email compare un «nome utente»', conNomeUtente.map(m => m.tipo).join(', '));
     } catch (e) {
         rossi++;
         console.log('ROSSO la prova si è interrotta: ' + (e && e.stack || e));

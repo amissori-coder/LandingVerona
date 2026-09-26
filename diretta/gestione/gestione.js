@@ -20,17 +20,28 @@
    si scrivono SEMPRE con textContent (mai innerHTML), cosi' un nome
    come "<img onerror=...>" resta un nome e non diventa codice.
 
-   LE REGOLE DEL NOME UTENTE non sono qui: stanno in
-   diretta/nome-utente.js (analizzaRighe), la stessa funzione che usa
-   il servizio. L'anteprima del caricamento mostra quello che il
-   servizio fara' davvero; la garanzia finale contro i doppioni resta
-   la prenotazione transazionale sul servizio.
+   SI ENTRA CON L'EMAIL. Nella diretta non esiste un nome utente: ogni
+   persona entra con l'indirizzo email con cui si e' iscritta e con la
+   password che generiamo noi. Un'email = un account (anche per piu'
+   eventi). L'anteprima del caricamento la fa il SERVIZIO (azione
+   'anteprima', analizzaImport in lib/diretta-email.js): questa pagina
+   manda le righe del file (con le correzioni e le esclusioni del
+   gestore) e mostra, riga per riga, l'esito che il servizio dice. Cosi'
+   quello che si vede e' quello che 'crea' fara' davvero; la garanzia
+   finale contro i doppioni resta la prenotazione transazionale
+   dell'indirizzo sul servizio.
+
+   CREARE GLI ACCOUNT NON MANDA EMAIL. Le credenziali partono solo
+   quando il gestore preme «Invia le credenziali» nella scheda Email
+   (o «Invia ora» per una persona), mai da sole. L'unica eccezione e'
+   l'interruttore dell'evento «Invia subito la password a chi si iscrive
+   dal modulo del sito», spento di base, che vale solo per chi si
+   iscrive online dal modulo della pagina dell'evento.
    ============================================================ */
 (function () {
     'use strict';
 
     const cfg = window.NGB_DIRETTA_CONFIG || null;
-    const NU = window.NGBNomeUtente || null;
 
     /* SheetJS serve solo per leggere il file caricato e per scrivere
        l'Excel: si carica quando serve, dalla CDN ufficiale, con
@@ -50,7 +61,7 @@
     const OGNI_CONNESSI_MS = 20000;
     const MAX_RIGHE = 5000;
     const MAX_BYTE_FILE = 15 * 1024 * 1024;
-    const ATTESA_ANALISI_MS = 300;
+    // dopo una correzione nell'anteprima, quanto si aspetta prima di richiederla al servizio
     const ATTESA_VERIFICA_MS = 600;
 
     const AVVISO_PASSWORD = 'La password attuale smetterà di funzionare; chi è già collegato dovrà rientrare con le nuove credenziali entro un\'ora.';
@@ -168,6 +179,21 @@
     /* ---------- testo per la ricerca: minuscolo e senza accenti ---------- */
     function perRicerca(s) {
         return String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+    // "Anna Maria De Luca" e "annamariadeluca" si trovano a vicenda: solo lettere e cifre
+    function compatto(s) { return perRicerca(s).replace(/[^\p{L}\p{N}]/gu, ''); }
+
+    /* ---------- l'email: la stessa regola del servizio ----------
+       normalizzaEmail: via gli spazi prima e dopo, tutto minuscolo (come la
+       pagina dei partecipanti e lib/diretta-email.js). emailValida: lo
+       stesso controllo del servizio, per dirlo subito nella finestra di
+       correzione; a decidere resta comunque il servizio. */
+    function normalizzaEmail(e) { return String(e == null ? '' : e).trim().toLowerCase(); }
+    function emailValida(e) {
+        const x = normalizzaEmail(e);
+        if (!x || x.length > 254 || x.indexOf('..') >= 0) return false;
+        return /^[a-z0-9._%+'=!#$&*?^`{|}~-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(x)
+            && x[0] !== '.' && x.split('@')[0].slice(-1) !== '.';
     }
 
     /* ---------- il video: due modi ----------
@@ -441,8 +467,8 @@
     }
 
     async function avvio() {
-        if (!cfg || !NU) {
-            mostraMessaggio('Gestione non disponibile', 'Mancano i file di configurazione della diretta (config.js e nome-utente.js).');
+        if (!cfg) {
+            mostraMessaggio('Gestione non disponibile', 'Manca il file di configurazione della diretta (config.js).');
             return;
         }
         if (!cfg.emulatori && (!cfg.firebase || !cfg.firebase.apiKey || cfg.firebase.apiKey === 'DA_COMPILARE')) {
@@ -701,6 +727,7 @@
             nascondiMsg('#msg-sorgente');
             nascondiMsg('#msg-azoto');
             nascondiMsg('#msg-player');
+            nascondiMsg('#msg-iscrizioni');
             annullaCaricamento();
             if (stato.posta.ciclo) stato.posta.ciclo.attivo = false;
             stato.posta = { conteggi: {}, coda: {}, ciclo: null, risposta: null, ultimoChi: '' };
@@ -731,6 +758,7 @@
         if (stato.idEvento === ev.id) {
             stato.evento = ev;
             aggiornaStatoEvento();
+            compilaIscrizioni(ev);
             if (!stato.nuovo) {
                 seguiCampoLink('ev-azoto', ev.azotoUrl);
                 seguiCampoLink('ev-video', ev.videoUrl);
@@ -772,6 +800,7 @@
 
     function nuovoEvento() {
         stato.nuovo = true;
+        nascondiMsg('#msg-iscrizioni');
         stato.idModificatoAMano = false;
         chiudiAnteprimaVideo();
         dimenticaProve();
@@ -919,6 +948,7 @@
         compilaTipoPlayer(ev);
         $('#ev-programma').value = ev && Array.isArray(ev.programma) ? ev.programma.map(v => (v.ora ? v.ora + ' ' : '') + (v.titolo || '')).join('\n') : '';
         $('#ev-pagina').value = ev ? ev.paginaEvento || '' : '';
+        compilaIscrizioni(ev);
         $('#ev-un-dispositivo').checked = !!(ev && ev.unSoloDispositivo);
         $('#ev-promemoria-giorno').checked = !!(ev && ev.promemoria && ev.promemoria.giornoPrima);
         $('#ev-promemoria-ora').checked = !!(ev && ev.promemoria && ev.promemoria.oraPrima);
@@ -1021,6 +1051,93 @@
         if (!/\.[a-z0-9]+$/i.test(s) && s.slice(-1) !== '/') s += '/';
         return s;
     }
+
+    /* ---------- le iscrizioni dal modulo del sito ----------
+       L'interruttore «Invia subito la password a chi si iscrive dal
+       modulo del sito» (evento.iscrizioniAutomatiche, spento di base).
+       Vale da subito, senza «Salva»: lo cambia l'azione evento-iscrizioni.
+       Acceso, chi si iscrive ONLINE dal modulo della pagina dell'evento
+       (quella SALVATA in «Pagina dell'evento sul sito»; il lavoro lo fa
+       lib/diretta-iscrizione.js) riceve subito l'email con la password; chi
+       ha gia' un account riceve «Sei iscritto anche a...», senza una
+       password nuova; chi si iscrive due volte non riceve niente di nuovo.
+       Il servizio lo rifiuta senza la pagina dell'evento (400 'pagina') e
+       se la stessa pagina lo ha gia' acceso su un altro evento (409
+       'iscrizioni-doppie'): il modulo del sito deve portare a UN evento.
+       Si consiglia di accenderlo dopo aver caricato e inviato la prima
+       lista: chi c'era gia' lo raggiunge «Invia le credenziali». */
+    function compilaIscrizioni(ev) {
+        const inp = $('#ev-iscrizioni-auto');
+        if (inp.getAttribute('aria-busy') === 'true') return;
+        inp.checked = !!(ev && !stato.nuovo && ev.iscrizioniAutomatiche === true);
+        inp.disabled = !ev || stato.nuovo;
+        const t = $('#iscrizioni-stato');
+        let testo, tono;
+        if (!ev || stato.nuovo) { testo = 'Salva prima l\'evento: poi potrai accendere l\'invio automatico.'; tono = ''; }
+        else if (ev.iscrizioniAutomatiche === true) {
+            tono = 'acceso';
+            testo = ev.stato === 'terminato'
+                ? 'Acceso, ma l\'evento è terminato: il modulo del sito non iscrive più nessuno alla diretta.'
+                : 'Acceso: chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve subito la password.';
+        } else {
+            tono = 'spento';
+            testo = 'Spento: chi si iscrive dal modulo del sito non riceve niente dalla diretta. Gli account li crei tu dalla scheda Partecipanti.';
+        }
+        t.textContent = testo;
+        t.dataset.tono = tono;
+    }
+
+    $('#ev-iscrizioni-auto').addEventListener('change', async () => {
+        const inp = $('#ev-iscrizioni-auto');
+        const ev = stato.evento;
+        const voglio = inp.checked;
+        nascondiMsg('#msg-iscrizioni');
+        $('#ev-pagina').removeAttribute('aria-invalid');
+        if (!ev || stato.nuovo) { inp.checked = false; return; }
+        if (voglio) {
+            // conta la pagina SALVATA: una scritta qui sopra e non ancora salvata non vale
+            if (normalizzaPagina($('#ev-pagina').value) !== (ev.paginaEvento || '')) {
+                inp.checked = false;
+                $('#ev-pagina').setAttribute('aria-invalid', 'true');
+                mostraMsg('#msg-iscrizioni', 'Hai cambiato la «Pagina dell\'evento sul sito» qui sopra: salva prima le modifiche, poi accendi l\'invio automatico.', 'errore');
+                return;
+            }
+            const ok = await conferma({
+                titolo: 'Mandare subito la password a chi si iscrive dal sito?',
+                testo: 'Da adesso chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve subito l\'email con la password per la diretta «' + (ev.titolo || ev.id) + '».',
+                dettagli: [
+                    'Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova.',
+                    'Chi si iscrive due volte non riceve una seconda password.',
+                    'Accendilo dopo aver caricato e inviato la prima lista: le persone già iscritte le raggiungi con «Invia le credenziali».'
+                ],
+                ok: 'Accendi l\'invio automatico'
+            });
+            if (!ok || stato.evento !== ev) { compilaIscrizioni(stato.evento); return; }
+        }
+        inp.setAttribute('aria-busy', 'true');
+        inp.disabled = true;
+        try {
+            const r = await chiama('evento-iscrizioni', { idEvento: ev.id, iscrizioniAutomatiche: voglio });
+            inp.removeAttribute('aria-busy');
+            aggiornaEvento(r.evento);
+            if (stato.idEvento === ev.id) {
+                mostraMsg('#msg-iscrizioni', voglio
+                    ? 'Invio automatico acceso: chi si iscrive online dal modulo di ' + (r.evento.paginaEvento || 'questa pagina') + ' riceve subito la password.'
+                    : 'Invio automatico spento: da adesso chi si iscrive dal modulo del sito non riceve niente dalla diretta.', 'ok');
+            }
+        } catch (e) {
+            if (stato.idEvento !== ev.id) return;
+            if (e.stato === 400 && e.codice === 'pagina') {
+                $('#ev-pagina').setAttribute('aria-invalid', 'true');
+                mostraMsg('#msg-iscrizioni', (e.msg || 'Serve la «Pagina dell\'evento sul sito».') + ' Scrivila qui sopra, salva l\'evento e poi riaccendi l\'invio automatico.', 'errore');
+            } else if (e.stato === 409 && e.codice === 'iscrizioni-doppie') {
+                mostraMsg('#msg-iscrizioni', e.msg || 'L\'invio automatico è già acceso per un altro evento con la stessa pagina.', 'errore');
+            } else erroreGenerico(e, '#msg-iscrizioni');
+        } finally {
+            inp.removeAttribute('aria-busy');
+            compilaIscrizioni(stato.evento);
+        }
+    });
 
     /* ---------- i link firmati ----------
        Il modulo mostra la firma salvata (tipo, durata, nomi dei parametri)
@@ -1438,7 +1555,7 @@
                 // orari e caselle dei promemoria cambiano chi li riceve e quando
                 if (!eraNuovo) aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
             } catch (err) {
-                if (err.stato === 409) {
+                if (err.stato === 409 && err.codice !== 'iscrizioni-doppie') {
                     $('#ev-id').setAttribute('aria-invalid', 'true');
                     mostraMsg('#msg-evento', err.msg || 'Esiste già un evento con questo identificativo: scegline un altro.', 'errore');
                 } else if (err.stato === 400 && (err.codice === 'azoto' || err.codice === 'video')) {
@@ -1448,6 +1565,12 @@
                     RADIO_FLUSSO.setAttribute('aria-invalid', 'true');
                     aggiornaVistaTipoPlayer();
                     erroreGenerico(err, '#msg-evento');
+                } else if ((err.stato === 400 && err.codice === 'pagina') || (err.stato === 409 && err.codice === 'iscrizioni-doppie')) {
+                    // la pagina dell'evento serve all'invio automatico della password, se e' acceso
+                    $('#ev-pagina').setAttribute('aria-invalid', 'true');
+                    mostraMsg('#msg-evento', (err.msg || 'Pagina dell\'evento non valida.')
+                        + (stato.evento && stato.evento.iscrizioniAutomatiche ? ' (L\'invio automatico della password è acceso: spegnilo qui sotto se vuoi togliere la pagina.)' : '') + ' Non ho salvato niente.', 'errore');
+                    $('#ev-pagina').focus();
                 } else erroreGenerico(err, '#msg-evento');
             }
         });
@@ -3035,8 +3158,8 @@
 
     /* "Anna Maria De Luca" in una colonna sola: con l'ordine Nome Cognome
        il nome e' la prima parola; con Cognome Nome il cognome si prende con
-       le sue particelle (De, Di, Della, Van...). Il nome utente non cambia
-       comunque (nome e cognome si attaccano), cambia solo come si legge. */
+       le sue particelle (De, Di, Della, Van...). L'account e' dell'email:
+       l'ordine cambia solo come si leggono nome e cognome. */
     const PARTICELLE = /^(de|di|da|del|dei|della|delle|dello|degli|dal|dalla|lo|la|le|li|van|von|der|den|dos|das|du|mac|mc|st|san|santa|d'|dell'|l')$/i;
     function dividiNominativo(testo, ordine) {
         const parole = String(testo || '').trim().split(/\s+/).filter(Boolean);
@@ -3080,22 +3203,66 @@
 
     /* ============================================================
        SCHEDA PARTECIPANTI: ANTEPRIMA
+       ------------------------------------------------------------
+       L'anteprima la fa il servizio ('anteprima': analizzaImport di
+       lib/diretta-email.js), per EMAIL: si mandano tutte le righe del
+       file, con le correzioni e le esclusioni del gestore, e per ogni
+       riga torna l'esito:
+         nuovo            account nuovo (la password la genera il
+                          servizio; nessuna email adesso)
+         gia-presente     c'e' gia' un account con questa email (scritta
+                          in qualunque modo): si aggiunge l'evento, nessun
+                          account nuovo e nessuna password nuova
+         gia-iscritto     gia' in questo evento: non cambia niente
+         doppia-nel-file  la stessa persona con la stessa email in una
+                          riga precedente: non crea niente (non va corretta)
+         escluso          esclusa a mano
+       e le righe DA CORREGGERE: finche' ce n'e' una, «Crea gli account»
+       resta spento. email-mancante, email-non-valida, nome-mancante,
+       nome-non-valido, email-condivisa (la stessa email per persone
+       diverse, nel file o rispetto a chi e' gia' registrato: un account
+       e' di una persona sola). In piu', solo qui, la codifica sbagliata
+       del file (Ã², Â, �), che il servizio non puo' riconoscere.
+       A ogni correzione, dopo una breve pausa, si chiede di nuovo
+       l'anteprima di tutto il file: correggere una riga puo' cambiare
+       l'esito di un'altra (i due colleghi con la stessa email, la riga
+       doppia).
        ============================================================ */
+    const ESITI_GRAVI = ['email-mancante', 'email-non-valida', 'nome-mancante', 'nome-non-valido', 'email-condivisa', 'codifica'];
+    const ETICHETTE_ESITO = {
+        'nuovo': 'Nuovo account',
+        'gia-presente': 'Già registrata',
+        'gia-iscritto': 'Già nell\'evento',
+        'doppia-nel-file': 'Doppia nel file',
+        'escluso': 'Esclusa',
+        'email-mancante': 'Email mancante',
+        'email-non-valida': 'Email non valida',
+        'nome-mancante': 'Nome mancante',
+        'nome-non-valido': 'Nome non valido',
+        'email-condivisa': 'Email condivisa',
+        'codifica': 'Codifica sbagliata'
+    };
+    // "correggi o escludi 7 righe: 1 email mancante, 3 email condivise da persone diverse..."
+    const NOMI_GRAVI = {
+        'email-mancante': ['email mancante', 'email mancanti'],
+        'email-non-valida': ['email non valida', 'email non valide'],
+        'nome-mancante': ['senza nome o cognome', 'senza nome o cognome'],
+        'nome-non-valido': ['con caratteri non ammessi nel nome', 'con caratteri non ammessi nel nome'],
+        'email-condivisa': ['email condivisa da persone diverse', 'email condivise da persone diverse'],
+        'codifica': ['con la codifica del file sbagliata', 'con la codifica del file sbagliata']
+    };
+    const MSG_ACCOUNT_CREATI = 'Account creati. Nessuna email è partita: le credenziali partono quando premi «Invia le credenziali» nella scheda Email.';
+    const eGrave = o => ESITI_GRAVI.indexOf(o.esito) >= 0;
+
     async function avviaAnteprima(nomeFile, righe) {
         const c = stato.caricamento = {
             nomeFile: nomeFile,
             idEvento: stato.idEvento,
-            righe: righe.map(r => ({
-                riga: r.riga, nome: r.nome, cognome: r.cognome, email: r.email, azienda: r.azienda,
-                nomeUtente: '', escludi: false, confermaOmonimo: false, confermaDoppione: false
-            })),
-            perEmail: {},
-            occupati: new Set(),
-            dettagli: {},
-            chiesti: { emails: new Set(), basi: new Set(), nomi: new Set() },
-            verifiche: 0,
+            righe: righe.map(r => ({ riga: r.riga, nome: r.nome, cognome: r.cognome, email: r.email, azienda: r.azienda, escludi: false })),
+            richieste: 0,          // le anteprime chieste: vale la risposta dell'ultima
+            inViaggio: 0,          // quelle partite e non ancora tornate
+            daRifare: false,       // i dati sono cambiati dopo l'ultima richiesta
             erroreVerifica: '',
-            timerAnalisi: null,
             timerVerifica: null,
             analisi: null,
             dom: [],
@@ -3104,25 +3271,21 @@
         $('#anteprima-caricamento').hidden = false;
         $('#avanzamento-crea').hidden = true;
         $('#btn-riprendi-crea').hidden = true;
+        svuota($('#riepilogo-anteprima'));
         costruisciTabellaAnteprima(c);
-        mostraMsg('#msg-caricamento', 'Controllo delle persone già registrate…', 'info');
-        await verificaEsistenti();
+        mostraMsg('#msg-caricamento', 'Controllo delle email del file…', 'info');
+        await chiediAnteprima();
         if (c !== stato.caricamento) return;
         nascondiMsg('#msg-caricamento');
-        analizza();
+        if (!c.analisi) return;
         // con dei problemi si parte dalle righe da controllare
-        const a = c.analisi;
-        const conProblemi = a.righe.some(daControllare);
-        impostaFiltro(conProblemi ? 'problemi' : 'tutte');
+        impostaFiltro(c.analisi.righe.some(daControllare) ? 'problemi' : 'tutte');
         $('#riepilogo-anteprima').scrollIntoView({ block: 'nearest' });
     }
 
     function annullaCaricamento(tieniFile) {
         const c = stato.caricamento;
-        if (c) {
-            clearTimeout(c.timerAnalisi);
-            clearTimeout(c.timerVerifica);
-        }
+        if (c) clearTimeout(c.timerVerifica);
         stato.caricamento = null;
         if (!tieniFile) {
             $('#nome-file').textContent = '';
@@ -3145,15 +3308,6 @@
         $('#file-partecipanti').focus();
     });
 
-    const ETICHETTE_ESITO = {
-        'nuovo': 'Nuovo account',
-        'esistente': 'Già registrato',
-        'gia-nell-evento': 'Già nell\'evento',
-        'doppione': 'Doppione',
-        'escluso': 'Esclusa',
-        'errore': 'Da correggere'
-    };
-
     function costruisciTabellaAnteprima(c) {
         const tb = $('#tabella-anteprima tbody');
         svuota(tb);
@@ -3163,10 +3317,8 @@
             const inNome = el('input', { type: 'text', classe: 'campo-nome', value: r.nome, 'aria-label': 'Nome, ' + etichetta, autocomplete: 'off', maxlength: '80' });
             const inCognome = el('input', { type: 'text', classe: 'campo-cognome', value: r.cognome, 'aria-label': 'Cognome, ' + etichetta, autocomplete: 'off', maxlength: '80' });
             const inEmail = el('input', { type: 'email', classe: 'campo-email', value: r.email, 'aria-label': 'Email, ' + etichetta, autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off' });
-            const inNomeUtente = el('input', { type: 'text', classe: 'nome-utente-riga', 'aria-label': 'Nome utente, ' + etichetta, autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off', maxlength: '46', dati: { auto: '1' } });
-            const escludi = el('input', { type: 'checkbox', classe: 'escludi-riga' });
-            // nella cella dell'esito, sotto le etichette, le scelte del gestore:
-            // escludere la riga, confermare l'omonimo o il doppione
+            const escludi = el('input', { type: 'checkbox', classe: 'escludi-riga', 'aria-label': 'Escludi la ' + etichetta });
+            // nella cella dell'esito, sotto le etichette, la scelta del gestore: escludere la riga
             const esito = el('div', { classe: 'etichette-esito' });
             const problemi = el('ul', { classe: 'problemi' });
             const scelte = el('div', { classe: 'scelte' }, [el('label', { classe: 'scelta' }, [escludi, 'Escludi'])]);
@@ -3177,214 +3329,127 @@
                 el('td', { 'data-label': 'Cognome' }, [inCognome]),
                 el('td', { 'data-label': 'Email', classe: 'largo' }, [inEmail]),
                 el('td', { 'data-label': 'Azienda', testo: r.azienda }),
-                el('td', { 'data-label': 'Nome utente' }, [inNomeUtente]),
                 el('td', { 'data-label': 'Controlli', classe: 'largo' }, [problemi])
             ]);
             frammento.appendChild(tr);
-            return { tr: tr, esito: esito, inNome: inNome, inCognome: inCognome, inEmail: inEmail, inNomeUtente: inNomeUtente, escludi: escludi, problemi: problemi, scelte: scelte, confermaOmonimo: null, confermaDoppione: null };
+            return { tr: tr, esito: esito, inNome: inNome, inCognome: inCognome, inEmail: inEmail, escludi: escludi, problemi: problemi, firma: '' };
         });
         tb.appendChild(frammento);
     }
 
-    /* ---------- chi esiste gia' ----------
-       Al servizio si chiedono solo le email, le basi dei nomi utente e i
-       nomi scritti a mano che non si sono ancora chiesti: correggere una
-       riga costa una chiamata piccola, non il ricontrollo del file intero. */
-    async function verificaEsistenti() {
+    /* ---------- l'anteprima del servizio ----------
+       Tutto il file a ogni richiesta (al massimo 5000 righe): le risposte
+       possono tornare in ordine qualsiasi, e vale solo quella dell'ultima
+       richiesta partita. Se nel frattempo il gestore ha gia' cambiato
+       qualcos'altro, la risposta non si disegna: sta per arrivarne una
+       piu' fresca. */
+    async function chiediAnteprima() {
         const c = stato.caricamento;
         if (!c) return;
-        const emails = new Set(), basi = new Set(), nomi = new Set();
-        c.righe.forEach(r => {
-            const e = NU.emailNormalizzata(r.email);
-            if (e && NU.emailValida(e) && !c.chiesti.emails.has(e)) emails.add(e);
-            const b = NU.nomeUtenteBase(r.nome, r.cognome);
-            if (b && !c.chiesti.basi.has(b)) basi.add(b);
-            const n = NU.pulisciNomeUtente(r.nomeUtente);
-            if (n && !c.chiesti.nomi.has(n)) nomi.add(n);
-        });
-        if (!emails.size && !basi.size && !nomi.size) return;
-        c.verifiche++;
+        clearTimeout(c.timerVerifica);
+        c.timerVerifica = null;
+        const mia = ++c.richieste;
+        c.inViaggio++;
+        c.daRifare = false;
         c.erroreVerifica = '';
         aggiornaPulsanteCrea();
         try {
             const r = await chiama('anteprima', {
                 idEvento: c.idEvento,
-                emails: Array.from(emails).slice(0, 5000),
-                basi: Array.from(basi).slice(0, 5000),
-                nomi: Array.from(nomi).slice(0, 5000)
+                righe: c.righe.map(x => ({ riga: x.riga, nome: x.nome, cognome: x.cognome, email: x.email, azienda: x.azienda, escludi: x.escludi }))
             });
-            if (c !== stato.caricamento) return;
-            const es = r.esistenti || {};
-            Object.assign(c.perEmail, es.perEmail || {});
-            (es.occupati || []).forEach(n => c.occupati.add(String(n)));
-            Object.assign(c.dettagli, es.dettagliOccupati || r.dettagliOccupati || {});
-            emails.forEach(e => c.chiesti.emails.add(e));
-            basi.forEach(b => c.chiesti.basi.add(b));
-            nomi.forEach(n => c.chiesti.nomi.add(n));
+            if (c !== stato.caricamento || mia !== c.richieste || (c.daRifare && c.analisi)) return;
+            c.analisi = conControlliDellaPagina(r, c);
+            aggiornaRigheAnteprima(c);
+            aggiornaRiepilogo(c);
+            applicaFiltro();
         } catch (e) {
             if (e.stato === 401 || e.stato === 403) { erroreGenerico(e); return; }
-            if (c === stato.caricamento) c.erroreVerifica = e.msg || 'Controllo non riuscito.';
+            if (c === stato.caricamento && mia === c.richieste) c.erroreVerifica = e.msg || 'nessuna risposta';
         } finally {
-            c.verifiche--;
+            c.inViaggio--;
+            if (c === stato.caricamento) aggiornaPulsanteCrea();
         }
     }
-
-    function programmaAnalisi(ms) {
+    // dopo una correzione l'anteprima si richiede con una breve pausa, non a ogni tasto
+    function programmaVerifica(ms) {
         const c = stato.caricamento;
         if (!c) return;
-        clearTimeout(c.timerAnalisi);
-        c.timerAnalisi = setTimeout(() => { c.timerAnalisi = null; if (c === stato.caricamento) analizza(); }, ms == null ? ATTESA_ANALISI_MS : ms);
-    }
-    function programmaVerifica() {
-        const c = stato.caricamento;
-        if (!c) return;
+        c.daRifare = true;
         clearTimeout(c.timerVerifica);
-        c.timerVerifica = setTimeout(async () => {
+        c.timerVerifica = setTimeout(() => {
             c.timerVerifica = null;
-            await verificaEsistenti();
-            if (c === stato.caricamento) analizza();
-        }, ATTESA_VERIFICA_MS);
+            if (c === stato.caricamento) chiediAnteprima();
+        }, ms == null ? ATTESA_VERIFICA_MS : ms);
         aggiornaPulsanteCrea();
     }
 
-    /* Controlli in piu' rispetto ad analizzaRighe, gli stessi che fa il
-       servizio al momento della creazione: meglio vederli ora in anteprima
-       che scoprirli dopo, riga per riga, nei risultati. */
+    /* Il controllo che fa solo la pagina: i caratteri di un file salvato
+       con la codifica sbagliata (Ã², Â, �). La riga diventa da correggere
+       e non si crea; poi i conteggi, con le stesse regole del servizio. */
     const MOJIBAKE = /[ÃÂ][\u0080-¿ŒœŠšŸŽžƒˆ˜–-™€]|�/;
     const CARATTERI_VIETATI = /[<>\u0000-\u001f\u007f]/;
-    function controlliAggiuntivi(a) {
-        a.righe.forEach(o => {
-            if (o.esito === 'escluso' || o.esito === 'doppione' || o.esito === 'gia-nell-evento') return;
-            const aggiungi = (codice, testo) => {
-                o.problemi.push({ codice: codice, testo: testo, grave: true });
-                if (o.esito === 'nuovo') { o.esito = 'errore'; o.daConfermare = false; }
-            };
-            if ([o.nome, o.cognome, o.azienda, o.email].some(v => MOJIBAKE.test(v))) {
-                aggiungi('codifica', 'Caratteri strani (Ã, Â, �): la codifica del file è sbagliata. Salva il file come «CSV UTF-8» e ricaricalo, oppure correggi a mano.');
-            }
-            if (o.esito !== 'esistente' && (CARATTERI_VIETATI.test(o.nome) || CARATTERI_VIETATI.test(o.cognome))) {
-                aggiungi('caratteri', 'Nome o cognome contengono caratteri non ammessi (< > o caratteri invisibili).');
+    function conControlliDellaPagina(r, c) {
+        const righe = (Array.isArray(r && r.righe) ? r.righe : []).map(o => Object.assign({}, o, { problemi: Array.isArray(o.problemi) ? o.problemi.slice() : [] }));
+        righe.forEach((o, i) => {
+            const x = c.righe[i] || {};
+            if (o.esito === 'escluso') return;
+            if ([x.nome, x.cognome, x.azienda, x.email].some(v => MOJIBAKE.test(String(v == null ? '' : v)))) {
+                o.problemi.push({ codice: 'codifica', grave: true, testo: 'Caratteri strani (Ã, Â, �): la codifica del file è sbagliata. Salva il file come «CSV UTF-8» e ricaricalo, oppure correggi a mano.' });
+                if (!eGrave(o)) o.esito = 'codifica';
+                o.crea = false;
             }
         });
-        // i conteggi, con la stessa regola di analizzaRighe
-        const k = { totale: a.righe.length, nuovi: 0, esistenti: 0, giaNellEvento: 0, doppioni: 0, esclusi: 0, errori: 0, omonimi: 0, daConfermare: 0 };
-        a.righe.forEach(o => {
+        const k = { totale: righe.length, nuovi: 0, giaPresenti: 0, giaIscritti: 0, doppie: 0, esclusi: 0, daCorreggere: 0, daCreare: 0 };
+        const perGrave = {};
+        righe.forEach(o => {
             if (o.esito === 'nuovo') k.nuovi++;
-            else if (o.esito === 'esistente') k.esistenti++;
-            else if (o.esito === 'gia-nell-evento') k.giaNellEvento++;
-            else if (o.esito === 'doppione') k.doppioni++;
+            else if (o.esito === 'gia-presente') k.giaPresenti++;
+            else if (o.esito === 'gia-iscritto') k.giaIscritti++;
+            else if (o.esito === 'doppia-nel-file') k.doppie++;
             else if (o.esito === 'escluso') k.esclusi++;
-            else if (o.esito === 'errore') k.errori++;
-            if (o.omonimo) k.omonimi++;
-            if (o.daConfermare) k.daConfermare++;
+            else { k.daCorreggere++; perGrave[o.esito] = (perGrave[o.esito] || 0) + 1; }
+            if (o.crea) k.daCreare++;
         });
-        a.conteggi = k;
-        a.pronto = k.errori === 0 && k.daConfermare === 0;
-        return a;
-    }
-
-    function analizza() {
-        const c = stato.caricamento;
-        if (!c) return;
-        const a = NU.analizzaRighe(c.righe.map(r => ({
-            riga: r.riga, nome: r.nome, cognome: r.cognome, email: r.email, azienda: r.azienda,
-            nomeUtente: r.nomeUtente, escludi: r.escludi, confermaOmonimo: r.confermaOmonimo, confermaDoppione: r.confermaDoppione
-        })), { perEmail: c.perEmail, occupati: Array.from(c.occupati), dettagliOccupati: c.dettagli }, c.idEvento);
-        c.analisi = controlliAggiuntivi(a);
-        aggiornaRigheAnteprima(c);
-        aggiornaRiepilogo(c);
-        aggiornaPulsanteCrea();
-        applicaFiltro();
+        return { righe: righe, conteggi: k, perGrave: perGrave, pronto: k.daCorreggere === 0 && righe.length === c.righe.length };
     }
 
     const haCodice = (o, codice) => o.problemi.some(p => p.codice === codice);
-    const daControllare = o => o.problemi.length > 0 || o.omonimo;
-    const daSistemare = o => o.esito === 'errore' || o.daConfermare;
-
-    function casella(classe, testo, attiva) {
-        const input = el('input', { type: 'checkbox', classe: classe, checked: !!attiva });
-        return { label: el('label', { classe: 'scelta' }, [input, testo]), input: input };
-    }
+    const daControllare = o => o.problemi.length > 0;
+    const daSistemare = o => eGrave(o);
 
     function aggiornaRigheAnteprima(c) {
         const a = c.analisi;
         const bloccata = !!(c.creazione && (c.creazione.inCorso || c.creazione.finita));
         a.righe.forEach((o, i) => {
             const d = c.dom[i];
-            const r = c.righe[i];
             if (!d) return;
-            /* Con migliaia di righe ridisegnarle tutte a ogni tasto premuto si
-               sentirebbe: si tocca solo la riga il cui esito e' cambiato. */
-            const firma = [o.esito, o.omonimo, o.daConfermare, o.nomeUtente, r.nomeUtente, r.escludi, r.confermaOmonimo, r.confermaDoppione, bloccata,
-                o.problemi.map(p => p.codice + ':' + p.testo).join('|')].join('¦');
+            /* Con migliaia di righe ridisegnarle tutte a ogni risposta si
+               sentirebbe: si tocca solo la riga il cui esito e' cambiato. I
+               campi non si riscrivono mai: dentro c'e' quello che il gestore
+               sta scrivendo. */
+            const firma = [o.esito, o.crea, !o.nome, !o.cognome, bloccata, o.problemi.map(p => p.codice + ':' + p.testo).join('|')].join('¦');
             if (d.firma === firma) return;
-            // una riga su cui si sta scrivendo si ridisegna anche dopo, all'uscita dal campo
-            d.firma = document.activeElement === d.inNomeUtente ? '' : firma;
-            const numerato = haCodice(o, 'omonimo');
-            d.tr.className = 'esito-' + o.esito + (o.omonimo ? ' omonimo' : '') + (o.daConfermare ? ' da-confermare' : '');
+            d.firma = firma;
+            const disattivato = haCodice(o, 'disattivato');
+            d.tr.className = 'esito-' + o.esito + (eGrave(o) ? ' da-correggere' : '') + (disattivato ? ' con-avviso' : '');
 
             svuota(d.esito);
             d.esito.appendChild(el('span', { classe: 'etichetta-esito ' + o.esito, testo: ETICHETTE_ESITO[o.esito] || o.esito }));
-            if (o.omonimo && o.esito !== 'errore') {
-                d.esito.appendChild(el('span', {
-                    classe: 'etichetta-esito ' + (o.daConfermare ? 'omonimo' : (numerato ? 'omonimo-ok' : 'omonimo')),
-                    testo: o.daConfermare ? 'Omonimo da confermare' : (numerato ? 'Omonimo confermato' : 'Omonimo')
-                }));
-            }
-            if (o.esito === 'doppione' && haCodice(o, 'doppione-nome-diverso')) {
-                d.esito.appendChild(el('span', { classe: 'etichetta-esito ' + (o.daConfermare ? 'omonimo' : 'omonimo-ok'), testo: o.daConfermare ? 'Da confermare' : 'Stessa persona' }));
-            }
+            if (disattivato) d.esito.appendChild(el('span', { classe: 'etichetta-esito disattivato', testo: 'Account disattivato' }));
 
             // i campi che hanno un problema si segnano (bordo rosso + lettori di schermo)
             const segna = (inp, male) => { if (male) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid'); };
-            segna(d.inNome, haCodice(o, 'nome-vuoto') || haCodice(o, 'caratteri'));
-            segna(d.inCognome, haCodice(o, 'cognome-vuoto') || haCodice(o, 'caratteri'));
-            segna(d.inEmail, haCodice(o, 'email-mancante') || haCodice(o, 'email-non-valida'));
-            segna(d.inNomeUtente, haCodice(o, 'nome-utente-occupato') || haCodice(o, 'nome-utente-vuoto'));
-
-            // il nome utente: quello di chi esiste gia' e' fisso; gli altri si
-            // possono scrivere a mano, e finche' non lo si fa si vede quello calcolato
-            const fisso = o.esito === 'esistente' || o.esito === 'gia-nell-evento' || o.esito === 'doppione' || o.esito === 'escluso';
-            d.inNomeUtente.readOnly = fisso;
-            if (fisso) {
-                d.inNomeUtente.value = o.esito === 'doppione' || o.esito === 'escluso' ? '' : o.nomeUtente;
-                d.inNomeUtente.placeholder = o.esito === 'doppione' ? '(prima riga)' : '';
-                d.inNomeUtente.dataset.auto = '1';
-            } else if (r.nomeUtente) {
-                d.inNomeUtente.dataset.auto = '0';
-            } else if (document.activeElement !== d.inNomeUtente) {
-                d.inNomeUtente.value = o.nomeUtente || '';
-                d.inNomeUtente.placeholder = o.nomeUtente ? '' : 'a mano';
-                d.inNomeUtente.dataset.auto = '1';
-            }
+            const nomeMancante = haCodice(o, 'nome-mancante');
+            segna(d.inNome, (nomeMancante && !o.nome) || haCodice(o, 'nome-non-valido'));
+            segna(d.inCognome, (nomeMancante && !o.cognome) || haCodice(o, 'nome-non-valido'));
+            segna(d.inEmail, haCodice(o, 'email-mancante') || haCodice(o, 'email-non-valida') || haCodice(o, 'email-condivisa'));
 
             svuota(d.problemi);
             o.problemi.forEach(p => {
-                const classe = p.grave ? 'grave' : (p.codice === 'omonimo' || p.codice === 'doppione-nome-diverso' ? 'omonimo' : '');
-                d.problemi.appendChild(el('li', { classe: classe, testo: p.testo }));
+                d.problemi.appendChild(el('li', { classe: p.grave ? 'grave' : (p.codice === 'disattivato' ? 'avviso' : ''), testo: p.testo }));
             });
-            if (o.omonimo && !numerato && o.esito === 'nuovo') {
-                d.problemi.appendChild(el('li', { classe: 'omonimo', testo: 'Nel file ci sono altre persone con lo stesso nome: a loro va un numero (' + o.base + '2, ' + o.base + '3…).' }));
-            }
-
-            // le caselle di conferma esistono solo dove servono
-            if (numerato && o.esito !== 'errore') {
-                if (!d.confermaOmonimo) {
-                    const x = casella('conferma-omonimo', 'Confermo il numero', r.confermaOmonimo);
-                    d.confermaOmonimo = x.label;
-                    d.scelte.insertBefore(x.label, d.scelte.firstChild);
-                }
-                d.confermaOmonimo.querySelector('input').checked = !!r.confermaOmonimo;
-            } else if (d.confermaOmonimo) { d.confermaOmonimo.remove(); d.confermaOmonimo = null; }
-            if (o.esito === 'doppione' && haCodice(o, 'doppione-nome-diverso')) {
-                if (!d.confermaDoppione) {
-                    const x = casella('conferma-doppione', 'È la stessa persona', r.confermaDoppione);
-                    d.confermaDoppione = x.label;
-                    d.scelte.insertBefore(x.label, d.scelte.firstChild);
-                }
-                d.confermaDoppione.querySelector('input').checked = !!r.confermaDoppione;
-            } else if (d.confermaDoppione) { d.confermaDoppione.remove(); d.confermaDoppione = null; }
-            d.escludi.checked = !!r.escludi;
+            d.escludi.checked = !!(c.righe[i] && c.righe[i].escludi);
             d.tr.querySelectorAll('input').forEach(inp => { inp.disabled = bloccata; });
         });
     }
@@ -3397,19 +3462,13 @@
         const k = c.analisi.conteggi;
         const r = $('#riepilogo-anteprima');
         svuota(r);
-        const omonimiDaConf = c.analisi.righe.filter(o => o.daConfermare && o.omonimo).length;
-        const doppioniDaConf = c.analisi.righe.filter(o => o.daConfermare && o.esito === 'doppione').length;
         r.appendChild(gettone(k.totale, plurale(k.totale, 'riga letta', 'righe lette'), ''));
         r.appendChild(gettone(k.nuovi, plurale(k.nuovi, 'nuovo account', 'nuovi account'), 'verde'));
-        if (k.esistenti) r.appendChild(gettone(k.esistenti, plurale(k.esistenti, 'già registrata, da aggiungere', 'già registrate, da aggiungere'), 'blu'));
-        if (k.giaNellEvento) r.appendChild(gettone(k.giaNellEvento, 'già nell\'evento', 'blu'));
-        if (k.doppioni) r.appendChild(gettone(k.doppioni, plurale(k.doppioni, 'doppione nel file', 'doppioni nel file'), ''));
+        if (k.giaPresenti) r.appendChild(gettone(k.giaPresenti, plurale(k.giaPresenti, 'già registrata, da aggiungere', 'già registrate, da aggiungere'), 'blu'));
+        if (k.giaIscritti) r.appendChild(gettone(k.giaIscritti, 'già nell\'evento', 'blu'));
+        if (k.doppie) r.appendChild(gettone(k.doppie, plurale(k.doppie, 'doppia nel file', 'doppie nel file'), ''));
         if (k.esclusi) r.appendChild(gettone(k.esclusi, plurale(k.esclusi, 'esclusa', 'escluse'), ''));
-        if (k.omonimi) r.appendChild(gettone(k.omonimi, plurale(k.omonimi, 'omonimo', 'omonimi') + (omonimiDaConf ? ' (' + omonimiDaConf + ' da confermare)' : ''), 'ambra'));
-        if (doppioniDaConf) r.appendChild(gettone(doppioniDaConf, 'stessa email, nome diverso: da confermare', 'ambra'));
-        r.appendChild(gettone(k.errori, plurale(k.errori, 'da correggere', 'da correggere'), k.errori ? 'rosso' : ''));
-        $('#btn-conferma-omonimi').disabled = !omonimiDaConf || !!(c.creazione && (c.creazione.inCorso || c.creazione.finita));
-        $('#btn-conferma-omonimi').textContent = omonimiDaConf ? 'Conferma tutti gli omonimi (' + omonimiDaConf + ')' : 'Conferma tutti gli omonimi';
+        r.appendChild(gettone(k.daCorreggere, 'da correggere', k.daCorreggere ? 'rosso' : ''));
     }
 
     function aggiornaPulsanteCrea() {
@@ -3417,38 +3476,33 @@
         const b = $('#btn-crea-account');
         const motivo = $('#motivo-blocco');
         $('#btn-riprova-verifica').hidden = true;
-        if (!c || !c.analisi) { b.disabled = true; motivo.textContent = c ? 'Controllo in corso…' : ''; return; }
+        if (!c) { b.disabled = true; motivo.textContent = ''; return; }
         const a = c.analisi;
-        const k = a.conteggi;
-        const omonimiDaConf = a.righe.filter(o => o.daConfermare && o.omonimo).length;
-        const doppioniDaConf = a.righe.filter(o => o.daConfermare && o.esito === 'doppione').length;
+        const k = a ? a.conteggi : null;
         let perche = '';
         if (c.creazione && c.creazione.finita) perche = 'Account già creati per questo file.';
         else if (c.creazione && c.creazione.inCorso) perche = 'Creazione degli account in corso…';
         else if (c.creazione) perche = 'Creazione interrotta: premi «Riprendi» qui sotto per completarla.';
-        else if (c.verifiche > 0 || c.timerVerifica) perche = 'Controllo dei dati modificati in corso…';
-        else if (c.erroreVerifica) {
-            perche = 'Il controllo delle persone già registrate non è riuscito (' + c.erroreVerifica + '): riprova prima di creare gli account.';
+        else if (c.inViaggio > 0 || c.timerVerifica || c.daRifare) perche = a ? 'Controllo dei dati modificati in corso…' : 'Controllo delle email in corso…';
+        else if (c.erroreVerifica || !a) {
+            perche = 'Il controllo delle email non è riuscito (' + (c.erroreVerifica || 'nessuna risposta') + '): riprova prima di creare gli account.';
             $('#btn-riprova-verifica').hidden = false;
-        } else if (k.errori || omonimiDaConf || doppioniDaConf) {
-            const cose = [];
-            if (k.errori) cose.push('correggi o escludi ' + conNumero(k.errori, 'riga in errore', 'righe in errore'));
-            if (omonimiDaConf) cose.push('conferma ' + conNumero(omonimiDaConf, 'omonimo', 'omonimi') + ' (o scrivi un nome utente diverso)');
-            if (doppioniDaConf) cose.push('conferma o correggi ' + conNumero(doppioniDaConf, 'riga con la stessa email e un nome diverso', 'righe con la stessa email e un nome diverso'));
-            perche = 'Per creare gli account: ' + cose.join('; ') + '.';
-        } else if (!k.nuovi && !k.esistenti) perche = 'Niente da creare: tutte le persone del file sono già nell\'evento, doppioni o escluse.';
-        b.disabled = !!perche || !a.pronto;
-        let testo = 'Crea ' + conNumero(k.nuovi, 'account', 'account');
-        if (k.esistenti) testo += ' e aggiungi ' + conNumero(k.esistenti, 'persona già registrata', 'persone già registrate');
+        } else if (k.daCorreggere) {
+            const cose = ESITI_GRAVI.filter(e => a.perGrave[e]).map(e => conNumero(a.perGrave[e], NOMI_GRAVI[e][0], NOMI_GRAVI[e][1]));
+            perche = 'Per creare gli account correggi o escludi ' + conNumero(k.daCorreggere, 'riga', 'righe') + ': ' + cose.join(', ') + '.';
+        } else if (!k.daCreare) perche = 'Niente da creare: tutte le persone del file sono già nell\'evento, doppie o escluse.';
+        b.disabled = !!perche || !a || !a.pronto;
+        let testo = 'Crea gli account';
+        if (k) {
+            testo = 'Crea ' + conNumero(k.nuovi, 'account', 'account');
+            if (k.giaPresenti) testo += ' e aggiungi ' + conNumero(k.giaPresenti, 'persona già registrata', 'persone già registrate');
+        }
         b.textContent = testo;
-        motivo.textContent = perche || 'Tutto pronto: nessun problema da sistemare.';
+        motivo.textContent = perche || 'Tutto pronto: nessun problema da sistemare. Creare gli account non manda nessuna email.';
         motivo.classList.toggle('pronto', !perche);
     }
-    $('#btn-riprova-verifica').addEventListener('click', async () => {
-        const c = stato.caricamento;
-        if (!c) return;
-        await verificaEsistenti();
-        if (c === stato.caricamento) analizza();
+    $('#btn-riprova-verifica').addEventListener('click', () => {
+        if (stato.caricamento) chiediAnteprima();
     });
 
     /* ---------- i filtri ---------- */
@@ -3465,6 +3519,7 @@
         let visibili = 0;
         c.analisi.righe.forEach((o, i) => {
             const d = c.dom[i];
+            if (!d) return;
             // la riga su cui si sta scrivendo non sparisce mentre la si corregge
             const inUso = d.tr.contains(document.activeElement);
             const mostra = inUso || filtro === 'tutte' || (filtro === 'problemi' ? daControllare(o) : daSistemare(o));
@@ -3477,7 +3532,7 @@
     }
     document.querySelectorAll('input[name="filtro-anteprima"]').forEach(r => r.addEventListener('change', applicaFiltro));
 
-    /* ---------- le correzioni ---------- */
+    /* ---------- le correzioni in linea ---------- */
     const corpoAnteprima = $('#tabella-anteprima tbody');
     corpoAnteprima.addEventListener('input', e => {
         const c = stato.caricamento;
@@ -3489,69 +3544,52 @@
         if (t.classList.contains('campo-nome')) r.nome = t.value;
         else if (t.classList.contains('campo-cognome')) r.cognome = t.value;
         else if (t.classList.contains('campo-email')) r.email = t.value;
-        else if (t.classList.contains('nome-utente-riga')) { r.nomeUtente = t.value.trim(); t.dataset.auto = r.nomeUtente ? '0' : '1'; }
         else return;
-        programmaAnalisi();
         programmaVerifica();
     });
     corpoAnteprima.addEventListener('change', e => {
         const c = stato.caricamento;
         const t = e.target;
         const tr = t.closest('tr[data-indice]');
-        if (!c || !tr || t.type !== 'checkbox') return;
+        if (!c || !tr || !t.classList.contains('escludi-riga')) return;
         const r = c.righe[Number(tr.dataset.indice)];
-        if (t.classList.contains('escludi-riga')) r.escludi = t.checked;
-        else if (t.classList.contains('conferma-omonimo')) r.confermaOmonimo = t.checked;
-        else if (t.classList.contains('conferma-doppione')) r.confermaDoppione = t.checked;
-        else return;
-        analizza();
-    });
-    // uscendo da un nome utente lasciato vuoto torna quello calcolato
-    corpoAnteprima.addEventListener('focusout', e => {
-        if (e.target.classList && e.target.classList.contains('nome-utente-riga')) programmaAnalisi(0);
-    });
-
-    $('#btn-conferma-omonimi').addEventListener('click', () => {
-        const c = stato.caricamento;
-        if (!c || !c.analisi) return;
-        c.analisi.righe.forEach((o, i) => { if (o.daConfermare && o.omonimo) c.righe[i].confermaOmonimo = true; });
-        analizza();
-        avviso('Omonimi confermati: ognuno avrà il nome utente con il numero proposto.', 'ok');
+        if (!r) return;
+        r.escludi = t.checked;
+        programmaVerifica(0);
     });
 
     /* ============================================================
        SCHEDA PARTECIPANTI: CREAZIONE DEGLI ACCOUNT
+       ------------------------------------------------------------
+       Si mandano a 'crea' solo le righe con crea: true (nuovi e gia'
+       registrati), a gruppi. Creare NON manda email: le credenziali
+       restano «da inviare» finche' il gestore non preme «Invia le
+       credenziali» (scheda Email) o «Invia ora» (una persona).
        ============================================================ */
     $('#btn-crea-account').addEventListener('click', async () => {
         const c = stato.caricamento;
-        if (!c || !c.analisi || !c.analisi.pronto || c.creazione) return;
-        // ultimo controllo, nel caso ci fosse una correzione ancora in attesa
-        clearTimeout(c.timerAnalisi);
-        c.timerAnalisi = null;
-        analizza();
-        if (!c.analisi.pronto || $('#btn-crea-account').disabled) return;
+        if (!c || !c.analisi || !c.analisi.pronto || c.creazione || $('#btn-crea-account').disabled) return;
         const k = c.analisi.conteggi;
-        const daInviare = c.analisi.righe.filter(o => o.esito === 'nuovo' || o.esito === 'esistente');
+        const daCreare = c.analisi.righe.filter(o => o.crea);
         const ok = await conferma({
             titolo: 'Creare ' + conNumero(k.nuovi, 'account', 'account') + '?',
             testo: 'Per l\'evento «' + (stato.evento && stato.evento.titolo || c.idEvento) + '»:',
             dettagli: [
-                conNumero(k.nuovi, 'nuovo account', 'nuovi account'),
-                k.esistenti ? conNumero(k.esistenti, 'persona già registrata aggiunta', 'persone già registrate aggiunte') + ' all\'evento, senza un nuovo account' : '',
-                'Le email con le credenziali NON partono adesso: le invii dalla scheda Email, dopo la prova su di te.'
+                conNumero(k.nuovi, 'nuovo account', 'nuovi account') + ': ognuno entrerà con la sua email e una password generata dal servizio',
+                k.giaPresenti ? conNumero(k.giaPresenti, 'persona già registrata aggiunta', 'persone già registrate aggiunte') + ' all\'evento, senza un nuovo account e senza una password nuova' : '',
+                'Nessuna email parte adesso: le credenziali partono quando premi «Invia le credenziali» nella scheda Email.'
             ],
             ok: 'Crea gli account'
         });
-        if (!ok || c !== stato.caricamento) return;
+        if (!ok || c !== stato.caricamento || c.creazione || c.daRifare || c.inViaggio > 0) return;
         c.creazione = {
             inCorso: true, finita: false,
             gruppi: [], indice: 0, risultati: [], ritentati: new Set(),
-            previsti: new Map(daInviare.map(o => [o.riga, o])),
-            totale: daInviare.length
+            previsti: new Map(daCreare.map(o => [o.riga, o])),
+            totale: daCreare.length
         };
-        for (let i = 0; i < daInviare.length; i += GRUPPO_CREA) c.creazione.gruppi.push(daInviare.slice(i, i + GRUPPO_CREA));
+        for (let i = 0; i < daCreare.length; i += GRUPPO_CREA) c.creazione.gruppi.push(daCreare.slice(i, i + GRUPPO_CREA));
         aggiornaRigheAnteprima(c);
-        aggiornaRiepilogo(c);
         aggiornaPulsanteCrea();
         sbloccaCaricamento(false);
         eseguiCreazione(c);
@@ -3592,7 +3630,7 @@
                 try {
                     r = await chiama('crea', {
                         idEvento: c.idEvento,
-                        righe: gruppo.map(o => ({ riga: o.riga, nome: o.nome, cognome: o.cognome, email: o.email, azienda: o.azienda, nomeUtente: o.nomeUtente }))
+                        righe: gruppo.map(o => ({ riga: o.riga, nome: o.nome, cognome: o.cognome, email: o.email, azienda: o.azienda }))
                     });
                     break;
                 } catch (e) {
@@ -3621,7 +3659,7 @@
                 }
             }
             const risultati = Array.isArray(r.risultati) ? r.risultati : [];
-            if (cr.ritentati.has(cr.indice)) risultati.forEach(x => { if (x.esito === 'gia-nell-evento') x.dalTentativo = true; });
+            if (cr.ritentati.has(cr.indice)) risultati.forEach(x => { if (x.esito === 'gia-iscritto') x.dalTentativo = true; });
             cr.risultati.push.apply(cr.risultati, risultati);
             cr.indice++;
             aggiornaAvanzamentoCrea(c);
@@ -3634,15 +3672,11 @@
 
     function creazioneFinita(c) {
         const cr = c.creazione;
-        const k = { creato: 0, aggiunto: 0, 'gia-nell-evento': 0, errore: 0, dalTentativo: 0 };
+        const k = { creato: 0, aggiunto: 0, 'gia-iscritto': 0, errore: 0, dalTentativo: 0 };
         cr.risultati.forEach(x => {
             if (x.dalTentativo) k.dalTentativo++;
             else k[x.esito] = (k[x.esito] || 0) + 1;
         });
-        // il nome utente conta come "cambiato" solo per chi e' stato creato adesso
-        // (o dal tentativo interrotto): chi esisteva gia' tiene il suo
-        const eCambiato = x => !!x.nomeUtenteCambiato && (x.esito === 'creato' || !!x.dalTentativo);
-        const cambiati = cr.risultati.filter(eCambiato);
         aggiornaAvanzamentoCrea(c, 'Creazione completata: ' + cr.risultati.length + ' di ' + cr.totale + ' righe elaborate.');
         sbloccaCaricamento(true);
         $('#anteprima-caricamento').hidden = true;
@@ -3652,47 +3686,49 @@
         riepilogo.appendChild(gettone(k.creato, plurale(k.creato, 'account creato', 'account creati'), 'verde'));
         if (k.aggiunto) riepilogo.appendChild(gettone(k.aggiunto, plurale(k.aggiunto, 'persona aggiunta all\'evento', 'persone aggiunte all\'evento'), 'blu'));
         if (k.dalTentativo) riepilogo.appendChild(gettone(k.dalTentativo, plurale(k.dalTentativo, 'riga già completata dal tentativo interrotto', 'righe già completate dal tentativo interrotto'), 'verde'));
-        if (k['gia-nell-evento']) riepilogo.appendChild(gettone(k['gia-nell-evento'], 'già nell\'evento', 'blu'));
-        if (cambiati.length) riepilogo.appendChild(gettone(cambiati.length, plurale(cambiati.length, 'nome utente cambiato', 'nomi utente cambiati'), 'ambra'));
+        if (k['gia-iscritto']) riepilogo.appendChild(gettone(k['gia-iscritto'], 'già nell\'evento', 'blu'));
         riepilogo.appendChild(gettone(k.errore, plurale(k.errore, 'errore', 'errori'), k.errore ? 'rosso' : ''));
 
+        /* Qui sotto solo le righe da guardare: gli errori, quelle andate
+           diversamente dall'anteprima (un account con quell'email creato nel
+           frattempo, per esempio da un altro caricamento o dal modulo del
+           sito: la persona e' stata aggiunta, senza un secondo account) e le
+           note del servizio (per esempio un account disattivato). */
+        const ESITO_RIGA = { creato: 'Creato', aggiunto: 'Aggiunta all\'evento', 'gia-iscritto': 'Già nell\'evento' };
+        const diversa = x => {
+            const o = cr.previsti.get(x.riga);
+            if (!o || x.dalTentativo || x.esito === 'errore') return false;
+            return (o.esito === 'nuovo' && x.esito !== 'creato') || (o.esito === 'gia-presente' && x.esito === 'gia-iscritto');
+        };
         const tb = $('#tabella-esito-crea tbody');
         svuota(tb);
-        /* Qui sotto solo le righe da guardare: gli errori, i nomi utente
-           diversi dall'anteprima e le note del servizio (per esempio una
-           persona gia' registrata con l'account disattivato). */
-        const ESITO_RIGA = { creato: 'Creato', aggiunto: 'Aggiunta all\'evento', 'gia-nell-evento': 'Già nell\'evento' };
-        cr.risultati.filter(x => x.esito === 'errore' || eCambiato(x) || x.motivo).forEach(x => {
+        cr.risultati.filter(x => x.esito === 'errore' || diversa(x) || x.motivo).forEach(x => {
             const o = cr.previsti.get(x.riga) || {};
-            const cambiato = eCambiato(x);
-            const nomeCella = el('td', { 'data-label': 'Nome utente' });
-            if (cambiato && o.nomeUtente && o.nomeUtente !== x.nomeUtente) {
-                nomeCella.appendChild(el('span', { classe: 'nome-cambiato-testo' }, [el('del', { testo: o.nomeUtente }), ' → ', x.nomeUtente || '']));
-            } else nomeCella.textContent = x.nomeUtente || '';
-            const esito = x.esito === 'errore' ? 'Errore' : (cambiato ? 'Creato con un altro nome utente' : (ESITO_RIGA[x.esito] || x.esito));
+            const cambiata = diversa(x);
             const nota = x.esito === 'errore' ? (x.motivo || 'Errore non specificato')
-                : [cambiato ? 'Il nome proposto era stato preso nel frattempo (per esempio da un caricamento contemporaneo).' : '', x.motivo || ''].filter(Boolean).join(' ');
-            tb.appendChild(el('tr', { classe: x.esito === 'errore' ? 'riga-errore' : (cambiato ? 'nome-cambiato' : 'riga-nota'), dati: { riga: String(x.riga) } }, [
+                : [cambiata ? (x.esito === 'aggiunto'
+                    ? 'Nel frattempo è stato creato un account con questa email (per esempio da un altro caricamento): la persona è stata aggiunta all\'evento, senza un secondo account e senza una password nuova.'
+                    : 'Nel frattempo era già stata aggiunta all\'evento (per esempio da un altro caricamento): niente di doppio.') : '', x.motivo || ''].filter(Boolean).join(' ');
+            tb.appendChild(el('tr', { classe: x.esito === 'errore' ? 'riga-errore' : (cambiata ? 'riga-diversa' : 'riga-nota'), dati: { riga: String(x.riga) } }, [
                 el('td', { classe: 'num', 'data-label': 'Riga', testo: x.riga }),
                 el('td', { 'data-label': 'Persona', testo: [o.nome, o.cognome].filter(Boolean).join(' ') }),
-                el('td', { 'data-label': 'Esito', testo: esito }),
-                nomeCella,
+                el('td', { 'data-label': 'Email', testo: o.emailNorm || o.email || '' }),
+                el('td', { 'data-label': 'Esito', testo: x.esito === 'errore' ? 'Errore' : (ESITO_RIGA[x.esito] || x.esito) }),
                 el('td', { 'data-label': 'Nota', classe: 'largo', testo: nota })
             ]));
         });
         $('#esito-crea-contenitore').hidden = !tb.firstChild;
-        $('#esito-crea-nota').textContent = (tb.firstChild ? 'Qui sotto solo le righe da guardare; tutte le altre hanno il nome utente dell\'anteprima. ' : '')
+        const fatte = k.creato + k.aggiunto + k.dalTentativo + k['gia-iscritto'];
+        mostraMsg('#esito-crea-messaggio', fatte ? MSG_ACCOUNT_CREATI : 'Nessun account creato: guarda le righe qui sotto.', fatte ? 'ok' : 'errore');
+        $('#esito-crea-nota').textContent = (tb.firstChild ? 'Qui sotto solo le righe da guardare: tutte le altre sono andate come nell\'anteprima. ' : '')
             + (k.dalTentativo ? 'Il collegamento era caduto a metà: ' + conNumero(k.dalTentativo, 'riga era già stata completata', 'righe erano già state completate')
                 + ' dal tentativo interrotto, senza doppioni. ' : '')
-            + (k.errore ? 'Le righe in errore si possono completare ricaricando lo stesso file: non si crea niente di doppio. ' : '')
-            + 'Le credenziali si inviano dalla scheda Email.';
+            + (k.errore ? 'Le righe in errore si possono completare ricaricando lo stesso file: non si crea niente di doppio.' : '');
         $('#esito-crea').hidden = false;
         $('#nome-file').textContent = '';
         stato.file = null;
         $('#esito-crea').scrollIntoView({ block: 'nearest' });
-        avviso('Creazione completata: ' + conNumero(k.creato + k.dalTentativo, 'riga completata', 'righe completate')
-            + (k.aggiunto ? ', ' + conNumero(k.aggiunto, 'persona aggiunta', 'persone aggiunte') + ' all\'evento' : '')
-            + (k.errore ? ', ' + conNumero(k.errore, 'errore', 'errori') : '') + '.', k.errore ? 'errore' : 'ok');
+        avviso(fatte ? MSG_ACCOUNT_CREATI + (k.errore ? ' ' + conNumero(k.errore, 'riga', 'righe') + ' in errore.' : '') : 'Nessun account creato.', k.errore ? 'errore' : 'ok');
         // elenco e conteggi aggiornati
         caricaPartecipanti();
         chiama('eventi').then(r => {
@@ -3701,6 +3737,8 @@
         }).catch(() => { /* i conteggi si aggiornano al prossimo caricamento */ });
         aggiornaStatoEmail().catch(() => { /* idem */ });
     }
+    // dal risultato della creazione alla scheda dell'invio
+    $('#btn-vai-email').addEventListener('click', () => mostraScheda('email'));
 
     window.addEventListener('beforeunload', e => {
         const c = stato.caricamento;
@@ -3736,17 +3774,23 @@
     function ordinePersone(a, b) {
         return String(a.cognome || '').localeCompare(String(b.cognome || ''), 'it', { sensitivity: 'base' })
             || String(a.nome || '').localeCompare(String(b.nome || ''), 'it', { sensitivity: 'base' })
-            || String(a.nomeUtente || '').localeCompare(String(b.nomeUtente || ''));
+            || String(a.email || '').localeCompare(String(b.email || ''));
     }
 
     function statoInvio(p) { return (p.invio && p.invio.stato) || 'da inviare'; }
     const classeStatoEmail = s => 'stato-email stato-' + String(s).replace(/\s+/g, '-');
 
+    // chi si e' iscritto dal modulo del sito (con l'invio automatico acceso); gli altri vengono dal file
+    const dalModulo = p => p.origine === 'modulo';
+    // «Sei iscritto anche a...»: partito senza password, perche' la persona ne aveva gia' una
+    const avvisoAnche = p => statoInvio(p) === 'inviata' && !!p.invio && p.invio.tipo === 'anche';
+
     function rigaPartecipante(p) {
         const s = statoInvio(p);
         const attivo = p.stato !== 'disattivato';
-        const chi = [p.nome, p.cognome].filter(Boolean).join(' ') || p.nomeUtente;
-        const dettaglioEmail = p.invio && p.invio.inviata && s === 'inviata' ? 'il ' + dataOra(p.invio.inviata)
+        const chi = [p.nome, p.cognome].filter(Boolean).join(' ') || p.email;
+        const dettaglioEmail = p.invio && p.invio.inviata && s === 'inviata'
+            ? 'il ' + dataOra(p.invio.inviata) + (avvisoAnche(p) ? ' · «Sei iscritto anche a…», senza password: usa quella che ha già' : '')
             : (p.invio && p.invio.errore ? p.invio.errore : '');
         const bottone = (op, testo, extra) => el('button', Object.assign({ type: 'button', classe: 'btn btn-mini btn-secondario', dati: { op: op }, 'aria-label': testo + ': ' + chi }, extra || {}), [testo]);
         const altre = el('details', { classe: 'altre-azioni' }, [
@@ -3759,10 +3803,12 @@
                     : bottone('riattiva', 'Riattiva l\'account')
             ])
         ]);
-        const tr = el('tr', { classe: attivo ? '' : 'disattivato', dati: { uid: p.uid } }, [
-            el('td', { classe: 'col-nome-utente', 'data-label': 'Nome utente', testo: p.nomeUtente || '' }),
-            el('td', { 'data-label': 'Nome e cognome' }, [el('span', { classe: 'persona', testo: chi })]),
-            el('td', { 'data-label': 'Email', classe: 'largo', testo: p.email || '' }),
+        const tr = el('tr', { classe: attivo ? '' : 'disattivato', dati: { uid: p.uid, origine: dalModulo(p) ? 'modulo' : 'file' } }, [
+            el('td', { 'data-label': 'Nome e cognome' }, [
+                el('span', { classe: 'persona', testo: chi }),
+                dalModulo(p) ? el('span', { classe: 'origine-modulo', title: 'Iscritta dal modulo del sito: la password le è arrivata subito', testo: 'dal modulo del sito' }) : null
+            ]),
+            el('td', { 'data-label': 'Email', classe: 'largo col-email', testo: p.email || '' }),
             el('td', { 'data-label': 'Azienda', testo: p.azienda || '' }),
             el('td', { 'data-label': 'Account' }, [el('span', { classe: 'stato-account ' + (attivo ? 'attivo' : 'disattivato'), testo: attivo ? 'attivo' : 'disattivato' })]),
             el('td', { 'data-label': 'Email credenziali' }, [
@@ -3776,8 +3822,9 @@
                 altre
             ])])
         ]);
-        p._cerca = perRicerca([p.nomeUtente, p.nome + ' ' + p.cognome, p.cognome + ' ' + p.nome, p.email, p.azienda].join(' | '));
-        p._compatto = NU.pulisci((p.nome || '') + (p.cognome || '')) + '|' + NU.pulisci((p.cognome || '') + (p.nome || '')) + '|' + (p.nomeUtente || '');
+        // si cerca per nome (anche scritto attaccato o al contrario), email e azienda
+        p._cerca = perRicerca([p.nome + ' ' + p.cognome, p.cognome + ' ' + p.nome, p.email, p.azienda, dalModulo(p) ? 'modulo del sito' : ''].join(' | '));
+        p._compatto = compatto((p.nome || '') + (p.cognome || '')) + '|' + compatto((p.cognome || '') + (p.nome || '')) + '|' + compatto(p.email);
         return tr;
     }
 
@@ -3826,7 +3873,7 @@
     function filtraPartecipanti() {
         const grezzo = $('#cerca-partecipanti').value;
         const q = perRicerca(grezzo);
-        const compatta = NU.pulisci(grezzo);
+        const compatta = compatto(grezzo);
         const fEmail = $('#filtro-stato-email').value;
         let visibili = 0;
         $('#tabella-partecipanti tbody').querySelectorAll('tr[data-uid]').forEach(tr => {
@@ -3865,25 +3912,34 @@
     });
 
     async function operazione(p, op, bottone) {
-        const chi = [p.nome, p.cognome].filter(Boolean).join(' ') + ' (' + p.nomeUtente + ')';
+        const nome = [p.nome, p.cognome].filter(Boolean).join(' ');
+        const chi = nome ? nome + ' (' + p.email + ')' : p.email;
         const s = statoInvio(p);
         if (op === 'correggi') { apriCorreggi(p); return; }
+        // un account con altri eventi ha gia' (o avra') una password: «Invia ora» ne fa una nuova
+        const altriEventi = (p.eventi || []).filter(e => e !== stato.idEvento).length;
+        const notaAltri = altriEventi ? 'È iscritta anche ad altri eventi: la password nuova vale per tutti e quella di prima smette di funzionare. '
+            + 'Per avvisarla senza cambiarle la password usa «Invia le credenziali» nella scheda Email (riceve «Sei iscritto anche a…»).' : '';
         let domanda;
         if (op === 'reinvia') {
             domanda = s === 'da inviare' && !(p.invio && p.invio.inviata)
-                ? { titolo: 'Inviare adesso le credenziali?', testo: chi + ' riceve subito l\'email con il nome utente e una password.', ok: 'Invia ora' }
+                ? {
+                    titolo: 'Inviare adesso le credenziali?', ok: 'Invia ora',
+                    testo: chi + ' riceve subito l\'email con la password: entrerà con la sua email ' + p.email + '.',
+                    dettagli: [notaAltri]
+                }
                 : {
-                    titolo: 'Reinviare le credenziali?',
-                    testo: chi + ' riceve subito un\'email con il nome utente e una password nuova.\n' + AVVISO_PASSWORD
+                    titolo: 'Reinviare le credenziali?', ok: 'Reinvia',
+                    testo: chi + ' riceve subito un\'email con una password nuova (si entra sempre con la sua email ' + p.email + ').\n' + AVVISO_PASSWORD
                         + (s === 'incerto' ? '\nAttenzione: l\'invio precedente si è interrotto a metà e l\'email potrebbe essere già arrivata.' : ''),
-                    ok: 'Reinvia'
+                    dettagli: [notaAltri]
                 };
         } else if (op === 'rigenera') {
             domanda = { titolo: 'Creare una nuova password da comunicare a voce?', testo: 'Per ' + chi + '. La vedrai una volta sola e non viene inviata per email.\n' + AVVISO_PASSWORD, ok: 'Crea la nuova password' };
         } else if (op === 'disattiva') {
             domanda = { titolo: 'Disattivare l\'account?', testo: chi + ' non potrà più entrare in nessun evento; se è collegata viene scollegata. Puoi riattivarlo in qualsiasi momento.', ok: 'Disattiva', pericolo: true };
         } else if (op === 'riattiva') {
-            domanda = { titolo: 'Riattivare l\'account?', testo: chi + ' potrà di nuovo entrare con le sue credenziali.', ok: 'Riattiva' };
+            domanda = { titolo: 'Riattivare l\'account?', testo: chi + ' potrà di nuovo entrare con la sua email e la sua password.', ok: 'Riattiva' };
         } else if (op === 'rimuovi-evento') {
             domanda = { titolo: 'Togliere da questo evento?', testo: chi + ' non vedrà più questo evento. L\'account resta attivo per gli altri eventi.', ok: 'Togli dall\'evento', pericolo: true };
         } else return;
@@ -3896,7 +3952,7 @@
                 if (op === 'rimuovi-evento') { togliPartecipante(p.uid); avviso(chi + ' non fa più parte di questo evento.', 'ok'); return; }
                 let nuovo = r.partecipante ? Object.assign({}, r.partecipante) : Object.assign({}, p);
                 if (!r.partecipante) {
-                    if (op === 'reinvia') nuovo.invio = Object.assign({}, p.invio, r.invio || {}, (r.invio && r.invio.stato === 'inviata') ? { inviata: Date.now() } : {});
+                    if (op === 'reinvia') nuovo.invio = Object.assign({}, p.invio, r.invio || {}, (r.invio && r.invio.stato === 'inviata') ? { inviata: Date.now(), tipo: 'credenziali' } : {});
                     if (op === 'disattiva') nuovo.stato = 'disattivato';
                     if (op === 'riattiva') nuovo.stato = 'attivo';
                 }
@@ -3927,7 +3983,8 @@
     /* ---------- la password mostrata una volta ---------- */
     function mostraPassword(p, password) {
         const d = $('#dialogo-password');
-        $('#password-nome-utente').textContent = p.nomeUtente || '';
+        $('#password-persona').textContent = [p.nome, p.cognome].filter(Boolean).join(' ');
+        $('#password-email').textContent = p.email || '';
         $('#password-mostrata').textContent = password || '';
         nascondiMsg('#msg-password');
         apriDialogo(d);
@@ -3952,51 +4009,45 @@
         }
     });
 
-    /* ---------- correzione di nome, cognome, azienda, email ---------- */
+    /* ---------- correzione di nome, cognome, azienda, email ----------
+       Si entra con l'EMAIL: cambiarla vuol dire cambiare l'indirizzo con
+       cui la persona entra (la password resta quella che ha: l'account e'
+       lo stesso). Il servizio sposta la prenotazione dell'indirizzo; se la
+       nuova email e' gia' di un'altra persona risponde 409 'email-occupata'
+       (due account non si uniscono). Se le credenziali di questo evento
+       erano gia' partite verso il vecchio indirizzo tornano «da inviare»:
+       la finestra lo dice prima di salvare. */
+    const PARTITE = ['inviata', 'incerto', 'respinta', 'errore'];
     function apriCorreggi(p) {
         stato.inCorrezione = p;
         $('#corr-nome').value = p.nome || '';
         $('#corr-cognome').value = p.cognome || '';
         $('#corr-azienda').value = p.azienda || '';
         $('#corr-email').value = p.email || '';
-        $('#correggi-sotto').textContent = 'Nome utente attuale: ' + (p.nomeUtente || '—') + '. Se nome o cognome cambiano, il servizio ricalcola il nome utente e controlla che non sia già usato.';
-        $('#corr-nome-attuale').textContent = p.nomeUtente || '';
-        const mantieni = document.querySelector('input[name="corr-nome-utente"][value="mantieni"]');
-        if (mantieni) mantieni.checked = true;
+        $('#correggi-sotto').textContent = 'Si entra con l\'email: se la cambi, ' + ([p.nome, p.cognome].filter(Boolean).join(' ') || 'la persona')
+            + ' entrerà con quella nuova. La password resta la stessa.';
         nascondiMsg('#msg-correggi');
         $('#form-correggi').querySelectorAll('[aria-invalid]').forEach(n => n.removeAttribute('aria-invalid'));
-        anteprimaNomeCorretto();
+        notaEmailCorretta();
         apriDialogo($('#dialogo-correggi'));
         $('#corr-nome').focus();
     }
-    /* La stessa regola del servizio (correggi in lib/diretta-dati.js): il
-       nome utente si ricalcola quando la base di nome e cognome cambia, e
-       diventa il primo libero fra base, base2, base3… (quello attuale vale
-       come libero). Resta com'e' solo se coincide proprio con la nuova base:
-       "mariorossii" corretto in Rossi diventa il primo libero fra
-       "mariorossi", "mariorossi2"..., e anche "mariorossi3" puo' diventare
-       "mariorossi2" se nel frattempo si e' liberato. Per questo non basta
-       che il nome attuale cominci con la base: la scelta «Mantieni» (con le
-       credenziali gia' spedite) deve comparire. */
-    function anteprimaNomeCorretto() {
+    // che cosa succede cambiando l'email, detto mentre la si scrive
+    function notaEmailCorretta() {
         const p = stato.inCorrezione;
         if (!p) return;
-        const base = NU.nomeUtenteBase($('#corr-nome').value, $('#corr-cognome').value);
-        const baseAttuale = NU.nomeUtenteBase(p.nome, p.cognome);
-        const attuale = String(p.nomeUtente || '');
-        const cambia = !!base && base !== baseAttuale && attuale !== base;
-        let testo;
-        if (!base) testo = 'Da questo nome e cognome non resta nessuna lettera a-z: correggili.';
-        else if (!cambia) testo = 'Il nome utente resta ' + attuale + '.';
-        else if (new RegExp('^' + base + '\\d+$').test(attuale)) {
-            testo = 'Il nome utente verrebbe ricalcolato: il primo libero fra ' + base + ', ' + base + '2, ' + base + '3… (potrebbe non restare ' + attuale + ').';
-        } else testo = 'Il nome utente cambierebbe da ' + attuale + ' a ' + base + ' (o ' + base + '2, ' + base + '3… se è già usato).';
-        $('#corr-anteprima-nome').textContent = testo;
-        // credenziali gia' partite: si sceglie se tenere il nome utente che la persona ha gia'
-        // ('incerto': l'email potrebbe essere arrivata, vale come spedita)
-        $('#corr-scelta-nome').hidden = !(cambia && (statoInvio(p) === 'inviata' || statoInvio(p) === 'incerto'));
+        const nuova = normalizzaEmail($('#corr-email').value);
+        const cambia = !!nuova && nuova !== normalizzaEmail(p.email);
+        let testo = '';
+        if (cambia && PARTITE.indexOf(statoInvio(p)) >= 0) {
+            testo = 'Le credenziali di questo evento erano già partite verso ' + p.email + ': con la nuova email tornano «da inviare» '
+                + 'e le mandi al nuovo indirizzo con «Invia ora». Fino ad allora la persona entra con la nuova email e la password che ha già.';
+        } else if (cambia) {
+            testo = 'La persona entrerà con ' + nuova + ' (non più con ' + p.email + ').';
+        }
+        $('#corr-nota-email').textContent = testo;
     }
-    ['#corr-nome', '#corr-cognome'].forEach(s => $(s).addEventListener('input', anteprimaNomeCorretto));
+    $('#corr-email').addEventListener('input', notaEmailCorretta);
     $('#btn-corr-annulla').addEventListener('click', () => chiudiDialogo($('#dialogo-correggi'), 'annulla'));
     $('#dialogo-correggi').addEventListener('close', () => { stato.inCorrezione = null; });
 
@@ -4008,7 +4059,8 @@
             nome: $('#corr-nome').value.trim().replace(/\s+/g, ' '),
             cognome: $('#corr-cognome').value.trim().replace(/\s+/g, ' '),
             azienda: $('#corr-azienda').value.trim().replace(/\s+/g, ' '),
-            email: $('#corr-email').value.trim()
+            // la stessa regola del servizio: senza spazi, in minuscolo
+            email: normalizzaEmail($('#corr-email').value)
         };
         const errori = [];
         const segna = (sel, t) => { $(sel).setAttribute('aria-invalid', 'true'); errori.push(t); };
@@ -4016,32 +4068,28 @@
         if (!dati.nome) segna('#corr-nome', 'Il nome è vuoto.');
         if (!dati.cognome) segna('#corr-cognome', 'Il cognome è vuoto.');
         if (CARATTERI_VIETATI.test(dati.nome + dati.cognome)) segna('#corr-nome', 'Nome e cognome non possono contenere < > o caratteri invisibili.');
-        if (!NU.emailValida(dati.email)) segna('#corr-email', 'L\'email non è valida.');
-        if (dati.nome && dati.cognome && !NU.nomeUtenteBase(dati.nome, dati.cognome)) segna('#corr-cognome', 'Da questo nome e cognome non resta nessuna lettera a-z.');
+        if (!emailValida(dati.email)) segna('#corr-email', 'L\'email non è valida.');
         if (errori.length) { mostraMsg('#msg-correggi', errori.join(' '), 'errore'); return; }
-        const sceltaVisibile = !$('#corr-scelta-nome').hidden;
-        const mantieni = sceltaVisibile && (document.querySelector('input[name="corr-nome-utente"]:checked') || {}).value === 'mantieni';
         await conAttesa($('#btn-corr-salva'), async () => {
             try {
-                const r = await chiama('partecipante', Object.assign({ uid: p.uid, idEvento: stato.idEvento, operazione: 'correggi', mantieniNomeUtente: mantieni }, dati));
+                const r = await chiama('partecipante', Object.assign({ uid: p.uid, idEvento: stato.idEvento, operazione: 'correggi' }, dati));
                 const nuovo = r.partecipante || Object.assign({}, p, dati);
                 chiudiDialogo($('#dialogo-correggi'), 'ok');
                 const riga = sostituisciPartecipante(nuovo);
-                if (r.nomeUtenteCambiato) {
-                    const prima = r.nomeUtentePrecedente || p.nomeUtente || '';
-                    avviso('Nome utente cambiato' + (prima ? ' da ' + prima : '') + ' a ' + nuovo.nomeUtente + '. ' + (statoInvio(nuovo) === 'da inviare'
-                        ? 'Premi «Invia ora» per mandare le credenziali con il nuovo nome utente.'
-                        : 'Ricordati di reinviare le credenziali.'), 'ok');
-                } else if (statoInvio(p) === 'respinta' && statoInvio(nuovo) === 'da inviare') {
-                    // email corretta dopo un rifiuto: il servizio la rimette "da inviare" (R3)
-                    avviso('Email di ' + [nuovo.nome, nuovo.cognome].join(' ') + ' corretta: premi «Invia ora» per mandare le credenziali al nuovo indirizzo.', 'ok');
-                } else avviso('Dati di ' + [nuovo.nome, nuovo.cognome].join(' ') + ' corretti.'
-                    + (nuovo.nomeUtente === p.nomeUtente && mantieni ? ' Il nome utente resta ' + nuovo.nomeUtente + '.' : ''), 'ok');
-                const b = riga.querySelector('button[data-op="correggi"]');
+                const chi = [nuovo.nome, nuovo.cognome].join(' ');
+                if (r.emailCambiata) {
+                    const prima = r.emailPrecedente || p.email || '';
+                    avviso('Email di ' + chi + ' cambiata' + (prima ? ' da ' + prima : '') + ' a ' + nuovo.email + ': adesso entra con la nuova email. '
+                        + (statoInvio(nuovo) !== 'da inviare' ? ''
+                            : (statoInvio(p) !== 'da inviare' ? 'Le credenziali tornano «da inviare»: premi «Invia ora» per mandarle al nuovo indirizzo.'
+                                : 'Le credenziali partiranno al nuovo indirizzo.')), 'ok');
+                } else avviso('Dati di ' + chi + ' corretti.', 'ok');
+                const b = riga.querySelector('button[data-op="' + (r.emailCambiata && statoInvio(nuovo) === 'da inviare' ? 'reinvia' : 'correggi') + '"]');
                 if (b) b.focus();
             } catch (err) {
                 if (err.stato === 401 || err.stato === 403) { chiudiDialogo($('#dialogo-correggi'), 'annulla'); erroreGenerico(err); return; }
-                if (err.stato === 409) $('#corr-email').setAttribute('aria-invalid', 'true');
+                if (err.stato === 409 || err.codice === 'email') $('#corr-email').setAttribute('aria-invalid', 'true');
+                if (err.codice === 'nome') $('#corr-nome').setAttribute('aria-invalid', 'true');
                 mostraMsg('#msg-correggi', err.msg || 'Correzione non riuscita.', 'errore');
             }
         });
@@ -4196,7 +4244,7 @@
         mostraMsg('#msg-email-prova', 'Invio della prova…', 'info');
         try {
             await chiama('email-prova', { idEvento: stato.idEvento, tipo: tipo });
-            mostraMsg('#msg-email-prova', 'Email di prova inviata a ' + stato.emailGestore + '. Controlla la casella (anche la posta indesiderata).', 'ok');
+            mostraMsg('#msg-email-prova', 'Email di prova inviata a ' + stato.emailGestore + '. Controlla la casella (anche nelle cartelle Spam e Promozioni).', 'ok');
         } catch (e) { erroreGenerico(e, '#msg-email-prova'); }
     }));
 
@@ -4212,8 +4260,9 @@
         if (!n) return;
         const ok = await conferma({
             titolo: 'Inviare le credenziali a ' + conNumero(n, 'persona', 'persone') + '?',
-            testo: 'Ognuno riceve il proprio nome utente e una password. Le email partono a gruppi, con pause, e nessuno le riceve due volte.',
+            testo: 'Ognuno riceve l\'email con cui entrare e una password. Le email partono a gruppi, con pause, e nessuno le riceve due volte.',
             dettagli: [
+                'Chi ha già una password (per un altro evento, o detta a voce) non ne riceve una nuova: riceve «Sei iscritto anche a…» ed entra con quella che ha.',
                 'Hai già provato l\'email su di te? Se no, annulla e usa «Invia email di prova a me».',
                 'Se chiudi la pagina l\'invio continua da solo, un gruppo ogni 5 minuti.'
             ],
@@ -4404,9 +4453,10 @@
     /* ============================================================
        SCHEDA ESPORTA
        ============================================================ */
-    const COLONNE_PARTECIPANTI = ['Nome utente', 'Nome', 'Cognome', 'Email', 'Azienda', 'Account', 'Email credenziali', 'Inviata il',
+    // si entra con l'email: e' lei che identifica la persona, nei due fogli
+    const COLONNE_PARTECIPANTI = ['Nome', 'Cognome', 'Email', 'Azienda', 'Account', 'Email credenziali', 'Inviata il',
         'Primo collegamento', 'Ultimo segnale', 'Minuti collegati (durante la diretta)', 'Collegamenti', 'Ultimo accesso'];
-    const COLONNE_ACCESSI = ['Quando', 'Nome utente', 'Nome', 'Cognome', 'Azienda', 'Dispositivo'];
+    const COLONNE_ACCESSI = ['Quando', 'Email', 'Nome', 'Cognome', 'Azienda', 'Dispositivo'];
     const NOTA_MINUTI = 'Minuti stimati dalla pagina durante la diretta (segnale ogni 60 s, verificato dalle regole con l\'orario del server); limitati alla durata dell\'evento.';
 
     $('#btn-esporta').addEventListener('click', () => conAttesa($('#btn-esporta'), async () => {
@@ -4422,7 +4472,7 @@
                 const inv = p.invio || {};
                 const secondi = Math.min(Number(pr.secondi || 0), durata);
                 righe.push([
-                    p.nomeUtente || '', p.nome || '', p.cognome || '', p.email || '', p.azienda || '',
+                    p.nome || '', p.cognome || '', p.email || '', p.azienda || '',
                     p.stato === 'disattivato' ? 'disattivato' : 'attivo',
                     inv.stato || 'da inviare', dataOra(inv.inviata),
                     dataOra(pr.primo), dataOra(pr.ultimo),
@@ -4434,14 +4484,14 @@
             // la nota la scrive il servizio (che limita i minuti), questa e' la stessa se manca
             righe.push([r.nota || NOTA_MINUTI]);
             const accessi = (r.accessi || []).slice().sort((a, b) => (a.quando || 0) - (b.quando || 0));
-            const righeAccessi = [COLONNE_ACCESSI].concat(accessi.map(a => [dataOra(a.quando), a.nomeUtente || '', a.nome || '', a.cognome || '', a.azienda || '', a.dispositivo || '']));
+            const righeAccessi = [COLONNE_ACCESSI].concat(accessi.map(a => [dataOra(a.quando), a.email || '', a.nome || '', a.cognome || '', a.azienda || '', a.dispositivo || '']));
 
             const wb = XLSX.utils.book_new();
             const ws1 = XLSX.utils.aoa_to_sheet(righe);
-            ws1['!cols'] = [16, 16, 18, 30, 26, 12, 16, 17, 18, 17, 14, 12, 17].map(w => ({ wch: w }));
-            ws1['!autofilter'] = { ref: 'A1:M' + (persone.length + 1) };
+            ws1['!cols'] = [16, 18, 30, 26, 12, 16, 17, 18, 17, 14, 12, 17].map(w => ({ wch: w }));
+            ws1['!autofilter'] = { ref: 'A1:L' + (persone.length + 1) };
             const ws2 = XLSX.utils.aoa_to_sheet(righeAccessi);
-            ws2['!cols'] = [17, 16, 16, 18, 26, 22].map(w => ({ wch: w }));
+            ws2['!cols'] = [17, 30, 16, 18, 26, 22].map(w => ({ wch: w }));
             ws2['!autofilter'] = { ref: 'A1:F' + (accessi.length + 1) };
             XLSX.utils.book_append_sheet(wb, ws1, 'Partecipanti');
             XLSX.utils.book_append_sheet(wb, ws2, 'Accessi');

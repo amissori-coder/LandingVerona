@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260925a">
+    <link rel="stylesheet" href="gestione.css?v=20260926a">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -193,7 +193,7 @@
                                     </div>
                                     <p id="ev-azoto-aiuto" class="aiuto">Incolla il codice che vi ha dato Azoto (quello con &lt;iframe src='…'&gt;) oppure solo l'indirizzo del player.
                                         Si salva SOLO l'indirizzo https di cdn.azotosolutions.com: il resto del codice (script, stili, altri tag) si scarta
-                                        e non entra mai nella pagina. L'indirizzo resta riservato: arriva solo a chi è entrato con nome utente e password,
+                                        e non entra mai nella pagina. L'indirizzo resta riservato: arriva solo a chi è entrato con la sua email e la password,
                                         mentre l'evento è in onda. Puoi lasciarlo vuoto e inserirlo più tardi, anche dalla scheda Regia.</p>
                                     <p id="ev-azoto-indirizzo" class="link-tipo indirizzo-azoto" role="status" hidden></p>
                                     <p class="aiuto nota-azoto">Con il player Azoto restano i comandi (e l'eventuale logo) di Azoto: per usare i nostri comandi serve il link .m3u8 del flusso diretto, da chiedere ad Azoto.</p>
@@ -321,7 +321,7 @@
                             <div class="campo">
                                 <label for="ev-pagina">Pagina dell'evento sul sito</label>
                                 <input type="text" id="ev-pagina" name="paginaEvento" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-pagina-aiuto" placeholder="/napoli_ottobre_2026/">
-                                <p id="ev-pagina-aiuto" class="aiuto">Il percorso della pagina, citato nelle email con le credenziali.</p>
+                                <p id="ev-pagina-aiuto" class="aiuto">Il percorso della pagina, citato nelle email con le credenziali. Serve anche all'invio automatico della password a chi si iscrive dal modulo di questa pagina (qui sotto).</p>
                             </div>
                         </div>
 
@@ -335,7 +335,7 @@
                             </label>
                             <label class="opzione">
                                 <input type="checkbox" id="ev-promemoria-giorno" name="promemoriaGiorno">
-                                <span><strong>Promemoria il giorno prima.</strong> Email automatica con il link della diretta e il nome utente (mai la password).
+                                <span><strong>Promemoria il giorno prima.</strong> Email automatica con il link della diretta e l'email con cui entrare (mai la password).
                                     <span id="prom-dest-giorno" class="prom-destinatari"></span></span>
                             </label>
                             <label class="opzione">
@@ -352,6 +352,28 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- ======== ISCRIZIONI DAL MODULO DEL SITO ========
+                     L'interruttore vale subito, senza «Salva»: gestione.js lo manda al
+                     servizio con l'azione evento-iscrizioni (spento di base). -->
+                <section id="riquadro-iscrizioni" class="riquadro riquadro-iscrizioni" aria-labelledby="iscrizioni-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="iscrizioni-titolo">Iscrizioni dal modulo del sito</h2>
+                        <p class="riquadro-sotto">Le persone del primo elenco le carichi dalla scheda Partecipanti e le credenziali partono
+                            quando premi «Invia le credenziali». Per chi si iscrive dopo, dal modulo del sito, puoi far partire la password da sola.</p>
+                    </div>
+                    <label class="interruttore" for="ev-iscrizioni-auto">
+                        <input type="checkbox" role="switch" id="ev-iscrizioni-auto" aria-describedby="iscrizioni-aiuto iscrizioni-stato" disabled>
+                        <span class="interruttore-pista" aria-hidden="true"></span>
+                        <span class="interruttore-testo">Invia subito la password a chi si iscrive dal modulo del sito</span>
+                    </label>
+                    <p id="iscrizioni-stato" class="interruttore-stato" data-tono="" aria-live="polite"></p>
+                    <p id="iscrizioni-aiuto" class="aiuto iscrizioni-aiuto">Vale per chi si iscrive <strong>online</strong> dal modulo della
+                        «Pagina dell'evento sul sito» (quella salvata qui sopra): riceve subito l'email con la password per entrare con la sua email.
+                        Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova; chi si iscrive due volte non riceve niente di nuovo.
+                        È spento di base: accendilo dopo aver caricato e inviato la prima lista.</p>
+                    <p id="msg-iscrizioni" class="msg" role="status" hidden></p>
+                </section>
             </section>
 
             <!-- ======== SCHEDA REGIA ======== -->
@@ -574,9 +596,9 @@
                     <div class="riquadro-testa">
                         <h2>Carica i partecipanti</h2>
                         <p class="riquadro-sotto">Da un file CSV o Excel con le colonne <strong>nome</strong>, <strong>cognome</strong>,
-                            <strong>email</strong> e, se c'è, <strong>azienda</strong>. Prima di creare qualsiasi account vedi
-                            un'anteprima riga per riga con il nome utente che verrà assegnato e i controlli.
-                            Le email con le credenziali non partono ora: le invii dalla scheda Email.</p>
+                            <strong>email</strong> e, se c'è, <strong>azienda</strong>. Si entra con l'email: prima di creare qualsiasi
+                            account vedi un'anteprima riga per riga con i controlli sulle email (mancanti, non valide, doppie, già registrate,
+                            la stessa email per persone diverse). Creare gli account non manda nessuna email: le credenziali le invii dalla scheda Email.</p>
                     </div>
                     <div class="carica-riga">
                         <label class="btn btn-primario scegli-file" for="file-partecipanti">
@@ -648,7 +670,6 @@
                                 <label><input type="radio" name="filtro-anteprima" value="da-sistemare"> Solo da sistemare</label>
                             </fieldset>
                             <span id="conta-anteprima" class="conta"></span>
-                            <button type="button" id="btn-conferma-omonimi" class="btn btn-secondario">Conferma tutti gli omonimi</button>
                         </div>
                         <div class="tabella-contenitore">
                             <table id="tabella-anteprima" class="tabella tabella-anteprima">
@@ -661,7 +682,6 @@
                                         <th scope="col">Cognome</th>
                                         <th scope="col">Email</th>
                                         <th scope="col">Azienda</th>
-                                        <th scope="col">Nome utente</th>
                                         <th scope="col">Controlli</th>
                                     </tr>
                                 </thead>
@@ -686,12 +706,16 @@
                     <div id="esito-crea" class="esito-crea" hidden>
                         <h3>Risultato della creazione</h3>
                         <div id="esito-crea-riepilogo" class="riepilogo"></div>
+                        <div class="esito-crea-invio">
+                            <p id="esito-crea-messaggio" class="msg" role="status" hidden></p>
+                            <button type="button" id="btn-vai-email" class="btn btn-secondario btn-piccolo">Vai alla scheda Email</button>
+                        </div>
                         <p id="esito-crea-nota" class="aiuto"></p>
                         <div class="tabella-contenitore" id="esito-crea-contenitore" hidden>
                             <table id="tabella-esito-crea" class="tabella">
-                                <caption class="solo-lettori">Righe da guardare: nomi utente cambiati ed errori</caption>
+                                <caption class="solo-lettori">Righe da guardare: errori e righe andate diversamente dall'anteprima</caption>
                                 <thead>
-                                    <tr><th scope="col" class="num">Riga</th><th scope="col">Persona</th><th scope="col">Esito</th><th scope="col">Nome utente</th><th scope="col">Nota</th></tr>
+                                    <tr><th scope="col" class="num">Riga</th><th scope="col">Persona</th><th scope="col">Email</th><th scope="col">Esito</th><th scope="col">Nota</th></tr>
                                 </thead>
                                 <tbody></tbody>
                             </table>
@@ -707,7 +731,7 @@
                     <div class="cerca-riga">
                         <div class="campo campo-cerca">
                             <label for="cerca-partecipanti">Cerca</label>
-                            <input type="search" id="cerca-partecipanti" placeholder="Nome utente, nome, email o azienda" autocomplete="off" spellcheck="false">
+                            <input type="search" id="cerca-partecipanti" placeholder="Nome, email o azienda" autocomplete="off" spellcheck="false">
                         </div>
                         <div class="campo">
                             <label for="filtro-stato-email">Email credenziali</label>
@@ -726,7 +750,6 @@
                             <caption class="solo-lettori">Partecipanti dell'evento selezionato</caption>
                             <thead>
                                 <tr>
-                                    <th scope="col">Nome utente</th>
                                     <th scope="col">Nome e cognome</th>
                                     <th scope="col">Email</th>
                                     <th scope="col">Azienda</th>
@@ -780,7 +803,8 @@
                         <div class="riga-campo">
                             <label for="sel-tipo-prova" class="solo-lettori">Email da provare</label>
                             <select id="sel-tipo-prova">
-                                <option value="credenziali">Credenziali (nome utente e password)</option>
+                                <option value="credenziali">Credenziali (email e password)</option>
+                                <option value="iscritto-anche">Sei iscritto anche a… (senza password)</option>
                                 <option value="promemoria-giorno">Promemoria del giorno prima</option>
                                 <option value="promemoria-ora">Promemoria di un'ora prima</option>
                             </select>
@@ -824,7 +848,7 @@
                     <h2>Esporta in Excel</h2>
                     <p class="regia-dettaglio">Un file con due fogli, utile per gli attestati di partecipazione:</p>
                     <ul class="elenco">
-                        <li><strong>Partecipanti</strong>: nome utente, nome, cognome, email, azienda, stato dell'account e dell'email,
+                        <li><strong>Partecipanti</strong>: nome, cognome, email, azienda, stato dell'account e dell'email,
                             primo collegamento, ultimo segnale, minuti collegati durante la diretta, numero di collegamenti, ultimo accesso.</li>
                         <li><strong>Accessi</strong>: ogni accesso riuscito, con data e ora, persona e dispositivo.</li>
                     </ul>
@@ -880,14 +904,7 @@
                         <input type="email" id="corr-email" autocomplete="off" spellcheck="false" autocapitalize="off" required>
                     </div>
                 </div>
-                <p id="corr-anteprima-nome" class="riquadro-nota" aria-live="polite"></p>
-                <fieldset id="corr-scelta-nome" class="gruppo-opzioni" hidden>
-                    <legend>Le credenziali sono già state inviate</legend>
-                    <label class="opzione"><input type="radio" name="corr-nome-utente" value="mantieni" checked>
-                        <span><strong>Mantieni il nome utente attuale</strong> (<span id="corr-nome-attuale" class="testo-fisso"></span>): la persona continua a entrare con le credenziali che ha.</span></label>
-                    <label class="opzione"><input type="radio" name="corr-nome-utente" value="cambia">
-                        <span><strong>Cambialo e rimanda le credenziali</strong>: il vecchio nome utente smette di funzionare.</span></label>
-                </fieldset>
+                <p id="corr-nota-email" class="riquadro-nota" aria-live="polite"></p>
                 <p id="msg-correggi" class="msg msg-errore" role="alert" hidden></p>
             </div>
             <div class="dialogo-azioni">
@@ -900,7 +917,7 @@
     <dialog id="dialogo-password" class="dialogo" aria-labelledby="password-titolo" aria-describedby="password-nota">
         <div class="dialogo-corpo">
             <h2 id="password-titolo">Nuova password</h2>
-            <p class="regia-dettaglio">Nome utente: <span id="password-nome-utente" class="testo-fisso"></span></p>
+            <p class="regia-dettaglio">Per <span id="password-persona"></span>, che entra con l'email <strong id="password-email"></strong>.</p>
             <p class="password-riquadro"><span id="password-mostrata" class="testo-fisso"></span></p>
             <p id="password-nota" class="aiuto">La vedi adesso e poi mai più: non è salvata da nessuna parte.
                 Comunicala alla persona in modo sicuro (a voce o al telefono). La password precedente non funziona più.</p>
@@ -914,13 +931,13 @@
 
     <div id="avvisi" class="avvisi" role="status" aria-live="polite"></div>
 
-    <script src="../config.js?v=20260924c"></script>
+    <script src="../config.js?v=20260926a"></script>
     <!-- le regole dei link della web TV (le stesse del player e del servizio)
          e gli stessi player della pagina dei partecipanti, per l'anteprima:
          player-webtv.js per il flusso diretto, player-azoto.js per il player Azoto -->
     <script src="../sorgente-video.js?v=20260925a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260925a"></script>
+    <script src="gestione.js?v=20260926a"></script>
 </body>
 </html>
