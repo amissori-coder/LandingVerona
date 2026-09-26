@@ -20,12 +20,12 @@
 
     window.NGB_DIRETTA_CONFIG = {
         firebase: {
-            apiKey: 'DA_COMPILARE',
+            apiKey: 'AIzaSyCeGq35XyBUfmBlHm46xeLlKcU6N8RXVO8',
             authDomain: 'ngb-eventi.firebaseapp.com',
             projectId: 'ngb-eventi',
             storageBucket: 'ngb-eventi.firebasestorage.app',
-            messagingSenderId: 'DA_COMPILARE',
-            appId: 'DA_COMPILARE'
+            messagingSenderId: '901270627472',
+            appId: '1:901270627472:web:6b2d65cce97185a235e415'
         },
         // la stessa versione dell'SDK usata dall'area riservata, da gstatic
         versioneFirebase: '11.6.1',

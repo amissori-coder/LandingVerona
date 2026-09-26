@@ -16,7 +16,7 @@ rules_version = '2';
    - un gestore (claim "gestore", messo dal server solo alle email
      dell'elenco DIRETTA_ADMIN_EMAILS) legge gli eventi, per
      l'anteprima "vedi come un partecipante";
-   - tutto il resto (nomi utente, indirizzi, accessi, tentativi,
+   - tutto il resto (indirizzi email, accessi, tentativi,
      code di invio) lo legge e lo scrive SOLO il server, che usa la
      chiave di servizio e non passa da queste regole.
 
