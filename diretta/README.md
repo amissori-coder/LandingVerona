@@ -1130,7 +1130,15 @@ node e2e.prova.js              # solo il percorso completo
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
 Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch
-(26 settembre 2026, dopo la riconciliazione e l'annullamento dal sito): 2400
+**allineato con il sito principale** (main f26e12e: conferma dell'indirizzo
+email, modulo di Napoli senza foglio Google), 26 settembre 2026: **2401 verdi
+e 2 rossi**, i due controlli di `sito.prova.js` che cercavano ancora i testi
+di prima dell'allineamento (`?v=18` e la vecchia frase di conferma); corretta
+la prova, rifatta da sola: 287 verdi su 287. In tutto **2403 controlli verdi,
+0 rossi**; più le prove del servizio (`email-service/prove`, 32 file) tutte
+verdi, comprese quelle arrivate da main.
+
+Il giro prima (26 settembre 2026, dopo la riconciliazione e l'annullamento dal sito): 2400
 verdi e 2 rossi, l'anteprima (qui sotto) e un controllo dei tempi di
 `accesso.prova.js` («stesso tempo»: mediane 938 e 1103 ms, con la macchina
 carica dalla prova precedente); rifatte da sole, `accesso.prova.js` due volte
