@@ -411,6 +411,19 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .messaggio[data-tipo="ok"] { background: #E7F5EE; color: #14532D; padding: 12px 14px; border-left: 4px solid var(--verde); }
 .riga-link { text-align: center; font-size: 15.5px; }
 .riga-link a { font-weight: 600; display: inline-flex; align-items: center; min-height: 48px; padding: 6px 8px; }
+/* «Non sei ancora iscritto? Iscriviti qui.»: sotto «Password dimenticata?»
+   (accanto, nella griglia del modulo) e sotto la risposta di «Password
+   dimenticata?». Il collegamento dentro la frase si tocca bene anche sul
+   telefono: la zona attiva si allarga sopra e sotto (padding) senza
+   spostare le righe (margine negativo). */
+.frase-iscrizione { text-align: center; font-size: 15.5px; line-height: 1.5; color: var(--tenue); }
+.riga-link + .frase-iscrizione { margin-top: -8px; }
+.frase-iscrizione a { font-weight: 600; display: inline-block; padding: 11px 0; margin: -11px 0; }
+/* la risposta di «Password dimenticata?»: il messaggio e la frase insieme.
+   La regione resta sempre nella pagina (i lettori di schermo la seguono):
+   vuota, non deve aggiungere lo spazio di una riga della griglia. */
+.esito-dimenticata { display: grid; gap: 10px; }
+.esito-dimenticata:has(> .messaggio:empty) { margin-top: -16px; }
 
 /* ====================== BOTTONI ====================== */
 .btn {

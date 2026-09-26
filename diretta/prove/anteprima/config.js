@@ -22,6 +22,9 @@
         versioneFirebase: '11.6.1',
         servizio: 'https://anteprima.invalid/api',
         assistenza: { email: 'info@nextgenerationbusiness.it', telefono: '' },
+        // come sul sito: «Iscriviti qui» porta al modulo della pagina di Napoli
+        // (nell'anteprima si apre fuori, sul sito vero: vedi anteprima/pagina.js)
+        iscrizione: '/napoli_ottobre_2026/#accreditamento',
         emulatori: null,
         prove: { ritardoPresenzaMs: 4000, intervalloPresenzaMs: null },
         anteprima: true

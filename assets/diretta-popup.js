@@ -87,13 +87,13 @@
     },
     oggi: {
       titolo: "Oggi in diretta dalle " + orario.inizio,
-      sotto: "Il convegno di Napoli si segue online: tieni a portata di mano il nome utente "
-        + "e la password che hai ricevuto via email."
+      sotto: "Il convegno di Napoli si segue online: si entra con la propria email "
+        + "e la password ricevuta via email."
     },
     in_onda: {
       titolo: "Siamo in diretta: accedi",
-      sotto: "Il convegno di Napoli è in corso: entra con il nome utente e la password "
-        + "che hai ricevuto via email."
+      sotto: "Il convegno di Napoli è in corso: entra con la tua email "
+        + "e la password ricevuta via email."
     },
     // l'orario di ripresa c'e' solo se il gestore l'ha scritto
     pausa: {
@@ -101,7 +101,7 @@
       sotto: function (ripresa) {
         return (ripresa ? "Il convegno di Napoli riprende alle " + ripresa + " (ora italiana). "
           : "Il convegno di Napoli riprende a breve. ")
-          + "Intanto puoi già entrare con il nome utente e la password che hai ricevuto via email.";
+          + "Intanto puoi già entrare con la tua email e la password ricevuta via email.";
       }
     }
   };
@@ -250,8 +250,9 @@
     + '<div class="dirp-body">'
     + '<ul class="dirp-info">'
     + '<li>' + iconCal + '<span class="dirp-quando"></span></li>'
-    + '<li>' + iconEmail + '<span>Gli <b>iscritti online</b> ricevono <b>via email nome utente e password</b> '
-    + 'per entrare nella diretta. Non trovi le credenziali? Controlla la posta indesiderata o scrivi a '
+    + '<li>' + iconEmail + '<span>Gli <b>iscritti online</b> entrano nella diretta con la <b>propria email</b> '
+    + 'e la <b>password ricevuta via email</b>. Non trovi l&rsquo;email? Controlla nella cartella Spam o Promozioni '
+    + 'e segna il mittente come sicuro, oppure scrivi a '
     + '<a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></span></li>'
     + '</ul>'
     + '<div class="dirp-actions">'

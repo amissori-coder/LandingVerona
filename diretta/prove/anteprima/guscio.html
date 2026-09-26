@@ -90,7 +90,6 @@ main { padding-inline: 16px; padding-block: 16px 32px; }
 .bottone.secondario:hover { border-color: var(--tenue); filter: none; }
 :root[data-theme="dark"] .bottone:not(.secondario) { background: #2c6aa6; border-color: #2c6aa6; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bottone:not(.secondario) { background: #2c6aa6; border-color: #2c6aa6; } }
-.omonimo { font-size: 11.5px; font-weight: 700; color: var(--oro); margin-left: 4px; }
 .regia { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; font-size: 14px; margin-bottom: 12px; }
 .regia dt { color: var(--tenue); }
 .regia dd { margin: 0; }
@@ -212,9 +211,9 @@ main { padding-inline: 16px; padding-block: 16px 32px; }
 
             <div class="carta blocco">
                 <h2>Accessi dei partecipanti</h2>
-                <p>Per la scheda «Partecipante» (la pagina /diretta/). Il nome utente si può scrivere anche come «Mario Rossi».</p>
+                <p>Per la scheda «Partecipante» (la pagina /diretta/): si entra con l'email con cui ci si è iscritti e la password ricevuta via email. L'email si può scrivere anche con le maiuscole.</p>
                 <table class="accessi">
-                    <thead><tr><th scope="col">Persona</th><th scope="col">Nome utente</th><th scope="col">Password</th><th scope="col"><span class="solo-lettori">Azione</span></th></tr></thead>
+                    <thead><tr><th scope="col">Persona</th><th scope="col">Email</th><th scope="col">Password</th><th scope="col"><span class="solo-lettori">Azione</span></th></tr></thead>
                     <tbody id="tabella-accessi"></tbody>
                 </table>
             </div>
@@ -232,13 +231,13 @@ main { padding-inline: 16px; padding-block: 16px 32px; }
             <div class="carta blocco">
                 <h2>Cosa provare, in ordine</h2>
                 <ol class="passi">
-                    <li><div><b>Entra come partecipante</b><p>«Entra» accanto a Mario Rossi: vedi l'attesa con il conto alla rovescia e il programma.</p></div></li>
+                    <li><div><b>Entra come partecipante</b><p>«Entra» accanto a Mario Rossi: la pagina scrive la sua email e la password, e vedi l'attesa con il conto alla rovescia e il programma. Sotto il pulsante «Entra» c'è sempre «Non sei ancora iscritto? Iscriviti qui.», verso il modulo della pagina dell'evento.</p></div></li>
                     <li><div><b>Manda in onda dalla regia</b><p>Gestione → Regia → «Vai in onda». Torna su Partecipante: la pagina è passata alla diretta da sola, con il player Azoto (qui il riquadro di prova, sul sito con i comandi di Azoto). Sotto il video ci sono solo «Schermo intero» (sul telefono la vista a pagina intera orizzontale) e la nota per chi non sente l'audio.</p></div></li>
                     <li><div><b>Passa al flusso diretto e torna ad Azoto</b><p>In Regia «Passa al flusso diretto per tutti»: la pagina del partecipante passa da sola al nostro player (qui il video di prova), con «Attiva l'audio», la qualità, la barra per tornare indietro, «Torna in diretta» e i tasti spazio, F, M. Poi «Torna al player Azoto per tutti».</p></div></li>
                     <li><div><b>Cambia il video, metti in pausa, termina</b><p>In Regia cambia l'indirizzo del player Azoto (per esempio https://cdn.azotosolutions.com/cloudtv/livetv92/player): il riquadro mostra il nuovo indirizzo. Con /lento/ nel percorso (https://cdn.azotosolutions.com/cloudtv/lento/player) il player non arriva mai: dopo 15 secondi compare «La diretta sta arrivando» con «Ricarica il video». Per il flusso diretto qui risponde una web TV finta (https://webtv.esempio.it/…/playlist.m3u8; i link con /spenta/ fanno la diretta non ancora partita). Poi pausa con un messaggio, e «Termina».</p></div></li>
-                    <li><div><b>Carica un file di iscritti</b><p>41 righe con omonimi, doppioni, email sbagliate e nomi da correggere: guarda l'anteprima riga per riga.</p><button type="button" class="bottone secondario" id="btn-file-esempio">Carica il file di esempio</button></div></li>
-                    <li><div><b>Manda le credenziali</b><p>Gestione → Email → «Invia le credenziali». Le email arrivano in «Posta di prova» con nome utente e password: funzionano davvero.</p></div></li>
-                    <li><div><b>Password dimenticata, disattivazione</b><p>Dal partecipante, «Password dimenticata?»: il collegamento arriva nella posta. Poi in Gestione → Partecipanti disattiva Mario Rossi mentre guarda.</p></div></li>
+                    <li><div><b>Carica un file di iscritti</b><p>41 righe con doppioni, email mancanti o sbagliate, la stessa email per due persone diverse e nomi da correggere: guarda l'anteprima riga per riga.</p><button type="button" class="bottone secondario" id="btn-file-esempio">Carica il file di esempio</button></div></li>
+                    <li><div><b>Manda le credenziali</b><p>Gestione → Email → «Invia le credenziali». Le email arrivano in «Posta di prova» con l'email per entrare e la password: funzionano davvero.</p></div></li>
+                    <li><div><b>Password dimenticata, disattivazione</b><p>Dal partecipante, «Password dimenticata?» con l'email: la risposta è sempre la stessa, iscritto o no, e il collegamento arriva nella posta solo a chi è iscritto. Poi in Gestione → Partecipanti disattiva Mario Rossi mentre guarda.</p></div></li>
                 </ol>
             </div>
 
@@ -250,6 +249,7 @@ main { padding-inline: 16px; padding-block: 16px 32px; }
                     <li><b>I file.</b> L'esportazione Excel si apre in una finestra invece di scaricarsi.</li>
                     <li><b>L'evento</b> è sempre di oggi e ricomincia ogni giorno; «Ricomincia da capo» lo rifà subito.</li>
                     <li><b>I dispositivi.</b> «Partecipante» e «Gestione» sono come due dispositivi diversi, ciascuno con il suo accesso.</li>
+                    <li><b>«Iscriviti qui».</b> Apre in una nuova scheda il modulo di iscrizione sul sito vero.</li>
                 </ul>
             </div>
         </div>

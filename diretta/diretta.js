@@ -5,7 +5,7 @@
    Chi entra qui vede una cosa sola: la diretta dell'evento a cui e'
    iscritto. Il percorso:
 
-     accesso (nome utente + password)
+     accesso (email + password)
        -> il servizio su Vercel verifica e risponde con un gettone
           (api/diretta-accesso, azione 'entra')
        -> accesso a Firebase con quel gettone (signInWithCustomToken)
@@ -44,9 +44,10 @@
         di riserva e link firmati sono qui sotto (IL VIDEO E I NOSTRI
         COMANDI).
    La configurazione (progetto Firebase, indirizzo del servizio,
-   modalita' prove) e' in config.js.
-   La pulizia del nome utente e' in nome-utente.js (la stessa del
-   servizio).
+   modulo di iscrizione, modalita' prove) e' in config.js.
+   Si entra con l'EMAIL con cui ci si e' iscritti (niente nomi utente):
+   l'email si confronta come nel servizio, senza spazi prima e dopo e
+   tutta minuscola (normalizzaEmail, qui sotto).
 
    Tutti gli ID usati qui sono elencati nel contratto (sezione 6) e
    le prove (diretta/prove/pagina.prova.js) li usano.
@@ -55,12 +56,11 @@
     'use strict';
 
     const CFG = window.NGB_DIRETTA_CONFIG || null;
-    const NU = window.NGBNomeUtente || null;
     const PAGINA = document.body.getAttribute('data-pagina') || 'diretta';
 
     // cosa resta nel browser (localStorage): mai password, mai gettoni
     const CHIAVE_SESSIONE = 'ngbDirettaSessione';   // identificativo del dispositivo per "un solo dispositivo"
-    const CHIAVE_NOME = 'ngbDirettaNomeUtente';     // per riproporre il nome utente
+    const CHIAVE_EMAIL = 'ngbDirettaEmail';         // per riproporre l'email all'accesso
     const CHIAVE_SEGNALE = 'ngbDirettaPresenza';    // ultimo segnale di presenza (fra schede e ricariche)
     // sessionStorage: quante volte di fila l'SDK di Firebase non si e' scaricato (per allungare le attese)
     const CHIAVE_RIPROVA_SDK = 'ngbDirettaRiprovaSdk';
@@ -119,8 +119,29 @@
     function parametro(nome) {
         try { return new URLSearchParams(location.search).get(nome) || ''; } catch (e) { return ''; }
     }
-    function pulisciNome(t) {
-        return NU ? NU.pulisciAccesso(t) : String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    /* L'email: UNA regola per pagina, gestione e servizio (email-service,
+       indirizzi/{email}): spazi prima e dopo tolti, tutto minuscolo.
+       Nient'altro: i punti degli indirizzi Gmail restano come sono. */
+    function normalizzaEmail(t) {
+        return String(t == null ? '' : t).trim().toLowerCase();
+    }
+    /* Solo la forma (qualcosa@dominio.it): evita una chiamata inutile a chi
+       scrive il nome invece dell'indirizzo. Se l'email e' giusta decide
+       sempre il servizio, con la sua validazione. */
+    function sembraEmail(e) {
+        return e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+    }
+    // l'email normalizzata, oppure '' se non ha la forma di un indirizzo
+    function emailPulita(valore) {
+        const e = normalizzaEmail(valore);
+        return sembraEmail(e) ? e : '';
+    }
+    /* L'email usata l'ultima volta su questo dispositivo (localStorage), per
+       riproporla. I collegamenti delle email NON portano l'indirizzo della
+       persona (finirebbe nei registri e nella cronologia): solo ?e=<evento>
+       e ?dimenticata=1. */
+    function emailRicordata() {
+        return emailPulita(archivio.leggi(CHIAVE_EMAIL) || '');
     }
     function annuncia(t) {
         const el = $('annuncio');
@@ -369,7 +390,7 @@
         },
         'accedi-di-nuovo': {
             titolo: 'Accedi di nuovo',
-            testo: 'I permessi del tuo account sono cambiati. Accedi di nuovo con il tuo nome utente e la tua password.',
+            testo: 'I permessi del tuo account sono cambiati. Accedi di nuovo con la tua email e la tua password.',
             azione: 'Vai all\'accesso', fai: () => mostraAccesso()
         },
         'nessun-evento': {
@@ -406,8 +427,8 @@
        --------------------------------------------------------------- */
     const stato = {
         utente: null,             // l'utente Firebase collegato
-        nomePersona: '',
-        nomeUtente: '',
+        nomePersona: '',          // nome e cognome (o l'email) nella testata
+        email: '',                // l'email della persona collegata (normalizzata)
         anteprima: false,         // un gestore che guarda come un partecipante
         idEvento: '',
         evento: null,             // i dati dell'evento (dall'ascolto)
@@ -463,11 +484,9 @@
     function mostraAccesso(opzioni) {
         opzioni = opzioni || {};
         mostraVista('accesso', { fuoco: false });
-        const campo = $('campo-nome-utente');
-        const daLink = pulisciNome(parametro('u'));
-        if (opzioni.nome) campo.value = opzioni.nome;
-        else if (!campo.value) campo.value = daLink || archivio.leggi(CHIAVE_NOME) || '';
-        aggiornaAiutoNome();
+        const campo = $('email');
+        // l'ultima email usata qui (il campo gia' scritto resta com'e')
+        if (!campo.value) campo.value = emailRicordata();
         $('campo-password').value = '';
         if (!accesso.attesaFino) {
             if (opzioni.messaggio) msg('msg-accesso', opzioni.messaggio, opzioni.tipo || 'info');
@@ -487,33 +506,29 @@
 
     function mostraDimenticata() {
         mostraVista('dimenticata', { fuoco: false });
-        const id = $('campo-identificativo');
-        // dal link "password dimenticata" delle email (?u=mariorossi&dimenticata=1)
-        // il campo di accesso e' ancora vuoto: il nome utente arriva dal link
-        if (!id.value) id.value = $('campo-nome-utente').value.trim() || pulisciNome(parametro('u'));
-        msg('msg-dimenticata', '');
-        if (!puntatoreGrossolano()) { try { id.focus({ preventScroll: true }); } catch (e) { id.focus(); } }
+        const campo = $('email-dimenticata');
+        // l'email gia' scritta nell'accesso; dal link "password dimenticata"
+        // delle email (?dimenticata=1) l'accesso non si e' visto: l'ultima
+        // email usata su questo dispositivo
+        if (!campo.value) campo.value = $('email').value.trim() || emailRicordata();
+        esitoDimenticata('');
+        if (!puntatoreGrossolano()) { try { campo.focus({ preventScroll: true }); } catch (e) { campo.focus(); } }
     }
 
-    /* Sotto il campo: che nome utente verra' usato davvero (chi scrive
-       "Mario Rossi" vede che diventa mariorossi, e non si spaventa). */
-    function aggiornaAiutoNome() {
-        const grezzo = $('campo-nome-utente').value;
-        const aiuto = $('aiuto-nome-utente');
-        aiuto.textContent = '';
-        if (grezzo.indexOf('@') >= 0) {
-            aiuto.textContent = 'Scrivi il nome utente che trovi nell\'email, non l\'indirizzo email.';
-            return;
-        }
-        const pulito = pulisciNome(grezzo);
-        if (grezzo.trim() && pulito && pulito !== grezzo.trim()) {
-            aiuto.appendChild(document.createTextNode('Entrerai come '));
-            const b = document.createElement('strong');
-            b.textContent = pulito;
-            aiuto.appendChild(b);
-            return;
-        }
-        aiuto.textContent = 'Di solito è il nome e il cognome attaccati, tutto minuscolo.';
+    /* «Non sei ancora iscritto? Iscriviti qui.»: il collegamento va al modulo
+       di iscrizione, config.iscrizione (un percorso del sito o un indirizzo
+       https). La pagina lo sa PRIMA dell'accesso, senza leggere Firestore.
+       Senza un indirizzo accettabile le frasi restano nascoste. */
+    function indirizzoIscrizione() {
+        const v = String((CFG && CFG.iscrizione) || '').trim();
+        return /^\/(?!\/)[^\s"<>\\]*$/.test(v) || /^https:\/\/[^\s"<>\\]+$/i.test(v) ? v : '';
+    }
+    function preparaIscrizione() {
+        const indirizzo = indirizzoIscrizione();
+        document.querySelectorAll('[data-iscrizione-link]').forEach(a => { if (indirizzo) a.setAttribute('href', indirizzo); });
+        // la frase dell'accesso c'e' sempre (sotto il pulsante); quella di
+        // «Password dimenticata?» compare con la risposta (esitoDimenticata)
+        document.querySelectorAll('[data-iscrizione]').forEach(p => { p.hidden = !indirizzo; });
     }
 
     function ripristinaBottoneEntra() {
@@ -558,17 +573,16 @@
 
     async function entra() {
         if (accesso.inCorso || accesso.attesaFino) return;
-        const campo = $('campo-nome-utente');
+        const campo = $('email');
         const campoPw = $('campo-password');
-        const grezzo = campo.value;
+        const email = normalizzaEmail(campo.value);
         const password = campoPw.value;
-        if (grezzo.indexOf('@') >= 0) {
-            msg('msg-accesso', 'Scrivi il nome utente che trovi nell\'email, non l\'indirizzo email.', 'errore');
+        if (!email) { msg('msg-accesso', 'Scrivi la tua email.', 'errore'); campo.focus(); return; }
+        if (!sembraEmail(email)) {
+            msg('msg-accesso', 'Scrivi l\'indirizzo email completo con cui ti sei iscritto, per esempio mario.rossi@esempio.it.', 'errore');
             campo.focus();
             return;
         }
-        const nomeUtente = pulisciNome(grezzo);
-        if (!nomeUtente) { msg('msg-accesso', 'Scrivi il tuo nome utente.', 'errore'); campo.focus(); return; }
         if (!password) { msg('msg-accesso', 'Scrivi la password.', 'errore'); campoPw.focus(); return; }
 
         accesso.inCorso = true;
@@ -582,13 +596,15 @@
            mostrare l'altro. */
         const dalLink = parametro('e');
         const r = await chiamaServizio({
-            azione: 'entra', nomeUtente: nomeUtente, password: password,
+            azione: 'entra', email: email, password: password,
             idEvento: ID_EVENTO_VALIDO.test(dalLink) ? dalLink : undefined
         });
         if (r.ok && r.token) {
             ricordaSessione(r.sessione);
             stato.eventoAccesso = ID_EVENTO_VALIDO.test(String(r.idEvento || '')) ? String(r.idEvento) : '';
-            archivio.scrivi(CHIAVE_NOME, pulisciNome(r.nomeUtente || nomeUtente));
+            archivio.scrivi(CHIAVE_EMAIL, emailPulita(r.email) || email);
+            // nel campo resta l'email come e' andata al servizio (riproposta dopo «Esci»)
+            campo.value = email;
             stato.appenaEntrato = true;
             accesso.errori = 0;
             try {
@@ -621,7 +637,7 @@
         }
         if (codice === 'credenziali' || r.statoHttp === 401) {
             accesso.errori++;
-            let t = 'Nome utente o password non corretti.';
+            let t = 'Email o password non corretti.';
             const rimasti = Number(r.rimasti);
             if (r.rimasti != null && isFinite(rimasti) && rimasti > 0 && rimasti <= 3) {
                 t += rimasti === 1 ? ' Ti resta un tentativo, poi dovrai attendere qualche minuto.'
@@ -629,7 +645,7 @@
             }
             // dopo due errori, i due sbagli piu' comuni (DECISIONI R5)
             if (accesso.errori >= 2) {
-                t += ' Controlla il nome utente nell\'email: può finire con un numero (es. mariorossi2).'
+                t += ' Usa l\'indirizzo email con cui ti sei iscritto, lo stesso a cui è arrivata la password.'
                     + ' La password distingue maiuscole e minuscole: copiala dall\'email.';
             }
             t += ' Se il problema continua, scrivi all\'assistenza.';
@@ -646,32 +662,46 @@
         msg('msg-accesso', 'Errore del servizio: riprova tra poco. Se il problema continua, scrivi all\'assistenza.', 'errore');
     }
 
+    /* La risposta di «Password dimenticata?» e' SEMPRE la stessa, iscritto
+       o no (non si rivela chi e' iscritto): e' il messaggio del servizio
+       (email-service, 'password-dimenticata'), scritto qui uguale. Sotto,
+       la frase per chi non e' ancora iscritto. */
+    const RISPOSTA_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento '
+        + 'per scegliere una nuova password. Controlla anche nella cartella Spam o Promozioni.';
+    function esitoDimenticata(t, tipo) {
+        msg('msg-dimenticata', t, tipo);
+        mostra('frase-iscrizione-dimenticata', tipo === 'ok' && !!indirizzoIscrizione());
+    }
+
     async function inviaReimpostazione() {
-        const campo = $('campo-identificativo');
-        const identificativo = campo.value.trim();
-        if (!identificativo) { msg('msg-dimenticata', 'Scrivi il tuo nome utente oppure la tua email.', 'errore'); campo.focus(); return; }
+        const campo = $('email-dimenticata');
+        const email = normalizzaEmail(campo.value);
+        if (!email) { esitoDimenticata('Scrivi la tua email.', 'errore'); campo.focus(); return; }
+        if (!sembraEmail(email)) {
+            esitoDimenticata('Scrivi l\'indirizzo email completo con cui ti sei iscritto, per esempio mario.rossi@esempio.it.', 'errore');
+            campo.focus();
+            return;
+        }
         const b = $('btn-invia-reset');
         if (b.disabled) return;
         b.disabled = true;
         testo(b.querySelector('.btn-testo'), 'Invio in corso…');
-        msg('msg-dimenticata', '');
-        const r = await chiamaServizio({ azione: 'password-dimenticata', identificativo: identificativo.slice(0, 254) });
+        esitoDimenticata('');
+        const r = await chiamaServizio({ azione: 'password-dimenticata', email: email });
         b.disabled = false;
         testo(b.querySelector('.btn-testo'), 'Invia il collegamento');
         if (r.ok) {
-            msg('msg-dimenticata', 'Se l\'account esiste, ti abbiamo scritto all\'indirizzo email con cui ti sei iscritto. '
-                + 'Il collegamento vale un\'ora. Controlla anche la posta indesiderata.', 'ok');
+            esitoDimenticata(RISPOSTA_DIMENTICATA, 'ok');
         } else if (r.codice === 'rete') {
-            msg('msg-dimenticata', 'Non riusciamo a raggiungere il servizio: controlla la connessione a internet e riprova.', 'errore');
+            esitoDimenticata('Non riusciamo a raggiungere il servizio: controlla la connessione a internet e riprova.', 'errore');
         } else {
-            msg('msg-dimenticata', 'In questo momento non riusciamo a inviare il collegamento: riprova tra qualche minuto.', 'errore');
+            esitoDimenticata('In questo momento non riusciamo a inviare il collegamento: riprova tra qualche minuto.', 'errore');
         }
     }
 
     function preparaModuli() {
         $('form-accesso').addEventListener('submit', e => { e.preventDefault(); entra(); });
-        $('campo-nome-utente').addEventListener('input', () => {
-            aggiornaAiutoNome();
+        $('email').addEventListener('input', () => {
             if (!accesso.attesaFino && $('msg-accesso').getAttribute('data-tipo') === 'errore') msg('msg-accesso', '');
         });
         $('btn-mostra-password').addEventListener('click', () => {
@@ -690,8 +720,10 @@
     /* ---------------------------------------------------------------
        CHI E' COLLEGATO
        --------------------------------------------------------------- */
+    // nella testata: nome e cognome, oppure l'email se mancano
     function nomeDaMostrare(p) {
-        return [p.nome, p.cognome].map(x => String(x || '').trim()).filter(Boolean).join(' ') || String(p.nomeUtente || '');
+        return [p.nome, p.cognome].map(x => String(x || '').trim()).filter(Boolean).join(' ')
+            || normalizzaEmail(p.emailNorm || p.email);
     }
 
     async function gestisciUtente(utente) {
@@ -703,7 +735,7 @@
         if (!utente) {
             sdkCaricato(); // la vista di accesso non usa Firestore
             stato.nomePersona = '';
-            stato.nomeUtente = '';
+            stato.email = '';
             stato.sessione = '';
             stato.eventoAccesso = '';
             const motivo = stato.motivoUscita;
@@ -817,23 +849,12 @@
         if (p.stato === 'disattivato') { await esciConMessaggio('disattivato'); return; }
 
         stato.nomePersona = nomeDaMostrare(p);
-        stato.nomeUtente = String(p.nomeUtente || '');
-        if (stato.nomeUtente) archivio.scrivi(CHIAVE_NOME, stato.nomeUtente);
-
-        // R24: il link dell'email e' di un'altra persona?
-        const daLink = pulisciNome(parametro('u'));
+        stato.email = emailPulita(p.emailNorm || p.email);
+        if (stato.email) archivio.scrivi(CHIAVE_EMAIL, stato.email);
+        /* I collegamenti delle email non dicono piu' chi e' la persona (niente
+           indirizzi negli URL): la domanda «Sei collegato come...» di quando
+           il link portava ?u= non serve piu'. Il vecchio ?u= si toglie. */
         togliParametri(['u']);
-        if (daLink && stato.nomeUtente && daLink !== stato.nomeUtente) {
-            mostraVista('caricamento');
-            const cambia = await chiediConferma({
-                titolo: 'Sei collegato come ' + stato.nomeUtente,
-                testo: 'Il collegamento che hai aperto è per ' + daLink + '. Vuoi entrare come ' + daLink + '?',
-                si: 'Entra come ' + daLink,
-                no: 'Resta come ' + stato.nomeUtente
-            });
-            if (gen !== stato.generazione) return;
-            if (cambia) { await esci(daLink); return; }
-        }
 
         let eventi = Array.isArray(p.eventi) ? p.eventi.filter(x => ID_EVENTO_VALIDO.test(String(x))) : [];
         if (!eventi.length && ID_EVENTO_VALIDO.test(String(p.idEvento || ''))) eventi = [p.idEvento];
@@ -902,14 +923,14 @@
         stato.eventoAccesso = '';
     }
 
-    async function esci(nomeDaProporre) {
+    async function esci() {
         stato.motivoUscita = 'esci';
         fermaTutto();
         dimenticaSessione();
         try { if (fb.auth) await fb.A.signOut(fb.auth); } catch (e) { /* fuori comunque */ }
         stato.utente = null;
         stato.nomePersona = '';
-        mostraAccesso(nomeDaProporre ? { nome: nomeDaProporre } : {});
+        mostraAccesso();
     }
 
     /* Anteprima del gestore: la sessione di Firebase e' la stessa della
@@ -2887,6 +2908,7 @@
        --------------------------------------------------------------- */
     async function avviaDiretta() {
         preparaAssistenza();
+        preparaIscrizione();
         preparaModuli();
         preparaComandi();
         preparaRete();
@@ -2899,7 +2921,7 @@
                 si: 'Esci', no: 'Resta'
             } : {
                 titolo: 'Vuoi uscire dalla diretta?',
-                testo: 'Per rientrare ti serviranno di nuovo il nome utente e la password.',
+                testo: 'Per rientrare ti serviranno di nuovo la tua email e la password.',
                 si: 'Esci', no: 'Resta'
             });
             if (si) esci();
@@ -2918,18 +2940,21 @@
     /* ---------------------------------------------------------------
        REIMPOSTAZIONE DELLA PASSWORD (/diretta/reimposta.html)
        ---------------------------------------------------------------
-       Il collegamento arriva per email: reimposta.html?oobCode=...&u=<nome utente>
-       (oppure &per=gestione per i gestori). Il nome utente si mostra dal
-       parametro u, ripulito: l'email tecnica dietro l'account non si vede
-       mai (DECISIONI D1). Dopo il salvataggio si entra da soli nella
-       diretta con la nuova password (R24). */
+       Il collegamento arriva per email: reimposta.html?oobCode=...
+       (&per=gestione per i gestori). Il collegamento non porta l'email della
+       persona (niente indirizzi negli URL) e l'email tecnica dietro
+       l'account, quella che conosce Firebase, non si vede mai (DECISIONI
+       D1): il campo «Email» riprende l'ultima email usata su questo
+       dispositivo e la persona la puo' scrivere o correggere. Dopo il
+       salvataggio, con l'email si entra da soli nella diretta con la nuova
+       password (R24); senza, o se l'email non e' quella giusta, si entra a
+       mano. Il gestore vede la sua email (quella vera del suo account). */
     async function avviaReimposta() {
         preparaAssistenza();
         const par = new URLSearchParams(location.search);
         const oob = par.get('oobCode') || '';
         const perGestione = par.get('per') === 'gestione';
-        const nomeUtente = pulisciNome(par.get('u') || '');
-        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/' + (nomeUtente ? '?u=' + encodeURIComponent(nomeUtente) : '');
+        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/';
         const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1';
 
         function avviso(t, tipo) { msg('msg-reimposta', t, tipo); }
@@ -2950,7 +2975,6 @@
             b.setAttribute('aria-pressed', String(visibili));
             b.setAttribute('aria-label', visibili ? 'Nascondi le password' : 'Mostra le password');
         });
-        if (perGestione) testo('etichetta-nome-reset', 'Email');
 
         if (!configurata()) { testo('reimposta-sottotitolo', 'La pagina non è ancora configurata.'); return; }
         if (!oob) {
@@ -2982,11 +3006,18 @@
             return;
         }
 
-        const campoNome = $('nome-utente-reset');
-        campoNome.value = perGestione ? email : nomeUtente;
-        mostra('riga-nome-reset', !!campoNome.value);
+        // il gestore: la sua email vera, da leggere; il partecipante: la sua, da scrivere o correggere
+        const campoEmail = $('email-reset');
+        if (perGestione) {
+            campoEmail.value = email;
+            campoEmail.readOnly = true;
+            mostra('aiuto-email-reset', false);
+            campoEmail.removeAttribute('aria-describedby');
+        } else {
+            campoEmail.value = emailRicordata();
+        }
         testo('reimposta-sottotitolo', perGestione ? 'La userai per entrare nella gestione della diretta.'
-            : 'La userai per entrare nella diretta, insieme al nome utente qui sotto.');
+            : 'La userai per entrare nella diretta, insieme alla tua email.');
         mostra('form-reimposta', true);
         try { $('campo-nuova').focus({ preventScroll: true }); } catch (e) { /* niente */ }
 
@@ -3019,18 +3050,19 @@
             vai.setAttribute('href', destinazione);
             testo(vai, perGestione ? 'Vai alla gestione' : 'Vai alla diretta');
 
-            if (perGestione || !nomeUtente) {
-                avviso(perGestione ? 'Ora puoi entrare nella gestione con la nuova password.' : 'Ora puoi entrare nella diretta con la nuova password.', 'ok');
+            const emailPersona = perGestione ? '' : emailPulita(campoEmail.value);
+            if (perGestione || !emailPersona) {
+                avviso(perGestione ? 'Ora puoi entrare nella gestione con la nuova password.' : 'Ora puoi entrare nella diretta con la tua email e la nuova password.', 'ok');
                 mostra('link-dopo-reimposta', true);
                 return;
             }
-            // R24: si entra da soli, come se la persona avesse scritto nome utente e password
+            // R24: si entra da soli, come se la persona avesse scritto email e password
             avviso('Password salvata. Ti stiamo portando nella diretta…', 'ok');
-            const r = await chiamaServizio({ azione: 'entra', nomeUtente: nomeUtente, password: p1 });
+            const r = await chiamaServizio({ azione: 'entra', email: emailPersona, password: p1 });
             if (r.ok && r.token) {
                 try {
                     ricordaSessione(r.sessione);
-                    archivio.scrivi(CHIAVE_NOME, nomeUtente);
+                    archivio.scrivi(CHIAVE_EMAIL, emailPersona);
                     await fb.A.signInWithCustomToken(fb.auth, r.token);
                     // l'evento su cui il servizio ha deciso all'accesso: la diretta apre quello
                     const e = String(r.idEvento || '');
@@ -3038,7 +3070,7 @@
                     return;
                 } catch (e) { /* sotto: si entra a mano */ }
             }
-            avviso('Password salvata. Ora puoi entrare nella diretta con la nuova password.', 'ok');
+            avviso('Password salvata. Ora puoi entrare nella diretta con la tua email e la nuova password.', 'ok');
             mostra('link-dopo-reimposta', true);
         });
     }

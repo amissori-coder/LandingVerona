@@ -36,8 +36,14 @@
    (isMobile, hasTouch, user agent di Safari su iPhone, e SENZA le API
    di schermo intero, come su iPhone: si prova lo pseudo schermo intero).
 
-   COSA DIMOSTRA. Accesso scrivendo " Mario Rossi " (ripulito in
-   mariorossi); vista di attesa con conto alla rovescia e programma; la
+   COSA DIMOSTRA. Si entra con l'EMAIL: la pagina di accesso ha il campo
+   «Email» (type=email, autocomplete=username, inputmode=email),
+   «Password», «Entra», «Password dimenticata?» e sotto, sempre, «Non sei
+   ancora iscritto? Iscriviti qui.» verso il modulo (config.iscrizione);
+   un testo che non e' un'email (il vecchio nome utente) non parte;
+   «Email o password non corretti.»; accesso scrivendo
+   "Mario.Rossi@Esempio.IT" (al servizio va mario.rossi@esempio.it, mai un
+   nome utente); nella testata nome e cognome; vista di attesa con conto alla rovescia e programma; la
    regia (qui firebase-admin) manda in onda e la pagina passa da sola
    alla diretta: il video della web TV scorre nel NOSTRO <video>
    (playsinline, muto all'avvio, senza i comandi del browser, con
@@ -53,9 +59,13 @@
    disponibile», chiaro, e la pagina non si rompe); connessione persa e
    ritrovata; la presenza scritta dopo il ritardo casuale; ricarica
    senza nuovo accesso; pausa dell'evento con l'avviso a tutti; fine;
-   ritorno in onda dopo la fine; Esci con conferma; password
-   dimenticata; reimpostazione della password (anche con un
-   collegamento scaduto). E nessuna violazione della CSP.
+   ritorno in onda dopo la fine; Esci con conferma (l'email resta
+   scritta); password dimenticata con l'email (la risposta e' sempre la
+   stessa, con Spam o Promozioni e «Non sei ancora iscritto? Iscriviti
+   qui.»); reimpostazione della password (il collegamento non porta
+   l'email: il campo riprende l'ultima usata sul dispositivo; con l'email
+   si entra da soli, senza si entra a mano; anche con un collegamento
+   scaduto). E nessuna violazione della CSP.
 
    LA MODALITA' A (il player di Azoto finto di flusso-prova.js, mai la
    rete vera di Azoto), con la regia che scrive qui il documento
@@ -88,7 +98,8 @@
    - anteprima del gestore: "Chiudi l'anteprima" non scollega la
      gestione aperta nell'altra scheda;
    - 403 'nessun-evento' all'accesso; &e= mandato al servizio; il link
-     ?u=...&dimenticata=1; SDK di Firebase non scaricato (rete: nuovo
+     ?dimenticata=1 (un vecchio ?u=<nome utente> non si scrive nel campo
+     dell'email, e da collegati si toglie dall'indirizzo); SDK di Firebase non scaricato (rete: nuovo
      tentativo; codice rotto: "browser non aggiornato");
    - "Connessione persa" mai davanti al video o ai comandi; avviso della
      regia a schermo intero; pulsanti di almeno 48 px e "Torna in
@@ -124,6 +135,12 @@ const F = require('./flusso-prova');
 const CARTELLA_WEBTV = path.resolve(__dirname, 'risultati/webtv-prova-pagina');
 const LINK = F.WEBTV + '/live/master.m3u8';
 const LINK_NUOVO = F.WEBTV + '/riserva/master.m3u8';
+
+// i testi dell'accesso con l'email (contratto: si entra con l'email e la password ricevuta via email)
+const RISPOSTA_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento '
+    + 'per scegliere una nuova password. Controlla anche nella cartella Spam o Promozioni.';
+const FRASE_ISCRIZIONE = 'Non sei ancora iscritto? Iscriviti qui.';
+const MODULO_ISCRIZIONE = '/napoli_ottobre_2026/#accreditamento';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -345,7 +362,7 @@ function eventoIniziale(T) {
         await auth.createUser({ uid, email: emailTecnica, password: passwordIniziale, displayName: 'Mario Rossi' });
         await auth.setCustomUserClaims(uid, { eventi: [EVENTO] });
         await db.doc('partecipanti/' + uid).set({
-            uid, nomeUtente: 'mariorossi', nome: 'Mario', cognome: 'Rossi',
+            uid, nome: 'Mario', cognome: 'Rossi',
             email: 'mario.rossi@esempio.it', emailNorm: 'mario.rossi@esempio.it', azienda: 'Rossi Srl',
             idEvento: EVENTO, eventi: [EVENTO], stato: 'attivo', authCreato: true, ultimoAccesso: null,
             invii: { [EVENTO]: { stato: 'inviata', aggiornato: T.now(), tentativi: 1 } },
@@ -355,7 +372,6 @@ function eventoIniziale(T) {
         const uidGestore = 'gestore' + crypto.randomBytes(4).toString('hex');
         await auth.createUser({ uid: uidGestore, email: 'gestore@prova.it', emailVerified: true, password: passwordIniziale });
         await auth.setCustomUserClaims(uidGestore, { gestore: true });
-        await db.doc('nomiUtente/mariorossi').set({ uid, base: 'mariorossi', creato: T.now() });
         await db.doc('eventiRiservati/' + EVENTO).set({ videoUrl: '', videoId: '', aggiornato: T.now() });
         await evento.set(eventoIniziale(T));
 
@@ -385,17 +401,17 @@ function eventoIniziale(T) {
         // una password sola per queste persone (mai stampata)
         const PASSWORD_PROVA = 'Prova' + crypto.randomBytes(5).toString('hex') + '7';
         const utentiProva = {};
-        async function nuovoPartecipante(nomeUtente, nome, cognome, eventi) {
+        // chiave: il nome breve della prova; si entra con <chiave>@esempio.it
+        async function nuovoPartecipante(chiave, nome, cognome, eventi) {
             const id = 'p' + crypto.randomBytes(10).toString('hex');
             await auth.createUser({ uid: id, email: id + '@' + DOMINIO_TECNICO, password: PASSWORD_PROVA, displayName: nome + ' ' + cognome });
             await auth.setCustomUserClaims(id, { eventi });
             await db.doc('partecipanti/' + id).set({
-                uid: id, nomeUtente, nome, cognome, email: nomeUtente + '@esempio.it', emailNorm: nomeUtente + '@esempio.it', azienda: 'Prova Srl',
+                uid: id, nome, cognome, email: chiave + '@esempio.it', emailNorm: chiave + '@esempio.it', azienda: 'Prova Srl',
                 idEvento: eventi[0], eventi, stato: 'attivo', authCreato: true, ultimoAccesso: null, invii: {}, creato: T.now(), aggiornato: T.now()
             });
             await db.doc('sessioni/' + id).set({ stato: 'attivo', sessioneAttiva: null, aggiornato: T.now() });
-            await db.doc('nomiUtente/' + nomeUtente).set({ uid: id, base: nomeUtente, creato: T.now() });
-            utentiProva[nomeUtente] = { uid: id, nome, cognome, eventi, sessioni: [] };
+            utentiProva[chiave] = { uid: id, nome, cognome, email: chiave + '@esempio.it', eventi, sessioni: [] };
         }
         await nuovoPartecipante('saracambio', 'Sara', 'Cambio', ['ev-unico']);
         await nuovoPartecipante('giuliaschede', 'Giulia', 'Schede', ['ev-schede']);
@@ -403,13 +419,14 @@ function eventoIniziale(T) {
         await nuovoPartecipante('luciasenza', 'Lucia', 'Senza', ['ev-archivio']);
         await nuovoPartecipante('paolovideo', 'Paolo', 'Video', ['ev-video']);
         await nuovoPartecipante('annaazoto', 'Anna', 'Azoto', ['ev-azoto']);
+        const personaProva = email => Object.values(utentiProva).find(u => u.email === email) || null;
         const presenzaDi = async (idEvento, id) => {
             const s = await db.doc('presenze/' + idEvento + '_' + id).get();
             return s.exists ? s.data() : null;
         };
 
         /* ---------- 3. il finto servizio di accesso ---------- */
-        const chiamate = [];              // [{azione, nomeUtente?, identificativo?}] (mai le password)
+        const chiamate = [];              // [{azione, email?, ...}] (mai le password); nomeUtente e identificativo non devono arrivare piu'
         const sessioniRilasciate = [];
         let errori = 0;
         async function servizio(route) {
@@ -420,51 +437,50 @@ function eventoIniziale(T) {
             let corpo = {};
             try { corpo = JSON.parse(req.postData() || '{}'); } catch (e) { corpo = {}; }
             chiamate.push({
-                azione: corpo.azione, nomeUtente: corpo.nomeUtente, identificativo: corpo.identificativo, conToken: !!req.headers().authorization,
+                azione: corpo.azione, email: corpo.email, nomeUtente: corpo.nomeUtente, identificativo: corpo.identificativo, conToken: !!req.headers().authorization,
                 idEvento: corpo.idEvento, conIdEvento: Object.prototype.hasOwnProperty.call(corpo, 'idEvento')
             });
             if (corpo.azione === 'entra') {
                 // password giusta, ma nessun evento (per esempio dopo «Togli da questo evento»)
-                if (corpo.nomeUtente === 'senzaeventi') {
+                if (corpo.email === 'senza.eventi@esempio.it') {
                     return risposta(403, { ok: false, codice: 'nessun-evento', msg: 'Non risulti iscritto a nessuna diretta. Scrivi all\'assistenza.' });
                 }
                 /* Le persone dei casi della revisione: come il servizio vero
                    (lib/diretta-accesso.js), l'evento e' quello chiesto dal link se e'
                    tra i suoi, e con "un solo dispositivo" la sessione nuova diventa
                    quella ammessa in sessioni/{uid}. */
-                const u = utentiProva[corpo.nomeUtente];
+                const u = personaProva(corpo.email);
                 if (u && corpo.password === PASSWORD_PROVA) {
                     const id = u.eventi.indexOf(corpo.idEvento) >= 0 ? corpo.idEvento : u.eventi[0];
                     const ev = (await db.doc('eventi/' + id).get()).data() || {};
                     const sessione = crypto.randomBytes(12).toString('hex');
                     await db.doc('sessioni/' + u.uid).set({ stato: 'attivo', sessioneAttiva: ev.unSoloDispositivo === true ? sessione : null, aggiornato: T.now() }, { merge: true });
                     u.sessioni.push(sessione);
-                    return risposta(200, { ok: true, token: await auth.createCustomToken(u.uid), sessione, idEvento: id, nome: u.nome, cognome: u.cognome, nomeUtente: corpo.nomeUtente });
+                    return risposta(200, { ok: true, token: await auth.createCustomToken(u.uid), sessione, idEvento: id, nome: u.nome, cognome: u.cognome, email: u.email });
                 }
                 /* Scorciatoia SOLO di questa prova per avere nella pagina una sessione da
                    gestore (i gestori veri entrano dalla gestione con email e password) */
-                if (corpo.nomeUtente === 'gestoreprova' && passwordValide.has(corpo.password)) {
-                    return risposta(200, { ok: true, token: await auth.createCustomToken(uidGestore), sessione: 'g1', idEvento: EVENTO, nome: '', cognome: '', nomeUtente: '' });
+                if (corpo.email === 'gestore@prova.it' && passwordValide.has(corpo.password)) {
+                    return risposta(200, { ok: true, token: await auth.createCustomToken(uidGestore), sessione: 'g1', idEvento: EVENTO, nome: '', cognome: '', email: '' });
                 }
-                if (corpo.nomeUtente === 'mariorossi' && passwordValide.has(corpo.password)) {
+                if (corpo.email === 'mario.rossi@esempio.it' && passwordValide.has(corpo.password)) {
                     errori = 0;
                     const sessione = crypto.randomBytes(12).toString('hex');
                     sessioniRilasciate.push(sessione);
                     const token = await auth.createCustomToken(uid);
-                    return risposta(200, { ok: true, token, sessione, idEvento: EVENTO, nome: 'Mario', cognome: 'Rossi', nomeUtente: 'mariorossi' });
+                    return risposta(200, { ok: true, token, sessione, idEvento: EVENTO, nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it' });
                 }
                 errori++;
                 if (errori >= 5) return risposta(429, { ok: false, codice: 'attendi', attesaSecondi: 30, msg: 'Troppi tentativi.' });
-                return risposta(401, { ok: false, codice: 'credenziali', msg: 'Nome utente o password non corretti.', rimasti: Math.max(0, 5 - errori) });
+                return risposta(401, { ok: false, codice: 'credenziali', msg: 'Email o password non corretti.', rimasti: Math.max(0, 5 - errori) });
             }
-            if (corpo.azione === 'password-dimenticata') {
-                return risposta(200, { ok: true, msg: 'Se l\'account esiste, ti abbiamo scritto all\'indirizzo email con cui ti sei iscritto.' });
-            }
+            // come il servizio vero: la stessa risposta, iscritto o no
+            if (corpo.azione === 'password-dimenticata') return risposta(200, { ok: true, msg: RISPOSTA_DIMENTICATA });
             if (corpo.azione === 'aggiorna-permessi') return risposta(200, { ok: true, aggiornati: false });
             return risposta(400, { ok: false, codice: 'azione', msg: 'Azione sconosciuta' });
         }
         // solo le chiamate delle prove "a vista": quelle lunghe, in sottofondo, entrano con le loro persone
-        const quante = azione => chiamate.filter(c => c.azione === azione && !utentiProva[c.nomeUtente]).length;
+        const quante = azione => chiamate.filter(c => c.azione === azione && !personaProva(c.email)).length;
 
         /* ---------- 4. il browser ---------- */
         browser = await chromium.launch(LANCIO);
@@ -528,10 +544,10 @@ function eventoIniziale(T) {
             return v ? getComputedStyle(v).visibility : 'assente';
         });
         const vistaDi = page => page.getAttribute('body', 'data-vista');
-        async function accedi(page, nome, password, indirizzo) {
+        async function accedi(page, email, password, indirizzo) {
             await page.goto(indirizzo || SITO + '/diretta/?emulatori=1');
             await vistaE(page, 'accesso', 30000);
-            await page.fill('#campo-nome-utente', nome);
+            await page.fill('#email', email);
             await page.fill('#campo-password', password);
             await page.click('#btn-entra');
         }
@@ -562,14 +578,14 @@ function eventoIniziale(T) {
                 userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
             }, true, { prove: tempiVeloci });
             try {
-                await accedi(A.page, 'saracambio', PASSWORD_PROVA);
+                await accedi(A.page, 'saracambio@esempio.it', PASSWORD_PROVA);
                 await vistaE(A.page, 'diretta', 30000);
                 const sessA = u.sessioni[u.sessioni.length - 1];
                 const primo = await aspetta(() => presenzaDi('ev-unico', u.uid), 20000, 'primo segnale di A');
                 vero(primo.sessione === sessA && primo.collegamenti === 1, 'primo segnale di A: ' + JSON.stringify({ collegamenti: primo.collegamenti }));
                 const tA = primo.ultimo.toMillis();
 
-                await accedi(B.page, 'saracambio', PASSWORD_PROVA);
+                await accedi(B.page, 'saracambio@esempio.it', PASSWORD_PROVA);
                 await vistaE(B.page, 'diretta', 30000);
                 const sessB = u.sessioni[u.sessioni.length - 1];
                 vero((await db.doc('sessioni/' + u.uid).get()).data().sessioneAttiva === sessB, 'il servizio non ha ammesso B');
@@ -614,7 +630,7 @@ function eventoIniziale(T) {
             const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: tempiVeloci });
             try {
                 const a = C.page;
-                await accedi(a, 'giuliaschede', PASSWORD_PROVA);
+                await accedi(a, 'giuliaschede@esempio.it', PASSWORD_PROVA);
                 await vistaE(a, 'diretta', 30000);
                 const primo = await aspetta(() => presenzaDi('ev-schede', u.uid), 20000, 'primo segnale della scheda A');
                 const tA = primo.ultimo.toMillis();
@@ -659,7 +675,7 @@ function eventoIniziale(T) {
                 }
             });
             try {
-                await accedi(C.page, 'luciasenza', PASSWORD_PROVA);
+                await accedi(C.page, 'luciasenza@esempio.it', PASSWORD_PROVA);
                 await vistaE(C.page, 'diretta', 30000);
                 vero(await C.page.evaluate(() => { try { window.localStorage.getItem('x'); return false; } catch (e) { return true; } }), 'localStorage non bloccato');
                 const sess = u.sessioni[u.sessioni.length - 1];
@@ -709,33 +725,72 @@ function eventoIniziale(T) {
             vero(inLinea === 0, 'script in linea nella pagina: ' + inLinea);
         });
 
-        await prova('un indirizzo email al posto del nome utente: avviso, nessuna chiamata', async () => {
-            const prima = quante('entra');
-            await p.fill('#campo-nome-utente', 'mario.rossi@esempio.it');
-            await p.fill('#campo-password', 'qualcosa');
-            await p.click('#btn-entra');
-            await p.waitForFunction(() => /non l'indirizzo email/.test(document.getElementById('msg-accesso').textContent));
-            vero(quante('entra') === prima, 'la chiamata e\' partita');
+        await prova('accesso con l\'email: campo «Email» (type=email, autocomplete=username, inputmode=email), «Password», «Entra», «Password dimenticata?» e sotto il pulsante «Non sei ancora iscritto? Iscriviti qui.»', async () => {
+            const c = await p.evaluate(() => {
+                const e = document.getElementById('email');
+                const etichetta = document.querySelector('label[for="email"]');
+                return {
+                    tipo: e.type, auto: e.getAttribute('autocomplete'), tastiera: e.getAttribute('inputmode'), etichetta: etichetta && etichetta.textContent.trim(),
+                    pw: document.getElementById('campo-password').type, entra: document.getElementById('btn-entra').textContent.trim(),
+                    vecchio: !!document.querySelector('#campo-nome-utente, #aiuto-nome-utente, #campo-identificativo'),
+                    testi: document.getElementById('vista-accesso').innerText
+                };
+            });
+            vero(c.tipo === 'email' && c.auto === 'username' && c.tastiera === 'email' && c.etichetta === 'Email', 'campo email: ' + JSON.stringify(c).slice(0, 200));
+            vero(c.pw === 'password' && c.entra === 'Entra', 'password o «Entra»');
+            vero(!c.vecchio && !/nome utente/i.test(c.testi), 'resta il nome utente nella pagina di accesso');
+            vero(/Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro/.test(c.testi), 'manca la frase dello spam');
+            vero(await visibile(p, '#link-dimenticata') && (await p.textContent('#link-dimenticata')).trim() === 'Password dimenticata?', '«Password dimenticata?»');
+            vero(await visibile(p, '#frase-iscrizione'), 'frase dell\'iscrizione non visibile');
+            vero((await p.innerText('#frase-iscrizione')).trim() === FRASE_ISCRIZIONE, 'frase: «' + (await p.innerText('#frase-iscrizione')).trim() + '»');
+            vero((await p.textContent('#link-iscrizione')).trim() === 'Iscriviti qui' && await p.getAttribute('#link-iscrizione', 'href') === MODULO_ISCRIZIONE,
+                'collegamento: ' + await p.getAttribute('#link-iscrizione', 'href'));
+            const bEntra = await p.locator('#btn-entra').boundingBox();
+            const bFrase = await p.locator('#frase-iscrizione').boundingBox();
+            vero(bFrase.y > bEntra.y + bEntra.height, 'la frase non sta sotto il pulsante');
         });
 
-        await prova('password sbagliata due volte: messaggio chiaro e il consiglio sul nome con il numero', async () => {
-            await p.fill('#campo-nome-utente', 'mariorossi');
+        await prova('un testo che non è un indirizzo email (il vecchio nome utente): avviso, nessuna chiamata', async () => {
+            const prima = quante('entra');
+            await p.fill('#email', 'mariorossi');
+            await p.fill('#campo-password', 'qualcosa');
+            await p.click('#btn-entra');
+            await p.waitForFunction(() => /indirizzo email completo/.test(document.getElementById('msg-accesso').textContent));
+            vero(quante('entra') === prima, 'la chiamata e\' partita');
+            await p.fill('#email', '');
+            await p.click('#btn-entra');
+            await p.waitForFunction(() => document.getElementById('msg-accesso').textContent === 'Scrivi la tua email.');
+            vero(quante('entra') === prima, 'la chiamata e\' partita con l\'email vuota');
+        });
+
+        await prova('password sbagliata due volte: «Email o password non corretti.», sotto «Password dimenticata?» e la frase dell\'iscrizione', async () => {
+            await p.fill('#email', 'mario.rossi@esempio.it');
             await p.fill('#campo-password', 'sbagliata1');
             await p.click('#btn-entra');
             await p.waitForFunction(() => /non corretti/.test(document.getElementById('msg-accesso').textContent));
+            const m = await p.textContent('#msg-accesso');
+            vero(/^Email o password non corretti\./.test(m), 'messaggio: ' + m);
+            vero(await visibile(p, '#link-dimenticata') && await visibile(p, '#frase-iscrizione'), '«Password dimenticata?» e la frase non visibili con l\'errore');
+            const bMsg = await p.locator('#msg-accesso').boundingBox();
+            const bLink = await p.locator('#link-dimenticata').boundingBox();
+            const bFrase = await p.locator('#frase-iscrizione').boundingBox();
+            vero(bLink.y > bMsg.y && bFrase.y > bLink.y, 'ordine: errore, «Password dimenticata?», frase');
+            await foto(p, 'accesso-errore-computer');
             await p.fill('#campo-password', 'sbagliata2');
             await p.click('#btn-entra');
-            await p.waitForFunction(() => /può finire con un numero/.test(document.getElementById('msg-accesso').textContent));
+            await p.waitForFunction(() => /Usa l'indirizzo email con cui ti sei iscritto/.test(document.getElementById('msg-accesso').textContent));
+            vero(!/nome utente/i.test(await p.textContent('#msg-accesso')), 'il consiglio parla ancora del nome utente');
         });
 
-        await prova('accesso scrivendo " Mario Rossi ": ripulito in mariorossi, vista di attesa', async () => {
-            await p.fill('#campo-nome-utente', ' Mario Rossi ');
-            await p.waitForFunction(() => /mariorossi/.test(document.getElementById('aiuto-nome-utente').textContent));
+        await prova('accesso scrivendo "Mario.Rossi@Esempio.IT": al servizio va l\'email in minuscolo (mai un nome utente), vista di attesa', async () => {
+            await p.fill('#email', 'Mario.Rossi@Esempio.IT');
             await p.fill('#campo-password', passwordIniziale);
             await p.click('#btn-entra');
             await vistaE(p, 'attesa', 20000);
-            const ultima = chiamate.filter(c => c.azione === 'entra' && !utentiProva[c.nomeUtente]).pop();
-            vero(ultima.nomeUtente === 'mariorossi', 'nome utente inviato: ' + ultima.nomeUtente);
+            const ultima = chiamate.filter(c => c.azione === 'entra' && !personaProva(c.email)).pop();
+            vero(ultima.email === 'mario.rossi@esempio.it', 'email inviata: ' + ultima.email);
+            vero(ultima.nomeUtente === undefined && ultima.identificativo === undefined, 'la pagina manda ancora il nome utente');
+            vero(await p.evaluate(() => localStorage.getItem('ngbDirettaEmail')) === 'mario.rossi@esempio.it', 'email non ricordata per il prossimo accesso');
             vero((await p.textContent('#nome-persona')).trim() === 'Mario Rossi', 'nome della persona: ' + await p.textContent('#nome-persona'));
             vero(/Napoli/.test(await p.textContent('#titolo-evento')), 'titolo evento: ' + await p.textContent('#titolo-evento'));
             vero(await visibile(p, '#btn-esci'), 'Esci non visibile');
@@ -1023,45 +1078,105 @@ function eventoIniziale(T) {
             await p.click('#btn-conferma-si');
             await vistaE(p, 'accesso', 10000);
             vero(await p.evaluate(() => localStorage.getItem('ngbDirettaSessione')) === null, 'sessione non tolta');
-            vero(await p.inputValue('#campo-nome-utente') === 'mariorossi', 'nome utente non riproposto');
+            vero(await p.inputValue('#email') === 'mario.rossi@esempio.it', 'email non riproposta: ' + await p.inputValue('#email'));
             vero(await p.locator('#video-player video, #video-player iframe').count() === 0, 'il player resta vivo dopo l\'uscita');
             vero(!(await visibile(p, '#btn-esci')), 'Esci ancora visibile');
         });
 
-        await prova('password dimenticata: stessa risposta sempre, niente pagina nuova', async () => {
+        await prova('password dimenticata con l\'email: stessa risposta sempre (Spam o Promozioni) e sotto «Non sei ancora iscritto? Iscriviti qui.», niente pagina nuova', async () => {
             await p.click('#link-dimenticata');
             await vistaE(p, 'dimenticata', 5000);
-            await p.fill('#campo-identificativo', 'mariorossi');
+            const c0 = await p.evaluate(() => {
+                const e = document.getElementById('email-dimenticata');
+                return { tipo: e.type, auto: e.getAttribute('autocomplete'), tastiera: e.getAttribute('inputmode'), valore: e.value, testi: document.getElementById('vista-dimenticata').innerText };
+            });
+            vero(c0.tipo === 'email' && c0.auto === 'username' && c0.tastiera === 'email', 'campo email: ' + JSON.stringify(c0).slice(0, 160));
+            vero(c0.valore === 'mario.rossi@esempio.it', 'il campo non riprende l\'email dell\'accesso: ' + c0.valore);
+            vero(!/nome utente/i.test(c0.testi), 'resta il nome utente in «Password dimenticata»');
+            vero(!(await visibile(p, '#frase-iscrizione-dimenticata')), 'la frase compare prima della risposta');
+            const quanteDim = () => chiamate.filter(x => x.azione === 'password-dimenticata').length;
+            // un testo che non e' un'email: nessuna chiamata
+            const prima = quanteDim();
+            await p.fill('#email-dimenticata', 'mariorossi');
             await p.click('#btn-invia-reset');
-            await p.waitForFunction(() => /Se l'account esiste/.test(document.getElementById('msg-dimenticata').textContent), null, { timeout: 10000 });
+            await p.waitForFunction(() => /indirizzo email completo/.test(document.getElementById('msg-dimenticata').textContent));
+            vero(quanteDim() === prima && !(await visibile(p, '#frase-iscrizione-dimenticata')), 'partita una chiamata senza email');
+            // l'email iscritta, scritta con le maiuscole
+            await p.fill('#email-dimenticata', 'Mario.Rossi@Esempio.IT');
+            await p.click('#btn-invia-reset');
+            await p.waitForFunction(t => document.getElementById('msg-dimenticata').textContent === t, RISPOSTA_DIMENTICATA, { timeout: 10000 });
             const c = chiamate.filter(x => x.azione === 'password-dimenticata').pop();
-            vero(c && c.identificativo === 'mariorossi', 'identificativo inviato');
+            vero(c && c.email === 'mario.rossi@esempio.it' && c.identificativo === undefined, 'inviato: ' + JSON.stringify(c));
+            vero(await visibile(p, '#frase-iscrizione-dimenticata'), 'la frase dell\'iscrizione non compare con la risposta');
+            vero((await p.innerText('#frase-iscrizione-dimenticata')).trim() === FRASE_ISCRIZIONE, 'frase: ' + await p.innerText('#frase-iscrizione-dimenticata'));
+            vero(await p.getAttribute('#link-iscrizione-dimenticata', 'href') === MODULO_ISCRIZIONE, 'collegamento del modulo');
+            const bMsg = await p.locator('#msg-dimenticata').boundingBox();
+            const bFrase = await p.locator('#frase-iscrizione-dimenticata').boundingBox();
+            vero(bFrase.y > bMsg.y + bMsg.height - 1, 'la frase non sta sotto il messaggio');
             await foto(p, 'dimenticata-computer');
+            // chi non e' iscritto: la stessa, identica risposta
+            await p.fill('#email-dimenticata', 'nessuno.iscritto@esempio.it');
+            await p.click('#btn-invia-reset');
+            await aspetta(() => chiamate.filter(x => x.azione === 'password-dimenticata').pop().email === 'nessuno.iscritto@esempio.it', 10000, 'la seconda richiesta');
+            await p.waitForFunction(t => document.getElementById('msg-dimenticata').textContent === t, RISPOSTA_DIMENTICATA, { timeout: 10000 });
+            vero(await visibile(p, '#frase-iscrizione-dimenticata'), 'la frase dell\'iscrizione non compare per chi non e\' iscritto');
             await p.click('#link-torna-accesso');
             await vistaE(p, 'accesso', 5000);
             await p.goto(SITO + '/diretta/?dimenticata=1');
             await vistaE(p, 'dimenticata', 20000);
         });
 
-        await prova('il link «password dimenticata» delle email (?u=mariorossi&dimenticata=1) scrive già il nome utente', async () => {
+        await prova('il link «password dimenticata» delle email (?dimenticata=1): il campo riprende l\'ultima email usata qui; un vecchio ?u=<nome utente> non si scrive', async () => {
+            await p.goto(SITO + '/diretta/?dimenticata=1');
+            await vistaE(p, 'dimenticata', 20000);
+            vero(await p.inputValue('#email-dimenticata') === 'mario.rossi@esempio.it', 'campo: «' + await p.inputValue('#email-dimenticata') + '»');
             await p.goto(SITO + '/diretta/?u=mariorossi&dimenticata=1');
             await vistaE(p, 'dimenticata', 20000);
-            vero(await p.inputValue('#campo-identificativo') === 'mariorossi', 'campo: «' + await p.inputValue('#campo-identificativo') + '»');
+            vero(await p.inputValue('#email-dimenticata') === 'mario.rossi@esempio.it', 'campo: «' + await p.inputValue('#email-dimenticata') + '»');
         });
 
         await prova('reimpostazione: collegamento scaduto -> "Richiedi un nuovo collegamento"', async () => {
-            await p.goto(SITO + '/diretta/reimposta.html?oobCode=codice-inventato&u=mariorossi');
+            await p.goto(SITO + '/diretta/reimposta.html?oobCode=codice-inventato');
             await p.waitForSelector('#link-nuovo-collegamento', { state: 'visible', timeout: 20000 });
             vero(await p.getAttribute('#link-nuovo-collegamento', 'href') === '/diretta/?dimenticata=1', 'link del nuovo collegamento');
             vero(/scaduto o è già stato usato/.test(await p.textContent('#reimposta-sottotitolo')), 'testo: ' + await p.textContent('#reimposta-sottotitolo'));
         });
 
-        await prova('reimpostazione: nuova password salvata, accesso automatico e poi la diretta', async () => {
+        await prova('reimpostazione con il campo «Email» vuoto: la password si salva, poi si entra a mano (nessun accesso automatico)', async () => {
             const link = await auth.generatePasswordResetLink(emailTecnica);
             const oob = new URL(link).searchParams.get('oobCode');
-            await p.goto(SITO + '/diretta/reimposta.html?oobCode=' + encodeURIComponent(oob) + '&u=Mario%20Rossi');
+            // un vecchio collegamento con &u=<nome utente>: non conta
+            await p.goto(SITO + '/diretta/reimposta.html?oobCode=' + encodeURIComponent(oob) + '&u=mariorossi');
             await p.waitForSelector('#form-reimposta', { state: 'visible', timeout: 20000 });
-            vero(await p.inputValue('#nome-utente-reset') === 'mariorossi', 'nome utente mostrato: ' + await p.inputValue('#nome-utente-reset'));
+            const c = await p.evaluate(() => {
+                const e = document.getElementById('email-reset');
+                return { valore: e.value, tipo: e.type, auto: e.getAttribute('autocomplete'), solaLettura: e.readOnly, etichetta: document.querySelector('label[for="email-reset"]').textContent.trim() };
+            });
+            vero(c.valore === 'mario.rossi@esempio.it', 'il campo non riprende l\'ultima email usata qui: ' + c.valore);
+            vero(c.tipo === 'email' && c.auto === 'username' && !c.solaLettura && c.etichetta === 'Email', 'campo dell\'email: ' + JSON.stringify(c));
+            const testi = await p.innerText('main');
+            vero(!/nome utente/i.test(testi) && /insieme alla tua email\./.test(testi), 'testi: ' + testi.slice(0, 200));
+            vero(!testi.includes(DOMINIO_TECNICO) && !(await p.content()).includes(DOMINIO_TECNICO), 'si vede l\'email tecnica');
+            await p.fill('#email-reset', '');
+            const nuova = 'Mano' + crypto.randomBytes(4).toString('hex') + '8';
+            passwordValide.add(nuova);
+            const entratePrima = chiamate.filter(x => x.azione === 'entra').length;
+            await p.fill('#campo-nuova', nuova);
+            await p.fill('#campo-ripeti', nuova);
+            await p.click('#btn-salva-password');
+            await p.waitForSelector('#link-dopo-reimposta', { state: 'visible', timeout: 20000 });
+            vero(/con la tua email e la nuova password/.test(await p.textContent('#msg-reimposta')), 'messaggio: ' + await p.textContent('#msg-reimposta'));
+            vero(await p.getAttribute('#link-dopo-reimposta', 'href') === '/diretta/', 'link: ' + await p.getAttribute('#link-dopo-reimposta', 'href'));
+            vero(chiamate.filter(x => x.azione === 'entra').length === entratePrima, 'accesso automatico senza email');
+        });
+
+        await prova('reimpostazione: nuova password salvata, accesso automatico con l\'email del campo e poi la diretta', async () => {
+            const link = await auth.generatePasswordResetLink(emailTecnica);
+            const oob = new URL(link).searchParams.get('oobCode');
+            await p.goto(SITO + '/diretta/reimposta.html?oobCode=' + encodeURIComponent(oob));
+            await p.waitForSelector('#form-reimposta', { state: 'visible', timeout: 20000 });
+            vero(await p.inputValue('#email-reset') === 'mario.rossi@esempio.it', 'email proposta: ' + await p.inputValue('#email-reset'));
+            await p.fill('#email-reset', ' Mario.Rossi@Esempio.IT ');
             await p.fill('#campo-nuova', 'corta1');
             await p.fill('#campo-ripeti', 'corta1');
             await p.click('#btn-salva-password');
@@ -1074,6 +1189,8 @@ function eventoIniziale(T) {
             await p.click('#btn-salva-password');
             await p.waitForURL(u => /\/diretta\/$/.test(new URL(u).pathname) && !/reimposta/.test(u), { timeout: 20000 });
             await vistaE(p, 'diretta', 30000);
+            const c = chiamate.filter(x => x.azione === 'entra').pop();
+            vero(c.email === 'mario.rossi@esempio.it' && c.nomeUtente === undefined, 'accesso automatico: ' + JSON.stringify(c));
             // la password vale davvero (emulatore di Auth)
             const r = await fetch('http://127.0.0.1:' + PORTE.auth + '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=finta', {
                 method: 'POST', headers: { 'content-type': 'application/json' },
@@ -1093,9 +1210,9 @@ function eventoIniziale(T) {
         console.log('\nCasi particolari (gestore, accesso, account disattivato)');
         const cp = await nuovoContesto({ viewport: { width: 1366, height: 900 } });
         const q = cp.page;
-        const entraCome = async (nome, password) => {
+        const entraCome = async (email, password) => {
             await vistaE(q, 'accesso', 30000);
-            await q.fill('#campo-nome-utente', nome);
+            await q.fill('#email', email);
             await q.fill('#campo-password', password);
             await q.click('#btn-entra');
         };
@@ -1107,7 +1224,7 @@ function eventoIniziale(T) {
         await q.goto(SITO + '/diretta/?emulatori=1');
 
         await prova('gestore: vista con il collegamento alla gestione, poi anteprima senza presenze', async () => {
-            await entraCome('gestoreprova', passwordIniziale);
+            await entraCome('gestore@prova.it', passwordIniziale);
             await vistaE(q, 'gestore', 20000);
             vero((await q.textContent('#nome-persona')).trim() === 'gestore@prova.it', 'nome nella testata');
             await q.goto(SITO + '/diretta/?anteprima=' + EVENTO);
@@ -1132,7 +1249,7 @@ function eventoIniziale(T) {
         });
 
         await prova('accesso di chi non è iscritto a nessun evento (403 nessun-evento): il messaggio giusto, non «errore del servizio»', async () => {
-            await entraCome('senzaeventi', 'una-password-qualsiasi');
+            await entraCome('senza.eventi@esempio.it', 'una-password-qualsiasi');
             await q.waitForFunction(() => /Non risulti iscritto a nessuna diretta/.test(document.getElementById('msg-accesso').textContent), null, { timeout: 10000 });
             vero(!/Errore del servizio/.test(await q.textContent('#msg-accesso')), 'messaggio generico');
             vero(await vistaDi(q) === 'accesso', 'vista: ' + await vistaDi(q));
@@ -1140,23 +1257,35 @@ function eventoIniziale(T) {
 
         await prova('il link dell\'email con &e=: l\'evento va anche al servizio; un valore non valido no', async () => {
             await q.goto(SITO + '/diretta/?e=' + EVENTO);
-            await entraCome('mariorossi', passwordIniziale);
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
             await q.waitForSelector('body[data-vista="diretta"], body[data-vista="attesa"]', { timeout: 20000 });
-            const c = chiamate.filter(x => x.azione === 'entra' && x.nomeUtente === 'mariorossi').pop();
+            const c = chiamate.filter(x => x.azione === 'entra' && x.email === 'mario.rossi@esempio.it').pop();
             vero(c.idEvento === EVENTO, 'idEvento mandato: ' + c.idEvento);
             await esciDa(q);
             await q.goto(SITO + '/diretta/?e=' + encodeURIComponent('../Napoli 2026'));
-            await entraCome('mariorossi', passwordIniziale);
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
             await q.waitForSelector('body[data-vista="diretta"], body[data-vista="attesa"]', { timeout: 20000 });
-            const c2 = chiamate.filter(x => x.azione === 'entra' && x.nomeUtente === 'mariorossi').pop();
+            const c2 = chiamate.filter(x => x.azione === 'entra' && x.email === 'mario.rossi@esempio.it').pop();
             vero(!c2.conIdEvento, 'mandato un idEvento non valido: ' + c2.idEvento);
+            await esciDa(q);
+        });
+
+        await prova('un vecchio collegamento con ?u=<nome utente>, da collegati: nessuna domanda, il parametro si toglie dall\'indirizzo', async () => {
+            await q.goto(SITO + '/diretta/');
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
+            const dentro = 'body[data-vista="diretta"], body[data-vista="attesa"], body[data-vista="pausa"], body[data-vista="fine"]';
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            await q.goto(SITO + '/diretta/?u=annaazoto');
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            vero(!(await visibile(q, '#dialogo-conferma')), 'compare ancora la domanda «Sei collegato come...»');
+            await aspetta(() => !/\bu=/.test(new URL(q.url()).search), 5000, 'il parametro u tolto dall\'indirizzo');
             await esciDa(q);
         });
 
         await prova('account disattivato: messaggio chiaro, niente diretta', async () => {
             await db.doc('partecipanti/' + uid).update({ stato: 'disattivato' });
             await db.doc('sessioni/' + uid).update({ stato: 'disattivato' });
-            await entraCome('mariorossi', passwordIniziale);
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
             await vistaE(q, 'messaggio', 20000);
             vero(/disattivato/.test(await q.textContent('#messaggio-titolo')), 'titolo: ' + await q.textContent('#messaggio-titolo'));
             vero(/Serve aiuto\? Scrivi a/.test(await q.textContent('#vista-messaggio')), 'manca l\'assistenza');
@@ -1213,9 +1342,9 @@ function eventoIniziale(T) {
             const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: tempiVeloci });
             try {
                 const a = C.page;
-                await accedi(a, 'elenadue', PASSWORD_PROVA, SITO + '/diretta/?emulatori=1&e=ev-lontano');
+                await accedi(a, 'elenadue@esempio.it', PASSWORD_PROVA, SITO + '/diretta/?emulatori=1&e=ev-lontano');
                 await vistaE(a, 'attesa', 30000);
-                vero(chiamate.filter(x => x.azione === 'entra' && x.nomeUtente === 'elenadue').pop().idEvento === 'ev-lontano', 'evento del link non mandato al servizio');
+                vero(chiamate.filter(x => x.azione === 'entra' && x.email === 'elenadue@esempio.it').pop().idEvento === 'ev-lontano', 'evento del link non mandato al servizio');
                 await pausa(1500);
                 const b = await C.context.newPage();
                 await b.goto(SITO + '/diretta/?emulatori=1&e=ev-in-onda');
@@ -1294,7 +1423,7 @@ function eventoIniziale(T) {
         await prova('player che nasce lento (hls.js arriva dopo 6 s): niente «Avvia la diretta», mai il video SOTTO una nostra schermata', async () => {
             const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { ritardoLibreriaMs: 6000, prove: { ritardoPresenzaMs: 999999 }, initScript: registraSchermo });
             try {
-                await accedi(C.page, 'paolovideo', PASSWORD_PROVA);
+                await accedi(C.page, 'paolovideo@esempio.it', PASSWORD_PROVA);
                 await vistaE(C.page, 'diretta', 30000);
                 await videoVa(C.page, 40000, 'il video dopo la libreria lenta');
                 await pausa(3500);    // oltre i 3 s del "fermo"
@@ -1316,7 +1445,7 @@ function eventoIniziale(T) {
             const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 }, initScript: autoplayBloccato });
             try {
                 const pg = C.page;
-                await accedi(pg, 'paolovideo', PASSWORD_PROVA);
+                await accedi(pg, 'paolovideo@esempio.it', PASSWORD_PROVA);
                 await vistaE(pg, 'diretta', 30000);
                 await pg.waitForSelector('#video-player video', { state: 'attached', timeout: 15000 });
                 const t0 = Date.now();
@@ -1339,7 +1468,7 @@ function eventoIniziale(T) {
             const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 }, initScript: audioRifiutato });
             try {
                 const pg = C.page;
-                await accedi(pg, 'paolovideo', PASSWORD_PROVA);
+                await accedi(pg, 'paolovideo@esempio.it', PASSWORD_PROVA);
                 await vistaE(pg, 'diretta', 30000);
                 await videoVa(pg, 30000, 'la diretta');
                 await pg.waitForSelector('#btn-attiva-audio', { state: 'visible', timeout: 15000 });
@@ -1360,7 +1489,7 @@ function eventoIniziale(T) {
             const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: { ritardoPresenzaMs: 999999 }, initScript: pausaDiSafari });
             try {
                 const pg = C.page;
-                await accedi(pg, 'paolovideo', PASSWORD_PROVA);
+                await accedi(pg, 'paolovideo@esempio.it', PASSWORD_PROVA);
                 await vistaE(pg, 'diretta', 30000);
                 await videoVa(pg, 30000, 'la diretta');
                 await pg.waitForSelector('#btn-attiva-audio', { state: 'visible', timeout: 15000 });
@@ -1411,7 +1540,7 @@ function eventoIniziale(T) {
 
         await prova('un evento di prima, senza «Tipo di player», con l\'indirizzo di Azoto: la pagina sceglie da sola il player di Azoto (iframe, niente nostri comandi)', async () => {
             vero((await evAzoto.get()).data().tipoPlayer === undefined, 'la prova doveva usare un evento senza tipoPlayer');
-            await accedi(pa, 'annaazoto', PASSWORD_PROVA);
+            await accedi(pa, 'annaazoto@esempio.it', PASSWORD_PROVA);
             await vistaE(pa, 'diretta', 30000);
             await aspetta(async () => (await canaleA(pa)) === 'livetv91', 15000, 'il player di Azoto nell\'iframe');
             const s = await statoA(pa);
@@ -1536,11 +1665,15 @@ function eventoIniziale(T) {
             userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
         }, true);
         const t = tel.page;
-        await t.goto(SITO + '/diretta/?emulatori=1&u=mariorossi');
+        await t.goto(SITO + '/diretta/?emulatori=1');
 
-        await prova('telefono: accesso con il nome utente dal link dell\'email', async () => {
+        await prova('telefono: accesso con l\'email, la frase dell\'iscrizione sotto il pulsante, «Password dimenticata?» con Spam o Promozioni', async () => {
             await vistaE(t, 'accesso', 30000);
-            vero(await t.inputValue('#campo-nome-utente') === 'mariorossi', 'nome utente dal link');
+            vero(await t.inputValue('#email') === '', 'campo dell\'email già scritto su un telefono nuovo: ' + await t.inputValue('#email'));
+            await t.fill('#email', 'mario.rossi@esempio.it');
+            vero(await visibile(t, '#frase-iscrizione'), 'frase dell\'iscrizione non visibile');
+            const hi = (await t.locator('#link-iscrizione').boundingBox()).height;
+            vero(hi >= 44, '«Iscriviti qui» alto ' + hi);
             const larghezza = await t.evaluate(() => document.documentElement.scrollWidth);
             vero(larghezza <= 390, 'la pagina scorre in orizzontale: ' + larghezza);
             const corpo = await t.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
@@ -1551,6 +1684,17 @@ function eventoIniziale(T) {
             vero(hd >= 48, '«Password dimenticata?» alto ' + hd);
             await t.evaluate(() => document.fonts && document.fonts.ready);
             await foto(t, 'accesso-telefono', true);
+            // «Password dimenticata?» sul telefono: la risposta con Spam o Promozioni e la frase
+            await t.tap('#link-dimenticata');
+            await vistaE(t, 'dimenticata', 5000);
+            vero(await t.inputValue('#email-dimenticata') === 'mario.rossi@esempio.it', 'email non ripresa');
+            await t.tap('#btn-invia-reset');
+            await t.waitForFunction(x => document.getElementById('msg-dimenticata').textContent === x, RISPOSTA_DIMENTICATA, { timeout: 10000 });
+            vero(await visibile(t, '#frase-iscrizione-dimenticata'), 'frase dell\'iscrizione non visibile');
+            vero(await t.evaluate(() => document.documentElement.scrollWidth) <= 390, 'la pagina scorre in orizzontale');
+            await foto(t, 'dimenticata-telefono', true);
+            await t.tap('#link-torna-accesso');
+            await vistaE(t, 'accesso', 5000);
             await t.fill('#campo-password', passwordIniziale);
             await t.tap('#btn-entra');
             await vistaE(t, 'attesa', 20000);
@@ -1699,7 +1843,7 @@ function eventoIniziale(T) {
             const tab = await nuovoContesto({ viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
             await tab.page.goto(SITO + '/diretta/?emulatori=1');
             await vistaE(tab.page, 'accesso', 30000);
-            await tab.page.fill('#campo-nome-utente', 'mariorossi');
+            await tab.page.fill('#email', 'mario.rossi@esempio.it');
             await tab.page.fill('#campo-password', passwordIniziale);
             await tab.page.tap('#btn-entra');
             await vistaE(tab.page, 'diretta', 20000);

@@ -183,7 +183,6 @@ async function costruisci() {
     scrivi('diretta/gestione/gestione.js', gestione);
 
     ['diretta/diretta.css', 'diretta/gestione/gestione.css'].forEach(f => copia(f));
-    scrivi('diretta/nome-utente.js', leggi('diretta/nome-utente.js'));
     scrivi('diretta/sorgente-video.js', leggi('diretta/sorgente-video.js'));
     if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-azoto.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');

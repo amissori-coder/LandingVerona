@@ -33,6 +33,13 @@
         servizio: 'https://revilaw-email.vercel.app/api',
         // chi risponde se qualcosa non va (mostrato nella pagina)
         assistenza: { email: 'info@nextgenerationbusiness.it', telefono: '' },
+        /* il modulo di iscrizione all'evento: «Iscriviti qui» nella frase
+           «Non sei ancora iscritto? Iscriviti qui.» della pagina di accesso e
+           di «Password dimenticata?». Sta qui (e non nei dati dell'evento)
+           perche' la pagina lo mostra PRIMA dell'accesso, quando non legge
+           ancora Firestore. Un percorso del sito (/...) oppure un indirizzo
+           https://; vuoto o tolto: la frase non compare. */
+        iscrizione: '/napoli_ottobre_2026/#accreditamento',
         emulatori: null,
         prove: null
     };

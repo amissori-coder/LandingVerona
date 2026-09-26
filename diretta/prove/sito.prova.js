@@ -23,8 +23,9 @@
         pillola, compare quello del bando come prima; nessuna richiesta;
         la pillola compare da sola quando si apre la finestra;
       - 26 settembre: compare il popup della diretta con i suoi testi
-        (anche "Non trovi le credenziali?..."), e NON compaiono bando ne'
-        FCD, nemmeno ricaricando la pagina nella stessa sessione; la
+        (si entra con la propria email e la password ricevuta via email;
+        "Non trovi l'email? Controlla nella cartella Spam o Promozioni..."),
+        e NON compaiono bando ne' FCD, nemmeno ricaricando la pagina nella stessa sessione; la
         pillola c'e', sotto il popup e sopra ogni contenuto; nessuna
         richiesta allo stato;
       - accessibilita': dialog modale, focus trap con Tab e Maiusc+Tab,
@@ -53,7 +54,10 @@
       fino a 1199px), pillola "Diretta" accanto all'hamburger fuori dal
       menu a scomparsa (telefono e tablet, anche a 320px), sezione "Segui
       la diretta" dopo la hero con il pulsante verso /diretta/ e il testo
-      sulle credenziali; l'indicatore IN DIRETTA solo in onda, "in pausa"
+      sull'accesso (la propria email e la password ricevuta via email,
+      Spam o Promozioni; nessun nome utente, nessuna data d'invio
+      promessa; la frase dello spam anche nella conferma dell'iscrizione);
+      l'indicatore IN DIRETTA solo in onda, "in pausa"
       in pausa, con ricontrollo ogni 60 s (una richiesta per pagina, non
       una per indicatore); dopo la fine "La diretta si è conclusa" e voce
       di menu e pillola nascoste, anche se si sfora e poi si termina;
@@ -289,6 +293,14 @@ async function provaFile() {
     const lunghi = [['diretta-popup.js', popup], ['diretta-stato.js', stato], ['sezione di Napoli', sezione], ['barra di Napoli', barra]]
         .filter(([, t]) => /[–—]/.test(t)).map(([n]) => n);
     uguale(lunghi, [], 'nessun trattino lungo nei testi della diretta (popup, pillola, sezione e menu di Napoli)');
+    // si entra con l'email: niente "nome utente" e nessuna data d'invio delle credenziali promessa
+    const conNome = [['diretta-popup.js', popup], ['pagina di Napoli', napoli]].filter(([, t]) => /nome utente/i.test(t)).map(([n]) => n);
+    uguale(conNome, [], 'nessun "nome utente" nel popup e nella pagina di Napoli');
+    vero(!/nei giorni precedenti/i.test(napoli), 'Napoli: nessuna data d\'invio delle credenziali promessa («nei giorni precedenti»)');
+    const conferma = napoli.slice(napoli.indexOf('<div id="formSuccess"'), napoli.indexOf('</div>', napoli.indexOf('class="success-detail"')));
+    vero(/Nella diretta si entra con la propria email e la password ricevuta via email\./.test(conferma)
+        && /Non trovi l’email\? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro\./.test(conferma),
+        'Napoli: la conferma dell\'iscrizione dice come si entra (email e password) e dove cercare l\'email (Spam o Promozioni)');
 }
 
 /* ---------- 1. NGBDiretta ---------- */
@@ -516,9 +528,11 @@ async function provaHome() {
         uguale(t.titoloId, 'dirPromoTitle', 'il titolo e\' quello indicato da aria-labelledby');
         uguale(t.eyebrow, 'Diretta Napoli · 2 ottobre 2026', 'occhiello "Diretta Napoli · 2 ottobre 2026"');
         uguale(t.titolo, 'Segui il convegno in diretta', 'titolo dei giorni prima');
-        vero(/iscritti online ricevono via email nome utente e password/.test(t.corpo), 'spiega che gli iscritti online ricevono via email nome utente e password');
-        vero(/Non trovi le credenziali\? Controlla la posta indesiderata o scrivi a info@nextgenerationbusiness\.it/.test(t.corpo),
-            '"Non trovi le credenziali? Controlla la posta indesiderata o scrivi a info@nextgenerationbusiness.it"');
+        vero(/iscritti online entrano nella diretta con la propria email e la password ricevuta via email/.test(t.corpo),
+            'spiega che gli iscritti online entrano con la propria email e la password ricevuta via email');
+        vero(/Non trovi l’email\? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness\.it/.test(t.corpo),
+            '"Non trovi l’email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness.it"');
+        vero(!/nome utente|credenziali/i.test(t.corpo + ' ' + t.sotto), 'nessun "nome utente" e nessuna "credenziali" nel popup');
         uguale(t.posta, 'mailto:info@nextgenerationbusiness.it', 'l\'indirizzo dell\'assistenza e\' un collegamento email');
         vero(/Venerdì 2 ottobre 2026, dalle 9\.00 alle 17\.30/.test(t.corpo), 'giorno e orario dell\'evento');
         uguale(t.cta, '/diretta/|Accedi alla diretta', 'pulsante "Accedi alla diretta" verso /diretta/');
@@ -682,7 +696,7 @@ async function provaHome() {
             };
         });
         uguale(t.titolo, 'La diretta è in pausa', 'titolo "La diretta è in pausa"');
-        uguale(t.sotto, 'Il convegno di Napoli riprende alle 11.30 (ora italiana). Intanto puoi già entrare con il nome utente e la password che hai ricevuto via email.',
+        uguale(t.sotto, 'Il convegno di Napoli riprende alle 11.30 (ora italiana). Intanto puoi già entrare con la tua email e la password ricevuta via email.',
             'con l\'orario di ripresa, in ora italiana');
         uguale([t.pausa, t.live, t.stato], ['In pausa', false, 'pausa'], 'scritta "In pausa" e niente indicatore IN DIRETTA');
         await scatta(p, 'popup-home-computer-pausa');
@@ -909,9 +923,11 @@ async function provaNapoli() {
         uguale(s.pillolaTelefono, 'none', 'col menu esteso la pillola accanto all\'hamburger non serve (nascosta)');
         uguale(s.sezione, 'SECTION|hero|evento', 'sezione #diretta subito dopo la hero e prima di #evento');
         uguale(s.titolo, 'Segui la diretta', 'titolo "Segui la diretta"');
-        vero(/nome utente e password, arrivano via email agli iscritti online/.test(s.testo), 'il testo spiega che le credenziali arrivano via email agli iscritti online');
-        vero(/Non trovi le credenziali\? Controlla la posta indesiderata o scrivi a info@nextgenerationbusiness\.it/.test(s.testo),
-            '"Non trovi le credenziali? Controlla la posta indesiderata o scrivi a info@nextgenerationbusiness.it"');
+        vero(/Gli iscritti online entrano con la propria email e la password ricevuta via email/.test(s.testo),
+            'il testo spiega che gli iscritti online entrano con la propria email e la password ricevuta via email');
+        vero(/Non trovi l’email con la password\? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness\.it/.test(s.testo),
+            '"Non trovi l’email con la password? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness.it"');
+        vero(!/nome utente|nei giorni precedenti/i.test(s.testo), 'nessun "nome utente" e nessuna data d\'invio promessa nella sezione');
         uguale(s.posta, ['mailto:info@nextgenerationbusiness.it'], 'l\'indirizzo dell\'assistenza e\' un collegamento email');
         vero(!/si è conclusa/.test(s.testo), 'nessuna traccia del testo di fine diretta');
         uguale(s.btn, '/diretta/|Accedi alla diretta|true', 'pulsante #btnDirettaNapoli "Accedi alla diretta" verso /diretta/');

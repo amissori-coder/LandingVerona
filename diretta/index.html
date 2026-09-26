@@ -33,14 +33,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20260925a">
-    <script src="config.js?v=20260924c" defer></script>
-    <script src="nome-utente.js?v=20260924c" defer></script>
+    <link rel="stylesheet" href="diretta.css?v=20260926a">
+    <script src="config.js?v=20260926a" defer></script>
     <script src="sorgente-video.js?v=20260925a" defer></script>
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20260925a" defer></script>
+    <script src="diretta.js?v=20260926a" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -103,13 +102,16 @@
                 <div class="carta-intestazione">
                     <img class="marchio-carta" src="/assets/logo-revilaw-mark.png" alt="" width="1484" height="1182">
                     <h2 id="titolo-accesso" tabindex="-1" data-fuoco>Accedi alla diretta</h2>
-                    <p class="sottotitolo">Scrivi il nome utente e la password che hai ricevuto via email.</p>
+                    <p class="sottotitolo">Scrivi l'email con cui ti sei iscritto e la password che hai ricevuto via email.</p>
                 </div>
+                <!-- si entra con l'EMAIL (trim e minuscole, la stessa regola del servizio:
+                     diretta.js, normalizzaEmail) e la password ricevuta via email.
+                     autocomplete="username": il gestore delle password del browser
+                     salva e ripropone l'email insieme alla password. -->
                 <form id="form-accesso" class="modulo" novalidate>
                     <div class="campo">
-                        <label for="campo-nome-utente">Nome utente</label>
-                        <input type="text" id="campo-nome-utente" name="username" inputmode="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="es. mariorossi" aria-describedby="aiuto-nome-utente">
-                        <p class="aiuto-campo" id="aiuto-nome-utente">Di solito è il nome e il cognome attaccati, tutto minuscolo.</p>
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="254" placeholder="es. mario.rossi@esempio.it">
                     </div>
                     <div class="campo">
                         <label for="campo-password">Password</label>
@@ -128,9 +130,14 @@
                     <p class="riga-link">
                         <a href="?dimenticata=1" id="link-dimenticata">Password dimenticata?</a>
                     </p>
+                    <!-- sempre visibile sotto il pulsante (anche con l'errore d'accesso):
+                         «Iscriviti qui» porta al modulo di iscrizione, l'indirizzo e'
+                         config.iscrizione (diretta.js, preparaIscrizione). Senza
+                         quell'indirizzo la frase resta nascosta. -->
+                    <p class="frase-iscrizione" id="frase-iscrizione" data-iscrizione hidden>Non sei ancora iscritto? <a id="link-iscrizione" data-iscrizione-link>Iscriviti qui</a>.</p>
                 </form>
                 <div class="carta-piede">
-                    <p>Non hai ricevuto nome utente e password? Controlla la posta indesiderata o <a data-assistenza-link href="mailto:info@nextgenerationbusiness.it">scrivici</a>.</p>
+                    <p>Non trovi l'email con la password? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure <a data-assistenza-link href="mailto:info@nextgenerationbusiness.it">scrivici</a>.</p>
                     <p class="aiuto" data-aiuto></p>
                     <p class="privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa sulla privacy</a></p>
                 </div>
@@ -143,14 +150,21 @@
                 <div class="carta-intestazione">
                     <img class="marchio-carta" src="/assets/logo-revilaw-mark.png" alt="" width="1484" height="1182">
                     <h2 tabindex="-1" data-fuoco>Password dimenticata</h2>
-                    <p class="sottotitolo">Scrivi il tuo nome utente oppure l'email con cui ti sei iscritto: ti mandiamo un collegamento per scegliere una nuova password.</p>
+                    <p class="sottotitolo">Scrivi l'email con cui ti sei iscritto: ti mandiamo un collegamento per scegliere una nuova password.</p>
                 </div>
                 <form id="form-dimenticata" class="modulo" novalidate>
                     <div class="campo">
-                        <label for="campo-identificativo">Nome utente o email</label>
-                        <input type="text" id="campo-identificativo" name="identificativo" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="es. mariorossi oppure mario@esempio.it">
+                        <label for="email-dimenticata">Email</label>
+                        <input type="email" id="email-dimenticata" name="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="254" placeholder="es. mario.rossi@esempio.it">
                     </div>
-                    <p id="msg-dimenticata" class="messaggio" role="status" aria-live="polite"></p>
+                    <!-- la risposta e' SEMPRE la stessa, iscritto o no (non si rivela chi
+                         e' iscritto): il messaggio e, subito sotto, la frase per chi non
+                         e' ancora iscritto (compare con la risposta). Una sola regione
+                         "live": i lettori di schermo leggono le due cose insieme. -->
+                    <div class="esito-dimenticata" role="status" aria-live="polite">
+                        <p id="msg-dimenticata" class="messaggio"></p>
+                        <p class="frase-iscrizione" id="frase-iscrizione-dimenticata" hidden>Non sei ancora iscritto? <a id="link-iscrizione-dimenticata" data-iscrizione-link>Iscriviti qui</a>.</p>
+                    </div>
                     <button type="submit" id="btn-invia-reset" class="btn btn-primario btn-pieno">
                         <span class="btn-testo">Invia il collegamento</span>
                     </button>

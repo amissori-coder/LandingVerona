@@ -139,15 +139,16 @@
     $('btn-ricarica-partecipante').addEventListener('click', function () { monta(pannelli.partecipante); });
     $('btn-ricarica-gestione').addEventListener('click', function () { monta(pannelli.gestione); });
 
-    function nomeUtenteDi(uid) {
+    // l'email con cui la persona entra (quella vera, mai l'email tecnica dell'account)
+    function emailDi(uid) {
         var r = M.archivio.leggi('partecipanti/' + uid);
-        return r && r.dati ? r.dati.nomeUtente : '';
+        return r && r.dati ? String(r.dati.emailNorm || r.dati.email || '') : '';
     }
     function aggiornaChi() {
         var u = M.utenteDi('telefono');
         var cp = $('chi-partecipante');
         cp.textContent = '';
-        if (u) { cp.appendChild(document.createTextNode('Su questo telefono è collegato ')); cp.appendChild(crea('b', { testo: nomeUtenteDi(u.uid) || u.email || 'un gestore' })); }
+        if (u) { cp.appendChild(document.createTextNode('Su questo telefono è collegato ')); cp.appendChild(crea('b', { testo: emailDi(u.uid) || u.email || 'un gestore' })); }
         else cp.textContent = 'Nessuno è collegato su questo telefono.';
         var g = M.utenteDi('regia');
         var cg = $('chi-gestione');
@@ -184,14 +185,14 @@
         var p = pannelli.partecipante;
         apriScheda('partecipante');
         var gia = M.utenteDi('telefono');
-        if (gia && nomeUtenteDi(gia.uid) === a.nomeUtente) return;
+        if (gia && emailDi(gia.uid) === a.email) return;
         if (gia) M.esciDa('telefono');
         monta(p, 'diretta', '');
-        aspetta(p, '#campo-nome-utente', 12000).then(function (campo) {
-            scriviIn(campo, a.nomeUtente);
+        aspetta(p, '#email', 12000).then(function (campo) {
+            scriviIn(campo, a.email);
             scriviIn(p.iframe.contentDocument.getElementById('campo-password'), a.password);
             p.iframe.contentDocument.getElementById('btn-entra').click();
-        }).catch(function () { avviso('Scrivi nome utente e password nella pagina.'); });
+        }).catch(function () { avviso('Scrivi email e password nella pagina.'); });
     }
     function entraInGestione() {
         var p = pannelli.gestione;
@@ -273,15 +274,14 @@
         corpo.textContent = '';
         if (!s) return;
         s.accessi.forEach(function (a) {
-            var nomeUt = crea('span', { classe: 'credenziale' });
-            copiabile(nomeUt, a.nomeUtente);
+            var email = crea('span', { classe: 'credenziale' });
+            copiabile(email, a.email);
             var pw = crea('span', { classe: 'credenziale' });
             copiabile(pw, a.password);
             var chi = crea('td', { classe: 'chi' }, [document.createTextNode(a.nome), crea('small', { testo: a.azienda })]);
-            if (/\d$/.test(a.nomeUtente)) chi.firstChild.after(crea('span', { classe: 'omonimo', testo: 'omonimo' }));
-            var entra = crea('button', { type: 'button', classe: 'bottone', testo: 'Entra', 'aria-label': 'Entra come ' + a.nomeUtente });
+            var entra = crea('button', { type: 'button', classe: 'bottone', testo: 'Entra', 'aria-label': 'Entra con ' + a.email });
             entra.addEventListener('click', function () { usaAccesso(a); });
-            corpo.appendChild(crea('tr', {}, [chi, crea('td', {}, [nomeUt]), crea('td', {}, [pw]), crea('td', {}, [entra])]));
+            corpo.appendChild(crea('tr', {}, [chi, crea('td', {}, [email]), crea('td', {}, [pw]), crea('td', {}, [entra])]));
         });
         copiabile($('gestore-email'), s.gestore.email);
         copiabile($('gestore-password'), s.gestore.password);
@@ -289,7 +289,8 @@
 
     /* ---------------- posta di prova ---------------- */
     var aperto = '';
-    var TIPI = { credenziali: 'Credenziali', 'promemoria-giorno': 'Promemoria', 'promemoria-ora': 'Promemoria', reimpostazione: 'Password', prova: 'Prova' };
+    // 'iscritto-anche': «Sei iscritto anche a...» (chi ha gia' l'account: niente password nuova)
+    var TIPI = { credenziali: 'Credenziali', 'iscritto-anche': 'Iscritto anche', 'promemoria-giorno': 'Promemoria', 'promemoria-ora': 'Promemoria', reimpostazione: 'Password', prova: 'Prova' };
     function tipoDi(m) {
         if (/^\[PROVA\]/.test(m.oggetto || '')) return 'Prova';
         return TIPI[m.tipo] || (m.tipo ? m.tipo : 'Email');

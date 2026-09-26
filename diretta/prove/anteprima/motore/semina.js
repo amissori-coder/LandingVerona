@@ -11,10 +11,11 @@
       video in modalita' A: il player di Azoto (tipoPlayer 'azoto', il
       suo indirizzo: un canale inventato, livetv91). C'e' anche un flusso diretto .m3u8 della
       web TV finta, per passare alla modalita' B dalla regia;
-   3. quattro partecipanti, due dei quali omonimi (Mario Rossi e Mario
-      Rossi: mariorossi e mariorossi2);
+   3. quattro partecipanti, due con lo stesso nome (Mario Rossi e Mario
+      Rossi) ma con email diverse: si entra con l'email, niente nomi utente;
    4. le credenziali, spedite con "Reinvia credenziali": le email sono
-      nella Posta di prova, con le password elencate nella guida.
+      nella Posta di prova, con l'email per entrare e le password
+      elencate nella guida.
    ============================================================ */
 'use strict';
 const adm = require('./admin');
@@ -122,7 +123,7 @@ async function semina(archivio, avanzamento) {
         globalThis.NGBA_PROSSIMA_PASSWORD = '';
         accessi.push({
             nome: PARTECIPANTI[i].nome + ' ' + PARTECIPANTI[i].cognome, azienda: PARTECIPANTI[i].azienda,
-            nomeUtente: esito.nomeUtente, password: PARTECIPANTI[i].password, email: PARTECIPANTI[i].email
+            email: PARTECIPANTI[i].email, password: PARTECIPANTI[i].password
         });
     }
 

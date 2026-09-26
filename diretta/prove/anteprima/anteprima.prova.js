@@ -7,14 +7,18 @@
    la apre come la apre claude.ai quando e' pubblicata: dentro un
    iframe con sandbox, con una CSP che ammette gli script solo dalla
    stessa origine e da cdnjs, e SENZA frame-src (gli iframe srcdoc
-   devono funzionare lo stesso). Percorso: accesso di Mario Rossi,
+   devono funzionare lo stesso). Percorso: accesso di Mario Rossi con
+   la sua email (nella guida gli accessi sono email, niente nomi utente),
    attesa, regia che manda in onda, video nella pagina del partecipante
    (modalita' A: il riquadro «Player Azoto (anteprima)», con sotto solo
    «Schermo intero» e la nota), la regia che passa tutti al flusso
    diretto (modalita' B: il video di prova con i nostri comandi) e poi
    di nuovo ad Azoto, senza ricaricare la pagina del partecipante;
    posta con le credenziali, file di esempio con l'anteprima, "Vedi
-   come un partecipante", esportazione, password dimenticata.
+   come un partecipante", esportazione, la pagina di accesso con «Non
+   sei ancora iscritto? Iscriviti qui.», password dimenticata con
+   l'email (la stessa risposta per chi non e' iscritto, e a lui nessuna
+   email).
    Screenshot in risultati/screenshot-anteprima/. Esce con 1 se
    qualcosa e' rosso.
    ============================================================ */
@@ -74,7 +78,9 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
 
         await A.locator('#preparazione').waitFor({ state: 'hidden', timeout: 30000 });
         vero(await A.locator('#tabella-accessi tr').count() === 4, 'quattro accessi di prova nella guida');
-        vero((await A.locator('#tabella-accessi').innerText()).includes('mariorossi2'), 'l\'omonimo ha il nome utente mariorossi2');
+        const accessi = await A.locator('#tabella-accessi').innerText();
+        vero(accessi.includes('mario.rossi@esempio.it') && accessi.includes('m.rossi@altraimpresa.it'), 'gli accessi sono le email (i due Mario Rossi, due email)');
+        vero(!/mariorossi2|omonimo/i.test(accessi) && !/nome utente/i.test(await A.locator('#pannello-guida').innerText()), 'nella guida resta il nome utente');
         vero(/Next Generation Business 2026/.test(await A.locator('#info-evento').innerText()), 'la guida mostra l\'evento di prova');
         await page.screenshot({ path: path.join(FOTO, '01-guida.png') });
 
@@ -142,7 +148,10 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await A.locator('#elenco-posta li button', { hasText: 'credenziali' }).last().click();
         await page.waitForTimeout(600);
         const email = A.frameLocator('#lettore iframe');
-        vero(/Vesuv9Kaz3|Capr3Mare7|Pasta7Duke|Baba9Rum4x/.test(await email.locator('body').innerText()), 'l\'email mostra una password della guida');
+        const testoEmail = await email.locator('body').innerText();
+        vero(/Vesuv9Kaz3|Capr3Mare7|Pasta7Duke|Baba9Rum4x/.test(testoEmail), 'l\'email mostra una password della guida');
+        vero(/mario\.rossi@esempio\.it|annamaria\.deluca@esempio\.it|nicolo\.dangelo@esempio\.it|m\.rossi@altraimpresa\.it/.test(testoEmail) && !/nome utente/i.test(testoEmail),
+            'l\'email delle credenziali dice con quale email entrare, senza nome utente');
         await page.screenshot({ path: path.join(FOTO, '05-posta.png') });
 
         // 4. file di esempio: l'anteprima riga per riga nella gestione
@@ -173,7 +182,7 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await G.locator('[data-scheda="esporta"]').click();
         await G.locator('#btn-esporta').click();
         await A.locator('#sopra .excel table').waitFor({ timeout: 15000 });
-        vero(/mariorossi/.test(await A.locator('#sopra .excel').innerText()), 'l\'esportazione mostra i partecipanti');
+        vero(/mario\.rossi@esempio\.it/.test(await A.locator('#sopra .excel').innerText()), 'l\'esportazione mostra i partecipanti');
         await page.screenshot({ path: path.join(FOTO, '08-esporta.png') });
         await A.locator('#btn-chiudi-sopra').click();
 
@@ -183,10 +192,34 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await A.locator('#tab-partecipante').click();
         await P.locator('#btn-esci, [data-azione="esci"]').first().click().catch(() => {});
         await P.locator('#conferma-si, #btn-conferma-si').first().click().catch(() => {});
-        await P.locator('#campo-nome-utente').waitFor({ timeout: 15000 });
-        await P.locator('#link-dimenticata, a[href*="dimenticata"], button:has-text("Password dimenticata")').first().click();
-        await P.locator('#form-dimenticata input').first().fill('annamariadeluca');
-        await P.locator('#form-dimenticata button[type="submit"]').click();
+        await P.locator('#email').waitFor({ timeout: 15000 });
+        vero((await P.locator('#frase-iscrizione').innerText()).trim() === 'Non sei ancora iscritto? Iscriviti qui.'
+            && await P.locator('#link-iscrizione').getAttribute('href') === '/napoli_ottobre_2026/#accreditamento',
+            'sotto «Entra»: «Non sei ancora iscritto? Iscriviti qui.» verso il modulo');
+        await page.screenshot({ path: path.join(FOTO, '10-accesso.png') });
+        const RISPOSTA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento per scegliere una nuova password. '
+            + 'Controlla anche nella cartella Spam o Promozioni.';
+        await P.locator('#link-dimenticata').click();
+        // chi non e' iscritto: la stessa risposta, e nessuna email
+        await A.locator('#tab-posta').click();
+        const postaPrima = await A.locator('#elenco-posta li').count();
+        await A.locator('#tab-partecipante').click();
+        await P.locator('#email-dimenticata').fill('nessuno.iscritto@esempio.it');
+        await P.locator('#btn-invia-reset').click();
+        await P.locator('#msg-dimenticata', { hasText: 'Spam o Promozioni' }).waitFor({ timeout: 15000 });
+        vero((await P.locator('#msg-dimenticata').innerText()).trim() === RISPOSTA && await P.locator('#frase-iscrizione-dimenticata').isVisible(),
+            'chi non è iscritto: la risposta di sempre e «Non sei ancora iscritto? Iscriviti qui.»');
+        await page.waitForTimeout(4500);
+        await A.locator('#tab-posta').click();
+        vero(await A.locator('#elenco-posta li').count() === postaPrima, 'a chi non è iscritto non parte nessuna email');
+        // l'email di Anna Maria (scritta con le maiuscole): la stessa risposta, e il collegamento nella posta
+        await A.locator('#tab-partecipante').click();
+        await P.locator('#email-dimenticata').fill('AnnaMaria.DeLuca@esempio.it');
+        await P.locator('#btn-invia-reset').click();
+        await page.waitForTimeout(600);
+        await P.locator('#msg-dimenticata', { hasText: 'Spam o Promozioni' }).waitFor({ timeout: 15000 });
+        vero((await P.locator('#msg-dimenticata').innerText()).trim() === RISPOSTA, 'la risposta di «Password dimenticata?» è quella di sempre');
+        await page.screenshot({ path: path.join(FOTO, '11-dimenticata.png') });
         await page.waitForTimeout(4500);
         await A.locator('#tab-posta').click();
         vero(/Nuova password/i.test(await A.locator('#elenco-posta').innerText()), 'l\'email di "password dimenticata" arriva nella posta');
