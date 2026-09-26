@@ -263,7 +263,10 @@ function confermaSito(dati, link, linkConferma) {
     const evento = nomeEvento(dati.pagina);
     const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
     const online = String((dati && dati.modalita) || '').toLowerCase() === 'online';
-    const oggetto = 'Iscrizione ricevuta - Next Generation Business, ' + evento;
+    /* L'oggetto dice cosa si chiede: con il pulsante di conferma questa mail
+       e' una richiesta, e chi la vede in elenco deve capire che c'e' da fare
+       un clic. Senza collegamento (le mail composte prima) resta com'era. */
+    const oggetto = (linkConferma ? 'Richiesta di conferma - ' : 'Iscrizione ricevuta - ') + 'Next Generation Business, ' + evento;
     const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
     const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata'
         + (online ? ' per la partecipazione online' : '') + '.';
@@ -279,7 +282,7 @@ function confermaSito(dati, link, linkConferma) {
             ? 'La tua richiesta è registrata. Conferma il tuo indirizzo dal pulsante qui sopra: riceverai subito l\'invito in PDF da esibire all\'ingresso. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante in fondo puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
             : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.');
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
-        testata('Iscrizione ricevuta', sommario)
+        testata(linkConferma ? 'Richiesta di conferma' : 'Iscrizione ricevuta', sommario)
         + corpo(
             /* Prima di tutto la conferma dell'indirizzo, quando c'e' il
                collegamento: e' l'unica cosa che chiediamo di fare, e sta
@@ -303,7 +306,7 @@ function confermaSito(dati, link, linkConferma) {
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
         + piede(MOTIVO));
-    const testo = ['ISCRIZIONE RICEVUTA', sommario,
+    const testo = [linkConferma ? 'RICHIESTA DI CONFERMA' : 'ISCRIZIONE RICEVUTA', sommario,
         // nella versione testo il collegamento di conferma sta sulla prima riga utile
         linkConferma ? 'Conferma il tuo indirizzo email (un clic): ' + linkConferma : '',
         apertura,
