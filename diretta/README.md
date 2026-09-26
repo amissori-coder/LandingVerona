@@ -878,25 +878,23 @@ ognuno, a un istante casuale dentro i 2 minuti, fa quello che fa la pagina:
 accesso con l'email, token, lettura del
 profilo e dell'evento con le regole vere, primo segnale di presenza a un ritardo
 casuale (0-60 s) e il secondo 60 secondi dopo. Risultato dell'ultima esecuzione,
-sul codice del 24 settembre 2026, quando l'accesso era ancora con il nome
-utente (questa macchina: 4 processori, con altre prove che giravano in
-parallelo; il passo dell'accesso ora cerca l'email invece del nome, con lo
-stesso numero di letture):
+sul codice dell'accesso con l'email (26 settembre 2026, questa macchina: 4
+processori):
 
 | Passo | n | p50 | p95 | p99 | massimo |
 |---|---:|---:|---:|---:|---:|
-| accesso (funzione `diretta-accesso`: blocco dei tentativi, verifica, token) | 1000 | 43 ms | 108 ms | 181 ms | 217 ms |
-| accesso a Firebase con il token | 1000 | 4 ms | 12 ms | 23 ms | 43 ms |
-| lettura del profilo (regole) | 1000 | 7 ms | 28 ms | 72 ms | 889 ms |
-| lettura dell'evento (regole) | 1000 | 9 ms | 38 ms | 94 ms | 376 ms |
-| primo segnale di presenza | 1000 | 10 ms | 24 ms | 54 ms | 197 ms |
-| segnale "continua" (+60 s, regole con l'orario del server) | 1000 | 9 ms | 19 ms | 54 ms | 80 ms |
-| `crea` (25 righe, nella preparazione) | 40 | 6,1 s | 6,9 s | 6,9 s | 6,9 s |
+| accesso con l'email (funzione `diretta-accesso`: blocco dei tentativi, verifica, token) | 1000 | 32 ms | 56 ms | 81 ms | 127 ms |
+| accesso a Firebase con il token | 1000 | 3 ms | 6 ms | 12 ms | 35 ms |
+| lettura del profilo (regole) | 1000 | 5 ms | 18 ms | 37 ms | 509 ms |
+| lettura dell'evento (regole) | 1000 | 6 ms | 20 ms | 42 ms | 154 ms |
+| primo segnale di presenza | 1000 | 8 ms | 24 ms | 49 ms | 69 ms |
+| segnale "continua" (+60 s, regole con l'orario del server) | 1000 | 8 ms | 17 ms | 39 ms | 46 ms |
+| `crea` (25 righe, nella preparazione) | 40 | 6,1 s | 6,6 s | 6,6 s | 6,6 s |
 
 - **Errori: nessuno** su 6000 operazioni; 1000 presenze scritte, tutte con il
   secondo segnale accettato dalle regole.
 - **Picco di accessi in un secondo: 16; picco di scritture di presenza in un
-  secondo: 23** (su 1000 persone): la partenza casuale funziona, non arrivano
+  secondo: 24** (su 1000 persone): la partenza casuale funziona, non arrivano
   mai tutte insieme.
 - Creazione dei 1000 account: **250 secondi** (circa 4 al secondo: è il
   limitatore delle scritture su Firebase Auth, 8 al secondo, che tiene lontani i
@@ -904,7 +902,7 @@ stesso numero di letture):
 - Tutti i 1000 accessi arrivano dallo stesso indirizzo (127.0.0.1): nessuno è
   stato bloccato o rallentato dal limite per rete, che conta solo le password
   sbagliate.
-- Il contatore della gestione alla fine ne vedeva 948: la prova smette di
+- Il contatore della gestione alla fine ne vedeva 933: la prova smette di
   mandare segnali dopo il secondo, e chi era arrivato nei primi secondi aveva
   l'ultimo segnale da più di 150 secondi (la soglia del "collegato adesso").
 
