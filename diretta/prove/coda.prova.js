@@ -142,9 +142,9 @@ if (FIGLIO) {
    IL GENITORE: la prova
    ============================================================ */
 let rossi = 0, verdi = 0;
-function vero(cond, descrizione) {
+function vero(cond, descrizione, dettaglio) {
     if (cond) { verdi++; console.log('  ok  ' + descrizione); }
-    else { rossi++; console.log('ROSSO ' + descrizione); }
+    else { rossi++; console.log('ROSSO ' + descrizione + (dettaglio ? '\n       ' + dettaglio : '')); }
 }
 function titolo(t) { console.log('\n== ' + t); }
 
@@ -500,8 +500,28 @@ async function prova() {
     s = await stati(EVENTO);
     const respinte = await conStato(EVENTO, 'respinta');
     const errori = await conStato(EVENTO, 'errore');
-    vero(respinte.length === RIFIUTATI.length, 'respinte: ' + respinte.length + ' (gli indirizzi che il server rifiuta: ' + RIFIUTATI.length + ')');
-    vero(errori.length === ERRORE_MESSAGGIO.length, 'errori: ' + errori.length + ' (554 dopo il DATA: ' + ERRORE_MESSAGGIO.length + ')');
+    /* L'ordine della coda e' quello degli identificativi, che sono casuali:
+       fra le 5 persone del processo ucciso (C) puo' capitare un indirizzo che
+       il server rifiuta o che da' errore. Quelle restano giustamente
+       "incerto" (l'email era partita, dal figlio che non rifiuta niente) e
+       non diventano "respinta": si contano a parte. */
+    const emailUccisi = (await Promise.all(uccisi.map(id => ctx.db.collection('partecipanti').doc(id).get())))
+        .map(d => String((d.data() || {}).emailNorm || (d.data() || {}).email || '').toLowerCase());
+    const attesiRespinti = RIFIUTATI.filter(e => emailUccisi.indexOf(e) < 0);
+    const attesiErrori = ERRORE_MESSAGGIO.filter(e => emailUccisi.indexOf(e) < 0);
+    const statiDi = async lista => (await Promise.all(lista.map(async e => {
+        const q = await ctx.db.collection('partecipanti').where('emailNorm', '==', e).limit(1).get();
+        const v = q.empty ? {} : ((q.docs[0].data().invii || {})[EVENTO] || {});
+        return e + '=' + (v.stato || '?');
+    }))).join(', ');
+    vero(respinte.length === attesiRespinti.length,
+        'respinte: ' + respinte.length + ' (gli indirizzi che il server rifiuta: ' + RIFIUTATI.length
+        + (attesiRespinti.length < RIFIUTATI.length ? ', di cui ' + (RIFIUTATI.length - attesiRespinti.length) + ' fra i 5 del processo ucciso' : '') + ')',
+        respinte.length === attesiRespinti.length ? '' : await statiDi(RIFIUTATI));
+    vero(errori.length === attesiErrori.length,
+        'errori: ' + errori.length + ' (554 dopo il DATA: ' + ERRORE_MESSAGGIO.length
+        + (attesiErrori.length < ERRORE_MESSAGGIO.length ? ', di cui ' + (ERRORE_MESSAGGIO.length - attesiErrori.length) + ' fra i 5 del processo ucciso' : '') + ')',
+        errori.length === attesiErrori.length ? '' : await statiDi(ERRORE_MESSAGGIO));
     vero(s.incerto === 5, 'incerti: ' + s.incerto + ' (i 5 del processo ucciso)');
     numeri.primoGiro = { inviate: s.inviata, respinte: respinte.length, errori: errori.length, incerti: s.incerto };
     // una delle respinte e' riuscita a entrare lo stesso (per esempio con l'aiuto dell'assistenza)
