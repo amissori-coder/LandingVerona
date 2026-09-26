@@ -15652,7 +15652,15 @@
        automatica. Oltre agli identificativi guarda l'AZIENDA, altrimenti un
        referente spostato da un collega resterebbe a video sotto la vecchia
        impresa finche' non si cambia vista. */
-    function firmaIscr(l) { return (l || []).map(r => r.id + '~' + (r.azienda || '')).join('|'); }
+    /* Nell'impronta dell'elenco entra anche la conferma dell'indirizzo (e l'esito
+       della mail): il tempo reale rilegge l'elenco quando qualcuno clicca nella
+       mail, ma senza questa riga l'impronta restava uguale e la tabella non si
+       ridisegnava - il baffetto compariva solo ricaricando la pagina. */
+    function firmaIscr(l) {
+        return (l || []).map(r => r.id + '~' + (r.azienda || '')
+            + '~' + ((r.emailConfermata && r.emailConfermata.come) || '')
+            + '~' + (r.mailConferma ? (r.mailConferma.ok ? 'ok' : 'ko') : '')).join('|');
+    }
     // anche stati e note entrano nell'impronta: se un collega segna una presenza,
     // l'aggiornamento automatico se ne accorge e ridisegna. Nell'impronta c'e'
     // anche la modalita' (e l'avviso che l'accompagna): se un collega sposta
