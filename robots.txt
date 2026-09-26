@@ -24,4 +24,12 @@ Disallow: /n26/
 # raggiungono solo dal collegamento mandato agli invitati.
 Disallow: /cene_napoli/
 
+# Accredito al desk di Napoli: si apre dal QR sul cartello in sala, il
+# giorno dell'evento, e non ha senso fuori da li'.
+Disallow: /p26/
+
+# Conferma dell'indirizzo email: si apre dal pulsante nella mail di
+# iscrizione, con un collegamento personale.
+Disallow: /conferma_email/
+
 Sitemap: https://nextgenerationbusiness.it/sitemap.xml

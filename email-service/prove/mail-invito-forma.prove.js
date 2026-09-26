@@ -54,6 +54,16 @@ const AREE = [
    della sillabazione e' un'altra (prove/mail-sillabe.prove.js). */
 const MORBIDO = '\u00ad';
 const senzaTrattini = s => String(s || '').split(MORBIDO).join('');
+const DATI_INVITO = {
+    evento: {
+        titolo: 'Napoli', quando: '2 ottobre 2026', sottotitolo: 'Costruire l\'impresa del futuro',
+        luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli',
+        scadenzaB2B: '30 settembre', url: 'https://nextgenerationbusiness.it/napoli_ottobre_2026/'
+    },
+    aree: AREE, giornata: GIORNATA, regole: MODELLO.regoleB2B(GIORNATA)
+};
+// la seconda versione della stessa mail: pulsante in cima, il resto sotto
+function mailBreve() { return NL.invitoB2BAziendaBreve(DATI_INVITO); }
 function mail() {
     return NL.invitoB2BAzienda({
         evento: {
@@ -316,6 +326,75 @@ prova('L oggetto nomina l impresa, e il nome resta un segnaposto', () => {
     /* L'oggetto e' una riga di intestazione: dentro non ci vanno a capo, che
        la spezzerebbero in due. */
     esigi(!/[\r\n]/.test(m.oggetto), 'nessun a capo dentro l oggetto');
+});
+
+prova('La versione breve: il pulsante prima di tutto il resto', () => {
+    /* Sono due mail per due modi di aprire la posta, non una buona e una
+       brutta. La lettera spiega e arriva al pulsante alla fine; questa mette il
+       pulsante subito, perche' chi la apre dal telefono fra due riunioni ha
+       davanti la sola cosa che gli serve fare. Se un giorno qualcuno
+       "sistemasse" la breve aggiungendole un paragrafo d'apertura, non sarebbe
+       piu' una seconda versione: sarebbe la prima, un po' piu' corta. */
+    const b = mailBreve();
+    const html = senzaTrattini(b.html);
+    const corpo = corpoDi(b.html);
+    const iBottone = corpo.indexOf('Prenotate i Vostri incontri');
+    esigi(iBottone >= 0, 'il pulsante c e, e dice di prenotare', b.oggetto);
+    /* "Prima di tutto il resto" si misura: nel corpo, prima del pulsante, non
+       ci devono essere ne' riquadri ne' paragrafi. */
+    const primaDelBottone = corpo.slice(0, iBottone);
+    esigi(primaDelBottone.indexOf('border-left:3px solid') < 0,
+        'e prima non c e nessun riquadro');
+    esigi(primaDelBottone.indexOf('class="par"') < 0,
+        'ne un solo paragrafo di prosa: il pulsante e la prima cosa del corpo');
+    /* Ed e' davvero piu' corta: meta' del testo della lettera. Il numero non e'
+       un vezzo - se le due si avvicinano, una delle due non serve piu'. */
+    const lunga = mail();
+    esigi(b.testo.length < lunga.testo.length * 0.6,
+        'ed e piu corta della lettera, non di poco',
+        b.testo.length + ' contro ' + lunga.testo.length + ' caratteri');
+    esigi(b.oggetto === lunga.oggetto,
+        'l oggetto invece e lo stesso: e la riga su cui si decide se aprire, e ne basta una');
+});
+
+prova('La versione breve dice le cose che servono per decidere', () => {
+    const b = mailBreve();
+    const html = senzaTrattini(b.html);
+    const testo = senzaTrattini(b.testo);
+    [['i tavoli', 'Merito creditizio'], ['quando e dove', 'Hotel Eurostars Excelsior'],
+     ['entro quando', '30 settembre'], ['quanto dura', '30 minuti']].forEach(([cosa, frase]) => {
+        esigi(html.indexOf(frase) >= 0, 'nell HTML c e ' + cosa, frase);
+        esigi(testo.indexOf(frase) >= 0, 'e anche nella versione a solo testo');
+    });
+    /* I segnaposto sono quelli della lettera lunga: li sostituisce il servizio,
+       e un nome diverso qui vorrebbe dire una mail spedita con "{{AZIENDA}}"
+       scritto dentro. */
+    [NL.SEGNAPOSTO_NOME, NL.SEGNAPOSTO_B2B, '{{AZIENDA}}', '{{SE_COLLEGHI}}', '{{REFERENTI}}'].forEach(seg => {
+        esigi(b.html.indexOf(seg) >= 0, 'porta il segnaposto ' + seg);
+    });
+    esigi(testo.indexOf(NL.SEGNAPOSTO_B2B) >= 0 && testo.indexOf(NL.SEGNAPOSTO_B2B) < testo.indexOf('I tavoli'),
+        'e nel solo testo il collegamento sta in cima, come in cima sta il pulsante');
+    /* Le regole per intero NON ci sono: sono sette frasi, ed e' esattamente
+       quello che questa mail evita. Ma si dice dove sono. */
+    esigi(html.indexOf('La prima preferenza è una prenotazione vera e propria') < 0,
+        'le sette regole non ci sono: starebbero sopra il pulsante');
+    esigi(/regole della prenotazione/.test(html), 'ma si dice che sulla pagina ci sono');
+    /* Stesso registro della lettera: si da' del Voi, dalla prima riga
+       all'ultima. */
+    const daTu = [/\bla tua\b/i, /\bil tuo\b/i, /\bScegli\b/, /\bPrenota\b/, /\bpuoi\b/, /\btrovi\b/];
+    esigi(!daTu.some(r => r.test(html + testo)), 'e si da del Voi come nell altra');
+});
+
+prova('Anche la versione breve e giustificata', () => {
+    /* Stessa regola della lettera: nel corpo non resta un blocco di prosa a
+       bandiera. E' una scelta di chi firma, e vale per tutte e due le mail. */
+    const corpo = corpoDi(mailBreve().html);
+    const blocchi = corpo.split('class="par"').length - 1;
+    esigi(blocchi > 0, 'ci sono blocchi di prosa da controllare', 'trovati: ' + blocchi);
+    const nonGiustificati = corpo.split('class="par"').slice(1)
+        .filter(p => p.slice(0, 260).indexOf('text-align:justify') < 0);
+    esigi(!nonGiustificati.length, 'e sono tutti giustificati',
+        nonGiustificati.length + ' a bandiera');
 });
 
 console.log('\nLa forma della mail d\'invito B2B\n');

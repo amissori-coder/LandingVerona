@@ -21,7 +21,8 @@
 const ORARI = require('./orari-b2b');
 
 const C = {
-    scuro: '#0A2844', blu: '#164068', accento: '#2A5A85', chiaroBlu: '#5B89B8',
+    // chiaroBlu schiarito per il contrasto sul fondo scuro (gemello di newsletter-format.js)
+    scuro: '#0A2844', blu: '#164068', accento: '#2A5A85', chiaroBlu: '#7FA8CE',
     suScuro: '#C8DAEA', testo: '#1E293B', tenue: '#475569',
     bordo: '#E2E8F0', sfondo: '#F1F5F9', chiaro: '#F4F8FB', bianco: '#FFFFFF'
 };
@@ -63,6 +64,13 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '<meta name="color-scheme" content="light" />\n<meta name="supported-color-schemes" content="light" />\n'
         + '<title>' + esc(oggetto) + '</title>\n'
         + '<style type="text/css">\n'
+        /* I telefoni ingrandiscono da se' il testo che giudicano piccolo, e
+           nel farlo scompaginano la colonna: qui si dice di non farlo, perche'
+           le misure le abbiamo gia' scelte noi (e nessuna scende sotto i 13px).
+           Manca a questo involucro da sempre: quello dell'area riservata ce
+           l'ha, e le mail si vedevano diverse a seconda di chi le aveva
+           composte. */
+        + 'body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}\n'
         + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
         + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
         + 'img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}\n'
@@ -77,6 +85,12 @@ function involucro(oggetto, anteprima, corpoInterno) {
         /* le righe del riquadro si impilano: etichetta sopra, valore sotto */
         + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
         + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}}\n'
+        /* IL TESTO RESTA GIUSTIFICATO ANCHE SUL TELEFONO, come nelle mail
+           composte dall'area riservata: e' una scelta di chi firma le lettere.
+           Qui sotto resta solo la colonna dell'ora, che e' una larghezza e non
+           un allineamento. */
+        + '@media only screen and (max-width:480px){'
+        + '.ora{width:62px!important;white-space:normal!important;padding-right:10px!important;}}\n'
         + '</style>\n</head>\n'
         + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
         + preheader
@@ -95,7 +109,7 @@ function testata(titolo, sommario) {
             + '<img src="' + LOGO_BIANCO + '" width="150" alt="Revilaw - Revisione legale" '
             + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;font-family:' + FONT + ';font-size:18px;font-weight:bold;color:' + C.bianco + ';"></a></td></tr>'
             + spazio(24)
-            + '<tr><td style="' + FONTE + 'font-size:12px;line-height:17px;letter-spacing:2px;text-transform:uppercase;color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
+            + '<tr><td style="' + FONTE + 'font-size:13px;line-height:19px;letter-spacing:1.8px;text-transform:uppercase;color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
             + spazio(12)
             + '<tr><td class="h1" style="' + FONTE + 'font-size:30px;line-height:38px;color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + esc(titolo) + '</td></tr>'
             + spazio(16)
@@ -112,7 +126,7 @@ function testata(titolo, sommario) {
    quattro righe strette. */
 function rigaBox(et, val) {
     if (!val) return '';
-    return '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + esc(et) + '</td>'
+    return '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + esc(et) + '</td>'
         + '<td class="bxv" valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';padding:5px 0;">' + esc(val) + '</td></tr>';
 }
 function box(righe) {
@@ -137,11 +151,39 @@ function bottone(testoBtn, url) {
         + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">' + esc(testoBtn) + '</a>'
         + '</td></tr></table></td></tr>';
 }
+/* IL BLOCCO "CONFERMA IL TUO INDIRIZZO", in cima alla conferma di iscrizione.
+   Il pulsante e' "a prova di Outlook": la cella di tabella porta sfondo e
+   bordo (Outlook ignora il padding del link), il link dentro e' a blocco
+   pieno e alto almeno 44px (il dito su un telefono), e sotto c'e'
+   l'indirizzo in chiaro per chi non puo' cliccare - Outlook blocca i link
+   finche' non ci si fida del mittente, e certe Gmail su Android li aprono
+   solo con il tocco lungo. Colori sempre espliciti su ogni cella: Gmail e
+   Apple Mail invertono quelli lasciati al default, e un pulsante blu con il
+   testo bianco diventerebbe illeggibile. */
+function bloccoConferma(url) {
+    return '<tr><td style="' + FONTE + '">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+        + '<tr><td class="par" style="' + FONTE + 'padding:18px 22px 14px;font-size:16px;line-height:26px;color:' + C.testo
+        + ';background-color:' + C.chiaro + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">'
+        + '<b style="color:' + C.scuro + ';">Un tocco per confermare il tuo indirizzo.</b> '
+        + 'Subito dopo ti mandiamo una seconda email con l\'invito in PDF da esibire all\'ingresso: senza la conferma l\'iscrizione non è completa.</td></tr>'
+        + '<tr><td style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
+        + '<td align="center" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;">'
+        + '<a href="' + esc(url) + '" style="display:block;padding:13px 16px;font-family:' + FONT
+        + ';font-size:17px;line-height:22px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Conferma il tuo indirizzo email</a>'
+        + '</td></tr></table></td></tr>'
+        + '<tr><td style="' + FONTE + 'padding:0 22px 16px;font-size:13px;line-height:20px;color:' + C.tenue + ';background-color:' + C.chiaro + ';word-break:break-all;text-align:left;">'
+        + 'Se il pulsante non funziona, copia questo indirizzo nel browser:<br>'
+        + '<a href="' + esc(url) + '" style="color:' + C.accento + ';text-decoration:underline;">' + esc(url) + '</a></td></tr>'
+        + '</table></td></tr>';
+}
 /* Un'etichetta di sezione: piccola, maiuscola, con il filetto sotto. Serve a
    staccare "i Suoi incontri" dai dati dell'evento, che sono due cose diverse e
    in un riquadro solo si leggevano come una lista sola. */
 function occhiello(t) {
-    return '<tr><td style="' + FONTE + 'font-size:12px;line-height:18px;letter-spacing:1.6px;text-transform:uppercase;'
+    return '<tr><td style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1.4px;text-transform:uppercase;'
         + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';">' + esc(t) + '</td></tr>';
 }
 /* Gli incontri come un orario: a sinistra l'ora, a destra l'argomento. E'
@@ -150,7 +192,16 @@ function occhiello(t) {
    niente che l'ora non dicesse gia'. */
 function tabellaIncontri(voci) {
     const riga = v => '<tr>'
-        + '<td width="110" valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.blu
+        /* La colonna dell'ora ha una larghezza fissa perche' le ore si devono
+           leggere incolonnate: su 600px 110 pixel sono il posto che serve.
+           Su un telefono da 320 diventano il 39% della riga, e il nome del
+           tavolo - "Modello 231 e Tax Control Framework" - si spezza in tre
+           righe per fare posto a "10:00 - 10:30". Da li' in giu' la colonna
+           si stringe e l'ora puo' andare a capo fra le due: "10:00 -" sopra e
+           "10:30" sotto si leggono benissimo, e il nome del tavolo riprende
+           la larghezza che gli serve. Senza togliere il "a capo" la colonna
+           non si stringerebbe comunque, perche' a tenerla larga e' il testo. */
+        + '<td width="110" class="ora" valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.blu
         + ';white-space:nowrap;font-weight:bold;padding:7px 14px 7px 0;border-bottom:1px solid ' + C.bordo + ';">'
         + esc(v.ora || '&nbsp;').replace('&amp;nbsp;', '&nbsp;') + '</td>'
         + '<td valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.scuro
@@ -173,7 +224,7 @@ function corpo(righe) {
     return '<tr><td class="px" style="padding:0 ' + LATO + 'px;' + FONTE + '">' + tabella(spazio(30) + righe) + '</td></tr>';
 }
 function piede(motivo) {
-    const riga = (stile, dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:12px;line-height:20px;' + stile + 'text-align:center;">' + dentro + '</td></tr>';
+    const riga = (stile, dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:14px;line-height:22px;' + stile + 'text-align:center;">' + dentro + '</td></tr>';
     const link = 'color:' + C.tenue + ';text-decoration:underline;';
     return spazio(36) + '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
         + tabella(
@@ -183,10 +234,14 @@ function piede(motivo) {
             + riga('color:' + C.tenue + ';', '<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
                 + ' &nbsp;&middot;&nbsp; <a href="' + SITO + '" style="' + link + '">nextgenerationbusiness.it</a>')
             + spazio(8)
-            + riga('color:#94A3B8;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            + riga('color:' + C.tenue + ';', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
         )
         + '</td></tr>';
 }
+/* La frase della diretta per chi segue online, nella conferma
+   dell'iscrizione: la password arriva con un'email a parte, senza date
+   promesse (vedi confermaSito). */
+const FRASE_DIRETTA_ONLINE = 'Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
 const MOTIVO = 'Ricevi questa email come conferma della tua iscrizione all\'evento: non è una comunicazione promozionale.';
 /* IL MOTIVO IN CODA, per le mail del B2B. Quella riga in fondo dice a chi
    legge perche' gli e' arrivata questa email, e sotto un invito agli incontri
@@ -208,30 +263,43 @@ const MOTIVO_B2B = 'Questa email riguarda gli incontri B2B del convegno Next Gen
    lo dice - altrimenti la coda esiste solo per chi organizza, e chi aspetta
    non sa di aspettare. Vale solo accanto a 'online': a un evento che si segue
    solo da remoto non c'e' nessuna coda, e la riga non compare. */
-function confermaSito(dati, link) {
+function confermaSito(dati, link, linkConferma) {
     const evento = nomeEvento(dati.pagina);
     const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
     const online = String((dati && dati.modalita) || '').toLowerCase() === 'online';
-    const oggetto = 'Iscrizione ricevuta - Next Generation Business, ' + evento;
+    /* L'oggetto dice cosa si chiede: con il pulsante di conferma questa mail
+       e' una richiesta, e chi la vede in elenco deve capire che c'e' da fare
+       un clic. Senza collegamento (le mail composte prima) resta com'era. */
+    const oggetto = (linkConferma ? 'Richiesta di conferma - ' : 'Iscrizione ricevuta - ') + 'Next Generation Business, ' + evento;
     const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
     const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata'
         + (online ? ' per la partecipazione online' : '') + '.';
     const attesa = online && dati && dati.listaAttesa === true;
-    /* Online: la password della diretta arriva con un'email a parte (dal
+    /* Con il collegamento di conferma la mail e' il PRIMO passo: la richiesta
+       e' ricevuta, il posto arriva con l'invito dopo la conferma. Senza (le
+       mail composte prima di questa modifica) resta la frase di sempre.
+       Online: la password della diretta arriva con un'email a parte (dal
        servizio della diretta, subito se l'invio automatico e' acceso,
        altrimenti quando il gestore la manda). Qui niente date promesse: la
        conferma non sa quale dei due casi e', e non deve contraddire una
        password magari gia' arrivata. */
     const apertura = online
-        ? 'La tua partecipazione online è registrata. Per seguire la diretta riceverai un\'email con la password per entrare '
-            + '(se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.'
+        ? 'La tua richiesta di partecipazione online è registrata. ' + FRASE_DIRETTA_ONLINE
             + (attesa ? ' I posti in sala sono esauriti, ma ti abbiamo inserito in lista d\'attesa: se se ne libera uno ti scriviamo, e decidi tu se venire di persona.' : '')
             + ' Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
-        : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.';
+        : (linkConferma
+            ? 'La tua richiesta è registrata. Conferma il tuo indirizzo dal pulsante qui sopra: riceverai subito l\'invito in PDF da esibire all\'ingresso. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante in fondo puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
+            : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.');
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
-        testata('Iscrizione ricevuta', sommario)
+        testata(linkConferma ? 'Richiesta di conferma' : 'Iscrizione ricevuta', sommario)
         + corpo(
-            paragrafo(apertura)
+            /* Prima di tutto la conferma dell'indirizzo, quando c'e' il
+               collegamento: e' l'unica cosa che chiediamo di fare, e sta
+               sopra il riepilogo perche' e' li' che si legge sul telefono
+               senza scorrere. Le mail composte prima di questa modifica non
+               lo passano e restano come erano. */
+            (linkConferma ? bloccoConferma(linkConferma) + spazio(26) : '')
+            + paragrafo(apertura)
             + spazio(22)
             + '<tr><td>' + box(
                 rigaBox('Evento', 'Next Generation Business - ' + evento)
@@ -243,17 +311,71 @@ function confermaSito(dati, link) {
             + spazio(28)
             + bottone('Modifica o annulla l\'iscrizione', link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
         + piede(MOTIVO));
-    const testo = ['ISCRIZIONE RICEVUTA', sommario, apertura,
+    const testo = [linkConferma ? 'RICHIESTA DI CONFERMA' : 'ISCRIZIONE RICEVUTA', sommario,
+        // nella versione testo il collegamento di conferma sta sulla prima riga utile
+        linkConferma ? 'Conferma il tuo indirizzo email (un clic): ' + linkConferma : '',
+        apertura,
         'Evento: Next Generation Business - ' + evento
         + (online ? '\nPartecipazione: Online' + (attesa ? ' - in lista d\'attesa per la sala' : '') : '')
         + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '')
         + (dati.azienda ? '\nAzienda: ' + dati.azienda : ''),
         'Modifica o annulla l\'iscrizione: ' + link,
         'Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo.',
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+/* --- L'invito, dopo la conferma dell'indirizzo ---
+   La seconda mail: l'indirizzo e' confermato, e in allegato c'e' l'invito
+   in PDF da esibire all'ingresso (per chi segue online, il promemoria che
+   il collegamento arriva prima dell'evento). `dati`: { nome, cognome,
+   azienda, pagina, evento: {quando, luogo, indirizzo, orario}, modalita };
+   `link` e' il collegamento per modificare o annullare. */
+function invitoIngresso(dati, link) {
+    const evento = nomeEvento(dati.pagina);
+    const ev = dati.evento || {};
+    const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
+    const online = String(dati.modalita || '').toLowerCase() === 'online';
+    const oggetto = (online ? 'Indirizzo confermato' : 'Il tuo invito') + ' - Next Generation Business, ' + evento;
+    const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
+    const sommario = saluto + ' il tuo indirizzo è confermato'
+        + (online ? ': la tua partecipazione online a ' + evento + ' è registrata.' : ' e la tua iscrizione a ' + evento + ' è completa.');
+    const apertura = online
+        ? 'Nella diretta si entra con questo indirizzo email e con la password che riceverai con un\'email a parte (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.'
+        : 'In allegato trovi il tuo invito in PDF: esibiscilo al desk all\'ingresso, anche dal telefono, e ti consegniamo il badge. Se qualcosa cambia, dal pulsante qui sotto puoi correggere i tuoi dati o annullare la partecipazione, senza scriverci.';
+    const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+    const html = involucro(oggetto, online ? 'Indirizzo confermato: la tua partecipazione online è registrata.' : 'Il tuo invito a ' + evento + ' è in allegato: esibiscilo all\'ingresso.',
+        testata(online ? 'Indirizzo confermato' : 'Il tuo invito', sommario)
+        + corpo(
+            paragrafo(apertura)
+            + spazio(22)
+            + '<tr><td>' + box(
+                rigaBox('Evento', 'Next Generation Business - ' + evento)
+                + rigaBox('Giorno', ev.quando)
+                + rigaBox('Orario', ev.orario)
+                + rigaBox('Dove', dove)
+                + rigaBox('Partecipazione', online ? 'Online, in diretta' : 'In sala')
+                + rigaBox('Iscritto', nomeCompleto)
+                + rigaBox('Azienda', dati.azienda)
+            ) + '</td></tr>'
+            + spazio(28)
+            + bottone('Modifica o annulla l\'iscrizione', link)
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
+            + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
+        )
+        + piede(MOTIVO));
+    const testo = [online ? 'INDIRIZZO CONFERMATO' : 'IL TUO INVITO', sommario, apertura,
+        'Evento: Next Generation Business - ' + evento
+        + (ev.quando ? '\nGiorno: ' + ev.quando : '') + (ev.orario ? '\nOrario: ' + ev.orario : '') + (dove ? '\nDove: ' + dove : '')
+        + '\nPartecipazione: ' + (online ? 'Online, in diretta' : 'In sala')
+        + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '') + (dati.azienda ? '\nAzienda: ' + dati.azienda : ''),
+        'Modifica o annulla l\'iscrizione: ' + link,
         '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
         'Informativa privacy: ' + PRIVACY].join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
@@ -375,7 +497,7 @@ function confermaB2B(dati, link) {
             + spazio(28)
             + bottone('Modifica la prenotazione', link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         )
         + piede(MOTIVO_B2B));
     const testo = ['PRENOTAZIONE CONFERMATA', sommario,
@@ -551,7 +673,7 @@ function confermaB2BAzienda(dati, link) {
             + spazio(28)
             + bottone(etichettaPulsante, link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue
             + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento vale per l\'intera '
             + esc(azienda || 'azienda') + ': può essere utilizzato anche da un Vostro collega, e le scelte sono '
             + 'le stesse per tutti. Vi chiediamo di non diffonderlo all\'esterno.</td></tr>'
@@ -675,4 +797,4 @@ function invitoB2BAnnullato(dati) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { confermaSito, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };
+module.exports = { confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };

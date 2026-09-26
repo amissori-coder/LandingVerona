@@ -60,6 +60,10 @@ const pezzi = [
     ritaglia('function bolloCoda(', '{', '}'),
     ritaglia('function liberiDi(', '{', '}'),
     ritaglia('function capofilaRb(', '{', '}'),
+    /* L'etichetta del tavolo la scrive il sito quando la conosce: senza
+       questi due pezzi il riepilogo non si disegna nemmeno. */
+    ritaglia('function areeB2BDef(', '{', '}'),
+    ritaglia('function etichettaTavoloB2B(', '{', '}'),
     ritaglia('function tavoliVietatiPer(', '{', '}'),
     ritaglia('function vietatiSenzaQuesto(', '{', '}'),
     ritaglia('function tendinaDove(', '{', '}'),

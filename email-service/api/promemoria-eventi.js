@@ -199,9 +199,9 @@ function fineEvento(rec) {
     const t = Date.parse(g + 'T23:59:59+02:00');
     return isNaN(t) ? 0 : t;
 }
-/* L'ora di partenza di un promemoria: `ora` sul record (7, 8 o 20); i record
+/* L'ora di partenza di un promemoria: `ora` sul record (7, 8, 20 o 22); i record
    confermati prima che ci fosse, 7 se sono della mattina dell'evento, se no 20. */
-const ORE_GIRO = [7, 8, 20];
+const ORE_GIRO = [7, 8, 20, 22];
 function oraDi(rec) {
     const o = Number(rec && rec.ora);
     if (ORE_GIRO.indexOf(o) >= 0) return o;

@@ -50,6 +50,7 @@ Serve per generare i link di reimpostazione password.
 | `SMTP_FROM_EMAIL` | `noreply@nextgenerationbusiness.it` |
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
+| `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
 > bloccato gli invii con un `525 5.7.13` (protezione anti-abuso della casella:
@@ -532,6 +533,7 @@ d'ambiente non ne parte nessuno.
 | `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 | `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo i promemoria con `ora: 7` (la mattina dell'evento) |
 | `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre e 1° ottobre); benvenuto e giorni passati restano al giro delle 20 |
+| `/api/promemoria-eventi-ore22` | `0 20 * * *` — alle 22 di Roma (le 21 con l'ora solare) | spedisce solo i promemoria con `ora: 22` (per Napoli la prima mail del 24 settembre) |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -1111,6 +1113,139 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
+## Conferma dell'indirizzo email (`lib/conferma-email.js`)
+
+La mail di conferma dell'iscrizione (`confermaSito` in `lib/mail-ngb.js`, e la
+gemella composta dall'area riservata in `newsletter-format.js` per le schede
+inserite a mano) porta **in cima** un pulsante "Conferma il tuo indirizzo
+email". Chi lo tocca apre `/conferma_email/?d=<idDoc>&t=<firma>`; la pagina
+chiama il servizio e sulla scheda resta `emailConfermata: { quando, come }`.
+Nell'area riservata e' il **baffetto verde** accanto all'indirizzo, il
+riquadro "indirizzi confermati" in testa all'evento, e la voce "Rimanda la
+mail di conferma" nel menu della riga per chi non ce l'ha ancora.
+
+- **La firma** (`NL.firmaConfermaEmail`, `NL.linkConfermaEmail`): stesso
+  segreto degli altri collegamenti personali, contesto suo
+  (`conferma-email|<idDoc>`). Il token che conferma l'indirizzo non apre
+  `/completa_iscrizione/`, che scrive, e viceversa. Nessuna variabile nuova.
+- **`azione: "conferma-email"`** su `/api/iscrizione-nuova`, con `d` e `t`.
+  Firma cattiva: `403` e nessuna lettura. Scrive `emailConfermata: { quando,
+  come: 'mail' }` con merge, **idempotente** (la seconda apertura risponde
+  `gia: true` con la data della prima e non riscrive), poi alza la revisione.
+  Risponde solo `{ ok, gia, quando, nome, evento }`: mai email o telefono, la
+  pagina e' raggiungibile da chiunque abbia il collegamento. Il freno e' per
+  **scheda** (20 in 10 minuti), non per IP: dieci persone dello stesso
+  ufficio confermano nello stesso minuto.
+- **Perche' la pagina conferma con una POST dallo script** e non aprendosi:
+  gli antispam aziendali (Safe Links di Outlook, i proxy di sicurezza)
+  visitano ogni collegamento della mail prima della persona, ma non eseguono
+  JavaScript. Se bastasse aprire l'indirizzo, ogni iscritto risulterebbe
+  confermato da un robot.
+- **Il pregresso.** Chi era iscritto prima che la mail avesse il pulsante -
+  in sala, aderente, sponsor o online - e' confermato d'ufficio e non riceve
+  nessuna mail: `azione: "conferma-email-pregresso"` su `/api/presenze`
+  (**solo amministratore**, con `filtro` = la parola dell'evento, es.
+  `napoli`) scrive `{ come: 'pregresso', da }` su tutte le schede dell'evento
+  senza il campo, a lotti da 400, e salta chi lo ha gia' - dalla mail o da un
+  lancio precedente. Nell'area riservata e' il pulsante **"Segna confermati
+  gli iscritti finora"**, che compare finche' c'e' qualcuno senza baffetto.
+  Le righe del foglio Google storico non hanno una scheda: `/api/iscrizioni`
+  le restituisce gia' come pregresso. Il suggerimento sul baffetto dice
+  quale dei due e'.
+- **L'ORDINE CONTA: prima si pubblica il servizio con la mail nuova, poi si
+  preme il pulsante del pregresso su ogni evento aperto** (Napoli in testa).
+  Al contrario chi si iscrive nel mezzo riceverebbe la mail E verrebbe
+  segnato d'ufficio: non e' grave (chi clicca dopo resta "pregresso", il
+  campo c'e' gia'), ma e' un baffetto che dice meno del vero.
+- **La seconda mail: l'invito.** Alla prima conferma (non a quelle dopo) il
+  servizio spedisce una seconda mail: per chi e' in sala "Il tuo invito", con
+  l'**invito in PDF** allegato da esibire all'ingresso anche dal telefono
+  (`lib/pdf-invito.js`, stesso Foglio del PDF degli incontri B2B); per chi
+  segue online "Indirizzo confermato", senza allegato, con il promemoria del
+  collegamento. Giorno, orario e sede stanno in `DETTAGLI_EVENTO` di
+  `lib/conferma-email.js`, per titolo del modulo. L'esito resta sulla scheda
+  in `mailInvito: { quando, ok, errore }`; se la posta e' giu' l'indirizzo
+  resta confermato e la pagina lo dice ("all'ingresso basta il tuo nome").
+  Da qui la mail di iscrizione dice "richiesta registrata", non "posto
+  riservato": l'iscrizione e' completa dopo il clic, e le pagine (sito, QR
+  al desk, cartello) lo spiegano nello stesso modo.
+- **`azione: "richiedi-conferma-email"`** su `/api/presenze` (tutti gli
+  abilitati agli Eventi): rispedisce la stessa mail dell'iscrizione dal
+  sito, composta dal servizio (il pulsante porta una firma che solo il
+  servizio conosce), una volta ogni 10 minuti per scheda; sulla scheda resta
+  `emailConfermaRimandata: { da, daNome, quando }`. A chi ha gia' confermato
+  risponde `gia: true` senza spedire.
+- **Le prove**: `node prove/conferma-email.prove.js` (Firestore finto).
+
+## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
+
+Il giorno del convegno al desk c'e' un cartello con un QR (lo produce
+`badge-napoli/cartello.js`). Chi arriva **senza essersi iscritto online** lo
+inquadra e apre `/p26/` dal proprio telefono: scrive l'email (o nome e
+cognome), e
+
+- se **risulta iscritto online**, con un tocco passa in sala e riceve per
+  mail l'invito in PDF da esibire all'ingresso;
+- se **risulta gia' in sala** (presenza, aderente, sponsor), si fa rimandare
+  una copia dell'invito;
+- se **non risulta**, compila il questionario - gli stessi campi del modulo
+  del sito - e segue la strada di tutti (conferma dell'indirizzo, poi
+  l'invito). La presenza la segna lo staff all'ingresso, con l'invito in mano.
+
+Due azioni sull'endpoint pubblico, piu' un caso dell'iscrizione normale:
+
+- `azione: "presenza-cerca"` con `email` e/o `nome` + `cognome`, `evento`
+  (`napoli-2026-10-02`), `chiave`. Cerca fra le schede dell'evento (archivio
+  condiviso di `lib/copia-iscrizioni.js`, cancellate escluse) prima per email
+  normalizzata, poi per nome e cognome senza accenti. Risponde **solo**
+  `{ ok, trovato, rif, nome, cognome, azienda, modalita, giaPresente, perNome }`:
+  mai email, telefono o identificativo. `rif` e' l'impronta
+  dell'identificativo, non l'identificativo (che contiene l'email): chi ha
+  cercato per nome non scopre con quale indirizzo si e' iscritta la persona.
+- `azione: "presenza-invito"` con `rif`, `evento`, `chiave`. Chi era iscritto
+  **online** passa in **presenza** (fra le presenze, dove la sezione vince
+  sulla scheda; la coda per la sala finisce; nota "In sala dal QR gg/mm hh:mm"
+  con la firma `da: "qr-desk"`); chi e' gia' in sala (presenza, aderenti,
+  sponsor) resta dov'e'. A tutti parte la mail **"Il tuo invito"** con il PDF
+  da esibire all'ingresso (`lib/conferma-email.js`, `spedisciInvito`), e
+  l'esito resta sulla scheda in `mailInvito`. Lo stato "presente" NON si
+  scrive: lo mette lo staff all'ingresso, con l'invito in mano. Risponde
+  `{ ok, trovato, spostato, invito, nome, cognome }`.
+- L'**iscrizione nuova** dal telefono e' il payload del sito con in piu'
+  `origine: "qr-desk"` e `chiave`: la scheda viene scritta in `presenza`,
+  senza coda, con `extra.Portale = "Desk (QR)"` (si legge nella colonna
+  Portale dell'elenco, e l'area riservata la conta nel riquadro "registrati al
+  desk"). Da li' segue la strada di tutti: mail "Richiesta di conferma", clic,
+  mail "Il tuo invito" con il PDF. Nessuna presenza scritta dalla pagina. Senza la chiave buona, un'iscrizione che si dichiara dal
+  desk e' un'iscrizione dal sito come le altre.
+
+**La chiave.** Le due azioni funzionano solo con `chiave` uguale a
+`PRESENZA_NAPOLI_CHIAVE` (confronto a tempo costante) e **solo dal 25 settembre al 3
+ottobre 2026** (fuso di Roma). Altrimenti rispondono `{ ok: true, trovato:
+false }` senza dire perche' e senza scrivere nulla: "passa in sala e mandami l'invito" non si
+deve poter fare da casa, e "questo indirizzo e' iscritto?" non deve diventare
+un modo per scoprire chi viene al convegno provando indirizzi. Senza la
+variabile impostata NON esiste una chiave buona: tutto resta spento. La
+chiave sta nel QR come frammento (`/p26/#k=...`), quindi non viaggia verso il
+server della pagina.
+
+**Il freno per IP e' un altro.** Tutta la sala esce dal wifi dell'hotel con
+un indirizzo solo: 8 richieste in 10 minuti le consumerebbero le prime tre
+persone in fila. Le richieste con la chiave buona hanno un freno loro (240 in
+10 minuti per IP), che ferma solo un telefono impazzito.
+
+**Le prove**: `node prove/accredito-desk.prove.js` (Firestore finto, niente
+da installare).
+
+**Il piano B**: senza rete al desk si usa la lista stampata (`badge-napoli`,
+`out/codici.csv`) e si segna a mano dall'area riservata dopo.
+
+**Il foglio Google non riceve piu' le iscrizioni di Napoli** (ne' dal sito ne'
+dal QR): era una copia, e a ogni riga nuova un automatismo agganciato al foglio
+spediva da solo altre due mail all'iscritto ("Manifestazione di interesse").
+Il servizio e' l'unica strada; gli altri moduli del sito scrivono sul foglio
+come prima.
+
 ## Incontri B2B
 
 **L'unita' e' l'AZIENDA, non la persona.** Un invito per impresa, un
@@ -1288,6 +1423,114 @@ la scaletta vive li' e li' si aggiorna da se'.
 Senza quell'indirizzo resta il consiglio **senza** il collegamento: meglio una
 frase in meno che un link a vuoto. Le prove stanno in
 `prove/mail-invito-forma.prove.js`, con e senza pagina dell'evento.
+
+### La copia nascosta a chi preme il pulsante
+
+Ogni mail che parte da un comando dell'area riservata torna in **copia
+nascosta** a chi l'ha fatta partire: e' la prova che e' partita, e con che
+testo. Il manuale lo prometteva da sempre; le mail dell'agenda B2B - un orario
+assegnato (`coda-assegna`, `esigenza-assegna`), un incontro spostato
+(`b2b-sposta`), una prenotazione disdetta (`agenda-libera`), un'azienda tolta
+dagli incontri (`b2b-azienda-elimina`) - partivano **senza**.
+
+Ora la portano. L'indirizzo lo passa chi chiama (`{ ccn: chi }` a
+`inviaConfermaAzienda`, dove `chi` e' `ctx.email`), e la regola sta in un posto
+solo: `ccnDiChiAgisce` in `lib/agenda-b2b.js`.
+
+**Il rovescio conta quanto il dritto.** Quando a prenotare e' l'**impresa**
+dalla sua pagina (`b2b-azienda-salva` in `api/iscrizione-nuova.js`), chi ha
+premuto e' lei: non c'e' nessun operatore, e in copia non deve finire nessuno.
+Percio' l'indirizzo lo passa chi chiama e, quando non c'e', non si inventa. Chi
+e' gia' fra i destinatari non si mette anche in copia, che sarebbe la stessa
+mail due volte.
+
+`prove/azienda-b2b.prove.js` percorre i cinque casi uno per uno: la prenotazione
+dell'impresa (nessuna copia), l'assegnazione, lo spostamento, la disdetta e
+l'eliminazione (copia a chi ha premuto), e controlla che l'indirizzo stia in
+`bcc` e non fra i destinatari veri.
+
+### Che si leggano sul telefono
+
+Quasi tutti aprono la posta dal telefono, e una mail composta su una colonna da
+600 pixel li' arriva stretta a 320. Le cose che si rompono sono sempre le
+stesse, e nessuna si vede rileggendo il testo:
+
+- **Il corpo troppo piccolo.** Sotto i **14px** una frase intera, su un
+  telefono, si legge storcendo gli occhi. Le etichette - corte, maiuscole,
+  spaziate, in grassetto - reggono i **13**, non meno. Erano a 12 e 13: le
+  misure sono salite di un passo **ovunque**, non solo sul telefono, cosi' non
+  ci sono due rese da tenere allineate.
+- **Il contrasto.** Un grigio chiaro su fondo chiaro sparisce al sole. La
+  soglia e' quella delle linee guida, **4,5 a 1**: la riga del motivo in fondo
+  (`#94A3B8` su fondo chiaro, 2,4 a 1) e' passata al grigio del resto del
+  piede, e il navy-glow sopra il titolo (`#5B89B8` sul fondo scuro, 4,1 a 1) e'
+  stato schiarito a `#7FA8CE`, che sta a 6 a 1 e resta piu' tenue del sommario.
+- **Il giustificato, che non si tocca.** Giustificare vuol dire allargare gli
+  spazi finche' la riga arriva in fondo, e su una colonna da una quarantina di
+  caratteri basta una ragione sociale in maiuscolo che non si spezza perche' la
+  riga si apra in voragini ("Gentile      COMPAGNIA      UNICA"). Per un po'
+  sotto i 480px si era andati a bandiera; **e' stato deciso il contrario**: il
+  giustificato e' il modo in cui questo studio scrive le lettere, su ogni
+  schermo, ed e' una scelta di chi le firma. Contro i buchi resta quello che si
+  puo' fare davvero, cioe' **spezzare le parole**: `hyphens:auto` sta sia negli
+  stili delle celle (`ALLINEA`) sia nel foglio di stile (`.par`), e riduce lo
+  spazio da recuperare a fine riga. La prova controlla che la bandiera **non
+  torni**: e' il genere di riga che si riaggiunge "per leggibilita'" senza
+  chiedere.
+- **Le larghezze fisse.** La colonna dell'ora, 110px comodi su 600, su 320 si
+  prende il 39% della riga e spezza in tre il nome del tavolo. Sotto i 480px si
+  stringe a 62 e l'ora va a capo fra le due ("10:00 -" sopra, "10:30" sotto):
+  senza togliere il "a capo" la colonna non si stringerebbe comunque, perche' a
+  tenerla larga e' il testo.
+- **`text-size-adjust`.** I telefoni ingrandiscono da se' il testo che giudicano
+  piccolo, e nel farlo scompaginano la colonna. L'involucro dell'area riservata
+  lo impediva da sempre, quello del servizio no: le mail si vedevano diverse a
+  seconda di chi le aveva composte.
+
+Le prove stanno in `prove/mail-telefono.prove.js`, e leggono l'HTML vero senza
+aprire un browser: le misure stanno scritte nel foglio di stile e negli stili
+delle celle. Controllano anche che le **due copie** delle regole - l'involucro
+dell'area riservata e quello del servizio - dicano la stessa cosa: se una resta
+indietro, meta' delle mail si legge bene e meta' no, e non lo scopre nessuno.
+
+### Due versioni della stessa mail, e la scelta e' di chi spedisce
+
+L'invito B2B si compone in due forme, e nella finestra degli inviti si sceglie
+quale mandare (due pulsanti sopra l'anteprima, che la segue):
+
+- **Lettera completa** (`invitoB2BAzienda`): spiega perche' scriviamo, quando e
+  dove, i tavoli, le sette regole della prenotazione, e arriva al pulsante alla
+  fine. E' quella giusta per un'impresa che non ci conosce, o per un primo
+  invito: chi ci arriva ha gia' deciso.
+- **Versione breve** (`invitoB2BAziendaBreve`): il **pulsante per prenotare sta
+  in cima**, sopra ogni spiegazione. E' quella giusta per chi apre la posta dal
+  telefono fra due riunioni, e per un secondo giro a chi la lettera lunga non
+  l'ha letta. Sotto il pulsante restano i tavoli, e in un riquadro "In breve" le
+  quattro cose che servono per decidere: quanto dura un incontro, quando e dove,
+  entro quando si prenota, che cosa si sceglie dal collegamento.
+
+Non sono una buona e una brutta: sono due modi di aprire la posta.
+
+**Che cosa NON cambia fra le due.** L'oggetto, che si compone in un posto solo
+(`oggettoInvitoB2B`): e' la riga su cui si decide se aprire, e averne due da
+tenere allineate a mano vorrebbe dire ritoccarne una e scoprire l'altra fra un
+mese, in una casella altrui. E i **segnaposto** (`{{NOME}}`, `{{AZIENDA}}`,
+`{{REFERENTI}}`, `{{SE_COLLEGHI}}`, `{{B2B}}`), che sono gli stessi: a
+sostituirli e' il servizio, e un nome diverso in una delle due vorrebbe dire una
+mail spedita con `{{AZIENDA}}` scritto dentro.
+
+**Le sette regole nella breve non ci sono.** Sono sette frasi, ed e'
+esattamente quello che questa mail evita: stanno sulla pagina, dove si prenota,
+e una riga dice che ci sono. La prova `prove/mail-invito-forma.prove.js`
+verifica che prima del pulsante non ci sia **ne' un riquadro ne' un paragrafo**
+di prosa (altrimenti non sarebbe piu' una seconda versione: sarebbe la prima, un
+po' piu' corta), che il testo sia meno della meta' di quello della lettera, che
+l'oggetto sia lo stesso, che i segnaposto ci siano tutti e che anche qui si dia
+del Voi e si scriva giustificato.
+
+Il servizio non sa quale delle due gli arriva, e non deve saperlo: la mail gli
+arriva **gia' composta** dall'area riservata (`mail: {oggetto, html, testo}` nel
+corpo di `invita-b2b-azienda`), come per tutte le altre.
 
 ### Un invito riservato, e si legge prima di aprire la mail
 
@@ -1539,9 +1782,39 @@ non solo a video.
 **I TAVOLI DOPPI sono due tavoli.** Un orario di un tavolo ospita UNA
 prenotazione sola, quindi un argomento tenuto da due persone in parallelo ha
 due voci in `AREE_B2B` (`modello-231` e `modello-231-b`, `rating-legalita` e
-`rating-legalita-b`): ognuna con i suoi referenti, i suoi orari e le sue
-chiusure, cosi se uno dei due e sul palco l'altro continua a ricevere. Chi
-invita sceglie a quale dei due convocare l'impresa.
+`rating-legalita-b`, `merito-creditizio` e `desk-revilaw-b`, `finanza-agevolata`
+e `finanza-agevolata-b`): ognuna con i suoi
+referenti, i suoi orari e le sue chiusure, cosi se uno dei due e sul palco
+l'altro continua a ricevere. Chi invita sceglie a quale dei due convocare
+l'impresa. L'azienda invece vede **una voce sola con il doppio dei posti**:
+l'argomento e l'ora sono suoi, a quale dei due professionisti mandarla no.
+
+> **`desk-revilaw-b` e il secondo tavolo del MERITO CREDITIZIO**, non un desk
+> della segreteria: era nato cosi' ed e' stato convertito, perche' il merito
+> creditizio e l'argomento piu' richiesto e il desk interno ne serviva uno
+> solo. **L'identificativo non e stato cambiato**: e la chiave con cui il
+> tavolo viaggia fra invito, prenotazione e agenda, e riscriverlo avrebbe
+> staccato dal loro tavolo gli appuntamenti gia presi e le chiusure gia
+> decise. Per la stessa ragione la riga resta in fondo all'elenco e non accanto
+> al merito creditizio: l'ordine e quello con cui viaggiano le prenotazioni per
+> indice. E' il caso per cui `id` e `nome` sono due cose diverse. Il nome di
+> prima resta in `NOMI_STORICI`, perche' un invito partito mesi fa parla ancora
+> per nome.
+>
+> **In agenda quel tavolo va dato al referente giusto.** Il tavolo si attiva
+> quando gli si assegna un referente: se ci fosse rimasta la persona del desk
+> della segreteria, si ritroverebbe seduta a un tavolo di merito creditizio.
+
+
+> **`finanza-agevolata-b` e' un POSTO IN PIU', non un desk nuovo.** La richiesta
+> era "un altro slot per ogni orario sullo stesso tavolo": nel modello pero' un
+> orario di un tavolo tiene UNA prenotazione (`aree[tavolo][ora]` e' una casella
+> sola), quindi il secondo posto alle 10:00 e' per forza una seconda voce in
+> `AREE_B2B`, che si fonde con la prima nella stessa famiglia. Per l'azienda non
+> cambia niente: vede "Finanza agevolata" con due posti a ogni ora, e il nome
+> resta quello di sempre. Per chi organizza e' una riga in piu' in agenda, a cui
+> va dato **il referente che siede in quel secondo posto**: due imprese alla
+> stessa ora sono due persone, o una persona che ne riceve due insieme.
 
 **L'area invitata sta sulla SCHEDA, non nel collegamento**
 (`b2bInvito.aree` + `b2bInvito.eventoId`, scritti da `invita-b2b` con

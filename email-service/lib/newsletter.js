@@ -107,12 +107,35 @@ function firmaAziendaValida(evento, aziendaId, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del collegamento "conferma il tuo indirizzo email", nella mail di
+   conferma dell'iscrizione. Contesto suo, stesso segreto: il token che
+   conferma un indirizzo non deve aprire /completa_iscrizione/, che SCRIVE
+   (cambia i nominativi dei partecipanti), e viceversa. Si firma
+   l'identificativo del documento: vale per quella sola scheda. */
+function firmaConfermaEmail(idDoc) {
+    return crypto.createHmac('sha256', segreto())
+        .update('conferma-email|' + String(idDoc || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaConfermaEmailValida(idDoc, token) {
+    const attesa = Buffer.from(firmaConfermaEmail(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 const BASE = String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 const PAGINA_DISISCRIZIONE = BASE + '/newsletter/disiscriviti.html';
 const PAGINA_COMPLETA = BASE + '/completa_iscrizione/';
 function linkCompleta(idDoc) {
     return PAGINA_COMPLETA + '?d=' + encodeURIComponent(String(idDoc || ''))
         + '&t=' + encodeURIComponent(firmaCompleta(idDoc));
+}
+// la pagina che conferma l'indirizzo: stessa forma, firma con il suo contesto
+const PAGINA_CONFERMA_EMAIL = BASE + '/conferma_email/';
+function linkConfermaEmail(idDoc) {
+    return PAGINA_CONFERMA_EMAIL + '?d=' + encodeURIComponent(String(idDoc || ''))
+        + '&t=' + encodeURIComponent(firmaConfermaEmail(idDoc));
 }
 /* Modulo degli incontri B2B: stessa firma della scheda (stesso perimetro:
    quella sola iscrizione), pagina diversa. */
@@ -271,7 +294,8 @@ module.exports = {
     firma, firmaValida, linkDisiscrizione, linkUnClic,
     firmaCompleta, firmaCompletaValida, linkCompleta, linkB2B,
     firmaAzienda, firmaAziendaValida, linkB2BAzienda,
-    PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, BASE,
+    firmaConfermaEmail, firmaConfermaEmailValida, linkConfermaEmail,
+    PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,
     brevoAttivo, chiamataBrevo, bloccatiBrevo
 };

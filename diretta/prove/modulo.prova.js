@@ -1,38 +1,34 @@
 /* ============================================================
-   PROVE - il modulo di Napoli ripete da solo la chiamata al servizio
+   PROVE - il modulo di Napoli e la diretta
    ------------------------------------------------------------
        node modulo.prova.js
 
    La pagina vera di Napoli (napoli_ottobre_2026/), servita da
    server-locale.js (porte 3955 per le funzioni, non usate, e 8955 per
-   il sito) in Chromium con Playwright. Le due strade del modulo sono
-   intercettate nel browser: il foglio Google (NGB_SHEET_URL) risponde
-   sempre, il servizio (NGB_FIREBASE_URL, .../api/iscrizione-nuova)
-   risponde come chiede ogni prova. Nessuna richiesta esce davvero.
-   L'orologio della pagina e' quello finto di Playwright (page.clock),
-   fermo al momento dell'invio: la data scritta nel modulo e' la stessa
-   in ogni prova, e i tentativi del servizio partono solo quando la
-   prova fa passare il tempo (runFor).
+   il sito) in Chromium con Playwright. La chiamata al servizio
+   (NGB_FIREBASE_URL, .../api/iscrizione-nuova) e' intercettata nel
+   browser e risponde come chiede ogni prova. Nessuna richiesta esce
+   davvero. L'orologio della pagina e' quello finto di Playwright
+   (page.clock), fermo al momento dell'invio.
+
+   Dal sito principale (main, f26e12e) il modulo di Napoli ha UNA
+   strada sola, il servizio: aspetta la risposta, e se non arriva o dice
+   di no mostra l'errore e lascia riprovare. La diretta aggiunge soltanto
+   il percorso della pagina (`percorso`), con cui il servizio trova
+   l'evento della diretta; nessun tentativo automatico (chi vede
+   l'errore riprova, e se il lavoro della diretta non riesce dopo una
+   scheda salvata ci pensa la riconciliazione).
 
    COSA DIMOSTRA.
-   1. Servizio che risponde 503 alle prime due chiamate e 200 alla
-      terza: TRE chiamate al servizio, la seconda dopo 3 secondi e la
-      terza 10 secondi dopo la seconda (non prima: a 2,9 e 9,8 secondi
-      non e' ancora partita), tutte con keepalive e con lo stesso corpo
-      (il payload del foglio piu' il solo `percorso`); poi nessun'altra.
-      La conferma a video compare SUBITO, prima dei tentativi (e' legata
-      al foglio, come prima). Il payload del FOGLIO e' identico, byte per
-      byte, a quello della versione di prima (git 6f762d7~1, quando la
-      chiamata al servizio non aveva ne' percorso ne' tentativi), con le
-      stesse intestazioni e lo stesso metodo.
-   2. Rete che cade due volte (la richiesta non arriva), poi 200: tre
-      chiamate.
-   3. 429 (troppi invii), poi 200: due chiamate.
-   4. 400 (dati non validi): una chiamata sola, niente tentativi (ripetuta
-      sarebbe uguale).
-   5. Sempre 503: tre chiamate e poi basta.
-   6. Servizio a posto (200): una chiamata sola.
-   In tutte: la conferma a video c'e', nessun errore nella pagina.
+   1. Servizio a posto: UNA chiamata, POST text/plain, con il corpo di
+      main (f26e12e) byte per byte piu' il solo `percorso`
+      (/napoli_ottobre_2026/); la conferma a video; nessuna richiesta al
+      foglio Google.
+   2. 503: l'errore del sito, il modulo resta, il pulsante torna
+      attivo; una chiamata sola, anche un minuto dopo.
+   3. Rete che cade: «Errore di connessione…», una chiamata sola.
+   4. 400 con un messaggio del servizio: il messaggio a video.
+   In tutte: nessun errore nella pagina.
    Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
@@ -50,10 +46,9 @@ const FOTO = path.resolve(__dirname, 'risultati/screenshot-modulo');
 fs.mkdirSync(FOTO, { recursive: true });
 
 const SCRIPT_ORA = fs.readFileSync(path.join(RADICE, 'napoli_ottobre_2026/script.js'), 'utf8');
-// la versione di prima che il modulo mandasse al servizio anche il percorso (e ripetesse la chiamata)
-const SCRIPT_PRIMA = execSync('git show 6f762d7~1:napoli_ottobre_2026/script.js', { cwd: RADICE, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+// il modulo del sito principale, senza la diretta: una strada sola, senza `percorso`
+const SCRIPT_MAIN = execSync('git show f26e12e:napoli_ottobre_2026/script.js', { cwd: RADICE, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
 const URL_SERVIZIO = (/const NGB_FIREBASE_URL = '([^']+)'/.exec(SCRIPT_ORA) || [])[1];
-const URL_FOGLIO = (/const NGB_SHEET_URL = '([^']+)'/.exec(SCRIPT_ORA) || [])[1];
 // l'istante (fermo) dell'invio: la stessa data nel modulo per tutte le prove
 const ISTANTE = new Date('2026-09-26T10:15:30+02:00').getTime();
 
@@ -95,11 +90,12 @@ async function accendiSito() {
 
 /* ---------- una pagina di Napoli con il modulo compilato ----------
    risposte: una per chiamata al servizio ('rete' = la richiesta cade;
-   un numero = lo stato HTTP); oltre l'ultima vale l'ultima.
-   script: al posto di script.js (la versione di prima). */
+   un numero = lo stato HTTP); oltre l'ultima vale l'ultima. msg: il
+   messaggio del servizio quando dice di no.
+   script: al posto di script.js (quello di main). */
 async function apriModulo(browser, opz) {
     const ctx = await browser.newContext({ locale: 'it-IT', timezoneId: 'Europe/Rome', viewport: { width: 1280, height: 900 } });
-    const c = { servizio: [], foglio: [], altre: 0 };
+    const c = { servizio: [], esterni: [] };
     await ctx.route(/^https?:\/\//, async route => {
         const req = route.request();
         const url = req.url();
@@ -114,24 +110,12 @@ async function apriModulo(browser, opz) {
             c.servizio.push({ reale: Date.now(), metodo: req.method(), tipo: req.headers()['content-type'], corpo: req.postData() || '' });
             const r = opz.risposte ? opz.risposte[Math.min(n, opz.risposte.length - 1)] : 200;
             if (r === 'rete') return route.abort('failed');
-            return route.fulfill({ status: r, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: r === 200 }) });
+            const corpo = r === 200 ? { ok: true } : Object.assign({ ok: false }, opz.msg ? { msg: opz.msg } : {});
+            return route.fulfill({ status: r, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(corpo) });
         }
-        if (url === URL_FOGLIO) {
-            c.foglio.push({ metodo: req.method(), tipo: req.headers()['content-type'], corpo: req.postData() || '' });
-            return route.fulfill({ status: 200, contentType: 'text/plain', body: 'ok' });
-        }
-        c.altre++;
+        c.esterni.push(new URL(url).host);
         return route.abort();
     });
-    // come chiama fetch la pagina (keepalive non si vede dalla rete): lo si annota
-    await ctx.addInitScript(servizio => {
-        window.__fetchServizio = [];
-        const vero = window.fetch;
-        window.fetch = function (url, init) {
-            if (String(url) === servizio) window.__fetchServizio.push({ keepalive: !!(init && init.keepalive), corpo: init && init.body });
-            return vero.apply(this, arguments);
-        };
-    }, URL_SERVIZIO);
     const p = await ctx.newPage();
     p.__errori = [];
     p.on('pageerror', e => p.__errori.push(String(e.message || e)));
@@ -161,98 +145,69 @@ const confermaVisibile = p => p.evaluate(() => {
     const el = document.getElementById('formSuccess');
     return !!el && getComputedStyle(el).display !== 'none' && getComputedStyle(document.getElementById('accreditationForm')).display === 'none';
 });
-/* Invia e aspetta la conferma a video (tempo vero, orologio della pagina
-   fermo: nessun tentativo puo' partire nel frattempo). -> quante chiamate
-   al servizio c'erano quando e' comparsa la conferma */
+const erroreVisibile = p => p.evaluate(() => {
+    const el = document.getElementById('submitError');
+    const form = document.getElementById('accreditationForm');
+    return el && el.textContent && getComputedStyle(form).display !== 'none' && !document.getElementById('submitBtn').disabled ? el.textContent : '';
+});
+// invia e aspetta (tempo vero) che la pagina dica com'e' andata
 async function invia(m) {
     await m.p.click('#submitBtn');
-    const comparsa = await aspetta(() => confermaVisibile(m.p), 5000);
-    return { comparsa: comparsa, chiamate: m.c.servizio.length };
-}
-// fa passare `ms` di orologio della pagina, poi lascia arrivare le risposte (tempo vero)
-async function passa(m, ms) {
-    await m.p.clock.runFor(ms);
-    await pausa(400);
-}
-// aspetta (tempo vero) che la risposta al tentativo n sia arrivata alla pagina
-async function rispostaArrivata(m, n) {
-    await aspetta(() => m.c.servizio.length >= n, 3000);
-    await pausa(400);
+    await aspetta(async () => (await confermaVisibile(m.p)) || !!(await erroreVisibile(m.p)), 5000);
+    return { conferma: await confermaVisibile(m.p), errore: await erroreVisibile(m.p), chiamate: m.c.servizio.length };
 }
 
 (async () => {
     let sito = null, browser = null;
     try {
-        vero(!!URL_SERVIZIO && !!URL_FOGLIO && /keepalive:\s*true/.test(SCRIPT_ORA) && !/keepalive/.test(SCRIPT_PRIMA),
-            'lo script di adesso chiama il servizio con keepalive (quello di prima no); servizio ' + URL_SERVIZIO);
+        vero(!!URL_SERVIZIO && !/NGB_SHEET_URL/.test(SCRIPT_ORA) && /percorso: location\.pathname/.test(SCRIPT_ORA) && !/percorso/.test(SCRIPT_MAIN.slice(SCRIPT_MAIN.indexOf('NGB_FIREBASE_URL'), SCRIPT_MAIN.indexOf('function validateField'))),
+            'lo script di adesso manda al servizio anche il percorso, e nessuna richiesta al foglio; servizio ' + URL_SERVIZIO);
         sito = await accendiSito();
         browser = await chromium.launch({ executablePath: CHROMIUM });
 
-        console.log('\n1. Il servizio risponde 503, 503, poi 200');
-        const m1 = await apriModulo(browser, { risposte: [503, 503, 200] });
+        console.log('\n1. Servizio a posto');
+        const m1 = await apriModulo(browser, { risposte: [200] });
         const i1 = await invia(m1);
-        vero(i1.comparsa && i1.chiamate === 1, 'la conferma a video compare subito, con UNA chiamata al servizio (i tentativi non si aspettano)', JSON.stringify(i1));
-        await m1.p.screenshot({ path: path.join(FOTO, 'napoli-conferma-con-servizio-giu.png') });
-        await rispostaArrivata(m1, 1);
-        await passa(m1, 2900);
-        vero(m1.c.servizio.length === 1, 'a 2,9 secondi il secondo tentativo non e\' ancora partito');
-        await passa(m1, 200);
-        await rispostaArrivata(m1, 2);
-        vero(m1.c.servizio.length === 2, 'a 3 secondi parte il secondo tentativo (il primo ha avuto 503)');
-        await passa(m1, 9800);
-        vero(m1.c.servizio.length === 2, '9,8 secondi dopo il secondo, il terzo non e\' ancora partito');
-        await passa(m1, 300);
-        await rispostaArrivata(m1, 3);
-        vero(m1.c.servizio.length === 3, '10 secondi dopo il secondo (503 anche lui) parte il terzo, che riceve 200');
-        await passa(m1, 60000);
-        vero(m1.c.servizio.length === 3, 'dopo il 200 nessun altro tentativo (un minuto dopo: sempre 3)');
-        const fetch1 = await m1.p.evaluate(() => window.__fetchServizio);
-        vero(fetch1.length === 3 && fetch1.every(f => f.keepalive === true), 'tutte e tre con keepalive: true (arrivano anche se la pagina si chiude)', JSON.stringify(fetch1.map(f => f.keepalive)));
-        const corpi1 = m1.c.servizio.map(s => s.corpo);
-        vero(corpi1.every(x => x === corpi1[0]) && m1.c.servizio.every(s => s.metodo === 'POST' && /^text\/plain/.test(s.tipo)),
-            'lo stesso corpo in ogni tentativo (stessa scheda: stessa email, stessa data), POST text/plain come prima');
-        vero(m1.c.foglio.length === 1, 'al foglio Google una richiesta sola (i tentativi sono solo verso il servizio)');
-        vero(m1.p.__errori.length === 0 && m1.c.altre >= 0, 'nessun errore nella pagina' + (m1.p.__errori.length ? ': ' + m1.p.__errori.join(' | ') : ''));
-
-        // il payload del foglio: identico alla versione di prima
-        const m0 = await apriModulo(browser, { script: SCRIPT_PRIMA, risposte: [200] });
+        vero(i1.conferma && i1.chiamate === 1, 'la conferma a video, dopo UNA chiamata al servizio', JSON.stringify(i1));
+        await m1.p.screenshot({ path: path.join(FOTO, 'napoli-conferma.png') });
+        const s1 = m1.c.servizio[0] || {};
+        vero(s1.metodo === 'POST' && /^text\/plain/.test(s1.tipo), 'POST text/plain, come su main');
+        const m0 = await apriModulo(browser, { script: SCRIPT_MAIN, risposte: [200] });
         const i0 = await invia(m0);
-        await pausa(300);
-        const fg = m1.c.foglio[0] || {}, fg0 = m0.c.foglio[0] || {};
-        vero(i0.comparsa && fg0.corpo && fg.corpo === fg0.corpo, 'il payload del FOGLIO e\' identico, byte per byte, a quello della versione di prima (6f762d7~1)',
-            'adesso: ' + fg.corpo + '\n       prima: ' + fg0.corpo);
-        vero(fg.tipo === fg0.tipo && fg.metodo === fg0.metodo, 'verso il foglio stesso metodo e stesse intestazioni di prima (' + fg.metodo + ' ' + fg.tipo + ')');
-        const corpoServizio = JSON.parse(corpi1[0] || '{}');
-        const senzaPercorso = Object.assign({}, corpoServizio);
+        const corpo = JSON.parse(s1.corpo || '{}');
+        const senzaPercorso = Object.assign({}, corpo);
         delete senzaPercorso.percorso;
-        vero(corpoServizio.percorso === '/napoli_ottobre_2026/' && JSON.stringify(senzaPercorso) === fg.corpo && (m0.c.servizio[0] || {}).corpo === fg0.corpo,
-            'al servizio: il payload del foglio piu\' il solo `percorso` (/napoli_ottobre_2026/); prima era il payload del foglio e basta');
+        const corpoMain = (m0.c.servizio[0] || {}).corpo;
+        vero(i0.conferma && corpo.percorso === '/napoli_ottobre_2026/' && JSON.stringify(senzaPercorso) === corpoMain,
+            'al servizio: il corpo di main (f26e12e) byte per byte, piu\' il solo `percorso` (/napoli_ottobre_2026/)',
+            'adesso: ' + s1.corpo + '\n       main:   ' + corpoMain);
+        vero(!m1.c.esterni.some(h => /script\.google/.test(h)), 'nessuna richiesta al foglio Google', m1.c.esterni.join(', '));
+        vero(m1.p.__errori.length === 0, 'nessun errore nella pagina' + (m1.p.__errori.length ? ': ' + m1.p.__errori.join(' | ') : ''));
         await m0.ctx.close();
         await m1.ctx.close();
 
-        console.log('\n2-6. Rete che cade, 429, 400, sempre 503, servizio a posto');
-        const casi = [
-            { nome: 'rete che cade due volte, poi 200', risposte: ['rete', 'rete', 200], attese: 3 },
-            { nome: '429 (troppi invii), poi 200', risposte: [429, 200], attese: 2 },
-            { nome: '400 (dati non validi): nessun tentativo in piu\'', risposte: [400], attese: 1 },
-            { nome: 'sempre 503: tre tentativi e poi basta', risposte: [503], attese: 3 },
-            { nome: 'servizio a posto (200): una chiamata', risposte: [200], attese: 1 }
-        ];
-        for (const caso of casi) {
-            const m = await apriModulo(browser, { risposte: caso.risposte });
-            const i = await invia(m);
-            await rispostaArrivata(m, 1);
-            await passa(m, 3100);
-            await rispostaArrivata(m, Math.min(2, caso.attese));
-            await passa(m, 10100);
-            await rispostaArrivata(m, caso.attese);
-            await passa(m, 60000);
-            const f = await m.p.evaluate(() => window.__fetchServizio);
-            vero(i.comparsa && i.chiamate === 1 && m.c.servizio.length === caso.attese && f.every(x => x.keepalive === true) && m.p.__errori.length === 0,
-                caso.nome + ': conferma a video subito, ' + m.c.servizio.length + ' chiamat' + (m.c.servizio.length === 1 ? 'a' : 'e') + ' al servizio',
-                JSON.stringify({ comparsa: i.comparsa, chiamate: m.c.servizio.length, errori: m.p.__errori }));
-            await m.ctx.close();
-        }
+        console.log('\n2. Il servizio risponde 503');
+        const m2 = await apriModulo(browser, { risposte: [503] });
+        const i2 = await invia(m2);
+        vero(!i2.conferma && /Iscrizione non registrata/.test(i2.errore) && i2.chiamate === 1, 'l\'errore del sito, il modulo resta e il pulsante torna attivo', JSON.stringify(i2));
+        await m2.p.screenshot({ path: path.join(FOTO, 'napoli-servizio-giu.png') });
+        await m2.p.clock.runFor(60000);
+        await pausa(400);
+        vero(m2.c.servizio.length === 1, 'nessun tentativo automatico: un minuto dopo, sempre una chiamata');
+        vero(m2.p.__errori.length === 0, 'nessun errore nella pagina');
+        await m2.ctx.close();
+
+        console.log('\n3. La rete cade');
+        const m3 = await apriModulo(browser, { risposte: ['rete'] });
+        const i3 = await invia(m3);
+        vero(!i3.conferma && /Errore di connessione/.test(i3.errore) && i3.chiamate === 1 && m3.p.__errori.length === 0, '«Errore di connessione…», una chiamata sola', JSON.stringify(i3));
+        await m3.ctx.close();
+
+        console.log('\n4. Il servizio dice di no (400) con un messaggio');
+        const m4 = await apriModulo(browser, { risposte: [400], msg: 'Codice invito non valido.' });
+        const i4 = await invia(m4);
+        vero(!i4.conferma && i4.errore === 'Codice invito non valido.' && i4.chiamate === 1 && m4.p.__errori.length === 0, 'il messaggio del servizio a video', JSON.stringify(i4));
+        await m4.ctx.close();
     } catch (e) {
         console.error(e);
         rossi++;

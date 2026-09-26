@@ -341,13 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btnLoading.style.display = 'inline-flex';
             submitBtn.disabled = true;
 
-            // Build payload matching the shared NGB schema. Every form on
-            // the domain posts to the same Google Sheet endpoint and the
-            // `pagina` field identifies which page the submission came from.
-            // `data` is a pre-formatted Italian timestamp so the sheet
-            // always has a readable Date column without relying on the
-            // Apps Script to call new Date() server-side.
-            const NGB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
+            // Build payload matching the shared NGB schema: the `pagina` field
+            // identifies which page the submission came from, and `data` is a
+            // pre-formatted Italian timestamp so the record always has a
+            // readable date without relying on the server clock.
 
             const _n = new Date();
             const _pad = (x) => String(x).padStart(2, '0');
@@ -412,69 +409,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 marketing: !!(form.querySelector('#marketing') && form.querySelector('#marketing').checked)
             };
 
-            // Seconda strada, indipendente dalla prima: gli stessi dati vanno anche
-            // sul database dell'area riservata, cosi le iscrizioni si vedono subito
-            // senza dipendere dal foglio. Se questa fallisce non cambia nulla per chi
-            // si iscrive: il foglio resta la conferma dell'invio.
-            // (text/plain evita la richiesta di verifica preliminare del browser;
-            //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
+            /* UNA STRADA SOLA: il servizio. Scrive la scheda su Firestore (da
+               dove la legge l'area riservata) e spedisce la mail con il
+               pulsante per confermare l'indirizzo. Il foglio Google non riceve
+               piu' le iscrizioni di Napoli: era una copia, e a ogni riga nuova
+               faceva partire da solo altre due mail all'iscritto
+               ("Manifestazione di interesse"), che non c'entravano niente con
+               la conferma. Gli altri moduli del sito continuano a scrivere sul
+               foglio come prima.
+               (text/plain evita la richiesta di verifica preliminare del
+               browser; il contenuto e' comunque JSON e il servizio lo legge
+               come tale.) */
             const NGB_FIREBASE_URL = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
-            /* In piu', SOLO verso il servizio (non verso il foglio, che scrive le
-               colonne che conosce): il percorso di questa pagina. Serve alla
-               diretta: se nella gestione della diretta e' acceso «Invia subito la
-               password a chi si iscrive dal modulo del sito», il servizio trova
-               l'evento della diretta dalla sua «pagina dell'evento», e il percorso
-               e' piu' sicuro dell'etichetta PAGINA_NGB. */
-            /* Se il servizio non risponde (rete, o una risposta 5xx o 429) la
-               chiamata si RIPETE da sola: tre tentativi in tutto, il secondo
-               dopo circa 3 s e il terzo circa 10 s dopo il secondo. E' da qui
-               che chi si iscrive online riceve la password della diretta: un
-               intoppo di un momento del servizio non deve lasciarlo senza.
-               Ripetere e' sicuro: la scheda ha lo stesso identificativo
-               (email e data di questo invio, la stessa in ogni tentativo) e
-               la diretta non manda mai una seconda password; al massimo, se
-               il servizio aveva gia' fatto tutto e solo la risposta si e'
-               persa, arriva una seconda email di conferma del sito.
-               Un 4xx (dati non validi) non si ripete: ripetuto sarebbe uguale.
-               keepalive: il tentativo in corso arriva anche se la pagina si
-               chiude o si cambia pagina. I tentativi che devono ancora partire
-               no (i timer muoiono con la pagina): per quelli c'e' la
-               riconciliazione della diretta, che ogni 5 minuti ripesca le
-               schede rimaste senza account (email-service/lib/diretta-riconcilia.js).
-               La conferma a video resta legata al foglio, qui sotto, e non
-               aspetta questi tentativi. */
-            const corpoServizio = JSON.stringify(Object.assign({}, payload, { percorso: location.pathname }));
-            const ATTESE_SERVIZIO = [3000, 10000];
-            const mandaAlServizio = (tentativo) => {
-                const riprova = () => {
-                    if (tentativo < ATTESE_SERVIZIO.length) setTimeout(() => mandaAlServizio(tentativo + 1), ATTESE_SERVIZIO[tentativo]);
-                };
-                fetch(NGB_FIREBASE_URL, {
-                    method:    'POST',
-                    headers:   { 'Content-Type': 'text/plain;charset=UTF-8' },
-                    body:      corpoServizio,
-                    keepalive: true
-                }).then((risposta) => {
-                    if (risposta.status >= 500 || risposta.status === 429) riprova();
-                }).catch(() => { riprova(); /* il foglio resta la strada principale */ });
-            };
-            mandaAlServizio(0);
-
-            fetch(NGB_SHEET_URL, {
-                method:  'POST',
-                mode:    'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(payload)
-            }).then(() => {
-                form.style.display = 'none';
-                formSuccess.style.display = 'block';
-                formSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }).catch(() => {
+            const mostraErrore = (testo) => {
                 btnText.style.display = 'inline-flex';
                 btnLoading.style.display = 'none';
                 submitBtn.disabled = false;
-
-                // Show a lightweight inline error below the submit button
                 let errEl = document.getElementById('submitError');
                 if (!errEl) {
                     errEl = document.createElement('p');
@@ -485,7 +435,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (footnote) footnote.after(errEl);
                     else submitBtn.parentElement.appendChild(errEl);
                 }
-                errEl.textContent = "Errore di connessione. Riprova più tardi o scrivici a info@nextgenerationbusiness.it";
+                errEl.textContent = testo;
+            };
+            /* In piu' dei dati del modulo, il percorso di questa pagina. Serve
+               alla diretta: se nella sua gestione e' acceso «Invia subito la
+               password a chi si iscrive dal modulo del sito», il servizio
+               trova l'evento della diretta dalla sua «pagina dell'evento», e il
+               percorso e' piu' sicuro dell'etichetta PAGINA_NGB. Se il lavoro
+               della diretta non riesce, l'iscrizione resta valida e ci pensa
+               la riconciliazione ogni 5 minuti (email-service/lib/diretta-riconcilia.js). */
+            fetch(NGB_FIREBASE_URL, {
+                method:  'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body:    JSON.stringify(Object.assign({}, payload, { percorso: location.pathname }))
+            }).then(r => r.json().catch(() => ({}))).then(d => {
+                if (!d || !d.ok) {
+                    // il servizio ha detto di no (codice invito, dati): lo si riporta
+                    mostraErrore((d && d.msg) || 'Iscrizione non registrata. Riprova, oppure scrivici a info@nextgenerationbusiness.it');
+                    return;
+                }
+                form.style.display = 'none';
+                formSuccess.style.display = 'block';
+                formSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }).catch(() => {
+                mostraErrore('Errore di connessione. Riprova più tardi o scrivici a info@nextgenerationbusiness.it');
             });
         });
     }

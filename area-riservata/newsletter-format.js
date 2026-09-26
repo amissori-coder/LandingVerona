@@ -51,7 +51,12 @@
         scuro: '#0A2844',       // navy-dark del sito
         blu: '#164068',         // navy
         accento: '#2A5A85',     // navy-light: filetti e segni
-        chiaroBlu: '#5B89B8',   // navy-glow: segni su fondo scuro
+        /* NAVY-GLOW, schiarito. Sul fondo scuro il tono di prima (#5B89B8)
+           dava 4,1 a 1 di contrasto: sotto la soglia delle linee guida, e
+           su un telefono al sole la riga sopra il titolo spariva. Questo
+           sta a 6 a 1 e resta piu' tenue del sommario, che e' il suo
+           compito. */
+        chiaroBlu: '#7FA8CE',   // navy-glow: segni su fondo scuro
         suScuro: '#C8DAEA',     // testo tenue sopra il blu
         azzurro: '#8bb8d4',
         testo: '#1E293B',
@@ -427,9 +432,9 @@
         sezione: 'font-size:20px;line-height:28px;',
         sommario: 'font-size:18px;line-height:29px;',
         corpo: 'font-size:16px;line-height:27px;',
-        etichetta: 'font-size:12px;line-height:17px;letter-spacing:1.6px;text-transform:uppercase;',
-        occhiello: 'font-size:12px;line-height:17px;letter-spacing:2px;text-transform:uppercase;',
-        piede: 'font-size:12px;line-height:20px;'
+        etichetta: 'font-size:13px;line-height:19px;letter-spacing:1.4px;text-transform:uppercase;',
+        occhiello: 'font-size:13px;line-height:19px;letter-spacing:1.8px;text-transform:uppercase;',
+        piede: 'font-size:14px;line-height:22px;'
     };
     const LATO = 40;                 // margine laterale: lascia 520px di colonna di testo
     // "mso-line-height-rule:exactly" serve a Outlook: senza, ignora l'interlinea
@@ -628,7 +633,7 @@
     }
     /* L'etichetta si emette GIA' maiuscola invece di usare text-transform, che il
        motore di Word non conosce: su Outlook resterebbe minuscola. */
-    const ETI = 'font-size:12px;line-height:17px;letter-spacing:1.6px;';
+    const ETI = 'font-size:13px;line-height:19px;letter-spacing:1.4px;';
     function etichettaFase(f, colore) {
         return '<div style="' + FONTE + ETI + 'color:' + colore + ';font-weight:bold;">' + esc(f.etichetta.toUpperCase()) + '</div>';
     }
@@ -1018,8 +1023,30 @@
                ".lead" NON si tocca: e' del sommario nella testata. */
             + '  .att{font-size:18px!important;line-height:28px!important;}\n'
             + '  .t1{font-size:21px!important;line-height:29px!important;}\n'
+            /* Promemoria: sul telefono il riquadro dei dati respira meno. */
+            + '  .pmbox{padding:14px 16px!important;}\n'
             + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
             + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
+            + '}\n'
+            /* IL TESTO E' GIUSTIFICATO SU OGNI SCHERMO, telefono compreso.
+               Su una colonna da una quarantina di caratteri il giustificato apre
+               buchi fra le parole - una ragione sociale in maiuscolo che non si
+               spezza li allarga fino alla voragine - e per un po' sotto una
+               certa misura si era andati a bandiera. E' stato deciso il
+               contrario: il giustificato e' il modo in cui questo studio scrive
+               le lettere, ed e' una scelta di chi le firma, non del programma
+               che le compone.
+               Contro i buchi resta quello che si puo' fare davvero, cioe'
+               spezzare le parole: la sillabazione sta negli stili delle celle
+               (ALLINEA) e qui nel foglio di stile, per le due classi che
+               portano prosa (".par" e ".pmj" dei promemoria). */
+            /* Telefoni piccoli (fino a 400px: iPhone SE, mini e simili): margini
+               piu' stretti, per lasciare al testo giustificato la riga piu'
+               lunga possibile. */
+            + '@media only screen and (max-width:400px){\n'
+            + '  .px{padding-left:18px!important;padding-right:18px!important;}\n'
+            + '  .pmj{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}\n'
+            + '  .h1{font-size:22px!important;line-height:29px!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
             + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
@@ -1147,7 +1174,7 @@
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(PRIVACY) + '" style="' + linkPiede() + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede() + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + anno)
+                + rigaPiede('color:' + C.tenue + ';', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + anno)
             )
             + '</td></tr>';
 
@@ -1253,7 +1280,7 @@
         /* Il riepilogo: etichetta e valore, una riga per dato. Solo le righe che
            hanno un valore: una cella vuota fa credere che manchi qualcosa. */
         const riga = (et, val) => val
-            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
             + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
             : '';
         const righe = riga('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business')
@@ -1271,13 +1298,37 @@
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const posto = online
             ? (nPart > 1
-                ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
-                : 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.')
+                ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Nella diretta ognuno entra con la propria email e la password che riceve con un\'email a parte, prima dell\'evento. Non trovate l\'email? Controllate nella cartella Spam o Promozioni.'
+                : 'La tua partecipazione online è registrata. Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.')
             : (nPart > 1
                 ? 'I tuoi ' + nPart + ' posti sono riservati.'
                 : 'Il tuo posto è riservato.');
+        /* IL BLOCCO "CONFERMA IL TUO INDIRIZZO", in cima: il segnaposto
+           {{CONFERMA}} lo sostituisce il servizio con il collegamento firmato
+           all'invio (come {{COMPLETA}}). Pulsante a prova di Outlook: sfondo
+           sulla cella, link a blocco pieno alto almeno 44px, sotto l'indirizzo
+           in chiaro per chi non puo' cliccare. Gemello di bloccoConferma in
+           email-service/lib/mail-ngb.js: se cambia di la', cambia anche qui. */
+        const bloccoConferma = '<tr><td style="' + FONTE + '">'
+            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+            + '<tr><td class="par" style="' + FONTE + 'padding:18px 22px 14px;' + SCALA.corpo + 'color:' + C.testo + ';background-color:' + C.chiaro + ';' + ALLINEA + '">'
+            + '<b style="color:' + C.scuro + ';">Un tocco per confermare il tuo indirizzo.</b> '
+            + 'Così sappiamo che le comunicazioni sull\'evento - il programma, i promemoria, il collegamento per seguirlo - ti arrivano davvero.</td></tr>'
+            + '<tr><td style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
+            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
+            + '<td align="center" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;">'
+            + '<a href="' + SEGNAPOSTO_CONFERMA + '" style="display:block;padding:13px 16px;font-family:' + FONT
+            + ';font-size:17px;line-height:22px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Conferma il tuo indirizzo email</a>'
+            + '</td></tr></table></td></tr>'
+            + '<tr><td style="' + FONTE + 'padding:0 22px 16px;font-size:13px;line-height:20px;color:' + C.tenue + ';background-color:' + C.chiaro + ';word-break:break-all;text-align:left;">'
+            + 'Se il pulsante non funziona, copia questo indirizzo nel browser:<br>'
+            + '<a href="' + SEGNAPOSTO_CONFERMA + '" style="color:' + C.accento + ';text-decoration:underline;">' + SEGNAPOSTO_CONFERMA + '</a></td></tr>'
+            + '</table></td></tr>';
         const corpo = cella(tabellaInterna(
             spazio(30)
+            + bloccoConferma
+            + spazio(26)
             + par(posto + ' Qui sotto trovi il riepilogo della tua iscrizione: se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.')
             + spazio(22)
             + '<tr><td>' + box + '</td></tr>'
@@ -1294,7 +1345,7 @@
                segnaposto {{COMPLETA}}, che il servizio sostituisce con
                l'indirizzo firmato al momento dell'invio. */
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Devi correggere qualcosa o annullare l\'iscrizione? '
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Devi correggere qualcosa o annullare l\'iscrizione? '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Fallo dal tuo collegamento personale</a>, senza scriverci.</td></tr>'
         ));
 
@@ -1311,7 +1362,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_CONFERMA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_CONFERMA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -1333,6 +1384,8 @@
         parti.push('--');
         parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
         parti.push(MOTIVO_CONFERMA);
+        // nel testo semplice il collegamento di conferma sta subito dopo il saluto
+        parti.splice(2, 0, 'Conferma il tuo indirizzo email (un clic): ' + SEGNAPOSTO_CONFERMA);
         parti.push('Informativa privacy: ' + PRIVACY);
 
         return { oggetto: oggetto, html: html, testo: parti.join('\n\n') };
@@ -1353,6 +1406,8 @@
        luogo, indirizzo}, portale, partecipanti.
     ========================================================= */
     const SEGNAPOSTO_COMPLETA = '{{COMPLETA}}';
+    // e il collegamento "conferma il tuo indirizzo", firmato dal servizio all'invio
+    const SEGNAPOSTO_CONFERMA = '{{CONFERMA}}';
     const MOTIVO_RICHIESTA = 'Ricevi questa email per completare i dati della tua iscrizione all\'evento: non è una comunicazione promozionale.';
     function richiestaDati(dati) {
         dati = dati || {};
@@ -1391,7 +1446,7 @@
             + '</td></tr>';
 
         const riga = (et, val) => val
-            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
             + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
             : '';
         const box = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
@@ -1436,7 +1491,7 @@
             + bottone
             + '</td></tr></table></td></tr>'
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Se qualcosa non torna, rispondi a questa email.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Se qualcosa non torna, rispondi a questa email.</td></tr>'
         ));
 
         const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
@@ -1450,7 +1505,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_RICHIESTA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_RICHIESTA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -1524,7 +1579,16 @@
            l'invito non lo propone mai - chi compone la mail toglie i tavoli
            interni. Ci si finisce solo perche' lo decide chi organizza. */
         { nome: 'Desk Revilaw', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' },
-        { nome: 'Desk Revilaw - secondo tavolo', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' }
+        /* Il SECONDO desk Revilaw e' diventato il secondo tavolo del merito
+           creditizio: l'identificativo resta "desk-revilaw-b" (e' la chiave
+           delle prenotazioni gia' prese), il nome e la descrizione no. La
+           descrizione e' quella del merito creditizio, perche' per chi legge
+           e' lo stesso incontro. */
+        { nome: 'Merito creditizio - secondo tavolo', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' },
+        /* Il posto in piu' a ogni orario della finanza agevolata: stessa
+           descrizione della prima, perche' per chi legge e' lo stesso
+           incontro. */
+        { nome: 'Finanza agevolata - secondo posto', descrizione: 'finanza agevolata e sostegno agli investimenti' }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
@@ -1533,12 +1597,12 @@
         'merito-creditizio', 'adeguati-assetti', 'esg',
         'modello-231', 'modello-231-b', 'finanza-agevolata',
         'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b',
-        'desk-revilaw', 'desk-revilaw-b'
+        'desk-revilaw', 'desk-revilaw-b', 'finanza-agevolata-b'
     ].map((id, i) => ({ id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione }));
     /* I tavoli INTERNI non si propongono a nessuno. La regola sta anche qui
        perche' qui si compone la mail d'invito, e un tavolo interno finito in
        elenco sarebbe un invito a prenotare una cosa che non si prenota. */
-    const AREE_INTERNE_B2B = ['desk-revilaw', 'desk-revilaw-b'];
+    const AREE_INTERNE_B2B = ['desk-revilaw'];
     const areaInternaB2B = id => AREE_INTERNE_B2B.indexOf(String(id || '')) >= 0;
     /* I SECONDI TAVOLI di uno stesso argomento. Per chi organizza sono due
        tavoli veri, con due referenti e due griglie di orari; per chi riceve
@@ -1549,7 +1613,10 @@
     const SECONDI_B2B = {
         'modello-231-b': 'modello-231',
         'rating-legalita-b': 'rating-legalita',
-        'desk-revilaw-b': 'desk-revilaw'
+        // era il secondo desk della segreteria, ora e' il secondo tavolo del
+        // merito creditizio: l'identificativo non si cambia, il capofila si'
+        'desk-revilaw-b': 'merito-creditizio',
+        'finanza-agevolata-b': 'finanza-agevolata'
     };
     const capofilaB2B = id => SECONDI_B2B[String(id || '')] || String(id || '');
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
@@ -1592,7 +1659,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_B2B) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_B2B) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
     }
@@ -1653,11 +1720,11 @@
         const riquadroOrario = '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Quando e dove</span><br>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Quando e dove</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">'
             + esc([ev.quando, ev.luogo].filter(Boolean).join(' - ')) + '</span>'
-            + (ev.indirizzo ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(ev.indirizzo) + '</span>' : '')
-            + '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">L\'orario di ciascun incontro è indicato qui sotto, accanto al suo argomento.</span>'
+            + (ev.indirizzo ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">' + esc(ev.indirizzo) + '</span>' : '')
+            + '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">L\'orario di ciascun incontro è indicato qui sotto, accanto al suo argomento.</span>'
             + '</td></tr></table></td></tr>';
 
         const corpo = cella(tabellaInterna(
@@ -1679,9 +1746,9 @@
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">La Sua scelta attuale</span><br>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">La Sua scelta attuale</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">{{TEMI}}</span><br>'
-            + '<span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.</span>'
+            + '<span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.</span>'
             + '</td></tr></table></td></tr>'
             + '{{/SE_TEMI}}'
             + spazio(18)
@@ -1691,7 +1758,7 @@
             + spazio(26)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
 
         const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piedeB2B());
@@ -1746,9 +1813,9 @@
         const riquadro = (etichetta, forte, sotto) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">' + esc(etichetta) + '</span><br>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">' + esc(etichetta) + '</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">' + esc(forte) + '</span>'
-            + (sotto ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(sotto) + '</span>' : '')
+            + (sotto ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';">' + esc(sotto) + '</span>' : '')
             + '</td></tr></table></td></tr>';
         const chiTiene = referenti.map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ');
         /* La frase sugli orari e' la regola del gioco, e va detta prima del
@@ -1786,7 +1853,7 @@
             + spazio(26)
             + par(chiusura)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
         const html = involucro(oggetto, anteprima,
             testaB2B('Un incontro riservato per la Sua impresa', sommario) + copertinaB2B()
@@ -1827,6 +1894,16 @@
        sceglie l'argomento, non la persona),
        giornata: {inizio, fine, pranzoDa, pranzoA, durata} }.
     ========================================================= */
+    /* L'OGGETTO DELL'INVITO B2B, per tutte e due le versioni della mail.
+       La lettera lunga e quella breve sono due modi di dire la stessa cosa, ma
+       l'oggetto e' lo stesso: e' la riga su cui si decide se aprire, e averne
+       due da tenere allineate a mano vorrebbe dire ritoccarne una e scoprire
+       l'altra fra un mese, in una casella altrui. */
+    function oggettoInvitoB2B(quandoEv) {
+        return 'Importante - ' + SEGNAPOSTO_NOME
+            + ': INVITO RISERVATO agli incontri B2B, Next Generation Business'
+            + (quandoEv ? ', ' + quandoEv : '');
+    }
     function invitoB2BAzienda(dati) {
         dati = dati || {};
         const ev = dati.evento || {};
@@ -1877,9 +1954,7 @@
            tutte le aziende, e a sostituirlo - nell'oggetto come nel testo - e'
            il servizio al momento dell'invio, che e' l'unico a sapere a chi
            sta spedendo. */
-        const oggetto = 'Importante - ' + SEGNAPOSTO_NOME
-            + ': INVITO RISERVATO agli incontri B2B, Next Generation Business'
-            + (quandoEv ? ', ' + quandoEv : '');
+        const oggetto = oggettoInvitoB2B(quandoEv);
         const anteprima = 'Un invito riservato alla Vostra impresa: indicate chi partecipa e tre preferenze. La prima è una prenotazione.';
         const scadenza = String((dati.evento || {}).scadenzaB2B || '').trim();
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', Vi rivolgiamo un invito riservato: nel corso del convegno "'
@@ -1890,7 +1965,7 @@
            COLLEGAMENTO e non l'incontro (chi altri l'ha ricevuto, fin dove lo
            si puo' passare). In fondo e piccole, ma giustificate come il resto:
            sono l'ultima cosa che si legge, non un'avvertenza da contratto. */
-        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* UN SOLO RIQUADRO PER TUTTE LE SEZIONI.
            Prima ce n'erano due disegnati a mano ("Quando e dove", "Come
            funziona") e in mezzo un titoletto nudo per i tavoli: tre blocchi
@@ -1902,7 +1977,7 @@
         const sezione = (etichetta, dentro) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
             + '<tr><td style="padding:16px 22px;">'
-            + '<div style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
+            + '<div style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
             + dentro + '</td></tr></table></td></tr>';
         const quandoDove = [ev.quando, ev.luogo].filter(Boolean).join(' - ');
         /* IL PROGRAMMA DEI LAVORI, da guardare PRIMA di scegliere l'ora.
@@ -1920,8 +1995,8 @@
         const sezioneQuandoDove = quandoDove || ev.indirizzo
             ? sezione('Quando e dove',
                 '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">' + testoHtml(quandoDove) + '</div>'
-                + (ev.indirizzo ? '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(ev.indirizzo) + '</div>' : '')
-                + '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + 'padding-top:8px;">'
+                + (ev.indirizzo ? '<div style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(ev.indirizzo) + '</div>' : '')
+                + '<div style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + 'padding-top:8px;">'
                 + testoHtml(rigaProgramma)
                 + (urlEvento ? ' <a href="' + esc(urlEvento) + '" style="color:' + C.blu + ';text-decoration:underline;font-weight:bold;">'
                     + 'Il programma dei lavori</a>' : '')
@@ -1999,7 +2074,7 @@
                 ? spazio(20) + sezione('Entro quando',
                     '<div style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;' + ALLINEA + '">'
                     + testoHtml('Le scelte si chiudono il ' + scadenza + '.') + '</div>'
-                    + '<div style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">'
+                    + '<div style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
                     + testoHtml('Dopo tale data chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.') + '</div>')
                 : '')
             + spazio(30)
@@ -2026,6 +2101,135 @@
                 + '. Dopo tale data chiudiamo gli abbinamenti e assegniamo gli orari rimanenti.' : ''),
             'Scegliete i Vostri incontri: ' + SEGNAPOSTO_B2B,
             chiusura,
+            '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
+            fraseCollegamento,
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
+    /* =========================================================
+       INVITO B2B ALL'AZIENDA - LA VERSIONE BREVE
+       ---------------------------------------------------------
+       La stessa cosa della lettera lunga, detta a chi non la
+       leggera'. Sono due mail per due modi di aprire la posta, non
+       una buona e una brutta:
+         - la LETTERA (invitoB2BAzienda) spiega, e chi la legge
+           arriva al pulsante avendo gia' deciso. E' quella giusta
+           per un'impresa che non ci conosce, o per un primo invito;
+         - questa mette il PULSANTE SUBITO, sopra ogni spiegazione:
+           chi la apre dal telefono, fra due riunioni, ha davanti la
+           sola cosa che gli serve fare. Il resto - quando, dove, i
+           tavoli, entro quando - sta sotto, per chi scorre.
+       Quello che NON cambia e' l'oggetto: e' lo stesso della lettera
+       lunga, scritto in un posto solo, perche' e' la riga su cui si
+       decide se aprire e non ha senso averne due versioni da tenere
+       allineate a mano.
+       Le regole della prenotazione qui non ci sono per intero: sono
+       sette frasi, e sette frasi sopra un pulsante sono esattamente
+       quello che questa mail vuole evitare. Stanno sulla pagina, dove
+       si prenota, e una riga qui dice che ci sono.
+       Stessi segnaposto della lettera lunga ({{NOME}}, {{AZIENDA}},
+       {{REFERENTI}}, {{SE_COLLEGHI}}, {{B2B}}): a sostituirli e' il
+       servizio, che e' l'unico a sapere a chi sta spedendo.
+    ========================================================= */
+    function invitoB2BAziendaBreve(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        /* Un argomento, una riga, come nella lettera lunga: i secondi tavoli e
+           il desk interno non si elencano. */
+        const visti = {};
+        const aree = (dati.aree || []).filter(a => {
+            if (!a || !a.nome || areaInternaB2B(a.id)) return false;
+            const capo = capofilaB2B(a.id);
+            if (visti[capo]) return false;
+            visti[capo] = true;
+            return true;
+        });
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
+        /* L'OGGETTO E' LO STESSO della lettera lunga: si compone di la' e si
+           legge di qua. Due oggetti diversi per la stessa cosa vorrebbero dire
+           ritoccarne uno e dimenticare l'altro. */
+        const oggetto = oggettoInvitoB2B(quandoEv);
+        const anteprima = 'Il collegamento per scegliere i Vostri incontri B2B: bastano due minuti.';
+        /* Il sommario della testata e' corto apposta: dice chi siamo, che cosa
+           c'e' da fare e quanto ci vuole. Tutto il resto viene dopo il
+           pulsante. */
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', Vi invitiamo agli incontri B2B del convegno "'
+            + nomeConvegno + '"' + (quandoEv ? ' di ' + quandoEv : '')
+            + ': colloqui riservati con i nostri professionisti, da prenotare dal pulsante qui sotto.';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const nota = t => '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const sezione = (etichetta, dentro) => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
+            + '<tr><td style="padding:16px 22px;">'
+            + '<div style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding-bottom:10px;">' + esc(etichetta) + '</div>'
+            + dentro + '</td></tr></table></td></tr>';
+        const bottone = '<tr><td align="center" style="text-align:center;">'
+            + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
+            + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
+            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:16px 34px;font-family:' + FONT
+            + ';font-size:17px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Prenotate i Vostri incontri</a>'
+            + '</td></tr></table></td></tr>';
+        const entro = String(ev.scadenzaB2B || '').trim();
+        const quandoDove = [ev.quando, ev.luogo].filter(Boolean).join(' - ')
+            + (ev.indirizzo ? ', ' + ev.indirizzo : '');
+        const durata = parseInt((dati.giornata || {}).durata, 10) > 0 ? parseInt(dati.giornata.durata, 10) : 30;
+        /* Le quattro cose che servono per decidere, una riga l'una: quanto
+           dura, quando e dove, entro quando, e che il collegamento e'
+           dell'impresa. Non sono le regole - quelle stanno sulla pagina - sono
+           i fatti. */
+        const fatti = [
+            'Ogni incontro dura ' + durata + ' minuti e si tiene a margine dei lavori in sala, ai desk riservati.',
+            (quandoDove ? 'Quando e dove: ' + quandoDove + '.' : ''),
+            (entro ? 'Le prenotazioni si chiudono il ' + entro + ', e gli orari si assegnano in ordine di arrivo.' : 'Gli orari si assegnano in ordine di arrivo.'),
+            'Dal collegamento scegliete i tavoli di Vostro interesse, l\'orario e il nominativo di chi partecipa.'
+        ].filter(Boolean);
+        const fraseColleghi = 'Questo invito è stato inviato anche a {{REFERENTI}}: è un unico invito per '
+            + '{{AZIENDA}}, e le scelte sono visibili e modificabili dallo stesso collegamento, da chiunque di Voi lo apra.';
+        const fraseCollegamento = 'Questo invito è riservato a {{AZIENDA}}: il collegamento vale per l\'intera '
+            + 'impresa e può essere utilizzato anche da un Vostro collega. Vi chiediamo di non diffonderlo all\'esterno.';
+        const corpo = cella(tabellaInterna(
+            /* IL PULSANTE PER PRIMO. E' tutta la differenza fra questa mail e
+               l'altra: chi la apre dal telefono, fra due riunioni, deve avere
+               davanti la sola cosa che gli serve fare, non un paragrafo da cui
+               ricavarla. */
+            spazio(26)
+            + bottone
+            + spazio(10)
+            + '<tr><td align="center" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:center;">'
+            + testoHtml('Bastano due minuti, e le scelte si possono cambiare fino alla chiusura.') + '</td></tr>'
+            + spazio(26)
+            + (aree.length
+                ? sezione('I tavoli fra cui scegliere', elencoPunti(
+                    aree.map(a => '<span style="color:' + C.scuro + ';font-weight:bold;">' + testoHtml(a.nome) + '</span>'),
+                    'font-size:15px;line-height:26px;color:' + C.testo + ';' + ALLINEA, C.blu))
+                + spazio(16)
+                : '')
+            + sezione('In breve', elencoPunti(fatti.map(x => testoHtml(x)),
+                'font-size:14px;line-height:23px;color:' + C.scuro + ';' + ALLINEA, C.blu))
+            + spazio(24)
+            + par('L\'invito non è aperto a tutti gli iscritti: i posti ai desk sono limitati ed è rivolto alle imprese '
+                + 'selezionate una per una. Sulla pagina trovate le poche regole della prenotazione, e restiamo a '
+                + 'disposizione per qualsiasi chiarimento.')
+            + spazio(22)
+            + '{{SE_COLLEGHI}}' + nota(fraseColleghi) + spazio(10) + '{{/SE_COLLEGHI}}'
+            + nota(fraseCollegamento)
+        ));
+        const html = involucro(oggetto, anteprima,
+            testaB2B('Invito riservato agli incontri B2B', sommario) + copertinaB2B()
+            + corpo + spazio(36) + piedeB2B());
+        // la versione a solo testo dice le stesse cose nello stesso ordine, e il
+        // collegamento sta in cima come sta in cima il pulsante
+        const testo = ['INVITO RISERVATO AGLI INCONTRI B2B', sommario,
+            'Prenotate i Vostri incontri: ' + SEGNAPOSTO_B2B,
+            'Bastano due minuti, e le scelte si possono cambiare fino alla chiusura.',
+            (aree.length ? 'I tavoli fra cui scegliere:\n' + aree.map(a => '- ' + a.nome).join('\n') : ''),
+            'In breve:\n' + fatti.map(x => '- ' + x).join('\n'),
+            'L\'invito non è aperto a tutti gli iscritti: i posti ai desk sono limitati ed è rivolto alle imprese '
+            + 'selezionate una per una. Sulla pagina trovate le poche regole della prenotazione, e restiamo a '
+            + 'disposizione per qualsiasi chiarimento.',
             '{{SE_COLLEGHI}}' + fraseColleghi + '{{/SE_COLLEGHI}}',
             fraseCollegamento,
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
@@ -2169,7 +2373,7 @@
             + '</td></tr>';
 
         const riga = (et, val) => val
-            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
             + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
             : '';
         /* Nel riepilogo NON c'e' la sede: chi legge questa mail non deve
@@ -2208,7 +2412,7 @@
             + par('Pochi giorni prima dell\'evento riceverà a questo stesso indirizzo il collegamento e le istruzioni per seguire i lavori online. '
                 + 'Da adesso a quel momento non deve fare nulla: pensiamo noi a scriverLe.')
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
             + 'Se preferisce rinunciare, o se i Suoi dati sono da correggere, può farlo dal '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
             + 'Il collegamento vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
@@ -2225,7 +2429,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -2315,7 +2519,7 @@
                 + spazio(12)
                 + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;' + ALLINEA + '">' + testoHtml(titolo) + '</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
+                + '<tr><td class="lead par pmj" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
@@ -2323,7 +2527,7 @@
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
            lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
            l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
@@ -2332,7 +2536,7 @@
         const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + voci.map(v => '<tr>'
                 + '<td width="18" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.accento + ';font-weight:bold;padding:2px 0;">&bull;</td>'
-                + '<td valign="top" class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
+                + '<td valign="top" class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
             + '</table></td></tr>';
         const corpoParagrafi = paragrafi.map((p, i) => {
             let h = i ? spazio(p.titolo ? 26 : 18) : '';
@@ -2343,12 +2547,17 @@
             return p.se ? '<!--SE_' + p.se + '-->' + h + '<!--/SE_' + p.se + '-->' : h;
         }).join('');
 
-        const riga = (et, val) => '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
-            + '<td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
+        /* Etichetta SOPRA e valore sotto, a tutta larghezza: su un telefono
+           stretto due colonne lasciavano al valore tre parole per riga, con i
+           buchi del giustificato. Cosi' si legge bene ovunque, anche nelle app
+           di posta che ignorano il foglio di stile. I valori sono dati brevi:
+           a sinistra. */
+        const riga = (et, val, i) => '<tr><td class="bxet" valign="top" style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:' + (i ? 12 : 0) + 'px 0 2px;' + ALLINEA + '">' + testoHtml(et) + '</td></tr>'
+            + '<tr><td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
         const box = righe.length
             ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
-            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe.map(r => riga(r[0], r[1])).join('')) + '</td></tr></table></td></tr>'
+            + '<tr><td class="pmbox" style="padding:16px 22px;">' + tabellaInterna(righe.map((r, i) => riga(r[0], r[1], i)).join('')) + '</td></tr></table></td></tr>'
             : '';
         /* Il programma come un orario: a sinistra l'ora, a destra la voce. E'
            la forma in cui si legge un programma, la stessa della mail di
@@ -2357,7 +2566,7 @@
             ? spazio(26) + sopratitolo('Programma dei lavori') + spazio(4)
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + programma.map(v => '<tr>'
-                + '<td width="70" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 14px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
+                + '<td width="62" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 12px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
                 + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
             + '</table></td></tr>'
             : '';
@@ -2388,7 +2597,7 @@
         const rigaBottone = bottone ? spazio(28) + '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
             + '</td></tr>' : '';
-        const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
+        const piccolo = t => '<tr><td class="par pmj" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">' + t + '</td></tr>';
         /* Al Lei, come tutte le mail al singolo: il registro non si mescola
            nella stessa lettera. */
         const fraseLink = 'Qualora non potesse più partecipare o desiderasse modificare i Suoi dati, può farlo attraverso il '
@@ -2424,7 +2633,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:#94A3B8;', esc(MOTIVO_PROMEMORIA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_PROMEMORIA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
 
@@ -2573,7 +2782,8 @@
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
         passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
-        invitoB2BAzienda: invitoB2BAzienda, regoleB2B: regoleB2B,
+        invitoB2BAzienda: invitoB2BAzienda, invitoB2BAziendaBreve: invitoB2BAziendaBreve,
+        regoleB2B: regoleB2B,
         areaInternaB2B: areaInternaB2B, capofilaB2B: capofilaB2B,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
