@@ -1028,23 +1028,19 @@ node e2e.prova.js              # solo il percorso completo
 | `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 26 verdi, 0 rossi |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
-Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch:
-**2334 controlli verdi, 0 rossi** (26 settembre 2026, dopo le correzioni della
-revisione: «Password dimenticata?» e accessi che non si cancellano, email
-corretta, limiti e tempi del modulo del sito, iscrizioni «da verificare»). La prova della coda
-(`coda.prova.js`) è rossa ogni tanto: 2 volte su una dozzina di giri, con una
-o due email «respinte» in meno del previsto nello scenario del processo ucciso
-a metà; tutti gli altri controlli di quei giri, compreso «nessuna email
-partita due volte», erano verdi. Non si è più ripresentata in 10 giri
-successivi; se ricapita, la prova stampa lo stato di ogni indirizzo per
-trovarne la causa.
-
-Durante lo sviluppo le regole del ricollegamento sono state provate anche con
-una simulazione (il codice della pagina con un orologio finto, 2000 casi
-casuali per ogni situazione): passaggio alla riserva fra 20 e 24 secondi dal
-guasto, anche con la playlist ferma; con la rete di chi guarda giù per 25-40
-secondi nessuno passa alla riserva; cambiare solo la riserva non ricarica
-nessuno.
+Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch
+(26 settembre 2026, dopo le correzioni della revisione finale): 2324 verdi e 1
+rosso, l'anteprima (qui sotto); l'anteprima rifatta da sola tre volte: 26 verdi
+su 26. In tutto **2334 controlli verdi**. Due prove sono rosse ogni tanto, senza
+che il codice c'entri in modo dimostrato:
+- `anteprima/anteprima.prova.js`: a volte scade il tempo al passo "file di
+  esempio", dove l'anteprima scarica dalla rete SheetJS (la libreria che legge
+  Excel);
+- `coda.prova.js`: 2 volte su una dozzina di giri, con una o due email
+  «respinte» in meno del previsto nello scenario del processo ucciso a metà;
+  tutti gli altri controlli di quei giri, compreso «nessuna email partita due
+  volte», erano verdi. Non si è più ripresentata; se ricapita, la prova stampa
+  lo stato di ogni indirizzo per trovarne la causa.
 
 ### L'anteprima con accessi di prova
 
