@@ -285,7 +285,7 @@ async function provaFile() {
     vero(/timeZone: FUSO/.test(stato) && /var FUSO = "Europe\/Rome"/.test(stato), 'diretta-stato.js: il giorno di Roma con Intl (timeZone Europe/Rome)');
     vero(/#dirPillola\{[^}]*z-index:9990;/.test(stato), 'pillola: z-index 9990, sotto gli avvisi del sito (9998-9999) e sopra la barra (1000)');
     const napoli = fs.readFileSync(path.join(RADICE, 'napoli_ottobre_2026/index.html'), 'utf8');
-    vero(/styles\.css\?v=18/.test(napoli), 'Napoli: versione del foglio di stile aggiornata (?v=18)');
+    vero(/styles\.css\?v=19/.test(napoli), 'Napoli: versione del foglio di stile aggiornata (?v=19, dopo l\'allineamento con main)');
     vero(/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" defer><\/script>\s*<\/body>/.test(napoli), 'Napoli: diretta-stato.js caricato in fondo alla pagina');
     // niente trattini lunghi nei testi scritti per la diretta
     const sezione = napoli.slice(napoli.indexOf('<!-- Segui la diretta'), napoli.indexOf('<!-- L\'Evento -->'));
@@ -298,9 +298,9 @@ async function provaFile() {
     uguale(conNome, [], 'nessun "nome utente" nel popup e nella pagina di Napoli');
     vero(!/nei giorni precedenti/i.test(napoli), 'Napoli: nessuna data d\'invio delle credenziali promessa («nei giorni precedenti»)');
     const conferma = napoli.slice(napoli.indexOf('<div id="formSuccess"'), napoli.indexOf('</div>', napoli.indexOf('class="success-detail"')));
-    vero(/Nella diretta si entra con la propria email e la password ricevuta via email\./.test(conferma)
+    vero(/«Conferma il tuo indirizzo»/.test(conferma) && /Nella diretta si entra con la propria email e la password che riceverai via email\./.test(conferma)
         && /Non trovi l’email\? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro\./.test(conferma),
-        'Napoli: la conferma dell\'iscrizione dice come si entra (email e password) e dove cercare l\'email (Spam o Promozioni)');
+        'Napoli: la conferma dell\'iscrizione chiede di confermare l\'indirizzo, dice come si entra (email e password) e dove cercare l\'email (Spam o Promozioni)');
 }
 
 /* ---------- 1. NGBDiretta ---------- */
