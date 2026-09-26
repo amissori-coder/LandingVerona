@@ -198,12 +198,17 @@ Blaze non ha un tetto di spesa: per questo si imposta un **avviso di budget**
    prove non se ne accorgono: vanno provati sul progetto vero, vedi [§12](#12-cosa-devi-fare-tu)).
 8. **La chiave di servizio del server.** *Impostazioni progetto* → *Account di
    servizio* → *Genera nuova chiave privata* → scarica il JSON. **Non** va nel
-   repository. Convertila in una riga base64:
+   repository. Su Vercel va in `DIRETTA_FIREBASE_SERVICE_ACCOUNT`
+   ([§3](#3-le-variabili-su-vercel)): il servizio accetta il JSON così com'è,
+   ma se il campo *Value* non lo prende convertilo in una riga base64:
    ```bash
    base64 -w0 ngb-eventi-xxxx.json      # Linux
    base64 -i ngb-eventi-xxxx.json       # Mac
    ```
-   e incollala su Vercel in `DIRETTA_FIREBASE_SERVICE_ACCOUNT` ([§3](#3-le-variabili-su-vercel)).
+   Su Windows, da PowerShell (copia la riga negli appunti, pronta per Ctrl+V):
+   ```powershell
+   $f = Get-ChildItem "$env:USERPROFILE\Downloads\ngb-eventi-*.json" | Sort-Object LastWriteTime -Descending | Select-Object -First 1; [Convert]::ToBase64String([IO.File]::ReadAllBytes($f.FullName)) | Set-Clipboard; "Copiata: " + $f.Name
+   ```
    È una chiave **diversa** da `FIREBASE_SERVICE_ACCOUNT` (quella dell'area
    riservata), che resta dov'è.
 9. **La chiave API del server** (`DIRETTA_FIREBASE_API_KEY`). Il servizio
