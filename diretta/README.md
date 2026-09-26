@@ -1,7 +1,7 @@
 # Diretta degli eventi (`/diretta/`)
 
 Un'area riservata piccola e separata, che fa **una cosa sola**: chi è iscritto
-a un evento online entra con **nome utente e password** e vede la diretta di
+a un evento online entra con **la sua email e la password** che riceve via email e vede la diretta di
 quell'evento. Niente ruoli, niente menu, nessun legame con l'area riservata
 dello studio (`area-riservata/`): progetto Firebase diverso, account diversi,
 dati diversi.
@@ -26,7 +26,7 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 4. [Brevo](#4-brevo)
 5. [Il video: il player di Azoto](#5-il-video-il-player-di-azoto)
 6. [Come si usa: dalla settimana prima al giorno dopo](#6-come-si-usa-dalla-settimana-prima-al-giorno-dopo)
-7. [Nomi utente, doppioni, password](#7-nomi-utente-doppioni-password)
+7. [L'email come accesso, doppioni, password](#7-lemail-come-accesso-doppioni-password)
 8. [Sicurezza: cosa è protetto e come](#8-sicurezza-cosa-è-protetto-e-come)
 9. [Tenuta con 1000 persone: stime e piani](#9-tenuta-con-1000-persone-stime-e-piani)
 10. [Le prove](#10-le-prove)
@@ -40,7 +40,7 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 ```
  browser del partecipante                     Vercel (email-service/)                 Firebase "ngb-eventi"
  ─────────────────────────                    ──────────────────────────              ─────────────────────
- /diretta/  ── nome utente + password ──▶  api/diretta-accesso  ── verifica ──▶  Authentication
+ /diretta/  ── email + password ────────▶  api/diretta-accesso  ── verifica ──▶  Authentication
             ◀── token personale ─────────                       ◀──────────────
             ── accesso con il token ───────────────────────────────────────▶  Authentication
             ── UNA lettura in ascolto: eventi/{idEvento} ───────────────────▶  Firestore (regole)
@@ -62,7 +62,6 @@ Il resto del sito porta alla diretta dalla **pagina di Napoli** (pulsante
 | `diretta/player-webtv.js` | **modalità B**: il nostro `<video>` per il flusso diretto **HLS** (e DASH), usato da pagina e regia |
 | `diretta/sorgente-video.js` | che cosa è quello che si incolla (codice o indirizzo del player Azoto, flusso HLS o DASH), gli indirizzi ammessi (`HOST_AZOTO`) e perché un link è rifiutato: **una sola** regola per gestione, pagina e servizio |
 | `diretta/hls.min.js`, `diretta/dash.all.min.js` | hls.js 1.7.3 "light" (Apache 2.0) e dash.js 5.2.1 (BSD), versioni fissate e salvate nel sito (licenze accanto); si scaricano solo in modalità B |
-| `diretta/nome-utente.js` | la regola del nome utente, **una sola** per tutto il sistema |
 | `diretta/config.js` | configurazione web del progetto Firebase e indirizzo del servizio |
 | `diretta/reimposta.html` | scelta della nuova password |
 | `diretta/gestione/` | la pagina dei gestori |
@@ -95,8 +94,7 @@ state toccate, a parte `vercel.json` che elenca il nuovo lavoro programmato):
 | Raccolta | Chi la legge | Contenuto |
 |---|---|---|
 | `eventi/{idEvento}` | i partecipanti di quell'evento, i gestori | titolo, data, orari, stato, programma; il tipo di player (Azoto o flusso diretto); l'indirizzo del player o il link del flusso (e quello di riserva, e quale dei due è in uso) **solo mentre è in onda**; con i link firmati è il link senza firma, che da solo non basta (quello firmato lo dà il servizio a ciascuno) |
-| `partecipanti/{uid}` | solo la persona stessa | nome utente, nome, cognome, email, azienda, eventi, stato delle email, ultimo accesso |
-| `nomiUtente/{nomeUtente}` | solo il server | → uid: garantisce che un nome utente esista una volta sola |
+| `partecipanti/{uid}` | solo la persona stessa | nome, cognome, email, azienda, eventi, da dove arriva (import o modulo del sito), stato delle email, ultimo accesso |
 | `indirizzi/{email}` | solo il server | → uid: garantisce che un'email abbia un solo account |
 | `sessioni/{uid}` | solo il server | account attivo o disattivato, dispositivo ammesso |
 | `eventiRiservati/{idEvento}` | solo il server | il tipo di player, l'indirizzo del player Azoto (solo l'indirizzo, mai il codice incollato), il link del flusso e quello di riserva; la chiave segreta dei link firmati |
@@ -297,7 +295,7 @@ riparte al giro successivo.
 - *Senders, Domains & Dedicated IPs* → `nextgenerationbusiness.it` autenticato
   con **SPF, DKIM e DMARC** (altrimenti le credenziali finiscono nello spam);
 - *Transactional* → *Settings*: il tracciamento dei clic riscrive i link (anche
-  quello con il nome utente) e Brevo conserva per un periodo i registri dei
+  quello per entrare nella diretta) e Brevo conserva per un periodo i registri dei
   messaggi: **l'email delle credenziali contiene la password in chiaro**, come
   richiesto, quindi passa dai sistemi di Brevo. Il nostro codice non la salva da
   nessuna parte; limita a poche persone l'accesso all'account Brevo e, se
@@ -387,7 +385,7 @@ nel database, dove lo inserisce la gestione):
   scorrimento.
 - **L'indirizzo arriva dal database solo dopo l'accesso**, solo agli iscritti a
   quell'evento e solo mentre è in onda: l'iframe esiste solo per chi è entrato
-  con nome utente e password, e non compare nel codice pubblico.
+  con email e password, e non compare nel codice pubblico.
 - **Prima dell'inizio, in pausa e dopo la fine** la pagina mostra le nostre
   schermate (attesa, pausa, chiusura) **al posto** dell'iframe, che si crea solo
   quando la regia va in onda e sparisce quando esce di onda: nessuno vede la
@@ -590,16 +588,17 @@ provano a mano, con Azoto che trasmette una prova:
    `diretta/prove/esempio-partecipanti.csv` (indirizzi finti su domini che non
    ricevono posta: serve solo a vedere l'anteprima in un evento di prova, **non
    inviare le credenziali agli indirizzi del file**).
-   L'**anteprima** mostra riga per riga il nome utente che verrà assegnato e i
-   problemi, a colori: email mancanti o non valide, nome o cognome vuoti,
-   doppioni nel file, persone già presenti, omonimi con il numero proposto (e chi
-   usa già quel nome), un indirizzo condiviso da persone diverse, un file salvato
+   L'**anteprima** controlla riga per riga le **email** e mostra i problemi, a
+   colori: email mancanti o non valide, nome o cognome vuoti, doppioni nel
+   file, persone già presenti (vengono solo aggiunte all'evento, senza password
+   nuova), la stessa email per persone diverse (da correggere), un file salvato
    con la codifica sbagliata (lettere come `Ã²`). Il filtro "Solo da controllare"
-   mostra solo quelle. Per ogni riga puoi correggere, escludere o confermare;
+   mostra solo quelle. Per ogni riga puoi correggere o escludere;
    **"Crea gli account" resta spento finché c'è qualcosa da sistemare**. Gli
-   account si creano a gruppi di 25 (circa 4 al secondo, per non superare i
-   limiti di Firebase); se la rete cade, "Riprendi" continua senza doppioni.
-   Ricaricare lo stesso file più tardi non crea niente di doppio.
+   account si creano a gruppi (per non superare i limiti di Firebase); se la
+   rete cade, "Riprendi" continua senza doppioni. Ricaricare lo stesso file più
+   tardi non crea niente di doppio. **Creare gli account non manda nessuna
+   email**: le credenziali partono al punto 3, quando decidi tu.
 3. **Email** (scheda *Email*): **"Invia email di prova a me"** e controlla la
    tua casella (anche sul telefono). Poi **"Invia le credenziali a chi non le ha
    ancora (N)"**. L'invio va avanti a gruppi finché la pagina è aperta; se la
@@ -616,7 +615,7 @@ provano a mano, con Azoto che trasmette una prova:
   **"Reinvia a chi non l'ha ricevuta (N)"**: solo respinte ed errori, mai chi è
   già entrato.
 - Chi telefona perché non trova la password: *Partecipanti* → cerca per nome,
-  email, azienda o nome utente → **"Nuova password da comunicare a voce"** (la
+  email o azienda → **"Nuova password da comunicare a voce"** (la
   vedi una volta sola) oppure **"Reinvia credenziali"** (email con una password
   nuova: la vecchia smette di funzionare).
 - Prova il link: *Regia* → **"Vedi come un partecipante"** (si apre in una
@@ -693,72 +692,74 @@ precisione di un paio di minuti per collegamento.
   cima ad `assets/diretta-stato.js` (date con il fuso: `+02:00` d'estate,
   `+01:00` d'inverno).
 
-## 7. Nomi utente, doppioni, password
+## 7. L'email come accesso, doppioni, password
 
-**La regola del nome utente** (una sola funzione, `diretta/nome-utente.js`,
-usata dalla pagina, dalla gestione e dal servizio, con le prove): nome e
-cognome attaccati, tutto minuscolo, senza accenti, apostrofi, trattini, punti
-e spazi; restano solo a-z e numeri.
+**Si entra con l'email.** Nessun nome utente: la persona scrive l'indirizzo
+email con cui si è iscritta e la password che le abbiamo mandato. L'email si
+confronta senza maiuscole e senza spazi (anche quelli invisibili che arrivano
+da Excel, e un `mailto:` davanti); punti e `+` restano come sono. È una sola
+regola (`email-service/lib/diretta-email.js`), la stessa per pagina, gestione e
+servizio.
 
-| Scritto così | Nome utente |
-|---|---|
-| Mario Rossi | `mariorossi` |
-| Anna Maria De Luca | `annamariadeluca` |
-| Nicolò D'Angelo | `nicolodangelo` |
-| Jean-Luc Picard | `jeanlucpicard` |
-| Łukasz Żółć | `lukaszzolc` |
-| Иван Петров (cirillico) | `ivanpetrov` |
+**Un'email = un account = una persona.** Chi è iscritto a più eventi ha un solo
+account con più eventi.
+1. Se l'email c'è già, o compare due volte nel file, non si crea niente di
+   nuovo: la persona viene solo aggiunta all'evento. Ricaricare lo stesso file
+   non crea niente.
+2. **La stessa email per persone diverse** (nel file, o rispetto a un account
+   che c'è già con un altro nome) è da correggere prima di creare: con l'email
+   come accesso non può valere per due persone. L'anteprima la segna in rosso e
+   "Crea gli account" resta spento.
+3. **Garanzia tecnica.** Ogni email si **prenota** con una transazione nel
+   server (`indirizzi/{email}`): due caricamenti contemporanei, o un
+   caricamento e un'iscrizione dal modulo del sito nello stesso momento, non
+   possono creare due account per la stessa email. Le prove lo dimostrano
+   (§10).
 
-Le lettere che non sono "lettera + accento" hanno una tabella (ß → ss, æ → ae,
-ø → o, ł → l…), cirillico e greco si traslitterano. Un nome fatto solo di
-ideogrammi darebbe un nome utente vuoto: l'anteprima lo segnala e chiede di
-scriverlo a mano. Nel campo di accesso si può scrivere anche "Mario Rossi" con
-maiuscole e spazi: diventa `mariorossi` con la stessa regola.
-
-**Nessun utente doppio, a tre livelli:**
-1. **Stessa email = stessa persona = un account.** Il confronto ignora
-   maiuscole e spazi (anche quelli invisibili che arrivano da Excel). Gli
-   indirizzi si salvano e si usano per le email già ripuliti: in gestione
-   compaiono quindi in minuscolo. Se
-   l'email c'è già, o compare due volte nel file, non si crea niente di nuovo:
-   la persona viene solo aggiunta all'evento. Ricaricare lo stesso file non
-   crea niente.
-2. **Omonimi** (stesso nome utente, email diversa): il secondo diventa
-   `mariorossi2`, il terzo `mariorossi3`… L'anteprima li evidenzia e la
-   creazione non parte finché non li confermi o correggi a mano.
-3. **Garanzia tecnica.** Ogni nome utente e ogni email si **prenotano** con una
-   transazione nel server (`nomiUtente/{nome}`, `indirizzi/{email}`): due
-   caricamenti contemporanei non possono prendere lo stesso nome né creare due
-   account per la stessa email. Le prove lo dimostrano con caricamenti
-   contemporanei (§10).
-
-**L'email tecnica.** Dietro ogni nome utente c'è un account Firebase con
-un'email tecnica che nessuno vede e a cui non arriva niente. Non è
-`mariorossi@…` come nell'esempio della richiesta, ma
-`p3f9c…@utenti.diretta.nextgenerationbusiness.it` (un codice interno): se fosse
-ricavabile dal nome, chiunque conosca nome e cognome di un iscritto potrebbe
-provare le password direttamente su Google, scavalcando il blocco dei
-tentativi, o scoprire chi è iscritto. Per la persona non cambia niente: scrive
-solo il nome utente.
+**L'email tecnica.** Dietro ogni persona c'è un account Firebase con un'email
+tecnica che nessuno vede e a cui non arriva niente
+(`p3f9c…@utenti.diretta.nextgenerationbusiness.it`, un codice interno): la
+password si prova solo attraverso il nostro servizio, con il blocco dei
+tentativi, e cambiare l'email di una persona non tocca l'account.
 
 **Le password.** Generate dal servizio: 10 caratteri, senza quelli che si
 confondono (0/O/o, 1/l/I/i), sempre con maiuscole, minuscole e cifre. Non
 vengono **mai** salvate: esistono solo nel momento in cui si impostano
 sull'account e si mettono nell'email (o si mostrano una volta in gestione con
-"Rigenera password"). Per questo **"Reinvia credenziali" genera una password
-nuova**: quella vecchia non la conosce più nessuno e smette di funzionare (chi
-è collegato dovrà rientrare entro un'ora).
+"Nuova password da comunicare a voce"). Per questo **"Reinvia credenziali"
+genera una password nuova**: quella vecchia non la conosce più nessuno.
 
-**Account disattivato.** Chi prova a entrare con un account disattivato legge
-lo stesso messaggio di una password sbagliata ("Nome utente o password non
-corretti. Se il problema continua, scrivi all'assistenza"): Google risponde
-"disattivato" anche con la password sbagliata, e dirlo rivelerebbe quali
-account esistono. Chi assiste le persone al telefono deve saperlo.
+**Quando partono le email con la password.** Mai da sole:
+- **i primi iscritti**: carichi il file in gestione e crei gli account (nessuna
+  email parte); le credenziali partono **quando decidi tu**, con "Invia le
+  credenziali" nella scheda *Email*;
+- **chi si iscrive dopo**, dal modulo del sito: se nella scheda *Evento* è
+  acceso **"Invia subito la password a chi si iscrive dal modulo del sito"**
+  (spento di base), chi si iscrive online dal modulo della pagina dell'evento
+  riceve subito l'email con la password; se ha già un account (per un altro
+  evento) riceve invece "Sei iscritto anche a…", senza password nuova. Se Brevo
+  non risponde, l'email resta in coda e parte appena possibile. Accendilo dopo
+  aver caricato e inviato la prima lista.
 
-**Password dimenticata.** La persona scrive il nome utente oppure la sua email;
-il servizio manda il collegamento per sceglierne una nuova all'email vera
-(vale un'ora, una volta). La risposta è sempre la stessa, anche nei tempi, così
-non si scopre chi è iscritto.
+**Email o password sbagliate.** La risposta è sempre "Email o password non
+corretti.", nello stesso tempo, sia che l'email non esista sia che la password
+sia sbagliata: non si scopre chi è iscritto. Sotto ci sono "Password
+dimenticata?" e **"Non sei ancora iscritto? Iscriviti qui."**, che porta al
+modulo di iscrizione (indirizzo in `diretta/config.js`, campo `iscrizione`).
+Un account disattivato, con la password giusta, legge "Il tuo accesso è stato
+disattivato. Scrivi all'assistenza."
+
+**Password dimenticata.** La persona scrive la sua email e legge sempre la
+stessa risposta, nello stesso tempo, iscritta o no: "Se l'indirizzo è iscritto
+alla diretta, tra poco ricevi un'email con il collegamento per scegliere una
+nuova password. Controlla anche nella cartella Spam o Promozioni." Il
+collegamento arriva solo a chi è iscritto (vale un'ora, una volta); a chi non è
+iscritto non parte niente, e sotto la risposta c'è "Non sei ancora iscritto?
+Iscriviti qui."
+
+**Lo Spam.** Ogni email della diretta, la pagina di accesso e la pagina di
+Napoli ricordano: "Non trovi l'email? Controlla nella cartella Spam o
+Promozioni e segna il mittente come sicuro."
 
 ---
 
@@ -770,7 +771,7 @@ non si scopre chi è iscritto.
   servizio. (Prove: [§10](#10-le-prove).)
 - **Tentativi**: dopo 5 password sbagliate di fila dallo stesso dispositivo o
   rete, attesa crescente (30 s, 1 min, 2 min… fino a 15 min). In più un tetto
-  largo per nome utente da qualunque provenienza (50 errori all'ora) e uno per
+  largo per email da qualunque provenienza (50 errori all'ora) e uno per
   rete: al massimo 40 password sbagliate ogni quarto d'ora (finestre fisse:
   :00, :15, :30, :45), poi tutta la rete aspetta almeno 5 minuti. Il tentativo
   si conta **prima** della verifica, quindi i limiti reggono anche a raffiche
@@ -821,7 +822,7 @@ In entrambi 1000 persone e una decina di cambi di stato o di video.
 |---|---:|---:|---:|---:|
 | Segnali di presenza (uno al minuto per persona, solo da un'ora prima a mezz'ora dopo) | — | 210.000 | — | 420.000 |
 | Controlli delle regole a ogni segnale (stato dell'account; stato dell'evento quando si aggiunge un minuto) | ~390.000 | — | ~780.000 | — |
-| Accessi (servizio): nome utente, tentativi, profilo, evento, registro | ~7.000 | ~6.000 | ~9.000 | ~8.000 |
+| Accessi (servizio): email, tentativi, profilo, evento, registro | ~7.000 | ~6.000 | ~9.000 | ~8.000 |
 | Pagina: profilo, primo arrivo dell'evento, controllo delle regole | ~3.000 | — | ~5.000 | — |
 | Ogni modifica dell'evento arriva a tutti (10 × 1000, con il controllo delle regole) | ~20.000 | — | ~30.000 | — |
 | Gestione: elenchi, contatore ogni 20 s, esportazione | ~15.000 | ~1.000 | ~20.000 | ~1.000 |
@@ -867,13 +868,15 @@ Account con email e password: gratuiti. Brevo: vedi §4 (~3.100 email).
 
 `diretta/prove/carico.sh` (emulatori di Firebase + funzioni vere del servizio
 in locale + `carico.prova.js`). Prima si creano **1000 partecipanti con l'API
-di gestione** (40 chiamate `crea` da 25 righe, con molti omonimi apposta), poi
+di gestione** (40 chiamate `crea` da 25 righe), poi
 ognuno, a un istante casuale dentro i 2 minuti, fa quello che fa la pagina:
-accesso con il nome utente scritto con maiuscole e spazi, token, lettura del
+accesso con l'email, token, lettura del
 profilo e dell'evento con le regole vere, primo segnale di presenza a un ritardo
 casuale (0-60 s) e il secondo 60 secondi dopo. Risultato dell'ultima esecuzione,
-sul codice definitivo (24 settembre 2026, questa macchina: 4 processori, con
-altre prove che giravano in parallelo):
+sul codice del 24 settembre 2026, quando l'accesso era ancora con il nome
+utente (questa macchina: 4 processori, con altre prove che giravano in
+parallelo; il passo dell'accesso ora cerca l'email invece del nome, con lo
+stesso numero di letture):
 
 | Passo | n | p50 | p95 | p99 | massimo |
 |---|---:|---:|---:|---:|---:|
@@ -1155,7 +1158,7 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     **codice che vi ha dato Azoto** (si salva solo l'indirizzo). "Prova il
     player". Il flusso diretto lascialo vuoto finché Azoto non dà il `.m3u8`.
 11. [ ] **Prova generale** con un evento di prova e 3-4 persone vere (tu e dei
-    colleghi): email di prova, credenziali, accesso **da un iPhone con Safari,
+    colleghi): email di prova, credenziali, accesso **con la propria email da un iPhone con Safari,
     da un telefono Android, da un computer con Chrome, Firefox ed Edge**, "Vai in
     onda" con Azoto che trasmette una prova: il player compare, play e volume nel
     player, "Schermo intero" (su iPhone la vista orizzontale), pausa dell'evento
@@ -1166,12 +1169,20 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
 12. [ ] Prova sul progetto vero il **contatore dei collegati** e
     l'**esportazione** (servono gli indici del passo 4) e, se possibile, un
     piccolo carico: 300 accessi in 2 minuti con account di prova (§9).
-13. [ ] Carica il file degli iscritti online, controlla l'anteprima, crea gli
-    account, "Invia email di prova a me", poi **"Invia le credenziali"**.
+13. [ ] Carica il file degli iscritti online, controlla l'anteprima (le email
+    doppie o condivise da persone diverse vanno sistemate), crea gli account:
+    **non parte nessuna email**. Quando decidi tu: "Invia email di prova a me",
+    poi **"Invia le credenziali"**.
+14. [ ] Solo **dopo** aver caricato e inviato la prima lista: nella scheda
+    *Evento* accendi **"Invia subito la password a chi si iscrive dal modulo del
+    sito"**. Da quel momento chi si iscrive online dalla pagina di Napoli riceve
+    subito la password. Controlla che `iscrizione` in `diretta/config.js` porti
+    al modulo giusto (oggi `/napoli_ottobre_2026/#accreditamento`): è il
+    collegamento di "Non sei ancora iscritto? Iscriviti qui.".
 
 **Il giorno prima (1° ottobre)**
 
-14. [ ] "Aggiorna esiti", correggi gli indirizzi respinti, "Reinvia a chi non
+15. [ ] "Aggiorna esiti", correggi gli indirizzi respinti, "Reinvia a chi non
     l'ha ricevuta". Tieni a portata di mano il numero dell'assistenza e la
     sezione 7 ("account disattivato", "password dimenticata").
 
