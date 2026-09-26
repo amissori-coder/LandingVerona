@@ -1137,15 +1137,16 @@ settembre: c'è tempo, ma non tanto).
    se l'ID è diverso). Controlla che ci
    siano già `BREVO_API_KEY` e `CRON_SECRET`. Poi *Redeploy*. Da questo momento
    parte anche il lavoro programmato ogni 5 minuti.
-7. [ ] **Brevo** (§4): verifica il piano (servono circa **3.100 email** fra il
-   26 settembre e il 2 ottobre, oltre alle altre email dello studio: il piano
+7. [ ] **Brevo** (§4): verifica il piano (servono circa **3.100 email** nei
+   giorni prima dell'evento, oltre alle altre email dello studio: il piano
    gratuito da 300 al giorno non basta; se il piano ha un tetto giornaliero
    imposta `DIRETTA_MAX_GIORNO`), SPF/DKIM/DMARC del dominio verificati, e
    valuta di spegnere il tracciamento dei clic per le email transazionali.
 8. [ ] **Pubblica** questo ramo sul sito (unisci la richiesta di modifica):
    popup e pulsanti compaiono da soli dal 25 settembre.
 
-**Prima di inviare le credenziali (entro il 26-27 settembre)**
+**Prima di inviare le credenziali** (le credenziali non partono mai da sole: le
+mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
 
 9. [ ] Entra in `/diretta/gestione/` con "Primo accesso" (§6.1).
 10. [ ] Crea l'evento **`napoli-2026`** con gli orari veri (stesso
