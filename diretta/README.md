@@ -329,12 +329,17 @@ riparte al giro successivo.
 **Da controllare in Brevo** (una volta):
 - *Senders, Domains & Dedicated IPs* → `nextgenerationbusiness.it` autenticato
   con **SPF, DKIM e DMARC** (altrimenti le credenziali finiscono nello spam);
-- *Transactional* → *Settings*: il tracciamento dei clic riscrive i link (anche
-  quello per entrare nella diretta) e Brevo conserva per un periodo i registri dei
-  messaggi: **l'email delle credenziali contiene la password in chiaro**, come
-  richiesto, quindi passa dai sistemi di Brevo. Il nostro codice non la salva da
-  nessuna parte; limita a poche persone l'accesso all'account Brevo e, se
-  possibile, disattiva il tracciamento dei clic per le email transazionali.
+- *Email transazionale* → *Regole di conservazione*: Brevo conserva i registri
+  e le **anteprime** dei messaggi, e **l'email delle credenziali contiene la
+  password in chiaro**, come richiesto. Il nostro codice non la salva da
+  nessuna parte; su Brevo imposta per le anteprime il periodo più breve (i
+  registri, cioè chi ha ricevuto cosa e quando, possono restare) e limita a
+  poche persone l'accesso all'account.
+- *Email transazionale* → *Tracciamento*: **lascialo acceso**. Riscrive i
+  collegamenti delle email (con il dominio brandizzato
+  `email.nextgenerationbusiness.it`), ma l'area riservata lo usa per sapere chi
+  ha aperto e cliccato gli inviti (`lib/esiti-email.js`): spegnerlo
+  toglierebbe quel dato a tutto lo studio.
 
 ---
 
@@ -1308,7 +1313,8 @@ settembre: c'è tempo, ma non tanto).
    giorni prima dell'evento, oltre alle altre email dello studio: il piano
    gratuito da 300 al giorno non basta; se il piano ha un tetto giornaliero
    imposta `DIRETTA_MAX_GIORNO`), SPF/DKIM/DMARC del dominio verificati, e
-   valuta di spegnere il tracciamento dei clic per le email transazionali.
+   le anteprime delle email transazionali conservate per il periodo più breve
+   (il tracciamento resta acceso: lo usa l'area riservata).
 8. [ ] **Pubblica** questo ramo sul sito (unisci la richiesta di modifica):
    popup e pulsanti compaiono da soli dal 25 settembre.
 
