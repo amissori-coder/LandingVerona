@@ -419,10 +419,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // (text/plain evita la richiesta di verifica preliminare del browser;
             //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
             const NGB_FIREBASE_URL = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+            /* In piu', SOLO verso il servizio (non verso il foglio, che scrive le
+               colonne che conosce): il percorso di questa pagina. Serve alla
+               diretta: se nella gestione della diretta e' acceso «Invia subito la
+               password a chi si iscrive dal modulo del sito», il servizio trova
+               l'evento della diretta dalla sua «pagina dell'evento», e il percorso
+               e' piu' sicuro dell'etichetta PAGINA_NGB. */
             fetch(NGB_FIREBASE_URL, {
                 method:  'POST',
                 headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                body:    JSON.stringify(payload)
+                body:    JSON.stringify(Object.assign({}, payload, { percorso: location.pathname }))
             }).catch(() => { /* il foglio resta la strada principale */ });
 
             fetch(NGB_SHEET_URL, {

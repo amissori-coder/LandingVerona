@@ -17,7 +17,7 @@
      - i player (diretta/player-azoto.js e diretta/player-webtv.js), per
        ricontrollare il valore ricevuto e scegliere come riprodurre;
      - il servizio su Vercel (email-service/lib/diretta-sorgente-video.js),
-       che ne tiene una COPIA IDENTICA, come per nome-utente.js: la
+       che ne tiene una COPIA IDENTICA: la
        prova email-service/prove/diretta-video.prove.js confronta i due
        file e diventa rossa se divergono. Si modifica QUI e si ricopia.
 

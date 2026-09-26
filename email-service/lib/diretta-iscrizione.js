@@ -16,7 +16,8 @@
    il percorso: paginaCorrisponde() accetta le due forme.
      - un percorso o un indirizzo (/napoli_ottobre_2026/,
        https://.../napoli_ottobre_2026/#accreditamento; anche nel campo
-       facoltativo `percorso`, se un giorno il modulo lo mandera'):
+       facoltativo `percorso`, che il modulo di Napoli manda solo a questo
+       servizio, con location.pathname: napoli_ottobre_2026/script.js):
        percorsi uguali, normalizzati (solo il percorso, minuscolo, con
        la barra finale: D.percorsoPagina);
      - l'etichetta: ogni parola della cartella della pagina dell'evento
