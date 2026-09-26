@@ -7,6 +7,8 @@
  * - Compare una volta per sessione, dopo un breve ritardo, senza data di scadenza.
  * - Si auto-disattiva sulla pagina dell'approfondimento (/bando_tipo_2026/).
  * - Marca come "visto" anche il popup FCD: mai due popup nella stessa sessione.
+ * - Cede a sua volta la precedenza al popup della diretta (diretta-popup.js,
+ *   caricato prima, imposta window.__dirPromoPlanned) nei giorni dell'evento.
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo.
  * Percorsi root-relative: il sito e servito dalla radice del dominio.
  */
@@ -39,6 +41,9 @@
   }
   if (ls(true, LS_HIDDEN) === "1") return; // disattivato in modo permanente
   if (ss(true, SS_SEEN) === "1") return;   // gia visto in questa sessione
+  // Il popup della diretta ha la precedenza su questo: se sta per comparire
+  // (diretta-popup.js e caricato prima e imposta il flag), non sovrapporsi.
+  if (window.__dirPromoPlanned) return;
 
   // Tutte le guardie superate: questo popup comparira. Il flag dice al popup
   // FCD (fcd-popup.js, caricato dopo) di cedere la precedenza.
@@ -205,6 +210,7 @@
       root.hidden = false;
       ss(false, SS_SEEN, "1");     // conta come "visto" in questa sessione
       ss(false, SS_FCD_SEEN, "1"); // niente secondo popup nella stessa sessione
+      ss(false, "dirPromoSeen", "1"); // nemmeno quello della diretta, se la sua finestra si apre dopo
       // doppio rAF: la transizione parte a stili applicati e layout stabile,
       // senza il "salto" del reflow forzato
       requestAnimationFrame(function () {

@@ -238,6 +238,10 @@ function piede(motivo) {
         )
         + '</td></tr>';
 }
+/* La frase della diretta per chi segue online, nella conferma
+   dell'iscrizione: la password arriva con un'email a parte, senza date
+   promesse (vedi confermaSito). */
+const FRASE_DIRETTA_ONLINE = 'Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
 const MOTIVO = 'Ricevi questa email come conferma della tua iscrizione all\'evento: non è una comunicazione promozionale.';
 /* IL MOTIVO IN CODA, per le mail del B2B. Quella riga in fondo dice a chi
    legge perche' gli e' arrivata questa email, e sotto un invito agli incontri
@@ -273,9 +277,14 @@ function confermaSito(dati, link, linkConferma) {
     const attesa = online && dati && dati.listaAttesa === true;
     /* Con il collegamento di conferma la mail e' il PRIMO passo: la richiesta
        e' ricevuta, il posto arriva con l'invito dopo la conferma. Senza (le
-       mail composte prima di questa modifica) resta la frase di sempre. */
+       mail composte prima di questa modifica) resta la frase di sempre.
+       Online: la password della diretta arriva con un'email a parte (dal
+       servizio della diretta, subito se l'invio automatico e' acceso,
+       altrimenti quando il gestore la manda). Qui niente date promesse: la
+       conferma non sa quale dei due casi e', e non deve contraddire una
+       password magari gia' arrivata. */
     const apertura = online
-        ? 'La tua richiesta di partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
+        ? 'La tua richiesta di partecipazione online è registrata. ' + FRASE_DIRETTA_ONLINE
             + (attesa ? ' I posti in sala sono esauriti, ma ti abbiamo inserito in lista d\'attesa: se se ne libera uno ti scriviamo, e decidi tu se venire di persona.' : '')
             + ' Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
         : (linkConferma
@@ -337,7 +346,7 @@ function invitoIngresso(dati, link) {
     const sommario = saluto + ' il tuo indirizzo è confermato'
         + (online ? ': la tua partecipazione online a ' + evento + ' è registrata.' : ' e la tua iscrizione a ' + evento + ' è completa.');
     const apertura = online
-        ? 'Qualche giorno prima dell\'evento ti invieremo a questo indirizzo il collegamento e le istruzioni per seguire i lavori in diretta.'
+        ? 'Nella diretta si entra con questo indirizzo email e con la password che riceverai con un\'email a parte (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.'
         : 'In allegato trovi il tuo invito in PDF: esibiscilo al desk all\'ingresso, anche dal telefono, e ti consegniamo il badge. Se qualcosa cambia, dal pulsante qui sotto puoi correggere i tuoi dati o annullare la partecipazione, senza scriverci.';
     const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
     const html = involucro(oggetto, online ? 'Indirizzo confermato: la tua partecipazione online è registrata.' : 'Il tuo invito a ' + evento + ' è in allegato: esibiscilo all\'ingresso.',

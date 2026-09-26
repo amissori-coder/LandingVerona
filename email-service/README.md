@@ -3313,3 +3313,63 @@ Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
 `invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa
 a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
 **l'iscrizione resta valida**: e' informazione di servizio, non una condizione.
+
+## Diretta degli eventi (`/api/diretta-*`)
+
+Quattro funzioni e le loro librerie (`api/diretta-*.js`, `lib/diretta-*.js`)
+servono la nuova area `/diretta/`: accesso dei partecipanti con la propria
+**email** e la password generata dal servizio (nessun nome utente), gestione,
+stato pubblico "in onda" e un lavoro programmato ogni 5
+minuti (`/api/diretta-cron`: `maxDuration` 300 s, budget 240 s, lucchetto
+330 s). Usano un progetto Firebase **separato** (`ngb-eventi`) con la sua
+chiave, `DIRETTA_FIREBASE_SERVICE_ACCOUNT`, e un'app firebase-admin con nome
+proprio: non toccano l'app e i dati di queste funzioni, e le funzioni esistenti
+non sono cambiate. Condividono solo le variabili `SMTP_*` (Brevo),
+`APP_BASE_URL`, `ALLOWED_ORIGIN`, `CRON_SECRET` e `BREVO_API_KEY`, e
+`FIREBASE_SERVICE_ACCOUNT` **in sola lettura** per la riconciliazione (qui
+sotto). Tutto il resto (variabili nuove, passi di configurazione, prove, stime)
+sta in [`diretta/README.md`](../diretta/README.md).
+
+L'unico punto di contatto con le altre funzioni e' in `api/iscrizione-nuova.js`:
+per un'iscrizione `online` con email, **dopo** aver salvato la scheda e mandato
+la conferma, chiama `lib/diretta-iscrizione.js` (`dalModulo`, dentro un
+try/catch). Se sull'evento della diretta con la stessa pagina il gestore ha
+acceso "Invia subito la password a chi si iscrive dal modulo del sito"
+(`iscrizioniAutomatiche`), la persona riceve subito la password (o, se ha gia'
+un account, l'avviso "Sei iscritto anche a..."). Se la diretta non e'
+configurata non succede niente. Su Vercel la risposta del modulo non aspetta
+mai il lavoro della diretta (finisce dopo, con `waitUntil`): cosi' risponde
+nello stesso tempo per un indirizzo nuovo e per uno gia' iscritto. Il modulo
+passa anche l'IP del visitatore, per i limiti del modulo pubblico che la
+diretta tiene nel suo progetto (per rete e all'ora: vedi
+`DIRETTA_MODULO_RETE_ORA` e `DIRETTA_MODULO_ORA` in `diretta/README.md`).
+La conferma del sito per chi si iscrive `online` (`lib/mail-ngb.js`,
+`confermaSito`) dice che la password arrivera' con un'email a parte, senza
+date, e ricorda di guardare nello Spam.
+
+**Se la diretta non risponde.** La scheda del sito si salva prima di chiamare
+la diretta, quindi un intoppo della diretta non perde niente: il modulo di
+Napoli ripete da solo la chiamata a `api/iscrizione-nuova` (tre tentativi, dopo
+circa 3 e 10 secondi, solo per errori di rete, 5xx e 429; il foglio Google non
+cambia), e ogni 5 minuti `/api/diretta-cron` fa la **riconciliazione**
+(`lib/diretta-riconcilia.js`): per gli eventi con l'interruttore acceso rilegge
+le schede `online`, non annullate, arrivate da quando e' acceso, e da' account
+e password a chi il modulo non ha raggiunto (stessi limiti del modulo; chi e'
+gia' iscritto non riceve niente). Le schede le legge `lib/sito-iscrizioni.js`,
+l'unico file che apre il progetto dello studio per la diretta: in **sola
+lettura**, con la chiave `FIREBASE_SERVICE_ACCOUNT`, un'app firebase-admin con
+nome proprio (`sito-lettura`, non quella predefinita di queste funzioni) e una
+sola query su `iscrizioni` (un filtro di intervallo su `ricevuto`: indice
+automatico). Senza la chiave, o se la lettura fallisce, la riconciliazione
+salta e il resto del cron va avanti.
+
+**Annullare dal sito.** Nel flusso `completa-salva` (il collegamento della
+conferma), quando un posto `online` passa da attivo ad annullato
+(l'intestatario, o un altro posto dell'ordine con la sua email),
+`api/iscrizione-nuova.js` chiama `lib/diretta-iscrizione.js` (`dalSito`, dentro
+un try/catch, senza far aspettare la risposta su Vercel): la persona esce
+dall'evento della diretta (credenziali non ancora partite cancellate, una riga
+"da verificare" per il gestore). Non succede se la stessa persona ha un'altra
+scheda `online` attiva per la stessa pagina (si era iscritta due volte). Quando
+l'annullamento si toglie, la persona rientra (con l'interruttore acceso) o
+diventa una riga "da verificare" (con l'interruttore spento).

@@ -1298,8 +1298,8 @@
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const posto = online
             ? (nPart > 1
-                ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
-                : 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.')
+                ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Nella diretta ognuno entra con la propria email e la password che riceve con un\'email a parte, prima dell\'evento. Non trovate l\'email? Controllate nella cartella Spam o Promozioni.'
+                : 'La tua partecipazione online è registrata. Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.')
             : (nPart > 1
                 ? 'I tuoi ' + nPart + ' posti sono riservati.'
                 : 'Il tuo posto è riservato.');

@@ -437,10 +437,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 errEl.textContent = testo;
             };
+            /* In piu' dei dati del modulo, il percorso di questa pagina. Serve
+               alla diretta: se nella sua gestione e' acceso «Invia subito la
+               password a chi si iscrive dal modulo del sito», il servizio
+               trova l'evento della diretta dalla sua «pagina dell'evento», e il
+               percorso e' piu' sicuro dell'etichetta PAGINA_NGB. Se il lavoro
+               della diretta non riesce, l'iscrizione resta valida e ci pensa
+               la riconciliazione ogni 5 minuti (email-service/lib/diretta-riconcilia.js). */
             fetch(NGB_FIREBASE_URL, {
                 method:  'POST',
                 headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                body:    JSON.stringify(payload)
+                body:    JSON.stringify(Object.assign({}, payload, { percorso: location.pathname }))
             }).then(r => r.json().catch(() => ({}))).then(d => {
                 if (!d || !d.ok) {
                     // il servizio ha detto di no (codice invito, dati): lo si riporta

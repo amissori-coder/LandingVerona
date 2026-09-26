@@ -152,7 +152,7 @@ a.pulsante:focus-visible, button.pulsante:focus-visible { outline: 2px solid var
                         ? 'Lo avevi già confermato' + (r.quando ? ' il ' + quandoIt(r.quando) : '') + ': non devi fare altro.'
                         : (r.invito
                             ? (r.online
-                                ? 'La tua partecipazione online a ' + (r.evento || 'Next Generation Business') + ' è registrata: ti abbiamo appena mandato una email di riepilogo, e prima dell’evento riceverai il collegamento per seguire i lavori.'
+                                ? 'La tua partecipazione online a ' + (r.evento || 'Next Generation Business') + ' è registrata: ti abbiamo appena mandato una email di riepilogo. Per seguire la diretta riceverai un’email con la password per entrare (se non è già arrivata, arriverà prima dell’evento): controlla anche nella cartella Spam o Promozioni.'
                                 : 'Ti abbiamo appena mandato una seconda email con il tuo invito in PDF: esibiscilo all’ingresso, anche dal telefono.')
                             : 'La tua iscrizione a ' + (r.evento || 'Next Generation Business') + ' è completa. L’invito via email non è partito in questo momento: all’ingresso basta il tuo nome.');
                     stato('ok', r.gia ? 'Indirizzo già confermato' : 'Indirizzo confermato, grazie', dopo);

@@ -32,4 +32,8 @@ Disallow: /p26/
 # iscrizione, con un collegamento personale.
 Disallow: /conferma_email/
 
+# La diretta degli eventi: accesso degli iscritti, gestione e
+# reimpostazione della password (le pagine hanno anche noindex).
+Disallow: /diretta/
+
 Sitemap: https://nextgenerationbusiness.it/sitemap.xml
