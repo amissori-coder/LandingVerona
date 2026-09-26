@@ -425,11 +425,40 @@ document.addEventListener('DOMContentLoaded', () => {
                password a chi si iscrive dal modulo del sito», il servizio trova
                l'evento della diretta dalla sua «pagina dell'evento», e il percorso
                e' piu' sicuro dell'etichetta PAGINA_NGB. */
-            fetch(NGB_FIREBASE_URL, {
-                method:  'POST',
-                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                body:    JSON.stringify(Object.assign({}, payload, { percorso: location.pathname }))
-            }).catch(() => { /* il foglio resta la strada principale */ });
+            /* Se il servizio non risponde (rete, o una risposta 5xx o 429) la
+               chiamata si RIPETE da sola: tre tentativi in tutto, il secondo
+               dopo circa 3 s e il terzo circa 10 s dopo il secondo. E' da qui
+               che chi si iscrive online riceve la password della diretta: un
+               intoppo di un momento del servizio non deve lasciarlo senza.
+               Ripetere e' sicuro: la scheda ha lo stesso identificativo
+               (email e data di questo invio, la stessa in ogni tentativo) e
+               la diretta non manda mai una seconda password; al massimo, se
+               il servizio aveva gia' fatto tutto e solo la risposta si e'
+               persa, arriva una seconda email di conferma del sito.
+               Un 4xx (dati non validi) non si ripete: ripetuto sarebbe uguale.
+               keepalive: il tentativo in corso arriva anche se la pagina si
+               chiude o si cambia pagina. I tentativi che devono ancora partire
+               no (i timer muoiono con la pagina): per quelli c'e' la
+               riconciliazione della diretta, che ogni 5 minuti ripesca le
+               schede rimaste senza account (email-service/lib/diretta-riconcilia.js).
+               La conferma a video resta legata al foglio, qui sotto, e non
+               aspetta questi tentativi. */
+            const corpoServizio = JSON.stringify(Object.assign({}, payload, { percorso: location.pathname }));
+            const ATTESE_SERVIZIO = [3000, 10000];
+            const mandaAlServizio = (tentativo) => {
+                const riprova = () => {
+                    if (tentativo < ATTESE_SERVIZIO.length) setTimeout(() => mandaAlServizio(tentativo + 1), ATTESE_SERVIZIO[tentativo]);
+                };
+                fetch(NGB_FIREBASE_URL, {
+                    method:    'POST',
+                    headers:   { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body:      corpoServizio,
+                    keepalive: true
+                }).then((risposta) => {
+                    if (risposta.status >= 500 || risposta.status === 429) riprova();
+                }).catch(() => { riprova(); /* il foglio resta la strada principale */ });
+            };
+            mandaAlServizio(0);
 
             fetch(NGB_SHEET_URL, {
                 method:  'POST',

@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260926a">
+    <link rel="stylesheet" href="gestione.css?v=20260926b">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -724,18 +724,24 @@
                 </div>
 
                 <!-- ======== ISCRIZIONI DAL MODULO DA VERIFICARE ========
-                     Le iscrizioni online dal modulo del sito che la diretta non ha
-                     trasformato in un account (email di un'altra persona, indirizzo
-                     non accettato): nessuna email è partita. Le righe le scrive il
-                     servizio (lib/diretta-iscrizione.js); qui si leggono con
-                     'da-verificare' e si segnano come viste con 'da-verificare-archivia'.
+                     Quello che arriva dal sito e che il gestore deve vedere: le
+                     iscrizioni online che la diretta non ha trasformato in un account
+                     (email di un'altra persona, indirizzo non accettato: nessuna email
+                     è partita), le iscrizioni annullate dal sito (già tolte
+                     dall'evento) e quelle riattivate con l'invio automatico spento.
+                     Le righe le scrive il servizio (lib/diretta-iscrizione.js); qui si
+                     leggono con 'da-verificare' e si segnano come viste con
+                     'da-verificare-archivia' (restano nel servizio, fuori dall'elenco).
                      Il riquadro compare solo quando c'è qualcosa da vedere. -->
                 <section id="riquadro-da-verificare" class="riquadro riquadro-da-verificare" aria-labelledby="da-verificare-titolo" hidden>
                     <div class="riquadro-testa">
                         <h2 id="da-verificare-titolo">Iscrizioni dal modulo da verificare <span id="conta-da-verificare" class="conta"></span></h2>
-                        <p class="riquadro-sotto">Persone che si sono iscritte online dal modulo del sito ma che la diretta non ha potuto
-                            iscrivere da sola: <strong>nessun account creato, nessuna email partita</strong> (l'iscrizione al sito è valida).
-                            Sistema a mano, per esempio chiedendo un indirizzo suo e caricandola con il file, poi premi «Segna come vista».</p>
+                        <p class="riquadro-sotto">Quello che è successo sul sito e che la diretta non ha potuto sistemare da sola, o che devi sapere.
+                            Chi si è iscritto online ma non ha l'account (email di un'altra persona, email non accettata):
+                            <strong>nessun account creato, nessuna email partita</strong> (l'iscrizione al sito è valida); sistema a mano,
+                            per esempio chiedendo un indirizzo suo e caricandola con il file. Chi ha <strong>annullato</strong> l'iscrizione
+                            dal sito: è già fuori da questo evento. Chi l'ha riattivata con l'invio automatico spento: rientra solo se la carichi tu.
+                            Poi premi «Segna come vista»: la riga esce dall'elenco (resta registrata nel servizio).</p>
                     </div>
                     <div class="tabella-contenitore">
                         <table id="tabella-da-verificare" class="tabella tabella-da-verificare">
@@ -746,7 +752,7 @@
                                     <th scope="col">Nome e cognome</th>
                                     <th scope="col">Email scritta nel modulo</th>
                                     <th scope="col">Azienda</th>
-                                    <th scope="col">Perché non è entrata</th>
+                                    <th scope="col">Che cosa è successo</th>
                                     <th scope="col">Azioni</th>
                                 </tr>
                             </thead>
@@ -971,6 +977,6 @@
     <script src="../sorgente-video.js?v=20260925a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260926a"></script>
+    <script src="gestione.js?v=20260926b"></script>
 </body>
 </html>

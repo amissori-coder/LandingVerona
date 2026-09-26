@@ -82,29 +82,35 @@ sempre, nomi che cominciano con `diretta-`; delle funzioni esistenti sono
 cambiati solo `vercel.json`, che elenca il nuovo lavoro programmato, e
 `api/iscrizione-nuova.js`, il modulo di iscrizione del sito: dopo aver
 registrato l'iscrizione come sempre, se l'interruttore dell'evento è acceso
-crea l'account della diretta e manda la password, §7; se la diretta non è
-configurata o qualcosa va storto, l'iscrizione del sito resta com'era):
+crea l'account della diretta e manda la password, e dal collegamento della
+conferma chi annulla un posto online esce dall'evento della diretta, §7; se
+la diretta non è configurata o qualcosa va storto, l'iscrizione del sito resta
+com'era. In più `lib/sito-iscrizioni.js`, l'unico file che legge, **solo in
+lettura**, le schede del modulo nel progetto dello studio, per la
+riconciliazione del lavoro programmato, §7):
 
 | Funzione | Chi la chiama | Che cosa fa |
 |---|---|---|
 | `api/diretta-accesso` | pagina della diretta | accesso, blocco dei tentativi, password dimenticata, attivazione dei gestori |
 | `api/diretta-gestione` | pagina di gestione | eventi, caricamento, partecipanti, email, regia, esportazione |
 | `api/diretta-stato` | home e pagina di Napoli | "in onda sì/no", pubblico, con cache |
-| `api/diretta-cron` | Vercel, ogni 5 minuti | coda delle email, promemoria, pulizie |
+| `api/diretta-cron` | Vercel, ogni 5 minuti | riconciliazione delle iscrizioni dal modulo del sito, coda delle email, promemoria, pulizie |
 | `lib/diretta-*.js` | le funzioni qui sopra | logica, email, password, collegamento a Firebase |
+| `lib/sito-iscrizioni.js` | la riconciliazione (`lib/diretta-riconcilia.js`) | legge **in sola lettura** le schede del modulo nel progetto dello studio (la sua chiave, un'app firebase-admin a parte, una sola raccolta, nessuna scrittura: lo controlla `separazione.prova.js`) |
 
 **I dati** (Firestore del progetto `ngb-eventi`):
 
 | Raccolta | Chi la legge | Contenuto |
 |---|---|---|
 | `eventi/{idEvento}` | i partecipanti di quell'evento, i gestori | titolo, data, orari, stato, programma; il tipo di player (Azoto o flusso diretto); l'indirizzo del player o il link del flusso (e quello di riserva, e quale dei due è in uso) **solo mentre è in onda**; con i link firmati è il link senza firma, che da solo non basta (quello firmato lo dà il servizio a ciascuno) |
-| `partecipanti/{uid}` | solo la persona stessa | nome, cognome, email, azienda, eventi, da dove arriva (import o modulo del sito), stato delle email, ultimo accesso, quando ha chiesto «Password dimenticata?» (resetInviato) |
+| `partecipanti/{uid}` | solo la persona stessa | nome, cognome, email, azienda, eventi, da dove arriva (import o modulo del sito), stato delle email, ultimo accesso, quando ha chiesto «Password dimenticata?» (resetInviato), quando ha annullato dal sito l'iscrizione a un evento (annullatoDalSito) |
 | `indirizzi/{email}` | solo il server | → uid: garantisce che un'email abbia un solo account |
-| `sessioni/{uid}` | solo il server | account attivo o disattivato, dispositivo ammesso |
-| `eventiRiservati/{idEvento}` | solo il server | il tipo di player, l'indirizzo del player Azoto (solo l'indirizzo, mai il codice incollato), il link del flusso e quello di riserva; la chiave segreta dei link firmati |
+| `sessioni/{uid}` | solo il server | account attivo o disattivato, dispositivo ammesso, gli eventi appena tolti (eventiTolti: le regole li chiudono subito, anche al token di prima) |
+| `eventiRiservati/{idEvento}` | solo il server | il tipo di player, l'indirizzo del player Azoto (solo l'indirizzo, mai il codice incollato), il link del flusso e quello di riserva; la chiave segreta dei link firmati; l'interruttore delle iscrizioni dal modulo e da quando è acceso |
 | `presenze/{idEvento}_{uid}` | solo il server (scritta dal partecipante con regole strette) | primo e ultimo segnale, minuti collegati durante la diretta, collegamenti |
 | `accessi/{auto}` | solo il server | un documento per ogni accesso riuscito |
-| `daVerificare/{impronta}` | solo il server (la gestione li vede con il servizio) | le iscrizioni dal modulo del sito che la diretta non ha potuto iscrivere da sola: evento, nome, cognome, email scritta, motivo (email di un'altra persona, email non accettata), quando, quante volte, vista o no |
+| `daVerificare/{impronta}` | solo il server (la gestione li vede con il servizio) | quello che arriva dal sito e che il gestore deve vedere: le iscrizioni dal modulo che la diretta non ha potuto iscrivere da sola (email di un'altra persona, email non accettata), le iscrizioni annullate dal sito, quelle riattivate a interruttore spento; evento, nome, cognome, email, motivo, quando, quante volte, vista o no. Segnate come viste **restano** (escono solo dall'elenco) |
+| `riconciliazioni/{idEvento}` | solo il server | fino a dove è arrivata la riconciliazione delle iscrizioni dal modulo: l'istante dell'ultima scheda letta (e le impronte, non gli indirizzi, delle schede di quello stesso istante), da quando è acceso l'interruttore, i numeri dell'ultimo giro |
 | `tentativi*`, `limiti`, `code`, `contatori`, `stato`, `gestoriAccount` | solo il server | protezioni, coda delle email, cache |
 
 Le prime tre sono quelle chieste; le altre esistono perché qualcosa (un
@@ -241,12 +247,18 @@ Progetto Vercel di sempre (`revilaw-email`, cartella `email-service`) →
 | `DIRETTA_AUTH_AL_SECONDO` | `8` | quante modifiche agli account Firebase al secondo (creazione, nuove password): tiene lontani i limiti di Google; non serve cambiarlo |
 | `DIRETTA_MODULO_PERCENTO` | `60` | la parte del tetto giornaliero (`DIRETTA_MAX_GIORNO`) che possono usare le password fatte partire dal modulo pubblico del sito: oltre, restano in coda e partono il giorno dopo; il resto è del gestore (credenziali, promemoria) e delle reimpostazioni (che si fermano all'80 %). Senza tetto giornaliero non conta (§4) |
 | `DIRETTA_MODULO_RETE_ORA` | `10` | quante iscrizioni dal modulo del sito all'ora, dalla stessa rete (stesso IP; per IPv6 la stessa /64), fanno partire la password da sole: oltre, l'account si crea ma la password la mandi tu (§7) |
-| `DIRETTA_MODULO_ORA` | `60` | quante iscrizioni dal modulo del sito all'ora, in tutto, fanno partire la password da sole (1440 al giorno al massimo): oltre, come sopra. `0` = nessuna password parte da sola (§7) |
+| `DIRETTA_MODULO_ORA` | `60` | quante iscrizioni dal modulo del sito all'ora, in tutto, fanno partire la password da sole (1440 al giorno al massimo): oltre, come sopra. `0` = nessuna password parte da sola. Vale anche per la riconciliazione, che oltre questo limite aspetta l'ora dopo (§7) |
+| `DIRETTA_RICONCILIA_ATTESA_MS` | `120000` | quanto aspetta la riconciliazione (§7) prima di rileggere una scheda del modulo appena arrivata: nel frattempo la sta lavorando il modulo. Non serve cambiarlo |
 
 **Già presenti, riusate così come sono**: `SMTP_HOST`, `SMTP_PORT`,
 `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL`, `APP_BASE_URL`,
 `ALLOWED_ORIGIN`, `CRON_SECRET`, `BREVO_API_KEY` (quest'ultima serve per
-vedere le email **respinte**, §4).
+vedere le email **respinte**, §4) e `FIREBASE_SERVICE_ACCOUNT`, la chiave del
+progetto dello studio che usano già il modulo del sito e l'area riservata: la
+diretta la usa **solo per leggere** le schede del modulo, nella
+riconciliazione (§7), da un file a parte (`lib/sito-iscrizioni.js`) e con
+un'app firebase-admin sua. Senza, la riconciliazione salta e il resto
+funziona come prima.
 
 **Solo per le prove in locale** (non vanno mai messe su Vercel, e comunque
 funzionano solo con gli emulatori): `DIRETTA_EMULATORE`, `DIRETTA_PROGETTO`,
@@ -256,9 +268,11 @@ funzionano solo con gli emulatori): `DIRETTA_EMULATORE`, `DIRETTA_PROGETTO`,
 `DIRETTA_POSTA_RITARDO_MS`, `DIRETTA_BREVO_API`.
 
 **Il lavoro programmato** `api/diretta-cron` gira ogni 5 minuti (è in
-`email-service/vercel.json`): `maxDuration` 300 s, budget interno 240 s,
-lucchetto 330 s (le chiamate a mano dalla gestione: 40 s e 90 s). Se non c'è
-niente da fare esce subito con poche letture.
+`email-service/vercel.json`): `maxDuration` 300 s, budget interno 240 s (di
+cui al massimo 60 s per la riconciliazione), lucchetto 330 s (le chiamate a
+mano dalla gestione: 40 s e 90 s). Se non c'è niente da fare esce subito con
+poche letture (per ogni evento con l'interruttore acceso, anche una query
+sulle schede nuove del modulo).
 
 Dopo aver aggiunto le variabili: *Deployments* → l'ultimo → *Redeploy*.
 
@@ -760,7 +774,68 @@ genera una password nuova**: quella vecchia non la conosce più nessuno.
   partecipanti: la mandi tu con "Invia le credenziali" o "Invia ora". Su
   Vercel il modulo del sito **non aspetta** il lavoro della diretta: risponde
   subito, nello stesso tempo per un indirizzo nuovo e per uno già iscritto (se
-  aspettasse, il tempo della risposta direbbe chi è già iscritto).
+  aspettasse, il tempo della risposta direbbe chi è già iscritto). Accanto
+  all'interruttore la gestione dice **da quando** è acceso: vale per chi si è
+  iscritto da quel momento (spento e riacceso, si riparte dal nuovo momento).
+- **se in quel momento il servizio non risponde**, nessuno resta senza
+  password. Due reti di sicurezza, una nel browser e una nel servizio:
+  1. il modulo di Napoli **ripete da solo** la chiamata al servizio se non
+     arriva o riceve un errore del servizio (5xx) o "troppi invii" (429):
+     tre tentativi in tutto, dopo circa 3 e 10 secondi. La conferma a video
+     non li aspetta (resta legata al foglio Google, come prima), e il foglio
+     riceve esattamente quello che riceveva prima. Ripetere è sicuro: è la
+     stessa scheda, e la diretta non manda mai una seconda password (al
+     massimo, se il servizio aveva fatto tutto e solo la risposta si è persa,
+     parte una seconda email di conferma del sito). Ma se la persona chiude la
+     pagina subito, i tentativi che dovevano ancora partire non partono;
+  2. per questo il **lavoro programmato, ogni 5 minuti, fa la
+     riconciliazione**: per ogni evento con l'interruttore acceso rilegge
+     (solo in lettura, dal progetto dello studio: le schede del modulo le
+     salva il sito prima di chiamare la diretta) le schede **online**, non
+     annullate, arrivate **da quando l'interruttore è acceso**, della pagina
+     dell'evento (la stessa regola del modulo, ma sulla sola etichetta della
+     pagina: il percorso nella scheda non c'è). Chi non ha ancora l'account
+     con l'evento lo riceve, e la password parte nello stesso giro; chi c'è
+     già non riceve niente (anche se la sua password aspetta te). Valgono gli
+     stessi limiti del modulo: il 60 % del tetto giornaliero e il limite
+     orario complessivo, oltre il quale la riconciliazione **aspetta l'ora
+     dopo** (non crea account "trattenuti": ci riprova da sola). Ricorda fino
+     a dove è arrivata, quindi un giro dopo l'altro non rilegge niente; lascia
+     stare le schede arrivate da meno di 2 minuti (le sta ancora lavorando il
+     modulo). Se la chiave del progetto dello studio manca o la lettura non
+     riesce, salta quel giro e il resto del lavoro programmato va avanti. I
+     due progetti Firebase restano separati: il servizio **legge** le schede
+     del sito, non scrive niente nel progetto dello studio e non copia nella
+     diretta altro che nome, cognome, azienda ed email di chi iscrive.
+
+**Chi annulla dal sito esce da solo.** Dal collegamento della conferma
+dell'iscrizione (la pagina *Completa iscrizione*) una persona può annullare il
+suo posto, o, in un ordine con più posti, quello di un collega. Se il posto è
+**online** (per gli altri posti, se hanno un'email), la diretta, subito e
+senza che tu faccia niente: toglie **quell'evento** dal suo account (gli altri
+eventi restano), cancella le credenziali di quell'evento **non ancora
+partite** ("da inviare" o "in coda": non partiranno più; quelle già partite
+restano come storia), segna sul profilo quando ha annullato e ti lascia una
+riga **"Iscrizione annullata dal sito"** fra le iscrizioni da verificare. Vale
+sempre, anche con l'interruttore spento (anche per chi avevi caricato tu dal
+file), ma non per un evento già finito (l'esportazione delle presenze deve
+restare com'è). La persona non legge più l'evento **da subito**, anche se la
+pagina era aperta: il suo token direbbe ancora l'evento per un'ora al massimo,
+ma le regole di Firestore guardano anche l'elenco degli eventi tolti
+(`sessioni/{uid}.eventiTolti`), e la pagina, al primo segnale di presenza
+rifiutato (entro un paio di minuti), dice **"Non sei più iscritto a questa
+diretta"** (non un errore tecnico); rientrando, lo stesso. Due eccezioni: chi si
+era iscritto **due volte** e annulla una sola delle due schede resta dentro
+(l'altra iscrizione è ancora valida); e se con quell'email nell'evento c'è
+l'account di **un'altra persona** (un collega con lo stesso indirizzo), non si
+tocca niente e la riga te lo dice. Se la persona **toglie l'annullamento**
+(ricompila i suoi dati): con l'interruttore acceso rientra come chi si iscrive
+dal modulo (l'evento torna; riceve "Sei iscritto anche a…" o le credenziali
+secondo le regole di sempre, qui sotto); con l'interruttore spento non rientra
+da sola e ti lascia una riga **"Annullamento ritirato"**: se deve seguire la
+diretta, la carichi tu con il file. Anche il tuo "Togli da questo evento"
+nella gestione chiude l'evento da subito, allo stesso modo (prima valeva
+dal rinnovo del token, fino a un'ora).
 
 **Una password per persona, e quella che ha non si tocca.** Chi ha già una
 password che funziona riceve "Sei iscritto anche a…" invece di credenziali
@@ -773,15 +848,21 @@ lui). Se correggi l'email di una persona, quello che era successo prima
 più. Solo il tuo **"Reinvia credenziali"** manda comunque una password nuova,
 e l'email dice che quella di prima (anche se l'aveva scelta lui) non vale più.
 
-**Iscrizioni dal modulo da verificare.** Due casi in cui la diretta non
-iscrive da sola chi arriva dal modulo del sito, e lo mette nella scheda
-*Partecipanti*, riquadro **"Iscrizioni dal modulo da verificare"** (compare
-solo quando c'è qualcosa): l'email è **già l'account di un'altra persona**
-(due colleghi con `info@…`: la seconda persona non finisce nell'account della
-prima, che non si tocca) e l'indirizzo che il modulo del sito ha accettato ma
-la diretta **non accetta** (accenti, punto prima della @…). Nessun account,
-nessuna email: l'iscrizione al sito resta valida. Sistema a mano (per esempio
-chiedi un indirizzo suo e caricala con il file) e premi "Segna come vista".
+**Iscrizioni dal modulo da verificare.** Nella scheda *Partecipanti*, il
+riquadro **"Iscrizioni dal modulo da verificare"** (compare solo quando c'è
+qualcosa) raccoglie quello che arriva dal sito e che devi vedere. Due casi in
+cui la diretta non iscrive da sola chi arriva dal modulo: l'email è **già
+l'account di un'altra persona** (due colleghi con `info@…`: la seconda persona
+non finisce nell'account della prima, che non si tocca) e l'indirizzo che il
+modulo del sito ha accettato ma la diretta **non accetta** (accenti, punto
+prima della @…); nessun account, nessuna email, l'iscrizione al sito resta
+valida: sistema a mano (per esempio chiedi un indirizzo suo e caricala con il
+file). E due casi che non chiedono di sistemare niente, ma che devi sapere: le
+iscrizioni **annullate dal sito** (già tolte dall'evento) e quelle **riattivate
+con l'interruttore spento** (non sono rientrate da sole). Poi premi "Segna come
+vista": la riga esce dall'elenco ma **resta nel database** del servizio (con
+chi l'ha segnata e quando), e se la stessa persona ci ricasca torna da vedere.
+La riconciliazione (qui sopra) non riapre mai una riga che hai già visto.
 
 **Email o password sbagliate.** La risposta è sempre "Email o password non
 corretti.", nello stesso tempo (mai prima di 0,9 secondi, più fino a 0,3 a
@@ -813,7 +894,9 @@ Promozioni e segna il mittente come sicuro."
 - **Regole di Firestore**: un partecipante legge il proprio profilo e il proprio
   evento, nient'altro; scrive solo il proprio segnale di presenza, con l'orario
   del server e al massimo uno ogni 50 secondi. Tutto il resto lo scrive solo il
-  servizio. (Prove: [§10](#10-le-prove).)
+  servizio. Un evento tolto (annullato dal sito, tolto dal gestore) e un account
+  disattivato si chiudono da subito, anche per il token che la persona ha già
+  in mano. (Prove: [§10](#10-le-prove).)
 - **Tentativi**: dopo 5 password sbagliate di fila dallo stesso dispositivo o
   rete, attesa crescente (30 s, 1 min, 2 min… fino a 15 min). In più un tetto
   largo per email da qualunque provenienza (50 errori all'ora) e uno per
@@ -856,7 +939,13 @@ Promozioni e segna il mittente come sicuro."
   codice HTML (niente `innerHTML` con dati, escape nelle email, e una Content
   Security Policy sulle pagine della diretta).
 - **Separazione dall'area riservata**: progetto diverso, chiave diversa
-  controllata all'avvio, nessun file in comune (prova automatica).
+  controllata all'avvio, nessun file in comune (prova automatica). L'unico
+  ponte è una **lettura** lato server: la riconciliazione legge le schede del
+  modulo del sito con `lib/sito-iscrizioni.js` (la chiave dello studio, un'app
+  firebase-admin sua, la sola raccolta `iscrizioni`, nessuna scrittura,
+  nessun account; anche questo lo controlla la prova). Nel progetto della
+  diretta non finiscono gli identificativi delle schede (contengono l'email):
+  il cursore ne tiene solo le impronte.
 
 ---
 
@@ -1009,18 +1098,19 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-email.prove.js` | la regola dell'email come accesso: maiuscole, spazi (anche invisibili, da Excel), `mailto:`, punti e `+` che restano; l'anteprima dell'import per email (nuovi, già registrati, già nell'evento, doppie nel file, email condivise da persone diverse, email mancanti o non valide) | 58 verdi, 0 rossi |
 | `email-service/prove/diretta-password.prove.js` | 10 caratteri, niente 0/O/o/1/l/I/i, 20.000 password tutte diverse, nessuna password (né chiave dei link firmati) nei log o in Firestore | 9 verdi, 0 rossi |
 | `email-service/prove/diretta-mail.prove.js` | le email: HTML e testo, credenziali in carattere a spaziatura fissa, collegamenti, date, assistenza, niente trattini lunghi, niente HTML iniettato, promemoria mai con la password; l'email delle credenziali con l'email e la password (mai un nome utente), «Sei iscritto anche a…» senza password, la frase dello Spam in ogni email; chi aveva già una password (anche scelta con «Password dimenticata?») legge che non vale più; **una password per persona**: chi ha ricevuto il collegamento di «Password dimenticata?», chi è già entrato o ha una password data a voce riceve «anche», le credenziali partite a un indirizzo poi corretto non contano | 240 verdi, 0 rossi |
-| `email-service/prove/diretta-accesso-tempi.prove.js` | "password dimenticata" e "primo accesso" dei gestori rispondono sempre in 2,5-2,9 s, anche con Brevo lento (il resto finisce dopo, con `waitUntil`); un token scaduto fa uscire, un intoppo di Google (rete, chiavi pubbliche non scaricate) no; il gancio del modulo del sito su Vercel **non aspetta mai** la diretta (stessa risposta per lavori brevi e lunghi); vince il percorso della pagina, l'etichetta solo senza; "Email o password non corretti." mai prima di 900 ms (+ fino a 300 a caso) | 46 verdi, 0 rossi |
+| `email-service/prove/diretta-accesso-tempi.prove.js` | "password dimenticata" e "primo accesso" dei gestori rispondono sempre in 2,5-2,9 s, anche con Brevo lento (il resto finisce dopo, con `waitUntil`); un token scaduto fa uscire, un intoppo di Google (rete, chiavi pubbliche non scaricate) no; il gancio del modulo del sito su Vercel **non aspetta mai** la diretta (stessa risposta per lavori brevi e lunghi), e nemmeno quello dell'annullamento dal sito; vince il percorso della pagina, l'etichetta solo senza; "Email o password non corretti." mai prima di 900 ms (+ fino a 300 a caso) | 50 verdi, 0 rossi |
 | `email-service/prove/diretta-video.prove.js` | il video: il codice vero di Azoto (si prende solo l'indirizzo), codice malevolo (script, `onload`, `onerror`, `javascript:`, `data:`, iframe di altri siti, due iframe), solo `https://cdn.azotosolutions.com` (niente altri siti, sottodomini, porte, http); il flusso diretto HLS `.m3u8` (anche con token) e DASH `.mpd`; rifiutati con il motivo RTMP/RTSP/SRT, file video, link con credenziali, indirizzi interni, un `.m3u8` nel campo del player e viceversa; tipo di player e passaggio A↔B (`evento-player`), link principale e di riserva, sorgente scelta dalla regia, nessun link nel documento pubblico fuori onda; la copia del servizio è identica a quella del sito | 265 verdi, 0 rossi |
 | `email-service/prove/diretta-firma.prove.js` | i link firmati a tempo: nginx `secure_link` (con il vettore della documentazione di nginx) e Akamai EdgeAuth, durata, `validoSecondi`, acl non valide rifiutate, la chiave mai restituita | 64 verdi, 0 rossi |
 | `email-service/prove/diretta-prova-link.prove.js` | la prova del link: il player di Azoto (si può incorporare? non risponde? rimanda altrove?), un indirizzo che non è di Azoto rifiutato senza nemmeno provarlo; per il flusso diretto playlist HLS principale e di una qualità, diretta o registrazione, qualità, DVR, codec, CORS su playlist e segmento, DASH, pagine incorporabili o no (`X-Frame-Options`, `frame-ancestors`), indirizzi interni rifiutati anche dopo un redirect o con il DNS che cambia, tempi e dimensioni massime | 120 verdi, 0 rossi |
-| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo | 65 verdi, 0 rossi |
-| `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio | 14 verdi, 0 rossi |
+| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova | 70 verdi, 0 rossi |
+| `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio; l'unico ponte (`lib/sito-iscrizioni.js`, per la riconciliazione) è in sola lettura: un'app con un nome suo, la sola raccolta `iscrizioni`, nessuna scrittura, nessun account, e lo carica solo la riconciliazione | 19 verdi, 0 rossi |
 | `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse, correzioni: **zero account doppi, un account per email** | 89 verdi, 0 rossi |
 | `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player | 201 verdi, 0 rossi |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password; una sola password per persona (chi ha già le credenziali di un altro evento riceve «Sei iscritto anche a…»); il modulo del sito al massimo al 60 % del tetto giornaliero, le credenziali del gestore passano anche dietro un lotto tutto fermo | 164 verdi, 0 rossi |
-| `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account e password subito), iscrizione ripetuta (una sola password), email già con un account (evento aggiunto e «Sei iscritto anche a…», nessuna password nuova), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto; la conferma del sito per chi segue online | 100 verdi, 0 rossi |
-| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, «Non sei ancora iscritto? Iscriviti qui.», «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano | 60 verdi, 0 rossi |
-| `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel controllata per **email** (nuovi, già registrati, doppie, email condivise da persone diverse, email sbagliate, correzioni ed esclusioni), creazione a gruppi con "Riprendi" **senza nessuna email** (partono solo con «Invia le credenziali»), l'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» (con i suoi errori), ricerca e azioni sul partecipante, cambio dell'email; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta; il riquadro **«Iscrizioni dal modulo da verificare»** (righe, testo mai HTML, «Segna come vista», azioni protette) | 389 verdi, 0 rossi |
+| `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account e password subito), iscrizione ripetuta (una sola password), email già con un account (evento aggiunto e «Sei iscritto anche a…», nessuna password nuova), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto; la conferma del sito per chi segue online; **la riconciliazione**: il servizio della diretta che fallisce durante l'iscrizione (la scheda del sito c'è, l'account no) e il giro del cron che crea l'account e manda la password **una volta**, le schede di prima dell'accensione, di un altro evento, in sala o annullate lasciate stare, il limite orario (si aspetta l'ora dopo) e il 60 % del tetto, un secondo giro che non fa niente, la chiave del sito che manca o la lettura che fallisce; **l'annullamento dal sito**: account senza l'evento, credenziali non partite cancellate, riga «da verificare», con il token di prima le regole vere non fanno più leggere l'evento, il cron non manda niente e la riconciliazione non lo rimette dentro, chi ha un'altra scheda attiva resta, un altro posto dell'ordine esce, la riattivazione con l'interruttore acceso («anche», la password di sempre) e spento (solo la riga) | 137 verdi, 0 rossi |
+| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, «Non sei ancora iscritto? Iscriviti qui.», «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano; l'iscrizione **annullata dal sito con la pagina aperta** (il servizio vero): la pagina dice «Non sei più iscritto a questa diretta», anche rientrando | 61 verdi, 0 rossi |
+| `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel controllata per **email** (nuovi, già registrati, doppie, email condivise da persone diverse, email sbagliate, correzioni ed esclusioni), creazione a gruppi con "Riprendi" **senza nessuna email** (partono solo con «Invia le credenziali»), l'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» (con i suoi errori), ricerca e azioni sul partecipante, cambio dell'email; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta; il riquadro **«Iscrizioni dal modulo da verificare»** (righe, testo mai HTML, «Segna come vista», azioni protette; anche le righe **annullata dal sito** e **annullamento ritirato**); accanto all'interruttore acceso, da quando | 395 verdi, 0 rossi |
+| `modulo.prova.js` | **il modulo di Napoli quando il servizio non risponde**: 503, 503 e poi 200 → tre chiamate al servizio (dopo 3 e 10 secondi, con keepalive, sempre lo stesso corpo), la conferma a video subito, il payload del foglio Google identico byte per byte a quello di prima (6f762d7~1); rete che cade, 429, 400 (nessun tentativo), sempre 503 (tre e basta), servizio a posto (una) | 19 verdi, 0 rossi |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento | 287 verdi, 0 rossi |
 | `e2e.prova.js` | **il percorso completo con tutto vero** (il player di Azoto è quello finto): il gestore si attiva dall'email, crea l'evento **incollando il codice di Azoto** (si salva solo l'indirizzo) e i partecipanti (nessuna email parte finché non preme «Invia le credenziali»), manda le credenziali; Mario le legge dalla posta, entra dal telefono **con la sua email**; il gestore accende l'interruttore e Luca, che si iscrive dal modulo del sito, riceve subito la password ed entra; aspetta (nessun player), va in onda e compare il player di Azoto (chi non ha fatto l'accesso non riceve l'indirizzo: né nella pagina, né nello stato pubblico, né da Firestore), schermo intero (vero sul computer, la vista orizzontale sull'iPhone), cambio del player senza ricaricare, connessione persa, pagina riaperta, pausa e fine (il player sparisce, restano le nostre schermate), un minuto di presenza, esce, «Password dimenticata?» (a chi non è iscritto non parte niente), accesso automatico; esportazione | 32 verdi, 0 rossi |
 | `webtv.prova.js` | **le due modalità con la regia vera** (emulatori e servizio vero), su computer e iPhone. **Player Azoto**: prima dell'accesso nessuna richiesta ad Azoto; l'iframe con gli attributi e il titolo giusti, mai `azoto-player.js`; sotto il video solo «Schermo intero» e la nota; **niente sopra l'iframe** (un clic e un tocco veri sul play di Azoto arrivano); 16:9 senza bande né barre a 1440×900, 390×844, 360×740 e iPhone orizzontale; schermo intero vero sul computer e vista orizzontale sull'iPhone, senza ricaricare l'iframe; cambio del player e A→B→A senza ricaricare la pagina e senza altri ascolti di Firestore; player fermo: avviso a 15 secondi sotto il riquadro, «Ricarica il video» ricrea solo l'iframe; CSP. **Flusso diretto**: principale che cade → "Stiamo ricollegando la diretta…" e riserva; la regia sposta tutti; **flusso pubblico HLS di Shaka** (DVR, «Torna in diretta», qualità) e DASH; link firmati | 32 verdi, 0 rossi |
@@ -1029,10 +1119,17 @@ node e2e.prova.js              # solo il percorso completo
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
 Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch
-(26 settembre 2026, dopo le correzioni della revisione finale): 2324 verdi e 1
-rosso, l'anteprima (qui sotto); l'anteprima rifatta da sola tre volte: 26 verdi
-su 26. In tutto **2334 controlli verdi**. Due prove sono rosse ogni tanto, senza
-che il codice c'entri in modo dimostrato:
+(26 settembre 2026, dopo la riconciliazione e l'annullamento dal sito): 2400
+verdi e 2 rossi, l'anteprima (qui sotto) e un controllo dei tempi di
+`accesso.prova.js` («stesso tempo»: mediane 938 e 1103 ms, con la macchina
+carica dalla prova precedente); rifatte da sole, `accesso.prova.js` due volte
+201 verdi su 201, l'anteprima tre volte (26 su 26 due volte, una volta ancora
+il tempo scaduto qui sotto). In tutto **2411 controlli verdi**. Tre prove sono
+rosse ogni tanto, senza che il codice c'entri in modo dimostrato:
+- `accesso.prova.js`, il controllo «stesso tempo» (le mediane della password
+  sbagliata e dell'email non iscritta a meno di 150 ms): quando la macchina è
+  carica, la verifica vera della password nell'emulatore supera il pavimento
+  di 900 ms; da sola la prova è verde;
 - `anteprima/anteprima.prova.js`: a volte scade il tempo al passo "file di
   esempio", dove l'anteprima scarica dalla rete SheetJS (la libreria che legge
   Excel);
@@ -1186,7 +1283,11 @@ settembre: c'è tempo, ma non tanto).
    `assistenza.email` e `assistenza.telefono`.
 4. [ ] **Regole e indici**: `firebase deploy --only firestore:rules,firestore:indexes`
    da `diretta/firebase/` (o a mano dalla console), e aspetta che gli indici
-   siano *Attivati*.
+   siano *Attivati*. (Le regole di questo ramo chiudono subito l'evento a chi
+   annulla dal sito: se le avevi già pubblicate prima, pubblicale di nuovo.)
+   Nel progetto dello **studio** non c'è niente da fare: la riconciliazione
+   legge le schede con un solo filtro su `ricevuto`, che usa l'indice
+   automatico.
 5. [ ] **Chiavi**: genera la chiave di servizio (JSON → base64) e crea la
    **chiave API del server** limitata a Identity Toolkit API e Token Service API;
    limita la chiave del browser ai referrer `https://nextgenerationbusiness.it/*`.
@@ -1232,14 +1333,28 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     poi **"Invia le credenziali"**.
 14. [ ] Solo **dopo** aver caricato e inviato la prima lista: nella scheda
     *Evento* accendi **"Invia subito la password a chi si iscrive dal modulo del
-    sito"**. Da quel momento chi si iscrive online dalla pagina di Napoli riceve
-    subito la password. Controlla che `iscrizione` in `diretta/config.js` porti
-    al modulo giusto (oggi `/napoli_ottobre_2026/#accreditamento`): è il
-    collegamento di "Non sei ancora iscritto? Iscriviti qui.".
+    sito"** (accanto compare da quando è acceso). Da quel momento chi si iscrive
+    online dalla pagina di Napoli riceve subito la password; se il servizio in
+    quel momento non risponde, ci pensa il lavoro programmato entro pochi
+    minuti (§7): serve che su Vercel ci sia `FIREBASE_SERVICE_ACCOUNT` (c'è già,
+    la usano il modulo e l'area riservata). Le iscrizioni arrivate **prima**
+    di accenderlo non partono da sole: quelle le carichi tu con il file.
+    Controlla che `iscrizione` in `diretta/config.js` porti al modulo giusto
+    (oggi `/napoli_ottobre_2026/#accreditamento`): è il collegamento di "Non
+    sei ancora iscritto? Iscriviti qui.". E che l'etichetta della pagina nel
+    modulo (`PAGINA_NGB` in `napoli_ottobre_2026/script.js`, oggi "Napoli 2
+    Ottobre 2026 - …") contenga le parole della «Pagina dell'evento»
+    (napoli, ottobre, 2026): è l'unica cosa che la riconciliazione può
+    confrontare.
+15. [ ] Nei giorni prima e il giorno dell'evento, guarda ogni tanto il riquadro
+    **"Iscrizioni dal modulo da verificare"** nella scheda *Partecipanti*: oltre
+    alle email da sistemare, ci trovi chi ha **annullato** dal sito (è già fuori
+    dall'evento, non devi fare niente) e chi ha tolto l'annullamento con
+    l'interruttore spento (se deve seguire la diretta, caricalo tu).
 
 **Il giorno prima (1° ottobre)**
 
-15. [ ] "Aggiorna esiti", correggi gli indirizzi respinti, "Reinvia a chi non
+16. [ ] "Aggiorna esiti", correggi gli indirizzi respinti, "Reinvia a chi non
     l'ha ricevuta". Tieni a portata di mano il numero dell'assistenza e la
     sezione 7 ("account disattivato", "password dimenticata").
 

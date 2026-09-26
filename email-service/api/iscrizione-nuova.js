@@ -1009,7 +1009,23 @@ async function confermaPrenotazione(idDoc, scheda, tavoli) {
 const quandoInItalia = AGENDA.quandoInItalia;
 const nomeFileFoglio = AGENDA.nomeFileFoglio;
 
-async function completaIscrizione(azione, body, res) {
+/* Un'altra scheda ONLINE ancora attiva della stessa persona per lo stesso
+   evento (stessa email, stessa pagina, non annullata)? Ogni invio del
+   modulo e' una scheda a se' (l'identificativo porta la data e l'ora), e
+   chi si e' iscritto due volte riceve due conferme, ognuna con il suo
+   collegamento: annullarne una non vuol dire annullare l'iscrizione.
+   Un filtro di uguaglianza su un campo: l'indice automatico basta. */
+async function altraSchedaOnline(db, idDoc, email, pagina) {
+    if (!email) return false;
+    const snap = await db.collection('iscrizioni').where('email', '==', email).limit(50).get();
+    return snap.docs.some(d => {
+        if (d.id === idDoc) return false;
+        const x = d.data() || {};
+        return !x.annullato && x.modalita === 'online' && String(x.pagina || '') === pagina;
+    });
+}
+
+async function completaIscrizione(azione, body, res, ip) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
     if (!idDoc || !token || !NL.firmaCompletaValida(idDoc, token)) {
@@ -1162,6 +1178,52 @@ async function completaIscrizione(azione, body, res) {
     await batch.commit();
     await segnaCambiamento(db);
 
+    /* La diretta degli eventi (progetto Firebase SEPARATO, tutto in
+       lib/diretta-iscrizione.js, dalSito). Un posto ONLINE annullato da
+       qui esce da solo dall'evento della diretta (niente piu' accesso,
+       credenziali non ancora partite cancellate, una riga per il gestore);
+       un posto a cui si toglie l'annullamento ci rientra, se sull'evento
+       e' acceso «Invia subito la password a chi si iscrive dal modulo del
+       sito», altrimenti diventa una riga «da verificare» per il gestore.
+       Vale per l'intestatario (la scheda e' "online") e, nello stesso
+       ordine online, per gli altri posti che hanno un'email. Solo quando
+       lo stato CAMBIA (attivo -> annullato, annullato -> attivo): chi
+       rimanda il modulo senza cambiare niente non tocca la diretta. Chi ha
+       un'altra scheda online attiva per la stessa pagina (si e' iscritto
+       due volte) non si ritira. Mai al posto del resto: dentro un
+       try/catch, e su Vercel la risposta non aspetta la diretta
+       (waitUntil). */
+    if (scheda.modalita === 'online') {
+        try {
+            const pagina = String(scheda.pagina || '');
+            const azioni = [];
+            const eraAnnullato = !!scheda.annullato;
+            if (scheda.email && !eraAnnullato && posto1Annullato) {
+                azioni.push({ tipo: 'annullata', id: idDoc, email: String(scheda.email), nome: String(scheda.nome || ''), cognome: String(scheda.cognome || ''), azienda: String(scheda.azienda || '') });
+            } else if (scheda.email && eraAnnullato && !posto1Annullato) {
+                const chi = primo && !primo.annulla ? primo : scheda;
+                azioni.push({ tipo: 'riattivata', id: idDoc, email: String(scheda.email), nome: String(chi.nome || ''), cognome: String(chi.cognome || ''), azienda: String(chi.azienda || '') });
+            }
+            for (let i = 2; i <= nOrdine; i++) {
+                const prima = figliAttuali[i - 2];
+                const p = posti[i - 1];
+                if (p && p.annulla && prima && !prima.annullato && prima.email) {
+                    azioni.push({ tipo: 'annullata', id: idDoc + '~p' + i, email: String(prima.email), nome: String(prima.nome || ''), cognome: String(prima.cognome || ''), azienda: String(prima.azienda || '') });
+                } else if (p && !p.annulla && prima && prima.annullato && p.email) {
+                    azioni.push({ tipo: 'riattivata', id: idDoc + '~p' + i, email: p.email, nome: p.nome, cognome: p.cognome, azienda: p.azienda });
+                }
+            }
+            const perDiretta = [];
+            for (const a of azioni) {
+                if (a.tipo === 'annullata' && await altraSchedaOnline(db, a.id, a.email, pagina)) continue;
+                perDiretta.push({ tipo: a.tipo, email: a.email, nome: a.nome, cognome: a.cognome, azienda: a.azienda, pagina: pagina });
+            }
+            if (perDiretta.length) await require('../lib/diretta-iscrizione').dalSito(perDiretta, { ip: ip });
+        } catch (e) {
+            console.error('Diretta: annullamento o riattivazione non riusciti:', String((e && e.message) || e).replace(/[^\s/@'"]+@[^\s/'"]+/g, '<email>').slice(0, 200));
+        }
+    }
+
     /* Riepilogo e mail di conferma delle variazioni, con lo stesso collegamento
        per modificare o annullare ancora. Se l'invio fallisce le modifiche
        restano salvate: la mail e' una cortesia, non una condizione. */
@@ -1235,7 +1297,8 @@ module.exports = async (req, res) => {
         // per loro non cambia niente.
         const azione = String(body.azione || '');
         if (azione === 'completa-leggi' || azione === 'completa-salva') {
-            await completaIscrizione(azione, body, res);
+            // l'IP serve solo alla diretta, per i limiti del modulo di chi torna iscritto
+            await completaIscrizione(azione, body, res, ip);
             return;
         }
         if (azione === 'b2b-leggi' || azione === 'b2b-salva'

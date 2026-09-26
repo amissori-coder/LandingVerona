@@ -9,7 +9,12 @@
       e non usa la sua chiave di servizio (FIREBASE_SERVICE_ACCOUNT);
       le funzioni della diretta aprono un'app firebase-admin con un
       NOME proprio e la loro chiave (DIRETTA_FIREBASE_SERVICE_ACCOUNT).
-      E, al contrario, l'area riservata non nomina la diretta.
+      E, al contrario, l'area riservata non nomina la diretta. L'unico
+      ponte, la riconciliazione delle iscrizioni dal modulo del sito,
+      legge le schede con lib/sito-iscrizioni.js: un'app con un nome
+      suo, la sola raccolta `iscrizioni`, nessuna scrittura, nessun
+      account, e fra i file della diretta la carica solo
+      lib/diretta-riconcilia.js.
    2. Sui token (con l'emulatore di Auth): un partecipante che ha fatto
       l'accesso alla diretta riceve un token del progetto della
       diretta; presentato a un server che verifica i token del
@@ -78,6 +83,24 @@ if (fs.existsSync(configDiretta)) {
 }
 const codiceArea = fileDi(path.join(RADICE, 'area-riservata'), p => /\.(js|html)$/.test(p));
 vero(codiceArea.every(f => !/ngb-eventi|\/diretta\/|NGB_DIRETTA/.test(fs.readFileSync(f, 'utf8'))), 'l\'area riservata non nomina la diretta');
+
+/* L'unico ponte: la riconciliazione (lib/diretta-riconcilia.js) rilegge le
+   schede del modulo del sito con lib/sito-iscrizioni.js, che usa la chiave
+   dello studio SOLO per leggere. Si controlla sul testo (senza commenti):
+   un'app con un nome suo, una sola raccolta, nessuna scrittura, nessun
+   account; nessun file della diretta dentro; e fra i file della diretta
+   lo carica solo la riconciliazione. */
+const ponte = path.join(RADICE, 'email-service/lib/sito-iscrizioni.js');
+const testoPonte = fs.readFileSync(ponte, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+vero(/NOME_APP\s*=\s*'sito-lettura'/.test(testoPonte) && /initializeApp\(\{[^;]*\},\s*NOME_APP\)/.test(testoPonte),
+    'il ponte verso le schede del sito apre un\'app con un nome suo ("sito-lettura"): ne\' quella predefinita dello studio, ne\' quella della diretta');
+vero((testoPonte.match(/collection\(\s*'([^']+)'\s*\)/g) || []).join() === "collection('iscrizioni')", 'il ponte legge una sola raccolta: iscrizioni');
+const scritture = ['.set(', '.update(', '.delete(', '.add(', '.create(', 'batch(', 'runTransaction(', '.auth(', 'bulkWriter(', 'recursiveDelete(']
+    .filter(x => testoPonte.indexOf(x) >= 0);
+vero(!scritture.length, 'il ponte non scrive niente e non tocca gli account del sito' + (scritture.length ? ': ' + scritture.join(' ') : ''));
+vero(!/require\(\s*'\.\/diretta-/.test(testoPonte), 'il ponte non carica nessun file della diretta');
+const chiLoCarica = codiceDiretta.filter(f => /require\(\s*'\.\/sito-iscrizioni'\s*\)/.test(fs.readFileSync(f, 'utf8'))).map(f => path.basename(f));
+vero(chiLoCarica.join() === 'diretta-riconcilia.js', 'fra i file della diretta lo carica solo la riconciliazione (' + (chiLoCarica.join(', ') || 'nessuno') + ')');
 
 /* ---------- 2. i token ---------- */
 (async () => {

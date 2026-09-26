@@ -1493,13 +1493,22 @@ async function giroPromemoria(ctx, idEvento, evento, tipo, scadenza) {
    IL GIRO DEL CRON (api/diretta-cron.js, ogni 5 minuti)
    1. gestori tolti da DIRETTA_ADMIN_EMAILS: claims via, sessioni chiuse,
       account disattivato;
-   2. gli 'invio' rimasti a meta' da piu' di 10 minuti diventano
+   2. la riconciliazione delle iscrizioni dal modulo del sito
+      (lib/diretta-riconcilia.js): per gli eventi con l'interruttore
+      acceso, chi si e' iscritto online mentre il servizio non rispondeva
+      riceve adesso l'account e la password (al massimo un minuto;
+      senza la chiave del sito, o se la lettura non riesce, salta e il
+      resto del giro va avanti). Prima delle code: le credenziali che
+      nascono qui partono al punto 4, nello stesso giro;
+   3. gli 'invio' rimasti a meta' da piu' di 10 minuti diventano
       'incerto' (mai rispediti da soli);
-   3. le code attive vanno avanti;
-   4. i promemoria dovuti partono;
-   5. i rimbalzi di Brevo, al massimo ogni mezz'ora.
+   4. le code attive vanno avanti;
+   5. i promemoria dovuti partono;
+   6. i rimbalzi di Brevo, al massimo ogni mezz'ora.
    Se non c'e' niente da fare costa poche letture: l'elenco (breve)
-   dei gestori, delle code e degli eventi non ancora finiti.
+   dei gestori, degli eventi con l'interruttore acceso (e, per ognuno,
+   il suo cursore e una query sulle schede del sito), delle code e
+   degli eventi non ancora finiti.
    ============================================================ */
 async function ripulisciGestori(ctx) {
     const snap = await ctx.db.collection('gestoriAccount').get();
@@ -1549,10 +1558,17 @@ async function giroCron(ctx, opz) {
     const scadenza = t0 + Math.max(10000, Number(opz && opz.budgetMs) || 240000);
     // per gli ultimi passi (promemoria, rimbalzi) si lascia sempre un po' di tempo
     const MARGINE = 20000;
-    const riepilogo = { gestoriRimossi: 0, incerti: 0, code: [], promemoria: [], esiti: [], lavoro: false, durataMs: 0 };
+    const riepilogo = { gestoriRimossi: 0, riconciliazione: null, incerti: 0, code: [], promemoria: [], esiti: [], lavoro: false, durataMs: 0 };
 
     try { riepilogo.gestoriRimossi = await ripulisciGestori(ctx); } catch (e) { log('pulizia dei gestori', e); }
 
+    // la riconciliazione (caricata qui: il modulo usa questo file per le code)
+    try {
+        const resta = scadenza - Date.now() - MARGINE;
+        if (resta >= 5000) riepilogo.riconciliazione = await require('./diretta-riconcilia').riconcilia(ctx, { budgetMs: Math.min(60000, resta) });
+    } catch (e) { log('riconciliazione delle iscrizioni dal sito', e); }
+
+    // le code si leggono DOPO la riconciliazione: una coda accesa li' si vede gia' in questo giro
     const code = await ctx.db.collection('code').get();
     for (const doc of code.docs) {
         const d = doc.data();
@@ -1595,7 +1611,8 @@ async function giroCron(ctx, opz) {
         }
     }
 
-    riepilogo.lavoro = !!(riepilogo.gestoriRimossi || riepilogo.incerti || riepilogo.code.length || riepilogo.promemoria.length || riepilogo.esiti.length);
+    const riconciliate = riepilogo.riconciliazione ? riepilogo.riconciliazione.eventi.some(r => r.lette || r.limite || r.errore) : false;
+    riepilogo.lavoro = !!(riepilogo.gestoriRimossi || riconciliate || riepilogo.incerti || riepilogo.code.length || riepilogo.promemoria.length || riepilogo.esiti.length);
     riepilogo.durataMs = Date.now() - t0;
     return riepilogo;
 }

@@ -229,7 +229,10 @@ function transazione(ctx, fn) {
    se e' il player di Azoto. iscrizioniAutomatiche (booleano, false se
    manca): l'interruttore «Invia subito la password a chi si iscrive dal
    modulo del sito»; sta nel documento riservato, ai partecipanti non
-   serve. */
+   serve. iscrizioniAutomaticheDa: da quando e' acceso (millisecondi;
+   null se e' spento, o se e' stato acceso prima che si salvasse il
+   momento): la gestione lo mostra accanto all'interruttore, e la
+   riconciliazione (lib/diretta-riconcilia.js) parte da li'. */
 function eventoJSON(id, dati, riservati) {
     const out = jsonDi(dati);
     const r = riservatiDa(riservati);
@@ -252,16 +255,23 @@ function eventoJSON(id, dati, riservati) {
     out.videoFirmato = F.attiva(r.firma);
     out.firma = F.pubblica(r.firma);
     out.iscrizioniAutomatiche = iscrizioniDi(riservati);
+    out.iscrizioniAutomaticheDa = out.iscrizioniAutomatiche ? ms(riservati.iscrizioniAutomaticheDa) : null;
     return out;
 }
 /* L'interruttore delle iscrizioni dal modulo del sito, dal documento
-   riservato. Chi riscrive quel documento per intero (tx.set senza merge:
-   il video, la firma) deve rimettercelo: vedi conIscrizioni(). */
+   riservato, con il momento in cui e' stato acceso
+   (iscrizioniAutomaticheDa, un Timestamp: lo scrive salvaEvento quando
+   passa da spento ad acceso, e c'e' solo mentre e' acceso). Chi riscrive
+   quel documento per intero (tx.set senza merge: il video, la firma)
+   deve rimetterceli tutti e due: vedi conIscrizioni(). */
 function iscrizioniDi(riservati) {
     return !!(riservati && riservati.iscrizioniAutomatiche === true);
 }
 function conIscrizioni(nuovi, riservati) {
-    return Object.assign({}, nuovi, { iscrizioniAutomatiche: iscrizioniDi(riservati) });
+    const acceso = iscrizioniDi(riservati);
+    const out = Object.assign({}, nuovi, { iscrizioniAutomatiche: acceso });
+    if (acceso && riservati.iscrizioniAutomaticheDa) out.iscrizioniAutomaticheDa = riservati.iscrizioniAutomaticheDa;
+    return out;
 }
 /* La pagina dell'evento come percorso confrontabile: minuscolo, senza
    indirizzo del sito, senza ?... e #..., senza index.html, con la barra
@@ -472,7 +482,8 @@ function uguali(a, b) {
    (lo si inserisce piu' tardi).
    iscrizioniAutomatiche (booleano, spento di base): «Invia subito la
    password a chi si iscrive dal modulo del sito». Si salva nel documento
-   riservato. Acceso vuole la pagina dell'evento (400 campo 'pagina'), e
+   riservato, e quando passa da spento ad acceso anche il momento
+   (iscrizioniAutomaticheDa). Acceso vuole la pagina dell'evento (400 campo 'pagina'), e
    una pagina puo' avere l'interruttore acceso su un evento solo (409
    'iscrizioni-doppie'): il modulo del sito deve portare a UN evento. */
 async function salvaEvento(ctx, ingresso) {
@@ -570,7 +581,16 @@ async function salvaEvento(ctx, ingresso) {
             }
         }
         if (nuovo || !uguali(nuoviRis, prima) || iscrizioni !== iscrizioniDi(ris)) {
-            tx.set(rifRis, Object.assign({}, nuoviRis, { iscrizioniAutomatiche: iscrizioni, aggiornato: ts }));
+            const campiRis = Object.assign({}, nuoviRis, { iscrizioniAutomatiche: iscrizioni, aggiornato: ts });
+            /* Da quando e' acceso: il momento in cui passa da spento ad
+               acceso (riaccenderlo lo sposta: le iscrizioni arrivate a
+               interruttore spento non si recuperano); acceso e basta, resta
+               quello di prima; spento, non c'e'. */
+            if (iscrizioni) {
+                const da = iscrizioniDi(ris) ? ris.iscrizioniAutomaticheDa : ts;
+                if (da) campiRis.iscrizioniAutomaticheDa = da;
+            }
+            tx.set(rifRis, campiRis);
         }
     });
     return (await leggiEvento(ctx, id)).json;
@@ -966,10 +986,23 @@ async function prenotaPersona(ctx, idEvento, dati, opz) {
                 }
                 return { tipo: 'gia-iscritto', uid: uid, dati: d, voce: nuovaVoce ? Object.assign({}, attuale, nuovaVoce) : attuale, voceCambiata: !!nuovaVoce };
             }
-            tx.set(rifP, {
+            /* Di nuovo nell'evento dopo esserne uscita (annullata dal sito,
+               tolta dal gestore): via l'evento da sessioni/{uid}.eventiTolti,
+               che le regole leggono per chiuderle subito la lettura (vedi
+               ritiraDaModulo in lib/diretta-iscrizione.js), e via il segno
+               dell'annullamento dal profilo (la storia resta nelle righe «da
+               verificare»). La sessione si legge qui, prima delle
+               scritture: solo in questo ramo, una lettura in piu'. */
+            const rifS = db.collection('sessioni').doc(uid);
+            const s = await tx.get(rifS);
+            const tolti = s.exists && Array.isArray(s.data().eventiTolti) ? s.data().eventiTolti : [];
+            if (tolti.indexOf(idEvento) >= 0) tx.update(rifS, { eventiTolti: ctx.FieldValue.arrayRemove(idEvento), aggiornato: ts });
+            const campi = {
                 eventi: listaEventi(eventi, idEvento), idEvento: idEvento, aggiornato: ts,
                 invii: { [idEvento]: voce }
-            }, { merge: true });
+            };
+            if (d.annullatoDalSito && d.annullatoDalSito[idEvento] !== undefined) campi.annullatoDalSito = { [idEvento]: ctx.FieldValue.delete() };
+            tx.set(rifP, campi, { merge: true });
             return { tipo: 'aggiunto', uid: uid, dati: d };
         }
         tx.create(rifInd, { uid: uidNuovo, creato: ts });
@@ -1225,25 +1258,47 @@ async function cancellaTentativi(ctx, email) {
 /* Togli da questo evento (diverso da "disattiva", che chiude tutto
    l'account): via l'evento dalla lista, dai claims, dagli invii e dai
    promemoria. Se non restano eventi l'account resta attivo ma non vede
-   nessuna diretta. */
+   nessuna diretta. E subito: il token che la persona ha in mano dice
+   ancora l'evento per un'ora al massimo, ma le regole leggono anche
+   sessioni/{uid}.eventiTolti (vedi segnaTolto). */
 async function rimuoviDaEvento(ctx, uid, idEvento) {
     const rifP = ctx.db.collection('partecipanti').doc(uid);
+    const rifS = ctx.db.collection('sessioni').doc(uid);
     await transazione(ctx, async tx => {
-        const snap = await tx.get(rifP);
+        const [snap, s] = await tx.getAll(rifP, rifS);
         if (!snap.exists) throw C.errore(404, 'Partecipante inesistente.', 'partecipante');
         const d = snap.data();
         const eventi = Array.isArray(d.eventi) ? d.eventi : [];
         if (eventi.indexOf(idEvento) < 0) throw C.errore(409, 'La persona non è iscritta a questo evento.', 'evento');
         const resto = eventi.filter(x => x !== idEvento);
+        const ts = adessoTs(ctx);
         tx.update(rifP, new ctx.FieldPath('eventi'), resto,
             new ctx.FieldPath('idEvento'), resto[0] || '',
             new ctx.FieldPath('invii', idEvento), ctx.FieldValue.delete(),
             new ctx.FieldPath('promemoria', idEvento), ctx.FieldValue.delete(),
-            new ctx.FieldPath('aggiornato'), adessoTs(ctx));
+            new ctx.FieldPath('aggiornato'), ts);
+        segnaTolto(ctx, tx, rifS, s, d, idEvento, ts);
     });
     const p = await leggiPartecipante(ctx, uid);
     if (p.authCreato === true) await impostaClaims(ctx, uid);
     return { partecipante: partecipanteJSON(p, idEvento) };
+}
+
+/* L'evento tolto a una persona, anche per il token che ha gia' in mano.
+   Le regole di Firestore leggono gli eventi di una persona dal suo token
+   (claim "eventi"): impostaClaims lo corregge, ma il token che la pagina
+   aperta ha gia' vale ancora fino a un'ora. Per questo le regole leggono
+   anche sessioni/{uid} (lo fanno gia', per l'account disattivato: nessuna
+   lettura in piu') e il suo campo eventiTolti: un evento li' dentro non si
+   legge piu', e nessun segnale di presenza passa, da SUBITO. Si toglie da
+   eventiTolti quando la persona torna nell'evento (prenotaPersona, ramo
+   'aggiunto'). La sessione che manca (profili molto vecchi) si crea con lo
+   stato del profilo: una sessione senza stato chiuderebbe l'account.
+   Dentro una transazione, dopo aver letto `s` (la sessione) e `d` (il
+   profilo). */
+function segnaTolto(ctx, tx, rifS, s, d, idEvento, ts) {
+    if (s && s.exists) tx.update(rifS, { eventiTolti: ctx.FieldValue.arrayUnion(idEvento), aggiornato: ts });
+    else tx.set(rifS, { stato: d && d.stato === 'disattivato' ? 'disattivato' : 'attivo', sessioneAttiva: null, eventiTolti: [idEvento], aggiornato: ts });
 }
 
 /* ============================================================
@@ -1303,7 +1358,7 @@ module.exports = {
     cambiaIscrizioni, iscrizioniDi, percorsoPagina,
     // partecipanti
     partecipanteJSON, elencoPartecipanti, anteprima, crea, prenotaPersona, completaDopoPrenotazione, operazionePartecipante, impostaClaims, allineaClaims,
-    cancellaTentativi,
+    cancellaTentativi, segnaTolto, adessoTs,
     // collegati ed esportazione
     connessi, esporta,
     RE_ID_EVENTO, STATI_EVENTO, SORGENTI, TIPI_PLAYER, MAX_RIGHE_CREA

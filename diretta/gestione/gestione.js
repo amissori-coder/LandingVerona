@@ -1084,9 +1084,14 @@
         if (!ev || stato.nuovo) { testo = 'Salva prima l\'evento: poi potrai accendere l\'invio automatico.'; tono = ''; }
         else if (ev.iscrizioniAutomatiche === true) {
             tono = 'acceso';
+            /* Da quando: vale per chi si e' iscritto da allora (anche chi si
+               e' iscritto mentre il servizio non rispondeva: lo recupera il
+               giro automatico ogni 5 minuti). Un evento acceso prima che il
+               servizio lo registrasse non ha la data: niente frase. */
+            const da = ev.iscrizioniAutomaticheDa ? ' Vale per chi si è iscritto dal ' + dataOra(ev.iscrizioniAutomaticheDa) + '.' : '';
             testo = ev.stato === 'terminato'
                 ? 'Acceso, ma l\'evento è terminato: il modulo del sito non iscrive più nessuno alla diretta.'
-                : 'Acceso: chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve subito la password.';
+                : 'Acceso: chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve subito la password.' + da;
         } else {
             tono = 'spento';
             testo = 'Spento: chi si iscrive dal modulo del sito non riceve niente dalla diretta. Gli account li crei tu dalla scheda Partecipanti.';
@@ -3782,14 +3787,24 @@
     $('#btn-aggiorna-partecipanti').addEventListener('click', () => conAttesa($('#btn-aggiorna-partecipanti'), caricaPartecipanti));
 
     /* ---------- le iscrizioni dal modulo da verificare ----------
-       Chi si e' iscritto online dal modulo del sito e la diretta non ha
-       potuto iscrivere da sola (lib/diretta-iscrizione.js, raccolta
-       daVerificare): l'email e' gia' di un'altra persona, o la diretta
-       non accetta l'indirizzo che il modulo del sito ha accettato. Nessun
-       account, nessuna email: il gestore sistema a mano (un indirizzo suo,
-       caricato con il file) e segna la riga come vista. Il riquadro si
-       vede solo quando c'e' qualcosa. I testi arrivano dal servizio e si
-       scrivono sempre come testo (el, textContent), mai come HTML. */
+       Quello che arriva dal sito e che il gestore deve vedere
+       (lib/diretta-iscrizione.js, raccolta daVerificare):
+         - chi si e' iscritto online dal modulo e la diretta non ha potuto
+           iscrivere da sola: l'email e' gia' di un'altra persona, o la
+           diretta non accetta l'indirizzo che il modulo del sito ha
+           accettato. Nessun account, nessuna email: il gestore sistema a
+           mano (un indirizzo suo, caricato con il file);
+         - chi ha ANNULLATO l'iscrizione dal collegamento della conferma:
+           la diretta l'ha gia' tolta dall'evento (niente piu' accesso,
+           credenziali non partite cancellate); se sull'evento c'era un
+           account con la stessa email ma un altro nome (esistente), non
+           l'ha toccato;
+         - chi ha tolto l'annullamento con l'invio automatico spento: non
+           e' rientrata da sola.
+       Il gestore segna la riga come vista: resta nel servizio (con chi e
+       quando), esce dall'elenco. Il riquadro si vede solo quando c'e'
+       qualcosa. I testi arrivano dal servizio e si scrivono sempre come
+       testo (el, textContent), mai come HTML. */
     const MOTIVI_DA_VERIFICARE = {
         'email-condivisa': {
             etichetta: 'Email di un\'altra persona',
@@ -3799,6 +3814,18 @@
         'email-non-valida': {
             etichetta: 'Email non accettata',
             spiega: () => 'La diretta non accetta questo indirizzo (il modulo del sito sì): correggilo con la persona e caricala con il file.'
+        },
+        'annullata-dal-sito': {
+            etichetta: 'Iscrizione annullata dal sito',
+            spiega: r => r.esistente
+                ? 'Ha annullato l\'iscrizione dal sito, ma con questa email nell\'evento c\'è l\'account di ' + r.esistente
+                    + ': non l\'abbiamo toccato. Se è la stessa persona, toglila tu dall\'evento.'
+                : 'Ha annullato l\'iscrizione dal sito: l\'abbiamo tolta da questo evento (non vede più la diretta; le credenziali non ancora partite sono cancellate). Non devi fare niente; se è un errore, caricala di nuovo con il file.'
+        },
+        'riattivata-dal-sito': {
+            etichetta: 'Annullamento ritirato',
+            spiega: () => 'Aveva annullato l\'iscrizione e l\'ha riattivata dal sito, ma l\'invio automatico della password è spento: '
+                + 'non l\'abbiamo rimessa nell\'evento. Se deve seguire la diretta, caricala con il file.'
         }
     };
     async function caricaDaVerificare() {
@@ -3830,14 +3857,18 @@
     function rigaDaVerificare(r) {
         const motivo = MOTIVI_DA_VERIFICARE[r.motivo] || { etichetta: 'Da verificare', spiega: () => '' };
         const chi = [r.nome, r.cognome].filter(Boolean).join(' ') || '(senza nome)';
-        const volte = Number(r.volte) > 1 ? ' Si è iscritta ' + r.volte + ' volte.' : '';
+        const volte = Number(r.volte) > 1
+            ? (r.motivo === 'annullata-dal-sito' ? ' Ha annullato ' + r.volte + ' volte.'
+                : r.motivo === 'riattivata-dal-sito' ? ' L\'ha riattivata ' + r.volte + ' volte.'
+                    : ' Si è iscritta ' + r.volte + ' volte.')
+            : '';
         const bottone = el('button', { type: 'button', classe: 'btn btn-mini btn-secondario', dati: { op: 'archivia' }, 'aria-label': 'Segna come vista: ' + chi }, ['Segna come vista']);
         const tr = el('tr', { dati: { id: r.id, motivo: r.motivo } }, [
             el('td', { 'data-label': 'Quando', testo: r.quando ? dataOra(r.quando) : '' }),
             el('td', { 'data-label': 'Nome e cognome' }, [el('span', { classe: 'persona', testo: chi })]),
             el('td', { 'data-label': 'Email scritta nel modulo', classe: 'largo col-email', testo: r.email || '' }),
             el('td', { 'data-label': 'Azienda', testo: r.azienda || '' }),
-            el('td', { 'data-label': 'Perché non è entrata', classe: 'largo' }, [
+            el('td', { 'data-label': 'Che cosa è successo', classe: 'largo' }, [
                 el('span', { classe: 'etichetta-esito ' + (MOTIVI_DA_VERIFICARE[r.motivo] ? r.motivo : ''), testo: motivo.etichetta }),
                 el('span', { classe: 'piccolo', testo: motivo.spiega(r) + volte })
             ]),

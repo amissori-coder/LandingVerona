@@ -50,6 +50,7 @@ const PROVE = [
     { nome: 'pagina', cartella: QUI, file: 'pagina.prova.js' },
     { nome: 'gestione', cartella: QUI, file: 'gestione.prova.js' },
     { nome: 'sito', cartella: QUI, file: 'sito.prova.js' },
+    { nome: 'modulo', cartella: QUI, file: 'modulo.prova.js' },
     { nome: 'e2e', cartella: QUI, file: 'e2e.prova.js' },
     { nome: 'player', cartella: QUI, file: 'player.prova.js' },
     { nome: 'webtv', cartella: QUI, file: 'webtv.prova.js' },

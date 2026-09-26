@@ -83,6 +83,31 @@
    18. La conferma del sito per chi si iscrive online dice che arrivera'
       un'email con la password (niente date promesse) e ricorda lo Spam;
       quella per la sala non cambia.
+   19. La riconciliazione (lib/diretta-riconcilia.js, nel giro del cron):
+      acceso l'interruttore se ne salva il momento; il servizio della
+      diretta che fallisce durante dalModulo (un errore simulato nella
+      prenotazione): il modulo risponde { ok: true }, la scheda c'e' nel
+      progetto del sito, l'account no; il giro del cron crea l'account e
+      manda la password UNA volta (e con quella si entra); le schede di
+      prima dell'accensione, di un altro evento, in sala o annullate
+      restano fuori; il limite orario ferma la riconciliazione (la scheda
+      torna al giro dopo), il 60% del tetto del giorno vale anche qui; un
+      secondo giro non fa niente di nuovo; il cursore si ricorda (senza
+      indirizzi); senza la chiave del sito, o con la lettura che fallisce,
+      si salta e il cron va avanti.
+   20. Chi annulla dal collegamento della conferma ("completa-salva"):
+      esce dall'evento (account senza l'evento, permessi aggiornati,
+      annullatoDalSito sul profilo, eventiTolti in sessioni), con il token
+      di prima le regole VERE non gli fanno piu' leggere l'evento (403),
+      all'accesso «nessun evento», una riga «da verificare»
+      annullata-dal-sito; le credenziali non ancora partite si cancellano
+      e il cron non le manda; la riconciliazione non lo rimette dentro;
+      chi ha un'altra scheda online attiva resta; un altro posto
+      dell'ordine con la sua email esce anche lui; togliendo
+      l'annullamento, a interruttore acceso si rientra («anche», la
+      password di sempre, l'evento si legge di nuovo), a interruttore
+      spento solo la riga riattivata-dal-sito; le righe viste restano nel
+      database e la riconciliazione non le riapre.
    11. I due progetti restano separati (nessuna scheda nella diretta,
       nessun account nello studio); nessuna password in chiaro nei log
       ne' in Firestore; nessun indirizzo email nei log della diretta;
@@ -128,7 +153,12 @@ Object.assign(process.env, {
     // il progetto dello studio: una chiave finta (l'emulatore non la chiede, firebase-admin si')
     FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ project_id: PROGETTO_STUDIO, private_key: privateKey, client_email: 'prova@' + PROGETTO_STUDIO + '.iam.gserviceaccount.com' }),
     // la conferma del sito non parte: nessun server di posta su questa porta
-    SMTP_HOST: '127.0.0.1', SMTP_PORT: '9', SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna'
+    SMTP_HOST: '127.0.0.1', SMTP_PORT: '9', SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna',
+    /* La riconciliazione (lib/diretta-riconcilia.js) gira in ogni giro del
+       cron: fino alla prova 19 le schede sono tutte "troppo recenti" (un
+       giorno di attesa) e non la tocca nessuno, cosi' le prove di prima
+       vedono solo il modulo; la 19 la mette a 0. */
+    DIRETTA_RICONCILIA_ATTESA_MS: String(24 * 3600 * 1000)
 });
 ['DIRETTA_POSTA_ERRORE_ACCOUNT', 'DIRETTA_POSTA_RITARDO_MS', 'DIRETTA_POSTA_RIFIUTA', 'DIRETTA_POSTA_INCERTA', 'DIRETTA_POSTA_ERRORE_MESSAGGIO',
     'DIRETTA_FIREBASE_SERVICE_ACCOUNT', 'APP_BASE_URL', 'BREVO_API_KEY',
@@ -154,6 +184,8 @@ const invio = require(path.join(SERVIZIO, 'lib/diretta-invio'));
 const C = require(path.join(SERVIZIO, 'lib/diretta-comune'));
 const I = require(path.join(SERVIZIO, 'lib/diretta-iscrizione'));
 const MNGB = require(path.join(SERVIZIO, 'lib/mail-ngb'));
+const NL = require(path.join(SERVIZIO, 'lib/newsletter'));
+const S = require(path.join(SERVIZIO, 'lib/sito-iscrizioni'));
 
 let rossi = 0, verdi = 0;
 function vero(cond, descrizione, dettaglio) {
@@ -216,14 +248,8 @@ async function svuota() {
 
 /* ---------- il modulo del sito, come lo chiama Vercel ---------- */
 let ipProgressivo = 0;
-async function iscrivi(dati, opz) {
-    const o = opz || {};
-    const corpo = Object.assign({
-        data: '26/09/2026 10:' + String(10 + (ipProgressivo % 50)).padStart(2, '0') + ':00', pagina: ETICHETTA_NAPOLI,
-        azienda: 'Prova srl', ruolo: '', telefono: '', messaggio: '', modalita: 'online', privacy: true, marketing: false
-    }, dati);
-    ipProgressivo++;
-    const req = { method: 'POST', headers: { 'x-forwarded-for': o.ip || ('10.50.' + Math.floor(ipProgressivo / 200) + '.' + (ipProgressivo % 200 + 1)) }, body: JSON.stringify(corpo) };
+async function chiamaModulo(corpo, ip) {
+    const req = { method: 'POST', headers: { 'x-forwarded-for': ip }, body: JSON.stringify(corpo) };
     const res = { stato: 0, corpo: null, intestazioni: {} };
     res.setHeader = (k, v) => { res.intestazioni[k.toLowerCase()] = v; };
     res.status = c => { res.stato = c; return res; };
@@ -233,6 +259,21 @@ async function iscrivi(dati, opz) {
     await modulo(req, res);
     res.ms = Date.now() - t0;
     return res;
+}
+async function iscrivi(dati, opz) {
+    const o = opz || {};
+    const corpo = Object.assign({
+        data: '26/09/2026 10:' + String(10 + (ipProgressivo % 50)).padStart(2, '0') + ':00', pagina: ETICHETTA_NAPOLI,
+        azienda: 'Prova srl', ruolo: '', telefono: '', messaggio: '', modalita: 'online', privacy: true, marketing: false
+    }, dati);
+    ipProgressivo++;
+    return chiamaModulo(corpo, o.ip || ('10.50.' + Math.floor(ipProgressivo / 200) + '.' + (ipProgressivo % 200 + 1)));
+}
+/* Il collegamento della conferma ("completa-salva"), come lo usa la
+   pagina /completa_iscrizione/: un elemento per posto, { annulla: true }
+   per annullarlo. La firma e' quella vera (lib/newsletter.js). */
+async function completa(idDoc, partecipanti) {
+    return chiamaModulo({ azione: 'completa-salva', d: idDoc, t: NL.firmaCompleta(idDoc), partecipanti: partecipanti }, '10.90.0.' + (1 + (ipProgressivo++ % 200)));
 }
 
 /* ---------- la posta finta ---------- */
@@ -661,6 +702,248 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         await D.cambiaStato(ctx, { idEvento: 'napoli-2026', stato: 'terminato' });
         await iscrivi({ nome: 'Tea', cognome: 'Tardi', email: 'tea.tardi@esempio.it' });
         vero(!(await profiloDi('tea.tardi@esempio.it')), 'a evento terminato il modulo non crea piu\' account');
+
+        /* ---------- 19 ---------- */
+        titolo('19. La riconciliazione: nessuna iscrizione online resta senza password perche\' il servizio non ha risposto');
+        /* Un evento nuovo (Torino), cosi' si vede solo quello che succede qui
+           (Napoli e' terminato: la riconciliazione non lo guarda piu'). Le
+           schede sono "vecchie abbastanza" da subito (attesa 0). */
+        process.env.DIRETTA_RICONCILIA_ATTESA_MS = '0';
+        const TORINO = 'torino-2026';
+        const ETICHETTA_TORINO = 'Torino 5 Novembre 2026 - Iscrizione';
+        const iscriviTorino = (dati, opz) => iscrivi(Object.assign({ pagina: ETICHETTA_TORINO, percorso: '/torino_novembre_2026/' }, dati), opz);
+        const schedaDi = async email => {
+            const s = await studio().collection('iscrizioni').where('email', '==', email).get();
+            return s.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.ricevuto.toMillis() - b.ricevuto.toMillis());
+        };
+        const torinoDi = g => (g && g.riconciliazione && g.riconciliazione.eventi.find(e => e.idEvento === TORINO)) || {};
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: TORINO }, EV, { titolo: 'Evento di Torino', data: '2026-11-05', paginaEvento: '/torino_novembre_2026/' }));
+        await iscriviTorino({ nome: 'Tina', cognome: 'Prima', email: 'tina.prima@esempio.it' });
+        vero(!(await profiloDi('tina.prima@esempio.it')) && (await schedaDi('tina.prima@esempio.it')).length === 1,
+            'Tina si iscrive online a Torino con l\'interruttore ancora spento: la scheda del sito c\'e\', l\'account della diretta no');
+        await pausa(50);
+        const primaAccensione = Date.now();
+        const accTorino = await D.cambiaIscrizioni(ctx, { idEvento: TORINO, iscrizioniAutomatiche: true });
+        const risTorino = (await ctx.db.collection('eventiRiservati').doc(TORINO).get()).data();
+        vero(accTorino.iscrizioniAutomatiche === true && accTorino.iscrizioniAutomaticheDa >= primaAccensione && accTorino.iscrizioniAutomaticheDa <= Date.now()
+            && risTorino.iscrizioniAutomaticheDa && typeof risTorino.iscrizioniAutomaticheDa.toMillis === 'function',
+        'acceso l\'interruttore: il momento si salva (eventiRiservati.iscrizioniAutomaticheDa) e l\'evento lo dice alla gestione (iscrizioniAutomaticheDa)');
+        await D.salvaEvento(ctx, { id: TORINO, luogo: 'Torino centro' });
+        const risTorino2 = (await ctx.db.collection('eventiRiservati').doc(TORINO).get()).data();
+        vero(risTorino2.iscrizioniAutomaticheDa && risTorino2.iscrizioniAutomaticheDa.isEqual(risTorino.iscrizioniAutomaticheDa),
+            'salvare di nuovo l\'evento (acceso) non sposta il momento dell\'accensione');
+        // il servizio della diretta che non risponde: la prenotazione (una transazione su Firestore) fallisce
+        const prenotaVera = D.prenotaPersona;
+        const guasti = [];
+        D.prenotaPersona = async () => { throw Object.assign(new Error('14 UNAVAILABLE: il Firestore della diretta non risponde (prova)'), { code: 14 }); };
+        try {
+            for (const [n, c] of [['Gino', 'Guasto'], ['Lara', 'Guasto'], ['Anna', 'Annullata']]) {
+                guasti.push(await iscriviTorino({ nome: n, cognome: c, email: n.toLowerCase() + '.' + c.toLowerCase() + '@esempio.it' }));
+            }
+        } finally { D.prenotaPersona = prenotaVera; }
+        const schedeGuaste = await Promise.all(['gino.guasto', 'lara.guasto', 'anna.annullata'].map(e => schedaDi(e + '@esempio.it')));
+        const accountGuasti = await Promise.all(['gino.guasto', 'lara.guasto', 'anna.annullata'].map(e => profiloDi(e + '@esempio.it')));
+        vero(guasti.every(r => r.stato === 200 && r.corpo.ok === true) && schedeGuaste.every(s => s.length === 1 && s[0].modalita === 'online') && accountGuasti.every(p => !p),
+            'il servizio della diretta fallisce durante dalModulo: il modulo risponde { ok: true }, le tre schede sono nel progetto del sito, nessun account');
+        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo non riuscita: [^@]*UNAVAILABLE: il Firestore della diretta non risponde/.test(r)), 'il log lo dice (senza dati personali)');
+        // altre schede che la riconciliazione deve lasciare stare
+        await iscrivi({ nome: 'Olga', cognome: 'Altrove', email: 'olga.altrove@esempio.it', pagina: 'Milano 20 Novembre 2026 - Iscrizione', percorso: '/milano_2026/' });
+        await iscriviTorino({ nome: 'Pietro', cognome: 'Presente', email: 'pietro.presente@esempio.it', modalita: 'presenza' });
+        await iscriviTorino({ nome: 'Gina', cognome: 'Giusta', email: 'gina.giusta@esempio.it' });
+        const credGina = postaA('gina.giusta@esempio.it', 'credenziali');
+        passwordViste.push(passwordDi(credGina[0] || {}));
+        vero(credGina.length === 1 && !(await profiloDi('olga.altrove@esempio.it')) && !(await profiloDi('pietro.presente@esempio.it')),
+            'Gina (servizio a posto) riceve subito la password; Olga (un altro evento, spento) e Pietro (in sala) nessun account');
+        // Anna annulla dal collegamento della conferma PRIMA che la riconciliazione passi
+        const idAnna = (await schedaDi('anna.annullata@esempio.it'))[0].id;
+        const annulloAnna = await completa(idAnna, [{ annulla: true }]);
+        vero(annulloAnna.stato === 200 && annulloAnna.corpo.ok === true && !!(await schedaDi('anna.annullata@esempio.it'))[0].annullato,
+            'Anna annulla dal collegamento della conferma: la sua scheda e\' annullata (e nella diretta non c\'era niente da togliere)');
+
+        // i limiti: il limite orario complessivo lascia passare UNA iscrizione
+        const restoOra19 = 3600000 - (Date.now() % 3600000);
+        if (restoOra19 < 120000) { logVero('       (attesa di ' + Math.ceil(restoOra19 / 1000) + ' s: la finestra oraria dei limiti sta per cambiare)'); await pausa(restoOra19 + 1000); }
+        process.env.DIRETTA_MODULO_ORA = String((await contoOra()) + 1);
+        const giro1 = await invio.giroCron(ctx, { budgetMs: 60000 });
+        const r1 = torinoDi(giro1);
+        const pGino = await profiloDi('gino.guasto@esempio.it');
+        const credGino = postaA('gino.guasto@esempio.it', 'credenziali');
+        passwordViste.push(passwordDi(credGino[0] || {}));
+        vero(r1.iscritte === 1 && r1.limite === 'totale' && pGino && pGino.eventi.join() === TORINO && pGino.origine === 'modulo' && credGino.length === 1
+            && pGino.invii[TORINO].stato === 'inviata' && !(await profiloDi('lara.guasto@esempio.it')),
+        'un giro del cron (DIRETTA_MODULO_ORA: una sola ancora): Gino ha l\'account e la password (nello stesso giro, dalla coda); Lara no, il limite orario ferma la riconciliazione',
+        JSON.stringify(r1));
+        vero((await entra('gino.guasto@esempio.it', passwordDi(credGino[0] || {}), '10.71.0.1')).stato === 200, 'con quella password Gino entra');
+        vero(righeLog.some(r => /\[diretta\] riconciliazione: \{"idEvento":"torino-2026","lette":1,"iscritte":1[^}]*"limite":"totale"/.test(r))
+            && righeLog.some(r => /limite orario delle password automatiche raggiunto, si riprende al giro dopo \(torino-2026\)/.test(r)),
+        'il log dice evento, numeri e limite (nessun dato personale)');
+        // il 60% del tetto giornaliero: le password della riconciliazione sono del modulo
+        process.env.DIRETTA_MODULO_ORA = '1000';
+        process.env.DIRETTA_MAX_GIORNO = '10';
+        const rifOggi = ctx.db.collection('contatori').doc('giorno-' + C.dataRoma(Date.now()).replace(/-/g, ''));
+        await rifOggi.set({ inviate: 6 }, { merge: true });
+        const giro2 = await invio.giroCron(ctx, { budgetMs: 60000 });
+        const r2 = torinoDi(giro2);
+        const pLara = await profiloDi('lara.guasto@esempio.it');
+        const coda2 = giro2.code.find(c => c.idEvento === TORINO) || {};
+        vero(r2.iscritte === 1 && r2.gia === 1 && r2.ignorate === 3 && pLara && pLara.invii[TORINO].stato === 'in coda' && pLara.invii[TORINO].automatica === true
+            && postaA('lara.guasto@esempio.it').length === 0 && coda2.limiteGiorno === true,
+        'il giro dopo (limite orario libero, ma il modulo ha gia\' usato il suo 60% del tetto del giorno): Lara ha l\'account, la password resta in coda (automatica); '
+            + 'Gina (gia\' iscritta) niente; Anna (annullata), Olga (altro evento) e Pietro (in sala) lasciate stare', JSON.stringify(r2));
+        process.env.DIRETTA_MAX_GIORNO = '0';
+        const primaGiro3 = leggiPosta().length;
+        const giro3 = await invio.giroCron(ctx, { budgetMs: 60000 });
+        const credLara = postaA('lara.guasto@esempio.it', 'credenziali');
+        passwordViste.push(passwordDi(credLara[0] || {}));
+        vero(torinoDi(giro3).lette === 0 && credLara.length === 1 && leggiPosta().length === primaGiro3 + 1,
+            'tolto il tetto (il giorno dopo): la coda manda la password a Lara; la riconciliazione non rilegge niente (lette: ' + torinoDi(giro3).lette + ')');
+        const primaGiro4 = leggiPosta().length;
+        const giro4 = await invio.giroCron(ctx, { budgetMs: 60000 });
+        vero(torinoDi(giro4).lette === 0 && torinoDi(giro4).iscritte === 0 && leggiPosta().length === primaGiro4, 'un altro giro: niente di nuovo, nessuna email');
+        vero(['gino.guasto', 'lara.guasto', 'gina.giusta'].every(e => postaA(e + '@esempio.it').length === 1),
+            'Gino, Lara e Gina: una email a testa (la password una volta sola), nessun «anche» in piu\'');
+        vero(!(await profiloDi('tina.prima@esempio.it')) && !(await profiloDi('anna.annullata@esempio.it')) && !(await profiloDi('olga.altrove@esempio.it'))
+            && !(await profiloDi('pietro.presente@esempio.it')) && postaA('tina.prima@esempio.it').length === 0,
+        'ignorate: la scheda di prima dell\'accensione (Tina), quella annullata (Anna), quella di un altro evento (Olga), quella in sala (Pietro)');
+        const statoRic = (await ctx.db.collection('riconciliazioni').doc(TORINO).get()).data() || {};
+        const schedaGina = (await schedaDi('gina.giusta@esempio.it'))[0];
+        vero(statoRic.cursore && statoRic.cursore.isEqual(schedaGina.ricevuto) && statoRic.da && statoRic.da.isEqual(risTorino.iscrizioniAutomaticheDa)
+            && !/@|esempio/.test(JSON.stringify(statoRic)),
+        'riconciliazioni/torino-2026 ricorda fino a dove e\' arrivata (il `ricevuto` dell\'ultima scheda letta) e da quando; niente indirizzi (solo impronte)');
+        // la chiave del sito che manca, la lettura che fallisce: si salta, il resto del cron va avanti
+        const chiaveSito = process.env.FIREBASE_SERVICE_ACCOUNT;
+        delete process.env.FIREBASE_SERVICE_ACCOUNT;
+        let senzaSito = null;
+        try { senzaSito = await invio.giroCron(ctx, { budgetMs: 60000 }); } finally { process.env.FIREBASE_SERVICE_ACCOUNT = chiaveSito; }
+        vero(senzaSito && senzaSito.riconciliazione && senzaSito.riconciliazione.saltata === 'sito-non-configurato'
+            && righeLog.some(r => /\[diretta\] riconciliazione: manca la chiave del progetto del sito/.test(r)),
+        'senza la chiave del sito la riconciliazione salta (lo dice il log una volta) e il cron va avanti');
+        const schedeVere = S.schedeDal;
+        S.schedeDal = async () => { throw new Error('7 PERMISSION_DENIED: lettura non riuscita per mario@esempio.it (prova)'); };
+        let lettura = null;
+        try { lettura = await invio.giroCron(ctx, { budgetMs: 60000 }); } finally { S.schedeDal = schedeVere; }
+        vero(lettura && torinoDi(lettura).errore === true && righeLog.some(r => /\[diretta\] riconciliazione di torino-2026 non riuscita \(si riprova al giro dopo\): 7 PERMISSION_DENIED: lettura non riuscita per <email>/.test(r)),
+            'la lettura del sito che fallisce: si salta questo giro, il log non scrive l\'indirizzo, il cron va avanti');
+
+        /* ---------- 20 ---------- */
+        titolo('20. Chi annulla dal sito esce da solo dall\'evento della diretta');
+        const AUTH_REST = 'http://127.0.0.1:' + PORTA_AUTH + '/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=finta';
+        // l'accesso vero, poi il token del browser (con i permessi di quel momento)
+        const tokenBrowser = async (email, password, ip) => {
+            const e = await A.entra(ctx, { email: email, password: password, ip: ip, userAgent: 'prova' });
+            const r = await fetch(AUTH_REST, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: e.token, returnSecureToken: true }) });
+            return (await r.json()).idToken;
+        };
+        const eventiNelToken = tok => (JSON.parse(Buffer.from(String(tok).split('.')[1] || '', 'base64url').toString('utf8') || '{}').eventi) || [];
+        // la lettura che fa la pagina dal browser, con le regole vere: lo stato HTTP
+        const leggeEvento = async (tok, idEvento) => (await fetch('http://127.0.0.1:' + PORTA_FS + '/v1/projects/' + PROGETTO + '/databases/(default)/documents/eventi/' + idEvento,
+            { headers: { Authorization: 'Bearer ' + tok } })).status;
+        const sessioneDi = async uid => (await ctx.db.collection('sessioni').doc(uid).get()).data() || {};
+        const righeTorino = async () => (await I.elencoDaVerificare(ctx, TORINO)).righe;
+
+        // Marta: iscritta, password ricevuta, entrata; poi annulla
+        await iscriviTorino({ nome: 'Marta', cognome: 'Ritiro', email: 'marta.ritiro@esempio.it' });
+        const pwMarta = passwordDi(postaA('marta.ritiro@esempio.it', 'credenziali')[0] || {});
+        passwordViste.push(pwMarta);
+        const tokMarta = await tokenBrowser('marta.ritiro@esempio.it', pwMarta, '10.72.0.1');
+        vero(eventiNelToken(tokMarta).indexOf(TORINO) >= 0 && await leggeEvento(tokMarta, TORINO) === 200, 'Marta entra: il suo token dice Torino e dal browser legge l\'evento (regole vere)');
+        const idMarta = (await schedaDi('marta.ritiro@esempio.it'))[0].id;
+        const annulloMarta = await completa(idMarta, [{ annulla: true }]);
+        let pMarta = await profiloDi('marta.ritiro@esempio.it');
+        vero(annulloMarta.stato === 200 && annulloMarta.corpo.ok === true && pMarta.eventi.indexOf(TORINO) < 0
+            && pMarta.annullatoDalSito && typeof pMarta.annullatoDalSito[TORINO].toMillis === 'function' && pMarta.invii[TORINO].stato === 'inviata',
+        'Marta annulla dal collegamento della conferma: Torino esce dal suo account, sul profilo resta quando (annullatoDalSito); le credenziali gia\' partite restano come storia');
+        const claimsMarta = ((await ctx.auth.getUser(pMarta.uid)).customClaims || {}).eventi || [];
+        vero(claimsMarta.indexOf(TORINO) < 0 && ((await sessioneDi(pMarta.uid)).eventiTolti || []).indexOf(TORINO) >= 0 && (await sessioneDi(pMarta.uid)).stato === 'attivo',
+            'i permessi del suo account non hanno piu\' Torino; sessioni/{uid}.eventiTolti lo dice alle regole (l\'account resta attivo)');
+        vero(eventiNelToken(tokMarta).indexOf(TORINO) >= 0 && await leggeEvento(tokMarta, TORINO) === 403,
+            'con il token di PRIMA (che dice ancora Torino, e vale fino a un\'ora) le regole non le fanno piu\' leggere l\'evento: 403');
+        let rMarta = (await righeTorino()).find(r => r.email === 'marta.ritiro@esempio.it');
+        vero(rMarta && rMarta.motivo === 'annullata-dal-sito' && rMarta.origine === 'sito' && rMarta.nome === 'Marta' && rMarta.cognome === 'Ritiro' && !rMarta.esistente,
+            'per il gestore una riga «da verificare» annullata-dal-sito (origine sito)', JSON.stringify(rMarta));
+        vero(righeLog.some(r => /\[diretta\] annullata dal sito: \{"idEvento":"torino-2026","esito":"ritirato","credenzialiCancellate":false\}/.test(r)), 'il log dice evento ed esito, senza dati personali');
+        let entraMarta = await entra('marta.ritiro@esempio.it', pwMarta, '10.72.0.2');
+        vero(entraMarta.stato === 403 && entraMarta.codice === 'nessun-evento', 'e all\'accesso: «Non risulti iscritto a nessuna diretta» (403 nessun-evento)');
+
+        // Nino: le credenziali non ancora partite (Brevo fermo: restano in coda); annulla
+        process.env.DIRETTA_POSTA_ERRORE_ACCOUNT = '1';
+        await iscriviTorino({ nome: 'Nino', cognome: 'Coda', email: 'nino.coda@esempio.it' });
+        delete process.env.DIRETTA_POSTA_ERRORE_ACCOUNT;
+        vero((await profiloDi('nino.coda@esempio.it')).invii[TORINO].stato === 'in coda', 'Nino si iscrive con Brevo fermo: le sue credenziali sono "in coda"');
+        const idNino = (await schedaDi('nino.coda@esempio.it'))[0].id;
+        await completa(idNino, [{ annulla: true }]);
+        const pNino = await profiloDi('nino.coda@esempio.it');
+        vero(pNino.eventi.indexOf(TORINO) < 0 && !(pNino.invii || {})[TORINO] && righeLog.some(r => /"esito":"ritirato","credenzialiCancellate":true/.test(r)),
+            'Nino annulla: fuori da Torino, e le credenziali non ancora partite sono cancellate');
+        const giroDopo = await invio.giroCron(ctx, { budgetMs: 60000 });
+        pMarta = await profiloDi('marta.ritiro@esempio.it');
+        vero(postaA('nino.coda@esempio.it').length === 0 && (await profiloDi('nino.coda@esempio.it')).eventi.indexOf(TORINO) < 0 && pMarta.eventi.indexOf(TORINO) < 0
+            && torinoDi(giroDopo).iscritte === 0,
+        'il giro del cron dopo: a Nino non parte niente, e la riconciliazione non rimette nell\'evento ne\' lui ne\' Marta (schede annullate)', JSON.stringify(torinoDi(giroDopo)));
+
+        // Sofia: iscritta DUE volte dal modulo (due schede); ne annulla una
+        await iscriviTorino({ nome: 'Sofia', cognome: 'Doppia', email: 'sofia.doppia@esempio.it' });
+        await iscriviTorino({ nome: 'Sofia', cognome: 'Doppia', email: 'sofia.doppia@esempio.it' });
+        passwordViste.push(passwordDi(postaA('sofia.doppia@esempio.it', 'credenziali')[0] || {}));
+        const schedeSofia = await schedaDi('sofia.doppia@esempio.it');
+        await completa(schedeSofia[0].id, [{ annulla: true }]);
+        vero(schedeSofia.length === 2 && (await profiloDi('sofia.doppia@esempio.it')).eventi.indexOf(TORINO) >= 0
+            && !(await righeTorino()).some(r => r.email === 'sofia.doppia@esempio.it'),
+        'Sofia, iscritta due volte, annulla una delle due schede: l\'altra e\' ancora attiva, resta nella diretta (nessuna riga)');
+
+        // un altro posto dello stesso ordine (~p2), con la sua email, caricato dal gestore
+        await iscriviTorino({ nome: 'Elena', cognome: 'Ordine', email: 'elena.ordine@esempio.it' });
+        passwordViste.push(passwordDi(postaA('elena.ordine@esempio.it', 'credenziali')[0] || {}));
+        const idElena = (await schedaDi('elena.ordine@esempio.it'))[0].id;
+        await studio().collection('iscrizioni').doc(idElena).update({ partecipanti: 2 });
+        const ELENA = { nome: 'Elena', cognome: 'Ordine', email: 'elena.ordine@esempio.it', azienda: 'Prova srl' };
+        await completa(idElena, [ELENA, { nome: 'Fabio', cognome: 'Figlio', email: 'fabio.figlio@esempio.it', azienda: 'Prova srl' }]);
+        await D.crea(ctx, { idEvento: TORINO, righe: [{ riga: 2, nome: 'Fabio', cognome: 'Figlio', email: 'fabio.figlio@esempio.it' }] });
+        vero((await profiloDi('fabio.figlio@esempio.it')).invii[TORINO].stato === 'da inviare', 'Fabio, secondo posto dell\'ordine di Elena, caricato dal gestore: "da inviare"');
+        await completa(idElena, [ELENA, { annulla: true }]);
+        const pFabio = await profiloDi('fabio.figlio@esempio.it');
+        const rFabio = (await righeTorino()).find(r => r.email === 'fabio.figlio@esempio.it');
+        vero(pFabio.eventi.indexOf(TORINO) < 0 && !(pFabio.invii || {})[TORINO] && rFabio && rFabio.motivo === 'annullata-dal-sito'
+            && (await profiloDi('elena.ordine@esempio.it')).eventi.indexOf(TORINO) >= 0 && postaA('fabio.figlio@esempio.it').length === 0,
+        'Elena annulla il posto di Fabio: Fabio esce da Torino (credenziali "da inviare" cancellate, una riga per il gestore); Elena resta');
+
+        // riattivazione con l'interruttore acceso: Marta torna dentro
+        const primaMarta = postaA('marta.ritiro@esempio.it').length;
+        const riMarta = await completa(idMarta, [{ nome: 'Marta', cognome: 'Ritiro', email: 'marta.ritiro@esempio.it', azienda: 'Prova srl' }]);
+        pMarta = await profiloDi('marta.ritiro@esempio.it');
+        const ancheMarta = postaA('marta.ritiro@esempio.it', 'iscritto-anche');
+        vero(riMarta.corpo.ok === true && pMarta.eventi.indexOf(TORINO) >= 0 && !(pMarta.annullatoDalSito || {})[TORINO]
+            && ((await sessioneDi(pMarta.uid)).eventiTolti || []).indexOf(TORINO) < 0
+            && postaA('marta.ritiro@esempio.it').length === primaMarta + 1 && ancheMarta.length === 1 && postaA('marta.ritiro@esempio.it', 'credenziali').length === 1,
+        'Marta toglie l\'annullamento (interruttore acceso): di nuovo in Torino, via il segno dell\'annullamento e l\'evento da eventiTolti; '
+            + 'era gia\' entrata con la sua password, quindi le arriva «Sei iscritto anche a…», nessuna password nuova');
+        const tokMarta2 = await tokenBrowser('marta.ritiro@esempio.it', pwMarta, '10.72.0.3');
+        vero(tokMarta2 && await leggeEvento(tokMarta2, TORINO) === 200, 'con la password di sempre rientra, e legge di nuovo l\'evento');
+
+        // riattivazione con l'interruttore spento: solo una riga per il gestore
+        const spentoTorino = await D.cambiaIscrizioni(ctx, { idEvento: TORINO, iscrizioniAutomatiche: false });
+        vero(spentoTorino.iscrizioniAutomatiche === false && spentoTorino.iscrizioniAutomaticheDa === null
+            && !('iscrizioniAutomaticheDa' in (await ctx.db.collection('eventiRiservati').doc(TORINO).get()).data()),
+        'spento l\'interruttore, il momento dell\'accensione non c\'e\' piu\'');
+        await completa(idNino, [{ nome: 'Nino', cognome: 'Coda', email: 'nino.coda@esempio.it', azienda: 'Prova srl' }]);
+        const rNino = (await righeTorino()).filter(r => r.email === 'nino.coda@esempio.it');
+        vero((await profiloDi('nino.coda@esempio.it')).eventi.indexOf(TORINO) < 0 && postaA('nino.coda@esempio.it').length === 0
+            && rNino.some(r => r.motivo === 'riattivata-dal-sito' && r.origine === 'sito') && rNino.some(r => r.motivo === 'annullata-dal-sito'),
+        'Nino toglie l\'annullamento con l\'interruttore spento: non rientra da solo, nessuna email; per il gestore la riga riattivata-dal-sito (accanto a quella dell\'annullamento)');
+        // le righe viste restano nel database
+        const archiviata = await I.archiviaDaVerificare(ctx, { idEvento: TORINO, id: rMarta.id }, 'gestore@prova.it');
+        const docVista = (await ctx.db.collection('daVerificare').doc(archiviata.id).get()).data();
+        vero(docVista && docVista.archiviato === true && docVista.motivo === 'annullata-dal-sito' && !(await righeTorino()).some(r => r.id === rMarta.id),
+            '«Segna come vista»: la riga esce dall\'elenco ma resta nel database (archiviata, con chi l\'ha vista)');
+        // la riconciliazione non riscrive una riga gia' vista: una scheda con l'email di un'altra persona, due volte
+        await D.cambiaIscrizioni(ctx, { idEvento: TORINO, iscrizioniAutomatiche: true });
+        await iscriviTorino({ nome: 'Carlo', cognome: 'Collega', email: 'gina.giusta@esempio.it' });
+        const rCarlo = (await righeTorino()).find(r => r.nome === 'Carlo');
+        await I.archiviaDaVerificare(ctx, { idEvento: TORINO, id: rCarlo.id }, 'gestore@prova.it');
+        await invio.giroCron(ctx, { budgetMs: 60000 });
+        const docCarlo = (await ctx.db.collection('daVerificare').doc(rCarlo.id).get()).data();
+        vero(rCarlo.motivo === 'email-condivisa' && docCarlo.archiviato === true && docCarlo.volte === 1,
+            'una riga «email di un\'altra persona» gia\' vista: il giro della riconciliazione che rilegge quella scheda non la riapre');
 
         /* ---------- 11 ---------- */
         titolo('11. Separazione, password, log, testi');

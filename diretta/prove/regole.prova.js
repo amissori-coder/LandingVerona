@@ -18,7 +18,9 @@
    (orario del server, uno ogni 50 s, un minuto alla volta, niente
    tempo contato quando la pagina era chiusa). Che un account
    disattivato o soppiantato da un altro dispositivo smette di
-   scrivere. Che il gestore legge gli eventi e basta. Che il video
+   scrivere. Che un evento tolto alla persona (iscrizione annullata dal
+   sito, tolta dal gestore: sessioni/{uid}.eventiTolti) non si legge e
+   non riceve segnali da subito, anche con il token di prima. Che il gestore legge gli eventi e basta. Che il video
    dell'evento (tipoPlayer, l'indirizzo del player di Azoto o il
    flusso) lo legge solo chi e' iscritto e lo scrive solo il servizio;
    gli indirizzi salvati (eventiRiservati) non li legge nessuno dal
@@ -72,6 +74,12 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await setDoc(doc(db, 'sessioni/bruno'), { stato: 'attivo', sessioneAttiva: null });
         await setDoc(doc(db, 'sessioni/carla'), { stato: 'disattivato', sessioneAttiva: null });
         await setDoc(doc(db, 'sessioni/dario'), { stato: 'attivo', sessioneAttiva: 'telefono' });
+        /* Elisa ha annullato dal sito l'iscrizione a Napoli (o il gestore l'ha
+           tolta): il server l'ha tolta dal profilo e ha scritto l'evento in
+           sessioni/{uid}.eventiTolti; il token che ha in mano (fino a un'ora)
+           dice ancora Napoli. Milano e' ancora suo. */
+        await setDoc(doc(db, 'partecipanti/elisa'), { stato: 'attivo', eventi: ['milano-2026'] });
+        await setDoc(doc(db, 'sessioni/elisa'), { stato: 'attivo', sessioneAttiva: null, eventiTolti: ['napoli-2026'] });
         await setDoc(doc(db, 'eventiRiservati/napoli-2026'), {
             tipoPlayer: 'azoto', azotoUrl: 'https://cdn.azotosolutions.com/cloudtv/livetv91/player',
             videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8'
@@ -88,6 +96,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     const bruno = env.authenticatedContext('bruno', { eventi: ['milano-2026'] }).firestore();
     const carla = env.authenticatedContext('carla', { eventi: ['napoli-2026'] }).firestore();
     const dario = env.authenticatedContext('dario', { eventi: ['napoli-2026'] }).firestore();
+    const elisa = env.authenticatedContext('elisa', { eventi: ['napoli-2026', 'milano-2026'] }).firestore(); // il token di PRIMA
     const gestore = env.authenticatedContext('g1', { gestore: true, email: 'gestore@prova.it' }).firestore();
     const furbo = env.authenticatedContext('furbo', { eventi: 'napoli-2026' }).firestore(); // claim non lista
     const anonimo = env.unauthenticatedContext().firestore();
@@ -107,6 +116,8 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await prova('il partecipante NON legge ' + p.split('/')[0], () => assertFails(getDoc(doc(anna, p))));
     }
     await prova('un account disattivato NON legge piu\' l\'evento (anche con il token ancora valido)', () => assertFails(getDoc(doc(carla, 'eventi/napoli-2026'))));
+    await prova('un evento TOLTO (iscrizione annullata dal sito, tolta dal gestore) NON si legge piu\', anche con il token di prima che lo dice ancora', () => assertFails(getDoc(doc(elisa, 'eventi/napoli-2026'))));
+    await prova('...e gli altri suoi eventi si leggono come prima', () => assertSucceeds(getDoc(doc(elisa, 'eventi/milano-2026'))));
     await prova('senza accesso NON si legge nessun evento', () => assertFails(getDoc(doc(anonimo, 'eventi/napoli-2026'))));
     await prova('senza accesso NON si legge nessun profilo', () => assertFails(getDoc(doc(anonimo, 'partecipanti/anna'))));
     await prova('un claim "eventi" che non e\' una lista non apre niente', () => assertFails(getDoc(doc(furbo, 'eventi/napoli-2026'))));
@@ -136,6 +147,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('NON con una sessione troppo lunga', () => assertFails(setDoc(doc(anna, 'presenze/napoli-2026_anna'), Object.assign(base(), { sessione: 'x'.repeat(41) }))));
     await prova('NON da un account disattivato', () => assertFails(setDoc(doc(carla, 'presenze/napoli-2026_carla'), Object.assign(base(), { uid: 'carla' }))));
     await prova('NON da un dispositivo soppiantato (un solo dispositivo)', () => assertFails(setDoc(doc(dario, 'presenze/napoli-2026_dario'), Object.assign(base(), { uid: 'dario', sessione: 'computer' }))));
+    await prova('NON per un evento tolto (eventiTolti), anche con il token di prima', () => assertFails(setDoc(doc(elisa, 'presenze/napoli-2026_elisa'), Object.assign(base(), { uid: 'elisa' }))));
     await prova('SI dal dispositivo attivo (un solo dispositivo)', () => assertSucceeds(setDoc(doc(dario, 'presenze/napoli-2026_dario'), Object.assign(base(), { uid: 'dario', sessione: 'telefono' }))));
     await prova('SI il primo segnale corretto', () => assertSucceeds(setDoc(doc(anna, 'presenze/napoli-2026_anna'), base())));
     await prova('NON leggere il proprio segnale', () => assertFails(getDoc(doc(anna, 'presenze/napoli-2026_anna'))));
@@ -192,6 +204,17 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await semina(db => updateDoc(doc(db, 'sessioni/dario'), { sessioneAttiva: 'computer' }));
     await prova('il telefono soppiantato dal computer NON scrive piu\'', () => assertFails(updateDoc(doc(dario, 'presenze/napoli-2026_dario'), { ultimo: serverTimestamp(), secondi: increment(60) })));
     await prova('il computer (nuova sessione) scrive', () => assertSucceeds(updateDoc(doc(dario, 'presenze/napoli-2026_dario'), { ultimo: serverTimestamp(), collegamenti: increment(1), sessione: 'computer' })));
+    // il segnale di prima dell'annullamento: la pagina era aperta
+    await semina(db => setDoc(doc(db, 'presenze/napoli-2026_elisa'), {
+        uid: 'elisa', idEvento: 'napoli-2026', primo: secondiFa(600), ultimo: secondiFa(61), secondi: 480, collegamenti: 1, sessione: 's1'
+    }));
+    await prova('una persona tolta dall\'evento durante la diretta NON scrive piu\' il suo segnale (token di prima)', () => assertFails(updateDoc(doc(elisa, 'presenze/napoli-2026_elisa'), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    // la controprova: e' proprio eventiTolti che chiude (tornata nell'evento, tutto passa di nuovo)
+    await semina(db => updateDoc(doc(db, 'sessioni/elisa'), { eventiTolti: [] }));
+    await prova('controprova: tornata nell\'evento (Napoli fuori da eventiTolti), lo stesso segnale passa e l\'evento si legge', async () => {
+        await assertSucceeds(updateDoc(doc(elisa, 'presenze/napoli-2026_elisa'), { ultimo: serverTimestamp(), secondi: increment(60) }));
+        await assertSucceeds(getDoc(doc(elisa, 'eventi/napoli-2026')));
+    });
     await semina(db => updateDoc(doc(db, 'sessioni/anna'), { stato: 'disattivato' }));
     await presenza(61);
     await prova('un account disattivato durante la diretta NON scrive piu\'', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(60) })));

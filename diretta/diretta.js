@@ -397,6 +397,12 @@
             titolo: 'Nessuna diretta per te in questo momento',
             testo: 'Il tuo account non risulta iscritto a nessun evento. Se ti sei iscritto da poco, scrivi all\'assistenza.'
         },
+        // l'iscrizione all'evento e' stata annullata (dal sito) o il gestore l'ha tolta: vedi motivoRifiuto
+        'evento-tolto': {
+            titolo: 'Non sei più iscritto a questa diretta',
+            testo: 'La tua iscrizione a questo evento è stata annullata, e con lei l\'accesso alla diretta. Se è un errore, iscriviti di nuovo dal sito o scrivi all\'assistenza.',
+            azione: 'Torna all\'accesso', fai: () => mostraAccesso()
+        },
         'evento-assente': {
             titolo: 'Evento non trovato',
             testo: 'L\'evento non è più disponibile. Se pensi che sia un errore, scrivi all\'assistenza.'
@@ -856,9 +862,9 @@
            il link portava ?u= non serve piu'. Il vecchio ?u= si toglie. */
         togliParametri(['u']);
 
-        let eventi = Array.isArray(p.eventi) ? p.eventi.filter(x => ID_EVENTO_VALIDO.test(String(x))) : [];
-        if (!eventi.length && ID_EVENTO_VALIDO.test(String(p.idEvento || ''))) eventi = [p.idEvento];
-        if (!eventi.length) { mostraMessaggio('nessun-evento'); return; }
+        const eventi = eventiDelProfilo(p);
+        // senza eventi: se ha annullato l'iscrizione dal sito, lo si dice cosi'
+        if (!eventi.length) { mostraMessaggio(p.annullatoDalSito && Object.keys(p.annullatoDalSito).length ? 'evento-tolto' : 'nessun-evento'); return; }
 
         /* T8: il profilo dice che la persona e' iscritta, il suo token no
            (i permessi sono cambiati da poco): si chiede al servizio di
@@ -875,6 +881,28 @@
         const id = await scegliEvento(F, eventi, p.idEvento, gen);
         if (gen !== stato.generazione) return;
         ascoltaEvento(id, false, gen);
+    }
+
+    // gli eventi del profilo (i profili di prima avevano solo idEvento)
+    function eventiDelProfilo(p) {
+        const eventi = p && Array.isArray(p.eventi) ? p.eventi.filter(x => ID_EVENTO_VALIDO.test(String(x))) : [];
+        if (!eventi.length && p && ID_EVENTO_VALIDO.test(String(p.idEvento || ''))) return [p.idEvento];
+        return eventi;
+    }
+    /* Le regole hanno rifiutato l'evento anche con i permessi rinnovati:
+       perche'? Lo dice il proprio profilo (lo scrive il server): account
+       disattivato, oppure l'evento non e' piu' fra i suoi (iscrizione
+       annullata dal sito, tolta dal gestore: il server lo chiude subito,
+       anche per il token di prima). Altrimenti, come sempre, «Accedi di
+       nuovo». -> il tipo di messaggio */
+    async function motivoRifiuto(id) {
+        try {
+            const s = await fb.F.getDoc(fb.F.doc(fb.db, 'partecipanti', fb.auth.currentUser.uid));
+            const p = s.exists() ? s.data() : null;
+            if (!p || p.stato === 'disattivato') return 'disattivato';
+            if (eventiDelProfilo(p).indexOf(id) < 0) return 'evento-tolto';
+        } catch (e) { /* profilo non leggibile: la sessione va rifatta */ }
+        return 'accedi-di-nuovo';
     }
 
     /* Piu' eventi: in onda > il prossimo in programma > il piu' recente.
@@ -990,10 +1018,15 @@
                         }, 5000);
                         return;
                     }
-                    await esciConMessaggio(esito === 'disattivato' ? 'disattivato' : 'accedi-di-nuovo');
+                    const perche = esito === 'disattivato' ? 'disattivato' : await motivoRifiuto(id);
+                    if (gen !== stato.generazione) return;
+                    await esciConMessaggio(perche);
                     return;
                 }
-                await esciConMessaggio('accedi-di-nuovo');
+                // i permessi erano gia' stati rinnovati: il profilo dice perche' no
+                const motivo = await motivoRifiuto(id);
+                if (gen !== stato.generazione) return;
+                await esciConMessaggio(motivo);
                 return;
             }
             // altro errore (raro): si riprova tra poco, con l'avviso di connessione
@@ -2758,6 +2791,8 @@
         if (gen !== stato.generazione) return;
         // l'account disattivato si vede dal profilo, scritto dal server: basta un rifiuto
         if (!p || p.stato === 'disattivato') { await esciConMessaggio('disattivato'); return; }
+        // e cosi' l'evento tolto (iscrizione annullata dal sito, tolta dal gestore): basta un rifiuto
+        if (stato.idEvento && eventiDelProfilo(p).indexOf(stato.idEvento) < 0) { await esciConMessaggio('evento-tolto'); return; }
         if (confermato && stato.evento && stato.evento.unSoloDispositivo === true) await esciConMessaggio('altro-dispositivo');
     }
 

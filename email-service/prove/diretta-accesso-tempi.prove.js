@@ -24,8 +24,10 @@
       della risposta non dice se un indirizzo e' gia' iscritto. Fuori da
       Vercel si aspetta la fine. Un errore della diretta non esce dal
       gancio (il modulo risponde come sempre) e nel log non finisce
-      l'email. E quale pagina conta: se il modulo manda un percorso
-      valido vince il percorso, l'etichetta vale solo senza.
+      l'email. Lo stesso per il gancio dell'annullamento dal sito
+      (dalSito, dal collegamento della conferma). E quale pagina conta:
+      se il modulo manda un percorso valido vince il percorso,
+      l'etichetta vale solo senza.
    4. "Email o password non corretti." non parte prima di
       TEMPO_FALLITO_MS (900 ms) + fino a CASO_FALLITO_MS (300 ms) a caso:
       il pavimento sta sopra il tempo di un'email iscritta con Firestore
@@ -131,7 +133,9 @@ async function misura(fn) {
         adesso: () => Date.now(),
         db: {
             collection: () => ({
-                where: () => ({ get: async () => { await pausa(ms); if (errore) throw new Error(errore); return { empty: true, docs: [] }; } })
+                where: () => ({ get: async () => { await pausa(ms); if (errore) throw new Error(errore); return { empty: true, docs: [] }; } }),
+                // tutti gli eventi (l'annullamento dal sito li guarda tutti, interruttore acceso o no)
+                get: async () => { await pausa(ms); if (errore) throw new Error(errore); return { empty: true, docs: [] }; }
             })
         }
     });
@@ -172,6 +176,24 @@ async function misura(fn) {
         vero(rotto.esito === 'in-corso' && affidati.length === 1 && !rifiutata && finaleRotto && finaleRotto.esito === 'errore',
             'gancio su Vercel: un errore della diretta non esce (esito "errore" nel lavoro affidato, nessuna promessa rifiutata)');
         vero(erroriGancio.some(e => /iscrizione dal modulo non riuscita/.test(e)) && erroriGancio.every(e => !/mario\.rossi@esempio\.it/i.test(e)), 'gancio: l\'errore finisce nel log, senza l\'email');
+
+        // il gancio dell'annullamento dal sito (completa-salva, dalSito): su Vercel non si aspetta nemmeno lui
+        affidati.length = 0;
+        const ANNULLA = [{ tipo: 'annullata', email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', pagina: MODULO.pagina }];
+        t0 = Date.now();
+        const sitoVercel = await I.dalSito(ANNULLA, { ctx: lento(1500) });
+        const tSito = Date.now() - t0;
+        vero(sitoVercel.esito === 'in-corso' && tSito < 50 && affidati.length === 1, 'gancio dell\'annullamento su Vercel: la risposta parte subito (' + tSito + ' ms), il lavoro passa a waitUntil');
+        const finaleSito = await affidati[0];
+        vero(finaleSito && finaleSito.esiti && finaleSito.esiti[0].esito === 'nessun-evento', 'gancio dell\'annullamento: il lavoro affidato a waitUntil finisce');
+        affidati.length = 0;
+        const sitoRotto = await I.dalSito(ANNULLA, { ctx: lento(10, 'Firestore fermo per mario.rossi@esempio.it') });
+        const finaleSitoRotto = await (affidati[0] || Promise.resolve(null));
+        vero(sitoRotto.esito === 'in-corso' && finaleSitoRotto && finaleSitoRotto.esiti[0].esito === 'errore'
+            && erroriGancio.some(e => /annullamento dal sito non riuscito/.test(e)) && erroriGancio.every(e => !/mario\.rossi@esempio\.it/i.test(e)),
+        'gancio dell\'annullamento: un errore della diretta non esce, e nel log non c\'e\' l\'email');
+        const niente = await I.dalSito([], {});
+        vero(niente.esiti && niente.esiti.length === 0 && affidati.length === 1, 'gancio dell\'annullamento senza posti da cambiare: nessun lavoro');
         delete globalThis[CONTESTO];
 
         // fuori da Vercel si aspetta la fine (come "password dimenticata"), e un errore non esce

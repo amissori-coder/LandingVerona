@@ -1162,9 +1162,11 @@ async function sheetJSNode() {
         await confermaDialogo(/Mandare subito la password/, 'Accendi l\'invio automatico');
         await aspetta(async () => await interruttore.isChecked() && /Invio automatico acceso/.test(await testo('#msg-iscrizioni')), 10000, 'acceso');
         const pubblicoConInterruttore = (await db.doc('eventi/' + ID).get()).data();
-        vero(await accesoSulServizio() === true && !('iscrizioniAutomatiche' in pubblicoConInterruttore)
-            && /^Acceso: chi si iscrive online dal modulo di \/napoli_ottobre_2026\/ riceve subito la password\.$/.test(await testo('#iscrizioni-stato')),
-            'acceso: eventiRiservati.iscrizioniAutomatiche true (non nel documento pubblico, che i partecipanti leggono) — «' + await testo('#iscrizioni-stato') + '»');
+        const riservatiAcceso = (await db.doc('eventiRiservati/' + ID).get()).data() || {};
+        vero(await accesoSulServizio() === true && !('iscrizioniAutomatiche' in pubblicoConInterruttore) && !('iscrizioniAutomaticheDa' in pubblicoConInterruttore)
+            && riservatiAcceso.iscrizioniAutomaticheDa && Date.now() - riservatiAcceso.iscrizioniAutomaticheDa.toMillis() < 60000
+            && /^Acceso: chi si iscrive online dal modulo di \/napoli_ottobre_2026\/ riceve subito la password\. Vale per chi si è iscritto dal \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\.$/.test(await testo('#iscrizioni-stato')),
+            'acceso: eventiRiservati.iscrizioniAutomatiche true e il momento dell\'accensione (non nel documento pubblico, che i partecipanti leggono); accanto all\'interruttore da quando è acceso — «' + await testo('#iscrizioni-stato') + '»');
         await foto('evento-iscrizioni');
         // acceso, la pagina non si puo' togliere: evento-salva risponde 400 'pagina'
         await $('#ev-pagina').fill('');
@@ -1513,6 +1515,42 @@ async function sheetJSNode() {
         await $('#btn-aggiorna-partecipanti').click();
         await calma();
         vero(await $('#riquadro-da-verificare').isHidden(), 'riletto l\'elenco, le righe viste non tornano');
+        /* Le righe che arrivano dal collegamento della conferma (origine
+           'sito'): chi ha annullato (gia' fuori dall'evento), chi ha
+           annullato ma con la sua email nell'evento c'e' un'altra persona
+           (non toccata), chi ha riattivato a interruttore spento. Il percorso
+           vero (dal modulo alla riga) lo prova iscrizioni.prova.js. */
+        const idAnnullata = await IS.segnaDaVerificare(ctxDV, { idEvento: ID, motivo: 'annullata-dal-sito', origine: 'sito', nome: 'Rita', cognome: 'Ritiro', azienda: 'Ritiro srl', email: 'rita.ritiro@esempio.example' });
+        await pausa(20);
+        const idAltra = await IS.segnaDaVerificare(ctxDV, { idEvento: ID, motivo: 'annullata-dal-sito', origine: 'sito', nome: 'Luca', cognome: 'Collega', azienda: '', email: 'info@studio-esempio.example', esistente: 'Carla Prima' });
+        await pausa(20);
+        const idRiattivata = await IS.segnaDaVerificare(ctxDV, { idEvento: ID, motivo: 'riattivata-dal-sito', origine: 'sito', nome: 'Nino', cognome: 'Ritorno', azienda: '', email: 'nino.ritorno@esempio.example' });
+        await IS.segnaDaVerificare(ctxDV, { idEvento: ID, motivo: 'riattivata-dal-sito', origine: 'sito', nome: 'Nino', cognome: 'Ritorno', azienda: '', email: 'nino.ritorno@esempio.example' });
+        await $('#btn-aggiorna-partecipanti').click();
+        await aspetta(async () => (await $('#tabella-da-verificare tbody tr').count()) === 3 && await visibile('#riquadro-da-verificare'), 10000, 'righe dal sito');
+        const righeSito = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-da-verificare tbody tr')).map(t => ({
+            id: t.dataset.id, motivo: t.dataset.motivo, testo: t.textContent, etichetta: (t.querySelector('.etichetta-esito') || {}).className || ''
+        })));
+        const perId = id => righeSito.find(r => r.id === id) || { testo: '', etichetta: '' };
+        vero(righeSito.map(r => r.id).join() === [idRiattivata, idAltra, idAnnullata].join() && /Che cosa è successo/.test(await testo('#tabella-da-verificare thead')),
+            'tre righe dal sito, la più recente in alto; la colonna del motivo si chiama «Che cosa è successo»');
+        vero(/Iscrizione annullata dal sito/.test(perId(idAnnullata).testo) && /annullata-dal-sito/.test(perId(idAnnullata).etichetta)
+            && /l'abbiamo tolta da questo evento \(non vede più la diretta; le credenziali non ancora partite sono cancellate\)\. Non devi fare niente/.test(perId(idAnnullata).testo),
+        'annullata dal sito: «Iscrizione annullata dal sito», già tolta dall\'evento, non c\'è niente da fare', perId(idAnnullata).testo);
+        vero(/Iscrizione annullata dal sito/.test(perId(idAltra).testo) && /nell'evento c'è l'account di Carla Prima: non l'abbiamo toccato\. Se è la stessa persona, toglila tu dall'evento\./.test(perId(idAltra).testo),
+            'annullata dal sito ma con l\'email di un\'altra persona nell\'evento: non toccata, e il nome sull\'account', perId(idAltra).testo);
+        vero(/Annullamento ritirato/.test(perId(idRiattivata).testo) && /riattivata-dal-sito/.test(perId(idRiattivata).etichetta)
+            && /l'invio automatico della password è spento: non l'abbiamo rimessa nell'evento\. Se deve seguire la diretta, caricala con il file\./.test(perId(idRiattivata).testo)
+            && /L'ha riattivata 2 volte\./.test(perId(idRiattivata).testo),
+        'riattivata con l\'invio automatico spento: «Annullamento ritirato», non è rientrata da sola (e quante volte)', perId(idRiattivata).testo);
+        vero(/annullato/.test((await testo('#riquadro-da-verificare .riquadro-sotto')).replace(/\s+/g, ' ')), 'la spiegazione del riquadro dice anche degli annullamenti');
+        await foto('da-verificare-dal-sito');
+        for (const id of [idAnnullata, idAltra, idRiattivata]) {
+            await $('#tabella-da-verificare tr[data-id="' + id + '"] button[data-op="archivia"]').click();
+            await aspetta(async () => (await $('#tabella-da-verificare tr[data-id="' + id + '"]').count()) === 0, 5000, 'riga vista');
+        }
+        vero(await $('#riquadro-da-verificare').isHidden() && (await db.collection('daVerificare').doc(idAnnullata).get()).data().archiviato === true,
+            'segnate come viste: il riquadro sparisce, le righe restano nel servizio (archiviate)');
         await aspetta(async () => (await $('#avvisi .avviso').count()) === 0, 15000, 'avvisi spariti');
 
         /* ---------- 6. regia ---------- */

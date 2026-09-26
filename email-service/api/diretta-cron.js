@@ -5,6 +5,10 @@
    chiusa. Tutto sta in lib/diretta-invio.js (giroCron); qui solo la
    porta:
      - i gestori tolti da DIRETTA_ADMIN_EMAILS perdono l'accesso;
+     - la riconciliazione: chi si e' iscritto online dal modulo del sito
+       mentre il servizio della diretta non rispondeva riceve adesso
+       l'account e la password (lib/diretta-riconcilia.js, che legge le
+       schede del sito in sola lettura con lib/sito-iscrizioni.js);
      - gli invii rimasti a meta' da piu' di 10 minuti diventano
        'incerto' (mai rispediti da soli: forse sono partiti);
      - le code delle credenziali vanno avanti fino alla fine, anche se
@@ -54,6 +58,7 @@ module.exports = async (req, res) => {
             // solo numeri: niente nomi, indirizzi o password nei log
             console.log('[diretta-cron] ' + JSON.stringify({
                 gestoriRimossi: riepilogo.gestoriRimossi, incerti: riepilogo.incerti,
+                riconciliazione: riepilogo.riconciliazione ? riepilogo.riconciliazione.eventi.map(r => ({ idEvento: r.idEvento, lette: r.lette, iscritte: r.iscritte, limite: r.limite || '', errore: !!r.errore })) : null,
                 code: riepilogo.code.map(c => ({ idEvento: c.idEvento, inviate: c.inviate, respinte: c.respinte, errori: c.errori, rimaste: c.rimaste, bloccato: !!c.bloccato })),
                 promemoria: riepilogo.promemoria.map(p => ({ idEvento: p.idEvento, tipo: p.tipo, inviate: p.inviate, finito: p.finito })),
                 esiti: riepilogo.esiti.map(e => ({ idEvento: e.idEvento, respinte: e.respinte, letto: e.letto })),

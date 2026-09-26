@@ -10,7 +10,9 @@ rules_version = '2';
    - un partecipante legge il PROPRIO profilo e l'evento (o gli
      eventi) a cui e' iscritto, e nient'altro. Gli eventi a cui e'
      iscritto stanno nel suo token (custom claim "eventi"), messo
-     dal server: nessuna lettura in piu' per controllarlo;
+     dal server: nessuna lettura in piu' per controllarlo. Un evento
+     che gli e' stato tolto (sessioni/{uid}.eventiTolti) non lo legge
+     piu' da subito, anche prima che il token si rinnovi;
    - un gestore (claim "gestore", messo dal server solo alle email
      dell'elenco DIRETTA_ADMIN_EMAILS) legge gli eventi, per
      l'anteprima "vedi come un partecipante";
@@ -47,12 +49,23 @@ service cloud.firestore {
     function accountAttivo() {
       return sessione().stato == 'attivo';
     }
+    /* Un evento TOLTO alla persona (ha annullato l'iscrizione dal sito, o
+       il gestore l'ha tolta dall'evento): il server lo scrive in
+       sessioni/{uid}.eventiTolti insieme ai nuovi claims. I claims pero'
+       arrivano al browser solo quando il token si rinnova (fino a
+       un'ora): fino ad allora il token dice ancora l'evento, e
+       iscrittoA() da solo lo lascerebbe leggere. La sessione si legge gia'
+       per accountAttivo(): nessuna lettura in piu'. Il server lo toglie da
+       qui quando la persona torna nell'evento. */
+    function tolto(idEvento) {
+      return idEvento in sessione().get('eventiTolti', []);
+    }
 
     // ---------- eventi: titolo, orari, stato, video ----------
     match /eventi/{idEvento} {
-      // un account disattivato smette di leggere l'evento anche se il suo
-      // token (che dura fino a un'ora) e' ancora valido
-      allow get: if (iscrittoA(idEvento) && accountAttivo()) || gestore();
+      // un account disattivato, o una persona tolta dall'evento, smette di
+      // leggerlo anche se il suo token (che dura fino a un'ora) e' ancora valido
+      allow get: if (iscrittoA(idEvento) && accountAttivo() && !tolto(idEvento)) || gestore();
       allow list: if false;
       allow write: if false;
     }
@@ -103,6 +116,7 @@ service cloud.firestore {
         && request.resource.data.idEvento is string
         && idPresenza == request.resource.data.idEvento + '_' + request.auth.uid
         && iscrittoA(request.resource.data.idEvento)
+        && !tolto(request.resource.data.idEvento)
         && request.resource.data.primo == request.time
         && request.resource.data.ultimo == request.time
         && request.resource.data.secondi == 0
@@ -113,6 +127,7 @@ service cloud.firestore {
       allow update: if autenticato()
         && resource.data.uid == request.auth.uid
         && iscrittoA(resource.data.idEvento)
+        && !tolto(resource.data.idEvento)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimo', 'secondi', 'collegamenti', 'sessione'])
         && request.resource.data.ultimo == request.time
         && request.time >= resource.data.ultimo + duration.value(50, 's')

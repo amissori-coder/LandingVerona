@@ -720,6 +720,9 @@ tr.con-avviso:not(.da-correggere) td:first-child { border-left-color: var(--ambr
 .etichetta-esito.nome-non-valido, .etichetta-esito.codifica { background: var(--rosso); color: #fff; }
 .etichetta-esito.email-condivisa { background: #FCE7B2; color: #5C3D00; box-shadow: inset 0 0 0 1px var(--rosso); }
 .etichetta-esito.disattivato { background: #FCE7B2; color: #5C3D00; }
+/* dal sito: annullata (gia' fuori dall'evento, non c'e' niente da correggere) e riattivata (a interruttore spento) */
+.etichetta-esito.annullata-dal-sito { background: #E2E8F0; color: #334155; }
+.etichetta-esito.riattivata-dal-sito { background: var(--blu-velo); color: var(--blu); }
 
 .problemi { list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--tenue); min-width: 220px; }
 .problemi li { padding-left: 14px; position: relative; line-height: 1.4; }

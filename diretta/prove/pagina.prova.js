@@ -97,6 +97,11 @@
      toccabile;
    - anteprima del gestore: "Chiudi l'anteprima" non scollega la
      gestione aperta nell'altra scheda;
+   - iscrizione annullata dal sito con la pagina aperta (il servizio vero,
+     ritiraDaModulo, sugli stessi emulatori): il token dice ancora
+     l'evento, ma le regole (eventiTolti) rifiutano il segnale di
+     presenza e la pagina dice «Non sei più iscritto a questa diretta»;
+     rientrando, lo stesso messaggio;
    - 403 'nessun-evento' all'accesso; &e= mandato al servizio; il link
      ?dimenticata=1 (un vecchio ?u=<nome utente> non si scrive nel campo
      dell'email, e da collegati si toglie dall'indirizzo); SDK di Firebase non scaricato (rete: nuovo
@@ -126,7 +131,12 @@ fs.mkdirSync(FOTO, { recursive: true });
 
 process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:' + PORTE.firestore;
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:' + PORTE.auth;
+// il servizio VERO della diretta, solo per l'annullamento dal sito (lib/diretta-iscrizione.js, ritiraDaModulo), sugli stessi emulatori
+process.env.DIRETTA_EMULATORE = '1';
+process.env.DIRETTA_PROGETTO = PROGETTO;
 const admin = require(path.resolve(__dirname, '../../email-service/node_modules/firebase-admin'));
+const ISCRIZIONE = require(path.resolve(__dirname, '../../email-service/lib/diretta-iscrizione'));
+const { contesto: contestoDiretta } = require(path.resolve(__dirname, '../../email-service/lib/diretta-firebase'));
 const { chromium } = require('playwright');
 const { preparaContesto } = require('./rete-prove');
 const F = require('./flusso-prova');
@@ -397,6 +407,8 @@ function eventoIniziale(T) {
         await eventoProva('ev-video', 'Prova: il player');
         // un evento salvato prima delle due modalita': niente tipoPlayer, in onda con l'indirizzo del player di Azoto
         await eventoProva('ev-azoto', 'Prova: il player di Azoto', { videoId: F.PLAYER_AZOTO });
+        // un evento con la sua pagina: l'annullamento dal sito lo trova da li'
+        await eventoProva('ev-ritiro', 'Prova: iscrizione annullata dal sito', { paginaEvento: '/ritiro_prova/' });
 
         // una password sola per queste persone (mai stampata)
         const PASSWORD_PROVA = 'Prova' + crypto.randomBytes(5).toString('hex') + '7';
@@ -419,6 +431,9 @@ function eventoIniziale(T) {
         await nuovoPartecipante('luciasenza', 'Lucia', 'Senza', ['ev-archivio']);
         await nuovoPartecipante('paolovideo', 'Paolo', 'Video', ['ev-video']);
         await nuovoPartecipante('annaazoto', 'Anna', 'Azoto', ['ev-azoto']);
+        await nuovoPartecipante('martaritiro', 'Marta', 'Ritiro', ['ev-ritiro']);
+        // il servizio vero trova l'account dall'email (indirizzi/{email}), come per chi si iscrive dal modulo
+        await db.doc('indirizzi/martaritiro@esempio.it').set({ uid: utentiProva.martaritiro.uid, creato: T.now() });
         const personaProva = email => Object.values(utentiProva).find(u => u.email === email) || null;
         const presenzaDi = async (idEvento, id) => {
             const s = await db.doc('presenze/' + idEvento + '_' + id).get();
@@ -694,10 +709,56 @@ function eventoIniziale(T) {
             }
         }
 
+        /* 4. Iscrizione annullata dal sito con la pagina aperta. Marta guarda la
+              diretta; dal collegamento della conferma annulla l'iscrizione, e il
+              servizio (la funzione VERA, ritiraDaModulo) le toglie l'evento. Il
+              token della pagina dice ancora l'evento (vale fino a un'ora), ma le
+              regole leggono sessioni/{uid}.eventiTolti: il segnale di presenza
+              viene rifiutato, la pagina guarda il suo profilo e dice «Non sei piu'
+              iscritto a questa diretta», non «Accedi di nuovo» o un errore
+              tecnico. Rientrando, lo stesso messaggio. */
+        async function scenarioIscrizioneAnnullata() {
+            const u = utentiProva.martaritiro;
+            const C = await nuovoContesto({ viewport: { width: 1280, height: 800 } }, false, { prove: tempiVeloci });
+            try {
+                await accedi(C.page, u.email, PASSWORD_PROVA);
+                await vistaE(C.page, 'diretta', 30000);
+                await aspetta(() => presenzaDi('ev-ritiro', u.uid), 20000, 'primo segnale');
+                const t0 = Date.now();
+                const r = await ISCRIZIONE.ritiraDaModulo(contestoDiretta(), { email: u.email, nome: u.nome, cognome: u.cognome, pagina: '/ritiro_prova/' });
+                vero(r.esito === 'ritirato' && r.idEvento === 'ev-ritiro', 'annullamento: ' + JSON.stringify(r));
+                const tolti = ((await db.doc('sessioni/' + u.uid).get()).data() || {}).eventiTolti || [];
+                vero(tolti.indexOf('ev-ritiro') >= 0, 'eventiTolti: ' + JSON.stringify(tolti));
+                await vistaE(C.page, 'messaggio', 180000);
+                const secondi = Math.round((Date.now() - t0) / 1000);
+                const titolo = (await C.page.textContent('#messaggio-titolo')).trim();
+                const testoMsg = (await C.page.textContent('#messaggio-testo')).trim();
+                vero(titolo === 'Non sei più iscritto a questa diretta', 'titolo: ' + titolo);
+                vero(/iscrizione a questo evento è stata annullata/.test(testoMsg) && /iscriviti di nuovo dal sito o scrivi all'assistenza/.test(testoMsg), 'testo: ' + testoMsg);
+                vero((await C.page.textContent('#btn-messaggio-azione')).trim() === 'Torna all\'accesso', 'pulsante del messaggio');
+                await foto(C.page, 'iscrizione-annullata-computer');
+                // rientra: il profilo non ha piu' eventi, ma l'annullamento dal sito: lo stesso messaggio
+                await C.page.click('#btn-messaggio-azione');
+                await vistaE(C.page, 'accesso', 10000);
+                await C.page.fill('#email', u.email);
+                await C.page.fill('#campo-password', PASSWORD_PROVA);
+                await C.page.click('#btn-entra');
+                await vistaE(C.page, 'messaggio', 30000);
+                vero((await C.page.textContent('#messaggio-titolo')).trim() === 'Non sei più iscritto a questa diretta', 'rientrando: ' + await C.page.textContent('#messaggio-titolo'));
+                const v = await C.page.evaluate(() => window.__violazioniCsp || []);
+                vero(v.length === 0, 'violazioni CSP: ' + v.join(' | '));
+                vero(C.page.__erroriPagina.length === 0, 'errori: ' + C.page.__erroriPagina.join(' | '));
+                return secondi;
+            } finally {
+                await C.context.close().catch(() => {});
+            }
+        }
+
         const lunghe = {
             cambio: inSottofondo(scenarioCambioDispositivo),
             congelata: inSottofondo(scenarioSchedaCongelata),
-            senzaArchivio: inSottofondo(scenarioSenzaLocalStorage)
+            senzaArchivio: inSottofondo(scenarioSenzaLocalStorage),
+            annullata: inSottofondo(scenarioIscrizioneAnnullata)
         };
 
         /* =================== COMPUTER =================== */
@@ -1866,6 +1927,10 @@ function eventoIniziale(T) {
         });
         await prova('localStorage bloccato: la sessione resta quella dell\'accesso («un solo dispositivo») e il minuto si conta', async () => {
             await esitoDi(lunghe.senzaArchivio);
+        });
+        await prova('iscrizione annullata dal sito con la pagina aperta: le regole chiudono l\'evento anche al token di prima, la pagina dice «Non sei più iscritto a questa diretta» (non un errore tecnico), e rientrando lo stesso', async () => {
+            const s = await esitoDi(lunghe.annullata);
+            console.log('       (la pagina lo ha detto ' + s + ' s dopo l\'annullamento: al primo segnale di presenza rifiutato che si puo\' diagnosticare)');
         });
 
         await app.delete();
