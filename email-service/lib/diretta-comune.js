@@ -3,7 +3,7 @@
    ------------------------------------------------------------
    Tutto quello che le funzioni api/diretta-*.js usano in piu' di un
    posto: la risposta alle chiamate del browser (CORS), la lettura del
-   corpo, l'ora di Roma, l'email tecnica dietro il nome utente, il
+   corpo, l'ora di Roma, l'email tecnica dietro ogni account, il
    collegamento alla pagina della diretta, il riconoscimento dei
    gestori e il limite anti-abuso degli endpoint pubblici.
 
@@ -134,15 +134,19 @@ function oraLeggibile(ms) {
     return p.ora + '.' + String(p.minuto).padStart(2, '0');
 }
 
-/* ---------- nome utente ed email tecnica ----------
-   La persona scrive solo il nome utente. Dietro, l'account Firebase ha
-   un'email tecnica che nessuno vede e a cui non arriva niente:
-   mariorossi@utenti.diretta.nextgenerationbusiness.it */
+/* ---------- l'email tecnica ----------
+   La persona entra con la SUA email (quella con cui si e' iscritta) e
+   la password. Dietro, l'account Firebase Auth NON ha quell'indirizzo:
+   ha un'email tecnica ricavata dall'uid, che nessuno vede e a cui non
+   arriva niente (p1a2b3...@utenti.diretta.nextgenerationbusiness.it).
+   L'email vera porta all'uid attraverso indirizzi/{email normalizzata};
+   cosi' correggere l'email di un partecipante non tocca Auth (chi e'
+   collegato resta collegato) e da un'email non si ricava un account. */
 function dominioTecnico() {
     return String(process.env.DIRETTA_DOMINIO_TECNICO || 'utenti.diretta.nextgenerationbusiness.it').trim().toLowerCase();
 }
-function emailTecnica(nomeUtente) {
-    return String(nomeUtente) + '@' + dominioTecnico();
+function emailTecnica(uid) {
+    return String(uid) + '@' + dominioTecnico();
 }
 function eEmailTecnica(email) {
     return String(email || '').toLowerCase().endsWith('@' + dominioTecnico());
@@ -151,9 +155,11 @@ function eEmailTecnica(email) {
 function baseSito() {
     return String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 }
-// il collegamento dell'email: porta il nome utente, cosi' il campo e' gia' scritto
-function linkDiretta(nomeUtente) {
-    return baseSito() + '/diretta/' + (nomeUtente ? '?u=' + encodeURIComponent(nomeUtente) : '');
+/* La pagina della diretta. Il collegamento non porta mai l'email della
+   persona: un indirizzo in un URL finisce nei registri e nella
+   cronologia (le email aggiungono solo l'evento, ?e=, vedi diretta-mail). */
+function linkDiretta() {
+    return baseSito() + '/diretta/';
 }
 function assistenza() {
     return {

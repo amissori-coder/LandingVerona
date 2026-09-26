@@ -5,7 +5,7 @@
    confondono leggendo o dettando al telefono (0/O/o, 1/l/I/i). Resta
    un alfabeto di 54 simboli: 54^10 = circa 2 x 10^17 combinazioni.
    Almeno una maiuscola, una minuscola e una cifra, cosi' nessuno
-   riceve una password "tutta lettere" che sembra un nome utente.
+   riceve una password "tutta lettere" che sembra una parola qualsiasi.
 
    La password non si salva MAI: ne' in Firestore, ne' nei log, ne' in
    un file. Esiste solo nel momento in cui la si imposta sull'account

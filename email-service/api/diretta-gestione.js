@@ -9,9 +9,9 @@
 
    Le azioni (campo `azione`) e dove sta la logica:
      chi-sono, eventi, evento-salva, evento-stato, evento-video,
-     evento-player, evento-sorgente, evento-avviso, link-firmato,
-     anteprima, crea, partecipanti, partecipante, connessi, esporta
-                                               -> lib/diretta-dati.js
+     evento-player, evento-sorgente, evento-avviso, evento-iscrizioni,
+     link-firmato, anteprima, crea, partecipanti, partecipante,
+     connessi, esporta                         -> lib/diretta-dati.js
      prova-link                                -> lib/diretta-prova-link.js
      email-prova, email-accoda, email-avanza,
      email-stato, email-esiti                  -> lib/diretta-invio.js
@@ -56,6 +56,34 @@
      link-firmato     { idEvento, sorgente } -> { url, scade, validoSecondi }
                       per l'anteprima della regia; solo in modalita'
                       'flusso' (409 'non-flusso' con il player Azoto)
+   L'IMPORT DEI PARTECIPANTI (per EMAIL: non esiste un nome utente)
+     anteprima        { idEvento, righe: [{ riga?, nome, cognome, email,
+                      azienda, escludi? }] } (al massimo 5000)
+                      -> { righe, conteggi, pronto }: riga per riga
+                      l'esito ('nuovo', 'gia-presente', 'gia-iscritto',
+                      'doppia-nel-file', 'escluso', e da correggere
+                      'email-mancante', 'email-non-valida',
+                      'nome-mancante', 'nome-non-valido',
+                      'email-condivisa'), i problemi e `crea` (le righe
+                      da mandare a 'crea'); pronto = niente da
+                      correggere. I dettagli in lib/diretta-email.js
+                      (analizzaImport)
+     crea             { idEvento, righe: [{ riga, nome, cognome, email,
+                      azienda }] } (al massimo 50) -> { risultati: [{
+                      riga, esito ('creato'|'aggiunto'|'gia-iscritto'|
+                      'errore'), uid, codice, motivo }] }. NON manda
+                      email: le credenziali partono solo da «Invia le
+                      credenziali» (email-accoda + email-avanza)
+     evento-iscrizioni { idEvento, iscrizioniAutomatiche: true|false }
+                      -> { evento }: l'interruttore «Invia subito la
+                      password a chi si iscrive dal modulo del sito»
+                      (anche dentro evento-salva: evento.iscrizioniAutomatiche);
+                      acceso vuole la pagina dell'evento (400 'pagina'),
+                      una pagina lo puo' avere acceso su un evento solo
+                      (409 'iscrizioni-doppie')
+     email-prova      { idEvento, tipo: 'credenziali'|'iscritto-anche'|
+                      'promemoria-giorno'|'promemoria-ora' }
+
    Il modulo delle email si carica solo quando serve (e' un file a parte:
    se mancasse, il resto della gestione funziona lo stesso).
    ============================================================ */
@@ -66,7 +94,7 @@ const F = require('../lib/diretta-firma');
 const PL = require('../lib/diretta-prova-link');
 const { contesto } = require('../lib/diretta-firebase');
 
-const TIPI_PROVA = ['credenziali', 'promemoria-giorno', 'promemoria-ora'];
+const TIPI_PROVA = ['credenziali', 'iscritto-anche', 'promemoria-giorno', 'promemoria-ora'];
 const CHI_ACCODA = ['da-inviare', 'non-ricevuta'];
 const PROVE_LINK_MINUTO = 30;
 
@@ -134,7 +162,8 @@ const AZIONI = {
     'link-firmato': async (ctx, b) => D.linkVideo(ctx, { idEvento: b.idEvento, sorgente: b.sorgente, soloInOnda: false }),
     'prova-link': async (ctx, b, g) => provaLink(ctx, b, g),
     'evento-avviso': async (ctx, b) => ({ evento: await D.cambiaAvviso(ctx, { idEvento: b.idEvento, avviso: b.avviso }) }),
-    'anteprima': async (ctx, b) => D.anteprima(ctx, { idEvento: b.idEvento, emails: b.emails, basi: b.basi, nomi: b.nomi }),
+    'evento-iscrizioni': async (ctx, b) => ({ evento: await D.cambiaIscrizioni(ctx, { idEvento: b.idEvento, iscrizioniAutomatiche: b.iscrizioniAutomatiche }) }),
+    'anteprima': async (ctx, b) => D.anteprima(ctx, { idEvento: b.idEvento, righe: b.righe }),
     'crea': async (ctx, b) => D.crea(ctx, { idEvento: b.idEvento, righe: b.righe }),
     'partecipanti': async (ctx, b) => ({ partecipanti: await D.elencoPartecipanti(ctx, b.idEvento) }),
     'partecipante': async (ctx, b) => D.operazionePartecipante(ctx, b),

@@ -1,12 +1,24 @@
 /* ============================================================
    Diretta degli eventi: le email (modelli HTML + solo testo)
    ------------------------------------------------------------
-   Tre email, tutte composte QUI dal servizio e mai dal browser:
-     - credenziali: nome utente, password e il pulsante per entrare;
+   Quattro email, tutte composte QUI dal servizio e mai dal browser.
+   Nella diretta non esiste un nome utente: si entra con la PROPRIA
+   EMAIL e la password che generiamo noi.
+     - credenziali: «Per entrare nella diretta: vai su <indirizzo>,
+       scrivi la tua email <email> e questa password: <password>», il
+       riquadro con email e password e il pulsante per entrare;
+     - iscritto anche: «Sei iscritto anche a <evento>: entra con la tua
+       email e la password che hai già; se non la ricordi usa "Password
+       dimenticata?"». Per chi ha gia' una password (un solo account per
+       tutti gli eventi): MAI una password;
      - promemoria: il giorno prima e un'ora prima dell'inizio, con il
-       collegamento e il nome utente (MAI la password);
+       collegamento e l'email con cui si entra (MAI la password);
      - reimpostazione: il collegamento per scegliere una password
        nuova ("Password dimenticata?", e il primo accesso dei gestori).
+   In ognuna: «Non trovi l'email? Controlla nella cartella Spam o
+   Promozioni e segna il mittente come sicuro.» (FRASE_SPAM): serve per
+   le email che arriveranno dopo (i promemoria, la prossima
+   reimpostazione), che finiscono spesso proprio li'.
 
    LA GRAFICA E' QUELLA DELLE ALTRE EMAIL DEL SITO (lib/mail-ngb.js):
    testata blu scura con il logo bianco, la fascia in filigrana, il
@@ -23,31 +35,31 @@
    poter chiudere un attributo. esc() tratta & < > " ' e gli attributi
    stanno sempre fra doppi apici. I collegamenti non si prendono mai
    cosi' come arrivano: si costruiscono QUI da baseSito(), da percorsi
-   fissi, dal nome utente e dall'identificativo dell'evento (quello
-   eventualmente passato come `link` non si usa), e la pagina
-   dell'evento deve avere la forma "/cartella/".
+   fissi e dall'identificativo dell'evento (quello eventualmente passato
+   come `link` non si usa), e la pagina dell'evento deve avere la forma
+   "/cartella/".
 
-   IL COLLEGAMENTO PERSONALE e' /diretta/?u=<nome utente>&e=<evento>:
-   il nome utente arriva gia' scritto nel campo, e chi segue piu'
-   eventi entra in quello dell'email (la pagina usa `e` come
-   preferenza, se e' davvero uno dei suoi eventi).
+   IL COLLEGAMENTO e' /diretta/?e=<evento>: chi segue piu' eventi entra
+   in quello dell'email (la pagina usa `e` come preferenza, se e'
+   davvero uno dei suoi eventi). L'email della persona NON va nel
+   collegamento: un indirizzo in un URL finisce nei registri e nella
+   cronologia. Nella frase «vai su ...» l'indirizzo e' quello pulito
+   della pagina (/diretta/), che si legge e si ricopia bene.
 
    PENSATE PER CHI NON E' PRATICO (spesso sul telefono): gli orari
    portano sempre "(ora italiana)"; il promemoria dice "domani" o
-   "oggi" guardando l'ora in cui parte davvero; se il nome utente
-   finisce con un numero (mariorossi2, perche' c'era gia' un Mario
-   Rossi) lo si dice a parole, perche' e' proprio il numero che si
-   dimentica; e chi ha gia' ricevuto una password legge subito che
-   quella vecchia non vale piu'.
+   "oggi" guardando l'ora in cui parte davvero; chi ha gia' ricevuto
+   una password legge subito che quella vecchia non vale piu'.
 
    NIENTE TRATTINI LUNGHI: oggetto, HTML e testo passano tutti da
    senzaTrattiniLunghi() di mail-layout.js, come ogni email dello studio.
 
-   NOME UTENTE E PASSWORD in carattere a spaziatura fissa, grandi e un
-   po' spaziati: e' il modo in cui non si confondono una "l" con una
-   "I" o uno "0" con una "O" (la password li evita comunque, il nome
-   utente non puo'). La spaziatura e' solo grafica: chi copia, copia
-   le lettere e basta.
+   LA PASSWORD in carattere a spaziatura fissa, grande e un po'
+   spaziata: e' il modo in cui non si confondono una "l" con una "I" o
+   uno "0" con una "O" (la password li evita comunque). La spaziatura e'
+   solo grafica: chi copia, copia le lettere e basta. L'email sta nel
+   carattere normale, grande, e va a capo dove serve (un indirizzo lungo
+   non deve uscire dallo schermo del telefono).
    ============================================================ */
 'use strict';
 const C = require('./diretta-comune');
@@ -160,24 +172,23 @@ function quandoRelativo(ev, adesso) {
 }
 
 /* ---------- i collegamenti ----------
-   Tutti da baseSito() e da percorsi fissi, con il nome utente e
-   l'evento codificati: un collegamento passato da chi chiama non si
-   usa mai (non c'e' niente che serva e che non si possa rifare qui). */
+   Tutti da baseSito() e da percorsi fissi, con l'evento codificato: un
+   collegamento passato da chi chiama non si usa mai (non c'e' niente
+   che serva e che non si possa rifare qui). */
 function idEventoDi(o) {
     const id = String((o && o.idEvento) || (o && o.evento && o.evento.id) || '');
     return RE_ID_EVENTO.test(id) ? id : '';
 }
-// /diretta/?u=mariorossi&e=napoli-2026
-function linkAccesso(nomeUtente, idEvento) {
-    const url = C.linkDiretta(String(nomeUtente || ''));
+// /diretta/?e=napoli-2026 (senza un evento valido: /diretta/)
+function linkAccesso(idEvento) {
+    const url = C.linkDiretta();
     if (!RE_ID_EVENTO.test(String(idEvento || ''))) return url;
-    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'e=' + encodeURIComponent(idEvento);
+    return url + '?e=' + encodeURIComponent(idEvento);
 }
-/* /diretta/?u=mariorossi&dimenticata=1: la pagina si apre direttamente
-   su "Password dimenticata?" con il nome utente gia' scritto. */
-function linkDimenticata(nomeUtente) {
-    const nome = String(nomeUtente || '');
-    return C.baseSito() + '/diretta/?' + (nome ? 'u=' + encodeURIComponent(nome) + '&' : '') + 'dimenticata=1';
+/* /diretta/?dimenticata=1: la pagina si apre direttamente su
+   "Password dimenticata?" (l'email la scrive la persona). */
+function linkDimenticata() {
+    return C.baseSito() + '/diretta/?dimenticata=1';
 }
 function linkPaginaEvento(pagina) {
     const p = String(pagina || '').trim();
@@ -202,12 +213,10 @@ function contatti(a) {
 function saluto(nome, cognome) {
     return 'Gentile ' + (unaRiga((nome || '') + ' ' + (cognome || '')) || 'partecipante') + ',';
 }
-/* Il nome utente con un numero in fondo (mariorossi2: c'era gia' un
-   Mario Rossi): il numero e' la parte che si dimentica, e senza non si
-   entra. Lo si dice a parole, sotto le credenziali. '' se non serve. */
-function fraseNumero(nomeUtente) {
-    const m = /(\d+)$/.exec(String(nomeUtente || ''));
-    return m ? 'Attenzione: il tuo nome utente finisce con il numero ' + m[1] + '. Scrivilo per intero, numero compreso.' : '';
+/* L'email della persona, come si scrive per entrare: quella gia'
+   normalizzata dal servizio; qui solo una riga, senza spazi. */
+function emailDi(o) {
+    return unaRiga(o && o.email).replace(/\s+/g, '').toLowerCase();
 }
 
 /* ---------- i pezzi della pagina (come lib/mail-ngb.js) ---------- */
@@ -233,6 +242,7 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '.par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}'
         // sul telefono le credenziali restano grandi ma non escono dallo schermo
         + '.cred{font-size:22px!important;letter-spacing:2px!important;}'
+        + '.credmail{font-size:18px!important;line-height:26px!important;}'
         + '.btn a{display:block!important;padding:16px 18px!important;}'
         + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
         + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}}\n'
@@ -249,11 +259,13 @@ function involucro(oggetto, anteprima, corpoInterno) {
 
 /* La fascia gialla dell'email di prova: in testa, prima di tutto, perche'
    chi la riceve (il gestore) non la scambi per una vera. */
-function fasciaProva() {
+const FRASE_PROVA = 'Così la riceveranno i partecipanti. Nome, email e password qui sotto sono di esempio e non funzionano.';
+const FRASE_PROVA_SENZA_PASSWORD = 'Così la riceveranno i partecipanti. Nome ed email qui sotto sono di esempio.';
+function fasciaProva(frase) {
     return '<tr><td class="px" bgcolor="' + COLORE.ambraChiaro + '" style="background-color:' + COLORE.ambraChiaro + ';padding:14px ' + LATO + 'px;'
         + 'border-bottom:3px solid ' + COLORE.ambra + ';' + FONTE + 'font-size:14px;line-height:21px;color:' + COLORE.testo + ';">'
         + '<strong style="color:' + COLORE.ambra + ';letter-spacing:1.5px;">EMAIL DI PROVA</strong><br>'
-        + 'Così la riceveranno i partecipanti. Nome, nome utente e password qui sotto sono di esempio e non funzionano.'
+        + esc(frase || FRASE_PROVA)
         + '</td></tr>';
 }
 
@@ -311,15 +323,28 @@ function box(righe) {
         + '<tr><td style="padding:16px 22px;">' + tabella(righe) + '</td></tr></table></td></tr>';
 }
 /* Il riquadro delle credenziali: il cuore dell'email. Bordo blu pieno,
-   etichetta piccola sopra, valore grande a spaziatura fissa sotto. */
-function riquadroCredenziali(nomeUtente, password) {
-    const etichetta = t => '<tr><td style="' + FONTE + 'font-size:12px;line-height:18px;letter-spacing:1.6px;text-transform:uppercase;color:' + COLORE.accento + ';font-weight:bold;padding:0 0 4px;">' + esc(t) + '</td></tr>';
-    const valore = v => '<tr><td class="cred" style="font-family:' + MONO + ';font-size:28px;line-height:36px;letter-spacing:3px;font-weight:bold;color:' + COLORE.scuro + ';word-break:break-all;padding:0;">'
-        + '<span style="font-family:' + MONO + ';">' + esc(v) + '</span></td></tr>';
+   etichetta piccola sopra, valore grande sotto: l'email nel carattere
+   normale (va a capo se e' lunga), la password a spaziatura fissa. */
+function etichettaRiquadro(t) {
+    return '<tr><td style="' + FONTE + 'font-size:12px;line-height:18px;letter-spacing:1.6px;text-transform:uppercase;color:' + COLORE.accento + ';font-weight:bold;padding:0 0 4px;">' + esc(t) + '</td></tr>';
+}
+function valoreEmail(email) {
+    return '<tr><td class="credmail" style="' + FONTE + 'font-size:20px;line-height:28px;font-weight:bold;color:' + COLORE.scuro + ';word-break:break-all;padding:0;">' + esc(email) + '</td></tr>';
+}
+function riquadroCredenziali(email, password) {
+    const valorePassword = '<tr><td class="cred" style="font-family:' + MONO + ';font-size:28px;line-height:36px;letter-spacing:3px;font-weight:bold;color:' + COLORE.scuro + ';word-break:break-all;padding:0;">'
+        + '<span style="font-family:' + MONO + ';">' + esc(password) + '</span></td></tr>';
     return '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         + 'style="border-collapse:collapse;background-color:' + COLORE.chiaro + ';border:2px solid ' + COLORE.blu + ';">'
-        + '<tr><td style="padding:20px 24px 16px;">' + tabella(etichetta('Nome utente') + valore(nomeUtente)) + '</td></tr>'
-        + '<tr><td style="padding:16px 24px 20px;border-top:1px solid ' + COLORE.bordo + ';">' + tabella(etichetta('Password') + valore(password)) + '</td></tr>'
+        + '<tr><td style="padding:20px 24px 16px;">' + tabella(etichettaRiquadro('La tua email') + valoreEmail(email)) + '</td></tr>'
+        + '<tr><td style="padding:16px 24px 20px;border-top:1px solid ' + COLORE.bordo + ';">' + tabella(etichettaRiquadro('Password') + valorePassword) + '</td></tr>'
+        + '</table></td></tr>';
+}
+// il riquadro con la sola email (promemoria, iscritto anche, reimpostazione)
+function riquadroEmail(email) {
+    return '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        + 'style="border-collapse:collapse;background-color:' + COLORE.chiaro + ';border:2px solid ' + COLORE.blu + ';">'
+        + '<tr><td style="padding:18px 24px 18px;">' + tabella(etichettaRiquadro('Per entrare, la tua email') + valoreEmail(email)) + '</td></tr>'
         + '</table></td></tr>';
 }
 function bottone(testoBtn, url, grande) {
@@ -385,8 +410,11 @@ function fraseAltreStrade(paginaEvento) {
             + 'home del sito (' + linkHome() + ').'
     };
 }
+/* La frase dello spam, uguale in tutte le email della diretta (vedi in
+   testa al file). */
+const FRASE_SPAM = 'Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
 const SE_NON_ENTRI = [
-    'Copia e incolla nome utente e password da questa email, senza spazi prima o dopo.',
+    'Scrivi l\'email con cui ti sei iscritto (maiuscole e spazi prima o dopo non contano) e copia la password da questa email, senza spazi prima o dopo.',
     'Nella password maiuscole e minuscole contano: «a» e «A» sono lettere diverse.',
     'Se hai perso la password, nella pagina di accesso premi «Password dimenticata?»: ti mandiamo un collegamento per sceglierne una nuova.',
     'Prova con un altro browser aggiornato (Chrome, Safari, Edge o Firefox) o con un altro dispositivo.'
@@ -413,44 +441,57 @@ function annoDi(adesso) {
    LE CREDENZIALI
    `evento`: il documento eventi/{id} (titolo, luogo, inizio, fine,
    paginaEvento, id...). `idEvento` (o evento.id) finisce nel
-   collegamento. `sostituisce` dice se la persona aveva gia' ricevuto
-   una password, che adesso non vale piu' (e' un solo account, con una
-   sola password): lo si scrive in testa, perche' chi trova due email
-   usa quasi sempre la piu' vecchia.
+   collegamento. `email`: l'indirizzo con cui si entra (quello
+   normalizzato del profilo). `sostituisce` dice se la persona aveva gia'
+   ricevuto una password, che adesso non vale piu' (e' un solo account,
+   con una sola password): lo si scrive in testa, perche' chi trova due
+   email usa quasi sempre la piu' vecchia.
      true | 'evento'  -> credenziali gia' ricevute per QUESTO evento
-                          (reinvio, nome utente corretto...);
-     'altro-evento'   -> ricevute per un altro evento: nome utente
-                          uguale, password nuova.
+                          (reinvio, indirizzo corretto...);
+     'altro-evento'   -> ricevute per un altro evento (succede solo con
+                          il "Reinvia" del gestore: di solito chi ha gia'
+                          una password riceve l'avviso «anche», senza).
    ============================================================ */
 const FRASE_SOSTITUISCE = 'Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.';
-const FRASE_ALTRO_EVENTO = 'Avevi già ricevuto le credenziali per un altro evento: il nome utente è lo stesso, '
+const FRASE_ALTRO_EVENTO = 'Avevi già ricevuto le credenziali per un altro evento: l\'email per entrare è la stessa, '
     + 'la password è nuova e quella di prima non è più valida. Da adesso usa questa, per tutti gli eventi.';
 function fraseSostituzione(v) {
     if (v === true || v === 'evento') return FRASE_SOSTITUISCE;
     if (v === 'altro-evento') return FRASE_ALTRO_EVENTO;
     return '';
 }
+/* «Per entrare nella diretta: vai su <indirizzo>, scrivi la tua email
+   <email> e questa password: <password>». Nell'HTML l'indirizzo e' un
+   collegamento e la password sta a spaziatura fissa. */
+function frasePerEntrare(email, password) {
+    const pagina = C.linkDiretta();
+    return {
+        testo: 'Per entrare nella diretta: vai su ' + pagina + ', scrivi la tua email ' + email + ' e questa password: ' + password,
+        html: paragrafoHtml(esc('Per entrare nella diretta: vai su ') + link(pagina, pagina) + esc(', scrivi la tua email ')
+            + '<strong style="word-break:break-all;">' + esc(email) + '</strong>' + esc(' e questa password: ')
+            + '<span style="font-family:' + MONO + ';font-size:18px;font-weight:bold;letter-spacing:1.5px;color:' + COLORE.scuro + ';">' + esc(password) + '</span>')
+    };
+}
 
 function credenziali(opz) {
     const o = opz || {};
     const ev = datiEvento(o.evento);
-    const nomeUtente = String(o.nomeUtente || '');
+    const email = emailDi(o);
     const password = String(o.password || '');
-    const accedi = linkAccesso(nomeUtente, idEventoDi(o));
+    const accedi = linkAccesso(idEventoDi(o));
     const a = contatti(o.assistenza);
     const altre = fraseAltreStrade(o.paginaEvento || (o.evento && o.evento.paginaEvento));
     const quando = [ev.giorno, orario(ev)].filter(Boolean).join(', ');
     const oggetto = (o.prova ? '[PROVA] ' : '') + 'Le tue credenziali per la diretta - ' + ev.titolo;
-    const sommario = saluto(o.nome, o.cognome) + ' ecco nome utente e password per seguire in diretta ' + ev.titolo
-        + (ev.giorno ? ', ' + ev.giorno + (ev.dalle ? ' dalle ' + ev.dalle + ORA_ITALIANA : '') : '') + '.';
+    const sommario = saluto(o.nome, o.cognome) + ' ecco come entrare nella diretta di ' + ev.titolo
+        + (ev.giorno ? ', ' + ev.giorno + (ev.dalle ? ' dalle ' + ev.dalle + ORA_ITALIANA : '') : '') + ': la tua email e la password qui sotto.';
     const fraseSostituisce = fraseSostituzione(o.sostituisce);
-    const numero = fraseNumero(nomeUtente);
-    const fraseCopia = 'Nome utente e password vanno scritti così come sono: nella password maiuscole e minuscole contano. '
-        + 'Aprendo il pulsante qui sotto trovi il nome utente già scritto.';
+    const perEntrare = frasePerEntrare(email, password);
+    const fraseCopia = 'La password va scritta così com\'è: maiuscole e minuscole contano. È la stessa per tutti gli eventi a cui sei iscritto.';
     const frasePersonali = 'Le credenziali sono personali: ti chiediamo di non inoltrare questa email.';
 
-    const html = involucro(oggetto, 'Nome utente e password per la diretta' + (ev.giorno ? ' di ' + ev.giorno : '') + '.',
-        (o.prova ? fasciaProva() : '')
+    const html = involucro(oggetto, 'La tua email e la password per la diretta' + (ev.giorno ? ' di ' + ev.giorno : '') + '.',
+        (o.prova ? fasciaProva(FRASE_PROVA) : '')
         + testata('Le tue credenziali per la diretta', sommario)
         + corpo(
             (fraseSostituisce ? nota(fraseSostituisce) + spazio(22) : '')
@@ -460,11 +501,12 @@ function credenziali(opz) {
                 + rigaBox('Orario', orario(ev))
                 + rigaBox('In diretta da', ev.luogo)
             )
-            + spazio(30)
+            + spazio(26)
+            + perEntrare.html
+            + spazio(22)
             + occhiello('Le tue credenziali')
             + spazio(12)
-            + riquadroCredenziali(nomeUtente, password)
-            + (numero ? spazio(14) + nota(numero) : '')
+            + riquadroCredenziali(email, password)
             + spazio(14)
             + notaPiccola(fraseCopia)
             + spazio(28)
@@ -479,54 +521,126 @@ function credenziali(opz) {
             + elenco(SE_NON_ENTRI)
             + spazio(18)
             + assistenzaHtml(a)
-            + spazio(22)
+            + spazio(18)
+            + notaPiccola(FRASE_SPAM)
+            + spazio(10)
             + notaPiccola(frasePersonali)
         )
         + piede(MOTIVO, annoDi(o.adesso)));
 
     const testo = [
-        o.prova ? 'EMAIL DI PROVA: così la riceveranno i partecipanti. Nome, nome utente e password qui sotto sono di esempio e non funzionano.' : '',
+        o.prova ? 'EMAIL DI PROVA: ' + FRASE_PROVA : '',
         'LE TUE CREDENZIALI PER LA DIRETTA',
         sommario,
         fraseSostituisce,
         'Evento: ' + ev.titolo + (quando ? '\nQuando: ' + quando : '') + (ev.luogo ? '\nIn diretta da: ' + ev.luogo : ''),
-        'Nome utente: ' + nomeUtente + '\nPassword: ' + password,
-        numero,
+        perEntrare.testo,
+        'La tua email: ' + email + '\nPassword: ' + password,
         fraseCopia,
         'Accedi alla diretta: ' + accedi,
         altre.testo,
         'Se non riesci a entrare:\n' + SE_NON_ENTRI.map(v => '- ' + v).join('\n'),
         fraseAssistenza(a),
+        FRASE_SPAM,
         frasePersonali
     ].concat(piedeTesto(MOTIVO)).filter(Boolean).join('\n\n');
     return finisci(oggetto, html, testo);
 }
 
 /* ============================================================
+   ISCRITTO ANCHE A UN ALTRO EVENTO
+   Per chi ha GIA' una password (un account solo per tutti gli eventi):
+   iscritto a un evento in piu' (dal modulo del sito o dal file della
+   gestione), non riceve una password nuova, che cancellerebbe quella
+   che ha. Riceve questa: «Sei iscritto anche a <evento>: entra con la
+   tua email e la password che hai già; se non la ricordi usa "Password
+   dimenticata?"». La password qui non c'e' MAI, nemmeno se qualcuno la
+   passa.
+   ============================================================ */
+function iscrittoAnche(opz) {
+    const o = opz || {};
+    const ev = datiEvento(o.evento);
+    const email = emailDi(o);
+    const accedi = linkAccesso(idEventoDi(o));
+    const dimenticata = linkDimenticata();
+    const a = contatti(o.assistenza);
+    const altre = fraseAltreStrade(o.paginaEvento || (o.evento && o.evento.paginaEvento));
+    const quando = [ev.giorno, orario(ev)].filter(Boolean).join(', ');
+    const oggetto = (o.prova ? '[PROVA] ' : '') + 'Sei iscritto anche a ' + ev.titolo;
+    const sommario = saluto(o.nome, o.cognome) + ' sei iscritto anche alla diretta di ' + ev.titolo
+        + (ev.giorno ? ', ' + ev.giorno + (ev.dalle ? ' dalle ' + ev.dalle + ORA_ITALIANA : '') : '') + '.';
+    const inizio = 'Sei iscritto anche a ' + ev.titolo + ': entra con la tua email e la password che hai già; se non la ricordi usa ';
+    const fraseStessa = 'La password è la stessa per tutti gli eventi a cui sei iscritto: non ne arriva una nuova.';
+
+    const html = involucro(oggetto, sommario,
+        (o.prova ? fasciaProva(FRASE_PROVA_SENZA_PASSWORD) : '')
+        + testata('Sei iscritto anche a questa diretta', sommario)
+        + corpo(
+            box(
+                rigaBox('Evento', ev.titolo)
+                + rigaBox('Data', ev.giorno)
+                + rigaBox('Orario', orario(ev))
+                + rigaBox('In diretta da', ev.luogo)
+            )
+            + spazio(26)
+            + paragrafoHtml(esc(inizio) + '"' + link(dimenticata, 'Password dimenticata?') + '".')
+            + spazio(22)
+            + riquadroEmail(email)
+            + spazio(14)
+            + notaPiccola(fraseStessa)
+            + spazio(28)
+            + bottone('Accedi alla diretta', accedi, true)
+            + spazio(14)
+            + indirizzoPerEsteso(accedi)
+            + spazio(24)
+            + altre.html
+            + spazio(22)
+            + assistenzaHtml(a)
+            + spazio(18)
+            + notaPiccola(FRASE_SPAM)
+        )
+        + piede(MOTIVO, annoDi(o.adesso)));
+
+    const testo = [
+        o.prova ? 'EMAIL DI PROVA: ' + FRASE_PROVA_SENZA_PASSWORD : '',
+        'SEI ISCRITTO ANCHE A QUESTA DIRETTA',
+        sommario,
+        'Evento: ' + ev.titolo + (quando ? '\nQuando: ' + quando : '') + (ev.luogo ? '\nIn diretta da: ' + ev.luogo : ''),
+        inizio + '"Password dimenticata?" (' + dimenticata + ').',
+        'La tua email: ' + email,
+        fraseStessa,
+        'Accedi alla diretta: ' + accedi,
+        altre.testo,
+        fraseAssistenza(a),
+        FRASE_SPAM
+    ].concat(piedeTesto(MOTIVO)).filter(Boolean).join('\n\n');
+    return finisci(oggetto, html, testo);
+}
+
+/* ============================================================
    I PROMEMORIA: 'giorno' (il giorno prima) e 'ora' (un'ora prima)
-   Portano il collegamento e il nome utente, MAI la password: anche se
-   chi chiama la passasse, qui non la si legge nemmeno. Arrivano solo a
-   chi ha gia' ricevuto le credenziali (lo decide diretta-invio.js), e
-   per chi le ha perse c'e' il collegamento diretto a "Password
-   dimenticata?". Le parole ("domani", "oggi", "e' cominciata") si
-   scelgono sull'istante in cui l'email parte davvero (`adesso`), non
-   su quello per cui era prevista.
+   Portano il collegamento e l'email con cui si entra, MAI la password:
+   anche se chi chiama la passasse, qui non la si legge nemmeno.
+   Arrivano solo a chi ha gia' ricevuto le credenziali (lo decide
+   diretta-invio.js), e per chi le ha perse c'e' il collegamento diretto
+   a "Password dimenticata?". Le parole ("domani", "oggi", "e'
+   cominciata") si scelgono sull'istante in cui l'email parte davvero
+   (`adesso`), non su quello per cui era prevista.
    ============================================================ */
 function promemoria(opz) {
     const o = opz || {};
     const tipo = o.tipo === 'ora' ? 'ora' : 'giorno';
     const ev = datiEvento(o.evento);
     const adesso = Number.isFinite(Number(o.adesso)) ? Number(o.adesso) : Date.now();
-    const nomeUtente = String(o.nomeUtente || '');
-    const accedi = linkAccesso(nomeUtente, idEventoDi(o));
-    const dimenticata = linkDimenticata(nomeUtente);
+    const email = emailDi(o);
+    const accedi = linkAccesso(idEventoDi(o));
+    const dimenticata = linkDimenticata();
     const a = contatti(o.assistenza);
     const altre = fraseAltreStrade(o.paginaEvento || (o.evento && o.evento.paginaEvento));
     const giorni = Number.isFinite(ev.inizio) ? giorniFra(adesso, ev.inizio) : NaN;
     const relativo = quandoRelativo(ev, adesso);
     const cominciata = Number.isFinite(ev.inizio) && adesso >= ev.inizio;
     const quando = [ev.giorno, orario(ev)].filter(Boolean).join(', ');
-    const numero = fraseNumero(nomeUtente);
     let titolo, sommario, oggetto;
     if (tipo === 'giorno') {
         titolo = giorni === 0 ? 'Oggi la diretta' : giorni === 1 ? 'Domani la diretta' : 'Promemoria della diretta';
@@ -544,21 +658,21 @@ function promemoria(opz) {
             + '. Puoi già entrare: la pagina ti mostra il conto alla rovescia e parte da sola.';
     }
     if (o.prova) oggetto = '[PROVA] ' + oggetto;
-    const frasePassword = 'La password è quella dell\'email con le credenziali.';
+    const frasePassword = 'Per entrare scrivi la tua email e la password che ti abbiamo mandato con le credenziali.';
     const fraseDimenticata = 'Non trovi la password? Usa «Password dimenticata?» nella pagina di accesso';
     const dopoDimenticata = ': ti mandiamo un collegamento per sceglierne una nuova.';
 
     const html = involucro(oggetto, sommario,
-        (o.prova ? fasciaProva() : '')
+        (o.prova ? fasciaProva(FRASE_PROVA_SENZA_PASSWORD) : '')
         + testata(titolo, sommario)
         + corpo(
             box(
                 rigaBox('Evento', ev.titolo)
                 + rigaBox('Data', ev.giorno)
                 + rigaBox('Orario', orario(ev))
-                + rigaBox('Nome utente', nomeUtente, true)
             )
-            + (numero ? spazio(14) + nota(numero) : '')
+            + spazio(22)
+            + riquadroEmail(email)
             + spazio(28)
             + bottone('Accedi alla diretta', accedi, true)
             + spazio(14)
@@ -570,35 +684,37 @@ function promemoria(opz) {
             + altre.html
             + spazio(22)
             + assistenzaHtml(a)
+            + spazio(18)
+            + notaPiccola(FRASE_SPAM)
         )
         + piede(MOTIVO, annoDi(adesso)));
 
     const testo = [
-        o.prova ? 'EMAIL DI PROVA: così la riceveranno i partecipanti. Nome e nome utente qui sotto sono di esempio.' : '',
+        o.prova ? 'EMAIL DI PROVA: ' + FRASE_PROVA_SENZA_PASSWORD : '',
         titolo.toUpperCase(),
         sommario,
-        'Evento: ' + ev.titolo + (quando ? '\nQuando: ' + quando : '') + '\nNome utente: ' + nomeUtente,
-        numero,
+        'Evento: ' + ev.titolo + (quando ? '\nQuando: ' + quando : '') + '\nLa tua email: ' + email,
         'Accedi alla diretta: ' + accedi,
         frasePassword + ' ' + fraseDimenticata + ': ' + dimenticata,
         altre.testo,
-        fraseAssistenza(a)
+        fraseAssistenza(a),
+        FRASE_SPAM
     ].concat(piedeTesto(MOTIVO)).filter(Boolean).join('\n\n');
     return finisci(oggetto, html, testo);
 }
 
 /* ============================================================
    LA REIMPOSTAZIONE DELLA PASSWORD
-   Per i partecipanti ricorda il nome utente (e' la cosa che si
-   dimentica insieme alla password); per i gestori e' l'accesso alla
-   gestione, e il nome utente non c'e': entrano con la loro email.
+   Per i partecipanti ricorda l'email con cui si entra (`email`, se
+   arriva); per i gestori e' l'accesso alla gestione (entrano anche loro
+   con la loro email, ma il riquadro non serve).
    ============================================================ */
 function reimpostazione(opz) {
     const o = opz || {};
     const collegamento = linkReimpostazione(o.link);
     const a = contatti(o.assistenza);
     const gestore = !!o.perGestore;
-    const nomeUtente = String(o.nomeUtente || '');
+    const email = gestore ? '' : emailDi(o);
     const oggetto = gestore
         ? 'Accesso alla gestione della diretta - Next Generation Business'
         : 'Nuova password per la diretta - Next Generation Business';
@@ -610,40 +726,42 @@ function reimpostazione(opz) {
     const fraseIgnora = gestore
         ? 'Se non hai chiesto tu l\'accesso, ignora questa email: senza il collegamento nessuno può entrare.'
         : 'Se non hai chiesto tu una nuova password, ignora questa email: quella attuale resta valida.';
+    const fraseDopo = 'Poi entri nella diretta con la tua email e la password nuova, per tutti gli eventi a cui sei iscritto.';
     const etichetta = gestore ? 'Imposta la password' : 'Scegli la nuova password';
-    const numero = gestore ? '' : fraseNumero(nomeUtente);
 
     const html = involucro(oggetto, sommario,
         testata(titolo, sommario)
         + corpo(
-            (!gestore && nomeUtente
-                ? box(rigaBox('Nome utente', nomeUtente, true)) + (numero ? spazio(14) + nota(numero) : '') + spazio(28)
-                : '')
+            (email ? riquadroEmail(email) + spazio(28) : '')
             + bottone(etichetta, collegamento, true)
             + spazio(14)
             + indirizzoPerEsteso(collegamento)
             + spazio(24)
+            + (gestore ? '' : paragrafo(fraseDopo) + spazio(14))
             + paragrafo(fraseValidita + ' ' + fraseIgnora)
             + spazio(18)
             + assistenzaHtml(a)
+            + spazio(18)
+            + notaPiccola(FRASE_SPAM)
         )
         + piede(gestore ? MOTIVO_GESTORE : MOTIVO, annoDi(o.adesso)));
 
     const testo = [
         titolo.toUpperCase(),
         sommario,
-        !gestore && nomeUtente ? 'Nome utente: ' + nomeUtente : '',
-        !gestore && nomeUtente ? numero : '',
+        email ? 'La tua email: ' + email : '',
         etichetta + ': ' + collegamento,
+        gestore ? '' : fraseDopo,
         fraseValidita + ' ' + fraseIgnora,
-        fraseAssistenza(a)
+        fraseAssistenza(a),
+        FRASE_SPAM
     ].concat(piedeTesto(gestore ? MOTIVO_GESTORE : MOTIVO)).filter(Boolean).join('\n\n');
     return finisci(oggetto, html, testo);
 }
 
 module.exports = {
-    credenziali, promemoria, reimpostazione,
+    credenziali, iscrittoAnche, promemoria, reimpostazione,
     // per le prove e per chi compone le email di prova
-    esc, datiEvento, linkPaginaEvento, linkAccesso, linkDimenticata, fraseNumero, giorniFra,
-    PAGINA_VALIDA, MONO, FRASE_SOSTITUISCE, FRASE_ALTRO_EVENTO
+    esc, datiEvento, linkPaginaEvento, linkAccesso, linkDimenticata, giorniFra,
+    PAGINA_VALIDA, MONO, FRASE_SOSTITUISCE, FRASE_ALTRO_EVENTO, FRASE_SPAM
 };

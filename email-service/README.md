@@ -3044,8 +3044,9 @@ a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
 ## Diretta degli eventi (`/api/diretta-*`)
 
 Quattro funzioni e le loro librerie (`api/diretta-*.js`, `lib/diretta-*.js`)
-servono la nuova area `/diretta/`: accesso dei partecipanti con nome utente e
-password, gestione, stato pubblico "in onda" e un lavoro programmato ogni 5
+servono la nuova area `/diretta/`: accesso dei partecipanti con la propria
+**email** e la password generata dal servizio (nessun nome utente), gestione,
+stato pubblico "in onda" e un lavoro programmato ogni 5
 minuti (`/api/diretta-cron`: `maxDuration` 300 s, budget 240 s, lucchetto
 330 s). Usano un progetto Firebase **separato** (`ngb-eventi`) con la sua
 chiave, `DIRETTA_FIREBASE_SERVICE_ACCOUNT`, e un'app firebase-admin con nome
@@ -3054,3 +3055,13 @@ non sono cambiate. Condividono solo le variabili `SMTP_*` (Brevo),
 `APP_BASE_URL`, `ALLOWED_ORIGIN`, `CRON_SECRET` e `BREVO_API_KEY`. Tutto il
 resto (variabili nuove, passi di configurazione, prove, stime) sta in
 [`diretta/README.md`](../diretta/README.md).
+
+L'unico punto di contatto con le altre funzioni e' in `api/iscrizione-nuova.js`:
+per un'iscrizione `online` con email, **dopo** aver salvato la scheda e mandato
+la conferma, chiama `lib/diretta-iscrizione.js` (`dalModulo`, dentro un
+try/catch). Se sull'evento della diretta con la stessa pagina il gestore ha
+acceso "Invia subito la password a chi si iscrive dal modulo del sito"
+(`iscrizioniAutomatiche`), la persona riceve subito la password (o, se ha gia'
+un account, l'avviso "Sei iscritto anche a..."). Se la diretta non e'
+configurata non succede niente, e la risposta del modulo non aspetta piu' di
+3 secondi (il resto finisce con `waitUntil`).

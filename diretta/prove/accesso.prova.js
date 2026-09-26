@@ -17,13 +17,24 @@
      comune ad altre prove).
 
    COSA DIMOSTRA.
-   - Accesso con "Mario Rossi" scritto con maiuscole e spazi; il token
+   - Si entra con l'EMAIL: accesso con l'email scritta in maiuscolo e
+     con spazi prima e dopo; la risposta porta l'email (niente nome
+     utente); il vecchio campo nomeUtente non si accetta piu'. Il token
      restituito funziona (signInWithCustomToken) e porta il claim eventi;
      con quel token si legge il proprio evento e non il profilo altrui.
    - 5 password sbagliate di fila -> 429 con l'attesa (30 s), poi 60 s,
-     poi 120 s; durante l'attesa nessuna verifica arriva a Google.
-   - Nome inesistente: stessa risposta di una password sbagliata, e
-     nessuna verifica.
+     poi 120 s; durante l'attesa nessuna verifica arriva a Google. Gli
+     id dei contatori dei tentativi sono impronte (niente indirizzi).
+   - Email non iscritta (e un testo che non e' un'email): stessa
+     risposta di una password sbagliata («Email o password non
+     corretti.») e lo stesso tempo (mai prima di 450 ms, mediane vicine),
+     senza nessuna verifica a Google.
+   - L'import dalla gestione ('crea') non manda nessuna email.
+   - L'interruttore iscrizioniAutomatiche ('evento-iscrizioni' ed
+     evento-salva): spento di base, acceso solo con la pagina
+     dell'evento, una pagina su un evento solo (409), resta acceso
+     quando cambiano il video o la firma, non finisce nel documento
+     pubblico dell'evento.
    - Account disattivato: con l'account chiuso anche su Firebase Auth la
      risposta e' identica a una password sbagliata (DECISIONI T1: Google
      risponde USER_DISABLED anche con la password sbagliata, e dirlo
@@ -39,11 +50,14 @@
      (anche con la password giusta), mentre da un'altra rete si entra.
    - 60 "password dimenticata" CONTEMPORANEE da una rete, per 60 persone
      diverse: al massimo 20 email; tutte le richieste contate.
-   - Password dimenticata con nome utente, con email, con nome o email
-     inesistenti: sempre la stessa risposta, dopo lo stesso tempo; con
-     la posta finta, l'email con /diretta/reimposta.html?oobCode= arriva
-     all'indirizzo VERO e solo nei casi giusti, e il collegamento
-     funziona.
+   - Password dimenticata per un iscritto (email scritta in maiuscolo,
+     con spazi, anche con il vecchio campo identificativo) e per chi non
+     e' iscritto (o scrive un vecchio nome utente): sempre la stessa
+     risposta («Se l'indirizzo è iscritto alla diretta...»), dopo lo
+     stesso tempo; con la posta finta, l'email con
+     /diretta/reimposta.html?oobCode= (senza l'email nel collegamento)
+     arriva SOLO agli iscritti, all'indirizzo vero, e il collegamento
+     funziona; a chi non e' iscritto non parte niente.
    - Gestione: senza token 401; token di un non gestore 403; chi si
      registra da solo con l'email del gestore riceve 403 e, dopo
      'gestore-accesso', perde l'accesso; il gestore attivato entra.
@@ -122,6 +136,7 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:' + PORTA_AUTH;
 const SERVIZIO = path.resolve(__dirname, '../../email-service');
 const admin = require(path.join(SERVIZIO, 'node_modules/firebase-admin'));
 const C = require(path.join(SERVIZIO, 'lib/diretta-comune'));
+const EM = require(path.join(SERVIZIO, 'lib/diretta-email'));
 const app = admin.initializeApp({ projectId: PROGETTO }, 'prova-accesso');
 const db = app.firestore();
 const auth = app.auth();
@@ -241,7 +256,7 @@ async function chiama(funzione, corpo, opz) {
     try { dati = JSON.parse(testo); } catch (_) { /* non JSON */ }
     return { stato: r.status, dati: dati || {}, testo: testo, ms: Date.now() - t0, h: r.headers };
 }
-const entra = (nomeUtente, password, opz) => chiama('diretta-accesso', { azione: 'entra', nomeUtente, password }, opz);
+const entra = (email, password, opz) => chiama('diretta-accesso', { azione: 'entra', email, password }, opz);
 const gestione = (corpo, token) => chiama('diretta-gestione', corpo, { token });
 async function rest(metodo, corpo) {
     const r = await fetch(AUTH_REST + metodo + '?key=finta', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo) });
@@ -273,7 +288,9 @@ async function creaPresenza(idToken, uid, sessione) {
     return r.status;
 }
 const password = () => 'Pr' + crypto.randomBytes(6).toString('base64url') + '7k';
-const coppia = (nome, ip) => db.collection('tentativi').doc(nome + '_' + C.improntaIp(ip));
+// la coppia email + rete dei tentativi: impronta dell'email e impronta della rete (come le calcola il servizio)
+const coppia = (email, ip) => db.collection('tentativi').doc(EM.chiaveEmail(email) + '_' + C.improntaIp(ip));
+const mediana = v => v.slice().sort((a, b) => a - b)[Math.floor(v.length / 2)];
 // il contatore della rete per la finestra fissa di 15 minuti che contiene `quando` (come lo calcola il servizio)
 const QUINDICI_MINUTI = 15 * 60 * 1000;
 async function contatoreRete(ip, t0, t1) {
@@ -300,21 +317,20 @@ async function fuoriDalBordo(finestraMs, margineMs) {
    conti dell'evento di Napoli. */
 async function creaPersoneVeloci(quante, prefisso, idEvento) {
     const persone = Array.from({ length: quante }, (_, i) => {
-        const nomeUtente = prefisso + i;
-        return { uid: 'p' + crypto.randomBytes(10).toString('hex'), nomeUtente: nomeUtente, email: nomeUtente + '@raffica.prova' };
+        const nome = prefisso + i;
+        return { uid: 'p' + crypto.randomBytes(10).toString('hex'), nome: nome, email: nome + '@raffica.prova' };
     });
-    const r = await auth.importUsers(persone.map(p => ({ uid: p.uid, email: C.emailTecnica(p.uid), displayName: 'Prova ' + p.nomeUtente, customClaims: { eventi: [idEvento] } })));
+    const r = await auth.importUsers(persone.map(p => ({ uid: p.uid, email: C.emailTecnica(p.uid), displayName: 'Prova ' + p.nome, customClaims: { eventi: [idEvento] } })));
     if (r.failureCount) throw new Error('importUsers: ' + r.failureCount + ' falliti');
     const ora = admin.firestore.Timestamp.now();
     for (const gruppo of C.aGruppi(persone, 100)) {
         const b = db.batch();
         gruppo.forEach(p => {
             b.set(db.collection('partecipanti').doc(p.uid), {
-                uid: p.uid, nomeUtente: p.nomeUtente, nome: 'Prova', cognome: p.nomeUtente, email: p.email, emailNorm: p.email, azienda: '',
+                uid: p.uid, nome: 'Prova', cognome: p.nome, email: p.email, emailNorm: p.email, azienda: '',
                 idEvento: idEvento, eventi: [idEvento], stato: 'attivo', authCreato: true, ultimoAccesso: null,
                 invii: {}, promemoria: {}, creato: ora, aggiornato: ora
             });
-            b.set(db.collection('nomiUtente').doc(p.nomeUtente), { uid: p.uid, base: p.nomeUtente, creato: ora });
             b.set(db.collection('indirizzi').doc(p.email), { uid: p.uid, creato: ora });
             b.set(db.collection('sessioni').doc(p.uid), { stato: 'attivo', sessioneAttiva: null, aggiornato: ora });
         });
@@ -570,24 +586,69 @@ async function provaVideoWebTv(tokG, P, segrete) {
             ['Mario', 'Rossi', 'mario.rossi@esempio.it'], ['Luigi', 'Verdi', 'luigi.verdi@esempio.it'], ['Anna', 'Bianchi', 'anna.bianchi@esempio.it'],
             ['Carla', 'Neri', 'carla.neri@esempio.it'], ['Dario', 'Blu', 'dario.blu@esempio.it'], ['Elena', 'Gialli', 'elena.gialli@esempio.it']
         ];
+        const postaPrimaCrea = leggiPosta().length;
         const crea = await gestione({ azione: 'crea', idEvento: EVENTO, righe: persone.map((p, i) => ({ riga: i + 2, nome: p[0], cognome: p[1], email: p[2], azienda: 'Prova srl' })) }, tokG);
-        vero(crea.stato === 200 && crea.dati.risultati.every(r => r.esito === 'creato'), 'creati 6 partecipanti');
+        vero(crea.stato === 200 && crea.dati.risultati.every(r => r.esito === 'creato' && !('nomeUtente' in r)), 'creati 6 partecipanti (import per email, nessun nome utente)');
+        await pausa(300);
+        vero(leggiPosta().length === postaPrimaCrea, 'l\'import NON manda email: la posta finta non cambia (le credenziali partono solo con «Invia le credenziali»)');
+        vero((await db.collection('partecipanti').where('eventi', 'array-contains', EVENTO).get()).docs.every(d => d.data().invii[EVENTO].stato === 'da inviare'),
+            'dopo l\'import le credenziali sono tutte "da inviare"');
+        // P.mariorossi, P.luigiverdi...: la persona, con la sua email e la password impostata dalla prova
         const P = {};
-        for (const r of crea.dati.risultati) {
+        for (const [i, r] of crea.dati.risultati.entries()) {
             const pw = password(); segrete.push(pw);
             await auth.updateUser(r.uid, { password: pw });
-            P[r.nomeUtente] = { uid: r.uid, password: pw };
+            P[(persone[i][0] + persone[i][1]).toLowerCase()] = { uid: r.uid, password: pw, email: persone[i][2] };
         }
 
+        const ant = await gestione({ azione: 'anteprima', idEvento: EVENTO, righe: [
+            { nome: 'Mario', cognome: 'Rossi', email: ' MARIO.ROSSI@esempio.it' }, { nome: 'Nuovo', cognome: 'Arrivato', email: 'nuovo@esempio.it' },
+            { nome: 'Altro', cognome: 'Nome', email: 'luigi.verdi@esempio.it' }] }, tokG);
+        vero(ant.stato === 200 && JSON.stringify(ant.dati.righe.map(r => r.esito)) === '["gia-iscritto","nuovo","email-condivisa"]' && ant.dati.pronto === false,
+            'anteprima via API: gia-iscritto, nuovo, email-condivisa (e non pronta)', ant.testo.slice(0, 300));
+
+        /* ================= L'INTERRUTTORE DELLE ISCRIZIONI DAL MODULO ================= */
+        console.log('\nL\'interruttore «Invia subito la password a chi si iscrive dal modulo del sito»');
+        vero(ev.dati.evento.iscrizioniAutomatiche === false, 'spento di base');
+        const accendi = await gestione({ azione: 'evento-iscrizioni', idEvento: EVENTO, iscrizioniAutomatiche: true }, tokG);
+        vero(accendi.stato === 200 && accendi.dati.evento.iscrizioniAutomatiche === true && accendi.dati.evento.titolo === ev.dati.evento.titolo,
+            'evento-iscrizioni: acceso (gli altri campi restano)', accendi.testo.slice(0, 200));
+        vero(((await db.collection('eventiRiservati').doc(EVENTO).get()).data() || {}).iscrizioniAutomatiche === true
+            && (await db.collection('eventi').doc(EVENTO).get()).data().iscrizioniAutomatiche === undefined, 'sta nel documento riservato, non in quello pubblico dell\'evento');
+        const valoreStrano = await gestione({ azione: 'evento-iscrizioni', idEvento: EVENTO, iscrizioniAutomatiche: 'si' }, tokG);
+        vero(valoreStrano.stato === 400 && valoreStrano.dati.codice === 'iscrizioniAutomatiche', 'un valore che non e\' vero/falso: 400');
+        const altroEv = await gestione({ azione: 'evento-salva', evento: { nuovo: true, id: 'napoli-bis-2026', titolo: 'Napoli bis', data: '2026-10-02', oraInizio: '09:00', oraFine: '12:00', paginaEvento: '/napoli_ottobre_2026', iscrizioniAutomatiche: true } }, tokG);
+        vero(altroEv.stato === 409 && altroEv.dati.codice === 'iscrizioni-doppie', 'un altro evento con la stessa pagina e l\'interruttore acceso: 409 iscrizioni-doppie', altroEv.testo.slice(0, 200));
+        const senzaPagina = await gestione({ azione: 'evento-salva', evento: { nuovo: true, id: 'senza-pagina-2026', titolo: 'Senza pagina', data: '2026-10-03', oraInizio: '09:00', oraFine: '12:00', iscrizioniAutomatiche: true } }, tokG);
+        vero(senzaPagina.stato === 400 && senzaPagina.dati.codice === 'pagina', 'acceso senza la pagina dell\'evento: 400 pagina');
+        // il documento riservato si riscrive per intero quando cambiano il video o la firma: l'interruttore deve restare
+        const cambioVideo = await gestione({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: LINK_AZOTO_30 }, tokG);
+        const flagDopoVideo = ((await db.collection('eventiRiservati').doc(EVENTO).get()).data() || {});
+        segrete.push('segreto-di-passaggio-1');
+        const cambioFirma = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, firma: { schema: 'nginx', segreto: 'segreto-di-passaggio-1', durataOre: 2 } } }, tokG);
+        const flagDopoFirma = ((await db.collection('eventiRiservati').doc(EVENTO).get()).data() || {});
+        const rimesso = await gestione({ azione: 'evento-video', idEvento: EVENTO, azotoUrl: CODICE_AZOTO }, tokG);
+        const senzaFirma = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, firma: { schema: 'nessuna' } } }, tokG);
+        vero(cambioVideo.stato === 200 && flagDopoVideo.azotoUrl === LINK_AZOTO_30 && flagDopoVideo.iscrizioniAutomatiche === true
+            && cambioFirma.stato === 200 && flagDopoFirma.firma.schema === 'nginx' && flagDopoFirma.iscrizioniAutomatiche === true
+            && rimesso.stato === 200 && rimesso.dati.evento.azotoUrl === LINK_AZOTO && senzaFirma.stato === 200 && senzaFirma.dati.evento.iscrizioniAutomatiche === true,
+        'cambiando il player di Azoto e la firma l\'interruttore resta acceso (poi tutto torna com\'era)');
+        const spegni = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, iscrizioniAutomatiche: false } }, tokG);
+        const elencoIscr = await gestione({ azione: 'eventi' }, tokG);
+        vero(spegni.stato === 200 && spegni.dati.evento.iscrizioniAutomatiche === false && elencoIscr.dati.eventi.every(e => e.iscrizioniAutomatiche === false),
+            'evento-salva lo spegne, e l\'elenco degli eventi lo dice');
+
         /* ================= ENTRA ================= */
-        console.log('\nAccesso');
+        console.log('\nAccesso con l\'email');
         const v0 = verifiche;
         const tMario = Date.now();
-        const mario = await entra('  MARIO   Rossi ', P.mariorossi.password, { ip: '10.0.0.9' });
-        vero(mario.stato === 200 && mario.dati.nomeUtente === 'mariorossi' && mario.dati.idEvento === EVENTO && !!mario.dati.token,
-            '"  MARIO   Rossi " entra come mariorossi', mario.stato + ' ' + mario.testo.slice(0, 200));
-        vero(!/password/i.test(Object.keys(mario.dati).join(',')) && mario.dati.nome === 'Mario' && /^[0-9a-f]{24}$/.test(mario.dati.sessione),
-            'risposta: token, sessione, evento, nome (niente password)');
+        const mario = await entra('  MARIO.Rossi@ESEMPIO.it ', P.mariorossi.password, { ip: '10.0.0.9' });
+        vero(mario.stato === 200 && mario.dati.email === 'mario.rossi@esempio.it' && mario.dati.idEvento === EVENTO && !!mario.dati.token,
+            '"  MARIO.Rossi@ESEMPIO.it " (maiuscole e spazi) entra come mario.rossi@esempio.it', mario.stato + ' ' + mario.testo.slice(0, 200));
+        vero(!/password/i.test(Object.keys(mario.dati).join(',')) && !('nomeUtente' in mario.dati) && mario.dati.nome === 'Mario' && /^[0-9a-f]{24}$/.test(mario.dati.sessione),
+            'risposta: token, sessione, evento, nome, email (niente password, niente nome utente)');
+        const vecchioCampo = await chiama('diretta-accesso', { azione: 'entra', nomeUtente: 'mariorossi', password: P.mariorossi.password }, { ip: '10.0.0.9' });
+        vero(vecchioCampo.stato === 400 && vecchioCampo.dati.codice === 'credenziali' && /email/.test(vecchioCampo.dati.msg), 'il vecchio campo nomeUtente non si accetta piu\' (400 «' + vecchioCampo.dati.msg + '»)');
         uguale(verifiche - v0, 1, 'una verifica della password (Identity Toolkit)');
         const reteMario = await contatoreRete('10.0.0.9', tMario, Date.now());
         vero(reteMario.inCorso === 0 && reteMario.falliti === 0,
@@ -599,7 +660,8 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const letturaAltro = await fetch(FS_DOC + '/partecipanti/' + P.luigiverdi.uid, { headers: { authorization: 'Bearer ' + idTokMario } });
         vero(letturaEv.status === 200 && letturaAltro.status === 403, 'con quel token legge il suo evento (200) e NON il profilo di un altro (403)');
         const accessi = await db.collection('accessi').where('uid', '==', P.mariorossi.uid).get();
-        vero(accessi.size === 1 && accessi.docs[0].data().dispositivo === 'iPhone · Safari', 'accesso registrato in accessi (dispositivo: ' + (accessi.size ? accessi.docs[0].data().dispositivo : '-') + ')');
+        vero(accessi.size === 1 && accessi.docs[0].data().dispositivo === 'iPhone · Safari' && accessi.docs[0].data().email === 'mario.rossi@esempio.it' && accessi.docs[0].data().nomeUtente === undefined,
+            'accesso registrato in accessi con l\'email (dispositivo: ' + (accessi.size ? accessi.docs[0].data().dispositivo : '-') + ')');
         const pMario = (await db.collection('partecipanti').doc(P.mariorossi.uid).get()).data();
         vero(pMario.ultimoAccesso && pMario.ultimoAccesso.toMillis() > Date.now() - 60000, 'ultimoAccesso aggiornato');
 
@@ -607,64 +669,78 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const ipA = '10.0.0.1';
         const v1 = verifiche;
         const errate = [];
-        for (let i = 0; i < 5; i++) errate.push(await entra('luigiverdi', 'Sbagliata' + i, { ip: ipA }));
+        for (let i = 0; i < 5; i++) errate.push(await entra('luigi.verdi@esempio.it', 'Sbagliata' + i, { ip: ipA }));
         uguale(errate.map(r => r.stato), [401, 401, 401, 401, 429], 'stati: 401 401 401 401 poi 429');
         uguale(errate.slice(0, 4).map(r => r.dati.rimasti), [4, 3, 2, 1], 'tentativi rimasti: 4, 3, 2, 1');
+        vero(errate[0].dati.msg === 'Email o password non corretti.', 'il messaggio: «' + errate[0].dati.msg + '»');
+        vero((await coppia('luigi.verdi@esempio.it', ipA).get()).exists && (await db.collection('tentativiNome').doc(EM.chiaveEmail('luigi.verdi@esempio.it')).get()).exists,
+            'i contatori dei tentativi hanno per id l\'impronta dell\'email (niente indirizzi negli id)');
         const att1 = errate[4].dati.attesaSecondi;
         vero(errate[4].dati.codice === 'attendi' && att1 >= 29 && att1 <= 30, 'al quinto errore: attendi ' + att1 + ' secondi');
         vero(/Password dimenticata/.test(errate[4].dati.msg), 'il messaggio di attesa propone "Password dimenticata?"');
         uguale(verifiche - v1, 5, 'cinque verifiche arrivate a Google');
         const v2 = verifiche;
-        const bloccato = await entra('luigiverdi', P.luigiverdi.password, { ip: ipA });
+        const bloccato = await entra('LUIGI.VERDI@esempio.it', P.luigiverdi.password, { ip: ipA });
         vero(bloccato.stato === 429 && verifiche === v2, 'durante l\'attesa anche la password giusta aspetta, e nessuna verifica arriva a Google');
-        await coppia('luigiverdi', ipA).update({ bloccatoFino: Date.now() - 1 }); // l'attesa e' finita (senza aspettare 30 s)
-        const sesto = await entra('luigiverdi', 'Sbagliata6', { ip: ipA });
+        await coppia('luigi.verdi@esempio.it', ipA).update({ bloccatoFino: Date.now() - 1 }); // l'attesa e' finita (senza aspettare 30 s)
+        const sesto = await entra('luigi.verdi@esempio.it', 'Sbagliata6', { ip: ipA });
         vero(sesto.stato === 429 && sesto.dati.attesaSecondi >= 59 && sesto.dati.attesaSecondi <= 60, 'sesto errore: l\'attesa raddoppia (' + sesto.dati.attesaSecondi + ' s)');
-        await coppia('luigiverdi', ipA).update({ bloccatoFino: Date.now() - 1 });
-        const settimo = await entra('luigiverdi', 'Sbagliata7', { ip: ipA });
+        await coppia('luigi.verdi@esempio.it', ipA).update({ bloccatoFino: Date.now() - 1 });
+        const settimo = await entra(' luigi.verdi@esempio.it', 'Sbagliata7', { ip: ipA });
         vero(settimo.stato === 429 && settimo.dati.attesaSecondi >= 119 && settimo.dati.attesaSecondi <= 120, 'settimo errore: raddoppia ancora (' + settimo.dati.attesaSecondi + ' s)');
-        await coppia('luigiverdi', ipA).update({ bloccatoFino: Date.now() - 1 });
-        const giusta = await entra('Luigi Verdi', P.luigiverdi.password, { ip: ipA });
-        vero(giusta.stato === 200 && !(await coppia('luigiverdi', ipA).get()).exists, 'finita l\'attesa, la password giusta entra e il conto degli errori si azzera');
+        await coppia('luigi.verdi@esempio.it', ipA).update({ bloccatoFino: Date.now() - 1 });
+        const giusta = await entra(' Luigi.Verdi@Esempio.it', P.luigiverdi.password, { ip: ipA });
+        vero(giusta.stato === 200 && !(await coppia('luigi.verdi@esempio.it', ipA).get()).exists, 'finita l\'attesa, la password giusta entra e il conto degli errori si azzera');
 
-        console.log('\nNome inesistente');
+        console.log('\nEmail non iscritta: stessa risposta e stesso tempo di una password sbagliata');
         const v3 = verifiche;
-        const inesistente = await entra('Nessuno Inventato', 'Qualunque123', { ip: '10.0.0.5' });
-        const sbagliata = await entra('elenagialli', 'Sbagliata0', { ip: '10.0.0.6' });
+        const inesistente = await entra('nessuno.inventato@esempio.it', 'Qualunque123', { ip: '10.0.0.5' });
+        const sbagliata = await entra('elena.gialli@esempio.it', 'Sbagliata0', { ip: '10.0.0.6' });
+        const nonEmail = await entra('Nessuno Inventato', 'Qualunque123', { ip: '10.0.0.7' });
         vero(inesistente.stato === 401 && inesistente.dati.codice === sbagliata.dati.codice && inesistente.dati.msg === sbagliata.dati.msg
-            && inesistente.dati.rimasti === sbagliata.dati.rimasti && Object.keys(inesistente.dati).join() === Object.keys(sbagliata.dati).join(),
-        'stessa risposta di una password sbagliata: ' + inesistente.testo);
-        uguale(verifiche - v3, 1, 'per il nome inesistente nessuna verifica a Google (solo quella della password sbagliata)');
-        vero(inesistente.ms >= 150, 'e comunque con un tempo simile a una verifica (' + inesistente.ms + ' ms)');
+            && inesistente.dati.rimasti === sbagliata.dati.rimasti && Object.keys(inesistente.dati).join() === Object.keys(sbagliata.dati).join()
+            && inesistente.testo === sbagliata.testo,
+        'email non iscritta: la STESSA risposta di una password sbagliata: ' + inesistente.testo);
+        vero(nonEmail.testo === sbagliata.testo, 'un testo che non e\' un\'email (un vecchio nome utente): la stessa risposta');
+        uguale(verifiche - v3, 1, 'per l\'email non iscritta nessuna verifica a Google (solo quella della password sbagliata)');
+        // i tempi: cinque misure per parte, alternate, da reti diverse (nessuna attesa per troppi errori)
+        const tInesistente = [], tSbagliata = [];
+        for (let i = 0; i < 5; i++) {
+            tInesistente.push((await entra('nessuno' + i + '@esempio.it', 'Qualunque123', { ip: '10.0.8.' + (i + 1) })).ms);
+            tSbagliata.push((await entra('elena.gialli@esempio.it', 'Sbagliata' + i, { ip: '10.0.9.' + (i + 1) })).ms);
+        }
+        const mI = mediana(tInesistente), mS = mediana(tSbagliata);
+        vero(Math.min.apply(null, tInesistente.concat(tSbagliata)) >= 450, 'nessuna delle due risposte parte prima di 450 ms (' + tInesistente.join(', ') + ' / ' + tSbagliata.join(', ') + ' ms)');
+        vero(Math.abs(mI - mS) < 150, 'stesso tempo: mediana ' + mI + ' ms per l\'email non iscritta, ' + mS + ' ms per la password sbagliata');
 
         console.log('\nAccount disattivato');
         const dis = await gestione({ azione: 'partecipante', uid: P.annabianchi.uid, idEvento: EVENTO, operazione: 'disattiva' }, tokG);
         vero(dis.stato === 200 && dis.dati.partecipante.stato === 'disattivato', 'la gestione disattiva annabianchi');
-        const annaChiusa = await entra('annabianchi', P.annabianchi.password, { ip: '10.0.0.8' });
+        const annaChiusa = await entra('anna.bianchi@esempio.it', P.annabianchi.password, { ip: '10.0.0.8' });
         vero(annaChiusa.stato === 401 && annaChiusa.dati.msg === sbagliata.dati.msg,
             'account chiuso anche su Auth: risposta identica a una password sbagliata (DECISIONI T1)', annaChiusa.stato + ' ' + annaChiusa.testo);
         await gestione({ azione: 'partecipante', uid: P.annabianchi.uid, idEvento: EVENTO, operazione: 'riattiva' }, tokG);
-        const annaAperta = await entra('annabianchi', P.annabianchi.password, { ip: '10.0.0.8' });
+        const annaAperta = await entra('anna.bianchi@esempio.it', P.annabianchi.password, { ip: '10.0.0.8' });
         uguale(annaAperta.stato, 200, 'riattivata: entra');
         await db.collection('sessioni').doc(P.annabianchi.uid).update({ stato: 'disattivato' });
-        const anna403 = await entra('annabianchi', P.annabianchi.password, { ip: '10.0.0.8' });
+        const anna403 = await entra('anna.bianchi@esempio.it', P.annabianchi.password, { ip: '10.0.0.8' });
         vero(anna403.stato === 403 && anna403.dati.codice === 'disattivato' && /disattivato/.test(anna403.dati.msg),
             'password giusta e account disattivato nei dati della diretta: 403 "' + anna403.dati.msg + '"');
         await db.collection('sessioni').doc(P.annabianchi.uid).update({ stato: 'attivo' });
 
-        console.log('\n20 accessi CONTEMPORANEI sbagliati per lo stesso nome dalla stessa rete');
+        console.log('\n20 accessi CONTEMPORANEI sbagliati per la stessa email dalla stessa rete');
         const v4 = verifiche;
-        const venti = await Promise.all(Array.from({ length: 20 }, (_, i) => entra('carlaneri', 'Sbagliata' + i, { ip: '10.0.0.2' })));
+        const venti = await Promise.all(Array.from({ length: 20 }, (_, i) => entra(i % 2 ? 'carla.neri@esempio.it' : 'CARLA.NERI@esempio.it ', 'Sbagliata' + i, { ip: '10.0.0.2' })));
         const arrivate = verifiche - v4;
         const stati429 = venti.filter(r => r.stato === 429).length;
         vero(arrivate <= 5, 'arrivate alla verifica: ' + arrivate + ' (al massimo 5)');
         vero(stati429 >= 15 && venti.every(r => r.stato === 401 || r.stato === 429), 'risposte 429: ' + stati429 + ', le altre 401');
 
         console.log('\nLa stessa persona da un\'altra rete');
-        for (let i = 0; i < 5; i++) await entra('darioblu', 'Sbagliata' + i, { ip: '10.0.0.3' });
-        const daQui = await entra('darioblu', P.darioblu.password, { ip: '10.0.0.3' });
-        const daLi = await entra('darioblu', P.darioblu.password, { ip: '10.0.0.4' });
-        vero(daQui.stato === 429 && daLi.stato === 200, '5 errori dalla rete 10.0.0.3 la bloccano (429) ma lo stesso nome entra da 10.0.0.4 (200)');
+        for (let i = 0; i < 5; i++) await entra('dario.blu@esempio.it', 'Sbagliata' + i, { ip: '10.0.0.3' });
+        const daQui = await entra('dario.blu@esempio.it', P.darioblu.password, { ip: '10.0.0.3' });
+        const daLi = await entra('dario.blu@esempio.it', P.darioblu.password, { ip: '10.0.0.4' });
+        vero(daQui.stato === 429 && daLi.stato === 200, '5 errori dalla rete 10.0.0.3 la bloccano (429) ma la stessa email entra da 10.0.0.4 (200)');
 
         console.log('\nPermessi (claims) non allineati');
         await auth.setCustomUserClaims(P.mariorossi.uid, { eventi: [] });
@@ -709,11 +785,11 @@ async function provaVideoWebTv(tokG, P, segrete) {
         console.log('\nUn solo dispositivo');
         const salva = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, unSoloDispositivo: true } }, tokG);
         vero(salva.stato === 200 && salva.dati.evento.unSoloDispositivo === true && salva.dati.evento.titolo.indexOf('Napoli') >= 0, 'evento a un solo dispositivo (gli altri campi restano)');
-        const primo = await entra('elenagialli', P.elenagialli.password, { ip: '10.0.1.1', ua: UA_ANDROID });
+        const primo = await entra('elena.gialli@esempio.it', P.elenagialli.password, { ip: '10.0.1.1', ua: UA_ANDROID });
         const tok1 = (await rest('signInWithCustomToken', { token: primo.dati.token, returnSecureToken: true })).dati.idToken;
         const s1 = (await db.collection('sessioni').doc(P.elenagialli.uid).get()).data().sessioneAttiva;
         vero(primo.stato === 200 && s1 === primo.dati.sessione, 'primo dispositivo: la sua sessione e\' quella ammessa');
-        const secondo = await entra('elenagialli', P.elenagialli.password, { ip: '10.0.1.2' });
+        const secondo = await entra('elena.gialli@esempio.it', P.elenagialli.password, { ip: '10.0.1.2' });
         const tok2 = (await rest('signInWithCustomToken', { token: secondo.dati.token, returnSecureToken: true })).dati.idToken;
         const s2 = (await db.collection('sessioni').doc(P.elenagialli.uid).get()).data().sessioneAttiva;
         vero(secondo.stato === 200 && s2 === secondo.dati.sessione && s2 !== s1, 'secondo dispositivo: sessioneAttiva cambia');
@@ -728,17 +804,24 @@ async function provaVideoWebTv(tokG, P, segrete) {
             && lvSenzaSessione.stato === 403 && lvSenzaSessione.dati.codice === 'altro-dispositivo',
             'link-video: il dispositivo sostituito riceve 403 altro-dispositivo (' + lv1.stato + '), quello ammesso il link (' + lv2.stato + '), senza sessione 403 (' + lvSenzaSessione.stato + ')');
         await gestione({ azione: 'evento-salva', evento: { id: EVENTO, unSoloDispositivo: false } }, tokG);
-        const libero = await entra('elenagialli', P.elenagialli.password, { ip: '10.0.1.2' });
+        const libero = await entra('elena.gialli@esempio.it', P.elenagialli.password, { ip: '10.0.1.2' });
         vero(libero.stato === 200 && (await db.collection('sessioni').doc(P.elenagialli.uid).get()).data().sessioneAttiva === null, 'tolta l\'opzione, nessuna sessione ammessa in particolare');
         const lvLibero = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale', sessione: primo.dati.sessione }, { token: tok1 });
         vero(lvLibero.stato === 200, 'senza "un solo dispositivo" il link va a ogni dispositivo (' + lvLibero.stato + ')');
 
-        console.log('\nPassword dimenticata');
+        console.log('\nPassword dimenticata: iscritti e non iscritti');
         const postaPrima = leggiPosta().length;
-        const richieste = [' Mario Rossi ', 'LUIGI.VERDI@esempio.it ', 'Nome Inesistente', 'nessuno@esempio.it'];
-        const risp = await Promise.all(richieste.map(id => chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: id }, { ip: '10.0.2.1' })));
-        vero(risp.every(r => r.stato === 200 && r.testo === risp[0].testo), 'nome utente, email, nome inesistente, email inesistente: sempre la stessa risposta');
-        vero(/Se l'account esiste/.test(risp[0].dati.msg || ''), 'risposta: "' + risp[0].dati.msg + '"');
+        const MSG_DIM = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento per scegliere una nuova password. Controlla anche nella cartella Spam o Promozioni.';
+        const richieste = [
+            { email: ' MARIO.Rossi@Esempio.IT ' },              // iscritto, maiuscole e spazi
+            { identificativo: 'LUIGI.VERDI@esempio.it ' },      // iscritto, con il vecchio nome del campo
+            { email: 'nessuno@esempio.it' },                    // non iscritto
+            { email: 'Nome Inesistente' },                      // un vecchio nome utente: non e' un'email
+            { email: '' }                                        // vuoto
+        ];
+        const risp = await Promise.all(richieste.map(c => chiama('diretta-accesso', Object.assign({ azione: 'password-dimenticata' }, c), { ip: '10.0.2.1' })));
+        vero(risp.every(r => r.stato === 200 && r.testo === risp[0].testo), 'iscritto, iscritto con il vecchio campo, non iscritto, nome utente, vuoto: sempre la stessa risposta');
+        vero(risp[0].dati.msg === MSG_DIM, 'risposta: «' + risp[0].dati.msg + '»');
         vero(risp.every(r => r.ms >= 2500 && r.ms < 3600), 'tempi uguali: ' + risp.map(r => r.ms + ' ms').join(', '));
         if (invioPresente) {
             await pausa(300);
@@ -746,14 +829,16 @@ async function provaVideoWebTv(tokG, P, segrete) {
             const aMario = nuove.filter(m => /mario\.rossi@esempio\.it/i.test(String(m.a)));
             const aLuigi = nuove.filter(m => /luigi\.verdi@esempio\.it/i.test(String(m.a)));
             vero(aMario.length === 1 && aLuigi.length === 1 && nuove.length === 2, 'due email, agli indirizzi VERI di Mario e di Luigi, e a nessun altro (' + nuove.length + ')');
+            vero(!nuove.some(m => /nessuno@esempio\.it/i.test(String(m.a))), 'a chi non e\' iscritto non parte niente');
             const corpo = m => String(m.testo || '') + String(m.html || '');
-            vero(aMario.length === 1 && /\/diretta\/reimposta\.html\?oobCode=/.test(corpo(aMario[0])) && /u=mariorossi/.test(corpo(aMario[0])),
-                'l\'email contiene il collegamento /diretta/reimposta.html?oobCode=...&u=mariorossi');
+            vero(aMario.length === 1 && /\/diretta\/reimposta\.html\?oobCode=[A-Za-z0-9_-]+"/.test(aMario[0].html) && !/reimposta\.html\?[^"\s]*(u=|@)/.test(corpo(aMario[0])),
+                'l\'email contiene il collegamento /diretta/reimposta.html?oobCode=... (senza l\'email nel collegamento)');
+            vero(aMario.length === 1 && /La tua email: mario\.rossi@esempio\.it/.test(aMario[0].testo) && !/nome utente/i.test(corpo(aMario[0])), 'e ricorda l\'email con cui si entra (nessun nome utente)');
             vero(nuove.every(m => !/@utenti\.diretta\./.test(String(m.a))), 'nessuna email verso gli indirizzi tecnici');
             const pwNuova = password(); segrete.push(pwNuova);
             const reset = aMario.length ? await rest('resetPassword', { oobCode: oobDa(aMario[0]), newPassword: pwNuova }) : { stato: 0 };
-            const conNuova = await entra('mariorossi', pwNuova, { ip: '10.0.2.2' });
-            vero(reset.stato === 200 && conNuova.stato === 200, 'il collegamento funziona: nuova password impostata e accesso riuscito');
+            const conNuova = await entra('mario.rossi@esempio.it', pwNuova, { ip: '10.0.2.2' });
+            vero(reset.stato === 200 && conNuova.stato === 200, 'il collegamento funziona: nuova password impostata e accesso riuscito con l\'email');
         } else {
             console.log('       (lib/diretta-invio.js non c\'e\' ancora: controllo della posta saltato)');
         }
@@ -763,13 +848,13 @@ async function provaVideoWebTv(tokG, P, segrete) {
         vero(elenco.stato === 200 && elenco.dati.eventi.length === 1 && elenco.dati.eventi[0].iscritti === 6 && elenco.dati.eventi[0].videoUrl,
             'eventi: uno, con 6 iscritti e il link del video (solo per la gestione)');
         const part = await gestione({ azione: 'partecipanti', idEvento: EVENTO }, tokG);
-        vero(part.stato === 200 && part.dati.partecipanti.length === 6 && part.dati.partecipanti.every(p => p.authCreato && p.invio && p.invio.stato && p.nomeUtente),
-            'partecipanti: 6, con nome utente, account e stato delle credenziali');
+        vero(part.stato === 200 && part.dati.partecipanti.length === 6 && part.dati.partecipanti.every(p => p.authCreato && p.invio && p.invio.stato && EM.emailValida(p.email) && !('nomeUtente' in p)),
+            'partecipanti: 6, con email, account e stato delle credenziali (niente nome utente)');
         const rig = await gestione({ azione: 'partecipante', uid: P.carlaneri.uid, idEvento: EVENTO, operazione: 'rigenera' }, tokG);
         vero(rig.stato === 200 && /^[A-HJ-NP-Za-hj-km-np-z2-9]{10}$/.test(rig.dati.password || ''), 'rigenera: una password nuova di 10 caratteri senza caratteri che si confondono');
         if (rig.dati.password) segrete.push(rig.dati.password);
-        uguale((await entra('carlaneri', rig.dati.password, { ip: '10.0.3.1' })).stato, 200, 'la password rigenerata funziona');
-        uguale((await entra('carlaneri', P.carlaneri.password, { ip: '10.0.3.1' })).stato, 401, 'quella di prima non piu\'');
+        uguale((await entra('carla.neri@esempio.it', rig.dati.password, { ip: '10.0.3.1' })).stato, 200, 'la password rigenerata funziona');
+        uguale((await entra('carla.neri@esempio.it', P.carlaneri.password, { ip: '10.0.3.1' })).stato, 401, 'quella di prima non piu\'');
 
         const pausaEv = await gestione({ azione: 'evento-stato', idEvento: EVENTO, stato: 'pausa', ripresa: '14.30' }, tokG);
         const inPausa = (await db.collection('eventi').doc(EVENTO).get()).data();
@@ -826,35 +911,40 @@ async function provaVideoWebTv(tokG, P, segrete) {
         vero(conn.stato === 200 && conn.dati.connessi === 1 && conn.dati.quando > 0, 'connessi: 1 (la presenza scritta poco fa)');
         const esp = await gestione({ azione: 'esporta', idEvento: EVENTO }, tokG);
         const accTot = (await db.collection('accessi').where('idEvento', '==', EVENTO).get()).size;
-        const elena = esp.dati.partecipanti && esp.dati.partecipanti.find(p => p.nomeUtente === 'elenagialli');
+        const elena = esp.dati.partecipanti && esp.dati.partecipanti.find(p => p.email === 'elena.gialli@esempio.it');
         vero(esp.stato === 200 && esp.dati.partecipanti.length === 6 && esp.dati.accessi.length === accTot && elena && elena.presenza && elena.presenza.collegamenti === 1,
             'esporta: 6 partecipanti con la presenza, ' + accTot + ' accessi');
         vero(esp.dati.accessi.every((a, i, v) => !i || v[i - 1].quando <= a.quando) && /limitati alla durata/.test(esp.dati.nota), 'accessi in ordine di tempo, con la nota sui minuti');
+        vero(esp.dati.accessi.every(a => EM.emailValida(a.email) && !('nomeUtente' in a)) && esp.dati.partecipanti.every(p => !('nomeUtente' in p)), 'esportazione: con l\'email, senza la colonna del nome utente');
 
         const togli = await gestione({ azione: 'partecipante', uid: P.darioblu.uid, idEvento: EVENTO, operazione: 'rimuovi-evento' }, tokG);
         vero(togli.stato === 200 && JSON.stringify(((await auth.getUser(P.darioblu.uid)).customClaims || {}).eventi) === '[]', 'togli dall\'evento: claims senza eventi');
         const linkDario = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: await tokenDi(P.darioblu.uid) });
         vero(linkDario.stato === 403 && linkDario.dati.codice === 'non-iscritto' && !linkDario.dati.url, 'link-video di chi non e\' (piu\') iscritto all\'evento: 403 non-iscritto');
-        const senzaEventi = await entra('darioblu', P.darioblu.password, { ip: '10.0.3.2' });
+        const senzaEventi = await entra('dario.blu@esempio.it', P.darioblu.password, { ip: '10.0.3.2' });
         vero(senzaEventi.stato === 403 && senzaEventi.dati.codice === 'nessun-evento', 'e senza eventi non entra (403 nessun-evento)');
 
         if (invioPresente) {
             const postaPrimaReinvio = leggiPosta().length;
             const re = await gestione({ azione: 'partecipante', uid: P.luigiverdi.uid, idEvento: EVENTO, operazione: 'reinvia' }, tokG);
             const cred = leggiPosta().slice(postaPrimaReinvio).filter(m => /luigi\.verdi@esempio\.it/i.test(String(m.a)));
-            vero(re.stato === 200 && re.dati.invio && re.dati.invio.stato === 'inviata' && cred.length === 1 && /luigiverdi/.test(String(cred[0].testo)),
-                'reinvia credenziali: email all\'indirizzo vero con il nome utente (' + (re.dati.invio && re.dati.invio.stato) + ')', re.testo.slice(0, 200));
-            uguale((await entra('luigiverdi', P.luigiverdi.password, { ip: '10.0.3.3' })).stato, 401, 'dopo il reinvio la vecchia password non vale piu\'');
+            vero(re.stato === 200 && re.dati.invio && re.dati.invio.stato === 'inviata' && cred.length === 1 && /scrivi la tua email luigi\.verdi@esempio\.it e questa password: /.test(String(cred[0].testo))
+                && !/nome utente/i.test(String(cred[0].testo) + String(cred[0].html)),
+                'reinvia credenziali: email all\'indirizzo vero, «scrivi la tua email luigi.verdi@esempio.it e questa password» (' + (re.dati.invio && re.dati.invio.stato) + ')', re.testo.slice(0, 200));
+            const pwReinvio = cred.length ? ((/\nPassword: (\S+)\n/.exec(cred[0].testo)) || [])[1] : '';
+            if (pwReinvio) segrete.push(pwReinvio);
+            uguale((await entra('luigi.verdi@esempio.it', P.luigiverdi.password, { ip: '10.0.3.3' })).stato, 401, 'dopo il reinvio la vecchia password non vale piu\'');
+            uguale((await entra('luigi.verdi@esempio.it', pwReinvio, { ip: '10.0.3.3' })).stato, 200, 'la password dell\'email di reinvio funziona, con l\'email');
         }
 
         /* ================= RAFFICHE DA UNA RETE ================= */
-        console.log('\n100 accessi CONTEMPORANEI sbagliati da una rete, con 100 nomi diversi');
+        console.log('\n100 accessi CONTEMPORANEI sbagliati da una rete, con 100 email diverse');
         const raffica = await creaPersoneVeloci(100, 'raffica', 'raffica-2026');
         await fuoriDalBordo(QUINDICI_MINUTI, 15000);
         const ipR = '10.0.5.1';
         const v5 = verifiche;
         const tR = Date.now();
-        const cento = await Promise.all(raffica.map((p, i) => entra(p.nomeUtente, 'Sbagliata' + i, { ip: ipR })));
+        const cento = await Promise.all(raffica.map((p, i) => entra(p.email, 'Sbagliata' + i, { ip: ipR })));
         const arrivateR = verifiche - v5;
         const conta = st => cento.filter(r => r.stato === st).length;
         console.log('       (risposte 401: ' + conta(401) + ', 429: ' + conta(429) + ', 503: ' + conta(503) + '; verifiche arrivate a Google: ' + arrivateR + '; ' + (Date.now() - tR) + ' ms)');
@@ -867,16 +957,16 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const bloccoR = (await db.collection('tentativiIp').doc(C.improntaIp(ipR)).get()).data() || {};
         vero(bloccoR.bloccatoFino > Date.now() + 4 * 60000, 'la rete e\' bloccata per almeno 5 minuti (tentativiIp/<rete>.bloccatoFino)');
         const vR = verifiche;
-        const giustaBloccata = await entra('elenagialli', P.elenagialli.password, { ip: ipR });
+        const giustaBloccata = await entra('elena.gialli@esempio.it', P.elenagialli.password, { ip: ipR });
         vero(giustaBloccata.stato === 429 && verifiche === vR, 'dalla rete bloccata anche la password giusta aspetta, senza verifica');
-        const altraRete = await entra('elenagialli', P.elenagialli.password, { ip: '10.0.5.2' });
+        const altraRete = await entra('elena.gialli@esempio.it', P.elenagialli.password, { ip: '10.0.5.2' });
         uguale(altraRete.stato, 200, 'da un\'altra rete la stessa persona entra');
 
         console.log('\n60 "password dimenticata" CONTEMPORANEE da una rete, per 60 persone diverse');
         await fuoriDalBordo(60 * 60 * 1000, 20000);
         const postaPrimaR = leggiPosta().length;
         const tDim = Date.now();
-        const sessanta = await Promise.all(raffica.slice(0, 60).map(p => chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: p.nomeUtente }, { ip: '10.0.6.1' })));
+        const sessanta = await Promise.all(raffica.slice(0, 60).map(p => chiama('diretta-accesso', { azione: 'password-dimenticata', email: p.email }, { ip: '10.0.6.1' })));
         vero(sessanta.every(r => r.stato === 200 && r.testo === sessanta[0].testo), 'sempre la stessa risposta (' + sessanta.length + ' richieste, ' + (Date.now() - tDim) + ' ms)');
         const limiteRete = (await db.collection('limiti').doc('resetip_' + C.improntaIp('10.0.6.1') + '_' + Math.floor(tDim / 3600000)).get()).data() || {};
         vero(limiteRete.conteggio === 60, 'tutte le richieste contate, nessuna persa nella raffica (conteggio ' + limiteRete.conteggio + ')');
@@ -890,7 +980,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
             vero(resetR.length <= 20, 'email di reimpostazione partite: ' + resetR.length + ' (al massimo 20 all\'ora dalla stessa rete)');
             vero(new Set(resetR.map(m => m.a)).size === resetR.length, 'a persone tutte diverse, una email ciascuna');
             const postaAltra = leggiPosta().length;
-            await chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: raffica[70].nomeUtente }, { ip: '10.0.6.2' });
+            await chiama('diretta-accesso', { azione: 'password-dimenticata', email: raffica[70].email.toUpperCase() }, { ip: '10.0.6.2' });
             await pausa(300);
             vero(leggiPosta().slice(postaAltra).filter(m => m.a === raffica[70].email).length === 1, 'da un\'altra rete la richiesta passa (il tetto e\' per rete)');
         }
@@ -918,7 +1008,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
             const credZ = leggiPosta().slice(postaZ).filter(m => m.tipo === 'credenziali');
             uguale(credZ.map(m => m.a).sort(), ['ugo.vecchio@esempio.it', 'zeno.invisibile@esempio.it'], 'le credenziali arrivano agli indirizzi giusti, senza il carattere invisibile');
             const postaU = leggiPosta().length;
-            await chiama('diretta-accesso', { azione: 'password-dimenticata', identificativo: 'Ugo Vecchio' }, { ip: '10.0.7.1' });
+            await chiama('diretta-accesso', { azione: 'password-dimenticata', email: ' UGO.VECCHIO@esempio.it' }, { ip: '10.0.7.1' });
             await pausa(300);
             const resetU = leggiPosta().slice(postaU);
             vero(resetU.length === 1 && resetU[0].a === 'ugo.vecchio@esempio.it', 'password dimenticata: il collegamento va all\'indirizzo normalizzato (' + JSON.stringify(resetU.map(m => m.a)) + ')');

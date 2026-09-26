@@ -2,10 +2,31 @@
    Diretta degli eventi: l'invio delle email
    ------------------------------------------------------------
    Qui passa ogni email della diretta: le credenziali (in coda, mille
-   alla volta, o una sola con "Reinvia"), l'email di prova per il
-   gestore, la reimpostazione della password, i promemoria del giorno
-   prima e dell'ora prima. E qui gira il lavoro programmato
-   (api/diretta-cron.js, ogni 5 minuti).
+   alla volta, una sola con "Reinvia", o subito a chi si iscrive dal
+   modulo del sito con l'interruttore dell'evento acceso: inviaSubito),
+   l'avviso «Sei iscritto anche a...», l'email di prova per il gestore,
+   la reimpostazione della password, i promemoria del giorno prima e
+   dell'ora prima. E qui gira il lavoro programmato (api/diretta-cron.js,
+   ogni 5 minuti), che e' anche la rete di sicurezza degli invii subito:
+   chi non e' partito resta 'in coda' e parte al giro dopo.
+
+   UNA PASSWORD PER PERSONA. Si entra con l'email e UNA password, per
+   tutti gli eventi. Quando le credenziali di un evento partono, si
+   decide li' (tipoInvio) che cosa mandare:
+     - la persona non ha ancora ricevuto una password (o l'ha ricevuta
+       a un indirizzo che poi e' stato corretto) -> le credenziali, con
+       una password nuova;
+     - le credenziali di QUESTO evento erano gia' partite (un reinvio a
+       chi non l'ha ricevuta, un indirizzo corretto) -> le credenziali,
+       con una password nuova, come sempre;
+     - la persona ha gia' una password (credenziali partite per un altro
+       evento, o una password comunicata a voce) -> l'avviso «Sei
+       iscritto anche a <evento>: entra con la tua email e la password
+       che hai gia'», SENZA password: quella che ha continua a valere.
+   Il pulsante "Reinvia" della gestione manda sempre le credenziali con
+   una password nuova (e' quello che chiede il gestore). Sulla voce
+   resta che cosa e' partito (invii.<idEvento>.tipo: 'credenziali' o
+   'anche').
 
    LA REGOLA DI TUTTO: AL MASSIMO UNA VOLTA. Una persona non deve mai
    ricevere due email di credenziali per sbaglio: la seconda porta una
@@ -55,7 +76,7 @@ const path = require('path');
 const crypto = require('crypto');
 const C = require('./diretta-comune');
 const M = require('./diretta-mail');
-const N = require('./diretta-nome-utente');
+const E = require('./diretta-email');
 const { generaPassword } = require('./diretta-password');
 
 const STATI = ['da inviare', 'in coda', 'invio', 'inviata', 'respinta', 'errore', 'incerto'];
@@ -126,7 +147,7 @@ function voce(dati, idEvento) {
    minuscolo, controllato con emailValida. Per i profili caricati prima
    che si salvasse cosi' si ricava dall'email scritta. */
 function indirizzoDi(dati) {
-    return String((dati && (dati.emailNorm || N.emailNormalizzata(dati.email))) || '');
+    return String((dati && (dati.emailNorm || E.normalizzaEmail(dati.email))) || '');
 }
 function rifCoda(ctx, idEvento) { return ctx.db.collection('code').doc(idEvento); }
 function rifPartecipanti(ctx) { return ctx.db.collection('partecipanti'); }
@@ -170,6 +191,37 @@ function sostituzione(dati, idEvento) {
     if (giaPartita(voce(dati, idEvento))) return 'evento';
     const invii = (dati && dati.invii) || {};
     return Object.keys(invii).some(k => k !== idEvento && giaPartita(invii[k])) ? 'altro-evento' : '';
+}
+
+/* La persona ha gia' una password che funziona? Si' se le CREDENZIALI
+   (non l'avviso «anche») di un altro evento sono partite, o forse
+   partite ('inviata', 'incerto', 'invio' in questo momento), oppure se
+   il gestore gliene ha data una a voce (passwordAVoce). Contano solo le
+   cose successive all'ultima correzione dell'indirizzo (emailCambiata):
+   quelle di prima sono andate a un'altra casella. `dati` e' il profilo
+   com'era prima della presa in carico; `tranne` l'evento che si sta
+   spedendo. */
+const STATI_PARTITI = ['inviata', 'incerto', 'invio'];
+function haPassword(dati, tranne) {
+    const d = dati || {};
+    const dopo = Number.isFinite(millis(d.emailCambiata)) ? millis(d.emailCambiata) : 0;
+    const invii = d.invii || {};
+    const partite = Object.keys(invii).some(k => {
+        const v = invii[k] || {};
+        if (k === tranne || v.tipo === 'anche' || STATI_PARTITI.indexOf(v.stato) < 0) return false;
+        const quando = v.stato === 'inviata' && Number.isFinite(millis(v.inviata)) ? millis(v.inviata) : millis(v.aggiornato);
+        return !(quando < dopo);
+    });
+    return partite || millis(d.passwordAVoce) >= dopo;
+}
+/* Che cosa parte per questo evento: 'credenziali' (con una password
+   nuova) o 'anche' (l'avviso, senza password). Vedi UNA PASSWORD PER
+   PERSONA in testa al file. `forza`: il "Reinvia" del gestore. */
+function tipoInvio(dati, idEvento, forza) {
+    if (forza) return 'credenziali';
+    const v = voce(dati, idEvento);
+    if (v.tipo !== 'anche' && (v.inviata || STATI_PARTITI.indexOf(v.stato) >= 0)) return 'credenziali';
+    return haPassword(dati, idEvento) ? 'anche' : 'credenziali';
 }
 /* Nei log mai un indirizzo intero: resta il dominio, che basta a capire
    "e' Gmail che rifiuta" senza scrivere di chi si tratta. */
@@ -495,7 +547,7 @@ function nonInviabile(d, idEvento) {
     if (d.stato !== 'attivo') return 'Account disattivato: riattivalo prima di inviare le credenziali';
     if (!d.authCreato) return 'Account non ancora creato: ricarica il file per completarlo';
     if (!(Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0)) return 'La persona non è iscritta a questo evento';
-    if (!N.emailValida(indirizzoDi(d))) return 'Indirizzo email non valido';
+    if (!E.emailValida(indirizzoDi(d))) return 'Indirizzo email non valido';
     return '';
 }
 async function reclama(ctx, ref, idEvento, opz) {
@@ -523,27 +575,39 @@ async function reclama(ctx, ref, idEvento, opz) {
     });
 }
 
-/* Nuova password, impostata sull'account e scritta nell'email. Esiste
-   solo dentro questa funzione. Cambiare la password chiude anche le
-   sessioni aperte con quella vecchia (entro un'ora, alla scadenza del
-   token): e' quello che si vuole quando si reinvia. */
-async function inviaUna(ctx, trasporto, idEvento, evento, uid, dati) {
+/* Una persona: le credenziali (nuova password, impostata sull'account e
+   scritta nell'email: esiste solo dentro questa funzione) oppure
+   l'avviso «Sei iscritto anche a...» senza password, secondo tipoInvio.
+   Cambiare la password chiude anche le sessioni aperte con quella
+   vecchia (entro un'ora, alla scadenza del token): e' quello che si
+   vuole quando si reinvia. `opz.forza`: il "Reinvia" del gestore, sempre
+   con una password nuova. -> l'esito, con `tipo`. */
+async function inviaUna(ctx, trasporto, idEvento, evento, uid, dati, opz) {
+    const tipo = tipoInvio(dati, idEvento, opz && opz.forza);
+    const comune = {
+        evento: evento, idEvento: idEvento, nome: dati.nome, cognome: dati.cognome, email: indirizzoDi(dati),
+        paginaEvento: evento.paginaEvento, assistenza: C.assistenza(), adesso: ctx.adesso()
+    };
+    if (tipo === 'anche') {
+        try {
+            await spedisci(trasporto, { a: indirizzoDi(dati), mail: M.iscrittoAnche(comune), custom: 'diretta|' + idEvento + '|' + uid, tipo: 'iscritto-anche' });
+            return { stato: 'inviata', tipo: 'anche' };
+        } catch (e) {
+            return Object.assign(classifica(e), { tipo: 'anche' });
+        }
+    }
     const password = generaPassword(10);
     try {
         await conLimiteAuth(() => ctx.auth.updateUser(uid, { password: password }));
     } catch (e) {
-        return esitoAuth(e);
+        return Object.assign(esitoAuth(e), { tipo: 'credenziali' });
     }
-    const mail = M.credenziali({
-        evento: evento, idEvento: idEvento, nome: dati.nome, cognome: dati.cognome, nomeUtente: dati.nomeUtente, password: password,
-        paginaEvento: evento.paginaEvento, assistenza: C.assistenza(),
-        sostituisce: sostituzione(dati, idEvento), adesso: ctx.adesso()
-    });
+    const mail = M.credenziali(Object.assign({ password: password, sostituisce: sostituzione(dati, idEvento) }, comune));
     try {
         await spedisci(trasporto, { a: indirizzoDi(dati), mail: mail, custom: 'diretta|' + idEvento + '|' + uid, tipo: 'credenziali' });
-        return { stato: 'inviata' };
+        return { stato: 'inviata', tipo: 'credenziali' };
     } catch (e) {
-        return classifica(e);
+        return Object.assign(classifica(e), { tipo: 'credenziali' });
     }
 }
 
@@ -557,6 +621,7 @@ async function applicaEsito(ctx, ref, idEvento, prec, esito) {
     if (esito.stato === 'inviata') {
         campi = { stato: 'inviata', inviata: ts(ctx, ora), aggiornato: ts(ctx, ora), errore: undefined, rimandi: undefined };
     } else if (esito.stato === 'in coda') {
+        // torna in coda: che cosa mandare si decidera' di nuovo al prossimo giro (niente `tipo`)
         /* Un rifiuto temporaneo che riguarda SOLO questa persona (sul suo
            indirizzo) non deve fermare la coda per sempre: si contano quelli, e
            al quarto diventa 'errore'. I blocchi dell'account (login, server
@@ -570,6 +635,8 @@ async function applicaEsito(ctx, ref, idEvento, prec, esito) {
     } else {
         campi = { stato: esito.stato, aggiornato: ts(ctx, ora), errore: esito.motivo || '' };
     }
+    // che cosa e' partito (o si e' provato a far partire): le credenziali o l'avviso «anche»
+    if (esito.tipo && campi.stato !== 'in coda') campi.tipo = esito.tipo;
     for (let prova = 0; prova < 2; prova++) {
         try { await ref.update(...argomentiVoce(ctx, idEvento, campi, ora)); return campi.stato; }
         catch (e) { if (prova) log('esito non registrato (la persona resta in invio)', e); else await C.pausa(300); }
@@ -770,7 +837,7 @@ async function inviaCredenziali(ctx, opz) {
             throw C.errore(presa.http || 409, presa.messaggio || 'Invio non possibile', 'stato');
         }
         await rifCoda(ctx, idEvento).set({ ultimoInvio: ctx.adesso() }, { merge: true });
-        const esito = await inviaUna(ctx, trasporto, idEvento, evento, uid, presa.dati);
+        const esito = await inviaUna(ctx, trasporto, idEvento, evento, uid, presa.dati, { forza: true });
         if (esito.auth && esito.stato === 'in coda') {
             /* Firebase non ha cambiato la password: la persona e' esattamente
                come prima (la vecchia password funziona ancora). Si rimette lo
@@ -792,6 +859,52 @@ async function inviaCredenziali(ctx, opz) {
         chiudi(trasporto);
     }
 }
+/* L'invio SUBITO di una persona gia' 'in coda': chi si iscrive dal
+   modulo del sito con l'interruttore dell'evento acceso
+   (lib/diretta-iscrizione.js la mette in coda e chiama qui). Stessa
+   presa in carico della coda (reclama: 'in coda' -> 'invio' in una
+   transazione, quindi una volta sola anche se il cron o un giro della
+   gestione la prendono nello stesso istante), stesso tetto giornaliero,
+   stessa scelta fra credenziali e avviso «anche» (tipoInvio), stessi
+   esiti. Se non parte (server di posta non configurato o bloccato,
+   tetto del giorno pieno, un guaio passeggero prima del DATA) resta 'in
+   coda' e la manda il cron al giro dopo: code/{idEvento}.attiva l'ha
+   gia' accesa chi l'ha messa in coda. Non lancia per i guai della
+   posta: -> { stato, tipo? } (stato: quello registrato, oppure 'in coda'
+   se non e' partita, oppure lo stato trovato se non era piu' in coda). */
+async function inviaSubito(ctx, opz) {
+    const idEvento = validaEvento(opz && opz.idEvento);
+    const uid = String((opz && opz.uid) || '');
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) throw C.errore(400, 'Partecipante non valido', 'uid');
+    const ref = rifPartecipanti(ctx).doc(uid);
+    const evento = await leggiEvento(ctx, idEvento);
+    let trasporto;
+    try { trasporto = creaTrasporto(ctx); } catch (e) { log('invio subito rimandato al cron', e); return { stato: 'in coda', motivo: motivoBreve(e) }; }
+    try {
+        const prenotazione = await riserva(ctx, 1);
+        if (!prenotazione.preso) { log('invio subito rimandato: tetto giornaliero raggiunto'); return { stato: 'in coda', limiteGiorno: true }; }
+        let presa;
+        try {
+            presa = await reclama(ctx, ref, idEvento, { ammesso: v => v.stato === 'in coda' });
+        } catch (e) { await restituisci(ctx, prenotazione, 1); throw e; }
+        if (!presa.preso) {
+            await restituisci(ctx, prenotazione, 1);
+            return { stato: presa.rimessa ? 'da inviare' : String(presa.stato || 'non-in-coda') };
+        }
+        await rifCoda(ctx, idEvento).set({ ultimoInvio: ctx.adesso() }, { merge: true });
+        const esito = await inviaUna(ctx, trasporto, idEvento, evento, uid, presa.dati);
+        const registrato = await applicaEsito(ctx, ref, idEvento, presa.voce, esito);
+        if (esito.ferma) {
+            await rifCoda(ctx, idEvento).set({ bloccato: { motivo: esito.motivo, quando: ctx.adesso() } }, { merge: true });
+            log('invio subito fermato: ' + mascheraEmail(esito.motivo));
+        }
+        if (registrato !== 'inviata' && registrato !== 'incerto' && registrato !== 'invio') await restituisci(ctx, prenotazione, 1);
+        return { stato: registrato, tipo: esito.tipo };
+    } finally {
+        chiudi(trasporto);
+    }
+}
+
 /* Quando un "Reinvia" si puo' fare. Non mentre un altro invio e' in
    corso ('invio' fresco), e non entro un minuto da un invio riuscito:
    un doppio clic arriva al server come due richieste quasi insieme, e
@@ -818,20 +931,23 @@ async function ripristina(ctx, ref, idEvento, prec) {
 /* L'email di prova per il gestore, con dati di esempio evidenti.
    Il promemoria di prova e' scritto come se partisse nel suo momento
    vero (un giorno prima, un'ora prima), cosi' le parole sono giuste. */
-const ESEMPIO = { nome: 'Mario', cognome: 'Rossi', nomeUtente: 'mariorossi', password: 'Esempio7Kq' };
+const ESEMPIO = { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', password: 'Esempio7Kq' };
+/* tipo: 'credenziali', 'iscritto-anche' (l'avviso senza password),
+   'promemoria-giorno', 'promemoria-ora' */
 async function inviaProva(ctx, opz) {
-    const a = N.emailNormalizzata((opz && opz.a) || '');
-    if (!N.emailValida(a)) throw C.errore(400, 'Indirizzo per la prova non valido', 'a');
+    const a = E.normalizzaEmail((opz && opz.a) || '');
+    if (!E.emailValida(a)) throw C.errore(400, 'Indirizzo per la prova non valido', 'a');
     const idEvento = validaEvento(opz && opz.idEvento);
     const tipo = String((opz && opz.tipo) || 'credenziali');
     const evento = await leggiEvento(ctx, idEvento);
     const base = {
-        evento: evento, idEvento: idEvento, nome: ESEMPIO.nome, cognome: ESEMPIO.cognome, nomeUtente: ESEMPIO.nomeUtente,
+        evento: evento, idEvento: idEvento, nome: ESEMPIO.nome, cognome: ESEMPIO.cognome, email: ESEMPIO.email,
         paginaEvento: evento.paginaEvento, assistenza: C.assistenza(), prova: true
     };
     const inizio = millis(evento.inizio);
     let mail;
     if (tipo === 'credenziali') mail = M.credenziali(Object.assign({ password: ESEMPIO.password, adesso: ctx.adesso() }, base));
+    else if (tipo === 'iscritto-anche') mail = M.iscrittoAnche(Object.assign({ adesso: ctx.adesso() }, base));
     else if (tipo === 'promemoria-giorno' || tipo === 'promemoria-ora') {
         const giorno = tipo === 'promemoria-giorno';
         const quando = Number.isFinite(inizio) ? inizio - (giorno ? GIORNO : 60 * MINUTO) : ctx.adesso();
@@ -865,10 +981,10 @@ async function inviaReimpostazione(ctx, opz) {
     const o = opz || {};
     let trasporto = null;
     try {
-        const a = N.emailNormalizzata(o.a || '');
-        if (!N.emailValida(a)) return { ok: false, motivo: 'indirizzo non valido' };
+        const a = E.normalizzaEmail(o.a || '');
+        if (!E.emailValida(a)) return { ok: false, motivo: 'indirizzo non valido' };
         const mail = M.reimpostazione({
-            nome: o.nome, cognome: o.cognome, nomeUtente: o.nomeUtente, link: o.link, perGestore: !!o.perGestore,
+            nome: o.nome, cognome: o.cognome, email: o.perGestore ? '' : a, link: o.link, perGestore: !!o.perGestore,
             assistenza: C.assistenza(), adesso: ctx.adesso()
         });
         trasporto = creaTrasporto(ctx);
@@ -1033,7 +1149,7 @@ async function rimbalziBrevo(ctx, dal) {
             if (!r.ok) return { ok: false, msg: r.stato === 429 ? 'Brevo: troppe richieste, riprova fra qualche minuto.' : 'Brevo non ha risposto (' + r.stato + ').' };
             const eventi = (r.dati && Array.isArray(r.dati.events)) ? r.dati.events : [];
             eventi.forEach(ev => {
-                const em = N.emailNormalizzata(ev && ev.email);
+                const em = E.normalizzaEmail(ev && ev.email);
                 if (!em) return;
                 /* Si e' chiesto un tipo solo, ma se Brevo mescolasse nella
                    risposta un rifiuto temporaneo (i nomi cambiano forma da un
@@ -1140,7 +1256,7 @@ function vuolePromemoria(d, idEvento, tipo) {
     const segno = ((d.promemoria || {})[idEvento] || {})[tipo];
     return segno == null && d.stato === 'attivo' && d.authCreato === true
         && Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0
-        && STATI_PROMEMORIA.indexOf(voce(d, idEvento).stato) >= 0 && N.emailValida(indirizzoDi(d));
+        && STATI_PROMEMORIA.indexOf(voce(d, idEvento).stato) >= 0 && E.emailValida(indirizzoDi(d));
 }
 async function promemoriaUna(ctx, trasporto, ref, idEvento, evento, tipo) {
     const campo = new ctx.FieldPath('promemoria', idEvento, tipo);
@@ -1154,7 +1270,7 @@ async function promemoriaUna(ctx, trasporto, ref, idEvento, evento, tipo) {
     });
     if (!dati) return null;
     const mail = M.promemoria({
-        tipo: tipo, evento: evento, idEvento: idEvento, nome: dati.nome, cognome: dati.cognome, nomeUtente: dati.nomeUtente,
+        tipo: tipo, evento: evento, idEvento: idEvento, nome: dati.nome, cognome: dati.cognome, email: indirizzoDi(dati),
         paginaEvento: evento.paginaEvento, assistenza: C.assistenza(), adesso: ctx.adesso()
     });
     try {
@@ -1340,11 +1456,11 @@ async function giroCron(ctx, opz) {
 }
 
 module.exports = {
-    inviaCredenziali, inviaProva, inviaReimpostazione, accoda, avanzaCoda, statoCoda, aggiornaEsiti, giroCron,
+    inviaCredenziali, inviaSubito, inviaProva, inviaReimpostazione, accoda, avanzaCoda, statoCoda, aggiornaEsiti, giroCron,
     STATI,
     // per le prove: il giro senza lucchetto, la presa in carico, la lettura degli errori
     _interni: {
         lavoraCoda, reclama, classifica, primaDelData, fermaTutto, problemaNostro, promemoriaDovuti, finestraPromemoria,
-        destinatariPromemoria, sostituzione, creaTrasporto, mascheraEmail, SCADENZA_INVIO_MS, PAUSA_BLOCCO_MS
+        destinatariPromemoria, sostituzione, haPassword, tipoInvio, creaTrasporto, mascheraEmail, SCADENZA_INVIO_MS, PAUSA_BLOCCO_MS
     }
 };

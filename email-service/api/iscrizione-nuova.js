@@ -1465,6 +1465,24 @@ module.exports = async (req, res) => {
             }
         }
 
+        /* La diretta degli eventi (progetto Firebase SEPARATO, tutto in
+           lib/diretta-iscrizione.js): chi si iscrive "online" riceve subito
+           la password della diretta, se il gestore ha acceso l'interruttore
+           sull'evento con questa pagina. Arriva dopo la scheda e la conferma,
+           mai al loro posto: se la diretta non e' configurata o qualcosa va
+           storto l'iscrizione resta valida e la risposta e' quella di sempre
+           (al massimo pochi secondi di attesa; il resto finisce dopo). */
+        if (scheda.modalita === 'online' && email) {
+            try {
+                await require('../lib/diretta-iscrizione').dalModulo({
+                    email: email, nome: nome, cognome: cognome, azienda: scheda.azienda,
+                    pagina: pagina, percorso: testo(body.percorso, 300)
+                });
+            } catch (e) {
+                console.error('Diretta: iscrizione dal modulo non riuscita:', String((e && e.message) || e).replace(/[^\s/@'"]+@[^\s/'"]+/g, '<email>').slice(0, 200));
+            }
+        }
+
         res.status(200).json({ ok: true });
     } catch (e) {
         // il visitatore non deve vedere dettagli tecnici: restano nei log

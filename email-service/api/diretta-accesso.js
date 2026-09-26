@@ -2,14 +2,28 @@
    Diretta degli eventi: l'accesso (funzione PUBBLICA)
    ------------------------------------------------------------
    POST JSON, un'azione per chiamata:
-     { azione: 'entra', nomeUtente, password, idEvento? }
-         -> { ok, token, sessione, idEvento, nome, cognome, nomeUtente }
-            (la pagina entra in Firebase con signInWithCustomToken)
-            errori: 401 'credenziali' (con i tentativi rimasti),
+     { azione: 'entra', email, password, idEvento? }
+         -> { ok, token, sessione, idEvento, nome, cognome, email }
+            (la pagina entra in Firebase con signInWithCustomToken;
+            email e' l'indirizzo normalizzato dell'account)
+            L'email si confronta senza maiuscole e senza spazi prima e
+            dopo. Il vecchio campo nomeUtente NON si accetta piu'.
+            errori: 400 'credenziali' (email o password vuote: «Scrivi
+                    l'email e la password.»),
+                    401 'credenziali' «Email o password non corretti.»
+                    (con i tentativi rimasti in `rimasti`; identica, e
+                    dopo lo stesso tempo, per un'email non iscritta e
+                    per una password sbagliata),
                     429 'attendi' (con attesaSecondi), 403 'disattivato',
-                    503 'riprova'
-     { azione: 'password-dimenticata', identificativo }  (nome utente o email)
-         -> sempre { ok, msg } uguale, dopo lo stesso tempo
+                    403 'nessun-evento', 503 'riprova'
+     { azione: 'password-dimenticata', email }
+         (si accetta anche il vecchio nome del campo, identificativo,
+         trattato come email)
+         -> sempre { ok, msg } uguale, dopo lo stesso tempo (2,5-2,9 s),
+            iscritto o no: msg = «Se l'indirizzo è iscritto alla
+            diretta, tra poco ricevi un'email con il collegamento per
+            scegliere una nuova password. Controlla anche nella cartella
+            Spam o Promozioni.» L'email parte solo a chi e' iscritto.
      { azione: 'gestore-accesso', email }
          -> sempre { ok, msg } uguale, dopo lo stesso tempo
      { azione: 'aggiorna-permessi' }  con Authorization: Bearer <idToken>
@@ -52,11 +66,12 @@ module.exports = async (req, res) => {
         let risposta;
         if (azione === 'entra') {
             risposta = await A.entra(ctx, {
-                nomeUtente: b.nomeUtente, password: b.password, idEvento: b.idEvento,
+                email: b.email, password: b.password, idEvento: b.idEvento,
                 ip: ip, userAgent: (req.headers || {})['user-agent']
             });
         } else if (azione === 'password-dimenticata') {
-            risposta = await A.passwordDimenticata(ctx, { identificativo: b.identificativo, ip: ip });
+            const email = b.email != null && b.email !== '' ? b.email : b.identificativo;
+            risposta = await A.passwordDimenticata(ctx, { email: email, ip: ip });
         } else if (azione === 'gestore-accesso') {
             risposta = await A.gestoreAccesso(ctx, { email: b.email, ip: ip });
         } else if (azione === 'aggiorna-permessi') {

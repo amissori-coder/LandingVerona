@@ -4,23 +4,28 @@
    La logica di api/diretta-accesso.js, l'unica porta PUBBLICA della
    diretta insieme a diretta-stato:
 
-   - ENTRA: nome utente + password -> token personalizzato di Firebase.
-     La persona scrive solo il nome utente ("Mario Rossi", " MarioRossi "
-     e "mario.rossi" sono tutti mariorossi); dietro, il nome porta all'uid
-     (nomiUtente/{nome}) e l'uid all'email tecnica dell'account, che
-     nessuno vede e che dal nome NON si ricava (DECISIONI D1). La
+   - ENTRA: email + password -> token personalizzato di Firebase.
+     La persona scrive l'email con cui si e' iscritta (maiuscole e spazi
+     prima e dopo non contano: lib/diretta-email.js, normalizzaEmail) e la
+     password che le abbiamo mandato. Dietro, l'email porta all'uid
+     (indirizzi/{email}) e l'uid all'email TECNICA dell'account Auth, che
+     nessuno vede e che dall'email NON si ricava (DECISIONI D1). La
      password la verifica Google (Identity Toolkit, chiamata dal server):
      noi non la vediamo passare in nessun archivio e non la scriviamo mai.
+     Il vecchio campo `nomeUtente` non si accetta piu'.
 
    - IL BLOCCO DEI TENTATIVI (DECISIONI D4). Ogni tentativo si PRENOTA
-     prima di chiedere a Google, in una transazione su due documenti:
-       tentativi/{nome}_{impronta dell'IP}: la coppia nome + rete. Dopo 5
-         errori di fila si aspetta 30 s, poi 60, 120... fino a 15 minuti.
+     prima di chiedere a Google, in una transazione su due documenti.
+     La "chiave" e' l'impronta dell'email normalizzata (sha256, vedi
+     chiaveEmail): negli id dei documenti non c'e' mai un indirizzo.
+       tentativi/{chiave}_{impronta dell'IP}: la coppia email + rete. Dopo
+         5 errori di fila si aspetta 30 s, poi 60, 120... fino a 15 minuti.
          E' la regola "5 password sbagliate di fila, attesa crescente", e
          riguarda solo chi sbaglia da quella rete: un disturbatore che
-         prova il nome di un altro da casa sua non blocca il vero titolare.
-       tentativiNome/{nome}: il tetto contro chi prova da tante reti
-         diverse: 50 errori in un'ora bloccano il nome per 15 minuti.
+         prova l'email di un altro da casa sua non blocca il vero titolare.
+       tentativiNome/{chiave}: il tetto contro chi prova da tante reti
+         diverse: 50 errori in un'ora bloccano l'email per 15 minuti
+         (il nome della raccolta e' rimasto quello di prima).
      La prenotazione conta il tentativo come fallito PRIMA della verifica:
      cosi' venti richieste sbagliate che arrivano nello stesso istante
      non passano tutte (ne passano cinque, le altre aspettano). Se poi la
@@ -28,7 +33,7 @@
 
    - LA RETE: al massimo 40 password sbagliate ogni 15 minuti dalla
      stessa rete (poi almeno 5 minuti di attesa per tutta la rete). E'
-     il limite contro chi prova tanti nomi diversi da un posto solo.
+     il limite contro chi prova tante email diverse da un posto solo.
      Anche qui il tentativo si conta PRIMA della verifica (vedi
      prenotaRete): un contatore per finestra fissa di 15 minuti,
      tentativiIp/{impronta}_{finestra}, con un incremento seguito da
@@ -40,13 +45,18 @@
      subito il suo tentativo: cento colleghi dietro lo stesso IP
      aziendale non consumano il tetto e non si bloccano a vicenda.
 
-   - NOMI INESISTENTI: stessa risposta e tempi simili a una password
-     sbagliata (DECISIONI T1), ma senza chiedere niente a Google.
+   - EMAIL INESISTENTI: stessa risposta di una password sbagliata
+     (DECISIONI T1), senza chiedere niente a Google, e lo stesso tempo:
+     la risposta "Email o password non corretti." non parte mai prima di
+     450-700 ms dall'inizio (TEMPO_FALLITO_MS), che la password l'abbia
+     verificata Google o che l'email non esista. Dall'esterno non si
+     capisce chi e' iscritto.
 
    - PASSWORD DIMENTICATA e ACCESSO DEI GESTORI (DECISIONI D2, D9): la
      risposta e' SEMPRE la stessa e arriva sempre dopo lo stesso tempo
      (2,5-2,9 secondi), qualunque cosa succeda dietro: dall'esterno non
-     si capisce se un nome o un'email esistono.
+     si capisce se un'email e' iscritta. L'email con il collegamento
+     parte solo a chi e' iscritto; a chi non lo e' non parte niente.
 
    - AGGIORNA-PERMESSI (DECISIONI T8): se i claims del token di una
      persona non corrispondono ai suoi eventi, li rimette in ordine.
@@ -56,13 +66,13 @@
      a chi e' iscritto all'evento, con l'account attivo, mentre si e' in
      onda; al massimo 60 richieste l'ora per persona.
 
-   Nei log non finiscono mai password, token, nomi utente scritti dalle
-   persone o indirizzi email.
+   Nei log non finiscono mai password, token, indirizzi email (ne' le
+   loro impronte).
    ============================================================ */
 'use strict';
 const crypto = require('crypto');
 const C = require('./diretta-comune');
-const N = require('./diretta-nome-utente');
+const E = require('./diretta-email');
 const D = require('./diretta-dati');
 const { passwordSegreta } = require('./diretta-password');
 const { conLimite } = require('./diretta-auth');
@@ -73,13 +83,15 @@ const GIORNO = 24 * ORA;
 const ERRORI_DI_FILA = 5;                 // poi si aspetta
 const ATTESA_BASE_MS = 30 * 1000;         // 30 s, 60 s, 120 s...
 const ATTESA_MASSIMA_MS = 15 * MINUTO;
-const TETTO_NOME = 50;                    // errori in un'ora sullo stesso nome, da qualunque rete
+const TETTO_NOME = 50;                    // errori in un'ora sulla stessa email, da qualunque rete
 const BLOCCO_NOME_MS = 15 * MINUTO;
 const TETTO_IP = 40;                      // errori in una finestra di 15 minuti dalla stessa rete
 const FINESTRA_IP_MS = 15 * MINUTO;       // finestre fisse: :00, :15, :30, :45
 const BLOCCO_IP_MS = 5 * MINUTO;          // raggiunto il tetto, la rete aspetta almeno tanto
 const ATTESA_RETE_MS = 3000;              // quanto si aspetta il proprio turno se tanti entrano insieme
 const ATTESA_GOOGLE_MS = 8000;
+// "email o password non corretti" non parte prima di tanto (+ fino a 250 ms a caso): vedi EMAIL INESISTENTI
+const TEMPO_FALLITO_MS = 450;
 // i tetti di "password dimenticata" e "primo accesso" dei gestori (DECISIONI D9)
 const TETTO_RESET_RETE = 20;              // richieste all'ora dalla stessa rete
 const TETTO_RESET_ORA = 200;              // email di reimpostazione all'ora, in tutto
@@ -87,9 +99,10 @@ const TETTO_GESTORE_RETE = 10;            // richieste all'ora dalla stessa rete
 const TETTO_GESTORI_ORA = 20;             // email ai gestori all'ora, in tutto (un tetto loro)
 const TETTO_LINK_VIDEO = 60;              // link firmati del video all'ora, per persona
 
-const MSG_CREDENZIALI = 'Nome utente o password non corretti. Se il problema continua, scrivi all\'assistenza.';
+const MSG_CREDENZIALI = 'Email o password non corretti.';
 const MSG_DISATTIVATO = 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
-const MSG_DIMENTICATA = 'Se l\'account esiste, ti abbiamo scritto all\'indirizzo email con cui ti sei iscritto.';
+const MSG_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento per scegliere una nuova password. '
+    + 'Controlla anche nella cartella Spam o Promozioni.';
 const MSG_GESTORE = 'Se l\'indirizzo è tra i gestori, ti abbiamo scritto.';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
@@ -140,16 +153,17 @@ function descriviDispositivo(ua) {
    IL BLOCCO DEI TENTATIVI
    ============================================================ */
 
-function rifTentativi(ctx, nome, impIp) {
+// chiave: l'impronta dell'email normalizzata (E.chiaveEmail), mai l'indirizzo
+function rifTentativi(ctx, chiave, impIp) {
     return {
-        coppia: ctx.db.collection('tentativi').doc(nome + '_' + impIp),
-        nome: ctx.db.collection('tentativiNome').doc(nome),
+        coppia: ctx.db.collection('tentativi').doc(chiave + '_' + impIp),
+        nome: ctx.db.collection('tentativiNome').doc(chiave),
         // il blocco della rete: puo' durare oltre la fine della finestra
         bloccoIp: ctx.db.collection('tentativiIp').doc(impIp)
     };
 }
 
-/* Prenota il tentativo: se la coppia o il nome sono bloccati risponde
+/* Prenota il tentativo: se la coppia o l'email sono bloccate risponde
    con l'attesa, altrimenti conta il tentativo come fallito (lo si
    restituisce se va bene) e, al quinto errore di fila, fissa gia'
    l'attesa: le richieste che arrivano nel frattempo non passano. */
@@ -168,7 +182,7 @@ async function prenota(ctx, rif) {
         const bloccoCoppia = falliti >= ERRORI_DI_FILA ? ora + attesaDopo(falliti) : 0;
         tx.set(rif.coppia, { falliti: falliti, bloccatoFino: bloccoCoppia, aggiornato: ora });
 
-        // il nome, da tutte le reti insieme: finestra di un'ora
+        // l'email, da tutte le reti insieme: finestra di un'ora
         const inFinestra = ora - (Number(dn.inizioFinestra) || 0) < ORA;
         const fallitiNome = (inFinestra ? Math.max(0, Number(dn.falliti) || 0) : 0) + 1;
         const bloccoNome = fallitiNome >= TETTO_NOME ? ora + BLOCCO_NOME_MS : 0;
@@ -203,8 +217,8 @@ async function restituisci(ctx, rif) {
    tentativiIp/{impronta}_{finestra} (finestre fisse di 15 minuti) ha due
    contatori:
      inCorso: le verifiche prenotate e non ancora finite;
-     falliti: le verifiche finite con una password sbagliata (o un nome
-              che non esiste).
+     falliti: le verifiche finite con una password sbagliata (o un'email
+              che non e' iscritta).
    Ogni tentativo fa +1 su inCorso e POI rilegge il documento: passa se
    falliti + inCorso (il proprio compreso) non supera il tetto. Alla fine
    il tentativo si chiude: -1 su inCorso e, se era sbagliato, +1 su
@@ -303,16 +317,16 @@ const FALLIMENTI = new Set(['INVALID_PASSWORD', 'INVALID_LOGIN_CREDENTIALS', 'EM
 
 /* Google limita a volte le verifiche che arrivano da uno stesso IP (e
    il servizio su Vercel, per Google, e' un solo IP): se succede con
-   tanti nomi diversi nello stesso minuto non e' una persona che sbaglia,
-   e il log lo deve dire chiaro. */
+   tante email diverse nello stesso minuto non e' una persona che
+   sbaglia, e il log lo deve dire chiaro (solo il numero: niente email). */
 let troppiRecenti = [];
-function segnalaTroppi(nome) {
+function segnalaTroppi(chiave) {
     const ora = Date.now();
     troppiRecenti = troppiRecenti.filter(x => ora - x.t < MINUTO);
-    troppiRecenti.push({ t: ora, n: C.impronta(nome) });
-    const nomi = new Set(troppiRecenti.map(x => x.n)).size;
-    console.error('[diretta] Google risponde TOO_MANY_ATTEMPTS_TRY_LATER' + (nomi > 20
-        ? ': ' + nomi + ' nomi diversi in un minuto, possibile blocco di Google sugli IP del servizio'
+    troppiRecenti.push({ t: ora, n: chiave });
+    const diverse = new Set(troppiRecenti.map(x => x.n)).size;
+    console.error('[diretta] Google risponde TOO_MANY_ATTEMPTS_TRY_LATER' + (diverse > 20
+        ? ': ' + diverse + ' email diverse in un minuto, possibile blocco di Google sugli IP del servizio'
         : ''));
 }
 
@@ -325,7 +339,7 @@ function indirizzoVerifica(ctx) {
 }
 
 // -> { esito: 'ok', localId, idToken } | { esito: 'fallita' } | { esito: 'troppi' } | { esito: 'lento' }
-async function verificaPassword(ctx, uid, password, nome) {
+async function verificaPassword(ctx, uid, password, chiave) {
     const url = indirizzoVerifica(ctx);
     let r;
     try {
@@ -345,7 +359,7 @@ async function verificaPassword(ctx, uid, password, nome) {
     // i messaggi di Google hanno a volte un seguito ("TOO_MANY_ATTEMPTS_TRY_LATER : ...")
     const codice = String((j.error && j.error.message) || '').split(/[\s:]/)[0];
     if (FALLIMENTI.has(codice)) return { esito: 'fallita' };
-    if (codice === 'TOO_MANY_ATTEMPTS_TRY_LATER') { segnalaTroppi(nome); return { esito: 'troppi' }; }
+    if (codice === 'TOO_MANY_ATTEMPTS_TRY_LATER') { segnalaTroppi(chiave); return { esito: 'troppi' }; }
     console.error('[diretta] verifica delle credenziali: risposta inattesa ' + r.status + ' ' + codice.slice(0, 60));
     return { esito: 'lento' };
 }
@@ -353,23 +367,43 @@ async function verificaPassword(ctx, uid, password, nome) {
 /* ============================================================
    ENTRA
    ============================================================ */
+
+/* La risposta di una verifica non riuscita (401 "Email o password non
+   corretti.", o il 429 fissato proprio da quell'errore) non parte prima
+   di TEMPO_FALLITO_MS + fino a 250 ms a caso dall'inizio della richiesta:
+   un'email che non e' iscritta (nessuna domanda a Google) e una password
+   sbagliata (una verifica vera) rispondono dopo lo stesso tempo. */
+async function tempoMinimo(inizio) {
+    const resto = inizio + TEMPO_FALLITO_MS + crypto.randomInt(250) - Date.now();
+    if (resto > 0) await pausa(resto);
+}
+
 async function entra(ctx, ingresso) {
-    const nome = N.pulisciAccesso(ingresso.nomeUtente);
+    const t0 = Date.now();
+    const email = E.normalizzaEmail(String(ingresso.email == null ? '' : ingresso.email).slice(0, 400));
     const password = typeof ingresso.password === 'string' ? ingresso.password : '';
-    if (!nome || !password) throw D.errorePubblico(400, 'credenziali', 'Scrivi il nome utente e la password.');
+    if (!email || !password) throw D.errorePubblico(400, 'credenziali', 'Scrivi l\'email e la password.');
     if (password.length > 200) throw D.errorePubblico(401, 'credenziali', MSG_CREDENZIALI, { rimasti: ERRORI_DI_FILA });
     const inizio = ctx.adesso();
     const impIp = C.improntaIp(ingresso.ip);
-    const rif = rifTentativi(ctx, nome, impIp);
+    const chiave = E.chiaveEmail(email);
+    const rif = rifTentativi(ctx, chiave, impIp);
 
-    /* Il blocco della rete e il nome si leggono insieme, e intanto parte
-       il +1 della rete (vedi prenotaRete): nessuna transazione. */
+    /* Il blocco della rete e l'indirizzo si leggono insieme, e intanto
+       parte il +1 della rete (vedi prenotaRete): nessuna transazione. Un
+       indirizzo non valido non si cerca nemmeno (non puo' essere iscritto,
+       e con una "/" non sarebbe nemmeno un id di Firestore): vale come
+       un'email che non esiste. */
     const finestra = rifFinestraIp(ctx, impIp, inizio);
     let incrementato = false;
     const incremento = incrementoRete(ctx, finestra).then(() => { incrementato = true; });
-    let snapBlocco, snapNome;
+    let snapBlocco, snapInd;
     try {
-        [snapBlocco, snapNome] = await Promise.all([rif.bloccoIp.get(), ctx.db.collection('nomiUtente').doc(nome).get(), incremento]);
+        [snapBlocco, snapInd] = await Promise.all([
+            rif.bloccoIp.get(),
+            E.emailValida(email) ? ctx.db.collection('indirizzi').doc(email).get() : Promise.resolve(null),
+            incremento
+        ]);
     } catch (e) {
         await incremento.catch(() => {});
         if (incrementato) await restituisciRete(ctx, finestra);
@@ -386,30 +420,25 @@ async function entra(ctx, ingresso) {
        come fallito appena si sa che la password era sbagliata, altrimenti
        restituito (qui nel finally, se non e' gia' stato fatto). */
     try {
-        return await verificaEdEntra(ctx, ingresso, { nome, password, rif, rete, snapNome });
+        return await verificaEdEntra(ctx, ingresso, { t0, email, chiave, password, rif, rete, snapInd });
     } finally {
         await chiudiRete(ctx, rete, false);
     }
 }
 
 /* Il resto di "entra", con il tentativo della rete gia' prenotato. */
-async function verificaEdEntra(ctx, ingresso, { nome, password, rif, rete, snapNome }) {
+async function verificaEdEntra(ctx, ingresso, { t0, email, chiave, password, rif, rete, snapInd }) {
     const db = ctx.db;
     const pren = await prenota(ctx, rif);
     if (pren.bloccatoPerMs) throw attendi(pren.bloccatoPerMs);
 
-    const uid = snapNome.exists ? String(snapNome.data().uid || '') : '';
-    let verifica;
-    if (!uid) {
-        // nome inesistente: niente Google, ma lo stesso tempo di una verifica vera
-        await pausa(150 + crypto.randomInt(250));
-        verifica = { esito: 'fallita' };
-    } else {
-        verifica = await verificaPassword(ctx, uid, password, nome);
-    }
+    const uid = snapInd && snapInd.exists ? String(snapInd.data().uid || '') : '';
+    // email non iscritta: niente Google (il tempo lo pareggia tempoMinimo)
+    const verifica = uid ? await verificaPassword(ctx, uid, password, chiave) : { esito: 'fallita' };
 
     if (verifica.esito === 'fallita') {
         await chiudiRete(ctx, rete, true);
+        await tempoMinimo(t0);
         const ora = ctx.adesso();
         if (pren.bloccatoFino > ora) throw attendi(pren.bloccatoFino - ora);
         throw D.errorePubblico(401, 'credenziali', MSG_CREDENZIALI, { rimasti: Math.max(0, ERRORI_DI_FILA - pren.falliti) });
@@ -450,16 +479,17 @@ async function verificaEdEntra(ctx, ingresso, { nome, password, rif, rete, snapN
        di quella vecchia (la pagina sul primo dispositivo se ne accorge). */
     const sessione = crypto.randomBytes(12).toString('hex');
     const ts = ctx.Timestamp.fromMillis(ctx.adesso());
+    const indirizzo = p.emailNorm || E.normalizzaEmail(p.email) || email;
     const batch = db.batch();
     batch.update(rifP, { ultimoAccesso: ts });
     batch.set(rifS, Object.assign(s ? {} : { stato: 'attivo' }, {
         sessioneAttiva: scelta.dati.unSoloDispositivo === true ? sessione : null, aggiornato: ts
     }), { merge: true });
     batch.set(db.collection('accessi').doc(), {
-        uid: uid, nomeUtente: p.nomeUtente || nome, nome: p.nome || '', cognome: p.cognome || '', azienda: p.azienda || '',
+        uid: uid, email: indirizzo, nome: p.nome || '', cognome: p.cognome || '', azienda: p.azienda || '',
         idEvento: scelta.id, quando: ts, dispositivo: descriviDispositivo(ingresso.userAgent)
     });
-    // il tentativo era buono: via la coppia, e al nome si restituisce il tentativo
+    // il tentativo era buono: via la coppia, e all'email si restituisce il tentativo
     batch.delete(rif.coppia);
     batch.set(rif.nome, { falliti: ctx.FieldValue.increment(-1) }, { merge: true });
     await batch.commit();
@@ -472,7 +502,7 @@ async function verificaEdEntra(ctx, ingresso, { nome, password, rif, rete, snapN
     const token = await ctx.auth.createCustomToken(uid);
     return {
         token: token, sessione: sessione, idEvento: scelta.id,
-        nome: p.nome || '', cognome: p.cognome || '', nomeUtente: p.nomeUtente || nome
+        nome: p.nome || '', cognome: p.cognome || '', email: indirizzo
     };
 }
 
@@ -574,42 +604,37 @@ async function spedisciReimpostazione(ctx, dati) {
     if (r && r.ok === false) throw new Error('reimpostazione non spedita (' + String(r.motivo || '').slice(0, 80) + ')');
 }
 
-/* password-dimenticata: la persona scrive il nome utente oppure la sua
-   email (quella vera, con cui si e' iscritta). Se l'account c'e' ed e'
-   attivo, il collegamento parte verso la sua email vera (l'indirizzo
-   normalizzato, lo stesso a cui arrivano le credenziali); in ogni caso
-   la risposta e' la stessa. I limiti: 20 richieste l'ora dalla stessa
-   rete (contate prima di cercare, anche per i nomi inesistenti), per
-   persona una ogni 2 minuti e al massimo 3 al giorno, e 200 all'ora in
-   tutto. */
-async function passwordDimenticata(ctx, { identificativo, ip }) {
+/* password-dimenticata: la persona scrive la sua email (quella con cui
+   si e' iscritta; maiuscole e spazi prima e dopo non contano). Se c'e'
+   un account attivo con quell'email, il collegamento per scegliere una
+   password nuova parte verso quell'indirizzo (normalizzato: lo stesso a
+   cui arrivano le credenziali); a chi non e' iscritto non parte NIENTE.
+   In ogni caso la risposta e' la stessa, dopo lo stesso tempo. I limiti:
+   20 richieste l'ora dalla stessa rete (contate prima di cercare, anche
+   per le email che non esistono), per persona una ogni 2 minuti e al
+   massimo 3 al giorno, e 200 all'ora in tutto.
+   Il vecchio nome del campo (`identificativo`, che accettava anche il
+   nome utente) arriva qui gia' tradotto in `email` dall'API: un nome
+   utente non e' un'email valida, quindi non trova nessuno. */
+async function passwordDimenticata(ctx, { email, ip }) {
     await aDurataCostante('reimpostazione', async () => {
         const impIp = C.improntaIp(ip);
         if (!await contaInFinestra(ctx, 'resetip_' + impIp, TETTO_RESET_RETE, ORA)) {
             console.error('[diretta] reimpostazione: limite della rete raggiunto');
             return;
         }
-        const scritto = String(identificativo == null ? '' : identificativo).slice(0, 300);
+        const scritta = E.normalizzaEmail(String(email == null ? '' : email).slice(0, 400));
+        if (!E.emailValida(scritta)) return;
         const db = ctx.db;
-        let uid = '';
-        if (scritto.indexOf('@') >= 0) {
-            const email = N.emailNormalizzata(scritto);
-            if (!N.emailValida(email)) return;
-            const s = await db.collection('indirizzi').doc(email).get();
-            uid = s.exists ? String(s.data().uid || '') : '';
-        } else {
-            const nome = N.pulisciAccesso(scritto);
-            if (!nome) return;
-            const s = await db.collection('nomiUtente').doc(nome).get();
-            uid = s.exists ? String(s.data().uid || '') : '';
-        }
+        const s = await db.collection('indirizzi').doc(scritta).get();
+        const uid = s.exists ? String(s.data().uid || '') : '';
         if (!uid) return;
         const [snapP, snapS] = await db.getAll(db.collection('partecipanti').doc(uid), db.collection('sessioni').doc(uid));
         const p = snapP.exists ? snapP.data() : null;
         if (!p || p.stato !== 'attivo' || p.authCreato !== true || (snapS.exists && snapS.data().stato !== 'attivo')) return;
         // una sola regola per l'indirizzo: quello normalizzato (anche per i profili caricati prima che si salvasse cosi')
-        const indirizzo = p.emailNorm || N.emailNormalizzata(p.email);
-        if (!N.emailValida(indirizzo)) return;
+        const indirizzo = p.emailNorm || E.normalizzaEmail(p.email);
+        if (!E.emailValida(indirizzo)) return;
         if (!await C.consumaGettone(ctx, 'limiti', 'reset_' + uid, { pausaMs: 2 * MINUTO, maxFinestra: 3, finestraMs: GIORNO })) {
             console.error('[diretta] reimpostazione: limite della persona raggiunto');
             return;
@@ -618,8 +643,9 @@ async function passwordDimenticata(ctx, { identificativo, ip }) {
             console.error('[diretta] reimpostazione: tetto orario complessivo raggiunto');
             return;
         }
-        const link = await linkReimpostazione(ctx, C.emailTecnica(uid), '&u=' + encodeURIComponent(p.nomeUtente || ''));
-        await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', nomeUtente: p.nomeUtente || '', link: link, perGestore: false });
+        // il collegamento non porta l'email: un indirizzo in un URL finisce nei registri
+        const link = await linkReimpostazione(ctx, C.emailTecnica(uid));
+        await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', email: indirizzo, link: link, perGestore: false });
     });
     return { msg: MSG_DIMENTICATA };
 }
@@ -669,7 +695,7 @@ async function gestoreAccesso(ctx, { email, ip }) {
         // l'elenco degli account di gestione: il cron li ripulisce quando l'email esce dall'elenco
         await ctx.db.collection('gestoriAccount').doc(utente.uid).set({ email: indirizzo, aggiornato: ctx.adesso() });
         const link = await linkReimpostazione(ctx, indirizzo, '&per=gestione');
-        await spedisciReimpostazione(ctx, { a: indirizzo, nome: '', nomeUtente: '', link: link, perGestore: true });
+        await spedisciReimpostazione(ctx, { a: indirizzo, nome: '', link: link, perGestore: true });
     });
     return { msg: MSG_GESTORE };
 }
@@ -746,6 +772,6 @@ async function linkVideo(ctx, req, b) {
 
 module.exports = {
     entra, passwordDimenticata, gestoreAccesso, aggiornaPermessi, linkVideo,
-    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante,
-    MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO
+    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante, lasciaFinire,
+    MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO, TEMPO_FALLITO_MS
 };

@@ -16,10 +16,17 @@
       intoppo di Google (rete, chiavi pubbliche non scaricate, errore
       interno) no (503, si riprova), anche quando firebase-admin lo
       presenta come 'auth/argument-error'.
+   3. Il gancio del modulo del sito (lib/diretta-iscrizione.js,
+      dalModulo) non tiene ferma la risposta del modulo oltre il suo
+      tempo massimo: su Vercel la risposta parte e il lavoro della
+      diretta finisce dopo con waitUntil; un lavoro breve non aspetta
+      niente; un errore della diretta non esce dal gancio (il modulo
+      risponde come sempre) e nel log non finisce l'email.
    ============================================================ */
 'use strict';
 const A = require('../lib/diretta-accesso');
 const C = require('../lib/diretta-comune');
+const I = require('../lib/diretta-iscrizione');
 
 let rossi = 0, verdi = 0;
 function vero(cond, descrizione) {
@@ -109,6 +116,53 @@ async function misura(fn) {
     }
     vero(await stato({ code: 'auth/id-token-expired', message: '' }) === 401, 'verificaGestore: token scaduto -> 401');
     vero(await stato({ code: 'auth/argument-error', message: 'socket hang up' }) === 503, 'verificaGestore: chiavi pubbliche non scaricate -> 503');
+
+    /* ---------- 3. il gancio del modulo del sito ---------- */
+    // un contesto finto: la lettura degli eventi con l'interruttore acceso dura quanto si vuole
+    const lento = (ms, errore) => ({
+        adesso: () => Date.now(),
+        db: {
+            collection: () => ({
+                where: () => ({ get: async () => { await pausa(ms); if (errore) throw new Error(errore); return { empty: true, docs: [] }; } })
+            })
+        }
+    });
+    process.env.DIRETTA_EMULATORE = '1';   // "configurata": il contesto e' quello finto qui sopra
+    const erroriGancio = [];
+    const erroreOriginale = console.error;
+    console.error = m => erroriGancio.push(String(m));
+    try {
+        const MODULO = { email: 'Mario.Rossi@Esempio.it', nome: 'Mario', cognome: 'Rossi', pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse' };
+        let t0 = Date.now();
+        const breve = await I.dalModulo(MODULO, { ctx: lento(20), attesaMs: 1000 });
+        vero(breve.esito === 'nessun-evento' && Date.now() - t0 < 500, 'gancio: lavoro breve, risposta subito (' + (Date.now() - t0) + ' ms, ' + breve.esito + ')');
+
+        const affidati = [];
+        globalThis[CONTESTO] = { get: () => ({ waitUntil: p => affidati.push(p) }) };
+        t0 = Date.now();
+        const lungo = await I.dalModulo(MODULO, { ctx: lento(2500), attesaMs: 1000 });
+        const durata = Date.now() - t0;
+        vero(lungo.esito === 'in-corso' && durata >= 1000 && durata < 1400, 'gancio su Vercel: il modulo risponde allo scadere del tempo massimo (' + durata + ' ms), non alla fine del lavoro');
+        vero(affidati.length === 1, 'gancio su Vercel: il lavoro rimasto passa a waitUntil');
+        const finale = affidati[0] ? await affidati[0] : null;
+        vero(finale && finale.esito === 'nessun-evento', 'gancio su Vercel: il lavoro affidato a waitUntil finisce');
+
+        affidati.length = 0;
+        t0 = Date.now();
+        const rotto = await I.dalModulo(MODULO, { ctx: lento(10, 'Firestore fermo per mario.rossi@esempio.it'), attesaMs: 1000 });
+        vero(rotto.esito === 'errore' && Date.now() - t0 < 500 && affidati.length === 0, 'gancio: un errore della diretta non esce (esito "errore", niente eccezioni)');
+        vero(erroriGancio.some(e => /iscrizione dal modulo non riuscita/.test(e)) && erroriGancio.every(e => !/mario\.rossi@esempio\.it/i.test(e)), 'gancio: l\'errore finisce nel log, senza l\'email');
+        delete globalThis[CONTESTO];
+
+        // fuori da Vercel si aspetta la fine (come "password dimenticata")
+        t0 = Date.now();
+        const locale2 = await I.dalModulo(MODULO, { ctx: lento(1500), attesaMs: 500 });
+        vero(locale2.esito === 'nessun-evento' && Date.now() - t0 >= 1500, 'gancio fuori da Vercel: si aspetta la fine del lavoro (' + (Date.now() - t0) + ' ms)');
+    } finally {
+        console.error = erroreOriginale;
+        delete globalThis[CONTESTO];
+        delete process.env.DIRETTA_EMULATORE;
+    }
 
     console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi');
     process.exit(rossi ? 1 : 0);

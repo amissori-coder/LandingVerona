@@ -29,11 +29,20 @@
      G. "Reinvia a chi non l'ha ricevuta": solo respinte ed errori di
         chi non e' mai entrato; mai gli incerti.
      H. conti finali: ogni persona ha ricevuto AL MASSIMO una email di
-        credenziali, e 20 password prese dalla posta funzionano
-        davvero (Identity Toolkit REST sull'emulatore); due "Reinvia"
-        premuti insieme = una email sola; il reinvio dice che la
-        password di prima non vale piu', e chi entra in un secondo
-        evento legge che la password nuova vale per tutti.
+        credenziali (con «scrivi la tua email <email> e questa
+        password», mai un nome utente), e 20 password prese dalla posta
+        funzionano davvero (Identity Toolkit REST sull'emulatore); due
+        "Reinvia" premuti insieme = una email sola; il reinvio dice che
+        la password di prima non vale piu'. UNA PASSWORD PER PERSONA:
+        chi ha gia' le credenziali di Napoli e viene aggiunto a Roma
+        riceve «Sei iscritto anche a...» SENZA password (quella di
+        Napoli continua a valere); chi aggiunto a Roma non aveva mai
+        ricevuto una password riceve le credenziali; il "Reinvia" del
+        gestore manda sempre una password.
+     M. l'invio SUBITO (inviaSubito, quello delle iscrizioni dal modulo
+        del sito) insieme a un giro della coda e a un secondo invio
+        subito: una email sola; con Brevo che rifiuta il login la
+        persona resta 'in coda' e la manda il cron dopo.
      I. tetto giornaliero (statoCoda: limiteRaggiunto, rimasteOggi);
         rimbalzi letti da un Brevo finto (con cache; esitiDisponibili):
         solo i rifiuti permanenti, un softBounce non cambia lo stato.
@@ -75,7 +84,7 @@ const EVENTO_TETTO = 'tetto-2026';     // per il tetto giornaliero
 const EVENTO_INCERTO = 'incerto-2026'; // per la connessione che cade dopo l'invio
 // le frasi dell'email per chi aveva gia' una password (D14)
 const FRASE_D14 = 'Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.';
-const FRASE_ALTRO_EVENTO = 'Avevi già ricevuto le credenziali per un altro evento';
+const FRASE_ANCHE = 'entra con la tua email e la password che hai già; se non la ricordi usa "Password dimenticata?"';
 const SEGRETO_CRON = 'segreto-della-prova-coda';
 
 /* ---------- l'ambiente, PRIMA di caricare il servizio ---------- */
@@ -108,7 +117,7 @@ if (!FIGLIO) {
 const { contesto } = require(path.join(RADICE, 'email-service/lib/diretta-firebase'));
 const invio = require(path.join(RADICE, 'email-service/lib/diretta-invio'));
 const C = require(path.join(RADICE, 'email-service/lib/diretta-comune'));
-const NU = require(path.join(RADICE, 'email-service/lib/diretta-nome-utente'));
+const EM = require(path.join(RADICE, 'email-service/lib/diretta-email'));
 const { passwordSegreta } = require(path.join(RADICE, 'email-service/lib/diretta-password'));
 const I = invio._interni;
 
@@ -240,18 +249,15 @@ async function creaEvento(id, titoloEvento, data, promemoria) {
         paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: promemoria, creato: ora, aggiornato: ora
     });
 }
-const basiUsate = {};
 async function creaPersone(idEvento, da, quante, opz) {
     opz = opz || {};
     const persone = [];
     for (let i = da; i < da + quante; i++) {
         const nome = NOMI[i % NOMI.length];
         const cognome = COGNOMI[Math.floor(i / NOMI.length) % COGNOMI.length];
-        const base = NU.nomeUtenteBase(nome, cognome);
-        basiUsate[base] = (basiUsate[base] || 0) + 1;
         persone.push({
             i: i, uid: 'p' + require('crypto').randomBytes(10).toString('hex'),
-            nome: nome, cognome: cognome, nomeUtente: NU.conNumero(base, basiUsate[base]), base: base,
+            nome: nome, cognome: cognome,
             email: opz.email ? opz.email(i - da) : (i % 9 === 0 ? ' Persona' + i + '@Coda.Prova ' : indirizzo(i)).trim(),
             disattivato: (opz.disattivati || []).indexOf(i) >= 0,
             senzaAccount: (opz.senzaAccount || []).indexOf(i) >= 0
@@ -266,20 +272,19 @@ async function creaPersone(idEvento, da, quante, opz) {
         })));
         if (r.failureCount) throw new Error('importUsers: ' + r.failureCount + ' falliti');
     }
-    // i documenti, a blocchi di 400 scritture (4 per persona)
+    // i documenti, a blocchi di 300 scritture (3 per persona: niente nomi utente)
     const ora = ctx.Timestamp.fromMillis(ctx.adesso());
     for (const gruppo of C.aGruppi(persone, 100)) {
         const b = ctx.db.batch();
         gruppo.forEach(p => {
-            const emailNorm = NU.emailNormalizzata(p.email);
+            const emailNorm = EM.normalizzaEmail(p.email);
             b.set(ctx.db.collection('partecipanti').doc(p.uid), {
-                uid: p.uid, nomeUtente: p.nomeUtente, nome: p.nome, cognome: p.cognome, email: p.email, emailNorm: emailNorm,
+                uid: p.uid, nome: p.nome, cognome: p.cognome, email: p.email, emailNorm: emailNorm,
                 azienda: 'Azienda ' + (p.i % 37), idEvento: idEvento, eventi: [idEvento],
                 stato: p.disattivato ? 'disattivato' : 'attivo', authCreato: !p.senzaAccount, ultimoAccesso: null,
                 invii: { [idEvento]: { stato: 'da inviare', aggiornato: ora, tentativi: 0 } }, promemoria: {},
                 creato: ora, aggiornato: ora
             });
-            b.set(ctx.db.collection('nomiUtente').doc(p.nomeUtente), { uid: p.uid, base: p.base, creato: ora });
             b.set(ctx.db.collection('indirizzi').doc(emailNorm), { uid: p.uid, creato: ora });
             b.set(ctx.db.collection('sessioni').doc(p.uid), { stato: p.disattivato ? 'disattivato' : 'attivo', sessioneAttiva: null, aggiornato: ora });
         });
@@ -532,15 +537,13 @@ async function prova() {
     vero(/noreply@nextgenerationbusiness\.it/.test(primaEmail.intestazioni.from) && /Revilaw S\.p\.A\./.test(primaEmail.intestazioni.from), 'mittente "Revilaw S.p.A." <noreply@nextgenerationbusiness.it>');
     vero(primaEmail.intestazioni['reply-to'] === 'info@nextgenerationbusiness.it', 'Reply-To all\'assistenza');
     vero(/^diretta\|napoli-2026\|p[0-9a-f]{20}$/.test(primaEmail.intestazioni['X-Mailin-custom']), 'intestazione X-Mailin-custom: diretta|<idEvento>|<uid>');
-    const nomePrima = (await ctx.db.collection('partecipanti').doc(uidDi(primaEmail)).get()).data().nomeUtente;
-    vero(primaEmail.html.indexOf('/diretta/?u=' + nomePrima + '&amp;e=' + EVENTO + '"') >= 0 && primaEmail.testo.indexOf('/diretta/?u=' + nomePrima + '&e=' + EVENTO) >= 0,
-        'il collegamento personale porta nome utente ed evento: /diretta/?u=' + nomePrima + '&e=' + EVENTO + ' (R4)');
-    const omonimo = (perStato.inviata || []).map(d => d.data()).find(d => /\d$/.test(d.nomeUtente));
-    const postaOmonimo = omonimo && posta[omonimo.uid][0];
-    vero(!!postaOmonimo && postaOmonimo.testo.indexOf('Attenzione: il tuo nome utente finisce con il numero ' + /(\d+)$/.exec(omonimo.nomeUtente)[1] + '.') >= 0,
-        'un omonimo (' + (omonimo && omonimo.nomeUtente) + ') legge che il suo nome utente finisce con un numero (R5)');
-    const senzaNumero = (perStato.inviata || []).map(d => d.data()).filter(d => !/\d$/.test(d.nomeUtente));
-    vero(senzaNumero.length > 0 && senzaNumero.every(d => !/finisce con il numero/.test(posta[d.uid][0].testo)), 'chi non ha il numero in fondo non riceve l\'avviso (' + senzaNumero.length + ' persone)');
+    vero(primaEmail.html.indexOf('/diretta/?e=' + EVENTO + '"') >= 0 && primaEmail.testo.indexOf('/diretta/?e=' + EVENTO) >= 0,
+        'il collegamento porta l\'evento, e mai l\'email: /diretta/?e=' + EVENTO + ' (R4)');
+    const primaDati = (await ctx.db.collection('partecipanti').doc(uidDi(primaEmail)).get()).data();
+    vero(primaEmail.testo.indexOf('scrivi la tua email ' + primaDati.emailNorm + ' e questa password: ' + passwordDi(primaEmail)) >= 0,
+        'le credenziali dicono «scrivi la tua email ' + primaDati.emailNorm + ' e questa password: ...»');
+    const conNomeUtente = leggiPosta().filter(m => /nome utente|nomeutente|[?&](amp;)?u=/i.test(m.oggetto + m.html + m.testo));
+    vero(conNomeUtente.length === 0, 'in nessuna email della coda compare un "nome utente" (' + leggiPosta().length + ' email controllate)');
     vero((perStato.inviata || []).every(d => !/sostituisce le precedenti|altro evento/.test(posta[d.id][0].testo)), 'al primo invio nessuna email dice "sostituisce le precedenti"');
     // 20 password prese dalla posta: funzionano davvero
     const campione = (perStato.inviata || []).slice(0, 20);
@@ -608,13 +611,35 @@ async function prova() {
         new ctx.FieldPath('invii', EVENTO_SENZA), { stato: 'da inviare', aggiornato: ctx.Timestamp.fromMillis(ctx.adesso()), tentativi: 0 });
     await ctx.auth.setCustomUserClaims(multi.id, { eventi: [EVENTO_SENZA, EVENTO] });
     await invio.accoda(ctx, { idEvento: EVENTO_SENZA, chi: 'da-inviare' });
+    // e una persona di Roma che non ha mai ricevuto una password, gia' iscritta a un terzo evento mai spedito
+    const senzaPw = personeRoma[1];
+    await ctx.db.collection('partecipanti').doc(senzaPw.uid).update(new ctx.FieldPath('eventi'), [EVENTO_SENZA, 'mai-spedito-2026'],
+        new ctx.FieldPath('invii', 'mai-spedito-2026'), { stato: 'da inviare', aggiornato: ctx.Timestamp.fromMillis(ctx.adesso()), tentativi: 0 });
+    await invio.accoda(ctx, { idEvento: EVENTO_SENZA, chi: 'da-inviare' });
     const roma = await finoAllaFine(EVENTO_SENZA, 'roma');
-    vero(roma.inviate === 21, 'Roma: 21 credenziali inviate (20 + una persona di Napoli)');
+    vero(roma.inviate === 21, 'Roma: 21 email inviate (20 + una persona di Napoli)');
     const postaMulti = perUid('credenziali', EVENTO_SENZA)[multi.id] || [];
-    vero(postaMulti.length === 1 && postaMulti[0].testo.indexOf(FRASE_ALTRO_EVENTO) >= 0 && postaMulti[0].testo.indexOf(FRASE_D14) < 0,
-        'chi aveva le credenziali di Napoli legge che la password nuova sostituisce quella dell\'altro evento');
-    vero(postaMulti.length === 1 && postaMulti[0].html.indexOf('&amp;e=' + EVENTO_SENZA + '"') >= 0, '...e il suo collegamento porta a Roma (&e=' + EVENTO_SENZA + ')');
-    vero(!(await accedi2(multi.id, passwordViste[1])) && await accedi2(multi.id, passwordDi(postaMulti[0])), '...la password di Napoli non vale piu\', quella nuova si\'');
+    const ancheMulti = perUid('iscritto-anche', EVENTO_SENZA)[multi.id] || [];
+    vero(postaMulti.length === 0 && ancheMulti.length === 1, 'chi aveva gia\' le credenziali di Napoli: NESSUNA password nuova per Roma, ma l\'avviso «Sei iscritto anche a...»');
+    vero(ancheMulti.length === 1 && ancheMulti[0].testo.indexOf(FRASE_ANCHE) >= 0 && /^Sei iscritto anche a /.test(ancheMulti[0].oggetto)
+        && !/Password:\s*\S/.test(ancheMulti[0].testo) && ancheMulti[0].html.indexOf(passwordViste[1]) < 0,
+        '...«' + FRASE_ANCHE + '», senza password');
+    vero(ancheMulti.length === 1 && ancheMulti[0].html.indexOf('/diretta/?e=' + EVENTO_SENZA + '"') >= 0, '...e il suo collegamento porta a Roma (?e=' + EVENTO_SENZA + ')');
+    vero(await accedi2(multi.id, passwordViste[1]), '...e la password di Napoli continua a valere');
+    const vMulti = (await multi.ref.get()).data().invii[EVENTO_SENZA];
+    vero(vMulti.stato === 'inviata' && vMulti.tipo === 'anche', 'sulla voce di Roma: inviata, tipo "anche" (riceve i promemoria come gli altri)');
+    const credSenzaPw = perUid('credenziali', EVENTO_SENZA)[senzaPw.uid] || [];
+    vero(credSenzaPw.length === 1 && /^[A-HJ-NP-Za-km-np-z2-9]{10}$/.test(passwordDi(credSenzaPw[0])) && !(perUid('iscritto-anche', EVENTO_SENZA)[senzaPw.uid]),
+        'chi era iscritto anche a un altro evento ma non aveva MAI ricevuto una password: riceve le credenziali');
+    vero((await ctx.db.collection('partecipanti').doc(senzaPw.uid).get()).data().invii[EVENTO_SENZA].tipo === 'credenziali', '...e sulla voce resta tipo "credenziali"');
+    // il "Reinvia" del gestore manda sempre una password, anche a chi aveva avuto l'avviso «anche»
+    avanti(2 * 60 * 1000);
+    const reMulti = await invio.inviaCredenziali(ctx, { uid: multi.id, idEvento: EVENTO_SENZA });
+    const credReMulti = perUid('credenziali', EVENTO_SENZA)[multi.id] || [];
+    vero(reMulti.stato === 'inviata' && credReMulti.length === 1 && credReMulti[0].testo.indexOf(FRASE_D14) >= 0,
+        '"Reinvia" del gestore a chi aveva l\'avviso «anche»: le credenziali con una password nuova (e la nota che la vecchia non vale piu\')');
+    vero(!(await accedi2(multi.id, passwordViste[1])) && await accedi2(multi.id, passwordDi(credReMulti[0])), '...la password di prima non vale piu\', quella nuova si\'');
+    vero((await multi.ref.get()).data().invii[EVENTO_SENZA].tipo === 'credenziali', '...e la voce di Roma torna tipo "credenziali"');
 
     /* ---------- I ---------- */
     titolo('I. Tetto giornaliero e rimbalzi letti da Brevo');
@@ -627,16 +652,17 @@ async function prova() {
     const st = await invio.statoCoda(ctx, { idEvento: EVENTO_TETTO });
     vero(st.coda.tettoGiorno === 3 && st.coda.inviateOggi === 3, 'statoCoda: tetto 3, inviate oggi 3');
     vero(st.limiteRaggiunto === true && st.rimasteOggi === 3, 'statoCoda: limiteRaggiunto, e le 3 rimaste partono domani (rimasteOggi = 3) (R13)');
-    const resetBloccato = await invio.inviaReimpostazione(ctx, { a: 'qualcuno@coda.prova', nome: 'Qualcuno', nomeUtente: 'qualcuno', link: C.baseSito() + '/diretta/reimposta.html?oobCode=abc&u=qualcuno' });
+    const resetBloccato = await invio.inviaReimpostazione(ctx, { a: 'qualcuno@coda.prova', nome: 'Qualcuno', link: C.baseSito() + '/diretta/reimposta.html?oobCode=abc' });
     vero(resetBloccato.ok === false && /tetto/.test(resetBloccato.motivo), 'le reimpostazioni si fermano all\'80% del tetto (per non togliere posto alle credenziali)');
     process.env.DIRETTA_MAX_GIORNO = '0';
     const restoTetto = await finoAllaFine(EVENTO_TETTO, 'tetto');
     vero(restoTetto.inviate === 3, 'senza tetto partono le altre 3');
     const stLibero = await invio.statoCoda(ctx, { idEvento: EVENTO_TETTO });
     vero(stLibero.limiteRaggiunto === false && stLibero.rimasteOggi === 0, 'senza tetto: limiteRaggiunto false, rimasteOggi 0');
-    const resetOk = await invio.inviaReimpostazione(ctx, { a: 'qualcuno@coda.prova', nome: 'Qualcuno', nomeUtente: 'qualcuno', link: C.baseSito() + '/diretta/reimposta.html?oobCode=abc&u=qualcuno' });
+    const resetOk = await invio.inviaReimpostazione(ctx, { a: 'Qualcuno@Coda.Prova ', nome: 'Qualcuno', link: C.baseSito() + '/diretta/reimposta.html?oobCode=abc' });
     const ultimaReset = leggiPosta().filter(m => m.tipo === 'reimpostazione').pop();
-    vero(resetOk.ok && ultimaReset && ultimaReset.a === 'qualcuno@coda.prova' && /reimposta\.html\?oobCode=abc&amp;u=qualcuno/.test(ultimaReset.html), 'reimpostazione: arriva all\'indirizzo vero con il collegamento');
+    vero(resetOk.ok && ultimaReset && ultimaReset.a === 'qualcuno@coda.prova' && /reimposta\.html\?oobCode=abc"/.test(ultimaReset.html), 'reimpostazione: arriva all\'indirizzo vero con il collegamento');
+    vero(ultimaReset && /La tua email: qualcuno@coda\.prova/.test(ultimaReset.testo), 'reimpostazione: ricorda l\'email con cui si entra');
     const resetCattivo = await invio.inviaReimpostazione(ctx, { a: 'qualcuno@coda.prova', nome: 'X', link: 'https://altrove.example/x' });
     vero(resetCattivo.ok === false, 'reimpostazione con un collegamento estraneo: non parte');
 
@@ -738,9 +764,41 @@ async function prova() {
     const eventoInd = Object.assign({ id: EVENTO_INDIRIZZI }, (await ctx.db.collection('eventi').doc(EVENTO_INDIRIZZI).get()).data(), { promemoria: { giornoPrima: true, oraPrima: true } });
     const dpInd = await I.destinatariPromemoria(ctx, EVENTO_INDIRIZZI, eventoInd, SCRITTI.length, { promemoria: { giorno: { cominciato: ctx.adesso() } } });
     vero(dpInd.giorno === SCRITTI.length && dpInd.ora === SCRITTI.length, 'contati uno per uno, tutti riceverebbero i promemoria (giorno ' + dpInd.giorno + ', ora ' + dpInd.ora + ')');
-    const resetInd = await invio.inviaReimpostazione(ctx, { a: SCRITTI[0], nome: 'Zeta', nomeUtente: strani[0].nomeUtente, link: C.baseSito() + '/diretta/reimposta.html?oobCode=abc&u=' + strani[0].nomeUtente });
+    const resetInd = await invio.inviaReimpostazione(ctx, { a: SCRITTI[0], nome: 'Zeta', link: C.baseSito() + '/diretta/reimposta.html?oobCode=abc' });
     const ultimaResetInd = leggiPosta().filter(m => m.tipo === 'reimpostazione').pop();
     vero(resetInd.ok && ultimaResetInd.a === 'zeta.invisibile@coda.prova', 'anche la reimpostazione va all\'indirizzo normalizzato: ' + JSON.stringify(ultimaResetInd.a));
+
+    /* ---------- M ---------- */
+    titolo('M. L\'invio subito (le iscrizioni dal modulo del sito): una volta sola, e il cron come rete di sicurezza');
+    const EVENTO_SUBITO = 'subito-2026';
+    await creaEvento(EVENTO_SUBITO, 'Prova dell\'invio subito', '2026-11-23', { giornoPrima: false, oraPrima: false });
+    const [s1, s2] = await creaPersone(EVENTO_SUBITO, 600000, 2);
+    const mettiInCoda = p => ctx.db.collection('partecipanti').doc(p.uid).update(new ctx.FieldPath('invii', EVENTO_SUBITO, 'stato'), 'in coda');
+    await mettiInCoda(s1);
+    await ctx.db.collection('code').doc(EVENTO_SUBITO).set({ attiva: true }, { merge: true });
+    process.env.DIRETTA_POSTA_RITARDO_MS = '300';
+    const insieme = await Promise.all([
+        invio.inviaSubito(ctx, { uid: s1.uid, idEvento: EVENTO_SUBITO }),
+        invio.inviaSubito(ctx, { uid: s1.uid, idEvento: EVENTO_SUBITO }),
+        I.lavoraCoda(ctx, EVENTO_SUBITO, { budgetMs: 10000 })
+    ]);
+    delete process.env.DIRETTA_POSTA_RITARDO_MS;
+    const postaS1 = perUid('credenziali', EVENTO_SUBITO)[s1.uid] || [];
+    vero(postaS1.length === 1, 'due invii subito e un giro della coda nello stesso istante: UNA email (' + insieme.slice(0, 2).map(x => x.stato).join(', ') + ', coda ' + insieme[2].inviate + ')');
+    vero(insieme.slice(0, 2).filter(x => x.stato === 'inviata' && x.tipo === 'credenziali').length + insieme[2].inviate === 1, 'uno solo dei tre l\'ha spedita');
+    vero(postaS1.length === 1 && await accedi2(s1.uid, passwordDi(postaS1[0])), 'la password dell\'invio subito funziona');
+    const giaInviata = await invio.inviaSubito(ctx, { uid: s1.uid, idEvento: EVENTO_SUBITO });
+    vero(giaInviata.stato === 'inviata' && (perUid('credenziali', EVENTO_SUBITO)[s1.uid] || []).length === 1, 'un altro invio subito a chi e\' gia\' "inviata": niente di nuovo (' + giaInviata.stato + ')');
+    await mettiInCoda(s2);
+    process.env.DIRETTA_POSTA_ERRORE_ACCOUNT = '1';
+    const bloccataS = await invio.inviaSubito(ctx, { uid: s2.uid, idEvento: EVENTO_SUBITO });
+    delete process.env.DIRETTA_POSTA_ERRORE_ACCOUNT;
+    const vS2 = (await ctx.db.collection('partecipanti').doc(s2.uid).get()).data().invii[EVENTO_SUBITO];
+    vero(bloccataS.stato === 'in coda' && vS2.stato === 'in coda' && !(perUid('credenziali', EVENTO_SUBITO)[s2.uid]), 'Brevo rifiuta il login: nessuna email, la persona resta "in coda"');
+    avanti(3 * 60 * 1000);
+    const cronS = await invio.giroCron(ctx, { budgetMs: 60000 });
+    vero((perUid('credenziali', EVENTO_SUBITO)[s2.uid] || []).length === 1 && cronS.code.some(c => c.idEvento === EVENTO_SUBITO && c.inviate === 1),
+        'il cron, al giro dopo, la manda (una email): e\' la rete di sicurezza dell\'invio subito');
 
     /* ---------- J ---------- */
     titolo('J. I promemoria, con l\'orologio spostato');
@@ -819,7 +877,8 @@ async function prova() {
     vero(tuttiProm.every(m => eventoDi(m) === EVENTO), 'nessun promemoria per Roma, ne\' per l\'evento del tetto');
     vero(DISATTIVATI.every(i => !pGiorno[perIndice[i].uid] && !pOra[perIndice[i].uid]), 'nessun promemoria ai disattivati');
     const esempio = tuttiProm.find(m => m.tipo === 'promemoria-giorno');
-    vero(/^Domani la diretta - /.test(esempio.oggetto) && /\/diretta\/\?u=[a-z0-9]+&amp;e=napoli-2026"/.test(esempio.html), 'promemoria del giorno prima: "Domani la diretta" con il collegamento personale (?u=&e=)');
+    vero(/^Domani la diretta - /.test(esempio.oggetto) && /\/diretta\/\?e=napoli-2026"/.test(esempio.html), 'promemoria del giorno prima: "Domani la diretta" con il collegamento all\'evento (?e=)');
+    vero(/La tua email: \S+@\S+/.test(esempio.testo), 'promemoria: ricorda l\'email con cui si entra');
     vero(/domani alle 9\.00 \(ora italiana\)/.test(esempio.testo) && /Non trovi la password\? Usa «Password dimenticata\?» nella pagina di accesso: \S+dimenticata=1/.test(esempio.testo),
         'promemoria: "domani alle 9.00 (ora italiana)" e "Non trovi la password? Usa «Password dimenticata?»" con il collegamento');
     const esempioOra = tuttiProm.find(m => m.tipo === 'promemoria-ora');

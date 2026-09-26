@@ -7,18 +7,30 @@
    api/ restano sottili: leggono la richiesta, controllano chi chiama
    e passano di qui.
 
-   LE TRE GARANZIE CONTRO I DOPPIONI (vedi `crea`):
+   L'EMAIL E' L'IDENTIFICATIVO. Nessun nome utente: si entra con
+   l'email e con la password che generiamo noi. Una regola sola per
+   l'indirizzo (lib/diretta-email.js: normalizzaEmail, emailValida).
+
+   LE DUE GARANZIE CONTRO I DOPPIONI (vedi `crea`):
    1. una email = un account: l'indirizzo si PRENOTA nel documento
-      indirizzi/{emailNormalizzata}, dentro una transazione;
-   2. un nome utente = una persona: anche il nome si prenota, in
-      nomiUtente/{nomeUtente}, nella STESSA transazione;
-   3. l'account Firebase Auth ha come uid quello scritto nella
+      indirizzi/{emailNormalizzata}, dentro una transazione (tx.create:
+      se c'e' gia', la transazione riparte e trova l'account);
+   2. l'account Firebase Auth ha come uid quello scritto nella
       prenotazione, generato prima della transazione: se due
       caricamenti arrivano insieme, o se lo stesso file si ricarica
       dopo un errore, l'account e' sempre lo stesso e al massimo si
       completa.
-   Cosi' nemmeno due caricamenti contemporanei dello stesso file
-   possono creare due volte la stessa persona o lo stesso nome.
+   Cosi' nemmeno tre caricamenti contemporanei dello stesso file (o di
+   file con persone in comune) possono creare due volte la stessa
+   persona. La raccolta nomiUtente dei nomi utente di prima resta dove
+   sta (nessuno ci scrive piu').
+
+   L'IMPORT NON MANDA EMAIL. `crea` crea gli account (con una password
+   segreta che nessuno conosce) e lascia le credenziali "da inviare":
+   partono solo quando il gestore preme «Invia le credenziali» (la coda
+   di lib/diretta-invio.js), mai da sole e mai a date fisse. L'unica
+   eccezione e' l'interruttore dell'evento `iscrizioniAutomatiche`, che
+   vale solo per chi si iscrive dal modulo del sito (lib/diretta-iscrizione.js).
 
    IL VIDEO. Arriva SOLO dalla web TV Azoto, in una delle due modalita'
    che la gestione sceglie per ogni evento (tipoPlayer):
@@ -58,7 +70,7 @@
 'use strict';
 const crypto = require('crypto');
 const C = require('./diretta-comune');
-const N = require('./diretta-nome-utente');
+const E = require('./diretta-email');
 const V = require('./diretta-sorgente-video');
 const F = require('./diretta-firma');
 const { indirizzoPubblico, eIndirizzoIp } = require('./diretta-prova-link');
@@ -77,8 +89,6 @@ const STATI_EVENTO = ['programmato', 'in_onda', 'pausa', 'terminato'];
 const MAX_EVENTI_PERSONA = 20;
 const MAX_RIGHE_CREA = 50;
 const CONCORRENZA_CREA = 5;
-const CANDIDATI_PER_BLOCCO = 10;
-const MAX_BLOCCHI = 6;
 const MAX_ANTEPRIMA = 5000;
 const MAX_PROGRAMMA = 40;
 const FINESTRA_CONNESSI_MS = 150 * 1000;
@@ -170,9 +180,7 @@ function stessaLista(a, b) {
 }
 
 // nomi e cognomi: niente caratteri di controllo e niente < > (DECISIONI D3)
-function sospetto(s) {
-    return /[\u0000-\u001f\u007f<>]/.test(String(s || ''));
-}
+const sospetto = E.nomeSospetto;
 
 /* Tanti lavori, al massimo n alla volta, risultati nello stesso ordine. */
 async function inParallelo(elenco, n, fn) {
@@ -189,7 +197,7 @@ async function inParallelo(elenco, n, fn) {
 }
 
 /* Le transazioni che si contendono gli stessi documenti (due caricamenti
-   di tanti "Mario Rossi" insieme) possono essere interrotte da Firestore
+   dello stesso file insieme) possono essere interrotte da Firestore
    con ABORTED dopo i loro tentativi interni: si riprova con un'attesa
    casuale crescente, cosi' non ripartono tutte nello stesso istante. */
 async function conRiprova(fn, volte) {
@@ -218,7 +226,10 @@ function transazione(ctx, fn) {
    si dice solo se la chiave c'e' (segretoImpostato): la chiave non esce
    MAI. videoInOnda e' il videoId pubblico (quello che ricevono i
    partecipanti, in qualunque modalita'); azotoInOnda lo stesso, ma solo
-   se e' il player di Azoto. */
+   se e' il player di Azoto. iscrizioniAutomatiche (booleano, false se
+   manca): l'interruttore «Invia subito la password a chi si iscrive dal
+   modulo del sito»; sta nel documento riservato, ai partecipanti non
+   serve. */
 function eventoJSON(id, dati, riservati) {
     const out = jsonDi(dati);
     const r = riservatiDa(riservati);
@@ -240,7 +251,32 @@ function eventoJSON(id, dati, riservati) {
     out.sorgente = dati && dati.sorgente === 'riserva' ? 'riserva' : 'principale';
     out.videoFirmato = F.attiva(r.firma);
     out.firma = F.pubblica(r.firma);
+    out.iscrizioniAutomatiche = iscrizioniDi(riservati);
     return out;
+}
+/* L'interruttore delle iscrizioni dal modulo del sito, dal documento
+   riservato. Chi riscrive quel documento per intero (tx.set senza merge:
+   il video, la firma) deve rimettercelo: vedi conIscrizioni(). */
+function iscrizioniDi(riservati) {
+    return !!(riservati && riservati.iscrizioniAutomatiche === true);
+}
+function conIscrizioni(nuovi, riservati) {
+    return Object.assign({}, nuovi, { iscrizioniAutomatiche: iscrizioniDi(riservati) });
+}
+/* La pagina dell'evento come percorso confrontabile: minuscolo, senza
+   indirizzo del sito, senza ?... e #..., senza index.html, con la barra
+   finale ("/napoli_ottobre_2026" e "https://nextgenerationbusiness.it/
+   napoli_ottobre_2026/index.html#accreditamento" sono la stessa pagina).
+   '' se non e' un percorso. */
+function percorsoPagina(v) {
+    let t = String(v == null ? '' : v).trim().toLowerCase();
+    if (!t) return '';
+    if (/^https?:\/\//.test(t)) {
+        try { t = new URL(t).pathname; } catch (_) { return ''; }
+    }
+    t = t.split('#')[0].split('?')[0].replace(/\/index\.html?$/, '/');
+    if (t[0] !== '/' || !RE_PAGINA.test(t)) return '';
+    return t.slice(-1) === '/' ? t : t + '/';
 }
 
 async function leggiEvento(ctx, idEvento) {
@@ -433,7 +469,12 @@ function uguali(a, b) {
    schema 'nessuna' cancella anche il segreto). La modalita' 'flusso'
    vuole il flusso principale (400 campo 'tipoPlayer', o 'video' se lo
    si toglie mentre e' in uso); 'azoto' si salva anche senza indirizzo
-   (lo si inserisce piu' tardi). */
+   (lo si inserisce piu' tardi).
+   iscrizioniAutomatiche (booleano, spento di base): «Invia subito la
+   password a chi si iscrive dal modulo del sito». Si salva nel documento
+   riservato. Acceso vuole la pagina dell'evento (400 campo 'pagina'), e
+   una pagina puo' avere l'interruttore acceso su un evento solo (409
+   'iscrizioni-doppie'): il modulo del sito deve portare a UN evento. */
 async function salvaEvento(ctx, ingresso) {
     const e = ingresso || {};
     const nuovo = e.nuovo === true;
@@ -488,6 +529,23 @@ async function salvaEvento(ctx, ingresso) {
         const unSoloDispositivo = val('unSoloDispositivo', false) === true;
         const prom = val('promemoria', {}) || {};
         const promemoria = { giornoPrima: prom.giornoPrima === true, oraPrima: prom.oraPrima === true };
+        if (e.iscrizioniAutomatiche !== undefined && typeof e.iscrizioniAutomatiche !== 'boolean') {
+            throw C.errore(400, 'Valore non valido per «Invia subito la password a chi si iscrive dal modulo del sito».', 'iscrizioniAutomatiche');
+        }
+        const iscrizioni = e.iscrizioniAutomatiche !== undefined ? e.iscrizioniAutomatiche : iscrizioniDi(ris);
+        if (iscrizioni) {
+            if (!percorsoPagina(paginaEvento)) {
+                throw C.errore(400, 'Per mandare subito la password a chi si iscrive dal modulo del sito serve la «Pagina dell\'evento» (per esempio /napoli_ottobre_2026/).', 'pagina');
+            }
+            const accesi = await tx.get(db.collection('eventiRiservati').where('iscrizioniAutomatiche', '==', true));
+            const altri = accesi.docs.map(d => d.id).filter(x => x !== id);
+            const pubblici = altri.length ? await tx.getAll(...altri.map(x => db.collection('eventi').doc(x))) : [];
+            const doppio = pubblici.find(d => d.exists && percorsoPagina(d.data().paginaEvento) === percorsoPagina(paginaEvento));
+            if (doppio) {
+                throw C.errore(409, 'L\'invio automatico della password è già acceso per un altro evento con la stessa pagina («'
+                    + (doppio.data().titolo || doppio.id) + '»): spegnilo lì prima di accenderlo qui.', 'iscrizioni-doppie');
+            }
+        }
 
         const stato = vecchio.stato || 'programmato';
         const ts = adessoTs(ctx);
@@ -511,11 +569,22 @@ async function salvaEvento(ctx, ingresso) {
                 tx.update(rif, cambiati);
             }
         }
-        if (nuovo || !uguali(nuoviRis, prima)) {
-            tx.set(rifRis, Object.assign({}, nuoviRis, { aggiornato: ts }));
+        if (nuovo || !uguali(nuoviRis, prima) || iscrizioni !== iscrizioniDi(ris)) {
+            tx.set(rifRis, Object.assign({}, nuoviRis, { iscrizioniAutomatiche: iscrizioni, aggiornato: ts }));
         }
     });
     return (await leggiEvento(ctx, id)).json;
+}
+
+/* evento-iscrizioni: l'interruttore «Invia subito la password a chi si
+   iscrive dal modulo del sito», da solo (gli altri campi restano come
+   sono). Stesse regole di evento-salva. -> l'evento */
+async function cambiaIscrizioni(ctx, { idEvento, iscrizioniAutomatiche }) {
+    const id = controllaIdEvento(idEvento);
+    if (typeof iscrizioniAutomatiche !== 'boolean') {
+        throw C.errore(400, 'Valore non valido per «Invia subito la password a chi si iscrive dal modulo del sito».', 'iscrizioniAutomatiche');
+    }
+    return salvaEvento(ctx, { id: id, iscrizioniAutomatiche: iscrizioniAutomatiche });
 }
 
 /* evento-stato: programmato, in onda, in pausa, terminato. Il video
@@ -575,7 +644,7 @@ async function cambiaVideo(ctx, { idEvento, azotoUrl, videoUrl, videoId, riserva
             firma: prima.firma
         });
         const ts = adessoTs(ctx);
-        if (!uguali(nuoviRis, prima)) tx.set(rifRis, Object.assign({}, nuoviRis, { aggiornato: ts }));
+        if (!uguali(nuoviRis, prima)) tx.set(rifRis, Object.assign(conIscrizioni(nuoviRis, snapRis.exists ? snapRis.data() : {}), { aggiornato: ts }));
         const video = campiVideo(v, nuoviRis, v.stato);
         if (Object.keys(video).length) tx.update(rif, Object.assign(video, { videoAggiornato: ts, aggiornato: ts }));
     });
@@ -628,7 +697,7 @@ async function cambiaPlayer(ctx, { idEvento, tipoPlayer }) {
         if (tipoPlayer === 'azoto' && !azotoValido(prima.azotoUrl)) throw C.errore(400, MSG_SERVE_AZOTO, 'tipoPlayer');
         const nuoviRis = Object.assign({}, prima, { tipoPlayer: tipoPlayer });
         const ts = adessoTs(ctx);
-        if (!uguali(nuoviRis, prima) || !snapRis.exists) tx.set(rifRis, Object.assign({}, nuoviRis, { aggiornato: ts }));
+        if (!uguali(nuoviRis, prima) || !snapRis.exists) tx.set(rifRis, Object.assign(conIscrizioni(nuoviRis, snapRis.exists ? snapRis.data() : {}), { aggiornato: ts }));
         tx.update(rif, Object.assign(campiVideo(v, nuoviRis, v.stato), { videoAggiornato: ts, aggiornato: ts }));
     });
     return (await leggiEvento(ctx, id)).json;
@@ -705,11 +774,13 @@ async function scegliEvento(ctx, eventi, preferito) {
 function partecipanteJSON(d, idEvento) {
     const invii = d.invii || {};
     return {
-        uid: d.uid, nomeUtente: d.nomeUtente || '', nome: d.nome || '', cognome: d.cognome || '',
-        email: d.email || '', azienda: d.azienda || '', stato: d.stato || 'attivo',
+        uid: d.uid, nome: d.nome || '', cognome: d.cognome || '',
+        email: d.emailNorm || E.normalizzaEmail(d.email) || '', azienda: d.azienda || '', stato: d.stato || 'attivo',
         idEvento: d.idEvento || '', eventi: Array.isArray(d.eventi) ? d.eventi : [],
         invio: jsonDi(invii[idEvento] || { stato: 'da inviare' }),
-        ultimoAccesso: ms(d.ultimoAccesso), authCreato: d.authCreato === true
+        ultimoAccesso: ms(d.ultimoAccesso), authCreato: d.authCreato === true,
+        // da dove e' arrivato: 'import' (il file della gestione) o 'modulo' (il modulo del sito)
+        origine: d.origine || 'import'
     };
 }
 
@@ -717,111 +788,47 @@ async function elencoPartecipanti(ctx, idEvento) {
     const id = controllaIdEvento(idEvento);
     const snap = await ctx.db.collection('partecipanti').where('eventi', 'array-contains', id).get();
     return snap.docs.map(d => partecipanteJSON(Object.assign({ uid: d.id }, d.data()), id))
-        .sort((a, b) => (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome, 'it') || a.nomeUtente.localeCompare(b.nomeUtente));
+        .sort((a, b) => (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome, 'it') || a.email.localeCompare(b.email));
 }
 
-// "mario.rossi@acme.it" -> "m***@acme.it": basta per riconoscere, non per copiare
-function emailMascherata(email) {
-    const e = String(email || '');
-    const at = e.indexOf('@');
-    if (at < 1) return '';
-    return e[0] + '***' + e.slice(at);
-}
-
-/* anteprima: che cosa esiste gia' per le righe del file, senza
-   creare niente. La gestione ci fa girare analizzaRighe() (la stessa
-   funzione di diretta/nome-utente.js). */
-async function anteprima(ctx, { idEvento, emails, basi, nomi }) {
-    controllaIdEvento(idEvento);
-    const elenco = (v, pulisci) => {
-        if (v != null && !Array.isArray(v)) throw C.errore(400, 'Dati dell\'anteprima non validi.', 'dati');
-        const a = v || [];
-        if (a.length > MAX_ANTEPRIMA) throw C.errore(400, 'Troppe righe: al massimo ' + MAX_ANTEPRIMA + ' per volta.', 'troppe');
-        return Array.from(new Set(a.map(pulisci).filter(Boolean)));
-    };
-    const indirizzi = elenco(emails, x => { const e = N.emailNormalizzata(x); return N.emailValida(e) ? e : ''; });
-    const listaBasi = elenco(basi, x => N.pulisciNomeUtente(x));
-    const listaNomi = elenco(nomi, x => N.pulisciNomeUtente(x));
+/* anteprima: che cosa succederebbe caricando queste righe, senza creare
+   niente. { idEvento, righe: [{ riga?, nome, cognome, email, azienda,
+   escludi? }] } (al massimo 5000) -> { righe, conteggi, pronto }: la
+   risposta di E.analizzaImport (lib/diretta-email.js, dove sono scritti
+   gli esiti), con quello che esiste gia' letto qui: per ogni email
+   valida del file, l'account (indirizzi/{email} -> partecipanti/{uid}). */
+async function anteprima(ctx, { idEvento, righe }) {
+    const id = controllaIdEvento(idEvento);
+    if (!Array.isArray(righe)) throw C.errore(400, 'Dati dell\'anteprima non validi: servono le righe del file.', 'righe');
+    if (righe.length > MAX_ANTEPRIMA) throw C.errore(400, 'Troppe righe: al massimo ' + MAX_ANTEPRIMA + ' per volta.', 'troppe');
+    const pulite = righe.map((r, i) => {
+        const x = r && typeof r === 'object' ? r : {};
+        return {
+            riga: Number(x.riga) || (i + 2), nome: C.testo(x.nome, 80), cognome: C.testo(x.cognome, 80),
+            email: String(x.email == null ? '' : x.email).slice(0, 400), azienda: C.testo(x.azienda, 120), escludi: x.escludi === true
+        };
+    });
+    const indirizzi = Array.from(new Set(pulite.map(r => E.normalizzaEmail(r.email)).filter(E.emailValida)));
     const db = ctx.db;
 
     // una email = un account: chi c'e' gia'
-    const perEmail = {};
     const uidPerEmail = {};
     for (const gruppo of C.aGruppi(indirizzi, 100)) {
         const snaps = await db.getAll(...gruppo.map(e => db.collection('indirizzi').doc(e)));
-        snaps.forEach((s, i) => { if (s.exists && s.data().uid) uidPerEmail[gruppo[i]] = s.data().uid; });
+        snaps.forEach((s, i) => { if (s.exists && s.data().uid) uidPerEmail[gruppo[i]] = String(s.data().uid); });
     }
-    const uids = Array.from(new Set(Object.values(uidPerEmail)));
     const profili = {};
-    for (const gruppo of C.aGruppi(uids, 100)) {
+    for (const gruppo of C.aGruppi(Array.from(new Set(Object.values(uidPerEmail))), 100)) {
         const snaps = await db.getAll(...gruppo.map(u => db.collection('partecipanti').doc(u)));
         snaps.forEach(s => { if (s.exists) profili[s.id] = s.data(); });
     }
+    const perEmail = {};
     Object.keys(uidPerEmail).forEach(e => {
         const p = profili[uidPerEmail[e]];
         if (!p) return;
-        perEmail[e] = { uid: uidPerEmail[e], nomeUtente: p.nomeUtente || '', nome: p.nome || '', cognome: p.cognome || '', eventi: Array.isArray(p.eventi) ? p.eventi : [] };
+        perEmail[e] = { uid: uidPerEmail[e], nome: p.nome || '', cognome: p.cognome || '', eventi: Array.isArray(p.eventi) ? p.eventi : [], stato: p.stato || 'attivo' };
     });
-
-    // i nomi utente gia' presi: tutti quelli delle basi del file, piu' quelli richiesti
-    const occupati = new Set();
-    const titolari = {};
-    for (const gruppo of C.aGruppi(listaBasi, 30)) {
-        const snap = await db.collection('nomiUtente').where('base', 'in', gruppo).get();
-        snap.docs.forEach(d => { occupati.add(d.id); titolari[d.id] = d.data().uid; });
-    }
-    for (const gruppo of C.aGruppi(listaNomi, 100)) {
-        const snaps = await db.getAll(...gruppo.map(n => db.collection('nomiUtente').doc(n)));
-        snaps.forEach(s => { if (s.exists) occupati.add(s.id); });
-    }
-
-    /* Chi usa gia' il nome di base (per la riga dell'omonimo: "gia' usato
-       da Mario Rossi, ACME srl, m***@acme.it"): solo per le basi del file
-       che sono occupate, e con l'email mascherata. */
-    const dettagliOccupati = {};
-    const daLeggere = listaBasi.filter(b => titolari[b] && !profili[titolari[b]]).map(b => titolari[b]);
-    for (const gruppo of C.aGruppi(Array.from(new Set(daLeggere)), 100)) {
-        const snaps = await db.getAll(...gruppo.map(u => db.collection('partecipanti').doc(u)));
-        snaps.forEach(s => { if (s.exists) profili[s.id] = s.data(); });
-    }
-    listaBasi.forEach(b => {
-        const p = titolari[b] && profili[titolari[b]];
-        if (p) dettagliOccupati[b] = { nome: p.nome || '', cognome: p.cognome || '', azienda: p.azienda || '', emailMascherata: emailMascherata(p.emailNorm || p.email) };
-    });
-
-    return { esistenti: { perEmail: perEmail, occupati: Array.from(occupati).sort(), dettagliOccupati: dettagliOccupati } };
-}
-
-/* Da dove parte la numerazione del nome utente.
-   - Il nome desiderato e' la base (mariorossi) o la base con un numero
-     (mariorossi4): si numera dalla base, partendo da quel numero.
-   - Altrimenti (un nome scritto a mano diverso dalla base) si numera da
-     quel nome: desiderato, desiderato2, desiderato3...
-   Nella prenotazione si registra la "radice" come base, cosi'
-   l'anteprima trova tutti i nomi di quella famiglia. */
-function radiceDi(desiderato, base) {
-    if (base && desiderato.indexOf(base) === 0) {
-        const coda = desiderato.slice(base.length);
-        if (coda === '') return { radice: base, primo: 1 };
-        if (/^[1-9]\d{0,4}$/.test(coda) && +coda >= 2) return { radice: base, primo: +coda };
-    }
-    return { radice: desiderato, primo: 1 };
-}
-
-/* La prenotazione del nome utente DENTRO una transazione: si leggono i
-   candidati a blocchi di dieci (radice, radice2 ... radice10, poi i dieci
-   successivi), al massimo sei blocchi, e si prende il primo libero. Un
-   candidato gia' prenotato dalla stessa persona vale come libero (serve
-   alla correzione del nome). */
-async function primoNomeLibero(ctx, tx, radice, primo, uid) {
-    for (let b = 0; b < MAX_BLOCCHI; b++) {
-        const candidati = [];
-        for (let k = 0; k < CANDIDATI_PER_BLOCCO; k++) candidati.push(N.conNumero(radice, primo + b * CANDIDATI_PER_BLOCCO + k));
-        const snaps = await tx.getAll(...candidati.map(c => ctx.db.collection('nomiUtente').doc(c)));
-        const i = snaps.findIndex(s => !s.exists || (uid && s.data().uid === uid));
-        if (i >= 0) return { nome: candidati[i], mio: snaps[i].exists };
-    }
-    return null;
+    return E.analizzaImport(pulite, { perEmail: perEmail }, id);
 }
 
 /* L'account Firebase Auth di una persona appena prenotata (o rimasta a
@@ -874,34 +881,39 @@ async function allineaClaims(ctx, uid) {
 }
 
 /* crea: le righe confermate in anteprima (al massimo 50 per chiamata,
-   cinque alla volta). Per ogni riga, UNA transazione che:
-   - legge indirizzi/{email}: se la persona esiste (stessa email, scritta
-     in qualunque modo) non si crea niente, la si aggiunge all'evento;
-   - altrimenti prenota insieme l'indirizzo, il primo nome utente libero
-     e il profilo, con l'uid generato prima.
-   Poi, fuori dalla transazione, l'account Auth e i claims. Se qualcosa
-   si ferma a meta', ricaricare lo stesso file completa senza doppioni. */
+   cinque alla volta): { idEvento, righe: [{ riga, nome, cognome, email,
+   azienda }] } -> { risultati: [{ riga, esito, uid, codice, motivo }] }
+   esito: 'creato'        account nuovo, credenziali "da inviare";
+          'aggiunto'      account gia' esistente (stessa email, scritta in
+                          qualunque modo), aggiunto all'evento: nessun
+                          account nuovo, nessuna password nuova;
+          'gia-iscritto'  gia' nell'evento: niente da fare;
+          'errore'        con `codice` (quelli dell'anteprima:
+                          'email-mancante', 'email-non-valida',
+                          'nome-mancante', 'nome-non-valido',
+                          'email-condivisa'; oppure 'incoerente',
+                          'temporaneo', 'account') e `motivo` da mostrare.
+   NESSUNA email parte da qui: le credenziali restano "da inviare" finche'
+   il gestore non preme «Invia le credenziali».
+   Per ogni riga, UNA transazione su indirizzi/{email}: se la persona c'e'
+   la si aggiunge all'evento, altrimenti si prenotano insieme l'indirizzo
+   e il profilo, con l'uid generato prima. Poi, fuori dalla transazione,
+   l'account Auth e i claims. Se qualcosa si ferma a meta', ricaricare lo
+   stesso file completa senza doppioni. */
 async function crea(ctx, { idEvento, righe }) {
     const id = controllaIdEvento(idEvento);
     if (!Array.isArray(righe) || !righe.length) throw C.errore(400, 'Nessuna riga da creare.', 'righe');
     if (righe.length > MAX_RIGHE_CREA) throw C.errore(400, 'Al massimo ' + MAX_RIGHE_CREA + ' righe per volta.', 'righe');
     const ev = await ctx.db.collection('eventi').doc(id).get();
     if (!ev.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
-    /* Cinque righe alla volta, ma quelle della stessa "famiglia" di nomi
-       (tutti i Mario Rossi) o con la stessa email una dopo l'altra: in
-       parallelo si contenderebbero gli stessi documenti e Firestore
-       farebbe ripartire le transazioni (ogni ripartenza costa almeno un
-       secondo di attesa). Famiglie diverse vanno avanti insieme. */
+    /* Cinque righe alla volta, ma quelle con la stessa email una dopo
+       l'altra: in parallelo si contenderebbero lo stesso documento e
+       Firestore farebbe ripartire le transazioni (ogni ripartenza costa
+       almeno un secondo di attesa). Email diverse vanno avanti insieme. */
     const gruppi = new Map();
-    const gruppoDellEmail = {};
     righe.forEach((r, i) => {
-        const x = r || {};
-        const base = N.nomeUtenteBase(C.testo(x.nome, 80), C.testo(x.cognome, 80));
-        const desiderato = N.pulisciNomeUtente(x.nomeUtente) || base;
-        const email = N.emailNormalizzata(x.email);
-        let chiave = desiderato ? 'n:' + radiceDi(desiderato, base).radice : 'r:' + i;
-        if (email && gruppoDellEmail[email]) chiave = gruppoDellEmail[email];
-        else if (email) gruppoDellEmail[email] = chiave;
+        const email = E.normalizzaEmail(String((r && r.email) == null ? '' : r.email).slice(0, 400));
+        const chiave = email ? 'e:' + email : 'r:' + i;
         if (!gruppi.has(chiave)) gruppi.set(chiave, []);
         gruppi.get(chiave).push(i);
     });
@@ -912,21 +924,78 @@ async function crea(ctx, { idEvento, righe }) {
     return { risultati: risultati };
 }
 
-/* Se i primi sessanta candidati sono tutti presi (una famiglia di
-   omonimi molto numerosa), si chiede a Firestore quali nomi della
-   famiglia esistono e si riparte dal primo buco: la transazione poi
-   ricontrolla, come sempre. */
-async function primoLiberoStimato(ctx, radice, primo) {
-    const snap = await ctx.db.collection('nomiUtente').where('base', '==', radice).select().get();
-    const presi = new Set(snap.docs.map(d => d.id));
-    let n = primo;
-    while (presi.has(N.conNumero(radice, n))) n++;
-    return n;
+/* La prenotazione di una persona in una transazione (la usano `crea` e
+   le iscrizioni dal modulo del sito, lib/diretta-iscrizione.js):
+   - indirizzi/{email} c'e' -> la persona esiste. Se il nome e' di
+     un'altra persona ('email-condivisa', solo con `controllaNome`) non
+     si tocca niente; se e' gia' nell'evento -> 'gia-iscritto' (e, con
+     `voceSeGia(voce attuale, profilo)`, che restituisce i campi da
+     cambiare o null, la voce delle credenziali si puo' aggiornare; la
+     risposta porta `voce`, quella risultante); se no la si aggiunge
+     all'evento con la voce `voce` -> 'aggiunto';
+   - indirizzi/{email} non c'e' -> si creano indirizzo, profilo e
+     sessione con l'uid `uidNuovo` e la voce `voce` -> 'creato'.
+   dati: { nome, cognome, azienda, emailNorm, origine }
+   -> { tipo, uid, dati (il profilo di prima) } */
+async function prenotaPersona(ctx, idEvento, dati, opz) {
+    const db = ctx.db;
+    const o = opz || {};
+    const uidNuovo = o.uidNuovo || nuovoUid();
+    return transazione(ctx, async tx => {
+        const rifInd = db.collection('indirizzi').doc(dati.emailNorm);
+        const ind = await tx.get(rifInd);
+        const ts = adessoTs(ctx);
+        const voce = Object.assign({ aggiornato: ts, tentativi: 0 }, o.voce || { stato: 'da inviare' });
+        if (ind.exists) {
+            const uid = String(ind.data().uid || '');
+            const rifP = db.collection('partecipanti').doc(uid || '-');
+            const p = uid ? await tx.get(rifP) : null;
+            if (!p || !p.exists) return { tipo: 'incoerente', uid: uid };
+            const d = p.data();
+            if (o.controllaNome && !E.stessaPersona(dati, d)) return { tipo: 'email-condivisa', uid: uid, dati: d };
+            const eventi = Array.isArray(d.eventi) ? d.eventi : [];
+            if (eventi.indexOf(idEvento) >= 0) {
+                const attuale = ((d.invii || {})[idEvento]) || null;
+                const nuovaVoce = o.voceSeGia ? o.voceSeGia(attuale, d) : null;
+                if (nuovaVoce) {
+                    // campo per campo: il resto della voce (inviata, tipo...) resta com'e'
+                    const args = [];
+                    Object.keys(nuovaVoce).forEach(k => args.push(new ctx.FieldPath('invii', idEvento, k), nuovaVoce[k]));
+                    args.push(new ctx.FieldPath('invii', idEvento, 'aggiornato'), ts, 'aggiornato', ts);
+                    tx.update(rifP, ...args);
+                }
+                return { tipo: 'gia-iscritto', uid: uid, dati: d, voce: nuovaVoce ? Object.assign({}, attuale, nuovaVoce) : attuale, voceCambiata: !!nuovaVoce };
+            }
+            tx.set(rifP, {
+                eventi: listaEventi(eventi, idEvento), idEvento: idEvento, aggiornato: ts,
+                invii: { [idEvento]: voce }
+            }, { merge: true });
+            return { tipo: 'aggiunto', uid: uid, dati: d };
+        }
+        tx.create(rifInd, { uid: uidNuovo, creato: ts });
+        tx.create(db.collection('partecipanti').doc(uidNuovo), {
+            uid: uidNuovo, nome: dati.nome, cognome: dati.cognome, email: dati.emailNorm, emailNorm: dati.emailNorm,
+            azienda: dati.azienda || '', idEvento: idEvento, eventi: [idEvento], stato: 'attivo', authCreato: false,
+            ultimoAccesso: null, invii: { [idEvento]: voce }, promemoria: {}, origine: dati.origine || 'import',
+            creato: ts, aggiornato: ts
+        });
+        tx.set(db.collection('sessioni').doc(uidNuovo), { stato: 'attivo', sessioneAttiva: null, aggiornato: ts });
+        return { tipo: 'creato', uid: uidNuovo };
+    });
+}
+
+/* Dopo la prenotazione: l'account Auth (se manca) e i claims. */
+async function completaDopoPrenotazione(ctx, fatto, nome, cognome) {
+    const dati = fatto.dati || {};
+    const nomeCompleto = fatto.tipo === 'creato' ? (nome + ' ' + cognome).trim() : ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
+    if (fatto.tipo === 'creato' || dati.authCreato !== true) await completaAccount(ctx, fatto.uid, nomeCompleto);
+    else if (fatto.tipo === 'aggiunto') await impostaClaims(ctx, fatto.uid);
+    else await allineaClaims(ctx, fatto.uid); // gia' nell'evento: si ripara solo se serve (DECISIONI T8)
 }
 
 async function creaRiga(ctx, idEvento, r) {
     const riga = Number(r.riga) || 0;
-    const esito = (tipo, altro) => Object.assign({ riga: riga, esito: tipo, nomeUtente: '', nomeUtenteCambiato: false, uid: null, motivo: '' }, altro || {});
+    const esito = (tipo, altro) => Object.assign({ riga: riga, esito: tipo, uid: null, codice: '', motivo: '' }, altro || {});
     const nome = C.testo(r.nome, 80);
     const cognome = C.testo(r.cognome, 80);
     const azienda = C.testo(r.azienda, 120);
@@ -935,78 +1004,35 @@ async function creaRiga(ctx, idEvento, r) {
        caratteri invisibili (quelli che arrivano da Excel) e in minuscolo.
        E' lo stesso che garantisce "una email = un account", ed e' quello
        che emailValida ha controllato: niente seconda regola in invio. */
-    const emailNorm = N.emailNormalizzata(String(r.email == null ? '' : r.email).slice(0, 400));
-    if (!emailNorm) return esito('errore', { motivo: 'Email mancante.' });
-    if (!N.emailValida(emailNorm)) return esito('errore', { motivo: 'Email non valida.' });
-    if (!nome || !cognome) return esito('errore', { motivo: 'Nome o cognome vuoto.' });
-    if (sospetto(nome) || sospetto(cognome)) return esito('errore', { motivo: 'Il nome o il cognome contiene caratteri non ammessi (< > o caratteri invisibili).' });
-    const base = N.nomeUtenteBase(nome, cognome);
-    const scritto = N.pulisciNomeUtente(r.nomeUtente);
-    const desiderato = scritto || base;
-    if (!desiderato) return esito('errore', { motivo: 'Da questo nome e cognome non resta nessuna lettera a-z: scrivi il nome utente a mano.' });
-    const { radice, primo } = radiceDi(desiderato, base);
-    const uidNuovo = nuovoUid();
-    const db = ctx.db;
+    const emailNorm = E.normalizzaEmail(String(r.email == null ? '' : r.email).slice(0, 400));
+    if (!emailNorm) return esito('errore', { codice: 'email-mancante', motivo: 'Email mancante.' });
+    if (!E.emailValida(emailNorm)) return esito('errore', { codice: 'email-non-valida', motivo: 'Email non valida.' });
+    if (!nome || !cognome) return esito('errore', { codice: 'nome-mancante', motivo: 'Nome o cognome vuoto.' });
+    if (sospetto(nome) || sospetto(cognome)) return esito('errore', { codice: 'nome-non-valido', motivo: 'Il nome o il cognome contiene caratteri non ammessi (< > o caratteri invisibili).' });
 
     let fatto;
     try {
-        const prenota = inizio => transazione(ctx, async tx => {
-            const rifInd = db.collection('indirizzi').doc(emailNorm);
-            const ind = await tx.get(rifInd);
-            const ts = adessoTs(ctx);
-            if (ind.exists) {
-                const uid = ind.data().uid;
-                const rifP = db.collection('partecipanti').doc(uid);
-                const p = await tx.get(rifP);
-                if (!p.exists) return { tipo: 'incoerente', uid: uid };
-                const d = p.data();
-                const eventi = Array.isArray(d.eventi) ? d.eventi : [];
-                if (eventi.indexOf(idEvento) >= 0) return { tipo: 'gia-nell-evento', uid: uid, dati: d };
-                const nuovi = listaEventi(eventi, idEvento);
-                tx.set(rifP, {
-                    eventi: nuovi, idEvento: idEvento, aggiornato: ts,
-                    invii: { [idEvento]: { stato: 'da inviare', aggiornato: ts, tentativi: 0 } }
-                }, { merge: true });
-                return { tipo: 'aggiunto', uid: uid, dati: d };
-            }
-            const libero = await primoNomeLibero(ctx, tx, radice, inizio, null);
-            if (!libero) return { tipo: 'pieno' };
-            tx.create(rifInd, { uid: uidNuovo, creato: ts });
-            tx.create(db.collection('nomiUtente').doc(libero.nome), { uid: uidNuovo, base: radice, creato: ts });
-            tx.create(db.collection('partecipanti').doc(uidNuovo), {
-                uid: uidNuovo, nomeUtente: libero.nome, nome: nome, cognome: cognome, email: emailNorm, emailNorm: emailNorm,
-                azienda: azienda, idEvento: idEvento, eventi: [idEvento], stato: 'attivo', authCreato: false,
-                ultimoAccesso: null, invii: { [idEvento]: { stato: 'da inviare', aggiornato: ts, tentativi: 0 } },
-                promemoria: {}, creato: ts, aggiornato: ts
-            });
-            tx.set(db.collection('sessioni').doc(uidNuovo), { stato: 'attivo', sessioneAttiva: null, aggiornato: ts });
-            return { tipo: 'creato', uid: uidNuovo, nomeUtente: libero.nome };
-        });
-        fatto = await prenota(primo);
-        if (fatto.tipo === 'pieno') fatto = await prenota(await primoLiberoStimato(ctx, radice, primo));
+        fatto = await prenotaPersona(ctx, idEvento, { nome: nome, cognome: cognome, azienda: azienda, emailNorm: emailNorm, origine: 'import' }, { controllaNome: true });
     } catch (e) {
         console.error('[diretta] crea riga ' + riga + ': ' + perLog(e));
-        return esito('errore', { motivo: 'Errore temporaneo: ricarica lo stesso file per completare (non si creano doppioni).' });
+        return esito('errore', { codice: 'temporaneo', motivo: 'Errore temporaneo: ricarica lo stesso file per completare (non si creano doppioni).' });
+    }
+    if (fatto.tipo === 'incoerente') return esito('errore', { uid: fatto.uid || null, codice: 'incoerente', motivo: 'Dati incoerenti per questa email: scrivi all\'assistenza tecnica.' });
+    if (fatto.tipo === 'email-condivisa') {
+        return esito('errore', {
+            codice: 'email-condivisa',
+            motivo: 'Con questa email è già registrato ' + (E.nomeCompleto(fatto.dati) || 'un altro account') + ': un account è di una persona sola, serve un indirizzo suo.'
+        });
     }
 
-    if (fatto.tipo === 'incoerente') return esito('errore', { uid: fatto.uid, motivo: 'Dati incoerenti per questa email: scrivi all\'assistenza tecnica.' });
-    if (fatto.tipo === 'pieno') return esito('errore', { motivo: 'Troppi nomi utente occupati a partire da "' + radice + '": scrivi il nome utente a mano.' });
-
-    const nomeUtente = fatto.tipo === 'creato' ? fatto.nomeUtente : (fatto.dati.nomeUtente || '');
-    const out = esito(fatto.tipo, {
-        uid: fatto.uid, nomeUtente: nomeUtente,
-        nomeUtenteCambiato: fatto.tipo === 'creato' ? nomeUtente !== desiderato : !!scritto && scritto !== nomeUtente
-    });
+    const out = esito(fatto.tipo, { uid: fatto.uid });
     if (fatto.tipo !== 'creato' && fatto.dati.stato === 'disattivato') out.motivo = 'Account disattivato: riattivalo per farlo entrare.';
     try {
-        const dati = fatto.dati || {};
-        const nomeCompleto = fatto.tipo === 'creato' ? nome + ' ' + cognome : ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
-        if (fatto.tipo === 'creato' || dati.authCreato !== true) await completaAccount(ctx, fatto.uid, nomeCompleto);
-        else if (fatto.tipo === 'aggiunto') await impostaClaims(ctx, fatto.uid);
-        else await allineaClaims(ctx, fatto.uid); // gia' nell'evento: si ripara solo se serve (DECISIONI T8)
+        await completaDopoPrenotazione(ctx, fatto, nome, cognome);
     } catch (e) {
         console.error('[diretta] account della riga ' + riga + ': ' + perLog(e));
         out.esito = 'errore';
+        out.codice = 'account';
         out.motivo = e && e.pubblico ? e.message : 'Account non completato (errore di Firebase): ricarica lo stesso file per completarlo, senza doppioni.';
     }
     return out;
@@ -1051,12 +1077,16 @@ async function reinvia(ctx, uid, idEvento) {
 /* Rigenera: una password nuova da comunicare a voce, mostrata UNA
    volta sola in gestione e mai salvata ne' scritta nei log. La vecchia
    smette di valere e chi e' collegato viene scollegato entro un'ora
-   (Firebase chiude le sessioni quando la password cambia). */
+   (Firebase chiude le sessioni quando la password cambia). Sul profilo
+   resta solo QUANDO (passwordAVoce): da li' in poi la persona ha una
+   password, e per un evento nuovo riceve «Sei iscritto anche a...»
+   invece di una password che cancellerebbe quella detta a voce. */
 async function rigenera(ctx, uid) {
     const p = await leggiPartecipante(ctx, uid);
     if (p.authCreato !== true) throw C.errore(409, 'Account non ancora completo: ricarica il file dei partecipanti per completarlo.', 'incompleto');
     const password = generaPassword(10);
     await conLimite(() => ctx.auth.updateUser(uid, { password: password }));
+    try { await ctx.db.collection('partecipanti').doc(uid).update({ passwordAVoce: adessoTs(ctx) }); } catch (e) { console.error('[diretta] rigenera: ' + perLog(e)); }
     return { password: password };
 }
 
@@ -1079,78 +1109,64 @@ async function cambiaAttivazione(ctx, uid, idEvento, attivo) {
 }
 
 /* Correggi nome, cognome, azienda, email.
-   - Se nome e cognome danno un'altra base, il nome utente si ricalcola con
-     la stessa prenotazione di `crea` (nella stessa transazione: si prende
-     il nuovo e si libera il vecchio), a meno che la gestione chieda di
-     mantenere quello attuale (credenziali gia' spedite).
-   - Se cambia l'email, si sposta la prenotazione dell'indirizzo; se la
-     nuova e' gia' di un'altra persona, niente da fare (409).
-   L'email tecnica su Auth non cambia mai (DECISIONI D1): chi e' collegato
-   resta collegato. Se il nome utente cambia, le credenziali per l'evento
-   tornano "da inviare"; se l'email era stata respinta, anche. */
+   { uid, idEvento, nome, cognome, azienda, email? } -> { partecipante,
+   emailCambiata, emailPrecedente }
+   - Se cambia l'email, si sposta la prenotazione dell'indirizzo (nella
+     stessa transazione: si prende il nuovo e si libera il vecchio); se
+     la nuova e' gia' di un'altra persona, niente da fare (409
+     'email-occupata'). L'email e' quella con cui si ENTRA: le
+     credenziali per l'evento tornano "da inviare" se erano gia' partite
+     (inviata, incerto, respinta, errore), e sul profilo resta quando e'
+     cambiata (emailCambiata): gli invii fatti prima sono andati al
+     vecchio indirizzo e non contano piu' come "password gia' ricevuta"
+     (vedi haPassword in lib/diretta-invio.js). I contatori dei tentativi
+     di accesso del vecchio e del nuovo indirizzo si cancellano.
+   - L'email tecnica su Auth non cambia mai (DECISIONI D1): chi e'
+     collegato resta collegato. Il vecchio campo mantieniNomeUtente si
+     ignora. */
 async function correggi(ctx, uid, idEvento, b) {
     const nome = C.testo(b.nome, 80);
     const cognome = C.testo(b.cognome, 80);
     const azienda = C.testo(b.azienda, 120);
     if (!nome || !cognome) throw C.errore(400, 'Nome e cognome non possono essere vuoti.', 'nome');
     if (sospetto(nome) || sospetto(cognome)) throw C.errore(400, 'Il nome o il cognome contiene caratteri non ammessi (< > o caratteri invisibili).', 'nome');
-    const nuovaBase = N.nomeUtenteBase(nome, cognome);
-    if (!nuovaBase) throw C.errore(400, 'Da questo nome e cognome non resta nessuna lettera a-z.', 'nome');
-    const mantieni = b.mantieniNomeUtente === true;
     const db = ctx.db;
     const rifP = db.collection('partecipanti').doc(uid);
-    // da dove cercare il nuovo nome: dalla base, o dal primo buco se la famiglia e' molto numerosa
-    let inizioNome = 1;
-    if (!mantieni) {
-        const libero = await db.collection('nomiUtente').doc(nuovaBase).get();
-        if (libero.exists && libero.data().uid !== uid) inizioNome = await primoLiberoStimato(ctx, nuovaBase, 1);
-    }
 
     const fatto = await transazione(ctx, async tx => {
         const snap = await tx.get(rifP);
         if (!snap.exists) throw C.errore(404, 'Partecipante inesistente.', 'partecipante');
         const d = snap.data();
         // la stessa regola di `crea`: si salva l'indirizzo normalizzato (vale anche per i profili di prima)
-        const emailNorm = N.emailNormalizzata(b.email !== undefined ? String(b.email || '').slice(0, 400) : (d.emailNorm || d.email || ''));
-        if (!N.emailValida(emailNorm)) throw C.errore(400, 'Email non valida.', 'email');
-        const cambiaEmail = emailNorm !== d.emailNorm;
-        const cambiaNome = !mantieni && nuovaBase !== N.nomeUtenteBase(d.nome, d.cognome);
+        const emailNorm = E.normalizzaEmail(b.email !== undefined ? String(b.email || '').slice(0, 400) : (d.emailNorm || d.email || ''));
+        if (!E.emailValida(emailNorm)) throw C.errore(400, 'Email non valida.', 'email');
+        const precedente = d.emailNorm || E.normalizzaEmail(d.email);
+        const cambiaEmail = emailNorm !== precedente;
 
         // prima tutte le letture...
-        let indNuovo = null, indVecchio = null, nomeVecchio = null, libero = null;
+        let indNuovo = null, indVecchio = null;
         if (cambiaEmail) {
-            [indNuovo, indVecchio] = await tx.getAll(db.collection('indirizzi').doc(emailNorm), db.collection('indirizzi').doc(d.emailNorm || '-'));
+            [indNuovo, indVecchio] = await tx.getAll(db.collection('indirizzi').doc(emailNorm), db.collection('indirizzi').doc(E.emailValida(precedente) ? precedente : '-'));
             if (indNuovo.exists && indNuovo.data().uid !== uid) {
                 throw C.errore(409, 'Questa email appartiene già a un\'altra persona: non si possono unire due account.', 'email-occupata');
             }
         }
-        if (cambiaNome) {
-            libero = await primoNomeLibero(ctx, tx, nuovaBase, inizioNome, uid);
-            if (!libero) throw C.errore(409, 'Troppi nomi utente occupati a partire da "' + nuovaBase + '".', 'pieno');
-            nomeVecchio = await tx.get(db.collection('nomiUtente').doc(d.nomeUtente || '-'));
-        }
 
         // ...poi le scritture
         const ts = adessoTs(ctx);
-        const nomeUtente = cambiaNome ? libero.nome : d.nomeUtente;
-        const agg = { nome: nome, cognome: cognome, azienda: azienda, email: emailNorm, emailNorm: emailNorm, nomeUtente: nomeUtente, aggiornato: ts };
-        if (cambiaNome && nomeUtente !== d.nomeUtente) {
-            if (!libero.mio) tx.create(db.collection('nomiUtente').doc(nomeUtente), { uid: uid, base: nuovaBase, creato: ts });
-            if (nomeVecchio && nomeVecchio.exists && nomeVecchio.data().uid === uid) tx.delete(nomeVecchio.ref);
-        }
+        const agg = { nome: nome, cognome: cognome, azienda: azienda, email: emailNorm, emailNorm: emailNorm, aggiornato: ts };
         if (cambiaEmail) {
             if (!indNuovo.exists) tx.create(indNuovo.ref, { uid: uid, creato: ts });
             if (indVecchio && indVecchio.exists && indVecchio.data().uid === uid) tx.delete(indVecchio.ref);
-        }
-        const invio = (d.invii || {})[idEvento];
-        const nomeCambiato = nomeUtente !== d.nomeUtente;
-        if (invio && ((nomeCambiato && ['inviata', 'incerto', 'respinta', 'errore'].indexOf(invio.stato) >= 0)
-            || (cambiaEmail && invio.stato === 'respinta'))) {
-            agg['invii.' + idEvento + '.stato'] = 'da inviare';
-            agg['invii.' + idEvento + '.aggiornato'] = ts;
+            agg.emailCambiata = ts;
+            const invio = (d.invii || {})[idEvento];
+            if (invio && ['inviata', 'incerto', 'respinta', 'errore'].indexOf(invio.stato) >= 0) {
+                agg['invii.' + idEvento + '.stato'] = 'da inviare';
+                agg['invii.' + idEvento + '.aggiornato'] = ts;
+            }
         }
         tx.update(rifP, agg);
-        return { prima: d, nomeCambiato: nomeCambiato };
+        return { prima: d, cambiaEmail: cambiaEmail, precedente: precedente, nuova: emailNorm };
     });
 
     const d = fatto.prima;
@@ -1158,38 +1174,41 @@ async function correggi(ctx, uid, idEvento, b) {
     if (d.authCreato === true && nomeCompleto !== ((d.nome || '') + ' ' + (d.cognome || '')).trim()) {
         await conLimite(() => ctx.auth.updateUser(uid, { displayName: nomeCompleto }));
     }
-    if (fatto.nomeCambiato) await cancellaTentativi(ctx, d.nomeUtente);
+    if (fatto.cambiaEmail) {
+        await cancellaTentativi(ctx, fatto.precedente);
+        await cancellaTentativi(ctx, fatto.nuova);
+    }
     const aggiornato = await leggiPartecipante(ctx, uid);
     return {
         partecipante: partecipanteJSON(aggiornato, idEvento),
-        nomeUtenteCambiato: fatto.nomeCambiato,
-        nomeUtentePrecedente: d.nomeUtente || ''
+        emailCambiata: fatto.cambiaEmail,
+        emailPrecedente: fatto.cambiaEmail ? fatto.precedente : ''
     };
 }
 
-/* I contatori dei tentativi di un nome che non esiste piu': le coppie
-   tentativi/{nome}_{rete} e il tetto tentativiNome/{nome}. Se il nome
-   liberato tocca poi a un'altra persona (un nuovo omonimo), non deve
-   ereditare gli errori o il blocco di chi lo aveva prima.
-   Le coppie di quel nome sono i documenti da "{nome}_" (compreso) a
-   "{nome}`" (escluso): il carattere ` viene subito dopo _ nella tabella
-   dei caratteri, e i nomi utente sono solo [a-z0-9] (le impronte delle
-   reti solo [0-9a-f]), quindi nessun altro nome ci cade in mezzo:
-   "mariorossi30_..." sta prima di "mariorossi3_", "mariorossi3a..." dopo
-   "mariorossi3`". Niente caratteri invisibili nel limite: si leggono
-   male e si scambiano per un intervallo vuoto. */
-async function cancellaTentativi(ctx, nomeUtente) {
-    if (!nomeUtente) return;
+/* I contatori dei tentativi di accesso di un'email: le coppie
+   tentativi/{chiave}_{rete} e il tetto tentativiNome/{chiave}, dove
+   chiave e' l'impronta dell'indirizzo (E.chiaveEmail). Se un indirizzo
+   passa a un'altra persona, o una persona cambia indirizzo, nessuno deve
+   ereditare gli errori o il blocco di prima.
+   Le coppie di quella chiave sono i documenti da "{chiave}_" (compreso)
+   a "{chiave}`" (escluso): il carattere ` viene subito dopo _ nella
+   tabella dei caratteri, e le chiavi sono tutte lunghe uguali (32
+   caratteri esadecimali), quindi nessun'altra ci cade in mezzo. */
+async function cancellaTentativi(ctx, email) {
+    const e = E.normalizzaEmail(email);
+    if (!e) return;
+    const chiave = E.chiaveEmail(e);
     try {
         const coppie = await ctx.db.collection('tentativi')
-            .where(ctx.FieldPath.documentId(), '>=', nomeUtente + '_')
-            .where(ctx.FieldPath.documentId(), '<', nomeUtente + '`').get();
+            .where(ctx.FieldPath.documentId(), '>=', chiave + '_')
+            .where(ctx.FieldPath.documentId(), '<', chiave + '`').get();
         const batch = ctx.db.batch();
         coppie.docs.slice(0, 399).forEach(d => batch.delete(d.ref));
-        batch.delete(ctx.db.collection('tentativiNome').doc(nomeUtente));
+        batch.delete(ctx.db.collection('tentativiNome').doc(chiave));
         await batch.commit();
-    } catch (e) {
-        console.error('[diretta] pulizia dei tentativi: ' + perLog(e));
+    } catch (e2) {
+        console.error('[diretta] pulizia dei tentativi: ' + perLog(e2));
     }
 }
 
@@ -1234,8 +1253,9 @@ async function connessi(ctx, idEvento) {
     return { connessi: c.data().count, quando: ora };
 }
 
-/* Esportazione per gli attestati: i partecipanti con la loro presenza e
-   l'elenco degli accessi. I minuti si limitano alla durata dell'evento
+/* Esportazione per gli attestati: i partecipanti (nome, cognome, email,
+   azienda: niente nome utente) con la loro presenza e l'elenco degli
+   accessi. I minuti si limitano alla durata dell'evento
    (un segnale al minuto, verificato dalle regole con l'orario del server;
    piu' della durata non puo' essere). */
 async function esporta(ctx, idEvento) {
@@ -1259,7 +1279,7 @@ async function esporta(ctx, idEvento) {
         partecipanti: partecipanti.map(p => Object.assign(p, { presenza: perUid[p.uid] || null })),
         accessi: accessi.docs.map(d => {
             const a = d.data();
-            return { quando: ms(a.quando), nomeUtente: a.nomeUtente || '', nome: a.nome || '', cognome: a.cognome || '', azienda: a.azienda || '', dispositivo: a.dispositivo || '' };
+            return { quando: ms(a.quando), email: a.email || '', nome: a.nome || '', cognome: a.cognome || '', azienda: a.azienda || '', dispositivo: a.dispositivo || '' };
         }).sort((a, b) => (a.quando || 0) - (b.quando || 0))
     };
 }
@@ -1267,11 +1287,12 @@ async function esporta(ctx, idEvento) {
 module.exports = {
     // attrezzi e risposte
     ms, jsonDi, errorePubblico, rispondi, perLog, controllaIdEvento, controllaUid, nuovoUid, listaEventi, stessaLista,
-    inParallelo, conRiprova, radiceDi, emailMascherata, leggiProgramma, normalizzaOra, leggiVideo, leggiAzoto, campiVideo, riservatiDa,
+    inParallelo, conRiprova, transazione, leggiProgramma, normalizzaOra, leggiVideo, leggiAzoto, campiVideo, riservatiDa,
     // eventi
     eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaSorgente, cambiaPlayer, linkVideo, cambiaAvviso, scegliEvento,
+    cambiaIscrizioni, iscrizioniDi, percorsoPagina,
     // partecipanti
-    partecipanteJSON, elencoPartecipanti, anteprima, crea, operazionePartecipante, impostaClaims, allineaClaims,
+    partecipanteJSON, elencoPartecipanti, anteprima, crea, prenotaPersona, completaDopoPrenotazione, operazionePartecipante, impostaClaims, allineaClaims,
     cancellaTentativi,
     // collegati ed esportazione
     connessi, esporta,
