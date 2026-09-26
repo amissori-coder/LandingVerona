@@ -341,13 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btnLoading.style.display = 'inline-flex';
             submitBtn.disabled = true;
 
-            // Build payload matching the shared NGB schema. Every form on
-            // the domain posts to the same Google Sheet endpoint and the
-            // `pagina` field identifies which page the submission came from.
-            // `data` is a pre-formatted Italian timestamp so the sheet
-            // always has a readable Date column without relying on the
-            // Apps Script to call new Date() server-side.
-            const NGB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
+            // Build payload matching the shared NGB schema: the `pagina` field
+            // identifies which page the submission came from, and `data` is a
+            // pre-formatted Italian timestamp so the record always has a
+            // readable date without relying on the server clock.
 
             const _n = new Date();
             const _pad = (x) => String(x).padStart(2, '0');
@@ -412,34 +409,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 marketing: !!(form.querySelector('#marketing') && form.querySelector('#marketing').checked)
             };
 
-            // Seconda strada, indipendente dalla prima: gli stessi dati vanno anche
-            // sul database dell'area riservata, cosi le iscrizioni si vedono subito
-            // senza dipendere dal foglio. Se questa fallisce non cambia nulla per chi
-            // si iscrive: il foglio resta la conferma dell'invio.
-            // (text/plain evita la richiesta di verifica preliminare del browser;
-            //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
+            /* UNA STRADA SOLA: il servizio. Scrive la scheda su Firestore (da
+               dove la legge l'area riservata) e spedisce la mail con il
+               pulsante per confermare l'indirizzo. Il foglio Google non riceve
+               piu' le iscrizioni di Napoli: era una copia, e a ogni riga nuova
+               faceva partire da solo altre due mail all'iscritto
+               ("Manifestazione di interesse"), che non c'entravano niente con
+               la conferma. Gli altri moduli del sito continuano a scrivere sul
+               foglio come prima.
+               (text/plain evita la richiesta di verifica preliminare del
+               browser; il contenuto e' comunque JSON e il servizio lo legge
+               come tale.) */
             const NGB_FIREBASE_URL = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
-            fetch(NGB_FIREBASE_URL, {
-                method:  'POST',
-                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                body:    JSON.stringify(payload)
-            }).catch(() => { /* il foglio resta la strada principale */ });
-
-            fetch(NGB_SHEET_URL, {
-                method:  'POST',
-                mode:    'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(payload)
-            }).then(() => {
-                form.style.display = 'none';
-                formSuccess.style.display = 'block';
-                formSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }).catch(() => {
+            const mostraErrore = (testo) => {
                 btnText.style.display = 'inline-flex';
                 btnLoading.style.display = 'none';
                 submitBtn.disabled = false;
-
-                // Show a lightweight inline error below the submit button
                 let errEl = document.getElementById('submitError');
                 if (!errEl) {
                     errEl = document.createElement('p');
@@ -450,7 +435,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (footnote) footnote.after(errEl);
                     else submitBtn.parentElement.appendChild(errEl);
                 }
-                errEl.textContent = "Errore di connessione. Riprova più tardi o scrivici a info@nextgenerationbusiness.it";
+                errEl.textContent = testo;
+            };
+            fetch(NGB_FIREBASE_URL, {
+                method:  'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body:    JSON.stringify(payload)
+            }).then(r => r.json().catch(() => ({}))).then(d => {
+                if (!d || !d.ok) {
+                    // il servizio ha detto di no (codice invito, dati): lo si riporta
+                    mostraErrore((d && d.msg) || 'Iscrizione non registrata. Riprova, oppure scrivici a info@nextgenerationbusiness.it');
+                    return;
+                }
+                form.style.display = 'none';
+                formSuccess.style.display = 'block';
+                formSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }).catch(() => {
+                mostraErrore('Errore di connessione. Riprova più tardi o scrivici a info@nextgenerationbusiness.it');
             });
         });
     }
