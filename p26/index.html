@@ -30,12 +30,13 @@
      dopo il cancelletto non viaggia verso GitHub Pages: la chiave
      resta fra il telefono e il servizio.
 
-     DUE STRADE, COME IL MODULO DEL SITO
-     Il questionario nuovo va al foglio Google e a /api/iscrizione-nuova,
-     con lo stesso payload di napoli_ottobre_2026/script.js piu'
-     modalita "presenza", origine "qr-desk" e la chiave. Se il servizio
-     non risponde il foglio riceve comunque l'iscrizione: al desk la
-     presenza si segna a mano dalla lista.
+     UNA STRADA SOLA: IL SERVIZIO
+     Il questionario nuovo va a /api/iscrizione-nuova con lo stesso
+     payload di napoli_ottobre_2026/script.js piu' modalita "presenza",
+     origine "qr-desk" e la chiave. Il foglio Google NON riceve piu'
+     queste iscrizioni: era una copia, e a ogni riga faceva partire da
+     solo altre mail all'iscritto. Se il servizio non risponde, al desk
+     lo staff registra a mano dall'area riservata.
      ============================================================ -->
 
 <title>Registrati all'ingresso | Next Generation Business Napoli</title>
@@ -356,7 +357,6 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
     'use strict';
 
     var SERVIZIO = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
-    var FOGLIO = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
     // la stessa pagina del modulo del sito: e' cosi' che queste iscrizioni
     // finiscono nella stessa lista dell'area riservata
     var PAGINA = 'Napoli 2 Ottobre 2026 - Manifestazione di interesse';
@@ -551,20 +551,15 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
             origine: 'qr-desk'
         };
 
-        // il foglio Google: la strada che funziona anche se il servizio e' giu'
-        var alFoglio = fetch(FOGLIO, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        // il servizio: scheda su Firestore, presenza segnata, mail di conferma
-        var alServizio = chiama(Object.assign({}, payload)).then(function (d) { return !!(d && d.ok); }).catch(function () { return false; });
-
-        /* LA SCHERMATA "RICHIESTA RICEVUTA" NON ASPETTA LA MAIL. Il servizio
-           scrive la scheda, segna la presenza e SPEDISCE la mail prima di
-           rispondere: con il server di posta in mezzo passano parecchi
-           secondi, e in fila al desk sono lunghi. Il foglio Google risponde
-           subito: appena risponde lui (o dopo un secondo e mezzo, se la rete
-           della sala e' lenta) si mostra la schermata, e si dice che la mail
-           "sta arrivando". Quando poi risponde il servizio si sistema il
-           testo: se non ha risposto, nessuna mail e' partita e lo si dice. Se
-           non risponde nessuno dei due, si torna al modulo con l'errore. */
+        /* UNA STRADA SOLA: il servizio (scheda, presenza, mail di conferma).
+           Il foglio Google non riceve piu' queste iscrizioni: era una copia,
+           e a ogni riga faceva partire da solo altre due mail all'iscritto.
+           LA SCHERMATA "RICHIESTA RICEVUTA" NON ASPETTA LA MAIL: il servizio
+           spedisce prima di rispondere, e con il server di posta in mezzo
+           passano parecchi secondi, lunghi in fila al desk. Dopo un secondo e
+           mezzo si mostra la schermata con "ti sta arrivando"; quando il
+           servizio risponde si sistema il testo, e se ha detto di no si torna
+           al modulo con l'errore. */
         var nomeCompleto = (payload.nome + ' ' + payload.cognome).trim();
         var mostrata = false;
         function ricevuta() {
@@ -574,28 +569,21 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
             el('fineTitolo').textContent = 'Richiesta ricevuta';
             el('fineTesto').textContent = 'Ti sta arrivando una email con il pulsante “Conferma il tuo indirizzo”. Toccalo e riceverai una seconda email con l’invito in PDF da esibire all’ingresso.';
         }
-        var esitoFoglio = alFoglio.then(function () { return true; }, function () { return false; });
-        esitoFoglio.then(function (ok) { if (ok) ricevuta(); });
         var attesa = setTimeout(ricevuta, 1500);
 
-        Promise.all([esitoFoglio, alServizio])
-            .then(function (esiti) {
+        chiama(Object.assign({}, payload))
+            .then(function (d) {
                 clearTimeout(attesa);
-                if (!esiti[0] && !esiti[1]) throw new Error('nessuna strada');
+                if (!d || !d.ok) throw new Error((d && d.msg) || 'rifiutata');
                 ricevuta();
-                if (esiti[1]) {
-                    el('fineTesto').textContent = 'Controlla la posta: ti abbiamo mandato una email con il pulsante “Conferma il tuo indirizzo”. Toccalo e riceverai una seconda email con l’invito in PDF da esibire all’ingresso.';
-                } else {
-                    // iscritto sul foglio ma non sul servizio: nessuna mail e' partita, si passa dal desk
-                    el('fineTesto').textContent = 'La tua richiesta è registrata, ma la rete della sala non ha risposto: passa dal desk Revilaw all’ingresso e ti registriamo noi.';
-                }
+                el('fineTesto').textContent = 'Controlla la posta: ti abbiamo mandato una email con il pulsante “Conferma il tuo indirizzo”. Toccalo e riceverai una seconda email con l’invito in PDF da esibire all’ingresso.';
             })
             .catch(function () {
                 clearTimeout(attesa);
                 mostrata = false;
                 vai('passoModulo');
                 btn.disabled = false; btn.textContent = 'Registrami';
-                el('invioMsg').textContent = 'Errore di connessione. Riprova, oppure vai al desk Revilaw all’ingresso.';
+                el('invioMsg').textContent = 'La registrazione non è andata a buon fine: riprova, oppure vai al desk Revilaw all’ingresso e ti registriamo noi.';
             });
     });
 

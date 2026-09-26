@@ -1235,6 +1235,12 @@ da installare).
 **Il piano B**: senza rete al desk si usa la lista stampata (`badge-napoli`,
 `out/codici.csv`) e si segna a mano dall'area riservata dopo.
 
+**Il foglio Google non riceve piu' le iscrizioni di Napoli** (ne' dal sito ne'
+dal QR): era una copia, e a ogni riga nuova un automatismo agganciato al foglio
+spediva da solo altre due mail all'iscritto ("Manifestazione di interesse").
+Il servizio e' l'unica strada; gli altri moduli del sito scrivono sul foglio
+come prima.
+
 ## Incontri B2B
 
 **L'unita' e' l'AZIENDA, non la persona.** Un invito per impresa, un
