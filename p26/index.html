@@ -24,7 +24,7 @@
      LA CHIAVE NELL'INDIRIZZO (#k=...)
      Il QR porta una chiave che il servizio confronta con quella
      impostata su Vercel. Senza chiave giusta il servizio risponde
-     "non trovato" e non scrive niente: cosi' "segnami presente" non
+     "non trovato" e non scrive niente: cosi' "passa in sala" non
      si puo' fare da casa, e "questo indirizzo e' iscritto?" non
      diventa un modo per scoprire chi viene al convegno. Il frammento
      dopo il cancelletto non viaggia verso GitHub Pages: la chiave
@@ -222,13 +222,13 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
     <!-- passo 2a: trovato -->
     <div id="passoTrovato" class="blocco nascosto">
         <h2>Ti abbiamo trovato</h2>
-        <p id="trovatoTesto">Risulti gi&agrave; iscritto. Conferma e sei dentro.</p>
+        <p id="trovatoTesto">Risulti gi&agrave; iscritto.</p>
         <div class="trovato">
             <div class="chi" id="trovatoChi"></div>
             <div class="dove" id="trovatoDove"></div>
         </div>
-        <p id="trovatoOnline" class="nota nascosto">Eri iscritto per la diretta online: da adesso risulti in sala.</p>
-        <button type="button" class="principale" id="segnaBtn">Sono io, segnami presente</button>
+        <p id="trovatoNota" class="nota nascosto"></p>
+        <button type="button" class="principale" id="segnaBtn">Sono io</button>
         <button type="button" class="secondario" id="nonSonoIo">Non sono io</button>
     </div>
 
@@ -447,11 +447,20 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
                     trovata = d;
                     el('trovatoChi').textContent = ((d.nome || '') + ' ' + (d.cognome || '')).trim();
                     el('trovatoDove').textContent = d.azienda || '';
+                    /* Due casi, e la pagina dice quale. Chi era ONLINE puo'
+                       passare in sala: la sezione cambia e gli arriva l'invito.
+                       Chi e' gia' IN SALA (presenza, aderente, sponsor) si fa
+                       rimandare una copia dell'invito. La presenza la segna lo
+                       staff all'ingresso, con l'invito in mano. */
+                    var online = d.modalita === 'online';
                     el('trovatoTesto').textContent = d.perNome
-                        ? 'Abbiamo trovato un’iscrizione con questo nome. Sei tu?'
-                        : (d.giaPresente ? 'Risulti già in sala: se non eri tu, avvisa il desk.' : 'Risulti già iscritto. Conferma e sei dentro.');
-                    mostra('trovatoOnline', d.modalita === 'online');
-                    el('segnaBtn').textContent = d.giaPresente ? 'Sono io' : 'Sono io, segnami presente';
+                        ? 'Abbiamo trovato un\u2019iscrizione con questo nome. Sei tu?'
+                        : (online ? 'Risulti iscritto per la diretta online.' : 'Risulti gi\u00e0 iscritto in sala.');
+                    el('trovatoNota').textContent = online
+                        ? 'Vuoi partecipare in sala? Ti spostiamo fra i presenti e ti mandiamo subito l\u2019invito in PDF da esibire all\u2019ingresso.'
+                        : 'Ti mandiamo per email una copia dell\u2019invito in PDF da esibire all\u2019ingresso.';
+                    mostra('trovatoNota', true);
+                    el('segnaBtn').textContent = online ? 'S\u00ec, passa in sala e mandami l\u2019invito' : 'Sono io, mandami l\u2019invito';
                     vai('passoTrovato');
                 } else {
                     /* Non trovato: il questionario, con quello che sappiamo gia'
@@ -481,17 +490,25 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
     el('segnaBtn').addEventListener('click', function () {
         if (!trovata) return;
         var btn = el('segnaBtn');
-        btn.disabled = true; btn.textContent = 'Un attimo…';
-        chiama({ azione: 'presenza-segna', rif: trovata.rif })
+        var etichetta = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Un attimo\u2026';
+        chiama({ azione: 'presenza-invito', rif: trovata.rif })
             .then(function (d) {
-                if (d && d.ok && d.trovato) fine(((d.nome || trovata.nome || '') + ' ' + (d.cognome || trovata.cognome || '')).trim());
-                else avvisoDesk();
+                if (!(d && d.ok && d.trovato)) { avvisoDesk(); return; }
+                fine(((d.nome || trovata.nome || '') + ' ' + (d.cognome || trovata.cognome || '')).trim());
+                el('fineTitolo').textContent = d.spostato ? 'Da adesso sei in sala' : 'Invito in arrivo';
+                el('fineTesto').textContent = d.invito
+                    ? (d.spostato ? 'Ti abbiamo spostato fra i partecipanti in sala e ti abbiamo mandato l\u2019invito in PDF: esibiscilo al desk all\u2019ingresso, anche dal telefono.'
+                        : 'Ti abbiamo mandato per email una copia dell\u2019invito in PDF: esibiscilo al desk all\u2019ingresso, anche dal telefono.')
+                    : (d.motivo === 'senza-email'
+                        ? 'La tua iscrizione non ha un indirizzo email: passa dal desk Revilaw all\u2019ingresso, basta il tuo nome.'
+                        : 'La mail con l\u2019invito non \u00e8 partita in questo momento: al desk all\u2019ingresso basta il tuo nome.');
             })
             .catch(avvisoDesk)
-            .finally(function () { btn.disabled = false; btn.textContent = 'Sono io, segnami presente'; });
+            .finally(function () { btn.disabled = false; btn.textContent = etichetta; });
     });
     function avvisoDesk() {
-        avviso('Non siamo riusciti a segnarti', 'La rete della sala non risponde. Vai al desk Revilaw all’ingresso: ti segnano loro, in un attimo.');
+        avviso('Non siamo riusciti a completare', 'La rete della sala non risponde. Vai al desk Revilaw all\u2019ingresso: ti registrano loro, in un attimo.');
     }
 
     /* ---------- passo 2b ---------- */

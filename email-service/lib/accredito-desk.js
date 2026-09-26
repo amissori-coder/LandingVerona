@@ -5,12 +5,19 @@
    inquadra apre /p26/ dal proprio telefono e:
 
      1. dice chi e' (email, oppure nome e cognome);
-     2. se risulta GIA' ISCRITTO, con un tocco si segna presente:
-        niente modulo da ricompilare;
-     3. se non risulta, compila il questionario - lo stesso del sito -
-        e la presenza e' segnata nella stessa richiesta.
+     2. se risulta iscritto ONLINE, puo' passare in sala: la sezione
+        cambia e gli arriva per mail l'invito in PDF da esibire
+        all'ingresso;
+     3. se risulta gia' IN SALA (presenza, aderente, sponsor), si fa
+        rimandare una copia dell'invito;
+     4. se non risulta, compila il questionario - lo stesso del sito -
+        e segue la strada di tutti: mail di conferma, poi l'invito.
 
-   Le due azioni di questo modulo ("presenza-cerca" e "presenza-segna")
+   La PRESENZA non la segna questa pagina: la segna lo staff
+   all'ingresso, con l'invito in mano. E' la stessa regola per chi si
+   e' iscritto da casa e per chi si registra al desk.
+
+   Le due azioni di questo modulo ("presenza-cerca" e "presenza-invito")
    passano da /api/iscrizione-nuova, l'endpoint pubblico che ha gia'
    il freno per indirizzo IP e lo smistamento per azione: sono dello
    stesso genere delle cene e delle richieste di contatto, e una porta
@@ -46,6 +53,8 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 const C = require('./copia-iscrizioni');
+// la mail con l'invito in PDF: la stessa che parte dopo la conferma dell'indirizzo
+const CONF = require('./conferma-email');
 
 /* Gli eventi che accettano l'accredito dal desk, con la finestra in cui le
    azioni sono aperte. L'identificativo e' quello della sezione Eventi
@@ -232,28 +241,26 @@ function punteggio(r) {
     return n;
 }
 
-/* ---------- la scrittura della presenza ----------
-   Usata sia da presenza-segna sia dall'iscrizione nuova dal desk. Stato
-   "presente", la nota che dice da dove viene, e la firma nella forma delle
-   presenze (da, daNome, quando), cosi' la colonna "Aggiornato da" la mostra
-   come tutte le altre. Chi era online passa in sala. */
-async function scriviPresenza(db, ev, r, quando) {
+/* ---------- il passaggio in sala ----------
+   Chi era iscritto per la diretta online e dal QR chiede di venire in sala:
+   la sezione cambia fra le presenze (dove vince sulla scheda, come legge
+   l'area riservata), la coda per un posto finisce, e la nota dice da dove
+   viene la decisione. Lo stato ("presente") NON si tocca: lo mette lo
+   staff all'ingresso. */
+async function spostaInSala(db, ev, r, quando) {
     const rif = db.collection('presenze').doc(idDocPresenza(ev.id, r.id));
     const prima = (r.presenza) || {};
-    const riga = 'Accredito QR ' + oraRoma(quando);
+    const riga = 'In sala dal QR ' + oraRoma(quando);
     const notaPrima = testo(prima.nota, 1000);
     const patch = {
         evento: ev.id,
         idIscritto: r.id,
-        stato: 'presente',
-        nota: notaPrima ? (notaPrima.indexOf('Accredito QR') >= 0 ? notaPrima : notaPrima + ' - ' + riga) : riga,
+        modalita: 'presenza',
+        nota: notaPrima ? (notaPrima.indexOf('In sala dal QR') >= 0 ? notaPrima : notaPrima + ' - ' + riga) : riga,
         da: ORIGINE, daNome: 'Accredito QR', quando: quando == null ? Date.now() : quando
     };
-    if (modalitaEffettiva(r) === 'online') {
-        patch.modalita = 'presenza';
-        // la coda per un posto in sala finisce qui: il posto se lo e' preso
-        if (prima.listaAttesa !== undefined) patch.listaAttesa = admin.firestore.FieldValue.delete();
-    }
+    // la coda per un posto in sala finisce qui: il posto se lo e' preso
+    if (prima.listaAttesa !== undefined) patch.listaAttesa = admin.firestore.FieldValue.delete();
     await rif.set(patch, { merge: true });
     await segnaCambiamento(db);
 }
@@ -265,8 +272,12 @@ async function segnaCambiamento(db) {
     } catch (e) { /* la lettura ha comunque una scadenza a tempo */ }
 }
 
-/* ---------- presenza-segna ---------- */
-async function segna(db, body) {
+/* ---------- presenza-invito ----------
+   Trovata la scheda dal riferimento cieco: chi era online passa in sala,
+   e a tutti parte la mail con l'invito in PDF (per chi resta online, il
+   promemoria del collegamento). L'esito della mail resta sulla scheda
+   (mailInvito), cosi' l'area riservata puo' dirlo e rimandarla. */
+async function invito(db, body) {
     const g = guardia(body);
     if (!g.ok) return { stato: 200, corpo: { ok: true, trovato: false } };
     const rif = testo(body.rif, 40);
@@ -274,24 +285,30 @@ async function segna(db, body) {
     const righe = await schedeEvento(db, g.ev);
     const r = righe.find(x => impronta(x.id) === rif);
     if (!r) return { stato: 200, corpo: { ok: true, trovato: false } };
-    if (String((r.presenza || {}).stato || '') !== 'presente') await scriviPresenza(db, g.ev, r);
-    return { stato: 200, corpo: { ok: true, trovato: true, presente: true, nome: testo(r.scheda.nome, 120), cognome: testo(r.scheda.cognome, 120) } };
+    if (!r.scheda.email) return { stato: 200, corpo: { ok: true, trovato: true, invito: false, motivo: 'senza-email' } };
+
+    const eraOnline = modalitaEffettiva(r) === 'online';
+    if (eraOnline) await spostaInSala(db, g.ev, r);
+    // dopo lo spostamento la mail deve dire "in sala": la scheda che va alla
+    // mail porta la sezione effettiva, non quella scritta nel modulo
+    const schedaPerMail = Object.assign({}, r.scheda, { modalita: eraOnline ? 'presenza' : modalitaEffettiva(r) });
+    const esito = await CONF.spedisciInvito(String(r.scheda._doc || ''), schedaPerMail);
+    if (r.scheda._doc) {
+        try {
+            await db.collection('iscrizioni').doc(String(r.scheda._doc))
+                .set({ mailInvito: { quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200), da: ORIGINE } }, { merge: true });
+        } catch (e) { /* informazione, non condizione */ }
+    }
+    return {
+        stato: 200,
+        corpo: { ok: true, trovato: true, spostato: eraOnline, invito: esito.ok === true, nome: testo(r.scheda.nome, 120), cognome: testo(r.scheda.cognome, 120) }
+    };
 }
 
-/* ---------- l'iscrizione nuova, dal telefono al desk ----------
-   Chiamata da iscrizione-nuova DOPO aver scritto la scheda: la scheda ha gia'
-   il suo identificativo, qui si aggiunge solo la presenza. Se questa parte
-   fallisse l'iscrizione resta valida: al desk si segna a mano. */
-async function segnaNuova(db, body, scheda) {
-    const g = guardia(body);
-    if (!g.ok) return false;
-    const r = { id: idIscrittoDi(scheda), scheda: scheda, presenza: null };
-    await scriviPresenza(db, g.ev, r);
-    return true;
-}
 /* Quello che l'iscrizione dal desk aggiunge alla scheda: la modalita' in
-   presenza (la persona e' in sala), il portale che si legge nell'elenco e
-   l'origine per chi cerca nel database. */
+   presenza (viene per il convegno, non per la diretta), il portale che si
+   legge nell'elenco e l'origine per chi cerca nel database. La presenza
+   no: la segna lo staff all'ingresso, con l'invito in mano. */
 function completaScheda(scheda) {
     scheda.modalita = 'presenza';
     delete scheda.listaAttesa;
@@ -301,6 +318,6 @@ function completaScheda(scheda) {
 }
 
 module.exports = {
-    cerca, segna, segnaNuova, completaScheda, dalDesk, guardia, aperto, giornoRoma,
+    cerca, invito, spostaInSala, completaScheda, dalDesk, guardia, aperto, giornoRoma,
     idIscrittoDi, idDocPresenza, impronta, EVENTI, PORTALE_DESK, ORIGINE
 };
