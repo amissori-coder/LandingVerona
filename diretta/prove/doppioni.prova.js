@@ -265,7 +265,7 @@ async function controllaTutto(ctx, titolo) {
             { riga: 2, nome: 'Carla', cognome: 'Neri', email: 'Carla.Neri@Prova.IT', azienda: 'Neri spa' },
             { riga: 3, nome: 'Carla', cognome: 'Neri', email: '  carla.neri@prova.it ', azienda: 'Neri spa' },
             { riga: 4, nome: 'carla', cognome: 'NERI', email: 'CARLA.NERI@PROVA.IT', azienda: '' },
-            { riga: 5, nome: 'Carla', cognome: 'Neri', email: 'carla.neri@prova.it​', azienda: '' },
+            { riga: 5, nome: 'Carla', cognome: 'Neri', email: 'carla.neri@prova.it\u200b', azienda: '' },
             { riga: 6, nome: 'Mario', cognome: 'Rossi', email: '  A.MARIO0@Prova.it', azienda: '' }
         ];
         const anal = await dati.anteprima(ctx, { idEvento: 'napoli-2026', righe: varianti });
@@ -279,9 +279,9 @@ async function controllaTutto(ctx, titolo) {
         const pCarla = (await ctx.db.collection('partecipanti').doc(uidCarla[0]).get()).data();
         vero(pCarla.email === 'carla.neri@prova.it' && pCarla.emailNorm === 'carla.neri@prova.it',
             'si salva l\'indirizzo normalizzato, lo stesso a cui si spedira\' (' + JSON.stringify(pCarla.email) + ')');
-        const zwsp = (await dati.crea(ctx, { idEvento: 'napoli-2026', righe: [{ riga: 7, nome: 'Zeno', cognome: 'Invisibile', email: 'Zeno.Invisibile@Prova.it​', azienda: '' }] })).risultati[0];
+        const zwsp = (await dati.crea(ctx, { idEvento: 'napoli-2026', righe: [{ riga: 7, nome: 'Zeno', cognome: 'Invisibile', email: 'Zeno.Invisibile@Prova.it\u200b', azienda: '' }] })).risultati[0];
         const pZeno = zwsp.uid ? (await ctx.db.collection('partecipanti').doc(zwsp.uid).get()).data() : {};
-        vero(zwsp.esito === 'creato' && pZeno.email === 'zeno.invisibile@prova.it' && pZeno.email.indexOf('​') < 0,
+        vero(zwsp.esito === 'creato' && pZeno.email === 'zeno.invisibile@prova.it' && pZeno.email.indexOf('\u200b') < 0,
             'un\'email con lo spazio invisibile U+200B si salva senza (' + JSON.stringify(pZeno.email) + ')');
         vero(tutte.find(r => r.riga === 6).esito === 'gia-iscritto', 'A.MARIO0@Prova.it e\' la persona gia\' creata con a.mario0@prova.it');
 
@@ -375,7 +375,7 @@ async function controllaTutto(ctx, titolo) {
         await Promise.all(chiaviSue.map(k => ctx.db.collection('tentativiNome').doc(k).set({ falliti: 12, inizioFinestra: Date.now(), bloccatoFino: 0, aggiornato: Date.now() })));
         vero(suoi.concat(vicini).every(id => /^[0-9a-f]{32}_[0-9a-f]{32}$/.test(id)), 'gli id dei contatori dei tentativi non contengono indirizzi (impronta_impronta)');
         await ctx.db.collection('partecipanti').doc(tre.uid).update({ 'invii.napoli-2026.stato': 'inviata', 'invii.napoli-2026.inviata': ctx.Timestamp.fromMillis(Date.now()) });
-        const corr1 = await dati.operazionePartecipante(ctx, { uid: tre.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Maria', cognome: 'Rossi', azienda: 'Rossi srl', email: ' Mario.Nuovo@Prova.it​' });
+        const corr1 = await dati.operazionePartecipante(ctx, { uid: tre.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Maria', cognome: 'Rossi', azienda: 'Rossi srl', email: ' Mario.Nuovo@Prova.it\u200b' });
         vero(corr1.emailCambiata === true && corr1.emailPrecedente === emailTre && corr1.partecipante.email === NUOVA && corr1.partecipante.nome === 'Maria',
             'Mario -> Maria Rossi con l\'email nuova: salvata normalizzata (' + corr1.partecipante.email + ')');
         uguale(corr1.partecipante.invio.stato, 'da inviare', 'credenziali gia\' inviate al vecchio indirizzo: tornano "da inviare"');

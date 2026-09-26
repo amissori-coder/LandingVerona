@@ -83,7 +83,7 @@ function configurata() {
 
 // "napoli_ottobre_2026" -> ['napoli', 'ottobre', '2026']; accenti via
 function parole(s) {
-    return String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    return String(s == null ? '' : s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
         .split(/[^a-z0-9]+/).filter(Boolean);
 }
 /* La pagina del modulo (percorso, indirizzo o etichetta) e' quella
@@ -96,7 +96,7 @@ function paginaCorrisponde(paginaModulo, paginaEvento) {
     if (pm[0] === '/' || /^https?:\/\//i.test(pm)) return D.percorsoPagina(pm) === ev;
     const richieste = parole(ev.split('/').filter(Boolean).pop());
     if (richieste.length < 2) return false;
-    const etichetta = new Set(parole(pm.split(/\s[-–—]\s/)[0]));
+    const etichetta = new Set(parole(pm.split(/\s[-\u2013\u2014]\s/)[0]));
     return richieste.every(p => etichetta.has(p));
 }
 

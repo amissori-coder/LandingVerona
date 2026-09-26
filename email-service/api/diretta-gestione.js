@@ -74,6 +74,20 @@
                       'errore'), uid, codice, motivo }] }. NON manda
                       email: le credenziali partono solo da «Invia le
                       credenziali» (email-accoda + email-avanza)
+     partecipanti     { idEvento } -> { partecipanti: [{ uid, nome, cognome,
+                      email, azienda, stato, idEvento, eventi, invio
+                      (stato, tipo 'credenziali'|'anche', ...),
+                      ultimoAccesso, authCreato, origine 'import'|'modulo' }] }
+     partecipante     { uid, idEvento, operazione: 'reinvia' | 'rigenera'
+                      | 'disattiva' | 'riattiva' | 'rimuovi-evento' |
+                      'correggi' }. correggi { nome, cognome, azienda,
+                      email? } -> { partecipante, emailCambiata,
+                      emailPrecedente } (409 'email-occupata' se l'email
+                      e' di un'altra persona; se l'email cambia le
+                      credenziali gia' partite tornano "da inviare")
+     esporta          { idEvento } -> { evento, nota, partecipanti (come
+                      sopra, con presenza), accessi: [{ quando, email,
+                      nome, cognome, azienda, dispositivo }] }
      evento-iscrizioni { idEvento, iscrizioniAutomatiche: true|false }
                       -> { evento }: l'interruttore «Invia subito la
                       password a chi si iscrive dal modulo del sito»

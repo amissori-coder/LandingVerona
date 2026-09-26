@@ -134,7 +134,9 @@ async function prepara() {
         if (r && r.risultati) creati.push(...r.risultati);
     }
     const secCrea = (Date.now() - t0) / 1000;
-    const buoni = creati.filter(x => x.esito === 'creato' || x.esito === 'aggiunto' || x.esito === 'gia-nell-evento');
+    const buoni = creati.filter(x => x.esito === 'creato' || x.esito === 'aggiunto' || x.esito === 'gia-iscritto');
+    const emailDellaRiga = {};
+    righe.forEach(r => { emailDellaRiga[r.riga] = r.email; });
     console.log('  creati ' + buoni.length + '/' + PERSONE + ' in ' + secCrea.toFixed(1) + ' s');
 
     // password note alla prova (in memoria, mai scritte): come se ognuno avesse la sua email
@@ -143,7 +145,7 @@ async function prepara() {
         await Promise.all(buoni.slice(i, i + 50).map(async x => {
             const password = 'Carico' + Math.random().toString(36).slice(2, 8) + '7K';
             await app.auth().updateUser(x.uid, { password: password });
-            persone.push({ uid: x.uid, nomeUtente: x.nomeUtente, password: password });
+            persone.push({ uid: x.uid, email: emailDellaRiga[x.riga], password: password });
         }));
     }
     return { persone, secCrea, gestore: token };
@@ -161,10 +163,10 @@ function segnaScrittura() {
     scrittureAlSecondo[s] = (scrittureAlSecondo[s] || 0) + 1;
 }
 async function persona(p, inizioProva) {
-    // l'accesso si scrive come lo scriverebbe una persona: con maiuscole e spazi
-    const scritto = ' ' + p.nomeUtente.charAt(0).toUpperCase() + p.nomeUtente.slice(1) + ' ';
+    // l'email si scrive come la scriverebbe una persona: con maiuscole e spazi
+    const scritto = ' ' + p.email.charAt(0).toUpperCase() + p.email.slice(1) + ' ';
     const acc = await cronometra('1 accesso (funzione diretta-accesso)', () =>
-        posta(API + '/diretta-accesso', { azione: 'entra', nomeUtente: scritto, password: p.password }));
+        posta(API + '/diretta-accesso', { azione: 'entra', email: scritto, password: p.password }));
     if (!acc || !acc.token) return;
     const sess = await cronometra('2 signInWithCustomToken', () =>
         posta(AUTH + '/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=finta', { token: acc.token, returnSecureToken: true }));

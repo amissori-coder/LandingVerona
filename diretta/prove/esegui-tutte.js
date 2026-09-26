@@ -34,7 +34,7 @@ const solo = (() => {
 
 // nome, cartella, comando, variabili d'ambiente in piu', ha bisogno dell'emulatore comune
 const PROVE = [
-    { nome: 'nome-utente', cartella: SERVIZIO, file: 'prove/diretta-nome-utente.prove.js' },
+    { nome: 'regola-email', cartella: SERVIZIO, file: 'prove/diretta-email.prove.js' },
     { nome: 'password', cartella: SERVIZIO, file: 'prove/diretta-password.prove.js' },
     { nome: 'email', cartella: SERVIZIO, file: 'prove/diretta-mail.prove.js' },
     { nome: 'tempi', cartella: SERVIZIO, file: 'prove/diretta-accesso-tempi.prove.js' },
@@ -46,6 +46,7 @@ const PROVE = [
     { nome: 'doppioni', cartella: QUI, file: 'doppioni.prova.js' },
     { nome: 'accesso', cartella: QUI, file: 'accesso.prova.js' },
     { nome: 'coda', cartella: QUI, file: 'coda.prova.js' },
+    { nome: 'iscrizioni', cartella: QUI, file: 'iscrizioni.prova.js' },
     { nome: 'pagina', cartella: QUI, file: 'pagina.prova.js' },
     { nome: 'gestione', cartella: QUI, file: 'gestione.prova.js' },
     { nome: 'sito', cartella: QUI, file: 'sito.prova.js' },

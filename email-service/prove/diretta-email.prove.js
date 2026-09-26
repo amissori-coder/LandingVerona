@@ -55,7 +55,7 @@ function uguale(ottenuto, atteso, descrizione) {
     uguale(E.normalizzaEmail('  Mario.Rossi@Example.COM '), 'mario.rossi@example.com', 'email: maiuscole e spazi prima e dopo');
     uguale(E.normalizzaEmail('MARIO.ROSSI@EXAMPLE.COM'), 'mario.rossi@example.com', 'email tutta maiuscola');
     uguale(E.normalizzaEmail('\tmario.rossi@example.com\n'), 'mario.rossi@example.com', 'email con tabulazione e a capo');
-    uguale(E.normalizzaEmail('mario​.rossi@example.com﻿'), 'mario.rossi@example.com', 'email con i caratteri invisibili di Excel');
+    uguale(E.normalizzaEmail('mario\u200b.rossi@example.com\ufeff'), 'mario.rossi@example.com', 'email con i caratteri invisibili di Excel');
     uguale(E.normalizzaEmail('mailto:Mario@X.it'), 'mario@x.it', 'email con mailto: davanti');
     uguale(E.normalizzaEmail('m.a.r.i.o+eventi@gmail.com'), 'm.a.r.i.o+eventi@gmail.com', 'i punti e il "+" NON si toccano (sono caselle diverse)');
     uguale(E.normalizzaEmail(null), '', 'email null: vuota');
@@ -102,7 +102,7 @@ function uguale(ottenuto, atteso, descrizione) {
         { nome: '<b>Gino</b>', cognome: 'Tag', email: 'gino.tag@prova.it' },                            // 12 nome non valido
         { nome: 'Ugo', cognome: 'Escluso', email: 'ugo@prova.it', escludi: true },                      // 13 escluso
         { nome: 'Sandro', cognome: 'Spento', email: 'spento@prova.it' },                                // 14 gia' presente, disattivato
-        { nome: 'Zeno', cognome: 'Invisibile', email: 'Zeno.Invisibile@Prova.it​' }                // 15 nuovo (normalizzato)
+        { nome: 'Zeno', cognome: 'Invisibile', email: 'Zeno.Invisibile@Prova.it\u200b' }                // 15 nuovo (normalizzato)
     ];
     const a = E.analizzaImport(righe, esistenti, 'napoli-2026');
     uguale(a.righe.map(r => r.riga), [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 'anteprima: le righe numerate come nel file (dalla 2)');

@@ -43,7 +43,7 @@ const LUNGHEZZA_MASSIMA = 254;
 
 function normalizzaEmail(email) {
     return String(email == null ? '' : email)
-        .replace(/[\s​-‍⁠﻿]+/g, '')
+        .replace(/[\s\u200b-\u200d\u2060\ufeff]+/g, '')
         .replace(/^mailto:/i, '')
         .toLowerCase();
 }
@@ -74,7 +74,7 @@ function emailMascherata(email) {
 
 // "Nicolò D'Angelo" -> "nicolodangelo": senza accenti, spazi, apostrofi, punti
 function chiaveNome(s) {
-    return String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    return String(s == null ? '' : s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
         .toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
 /* Stessa persona se nome e cognome coincidono (scritti in qualunque

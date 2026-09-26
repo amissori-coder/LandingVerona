@@ -75,7 +75,7 @@ function inMonospace(html, valore) {
 }
 // l'apostrofo nell'HTML e' scritto &#39; (esc tratta anche ')
 const comeHtml = t => t.replace(/'/g, '&#39;');
-const TRATTINI_LUNGHI = /[‒–—―]|&[mn]dash;|&#(8210|8211|8212|8213);/i;
+const TRATTINI_LUNGHI = /[\u2012\u2013\u2014\u2015]|&[mn]dash;|&#(8210|8211|8212|8213);/i;
 function comuni(nome, m) {
     vero(m && typeof m.oggetto === 'string' && m.oggetto.length > 10, nome + ': ha un oggetto');
     vero(/^<!DOCTYPE html/i.test(m.html) && /<\/html>\s*$/.test(m.html), nome + ': HTML completo');
