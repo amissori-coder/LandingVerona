@@ -982,7 +982,13 @@ node e2e.prova.js              # solo il percorso completo
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
 Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch:
-**2113 controlli verdi, 0 rossi** (25 settembre 2026).
+**2245 controlli verdi, 0 rossi** (26 settembre 2026). La prova della coda
+(`coda.prova.js`) è rossa ogni tanto: 2 volte su una dozzina di giri, con una
+o due email «respinte» in meno del previsto nello scenario del processo ucciso
+a metà; tutti gli altri controlli di quei giri, compreso «nessuna email
+partita due volte», erano verdi. Non si è più ripresentata in 10 giri
+successivi; se ricapita, la prova stampa lo stato di ogni indirizzo per
+trovarne la causa.
 
 Durante lo sviluppo le regole del ricollegamento sono state provate anche con
 una simulazione (il codice della pagina con un orologio finto, 2000 casi
