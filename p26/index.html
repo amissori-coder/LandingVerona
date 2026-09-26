@@ -556,21 +556,44 @@ button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px
         // il servizio: scheda su Firestore, presenza segnata, mail di conferma
         var alServizio = chiama(Object.assign({}, payload)).then(function (d) { return !!(d && d.ok); }).catch(function () { return false; });
 
-        Promise.all([alFoglio.then(function () { return true; }, function () { return false; }), alServizio])
+        /* LA SCHERMATA "RICHIESTA RICEVUTA" NON ASPETTA LA MAIL. Il servizio
+           scrive la scheda, segna la presenza e SPEDISCE la mail prima di
+           rispondere: con il server di posta in mezzo passano parecchi
+           secondi, e in fila al desk sono lunghi. Il foglio Google risponde
+           subito: appena risponde lui (o dopo un secondo e mezzo, se la rete
+           della sala e' lenta) si mostra la schermata, e si dice che la mail
+           "sta arrivando". Quando poi risponde il servizio si sistema il
+           testo: se non ha risposto, nessuna mail e' partita e lo si dice. Se
+           non risponde nessuno dei due, si torna al modulo con l'errore. */
+        var nomeCompleto = (payload.nome + ' ' + payload.cognome).trim();
+        var mostrata = false;
+        function ricevuta() {
+            if (mostrata) return;
+            mostrata = true;
+            fine(nomeCompleto);
+            el('fineTitolo').textContent = 'Richiesta ricevuta';
+            el('fineTesto').textContent = 'Ti sta arrivando una email con il pulsante “Conferma il tuo indirizzo”. Toccalo e riceverai una seconda email con l’invito in PDF da esibire all’ingresso.';
+        }
+        var esitoFoglio = alFoglio.then(function () { return true; }, function () { return false; });
+        esitoFoglio.then(function (ok) { if (ok) ricevuta(); });
+        var attesa = setTimeout(ricevuta, 1500);
+
+        Promise.all([esitoFoglio, alServizio])
             .then(function (esiti) {
+                clearTimeout(attesa);
                 if (!esiti[0] && !esiti[1]) throw new Error('nessuna strada');
-                fine((payload.nome + ' ' + payload.cognome).trim());
-                /* La registrazione NON e' completa finche' non si conferma
-                   l'indirizzo dalla mail: la schermata lo dice, e dice cosa
-                   arriva dopo (l'invito in PDF). */
-                el('fineTitolo').textContent = 'Richiesta ricevuta';
-                el('fineTesto').textContent = 'Controlla la posta: ti abbiamo mandato una email con il pulsante “Conferma il tuo indirizzo”. Toccalo e riceverai una seconda email con l’invito in PDF da esibire all’ingresso.';
-                if (!esiti[1]) {
+                ricevuta();
+                if (esiti[1]) {
+                    el('fineTesto').textContent = 'Controlla la posta: ti abbiamo mandato una email con il pulsante “Conferma il tuo indirizzo”. Toccalo e riceverai una seconda email con l’invito in PDF da esibire all’ingresso.';
+                } else {
                     // iscritto sul foglio ma non sul servizio: nessuna mail e' partita, si passa dal desk
                     el('fineTesto').textContent = 'La tua richiesta è registrata, ma la rete della sala non ha risposto: passa dal desk Revilaw all’ingresso e ti registriamo noi.';
                 }
             })
             .catch(function () {
+                clearTimeout(attesa);
+                mostrata = false;
+                vai('passoModulo');
                 btn.disabled = false; btn.textContent = 'Registrami';
                 el('invioMsg').textContent = 'Errore di connessione. Riprova, oppure vai al desk Revilaw all’ingresso.';
             });
