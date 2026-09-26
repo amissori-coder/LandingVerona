@@ -236,7 +236,7 @@ Progetto Vercel di sempre (`revilaw-email`, cartella `email-service`) →
 
 | Nome | Valore |
 |---|---|
-| `DIRETTA_FIREBASE_SERVICE_ACCOUNT` | la chiave di servizio di `ngb-eventi`, in base64 (§2.2 passo 8) |
+| `DIRETTA_FIREBASE_SERVICE_ACCOUNT` | la chiave di servizio di `ngb-eventi`: il JSON così com'è oppure in base64 (§2.2 passo 8) |
 | `DIRETTA_FIREBASE_API_KEY` | la chiave API del server (§2.2 passo 9) |
 | `DIRETTA_ADMIN_EMAILS` | le email dei gestori, separate da virgola: `a.missori@emvas.tax, altro@revilaw.it` |
 
@@ -316,8 +316,8 @@ temporaneo (casella piena) non cambia lo stato.
 
 **I promemoria** (giorno prima e un'ora prima, da attivare per ogni evento)
 partono solo a chi ha già ricevuto le credenziali (stato *inviata*) e ha
-l'account attivo, **mai con la password**: contengono il collegamento, il nome
-utente e "Non trovi la password? Usa «Password dimenticata?»". Ognuno parte una
+l'account attivo, **mai con la password**: contengono il collegamento, l'email
+con cui si entra e "Non trovi la password? Usa «Password dimenticata?»". Ognuno parte una
 volta sola per persona; il giorno è scritto sull'ora vera ("domani alle 9.00",
 "oggi alle 9.00", con "(ora italiana)").
 
