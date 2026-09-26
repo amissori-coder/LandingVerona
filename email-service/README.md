@@ -1184,10 +1184,13 @@ Il giorno del convegno al desk c'e' un cartello con un QR (lo produce
 inquadra e apre `/p26/` dal proprio telefono: scrive l'email (o nome e
 cognome), e
 
-- se **risulta gia' iscritto**, vede nome, cognome e azienda e con un tocco si
-  segna presente, senza ricompilare nulla;
+- se **risulta iscritto online**, con un tocco passa in sala e riceve per
+  mail l'invito in PDF da esibire all'ingresso;
+- se **risulta gia' in sala** (presenza, aderente, sponsor), si fa rimandare
+  una copia dell'invito;
 - se **non risulta**, compila il questionario - gli stessi campi del modulo
-  del sito - e la presenza e' segnata nella stessa richiesta.
+  del sito - e segue la strada di tutti (conferma dell'indirizzo, poi
+  l'invito). La presenza la segna lo staff all'ingresso, con l'invito in mano.
 
 Due azioni sull'endpoint pubblico, piu' un caso dell'iscrizione normale:
 
@@ -1199,25 +1202,27 @@ Due azioni sull'endpoint pubblico, piu' un caso dell'iscrizione normale:
   mai email, telefono o identificativo. `rif` e' l'impronta
   dell'identificativo, non l'identificativo (che contiene l'email): chi ha
   cercato per nome non scopre con quale indirizzo si e' iscritta la persona.
-- `azione: "presenza-segna"` con `rif`, `evento`, `chiave`. Scrive in
-  `presenze` con lo stesso nome di documento di `/api/presenze`
-  (`evento~idIscritto`): `stato: "presente"`, la nota "Accredito QR gg/mm hh:mm"
-  accodata a quella esistente, la firma `da: "qr-desk"` / `daNome: "Accredito
-  QR"`. Chi era iscritto **online** passa in **presenza** (e' in sala, il
-  posto va contato) e la coda per la sala finisce; aderenti e sponsor restano
-  nella loro sezione. Poi alza la revisione, cosi' l'area riservata rilegge.
+- `azione: "presenza-invito"` con `rif`, `evento`, `chiave`. Chi era iscritto
+  **online** passa in **presenza** (fra le presenze, dove la sezione vince
+  sulla scheda; la coda per la sala finisce; nota "In sala dal QR gg/mm hh:mm"
+  con la firma `da: "qr-desk"`); chi e' gia' in sala (presenza, aderenti,
+  sponsor) resta dov'e'. A tutti parte la mail **"Il tuo invito"** con il PDF
+  da esibire all'ingresso (`lib/conferma-email.js`, `spedisciInvito`), e
+  l'esito resta sulla scheda in `mailInvito`. Lo stato "presente" NON si
+  scrive: lo mette lo staff all'ingresso, con l'invito in mano. Risponde
+  `{ ok, trovato, spostato, invito, nome, cognome }`.
 - L'**iscrizione nuova** dal telefono e' il payload del sito con in piu'
   `origine: "qr-desk"` e `chiave`: la scheda viene scritta in `presenza`,
   senza coda, con `extra.Portale = "Desk (QR)"` (si legge nella colonna
   Portale dell'elenco, e l'area riservata la conta nel riquadro "registrati al
-  desk"), e la presenza e' scritta subito dopo la scheda. La mail di conferma
-  e' quella normale. Senza la chiave buona, un'iscrizione che si dichiara dal
+  desk"). Da li' segue la strada di tutti: mail "Richiesta di conferma", clic,
+  mail "Il tuo invito" con il PDF. Nessuna presenza scritta dalla pagina. Senza la chiave buona, un'iscrizione che si dichiara dal
   desk e' un'iscrizione dal sito come le altre.
 
 **La chiave.** Le due azioni funzionano solo con `chiave` uguale a
 `PRESENZA_NAPOLI_CHIAVE` (confronto a tempo costante) e **solo dal 25 settembre al 3
 ottobre 2026** (fuso di Roma). Altrimenti rispondono `{ ok: true, trovato:
-false }` senza dire perche' e senza scrivere nulla: "segnami presente" non si
+false }` senza dire perche' e senza scrivere nulla: "passa in sala e mandami l'invito" non si
 deve poter fare da casa, e "questo indirizzo e' iscritto?" non deve diventare
 un modo per scoprire chi viene al convegno provando indirizzi. Senza la
 variabile impostata NON esiste una chiave buona: tutto resta spento. La

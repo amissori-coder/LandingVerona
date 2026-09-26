@@ -105,7 +105,7 @@ body { margin: 0; background: #eee; }
     <div class="qr">${qr}</div>
     <div class="indirizzo">${fuga(link)}</div>
     <ol class="passi">
-        <li><b>1</b><span>Scrivi l&rsquo;email con cui ti sei iscritto, se lo hai fatto: se ti troviamo basta un tocco e sei dentro.</span></li>
+        <li><b>1</b><span>Scrivi l&rsquo;email con cui ti sei iscritto, se lo hai fatto: se ti troviamo ricevi subito l&rsquo;invito via email (e se eri online puoi passare in sala).</span></li>
         <li><b>2</b><span>Se non risulti, compila il questionario direttamente dal telefono.</span></li>
         <li><b>3</b><span>Apri l&rsquo;email che ti arriva e tocca <strong>&laquo;Conferma il tuo indirizzo&raquo;</strong>: ricevi subito l&rsquo;invito in PDF.</span></li>
         <li><b>4</b><span>Mostra l&rsquo;invito al desk, anche dal telefono, e accomodati in sala.</span></li>

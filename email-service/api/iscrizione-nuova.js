@@ -1277,7 +1277,7 @@ module.exports = async (req, res) => {
            tutta la sala esce da un indirizzo IP solo. Senza chiave buona
            un'iscrizione che si dichiara "dal desk" e' un modulo come un altro,
            e paga il freno di tutti. */
-        const azioneDesk = String(body.azione || '') === 'presenza-cerca' || String(body.azione || '') === 'presenza-segna';
+        const azioneDesk = String(body.azione || '') === 'presenza-cerca' || String(body.azione || '') === 'presenza-invito';
         const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
         if (dalDesk) {
             if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
@@ -1348,9 +1348,10 @@ module.exports = async (req, res) => {
         }
         /* Il desk del convegno. "presenza-cerca" dice se chi ha inquadrato il
            QR e' gia' iscritto (nome, cognome e azienda, niente altro);
-           "presenza-segna" lo segna presente. Tutte e due rispondono "non
-           trovato" a chi non ha la chiave del cartello o prova fuori dai
-           giorni dell'evento: la ragione sta in lib/accredito-desk.js. */
+           "presenza-invito" porta in sala chi era online e manda l'invito in
+           PDF. Tutte e due rispondono "non trovato" a chi non ha la chiave
+           del cartello o prova fuori dai giorni dell'evento: la ragione sta
+           in lib/accredito-desk.js. */
         if (azione === 'conferma-email') {
             const cred4 = leggiServiceAccount();
             initAdmin(cred4);
@@ -1358,12 +1359,12 @@ module.exports = async (req, res) => {
             res.status(r.stato).json(r.corpo);
             return;
         }
-        if (azione === 'presenza-cerca' || azione === 'presenza-segna') {
+        if (azione === 'presenza-cerca' || azione === 'presenza-invito') {
             const cred3 = leggiServiceAccount();
             initAdmin(cred3);
             const r = azione === 'presenza-cerca'
                 ? await DESK.cerca(admin.firestore(), body)
-                : await DESK.segna(admin.firestore(), body);
+                : await DESK.invito(admin.firestore(), body);
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -1486,9 +1487,10 @@ module.exports = async (req, res) => {
             scheda.listaAttesa = true;
         }
 
-        /* Compilata dal telefono al desk, con la chiave del cartello: la
-           persona e' in sala, quindi in presenza e senza coda, e nell'elenco
-           si legge da dove viene (colonna "Portale"). Dichiararsi "dal desk"
+        /* Compilata dal telefono al desk, con la chiave del cartello: viene
+           per il convegno, quindi in presenza e senza coda, e nell'elenco si
+           legge da dove viene (colonna "Portale"). La presenza la segna lo
+           staff all'ingresso, con l'invito in mano. Dichiararsi "dal desk"
            senza la chiave non cambia nulla: e' un'iscrizione dal sito. */
         const accreditoDesk = dalDesk;
         if (accreditoDesk) DESK.completaScheda(scheda);
@@ -1499,13 +1501,6 @@ module.exports = async (req, res) => {
             .set(scheda, { merge: true });
         await segnaCambiamento(admin.firestore());
 
-        /* La presenza, nella stessa richiesta: chi si e' appena registrato
-           dal telefono non deve fare un secondo passaggio. Se questa parte
-           non riesce l'iscrizione resta valida e al desk si segna a mano. */
-        if (accreditoDesk) {
-            try { await DESK.segnaNuova(admin.firestore(), body, scheda); }
-            catch (e) { console.error('Presenza dal desk non segnata:', String((e && e.message) || e).slice(0, 200)); }
-        }
 
         /* Il ritorno verso l'elenco delle aziende: la scheda dell'azienda
            passa a "iscritta" e si tiene chi si e' registrato. Se qualcosa qui
