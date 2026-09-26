@@ -706,6 +706,19 @@ precisione di un paio di minuti per collegamento.
 
 ### 6.6 Il sito: popup, pillola e pagina di Napoli
 
+- **Accesa o nascosta.** In cima ad `assets/diretta-stato.js` c'è
+  l'interruttore **`PUBBLICA`**. Con `false` (com'è ora, per la prova
+  generale) il sito pubblico **non mostra niente** della diretta: niente
+  popup né pillola in home, niente voce "Diretta" né sezione "Segui la
+  diretta" a Napoli, e nessuna richiesta al servizio. Le pagine
+  `/diretta/` e `/diretta/gestione/` funzionano lo stesso per chi ne conosce
+  l'indirizzo (non sono indicizzate: `noindex` e `robots.txt`). Con `true`
+  tutto quello che segue compare da solo.
+  **Per vedere il sito come sarà da acceso**, da un browser qualsiasi e senza
+  toccare niente: apri una pagina del sito aggiungendo **`?diretta=prova`**
+  all'indirizzo (per esempio `https://nextgenerationbusiness.it/?diretta=prova`).
+  Quel browser se lo ricorda; **`?diretta=pubblico`** lo fa tornare come lo
+  vedono tutti.
 - **Home**: dal 25 settembre (7 giorni prima) fino alla fine della diretta
   compare una volta per sessione il popup **"Diretta Napoli"**, con la
   precedenza sugli altri popup (quel giorno non compaiono). Il giorno
@@ -1122,7 +1135,7 @@ node e2e.prova.js              # solo il percorso completo
 | `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, «Non sei ancora iscritto? Iscriviti qui.», «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano; l'iscrizione **annullata dal sito con la pagina aperta** (il servizio vero): la pagina dice «Non sei più iscritto a questa diretta», anche rientrando | 61 verdi, 0 rossi |
 | `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel controllata per **email** (nuovi, già registrati, doppie, email condivise da persone diverse, email sbagliate, correzioni ed esclusioni), creazione a gruppi con "Riprendi" **senza nessuna email** (partono solo con «Invia le credenziali»), l'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» (con i suoi errori), ricerca e azioni sul partecipante, cambio dell'email; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta; il riquadro **«Iscrizioni dal modulo da verificare»** (righe, testo mai HTML, «Segna come vista», azioni protette; anche le righe **annullata dal sito** e **annullamento ritirato**); accanto all'interruttore acceso, da quando | 395 verdi, 0 rossi |
 | `modulo.prova.js` | **il modulo di Napoli e la diretta**: una chiamata al servizio con il corpo del sito principale (main, f26e12e) byte per byte più il solo `percorso`, la conferma a video, nessuna richiesta al foglio Google; 503, rete che cade e 400 con messaggio: l'errore a video, il modulo resta, nessun tentativo automatico | 11 verdi, 0 rossi |
-| `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento | 287 verdi, 0 rossi |
+| `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento; **la diretta nascosta** (`PUBBLICA = false`): niente popup, pillola, voce di menu e sezione, nessuna richiesta nemmeno il giorno dell'evento in onda, menu su una riga a 1100px; `?diretta=prova` la mostra solo a quel browser e `?diretta=pubblico` la toglie; con `PUBBLICA = true` tutto compare senza prova | 308 verdi, 0 rossi |
 | `e2e.prova.js` | **il percorso completo con tutto vero** (il player di Azoto è quello finto): il gestore si attiva dall'email, crea l'evento **incollando il codice di Azoto** (si salva solo l'indirizzo) e i partecipanti (nessuna email parte finché non preme «Invia le credenziali»), manda le credenziali; Mario le legge dalla posta, entra dal telefono **con la sua email**; il gestore accende l'interruttore e Luca, che si iscrive dal modulo del sito, riceve subito la password ed entra; aspetta (nessun player), va in onda e compare il player di Azoto (chi non ha fatto l'accesso non riceve l'indirizzo: né nella pagina, né nello stato pubblico, né da Firestore), schermo intero (vero sul computer, la vista orizzontale sull'iPhone), cambio del player senza ricaricare, connessione persa, pagina riaperta, pausa e fine (il player sparisce, restano le nostre schermate), un minuto di presenza, esce, «Password dimenticata?» (a chi non è iscritto non parte niente), accesso automatico; esportazione | 32 verdi, 0 rossi |
 | `webtv.prova.js` | **le due modalità con la regia vera** (emulatori e servizio vero), su computer e iPhone. **Player Azoto**: prima dell'accesso nessuna richiesta ad Azoto; l'iframe con gli attributi e il titolo giusti, mai `azoto-player.js`; sotto il video solo «Schermo intero» e la nota; **niente sopra l'iframe** (un clic e un tocco veri sul play di Azoto arrivano); 16:9 senza bande né barre a 1440×900, 390×844, 360×740 e iPhone orizzontale; schermo intero vero sul computer e vista orizzontale sull'iPhone, senza ricaricare l'iframe; cambio del player e A→B→A senza ricaricare la pagina e senza altri ascolti di Firestore; player fermo: avviso a 15 secondi sotto il riquadro, «Ricarica il video» ricrea solo l'iframe; CSP. **Flusso diretto**: principale che cade → "Stiamo ricollegando la diretta…" e riserva; la regia sposta tutti; **flusso pubblico HLS di Shaka** (DVR, «Torna in diretta», qualità) e DASH; link firmati | 32 verdi, 0 rossi |
 | `player.prova.js` | **il player del flusso diretto da solo**, con i flussi pubblici HLS e DASH di Shaka e la diretta ffmpeg: avvio, attributi del `<video>`, qualità senza doppioni, DVR, `cerca` e `vaiAlLive`, segnale fermo, **playlist ferma**, link firmati e rinnovo della firma **senza ricaricare**, link firmato molto lungo, pezzo di DASH perso, un indirizzo di pagina rifiutato ('link'), 404, link che non risponde, avvio bloccato, pagina nascosta | 73 verdi, 0 rossi |
@@ -1292,39 +1305,42 @@ settembre: c'è tempo, ma non tanto).
    - [ ] **Privacy**: con chi cura l'informativa, valuta il peer-to-peer del
      player di Azoto (indirizzi IP degli spettatori scambiati fra loro e con i
      servizi `meshify.cloud`, Google e Twilio: §5.1) finché Azoto non lo spegne.
-2. [ ] **Progetto Firebase `ngb-eventi`** (§2.2): crealo, passa a **Blaze** e
+2. [x] **Progetto Firebase `ngb-eventi`** (§2.2, fatto il 26 settembre): crealo, passa a **Blaze** e
    imposta l'**avviso di budget** (10 €); Firestore `(default)` in `eur3` o
    `europe-west8`; Authentication con **Email/password**, **registrazione e
    eliminazione da parte degli utenti disattivate**, protezione contro
    l'enumerazione attiva, dominio `nextgenerationbusiness.it` autorizzato.
-3. [ ] **`diretta/config.js`**: copia i valori dell'app web al posto di
+3. [x] **`diretta/config.js`**: copia i valori dell'app web al posto di
    `DA_COMPILARE` (e l'ID del progetto, se non è `ngb-eventi`), e compila
    `assistenza.email` e `assistenza.telefono`.
-4. [ ] **Regole e indici**: `firebase deploy --only firestore:rules,firestore:indexes`
+4. [x] **Regole e indici**: `firebase deploy --only firestore:rules,firestore:indexes`
    da `diretta/firebase/` (o a mano dalla console), e aspetta che gli indici
    siano *Attivati*. (Le regole di questo ramo chiudono subito l'evento a chi
    annulla dal sito: se le avevi già pubblicate prima, pubblicale di nuovo.)
    Nel progetto dello **studio** non c'è niente da fare: la riconciliazione
    legge le schede con un solo filtro su `ricevuto`, che usa l'indice
    automatico.
-5. [ ] **Chiavi**: genera la chiave di servizio (JSON → base64) e crea la
-   **chiave API del server** limitata a Identity Toolkit API e Token Service API;
+5. [x] **Chiavi**: genera la chiave di servizio (il JSON) e crea la
+   **chiave API del server** limitata a Identity Toolkit API;
    limita la chiave del browser ai referrer `https://nextgenerationbusiness.it/*`.
-6. [ ] **Vercel** (§3): aggiungi `DIRETTA_FIREBASE_SERVICE_ACCOUNT`,
+6. [x] **Vercel** (§3): aggiungi `DIRETTA_FIREBASE_SERVICE_ACCOUNT`,
    `DIRETTA_FIREBASE_API_KEY`, `DIRETTA_ADMIN_EMAILS` (e, se vuoi,
    `DIRETTA_ASSISTENZA_TELEFONO` con un numero **presidiato il giorno
    dell'evento**, lo stesso scritto in `config.js`, e `DIRETTA_PROGETTO_ATTESO`
    se l'ID è diverso). Controlla che ci
    siano già `BREVO_API_KEY` e `CRON_SECRET`. Poi *Redeploy*. Da questo momento
    parte anche il lavoro programmato ogni 5 minuti.
-7. [ ] **Brevo** (§4): verifica il piano (servono circa **3.100 email** nei
+7. [x] **Brevo** (§4): verifica il piano (servono circa **3.100 email** nei
    giorni prima dell'evento, oltre alle altre email dello studio: il piano
    gratuito da 300 al giorno non basta; se il piano ha un tetto giornaliero
    imposta `DIRETTA_MAX_GIORNO`), SPF/DKIM/DMARC del dominio verificati, e
    le anteprime delle email transazionali conservate per il periodo più breve
    (il tracciamento resta acceso: lo usa l'area riservata).
-8. [ ] **Pubblica** questo ramo sul sito (unisci la richiesta di modifica):
-   popup e pulsanti compaiono da soli dal 25 settembre.
+8. [ ] **Pubblica** questo ramo sul sito (unisci la richiesta di modifica)
+   **con la diretta nascosta** (`PUBBLICA = false`, §6.6): i visitatori non
+   vedono niente, tu fai la prova generale (passi 9-12) dagli indirizzi
+   diretti. Poi **accendila** (`PUBBLICA = true`, una riga): popup e pulsanti
+   compaiono da soli, nella finestra dell'evento.
 
 **Prima di inviare le credenziali** (le credenziali non partono mai da sole: le
 mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
@@ -1335,7 +1351,9 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     aggiorna anche quel file), "Tipo di player": **Player Azoto**, e incolla il
     **codice che vi ha dato Azoto** (si salva solo l'indirizzo). "Prova il
     player". Il flusso diretto lascialo vuoto finché Azoto non dà il `.m3u8`.
-11. [ ] **Prova generale** con un evento di prova e 3-4 persone vere (tu e dei
+11. [ ] **Prova generale** (con la diretta ancora nascosta sul sito: popup,
+    pillola e pulsanti di Napoli li vedi aprendo il sito con `?diretta=prova`,
+    §6.6) con un evento di prova e 3-4 persone vere (tu e dei
     colleghi): email di prova, credenziali, accesso **con la propria email da un iPhone con Safari,
     da un telefono Android, da un computer con Chrome, Firefox ed Edge**, "Vai in
     onda" con Azoto che trasmette una prova: il player compare, play e volume nel

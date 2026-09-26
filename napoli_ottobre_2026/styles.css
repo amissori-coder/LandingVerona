@@ -4183,7 +4183,8 @@ ul {
 .indicatore-live[hidden],
 .indicatore-pausa[hidden],
 [data-diretta-aperta][hidden],
-[data-diretta-conclusa][hidden] {
+[data-diretta-conclusa][hidden],
+[data-diretta-pubblica][hidden] {
     display: none !important;
 }
 
@@ -4586,7 +4587,8 @@ html[data-diretta="conclusa"] .diretta-riquadro {
    Solo finche' la voce Diretta c'e': dopo la fine della diretta
    (<html data-diretta="conclusa">, scritto da /assets/diretta-stato.js) la
    voce sparisce, il menu torna largo come prima e quindi su una riga, come
-   prima della diretta. Senza JavaScript l'attributo manca e la voce resta:
+   prima della diretta. Lo stesso con la diretta ancora nascosta sul sito
+   (<html data-diretta="nascosta">): la voce non c'e'. Senza JavaScript l'attributo manca e la voce resta:
    vale il menu a tendina. La condizione sta dentro :where(), che non
    aggiunge specificita': ogni regola pesa esattamente come quella del
    blocco sotto i 999px (e le regole della voce Diretta e della brochure
@@ -4595,11 +4597,11 @@ html[data-diretta="conclusa"] .diretta-riquadro {
    voce e della pillola nel blocco "fino a 1199px" qui sotto restano come
    sono: dopo la fine voce e pillola sono nascoste ([data-diretta-aperta]). */
 @media (min-width: 1000px) and (max-width: 1199px) {
-    :where(html:not([data-diretta="conclusa"])) .nav-toggle {
+    :where(html:not([data-diretta="conclusa"]):not([data-diretta="nascosta"])) .nav-toggle {
         display: flex;
     }
 
-    :where(html:not([data-diretta="conclusa"])) .nav-menu {
+    :where(html:not([data-diretta="conclusa"]):not([data-diretta="nascosta"])) .nav-menu {
         position: absolute;
         top: 100%;
         left: 0;
@@ -4615,28 +4617,28 @@ html[data-diretta="conclusa"] .diretta-riquadro {
         box-shadow: 0 18px 34px rgba(0, 0, 0, 0.35);
     }
 
-    :where(html:not([data-diretta="conclusa"])) .nav-menu.active {
+    :where(html:not([data-diretta="conclusa"]):not([data-diretta="nascosta"])) .nav-menu.active {
         display: flex;
     }
 
-    :where(html:not([data-diretta="conclusa"])) .nav-menu li {
+    :where(html:not([data-diretta="conclusa"]):not([data-diretta="nascosta"])) .nav-menu li {
         width: 100%;
     }
 
-    :where(html:not([data-diretta="conclusa"])) .nav-menu a {
+    :where(html:not([data-diretta="conclusa"]):not([data-diretta="nascosta"])) .nav-menu a {
         font-size: 0.95rem;
         display: block;
         padding: 11px 4px;
         white-space: normal;
     }
 
-    :where(html:not([data-diretta="conclusa"])) .nav-menu a.nav-brochure {
+    :where(html:not([data-diretta="conclusa"]):not([data-diretta="nascosta"])) .nav-menu a.nav-brochure {
         display: inline-flex;
         width: auto;
         margin-top: 8px;
     }
 
-    :where(html:not([data-diretta="conclusa"])) .nav-cta {
+    :where(html:not([data-diretta="conclusa"]):not([data-diretta="nascosta"])) .nav-cta {
         text-align: center;
         width: 100%;
         padding: 14px 22px;

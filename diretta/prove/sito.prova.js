@@ -106,9 +106,9 @@ const TELEFONO = (() => {
 const TELEFONO_STRETTO = { viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 
 let rossi = 0, verdi = 0;
-function vero(cond, descrizione) {
+function vero(cond, descrizione, dettaglio) {
     if (cond) { verdi++; console.log('  ok  ' + descrizione); }
-    else { rossi++; console.log('ROSSO ' + descrizione); }
+    else { rossi++; console.log('ROSSO ' + descrizione + (dettaglio ? '\n       ' + dettaglio : '')); }
 }
 function uguale(ottenuto, atteso, descrizione) {
     const ok = JSON.stringify(ottenuto) === JSON.stringify(atteso);
@@ -144,7 +144,14 @@ let browser;
 // prova lo cambia a meta' per vedere la pagina che si aggiorna da sola
 // (null = il servizio risponde { ok:false }); `ripresa` l'orario di ripresa
 // di una pausa.
-async function visitatore(opzioni, stato) {
+/* `diretta` (facoltativo): come si vede la diretta sul sito.
+     - di base, prova: true -> questo browser la vede come accesa
+       (?diretta=prova), qualunque sia PUBBLICA nel file: le prove 1-3 non
+       dipendono dall'interruttore;
+     - { prova: false, pubblica: true|false } -> nessuna prova in questo
+       browser, e diretta-stato.js servito con PUBBLICA forzata (sezione 4). */
+async function visitatore(opzioni, stato, diretta) {
+    const d = Object.assign({ prova: true }, diretta || {});
     const ctx = await browser.newContext(Object.assign({ locale: 'it-IT', timezoneId: 'Europe/Rome' }, opzioni || {}));
     const v = { ctx, richieste: [], stato: stato || null, ripresa: '' };
     await preparaContesto(ctx, {
@@ -162,6 +169,12 @@ async function visitatore(opzioni, stato) {
     });
     // registrata dopo: Playwright la prova per prima (vedi l'intestazione)
     await ctx.route(/\.mp4(\?|$)|cdn\.iubenda\.com|googletagmanager\.com/, r => r.abort());
+    if (typeof d.pubblica === 'boolean') {
+        const sorgente = fs.readFileSync(path.join(RADICE, 'assets/diretta-stato.js'), 'utf8')
+            .replace(/var PUBBLICA = (true|false);/, 'var PUBBLICA = ' + d.pubblica + ';');
+        await ctx.route(/\/assets\/diretta-stato\.js(\?|$)/, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: sorgente }));
+    }
+    if (d.prova) await ctx.addInitScript(() => { try { localStorage.setItem('ngbDirettaProva', '1'); } catch (e) { /* niente */ } });
     v.errori = [];
     v.scheda = async (quando) => {
         const p = await ctx.newPage();
@@ -248,6 +261,7 @@ async function pillola(page) {
         await provaNGBDiretta();
         await provaHome();
         await provaNapoli();
+        await provaNascosta();
     } finally {
         await browser.close();
         if (server) server.kill();
@@ -285,7 +299,14 @@ async function provaFile() {
     vero(/timeZone: FUSO/.test(stato) && /var FUSO = "Europe\/Rome"/.test(stato), 'diretta-stato.js: il giorno di Roma con Intl (timeZone Europe/Rome)');
     vero(/#dirPillola\{[^}]*z-index:9990;/.test(stato), 'pillola: z-index 9990, sotto gli avvisi del sito (9998-9999) e sopra la barra (1000)');
     const napoli = fs.readFileSync(path.join(RADICE, 'napoli_ottobre_2026/index.html'), 'utf8');
-    vero(/styles\.css\?v=19/.test(napoli), 'Napoli: versione del foglio di stile aggiornata (?v=19, dopo l\'allineamento con main)');
+    vero(/styles\.css\?v=20/.test(napoli), 'Napoli: versione del foglio di stile aggiornata (?v=20, con la diretta nascosta)');
+    vero(/<section class="diretta-fascia" id="diretta"[^>]*\bdata-diretta-pubblica hidden>/.test(napoli)
+        && /id="navDirettaPillola" data-diretta-aperta hidden>/.test(napoli) && /<li data-diretta-aperta hidden><a href="\/diretta\/" class="nav-diretta"/.test(napoli),
+        'Napoli: sezione della diretta e le due voci "Diretta" del menu scritte con hidden (nascoste finche\' diretta-stato.js non le mostra)');
+    const robots = fs.readFileSync(path.join(RADICE, 'robots.txt'), 'utf8');
+    vero(/^Disallow: \/diretta\/$/m.test(robots), 'robots.txt: Disallow: /diretta/');
+    const pubblica = (/var PUBBLICA = (true|false);/.exec(stato) || [])[1];
+    vero(pubblica === 'true' || pubblica === 'false', 'diretta-stato.js: l\'interruttore PUBBLICA c\'e\' (oggi: ' + pubblica + (pubblica === 'false' ? ', diretta nascosta sul sito' : ', diretta accesa sul sito') + ')');
     vero(/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" defer><\/script>\s*<\/body>/.test(napoli), 'Napoli: diretta-stato.js caricato in fondo alla pagina');
     // niente trattini lunghi nei testi scritti per la diretta
     const sezione = napoli.slice(napoli.indexOf('<!-- Segui la diretta'), napoli.indexOf('<!-- L\'Evento -->'));
@@ -1257,4 +1278,82 @@ async function provaNapoli() {
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         await v.ctx.close();
     }
+}
+
+/* ---------- 4. la diretta nascosta sul sito (PUBBLICA) ---------- */
+async function vistaNapoli(page) {
+    return page.evaluate(() => {
+        const vis = el => !!el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+        return {
+            attributo: document.documentElement.getAttribute('data-diretta'),
+            sezione: vis(document.getElementById('diretta')),
+            voce: vis(document.getElementById('navDiretta') && document.getElementById('navDiretta').closest('li')),
+            pillola: vis(document.getElementById('navDirettaPillola')),
+            hamburger: getComputedStyle(document.getElementById('navToggle')).display !== 'none'
+        };
+    });
+}
+async function provaNascosta() {
+    console.log('\n[la diretta nascosta sul sito: PUBBLICA = false]');
+    // home, 26 settembre (dentro la finestra): niente popup ne' pillola, nessuna richiesta
+    const v1 = await visitatore(COMPUTER, 'programmato', { prova: false, pubblica: false });
+    const h1 = await v1.scheda('2026-09-26T10:00:00+02:00');
+    await h1.goto(HOME);
+    await passa(h1, QUIETE_MS);
+    const n1 = await h1.evaluate(() => ({ cond: window.NGBDiretta && window.NGBDiretta.condizione(), vis: window.NGBDiretta && window.NGBDiretta.visibile, pianificato: !!window.__dirPromoPlanned }));
+    vero(n1.cond === 'nascosta' && n1.vis === false && !n1.pianificato, 'home: condizione "nascosta", il popup della diretta non si prenota (gli altri popup restano liberi)');
+    uguale(await nelDom(h1).then(l => l.filter(x => x === 'dirPromo')), [], 'home: nessun popup della diretta');
+    vero(!(await pillola(h1)).presente, 'home: nessuna pillola della diretta');
+    await scatta(h1, 'nascosta-home');
+    // Napoli, 2 ottobre alle 10, in onda: niente voce, pillola, sezione; nessuna richiesta
+    const n2 = await v1.scheda('2026-10-02T10:00:00+02:00');
+    await n2.goto(NAPOLI);
+    await passa(n2, 2 * MINUTO);
+    const s2 = await vistaNapoli(n2);
+    vero(s2.attributo === 'nascosta' && !s2.sezione && !s2.voce && !s2.pillola,
+        'Napoli il 2 ottobre in onda: niente sezione "Segui la diretta", niente voce "Diretta" ne\' pillola nel menu', JSON.stringify(s2));
+    uguale(v1.richieste.length, 0, 'nessuna richiesta allo stato della diretta, nemmeno il giorno dell\'evento in onda (2 minuti)');
+    await inCima(n2);
+    await scatta(n2, 'nascosta-napoli');
+    // fra 1000 e 1199px il menu resta su una riga, come prima della diretta
+    await n2.setViewportSize({ width: 1100, height: 800 });
+    await n2.waitForTimeout(200);
+    vero(!(await vistaNapoli(n2)).hamburger, 'Napoli a 1100px: menu su una riga, niente hamburger (come prima della diretta)');
+    vero(v1.errori.length === 0, 'nessun errore nelle pagine' + (v1.errori.length ? ': ' + v1.errori.join(' | ') : ''));
+    await v1.ctx.close();
+
+    console.log('\n[?diretta=prova: la vede solo questo browser, finche\' non si chiede ?diretta=pubblico]');
+    const v2 = await visitatore(COMPUTER, 'programmato', { prova: false, pubblica: false });
+    const h2 = await v2.scheda('2026-09-26T10:00:00+02:00');
+    await h2.goto(HOME + '?diretta=prova');
+    vero(await aspettaPopup(h2, 'dirPromo'), 'home?diretta=prova: il popup della diretta compare');
+    vero((await pillola(h2)).visibile, 'e la pillola');
+    vero(await h2.evaluate(() => localStorage.getItem('ngbDirettaProva') === '1'), 'il browser se lo ricorda (localStorage)');
+    const n3 = await v2.scheda('2026-09-26T10:00:00+02:00');
+    await n3.goto(NAPOLI);
+    await passa(n3, 1000);
+    const s3 = await vistaNapoli(n3);
+    vero(s3.attributo === 'prima' && s3.sezione && s3.voce, 'poi Napoli senza parametro: sezione e voce "Diretta" visibili (in prova)', JSON.stringify(s3));
+    const n4 = await v2.scheda('2026-09-26T10:00:00+02:00');
+    await n4.goto(NAPOLI + '?diretta=pubblico');
+    await passa(n4, 1000);
+    const s4 = await vistaNapoli(n4);
+    vero(s4.attributo === 'nascosta' && !s4.sezione && !s4.voce && !s4.pillola, 'Napoli?diretta=pubblico: di nuovo come la vedono tutti (nascosta)', JSON.stringify(s4));
+    vero(await n4.evaluate(() => localStorage.getItem('ngbDirettaProva') === null), 'e il browser non se lo ricorda piu\'');
+    vero(v2.errori.length === 0, 'nessun errore nelle pagine' + (v2.errori.length ? ': ' + v2.errori.join(' | ') : ''));
+    await v2.ctx.close();
+
+    console.log('\n[PUBBLICA = true: tutto compare per tutti, senza prova]');
+    const v3 = await visitatore(COMPUTER, 'programmato', { prova: false, pubblica: true });
+    const h3 = await v3.scheda('2026-09-26T10:00:00+02:00');
+    await h3.goto(HOME);
+    vero(await aspettaPopup(h3, 'dirPromo'), 'home: il popup della diretta compare');
+    vero((await pillola(h3)).visibile, 'e la pillola');
+    const n5 = await v3.scheda('2026-09-26T10:00:00+02:00');
+    await n5.goto(NAPOLI);
+    await passa(n5, 1000);
+    const s5 = await vistaNapoli(n5);
+    vero(s5.attributo === 'prima' && s5.sezione && s5.voce, 'Napoli: sezione "Segui la diretta" e voce "Diretta" visibili', JSON.stringify(s5));
+    vero(v3.errori.length === 0, 'nessun errore nelle pagine' + (v3.errori.length ? ': ' + v3.errori.join(' | ') : ''));
+    await v3.ctx.close();
 }

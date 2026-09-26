@@ -34,6 +34,11 @@
  *   (pulsanti e voci di menu che portano alla diretta);
  * - [data-diretta-conclusa] visibile solo dopo la fine (va scritto con
  *   l'attributo hidden, cosi' senza JavaScript non compare);
+ * - [data-diretta-pubblica] visibile solo con la diretta accesa sul sito
+ *   (PUBBLICA, qui sotto, o ?diretta=prova): la sezione della diretta di
+ *   Napoli. Anche questo va scritto con hidden (e hidden anche le voci
+ *   [data-diretta-aperta] del menu), cosi' con la diretta nascosta non
+ *   compare nemmeno per un istante prima che questo file sia letto;
  * - data-pillola sul tag <script> di questo file: aggiunge la pillola fissa
  *   #dirPillola in basso a sinistra (la home), accesa per tutta la finestra
  *   dell'evento, anche dopo "Non mostrare più" del popup (che riguarda solo
@@ -56,6 +61,19 @@
     pagina: "/napoli_ottobre_2026/",
     urlDiretta: "/diretta/"
   };
+  /* LA DIRETTA SUL SITO PUBBLICO: ACCESA O NASCOSTA.
+     false = nascosta: in home niente popup ne' pillola, nella pagina di
+     Napoli niente voce "Diretta" nel menu ne' sezione "Segui la diretta",
+     e nessuna richiesta al servizio. Le pagine /diretta/ e
+     /diretta/gestione/ funzionano comunque, per chi ne conosce
+     l'indirizzo: serve alla prova generale sul sito vero.
+     true = accesa: tutto compare da solo nella finestra dell'evento.
+     PER PROVARE da un browser con la diretta ancora nascosta: aprire una
+     pagina del sito con ?diretta=prova (quel browser la vede come se fosse
+     accesa, e se lo ricorda); ?diretta=pubblico torna a come la vedono
+     tutti. */
+  var PUBBLICA = false;
+  var LS_PROVA = "ngbDirettaProva";
   var SERVIZIO = "https://revilaw-email.vercel.app/api/diretta-stato";
   var FUSO = "Europe/Rome";
   var ORE_PRIMA = 3;          // lo stato si chiede da 3 ore prima dell'inizio...
@@ -85,6 +103,19 @@
     return { data: m[1] + "-" + m[2] + "-" + m[3], anno: +m[1], mese: +m[2], giorno: +m[3],
       ore: +m[4], minuti: m[5], fuso: m[6] || "" };
   }
+  // Accesa per tutti, oppure accesa solo in questo browser (?diretta=prova).
+  function inProva() {
+    var chiesto = /[?&]diretta=(prova|pubblico)\b/.exec(location.search || "");
+    try {
+      if (chiesto && chiesto[1] === "prova") localStorage.setItem(LS_PROVA, "1");
+      if (chiesto && chiesto[1] === "pubblico") localStorage.removeItem(LS_PROVA);
+      return localStorage.getItem(LS_PROVA) === "1";
+    } catch (e) {
+      return !!chiesto && chiesto[1] === "prova"; // senza localStorage vale solo il parametro
+    }
+  }
+  var VISIBILE = PUBBLICA || inProva();
+
   var INIZIO = Date.parse(EVENTO.inizio);
   var FINE = Date.parse(EVENTO.fine);
   var FINE_LETTURA = FINE + ORE_DOPO * ORA_MS;
@@ -138,6 +169,7 @@
   // stato letto dal servizio lo aggiunge condizione().
   function fase(adesso) {
     var t = istante(adesso);
+    if (!VISIBILE) return "fuori"; // diretta nascosta: il sito non mostra niente
     if (!isFinite(INIZIO) || !isFinite(FINE) || !pInizio) return "fuori"; // date scritte male: non mostrare niente
     if (t >= FINE) return "dopo";
     if (t < INIZIO - EVENTO.mostraDaGiorni * GIORNO_MS) return "fuori";
@@ -149,6 +181,7 @@
   // La finestra in cui ha senso chiedere lo stato (il nome e' rimasto dal
   // primo giro: oggi arriva a 3 ore dopo la fine prevista).
   function eGiorno(adesso) {
+    if (!VISIBILE) return false; // diretta nascosta: nessuna richiesta
     var t = istante(adesso);
     return t >= INIZIO - ORE_PRIMA * ORA_MS && t < FINE_LETTURA;
   }
@@ -159,6 +192,8 @@
   //   'oggi'     il giorno dell'evento, non (ancora) in onda
   //   'in_onda'  in onda, anche oltre l'orario previsto se si sfora
   //   'pausa'    in pausa
+  //   'nascosta' la diretta non e' ancora accesa sul sito (PUBBLICA):
+  //              niente di niente, a qualsiasi ora
   //   'conclusa' dopo la fine: 'terminato' letto a evento cominciato,
   //              oppure passata la fine prevista senza essere in onda
   //              (o senza essere riusciti a saperlo), e comunque 3 ore
@@ -166,6 +201,7 @@
   // Un 'terminato' letto PRIMA dell'inizio previsto non chiude niente:
   // puo' essere solo una prova del gestore, e la diretta deve ancora esserci.
   function condizione(dati, adesso) {
+    if (!VISIBILE) return "nascosta";
     var t = istante(adesso);
     var f = fase(t);
     if (f === "fuori") return "fuori";
@@ -349,6 +385,8 @@
 
   window.NGBDiretta = {
     EVENTO: EVENTO,
+    visibile: VISIBILE,
+    pubblica: PUBBLICA,
     SERVIZIO: SERVIZIO,
     fase: fase,
     eGiorno: eGiorno,
@@ -470,14 +508,15 @@
   function agganciaPagina() {
     // la pillola si costruisce solo se puo' ancora servire: finita la
     // finestra di lettura non si accenderebbe piu'
-    var vuolePillola = !!(QUESTO_SCRIPT && QUESTO_SCRIPT.hasAttribute("data-pillola")) && Date.now() < FINE_LETTURA;
+    var vuolePillola = VISIBILE && !!(QUESTO_SCRIPT && QUESTO_SCRIPT.hasAttribute("data-pillola")) && Date.now() < FINE_LETTURA;
     var aggiornaPillola = vuolePillola ? creaPillola() : null;
     var live = document.querySelectorAll(".indicatore-live");
     var pausa = document.querySelectorAll(".indicatore-pausa");
     var aperte = document.querySelectorAll("[data-diretta-aperta]");
     var concluse = document.querySelectorAll("[data-diretta-conclusa]");
+    var pubbliche = document.querySelectorAll("[data-diretta-pubblica]");
     // niente da mostrare = niente da chiedere
-    if (!aggiornaPillola && !live.length && !pausa.length && !aperte.length && !concluse.length) return;
+    if (!aggiornaPillola && !live.length && !pausa.length && !aperte.length && !concluse.length && !pubbliche.length) return;
     var radice = document.documentElement;
 
     // L'ultimo stato letto bene. Nella finestra di lettura un null e' una
@@ -491,7 +530,8 @@
       if (buono) radice.setAttribute("data-diretta-stato", buono.stato);
       mostra(live, cond === "in_onda");
       mostra(pausa, cond === "pausa");
-      mostra(aperte, cond !== "conclusa");
+      mostra(pubbliche, cond !== "nascosta");
+      mostra(aperte, cond !== "conclusa" && cond !== "nascosta");
       mostra(concluse, cond === "conclusa");
       if (aggiornaPillola) aggiornaPillola(cond);
     }
