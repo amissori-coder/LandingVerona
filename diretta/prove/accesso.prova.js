@@ -27,8 +27,9 @@
      id dei contatori dei tentativi sono impronte (niente indirizzi).
    - Email non iscritta (e un testo che non e' un'email): stessa
      risposta di una password sbagliata («Email o password non
-     corretti.») e lo stesso tempo (mai prima di 450 ms, mediane vicine),
-     senza nessuna verifica a Google.
+     corretti.») e lo stesso tempo (mai prima di TEMPO_FALLITO_MS, 900
+     ms, letto da lib/diretta-accesso.js; mediane vicine), senza nessuna
+     verifica a Google.
    - L'import dalla gestione ('crea') non manda nessuna email.
    - L'interruttore iscrizioniAutomatiche ('evento-iscrizioni' ed
      evento-salva): spento di base, acceso solo con la pagina
@@ -39,7 +40,11 @@
      risposta e' identica a una password sbagliata (DECISIONI T1: Google
      risponde USER_DISABLED anche con la password sbagliata, e dirlo
      rivelerebbe quali account sono chiusi); se la password e' giusta e
-     l'account e' disattivato solo nei dati della diretta -> 403.
+     l'account e' disattivato solo nei dati della diretta -> 403. Chi
+     prova a entrare mentre e' disattivato (la password giusta conta
+     come errore) e arriva all'attesa, appena RIATTIVATO entra subito
+     dalla stessa rete: la riattivazione cancella i contatori dei
+     tentativi della sua email.
    - 20 accessi CONTEMPORANEI sbagliati per lo stesso nome dalla stessa
      rete: al massimo 5 arrivano alla verifica, gli altri 429.
    - 5 errori da una rete non bloccano lo stesso nome da un'altra rete.
@@ -57,7 +62,11 @@
      stesso tempo; con la posta finta, l'email con
      /diretta/reimposta.html?oobCode= (senza l'email nel collegamento)
      arriva SOLO agli iscritti, all'indirizzo vero, e il collegamento
-     funziona; a chi non e' iscritto non parte niente.
+     funziona; a chi non e' iscritto non parte niente. Sul profilo di
+     chi l'ha ricevuto resta QUANDO (resetInviato): da li' le
+     credenziali non partono piu' da sole (vedi haPassword); il
+     "Reinvia" del gestore si', e l'email dice che la password di prima
+     (anche quella scelta da sé) non vale piu'.
    - Gestione: senza token 401; token di un non gestore 403; chi si
      registra da solo con l'email del gestore riceve 403 e, dopo
      'gestore-accesso', perde l'accesso; il gestore attivato entra.
@@ -137,6 +146,8 @@ const SERVIZIO = path.resolve(__dirname, '../../email-service');
 const admin = require(path.join(SERVIZIO, 'node_modules/firebase-admin'));
 const C = require(path.join(SERVIZIO, 'lib/diretta-comune'));
 const EM = require(path.join(SERVIZIO, 'lib/diretta-email'));
+// il pavimento dei tempi delle risposte sbagliate: lo stesso numero del servizio
+const { TEMPO_FALLITO_MS } = require(path.join(SERVIZIO, 'lib/diretta-accesso'));
 const app = admin.initializeApp({ projectId: PROGETTO }, 'prova-accesso');
 const db = app.firestore();
 const auth = app.auth();
@@ -710,7 +721,8 @@ async function provaVideoWebTv(tokG, P, segrete) {
             tSbagliata.push((await entra('elena.gialli@esempio.it', 'Sbagliata' + i, { ip: '10.0.9.' + (i + 1) })).ms);
         }
         const mI = mediana(tInesistente), mS = mediana(tSbagliata);
-        vero(Math.min.apply(null, tInesistente.concat(tSbagliata)) >= 450, 'nessuna delle due risposte parte prima di 450 ms (' + tInesistente.join(', ') + ' / ' + tSbagliata.join(', ') + ' ms)');
+        vero(TEMPO_FALLITO_MS >= 900 && Math.min.apply(null, tInesistente.concat(tSbagliata)) >= TEMPO_FALLITO_MS,
+            'nessuna delle due risposte parte prima di ' + TEMPO_FALLITO_MS + ' ms (' + tInesistente.join(', ') + ' / ' + tSbagliata.join(', ') + ' ms)');
         vero(Math.abs(mI - mS) < 150, 'stesso tempo: mediana ' + mI + ' ms per l\'email non iscritta, ' + mS + ' ms per la password sbagliata');
 
         console.log('\nAccount disattivato');
@@ -719,9 +731,15 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const annaChiusa = await entra('anna.bianchi@esempio.it', P.annabianchi.password, { ip: '10.0.0.8' });
         vero(annaChiusa.stato === 401 && annaChiusa.dati.msg === sbagliata.dati.msg,
             'account chiuso anche su Auth: risposta identica a una password sbagliata (DECISIONI T1)', annaChiusa.stato + ' ' + annaChiusa.testo);
+        // Anna insiste con la password GIUSTA mentre e' disattivata: per il servizio sono errori, e arriva l'attesa
+        const insiste = [];
+        for (let i = 0; i < 4; i++) insiste.push((await entra('anna.bianchi@esempio.it', P.annabianchi.password, { ip: '10.0.0.8' })).stato);
+        vero(insiste[3] === 429, 'disattivata, cinque tentativi con la password giusta dalla stessa rete: al quinto l\'attesa (' + insiste.join(', ') + ')');
         await gestione({ azione: 'partecipante', uid: P.annabianchi.uid, idEvento: EVENTO, operazione: 'riattiva' }, tokG);
+        vero(!(await coppia('anna.bianchi@esempio.it', '10.0.0.8').get()).exists && !(await db.collection('tentativiNome').doc(EM.chiaveEmail('anna.bianchi@esempio.it')).get()).exists,
+            'riattivata: i contatori dei tentativi della sua email sono cancellati (come quando cambia l\'email)');
         const annaAperta = await entra('anna.bianchi@esempio.it', P.annabianchi.password, { ip: '10.0.0.8' });
-        uguale(annaAperta.stato, 200, 'riattivata: entra');
+        uguale(annaAperta.stato, 200, 'riattivata: entra SUBITO, dalla stessa rete (niente attesa ereditata da quando era disattivata)');
         await db.collection('sessioni').doc(P.annabianchi.uid).update({ stato: 'disattivato' });
         const anna403 = await entra('anna.bianchi@esempio.it', P.annabianchi.password, { ip: '10.0.0.8' });
         vero(anna403.stato === 403 && anna403.dati.codice === 'disattivato' && /disattivato/.test(anna403.dati.msg),
@@ -839,6 +857,10 @@ async function provaVideoWebTv(tokG, P, segrete) {
             const reset = aMario.length ? await rest('resetPassword', { oobCode: oobDa(aMario[0]), newPassword: pwNuova }) : { stato: 0 };
             const conNuova = await entra('mario.rossi@esempio.it', pwNuova, { ip: '10.0.2.2' });
             vero(reset.stato === 200 && conNuova.stato === 200, 'il collegamento funziona: nuova password impostata e accesso riuscito con l\'email');
+            const [profMario, profLuigi] = await Promise.all([P.mariorossi.uid, P.luigiverdi.uid].map(u => db.collection('partecipanti').doc(u).get()));
+            const recente = t => !!t && typeof t.toMillis === 'function' && Date.now() - t.toMillis() < 60000;
+            vero(recente(profMario.data().resetInviato) && recente(profLuigi.data().resetInviato),
+                'sul profilo di chi ha ricevuto il collegamento resta resetInviato (quando): da li\' le credenziali non partono piu\' da sole');
         } else {
             console.log('       (lib/diretta-invio.js non c\'e\' ancora: controllo della posta saltato)');
         }
@@ -933,6 +955,8 @@ async function provaVideoWebTv(tokG, P, segrete) {
                 'reinvia credenziali: email all\'indirizzo vero, «scrivi la tua email luigi.verdi@esempio.it e questa password» (' + (re.dati.invio && re.dati.invio.stato) + ')', re.testo.slice(0, 200));
             const pwReinvio = cred.length ? ((/\nPassword: (\S+)\n/.exec(cred[0].testo)) || [])[1] : '';
             if (pwReinvio) segrete.push(pwReinvio);
+            vero(cred.length === 1 && String(cred[0].testo).indexOf('Questa password sostituisce quella che usavi finora (anche se l\'avevi scelta tu con «Password dimenticata?»): quella di prima non è più valida.') >= 0,
+                'Luigi aveva chiesto «Password dimenticata?» (ed era gia\' entrato): il "Reinvia" del gestore gli manda le credenziali, e l\'email dice che quella di prima non vale piu\'');
             uguale((await entra('luigi.verdi@esempio.it', P.luigiverdi.password, { ip: '10.0.3.3' })).stato, 401, 'dopo il reinvio la vecchia password non vale piu\'');
             uguale((await entra('luigi.verdi@esempio.it', pwReinvio, { ip: '10.0.3.3' })).stato, 200, 'la password dell\'email di reinvio funziona, con l\'email');
         }

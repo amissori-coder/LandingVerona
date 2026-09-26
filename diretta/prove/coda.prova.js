@@ -43,6 +43,14 @@
         del sito) insieme a un giro della coda e a un secondo invio
         subito: una email sola; con Brevo che rifiuta il login la
         persona resta 'in coda' e la manda il cron dopo.
+     N. il modulo del sito non si prende tutto il tetto del giorno: con
+        DIRETTA_MAX_GIORNO=10 le voci messe in coda dal modulo
+        (automatiche) partono solo fino al 60% (6), anche quando un
+        intero lotto e' fatto solo di loro (il giro va oltre, e le
+        credenziali del gestore che vengono dopo partono tutte); quelle
+        rimaste aspettano il giorno dopo (limiteGiorno), anche per
+        l'invio subito; messa in coda dal gestore una voce del modulo
+        non e' piu' automatica.
      I. tetto giornaliero (statoCoda: limiteRaggiunto, rimasteOggi);
         rimbalzi letti da un Brevo finto (con cache; esitiDisponibili):
         solo i rifiuti permanenti, un softBounce non cambia lo stato.
@@ -85,6 +93,7 @@ const EVENTO_INCERTO = 'incerto-2026'; // per la connessione che cade dopo l'inv
 // le frasi dell'email per chi aveva gia' una password (D14)
 const FRASE_D14 = 'Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.';
 const FRASE_ANCHE = 'entra con la tua email e la password che hai già; se non la ricordi usa "Password dimenticata?"';
+const FRASE_ALTRO_EVENTO = 'Avevi già ricevuto le credenziali per un altro evento: l\'email per entrare è la stessa, la password è nuova e quella di prima non è più valida.';
 const SEGRETO_CRON = 'segreto-della-prova-coda';
 
 /* ---------- l'ambiente, PRIMA di caricare il servizio ---------- */
@@ -656,8 +665,10 @@ async function prova() {
     avanti(2 * 60 * 1000);
     const reMulti = await invio.inviaCredenziali(ctx, { uid: multi.id, idEvento: EVENTO_SENZA });
     const credReMulti = perUid('credenziali', EVENTO_SENZA)[multi.id] || [];
-    vero(reMulti.stato === 'inviata' && credReMulti.length === 1 && credReMulti[0].testo.indexOf(FRASE_D14) >= 0,
-        '"Reinvia" del gestore a chi aveva l\'avviso «anche»: le credenziali con una password nuova (e la nota che la vecchia non vale piu\')');
+    /* la nota: la password che aveva era quella delle credenziali di Napoli (l'avviso «anche» di Roma non
+       ne portava una), quindi «Avevi già ricevuto le credenziali per un altro evento... quella di prima non è più valida» */
+    vero(reMulti.stato === 'inviata' && credReMulti.length === 1 && credReMulti[0].testo.indexOf(FRASE_ALTRO_EVENTO) >= 0 && credReMulti[0].testo.indexOf(FRASE_D14) < 0,
+        '"Reinvia" del gestore a chi aveva l\'avviso «anche»: le credenziali con una password nuova (e la nota che quella dell\'altro evento non vale piu\')');
     vero(!(await accedi2(multi.id, passwordViste[1])) && await accedi2(multi.id, passwordDi(credReMulti[0])), '...la password di prima non vale piu\', quella nuova si\'');
     vero((await multi.ref.get()).data().invii[EVENTO_SENZA].tipo === 'credenziali', '...e la voce di Roma torna tipo "credenziali"');
 
@@ -819,6 +830,47 @@ async function prova() {
     const cronS = await invio.giroCron(ctx, { budgetMs: 60000 });
     vero((perUid('credenziali', EVENTO_SUBITO)[s2.uid] || []).length === 1 && cronS.code.some(c => c.idEvento === EVENTO_SUBITO && c.inviate === 1),
         'il cron, al giro dopo, la manda (una email): e\' la rete di sicurezza dell\'invio subito');
+
+    /* ---------- N ---------- */
+    titolo('N. Il modulo del sito non si prende tutto il tetto del giorno: al massimo il 60%, il resto e\' del gestore');
+    avanti(24 * 60 * 60 * 1000);   // un giorno nuovo: il contatore del giorno riparte da zero
+    const EVENTO_QUOTA = 'quota-2026';
+    await creaEvento(EVENTO_QUOTA, 'Prova della quota del modulo', '2026-11-24', { giornoPrima: false, oraPrima: false });
+    /* in ordine di id, come le legge la coda: prima 9 voci del modulo (tre lotti da 3: il terzo resta
+       tutto fermo), poi 3 del gestore, poi una del modulo rimasta "da inviare" che il gestore mette in coda */
+    const pq = (await creaPersone(EVENTO_QUOTA, 700000, 13)).sort((a, b) => (a.uid < b.uid ? -1 : 1));
+    const qModulo = pq.slice(0, 9), qGestore = pq.slice(9, 12), qRipresa = pq[12];
+    const cambiaVoce = (p, campi) => {
+        const args = [];
+        Object.keys(campi).forEach(k => args.push(new ctx.FieldPath('invii', EVENTO_QUOTA, k), campi[k]));
+        return ctx.db.collection('partecipanti').doc(p.uid).update(...args);
+    };
+    for (const p of qModulo) await cambiaVoce(p, { stato: 'in coda', automatica: true });
+    for (const p of qGestore) await cambiaVoce(p, { stato: 'in coda' });
+    await cambiaVoce(qRipresa, { automatica: true });
+    await invio.accoda(ctx, { idEvento: EVENTO_QUOTA, chi: 'da-inviare' });
+    const vRipresa = (await ctx.db.collection('partecipanti').doc(qRipresa.uid).get()).data().invii[EVENTO_QUOTA];
+    vero(vRipresa.stato === 'in coda' && vRipresa.automatica === undefined, 'messa in coda dal gestore («Invia le credenziali»), una voce nata dal modulo non e\' piu\' "automatica"');
+    process.env.DIRETTA_MAX_GIORNO = '10';
+    const lottoPrima = process.env.DIRETTA_MAX_LOTTO;
+    process.env.DIRETTA_MAX_LOTTO = '3';
+    const giroQ = await invio.avanzaCoda(ctx, { idEvento: EVENTO_QUOTA, budgetMs: 20000 });
+    const credQ = perUid('credenziali', EVENTO_QUOTA);
+    const moduloPartite = qModulo.filter(p => credQ[p.uid]).length;
+    const gestorePartite = qGestore.concat([qRipresa]).filter(p => credQ[p.uid]).length;
+    const contatoreQ = (await ctx.db.collection('contatori').doc('giorno-' + C.dataRoma(ctx.adesso()).replace(/-/g, '')).get()).data() || {};
+    vero(moduloPartite === 6 && qModulo.slice(0, 6).every(p => credQ[p.uid]) && gestorePartite === 4 && contatoreQ.inviate === 10,
+        'DIRETTA_MAX_GIORNO=10, 9 voci del modulo e 4 del gestore in coda: del modulo ne partono 6 (60%), del gestore tutte e 4, anche dopo un lotto tutto fermo (' + moduloPartite + ' + ' + gestorePartite + ', contatore ' + contatoreQ.inviate + ')');
+    vero(giroQ.limiteGiorno === true && giroQ.rimaste === 3 && !giroQ.finito && qModulo.slice(6).every(p => !credQ[p.uid]),
+        'le 3 del modulo rimaste aspettano in coda: il giro dice limiteGiorno («partono domani da sole»)');
+    const subitoQ = await invio.inviaSubito(ctx, { uid: qModulo[8].uid, idEvento: EVENTO_QUOTA });
+    vero(subitoQ.stato === 'in coda' && subitoQ.limiteGiorno === true && !(perUid('credenziali', EVENTO_QUOTA)[qModulo[8].uid]),
+        'anche l\'invio subito (quello del modulo) oltre la sua parte non parte: resta in coda');
+    process.env.DIRETTA_MAX_GIORNO = '0';
+    process.env.DIRETTA_MAX_LOTTO = lottoPrima;
+    const giroQ2 = await invio.avanzaCoda(ctx, { idEvento: EVENTO_QUOTA, budgetMs: 20000 });
+    vero(giroQ2.inviate === 3 && giroQ2.finito && pq.every(p => (perUid('credenziali', EVENTO_QUOTA)[p.uid] || []).length === 1),
+        'il giorno dopo (qui: senza tetto) partono anche loro: una email a testa, nessun doppione');
 
     /* ---------- J ---------- */
     titolo('J. I promemoria, con l\'orologio spostato');

@@ -450,14 +450,22 @@ function annoDi(adesso) {
                           (reinvio, indirizzo corretto...);
      'altro-evento'   -> ricevute per un altro evento (succede solo con
                           il "Reinvia" del gestore: di solito chi ha gia'
-                          una password riceve l'avviso «anche», senza).
+                          una password riceve l'avviso «anche», senza);
+     'precedente'     -> nessuna email di credenziali, ma una password
+                          c'era: scelta con «Password dimenticata?», data
+                          a voce dal gestore o gia' usata per entrare
+                          (anche qui solo con il "Reinvia" del gestore:
+                          vedi sostituzione() in lib/diretta-invio.js).
    ============================================================ */
 const FRASE_SOSTITUISCE = 'Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.';
 const FRASE_ALTRO_EVENTO = 'Avevi già ricevuto le credenziali per un altro evento: l\'email per entrare è la stessa, '
     + 'la password è nuova e quella di prima non è più valida. Da adesso usa questa, per tutti gli eventi.';
+const FRASE_PRECEDENTE = 'Questa password sostituisce quella che usavi finora (anche se l\'avevi scelta tu con «Password dimenticata?»): '
+    + 'quella di prima non è più valida. Da adesso usa questa, per tutti gli eventi.';
 function fraseSostituzione(v) {
     if (v === true || v === 'evento') return FRASE_SOSTITUISCE;
     if (v === 'altro-evento') return FRASE_ALTRO_EVENTO;
+    if (v === 'precedente') return FRASE_PRECEDENTE;
     return '';
 }
 /* «Per entrare nella diretta: vai su <indirizzo>, scrivi la tua email
@@ -763,5 +771,5 @@ module.exports = {
     credenziali, iscrittoAnche, promemoria, reimpostazione,
     // per le prove e per chi compone le email di prova
     esc, datiEvento, linkPaginaEvento, linkAccesso, linkDimenticata, giorniFra,
-    PAGINA_VALIDA, MONO, FRASE_SOSTITUISCE, FRASE_ALTRO_EVENTO, FRASE_SPAM
+    PAGINA_VALIDA, MONO, FRASE_SOSTITUISCE, FRASE_ALTRO_EVENTO, FRASE_PRECEDENTE, FRASE_SPAM
 };

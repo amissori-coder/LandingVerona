@@ -723,6 +723,39 @@
                     </div>
                 </div>
 
+                <!-- ======== ISCRIZIONI DAL MODULO DA VERIFICARE ========
+                     Le iscrizioni online dal modulo del sito che la diretta non ha
+                     trasformato in un account (email di un'altra persona, indirizzo
+                     non accettato): nessuna email è partita. Le righe le scrive il
+                     servizio (lib/diretta-iscrizione.js); qui si leggono con
+                     'da-verificare' e si segnano come viste con 'da-verificare-archivia'.
+                     Il riquadro compare solo quando c'è qualcosa da vedere. -->
+                <section id="riquadro-da-verificare" class="riquadro riquadro-da-verificare" aria-labelledby="da-verificare-titolo" hidden>
+                    <div class="riquadro-testa">
+                        <h2 id="da-verificare-titolo">Iscrizioni dal modulo da verificare <span id="conta-da-verificare" class="conta"></span></h2>
+                        <p class="riquadro-sotto">Persone che si sono iscritte online dal modulo del sito ma che la diretta non ha potuto
+                            iscrivere da sola: <strong>nessun account creato, nessuna email partita</strong> (l'iscrizione al sito è valida).
+                            Sistema a mano, per esempio chiedendo un indirizzo suo e caricandola con il file, poi premi «Segna come vista».</p>
+                    </div>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-da-verificare" class="tabella tabella-da-verificare">
+                            <caption class="solo-lettori">Iscrizioni dal modulo del sito da verificare</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Quando</th>
+                                    <th scope="col">Nome e cognome</th>
+                                    <th scope="col">Email scritta nel modulo</th>
+                                    <th scope="col">Azienda</th>
+                                    <th scope="col">Perché non è entrata</th>
+                                    <th scope="col">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <p id="msg-da-verificare" class="msg" role="status" hidden></p>
+                </section>
+
                 <div class="riquadro">
                     <div class="riquadro-testa riquadro-testa-riga">
                         <h2>Partecipanti dell'evento <span id="conta-partecipanti" class="conta"></span></h2>

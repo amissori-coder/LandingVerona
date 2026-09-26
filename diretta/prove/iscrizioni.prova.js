@@ -43,10 +43,46 @@
       terminato: niente.
    8. L'invio subito che non riesce (Brevo rifiuta il login): la
       persona resta "in coda" e la manda il cron al giro dopo.
-   9. Brevo lento: su Vercel il modulo risponde entro il tempo massimo
-      del gancio e l'email parte dopo (waitUntil).
+   9. Su Vercel il modulo NON aspetta la diretta (waitUntil): con Brevo
+      lento risponde prima che l'email parta, e nello stesso tempo per
+      un indirizzo nuovo (account, password, email) e per uno gia'
+      iscritto: il tempo della risposta non dice chi e' iscritto.
    10. La diretta non configurata: il modulo risponde come sempre e la
       scheda e' salvata; nessun account.
+   12. Quale pagina conta: con Napoli e Roma accesi, il percorso di
+      Napoli con l'etichetta di Roma porta a Napoli (vince il percorso);
+      l'etichetta vale solo senza percorso (o con la home).
+   13. «Password dimenticata?» PRIMA di «Invia le credenziali»: il
+      collegamento lascia resetInviato sul profilo; la password scelta
+      dalla persona resta: il gestore manda le credenziali e a lei
+      arriva «anche», e cosi' dal modulo di un altro evento; il
+      "Reinvia" del gestore manda le credenziali dicendo che quella di
+      prima non vale piu'.
+   14. Email corretta dal gestore (credenziali di Milano partite al
+      vecchio indirizzo), poi iscrizione dal modulo di Napoli con il
+      nuovo (credenziali, prima password per quella casella), poi
+      «Invia le credenziali» di Milano: arriva «anche», non una seconda
+      password, e quella di Napoli vale ancora.
+   15. Due persone con la stessa email (info@...): la seconda non
+      finisce nell'account della prima (niente evento aggiunto, niente
+      email, account intatto), e c'e' una riga «da verificare» per il
+      gestore (email-condivisa, con il nome sull'account), anche contro
+      un account di un altro evento; iscritta di nuovo: la stessa riga
+      (volte 2); l'elenco e «Segna come vista» (lib, come le azioni
+      'da-verificare' e 'da-verificare-archivia').
+   16. Indirizzi che il modulo del sito accetta e la diretta no: la
+      scheda del sito c'e', nessun account, una riga «da verificare»
+      (email-non-valida) con l'indirizzo come l'ha scritto la persona.
+   17. I limiti del modulo pubblico: per rete (IPv6 della stessa /64:
+      oltre DIRETTA_MODULO_RETE_ORA l'account si crea ma la password la
+      manda il gestore), in tutto (DIRETTA_MODULO_ORA), e la parte del
+      tetto giornaliero (60% di DIRETTA_MAX_GIORNO: oltre, restano in
+      coda anche per il cron, mentre le credenziali del gestore e
+      «Password dimenticata?» partono); i log dicono il limite, senza
+      dati personali.
+   18. La conferma del sito per chi si iscrive online dice che arrivera'
+      un'email con la password (niente date promesse) e ricorda lo Spam;
+      quella per la sala non cambia.
    11. I due progetti restano separati (nessuna scheda nella diretta,
       nessun account nello studio); nessuna password in chiaro nei log
       ne' in Firestore; nessun indirizzo email nei log della diretta;
@@ -95,7 +131,8 @@ Object.assign(process.env, {
     SMTP_HOST: '127.0.0.1', SMTP_PORT: '9', SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna'
 });
 ['DIRETTA_POSTA_ERRORE_ACCOUNT', 'DIRETTA_POSTA_RITARDO_MS', 'DIRETTA_POSTA_RIFIUTA', 'DIRETTA_POSTA_INCERTA', 'DIRETTA_POSTA_ERRORE_MESSAGGIO',
-    'DIRETTA_FIREBASE_SERVICE_ACCOUNT', 'APP_BASE_URL', 'BREVO_API_KEY', 'DIRETTA_ATTESA_MODULO_MS'].forEach(k => { delete process.env[k]; });
+    'DIRETTA_FIREBASE_SERVICE_ACCOUNT', 'APP_BASE_URL', 'BREVO_API_KEY',
+    'DIRETTA_MODULO_RETE_ORA', 'DIRETTA_MODULO_ORA', 'DIRETTA_MODULO_PERCENTO'].forEach(k => { delete process.env[k]; });
 
 /* ---------- i log: tutto quello che il servizio scrive, per controllarlo alla fine ---------- */
 const righeLog = [];
@@ -115,6 +152,8 @@ const D = require(path.join(SERVIZIO, 'lib/diretta-dati'));
 const A = require(path.join(SERVIZIO, 'lib/diretta-accesso'));
 const invio = require(path.join(SERVIZIO, 'lib/diretta-invio'));
 const C = require(path.join(SERVIZIO, 'lib/diretta-comune'));
+const I = require(path.join(SERVIZIO, 'lib/diretta-iscrizione'));
+const MNGB = require(path.join(SERVIZIO, 'lib/mail-ngb'));
 
 let rossi = 0, verdi = 0;
 function vero(cond, descrizione, dettaglio) {
@@ -350,21 +389,39 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(postaA('rosa.rimandata@esempio.it').length === 1, 'e un altro giro non la rimanda');
 
         /* ---------- 9 ---------- */
-        titolo('9. Brevo lento: il modulo non aspetta');
+        titolo('9. Su Vercel il modulo non aspetta la diretta: lo stesso tempo per un indirizzo nuovo e per uno gia\' iscritto');
+        /* Brevo lento (1,5 s per email): se il modulo aspettasse il lavoro
+           della diretta, un indirizzo nuovo (account + password + email)
+           risponderebbe un secondo e mezzo dopo uno gia' iscritto (qualche
+           lettura), e il tempo direbbe chi e' iscritto. Ogni lavoro affidato
+           a waitUntil si aspetta prima della misura seguente, cosi' non si
+           misurano due cose insieme. */
         const affidati = [];
         globalThis[CONTESTO_VERCEL] = { get: () => ({ waitUntil: p => affidati.push(p) }) };
-        process.env.DIRETTA_POSTA_RITARDO_MS = '6000';
-        process.env.DIRETTA_ATTESA_MODULO_MS = '1500';
-        const lenta = await iscrivi({ nome: 'Lia', cognome: 'Lenta', email: 'lia.lenta@esempio.it' });
-        vero(lenta.corpo.ok === true && lenta.ms < 3500, 'su Vercel il modulo risponde in ' + lenta.ms + ' ms (tempo massimo del gancio 1,5 s + il resto del modulo)');
-        vero(affidati.length === 1, 'il lavoro della diretta continua con waitUntil');
-        if (affidati[0]) await affidati[0];
+        process.env.DIRETTA_POSTA_RITARDO_MS = '1500';
+        const tempiNuovo = [], tempiGia = [];
+        for (let i = 0; i < 3; i++) {
+            const email = 'lia.lenta' + i + '@esempio.it';
+            const prima = affidati.length;
+            const nuova = await iscrivi({ nome: 'Lia', cognome: 'Lenta' + i, email: email });
+            tempiNuovo.push(nuova.ms);
+            vero(nuova.corpo.ok === true && affidati.length === prima + 1 && postaA(email).length === 0,
+                'indirizzo nuovo: il modulo risponde { ok: true } in ' + nuova.ms + ' ms, il lavoro della diretta passa a waitUntil e l\'email non e\' ancora partita');
+            await affidati[affidati.length - 1];
+            const ancora = await iscrivi({ nome: 'Lia', cognome: 'Lenta' + i, email: email });
+            tempiGia.push(ancora.ms);
+            await affidati[affidati.length - 1];
+        }
         delete process.env.DIRETTA_POSTA_RITARDO_MS;
-        delete process.env.DIRETTA_ATTESA_MODULO_MS;
         delete globalThis[CONTESTO_VERCEL];
-        const credLia = postaA('lia.lenta@esempio.it', 'credenziali');
-        passwordViste.push(passwordDi(credLia[0] || {}));
-        vero(credLia.length === 1 && (await profiloDi('lia.lenta@esempio.it')).invii['napoli-2026'].stato === 'inviata', 'finito il lavoro, l\'email e\' partita (una)');
+        const med = v => v.slice().sort((a, b) => a - b)[Math.floor(v.length / 2)];
+        vero(Math.max.apply(null, tempiNuovo.concat(tempiGia)) < 1200 && affidati.length === 6,
+            'su Vercel nessuna risposta aspetta Brevo (1,5 s): indirizzo nuovo ' + tempiNuovo.join(', ') + ' ms, gia\' iscritto ' + tempiGia.join(', ') + ' ms');
+        vero(Math.abs(med(tempiNuovo) - med(tempiGia)) < 250, 'lo stesso tempo: mediana ' + med(tempiNuovo) + ' ms (nuovo) e ' + med(tempiGia) + ' ms (gia\' iscritto)');
+        const credLia = [0, 1, 2].map(i => postaA('lia.lenta' + i + '@esempio.it', 'credenziali'));
+        credLia.forEach(c => passwordViste.push(passwordDi(c[0] || {})));
+        vero(credLia.every(c => c.length === 1) && (await profiloDi('lia.lenta0@esempio.it')).invii['napoli-2026'].stato === 'inviata',
+            'finito il lavoro affidato a waitUntil, le email sono partite (una per indirizzo; la seconda iscrizione non manda niente)');
 
         /* ---------- 10 ---------- */
         titolo('10. La diretta non configurata');
@@ -374,6 +431,230 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const schedaNora = await studio().collection('iscrizioni').where('email', '==', 'nora@esempio.it').get();
         vero(nc.stato === 200 && nc.corpo.ok === true && schedaNora.size === 1, 'il modulo risponde come sempre e la scheda e\' salvata');
         vero(!(await profiloDi('nora@esempio.it')) && postaA('nora@esempio.it').length === 0, 'nessun account e nessuna email');
+
+        /* ---------- 12 ---------- */
+        titolo('12. Quale pagina conta: vince il percorso, l\'etichetta solo senza');
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'roma-2026' }, EV, { titolo: 'Evento di Roma', data: '2026-12-01', paginaEvento: '/roma_aprile_2026/' }));
+        await D.cambiaIscrizioni(ctx, { idEvento: 'roma-2026', iscrizioniAutomatiche: true });
+        await iscrivi({ nome: 'Pia', cognome: 'Percorso', email: 'pia.percorso@esempio.it', pagina: 'Roma 16 Aprile 2026 - Iscrizione', percorso: '/napoli_ottobre_2026/' });
+        const pPia = await profiloDi('pia.percorso@esempio.it');
+        vero(pPia && pPia.eventi.join() === 'napoli-2026', 'Napoli e Roma accesi, percorso di Napoli con l\'etichetta di Roma: iscritta a Napoli (vince il percorso)', pPia ? pPia.eventi.join() : 'nessun account');
+        await iscrivi({ nome: 'Rino', cognome: 'Percorso', email: 'rino.percorso@esempio.it', pagina: ETICHETTA_NAPOLI, percorso: '/roma_aprile_2026/index.html' });
+        const pRino = await profiloDi('rino.percorso@esempio.it');
+        vero(pRino && pRino.eventi.join() === 'roma-2026', 'percorso di Roma con l\'etichetta di Napoli: iscritto a Roma', pRino ? pRino.eventi.join() : 'nessun account');
+        await iscrivi({ nome: 'Ugo', cognome: 'Home', email: 'ugo.home@esempio.it', pagina: ETICHETTA_NAPOLI, percorso: '/' });
+        const pUgoHome = await profiloDi('ugo.home@esempio.it');
+        vero(pUgoHome && pUgoHome.eventi.join() === 'napoli-2026', 'percorso della home (non e\' la pagina di un evento): conta l\'etichetta, Napoli');
+        await D.cambiaIscrizioni(ctx, { idEvento: 'roma-2026', iscrizioniAutomatiche: false });
+
+        /* ---------- 13 ---------- */
+        titolo('13. «Password dimenticata?» prima di «Invia le credenziali»: la password scelta dalla persona resta');
+        const PW_SCELTA = 'MiaScelta2026';
+        passwordViste.push(PW_SCELTA);
+        await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Rita', cognome: 'Reset', email: 'rita.reset@esempio.it' }] });
+        await A.passwordDimenticata(ctx, { email: ' Rita.Reset@esempio.it', ip: '10.62.0.1' });
+        const resetRita = postaA('rita.reset@esempio.it', 'reimpostazione');
+        let pRita = await profiloDi('rita.reset@esempio.it');
+        vero(resetRita.length === 1 && postaA('rita.reset@esempio.it', 'credenziali').length === 0 && pRita.invii['milano-2026'].stato === 'da inviare'
+            && pRita.resetInviato && Date.now() - pRita.resetInviato.toMillis() < 60000,
+        'caricata a Milano (credenziali non ancora inviate), chiede «Password dimenticata?»: il collegamento parte e sul profilo resta resetInviato');
+        const oobRita = ((/oobCode=([A-Za-z0-9_-]+)/.exec(resetRita[0] ? resetRita[0].testo : '')) || [])[1] || '';
+        const sceglie = await fetch('http://127.0.0.1:' + PORTA_AUTH + '/identitytoolkit.googleapis.com/v1/accounts:resetPassword?key=finta', {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ oobCode: oobRita, newPassword: PW_SCELTA })
+        });
+        vero(sceglie.status === 200 && (await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.2')).stato === 200, 'sceglie la sua password (reimposta.html) ed entra');
+        await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
+        pRita = await profiloDi('rita.reset@esempio.it');
+        vero(postaA('rita.reset@esempio.it', 'credenziali').length === 0 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 1
+            && pRita.invii['milano-2026'].stato === 'inviata' && pRita.invii['milano-2026'].tipo === 'anche',
+        'poi il gestore preme «Invia le credenziali» di Milano: a Rita arriva «anche», nessuna password nuova');
+        vero((await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.3')).stato === 200, '...e la password che ha scelto vale ancora');
+        await iscrivi({ nome: 'Rita', cognome: 'Reset', email: 'rita.reset@esempio.it' });
+        vero(postaA('rita.reset@esempio.it', 'credenziali').length === 0 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 2
+            && (await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.4')).stato === 200,
+        'e dal modulo di Napoli: di nuovo «anche», la sua password vale anche per Napoli');
+        // il "Reinvia" esplicito del gestore (fra due minuti: non e' un doppio clic) manda le credenziali, e lo dice
+        const ctxDopo = Object.assign({}, ctx, { adesso: () => Date.now() + 2 * 60 * 1000 });
+        const reRita = await invio.inviaCredenziali(ctxDopo, { uid: pRita.uid, idEvento: 'milano-2026' });
+        const credRita = postaA('rita.reset@esempio.it', 'credenziali');
+        const pwRitaNuova = passwordDi(credRita[0] || {});
+        passwordViste.push(pwRitaNuova);
+        vero(reRita.stato === 'inviata' && credRita.length === 1
+            && credRita[0].testo.indexOf('Questa password sostituisce quella che usavi finora (anche se l\'avevi scelta tu con «Password dimenticata?»): quella di prima non è più valida.') >= 0,
+        '"Reinvia" del gestore: le credenziali, con la frase che la password di prima (anche quella scelta da lei) non vale piu\'');
+        vero((await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.5')).stato === 401 && (await entra('rita.reset@esempio.it', pwRitaNuova, '10.62.0.6')).stato === 200,
+            '...e infatti la sua password non vale piu\', quella nuova si\'');
+
+        /* ---------- 14 ---------- */
+        titolo('14. Email corretta dal gestore, iscrizione dal modulo con quella nuova, poi «Invia le credenziali»: una password sola');
+        await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Ugo', cognome: 'Cambio', email: 'ugo.vecchia@esempio.it' }] });
+        await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
+        const pUgo = await profiloDi('ugo.vecchia@esempio.it');
+        vero(postaA('ugo.vecchia@esempio.it', 'credenziali').length === 1, 'le credenziali di Milano vanno all\'indirizzo vecchio (sbagliato)');
+        await D.operazionePartecipante(ctx, { uid: pUgo.uid, idEvento: 'milano-2026', operazione: 'correggi', nome: 'Ugo', cognome: 'Cambio', azienda: '', email: 'ugo.nuova@esempio.it' });
+        vero((await profiloDi('ugo.nuova@esempio.it')).invii['milano-2026'].stato === 'da inviare', 'il gestore corregge l\'email: le credenziali di Milano tornano «da inviare»');
+        await iscrivi({ nome: 'Ugo', cognome: 'Cambio', email: 'ugo.nuova@esempio.it' });
+        const credUgo = postaA('ugo.nuova@esempio.it', 'credenziali');
+        const pwUgo = passwordDi(credUgo[0] || {});
+        passwordViste.push(pwUgo);
+        vero(credUgo.length === 1 && (await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.1')).stato === 200, 'Ugo si iscrive a Napoli dal modulo con l\'indirizzo nuovo: la password (la prima per quella casella), ed entra');
+        await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
+        const pUgoDopo = await profiloDi('ugo.nuova@esempio.it');
+        vero(postaA('ugo.nuova@esempio.it', 'credenziali').length === 1 && postaA('ugo.nuova@esempio.it', 'iscritto-anche').length === 1
+            && pUgoDopo.invii['milano-2026'].stato === 'inviata' && pUgoDopo.invii['milano-2026'].tipo === 'anche',
+        'poi il gestore rimanda le credenziali di Milano: all\'indirizzo nuovo arriva «anche», NON una seconda password');
+        vero((await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.2')).stato === 200, '...e la password di Napoli, ricevuta un minuto prima, vale ancora');
+
+        /* ---------- 15 ---------- */
+        titolo('15. La stessa email per due persone: la seconda non entra nell\'account della prima');
+        const INFO = 'info@studio-esempio.it';
+        await iscrivi({ nome: 'Carla', cognome: 'Prima', email: INFO });
+        const pInfo = await profiloDi(INFO);
+        const postaInfo = postaA(INFO).length;
+        vero(pInfo && pInfo.nome === 'Carla' && postaInfo === 1, 'la prima (Carla Prima) ha il suo account e la sua password');
+        passwordViste.push(passwordDi(postaA(INFO, 'credenziali')[0] || {}));
+        const secondo = await iscrivi({ nome: 'Luigi', cognome: 'Secondo', email: INFO, azienda: 'Studio Esempio' });
+        const pInfoDopo = await profiloDi(INFO);
+        vero(secondo.corpo.ok === true && JSON.stringify(pInfoDopo) === JSON.stringify(pInfo) && postaA(INFO).length === postaInfo,
+            'il secondo (Luigi Secondo, stessa email): il modulo risponde { ok: true }, l\'account di Carla non cambia di una virgola e non parte niente');
+        const righeNapoli = async () => (await I.elencoDaVerificare(ctx, 'napoli-2026')).righe;
+        let daVed = await righeNapoli();
+        const rigaLuigi = daVed.find(r => r.nome === 'Luigi');
+        vero(rigaLuigi && rigaLuigi.motivo === 'email-condivisa' && rigaLuigi.cognome === 'Secondo' && rigaLuigi.email === INFO && rigaLuigi.esistente === 'Carla Prima'
+            && rigaLuigi.azienda === 'Studio Esempio' && rigaLuigi.origine === 'modulo' && rigaLuigi.volte === 1 && rigaLuigi.quando > Date.now() - 60000,
+        'per il gestore, una riga «da verificare»: email-condivisa, chi si e\' iscritto e il nome sull\'account che c\'e\' gia\'', JSON.stringify(rigaLuigi));
+        const doc = rigaLuigi ? (await ctx.db.collection('daVerificare').doc(rigaLuigi.id).get()).data() : {};
+        vero(doc.idEvento === 'napoli-2026' && doc.origine === 'modulo' && doc.archiviato === false && doc.quando && typeof doc.quando.toMillis === 'function',
+            'il documento daVerificare/{id}: evento, nome, cognome, email, motivo, quando, origine "modulo"');
+        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"email-condivisa"[^}]*"daVerificare":true/.test(r)),
+            'il log dice evento ed esito (email-condivisa), senza dati personali');
+        await iscrivi({ nome: 'Luigi', cognome: 'Secondo', email: INFO, azienda: 'Studio Esempio' });
+        daVed = await righeNapoli();
+        vero(daVed.filter(r => r.nome === 'Luigi').length === 1 && daVed.find(r => r.nome === 'Luigi').volte === 2 && postaA(INFO).length === postaInfo,
+            'si iscrive di nuovo: la stessa riga (volte 2), ancora nessuna email');
+        // contro l'account di un'altra persona caricato per un altro evento (Milano)
+        await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'segreteria@esempio.it' }] });
+        await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
+        passwordViste.push(passwordDi(postaA('segreteria@esempio.it', 'credenziali')[0] || {}));
+        await iscrivi({ nome: 'Luisa', cognome: 'Verdi', email: 'segreteria@esempio.it' });
+        const pSegr = await profiloDi('segreteria@esempio.it');
+        vero(pSegr.nome === 'Mario' && pSegr.eventi.join() === 'milano-2026' && postaA('segreteria@esempio.it', 'iscritto-anche').length === 0
+            && ((await ctx.auth.getUser(pSegr.uid)).customClaims || {}).eventi.join() === 'milano-2026',
+        'Luisa Verdi con la segreteria@ di Mario Rossi (Milano): Napoli NON si aggiunge all\'account di Mario, nessun «anche», permessi invariati');
+        daVed = await righeNapoli();
+        const rigaLuisa = daVed.find(r => r.nome === 'Luisa');
+        vero(rigaLuisa && rigaLuisa.motivo === 'email-condivisa' && rigaLuisa.esistente === 'Mario Rossi', '...e c\'e\' la sua riga «da verificare» (account di Mario Rossi)');
+        // «Segna come vista»
+        const arch = await I.archiviaDaVerificare(ctx, { idEvento: 'napoli-2026', id: rigaLuigi.id }, 'gestore@prova.it');
+        const docArch = (await ctx.db.collection('daVerificare').doc(rigaLuigi.id).get()).data();
+        daVed = await righeNapoli();
+        vero(arch.id === rigaLuigi.id && !daVed.some(r => r.id === rigaLuigi.id) && docArch.archiviato === true && docArch.archiviatoDa === 'gestore@prova.it',
+            '«Segna come vista»: la riga esce dall\'elenco (resta, archiviata, con chi l\'ha segnata)');
+        const ancoraArch = await I.archiviaDaVerificare(ctx, { idEvento: 'napoli-2026', id: rigaLuigi.id }, 'altro@prova.it');
+        let sbagliato = null, malformato = null;
+        try { await I.archiviaDaVerificare(ctx, { idEvento: 'milano-2026', id: rigaLuisa.id }, 'gestore@prova.it'); } catch (e) { sbagliato = e; }
+        try { await I.archiviaDaVerificare(ctx, { idEvento: 'napoli-2026', id: '../indirizzi/x' }, 'gestore@prova.it'); } catch (e) { malformato = e; }
+        vero(ancoraArch.id === rigaLuigi.id && sbagliato && sbagliato.stato === 404 && malformato && malformato.stato === 400,
+            'segnata due volte: va bene; la riga di un altro evento: 404; un id non valido: 400');
+        vero((await I.elencoDaVerificare(ctx, 'milano-2026')).righe.length === 0, 'l\'elenco e\' per evento (Milano: niente)');
+
+        /* ---------- 16 ---------- */
+        titolo('16. Un indirizzo che il modulo del sito accetta e la diretta no');
+        const STRANI = ['josé.garcia@esempio.it', 'mario.@esempio.it', 'mario@esempio.it.'];
+        for (const e of STRANI) {
+            const r = await iscrivi({ nome: 'Zeno', cognome: 'Strano', email: e });
+            const schede = await studio().collection('iscrizioni').where('email', '==', e).get();
+            vero(r.stato === 200 && r.corpo.ok === true && schede.size === 1 && !(await ctx.db.collection('indirizzi').doc(e).get()).exists && postaA(e).length === 0,
+                JSON.stringify(e) + ': il modulo risponde { ok: true } e salva la scheda del sito; nessun account della diretta, nessuna email');
+        }
+        daVed = await righeNapoli();
+        const nonValide = daVed.filter(r => r.motivo === 'email-non-valida');
+        vero(nonValide.length === 3 && STRANI.every(e => nonValide.some(r => r.email === e && r.nome === 'Zeno' && r.cognome === 'Strano')),
+            'e tre righe «da verificare» (email-non-valida), con l\'indirizzo come l\'ha scritto la persona: ' + nonValide.map(r => r.email).join(', '));
+        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"email-non-valida"/.test(r)), 'il log dice email-non-valida (senza l\'indirizzo)');
+
+        /* ---------- 17 ---------- */
+        titolo('17. I limiti del modulo pubblico (persistenti, nella diretta)');
+        // una finestra oraria che sta per chiudersi azzererebbe i contatori a meta' prova: si aspetta che passi
+        const restoOra = 3600000 - (Date.now() % 3600000);
+        if (restoOra < 120000) { logVero('       (attesa di ' + Math.ceil(restoOra / 1000) + ' s: la finestra oraria dei limiti sta per cambiare)'); await pausa(restoOra + 1000); }
+        // a) per rete: IPv6 diversi della stessa /64 contano insieme
+        process.env.DIRETTA_MODULO_RETE_ORA = '3';
+        const reteIscritti = [];
+        for (let i = 0; i < 5; i++) {
+            const email = 'rete' + i + '@esempio.it';
+            await iscrivi({ nome: 'Rete', cognome: 'N' + i, email: email }, { ip: '2001:db8:1:2:' + (i + 1) + '::1' });
+            reteIscritti.push(await profiloDi(email));
+        }
+        const inviateRete = reteIscritti.filter(p => p && p.invii['napoli-2026'].stato === 'inviata').length;
+        const trattenute = reteIscritti.filter(p => p && p.invii['napoli-2026'].stato === 'da inviare' && p.invii['napoli-2026'].errore === I.MOTIVO_TRATTENUTA);
+        vero(reteIscritti.every(Boolean) && inviateRete === 3 && trattenute.length === 2 && postaA('rete3@esempio.it').length === 0 && postaA('rete4@esempio.it').length === 0,
+            'DIRETTA_MODULO_RETE_ORA=3, cinque iscrizioni da cinque IPv6 della stessa /64: tutte hanno l\'account, 3 password partono, 2 restano «da inviare» con il motivo per il gestore');
+        await iscrivi({ nome: 'Altra', cognome: 'Rete', email: 'altra.rete@esempio.it' }, { ip: '2001:db8:9:9::1' });
+        vero(postaA('altra.rete@esempio.it', 'credenziali').length === 1, 'da un\'altra rete la password parte');
+        passwordViste.push(passwordDi(postaA('altra.rete@esempio.it', 'credenziali')[0] || {}));
+        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"creato","invio":"","tipo":"","trattenuta":"rete"/.test(r))
+            && righeLog.some(r => /limite della rete raggiunto, la password non parte da sola: la manda il gestore \(napoli-2026\)/.test(r)),
+        'il log dice che il limite della rete ha fermato la password (senza email, nomi, ne\' IP)');
+        delete process.env.DIRETTA_MODULO_RETE_ORA;
+        await invio.accoda(ctx, { idEvento: 'napoli-2026', chi: 'da-inviare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'napoli-2026', budgetMs: 20000 });
+        vero(postaA('rete3@esempio.it', 'credenziali').length === 1 && postaA('rete4@esempio.it', 'credenziali').length === 1,
+            'il gestore preme «Invia le credenziali»: le due trattenute ricevono la password');
+        ['rete0', 'rete1', 'rete2', 'rete3', 'rete4'].forEach(n => passwordViste.push(passwordDi(postaA(n + '@esempio.it', 'credenziali')[0] || {})));
+        // b) in tutto: il contatore dell'ora e' quello di tutte le iscrizioni con una password da mandare
+        const contoOra = async () => Number(((await ctx.db.collection('limiti').doc('modulo_globale_' + Math.floor(Date.now() / 3600000)).get()).data() || {}).conteggio) || 0;
+        process.env.DIRETTA_MODULO_ORA = String((await contoOra()) + 2);
+        for (let i = 0; i < 3; i++) await iscrivi({ nome: 'Tutti', cognome: 'N' + i, email: 'tutti' + i + '@esempio.it' });
+        const tutti = await Promise.all([0, 1, 2].map(i => profiloDi('tutti' + i + '@esempio.it')));
+        vero(tutti.every(Boolean) && tutti.filter(p => p.invii['napoli-2026'].stato === 'inviata').length === 2 && tutti[2].invii['napoli-2026'].stato === 'da inviare'
+            && righeLog.some(r => /"trattenuta":"totale"/.test(r)) && righeLog.some(r => /limite orario complessivo raggiunto/.test(r)),
+        'DIRETTA_MODULO_ORA: oltre il tetto orario complessivo (da reti diverse) l\'account si crea ma la password la manda il gestore');
+        // la terza la manda il gestore (qui, prima di mettere il tetto del giorno qui sotto)
+        await invio.accoda(ctx, { idEvento: 'napoli-2026', chi: 'da-inviare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'napoli-2026', budgetMs: 20000 });
+        vero(postaA('tutti2@esempio.it', 'credenziali').length === 1, '...e con «Invia le credenziali» del gestore anche la terza riceve la password');
+        [0, 1, 2].forEach(i => passwordViste.push(passwordDi(postaA('tutti' + i + '@esempio.it', 'credenziali')[0] || {})));
+        process.env.DIRETTA_MODULO_ORA = '1000';
+        // c) la parte del tetto giornaliero: con DIRETTA_MAX_GIORNO=10 il modulo arriva al 60% (6), il resto e' del gestore
+        process.env.DIRETTA_MAX_GIORNO = '10';
+        const contatoreOggi = async () => Number(((await ctx.db.collection('contatori').doc('giorno-' + C.dataRoma(Date.now()).replace(/-/g, '')).get()).data() || {}).inviate) || 0;
+        const usateOggi = await contatoreOggi();
+        vero(usateOggi === 0, 'il contatore del giorno parte da 0 (fin qui nessun tetto)');
+        for (let i = 0; i < 8; i++) await iscrivi({ nome: 'Quota', cognome: 'N' + i, email: 'quota' + i + '@esempio.it' });
+        const quota = await Promise.all([0, 1, 2, 3, 4, 5, 6, 7].map(i => profiloDi('quota' + i + '@esempio.it')));
+        const partite = quota.filter(p => p.invii['napoli-2026'].stato === 'inviata').length;
+        const inCodaQ = quota.filter(p => p.invii['napoli-2026'].stato === 'in coda' && p.invii['napoli-2026'].automatica === true);
+        vero(partite === 6 && inCodaQ.length === 2 && await contatoreOggi() === 6,
+            'DIRETTA_MAX_GIORNO=10, otto iscrizioni dal modulo: 6 password partono subito (60%), 2 restano «in coda» (automatiche)');
+        await D.crea(ctx, { idEvento: 'napoli-2026', righe: [{ riga: 2, nome: 'Gina', cognome: 'Gestore', email: 'gina.gestore@esempio.it' }] });
+        await invio.accoda(ctx, { idEvento: 'napoli-2026', chi: 'da-inviare' });
+        const cronQ = await invio.giroCron(ctx, { budgetMs: 60000 });
+        const cQ = cronQ.code.find(c => c.idEvento === 'napoli-2026') || {};
+        const quotaDopo = await Promise.all(inCodaQ.map(p => profiloDi(p.emailNorm)));
+        vero(postaA('gina.gestore@esempio.it', 'credenziali').length === 1 && quotaDopo.every(p => p.invii['napoli-2026'].stato === 'in coda') && cQ.limiteGiorno === true,
+            'il cron: le credenziali del gestore partono (Gina), le 2 del modulo no (oltre la sua parte: aspettano domani)');
+        passwordViste.push(passwordDi(postaA('gina.gestore@esempio.it', 'credenziali')[0] || {}));
+        await A.passwordDimenticata(ctx, { email: 'quota0@esempio.it', ip: '10.66.0.1' });
+        vero(postaA('quota0@esempio.it', 'reimpostazione').length === 1, '«Password dimenticata?» di un iscritto parte ancora (il modulo non ha preso il posto delle reimpostazioni)');
+        process.env.DIRETTA_MAX_GIORNO = '0';
+        await invio.giroCron(ctx, { budgetMs: 60000 });
+        vero(inCodaQ.every(p => postaA(p.emailNorm, 'credenziali').length === 1), 'il giorno dopo (qui: tetto tolto) il cron manda anche le due del modulo');
+        quota.forEach(p => passwordViste.push(passwordDi(postaA(p.emailNorm, 'credenziali')[0] || {})));
+        delete process.env.DIRETTA_MODULO_ORA;
+
+        /* ---------- 18 ---------- */
+        titolo('18. La conferma del sito a chi si iscrive online');
+        const confOnline = MNGB.confermaSito({ nome: 'Luca', cognome: 'Nuovo', email: 'luca.nuovo@esempio.it', pagina: ETICHETTA_NAPOLI, data: '26/09/2026 10:00:00', modalita: 'online' }, 'https://esempio.it/completa');
+        const FRASE_ONLINE = 'Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
+        vero(confOnline.testo.indexOf(FRASE_ONLINE) >= 0 && confOnline.html.indexOf('riceverai un') >= 0 && !/Qualche giorno prima|collegamento e le istruzioni/.test(confOnline.testo + confOnline.html),
+            'online: «' + FRASE_ONLINE + '» (niente date promesse, niente «collegamento e istruzioni qualche giorno prima»)');
+        const confSala = MNGB.confermaSito({ nome: 'Luca', cognome: 'Nuovo', email: 'luca.nuovo@esempio.it', pagina: ETICHETTA_NAPOLI, data: '26/09/2026 10:00:00', modalita: 'presenza' }, 'https://esempio.it/completa');
+        vero(/Il tuo posto è riservato\./.test(confSala.testo) && confSala.testo.indexOf('password') < 0, 'in sala: il testo di sempre («Il tuo posto è riservato.»)');
 
         /* ---------- 7 bis ---------- */
         titolo('7 bis. Un evento terminato');

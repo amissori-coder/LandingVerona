@@ -17,11 +17,19 @@
       interno) no (503, si riprova), anche quando firebase-admin lo
       presenta come 'auth/argument-error'.
    3. Il gancio del modulo del sito (lib/diretta-iscrizione.js,
-      dalModulo) non tiene ferma la risposta del modulo oltre il suo
-      tempo massimo: su Vercel la risposta parte e il lavoro della
-      diretta finisce dopo con waitUntil; un lavoro breve non aspetta
-      niente; un errore della diretta non esce dal gancio (il modulo
-      risponde come sempre) e nel log non finisce l'email.
+      dalModulo) su Vercel NON aspetta mai il lavoro della diretta: la
+      risposta del modulo parte subito, sia che il lavoro sia breve (un
+      indirizzo gia' iscritto) sia che sia lungo (account, password,
+      email), e il lavoro finisce dopo con waitUntil. Cosi' il tempo
+      della risposta non dice se un indirizzo e' gia' iscritto. Fuori da
+      Vercel si aspetta la fine. Un errore della diretta non esce dal
+      gancio (il modulo risponde come sempre) e nel log non finisce
+      l'email. E quale pagina conta: se il modulo manda un percorso
+      valido vince il percorso, l'etichetta vale solo senza.
+   4. "Email o password non corretti." non parte prima di
+      TEMPO_FALLITO_MS (900 ms) + fino a CASO_FALLITO_MS (300 ms) a caso:
+      il pavimento sta sopra il tempo di un'email iscritta con Firestore
+      e Google veri (vedi il commento in lib/diretta-accesso.js).
    ============================================================ */
 'use strict';
 const A = require('../lib/diretta-accesso');
@@ -133,36 +141,81 @@ async function misura(fn) {
     console.error = m => erroriGancio.push(String(m));
     try {
         const MODULO = { email: 'Mario.Rossi@Esempio.it', nome: 'Mario', cognome: 'Rossi', pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse' };
+        // fuori da Vercel: un lavoro breve risponde subito
         let t0 = Date.now();
-        const breve = await I.dalModulo(MODULO, { ctx: lento(20), attesaMs: 1000 });
+        const breve = await I.dalModulo(MODULO, { ctx: lento(20) });
         vero(breve.esito === 'nessun-evento' && Date.now() - t0 < 500, 'gancio: lavoro breve, risposta subito (' + (Date.now() - t0) + ' ms, ' + breve.esito + ')');
 
+        // su Vercel: MAI aspettare, ne' un lavoro lungo ne' uno breve (stesso tempo per nuovo e gia' iscritto)
         const affidati = [];
         globalThis[CONTESTO] = { get: () => ({ waitUntil: p => affidati.push(p) }) };
-        t0 = Date.now();
-        const lungo = await I.dalModulo(MODULO, { ctx: lento(2500), attesaMs: 1000 });
-        const durata = Date.now() - t0;
-        vero(lungo.esito === 'in-corso' && durata >= 1000 && durata < 1400, 'gancio su Vercel: il modulo risponde allo scadere del tempo massimo (' + durata + ' ms), non alla fine del lavoro');
-        vero(affidati.length === 1, 'gancio su Vercel: il lavoro rimasto passa a waitUntil');
-        const finale = affidati[0] ? await affidati[0] : null;
-        vero(finale && finale.esito === 'nessun-evento', 'gancio su Vercel: il lavoro affidato a waitUntil finisce');
+        const tempi = [];
+        for (const durata of [2500, 15, 1200, 5]) {
+            let finito = false;
+            const ctx = lento(durata);
+            t0 = Date.now();
+            const r = await I.dalModulo(MODULO, { ctx: ctx });
+            tempi.push(Date.now() - t0);
+            const affidato = affidati[affidati.length - 1];
+            if (affidato) affidato.then(() => { finito = true; });
+            await pausa(0);
+            vero(r.esito === 'in-corso' && !finito, 'gancio su Vercel, lavoro di ' + durata + ' ms: il modulo risponde subito (' + tempi[tempi.length - 1] + ' ms), il lavoro non e\' ancora finito');
+        }
+        vero(affidati.length === 4 && Math.max.apply(null, tempi) < 50, 'gancio su Vercel: sempre waitUntil, e la risposta non dipende dal lavoro (' + tempi.join(', ') + ' ms)');
+        const finali = await Promise.all(affidati);
+        vero(finali.every(f => f && f.esito === 'nessun-evento'), 'gancio su Vercel: i lavori affidati a waitUntil finiscono');
 
         affidati.length = 0;
-        t0 = Date.now();
-        const rotto = await I.dalModulo(MODULO, { ctx: lento(10, 'Firestore fermo per mario.rossi@esempio.it'), attesaMs: 1000 });
-        vero(rotto.esito === 'errore' && Date.now() - t0 < 500 && affidati.length === 0, 'gancio: un errore della diretta non esce (esito "errore", niente eccezioni)');
+        const rotto = await I.dalModulo(MODULO, { ctx: lento(10, 'Firestore fermo per mario.rossi@esempio.it') });
+        let rifiutata = false;
+        const finaleRotto = await (affidati[0] || Promise.resolve(null)).catch(() => { rifiutata = true; });
+        vero(rotto.esito === 'in-corso' && affidati.length === 1 && !rifiutata && finaleRotto && finaleRotto.esito === 'errore',
+            'gancio su Vercel: un errore della diretta non esce (esito "errore" nel lavoro affidato, nessuna promessa rifiutata)');
         vero(erroriGancio.some(e => /iscrizione dal modulo non riuscita/.test(e)) && erroriGancio.every(e => !/mario\.rossi@esempio\.it/i.test(e)), 'gancio: l\'errore finisce nel log, senza l\'email');
         delete globalThis[CONTESTO];
 
-        // fuori da Vercel si aspetta la fine (come "password dimenticata")
+        // fuori da Vercel si aspetta la fine (come "password dimenticata"), e un errore non esce
         t0 = Date.now();
-        const locale2 = await I.dalModulo(MODULO, { ctx: lento(1500), attesaMs: 500 });
+        const locale2 = await I.dalModulo(MODULO, { ctx: lento(1500) });
         vero(locale2.esito === 'nessun-evento' && Date.now() - t0 >= 1500, 'gancio fuori da Vercel: si aspetta la fine del lavoro (' + (Date.now() - t0) + ' ms)');
+        const rottoLocale = await I.dalModulo(MODULO, { ctx: lento(10, 'guasto') });
+        vero(rottoLocale.esito === 'errore', 'gancio fuori da Vercel: un errore della diretta non esce (esito "errore")');
+
+        /* quale pagina conta: il percorso, se ce n'e' uno valido; l'etichetta solo senza */
+        const NAPOLI = 'Napoli 2 Ottobre 2026 - Manifestazione di interesse';
+        const pg = (percorso, pagina) => JSON.stringify(I.pagineDelModulo({ percorso: percorso, pagina: pagina }));
+        vero(pg('/napoli_ottobre_2026/', 'Roma 16 Aprile 2026 - Iscrizione') === '["/napoli_ottobre_2026/"]', 'percorso di Napoli con l\'etichetta di Roma: conta solo il percorso');
+        vero(pg('/roma_aprile_2026/index.html', NAPOLI) === '["/roma_aprile_2026/index.html"]', 'percorso di Roma con l\'etichetta di Napoli: conta solo il percorso');
+        vero(pg('', NAPOLI) === JSON.stringify([NAPOLI]) && pg(undefined, NAPOLI) === JSON.stringify([NAPOLI]), 'senza percorso: l\'etichetta');
+        vero(pg('/', NAPOLI) === JSON.stringify([NAPOLI]) && pg('non un percorso', NAPOLI) === JSON.stringify([NAPOLI]) && pg('/<x>/', NAPOLI) === JSON.stringify([NAPOLI]),
+            'la home o un percorso non valido non contano come percorso: si usa l\'etichetta');
+        vero(pg('https://nextgenerationbusiness.it/napoli_ottobre_2026/#accreditamento', '') === '["https://nextgenerationbusiness.it/napoli_ottobre_2026/#accreditamento"]' && pg('', '') === '[]',
+            'un indirizzo intero vale come percorso; niente di niente: nessuna pagina');
+        vero(I.paginaCorrisponde('/napoli_ottobre_2026/index.html', '/napoli_ottobre_2026/') && !I.paginaCorrisponde('/roma_aprile_2026/', '/napoli_ottobre_2026/')
+            && I.paginaCorrisponde(NAPOLI, '/napoli_ottobre_2026/') && !I.paginaCorrisponde('Roma 16 Aprile 2026 - Iscrizione', '/napoli_ottobre_2026/'),
+            'il confronto con la pagina dell\'evento: percorsi normalizzati, etichetta per parole');
     } finally {
         console.error = erroreOriginale;
         delete globalThis[CONTESTO];
         delete process.env.DIRETTA_EMULATORE;
     }
+
+    /* ---------- 4. il pavimento delle risposte sbagliate ---------- */
+    vero(A.TEMPO_FALLITO_MS >= 900 && A.CASO_FALLITO_MS >= 300, 'pavimento delle risposte sbagliate: ' + A.TEMPO_FALLITO_MS + ' ms + fino a ' + A.CASO_FALLITO_MS + ' ms a caso');
+    const pavimenti = [];
+    for (let i = 0; i < 6; i++) {
+        const t0 = Date.now();
+        await A.tempoMinimo(t0);
+        pavimenti.push(Date.now() - t0);
+    }
+    vero(pavimenti.every(ms => ms >= A.TEMPO_FALLITO_MS && ms < A.TEMPO_FALLITO_MS + A.CASO_FALLITO_MS + 60),
+        'una risposta sbagliata subito pronta aspetta fra ' + A.TEMPO_FALLITO_MS + ' e ' + (A.TEMPO_FALLITO_MS + A.CASO_FALLITO_MS) + ' ms (' + pavimenti.join(', ') + ')');
+    // un ramo lento (Firestore e Google veri: 800 ms) non esce dal pavimento
+    const t1 = Date.now();
+    await pausa(800);
+    await A.tempoMinimo(t1);
+    const lentoMs = Date.now() - t1;
+    vero(lentoMs >= A.TEMPO_FALLITO_MS && lentoMs < A.TEMPO_FALLITO_MS + A.CASO_FALLITO_MS + 60, 'anche dopo 800 ms di lavoro la risposta parte nella stessa finestra (' + lentoMs + ' ms)');
 
     console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi');
     process.exit(rossi ? 1 : 0);

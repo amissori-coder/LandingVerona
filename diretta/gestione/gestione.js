@@ -36,7 +36,12 @@
    (o «Invia ora» per una persona), mai da sole. L'unica eccezione e'
    l'interruttore dell'evento «Invia subito la password a chi si iscrive
    dal modulo del sito», spento di base, che vale solo per chi si
-   iscrive online dal modulo della pagina dell'evento.
+   iscrive online dal modulo della pagina dell'evento. Chi si iscrive
+   cosi' ma non puo' entrare da solo (la sua email e' gia' l'account di
+   un'altra persona, o la diretta non accetta l'indirizzo) compare nella
+   scheda Partecipanti, nel riquadro «Iscrizioni dal modulo da
+   verificare»: nessun account, nessuna email, e il gestore la segna
+   come vista dopo averla sistemata.
    ============================================================ */
 (function () {
     'use strict';
@@ -580,6 +585,7 @@
         stato.partecipanti = [];
         stato.perUid = new Map();
         stato.partecipantiDi = '';
+        disegnaDaVerificare([]);
     }
 
     /* ============================================================
@@ -741,6 +747,8 @@
             stato.perUid = new Map();
             stato.partecipantiDi = '';
             disegnaPartecipanti();
+            // le righe da verificare sono di un evento: via subito, poi si leggono quelle del nuovo
+            disegnaDaVerificare([]);
             caricaPartecipanti();
             aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
             if (stato.scheda === 'regia') avviaConnessi();
@@ -3751,6 +3759,8 @@
     async function caricaPartecipanti() {
         const id = stato.idEvento;
         if (!id || !stato.utente) return;
+        // insieme all'elenco, le iscrizioni dal modulo da verificare (una chiamata a parte: se non risponde, l'elenco c'e' lo stesso)
+        caricaDaVerificare();
         const vuoto = $('#partecipanti-vuoto');
         if (!stato.partecipanti.length) { vuoto.hidden = false; vuoto.textContent = 'Caricamento dei partecipanti…'; }
         try {
@@ -3770,6 +3780,86 @@
         }
     }
     $('#btn-aggiorna-partecipanti').addEventListener('click', () => conAttesa($('#btn-aggiorna-partecipanti'), caricaPartecipanti));
+
+    /* ---------- le iscrizioni dal modulo da verificare ----------
+       Chi si e' iscritto online dal modulo del sito e la diretta non ha
+       potuto iscrivere da sola (lib/diretta-iscrizione.js, raccolta
+       daVerificare): l'email e' gia' di un'altra persona, o la diretta
+       non accetta l'indirizzo che il modulo del sito ha accettato. Nessun
+       account, nessuna email: il gestore sistema a mano (un indirizzo suo,
+       caricato con il file) e segna la riga come vista. Il riquadro si
+       vede solo quando c'e' qualcosa. I testi arrivano dal servizio e si
+       scrivono sempre come testo (el, textContent), mai come HTML. */
+    const MOTIVI_DA_VERIFICARE = {
+        'email-condivisa': {
+            etichetta: 'Email di un\'altra persona',
+            spiega: r => 'Con questa email c\'è già l\'account di ' + (r.esistente || 'un\'altra persona')
+                + ': un account è di una persona sola, e non l\'abbiamo toccato. Chiedi un indirizzo suo e caricala con il file.'
+        },
+        'email-non-valida': {
+            etichetta: 'Email non accettata',
+            spiega: () => 'La diretta non accetta questo indirizzo (il modulo del sito sì): correggilo con la persona e caricala con il file.'
+        }
+    };
+    async function caricaDaVerificare() {
+        const id = stato.idEvento;
+        if (!id || !stato.utente) return;
+        try {
+            const r = await chiama('da-verificare', { idEvento: id });
+            if (id !== stato.idEvento) return;
+            nascondiMsg('#msg-da-verificare');
+            disegnaDaVerificare(r.righe || []);
+        } catch (e) {
+            if (id !== stato.idEvento) return;
+            if (e.stato === 401 || e.stato === 403) { erroreGenerico(e); return; }
+            // l'elenco dei partecipanti c'e' lo stesso: qui si dice solo che questo non e' arrivato
+            if (!$('#riquadro-da-verificare').hidden) mostraMsg('#msg-da-verificare', 'Elenco da verificare non aggiornato: ' + (e.msg || 'errore') + ' Premi «Aggiorna» per riprovare.', 'errore');
+        }
+    }
+    function contaDaVerificare() {
+        const n = $('#tabella-da-verificare tbody').children.length;
+        $('#conta-da-verificare').textContent = n ? '(' + n + ')' : '';
+        $('#riquadro-da-verificare').hidden = !n;
+    }
+    function disegnaDaVerificare(righe) {
+        const tb = $('#tabella-da-verificare tbody');
+        svuota(tb);
+        righe.forEach(r => tb.appendChild(rigaDaVerificare(r)));
+        contaDaVerificare();
+    }
+    function rigaDaVerificare(r) {
+        const motivo = MOTIVI_DA_VERIFICARE[r.motivo] || { etichetta: 'Da verificare', spiega: () => '' };
+        const chi = [r.nome, r.cognome].filter(Boolean).join(' ') || '(senza nome)';
+        const volte = Number(r.volte) > 1 ? ' Si è iscritta ' + r.volte + ' volte.' : '';
+        const bottone = el('button', { type: 'button', classe: 'btn btn-mini btn-secondario', dati: { op: 'archivia' }, 'aria-label': 'Segna come vista: ' + chi }, ['Segna come vista']);
+        const tr = el('tr', { dati: { id: r.id, motivo: r.motivo } }, [
+            el('td', { 'data-label': 'Quando', testo: r.quando ? dataOra(r.quando) : '' }),
+            el('td', { 'data-label': 'Nome e cognome' }, [el('span', { classe: 'persona', testo: chi })]),
+            el('td', { 'data-label': 'Email scritta nel modulo', classe: 'largo col-email', testo: r.email || '' }),
+            el('td', { 'data-label': 'Azienda', testo: r.azienda || '' }),
+            el('td', { 'data-label': 'Perché non è entrata', classe: 'largo' }, [
+                el('span', { classe: 'etichetta-esito ' + (MOTIVI_DA_VERIFICARE[r.motivo] ? r.motivo : ''), testo: motivo.etichetta }),
+                el('span', { classe: 'piccolo', testo: motivo.spiega(r) + volte })
+            ]),
+            el('td', { 'data-label': 'Azioni' }, [bottone])
+        ]);
+        bottone.addEventListener('click', () => conAttesa(bottone, async () => {
+            const idEvento = stato.idEvento;
+            try {
+                await chiama('da-verificare-archivia', { idEvento: idEvento, id: r.id });
+                if (idEvento !== stato.idEvento) return;
+                tr.remove();
+                contaDaVerificare();
+                avviso('Iscrizione di ' + chi + ' segnata come vista.', 'ok');
+            } catch (e) {
+                if (e.stato === 401 || e.stato === 403) { erroreGenerico(e); return; }
+                avviso(e.msg || 'Non riuscito: riprova.', 'errore');
+                // un'altra pagina puo' averla gia' tolta: si rilegge l'elenco
+                if (e.stato === 404) caricaDaVerificare();
+            }
+        }));
+        return tr;
+    }
 
     function ordinePersone(a, b) {
         return String(a.cognome || '').localeCompare(String(b.cognome || ''), 'it', { sensitivity: 'base' })

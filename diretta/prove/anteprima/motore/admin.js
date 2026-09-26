@@ -7,7 +7,8 @@
    ma db e auth lavorano sull'archivio dell'anteprima.
 
    Firestore: collection/doc, get/set/update/create/delete, where,
-   limit, select, count, getAll, batch, runTransaction (ottimistica:
+   limit, startAfter (un documento: si riparte dopo il suo id, come fa
+   Firestore senza orderBy), select, count, getAll, batch, runTransaction (ottimistica:
    se un documento letto cambia prima del commit si riprova, come
    fa Firestore quando c'e' contesa), precondizioni lastUpdateTime.
    Auth: createUser, updateUser, getUser, getUserByEmail,
@@ -57,17 +58,20 @@ class QuerySnapshot {
 }
 
 class Query {
-    constructor(db, collezione, filtri, limite) {
+    constructor(db, collezione, filtri, limite, dopo) {
         this.firestore = db;
         this._collezione = collezione;
         this._filtri = filtri || [];
         this._limite = limite == null ? null : limite;
+        this._dopo = dopo == null ? null : dopo;
     }
     where(campo, op, valore) {
         if (campo && typeof campo === 'object' && !(campo instanceof A.FieldPath) && !Array.isArray(campo.segmenti)) throw new Error('filtri composti non previsti nell\'anteprima');
-        return new Query(this.firestore, this._collezione, this._filtri.concat([{ campo, op, valore }]), this._limite);
+        return new Query(this.firestore, this._collezione, this._filtri.concat([{ campo, op, valore }]), this._limite, this._dopo);
     }
-    limit(n) { return new Query(this.firestore, this._collezione, this._filtri, n); }
+    limit(n) { return new Query(this.firestore, this._collezione, this._filtri, n, this._dopo); }
+    // l'ordine e' quello degli id (archivio.elenco): si riparte dal documento dopo quello dato
+    startAfter(documento) { return new Query(this.firestore, this._collezione, this._filtri, this._limite, String((documento && documento.id) || documento || '')); }
     select() { return this; }
     orderBy() { return this; }
     count() {
@@ -75,8 +79,8 @@ class Query {
         return { get: async () => { const s = await q.get(); return { data: () => ({ count: s.size }) }; } };
     }
     _esegui() {
-        let righe = archivio.elenco(this._collezione).filter(r =>
-            this._filtri.every(f => A.soddisfa(A.valoreCampo(r.rec.dati, r.id, f.campo), f.op, f.valore)));
+        let righe = archivio.elenco(this._collezione).filter(r => (this._dopo == null || r.id > this._dopo)
+            && this._filtri.every(f => A.soddisfa(A.valoreCampo(r.rec.dati, r.id, f.campo), f.op, f.valore)));
         if (this._limite != null) righe = righe.slice(0, this._limite);
         return new QuerySnapshot(righe.map(r => new DocumentSnapshot(this.firestore.collection(this._collezione).doc(r.id), r.rec)));
     }

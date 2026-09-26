@@ -48,9 +48,15 @@
    - EMAIL INESISTENTI: stessa risposta di una password sbagliata
      (DECISIONI T1), senza chiedere niente a Google, e lo stesso tempo:
      la risposta "Email o password non corretti." non parte mai prima di
-     450-700 ms dall'inizio (TEMPO_FALLITO_MS), che la password l'abbia
-     verificata Google o che l'email non esista. Dall'esterno non si
-     capisce chi e' iscritto.
+     900-1200 ms dall'inizio (TEMPO_FALLITO_MS + CASO_FALLITO_MS), che la
+     password l'abbia verificata Google o che l'email non esista.
+     Dall'esterno non si capisce chi e' iscritto (i numeri: vedi
+     TEMPO_FALLITO_MS).
+   - «PASSWORD DIMENTICATA?» LASCIA UN SEGNO: quando il collegamento
+     parte (o forse e' partito), sul profilo resta resetInviato (quando).
+     Da li' in poi la persona puo' avere una password scelta da lei, e
+     lib/diretta-invio.js non le manda piu' credenziali nuove da solo
+     (riceve «Sei iscritto anche a...»): vedi haPassword.
 
    - PASSWORD DIMENTICATA e ACCESSO DEI GESTORI (DECISIONI D2, D9): la
      risposta e' SEMPRE la stessa e arriva sempre dopo lo stesso tempo
@@ -90,8 +96,24 @@ const FINESTRA_IP_MS = 15 * MINUTO;       // finestre fisse: :00, :15, :30, :45
 const BLOCCO_IP_MS = 5 * MINUTO;          // raggiunto il tetto, la rete aspetta almeno tanto
 const ATTESA_RETE_MS = 3000;              // quanto si aspetta il proprio turno se tanti entrano insieme
 const ATTESA_GOOGLE_MS = 8000;
-// "email o password non corretti" non parte prima di tanto (+ fino a 250 ms a caso): vedi EMAIL INESISTENTI
-const TEMPO_FALLITO_MS = 450;
+/* "Email o password non corretti" non parte prima di TEMPO_FALLITO_MS,
+   piu' fino a CASO_FALLITO_MS a caso (vedi EMAIL INESISTENTI). Il
+   pavimento deve stare SOPRA il tempo del ramo piu' lento, quello di
+   un'email iscritta con la password sbagliata: in produzione sono la
+   lettura di indirizzi/{email} e del blocco della rete (Firestore, 20-80
+   ms), la transazione dei tentativi (50-200 ms, di piu' se riparte), la
+   verifica di Google (signInWithPassword da Vercel: 150-400 ms di
+   solito, a volte 600 e oltre) e il conteggio della rete. In tutto
+   300-700 ms, con code fino a 800-900: con 450 ms le email iscritte
+   avrebbero risposto spesso DOPO il pavimento e quelle inesistenti
+   sempre SUL pavimento, distinguibili a occhio. Con 900 ms quasi tutte
+   le risposte (iscritte o no) partono sul pavimento, e i 0-300 ms a
+   caso coprono lo scarto che resta. Costa mezzo secondo in piu' solo a
+   chi sbaglia; chi entra non aspetta niente. Le prove
+   (email-service/prove/diretta-accesso-tempi.prove.js e
+   diretta/prove/accesso.prova.js) leggono questi due numeri da qui. */
+const TEMPO_FALLITO_MS = 900;
+const CASO_FALLITO_MS = 300;
 // i tetti di "password dimenticata" e "primo accesso" dei gestori (DECISIONI D9)
 const TETTO_RESET_RETE = 20;              // richieste all'ora dalla stessa rete
 const TETTO_RESET_ORA = 200;              // email di reimpostazione all'ora, in tutto
@@ -370,11 +392,12 @@ async function verificaPassword(ctx, uid, password, chiave) {
 
 /* La risposta di una verifica non riuscita (401 "Email o password non
    corretti.", o il 429 fissato proprio da quell'errore) non parte prima
-   di TEMPO_FALLITO_MS + fino a 250 ms a caso dall'inizio della richiesta:
-   un'email che non e' iscritta (nessuna domanda a Google) e una password
-   sbagliata (una verifica vera) rispondono dopo lo stesso tempo. */
+   di TEMPO_FALLITO_MS + fino a CASO_FALLITO_MS a caso dall'inizio della
+   richiesta: un'email che non e' iscritta (nessuna domanda a Google) e
+   una password sbagliata (una verifica vera) rispondono dopo lo stesso
+   tempo. */
 async function tempoMinimo(inizio) {
-    const resto = inizio + TEMPO_FALLITO_MS + crypto.randomInt(250) - Date.now();
+    const resto = inizio + TEMPO_FALLITO_MS + crypto.randomInt(CASO_FALLITO_MS) - Date.now();
     if (resto > 0) await pausa(resto);
 }
 
@@ -597,10 +620,14 @@ async function linkReimpostazione(ctx, emailAccount, extra) {
 
 /* L'email parte da lib/diretta-invio.js, che conta anche il tetto
    giornaliero di Brevo (le reimpostazioni si fermano all'80%, per lasciare
-   posto a credenziali e promemoria). Il modulo si carica solo qui. */
-async function spedisciReimpostazione(ctx, dati) {
+   posto a credenziali e promemoria). Il modulo si carica solo qui.
+   `dopoInvio()` si chiama quando il collegamento e' partito, o
+   forse partito (connessione caduta dopo il DATA), prima di segnalare
+   un eventuale errore. */
+async function spedisciReimpostazione(ctx, dati, dopoInvio) {
     const invio = require('./diretta-invio');
     const r = await invio.inviaReimpostazione(ctx, dati);
+    if (r && (r.ok !== false || r.forse) && dopoInvio) await dopoInvio();
     if (r && r.ok === false) throw new Error('reimpostazione non spedita (' + String(r.motivo || '').slice(0, 80) + ')');
 }
 
@@ -615,7 +642,14 @@ async function spedisciReimpostazione(ctx, dati) {
    massimo 3 al giorno, e 200 all'ora in tutto.
    Il vecchio nome del campo (`identificativo`, che accettava anche il
    nome utente) arriva qui gia' tradotto in `email` dall'API: un nome
-   utente non e' un'email valida, quindi non trova nessuno. */
+   utente non e' un'email valida, quindi non trova nessuno.
+   Partito il collegamento, sul profilo resta QUANDO (resetInviato): la
+   persona da li' puo' avere una password scelta da lei, e un «Invia le
+   credenziali» del gestore o un'iscrizione dal modulo non devono
+   cancellargliela con una nostra (vedi haPassword in
+   lib/diretta-invio.js: riceve «Sei iscritto anche a...»). Se proprio
+   questa scrittura non riesce, il collegamento e' partito lo stesso: lo
+   dice il log (senza dati personali). */
 async function passwordDimenticata(ctx, { email, ip }) {
     await aDurataCostante('reimpostazione', async () => {
         const impIp = C.improntaIp(ip);
@@ -645,7 +679,13 @@ async function passwordDimenticata(ctx, { email, ip }) {
         }
         // il collegamento non porta l'email: un indirizzo in un URL finisce nei registri
         const link = await linkReimpostazione(ctx, C.emailTecnica(uid));
-        await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', email: indirizzo, link: link, perGestore: false });
+        await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', email: indirizzo, link: link, perGestore: false }, async () => {
+            try {
+                await db.collection('partecipanti').doc(uid).update({ resetInviato: ctx.Timestamp.fromMillis(ctx.adesso()) });
+            } catch (e) {
+                console.error('[diretta] reimpostazione partita ma non registrata sul profilo: ' + D.perLog(e));
+            }
+        });
     });
     return { msg: MSG_DIMENTICATA };
 }
@@ -772,6 +812,6 @@ async function linkVideo(ctx, req, b) {
 
 module.exports = {
     entra, passwordDimenticata, gestoreAccesso, aggiornaPermessi, linkVideo,
-    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante, lasciaFinire,
-    MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO, TEMPO_FALLITO_MS
+    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante, lasciaFinire, tempoMinimo, contaInFinestra,
+    MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO, TEMPO_FALLITO_MS, CASO_FALLITO_MS
 };

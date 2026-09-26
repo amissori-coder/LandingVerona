@@ -3063,5 +3063,12 @@ try/catch). Se sull'evento della diretta con la stessa pagina il gestore ha
 acceso "Invia subito la password a chi si iscrive dal modulo del sito"
 (`iscrizioniAutomatiche`), la persona riceve subito la password (o, se ha gia'
 un account, l'avviso "Sei iscritto anche a..."). Se la diretta non e'
-configurata non succede niente, e la risposta del modulo non aspetta piu' di
-3 secondi (il resto finisce con `waitUntil`).
+configurata non succede niente. Su Vercel la risposta del modulo non aspetta
+mai il lavoro della diretta (finisce dopo, con `waitUntil`): cosi' risponde
+nello stesso tempo per un indirizzo nuovo e per uno gia' iscritto. Il modulo
+passa anche l'IP del visitatore, per i limiti del modulo pubblico che la
+diretta tiene nel suo progetto (per rete e all'ora: vedi
+`DIRETTA_MODULO_RETE_ORA` e `DIRETTA_MODULO_ORA` in `diretta/README.md`).
+La conferma del sito per chi si iscrive `online` (`lib/mail-ngb.js`,
+`confermaSito`) dice che la password arrivera' con un'email a parte, senza
+date, e ricorda di guardare nello Spam.

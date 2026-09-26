@@ -1092,7 +1092,13 @@ async function rigenera(ctx, uid) {
 
 /* Disattiva / riattiva: prima Firestore (le regole leggono sessioni/{uid}
    a ogni lettura dell'evento e a ogni segnale di presenza: l'effetto e'
-   immediato), poi Firebase Auth (niente nuovi accessi, sessioni chiuse). */
+   immediato), poi Firebase Auth (niente nuovi accessi, sessioni chiuse).
+   Riattivando si cancellano anche i contatori dei tentativi di accesso
+   della sua email (cancellaTentativi, come quando cambia l'indirizzo):
+   con l'account chiuso su Auth anche la password GIUSTA risponde
+   "Email o password non corretti." e conta come errore (DECISIONI T1),
+   quindi chi ha provato a entrare mentre era disattivato avrebbe
+   ritrovato l'attesa (fino a 15 minuti) proprio appena riaperto. */
 async function cambiaAttivazione(ctx, uid, idEvento, attivo) {
     const p = await leggiPartecipante(ctx, uid);
     const ts = adessoTs(ctx);
@@ -1105,6 +1111,7 @@ async function cambiaAttivazione(ctx, uid, idEvento, attivo) {
         await conLimite(() => ctx.auth.updateUser(uid, { disabled: !attivo }));
         if (!attivo) await conLimite(() => ctx.auth.revokeRefreshTokens(uid));
     }
+    if (attivo) await cancellaTentativi(ctx, p.emailNorm || p.email);
     return { partecipante: partecipanteJSON(Object.assign({}, p, { stato: stato }), idEvento) };
 }
 
@@ -1118,8 +1125,11 @@ async function cambiaAttivazione(ctx, uid, idEvento, attivo) {
      credenziali per l'evento tornano "da inviare" se erano gia' partite
      (inviata, incerto, respinta, errore), e sul profilo resta quando e'
      cambiata (emailCambiata): gli invii fatti prima sono andati al
-     vecchio indirizzo e non contano piu' come "password gia' ricevuta"
-     (vedi haPassword in lib/diretta-invio.js). I contatori dei tentativi
+     vecchio indirizzo e non contano piu' come "password gia' ricevuta",
+     e nemmeno le reimpostazioni e gli accessi di prima (vedi haPassword
+     e tipoInvio in lib/diretta-invio.js: le credenziali di questo evento
+     partite al vecchio indirizzo non impediscono l'avviso «anche» a chi
+     nel frattempo ha una password al nuovo). I contatori dei tentativi
      di accesso del vecchio e del nuovo indirizzo si cancellano.
    - L'email tecnica su Auth non cambia mai (DECISIONI D1): chi e'
      collegato resta collegato. Il vecchio campo mantieniNomeUtente si

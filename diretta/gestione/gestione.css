@@ -787,6 +787,19 @@ tr.riga-nota { background: var(--blu-velo); }
 .btn-mini.btn-pericolo-testo { color: var(--rosso); border-color: #E8A29C; background: #fff; }
 .btn-mini.btn-pericolo-testo:hover:not(:disabled) { background: var(--rosso-bg); border-color: var(--rosso); }
 
+/* ---------- iscrizioni dal modulo da verificare ----------
+   Un riquadro con la striscia ambra (c'e' qualcosa da fare a mano):
+   compare solo quando ci sono righe. Le colonne si impilano sul
+   telefono come le altre tabelle (data-label). */
+.riquadro-da-verificare { border-left: 5px solid var(--ambra-bordo); }
+.riquadro-da-verificare .riquadro-testa { margin-bottom: 12px; }
+.riquadro-da-verificare .msg { margin-top: 12px; }
+.tabella-da-verificare td:first-child { white-space: nowrap; }
+.tabella-da-verificare .col-email { font-weight: 600; color: var(--scuro); overflow-wrap: anywhere; min-width: 200px; }
+.tabella-da-verificare .persona { font-weight: 600; color: var(--scuro); }
+.tabella-da-verificare td[data-label="Perché non è entrata"] { min-width: 260px; }
+.tabella-da-verificare .piccolo { display: block; font-size: 0.8rem; color: var(--tenue); margin-top: 2px; }
+
 .stato-account { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.74rem; font-weight: 700; }
 .stato-account.attivo { background: var(--verde-bg); color: var(--verde); }
 .stato-account.disattivato { background: #E2E8F0; color: #334155; }
@@ -912,7 +925,10 @@ tr.riga-nota { background: var(--blu-velo); }
     .tabella-vuota { padding: 20px 12px; }
     .anteprima-barra .btn { margin-left: 0; }
     .tabella-anteprima input.campo-email { min-width: 0; }
-    .tabella-anteprima td[data-label], .tabella-partecipanti td[data-label] { min-width: 0; }
+    .tabella-anteprima td[data-label], .tabella-partecipanti td[data-label], .tabella-da-verificare td[data-label] { min-width: 0; }
+    .tabella-da-verificare .col-email { min-width: 0; }
+    .tabella-da-verificare tr { border-left: 6px solid var(--ambra-bordo) !important; }
+    .riquadro-da-verificare .btn-mini { min-height: 38px; }
     .azioni-riga { min-width: 0; }
     .azioni-riga .btn-mini { min-height: 38px; }
     .legenda dt { flex-basis: 90px; }

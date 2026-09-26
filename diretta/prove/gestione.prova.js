@@ -1466,6 +1466,55 @@ async function sheetJSNode() {
         // gli avvisi brevi (in basso a destra) se ne vanno da soli: la regia si guarda senza niente sopra
         await aspetta(async () => (await $('#avvisi .avviso').count()) === 0, 15000, 'avvisi spariti');
 
+        /* ---------- 5 bis. iscrizioni dal modulo da verificare ---------- */
+        console.log('\n-- iscrizioni dal modulo da verificare');
+        vero(await $('#riquadro-da-verificare').isHidden(), 'senza iscrizioni da verificare il riquadro non si vede');
+        /* Le righe come le scrive il servizio quando il modulo del sito porta
+           una persona che la diretta non puo' iscrivere da sola
+           (lib/diretta-iscrizione.js, segnaDaVerificare: la stessa funzione):
+           l'email di un'altra persona (con un nome che prova a essere HTML) e
+           un indirizzo che la diretta non accetta; piu' una di un altro evento,
+           che qui non si deve vedere. Il percorso dal modulo vero alla riga lo
+           prova iscrizioni.prova.js. */
+        const IS = require(path.join(RADICE, 'email-service/lib/diretta-iscrizione'));
+        const ctxDV = { db: db, Timestamp: admin.firestore.Timestamp, FieldValue: admin.firestore.FieldValue, adesso: () => Date.now() };
+        const idCondivisa = await IS.segnaDaVerificare(ctxDV, {
+            idEvento: ID, motivo: 'email-condivisa', nome: 'Luigi', cognome: '<b>Secondo</b>', azienda: 'Studio Esempio', email: 'info@studio-esempio.example', esistente: 'Carla Prima'
+        });
+        await pausa(20);
+        const idNonValida = await IS.segnaDaVerificare(ctxDV, { idEvento: ID, motivo: 'email-non-valida', nome: 'José', cognome: 'García', azienda: '', email: 'josé.garcia@esempio.example' });
+        await IS.segnaDaVerificare(ctxDV, { idEvento: 'roma-2026', motivo: 'email-non-valida', nome: 'Altro', cognome: 'Evento', azienda: '', email: 'altro.@evento.example' });
+        await IS.segnaDaVerificare(ctxDV, { idEvento: ID, motivo: 'email-condivisa', nome: 'Luigi', cognome: '<b>Secondo</b>', azienda: 'Studio Esempio', email: 'info@studio-esempio.example', esistente: 'Carla Prima' });
+        await $('#btn-aggiorna-partecipanti').click();
+        await aspetta(async () => (await $('#tabella-da-verificare tbody tr').count()) === 2 && await visibile('#riquadro-da-verificare'), 10000, 'righe da verificare');
+        const righeDV = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-da-verificare tbody tr')).map(t => ({ id: t.dataset.id, motivo: t.dataset.motivo, testo: t.textContent })));
+        vero(/\(2\)/.test(await testo('#conta-da-verificare')) && righeDV[0].id === idCondivisa && righeDV[1].id === idNonValida,
+            'il riquadro «Iscrizioni dal modulo da verificare» compare nella scheda Partecipanti con le 2 righe dell\'evento (la piu\' recente in alto; quella di Roma no)');
+        vero(/Luigi <b>Secondo<\/b>/.test(righeDV[0].testo) && await page.locator('#tabella-da-verificare b').count() === 0
+            && /info@studio-esempio\.example/.test(righeDV[0].testo) && /Email di un'altra persona/.test(righeDV[0].testo)
+            && /Con questa email c'è già l'account di Carla Prima/.test(righeDV[0].testo) && /Si è iscritta 2 volte\./.test(righeDV[0].testo),
+        'email condivisa: chi, l\'indirizzo, il perché (l\'account di Carla Prima), quante volte; il nome «<b>…» resta testo', righeDV[0].testo);
+        vero(/josé\.garcia@esempio\.example/.test(righeDV[1].testo) && /Email non accettata/.test(righeDV[1].testo) && /La diretta non accetta questo indirizzo/.test(righeDV[1].testo),
+            'email non valida per la diretta: l\'indirizzo come l\'ha scritto la persona e il perché', righeDV[1].testo);
+        await foto('da-verificare');
+        const senzaToken = await api('diretta-gestione', { azione: 'da-verificare', idEvento: ID });
+        const idStrano = await api('diretta-gestione', { azione: 'da-verificare-archivia', idEvento: ID, id: '../partecipanti/x' }, tokGestore);
+        const altroEvento = await api('diretta-gestione', { azione: 'da-verificare-archivia', idEvento: 'roma-2026', id: idCondivisa }, tokGestore);
+        vero(senzaToken.stato === 401 && idStrano.stato === 400 && altroEvento.stato === 404,
+            'le azioni nuove sono protette come le altre: senza token 401, un id non valido 400, la riga di un altro evento 404');
+        await $('#tabella-da-verificare tr[data-id="' + idCondivisa + '"] button[data-op="archivia"]').click();
+        await aspetta(async () => (await $('#tabella-da-verificare tbody tr').count()) === 1, 5000, 'riga segnata come vista');
+        const docVista = (await db.collection('daVerificare').doc(idCondivisa).get()).data();
+        vero(/\(1\)/.test(await testo('#conta-da-verificare')) && /segnata come vista/.test(await avvisi()) && docVista.archiviato === true && docVista.archiviatoDa === EMAIL_GESTORE,
+            '«Segna come vista»: la riga sparisce, il conto scende a 1; sul servizio resta archiviata, con chi l\'ha segnata');
+        await $('#tabella-da-verificare tr[data-id="' + idNonValida + '"] button[data-op="archivia"]').click();
+        await aspetta(async () => await $('#riquadro-da-verificare').isHidden(), 5000, 'riquadro vuoto');
+        vero(true, 'segnata anche l\'ultima: il riquadro sparisce');
+        await $('#btn-aggiorna-partecipanti').click();
+        await calma();
+        vero(await $('#riquadro-da-verificare').isHidden(), 'riletto l\'elenco, le righe viste non tornano');
+        await aspetta(async () => (await $('#avvisi .avviso').count()) === 0, 15000, 'avvisi spariti');
+
         /* ---------- 6. regia ---------- */
         console.log('\n-- regia');
         /* I segnali di presenza li scrive la pagina dei partecipanti, uno al

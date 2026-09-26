@@ -16,17 +16,40 @@
      - la persona non ha ancora ricevuto una password (o l'ha ricevuta
        a un indirizzo che poi e' stato corretto) -> le credenziali, con
        una password nuova;
-     - le credenziali di QUESTO evento erano gia' partite (un reinvio a
-       chi non l'ha ricevuta, un indirizzo corretto) -> le credenziali,
-       con una password nuova, come sempre;
-     - la persona ha gia' una password (credenziali partite per un altro
-       evento, o una password comunicata a voce) -> l'avviso «Sei
+     - le credenziali di QUESTO evento erano gia' partite, al suo
+       indirizzo di adesso (un reinvio a chi non l'ha ricevuta) -> le
+       credenziali, con una password nuova, come sempre;
+     - la persona ha gia' una password che funziona -> l'avviso «Sei
        iscritto anche a <evento>: entra con la tua email e la password
        che hai gia'», SENZA password: quella che ha continua a valere.
+       "Ha gia' una password" (haPassword) vuol dire: le credenziali di
+       un altro evento sono partite, oppure il gestore gliene ha data una
+       a voce, oppure ha chiesto «Password dimenticata?» e il
+       collegamento e' partito (resetInviato: forse se n'e' scelta una
+       lei, e mandarle adesso una password nostra la cancellerebbe senza
+       avviso), oppure e' gia' ENTRATA nella diretta (ultimoAccesso: la
+       password che usa funziona).
+   L'INDIRIZZO CORRETTO TAGLIA LA STORIA. Quando il gestore corregge
+   l'email (emailCambiata sul profilo), tutto quello che e' successo
+   prima e' andato a un'altra casella, o e' stato fatto da chi usava
+   quella casella: credenziali, reimpostazioni, accessi di prima non
+   dicono che la persona di ADESSO conosce una password. Conta solo
+   quello che e' successo dopo (anche per la voce di QUESTO evento:
+   credenziali partite al vecchio indirizzo non sono "gia' ricevute").
    Il pulsante "Reinvia" della gestione manda sempre le credenziali con
-   una password nuova (e' quello che chiede il gestore). Sulla voce
-   resta che cosa e' partito (invii.<idEvento>.tipo: 'credenziali' o
+   una password nuova (e' quello che chiede il gestore), e l'email dice
+   che la password di prima non vale piu' (sostituzione: anche quella
+   scelta con «Password dimenticata?» o data a voce). Sulla voce resta
+   che cosa e' partito (invii.<idEvento>.tipo: 'credenziali' o
    'anche').
+
+   IL MODULO DEL SITO NON SI PRENDE TUTTO IL TETTO. Le voci messe in
+   coda dal modulo pubblico (automatica: true, vedi
+   lib/diretta-iscrizione.js) partono, sia subito (inviaSubito) sia dal
+   cron, solo finche' le email del giorno non superano
+   DIRETTA_MODULO_PERCENTO del tetto (60%): oltre, restano 'in coda' e
+   partono il giorno dopo. Credenziali del gestore, promemoria e
+   reimpostazioni (che si fermano all'80%) hanno sempre posto.
 
    LA REGOLA DI TUTTO: AL MASSIMO UNA VOLTA. Una persona non deve mai
    ricevere due email di credenziali per sbaglio: la seconda porta una
@@ -124,6 +147,13 @@ function lotto() { return Math.max(1, C.intero('DIRETTA_MAX_LOTTO', 40)); }
 function concorrenza() { return Math.max(1, C.intero('DIRETTA_CONCORRENZA', 4)); }
 function pausaGruppi() { return C.intero('DIRETTA_PAUSA_MS', 300); }
 function maxGiorno() { return C.intero('DIRETTA_MAX_GIORNO', 0); }
+/* La parte del tetto giornaliero che possono usare le email fatte
+   partire dal modulo pubblico del sito (vedi IL MODULO DEL SITO NON SI
+   PRENDE TUTTO IL TETTO): 60% di base. Meno delle reimpostazioni (80%),
+   che sono anch'esse pubbliche ma servono a chi e' gia' iscritto; il
+   40% che resta e' del gestore (credenziali, promemoria). Con
+   DIRETTA_MAX_GIORNO a 0 (nessun tetto) non conta. */
+function quotaModulo() { return Math.min(100, C.intero('DIRETTA_MODULO_PERCENTO', 60)) / 100; }
 
 /* ---------- attrezzi ---------- */
 function validaEvento(id) {
@@ -176,52 +206,121 @@ async function leggiEvento(ctx, idEvento) {
     if (!s.exists) throw C.errore(404, 'Evento inesistente', 'evento');
     return Object.assign({ id: idEvento }, s.data());
 }
-/* La persona aveva gia' ricevuto una password? L'account e' uno solo,
-   con una sola password: quella nuova rende inutile la vecchia, e
-   l'email lo deve dire (vedi credenziali() in diretta-mail.js).
-     'evento'       -> per QUESTO evento: gia' inviata una volta (anche se
-                       poi e' tornata 'da inviare' per un nome corretto o
-                       un indirizzo cambiato), oppure forse partita
-                       ('incerto', o un 'invio' rimasto a meta');
-     'altro-evento' -> per un altro evento;
-     ''             -> mai: e' la prima.
-   `dati` e' il profilo com'era PRIMA della presa in carico. */
-function sostituzione(dati, idEvento) {
-    const giaPartita = v => !!(v && (v.inviata || v.stato === 'inviata' || v.stato === 'incerto' || v.stato === 'invio'));
-    if (giaPartita(voce(dati, idEvento))) return 'evento';
-    const invii = (dati && dati.invii) || {};
-    return Object.keys(invii).some(k => k !== idEvento && giaPartita(invii[k])) ? 'altro-evento' : '';
+/* ---------- che cosa sa gia' la persona (UNA PASSWORD PER PERSONA) ----------
+   Tutte e tre le funzioni qui sotto leggono il profilo com'era PRIMA
+   della presa in carico e contano solo quello che e' successo DOPO
+   l'ultima correzione dell'indirizzo (vedi L'INDIRIZZO CORRETTO TAGLIA
+   LA STORIA in testa al file). */
+const STATI_PARTITI = ['inviata', 'incerto', 'invio'];
+// da quando conta la storia: l'ultima correzione dell'email (0 se mai corretta)
+function tagliaStoria(d) {
+    const t = millis(d && d.emailCambiata);
+    return Number.isFinite(t) ? t : 0;
+}
+/* Quando e' partita (o forse partita) una voce: l'invio riuscito
+   (inviata), altrimenti l'ultimo cambio di stato (aggiornato: per
+   'incerto' e 'invio' e' il momento della spedizione). */
+function quandoVoce(v) {
+    const inviata = millis(v && v.inviata);
+    return Number.isFinite(inviata) ? inviata : millis(v && v.aggiornato);
+}
+/* La voce e' partita (o forse partita) verso l'indirizzo di ADESSO?
+   Una voce senza nessuna data (profili di prima) conta come partita:
+   NaN < dopo e' falso. */
+function partitaDopo(v, dopo) {
+    return !!(v && (v.inviata || STATI_PARTITI.indexOf(v.stato) >= 0)) && !(quandoVoce(v) < dopo);
+}
+// un istante del profilo (Timestamp) successivo al taglio: NaN (campo assente) non lo e' mai
+function dopoIlTaglio(valore, dopo) {
+    return millis(valore) >= dopo;
 }
 
-/* La persona ha gia' una password che funziona? Si' se le CREDENZIALI
-   (non l'avviso «anche») di un altro evento sono partite, o forse
-   partite ('inviata', 'incerto', 'invio' in questo momento), oppure se
-   il gestore gliene ha data una a voce (passwordAVoce). Contano solo le
-   cose successive all'ultima correzione dell'indirizzo (emailCambiata):
-   quelle di prima sono andate a un'altra casella. `dati` e' il profilo
-   com'era prima della presa in carico; `tranne` l'evento che si sta
-   spedendo. */
-const STATI_PARTITI = ['inviata', 'incerto', 'invio'];
+/* La persona aveva gia' una password? L'account e' uno solo, con una
+   sola password: quella nuova rende inutile la vecchia, e l'email lo
+   deve dire (vedi credenziali() in diretta-mail.js).
+     'evento'       -> per QUESTO evento: le credenziali gia' inviate una
+                       volta al suo indirizzo di adesso (anche se poi e'
+                       tornata 'da inviare', respinta o in errore), oppure
+                       forse partite ('incerto', o un 'invio' rimasto a
+                       meta');
+     'altro-evento' -> le credenziali di un altro evento;
+     'precedente'   -> nessuna email di credenziali, ma una password ce
+                       l'ha: scelta da lei con «Password dimenticata?»
+                       (resetInviato), data a voce dal gestore
+                       (passwordAVoce), gia' usata per entrare
+                       (ultimoAccesso), o comunque gia' c'era quando le e'
+                       partito un avviso «anche». Succede con il "Reinvia"
+                       del gestore, che la cambia comunque: l'email dice
+                       che quella di prima non vale piu';
+     ''             -> niente: e' la prima.
+   Un avviso «anche» non e' una password ricevuta: la voce con tipo
+   'anche' non fa dire "la password che avevi ricevuto". Credenziali e
+   accessi di PRIMA di una correzione dell'indirizzo non contano
+   (L'INDIRIZZO CORRETTO TAGLIA LA STORIA). */
+function sostituzione(dati, idEvento) {
+    const d = dati || {};
+    const dopo = tagliaStoria(d);
+    const credenziali = v => partitaDopo(v, dopo) && v.tipo !== 'anche';
+    if (credenziali(voce(d, idEvento))) return 'evento';
+    const invii = d.invii || {};
+    if (Object.keys(invii).some(k => k !== idEvento && credenziali(invii[k]))) return 'altro-evento';
+    const avvisi = Object.keys(invii).some(k => partitaDopo(invii[k], dopo));
+    if (avvisi || passwordPropriaDopo(d, dopo)) return 'precedente';
+    return '';
+}
+
+/* La persona ha gia' una password che funziona? Si' se:
+     - le CREDENZIALI (non l'avviso «anche») di un altro evento sono
+       partite, o forse partite ('inviata', 'incerto', 'invio' in questo
+       momento);
+     - il gestore gliene ha data una a voce (passwordAVoce);
+     - le e' partito il collegamento di «Password dimenticata?»
+       (resetInviato): non si sa se l'ha usato, ma se l'ha usato la
+       password l'ha scelta lei, e una nostra la cancellerebbe senza
+       dirglielo; se non l'ha usato, l'avviso «anche» le ricorda proprio
+       «Password dimenticata?», che conosce gia';
+     - e' gia' entrata nella diretta (ultimoAccesso): la password che usa
+       funziona.
+   Contano solo le cose successive all'ultima correzione dell'indirizzo
+   (emailCambiata): quelle di prima sono andate a un'altra casella (e un
+   accesso di prima puo' averlo fatto chi leggeva quella casella).
+   `tranne` e' l'evento che si sta spedendo. */
+// una password "sua" (voce, reimpostazione, accesso) successiva all'istante `dopo`
+function passwordPropriaDopo(d, dopo) {
+    return dopoIlTaglio(d.passwordAVoce, dopo) || dopoIlTaglio(d.resetInviato, dopo) || dopoIlTaglio(d.ultimoAccesso, dopo);
+}
 function haPassword(dati, tranne) {
     const d = dati || {};
-    const dopo = Number.isFinite(millis(d.emailCambiata)) ? millis(d.emailCambiata) : 0;
+    const dopo = tagliaStoria(d);
     const invii = d.invii || {};
     const partite = Object.keys(invii).some(k => {
         const v = invii[k] || {};
         if (k === tranne || v.tipo === 'anche' || STATI_PARTITI.indexOf(v.stato) < 0) return false;
-        const quando = v.stato === 'inviata' && Number.isFinite(millis(v.inviata)) ? millis(v.inviata) : millis(v.aggiornato);
-        return !(quando < dopo);
+        return !(quandoVoce(v) < dopo);
     });
-    return partite || millis(d.passwordAVoce) >= dopo;
+    return partite || passwordPropriaDopo(d, dopo);
 }
 /* Che cosa parte per questo evento: 'credenziali' (con una password
    nuova) o 'anche' (l'avviso, senza password). Vedi UNA PASSWORD PER
-   PERSONA in testa al file. `forza`: il "Reinvia" del gestore. */
+   PERSONA in testa al file. `forza`: il "Reinvia" del gestore.
+   Le credenziali di QUESTO evento gia' partite (un reinvio a chi non
+   l'ha ricevuta: respinta, errore) fanno ripartire le credenziali solo
+   se erano andate all'indirizzo di adesso: quelle partite prima di una
+   correzione dell'email non contano, e allora decide haPassword (chi
+   nel frattempo ha ricevuto la password di un altro evento al nuovo
+   indirizzo riceve «anche», e quella password continua a valere).
+   E anche quando erano andate all'indirizzo giusto, se DOPO quell'invio
+   la persona si e' fatta una password sua (reimpostazione, voce,
+   accesso), parte «anche»: rimandare le credenziali la cancellerebbe. */
 function tipoInvio(dati, idEvento, forza) {
     if (forza) return 'credenziali';
-    const v = voce(dati, idEvento);
-    if (v.tipo !== 'anche' && (v.inviata || STATI_PARTITI.indexOf(v.stato) >= 0)) return 'credenziali';
-    return haPassword(dati, idEvento) ? 'anche' : 'credenziali';
+    const d = dati || {};
+    const dopo = tagliaStoria(d);
+    const v = voce(d, idEvento);
+    if (v.tipo !== 'anche' && partitaDopo(v, dopo)) {
+        return passwordPropriaDopo(d, Math.max(dopo, quandoVoce(v) || 0)) ? 'anche' : 'credenziali';
+    }
+    return haPassword(d, idEvento) ? 'anche' : 'credenziali';
 }
 /* Nei log mai un indirizzo intero: resta il dominio, che basta a capire
    "e' Gmail che rifiuta" senza scrivere di chi si tratta. */
@@ -477,8 +576,11 @@ async function spedisci(trasporto, opz) {
    invii per volta (un lotto) in una transazione, e alla fine si
    restituisce quello che non si e' usato: una transazione per lotto
    invece di una per email. Con il tetto a 0 il contatore non si tocca.
-   `frazione` serve alle reimpostazioni, che si fermano all'80% per
-   lasciare spazio a credenziali e promemoria.
+   `frazione` serve alle email che arrivano da richieste PUBBLICHE: le
+   reimpostazioni si fermano all'80%, le password del modulo del sito al
+   60% (quotaModulo), per lasciare spazio a credenziali e promemoria. Il
+   contatore e' uno solo: una frazione dice "si parte solo finche' le
+   email di oggi, di tutti, sono meno di tanto".
    ============================================================ */
 function chiaveGiorno(ctx) {
     return 'giorno-' + C.dataRoma(ctx.adesso()).replace(/-/g, '');
@@ -486,7 +588,7 @@ function chiaveGiorno(ctx) {
 async function riserva(ctx, n, frazione) {
     const max = maxGiorno();
     if (!max || n <= 0) return { preso: Math.max(0, n), chiave: null };
-    const tetto = Math.floor(max * (frazione || 1));
+    const tetto = Math.floor(max * (frazione == null ? 1 : frazione));
     const chiave = chiaveGiorno(ctx);
     const ref = ctx.db.collection('contatori').doc(chiave);
     const preso = await ctx.db.runTransaction(async tx => {
@@ -651,23 +753,53 @@ async function applicaEsito(ctx, ref, idEvento, prec, esito) {
    e l'altro, finche' c'e' tempo. Il tempo si guarda PRIMA di ogni
    gruppo, mai in mezzo: una email partita e non registrata e' proprio
    il caso che tutto questo serve a evitare.
-   ============================================================ */
+   LE VOCI DEL MODULO DEL SITO (automatica: true) hanno la loro parte del
+   tetto (quotaModulo): nello stesso lotto si riserva prima per le altre
+   (il gestore: tutto il tetto) e poi per loro (fino al 60%). Quelle che
+   non ci stanno restano 'in coda' e il giro va oltre (un cursore sul
+   documento, startAfter: l'ordine delle query e' quello degli id), cosi'
+   non tengono ferme le persone del gestore che vengono dopo. Se alla
+   fine del giro sono rimaste solo loro, il giro dice limiteGiorno
+   (partono domani da sole: e' quello che la gestione mostra). */
 async function lavoraCoda(ctx, idEvento, opz) {
     const scadenza = Date.now() + Math.max(1000, Number(opz && opz.budgetMs) || 40000);
-    const r = { inviate: 0, respinte: 0, errori: 0, incerti: 0, rimandate: 0, persi: 0, bloccato: null, limiteGiorno: false, esaurita: false };
+    const r = { inviate: 0, respinte: 0, errori: 0, incerti: 0, rimandate: 0, persi: 0, bloccato: null, limiteGiorno: false, esaurita: false, trattenute: 0 };
+    const trattenute = new Set();   // le voci del modulo lasciate in coda (oltre la loro parte del tetto)
     const evento = await leggiEvento(ctx, idEvento);
     let trasporto;
     try { trasporto = creaTrasporto(ctx); } catch (e) { r.bloccato = motivoBreve(e); log('coda ' + idEvento + ' ferma', e); return r; }
     await rifCoda(ctx, idEvento).set({ ultimoInvio: ctx.adesso() }, { merge: true });
     const pausa = pausaGruppi();
     let primoGruppo = true;
+    let dopo = null;   // l'ultimo documento di un lotto con voci del modulo lasciate in coda
     try {
         while (Date.now() < scadenza && !r.bloccato) {
-            const snap = await conStato(ctx, idEvento, 'in coda').limit(lotto()).get();
-            if (snap.empty) { r.esaurita = true; break; }
-            const prenotazione = await riserva(ctx, snap.size);
-            if (!prenotazione.preso) { r.limiteGiorno = true; break; }
-            const docs = snap.docs.slice(0, prenotazione.preso);
+            let q = conStato(ctx, idEvento, 'in coda');
+            if (dopo) q = q.startAfter(dopo);
+            const snap = await q.limit(lotto()).get();
+            if (snap.empty) {
+                if (trattenute.size) r.limiteGiorno = true;
+                else r.esaurita = true;
+                break;
+            }
+            const delModulo = [], altre = [];
+            snap.docs.forEach(doc => (voce(doc.data(), idEvento).automatica === true ? delModulo : altre).push(doc));
+            const prenAltre = await riserva(ctx, altre.length);
+            const prenModulo = await riserva(ctx, delModulo.length, quotaModulo());
+            // la stessa chiave del giorno per le due (o nessuna, senza tetto): si restituisce da una sola
+            const prenotazione = { preso: prenAltre.preso + prenModulo.preso, chiave: prenAltre.chiave || prenModulo.chiave };
+            delModulo.slice(prenModulo.preso).forEach(doc => trattenute.add(doc.id));
+            /* Il cursore va oltre il lotto solo se tutte le persone del gestore
+               del lotto sono partite: quelle rimaste fuori per il tetto (una
+               email respinta restituisce il suo posto, e il giro dopo lo usa)
+               si rileggono al giro seguente, come prima. */
+            if (prenModulo.preso < delModulo.length && prenAltre.preso === altre.length) dopo = snap.docs[snap.docs.length - 1];
+            const docs = altre.slice(0, prenAltre.preso).concat(delModulo.slice(0, prenModulo.preso));
+            if (!docs.length) {
+                // il tetto e' pieno per tutti: le altre partono domani
+                if (altre.length) { r.limiteGiorno = true; break; }
+                continue;   // solo voci del modulo oltre la loro parte: si va al lotto dopo
+            }
             let usate = 0;
             const n = concorrenza();
             for (let i = 0; i < docs.length && !r.bloccato; i += n) {
@@ -707,6 +839,7 @@ async function lavoraCoda(ctx, idEvento, opz) {
     } finally {
         chiudi(trasporto);
     }
+    r.trattenute = trattenute.size;
     if (r.bloccato) log('coda ' + idEvento + ' fermata: ' + mascheraEmail(r.bloccato));
     return r;
 }
@@ -745,10 +878,12 @@ async function accoda(ctx, opz) {
 /* In blocco, con la condizione "nessuno l'ha toccata da quando l'ho
    letta" (lastUpdateTime) su ogni documento: se qualcuno nel frattempo
    l'ha cambiata (un "Reinvia" proprio in quel momento), il blocco intero
-   non passa e si rifa' una per una, in transazione, ricontrollando lo stato. */
+   non passa e si rifa' una per una, in transazione, ricontrollando lo stato.
+   Messa in coda dal gestore, una voce nata dal modulo del sito non e'
+   piu' "automatica": parte con tutto il tetto, come le altre. */
 async function passaInCoda(ctx, docs, idEvento, stati, idonea) {
     const ora = ctx.adesso();
-    const campi = { stato: 'in coda', aggiornato: ts(ctx, ora), errore: undefined, rimandi: undefined };
+    const campi = { stato: 'in coda', aggiornato: ts(ctx, ora), errore: undefined, rimandi: undefined, automatica: undefined };
     const batch = ctx.db.batch();
     docs.forEach(doc => batch.update(doc.ref, ...argomentiVoce(ctx, idEvento, campi, ora), { lastUpdateTime: doc.updateTime }));
     try {
@@ -871,7 +1006,12 @@ async function inviaCredenziali(ctx, opz) {
    coda' e la manda il cron al giro dopo: code/{idEvento}.attiva l'ha
    gia' accesa chi l'ha messa in coda. Non lancia per i guai della
    posta: -> { stato, tipo? } (stato: quello registrato, oppure 'in coda'
-   se non e' partita, oppure lo stato trovato se non era piu' in coda). */
+   se non e' partita, oppure lo stato trovato se non era piu' in coda).
+   IL TETTO: la richiesta arriva dal modulo PUBBLICO del sito, quindi
+   parte solo entro la parte del tetto giornaliero che spetta al modulo
+   (quotaModulo, 60%): oltre, resta 'in coda' e la manda il cron quando
+   c'e' posto (il giorno dopo, se il tetto di oggi e' pieno), sempre
+   entro la stessa parte (la voce e' "automatica"). */
 async function inviaSubito(ctx, opz) {
     const idEvento = validaEvento(opz && opz.idEvento);
     const uid = String((opz && opz.uid) || '');
@@ -881,8 +1021,8 @@ async function inviaSubito(ctx, opz) {
     let trasporto;
     try { trasporto = creaTrasporto(ctx); } catch (e) { log('invio subito rimandato al cron', e); return { stato: 'in coda', motivo: motivoBreve(e) }; }
     try {
-        const prenotazione = await riserva(ctx, 1);
-        if (!prenotazione.preso) { log('invio subito rimandato: tetto giornaliero raggiunto'); return { stato: 'in coda', limiteGiorno: true }; }
+        const prenotazione = await riserva(ctx, 1, quotaModulo());
+        if (!prenotazione.preso) { log('invio subito rimandato: raggiunta la parte del tetto giornaliero per il modulo del sito'); return { stato: 'in coda', limiteGiorno: true }; }
         let presa;
         try {
             presa = await reclama(ctx, ref, idEvento, { ammesso: v => v.stato === 'in coda' });
@@ -976,10 +1116,14 @@ async function inviaProva(ctx, opz) {
    allo stesso modo ("se l'account esiste, ti abbiamo scritto"), e il
    motivo di un mancato invio finisce solo nel log. Si ferma all'80% del
    tetto giornaliero: la richiesta e' pubblica, e non deve poter togliere
-   spazio alle credenziali. -> { ok, motivo? } */
+   spazio alle credenziali. -> { ok, motivo?, forse? }: `forse` quando
+   l'invio non e' riuscito ma NON prima del DATA (connessione caduta a
+   meta'): il collegamento potrebbe essere arrivato, e chi chiama lo
+   tratta come partito (vedi resetInviato in lib/diretta-accesso.js). */
 async function inviaReimpostazione(ctx, opz) {
     const o = opz || {};
     let trasporto = null;
+    let forse = false;
     try {
         const a = E.normalizzaEmail(o.a || '');
         if (!E.emailValida(a)) return { ok: false, motivo: 'indirizzo non valido' };
@@ -994,12 +1138,13 @@ async function inviaReimpostazione(ctx, opz) {
             await spedisci(trasporto, { a: a, mail: mail, custom: o.perGestore ? 'diretta|gestione|reimpostazione' : 'diretta|reimpostazione', tipo: 'reimpostazione' });
         } catch (e) {
             if (primaDelData(e)) await restituisci(ctx, prenotazione, 1);
+            else forse = true;
             throw e;
         }
         return { ok: true };
     } catch (e) {
         log('reimpostazione non inviata', e);
-        return { ok: false, motivo: mascheraEmail(motivoBreve(e)) };
+        return { ok: false, motivo: mascheraEmail(motivoBreve(e)), forse: forse };
     } finally {
         chiudi(trasporto);
     }
@@ -1461,6 +1606,6 @@ module.exports = {
     // per le prove: il giro senza lucchetto, la presa in carico, la lettura degli errori
     _interni: {
         lavoraCoda, reclama, classifica, primaDelData, fermaTutto, problemaNostro, promemoriaDovuti, finestraPromemoria,
-        destinatariPromemoria, sostituzione, haPassword, tipoInvio, creaTrasporto, mascheraEmail, SCADENZA_INVIO_MS, PAUSA_BLOCCO_MS
+        destinatariPromemoria, sostituzione, haPassword, tipoInvio, creaTrasporto, mascheraEmail, riserva, quotaModulo, SCADENZA_INVIO_MS, PAUSA_BLOCCO_MS
     }
 };

@@ -22,8 +22,16 @@
    «anche» non contengono MAI la password, nemmeno se qualcuno gliela
    passa, ma portano a "Password dimenticata?"; che il promemoria dice
    "domani" o "oggi" guardando l'ora vera; che chi aveva gia' una
-   password legge che non vale piu'; che l'email di prova si riconosce
-   come prova; che i collegamenti non si possono dirottare.
+   password legge che non vale piu' (anche quella scelta con «Password
+   dimenticata?»); che l'email di prova si riconosce come prova; che i
+   collegamenti non si possono dirottare. E le regole di UNA PASSWORD
+   PER PERSONA (lib/diretta-invio.js: tipoInvio, haPassword,
+   sostituzione), con profili scritti a mano: chi ha gia' ricevuto il
+   collegamento di «Password dimenticata?», chi e' gia' entrato o ha una
+   password data a voce riceve «anche» e non credenziali nuove; le
+   credenziali partite a un indirizzo poi corretto non contano (niente
+   seconda password a chi l'ha appena ricevuta al nuovo indirizzo); il
+   "Reinvia" del gestore manda sempre le credenziali, con la nota giusta.
    ============================================================ */
 'use strict';
 delete process.env.APP_BASE_URL;
@@ -152,6 +160,62 @@ vero(M.credenziali({ evento: EVENTO, email: EMAIL, password: 'X', assistenza: AS
 const credAltro = M.credenziali({ evento: EVENTO, nome: 'Mario', email: EMAIL, password: 'Nuova8Wxy2', assistenza: ASSISTENZA, sostituisce: 'altro-evento' });
 vero(credAltro.testo.indexOf(FRASE_D14) < 0 && /Avevi già ricevuto le credenziali per un altro evento: l'email per entrare è la stessa/.test(credAltro.testo)
     && /per un altro evento/.test(credAltro.html), 'credenziali dopo quelle di un altro evento (Reinvia del gestore): nota propria (stessa email, password nuova)');
+// la password scelta con «Password dimenticata?» (o data a voce, o gia' usata per entrare): il "Reinvia" la cambia, e lo si dice
+const credPrec = M.credenziali({ evento: EVENTO, nome: 'Mario', email: EMAIL, password: 'Nuova8Wxy2', assistenza: ASSISTENZA, sostituisce: 'precedente' });
+vero(credPrec.testo.indexOf(M.FRASE_PRECEDENTE) >= 0 && credPrec.html.indexOf(M.esc(M.FRASE_PRECEDENTE)) >= 0
+    && /sostituisce quella che usavi finora \(anche se l'avevi scelta tu con «Password dimenticata\?»\): quella di prima non è più valida/.test(credPrec.testo)
+    && credPrec.testo.indexOf(M.FRASE_PRECEDENTE) < credPrec.testo.indexOf('La tua email:'),
+'credenziali a chi aveva una password scelta da sé (Reinvia del gestore): «' + M.FRASE_PRECEDENTE + '», prima delle credenziali');
+
+/* ---------- che cosa parte: credenziali o «anche» (lib/diretta-invio.js) ----------
+   Le regole di UNA PASSWORD PER PERSONA, con profili scritti a mano:
+   tipoInvio (che cosa parte), haPassword (la persona ne ha gia' una che
+   funziona?) e sostituzione (la nota delle credenziali). */
+{
+    const I = require('../lib/diretta-invio')._interni;
+    const T = ms => ({ toMillis: () => ms });           // un Timestamp di Firestore finto
+    const ORA = Date.UTC(2026, 8, 26, 10, 0, 0);
+    const MIN = 60 * 1000;
+    const base = { stato: 'attivo', eventi: ['milano-2026'], invii: { 'milano-2026': { stato: 'in coda', aggiornato: T(ORA) } } };
+    const con = extra => Object.assign({}, base, extra);
+    vero(I.tipoInvio(base, 'milano-2026') === 'credenziali' && I.sostituzione(base, 'milano-2026') === '', 'nessuna password prima: credenziali, senza note');
+    // punto 1: «Password dimenticata?» PRIMA di «Invia le credenziali» -> la password scelta non si tocca
+    const reset = con({ resetInviato: T(ORA - 30 * MIN) });
+    vero(I.haPassword(reset, 'milano-2026') === true && I.tipoInvio(reset, 'milano-2026') === 'anche',
+        'collegamento di «Password dimenticata?» gia\' partito: «anche» (la password scelta resta), non credenziali nuove');
+    vero(I.tipoInvio(reset, 'milano-2026', true) === 'credenziali' && I.sostituzione(reset, 'milano-2026') === 'precedente',
+        '...il "Reinvia" del gestore manda comunque le credenziali, con la nota che la password di prima non vale piu\' (precedente)');
+    const entrata = con({ ultimoAccesso: T(ORA - 10 * MIN) });
+    vero(I.tipoInvio(entrata, 'milano-2026') === 'anche' && I.sostituzione(entrata, 'milano-2026') === 'precedente', 'gia\' entrata nella diretta: «anche» (la sua password funziona)');
+    const voceData = con({ passwordAVoce: T(ORA - 10 * MIN) });
+    vero(I.tipoInvio(voceData, 'milano-2026') === 'anche' && I.sostituzione(voceData, 'milano-2026') === 'precedente', 'password data a voce: «anche»');
+    // l'indirizzo corretto dopo il reset o l'accesso: quello di prima non conta (era un'altra casella)
+    const resetPrimaDelCambio = con({ resetInviato: T(ORA - 30 * MIN), ultimoAccesso: T(ORA - 25 * MIN), emailCambiata: T(ORA - 20 * MIN) });
+    vero(I.tipoInvio(resetPrimaDelCambio, 'milano-2026') === 'credenziali' && I.sostituzione(resetPrimaDelCambio, 'milano-2026') === '',
+        'reset e accesso PRIMA della correzione dell\'email: non contano, credenziali (senza note)');
+    // punto 2: credenziali di Milano all'indirizzo vecchio, email corretta, poi Napoli dal modulo all'indirizzo nuovo
+    const cambio = {
+        stato: 'attivo', eventi: ['milano-2026', 'napoli-2026'], emailCambiata: T(ORA - 20 * MIN),
+        invii: {
+            'milano-2026': { stato: 'in coda', tipo: 'credenziali', inviata: T(ORA - 60 * MIN), aggiornato: T(ORA) },
+            'napoli-2026': { stato: 'inviata', tipo: 'credenziali', inviata: T(ORA - 10 * MIN), aggiornato: T(ORA - 10 * MIN) }
+        }
+    };
+    vero(I.tipoInvio(cambio, 'milano-2026') === 'anche',
+        'email corretta: le credenziali di Milano partite al VECCHIO indirizzo non contano, e la password di Napoli (nuovo indirizzo) si tiene: «anche»');
+    vero(I.sostituzione(cambio, 'milano-2026') === 'altro-evento', '...e un "Reinvia" di Milano direbbe che sostituisce la password dell\'altro evento');
+    const soloCambio = { stato: 'attivo', eventi: ['milano-2026'], emailCambiata: T(ORA - 20 * MIN),
+        invii: { 'milano-2026': { stato: 'in coda', tipo: 'credenziali', inviata: T(ORA - 60 * MIN), aggiornato: T(ORA) } } };
+    vero(I.tipoInvio(soloCambio, 'milano-2026') === 'credenziali' && I.sostituzione(soloCambio, 'milano-2026') === '',
+        'email corretta e nessuna password al nuovo indirizzo: credenziali (la prima per quella casella)');
+    // le credenziali di QUESTO evento partite all'indirizzo di adesso (respinta, poi "a chi non l'ha ricevuta"): credenziali, come sempre
+    const respinta = { stato: 'attivo', eventi: ['milano-2026'], invii: { 'milano-2026': { stato: 'in coda', tipo: 'credenziali', inviata: T(ORA - 60 * MIN), aggiornato: T(ORA) } }, resetInviato: T(ORA - 90 * MIN) };
+    vero(I.tipoInvio(respinta, 'milano-2026') === 'credenziali' && I.sostituzione(respinta, 'milano-2026') === 'evento',
+        'credenziali di questo evento gia\' partite all\'indirizzo di adesso (reset di prima): credenziali, con la nota «sostituisce le precedenti»');
+    const resetDopo = Object.assign({}, respinta, { resetInviato: T(ORA - 5 * MIN) });
+    vero(I.tipoInvio(resetDopo, 'milano-2026') === 'anche',
+        '...ma se DOPO quelle credenziali la persona ha chiesto «Password dimenticata?»: «anche» (la password scelta resta)');
+}
 
 /* ---------- l'email di prova ---------- */
 const prova = M.credenziali({ evento: EVENTO, nome: 'Mario', cognome: 'Rossi', email: EMAIL, password: 'Esempio7Kq', assistenza: ASSISTENZA, prova: true });

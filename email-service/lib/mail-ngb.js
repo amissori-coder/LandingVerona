@@ -217,8 +217,14 @@ function confermaSito(dati, link) {
     const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata'
         + (online ? ' per la partecipazione online' : '') + '.';
     const attesa = online && dati && dati.listaAttesa === true;
+    /* Online: la password della diretta arriva con un'email a parte (dal
+       servizio della diretta, subito se l'invio automatico e' acceso,
+       altrimenti quando il gestore la manda). Qui niente date promesse: la
+       conferma non sa quale dei due casi e', e non deve contraddire una
+       password magari gia' arrivata. */
     const apertura = online
-        ? 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
+        ? 'La tua partecipazione online è registrata. Per seguire la diretta riceverai un\'email con la password per entrare '
+            + '(se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.'
             + (attesa ? ' I posti in sala sono esauriti, ma ti abbiamo inserito in lista d\'attesa: se se ne libera uno ti scriviamo, e decidi tu se venire di persona.' : '')
             + ' Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
         : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.';

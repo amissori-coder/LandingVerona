@@ -1470,13 +1470,17 @@ module.exports = async (req, res) => {
            la password della diretta, se il gestore ha acceso l'interruttore
            sull'evento con questa pagina. Arriva dopo la scheda e la conferma,
            mai al loro posto: se la diretta non e' configurata o qualcosa va
-           storto l'iscrizione resta valida e la risposta e' quella di sempre
-           (al massimo pochi secondi di attesa; il resto finisce dopo). */
+           storto l'iscrizione resta valida e la risposta e' quella di sempre.
+           Su Vercel il gancio non aspetta il lavoro della diretta (finisce
+           dopo, con waitUntil): la risposta arriva nello stesso tempo per un
+           indirizzo nuovo e per uno gia' iscritto, e non dice niente di chi
+           ha gia' un account. L'IP serve ai limiti del modulo pubblico (per
+           rete), che la diretta tiene nel suo progetto. */
         if (scheda.modalita === 'online' && email) {
             try {
                 await require('../lib/diretta-iscrizione').dalModulo({
                     email: email, nome: nome, cognome: cognome, azienda: scheda.azienda,
-                    pagina: pagina, percorso: testo(body.percorso, 300)
+                    pagina: pagina, percorso: testo(body.percorso, 300), ip: ip
                 });
             } catch (e) {
                 console.error('Diretta: iscrizione dal modulo non riuscita:', String((e && e.message) || e).replace(/[^\s/@'"]+@[^\s/'"]+/g, '<email>').slice(0, 200));

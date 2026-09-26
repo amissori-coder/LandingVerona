@@ -95,6 +95,16 @@
                       acceso vuole la pagina dell'evento (400 'pagina'),
                       una pagina lo puo' avere acceso su un evento solo
                       (409 'iscrizioni-doppie')
+     da-verificare    { idEvento } -> { righe: [{ id, motivo
+                      ('email-condivisa'|'email-non-valida'), nome,
+                      cognome, azienda, email, esistente, quando, volte,
+                      origine 'modulo' }] }: le iscrizioni dal modulo del
+                      sito che la diretta non ha trasformato in un
+                      account (niente email partita), non ancora viste
+                      -> lib/diretta-iscrizione.js
+     da-verificare-archivia { idEvento, id } -> { id }: «Segna come
+                      vista» (la riga resta, con chi e quando; 404 se
+                      non e' di quell'evento)
      email-prova      { idEvento, tipo: 'credenziali'|'iscritto-anche'|
                       'promemoria-giorno'|'promemoria-ora' }
 
@@ -106,6 +116,7 @@ const C = require('../lib/diretta-comune');
 const D = require('../lib/diretta-dati');
 const F = require('../lib/diretta-firma');
 const PL = require('../lib/diretta-prova-link');
+const I = require('../lib/diretta-iscrizione');
 const { contesto } = require('../lib/diretta-firebase');
 
 const TIPI_PROVA = ['credenziali', 'iscritto-anche', 'promemoria-giorno', 'promemoria-ora'];
@@ -183,6 +194,8 @@ const AZIONI = {
     'partecipante': async (ctx, b) => D.operazionePartecipante(ctx, b),
     'connessi': async (ctx, b) => D.connessi(ctx, b.idEvento),
     'esporta': async (ctx, b) => D.esporta(ctx, b.idEvento),
+    'da-verificare': async (ctx, b) => I.elencoDaVerificare(ctx, b.idEvento),
+    'da-verificare-archivia': async (ctx, b, g) => I.archiviaDaVerificare(ctx, { idEvento: b.idEvento, id: b.id }, g.email),
 
     'email-prova': async (ctx, b, g) => {
         const idEvento = D.controllaIdEvento(b.idEvento);
