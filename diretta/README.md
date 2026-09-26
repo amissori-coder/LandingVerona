@@ -214,9 +214,12 @@ Blaze non ha un tetto di spesa: per questo si imposta un **avviso di budget**
 9. **La chiave API del server** (`DIRETTA_FIREBASE_API_KEY`). Il servizio
    verifica la password chiamando Google dal server. Crea una chiave
    **separata** da quella del browser: <https://console.cloud.google.com/apis/credentials>
-   (progetto `ngb-eventi`) → *Crea credenziali* → *Chiave API* → *Modifica*:
+   (progetto `ngb-eventi`) → *Crea credenziali* → *Chiave API*:
+   - *Seleziona limitazioni dell'API* (o *Restrizioni API*): solo **Identity
+     Toolkit API**, l'unica che il servizio chiama (`accounts:signInWithPassword`).
+     Se non compare nell'elenco, manca il passo 5 (*Authentication* → *Inizia*);
    - *Restrizioni delle applicazioni*: **Nessuna** (le chiamate partono da Vercel, senza sito di provenienza);
-   - *Restrizioni API*: solo **Identity Toolkit API** e **Token Service API**.
+   - niente service account collegato (serve solo per altre API di Google).
 
    E già che ci sei, limita la chiave del **browser** (quella di `config.js`):
    *Restrizioni delle applicazioni* → *Referrer HTTP* →
