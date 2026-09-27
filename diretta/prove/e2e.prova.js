@@ -540,7 +540,10 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
                 });
                 await pagina.page.goto(link);
                 await pagina.page.waitForFunction(() => /Indirizzo confermato/.test(document.getElementById('statoTitolo').textContent), null, { timeout: 20000 });
-                vero(/riceverai un’email con la password/.test(await pagina.page.textContent('#statoTesto')), 'la pagina: ' + await pagina.page.textContent('#statoTesto'));
+                /* (qui il server di posta del sito non c'e': la pagina dice che l'invito
+                   del sito non e' partito; la password della diretta parte lo stesso) */
+                vero(/Indirizzo confermato, grazie/.test(await pagina.page.textContent('#statoTitolo')) && /Luca/.test(await pagina.page.textContent('#chi')),
+                    'la pagina: «' + await pagina.page.textContent('#statoTitolo') + '» — ' + await pagina.page.textContent('#statoTesto'));
                 await foto(pagina.page, '02b2-conferma-indirizzo');
             } finally {
                 await pagina.context.close().catch(() => {});
