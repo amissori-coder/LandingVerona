@@ -68,6 +68,13 @@
        collegamento arriva all'indirizzo VERO (a chi non e' iscritto non
        parte niente), nuova password, accesso automatico con l'email
        ricordata; la vecchia password non vale piu';
+    7b. un promemoria in piu': il gestore lo programma dalla scheda Email
+       («Solo chi non e' ancora mai entrato», fra un minuto o due, con la
+       conferma che dice l'ora e 3 persone); prima dell'ora il lavoro
+       programmato non lo manda, dopo si': una email a chi non e' mai
+       entrato, con il collegamento dell'evento e «Password dimenticata?»,
+       mai la password; la gestione lo dice «partito»; l'altro Mario, dal
+       promemoria, «Password dimenticata?», una password nuova, ed entra;
     8. il gestore termina: l'iframe sparisce, la nostra schermata di
        chiusura; esportazione con presenze e accessi;
     9. era una PROVA (l'evento e' fra qualche giorno): con tre pagine
@@ -855,6 +862,103 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             vero(vecchia.status === 401, 'vecchia password: ' + vecchia.status);
             const nuova = await chiama('diretta-accesso', { azione: 'entra', email: ' Mario.Rossi@Esempio.it ', password: 'NuovaPassword2026' });
             vero(nuova.token, 'nuova password rifiutata');
+        });
+
+        /* ---------- 7b. un promemoria in piu' dalla gestione ----------
+           Il gestore programma dalla scheda Email un promemoria «Solo chi non
+           e' ancora mai entrato» fra un minuto o due (ora vera, niente orologio
+           spostato); prima di quell'ora il cron non lo manda, dopo si': arriva
+           a chi non e' mai entrato (Nicolo', l'altro Mario, Giulia), con il
+           collegamento giusto e SENZA password. L'altro Mario non trova la
+           password: dall'email, «Password dimenticata?», una nuova, ed entra. */
+        console.log('\n7b. Un promemoria in più, programmato dalla gestione');
+        const oraDiRoma = ms => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+            .formatToParts(new Date(ms)).reduce((o, x) => { o[x.type] = x.value; return o; }, {});
+        // l'inizio del secondo minuto intero da adesso: fra 60 e 120 secondi
+        const quandoPromemoria = Math.ceil(Date.now() / 60000) * 60000 + 60000;
+        const MAI_ENTRATI = ['n.dangelo@esempio.it', 'mario.rossi@altra.it', 'giulia.esposito@esempio.it'];
+        const GIA_ENTRATI = ['mario.rossi@esempio.it', 'annamaria.deluca@esempio.it', 'luca.nuovo@esempio.it'];
+        let idPromemoria = '';
+        let letteraPromemoria = null;
+        await prova('il gestore programma dalla scheda Email «Il link della diretta» per chi non è ancora mai entrato, fra un minuto o due: la conferma dice l\'ora e 3 persone', async () => {
+            const gp = gestione.page;
+            await gp.click('[data-scheda="email"]');
+            await gp.waitForSelector('#elenco-programmate > li', { timeout: 15000 });
+            await gp.click('#btn-nuovo-promemoria');
+            await gp.waitForSelector('#form-promemoria:not([hidden])');
+            const r = oraDiRoma(quandoPromemoria);
+            await gp.fill('#prom-data', r.year + '-' + r.month + '-' + r.day);
+            await gp.fill('#prom-ora', r.hour + ':' + r.minute);
+            await gp.check('#prom-dest-mai');
+            await gp.fill('#prom-oggetto', 'Il link della diretta');
+            await gp.fill('#prom-nota', 'Ti aspettiamo in diretta.\nSe non trovi la password, usa «Password dimenticata?».');
+            await gp.click('#btn-salva-promemoria');
+            await gp.waitForSelector('#dialogo-conferma', { state: 'visible', timeout: 10000 });
+            const testoConferma = (await gp.textContent('#conferma-testo')).trim();
+            vero(new RegExp('Partirà da solo .* alle ' + Number(r.hour) + '\\.' + r.minute + ' \\(ora italiana\\), entro 5 minuti da quell\'ora: oggi lo riceverebbero 3 persone').test(testoConferma), 'conferma: ' + testoConferma);
+            await foto(gp, '10b-promemoria-conferma-gestione');
+            await gp.click('#conferma-ok');
+            await gp.waitForFunction(() => /^Promemoria programmato/.test(document.getElementById('msg-programmate').textContent), null, { timeout: 15000 });
+            const docs = (await db.collection('programmate').where('idEvento', '==', EVENTO).get()).docs;
+            vero(docs.length === 1 && docs[0].data().stato === 'programmata' && docs[0].data().quando.toMillis() === quandoPromemoria && docs[0].data().creatoDa === GESTORE,
+                'sul servizio: ' + JSON.stringify(docs.map(d => d.data()).map(d => ({ s: d.stato, q: d.quando.toMillis(), c: d.creatoDa }))));
+            idPromemoria = docs[0].id;
+        });
+        const cronVero = () => fetch(API + '/diretta-cron', { headers: { Authorization: 'Bearer prova' } }).then(x => x.json());
+        await prova('prima dell\'ora il lavoro programmato non lo manda', async () => {
+            vero(Date.now() < quandoPromemoria, 'l\'ora è già passata');
+            const prima = posta().length;
+            await cronVero();
+            vero(!posta().slice(prima).some(m => m.tipo === 'promemoria-x' + idPromemoria), 'partito prima dell\'ora');
+        });
+        await prova('all\'ora giusta il lavoro programmato lo manda: una email a chi non è mai entrato, con il collegamento dell\'evento e «Password dimenticata?», mai la password', async () => {
+            while (Date.now() < quandoPromemoria + 500) await pausa(Math.min(5000, quandoPromemoria + 500 - Date.now()));
+            const prima = posta().length;
+            const giro = await cronVero();
+            const lettere = posta().slice(prima).filter(m => m.tipo === 'promemoria-x' + idPromemoria);
+            vero(lettere.length === 3 && MAI_ENTRATI.every(a => lettere.filter(m => aIndirizzo(m, a)).length === 1), 'a chi: ' + lettere.map(m => m.a).join(', ') + ' ' + JSON.stringify(giro).slice(0, 200));
+            vero(!lettere.some(m => GIA_ENTRATI.some(a => aIndirizzo(m, a))), 'arrivato anche a chi è già entrato');
+            letteraPromemoria = lettere.find(m => aIndirizzo(m, 'mario.rossi@altra.it'));
+            const m = letteraPromemoria;
+            vero(m.oggetto === 'Il link della diretta - ' + TITOLO, 'oggetto: ' + m.oggetto);
+            vero(/\nAccedi alla diretta: http:\/\/127\.0\.0\.1:\d+\/diretta\/\?e=napoli-2026\n/.test(m.testo) && /href="http:\/\/127\.0\.0\.1:\d+\/diretta\/\?e=napoli-2026"/.test(m.html), 'collegamento: ' + m.testo.slice(0, 600));
+            vero(/Ti aspettiamo in diretta\.\nSe non trovi la password, usa «Password dimenticata\?»\./.test(m.testo) && /La tua email: mario\.rossi@altra\.it/.test(m.testo), 'nota o email mancante');
+            vero(/Non trovi la password\? Usa «Password dimenticata\?» nella pagina di accesso: http:\/\/127\.0\.0\.1:\d+\/diretta\/\?dimenticata=1/.test(m.testo), '«Password dimenticata?» mancante');
+            const pw = Object.keys(credenziali).map(k => credenziali[k].password).filter(Boolean);
+            vero(lettere.every(x => !/Password:\s*\S/.test(x.testo) && !pw.some(p => (x.testo + x.html).indexOf(p) >= 0)), 'una password è finita nel promemoria');
+            await gestione.page.click('#btn-aggiorna-programmate');
+            await gestione.page.waitForFunction(id => {
+                const li = document.querySelector('#elenco-programmate > li[data-id="' + id + '"]');
+                return li && li.dataset.stato === 'partita' && /Partito: 3 email inviate/.test(li.textContent);
+            }, idPromemoria, { timeout: 15000 });
+            await gestione.page.locator('#elenco-programmate > li[data-id="' + idPromemoria + '"]').scrollIntoViewIfNeeded();
+            await foto(gestione.page, '10c-promemoria-partito-gestione');
+        });
+        await prova('l\'altro Mario non trova la password: dal promemoria, «Password dimenticata?», una nuova password, ed entra nella diretta', async () => {
+            const altro = await contesto({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+            try {
+                const accedi = linkDa(letteraPromemoria.testo, /http:\/\/127\.0\.0\.1:\d+\/diretta\/\?e=napoli-2026/);
+                await altro.page.goto(accedi);
+                await vista(altro.page, 'accesso');
+                vero(await nessunIframe(altro.page), 'senza accesso c\'è il player');
+                const dimenticata = linkDa(letteraPromemoria.testo, /http:\/\/127\.0\.0\.1:\d+\/diretta\/\?dimenticata=1/);
+                await altro.page.goto(dimenticata);
+                await vista(altro.page, 'dimenticata');
+                const prima = posta().length;
+                await altro.page.fill('#email-dimenticata', 'mario.rossi@altra.it');
+                await altro.page.click('#btn-invia-reset');
+                const m = await aspetta(() => posta().slice(prima).find(x => aIndirizzo(x, 'mario.rossi@altra.it') && /reimposta\.html/.test(x.testo || '')), 15000, 'email di reimpostazione');
+                const reset = linkDa(m.testo, /http:\/\/127\.0\.0\.1:\d+\/diretta\/reimposta\.html\?[^\s"<>]+/);
+                await altro.page.goto(reset);
+                await altro.page.waitForSelector('#form-reimposta:not([hidden])', { timeout: 20000 });
+                await altro.page.fill('#campo-nuova', 'AltroMario2026');
+                await altro.page.fill('#campo-ripeti', 'AltroMario2026');
+                await altro.page.click('#btn-salva-password');
+                await altro.page.waitForURL(/\/diretta\/(\?.*)?$/, { timeout: 30000 });
+                await vista(altro.page, 'diretta', 30000);
+                await iframeAzotoGiusto(altro.page, 'livetv92', 'l\'altro Mario dopo il promemoria');
+                await foto(altro.page, '10d-dal-promemoria-in-diretta-telefono');
+            } finally { await altro.context.close().catch(() => {}); }
         });
 
         /* ---------- 8. fine ed esportazione ---------- */

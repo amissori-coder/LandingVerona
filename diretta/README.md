@@ -92,7 +92,7 @@ riconciliazione del lavoro programmato, §7):
 | Funzione | Chi la chiama | Che cosa fa |
 |---|---|---|
 | `api/diretta-accesso` | pagina della diretta | accesso, blocco dei tentativi, password dimenticata, attivazione dei gestori |
-| `api/diretta-gestione` | pagina di gestione | eventi, caricamento, partecipanti, email, regia (anche «Torna alla fase iniziale», `lib/diretta-azzera.js`, §6.8), esportazione |
+| `api/diretta-gestione` | pagina di gestione | eventi, caricamento, partecipanti, email (anche le email programmate, `lib/diretta-programmate.js`, §6.9), regia (anche «Torna alla fase iniziale», `lib/diretta-azzera.js`, §6.8), esportazione |
 | `api/diretta-stato` | home e pagina di Napoli | "in onda sì/no", pubblico, con cache |
 | `api/diretta-cron` | Vercel, ogni 5 minuti | riconciliazione delle iscrizioni dal modulo del sito, coda delle email, promemoria, pulizie |
 | `api/diretta-ascolti` | Vercel, ogni minuto | la fotografia di chi guarda, per la scheda *Ascolti* (§6.7): per ogni evento in finestra, chi ha la pagina aperta in quel minuto |
@@ -255,6 +255,7 @@ Progetto Vercel di sempre (`revilaw-email`, cartella `email-service`) →
 | `DIRETTA_MAX_GIORNO` | `0` (nessun tetto) | tetto di email della diretta al giorno: impostalo se il piano Brevo ha un limite giornaliero (§4) |
 | `DIRETTA_AUTH_AL_SECONDO` | `8` | quante modifiche agli account Firebase al secondo (creazione, nuove password): tiene lontani i limiti di Google; non serve cambiarlo |
 | `DIRETTA_MODULO_PERCENTO` | `60` | la parte del tetto giornaliero (`DIRETTA_MAX_GIORNO`) che possono usare le password fatte partire dal modulo pubblico del sito: oltre, restano in coda e partono il giorno dopo; il resto è del gestore (credenziali, promemoria) e delle reimpostazioni (che si fermano all'80 %). Senza tetto giornaliero non conta (§4) |
+| `DIRETTA_PROMEMORIA_PERCENTO` | `70` | la parte del tetto giornaliero (`DIRETTA_MAX_GIORNO`) che possono usare i promemoria in più programmati dalla scheda *Email* (§6.9): chi non ci sta lo riceve il giorno dopo, se l'evento non è finito; il resto resta alle credenziali e a «Password dimenticata?». Senza tetto giornaliero non conta |
 | `DIRETTA_MODULO_RETE_ORA` | `10` | quante iscrizioni dal modulo del sito all'ora fanno partire la password da sole, contate quando la persona conferma il suo indirizzo, dalla stessa rete di chi clicca (stesso IP; per IPv6 la stessa /64): oltre, la password la mandi tu (§7) |
 | `DIRETTA_MODULO_ORA` | `60` | quante iscrizioni dal modulo del sito all'ora, in tutto, fanno partire la password da sole al clic sulla conferma (1440 al giorno al massimo): oltre, come sopra. `0` = nessuna password parte da sola. Vale anche per la riconciliazione, che oltre questo limite aspetta l'ora dopo (§7) |
 | `DIRETTA_RICONCILIA_ATTESA_MS` | `120000` | quanto aspetta la riconciliazione (§7) prima di rileggere una scheda del modulo appena arrivata: nel frattempo la sta lavorando il modulo. Non serve cambiarlo |
@@ -298,7 +299,10 @@ con mittente `noreply@nextgenerationbusiness.it` e firma Revilaw S.p.A.
 
 **Quante sono.** Per 1000 iscritti: 1000 credenziali, fino a 1000 promemoria
 del giorno prima e 1000 dell'ora prima, più reinvii e "password dimenticata":
-**circa 3.100 email in tre giorni**. Il piano gratuito di Brevo (300 al giorno)
+**circa 3.100 email in tre giorni**. Ogni **promemoria in più** programmato dalla
+scheda *Email* (§6.9) ne aggiunge fino a 1000, una per persona con le
+credenziali (con «Solo chi non è ancora mai entrato», di solito molte meno):
+con due promemoria in più, circa 5.100. Il piano gratuito di Brevo (300 al giorno)
 **non basta**. Con un piano a pagamento senza tetto giornaliero non serve fare
 niente; se invece c'è un tetto giornaliero, imposta `DIRETTA_MAX_GIORNO` un
 po' sotto quel tetto e manda le credenziali con qualche giorno di anticipo: la
@@ -325,6 +329,11 @@ l'account attivo, **mai con la password**: contengono il collegamento, l'email
 con cui si entra e "Non trovi la password? Usa «Password dimenticata?»". Ognuno parte una
 volta sola per persona; il giorno è scritto sull'ora vera ("domani alle 9.00",
 "oggi alle 9.00", con "(ora italiana)").
+
+**I promemoria in più** (§6.9) seguono le stesse regole: solo a chi ha le
+credenziali *inviata* prima dell'ora di partenza, account attivo, una volta
+per persona, mai la password. Con un tetto giornaliero usano al massimo il 70 %
+(`DIRETTA_PROMEMORIA_PERCENTO`): chi non ci sta lo riceve il giorno dopo.
 
 **Quando Brevo si ferma** (credito o tetto finiti, autenticazione, ritmo
 troppo alto) la coda **si ferma** e lo dice in gestione, senza segnare in
@@ -663,6 +672,8 @@ provano a mano, con Azoto che trasmette una prova:
    vedi lo stato: *da inviare*, *in coda*, *inviata*, *respinta*, *errore*,
    *incerto* (l'invio si è interrotto a metà: forse è partita; si reinvia solo a
    mano, dopo aver controllato). Nessuno riceve mai due volte la stessa email.
+   In fondo alla stessa scheda, **«Email programmate»** mostra tutto quello che
+   partirà da solo, e da lì programmi i promemoria in più (§6.9).
 
 ### 6.3 Il giorno prima
 
@@ -874,6 +885,75 @@ I limiti, voluti:
   azzeramento resta annotato in Firestore, nella raccolta `azzeramenti` (chi,
   quando, lo stato di prima, quanti documenti tolti), chiusa ai browser come
   tutto quello che le regole non aprono.
+
+### 6.9 Le email programmate (scheda *Email*)
+
+In fondo alla scheda *Email*, il riquadro **«Email programmate»** elenca **tutto
+quello che partirà da solo**, in ordine di ora (ora italiana):
+
+- le **credenziali ancora in coda** (partono a gruppi, ogni 5 minuti; ferme
+  fino al giorno dopo se si è raggiunto il tetto del giorno);
+- la **password a chi si iscrive dal modulo del sito**, se l'interruttore è
+  acceso (parte a ogni conferma dell'indirizzo);
+- i **promemoria automatici** del giorno prima e di un'ora prima (si accendono
+  e si spengono nella scheda *Evento*: il collegamento accanto porta alla
+  casella);
+- i **promemoria in più** che programmi tu.
+
+Per ciascuno: che cosa, quando, a chi e **quante persone oggi**, e a che punto
+è: *in programma*, *in corso*, *partito* (quante email inviate, quante non
+riuscite, l'ultimo giro), *annullato*, *fermato*, *non partirà* (con il
+motivo: evento terminato o finito, momento passato), *non attivo*. Per i
+promemoria in più anche chi l'ha programmato, modificato o annullato, e quando.
+Le email partono dal lavoro programmato ogni 5 minuti: **possono arrivare fino
+a 5 minuti dopo l'ora indicata**.
+
+**Programmare un promemoria in più** («Programma un promemoria»):
+
+1. **giorno e ora** (non nel passato, non dopo la fine dell'evento);
+2. **a chi**: «Tutti quelli che hanno ricevuto le credenziali» (la scelta di
+   base) oppure «Solo chi non è ancora mai entrato»; accanto, quante persone
+   oggi. Non lo ricevono mai: chi è «da confermare» o non ha ancora le
+   credenziali (non ha una password), chi ha l'account disattivato o è stato
+   tolto dall'evento, chi riceve le credenziali **dopo** l'ora di partenza;
+3. **oggetto e titolo**, già scritti («Promemoria: il link della diretta»,
+   «Come collegarti alla diretta»): cambiali se vuoi. Nell'email l'oggetto
+   diventa «Oggetto - nome dell'evento»;
+4. una **nota** facoltativa, in cima all'email: **solo testo**, al massimo 500
+   caratteri e 12 righe, **niente HTML e niente collegamenti scritti a mano**
+   (il servizio li rifiuta: il collegamento giusto c'è già, e un link scritto a
+   mano in un'email della diretta è proprio quello che un truffatore vorrebbe
+   imitare).
+
+Il resto dell'email è quello dei promemoria: evento, data e orario, l'email
+con cui si entra, il pulsante **«Accedi alla diretta»** con l'indirizzo per
+esteso, «Non trovi la password? Usa «Password dimenticata?»» con il
+collegamento, l'assistenza, la frase dello Spam. **Mai la password.**
+
+Prima di salvare: **«Anteprima»** (l'email come la riceve un partecipante, con
+un nome di esempio, qui nella pagina), **«Invia email di prova a me»** (con la
+scritta EMAIL DI PROVA: nessun partecipante la riceve) e la **conferma**, che
+dice l'ora, quante persone lo riceverebbero oggi e, se c'è un tetto
+giornaliero, avvisa quando in quel giorno non ci stanno tutte.
+
+**Modificare, annullare, fermare.** Finché non è partito: «Modifica» e
+«Annulla il promemoria» (con la conferma). Da quando il lavoro programmato
+comincia a mandarlo si può solo **«Ferma»**: chi l'ha già ricevuto l'ha
+ricevuto, gli altri no (il giro in corso si ferma al gruppo successivo). Al
+massimo 10 promemoria in programma per evento.
+
+**Come parte.** Dal lavoro programmato ogni 5 minuti, dall'ora scelta fino alla
+fine dell'evento, **una volta sola per persona** (anche con due giri insieme o
+un giro interrotto, come i promemoria automatici), dentro il tetto giornaliero
+e al massimo al 70 % di quello (`DIRETTA_PROMEMORIA_PERCENTO`, §3): lo spazio
+che resta è delle credenziali e di «Password dimenticata?»; chi non ci sta lo
+riceve il giorno dopo. Non parte a evento **terminato** o finito, né dopo
+«Annulla» o «Ferma».
+
+**Niente parte senza una tua scelta**: un promemoria in più esiste solo se lo
+programmi e lo confermi. Passa tutto dal servizio (solo i gestori); la raccolta
+`programmate` di Firestore è chiusa ai browser, anche al gestore; nei log solo
+numeri, mai indirizzi o testi.
 
 ## 7. L'email come accesso, doppioni, password
 
@@ -1119,6 +1199,11 @@ Promozioni e segna il mittente come sicuro."
   provasse a registrarsi da solo con l'email di un gestore non passa. Togliere
   un'email dall'elenco chiude la porta subito, e il lavoro programmato
   disattiva l'account.
+- **Promemoria in più** (§6.9): li programma solo un gestore, attraverso il
+  servizio; la raccolta `programmate` è chiusa ai browser (anche al gestore:
+  prova in `regole.prova.js`); la nota è solo testo (niente HTML né
+  collegamenti, lo controlla il servizio) e nella pagina e nell'email entra
+  sempre come testo; nei log solo numeri.
 - **Dati nelle pagine e nelle email**: nomi, aziende e titoli non diventano mai
   codice HTML (niente `innerHTML` con dati, escape nelle email, e una Content
   Security Policy sulle pagine della diretta).
@@ -1297,11 +1382,12 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-video.prove.js` | il video: il codice vero di Azoto (si prende solo l'indirizzo), codice malevolo (script, `onload`, `onerror`, `javascript:`, `data:`, iframe di altri siti, due iframe), solo `https://cdn.azotosolutions.com` (niente altri siti, sottodomini, porte, http); il flusso diretto HLS `.m3u8` (anche con token) e DASH `.mpd`; rifiutati con il motivo RTMP/RTSP/SRT, file video, link con credenziali, indirizzi interni, un `.m3u8` nel campo del player e viceversa; tipo di player e passaggio A↔B (`evento-player`), link principale e di riserva, sorgente scelta dalla regia, nessun link nel documento pubblico fuori onda; la copia del servizio è identica a quella del sito | 265 verdi, 0 rossi |
 | `email-service/prove/diretta-firma.prove.js` | i link firmati a tempo: nginx `secure_link` (con il vettore della documentazione di nginx) e Akamai EdgeAuth, durata, `validoSecondi`, acl non valide rifiutate, la chiave mai restituita | 64 verdi, 0 rossi |
 | `email-service/prove/diretta-prova-link.prove.js` | la prova del link: il player di Azoto (si può incorporare? non risponde? rimanda altrove?), un indirizzo che non è di Azoto rifiutato senza nemmeno provarlo; per il flusso diretto playlist HLS principale e di una qualità, diretta o registrazione, qualità, DVR, codec, CORS su playlist e segmento, DASH, pagine incorporabili o no (`X-Frame-Options`, `frame-ancestors`), indirizzi interni rifiutati anche dopo un redirect o con il DNS che cambia, tempi e dimensioni massime | 120 verdi, 0 rossi |
-| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova; **gli ascolti** (`ascolti`, `ascoltiCache`) e il registro di «Torna alla fase iniziale» (`azzeramenti`) chiusi a tutti i browser, anche al gestore; presenze e registro non si cancellano dal browser | 100 verdi, 0 rossi |
+| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova; **gli ascolti** (`ascolti`, `ascoltiCache`) e il registro di «Torna alla fase iniziale» (`azzeramenti`) chiusi a tutti i browser, anche al gestore; presenze e registro non si cancellano dal browser; **i promemoria programmati** (`programmate`) né letti né scritti dal browser, nemmeno dal gestore | 111 verdi, 0 rossi |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio; l'unico ponte (`lib/sito-iscrizioni.js`, per la riconciliazione) è in sola lettura: un'app con un nome suo, la sola raccolta `iscrizioni`, filtri solo su `ricevuto` ed `emailConfermata.quando`, nessuna scrittura, nessun account, e lo carica solo la riconciliazione | 20 verdi, 0 rossi |
 | `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse, correzioni: **zero account doppi, un account per email** | 89 verdi, 0 rossi |
 | `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player | 201 verdi, 0 rossi |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password; una sola password per persona (chi ha già le credenziali di un altro evento riceve «Sei iscritto anche a…»); il modulo del sito al massimo al 60 % del tetto giornaliero, le credenziali del gestore passano anche dietro un lotto tutto fermo | 164 verdi, 0 rossi |
+| `programmate.prova.js` | **le email programmate, lato servizio**, con gli emulatori e l'orologio spostato: i testi del gestore (obbligatori, lunghezze, 12 righe, niente HTML né collegamenti; nell'email la nota è testo), orari non validi, nel passato o dopo la fine, destinatari; chi lo riceve (credenziali «inviata» prima dell'ora, account attivo, ancora nell'evento; mai «da confermare», «da inviare», «respinta», «incerto»; «Solo chi non è ancora mai entrato»); modifica e annullamento con chi e quando, al massimo 10; il cron: niente prima dell'ora, **una email per persona anche con due giri insieme**, il collegamento dell'evento, «Password dimenticata?», mai la password; il tetto al 70 % con le credenziali che passano ancora; «in corso» si può solo fermare, e un giro in corso si ferma al lotto dopo; evento terminato o finito; anteprima e prova al gestore; le azioni della gestione (401, 403, 200, 400); nei log solo numeri | 88 verdi, 0 rossi |
 | `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`), **la conferma dell'indirizzo vera** (l'azione `conferma-email`, con la firma vera) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account subito, «da confermare», nessuna email; la password al clic sulla conferma), due clic insieme (una email), il clic che arriva prima dell'account (lo crea il clic), il clic a interruttore spento o a evento terminato (niente), «Invia le credenziali» che non li raggiunge e «Invia anche a loro» che sì, il gestore che corregge l'email di chi aspetta la conferma, iscrizione ripetuta (una sola password), email già con un account (evento aggiunto e «Sei iscritto anche a…», nessuna password nuova), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto (contati al clic); la conferma del sito per chi segue online (con il pulsante chiede prima il clic); su Vercel anche la pagina della conferma non aspetta l'invio; **la riconciliazione**: il servizio della diretta che fallisce durante l'iscrizione e durante il clic (la scheda del sito c'è, l'account no) e il giro del cron che crea l'account e manda la password **una volta** a chi aveva confermato, «da confermare» a chi no; il clic perso di chi aveva già l'account ritrovato dalla seconda passata (le schede confermate); la conferma d'ufficio (pregresso) che non manda niente; la scheda di prima dell'accensione che non parte nemmeno al clic; le schede di un altro evento, in sala o annullate lasciate stare, il limite orario (si aspetta l'ora dopo) e il 60 % del tetto, un secondo giro che non fa niente, la chiave del sito che manca o la lettura che fallisce; **l'annullamento dal sito**: account senza l'evento, credenziali non partite cancellate, riga «da verificare», con il token di prima le regole vere non fanno più leggere l'evento, il cron non manda niente e la riconciliazione non lo rimette dentro, chi ha un'altra scheda attiva resta, un altro posto dell'ordine esce, chi annulla prima di cliccare (credenziali «da confermare» cancellate, e il clic sulla scheda annullata non manda niente), la riattivazione con l'interruttore acceso («anche» subito se la scheda era confermata, altrimenti «da confermare» e la password al clic) e spento (solo la riga) | 172 verdi, 0 rossi |
 | `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, «Non sei ancora iscritto? Iscriviti qui.», «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano; l'iscrizione **annullata dal sito con la pagina aperta** (il servizio vero): la pagina dice «Non sei più iscritto a questa diretta», anche rientrando | 61 verdi, 0 rossi |
 | `ascolti.prova.js` | **gli ascolti, lato servizio**, con gli emulatori e l'orologio spostato a mano: una curva nota (attesa, in onda, pausa, rientri), un buco del cron di 2 minuti (i tratti continuano) e uno di 6 (la linea si interrompe, ma chi c'era prima e dopo resta: niente finti rientri), il cron doppio o in ritardo (niente doppioni), gli eventi fuori finestra (nessuna lettura oltre agli eventi); controlli **esatti** di picco (a parità il primo), minimo in onda (senza i primi e gli ultimi 5 minuti), media, cali, ascolto per voce del programma (ore di Roma), ingressi ogni 5 minuti, dispositivi per persona, persone e linee del tempo; la cache di 60 s (poi 10 minuti) compressa; 404 e 400; la funzione del cron con e senza `CRON_SECRET`; **1000 persone**: fotografia in 75-110 ms con 1003 letture, documento degli ascolti di 120-243 KB, risultato di 793 KB che in cache diventa 111 KB | 85 verdi, 0 rossi |
@@ -1534,7 +1620,8 @@ settembre: c'è tempo, ma non tanto).
    siano già `BREVO_API_KEY` e `CRON_SECRET`. Poi *Redeploy*. Da questo momento
    parte anche il lavoro programmato ogni 5 minuti.
 7. [x] **Brevo** (§4): verifica il piano (servono circa **3.100 email** nei
-   giorni prima dell'evento, oltre alle altre email dello studio: il piano
+   giorni prima dell'evento, più fino a 1000 per ogni promemoria in più che
+   programmi (§6.9), oltre alle altre email dello studio: il piano
    gratuito da 300 al giorno non basta; se il piano ha un tetto giornaliero
    imposta `DIRETTA_MAX_GIORNO`), SPF/DKIM/DMARC del dominio verificati, e
    le anteprime delle email transazionali conservate per il periodo più breve
@@ -1618,6 +1705,11 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     sezione 7 ("account disattivato", "password dimenticata"). In *Regia*,
     controlla che la riga dica **«Nessuna diretta ancora iniziata»**: se dice
     che restano i dati di una prova, «Torna alla fase iniziale» (§6.8).
+    - [ ] *Email* → **«Email programmate»**: guarda che cosa partirà da solo e
+      quando. Se vuoi ricordare il link un'altra volta (per esempio la mattina
+      del 2 ottobre a chi non è ancora entrato), **«Programma un promemoria»**
+      (§6.9): prima l'anteprima e la prova a te. Niente parte senza che tu lo
+      programmi e lo confermi.
 
 **Il 2 ottobre**: *Regia* → "Vai in onda" quando Azoto trasmette; "Pausa"
 a pranzo; "Termina" alla fine; poi *Esporta* per gli attestati. Dopo l'evento,

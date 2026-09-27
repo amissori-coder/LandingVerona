@@ -105,6 +105,9 @@
         // la scheda Email: l'ultima risposta di email-stato, il giro di invio
         // seguito da questa pagina e da che pulsante e' partita la coda
         posta: { conteggi: {}, coda: {}, ciclo: null, risposta: null, ultimoChi: '' },
+        // le email programmate (scheda Email): l'ultimo elenco del servizio, di che
+        // evento, e quale promemoria si sta modificando (null = uno nuovo)
+        programmate: { dati: null, di: '', modifica: null },
         anteprimaVideo: null,
         annullaProvaVideo: null,   // chiude la prova del video in corso, se c'e'
         // la prova di ogni campo dei link (ev-video, ev-riserva, regia-video,
@@ -761,6 +764,9 @@
             disegnaDaVerificare([]);
             caricaPartecipanti();
             aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
+            // le email programmate erano dell'evento di prima: via subito, il modulo si chiude
+            azzeraProgrammate();
+            if (stato.scheda === 'email') caricaProgrammate().catch(e => erroreGenerico(e, '#msg-programmate'));
             stato.fase = null;
             aggiornaFase();
             if (stato.scheda === 'regia') { avviaConnessi(); caricaFase(); }
@@ -899,7 +905,10 @@
         const anteprimaAperta = document.querySelector('.video-anteprima:not([hidden])');
         if (anteprimaAperta && !stato.annullaProvaVideo && !$('#scheda-' + nome).contains(anteprimaAperta)) chiudiAnteprimaVideo();
         mostraSchedaAttiva(TAB.find(t => t.dataset.scheda === nome));
-        if (nome === 'email') aggiornaStatoEmail().catch(e => erroreGenerico(e, '#msg-email'));
+        if (nome === 'email') {
+            aggiornaStatoEmail().catch(e => erroreGenerico(e, '#msg-email'));
+            caricaProgrammate().catch(e => erroreGenerico(e, '#msg-programmate'));
+        }
         if (nome === 'partecipanti' && stato.partecipantiDi !== stato.idEvento) caricaPartecipanti();
     }
 
@@ -4793,6 +4802,449 @@
         else testo = 'Invio seguito da questa pagina fermo: ' + dettagli + (ciclo.rimaste ? restano + ' (le manda il servizio ogni 5 minuti)' : '') + '.';
         if (ciclo.incerti) testo += ' Le email «incerte» potrebbero essere arrivate: non si rimandano da sole, guardale nella scheda Partecipanti.';
         box.querySelector('.avanzamento-testo').textContent = testo + (ciclo.nota ? ' ' + ciclo.nota : '');
+    }
+
+    /* ============================================================
+       EMAIL PROGRAMMATE (nella scheda Email)
+       ------------------------------------------------------------
+       L'elenco di tutto quello che partira' da solo (azione
+       'programmate' di api/diretta-gestione, lib/diretta-programmate.js
+       nel servizio): le credenziali ancora in coda, la password dopo la
+       conferma dell'indirizzo (se l'interruttore e' acceso), i due
+       promemoria automatici (si accendono nella scheda Evento) e i
+       promemoria in piu' del gestore, in ordine di ora. Per ciascuno:
+       che cosa, quando (ora di Roma), a chi e quante persone oggi, a che
+       punto e', chi l'ha programmato, modificato o annullato.
+       «Programma un promemoria»: giorno e ora, a chi, oggetto e titolo
+       gia' scritti (si cambiano), una nota facoltativa di solo testo.
+       Prima di salvare: l'anteprima nella pagina, la prova a se' stessi,
+       la conferma con il numero di persone e l'ora, e l'avviso se ne
+       servono piu' di quante ne restano nel tetto del giorno. Si modifica
+       e si annulla solo prima che parta; dopo si puo' solo fermare.
+       I testi del gestore entrano SEMPRE come testo (el, textContent):
+       mai come HTML, nemmeno nell'anteprima.
+       ============================================================ */
+    const OGGETTO_PROMEMORIA = 'Promemoria: il link della diretta';
+    const TITOLO_PROMEMORIA = 'Come collegarti alla diretta';
+    const MAX_NOTA_PROMEMORIA = 500;
+    // lo stato del servizio -> [la parola, la classe del colore]
+    const STATI_PROGRAMMATA = {
+        programmata: ['in programma', 'prog-programmata'],
+        'in-corso': ['in corso', 'prog-in-corso'],
+        attivo: ['attivo', 'prog-in-corso'],
+        partita: ['partito', 'prog-partita'],
+        partito: ['partito', 'prog-partita'],
+        annullata: ['annullato', 'prog-spento'],
+        fermata: ['fermato', 'prog-spento'],
+        spento: ['non attivo', 'prog-spento'],
+        'non-partira': ['non partirà', 'prog-non-partira'],
+        limite: ['fermo fino a domani', 'prog-non-partira']
+    };
+    const DESTINATARI_PROMEMORIA = { tutti: 'Tutti quelli che hanno ricevuto le credenziali', 'mai-entrati': 'Solo chi non è ancora mai entrato' };
+
+    // "giovedì 1 ottobre 2026 alle 9.00"
+    function quandoProgrammata(ms) { return dataEstesa(ms) + ' alle ' + oraLeggibile(ms); }
+    // un istante nei campi del modulo: giorno 'AAAA-MM-GG' e ora 'HH:MM', a Roma
+    function campiRoma(ms) {
+        const p = parti(FORMATO_DATA_ORA, ms);
+        return { data: p.year + '-' + p.month + '-' + p.day, ora: p.hour + ':' + p.minute };
+    }
+    /* Il giorno e l'ora scritti nel modulo (ora di Roma) -> millisecondi,
+       come C.istanteRoma del servizio: lo scarto di Roma si prende due
+       volte, per essere giusti anche a cavallo del cambio dell'ora. */
+    function scartoRoma(ms) {
+        const minuto = Math.floor(ms / 60000) * 60000;
+        const p = parti(FORMATO_DATA_ORA, minuto);
+        return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - minuto;
+    }
+    function istanteDaCampi(data, ora) {
+        const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(data || ''));
+        const o = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(ora || ''));
+        if (!d || !o) return NaN;
+        const u = Date.UTC(+d[1], +d[2] - 1, +d[3], +o[1], +o[2]);
+        return u - scartoRoma(u - scartoRoma(u));
+    }
+    function nonRiuscite(p) { return Number(p.respinte || 0) + Number(p.errori || 0); }
+
+    async function caricaProgrammate() {
+        const id = stato.idEvento;
+        if (!id || !stato.utente || stato.nuovo) return null;
+        const r = await chiama('programmate', { idEvento: id });
+        if (id !== stato.idEvento) return r;
+        stato.programmate.dati = r;
+        stato.programmate.di = id;
+        disegnaProgrammate();
+        return r;
+    }
+    function azzeraProgrammate() {
+        stato.programmate.dati = null;
+        stato.programmate.di = '';
+        chiudiFormPromemoria(false);
+        svuota($('#elenco-programmate'));
+        $('#tetto-programmate').textContent = '';
+        nascondiMsg('#msg-programmate');
+    }
+    $('#btn-aggiorna-programmate').addEventListener('click', () => conAttesa($('#btn-aggiorna-programmate'), async () => {
+        nascondiMsg('#msg-programmate');
+        try { await caricaProgrammate(); } catch (e) { erroreGenerico(e, '#msg-programmate'); }
+    }));
+
+    /* ---------- l'elenco ---------- */
+    // le voci in ordine di ora; quelle che partono "man mano" (coda, modulo) in cima
+    function vociProgrammate(r) {
+        const voci = [];
+        const inCoda = Number(r.coda && r.coda.inCoda) || 0;
+        if (inCoda) voci.push({ ordine: -2, genere: 'coda', inCoda: inCoda, limite: !!(r.coda && r.coda.limiteRaggiunto) });
+        if (r.iscrizioniAutomatiche) voci.push({ ordine: -1, genere: 'modulo' });
+        (r.automatici || []).forEach(a => voci.push({ ordine: Number.isFinite(a.da) ? a.da : Infinity, genere: 'automatico', a: a }));
+        (r.programmate || []).forEach(p => voci.push({ ordine: p.quando, genere: 'programmata', p: p }));
+        return voci.sort((x, y) => x.ordine - y.ordine);
+    }
+    function rigaVoce(etichetta, testo) {
+        return el('p', { classe: 'voce-riga' }, [el('span', { classe: 'etichetta-voce', testo: etichetta + ': ' }), testo]);
+    }
+    function chipStato(chiave) {
+        const s = STATI_PROGRAMMATA[chiave] || [chiave, 'prog-spento'];
+        return el('span', { classe: 'stato-prog ' + s[1], testo: s[0] });
+    }
+    function voceProgrammata(chiave, titolo, righe, azioni, dati) {
+        return el('li', { classe: 'voce-programmata', dati: Object.assign({ stato: chiave }, dati || {}) }, [
+            el('div', { classe: 'voce-testa' }, [el('span', { classe: 'voce-titolo', testo: titolo }), chipStato(chiave)])
+        ].concat(righe.filter(Boolean)).concat(azioni && azioni.length ? [el('div', { classe: 'voce-azioni' }, azioni)] : []));
+    }
+    // porta alla casella giusta della scheda Evento (i promemoria automatici e la password dal modulo si accendono li')
+    function vaiAllaScheda(idCampo) {
+        mostraScheda('evento');
+        const n = $(idCampo);
+        if (!n) return;
+        try { n.scrollIntoView({ block: 'center' }); } catch (_) { /* vecchi browser */ }
+        n.focus();
+    }
+    function collegamentoEvento(testo, idCampo) {
+        const b = el('button', { type: 'button', classe: 'btn-collegamento', testo: testo });
+        b.addEventListener('click', () => vaiAllaScheda(idCampo));
+        return b;
+    }
+
+    function voceAutomatica(a) {
+        const giorno = a.tipo === 'giorno';
+        const titolo = giorno ? 'Promemoria del giorno prima (automatico)' : 'Promemoria di un\'ora prima (automatico)';
+        const righe = [];
+        if (Number.isFinite(a.da)) righe.push(rigaVoce(a.stato === 'spento' ? 'Partirebbe' : 'Quando', quandoProgrammata(a.da)));
+        const aperto = a.stato === 'programmata' || a.stato === 'in-corso';
+        righe.push(rigaVoce('A chi', DESTINATARI_PROMEMORIA.tutti + (aperto ? ' · oggi lo riceverebbero ' + conNumero(a.persone, 'persona', 'persone') : '')));
+        let dettaglio = '';
+        if (a.stato === 'spento') dettaglio = 'Non attivo: non parte.';
+        else if (a.stato === 'partito') dettaglio = 'Partito: ' + conNumero(a.inviate, 'email inviata', 'email inviate') + (a.ultimoGiro ? ' (ultimo giro ' + dataOra(a.ultimoGiro) + ')' : '') + '.';
+        else if (a.stato === 'in-corso') dettaglio = a.inviate ? 'In corso: ' + conNumero(a.inviate, 'email inviata', 'email inviate') + ', ne mancano ' + a.persone + '.' : 'Parte al prossimo giro (entro 5 minuti).';
+        else if (a.stato === 'non-partira') dettaglio = 'Non partirà: ' + a.motivo + '.';
+        if (dettaglio) righe.push(el('p', { classe: 'voce-riga voce-dettaglio', testo: dettaglio }));
+        const azioni = [collegamentoEvento(a.attivo ? 'Si spegne nella scheda Evento' : 'Si accende nella scheda Evento', giorno ? '#ev-promemoria-giorno' : '#ev-promemoria-ora')];
+        return voceProgrammata(a.stato, titolo, righe, azioni, { genere: 'automatico', tipo: a.tipo });
+    }
+    function voceCoda(v) {
+        return voceProgrammata(v.limite ? 'limite' : 'in-corso', 'Credenziali (email e password) ancora in coda', [
+            rigaVoce('Quando', v.limite ? 'domani, da sole: il limite di oggi è raggiunto' : 'adesso, a gruppi: il lavoro programmato le manda ogni 5 minuti'),
+            rigaVoce('A chi', conNumero(v.inCoda, 'persona in coda', 'persone in coda')),
+            el('p', { classe: 'voce-riga voce-dettaglio', testo: 'L\'avanzamento si segue nel riquadro «Email con le credenziali», in alto.' })
+        ], null, { genere: 'coda' });
+    }
+    function voceModulo() {
+        return voceProgrammata('attivo', 'Password a chi si iscrive dal modulo del sito', [
+            rigaVoce('Quando', 'appena la persona conferma il suo indirizzo, dalla mail del sito'),
+            rigaVoce('A chi', 'chi si iscrive dalla pagina dell\'evento e conferma l\'indirizzo')
+        ], [collegamentoEvento('Si spegne nella scheda Evento', '#ev-iscrizioni-auto')], { genere: 'modulo' });
+    }
+    function registroProgrammata(p) {
+        const parti = [];
+        if (p.creatoDa) parti.push('Programmato da ' + p.creatoDa + (p.creatoIl ? ' il ' + dataOra(p.creatoIl) : ''));
+        if (p.modifiche) {
+            parti.push('modificato ' + (p.modifiche === 1 ? 'una volta' : p.modifiche + ' volte')
+                + (p.modificatoDa ? ', l\'ultima da ' + p.modificatoDa + (p.modificatoIl ? ' il ' + dataOra(p.modificatoIl) : '') : ''));
+        }
+        if (p.annullatoDa) parti.push((p.stato === 'fermata' ? 'fermato' : 'annullato') + ' da ' + p.annullatoDa + (p.annullatoIl ? ' il ' + dataOra(p.annullatoIl) : ''));
+        return parti.length ? el('p', { classe: 'voce-registro', testo: parti.join('; ') + '.' }) : null;
+    }
+    function voceDelGestore(p) {
+        const righe = [rigaVoce('Quando', quandoProgrammata(p.quando))];
+        const aperto = p.stato === 'programmata' || p.stato === 'in-corso';
+        const quanti = p.persone != null && aperto
+            ? (p.stato === 'in-corso' && p.cominciato ? ' · ne mancano ' + p.persone : ' · oggi lo riceverebbero ' + conNumero(p.persone, 'persona', 'persone'))
+            : '';
+        righe.push(rigaVoce('A chi', (DESTINATARI_PROMEMORIA[p.destinatari] || p.destinatari) + quanti));
+        const ko = nonRiuscite(p);
+        const conti = conNumero(p.inviate, 'email inviata', 'email inviate') + (ko ? ', ' + conNumero(ko, 'non riuscita', 'non riuscite') : '')
+            + (p.incerti ? ', ' + conNumero(p.incerti, 'incerta', 'incerte') : '');
+        let dettaglio = '';
+        if (p.stato === 'partita') dettaglio = 'Partito: ' + conti + (p.ultimoGiro ? ' (ultimo giro ' + dataOra(p.ultimoGiro) + ')' : '') + '.';
+        else if (p.stato === 'in-corso') dettaglio = p.cominciato ? 'In corso: ' + conti + (p.ultimoGiro ? ' (ultimo giro ' + dataOra(p.ultimoGiro) + ')' : '') + '.' : 'Parte al prossimo giro (entro 5 minuti).';
+        else if (p.stato === 'annullata') dettaglio = 'Annullato prima di partire: nessuna email.';
+        else if (p.stato === 'fermata') dettaglio = 'Fermato: ' + conti + ' prima dello stop; gli altri non lo ricevono.';
+        else if (p.stato === 'non-partira') dettaglio = 'Non partirà: ' + p.motivo + (p.inviate ? ' (' + conti + ' prima)' : '') + '.';
+        if (dettaglio) righe.push(el('p', { classe: 'voce-riga voce-dettaglio', testo: dettaglio }));
+        // il testo del gestore, da aprire: sempre come testo
+        const testi = el('details', { classe: 'voce-testi' }, [
+            el('summary', { testo: 'Titolo e nota' }),
+            el('p', { classe: 'voce-riga' }, [el('span', { classe: 'etichetta-voce', testo: 'Titolo: ' }), p.titolo]),
+            p.nota ? el('p', { classe: 'voce-nota', testo: p.nota }) : el('p', { classe: 'voce-riga aiuto', testo: 'Senza nota.' })
+        ]);
+        righe.push(testi);
+        righe.push(registroProgrammata(p));
+        const azioni = [];
+        if (p.modificabile) {
+            const bM = el('button', { type: 'button', classe: 'btn btn-secondario btn-mini', testo: 'Modifica' });
+            bM.addEventListener('click', () => apriFormPromemoria(p));
+            const bA = el('button', { type: 'button', classe: 'btn btn-secondario btn-mini', testo: 'Annulla il promemoria' });
+            bA.addEventListener('click', () => annullaProgrammata(p, false, bA));
+            azioni.push(bM, bA);
+        } else if (p.fermabile) {
+            const bF = el('button', { type: 'button', classe: 'btn btn-pericolo btn-mini', testo: 'Ferma' });
+            bF.addEventListener('click', () => annullaProgrammata(p, true, bF));
+            azioni.push(bF);
+        }
+        return voceProgrammata(p.stato, 'Promemoria in più: «' + p.oggetto + '»', righe, azioni, { genere: 'programmata', id: p.id });
+    }
+    function disegnaProgrammate() {
+        const r = stato.programmate.dati;
+        const ol = $('#elenco-programmate');
+        svuota(ol);
+        if (!r) return;
+        vociProgrammate(r).forEach(v => {
+            if (v.genere === 'coda') ol.appendChild(voceCoda(v));
+            else if (v.genere === 'modulo') ol.appendChild(voceModulo());
+            else if (v.genere === 'automatico') ol.appendChild(voceAutomatica(v.a));
+            else ol.appendChild(voceDelGestore(v.p));
+        });
+        const tetto = $('#tetto-programmate');
+        tetto.textContent = r.tettoGiorno
+            ? 'Tetto del giorno (DIRETTA_MAX_GIORNO): ' + r.tettoGiorno.toLocaleString('it-IT') + ' email; oggi ne sono partite '
+                + Number(r.inviateOggi || 0).toLocaleString('it-IT') + '. I promemoria in più usano al massimo il ' + r.percentoProgrammate
+                + '% del tetto: il resto resta alle credenziali e a «Password dimenticata?». Quelli che non ci stanno partono il giorno dopo, se l\'evento non è finito.'
+            : '';
+        disegnaContiDestinatari();
+    }
+
+    /* ---------- il modulo ---------- */
+    function disegnaContiDestinatari() {
+        const r = stato.programmate.dati;
+        $('#prom-conta-tutti').textContent = r ? 'Oggi: ' + conNumero(Number(r.personeTutti || 0), 'persona', 'persone') + '.' : '';
+        $('#prom-conta-mai').textContent = r ? 'Oggi: ' + conNumero(Number(r.personeMaiEntrati || 0), 'persona', 'persone') + '.' : '';
+    }
+    function contaNota() {
+        const n = $('#prom-nota').value.length;
+        $('#prom-nota-conta').textContent = n + ' di ' + MAX_NOTA_PROMEMORIA + ' caratteri';
+    }
+    $('#prom-nota').addEventListener('input', contaNota);
+    // il giorno si sceglie da oggi alla fine dell'evento (a Roma)
+    function limitiGiorno() {
+        const ev = stato.evento || {};
+        $('#prom-data').min = campiRoma(Date.now()).data;
+        if (ev.fine) $('#prom-data').max = campiRoma(ev.fine - 1).data; else $('#prom-data').removeAttribute('max');
+    }
+    function chiudiAnteprimaPromemoria() {
+        $('#anteprima-promemoria').hidden = true;
+        $('#anteprima-promemoria-oggetto').textContent = '';
+        $('#anteprima-promemoria-testo').textContent = '';
+    }
+    function apriFormPromemoria(p) {
+        const f = $('#form-promemoria');
+        stato.programmate.modifica = p ? p.id : null;
+        $('#titolo-form-promemoria').textContent = p ? 'Modifica il promemoria' : 'Programma un promemoria';
+        $('#btn-salva-promemoria').textContent = p ? 'Salva le modifiche' : 'Programma';
+        const c = p ? campiRoma(p.quando) : { data: '', ora: '' };
+        $('#prom-data').value = c.data;
+        $('#prom-ora').value = c.ora;
+        limitiGiorno();
+        (p && p.destinatari === 'mai-entrati' ? $('#prom-dest-mai') : $('#prom-dest-tutti')).checked = true;
+        $('#prom-oggetto').value = p ? p.oggetto : OGGETTO_PROMEMORIA;
+        $('#prom-titolo').value = p ? p.titolo : TITOLO_PROMEMORIA;
+        $('#prom-nota').value = p ? p.nota : '';
+        contaNota();
+        f.querySelectorAll('[aria-invalid]').forEach(n => n.removeAttribute('aria-invalid'));
+        nascondiMsg('#msg-form-promemoria');
+        nascondiMsg('#msg-prova-promemoria');
+        chiudiAnteprimaPromemoria();
+        disegnaContiDestinatari();
+        f.hidden = false;
+        $('#btn-nuovo-promemoria').setAttribute('aria-expanded', 'true');
+        try { f.scrollIntoView({ block: 'start' }); } catch (_) { /* vecchi browser */ }
+        $('#prom-data').focus();
+    }
+    function chiudiFormPromemoria(fuoco) {
+        const f = $('#form-promemoria');
+        const eraAperto = !f.hidden;
+        f.hidden = true;
+        stato.programmate.modifica = null;
+        chiudiAnteprimaPromemoria();
+        $('#btn-nuovo-promemoria').setAttribute('aria-expanded', 'false');
+        if (eraAperto && fuoco !== false) $('#btn-nuovo-promemoria').focus();
+    }
+    $('#btn-nuovo-promemoria').addEventListener('click', () => {
+        nascondiMsg('#msg-programmate');
+        if (!$('#form-promemoria').hidden && !stato.programmate.modifica) { chiudiFormPromemoria(); return; }
+        apriFormPromemoria(null);
+    });
+    $('#btn-chiudi-promemoria').addEventListener('click', () => chiudiFormPromemoria());
+
+    /* I campi del modulo. `completi`: per programmare servono giorno e ora
+       (per l'anteprima e la prova no). Qui solo i controlli ovvi: le regole
+       vere (orario, lunghezze, niente HTML ne' collegamenti) le fa il
+       servizio, e il suo messaggio si mostra sotto il modulo. */
+    function leggiFormPromemoria(completi) {
+        const f = $('#form-promemoria');
+        f.querySelectorAll('[aria-invalid]').forEach(n => n.removeAttribute('aria-invalid'));
+        const d = {
+            data: $('#prom-data').value, ora: $('#prom-ora').value,
+            destinatari: $('#prom-dest-mai').checked ? 'mai-entrati' : 'tutti',
+            oggetto: $('#prom-oggetto').value.trim(), titolo: $('#prom-titolo').value.trim(), nota: $('#prom-nota').value
+        };
+        const manca = [];
+        if (completi && !d.data) manca.push(['#prom-data', 'il giorno']);
+        if (completi && !d.ora) manca.push(['#prom-ora', 'l\'ora']);
+        if (!d.oggetto) manca.push(['#prom-oggetto', 'l\'oggetto']);
+        if (!d.titolo) manca.push(['#prom-titolo', 'il titolo']);
+        if (manca.length) {
+            manca.forEach(m => $(m[0]).setAttribute('aria-invalid', 'true'));
+            mostraMsg('#msg-form-promemoria', 'Manca ' + manca.map(m => m[1]).join(', ') + '.', 'errore');
+            $(manca[0][0]).focus();
+            return null;
+        }
+        if (d.nota.length > MAX_NOTA_PROMEMORIA) {
+            $('#prom-nota').setAttribute('aria-invalid', 'true');
+            mostraMsg('#msg-form-promemoria', 'La nota è troppo lunga (al massimo ' + MAX_NOTA_PROMEMORIA + ' caratteri).', 'errore');
+            $('#prom-nota').focus();
+            return null;
+        }
+        nascondiMsg('#msg-form-promemoria');
+        return d;
+    }
+    // l'errore del servizio sul campo giusto
+    const CAMPI_ERRORE = { quando: '#prom-ora', oggetto: '#prom-oggetto', titolo: '#prom-titolo', nota: '#prom-nota', destinatari: '#prom-dest-tutti' };
+    function erroreFormPromemoria(e) {
+        if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return; }
+        mostraMsg('#msg-form-promemoria', (e && e.msg) || 'Qualcosa non ha funzionato: riprova.', 'errore');
+        const sel = e && CAMPI_ERRORE[e.codice];
+        if (sel) {
+            if (e.codice === 'quando') $('#prom-data').setAttribute('aria-invalid', 'true');
+            $(sel).setAttribute('aria-invalid', 'true');
+            $(sel).focus();
+        }
+        // gia' partito, annullato da un altro gestore, troppi: l'elenco si rilegge
+        if (e && e.stato === 409) caricaProgrammate().catch(() => { /* resta quello di prima */ });
+    }
+
+    $('#btn-anteprima-promemoria').addEventListener('click', () => conAttesa($('#btn-anteprima-promemoria'), async () => {
+        const d = leggiFormPromemoria(false);
+        if (!d) return;
+        try {
+            const r = await chiama('programmata-anteprima', Object.assign({ idEvento: stato.idEvento }, d));
+            $('#anteprima-promemoria-oggetto').textContent = r.oggetto || '';
+            $('#anteprima-promemoria-testo').textContent = r.testo || '';
+            $('#anteprima-promemoria').hidden = false;
+            try { $('#anteprima-promemoria').scrollIntoView({ block: 'nearest' }); } catch (_) { /* vecchi browser */ }
+        } catch (e) { chiudiAnteprimaPromemoria(); erroreFormPromemoria(e); }
+    }));
+    $('#btn-prova-promemoria').addEventListener('click', () => conAttesa($('#btn-prova-promemoria'), async () => {
+        const d = leggiFormPromemoria(false);
+        if (!d) return;
+        mostraMsg('#msg-prova-promemoria', 'Invio della prova…', 'info');
+        try {
+            await chiama('programmata-prova', Object.assign({ idEvento: stato.idEvento }, d));
+            mostraMsg('#msg-prova-promemoria', 'Email di prova inviata a ' + stato.emailGestore + ', con la scritta EMAIL DI PROVA. Nessun partecipante la riceve. '
+                + 'Controlla la casella (anche nelle cartelle Spam e Promozioni).', 'ok');
+        } catch (e) { nascondiMsg('#msg-prova-promemoria'); erroreFormPromemoria(e); }
+    }));
+
+    /* Il tetto del giorno: se servono piu' email di quante ne restano ai
+       promemoria programmati quel giorno, lo si dice nella conferma. */
+    function avvisoTetto(n, data) {
+        const r = stato.programmate.dati;
+        if (!r || !r.tettoGiorno || !n) return '';
+        const quota = Math.floor(r.tettoGiorno * (Number(r.percentoProgrammate) || 70) / 100);
+        const oggi = data === campiRoma(Date.now()).data;
+        const resta = Math.max(0, quota - (oggi ? Number(r.inviateOggi || 0) : 0));
+        if (n <= resta) return '';
+        return 'Attenzione: ' + (oggi ? 'oggi restano' : 'in un giorno ci stanno') + ' al massimo ' + conNumero(resta, 'email', 'email')
+            + ' per i promemoria programmati (il ' + r.percentoProgrammate + '% del tetto giornaliero di ' + r.tettoGiorno.toLocaleString('it-IT')
+            + '): ' + conNumero(n - resta, 'persona lo riceverà', 'persone lo riceveranno') + ' il giorno dopo, se l\'evento non è finito.';
+    }
+
+    $('#form-promemoria').addEventListener('submit', e => {
+        e.preventDefault();
+        salvaPromemoria();
+    });
+    function salvaPromemoria() {
+        return conAttesa($('#btn-salva-promemoria'), async () => {
+            const d = leggiFormPromemoria(true);
+            if (!d) return;
+            // prima della conferma, i due errori di orario piu' comuni (li ricontrolla il servizio)
+            const quando = istanteDaCampi(d.data, d.ora);
+            const ev0 = stato.evento || {};
+            let erroreOra = '';
+            if (!Number.isFinite(quando)) erroreOra = 'Scegli il giorno e l\'ora di partenza.';
+            else if (quando < Date.now() - 60000) erroreOra = 'L\'ora di partenza è già passata: scegline una da adesso in poi.';
+            else if (ev0.fine && quando >= ev0.fine) erroreOra = 'L\'ora di partenza è dopo la fine dell\'evento (' + quandoProgrammata(ev0.fine) + ').';
+            if (erroreOra) {
+                $('#prom-data').setAttribute('aria-invalid', 'true');
+                $('#prom-ora').setAttribute('aria-invalid', 'true');
+                mostraMsg('#msg-form-promemoria', erroreOra, 'errore');
+                $('#prom-ora').focus();
+                return;
+            }
+            const id = stato.programmate.modifica;
+            let r = stato.programmate.dati;
+            try { r = await caricaProgrammate() || r; } catch (_) { /* si usa l'ultimo elenco */ }
+            const n = r ? Number(d.destinatari === 'mai-entrati' ? r.personeMaiEntrati : r.personeTutti) || 0 : null;
+            const ev = stato.evento || {};
+            const avv = avvisoTetto(n, d.data);
+            const ok = await conferma({
+                titolo: id ? 'Salvare le modifiche al promemoria?' : 'Programmare il promemoria?',
+                testo: 'Partirà da solo ' + quandoProgrammata(quando) + ' (ora italiana), entro 5 minuti da quell\'ora'
+                    + (n == null ? '.' : ': oggi lo riceverebbero ' + conNumero(n, 'persona', 'persone') + '.')
+                    + ' Chi riceve le credenziali prima di quell\'ora lo riceve anche lui.',
+                dettagli: [
+                    'Oggetto: «' + d.oggetto + (ev.titolo ? ' - ' + ev.titolo : '') + '»',
+                    'A chi: ' + DESTINATARI_PROMEMORIA[d.destinatari],
+                    d.nota.trim() ? 'Con la tua nota (' + conNumero(d.nota.trim().length, 'carattere', 'caratteri') + ')' : 'Senza nota',
+                    'Senza password: chi non la trova usa «Password dimenticata?».',
+                    avv
+                ],
+                ok: id ? 'Salva le modifiche' : 'Programma'
+            });
+            if (!ok) return;
+            try {
+                const s = await chiama('programmata-salva', Object.assign({ idEvento: stato.idEvento }, id ? { id: id } : {}, d));
+                chiudiFormPromemoria();
+                await caricaProgrammate().catch(() => { /* il messaggio qui sotto basta */ });
+                mostraMsg('#msg-programmate', (id ? 'Modifiche salvate' : 'Promemoria programmato') + ': partirà ' + quandoProgrammata(s.programmata.quando)
+                    + ' (oggi lo riceverebbero ' + conNumero(Number(s.persone || 0), 'persona', 'persone') + ').', 'ok');
+            } catch (e) { erroreFormPromemoria(e); }
+        });
+    }
+
+    async function annullaProgrammata(p, ferma, bottone) {
+        const ok = await conferma({
+            titolo: ferma ? 'Fermare il promemoria?' : 'Annullare il promemoria?',
+            testo: ferma
+                ? 'Chi l\'ha già ricevuto l\'ha ricevuto (' + conNumero(Number(p.inviate || 0), 'email inviata', 'email inviate') + '); gli altri non lo riceveranno. Non si può riprendere.'
+                : 'Non partirà nessuna email. Resta nell\'elenco come «annullato», con chi l\'ha annullato e quando.',
+            dettagli: ['«' + p.oggetto + '», ' + quandoProgrammata(p.quando)],
+            ok: ferma ? 'Ferma il promemoria' : 'Annulla il promemoria',
+            annulla: 'Non fare niente',
+            pericolo: true
+        });
+        if (!ok) return;
+        await conAttesa(bottone, async () => {
+            try {
+                await chiama('programmata-annulla', { idEvento: stato.idEvento, id: p.id });
+                if (stato.programmate.modifica === p.id) chiudiFormPromemoria(false);
+                await caricaProgrammate().catch(() => { /* il messaggio qui sotto basta */ });
+                mostraMsg('#msg-programmate', ferma ? 'Promemoria fermato: gli altri non lo riceveranno.' : 'Promemoria annullato: non partirà.', 'ok');
+            } catch (e) {
+                erroreGenerico(e, '#msg-programmate');
+                caricaProgrammate().catch(() => { /* resta quello di prima */ });
+            }
+        });
     }
 
     /* ============================================================

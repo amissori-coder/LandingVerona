@@ -159,7 +159,15 @@
    prova con il link firmato, la firma tolta); email di prova, invio a
    tutti fermato da Brevo, «Riprova adesso», tetto del giorno, giro
    automatico che lavora insieme alla pagina, reinvio a chi non l'ha
-   ricevuta, esiti senza BREVO_API_KEY; esportazione in Excel con due
+   ricevuta, esiti senza BREVO_API_KEY; LE EMAIL PROGRAMMATE (l'elenco di
+   quello che partira' da solo, il collegamento alla casella della scheda
+   Evento, «Programma un promemoria» con oggetto e titolo gia' scritti,
+   quante persone per ciascuna scelta, gli errori di orario prima della
+   conferma, HTML e collegamenti nella nota rifiutati dal servizio,
+   l'anteprima come testo, la prova al gestore, la conferma con l'ora e il
+   numero, modifica, annullamento, un promemoria che parte davvero con il
+   cron, uno a meta' che si puo' solo fermare, il telefono senza
+   scorrimento di lato); esportazione in Excel con due
    fogli; la testata compatta sul telefono (390 e 360 px). Il file di
    esempio usa solo indirizzi su domini riservati (example.com,
    .example, .invalid).
@@ -2283,6 +2291,191 @@ async function sheetJSNode() {
         await $('#btn-aggiorna-email').click();
         await aspetta(async () => !(await visibile('#blocco-da-confermare')), 10000, 'riquadro sparito');
         vero(true, 'raggiunte tutte: il riquadro «non hanno ancora confermato» sparisce');
+
+        /* ---------- 9c. le email programmate ----------
+           La sezione «Email programmate» della scheda Email, con il servizio
+           vero: l'elenco di tutto quello che partira' da solo, e un promemoria
+           in piu' programmato dal gestore (anteprima nella pagina, prova a se',
+           conferma con il numero e l'ora, modifica, annullamento). Poi un
+           promemoria che parte davvero con il cron (la sua ora spostata indietro
+           con firebase-admin, come se il tempo fosse passato) e uno fermato a
+           meta' (il segno «cominciato» scritto come lo lascia il cron). */
+        console.log('\n-- email programmate');
+        await page.click('[data-scheda="email"]');
+        await aspetta(async () => (await $('#elenco-programmate > li').count()) >= 2, 10000, 'elenco delle programmate');
+        const vociP = () => page.evaluate(() => Array.from(document.querySelectorAll('#elenco-programmate > li')).map(li => ({
+            genere: li.dataset.genere, stato: li.dataset.stato, tipo: li.dataset.tipo || '', id: li.dataset.id || '', testo: li.textContent.replace(/\s+/g, ' ').trim()
+        })));
+        let vp = await vociP();
+        vero(vp.some(v => v.genere === 'automatico' && v.tipo === 'giorno' && v.stato === 'partito' && /Partito: 35 email inviate/.test(v.testo) && /giovedì 1 ottobre 2026 alle 9\.00/.test(v.testo))
+            && vp.some(v => v.genere === 'automatico' && v.tipo === 'ora' && v.stato === 'spento' && /Non attivo: non parte/.test(v.testo)),
+            'l\'elenco: il promemoria del giorno prima «partito» (35 email, dal 1 ottobre alle 9.00), quello di un\'ora prima «non attivo»', JSON.stringify(vp.map(v => [v.genere, v.tipo, v.stato])));
+        vero(/possono arrivare fino a 5 minuti dopo l'ora indicata/.test(await testo('.nota-cinque-minuti')), 'la nota: le email partono dal lavoro programmato ogni 5 minuti');
+        // «Si accende nella scheda Evento» porta alla casella giusta
+        await $('#elenco-programmate > li[data-tipo="ora"] .btn-collegamento').click();
+        await aspetta(async () => await page.evaluate(() => document.activeElement && document.activeElement.id) === 'ev-promemoria-ora', 5000, 'casella dell\'ora prima');
+        vero(await $('#tab-evento').getAttribute('aria-selected') === 'true', 'i promemoria automatici si accendono nella scheda Evento: il collegamento porta alla casella');
+        await page.click('[data-scheda="email"]');
+        const elencoP = await api('diretta-gestione', { azione: 'programmate', idEvento: ID }, tokGestore);
+        const nTutti = elencoP.dati.personeTutti, nMai = elencoP.dati.personeMaiEntrati;
+        vero(elencoP.stato === 200 && nTutti > 0 && nMai > 0 && nMai < nTutti, 'il servizio: lo riceverebbero ' + nTutti + ' persone, ' + nMai + ' fra chi non è mai entrato');
+
+        await $('#btn-nuovo-promemoria').click();
+        await $('#form-promemoria').waitFor({ state: 'visible' });
+        vero(await $('#prom-oggetto').inputValue() === 'Promemoria: il link della diretta' && await $('#prom-titolo').inputValue() === 'Come collegarti alla diretta'
+            && await $('#prom-dest-tutti').isChecked() && await $('#prom-data').inputValue() === '' && await $('#btn-nuovo-promemoria').getAttribute('aria-expanded') === 'true',
+            'il modulo: oggetto e titolo già scritti, «tutti» scelto, il giorno e l\'ora da scegliere');
+        vero(await testo('#prom-conta-tutti') === 'Oggi: ' + nTutti + ' persone.' && await testo('#prom-conta-mai') === 'Oggi: ' + nMai + ' persone.',
+            'accanto a ciascuna scelta, quante persone oggi: ' + await testo('#prom-conta-tutti') + ' / ' + await testo('#prom-conta-mai'));
+        const salvaPrimaP = chiamate('programmata-salva').length;
+        await $('#btn-salva-promemoria').click();
+        await aspetta(async () => /^Manca il giorno, l'ora\.$/.test(await testo('#msg-form-promemoria')), 5000, 'manca il giorno');
+        vero(await $('#prom-data').getAttribute('aria-invalid') === 'true' && !(await $('#dialogo-conferma').isVisible()), 'senza giorno e ora: «Manca il giorno, l\'ora.», nessuna conferma');
+        await $('#prom-data').fill('2026-09-01');
+        await $('#prom-ora').fill('10:00');
+        await $('#btn-salva-promemoria').click();
+        await aspetta(async () => /già passata/.test(await testo('#msg-form-promemoria')), 5000, 'ora passata');
+        await $('#prom-data').fill('2026-10-02');
+        await $('#prom-ora').fill('18:00');
+        await $('#btn-salva-promemoria').click();
+        await aspetta(async () => /dopo la fine dell'evento \(venerdì 2 ottobre 2026 alle 17\.30\)/.test(await testo('#msg-form-promemoria')), 5000, 'dopo la fine');
+        vero(chiamate('programmata-salva').length === salvaPrimaP && !(await $('#dialogo-conferma').isVisible()), 'ora passata e ora dopo la fine dell\'evento: lo dice subito, senza conferma e senza chiamare il servizio');
+        // il servizio rifiuta l'HTML e i collegamenti scritti a mano (anche per l'anteprima)
+        await $('#prom-data').fill('2026-09-30');
+        await $('#prom-ora').fill('18:00');
+        await $('#prom-nota').fill('Ciao <b>a tutti</b>');
+        await $('#btn-anteprima-promemoria').click();
+        await aspetta(async () => /niente HTML/.test(await testo('#msg-form-promemoria')), 10000, 'HTML rifiutato');
+        vero(await $('#prom-nota').getAttribute('aria-invalid') === 'true' && await $('#anteprima-promemoria').isHidden(), 'HTML nella nota: il servizio lo rifiuta, la nota è segnata, niente anteprima');
+        await $('#prom-nota').fill('Entrate da https://truffa.example/diretta');
+        await $('#btn-anteprima-promemoria').click();
+        await aspetta(async () => /niente collegamenti scritti a mano/.test(await testo('#msg-form-promemoria')), 10000, 'collegamento rifiutato');
+        vero(true, 'un collegamento scritto a mano nella nota: rifiutato');
+        const NOTA_P = 'Ciao a tutti & benvenuti "ospiti".\nPortate le vostre domande!';
+        await $('#prom-oggetto').fill('Il link per venerdì');
+        await $('#prom-titolo').fill('Ecco come collegarti');
+        await $('#prom-nota').fill(NOTA_P);
+        vero(await testo('#prom-nota-conta') === NOTA_P.length + ' di 500 caratteri', 'il contatore della nota: ' + await testo('#prom-nota-conta'));
+        await $('#btn-anteprima-promemoria').click();
+        await aspetta(async () => await visibile('#anteprima-promemoria'), 10000, 'anteprima');
+        const testoAnt = await $('#anteprima-promemoria-testo').textContent();
+        vero(await testo('#anteprima-promemoria-oggetto') === 'Il link per venerdì - Next Generation Business 2026 · Napoli'
+            && testoAnt.indexOf('Gentile Mario Rossi,') >= 0 && testoAnt.indexOf(NOTA_P) >= 0 && /Accedi alla diretta: \S+\/diretta\/\?e=napoli-2026/.test(testoAnt)
+            && /Non trovi la password\? Usa «Password dimenticata\?»/.test(testoAnt) && !/Password:\s*\S/.test(testoAnt)
+            && await $('#anteprima-promemoria-testo *').count() === 0 && !(await $('#msg-form-promemoria').isVisible()),
+            'l\'anteprima nella pagina: oggetto con il nome dell\'evento, «Gentile Mario Rossi», la nota com\'è (& e virgolette comprese), il collegamento, «Password dimenticata?», nessuna password; solo testo');
+        const provePrima = postaPer(EMAIL_GESTORE, 'prova-promemoria-extra').length;
+        await $('#btn-prova-promemoria').click();
+        await aspetta(async () => /Email di prova inviata a gestore@prova\.it, con la scritta EMAIL DI PROVA/.test(await testo('#msg-prova-promemoria')), 15000, 'prova inviata');
+        const provaP = postaPer(EMAIL_GESTORE, 'prova-promemoria-extra').slice(provePrima);
+        vero(provaP.length === 1 && /^\[PROVA\] Il link per venerdì - /.test(provaP[0].oggetto) && /^EMAIL DI PROVA/.test(provaP[0].testo) && provaP[0].testo.indexOf(NOTA_P) >= 0,
+            '«Invia email di prova a me»: arriva solo al gestore, con [PROVA] e «EMAIL DI PROVA», con la nota');
+        await $('#form-promemoria').scrollIntoViewIfNeeded();
+        await foto('email-programmata-modulo');
+        await $('#btn-salva-promemoria').click();
+        const confP = await confermaDialogo(new RegExp('Programmare il promemoria\\?.*Partirà da solo mercoledì 30 settembre 2026 alle 18\\.00 \\(ora italiana\\), entro 5 minuti da quell\'ora: oggi lo riceverebbero '
+            + nTutti + ' persone.*Oggetto: «Il link per venerdì - Next Generation Business 2026 · Napoli».*A chi: Tutti quelli che hanno ricevuto le credenziali.*Con la tua nota.*Senza password', 's'), 'Programma');
+        vero(!/Attenzione/.test(confP), 'senza tetto giornaliero nessun avviso nella conferma');
+        await aspetta(async () => /^Promemoria programmato: partirà mercoledì 30 settembre 2026 alle 18\.00 \(oggi lo riceverebbero \d+ persone\)\.$/.test(await testo('#msg-programmate')), 10000, 'programmato');
+        const docsP = (await db.collection('programmate').where('idEvento', '==', ID).get()).docs;
+        const pr1 = docsP.length === 1 ? Object.assign({ id: docsP[0].id }, docsP[0].data()) : null;
+        vero(pr1 && pr1.stato === 'programmata' && pr1.nota === NOTA_P && pr1.oggetto === 'Il link per venerdì' && pr1.destinatari === 'tutti' && pr1.creatoDa === EMAIL_GESTORE
+            && pr1.quando.toMillis() === Date.parse('2026-09-30T18:00:00+02:00'), 'sul servizio: programmata per il 30 settembre alle 18 (Roma), con i testi e chi l\'ha programmata', JSON.stringify(pr1));
+        vero(await $('#form-promemoria').isHidden() && await page.evaluate(() => document.activeElement && document.activeElement.id) === 'btn-nuovo-promemoria', 'il modulo si chiude e il fuoco torna al pulsante');
+        const liP = () => $('#elenco-programmate > li[data-id="' + pr1.id + '"]');
+        let tP = (await liP().textContent()).replace(/\s+/g, ' ');
+        vero(await liP().getAttribute('data-stato') === 'programmata' && /Promemoria in più: «Il link per venerdì»/.test(tP) && /in programma/.test(tP)
+            && /Quando: mercoledì 30 settembre 2026 alle 18\.00/.test(tP) && new RegExp('A chi: Tutti quelli che hanno ricevuto le credenziali · oggi lo riceverebbero ' + nTutti + ' persone').test(tP)
+            && /Programmato da gestore@prova\.it il \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\./.test(tP),
+            'nell\'elenco: «in programma», quando, a chi e quante persone, chi l\'ha programmato', tP);
+        await liP().locator('summary').click();
+        vero(await liP().locator('.voce-nota').textContent() === NOTA_P && await liP().locator('.voce-nota *').count() === 0, '«Titolo e nota»: la nota com\'è, come testo');
+        // l'ordine: le voci in ordine di ora (il 30 settembre prima del 1 ottobre)
+        vp = await vociP();
+        const iP = vp.findIndex(v => v.id === pr1.id), iG = vp.findIndex(v => v.tipo === 'giorno');
+        vero(iP >= 0 && iG > iP, 'l\'elenco è in ordine di ora: il promemoria del 30 settembre prima di quello automatico del 1 ottobre');
+        await $('#riquadro-programmate').scrollIntoViewIfNeeded();
+        await foto('email-programmate');
+        // sul telefono: tutto leggibile, niente scorrimento di lato, pulsanti a tutta larghezza
+        await page.setViewportSize({ width: 390, height: 844 });
+        await pausa(300);
+        const telP = await page.evaluate(() => ({
+            largo: document.documentElement.scrollWidth, finestra: window.innerWidth,
+            voci: Array.from(document.querySelectorAll('#elenco-programmate > li')).every(li => li.getBoundingClientRect().right <= window.innerWidth + 0.5)
+        }));
+        vero(telP.largo <= telP.finestra && telP.voci, 'telefono (390 px): la sezione sta nello schermo, niente scorrimento di lato', JSON.stringify(telP));
+        await $('#riquadro-programmate').scrollIntoViewIfNeeded();
+        const stileTel = await page.addStyleTag({ content: '.testata{position:static!important}.avvisi{display:none!important}' });
+        await $('#riquadro-programmate').screenshot({ path: path.join(FOTO, 'telefono-email-programmate.png') });
+        await stileTel.evaluate(n => n.remove());
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await pausa(200);
+
+        // modifica: solo chi non e' mai entrato, alle 18.30
+        await liP().locator('button', { hasText: 'Modifica' }).click();
+        await $('#form-promemoria').waitFor({ state: 'visible' });
+        vero(await testo('#titolo-form-promemoria') === 'Modifica il promemoria' && await $('#prom-data').inputValue() === '2026-09-30' && await $('#prom-ora').inputValue() === '18:00'
+            && await $('#prom-nota').inputValue() === NOTA_P && await testo('#btn-salva-promemoria') === 'Salva le modifiche', '«Modifica»: il modulo con i dati salvati');
+        await $('#prom-dest-mai').check();
+        await $('#prom-ora').fill('18:30');
+        await $('#btn-salva-promemoria').click();
+        await confermaDialogo(new RegExp('Salvare le modifiche al promemoria\\?.*mercoledì 30 settembre 2026 alle 18\\.30.*oggi lo riceverebbero ' + nMai + ' persone.*Solo chi non è ancora mai entrato', 's'), 'Salva le modifiche');
+        await aspetta(async () => /^Modifiche salvate: partirà mercoledì 30 settembre 2026 alle 18\.30/.test(await testo('#msg-programmate')), 10000, 'modificato');
+        tP = (await liP().textContent()).replace(/\s+/g, ' ');
+        vero(/A chi: Solo chi non è ancora mai entrato · oggi lo riceverebbero/.test(tP) && /modificato una volta, l'ultima da gestore@prova\.it il/.test(tP)
+            && (await db.doc('programmate/' + pr1.id).get()).data().modifiche === 1, 'modificato: 18.30, solo chi non è mai entrato, «modificato una volta» con chi e quando', tP);
+
+        // annulla (prima della partenza)
+        await liP().locator('button', { hasText: 'Annulla il promemoria' }).click();
+        await $('#dialogo-conferma').waitFor({ state: 'visible' });
+        vero(/Annullare il promemoria\?/.test(await testo('#conferma-titolo')) && await page.evaluate(() => document.activeElement && document.activeElement.id) === 'conferma-annulla',
+            'annullare chiede conferma, con il fuoco su «Non fare niente»');
+        await $('#conferma-ok').click();
+        await aspetta(async () => await liP().getAttribute('data-stato') === 'annullata', 10000, 'annullato');
+        tP = (await liP().textContent()).replace(/\s+/g, ' ');
+        vero(/annullato/.test(tP) && /Annullato prima di partire: nessuna email\./.test(tP) && /annullato da gestore@prova\.it il/.test(tP) && (await liP().locator('button').count()) === 0
+            && (await db.doc('programmate/' + pr1.id).get()).data().stato === 'annullata', 'annullato: nessuna email, con chi e quando, niente più pulsanti', tP);
+
+        // uno che parte davvero: programmato, poi la sua ora spostata indietro (come se il tempo fosse passato) e il cron
+        const oraRoma = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+            .formatToParts(new Date(Date.now() + 2 * 3600e3)).reduce((o, x) => { o[x.type] = x.value; return o; }, {});
+        const sP2 = await api('diretta-gestione', { azione: 'programmata-salva', idEvento: ID, data: oraRoma.year + '-' + oraRoma.month + '-' + oraRoma.day, ora: oraRoma.hour + ':' + oraRoma.minute,
+            destinatari: 'tutti', oggetto: 'Tra poco', titolo: 'Il link della diretta', nota: '' }, tokGestore);
+        vero(sP2.stato === 200 && sP2.dati.persone === nTutti, 'un secondo promemoria (dal servizio): ' + sP2.dati.persone + ' persone');
+        const pr2 = sP2.dati.programmata.id;
+        await db.doc('programmate/' + pr2).update({ quando: Ts.fromMillis(Date.now() - 1000) });
+        const postaPrimaCron = leggiPosta().length;
+        const giro2 = await fetch(API + '/diretta-cron', { headers: { Authorization: 'Bearer prova' } }).then(r => r.json()).catch(e => ({ errore: e.message }));
+        const partiti2 = leggiPosta().slice(postaPrimaCron).filter(m => m.tipo === 'promemoria-x' + pr2);
+        vero(partiti2.length === nTutti && new Set(partiti2.map(m => m.a)).size === nTutti && partiti2.every(m => !/Password:\s*\S/.test(m.testo) && /\/diretta\/\?e=napoli-2026/.test(m.testo)),
+            'il cron lo manda: ' + partiti2.length + ' email, una per persona, con il collegamento e senza password', JSON.stringify(giro2).slice(0, 300));
+        await $('#btn-aggiorna-programmate').click();
+        await aspetta(async () => await $('#elenco-programmate > li[data-id="' + pr2 + '"]').getAttribute('data-stato') === 'partita', 10000, 'partito');
+        const t2 = (await $('#elenco-programmate > li[data-id="' + pr2 + '"]').textContent()).replace(/\s+/g, ' ');
+        vero(new RegExp('Partito: ' + nTutti + ' email inviate \\(ultimo giro \\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}\\)').test(t2), 'nell\'elenco: «partito», ' + nTutti + ' email inviate, con l\'ultimo giro', t2);
+
+        // uno a meta': il segno «cominciato» come lo lascia il cron al primo giro -> si puo' solo fermare
+        const sP3 = await api('diretta-gestione', { azione: 'programmata-salva', idEvento: ID, data: oraRoma.year + '-' + oraRoma.month + '-' + oraRoma.day, ora: oraRoma.hour + ':' + oraRoma.minute,
+            destinatari: 'mai-entrati', oggetto: 'Non sei ancora entrato', titolo: 'Ti aspettiamo', nota: '' }, tokGestore);
+        const pr3 = sP3.dati.programmata.id;
+        await db.doc('programmate/' + pr3).update({ quando: Ts.fromMillis(Date.now() - 60000), cominciato: Date.now() - 30000, inviate: 2, ultimoGiro: Date.now() - 20000 });
+        await $('#btn-aggiorna-programmate').click();
+        const li3 = $('#elenco-programmate > li[data-id="' + pr3 + '"]');
+        await aspetta(async () => await li3.getAttribute('data-stato') === 'in-corso', 10000, 'in corso');
+        vero(/In corso: 2 email inviate/.test(await li3.textContent()) && (await li3.locator('button').allTextContents()).join('|') === 'Ferma',
+            'a metà: «in corso», 2 inviate, e si può solo fermare');
+        const modificaTardi = await api('diretta-gestione', { azione: 'programmata-salva', idEvento: ID, id: pr3, data: oraRoma.year + '-' + oraRoma.month + '-' + oraRoma.day, ora: oraRoma.hour + ':' + oraRoma.minute,
+            destinatari: 'tutti', oggetto: 'x', titolo: 'x', nota: '' }, tokGestore);
+        vero(modificaTardi.stato === 409 && modificaTardi.dati.codice === 'cominciato', 'modificarlo a metà scavalcando la pagina: 409 «cominciato»');
+        await li3.locator('button', { hasText: 'Ferma' }).click();
+        await confermaDialogo(/Fermare il promemoria\?.*Chi l'ha già ricevuto l'ha ricevuto \(2 email inviate\); gli altri non lo riceveranno/s, 'Ferma il promemoria');
+        await aspetta(async () => await li3.getAttribute('data-stato') === 'fermata', 10000, 'fermato');
+        vero(/Fermato: 2 email inviate prima dello stop; gli altri non lo ricevono\./.test((await li3.textContent()).replace(/\s+/g, ' '))
+            && (await db.doc('programmate/' + pr3).get()).data().stato === 'fermata' && /Promemoria fermato/.test(await testo('#msg-programmate')), 'fermato: lo dice l\'elenco e il servizio');
+        const postaPrimaCron3 = leggiPosta().length;
+        await fetch(API + '/diretta-cron', { headers: { Authorization: 'Bearer prova' } }).then(r => r.json()).catch(() => null);
+        vero(!leggiPosta().slice(postaPrimaCron3).some(m => m.tipo === 'promemoria-x' + pr3), 'e il cron non lo manda più a nessuno');
+        vero(await page.evaluate(() => window.__attacco) === undefined, 'nessun codice eseguito dai testi del gestore');
 
         /* ---------- 10. accessibilita' e tastiera ---------- */
         console.log('\n-- accessibilità');

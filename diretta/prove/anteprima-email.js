@@ -18,6 +18,8 @@
      credenziali-prova.html      l'email di prova per il gestore
      promemoria-giorno.html      il giorno prima
      promemoria-ora.html         un'ora prima
+     promemoria-extra.html       un promemoria in piu' programmato dal gestore
+                                 (oggetto, titolo e nota suoi; la nota e' testo)
      reimpostazione.html         "Password dimenticata?"
      reimpostazione-gestore.html il primo accesso di un gestore
    Per ognuna anche la versione in solo testo (.txt) e l'oggetto, e
@@ -70,6 +72,11 @@ const EMAIL = [
     ['credenziali-prova', 'Email di prova per il gestore', M.credenziali(Object.assign({ password: PERSONA.password, prova: true, adesso: QUANDO_CREDENZIALI }, comuni))],
     ['promemoria-giorno', 'Promemoria del giorno prima', M.promemoria(Object.assign({ tipo: 'giorno', adesso: EVENTO.inizio - 24 * 3600e3 }, comuni))],
     ['promemoria-ora', 'Promemoria dell\'ora prima', M.promemoria(Object.assign({ tipo: 'ora', adesso: EVENTO.inizio - 3600e3 }, comuni))],
+    ['promemoria-extra', 'Promemoria in più (programmato dal gestore)', M.promemoria(Object.assign({
+        tipo: 'extra', oggetto: 'Il link della diretta', titolo: 'Come collegarti alla diretta',
+        nota: 'Ti aspettiamo venerdì: la diretta comincia alle 9.00 con l\'apertura dei lavori.\nSe non trovi la password, usa «Password dimenticata?» qui sotto.',
+        adesso: EVENTO.inizio - 15 * 3600e3
+    }, comuni))],
     ['reimpostazione', 'Password dimenticata', M.reimpostazione({ nome: 'Mario Rossi', email: PERSONA.email, link: LINK_RESET, assistenza: ASSISTENZA, adesso: QUANDO_CREDENZIALI })],
     ['reimpostazione-gestore', 'Primo accesso di un gestore', M.reimpostazione({ perGestore: true, link: C.baseSito() + '/diretta/reimposta.html?oobCode=ESEMPIO&per=gestione', assistenza: ASSISTENZA, adesso: QUANDO_CREDENZIALI })]
 ];
