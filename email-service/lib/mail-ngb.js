@@ -159,15 +159,20 @@ function bottone(testoBtn, url) {
    finche' non ci si fida del mittente, e certe Gmail su Android li aprono
    solo con il tocco lungo. Colori sempre espliciti su ogni cella: Gmail e
    Apple Mail invertono quelli lasciati al default, e un pulsante blu con il
-   testo bianco diventerebbe illeggibile. */
-function bloccoConferma(url) {
+   testo bianco diventerebbe illeggibile.
+   Il PDF da esibire all'ingresso e' SOLO per chi viene in sala: a chi segue
+   online (`online`) il blocco non lo nomina, e ricorda che quell'indirizzo e'
+   quello con cui entrera' nella diretta. */
+function bloccoConferma(url, online) {
     return '<tr><td style="' + FONTE + '">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
         + '<tr><td class="par" style="' + FONTE + 'padding:18px 22px 14px;font-size:16px;line-height:26px;color:' + C.testo
         + ';background-color:' + C.chiaro + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">'
         + '<b style="color:' + C.scuro + ';">Un tocco per confermare il tuo indirizzo.</b> '
-        + 'Subito dopo ti mandiamo una seconda email con l\'invito in PDF da esibire all\'ingresso: senza la conferma l\'iscrizione non è completa.</td></tr>'
+        + (online
+            ? 'È l\'indirizzo con cui entrerai nella diretta: senza la conferma l\'iscrizione non è completa.</td></tr>'
+            : 'Subito dopo ti mandiamo una seconda email con l\'invito in PDF da esibire all\'ingresso: senza la conferma l\'iscrizione non è completa.</td></tr>')
         + '<tr><td style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
         + '<td align="center" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;">'
@@ -303,7 +308,7 @@ function confermaSito(dati, link, linkConferma) {
                sopra il riepilogo perche' e' li' che si legge sul telefono
                senza scorrere. Le mail composte prima di questa modifica non
                lo passano e restano come erano. */
-            (linkConferma ? bloccoConferma(linkConferma) + spazio(26) : '')
+            (linkConferma ? bloccoConferma(linkConferma, online) + spazio(26) : '')
             + paragrafo(apertura)
             + spazio(22)
             + '<tr><td>' + box(
