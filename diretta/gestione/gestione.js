@@ -4956,14 +4956,14 @@
         ], [collegamentoEvento('Si spegne nella scheda Evento', '#ev-iscrizioni-auto')], { genere: 'modulo' });
     }
     function registroProgrammata(p) {
-        const parti = [];
-        if (p.creatoDa) parti.push('Programmato da ' + p.creatoDa + (p.creatoIl ? ' il ' + dataOra(p.creatoIl) : ''));
+        const frasi = [];
+        if (p.creatoDa) frasi.push('Programmato da ' + p.creatoDa + (p.creatoIl ? ' il ' + dataOra(p.creatoIl) : ''));
         if (p.modifiche) {
-            parti.push('modificato ' + (p.modifiche === 1 ? 'una volta' : p.modifiche + ' volte')
+            frasi.push('modificato ' + (p.modifiche === 1 ? 'una volta' : p.modifiche + ' volte')
                 + (p.modificatoDa ? ', l\'ultima da ' + p.modificatoDa + (p.modificatoIl ? ' il ' + dataOra(p.modificatoIl) : '') : ''));
         }
-        if (p.annullatoDa) parti.push((p.stato === 'fermata' ? 'fermato' : 'annullato') + ' da ' + p.annullatoDa + (p.annullatoIl ? ' il ' + dataOra(p.annullatoIl) : ''));
-        return parti.length ? el('p', { classe: 'voce-registro', testo: parti.join('; ') + '.' }) : null;
+        if (p.annullatoDa) frasi.push((p.stato === 'fermata' ? 'fermato' : 'annullato') + ' da ' + p.annullatoDa + (p.annullatoIl ? ' il ' + dataOra(p.annullatoIl) : ''));
+        return frasi.length ? el('p', { classe: 'voce-registro', testo: frasi.join('; ') + '.' }) : null;
     }
     function voceDelGestore(p) {
         const righe = [rigaVoce('Quando', quandoProgrammata(p.quando))];

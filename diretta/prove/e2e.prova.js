@@ -951,6 +951,8 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
                 const reset = linkDa(m.testo, /http:\/\/127\.0\.0\.1:\d+\/diretta\/reimposta\.html\?[^\s"<>]+/);
                 await altro.page.goto(reset);
                 await altro.page.waitForSelector('#form-reimposta:not([hidden])', { timeout: 20000 });
+                // su un telefono nuovo l'email non e' ricordata: la scrive lui («dopo il salvataggio entri subito nella diretta»)
+                if (!(await altro.page.inputValue('#email-reset'))) await altro.page.fill('#email-reset', 'mario.rossi@altra.it');
                 await altro.page.fill('#campo-nuova', 'AltroMario2026');
                 await altro.page.fill('#campo-ripeti', 'AltroMario2026');
                 await altro.page.click('#btn-salva-password');
@@ -1112,11 +1114,14 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         await prova('di nuovo «Vai in onda»: la presenza di chi ha la pagina aperta riparte da zero (0 secondi, 1 collegamento)', async () => {
             await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' });
             for (const [c] of treAperte) await vista(c.page, 'diretta');
-            for (const [email, uid] of Object.entries(UID3)) {
-                const d = await aspetta(async () => {
-                    const s = await db.doc('presenze/' + EVENTO + '_' + uid).get();
-                    return s.exists ? s.data() : null;
-                }, 150000, 'la presenza di ' + email);
+            /* Le tre presenze si leggono INSIEME, ciascuna appena compare: una
+               dopo l'altra, se la prima tardasse, le altre si leggerebbero dopo il
+               loro primo minuto (60 secondi) e sembrerebbe che non ripartano da zero. */
+            const lette = await Promise.all(Object.entries(UID3).map(([email, uid]) => aspetta(async () => {
+                const s = await db.doc('presenze/' + EVENTO + '_' + uid).get();
+                return s.exists ? s.data() : null;
+            }, 150000, 'la presenza di ' + email).then(d => [email, d])));
+            for (const [email, d] of lette) {
                 vero(d.secondi === 0 && d.collegamenti === 1 && d.primo.toMillis() >= quandoAzzerato - 5000,
                     email + ': ' + JSON.stringify({ s: d.secondi, c: d.collegamenti, p: d.primo && d.primo.toMillis() - quandoAzzerato }));
             }
