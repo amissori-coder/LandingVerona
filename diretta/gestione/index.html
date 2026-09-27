@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260927a">
+    <link rel="stylesheet" href="gestione.css?v=20260927b">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -407,11 +407,24 @@
                                     <input type="time" id="regia-ripresa">
                                 </div>
                                 <button type="button" id="btn-pausa" class="btn btn-secondario">Metti in pausa</button>
-                                <button type="button" id="btn-riprogramma" class="btn btn-secondario">Riporta in attesa</button>
                             </div>
                             <p class="aiuto">Ogni comando chiede conferma. I partecipanti collegati vedono il cambio da soli, senza ricaricare la pagina.
                                 In pausa il video sparisce e compare «Pausa», con l'orario di ripresa se lo indichi.</p>
                             <p id="msg-regia" class="msg" role="status" hidden></p>
+                            <!-- dopo una prova: tornare all'attesa, o proprio all'inizio (gestione.js, "FASE INIZIALE") -->
+                            <section class="regia-fase" aria-labelledby="regia-fase-titolo">
+                                <h3 id="regia-fase-titolo">Dopo una prova</h3>
+                                <p id="regia-fase-riga" class="regia-fase-riga" aria-live="polite" hidden></p>
+                                <div class="regia-fase-comandi">
+                                    <button type="button" id="btn-riprogramma" class="btn btn-secondario">Riporta in attesa</button>
+                                    <button type="button" id="btn-azzera" class="btn btn-pericolo-contorno">Torna alla fase iniziale</button>
+                                </div>
+                                <ul class="regia-fase-spiega">
+                                    <li><strong>Riporta in attesa</strong>: i partecipanti rivedono la schermata di attesa. Minuti visti, accessi e grafico degli ascolti restano.</li>
+                                    <li><strong>Torna alla fase iniziale</strong>: l'evento torna com'era prima del primo «Vai in onda» e i dati della prova si cancellano. Si può fare solo prima dell'orario di inizio.</li>
+                                </ul>
+                                <p id="regia-fase-no" class="msg msg-attenzione" hidden></p>
+                            </section>
                         </div>
 
                         <div class="riquadro regia-avviso">
@@ -1160,6 +1173,35 @@
         </div>
     </dialog>
 
+    <!-- «Torna alla fase iniziale»: che cosa si cancella (con i numeri), la
+         scelta sugli accessi e la parola da scrivere per confermare -->
+    <dialog id="dialogo-azzera" class="dialogo" aria-labelledby="azzera-titolo" aria-describedby="azzera-testo">
+        <form id="form-azzera" novalidate>
+            <div class="dialogo-corpo">
+                <h2 id="azzera-titolo">Tornare alla fase iniziale?</h2>
+                <p id="azzera-testo">L'evento torna com'era prima del primo «Vai in onda». Chi ha la pagina della diretta aperta
+                    rivede da solo la schermata di attesa con il conto alla rovescia.</p>
+                <p class="azzera-sotto"><strong>Si cancella:</strong></p>
+                <ul id="azzera-cancella" class="elenco"></ul>
+                <label class="opzione" id="azzera-accessi-riga">
+                    <input type="checkbox" id="azzera-accessi" checked>
+                    <span>Cancella anche l'elenco degli accessi (<span id="azzera-n-accessi">0</span>)</span>
+                </label>
+                <p class="azzera-sotto"><strong>Resta com'è:</strong> partecipanti, password, credenziali inviate, promemoria,
+                    dati dell'evento (titolo, orari, programma, player) e l'interruttore delle iscrizioni dal modulo.</p>
+                <div class="campo">
+                    <label for="azzera-parola">Per confermare scrivi <strong>AZZERA</strong></label>
+                    <input type="text" id="azzera-parola" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                </div>
+                <p id="msg-azzera" class="msg msg-errore" role="alert" hidden></p>
+            </div>
+            <div class="dialogo-azioni">
+                <button type="button" id="btn-azzera-annulla" class="btn btn-secondario">Annulla</button>
+                <button type="submit" id="btn-azzera-conferma" class="btn btn-pericolo" disabled>Torna alla fase iniziale</button>
+            </div>
+        </form>
+    </dialog>
+
     <dialog id="dialogo-correggi" class="dialogo" aria-labelledby="correggi-titolo">
         <form id="form-correggi" novalidate>
             <div class="dialogo-corpo">
@@ -1217,6 +1259,6 @@
     <script src="../sorgente-video.js?v=20260925a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260927a"></script>
+    <script src="gestione.js?v=20260927b"></script>
 </body>
 </html>

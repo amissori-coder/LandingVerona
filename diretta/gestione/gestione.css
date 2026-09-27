@@ -433,6 +433,25 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 }
 .regia-pausa .campo { flex: 0 1 180px; }
 #regia-avviso-orario { margin-bottom: 14px; }
+/* dopo una prova: «Riporta in attesa» e «Torna alla fase iniziale» */
+.regia-fase {
+    margin-top: 18px; padding: 16px 16px 12px; border: 1px solid var(--bordo, #DCE3EA); border-radius: 10px; background: #fff;
+}
+.regia-fase h3 { font-size: 1rem; margin: 0 0 8px; }
+.regia-fase-riga { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--chiaro); font-size: 0.95rem; }
+.regia-fase-riga[data-tipo="prova"] { background: #FFF6E5; border-left: 4px solid #B7791F; }
+.regia-fase-riga[data-tipo="pulito"] { border-left: 4px solid #2E7D4F; }
+.regia-fase-comandi { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.regia-fase-comandi .btn { flex: 1 1 200px; }
+.regia-fase-spiega { margin: 0 0 8px; padding-left: 18px; color: var(--tenue); font-size: 0.9rem; line-height: 1.45; }
+.regia-fase-spiega li + li { margin-top: 4px; }
+.btn-pericolo-contorno { background: #fff; color: var(--rosso); border: 1.5px solid var(--rosso); }
+.btn-pericolo-contorno:hover:not(:disabled) { background: var(--rosso-bg, #FDECEA); }
+.btn-pericolo-contorno:disabled { color: var(--tenue); border-color: var(--bordo, #DCE3EA); }
+#dialogo-azzera .azzera-sotto { margin: 12px 0 4px; }
+#dialogo-azzera .opzione { margin: 10px 0 4px; }
+#dialogo-azzera .campo { margin-top: 12px; }
+#azzera-parola { text-transform: uppercase; letter-spacing: .08em; }
 .regia-connessi { text-align: center; }
 .regia-avviso textarea { min-height: 64px; }
 .regia-avviso .azioni { margin-top: 10px; }

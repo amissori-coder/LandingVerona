@@ -27,7 +27,9 @@
    browser. Che gli ascolti (ascolti, la registrazione minuto per
    minuto di chi e' collegato, e ascoltiCache, il riepilogo per la
    gestione) non li legge ne' li scrive nessuno dal browser, nemmeno il
-   gestore: li legge la gestione attraverso il servizio.
+   gestore: li legge la gestione attraverso il servizio. Che il registro
+   di «Torna alla fase iniziale» (azzeramenti) e le presenze non si
+   cancellano dal browser: lo fa solo il servizio.
    Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
@@ -99,6 +101,11 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
             curva: '[[29800000,1,"o"],[29800001,1,"o"]]', persone: '{"anna":[[29800000,29800001]]}'
         });
         await setDoc(doc(db, 'ascoltiCache/napoli-2026'), { calcolato: Timestamp.now(), dati: '{"ok":true}' });
+        // il registro di «Torna alla fase iniziale» come lo scrive il servizio (lib/diretta-azzera.js)
+        await setDoc(doc(db, 'azzeramenti/a1'), {
+            idEvento: 'napoli-2026', chi: 'gestore@prova.it', quando: Timestamp.now(), statoPrima: 'terminato',
+            presenze: 3, accessi: 5, accessiTenuti: false, ascolti: true
+        });
     });
 
     const anna = env.authenticatedContext('anna', { eventi: ['napoli-2026'] }).firestore();
@@ -121,7 +128,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il partecipante legge il proprio profilo', () => assertSucceeds(getDoc(doc(anna, 'partecipanti/anna'))));
     await prova('il partecipante NON legge il profilo di un altro', () => assertFails(getDoc(doc(anna, 'partecipanti/bruno'))));
     await prova('il partecipante NON elenca i partecipanti', () => assertFails(getDocs(collection(anna, 'partecipanti'))));
-    for (const p of ['nomiUtente/annabianchi', 'indirizzi/anna@x.it', 'accessi/a1', 'tentativi/annabianchi', 'code/napoli-2026', 'limiti/x', 'presenze/napoli-2026_anna', 'sessioni/anna', 'eventiRiservati/napoli-2026', 'ascolti/napoli-2026', 'ascoltiCache/napoli-2026']) {
+    for (const p of ['nomiUtente/annabianchi', 'indirizzi/anna@x.it', 'accessi/a1', 'tentativi/annabianchi', 'code/napoli-2026', 'limiti/x', 'presenze/napoli-2026_anna', 'sessioni/anna', 'eventiRiservati/napoli-2026', 'ascolti/napoli-2026', 'ascoltiCache/napoli-2026', 'azzeramenti/a1']) {
         await prova('il partecipante NON legge ' + p.split('/')[0], () => assertFails(getDoc(doc(anna, p))));
     }
     await prova('un account disattivato NON legge piu\' l\'evento (anche con il token ancora valido)', () => assertFails(getDoc(doc(carla, 'eventi/napoli-2026'))));
@@ -139,6 +146,8 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await prova('il partecipante NON elenca ' + c, () => assertFails(getDocs(collection(anna, c))));
         await prova('senza accesso NON si legge ' + c, () => assertFails(getDoc(doc(anonimo, c + '/napoli-2026'))));
     }
+    await prova('il gestore NON legge il registro degli azzeramenti dal browser', () => assertFails(getDoc(doc(gestore, 'azzeramenti/a1'))));
+    await prova('il gestore NON elenca gli azzeramenti', () => assertFails(getDocs(collection(gestore, 'azzeramenti'))));
 
     console.log('\nScritture vietate');
     await prova('il partecipante NON modifica l\'evento (es. il video)', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://altro.esempio.it/live/playlist.m3u8' })));
@@ -158,6 +167,13 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await prova('il gestore NON modifica ' + c + ' dal browser', () => assertFails(updateDoc(doc(gestore, c + '/napoli-2026'), { curva: '[]', dati: '{}' })));
         await prova('il gestore NON cancella ' + c + ' dal browser', () => assertFails(deleteDoc(doc(gestore, c + '/napoli-2026'))));
     }
+    // il registro di «Torna alla fase iniziale»: lo scrive solo il servizio, e nessuno lo cancella dal browser
+    await prova('il gestore NON annota azzeramenti dal browser', () => assertFails(setDoc(doc(gestore, 'azzeramenti/a2'), { idEvento: 'napoli-2026', chi: 'gestore@prova.it' })));
+    await prova('il gestore NON modifica il registro degli azzeramenti', () => assertFails(updateDoc(doc(gestore, 'azzeramenti/a1'), { chi: 'altro@prova.it' })));
+    await prova('il gestore NON cancella il registro degli azzeramenti', () => assertFails(deleteDoc(doc(gestore, 'azzeramenti/a1'))));
+    await prova('il partecipante NON cancella il registro degli azzeramenti', () => assertFails(deleteDoc(doc(anna, 'azzeramenti/a1'))));
+    // cancellare la propria presenza (per togliere i minuti o rifarsi un «nuovo collegamento») resta vietato: la cancella solo il servizio
+    await prova('il partecipante NON cancella la propria presenza', () => assertFails(deleteDoc(doc(anna, 'presenze/napoli-2026_anna'))));
 
     console.log('\nPresenza: creazione');
     const base = () => ({ uid: 'anna', idEvento: 'napoli-2026', primo: serverTimestamp(), ultimo: serverTimestamp(), secondi: 0, collegamenti: 1, sessione: 's1' });

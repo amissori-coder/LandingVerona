@@ -531,12 +531,14 @@ async function sheetJSNode() {
         const FS = senzaRegistrazione(F);
         const comeNellaPagina = F.persone.slice().sort(ordinePagina);
 
+        // la versione (?v=) nella pagina: quella degli ascolti o una successiva
+        const versioneAlmeno = (h, file, min) => { const m = new RegExp(file.replace('.', '\\.') + '\\?v=(\\d{8}[a-z])').exec(h); return !!m && m[1] >= min; };
         const codice = fs.readFileSync(path.join(RADICE, 'diretta/gestione/gestione.js'), 'utf8');
         const html = fs.readFileSync(path.join(RADICE, 'diretta/gestione/index.html'), 'utf8');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML/.test(codice) && /createElementNS\(SVG_NS/.test(codice),
             'gestione.js disegna i grafici con createElementNS e textContent (mai innerHTML)');
         vero(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(html) && !/\son[a-z]+=/i.test(html)
-            && /gestione\.css\?v=20260927a/.test(html) && /gestione\.js\?v=20260927a/.test(html),
+            && versioneAlmeno(html, 'gestione.css', '20260927a') && versioneAlmeno(html, 'gestione.js', '20260927a'),
             'HTML senza script in linea né on...=, con le versioni nuove di gestione.js e gestione.css');
         const cspPrima = /script-src 'self' https:\/\/www\.gstatic\.com https:\/\/cdn\.sheetjs\.com;/.test(html);
         vero(cspPrima, 'la Content-Security-Policy resta quella (script solo da gstatic e SheetJS: nessuna libreria nuova)');

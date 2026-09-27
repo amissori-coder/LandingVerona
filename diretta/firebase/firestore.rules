@@ -18,7 +18,8 @@ rules_version = '2';
      l'anteprima "vedi come un partecipante";
    - tutto il resto (indirizzi email, accessi, tentativi,
      code di invio, gli ascolti minuto per minuto in ascolti e il loro
-     riepilogo in ascoltiCache) lo legge e lo scrive SOLO il server, che
+     riepilogo in ascoltiCache, il registro degli azzeramenti in
+     azzeramenti) lo legge e lo scrive SOLO il server, che
      usa la chiave di servizio e non passa da queste regole.
 
    L'unica scrittura concessa ai browser e' il segnale di presenza,

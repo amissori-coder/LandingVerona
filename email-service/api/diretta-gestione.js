@@ -112,6 +112,14 @@
                       in `risultato` di lib/diretta-ascolti.js); tenuto
                       in cache 60 s a evento in corso o appena finito,
                       10 minuti altrimenti; 404 se l'evento non c'e'
+     evento-azzera    { idEvento, anteprima: true } -> { idEvento, stato,
+                      inizio, possibile, conteggi: { presenze, accessi,
+                      ascolti }, parola }: che cosa toglierebbe;
+                      { idEvento, conferma: 'AZZERA', accessi?: false }
+                      -> { evento, tolti }: «Torna alla fase iniziale»,
+                      l'evento com'era prima del primo «Vai in onda» (solo
+                      PRIMA dell'orario di inizio: 409 'iniziato')
+                                              -> lib/diretta-azzera.js
      email-prova      { idEvento, tipo: 'credenziali'|'iscritto-anche'|
                       'promemoria-giorno'|'promemoria-ora' }
 
@@ -124,6 +132,7 @@ const D = require('../lib/diretta-dati');
 const F = require('../lib/diretta-firma');
 const PL = require('../lib/diretta-prova-link');
 const I = require('../lib/diretta-iscrizione');
+const Z = require('../lib/diretta-azzera');
 const A = require('../lib/diretta-ascolti');
 const { contesto } = require('../lib/diretta-firebase');
 
@@ -202,6 +211,9 @@ const AZIONI = {
     'partecipante': async (ctx, b) => D.operazionePartecipante(ctx, b),
     'connessi': async (ctx, b) => D.connessi(ctx, b.idEvento),
     'esporta': async (ctx, b) => D.esporta(ctx, b.idEvento),
+    'evento-azzera': async (ctx, b, g) => (b.anteprima === true
+        ? Z.situazione(ctx, b.idEvento)
+        : Z.azzera(ctx, { idEvento: b.idEvento, conferma: b.conferma, accessi: b.accessi }, g.email)),
     'da-verificare': async (ctx, b) => I.elencoDaVerificare(ctx, b.idEvento),
     'da-verificare-archivia': async (ctx, b, g) => I.archiviaDaVerificare(ctx, { idEvento: b.idEvento, id: b.id }, g.email),
     'ascolti': async (ctx, b) => A.ascolti(ctx, b.idEvento),

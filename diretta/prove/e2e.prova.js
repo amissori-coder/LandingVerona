@@ -66,8 +66,23 @@
        parte niente), nuova password, accesso automatico con l'email
        ricordata; la vecchia password non vale piu';
     8. il gestore termina: l'iframe sparisce, la nostra schermata di
-       chiusura; esportazione con presenze e accessi. Nessuna violazione
-       della CSP, nessun errore nelle pagine ne' in console.
+       chiusura; esportazione con presenze e accessi;
+    9. era una PROVA (l'evento e' fra qualche giorno): con tre pagine
+       aperte (Anna Maria, Mario e Luca, che trova la chiusura) e un
+       avviso a tutti, la regia usa «Torna alla fase iniziale»: la
+       conferma elenca che cosa si cancella, con i numeri, e si abilita
+       solo scrivendo AZZERA; le pagine tornano DA SOLE all'attesa; via
+       minuti, collegamenti, accessi, grafico e cache degli ascolti;
+       partecipanti, password, credenziali, dati dell'evento e
+       interruttore delle iscrizioni intatti; annotato chi e quando;
+       l'esportazione senza i minuti della prova; la regia dice «Nessuna
+       diretta ancora iniziata»; di nuovo in onda la presenza riparte da
+       zero; un secondo azzeramento senza la spunta degli accessi li
+       tiene; rifiuti senza la parola (400), senza accesso (401), da un
+       partecipante (403) e dopo l'orario di inizio (409, e la regia
+       lascia solo «Riporta in attesa»).
+   Nessuna violazione della CSP, nessun errore nelle pagine ne' in
+   console.
    Screenshot di ogni passaggio in risultati/screenshot-e2e/.
    Esce con 1 se qualcosa e' rosso.
    ============================================================ */
@@ -723,6 +738,12 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             }, 95000, 'secondi >= 60');
             vero(doc.secondi === 60 && doc.collegamenti >= 1, JSON.stringify({ s: doc.secondi, c: doc.collegamenti }));
         });
+        await prova('la fotografia degli ascolti di questo minuto (il lavoro programmato di Vercel, chiamato a mano): la diretta in onda, con chi la guarda', async () => {
+            const r = await fetch(API + '/diretta-ascolti', { headers: { authorization: 'Bearer prova' } });
+            vero(r.status === 200, 'lavoro degli ascolti: ' + r.status);
+            const d = (await db.doc('ascolti/' + EVENTO).get()).data();
+            vero(d && JSON.parse(d.curva || '[]').some(p => p[2] === 'o' && p[1] >= 1), 'curva: ' + (d && d.curva));
+        });
         await prova('pausa dell\'evento: la nostra schermata AL POSTO dell\'iframe (nessuna richiesta ad Azoto); alla ripresa l\'iframe torna', async () => {
             await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'pausa', ripresa: '14:30' });
             for (const c of [computer, iphone]) {
@@ -817,10 +838,207 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             vero(a && a.presenza && a.presenza.secondi >= 60, 'minuti di Anna Maria: ' + JSON.stringify(a && a.presenza));
             vero(r.accessi.length >= 4 && r.accessi.every(x => x.email && x.quando && !('nomeUtente' in x)), 'accessi: ' + r.accessi.length);
         });
+        /* ---------- 9. dopo la prova: «Torna alla fase iniziale» ----------
+           Qui la diretta e' stata una PROVA (l'evento e' fra qualche giorno):
+           la regia la cancella e l'evento torna com'era appena creato, con
+           tre pagine vere aperte (Anna Maria, Mario, Luca). */
+        console.log('\n9. Dopo la prova: «Torna alla fase iniziale»');
+        const luca = await contesto({ viewport: { width: 1280, height: 860 } });
+        const treAperte = [[computer, 'Anna Maria'], [iphone, 'Mario'], [luca, 'Luca']];
+        const uidDi = async email => (await db.doc('indirizzi/' + email).get()).data().uid;
+        const UID3 = {};
+        // quello che l'azzeramento NON deve toccare, com'era prima (Timestamp come millisecondi, chiavi in ordine)
+        const canonico = v => Array.isArray(v) ? '[' + v.map(canonico).join(',') + ']'
+            : v && typeof v === 'object' ? (typeof v.toMillis === 'function' ? 'T' + v.toMillis()
+                : '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canonico(v[k])).join(',') + '}')
+            : JSON.stringify(v);
+        const TOCCATI = ['stato', 'statoAggiornato', 'avviso', 'ripresa', 'aggiornato', 'videoAggiornato', 'sorgente', 'videoId', 'videoUrl'];
+        const eventoSenzaToccati = d => { const c = Object.assign({}, d); TOCCATI.forEach(k => delete c[k]); return canonico(c); };
+        const fotografiaIntatti = async () => ({
+            partecipanti: canonico((await db.collection('partecipanti').get()).docs.map(d => [d.id, d.data()]).sort()),
+            indirizzi: canonico((await db.collection('indirizzi').get()).docs.map(d => [d.id, d.data()]).sort()),
+            riservato: canonico((await db.doc('eventiRiservati/' + EVENTO).get()).data()),
+            evento: eventoSenzaToccati((await db.doc('eventi/' + EVENTO).get()).data())
+        });
+        let intattiPrima = null, emailPrima = null;
+        let quandoAzzerato = 0;
+        const gp = gestione.page;
+        await prova('dopo la prova restano i suoi dati (minuti, accessi, grafico degli ascolti, un avviso); Luca apre la pagina e trova la chiusura', async () => {
+            await luca.page.goto(SITO + '/diretta/');
+            await vista(luca.page, 'accesso');
+            await luca.page.fill('#email', LUCA);
+            await luca.page.fill('#campo-password', pwLuca);
+            await luca.page.click('#btn-entra');
+            await vista(luca.page, 'fine');
+            for (const e of ['annamaria.deluca@esempio.it', 'mario.rossi@esempio.it', LUCA]) UID3[e] = await uidDi(e);
+            await g({ azione: 'evento-avviso', idEvento: EVENTO, avviso: 'Prova tecnica del player: grazie!' });
+            for (const [c, nome] of treAperte) {
+                await c.page.waitForSelector('#avviso-evento:not([hidden])', { timeout: 15000 });
+                vero(/Prova tecnica del player/.test(await c.page.textContent('#avviso-evento-testo')), nome + ': avviso');
+            }
+            await g({ azione: 'ascolti', idEvento: EVENTO });
+            vero((await db.doc('ascoltiCache/' + EVENTO).get()).exists, 'la cache degli ascolti non c\'e\'');
+            const a = await g({ azione: 'evento-azzera', idEvento: EVENTO, anteprima: true });
+            vero(a.possibile === true && a.stato === 'terminato' && a.parola === 'AZZERA', 'anteprima: ' + JSON.stringify(a));
+            const c = a.conteggi || {};
+            vero(c.conMinuti >= 1 && c.presenze >= 2 && c.accessi >= 5 && c.ascolti === true && c.inOnda === true, 'conteggi: ' + JSON.stringify(c));
+            intattiPrima = await fotografiaIntatti();
+            emailPrima = (await g({ azione: 'email-stato', idEvento: EVENTO })).conteggi;
+        });
+        await prova('regia: la riga dello stato, «Riporta in attesa» e «Torna alla fase iniziale» con la spiegazione', async () => {
+            await gp.goto(SITO + '/diretta/gestione/');
+            await gp.waitForFunction(ev => document.getElementById('sel-evento').value === ev, EVENTO, { timeout: 20000 });
+            await gp.click('#tab-regia');
+            await gp.waitForFunction(() => !document.getElementById('btn-azzera').disabled, null, { timeout: 15000 });
+            vero(await gp.isVisible('#btn-riprogramma') && !(await gp.isDisabled('#btn-riprogramma')), '«Riporta in attesa» non si vede o non si può usare');
+            const spiega = (await gp.textContent('.regia-fase-spiega')).replace(/\s+/g, ' ');
+            vero(/Riporta in attesa/.test(spiega) && /Torna alla fase iniziale/.test(spiega), 'spiegazione: ' + spiega);
+            vero(await gp.isHidden('#regia-fase-no'), 'dice già che l\'orario è passato');
+            await gp.locator('.regia-fase').scrollIntoViewIfNeeded();
+            await foto(gp, '12-regia-dopo-la-prova');
+        });
+        await prova('la conferma mostra che cosa si cancella, con i numeri, e si abilita solo scrivendo AZZERA', async () => {
+            await gp.click('#btn-azzera');
+            await gp.waitForSelector('#dialogo-azzera[open]', { timeout: 10000 });
+            const lista = (await gp.locator('#azzera-cancella li').allTextContents()).join(' | ');
+            vero(/Terminato/.test(lista) && /In attesa/.test(lista), 'lo stato non c\'è: ' + lista);
+            vero(/avviso a tutti/.test(lista) && /Prova tecnica del player/.test(lista), 'l\'avviso non c\'è: ' + lista);
+            vero(/minuti visti di \d+ person/.test(lista) && /collegamenti di \d+ person/.test(lista) && /grafico degli ascolti/.test(lista), 'minuti, collegamenti, grafico: ' + lista);
+            const nAccessi = Number((await gp.textContent('#azzera-n-accessi')).replace(/\D/g, ''));
+            vero(nAccessi >= 5 && await gp.isChecked('#azzera-accessi'), 'accessi: ' + nAccessi + ', spunta ' + await gp.isChecked('#azzera-accessi'));
+            vero(/partecipanti/.test(await gp.textContent('#dialogo-azzera')) && /password/.test(await gp.textContent('#dialogo-azzera')), 'manca «Resta com\'è»');
+            vero(await gp.isDisabled('#btn-azzera-conferma'), 'confermabile senza scrivere niente');
+            await gp.fill('#azzera-parola', 'AZZERO');
+            vero(await gp.isDisabled('#btn-azzera-conferma'), 'confermabile con una parola sbagliata');
+            await gp.fill('#azzera-parola', 'azzera');
+            vero(!(await gp.isDisabled('#btn-azzera-conferma')), 'non si abilita scrivendo azzera');
+            await pausa(400);   // il colore del pulsante cambia in 0,15 s
+            await foto(gp, '13-regia-conferma-azzera');
+        });
+        await prova('confermato: le tre pagine aperte tornano DA SOLE all\'attesa con il conto alla rovescia, senza avviso né player', async () => {
+            quandoAzzerato = Date.now();
+            await gp.click('#btn-azzera-conferma');
+            await gp.waitForFunction(() => /Evento riportato alla fase iniziale/.test(document.getElementById('msg-regia').textContent), null, { timeout: 20000 });
+            vero(await gp.isHidden('#dialogo-azzera'), 'la conferma è ancora aperta');
+            for (const [c, nome] of treAperte) {
+                await vista(c.page, 'attesa');
+                vero(Number(await c.page.textContent('#conto-giorni')) >= 1, nome + ': conto alla rovescia');
+                await c.page.waitForSelector('#avviso-evento', { state: 'hidden', timeout: 15000 });
+                vero(await nessunIframe(c.page), nome + ': nell\'attesa c\'è il player');
+            }
+            await computer.page.evaluate(() => document.fonts && document.fonts.ready);
+            await foto(computer.page, '15-attesa-dopo-azzeramento');
+        });
+        await prova('sul servizio: evento «In attesa» come appena creato, via minuti, collegamenti, accessi e grafico; il resto intatto; annotato chi e quando', async () => {
+            const ev = (await db.doc('eventi/' + EVENTO).get()).data();
+            vero(ev.stato === 'programmato' && ev.avviso === '' && ev.ripresa === '' && !ev.videoId && !ev.videoUrl && ev.tipoPlayer === 'azoto',
+                'evento: ' + JSON.stringify({ s: ev.stato, a: ev.avviso, r: ev.ripresa, v: ev.videoId, t: ev.tipoPlayer }));
+            vero((await db.collection('presenze').where('idEvento', '==', EVENTO).get()).size === 0, 'restano presenze');
+            vero((await db.collection('accessi').where('idEvento', '==', EVENTO).get()).size === 0, 'restano accessi');
+            vero(!(await db.doc('ascolti/' + EVENTO).get()).exists && !(await db.doc('ascoltiCache/' + EVENTO).get()).exists, 'restano gli ascolti');
+            const dopo = await fotografiaIntatti();
+            for (const k of Object.keys(dopo)) vero(dopo[k] === intattiPrima[k], 'toccato: ' + k);
+            vero((await db.doc('eventiRiservati/' + EVENTO).get()).data().iscrizioniAutomatiche === true, 'l\'interruttore delle iscrizioni è cambiato');
+            const reg = (await db.collection('azzeramenti').where('idEvento', '==', EVENTO).get()).docs.map(d => d.data());
+            vero(reg.length === 1 && reg[0].chi === GESTORE && reg[0].statoPrima === 'terminato' && reg[0].presenze >= 2 && reg[0].accessi >= 5
+                && reg[0].accessiTenuti === false && reg[0].ascolti === true && Math.abs(reg[0].quando.toMillis() - quandoAzzerato) < 30000,
+                'registro: ' + JSON.stringify(reg));
+            const r = await g({ azione: 'esporta', idEvento: EVENTO });
+            vero(r.partecipanti.length === 6 && r.partecipanti.every(p => !p.presenza || !p.presenza.secondi), 'l\'esportazione ha ancora i minuti della prova: '
+                + JSON.stringify(r.partecipanti.filter(p => p.presenza && p.presenza.secondi).map(p => p.email)));
+            vero(r.accessi.length === 0, 'l\'esportazione ha ancora ' + r.accessi.length + ' accessi');
+            const st = await g({ azione: 'email-stato', idEvento: EVENTO });
+            vero(canonico(st.conteggi) === canonico(emailPrima) && emailPrima.inviata === 6, 'credenziali: ' + JSON.stringify(st.conteggi) + ' prima ' + JSON.stringify(emailPrima));
+        });
+        await prova('la regia dice «Nessuna diretta ancora iniziata» e non c\'è più niente da azzerare', async () => {
+            await gp.waitForFunction(() => /Nessuna diretta ancora iniziata/.test(document.getElementById('regia-fase-riga').textContent)
+                && !document.getElementById('regia-fase-riga').hidden, null, { timeout: 15000 });
+            vero(await gp.isDisabled('#btn-azzera') && await gp.isDisabled('#btn-riprogramma'), 'i comandi si possono ancora usare');
+            vero(/^Evento riportato alla fase iniziale\. Cancellati: presenze di \d+ persone, \d+ accessi, il grafico degli ascolti\.$/.test((await gp.textContent('#msg-regia')).trim()), 'messaggio: ' + await gp.textContent('#msg-regia'));
+            await gp.locator('.regia-fase').scrollIntoViewIfNeeded();
+            await foto(gp, '14-regia-fase-iniziale');
+        });
+        await prova('le password restano: Mario entra con la sua (quella nuova), e il nuovo accesso si annota', async () => {
+            const r = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: 'NuovaPassword2026' });
+            vero(r.token, 'la password di Mario non vale più');
+            const r2 = await chiama('diretta-accesso', { azione: 'entra', email: LUCA, password: pwLuca });
+            vero(r2.token, 'la password di Luca non vale più');
+            vero((await db.collection('accessi').where('idEvento', '==', EVENTO).get()).size === 2, 'accessi dopo l\'azzeramento');
+        });
+        await prova('di nuovo «Vai in onda»: la presenza di chi ha la pagina aperta riparte da zero (0 secondi, 1 collegamento)', async () => {
+            await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' });
+            for (const [c] of treAperte) await vista(c.page, 'diretta');
+            for (const [email, uid] of Object.entries(UID3)) {
+                const d = await aspetta(async () => {
+                    const s = await db.doc('presenze/' + EVENTO + '_' + uid).get();
+                    return s.exists ? s.data() : null;
+                }, 150000, 'la presenza di ' + email);
+                vero(d.secondi === 0 && d.collegamenti === 1 && d.primo.toMillis() >= quandoAzzerato - 5000,
+                    email + ': ' + JSON.stringify({ s: d.secondi, c: d.collegamenti, p: d.primo && d.primo.toMillis() - quandoAzzerato }));
+            }
+        });
+        await prova('un secondo azzeramento togliendo la spunta degli accessi: via le presenze, gli accessi restano', async () => {
+            const r = await g({ azione: 'evento-azzera', idEvento: EVENTO, conferma: ' azzera ', accessi: false });
+            vero(r.tolti && r.tolti.presenze === 3 && r.tolti.accessi === 0 && r.evento.stato === 'programmato', 'tolti: ' + JSON.stringify(r.tolti));
+            for (const [c, nome] of treAperte) { await vista(c.page, 'attesa'); vero(await nessunIframe(c.page), nome + ': player'); }
+            vero((await db.collection('accessi').where('idEvento', '==', EVENTO).get()).size === 2, 'gli accessi sono stati tolti');
+            vero((await db.collection('presenze').where('idEvento', '==', EVENTO).get()).size === 0, 'restano presenze');
+            const reg = (await db.collection('azzeramenti').where('idEvento', '==', EVENTO).get()).docs.map(d => d.data());
+            vero(reg.length === 2 && reg.some(x => x.accessiTenuti === true && x.accessi === 0 && x.statoPrima === 'in_onda'), 'registro: ' + JSON.stringify(reg));
+        });
+        await prova('rifiuti: senza la parola (400), senza accesso (401), da un partecipante (403); nessuna scrittura', async () => {
+            const tenta = async (corpo, token) => {
+                const r = await fetch(API + '/diretta-gestione', { method: 'POST',
+                    headers: Object.assign({ 'content-type': 'application/json', origin: SITO }, token ? { authorization: 'Bearer ' + token } : {}),
+                    body: JSON.stringify(Object.assign({ azione: 'evento-azzera', idEvento: EVENTO }, corpo)) });
+                return { stato: r.status, corpo: await r.json().catch(() => ({})) };
+            };
+            await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'in_onda' });
+            const senzaParola = await tenta({ conferma: 'si' }, tokenGestore);
+            vero(senzaParola.stato === 400 && senzaParola.corpo.codice === 'conferma', 'senza la parola: ' + JSON.stringify(senzaParola));
+            vero((await tenta({ conferma: 'AZZERA' })).stato === 401, 'senza accesso');
+            const custom = (await chiama('diretta-accesso', { azione: 'entra', email: LUCA, password: pwLuca })).token;
+            const idTok = (await (await fetch('http://127.0.0.1:' + PORTE.auth + '/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=finta', {
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: custom, returnSecureToken: true }) })).json()).idToken;
+            vero(idTok, 'token di Luca');
+            const partecipante = await tenta({ conferma: 'AZZERA' }, idTok);
+            vero(partecipante.stato === 403, 'da un partecipante: ' + JSON.stringify(partecipante));
+            vero((await tenta({ anteprima: true }, idTok)).stato === 403, 'l\'anteprima a un partecipante');
+            vero((await db.doc('eventi/' + EVENTO).get()).data().stato === 'in_onda', 'lo stato è cambiato');
+            vero((await db.collection('azzeramenti').where('idEvento', '==', EVENTO).get()).size === 2, 'annotato un azzeramento rifiutato');
+            await g({ azione: 'evento-stato', idEvento: EVENTO, stato: 'programmato' });
+            for (const [c] of treAperte) await vista(c.page, 'attesa');
+        });
+        await prova('dopo l\'orario di inizio non si azzera (409): la regia lo spiega e resta solo «Riporta in attesa»', async () => {
+            const ieri = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date(Date.now() - 86400000));
+            const ID = 'prova-iniziata';
+            await g({ azione: 'evento-salva', evento: { id: ID, nuovo: true, titolo: 'Evento già cominciato', luogo: 'Prova',
+                data: ieri, oraInizio: '09:00', oraFine: '17:30', azotoUrl: F.PLAYER_AZOTO, programma: '09.00 Apertura' } });
+            await g({ azione: 'evento-stato', idEvento: ID, stato: 'in_onda' });
+            const a = await g({ azione: 'evento-azzera', idEvento: ID, anteprima: true });
+            vero(a.possibile === false && a.conteggi === null, 'anteprima: ' + JSON.stringify(a));
+            const r = await fetch(API + '/diretta-gestione', { method: 'POST',
+                headers: { 'content-type': 'application/json', origin: SITO, authorization: 'Bearer ' + tokenGestore },
+                body: JSON.stringify({ azione: 'evento-azzera', idEvento: ID, conferma: 'AZZERA' }) });
+            const j = await r.json().catch(() => ({}));
+            vero(r.status === 409 && j.codice === 'iniziato' && /riportarlo in attesa/.test(j.msg || j.errore || JSON.stringify(j)), '409: ' + r.status + ' ' + JSON.stringify(j));
+            vero((await db.doc('eventi/' + ID).get()).data().stato === 'in_onda', 'lo stato è cambiato');
+            vero((await db.collection('azzeramenti').where('idEvento', '==', ID).get()).size === 0, 'annotato un azzeramento rifiutato');
+            await gp.goto(SITO + '/diretta/gestione/');
+            await gp.waitForFunction(() => document.querySelector('#sel-evento option[value="prova-iniziata"]'), null, { timeout: 20000 });
+            await gp.selectOption('#sel-evento', ID);
+            await gp.click('#tab-regia');
+            await gp.waitForSelector('#regia-fase-no:not([hidden])', { timeout: 15000 });
+            vero(/è passato/.test(await gp.textContent('#regia-fase-no')) && /riportare l'evento in attesa/.test(await gp.textContent('#regia-fase-no')), 'spiegazione: ' + await gp.textContent('#regia-fase-no'));
+            vero(await gp.isDisabled('#btn-azzera') && !(await gp.isDisabled('#btn-riprogramma')), 'comandi: azzera ' + await gp.isDisabled('#btn-azzera') + ', riporta ' + await gp.isDisabled('#btn-riprogramma'));
+            await gp.locator('.regia-fase').scrollIntoViewIfNeeded();
+            await foto(gp, '16-regia-dopo-inizio');
+            await g({ azione: 'evento-stato', idEvento: ID, stato: 'terminato' });
+        });
         await prova('nessuna violazione della CSP e nessun errore nelle pagine né in console; mai azoto-player.js', async () => {
-            const chiusi = [iphone, computer, gestione].map(c => c.page.__canaleChiuso || 0).reduce((a, b) => a + b, 0);
+            const chiusi = [iphone, computer, gestione, luca].map(c => c.page.__canaleChiuso || 0).reduce((a, b) => a + b, 0);
             if (chiusi) console.log('       (canali di ascolto di Firestore chiusi dal server e riaperti dall\'SDK: ' + chiusi + ')');
-            for (const [c, nome] of [[iphone, 'iPhone'], [computer, 'computer'], [gestione, 'gestione']]) {
+            for (const [c, nome] of [[iphone, 'iPhone'], [computer, 'computer'], [gestione, 'gestione'], [luca, 'Luca']]) {
                 const v = await c.page.evaluate(() => window.__violazioniCsp || []).catch(() => []);
                 vero(v.length === 0, nome + ': CSP: ' + v.join(' | '));
                 vero(c.page.__errori.length === 0, nome + ': errori: ' + c.page.__errori.join(' | '));
