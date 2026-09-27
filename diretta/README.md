@@ -1289,7 +1289,9 @@ Con «Torna alla fase iniziale» (27 settembre 2026) sono state rifatte le prove
 che toccano la regia e il servizio: `regole` 100 verdi, `gestione` 395,
 `ascolti-pagina` 107, `e2e` 44 (anche la sezione nuova, con tre pagine vere
 aperte), tutte con 0 rossi, e le sette prove `diretta-*` del servizio (806
-controlli verdi).
+controlli verdi). L'anteprima, nello stesso giro, si è fermata al passo «file
+di esempio» (il tempo scaduto descritto qui sotto); rifatta da sola due volte:
+26 verdi su 26.
 
 Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch
 **allineato con il sito principale** (main f26e12e: conferma dell'indirizzo
