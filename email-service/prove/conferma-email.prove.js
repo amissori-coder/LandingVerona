@@ -238,6 +238,22 @@ const token = () => NL.firmaConfermaEmail(ID);
         esigi(CONF.mailDiConferma('x', { nome: 'Senza' }) === null, 'senza indirizzo non c\'e\' mail');
     });
 
+    await prova('La mail di chi segue online non parla del PDF (e\' solo per chi viene in sala)', async () => {
+        const link = NL.linkConfermaEmail(ID);
+        const base = { nome: 'Mario', cognome: 'Rossi', email: ROSSI.email, azienda: 'Rossi Srl', pagina: PAGINA, data: ROSSI.data };
+        const online = MNGB.confermaSito(Object.assign({ modalita: 'online' }, base), NL.linkCompleta(ID), link);
+        esigi(!/pdf/i.test(online.html) && !/pdf/i.test(online.testo) && !/pdf/i.test(online.oggetto), 'online: nessun PDF nell\'HTML, nel testo e nell\'oggetto');
+        esigi(online.html.indexOf('È l&#39;indirizzo con cui entrerai nella diretta') > 0 || online.html.indexOf('È l\'indirizzo con cui entrerai nella diretta') > 0,
+            'online: il blocco della conferma ricorda che e\' l\'indirizzo per entrare nella diretta');
+        esigi(online.html.indexOf('Conferma il tuo indirizzo email') > 0, 'online: il pulsante di conferma c\'e\'');
+        const attesa = MNGB.confermaSito(Object.assign({ modalita: 'online', listaAttesa: true }, base), NL.linkCompleta(ID), link);
+        esigi(!/pdf/i.test(attesa.html + attesa.testo), 'online in lista d\'attesa per la sala: nessun PDF');
+        const sala = MNGB.confermaSito(Object.assign({ modalita: 'presenza' }, base), NL.linkCompleta(ID), link);
+        esigi(/invito in PDF da esibire all(&#39;|')ingresso/.test(sala.html) && /invito in PDF/.test(sala.testo), 'in sala: il PDF da esibire all\'ingresso c\'e\' ancora');
+        const secondaOnline = MNGB.invitoIngresso(Object.assign({ modalita: 'online', evento: {} }, base), NL.linkCompleta(ID));
+        esigi(!/pdf/i.test(secondaOnline.html + secondaOnline.testo + secondaOnline.oggetto), 'online: nemmeno la seconda mail (indirizzo confermato) parla del PDF');
+    });
+
     await prova('Il pregresso: d\'ufficio, solo chi non ha il campo, solo quell\'evento', async () => {
         azzera();
         dati.set('iscrizioni/a', Object.assign({}, ROSSI));
