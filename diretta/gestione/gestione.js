@@ -2,6 +2,7 @@
    GESTIONE DELLA DIRETTA (/diretta/gestione/)
    ------------------------------------------------------------
    La pagina dei gestori: eventi, regia durante la diretta,
+   ascolti (chi e quanti hanno guardato, minuto per minuto),
    caricamento dei partecipanti, email con le credenziali ed
    esportazione in Excel. Niente framework e niente build: un file
    solo, letto dal browser cosi' com'e'.
@@ -93,6 +94,11 @@
         file: null,            // il file aperto: cartella di lavoro, foglio, abbinamento
         caricamento: null,     // l'anteprima in corso
         connessi: { timer: null, ultimo: null, inCorso: false },
+        /* la scheda Ascolti: l'ultimo risultato del servizio (dati), il giro
+           automatico (timer) e come il gestore guarda l'elenco delle persone
+           (ordine, verso, quante righe, le linee del tempo aperte): restano
+           uguali quando i dati si aggiornano da soli */
+        ascolti: { timer: null, inCorso: false, dati: null, ultimo: 0, ordine: 'nome', verso: 1, mostrate: 100, aperte: new Set(), nonCollegati: [] },
         // la scheda Email: l'ultima risposta di email-stato, il giro di invio
         // seguito da questa pagina e da che pulsante e' partita la coda
         posta: { conteggi: {}, coda: {}, ciclo: null, risposta: null, ultimoChi: '' },
@@ -569,6 +575,7 @@
 
     function fermaTutto() {
         fermaConnessi();
+        azzeraAscolti();
         sbloccaCaricamento(true);
         if (stato.posta.ciclo) stato.posta.ciclo.attivo = false;
         ['#dialogo-conferma', '#dialogo-correggi', '#dialogo-password'].forEach(s => chiudiDialogo($(s), 'annulla'));
@@ -752,6 +759,9 @@
             caricaPartecipanti();
             aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
             if (stato.scheda === 'regia') avviaConnessi();
+            // gli ascolti erano dell'evento di prima: via subito, e con la scheda aperta si leggono quelli nuovi
+            azzeraAscolti();
+            if (stato.scheda === 'ascolti') avviaAscolti();
         }
     }
 
@@ -852,7 +862,7 @@
     }
 
     function abilitaSchede(attive) {
-        ['regia', 'partecipanti', 'email', 'esporta'].forEach(n => {
+        ['regia', 'ascolti', 'partecipanti', 'email', 'esporta'].forEach(n => {
             const t = document.querySelector('[data-scheda="' + n + '"]');
             t.disabled = !attive;
             t.title = attive ? '' : 'Salva prima l\'evento';
@@ -867,6 +877,8 @@
         const tab = TAB.find(t => t.dataset.scheda === nome);
         if (tab.disabled) nome = 'evento';
         stato.scheda = nome;
+        // per la stampa: «Stampa il riepilogo» stampa solo la scheda Ascolti (vedi @media print)
+        document.body.dataset.scheda = nome;
         if (salva !== false) salvaPreferenza('ngbGestioneScheda', nome);
         TAB.forEach(t => {
             const attiva = t.dataset.scheda === nome;
@@ -875,6 +887,7 @@
             $('#' + t.getAttribute('aria-controls')).hidden = !attiva;
         });
         if (nome === 'regia') avviaConnessi(); else fermaConnessi();
+        if (nome === 'ascolti') avviaAscolti(); else fermaAscolti();
         /* L'anteprima di un video provato in un'altra scheda non serve piu'
            (e continuerebbe a scaricare il video): si chiude, ma non a meta'
            della prova, che aspetta ancora la risposta del player. */
@@ -4570,6 +4583,1300 @@
         if (ciclo.incerti) testo += ' Le email «incerte» potrebbero essere arrivate: non si rimandano da sole, guardale nella scheda Partecipanti.';
         box.querySelector('.avanzamento-testo').textContent = testo + (ciclo.nota ? ' ' + ciclo.nota : '');
     }
+
+    /* ============================================================
+       SCHEDA ASCOLTI
+       ------------------------------------------------------------
+       Chi e quanti hanno guardato la diretta, minuto per minuto. I
+       numeri li calcola il SERVIZIO (azione 'ascolti',
+       lib/diretta-ascolti.js) da una fotografia dei collegati che il
+       cron scatta ogni minuto: questa pagina li disegna e basta, senza
+       ricalcolare niente, cosi' quello che si vede, il file Excel e
+       quello che vede un altro gestore coincidono sempre.
+
+       QUANDO SI CHIEDE. Aprendo la scheda e poi ogni 60 secondi, SOLO
+       mentre la scheda e' aperta e la finestra e' in primo piano (come i
+       collegati della regia): il servizio tiene comunque il risultato
+       per un minuto, piu' spesso non servirebbe. Mentre arriva il
+       risultato nuovo resta quello di prima, un po' sbiadito: niente
+       salti della pagina. Ricerca, filtro, ordine, righe mostrate e
+       linee del tempo aperte restano come le ha lasciate il gestore.
+
+       I GRAFICI sono SVG costruiti qui con createElementNS e
+       textContent (i titoli del programma li scrivono i gestori: mai
+       innerHTML). Sono larghi quanto il riquadro (viewBox della stessa
+       larghezza, cosi' le scritte restano della loro misura) e si
+       ridisegnano quando la larghezza cambia; sotto i 640px il grafico
+       resta di 640px e scorre di lato. I colori stanno in gestione.css
+       (classi g-...): gli stessi a schermo e in stampa. Ogni grafico ha
+       un riassunto per i lettori di schermo (role="img"), la sua tabella
+       dei dati («Vedi i dati del grafico») e un riquadrino con ora e
+       numero che segue il mouse, il tocco e le frecce della tastiera
+       (riga nascosta aria-live per chi non vede lo schermo).
+
+       ORE E DATE sono quelle di Roma, con Intl come il resto della
+       pagina: il servizio manda solo millisecondi.
+       ============================================================ */
+    const OGNI_ASCOLTI_MS = 60000;
+    const MINUTO_MS = 60000;
+    // oltre 3 minuti senza fotografia la linea si interrompe (fino a 3 il servizio li ricuce)
+    const BUCO_MS = 3 * MINUTO_MS;
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    // sotto questa larghezza il grafico non si stringe piu': scorre di lato (telefono)
+    const LARGHEZZA_MINIMA_GRAFICO = 640;
+    const NOMI_MINUTO = { o: 'In onda', p: 'In pausa', a: 'Prima della diretta', t: 'Dopo la diretta' };
+    const STATI_PERSONA = { 'ha-visto': 'Ha visto', entrato: 'Entrata senza vedere', 'mai-entrato': 'Mai entrata' };
+    // l'elenco delle persone: fino a 200 si vedono tutte, oltre si mostrano 100 alla volta
+    const PERSONE_PER_VOLTA = 100;
+    const PERSONE_TUTTE_FINO_A = 200;
+    // cliccando un'intestazione: i nomi dalla A, i numeri dal piu' grande, il primo ingresso dal primo
+    const VERSO_INIZIALE = { nome: 1, primo: 1, minuti: -1, percentuale: -1, collegamenti: -1 };
+    // chi non e' mai entrato non ha questi numeri (nella tabella c'e' «–»): va sempre in fondo
+    const maiEntrata = p => p.stato === 'mai-entrato';
+    const VALORE_ORDINE = {
+        primo: p => (p.primoIngresso ? Number(p.primoIngresso) : null),
+        minuti: p => (maiEntrata(p) ? null : Number(p.minutiInOnda || 0)),
+        percentuale: p => (maiEntrata(p) ? null : Number(p.percentuale || 0)),
+        collegamenti: p => (maiEntrata(p) ? null : Number(p.collegamenti || 0))
+    };
+
+    /* ---------- numeri e durate ---------- */
+    function numeroIt(n, decimali) {
+        if (n == null || n === '' || !isFinite(Number(n))) return '–';
+        const d = decimali || 0;
+        return Number(n).toLocaleString('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+    // 42 -> [[42, 'min']]; 252 -> [[4, 'h'], [12, 'min']]
+    function partiDurata(minuti) {
+        if (minuti == null || !isFinite(Number(minuti))) return null;
+        const m = Math.round(Number(minuti));
+        if (m < 60) return [[m, 'min']];
+        const h = Math.floor(m / 60);
+        const resto = m % 60;
+        return resto ? [[h, 'h'], [resto, 'min']] : [[h, 'h']];
+    }
+    function durataTesto(minuti) {
+        const p = partiDurata(minuti);
+        return p ? p.map(x => x[0] + ' ' + x[1]).join(' ') : '–';
+    }
+    const spettatori = n => numeroIt(n) + ' ' + plurale(Number(n), 'spettatore', 'spettatori');
+    // "09:15": l'ora nei fogli Excel (testo, cosi' Excel non la trasforma in un numero)
+    function oraFoglio(ms) {
+        if (!ms && ms !== 0) return '';
+        const p = parti(FORMATO_DATA_ORA, ms);
+        return p.hour + ':' + p.minute;
+    }
+    // l'ora sola se e' lo stesso giorno dell'evento, altrimenti data e ora
+    function quandoBreve(ms, riferimento) {
+        if (!ms && ms !== 0) return '–';
+        return riferimento && dataOra(ms).slice(0, 10) === dataOra(riferimento).slice(0, 10) ? oraLeggibile(ms) : dataOra(ms);
+    }
+
+    /* ---------- il risultato del servizio, pronto da disegnare ----------
+       Solo controlli di forma (liste che mancano, punti senza numeri) e le
+       chiavi di ricerca delle persone: i numeri restano quelli del servizio. */
+    function preparaAscolti(r) {
+        const lista = x => (Array.isArray(x) ? x : []);
+        const d = Object.assign({}, r);
+        d.evento = r.evento || {};
+        d.registrazione = r.registrazione || { attiva: false };
+        d.riepilogo = r.riepilogo || {};
+        d.curva = lista(r.curva).filter(p => p && isFinite(p.t) && isFinite(p.n)).sort((a, b) => a.t - b.t);
+        d.pause = lista(r.pause).filter(p => p && isFinite(p.da) && isFinite(p.a));
+        d.cali = lista(r.cali).filter(c => c && isFinite(c.t));
+        d.programma = lista(r.programma);
+        d.ingressi = lista(r.ingressi).filter(x => x && isFinite(x.t)).sort((a, b) => a.t - b.t);
+        d.dispositivi = r.dispositivi || {};
+        d.persone = lista(r.persone);
+        d.accessi = lista(r.accessi);
+        d.persone.forEach(p => {
+            const nome = p.nome || '', cognome = p.cognome || '';
+            p._cerca = perRicerca([nome + ' ' + cognome, cognome + ' ' + nome, p.email, p.azienda].join(' | '));
+            p._compatto = compatto((p.nome || '') + (p.cognome || '')) + '|' + compatto((p.cognome || '') + (p.nome || '')) + '|' + compatto(p.email);
+        });
+        d.perUid = new Map(d.persone.map(p => [p.uid, p]));
+        d.perT = new Map(d.curva.map((p, i) => [p.t, i]));
+        d.dominio = dominioAscolti(d);
+        d.buchi = buchiDi(d);
+        return d;
+    }
+
+    /* Il tratto di tempo dei grafici (lo stesso per la curva, gli ingressi
+       e la linea del tempo di ogni persona): dal primo minuto con qualcuno
+       collegato (o dall'inizio dell'evento, se viene prima) all'ultimo (o
+       alla fine prevista, se la diretta e' ancora in corso), arrotondato al
+       quarto d'ora. Le fotografie cominciano due ore prima dell'inizio:
+       i minuti vuoti in testa e in coda non si disegnano (restano nella
+       tabella dei dati e nell'Excel). */
+    function dominioAscolti(d) {
+        const c = d.curva.filter(p => p.n > 0 || p.stato === 'o' || p.stato === 'p');
+        const ev = d.evento;
+        let da = c.length ? c[0].t : Infinity;
+        let a = c.length ? c[c.length - 1].t + MINUTO_MS : -Infinity;
+        if (ev.inizio) { da = Math.min(da, ev.inizio); a = Math.max(a, ev.inizio); }
+        if (ev.fine) { a = Math.max(a, ev.fine); da = Math.min(da, ev.fine); }
+        if (!isFinite(da) || !isFinite(a)) return null;
+        const quarto = 15 * MINUTO_MS;
+        da = Math.floor(da / quarto) * quarto;
+        a = Math.ceil(a / quarto) * quarto;
+        if (a <= da) a = da + 60 * MINUTO_MS;
+        return { da: da, a: a };
+    }
+    /* Dove finisce una pausa: il servizio manda la fine dell'ultimo minuto
+       in pausa; se 'a' fosse invece l'inizio di quel minuto (un punto della
+       curva in pausa), la fascia arriva comunque alla sua fine. */
+    function finePausa(d, pausa) {
+        const i = d.perT.get(pausa.a);
+        return i != null && d.curva[i].stato === 'p' ? pausa.a + MINUTO_MS : pausa.a;
+    }
+    /* I tratti senza fotografie lunghi piu' di 3 minuti (il cron che per
+       qualche motivo non e' partito): la linea li mostra come un buco e la
+       pagina lo dice a parole. (Chi c'era prima e dopo il servizio lo
+       considera rimasto: niente finti rientri.)
+       { da, a } = il primo e l'ultimo minuto mancanti; ripresa = la prima
+       fotografia dopo. */
+    function buchiDi(d) {
+        const out = [];
+        d.curva.forEach((p, i) => {
+            const prima = d.curva[i - 1];
+            if (prima && p.t - prima.t > BUCO_MS) out.push({ da: prima.t + MINUTO_MS, a: p.t - MINUTO_MS, ripresa: p.t });
+        });
+        return out;
+    }
+    const intervalloMancante = b => 'dalle ' + oraLeggibile(b.da) + ' alle ' + oraLeggibile(b.a);
+
+    // la voce del programma in cui cade un istante (numerata da 1, come nella tabella)
+    function voceDi(d, t) {
+        const i = d.programma.findIndex(v => v && v.da != null && v.a != null && t >= v.da && t < v.a);
+        return i < 0 ? null : { numero: i + 1, voce: d.programma[i] };
+    }
+
+    /* ============================================================
+       ASCOLTI: CARICAMENTO E AGGIORNAMENTO AUTOMATICO
+       ============================================================ */
+    function avviaAscolti() {
+        fermaAscolti();
+        if (!stato.idEvento) return;
+        caricaAscolti();
+        stato.ascolti.timer = setInterval(() => {
+            if (document.visibilityState === 'visible') caricaAscolti();
+        }, OGNI_ASCOLTI_MS);
+    }
+    function fermaAscolti() {
+        if (stato.ascolti.timer) clearInterval(stato.ascolti.timer);
+        stato.ascolti.timer = null;
+    }
+    // tornando alla pagina dopo piu' di un minuto: subito i dati di adesso
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && stato.scheda === 'ascolti' && stato.ascolti.timer
+            && Date.now() - stato.ascolti.ultimo >= OGNI_ASCOLTI_MS - 1000) caricaAscolti();
+    });
+
+    async function caricaAscolti() {
+        const a = stato.ascolti;
+        const id = stato.idEvento;
+        if (!id || a.inCorso || !stato.utente) return;
+        a.inCorso = true;
+        const scheda = $('#scheda-ascolti');
+        scheda.classList.add('in-aggiornamento');
+        if (!a.dati) { mostraMsg('#msg-ascolti', 'Sto leggendo gli ascolti…', 'info'); a.msgCaricamento = true; }
+        try {
+            const r = await chiama('ascolti', { idEvento: id });
+            if (id !== stato.idEvento) return;
+            a.dati = preparaAscolti(r);
+            a.ultimo = Date.now();
+            // via solo i messaggi del caricamento («Sto leggendo…», un errore di prima): non quello dell'Excel appena scaricato
+            if (a.msgCaricamento) { nascondiMsg('#msg-ascolti'); a.msgCaricamento = false; }
+            disegnaAscolti();
+        } catch (e) {
+            if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return; }
+            if (id !== stato.idEvento) return;
+            mostraMsg('#msg-ascolti', (a.dati ? 'Dati non aggiornati: ' : 'Non riesco a leggere gli ascolti: ') + ((e && e.msg) || 'errore del servizio.')
+                + (a.timer ? ' Riprovo tra un minuto.' : ''), 'errore');
+            a.msgCaricamento = true;
+        } finally {
+            a.inCorso = false;
+            scheda.classList.remove('in-aggiornamento');
+            // nel frattempo il gestore ha scelto un altro evento: si leggono i suoi
+            if (id !== stato.idEvento && stato.scheda === 'ascolti') caricaAscolti();
+        }
+    }
+    $('#btn-ascolti-aggiorna').addEventListener('click', () => conAttesa($('#btn-ascolti-aggiorna'), caricaAscolti));
+
+    // la scheda torna vuota (altro evento, uscita del gestore)
+    function azzeraAscolti() {
+        fermaAscolti();
+        const a = stato.ascolti;
+        a.dati = null;
+        a.ultimo = 0;
+        a.aperte = new Set();
+        a.mostrate = PERSONE_PER_VOLTA;
+        a.nonCollegati = [];
+        navGrafico.conf = null;
+        navIngressi.conf = null;
+        document.querySelectorAll('#scheda-ascolti .grafico-cornice svg').forEach(n => n.remove());
+        ['#ascolti-suggerimento', '#ingressi-suggerimento', '#ascolti-grafico', '#ascolti-ingressi', '#programma-nota',
+            '#ascolti-grafico-vuoto', '#ascolti-ingressi-vuoto', '#programma-vuoto', '#persone-vuoto', '#non-collegati-vuoto',
+            '#btn-altre-persone', '#ascolti-nota', '#non-collegati-altri'].forEach(s => { $(s).hidden = true; });
+        document.querySelectorAll('#ascolti-tessere .tessera').forEach(li => {
+            li.querySelector('.tessera-num').textContent = '–';
+            li.querySelector('.tessera-sotto').textContent = '';
+        });
+        ['#tabella-curva tbody', '#tabella-ingressi tbody', '#tabella-programma tbody', '#tabella-persone tbody',
+            '#tabella-non-collegati tbody', '#ascolti-dispositivi'].forEach(s => svuota($(s)));
+        ['#ascolti-evento', '#ascolti-aggiornato', '#ascolti-cali', '#ascolti-buchi', '#ingressi-buchi', '#conta-persone', '#conta-non-collegati', '#persone-mostrate'].forEach(s => { $(s).textContent = ''; });
+        $('#btn-copia-indirizzi').disabled = true;
+        nascondiMsg('#msg-ascolti');
+        nascondiMsg('#msg-non-collegati');
+    }
+
+    function disegnaAscolti() {
+        const d = stato.ascolti.dati;
+        if (!d) return;
+        const ev = d.evento;
+        const quando = ev.inizio ? dataEstesa(ev.inizio) + ', dalle ' + oraLeggibile(ev.inizio) + (ev.fine ? ' alle ' + oraLeggibile(ev.fine) : '') : '';
+        $('#ascolti-evento').textContent = [ev.titolo || ev.id || stato.idEvento, quando, ETICHETTE_STATO[ev.stato] || ''].filter(Boolean).join(' · ');
+        const aggiornato = $('#ascolti-aggiornato');
+        svuota(aggiornato);
+        // in stampa resta solo l'ora dei dati
+        aggiornato.append('Aggiornato alle ' + oraLeggibile(d.calcolato || Date.now()), el('span', { classe: 'solo-schermo', testo: ' · si aggiorna da solo ogni minuto' }));
+        disegnaRiepilogo(d);
+        disegnaGrafici(d);
+        disegnaTabellaCurva(d);
+        disegnaCali(d);
+        disegnaProgramma(d);
+        disegnaTabellaIngressi(d);
+        disegnaDispositivi(d);
+        disegnaPersone();
+        disegnaNonCollegati(d);
+        const nota = $('#ascolti-nota');
+        nota.textContent = d.nota ? String(d.nota) : '';
+        nota.hidden = !d.nota;
+    }
+
+    /* ============================================================
+       ASCOLTI: IL RIEPILOGO (le tessere)
+       ============================================================ */
+    function tessera(voce, valore, sotto) {
+        const li = $('#ascolti-tessere [data-voce="' + voce + '"]');
+        const num = li.querySelector('.tessera-num');
+        svuota(num);
+        (Array.isArray(valore) ? valore : [valore]).forEach(v => {
+            num.appendChild(typeof v === 'string' || typeof v === 'number' ? document.createTextNode(String(v)) : v);
+        });
+        li.querySelector('.tessera-sotto').textContent = sotto || '';
+        li.classList.toggle('vuota', valore === '–');
+    }
+    // "4 h 12 min" con le unita' piu' piccole dei numeri
+    function valoreDurata(minuti) {
+        const p = partiDurata(minuti);
+        if (!p) return '–';
+        const out = [];
+        p.forEach((x, i) => { out.push(String(x[0])); out.push(el('small', { testo: ' ' + x[1] + (i < p.length - 1 ? ' ' : '') })); });
+        return out;
+    }
+    function disegnaRiepilogo(d) {
+        const k = d.riepilogo;
+        const iscritti = Number(k.iscritti) || 0;
+        const inviate = Number(k.credenzialiInviate) || 0;
+        tessera('iscritti', numeroIt(k.iscritti), 'persone dell\'evento');
+        tessera('credenziali', numeroIt(k.credenzialiInviate),
+            iscritti > inviate ? conNumero(iscritti - inviate, 'ancora da inviare', 'ancora da inviare') : (iscritti ? 'a tutti gli iscritti' : ''));
+        tessera('entrati', numeroIt(k.entrati), iscritti ? numeroIt(k.entratiPercento) + '% degli iscritti' : '');
+        tessera('visto', numeroIt(k.hannoVisto), 'con la diretta in onda');
+        // senza fotografie non c'e' ancora niente da dire; con le fotografie ma senza minuti in onda, lo si dice
+        const senza = d.registrazione.attiva ? 'nessun minuto in onda' : 'ancora nessun dato';
+        tessera('picco', k.picco ? numeroIt(k.picco.n) : '–', k.picco ? 'alle ' + oraLeggibile(k.picco.t) : senza);
+        tessera('minimo', k.minimo ? numeroIt(k.minimo.n) : '–', k.minimo ? 'alle ' + oraLeggibile(k.minimo.t) : senza);
+        tessera('media', k.minutiInOnda ? numeroIt(k.media, 1) : '–', k.minutiInOnda ? 'su ' + durataTesto(k.minutiInOnda) + ' in onda' : senza);
+        tessera('tempo', k.hannoVisto ? valoreDurata(k.tempoMedioMinuti) : '–', k.hannoVisto ? 'per chi ha visto' : '');
+        tessera('ore', numeroIt(k.oreTotali, 1), 'sommando tutte le persone');
+    }
+
+    /* ============================================================
+       ASCOLTI: ATTREZZI DEI GRAFICI
+       ============================================================ */
+    function svgEl(tag, attributi, figli) {
+        const n = document.createElementNS(SVG_NS, tag);
+        const a = attributi || {};
+        Object.keys(a).forEach(k => {
+            const v = a[k];
+            if (v == null || v === false) return;
+            if (k === 'testo') n.textContent = String(v);
+            else if (k === 'classe') n.setAttribute('class', v);
+            else n.setAttribute(k, String(v));
+        });
+        (figli || []).forEach(f => { if (f) n.appendChild(typeof f === 'string' ? document.createTextNode(f) : f); });
+        return n;
+    }
+    const tondo = v => Math.round(v * 10) / 10;
+
+    // la larghezza di una scritta, per accorciare le etichette che non ci stanno
+    let misuratore = null;
+    function larghezzaTesto(testo, px, peso) {
+        if (misuratore === null) {
+            try { misuratore = document.createElement('canvas').getContext('2d') || false; } catch (_) { misuratore = false; }
+        }
+        if (!misuratore) return String(testo).length * px * 0.56;
+        misuratore.font = (peso || 600) + ' ' + px + 'px Inter, system-ui, sans-serif';
+        return misuratore.measureText(String(testo)).width;
+    }
+    function accorcia(testo, spazio, px, peso) {
+        const s = String(testo || '');
+        if (larghezzaTesto(s, px, peso) <= spazio) return s;
+        let n = s.length - 1;
+        while (n > 0 && larghezzaTesto(s.slice(0, n).trimEnd() + '…', px, peso) > spazio) n--;
+        return n > 0 ? s.slice(0, n).trimEnd() + '…' : '';
+    }
+
+    // i numeri dell'asse verticale: 0, 100, 200... (passi da 1, 2 o 5)
+    function tacche(massimo) {
+        const max = Math.max(1, massimo);
+        const grezzo = max / 4;
+        const potenza = Math.pow(10, Math.floor(Math.log10(grezzo)));
+        let passo = [1, 2, 5, 10].map(m => m * potenza).find(p => p >= grezzo) || 10 * potenza;
+        passo = Math.max(1, Math.round(passo));
+        const alto = Math.ceil(max / passo) * passo;
+        const valori = [];
+        for (let v = 0; v <= alto; v += passo) valori.push(v);
+        return { alto: alto, valori: valori };
+    }
+    // le ore dell'asse orizzontale (ora di Roma: gli scarti dall'ora UTC sono ore intere)
+    function taccheOre(dom, pxPerOra) {
+        const ogni = pxPerOra >= 60 ? 1 : (pxPerOra >= 30 ? 2 : 3);
+        const out = [];
+        for (let t = Math.ceil(dom.da / 3600000) * 3600000; t <= dom.a; t += 3600000) {
+            if (Number(parti(FORMATO_ORA, t).hour) % ogni === 0) out.push(t);
+        }
+        return out;
+    }
+    function larghezzaGrafico(cornice) {
+        const w = Math.floor((cornice.parentElement && cornice.parentElement.clientWidth) || 0);
+        return Math.max(LARGHEZZA_MINIMA_GRAFICO, w || 960);
+    }
+    // una colonna con gli angoli in alto arrotondati (quelli in basso poggiano sulla base)
+    function percorsoColonna(x, alto, larghezza, altezza, raggio) {
+        const r = Math.max(0, Math.min(raggio, larghezza / 2, altezza));
+        const basso = alto + altezza;
+        return 'M' + tondo(x) + ',' + tondo(basso) + 'V' + tondo(alto + r)
+            + 'Q' + tondo(x) + ',' + tondo(alto) + ' ' + tondo(x + r) + ',' + tondo(alto)
+            + 'H' + tondo(x + larghezza - r)
+            + 'Q' + tondo(x + larghezza) + ',' + tondo(alto) + ' ' + tondo(x + larghezza) + ',' + tondo(alto + r)
+            + 'V' + tondo(basso) + 'Z';
+    }
+    // gli assi: le righe dei numeri (sottili, chiare), la base e le ore
+    function disegnaAssi(svg, o) {
+        const g = svgEl('g', { classe: 'g-assi', 'aria-hidden': 'true' });
+        o.tacche.valori.forEach(v => {
+            const yv = tondo(o.y(v));
+            g.appendChild(svgEl('line', { classe: v === 0 ? 'g-base' : 'g-griglia', x1: o.sinistra, x2: o.destra, y1: yv, y2: yv }));
+            g.appendChild(svgEl('text', { classe: 'g-tacca', x: o.sinistra - 8, y: yv + 4, 'text-anchor': 'end', testo: numeroIt(v) }));
+        });
+        taccheOre(o.dominio, (o.destra - o.sinistra) / ((o.dominio.a - o.dominio.da) / 3600000)).forEach(t => {
+            const xt = tondo(o.x(t));
+            g.appendChild(svgEl('line', { classe: 'g-base', x1: xt, x2: xt, y1: o.fondo, y2: o.fondo + 5 }));
+            g.appendChild(svgEl('text', { classe: 'g-tacca', x: xt, y: o.fondo + 19, 'text-anchor': 'middle', testo: oraLeggibile(t) }));
+        });
+        svg.appendChild(g);
+    }
+
+    /* ---------- il riquadrino che segue mouse, tocco e tastiera ----------
+       Uno per grafico, legato una volta sola alla sua cornice: i dati da
+       mostrare li mette ogni disegno in nav.conf (quanti punti, dove
+       stanno, che cosa dire). Le frecce spostano il punto di uno (Pagina
+       su e giu' di dieci, Inizio e Fine al primo e all'ultimo), Esc lo
+       nasconde; il testo va anche nella riga aria-live, solo quando ci si
+       muove con la tastiera (col mouse sarebbe un fiume di annunci). */
+    function navigabile(cornice, riquadrino, annuncio) {
+        const nav = { conf: null, indice: -1, chiave: null };
+        function mostra(i, daTastiera) {
+            const c = nav.conf;
+            if (!c || !c.quanti) return;
+            i = Math.max(0, Math.min(c.quanti - 1, i));
+            nav.indice = i;
+            nav.chiave = c.chiave(i);
+            const righe = c.testo(i);
+            svuota(riquadrino);
+            righe.forEach((t, k) => riquadrino.appendChild(el(k === 0 ? 'strong' : 'span', { testo: t })));
+            riquadrino.hidden = false;
+            c.evidenzia(i);
+            const scala = cornice.clientWidth / c.larghezza;
+            const px = c.x(i) * scala;
+            const py = c.y(i) * scala;
+            const lw = riquadrino.offsetWidth;
+            const lh = riquadrino.offsetHeight;
+            let sx = px + 14;
+            if (sx + lw > cornice.clientWidth - 4) sx = px - 14 - lw;
+            riquadrino.style.left = Math.max(4, sx) + 'px';
+            riquadrino.style.top = Math.max(4, Math.min(py - lh / 2, cornice.clientHeight - lh - 4)) + 'px';
+            if (daTastiera) {
+                annuncio.textContent = righe.join(', ');
+                // sul telefono il grafico scorre di lato: il punto scelto resta in vista
+                const s = cornice.parentElement;
+                if (s && s.scrollWidth > s.clientWidth) {
+                    if (px < s.scrollLeft + 40) s.scrollLeft = px - 40;
+                    else if (px > s.scrollLeft + s.clientWidth - 40) s.scrollLeft = px - s.clientWidth + 40;
+                }
+            }
+        }
+        function nascondi() {
+            nav.indice = -1;
+            nav.chiave = null;
+            riquadrino.hidden = true;
+            if (nav.conf) nav.conf.evidenzia(-1);
+        }
+        function daPuntatore(e) {
+            const c = nav.conf;
+            if (!c || !c.quanti) return;
+            const r = cornice.getBoundingClientRect();
+            const xDato = (e.clientX - r.left) * c.larghezza / r.width;
+            if (xDato < c.sinistra - 12 || xDato > c.destra + 12) { if (e.type !== 'click') nascondi(); return; }
+            mostra(c.vicino(xDato));
+        }
+        /* Il fuoco che arriva da un tocco o da un clic non mostra il picco
+           (lo fa solo quello della tastiera): subito dopo arriva il clic, con
+           il punto scelto dal dito, e il grafico non deve scorrere nel mezzo. */
+        let dalPuntatore = false;
+        cornice.addEventListener('pointerdown', () => { dalPuntatore = true; });
+        cornice.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') daPuntatore(e); });
+        cornice.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && document.activeElement !== cornice) nascondi(); });
+        // il tocco (e il clic): il punto piu' vicino al dito resta scritto finche' non si tocca altrove
+        cornice.addEventListener('click', e => { dalPuntatore = false; daPuntatore(e); });
+        cornice.addEventListener('keydown', e => {
+            const c = nav.conf;
+            if (!c || !c.quanti) return;
+            if (e.key === 'Escape') { if (nav.indice >= 0) { e.preventDefault(); nascondi(); } return; }
+            const salto = c.salto || 10;
+            const passi = { ArrowRight: 1, ArrowLeft: -1, PageDown: salto, PageUp: -salto };
+            let i;
+            if (e.key === 'Home') i = 0;
+            else if (e.key === 'End') i = c.quanti - 1;
+            else if (passi[e.key]) i = nav.indice < 0 ? c.inizio() : nav.indice + passi[e.key];
+            else return;
+            e.preventDefault();
+            mostra(i, true);
+        });
+        cornice.addEventListener('focus', () => {
+            if (dalPuntatore) { dalPuntatore = false; return; }
+            if (nav.indice < 0 && nav.conf && nav.conf.quanti) mostra(nav.conf.inizio(), true);
+        });
+        cornice.addEventListener('blur', () => { dalPuntatore = false; nascondi(); });
+        // dopo un nuovo disegno (dati aggiornati, larghezza cambiata) il punto scelto resta quello
+        nav.ridisegnato = () => {
+            if (nav.chiave == null || !nav.conf) { riquadrino.hidden = true; return; }
+            const i = nav.conf.trova(nav.chiave);
+            if (i >= 0) mostra(i); else nascondi();
+        };
+        return nav;
+    }
+    const navGrafico = navigabile($('#ascolti-cornice'), $('#ascolti-suggerimento'), $('#ascolti-annuncio'));
+    const navIngressi = navigabile($('#ingressi-cornice'), $('#ingressi-suggerimento'), $('#ingressi-annuncio'));
+
+    // il punto della curva piu' vicino a un istante (la curva e' in ordine di tempo)
+    function puntoVicino(lista, t) {
+        let basso = 0, alto = lista.length - 1;
+        while (alto - basso > 1) {
+            const m = (basso + alto) >> 1;
+            if (lista[m].t <= t) basso = m; else alto = m;
+        }
+        return Math.abs(lista[alto].t - t) < Math.abs(lista[basso].t - t) ? alto : basso;
+    }
+
+    function disegnaGrafici(d) {
+        disegnaGrafico(d);
+        disegnaIngressi(d);
+        stato.ascolti.larghezza = $('#ascolti-cornice').parentElement.clientWidth;
+    }
+    // la finestra cambia larghezza: i grafici si ridisegnano (le scritte restano della loro misura)
+    let attesaRidisegno = null;
+    window.addEventListener('resize', () => {
+        if (stato.scheda !== 'ascolti' || !stato.ascolti.dati) return;
+        clearTimeout(attesaRidisegno);
+        attesaRidisegno = setTimeout(() => {
+            if (stato.ascolti.dati && $('#ascolti-cornice').parentElement.clientWidth !== stato.ascolti.larghezza) disegnaGrafici(stato.ascolti.dati);
+        }, 150);
+    });
+
+    /* ============================================================
+       ASCOLTI: SPETTATORI MINUTO PER MINUTO
+       ------------------------------------------------------------
+       Un punto per ogni minuto fotografato, all'inizio del suo minuto.
+       La linea e l'area blu sono i minuti in onda; prima e dopo la
+       diretta e nelle pause la linea e' grigia e sottile. Sotto, le
+       fasce: pausa (grigia, con la scritta) e prima/dopo la diretta
+       (piu' chiare). Le voci del programma sono linee verticali sottili
+       con il numero e il titolo accorciato (intero passandoci sopra, e
+       nel riquadrino). Picco e minimo con il punto e la scritta, i tre
+       cali piu' forti in rosso. Oltre 3 minuti senza fotografia la
+       linea si interrompe: meglio un buco che un numero inventato.
+       ============================================================ */
+    function testoSenzaDati(d) {
+        const ev = d.evento;
+        const inizio = 'I dati minuto per minuto si registrano da quando la diretta è in finestra: ';
+        const intanto = ' Intanto, qui sotto, trovi iscritti, accessi e persone.';
+        if (ev.inizio && Date.now() < ev.inizio - 120 * MINUTO_MS) {
+            return inizio + 'per questo evento dalle ' + oraLeggibile(ev.inizio - 120 * MINUTO_MS) + ' di ' + dataEstesa(ev.inizio)
+                + ', due ore prima dell\'inizio. Da quel momento ogni minuto si conta chi è collegato e qui compare il grafico.' + intanto;
+        }
+        return inizio + 'da due ore prima dell\'inizio fino alla fine della diretta. Per questo evento non c\'è ancora nessuna fotografia:'
+            + ' il grafico comparirà con la prima (ne arriva una al minuto).' + intanto;
+    }
+    function riassuntoGrafico(d, c) {
+        const k = d.riepilogo;
+        const pezzi = ['Spettatori minuto per minuto, dalle ' + oraLeggibile(c[0].t) + ' alle ' + oraLeggibile(c[c.length - 1].t) + '.'];
+        if (k.picco) pezzi.push('Picco: ' + spettatori(k.picco.n) + ' alle ' + oraLeggibile(k.picco.t) + '.');
+        if (k.minimo) pezzi.push('Minimo in onda: ' + spettatori(k.minimo.n) + ' alle ' + oraLeggibile(k.minimo.t) + '.');
+        if (k.minutiInOnda) pezzi.push('Media in onda: ' + numeroIt(k.media, 1) + '.');
+        if (d.pause.length) pezzi.push(conNumero(d.pause.length, 'pausa', 'pause') + '.');
+        pezzi.push('I valori di ogni minuto sono nella tabella «Vedi i dati del grafico».');
+        return pezzi.join(' ');
+    }
+    function righeMinuto(d, p) {
+        const k = d.riepilogo;
+        const righe = [spettatori(p.n), 'alle ' + oraLeggibile(p.t) + ' · ' + (NOMI_MINUTO[p.stato] || '')];
+        const v = voceDi(d, p.t);
+        if (v) righe.push(v.numero + '. ' + v.voce.titolo);
+        if (k.picco && k.picco.t === p.t) righe.push('Picco della giornata');
+        if (k.minimo && k.minimo.t === p.t) righe.push('Minimo in onda');
+        const calo = d.cali.find(c => c.t === p.t);
+        if (calo) righe.push('Da qui, in 5 minuti: da ' + numeroIt(calo.da) + ' a ' + numeroIt(calo.a) + ' (−' + numeroIt(calo.perdita) + ')');
+        return righe;
+    }
+
+    function disegnaGrafico(d) {
+        const cornice = $('#ascolti-cornice');
+        const vecchio = cornice.querySelector('svg');
+        if (vecchio) vecchio.remove();
+        const dom = d.dominio;
+        // i minuti da disegnare (quelli vuoti prima e dopo restano fuori: vedi dominioAscolti)
+        const c = dom ? d.curva.filter(p => p.t >= dom.da && p.t < dom.a) : [];
+        const perT = new Map(c.map((p, i) => [p.t, i]));
+        const registrata = !!(d.registrazione && d.registrazione.attiva) && d.curva.length > 0;
+        const attiva = registrata && c.length > 0;
+        $('#ascolti-grafico').hidden = !attiva;
+        $('#ascolti-grafico-vuoto').hidden = attiva;
+        if (!attiva) {
+            $('#ascolti-grafico-vuoto').textContent = registrata
+                ? 'Le fotografie dei collegati sono cominciate alle ' + oraLeggibile(d.curva[0].t) + ': per ora nessuno ha aperto la pagina della diretta. Il grafico comparirà con i primi collegati.'
+                : testoSenzaDati(d);
+            navGrafico.conf = null;
+            $('#ascolti-suggerimento').hidden = true;
+            return;
+        }
+        const k = d.riepilogo;
+        const W = larghezzaGrafico(cornice);
+        const M = { sinistra: 48, destra: 20, alto: 30, basso: 30 };
+        const altezzaDati = 270;
+        const fondo = M.alto + altezzaDati;
+        const H = fondo + M.basso;
+        const destra = W - M.destra;
+        const x = t => M.sinistra + (t - dom.da) * (destra - M.sinistra) / (dom.a - dom.da);
+        // un po' di spazio sopra il picco, per la sua scritta
+        const tt = tacche(Math.max.apply(null, c.map(p => p.n).concat([k.picco ? k.picco.n : 0, 1])) * 1.12);
+        const y = n => fondo - (n / tt.alto) * altezzaDati;
+        const svg = svgEl('svg', {
+            classe: 'grafico-svg', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': riassuntoGrafico(d, c),
+            // la scala, per chi controlla il disegno (le prove): tempo -> x, spettatori -> y
+            'data-da': dom.da, 'data-a': dom.a, 'data-sinistra': M.sinistra, 'data-destra': destra,
+            'data-alto': M.alto, 'data-fondo': fondo, 'data-massimo': tt.alto
+        });
+        const livello = classe => { const g = svgEl('g', { classe: classe }); svg.appendChild(g); return g; };
+        const gFasce = livello('g-fasce');
+
+        // prima e dopo la diretta: dal primo all'ultimo minuto in onda o in pausa
+        const vivi = c.filter(p => p.stato === 'o' || p.stato === 'p');
+        // scritte: la prima che ci sta (per intero, poi quella corta), altrimenti nessuna (c'e' la legenda)
+        const fascia = (da, a, classe, scritte) => {
+            const x1 = x(Math.max(da, dom.da));
+            const x2 = x(Math.min(a, dom.a));
+            if (x2 - x1 < 1) return;
+            const g = svgEl('g', { classe: classe });
+            g.appendChild(svgEl('rect', { x: tondo(x1), y: M.alto, width: tondo(x2 - x1), height: altezzaDati }));
+            const scritta = scritte.find(t => larghezzaTesto(t, 11, 700) + 10 <= x2 - x1);
+            if (scritta) g.appendChild(svgEl('text', { classe: 'g-fascia-testo', x: tondo((x1 + x2) / 2), y: M.alto + 16, 'text-anchor': 'middle', testo: scritta }));
+            gFasce.appendChild(g);
+        };
+        if (!vivi.length) fascia(dom.da, dom.a, 'g-fuori', ['Prima della diretta', 'Prima']);
+        else {
+            if (c.some(p => p.stato === 'a' && p.t < vivi[0].t)) fascia(dom.da, vivi[0].t, 'g-fuori', ['Prima della diretta', 'Prima']);
+            const dopo = vivi[vivi.length - 1].t + MINUTO_MS;
+            if (c.some(p => p.stato === 't' && p.t >= dopo)) fascia(dopo, dom.a, 'g-fuori', ['Dopo la diretta', 'Dopo']);
+        }
+        d.pause.forEach(p => fascia(p.da, finePausa(d, p), 'g-pausa', ['Pausa']));
+
+        disegnaAssi(svg, { tacche: tt, y: y, x: x, sinistra: M.sinistra, destra: destra, fondo: fondo, dominio: dom });
+
+        // le voci del programma: una linea sottile e, in alto, numero e titolo accorciato
+        const gVoci = livello('g-voci');
+        const voci = d.programma.map((v, i) => ({ v: v, n: i + 1 })).filter(o => o.v && o.v.da != null && o.v.da >= dom.da && o.v.da < dom.a);
+        voci.forEach((o, j) => {
+            const xv = tondo(x(o.v.da));
+            const prossima = voci[j + 1] ? x(voci[j + 1].v.da) : Math.min(destra, x(o.v.a || dom.a));
+            const spazio = prossima - xv - 8;
+            const g = svgEl('g', { classe: 'g-voce', 'data-voce': o.n, 'data-t': o.v.da });
+            g.appendChild(svgEl('title', { testo: o.n + '. ' + (o.v.ora ? o.v.ora + ' ' : '') + (o.v.titolo || '') }));
+            g.appendChild(svgEl('line', { x1: xv, x2: xv, y1: 6, y2: fondo }));
+            const numero = String(o.n);
+            const largoNumero = larghezzaTesto(numero + ' ', 11, 800);
+            if (spazio >= largoNumero - 2) {
+                const titolo = accorcia(o.v.titolo, spazio - largoNumero, 11, 600);
+                g.appendChild(svgEl('text', { classe: 'g-voce-testo', x: xv + 4, y: 16 }, [
+                    svgEl('tspan', { classe: 'g-voce-num', testo: numero }),
+                    titolo ? ' ' + titolo : null
+                ]));
+            }
+            gVoci.appendChild(g);
+        });
+
+        // la curva: tratti senza buchi, e dentro ogni tratto i pezzi in onda (blu) e gli altri (grigi)
+        const gArea = livello('g-aree');
+        const gLinee = livello('g-linee');
+        const tratti = [];
+        c.forEach((p, i) => {
+            if (!i || p.t - c[i - 1].t > BUCO_MS) tratti.push([]);
+            tratti[tratti.length - 1].push(p);
+        });
+        const linea = punti => punti.map((p, i) => (i ? 'L' : 'M') + tondo(x(p.t)) + ',' + tondo(y(p.n))).join('');
+        tratti.forEach(tr => {
+            let s = 0;
+            for (let i = 1; i <= tr.length; i++) {
+                if (i < tr.length && (tr[i].stato === 'o') === (tr[s].stato === 'o')) continue;
+                if (tr[s].stato === 'o') {
+                    const pezzo = tr.slice(s, i);
+                    if (pezzo.length === 1) gLinee.appendChild(svgEl('circle', { classe: 'g-punto-solo', cx: tondo(x(pezzo[0].t)), cy: tondo(y(pezzo[0].n)), r: 2.5 }));
+                    else {
+                        gArea.appendChild(svgEl('path', { classe: 'g-area', d: linea(pezzo) + 'L' + tondo(x(pezzo[pezzo.length - 1].t)) + ',' + fondo + 'L' + tondo(x(pezzo[0].t)) + ',' + fondo + 'Z' }));
+                        gLinee.appendChild(svgEl('path', { classe: 'g-linea', d: linea(pezzo) }));
+                    }
+                } else {
+                    // il pezzo grigio si attacca ai minuti in onda vicini: la linea non si spezza
+                    const pezzo = tr.slice(Math.max(0, s - 1), Math.min(tr.length, i + 1));
+                    if (pezzo.length > 1) gLinee.insertBefore(svgEl('path', { classe: 'g-linea-spenta', d: linea(pezzo) }), gLinee.firstChild);
+                }
+                s = i;
+            }
+        });
+
+        /* Picco e minimo (il punto e la scritta), poi i tre cali piu' forti (il
+           tratto della curva in rosso e la perdita). Le scritte non si pestano:
+           ognuna si mette nel primo posto libero fra alcuni vicini al suo
+           segno, dentro il grafico; picco e minimo scelgono per primi. */
+        const gSegni = livello('g-segni');
+        const occupati = [];
+        const scatola = (tx, ty, scritta, px, ancora) => {
+            const w = larghezzaTesto(scritta, px, 700);
+            const x0 = ancora === 'start' ? tx : (ancora === 'end' ? tx - w : tx - w / 2);
+            return [x0 - 2, ty - px, x0 + w + 2, ty + 4];
+        };
+        const libero = b => b[0] >= M.sinistra && b[2] <= destra && b[1] >= M.alto && b[3] <= fondo
+            && occupati.every(o => b[2] < o[0] || b[0] > o[2] || b[3] < o[1] || b[1] > o[3]);
+        const scegli = (candidati, scritta, px) => {
+            const buono = candidati.find(c => libero(scatola(c[0], c[1], scritta, px, c[2]))) || candidati[0];
+            occupati.push(scatola(buono[0], buono[1], scritta, px, buono[2]));
+            return buono;
+        };
+        const segno = (o, classe, scritta, sopra) => {
+            const px = tondo(x(o.t));
+            const py = tondo(y(o.n));
+            const g = svgEl('g', { classe: classe, 'data-t': o.t, 'data-n': o.n });
+            g.appendChild(svgEl('circle', { cx: px, cy: py, r: 5 }));
+            occupati.push([px - 7, py - 7, px + 7, py + 7]);
+            // centrata sul punto (sopra o sotto), o spostata di lato vicino ai bordi del grafico
+            const su = Math.max(M.alto + 14, py - 12), giu = py + 24;
+            const verticali = sopra ? [su, giu] : [giu, su];
+            const candidati = [];
+            verticali.forEach(ty => { candidati.push([px, ty, 'middle'], [px - 6, ty, 'start'], [px + 6, ty, 'end']); });
+            const c = scegli(candidati, scritta, 12);
+            g.appendChild(svgEl('text', { classe: 'g-etichetta', x: tondo(c[0]), y: tondo(c[1]), 'text-anchor': c[2], testo: scritta }));
+            gSegni.appendChild(g);
+        };
+        if (k.picco) segno(k.picco, 'g-picco', 'Picco ' + numeroIt(k.picco.n) + ' alle ' + oraLeggibile(k.picco.t), true);
+        if (k.minimo) segno(k.minimo, 'g-minimo', 'Minimo ' + numeroIt(k.minimo.n) + ' alle ' + oraLeggibile(k.minimo.t), false);
+        const primoSegno = gSegni.firstChild;
+        d.cali.forEach(calo => {
+            const punti = c.filter(p => p.t >= calo.t && p.t <= calo.t + 5 * MINUTO_MS);
+            if (punti.length < 2) return;
+            const g = svgEl('g', { classe: 'g-calo', 'data-t': calo.t, 'data-perdita': calo.perdita });
+            g.appendChild(svgEl('path', { d: linea(punti) }));
+            const inizio = punti[0], fine = punti[punti.length - 1];
+            const x0 = x(inizio.t), y0 = y(inizio.n), x1 = x(fine.t), y1 = y(fine.n);
+            const xm = (x0 + x1) / 2, ym = (y0 + y1) / 2;
+            const scritta = '−' + numeroIt(calo.perdita);
+            const scelto = scegli([[xm + 8, ym + 4, 'start'], [x1, y1 + 18, 'middle'], [x0 - 8, y0 + 4, 'end'], [x0, y0 - 10, 'middle'], [xm - 8, ym + 4, 'end']], scritta, 11);
+            g.appendChild(svgEl('text', { classe: 'g-etichetta g-etichetta-calo', x: tondo(scelto[0]), y: tondo(scelto[1]), 'text-anchor': scelto[2], testo: scritta }));
+            // il calo sotto i punti di picco e minimo (disegnati dopo, restano sopra)
+            gSegni.insertBefore(g, primoSegno);
+        });
+
+        // il mirino: la riga verticale e il punto del minuto scelto
+        const mirino = svgEl('line', { classe: 'g-mirino', x1: 0, x2: 0, y1: M.alto, y2: fondo, visibility: 'hidden' });
+        const fuoco = svgEl('circle', { classe: 'g-fuoco', cx: 0, cy: 0, r: 5, visibility: 'hidden' });
+        svg.appendChild(mirino);
+        svg.appendChild(fuoco);
+
+        cornice.insertBefore(svg, cornice.firstChild);
+        const inizioT = k.picco && perT.has(k.picco.t) ? perT.get(k.picco.t) : 0;
+        navGrafico.conf = {
+            quanti: c.length, larghezza: W, sinistra: M.sinistra, destra: destra, salto: 10,
+            x: i => x(c[i].t), y: i => y(c[i].n),
+            vicino: xd => puntoVicino(c, dom.da + (xd - M.sinistra) * (dom.a - dom.da) / (destra - M.sinistra)),
+            testo: i => righeMinuto(d, c[i]),
+            chiave: i => c[i].t,
+            trova: t => (perT.has(t) ? perT.get(t) : -1),
+            inizio: () => inizioT,
+            evidenzia: i => {
+                const vis = i >= 0 ? 'visible' : 'hidden';
+                mirino.setAttribute('visibility', vis);
+                fuoco.setAttribute('visibility', vis);
+                if (i < 0) return;
+                const px = tondo(x(c[i].t));
+                mirino.setAttribute('x1', px);
+                mirino.setAttribute('x2', px);
+                fuoco.setAttribute('cx', px);
+                fuoco.setAttribute('cy', tondo(y(c[i].n)));
+                fuoco.setAttribute('class', 'g-fuoco' + (c[i].stato === 'o' ? '' : ' spento'));
+            }
+        };
+        navGrafico.ridisegnato();
+    }
+
+    // la tabella per chi non vede il grafico: ogni minuto, e i minuti mancanti detti a parole
+    function disegnaTabellaCurva(d) {
+        const tb = $('#tabella-curva tbody');
+        svuota(tb);
+        const k = d.riepilogo;
+        const frammento = document.createDocumentFragment();
+        d.curva.forEach((p, i) => {
+            const prima = d.curva[i - 1];
+            if (prima && p.t - prima.t > MINUTO_MS) {
+                const mancano = Math.round((p.t - prima.t) / MINUTO_MS) - 1;
+                frammento.appendChild(el('tr', { classe: 'riga-buco' }, [el('td', { colspan: '4', classe: 'largo', testo:
+                    'Nessuna fotografia per ' + conNumero(mancano, 'minuto', 'minuti') + ' (dalle ' + oraLeggibile(prima.t + MINUTO_MS) + ' alle ' + oraLeggibile(p.t - MINUTO_MS) + ')' }) ]));
+            }
+            const note = [];
+            if (k.picco && k.picco.t === p.t) note.push('Picco');
+            if (k.minimo && k.minimo.t === p.t) note.push('Minimo in onda');
+            const calo = d.cali.find(x => x.t === p.t);
+            if (calo) note.push('Inizio di un calo: −' + numeroIt(calo.perdita) + ' in 5 minuti');
+            frammento.appendChild(el('tr', { classe: note.length ? 'riga-nota' : '', dati: { t: String(p.t) } }, [
+                el('td', { 'data-label': 'Ora', testo: oraLeggibile(p.t) }),
+                el('td', { 'data-label': 'Spettatori', classe: 'num', testo: numeroIt(p.n) }),
+                el('td', { 'data-label': 'Stato della diretta', testo: NOMI_MINUTO[p.stato] || '' }),
+                el('td', { 'data-label': 'Nota', testo: note.join(' · ') })
+            ]));
+        });
+        tb.appendChild(frammento);
+    }
+
+    // i cali anche a parole, sotto il grafico (e i minuti senza dati, se ce ne sono)
+    function disegnaCali(d) {
+        const buchi = $('#ascolti-buchi');
+        buchi.textContent = d.buchi.length && !$('#ascolti-grafico').hidden
+            ? 'Mancano i dati ' + d.buchi.map(intervalloMancante).join(' e ') + ': lì la linea si interrompe.' : '';
+        const p = $('#ascolti-cali');
+        svuota(p);
+        if (!d.cali.length || $('#ascolti-grafico').hidden) return;
+        p.appendChild(el('strong', { testo: d.cali.length === 1 ? 'Il calo più forte (in 5 minuti): ' : 'I cali più forti (in 5 minuti): ' }));
+        p.appendChild(document.createTextNode(d.cali.map(c => 'alle ' + oraLeggibile(c.t) + ' da ' + numeroIt(c.da) + ' a ' + numeroIt(c.a)
+            + ' (−' + numeroIt(c.perdita) + ')').join('; ') + '.'));
+    }
+
+    /* ============================================================
+       ASCOLTI: QUANDO SI SONO COLLEGATI (ingressi ogni 5 minuti)
+       ------------------------------------------------------------
+       Colonne sulla stessa scala di tempo del grafico sopra: in basso i
+       primi ingressi (blu), sopra i rientri (ambra), separati da uno
+       spazio bianco; la legenda e' nell'HTML.
+       ============================================================ */
+    function disegnaIngressi(d) {
+        const cornice = $('#ingressi-cornice');
+        const vecchio = cornice.querySelector('svg');
+        if (vecchio) vecchio.remove();
+        const dati = d.ingressi;
+        const dom = d.dominio;
+        const ci = dati.length > 0 && !!dom;
+        $('#ascolti-ingressi').hidden = !ci;
+        $('#ascolti-ingressi-vuoto').hidden = ci;
+        if (!ci) {
+            $('#ascolti-ingressi-vuoto').textContent = d.registrazione && d.registrazione.attiva
+                ? 'Nessun ingresso registrato finora.'
+                : 'Gli ingressi si contano dalle fotografie di ogni minuto: compariranno con la prima.';
+            navIngressi.conf = null;
+            $('#ingressi-suggerimento').hidden = true;
+            return;
+        }
+        const W = larghezzaGrafico(cornice);
+        // gli stessi margini del grafico sopra: le ore cadono una sotto l'altra
+        const M = { sinistra: 48, destra: 20, alto: 12, basso: 30 };
+        const altezzaDati = 160;
+        const fondo = M.alto + altezzaDati;
+        const H = fondo + M.basso;
+        const destra = W - M.destra;
+        const x = t => M.sinistra + (t - dom.da) * (destra - M.sinistra) / (dom.a - dom.da);
+        const tt = tacche(Math.max.apply(null, dati.map(b => (Number(b.primi) || 0) + (Number(b.rientri) || 0)).concat([1])) * 1.08);
+        const y = n => fondo - (n / tt.alto) * altezzaDati;
+        const totPrimi = dati.reduce((s, b) => s + (Number(b.primi) || 0), 0);
+        const totRientri = dati.reduce((s, b) => s + (Number(b.rientri) || 0), 0);
+        const massimo = dati.reduce((m, b) => ((Number(b.primi) || 0) > (Number(m.primi) || 0) ? b : m), dati[0]);
+        /* Dopo un buco dei dati il servizio considera rimasto chi c'era prima
+           e dopo (lib/diretta-ascolti.js, uniscoBuchi): niente finti
+           «rientri» da segnalare. Resta solo l'avviso che li' mancano i dati. */
+        $('#ingressi-buchi').textContent = d.buchi.length
+            ? 'Mancano i dati ' + d.buchi.map(intervalloMancante).join(' e ') + ': chi era collegato prima e dopo è contato come presente anche in mezzo.' : '';
+        const svg = svgEl('svg', {
+            classe: 'grafico-svg', viewBox: '0 0 ' + W + ' ' + H, role: 'img',
+            'aria-label': 'Ingressi ogni 5 minuti: ' + conNumero(totPrimi, 'primo ingresso', 'primi ingressi') + ' e ' + conNumero(totRientri, 'rientro', 'rientri')
+                + '. Il momento con più primi ingressi: dalle ' + oraLeggibile(massimo.t) + ' alle ' + oraLeggibile(massimo.t + 5 * MINUTO_MS)
+                + ' (' + numeroIt(massimo.primi) + '). I valori sono nella tabella «Vedi i dati del grafico».',
+            'data-da': dom.da, 'data-a': dom.a, 'data-sinistra': M.sinistra, 'data-destra': destra, 'data-alto': M.alto, 'data-fondo': fondo, 'data-massimo': tt.alto
+        });
+        const gFasce = svgEl('g', { classe: 'g-fasce' });
+        d.pause.forEach(p => {
+            const x1 = x(p.da), x2 = x(finePausa(d, p));
+            if (x2 - x1 >= 1) gFasce.appendChild(svgEl('rect', { classe: 'g-pausa-rect', x: tondo(x1), y: M.alto, width: tondo(x2 - x1), height: altezzaDati }));
+        });
+        svg.appendChild(gFasce);
+        disegnaAssi(svg, { tacche: tt, y: y, x: x, sinistra: M.sinistra, destra: destra, fondo: fondo, dominio: dom });
+        const gColonne = svgEl('g', { classe: 'g-colonne' });
+        const colonne = dati.map(b => {
+            const x1 = x(b.t), x2 = x(b.t + 5 * MINUTO_MS);
+            // al massimo 24px, con 2px di bianco fra una colonna e l'altra
+            const largo = Math.max(2, Math.min(24, x2 - x1 - 2));
+            const xb = x1 + (x2 - x1 - largo) / 2;
+            const primi = Number(b.primi) || 0, rientri = Number(b.rientri) || 0;
+            const hP = primi / tt.alto * altezzaDati;
+            const hR = rientri / tt.alto * altezzaDati;
+            const g = svgEl('g', { classe: 'g-colonna', 'data-t': b.t, 'data-primi': primi, 'data-rientri': rientri });
+            if (hP > 0) g.appendChild(svgEl('path', { classe: 'g-primi', d: percorsoColonna(xb, fondo - hP, largo, hP, hR > 0 ? 0 : 4) }));
+            if (hR > 0) {
+                const sopra = fondo - hP - (hP > 0 ? 2 : 0);
+                g.appendChild(svgEl('path', { classe: 'g-rientri', d: percorsoColonna(xb, sopra - hR, largo, hR, 4) }));
+            }
+            gColonne.appendChild(g);
+            return { g: g, x: xb + largo / 2, y: fondo - hP - hR };
+        });
+        svg.appendChild(gColonne);
+        cornice.insertBefore(svg, cornice.firstChild);
+        const perT = new Map(dati.map((b, i) => [b.t, i]));
+        navIngressi.conf = {
+            quanti: dati.length, larghezza: W, sinistra: M.sinistra, destra: destra, salto: 6,
+            x: i => colonne[i].x, y: i => Math.min(colonne[i].y, fondo - 10),
+            vicino: xd => puntoVicino(dati, dom.da + (xd - M.sinistra) * (dom.a - dom.da) / (destra - M.sinistra) - 2.5 * MINUTO_MS),
+            testo: i => [
+                conNumero(Number(dati[i].primi) || 0, 'primo ingresso', 'primi ingressi'),
+                conNumero(Number(dati[i].rientri) || 0, 'rientro', 'rientri'),
+                'dalle ' + oraLeggibile(dati[i].t) + ' alle ' + oraLeggibile(dati[i].t + 5 * MINUTO_MS)
+            ],
+            chiave: i => dati[i].t,
+            trova: t => (perT.has(t) ? perT.get(t) : -1),
+            inizio: () => perT.get(massimo.t) || 0,
+            evidenzia: i => {
+                gColonne.classList.toggle('con-scelta', i >= 0);
+                colonne.forEach((o, j) => o.g.classList.toggle('scelta', j === i));
+            }
+        };
+        navIngressi.ridisegnato();
+    }
+    function disegnaTabellaIngressi(d) {
+        const tb = $('#tabella-ingressi tbody');
+        svuota(tb);
+        d.ingressi.forEach(b => tb.appendChild(el('tr', {}, [
+            el('td', { 'data-label': 'Dalle', testo: oraLeggibile(b.t) + '–' + oraLeggibile(b.t + 5 * MINUTO_MS) }),
+            el('td', { 'data-label': 'Primi ingressi', classe: 'num', testo: numeroIt(b.primi || 0) }),
+            el('td', { 'data-label': 'Rientri', classe: 'num', testo: numeroIt(b.rientri || 0) })
+        ])));
+    }
+
+    /* ============================================================
+       ASCOLTI: PROGRAMMA E DISPOSITIVI
+       ============================================================ */
+    function disegnaProgramma(d) {
+        const tb = $('#tabella-programma tbody');
+        svuota(tb);
+        const voci = d.programma;
+        const vuoto = $('#programma-vuoto');
+        vuoto.hidden = voci.length > 0;
+        vuoto.textContent = voci.length ? '' : 'Il programma di questo evento è vuoto: lo scrivi nella scheda Evento.';
+        // senza le fotografie di ogni minuto le medie non ci sono ancora: si dice una volta, non su ogni riga
+        const senzaFoto = !d.registrazione.attiva;
+        const nota = $('#programma-nota');
+        nota.hidden = !(senzaFoto && voci.length);
+        nota.textContent = senzaFoto ? 'Media, massimo e minimo di ogni voce compaiono con i dati minuto per minuto.' : '';
+        const medie = voci.map(v => (v && v.media != null && isFinite(v.media) ? Number(v.media) : null));
+        const maxMedia = Math.max.apply(null, medie.filter(m => m != null).concat([0]));
+        // la voce piu' seguita: la media piu' alta (a parita', la prima)
+        const migliore = maxMedia > 0 ? medie.indexOf(maxMedia) : -1;
+        voci.forEach((v, i) => {
+            const media = medie[i];
+            let cellaMedia;
+            if (media != null) {
+                const piena = el('span', { classe: 'media-valore' });
+                piena.style.width = (maxMedia > 0 ? media / maxMedia * 100 : 0).toFixed(1) + '%';
+                cellaMedia = el('div', { classe: 'media' }, [
+                    el('span', { classe: 'media-pista', 'aria-hidden': 'true' }, [piena]),
+                    el('span', { classe: 'media-num', testo: numeroIt(media, 1) })
+                ]);
+            } else cellaMedia = el('span', { classe: 'senza-dati', testo: senzaFoto ? '–' : 'nessun minuto in onda' });
+            const orario = v.da != null ? oraLeggibile(v.da) + (v.a != null ? '–' + oraLeggibile(v.a) : '') : (v.ora || '');
+            tb.appendChild(el('tr', { classe: i === migliore ? 'migliore' : '', dati: { voce: String(i + 1) } }, [
+                el('th', { scope: 'row', 'data-label': 'Voce del programma', classe: 'col-voce' }, [
+                    el('span', { classe: 'voce-num', testo: (i + 1) + '.' }), ' ',
+                    el('span', { classe: 'voce-titolo', testo: v.titolo || '' }),
+                    i === migliore ? el('span', { classe: 'bollo-migliore', testo: 'la più seguita' }) : null
+                ]),
+                el('td', { 'data-label': 'Orario', classe: 'col-orario', testo: orario }),
+                el('td', { 'data-label': 'Media spettatori', classe: 'col-media' }, [cellaMedia]),
+                el('td', { 'data-label': 'Massimo', classe: 'num', testo: media != null ? numeroIt(v.massimo) : '–' }),
+                el('td', { 'data-label': 'Minimo', classe: 'num', testo: media != null ? numeroIt(v.minimo) : '–' })
+            ]));
+        });
+    }
+
+    // barre orizzontali: la parte di persone per tipo, browser e sistema (sul totale di chi e' entrato con la password)
+    function disegnaDispositivi(d) {
+        const box = $('#ascolti-dispositivi');
+        svuota(box);
+        const ds = d.dispositivi;
+        const voci = x => (Array.isArray(x) ? x.filter(v => v && Number(v.persone) > 0) : []);
+        const totale = voci(ds.tipi).reduce((s, v) => s + Number(v.persone), 0);
+        if (!totale) {
+            box.appendChild(el('p', { classe: 'tabella-vuota', testo: 'Ancora nessun accesso con email e password.' }));
+            return;
+        }
+        [['Tipo di dispositivo', ds.tipi, 'tipi'], ['Browser', ds.browser, 'browser'], ['Sistema', ds.sistemi, 'sistemi']].forEach(([titolo, lista, chiave]) => {
+            const righe = voci(lista);
+            if (!righe.length) return;
+            const ul = el('ul', { classe: 'disp-barre', 'aria-label': titolo });
+            righe.forEach(v => {
+                const quota = Number(v.persone) / totale * 100;
+                const piena = el('span', { classe: 'disp-valore' });
+                piena.style.width = quota.toFixed(1) + '%';
+                ul.appendChild(el('li', { dati: { nome: String(v.nome) } }, [
+                    el('span', { classe: 'disp-nome', testo: v.nome }),
+                    el('span', { classe: 'disp-pista', 'aria-hidden': 'true' }, [piena]),
+                    el('span', { classe: 'disp-numero', testo: numeroIt(v.persone) + ' · ' + Math.round(quota) + '%' })
+                ]));
+            });
+            box.appendChild(el('div', { classe: 'disp-gruppo', dati: { gruppo: chiave } }, [el('h3', { testo: titolo }), ul]));
+        });
+        box.appendChild(el('p', { classe: 'aiuto', testo: 'Su ' + conNumero(totale, 'persona entrata', 'persone entrate') + ' con email e password.' }));
+    }
+
+    /* ============================================================
+       ASCOLTI: LE PERSONE
+       ------------------------------------------------------------
+       Ricerca istantanea (nome anche scritto attaccato o al contrario,
+       email, azienda), filtro per stato, ordine dalle intestazioni. Oltre
+       200 righe se ne mostrano 100 alla volta: mille righe con la loro
+       linea del tempo appesantirebbero il telefono.
+       ============================================================ */
+    function confrontoPersone(chiave, verso) {
+        if (chiave === 'nome' || !VALORE_ORDINE[chiave]) return (a, b) => verso * ordinePersone(a, b);
+        const valore = VALORE_ORDINE[chiave];
+        return (a, b) => {
+            const va = valore(a), vb = valore(b);
+            // chi non ha il dato va sempre in fondo, in qualunque verso
+            if (va == null || vb == null) return (va == null) - (vb == null) || ordinePersone(a, b);
+            return verso * (va - vb) || ordinePersone(a, b);
+        };
+    }
+    function disegnaPersone() {
+        const d = stato.ascolti.dati;
+        if (!d) return;
+        const a = stato.ascolti;
+        const tutte = d.persone;
+        const grezzo = $('#cerca-persone').value;
+        const q = perRicerca(grezzo);
+        const compatta = compatto(grezzo);
+        const filtro = $('#filtro-persone').value;
+        // quante per stato, nel menu del filtro
+        const conteggi = { '': tutte.length };
+        tutte.forEach(p => { conteggi[p.stato] = (conteggi[p.stato] || 0) + 1; });
+        Array.from($('#filtro-persone').options).forEach(o => {
+            if (!o.dataset.testo) o.dataset.testo = o.textContent;
+            o.textContent = o.dataset.testo + ' (' + numeroIt(conteggi[o.value] || 0) + ')';
+        });
+        const lista = tutte.filter(p => (!filtro || p.stato === filtro)
+            && (!q || p._cerca.indexOf(q) >= 0 || (compatta.length >= 2 && p._compatto.indexOf(compatta) >= 0)))
+            .sort(confrontoPersone(a.ordine, a.verso));
+        const quante = lista.length > PERSONE_TUTTE_FINO_A ? Math.min(lista.length, a.mostrate) : lista.length;
+        const tb = $('#tabella-persone tbody');
+        svuota(tb);
+        const frammento = document.createDocumentFragment();
+        lista.slice(0, quante).forEach(p => {
+            frammento.appendChild(rigaPersona(p, d));
+            if (a.aperte.has(p.uid)) frammento.appendChild(rigaLineaTempo(p, d));
+        });
+        tb.appendChild(frammento);
+        $('#conta-persone').textContent = tutte.length
+            ? '(' + (lista.length === tutte.length ? numeroIt(tutte.length) : numeroIt(lista.length) + ' di ' + numeroIt(tutte.length)) + ')' : '';
+        const vuoto = $('#persone-vuoto');
+        vuoto.hidden = lista.length > 0;
+        vuoto.textContent = tutte.length ? 'Nessuna persona corrisponde alla ricerca.' : 'Nessun iscritto a questo evento.';
+        const restano = lista.length - quante;
+        const altre = $('#btn-altre-persone');
+        altre.hidden = restano <= 0;
+        altre.textContent = 'Mostra altre ' + Math.min(PERSONE_PER_VOLTA, restano);
+        $('#persone-mostrate').textContent = restano > 0 ? 'Ne vedi ' + numeroIt(quante) + ' su ' + numeroIt(lista.length) + '.' : '';
+        document.querySelectorAll('#tabella-persone thead th[data-ordine]').forEach(th => {
+            if (th.dataset.ordine === a.ordine) th.setAttribute('aria-sort', a.verso > 0 ? 'ascending' : 'descending');
+            else th.removeAttribute('aria-sort');
+        });
+    }
+    const idLinea = uid => 'linea-tempo-' + String(uid).replace(/[^A-Za-z0-9_-]/g, '_');
+    // un'email lunga va a capo dopo la chiocciola, non a meta' di una parola
+    function emailSpezzabile(email) {
+        const i = String(email).indexOf('@');
+        return i > 0 ? [email.slice(0, i + 1), el('wbr'), email.slice(i + 1)] : [String(email)];
+    }
+    function rigaPersona(p, d) {
+        const chi = [p.nome, p.cognome].filter(Boolean).join(' ') || p.email || 'Senza nome';
+        const mai = p.stato === 'mai-entrato';
+        const aperta = stato.ascolti.aperte.has(p.uid);
+        const rif = d.evento.inizio;
+        return el('tr', { classe: 'persona-' + (p.stato || ''), dati: { uid: p.uid } }, [
+            el('th', { scope: 'row', 'data-label': 'Persona', classe: 'col-persona' }, [
+                el('span', { classe: 'persona', testo: chi }),
+                p.email ? el('span', { classe: 'persona-email' }, emailSpezzabile(p.email)) : null
+            ]),
+            el('td', { 'data-label': 'Azienda', testo: p.azienda || '' }),
+            el('td', { 'data-label': 'Stato' }, [el('span', { classe: 'stato-persona stato-' + (p.stato || ''), testo: STATI_PERSONA[p.stato] || p.stato || '' })]),
+            el('td', { 'data-label': 'Primo ingresso', testo: quandoBreve(p.primoIngresso, rif) }),
+            el('td', { 'data-label': 'Ultima presenza', testo: quandoBreve(p.ultimaPresenza, rif) }),
+            el('td', { 'data-label': 'Minuti in onda', classe: 'num', testo: mai ? '–' : numeroIt(Math.round(Number(p.minutiInOnda) || 0)) }),
+            el('td', { 'data-label': '% vista', classe: 'num', testo: mai ? '–' : numeroIt(p.percentuale || 0) + '%' }),
+            el('td', { 'data-label': 'Collegamenti', classe: 'num', testo: mai ? '–' : numeroIt(p.collegamenti || 0) }),
+            el('td', { 'data-label': 'Dispositivi', classe: 'col-dispositivi', testo: (p.dispositivi || []).join(', ') || '–' }),
+            el('td', { classe: 'col-azione largo' }, [mai ? null : el('button', {
+                type: 'button', classe: 'btn btn-mini btn-secondario btn-linea', 'aria-expanded': String(aperta),
+                'aria-controls': idLinea(p.uid), 'aria-label': 'Linea del tempo di ' + chi
+            }, ['Linea del tempo'])])
+        ]);
+    }
+    /* La linea del tempo di una persona: una barra sulla stessa scala di
+       tempo dei grafici (stesso inizio e stessa fine), con le pause in
+       grigio e i periodi in cui era collegata in blu, e sotto l'elenco
+       «dalle 9.58 alle 11.21». */
+    function rigaLineaTempo(p, d) {
+        const chi = [p.nome, p.cognome].filter(Boolean).join(' ') || p.email || 'Senza nome';
+        const dom = d.dominio;
+        const segmenti = (Array.isArray(p.segmenti) ? p.segmenti : []).filter(s => Array.isArray(s) && s[1] > s[0]);
+        const periodo = s => 'dalle ' + oraLeggibile(s[0]) + ' alle ' + oraLeggibile(s[1]);
+        const pezzi = [el('p', { classe: 'linea-titolo', testo: 'Quando era collegata: ' + chi })];
+        if (dom && segmenti.length) {
+            const pct = t => Math.max(0, Math.min(100, (t - dom.da) / (dom.a - dom.da) * 100));
+            const posa = (n, da, a) => { n.style.left = pct(da).toFixed(2) + '%'; n.style.width = Math.max(0.4, pct(a) - pct(da)).toFixed(2) + '%'; return n; };
+            const pista = el('div', { classe: 'linea-pista', role: 'img', 'aria-label': 'Collegata ' + segmenti.map(periodo).join(', ') });
+            d.pause.forEach(pa => pista.appendChild(posa(el('span', { classe: 'linea-pausa', title: 'Pausa' }), pa.da, finePausa(d, pa))));
+            segmenti.forEach(s => pista.appendChild(posa(el('span', { classe: 'linea-segmento', title: periodo(s), dati: { da: String(s[0]), a: String(s[1]) } }), s[0], s[1])));
+            const ore = el('div', { classe: 'linea-ore', 'aria-hidden': 'true' });
+            taccheOre(dom, 600 / ((dom.a - dom.da) / 3600000)).forEach(t => {
+                const n = el('span', { testo: oraLeggibile(t) });
+                n.style.left = pct(t).toFixed(2) + '%';
+                ore.appendChild(n);
+            });
+            // pista e ore in una cornice con un po' di margine: le ore ai bordi non escono dalla riga
+            pezzi.push(el('div', { classe: 'linea-scala' }, [pista, ore]));
+            pezzi.push(el('ul', { classe: 'linea-elenco' }, segmenti.map(s => el('li', { testo: periodo(s) + ' (' + durataTesto((s[1] - s[0]) / MINUTO_MS) + ')' }))));
+        } else {
+            pezzi.push(el('p', { classe: 'aiuto', testo: d.registrazione && d.registrazione.attiva
+                ? 'Nessun periodo registrato minuto per minuto: è entrata nella pagina, ma non era collegata quando si scattavano le fotografie.'
+                : 'I periodi minuto per minuto si vedono da quando si registrano le fotografie dei collegati.' }));
+        }
+        const altro = ['Accessi con email e password: ' + numeroIt(p.accessi || 0)];
+        if (p.credenziali) altro.push('credenziali: ' + p.credenziali);
+        pezzi.push(el('p', { classe: 'aiuto', testo: altro.join(' · ') }));
+        return el('tr', { classe: 'riga-linea', id: idLinea(p.uid) }, [el('td', { colspan: '10', classe: 'largo' }, [el('div', { classe: 'linea-tempo' }, pezzi)])]);
+    }
+    $('#tabella-persone tbody').addEventListener('click', e => {
+        const b = e.target.closest('.btn-linea');
+        const d = stato.ascolti.dati;
+        if (!b || !d) return;
+        const tr = b.closest('tr');
+        const p = d.perUid.get(tr.dataset.uid);
+        if (!p) return;
+        const aperte = stato.ascolti.aperte;
+        if (aperte.has(p.uid)) {
+            aperte.delete(p.uid);
+            const riga = document.getElementById(idLinea(p.uid));
+            if (riga) riga.remove();
+            b.setAttribute('aria-expanded', 'false');
+        } else {
+            aperte.add(p.uid);
+            tr.after(rigaLineaTempo(p, d));
+            b.setAttribute('aria-expanded', 'true');
+        }
+    });
+    $('#tabella-persone thead').addEventListener('click', e => {
+        const b = e.target.closest('button.ordina');
+        if (!b) return;
+        const chiave = b.closest('th').dataset.ordine;
+        const a = stato.ascolti;
+        if (a.ordine === chiave) a.verso = -a.verso;
+        else { a.ordine = chiave; a.verso = VERSO_INIZIALE[chiave] || 1; }
+        disegnaPersone();
+    });
+    const ricominciaPersone = () => { stato.ascolti.mostrate = PERSONE_PER_VOLTA; disegnaPersone(); };
+    $('#cerca-persone').addEventListener('input', ricominciaPersone);
+    $('#filtro-persone').addEventListener('change', ricominciaPersone);
+    $('#btn-altre-persone').addEventListener('click', () => {
+        stato.ascolti.mostrate += PERSONE_PER_VOLTA;
+        disegnaPersone();
+    });
+
+    /* ---------- chi ha le credenziali ma non e' mai entrato ---------- */
+    function disegnaNonCollegati(d) {
+        const lista = d.persone.filter(p => p.stato === 'mai-entrato' && p.credenziali === 'inviata').sort(ordinePersone);
+        stato.ascolti.nonCollegati = lista;
+        $('#conta-non-collegati').textContent = '(' + numeroIt(lista.length) + ')';
+        const tb = $('#tabella-non-collegati tbody');
+        svuota(tb);
+        lista.forEach(p => tb.appendChild(el('tr', { dati: { uid: p.uid } }, [
+            el('th', { scope: 'row', 'data-label': 'Nome e cognome', classe: 'col-persona' }, [el('span', { classe: 'persona', testo: [p.nome, p.cognome].filter(Boolean).join(' ') || '–' })]),
+            el('td', { 'data-label': 'Email', classe: 'col-email' }, p.email ? emailSpezzabile(p.email) : []),
+            el('td', { 'data-label': 'Azienda', testo: p.azienda || '' }),
+            el('td', { 'data-label': 'Credenziali' }, [el('span', { classe: classeStatoEmail('inviata'), testo: 'inviate' })])
+        ])));
+        const vuoto = $('#non-collegati-vuoto');
+        vuoto.hidden = lista.length > 0;
+        vuoto.textContent = 'Nessuno: chi ha ricevuto le credenziali è entrato almeno una volta.';
+        $('#btn-copia-indirizzi').disabled = !lista.length;
+        // chi non e' mai entrato senza aver ricevuto le credenziali: si dice, ma non e' in elenco
+        const senza = d.persone.filter(p => p.stato === 'mai-entrato' && p.credenziali !== 'inviata').length;
+        const altri = $('#non-collegati-altri');
+        altri.hidden = !senza;
+        altri.textContent = senza ? 'Non sono entrati nemmeno ' + conNumero(senza, 'iscritto', 'iscritti')
+            + ' che non hanno ancora ricevuto le credenziali: le invii dalla scheda Email.' : '';
+    }
+    $('#btn-copia-indirizzi').addEventListener('click', async () => {
+        const indirizzi = (stato.ascolti.nonCollegati || []).map(p => p.email).filter(Boolean);
+        if (!indirizzi.length) return;
+        // il punto e virgola lo capiscono tutti i programmi di posta (Outlook compreso)
+        const testo = indirizzi.join('; ');
+        let copiato = false;
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(testo);
+                copiato = true;
+            }
+        } catch (_) { copiato = false; }
+        if (!copiato) {
+            // ripiego: un campo nascosto con gli indirizzi, selezionato e copiato alla vecchia maniera
+            const campo = el('textarea', { readOnly: true, classe: 'solo-lettori', 'aria-hidden': 'true' });
+            campo.value = testo;
+            document.body.appendChild(campo);
+            campo.select();
+            try { copiato = document.execCommand('copy'); } catch (_) { copiato = false; }
+            campo.remove();
+        }
+        mostraMsg('#msg-non-collegati', copiato
+            ? 'Copiati ' + conNumero(indirizzi.length, 'indirizzo', 'indirizzi') + ': incollali nel campo «Ccn» della tua email, così nessuno vede gli indirizzi degli altri.'
+            : 'Non riesco a copiare gli indirizzi: selezionali dalla tabella qui sotto.', copiato ? 'ok' : 'errore');
+    });
+
+    /* ============================================================
+       ASCOLTI: ESPORTAZIONE E STAMPA
+       ------------------------------------------------------------
+       Il file Excel ha sei fogli, con i numeri del servizio e le ore di
+       Roma: Riepilogo, Minuto per minuto, Programma, Persone, Non
+       collegati, Accessi. La stampa usa il foglio di stile di stampa
+       (solo questa scheda, senza pulsanti, grafico compreso).
+       ============================================================ */
+    const FOGLI_ASCOLTI = {
+        'Riepilogo': ['Voce', 'Valore'],
+        'Minuto per minuto': ['Ora', 'Spettatori', 'Stato della diretta'],
+        'Programma': ['N.', 'Voce del programma', 'Dalle', 'Alle', 'Media spettatori', 'Massimo', 'Minimo', 'Minuti in onda'],
+        'Persone': ['Nome', 'Cognome', 'Email', 'Azienda', 'Stato', 'Credenziali', 'Primo ingresso', 'Ultima presenza',
+            'Minuti in onda', '% della diretta vista', 'Collegamenti', 'Accessi', 'Dispositivi', 'Periodi collegati'],
+        'Non collegati': ['Nome', 'Cognome', 'Email', 'Azienda', 'Credenziali'],
+        'Accessi': ['Quando', 'Email', 'Nome', 'Cognome', 'Azienda', 'Dispositivo']
+    };
+    const DEFINIZIONI_ASCOLTI = [
+        'Spettatore in un minuto: una persona con la pagina della diretta aperta, che ha mandato il suo segnale negli ultimi 2 minuti e mezzo.',
+        'Picco e minimo contano solo i minuti in onda, pause escluse; il minimo non considera i primi e gli ultimi 5 minuti della diretta.',
+        'Chi guarda con «Vedi come un partecipante» non viene contato.',
+        'I minuti di ogni persona sono quelli degli attestati: solo con la diretta in onda, fino alla durata dell\'evento.',
+        'Tutti gli orari sono in ora italiana.'
+    ];
+    function righeFogliAscolti(d) {
+        const k = d.riepilogo;
+        const ev = d.evento;
+        const numero = v => (v == null || v === '' || !isFinite(Number(v)) ? '' : Number(v));
+        const riepilogo = [FOGLI_ASCOLTI.Riepilogo,
+            ['Evento', ev.titolo || ev.id || ''],
+            ['Data', ev.inizio ? dataEstesa(ev.inizio) : ''],
+            ['Orario', ev.inizio ? 'dalle ' + oraLeggibile(ev.inizio) + (ev.fine ? ' alle ' + oraLeggibile(ev.fine) : '') : ''],
+            ['Stato della diretta', ETICHETTE_STATO[ev.stato] || ev.stato || ''],
+            ['Dati calcolati il', dataOra(d.calcolato || Date.now())],
+            ['Iscritti', numero(k.iscritti)],
+            ['Credenziali inviate', numero(k.credenzialiInviate)],
+            ['Entrati', numero(k.entrati)],
+            ['Entrati (% degli iscritti)', numero(k.entratiPercento)],
+            ['Hanno visto la diretta', numero(k.hannoVisto)],
+            ['Picco di spettatori', k.picco ? numero(k.picco.n) : ''],
+            ['Ora del picco', k.picco ? oraFoglio(k.picco.t) : ''],
+            ['Minimo in onda', k.minimo ? numero(k.minimo.n) : ''],
+            ['Ora del minimo', k.minimo ? oraFoglio(k.minimo.t) : ''],
+            ['Media spettatori (minuti in onda)', numero(k.media)],
+            ['Minuti in onda registrati', numero(k.minutiInOnda)],
+            ['Tempo medio di visione (minuti)', numero(k.tempoMedioMinuti)],
+            ['Ore totali viste', numero(k.oreTotali)],
+            [],
+            ['Come si contano']].concat(DEFINIZIONI_ASCOLTI.map(t => [t])).concat(d.nota ? [[String(d.nota)]] : []);
+        if (!d.registrazione.attiva) riepilogo.push(['I dati minuto per minuto non ci sono ancora: si registrano da due ore prima dell\'inizio.']);
+        const curva = [FOGLI_ASCOLTI['Minuto per minuto']].concat(d.curva.map(p => [oraFoglio(p.t), numero(p.n), NOMI_MINUTO[p.stato] || p.stato]));
+        const programma = [FOGLI_ASCOLTI.Programma].concat(d.programma.map((v, i) => [i + 1, v.titolo || '',
+            v.da != null ? oraFoglio(v.da) : (v.ora || ''), v.a != null ? oraFoglio(v.a) : '', numero(v.media), numero(v.massimo), numero(v.minimo), numero(v.minuti)]));
+        const persone = [FOGLI_ASCOLTI.Persone].concat(d.persone.slice().sort(ordinePersone).map(p => [
+            p.nome || '', p.cognome || '', p.email || '', p.azienda || '', STATI_PERSONA[p.stato] || p.stato || '', p.credenziali || '',
+            dataOra(p.primoIngresso), dataOra(p.ultimaPresenza), numero(p.minutiInOnda), numero(p.percentuale), numero(p.collegamenti), numero(p.accessi),
+            (p.dispositivi || []).join(', '),
+            (Array.isArray(p.segmenti) ? p.segmenti : []).map(s => oraFoglio(s[0]) + '-' + oraFoglio(s[1])).join(', ')
+        ]));
+        const nonCollegati = [FOGLI_ASCOLTI['Non collegati']].concat(d.persone.filter(p => p.stato === 'mai-entrato' && p.credenziali === 'inviata')
+            .sort(ordinePersone).map(p => [p.nome || '', p.cognome || '', p.email || '', p.azienda || '', p.credenziali]));
+        const accessi = [FOGLI_ASCOLTI.Accessi].concat(d.accessi.slice().sort((a, b) => (a.quando || 0) - (b.quando || 0))
+            .map(a => [dataOra(a.quando), a.email || '', a.nome || '', a.cognome || '', a.azienda || '', a.dispositivo || '']));
+        return [
+            ['Riepilogo', riepilogo, [36, 60], false],
+            ['Minuto per minuto', curva, [10, 12, 20], true],
+            ['Programma', programma, [5, 50, 8, 8, 16, 10, 10, 14], true],
+            ['Persone', persone, [16, 18, 30, 26, 20, 12, 17, 17, 14, 18, 12, 10, 30, 40], true],
+            ['Non collegati', nonCollegati, [16, 18, 30, 26, 12], true],
+            ['Accessi', accessi, [17, 30, 16, 18, 26, 22], true]
+        ];
+    }
+    $('#btn-ascolti-esporta').addEventListener('click', () => conAttesa($('#btn-ascolti-esporta'), async () => {
+        const d = stato.ascolti.dati;
+        if (!d) { mostraMsg('#msg-ascolti', 'Aspetta che arrivino i dati, poi riprova.', 'errore'); return; }
+        mostraMsg('#msg-ascolti', 'Preparazione del file…', 'info');
+        stato.ascolti.msgCaricamento = false;
+        let XLSX;
+        try { XLSX = await caricaSheetJS(); } catch (_) {
+            mostraMsg('#msg-ascolti', 'Non riesco a caricare il programma che scrive i file Excel (SheetJS): controlla la connessione e riprova.', 'errore');
+            return;
+        }
+        try {
+            const wb = XLSX.utils.book_new();
+            righeFogliAscolti(d).forEach(([nome, righe, larghezze, filtro]) => {
+                const ws = XLSX.utils.aoa_to_sheet(righe);
+                ws['!cols'] = larghezze.map(w => ({ wch: w }));
+                if (filtro && righe.length > 1) ws['!autofilter'] = { ref: 'A1:' + lettera(righe[0].length - 1) + righe.length };
+                XLSX.utils.book_append_sheet(wb, ws, nome);
+            });
+            const adesso = parti(FORMATO_DATA_ORA, Date.now());
+            const nome = 'ascolti-' + (d.evento.id || stato.idEvento) + '-' + adesso.year + adesso.month + adesso.day + '-' + adesso.hour + adesso.minute + '.xlsx';
+            XLSX.writeFile(wb, nome, { compression: true });
+            mostraMsg('#msg-ascolti', 'Scaricato «' + nome + '», con sei fogli: Riepilogo, Minuto per minuto, Programma, Persone, Non collegati e Accessi.', 'ok');
+        } catch (e) {
+            mostraMsg('#msg-ascolti', 'Non sono riuscito a preparare il file: riprova.', 'errore');
+        }
+    }));
+    $('#btn-ascolti-stampa').addEventListener('click', () => {
+        if (!stato.ascolti.dati) { mostraMsg('#msg-ascolti', 'Aspetta che arrivino i dati, poi riprova.', 'errore'); return; }
+        nascondiMsg('#msg-ascolti');
+        window.print();
+    });
 
     /* ============================================================
        SCHEDA ESPORTA

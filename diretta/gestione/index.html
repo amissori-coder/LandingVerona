@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260926b">
+    <link rel="stylesheet" href="gestione.css?v=20260927a">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -107,6 +107,7 @@
             <nav class="schede" role="tablist" aria-label="Sezioni della gestione">
                 <button type="button" role="tab" id="tab-evento" data-scheda="evento" aria-controls="scheda-evento" aria-selected="true">Evento</button>
                 <button type="button" role="tab" id="tab-regia" data-scheda="regia" aria-controls="scheda-regia" aria-selected="false" tabindex="-1">Regia</button>
+                <button type="button" role="tab" id="tab-ascolti" data-scheda="ascolti" aria-controls="scheda-ascolti" aria-selected="false" tabindex="-1">Ascolti</button>
                 <button type="button" role="tab" id="tab-partecipanti" data-scheda="partecipanti" aria-controls="scheda-partecipanti" aria-selected="false" tabindex="-1">Partecipanti</button>
                 <button type="button" role="tab" id="tab-email" data-scheda="email" aria-controls="scheda-email" aria-selected="false" tabindex="-1">Email</button>
                 <button type="button" role="tab" id="tab-esporta" data-scheda="esporta" aria-controls="scheda-esporta" aria-selected="false" tabindex="-1">Esporta</button>
@@ -126,12 +127,12 @@
                         <div class="griglia-campi">
                             <div class="campo">
                                 <label for="ev-id">Identificativo</label>
-                                <input type="text" id="ev-id" name="id" maxlength="41" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-id-aiuto" placeholder="napoli-2026">
+                                <input type="text" id="ev-id" name="id" maxlength="41" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-id-aiuto" placeholder="es. napoli-2026">
                                 <p id="ev-id-aiuto" class="aiuto">Lettere minuscole, numeri e trattini. Non si cambia dopo la creazione.</p>
                             </div>
                             <div class="campo campo-titolo">
                                 <label for="ev-titolo">Titolo</label>
-                                <input type="text" id="ev-titolo" name="titolo" maxlength="140" required autocomplete="off" placeholder="Next Generation Business 2026 · Napoli">
+                                <input type="text" id="ev-titolo" name="titolo" maxlength="140" required autocomplete="off" placeholder="es. Next Generation Business 2026 · Napoli">
                             </div>
                             <div class="campo campo-largo">
                                 <label for="ev-luogo">Luogo <span class="facoltativo">(facoltativo)</span></label>
@@ -320,7 +321,7 @@
                             </div>
                             <div class="campo">
                                 <label for="ev-pagina">Pagina dell'evento sul sito</label>
-                                <input type="text" id="ev-pagina" name="paginaEvento" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-pagina-aiuto" placeholder="/napoli_ottobre_2026/">
+                                <input type="text" id="ev-pagina" name="paginaEvento" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-pagina-aiuto" placeholder="es. /napoli_ottobre_2026/">
                                 <p id="ev-pagina-aiuto" class="aiuto">Il percorso della pagina, citato nelle email con le credenziali. Serve anche all'invio automatico della password a chi si iscrive dal modulo di questa pagina (qui sotto).</p>
                             </div>
                         </div>
@@ -588,6 +589,245 @@
                         </div>
                     </div>
                 </div>
+            </section>
+
+            <!-- ======== SCHEDA ASCOLTI ========
+                 Chi e quanti hanno guardato la diretta, minuto per minuto. Qui c'e'
+                 solo lo scheletro, senza dati: i numeri li calcola il servizio
+                 (azione 'ascolti', lib/diretta-ascolti.js) e li disegna gestione.js
+                 (grafici SVG compresi). Si aggiorna da sola ogni minuto mentre la
+                 scheda e' aperta. «Stampa il riepilogo» stampa solo questa scheda,
+                 senza pulsanti (vedi @media print in gestione.css). -->
+            <section id="scheda-ascolti" class="scheda scheda-ascolti" role="tabpanel" aria-labelledby="tab-ascolti" hidden>
+                <!-- a) il riepilogo, con i comandi della scheda -->
+                <section class="riquadro" aria-labelledby="ascolti-riepilogo-titolo">
+                    <div class="riquadro-testa ascolti-testa">
+                        <div class="ascolti-testa-testo">
+                            <h2 id="ascolti-riepilogo-titolo">Riepilogo degli ascolti</h2>
+                            <p id="ascolti-evento" class="riquadro-sotto"></p>
+                        </div>
+                        <div class="ascolti-comandi">
+                            <p id="ascolti-aggiornato" class="ascolti-aggiornato"></p>
+                            <button type="button" id="btn-ascolti-aggiorna" class="btn btn-secondario btn-piccolo">Aggiorna adesso</button>
+                            <button type="button" id="btn-ascolti-esporta" class="btn btn-secondario btn-piccolo">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                                Esporta in Excel
+                            </button>
+                            <button type="button" id="btn-ascolti-stampa" class="btn btn-secondario btn-piccolo">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                                Stampa il riepilogo
+                            </button>
+                        </div>
+                    </div>
+                    <p id="msg-ascolti" class="msg" role="status" hidden></p>
+                    <!-- le tessere: i numeri li scrive gestione.js (data-voce = la voce del riepilogo) -->
+                    <ul id="ascolti-tessere" class="tessere" aria-label="I numeri della diretta">
+                        <li class="tessera" data-voce="iscritti"><span class="tessera-etichetta">Iscritti</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="credenziali"><span class="tessera-etichetta">Credenziali inviate</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="entrati"><span class="tessera-etichetta">Entrati</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="visto"><span class="tessera-etichetta">Hanno visto la diretta</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="picco"><span class="tessera-etichetta"><span class="tessera-segno" aria-hidden="true"></span>Picco di spettatori</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="minimo"><span class="tessera-etichetta"><span class="tessera-segno" aria-hidden="true"></span>Minimo in onda</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="media"><span class="tessera-etichetta">Media spettatori</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="tempo"><span class="tessera-etichetta">Tempo medio di visione</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="ore"><span class="tessera-etichetta">Ore totali viste</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                    </ul>
+                </section>
+
+                <!-- b) spettatori minuto per minuto -->
+                <section class="riquadro" aria-labelledby="ascolti-grafico-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="ascolti-grafico-titolo">Spettatori minuto per minuto</h2>
+                        <p class="riquadro-sotto">Quante persone avevano aperta la pagina della diretta, minuto per minuto.<span class="solo-schermo"> Passa sul grafico
+                            o toccalo per leggere ora e numero; con la tastiera usa le frecce.</span></p>
+                    </div>
+                    <p id="ascolti-grafico-vuoto" class="riquadro-nota" hidden></p>
+                    <div id="ascolti-grafico" class="grafico" hidden>
+                        <ul class="grafico-legenda" aria-label="Legenda del grafico">
+                            <li><span class="legenda-segno segno-linea" aria-hidden="true"></span>Spettatori in onda</li>
+                            <li><span class="legenda-segno segno-spento" aria-hidden="true"></span>Prima e dopo la diretta</li>
+                            <li><span class="legenda-segno segno-pausa" aria-hidden="true"></span>Pausa</li>
+                            <li><span class="legenda-segno segno-voce" aria-hidden="true"></span>Voce del programma</li>
+                            <li><span class="legenda-segno segno-punto" aria-hidden="true"></span>Picco</li>
+                            <li><span class="legenda-segno segno-punto segno-rosso" aria-hidden="true"></span>Minimo in onda</li>
+                            <li><span class="legenda-segno segno-calo" aria-hidden="true"></span>Cali più forti (in 5 minuti)</li>
+                        </ul>
+                        <div class="grafico-scorri">
+                            <div id="ascolti-cornice" class="grafico-cornice" tabindex="0" role="group" aria-roledescription="grafico" aria-labelledby="ascolti-grafico-titolo" aria-describedby="ascolti-grafico-aiuto">
+                                <div id="ascolti-suggerimento" class="grafico-suggerimento" aria-hidden="true" hidden></div>
+                            </div>
+                        </div>
+                        <p class="aiuto solo-telefono" aria-hidden="true">Il grafico scorre di lato: trascinalo con il dito.</p>
+                        <p id="ascolti-grafico-aiuto" class="solo-lettori">Usa le frecce sinistra e destra per spostarti di un minuto, Pagina su e Pagina giù per dieci minuti, Inizio e Fine per il primo e l'ultimo minuto.</p>
+                        <p id="ascolti-annuncio" class="solo-lettori" aria-live="polite"></p>
+                        <p id="ascolti-cali" class="ascolti-cali"></p>
+                        <p id="ascolti-buchi" class="aiuto ascolti-buchi"></p>
+                        <details id="ascolti-dati-grafico" class="dati-grafico">
+                            <summary>Vedi i dati del grafico</summary>
+                            <div class="tabella-contenitore tabella-alta">
+                                <table id="tabella-curva" class="tabella tabella-ascolti tabella-compatta">
+                                    <caption class="solo-lettori">Spettatori minuto per minuto</caption>
+                                    <thead><tr><th scope="col">Ora</th><th scope="col" class="num">Spettatori</th><th scope="col">Stato della diretta</th><th scope="col">Nota</th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </div>
+                </section>
+
+                <!-- c) ascolto per voce del programma -->
+                <section class="riquadro" aria-labelledby="ascolti-programma-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="ascolti-programma-titolo">Ascolto per voce del programma</h2>
+                        <p class="riquadro-sotto">Per ogni voce, gli spettatori nei minuti in onda (le pause non contano). La barra mostra la media.</p>
+                    </div>
+                    <p id="programma-nota" class="riquadro-nota" hidden></p>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-programma" class="tabella tabella-ascolti tabella-programma">
+                            <caption class="solo-lettori">Spettatori medi, massimi e minimi per ogni voce del programma</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Voce del programma</th>
+                                    <th scope="col">Orario</th>
+                                    <th scope="col">Media spettatori</th>
+                                    <th scope="col" class="num">Massimo</th>
+                                    <th scope="col" class="num">Minimo</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <p id="programma-vuoto" class="tabella-vuota" hidden></p>
+                    </div>
+                </section>
+
+                <div class="ascolti-griglia">
+                    <!-- d) quando si sono collegati -->
+                    <section class="riquadro" aria-labelledby="ascolti-ingressi-titolo">
+                        <div class="riquadro-testa">
+                            <h2 id="ascolti-ingressi-titolo">Quando si sono collegati</h2>
+                            <p class="riquadro-sotto">Ingressi ogni 5 minuti: chi entrava per la prima volta e chi rientrava dopo essere uscito.</p>
+                        </div>
+                        <p id="ascolti-ingressi-vuoto" class="riquadro-nota" hidden></p>
+                        <div id="ascolti-ingressi" class="grafico" hidden>
+                            <ul class="grafico-legenda" aria-label="Legenda del grafico degli ingressi">
+                                <li><span class="legenda-segno segno-barra" aria-hidden="true"></span>Primi ingressi</li>
+                                <li><span class="legenda-segno segno-barra segno-rientri" aria-hidden="true"></span>Rientri</li>
+                            </ul>
+                            <div class="grafico-scorri">
+                                <div id="ingressi-cornice" class="grafico-cornice" tabindex="0" role="group" aria-roledescription="grafico" aria-labelledby="ascolti-ingressi-titolo" aria-describedby="ingressi-aiuto">
+                                    <div id="ingressi-suggerimento" class="grafico-suggerimento" aria-hidden="true" hidden></div>
+                                </div>
+                            </div>
+                            <p class="aiuto solo-telefono" aria-hidden="true">Il grafico scorre di lato: trascinalo con il dito.</p>
+                            <p id="ingressi-aiuto" class="solo-lettori">Usa le frecce sinistra e destra per spostarti di cinque minuti.</p>
+                            <p id="ingressi-annuncio" class="solo-lettori" aria-live="polite"></p>
+                            <p id="ingressi-buchi" class="aiuto ascolti-buchi"></p>
+                            <details class="dati-grafico">
+                                <summary>Vedi i dati del grafico</summary>
+                                <div class="tabella-contenitore tabella-alta">
+                                    <table id="tabella-ingressi" class="tabella tabella-ascolti tabella-compatta">
+                                        <caption class="solo-lettori">Ingressi ogni 5 minuti</caption>
+                                        <thead><tr><th scope="col">Dalle</th><th scope="col" class="num">Primi ingressi</th><th scope="col" class="num">Rientri</th></tr></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        </div>
+                    </section>
+
+                    <!-- e) dispositivi -->
+                    <section class="riquadro" aria-labelledby="ascolti-dispositivi-titolo">
+                        <div class="riquadro-testa">
+                            <h2 id="ascolti-dispositivi-titolo">Dispositivi</h2>
+                            <p class="riquadro-sotto">Con che cosa si sono collegati (per persona, l'ultimo accesso).</p>
+                        </div>
+                        <div id="ascolti-dispositivi" class="dispositivi"></div>
+                    </section>
+                </div>
+
+                <!-- f) le persone -->
+                <section id="riquadro-persone" class="riquadro riquadro-persone" aria-labelledby="ascolti-persone-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="ascolti-persone-titolo">Persone <span id="conta-persone" class="conta"></span></h2>
+                        <p class="riquadro-sotto">Chi ha visto la diretta e per quanto. Premi «Linea del tempo» per vedere quando era collegata una persona;
+                            premi i titoli delle colonne per ordinare.</p>
+                    </div>
+                    <div class="cerca-riga">
+                        <div class="campo campo-cerca">
+                            <label for="cerca-persone">Cerca</label>
+                            <input type="search" id="cerca-persone" placeholder="Nome, email o azienda" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="campo">
+                            <label for="filtro-persone">Mostra</label>
+                            <select id="filtro-persone">
+                                <option value="">Tutte</option>
+                                <option value="ha-visto">Hanno visto</option>
+                                <option value="entrato">Entrate senza vedere</option>
+                                <option value="mai-entrato">Mai entrate</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-persone" class="tabella tabella-ascolti tabella-persone">
+                            <caption class="solo-lettori">Le persone iscritte all'evento, con quanto hanno visto della diretta</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col" data-ordine="nome"><button type="button" class="ordina">Persona</button></th>
+                                    <th scope="col">Azienda</th>
+                                    <th scope="col">Stato</th>
+                                    <th scope="col" data-ordine="primo"><button type="button" class="ordina">Primo ingresso</button></th>
+                                    <th scope="col">Ultima presenza</th>
+                                    <th scope="col" class="num" data-ordine="minuti"><button type="button" class="ordina">Minuti in onda</button></th>
+                                    <th scope="col" class="num" data-ordine="percentuale"><button type="button" class="ordina" aria-label="Percentuale della diretta vista">% vista</button></th>
+                                    <th scope="col" class="num" data-ordine="collegamenti"><button type="button" class="ordina">Collegamenti</button></th>
+                                    <th scope="col">Dispositivi</th>
+                                    <th scope="col"><span class="solo-lettori">Linea del tempo</span></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <p id="persone-vuoto" class="tabella-vuota" hidden></p>
+                    </div>
+                    <div class="altre-persone">
+                        <button type="button" id="btn-altre-persone" class="btn btn-secondario" hidden>Mostra altre 100</button>
+                        <span id="persone-mostrate" class="aiuto" aria-live="polite"></span>
+                    </div>
+                </section>
+                <p class="solo-stampa aiuto"><strong>Persone</strong>: l'elenco completo, con i minuti di ognuno, è nel file Excel («Esporta in Excel» nella scheda Ascolti).</p>
+
+                <!-- g) chi ha le credenziali ma non e' mai entrato -->
+                <section class="riquadro" aria-labelledby="ascolti-non-collegati-titolo">
+                    <div class="riquadro-testa riquadro-testa-riga">
+                        <div>
+                            <h2 id="ascolti-non-collegati-titolo">Non si sono collegati <span id="conta-non-collegati" class="conta"></span></h2>
+                            <p class="riquadro-sotto">Hanno ricevuto le credenziali ma non sono mai entrati nella pagina della diretta: puoi scrivere loro per sapere se hanno avuto problemi.</p>
+                        </div>
+                        <button type="button" id="btn-copia-indirizzi" class="btn btn-secondario btn-piccolo" disabled>Copia gli indirizzi</button>
+                    </div>
+                    <p id="msg-non-collegati" class="msg" role="status" hidden></p>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-non-collegati" class="tabella tabella-ascolti tabella-non-collegati">
+                            <caption class="solo-lettori">Chi ha ricevuto le credenziali ma non è mai entrato</caption>
+                            <thead><tr><th scope="col">Nome e cognome</th><th scope="col">Email</th><th scope="col">Azienda</th><th scope="col">Credenziali</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <p id="non-collegati-vuoto" class="tabella-vuota" hidden></p>
+                    </div>
+                    <p id="non-collegati-altri" class="aiuto non-collegati-altri" hidden></p>
+                </section>
+
+                <!-- in fondo, in piccolo: che cosa vogliono dire i numeri -->
+                <section class="definizioni" aria-labelledby="ascolti-definizioni-titolo">
+                    <h2 id="ascolti-definizioni-titolo">Come si contano</h2>
+                    <ul>
+                        <li><strong>Spettatore in un minuto</strong>: una persona con la pagina della diretta aperta, che ha mandato il suo segnale negli ultimi 2 minuti e mezzo.</li>
+                        <li><strong>Picco e minimo</strong> contano solo i minuti in onda, pause escluse. Il minimo non considera i primi e gli ultimi 5 minuti della diretta, quando le persone si stanno collegando o salutando.</li>
+                        <li>Chi guarda con «Vedi come un partecipante» (dalla scheda Regia) non viene contato.</li>
+                        <li>I minuti di ogni persona sono quelli degli attestati: solo quelli con la diretta in onda, fino alla durata dell'evento.</li>
+                        <li>Tutti gli orari sono in ora italiana.</li>
+                    </ul>
+                    <p id="ascolti-nota" class="ascolti-nota" hidden></p>
+                </section>
             </section>
 
             <!-- ======== SCHEDA PARTECIPANTI ======== -->
@@ -977,6 +1217,6 @@
     <script src="../sorgente-video.js?v=20260925a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260926b"></script>
+    <script src="gestione.js?v=20260927a"></script>
 </body>
 </html>

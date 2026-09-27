@@ -1026,3 +1026,335 @@ tr.riga-nota { background: var(--blu-velo); }
 @media (max-width: 359px) {
     .testata-marchio img { display: none; }
 }
+
+/* ============================================================
+   SCHEDA ASCOLTI
+   ------------------------------------------------------------
+   La dashboard degli ascolti: tessere con i numeri, il grafico degli
+   spettatori minuto per minuto, le tabelle. I grafici sono SVG
+   disegnati da gestione.js con le classi g-...: i colori stanno tutti
+   qui. Un colore principale per gli spettatori (il blu della testata,
+   un po' piu' acceso di --blu perche' accanto al testo non si legga
+   grigio), l'ambra per i rientri, il rosso gia' usato per i problemi
+   per il minimo e i cali, il grigio per le pause. Blu e ambra passano
+   il controllo per i daltonici (distanza fra i colori) e hanno almeno
+   3:1 di contrasto sul bianco; il colore non e' mai l'unico segnale
+   (legenda, scritte, riquadrino, tabella dei dati).
+   ============================================================ */
+:root {
+    --grafico: #1F5688;
+    --grafico-area: rgba(31, 86, 136, 0.12);
+    --grafico-2: #B7791F;
+    --grafico-spento: #94A3B8;
+    --grafico-pausa: #E6EBF1;
+    --grafico-fuori: #F5F7FA;
+    --grafico-griglia: #E2E8F0;
+    --grafico-base: #CBD5E1;
+}
+
+/* mentre arriva il risultato nuovo resta quello di prima, un po' sbiadito
+   (con un attimo di ritardo: gli aggiornamenti veloci non fanno lampeggiare) */
+.scheda-ascolti .tessere, .scheda-ascolti .grafico, .scheda-ascolti .tabella-contenitore, .scheda-ascolti .dispositivi { transition: opacity .2s ease; }
+.scheda-ascolti.in-aggiornamento .tessere, .scheda-ascolti.in-aggiornamento .grafico,
+.scheda-ascolti.in-aggiornamento .tabella-contenitore, .scheda-ascolti.in-aggiornamento .dispositivi { opacity: 0.6; transition-delay: .3s; }
+
+.ascolti-testa { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; }
+.ascolti-testa-testo { min-width: 0; flex: 1 1 360px; }
+.ascolti-comandi { display: flex; align-items: center; justify-content: flex-end; gap: 8px 10px; flex-wrap: wrap; flex: 0 1 auto; }
+.ascolti-aggiornato { font-size: 0.8rem; color: var(--tenue); font-variant-numeric: tabular-nums; }
+.ascolti-aggiornato:empty { display: none; }
+#msg-ascolti { margin-bottom: 14px; }
+
+/* ---------- a) le tessere del riepilogo ---------- */
+.tessere { list-style: none; display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .tessere { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .tessere { grid-template-columns: repeat(9, minmax(0, 1fr)); } }
+.tessera {
+    display: flex; flex-direction: column; gap: 2px; min-width: 0;
+    padding: 12px 14px 13px; border: 1px solid var(--bordo); border-radius: 10px; background: #fff;
+}
+.tessera-etichetta { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--tenue); line-height: 1.3; }
+.tessera-num { font-weight: 700; font-size: 1.65rem; line-height: 1.2; color: var(--scuro); letter-spacing: -0.01em; white-space: nowrap; }
+.tessera-num small { font-size: 0.6em; font-weight: 600; color: var(--tenue); letter-spacing: 0; }
+.tessera-sotto { font-size: 0.78rem; color: var(--tenue); line-height: 1.35; }
+.tessera-sotto:empty { display: none; }
+.tessera.vuota .tessera-num { color: #94A3B8; }
+/* picco e minimo: lo stesso punto che li segna nel grafico */
+.tessera-segno { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; background: var(--grafico); }
+.tessera[data-voce="minimo"] .tessera-segno { background: var(--rosso); }
+
+/* ---------- i grafici ---------- */
+.grafico { display: flex; flex-direction: column; gap: 8px; }
+.grafico-legenda { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.8rem; color: var(--tenue); }
+.grafico-legenda li { display: inline-flex; align-items: center; gap: 7px; }
+.legenda-segno { display: inline-block; flex: 0 0 auto; }
+.segno-linea { width: 18px; height: 3px; border-radius: 2px; background: var(--grafico); }
+.segno-spento { width: 18px; height: 2px; border-radius: 2px; background: var(--grafico-spento); }
+.segno-pausa { width: 16px; height: 12px; border-radius: 2px; background: var(--grafico-pausa); box-shadow: inset 0 0 0 1px #CBD5E1; }
+.segno-voce { width: 2px; height: 14px; background: #94A3B8; }
+.segno-punto { width: 10px; height: 10px; border-radius: 50%; background: var(--grafico); }
+.segno-rosso { background: var(--rosso); }
+.segno-calo { width: 18px; height: 3px; border-radius: 2px; background: var(--rosso); }
+.segno-barra { width: 12px; height: 12px; border-radius: 3px 3px 0 0; background: var(--grafico); }
+.segno-rientri { background: var(--grafico-2); }
+
+/* sotto i 640px il grafico non si stringe: scorre di lato, non la pagina */
+.grafico-scorri { overflow-x: auto; overscroll-behavior-x: contain; max-width: 100%; scrollbar-width: thin; }
+.grafico-cornice { position: relative; min-width: 640px; border-radius: 6px; cursor: crosshair; touch-action: pan-x pan-y; }
+.grafico-cornice:focus-visible { outline: 3px solid var(--chiaro-blu); outline-offset: 3px; }
+.grafico-svg { display: block; width: 100%; height: auto; overflow: visible; font-family: 'Inter', system-ui, sans-serif; }
+.solo-telefono { display: none; }
+
+/* il riquadrino: prima il numero, poi ora, stato e voce */
+.grafico-suggerimento {
+    position: absolute; z-index: 3; pointer-events: none; min-width: 150px; max-width: 280px;
+    display: flex; flex-direction: column; gap: 1px; padding: 8px 11px;
+    background: #fff; border: 1px solid var(--bordo); border-radius: 8px; box-shadow: 0 6px 22px rgba(10, 40, 68, 0.16);
+    font-size: 0.8rem; line-height: 1.4; color: var(--tenue);
+}
+.grafico-suggerimento strong { font-size: 0.98rem; color: var(--scuro); font-variant-numeric: tabular-nums; }
+
+/* le parti dell'SVG */
+.g-griglia { stroke: var(--grafico-griglia); stroke-width: 1; shape-rendering: crispEdges; }
+.g-base { stroke: var(--grafico-base); stroke-width: 1; shape-rendering: crispEdges; }
+.g-tacca { fill: var(--tenue-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.g-fuori rect { fill: var(--grafico-fuori); }
+.g-pausa rect, .g-pausa-rect { fill: var(--grafico-pausa); }
+.g-fascia-testo { fill: var(--tenue); font-size: 11px; font-weight: 700; }
+.g-voce line { stroke: #A9B6C6; stroke-width: 1; shape-rendering: crispEdges; }
+.g-voce-testo { fill: var(--tenue); font-size: 11px; font-weight: 600; }
+.g-voce-num { fill: var(--scuro); font-weight: 800; }
+.g-area { fill: var(--grafico-area); }
+.g-linea { fill: none; stroke: var(--grafico); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.g-linea-spenta { fill: none; stroke: var(--grafico-spento); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.g-punto-solo { fill: var(--grafico); }
+.g-calo path { fill: none; stroke: var(--rosso); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.g-picco circle { fill: var(--grafico); stroke: #fff; stroke-width: 2; }
+.g-minimo circle { fill: var(--rosso); stroke: #fff; stroke-width: 2; }
+/* le scritte sui dati: inchiostro scuro con un alone bianco, leggibili anche sopra la linea */
+.g-etichetta {
+    fill: var(--scuro); font-size: 12px; font-weight: 700;
+    paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round;
+}
+.g-etichetta-calo { fill: var(--rosso-scuro); font-size: 11px; }
+.g-mirino { stroke: var(--tenue-2); stroke-width: 1; shape-rendering: crispEdges; pointer-events: none; }
+.g-fuoco { fill: #fff; stroke: var(--grafico); stroke-width: 2.5; pointer-events: none; }
+.g-fuoco.spento { stroke: var(--grafico-spento); }
+.g-primi { fill: var(--grafico); }
+.g-rientri { fill: var(--grafico-2); }
+.g-colonne.con-scelta .g-colonna:not(.scelta) { opacity: 0.4; }
+
+.ascolti-cali { font-size: 0.86rem; color: var(--testo); }
+.ascolti-buchi:empty { display: none; }
+.ascolti-cali:empty { display: none; }
+.ascolti-cali strong { color: var(--rosso-scuro); }
+
+/* «Vedi i dati del grafico» */
+.dati-grafico { border-top: 1px solid var(--bordo); padding-top: 8px; }
+.dati-grafico > summary {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 2px; cursor: pointer;
+    font-weight: 700; font-size: 0.88rem; color: var(--blu); list-style: none; border-radius: 4px;
+}
+.dati-grafico > summary::-webkit-details-marker { display: none; }
+.dati-grafico > summary::before { content: '\25B8'; color: var(--accento); transition: transform .15s ease; display: inline-block; }
+.dati-grafico[open] > summary::before { transform: rotate(90deg); }
+.dati-grafico .tabella-contenitore { margin-top: 8px; }
+.tabella-alta { max-height: 420px; overflow-y: auto; }
+.tabella-compatta { font-variant-numeric: tabular-nums; }
+.tabella-compatta tr.riga-nota td { background: var(--blu-velo); font-weight: 600; }
+.tabella-compatta tr.riga-buco td { color: var(--tenue); font-style: italic; background: var(--grafico-fuori); }
+
+/* ---------- tabelle della scheda: le intestazioni di riga (<th scope="row">) ---------- */
+.tabella-ascolti tbody th {
+    position: static; z-index: auto; background: none; box-shadow: none; text-align: left;
+    font-family: inherit; font-size: inherit; font-weight: 600; color: var(--scuro);
+    letter-spacing: normal; text-transform: none; white-space: normal;
+    padding: 8px 10px; border-bottom: 1px solid var(--bordo); vertical-align: top;
+}
+.tabella-ascolti tbody tr:last-child th { border-bottom: 0; }
+
+/* ---------- c) il programma ---------- */
+.tabella-programma .col-voce { min-width: 260px; }
+.tabella-programma .col-orario { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.voce-num { font-weight: 800; color: var(--tenue-2); font-variant-numeric: tabular-nums; }
+.bollo-migliore {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px; white-space: nowrap;
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+    background: var(--grafico); color: #fff;
+}
+.tabella-programma tr.migliore th, .tabella-programma tr.migliore td { background: #F1F6FB; }
+.tabella-programma tr.migliore th { box-shadow: inset 4px 0 0 var(--grafico); }
+.media { display: flex; align-items: center; gap: 10px; min-width: 200px; }
+/* la barra: cresce da sinistra, con l'estremo arrotondato */
+.media-pista { flex: 1 1 auto; height: 12px; background: var(--blu-velo); border-radius: 0 4px 4px 0; overflow: hidden; }
+.media-valore { display: block; height: 100%; background: var(--grafico); border-radius: 0 4px 4px 0; }
+.media-num { flex: 0 0 5ch; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--scuro); }
+.senza-dati { font-size: 0.82rem; color: var(--tenue-2); font-style: italic; }
+
+/* ---------- d) ed e): ingressi (larghi quanto il grafico sopra, con le stesse ore) e dispositivi ---------- */
+.ascolti-griglia { display: flex; flex-direction: column; gap: 20px; }
+.dispositivi { display: grid; gap: 18px 36px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .dispositivi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.dispositivi > .aiuto, .dispositivi > .tabella-vuota { grid-column: 1 / -1; }
+.disp-gruppo h3 {
+    font-family: inherit; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--tenue-2); margin-bottom: 8px;
+}
+.disp-barre { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.disp-barre li { display: grid; grid-template-columns: minmax(70px, 8.5rem) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 0.86rem; }
+.disp-nome { color: var(--scuro); font-weight: 600; overflow-wrap: anywhere; }
+.disp-pista { height: 12px; background: var(--blu-velo); border-radius: 0 4px 4px 0; overflow: hidden; }
+.disp-valore { display: block; height: 100%; min-width: 2px; background: var(--grafico); border-radius: 0 4px 4px 0; }
+.disp-numero { min-width: 8ch; text-align: right; white-space: nowrap; color: var(--tenue); font-variant-numeric: tabular-nums; }
+
+/* ---------- f) le persone ---------- */
+/* dieci colonne in una riga: le intestazioni vanno a capo, cosi' le colonne dei numeri restano strette */
+.tabella-persone thead th, .tabella-persone thead th.num { white-space: normal; vertical-align: bottom; }
+.tabella-persone .col-persona { min-width: 250px; }
+.tabella-persone .persona, .tabella-non-collegati .persona { font-weight: 600; color: var(--scuro); }
+.persona-email { display: block; font-size: 0.78rem; font-weight: 400; color: var(--tenue); overflow-wrap: anywhere; }
+.tabella-persone td[data-label="Azienda"] { min-width: 110px; }
+.tabella-persone td[data-label="Primo ingresso"], .tabella-persone td[data-label="Ultima presenza"] { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabella-persone .col-dispositivi { min-width: 110px; font-size: 0.8rem; color: var(--tenue); }
+.tabella-persone .col-azione { white-space: nowrap; }
+/* ordinare cliccando le intestazioni: la freccia dice il verso */
+.tabella th .ordina {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; border: 0; background: none; cursor: pointer;
+    font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; text-align: inherit; border-radius: 3px;
+}
+.tabella th .ordina::after { content: '\2195'; font-size: 0.95em; opacity: 0.45; }
+.tabella th[aria-sort="ascending"] .ordina::after { content: '\2191'; opacity: 1; }
+.tabella th[aria-sort="descending"] .ordina::after { content: '\2193'; opacity: 1; }
+.tabella th .ordina:hover { color: var(--blu); }
+/* lo stato della persona: sempre colore + parola */
+.stato-persona {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+    font-size: 0.74rem; font-weight: 700; background: var(--sfondo); color: var(--tenue);
+}
+.stato-persona::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.stato-ha-visto { background: var(--verde-bg); color: var(--verde); }
+.stato-entrato { background: var(--ambra-bg); color: var(--ambra); }
+.stato-mai-entrato { background: #EEF2F6; color: #475569; }
+.altre-persone { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; margin-top: 14px; }
+.altre-persone .aiuto:empty { display: none; }
+
+/* la linea del tempo di una persona, sotto la sua riga */
+.tabella-persone tr.riga-linea td { background: var(--chiaro); }
+.linea-tempo { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px; }
+.linea-titolo { font-weight: 700; font-size: 0.86rem; color: var(--scuro); }
+.linea-scala { padding: 0 18px; }
+.linea-pista { position: relative; height: 22px; background: #fff; border: 1px solid var(--bordo); border-radius: 6px; overflow: hidden; }
+.linea-pausa { position: absolute; top: 0; bottom: 0; background: var(--grafico-pausa); }
+.linea-segmento { position: absolute; top: 4px; bottom: 4px; min-width: 2px; background: var(--grafico); border-radius: 3px; }
+.linea-ore { position: relative; height: 16px; margin-top: 3px; font-size: 0.72rem; color: var(--tenue-2); font-variant-numeric: tabular-nums; }
+.linea-ore span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.linea-elenco { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.84rem; color: var(--scuro); font-variant-numeric: tabular-nums; }
+.linea-elenco li::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; background: var(--grafico); vertical-align: -1px; }
+
+/* ---------- g) non collegati ---------- */
+.tabella-non-collegati .col-email { font-weight: 600; color: var(--scuro); overflow-wrap: anywhere; min-width: 200px; }
+#msg-non-collegati { margin-bottom: 12px; }
+.non-collegati-altri { margin-top: 10px; }
+
+/* ---------- in fondo: come si contano ---------- */
+.definizioni { padding: 2px 4px 0; font-size: 0.8rem; color: var(--tenue); line-height: 1.5; }
+.definizioni h2 { font-family: inherit; font-size: 0.8rem; font-weight: 800; color: var(--tenue); margin-bottom: 4px; }
+.definizioni ul { padding-left: 18px; display: flex; flex-direction: column; gap: 2px; max-width: 110ch; }
+.definizioni strong { color: var(--testo); }
+.ascolti-nota { margin-top: 6px; max-width: 110ch; }
+.solo-stampa { display: none; }
+#programma-nota { margin-bottom: 12px; }
+
+/* ---------- tablet e telefono ----------
+   Le tabelle della scheda diventano schede come le altre (vedi sopra):
+   qui solo le intestazioni di riga (la persona, la voce: il titolo della
+   scheda, a tutta larghezza) e le due tabelle dei dati dei grafici, che
+   restano tabelle (tre o quattro colonne corte ci stanno anche sul
+   telefono, e una scheda per ogni minuto sarebbe infinita). */
+@media (max-width: 900px) {
+    .tabella-ascolti tbody th { display: block; width: 100%; grid-column: 1 / -1; padding: 4px 0 6px; border: 0; }
+    .tabella-programma .col-voce, .tabella-persone .col-persona, .tabella-persone td[data-label], .tabella-non-collegati .col-email { min-width: 0; }
+    /* la scheda di una voce: il titolo, poi orario, massimo e minimo in una riga, poi la barra della media */
+    .tabella-programma tbody tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .tabella-programma td.col-media { grid-column: 1 / -1; order: 5; }
+    .media { min-width: 0; }
+    .tabella-programma tr.migliore { border-color: var(--grafico); box-shadow: inset 4px 0 0 var(--grafico); background: #F1F6FB; }
+    .tabella-programma tr.migliore th, .tabella-programma tr.migliore td { box-shadow: none; background: none; }
+    /* la scheda di una persona: azienda e stato, poi tre numeri per riga, poi il pulsante */
+    .tabella-persone tbody tr[data-uid] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .tabella-persone tbody tr[data-uid] > td { grid-column: span 2; }
+    .tabella-persone tbody tr[data-uid] > td[data-label="Azienda"], .tabella-persone tbody tr[data-uid] > td[data-label="Stato"],
+    .tabella-persone tbody tr[data-uid] > td[data-label="% vista"], .tabella-persone tbody tr[data-uid] > td[data-label="Collegamenti"] { grid-column: span 3; }
+    .tabella-persone tbody tr[data-uid] > td.col-azione, .tabella-persone tbody tr[data-uid] > td.col-dispositivi { grid-column: 1 / -1; }
+    .tabella-persone td[data-label="Primo ingresso"], .tabella-persone td[data-label="Ultima presenza"] { white-space: normal; }
+    .tabella-non-collegati tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tabella-non-collegati td.col-email { grid-column: 1 / -1; }
+    .tabella-persone tr.riga-linea { padding: 8px 10px; background: var(--chiaro); }
+    .tabella-persone tr.riga-linea td { background: none; }
+    .tabella-persone .col-azione .btn { min-height: 38px; }
+    .tabella-compatta { display: table; }
+    .tabella-compatta thead { display: table-header-group; }
+    .tabella-compatta tbody { display: table-row-group; padding: 0; }
+    .tabella-compatta tr, .tabella-compatta tbody tr { display: table-row; border: 0; border-radius: 0; padding: 0; background: none; }
+    .tabella-compatta td, .tabella-compatta th { display: table-cell; width: auto; padding: 6px 8px; border-bottom: 1px solid var(--bordo); }
+    .tabella-compatta td[data-label]::before { content: none; }
+    .tabella-compatta .num { text-align: right; }
+    .dati-grafico .tabella-contenitore { border: 1px solid var(--bordo); background: #fff; overflow: auto; }
+}
+@media (max-width: 700px) {
+    .solo-telefono { display: block; }
+    .ascolti-comandi { justify-content: flex-start; }
+    .ascolti-aggiornato { flex: 1 1 100%; }
+    .disp-barre li { grid-template-columns: minmax(64px, 7rem) minmax(0, 1fr) auto; }
+}
+@media (max-width: 639px) {
+    /* due tessere per riga: la nona, da sola, prende tutta la riga */
+    .tessere .tessera:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .tessera { padding: 10px 12px 11px; }
+    .tessera-num { font-size: 1.45rem; }
+}
+
+/* ---------- stampa: solo la scheda Ascolti ----------
+   «Stampa il riepilogo» (e anche Ctrl+P con la scheda Ascolti aperta):
+   niente testata, niente altre schede, niente pulsanti ne' campi; il
+   grafico si allarga alla pagina (orizzontale, cosi' il grafico e le
+   tabelle respirano). L'elenco delle persone, lungo, resta nel file
+   Excel; i colori si stampano come sono (print-color-adjust). */
+@media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    body[data-scheda="ascolti"] { background: #fff; min-height: 0; }
+    body[data-scheda="ascolti"] .testata,
+    body[data-scheda="ascolti"] .salta,
+    body[data-scheda="ascolti"] .avvisi,
+    body[data-scheda="ascolti"] .scheda:not(#scheda-ascolti) { display: none !important; }
+    body[data-scheda="ascolti"] .principale { padding: 0; max-width: none; }
+    #scheda-ascolti { gap: 10px; }
+    #scheda-ascolti .btn, #scheda-ascolti .cerca-riga, #scheda-ascolti .dati-grafico, #scheda-ascolti .msg,
+    #scheda-ascolti .grafico-suggerimento, #scheda-ascolti .solo-telefono, #riquadro-persone { display: none !important; }
+    #scheda-ascolti .solo-stampa { display: block; padding: 0 14px; font-size: 0.85rem; }
+    #scheda-ascolti .solo-schermo { display: none; }
+    #scheda-ascolti .riquadro { box-shadow: none; border-color: #CBD5E1; padding: 12px 14px; break-inside: avoid; page-break-inside: avoid; }
+    #scheda-ascolti .riquadro-testa { margin-bottom: 10px; }
+    #scheda-ascolti .grafico-scorri, #scheda-ascolti .tabella-contenitore { overflow: visible; }
+    #scheda-ascolti .grafico-cornice { min-width: 0; }
+    #scheda-ascolti .tessere { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
+    #scheda-ascolti .tessera { padding: 8px 9px; }
+    #scheda-ascolti .tessera-num { font-size: 1.25rem; }
+    #scheda-ascolti .tabella th { position: static; }
+    #scheda-ascolti, #scheda-ascolti * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+/* sul telefono le intestazioni della tabella delle persone spariscono (le
+   righe sono schede): restano i pulsanti per ordinare, in una riga sopra */
+@media (max-width: 900px) {
+    .tabella-persone thead { display: block; padding: 0 10px; }
+    .tabella-persone thead tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .tabella-persone thead tr::before {
+        content: 'Ordina per'; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tenue-2);
+    }
+    .tabella-persone thead th { display: none; }
+    .tabella-persone thead th[data-ordine] {
+        display: inline-flex; position: static; padding: 4px 10px; border-radius: 999px; box-shadow: none;
+        background: #fff; border: 1px solid #CBD5E1; font-size: 0.68rem;
+    }
+    .tabella-persone thead th[aria-sort] { background: var(--blu-velo); border-color: var(--accento); color: var(--blu); }
+}

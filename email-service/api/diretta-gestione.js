@@ -13,6 +13,7 @@
      link-firmato, anteprima, crea, partecipanti, partecipante,
      connessi, esporta                         -> lib/diretta-dati.js
      prova-link                                -> lib/diretta-prova-link.js
+     ascolti                                   -> lib/diretta-ascolti.js
      email-prova, email-accoda, email-avanza,
      email-stato, email-esiti                  -> lib/diretta-invio.js
 
@@ -105,6 +106,12 @@
      da-verificare-archivia { idEvento, id } -> { id }: «Segna come
                       vista» (la riga resta, con chi e quando; 404 se
                       non e' di quell'evento)
+     ascolti          { idEvento } -> il riepilogo degli ascolti per la
+                      scheda «Ascolti» (curva minuto per minuto, picco,
+                      programma, ingressi, dispositivi, persone; formato
+                      in `risultato` di lib/diretta-ascolti.js); tenuto
+                      in cache 60 s a evento in corso o appena finito,
+                      10 minuti altrimenti; 404 se l'evento non c'e'
      email-prova      { idEvento, tipo: 'credenziali'|'iscritto-anche'|
                       'promemoria-giorno'|'promemoria-ora' }
 
@@ -117,6 +124,7 @@ const D = require('../lib/diretta-dati');
 const F = require('../lib/diretta-firma');
 const PL = require('../lib/diretta-prova-link');
 const I = require('../lib/diretta-iscrizione');
+const A = require('../lib/diretta-ascolti');
 const { contesto } = require('../lib/diretta-firebase');
 
 const TIPI_PROVA = ['credenziali', 'iscritto-anche', 'promemoria-giorno', 'promemoria-ora'];
@@ -196,6 +204,7 @@ const AZIONI = {
     'esporta': async (ctx, b) => D.esporta(ctx, b.idEvento),
     'da-verificare': async (ctx, b) => I.elencoDaVerificare(ctx, b.idEvento),
     'da-verificare-archivia': async (ctx, b, g) => I.archiviaDaVerificare(ctx, { idEvento: b.idEvento, id: b.id }, g.email),
+    'ascolti': async (ctx, b) => A.ascolti(ctx, b.idEvento),
 
     'email-prova': async (ctx, b, g) => {
         const idEvento = D.controllaIdEvento(b.idEvento);

@@ -924,7 +924,11 @@ html.schermo-intero-finto body { overflow: hidden; height: 100%; overscroll-beha
 
 /* i consigli che valgono per una modalita' sola (data-solo in index.html) */
 html.modo-azoto [data-solo="flusso"],
-html:not(.modo-azoto) [data-solo="azoto"] { display: none; }
+html:not(.modo-azoto) [data-solo="azoto"],
+html:not(.modo-azoto) [data-solo="azoto-computer"],
+html:not(.modo-azoto) [data-solo="azoto-telefono"],
+html.telefono [data-solo="azoto-computer"],
+html:not(.telefono) [data-solo="azoto-telefono"] { display: none; }
 
 /* i comandi della modalita' B non ci sono */
 html.modo-azoto #btn-play,
@@ -1086,25 +1090,53 @@ html.modo-azoto .riquadro-video[data-intero="1"] .btn-schermo-intero-testo { dis
 html.modo-azoto .riquadro-video.schermo-intero-finto {
     padding: var(--sicuro-alto) var(--sicuro-destra) var(--sicuro-basso) var(--sicuro-sinistra);
 }
-/* iPhone in verticale: la vista a pagina intera ORIZZONTALE. Il riquadro e'
-   largo quanto lo schermo e' alto, alto quanto e' largo, e ruotato di 90
-   gradi (in senso orario: si guarda girando il telefono con la parte alta a
-   sinistra). Le zone sicure ruotano con lui: la tacca (in alto sul telefono)
-   e' a sinistra del video, la barra di iPhone (in basso) a destra. Girando
-   davvero il telefono lo schermo diventa orizzontale e la vista si
-   raddrizza da sola (questa regola non vale piu'). */
-@media (orientation: portrait) {
-    html.modo-azoto .riquadro-video.schermo-intero-finto {
-        top: 50%;
-        left: 50%;
-        right: auto;
-        bottom: auto;
-        width: 100vh;
-        width: 100dvh;
-        height: 100vw;
-        transform: translate(-50%, -50%) rotate(90deg);
-        padding: var(--sicuro-destra) var(--sicuro-basso) var(--sicuro-sinistra) var(--sicuro-alto);
+/* Niente rotazioni: lo pseudo schermo intero resta dritto. La vista
+   "orizzontale" ruotata di 90 gradi, su iPhone, bloccava il video di Azoto
+   e spostava i tocchi sui suoi comandi. Sul telefono lo schermo intero con
+   Azoto e' quello del suo player (qui sotto, "MODALITA' A SUL TELEFONO"). */
+
+/* ---------- modalita' A sul telefono (html.telefono, diretta.js) ----------
+   Niente nostro «Schermo intero» (e quindi niente barra sotto il video):
+   al suo posto l'indicazione per il pulsante ⛶ del player di Azoto. */
+.aiuto-intero-telefono { display: none; }
+html.modo-azoto.telefono .riquadro-video > .barra-comandi { display: none; }
+html.modo-azoto.telefono .riquadro-video > .aiuto-intero-telefono {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    margin: 0;
+    padding: 2px 16px 12px;
+    background: #0B1F33;
+    color: #fff;
+    font-size: 15.5px;
+    line-height: 1.45;
+}
+.icona-in-testo {
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    vertical-align: -.25em;
+    margin: 0 .1em;
+    padding: .08em;
+    border: 1px solid rgba(255, 255, 255, .55);
+    border-radius: 4px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* telefono girato in orizzontale: il video riempie l'altezza dello schermo
+   (diretta.js lo porta in vista), le righe sotto il video si tolgono */
+@media (orientation: landscape) and (max-height: 520px) {
+    html.modo-azoto.telefono .riquadro-video {
+        max-width: calc(100vh * 16 / 9);
+        max-width: calc(100dvh * 16 / 9);
     }
+    html.modo-azoto.telefono .riquadro-video > .nota-azoto,
+    html.modo-azoto.telefono .riquadro-video > .aiuto-intero-telefono { display: none; }
+    /* ai lati del video il nero del televisore, non il fondo della pagina */
+    html.modo-azoto.telefono .fascia-video { background: #000; }
 }
 
 /* ====================== STATI: PAUSA, FINE, MESSAGGI ====================== */

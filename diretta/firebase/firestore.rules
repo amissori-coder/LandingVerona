@@ -17,8 +17,9 @@ rules_version = '2';
      dell'elenco DIRETTA_ADMIN_EMAILS) legge gli eventi, per
      l'anteprima "vedi come un partecipante";
    - tutto il resto (indirizzi email, accessi, tentativi,
-     code di invio) lo legge e lo scrive SOLO il server, che usa la
-     chiave di servizio e non passa da queste regole.
+     code di invio, gli ascolti minuto per minuto in ascolti e il loro
+     riepilogo in ascoltiCache) lo legge e lo scrive SOLO il server, che
+     usa la chiave di servizio e non passa da queste regole.
 
    L'unica scrittura concessa ai browser e' il segnale di presenza,
    al massimo uno ogni 50 secondi, con l'orario messo dal server di

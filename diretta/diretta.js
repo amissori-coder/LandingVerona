@@ -75,6 +75,21 @@
     const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent || '')
         || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || navigator.userAgent || ''));
 
+    /* Un TELEFONO: schermo touch, senza mouse, con il lato corto sotto i 600
+       px (i tablet no). Con il player di Azoto, sul telefono lo schermo
+       intero lo fa il SUO pulsante ⛶ (su iPhone apre il player del
+       telefono, su Android lo schermo intero vero, che gira da solo in
+       orizzontale): il nostro riquadro a schermo intero attorno al player
+       di un altro sito (ruotato di 90 gradi su iPhone) bloccava il video e
+       spostava i tocchi. Qui niente nostro pulsante: un'indicazione sotto
+       il video e, girando il telefono, il video che si allarga da solo. */
+    const TELEFONO = (() => {
+        try {
+            const lato = Math.min(screen.width || 0, screen.height || 0);
+            return window.matchMedia('(hover: none) and (pointer: coarse)').matches && lato > 0 && lato < 600;
+        } catch (e) { return false; }
+    })();
+
     /* ---------------------------------------------------------------
        PICCOLI ATTREZZI
        --------------------------------------------------------------- */
@@ -1294,6 +1309,8 @@
             if (modoVideo === 'azoto') distruggiAzoto();
             else if (modoVideo === 'flusso') distruggiFlusso();
             modoVideo = m;
+            // sul telefono lo schermo intero con Azoto e' del suo player: il nostro si chiude
+            if (TELEFONO && m === 'azoto' && (intero.finto || elementoSchermoIntero())) esciSchermoIntero();
             if (cambio) {
                 annuncia(m === 'azoto' ? 'Il video è cambiato: audio e pausa ora si regolano con i comandi del player.'
                     : 'Il video è cambiato: audio e pausa ora si regolano con i pulsanti sotto il video.');
@@ -2341,11 +2358,10 @@
        pulsante per uscire. Dove il browser non manda a schermo intero un
        riquadro qualsiasi (iPhone: Safari lo fa solo con i <video>) c'e'
        lo pseudo schermo intero ("finto"): il riquadro fisso sopra tutta
-       la pagina. In modalita' A, con il telefono in verticale, lo pseudo
-       schermo intero e' la vista a pagina intera ORIZZONTALE: il riquadro
-       ruotato di 90 gradi (lo fa il CSS, diretta.css, "MODALITA' A"),
-       con il pulsante per uscire nelle bande nere, mai sopra l'iframe;
-       girando il telefono la vista si raddrizza da sola. Esc esce. */
+       la pagina, dritto (niente rotazioni: un iframe ruotato bloccava il
+       video e spostava i tocchi). Sul TELEFONO in modalita' A il nostro
+       pulsante non c'e': lo schermo intero e' quello del player di Azoto.
+       Esc esce. */
     let intero = { finto: false, scorrimento: 0 };
     function elementoSchermoIntero() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function aggiornaStatoIntero() {
@@ -2386,6 +2402,8 @@
     }
     function alternaSchermoIntero() {
         if (vista !== 'diretta') return;
+        // sul telefono, con Azoto, lo schermo intero e' quello del suo player (vedi TELEFONO)
+        if (TELEFONO && modoVideo === 'azoto' && !intero.finto && !elementoSchermoIntero()) return;
         const r = $('riquadro-video');
         if (intero.finto) { esciFinto(); return; }
         if (elementoSchermoIntero()) { esciSchermoIntero(); return; }
@@ -2498,6 +2516,21 @@
            scorciatoie li renderebbe irraggiungibili. */
         $('btn-ricarica-video').addEventListener('click', ricaricaVideoAzoto);
         if (IOS) document.documentElement.classList.add('ios');
+        if (TELEFONO) {
+            document.documentElement.classList.add('telefono');
+            /* girando il telefono in orizzontale il video si allarga (diretta.css,
+               "telefono in orizzontale"): lo si porta in vista, cosi' riempie
+               lo schermo senza dover scorrere */
+            try {
+                const orizzontale = window.matchMedia('(orientation: landscape)');
+                const inVista = () => {
+                    if (!orizzontale.matches || vista !== 'diretta' || modoVideo !== 'azoto') return;
+                    setTimeout(() => { try { $('riquadro-video').scrollIntoView({ block: 'start' }); } catch (e) { /* niente */ } }, 350);
+                };
+                if (orizzontale.addEventListener) orizzontale.addEventListener('change', inVista);
+                else if (orizzontale.addListener) orizzontale.addListener(inVista);
+            } catch (e) { /* niente */ }
+        }
     }
 
     /* ---------------------------------------------------------------

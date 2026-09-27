@@ -132,8 +132,8 @@ const RITOCCHI_GESTIONE = [
     ["const SHEETJS_IMPRONTA = ", "const SHEETJS_IMPRONTA_ANTEPRIMA = 'sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==';\n    const SHEETJS_IMPRONTA = "],
     // "Vedi come un partecipante": nell'anteprima si apre sopra la gestione
     ["window.open(url, '_blank', 'noopener');", 'NGBA_APRI(url);'],
-    // l'esportazione: dove si pubblica l'anteprima i file non si scaricano, se ne mostra il contenuto
-    ['XLSX.writeFile(wb, nome, { compression: true });', 'NGBA_SCARICA_EXCEL(XLSX, wb, nome);']
+    // le esportazioni (partecipanti e ascolti): dove si pubblica l'anteprima i file non si scaricano, se ne mostra il contenuto
+    ['XLSX.writeFile(wb, nome, { compression: true });', 'NGBA_SCARICA_EXCEL(XLSX, wb, nome);', 2]
 ];
 
 /* I riferimenti di script, fogli di stile e immagini diventano relativi
