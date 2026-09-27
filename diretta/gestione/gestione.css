@@ -798,11 +798,23 @@ tr.riga-nota { background: var(--blu-velo); }
 .tabella-partecipanti td[data-label="Nome e cognome"], .tabella-partecipanti td[data-label="Azienda"] { min-width: 140px; }
 .tabella-partecipanti td[data-label="Ultimo accesso"] { white-space: nowrap; }
 .tabella-partecipanti .persona { font-weight: 600; color: var(--scuro); }
+/* aggiungi un partecipante a mano: quattro campi, poi «Aggiungi» */
+.griglia-aggiungi { display: grid; gap: 12px 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.azioni-aggiungi { margin-top: 14px; }
+.dopo-aggiungi { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--chiaro); border-left: 4px solid var(--accento);
+    display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+.dopo-aggiungi[hidden] { display: none; }
+.dopo-aggiungi .aiuto { margin: 0; flex: 1 1 280px; color: var(--scuro); }
+@media (max-width: 560px) {
+    #btn-aggiungi, .dopo-aggiungi .btn { width: 100%; }
+}
 /* chi si e' iscritto dal modulo del sito (con l'invio automatico): gli altri vengono dal file */
 .origine-modulo {
     display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: 1px; white-space: nowrap;
     font-size: 0.68rem; font-weight: 700; background: var(--blu-velo); color: var(--blu); border: 1px solid var(--su-scuro);
 }
+/* aggiunto a mano dalla gestione */
+.origine-mano { background: var(--chiaro); color: var(--tenue); border-color: var(--bordo); }
 .tabella-partecipanti .piccolo { display: block; font-size: 0.76rem; color: var(--tenue-2); }
 .tabella-partecipanti tr.disattivato { background: #F8FAFC; }
 .tabella-partecipanti tr.disattivato .persona, .tabella-partecipanti tr.disattivato .col-email { color: var(--tenue-2); text-decoration: line-through; }

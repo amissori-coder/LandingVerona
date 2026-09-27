@@ -20,6 +20,12 @@
  *   9.00" prima. Lo stato arriva da NGBDiretta.leggi (endpoint con cache,
  *   chiesto solo quel giorno): mai una chiamata a Firebase. Se la diretta
  *   risulta gia' conclusa, il popup non compare.
+ * - Chi e' iscritto IN PRESENZA ma non potra' venire trova una riga sua:
+ *   si iscrive alla diretta dal modulo della pagina dell'evento (anche con
+ *   la stessa email: ogni invio del modulo e' un'iscrizione a se') e annulla
+ *   il posto in sala dalla sua email. Il collegamento e' quello di
+ *   NGBDiretta.EVENTO.urlIscrizione. Sta SOTTO i pulsanti: sopra, sui
+ *   telefoni da 360 px spingeva «Accedi alla diretta» fuori dallo schermo.
  * - Una volta per sessione; "Non mostrare piu" vale per questo evento e
  *   solo per il popup: la pillola fissa della home (diretta-stato.js) resta.
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo;
@@ -169,6 +175,15 @@
     + '#dirPromo .dirp-info a:hover{color:#0A2844;}'
     + '#dirPromo .dirp-info a:focus-visible{outline:2px solid #164068;outline-offset:2px;border-radius:3px;}'
 
+    /* chi e' iscritto in presenza: una nota sotto i pulsanti */
+    + '#dirPromo .dirp-presenza{display:flex;align-items:flex-start;gap:10px;margin:12px 0 0;background:#F3F7FB;'
+    + 'border:1px solid #DCE7F2;border-radius:12px;padding:10px 13px;color:#404a5a;font-size:13px;line-height:1.5;}'
+    + '#dirPromo .dirp-presenza svg{flex:0 0 auto;width:17px;height:17px;margin-top:1px;color:#2A5A85;}'
+    + '#dirPromo .dirp-presenza b{color:#0A2844;}'
+    + '#dirPromo .dirp-presenza a{color:#164068;font-weight:600;text-decoration:underline;text-underline-offset:2px;}'
+    + '#dirPromo .dirp-presenza a:hover{color:#0A2844;}'
+    + '#dirPromo .dirp-presenza a:focus-visible{outline:2px solid #164068;outline-offset:2px;border-radius:3px;}'
+
     /* azioni */
     + '#dirPromo .dirp-actions{display:flex;flex-direction:column;gap:6px;}'
     + '#dirPromo .dirp-cta{position:relative;overflow:hidden;display:inline-flex;align-items:center;'
@@ -228,6 +243,9 @@
   var iconEmail = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
     + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"></rect>'
     + '<path d="m22 7-10 6L2 7"></path></svg>';
+  var iconPersona = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>'
+    + '<circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>';
   var iconArrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
     + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line>'
     + '<polyline points="12 5 19 12 12 19"></polyline></svg>';
@@ -263,6 +281,12 @@
     + '<button type="button" class="dirp-ghost" data-dirp-close>Chiudi</button>'
     + '</div>'
     + '</div>'
+    // chi e' iscritto in presenza e non potra' venire: sotto i pulsanti, per non spingere
+    // «Accedi alla diretta» fuori dallo schermo dei telefoni piccoli (il collegamento si
+    // scrive dopo, con setAttribute)
+    + '<p class="dirp-presenza">' + iconPersona + '<span><b>Iscritto in presenza ma non puoi venire?</b> '
+    + '<a class="dirp-iscriviti" href="">Iscriviti alla diretta</a>, anche con la stessa email, e annulla il posto '
+    + 'in sala da &laquo;Modifica o annulla&raquo; nella tua email.</span></p>'
     + '<div class="dirp-dismiss"><button type="button" data-dirp-never>Non mostrare pi&ugrave;</button></div>'
     + '</div></div>';
 
@@ -289,6 +313,7 @@
     // collegamenti dalla configurazione (setAttribute, mai HTML)
     root.querySelector(".dirp-cta").setAttribute("href", EVENTO.urlDiretta || "/diretta/");
     root.querySelector(".dirp-programma").setAttribute("href", (EVENTO.pagina || "/") + "#programma");
+    root.querySelector(".dirp-iscriviti").setAttribute("href", EVENTO.urlIscrizione || ((EVENTO.pagina || "/") + "#accreditamento"));
     root.querySelector(".dirp-eyebrow-testo").textContent = eyebrow;
     root.querySelector(".dirp-quando").textContent = quando;
 
@@ -377,6 +402,15 @@
       ss(false, SS_SEEN, "1");
       if (typeof window.gtag === "function") {
         window.gtag("event", "click_popup", { pagina: "Diretta Napoli" });
+      }
+    });
+
+    // anche «Iscriviti alla diretta» e' un collegamento vero: segna come visto e traccia il clic
+    var iscriviti = root.querySelector(".dirp-iscriviti");
+    if (iscriviti) iscriviti.addEventListener("click", function () {
+      ss(false, SS_SEEN, "1");
+      if (typeof window.gtag === "function") {
+        window.gtag("event", "click_popup_iscrizione", { pagina: "Diretta Napoli" });
       }
     });
 

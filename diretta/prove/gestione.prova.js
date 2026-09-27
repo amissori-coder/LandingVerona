@@ -2152,8 +2152,10 @@ async function sheetJSNode() {
         vero(JSON.stringify(wb.SheetNames) === JSON.stringify(['Partecipanti', 'Accessi']), 'due fogli: ' + wb.SheetNames.join(', '));
         const fp = XLSX.utils.sheet_to_json(wb.Sheets.Partecipanti, { header: 1, defval: '' });
         const fa = XLSX.utils.sheet_to_json(wb.Sheets.Accessi, { header: 1, defval: '' });
-        vero(fp[0].join('|') === 'Nome|Cognome|Email|Azienda|Account|Email credenziali|Inviata il|Primo collegamento|Ultimo segnale|Minuti collegati (durante la diretta)|Collegamenti|Ultimo accesso',
-            'colonne del foglio Partecipanti come da contratto: nessuna colonna del nome utente (l\'email c\'è già)');
+        vero(fp[0].join('|') === 'Nome|Cognome|Email|Azienda|Account|Email credenziali|Inviata il|Primo collegamento|Ultimo segnale|Minuti collegati (durante la diretta)|Collegamenti|Ultimo accesso|Origine',
+            'colonne del foglio Partecipanti come da contratto: nessuna colonna del nome utente (l\'email c\'è già), in fondo l\'origine');
+        vero(fp.slice(1).filter(r => r[2]).every(r => ['file', 'modulo del sito', 'a mano'].indexOf(r[12]) >= 0) && fp.some(r => r[12] === 'file'),
+            'la colonna Origine dice da dove arriva ogni persona (file, modulo del sito, a mano)');
         /* cinque accessi veri, tutti con l'email: Anna Maria con la password detta a voce;
            Ivan con il nuovo indirizzo e la password di prima; di nuovo Anna Maria (la
            password detta a voce vale ancora); qui sopra Ivan e Anna Maria */
@@ -2291,6 +2293,110 @@ async function sheetJSNode() {
         await $('#btn-aggiorna-email').click();
         await aspetta(async () => !(await visibile('#blocco-da-confermare')), 10000, 'riquadro sparito');
         vero(true, 'raggiunte tutte: il riquadro «non hanno ancora confermato» sparisce');
+
+        /* ---------- 9b-bis. aggiungere un partecipante a mano ----------
+           Il riquadro «Aggiungi un partecipante» della scheda Partecipanti, con il
+           servizio vero (azione 'partecipante-aggiungi'): i campi vuoti, l'email
+           non valida (con Invio), l'email di un'altra persona, una persona nuova
+           (nessuna email parte), il doppio clic, «Invia ora le credenziali» (la
+           password), e chi ha gia' una password (Anna Maria, tolta dall'evento e
+           aggiunta di nuovo): riceve «Sei iscritto anche a…» e la sua password
+           vale ancora. */
+        console.log('\n-- aggiungere un partecipante a mano');
+        await page.click('[data-scheda="partecipanti"]');
+        await $('#riquadro-aggiungi').scrollIntoViewIfNeeded();
+        const aggPrima = chiamate('partecipante-aggiungi').length;
+        await $('#btn-aggiungi').click();
+        await aspetta(async () => /^Manca il nome, il cognome, l'email\.$/.test(await testo('#msg-aggiungi')), 5000, 'campi vuoti');
+        vero(await $('#agg-nome').getAttribute('aria-invalid') === 'true' && await $('#agg-cognome').getAttribute('aria-invalid') === 'true'
+            && await $('#agg-email').getAttribute('aria-invalid') === 'true' && chiamate('partecipante-aggiungi').length === aggPrima
+            && await page.evaluate(() => document.activeElement && document.activeElement.id) === 'agg-nome',
+            'senza nome, cognome ed email: «Manca il nome, il cognome, l\'email.», i campi segnati, il fuoco sul primo, nessuna chiamata');
+        await $('#agg-nome').fill('Paola');
+        await $('#agg-cognome').fill('Amano');
+        await $('#agg-email').fill('paola.amano@');
+        await $('#agg-email').press('Enter');
+        await aspetta(async () => /Email non valida/.test(await testo('#msg-aggiungi')), 10000, 'email non valida');
+        vero(await $('#agg-email').getAttribute('aria-invalid') === 'true' && await page.evaluate(() => document.activeElement && document.activeElement.id) === 'agg-email',
+            'email non valida (aggiunta con Invio): il messaggio del servizio, l\'email segnata e con il fuoco');
+        const nomeChloe = (await partecipante(CHLOE2)).nome;
+        await $('#agg-email').fill(CHLOE2.toUpperCase());
+        await $('#btn-aggiungi').click();
+        await aspetta(async () => /Con questa email è già registrato Chloé Dupont: se è la stessa persona, scrivi il nome come è registrato/.test(await testo('#msg-aggiungi')), 10000, 'email di un\'altra persona');
+        vero(await $('#agg-email').getAttribute('aria-invalid') === 'true' && (await partecipante(CHLOE2)).nome === nomeChloe,
+            'l\'email di un\'altra persona (scritta in maiuscolo): il nome registrato, niente toccato');
+        const PAOLA = 'paola.amano@esempio.it';
+        const postaPrimaPaola = leggiPosta().length;
+        await $('#agg-email').fill('  Paola.Amano@Esempio.IT ');
+        await $('#agg-azienda').fill('Amano & C. srl');
+        await $('#btn-aggiungi').click();
+        await aspetta(async () => /^Aggiunto: Paola Amano \(paola\.amano@esempio\.it\)\. Account creato, credenziali «da inviare»: non è partita nessuna email\.$/.test(await testo('#msg-aggiungi')), 10000, 'Paola aggiunta');
+        const pPaola = await partecipante(PAOLA);
+        vero(pPaola && pPaola.origine === 'manuale' && pPaola.invii[ID].origine === 'manuale' && pPaola.invii[ID].aggiuntoDa === EMAIL_GESTORE
+            && pPaola.invii[ID].stato === 'da inviare' && pPaola.azienda === 'Amano & C. srl',
+            'sul servizio: email normalizzata, origine «manuale», chi l\'ha aggiunta, credenziali «da inviare»');
+        vero(leggiPosta().length === postaPrimaPaola, 'aggiungere non manda nessuna email');
+        vero(await $('#agg-nome').inputValue() === '' && await $('#agg-email').inputValue() === '' && await page.evaluate(() => document.activeElement && document.activeElement.id) === 'agg-nome',
+            'il modulo si svuota, con il fuoco sul nome: pronto per la persona dopo');
+        const rigaPaola = await rp(PAOLA);
+        vero(await rigaPaola.count() === 1 && /aggiunto a mano/.test(await rigaPaola.textContent()) && (await rigaPaola.locator('.stato-email').textContent()) === 'da inviare'
+            && await rigaPaola.getAttribute('data-origine') === 'mano', 'nell\'elenco: «aggiunto a mano», «da inviare»');
+        vero(await visibile('#dopo-aggiungi') && /^Le credenziali di Paola Amano \(paola\.amano@esempio\.it\) non sono partite/.test(await testo('#testo-dopo-aggiungi')),
+            'compare «Invia ora le credenziali» per lei');
+        await $('#riquadro-aggiungi').scrollIntoViewIfNeeded();
+        await foto('partecipanti-aggiungi');
+        // il doppio clic: una richiesta sola
+        await $('#agg-nome').fill('Rocco');
+        await $('#agg-cognome').fill('Doppio');
+        await $('#agg-email').fill('rocco.doppio@esempio.it');
+        const aggPrimaDoppio = chiamate('partecipante-aggiungi').length;
+        await $('#btn-aggiungi').dblclick();
+        await aspetta(async () => /^Aggiunto: Rocco Doppio/.test(await testo('#msg-aggiungi')), 10000, 'Rocco aggiunto');
+        await calma();
+        vero(chiamate('partecipante-aggiungi').length - aggPrimaDoppio === 1 && !!(await uidDi('rocco.doppio@esempio.it')), 'doppio clic su «Aggiungi»: una richiesta sola, una persona');
+        // «Invia ora le credenziali»: la password
+        await $('#btn-invia-aggiunto').click();
+        await confermaDialogo(/Inviare adesso le credenziali\?.*Rocco Doppio \(rocco\.doppio@esempio\.it\) riceve subito un'email.*Se non ha ancora una password, la riceve.*Sei iscritto anche a…/s, 'Invia ora');
+        await aspetta(async () => /^Credenziali inviate a Rocco Doppio/.test(await testo('#msg-aggiungi')), 30000, 'credenziali a Rocco');
+        const lettereRocco = postaPer('rocco.doppio@esempio.it', 'credenziali');
+        vero(lettereRocco.length === 1 && !!passwordDa(lettereRocco[0]) && (await (await rp('rocco.doppio@esempio.it')).locator('.stato-email').textContent()) === 'inviata'
+            && await $('#dopo-aggiungi').isHidden(), '«Invia ora le credenziali»: una email con la password, la riga «inviata», il riquadro sparisce');
+        vero(chiamate('partecipante').pop().dati.operazione === 'invia', 'con l\'operazione «invia» (non il «Reinvia», che farebbe sempre una password nuova)');
+        // chi ha gia' una password: Anna Maria (password detta a voce), tolta e aggiunta di nuovo
+        const uidAnna = await uidDi(ANNA);
+        const tolta = await api('diretta-gestione', { azione: 'partecipante', uid: uidAnna, idEvento: ID, operazione: 'rimuovi-evento' }, tokGestore);
+        vero(tolta.stato === 200, 'Anna Maria tolta dall\'evento (da un altro gestore)');
+        await $('#agg-nome').fill('Anna Maria');
+        await $('#agg-cognome').fill('De Luca');
+        await $('#agg-email').fill(ANNA);
+        await $('#btn-aggiungi').click();
+        await aspetta(async () => /^Aggiunto a questo evento: Anna Maria De Luca .* aveva già un account/.test(await testo('#msg-aggiungi')), 10000, 'Anna Maria aggiunta di nuovo');
+        vero((await partecipante(ANNA)).uid === uidAnna, 'stesso account di prima, nessun account nuovo');
+        const anchePrima = postaPer(ANNA, 'iscritto-anche').length;
+        await $('#btn-invia-aggiunto').click();
+        await confermaDialogo(/Inviare adesso le credenziali\?/, 'Invia ora');
+        await aspetta(async () => /^Inviato a Anna Maria De Luca .*«Sei iscritto anche a…», senza password/.test(await testo('#msg-aggiungi')), 30000, 'anche ad Anna Maria');
+        const anche = postaPer(ANNA, 'iscritto-anche').slice(anchePrima);
+        vero(anche.length === 1 && !/Password:\s*\S/.test(anche[0].testo), 'Anna Maria riceve «Sei iscritto anche a…», senza password');
+        vero((await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw })).stato === 200, 'e la sua password detta a voce vale ancora');
+        // protetta come le altre azioni
+        const aggSenzaToken = await api('diretta-gestione', { azione: 'partecipante-aggiungi', idEvento: ID, nome: 'X', cognome: 'Y', email: 'x.y@esempio.it' });
+        vero(aggSenzaToken.stato === 401 && !(await uidDi('x.y@esempio.it')), 'senza accesso: 401, nessuna persona aggiunta');
+        // sul telefono
+        await page.setViewportSize({ width: 390, height: 844 });
+        await pausa(300);
+        await $('#riquadro-aggiungi').scrollIntoViewIfNeeded();
+        const telAgg = await page.evaluate(() => ({
+            largo: document.documentElement.scrollWidth <= window.innerWidth,
+            bottone: Math.round(document.getElementById('btn-aggiungi').getBoundingClientRect().width),
+            riquadro: Math.round(document.getElementById('form-aggiungi').getBoundingClientRect().width)
+        }));
+        vero(telAgg.largo && telAgg.bottone >= telAgg.riquadro - 2, 'telefono (390 px): niente scorrimento di lato, «Aggiungi» largo quanto il riquadro', JSON.stringify(telAgg));
+        const stileTelAgg = await page.addStyleTag({ content: '.testata{position:static!important}.avvisi{display:none!important}' });
+        await $('#riquadro-aggiungi').screenshot({ path: path.join(FOTO, 'telefono-partecipanti-aggiungi.png') });
+        await stileTelAgg.evaluate(n => n.remove());
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await pausa(200);
 
         /* ---------- 9c. le email programmate ----------
            La sezione «Email programmate» della scheda Email, con il servizio

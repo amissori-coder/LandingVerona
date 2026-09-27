@@ -59,7 +59,10 @@
     // dell'inizio fino alla fine dell'evento, poi si spengono da soli
     mostraDaGiorni: 7,
     pagina: "/napoli_ottobre_2026/",
-    urlDiretta: "/diretta/"
+    urlDiretta: "/diretta/",
+    // il modulo per iscriversi alla diretta (il popup lo indica a chi e'
+    // iscritto in presenza ma non potra' venire)
+    urlIscrizione: "/napoli_ottobre_2026/#accreditamento"
   };
   /* LA DIRETTA SUL SITO PUBBLICO: ACCESA O NASCOSTA.
      false = nascosta: in home niente popup ne' pillola, nella pagina di
