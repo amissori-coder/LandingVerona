@@ -794,14 +794,19 @@ async function scegliEvento(ctx, eventi, preferito) {
 
 function partecipanteJSON(d, idEvento) {
     const invii = d.invii || {};
+    const voceEvento = invii[idEvento] || {};
     return {
         uid: d.uid, nome: d.nome || '', cognome: d.cognome || '',
         email: d.emailNorm || E.normalizzaEmail(d.email) || '', azienda: d.azienda || '', stato: d.stato || 'attivo',
         idEvento: d.idEvento || '', eventi: Array.isArray(d.eventi) ? d.eventi : [],
         invio: jsonDi(invii[idEvento] || { stato: 'da inviare' }),
         ultimoAccesso: ms(d.ultimoAccesso), authCreato: d.authCreato === true,
-        // da dove e' arrivato: 'import' (il file della gestione) o 'modulo' (il modulo del sito)
-        origine: d.origine || 'import'
+        /* da dove e' arrivato: 'import' (il file della gestione), 'modulo' (il
+           modulo del sito) o 'manuale' (aggiunto a mano dalla gestione: lo dice
+           la voce dell'evento, perche' una persona gia' registrata per un altro
+           evento puo' essere aggiunta a mano a questo; chi e quando stanno in
+           invio.aggiuntoDa / invio.aggiuntoIl) */
+        origine: voceEvento.origine === 'manuale' ? 'manuale' : (d.origine || 'import')
     };
 }
 
@@ -1027,7 +1032,11 @@ async function completaDopoPrenotazione(ctx, fatto, nome, cognome) {
     else await allineaClaims(ctx, fatto.uid); // gia' nell'evento: si ripara solo se serve (DECISIONI T8)
 }
 
-async function creaRiga(ctx, idEvento, r) {
+/* `opz` (facoltativo, l'aggiunta a mano): { origine: 'manuale', chi }:
+   il profilo nuovo nasce con origine 'manuale', e la voce dell'evento porta
+   origine, chi l'ha aggiunta e quando. */
+async function creaRiga(ctx, idEvento, r, opz) {
+    const o = opz || {};
     const riga = Number(r.riga) || 0;
     const esito = (tipo, altro) => Object.assign({ riga: riga, esito: tipo, uid: null, codice: '', motivo: '' }, altro || {});
     const nome = C.testo(r.nome, 80);
@@ -1046,7 +1055,11 @@ async function creaRiga(ctx, idEvento, r) {
 
     let fatto;
     try {
-        fatto = await prenotaPersona(ctx, idEvento, { nome: nome, cognome: cognome, azienda: azienda, emailNorm: emailNorm, origine: 'import' }, { controllaNome: true });
+        const aMano = o.origine === 'manuale';
+        fatto = await prenotaPersona(ctx, idEvento, { nome: nome, cognome: cognome, azienda: azienda, emailNorm: emailNorm, origine: aMano ? 'manuale' : 'import' },
+            aMano
+                ? { controllaNome: true, voce: { stato: 'da inviare', origine: 'manuale', aggiuntoDa: String(o.chi || '').slice(0, 254), aggiuntoIl: adessoTs(ctx) } }
+                : { controllaNome: true });
     } catch (e) {
         console.error('[diretta] crea riga ' + riga + ': ' + perLog(e));
         return esito('errore', { codice: 'temporaneo', motivo: 'Errore temporaneo: ricarica lo stesso file per completare (non si creano doppioni).' });
@@ -1054,7 +1067,7 @@ async function creaRiga(ctx, idEvento, r) {
     if (fatto.tipo === 'incoerente') return esito('errore', { uid: fatto.uid || null, codice: 'incoerente', motivo: 'Dati incoerenti per questa email: scrivi all\'assistenza tecnica.' });
     if (fatto.tipo === 'email-condivisa') {
         return esito('errore', {
-            codice: 'email-condivisa',
+            codice: 'email-condivisa', nomeRegistrato: E.nomeCompleto(fatto.dati) || '',
             motivo: 'Con questa email è già registrato ' + (E.nomeCompleto(fatto.dati) || 'un altro account') + ': un account è di una persona sola, serve un indirizzo suo.'
         });
     }
@@ -1072,6 +1085,42 @@ async function creaRiga(ctx, idEvento, r) {
     return out;
 }
 
+/* ============================================================
+   AGGIUNGERE UN PARTECIPANTE A MANO (azione 'partecipante-aggiungi')
+   { idEvento, nome, cognome, email, azienda } -> { esito, motivo,
+   partecipante } con esito 'creato' | 'aggiunto' | 'gia-iscritto'.
+   Le regole sono quelle del caricamento da file (creaRiga: email
+   normalizzata, una email = un account, il nome di un'altra persona non
+   si unisce mai), nella stessa transazione: un doppio clic o due gestori
+   insieme non fanno due account. NESSUNA email parte da qui: le
+   credenziali restano "da inviare" finche' il gestore non sceglie «Invia
+   ora» (azione 'partecipante', operazione 'reinvia') o «Invia le
+   credenziali». Errori: 400 sul campo ('email-mancante',
+   'email-non-valida', 'nome-mancante', 'nome-non-valido'), 409
+   'email-condivisa', 503 se Firebase non completa (si riprova senza
+   doppioni), 404 evento inesistente. Nei log solo l'esito.
+   ============================================================ */
+async function aggiungiAMano(ctx, b, chi) {
+    const id = controllaIdEvento(b && b.idEvento);
+    const ev = await ctx.db.collection('eventi').doc(id).get();
+    if (!ev.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
+    const r = await creaRiga(ctx, id, { riga: 1, nome: b.nome, cognome: b.cognome, email: b.email, azienda: b.azienda }, { origine: 'manuale', chi: chi });
+    console.log('[diretta] aggiunta a mano: ' + JSON.stringify({ idEvento: id, esito: r.esito, codice: r.codice || undefined }));
+    if (r.esito === 'errore') {
+        if (r.codice === 'email-condivisa') {
+            throw errorePubblico(409, 'email-condivisa', 'Con questa email è già registrato ' + (r.nomeRegistrato || 'un\'altra persona')
+                + ': se è la stessa persona, scrivi il nome come è registrato; se no, serve un indirizzo suo (un account è di una persona sola).');
+        }
+        if (r.codice === 'temporaneo' || r.codice === 'account') {
+            throw errorePubblico(503, r.codice, 'Firebase non ha completato l\'account: riprova tra poco (non si creano doppioni).');
+        }
+        throw errorePubblico(r.codice === 'incoerente' ? 409 : 400, r.codice || 'dati', r.motivo || 'Dati non validi.');
+    }
+    const snap = await ctx.db.collection('partecipanti').doc(r.uid).get();
+    const partecipante = snap.exists ? partecipanteJSON(Object.assign({ uid: snap.id }, snap.data()), id) : null;
+    return { esito: r.esito, motivo: r.motivo || '', partecipante: partecipante };
+}
+
 /* ---------- operazioni sul singolo partecipante ---------- */
 
 async function leggiPartecipante(ctx, uid) {
@@ -1086,6 +1135,7 @@ async function operazionePartecipante(ctx, corpo) {
     const idEvento = controllaIdEvento(b.idEvento);
     switch (b.operazione) {
         case 'reinvia': return reinvia(ctx, uid, idEvento);
+        case 'invia': return reinvia(ctx, uid, idEvento, { normale: true });
         case 'rigenera': return rigenera(ctx, uid);
         case 'disattiva': return cambiaAttivazione(ctx, uid, idEvento, false);
         case 'riattiva': return cambiaAttivazione(ctx, uid, idEvento, true);
@@ -1097,14 +1147,18 @@ async function operazionePartecipante(ctx, corpo) {
 
 /* Reinvia credenziali: nuova password e email subito, con la stessa
    coda "al massimo una volta" dell'invio a tutti (lib/diretta-invio.js,
-   caricata solo qui: e' un modulo a parte). */
-async function reinvia(ctx, uid, idEvento) {
+   caricata solo qui: e' un modulo a parte).
+   Operazione 'invia' (`opz.normale`, «Invia ora le credenziali» dopo
+   un'aggiunta a mano): solo se sono «da inviare», e parte quello che
+   partirebbe con «Invia le credenziali» (la password, o «Sei iscritto
+   anche a...» a chi ne ha gia' una). -> { invio: { stato, tipo } } */
+async function reinvia(ctx, uid, idEvento, opz) {
     const p = await leggiPartecipante(ctx, uid);
     if ((p.eventi || []).indexOf(idEvento) < 0) throw C.errore(409, 'La persona non è iscritta a questo evento.', 'evento');
     if (p.stato !== 'attivo') throw C.errore(409, 'Account disattivato: riattivalo prima di reinviare le credenziali.', 'disattivato');
     if (p.authCreato !== true) throw C.errore(409, 'Account non ancora completo: ricarica il file dei partecipanti per completarlo.', 'incompleto');
     const invio = require('./diretta-invio');
-    const r = await invio.inviaCredenziali(ctx, { uid: uid, idEvento: idEvento });
+    const r = await invio.inviaCredenziali(ctx, { uid: uid, idEvento: idEvento, normale: !!(opz && opz.normale) });
     return { invio: r };
 }
 
@@ -1359,7 +1413,7 @@ module.exports = {
     eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaSorgente, cambiaPlayer, linkVideo, cambiaAvviso, scegliEvento,
     cambiaIscrizioni, iscrizioniDi, percorsoPagina,
     // partecipanti
-    partecipanteJSON, elencoPartecipanti, anteprima, crea, prenotaPersona, completaDopoPrenotazione, operazionePartecipante, impostaClaims, allineaClaims,
+    partecipanteJSON, elencoPartecipanti, anteprima, crea, aggiungiAMano, prenotaPersona, completaDopoPrenotazione, operazionePartecipante, impostaClaims, allineaClaims,
     cancellaTentativi, segnaTolto, adessoTs,
     // collegati ed esportazione
     connessi, esporta,

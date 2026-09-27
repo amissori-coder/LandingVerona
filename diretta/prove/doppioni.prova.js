@@ -39,6 +39,13 @@
    8. Un account rimasto a meta' (Auth non creato) si completa
       ricaricando il file, con lo stesso uid; le righe non valide danno
       errori con il codice dell'anteprima.
+   9. La persona aggiunta A MANO dalla gestione (aggiungiAMano, azione
+      'partecipante-aggiungi'): stesse regole del file (email
+      normalizzata, una email = un account, l'email di un'altra persona
+      rifiutata con 409 e il suo nome, errori sul campo, account
+      disattivato), due aggiunte insieme = un account, una persona di un
+      altro evento aggiunta senza account nuovo; origine «manuale», chi e
+      quando sulla voce dell'evento.
    E sempre: l'import NON manda email (la posta finta resta vuota), e
    nessuno scrive piu' nomi utente (ne' nomiUtente ne' il campo sul
    profilo). Alla fine: "account creati: N, email uniche: N".
@@ -431,6 +438,56 @@ async function controllaTutto(ctx, titolo) {
         vero(cattive.every(r => r.motivo && !r.uid), 'nessun account per le righe non valide');
         const nonCinese = (await dati.crea(ctx, { idEvento: 'napoli-2026', righe: [{ riga: 6, nome: '王', cognome: '伟', email: 'wang.wei@prova.it' }] })).risultati[0];
         vero(nonCinese.esito === 'creato', 'un nome senza lettere a-z (王 伟) va bene: non serve piu\' ricavarne un nome utente');
+
+        /* 9. la persona aggiunta A MANO dalla gestione (azione
+           'partecipante-aggiungi'): le stesse regole del file, nessuna email */
+        console.log('\n9. Aggiunta a mano dalla gestione');
+        const GESTORE = 'gestore@prova.it';
+        const mano = (b, chi) => dati.aggiungiAMano(ctx, Object.assign({ idEvento: 'napoli-2026' }, b), chi === undefined ? GESTORE : chi).then(r => r, e => e);
+        const utentiPrimaMano = (await tuttiGliUtenti(ctx)).length;
+        const m1 = await mano({ nome: 'Carla', cognome: 'Mano', email: '  Carla.Mano@Prova.IT\u200b ', azienda: 'Mano srl' });
+        vero(m1.esito === 'creato' && m1.partecipante && m1.partecipante.email === 'carla.mano@prova.it' && m1.partecipante.origine === 'manuale'
+            && m1.partecipante.invio.stato === 'da inviare' && m1.partecipante.invio.aggiuntoDa === GESTORE && m1.partecipante.invio.aggiuntoIl > 0,
+            'una persona nuova: account creato con l\'email normalizzata, origine «a mano», chi e quando, credenziali «da inviare»', JSON.stringify(m1));
+        const pm1 = (await ctx.db.collection('partecipanti').doc(m1.partecipante.uid).get()).data();
+        const um1 = await ctx.auth.getUser(m1.partecipante.uid);
+        vero(pm1.origine === 'manuale' && pm1.invii['napoli-2026'].origine === 'manuale' && pm1.authCreato === true
+            && JSON.stringify((um1.customClaims || {}).eventi) === '["napoli-2026"]', 'sul profilo: origine manuale, account Auth con i claims dell\'evento');
+        const m1b = await mano({ nome: 'Carla', cognome: 'Mano', email: 'carla.mano@prova.it' });
+        vero(m1b.esito === 'gia-iscritto' && m1b.partecipante.uid === m1.partecipante.uid, 'aggiunta di nuovo: «già nell\'evento», niente di nuovo');
+        const [mc1, mc2] = await Promise.all([mano({ nome: 'Dario', cognome: 'Doppio', email: 'dario.doppio@prova.it' }), mano({ nome: 'Dario', cognome: 'Doppio', email: 'DARIO.doppio@prova.it' }, 'altro@prova.it')]);
+        uguale([mc1.esito, mc2.esito].sort(), ['creato', 'gia-iscritto'], 'due gestori (o un doppio clic) aggiungono la stessa persona insieme: un account solo');
+        vero(mc1.partecipante.uid === mc2.partecipante.uid, 'e lo stesso uid per entrambi');
+        const elenaMano = await mano({ nome: 'Elena', cognome: 'Milanesi', email: 'Elena.Milanesi@prova.it', azienda: 'Milano spa' });
+        const pElena = (await ctx.db.collection('partecipanti').doc(elenaMano.partecipante.uid).get()).data();
+        const uElena = await ctx.auth.getUser(elenaMano.partecipante.uid);
+        vero(elenaMano.esito === 'aggiunto' && elenaMano.partecipante.origine === 'manuale' && pElena.origine === 'import' && pElena.invii['milano-2026'].origine === undefined
+            && JSON.stringify((uElena.customClaims || {}).eventi.slice().sort()) === '["milano-2026","napoli-2026"]',
+            'una persona registrata per Milano aggiunta a mano a Napoli: stesso account, «a mano» solo per Napoli, claims con i due eventi');
+        const condivisaMano = await mano({ nome: 'Giovanni', cognome: 'Altro', email: 'carla.mano@prova.it' });
+        vero(condivisaMano && condivisaMano.stato === 409 && condivisaMano.codice === 'email-condivisa'
+            && /Con questa email è già registrato Carla Mano: se è la stessa persona, scrivi il nome come è registrato/.test(condivisaMano.message),
+            'l\'email di un\'altra persona: 409 «email-condivisa» con il nome registrato, niente toccato', condivisaMano && condivisaMano.message);
+        const erroriMano = [
+            [{ nome: 'Senza', cognome: 'Email', email: '  ' }, 'email-mancante'],
+            [{ nome: 'Email', cognome: 'Sbagliata', email: 'non-una-email' }, 'email-non-valida'],
+            [{ nome: '', cognome: 'Vuoto', email: 'vuoto@prova.it' }, 'nome-mancante'],
+            [{ nome: '<b>Ciao</b>', cognome: 'X', email: 'html@prova.it' }, 'nome-non-valido']
+        ];
+        const esitiMano = [];
+        for (const [b, codice] of erroriMano) { const e = await mano(b); esitiMano.push(e && e.stato === 400 && e.codice === codice); }
+        vero(esitiMano.every(Boolean), 'email mancante o non valida, nome vuoto, nome con < >: 400 con il codice del campo');
+        const inesistenteMano = await mano({ idEvento: 'roma-2031', nome: 'A', cognome: 'B', email: 'ab@prova.it' });
+        vero(inesistenteMano && inesistenteMano.stato === 404, 'evento inesistente: 404');
+        await dati.operazionePartecipante(ctx, { uid: mc1.partecipante.uid, idEvento: 'napoli-2026', operazione: 'disattiva' });
+        const disattMano = await mano({ nome: 'Dario', cognome: 'Doppio', email: 'dario.doppio@prova.it' });
+        vero(disattMano.esito === 'gia-iscritto' && /Account disattivato/.test(disattMano.motivo), 'un account disattivato: lo dice');
+        await dati.operazionePartecipante(ctx, { uid: mc1.partecipante.uid, idEvento: 'napoli-2026', operazione: 'riattiva' });
+        uguale((await tuttiGliUtenti(ctx)).length - utentiPrimaMano, 2, 'Firebase Auth: solo 2 account nuovi (Carla e Dario)');
+        const elencoMano = await dati.elencoPartecipanti(ctx, 'napoli-2026');
+        uguale(elencoMano.filter(p => p.origine === 'manuale').map(p => p.email).sort(), ['carla.mano@prova.it', 'dario.doppio@prova.it', 'elena.milanesi@prova.it'],
+            'nell\'elenco di Napoli le tre persone aggiunte a mano hanno origine «manuale»');
+        vero(elencoMano.filter(p => p.origine === 'manuale').every(p => p.invio.aggiuntoDa && p.invio.aggiuntoIl), 'con chi e quando');
 
         const fine = await controllaTutto(ctx, 'Controllo finale');
         const secondi = ((Date.now() - t0) / 1000).toFixed(1);

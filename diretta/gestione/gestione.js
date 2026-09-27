@@ -762,6 +762,8 @@
             disegnaPartecipanti();
             // le righe da verificare sono di un evento: via subito, poi si leggono quelle del nuovo
             disegnaDaVerificare([]);
+            // il modulo «Aggiungi un partecipante» era per l'evento di prima
+            azzeraAggiungi();
             caricaPartecipanti();
             aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
             // le email programmate erano dell'evento di prima: via subito, il modulo si chiude
@@ -4069,8 +4071,14 @@
     const DA_CONFERMARE = 'da confermare';
     const classeStatoEmail = s => 'stato-email stato-' + String(s).replace(/\s+/g, '-');
 
-    // chi si e' iscritto dal modulo del sito (con l'invio automatico acceso); gli altri vengono dal file
+    // chi si e' iscritto dal modulo del sito (con l'invio automatico acceso); chi e' stato aggiunto a mano; gli altri vengono dal file
     const dalModulo = p => p.origine === 'modulo';
+    const aMano = p => p.origine === 'manuale';
+    function etichettaAMano(p) {
+        const inv = p.invio || {};
+        return el('span', { classe: 'origine-modulo origine-mano', testo: 'aggiunto a mano',
+            title: 'Aggiunto a mano dalla gestione' + (inv.aggiuntoDa ? ' da ' + inv.aggiuntoDa : '') + (inv.aggiuntoIl ? ' il ' + dataOra(inv.aggiuntoIl) : '') });
+    }
     // «Sei iscritto anche a...»: partito senza password, perche' la persona ne aveva gia' una
     const avvisoAnche = p => statoInvio(p) === 'inviata' && !!p.invio && p.invio.tipo === 'anche';
 
@@ -4093,10 +4101,11 @@
                     : bottone('riattiva', 'Riattiva l\'account')
             ])
         ]);
-        const tr = el('tr', { classe: attivo ? '' : 'disattivato', dati: { uid: p.uid, origine: dalModulo(p) ? 'modulo' : 'file' } }, [
+        const tr = el('tr', { classe: attivo ? '' : 'disattivato', dati: { uid: p.uid, origine: dalModulo(p) ? 'modulo' : (aMano(p) ? 'mano' : 'file') } }, [
             el('td', { 'data-label': 'Nome e cognome' }, [
                 el('span', { classe: 'persona', testo: chi }),
-                dalModulo(p) ? el('span', { classe: 'origine-modulo', title: 'Iscritta dal modulo del sito: la password parte da sola quando conferma il suo indirizzo', testo: 'dal modulo del sito' }) : null
+                dalModulo(p) ? el('span', { classe: 'origine-modulo', title: 'Iscritta dal modulo del sito: la password parte da sola quando conferma il suo indirizzo', testo: 'dal modulo del sito' }) : null,
+                aMano(p) ? etichettaAMano(p) : null
             ]),
             el('td', { 'data-label': 'Email', classe: 'largo col-email', testo: p.email || '' }),
             el('td', { 'data-label': 'Azienda', testo: p.azienda || '' }),
@@ -4269,6 +4278,133 @@
         });
         if (op === 'reinvia') aggiornaStatoEmail().catch(() => { /* si vede nella scheda Email */ });
     }
+
+    /* ============================================================
+       AGGIUNGI UN PARTECIPANTE (a mano)
+       ------------------------------------------------------------
+       Una persona alla volta, senza file. Le regole sono quelle del
+       caricamento e le decide il servizio (azione 'partecipante-aggiungi',
+       aggiungiAMano in lib/diretta-dati.js, nella stessa transazione del
+       file): email normalizzata, una email = un account, l'email di
+       un'altra persona rifiutata con il suo nome. Qui si controllano solo
+       i campi vuoti. Aggiungere NON manda email: dopo, «Invia ora le
+       credenziali» (operazione 'invia', con la conferma) manda quello che
+       partirebbe con «Invia le credenziali»: la password, o «Sei iscritto
+       anche a…» a chi ne ha gia' una.
+       ============================================================ */
+    const CAMPI_AGGIUNGI = ['#agg-nome', '#agg-cognome', '#agg-email', '#agg-azienda'];
+    function nomeEmail(p) {
+        const nome = [p.nome, p.cognome].filter(Boolean).join(' ');
+        return nome ? nome + ' (' + p.email + ')' : p.email;
+    }
+    function azzeraAggiungi() {
+        CAMPI_AGGIUNGI.forEach(sel => { $(sel).value = ''; $(sel).removeAttribute('aria-invalid'); });
+        nascondiMsg('#msg-aggiungi');
+        $('#dopo-aggiungi').hidden = true;
+        stato.ultimoAggiunto = null;
+    }
+    // l'errore del servizio sul campo giusto
+    function segnaCampoAggiungi(codice) {
+        const nome = $('#agg-nome'), cognome = $('#agg-cognome'), email = $('#agg-email');
+        let campo = null;
+        if (/^email/.test(String(codice || ''))) campo = email;
+        else if (codice === 'nome-mancante') campo = !nome.value.trim() ? nome : cognome;
+        else if (codice === 'nome-non-valido') campo = /[<>]/.test(cognome.value) && !/[<>]/.test(nome.value) ? cognome : nome;
+        if (campo) { campo.setAttribute('aria-invalid', 'true'); campo.focus(); }
+    }
+    // dopo l'aggiunta: «Invia ora le credenziali», se non sono ancora partite e l'account e' attivo
+    function mostraDopoAggiunta(p) {
+        const box = $('#dopo-aggiungi');
+        stato.ultimoAggiunto = p || null;
+        if (!p || p.stato === 'disattivato' || statoInvio(p) !== 'da inviare') { box.hidden = true; return; }
+        $('#testo-dopo-aggiungi').textContent = 'Le credenziali di ' + nomeEmail(p) + ' non sono partite: le mandi adesso, oppure con «Invia le credenziali» nella scheda Email.';
+        box.hidden = false;
+    }
+    $('#form-aggiungi').addEventListener('submit', e => {
+        e.preventDefault();
+        aggiungiAMano();
+    });
+    function aggiungiAMano() {
+        return conAttesa($('#btn-aggiungi'), async () => {
+            CAMPI_AGGIUNGI.forEach(sel => $(sel).removeAttribute('aria-invalid'));
+            $('#dopo-aggiungi').hidden = true;
+            const d = {
+                nome: $('#agg-nome').value.trim(), cognome: $('#agg-cognome').value.trim(),
+                email: $('#agg-email').value.trim(), azienda: $('#agg-azienda').value.trim()
+            };
+            const manca = [];
+            if (!d.nome) manca.push(['#agg-nome', 'il nome']);
+            if (!d.cognome) manca.push(['#agg-cognome', 'il cognome']);
+            if (!d.email) manca.push(['#agg-email', 'l\'email']);
+            if (manca.length) {
+                manca.forEach(m => $(m[0]).setAttribute('aria-invalid', 'true'));
+                mostraMsg('#msg-aggiungi', 'Manca ' + manca.map(m => m[1]).join(', ') + '.', 'errore');
+                $(manca[0][0]).focus();
+                return;
+            }
+            mostraMsg('#msg-aggiungi', 'Aggiunta in corso…', 'info');
+            try {
+                const r = await chiama('partecipante-aggiungi', Object.assign({ idEvento: stato.idEvento }, d));
+                const p = r.partecipante || null;
+                if (p && stato.partecipantiDi === stato.idEvento) sostituisciPartecipante(p);
+                const chi = p ? nomeEmail(p) : d.email;
+                let testo;
+                if (r.esito === 'creato') testo = 'Aggiunto: ' + chi + '. Account creato, credenziali «da inviare»: non è partita nessuna email.';
+                else if (r.esito === 'aggiunto') testo = 'Aggiunto a questo evento: ' + chi + ' aveva già un account (per un altro evento), nessun account nuovo. Credenziali «da inviare»: non è partita nessuna email.';
+                else testo = chi + ' è già in questo evento: non è cambiato niente.';
+                if (r.motivo) testo += ' ' + r.motivo;
+                mostraMsg('#msg-aggiungi', testo, r.esito === 'gia-iscritto' || r.motivo ? 'attenzione' : 'ok');
+                if (r.esito !== 'gia-iscritto') CAMPI_AGGIUNGI.forEach(sel => { $(sel).value = ''; });
+                mostraDopoAggiunta(p);
+                // pronto per la persona dopo
+                $('#agg-nome').focus();
+                aggiornaStatoEmail().catch(() => { /* si vede nella scheda Email */ });
+            } catch (e) {
+                if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return; }
+                mostraMsg('#msg-aggiungi', (e && e.msg) || 'Qualcosa non ha funzionato: riprova.', 'errore');
+                segnaCampoAggiungi(e && e.codice);
+            }
+        });
+    }
+    $('#btn-invia-aggiunto').addEventListener('click', async () => {
+        const primo = stato.ultimoAggiunto;
+        if (!primo) return;
+        const p = stato.perUid.get(primo.uid) || primo;
+        const chi = nomeEmail(p);
+        const ok = await conferma({
+            titolo: 'Inviare adesso le credenziali?', ok: 'Invia ora',
+            testo: chi + ' riceve subito un\'email per entrare nella diretta con la sua email ' + p.email + '.',
+            dettagli: ['Se non ha ancora una password, la riceve nell\'email.',
+                'Se ne ha già una (da un altro evento, detta a voce o scelta con «Password dimenticata?»), riceve «Sei iscritto anche a…» senza password: quella che ha continua a valere.']
+        });
+        if (!ok) return;
+        await conAttesa($('#btn-invia-aggiunto'), async () => {
+            try {
+                const r = await chiama('partecipante', { uid: p.uid, idEvento: stato.idEvento, operazione: 'invia' });
+                const inv = (r && r.invio) || {};
+                const nuovo = Object.assign({}, p, {
+                    invio: Object.assign({}, p.invio, { stato: inv.stato || statoInvio(p) },
+                        inv.stato === 'inviata' ? { inviata: Date.now(), tipo: inv.tipo || 'credenziali', errore: '' } : {},
+                        inv.errore ? { errore: inv.errore } : {})
+                });
+                if (stato.partecipantiDi === stato.idEvento) sostituisciPartecipante(nuovo);
+                if (inv.stato === 'inviata') {
+                    $('#dopo-aggiungi').hidden = true;
+                    stato.ultimoAggiunto = null;
+                    mostraMsg('#msg-aggiungi', inv.tipo === 'anche'
+                        ? 'Inviato a ' + chi + ' «Sei iscritto anche a…», senza password: entra con quella che ha già.'
+                        : 'Credenziali inviate a ' + chi + '.', 'ok');
+                } else {
+                    mostraMsg('#msg-aggiungi', 'Invio a ' + chi + ': ' + (inv.stato || 'non riuscito') + (inv.errore ? ' (' + inv.errore + ')' : '') + '.', 'errore');
+                }
+                aggiornaStatoEmail().catch(() => { /* si vede nella scheda Email */ });
+            } catch (e) {
+                if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return; }
+                mostraMsg('#msg-aggiungi', 'Credenziali non inviate a ' + chi + ': ' + ((e && e.msg) || 'riprova tra poco.'), 'errore');
+                if (e && e.stato === 409) caricaPartecipanti();
+            }
+        });
+    });
 
     /* ---------- la password mostrata una volta ---------- */
     function mostraPassword(p, password) {
@@ -6546,7 +6682,9 @@
        ============================================================ */
     // si entra con l'email: e' lei che identifica la persona, nei due fogli
     const COLONNE_PARTECIPANTI = ['Nome', 'Cognome', 'Email', 'Azienda', 'Account', 'Email credenziali', 'Inviata il',
-        'Primo collegamento', 'Ultimo segnale', 'Minuti collegati (durante la diretta)', 'Collegamenti', 'Ultimo accesso'];
+        'Primo collegamento', 'Ultimo segnale', 'Minuti collegati (durante la diretta)', 'Collegamenti', 'Ultimo accesso', 'Origine'];
+    // da dove arriva la persona: il file della gestione, il modulo del sito, o aggiunta a mano
+    const ORIGINI = { import: 'file', modulo: 'modulo del sito', manuale: 'a mano' };
     const COLONNE_ACCESSI = ['Quando', 'Email', 'Nome', 'Cognome', 'Azienda', 'Dispositivo'];
     const NOTA_MINUTI = 'Minuti stimati dalla pagina durante la diretta (segnale ogni 60 s, verificato dalle regole con l\'orario del server); limitati alla durata dell\'evento.';
 
@@ -6568,7 +6706,8 @@
                     inv.stato || 'da inviare', dataOra(inv.inviata),
                     dataOra(pr.primo), dataOra(pr.ultimo),
                     Math.round(secondi / 60), Number(pr.collegamenti || 0),
-                    dataOra(p.ultimoAccesso)
+                    dataOra(p.ultimoAccesso),
+                    ORIGINI[p.origine] || 'file'
                 ]);
             });
             righe.push([]);

@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260927d">
+    <link rel="stylesheet" href="gestione.css?v=20260927e">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -979,6 +979,48 @@
                     </div>
                 </div>
 
+                <!-- ======== AGGIUNGI UN PARTECIPANTE (a mano) ========
+                     Una persona alla volta, senza file. Le regole sono quelle del
+                     caricamento e le decide il servizio (azione 'partecipante-aggiungi'):
+                     una email = un account, l'email di un'altra persona rifiutata.
+                     Non manda email: dopo l'aggiunta si può scegliere «Invia ora le
+                     credenziali», con la solita conferma (gestione.js, aggiungiAMano). -->
+                <section id="riquadro-aggiungi" class="riquadro riquadro-aggiungi" aria-labelledby="aggiungi-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="aggiungi-titolo">Aggiungi un partecipante</h2>
+                        <p class="riquadro-sotto">Una persona alla volta, senza file: per esempio chi vi scrive o telefona. Stessi controlli del
+                            caricamento (una email = un account). Aggiungere non manda nessuna email: le credenziali le invii tu, subito qui sotto o dalla scheda Email.</p>
+                    </div>
+                    <form id="form-aggiungi" class="form-aggiungi" novalidate>
+                        <div class="griglia-aggiungi">
+                            <div class="campo">
+                                <label for="agg-nome">Nome</label>
+                                <input type="text" id="agg-nome" autocomplete="off" maxlength="80" required>
+                            </div>
+                            <div class="campo">
+                                <label for="agg-cognome">Cognome</label>
+                                <input type="text" id="agg-cognome" autocomplete="off" maxlength="80" required>
+                            </div>
+                            <div class="campo">
+                                <label for="agg-email">Email</label>
+                                <input type="email" id="agg-email" autocomplete="off" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254" required>
+                            </div>
+                            <div class="campo">
+                                <label for="agg-azienda">Azienda <span class="facoltativo">(facoltativa)</span></label>
+                                <input type="text" id="agg-azienda" autocomplete="off" maxlength="120">
+                            </div>
+                        </div>
+                        <div class="azioni azioni-aggiungi">
+                            <button type="submit" id="btn-aggiungi" class="btn btn-primario">Aggiungi</button>
+                            <p id="msg-aggiungi" class="msg" role="status" hidden></p>
+                        </div>
+                        <div id="dopo-aggiungi" class="dopo-aggiungi" hidden>
+                            <p id="testo-dopo-aggiungi" class="aiuto"></p>
+                            <button type="button" id="btn-invia-aggiunto" class="btn btn-secondario btn-piccolo">Invia ora le credenziali</button>
+                        </div>
+                    </form>
+                </section>
+
                 <!-- ======== ISCRIZIONI DAL MODULO DA VERIFICARE ========
                      Quello che arriva dal sito e che il gestore deve vedere: le
                      iscrizioni online che la diretta non ha trasformato in un account
@@ -1355,6 +1397,6 @@
     <script src="../sorgente-video.js?v=20260925a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260927d"></script>
+    <script src="gestione.js?v=20260927e"></script>
 </body>
 </html>

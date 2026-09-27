@@ -557,6 +557,15 @@ async function provaHome() {
         uguale(t.posta, 'mailto:info@nextgenerationbusiness.it', 'l\'indirizzo dell\'assistenza e\' un collegamento email');
         vero(/Venerdì 2 ottobre 2026, dalle 9\.00 alle 17\.30/.test(t.corpo), 'giorno e orario dell\'evento');
         uguale(t.cta, '/diretta/|Accedi alla diretta', 'pulsante "Accedi alla diretta" verso /diretta/');
+        // chi e' iscritto in presenza e non potra' venire: una nuova iscrizione, per la diretta
+        const presenza = await p.evaluate(() => {
+            const li = document.querySelector('#dirPromo .dirp-presenza');
+            const a = li && li.querySelector('a.dirp-iscriviti');
+            return li ? { testo: li.textContent.replace(/\s+/g, ' ').trim(), href: a && a.getAttribute('href'), link: a && a.textContent, svg: !!li.querySelector('svg[aria-hidden="true"]') } : null;
+        });
+        uguale(presenza && presenza.testo, 'Iscritto in presenza ma non puoi venire? Iscriviti alla diretta, anche con la stessa email, e annulla il posto in sala da «Modifica o annulla» nella tua email.',
+            'la riga per chi e\' iscritto in presenza: nuova iscrizione per la diretta, anche con la stessa email, e il posto in sala da annullare');
+        uguale(presenza && [presenza.href, presenza.link, presenza.svg], ['/napoli_ottobre_2026/#accreditamento', 'Iscriviti alla diretta', true], '«Iscriviti alla diretta» porta al modulo della pagina di Napoli');
         uguale(t.programma, '/napoli_ottobre_2026/#programma|Programma dell’evento', 'collegamento secondario al programma dell\'evento');
         vero(t.live && t.pausa, 'nessun indicatore IN DIRETTA ne\' "In pausa" prima del giorno dell\'evento');
         uguale(t.mai, 'Non mostrare più', '"Non mostrare più" con l\'accento');
@@ -671,6 +680,7 @@ async function provaHome() {
         });
         uguale(t.titolo, 'Siamo in diretta: accedi', 'titolo "Siamo in diretta: accedi"');
         uguale(t.live, 'IN DIRETTA', 'indicatore rosso IN DIRETTA visibile');
+        vero(await p.isVisible('#dirPromo .dirp-presenza a.dirp-iscriviti'), 'anche in onda c\'e\' «Iscriviti alla diretta» per chi era iscritto in presenza');
         vero(t.eyebrow && t.pausa, 'al posto dell\'occhiello (e niente "In pausa")');
         uguale(v.richieste.length, 1, 'una sola richiesta allo stato (popup e pillola insieme)');
         uguale(await nelDom(p), ['dirPromo'], 'nessun altro popup');
@@ -844,6 +854,13 @@ async function provaHome() {
         });
         vero(r.dentro, 'il riquadro sta tutto nello schermo del telefono');
         vero(await senzaScorrimentoOrizzontale(p), 'niente scorrimento orizzontale');
+        const cta = await p.evaluate(() => {
+            const b = document.querySelector('#dirPromo .dirp-cta').getBoundingClientRect();
+            const c = document.querySelector('#dirPromo .dirp-card').getBoundingClientRect();
+            const riga = document.querySelector('#dirPromo .dirp-presenza').getBoundingClientRect();
+            return { visibile: b.top >= c.top && b.bottom <= c.bottom && b.bottom <= window.innerHeight, basso: Math.round(b.bottom), schermo: window.innerHeight, riga: riga.height > 0 && riga.top >= b.bottom };
+        });
+        vero(cta.visibile && cta.riga, 'la riga per chi e\' in presenza sta sotto i pulsanti: «Accedi alla diretta» resta visibile senza scorrere (fondo a ' + cta.basso + ' px su ' + cta.schermo + ')');
         uguale(r.titolo, stato ? 'Siamo in diretta: accedi' : 'Segui il convegno in diretta', 'titolo giusto');
         await p.tap('#dirPromo .dirp-close');
         await p.waitForTimeout(700);
@@ -871,6 +888,32 @@ async function provaHome() {
         await p.waitForTimeout(450); // fine della comparsa dell'avviso (foto nitida)
         await scatta(p, 'pillola-home-telefono-avviso-' + nome);
         await p.evaluate(() => { const n = document.querySelector('.ngb-notification'); if (n) n.remove(); });
+        vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
+        await v.ctx.close();
+    }
+
+    /* Un telefono da 360 px (Android): la riga per chi e' in presenza non deve
+       spingere «Accedi alla diretta» fuori dallo schermo. Poi il tocco su
+       «Iscriviti alla diretta» porta al modulo della pagina di Napoli. */
+    console.log('\n[home: telefono da 360 px, «Iscriviti alla diretta»]');
+    {
+        const v = await visitatore({ viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, null);
+        const p = await v.scheda('2026-09-26T10:00:00+02:00');
+        await p.goto(HOME);
+        vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
+        await scatta(p, 'popup-home-telefono-360');
+        const m = await p.evaluate(() => {
+            const b = document.querySelector('#dirPromo .dirp-cta').getBoundingClientRect();
+            const c = document.querySelector('#dirPromo .dirp-card').getBoundingClientRect();
+            return { visibile: b.bottom <= c.bottom && b.bottom <= window.innerHeight, basso: Math.round(b.bottom), schermo: window.innerHeight, dentro: c.left >= 0 && c.right <= window.innerWidth };
+        });
+        vero(m.dentro && m.visibile, '360 px: il riquadro sta nello schermo e «Accedi alla diretta» si vede senza scorrere (fondo a ' + m.basso + ' px su ' + m.schermo + ')');
+        vero(await senzaScorrimentoOrizzontale(p), 'niente scorrimento orizzontale');
+        await p.tap('#dirPromo a.dirp-iscriviti');
+        await p.waitForURL(/\/napoli_ottobre_2026\/#accreditamento$/, { timeout: 15000 });
+        await p.waitForLoadState('load');
+        vero(await p.locator('#accreditamento').count() === 1, '«Iscriviti alla diretta» apre la pagina di Napoli sul modulo (#accreditamento)');
+        uguale(await p.evaluate(() => sessionStorage.getItem('dirPromoSeen')), '1', 'e il popup conta come visto');
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         await v.ctx.close();
     }

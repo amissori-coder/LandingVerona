@@ -962,8 +962,14 @@ async function avanzaCoda(ctx, opz) {
 /* Il pulsante "Reinvia credenziali" di una persona: nuova password e
    email subito. Stessa presa in carico transazionale della coda:
    ammesso da qualunque stato tranne un 'invio' ancora fresco (qualcuno
-   la sta spedendo adesso). -> { stato, errore? } */
+   la sta spedendo adesso). -> { stato, errore? }
+   Con `opz.normale` (il «Invia ora le credenziali» dopo un'aggiunta a
+   mano): solo da 'da inviare', e parte quello che partirebbe con «Invia
+   le credenziali» (tipoInvio): la password a chi non ne ha una, «Sei
+   iscritto anche a...» senza password a chi ce l'ha gia'. -> { stato,
+   tipo, errore? } */
 async function inviaCredenziali(ctx, opz) {
+    const normale = !!(opz && opz.normale);
     const idEvento = validaEvento(opz && opz.idEvento);
     const uid = String((opz && opz.uid) || '');
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) throw C.errore(400, 'Partecipante non valido', 'uid');
@@ -977,14 +983,14 @@ async function inviaCredenziali(ctx, opz) {
         if (!prenotazione.preso) throw C.errore(429, 'Raggiunto il tetto giornaliero di email della diretta: riprova domani.', 'limite');
         let presa;
         try {
-            presa = await reclama(ctx, ref, idEvento, { individuale: true, ammesso: reinvioAmmesso });
+            presa = await reclama(ctx, ref, idEvento, { individuale: true, ammesso: normale ? invioNormaleAmmesso : reinvioAmmesso });
         } catch (e) { await restituisci(ctx, prenotazione, 1); throw e; }
         if (!presa.preso) {
             await restituisci(ctx, prenotazione, 1);
             throw C.errore(presa.http || 409, presa.messaggio || 'Invio non possibile', 'stato');
         }
         await rifCoda(ctx, idEvento).set({ ultimoInvio: ctx.adesso() }, { merge: true });
-        const esito = await inviaUna(ctx, trasporto, idEvento, evento, uid, presa.dati, { forza: true });
+        const esito = await inviaUna(ctx, trasporto, idEvento, evento, uid, presa.dati, { forza: !normale });
         if (esito.auth && esito.stato === 'in coda') {
             /* Firebase non ha cambiato la password: la persona e' esattamente
                come prima (la vecchia password funziona ancora). Si rimette lo
@@ -1001,6 +1007,7 @@ async function inviaCredenziali(ctx, opz) {
             log('reinvio fermato: ' + mascheraEmail(finale.motivo));
         }
         if (registrato !== 'inviata' && registrato !== 'incerto' && registrato !== 'invio') await restituisci(ctx, prenotazione, 1);
+        if (normale) return registrato === 'inviata' ? { stato: 'inviata', tipo: esito.tipo } : { stato: registrato, tipo: esito.tipo, errore: finale.motivo || '' };
         return registrato === 'inviata' ? { stato: 'inviata' } : { stato: registrato, errore: finale.motivo || '' };
     } finally {
         chiudi(trasporto);
@@ -1065,6 +1072,12 @@ async function inviaSubito(ctx, opz) {
    non avrebbe modo di capire che e' lo stesso clic. Dopo un minuto e'
    di sicuro una scelta del gestore. */
 const PAUSA_REINVIO_MS = 60 * 1000;
+// il primo invio di una persona aggiunta a mano: solo se le credenziali non sono ancora partite
+function invioNormaleAmmesso(v) {
+    if (v.stato === 'da inviare') return true;
+    if (v.stato === 'invio') return 'Invio già in corso: riprova tra qualche minuto';
+    return 'Le credenziali di questa persona non sono più «da inviare» (ora: ' + (v.stato || 'sconosciuto') + '): se serve, usa «Reinvia credenziali» dalla sua riga.';
+}
 function reinvioAmmesso(v, ora) {
     if (v.stato === 'invio' && (ora - millis(v.aggiornato)) <= SCADENZA_INVIO_MS) return 'Invio già in corso: riprova tra qualche minuto';
     if (v.stato === 'inviata' && (ora - millis(v.inviata)) < PAUSA_REINVIO_MS) return 'Credenziali inviate meno di un minuto fa: attendi un momento prima di reinviarle';

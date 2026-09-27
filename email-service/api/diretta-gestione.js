@@ -75,11 +75,21 @@
                       'errore'), uid, codice, motivo }] }. NON manda
                       email: le credenziali partono solo da «Invia le
                       credenziali» (email-accoda + email-avanza)
+     partecipante-aggiungi { idEvento, nome, cognome, email, azienda? }
+                      -> { esito ('creato'|'aggiunto'|'gia-iscritto'),
+                      motivo, partecipante }: una persona aggiunta a mano,
+                      con le regole del caricamento da file e origine
+                      'manuale' (chi e quando sulla voce dell'evento).
+                      NON manda email. 400 sul campo, 409 'email-condivisa'.
+                      Dopo, «Invia ora le credenziali» e' l'operazione
+                      'invia' di 'partecipante': solo da «da inviare», e
+                      parte la password o «Sei iscritto anche a...» a chi
+                      ne ha gia' una (come «Invia le credenziali»)
      partecipanti     { idEvento } -> { partecipanti: [{ uid, nome, cognome,
                       email, azienda, stato, idEvento, eventi, invio
                       (stato, tipo 'credenziali'|'anche', ...),
-                      ultimoAccesso, authCreato, origine 'import'|'modulo' }] }
-     partecipante     { uid, idEvento, operazione: 'reinvia' | 'rigenera'
+                      ultimoAccesso, authCreato, origine 'import'|'modulo'|'manuale' }] }
+     partecipante     { uid, idEvento, operazione: 'reinvia' | 'invia' | 'rigenera'
                       | 'disattiva' | 'riattiva' | 'rimuovi-evento' |
                       'correggi' }. correggi { nome, cognome, azienda,
                       email? } -> { partecipante, emailCambiata,
@@ -231,6 +241,7 @@ const AZIONI = {
     'evento-iscrizioni': async (ctx, b) => ({ evento: await D.cambiaIscrizioni(ctx, { idEvento: b.idEvento, iscrizioniAutomatiche: b.iscrizioniAutomatiche }) }),
     'anteprima': async (ctx, b) => D.anteprima(ctx, { idEvento: b.idEvento, righe: b.righe }),
     'crea': async (ctx, b) => D.crea(ctx, { idEvento: b.idEvento, righe: b.righe }),
+    'partecipante-aggiungi': async (ctx, b, g) => D.aggiungiAMano(ctx, { idEvento: b.idEvento, nome: b.nome, cognome: b.cognome, email: b.email, azienda: b.azienda }, g.email),
     'partecipanti': async (ctx, b) => ({ partecipanti: await D.elencoPartecipanti(ctx, b.idEvento) }),
     'partecipante': async (ctx, b) => D.operazionePartecipante(ctx, b),
     'connessi': async (ctx, b) => D.connessi(ctx, b.idEvento),
