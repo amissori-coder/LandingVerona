@@ -157,7 +157,10 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         // 4. file di esempio: l'anteprima riga per riga nella gestione
         await A.locator('#tab-guida').click();
         await A.locator('#btn-file-esempio').click();
-        await G.locator('#tabella-anteprima tr[data-riga]').first().waitFor({ timeout: 20000 });
+        /* Con righe da sistemare la tabella si apre su «Solo da controllare»: la
+           prima riga del file (una persona nuova) e' nascosta. Si aspetta una
+           riga qualunque visibile, non proprio la prima. */
+        await G.locator('#tabella-anteprima tr[data-riga]:visible').first().waitFor({ timeout: 20000 });
         vero(await G.locator('#tabella-anteprima tr[data-riga]').count() > 5, 'il file di esempio produce l\'anteprima');
         await page.waitForTimeout(600);
         await page.screenshot({ path: path.join(FOTO, '06-caricamento.png') });

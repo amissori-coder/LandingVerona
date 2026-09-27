@@ -1415,6 +1415,17 @@ controlli). L'anteprima si ferma a volte al passo «file di esempio» anche da
 sola: 2 volte su 5 con questo codice, e 3 volte su 4 con il codice di prima
 (main), quindi non dipende da questa modifica.
 
+Con **le email programmate** (27 settembre 2026, sera) il giro completo ha dato
+**2831 verdi e 1 rosso**: di nuovo l'anteprima al passo «file di esempio».
+Questa volta se ne è trovata la causa, nella prova e non nella pagina: con
+righe da sistemare la tabella si apre su «Solo da controllare», che nasconde la
+prima riga del file, e la prova aspettava che fosse visibile proprio quella
+(passava solo se guardava prima che il filtro si applicasse). Ora aspetta una
+riga visibile qualunque: 4 volte su 4 26 verdi, 0 rossi. In tutto **2841
+controlli verdi, 0 rossi**, più le prove del servizio (`email-service/prove`,
+32 file, tutte verdi). Le nuove: `programmate.prova.js` 88, `regole` 111 (+11),
+`gestione` 438 (+35), `e2e` 49 (+4, con un'attesa vera di uno o due minuti).
+
 Con «Torna alla fase iniziale» (27 settembre 2026) sono state rifatte le prove
 che toccano la regia e il servizio: `regole` 100 verdi, `gestione` 395,
 `ascolti-pagina` 107, `e2e` 44 (anche la sezione nuova, con tre pagine vere
@@ -1443,9 +1454,10 @@ rosse ogni tanto, senza che il codice c'entri in modo dimostrato:
   sbagliata e dell'email non iscritta a meno di 150 ms): quando la macchina è
   carica, la verifica vera della password nell'emulatore supera il pavimento
   di 900 ms; da sola la prova è verde;
-- `anteprima/anteprima.prova.js`: a volte scade il tempo al passo "file di
-  esempio", dove l'anteprima scarica dalla rete SheetJS (la libreria che legge
-  Excel);
+- `anteprima/anteprima.prova.js`: a volte scadeva il tempo al passo "file di
+  esempio". La causa era nella prova (aspettava la prima riga della tabella,
+  che il filtro «Solo da controllare» nasconde): corretta il 27 settembre, vedi
+  sopra;
 - `coda.prova.js`: 2 volte su una dozzina di giri, con una o due email
   «respinte» in meno del previsto nello scenario del processo ucciso a metà;
   tutti gli altri controlli di quei giri, compreso «nessuna email partita due
