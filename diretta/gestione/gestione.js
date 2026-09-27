@@ -345,7 +345,7 @@
         }
     }
     // clic sullo sfondo scuro = annulla (il clic "sul dialogo" fuori dal contenuto)
-    ['#dialogo-conferma', '#dialogo-correggi', '#dialogo-password'].forEach(sel => {
+    ['#dialogo-conferma', '#dialogo-correggi', '#dialogo-password', '#dialogo-azzera'].forEach(sel => {
         const d = $(sel);
         d.addEventListener('click', e => { if (e.target === d) chiudiDialogo(d, 'annulla'); });
     });
@@ -578,7 +578,7 @@
         azzeraAscolti();
         sbloccaCaricamento(true);
         if (stato.posta.ciclo) stato.posta.ciclo.attivo = false;
-        ['#dialogo-conferma', '#dialogo-correggi', '#dialogo-password'].forEach(s => chiudiDialogo($(s), 'annulla'));
+        ['#dialogo-conferma', '#dialogo-correggi', '#dialogo-password', '#dialogo-azzera'].forEach(s => chiudiDialogo($(s), 'annulla'));
         chiudiAnteprimaVideo();
         dimenticaProve();
         // una chiave segreta scritta e non salvata non resta nella pagina
@@ -758,7 +758,9 @@
             disegnaDaVerificare([]);
             caricaPartecipanti();
             aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
-            if (stato.scheda === 'regia') avviaConnessi();
+            stato.fase = null;
+            aggiornaFase();
+            if (stato.scheda === 'regia') { avviaConnessi(); caricaFase(); }
             // gli ascolti erano dell'evento di prima: via subito, e con la scheda aperta si leggono quelli nuovi
             azzeraAscolti();
             if (stato.scheda === 'ascolti') avviaAscolti();
@@ -886,7 +888,7 @@
             t.tabIndex = attiva ? 0 : -1;
             $('#' + t.getAttribute('aria-controls')).hidden = !attiva;
         });
-        if (nome === 'regia') avviaConnessi(); else fermaConnessi();
+        if (nome === 'regia') { avviaConnessi(); caricaFase(); } else fermaConnessi();
         if (nome === 'ascolti') avviaAscolti(); else fermaAscolti();
         /* L'anteprima di un video provato in un'altra scheda non serve piu'
            (e continuerebbe a scaricare il video): si chiude, ma non a meta'
@@ -1630,6 +1632,7 @@
         if (ev && ev.ripresa && !$('#regia-ripresa').value) $('#regia-ripresa').value = ev.ripresa;
         aggiornaPulsantiRegia();
         aggiornaDettaglioConnessi();
+        aggiornaFase();
     }
 
     // l'orario d'inizio e' passato e nessuno ha premuto "Vai in onda"
@@ -1736,6 +1739,7 @@
                 const detto = { in_onda: 'La diretta è in onda.', pausa: 'Diretta in pausa.', terminato: 'Diretta terminata.', programmato: 'Evento riportato in attesa.' };
                 mostraMsg('#msg-regia', detto[nuovo] || 'Stato aggiornato.', 'ok');
                 aggiornaConnessi();
+                caricaFase();
             } catch (e) { erroreGenerico(e, '#msg-regia'); }
         });
     }
@@ -1744,6 +1748,137 @@
     $('#btn-termina').addEventListener('click', () => cambiaStato('terminato', $('#btn-termina')));
     $('#btn-pausa').addEventListener('click', () => cambiaStato('pausa', $('#btn-pausa')));
     $('#btn-riprogramma').addEventListener('click', () => cambiaStato('programmato', $('#btn-riprogramma')));
+
+    /* ---------- FASE INIZIALE ----------
+       «Riporta in attesa» cambia solo lo stato. «Torna alla fase iniziale»
+       riporta l'evento com'era prima del primo «Vai in onda» e cancella i
+       dati della prova (presenze, ascolti e, se non si toglie la spunta,
+       accessi): lo fa il servizio (evento-azzera, lib/diretta-azzera.js),
+       solo PRIMA dell'orario di inizio. La regia chiede al servizio che
+       cosa c'e' da togliere (anteprima: due conteggi e un documento)
+       all'apertura della scheda, dopo ogni cambio di stato e prima della
+       conferma; nel frattempo la riga dello stato dice se l'evento e' come
+       appena creato o se restano i dati di una prova. */
+    async function caricaFase() {
+        const id = stato.idEvento;
+        if (!id || stato.nuovo || !stato.utente) return;
+        try {
+            const r = await chiama('evento-azzera', { idEvento: id, anteprima: true });
+            if (stato.idEvento !== id) return;
+            stato.fase = { di: id, conteggi: r.conteggi || null, inizio: r.inizio };
+            aggiornaFase();
+        } catch (e) { /* la riga resta com'era: il comando chiede di nuovo al servizio prima di fare qualcosa */ }
+    }
+    /* I segni di una prova andata in onda: minuti visti, o il grafico degli
+       ascolti con minuti in onda (i documenti di presenza a zero minuti sono
+       solo chi aspetta con la pagina aperta). */
+    function datiDellaProva(c) {
+        if (!c) return [];
+        const parti = [];
+        if (c.conMinuti) parti.push(conNumero(c.conMinuti, 'persona', 'persone') + ' con minuti visti');
+        if (c.inOnda) parti.push('il grafico degli ascolti');
+        if (parti.length && c.accessi) parti.push(conNumero(c.accessi, 'accesso', 'accessi'));
+        return parti;
+    }
+    function aggiornaFase() {
+        const ev = stato.evento;
+        const riga = $('#regia-fase-riga');
+        const btn = $('#btn-azzera');
+        const no = $('#regia-fase-no');
+        if (!ev || stato.nuovo) {
+            riga.hidden = true; no.hidden = true; btn.disabled = true;
+            return;
+        }
+        const s = ev.stato || 'programmato';
+        const c = stato.fase && stato.fase.di === ev.id ? stato.fase.conteggi : null;
+        const prova = datiDellaProva(c);
+        const primaDellInizio = !!ev.inizio && Date.now() < ev.inizio;
+        let testoRiga = '';
+        if (s === 'programmato' && c) {
+            testoRiga = prova.length
+                ? 'In attesa, ma restano i dati di una prova: ' + prova.join(', ') + '.'
+                    + (primaDellInizio ? ' Per ripartire da zero usa «Torna alla fase iniziale».' : '')
+                : 'Nessuna diretta ancora iniziata: l\'evento è come appena creato.';
+        }
+        riga.textContent = testoRiga;
+        riga.hidden = !testoRiga;
+        riga.dataset.tipo = s === 'programmato' && c && !prova.length ? 'pulito' : 'prova';
+        // c'e' qualcosa da riportare indietro: uno stato diverso dall'attesa, un avviso, dati della prova (o degli accessi)
+        const daFare = s !== 'programmato' || !!ev.avviso || !c || prova.length > 0 || !!(c.accessi || c.presenze || c.ascolti);
+        if (!btn.hasAttribute('aria-busy')) btn.disabled = !primaDellInizio || !daFare;
+        btn.title = !primaDellInizio ? 'L\'orario di inizio è passato' : (!daFare ? 'Niente da azzerare: l\'evento è già come appena creato' : '');
+        no.textContent = !primaDellInizio && ev.inizio
+            ? 'L\'orario di inizio (' + oraLeggibile(ev.inizio) + ' del ' + dataEstesa(ev.inizio) + ') è passato: i dati sono quelli veri e non si cancellano più. Puoi solo riportare l\'evento in attesa.'
+            : '';
+        no.hidden = !no.textContent;
+    }
+
+    async function apriAzzera() {
+        const ev = stato.evento;
+        if (!ev) return;
+        const d = $('#dialogo-azzera');
+        let r;
+        try {
+            r = await chiama('evento-azzera', { idEvento: ev.id, anteprima: true });
+        } catch (e) { erroreGenerico(e, '#msg-regia'); return; }
+        stato.fase = { di: ev.id, conteggi: r.conteggi || null, inizio: r.inizio };
+        aggiornaFase();
+        if (!r.possibile) {
+            mostraMsg('#msg-regia', 'L\'orario di inizio è passato: i dati sono quelli veri e non si cancellano più. Puoi solo riportare l\'evento in attesa.', 'errore');
+            return;
+        }
+        const c = r.conteggi || {};
+        const ul = $('#azzera-cancella');
+        svuota(ul);
+        const s = ev.stato || 'programmato';
+        [
+            s !== 'programmato' ? 'lo stato «' + (ETICHETTE_STATO[s] || s) + '»: torna «' + (ETICHETTE_STATO.programmato || 'In attesa') + '»' : '',
+            ev.avviso ? 'l\'avviso a tutti («' + ev.avviso + '»)' : '',
+            ev.ripresa ? 'l\'ora di ripresa della pausa' : '',
+            c.conMinuti ? 'i minuti visti di ' + conNumero(c.conMinuti, 'persona', 'persone') + ' (non finiscono negli attestati)' : '',
+            c.presenze ? 'i collegamenti di ' + conNumero(c.presenze, 'persona', 'persone') + ' (il contatore riparte da zero)' : '',
+            c.ascolti ? 'il grafico degli ascolti (scheda Ascolti)' : ''
+        ].filter(Boolean).forEach(t => ul.appendChild(el('li', { testo: t })));
+        $('#azzera-n-accessi').textContent = numeroIt(c.accessi || 0);
+        $('#azzera-accessi').checked = true;
+        $('#azzera-accessi').disabled = !c.accessi;
+        $('#azzera-parola').value = '';
+        $('#btn-azzera-conferma').disabled = true;
+        nascondiMsg('#msg-azzera');
+        apriDialogo(d);
+        $('#azzera-parola').focus();
+    }
+    const parolaGiusta = () => $('#azzera-parola').value.trim().toUpperCase() === 'AZZERA';
+    $('#azzera-parola').addEventListener('input', () => { $('#btn-azzera-conferma').disabled = !parolaGiusta(); });
+    $('#btn-azzera-annulla').addEventListener('click', () => chiudiDialogo($('#dialogo-azzera'), 'annulla'));
+    $('#form-azzera').addEventListener('submit', async e => {
+        e.preventDefault();
+        const ev = stato.evento;
+        if (!ev || !parolaGiusta()) return;
+        const bottone = $('#btn-azzera-conferma');
+        await conAttesa(bottone, async () => {
+            try {
+                const r = await chiama('evento-azzera', { idEvento: ev.id, conferma: 'AZZERA', accessi: $('#azzera-accessi').checked });
+                chiudiDialogo($('#dialogo-azzera'), 'ok');
+                aggiornaEvento(r.evento);
+                const t = r.tolti || {};
+                const detto = [
+                    t.presenze ? 'presenze di ' + conNumero(t.presenze, 'persona', 'persone') : '',
+                    t.accessi ? conNumero(t.accessi, 'accesso', 'accessi') : '',
+                    t.ascolti ? 'il grafico degli ascolti' : ''
+                ].filter(Boolean);
+                mostraMsg('#msg-regia', 'Evento riportato alla fase iniziale.' + (detto.length ? ' Cancellati: ' + detto.join(', ') + '.' : ''), 'ok');
+                $('#regia-ripresa').value = '';
+                azzeraAscolti();
+                aggiornaConnessi();
+                caricaFase();
+            } catch (err) {
+                if (err && err.stato === 409) { chiudiDialogo($('#dialogo-azzera'), 'annulla'); erroreGenerico(err, '#msg-regia'); caricaFase(); }
+                else erroreGenerico(err, '#msg-azzera');
+            }
+        });
+    });
+    $('#btn-azzera').addEventListener('click', apriAzzera);
 
     /* ---------- collegati adesso ----------
        Una chiamata ogni 20 secondi, SOLO mentre la scheda Regia e' aperta
@@ -1777,6 +1912,8 @@
             $('#connessi-aggiornato').textContent = 'Aggiornato alle ' + oraSecondi(r.quando || Date.now()) + ' · si aggiorna da solo ogni 20 secondi mentre questa scheda è aperta.';
             aggiornaDettaglioConnessi();
             aggiornaAvvisoOrario();
+            // l'orario d'inizio che passa spegne «Torna alla fase iniziale»
+            aggiornaFase();
         } catch (e) {
             if (e.stato === 401 || e.stato === 403) { erroreGenerico(e); return; }
             $('#connessi-aggiornato').textContent = 'Conteggio non aggiornato: ' + (e.msg || 'errore') + ' Riprovo tra 20 secondi.';

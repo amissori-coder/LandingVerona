@@ -41,7 +41,10 @@
         diretta…»; «Video non disponibile») e pagina.prova.js (lo
         schermo intero del telefono, la pausa dell'evento).
       La gestione con il campo «Tipo di player» la fotografa
-      gestione.prova.js (04-gestione-tipo-player-*).
+      gestione.prova.js (04-gestione-tipo-player-*); la regia dopo una
+      prova («Riporta in attesa», «Torna alla fase iniziale», la
+      conferma con AZZERA, la pagina tornata all'attesa) e2e.prova.js
+      (09-*).
    Va lanciato DOPO le prove (esegui-tutte.js, e2e.prova.js,
    anteprima-email.js --screenshot: le email si fotografano da li'). Le foto che una prova non ha
    lasciato si segnalano con «manca» (e restano quelle di prima); quelle
@@ -281,7 +284,13 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['06-popup-home-prima-computer', 'screenshot-sito/popup-home-computer-prima.png'],
             ['07-napoli-sezione-telefono', 'screenshot-sito/napoli-sezione-telefono-in-diretta.png'],
             ['07-napoli-sezione-computer', 'screenshot-sito/napoli-sezione-computer-in-diretta.png'],
-            ['07-napoli-menu-telefono', 'screenshot-sito/napoli-barra-telefono-in-diretta.png']
+            ['07-napoli-menu-telefono', 'screenshot-sito/napoli-barra-telefono-in-diretta.png'],
+            // «Torna alla fase iniziale» dopo una prova (e2e.prova.js, sezione 9)
+            ['09-regia-dopo-la-prova-computer', 'screenshot-e2e/12-regia-dopo-la-prova.png'],
+            ['09-regia-conferma-azzera-computer', 'screenshot-e2e/13-regia-conferma-azzera.png'],
+            ['09-regia-fase-iniziale-computer', 'screenshot-e2e/14-regia-fase-iniziale.png'],
+            ['09-attesa-dopo-azzeramento-computer', 'screenshot-e2e/15-attesa-dopo-azzeramento.png'],
+            ['09-regia-dopo-inizio-computer', 'screenshot-e2e/16-regia-dopo-inizio.png']
         ];
         // le foto di prima che non si fanno piu' (il player di prima, i nomi vecchi, il ripiego incorporato di altri siti)
         ['03-diretta-webtv-telefono', '03-diretta-webtv-incorporata-telefono', '03-diretta-incorporata-telefono',

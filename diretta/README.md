@@ -92,7 +92,7 @@ riconciliazione del lavoro programmato, §7):
 | Funzione | Chi la chiama | Che cosa fa |
 |---|---|---|
 | `api/diretta-accesso` | pagina della diretta | accesso, blocco dei tentativi, password dimenticata, attivazione dei gestori |
-| `api/diretta-gestione` | pagina di gestione | eventi, caricamento, partecipanti, email, regia, esportazione |
+| `api/diretta-gestione` | pagina di gestione | eventi, caricamento, partecipanti, email, regia (anche «Torna alla fase iniziale», `lib/diretta-azzera.js`, §6.8), esportazione |
 | `api/diretta-stato` | home e pagina di Napoli | "in onda sì/no", pubblico, con cache |
 | `api/diretta-cron` | Vercel, ogni 5 minuti | riconciliazione delle iscrizioni dal modulo del sito, coda delle email, promemoria, pulizie |
 | `api/diretta-ascolti` | Vercel, ogni minuto | la fotografia di chi guarda, per la scheda *Ascolti* (§6.7): per ogni evento in finestra, chi ha la pagina aperta in quel minuto |
@@ -678,6 +678,10 @@ provano a mano, con Azoto che trasmette una prova:
 - Prova il link: *Regia* → **"Vedi come un partecipante"** (si apre in una
   scheda nuova, senza registrare presenze; "Chiudi l'anteprima" non ti fa uscire
   dalla gestione).
+- Se nei giorni prima hai fatto una prova con **"Vai in onda"** sull'evento vero,
+  *Regia* → **«Torna alla fase iniziale»** (§6.8): la riga sopra il pulsante
+  deve dire **«Nessuna diretta ancora iniziata»**. Un evento lasciato
+  «Terminato» dopo una prova **non manda i promemoria**.
 
 ### 6.4 Il giorno dell'evento (scheda *Regia*)
 
@@ -710,6 +714,10 @@ provano a mano, con Azoto che trasmette una prova:
   partecipanti (anche con i link firmati).
 - Alla fine, **"Termina"**. Se la riapri ("Vai in onda" di nuovo), le pagine
   ripartono.
+- **«Riporta in attesa»** (nel riquadro *Dopo una prova*) rimette tutti nella
+  schermata di attesa senza cancellare niente: minuti, accessi e grafico degli
+  ascolti restano. Dopo l'orario di inizio è l'unico modo di tornare indietro
+  (§6.8).
 
 ### 6.5 Dopo
 
@@ -814,6 +822,58 @@ mezzo (chi chiude la pagina esce dal conto entro due minuti e mezzo); picco e
 minimo solo nei minuti in onda, pause escluse, e il minimo senza i primi e gli
 ultimi 5 minuti; «Vedi come un partecipante» non conta; i minuti per persona sono
 gli stessi degli attestati (§6.5); orari in ora italiana.
+
+### 6.8 Dopo una prova: «Riporta in attesa» o «Torna alla fase iniziale»
+
+Nella *Regia*, sotto i comandi della diretta, il riquadro **«Dopo una prova»**
+ha due pulsanti, con la spiegazione accanto:
+
+- **«Riporta in attesa»**: chi ha la pagina aperta rivede l'attesa con il conto
+  alla rovescia. **Non cancella niente**: minuti visti, accessi e grafico degli
+  ascolti restano. Serve durante la giornata (una partenza sbagliata, uno stop
+  lungo) ed è l'unico dei due che vale **dopo l'orario di inizio**.
+- **«Torna alla fase iniziale»**: l'evento torna **com'era prima del primo
+  «Vai in onda»**. Serve dopo le prove dei giorni prima: per Napoli, dopo la
+  prova con Azoto e **prima del 2 ottobre** (meglio prima del 1° ottobre alle
+  9, quando partono i promemoria del giorno prima: un evento «Terminato» non li
+  manda).
+
+Che cosa fa «Torna alla fase iniziale»:
+
+- stato **«In attesa»**, niente avviso a tutti, niente ora di ripresa, il video
+  come nella scheda *Evento* (il link principale; l'indirizzo del player esce
+  dal documento pubblico, come a ogni ritorno in attesa);
+- **cancella** i minuti visti e i collegamenti della prova (non finiscono negli
+  attestati né nell'esportazione), il **grafico degli ascolti** (scheda
+  *Ascolti*) e, se non togli la spunta (è messa di base), l'**elenco degli
+  accessi**;
+- **non tocca** partecipanti, account e password, credenziali inviate e stato
+  delle email, promemoria, dati dell'evento (titolo, orari, programma, player),
+  l'interruttore «Invia subito la password a chi si iscrive dal modulo del
+  sito»;
+- chi ha la pagina della diretta aperta torna **da solo** all'attesa, senza
+  ricaricare; al prossimo «Vai in onda» la sua presenza riparte da zero (0
+  minuti, 1 collegamento).
+
+Come si usa: premi il pulsante; la conferma elenca **che cosa si cancella, con i
+numeri** (quante persone con minuti visti, quanti collegamenti, quanti accessi) e
+che cosa resta; scrivi **AZZERA** e conferma. Compare «Evento riportato alla fase
+iniziale. Cancellati: …». La riga sopra i pulsanti dice sempre dove sei: «In attesa, ma
+restano i dati di una prova: …» oppure **«Nessuna diretta ancora iniziata:
+l'evento è come appena creato.»** (allora il pulsante si spegne: non c'è niente
+da azzerare).
+
+I limiti, voluti:
+
+- **solo prima dell'orario di inizio** dell'evento. Lo decide il servizio con
+  il suo orologio, non la pagina: dopo, il pulsante è spento, la regia spiega
+  perché, e il servizio rifiuta comunque (i dati della giornata sono quelli
+  veri degli attestati). Resta «Riporta in attesa»;
+- **solo i gestori** (`DIRETTA_ADMIN_EMAILS`);
+- **non si torna indietro**: quello che si cancella non si recupera. Ogni
+  azzeramento resta annotato in Firestore, nella raccolta `azzeramenti` (chi,
+  quando, lo stato di prima, quanti documenti tolti), chiusa ai browser come
+  tutto quello che le regole non aprono.
 
 ## 7. L'email come accesso, doppioni, password
 
@@ -1207,7 +1267,7 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-video.prove.js` | il video: il codice vero di Azoto (si prende solo l'indirizzo), codice malevolo (script, `onload`, `onerror`, `javascript:`, `data:`, iframe di altri siti, due iframe), solo `https://cdn.azotosolutions.com` (niente altri siti, sottodomini, porte, http); il flusso diretto HLS `.m3u8` (anche con token) e DASH `.mpd`; rifiutati con il motivo RTMP/RTSP/SRT, file video, link con credenziali, indirizzi interni, un `.m3u8` nel campo del player e viceversa; tipo di player e passaggio A↔B (`evento-player`), link principale e di riserva, sorgente scelta dalla regia, nessun link nel documento pubblico fuori onda; la copia del servizio è identica a quella del sito | 265 verdi, 0 rossi |
 | `email-service/prove/diretta-firma.prove.js` | i link firmati a tempo: nginx `secure_link` (con il vettore della documentazione di nginx) e Akamai EdgeAuth, durata, `validoSecondi`, acl non valide rifiutate, la chiave mai restituita | 64 verdi, 0 rossi |
 | `email-service/prove/diretta-prova-link.prove.js` | la prova del link: il player di Azoto (si può incorporare? non risponde? rimanda altrove?), un indirizzo che non è di Azoto rifiutato senza nemmeno provarlo; per il flusso diretto playlist HLS principale e di una qualità, diretta o registrazione, qualità, DVR, codec, CORS su playlist e segmento, DASH, pagine incorporabili o no (`X-Frame-Options`, `frame-ancestors`), indirizzi interni rifiutati anche dopo un redirect o con il DNS che cambia, tempi e dimensioni massime | 120 verdi, 0 rossi |
-| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova; **gli ascolti** (`ascolti`, `ascoltiCache`) chiusi a tutti i browser, anche al gestore | 92 verdi, 0 rossi |
+| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova; **gli ascolti** (`ascolti`, `ascoltiCache`) e il registro di «Torna alla fase iniziale» (`azzeramenti`) chiusi a tutti i browser, anche al gestore; presenze e registro non si cancellano dal browser | 100 verdi, 0 rossi |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio; l'unico ponte (`lib/sito-iscrizioni.js`, per la riconciliazione) è in sola lettura: un'app con un nome suo, la sola raccolta `iscrizioni`, nessuna scrittura, nessun account, e lo carica solo la riconciliazione | 19 verdi, 0 rossi |
 | `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse, correzioni: **zero account doppi, un account per email** | 89 verdi, 0 rossi |
 | `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player | 201 verdi, 0 rossi |
@@ -1219,11 +1279,19 @@ node e2e.prova.js              # solo il percorso completo
 | `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel controllata per **email** (nuovi, già registrati, doppie, email condivise da persone diverse, email sbagliate, correzioni ed esclusioni), creazione a gruppi con "Riprendi" **senza nessuna email** (partono solo con «Invia le credenziali»), l'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» (con i suoi errori), ricerca e azioni sul partecipante, cambio dell'email; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta; il riquadro **«Iscrizioni dal modulo da verificare»** (righe, testo mai HTML, «Segna come vista», azioni protette; anche le righe **annullata dal sito** e **annullamento ritirato**); accanto all'interruttore acceso, da quando | 395 verdi, 0 rossi |
 | `modulo.prova.js` | **il modulo di Napoli e la diretta**: una chiamata al servizio con il corpo del sito principale (main, f26e12e) byte per byte più il solo `percorso`, la conferma a video, nessuna richiesta al foglio Google; 503, rete che cade e 400 con messaggio: l'errore a video, il modulo resta, nessun tentativo automatico | 11 verdi, 0 rossi |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento; **la diretta nascosta** (`PUBBLICA = false`): niente popup, pillola, voce di menu e sezione, nessuna richiesta nemmeno il giorno dell'evento in onda, menu su una riga a 1100px; `?diretta=prova` la mostra solo a quel browser e `?diretta=pubblico` la toglie; con `PUBBLICA = true` tutto compare senza prova | 308 verdi, 0 rossi |
-| `e2e.prova.js` | **il percorso completo con tutto vero** (il player di Azoto è quello finto): il gestore si attiva dall'email, crea l'evento **incollando il codice di Azoto** (si salva solo l'indirizzo) e i partecipanti (nessuna email parte finché non preme «Invia le credenziali»), manda le credenziali; Mario le legge dalla posta, entra dal telefono **con la sua email**; il gestore accende l'interruttore e Luca, che si iscrive dal modulo del sito, riceve subito la password ed entra; aspetta (nessun player), va in onda e compare il player di Azoto (chi non ha fatto l'accesso non riceve l'indirizzo: né nella pagina, né nello stato pubblico, né da Firestore), schermo intero (vero sul computer; sull'iPhone l'indicazione per il ⛶ del player e il video che riempie lo schermo girando il telefono), cambio del player senza ricaricare, connessione persa, pagina riaperta, pausa e fine (il player sparisce, restano le nostre schermate), un minuto di presenza, esce, «Password dimenticata?» (a chi non è iscritto non parte niente), accesso automatico; esportazione | 32 verdi, 0 rossi |
+| `e2e.prova.js` | **il percorso completo con tutto vero** (il player di Azoto è quello finto): il gestore si attiva dall'email, crea l'evento **incollando il codice di Azoto** (si salva solo l'indirizzo) e i partecipanti (nessuna email parte finché non preme «Invia le credenziali»), manda le credenziali; Mario le legge dalla posta, entra dal telefono **con la sua email**; il gestore accende l'interruttore e Luca, che si iscrive dal modulo del sito, riceve subito la password ed entra; aspetta (nessun player), va in onda e compare il player di Azoto (chi non ha fatto l'accesso non riceve l'indirizzo: né nella pagina, né nello stato pubblico, né da Firestore), schermo intero (vero sul computer; sull'iPhone l'indicazione per il ⛶ del player e il video che riempie lo schermo girando il telefono), cambio del player senza ricaricare, connessione persa, pagina riaperta, pausa e fine (il player sparisce, restano le nostre schermate), un minuto di presenza e la fotografia degli ascolti, esce, «Password dimenticata?» (a chi non è iscritto non parte niente), accesso automatico; esportazione; **«Torna alla fase iniziale»** con tre pagine vere aperte (e una di loro che trova la chiusura) e un avviso a tutti: la conferma con i numeri che si abilita solo con AZZERA, le pagine che tornano da sole all'attesa, via minuti, collegamenti, accessi, grafico e cache degli ascolti, tutto il resto identico (partecipanti, indirizzi, credenziali, dati dell'evento, interruttore delle iscrizioni), annotato chi e quando, esportazione senza i minuti della prova, «Nessuna diretta ancora iniziata», le password che valgono ancora, di nuovo in onda la presenza che riparte da zero, un secondo azzeramento che tiene gli accessi; rifiutato senza la parola (400), senza accesso (401), da un partecipante (403) e dopo l'orario di inizio (409, con la regia che lascia solo «Riporta in attesa») | 44 verdi, 0 rossi |
 | `webtv.prova.js` | **le due modalità con la regia vera** (emulatori e servizio vero), su computer e iPhone. **Player Azoto**: prima dell'accesso nessuna richiesta ad Azoto; l'iframe con gli attributi e il titolo giusti, mai `azoto-player.js`; sotto il video solo «Schermo intero» e la nota; **niente sopra l'iframe** (un clic e un tocco veri sul play di Azoto arrivano); 16:9 senza bande né barre a 1440×900, 390×844, 360×740 e iPhone orizzontale; schermo intero vero sul computer; sul telefono niente nostro pulsante (né vista ruotata), l'indicazione per il ⛶ del player e, girando il telefono, il video che riempie l'altezza senza ricaricare l'iframe; cambio del player e A→B→A senza ricaricare la pagina e senza altri ascolti di Firestore; player fermo: avviso a 15 secondi sotto il riquadro, «Ricarica il video» ricrea solo l'iframe; CSP. **Flusso diretto**: principale che cade → "Stiamo ricollegando la diretta…" e riserva; la regia sposta tutti; **flusso pubblico HLS di Shaka** (DVR, «Torna in diretta», qualità) e DASH; link firmati | 32 verdi, 0 rossi |
 | `player.prova.js` | **il player del flusso diretto da solo**, con i flussi pubblici HLS e DASH di Shaka e la diretta ffmpeg: avvio, attributi del `<video>`, qualità senza doppioni, DVR, `cerca` e `vaiAlLive`, segnale fermo, **playlist ferma**, link firmati e rinnovo della firma **senza ricaricare**, link firmato molto lungo, pezzo di DASH perso, un indirizzo di pagina rifiutato ('link'), 404, link che non risponde, avvio bloccato, pagina nascosta | 73 verdi, 0 rossi |
 | `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 26 verdi, 0 rossi |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
+
+Con «Torna alla fase iniziale» (27 settembre 2026) sono state rifatte le prove
+che toccano la regia e il servizio: `regole` 100 verdi, `gestione` 395,
+`ascolti-pagina` 107, `e2e` 44 (anche la sezione nuova, con tre pagine vere
+aperte), tutte con 0 rossi, e le sette prove `diretta-*` del servizio (806
+controlli verdi). L'anteprima, nello stesso giro, si è fermata al passo «file
+di esempio» (il tempo scaduto descritto qui sotto); rifatta da sola due volte:
+26 verdi su 26.
 
 Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch
 **allineato con il sito principale** (main f26e12e: conferma dell'indirizzo
@@ -1300,7 +1368,10 @@ il ⛶ del player, `03-diretta-azoto-telefono-indicazione`, e il telefono
 girato, `03-diretta-azoto-telefono-girato`), **player che non risponde** con «Ricarica il video»
 (`03-diretta-azoto-lenta-*`), la scheda **Ascolti** della gestione
 (`08-ascolti-*`: riepilogo e grafico, ingressi e dispositivi, la linea del
-tempo di una persona, il telefono; con i dati di prova), gestione con il campo **«Tipo di player»**
+tempo di una persona, il telefono; con i dati di prova), la **regia dopo una prova**
+(`09-*`: il riquadro «Dopo una prova», la conferma di «Torna alla fase
+iniziale» con i numeri, la regia con «Nessuna diretta ancora iniziata», la
+pagina tornata all'attesa, la regia dopo l'orario di inizio), gestione con il campo **«Tipo di player»**
 (`04-gestione-tipo-player-*`), e poi la modalità B (diretta con «IN DIRETTA»,
 «Torna in diretta», "Stiamo ricollegando la diretta…", video non disponibile,
 schermo intero), la gestione con l'anteprima del caricamento, le email, il
@@ -1456,6 +1527,10 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     "Password dimenticata?", esportazione. Su iPhone prova anche con il
     **Risparmio energetico** attivo. I passi per Safari, iPhone e iPad sono nel
     §5.9.
+    - [ ] Se la prova l'hai fatta sull'evento vero `napoli-2026`: *Regia* →
+      **«Torna alla fase iniziale»** (§6.8), prima del 1° ottobre alle 9
+      (dopo, un evento lasciato «Terminato» non manda i promemoria). La riga
+      deve dire «Nessuna diretta ancora iniziata».
 12. [ ] Prova sul progetto vero il **contatore dei collegati** e
     l'**esportazione** (servono gli indici del passo 4) e, se possibile, un
     piccolo carico: 300 accessi in 2 minuti con account di prova (§9).
@@ -1488,7 +1563,9 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
 
 16. [ ] "Aggiorna esiti", correggi gli indirizzi respinti, "Reinvia a chi non
     l'ha ricevuta". Tieni a portata di mano il numero dell'assistenza e la
-    sezione 7 ("account disattivato", "password dimenticata").
+    sezione 7 ("account disattivato", "password dimenticata"). In *Regia*,
+    controlla che la riga dica **«Nessuna diretta ancora iniziata»**: se dice
+    che restano i dati di una prova, «Torna alla fase iniziale» (§6.8).
 
 **Il 2 ottobre**: *Regia* → "Vai in onda" quando Azoto trasmette; "Pausa"
 a pranzo; "Termina" alla fine; poi *Esporta* per gli attestati. Dopo l'evento,
