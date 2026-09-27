@@ -276,6 +276,9 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['04-gestione-anteprima-computer', 'gestione-anteprima-computer.png'],
             ['04-gestione-regia-computer', 'screenshot-gestione/computer-regia.png'],
             ['04-gestione-partecipanti-computer', 'screenshot-gestione/computer-partecipanti.png'],
+            // «Aggiungi un partecipante» (a mano, senza file)
+            ['04-gestione-aggiungi-computer', 'screenshot-gestione/computer-partecipanti-aggiungi.png'],
+            ['04-gestione-aggiungi-telefono', 'screenshot-gestione/telefono-partecipanti-aggiungi.png'],
             // chi si e' iscritto dal modulo e non ha ancora confermato l'indirizzo (gestione.prova.js)
             ['04-gestione-da-confermare-computer', 'screenshot-gestione/computer-email-da-confermare.png'],
             // le email programmate: l'elenco e il modulo (gestione.prova.js), la conferma e il partito (e2e.prova.js)
@@ -293,6 +296,7 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['06-popup-home-telefono', 'screenshot-sito/popup-home-telefono-in-diretta.png'],
             ['06-popup-home-computer', 'screenshot-sito/popup-home-computer-in-diretta.png'],
             ['06-popup-home-prima-computer', 'screenshot-sito/popup-home-computer-prima.png'],
+            ['06-popup-home-360-telefono', 'screenshot-sito/popup-home-telefono-360.png'],
             ['07-napoli-sezione-telefono', 'screenshot-sito/napoli-sezione-telefono-in-diretta.png'],
             ['07-napoli-sezione-computer', 'screenshot-sito/napoli-sezione-computer-in-diretta.png'],
             ['07-napoli-menu-telefono', 'screenshot-sito/napoli-barra-telefono-in-diretta.png'],
