@@ -1,0 +1,285 @@
+/* ============================================================
+   PROVE - regole Firestore della diretta
+   ------------------------------------------------------------
+       node avvia-emulatori.js --firestore 8380 --auth 9380 &   (una volta)
+       FIRESTORE_EMULATOR_HOST=127.0.0.1:8380 node regole.prova.js
+
+   Le regole VERE (diretta/firebase/firestore.rules) caricate
+   nell'emulatore, e i browser simulati con @firebase/rules-unit-testing:
+   ogni prova e' una lettura o una scrittura che un partecipante (o un
+   curioso non autenticato, o un gestore) potrebbe tentare dal proprio
+   browser, con la chiave pubblica del progetto in mano.
+
+   COSA DIMOSTRANO. Che un partecipante legge il proprio evento e il
+   proprio profilo e NIENT'ALTRO: non gli altri eventi, non gli altri
+   partecipanti, non i nomi utente, gli indirizzi, gli accessi, i
+   tentativi, le code. Che non puo' scrivere niente se non il proprio
+   segnale di presenza, e solo nelle forme e nei tempi previsti
+   (orario del server, uno ogni 50 s, un minuto alla volta, niente
+   tempo contato quando la pagina era chiusa). Che un account
+   disattivato o soppiantato da un altro dispositivo smette di
+   scrivere. Che un evento tolto alla persona (iscrizione annullata dal
+   sito, tolta dal gestore: sessioni/{uid}.eventiTolti) non si legge e
+   non riceve segnali da subito, anche con il token di prima. Che il gestore legge gli eventi e basta. Che il video
+   dell'evento (tipoPlayer, l'indirizzo del player di Azoto o il
+   flusso) lo legge solo chi e' iscritto e lo scrive solo il servizio;
+   gli indirizzi salvati (eventiRiservati) non li legge nessuno dal
+   browser. Che gli ascolti (ascolti, la registrazione minuto per
+   minuto di chi e' collegato, e ascoltiCache, il riepilogo per la
+   gestione) non li legge ne' li scrive nessuno dal browser, nemmeno il
+   gestore: li legge la gestione attraverso il servizio. Che il registro
+   di «Torna alla fase iniziale» (azzeramenti) e le presenze non si
+   cancellano dal browser: lo fa solo il servizio. Che i promemoria
+   programmati dal gestore (programmate: testi, orari, chi li ha
+   programmati) non si leggono ne' si scrivono dal browser, nemmeno dal
+   gestore: passano solo dal servizio.
+   Esce con 1 se qualcosa e' rosso.
+   ============================================================ */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const {
+    initializeTestEnvironment, assertFails, assertSucceeds
+} = require('@firebase/rules-unit-testing');
+const {
+    doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection,
+    serverTimestamp, increment, Timestamp, setLogLevel
+} = require('firebase/firestore');
+
+// i rifiuti attesi li scriverebbe il client come errori: qui sono il risultato voluto
+setLogLevel('silent');
+
+const [host, porta] = String(process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
+const REGOLE = fs.readFileSync(path.resolve(__dirname, '../firebase/firestore.rules'), 'utf8');
+
+let rossi = 0, verdi = 0;
+async function prova(descrizione, fn) {
+    try { await fn(); verdi++; console.log('  ok  ' + descrizione); }
+    catch (e) { rossi++; console.log('ROSSO ' + descrizione + '\n       ' + String(e && e.message || e).split('\n')[0]); }
+}
+const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
+
+(async () => {
+    const env = await initializeTestEnvironment({
+        projectId: 'demo-regole-diretta',
+        firestore: { host, port: Number(porta), rules: REGOLE }
+    });
+
+    async function semina(fn) {
+        await env.withSecurityRulesDisabled(async ctx => { await fn(ctx.firestore()); });
+    }
+    await env.clearFirestore();
+    await semina(async db => {
+        // il video come lo scrive il servizio: il player di Azoto (tipoPlayer 'azoto') o il flusso diretto ('flusso')
+        await setDoc(doc(db, 'eventi/napoli-2026'), { titolo: 'Napoli', stato: 'in_onda', tipoPlayer: 'azoto', videoId: 'https://cdn.azotosolutions.com/cloudtv/livetv91/player', videoRiserva: '', videoFirmato: false });
+        await setDoc(doc(db, 'eventi/milano-2026'), { titolo: 'Milano', stato: 'programmato', tipoPlayer: 'flusso', videoId: '' });
+        await setDoc(doc(db, 'partecipanti/anna'), { nomeUtente: 'annabianchi', stato: 'attivo', eventi: ['napoli-2026'] });
+        await setDoc(doc(db, 'partecipanti/bruno'), { nomeUtente: 'brunoverdi', stato: 'attivo', eventi: ['milano-2026'] });
+        await setDoc(doc(db, 'partecipanti/carla'), { nomeUtente: 'carlaneri', stato: 'disattivato', eventi: ['napoli-2026'] });
+        await setDoc(doc(db, 'partecipanti/dario'), { nomeUtente: 'dariorossi', stato: 'attivo', eventi: ['napoli-2026'] });
+        // stato dell'account e dispositivo ammesso: solo server
+        await setDoc(doc(db, 'sessioni/anna'), { stato: 'attivo', sessioneAttiva: null });
+        await setDoc(doc(db, 'sessioni/bruno'), { stato: 'attivo', sessioneAttiva: null });
+        await setDoc(doc(db, 'sessioni/carla'), { stato: 'disattivato', sessioneAttiva: null });
+        await setDoc(doc(db, 'sessioni/dario'), { stato: 'attivo', sessioneAttiva: 'telefono' });
+        /* Elisa ha annullato dal sito l'iscrizione a Napoli (o il gestore l'ha
+           tolta): il server l'ha tolta dal profilo e ha scritto l'evento in
+           sessioni/{uid}.eventiTolti; il token che ha in mano (fino a un'ora)
+           dice ancora Napoli. Milano e' ancora suo. */
+        await setDoc(doc(db, 'partecipanti/elisa'), { stato: 'attivo', eventi: ['milano-2026'] });
+        await setDoc(doc(db, 'sessioni/elisa'), { stato: 'attivo', sessioneAttiva: null, eventiTolti: ['napoli-2026'] });
+        await setDoc(doc(db, 'eventiRiservati/napoli-2026'), {
+            tipoPlayer: 'azoto', azotoUrl: 'https://cdn.azotosolutions.com/cloudtv/livetv91/player',
+            videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8', videoId: 'https://webtv.esempio.it/live/napoli/playlist.m3u8'
+        });
+        await setDoc(doc(db, 'nomiUtente/annabianchi'), { uid: 'anna', base: 'annabianchi' });
+        await setDoc(doc(db, 'indirizzi/anna@x.it'), { uid: 'anna' });
+        await setDoc(doc(db, 'accessi/a1'), { uid: 'anna', idEvento: 'napoli-2026' });
+        await setDoc(doc(db, 'tentativi/annabianchi'), { falliti: 2 });
+        await setDoc(doc(db, 'code/napoli-2026'), { attiva: true });
+        await setDoc(doc(db, 'limiti/x'), { conteggio: 1 });
+        // gli ascolti come li scrive il servizio (lib/diretta-ascolti.js)
+        await setDoc(doc(db, 'ascolti/napoli-2026'), {
+            idEvento: 'napoli-2026', primoMinuto: 29800000, ultimoMinuto: 29800001, versione: 1,
+            curva: '[[29800000,1,"o"],[29800001,1,"o"]]', persone: '{"anna":[[29800000,29800001]]}'
+        });
+        await setDoc(doc(db, 'ascoltiCache/napoli-2026'), { calcolato: Timestamp.now(), dati: '{"ok":true}' });
+        // il registro di «Torna alla fase iniziale» come lo scrive il servizio (lib/diretta-azzera.js)
+        await setDoc(doc(db, 'azzeramenti/a1'), {
+            idEvento: 'napoli-2026', chi: 'gestore@prova.it', quando: Timestamp.now(), statoPrima: 'terminato',
+            presenze: 3, accessi: 5, accessiTenuti: false, ascolti: true
+        });
+        // un promemoria programmato come lo scrive il servizio (lib/diretta-programmate.js)
+        await setDoc(doc(db, 'programmate/p1'), {
+            idEvento: 'napoli-2026', quando: Timestamp.now(), destinatari: 'tutti', oggetto: 'Il link della diretta',
+            titolo: 'Ecco come collegarti', nota: 'Ciao', stato: 'programmata', finito: false, inviate: 0,
+            creatoDa: 'gestore@prova.it', creatoIl: Timestamp.now()
+        });
+    });
+
+    const anna = env.authenticatedContext('anna', { eventi: ['napoli-2026'] }).firestore();
+    const bruno = env.authenticatedContext('bruno', { eventi: ['milano-2026'] }).firestore();
+    const carla = env.authenticatedContext('carla', { eventi: ['napoli-2026'] }).firestore();
+    const dario = env.authenticatedContext('dario', { eventi: ['napoli-2026'] }).firestore();
+    const elisa = env.authenticatedContext('elisa', { eventi: ['napoli-2026', 'milano-2026'] }).firestore(); // il token di PRIMA
+    const gestore = env.authenticatedContext('g1', { gestore: true, email: 'gestore@prova.it' }).firestore();
+    const furbo = env.authenticatedContext('furbo', { eventi: 'napoli-2026' }).firestore(); // claim non lista
+    const anonimo = env.unauthenticatedContext().firestore();
+
+    console.log('\nLetture');
+    await prova('il partecipante legge il proprio evento', () => assertSucceeds(getDoc(doc(anna, 'eventi/napoli-2026'))));
+    await prova('nel proprio evento in onda legge il tipo di player e l\'indirizzo del player di Azoto (solo dopo l\'accesso)', async () => {
+        const d = (await assertSucceeds(getDoc(doc(anna, 'eventi/napoli-2026')))).data();
+        if (d.tipoPlayer !== 'azoto' || d.videoId !== 'https://cdn.azotosolutions.com/cloudtv/livetv91/player') throw new Error('letto: ' + JSON.stringify(d));
+    });
+    await prova('il partecipante NON legge un altro evento', () => assertFails(getDoc(doc(anna, 'eventi/milano-2026'))));
+    await prova('il partecipante NON elenca gli eventi', () => assertFails(getDocs(collection(anna, 'eventi'))));
+    await prova('il partecipante legge il proprio profilo', () => assertSucceeds(getDoc(doc(anna, 'partecipanti/anna'))));
+    await prova('il partecipante NON legge il profilo di un altro', () => assertFails(getDoc(doc(anna, 'partecipanti/bruno'))));
+    await prova('il partecipante NON elenca i partecipanti', () => assertFails(getDocs(collection(anna, 'partecipanti'))));
+    for (const p of ['nomiUtente/annabianchi', 'indirizzi/anna@x.it', 'accessi/a1', 'tentativi/annabianchi', 'code/napoli-2026', 'limiti/x', 'presenze/napoli-2026_anna', 'sessioni/anna', 'eventiRiservati/napoli-2026', 'ascolti/napoli-2026', 'ascoltiCache/napoli-2026', 'azzeramenti/a1', 'programmate/p1']) {
+        await prova('il partecipante NON legge ' + p.split('/')[0], () => assertFails(getDoc(doc(anna, p))));
+    }
+    await prova('un account disattivato NON legge piu\' l\'evento (anche con il token ancora valido)', () => assertFails(getDoc(doc(carla, 'eventi/napoli-2026'))));
+    await prova('un evento TOLTO (iscrizione annullata dal sito, tolta dal gestore) NON si legge piu\', anche con il token di prima che lo dice ancora', () => assertFails(getDoc(doc(elisa, 'eventi/napoli-2026'))));
+    await prova('...e gli altri suoi eventi si leggono come prima', () => assertSucceeds(getDoc(doc(elisa, 'eventi/milano-2026'))));
+    await prova('senza accesso NON si legge nessun evento', () => assertFails(getDoc(doc(anonimo, 'eventi/napoli-2026'))));
+    await prova('senza accesso NON si legge nessun profilo', () => assertFails(getDoc(doc(anonimo, 'partecipanti/anna'))));
+    await prova('un claim "eventi" che non e\' una lista non apre niente', () => assertFails(getDoc(doc(furbo, 'eventi/napoli-2026'))));
+    await prova('il gestore legge gli eventi (anteprima)', () => assertSucceeds(getDoc(doc(gestore, 'eventi/milano-2026'))));
+    await prova('il gestore NON legge i profili dal browser', () => assertFails(getDoc(doc(gestore, 'partecipanti/anna'))));
+    await prova('il gestore NON legge i nomi utente dal browser', () => assertFails(getDoc(doc(gestore, 'nomiUtente/annabianchi'))));
+    for (const c of ['ascolti', 'ascoltiCache']) {
+        await prova('il gestore NON legge ' + c + ' dal browser (li legge la gestione attraverso il servizio)', () => assertFails(getDoc(doc(gestore, c + '/napoli-2026'))));
+        await prova('il gestore NON elenca ' + c, () => assertFails(getDocs(collection(gestore, c))));
+        await prova('il partecipante NON elenca ' + c, () => assertFails(getDocs(collection(anna, c))));
+        await prova('senza accesso NON si legge ' + c, () => assertFails(getDoc(doc(anonimo, c + '/napoli-2026'))));
+    }
+    await prova('il gestore NON legge il registro degli azzeramenti dal browser', () => assertFails(getDoc(doc(gestore, 'azzeramenti/a1'))));
+    await prova('il gestore NON elenca gli azzeramenti', () => assertFails(getDocs(collection(gestore, 'azzeramenti'))));
+    // i promemoria programmati: la gestione li legge attraverso il servizio, mai dal browser
+    await prova('il gestore NON legge un promemoria programmato dal browser', () => assertFails(getDoc(doc(gestore, 'programmate/p1'))));
+    await prova('il gestore NON elenca i promemoria programmati', () => assertFails(getDocs(collection(gestore, 'programmate'))));
+    await prova('il partecipante NON elenca i promemoria programmati', () => assertFails(getDocs(collection(anna, 'programmate'))));
+    await prova('senza accesso NON si legge un promemoria programmato', () => assertFails(getDoc(doc(anonimo, 'programmate/p1'))));
+
+    console.log('\nScritture vietate');
+    await prova('il partecipante NON modifica l\'evento (es. il video)', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://altro.esempio.it/live/playlist.m3u8' })));
+    await prova('il partecipante NON cambia il tipo di player', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { tipoPlayer: 'flusso' })));
+    await prova('il partecipante NON sostituisce l\'indirizzo del player di Azoto', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://ladro.esempio.it/player' })));
+    await prova('il gestore NON cambia il player dal browser (scrive solo il servizio)', () => assertFails(updateDoc(doc(gestore, 'eventi/napoli-2026'), { tipoPlayer: 'flusso' })));
+    await prova('il partecipante NON modifica il proprio profilo', () => assertFails(updateDoc(doc(anna, 'partecipanti/anna'), { stato: 'attivo', sessioneAttiva: null })));
+    await prova('il partecipante NON crea eventi', () => assertFails(setDoc(doc(anna, 'eventi/nuovo'), { titolo: 'x' })));
+    await prova('il partecipante NON prenota nomi utente', () => assertFails(setDoc(doc(anna, 'nomiUtente/zzz'), { uid: 'anna' })));
+    await prova('il partecipante NON si toglie il blocco del dispositivo', () => assertFails(setDoc(doc(dario, 'sessioni/dario'), { stato: 'attivo', sessioneAttiva: null })));
+    await prova('il gestore NON scrive dal browser', () => assertFails(updateDoc(doc(gestore, 'eventi/napoli-2026'), { stato: 'terminato' })));
+    for (const c of ['ascolti', 'ascoltiCache']) {
+        await prova('il partecipante NON crea ' + c, () => assertFails(setDoc(doc(anna, c + '/milano-2026'), { dati: '{}' })));
+        await prova('il partecipante NON modifica ' + c + ' (es. per gonfiare i propri minuti)', () => assertFails(updateDoc(doc(anna, c + '/napoli-2026'), { persone: '{"anna":[[29800000,29809999]]}', dati: '{}' })));
+        await prova('il partecipante NON cancella ' + c, () => assertFails(deleteDoc(doc(anna, c + '/napoli-2026'))));
+        await prova('il gestore NON crea ' + c + ' dal browser', () => assertFails(setDoc(doc(gestore, c + '/milano-2026'), { dati: '{}' })));
+        await prova('il gestore NON modifica ' + c + ' dal browser', () => assertFails(updateDoc(doc(gestore, c + '/napoli-2026'), { curva: '[]', dati: '{}' })));
+        await prova('il gestore NON cancella ' + c + ' dal browser', () => assertFails(deleteDoc(doc(gestore, c + '/napoli-2026'))));
+    }
+    // il registro di «Torna alla fase iniziale»: lo scrive solo il servizio, e nessuno lo cancella dal browser
+    await prova('il gestore NON annota azzeramenti dal browser', () => assertFails(setDoc(doc(gestore, 'azzeramenti/a2'), { idEvento: 'napoli-2026', chi: 'gestore@prova.it' })));
+    await prova('il gestore NON modifica il registro degli azzeramenti', () => assertFails(updateDoc(doc(gestore, 'azzeramenti/a1'), { chi: 'altro@prova.it' })));
+    await prova('il gestore NON cancella il registro degli azzeramenti', () => assertFails(deleteDoc(doc(gestore, 'azzeramenti/a1'))));
+    await prova('il partecipante NON cancella il registro degli azzeramenti', () => assertFails(deleteDoc(doc(anna, 'azzeramenti/a1'))));
+    // i promemoria programmati: li programma, modifica e annulla solo il servizio (con i controlli e il registro)
+    await prova('il gestore NON programma un promemoria dal browser', () => assertFails(setDoc(doc(gestore, 'programmate/p2'), { idEvento: 'napoli-2026', quando: Timestamp.now(), stato: 'programmata', oggetto: 'x', titolo: 'x', nota: '<b>x</b>' })));
+    await prova('il gestore NON modifica un promemoria programmato dal browser', () => assertFails(updateDoc(doc(gestore, 'programmate/p1'), { nota: 'Entra da https://truffa.example' })));
+    await prova('il gestore NON annulla un promemoria cancellandolo dal browser', () => assertFails(deleteDoc(doc(gestore, 'programmate/p1'))));
+    await prova('il partecipante NON crea un promemoria programmato', () => assertFails(setDoc(doc(anna, 'programmate/p3'), { idEvento: 'napoli-2026', stato: 'programmata' })));
+    await prova('il partecipante NON modifica un promemoria programmato', () => assertFails(updateDoc(doc(anna, 'programmate/p1'), { stato: 'annullata' })));
+    await prova('senza accesso NON si scrive un promemoria programmato', () => assertFails(setDoc(doc(anonimo, 'programmate/p4'), { stato: 'programmata' })));
+    // cancellare la propria presenza (per togliere i minuti o rifarsi un «nuovo collegamento») resta vietato: la cancella solo il servizio
+    await prova('il partecipante NON cancella la propria presenza', () => assertFails(deleteDoc(doc(anna, 'presenze/napoli-2026_anna'))));
+
+    console.log('\nPresenza: creazione');
+    const base = () => ({ uid: 'anna', idEvento: 'napoli-2026', primo: serverTimestamp(), ultimo: serverTimestamp(), secondi: 0, collegamenti: 1, sessione: 's1' });
+    await prova('NON con i secondi gia\' pieni', () => assertFails(setDoc(doc(anna, 'presenze/napoli-2026_anna'), Object.assign(base(), { secondi: 600 }))));
+    await prova('NON con l\'orario scelto dal browser', () => assertFails(setDoc(doc(anna, 'presenze/napoli-2026_anna'), Object.assign(base(), { primo: secondiFa(3600), ultimo: secondiFa(3600) }))));
+    await prova('NON a nome di un altro', () => assertFails(setDoc(doc(anna, 'presenze/napoli-2026_bruno'), Object.assign(base(), { uid: 'bruno' }))));
+    await prova('NON con un identificativo che non corrisponde', () => assertFails(setDoc(doc(anna, 'presenze/qualcosa'), base())));
+    await prova('NON per un evento a cui non e\' iscritto', () => assertFails(setDoc(doc(anna, 'presenze/milano-2026_anna'), Object.assign(base(), { idEvento: 'milano-2026' }))));
+    await prova('NON con campi in piu\'', () => assertFails(setDoc(doc(anna, 'presenze/napoli-2026_anna'), Object.assign(base(), { nome: 'x' }))));
+    await prova('NON con una sessione troppo lunga', () => assertFails(setDoc(doc(anna, 'presenze/napoli-2026_anna'), Object.assign(base(), { sessione: 'x'.repeat(41) }))));
+    await prova('NON da un account disattivato', () => assertFails(setDoc(doc(carla, 'presenze/napoli-2026_carla'), Object.assign(base(), { uid: 'carla' }))));
+    await prova('NON da un dispositivo soppiantato (un solo dispositivo)', () => assertFails(setDoc(doc(dario, 'presenze/napoli-2026_dario'), Object.assign(base(), { uid: 'dario', sessione: 'computer' }))));
+    await prova('NON per un evento tolto (eventiTolti), anche con il token di prima', () => assertFails(setDoc(doc(elisa, 'presenze/napoli-2026_elisa'), Object.assign(base(), { uid: 'elisa' }))));
+    await prova('SI dal dispositivo attivo (un solo dispositivo)', () => assertSucceeds(setDoc(doc(dario, 'presenze/napoli-2026_dario'), Object.assign(base(), { uid: 'dario', sessione: 'telefono' }))));
+    await prova('SI il primo segnale corretto', () => assertSucceeds(setDoc(doc(anna, 'presenze/napoli-2026_anna'), base())));
+    await prova('NON leggere il proprio segnale', () => assertFails(getDoc(doc(anna, 'presenze/napoli-2026_anna'))));
+    await prova('NON cancellare il proprio segnale', () => assertFails(deleteDoc(doc(anna, 'presenze/napoli-2026_anna'))));
+
+    console.log('\nPresenza: segnali successivi');
+    async function presenza(ultimoSecondiFa, extra) {
+        await semina(db => setDoc(doc(db, 'presenze/napoli-2026_anna'), Object.assign({
+            uid: 'anna', idEvento: 'napoli-2026', primo: secondiFa(3600), ultimo: secondiFa(ultimoSecondiFa),
+            secondi: 600, collegamenti: 2, sessione: 's1'
+        }, extra || {})));
+    }
+    const rif = () => doc(anna, 'presenze/napoli-2026_anna');
+    await presenza(10);
+    await prova('NON un segnale 10 s dopo il precedente (uno ogni 50 s)', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    await presenza(61);
+    await prova('SI "continua" dopo 61 s, +60 secondi', () => assertSucceeds(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    await presenza(61);
+    await prova('SI "continua" senza aggiungere secondi (evento non in onda)', () => assertSucceeds(updateDoc(rif(), { ultimo: serverTimestamp() })));
+    await presenza(55);
+    await prova('NON +60 secondi dopo soli 55 s (i minuti non si gonfiano)', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    await presenza(55);
+    await prova('SI "continua" dopo 55 s senza aggiungere secondi', () => assertSucceeds(updateDoc(rif(), { ultimo: serverTimestamp() })));
+    await semina(db => updateDoc(doc(db, 'eventi/napoli-2026'), { stato: 'programmato' }));
+    await presenza(61);
+    await prova('NON +60 secondi mentre l\'evento non e\' in onda', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    await presenza(61);
+    await prova('SI "continua" a evento non in onda, senza secondi', () => assertSucceeds(updateDoc(rif(), { ultimo: serverTimestamp() })));
+    await semina(db => updateDoc(doc(db, 'eventi/napoli-2026'), { stato: 'in_onda' }));
+    await presenza(61);
+    await prova('NON +120 secondi in un colpo', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(120) })));
+    await presenza(61);
+    await prova('NON un orario scelto dal browser', () => assertFails(updateDoc(rif(), { ultimo: Timestamp.now(), secondi: increment(60) })));
+    await presenza(200);
+    await prova('NON contare il tempo a pagina chiusa (200 s senza segnali)', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    await presenza(200);
+    await prova('SI "nuovo collegamento" dopo una pausa', () => assertSucceeds(updateDoc(rif(), { ultimo: serverTimestamp(), collegamenti: increment(1), sessione: 's2' })));
+    await presenza(61);
+    await prova('NON "nuovo collegamento" con i secondi aumentati', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), collegamenti: increment(1), secondi: increment(60) })));
+    await presenza(61);
+    await prova('NON "continua" cambiando sessione', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), sessione: 's9' })));
+    await presenza(61);
+    await prova('NON riscrivere il primo collegamento', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), primo: secondiFa(99999) })));
+    await presenza(61);
+    await prova('NON spostare il segnale su un altro evento', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), idEvento: 'milano-2026' })));
+    await presenza(61);
+    await prova('NON azzerare i minuti', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: 0 })));
+    await prova('NON aggiornare il segnale di un altro', () => assertFails(updateDoc(doc(bruno, 'presenze/napoli-2026_anna'), { ultimo: serverTimestamp() })));
+
+    console.log('\nPresenza: disattivazione e secondo dispositivo durante la diretta');
+    await semina(db => setDoc(doc(db, 'presenze/napoli-2026_dario'), {
+        uid: 'dario', idEvento: 'napoli-2026', primo: secondiFa(600), ultimo: secondiFa(61), secondi: 480, collegamenti: 1, sessione: 'telefono'
+    }));
+    await semina(db => updateDoc(doc(db, 'sessioni/dario'), { sessioneAttiva: 'computer' }));
+    await prova('il telefono soppiantato dal computer NON scrive piu\'', () => assertFails(updateDoc(doc(dario, 'presenze/napoli-2026_dario'), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    await prova('il computer (nuova sessione) scrive', () => assertSucceeds(updateDoc(doc(dario, 'presenze/napoli-2026_dario'), { ultimo: serverTimestamp(), collegamenti: increment(1), sessione: 'computer' })));
+    // il segnale di prima dell'annullamento: la pagina era aperta
+    await semina(db => setDoc(doc(db, 'presenze/napoli-2026_elisa'), {
+        uid: 'elisa', idEvento: 'napoli-2026', primo: secondiFa(600), ultimo: secondiFa(61), secondi: 480, collegamenti: 1, sessione: 's1'
+    }));
+    await prova('una persona tolta dall\'evento durante la diretta NON scrive piu\' il suo segnale (token di prima)', () => assertFails(updateDoc(doc(elisa, 'presenze/napoli-2026_elisa'), { ultimo: serverTimestamp(), secondi: increment(60) })));
+    // la controprova: e' proprio eventiTolti che chiude (tornata nell'evento, tutto passa di nuovo)
+    await semina(db => updateDoc(doc(db, 'sessioni/elisa'), { eventiTolti: [] }));
+    await prova('controprova: tornata nell\'evento (Napoli fuori da eventiTolti), lo stesso segnale passa e l\'evento si legge', async () => {
+        await assertSucceeds(updateDoc(doc(elisa, 'presenze/napoli-2026_elisa'), { ultimo: serverTimestamp(), secondi: increment(60) }));
+        await assertSucceeds(getDoc(doc(elisa, 'eventi/napoli-2026')));
+    });
+    await semina(db => updateDoc(doc(db, 'sessioni/anna'), { stato: 'disattivato' }));
+    await presenza(61);
+    await prova('un account disattivato durante la diretta NON scrive piu\'', () => assertFails(updateDoc(rif(), { ultimo: serverTimestamp(), secondi: increment(60) })));
+
+    await env.cleanup();
+    console.log('\n' + verdi + ' verdi, ' + rossi + ' rossi');
+    process.exit(rossi ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

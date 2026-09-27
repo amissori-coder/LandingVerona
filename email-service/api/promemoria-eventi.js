@@ -6,10 +6,12 @@
    19). I promemoria sono posta della sera, e chi si iscrive durante il
    giorno riceve il suo la sera stessa, al piu' tardi entro le
    ventiquattro ore.
-   Alcuni promemoria partono la mattina: ogni record porta la sua ora
-   (`ora`: 7, 8 o 20). I giri delle 7 (api/promemoria-eventi-mattina.js) e
-   delle 8 (api/promemoria-eventi-ore8.js) spediscono solo quelli della
-   loro ora; quello delle 20 il resto, il benvenuto e i giorni passati.
+   Alcuni promemoria partono ad altre ore: ogni record porta la sua ora
+   (`ora`: 7, 8, 11, 20 o 22). I giri delle 7 (api/promemoria-eventi-mattina.js),
+   delle 8 (api/promemoria-eventi-ore8.js), delle 11
+   (api/promemoria-eventi-ore11.js) e delle 22 (api/promemoria-eventi-ore22.js)
+   spediscono solo quelli della loro ora; quello delle 20 il resto, il
+   benvenuto e i giorni passati.
 
    Legge archivio/promemoriaEventi - i promemoria che chi organizza ha
    CONFERMATO dall'area riservata, con la mail gia' composta - e per
@@ -199,9 +201,9 @@ function fineEvento(rec) {
     const t = Date.parse(g + 'T23:59:59+02:00');
     return isNaN(t) ? 0 : t;
 }
-/* L'ora di partenza di un promemoria: `ora` sul record (7, 8, 20 o 22); i record
+/* L'ora di partenza di un promemoria: `ora` sul record (7, 8, 11, 20 o 22); i record
    confermati prima che ci fosse, 7 se sono della mattina dell'evento, se no 20. */
-const ORE_GIRO = [7, 8, 20, 22];
+const ORE_GIRO = [7, 8, 11, 20, 22];
 function oraDi(rec) {
     const o = Number(rec && rec.ora);
     if (ORE_GIRO.indexOf(o) >= 0) return o;
@@ -388,7 +390,7 @@ module.exports = async (req, res, opz) => {
     const auth = String((req.headers || {})['authorization'] || '');
     if (!segreto || auth !== 'Bearer ' + segreto) { res.status(401).json({ ok: false, msg: 'Non autorizzato' }); return; }
 
-    /* Tre giri al giorno, uno per ora di partenza: alle 7, alle 8 e alle 20
+    /* Un giro per ora di partenza: alle 7, alle 8, alle 11, alle 20 e alle 22
        (ora di Roma). Ognuno spedisce solo i promemoria della sua ora; il
        benvenuto e i promemoria rimasti indietro li guarda quello delle 20. */
     const giroOra = ORE_GIRO.indexOf(Number(opz && opz.ora)) >= 0 ? Number(opz.ora) : (opz && opz.mattina ? 7 : 20);

@@ -50,6 +50,7 @@ Serve per generare i link di reimpostazione password.
 | `SMTP_FROM_EMAIL` | `noreply@nextgenerationbusiness.it` |
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
+| `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
 > bloccato gli invii con un `525 5.7.13` (protezione anti-abuso della casella:
@@ -532,6 +533,7 @@ d'ambiente non ne parte nessuno.
 | `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 | `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo i promemoria con `ora: 7` (la mattina dell'evento) |
 | `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre e 1° ottobre); benvenuto e giorni passati restano al giro delle 20 |
+| `/api/promemoria-eventi-ore11` | `0 9 * * *` — alle 11 di Roma (le 10 con l'ora solare) | spedisce solo i promemoria con `ora: 11` (per Napoli l'ultimo giorno per prenotare gli incontri B2B, il 30 settembre) |
 | `/api/promemoria-eventi-ore22` | `0 20 * * *` — alle 22 di Roma (le 21 con l'ora solare) | spedisce solo i promemoria con `ora: 22` (per Napoli la prima mail del 24 settembre) |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
@@ -1112,6 +1114,139 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
+## Conferma dell'indirizzo email (`lib/conferma-email.js`)
+
+La mail di conferma dell'iscrizione (`confermaSito` in `lib/mail-ngb.js`, e la
+gemella composta dall'area riservata in `newsletter-format.js` per le schede
+inserite a mano) porta **in cima** un pulsante "Conferma il tuo indirizzo
+email". Chi lo tocca apre `/conferma_email/?d=<idDoc>&t=<firma>`; la pagina
+chiama il servizio e sulla scheda resta `emailConfermata: { quando, come }`.
+Nell'area riservata e' il **baffetto verde** accanto all'indirizzo, il
+riquadro "indirizzi confermati" in testa all'evento, e la voce "Rimanda la
+mail di conferma" nel menu della riga per chi non ce l'ha ancora.
+
+- **La firma** (`NL.firmaConfermaEmail`, `NL.linkConfermaEmail`): stesso
+  segreto degli altri collegamenti personali, contesto suo
+  (`conferma-email|<idDoc>`). Il token che conferma l'indirizzo non apre
+  `/completa_iscrizione/`, che scrive, e viceversa. Nessuna variabile nuova.
+- **`azione: "conferma-email"`** su `/api/iscrizione-nuova`, con `d` e `t`.
+  Firma cattiva: `403` e nessuna lettura. Scrive `emailConfermata: { quando,
+  come: 'mail' }` con merge, **idempotente** (la seconda apertura risponde
+  `gia: true` con la data della prima e non riscrive), poi alza la revisione.
+  Risponde solo `{ ok, gia, quando, nome, evento }`: mai email o telefono, la
+  pagina e' raggiungibile da chiunque abbia il collegamento. Il freno e' per
+  **scheda** (20 in 10 minuti), non per IP: dieci persone dello stesso
+  ufficio confermano nello stesso minuto.
+- **Perche' la pagina conferma con una POST dallo script** e non aprendosi:
+  gli antispam aziendali (Safe Links di Outlook, i proxy di sicurezza)
+  visitano ogni collegamento della mail prima della persona, ma non eseguono
+  JavaScript. Se bastasse aprire l'indirizzo, ogni iscritto risulterebbe
+  confermato da un robot.
+- **Il pregresso.** Chi era iscritto prima che la mail avesse il pulsante -
+  in sala, aderente, sponsor o online - e' confermato d'ufficio e non riceve
+  nessuna mail: `azione: "conferma-email-pregresso"` su `/api/presenze`
+  (**solo amministratore**, con `filtro` = la parola dell'evento, es.
+  `napoli`) scrive `{ come: 'pregresso', da }` su tutte le schede dell'evento
+  senza il campo, a lotti da 400, e salta chi lo ha gia' - dalla mail o da un
+  lancio precedente. Nell'area riservata e' il pulsante **"Segna confermati
+  gli iscritti finora"**, che compare finche' c'e' qualcuno senza baffetto.
+  Le righe del foglio Google storico non hanno una scheda: `/api/iscrizioni`
+  le restituisce gia' come pregresso. Il suggerimento sul baffetto dice
+  quale dei due e'.
+- **L'ORDINE CONTA: prima si pubblica il servizio con la mail nuova, poi si
+  preme il pulsante del pregresso su ogni evento aperto** (Napoli in testa).
+  Al contrario chi si iscrive nel mezzo riceverebbe la mail E verrebbe
+  segnato d'ufficio: non e' grave (chi clicca dopo resta "pregresso", il
+  campo c'e' gia'), ma e' un baffetto che dice meno del vero.
+- **La seconda mail: l'invito.** Alla prima conferma (non a quelle dopo) il
+  servizio spedisce una seconda mail: per chi e' in sala "Il tuo invito", con
+  l'**invito in PDF** allegato da esibire all'ingresso anche dal telefono
+  (`lib/pdf-invito.js`, stesso Foglio del PDF degli incontri B2B); per chi
+  segue online "Indirizzo confermato", senza allegato, con il promemoria del
+  collegamento. Giorno, orario e sede stanno in `DETTAGLI_EVENTO` di
+  `lib/conferma-email.js`, per titolo del modulo. L'esito resta sulla scheda
+  in `mailInvito: { quando, ok, errore }`; se la posta e' giu' l'indirizzo
+  resta confermato e la pagina lo dice ("all'ingresso basta il tuo nome").
+  Da qui la mail di iscrizione dice "richiesta registrata", non "posto
+  riservato": l'iscrizione e' completa dopo il clic, e le pagine (sito, QR
+  al desk, cartello) lo spiegano nello stesso modo.
+- **`azione: "richiedi-conferma-email"`** su `/api/presenze` (tutti gli
+  abilitati agli Eventi): rispedisce la stessa mail dell'iscrizione dal
+  sito, composta dal servizio (il pulsante porta una firma che solo il
+  servizio conosce), una volta ogni 10 minuti per scheda; sulla scheda resta
+  `emailConfermaRimandata: { da, daNome, quando }`. A chi ha gia' confermato
+  risponde `gia: true` senza spedire.
+- **Le prove**: `node prove/conferma-email.prove.js` (Firestore finto).
+
+## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
+
+Il giorno del convegno al desk c'e' un cartello con un QR (lo produce
+`badge-napoli/cartello.js`). Chi arriva **senza essersi iscritto online** lo
+inquadra e apre `/p26/` dal proprio telefono: scrive l'email (o nome e
+cognome), e
+
+- se **risulta iscritto online**, con un tocco passa in sala e riceve per
+  mail l'invito in PDF da esibire all'ingresso;
+- se **risulta gia' in sala** (presenza, aderente, sponsor), si fa rimandare
+  una copia dell'invito;
+- se **non risulta**, compila il questionario - gli stessi campi del modulo
+  del sito - e segue la strada di tutti (conferma dell'indirizzo, poi
+  l'invito). La presenza la segna lo staff all'ingresso, con l'invito in mano.
+
+Due azioni sull'endpoint pubblico, piu' un caso dell'iscrizione normale:
+
+- `azione: "presenza-cerca"` con `email` e/o `nome` + `cognome`, `evento`
+  (`napoli-2026-10-02`), `chiave`. Cerca fra le schede dell'evento (archivio
+  condiviso di `lib/copia-iscrizioni.js`, cancellate escluse) prima per email
+  normalizzata, poi per nome e cognome senza accenti. Risponde **solo**
+  `{ ok, trovato, rif, nome, cognome, azienda, modalita, giaPresente, perNome }`:
+  mai email, telefono o identificativo. `rif` e' l'impronta
+  dell'identificativo, non l'identificativo (che contiene l'email): chi ha
+  cercato per nome non scopre con quale indirizzo si e' iscritta la persona.
+- `azione: "presenza-invito"` con `rif`, `evento`, `chiave`. Chi era iscritto
+  **online** passa in **presenza** (fra le presenze, dove la sezione vince
+  sulla scheda; la coda per la sala finisce; nota "In sala dal QR gg/mm hh:mm"
+  con la firma `da: "qr-desk"`); chi e' gia' in sala (presenza, aderenti,
+  sponsor) resta dov'e'. A tutti parte la mail **"Il tuo invito"** con il PDF
+  da esibire all'ingresso (`lib/conferma-email.js`, `spedisciInvito`), e
+  l'esito resta sulla scheda in `mailInvito`. Lo stato "presente" NON si
+  scrive: lo mette lo staff all'ingresso, con l'invito in mano. Risponde
+  `{ ok, trovato, spostato, invito, nome, cognome }`.
+- L'**iscrizione nuova** dal telefono e' il payload del sito con in piu'
+  `origine: "qr-desk"` e `chiave`: la scheda viene scritta in `presenza`,
+  senza coda, con `extra.Portale = "Desk (QR)"` (si legge nella colonna
+  Portale dell'elenco, e l'area riservata la conta nel riquadro "registrati al
+  desk"). Da li' segue la strada di tutti: mail "Richiesta di conferma", clic,
+  mail "Il tuo invito" con il PDF. Nessuna presenza scritta dalla pagina. Senza la chiave buona, un'iscrizione che si dichiara dal
+  desk e' un'iscrizione dal sito come le altre.
+
+**La chiave.** Le due azioni funzionano solo con `chiave` uguale a
+`PRESENZA_NAPOLI_CHIAVE` (confronto a tempo costante) e **solo dal 25 settembre al 3
+ottobre 2026** (fuso di Roma). Altrimenti rispondono `{ ok: true, trovato:
+false }` senza dire perche' e senza scrivere nulla: "passa in sala e mandami l'invito" non si
+deve poter fare da casa, e "questo indirizzo e' iscritto?" non deve diventare
+un modo per scoprire chi viene al convegno provando indirizzi. Senza la
+variabile impostata NON esiste una chiave buona: tutto resta spento. La
+chiave sta nel QR come frammento (`/p26/#k=...`), quindi non viaggia verso il
+server della pagina.
+
+**Il freno per IP e' un altro.** Tutta la sala esce dal wifi dell'hotel con
+un indirizzo solo: 8 richieste in 10 minuti le consumerebbero le prime tre
+persone in fila. Le richieste con la chiave buona hanno un freno loro (240 in
+10 minuti per IP), che ferma solo un telefono impazzito.
+
+**Le prove**: `node prove/accredito-desk.prove.js` (Firestore finto, niente
+da installare).
+
+**Il piano B**: senza rete al desk si usa la lista stampata (`badge-napoli`,
+`out/codici.csv`) e si segna a mano dall'area riservata dopo.
+
+**Il foglio Google non riceve piu' le iscrizioni di Napoli** (ne' dal sito ne'
+dal QR): era una copia, e a ogni riga nuova un automatismo agganciato al foglio
+spediva da solo altre due mail all'iscritto ("Manifestazione di interesse").
+Il servizio e' l'unica strada; gli altri moduli del sito scrivono sul foglio
+come prima.
+
 ## Incontri B2B
 
 **L'unita' e' l'AZIENDA, non la persona.** Un invito per impresa, un
@@ -1648,9 +1783,39 @@ non solo a video.
 **I TAVOLI DOPPI sono due tavoli.** Un orario di un tavolo ospita UNA
 prenotazione sola, quindi un argomento tenuto da due persone in parallelo ha
 due voci in `AREE_B2B` (`modello-231` e `modello-231-b`, `rating-legalita` e
-`rating-legalita-b`): ognuna con i suoi referenti, i suoi orari e le sue
-chiusure, cosi se uno dei due e sul palco l'altro continua a ricevere. Chi
-invita sceglie a quale dei due convocare l'impresa.
+`rating-legalita-b`, `merito-creditizio` e `desk-revilaw-b`, `finanza-agevolata`
+e `finanza-agevolata-b`): ognuna con i suoi
+referenti, i suoi orari e le sue chiusure, cosi se uno dei due e sul palco
+l'altro continua a ricevere. Chi invita sceglie a quale dei due convocare
+l'impresa. L'azienda invece vede **una voce sola con il doppio dei posti**:
+l'argomento e l'ora sono suoi, a quale dei due professionisti mandarla no.
+
+> **`desk-revilaw-b` e il secondo tavolo del MERITO CREDITIZIO**, non un desk
+> della segreteria: era nato cosi' ed e' stato convertito, perche' il merito
+> creditizio e l'argomento piu' richiesto e il desk interno ne serviva uno
+> solo. **L'identificativo non e stato cambiato**: e la chiave con cui il
+> tavolo viaggia fra invito, prenotazione e agenda, e riscriverlo avrebbe
+> staccato dal loro tavolo gli appuntamenti gia presi e le chiusure gia
+> decise. Per la stessa ragione la riga resta in fondo all'elenco e non accanto
+> al merito creditizio: l'ordine e quello con cui viaggiano le prenotazioni per
+> indice. E' il caso per cui `id` e `nome` sono due cose diverse. Il nome di
+> prima resta in `NOMI_STORICI`, perche' un invito partito mesi fa parla ancora
+> per nome.
+>
+> **In agenda quel tavolo va dato al referente giusto.** Il tavolo si attiva
+> quando gli si assegna un referente: se ci fosse rimasta la persona del desk
+> della segreteria, si ritroverebbe seduta a un tavolo di merito creditizio.
+
+
+> **`finanza-agevolata-b` e' un POSTO IN PIU', non un desk nuovo.** La richiesta
+> era "un altro slot per ogni orario sullo stesso tavolo": nel modello pero' un
+> orario di un tavolo tiene UNA prenotazione (`aree[tavolo][ora]` e' una casella
+> sola), quindi il secondo posto alle 10:00 e' per forza una seconda voce in
+> `AREE_B2B`, che si fonde con la prima nella stessa famiglia. Per l'azienda non
+> cambia niente: vede "Finanza agevolata" con due posti a ogni ora, e il nome
+> resta quello di sempre. Per chi organizza e' una riga in piu' in agenda, a cui
+> va dato **il referente che siede in quel secondo posto**: due imprese alla
+> stessa ora sono due persone, o una persona che ne riceve due insieme.
 
 **L'area invitata sta sulla SCHEDA, non nel collegamento**
 (`b2bInvito.aree` + `b2bInvito.eventoId`, scritti da `invita-b2b` con
@@ -3149,3 +3314,63 @@ Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
 `invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa
 a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
 **l'iscrizione resta valida**: e' informazione di servizio, non una condizione.
+
+## Diretta degli eventi (`/api/diretta-*`)
+
+Quattro funzioni e le loro librerie (`api/diretta-*.js`, `lib/diretta-*.js`)
+servono la nuova area `/diretta/`: accesso dei partecipanti con la propria
+**email** e la password generata dal servizio (nessun nome utente), gestione,
+stato pubblico "in onda" e un lavoro programmato ogni 5
+minuti (`/api/diretta-cron`: `maxDuration` 300 s, budget 240 s, lucchetto
+330 s). Usano un progetto Firebase **separato** (`ngb-eventi`) con la sua
+chiave, `DIRETTA_FIREBASE_SERVICE_ACCOUNT`, e un'app firebase-admin con nome
+proprio: non toccano l'app e i dati di queste funzioni, e le funzioni esistenti
+non sono cambiate. Condividono solo le variabili `SMTP_*` (Brevo),
+`APP_BASE_URL`, `ALLOWED_ORIGIN`, `CRON_SECRET` e `BREVO_API_KEY`, e
+`FIREBASE_SERVICE_ACCOUNT` **in sola lettura** per la riconciliazione (qui
+sotto). Tutto il resto (variabili nuove, passi di configurazione, prove, stime)
+sta in [`diretta/README.md`](../diretta/README.md).
+
+L'unico punto di contatto con le altre funzioni e' in `api/iscrizione-nuova.js`:
+per un'iscrizione `online` con email, **dopo** aver salvato la scheda e mandato
+la conferma, chiama `lib/diretta-iscrizione.js` (`dalModulo`, dentro un
+try/catch). Se sull'evento della diretta con la stessa pagina il gestore ha
+acceso "Invia subito la password a chi si iscrive dal modulo del sito"
+(`iscrizioniAutomatiche`), la persona riceve subito la password (o, se ha gia'
+un account, l'avviso "Sei iscritto anche a..."). Se la diretta non e'
+configurata non succede niente. Su Vercel la risposta del modulo non aspetta
+mai il lavoro della diretta (finisce dopo, con `waitUntil`): cosi' risponde
+nello stesso tempo per un indirizzo nuovo e per uno gia' iscritto. Il modulo
+passa anche l'IP del visitatore, per i limiti del modulo pubblico che la
+diretta tiene nel suo progetto (per rete e all'ora: vedi
+`DIRETTA_MODULO_RETE_ORA` e `DIRETTA_MODULO_ORA` in `diretta/README.md`).
+La conferma del sito per chi si iscrive `online` (`lib/mail-ngb.js`,
+`confermaSito`) dice che la password arrivera' con un'email a parte, senza
+date, e ricorda di guardare nello Spam.
+
+**Se la diretta non risponde.** La scheda del sito si salva prima di chiamare
+la diretta, quindi un intoppo della diretta non perde niente: il modulo di
+Napoli ripete da solo la chiamata a `api/iscrizione-nuova` (tre tentativi, dopo
+circa 3 e 10 secondi, solo per errori di rete, 5xx e 429; il foglio Google non
+cambia), e ogni 5 minuti `/api/diretta-cron` fa la **riconciliazione**
+(`lib/diretta-riconcilia.js`): per gli eventi con l'interruttore acceso rilegge
+le schede `online`, non annullate, arrivate da quando e' acceso, e da' account
+e password a chi il modulo non ha raggiunto (stessi limiti del modulo; chi e'
+gia' iscritto non riceve niente). Le schede le legge `lib/sito-iscrizioni.js`,
+l'unico file che apre il progetto dello studio per la diretta: in **sola
+lettura**, con la chiave `FIREBASE_SERVICE_ACCOUNT`, un'app firebase-admin con
+nome proprio (`sito-lettura`, non quella predefinita di queste funzioni) e una
+sola query su `iscrizioni` (un filtro di intervallo su `ricevuto`: indice
+automatico). Senza la chiave, o se la lettura fallisce, la riconciliazione
+salta e il resto del cron va avanti.
+
+**Annullare dal sito.** Nel flusso `completa-salva` (il collegamento della
+conferma), quando un posto `online` passa da attivo ad annullato
+(l'intestatario, o un altro posto dell'ordine con la sua email),
+`api/iscrizione-nuova.js` chiama `lib/diretta-iscrizione.js` (`dalSito`, dentro
+un try/catch, senza far aspettare la risposta su Vercel): la persona esce
+dall'evento della diretta (credenziali non ancora partite cancellate, una riga
+"da verificare" per il gestore). Non succede se la stessa persona ha un'altra
+scheda `online` attiva per la stessa pagina (si era iscritta due volte). Quando
+l'annullamento si toglie, la persona rientra (con l'interruttore acceso) o
+diventa una riga "da verificare" (con l'interruttore spento).

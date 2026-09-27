@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=20">
 
     <!-- Structured Data (JSON-LD): BusinessEvent -->
     <script type="application/ld+json">
@@ -178,6 +178,10 @@
                     <img src="assets/logo-revilaw-mark.png" alt="Revilaw" class="logo-mark-img" onerror="this.style.display='none'">
                 </a>
             </div>
+            <!-- Pillola "Diretta" accanto all'hamburger, FUORI dal menu a
+                 scomparsa: col menu chiuso (fino a 1199px) la diretta resta a
+                 un tocco. Stato e visibilita' da /assets/diretta-stato.js. -->
+            <a href="/diretta/" class="nav-pillola-diretta" id="navDirettaPillola" data-diretta-aperta hidden><span class="indicatore-live" hidden><span class="indicatore-live-punto" aria-hidden="true"></span>IN DIRETTA</span><span class="nav-diretta-testo">Diretta</span><span class="indicatore-pausa" hidden>in pausa</span></a>
             <button class="nav-toggle" id="navToggle" aria-label="Apri menu di navigazione">
                 <span></span>
                 <span></span>
@@ -191,6 +195,7 @@
                 <li><a href="#sede">Sede</a></li>
                 <li><a href="#partner">Organizzazione</a></li>
                 <li><a href="../assets/Brochure-Revilaw.pdf" download class="nav-brochure">Scarica la brochure</a></li>
+                <li data-diretta-aperta hidden><a href="/diretta/" class="nav-diretta" id="navDiretta"><span class="indicatore-live" hidden><span class="indicatore-live-punto" aria-hidden="true"></span>IN DIRETTA</span><span class="nav-diretta-testo">Diretta</span><span class="indicatore-pausa" hidden>in pausa</span></a></li>
                 <li><a href="#accreditamento" class="nav-cta">Save the date</a></li>
             </ul>
         </div>
@@ -270,6 +275,54 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Scarica il save the date
             </a>
+        </div>
+    </section>
+
+    <!-- Segui la diretta: l'accesso all'area della diretta (/diretta/).
+         Si entra con la propria email e la password che il servizio manda
+         via email agli iscritti online (nessuna data promessa: decide la gestione).
+         Quello che cambia con lo stato lo decide /assets/diretta-stato.js
+         (lettura solo il giorno dell'evento): l'indicatore rosso IN DIRETTA
+         (.indicatore-live) mentre si e' in onda, "In pausa"
+         (.indicatore-pausa) durante una pausa e, dopo la fine, il testo "La
+         diretta si e' conclusa" ([data-diretta-conclusa]) al posto
+         dell'invito e del pulsante ([data-diretta-aperta]). La sezione e le
+         due voci "Diretta" del menu partono nascoste (hidden) e le mostra
+         diretta-stato.js solo con la diretta accesa sul sito (PUBBLICA, o
+         ?diretta=prova in un browser di prova): cosi' con la diretta ancora
+         nascosta non compaiono nemmeno per un istante. -->
+    <section class="diretta-fascia" id="diretta" aria-labelledby="direttaTitolo" data-diretta-pubblica hidden>
+        <div class="container">
+            <div class="diretta-riquadro">
+                <div class="diretta-testo">
+                    <span class="diretta-occhiello">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 19.1a10 10 0 0 1 0-14.2"/><path d="M7.8 16.2a6 6 0 0 1 0-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4"/><path d="M19.1 4.9a10 10 0 0 1 0 14.2"/></svg>
+                        Diretta online &middot; 2 ottobre 2026
+                    </span>
+                    <h2 class="diretta-titolo" id="direttaTitolo"><span data-diretta-aperta>Segui la diretta</span><span data-diretta-conclusa hidden>La diretta si &egrave; conclusa</span></h2>
+                    <div data-diretta-aperta>
+                        <p>Venerd&igrave; 2 ottobre, dalle 9.00 alle 17.30, il convegno si segue anche online, in diretta, da computer, tablet o telefono.</p>
+                        <p>Gli <strong>iscritti online</strong> entrano con la <strong>propria email</strong> e la <strong>password ricevuta via email</strong>. Il giorno del convegno premi &laquo;Accedi alla diretta&raquo; e inseriscile: la pagina resta collegata anche se la chiudi e la riapri.</p>
+                    </div>
+                    <div data-diretta-conclusa hidden>
+                        <p>Grazie a tutti quelli che hanno seguito online il convegno di venerd&igrave; 2 ottobre.</p>
+                        <p>Per informazioni scrivi a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.</p>
+                    </div>
+                </div>
+                <div class="diretta-azione" data-diretta-aperta>
+                    <a href="/diretta/" class="btn-diretta" id="btnDirettaNapoli">
+                        <span class="indicatore-live" hidden><span class="indicatore-live-punto" aria-hidden="true"></span>IN DIRETTA</span>
+                        <span class="indicatore-pausa" hidden>In pausa</span>
+                        <span class="btn-diretta-testo">Accedi alla diretta</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                    <ul class="diretta-note">
+                        <li>Non trovi l&rsquo;email con la password? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></li>
+                        <li>Password dimenticata? La reimposti dalla pagina di accesso.</li>
+                        <li>Non ti sei ancora iscritto? <a href="#accreditamento">Iscriviti online</a></li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -940,7 +993,7 @@
                 <svg class="sala-esaurita-icona" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
                 <div class="sala-esaurita-testo">
                     <p class="sala-esaurita-titolo">Posti in sala esauriti &middot; Iscrizioni aperte per la diretta online</p>
-                    <p>La partecipazione <strong>in presenza</strong> non &egrave; pi&ugrave; disponibile: la sala ha raggiunto la capienza massima. &Egrave; per&ograve; possibile iscriversi per <strong>seguire l&rsquo;evento online, in diretta</strong>: compila il modulo qui sotto e nei giorni precedenti riceverai il collegamento e le istruzioni per assistere ai lavori.</p>
+                    <p>La partecipazione <strong>in presenza</strong> non &egrave; pi&ugrave; disponibile: la sala ha raggiunto la capienza massima. &Egrave; per&ograve; possibile iscriversi per <strong>seguire l&rsquo;evento online, in diretta</strong>: compila il modulo qui sotto. Nella diretta si entra con la propria email e la password ricevuta via email.</p>
                     <p class="sala-esaurita-coda">Chi si iscrive entra <strong>comunque in lista d&rsquo;attesa per la sala</strong>: se si liberano dei posti ti scriviamo, e decidi tu se venire di persona. Non devi fare altro, l&rsquo;iscrizione qui sotto basta.</p>
                 </div>
             </div>
@@ -1182,7 +1235,7 @@
                                 Invio in corso...
                             </span>
                         </button>
-                        <p class="form-footnote">Iscrizione per la partecipazione <strong>online in diretta</strong>, con inserimento in <strong>lista d’attesa</strong> per un posto in sala. Riceverai la conferma e, nei giorni precedenti l’evento, il collegamento per seguire i lavori.</p>
+                        <p class="form-footnote">Iscrizione per la partecipazione <strong>online in diretta</strong>, con inserimento in <strong>lista d’attesa</strong> per un posto in sala. Riceverai la conferma via email; nella diretta si entra con la propria email e la password ricevuta via email.</p>
                     </div>
                 </form>
                 <div id="formSuccess" class="form-success" style="display:none;">
@@ -1190,7 +1243,8 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     </div>
                     <h3>Richiesta inviata!</h3>
-                    <p>Grazie per il tuo interesse. La tua iscrizione per seguire l’evento di Napoli <strong>online in diretta</strong> è stata registrata: riceverai la conferma via email e, nei giorni precedenti, il collegamento per assistere ai lavori.</p>
+                    <p>Grazie per il tuo interesse. La tua richiesta per seguire l’evento di Napoli <strong>online in diretta</strong> è stata registrata. <strong>Controlla la posta:</strong> ti abbiamo mandato una email con il pulsante «Conferma il tuo indirizzo»; l’iscrizione è completa dopo quel clic. Nella diretta si entra con la propria email e la password che riceverai via email.</p>
+                    <p>Non trovi l’email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.</p>
                     <p>Sei anche in <strong>lista d’attesa per la sala</strong>: se si libera un posto ti scriviamo.</p>
                     <p class="success-detail">Ci colleghiamo il 2 ottobre 2026.</p>
                 </div>
@@ -1363,5 +1417,6 @@
     </footer>
 
     <script src="script.js"></script>
+    <script src="/assets/diretta-stato.js?v=20260927b" defer></script>
 </body>
 </html>

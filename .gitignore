@@ -13,3 +13,10 @@ badge-napoli/iscritti.csv
 scripts/backup/node_modules/
 scripts/backup/package-lock.json
 backup-uscita/
+
+# Prove della Diretta: dipendenze, risultati delle esecuzioni locali e
+# posta finta scritta dalle prove (niente dati veri, ma niente da versionare).
+diretta/prove/node_modules/
+diretta/prove/package-lock.json
+diretta/prove/risultati/
+diretta/firebase/*.log

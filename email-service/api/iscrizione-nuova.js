@@ -66,6 +66,15 @@ const CONTATTI = require('../lib/richieste-contatto');
    non fargli una funzione sua: chi conferma arriva da una pagina che non ha
    nient'altro da chiedere al servizio. */
 const CENE = require('../lib/cene-evento');
+/* L'accredito dal QR al desk, il giorno del convegno: chi arriva senza
+   iscrizione si registra dal telefono, chi ce l'ha si segna presente con un
+   tocco. Stesso genere di endpoint delle cene (pubblico, con freno per IP),
+   con in piu' la chiave stampata sul cartello: senza, non risponde nulla. */
+const DESK = require('../lib/accredito-desk');
+/* La conferma dell'indirizzo email dal pulsante nella mail di iscrizione:
+   azione pubblica, aperta dal collegamento firmato, con il freno per scheda
+   e non per IP (lib/conferma-email.js spiega perche'). */
+const CONFERMA = require('../lib/conferma-email');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -156,6 +165,24 @@ function troppiInvii(ip) {
     }
     return false;
 }
+/* --- il freno del desk ---
+   In sala centocinquanta telefoni escono dal wifi dell'hotel con UN indirizzo
+   IP: otto richieste in dieci minuti le consumerebbero le prime tre persone
+   in fila, e la quarta si vedrebbe respinta. Le azioni con la chiave del
+   cartello hanno percio' un freno loro, molto piu' largo, che serve solo a
+   fermare un telefono impazzito: la chiave e i giorni dell'evento fanno il
+   resto. */
+const RL_DESK_MAX = 240;
+const desk = new Map();
+function troppeDalDesk(ip) {
+    if (!ip) return false;
+    const ora = Date.now();
+    const elenco = (desk.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
+    if (elenco.length >= RL_DESK_MAX) { desk.set(ip, elenco); return true; }
+    elenco.push(ora);
+    desk.set(ip, elenco);
+    return false;
+}
 
 // testo ripulito e accorciato: niente campi enormi nel database
 function testo(v, max) {
@@ -202,6 +229,21 @@ function idDocumento(email, data, nome, cognome) {
     return base.replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
 }
 
+
+/* COM'E' ANDATA LA MAIL DI CONFERMA, scritto sulla scheda. Un invio che
+   fallisce finiva solo nei log del servizio, dove nessuno guarda: chi
+   organizza vedeva l'iscritto e basta, e chi si era iscritto aspettava una
+   mail che non sarebbe arrivata. Con `mailConferma` sulla scheda l'area
+   riservata puo' dire "mail non inviata" accanto all'indirizzo, con il
+   motivo che ha dato il server di posta. E' informazione, non condizione:
+   se questa scrittura fallisce l'iscrizione resta com'e'. */
+async function tracciaMail(db, idDoc, esito) {
+    try {
+        await db.collection('iscrizioni').doc(idDoc).set({
+            mailConferma: { quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200) }
+        }, { merge: true });
+    } catch (e) { /* la mail e' gia' partita o gia' fallita: qui non cambia niente */ }
+}
 
 /* Segna che i dati sono cambiati, cosi la lettura sa che deve rileggere. */
 async function segnaCambiamento(db) {
@@ -1009,7 +1051,23 @@ async function confermaPrenotazione(idDoc, scheda, tavoli) {
 const quandoInItalia = AGENDA.quandoInItalia;
 const nomeFileFoglio = AGENDA.nomeFileFoglio;
 
-async function completaIscrizione(azione, body, res) {
+/* Un'altra scheda ONLINE ancora attiva della stessa persona per lo stesso
+   evento (stessa email, stessa pagina, non annullata)? Ogni invio del
+   modulo e' una scheda a se' (l'identificativo porta la data e l'ora), e
+   chi si e' iscritto due volte riceve due conferme, ognuna con il suo
+   collegamento: annullarne una non vuol dire annullare l'iscrizione.
+   Un filtro di uguaglianza su un campo: l'indice automatico basta. */
+async function altraSchedaOnline(db, idDoc, email, pagina) {
+    if (!email) return false;
+    const snap = await db.collection('iscrizioni').where('email', '==', email).limit(50).get();
+    return snap.docs.some(d => {
+        if (d.id === idDoc) return false;
+        const x = d.data() || {};
+        return !x.annullato && x.modalita === 'online' && String(x.pagina || '') === pagina;
+    });
+}
+
+async function completaIscrizione(azione, body, res, ip) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
     if (!idDoc || !token || !NL.firmaCompletaValida(idDoc, token)) {
@@ -1162,6 +1220,56 @@ async function completaIscrizione(azione, body, res) {
     await batch.commit();
     await segnaCambiamento(db);
 
+    /* La diretta degli eventi (progetto Firebase SEPARATO, tutto in
+       lib/diretta-iscrizione.js, dalSito). Un posto ONLINE annullato da
+       qui esce da solo dall'evento della diretta (niente piu' accesso,
+       credenziali non ancora partite cancellate, una riga per il gestore);
+       un posto a cui si toglie l'annullamento ci rientra, se sull'evento
+       e' acceso l'interruttore delle iscrizioni dal modulo (e la password
+       parte subito solo se quella scheda era gia' confermata con il clic,
+       altrimenti al clic), altrimenti diventa una riga «da verificare» per
+       il gestore.
+       Vale per l'intestatario (la scheda e' "online") e, nello stesso
+       ordine online, per gli altri posti che hanno un'email. Solo quando
+       lo stato CAMBIA (attivo -> annullato, annullato -> attivo): chi
+       rimanda il modulo senza cambiare niente non tocca la diretta. Chi ha
+       un'altra scheda online attiva per la stessa pagina (si e' iscritto
+       due volte) non si ritira. Mai al posto del resto: dentro un
+       try/catch, e su Vercel la risposta non aspetta la diretta
+       (waitUntil). */
+    if (scheda.modalita === 'online') {
+        try {
+            const pagina = String(scheda.pagina || '');
+            // l'indirizzo confermato DALLA PERSONA con il pulsante della mail (non d'ufficio)
+            const cliccata = s => !!(s && s.emailConfermata && typeof s.emailConfermata === 'object' && s.emailConfermata.quando && s.emailConfermata.come === 'mail');
+            const azioni = [];
+            const eraAnnullato = !!scheda.annullato;
+            if (scheda.email && !eraAnnullato && posto1Annullato) {
+                azioni.push({ tipo: 'annullata', id: idDoc, email: String(scheda.email), nome: String(scheda.nome || ''), cognome: String(scheda.cognome || ''), azienda: String(scheda.azienda || '') });
+            } else if (scheda.email && eraAnnullato && !posto1Annullato) {
+                const chi = primo && !primo.annulla ? primo : scheda;
+                azioni.push({ tipo: 'riattivata', id: idDoc, email: String(scheda.email), nome: String(chi.nome || ''), cognome: String(chi.cognome || ''), azienda: String(chi.azienda || ''), confermata: cliccata(scheda) });
+            }
+            for (let i = 2; i <= nOrdine; i++) {
+                const prima = figliAttuali[i - 2];
+                const p = posti[i - 1];
+                if (p && p.annulla && prima && !prima.annullato && prima.email) {
+                    azioni.push({ tipo: 'annullata', id: idDoc + '~p' + i, email: String(prima.email), nome: String(prima.nome || ''), cognome: String(prima.cognome || ''), azienda: String(prima.azienda || '') });
+                } else if (p && !p.annulla && prima && prima.annullato && p.email) {
+                    azioni.push({ tipo: 'riattivata', id: idDoc + '~p' + i, email: p.email, nome: p.nome, cognome: p.cognome, azienda: p.azienda, confermata: cliccata(prima) });
+                }
+            }
+            const perDiretta = [];
+            for (const a of azioni) {
+                if (a.tipo === 'annullata' && await altraSchedaOnline(db, a.id, a.email, pagina)) continue;
+                perDiretta.push({ tipo: a.tipo, email: a.email, nome: a.nome, cognome: a.cognome, azienda: a.azienda, pagina: pagina, confermata: a.confermata === true });
+            }
+            if (perDiretta.length) await require('../lib/diretta-iscrizione').dalSito(perDiretta, { ip: ip });
+        } catch (e) {
+            console.error('Diretta: annullamento o riattivazione non riusciti:', String((e && e.message) || e).replace(/[^\s/@'"]+@[^\s/'"]+/g, '<email>').slice(0, 200));
+        }
+    }
+
     /* Riepilogo e mail di conferma delle variazioni, con lo stesso collegamento
        per modificare o annullare ancora. Se l'invio fallisce le modifiche
        restano salvate: la mail e' una cortesia, non una condizione. */
@@ -1217,6 +1325,8 @@ module.exports = async (req, res) => {
            cambiare idea. Li' il freno e' un altro, per singola scheda. */
         const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva',
             'b2b-slot-prenota', 'b2b-slot-richiedi',
+            // la conferma dell'indirizzo: firmata, e con un freno suo per scheda
+            'conferma-email',
             // il collegamento d'azienda ce l'hanno in piu' persone dello stesso
             // ufficio: a maggior ragione qui il freno per indirizzo IP se lo
             // mangerebbero fra loro
@@ -1228,14 +1338,24 @@ module.exports = async (req, res) => {
            dire che tre persone dello stesso studio, aprendo e richiudendo la
            pagina, si mangiano gli invii veri di tutti gli altri. */
         const soloLettura = String(body.azione || '') === 'cena-leggi';
-        if (!conFirma && !soloLettura && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+        /* Il desk del convegno: le due azioni con la chiave del cartello e
+           l'iscrizione compilata li' dal telefono hanno il freno largo, perche'
+           tutta la sala esce da un indirizzo IP solo. Senza chiave buona
+           un'iscrizione che si dichiara "dal desk" e' un modulo come un altro,
+           e paga il freno di tutti. */
+        const azioneDesk = String(body.azione || '') === 'presenza-cerca' || String(body.azione || '') === 'presenza-invito';
+        const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
+        if (dalDesk) {
+            if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
+        } else if (!conFirma && !soloLettura && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
 
         // completamento dei dati (dal collegamento personale nella mail): altra
         // azione, stessa funzione. I form del sito non mandano "azione", quindi
         // per loro non cambia niente.
         const azione = String(body.azione || '');
         if (azione === 'completa-leggi' || azione === 'completa-salva') {
-            await completaIscrizione(azione, body, res);
+            // l'IP serve solo alla diretta, per i limiti del modulo di chi torna iscritto
+            await completaIscrizione(azione, body, res, ip);
             return;
         }
         if (azione === 'b2b-leggi' || azione === 'b2b-salva'
@@ -1290,6 +1410,29 @@ module.exports = async (req, res) => {
             const cred2 = leggiServiceAccount();
             initAdmin(cred2);
             const r = await CENE.ricevi(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* Il desk del convegno. "presenza-cerca" dice se chi ha inquadrato il
+           QR e' gia' iscritto (nome, cognome e azienda, niente altro);
+           "presenza-invito" porta in sala chi era online e manda l'invito in
+           PDF. Tutte e due rispondono "non trovato" a chi non ha la chiave
+           del cartello o prova fuori dai giorni dell'evento: la ragione sta
+           in lib/accredito-desk.js. */
+        if (azione === 'conferma-email') {
+            const cred4 = leggiServiceAccount();
+            initAdmin(cred4);
+            // l'IP serve solo alla diretta, per i limiti del modulo (la password parte dopo la conferma)
+            const r = await CONFERMA.conferma(admin.firestore(), body, { ip: ip });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        if (azione === 'presenza-cerca' || azione === 'presenza-invito') {
+            const cred3 = leggiServiceAccount();
+            initAdmin(cred3);
+            const r = azione === 'presenza-cerca'
+                ? await DESK.cerca(admin.firestore(), body)
+                : await DESK.invito(admin.firestore(), body);
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -1412,11 +1555,20 @@ module.exports = async (req, res) => {
             scheda.listaAttesa = true;
         }
 
+        /* Compilata dal telefono al desk, con la chiave del cartello: viene
+           per il convegno, quindi in presenza e senza coda, e nell'elenco si
+           legge da dove viene (colonna "Portale"). La presenza la segna lo
+           staff all'ingresso, con l'invito in mano. Dichiararsi "dal desk"
+           senza la chiave non cambia nulla: e' un'iscrizione dal sito. */
+        const accreditoDesk = dalDesk;
+        if (accreditoDesk) DESK.completaScheda(scheda);
+
         const idDoc = idDocumento(email, data, nome, cognome);
         await admin.firestore().collection('iscrizioni')
             .doc(idDoc)
             .set(scheda, { merge: true });
         await segnaCambiamento(admin.firestore());
+
 
         /* Il ritorno verso l'elenco delle aziende: la scheda dell'azienda
            passa a "iscritta" e si tiene chi si e' registrato. Se qualcosa qui
@@ -1455,13 +1607,42 @@ module.exports = async (req, res) => {
                         pagina: pagina, data: data, modalita: scheda.modalita || '',
                         listaAttesa: scheda.listaAttesa === true
                     },
-                    NL.linkCompleta(idDoc));
+                    NL.linkCompleta(idDoc),
+                    // il pulsante "conferma il tuo indirizzo", in cima alla mail
+                    NL.linkConfermaEmail(idDoc));
                 await trasporto().sendMail({
                     from: mittenteMail(), to: email,
                     subject: m.oggetto, text: m.testo, html: m.html
                 });
+                await tracciaMail(admin.firestore(), idDoc, { ok: true });
             } catch (e) {
-                console.error('Conferma iscrizione dal sito non inviata:', String((e && e.message) || e).slice(0, 200));
+                const motivo = String((e && e.message) || e).slice(0, 200);
+                console.error('Conferma iscrizione dal sito non inviata:', motivo);
+                await tracciaMail(admin.firestore(), idDoc, { ok: false, errore: motivo });
+            }
+        }
+
+        /* La diretta degli eventi (progetto Firebase SEPARATO, tutto in
+           lib/diretta-iscrizione.js): per chi si iscrive "online", se il
+           gestore ha acceso l'interruttore sull'evento con questa pagina, si
+           crea l'account della diretta; la password parte DOPO, quando la
+           persona conferma il suo indirizzo con il pulsante della mail
+           (lib/conferma-email.js). Arriva dopo la scheda e la conferma, mai
+           al loro posto: se la diretta non e' configurata o qualcosa va
+           storto l'iscrizione resta valida e la risposta e' quella di sempre.
+           Su Vercel il gancio non aspetta il lavoro della diretta (finisce
+           dopo, con waitUntil): la risposta arriva nello stesso tempo per un
+           indirizzo nuovo e per uno gia' iscritto, e non dice niente di chi
+           ha gia' un account. L'IP serve ai limiti del modulo pubblico (per
+           rete), che la diretta tiene nel suo progetto. */
+        if (scheda.modalita === 'online' && email) {
+            try {
+                await require('../lib/diretta-iscrizione').dalModulo({
+                    email: email, nome: nome, cognome: cognome, azienda: scheda.azienda,
+                    pagina: pagina, percorso: testo(body.percorso, 300), ip: ip
+                });
+            } catch (e) {
+                console.error('Diretta: iscrizione dal modulo non riuscita:', String((e && e.message) || e).replace(/[^\s/@'"]+@[^\s/'"]+/g, '<email>').slice(0, 200));
             }
         }
 

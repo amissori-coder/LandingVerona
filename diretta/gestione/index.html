@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- La pagina non esegue nessuno script scritto qui dentro: tutto sta in
+         file .js (lo impone la regola qui sotto). La regola dice al browser da
+         dove puo' caricare codice, stili, font e dati: se un giorno un nome o
+         un'azienda contenessero del codice, il browser si rifiuterebbe di
+         eseguirlo. Il video arriva solo dalla web TV Azoto: frame-src ammette
+         SOLO il suo player (https://cdn.azotosolutions.com), per l'anteprima
+         del player Azoto; media-src e connect-src aperti agli indirizzi https
+         servono all'anteprima del flusso diretto (il flusso HLS/DASH letto
+         dal player, la prova del link dal browser: il server del flusso di
+         Azoto non si conosce ancora), worker-src blob: a hls.js. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <title>Gestione della diretta | Next Generation Business</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0A2844">
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
+         senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
+    <link rel="stylesheet" href="gestione.css?v=20260927e">
+</head>
+<body data-vista="caricamento">
+    <a class="salta" href="#principale">Vai al contenuto</a>
+
+    <!-- ======== CARICAMENTO ======== -->
+    <div id="vista-caricamento" class="vista-piena" role="status">
+        <span class="rotella" aria-hidden="true"></span>
+        <span>Caricamento della gestione…</span>
+    </div>
+
+    <!-- ======== MESSAGGIO (configurazione mancante, browser vecchio) ======== -->
+    <div id="vista-messaggio" class="vista-piena" hidden>
+        <div class="carta-messaggio" role="alert">
+            <h1 id="messaggio-titolo">Gestione non disponibile</h1>
+            <p id="messaggio-testo"></p>
+            <button type="button" id="btn-messaggio-riprova" class="btn btn-primario" hidden>Riprova</button>
+        </div>
+    </div>
+
+    <!-- ======== ACCESSO DEI GESTORI ======== -->
+    <main id="vista-accesso" class="accesso" hidden>
+        <div class="accesso-carta">
+            <div class="accesso-testata">
+                <img src="/assets/logo-revilaw-bianco.png" alt="Revilaw S.p.A." width="148" height="46">
+                <p class="accesso-occhiello">Next Generation Business</p>
+                <h1>Gestione della diretta</h1>
+            </div>
+            <!-- Niente autocomplete="off": il gestore password del browser deve
+                 poter proporre e compilare la coppia email + password. -->
+            <form id="form-gestore" class="accesso-corpo" novalidate>
+                <div class="campo">
+                    <label for="gestore-email">Email</label>
+                    <input type="email" id="gestore-email" name="email" autocomplete="username" inputmode="email" required spellcheck="false" autocapitalize="off">
+                </div>
+                <div class="campo">
+                    <label for="gestore-password">Password</label>
+                    <div class="campo-password">
+                        <input type="password" id="gestore-password" name="password" autocomplete="current-password" required>
+                        <button type="button" id="btn-mostra-password-gestore" class="mostra-password" aria-label="Mostra la password" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <p id="msg-gestore" class="msg" role="alert" hidden></p>
+                <button type="submit" id="btn-gestore-entra" class="btn btn-primario btn-largo">Entra</button>
+                <button type="button" id="link-gestore-reset" class="btn-collegamento">Primo accesso o password dimenticata</button>
+                <p class="accesso-nota">Area riservata ai gestori della diretta: l'accesso è consentito solo
+                    agli indirizzi autorizzati. Al primo accesso scrivi la tua email qui sopra e premi
+                    «Primo accesso o password dimenticata»: ti arriva un collegamento per scegliere la password.</p>
+                <p class="accesso-nota">Sei un partecipante? La diretta è su <a href="/diretta/">nextgenerationbusiness.it/diretta</a>.
+                    · <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a></p>
+            </form>
+        </div>
+    </main>
+
+    <!-- ======== GESTIONE ======== -->
+    <div id="vista-app" hidden>
+        <header class="testata">
+            <div class="testata-riga">
+                <div class="testata-marchio">
+                    <img src="/assets/logo-revilaw-bianco.png" alt="Revilaw S.p.A." width="110" height="34">
+                    <div>
+                        <p class="testata-occhiello">Next Generation Business</p>
+                        <p class="testata-titolo">Gestione della diretta</p>
+                    </div>
+                </div>
+                <div class="testata-evento">
+                    <label for="sel-evento" class="solo-lettori">Evento</label>
+                    <select id="sel-evento" aria-describedby="stato-testata"></select>
+                    <span id="stato-testata" class="pillola-stato" data-stato="" aria-live="polite"></span>
+                    <button type="button" id="btn-nuovo-evento" class="btn btn-chiaro">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                        <span>Nuovo<span class="parola-evento"> evento</span></span>
+                    </button>
+                </div>
+                <div class="testata-utente">
+                    <span id="gestore-connesso" class="gestore-connesso"></span>
+                    <button type="button" id="btn-gestore-esci" class="btn btn-trasparente">Esci</button>
+                </div>
+            </div>
+            <nav class="schede" role="tablist" aria-label="Sezioni della gestione">
+                <button type="button" role="tab" id="tab-evento" data-scheda="evento" aria-controls="scheda-evento" aria-selected="true">Evento</button>
+                <button type="button" role="tab" id="tab-regia" data-scheda="regia" aria-controls="scheda-regia" aria-selected="false" tabindex="-1">Regia</button>
+                <button type="button" role="tab" id="tab-ascolti" data-scheda="ascolti" aria-controls="scheda-ascolti" aria-selected="false" tabindex="-1">Ascolti</button>
+                <button type="button" role="tab" id="tab-partecipanti" data-scheda="partecipanti" aria-controls="scheda-partecipanti" aria-selected="false" tabindex="-1">Partecipanti</button>
+                <button type="button" role="tab" id="tab-email" data-scheda="email" aria-controls="scheda-email" aria-selected="false" tabindex="-1">Email</button>
+                <button type="button" role="tab" id="tab-esporta" data-scheda="esporta" aria-controls="scheda-esporta" aria-selected="false" tabindex="-1">Esporta</button>
+            </nav>
+        </header>
+
+        <main id="principale" class="principale" tabindex="-1">
+
+            <!-- ======== SCHEDA EVENTO ======== -->
+            <section id="scheda-evento" class="scheda" role="tabpanel" aria-labelledby="tab-evento">
+                <div class="riquadro">
+                    <div class="riquadro-testa">
+                        <h2 id="titolo-form-evento">Dati dell'evento</h2>
+                        <p id="info-evento" class="riquadro-sotto"></p>
+                    </div>
+                    <form id="form-evento" novalidate>
+                        <div class="griglia-campi">
+                            <div class="campo">
+                                <label for="ev-id">Identificativo</label>
+                                <input type="text" id="ev-id" name="id" maxlength="41" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-id-aiuto" placeholder="es. napoli-2026">
+                                <p id="ev-id-aiuto" class="aiuto">Lettere minuscole, numeri e trattini. Non si cambia dopo la creazione.</p>
+                            </div>
+                            <div class="campo campo-titolo">
+                                <label for="ev-titolo">Titolo</label>
+                                <input type="text" id="ev-titolo" name="titolo" maxlength="140" required autocomplete="off" placeholder="es. Next Generation Business 2026 · Napoli">
+                            </div>
+                            <div class="campo campo-largo">
+                                <label for="ev-luogo">Luogo <span class="facoltativo">(facoltativo)</span></label>
+                                <input type="text" id="ev-luogo" name="luogo" maxlength="140" autocomplete="off" placeholder="Napoli · Hotel Eurostars Excelsior">
+                            </div>
+                            <div class="campo">
+                                <label for="ev-data">Data</label>
+                                <input type="date" id="ev-data" name="data" required>
+                            </div>
+                            <div class="campo campo-ore">
+                                <div>
+                                    <label for="ev-ora-inizio">Inizio</label>
+                                    <input type="time" id="ev-ora-inizio" name="oraInizio" required>
+                                </div>
+                                <div>
+                                    <label for="ev-ora-fine">Fine</label>
+                                    <input type="time" id="ev-ora-fine" name="oraFine" required>
+                                </div>
+                            </div>
+                            <!-- ======== IL VIDEO: due modi, scelti qui ========
+                                 A) il player di Azoto dentro la nostra pagina (iframe), il modo
+                                    predefinito: dal codice incollato si salva SOLO l'indirizzo https
+                                    del player (cdn.azotosolutions.com); l'iframe lo costruisce il
+                                    nostro codice (player-azoto.js), il codice incollato non entra MAI
+                                    nella pagina.
+                                 B) il flusso diretto (.m3u8) con il nostro player, per quando Azoto
+                                    dara' il link: link principale, riserva e link firmati.
+                                 Ogni campo ha gli stessi pezzi, che gestione.js trova dall'id del
+                                 campo: <id>-tipo (che cosa ho riconosciuto; per Azoto <id>-indirizzo,
+                                 l'indirizzo che si salva), <id>-esito (il risultato della prova),
+                                 <id>-anteprima (il player dei partecipanti) e btn-prova-<id>. -->
+                            <fieldset id="ev-tipo-player" class="campo-intero gruppo-opzioni tipo-player" aria-describedby="ev-tipo-player-aiuto">
+                                <legend>Tipo di player</legend>
+                                <label class="opzione">
+                                    <input type="radio" name="ev-tipo-player" value="azoto" checked>
+                                    <span><strong>Player Azoto (iframe)</strong> <span class="predefinito">predefinito</span>
+                                        <span class="opzione-riga">Il player della web TV Azoto dentro la nostra pagina, con i comandi di Azoto. È quello da usare adesso.</span></span>
+                                </label>
+                                <label class="opzione">
+                                    <input type="radio" name="ev-tipo-player" value="flusso" aria-describedby="ev-tipo-flusso-nota">
+                                    <span><strong>Flusso diretto (.m3u8)</strong>
+                                        <span class="opzione-riga">Il nostro player, senza loghi e con i nostri comandi.</span>
+                                        <span id="ev-tipo-flusso-nota" class="opzione-riga tipo-nota">Si può scegliere quando c'è il link .m3u8 del flusso, nel riquadro «Flusso diretto (.m3u8)» qui sotto.</span></span>
+                                </label>
+                                <p id="ev-tipo-player-aiuto" class="aiuto">Vale per tutti i partecipanti. Durante la diretta puoi passare dall'uno all'altro
+                                    dalla scheda Regia: chi è collegato cambia da solo, senza ricaricare la pagina.</p>
+                            </fieldset>
+
+                            <section id="blocco-azoto" class="campo-intero blocco-player" aria-labelledby="blocco-azoto-titolo">
+                                <div class="blocco-testa">
+                                    <h3 id="blocco-azoto-titolo">Player Azoto</h3>
+                                    <span class="blocco-uso" data-uso="azoto"></span>
+                                </div>
+                                <div class="campo link-video">
+                                    <label for="ev-azoto">Codice o indirizzo del player Azoto</label>
+                                    <div class="link-riga link-riga-alta">
+                                        <textarea id="ev-azoto" name="azotoUrl" rows="3" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-azoto-aiuto ev-azoto-indirizzo" placeholder="&lt;iframe src='https://cdn.azotosolutions.com/cloudtv/…/player' …&gt;&lt;/iframe&gt;  oppure solo  https://cdn.azotosolutions.com/cloudtv/…/player"></textarea>
+                                        <button type="button" id="btn-prova-ev-azoto" class="btn btn-secondario btn-prova-link" aria-label="Prova il player Azoto">Prova il player</button>
+                                    </div>
+                                    <p id="ev-azoto-aiuto" class="aiuto">Incolla il codice che vi ha dato Azoto (quello con &lt;iframe src='…'&gt;) oppure solo l'indirizzo del player.
+                                        Si salva SOLO l'indirizzo https di cdn.azotosolutions.com: il resto del codice (script, stili, altri tag) si scarta
+                                        e non entra mai nella pagina. L'indirizzo resta riservato: arriva solo a chi è entrato con la sua email e la password,
+                                        mentre l'evento è in onda. Puoi lasciarlo vuoto e inserirlo più tardi, anche dalla scheda Regia.</p>
+                                    <p id="ev-azoto-indirizzo" class="link-tipo indirizzo-azoto" role="status" hidden></p>
+                                    <p class="aiuto nota-azoto">Con il player Azoto restano i comandi (e l'eventuale logo) di Azoto: per usare i nostri comandi serve il link .m3u8 del flusso diretto, da chiedere ad Azoto.</p>
+                                    <div id="ev-azoto-esito" class="esito-prova" role="group" aria-label="Risultato della prova del player Azoto" hidden></div>
+                                    <div id="ev-azoto-anteprima" class="video-anteprima" hidden>
+                                        <div class="video-anteprima-cornice"></div>
+                                        <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section id="blocco-flusso" class="campo-intero blocco-player" aria-labelledby="blocco-flusso-titolo" aria-describedby="blocco-flusso-intro">
+                                <div class="blocco-testa">
+                                    <h3 id="blocco-flusso-titolo">Flusso diretto (.m3u8)</h3>
+                                    <span class="blocco-uso" data-uso="flusso"></span>
+                                </div>
+                                <p id="blocco-flusso-intro" class="aiuto">Per quando Azoto vi darà il link diretto del flusso, quello che finisce con .m3u8
+                                    (da confermare con loro prima di usarlo): lo riproduce il nostro player, senza loghi e con i nostri comandi, con un link
+                                    di riserva e, se servono, i link firmati. Finché il link non c'è, lasciate vuoti questi campi: la diretta usa il player Azoto.
+                                    Con il link salvato potete scegliere «Flusso diretto (.m3u8)» qui sopra, oppure passarci durante la diretta dalla scheda Regia.</p>
+                                <div class="campo link-video">
+                                    <label for="ev-video">Link del flusso (.m3u8)</label>
+                                    <div class="link-riga">
+                                        <input type="text" inputmode="url" id="ev-video" name="videoUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-video-aiuto ev-video-tipo" placeholder="https://…/playlist.m3u8">
+                                        <button type="button" id="btn-prova-ev-video" class="btn btn-secondario btn-prova-link" aria-label="Prova il link del flusso">Prova il link</button>
+                                    </div>
+                                    <p id="ev-video-aiuto" class="aiuto">Il link diretto del flusso HLS del canale (finisce con .m3u8; va bene anche DASH, .mpd).
+                                        Il link resta riservato: i partecipanti lo ricevono solo mentre l'evento è in onda con il flusso diretto.
+                                        Puoi lasciarlo vuoto e inserirlo più tardi, anche dalla scheda Regia.</p>
+                                    <p id="ev-video-tipo" class="link-tipo" role="status" hidden></p>
+                                    <div id="ev-video-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link del flusso" hidden></div>
+                                    <div id="ev-video-anteprima" class="video-anteprima" hidden>
+                                        <div class="video-anteprima-cornice"></div>
+                                        <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                    </div>
+                                </div>
+                                <div class="campo link-video">
+                                    <label for="ev-riserva">Link di riserva <span class="facoltativo">(facoltativo)</span></label>
+                                    <div class="link-riga">
+                                        <input type="text" inputmode="url" id="ev-riserva" name="riservaUrl" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-riserva-aiuto ev-riserva-tipo" placeholder="https://…/playlist.m3u8 (un altro server o un altro canale)">
+                                        <button type="button" id="btn-prova-ev-riserva" class="btn btn-secondario btn-prova-link" aria-label="Prova il link di riserva">Prova il link</button>
+                                    </div>
+                                    <p id="ev-riserva-aiuto" class="aiuto">Un secondo link dello stesso flusso: un altro server della web TV o un altro canale.
+                                        Se il link principale non funziona per più di 20 secondi, il player di ciascun partecipante passa da solo
+                                        alla riserva; dalla scheda Regia puoi anche passare alla riserva a mano, per tutti.</p>
+                                    <p id="ev-riserva-tipo" class="link-tipo" role="status" hidden></p>
+                                    <div id="ev-riserva-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link di riserva" hidden></div>
+                                    <div id="ev-riserva-anteprima" class="video-anteprima" hidden>
+                                        <div class="video-anteprima-cornice"></div>
+                                        <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                    </div>
+                                </div>
+
+                                <!-- I link firmati: chiusi di base, servono solo se la web TV li chiede.
+                                     La chiave segreta si scrive e basta: il servizio non la rimanda mai
+                                     indietro, dice solo se ce n'e' una (segretoImpostato). -->
+                                <details id="ev-firma" class="firma">
+                                    <summary><span class="firma-titolo">Link firmati (se la web TV li usa)</span> <span id="ev-firma-riassunto" class="firma-riassunto">nessuna firma</span></summary>
+                                    <div class="firma-corpo">
+                                        <p class="aiuto">Alcune web TV accettano solo link «firmati»: con una chiave segreta che vi danno loro, il nostro
+                                            servizio prepara per ogni partecipante collegato un link che scade dopo qualche ora. Così un link girato
+                                            ad altri smette presto di funzionare. Se la web TV non ve ne ha parlato, lascia «Nessuna firma».</p>
+                                        <fieldset class="gruppo-opzioni firma-schemi">
+                                            <legend>Tipo di firma</legend>
+                                            <label class="opzione"><input type="radio" name="ev-firma-schema" value="nessuna" checked>
+                                                <span><strong>Nessuna firma.</strong> Il link si usa così com'è.</span></label>
+                                            <label class="opzione"><input type="radio" name="ev-firma-schema" value="nginx">
+                                                <span><strong>nginx secure_link.</strong> Server nginx con il modulo secure_link: il link riceve una firma e una scadenza (di solito i parametri «md5» ed «expires»).</span></label>
+                                            <label class="opzione"><input type="radio" name="ev-firma-schema" value="akamai">
+                                                <span><strong>Akamai EdgeAuth (Token Auth 2.0).</strong> Rete Akamai: il link riceve un gettone firmato (di solito il parametro «hdnts»).</span></label>
+                                        </fieldset>
+                                        <div id="ev-firma-campi" class="griglia-campi firma-campi" hidden>
+                                            <div class="campo campo-largo">
+                                                <label for="ev-firma-segreto">Chiave segreta</label>
+                                                <div class="campo-password">
+                                                    <input type="password" id="ev-firma-segreto" autocomplete="new-password" spellcheck="false" autocapitalize="off" maxlength="512" aria-describedby="ev-firma-segreto-aiuto">
+                                                    <button type="button" id="btn-mostra-segreto" class="mostra-password" aria-label="Mostra la chiave segreta" aria-pressed="false">
+                                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                    </button>
+                                                </div>
+                                                <p id="ev-firma-segreto-aiuto" class="aiuto">La chiave che vi ha dato la web TV. Si scrive e basta: resta sul servizio e non si rilegge più, nemmeno da qui.</p>
+                                            </div>
+                                            <div class="campo">
+                                                <label for="ev-firma-durata">Durata di ogni link (ore)</label>
+                                                <input type="number" id="ev-firma-durata" min="1" max="24" step="1" value="6" inputmode="numeric" aria-describedby="ev-firma-durata-aiuto">
+                                                <p id="ev-firma-durata-aiuto" class="aiuto">Da 1 a 24. Con 6 ore un link copiato smette presto di funzionare; chi guarda riceve da solo un link nuovo prima che scada.</p>
+                                            </div>
+                                            <div class="campo" data-schema="nginx">
+                                                <label for="ev-firma-nome-firma">Nome del parametro della firma</label>
+                                                <input type="text" id="ev-firma-nome-firma" maxlength="40" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="md5" aria-describedby="ev-firma-nginx-aiuto">
+                                            </div>
+                                            <div class="campo" data-schema="nginx">
+                                                <label for="ev-firma-nome-scadenza">Nome del parametro della scadenza</label>
+                                                <input type="text" id="ev-firma-nome-scadenza" maxlength="40" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="expires" aria-describedby="ev-firma-nginx-aiuto">
+                                            </div>
+                                            <p id="ev-firma-nginx-aiuto" class="aiuto campo-intero" data-schema="nginx">Lasciali vuoti per usare «md5» ed «expires»: cambiali solo se la web TV usa nomi diversi.</p>
+                                            <div class="campo campo-largo" data-schema="nginx">
+                                                <label for="ev-firma-percorso">Che cosa si firma</label>
+                                                <select id="ev-firma-percorso" aria-describedby="ev-firma-percorso-aiuto">
+                                                    <option value="intero">Il link del flusso (predefinito)</option>
+                                                    <option value="cartella">La cartella del flusso (vale anche per i segmenti video)</option>
+                                                </select>
+                                                <p id="ev-firma-percorso-aiuto" class="aiuto">Scegli «la cartella» solo se la web TV controlla la stessa firma anche sui segmenti video: chiedilo a loro.</p>
+                                            </div>
+                                            <div class="campo" data-schema="akamai">
+                                                <label for="ev-firma-nome-parametro">Nome del parametro</label>
+                                                <input type="text" id="ev-firma-nome-parametro" maxlength="40" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="hdnts" aria-describedby="ev-firma-parametro-aiuto">
+                                                <p id="ev-firma-parametro-aiuto" class="aiuto">Vuoto = «hdnts», quello di Akamai.</p>
+                                            </div>
+                                            <div class="campo campo-largo" data-schema="akamai">
+                                                <label for="ev-firma-acl">Percorsi ammessi (acl)</label>
+                                                <input type="text" id="ev-firma-acl" maxlength="500" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="/live/napoli/*" aria-describedby="ev-firma-acl-aiuto">
+                                                <p id="ev-firma-acl-aiuto" class="aiuto">Lascialo vuoto per usare la cartella del flusso seguita da «*» (per esempio /live/napoli/*).</p>
+                                            </div>
+                                            <p class="aiuto campo-intero">La prova dei link usa la firma già salvata: dopo averla cambiata salva l'evento e riprova il link.</p>
+                                        </div>
+                                    </div>
+                                </details>
+                            </section>
+                            <div class="campo campo-intero">
+                                <label for="ev-programma">Programma <span class="facoltativo">(una voce per riga)</span></label>
+                                <textarea id="ev-programma" name="programma" rows="7" aria-describedby="ev-programma-aiuto" placeholder="09.00 Accoglienza e registrazione&#10;09.30 Saluti istituzionali"></textarea>
+                                <p id="ev-programma-aiuto" class="aiuto">Ora e titolo, per esempio «09.00 Accoglienza e registrazione». Massimo 40 voci. Compare nella schermata di attesa.</p>
+                            </div>
+                            <div class="campo">
+                                <label for="ev-pagina">Pagina dell'evento sul sito</label>
+                                <input type="text" id="ev-pagina" name="paginaEvento" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-pagina-aiuto" placeholder="es. /napoli_ottobre_2026/">
+                                <p id="ev-pagina-aiuto" class="aiuto">Il percorso della pagina, citato nelle email con le credenziali. Serve anche all'invio automatico della password a chi si iscrive dal modulo di questa pagina (qui sotto).</p>
+                            </div>
+                        </div>
+
+                        <fieldset class="gruppo-opzioni">
+                            <legend>Opzioni</legend>
+                            <label class="opzione">
+                                <input type="checkbox" id="ev-un-dispositivo" name="unSoloDispositivo">
+                                <span><strong>Un solo dispositivo alla volta per ogni account.</strong>
+                                    Se la persona entra da un secondo dispositivo, il primo si scollega con un messaggio.
+                                    È un deterrente contro la condivisione delle credenziali, non un blocco assoluto.</span>
+                            </label>
+                            <label class="opzione">
+                                <input type="checkbox" id="ev-promemoria-giorno" name="promemoriaGiorno">
+                                <span><strong>Promemoria il giorno prima.</strong> Email automatica con il link della diretta e l'email con cui entrare (mai la password).
+                                    <span id="prom-dest-giorno" class="prom-destinatari"></span></span>
+                            </label>
+                            <label class="opzione">
+                                <input type="checkbox" id="ev-promemoria-ora" name="promemoriaOra">
+                                <span><strong>Promemoria un'ora prima dell'inizio.</strong> Stesso contenuto, parte da solo.
+                                    <span id="prom-dest-ora" class="prom-destinatari"></span></span>
+                            </label>
+                            <p id="promemoria-destinatari" class="aiuto" aria-live="polite"></p>
+                        </fieldset>
+
+                        <div class="azioni">
+                            <button type="submit" id="btn-salva-evento" class="btn btn-primario">Salva l'evento</button>
+                            <p id="msg-evento" class="msg" role="status" hidden></p>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ======== ISCRIZIONI DAL MODULO DEL SITO ========
+                     L'interruttore vale subito, senza «Salva»: gestione.js lo manda al
+                     servizio con l'azione evento-iscrizioni (spento di base). -->
+                <section id="riquadro-iscrizioni" class="riquadro riquadro-iscrizioni" aria-labelledby="iscrizioni-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="iscrizioni-titolo">Iscrizioni dal modulo del sito</h2>
+                        <p class="riquadro-sotto">Le persone del primo elenco le carichi dalla scheda Partecipanti e le credenziali partono
+                            quando premi «Invia le credenziali». Per chi si iscrive dopo, dal modulo del sito, puoi far partire la password da sola,
+                            appena la persona conferma il suo indirizzo.</p>
+                    </div>
+                    <label class="interruttore" for="ev-iscrizioni-auto">
+                        <input type="checkbox" role="switch" id="ev-iscrizioni-auto" aria-describedby="iscrizioni-aiuto iscrizioni-stato" disabled>
+                        <span class="interruttore-pista" aria-hidden="true"></span>
+                        <span class="interruttore-testo">Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l'indirizzo</span>
+                    </label>
+                    <p id="iscrizioni-stato" class="interruttore-stato" data-tono="" aria-live="polite"></p>
+                    <p id="iscrizioni-aiuto" class="aiuto iscrizioni-aiuto">Vale per chi si iscrive <strong>online</strong> dal modulo della
+                        «Pagina dell'evento sul sito» (quella salvata qui sopra): riceve l'email con la password per entrare con la sua email
+                        <strong>appena conferma il suo indirizzo</strong> con il pulsante «Conferma il tuo indirizzo email» della mail del sito.
+                        Fino ad allora resta «da confermare»: nessuna password parte verso un indirizzo che la persona non ha confermato.
+                        Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova; chi si iscrive due volte non riceve niente di nuovo.
+                        È spento di base: accendilo dopo aver caricato e inviato la prima lista.</p>
+                    <p id="msg-iscrizioni" class="msg" role="status" hidden></p>
+                </section>
+            </section>
+
+            <!-- ======== SCHEDA REGIA ======== -->
+            <section id="scheda-regia" class="scheda" role="tabpanel" aria-labelledby="tab-regia" hidden>
+                <div class="regia-griglia">
+                    <!-- due colonne indipendenti: a sinistra i comandi, a destra quello che si
+                         guarda (collegati, video). Sotto i 1100px diventano una colonna sola,
+                         nell'ordine in cui servono durante la diretta. -->
+                    <div class="regia-colonna">
+                        <div class="riquadro regia-stato-riquadro">
+                            <h2>Stato della diretta</h2>
+                            <div id="regia-stato" class="stato-grande" data-stato="" role="status" aria-live="polite">
+                                <span class="stato-punto" aria-hidden="true"></span>
+                                <span id="regia-stato-testo">—</span>
+                            </div>
+                            <p id="regia-orari" class="regia-orari"></p>
+                            <p id="regia-avviso-orario" class="msg msg-attenzione" hidden></p>
+                            <div class="regia-comandi">
+                                <button type="button" id="btn-in-onda" class="btn btn-onda btn-grande">
+                                    <span class="stato-punto" aria-hidden="true"></span><span class="etichetta-btn">Vai in onda</span>
+                                </button>
+                                <button type="button" id="btn-riprendi" class="btn btn-onda btn-grande" hidden>
+                                    <span class="stato-punto" aria-hidden="true"></span>Riprendi la diretta
+                                </button>
+                                <button type="button" id="btn-termina" class="btn btn-scuro btn-grande">Termina la diretta</button>
+                            </div>
+                            <div class="regia-pausa">
+                                <div class="campo">
+                                    <label for="regia-ripresa">Si riprende alle <span class="facoltativo">(facoltativo)</span></label>
+                                    <input type="time" id="regia-ripresa">
+                                </div>
+                                <button type="button" id="btn-pausa" class="btn btn-secondario">Metti in pausa</button>
+                            </div>
+                            <p class="aiuto">Ogni comando chiede conferma. I partecipanti collegati vedono il cambio da soli, senza ricaricare la pagina.
+                                In pausa il video sparisce e compare «Pausa», con l'orario di ripresa se lo indichi.</p>
+                            <p id="msg-regia" class="msg" role="status" hidden></p>
+                            <!-- dopo una prova: tornare all'attesa, o proprio all'inizio (gestione.js, "FASE INIZIALE") -->
+                            <section class="regia-fase" aria-labelledby="regia-fase-titolo">
+                                <h3 id="regia-fase-titolo">Dopo una prova</h3>
+                                <p id="regia-fase-riga" class="regia-fase-riga" aria-live="polite" hidden></p>
+                                <div class="regia-fase-comandi">
+                                    <button type="button" id="btn-riprogramma" class="btn btn-secondario">Riporta in attesa</button>
+                                    <button type="button" id="btn-azzera" class="btn btn-pericolo-contorno">Torna alla fase iniziale</button>
+                                </div>
+                                <ul class="regia-fase-spiega">
+                                    <li><strong>Riporta in attesa</strong>: i partecipanti rivedono la schermata di attesa. Minuti visti, accessi e grafico degli ascolti restano.</li>
+                                    <li><strong>Torna alla fase iniziale</strong>: l'evento torna com'era prima del primo «Vai in onda» e i dati della prova si cancellano. Si può fare solo prima dell'orario di inizio.</li>
+                                </ul>
+                                <p id="regia-fase-no" class="msg msg-attenzione" hidden></p>
+                            </section>
+                        </div>
+
+                        <div class="riquadro regia-avviso">
+                            <h2>Avviso a tutti</h2>
+                            <p class="regia-dettaglio">Una riga che compare in cima alla pagina di tutti i partecipanti, in qualunque momento
+                                (per esempio «Problema tecnico: torniamo tra 5 minuti»).</p>
+                            <p class="regia-dettaglio">Avviso attuale: <strong id="regia-avviso-attuale">nessuno</strong></p>
+                            <form id="form-avviso" novalidate>
+                                <label for="regia-avviso" class="solo-lettori">Testo dell'avviso</label>
+                                <textarea id="regia-avviso" rows="2" maxlength="200" placeholder="Problema tecnico: torniamo tra 5 minuti"></textarea>
+                                <div class="azioni">
+                                    <button type="submit" id="btn-avviso" class="btn btn-primario">Pubblica l'avviso</button>
+                                    <button type="button" id="btn-togli-avviso" class="btn btn-secondario">Togli l'avviso</button>
+                                    <span id="avviso-caratteri" class="conta" aria-live="polite"></span>
+                                </div>
+                            </form>
+                            <p id="msg-avviso" class="msg" role="status" hidden></p>
+                        </div>
+                    </div>
+                    <div class="regia-colonna">
+                        <div class="riquadro regia-connessi">
+                            <h2>Collegati adesso</h2>
+                            <p class="numero-grande"><span id="num-connessi">–</span></p>
+                            <p id="connessi-dettaglio" class="regia-dettaglio">persone con la pagina aperta negli ultimi due minuti e mezzo</p>
+                            <p id="connessi-aggiornato" class="aiuto">Si aggiorna da solo ogni 20 secondi mentre questa scheda è aperta.</p>
+                            <button type="button" id="btn-aggiorna-connessi" class="btn btn-secondario btn-piccolo">Aggiorna adesso</button>
+                        </div>
+
+                        <div class="riquadro regia-video-riquadro">
+                            <h2>Video</h2>
+                            <!-- quale player guardano tutti: la scelta della regia (eventi.tipoPlayer).
+                                 Due pulsanti fissi, uno per modo: si vede quello che porta all'altro. -->
+                            <p class="sorgente-riga">Player in uso per tutti:
+                                <span id="regia-tipo-player" class="bollino-sorgente bollino-tipo" data-tipo="azoto">Player Azoto</span></p>
+                            <p id="regia-video-pubblico" class="aiuto"></p>
+                            <div class="sorgente-comandi tipo-comandi">
+                                <button type="button" id="btn-passa-flusso" class="btn btn-secondario" aria-describedby="regia-player-aiuto">Passa al flusso diretto per tutti</button>
+                                <button type="button" id="btn-passa-azoto" class="btn btn-secondario" aria-describedby="regia-player-aiuto" hidden>Torna al player Azoto per tutti</button>
+                            </div>
+                            <p id="regia-player-aiuto" class="aiuto"></p>
+                            <p id="msg-player" class="msg" role="status" hidden></p>
+
+                            <!-- Le due parti si aprono da sole: quella del modo in uso aperta,
+                                 l'altra chiusa (con il riassunto sempre in vista). -->
+                            <details id="regia-blocco-azoto" class="blocco-regia" open>
+                                <summary><span class="blocco-regia-titolo">Player Azoto</span> <span class="blocco-uso" data-uso="azoto"></span>
+                                    <span id="regia-azoto-riassunto" class="blocco-regia-riassunto"></span></summary>
+                                <div class="blocco-regia-corpo">
+                                    <dl class="link-salvati">
+                                        <div class="link-salvato" data-ruolo="azoto">
+                                            <dt>Indirizzo del player</dt>
+                                            <dd>
+                                                <span id="regia-azoto-attuale" class="testo-fisso">nessuno</span>
+                                                <button type="button" id="btn-guarda-azoto" class="btn btn-secondario btn-mini" aria-label="Guarda il player Azoto" hidden>Guarda</button>
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                    <div id="regia-azoto-attuale-anteprima" class="video-anteprima" hidden>
+                                        <div class="video-anteprima-cornice"></div>
+                                        <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                    </div>
+                                    <form id="form-azoto" novalidate>
+                                        <div class="campo link-video">
+                                            <label for="regia-azoto">Nuovo codice o indirizzo del player Azoto</label>
+                                            <div class="link-riga link-riga-alta">
+                                                <textarea id="regia-azoto" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="regia-azoto-indirizzo" placeholder="&lt;iframe src='https://cdn.azotosolutions.com/cloudtv/…/player' …&gt;  oppure solo l'indirizzo"></textarea>
+                                                <button type="button" id="btn-prova-regia-azoto" class="btn btn-secondario btn-prova-link" aria-label="Prova il player Azoto">Prova il player</button>
+                                            </div>
+                                            <p id="regia-azoto-indirizzo" class="link-tipo indirizzo-azoto" role="status" hidden></p>
+                                            <div id="regia-azoto-esito" class="esito-prova" role="group" aria-label="Risultato della prova del player Azoto" hidden></div>
+                                            <div id="regia-azoto-anteprima" class="video-anteprima" hidden>
+                                                <div class="video-anteprima-cornice"></div>
+                                                <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                            </div>
+                                        </div>
+                                        <div class="azioni">
+                                            <button type="submit" id="btn-cambia-azoto" class="btn btn-primario">Cambia il player</button>
+                                        </div>
+                                    </form>
+                                    <p class="aiuto">Si salva solo l'indirizzo https di cdn.azotosolutions.com, come nella scheda Evento. Prima di cambiarlo
+                                        lo provo; se la diretta è in onda con il player Azoto, chi è collegato passa al nuovo indirizzo da solo,
+                                        senza ricaricare la pagina.</p>
+                                    <p id="msg-azoto" class="msg" role="status" hidden></p>
+                                </div>
+                            </details>
+
+                            <details id="regia-blocco-flusso" class="blocco-regia">
+                                <summary><span class="blocco-regia-titolo">Flusso diretto (.m3u8)</span> <span class="blocco-uso" data-uso="flusso"></span>
+                                    <span id="regia-flusso-riassunto" class="blocco-regia-riassunto"></span></summary>
+                                <div class="blocco-regia-corpo">
+                                    <!-- quale link del flusso guardano tutti: la scelta della regia (eventi.sorgente) -->
+                                    <p class="sorgente-riga"><span id="regia-sorgente-etichetta">Link in uso per tutti:</span>
+                                        <span id="regia-sorgente" class="bollino-sorgente" data-sorgente="principale">link principale</span></p>
+                                    <dl class="link-salvati">
+                                        <div class="link-salvato" data-ruolo="principale">
+                                            <dt>Link principale <span class="in-uso" hidden>· in uso</span></dt>
+                                            <dd>
+                                                <span id="regia-video-attuale" class="testo-fisso">nessuno</span>
+                                                <span id="regia-video-tipo-attuale" class="link-salvato-tipo"></span>
+                                                <button type="button" id="btn-guarda-principale" class="btn btn-secondario btn-mini" aria-label="Guarda il link principale" hidden>Guarda</button>
+                                            </dd>
+                                        </div>
+                                        <div class="link-salvato" data-ruolo="riserva">
+                                            <dt>Link di riserva <span class="in-uso" hidden>· in uso</span></dt>
+                                            <dd>
+                                                <span id="regia-riserva-attuale" class="testo-fisso">nessuno</span>
+                                                <span id="regia-riserva-tipo-attuale" class="link-salvato-tipo"></span>
+                                                <button type="button" id="btn-guarda-riserva" class="btn btn-secondario btn-mini" aria-label="Guarda il link di riserva" hidden>Guarda</button>
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                    <p id="regia-firma-attuale" class="aiuto" hidden></p>
+                                    <!-- due pulsanti fissi, uno per link: quello del link gia' scelto compare
+                                         solo in onda e "riconferma" la scelta (riporta chi era passato da solo
+                                         all'altro link dopo un guasto); le scritte le mette gestione.js -->
+                                    <div class="sorgente-comandi" data-sorgente="principale">
+                                        <button type="button" id="btn-sorgente-riserva" class="btn btn-secondario" aria-describedby="sorgente-aiuto">Passa alla riserva per tutti</button>
+                                        <button type="button" id="btn-sorgente-principale" class="btn btn-secondario" aria-describedby="sorgente-aiuto" hidden>Riporta tutti sul link principale</button>
+                                    </div>
+                                    <p id="sorgente-aiuto" class="aiuto">Se il link in uso si blocca per più di 20 secondi, il player di ciascun partecipante passa da solo
+                                        all'altro. Con questi pulsanti decidi tu, per tutti: chi guarda passa da solo, senza ricaricare la pagina.</p>
+                                    <p id="msg-sorgente" class="msg" role="status" hidden></p>
+                                    <div id="regia-attuale-anteprima" class="video-anteprima" hidden>
+                                        <div class="video-anteprima-cornice"></div>
+                                        <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                    </div>
+
+                                    <h3 class="titoletto-video">Cambia i link</h3>
+                                    <form id="form-video" novalidate>
+                                        <div class="campo link-video">
+                                            <label for="regia-video">Link del flusso (.m3u8)</label>
+                                            <div class="link-riga">
+                                                <input type="text" inputmode="url" id="regia-video" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="regia-video-tipo" placeholder="https://…/playlist.m3u8">
+                                                <button type="button" id="btn-prova-regia-video" class="btn btn-secondario btn-prova-link" aria-label="Prova il link del flusso">Prova il link</button>
+                                            </div>
+                                            <p id="regia-video-tipo" class="link-tipo" role="status" hidden></p>
+                                            <div id="regia-video-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link del flusso" hidden></div>
+                                            <div id="regia-video-anteprima" class="video-anteprima" hidden>
+                                                <div class="video-anteprima-cornice"></div>
+                                                <button type="button" id="btn-chiudi-anteprima-video" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                            </div>
+                                        </div>
+                                        <div class="campo link-video">
+                                            <label for="regia-riserva">Link di riserva <span class="facoltativo">(facoltativo)</span></label>
+                                            <div class="link-riga">
+                                                <input type="text" inputmode="url" id="regia-riserva" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="regia-riserva-tipo" placeholder="https://…/playlist.m3u8 (un altro server o un altro canale)">
+                                                <button type="button" id="btn-prova-regia-riserva" class="btn btn-secondario btn-prova-link" aria-label="Prova il link di riserva">Prova il link</button>
+                                            </div>
+                                            <p id="regia-riserva-tipo" class="link-tipo" role="status" hidden></p>
+                                            <div id="regia-riserva-esito" class="esito-prova" role="group" aria-label="Risultato della prova del link di riserva" hidden></div>
+                                            <div id="regia-riserva-anteprima" class="video-anteprima" hidden>
+                                                <div class="video-anteprima-cornice"></div>
+                                                <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
+                                            </div>
+                                        </div>
+                                        <div class="azioni">
+                                            <button type="submit" id="btn-cambia-video" class="btn btn-primario">Applica i link</button>
+                                        </div>
+                                    </form>
+                                    <p class="aiuto">Prima di applicarli provo i link cambiati, come nella scheda Evento: se un link non si può usare te lo dico
+                                        e non cambio niente; se ci sono solo avvisi (per esempio Azoto non ha ancora cominciato a trasmettere) ti chiedo
+                                        conferma. Se la diretta è in onda con il flusso diretto, chi è collegato passa al nuovo link da solo.</p>
+                                    <p id="msg-video" class="msg" role="status" hidden></p>
+                                </div>
+                            </details>
+                        </div>
+
+                        <div class="riquadro regia-anteprima">
+                            <h2>Vedi come un partecipante</h2>
+                            <p class="regia-dettaglio">Apre la pagina della diretta in una nuova scheda, come la vede chi è iscritto. Nessuna presenza viene registrata.</p>
+                            <button type="button" id="btn-anteprima" class="btn btn-secondario">
+                                Apri l'anteprima
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3h7v7M10 14L21 3M21 14v7H3V3h7"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======== SCHEDA ASCOLTI ========
+                 Chi e quanti hanno guardato la diretta, minuto per minuto. Qui c'e'
+                 solo lo scheletro, senza dati: i numeri li calcola il servizio
+                 (azione 'ascolti', lib/diretta-ascolti.js) e li disegna gestione.js
+                 (grafici SVG compresi). Si aggiorna da sola ogni minuto mentre la
+                 scheda e' aperta. «Stampa il riepilogo» stampa solo questa scheda,
+                 senza pulsanti (vedi @media print in gestione.css). -->
+            <section id="scheda-ascolti" class="scheda scheda-ascolti" role="tabpanel" aria-labelledby="tab-ascolti" hidden>
+                <!-- a) il riepilogo, con i comandi della scheda -->
+                <section class="riquadro" aria-labelledby="ascolti-riepilogo-titolo">
+                    <div class="riquadro-testa ascolti-testa">
+                        <div class="ascolti-testa-testo">
+                            <h2 id="ascolti-riepilogo-titolo">Riepilogo degli ascolti</h2>
+                            <p id="ascolti-evento" class="riquadro-sotto"></p>
+                        </div>
+                        <div class="ascolti-comandi">
+                            <p id="ascolti-aggiornato" class="ascolti-aggiornato"></p>
+                            <button type="button" id="btn-ascolti-aggiorna" class="btn btn-secondario btn-piccolo">Aggiorna adesso</button>
+                            <button type="button" id="btn-ascolti-esporta" class="btn btn-secondario btn-piccolo">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                                Esporta in Excel
+                            </button>
+                            <button type="button" id="btn-ascolti-stampa" class="btn btn-secondario btn-piccolo">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                                Stampa il riepilogo
+                            </button>
+                        </div>
+                    </div>
+                    <p id="msg-ascolti" class="msg" role="status" hidden></p>
+                    <!-- le tessere: i numeri li scrive gestione.js (data-voce = la voce del riepilogo) -->
+                    <ul id="ascolti-tessere" class="tessere" aria-label="I numeri della diretta">
+                        <li class="tessera" data-voce="iscritti"><span class="tessera-etichetta">Iscritti</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="credenziali"><span class="tessera-etichetta">Credenziali inviate</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="entrati"><span class="tessera-etichetta">Entrati</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="visto"><span class="tessera-etichetta">Hanno visto la diretta</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="picco"><span class="tessera-etichetta"><span class="tessera-segno" aria-hidden="true"></span>Picco di spettatori</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="minimo"><span class="tessera-etichetta"><span class="tessera-segno" aria-hidden="true"></span>Minimo in onda</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="media"><span class="tessera-etichetta">Media spettatori</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="tempo"><span class="tessera-etichetta">Tempo medio di visione</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                        <li class="tessera" data-voce="ore"><span class="tessera-etichetta">Ore totali viste</span><span class="tessera-num">–</span><span class="tessera-sotto"></span></li>
+                    </ul>
+                </section>
+
+                <!-- b) spettatori minuto per minuto -->
+                <section class="riquadro" aria-labelledby="ascolti-grafico-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="ascolti-grafico-titolo">Spettatori minuto per minuto</h2>
+                        <p class="riquadro-sotto">Quante persone avevano aperta la pagina della diretta, minuto per minuto.<span class="solo-schermo"> Passa sul grafico
+                            o toccalo per leggere ora e numero; con la tastiera usa le frecce.</span></p>
+                    </div>
+                    <p id="ascolti-grafico-vuoto" class="riquadro-nota" hidden></p>
+                    <div id="ascolti-grafico" class="grafico" hidden>
+                        <ul class="grafico-legenda" aria-label="Legenda del grafico">
+                            <li><span class="legenda-segno segno-linea" aria-hidden="true"></span>Spettatori in onda</li>
+                            <li><span class="legenda-segno segno-spento" aria-hidden="true"></span>Prima e dopo la diretta</li>
+                            <li><span class="legenda-segno segno-pausa" aria-hidden="true"></span>Pausa</li>
+                            <li><span class="legenda-segno segno-voce" aria-hidden="true"></span>Voce del programma</li>
+                            <li><span class="legenda-segno segno-punto" aria-hidden="true"></span>Picco</li>
+                            <li><span class="legenda-segno segno-punto segno-rosso" aria-hidden="true"></span>Minimo in onda</li>
+                            <li><span class="legenda-segno segno-calo" aria-hidden="true"></span>Cali più forti (in 5 minuti)</li>
+                        </ul>
+                        <div class="grafico-scorri">
+                            <div id="ascolti-cornice" class="grafico-cornice" tabindex="0" role="group" aria-roledescription="grafico" aria-labelledby="ascolti-grafico-titolo" aria-describedby="ascolti-grafico-aiuto">
+                                <div id="ascolti-suggerimento" class="grafico-suggerimento" aria-hidden="true" hidden></div>
+                            </div>
+                        </div>
+                        <p class="aiuto solo-telefono" aria-hidden="true">Il grafico scorre di lato: trascinalo con il dito.</p>
+                        <p id="ascolti-grafico-aiuto" class="solo-lettori">Usa le frecce sinistra e destra per spostarti di un minuto, Pagina su e Pagina giù per dieci minuti, Inizio e Fine per il primo e l'ultimo minuto.</p>
+                        <p id="ascolti-annuncio" class="solo-lettori" aria-live="polite"></p>
+                        <p id="ascolti-cali" class="ascolti-cali"></p>
+                        <p id="ascolti-buchi" class="aiuto ascolti-buchi"></p>
+                        <details id="ascolti-dati-grafico" class="dati-grafico">
+                            <summary>Vedi i dati del grafico</summary>
+                            <div class="tabella-contenitore tabella-alta">
+                                <table id="tabella-curva" class="tabella tabella-ascolti tabella-compatta">
+                                    <caption class="solo-lettori">Spettatori minuto per minuto</caption>
+                                    <thead><tr><th scope="col">Ora</th><th scope="col" class="num">Spettatori</th><th scope="col">Stato della diretta</th><th scope="col">Nota</th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </div>
+                </section>
+
+                <!-- c) ascolto per voce del programma -->
+                <section class="riquadro" aria-labelledby="ascolti-programma-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="ascolti-programma-titolo">Ascolto per voce del programma</h2>
+                        <p class="riquadro-sotto">Per ogni voce, gli spettatori nei minuti in onda (le pause non contano). La barra mostra la media.</p>
+                    </div>
+                    <p id="programma-nota" class="riquadro-nota" hidden></p>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-programma" class="tabella tabella-ascolti tabella-programma">
+                            <caption class="solo-lettori">Spettatori medi, massimi e minimi per ogni voce del programma</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Voce del programma</th>
+                                    <th scope="col">Orario</th>
+                                    <th scope="col">Media spettatori</th>
+                                    <th scope="col" class="num">Massimo</th>
+                                    <th scope="col" class="num">Minimo</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <p id="programma-vuoto" class="tabella-vuota" hidden></p>
+                    </div>
+                </section>
+
+                <div class="ascolti-griglia">
+                    <!-- d) quando si sono collegati -->
+                    <section class="riquadro" aria-labelledby="ascolti-ingressi-titolo">
+                        <div class="riquadro-testa">
+                            <h2 id="ascolti-ingressi-titolo">Quando si sono collegati</h2>
+                            <p class="riquadro-sotto">Ingressi ogni 5 minuti: chi entrava per la prima volta e chi rientrava dopo essere uscito.</p>
+                        </div>
+                        <p id="ascolti-ingressi-vuoto" class="riquadro-nota" hidden></p>
+                        <div id="ascolti-ingressi" class="grafico" hidden>
+                            <ul class="grafico-legenda" aria-label="Legenda del grafico degli ingressi">
+                                <li><span class="legenda-segno segno-barra" aria-hidden="true"></span>Primi ingressi</li>
+                                <li><span class="legenda-segno segno-barra segno-rientri" aria-hidden="true"></span>Rientri</li>
+                            </ul>
+                            <div class="grafico-scorri">
+                                <div id="ingressi-cornice" class="grafico-cornice" tabindex="0" role="group" aria-roledescription="grafico" aria-labelledby="ascolti-ingressi-titolo" aria-describedby="ingressi-aiuto">
+                                    <div id="ingressi-suggerimento" class="grafico-suggerimento" aria-hidden="true" hidden></div>
+                                </div>
+                            </div>
+                            <p class="aiuto solo-telefono" aria-hidden="true">Il grafico scorre di lato: trascinalo con il dito.</p>
+                            <p id="ingressi-aiuto" class="solo-lettori">Usa le frecce sinistra e destra per spostarti di cinque minuti.</p>
+                            <p id="ingressi-annuncio" class="solo-lettori" aria-live="polite"></p>
+                            <p id="ingressi-buchi" class="aiuto ascolti-buchi"></p>
+                            <details class="dati-grafico">
+                                <summary>Vedi i dati del grafico</summary>
+                                <div class="tabella-contenitore tabella-alta">
+                                    <table id="tabella-ingressi" class="tabella tabella-ascolti tabella-compatta">
+                                        <caption class="solo-lettori">Ingressi ogni 5 minuti</caption>
+                                        <thead><tr><th scope="col">Dalle</th><th scope="col" class="num">Primi ingressi</th><th scope="col" class="num">Rientri</th></tr></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        </div>
+                    </section>
+
+                    <!-- e) dispositivi -->
+                    <section class="riquadro" aria-labelledby="ascolti-dispositivi-titolo">
+                        <div class="riquadro-testa">
+                            <h2 id="ascolti-dispositivi-titolo">Dispositivi</h2>
+                            <p class="riquadro-sotto">Con che cosa si sono collegati (per persona, l'ultimo accesso).</p>
+                        </div>
+                        <div id="ascolti-dispositivi" class="dispositivi"></div>
+                    </section>
+                </div>
+
+                <!-- f) le persone -->
+                <section id="riquadro-persone" class="riquadro riquadro-persone" aria-labelledby="ascolti-persone-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="ascolti-persone-titolo">Persone <span id="conta-persone" class="conta"></span></h2>
+                        <p class="riquadro-sotto">Chi ha visto la diretta e per quanto. Premi «Linea del tempo» per vedere quando era collegata una persona;
+                            premi i titoli delle colonne per ordinare.</p>
+                    </div>
+                    <div class="cerca-riga">
+                        <div class="campo campo-cerca">
+                            <label for="cerca-persone">Cerca</label>
+                            <input type="search" id="cerca-persone" placeholder="Nome, email o azienda" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="campo">
+                            <label for="filtro-persone">Mostra</label>
+                            <select id="filtro-persone">
+                                <option value="">Tutte</option>
+                                <option value="ha-visto">Hanno visto</option>
+                                <option value="entrato">Entrate senza vedere</option>
+                                <option value="mai-entrato">Mai entrate</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-persone" class="tabella tabella-ascolti tabella-persone">
+                            <caption class="solo-lettori">Le persone iscritte all'evento, con quanto hanno visto della diretta</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col" data-ordine="nome"><button type="button" class="ordina">Persona</button></th>
+                                    <th scope="col">Azienda</th>
+                                    <th scope="col">Stato</th>
+                                    <th scope="col" data-ordine="primo"><button type="button" class="ordina">Primo ingresso</button></th>
+                                    <th scope="col">Ultima presenza</th>
+                                    <th scope="col" class="num" data-ordine="minuti"><button type="button" class="ordina">Minuti in onda</button></th>
+                                    <th scope="col" class="num" data-ordine="percentuale"><button type="button" class="ordina" aria-label="Percentuale della diretta vista">% vista</button></th>
+                                    <th scope="col" class="num" data-ordine="collegamenti"><button type="button" class="ordina">Collegamenti</button></th>
+                                    <th scope="col">Dispositivi</th>
+                                    <th scope="col"><span class="solo-lettori">Linea del tempo</span></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <p id="persone-vuoto" class="tabella-vuota" hidden></p>
+                    </div>
+                    <div class="altre-persone">
+                        <button type="button" id="btn-altre-persone" class="btn btn-secondario" hidden>Mostra altre 100</button>
+                        <span id="persone-mostrate" class="aiuto" aria-live="polite"></span>
+                    </div>
+                </section>
+                <p class="solo-stampa aiuto"><strong>Persone</strong>: l'elenco completo, con i minuti di ognuno, è nel file Excel («Esporta in Excel» nella scheda Ascolti).</p>
+
+                <!-- g) chi ha le credenziali ma non e' mai entrato -->
+                <section class="riquadro" aria-labelledby="ascolti-non-collegati-titolo">
+                    <div class="riquadro-testa riquadro-testa-riga">
+                        <div>
+                            <h2 id="ascolti-non-collegati-titolo">Non si sono collegati <span id="conta-non-collegati" class="conta"></span></h2>
+                            <p class="riquadro-sotto">Hanno ricevuto le credenziali ma non sono mai entrati nella pagina della diretta: puoi scrivere loro per sapere se hanno avuto problemi.</p>
+                        </div>
+                        <button type="button" id="btn-copia-indirizzi" class="btn btn-secondario btn-piccolo" disabled>Copia gli indirizzi</button>
+                    </div>
+                    <p id="msg-non-collegati" class="msg" role="status" hidden></p>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-non-collegati" class="tabella tabella-ascolti tabella-non-collegati">
+                            <caption class="solo-lettori">Chi ha ricevuto le credenziali ma non è mai entrato</caption>
+                            <thead><tr><th scope="col">Nome e cognome</th><th scope="col">Email</th><th scope="col">Azienda</th><th scope="col">Credenziali</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <p id="non-collegati-vuoto" class="tabella-vuota" hidden></p>
+                    </div>
+                    <p id="non-collegati-altri" class="aiuto non-collegati-altri" hidden></p>
+                </section>
+
+                <!-- in fondo, in piccolo: che cosa vogliono dire i numeri -->
+                <section class="definizioni" aria-labelledby="ascolti-definizioni-titolo">
+                    <h2 id="ascolti-definizioni-titolo">Come si contano</h2>
+                    <ul>
+                        <li><strong>Spettatore in un minuto</strong>: una persona con la pagina della diretta aperta, che ha mandato il suo segnale negli ultimi 2 minuti e mezzo.</li>
+                        <li><strong>Picco e minimo</strong> contano solo i minuti in onda, pause escluse. Il minimo non considera i primi e gli ultimi 5 minuti della diretta, quando le persone si stanno collegando o salutando.</li>
+                        <li>Chi guarda con «Vedi come un partecipante» (dalla scheda Regia) non viene contato.</li>
+                        <li>I minuti di ogni persona sono quelli degli attestati: solo quelli con la diretta in onda, fino alla durata dell'evento.</li>
+                        <li>Tutti gli orari sono in ora italiana.</li>
+                    </ul>
+                    <p id="ascolti-nota" class="ascolti-nota" hidden></p>
+                </section>
+            </section>
+
+            <!-- ======== SCHEDA PARTECIPANTI ======== -->
+            <section id="scheda-partecipanti" class="scheda" role="tabpanel" aria-labelledby="tab-partecipanti" hidden>
+                <div class="riquadro">
+                    <div class="riquadro-testa">
+                        <h2>Carica i partecipanti</h2>
+                        <p class="riquadro-sotto">Da un file CSV o Excel con le colonne <strong>nome</strong>, <strong>cognome</strong>,
+                            <strong>email</strong> e, se c'è, <strong>azienda</strong>. Si entra con l'email: prima di creare qualsiasi
+                            account vedi un'anteprima riga per riga con i controlli sulle email (mancanti, non valide, doppie, già registrate,
+                            la stessa email per persone diverse). Creare gli account non manda nessuna email: le credenziali le invii dalla scheda Email.</p>
+                    </div>
+                    <div class="carica-riga">
+                        <label class="btn btn-primario scegli-file" for="file-partecipanti">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                            Scegli il file…
+                        </label>
+                        <input type="file" id="file-partecipanti" class="file-nascosto" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+                        <a href="#" id="link-modello" class="collegamento">Scarica il modello CSV</a>
+                        <span id="nome-file" class="nome-file"></span>
+                    </div>
+                    <p id="msg-caricamento" class="msg" role="status" hidden></p>
+
+                    <div id="scelta-foglio" class="campo campo-foglio" hidden>
+                        <label for="sel-foglio">Foglio del file</label>
+                        <select id="sel-foglio"></select>
+                    </div>
+
+                    <div id="abbina-colonne" class="abbina" hidden>
+                        <h3>Abbina le colonne</h3>
+                        <p id="abbina-spiegazione" class="riquadro-sotto"></p>
+                        <div class="griglia-campi abbina-griglia">
+                            <div class="campo">
+                                <label for="abb-intestazione">Riga delle intestazioni</label>
+                                <select id="abb-intestazione"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-nome">Nome</label>
+                                <select id="abb-nome"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-cognome">Cognome</label>
+                                <select id="abb-cognome"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-email">Email</label>
+                                <select id="abb-email"></select>
+                            </div>
+                            <div class="campo">
+                                <label for="abb-azienda">Azienda <span class="facoltativo">(facoltativa)</span></label>
+                                <select id="abb-azienda"></select>
+                            </div>
+                        </div>
+                        <fieldset id="abb-ordine" class="gruppo-opzioni" hidden>
+                            <legend>Nome e cognome stanno nella stessa colonna: in che ordine?</legend>
+                            <label class="opzione"><input type="radio" name="abb-ordine" value="nome-cognome" checked> <span><strong>Nome Cognome</strong> (Mario Rossi)</span></label>
+                            <label class="opzione"><input type="radio" name="abb-ordine" value="cognome-nome"> <span><strong>Cognome Nome</strong> (Rossi Mario)</span></label>
+                        </fieldset>
+                        <p class="aiuto">Se nome e cognome sono nella stessa colonna, scegli la stessa colonna per tutti e due. Ecco come leggo le prime righe:</p>
+                        <div class="tabella-contenitore">
+                            <table id="abb-esempio" class="tabella">
+                                <caption class="solo-lettori">Prime righe lette con l'abbinamento scelto</caption>
+                                <thead><tr><th scope="col" class="num">Riga</th><th scope="col">Nome</th><th scope="col">Cognome</th><th scope="col">Email</th><th scope="col">Azienda</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div class="azioni">
+                            <button type="button" id="btn-abbina-continua" class="btn btn-primario">Continua con l'anteprima</button>
+                            <button type="button" id="btn-abbina-annulla" class="btn btn-secondario">Annulla</button>
+                        </div>
+                    </div>
+
+                    <div id="anteprima-caricamento" class="anteprima" hidden>
+                        <div id="riepilogo-anteprima" class="riepilogo" aria-live="polite"></div>
+                        <div class="anteprima-barra">
+                            <fieldset class="filtri" id="filtro-anteprima">
+                                <legend class="solo-lettori">Righe da mostrare</legend>
+                                <label><input type="radio" name="filtro-anteprima" value="tutte" checked> Tutte</label>
+                                <label><input type="radio" name="filtro-anteprima" value="problemi"> Solo da controllare</label>
+                                <label><input type="radio" name="filtro-anteprima" value="da-sistemare"> Solo da sistemare</label>
+                            </fieldset>
+                            <span id="conta-anteprima" class="conta"></span>
+                        </div>
+                        <div class="tabella-contenitore">
+                            <table id="tabella-anteprima" class="tabella tabella-anteprima">
+                                <caption class="solo-lettori">Anteprima del caricamento: una riga per ogni riga del file</caption>
+                                <thead>
+                                    <tr>
+                                        <th scope="col" class="num">Riga</th>
+                                        <th scope="col">Esito e scelte</th>
+                                        <th scope="col">Nome</th>
+                                        <th scope="col">Cognome</th>
+                                        <th scope="col">Email</th>
+                                        <th scope="col">Azienda</th>
+                                        <th scope="col">Controlli</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div class="anteprima-piede">
+                            <div class="anteprima-piede-azioni">
+                                <button type="button" id="btn-crea-account" class="btn btn-primario btn-grande" disabled>Crea gli account</button>
+                                <button type="button" id="btn-annulla-caricamento" class="btn btn-secondario">Annulla il caricamento</button>
+                            </div>
+                            <p id="motivo-blocco" class="motivo-blocco" aria-live="polite"></p>
+                            <button type="button" id="btn-riprova-verifica" class="btn btn-secondario btn-piccolo" hidden>Riprova il controllo</button>
+                        </div>
+                        <div id="avanzamento-crea" class="avanzamento" hidden>
+                            <div class="barra" role="progressbar" aria-label="Creazione degli account" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="barra-piena"></span></div>
+                            <p class="avanzamento-testo" aria-live="polite"></p>
+                            <button type="button" id="btn-riprendi-crea" class="btn btn-primario" hidden>Riprendi</button>
+                        </div>
+                    </div>
+
+                    <div id="esito-crea" class="esito-crea" hidden>
+                        <h3>Risultato della creazione</h3>
+                        <div id="esito-crea-riepilogo" class="riepilogo"></div>
+                        <div class="esito-crea-invio">
+                            <p id="esito-crea-messaggio" class="msg" role="status" hidden></p>
+                            <button type="button" id="btn-vai-email" class="btn btn-secondario btn-piccolo">Vai alla scheda Email</button>
+                        </div>
+                        <p id="esito-crea-nota" class="aiuto"></p>
+                        <div class="tabella-contenitore" id="esito-crea-contenitore" hidden>
+                            <table id="tabella-esito-crea" class="tabella">
+                                <caption class="solo-lettori">Righe da guardare: errori e righe andate diversamente dall'anteprima</caption>
+                                <thead>
+                                    <tr><th scope="col" class="num">Riga</th><th scope="col">Persona</th><th scope="col">Email</th><th scope="col">Esito</th><th scope="col">Nota</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======== AGGIUNGI UN PARTECIPANTE (a mano) ========
+                     Una persona alla volta, senza file. Le regole sono quelle del
+                     caricamento e le decide il servizio (azione 'partecipante-aggiungi'):
+                     una email = un account, l'email di un'altra persona rifiutata.
+                     Non manda email: dopo l'aggiunta si può scegliere «Invia ora le
+                     credenziali», con la solita conferma (gestione.js, aggiungiAMano). -->
+                <section id="riquadro-aggiungi" class="riquadro riquadro-aggiungi" aria-labelledby="aggiungi-titolo">
+                    <div class="riquadro-testa">
+                        <h2 id="aggiungi-titolo">Aggiungi un partecipante</h2>
+                        <p class="riquadro-sotto">Una persona alla volta, senza file: per esempio chi vi scrive o telefona. Stessi controlli del
+                            caricamento (una email = un account). Aggiungere non manda nessuna email: le credenziali le invii tu, subito qui sotto o dalla scheda Email.</p>
+                    </div>
+                    <form id="form-aggiungi" class="form-aggiungi" novalidate>
+                        <div class="griglia-aggiungi">
+                            <div class="campo">
+                                <label for="agg-nome">Nome</label>
+                                <input type="text" id="agg-nome" autocomplete="off" maxlength="80" required>
+                            </div>
+                            <div class="campo">
+                                <label for="agg-cognome">Cognome</label>
+                                <input type="text" id="agg-cognome" autocomplete="off" maxlength="80" required>
+                            </div>
+                            <div class="campo">
+                                <label for="agg-email">Email</label>
+                                <input type="email" id="agg-email" autocomplete="off" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254" required>
+                            </div>
+                            <div class="campo">
+                                <label for="agg-azienda">Azienda <span class="facoltativo">(facoltativa)</span></label>
+                                <input type="text" id="agg-azienda" autocomplete="off" maxlength="120">
+                            </div>
+                        </div>
+                        <div class="azioni azioni-aggiungi">
+                            <button type="submit" id="btn-aggiungi" class="btn btn-primario">Aggiungi</button>
+                            <p id="msg-aggiungi" class="msg" role="status" hidden></p>
+                        </div>
+                        <div id="dopo-aggiungi" class="dopo-aggiungi" hidden>
+                            <p id="testo-dopo-aggiungi" class="aiuto"></p>
+                            <button type="button" id="btn-invia-aggiunto" class="btn btn-secondario btn-piccolo">Invia ora le credenziali</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ======== ISCRIZIONI DAL MODULO DA VERIFICARE ========
+                     Quello che arriva dal sito e che il gestore deve vedere: le
+                     iscrizioni online che la diretta non ha trasformato in un account
+                     (email di un'altra persona, indirizzo non accettato: nessuna email
+                     è partita), le iscrizioni annullate dal sito (già tolte
+                     dall'evento) e quelle riattivate con l'invio automatico spento.
+                     Le righe le scrive il servizio (lib/diretta-iscrizione.js); qui si
+                     leggono con 'da-verificare' e si segnano come viste con
+                     'da-verificare-archivia' (restano nel servizio, fuori dall'elenco).
+                     Il riquadro compare solo quando c'è qualcosa da vedere. -->
+                <section id="riquadro-da-verificare" class="riquadro riquadro-da-verificare" aria-labelledby="da-verificare-titolo" hidden>
+                    <div class="riquadro-testa">
+                        <h2 id="da-verificare-titolo">Iscrizioni dal modulo da verificare <span id="conta-da-verificare" class="conta"></span></h2>
+                        <p class="riquadro-sotto">Quello che è successo sul sito e che la diretta non ha potuto sistemare da sola, o che devi sapere.
+                            Chi si è iscritto online ma non ha l'account (email di un'altra persona, email non accettata):
+                            <strong>nessun account creato, nessuna email partita</strong> (l'iscrizione al sito è valida); sistema a mano,
+                            per esempio chiedendo un indirizzo suo e caricandola con il file. Chi ha <strong>annullato</strong> l'iscrizione
+                            dal sito: è già fuori da questo evento. Chi l'ha riattivata con l'invio automatico spento: rientra solo se la carichi tu.
+                            Poi premi «Segna come vista»: la riga esce dall'elenco (resta registrata nel servizio).</p>
+                    </div>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-da-verificare" class="tabella tabella-da-verificare">
+                            <caption class="solo-lettori">Iscrizioni dal modulo del sito da verificare</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Quando</th>
+                                    <th scope="col">Nome e cognome</th>
+                                    <th scope="col">Email scritta nel modulo</th>
+                                    <th scope="col">Azienda</th>
+                                    <th scope="col">Che cosa è successo</th>
+                                    <th scope="col">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <p id="msg-da-verificare" class="msg" role="status" hidden></p>
+                </section>
+
+                <div class="riquadro">
+                    <div class="riquadro-testa riquadro-testa-riga">
+                        <h2>Partecipanti dell'evento <span id="conta-partecipanti" class="conta"></span></h2>
+                        <button type="button" id="btn-aggiorna-partecipanti" class="btn btn-secondario btn-piccolo">Aggiorna</button>
+                    </div>
+                    <div class="cerca-riga">
+                        <div class="campo campo-cerca">
+                            <label for="cerca-partecipanti">Cerca</label>
+                            <input type="search" id="cerca-partecipanti" placeholder="Nome, email o azienda" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="campo">
+                            <label for="filtro-stato-email">Email credenziali</label>
+                            <select id="filtro-stato-email">
+                                <option value="">Tutte</option>
+                                <option value="da confermare">Da confermare (dal modulo del sito)</option>
+                                <option value="da inviare">Da inviare</option>
+                                <option value="in coda">In coda o in invio</option>
+                                <option value="inviata">Inviate</option>
+                                <option value="problemi">Respinte o in errore</option>
+                                <option value="incerto">Incerte</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tabella-contenitore">
+                        <table id="tabella-partecipanti" class="tabella tabella-partecipanti">
+                            <caption class="solo-lettori">Partecipanti dell'evento selezionato</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Nome e cognome</th>
+                                    <th scope="col">Email</th>
+                                    <th scope="col">Azienda</th>
+                                    <th scope="col">Account</th>
+                                    <th scope="col">Email credenziali</th>
+                                    <th scope="col">Ultimo accesso</th>
+                                    <th scope="col">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <p id="partecipanti-vuoto" class="tabella-vuota" hidden></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======== SCHEDA EMAIL ======== -->
+            <section id="scheda-email" class="scheda" role="tabpanel" aria-labelledby="tab-email" hidden>
+                <div class="riquadro">
+                    <div class="riquadro-testa riquadro-testa-riga">
+                        <h2>Email con le credenziali</h2>
+                        <button type="button" id="btn-aggiorna-email" class="btn btn-secondario btn-piccolo">Aggiorna</button>
+                    </div>
+                    <ul id="conteggi-email" class="conteggi-email" aria-label="Stato delle email per persona">
+                        <li data-stato="da confermare"><span class="conteggio-num">0</span><span class="conteggio-etichetta">da confermare</span></li>
+                        <li data-stato="da inviare"><span class="conteggio-num">0</span><span class="conteggio-etichetta">da inviare</span></li>
+                        <li data-stato="in coda"><span class="conteggio-num">0</span><span class="conteggio-etichetta">in coda</span></li>
+                        <li data-stato="invio"><span class="conteggio-num">0</span><span class="conteggio-etichetta">in invio</span></li>
+                        <li data-stato="inviata"><span class="conteggio-num">0</span><span class="conteggio-etichetta">inviate</span></li>
+                        <li data-stato="respinta"><span class="conteggio-num">0</span><span class="conteggio-etichetta">respinte</span></li>
+                        <li data-stato="errore"><span class="conteggio-num">0</span><span class="conteggio-etichetta">errori</span></li>
+                        <li data-stato="incerto"><span class="conteggio-num">0</span><span class="conteggio-etichetta">incerte</span></li>
+                    </ul>
+                    <div id="avanzamento-email" class="avanzamento" hidden>
+                        <div class="barra" role="progressbar" aria-label="Invio delle email" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="barra-piena"></span></div>
+                        <p class="avanzamento-testo" aria-live="polite"></p>
+                    </div>
+                    <div class="coda-ferma">
+                        <p id="coda-bloccata" class="msg msg-errore" role="alert" hidden></p>
+                        <!-- Solo con la coda fermata da un blocco del server di posta: rimette in
+                             moto la coda subito, senza aspettare il giro automatico di 5 minuti. -->
+                        <button type="button" id="btn-riprova-invio" class="btn btn-primario btn-piccolo" hidden>Riprova adesso</button>
+                    </div>
+                    <p id="promemoria-stato" class="aiuto"></p>
+                </div>
+
+                <div class="email-griglia">
+                    <div class="riquadro">
+                        <h2>1. Prova su di te</h2>
+                        <p class="regia-dettaglio">Prima dell'invio a tutti, manda a te stesso l'email come la riceveranno i partecipanti,
+                            con la scritta EMAIL DI PROVA. Nessun partecipante la riceve.</p>
+                        <div class="riga-campo">
+                            <label for="sel-tipo-prova" class="solo-lettori">Email da provare</label>
+                            <select id="sel-tipo-prova">
+                                <option value="credenziali">Credenziali (email e password)</option>
+                                <option value="iscritto-anche">Sei iscritto anche a… (senza password)</option>
+                                <option value="promemoria-giorno">Promemoria del giorno prima</option>
+                                <option value="promemoria-ora">Promemoria di un'ora prima</option>
+                            </select>
+                            <button type="button" id="btn-email-prova" class="btn btn-secondario">Invia email di prova a me</button>
+                        </div>
+                        <p id="msg-email-prova" class="msg" role="status" hidden></p>
+                    </div>
+
+                    <div class="riquadro">
+                        <h2>2. Invio ai partecipanti</h2>
+                        <p class="regia-dettaglio">Le email partono in coda, a gruppi e con pause, nel limite del piano Brevo.
+                            Se chiudi la pagina l'invio continua da solo ogni 5 minuti, e nessuno riceve due volte la stessa email.</p>
+                        <div class="azioni-colonna">
+                            <button type="button" id="btn-invia-tutti" class="btn btn-primario" aria-describedby="nota-disattivati">Invia le credenziali a chi non le ha ancora</button>
+                            <p id="nota-disattivati" class="aiuto" hidden></p>
+                            <button type="button" id="btn-reinvia-non-ricevute" class="btn btn-secondario">Reinvia a chi non l'ha ricevuta</button>
+                            <!-- chi si e' iscritto dal modulo del sito e non ha ancora confermato l'indirizzo (gestione.js, daConfermareAttivi) -->
+                            <div id="blocco-da-confermare" class="blocco-da-confermare" hidden>
+                                <p id="testo-da-confermare" class="aiuto"></p>
+                                <div class="azioni-riga">
+                                    <button type="button" id="btn-invia-da-confermare" class="btn btn-secondario">Invia anche a loro</button>
+                                    <button type="button" id="btn-copia-da-confermare" class="btn btn-secondario">Copia gli indirizzi</button>
+                                </div>
+                                <p id="esito-copia-da-confermare" class="aiuto" aria-live="polite"></p>
+                                <p id="indirizzi-da-confermare" class="indirizzi-copiati" hidden></p>
+                            </div>
+                            <button type="button" id="btn-aggiorna-esiti" class="btn btn-secondario" aria-describedby="nota-esiti">Aggiorna le email respinte da Brevo</button>
+                            <p id="nota-esiti" class="aiuto" hidden></p>
+                        </div>
+                        <p id="msg-email" class="msg" role="status" hidden></p>
+                    </div>
+                </div>
+
+                <!-- EMAIL PROGRAMMATE: tutto quello che partira' da solo, e i promemoria
+                     in piu' del gestore (gestione.js, caricaProgrammate; il servizio
+                     in email-service/lib/diretta-programmate.js). Tutto il testo entra
+                     nella pagina come testo (textContent), mai come HTML. -->
+                <div class="riquadro" id="riquadro-programmate">
+                    <div class="riquadro-testa riquadro-testa-riga">
+                        <h2>Email programmate</h2>
+                        <button type="button" id="btn-aggiorna-programmate" class="btn btn-secondario btn-piccolo">Aggiorna</button>
+                    </div>
+                    <p class="regia-dettaglio">Tutto quello che partirà da solo, in ordine di ora (ora italiana), con a chi e quante persone oggi.
+                        Niente parte senza una tua scelta: i promemoria automatici si accendono nella scheda Evento, quelli in più li programmi qui.</p>
+                    <p class="nota-cinque-minuti">Le email partono dal lavoro programmato ogni 5 minuti: possono arrivare fino a 5 minuti dopo l'ora indicata.</p>
+                    <ol id="elenco-programmate" class="elenco-programmate" aria-label="Email programmate"></ol>
+                    <p id="tetto-programmate" class="aiuto tetto-programmate"></p>
+                    <p id="msg-programmate" class="msg" role="status" hidden></p>
+                    <div class="azioni">
+                        <button type="button" id="btn-nuovo-promemoria" class="btn btn-primario" aria-expanded="false" aria-controls="form-promemoria">Programma un promemoria</button>
+                    </div>
+
+                    <form id="form-promemoria" class="form-promemoria" novalidate hidden aria-labelledby="titolo-form-promemoria">
+                        <h3 id="titolo-form-promemoria">Programma un promemoria</h3>
+                        <p class="aiuto">Ricorda come collegarsi: l'evento con data e orario, l'email con cui entrare, il pulsante «Accedi alla diretta»
+                            con l'indirizzo per esteso, e «Non trovi la password? Usa «Password dimenticata?»». Mai la password.</p>
+                        <div class="griglia-promemoria">
+                            <div class="campo">
+                                <label for="prom-data">Giorno</label>
+                                <input type="date" id="prom-data" required>
+                            </div>
+                            <div class="campo">
+                                <label for="prom-ora">Ora (ora italiana)</label>
+                                <input type="time" id="prom-ora" step="60" required>
+                            </div>
+                        </div>
+                        <fieldset class="gruppo-opzioni">
+                            <legend>A chi</legend>
+                            <label class="opzione">
+                                <input type="radio" name="prom-destinatari" id="prom-dest-tutti" value="tutti" checked>
+                                <span><strong>Tutti quelli che hanno ricevuto le credenziali</strong>
+                                    <span id="prom-conta-tutti" class="prom-destinatari"></span></span>
+                            </label>
+                            <label class="opzione">
+                                <input type="radio" name="prom-destinatari" id="prom-dest-mai" value="mai-entrati">
+                                <span><strong>Solo chi non è ancora mai entrato</strong>
+                                    <span id="prom-conta-mai" class="prom-destinatari"></span></span>
+                            </label>
+                            <p class="aiuto">Non lo ricevono: chi è «da confermare» o non ha ancora le credenziali (non ha una password), chi ha l'account
+                                disattivato o è stato tolto dall'evento, e chi riceve le credenziali dopo l'ora di partenza.</p>
+                        </fieldset>
+                        <div class="griglia-promemoria griglia-testi">
+                            <div class="campo">
+                                <label for="prom-oggetto">Oggetto</label>
+                                <input type="text" id="prom-oggetto" maxlength="120" required aria-describedby="prom-oggetto-aiuto">
+                                <p id="prom-oggetto-aiuto" class="aiuto">Nell'email diventa «Oggetto - nome dell'evento».</p>
+                            </div>
+                            <div class="campo">
+                                <label for="prom-titolo">Titolo</label>
+                                <input type="text" id="prom-titolo" maxlength="80" required>
+                            </div>
+                        </div>
+                        <div class="campo">
+                            <label for="prom-nota">Nota <span class="facoltativo">(facoltativa)</span></label>
+                            <textarea id="prom-nota" rows="4" maxlength="500" aria-describedby="prom-nota-aiuto"></textarea>
+                            <p id="prom-nota-aiuto" class="aiuto"><span id="prom-nota-conta">0 di 500 caratteri</span>. Solo testo: niente HTML e niente
+                                collegamenti (quello della diretta c'è già). Puoi andare a capo. Compare in cima all'email.</p>
+                        </div>
+                        <p id="msg-form-promemoria" class="msg" role="alert" hidden></p>
+                        <div class="azioni azioni-promemoria">
+                            <button type="button" id="btn-anteprima-promemoria" class="btn btn-secondario">Anteprima</button>
+                            <button type="button" id="btn-prova-promemoria" class="btn btn-secondario">Invia email di prova a me</button>
+                            <button type="submit" id="btn-salva-promemoria" class="btn btn-primario">Programma</button>
+                            <button type="button" id="btn-chiudi-promemoria" class="btn btn-secondario">Chiudi senza salvare</button>
+                        </div>
+                        <p id="msg-prova-promemoria" class="msg" role="status" hidden></p>
+                        <div id="anteprima-promemoria" class="anteprima-promemoria" hidden>
+                            <p class="anteprima-promemoria-testa">Anteprima (con un nome di esempio): <strong>Oggetto:</strong> <span id="anteprima-promemoria-oggetto"></span></p>
+                            <pre id="anteprima-promemoria-testo" class="anteprima-promemoria-testo" tabindex="0" aria-label="Testo dell'email"></pre>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="riquadro">
+                    <h2>Che cosa vuol dire ogni stato</h2>
+                    <dl class="legenda">
+                        <div><dt><span class="stato-email stato-da-confermare">da confermare</span></dt><dd>Iscritta dal modulo del sito: la password parte da sola appena conferma il suo indirizzo dalla mail del sito. «Invia le credenziali» non la raggiunge; «Invia anche a loro» sì.</dd></div>
+                        <div><dt><span class="stato-email stato-da-inviare">da inviare</span></dt><dd>Account creato, credenziali non ancora spedite.</dd></div>
+                        <div><dt><span class="stato-email stato-in-coda">in coda</span></dt><dd>In attesa del proprio turno: si spedisce a gruppi, con pause.</dd></div>
+                        <div><dt><span class="stato-email stato-invio">invio</span></dt><dd>Il servizio la sta spedendo adesso.</dd></div>
+                        <div><dt><span class="stato-email stato-inviata">inviata</span></dt><dd>Consegnata al server di posta (Brevo).</dd></div>
+                        <div><dt><span class="stato-email stato-respinta">respinta</span></dt><dd>Il destinatario l'ha rifiutata (indirizzo inesistente o casella piena): correggi l'email della persona e reinvia.</dd></div>
+                        <div><dt><span class="stato-email stato-errore">errore</span></dt><dd>Non è partita per un problema del servizio o del collegamento: si può reinviare senza rischio di doppioni.</dd></div>
+                        <div><dt><span class="stato-email stato-incerto">incerto</span></dt><dd>Invio interrotto a metà: l'email potrebbe essere arrivata. Non viene mai reinviata da sola: chiedi alla persona e, se serve, reinvia dalla scheda Partecipanti.</dd></div>
+                    </dl>
+                </div>
+            </section>
+
+            <!-- ======== SCHEDA ESPORTA ======== -->
+            <section id="scheda-esporta" class="scheda" role="tabpanel" aria-labelledby="tab-esporta" hidden>
+                <div class="riquadro">
+                    <h2>Esporta in Excel</h2>
+                    <p class="regia-dettaglio">Un file con due fogli, utile per gli attestati di partecipazione:</p>
+                    <ul class="elenco">
+                        <li><strong>Partecipanti</strong>: nome, cognome, email, azienda, stato dell'account e dell'email,
+                            primo collegamento, ultimo segnale, minuti collegati durante la diretta, numero di collegamenti, ultimo accesso.</li>
+                        <li><strong>Accessi</strong>: ogni accesso riuscito, con data e ora, persona e dispositivo.</li>
+                    </ul>
+                    <p class="aiuto">I minuti sono stimati dalla pagina della diretta (un segnale ogni 60 secondi, verificato con l'orario
+                        del server) e limitati alla durata dell'evento. Date e ore sono quelle di Roma.</p>
+                    <div class="azioni">
+                        <button type="button" id="btn-esporta" class="btn btn-primario">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                            Scarica il file Excel
+                        </button>
+                        <p id="msg-esporta" class="msg" role="status" hidden></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ======== FINESTRE ========
+         <dialog> aperto con showModal(): il resto della pagina diventa inerte,
+         il tasto Esc chiude, il fuoco resta dentro la finestra. -->
+    <dialog id="dialogo-conferma" class="dialogo" aria-labelledby="conferma-titolo" aria-describedby="conferma-testo">
+        <div class="dialogo-corpo">
+            <h2 id="conferma-titolo"></h2>
+            <p id="conferma-testo"></p>
+            <ul id="conferma-dettagli" class="elenco" hidden></ul>
+        </div>
+        <div class="dialogo-azioni">
+            <button type="button" id="conferma-annulla" class="btn btn-secondario">Annulla</button>
+            <button type="button" id="conferma-ok" class="btn btn-primario">Conferma</button>
+        </div>
+    </dialog>
+
+    <!-- «Torna alla fase iniziale»: che cosa si cancella (con i numeri), la
+         scelta sugli accessi e la parola da scrivere per confermare -->
+    <dialog id="dialogo-azzera" class="dialogo" aria-labelledby="azzera-titolo" aria-describedby="azzera-testo">
+        <form id="form-azzera" novalidate>
+            <div class="dialogo-corpo">
+                <h2 id="azzera-titolo">Tornare alla fase iniziale?</h2>
+                <p id="azzera-testo">L'evento torna com'era prima del primo «Vai in onda». Chi ha la pagina della diretta aperta
+                    rivede da solo la schermata di attesa con il conto alla rovescia.</p>
+                <p class="azzera-sotto"><strong>Si cancella:</strong></p>
+                <ul id="azzera-cancella" class="elenco"></ul>
+                <label class="opzione" id="azzera-accessi-riga">
+                    <input type="checkbox" id="azzera-accessi" checked>
+                    <span>Cancella anche l'elenco degli accessi (<span id="azzera-n-accessi">0</span>)</span>
+                </label>
+                <p class="azzera-sotto"><strong>Resta com'è:</strong> partecipanti, password, credenziali inviate, promemoria,
+                    dati dell'evento (titolo, orari, programma, player) e l'interruttore delle iscrizioni dal modulo.</p>
+                <div class="campo">
+                    <label for="azzera-parola">Per confermare scrivi <strong>AZZERA</strong></label>
+                    <input type="text" id="azzera-parola" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                </div>
+                <p id="msg-azzera" class="msg msg-errore" role="alert" hidden></p>
+            </div>
+            <div class="dialogo-azioni">
+                <button type="button" id="btn-azzera-annulla" class="btn btn-secondario">Annulla</button>
+                <button type="submit" id="btn-azzera-conferma" class="btn btn-pericolo" disabled>Torna alla fase iniziale</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dialogo-correggi" class="dialogo" aria-labelledby="correggi-titolo">
+        <form id="form-correggi" novalidate>
+            <div class="dialogo-corpo">
+                <h2 id="correggi-titolo">Correggi i dati</h2>
+                <p id="correggi-sotto" class="aiuto"></p>
+                <div class="griglia-campi griglia-due">
+                    <div class="campo">
+                        <label for="corr-nome">Nome</label>
+                        <input type="text" id="corr-nome" maxlength="80" autocomplete="off" required>
+                    </div>
+                    <div class="campo">
+                        <label for="corr-cognome">Cognome</label>
+                        <input type="text" id="corr-cognome" maxlength="80" autocomplete="off" required>
+                    </div>
+                    <div class="campo campo-largo">
+                        <label for="corr-azienda">Azienda</label>
+                        <input type="text" id="corr-azienda" maxlength="120" autocomplete="off">
+                    </div>
+                    <div class="campo campo-largo">
+                        <label for="corr-email">Email</label>
+                        <input type="email" id="corr-email" autocomplete="off" spellcheck="false" autocapitalize="off" required>
+                    </div>
+                </div>
+                <p id="corr-nota-email" class="riquadro-nota" aria-live="polite"></p>
+                <p id="msg-correggi" class="msg msg-errore" role="alert" hidden></p>
+            </div>
+            <div class="dialogo-azioni">
+                <button type="button" id="btn-corr-annulla" class="btn btn-secondario">Annulla</button>
+                <button type="submit" id="btn-corr-salva" class="btn btn-primario">Salva</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dialogo-password" class="dialogo" aria-labelledby="password-titolo" aria-describedby="password-nota">
+        <div class="dialogo-corpo">
+            <h2 id="password-titolo">Nuova password</h2>
+            <p class="regia-dettaglio">Per <span id="password-persona"></span>, che entra con l'email <strong id="password-email"></strong>.</p>
+            <p class="password-riquadro"><span id="password-mostrata" class="testo-fisso"></span></p>
+            <p id="password-nota" class="aiuto">La vedi adesso e poi mai più: non è salvata da nessuna parte.
+                Comunicala alla persona in modo sicuro (a voce o al telefono). La password precedente non funziona più.</p>
+            <p id="msg-password" class="msg" role="status" hidden></p>
+        </div>
+        <div class="dialogo-azioni">
+            <button type="button" id="btn-copia-password" class="btn btn-secondario">Copia</button>
+            <button type="button" id="btn-chiudi-password" class="btn btn-primario">Ho annotato la password</button>
+        </div>
+    </dialog>
+
+    <div id="avvisi" class="avvisi" role="status" aria-live="polite"></div>
+
+    <script src="../config.js?v=20260926b"></script>
+    <!-- le regole dei link della web TV (le stesse del player e del servizio)
+         e gli stessi player della pagina dei partecipanti, per l'anteprima:
+         player-webtv.js per il flusso diretto, player-azoto.js per il player Azoto -->
+    <script src="../sorgente-video.js?v=20260925a"></script>
+    <script src="../player-webtv.js?v=20260925a"></script>
+    <script src="../player-azoto.js?v=20260925a"></script>
+    <script src="gestione.js?v=20260927e"></script>
+</body>
+</html>

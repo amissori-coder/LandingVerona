@@ -1007,6 +1007,68 @@ function slotDi(area, ora) {
             'in copia NASCOSTA: fra i destinatari veri non compare');
     });
 
+    await prova('27) Il secondo tavolo del merito creditizio raddoppia gli orari che l\'azienda vede', async () => {
+        /* Il secondo desk della segreteria e' diventato il secondo tavolo del
+           merito creditizio, che e' l'argomento piu' richiesto. Per chi
+           organizza restano due tavoli veri - due referenti, due griglie, due
+           chiusure - ma l'azienda deve vedere UNA voce sola con il doppio dei
+           posti: a lei interessa l'argomento e l'ora, non a quale dei due
+           professionisti la mandiamo.
+           L'identificativo del tavolo e' rimasto "desk-revilaw-b": e' la
+           chiave con cui viaggiano le prenotazioni gia' prese, e questa prova
+           serve anche a dire che quel nome strano e' voluto. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({
+            'merito-creditizio': { referenti: [{ nome: 'Filippo Lo Piccolo', ruolo: 'Partner' }] },
+            'desk-revilaw-b': { referenti: [{ nome: 'Marco Rossi', ruolo: 'Senior' }] },
+            'finanza-agevolata': { referenti: [{ nome: 'Sara Ventura', ruolo: 'Partner' }] },
+            'finanza-agevolata-b': { referenti: [{ nome: 'Luca Bianchi', ruolo: 'Senior' }] }
+        });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }],
+            ['merito-creditizio', 'desk-revilaw-b', 'finanza-agevolata', 'finanza-agevolata-b']);
+        const letto = await chiamaAzienda('p:04641610235', { azione: 'b2b-azienda-leggi' });
+        esigi(letto.ok === true, 'la pagina dell azienda si apre');
+        const voci = (letto.aree || []).filter(a => /Merito creditizio/i.test(a.nome || ''));
+        esigi(voci.length === 1, 'il merito creditizio e UNA voce sola, non due',
+            (letto.aree || []).map(a => a.nome).join(' | '));
+        esigi(!/secondo tavolo/i.test(JSON.stringify(letto.aree || [])),
+            'e "secondo tavolo" non si legge da nessuna parte: e affare nostro');
+        /* IL DOPPIO DEI POSTI: ogni orario della famiglia ne ospita due, uno
+           per tavolo. E' questo che l'azienda deve vedere. */
+        const slot = ((voci[0] || {}).slot || []);
+        const doppi = slot.filter(x => x.posti === 2).length;
+        esigi(slot.length > 0 && doppi === slot.length,
+            'e ogni orario ha due posti, uno per tavolo (' + doppi + ' su ' + slot.length + ')',
+            JSON.stringify(slot.slice(0, 2)));
+        /* E due imprese alla stessa ora ci stanno davvero: la prima prende il
+           capofila, la seconda il secondo tavolo. */
+        const ora = slot[0].ora;
+        const primo = await chiamaAzienda('p:04641610235', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: 'merito-creditizio', ora: ora, perDoc: 'sergio' }
+        });
+        esigi(primo.ok === true, 'la prima impresa prenota le ' + ora);
+        const dopo = await chiamaAzienda('p:04641610235', { azione: 'b2b-azienda-leggi' });
+        const slotDopo = ((dopo.aree || []).filter(a => /Merito creditizio/i.test(a.nome))[0] || {}).slot || [];
+        const quello = slotDopo.filter(x => x.ora === ora)[0] || {};
+        esigi(quello.posti === 1 && quello.stato !== 'occupato',
+            'e alle ' + ora + ' resta un posto libero, sull altro tavolo',
+            JSON.stringify(quello));
+        /* LA FINANZA AGEVOLATA ha lo stesso trattamento, ma per un'altra
+           ragione: non e' un desk convertito, e' un posto in piu' a ogni ora
+           sullo stesso argomento. Per l'azienda le due cose si vedono uguali,
+           ed e' il punto. */
+        const fin = (letto.aree || []).filter(a => /Finanza agevolata/i.test(a.nome || ''));
+        esigi(fin.length === 1 && fin[0].nome === 'Finanza agevolata',
+            'anche la finanza agevolata e una voce sola, con il nome di sempre',
+            fin.map(a => a.nome).join(' | '));
+        const slotFin = (fin[0] || {}).slot || [];
+        esigi(slotFin.length > 0 && slotFin.every(x => x.posti === 2),
+            'e ogni suo orario ha due posti (' + slotFin.filter(x => x.posti === 2).length + ' su ' + slotFin.length + ')');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });

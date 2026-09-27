@@ -133,5 +133,132 @@ prova('5) La mail d\'invito elenca un tavolo per ARGOMENTO', () => {
     esigi(!/[\u2013\u2014]/.test(m.testo), 'e non ci sono trattini lunghi: si scrive con il trattino normale');
 });
 
+prova('6) Il secondo tavolo del merito creditizio', () => {
+    /* Era il secondo desk della segreteria ed e' stato convertito:
+       l'identificativo resta "desk-revilaw-b" perche' e' la chiave con cui
+       viaggiano le prenotazioni gia' prese, il nome e la famiglia no. E'
+       proprio il caso per cui id e nome sono due cose diverse, e vale la pena
+       che una prova lo dica: chi legge l'elenco e trova un "desk-revilaw-b"
+       fra i tavoli del merito creditizio deve capire che e' voluto. */
+    const a = SERVIZIO.areaDa('desk-revilaw-b');
+    esigi(!!a, 'il tavolo c e ancora, con il suo identificativo di sempre');
+    esigi(a && !a.interno, 'non e piu interno: l azienda lo vede');
+    esigi(SERVIZIO.capofilaDi('desk-revilaw-b') === 'merito-creditizio',
+        'e sta nella famiglia del merito creditizio', SERVIZIO.capofilaDi('desk-revilaw-b'));
+    esigi(SERVIZIO.gemelliDi('merito-creditizio').join(',') === 'merito-creditizio,desk-revilaw-b',
+        'che ora ha due tavoli, il capofila per primo', SERVIZIO.gemelliDi('merito-creditizio').join(','));
+    /* UN desk interno resta, e uno solo: quello dove si portano le esigenze
+       che a un tavolo del convegno non appartengono. */
+    const interni = SERVIZIO.AREE_B2B.filter(x => x.interno).map(x => x.id);
+    esigi(interni.join(',') === 'desk-revilaw', 'e il desk interno resta uno solo', interni.join(','));
+    /* L'ORDINE NON SI TOCCA: le prenotazioni vecchie viaggiano per INDICE, e
+       infilare o spostare una riga sposterebbe le scelte gia' fatte da un
+       argomento all'altro. Si scrive per intero, cosi' la prova non dice solo
+       "l'ultima e' quella giusta" ma "nessuna si e' mossa": le voci nuove si
+       aggiungono in fondo, e questo elenco e' il posto dove ci si accorge se
+       qualcuno ne ha messa una in mezzo. */
+    const ORDINE = [
+        'merito-creditizio', 'adeguati-assetti', 'esg', 'modello-231', 'modello-231-b',
+        'finanza-agevolata', 'revisione', 'certificazione-iso', 'rating-legalita',
+        'rating-legalita-b', 'desk-revilaw', 'desk-revilaw-b', 'finanza-agevolata-b'
+    ];
+    esigi(SERVIZIO.AREE_B2B.map(x => x.id).join(',') === ORDINE.join(','),
+        'e l ordine dei tavoli e quello di sempre, con le voci nuove in fondo',
+        SERVIZIO.AREE_B2B.map(x => x.id).join(','));
+    /* Il nome di prima resta riconoscibile: un invito partito mesi fa parla
+       ancora per nome. */
+    esigi(SERVIZIO.idArea('Desk Revilaw - secondo tavolo') === 'desk-revilaw-b',
+        'e il nome vecchio porta ancora al suo tavolo');
+    /* L'AZIENDA vede una voce sola per il merito creditizio. */
+    const fam = SERVIZIO.famiglieB2B().filter(f => f.id === 'merito-creditizio')[0];
+    esigi(fam && fam.aree.length === 2, 'per l azienda e un argomento solo, con due tavoli dentro');
+    esigi(!/secondo tavolo/i.test(JSON.stringify(SERVIZIO.famiglieB2B())),
+        'e "secondo tavolo" non compare in nessuna voce che l azienda legge');
+});
+
+prova('7) L\'etichetta del tavolo la scrive il sito, quando la conosce', () => {
+    /* I nomi dei tavoli arrivano dal servizio insieme agli orari, e il
+       servizio sta su un'altra macchina che si aggiorna per conto suo: il
+       giorno che un tavolo cambia nome, l'area riservata continuerebbe a
+       mostrare quello vecchio finche' il servizio non riparte, senza che si
+       capisca perche'. Il nome pero' e' una cosa che il sito sa da se'. */
+    const APP = fs.readFileSync(path.join(RADICE, 'area-riservata', 'app.js'), 'utf8');
+    const ritaglia = nome => {
+        const i = APP.indexOf('function ' + nome + '(');
+        let j = APP.indexOf('{', i), n = 0, fine = -1;
+        for (; j < APP.length; j++) {
+            if (APP[j] === '{') n++;
+            else if (APP[j] === '}') { n--; if (!n) { fine = j + 1; break; } }
+        }
+        return APP.slice(i, fine);
+    };
+    const AREE = [{ id: 'desk-revilaw-b', nome: 'Merito creditizio - secondo tavolo' }];
+    const etichetta = new Function('areeB2BDef', 'return ' + ritaglia('etichettaTavoloB2B'))(() => AREE);
+    esigi(etichetta({ id: 'desk-revilaw-b', nome: 'Desk Revilaw - secondo tavolo' }) === 'Merito creditizio - secondo tavolo',
+        'con il servizio indietro vale il nome che conosce il sito');
+    esigi(etichetta({ id: 'tavolo-che-non-conosciamo', nome: 'Tavolo nuovo' }) === 'Tavolo nuovo',
+        'ma un tavolo che il sito non conosce tiene il suo: meglio un nome vecchio che nessun nome');
+    esigi(etichetta({ id: 'desk-revilaw-b' }) === 'Merito creditizio - secondo tavolo',
+        'e se il servizio non manda il nome, il sito ce l ha lo stesso');
+});
+
+prova('8) Un posto in piu a ogni orario della finanza agevolata', () => {
+    /* Nel modello un orario di un tavolo tiene UNA prenotazione
+       (aree[tavolo][ora] e' una casella sola): il secondo posto alle 10:00 e'
+       quindi una seconda voce nell'elenco, che si fonde con la prima nella
+       stessa famiglia. Per l'azienda non cambia niente - vede "Finanza
+       agevolata" con due posti a ogni ora - e per chi organizza e' una riga in
+       piu' in agenda, a cui dare il referente che siede in quel posto. */
+    esigi(SERVIZIO.capofilaDi('finanza-agevolata-b') === 'finanza-agevolata',
+        'il secondo posto sta nella famiglia della finanza agevolata');
+    esigi(SERVIZIO.gemelliDi('finanza-agevolata').join(',') === 'finanza-agevolata,finanza-agevolata-b',
+        'che ora ha due posti per orario, il capofila per primo');
+    const fam = SERVIZIO.famiglieB2B().filter(f => f.id === 'finanza-agevolata')[0];
+    esigi(fam && fam.aree.length === 2 && fam.nome === 'Finanza agevolata',
+        'ma per l azienda resta una voce sola, che si chiama come si e sempre chiamata');
+    esigi(!SERVIZIO.areaDa('finanza-agevolata-b').interno,
+        'non e un tavolo interno: partecipa alla fusione degli orari');
+    /* I TRE ELENCHI restano identici: e' la prova 1 di questo file a
+       controllarlo, e questa riga serve a ricordare che le voci nuove vanno
+       aggiunte in tutti e tre. */
+    esigi(AREA.AREE_B2B.filter(a => a.id === 'finanza-agevolata-b').length === 1,
+        'e la voce c e anche nell elenco dell area riservata');
+});
+
+prova('9) Quando il servizio non manda un tavolo, l\'agenda lo dice', () => {
+    /* L'elenco dei tavoli lo tiene il servizio, che sta su un'altra macchina e
+       si aggiorna per conto suo: quando se ne aggiunge uno, per qualche minuto
+       in agenda quella riga non c'e'. E una riga che non c'e' non si vede: si
+       cerca il tavolo nuovo, non lo si trova, e si pensa che la modifica non
+       sia stata fatta. E' successo davvero, due volte.
+       Il sito l'elenco ce l'ha anche lui: basta confrontare. */
+    const APP = fs.readFileSync(path.join(RADICE, 'area-riservata', 'app.js'), 'utf8');
+    const i = APP.indexOf('function tavoliCheMancano(');
+    let j = APP.indexOf('{', i), n = 0, fine = -1;
+    for (; j < APP.length; j++) {
+        if (APP[j] === '{') n++;
+        else if (APP[j] === '}') { n--; if (!n) { fine = j + 1; break; } }
+    }
+    const esc = x => String(x == null ? '' : x);
+    const mancano = new Function('areeB2BDef', 'esc',
+        'return ' + APP.slice(i, fine))(() => AREA.AREE_B2B, esc);
+    /* Il servizio aggiornato: manda tutti i tavoli, e non c'e' niente da dire. */
+    esigi(mancano(AREA.AREE_B2B.map(a => ({ id: a.id }))) === '',
+        'con il servizio aggiornato non si dice niente');
+    /* Il servizio indietro: gli manca l'ultimo arrivato. */
+    const vecchio = AREA.AREE_B2B.filter(a => a.id !== 'finanza-agevolata-b').map(a => ({ id: a.id }));
+    const avviso = mancano(vecchio);
+    esigi(/1 tavolo non arriva/.test(avviso), 'con il servizio indietro si dice quanti mancano', avviso);
+    esigi(avviso.indexOf('Finanza agevolata - secondo posto') >= 0, 'e si dice QUALE', avviso);
+    esigi(/riprova fra qualche minuto/.test(avviso), 'e che cosa fare: aspettare, non rifare');
+    /* Due tavoli mancanti si contano al plurale: e' il caso di chi apre
+       l'agenda subito dopo due modifiche di fila. */
+    const piuVecchio = vecchio.filter(a => a.id !== 'desk-revilaw-b');
+    esigi(/2 tavoli non arrivano/.test(mancano(piuVecchio)), 'e due mancanti si dicono al plurale');
+    /* Un elenco vuoto (agenda mai aperta) non fa dire che mancano tutti: li' non
+       si sta aspettando niente, si sta caricando. */
+    esigi(mancano([]).indexOf('non arrivano') > 0, 'e con l elenco vuoto si dice lo stesso: e la stessa cosa');
+});
+
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
 process.exit(ko ? 1 : 0);

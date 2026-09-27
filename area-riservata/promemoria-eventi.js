@@ -29,10 +29,12 @@
    destinatario; {{LINK_DIRETTA}} lo sostituisce l'area riservata
    con il collegamento scritto da chi programma (campo "linkDiretta").
 
-   Il servizio passa tre volte al giorno, alle 7, alle 8 e alle 20: ogni
-   proposta ha la sua ora (`ora`, se manca 20) e di una proposta si sceglie
-   il giorno. Per Napoli: 24 e 29 settembre alle 20, sabato 26 e 1° ottobre
-   alle 8, la mattina dell'evento alle 7.
+   Il servizio passa cinque volte al giorno, alle 7, alle 8, alle 11, alle 20
+   e alle 22: ogni proposta ha la sua ora (`ora`, se manca 20) e di una
+   proposta si sceglie il giorno. Per Napoli: 24 settembre alle 22, 29
+   settembre alle 20, sabato 26 e 1° ottobre alle 8, 30 settembre alle 11
+   (l'ultimo giorno per prenotare gli incontri B2B), la mattina dell'evento
+   alle 7.
 
    Ogni proposta: { id, nome, sezioni: 'sala'|'online', giorniPrima,
    campi: ['linkDiretta'], mail: { oggetto, anteprima, titolo,
@@ -196,6 +198,27 @@
                     pulsante: { testo: 'Modifica o annulla l\'iscrizione', url: COMPLETA },
                     nota: 'Il pulsante dà accesso alla Sua iscrizione ed è strettamente personale: La preghiamo di non inoltrare questa email.',
                     linkPersonale: false
+                }
+            },
+            /* L'ultimo giorno per prenotare gli incontri B2B (la chiusura sta
+               nei dati dell'evento: 30 settembre), alle 11. Nell'oggetto
+               "Oggi" e' scritto a mano: la mail vale solo per quel giorno. */
+            {
+                id: 'sala-ultimo-giorno-b2b', serie: 'sala', giorniPrima: 2, soloIlGiorno: true, ora: 11,
+                nome: 'Mercoledì 30, alle 11: ultimo giorno per prenotare gli incontri B2B',
+                mail: {
+                    oggetto: 'Oggi è l\'ULTIMO GIORNO per prenotare gli incontri B2B - {{AZIENDA}} - Next Generation Business',
+                    anteprima: 'Le prenotazioni degli incontri B2B di venerdì 2 ottobre si chiudono {{CHIUSURA_B2B}}: dopo non sarà più possibile fissare gli appuntamenti.',
+                    titolo: 'Ultimo giorno per prenotare gli incontri B2B',
+                    sommario: 'Gentile ' + NOME + ', Le ricordiamo che le prenotazioni degli incontri B2B di Next Generation Business si chiudono {{CHIUSURA_B2B}}: dopo la chiusura non sarà più possibile fissare gli appuntamenti ai desk.',
+                    paragrafi: [
+                        { titolo: 'Se ha ricevuto l\'invito', testo: 'Qualora abbia ricevuto l\'invito agli incontri B2B e non abbia ancora prenotato, La invitiamo a farlo {{CHIUSURA_B2B}} stesso dal pulsante "Scegliete i Vostri incontri" presente nell\'email di invito, il cui oggetto contiene le parole "INVITO RISERVATO agli incontri B2B". L\'invito vale per l\'intera impresa: se è arrivato a un Suo collega, il collegamento è lo stesso. Le fasce orarie sono limitate e vengono assegnate in ordine di prenotazione.' },
+                        { titolo: 'Se ha già prenotato', testo: 'Non deve fare nulla. Il giorno dell\'evento La preghiamo di presentare il riepilogo della prenotazione, in formato cartaceo o digitale, al desk "Incontri B2B".' },
+                        'Qualora non abbia ricevuto l\'invito, questa comunicazione non richiede alcuna azione da parte Sua: gli incontri B2B sono riservati alle imprese invitate. La attendiamo in sala venerdì 2 ottobre.'
+                    ],
+                    righe: [['Prenotazioni B2B', 'Si chiudono {{CHIUSURA_B2B}}'], ['Incontri B2B', 'Venerdì 2 ottobre 2026, dalle ore 10.00 alle ore 17.00, su invito'], ['Sede', NAPOLI.dove]],
+                    nota: '',
+                    linkPersonale: true
                 }
             },
             {

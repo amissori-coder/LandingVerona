@@ -439,6 +439,26 @@ module.exports = async (req, res) => {
                         collab: String(v.inserito.collab || ''),
                         quando: typeof v.inserito.quando === 'number' ? v.inserito.quando : 0
                     } : null,
+                    /* L'INDIRIZZO CONFERMATO: il baffetto verde accanto all'email.
+                       `come` distingue chi ha cliccato nella mail ('mail') da chi
+                       era iscritto prima che la mail avesse il pulsante
+                       ('pregresso', segnato d'ufficio dall'amministratore). La
+                       lettura e' una whitelist campo per campo: senza questa
+                       riga il campo resterebbe sul database e il baffetto non
+                       comparirebbe mai. */
+                    /* Com'e' andata la mail di conferma dell'iscrizione: quando
+                       fallisce, l'area riservata lo scrive accanto all'indirizzo
+                       con il motivo dato dal server di posta. Whitelist: senza
+                       questa riga resterebbe nei log e basta. */
+                    mailConferma: (v.mailConferma && typeof v.mailConferma === 'object') ? {
+                        quando: typeof v.mailConferma.quando === 'number' ? v.mailConferma.quando : 0,
+                        ok: v.mailConferma.ok === true,
+                        errore: String(v.mailConferma.errore || '')
+                    } : null,
+                    emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {
+                        quando: typeof v.emailConfermata.quando === 'number' ? v.emailConfermata.quando : 0,
+                        come: String(v.emailConfermata.come || 'mail')
+                    } : null,
                     /* chi ha compilato il modulo "completa i dati" (l'intestatario):
                        l'area riservata lo mostra come "Nome (dal modulo)" */
                     compilato: (v.compilato && typeof v.compilato === 'object') ? {
@@ -552,7 +572,11 @@ module.exports = async (req, res) => {
                 azienda: cella(riga, iAzienda),
                 ruolo: cella(riga, iRuolo),
                 telefono: cella(riga, iTel),
-                messaggio: cella(riga, iMsg)
+                messaggio: cella(riga, iMsg),
+                /* Le righe del foglio storico sono tutte precedenti alla mail
+                   con il pulsante di conferma, e non hanno una scheda su cui
+                   scrivere: valgono come pregresso, senza scrivere niente. */
+                emailConfermata: { quando: 0, come: 'pregresso' }
             });
         }
 

@@ -395,6 +395,11 @@ function contenutoPagina(dati) {
 function pdfPrenotazione(dati) {
     const flusso = contenutoPagina(dati);
     const titolo = 'Prenotazione incontri B2B - ' + inLatin1((dati && dati.nome) || '');
+    return pdfDaFlusso(flusso, titolo);
+}
+/* Il file attorno a UN flusso di pagina: lo usa anche l'invito d'ingresso
+   (lib/pdf-invito.js), che disegna la sua pagina con lo stesso Foglio. */
+function pdfDaFlusso(flusso, titolo) {
     const oggetti = [
         '<< /Type /Catalog /Pages 2 0 R >>',
         '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -419,4 +424,4 @@ function pdfPrenotazione(dati) {
     return Buffer.from(file, 'latin1');
 }
 
-module.exports = { pdfPrenotazione, inLatin1 };
+module.exports = { pdfPrenotazione, pdfDaFlusso, inLatin1, Foglio, aCapo, A4, LATO, DENTRO, C };

@@ -1298,13 +1298,37 @@
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const posto = online
             ? (nPart > 1
-                ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
-                : 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.')
+                ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Nella diretta ognuno entra con la propria email e la password che riceve con un\'email a parte, prima dell\'evento. Non trovate l\'email? Controllate nella cartella Spam o Promozioni.'
+                : 'La tua partecipazione online è registrata. Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.')
             : (nPart > 1
                 ? 'I tuoi ' + nPart + ' posti sono riservati.'
                 : 'Il tuo posto è riservato.');
+        /* IL BLOCCO "CONFERMA IL TUO INDIRIZZO", in cima: il segnaposto
+           {{CONFERMA}} lo sostituisce il servizio con il collegamento firmato
+           all'invio (come {{COMPLETA}}). Pulsante a prova di Outlook: sfondo
+           sulla cella, link a blocco pieno alto almeno 44px, sotto l'indirizzo
+           in chiaro per chi non puo' cliccare. Gemello di bloccoConferma in
+           email-service/lib/mail-ngb.js: se cambia di la', cambia anche qui. */
+        const bloccoConferma = '<tr><td style="' + FONTE + '">'
+            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+            + '<tr><td class="par" style="' + FONTE + 'padding:18px 22px 14px;' + SCALA.corpo + 'color:' + C.testo + ';background-color:' + C.chiaro + ';' + ALLINEA + '">'
+            + '<b style="color:' + C.scuro + ';">Un tocco per confermare il tuo indirizzo.</b> '
+            + 'Così sappiamo che le comunicazioni sull\'evento - il programma, i promemoria, il collegamento per seguirlo - ti arrivano davvero.</td></tr>'
+            + '<tr><td style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
+            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
+            + '<td align="center" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;">'
+            + '<a href="' + SEGNAPOSTO_CONFERMA + '" style="display:block;padding:13px 16px;font-family:' + FONT
+            + ';font-size:17px;line-height:22px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Conferma il tuo indirizzo email</a>'
+            + '</td></tr></table></td></tr>'
+            + '<tr><td style="' + FONTE + 'padding:0 22px 16px;font-size:13px;line-height:20px;color:' + C.tenue + ';background-color:' + C.chiaro + ';word-break:break-all;text-align:left;">'
+            + 'Se il pulsante non funziona, copia questo indirizzo nel browser:<br>'
+            + '<a href="' + SEGNAPOSTO_CONFERMA + '" style="color:' + C.accento + ';text-decoration:underline;">' + SEGNAPOSTO_CONFERMA + '</a></td></tr>'
+            + '</table></td></tr>';
         const corpo = cella(tabellaInterna(
             spazio(30)
+            + bloccoConferma
+            + spazio(26)
             + par(posto + ' Qui sotto trovi il riepilogo della tua iscrizione: se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.')
             + spazio(22)
             + '<tr><td>' + box + '</td></tr>'
@@ -1360,6 +1384,8 @@
         parti.push('--');
         parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
         parti.push(MOTIVO_CONFERMA);
+        // nel testo semplice il collegamento di conferma sta subito dopo il saluto
+        parti.splice(2, 0, 'Conferma il tuo indirizzo email (un clic): ' + SEGNAPOSTO_CONFERMA);
         parti.push('Informativa privacy: ' + PRIVACY);
 
         return { oggetto: oggetto, html: html, testo: parti.join('\n\n') };
@@ -1380,6 +1406,8 @@
        luogo, indirizzo}, portale, partecipanti.
     ========================================================= */
     const SEGNAPOSTO_COMPLETA = '{{COMPLETA}}';
+    // e il collegamento "conferma il tuo indirizzo", firmato dal servizio all'invio
+    const SEGNAPOSTO_CONFERMA = '{{CONFERMA}}';
     const MOTIVO_RICHIESTA = 'Ricevi questa email per completare i dati della tua iscrizione all\'evento: non è una comunicazione promozionale.';
     function richiestaDati(dati) {
         dati = dati || {};
@@ -1551,7 +1579,16 @@
            l'invito non lo propone mai - chi compone la mail toglie i tavoli
            interni. Ci si finisce solo perche' lo decide chi organizza. */
         { nome: 'Desk Revilaw', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' },
-        { nome: 'Desk Revilaw - secondo tavolo', descrizione: 'il desk della segreteria: un tavolo riservato, a cui si accede su indicazione dello staff' }
+        /* Il SECONDO desk Revilaw e' diventato il secondo tavolo del merito
+           creditizio: l'identificativo resta "desk-revilaw-b" (e' la chiave
+           delle prenotazioni gia' prese), il nome e la descrizione no. La
+           descrizione e' quella del merito creditizio, perche' per chi legge
+           e' lo stesso incontro. */
+        { nome: 'Merito creditizio - secondo tavolo', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' },
+        /* Il posto in piu' a ogni orario della finanza agevolata: stessa
+           descrizione della prima, perche' per chi legge e' lo stesso
+           incontro. */
+        { nome: 'Finanza agevolata - secondo posto', descrizione: 'finanza agevolata e sostegno agli investimenti' }
     ];
     /* Gli identificativi delle aree, nello stesso ordine: sono la chiave con
        cui il tavolo viaggia fra invito, prenotazione e agenda, e devono
@@ -1560,12 +1597,12 @@
         'merito-creditizio', 'adeguati-assetti', 'esg',
         'modello-231', 'modello-231-b', 'finanza-agevolata',
         'revisione', 'certificazione-iso', 'rating-legalita', 'rating-legalita-b',
-        'desk-revilaw', 'desk-revilaw-b'
+        'desk-revilaw', 'desk-revilaw-b', 'finanza-agevolata-b'
     ].map((id, i) => ({ id: id, nome: TEMI_B2B[i].nome, descrizione: TEMI_B2B[i].descrizione }));
     /* I tavoli INTERNI non si propongono a nessuno. La regola sta anche qui
        perche' qui si compone la mail d'invito, e un tavolo interno finito in
        elenco sarebbe un invito a prenotare una cosa che non si prenota. */
-    const AREE_INTERNE_B2B = ['desk-revilaw', 'desk-revilaw-b'];
+    const AREE_INTERNE_B2B = ['desk-revilaw'];
     const areaInternaB2B = id => AREE_INTERNE_B2B.indexOf(String(id || '')) >= 0;
     /* I SECONDI TAVOLI di uno stesso argomento. Per chi organizza sono due
        tavoli veri, con due referenti e due griglie di orari; per chi riceve
@@ -1576,7 +1613,10 @@
     const SECONDI_B2B = {
         'modello-231-b': 'modello-231',
         'rating-legalita-b': 'rating-legalita',
-        'desk-revilaw-b': 'desk-revilaw'
+        // era il secondo desk della segreteria, ora e' il secondo tavolo del
+        // merito creditizio: l'identificativo non si cambia, il capofila si'
+        'desk-revilaw-b': 'merito-creditizio',
+        'finanza-agevolata-b': 'finanza-agevolata'
     };
     const capofilaB2B = id => SECONDI_B2B[String(id || '')] || String(id || '');
     /* Testata, fascia e piede degli inviti B2B: le stesse per l'invito a
