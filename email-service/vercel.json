@@ -8,7 +8,8 @@
     { "path": "/api/promemoria-eventi-mattina", "schedule": "0 5 * * *" },
     { "path": "/api/promemoria-eventi-ore8", "schedule": "0 6 * * *" },
     { "path": "/api/promemoria-eventi-ore22", "schedule": "0 20 * * *" },
-    { "path": "/api/diretta-cron", "schedule": "*/5 * * * *" }
+    { "path": "/api/diretta-cron", "schedule": "*/5 * * * *" },
+    { "path": "/api/diretta-ascolti", "schedule": "* * * * *" }
   ],
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },
@@ -29,6 +30,7 @@
     "api/diretta-cron.js": { "maxDuration": 300 },
     "api/diretta-gestione.js": { "maxDuration": 60 },
     "api/diretta-accesso.js": { "maxDuration": 60 },
-    "api/diretta-stato.js": { "maxDuration": 10 }
+    "api/diretta-stato.js": { "maxDuration": 10 },
+    "api/diretta-ascolti.js": { "maxDuration": 60 }
   }
 }

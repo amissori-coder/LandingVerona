@@ -24,7 +24,10 @@
    dell'evento (tipoPlayer, l'indirizzo del player di Azoto o il
    flusso) lo legge solo chi e' iscritto e lo scrive solo il servizio;
    gli indirizzi salvati (eventiRiservati) non li legge nessuno dal
-   browser.
+   browser. Che gli ascolti (ascolti, la registrazione minuto per
+   minuto di chi e' collegato, e ascoltiCache, il riepilogo per la
+   gestione) non li legge ne' li scrive nessuno dal browser, nemmeno il
+   gestore: li legge la gestione attraverso il servizio.
    Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
@@ -90,6 +93,12 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
         await setDoc(doc(db, 'tentativi/annabianchi'), { falliti: 2 });
         await setDoc(doc(db, 'code/napoli-2026'), { attiva: true });
         await setDoc(doc(db, 'limiti/x'), { conteggio: 1 });
+        // gli ascolti come li scrive il servizio (lib/diretta-ascolti.js)
+        await setDoc(doc(db, 'ascolti/napoli-2026'), {
+            idEvento: 'napoli-2026', primoMinuto: 29800000, ultimoMinuto: 29800001, versione: 1,
+            curva: '[[29800000,1,"o"],[29800001,1,"o"]]', persone: '{"anna":[[29800000,29800001]]}'
+        });
+        await setDoc(doc(db, 'ascoltiCache/napoli-2026'), { calcolato: Timestamp.now(), dati: '{"ok":true}' });
     });
 
     const anna = env.authenticatedContext('anna', { eventi: ['napoli-2026'] }).firestore();
@@ -112,7 +121,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il partecipante legge il proprio profilo', () => assertSucceeds(getDoc(doc(anna, 'partecipanti/anna'))));
     await prova('il partecipante NON legge il profilo di un altro', () => assertFails(getDoc(doc(anna, 'partecipanti/bruno'))));
     await prova('il partecipante NON elenca i partecipanti', () => assertFails(getDocs(collection(anna, 'partecipanti'))));
-    for (const p of ['nomiUtente/annabianchi', 'indirizzi/anna@x.it', 'accessi/a1', 'tentativi/annabianchi', 'code/napoli-2026', 'limiti/x', 'presenze/napoli-2026_anna', 'sessioni/anna', 'eventiRiservati/napoli-2026']) {
+    for (const p of ['nomiUtente/annabianchi', 'indirizzi/anna@x.it', 'accessi/a1', 'tentativi/annabianchi', 'code/napoli-2026', 'limiti/x', 'presenze/napoli-2026_anna', 'sessioni/anna', 'eventiRiservati/napoli-2026', 'ascolti/napoli-2026', 'ascoltiCache/napoli-2026']) {
         await prova('il partecipante NON legge ' + p.split('/')[0], () => assertFails(getDoc(doc(anna, p))));
     }
     await prova('un account disattivato NON legge piu\' l\'evento (anche con il token ancora valido)', () => assertFails(getDoc(doc(carla, 'eventi/napoli-2026'))));
@@ -124,6 +133,12 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il gestore legge gli eventi (anteprima)', () => assertSucceeds(getDoc(doc(gestore, 'eventi/milano-2026'))));
     await prova('il gestore NON legge i profili dal browser', () => assertFails(getDoc(doc(gestore, 'partecipanti/anna'))));
     await prova('il gestore NON legge i nomi utente dal browser', () => assertFails(getDoc(doc(gestore, 'nomiUtente/annabianchi'))));
+    for (const c of ['ascolti', 'ascoltiCache']) {
+        await prova('il gestore NON legge ' + c + ' dal browser (li legge la gestione attraverso il servizio)', () => assertFails(getDoc(doc(gestore, c + '/napoli-2026'))));
+        await prova('il gestore NON elenca ' + c, () => assertFails(getDocs(collection(gestore, c))));
+        await prova('il partecipante NON elenca ' + c, () => assertFails(getDocs(collection(anna, c))));
+        await prova('senza accesso NON si legge ' + c, () => assertFails(getDoc(doc(anonimo, c + '/napoli-2026'))));
+    }
 
     console.log('\nScritture vietate');
     await prova('il partecipante NON modifica l\'evento (es. il video)', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://altro.esempio.it/live/playlist.m3u8' })));
@@ -135,6 +150,14 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il partecipante NON prenota nomi utente', () => assertFails(setDoc(doc(anna, 'nomiUtente/zzz'), { uid: 'anna' })));
     await prova('il partecipante NON si toglie il blocco del dispositivo', () => assertFails(setDoc(doc(dario, 'sessioni/dario'), { stato: 'attivo', sessioneAttiva: null })));
     await prova('il gestore NON scrive dal browser', () => assertFails(updateDoc(doc(gestore, 'eventi/napoli-2026'), { stato: 'terminato' })));
+    for (const c of ['ascolti', 'ascoltiCache']) {
+        await prova('il partecipante NON crea ' + c, () => assertFails(setDoc(doc(anna, c + '/milano-2026'), { dati: '{}' })));
+        await prova('il partecipante NON modifica ' + c + ' (es. per gonfiare i propri minuti)', () => assertFails(updateDoc(doc(anna, c + '/napoli-2026'), { persone: '{"anna":[[29800000,29809999]]}', dati: '{}' })));
+        await prova('il partecipante NON cancella ' + c, () => assertFails(deleteDoc(doc(anna, c + '/napoli-2026'))));
+        await prova('il gestore NON crea ' + c + ' dal browser', () => assertFails(setDoc(doc(gestore, c + '/milano-2026'), { dati: '{}' })));
+        await prova('il gestore NON modifica ' + c + ' dal browser', () => assertFails(updateDoc(doc(gestore, c + '/napoli-2026'), { curva: '[]', dati: '{}' })));
+        await prova('il gestore NON cancella ' + c + ' dal browser', () => assertFails(deleteDoc(doc(gestore, c + '/napoli-2026'))));
+    }
 
     console.log('\nPresenza: creazione');
     const base = () => ({ uid: 'anna', idEvento: 'napoli-2026', primo: serverTimestamp(), ultimo: serverTimestamp(), secondi: 0, collegamenti: 1, sessione: 's1' });
