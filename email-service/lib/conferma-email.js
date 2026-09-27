@@ -28,6 +28,16 @@
    il pregresso non tocca chi ha gia' il campo, in nessuno dei due
    modi. Cosi' l'ordine "pubblica, poi segna il pregresso" e' sicuro
    anche se qualcuno si iscrive nel mezzo.
+
+   LA DIRETTA. Chi segue ONLINE riceve la password della diretta DOPO
+   questa conferma, non all'iscrizione: alla prima conferma con il clic
+   (mai con il pregresso, mai alla seconda apertura) si avvisa la
+   diretta (lib/diretta-iscrizione.js, daConferma), che manda la password
+   solo se sull'evento e' acceso l'interruttore delle iscrizioni dal
+   modulo. Mai al posto del resto: dentro un try/catch, e su Vercel la
+   risposta alla pagina non aspetta la diretta (waitUntil). Se l'avviso
+   non arriva, lo ritrova la riconciliazione della diretta, che rilegge
+   le schede confermate (emailConfermata.quando).
    ============================================================ */
 
 const admin = require('firebase-admin');
@@ -138,8 +148,10 @@ function troppi(idDoc) {
     return false;
 }
 
-/* ---------- azione "conferma-email" (pubblica, dalla pagina) ---------- */
-async function conferma(db, body) {
+/* ---------- azione "conferma-email" (pubblica, dalla pagina) ----------
+   opz.ip: l'indirizzo di chi clicca (solo per i limiti del modulo nella
+   diretta). */
+async function conferma(db, body, opz) {
     const idDoc = testo((body || {}).d, 400);
     const token = testo((body || {}).t, 80);
     if (!idDoc || !token || !NL.firmaConfermaEmailValida(idDoc, token)) {
@@ -165,12 +177,26 @@ async function conferma(db, body) {
     const quando = Date.now();
     await rif.set({ emailConfermata: { quando: quando, come: 'mail' } }, { merge: true });
     await segnaCambiamento(db);
+    const online = String(scheda.modalita || '').toLowerCase() === 'online';
+    // la password della diretta, adesso che l'indirizzo e' confermato (vedi LA DIRETTA)
+    if (online && !scheda.annullato) {
+        try {
+            await require('./diretta-iscrizione').daConferma({
+                email: String(scheda.email), nome: String(scheda.nome || ''), cognome: String(scheda.cognome || ''),
+                azienda: String(scheda.azienda || ''), pagina: String(scheda.pagina || ''),
+                ricevutoMs: scheda.ricevuto && typeof scheda.ricevuto.toMillis === 'function' ? scheda.ricevuto.toMillis() : null,
+                ip: String((opz && opz.ip) || '')
+            });
+        } catch (e) {
+            console.error('Diretta: conferma dell\'indirizzo non passata alla diretta:', String((e && e.message) || e).replace(/[^\s/@'"]+@[^\s/'"]+/g, '<email>').slice(0, 200));
+        }
+    }
     // la seconda mail, con l'invito: parte una volta, alla prima conferma
     const invito = await spedisciInvito(idDoc, scheda);
     try {
         await rif.set({ mailInvito: { quando: Date.now(), ok: invito.ok === true, errore: testo(invito.errore, 200) } }, { merge: true });
     } catch (e) { /* informazione, non condizione */ }
-    return { stato: 200, corpo: { ok: true, gia: false, quando: quando, nome: nome, evento: evento, invito: invito.ok === true, online: String(scheda.modalita || '').toLowerCase() === 'online' } };
+    return { stato: 200, corpo: { ok: true, gia: false, quando: quando, nome: nome, evento: evento, invito: invito.ok === true, online: online } };
 }
 
 /* ---------- azione "conferma-email-pregresso" (area riservata, amministratore) ----------

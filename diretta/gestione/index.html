@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260927b">
+    <link rel="stylesheet" href="gestione.css?v=20260927c">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -361,16 +361,19 @@
                     <div class="riquadro-testa">
                         <h2 id="iscrizioni-titolo">Iscrizioni dal modulo del sito</h2>
                         <p class="riquadro-sotto">Le persone del primo elenco le carichi dalla scheda Partecipanti e le credenziali partono
-                            quando premi «Invia le credenziali». Per chi si iscrive dopo, dal modulo del sito, puoi far partire la password da sola.</p>
+                            quando premi «Invia le credenziali». Per chi si iscrive dopo, dal modulo del sito, puoi far partire la password da sola,
+                            appena la persona conferma il suo indirizzo.</p>
                     </div>
                     <label class="interruttore" for="ev-iscrizioni-auto">
                         <input type="checkbox" role="switch" id="ev-iscrizioni-auto" aria-describedby="iscrizioni-aiuto iscrizioni-stato" disabled>
                         <span class="interruttore-pista" aria-hidden="true"></span>
-                        <span class="interruttore-testo">Invia subito la password a chi si iscrive dal modulo del sito</span>
+                        <span class="interruttore-testo">Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l'indirizzo</span>
                     </label>
                     <p id="iscrizioni-stato" class="interruttore-stato" data-tono="" aria-live="polite"></p>
                     <p id="iscrizioni-aiuto" class="aiuto iscrizioni-aiuto">Vale per chi si iscrive <strong>online</strong> dal modulo della
-                        «Pagina dell'evento sul sito» (quella salvata qui sopra): riceve subito l'email con la password per entrare con la sua email.
+                        «Pagina dell'evento sul sito» (quella salvata qui sopra): riceve l'email con la password per entrare con la sua email
+                        <strong>appena conferma il suo indirizzo</strong> con il pulsante «Conferma il tuo indirizzo email» della mail del sito.
+                        Fino ad allora resta «da confermare»: nessuna password parte verso un indirizzo che la persona non ha confermato.
                         Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova; chi si iscrive due volte non riceve niente di nuovo.
                         È spento di base: accendilo dopo aver caricato e inviato la prima lista.</p>
                     <p id="msg-iscrizioni" class="msg" role="status" hidden></p>
@@ -1029,6 +1032,7 @@
                             <label for="filtro-stato-email">Email credenziali</label>
                             <select id="filtro-stato-email">
                                 <option value="">Tutte</option>
+                                <option value="da confermare">Da confermare (dal modulo del sito)</option>
                                 <option value="da inviare">Da inviare</option>
                                 <option value="in coda">In coda o in invio</option>
                                 <option value="inviata">Inviate</option>
@@ -1066,6 +1070,7 @@
                         <button type="button" id="btn-aggiorna-email" class="btn btn-secondario btn-piccolo">Aggiorna</button>
                     </div>
                     <ul id="conteggi-email" class="conteggi-email" aria-label="Stato delle email per persona">
+                        <li data-stato="da confermare"><span class="conteggio-num">0</span><span class="conteggio-etichetta">da confermare</span></li>
                         <li data-stato="da inviare"><span class="conteggio-num">0</span><span class="conteggio-etichetta">da inviare</span></li>
                         <li data-stato="in coda"><span class="conteggio-num">0</span><span class="conteggio-etichetta">in coda</span></li>
                         <li data-stato="invio"><span class="conteggio-num">0</span><span class="conteggio-etichetta">in invio</span></li>
@@ -1113,6 +1118,16 @@
                             <button type="button" id="btn-invia-tutti" class="btn btn-primario" aria-describedby="nota-disattivati">Invia le credenziali a chi non le ha ancora</button>
                             <p id="nota-disattivati" class="aiuto" hidden></p>
                             <button type="button" id="btn-reinvia-non-ricevute" class="btn btn-secondario">Reinvia a chi non l'ha ricevuta</button>
+                            <!-- chi si e' iscritto dal modulo del sito e non ha ancora confermato l'indirizzo (gestione.js, daConfermareAttivi) -->
+                            <div id="blocco-da-confermare" class="blocco-da-confermare" hidden>
+                                <p id="testo-da-confermare" class="aiuto"></p>
+                                <div class="azioni-riga">
+                                    <button type="button" id="btn-invia-da-confermare" class="btn btn-secondario">Invia anche a loro</button>
+                                    <button type="button" id="btn-copia-da-confermare" class="btn btn-secondario">Copia gli indirizzi</button>
+                                </div>
+                                <p id="esito-copia-da-confermare" class="aiuto" aria-live="polite"></p>
+                                <p id="indirizzi-da-confermare" class="indirizzi-copiati" hidden></p>
+                            </div>
                             <button type="button" id="btn-aggiorna-esiti" class="btn btn-secondario" aria-describedby="nota-esiti">Aggiorna le email respinte da Brevo</button>
                             <p id="nota-esiti" class="aiuto" hidden></p>
                         </div>
@@ -1123,6 +1138,7 @@
                 <div class="riquadro">
                     <h2>Che cosa vuol dire ogni stato</h2>
                     <dl class="legenda">
+                        <div><dt><span class="stato-email stato-da-confermare">da confermare</span></dt><dd>Iscritta dal modulo del sito: la password parte da sola appena conferma il suo indirizzo dalla mail del sito. «Invia le credenziali» non la raggiunge; «Invia anche a loro» sì.</dd></div>
                         <div><dt><span class="stato-email stato-da-inviare">da inviare</span></dt><dd>Account creato, credenziali non ancora spedite.</dd></div>
                         <div><dt><span class="stato-email stato-in-coda">in coda</span></dt><dd>In attesa del proprio turno: si spedisce a gruppi, con pause.</dd></div>
                         <div><dt><span class="stato-email stato-invio">invio</span></dt><dd>Il servizio la sta spedendo adesso.</dd></div>
@@ -1259,6 +1275,6 @@
     <script src="../sorgente-video.js?v=20260925a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260927b"></script>
+    <script src="gestione.js?v=20260927c"></script>
 </body>
 </html>

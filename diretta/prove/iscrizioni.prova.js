@@ -1,5 +1,5 @@
 /* ============================================================
-   PROVE - le iscrizioni dal modulo del sito: la password subito
+   PROVE - le iscrizioni dal modulo del sito: la password dopo la conferma
    ------------------------------------------------------------
        node iscrizioni.prova.js [--firestore 8330] [--auth 9330]
 
@@ -21,11 +21,15 @@
    1. Interruttore spento (il predefinito): il modulo salva la scheda
       come sempre e nella diretta non succede niente.
    2. Interruttore acceso: chi si iscrive "online" (email scritta in
-      maiuscolo e con spazi) ha subito l'account e l'email con la
-      password, «scrivi la tua email <email> e questa password»; la
-      password funziona con l'accesso vero della diretta (entra), con
-      l'email scritta in qualunque modo; la risposta del modulo resta
-      { ok: true } e arriva in pochi secondi.
+      maiuscolo e con spazi) ha subito l'account, ma le credenziali
+      restano «da confermare» e non parte niente; al clic su «Conferma
+      il tuo indirizzo email» (l'azione vera "conferma-email", con la
+      firma vera) arriva l'email con la password, «scrivi la tua email
+      <email> e questa password»; la password funziona con l'accesso vero
+      della diretta (entra), con l'email scritta in qualunque modo; la
+      risposta del modulo resta { ok: true } e arriva in pochi secondi.
+      Da qui in avanti "si iscrive e conferma" vuol dire: il modulo, poi
+      il clic sulla sua scheda.
    3. Iscrizione ripetuta: nessuna seconda password, nessuna seconda
       email; la password di prima vale ancora.
    4. Due iscrizioni della stessa email nello stesso istante: un account,
@@ -80,17 +84,31 @@
       coda anche per il cron, mentre le credenziali del gestore e
       «Password dimenticata?» partono); i log dicono il limite, senza
       dati personali.
+   17 bis. PRIMA LA CONFERMA, i casi: due clic insieme (una email); il
+      clic che arriva prima dell'account (lo crea il clic, e l'iscrizione
+      che arriva dopo non manda niente); il clic a interruttore spento
+      (niente, resta «da confermare»); «Invia le credenziali» non
+      raggiunge chi aspetta la conferma, «Invia anche a loro» si'
+      (accoda 'da-confermare'), e il clic dopo non manda una seconda
+      email; i conteggi della scheda Email; il gestore che corregge
+      l'email di chi aspetta la conferma (torna «da inviare»).
    18. La conferma del sito per chi si iscrive online dice che arrivera'
       un'email con la password (niente date promesse) e ricorda lo Spam;
-      quella per la sala non cambia.
+      con il pulsante chiede prima la conferma; quella per la sala non
+      cambia.
    19. La riconciliazione (lib/diretta-riconcilia.js, nel giro del cron):
-      acceso l'interruttore se ne salva il momento; il servizio della
-      diretta che fallisce durante dalModulo (un errore simulato nella
-      prenotazione): il modulo risponde { ok: true }, la scheda c'e' nel
-      progetto del sito, l'account no; il giro del cron crea l'account e
-      manda la password UNA volta (e con quella si entra); le schede di
-      prima dell'accensione, di un altro evento, in sala o annullate
-      restano fuori; il limite orario ferma la riconciliazione (la scheda
+      acceso l'interruttore se ne salva il momento; la scheda di prima
+      dell'accensione non parte nemmeno al clic; il servizio della
+      diretta che fallisce durante dalModulo E durante il clic (un errore
+      simulato nella prenotazione): il modulo e la pagina della conferma
+      rispondono { ok: true }, la scheda c'e' nel progetto del sito,
+      l'account no; il giro del cron crea l'account e manda la password
+      UNA volta (e con quella si entra); chi non ha cliccato ha l'account
+      «da confermare» e la password al clic; il clic perso di chi aveva
+      gia' l'account lo ritrova la seconda passata (le schede
+      confermate); la conferma d'ufficio (pregresso) non manda niente; le
+      schede di prima dell'accensione, di un altro evento, in sala o
+      annullate restano fuori; il limite orario ferma la riconciliazione (la scheda
       torna al giro dopo), il 60% del tetto del giorno vale anche qui; un
       secondo giro non fa niente di nuovo; il cursore si ricorda (senza
       indirizzi); senza la chiave del sito, o con la lettura che fallisce,
@@ -106,8 +124,12 @@
       dell'ordine con la sua email esce anche lui; togliendo
       l'annullamento, a interruttore acceso si rientra («anche», la
       password di sempre, l'evento si legge di nuovo), a interruttore
-      spento solo la riga riattivata-dal-sito; le righe viste restano nel
-      database e la riconciliazione non le riapre.
+      spento solo la riga riattivata-dal-sito; chi annulla prima di
+      cliccare perde le credenziali «da confermare», e il clic sulla
+      scheda annullata non manda niente; togliendo l'annullamento a una
+      scheda non confermata si rientra «da confermare» (la password al
+      clic); le righe viste restano nel database e la riconciliazione non
+      le riapre.
    11. I due progetti restano separati (nessuna scheda nella diretta,
       nessun account nello studio); nessuna password in chiaro nei log
       ne' in Firestore; nessun indirizzo email nei log della diretta;
@@ -276,6 +298,13 @@ async function completa(idDoc, partecipanti) {
     return chiamaModulo({ azione: 'completa-salva', d: idDoc, t: NL.firmaCompleta(idDoc), partecipanti: partecipanti }, '10.90.0.' + (1 + (ipProgressivo++ % 200)));
 }
 
+/* Il clic su «Conferma il tuo indirizzo email» nella mail del sito, come
+   lo fa la pagina /conferma_email/: l'azione "conferma-email" con la firma
+   vera (lib/newsletter.js). */
+async function confermaScheda(idDoc, ip) {
+    return chiamaModulo({ azione: 'conferma-email', d: idDoc, t: NL.firmaConfermaEmail(idDoc) }, ip || ('10.95.0.' + (1 + (ipProgressivo++ % 200))));
+}
+
 /* ---------- la posta finta ---------- */
 function leggiPosta() {
     if (!fs.existsSync(POSTA)) return [];
@@ -300,6 +329,28 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             const p = await ctx.db.collection('partecipanti').doc(i.data().uid).get();
             return p.exists ? Object.assign({ uid: p.id }, p.data()) : null;
         };
+        /* Le schede del sito di un indirizzo (come l'ha scritto la persona: si
+           confronta senza spazi e senza maiuscole), dalla piu' recente. */
+        const schedeConEmail = async email => {
+            const e = String(email).trim().toLowerCase();
+            const s = await studio().collection('iscrizioni').get();
+            return s.docs.filter(d => String(d.data().email || '').trim().toLowerCase() === e)
+                .map(d => Object.assign({ id: d.id }, d.data()))
+                .sort((a, b) => (b.ricevuto ? b.ricevuto.toMillis() : 0) - (a.ricevuto ? a.ricevuto.toMillis() : 0));
+        };
+        // il clic sulla scheda piu' recente di quell'indirizzo
+        const conferma = async (email, opz) => {
+            const sc = (await schedeConEmail(email))[0];
+            if (!sc) throw new Error('nessuna scheda da confermare');
+            return confermaScheda(sc.id, opz && opz.ip);
+        };
+        // si iscrive e conferma: il modulo, poi il clic (dalla stessa rete)
+        const iscriviEConferma = async (dati, opz) => {
+            const r = await iscrivi(dati, opz);
+            r.conferma = await conferma(dati.email, opz);
+            return r;
+        };
+        const CONFERMA_EMAIL = require(path.join(SERVIZIO, 'lib/conferma-email'));
         // l'accesso vero della diretta, con l'email scritta come la scrive la persona
         const entra = async (email, password, ip) => {
             try { return Object.assign({ stato: 200 }, await A.entra(ctx, { email: email, password: password, ip: ip || '10.60.0.1', userAgent: 'prova' })); } catch (e) { return { stato: e.stato || 500, codice: e.codice }; }
@@ -323,7 +374,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(!(await profiloDi('sara.spenta@esempio.it')) && leggiPosta().length === 0, 'nessun account della diretta e nessuna email');
 
         /* ---------- 2 ---------- */
-        titolo('2. Interruttore acceso: la password arriva subito');
+        titolo('2. Interruttore acceso: l\'account subito, la password dopo la conferma dell\'indirizzo');
         const acceso = await D.cambiaIscrizioni(ctx, { idEvento: 'napoli-2026', iscrizioniAutomatiche: true });
         vero(acceso.iscrizioniAutomatiche === true, 'il gestore accende «Invia subito la password a chi si iscrive dal modulo del sito»');
         const luca = await iscrivi({ nome: 'Luca', cognome: 'Nuovo', email: ' Luca.Nuovo@ESEMPIO.it ' });
@@ -331,7 +382,14 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const pLuca = await profiloDi('luca.nuovo@esempio.it');
         vero(!!pLuca && pLuca.email === 'luca.nuovo@esempio.it' && pLuca.origine === 'modulo' && pLuca.nome === 'Luca' && pLuca.eventi.join() === 'napoli-2026' && pLuca.authCreato === true,
             'account creato con l\'email normalizzata, origine "modulo", evento Napoli');
-        vero(pLuca && pLuca.invii['napoli-2026'].stato === 'inviata' && pLuca.invii['napoli-2026'].tipo === 'credenziali', 'credenziali "inviata" (tipo credenziali)');
+        vero(pLuca && pLuca.invii['napoli-2026'].stato === 'da confermare' && postaA('luca.nuovo@esempio.it').length === 0,
+            'ma le credenziali restano «da confermare»: nessuna email finché Luca non conferma il suo indirizzo');
+        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"creato","invio":"da confermare"/.test(r)), 'il log dice «da confermare» (senza dati personali)');
+        const clicLuca = await conferma(' Luca.Nuovo@ESEMPIO.it ');
+        vero(clicLuca.stato === 200 && clicLuca.corpo.ok === true && clicLuca.corpo.gia === false && clicLuca.corpo.online === true,
+            'Luca clicca «Conferma il tuo indirizzo email» (la pagina /conferma_email/, firma vera): { ok: true }');
+        const pLuca2 = await profiloDi('luca.nuovo@esempio.it');
+        vero(pLuca2 && pLuca2.invii['napoli-2026'].stato === 'inviata' && pLuca2.invii['napoli-2026'].tipo === 'credenziali', 'subito dopo il clic: credenziali "inviata" (tipo credenziali)');
         const credLuca = postaA('luca.nuovo@esempio.it', 'credenziali');
         const pwLuca = credLuca.length ? passwordDi(credLuca[0]) : '';
         passwordViste.push(pwLuca);
@@ -343,9 +401,10 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
 
         /* ---------- 3 ---------- */
         titolo('3. Iscrizione ripetuta');
-        const ancora = await iscrivi({ nome: 'Luca', cognome: 'Nuovo', email: 'luca.nuovo@esempio.it' });
-        vero(ancora.stato === 200 && ancora.corpo.ok === true, 'il modulo risponde { ok: true }');
-        vero(postaA('luca.nuovo@esempio.it').length === 1, 'nessuna seconda email (e nessuna seconda password)');
+        const ancora = await iscriviEConferma({ nome: 'Luca', cognome: 'Nuovo', email: 'luca.nuovo@esempio.it' });
+        vero(ancora.stato === 200 && ancora.corpo.ok === true && ancora.conferma.corpo.ok === true, 'il modulo risponde { ok: true }, e anche la conferma della scheda nuova');
+        const ancoraDue = await conferma('luca.nuovo@esempio.it');
+        vero(postaA('luca.nuovo@esempio.it').length === 1 && ancoraDue.corpo.gia === true, 'nessuna seconda email (e nessuna seconda password), nemmeno cliccando di nuovo');
         vero((await entra('luca.nuovo@esempio.it', pwLuca)).stato === 200, 'la password di prima vale ancora');
 
         /* ---------- 4 ---------- */
@@ -355,7 +414,11 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             iscrivi({ nome: 'Gemma', cognome: 'Doppia', email: 'GEMMA.DOPPIA@esempio.it' })
         ]);
         const utentiGemma = (await ctx.db.collection('partecipanti').where('emailNorm', '==', 'gemma.doppia@esempio.it').get()).size;
-        vero(g1.corpo.ok && g2.corpo.ok && utentiGemma === 1 && postaA('gemma.doppia@esempio.it', 'credenziali').length === 1, 'un account e una email di credenziali');
+        vero(g1.corpo.ok && g2.corpo.ok && utentiGemma === 1 && postaA('gemma.doppia@esempio.it').length === 0, 'un account, nessuna email (non ha ancora confermato)');
+        // e poi le due conferme, una per scheda, nello stesso istante
+        const schedeGemma = await schedeConEmail('gemma.doppia@esempio.it');
+        await Promise.all(schedeGemma.map(s => confermaScheda(s.id)));
+        vero(schedeGemma.length === 2 && postaA('gemma.doppia@esempio.it', 'credenziali').length === 1, 'confermate le due schede insieme: una email di credenziali');
         passwordViste.push(passwordDi(postaA('gemma.doppia@esempio.it', 'credenziali')[0] || {}));
 
         /* ---------- 5 ---------- */
@@ -368,7 +431,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const pwAnna = credAnna.length ? passwordDi(credAnna[0]) : '';
         passwordViste.push(pwAnna);
         vero(credAnna.length === 1 && !!pwAnna, 'con «Invia le credenziali» Anna riceve la password di Milano');
-        const anna = await iscrivi({ nome: 'Anna', cognome: 'Bianchi', email: 'Anna.Bianchi@esempio.it' });
+        const anna = await iscriviEConferma({ nome: 'Anna', cognome: 'Bianchi', email: 'Anna.Bianchi@esempio.it' });
         const pAnna = await profiloDi('anna.bianchi@esempio.it');
         vero(anna.corpo.ok && pAnna.eventi.indexOf('napoli-2026') >= 0 && pAnna.eventi.indexOf('milano-2026') >= 0, 'dal modulo di Napoli: Napoli si aggiunge al suo account (lo stesso)');
         const ancheAnna = postaA('anna.bianchi@esempio.it', 'iscritto-anche');
@@ -382,8 +445,8 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(entraAnna.stato === 200, 'la password di Milano vale ancora (una password per tutti gli eventi)');
         const claimsAnna = ((await ctx.auth.getUser(pAnna.uid)).customClaims || {}).eventi || [];
         vero(claimsAnna.indexOf('napoli-2026') >= 0 && claimsAnna.indexOf('milano-2026') >= 0, 'i permessi del suo account comprendono Napoli e Milano');
-        await iscrivi({ nome: 'Anna', cognome: 'Bianchi', email: 'anna.bianchi@esempio.it' });
-        vero(postaA('anna.bianchi@esempio.it').length === 2, 'iscritta di nuovo: niente (l\'avviso «anche» parte una volta sola)');
+        await iscriviEConferma({ nome: 'Anna', cognome: 'Bianchi', email: 'anna.bianchi@esempio.it' });
+        vero(postaA('anna.bianchi@esempio.it').length === 2, 'iscritta e confermata di nuovo: niente (l\'avviso «anche» parte una volta sola)');
 
         /* ---------- 6 ---------- */
         titolo('6. Un\'email caricata dal file e mai raggiunta');
@@ -391,9 +454,12 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Bruno', cognome: 'Verdi', email: 'bruno.verdi@esempio.it' }] });
         vero((await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'da inviare' && postaA('bruno.verdi@esempio.it').length === 0, 'caricato dal file (Napoli e Milano): "da inviare", nessuna email');
         await iscrivi({ nome: 'Bruno', cognome: 'Verdi', email: 'bruno.verdi@esempio.it' });
+        vero(postaA('bruno.verdi@esempio.it').length === 0 && (await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'da inviare',
+            'si iscrive anche dal modulo: ancora niente (aspetta il clic), e per il gestore resta «da inviare»');
+        await conferma('bruno.verdi@esempio.it');
         const credBruno = postaA('bruno.verdi@esempio.it', 'credenziali');
         passwordViste.push(passwordDi(credBruno[0] || {}));
-        vero(credBruno.length === 1 && (await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'inviata', 'iscritto dal modulo: riceve le credenziali di Napoli (la sua prima password)');
+        vero(credBruno.length === 1 && (await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'inviata', 'conferma il suo indirizzo: riceve le credenziali di Napoli (la sua prima password)');
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
         vero(postaA('bruno.verdi@esempio.it', 'credenziali').length === 1 && postaA('bruno.verdi@esempio.it', 'iscritto-anche').length === 1,
@@ -416,11 +482,11 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         /* ---------- 8 ---------- */
         titolo('8. L\'invio subito non riesce: ci pensa il cron');
         process.env.DIRETTA_POSTA_ERRORE_ACCOUNT = '1';
-        const rosa = await iscrivi({ nome: 'Rosa', cognome: 'Rimandata', email: 'rosa.rimandata@esempio.it' });
+        const rosa = await iscriviEConferma({ nome: 'Rosa', cognome: 'Rimandata', email: 'rosa.rimandata@esempio.it' });
         delete process.env.DIRETTA_POSTA_ERRORE_ACCOUNT;
         const pRosa = await profiloDi('rosa.rimandata@esempio.it');
         vero(rosa.corpo.ok === true && pRosa && pRosa.invii['napoli-2026'].stato === 'in coda' && postaA('rosa.rimandata@esempio.it').length === 0,
-            'Brevo rifiuta il login: il modulo risponde { ok: true }, l\'account c\'e\', le credenziali restano "in coda"');
+            'Brevo rifiuta il login al clic: il modulo e la conferma rispondono { ok: true }, l\'account c\'e\', le credenziali restano "in coda"');
         vero((await ctx.db.collection('code').doc('napoli-2026').get()).data().attiva === true, 'la coda di Napoli e\' accesa per il cron');
         const cron = await invio.giroCron(ctx, { budgetMs: 60000 });
         const credRosa = postaA('rosa.rimandata@esempio.it', 'credenziali');
@@ -430,39 +496,46 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(postaA('rosa.rimandata@esempio.it').length === 1, 'e un altro giro non la rimanda');
 
         /* ---------- 9 ---------- */
-        titolo('9. Su Vercel il modulo non aspetta la diretta: lo stesso tempo per un indirizzo nuovo e per uno gia\' iscritto');
+        titolo('9. Su Vercel il modulo e la conferma non aspettano la diretta: lo stesso tempo per un indirizzo nuovo e per uno gia\' iscritto');
         /* Brevo lento (1,5 s per email): se il modulo aspettasse il lavoro
-           della diretta, un indirizzo nuovo (account + password + email)
-           risponderebbe un secondo e mezzo dopo uno gia' iscritto (qualche
-           lettura), e il tempo direbbe chi e' iscritto. Ogni lavoro affidato
-           a waitUntil si aspetta prima della misura seguente, cosi' non si
+           della diretta, un indirizzo nuovo (account) risponderebbe dopo uno
+           gia' iscritto (qualche lettura), e il tempo direbbe chi e'
+           iscritto; se la pagina della conferma aspettasse l'invio, ci
+           metterebbe un secondo e mezzo in piu'. Ogni lavoro affidato a
+           waitUntil si aspetta prima della misura seguente, cosi' non si
            misurano due cose insieme. */
         const affidati = [];
         globalThis[CONTESTO_VERCEL] = { get: () => ({ waitUntil: p => affidati.push(p) }) };
         process.env.DIRETTA_POSTA_RITARDO_MS = '1500';
-        const tempiNuovo = [], tempiGia = [];
+        const tempiNuovo = [], tempiGia = [], tempiClic = [];
         for (let i = 0; i < 3; i++) {
             const email = 'lia.lenta' + i + '@esempio.it';
             const prima = affidati.length;
             const nuova = await iscrivi({ nome: 'Lia', cognome: 'Lenta' + i, email: email });
             tempiNuovo.push(nuova.ms);
             vero(nuova.corpo.ok === true && affidati.length === prima + 1 && postaA(email).length === 0,
-                'indirizzo nuovo: il modulo risponde { ok: true } in ' + nuova.ms + ' ms, il lavoro della diretta passa a waitUntil e l\'email non e\' ancora partita');
+                'indirizzo nuovo: il modulo risponde { ok: true } in ' + nuova.ms + ' ms, il lavoro della diretta passa a waitUntil');
             await affidati[affidati.length - 1];
             const ancora = await iscrivi({ nome: 'Lia', cognome: 'Lenta' + i, email: email });
             tempiGia.push(ancora.ms);
+            await affidati[affidati.length - 1];
+            const primaClic = affidati.length;
+            const clic = await conferma(email);
+            tempiClic.push(clic.ms);
+            vero(clic.corpo.ok === true && affidati.length === primaClic + 1 && postaA(email).length === 0,
+                'il clic sulla conferma: la pagina ha la risposta in ' + clic.ms + ' ms, l\'invio della password passa a waitUntil e non e\' ancora partito');
             await affidati[affidati.length - 1];
         }
         delete process.env.DIRETTA_POSTA_RITARDO_MS;
         delete globalThis[CONTESTO_VERCEL];
         const med = v => v.slice().sort((a, b) => a - b)[Math.floor(v.length / 2)];
-        vero(Math.max.apply(null, tempiNuovo.concat(tempiGia)) < 1200 && affidati.length === 6,
-            'su Vercel nessuna risposta aspetta Brevo (1,5 s): indirizzo nuovo ' + tempiNuovo.join(', ') + ' ms, gia\' iscritto ' + tempiGia.join(', ') + ' ms');
+        vero(Math.max.apply(null, tempiNuovo.concat(tempiGia, tempiClic)) < 1200 && affidati.length === 9,
+            'su Vercel nessuna risposta aspetta Brevo (1,5 s): indirizzo nuovo ' + tempiNuovo.join(', ') + ' ms, gia\' iscritto ' + tempiGia.join(', ') + ' ms, conferma ' + tempiClic.join(', ') + ' ms');
         vero(Math.abs(med(tempiNuovo) - med(tempiGia)) < 250, 'lo stesso tempo: mediana ' + med(tempiNuovo) + ' ms (nuovo) e ' + med(tempiGia) + ' ms (gia\' iscritto)');
         const credLia = [0, 1, 2].map(i => postaA('lia.lenta' + i + '@esempio.it', 'credenziali'));
         credLia.forEach(c => passwordViste.push(passwordDi(c[0] || {})));
         vero(credLia.every(c => c.length === 1) && (await profiloDi('lia.lenta0@esempio.it')).invii['napoli-2026'].stato === 'inviata',
-            'finito il lavoro affidato a waitUntil, le email sono partite (una per indirizzo; la seconda iscrizione non manda niente)');
+            'finito il lavoro affidato a waitUntil, le email sono partite (una per indirizzo, dopo il clic; la seconda iscrizione non manda niente)');
 
         /* ---------- 10 ---------- */
         titolo('10. La diretta non configurata');
@@ -511,10 +584,10 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             && pRita.invii['milano-2026'].stato === 'inviata' && pRita.invii['milano-2026'].tipo === 'anche',
         'poi il gestore preme «Invia le credenziali» di Milano: a Rita arriva «anche», nessuna password nuova');
         vero((await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.3')).stato === 200, '...e la password che ha scelto vale ancora');
-        await iscrivi({ nome: 'Rita', cognome: 'Reset', email: 'rita.reset@esempio.it' });
+        await iscriviEConferma({ nome: 'Rita', cognome: 'Reset', email: 'rita.reset@esempio.it' });
         vero(postaA('rita.reset@esempio.it', 'credenziali').length === 0 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 2
             && (await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.4')).stato === 200,
-        'e dal modulo di Napoli: di nuovo «anche», la sua password vale anche per Napoli');
+        'e dal modulo di Napoli (iscritta e confermata): di nuovo «anche», la sua password vale anche per Napoli');
         // il "Reinvia" esplicito del gestore (fra due minuti: non e' un doppio clic) manda le credenziali, e lo dice
         const ctxDopo = Object.assign({}, ctx, { adesso: () => Date.now() + 2 * 60 * 1000 });
         const reRita = await invio.inviaCredenziali(ctxDopo, { uid: pRita.uid, idEvento: 'milano-2026' });
@@ -536,11 +609,11 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(postaA('ugo.vecchia@esempio.it', 'credenziali').length === 1, 'le credenziali di Milano vanno all\'indirizzo vecchio (sbagliato)');
         await D.operazionePartecipante(ctx, { uid: pUgo.uid, idEvento: 'milano-2026', operazione: 'correggi', nome: 'Ugo', cognome: 'Cambio', azienda: '', email: 'ugo.nuova@esempio.it' });
         vero((await profiloDi('ugo.nuova@esempio.it')).invii['milano-2026'].stato === 'da inviare', 'il gestore corregge l\'email: le credenziali di Milano tornano «da inviare»');
-        await iscrivi({ nome: 'Ugo', cognome: 'Cambio', email: 'ugo.nuova@esempio.it' });
+        await iscriviEConferma({ nome: 'Ugo', cognome: 'Cambio', email: 'ugo.nuova@esempio.it' });
         const credUgo = postaA('ugo.nuova@esempio.it', 'credenziali');
         const pwUgo = passwordDi(credUgo[0] || {});
         passwordViste.push(pwUgo);
-        vero(credUgo.length === 1 && (await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.1')).stato === 200, 'Ugo si iscrive a Napoli dal modulo con l\'indirizzo nuovo: la password (la prima per quella casella), ed entra');
+        vero(credUgo.length === 1 && (await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.1')).stato === 200, 'Ugo si iscrive a Napoli dal modulo con l\'indirizzo nuovo e lo conferma: la password (la prima per quella casella), ed entra');
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
         const pUgoDopo = await profiloDi('ugo.nuova@esempio.it');
@@ -552,7 +625,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         /* ---------- 15 ---------- */
         titolo('15. La stessa email per due persone: la seconda non entra nell\'account della prima');
         const INFO = 'info@studio-esempio.it';
-        await iscrivi({ nome: 'Carla', cognome: 'Prima', email: INFO });
+        await iscriviEConferma({ nome: 'Carla', cognome: 'Prima', email: INFO });
         const pInfo = await profiloDi(INFO);
         const postaInfo = postaA(INFO).length;
         vero(pInfo && pInfo.nome === 'Carla' && postaInfo === 1, 'la prima (Carla Prima) ha il suo account e la sua password');
@@ -576,6 +649,10 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         daVed = await righeNapoli();
         vero(daVed.filter(r => r.nome === 'Luigi').length === 1 && daVed.find(r => r.nome === 'Luigi').volte === 2 && postaA(INFO).length === postaInfo,
             'si iscrive di nuovo: la stessa riga (volte 2), ancora nessuna email');
+        await conferma(INFO);
+        daVed = await righeNapoli();
+        vero(daVed.find(r => r.nome === 'Luigi').volte === 2 && postaA(INFO).length === postaInfo && JSON.stringify(await profiloDi(INFO)) === JSON.stringify(pInfo),
+            'Luigi conferma la sua scheda: l\'account di Carla resta com\'era, nessuna email, e la riga non si riconta');
         // contro l'account di un'altra persona caricato per un altro evento (Milano)
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'segreteria@esempio.it' }] });
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
@@ -619,7 +696,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"email-non-valida"/.test(r)), 'il log dice email-non-valida (senza l\'indirizzo)');
 
         /* ---------- 17 ---------- */
-        titolo('17. I limiti del modulo pubblico (persistenti, nella diretta)');
+        titolo('17. I limiti del modulo pubblico (persistenti, nella diretta): contano al clic, quando parte l\'email');
         // una finestra oraria che sta per chiudersi azzererebbe i contatori a meta' prova: si aspetta che passi
         const restoOra = 3600000 - (Date.now() % 3600000);
         if (restoOra < 120000) { logVero('       (attesa di ' + Math.ceil(restoOra / 1000) + ' s: la finestra oraria dei limiti sta per cambiare)'); await pausa(restoOra + 1000); }
@@ -628,18 +705,18 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const reteIscritti = [];
         for (let i = 0; i < 5; i++) {
             const email = 'rete' + i + '@esempio.it';
-            await iscrivi({ nome: 'Rete', cognome: 'N' + i, email: email }, { ip: '2001:db8:1:2:' + (i + 1) + '::1' });
+            await iscriviEConferma({ nome: 'Rete', cognome: 'N' + i, email: email }, { ip: '2001:db8:1:2:' + (i + 1) + '::1' });
             reteIscritti.push(await profiloDi(email));
         }
         const inviateRete = reteIscritti.filter(p => p && p.invii['napoli-2026'].stato === 'inviata').length;
         const trattenute = reteIscritti.filter(p => p && p.invii['napoli-2026'].stato === 'da inviare' && p.invii['napoli-2026'].errore === I.MOTIVO_TRATTENUTA);
         vero(reteIscritti.every(Boolean) && inviateRete === 3 && trattenute.length === 2 && postaA('rete3@esempio.it').length === 0 && postaA('rete4@esempio.it').length === 0,
-            'DIRETTA_MODULO_RETE_ORA=3, cinque iscrizioni da cinque IPv6 della stessa /64: tutte hanno l\'account, 3 password partono, 2 restano «da inviare» con il motivo per il gestore');
-        await iscrivi({ nome: 'Altra', cognome: 'Rete', email: 'altra.rete@esempio.it' }, { ip: '2001:db8:9:9::1' });
+            'DIRETTA_MODULO_RETE_ORA=3, cinque iscrizioni confermate da cinque IPv6 della stessa /64: tutte hanno l\'account, 3 password partono, 2 restano «da inviare» con il motivo per il gestore');
+        await iscriviEConferma({ nome: 'Altra', cognome: 'Rete', email: 'altra.rete@esempio.it' }, { ip: '2001:db8:9:9::1' });
         vero(postaA('altra.rete@esempio.it', 'credenziali').length === 1, 'da un\'altra rete la password parte');
         passwordViste.push(passwordDi(postaA('altra.rete@esempio.it', 'credenziali')[0] || {}));
-        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"creato","invio":"","tipo":"","trattenuta":"rete"/.test(r))
-            && righeLog.some(r => /limite della rete raggiunto, la password non parte da sola: la manda il gestore \(napoli-2026\)/.test(r)),
+        vero(righeLog.some(r => /\[diretta\] conferma dell'indirizzo: \{"idEvento":"napoli-2026","esito":"gia-iscritto","invio":"","tipo":"","trattenuta":"rete"/.test(r))
+            && righeLog.some(r => /\[diretta\] conferma dell'indirizzo: limite della rete raggiunto, la password non parte da sola: la manda il gestore \(napoli-2026\)/.test(r)),
         'il log dice che il limite della rete ha fermato la password (senza email, nomi, ne\' IP)');
         delete process.env.DIRETTA_MODULO_RETE_ORA;
         await invio.accoda(ctx, { idEvento: 'napoli-2026', chi: 'da-inviare' });
@@ -650,7 +727,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         // b) in tutto: il contatore dell'ora e' quello di tutte le iscrizioni con una password da mandare
         const contoOra = async () => Number(((await ctx.db.collection('limiti').doc('modulo_globale_' + Math.floor(Date.now() / 3600000)).get()).data() || {}).conteggio) || 0;
         process.env.DIRETTA_MODULO_ORA = String((await contoOra()) + 2);
-        for (let i = 0; i < 3; i++) await iscrivi({ nome: 'Tutti', cognome: 'N' + i, email: 'tutti' + i + '@esempio.it' });
+        for (let i = 0; i < 3; i++) await iscriviEConferma({ nome: 'Tutti', cognome: 'N' + i, email: 'tutti' + i + '@esempio.it' });
         const tutti = await Promise.all([0, 1, 2].map(i => profiloDi('tutti' + i + '@esempio.it')));
         vero(tutti.every(Boolean) && tutti.filter(p => p.invii['napoli-2026'].stato === 'inviata').length === 2 && tutti[2].invii['napoli-2026'].stato === 'da inviare'
             && righeLog.some(r => /"trattenuta":"totale"/.test(r)) && righeLog.some(r => /limite orario complessivo raggiunto/.test(r)),
@@ -666,7 +743,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const contatoreOggi = async () => Number(((await ctx.db.collection('contatori').doc('giorno-' + C.dataRoma(Date.now()).replace(/-/g, '')).get()).data() || {}).inviate) || 0;
         const usateOggi = await contatoreOggi();
         vero(usateOggi === 0, 'il contatore del giorno parte da 0 (fin qui nessun tetto)');
-        for (let i = 0; i < 8; i++) await iscrivi({ nome: 'Quota', cognome: 'N' + i, email: 'quota' + i + '@esempio.it' });
+        for (let i = 0; i < 8; i++) await iscriviEConferma({ nome: 'Quota', cognome: 'N' + i, email: 'quota' + i + '@esempio.it' });
         const quota = await Promise.all([0, 1, 2, 3, 4, 5, 6, 7].map(i => profiloDi('quota' + i + '@esempio.it')));
         const partite = quota.filter(p => p.invii['napoli-2026'].stato === 'inviata').length;
         const inCodaQ = quota.filter(p => p.invii['napoli-2026'].stato === 'in coda' && p.invii['napoli-2026'].automatica === true);
@@ -688,20 +765,85 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         quota.forEach(p => passwordViste.push(passwordDi(postaA(p.emailNorm, 'credenziali')[0] || {})));
         delete process.env.DIRETTA_MODULO_ORA;
 
+        /* ---------- 17 bis ---------- */
+        titolo('17 bis. Prima la conferma, poi la password: i casi');
+        // a) due clic insieme sulla stessa scheda: una email
+        await iscrivi({ nome: 'Dino', cognome: 'Doppioclic', email: 'dino.doppioclic@esempio.it' });
+        const schedaDino = (await schedeConEmail('dino.doppioclic@esempio.it'))[0];
+        const clicDino = await Promise.all([confermaScheda(schedaDino.id), confermaScheda(schedaDino.id)]);
+        vero(clicDino.every(r => r.stato === 200 && r.corpo.ok === true) && postaA('dino.doppioclic@esempio.it', 'credenziali').length === 1,
+            'due clic nello stesso istante sulla stessa conferma: una sola email di credenziali');
+        passwordViste.push(passwordDi(postaA('dino.doppioclic@esempio.it', 'credenziali')[0] || {}));
+        // b) il clic che arriva PRIMA dell'account: lo crea il clic, e l'iscrizione che arriva dopo non manda niente
+        const prenotaVeraB = D.prenotaPersona;
+        D.prenotaPersona = async () => { throw Object.assign(new Error('14 UNAVAILABLE: la diretta non risponde ancora (prova)'), { code: 14 }); };
+        try { await iscrivi({ nome: 'Vera', cognome: 'Veloce', email: 'vera.veloce@esempio.it' }); } finally { D.prenotaPersona = prenotaVeraB; }
+        vero(!(await profiloDi('vera.veloce@esempio.it')), 'Vera si iscrive, ma il lavoro della diretta non e\' ancora arrivato: nessun account');
+        const clicVera = await conferma('vera.veloce@esempio.it');
+        const pVera = await profiloDi('vera.veloce@esempio.it');
+        vero(clicVera.corpo.ok === true && pVera && pVera.invii['napoli-2026'].stato === 'inviata' && postaA('vera.veloce@esempio.it', 'credenziali').length === 1,
+            'Vera clicca la conferma: l\'account lo crea il clic, e parte la password');
+        passwordViste.push(passwordDi(postaA('vera.veloce@esempio.it', 'credenziali')[0] || {}));
+        const tardiva = await I.dalModulo({ nome: 'Vera', cognome: 'Veloce', email: 'vera.veloce@esempio.it', pagina: ETICHETTA_NAPOLI });
+        vero(tardiva.esito === 'gia-iscritto' && postaA('vera.veloce@esempio.it').length === 1 && (await profiloDi('vera.veloce@esempio.it')).invii['napoli-2026'].stato === 'inviata',
+            'il lavoro dell\'iscrizione che arriva DOPO il clic: gia\' iscritta, la voce resta «inviata», nessuna seconda email');
+        // c) «Invia le credenziali» non raggiunge chi aspetta la conferma; i conteggi della scheda Email
+        await iscrivi({ nome: 'Sandro', cognome: 'Senzaclic', email: 'sandro.senzaclic@esempio.it' });
+        await iscrivi({ nome: 'Irene', cognome: 'Senzaclic', email: 'irene.senzaclic@esempio.it' });
+        const statoEmail = await invio.statoCoda(ctx, { idEvento: 'napoli-2026' });
+        vero(statoEmail.conteggi['da confermare'] >= 2, 'nella scheda Email il conteggio «da confermare»: ' + statoEmail.conteggi['da confermare']);
+        const accTutti = await invio.accoda(ctx, { idEvento: 'napoli-2026', chi: 'da-inviare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'napoli-2026', budgetMs: 20000 });
+        vero(postaA('sandro.senzaclic@esempio.it').length === 0 && (await profiloDi('sandro.senzaclic@esempio.it')).invii['napoli-2026'].stato === 'da confermare',
+            '«Invia le credenziali a chi non le ha ancora» non li raggiunge (' + accTutti.accodate + ' in coda): restano «da confermare»');
+        // d) il clic a interruttore spento: niente, resta «da confermare»
+        await D.cambiaIscrizioni(ctx, { idEvento: 'napoli-2026', iscrizioniAutomatiche: false });
+        const clicSpento = await conferma('sandro.senzaclic@esempio.it');
+        vero(clicSpento.corpo.ok === true && postaA('sandro.senzaclic@esempio.it').length === 0 && (await profiloDi('sandro.senzaclic@esempio.it')).invii['napoli-2026'].stato === 'da confermare',
+            'Sandro conferma mentre l\'interruttore e\' spento: la conferma del sito va, ma la diretta non manda niente (resta «da confermare»)');
+        await D.cambiaIscrizioni(ctx, { idEvento: 'napoli-2026', iscrizioniAutomatiche: true });
+        // e) «Invia anche a loro»: il gestore le manda a chi non ha confermato
+        const accLoro = await invio.accoda(ctx, { idEvento: 'napoli-2026', chi: 'da-confermare' });
+        await invio.avanzaCoda(ctx, { idEvento: 'napoli-2026', budgetMs: 20000 });
+        vero(accLoro.accodate >= 2 && postaA('sandro.senzaclic@esempio.it', 'credenziali').length === 1 && postaA('irene.senzaclic@esempio.it', 'credenziali').length === 1,
+            '«Invia anche a loro» (accoda \'da-confermare\'): Sandro e Irene ricevono la password (' + accLoro.accodate + ' in coda)');
+        ['sandro', 'irene'].forEach(n => passwordViste.push(passwordDi(postaA(n + '.senzaclic@esempio.it', 'credenziali')[0] || {})));
+        await conferma('irene.senzaclic@esempio.it');
+        vero(postaA('irene.senzaclic@esempio.it').length === 1, 'Irene clicca dopo: nessuna seconda email');
+        // f) il gestore corregge l'email di chi aspetta la conferma: la manda lui
+        await iscrivi({ nome: 'Carlo', cognome: 'Refuso', email: 'carlo.refuso@esmepio.it' });
+        const pRefuso = await profiloDi('carlo.refuso@esmepio.it');
+        await D.operazionePartecipante(ctx, { uid: pRefuso.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Carlo', cognome: 'Refuso', azienda: '', email: 'carlo.refuso@esempio.it' });
+        vero(pRefuso.invii['napoli-2026'].stato === 'da confermare' && (await profiloDi('carlo.refuso@esempio.it')).invii['napoli-2026'].stato === 'da inviare',
+            'un indirizzo scritto male nel modulo, corretto dal gestore: le credenziali passano «da inviare» (le manda il gestore)');
+        let accSbagliato = null;
+        try { await invio.accoda(ctx, { idEvento: 'napoli-2026', chi: 'tutti' }); } catch (e) { accSbagliato = e; }
+        vero(accSbagliato && accSbagliato.stato === 400, 'una scelta che non esiste per «email-accoda»: 400');
+
         /* ---------- 18 ---------- */
         titolo('18. La conferma del sito a chi si iscrive online');
         const confOnline = MNGB.confermaSito({ nome: 'Luca', cognome: 'Nuovo', email: 'luca.nuovo@esempio.it', pagina: ETICHETTA_NAPOLI, data: '26/09/2026 10:00:00', modalita: 'online' }, 'https://esempio.it/completa');
         const FRASE_ONLINE = 'Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
         vero(confOnline.testo.indexOf(FRASE_ONLINE) >= 0 && confOnline.html.indexOf('riceverai un') >= 0 && !/Qualche giorno prima|collegamento e le istruzioni/.test(confOnline.testo + confOnline.html),
             'online: «' + FRASE_ONLINE + '» (niente date promesse, niente «collegamento e istruzioni qualche giorno prima»)');
+        const FRASE_ONLINE_CONFERMA = 'Conferma il tuo indirizzo dal pulsante qui sopra: la password per entrare nella diretta arriva con un\'email a parte, dopo la conferma o comunque prima dell\'evento (se non è già arrivata). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
+        const confOnlineBottone = MNGB.confermaSito({ nome: 'Luca', cognome: 'Nuovo', email: 'luca.nuovo@esempio.it', pagina: ETICHETTA_NAPOLI, data: '26/09/2026 10:00:00', modalita: 'online' }, 'https://esempio.it/completa', 'https://esempio.it/conferma_email/?d=x&t=y');
+        vero(confOnlineBottone.testo.indexOf(FRASE_ONLINE_CONFERMA) >= 0 && confOnlineBottone.testo.indexOf(FRASE_ONLINE) < 0,
+            'online, con il pulsante di conferma: «' + FRASE_ONLINE_CONFERMA.split(':')[0] + ': ...» (vera sia con l\'invio automatico acceso sia spento)');
+        const invitoOnline = MNGB.invitoIngresso({ nome: 'Luca', cognome: 'Nuovo', pagina: ETICHETTA_NAPOLI, evento: { titolo: 'Napoli' }, modalita: 'online' }, 'https://esempio.it/completa');
+        vero(/password che riceverai con un'email a parte \(se non è già arrivata, arriverà prima dell'evento\)/.test(invitoOnline.testo), '«Indirizzo confermato» (online): la password con un\'email a parte, senza date promesse');
         const confSala = MNGB.confermaSito({ nome: 'Luca', cognome: 'Nuovo', email: 'luca.nuovo@esempio.it', pagina: ETICHETTA_NAPOLI, data: '26/09/2026 10:00:00', modalita: 'presenza' }, 'https://esempio.it/completa');
         vero(/Il tuo posto è riservato\./.test(confSala.testo) && confSala.testo.indexOf('password') < 0, 'in sala: il testo di sempre («Il tuo posto è riservato.»)');
 
         /* ---------- 7 bis ---------- */
         titolo('7 bis. Un evento terminato');
+        await iscrivi({ nome: 'Teo', cognome: 'Prima', email: 'teo.prima@esempio.it' });
         await D.cambiaStato(ctx, { idEvento: 'napoli-2026', stato: 'terminato' });
         await iscrivi({ nome: 'Tea', cognome: 'Tardi', email: 'tea.tardi@esempio.it' });
         vero(!(await profiloDi('tea.tardi@esempio.it')), 'a evento terminato il modulo non crea piu\' account');
+        await conferma('teo.prima@esempio.it');
+        vero(postaA('teo.prima@esempio.it').length === 0 && (await profiloDi('teo.prima@esempio.it')).invii['napoli-2026'].stato === 'da confermare',
+            'Teo, iscritto prima, conferma a evento terminato: non parte niente');
 
         /* ---------- 19 ---------- */
         titolo('19. La riconciliazione: nessuna iscrizione online resta senza password perche\' il servizio non ha risposto');
@@ -732,28 +874,40 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const risTorino2 = (await ctx.db.collection('eventiRiservati').doc(TORINO).get()).data();
         vero(risTorino2.iscrizioniAutomaticheDa && risTorino2.iscrizioniAutomaticheDa.isEqual(risTorino.iscrizioniAutomaticheDa),
             'salvare di nuovo l\'evento (acceso) non sposta il momento dell\'accensione');
+        const clicTina = await conferma('tina.prima@esempio.it');
+        vero(clicTina.corpo.ok === true && !(await profiloDi('tina.prima@esempio.it')) && postaA('tina.prima@esempio.it').length === 0
+            && righeLog.some(r => /\[diretta\] conferma dell'indirizzo: \{"idEvento":"torino-2026","esito":"prima-accensione"/.test(r)),
+        'Tina conferma DOPO l\'accensione: la sua scheda e\' di prima, e non parte da sola nemmeno al clic (la carica il gestore)');
         // il servizio della diretta che non risponde: la prenotazione (una transazione su Firestore) fallisce
         const prenotaVera = D.prenotaPersona;
         const guasti = [];
         D.prenotaPersona = async () => { throw Object.assign(new Error('14 UNAVAILABLE: il Firestore della diretta non risponde (prova)'), { code: 14 }); };
+        const clicGuasti = [];
         try {
-            for (const [n, c] of [['Gino', 'Guasto'], ['Lara', 'Guasto'], ['Anna', 'Annullata']]) {
+            for (const [n, c] of [['Gino', 'Guasto'], ['Lara', 'Guasto'], ['Anna', 'Annullata'], ['Ilaria', 'Guasto']]) {
                 guasti.push(await iscriviTorino({ nome: n, cognome: c, email: n.toLowerCase() + '.' + c.toLowerCase() + '@esempio.it' }));
             }
+            // Gino e Lara confermano subito, mentre la diretta e' ancora giu'; Ilaria non conferma
+            for (const e of ['gino.guasto', 'lara.guasto']) clicGuasti.push(await conferma(e + '@esempio.it'));
         } finally { D.prenotaPersona = prenotaVera; }
-        const schedeGuaste = await Promise.all(['gino.guasto', 'lara.guasto', 'anna.annullata'].map(e => schedaDi(e + '@esempio.it')));
-        const accountGuasti = await Promise.all(['gino.guasto', 'lara.guasto', 'anna.annullata'].map(e => profiloDi(e + '@esempio.it')));
-        vero(guasti.every(r => r.stato === 200 && r.corpo.ok === true) && schedeGuaste.every(s => s.length === 1 && s[0].modalita === 'online') && accountGuasti.every(p => !p),
-            'il servizio della diretta fallisce durante dalModulo: il modulo risponde { ok: true }, le tre schede sono nel progetto del sito, nessun account');
-        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo non riuscita: [^@]*UNAVAILABLE: il Firestore della diretta non risponde/.test(r)), 'il log lo dice (senza dati personali)');
+        const nomiGuasti = ['gino.guasto', 'lara.guasto', 'anna.annullata', 'ilaria.guasto'];
+        const schedeGuaste = await Promise.all(nomiGuasti.map(e => schedaDi(e + '@esempio.it')));
+        const accountGuasti = await Promise.all(nomiGuasti.map(e => profiloDi(e + '@esempio.it')));
+        vero(guasti.every(r => r.stato === 200 && r.corpo.ok === true) && clicGuasti.every(r => r.stato === 200 && r.corpo.ok === true)
+            && schedeGuaste.every(s => s.length === 1 && s[0].modalita === 'online') && accountGuasti.every(p => !p)
+            && schedeGuaste[0][0].emailConfermata && schedeGuaste[1][0].emailConfermata && !schedeGuaste[3][0].emailConfermata,
+        'il servizio della diretta fallisce durante dalModulo e durante il clic: il modulo e la conferma rispondono { ok: true }, le quattro schede sono nel progetto del sito (Gino e Lara confermate), nessun account');
+        vero(righeLog.some(r => /\[diretta\] iscrizione dal modulo non riuscita: [^@]*UNAVAILABLE: il Firestore della diretta non risponde/.test(r))
+            && righeLog.some(r => /\[diretta\] conferma dell'indirizzo non riuscita: [^@]*UNAVAILABLE/.test(r)), 'il log lo dice (senza dati personali)');
         // altre schede che la riconciliazione deve lasciare stare
         await iscrivi({ nome: 'Olga', cognome: 'Altrove', email: 'olga.altrove@esempio.it', pagina: 'Milano 20 Novembre 2026 - Iscrizione', percorso: '/milano_2026/' });
         await iscriviTorino({ nome: 'Pietro', cognome: 'Presente', email: 'pietro.presente@esempio.it', modalita: 'presenza' });
         await iscriviTorino({ nome: 'Gina', cognome: 'Giusta', email: 'gina.giusta@esempio.it' });
+        await conferma('gina.giusta@esempio.it');
         const credGina = postaA('gina.giusta@esempio.it', 'credenziali');
         passwordViste.push(passwordDi(credGina[0] || {}));
         vero(credGina.length === 1 && !(await profiloDi('olga.altrove@esempio.it')) && !(await profiloDi('pietro.presente@esempio.it')),
-            'Gina (servizio a posto) riceve subito la password; Olga (un altro evento, spento) e Pietro (in sala) nessun account');
+            'Gina (servizio a posto) conferma e riceve subito la password; Olga (un altro evento, spento) e Pietro (in sala) nessun account');
         // Anna annulla dal collegamento della conferma PRIMA che la riconciliazione passi
         const idAnna = (await schedaDi('anna.annullata@esempio.it'))[0].id;
         const annulloAnna = await completa(idAnna, [{ annulla: true }]);
@@ -771,7 +925,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         passwordViste.push(passwordDi(credGino[0] || {}));
         vero(r1.iscritte === 1 && r1.limite === 'totale' && pGino && pGino.eventi.join() === TORINO && pGino.origine === 'modulo' && credGino.length === 1
             && pGino.invii[TORINO].stato === 'inviata' && !(await profiloDi('lara.guasto@esempio.it')),
-        'un giro del cron (DIRETTA_MODULO_ORA: una sola ancora): Gino ha l\'account e la password (nello stesso giro, dalla coda); Lara no, il limite orario ferma la riconciliazione',
+        'un giro del cron (DIRETTA_MODULO_ORA: una sola ancora): Gino (aveva confermato) ha l\'account e la password (nello stesso giro, dalla coda); Lara no, il limite orario ferma la riconciliazione',
         JSON.stringify(r1));
         vero((await entra('gino.guasto@esempio.it', passwordDi(credGino[0] || {}), '10.71.0.1')).stato === 200, 'con quella password Gino entra');
         vero(righeLog.some(r => /\[diretta\] riconciliazione: \{"idEvento":"torino-2026","lette":1,"iscritte":1[^}]*"limite":"totale"/.test(r))
@@ -785,11 +939,14 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const giro2 = await invio.giroCron(ctx, { budgetMs: 60000 });
         const r2 = torinoDi(giro2);
         const pLara = await profiloDi('lara.guasto@esempio.it');
+        const pIlaria = await profiloDi('ilaria.guasto@esempio.it');
         const coda2 = giro2.code.find(c => c.idEvento === TORINO) || {};
-        vero(r2.iscritte === 1 && r2.gia === 1 && r2.ignorate === 3 && pLara && pLara.invii[TORINO].stato === 'in coda' && pLara.invii[TORINO].automatica === true
+        vero(r2.iscritte === 2 && r2.gia === 1 && r2.ignorate === 3 && pLara && pLara.invii[TORINO].stato === 'in coda' && pLara.invii[TORINO].automatica === true
             && postaA('lara.guasto@esempio.it').length === 0 && coda2.limiteGiorno === true,
         'il giro dopo (limite orario libero, ma il modulo ha gia\' usato il suo 60% del tetto del giorno): Lara ha l\'account, la password resta in coda (automatica); '
             + 'Gina (gia\' iscritta) niente; Anna (annullata), Olga (altro evento) e Pietro (in sala) lasciate stare', JSON.stringify(r2));
+        vero(pIlaria && pIlaria.invii[TORINO].stato === 'da confermare' && postaA('ilaria.guasto@esempio.it').length === 0,
+            'Ilaria, che non ha confermato: il giro le crea l\'account «da confermare», e nessuna email');
         process.env.DIRETTA_MAX_GIORNO = '0';
         const primaGiro3 = leggiPosta().length;
         const giro3 = await invio.giroCron(ctx, { budgetMs: 60000 });
@@ -800,16 +957,49 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const primaGiro4 = leggiPosta().length;
         const giro4 = await invio.giroCron(ctx, { budgetMs: 60000 });
         vero(torinoDi(giro4).lette === 0 && torinoDi(giro4).iscritte === 0 && leggiPosta().length === primaGiro4, 'un altro giro: niente di nuovo, nessuna email');
-        vero(['gino.guasto', 'lara.guasto', 'gina.giusta'].every(e => postaA(e + '@esempio.it').length === 1),
-            'Gino, Lara e Gina: una email a testa (la password una volta sola), nessun «anche» in piu\'');
+        // Ilaria conferma adesso (il servizio risponde): la password parte al clic
+        await conferma('ilaria.guasto@esempio.it');
+        const credIlaria = postaA('ilaria.guasto@esempio.it', 'credenziali');
+        passwordViste.push(passwordDi(credIlaria[0] || {}));
+        vero(credIlaria.length === 1 && (await entra('ilaria.guasto@esempio.it', passwordDi(credIlaria[0] || {}), '10.71.0.2')).stato === 200,
+            'Ilaria conferma il suo indirizzo: la password parte al clic, ed entra');
+        /* Il clic PERSO di chi ha gia' l'account (Leo): la prima passata ha gia'
+           letto la sua scheda; il clic non arriva alla diretta; la ritrova la
+           seconda passata, quella delle schede confermate. */
+        await iscriviTorino({ nome: 'Leo', cognome: 'Perso', email: 'leo.perso@esempio.it' });
+        await invio.giroCron(ctx, { budgetMs: 60000 });
+        vero((await profiloDi('leo.perso@esempio.it')).invii[TORINO].stato === 'da confermare', 'Leo iscritto (servizio a posto): «da confermare»');
+        D.prenotaPersona = async () => { throw Object.assign(new Error('14 UNAVAILABLE: il Firestore della diretta non risponde (prova)'), { code: 14 }); };
+        try { await conferma('leo.perso@esempio.it'); } finally { D.prenotaPersona = prenotaVera; }
+        vero(postaA('leo.perso@esempio.it').length === 0 && (await profiloDi('leo.perso@esempio.it')).invii[TORINO].stato === 'da confermare',
+            'Leo conferma mentre la diretta non risponde: il clic non arriva, ancora «da confermare»');
+        const giroLeo = await invio.giroCron(ctx, { budgetMs: 60000 });
+        const credLeo = postaA('leo.perso@esempio.it', 'credenziali');
+        passwordViste.push(passwordDi(credLeo[0] || {}));
+        vero(credLeo.length === 1 && torinoDi(giroLeo).conferme && torinoDi(giroLeo).conferme.inCoda === 1 && torinoDi(giroLeo).lette === 0,
+            'il giro dopo, la seconda passata (le schede confermate) ritrova il clic di Leo: in coda e partita nello stesso giro', JSON.stringify(torinoDi(giroLeo)));
+        const giroLeo2 = await invio.giroCron(ctx, { budgetMs: 60000 });
+        vero(postaA('leo.perso@esempio.it').length === 1 && (torinoDi(giroLeo2).conferme || {}).lette === 0, 'e un altro giro non la rilegge');
+        // la conferma d'ufficio (pregresso) non manda niente
+        await iscriviTorino({ nome: 'Pina', cognome: 'Pregresso', email: 'pina.pregresso@esempio.it' });
+        const pregresso = await CONFERMA_EMAIL.pregresso(studio(), { filtro: 'torino', da: 'prova@esempio.it' });
+        const giroPina = await invio.giroCron(ctx, { budgetMs: 60000 });
+        vero(pregresso.corpo.segnate >= 1 && (await schedaDi('pina.pregresso@esempio.it'))[0].emailConfermata.come === 'pregresso'
+            && postaA('pina.pregresso@esempio.it').length === 0 && (await profiloDi('pina.pregresso@esempio.it')).invii[TORINO].stato === 'da confermare'
+            && (torinoDi(giroPina).conferme || {}).lette >= 1 && (torinoDi(giroPina).conferme || {}).inCoda === 0,
+        'la conferma d\'ufficio dell\'amministratore (pregresso): la seconda passata la legge e la lascia stare, a Pina non parte niente', JSON.stringify(torinoDi(giroPina)));
+        vero(['gino.guasto', 'lara.guasto', 'gina.giusta', 'ilaria.guasto', 'leo.perso'].every(e => postaA(e + '@esempio.it').length === 1),
+            'Gino, Lara, Gina, Ilaria e Leo: una email a testa (la password una volta sola), nessun «anche» in piu\'');
         vero(!(await profiloDi('tina.prima@esempio.it')) && !(await profiloDi('anna.annullata@esempio.it')) && !(await profiloDi('olga.altrove@esempio.it'))
             && !(await profiloDi('pietro.presente@esempio.it')) && postaA('tina.prima@esempio.it').length === 0,
         'ignorate: la scheda di prima dell\'accensione (Tina), quella annullata (Anna), quella di un altro evento (Olga), quella in sala (Pietro)');
         const statoRic = (await ctx.db.collection('riconciliazioni').doc(TORINO).get()).data() || {};
-        const schedaGina = (await schedaDi('gina.giusta@esempio.it'))[0];
-        vero(statoRic.cursore && statoRic.cursore.isEqual(schedaGina.ricevuto) && statoRic.da && statoRic.da.isEqual(risTorino.iscrizioniAutomaticheDa)
+        const schedaPina = (await schedaDi('pina.pregresso@esempio.it'))[0];
+        const schedaLeo = (await schedaDi('leo.perso@esempio.it'))[0];
+        vero(statoRic.cursore && statoRic.cursore.isEqual(schedaPina.ricevuto) && statoRic.da && statoRic.da.isEqual(risTorino.iscrizioniAutomaticheDa)
+            && statoRic.daConferme === risTorino.iscrizioniAutomaticheDa.toMillis() && statoRic.segnoConferme > schedaLeo.emailConfermata.quando
             && !/@|esempio/.test(JSON.stringify(statoRic)),
-        'riconciliazioni/torino-2026 ricorda fino a dove e\' arrivata (il `ricevuto` dell\'ultima scheda letta) e da quando; niente indirizzi (solo impronte)');
+        'riconciliazioni/torino-2026 ricorda fino a dove e\' arrivata (il `ricevuto` dell\'ultima scheda letta, e il millisecondo dell\'ultima conferma) e da quando; niente indirizzi (solo impronte)');
         // la chiave del sito che manca, la lettura che fallisce: si salta, il resto del cron va avanti
         const chiaveSito = process.env.FIREBASE_SERVICE_ACCOUNT;
         delete process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -841,8 +1031,9 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const sessioneDi = async uid => (await ctx.db.collection('sessioni').doc(uid).get()).data() || {};
         const righeTorino = async () => (await I.elencoDaVerificare(ctx, TORINO)).righe;
 
-        // Marta: iscritta, password ricevuta, entrata; poi annulla
+        // Marta: iscritta, conferma, password ricevuta, entrata; poi annulla
         await iscriviTorino({ nome: 'Marta', cognome: 'Ritiro', email: 'marta.ritiro@esempio.it' });
+        await conferma('marta.ritiro@esempio.it');
         const pwMarta = passwordDi(postaA('marta.ritiro@esempio.it', 'credenziali')[0] || {});
         passwordViste.push(pwMarta);
         const tokMarta = await tokenBrowser('marta.ritiro@esempio.it', pwMarta, '10.72.0.1');
@@ -868,8 +1059,9 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         // Nino: le credenziali non ancora partite (Brevo fermo: restano in coda); annulla
         process.env.DIRETTA_POSTA_ERRORE_ACCOUNT = '1';
         await iscriviTorino({ nome: 'Nino', cognome: 'Coda', email: 'nino.coda@esempio.it' });
+        await conferma('nino.coda@esempio.it');
         delete process.env.DIRETTA_POSTA_ERRORE_ACCOUNT;
-        vero((await profiloDi('nino.coda@esempio.it')).invii[TORINO].stato === 'in coda', 'Nino si iscrive con Brevo fermo: le sue credenziali sono "in coda"');
+        vero((await profiloDi('nino.coda@esempio.it')).invii[TORINO].stato === 'in coda', 'Nino si iscrive e conferma con Brevo fermo: le sue credenziali sono "in coda"');
         const idNino = (await schedaDi('nino.coda@esempio.it'))[0].id;
         await completa(idNino, [{ annulla: true }]);
         const pNino = await profiloDi('nino.coda@esempio.it');
@@ -881,9 +1073,35 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             && torinoDi(giroDopo).iscritte === 0,
         'il giro del cron dopo: a Nino non parte niente, e la riconciliazione non rimette nell\'evento ne\' lui ne\' Marta (schede annullate)', JSON.stringify(torinoDi(giroDopo)));
 
+        /* Rea: iscritta, NON conferma, annulla: le credenziali «da confermare»
+           si cancellano; il clic sulla scheda annullata non manda niente.
+           Poi toglie l'annullamento (interruttore acceso) senza aver
+           confermato: rientra «da confermare», e la password parte al clic. */
+        await iscriviTorino({ nome: 'Rea', cognome: 'Senzaclic', email: 'rea.senzaclic@esempio.it' });
+        const idRea = (await schedaDi('rea.senzaclic@esempio.it'))[0].id;
+        await completa(idRea, [{ annulla: true }]);
+        let pRea = await profiloDi('rea.senzaclic@esempio.it');
+        vero(pRea.eventi.indexOf(TORINO) < 0 && !(pRea.invii || {})[TORINO] && postaA('rea.senzaclic@esempio.it').length === 0,
+            'Rea annulla prima di confermare: fuori da Torino, le credenziali «da confermare» cancellate');
+        await completa(idRea, [{ nome: 'Rea', cognome: 'Senzaclic', email: 'rea.senzaclic@esempio.it', azienda: 'Prova srl' }]);
+        pRea = await profiloDi('rea.senzaclic@esempio.it');
+        vero(pRea.eventi.indexOf(TORINO) >= 0 && pRea.invii[TORINO].stato === 'da confermare' && postaA('rea.senzaclic@esempio.it').length === 0,
+            'toglie l\'annullamento senza aver confermato: di nuovo in Torino, «da confermare», nessuna email');
+        await conferma('rea.senzaclic@esempio.it');
+        passwordViste.push(passwordDi(postaA('rea.senzaclic@esempio.it', 'credenziali')[0] || {}));
+        vero(postaA('rea.senzaclic@esempio.it', 'credenziali').length === 1, '...e al clic la password');
+        // Ivo: iscritto, annulla, POI clicca la conferma della scheda annullata: niente
+        await iscriviTorino({ nome: 'Ivo', cognome: 'Annullato', email: 'ivo.annullato@esempio.it' });
+        await completa((await schedaDi('ivo.annullato@esempio.it'))[0].id, [{ annulla: true }]);
+        const clicIvo = await conferma('ivo.annullato@esempio.it');
+        const pIvo = await profiloDi('ivo.annullato@esempio.it');
+        vero(clicIvo.corpo.ok === true && pIvo.eventi.indexOf(TORINO) < 0 && postaA('ivo.annullato@esempio.it').length === 0,
+            'Ivo annulla e poi clicca la conferma della scheda annullata: la diretta non manda niente');
+
         // Sofia: iscritta DUE volte dal modulo (due schede); ne annulla una
         await iscriviTorino({ nome: 'Sofia', cognome: 'Doppia', email: 'sofia.doppia@esempio.it' });
         await iscriviTorino({ nome: 'Sofia', cognome: 'Doppia', email: 'sofia.doppia@esempio.it' });
+        await conferma('sofia.doppia@esempio.it');
         passwordViste.push(passwordDi(postaA('sofia.doppia@esempio.it', 'credenziali')[0] || {}));
         const schedeSofia = await schedaDi('sofia.doppia@esempio.it');
         await completa(schedeSofia[0].id, [{ annulla: true }]);
@@ -893,6 +1111,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
 
         // un altro posto dello stesso ordine (~p2), con la sua email, caricato dal gestore
         await iscriviTorino({ nome: 'Elena', cognome: 'Ordine', email: 'elena.ordine@esempio.it' });
+        await conferma('elena.ordine@esempio.it');
         passwordViste.push(passwordDi(postaA('elena.ordine@esempio.it', 'credenziali')[0] || {}));
         const idElena = (await schedaDi('elena.ordine@esempio.it'))[0].id;
         await studio().collection('iscrizioni').doc(idElena).update({ partecipanti: 2 });
@@ -915,8 +1134,8 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(riMarta.corpo.ok === true && pMarta.eventi.indexOf(TORINO) >= 0 && !(pMarta.annullatoDalSito || {})[TORINO]
             && ((await sessioneDi(pMarta.uid)).eventiTolti || []).indexOf(TORINO) < 0
             && postaA('marta.ritiro@esempio.it').length === primaMarta + 1 && ancheMarta.length === 1 && postaA('marta.ritiro@esempio.it', 'credenziali').length === 1,
-        'Marta toglie l\'annullamento (interruttore acceso): di nuovo in Torino, via il segno dell\'annullamento e l\'evento da eventiTolti; '
-            + 'era gia\' entrata con la sua password, quindi le arriva «Sei iscritto anche a…», nessuna password nuova');
+        'Marta toglie l\'annullamento (interruttore acceso; la sua scheda era confermata): di nuovo in Torino, via il segno dell\'annullamento e l\'evento da eventiTolti; '
+            + 'era gia\' entrata con la sua password, quindi le arriva subito «Sei iscritto anche a…», nessuna password nuova');
         const tokMarta2 = await tokenBrowser('marta.ritiro@esempio.it', pwMarta, '10.72.0.3');
         vero(tokMarta2 && await leggeEvento(tokMarta2, TORINO) === 200, 'con la password di sempre rientra, e legge di nuovo l\'evento');
 
@@ -962,7 +1181,8 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(password.every(pw => log.indexOf(pw) < 0), 'nessuna password nei log (' + righeLog.length + ' righe)');
         const logDiretta = righeLog.filter(r => /diretta/i.test(r)).join('\n');
         vero(!/@esempio\.it/i.test(logDiretta), 'nessun indirizzo email nei log della diretta');
-        vero(/\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"creato","invio":"inviata"/.test(log), 'il log dice evento ed esiti (senza dati personali)');
+        vero(/\[diretta\] iscrizione dal modulo: \{"idEvento":"napoli-2026","esito":"creato","invio":"da confermare"/.test(log)
+            && /\[diretta\] conferma dell'indirizzo: \{"idEvento":"napoli-2026","esito":"gia-iscritto","invio":"inviata"/.test(log), 'il log dice evento ed esiti (senza dati personali)');
         const tutta = leggiPosta();
         vero(tutta.length > 0 && tutta.every(m => !/nome utente|nomeutente/i.test(m.oggetto + m.html + m.testo)), 'in nessuna email compare un "nome utente" (' + tutta.length + ' email)');
         vero(tutta.every(m => m.testo.indexOf(FRASE_SPAM) >= 0), 'in tutte: «' + FRASE_SPAM + '»');

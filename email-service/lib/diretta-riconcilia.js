@@ -40,6 +40,27 @@
         degli id delle schede con quello stesso istante: l'id di una scheda
         contiene l'email, e nel progetto della diretta non si copia): il
         giro dopo riparte da li', e un secondo giro non rilegge niente.
+   LE CONFERME (la seconda passata, riconciliaConferme). La password parte
+   al clic su «Conferma il tuo indirizzo email» (lib/conferma-email.js ->
+   daConferma di lib/diretta-iscrizione.js): la prima passata qui sopra,
+   come il modulo, crea l'account con la voce 'da confermare' (o, se la
+   scheda e' gia' confermata con il clic, direttamente in coda). Se
+   l'avviso del clic non e' arrivato alla diretta, la seconda passata lo
+   ritrova: rilegge le schede CONFERMATE da quando l'interruttore e'
+   acceso (S.confermateDal, intervallo su emailConfermata.quando) e per
+   quelle confermate dalla persona (non d'ufficio: 'pregresso'), online,
+   non annullate, di questa pagina, arrivate dopo l'accensione, chiama
+   iscriviDaModulo con `confermata`: la voce 'da confermare' passa in
+   coda (o l'account nasce gia' in coda) e la manda la coda dello stesso
+   giro. Chi e' gia' in coda o ha gia' ricevuto: niente. Il segno e' un
+   numero, i millisecondi della conferma (niente identificativi di
+   schede, che contengono l'email): le conferme dello stesso millisecondo
+   si leggono tutte insieme (S.confermateIl: la conferma d'ufficio ne
+   segna tante nello stesso istante), poi il segno passa al millisecondo
+   dopo. Rileggere una scheda gia' fatta non fa niente, e non conta nei
+   limiti. Anche qui le conferme piu' recenti di
+   DIRETTA_RICONCILIA_ATTESA_MS si lasciano al clic, che le sta ancora
+   lavorando.
    I LIMITI sono quelli del modulo (la riconciliazione conta come il
    modulo): il 60% del tetto giornaliero (la coda) e il limite orario
    complessivo DIRETTA_MODULO_ORA (quello per rete no: la scheda del sito
@@ -118,9 +139,10 @@ function perche(scheda, evento, accesi) {
 }
 
 /* Un evento. -> { idEvento, lette, iscritte, gia, daVerificare, ignorate,
-   limite, finito } */
+   limite, finito, conferme: { lette, inCoda, gia, ignorate } } */
 async function riconciliaEvento(ctx, evento, accesi, scadenza) {
-    const r = { idEvento: evento.id, lette: 0, iscritte: 0, gia: 0, daVerificare: 0, ignorate: 0, limite: '', finito: false };
+    const r = { idEvento: evento.id, lette: 0, iscritte: 0, gia: 0, daVerificare: 0, ignorate: 0, limite: '', finito: false,
+        conferme: { lette: 0, inCoda: 0, gia: 0, ignorate: 0 } };
     const rif = ctx.db.collection('riconciliazioni').doc(evento.id);
     const snap = await rif.get();
     const st = snap.exists ? snap.data() : {};
@@ -155,8 +177,9 @@ async function riconciliaEvento(ctx, evento, accesi, scadenza) {
                 if (motivo) {
                     r.ignorate++;
                 } else {
+                    // gia' confermata con il clic: l'account nasce in coda; altrimenti 'da confermare'
                     const x = await I.iscriviDaModulo(ctx, { email: sc.email, nome: sc.nome, cognome: sc.cognome, azienda: sc.azienda, pagina: sc.pagina },
-                        { evento: { id: evento.id, dati: evento.dati }, riconcilia: true });
+                        { evento: evento, riconcilia: true, confermata: sc.confermata === true });
                     if (x.esito === 'limite') {
                         // oltre il limite orario: ci si ferma PRIMA di questa scheda (il cursore non la passa)
                         r.limite = x.trattenuta || 'totale';
@@ -182,9 +205,69 @@ async function riconciliaEvento(ctx, evento, accesi, scadenza) {
         await rif.set({
             da: da, cursore: cursore, idsCursore: ids, aggiornato: ctx.adesso(),
             ultimoGiro: { quando: ctx.adesso(), lette: r.lette, iscritte: r.iscritte, gia: r.gia, daVerificare: r.daVerificare, ignorate: r.ignorate, limite: r.limite }
-        });
+        }, { merge: true });
+    }
+    // la seconda passata: i clic il cui avviso non e' arrivato (se il limite non ha gia' fermato la prima)
+    if (!r.limite) {
+        const finiteRicevute = r.finito;
+        r.finito = false;
+        const daMs = da.toMillis();
+        let segno = daMs;
+        if (st.daConferme === daMs && Number.isFinite(Number(st.segnoConferme)) && Number(st.segnoConferme) >= daMs) segno = Number(st.segnoConferme);
+        try {
+            const fatto = await riconciliaConferme(ctx, evento, accesi, r, segno, daMs, scadenza);
+            segno = fatto.segno;
+            r.finito = finiteRicevute && fatto.finito;
+        } finally {
+            await rif.set({
+                daConferme: daMs, segnoConferme: segno,
+                ultimoGiroConferme: { quando: ctx.adesso(), lette: r.conferme.lette, inCoda: r.conferme.inCoda, gia: r.conferme.gia, ignorate: r.conferme.ignorate, limite: r.limite }
+            }, { merge: true });
+        }
     }
     return r;
+}
+
+/* La seconda passata (vedi LE CONFERME). `segno`: il primo millisecondo
+   di conferma ancora da leggere. -> { segno, finito } */
+async function riconciliaConferme(ctx, evento, accesi, r, segno, daMs, scadenza) {
+    const recente = ctx.adesso() - attesaMs();
+    for (;;) {
+        if (Date.now() >= scadenza) return { segno: segno, finito: false };
+        const pagina = await S.confermateDal(segno, LOTTO);
+        if (!pagina.length) return { segno: segno, finito: true };
+        const piena = pagina.length >= LOTTO;
+        const valori = [];
+        pagina.forEach(sc => { if (sc.quandoConferma != null && valori.indexOf(sc.quandoConferma) < 0) valori.push(sc.quandoConferma); });
+        for (const v of valori) {
+            // troppo recente: la sta ancora lavorando il clic, si riprende al giro dopo
+            if (v > recente) return { segno: segno, finito: false };
+            // l'ultimo millisecondo di una pagina piena puo' continuare nella pagina dopo: lo si legge tutto
+            const gruppo = piena && v === valori[valori.length - 1] ? await S.confermateIl(v) : pagina.filter(sc => sc.quandoConferma === v);
+            for (const sc of gruppo) {
+                // a meta' gruppo il segno non si sposta: il gruppo si rilegge (senza effetti) al giro dopo
+                if (Date.now() >= scadenza) return { segno: segno, finito: false };
+                r.conferme.lette++;
+                const arrivata = sc.ricevuto && typeof sc.ricevuto.toMillis === 'function' ? sc.ricevuto.toMillis() : null;
+                // solo il clic della persona, e solo le schede arrivate dopo l'accensione (le altre le carica il gestore)
+                const motivo = !sc.confermata ? 'd-ufficio' : (arrivata == null || arrivata < daMs ? 'prima-accensione' : perche(sc, evento, accesi));
+                if (motivo) { r.conferme.ignorate++; continue; }
+                const x = await I.iscriviDaModulo(ctx, { email: sc.email, nome: sc.nome, cognome: sc.cognome, azienda: sc.azienda, pagina: sc.pagina, ricevutoMs: arrivata },
+                    { evento: evento, riconcilia: true, confermata: true });
+                if (x.esito === 'limite') {
+                    // oltre il limite orario: ci si ferma a questo millisecondo, che si rilegge al giro dopo
+                    r.limite = x.trattenuta || 'totale';
+                    return { segno: segno, finito: false };
+                }
+                // chi aspettava il clic passa in coda (anche se era gia' nell'evento): prima di tutto
+                if (x.invio && x.invio.stato === 'in coda') r.conferme.inCoda++;
+                else if (x.esito === 'gia-iscritto') r.conferme.gia++;
+                else r.conferme.ignorate++;
+            }
+            segno = v + 1;
+        }
+        if (!piena) return { segno: segno, finito: true };
+    }
 }
 
 /* ============================================================
@@ -216,7 +299,7 @@ async function riconcilia(ctx, opz) {
             console.error('[diretta] riconciliazione di ' + ev.id + ' non riuscita (si riprova al giro dopo): ' + D.perLog(e));
             r = { idEvento: ev.id, errore: true };
         }
-        if (r.lette || r.limite || r.errore) {
+        if (r.lette || r.limite || r.errore || (r.conferme && r.conferme.lette)) {
             // solo l'evento e i numeri
             console.log('[diretta] riconciliazione: ' + JSON.stringify(r));
             if (r.limite) console.log('[diretta] riconciliazione: limite orario delle password automatiche raggiunto, si riprende al giro dopo (' + ev.id + ')');

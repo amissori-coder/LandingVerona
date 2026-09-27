@@ -255,8 +255,8 @@ Progetto Vercel di sempre (`revilaw-email`, cartella `email-service`) →
 | `DIRETTA_MAX_GIORNO` | `0` (nessun tetto) | tetto di email della diretta al giorno: impostalo se il piano Brevo ha un limite giornaliero (§4) |
 | `DIRETTA_AUTH_AL_SECONDO` | `8` | quante modifiche agli account Firebase al secondo (creazione, nuove password): tiene lontani i limiti di Google; non serve cambiarlo |
 | `DIRETTA_MODULO_PERCENTO` | `60` | la parte del tetto giornaliero (`DIRETTA_MAX_GIORNO`) che possono usare le password fatte partire dal modulo pubblico del sito: oltre, restano in coda e partono il giorno dopo; il resto è del gestore (credenziali, promemoria) e delle reimpostazioni (che si fermano all'80 %). Senza tetto giornaliero non conta (§4) |
-| `DIRETTA_MODULO_RETE_ORA` | `10` | quante iscrizioni dal modulo del sito all'ora, dalla stessa rete (stesso IP; per IPv6 la stessa /64), fanno partire la password da sole: oltre, l'account si crea ma la password la mandi tu (§7) |
-| `DIRETTA_MODULO_ORA` | `60` | quante iscrizioni dal modulo del sito all'ora, in tutto, fanno partire la password da sole (1440 al giorno al massimo): oltre, come sopra. `0` = nessuna password parte da sola. Vale anche per la riconciliazione, che oltre questo limite aspetta l'ora dopo (§7) |
+| `DIRETTA_MODULO_RETE_ORA` | `10` | quante iscrizioni dal modulo del sito all'ora fanno partire la password da sole, contate quando la persona conferma il suo indirizzo, dalla stessa rete di chi clicca (stesso IP; per IPv6 la stessa /64): oltre, la password la mandi tu (§7) |
+| `DIRETTA_MODULO_ORA` | `60` | quante iscrizioni dal modulo del sito all'ora, in tutto, fanno partire la password da sole al clic sulla conferma (1440 al giorno al massimo): oltre, come sopra. `0` = nessuna password parte da sola. Vale anche per la riconciliazione, che oltre questo limite aspetta l'ora dopo (§7) |
 | `DIRETTA_RICONCILIA_ATTESA_MS` | `120000` | quanto aspetta la riconciliazione (§7) prima di rileggere una scheda del modulo appena arrivata: nel frattempo la sta lavorando il modulo. Non serve cambiarlo |
 
 **Già presenti, riusate così come sono**: `SMTP_HOST`, `SMTP_PORT`,
@@ -849,8 +849,8 @@ Che cosa fa «Torna alla fase iniziale»:
   accessi**;
 - **non tocca** partecipanti, account e password, credenziali inviate e stato
   delle email, promemoria, dati dell'evento (titolo, orari, programma, player),
-  l'interruttore «Invia subito la password a chi si iscrive dal modulo del
-  sito»;
+  l'interruttore «Invia la password a chi si iscrive dal modulo del sito, dopo
+  che ha confermato l'indirizzo»;
 - chi ha la pagina della diretta aperta torna **da solo** all'attesa, senza
   ricaricare; al prossimo «Vai in onda» la sua presenza riparte da zero (0
   minuti, 1 collegamento).
@@ -917,22 +917,43 @@ genera una password nuova**: quella vecchia non la conosce più nessuno.
   email parte); le credenziali partono **quando decidi tu**, con "Invia le
   credenziali" nella scheda *Email*;
 - **chi si iscrive dopo**, dal modulo del sito: se nella scheda *Evento* è
-  acceso **"Invia subito la password a chi si iscrive dal modulo del sito"**
-  (spento di base), chi si iscrive online dal modulo della pagina dell'evento
-  riceve subito l'email con la password; se ha già un account (per un altro
-  evento) riceve invece "Sei iscritto anche a…", senza password nuova. Se Brevo
-  non risponde, l'email resta in coda e parte appena possibile. Accendilo dopo
-  aver caricato e inviato la prima lista. Il modulo è pubblico, quindi ha dei
-  **limiti**: al massimo `DIRETTA_MODULO_RETE_ORA` (10) iscrizioni all'ora
-  dalla stessa rete e `DIRETTA_MODULO_ORA` (60) all'ora in tutto fanno partire
-  la password da sole; oltre, l'account si crea lo stesso ma la password resta
-  **"da inviare"**, con il motivo scritto accanto nell'elenco dei
-  partecipanti: la mandi tu con "Invia le credenziali" o "Invia ora". Su
-  Vercel il modulo del sito **non aspetta** il lavoro della diretta: risponde
-  subito, nello stesso tempo per un indirizzo nuovo e per uno già iscritto (se
-  aspettasse, il tempo della risposta direbbe chi è già iscritto). Accanto
-  all'interruttore la gestione dice **da quando** è acceso: vale per chi si è
-  iscritto da quel momento (spento e riacceso, si riparte dal nuovo momento).
+  acceso **"Invia la password a chi si iscrive dal modulo del sito, dopo che ha
+  confermato l'indirizzo"** (spento di base), chi si iscrive online dal modulo
+  della pagina dell'evento ha subito l'account, ma **la password parte solo
+  dopo che ha confermato il suo indirizzo** con il pulsante «Conferma il tuo
+  indirizzo email» della mail del sito: il modulo lo può usare chiunque, con
+  qualunque indirizzo (anche scritto male, o di qualcun altro), e così nessuna
+  password va a una casella che la persona non ha dimostrato di avere. Fino al
+  clic nella gestione è **«da confermare»**; al clic riceve subito l'email con
+  la password (se ha già un account, per un altro evento, riceve invece "Sei
+  iscritto anche a…", senza password nuova), una volta sola anche se clicca
+  due volte. La conferma d'ufficio dell'area riservata (il "pregresso") non fa
+  partire niente: conta solo il clic della persona. Se Brevo non risponde,
+  l'email resta in coda e parte appena possibile. Accendilo dopo aver caricato
+  e inviato la prima lista. Il modulo è pubblico, quindi ha dei **limiti**,
+  contati al clic (è lì che parte l'email): al massimo
+  `DIRETTA_MODULO_RETE_ORA` (10) all'ora dalla stessa rete e
+  `DIRETTA_MODULO_ORA` (60) all'ora in tutto fanno partire la password da
+  sole; oltre, la password resta **"da inviare"**, con il motivo scritto
+  accanto nell'elenco dei partecipanti: la mandi tu con "Invia le credenziali"
+  o "Invia ora". Su Vercel il modulo del sito e la pagina della conferma **non
+  aspettano** il lavoro della diretta: rispondono subito, nello stesso tempo
+  per un indirizzo nuovo e per uno già iscritto (se aspettassero, il tempo
+  della risposta direbbe chi è già iscritto). Accanto all'interruttore la
+  gestione dice **da quando** è acceso: vale per chi si è iscritto da quel
+  momento, anche se conferma dopo (spento e riacceso, si riparte dal nuovo
+  momento); a interruttore spento il clic non manda niente.
+- **chi non conferma**: nella scheda *Email* il riquadro «N persone iscritte
+  dal modulo del sito non hanno ancora confermato l'indirizzo» (e il
+  conteggio «da confermare») ha **«Copia gli indirizzi»** (per scrivere loro,
+  in Ccn) e **«Invia anche a loro»**: la password parte senza aspettare il
+  clic, dopo una conferma che ricorda il rischio (un indirizzo scritto male
+  può essere di qualcun altro). Conviene farlo poco prima dell'evento, per
+  esempio il giorno prima. «Invia le credenziali» non li raggiunge; "Invia
+  ora" dalla scheda *Partecipanti* sì, una persona per volta. Se correggi
+  l'email di una persona «da confermare», passa «da inviare» (la mandi tu).
+  «Password dimenticata?» funziona anche per loro: il collegamento arriva alla
+  loro casella.
 - **se in quel momento qualcosa non va**, nessuno resta senza password:
   1. il modulo di Napoli ha **una strada sola**, il servizio (il foglio
      Google non riceve più le iscrizioni di Napoli): la pagina aspetta la
@@ -949,8 +970,13 @@ genera una password nuova**: quella vecchia non la conosce più nessuno.
      annullate, arrivate **da quando l'interruttore è acceso**, della pagina
      dell'evento (la stessa regola del modulo, ma sulla sola etichetta della
      pagina: il percorso nella scheda non c'è). Chi non ha ancora l'account
-     con l'evento lo riceve, e la password parte nello stesso giro; chi c'è
-     già non riceve niente (anche se la sua password aspetta te). Valgono gli
+     con l'evento lo riceve («da confermare», o in coda se aveva già
+     confermato: allora la password parte nello stesso giro); chi c'è già
+     non riceve niente (anche se la sua password aspetta te). Una seconda
+     passata rilegge le schede **confermate** (da quando l'interruttore è
+     acceso): se il clic sulla conferma non è arrivato alla diretta, lo
+     ritrova, la persona passa in coda e la password parte nello stesso
+     giro; la conferma d'ufficio non conta. Valgono gli
      stessi limiti del modulo: il 60 % del tetto giornaliero e il limite
      orario complessivo, oltre il quale la riconciliazione **aspetta l'ora
      dopo** (non crea account "trattenuti": ci riprova da sola). Ricorda fino
@@ -985,7 +1011,8 @@ l'account di **un'altra persona** (un collega con lo stesso indirizzo), non si
 tocca niente e la riga te lo dice. Se la persona **toglie l'annullamento**
 (ricompila i suoi dati): con l'interruttore acceso rientra come chi si iscrive
 dal modulo (l'evento torna; riceve "Sei iscritto anche a…" o le credenziali
-secondo le regole di sempre, qui sotto); con l'interruttore spento non rientra
+secondo le regole di sempre, qui sotto: subito se quella scheda era già
+confermata con il clic, altrimenti al clic); con l'interruttore spento non rientra
 da sola e ti lascia una riga **"Annullamento ritirato"**: se deve seguire la
 diretta, la carichi tu con il file. Anche il tuo "Togli da questo evento"
 nella gestione chiude l'evento da subito, allo stesso modo (prima valeva
@@ -1078,11 +1105,14 @@ Promozioni e segna il mittente come sicuro."
   l'email sia iscritta o no, e il modulo di iscrizione del sito risponde senza
   aspettare la diretta (`waitUntil`): nessuno dei due tempi dice chi è
   iscritto.
-- **Il modulo del sito è pubblico**: le password che fa partire da sole hanno
-  un limite per rete e uno orario complessivo (tenuti nel progetto della
-  diretta, in `limiti/`), e al massimo il 60 % del tetto giornaliero; la stessa
-  email di un'altra persona non si unisce mai al suo account (finisce fra le
-  iscrizioni "da verificare").
+- **Il modulo del sito è pubblico**: dal modulo non parte **nessuna password
+  verso un indirizzo che la persona non ha confermato** con il pulsante della
+  mail del sito (la conferma è una richiesta dello script della pagina, che
+  gli antispam che aprono i collegamenti non eseguono); le password che partono
+  da sole al clic hanno un limite per rete e uno orario complessivo (tenuti
+  nel progetto della diretta, in `limiti/`), e al massimo il 60 % del tetto
+  giornaliero; la stessa email di un'altra persona non si unisce mai al suo
+  account (finisce fra le iscrizioni "da verificare").
 - **Gestori**: l'elenco sta nella variabile `DIRETTA_ADMIN_EMAILS` e si
   controlla a ogni chiamata; l'account di gestione lo attiva solo il servizio
   ("Primo accesso o password dimenticata" nella pagina di gestione), e chi
@@ -1540,11 +1570,13 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     **non parte nessuna email**. Quando decidi tu: "Invia email di prova a me",
     poi **"Invia le credenziali"**.
 14. [ ] Solo **dopo** aver caricato e inviato la prima lista: nella scheda
-    *Evento* accendi **"Invia subito la password a chi si iscrive dal modulo del
-    sito"** (accanto compare da quando è acceso). Da quel momento chi si iscrive
-    online dalla pagina di Napoli riceve subito la password; se il servizio in
-    quel momento non risponde, ci pensa il lavoro programmato entro pochi
-    minuti (§7): serve che su Vercel ci sia `FIREBASE_SERVICE_ACCOUNT` (c'è già,
+    *Evento* accendi **"Invia la password a chi si iscrive dal modulo del sito,
+    dopo che ha confermato l'indirizzo"** (accanto compare da quando è acceso).
+    Da quel momento chi si iscrive online dalla pagina di Napoli riceve la
+    password **appena conferma il suo indirizzo** con il pulsante della mail
+    del sito (fino ad allora è «da confermare»); se il servizio in quel
+    momento non risponde, ci pensa il lavoro programmato entro pochi minuti
+    (§7): serve che su Vercel ci sia `FIREBASE_SERVICE_ACCOUNT` (c'è già,
     la usano il modulo e l'area riservata). Le iscrizioni arrivate **prima**
     di accenderlo non partono da sole: quelle le carichi tu con il file.
     Controlla che `iscrizione` in `diretta/config.js` porti al modulo giusto
@@ -1563,7 +1595,10 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
 **Il giorno prima (1° ottobre)**
 
 16. [ ] "Aggiorna esiti", correggi gli indirizzi respinti, "Reinvia a chi non
-    l'ha ricevuta". Tieni a portata di mano il numero dell'assistenza e la
+    l'ha ricevuta". Se nella scheda *Email* c'è il riquadro «non hanno ancora
+    confermato l'indirizzo», decidi: «Invia anche a loro» (controlla prima gli
+    indirizzi con «Copia gli indirizzi») oppure scrivi loro di cliccare la
+    conferma. Tieni a portata di mano il numero dell'assistenza e la
     sezione 7 ("account disattivato", "password dimenticata"). In *Regia*,
     controlla che la riga dica **«Nessuna diretta ancora iniziata»**: se dice
     che restano i dati di una prova, «Torna alla fase iniziale» (§6.8).

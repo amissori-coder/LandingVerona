@@ -18,7 +18,13 @@
        senza collegamento resta com'era;
      - il pregresso segna solo chi non ha il campo, non tocca chi ha
        confermato dalla mail, rilanciato non cambia nulla, e non
-       tocca gli iscritti di un altro evento.
+       tocca gli iscritti di un altro evento;
+     - la diretta: alla PRIMA conferma con il clic di chi segue online
+       (e non ha annullato) si avvisa la diretta (daConferma, con la
+       rete di chi clicca e il momento della scheda), che manda la
+       password; mai alla seconda apertura, mai per la sala, mai per
+       una scheda annullata, mai con il pregresso; se la diretta si
+       rompe, la conferma resta e il log non scrive l'indirizzo.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -78,11 +84,23 @@ const nodemailerFinto = {
     })
 };
 
+// ---------- la diretta finta: chi e' stato avvisato del clic ----------
+const avvisiDiretta = [];
+let rompiDiretta = false;
+const direttaFinta = {
+    daConferma: async d => {
+        if (rompiDiretta) throw new Error('diretta giu\' per mario.rossi@esempio.it');
+        avvisiDiretta.push(d);
+        return { esito: 'in-corso' };
+    }
+};
+
 // ---------- intercetta i require ----------
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return adminFinto;
     if (nome === 'nodemailer') return nodemailerFinto;
+    if (nome === './diretta-iscrizione') return direttaFinta;
     return veroRequire.apply(this, arguments);
 };
 process.env.SMTP_HOST = 'smtp.prova'; process.env.SMTP_USER = 'u'; process.env.SMTP_PASS = 'p';
@@ -106,7 +124,7 @@ async function prova(titolo, fn) {
     try { await fn(); }
     catch (e) { ko++; console.log('  KO   eccezione: ' + (e && e.stack)); }
 }
-function azzera() { dati.clear(); commit = 0; posta.length = 0; rompiInvio = 0; orologio = Date.parse('2026-09-26T10:00:00+02:00'); }
+function azzera() { dati.clear(); commit = 0; posta.length = 0; rompiInvio = 0; avvisiDiretta.length = 0; rompiDiretta = false; orologio = Date.parse('2026-09-26T10:00:00+02:00'); }
 const PAGINA = 'Napoli 2 Ottobre 2026 - Manifestazione di interesse';
 const ID = 'mario-rossi@esempio-it|20-09-2026 10:00:00';
 const ROSSI = { pagina: PAGINA, data: '20/09/2026 10:00:00', nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', telefono: '333', azienda: 'Rossi Srl' };
@@ -237,6 +255,39 @@ const token = () => NL.firmaConfermaEmail(ID);
         esigi(r2.corpo.segnate === 0 && r2.corpo.giaConfermate === 3 && (dati.get('meta/iscrizioni') || {}).rev === 1, 'rilanciato: niente da segnare, niente riscritto');
         const v = await CONF.pregresso(db, {});
         esigi(v.stato === 400, 'senza evento e\' rifiutato');
+    });
+
+    await prova('La diretta: la password parte dopo il clic, e solo cosi\'', async () => {
+        azzera();
+        const ricevuto = { toMillis: () => Date.parse('2026-09-25T09:00:00+02:00') };
+        dati.set('iscrizioni/on', Object.assign({}, ROSSI, { modalita: 'online', ricevuto: ricevuto }));
+        const r = await CONF.conferma(db, { d: 'on', t: NL.firmaConfermaEmail('on') }, { ip: '10.1.2.3' });
+        const a = avvisiDiretta[0] || {};
+        esigi(r.stato === 200 && r.corpo.ok && avvisiDiretta.length === 1, 'online, prima conferma: la diretta e\' avvisata una volta');
+        esigi(a.email === ROSSI.email && a.nome === 'Mario' && a.cognome === 'Rossi' && a.azienda === 'Rossi Srl' && a.pagina === PAGINA
+            && a.ip === '10.1.2.3' && a.ricevutoMs === Date.parse('2026-09-25T09:00:00+02:00'), 'con i dati della scheda, la rete di chi clicca e il momento della scheda');
+        await CONF.conferma(db, { d: 'on', t: NL.firmaConfermaEmail('on') }, { ip: '10.1.2.3' });
+        esigi(avvisiDiretta.length === 1, 'la seconda apertura non avvisa di nuovo');
+        dati.set('iscrizioni/sala', Object.assign({}, ROSSI, { email: 'sala@x.it' }));
+        dati.set('iscrizioni/ann', Object.assign({}, ROSSI, { email: 'ann@x.it', modalita: 'online', annullato: true }));
+        await CONF.conferma(db, { d: 'sala', t: NL.firmaConfermaEmail('sala') });
+        await CONF.conferma(db, { d: 'ann', t: NL.firmaConfermaEmail('ann') });
+        esigi(avvisiDiretta.length === 1 && dati.get('iscrizioni/sala').emailConfermata && dati.get('iscrizioni/ann').emailConfermata,
+            'in sala, o con la scheda annullata: confermate, ma la diretta non e\' avvisata');
+        dati.set('iscrizioni/preg', Object.assign({}, ROSSI, { email: 'preg@x.it', modalita: 'online' }));
+        await CONF.pregresso(db, { filtro: 'napoli', da: 'admin@revilaw.it' });
+        esigi(avvisiDiretta.length === 1 && dati.get('iscrizioni/preg').emailConfermata.come === 'pregresso', 'il pregresso non avvisa la diretta');
+        dati.set('iscrizioni/rotta', Object.assign({}, ROSSI, { email: 'rotta@x.it', modalita: 'online' }));
+        rompiDiretta = true;
+        const righe = [];
+        const errVero = console.error;
+        console.error = (...x) => righe.push(x.join(' '));
+        let rr;
+        try { rr = await CONF.conferma(db, { d: 'rotta', t: NL.firmaConfermaEmail('rotta') }); } finally { console.error = errVero; }
+        esigi(rr.stato === 200 && rr.corpo.ok && dati.get('iscrizioni/rotta').emailConfermata.come === 'mail' && rr.corpo.invito === true,
+            'la diretta si rompe: l\'indirizzo e\' confermato lo stesso, e l\'invito parte');
+        esigi(righe.some(x => /Diretta: conferma dell'indirizzo non passata alla diretta: diretta giu' per <email>/.test(x)) && !righe.some(x => /@esempio/.test(x)),
+            'il log lo dice senza l\'indirizzo');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' ko');
