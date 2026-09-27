@@ -434,11 +434,21 @@ nel database, dove lo inserisce la gestione):
   "IN DIRETTA", nome della persona, "Esci". **Niente sopra l'iframe**: i comandi
   di Azoto (play, volume, qualità) sono gli unici di questa modalità e devono
   restare cliccabili.
-- **Sotto il video**: il nostro pulsante **"Schermo intero"** (ingrandisce il
-  riquadro; su iPhone, dove una pagina non può mettere a schermo intero un
-  iframe, passa a una **vista a pagina intera orizzontale**, con il pulsante per
+- **Sotto il video**, sul computer e sul tablet: il nostro pulsante
+  **"Schermo intero"** (manda a schermo intero il riquadro, con il pulsante per
   uscire fuori dal video) e la nota fissa: *"Non senti l'audio? Premi il pulsante
   del volume nel player. Il video si blocca? Ricarica la pagina."*
+- **Sul telefono** il nostro pulsante non c'è: lo schermo intero è quello del
+  **player di Azoto** (il suo pulsante ⛶, in basso a destra nel player: su
+  iPhone apre il player del telefono, su Android lo schermo intero vero, che si
+  gira da solo). Sotto il video, al posto del pulsante: *"Schermo intero: tocca
+  ⛶ nel player, in basso a destra. Oppure gira il telefono."* **Girando il
+  telefono** in orizzontale il video riempie da solo l'altezza dello schermo
+  (con il nero ai lati) e la pagina lo porta in vista; rigirandolo torna com'era,
+  senza ricaricare il player. Prima c'era una vista "orizzontale" nostra, con
+  il riquadro ruotato di 90 gradi su iPhone: con il player di un altro sito
+  dentro, il video si bloccava e i tocchi finivano nel posto sbagliato
+  (segnalato nelle prove sui telefoni veri, 27 settembre).
 - **Se il player non risponde entro 15 secondi**, sotto il video compare "La
   diretta sta arrivando, attendi qualche secondo" con il pulsante **"Ricarica
   il video"**, che ricrea solo l'iframe (non la pagina). Il messaggio sparisce
@@ -584,8 +594,10 @@ provano a mano, con Azoto che trasmette una prova:
 2. Entra con un partecipante di prova da **iPhone con Safari** (e da iPad, e da un
    Mac con Safari). Controlla: il player compare solo dopo "Vai in onda"; si
    avvia con un tocco su play; l'audio si sente (volume del player o tasti del
-   telefono); **"Schermo intero"** dà la vista a pagina intera orizzontale e si
-   esce con il pulsante; la nota sotto il video; ruota il telefono.
+   telefono); sotto il video l'indicazione per lo schermo intero; il pulsante
+   **⛶ del player di Azoto** apre lo schermo intero del telefono e il video non
+   si blocca; **gira il telefono**: il video riempie lo schermo, e rigirandolo
+   torna com'era senza fermarsi.
 3. **Regia**: cambia l'indirizzo del player durante la prova (o metti lo stesso):
    le pagine aperte si aggiornano da sole. "Termina": il player sparisce e
    compare la nostra schermata di chiusura.
@@ -1136,8 +1148,8 @@ node e2e.prova.js              # solo il percorso completo
 | `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel controllata per **email** (nuovi, già registrati, doppie, email condivise da persone diverse, email sbagliate, correzioni ed esclusioni), creazione a gruppi con "Riprendi" **senza nessuna email** (partono solo con «Invia le credenziali»), l'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» (con i suoi errori), ricerca e azioni sul partecipante, cambio dell'email; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta; il riquadro **«Iscrizioni dal modulo da verificare»** (righe, testo mai HTML, «Segna come vista», azioni protette; anche le righe **annullata dal sito** e **annullamento ritirato**); accanto all'interruttore acceso, da quando | 395 verdi, 0 rossi |
 | `modulo.prova.js` | **il modulo di Napoli e la diretta**: una chiamata al servizio con il corpo del sito principale (main, f26e12e) byte per byte più il solo `percorso`, la conferma a video, nessuna richiesta al foglio Google; 503, rete che cade e 400 con messaggio: l'errore a video, il modulo resta, nessun tentativo automatico | 11 verdi, 0 rossi |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento; **la diretta nascosta** (`PUBBLICA = false`): niente popup, pillola, voce di menu e sezione, nessuna richiesta nemmeno il giorno dell'evento in onda, menu su una riga a 1100px; `?diretta=prova` la mostra solo a quel browser e `?diretta=pubblico` la toglie; con `PUBBLICA = true` tutto compare senza prova | 308 verdi, 0 rossi |
-| `e2e.prova.js` | **il percorso completo con tutto vero** (il player di Azoto è quello finto): il gestore si attiva dall'email, crea l'evento **incollando il codice di Azoto** (si salva solo l'indirizzo) e i partecipanti (nessuna email parte finché non preme «Invia le credenziali»), manda le credenziali; Mario le legge dalla posta, entra dal telefono **con la sua email**; il gestore accende l'interruttore e Luca, che si iscrive dal modulo del sito, riceve subito la password ed entra; aspetta (nessun player), va in onda e compare il player di Azoto (chi non ha fatto l'accesso non riceve l'indirizzo: né nella pagina, né nello stato pubblico, né da Firestore), schermo intero (vero sul computer, la vista orizzontale sull'iPhone), cambio del player senza ricaricare, connessione persa, pagina riaperta, pausa e fine (il player sparisce, restano le nostre schermate), un minuto di presenza, esce, «Password dimenticata?» (a chi non è iscritto non parte niente), accesso automatico; esportazione | 32 verdi, 0 rossi |
-| `webtv.prova.js` | **le due modalità con la regia vera** (emulatori e servizio vero), su computer e iPhone. **Player Azoto**: prima dell'accesso nessuna richiesta ad Azoto; l'iframe con gli attributi e il titolo giusti, mai `azoto-player.js`; sotto il video solo «Schermo intero» e la nota; **niente sopra l'iframe** (un clic e un tocco veri sul play di Azoto arrivano); 16:9 senza bande né barre a 1440×900, 390×844, 360×740 e iPhone orizzontale; schermo intero vero sul computer e vista orizzontale sull'iPhone, senza ricaricare l'iframe; cambio del player e A→B→A senza ricaricare la pagina e senza altri ascolti di Firestore; player fermo: avviso a 15 secondi sotto il riquadro, «Ricarica il video» ricrea solo l'iframe; CSP. **Flusso diretto**: principale che cade → "Stiamo ricollegando la diretta…" e riserva; la regia sposta tutti; **flusso pubblico HLS di Shaka** (DVR, «Torna in diretta», qualità) e DASH; link firmati | 32 verdi, 0 rossi |
+| `e2e.prova.js` | **il percorso completo con tutto vero** (il player di Azoto è quello finto): il gestore si attiva dall'email, crea l'evento **incollando il codice di Azoto** (si salva solo l'indirizzo) e i partecipanti (nessuna email parte finché non preme «Invia le credenziali»), manda le credenziali; Mario le legge dalla posta, entra dal telefono **con la sua email**; il gestore accende l'interruttore e Luca, che si iscrive dal modulo del sito, riceve subito la password ed entra; aspetta (nessun player), va in onda e compare il player di Azoto (chi non ha fatto l'accesso non riceve l'indirizzo: né nella pagina, né nello stato pubblico, né da Firestore), schermo intero (vero sul computer; sull'iPhone l'indicazione per il ⛶ del player e il video che riempie lo schermo girando il telefono), cambio del player senza ricaricare, connessione persa, pagina riaperta, pausa e fine (il player sparisce, restano le nostre schermate), un minuto di presenza, esce, «Password dimenticata?» (a chi non è iscritto non parte niente), accesso automatico; esportazione | 32 verdi, 0 rossi |
+| `webtv.prova.js` | **le due modalità con la regia vera** (emulatori e servizio vero), su computer e iPhone. **Player Azoto**: prima dell'accesso nessuna richiesta ad Azoto; l'iframe con gli attributi e il titolo giusti, mai `azoto-player.js`; sotto il video solo «Schermo intero» e la nota; **niente sopra l'iframe** (un clic e un tocco veri sul play di Azoto arrivano); 16:9 senza bande né barre a 1440×900, 390×844, 360×740 e iPhone orizzontale; schermo intero vero sul computer; sul telefono niente nostro pulsante (né vista ruotata), l'indicazione per il ⛶ del player e, girando il telefono, il video che riempie l'altezza senza ricaricare l'iframe; cambio del player e A→B→A senza ricaricare la pagina e senza altri ascolti di Firestore; player fermo: avviso a 15 secondi sotto il riquadro, «Ricarica il video» ricrea solo l'iframe; CSP. **Flusso diretto**: principale che cade → "Stiamo ricollegando la diretta…" e riserva; la regia sposta tutti; **flusso pubblico HLS di Shaka** (DVR, «Torna in diretta», qualità) e DASH; link firmati | 32 verdi, 0 rossi |
 | `player.prova.js` | **il player del flusso diretto da solo**, con i flussi pubblici HLS e DASH di Shaka e la diretta ffmpeg: avvio, attributi del `<video>`, qualità senza doppioni, DVR, `cerca` e `vaiAlLive`, segnale fermo, **playlist ferma**, link firmati e rinnovo della firma **senza ricaricare**, link firmato molto lungo, pezzo di DASH perso, un indirizzo di pagina rifiutato ('link'), 404, link che non risponde, avvio bloccato, pagina nascosta | 73 verdi, 0 rossi |
 | `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 26 verdi, 0 rossi |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
@@ -1212,8 +1224,9 @@ Brevo vero; il progetto Firebase vero (quote, indici, limiti di Google).
 **Gli screenshot** di consegna sono in [`diretta/screenshot/`](screenshot/)
 (telefono e computer): accesso, attesa, **diretta con il player di Azoto**
 (`03-diretta-azoto-*`, con il player finto delle prove), **schermo intero**
-(`03-diretta-azoto-schermo-intero-*`: sul telefono la vista orizzontale, da
-guardare girando la testa), **player che non risponde** con «Ricarica il video»
+(`03-diretta-azoto-schermo-intero-computer`; sul telefono l'indicazione per
+il ⛶ del player, `03-diretta-azoto-telefono-indicazione`, e il telefono
+girato, `03-diretta-azoto-telefono-girato`), **player che non risponde** con «Ricarica il video»
 (`03-diretta-azoto-lenta-*`), gestione con il campo **«Tipo di player»**
 (`04-gestione-tipo-player-*`), e poi la modalità B (diretta con «IN DIRETTA»,
 «Torna in diretta», "Stiamo ricollegando la diretta…", video non disponibile,
@@ -1357,7 +1370,8 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     colleghi): email di prova, credenziali, accesso **con la propria email da un iPhone con Safari,
     da un telefono Android, da un computer con Chrome, Firefox ed Edge**, "Vai in
     onda" con Azoto che trasmette una prova: il player compare, play e volume nel
-    player, "Schermo intero" (su iPhone la vista orizzontale), pausa dell'evento
+    player, schermo intero (sul computer il nostro pulsante; sui telefoni il ⛶
+    del player di Azoto, e il telefono girato), pausa dell'evento
     (il player sparisce e torna), cambio del player dalla *Regia*, "Termina",
     "Password dimenticata?", esportazione. Su iPhone prova anche con il
     **Risparmio energetico** attivo. I passi per Safari, iPhone e iPad sono nel

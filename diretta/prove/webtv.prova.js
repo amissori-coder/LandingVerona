@@ -50,7 +50,8 @@
      allowfullscreen, referrerpolicy="strict-origin-when-cross-origin",
      scrolling="no" e il titolo «Diretta: <titolo dell'evento>»; mai
      azoto-player.js, mai richieste al servizio per il link;
-   - sotto il video solo «Schermo intero» e la nota fissa; niente
+   - sotto il video solo «Schermo intero» (sul telefono l'indicazione per
+     lo schermo intero del player) e la nota fissa; niente
      comandi del nostro player; i consigli della modalita' A;
    - NESSUN livello sopra l'iframe: centro e angoli del riquadro sono
      l'iframe, e un clic (e un tocco) VERO sul play di Azoto arriva al
@@ -61,10 +62,10 @@
    - la tastiera: con il fuoco sul riquadro vale solo F;
    - «Schermo intero»: sul computer lo schermo intero vero del riquadro,
      con l'iframe 16:9 piu' grande possibile e il pulsante per uscire
-     fuori dall'iframe; sull'iPhone la vista a pagina intera
-     orizzontale (riquadro ruotato di 90 gradi), con il pulsante per
-     uscire che non copre l'iframe; Esc e il pulsante escono; l'iframe
-     non si ricarica;
+     fuori dall'iframe; l'iframe non si ricarica. Sull'iPhone (telefono)
+     niente nostro pulsante ne' vista ruotata: sotto il video
+     l'indicazione per il ⛶ del player di Azoto, e girando il telefono
+     il video riempie l'altezza dello schermo, senza ricaricare l'iframe;
    - la regia cambia l'indirizzo (livetv91 -> livetv92): iframe nuovo,
      senza ricaricare la pagina, stessa lettura in ascolto;
    - A -> B -> A con evento-player: senza ricaricare la pagina e senza
@@ -707,46 +708,60 @@ function contaAscolti(page) {
             vero(await p.getAttribute('#btn-schermo-intero', 'aria-label') === 'Schermo intero', 'etichetta dopo l\'uscita');
         });
 
-        await prova('«Schermo intero» su iPhone (niente API di schermo intero): vista a pagina intera orizzontale, pulsante per uscire che non copre l\'iframe; Esc e il pulsante escono', async () => {
+        await prova('sul telefono con il player di Azoto: niente nostro «Schermo intero» (né vista ruotata), l\'indicazione per il ⛶ del player; girando il telefono il video riempie l\'altezza, senza ricaricare l\'iframe', async () => {
             vero(await i.evaluate(() => typeof Element.prototype.requestFullscreen === 'undefined' && document.documentElement.classList.contains('ios')), 'la prova non simula iPhone');
-            const controlla = async cosa => {
-                await i.waitForSelector('#riquadro-video[data-intero="1"]', { timeout: 5000 });
-                await pausa(300);
-                const m = await misuraIntero(i);
-                const t = /matrix\(([^)]+)\)/.exec(m.trasformazione);
-                const n = t ? t[1].split(',').map(Number) : [];
-                vero(m.finto && !m.vero, cosa + ': non e\' lo pseudo schermo intero ' + JSON.stringify({ finto: m.finto, vero: m.vero }));
-                vero(n.length === 6 && Math.abs(n[0]) < 0.01 && Math.abs(n[1] - 1) < 0.01 && Math.abs(n[2] + 1) < 0.01 && Math.abs(n[3]) < 0.01, cosa + ': il riquadro non e\' ruotato di 90 gradi: ' + m.trasformazione);
-                vero(Math.abs(m.riquadro.x) < 1 && Math.abs(m.riquadro.y) < 1 && Math.abs(m.riquadro.w - m.finestra.w) < 1 && Math.abs(m.riquadro.h - m.finestra.h) < 1, cosa + ': non copre lo schermo ' + JSON.stringify({ r: m.riquadro, f: m.finestra }));
-                vero(m.riquadroLocale.w > m.riquadroLocale.h && Math.abs(m.riquadroLocale.w - m.finestra.h) < 1, cosa + ': la vista non e\' orizzontale ' + JSON.stringify(m.riquadroLocale));
-                vero(Math.abs(m.iframeLocale.w / m.iframeLocale.h - 16 / 9) < 0.01 && m.iframe.h > m.iframe.w, cosa + ': iframe ' + JSON.stringify({ locale: m.iframeLocale, schermo: m.iframe }));
-                vero(!siToccano(m.pulsante, m.iframe) && nelloSchermo(m.pulsante, m.finestra), cosa + ': il pulsante per uscire copre l\'iframe o esce dallo schermo ' + JSON.stringify({ p: m.pulsante, f: m.iframe }));
-                vero(m.pulsante.w >= 47.5 && m.pulsante.h >= 47.5 && m.etichetta === 'Esci dallo schermo intero', cosa + ': pulsante ' + JSON.stringify({ p: m.pulsante, e: m.etichetta }));
-                vero(m.centroIframe, cosa + ': qualcosa sopra l\'iframe');
-                vero(await premutoDentro(i), cosa + ': l\'iframe si e\' ricaricato');
-                const scorre = await i.evaluate(() => getComputedStyle(document.documentElement).overflow === 'hidden' && getComputedStyle(document.body).overflow === 'hidden');
-                vero(scorre, cosa + ': la pagina sotto scorre ancora');
-                return m;
-            };
-            try {
-                await i.tap('#btn-schermo-intero');
-                await controlla('iPhone 13 (390x664)');
-                await i.keyboard.press('Escape');
-                await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
-                vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'Esc: classe rimasta');
-                await i.setViewportSize({ width: 390, height: 844 });
-                await pausa(300);
-                await i.tap('#btn-schermo-intero');
-                await controlla('390x844');
-                await foto(i, 'azoto-schermo-intero-telefono');
-                await i.tap('#btn-schermo-intero');
-                await i.waitForSelector('#riquadro-video[data-intero="0"]', { timeout: 5000 });
-                vero(!(await i.evaluate(() => document.documentElement.classList.contains('schermo-intero-finto'))), 'pulsante: classe rimasta');
-                await controlla16x9(i, 'dopo lo schermo intero');
-            } finally {
-                // le prove dopo non devono trovare il telefono ancora a schermo intero
-                if (await i.getAttribute('#riquadro-video', 'data-intero').catch(() => '0') === '1') await i.keyboard.press('Escape').catch(() => {});
-            }
+            vero(await i.evaluate(() => document.documentElement.classList.contains('telefono')), 'la pagina non riconosce il telefono (html.telefono)');
+            const stato = () => i.evaluate(() => {
+                const vis = el => !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+                const r = el => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+                const f = document.querySelector('#video-player iframe');
+                return {
+                    pulsante: vis(document.getElementById('btn-schermo-intero')),
+                    aiuto: vis(document.getElementById('aiuto-intero-telefono')),
+                    testoAiuto: document.getElementById('aiuto-intero-telefono').textContent.replace(/\s+/g, ' ').trim(),
+                    nota: vis(document.getElementById('nota-azoto')),
+                    consigli: Array.from(document.querySelectorAll('#vista-diretta li[data-solo^="azoto-"]')).map(li => li.getAttribute('data-solo') + ':' + (li.offsetParent !== null)).join(','),
+                    iframe: r(f), area: r(document.getElementById('area-video')),
+                    finestra: { w: window.innerWidth, h: window.innerHeight },
+                    ruotato: getComputedStyle(document.getElementById('riquadro-video')).transform !== 'none',
+                    finto: document.documentElement.classList.contains('schermo-intero-finto')
+                };
+            });
+            // in verticale
+            const v = await stato();
+            vero(!v.pulsante && v.aiuto && v.nota, 'verticale: niente «Schermo intero», l\'indicazione e la nota sotto il video ' + JSON.stringify({ p: v.pulsante, a: v.aiuto, n: v.nota }));
+            vero(v.testoAiuto === 'Schermo intero: tocca nel player, in basso a destra. Oppure gira il telefono.', 'indicazione: «' + v.testoAiuto + '»');
+            vero(v.consigli === 'azoto-computer:false,azoto-telefono:true', 'consigli per il telefono: ' + v.consigli);
+            const bAiuto = await i.locator('#aiuto-intero-telefono').boundingBox();
+            vero(bAiuto.y >= v.area.y + v.area.h - 0.5, 'l\'indicazione non sta sotto il video');
+            const sopra = await sopraIframe(i);
+            vero(!sopra.length, 'sopra l\'iframe: ' + sopra.join(' | '));
+            vero(!v.ruotato && !v.finto, 'riquadro ruotato o pseudo schermo intero acceso');
+            // «F» (una tastiera collegata al telefono) non accende niente
+            await i.focus('#riquadro-video');
+            await i.keyboard.press('f');
+            await pausa(200);
+            vero(await i.getAttribute('#riquadro-video', 'data-intero') === '0', 'F ha acceso il nostro schermo intero sul telefono');
+            await i.evaluate(() => document.fonts && document.fonts.ready);
+            await foto(i, 'azoto-telefono-verticale');
+            const premutoPrima = await premutoDentro(i);
+            // girato in orizzontale (iPhone 13: 750x342 senza le barre di Safari)
+            const oriz = devices['iPhone 13 landscape'].viewport;
+            await i.setViewportSize({ width: oriz.width, height: oriz.height });
+            await pausa(900);
+            const o = await stato();
+            vero(Math.abs(o.iframe.h - o.finestra.h) < 1.5 && Math.abs(o.iframe.w / o.iframe.h - 16 / 9) < 0.01, 'orizzontale: il video non riempie l\'altezza dello schermo ' + JSON.stringify({ f: o.iframe, s: o.finestra }));
+            vero(Math.abs(o.iframe.y) < 1.5, 'orizzontale: il video non e\' portato in vista (in cima allo schermo): y=' + o.iframe.y.toFixed(1));
+            vero(!o.aiuto && !o.nota && !o.pulsante && !o.ruotato, 'orizzontale: righe sotto il video o riquadro ruotato ' + JSON.stringify({ a: o.aiuto, n: o.nota, p: o.pulsante, r: o.ruotato }));
+            await controlla16x9(i, 'orizzontale ' + oriz.width + 'x' + oriz.height);
+            await foto(i, 'azoto-telefono-orizzontale');
+            vero(await premutoDentro(i) === premutoPrima && premutoPrima, 'girando il telefono l\'iframe si e\' ricaricato (o la prova non ha premuto play prima)');
+            // e di nuovo in verticale
+            await i.setViewportSize(IPHONE_13.viewport);
+            await pausa(500);
+            const v2 = await stato();
+            vero(!v2.pulsante && v2.aiuto && v2.nota && await premutoDentro(i), 'di nuovo in verticale: indicazione e nota, stesso iframe');
+            await i.evaluate(() => window.scrollTo(0, 0));
         });
 
         await prova('la regia cambia l\'indirizzo del player durante la diretta (livetv91 -> livetv92): iframe nuovo senza ricaricare la pagina, stessa lettura in ascolto', async () => {

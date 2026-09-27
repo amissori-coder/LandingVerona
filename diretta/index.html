@@ -33,13 +33,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20260926a">
+    <link rel="stylesheet" href="diretta.css?v=20260927a">
     <script src="config.js?v=20260926b" defer></script>
     <script src="sorgente-video.js?v=20260925a" defer></script>
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20260926b" defer></script>
+    <script src="diretta.js?v=20260927a" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -322,6 +322,11 @@
                     </div>
                     <!-- modalita' A: la nota fissa per chi ha problemi (i comandi sono di Azoto) -->
                     <p id="nota-azoto" class="nota-azoto">Non senti l'audio? Premi il pulsante del volume nel player. Il video si blocca? Ricarica la pagina.</p>
+                    <!-- modalita' A sul telefono, al posto di «Schermo intero»: lo schermo
+                         intero e' quello del player di Azoto (vedi TELEFONO in diretta.js) -->
+                    <p id="aiuto-intero-telefono" class="aiuto-intero-telefono">
+                        <span>Schermo intero: tocca <svg class="icona-in-testo" viewBox="0 0 24 24" role="img" aria-label="il simbolo dello schermo intero"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> nel player, in basso a destra. Oppure gira il telefono.</span>
+                    </p>
                 </div>
             </div>
             <div class="griglia-carte">
@@ -340,7 +345,8 @@
                         <li data-solo="azoto">Il video non parte? Premi il tasto <strong>play</strong> al centro del player.</li>
                         <li data-solo="azoto">Non senti niente? Premi il <strong>pulsante del volume</strong> nel player e controlla il volume del dispositivo.</li>
                         <li data-solo="azoto">Il video si blocca? <strong>Ricarica la pagina</strong>: non serve rifare l'accesso.</li>
-                        <li data-solo="azoto">Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
+                        <li data-solo="azoto-computer">Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
+                        <li data-solo="azoto-telefono">Per vederlo più grande <strong>gira il telefono</strong>, oppure tocca il simbolo dello <strong>schermo intero</strong> nel player, in basso a destra.</li>
                     </ul>
                     <p class="aiuto" data-aiuto></p>
                 </div>

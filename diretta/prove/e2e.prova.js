@@ -597,8 +597,11 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             for (const [c, nome] of [[computer, 'computer'], [iphone, 'iPhone']]) {
                 await iframeAzotoGiusto(c.page, 'livetv91', nome);
                 vero(c.richiesteAzoto.every(u => /^https:\/\/cdn\.azotosolutions\.com\/cloudtv\/livetv91\/player\/?$/.test(u)), nome + ': richieste ad Azoto: ' + c.richiesteAzoto.join(', '));
-                vero(await c.page.locator('#nota-azoto').isVisible() && await c.page.locator('#btn-schermo-intero').isVisible() && !(await c.page.locator('#btn-play').isVisible()),
-                    nome + ': sotto il video non ci sono solo «Schermo intero» e la nota');
+                // sul computer «Schermo intero»; sul telefono al suo posto l'indicazione per il ⛶ del player di Azoto
+                const telefono = c === iphone;
+                vero(await c.page.locator('#nota-azoto').isVisible() && !(await c.page.locator('#btn-play').isVisible())
+                    && await c.page.locator('#btn-schermo-intero').isVisible() === !telefono && await c.page.locator('#aiuto-intero-telefono').isVisible() === telefono,
+                    nome + ': sotto il video non ci sono solo la nota e ' + (telefono ? 'l\'indicazione per lo schermo intero del player' : '«Schermo intero»'));
             }
             await computer.page.evaluate(() => document.fonts && document.fonts.ready);
             await foto(computer.page, '05-diretta-computer');
@@ -641,7 +644,7 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
                 await estraneo.context.close().catch(() => {});
             }
         });
-        await prova('«Schermo intero»: sul computer lo schermo intero vero del riquadro; sull\'iPhone la vista a pagina intera orizzontale', async () => {
+        await prova('«Schermo intero»: sul computer lo schermo intero vero del riquadro; sull\'iPhone niente nostro pulsante, l\'indicazione per il ⛶ del player, e girando il telefono il video riempie l\'altezza', async () => {
             await computer.page.click('#btn-schermo-intero');
             await computer.page.waitForFunction(() => document.fullscreenElement === document.getElementById('riquadro-video')
                 && document.getElementById('riquadro-video').getAttribute('data-intero') === '1', null, { timeout: 5000 });
@@ -649,25 +652,22 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             vero(f.width >= 1300 && Math.abs(f.width / f.height - 16 / 9) < 0.01, 'iframe a schermo intero: ' + JSON.stringify(f));
             await computer.page.click('#btn-schermo-intero');
             await computer.page.waitForFunction(() => !document.fullscreenElement, null, { timeout: 5000 });
-            await iphone.page.click('#btn-schermo-intero');
-            await aspetta(() => iphone.page.evaluate(() => document.getElementById('riquadro-video').getAttribute('data-intero') === '1'
-                && document.documentElement.classList.contains('schermo-intero-finto')), 5000, 'la vista a pagina intera');
-            await pausa(300);
-            const m = await iphone.page.evaluate(() => {
-                const q = document.getElementById('riquadro-video');
-                const b = q.getBoundingClientRect();
-                return { t: getComputedStyle(q).transform, w: q.offsetWidth, h: q.offsetHeight, bb: { x: b.left, y: b.top, w: b.width, h: b.height } };
+            const t = await iphone.page.evaluate(() => {
+                const vis = el => !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+                return { telefono: document.documentElement.classList.contains('telefono'), pulsante: vis(document.getElementById('btn-schermo-intero')), aiuto: vis(document.getElementById('aiuto-intero-telefono')) };
             });
-            const n = (/matrix\(([^)]+)\)/.exec(m.t) || [])[1];
-            const r = n ? n.split(',').map(Number) : [];
-            // ruotato di 90 gradi (matrix(0, 1, -1, 0, ...)) e piu' largo che alto: orizzontale
-            vero(r.length === 6 && Math.abs(r[0]) < 0.01 && Math.abs(r[1] - 1) < 0.01 && Math.abs(r[2] + 1) < 0.01 && Math.abs(r[3]) < 0.01 && m.w > m.h,
-                'l\'iPhone non passa alla vista orizzontale: ' + JSON.stringify(m));
-            vero(Math.abs(m.bb.w - 390) < 1 && Math.abs(m.bb.h - 844) < 1, 'la vista non copre lo schermo: ' + JSON.stringify(m.bb));
-            await foto(iphone.page, '07-schermo-intero-telefono');
-            await iphone.page.click('#btn-schermo-intero');
-            await aspetta(() => iphone.page.evaluate(() => document.getElementById('riquadro-video').getAttribute('data-intero') === '0'), 5000, 'uscita dalla vista a pagina intera');
-            vero(await canaleAzoto(iphone.page) === 'livetv91', 'l\'iframe si e\' perso con lo schermo intero');
+            vero(t.telefono && !t.pulsante && t.aiuto, 'iPhone: niente «Schermo intero», l\'indicazione per il ⛶ del player ' + JSON.stringify(t));
+            await iphone.page.setViewportSize({ width: 844, height: 390 });
+            await pausa(900);
+            const m = await iphone.page.evaluate(() => {
+                const b = document.querySelector('#video-player iframe').getBoundingClientRect();
+                return { t: getComputedStyle(document.getElementById('riquadro-video')).transform, f: { y: b.top, w: b.width, h: b.height } };
+            });
+            vero(m.t === 'none' && Math.abs(m.f.h - 390) < 1.5 && Math.abs(m.f.y) < 1.5 && Math.abs(m.f.w / m.f.h - 16 / 9) < 0.01, 'iPhone in orizzontale: il video non riempie l\'altezza ' + JSON.stringify(m));
+            await foto(iphone.page, '07-telefono-orizzontale');
+            await iphone.page.setViewportSize({ width: 390, height: 844 });
+            await pausa(400);
+            vero(await canaleAzoto(iphone.page) === 'livetv91', 'l\'iframe si e\' perso girando il telefono');
         });
         await prova('il gestore cambia l\'indirizzo del player durante la diretta (livetv91 -> livetv92): l\'iframe cambia senza ricaricare la pagina', async () => {
             for (const c of [computer, iphone]) await c.page.evaluate(() => { window.__segnoPagina = 'ancora-qui'; });

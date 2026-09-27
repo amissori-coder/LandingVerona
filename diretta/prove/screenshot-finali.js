@@ -248,7 +248,8 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['02-attesa-computer', 'screenshot-e2e/04-attesa-computer.png'],
             ['03-diretta-azoto-telefono', 'screenshot-webtv/azoto-telefono.png'],
             ['03-diretta-azoto-computer', 'screenshot-webtv/azoto-computer.png'],
-            ['03-diretta-azoto-schermo-intero-telefono', 'screenshot-webtv/azoto-schermo-intero-telefono.png'],
+            ['03-diretta-azoto-telefono-indicazione', 'screenshot-webtv/azoto-telefono-verticale.png'],
+            ['03-diretta-azoto-telefono-girato', 'screenshot-webtv/azoto-telefono-orizzontale.png'],
             ['03-diretta-azoto-schermo-intero-computer', 'screenshot-webtv/azoto-schermo-intero-computer.png'],
             ['03-diretta-azoto-lenta-telefono', 'screenshot-webtv/azoto-lenta-telefono.png'],
             ['03-diretta-azoto-lenta-computer', 'screenshot-webtv/azoto-lenta-computer.png'],
@@ -284,7 +285,9 @@ async function inJpeg(browser, sorgente, destinazione) {
         ];
         // le foto di prima che non si fanno piu' (il player di prima, i nomi vecchi, il ripiego incorporato di altri siti)
         ['03-diretta-webtv-telefono', '03-diretta-webtv-incorporata-telefono', '03-diretta-incorporata-telefono',
-            '04-gestione-ripiego-iframe-telefono', '04-gestione-ripiego-iframe-computer'].forEach(n => {
+            '04-gestione-ripiego-iframe-telefono', '04-gestione-ripiego-iframe-computer',
+            // la vista ruotata dell'iPhone, tolta: sul telefono lo schermo intero e' quello del player di Azoto
+            '03-diretta-azoto-schermo-intero-telefono'].forEach(n => {
             const f = path.join(DEST, n + '.jpg');
             if (fs.existsSync(f)) { fs.unlinkSync(f); console.log('tolta ' + n + '.jpg'); }
         });
