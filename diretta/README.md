@@ -1450,6 +1450,12 @@ controlli verdi, 0 rossi**, più le prove del servizio (`email-service/prove`,
 32 file, tutte verdi). Le nuove: `programmate.prova.js` 88, `regole` 111 (+11),
 `gestione` 438 (+35), `e2e` 49 (+4, con un'attesa vera di uno o due minuti).
 
+Con **l'aggiunta a mano e la riga del popup per chi è in presenza** (27
+settembre 2026, notte) il giro completo ha dato **2885 verdi, 0 rossi**,
+anteprima compresa; le prove del servizio (`email-service/prove`, 32 file)
+tutte verdi. Le nuove: `doppioni` 102 (+13), `gestione` 458 (+20), `sito` 319
+(+11).
+
 Con «Torna alla fase iniziale» (27 settembre 2026) sono state rifatte le prove
 che toccano la regia e il servizio: `regole` 100 verdi, `gestione` 395,
 `ascolti-pagina` 107, `e2e` 44 (anche la sezione nuova, con tre pagine vere
