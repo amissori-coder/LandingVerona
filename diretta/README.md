@@ -1285,6 +1285,12 @@ node e2e.prova.js              # solo il percorso completo
 | `anteprima/anteprima.prova.js` | l'anteprima con accessi di prova (vedi sotto), aperta come la apre claude.ai: iframe con sandbox e CSP stretta; accesso, regia che manda in onda, posta, file di esempio, «Vedi come un partecipante», esportazione, password dimenticata | 26 verdi, 0 rossi |
 | `carico.sh` | 1000 accessi in 2 minuti (§9) | nessun errore |
 
+Con «Torna alla fase iniziale» (27 settembre 2026) sono state rifatte le prove
+che toccano la regia e il servizio: `regole` 100 verdi, `gestione` 395,
+`ascolti-pagina` 107, `e2e` 44 (anche la sezione nuova, con tre pagine vere
+aperte), tutte con 0 rossi, e le sette prove `diretta-*` del servizio (806
+controlli verdi).
+
 Ultimo giro completo (`node esegui-tutte.js`), sul codice di questo branch
 **allineato con il sito principale** (main f26e12e: conferma dell'indirizzo
 email, modulo di Napoli senza foglio Google), 26 settembre 2026: **2401 verdi
