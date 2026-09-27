@@ -94,7 +94,8 @@
                     nota: 'Apertura ufficiale dei lavori. Dal programma: Pier Luigi Sterzi (Revilaw); Matteo De Lise '
                         + '(Presidente ODCEC di Napoli); Francesco Serao (già Presidente del CNDCEC); Chiara Marciani '
                         + '(Assessore alle Politiche Sociali, Giovanili e al Lavoro, Comune di Napoli); Ciro Fiola '
-                        + '(Presidente della Camera di Commercio di Napoli).'
+                        + '(Presidente della Camera di Commercio di Napoli); Guido Bourelly (Presidente del Gruppo '
+                        + 'Piccola Industria di Napoli).'
                 },
                 {
                     tipo: 'intervento', dalle: '09:50', alle: '10:00',
