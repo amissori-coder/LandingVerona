@@ -72,7 +72,7 @@
      pagina del sito con ?diretta=prova (quel browser la vede come se fosse
      accesa, e se lo ricorda); ?diretta=pubblico torna a come la vedono
      tutti. */
-  var PUBBLICA = false;
+  var PUBBLICA = true;
   var LS_PROVA = "ngbDirettaProva";
   var SERVIZIO = "https://revilaw-email.vercel.app/api/diretta-stato";
   var FUSO = "Europe/Rome";
