@@ -31,14 +31,17 @@
        creare NON manda email), manda un'email di prova a se' stesso e
        poi, con «Invia le credenziali», le credenziali a tutti;
     2b. le iscrizioni dal modulo del sito: il gestore accende dalla
-       gestione «Invia subito la password a chi si iscrive dal modulo del
-       sito»; Luca Nuovo si iscrive online dal modulo di Napoli (la
-       funzione VERA del sito, api/iscrizione-nuova.js, chiamata come la
-       chiama Vercel: server-locale.js monta solo le funzioni della
-       diretta) e la password gli arriva subito nella posta finta; entra
-       con la sua email e quella password; nella gestione compare «dal
-       modulo del sito»; Mario, gia' iscritto, si iscrive di nuovo: niente
-       seconda password;
+       gestione «Invia la password a chi si iscrive dal modulo del sito,
+       dopo che ha confermato l'indirizzo»; Luca Nuovo si iscrive online
+       dal modulo di Napoli (la funzione VERA del sito,
+       api/iscrizione-nuova.js, chiamata come la chiama Vercel:
+       server-locale.js monta solo le funzioni della diretta): l'account
+       c'e', «da confermare», nessuna email; apre il collegamento della
+       conferma (la pagina VERA /conferma_email/, che chiama la stessa
+       funzione del sito) e la password gli arriva nella posta finta;
+       entra con la sua email e quella password; nella gestione compare
+       «dal modulo del sito»; Mario, gia' iscritto, si iscrive di nuovo:
+       niente seconda password;
     3. Mario Rossi (su un iPhone) apre il collegamento dell'email (che
        non porta l'indirizzo: e nessuna richiesta ad Azoto), scrive la
        sua email e la password copiata dall'email, entra e trova l'attesa
@@ -487,8 +490,8 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         });
 
         /* ---------- 2b. le iscrizioni dal modulo del sito ---------- */
-        console.log('\n2b. Le iscrizioni dal modulo del sito: la password arriva subito');
-        await prova('il gestore accende dalla gestione «Invia subito la password a chi si iscrive dal modulo del sito» (spento di base)', async () => {
+        console.log('\n2b. Le iscrizioni dal modulo del sito: la password dopo la conferma dell\'indirizzo');
+        await prova('il gestore accende dalla gestione «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo» (spento di base)', async () => {
             const gp = gestione.page;
             await gp.goto(SITO + '/diretta/gestione/');
             await gp.waitForFunction(ev => document.getElementById('sel-evento').value === ev && !document.getElementById('ev-iscrizioni-auto').disabled, EVENTO, { timeout: 20000 });
@@ -496,6 +499,7 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             await gp.click('label.interruttore');
             await gp.waitForSelector('#dialogo-conferma[open]', { timeout: 5000 });
             vero(/\/napoli_ottobre_2026\//.test(await gp.textContent('#conferma-testo')), 'la conferma non dice la pagina del modulo');
+            vero(/appena conferma il suo indirizzo/.test(await gp.textContent('#conferma-testo')), 'la conferma non dice che la password parte dopo la conferma dell\'indirizzo');
             await gp.click('#conferma-ok');
             await gp.waitForFunction(() => document.getElementById('ev-iscrizioni-auto').checked && /Invio automatico acceso/.test(document.getElementById('msg-iscrizioni').textContent), null, { timeout: 10000 });
             vero((await db.doc('eventiRiservati/' + EVENTO).get()).data().iscrizioniAutomatiche === true, 'sul servizio l\'interruttore e\' ancora spento');
@@ -504,10 +508,46 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         });
         const LUCA = 'luca.nuovo@esempio.it';
         let pwLuca = '';
-        await prova('Luca si iscrive online dal modulo del sito (la funzione vera): la risposta di sempre, e la password gli arriva subito', async () => {
+        await prova('Luca si iscrive online dal modulo del sito (la funzione vera): la risposta di sempre, l\'account «da confermare» e nessuna email', async () => {
             const prima = posta().length;
             const r = await iscriviDalSito({ nome: 'Luca', cognome: 'Nuovo', email: ' Luca.Nuovo@Esempio.IT ' });
             vero(r.stato === 200 && r.corpo && r.corpo.ok === true && r.ms < 10000, 'il modulo del sito: ' + r.stato + ' ' + JSON.stringify(r.corpo) + ' in ' + r.ms + ' ms');
+            vero(!posta().slice(prima).some(x => aIndirizzo(x, LUCA)), 'e\' partita un\'email prima della conferma');
+            const ind = await db.doc('indirizzi/' + LUCA).get();
+            const p = ind.exists ? (await db.doc('partecipanti/' + ind.data().uid).get()).data() : null;
+            vero(p && p.origine === 'modulo' && p.invii[EVENTO].stato === 'da confermare', 'profilo di Luca: ' + JSON.stringify(p && { o: p.origine, i: p.invii }));
+        });
+        await prova('Luca apre il collegamento della conferma (la pagina vera /conferma_email/): «Indirizzo confermato», e la password gli arriva subito', async () => {
+            const prima = posta().length;
+            // la scheda del sito (progetto dello studio: l'app predefinita, aperta dalla funzione del sito)
+            const schede = (await admin.app().firestore().collection('iscrizioni').get()).docs
+                .filter(d => String(d.data().email || '').trim().toLowerCase() === LUCA);
+            vero(schede.length === 1, 'schede di Luca nel progetto dello studio: ' + schede.length);
+            const link = require(path.resolve(__dirname, '../../email-service/lib/newsletter')).linkConfermaEmail(schede[0].id);
+            vero(link.indexOf(SITO + '/conferma_email/?d=') === 0, 'il collegamento della conferma: ' + link.slice(0, 60));
+            const pagina = await contesto({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+            try {
+                // la pagina chiama la funzione del sito su Vercel: qui la stessa funzione, in questo processo
+                await pagina.context.route('https://revilaw-email.vercel.app/api/iscrizione-nuova', async route => {
+                    const req = { method: 'POST', headers: { 'x-forwarded-for': '10.78.0.1' }, body: route.request().postData() || '' };
+                    const res = { stato: 200, corpo: null, intestazioni: {} };
+                    res.setHeader = (k, v) => { res.intestazioni[k.toLowerCase()] = String(v); };
+                    res.status = c => { res.stato = c; return res; };
+                    res.json = d => { res.corpo = d; return res; };
+                    res.end = () => res;
+                    await modulo()(req, res);
+                    await route.fulfill({ status: res.stato, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(res.corpo || {}) });
+                });
+                await pagina.page.goto(link);
+                await pagina.page.waitForFunction(() => /Indirizzo confermato/.test(document.getElementById('statoTitolo').textContent), null, { timeout: 20000 });
+                /* (qui il server di posta del sito non c'e': la pagina dice che l'invito
+                   del sito non e' partito; la password della diretta parte lo stesso) */
+                vero(/Indirizzo confermato, grazie/.test(await pagina.page.textContent('#statoTitolo')) && /Luca/.test(await pagina.page.textContent('#chi')),
+                    'la pagina: «' + await pagina.page.textContent('#statoTitolo') + '» — ' + await pagina.page.textContent('#statoTesto'));
+                await foto(pagina.page, '02b2-conferma-indirizzo');
+            } finally {
+                await pagina.context.close().catch(() => {});
+            }
             const arrivate = posta().slice(prima).filter(x => aIndirizzo(x, LUCA));
             vero(arrivate.length === 1 && arrivate[0].tipo === 'credenziali', 'email a Luca: ' + JSON.stringify(arrivate.map(x => x.tipo)));
             pwLuca = passwordDa(arrivate[0]);

@@ -94,11 +94,15 @@ const ponte = path.join(RADICE, 'email-service/lib/sito-iscrizioni.js');
 const testoPonte = fs.readFileSync(ponte, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 vero(/NOME_APP\s*=\s*'sito-lettura'/.test(testoPonte) && /initializeApp\(\{[^;]*\},\s*NOME_APP\)/.test(testoPonte),
     'il ponte verso le schede del sito apre un\'app con un nome suo ("sito-lettura"): ne\' quella predefinita dello studio, ne\' quella della diretta');
-vero((testoPonte.match(/collection\(\s*'([^']+)'\s*\)/g) || []).join() === "collection('iscrizioni')", 'il ponte legge una sola raccolta: iscrizioni');
+const raccolte = testoPonte.match(/collection\(\s*'([^']+)'\s*\)/g) || [];
+vero(raccolte.length >= 1 && raccolte.every(x => x === "collection('iscrizioni')"), 'il ponte legge una sola raccolta: iscrizioni (' + raccolte.length + ' letture)');
 const scritture = ['.set(', '.update(', '.delete(', '.add(', '.create(', 'batch(', 'runTransaction(', '.auth(', 'bulkWriter(', 'recursiveDelete(']
     .filter(x => testoPonte.indexOf(x) >= 0);
 vero(!scritture.length, 'il ponte non scrive niente e non tocca gli account del sito' + (scritture.length ? ': ' + scritture.join(' ') : ''));
 vero(!/require\(\s*'\.\/diretta-/.test(testoPonte), 'il ponte non carica nessun file della diretta');
+const filtri = (testoPonte.match(/\.where\(\s*'([^']+)'/g) || []).map(x => x.replace(/^\.where\(\s*'/, '').replace(/'$/, ''));
+vero(filtri.length === 3 && filtri.every(f => f === 'ricevuto' || f === 'emailConfermata.quando'),
+    'il ponte filtra solo per quando la scheda e\' arrivata (ricevuto) o confermata (emailConfermata.quando): ' + filtri.join(', '));
 const chiLoCarica = codiceDiretta.filter(f => /require\(\s*'\.\/sito-iscrizioni'\s*\)/.test(fs.readFileSync(f, 'utf8'))).map(f => path.basename(f));
 vero(chiLoCarica.join() === 'diretta-riconcilia.js', 'fra i file della diretta lo carica solo la riconciliazione (' + (chiLoCarica.join(', ') || 'nessuno') + ')');
 

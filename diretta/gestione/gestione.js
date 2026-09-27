@@ -35,9 +35,12 @@
    CREARE GLI ACCOUNT NON MANDA EMAIL. Le credenziali partono solo
    quando il gestore preme «Invia le credenziali» nella scheda Email
    (o «Invia ora» per una persona), mai da sole. L'unica eccezione e'
-   l'interruttore dell'evento «Invia subito la password a chi si iscrive
-   dal modulo del sito», spento di base, che vale solo per chi si
-   iscrive online dal modulo della pagina dell'evento. Chi si iscrive
+   l'interruttore dell'evento «Invia la password a chi si iscrive dal
+   modulo del sito, dopo che ha confermato l'indirizzo», spento di base,
+   che vale solo per chi si iscrive online dal modulo della pagina
+   dell'evento, e solo DOPO il clic su «Conferma il tuo indirizzo email»
+   nella mail del sito: fino ad allora la persona resta «da confermare»
+   (scheda Email: «Invia anche a loro», «Copia gli indirizzi»). Chi si iscrive
    cosi' ma non puo' entrare da solo (la sua email e' gia' l'account di
    un'altra persona, o la diretta non accetta l'indirizzo) compare nella
    scheda Partecipanti, nel riquadro «Iscrizioni dal modulo da
@@ -74,7 +77,7 @@
 
     const ETICHETTE_STATO = { programmato: 'In attesa', in_onda: 'In onda', pausa: 'In pausa', terminato: 'Terminato' };
     const STATO_GRANDE = { programmato: 'In attesa', in_onda: 'In onda', pausa: 'In pausa', terminato: 'Terminato' };
-    const STATI_EMAIL = ['da inviare', 'in coda', 'invio', 'inviata', 'respinta', 'errore', 'incerto'];
+    const STATI_EMAIL = ['da confermare', 'da inviare', 'in coda', 'invio', 'inviata', 'respinta', 'errore', 'incerto'];
 
     const stato = {
         fb: null,              // modulo firebase-auth
@@ -1076,12 +1079,14 @@
     }
 
     /* ---------- le iscrizioni dal modulo del sito ----------
-       L'interruttore «Invia subito la password a chi si iscrive dal
-       modulo del sito» (evento.iscrizioniAutomatiche, spento di base).
-       Vale da subito, senza «Salva»: lo cambia l'azione evento-iscrizioni.
-       Acceso, chi si iscrive ONLINE dal modulo della pagina dell'evento
-       (quella SALVATA in «Pagina dell'evento sul sito»; il lavoro lo fa
-       lib/diretta-iscrizione.js) riceve subito l'email con la password; chi
+       L'interruttore «Invia la password a chi si iscrive dal modulo del
+       sito, dopo che ha confermato l'indirizzo» (evento.iscrizioniAutomatiche,
+       spento di base). Vale da subito, senza «Salva»: lo cambia l'azione
+       evento-iscrizioni. Acceso, chi si iscrive ONLINE dal modulo della
+       pagina dell'evento (quella SALVATA in «Pagina dell'evento sul sito»;
+       il lavoro lo fa lib/diretta-iscrizione.js) ha subito l'account, e
+       riceve l'email con la password appena conferma il suo indirizzo con
+       il pulsante della mail del sito (fino ad allora: «da confermare»); chi
        ha gia' un account riceve «Sei iscritto anche a...», senza una
        password nuova; chi si iscrive due volte non riceve niente di nuovo.
        Il servizio lo rifiuta senza la pagina dell'evento (400 'pagina') e
@@ -1106,7 +1111,7 @@
             const da = ev.iscrizioniAutomaticheDa ? ' Vale per chi si è iscritto dal ' + dataOra(ev.iscrizioniAutomaticheDa) + '.' : '';
             testo = ev.stato === 'terminato'
                 ? 'Acceso, ma l\'evento è terminato: il modulo del sito non iscrive più nessuno alla diretta.'
-                : 'Acceso: chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve subito la password.' + da;
+                : 'Acceso: chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve la password appena conferma il suo indirizzo.' + da;
         } else {
             tono = 'spento';
             testo = 'Spento: chi si iscrive dal modulo del sito non riceve niente dalla diretta. Gli account li crei tu dalla scheda Partecipanti.';
@@ -1131,9 +1136,10 @@
                 return;
             }
             const ok = await conferma({
-                titolo: 'Mandare subito la password a chi si iscrive dal sito?',
-                testo: 'Da adesso chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve subito l\'email con la password per la diretta «' + (ev.titolo || ev.id) + '».',
+                titolo: 'Mandare la password a chi si iscrive dal sito?',
+                testo: 'Da adesso chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve l\'email con la password per la diretta «' + (ev.titolo || ev.id) + '» appena conferma il suo indirizzo con il pulsante «Conferma il tuo indirizzo email» della mail del sito.',
                 dettagli: [
+                    'Finché non conferma resta «da confermare»: nella scheda Email li vedi, e puoi mandarla anche a loro.',
                     'Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova.',
                     'Chi si iscrive due volte non riceve una seconda password.',
                     'Accendilo dopo aver caricato e inviato la prima lista: le persone già iscritte le raggiungi con «Invia le credenziali».'
@@ -1150,7 +1156,7 @@
             aggiornaEvento(r.evento);
             if (stato.idEvento === ev.id) {
                 mostraMsg('#msg-iscrizioni', voglio
-                    ? 'Invio automatico acceso: chi si iscrive online dal modulo di ' + (r.evento.paginaEvento || 'questa pagina') + ' riceve subito la password.'
+                    ? 'Invio automatico acceso: chi si iscrive online dal modulo di ' + (r.evento.paginaEvento || 'questa pagina') + ' riceve la password appena conferma il suo indirizzo.'
                     : 'Invio automatico spento: da adesso chi si iscrive dal modulo del sito non riceve niente dalla diretta.', 'ok');
             }
         } catch (e) {
@@ -2357,7 +2363,8 @@
         ]);
     }
 
-    async function copiaTesto(testo, nodo, esito) {
+    // `fatto`: la frase quando la copia riesce (di base, quella del testo per la web TV)
+    async function copiaTesto(testo, nodo, esito, fatto) {
         let copiato = false;
         try {
             if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
@@ -2375,7 +2382,7 @@
             try { copiato = document.execCommand('copy'); } catch (_) { copiato = false; }
         }
         esito.textContent = copiato
-            ? 'Testo copiato: incollalo nella tua email alla web TV.'
+            ? (fatto || 'Testo copiato: incollalo nella tua email alla web TV.')
             : 'Testo selezionato: premi Ctrl+C (o Cmd+C) per copiarlo.';
     }
 
@@ -4049,6 +4056,8 @@
     }
 
     function statoInvio(p) { return (p.invio && p.invio.stato) || 'da inviare'; }
+    // iscritta dal modulo del sito, aspetta il clic su «Conferma il tuo indirizzo email»
+    const DA_CONFERMARE = 'da confermare';
     const classeStatoEmail = s => 'stato-email stato-' + String(s).replace(/\s+/g, '-');
 
     // chi si e' iscritto dal modulo del sito (con l'invio automatico acceso); gli altri vengono dal file
@@ -4062,7 +4071,8 @@
         const chi = [p.nome, p.cognome].filter(Boolean).join(' ') || p.email;
         const dettaglioEmail = p.invio && p.invio.inviata && s === 'inviata'
             ? 'il ' + dataOra(p.invio.inviata) + (avvisoAnche(p) ? ' · «Sei iscritto anche a…», senza password: usa quella che ha già' : '')
-            : (p.invio && p.invio.errore ? p.invio.errore : '');
+            : (p.invio && p.invio.errore ? p.invio.errore
+                : (s === DA_CONFERMARE ? 'non ha ancora confermato l\'indirizzo dalla mail del sito: la password parte da sola al clic' : ''));
         const bottone = (op, testo, extra) => el('button', Object.assign({ type: 'button', classe: 'btn btn-mini btn-secondario', dati: { op: op }, 'aria-label': testo + ': ' + chi }, extra || {}), [testo]);
         const altre = el('details', { classe: 'altre-azioni' }, [
             el('summary', { classe: 'btn btn-mini btn-secondario', 'aria-label': 'Altre azioni per ' + chi }, ['Altro']),
@@ -4077,7 +4087,7 @@
         const tr = el('tr', { classe: attivo ? '' : 'disattivato', dati: { uid: p.uid, origine: dalModulo(p) ? 'modulo' : 'file' } }, [
             el('td', { 'data-label': 'Nome e cognome' }, [
                 el('span', { classe: 'persona', testo: chi }),
-                dalModulo(p) ? el('span', { classe: 'origine-modulo', title: 'Iscritta dal modulo del sito: la password le è arrivata subito', testo: 'dal modulo del sito' }) : null
+                dalModulo(p) ? el('span', { classe: 'origine-modulo', title: 'Iscritta dal modulo del sito: la password parte da sola quando conferma il suo indirizzo', testo: 'dal modulo del sito' }) : null
             ]),
             el('td', { 'data-label': 'Email', classe: 'largo col-email', testo: p.email || '' }),
             el('td', { 'data-label': 'Azienda', testo: p.azienda || '' }),
@@ -4088,7 +4098,7 @@
             ]),
             el('td', { 'data-label': 'Ultimo accesso', testo: p.ultimoAccesso ? dataOra(p.ultimoAccesso) : 'mai' }),
             el('td', { 'data-label': 'Azioni', classe: 'largo' }, [el('div', { classe: 'azioni-riga' }, [
-                bottone('reinvia', s === 'da inviare' ? 'Invia ora' : 'Reinvia credenziali'),
+                bottone('reinvia', s === 'da inviare' || s === DA_CONFERMARE ? 'Invia ora' : 'Reinvia credenziali'),
                 bottone('correggi', 'Correggi'),
                 altre
             ])])
@@ -4193,11 +4203,11 @@
             + 'Per avvisarla senza cambiarle la password usa «Invia le credenziali» nella scheda Email (riceve «Sei iscritto anche a…»).' : '';
         let domanda;
         if (op === 'reinvia') {
-            domanda = s === 'da inviare' && !(p.invio && p.invio.inviata)
+            domanda = (s === 'da inviare' || s === DA_CONFERMARE) && !(p.invio && p.invio.inviata)
                 ? {
                     titolo: 'Inviare adesso le credenziali?', ok: 'Invia ora',
                     testo: chi + ' riceve subito l\'email con la password: entrerà con la sua email ' + p.email + '.',
-                    dettagli: [notaAltri]
+                    dettagli: [s === DA_CONFERMARE ? 'Non ha ancora confermato il suo indirizzo dalla mail del sito: controlla che sia scritto bene (un indirizzo sbagliato può essere di qualcun altro).' : '', notaAltri]
                 }
                 : {
                     titolo: 'Reinviare le credenziali?', ok: 'Reinvia',
@@ -4492,7 +4502,34 @@
         return Number(k.respinta || 0) + Number(k.errore || 0);
     }
 
+    /* Iscritte dal modulo del sito che non hanno ancora confermato
+       l'indirizzo (stato 'da confermare'): la password parte da sola al
+       clic; «Invia le credenziali» NON le raggiunge. Si possono raggiungere
+       tutte insieme con «Invia anche a loro» (una scelta, con la sua
+       conferma) o copiarne gli indirizzi per scrivere loro. */
+    function daConfermareAttivi() {
+        if (stato.partecipantiDi === stato.idEvento && stato.partecipanti.length) {
+            return stato.partecipanti.filter(p => statoInvio(p) === DA_CONFERMARE && p.stato !== 'disattivato').length;
+        }
+        return Number((stato.posta.conteggi || {})[DA_CONFERMARE] || 0);
+    }
+    function disegnaDaConfermare() {
+        const n = daConfermareAttivi();
+        const tutti = Number((stato.posta.conteggi || {})[DA_CONFERMARE] || 0);
+        const blocco = $('#blocco-da-confermare');
+        blocco.hidden = !Math.max(n, tutti);
+        $('#testo-da-confermare').textContent = Math.max(n, tutti)
+            ? conNumero(Math.max(n, tutti), 'persona iscritta', 'persone iscritte') + ' dal modulo del sito non ' + plurale(Math.max(n, tutti), 'ha', 'hanno')
+                + ' ancora confermato l\'indirizzo: la password parte da sola quando ' + plurale(Math.max(n, tutti), 'clicca', 'cliccano')
+                + ' «Conferma il tuo indirizzo email» nella mail del sito. «Invia le credenziali» non ' + plurale(Math.max(n, tutti), 'la raggiunge', 'le raggiunge') + '.'
+            : '';
+        const inCorso = !!(stato.posta.ciclo && stato.posta.ciclo.attivo);
+        const b = $('#btn-invia-da-confermare');
+        b.textContent = 'Invia anche a loro (' + n.toLocaleString('it-IT') + ')';
+        if (b.getAttribute('aria-busy') !== 'true') b.disabled = !n || inCorso;
+    }
     function aggiornaEtichetteEmail() {
+        disegnaDaConfermare();
         const daInviare = daInviareAttivi();
         const nr = nonRicevute();
         const inCorso = !!(stato.posta.ciclo && stato.posta.ciclo.attivo);
@@ -4549,6 +4586,43 @@
             } catch (e) { erroreGenerico(e, '#msg-email'); }
         });
     });
+
+    $('#btn-invia-da-confermare').addEventListener('click', async () => {
+        const n = daConfermareAttivi();
+        if (!n) return;
+        const ok = await conferma({
+            titolo: 'Mandare la password anche a chi non ha confermato l\'indirizzo?',
+            testo: conNumero(n, 'persona iscritta', 'persone iscritte') + ' dal modulo del sito ' + plurale(n, 'riceve', 'ricevono')
+                + ' adesso l\'email con la password, senza aspettare che ' + plurale(n, 'confermi', 'confermino') + ' il suo indirizzo.',
+            dettagli: [
+                'Il rischio: un indirizzo scritto male nel modulo può essere di qualcun altro, e la password arriverebbe a lui. Se puoi, controlla prima gli indirizzi («Copia gli indirizzi»).',
+                'Conviene farlo poco prima dell\'evento (per esempio il giorno prima), per chi non ha ancora cliccato.',
+                'Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova.'
+            ],
+            ok: 'Invia a ' + conNumero(n, 'persona', 'persone')
+        });
+        if (!ok) return;
+        await conAttesa($('#btn-invia-da-confermare'), async () => {
+            try {
+                const r = await chiama('email-accoda', { idEvento: stato.idEvento, chi: 'da-confermare' });
+                if (!r.accodate) { mostraMsg('#msg-email', 'Nessuna email da inviare: nel frattempo hanno confermato o sono già in coda.', 'info'); return; }
+                mostraMsg('#msg-email', testoAccodate(r, ['messa', 'messe']) + ': l\'invio è partito.', 'ok');
+                avviaCicloEmail(r.accodate, 'da-confermare');
+            } catch (e) { erroreGenerico(e, '#msg-email'); }
+        });
+    });
+    $('#btn-copia-da-confermare').addEventListener('click', () => conAttesa($('#btn-copia-da-confermare'), async () => {
+        try {
+            if (stato.partecipantiDi !== stato.idEvento) await caricaPartecipanti();
+            const indirizzi = stato.partecipanti.filter(p => statoInvio(p) === DA_CONFERMARE && p.stato !== 'disattivato').map(p => p.email).filter(Boolean);
+            const nodo = $('#indirizzi-da-confermare');
+            nodo.textContent = indirizzi.join(', ');
+            nodo.hidden = !indirizzi.length;
+            if (!indirizzi.length) { $('#esito-copia-da-confermare').textContent = 'Nessun indirizzo da copiare.'; return; }
+            await copiaTesto(nodo.textContent, nodo, $('#esito-copia-da-confermare'),
+                conNumero(indirizzi.length, 'indirizzo copiato', 'indirizzi copiati') + ': incollali nel campo «Ccn» della tua email, per non mostrarli a tutti.');
+        } catch (e) { erroreGenerico(e, '#msg-email'); }
+    }));
 
     $('#btn-reinvia-non-ricevute').addEventListener('click', async () => {
         const n = nonRicevute();

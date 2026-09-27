@@ -309,6 +309,13 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .azioni .msg { flex: 1 1 280px; }
 .azioni-colonna { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .azioni-colonna .btn { white-space: normal; text-align: center; }
+/* chi si e' iscritto dal modulo del sito e non ha ancora confermato l'indirizzo */
+.blocco-da-confermare { margin-top: 6px; padding: 12px; border-radius: 8px; background: #FFF6E5; border-left: 4px solid #B7791F; }
+.blocco-da-confermare .aiuto { margin: 0 0 8px; }
+.blocco-da-confermare .azioni-riga { display: flex; flex-wrap: wrap; gap: 8px; }
+.blocco-da-confermare .azioni-riga .btn { flex: 1 1 160px; }
+.indirizzi-copiati { margin: 8px 0 0; padding: 8px; background: #fff; border: 1px solid var(--bordo, #DCE3EA); border-radius: 6px;
+    font-size: 0.85rem; word-break: break-all; max-height: 140px; overflow: auto; }
 
 /* ---------- scheda evento ---------- */
 .griglia-campi {
@@ -832,6 +839,7 @@ tr.riga-nota { background: var(--blu-velo); }
     font-size: 0.74rem; font-weight: 700; white-space: nowrap; background: var(--sfondo); color: var(--tenue);
 }
 .stato-email::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.stato-da-confermare { background: #FFF6E5; color: #8A5A12; }
 .stato-da-inviare { background: #EEF2F6; color: #475569; }
 .stato-in-coda { background: var(--blu-velo); color: var(--blu); }
 .stato-invio { background: #DDE9F6; color: #1F5688; }

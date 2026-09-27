@@ -32,16 +32,25 @@
        diretta finisce nel progetto dello studio e nessun browser legge
        l'uno dall'altro;
      - alla diretta passano solo i campi che le servono (pagina,
-       modalita', annullata, nome, cognome, azienda, email).
+       modalita', annullata, nome, cognome, azienda, email, e se
+       l'indirizzo e' stato confermato con il pulsante della mail).
    Senza FIREBASE_SERVICE_ACCOUNT (configurato() falso) la
    riconciliazione salta, in silenzio: la diretta continua come prima.
 
-   LA QUERY. Un solo filtro di intervallo, su `ricevuto` (il momento in
-   cui il modulo ha salvato la scheda: serverTimestamp, con i
-   microsecondi), ordinato per `ricevuto`: basta l'indice automatico di
-   un campo, non c'e' nessun indice composto da creare nel progetto dello
-   studio. Tutto il resto (modalita' online, pagina dell'evento, scheda
-   annullata) lo filtra la diretta nel codice.
+   LE QUERY. Sempre un solo filtro, su un solo campo, ordinato per quel
+   campo: basta l'indice automatico di un campo, non c'e' nessun indice
+   composto da creare nel progetto dello studio. Tutto il resto
+   (modalita' online, pagina dell'evento, scheda annullata, conferma con
+   il clic o d'ufficio) lo filtra la diretta nel codice.
+     - schedeDal: le schede RICEVUTE, intervallo su `ricevuto` (il
+       momento in cui il modulo ha salvato la scheda: serverTimestamp,
+       con i microsecondi);
+     - confermateDal e confermateIl: le schede CONFERMATE, intervallo o
+       uguaglianza su `emailConfermata.quando` (un numero, i millisecondi
+       del clic: lib/conferma-email.js). La password della diretta parte
+       dopo il clic su «Conferma il tuo indirizzo email»: se in quel
+       momento il servizio della diretta non risponde, la
+       riconciliazione ritrova qui il clic.
    ============================================================ */
 'use strict';
 const admin = require('firebase-admin');
@@ -69,30 +78,60 @@ function testo(v, max) {
     return String(v == null ? '' : v).slice(0, max).trim();
 }
 
+/* I campi che passano alla diretta. confermata: l'indirizzo e' stato
+   confermato DALLA PERSONA, con il pulsante della mail (come: 'mail');
+   la conferma d'ufficio dell'amministratore ('pregresso') non conta.
+   quandoConferma: i millisecondi della conferma (qualunque), o null. */
+function campi(doc) {
+    const d = doc.data() || {};
+    const c = d.emailConfermata && typeof d.emailConfermata === 'object' ? d.emailConfermata : null;
+    const quando = c && Number.isFinite(Number(c.quando)) ? Number(c.quando) : null;
+    return {
+        id: doc.id,
+        ricevuto: d.ricevuto,
+        pagina: testo(d.pagina, 300),
+        modalita: testo(d.modalita, 20).toLowerCase(),
+        annullata: !!d.annullato,
+        email: testo(d.email, 254),
+        nome: testo(d.nome, 120),
+        cognome: testo(d.cognome, 120),
+        azienda: testo(d.azienda, 200),
+        confermata: !!(c && quando != null && c.come === 'mail'),
+        quandoConferma: quando
+    };
+}
+
 /* Le schede ricevute da `dal` (un Timestamp di Firestore, compreso) in
    poi, dalla piu' vecchia, al massimo `quante`.
    -> [{ id, ricevuto (Timestamp), pagina, modalita, annullata, email,
-         nome, cognome, azienda }]
+         nome, cognome, azienda, confermata, quandoConferma }]
    Le schede senza `ricevuto` (importate dal foglio, per esempio) la
    query non le vede: non sono iscrizioni arrivate dal modulo. */
 async function schedeDal(dal, quante) {
     const n = Math.max(1, Math.min(MAX_LOTTO, Number(quante) || 100));
     const snap = await appSito().firestore().collection('iscrizioni')
         .where('ricevuto', '>=', dal).orderBy('ricevuto').limit(n).get();
-    return snap.docs.map(doc => {
-        const d = doc.data() || {};
-        return {
-            id: doc.id,
-            ricevuto: d.ricevuto,
-            pagina: testo(d.pagina, 300),
-            modalita: testo(d.modalita, 20).toLowerCase(),
-            annullata: !!d.annullato,
-            email: testo(d.email, 254),
-            nome: testo(d.nome, 120),
-            cognome: testo(d.cognome, 120),
-            azienda: testo(d.azienda, 200)
-        };
-    });
+    return snap.docs.map(campi);
 }
 
-module.exports = { configurato, schedeDal, NOME_APP };
+/* Le schede CONFERMATE da `dalMs` (millisecondi, compreso) in poi, dalla
+   conferma piu' vecchia, al massimo `quante`. Anche quelle confermate
+   d'ufficio (confermata: false): le scarta la riconciliazione. */
+async function confermateDal(dalMs, quante) {
+    const n = Math.max(1, Math.min(MAX_LOTTO, Number(quante) || 100));
+    const snap = await appSito().firestore().collection('iscrizioni')
+        .where('emailConfermata.quando', '>=', Number(dalMs) || 0).orderBy('emailConfermata.quando').limit(n).get();
+    return snap.docs.map(campi);
+}
+/* Tutte le schede confermate nello stesso millisecondo `ms` (la conferma
+   d'ufficio ne segna tante con lo stesso istante): la riconciliazione le
+   legge insieme, cosi' il suo segno (un numero) puo' andare oltre. Al
+   massimo MAX_GRUPPO. */
+const MAX_GRUPPO = 2000;
+async function confermateIl(ms) {
+    const snap = await appSito().firestore().collection('iscrizioni')
+        .where('emailConfermata.quando', '==', Number(ms)).limit(MAX_GRUPPO).get();
+    return snap.docs.map(campi);
+}
+
+module.exports = { configurato, schedeDal, confermateDal, confermateIl, NOME_APP, MAX_LOTTO };

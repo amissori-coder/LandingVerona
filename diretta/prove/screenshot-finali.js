@@ -274,6 +274,8 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['04-gestione-anteprima-computer', 'gestione-anteprima-computer.png'],
             ['04-gestione-regia-computer', 'screenshot-gestione/computer-regia.png'],
             ['04-gestione-partecipanti-computer', 'screenshot-gestione/computer-partecipanti.png'],
+            // chi si e' iscritto dal modulo e non ha ancora confermato l'indirizzo (gestione.prova.js)
+            ['04-gestione-da-confermare-computer', 'screenshot-gestione/computer-email-da-confermare.png'],
             ['05-email-credenziali-telefono', 'email/screenshot/credenziali-telefono.png'],
             ['05-email-credenziali-computer', 'email/screenshot/credenziali-computer.png'],
             ['05-email-iscritto-anche-telefono', 'email/screenshot/iscritto-anche-telefono.png'],

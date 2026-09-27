@@ -619,7 +619,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
             'anteprima via API: gia-iscritto, nuovo, email-condivisa (e non pronta)', ant.testo.slice(0, 300));
 
         /* ================= L'INTERRUTTORE DELLE ISCRIZIONI DAL MODULO ================= */
-        console.log('\nL\'interruttore «Invia subito la password a chi si iscrive dal modulo del sito»');
+        console.log('\nL\'interruttore «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo»');
         vero(ev.dati.evento.iscrizioniAutomatiche === false, 'spento di base');
         const accendi = await gestione({ azione: 'evento-iscrizioni', idEvento: EVENTO, iscrizioniAutomatiche: true }, tokG);
         vero(accendi.stato === 200 && accendi.dati.evento.iscrizioniAutomatiche === true && accendi.dati.evento.titolo === ev.dati.evento.titolo,

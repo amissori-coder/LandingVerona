@@ -240,8 +240,13 @@ function piede(motivo) {
 }
 /* La frase della diretta per chi segue online, nella conferma
    dell'iscrizione: la password arriva con un'email a parte, senza date
-   promesse (vedi confermaSito). */
+   promesse (vedi confermaSito). Con il pulsante di conferma la frase
+   chiede prima il clic: con l'invio automatico acceso la password parte
+   DOPO la conferma dell'indirizzo (lib/diretta-iscrizione.js), a
+   interruttore spento la manda il gestore prima dell'evento; la frase e'
+   vera in tutti e due i casi. */
 const FRASE_DIRETTA_ONLINE = 'Per seguire la diretta riceverai un\'email con la password per entrare (se non è già arrivata, arriverà prima dell\'evento). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
+const FRASE_DIRETTA_ONLINE_CONFERMA = 'Conferma il tuo indirizzo dal pulsante qui sopra: la password per entrare nella diretta arriva con un\'email a parte, dopo la conferma o comunque prima dell\'evento (se non è già arrivata). Non trovi l\'email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro.';
 const MOTIVO = 'Ricevi questa email come conferma della tua iscrizione all\'evento: non è una comunicazione promozionale.';
 /* IL MOTIVO IN CODA, per le mail del B2B. Quella riga in fondo dice a chi
    legge perche' gli e' arrivata questa email, e sotto un invito agli incontri
@@ -279,12 +284,12 @@ function confermaSito(dati, link, linkConferma) {
        e' ricevuta, il posto arriva con l'invito dopo la conferma. Senza (le
        mail composte prima di questa modifica) resta la frase di sempre.
        Online: la password della diretta arriva con un'email a parte (dal
-       servizio della diretta, subito se l'invio automatico e' acceso,
-       altrimenti quando il gestore la manda). Qui niente date promesse: la
-       conferma non sa quale dei due casi e', e non deve contraddire una
-       password magari gia' arrivata. */
+       servizio della diretta, dopo la conferma dell'indirizzo se l'invio
+       automatico e' acceso, altrimenti quando il gestore la manda). Qui
+       niente date promesse: la conferma non sa quale dei due casi e', e non
+       deve contraddire una password magari gia' arrivata. */
     const apertura = online
-        ? 'La tua richiesta di partecipazione online è registrata. ' + FRASE_DIRETTA_ONLINE
+        ? 'La tua richiesta di partecipazione online è registrata. ' + (linkConferma ? FRASE_DIRETTA_ONLINE_CONFERMA : FRASE_DIRETTA_ONLINE)
             + (attesa ? ' I posti in sala sono esauriti, ma ti abbiamo inserito in lista d\'attesa: se se ne libera uno ti scriviamo, e decidi tu se venire di persona.' : '')
             + ' Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
         : (linkConferma

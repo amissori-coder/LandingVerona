@@ -227,8 +227,8 @@ function transazione(ctx, fn) {
    MAI. videoInOnda e' il videoId pubblico (quello che ricevono i
    partecipanti, in qualunque modalita'); azotoInOnda lo stesso, ma solo
    se e' il player di Azoto. iscrizioniAutomatiche (booleano, false se
-   manca): l'interruttore «Invia subito la password a chi si iscrive dal
-   modulo del sito»; sta nel documento riservato, ai partecipanti non
+   manca): l'interruttore «Invia la password a chi si iscrive dal modulo
+   del sito, dopo che ha confermato l'indirizzo»; sta nel documento riservato, ai partecipanti non
    serve. iscrizioniAutomaticheDa: da quando e' acceso (millisecondi;
    null se e' spento, o se e' stato acceso prima che si salvasse il
    momento): la gestione lo mostra accanto all'interruttore, e la
@@ -480,8 +480,9 @@ function uguali(a, b) {
    vuole il flusso principale (400 campo 'tipoPlayer', o 'video' se lo
    si toglie mentre e' in uso); 'azoto' si salva anche senza indirizzo
    (lo si inserisce piu' tardi).
-   iscrizioniAutomatiche (booleano, spento di base): «Invia subito la
-   password a chi si iscrive dal modulo del sito». Si salva nel documento
+   iscrizioniAutomatiche (booleano, spento di base): «Invia la password a
+   chi si iscrive dal modulo del sito, dopo che ha confermato
+   l'indirizzo». Si salva nel documento
    riservato, e quando passa da spento ad acceso anche il momento
    (iscrizioniAutomaticheDa). Acceso vuole la pagina dell'evento (400 campo 'pagina'), e
    una pagina puo' avere l'interruttore acceso su un evento solo (409
@@ -541,7 +542,7 @@ async function salvaEvento(ctx, ingresso) {
         const prom = val('promemoria', {}) || {};
         const promemoria = { giornoPrima: prom.giornoPrima === true, oraPrima: prom.oraPrima === true };
         if (e.iscrizioniAutomatiche !== undefined && typeof e.iscrizioniAutomatiche !== 'boolean') {
-            throw C.errore(400, 'Valore non valido per «Invia subito la password a chi si iscrive dal modulo del sito».', 'iscrizioniAutomatiche');
+            throw C.errore(400, 'Valore non valido per «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo».', 'iscrizioniAutomatiche');
         }
         const iscrizioni = e.iscrizioniAutomatiche !== undefined ? e.iscrizioniAutomatiche : iscrizioniDi(ris);
         if (iscrizioni) {
@@ -596,13 +597,13 @@ async function salvaEvento(ctx, ingresso) {
     return (await leggiEvento(ctx, id)).json;
 }
 
-/* evento-iscrizioni: l'interruttore «Invia subito la password a chi si
-   iscrive dal modulo del sito», da solo (gli altri campi restano come
+/* evento-iscrizioni: l'interruttore «Invia la password a chi si iscrive
+   dal modulo del sito, dopo che ha confermato l'indirizzo», da solo (gli altri campi restano come
    sono). Stesse regole di evento-salva. -> l'evento */
 async function cambiaIscrizioni(ctx, { idEvento, iscrizioniAutomatiche }) {
     const id = controllaIdEvento(idEvento);
     if (typeof iscrizioniAutomatiche !== 'boolean') {
-        throw C.errore(400, 'Valore non valido per «Invia subito la password a chi si iscrive dal modulo del sito».', 'iscrizioniAutomatiche');
+        throw C.errore(400, 'Valore non valido per «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo».', 'iscrizioniAutomatiche');
     }
     return salvaEvento(ctx, { id: id, iscrizioniAutomatiche: iscrizioniAutomatiche });
 }
@@ -1203,7 +1204,8 @@ async function correggi(ctx, uid, idEvento, b) {
             if (indVecchio && indVecchio.exists && indVecchio.data().uid === uid) tx.delete(indVecchio.ref);
             agg.emailCambiata = ts;
             const invio = (d.invii || {})[idEvento];
-            if (invio && ['inviata', 'incerto', 'respinta', 'errore'].indexOf(invio.stato) >= 0) {
+            // anche chi aspettava la conferma: il nuovo indirizzo l'ha scritto il gestore, e le credenziali le manda lui
+            if (invio && ['inviata', 'incerto', 'respinta', 'errore', 'da confermare'].indexOf(invio.stato) >= 0) {
                 agg['invii.' + idEvento + '.stato'] = 'da inviare';
                 agg['invii.' + idEvento + '.aggiornato'] = ts;
             }

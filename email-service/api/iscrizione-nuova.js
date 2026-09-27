@@ -1225,8 +1225,10 @@ async function completaIscrizione(azione, body, res, ip) {
        qui esce da solo dall'evento della diretta (niente piu' accesso,
        credenziali non ancora partite cancellate, una riga per il gestore);
        un posto a cui si toglie l'annullamento ci rientra, se sull'evento
-       e' acceso «Invia subito la password a chi si iscrive dal modulo del
-       sito», altrimenti diventa una riga «da verificare» per il gestore.
+       e' acceso l'interruttore delle iscrizioni dal modulo (e la password
+       parte subito solo se quella scheda era gia' confermata con il clic,
+       altrimenti al clic), altrimenti diventa una riga «da verificare» per
+       il gestore.
        Vale per l'intestatario (la scheda e' "online") e, nello stesso
        ordine online, per gli altri posti che hanno un'email. Solo quando
        lo stato CAMBIA (attivo -> annullato, annullato -> attivo): chi
@@ -1238,13 +1240,15 @@ async function completaIscrizione(azione, body, res, ip) {
     if (scheda.modalita === 'online') {
         try {
             const pagina = String(scheda.pagina || '');
+            // l'indirizzo confermato DALLA PERSONA con il pulsante della mail (non d'ufficio)
+            const cliccata = s => !!(s && s.emailConfermata && typeof s.emailConfermata === 'object' && s.emailConfermata.quando && s.emailConfermata.come === 'mail');
             const azioni = [];
             const eraAnnullato = !!scheda.annullato;
             if (scheda.email && !eraAnnullato && posto1Annullato) {
                 azioni.push({ tipo: 'annullata', id: idDoc, email: String(scheda.email), nome: String(scheda.nome || ''), cognome: String(scheda.cognome || ''), azienda: String(scheda.azienda || '') });
             } else if (scheda.email && eraAnnullato && !posto1Annullato) {
                 const chi = primo && !primo.annulla ? primo : scheda;
-                azioni.push({ tipo: 'riattivata', id: idDoc, email: String(scheda.email), nome: String(chi.nome || ''), cognome: String(chi.cognome || ''), azienda: String(chi.azienda || '') });
+                azioni.push({ tipo: 'riattivata', id: idDoc, email: String(scheda.email), nome: String(chi.nome || ''), cognome: String(chi.cognome || ''), azienda: String(chi.azienda || ''), confermata: cliccata(scheda) });
             }
             for (let i = 2; i <= nOrdine; i++) {
                 const prima = figliAttuali[i - 2];
@@ -1252,13 +1256,13 @@ async function completaIscrizione(azione, body, res, ip) {
                 if (p && p.annulla && prima && !prima.annullato && prima.email) {
                     azioni.push({ tipo: 'annullata', id: idDoc + '~p' + i, email: String(prima.email), nome: String(prima.nome || ''), cognome: String(prima.cognome || ''), azienda: String(prima.azienda || '') });
                 } else if (p && !p.annulla && prima && prima.annullato && p.email) {
-                    azioni.push({ tipo: 'riattivata', id: idDoc + '~p' + i, email: p.email, nome: p.nome, cognome: p.cognome, azienda: p.azienda });
+                    azioni.push({ tipo: 'riattivata', id: idDoc + '~p' + i, email: p.email, nome: p.nome, cognome: p.cognome, azienda: p.azienda, confermata: cliccata(prima) });
                 }
             }
             const perDiretta = [];
             for (const a of azioni) {
                 if (a.tipo === 'annullata' && await altraSchedaOnline(db, a.id, a.email, pagina)) continue;
-                perDiretta.push({ tipo: a.tipo, email: a.email, nome: a.nome, cognome: a.cognome, azienda: a.azienda, pagina: pagina });
+                perDiretta.push({ tipo: a.tipo, email: a.email, nome: a.nome, cognome: a.cognome, azienda: a.azienda, pagina: pagina, confermata: a.confermata === true });
             }
             if (perDiretta.length) await require('../lib/diretta-iscrizione').dalSito(perDiretta, { ip: ip });
         } catch (e) {
@@ -1418,7 +1422,8 @@ module.exports = async (req, res) => {
         if (azione === 'conferma-email') {
             const cred4 = leggiServiceAccount();
             initAdmin(cred4);
-            const r = await CONFERMA.conferma(admin.firestore(), body);
+            // l'IP serve solo alla diretta, per i limiti del modulo (la password parte dopo la conferma)
+            const r = await CONFERMA.conferma(admin.firestore(), body, { ip: ip });
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -1618,10 +1623,12 @@ module.exports = async (req, res) => {
         }
 
         /* La diretta degli eventi (progetto Firebase SEPARATO, tutto in
-           lib/diretta-iscrizione.js): chi si iscrive "online" riceve subito
-           la password della diretta, se il gestore ha acceso l'interruttore
-           sull'evento con questa pagina. Arriva dopo la scheda e la conferma,
-           mai al loro posto: se la diretta non e' configurata o qualcosa va
+           lib/diretta-iscrizione.js): per chi si iscrive "online", se il
+           gestore ha acceso l'interruttore sull'evento con questa pagina, si
+           crea l'account della diretta; la password parte DOPO, quando la
+           persona conferma il suo indirizzo con il pulsante della mail
+           (lib/conferma-email.js). Arriva dopo la scheda e la conferma, mai
+           al loro posto: se la diretta non e' configurata o qualcosa va
            storto l'iscrizione resta valida e la risposta e' quella di sempre.
            Su Vercel il gancio non aspetta il lavoro della diretta (finisce
            dopo, con waitUntil): la risposta arriva nello stesso tempo per un

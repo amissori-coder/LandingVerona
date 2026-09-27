@@ -69,6 +69,12 @@
    transazioni) ma evita di leggere e contendersi le stesse persone.
 
    GLI STATI (partecipanti/{uid}.invii.<idEvento>.stato):
+     'da confermare' -> iscritto dal modulo del sito, aspetta che la
+                     persona confermi l'indirizzo con il pulsante della
+                     mail: al clic passa 'in coda' da solo
+                     (lib/diretta-iscrizione.js). Non parte con «Invia
+                     le credenziali»: solo con «Invia anche a loro»
+                     (accoda 'da-confermare') o una persona per volta
      'da inviare' -> caricato, niente ancora spedito
      'in coda'    -> scelto per l'invio in blocco
      'invio'      -> preso da un giro, in spedizione adesso
@@ -102,7 +108,7 @@ const M = require('./diretta-mail');
 const E = require('./diretta-email');
 const { generaPassword } = require('./diretta-password');
 
-const STATI = ['da inviare', 'in coda', 'invio', 'inviata', 'respinta', 'errore', 'incerto'];
+const STATI = ['da confermare', 'da inviare', 'in coda', 'invio', 'inviata', 'respinta', 'errore', 'incerto'];
 const RE_ID_EVENTO = /^[a-z0-9][a-z0-9-]{2,40}$/;
 const MINUTO = 60 * 1000;
 const GIORNO = 24 * 60 * MINUTO;
@@ -850,16 +856,20 @@ async function lavoraCoda(ctx, idEvento, opz) {
    ============================================================ */
 
 /* Mette in coda: chi: 'da-inviare' (le persone caricate e mai
-   raggiunte) oppure 'non-ricevuta' (respinte ed errori di chi non e' mai
-   entrato: chi e' entrato l'email l'ha ricevuta). Mai 'incerto': quelli
-   si reinviano uno per uno, con conferma. -> { accodate, saltate } */
+   raggiunte), 'non-ricevuta' (respinte ed errori di chi non e' mai
+   entrato: chi e' entrato l'email l'ha ricevuta) oppure 'da-confermare'
+   (iscritte dal modulo del sito che non hanno ancora confermato
+   l'indirizzo: «Invia anche a loro», una scelta del gestore). Mai
+   'incerto': quelli si reinviano uno per uno, con conferma.
+   -> { accodate, saltate } */
+const STATI_ACCODA = { 'da-inviare': ['da inviare'], 'non-ricevuta': ['respinta', 'errore'], 'da-confermare': ['da confermare'] };
 async function accoda(ctx, opz) {
     const idEvento = validaEvento(opz && opz.idEvento);
     const chi = String((opz && opz.chi) || '');
-    if (chi !== 'da-inviare' && chi !== 'non-ricevuta') throw C.errore(400, 'Scelta non valida', 'chi');
+    if (!Object.prototype.hasOwnProperty.call(STATI_ACCODA, chi)) throw C.errore(400, 'Scelta non valida', 'chi');
     await leggiEvento(ctx, idEvento);
-    const stati = chi === 'da-inviare' ? ['da inviare'] : ['respinta', 'errore'];
-    const idonea = d => !nonInviabile(d, idEvento) && (chi === 'da-inviare' || !d.ultimoAccesso);
+    const stati = STATI_ACCODA[chi];
+    const idonea = d => !nonInviabile(d, idEvento) && (chi !== 'non-ricevuta' || !d.ultimoAccesso);
     const scelti = [];
     let saltate = 0;
     for (const st of stati) {

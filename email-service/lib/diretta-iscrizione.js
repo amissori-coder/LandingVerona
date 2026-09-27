@@ -2,12 +2,49 @@
    Diretta degli eventi: le iscrizioni dal MODULO DEL SITO
    ------------------------------------------------------------
    Chi si iscrive "online" dal modulo di un evento (oggi quello di
-   Napoli: api/iscrizione-nuova.js, modalita' "online") puo' ricevere
-   SUBITO la password della diretta, senza aspettare che il gestore
-   carichi il file e prema «Invia le credenziali». Succede solo se il
-   gestore ha acceso sull'evento della diretta l'interruttore
-   iscrizioniAutomatiche («Invia subito la password a chi si iscrive dal
-   modulo del sito», spento di base).
+   Napoli: api/iscrizione-nuova.js, modalita' "online") puo' ricevere la
+   password della diretta da sola, senza aspettare che il gestore carichi
+   il file e prema «Invia le credenziali»: SUBITO DOPO AVER CONFERMATO IL
+   SUO INDIRIZZO con il pulsante «Conferma il tuo indirizzo email» della
+   mail del sito. Succede solo se il gestore ha acceso sull'evento della
+   diretta l'interruttore iscrizioniAutomatiche («Invia la password a chi
+   si iscrive dal modulo del sito, dopo che ha confermato l'indirizzo»,
+   spento di base).
+
+   PRIMA LA CONFERMA, POI LA PASSWORD. Dal modulo del sito non parte
+   NIENTE della diretta verso un indirizzo che la persona non ha
+   confermato con il clic: il modulo lo usa chiunque, con qualunque
+   indirizzo (anche scritto male, o di qualcun altro). Quindi:
+     - l'iscrizione (dalModulo, dal modulo del sito) crea l'account e
+       aggiunge l'evento come sempre, ma la voce delle credenziali resta
+       'da confermare' (DA_CONFERMARE) e non parte nessuna email;
+     - il clic (daConferma, da lib/conferma-email.js, solo alla PRIMA
+       conferma della scheda, e solo quella della persona: come 'mail')
+       fa quello che prima faceva l'iscrizione: i limiti del modulo, la
+       coda, l'invio subito delle credenziali o di «Sei iscritto anche
+       a…», una volta sola anche con due clic;
+     - se il clic arriva PRIMA che l'iscrizione abbia creato l'account
+       (la persona e' velocissima, o il servizio della diretta non
+       rispondeva), l'account lo crea il clic e manda lui; l'iscrizione,
+       quando arriva, trova la persona gia' nell'evento e non tocca la
+       voce. Le due strade passano dalla stessa transazione
+       (D.prenotaPersona): nessun doppione;
+     - la conferma d'ufficio dell'amministratore ('pregresso') NON fa
+       partire niente: conta solo il clic della persona;
+     - al momento del clic l'interruttore spento, l'evento terminato o
+       finito, la scheda annullata, la sala: niente. Chi resta 'da
+       confermare' lo vede il gestore (scheda Email: «non hanno ancora
+       confermato l'indirizzo», con «Invia anche a loro»);
+     - chi era stato caricato dal file e aspettava ancora le credenziali
+       ('da inviare') e si iscrive anche dal modulo: le riceve al clic
+       (non piu' all'iscrizione). Per il gestore resta 'da inviare':
+       «Invia le credenziali» lo raggiunge come sempre;
+     - chi toglie l'annullamento dal sito: come una nuova iscrizione, e
+       la password parte subito solo se quella scheda era gia'
+       confermata con il clic (altrimenti al clic).
+   La rete di sicurezza e' la riconciliazione (lib/diretta-riconcilia.js):
+   rilegge anche le schede CONFERMATE, e ritrova i clic il cui avviso
+   alla diretta non e' arrivato.
 
    IL COLLEGAMENTO FRA I DUE. L'evento della diretta ha la sua «Pagina
    dell'evento» (paginaEvento, per esempio /napoli_ottobre_2026/). Il
@@ -33,7 +70,8 @@
    gestione non lascia accendere l'interruttore su due eventi con la
    stessa pagina).
 
-   CHE COSA SUCCEDE (iscriviDaModulo):
+   CHE COSA SUCCEDE AL CLIC (iscriviDaModulo con `confermata`;
+   all'iscrizione, senza, solo l'account e la voce 'da confermare'):
      - email nuova: si crea l'account (password segreta che nessuno
        conosce, come nell'import), le credenziali vanno 'in coda' e si
        prova a spedirle SUBITO (lib/diretta-invio.js, inviaSubito: e' li'
@@ -119,7 +157,9 @@
    le nostre email verso chi si vuole, e per consumare il tetto
    giornaliero di Brevo che serve alle credenziali del gestore. Contano
    solo le iscrizioni che farebbero partire un'email (nuovo account,
-   evento aggiunto, credenziali che aspettavano), non quelle ripetute:
+   evento aggiunto, credenziali che aspettavano), non quelle ripetute, e
+   si contano AL CLIC (e' li' che parte l'email; la rete e' quella di chi
+   clicca): l'iscrizione senza conferma non manda niente e non conta:
      - per RETE (C.improntaIp dell'IP del visitatore, per IPv6 la /64):
        DIRETTA_MODULO_RETE_ORA, 10 all'ora di base. Un ufficio che
        iscrive tutti i colleghi insieme ci sta quasi sempre; chi prova
@@ -175,7 +215,8 @@ const { contesto, inEmulatore } = require('./diretta-firebase');
 const ORA = 60 * 60 * 1000;
 const MOTIVI_DA_VERIFICARE = ['email-condivisa', 'email-non-valida', 'annullata-dal-sito', 'riattivata-dal-sito'];
 // le credenziali "non ancora partite": chi annulla le perde (vedi ritiraDaModulo)
-const STATI_NON_PARTITI = ['da inviare', 'in coda'];
+const DA_CONFERMARE = 'da confermare';
+const STATI_NON_PARTITI = ['da inviare', 'in coda', DA_CONFERMARE];
 const TETTO_DA_VERIFICARE_ORA = 100;
 const MAX_DA_VERIFICARE = 500;
 const RE_ID_DA_VERIFICARE = /^[0-9a-f]{32}$/;
@@ -227,24 +268,26 @@ function pagineDelModulo(d) {
 }
 
 /* L'evento della diretta di questo modulo: uno solo, con l'interruttore
-   acceso, non terminato e non gia' finito. -> { id, dati } oppure null */
+   acceso, non terminato e non gia' finito. -> { id, dati, riservati }
+   oppure null */
 async function eventoDelModulo(ctx, pagine) {
     const accesi = await ctx.db.collection('eventiRiservati').where('iscrizioniAutomatiche', '==', true).get();
     if (accesi.empty) return null;
     const snaps = await ctx.db.getAll(...accesi.docs.map(d => ctx.db.collection('eventi').doc(d.id)));
     const ora = ctx.adesso();
-    const buoni = snaps.filter(s => {
-        if (!s.exists) return false;
+    const buoni = [];
+    snaps.forEach((s, i) => {
+        if (!s.exists) return;
         const d = s.data();
         const fine = D.ms(d.fine);
-        if (d.stato === 'terminato' || (fine != null && fine < ora)) return false;
-        return pagine.some(p => paginaCorrisponde(p, d.paginaEvento));
+        if (d.stato === 'terminato' || (fine != null && fine < ora)) return;
+        if (pagine.some(p => paginaCorrisponde(p, d.paginaEvento))) buoni.push({ id: s.id, dati: d, riservati: accesi.docs[i].data() });
     });
     if (buoni.length > 1) {
         console.error('[diretta] iscrizione dal modulo: ' + buoni.length + ' eventi con la stessa pagina e l\'invio automatico acceso (' + buoni.map(s => s.id).join(', ') + '): non si iscrive a nessuno');
         return null;
     }
-    return buoni.length ? { id: buoni[0].id, dati: buoni[0].data() } : null;
+    return buoni.length ? buoni[0] : null;
 }
 
 // nome, cognome, azienda dal modulo: una riga, niente < > ne' caratteri invisibili
@@ -258,13 +301,14 @@ function pulito(v, max) {
    transazione, per decidere se contarla nei limiti e (per la
    riconciliazione) se c'e' qualcosa da fare:
      invio      farebbe partire un'email: nuovo indirizzo, evento da
-                aggiungere, credenziali che aspettavano ('da inviare' o
-                nessuna voce);
-     nellEvento la stessa persona e' gia' nell'evento (in qualunque stato).
+                aggiungere, credenziali che aspettavano ('da inviare', 'da
+                confermare' o nessuna voce);
+     nellEvento la stessa persona e' gia' nell'evento (in qualunque stato);
+     daConfermare  ... con la voce 'da confermare' (aspetta il clic).
    Gia' iscritta con le credenziali partite o in coda, o email di
    un'altra persona -> nessun invio. Se nel frattempo cambia qualcosa, al
    massimo si conta un'iscrizione in piu' o in meno: la decisione vera la
-   prende la transazione. -> { invio, nellEvento } */
+   prende la transazione. -> { invio, nellEvento, daConfermare } */
 async function situazione(ctx, idEvento, emailNorm, persona) {
     const ind = await ctx.db.collection('indirizzi').doc(emailNorm).get();
     const uid = ind.exists ? String(ind.data().uid || '') : '';
@@ -275,7 +319,7 @@ async function situazione(ctx, idEvento, emailNorm, persona) {
     if (!E.stessaPersona(persona, d)) return { invio: false, nellEvento: false };
     if (!(Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0)) return { invio: true, nellEvento: false };
     const v = (d.invii || {})[idEvento];
-    return { invio: !v || v.stato === 'da inviare', nellEvento: true };
+    return { invio: !v || v.stato === 'da inviare' || v.stato === DA_CONFERMARE, nellEvento: true, daConfermare: !!(v && v.stato === DA_CONFERMARE) };
 }
 /* I contatori a finestra fissa di un'ora (limiti/{chiave}_{ora}): prima
    la rete, poi il totale (una rete oltre il suo limite non consuma
@@ -380,20 +424,35 @@ async function archiviaDaVerificare(ctx, b, chi) {
                                scritta)
              'limite'          solo con `riconcilia`: il limite orario e'
                                raggiunto, non si e' fatto niente
+             'prima-accensione' con `confermata` e dati.ricevutoMs: la
+                               scheda e' arrivata prima che il gestore
+                               accendesse l'interruttore (quelle non
+                               partono da sole, nemmeno al clic: le
+                               carica il gestore con il file). Niente
              'incoerente'
       invio: { stato, tipo } l'esito dell'invio subito (vedi
              inviaSubito), oppure null se non c'era niente da mandare
+      attesa: true se non e' partito niente perche' l'indirizzo non e'
+             ancora confermato (senza `confermata`)
       trattenuta: 'rete' | 'totale' se un limite del modulo ha fermato
              la password (la voce resta 'da inviare')
    opz.evento: { id, dati } l'evento gia' trovato (la riconciliazione, la
              riattivazione): non si cerca dalla pagina.
+   opz.confermata: la persona ha confermato l'indirizzo con il clic (il
+             gancio della conferma, la riconciliazione delle schede
+             confermate, la riattivazione di una scheda confermata). Senza,
+             l'account si crea ma la voce resta 'da confermare' e non parte
+             niente (vedi PRIMA LA CONFERMA, POI LA PASSWORD): niente limiti,
+             niente coda, niente email.
    opz.riconcilia: la riconciliazione (lib/diretta-riconcilia.js), per
              chi il modulo non ha raggiunto. Diverso dal modulo in
              quattro cose:
                - chi e' gia' nell'evento (in qualunque stato, anche 'da
                  inviare' con il motivo del limite) resta com'e': la
                  riconciliazione recupera solo chi non e' stato iscritto,
-                 mai le password trattenute per il gestore;
+                 mai le password trattenute per il gestore. Unica
+                 eccezione, con `confermata`: la voce 'da confermare'
+                 (il clic il cui avviso non e' arrivato) passa in coda;
                - niente IP: conta solo il limite orario complessivo, e
                  oltre si ferma ('limite') invece di creare l'account
                  trattenuto: la scheda torna al giro dopo;
@@ -406,6 +465,7 @@ async function iscriviDaModulo(ctx, dati, opz) {
     const o = opz || {};
     const d = dati || {};
     const riconcilia = o.riconcilia === true;
+    const confermata = o.confermata === true;
     let evento = o.evento || null;
     if (!evento) {
         const pagine = pagineDelModulo(d);
@@ -413,13 +473,19 @@ async function iscriviDaModulo(ctx, dati, opz) {
         evento = await eventoDelModulo(ctx, pagine);
         if (!evento) return { esito: 'nessun-evento' };
     }
+    // al clic: una scheda di prima dell'accensione dell'interruttore non parte da sola
+    const accesoDa = evento.riservati && evento.riservati.iscrizioniAutomaticheDa;
+    if (confermata && Number.isFinite(d.ricevutoMs) && accesoDa && typeof accesoDa.toMillis === 'function' && d.ricevutoMs < accesoDa.toMillis()) {
+        return { esito: 'prima-accensione', idEvento: evento.id };
+    }
     const nome = pulito(d.nome, 80);
     const cognome = pulito(d.cognome, 80);
     const azienda = pulito(d.azienda, 120);
     const impIp = riconcilia ? '' : C.improntaIp(d.ip);
     const scritta = pulito(d.email, 254);
     const emailNorm = E.normalizzaEmail(String(d.email == null ? '' : d.email).slice(0, 400));
-    const perRiga = { soloNuova: riconcilia };
+    // la stessa scheda torna al clic: la riga «da verificare» dell'iscrizione non si riconta
+    const perRiga = { soloNuova: riconcilia || confermata };
 
     // un indirizzo che il modulo del sito ha accettato e la diretta no: al gestore
     if (!E.emailValida(emailNorm)) {
@@ -427,12 +493,15 @@ async function iscriviDaModulo(ctx, dati, opz) {
             await daVerificare(ctx, impIp, { idEvento: evento.id, motivo: 'email-non-valida', nome, cognome, azienda, email: scritta }, perRiga));
     }
 
-    // i limiti del modulo pubblico, solo per le iscrizioni che farebbero partire un'email
+    /* I limiti del modulo pubblico, solo per le iscrizioni che farebbero
+       partire un'email: cioe' al clic (senza conferma non parte niente). */
     const sit = await situazione(ctx, evento.id, emailNorm, { nome, cognome });
-    if (riconcilia && sit.nellEvento) return { esito: 'gia-iscritto', idEvento: evento.id, invio: null };
-    const trattenuta = sit.invio ? await limiteModulo(ctx, impIp) : '';
+    if (riconcilia && sit.nellEvento && !(confermata && sit.daConfermare)) return { esito: 'gia-iscritto', idEvento: evento.id, invio: null };
+    const trattenuta = confermata && sit.invio ? await limiteModulo(ctx, impIp) : '';
     if (riconcilia && trattenuta) return { esito: 'limite', idEvento: evento.id, trattenuta: trattenuta };
     const inCodaModulo = { stato: 'in coda', origine: 'modulo', automatica: true, errore: ctx.FieldValue.delete() };
+    const vocePerGestore = { stato: 'da inviare', origine: 'modulo', errore: MOTIVO_TRATTENUTA };
+    const voceInAttesa = { stato: DA_CONFERMARE, origine: 'modulo' };
 
     /* La prenotazione, come nell'import (una transazione su
        indirizzi/{email}: zero account doppi anche con due invii del
@@ -441,14 +510,24 @@ async function iscriviDaModulo(ctx, dati, opz) {
        (automatiche: la parte del tetto del modulo), oppure, oltre i
        limiti, restano 'da inviare' con il motivo per il gestore. Per chi
        e' gia' nell'evento la voce passa in coda solo se aspettava ancora
-       le credenziali ('da inviare'): nessuna seconda password. */
+       le credenziali ('da inviare', 'da confermare'): nessuna seconda
+       password. Senza conferma: la voce nuova e' 'da confermare', e una
+       voce che c'e' gia' non si tocca (chi ha gia' cliccato resta in coda
+       o inviata). */
     const fatto = await D.prenotaPersona(ctx, evento.id, {
         nome: nome, cognome: cognome, azienda: azienda, emailNorm: emailNorm, origine: 'modulo'
     }, {
         controllaNome: true,
-        voce: trattenuta ? { stato: 'da inviare', origine: 'modulo', errore: MOTIVO_TRATTENUTA } : { stato: 'in coda', origine: 'modulo', automatica: true },
-        // la riconciliazione non cambia mai una voce che c'e' gia' (vedi sopra)
-        voceSeGia: v => (!riconcilia && !trattenuta && (!v || v.stato === 'da inviare')) ? inCodaModulo : null
+        voce: !confermata ? voceInAttesa : (trattenuta ? vocePerGestore : { stato: 'in coda', origine: 'modulo', automatica: true }),
+        voceSeGia: v => {
+            if (!confermata) return v ? null : voceInAttesa;
+            // la riconciliazione non cambia mai una voce che c'e' gia', tranne quella che aspettava il clic (vedi sopra)
+            const aspetta = !v || v.stato === DA_CONFERMARE || (!riconcilia && v.stato === 'da inviare');
+            if (!aspetta) return null;
+            // oltre i limiti: chi aspettava il clic passa al gestore, con il motivo
+            if (trattenuta) return v && v.stato === DA_CONFERMARE ? vocePerGestore : null;
+            return inCodaModulo;
+        }
     });
     if (fatto.tipo === 'incoerente') {
         console.error('[diretta] iscrizione dal modulo: dati incoerenti per un indirizzo (' + evento.id + ')');
@@ -462,6 +541,11 @@ async function iscriviDaModulo(ctx, dati, opz) {
     await D.completaDopoPrenotazione(ctx, fatto, nome, cognome);
 
     const esito = { esito: fatto.tipo, idEvento: evento.id, invio: null };
+    if (!confermata) {
+        // l'indirizzo non e' confermato: l'email parte al clic (daConferma)
+        esito.attesa = true;
+        return esito;
+    }
     if (trattenuta) {
         // l'account c'e', la password la manda il gestore: niente coda, niente invio
         esito.trattenuta = trattenuta;
@@ -630,7 +714,10 @@ async function ritiraDaModulo(ctx, dati) {
      - interruttore ACCESO: come una nuova iscrizione dal modulo
        (iscriviDaModulo, con i suoi limiti): l'evento torna nel suo
        account, e parte «Sei iscritto anche a…» o le credenziali secondo
-       le regole di sempre (lib/diretta-invio.js, tipoInvio). Per la
+       le regole di sempre (lib/diretta-invio.js, tipoInvio). Solo se
+       la scheda era gia' confermata con il clic (dati.confermata: lo
+       dice api/iscrizione-nuova.js, che ha la scheda); altrimenti la
+       voce resta 'da confermare' e l'email parte al clic. Per la
        diretta le credenziali partite prima dell'annullamento sono la
        storia di QUESTO evento: se la persona non si e' fatta nel
        frattempo una password sua (accesso, «Password dimenticata?»),
@@ -648,7 +735,9 @@ async function riattivaDaModulo(ctx, dati) {
     if (!pagine.length) return { esito: 'nessun-evento' };
     const evento = await eventoDellaPagina(ctx, pagine);
     if (!evento) return { esito: 'nessun-evento' };
-    if (D.iscrizioniDi(evento.riservati)) return iscriviDaModulo(ctx, d, { evento: { id: evento.id, dati: evento.dati } });
+    if (D.iscrizioniDi(evento.riservati)) {
+        return iscriviDaModulo(ctx, d, { evento: { id: evento.id, dati: evento.dati }, confermata: d.confermata === true });
+    }
     const nome = pulito(d.nome, 80);
     const cognome = pulito(d.cognome, 80);
     const emailNorm = E.normalizzaEmail(String(d.email == null ? '' : d.email).slice(0, 400));
@@ -665,7 +754,7 @@ async function riattivaDaModulo(ctx, dati) {
 /* ============================================================
    IL GANCIO PER completa-salva (api/iscrizione-nuova.js)
    dalSito([{ tipo: 'annullata'|'riattivata', email, nome, cognome,
-              azienda, pagina }], { ip? })
+              azienda, pagina, confermata? }], { ip? })
    -> sempre una promessa che si risolve (mai un errore): { esiti } (uno
       per posto), oppure 'non-configurata' o 'in-corso' (su Vercel).
    Come dalModulo: su Vercel non si aspetta il lavoro (waitUntil), la
@@ -709,63 +798,72 @@ async function dalSito(azioni, opz) {
 }
 
 /* ============================================================
-   IL GANCIO PER api/iscrizione-nuova.js
+   I DUE GANCI DEL SITO: l'iscrizione e il clic
    dalModulo({ email, nome, cognome, azienda, pagina, percorso?, ip? })
+      chiamato da api/iscrizione-nuova.js DOPO aver salvato la scheda:
+      l'account e la voce 'da confermare', nessuna email;
+   daConferma({ email, nome, cognome, azienda, pagina, ricevutoMs?, ip? })
+      chiamato da lib/conferma-email.js alla PRIMA conferma della scheda
+      con il pulsante della mail (come: 'mail'), solo per chi segue
+      online e non ha annullato: i limiti, la coda, l'invio subito.
    -> sempre una promessa che si risolve (mai un errore):
       { esito } come iscriviDaModulo, oppure 'non-configurata',
-      'in-corso' (su Vercel: la risposta del modulo parte subito, il
-      lavoro continua con waitUntil) o 'errore' (il motivo nel log).
+      'in-corso' (su Vercel: la risposta parte subito, il lavoro continua
+      con waitUntil) o 'errore' (il motivo nel log).
    `opz.ctx`: un contesto gia' pronto (le prove).
    ============================================================ */
 let avvisoNonConfigurata = false;
-async function dalModulo(dati, opz) {
+function gancio(nome, dati, opz, confermata) {
     if (!configurata()) {
         if (!avvisoNonConfigurata) {
             avvisoNonConfigurata = true;
-            console.log('[diretta] iscrizione dal modulo: la diretta non e\' configurata (manca DIRETTA_FIREBASE_SERVICE_ACCOUNT): nessun account');
+            console.log('[diretta] ' + nome + ': la diretta non e\' configurata (manca DIRETTA_FIREBASE_SERVICE_ACCOUNT): nessun account');
         }
-        return { esito: 'non-configurata' };
+        return Promise.resolve({ esito: 'non-configurata' });
     }
     const t0 = Date.now();
     const lavoro = Promise.resolve().then(async () => {
         const ctx = (opz && opz.ctx) || contesto();
-        const r = await iscriviDaModulo(ctx, dati);
+        const r = await iscriviDaModulo(ctx, dati, { confermata: confermata });
         if (r.esito !== 'nessun-evento') {
             // solo l'evento e gli esiti: niente email, niente nomi
-            const riga = { idEvento: r.idEvento || '', esito: r.esito, invio: r.invio ? r.invio.stato : '', tipo: r.invio ? r.invio.tipo : '' };
+            const riga = { idEvento: r.idEvento || '', esito: r.esito, invio: r.invio ? r.invio.stato : (r.attesa ? DA_CONFERMARE : ''), tipo: r.invio ? r.invio.tipo : '' };
             if (r.trattenuta) riga.trattenuta = r.trattenuta;
             if (r.daVerificare != null) riga.daVerificare = r.daVerificare;
             riga.ms = Date.now() - t0;
-            console.log('[diretta] iscrizione dal modulo: ' + JSON.stringify(riga));
+            console.log('[diretta] ' + nome + ': ' + JSON.stringify(riga));
             if (r.trattenuta && r.esito !== 'email-condivisa' && r.esito !== 'email-non-valida') {
-                console.log('[diretta] iscrizione dal modulo: limite ' + (r.trattenuta === 'rete' ? 'della rete' : 'orario complessivo')
+                console.log('[diretta] ' + nome + ': limite ' + (r.trattenuta === 'rete' ? 'della rete' : 'orario complessivo')
                     + ' raggiunto, la password non parte da sola: la manda il gestore (' + (r.idEvento || '') + ')');
-            } else if (r.daVerificare === false) {
-                console.log('[diretta] iscrizione dal modulo: riga «da verificare» non scritta, limite ' + (r.trattenuta === 'rete' ? 'della rete' : 'orario') + ' raggiunto (' + (r.idEvento || '') + ')');
+            } else if (r.daVerificare === false && r.trattenuta) {
+                console.log('[diretta] ' + nome + ': riga «da verificare» non scritta, limite ' + (r.trattenuta === 'rete' ? 'della rete' : 'orario') + ' raggiunto (' + (r.idEvento || '') + ')');
             }
         }
         return r;
     }).catch(e => {
-        console.error('[diretta] iscrizione dal modulo non riuscita: ' + D.perLog(e));
+        console.error('[diretta] ' + nome + ' non riuscita: ' + D.perLog(e));
         return { esito: 'errore' };
     });
-    /* Su Vercel mai aspettare: la risposta del modulo parte adesso, nello
-       stesso tempo per un indirizzo nuovo e per uno gia' iscritto (vedi
-       IL GANCIO in testa al file). Fuori da Vercel si aspetta la fine. Se
-       su Vercel (VERCEL=1, la mette Vercel) l'aggancio mancasse, il lavoro
-       si aspetta lo stesso (niente va perso) e il log lo dice, una volta. */
-    if (accesso().lasciaFinire(lavoro)) return { esito: 'in-corso' };
+    /* Su Vercel mai aspettare: la risposta del modulo (o della pagina
+       della conferma) parte adesso, nello stesso tempo per un indirizzo
+       nuovo e per uno gia' iscritto (vedi IL GANCIO in testa al file).
+       Fuori da Vercel si aspetta la fine. Se su Vercel (VERCEL=1, la mette
+       Vercel) l'aggancio mancasse, il lavoro si aspetta lo stesso (niente
+       va perso) e il log lo dice, una volta. */
+    if (accesso().lasciaFinire(lavoro)) return Promise.resolve({ esito: 'in-corso' });
     if (process.env.VERCEL === '1' && !avvisoSenzaAttesa) {
         avvisoSenzaAttesa = true;
-        console.error('[diretta] iscrizione dal modulo: waitUntil non disponibile su Vercel: il modulo aspetta la diretta, e il tempo della risposta puo\' dire chi e\' gia\' iscritto');
+        console.error('[diretta] ' + nome + ': waitUntil non disponibile su Vercel: la risposta aspetta la diretta, e il suo tempo puo\' dire chi e\' gia\' iscritto');
     }
     return lavoro;
 }
 let avvisoSenzaAttesa = false;
+function dalModulo(dati, opz) { return gancio('iscrizione dal modulo', dati, opz, false); }
+function daConferma(dati, opz) { return gancio('conferma dell\'indirizzo', dati, opz, true); }
 
 module.exports = {
-    iscriviDaModulo, dalModulo, paginaCorrisponde, pagineDelModulo, eventoDelModulo, configurata, parole,
+    iscriviDaModulo, dalModulo, daConferma, paginaCorrisponde, pagineDelModulo, eventoDelModulo, configurata, parole,
     ritiraDaModulo, riattivaDaModulo, dalSito, eventoDellaPagina,
     segnaDaVerificare, elencoDaVerificare, archiviaDaVerificare, idDaVerificare,
-    MOTIVI_DA_VERIFICARE, MOTIVO_TRATTENUTA, TETTO_DA_VERIFICARE_ORA
+    MOTIVI_DA_VERIFICARE, MOTIVO_TRATTENUTA, TETTO_DA_VERIFICARE_ORA, DA_CONFERMARE
 };

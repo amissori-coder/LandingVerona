@@ -1099,11 +1099,11 @@ async function sheetJSNode() {
         await foto('evento');
 
         /* ---------- 2b. l'interruttore delle iscrizioni dal modulo del sito ----------
-           «Invia subito la password a chi si iscrive dal modulo del sito»:
-           spento di base, vale subito (evento-iscrizioni), acceso vuole la
+           «Invia la password a chi si iscrive dal modulo del sito, dopo che
+           ha confermato l'indirizzo»: spento di base, vale subito (evento-iscrizioni), acceso vuole la
            pagina dell'evento (400 'pagina') e una pagina lo puo' avere acceso
            su un evento solo (409 'iscrizioni-doppie'). */
-        console.log('\n-- «Invia subito la password a chi si iscrive dal modulo del sito»');
+        console.log('\n-- «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo»');
         const interruttore = $('#ev-iscrizioni-auto');
         const leva = $('label.interruttore');
         const accesoSulServizio = async id => ((await db.doc('eventiRiservati/' + (id || ID)).get()).data() || {}).iscrizioniAutomatiche;
@@ -1115,19 +1115,20 @@ async function sheetJSNode() {
             await aspetta(async () => chiamate('evento-salva').length > n && await $('#btn-salva-evento').getAttribute('aria-busy') !== 'true', 15000, 'salvataggio dell\'evento');
             return testo('#msg-evento');
         };
-        vero(await interruttore.getAttribute('role') === 'switch' && (await leva.textContent()).trim() === 'Invia subito la password a chi si iscrive dal modulo del sito'
+        vero(await interruttore.getAttribute('role') === 'switch' && (await leva.textContent()).trim() === 'Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo'
             && !(await interruttore.isChecked()) && !(await interruttore.isDisabled()) && await accesoSulServizio() === false,
-            'l\'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» c\'è (role="switch") ed è SPENTO di base, anche sul servizio (eventiRiservati.iscrizioniAutomatiche false)');
+            'l\'interruttore «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo» c\'è (role="switch") ed è SPENTO di base, anche sul servizio (eventiRiservati.iscrizioniAutomatiche false)');
         const aiutoIscrizioni = (await testo('#iscrizioni-aiuto')).replace(/\s+/g, ' ');
         vero(/Vale per chi si iscrive online dal modulo della «Pagina dell'evento sul sito»/.test(aiutoIscrizioni) && /Sei iscritto anche a…/.test(aiutoIscrizioni)
+            && /appena conferma il suo indirizzo con il pulsante «Conferma il tuo indirizzo email»/.test(aiutoIscrizioni) && /resta «da confermare»/.test(aiutoIscrizioni)
             && /accendilo dopo aver caricato e inviato la prima lista/.test(aiutoIscrizioni) && /^Spento:/.test(await testo('#iscrizioni-stato')),
-            'la spiegazione: vale per le iscrizioni online dal modulo della pagina dell\'evento, chi ha già un account riceve «Sei iscritto anche a…», da accendere dopo la prima lista — «' + await testo('#iscrizioni-stato') + '»', aiutoIscrizioni);
+            'la spiegazione: vale per le iscrizioni online dal modulo della pagina dell\'evento, la password dopo la conferma dell\'indirizzo, chi ha già un account riceve «Sei iscritto anche a…», da accendere dopo la prima lista — «' + await testo('#iscrizioni-stato') + '»', aiutoIscrizioni);
 
         // 409: la stessa pagina ha gia' l'invio automatico acceso su un altro evento (Roma, preparato con il servizio)
         const romaSullaPagina = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'roma-2026', paginaEvento: '/napoli_ottobre_2026/', iscrizioniAutomatiche: true } }, tokGestore);
         vero(romaSullaPagina.stato === 200 && romaSullaPagina.dati.evento.iscrizioniAutomatiche === true, 'preparato con il servizio: l\'evento di Roma con la stessa pagina e l\'invio automatico acceso', JSON.stringify(romaSullaPagina.dati).slice(0, 200));
         await leva.click();
-        await confermaDialogo(/Mandare subito la password a chi si iscrive dal sito\?.*\/napoli_ottobre_2026\/.*Sei iscritto anche a….*seconda password.*prima lista/s, 'Accendi l\'invio automatico');
+        await confermaDialogo(/Mandare la password a chi si iscrive dal sito\?.*\/napoli_ottobre_2026\/.*appena conferma il suo indirizzo.*«da confermare».*Sei iscritto anche a….*seconda password.*prima lista/s, 'Accendi l\'invio automatico');
         await aspetta(async () => await visibile('#msg-iscrizioni') && await $('#ev-iscrizioni-auto').getAttribute('aria-busy') !== 'true', 10000, 'risposta 409');
         vero(/già acceso per un altro evento con la stessa pagina \(«Next Generation Business 2026 · Roma»\): spegnilo lì prima di accenderlo qui/.test(await testo('#msg-iscrizioni'))
             && /msg-errore/.test(await $('#msg-iscrizioni').getAttribute('class')) && !(await interruttore.isChecked()) && await accesoSulServizio() === false
@@ -1142,7 +1143,7 @@ async function sheetJSNode() {
         await $('#ev-pagina').fill('');
         vero(/Modifiche salvate/.test(await salvaModulo()), 'tolta la pagina dell\'evento (salvato: l\'invio automatico è spento)');
         await leva.click();
-        await confermaDialogo(/Mandare subito la password/);
+        await confermaDialogo(/Mandare la password a chi si iscrive/);
         await aspetta(async () => await visibile('#msg-iscrizioni') && /Pagina dell'evento/.test(await testo('#msg-iscrizioni')), 10000, 'risposta 400');
         vero(/serve la «Pagina dell'evento» \(per esempio \/napoli_ottobre_2026\/\)\. Scrivila qui sopra, salva l'evento e poi riaccendi l'invio automatico\./.test(await testo('#msg-iscrizioni'))
             && await $('#ev-pagina').getAttribute('aria-invalid') === 'true' && !(await interruttore.isChecked()) && await accesoSulServizio() === false,
@@ -1159,13 +1160,13 @@ async function sheetJSNode() {
 
         // acceso
         await leva.click();
-        await confermaDialogo(/Mandare subito la password/, 'Accendi l\'invio automatico');
+        await confermaDialogo(/Mandare la password a chi si iscrive/, 'Accendi l\'invio automatico');
         await aspetta(async () => await interruttore.isChecked() && /Invio automatico acceso/.test(await testo('#msg-iscrizioni')), 10000, 'acceso');
         const pubblicoConInterruttore = (await db.doc('eventi/' + ID).get()).data();
         const riservatiAcceso = (await db.doc('eventiRiservati/' + ID).get()).data() || {};
         vero(await accesoSulServizio() === true && !('iscrizioniAutomatiche' in pubblicoConInterruttore) && !('iscrizioniAutomaticheDa' in pubblicoConInterruttore)
             && riservatiAcceso.iscrizioniAutomaticheDa && Date.now() - riservatiAcceso.iscrizioniAutomaticheDa.toMillis() < 60000
-            && /^Acceso: chi si iscrive online dal modulo di \/napoli_ottobre_2026\/ riceve subito la password\. Vale per chi si è iscritto dal \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\.$/.test(await testo('#iscrizioni-stato')),
+            && /^Acceso: chi si iscrive online dal modulo di \/napoli_ottobre_2026\/ riceve la password appena conferma il suo indirizzo\. Vale per chi si è iscritto dal \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\.$/.test(await testo('#iscrizioni-stato')),
             'acceso: eventiRiservati.iscrizioniAutomatiche true e il momento dell\'accensione (non nel documento pubblico, che i partecipanti leggono); accanto all\'interruttore da quando è acceso — «' + await testo('#iscrizioni-stato') + '»');
         await foto('evento-iscrizioni');
         // acceso, la pagina non si puo' togliere: evento-salva risponde 400 'pagina'
@@ -2239,6 +2240,49 @@ async function sheetJSNode() {
             '«Invia ora»: le credenziali partono al nuovo indirizzo, con la nuova email');
         const entraChloe = await api('diretta-accesso', { azione: 'entra', email: 'Chloe.Dupont@Dupont.example', password: pwChloe });
         vero(entraChloe.stato === 200 && entraChloe.dati.email === CHLOE2, 'e con l\'email nuova e la password dell\'email Chloé entra davvero');
+
+        /* ---------- 9b. chi non ha ancora confermato l'indirizzo ----------
+           Iscritta dal modulo del sito e non ancora confermata: la voce si
+           scrive qui con firebase-admin come la lascia lib/diretta-iscrizione.js
+           ('da confermare', origine 'modulo'). «Invia le credenziali» non la
+           raggiunge; «Invia anche a loro» si'. */
+        console.log('\n-- chi non ha ancora confermato l\'indirizzo (dal modulo del sito)');
+        const DORA = 'dora.daconfermare@esempio.it';
+        const creaDora = await api('diretta-gestione', { azione: 'crea', idEvento: ID, righe: [{ riga: 2, nome: 'Dora', cognome: 'Daconfermare', email: DORA, azienda: 'Prova srl' }] }, tokGestore);
+        const uidDora = await uidDi(DORA);
+        vero(creaDora.stato === 200 && !!uidDora, 'Dora nell\'evento (poi, come la lascia il modulo del sito, «da confermare»)');
+        await db.doc('partecipanti/' + uidDora).update({ origine: 'modulo', ['invii.' + ID + '.stato']: 'da confermare', ['invii.' + ID + '.origine']: 'modulo' });
+        await page.click('[data-scheda="partecipanti"]');
+        await $('#btn-aggiorna-partecipanti').click();
+        await aspetta(async () => (await (await rp(DORA)).locator('.stato-email').textContent()) === 'da confermare', 10000, 'Dora da confermare');
+        const rigaDora = await rp(DORA);
+        vero(/non ha ancora confermato l'indirizzo dalla mail del sito/.test(await rigaDora.locator('td[data-label="Email credenziali"]').textContent())
+            && (await rigaDora.locator('button[data-op="reinvia"]').textContent()).trim() === 'Invia ora' && /stato-da-confermare/.test(await rigaDora.locator('.stato-email').getAttribute('class')),
+        'nell\'elenco: «da confermare» (in giallo), con la spiegazione, e «Invia ora»');
+        await $('#filtro-stato-email').selectOption('da confermare');
+        vero((await visibiliElenco()).length === 1, 'il filtro «Da confermare (dal modulo del sito)» la trova da sola');
+        await $('#filtro-stato-email').selectOption('');
+        await page.click('[data-scheda="email"]');
+        // il riquadro si disegna subito dall'elenco; i conteggi arrivano dal servizio (email-stato) un attimo dopo
+        await aspetta(async () => await visibile('#blocco-da-confermare') && /Invia anche a loro \(1\)/.test(await testo('#btn-invia-da-confermare'))
+            && await testo('#conteggi-email li[data-stato="da confermare"] .conteggio-num') === '1', 10000, 'riquadro e conteggio «da confermare»');
+        vero(await testo('#conteggi-email li[data-stato="da confermare"] .conteggio-num') === '1'
+            && /^1 persona iscritta dal modulo del sito non ha ancora confermato l'indirizzo: la password parte da sola quando clicca «Conferma il tuo indirizzo email» nella mail del sito\. «Invia le credenziali» non la raggiunge\.$/.test(await testo('#testo-da-confermare'))
+            && !/\(1\)|\(2\)/.test(await testo('#btn-invia-tutti')),
+        'scheda Email: il conteggio «da confermare», la spiegazione, e «Invia le credenziali» non la conta — «' + await testo('#testo-da-confermare') + '» / «' + await testo('#btn-invia-tutti') + '»');
+        await $('#btn-copia-da-confermare').click();
+        await aspetta(async () => await visibile('#indirizzi-da-confermare') && (await testo('#esito-copia-da-confermare')).length > 0, 5000, 'indirizzi copiati');
+        vero(await testo('#indirizzi-da-confermare') === DORA && /(1 indirizzo copiato: incollali nel campo «Ccn»|Testo selezionato)/.test(await testo('#esito-copia-da-confermare')),
+            '«Copia gli indirizzi»: ' + await testo('#esito-copia-da-confermare'));
+        await $('#blocco-da-confermare').scrollIntoViewIfNeeded();
+        await foto('email-da-confermare');
+        await $('#btn-invia-da-confermare').click();
+        await confermaDialogo(/Mandare la password anche a chi non ha confermato l'indirizzo\?.*1 persona iscritta dal modulo del sito riceve adesso.*indirizzo scritto male.*Copia gli indirizzi/s, 'Invia a 1 persona');
+        await aspetta(async () => postaPer(DORA, 'credenziali').length === 1 && ((await partecipante(DORA)).invii[ID] || {}).stato === 'inviata', 30000, 'credenziali a Dora');
+        vero(chiamate('email-accoda').pop().dati.chi === 'da-confermare', '«Invia anche a loro»: email-accoda con chi: da-confermare, e la password le arriva');
+        await $('#btn-aggiorna-email').click();
+        await aspetta(async () => !(await visibile('#blocco-da-confermare')), 10000, 'riquadro sparito');
+        vero(true, 'raggiunte tutte: il riquadro «non hanno ancora confermato» sparisce');
 
         /* ---------- 10. accessibilita' e tastiera ---------- */
         console.log('\n-- accessibilità');

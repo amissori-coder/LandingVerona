@@ -90,8 +90,9 @@
                       sopra, con presenza), accessi: [{ quando, email,
                       nome, cognome, azienda, dispositivo }] }
      evento-iscrizioni { idEvento, iscrizioniAutomatiche: true|false }
-                      -> { evento }: l'interruttore «Invia subito la
-                      password a chi si iscrive dal modulo del sito»
+                      -> { evento }: l'interruttore «Invia la password a
+                      chi si iscrive dal modulo del sito, dopo che ha
+                      confermato l'indirizzo»
                       (anche dentro evento-salva: evento.iscrizioniAutomatiche);
                       acceso vuole la pagina dell'evento (400 'pagina'),
                       una pagina lo puo' avere acceso su un evento solo
@@ -137,7 +138,7 @@ const A = require('../lib/diretta-ascolti');
 const { contesto } = require('../lib/diretta-firebase');
 
 const TIPI_PROVA = ['credenziali', 'iscritto-anche', 'promemoria-giorno', 'promemoria-ora'];
-const CHI_ACCODA = ['da-inviare', 'non-ricevuta'];
+const CHI_ACCODA = ['da-inviare', 'non-ricevuta', 'da-confermare'];
 const PROVE_LINK_MINUTO = 30;
 
 function invio() {
