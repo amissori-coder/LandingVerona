@@ -1145,6 +1145,8 @@ tr.riga-nota { background: var(--blu-velo); }
 .g-colonne.con-scelta .g-colonna:not(.scelta) { opacity: 0.4; }
 
 .ascolti-cali { font-size: 0.86rem; color: var(--testo); }
+.ascolti-buchi:empty { display: none; }
+.g-asterisco { font-size: 14px; }
 .ascolti-cali:empty { display: none; }
 .ascolti-cali strong { color: var(--rosso-scuro); }
 
@@ -1190,10 +1192,11 @@ tr.riga-nota { background: var(--blu-velo); }
 .media-num { flex: 0 0 5ch; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--scuro); }
 .senza-dati { font-size: 0.82rem; color: var(--tenue-2); font-style: italic; }
 
-/* ---------- d) ed e): ingressi e dispositivi, affiancati sul computer ---------- */
-.ascolti-griglia { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 1100px) { .ascolti-griglia { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); } }
-.dispositivi { display: flex; flex-direction: column; gap: 18px; }
+/* ---------- d) ed e): ingressi (larghi quanto il grafico sopra, con le stesse ore) e dispositivi ---------- */
+.ascolti-griglia { display: flex; flex-direction: column; gap: 20px; }
+.dispositivi { display: grid; gap: 18px 36px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .dispositivi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.dispositivi > .aiuto, .dispositivi > .tabella-vuota { grid-column: 1 / -1; }
 .disp-gruppo h3 {
     font-family: inherit; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
     color: var(--tenue-2); margin-bottom: 8px;
@@ -1206,17 +1209,19 @@ tr.riga-nota { background: var(--blu-velo); }
 .disp-numero { min-width: 8ch; text-align: right; white-space: nowrap; color: var(--tenue); font-variant-numeric: tabular-nums; }
 
 /* ---------- f) le persone ---------- */
-.tabella-persone .col-persona { min-width: 210px; }
+/* dieci colonne in una riga: le intestazioni vanno a capo, cosi' le colonne dei numeri restano strette */
+.tabella-persone thead th, .tabella-persone thead th.num { white-space: normal; vertical-align: bottom; }
+.tabella-persone .col-persona { min-width: 250px; }
 .tabella-persone .persona, .tabella-non-collegati .persona { font-weight: 600; color: var(--scuro); }
 .persona-email { display: block; font-size: 0.78rem; font-weight: 400; color: var(--tenue); overflow-wrap: anywhere; }
-.tabella-persone td[data-label="Azienda"] { min-width: 130px; }
+.tabella-persone td[data-label="Azienda"] { min-width: 110px; }
 .tabella-persone td[data-label="Primo ingresso"], .tabella-persone td[data-label="Ultima presenza"] { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tabella-persone .col-dispositivi { min-width: 130px; font-size: 0.8rem; color: var(--tenue); }
+.tabella-persone .col-dispositivi { min-width: 110px; font-size: 0.8rem; color: var(--tenue); }
 .tabella-persone .col-azione { white-space: nowrap; }
 /* ordinare cliccando le intestazioni: la freccia dice il verso */
 .tabella th .ordina {
     display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; border: 0; background: none; cursor: pointer;
-    font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; border-radius: 3px;
+    font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; text-align: inherit; border-radius: 3px;
 }
 .tabella th .ordina::after { content: '\2195'; font-size: 0.95em; opacity: 0.45; }
 .tabella th[aria-sort="ascending"] .ordina::after { content: '\2191'; opacity: 1; }
@@ -1259,6 +1264,7 @@ tr.riga-nota { background: var(--blu-velo); }
 .definizioni strong { color: var(--testo); }
 .ascolti-nota { margin-top: 6px; max-width: 110ch; }
 .solo-stampa { display: none; }
+#programma-nota { margin-bottom: 12px; }
 
 /* ---------- tablet e telefono ----------
    Le tabelle della scheda diventano schede come le altre (vedi sopra):
@@ -1269,10 +1275,21 @@ tr.riga-nota { background: var(--blu-velo); }
 @media (max-width: 900px) {
     .tabella-ascolti tbody th { display: block; width: 100%; grid-column: 1 / -1; padding: 4px 0 6px; border: 0; }
     .tabella-programma .col-voce, .tabella-persone .col-persona, .tabella-persone td[data-label], .tabella-non-collegati .col-email { min-width: 0; }
-    .tabella-programma td.col-media { grid-column: 1 / -1; }
+    /* la scheda di una voce: il titolo, poi orario, massimo e minimo in una riga, poi la barra della media */
+    .tabella-programma tbody tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .tabella-programma td.col-media { grid-column: 1 / -1; order: 5; }
     .media { min-width: 0; }
-    .tabella-programma tr.migliore { border-color: var(--grafico); box-shadow: inset 4px 0 0 var(--grafico); }
-    .tabella-programma tr.migliore th { box-shadow: none; }
+    .tabella-programma tr.migliore { border-color: var(--grafico); box-shadow: inset 4px 0 0 var(--grafico); background: #F1F6FB; }
+    .tabella-programma tr.migliore th, .tabella-programma tr.migliore td { box-shadow: none; background: none; }
+    /* la scheda di una persona: azienda e stato, poi tre numeri per riga, poi il pulsante */
+    .tabella-persone tbody tr[data-uid] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .tabella-persone tbody tr[data-uid] > td { grid-column: span 2; }
+    .tabella-persone tbody tr[data-uid] > td[data-label="Azienda"], .tabella-persone tbody tr[data-uid] > td[data-label="Stato"],
+    .tabella-persone tbody tr[data-uid] > td[data-label="% vista"], .tabella-persone tbody tr[data-uid] > td[data-label="Collegamenti"] { grid-column: span 3; }
+    .tabella-persone tbody tr[data-uid] > td.col-azione, .tabella-persone tbody tr[data-uid] > td.col-dispositivi { grid-column: 1 / -1; }
+    .tabella-persone td[data-label="Primo ingresso"], .tabella-persone td[data-label="Ultima presenza"] { white-space: normal; }
+    .tabella-non-collegati tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tabella-non-collegati td.col-email { grid-column: 1 / -1; }
     .tabella-persone tr.riga-linea { padding: 8px 10px; background: var(--chiaro); }
     .tabella-persone tr.riga-linea td { background: none; }
     .tabella-persone .col-azione .btn { min-height: 38px; }
@@ -1315,7 +1332,8 @@ tr.riga-nota { background: var(--blu-velo); }
     #scheda-ascolti { gap: 10px; }
     #scheda-ascolti .btn, #scheda-ascolti .cerca-riga, #scheda-ascolti .dati-grafico, #scheda-ascolti .msg,
     #scheda-ascolti .grafico-suggerimento, #scheda-ascolti .solo-telefono, #riquadro-persone { display: none !important; }
-    #scheda-ascolti .solo-stampa { display: block; }
+    #scheda-ascolti .solo-stampa { display: block; padding: 0 14px; font-size: 0.85rem; }
+    #scheda-ascolti .solo-schermo { display: none; }
     #scheda-ascolti .riquadro { box-shadow: none; border-color: #CBD5E1; padding: 12px 14px; break-inside: avoid; page-break-inside: avoid; }
     #scheda-ascolti .riquadro-testa { margin-bottom: 10px; }
     #scheda-ascolti .grafico-scorri, #scheda-ascolti .tabella-contenitore { overflow: visible; }

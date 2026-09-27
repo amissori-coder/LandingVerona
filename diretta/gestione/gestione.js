@@ -4690,22 +4690,26 @@
         d.persone = lista(r.persone);
         d.accessi = lista(r.accessi);
         d.persone.forEach(p => {
-            p._cerca = perRicerca([p.nome + ' ' + p.cognome, p.cognome + ' ' + p.nome, p.email, p.azienda].join(' | '));
+            const nome = p.nome || '', cognome = p.cognome || '';
+            p._cerca = perRicerca([nome + ' ' + cognome, cognome + ' ' + nome, p.email, p.azienda].join(' | '));
             p._compatto = compatto((p.nome || '') + (p.cognome || '')) + '|' + compatto((p.cognome || '') + (p.nome || '')) + '|' + compatto(p.email);
         });
         d.perUid = new Map(d.persone.map(p => [p.uid, p]));
         d.perT = new Map(d.curva.map((p, i) => [p.t, i]));
         d.dominio = dominioAscolti(d);
+        d.buchi = buchiDi(d);
         return d;
     }
 
     /* Il tratto di tempo dei grafici (lo stesso per la curva, gli ingressi
-       e la linea del tempo di ogni persona): dalla prima fotografia (o
-       dall'inizio dell'evento, se viene prima) all'ultima (o alla fine
-       prevista, se la diretta e' ancora in corso), arrotondato al quarto
-       d'ora. */
+       e la linea del tempo di ogni persona): dal primo minuto con qualcuno
+       collegato (o dall'inizio dell'evento, se viene prima) all'ultimo (o
+       alla fine prevista, se la diretta e' ancora in corso), arrotondato al
+       quarto d'ora. Le fotografie cominciano due ore prima dell'inizio:
+       i minuti vuoti in testa e in coda non si disegnano (restano nella
+       tabella dei dati e nell'Excel). */
     function dominioAscolti(d) {
-        const c = d.curva;
+        const c = d.curva.filter(p => p.n > 0 || p.stato === 'o' || p.stato === 'p');
         const ev = d.evento;
         let da = c.length ? c[0].t : Infinity;
         let a = c.length ? c[c.length - 1].t + MINUTO_MS : -Infinity;
@@ -4718,11 +4722,31 @@
         if (a <= da) a = da + 60 * MINUTO_MS;
         return { da: da, a: a };
     }
-    // una pausa finisce alla fine del suo ultimo minuto (se 'a' e' quel minuto)
+    /* Dove finisce una pausa: il servizio manda la fine dell'ultimo minuto
+       in pausa; se 'a' fosse invece l'inizio di quel minuto (un punto della
+       curva in pausa), la fascia arriva comunque alla sua fine. */
     function finePausa(d, pausa) {
         const i = d.perT.get(pausa.a);
         return i != null && d.curva[i].stato === 'p' ? pausa.a + MINUTO_MS : pausa.a;
     }
+    /* I tratti senza fotografie lunghi piu' di 3 minuti (il cron che per
+       qualche motivo non e' partito): la linea li mostra come un buco, e
+       dopo un buco chi era gia' collegato risulta «rientrato» (per il
+       servizio comincia un periodo nuovo). La pagina lo dice a parole.
+       { da, a } = il primo e l'ultimo minuto mancanti; ripresa = la prima
+       fotografia dopo. */
+    function buchiDi(d) {
+        const out = [];
+        d.curva.forEach((p, i) => {
+            const prima = d.curva[i - 1];
+            if (prima && p.t - prima.t > BUCO_MS) out.push({ da: prima.t + MINUTO_MS, a: p.t - MINUTO_MS, ripresa: p.t });
+        });
+        return out;
+    }
+    const intervalloMancante = b => 'dalle ' + oraLeggibile(b.da) + ' alle ' + oraLeggibile(b.a);
+    // la fascia di 5 minuti in cui riprendono le fotografie dopo un buco
+    const fasciaDi = t => Math.floor(t / (5 * MINUTO_MS)) * 5 * MINUTO_MS;
+
     // la voce del programma in cui cade un istante (numerata da 1, come nella tabella)
     function voceDi(d, t) {
         const i = d.programma.findIndex(v => v && v.da != null && v.a != null && t >= v.da && t < v.a);
@@ -4793,7 +4817,7 @@
         navGrafico.conf = null;
         navIngressi.conf = null;
         document.querySelectorAll('#scheda-ascolti .grafico-cornice svg').forEach(n => n.remove());
-        ['#ascolti-suggerimento', '#ingressi-suggerimento', '#ascolti-grafico', '#ascolti-ingressi',
+        ['#ascolti-suggerimento', '#ingressi-suggerimento', '#ascolti-grafico', '#ascolti-ingressi', '#programma-nota',
             '#ascolti-grafico-vuoto', '#ascolti-ingressi-vuoto', '#programma-vuoto', '#persone-vuoto', '#non-collegati-vuoto',
             '#btn-altre-persone', '#ascolti-nota', '#non-collegati-altri'].forEach(s => { $(s).hidden = true; });
         document.querySelectorAll('#ascolti-tessere .tessera').forEach(li => {
@@ -4802,7 +4826,7 @@
         });
         ['#tabella-curva tbody', '#tabella-ingressi tbody', '#tabella-programma tbody', '#tabella-persone tbody',
             '#tabella-non-collegati tbody', '#ascolti-dispositivi'].forEach(s => svuota($(s)));
-        ['#ascolti-evento', '#ascolti-aggiornato', '#ascolti-cali', '#conta-persone', '#conta-non-collegati', '#persone-mostrate'].forEach(s => { $(s).textContent = ''; });
+        ['#ascolti-evento', '#ascolti-aggiornato', '#ascolti-cali', '#ascolti-buchi', '#ingressi-buchi', '#conta-persone', '#conta-non-collegati', '#persone-mostrate'].forEach(s => { $(s).textContent = ''; });
         $('#btn-copia-indirizzi').disabled = true;
         nascondiMsg('#msg-ascolti');
         nascondiMsg('#msg-non-collegati');
@@ -4814,7 +4838,10 @@
         const ev = d.evento;
         const quando = ev.inizio ? dataEstesa(ev.inizio) + ', dalle ' + oraLeggibile(ev.inizio) + (ev.fine ? ' alle ' + oraLeggibile(ev.fine) : '') : '';
         $('#ascolti-evento').textContent = [ev.titolo || ev.id || stato.idEvento, quando, ETICHETTE_STATO[ev.stato] || ''].filter(Boolean).join(' · ');
-        $('#ascolti-aggiornato').textContent = 'Aggiornato alle ' + oraLeggibile(d.calcolato || Date.now()) + ' · si aggiorna da solo ogni minuto';
+        const aggiornato = $('#ascolti-aggiornato');
+        svuota(aggiornato);
+        // in stampa resta solo l'ora dei dati
+        aggiornato.append('Aggiornato alle ' + oraLeggibile(d.calcolato || Date.now()), el('span', { classe: 'solo-schermo', testo: ' · si aggiorna da solo ogni minuto' }));
         disegnaRiepilogo(d);
         disegnaGrafici(d);
         disegnaTabellaCurva(d);
@@ -4859,9 +4886,11 @@
             iscritti > inviate ? conNumero(iscritti - inviate, 'ancora da inviare', 'ancora da inviare') : (iscritti ? 'a tutti gli iscritti' : ''));
         tessera('entrati', numeroIt(k.entrati), iscritti ? numeroIt(k.entratiPercento) + '% degli iscritti' : '');
         tessera('visto', numeroIt(k.hannoVisto), 'con la diretta in onda');
-        tessera('picco', k.picco ? numeroIt(k.picco.n) : '–', k.picco ? 'alle ' + oraLeggibile(k.picco.t) : 'nessun minuto in onda');
-        tessera('minimo', k.minimo ? numeroIt(k.minimo.n) : '–', k.minimo ? 'alle ' + oraLeggibile(k.minimo.t) : 'nessun minuto in onda');
-        tessera('media', k.minutiInOnda ? numeroIt(k.media, 1) : '–', k.minutiInOnda ? 'su ' + durataTesto(k.minutiInOnda) + ' in onda' : 'nessun minuto in onda');
+        // senza fotografie non c'e' ancora niente da dire; con le fotografie ma senza minuti in onda, lo si dice
+        const senza = d.registrazione.attiva ? 'nessun minuto in onda' : 'ancora nessun dato';
+        tessera('picco', k.picco ? numeroIt(k.picco.n) : '–', k.picco ? 'alle ' + oraLeggibile(k.picco.t) : senza);
+        tessera('minimo', k.minimo ? numeroIt(k.minimo.n) : '–', k.minimo ? 'alle ' + oraLeggibile(k.minimo.t) : senza);
+        tessera('media', k.minutiInOnda ? numeroIt(k.media, 1) : '–', k.minutiInOnda ? 'su ' + durataTesto(k.minutiInOnda) + ' in onda' : senza);
         tessera('tempo', k.hannoVisto ? valoreDurata(k.tempoMedioMinuti) : '–', k.hannoVisto ? 'per chi ha visto' : '');
         tessera('ore', numeroIt(k.oreTotali, 1), 'sommando tutte le persone');
     }
@@ -5006,10 +5035,15 @@
             if (xDato < c.sinistra - 12 || xDato > c.destra + 12) { if (e.type !== 'click') nascondi(); return; }
             mostra(c.vicino(xDato));
         }
+        /* Il fuoco che arriva da un tocco o da un clic non mostra il picco
+           (lo fa solo quello della tastiera): subito dopo arriva il clic, con
+           il punto scelto dal dito, e il grafico non deve scorrere nel mezzo. */
+        let dalPuntatore = false;
+        cornice.addEventListener('pointerdown', () => { dalPuntatore = true; });
         cornice.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') daPuntatore(e); });
         cornice.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && document.activeElement !== cornice) nascondi(); });
         // il tocco (e il clic): il punto piu' vicino al dito resta scritto finche' non si tocca altrove
-        cornice.addEventListener('click', daPuntatore);
+        cornice.addEventListener('click', e => { dalPuntatore = false; daPuntatore(e); });
         cornice.addEventListener('keydown', e => {
             const c = nav.conf;
             if (!c || !c.quanti) return;
@@ -5024,8 +5058,11 @@
             e.preventDefault();
             mostra(i, true);
         });
-        cornice.addEventListener('focus', () => { if (nav.indice < 0 && nav.conf && nav.conf.quanti) mostra(nav.conf.inizio(), true); });
-        cornice.addEventListener('blur', nascondi);
+        cornice.addEventListener('focus', () => {
+            if (dalPuntatore) { dalPuntatore = false; return; }
+            if (nav.indice < 0 && nav.conf && nav.conf.quanti) mostra(nav.conf.inizio(), true);
+        });
+        cornice.addEventListener('blur', () => { dalPuntatore = false; nascondi(); });
         // dopo un nuovo disegno (dati aggiornati, larghezza cambiata) il punto scelto resta quello
         nav.ridisegnato = () => {
             if (nav.chiave == null || !nav.conf) { riquadrino.hidden = true; return; }
@@ -5086,9 +5123,8 @@
         return inizio + 'da due ore prima dell\'inizio fino alla fine della diretta. Per questo evento non c\'è ancora nessuna fotografia:'
             + ' il grafico comparirà con la prima (ne arriva una al minuto).' + intanto;
     }
-    function riassuntoGrafico(d) {
+    function riassuntoGrafico(d, c) {
         const k = d.riepilogo;
-        const c = d.curva;
         const pezzi = ['Spettatori minuto per minuto, dalle ' + oraLeggibile(c[0].t) + ' alle ' + oraLeggibile(c[c.length - 1].t) + '.'];
         if (k.picco) pezzi.push('Picco: ' + spettatori(k.picco.n) + ' alle ' + oraLeggibile(k.picco.t) + '.');
         if (k.minimo) pezzi.push('Minimo in onda: ' + spettatori(k.minimo.n) + ' alle ' + oraLeggibile(k.minimo.t) + '.');
@@ -5113,13 +5149,18 @@
         const cornice = $('#ascolti-cornice');
         const vecchio = cornice.querySelector('svg');
         if (vecchio) vecchio.remove();
-        const c = d.curva;
         const dom = d.dominio;
-        const attiva = !!(d.registrazione && d.registrazione.attiva) && c.length > 0 && !!dom;
+        // i minuti da disegnare (quelli vuoti prima e dopo restano fuori: vedi dominioAscolti)
+        const c = dom ? d.curva.filter(p => p.t >= dom.da && p.t < dom.a) : [];
+        const perT = new Map(c.map((p, i) => [p.t, i]));
+        const registrata = !!(d.registrazione && d.registrazione.attiva) && d.curva.length > 0;
+        const attiva = registrata && c.length > 0;
         $('#ascolti-grafico').hidden = !attiva;
         $('#ascolti-grafico-vuoto').hidden = attiva;
         if (!attiva) {
-            $('#ascolti-grafico-vuoto').textContent = testoSenzaDati(d);
+            $('#ascolti-grafico-vuoto').textContent = registrata
+                ? 'Le fotografie dei collegati sono cominciate alle ' + oraLeggibile(d.curva[0].t) + ': per ora nessuno ha aperto la pagina della diretta. Il grafico comparirà con i primi collegati.'
+                : testoSenzaDati(d);
             navGrafico.conf = null;
             $('#ascolti-suggerimento').hidden = true;
             return;
@@ -5136,7 +5177,7 @@
         const tt = tacche(Math.max.apply(null, c.map(p => p.n).concat([k.picco ? k.picco.n : 0, 1])) * 1.12);
         const y = n => fondo - (n / tt.alto) * altezzaDati;
         const svg = svgEl('svg', {
-            classe: 'grafico-svg', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': riassuntoGrafico(d),
+            classe: 'grafico-svg', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': riassuntoGrafico(d, c),
             // la scala, per chi controlla il disegno (le prove): tempo -> x, spettatori -> y
             'data-da': dom.da, 'data-a': dom.a, 'data-sinistra': M.sinistra, 'data-destra': destra,
             'data-alto': M.alto, 'data-fondo': fondo, 'data-massimo': tt.alto
@@ -5218,37 +5259,56 @@
             }
         });
 
-        // i tre cali piu' forti: il tratto della curva in rosso e la perdita scritta sotto
+        /* Picco e minimo (il punto e la scritta), poi i tre cali piu' forti (il
+           tratto della curva in rosso e la perdita). Le scritte non si pestano:
+           ognuna si mette nel primo posto libero fra alcuni vicini al suo
+           segno, dentro il grafico; picco e minimo scelgono per primi. */
         const gSegni = livello('g-segni');
-        d.cali.forEach((calo, i) => {
-            const punti = c.filter(p => p.t >= calo.t && p.t <= calo.t + 5 * MINUTO_MS);
-            if (punti.length < 2) return;
-            const g = svgEl('g', { classe: 'g-calo', 'data-t': calo.t, 'data-perdita': calo.perdita });
-            g.appendChild(svgEl('path', { d: linea(punti) }));
-            const fine = punti[punti.length - 1];
-            g.appendChild(svgEl('text', {
-                classe: 'g-etichetta g-etichetta-calo', x: tondo((x(punti[0].t) + x(fine.t)) / 2), y: tondo(Math.min(fondo - 6, y(fine.n) + 18)),
-                'text-anchor': 'middle', testo: '−' + numeroIt(calo.perdita)
-            }));
-            gSegni.appendChild(g);
-        });
-
-        // picco e minimo: il punto, e la scritta che non esce dal grafico
+        const occupati = [];
+        const scatola = (tx, ty, scritta, px, ancora) => {
+            const w = larghezzaTesto(scritta, px, 700);
+            const x0 = ancora === 'start' ? tx : (ancora === 'end' ? tx - w : tx - w / 2);
+            return [x0 - 2, ty - px, x0 + w + 2, ty + 4];
+        };
+        const libero = b => b[0] >= M.sinistra && b[2] <= destra && b[1] >= M.alto && b[3] <= fondo
+            && occupati.every(o => b[2] < o[0] || b[0] > o[2] || b[3] < o[1] || b[1] > o[3]);
+        const scegli = (candidati, scritta, px) => {
+            const buono = candidati.find(c => libero(scatola(c[0], c[1], scritta, px, c[2]))) || candidati[0];
+            occupati.push(scatola(buono[0], buono[1], scritta, px, buono[2]));
+            return buono;
+        };
         const segno = (o, classe, scritta, sopra) => {
             const px = tondo(x(o.t));
             const py = tondo(y(o.n));
             const g = svgEl('g', { classe: classe, 'data-t': o.t, 'data-n': o.n });
             g.appendChild(svgEl('circle', { cx: px, cy: py, r: 5 }));
-            const largo = larghezzaTesto(scritta, 12, 700);
-            let ancora = 'middle';
-            if (px - largo / 2 < M.sinistra + 2) ancora = 'start';
-            else if (px + largo / 2 > destra - 2) ancora = 'end';
-            const ty = sopra || py + 24 > fondo - 4 ? Math.max(M.alto + 12, py - 12) : py + 24;
-            g.appendChild(svgEl('text', { classe: 'g-etichetta', x: ancora === 'start' ? px - 6 : (ancora === 'end' ? px + 6 : px), y: tondo(ty), 'text-anchor': ancora, testo: scritta }));
+            occupati.push([px - 7, py - 7, px + 7, py + 7]);
+            // centrata sul punto (sopra o sotto), o spostata di lato vicino ai bordi del grafico
+            const su = Math.max(M.alto + 14, py - 12), giu = py + 24;
+            const verticali = sopra ? [su, giu] : [giu, su];
+            const candidati = [];
+            verticali.forEach(ty => { candidati.push([px, ty, 'middle'], [px - 6, ty, 'start'], [px + 6, ty, 'end']); });
+            const c = scegli(candidati, scritta, 12);
+            g.appendChild(svgEl('text', { classe: 'g-etichetta', x: tondo(c[0]), y: tondo(c[1]), 'text-anchor': c[2], testo: scritta }));
             gSegni.appendChild(g);
         };
-        if (k.minimo) segno(k.minimo, 'g-minimo', 'Minimo ' + numeroIt(k.minimo.n) + ' alle ' + oraLeggibile(k.minimo.t), false);
         if (k.picco) segno(k.picco, 'g-picco', 'Picco ' + numeroIt(k.picco.n) + ' alle ' + oraLeggibile(k.picco.t), true);
+        if (k.minimo) segno(k.minimo, 'g-minimo', 'Minimo ' + numeroIt(k.minimo.n) + ' alle ' + oraLeggibile(k.minimo.t), false);
+        const primoSegno = gSegni.firstChild;
+        d.cali.forEach(calo => {
+            const punti = c.filter(p => p.t >= calo.t && p.t <= calo.t + 5 * MINUTO_MS);
+            if (punti.length < 2) return;
+            const g = svgEl('g', { classe: 'g-calo', 'data-t': calo.t, 'data-perdita': calo.perdita });
+            g.appendChild(svgEl('path', { d: linea(punti) }));
+            const inizio = punti[0], fine = punti[punti.length - 1];
+            const x0 = x(inizio.t), y0 = y(inizio.n), x1 = x(fine.t), y1 = y(fine.n);
+            const xm = (x0 + x1) / 2, ym = (y0 + y1) / 2;
+            const scritta = '−' + numeroIt(calo.perdita);
+            const scelto = scegli([[xm + 8, ym + 4, 'start'], [x1, y1 + 18, 'middle'], [x0 - 8, y0 + 4, 'end'], [x0, y0 - 10, 'middle'], [xm - 8, ym + 4, 'end']], scritta, 11);
+            g.appendChild(svgEl('text', { classe: 'g-etichetta g-etichetta-calo', x: tondo(scelto[0]), y: tondo(scelto[1]), 'text-anchor': scelto[2], testo: scritta }));
+            // il calo sotto i punti di picco e minimo (disegnati dopo, restano sopra)
+            gSegni.insertBefore(g, primoSegno);
+        });
 
         // il mirino: la riga verticale e il punto del minuto scelto
         const mirino = svgEl('line', { classe: 'g-mirino', x1: 0, x2: 0, y1: M.alto, y2: fondo, visibility: 'hidden' });
@@ -5257,14 +5317,14 @@
         svg.appendChild(fuoco);
 
         cornice.insertBefore(svg, cornice.firstChild);
-        const inizioT = k.picco && d.perT.has(k.picco.t) ? d.perT.get(k.picco.t) : 0;
+        const inizioT = k.picco && perT.has(k.picco.t) ? perT.get(k.picco.t) : 0;
         navGrafico.conf = {
             quanti: c.length, larghezza: W, sinistra: M.sinistra, destra: destra, salto: 10,
             x: i => x(c[i].t), y: i => y(c[i].n),
             vicino: xd => puntoVicino(c, dom.da + (xd - M.sinistra) * (dom.a - dom.da) / (destra - M.sinistra)),
             testo: i => righeMinuto(d, c[i]),
             chiave: i => c[i].t,
-            trova: t => (d.perT.has(t) ? d.perT.get(t) : -1),
+            trova: t => (perT.has(t) ? perT.get(t) : -1),
             inizio: () => inizioT,
             evidenzia: i => {
                 const vis = i >= 0 ? 'visible' : 'hidden';
@@ -5310,8 +5370,11 @@
         tb.appendChild(frammento);
     }
 
-    // i cali anche a parole, sotto il grafico
+    // i cali anche a parole, sotto il grafico (e i minuti senza dati, se ce ne sono)
     function disegnaCali(d) {
+        const buchi = $('#ascolti-buchi');
+        buchi.textContent = d.buchi.length && !$('#ascolti-grafico').hidden
+            ? 'Mancano i dati ' + d.buchi.map(intervalloMancante).join(' e ') + ': lì la linea si interrompe.' : '';
         const p = $('#ascolti-cali');
         svuota(p);
         if (!d.cali.length || $('#ascolti-grafico').hidden) return;
@@ -5345,7 +5408,8 @@
             return;
         }
         const W = larghezzaGrafico(cornice);
-        const M = { sinistra: 40, destra: 16, alto: 12, basso: 30 };
+        // gli stessi margini del grafico sopra: le ore cadono una sotto l'altra
+        const M = { sinistra: 48, destra: 20, alto: 12, basso: 30 };
         const altezzaDati = 160;
         const fondo = M.alto + altezzaDati;
         const H = fondo + M.basso;
@@ -5356,6 +5420,10 @@
         const totPrimi = dati.reduce((s, b) => s + (Number(b.primi) || 0), 0);
         const totRientri = dati.reduce((s, b) => s + (Number(b.rientri) || 0), 0);
         const massimo = dati.reduce((m, b) => ((Number(b.primi) || 0) > (Number(m.primi) || 0) ? b : m), dati[0]);
+        // le fasce subito dopo un buco dei dati: i loro «rientri» sono in buona parte di chi era gia' collegato
+        const dopoBuco = new Map(d.buchi.map(b => [fasciaDi(b.ripresa), b]));
+        $('#ingressi-buchi').textContent = d.buchi.filter(b => dati.some(x => x.t === fasciaDi(b.ripresa))).map(b => '* Mancano i dati ' + intervalloMancante(b)
+            + ': chi era già collegato risulta «rientrato» alle ' + oraLeggibile(b.ripresa) + '.').join(' ');
         const svg = svgEl('svg', {
             classe: 'grafico-svg', viewBox: '0 0 ' + W + ' ' + H, role: 'img',
             'aria-label': 'Ingressi ogni 5 minuti: ' + conNumero(totPrimi, 'primo ingresso', 'primi ingressi') + ' e ' + conNumero(totRientri, 'rientro', 'rientri')
@@ -5385,6 +5453,10 @@
                 const sopra = fondo - hP - (hP > 0 ? 2 : 0);
                 g.appendChild(svgEl('path', { classe: 'g-rientri', d: percorsoColonna(xb, sopra - hR, largo, hR, 4) }));
             }
+            if (dopoBuco.has(b.t)) {
+                g.setAttribute('class', 'g-colonna dopo-buco');
+                g.appendChild(svgEl('text', { classe: 'g-etichetta g-asterisco', x: tondo(xb + largo / 2), y: tondo(fondo - hP - hR - 6), 'text-anchor': 'middle', testo: '*' }));
+            }
             gColonne.appendChild(g);
             return { g: g, x: xb + largo / 2, y: fondo - hP - hR };
         });
@@ -5399,7 +5471,7 @@
                 conNumero(Number(dati[i].primi) || 0, 'primo ingresso', 'primi ingressi'),
                 conNumero(Number(dati[i].rientri) || 0, 'rientro', 'rientri'),
                 'dalle ' + oraLeggibile(dati[i].t) + ' alle ' + oraLeggibile(dati[i].t + 5 * MINUTO_MS)
-            ],
+            ].concat(dopoBuco.has(dati[i].t) ? ['* prima mancano i dati: molti rientri sono di chi era già collegato'] : []),
             chiave: i => dati[i].t,
             trova: t => (perT.has(t) ? perT.get(t) : -1),
             inizio: () => perT.get(massimo.t) || 0,
@@ -5416,7 +5488,7 @@
         d.ingressi.forEach(b => tb.appendChild(el('tr', {}, [
             el('td', { 'data-label': 'Dalle', testo: oraLeggibile(b.t) + '–' + oraLeggibile(b.t + 5 * MINUTO_MS) }),
             el('td', { 'data-label': 'Primi ingressi', classe: 'num', testo: numeroIt(b.primi || 0) }),
-            el('td', { 'data-label': 'Rientri', classe: 'num', testo: numeroIt(b.rientri || 0) })
+            el('td', { 'data-label': 'Rientri', classe: 'num', testo: numeroIt(b.rientri || 0) + (d.buchi.some(x => fasciaDi(x.ripresa) === b.t) ? ' *' : '') })
         ])));
     }
 
@@ -5430,6 +5502,11 @@
         const vuoto = $('#programma-vuoto');
         vuoto.hidden = voci.length > 0;
         vuoto.textContent = voci.length ? '' : 'Il programma di questo evento è vuoto: lo scrivi nella scheda Evento.';
+        // senza le fotografie di ogni minuto le medie non ci sono ancora: si dice una volta, non su ogni riga
+        const senzaFoto = !d.registrazione.attiva;
+        const nota = $('#programma-nota');
+        nota.hidden = !(senzaFoto && voci.length);
+        nota.textContent = senzaFoto ? 'Media, massimo e minimo di ogni voce compaiono con i dati minuto per minuto.' : '';
         const medie = voci.map(v => (v && v.media != null && isFinite(v.media) ? Number(v.media) : null));
         const maxMedia = Math.max.apply(null, medie.filter(m => m != null).concat([0]));
         // la voce piu' seguita: la media piu' alta (a parita', la prima)
@@ -5444,7 +5521,7 @@
                     el('span', { classe: 'media-pista', 'aria-hidden': 'true' }, [piena]),
                     el('span', { classe: 'media-num', testo: numeroIt(media, 1) })
                 ]);
-            } else cellaMedia = el('span', { classe: 'senza-dati', testo: 'nessun minuto in onda' });
+            } else cellaMedia = el('span', { classe: 'senza-dati', testo: senzaFoto ? '–' : 'nessun minuto in onda' });
             const orario = v.da != null ? oraLeggibile(v.da) + (v.a != null ? '–' + oraLeggibile(v.a) : '') : (v.ora || '');
             tb.appendChild(el('tr', { classe: i === migliore ? 'migliore' : '', dati: { voce: String(i + 1) } }, [
                 el('th', { scope: 'row', 'data-label': 'Voce del programma', classe: 'col-voce' }, [
@@ -5552,6 +5629,11 @@
         });
     }
     const idLinea = uid => 'linea-tempo-' + String(uid).replace(/[^A-Za-z0-9_-]/g, '_');
+    // un'email lunga va a capo dopo la chiocciola, non a meta' di una parola
+    function emailSpezzabile(email) {
+        const i = String(email).indexOf('@');
+        return i > 0 ? [email.slice(0, i + 1), el('wbr'), email.slice(i + 1)] : [String(email)];
+    }
     function rigaPersona(p, d) {
         const chi = [p.nome, p.cognome].filter(Boolean).join(' ') || p.email || 'Senza nome';
         const mai = p.stato === 'mai-entrato';
@@ -5560,7 +5642,7 @@
         return el('tr', { classe: 'persona-' + (p.stato || ''), dati: { uid: p.uid } }, [
             el('th', { scope: 'row', 'data-label': 'Persona', classe: 'col-persona' }, [
                 el('span', { classe: 'persona', testo: chi }),
-                p.email ? el('span', { classe: 'persona-email', testo: p.email }) : null
+                p.email ? el('span', { classe: 'persona-email' }, emailSpezzabile(p.email)) : null
             ]),
             el('td', { 'data-label': 'Azienda', testo: p.azienda || '' }),
             el('td', { 'data-label': 'Stato' }, [el('span', { classe: 'stato-persona stato-' + (p.stato || ''), testo: STATI_PERSONA[p.stato] || p.stato || '' })]),
@@ -5656,7 +5738,7 @@
         svuota(tb);
         lista.forEach(p => tb.appendChild(el('tr', { dati: { uid: p.uid } }, [
             el('th', { scope: 'row', 'data-label': 'Nome e cognome', classe: 'col-persona' }, [el('span', { classe: 'persona', testo: [p.nome, p.cognome].filter(Boolean).join(' ') || '–' })]),
-            el('td', { 'data-label': 'Email', classe: 'col-email', testo: p.email || '' }),
+            el('td', { 'data-label': 'Email', classe: 'col-email' }, p.email ? emailSpezzabile(p.email) : []),
             el('td', { 'data-label': 'Azienda', testo: p.azienda || '' }),
             el('td', { 'data-label': 'Credenziali' }, [el('span', { classe: classeStatoEmail('inviata'), testo: 'inviate' })])
         ])));

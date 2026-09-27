@@ -638,8 +638,8 @@
                 <section class="riquadro" aria-labelledby="ascolti-grafico-titolo">
                     <div class="riquadro-testa">
                         <h2 id="ascolti-grafico-titolo">Spettatori minuto per minuto</h2>
-                        <p class="riquadro-sotto">Quante persone avevano aperta la pagina della diretta, minuto per minuto. Passa sul grafico o toccalo
-                            per leggere ora e numero; con la tastiera usa le frecce.</p>
+                        <p class="riquadro-sotto">Quante persone avevano aperta la pagina della diretta, minuto per minuto.<span class="solo-schermo"> Passa sul grafico
+                            o toccalo per leggere ora e numero; con la tastiera usa le frecce.</span></p>
                     </div>
                     <p id="ascolti-grafico-vuoto" class="riquadro-nota" hidden></p>
                     <div id="ascolti-grafico" class="grafico" hidden>
@@ -661,6 +661,7 @@
                         <p id="ascolti-grafico-aiuto" class="solo-lettori">Usa le frecce sinistra e destra per spostarti di un minuto, Pagina su e Pagina giù per dieci minuti, Inizio e Fine per il primo e l'ultimo minuto.</p>
                         <p id="ascolti-annuncio" class="solo-lettori" aria-live="polite"></p>
                         <p id="ascolti-cali" class="ascolti-cali"></p>
+                        <p id="ascolti-buchi" class="aiuto ascolti-buchi"></p>
                         <details id="ascolti-dati-grafico" class="dati-grafico">
                             <summary>Vedi i dati del grafico</summary>
                             <div class="tabella-contenitore tabella-alta">
@@ -680,6 +681,7 @@
                         <h2 id="ascolti-programma-titolo">Ascolto per voce del programma</h2>
                         <p class="riquadro-sotto">Per ogni voce, gli spettatori nei minuti in onda (le pause non contano). La barra mostra la media.</p>
                     </div>
+                    <p id="programma-nota" class="riquadro-nota" hidden></p>
                     <div class="tabella-contenitore">
                         <table id="tabella-programma" class="tabella tabella-ascolti tabella-programma">
                             <caption class="solo-lettori">Spettatori medi, massimi e minimi per ogni voce del programma</caption>
@@ -719,6 +721,7 @@
                             <p class="aiuto solo-telefono" aria-hidden="true">Il grafico scorre di lato: trascinalo con il dito.</p>
                             <p id="ingressi-aiuto" class="solo-lettori">Usa le frecce sinistra e destra per spostarti di cinque minuti.</p>
                             <p id="ingressi-annuncio" class="solo-lettori" aria-live="polite"></p>
+                            <p id="ingressi-buchi" class="aiuto ascolti-buchi"></p>
                             <details class="dati-grafico">
                                 <summary>Vedi i dati del grafico</summary>
                                 <div class="tabella-contenitore tabella-alta">
@@ -790,7 +793,7 @@
                         <span id="persone-mostrate" class="aiuto" aria-live="polite"></span>
                     </div>
                 </section>
-                <p class="solo-stampa aiuto">L'elenco completo delle persone è nel file Excel («Esporta in Excel» nella scheda Ascolti).</p>
+                <p class="solo-stampa aiuto"><strong>Persone</strong>: l'elenco completo, con i minuti di ognuno, è nel file Excel («Esporta in Excel» nella scheda Ascolti).</p>
 
                 <!-- g) chi ha le credenziali ma non e' mai entrato -->
                 <section class="riquadro" aria-labelledby="ascolti-non-collegati-titolo">

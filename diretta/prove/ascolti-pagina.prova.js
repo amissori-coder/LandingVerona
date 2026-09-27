@@ -46,10 +46,13 @@
    scorrimento orizzontale della pagina; nessun errore in console.
 
    Screenshot in risultati/screenshot-ascolti/ (a pagina intera):
-     ascolti-computer.png           1440x900, la scheda com'e'
+     ascolti-computer.png           1440x900, la scheda appena aperta
      ascolti-computer-dettagli.png  con una linea del tempo aperta e i
                                     dati del grafico
-     ascolti-stampa.png             come si stampa (media print)
+     ascolti-computer-linea-del-tempo.png   solo la riga di una persona
+                                    con la sua linea del tempo
+     ascolti-stampa.png             come si stampa (media print, A4
+                                    orizzontale)
      ascolti-senza-dati-computer.png   registrazione non ancora attiva
      ascolti-telefono.png           390x844
    Esce con 1 se qualcosa e' rosso.
@@ -107,6 +110,9 @@ const oraXls = ms => {
     return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
 };
 const arrotonda1 = x => Math.round(x * 10) / 10;
+// l'ordine della tabella nella pagina (ordinePersone di gestione.js): cognome, nome, email
+const ordinePagina = (a, b) => a.cognome.localeCompare(b.cognome, 'it', { sensitivity: 'base' }) || a.nome.localeCompare(b.nome, 'it', { sensitivity: 'base' })
+    || a.email.localeCompare(b.email);
 
 function generatore(seme) {
     let a = seme >>> 0;
@@ -266,9 +272,29 @@ function costruisciFixture() {
             p.acc.sort((a, b) => a.quando - b.quando);
         }
         p.stato = p.secondi > 0 ? 'ha-visto' : 'entrato';
+        p.primo = primo;
         p.primoIngresso = Math.min(primo, p.acc.length ? p.acc[0].quando : Infinity);
         p.ultimaPresenza = ultimo;
     });
+
+    /* I periodi come li registra il servizio: una fotografia al minuto,
+       e un periodo continua solo se la persona c'era nella fotografia
+       prima e il cron non ha saltato piu' di 3 minuti (§1 del contratto).
+       Chi esce mentre il cron tace finisce all'ultima fotografia in cui
+       c'era; il buco di 5 minuti spezza in due il periodo di chi c'era. */
+    const fotografati = {};
+    let fotoPrima = null;
+    minuti.forEach(m => {
+        const ricuce = fotoPrima != null && m - fotoPrima <= 3;
+        persone.forEach(p => {
+            if (!p.seg.some(x => x[0] <= m && m <= x[1])) return;
+            const t = fotografati[p.uid] || (fotografati[p.uid] = []);
+            const ultimo = t[t.length - 1];
+            if (ricuce && ultimo && ultimo[1] === fotoPrima) ultimo[1] = m; else t.push([m, m]);
+        });
+        fotoPrima = m;
+    });
+    persone.forEach(p => { p.foto = fotografati[p.uid] || []; });
 
     // la curva: chi era collegato in ogni minuto fotografato
     const curva = minuti.map(m => ({
@@ -284,19 +310,18 @@ function costruisciFixture() {
     perMinimo.forEach(p => { if (!minimo || p.n < minimo.n) minimo = { n: p.n, t: p.t }; });
     const media = arrotonda1(inOnda.reduce((s, p) => s + p.n, 0) / inOnda.length);
     const perT = new Map(curva.map(p => [p.t, p]));
-    // le pause: minuti 'p' consecutivi (a = l'inizio dell'ultimo minuto)
+    // le pause: punti consecutivi in pausa (a = la fine dell'ultimo minuto, come lib/diretta-ascolti.js)
     const pause = [];
-    curva.forEach((p, i) => {
-        if (p.stato !== 'p') return;
-        const prima = curva[i - 1];
-        if (prima && prima.stato === 'p' && p.t - prima.t === MIN) pause[pause.length - 1].a = p.t;
-        else pause.push({ da: p.t, a: p.t });
+    let aperta = null;
+    curva.forEach(p => {
+        if (p.stato === 'p') { if (!aperta) { aperta = { da: p.t, a: p.t + MIN }; pause.push(aperta); } else aperta.a = p.t + MIN; } else aperta = null;
     });
-    // i cali: fra un minuto in onda e quello 5 minuti dopo, i 3 piu' forti non sovrapposti
+    // i cali: fra un minuto in onda e quello 5 minuti dopo (in onda anche in mezzo), i 3 piu' forti non sovrapposti
     const candidati = [];
     inOnda.forEach(p => {
         const dopo = perT.get(p.t + 5 * MIN);
-        if (dopo && dopo.stato === 'o' && p.n - dopo.n > 0) candidati.push({ t: p.t, da: p.n, a: dopo.n, perdita: p.n - dopo.n });
+        const inMezzo = curva.filter(q => q.t > p.t && q.t <= p.t + 5 * MIN);
+        if (dopo && inMezzo.every(q => q.stato === 'o') && p.n - dopo.n > 0) candidati.push({ t: p.t, da: p.n, a: dopo.n, perdita: p.n - dopo.n });
     });
     candidati.sort((x, y) => y.perdita - x.perdita || x.t - y.t);
     const cali = [];
@@ -317,7 +342,7 @@ function costruisciFixture() {
     });
     // gli ingressi ogni 5 minuti
     const fasce = new Map();
-    persone.forEach(p => (p.seg || []).forEach((s, k) => {
+    persone.forEach(p => p.foto.forEach((s, k) => {
         const t = Math.floor(s[0] * MIN / (5 * MIN)) * 5 * MIN;
         const f = fasce.get(t) || { t, primi: 0, rientri: 0 };
         if (k === 0) f.primi++; else f.rientri++;
@@ -338,8 +363,10 @@ function costruisciFixture() {
     const minutiInOndaRiepilogo = inOnda.length;
     const hannoVisto = persone.filter(p => p.stato === 'ha-visto');
     const entrati = persone.filter(p => p.stato !== 'mai-entrato');
-    const ordina = (a, b) => a.cognome.localeCompare(b.cognome, 'it', { sensitivity: 'base' }) || a.nome.localeCompare(b.nome, 'it', { sensitivity: 'base' }) || a.email.localeCompare(b.email);
-    const personeOut = persone.slice().sort(ordina).map(p => {
+    // l'ordine in cui arrivano dal servizio: quello di elencoPartecipanti (lib/diretta-dati.js)
+    const ordineServizio = (a, b) => (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome, 'it') || a.email.localeCompare(b.email);
+    persone.sort(ordineServizio);
+    const personeOut = persone.map(p => {
         const minutiP = arrotonda1(Math.min(p.secondi, durataMinuti * 60) / 60);
         const distinti = [];
         p.acc.slice().reverse().forEach(a => { if (distinti.indexOf(a.dispositivo) < 0) distinti.push(a.dispositivo); });
@@ -348,14 +375,14 @@ function costruisciFixture() {
             primoIngresso: p.primoIngresso, ultimaPresenza: p.ultimaPresenza, minutiInOnda: minutiP,
             percentuale: Math.min(100, Math.round(minutiP / minutiInOndaRiepilogo * 100)),
             collegamenti: p.collegamenti, accessi: p.acc.length, dispositivi: distinti,
-            segmenti: (p.seg || []).map(s => [s[0] * MIN, (s[1] + 1) * MIN])
+            segmenti: p.foto.map(s => [s[0] * MIN, (s[1] + 1) * MIN])
         };
     });
     const accessiOut = [];
     persone.forEach(p => p.acc.forEach(a => accessiOut.push({ quando: a.quando, uid: p.uid, email: p.email, nome: p.nome, cognome: p.cognome, azienda: p.azienda, dispositivo: a.dispositivo })));
     accessiOut.sort((a, b) => a.quando - b.quando);
     const secondiLimitati = persone.reduce((s, p) => s + Math.min(p.secondi, durataMinuti * 60), 0);
-    return {
+    const F = {
         ok: true, calcolato: ora(17, 20),
         evento: { id: ID, titolo: 'Next Generation Business 2026 · Verona', inizio, fine, stato: 'terminato', programma: PROGRAMMA.map(([o, titolo]) => ({ ora: o, titolo })) },
         registrazione: { attiva: true, primoMinuto: curva[0].t, ultimoMinuto: curva[curva.length - 1].t },
@@ -374,8 +401,21 @@ function costruisciFixture() {
         dispositivi: { tipi: inOrdine(tipi), browser: inOrdine(browser), sistemi: inOrdine(sistemi) },
         persone: personeOut,
         accessi: accessiOut,
-        nota: 'Spettatori: pagine della diretta aperte con il segnale negli ultimi 150 secondi. Minuti per persona: quelli degli attestati.'
+        nota: 'Spettatori di un minuto: le persone con la pagina della diretta aperta che hanno mandato il segnale negli ultimi 2 minuti e mezzo '
+            + '(una fotografia al minuto). Minuti per persona: quelli degli attestati.'
     };
+    /* I dati da cui il servizio farebbe lo stesso calcolo (documenti come in
+       Firestore): non enumerabili, quindi fuori dal JSON mandato alla pagina. */
+    Object.defineProperty(F, 'grezzi', {
+        enumerable: false,
+        value: {
+            fotografie: minuti.map(m => ({ m, uids: persone.filter(p => p.seg.some(x => x[0] <= m && m <= x[1])).map(p => p.uid), codice: statoMinuto(m) })),
+            presenze: persone.filter(p => p.stato !== 'mai-entrato').map(p => ({ uid: p.uid, idEvento: ID, primo: p.primo, ultimo: p.ultimaPresenza,
+                secondi: p.secondi, collegamenti: p.collegamenti })),
+            partecipanti: persone.map(p => ({ uid: p.uid, nome: p.nome, cognome: p.cognome, email: p.email, azienda: p.azienda, stato: 'attivo', invio: { stato: p.credenziali } }))
+        }
+    });
+    return F;
 }
 
 /* La stessa giornata vista prima che la registrazione cominci: niente
@@ -459,7 +499,24 @@ async function sheetJSNode() {
             'fixture: 380 persone, 8 ore, pausa pranzo, 13 voci, 3 cali, picco ' + k.picco.n + ' alle ' + oraIt(k.picco.t) + ', minimo in onda '
             + k.minimo.n + ' alle ' + oraIt(k.minimo.t) + ', media ' + k.media + ', ' + F.curva.length + ' minuti fotografati, '
             + F.accessi.length + ' accessi', JSON.stringify(k));
+        /* La fixture e' quella che calcola il servizio? Gli stessi dati
+           (fotografie minuto per minuto con aggiungiMinuto, presenze, accessi,
+           partecipanti) passati a risultato() di lib/diretta-ascolti.js devono
+           dare lo stesso JSON: cosi' la pagina si prova sul formato vero. */
+        const A = require(path.join(RADICE, 'email-service/lib/diretta-ascolti'));
+        let registrato = null;
+        F.grezzi.fotografie.forEach(f => { registrato = A.aggiungiMinuto(registrato, f.m, f.uids, f.codice) || registrato; });
+        const delServizio = A.risultato({
+            id: ID, ev: { titolo: F.evento.titolo, inizio: F.evento.inizio, fine: F.evento.fine, stato: F.evento.stato, programma: F.evento.programma },
+            registrazione: { primoMinuto: registrato.primoMinuto, ultimoMinuto: registrato.ultimoMinuto, curva: JSON.stringify(registrato.curva), persone: JSON.stringify(registrato.persone), versione: 1 },
+            presenze: F.grezzi.presenze, accessi: F.accessi, partecipanti: F.grezzi.partecipanti, adesso: F.calcolato
+        });
+        const diverse = Object.keys(F).filter(c => c !== 'nota' && JSON.stringify(F[c]) !== JSON.stringify(delServizio[c]));
+        vero(diverse.length === 0 && Object.keys(delServizio).sort().join() === Object.keys(F).sort().join(),
+            'la fixture coincide, voce per voce, con quello che calcola lib/diretta-ascolti.js (risultato) dagli stessi dati: stesso formato, stessi numeri',
+            diverse.map(c => c + ': ' + JSON.stringify(F[c]).slice(0, 150) + ' / servizio ' + JSON.stringify(delServizio[c]).slice(0, 150)).join('\n'));
         const FS = senzaRegistrazione(F);
+        const comeNellaPagina = F.persone.slice().sort(ordinePagina);
 
         const codice = fs.readFileSync(path.join(RADICE, 'diretta/gestione/gestione.js'), 'utf8');
         const html = fs.readFileSync(path.join(RADICE, 'diretta/gestione/index.html'), 'utf8');
@@ -476,6 +533,7 @@ async function sheetJSNode() {
             && /<section id="scheda-ascolti" class="scheda[^"]*" role="tabpanel"[^>]*hidden>/.test(html),
             'la scheda «Ascolti» sta fra Regia e Partecipanti (role="tab", aria-controls, tabpanel nascosto)');
 
+        fs.readdirSync(FOTO).filter(f => /\.png$/.test(f)).forEach(f => fs.unlinkSync(path.join(FOTO, f)));
         console.log('\n-- avvio degli emulatori e del servizio vero (porte ' + JSON.stringify(PORTE) + ')');
         emulatori = await avvia([path.join(__dirname, 'avvia-emulatori.js'), '--firestore', String(PORTE.firestore), '--auth', String(PORTE.auth)], /EMULATORI PRONTI/, 'emulatori');
         server = await avvia([path.join(__dirname, 'server-locale.js'), '--api', String(PORTE.api), '--statico', String(PORTE.statico),
@@ -516,12 +574,14 @@ async function sheetJSNode() {
 
         /* L'unica risposta finta: 'ascolti'. Tutto il resto va al servizio vero. */
         let risposta = F;
+        // false: la chiamata va al servizio vero (lib/diretta-ascolti.js), per vedere la sua risposta nella pagina
+        let finta = true;
         const chiamateAscolti = [];
         await page.route(API + '/diretta-gestione', async route => {
             const req = route.request();
             let dati = {};
             try { dati = JSON.parse(req.postData() || '{}'); } catch (_) { dati = {}; }
-            if (req.method() !== 'POST' || dati.azione !== 'ascolti') return route.continue();
+            if (req.method() !== 'POST' || dati.azione !== 'ascolti' || !finta) return route.continue();
             chiamateAscolti.push({ quando: Date.now(), idEvento: dati.idEvento, autorizzata: /^Bearer \S+/.test(req.headers().authorization || '') });
             return route.fulfill({
                 status: 200, contentType: 'application/json; charset=utf-8',
@@ -575,7 +635,8 @@ async function sheetJSNode() {
         /* ---------- 2. le tessere ---------- */
         console.log('\n-- il riepilogo');
         const tessera = async v => ({ num: await testo('#ascolti-tessere [data-voce="' + v + '"] .tessera-num'), sotto: await testo('#ascolti-tessere [data-voce="' + v + '"] .tessera-sotto') });
-        const it = (n, d) => Number(n).toLocaleString('it-IT', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+        // i numeri all'italiana, come li scrive il browser (1.612,0: il punto anche sulle migliaia)
+        const it = (n, d) => { const [intera, dec] = Number(n).toFixed(d || 0).split('.'); return intera.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (dec ? ',' + dec : ''); };
         const durata = m => { const x = Math.round(m); return x < 60 ? x + ' min' : Math.floor(x / 60) + ' h' + (x % 60 ? ' ' + (x % 60) + ' min' : ''); };
         const attese = {
             iscritti: { num: '380', sotto: 'persone dell\'evento' },
@@ -592,6 +653,8 @@ async function sheetJSNode() {
             const t = await tessera(v);
             vero(t.num === attese[v].num && t.sotto === attese[v].sotto, 'tessera ' + v + ': «' + t.num + '» «' + t.sotto + '»', JSON.stringify({ visto: t, atteso: attese[v] }));
         }
+
+        await foto('ascolti-computer');
 
         /* ---------- 3. il grafico: dove stanno le cose ---------- */
         console.log('\n-- il grafico degli spettatori');
@@ -627,8 +690,9 @@ async function sheetJSNode() {
         const tuttiIPunti = F.curva.every(p => passaPer(X(p.t), Y(p.n)));
         vero(tuttiIPunti, 'ogni minuto fotografato (' + F.curva.length + ') è un punto della linea, nel posto giusto');
         const salto = (x1, x2) => linee.some(l => l.punti.some((p, i) => i && vicino(l.punti[i - 1][0], x1) && vicino(p[0], x2)));
-        vero(!salto(X(ora(15, 20)), X(ora(15, 26))) && salto(X(ora(10, 30)), X(ora(10, 33))),
-            'buchi del cron: 5 minuti senza fotografie (15.21-15.25) interrompono la linea; 2 minuti (10.31-10.32) no, la linea li ricuce');
+        vero(!salto(X(ora(15, 20)), X(ora(15, 26))) && salto(X(ora(10, 30)), X(ora(10, 33)))
+            && await testo('#ascolti-buchi') === 'Mancano i dati dalle 15.21 alle 15.25: lì la linea si interrompe.',
+        'buchi del cron: 5 minuti senza fotografie (15.21-15.25) interrompono la linea, e sotto il grafico lo si dice («' + await testo('#ascolti-buchi') + '»); 2 minuti (10.31-10.32) no, la linea li ricuce');
         vero(linee.filter(l => l.classe === 'g-linea').every(l => l.punti.every(p => {
             const t = scala.da + (p[0] - scala.sinistra) * (scala.a - scala.da) / (scala.destra - scala.sinistra);
             const m = F.curva.find(q => Math.abs(q.t - t) < 20000);
@@ -765,6 +829,10 @@ async function sheetJSNode() {
         vero(col.length === F.ingressi.length && col.every((c, i) => c.t === F.ingressi[i].t && c.primi === F.ingressi[i].primi && c.rientri === F.ingressi[i].rientri)
             && col.some(c => c.parti.join() === 'g-primi,g-rientri') && legenda === 'Primi ingressi Rientri',
         'istogramma degli ingressi: ' + col.length + ' colonne ogni 5 minuti, primi ingressi e rientri in due colori, con la legenda «' + legenda + '»');
+        const dopoBuco = await page.evaluate(() => Array.from(document.querySelectorAll('#ingressi-cornice .g-colonna.dopo-buco')).map(g => ({ t: Number(g.getAttribute('data-t')), testo: g.textContent })));
+        vero(dopoBuco.length === 1 && dopoBuco[0].t === ora(15, 25) && dopoBuco[0].testo === '*'
+            && await testo('#ingressi-buchi') === '* Mancano i dati dalle 15.21 alle 15.25: chi era già collegato risulta «rientrato» alle 15.26.',
+        'dopo il buco del cron i tanti «rientri» delle 15.25 hanno l\'asterisco e la spiegazione: «' + await testo('#ingressi-buchi') + '»', JSON.stringify(dopoBuco));
         const massimaColonna = F.ingressi.reduce((m, b) => (b.primi > m.primi ? b : m), F.ingressi[0]);
         await $('#ingressi-cornice').focus();
         let ri = await righeDi('#ingressi-suggerimento');
@@ -795,7 +863,7 @@ async function sheetJSNode() {
         const righeVisibili = () => page.evaluate(() => Array.from(document.querySelectorAll('#tabella-persone tbody tr[data-uid]')).map(tr => tr.dataset.uid));
         let uids = await righeVisibili();
         vero(uids.length === 100 && await testo('#btn-altre-persone') === 'Mostra altre 100' && await testo('#conta-persone') === '(380)'
-            && await testo('#persone-mostrate') === 'Ne vedi 100 su 380.' && uids.join() === F.persone.slice(0, 100).map(p => p.uid).join(),
+            && await testo('#persone-mostrate') === 'Ne vedi 100 su 380.' && uids.join() === comeNellaPagina.slice(0, 100).map(p => p.uid).join(),
         'oltre 200 righe se ne vedono 100, in ordine di cognome e nome, con «Mostra altre 100» (ne vedi 100 su 380)');
         await $('#btn-altre-persone').click();
         await $('#btn-altre-persone').click();
@@ -807,7 +875,7 @@ async function sheetJSNode() {
             const tr = document.querySelector('#tabella-persone tbody tr[data-uid]');
             return { th: tr.querySelector('th[scope="row"]').innerText.replace(/\n+/g, ' | '), celle: Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim()), stato: tr.querySelector('.stato-persona').className };
         });
-        const p0 = F.persone[0];
+        const p0 = comeNellaPagina[0];
         vero(intestazioniPersone.slice(0, 9).join('|') === 'Persona|Azienda|Stato|Primo ingresso|Ultima presenza|Minuti in onda|% vista|Collegamenti|Dispositivi'
             && primaRiga.th === p0.nome + ' ' + p0.cognome + ' | ' + p0.email && primaRiga.celle[0] === p0.azienda
             && primaRiga.celle[2] === (p0.primoIngresso ? oraIt(p0.primoIngresso) : '–') && primaRiga.celle[5] === (p0.stato === 'mai-entrato' ? '–' : p0.percentuale + '%'),
@@ -839,16 +907,19 @@ async function sheetJSNode() {
         // l'ordine
         const colonna = async indice => page.evaluate(i => Array.from(document.querySelectorAll('#tabella-persone tbody tr[data-uid]')).map(tr => tr.querySelectorAll('td')[i].textContent.trim()), indice);
         const numeri = v => v.map(x => (x === '–' ? null : Number(x.replace('%', '').replace(/\./g, '').replace(',', '.'))));
+        // tutte le righe, per vedere anche il fondo della tabella
+        while (await $('#btn-altre-persone').isVisible()) await $('#btn-altre-persone').click();
         await $('#tabella-persone th[data-ordine="minuti"] .ordina').click();
         let valori = numeri(await colonna(4));
         const maxMinuti = Math.max(...F.persone.map(p => Math.round(p.minutiInOnda)));
         vero(valori[0] === maxMinuti && valori.filter(v => v != null).every((v, i, a) => !i || a[i - 1] >= v) && valori.slice(-44).every(v => v === null)
             && await $('#tabella-persone th[data-ordine="minuti"]').getAttribute('aria-sort') === 'descending',
-        'clic su «Minuti in onda»: dal più alto (' + maxMinuti + ') in giù, chi non è mai entrato in fondo (aria-sort="descending")');
+        'clic su «Minuti in onda»: dal più alto (' + maxMinuti + ') in giù, chi non è mai entrato in fondo (aria-sort="descending")', JSON.stringify(valori.slice(0, 8)) + ' … ' + JSON.stringify(valori.slice(-50)));
         await $('#tabella-persone th[data-ordine="minuti"] .ordina').click();
         valori = numeri(await colonna(4));
-        vero(valori.filter(v => v != null).every((v, i, a) => !i || a[i - 1] <= v) && await $('#tabella-persone th[data-ordine="minuti"]').getAttribute('aria-sort') === 'ascending',
-            'secondo clic: dal più basso (aria-sort="ascending")');
+        vero(valori.length === 380 && valori.filter(v => v != null).every((v, i, a) => !i || a[i - 1] <= v) && valori.slice(-44).every(v => v === null)
+            && await $('#tabella-persone th[data-ordine="minuti"]').getAttribute('aria-sort') === 'ascending',
+        'secondo clic: dal più basso (aria-sort="ascending"), e chi non è mai entrato resta in fondo');
         await $('#tabella-persone th[data-ordine="primo"] .ordina').click();
         const primi = F.persone.filter(p => p.primoIngresso).map(p => p.primoIngresso).sort((a, b) => a - b);
         vero((await colonna(2))[0] === oraIt(primi[0]), 'clic su «Primo ingresso»: dal primo arrivato (' + oraIt(primi[0]) + ')');
@@ -859,7 +930,7 @@ async function sheetJSNode() {
         valori = numeri(await colonna(5));
         vero(valori[0] === Math.max(...F.persone.map(p => p.percentuale)) && valori.filter(v => v != null).every((v, i, a) => !i || a[i - 1] >= v), 'clic su «% vista»: dal più alto');
         await $('#tabella-persone th[data-ordine="nome"] .ordina').click();
-        vero((await righeVisibili())[0] === F.persone[0].uid && await $('#tabella-persone th[data-ordine="nome"]').getAttribute('aria-sort') === 'ascending',
+        vero((await righeVisibili())[0] === comeNellaPagina[0].uid && await $('#tabella-persone th[data-ordine="nome"]').getAttribute('aria-sort') === 'ascending',
             'clic su «Persona»: di nuovo per cognome e nome');
         // la linea del tempo di una persona con tre periodi
         const tre = F.persone.find(p => p.uid === 'u006');
@@ -878,12 +949,16 @@ async function sheetJSNode() {
             };
         });
         const pct = t => (t - scala.da) / (scala.a - scala.da) * 100;
-        vero(linea && await bottone.getAttribute('aria-expanded') === 'true' && linea.segmenti.length === 3
+        const elencoAtteso = tre.segmenti.map(x => 'dalle ' + oraIt(x[0]) + ' alle ' + oraIt(x[1]) + ' (' + durata((x[1] - x[0]) / MIN) + ')').join(' | ');
+        vero(linea && await bottone.getAttribute('aria-expanded') === 'true' && linea.segmenti.length === tre.segmenti.length && tre.segmenti.length === 4
             && tre.segmenti.every((s, i) => vicino(linea.segmenti[i].left, pct(s[0]), 0.02) && vicino(linea.segmenti[i].left + linea.segmenti[i].width, pct(s[1]), 0.03))
             && linea.pausa.length === 1 && vicino(linea.pausa[0].left, pct(ora(13, 0)), 0.02)
-            && linea.elenco.join(' | ') === 'dalle 9.02 alle 10.41 (1 h 39 min) | dalle 10.50 alle 12.59 (2 h 9 min) | dalle 14.03 alle 17.00 (2 h 57 min)',
-        'la linea del tempo di ' + tre.nome + ' ' + tre.cognome + ': tre periodi sulla stessa scala del grafico (dalle 8.30 alle 17.15), la pausa in grigio, e l\'elenco «' + (linea ? linea.elenco.join(', ') : '') + '»', JSON.stringify(linea));
-        await foto('ascolti-computer-dettagli-persona');
+            && linea.elenco.join(' | ') === elencoAtteso && elencoAtteso.startsWith('dalle 9.02 alle 10.41 (1 h 39 min) | dalle 10.50 alle 12.59 (2 h 9 min) | dalle 14.03 alle 15.21'),
+        'la linea del tempo di ' + tre.nome + ' ' + tre.cognome + ': quattro periodi (il buco del cron delle 15.21 spezza il pomeriggio) sulla stessa scala del grafico (dalle 8.30 alle 17.15), la pausa in grigio, e l\'elenco «' + (linea ? linea.elenco.join(', ') : '') + '»', JSON.stringify(linea));
+        // la foto della riga con la sua linea del tempo
+        const rigaTre = await $('#tabella-persone tr[data-uid="u006"]').boundingBox();
+        const lineaTre = await $('#linea-tempo-u006').boundingBox();
+        await page.screenshot({ path: path.join(FOTO, 'ascolti-computer-linea-del-tempo.png'), clip: { x: 0, y: rigaTre.y - 60, width: 1440, height: lineaTre.y + lineaTre.height - rigaTre.y + 80 } });
         await bottone.click();
         vero(!(await page.evaluate(() => !!document.getElementById('linea-tempo-u006'))) && await bottone.getAttribute('aria-expanded') === 'false', 'premendo di nuovo la linea del tempo si chiude');
         await bottone.click();
@@ -892,7 +967,7 @@ async function sheetJSNode() {
 
         /* ---------- 10. non collegati ---------- */
         console.log('\n-- non collegati');
-        const nonCollegati = F.persone.filter(p => p.stato === 'mai-entrato' && p.credenziali === 'inviata');
+        const nonCollegati = comeNellaPagina.filter(p => p.stato === 'mai-entrato' && p.credenziali === 'inviata');
         const nc = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-non-collegati tbody tr')).map(tr => Array.from(tr.cells).map(c => c.textContent.trim())));
         vero(nonCollegati.length === 30 && await testo('#conta-non-collegati') === '(30)' && nc.length === 30
             && nc.every((r, i) => r[0] === nonCollegati[i].nome + ' ' + nonCollegati[i].cognome && r[1] === nonCollegati[i].email && r[2] === nonCollegati[i].azienda && r[3] === 'inviate'),
@@ -942,13 +1017,12 @@ async function sheetJSNode() {
         vero(fprog.length === 14 && fprog[iMigliore + 1][4] === maxMedia && fprog[7][4] === '' && fprog[1][2] === '09:00' && fprog[13][3] === '17:00',
             'Programma: 13 voci con orari, media (vuota per la pausa pranzo), massimo, minimo e minuti');
         const riga6 = fpers.find(r => r[2] === tre.email);
-        vero(fpers.length === 381 && riga6 && riga6[4] === 'Ha visto' && riga6[13] === '09:02-10:41, 10:50-12:59, 14:03-17:00' && riga6[6] === '02/10/2026 ' + oraXls(tre.primoIngresso),
+        vero(fpers.length === 381 && riga6 && riga6[4] === 'Ha visto' && riga6[13] === tre.segmenti.map(x => oraXls(x[0]) + '-' + oraXls(x[1])).join(', ') && riga6[6] === '02/10/2026 ' + oraXls(tre.primoIngresso),
             'Persone: 380 righe, con stato, ingressi in data e ora italiane e i periodi collegati («' + (riga6 ? riga6[13] : '') + '»)');
         vero(foglio('Non collegati').length === 31 && foglio('Accessi').length === F.accessi.length + 1,
             'Non collegati: 30 righe; Accessi: ' + F.accessi.length + ' righe');
         vero(/^Scaricato «ascolti-verona-2026-/.test(await testo('#msg-ascolti')), 'e la pagina lo dice: «' + (await testo('#msg-ascolti')).slice(0, 80) + '…»');
 
-        await foto('ascolti-computer');
         await $('#ascolti-dati-grafico > summary').click();
         await foto('ascolti-computer-dettagli');
         await $('#ascolti-dati-grafico > summary').click();
@@ -1033,8 +1107,9 @@ async function sheetJSNode() {
         'registrazione.attiva=false: al posto del grafico «' + frase.slice(0, 150) + '…»');
         vero(await testo('#ascolti-tessere [data-voce="picco"] .tessera-num') === '–' && await testo('#ascolti-tessere [data-voce="iscritti"] .tessera-num') === '380'
             && (await righeVisibili()).length === 100 && await testo('#conta-non-collegati') === '(30)' && await $('#ascolti-ingressi-vuoto').isVisible()
-            && (await page.evaluate(() => document.querySelectorAll('#tabella-programma tbody tr').length)) === 13,
-        'il resto sì: tessere (picco «–»), programma, persone, non collegati; gli ingressi dicono che arriveranno con la prima fotografia');
+            && (await page.evaluate(() => document.querySelectorAll('#tabella-programma tbody tr').length)) === 13
+            && await testo('#programma-nota') === 'Media, massimo e minimo di ogni voce compaiono con i dati minuto per minuto.',
+        'il resto sì: tessere (picco «–»), programma (con la nota: le medie arrivano con i dati minuto per minuto), persone, non collegati; gli ingressi dicono che arriveranno con la prima fotografia');
         await $('#cerca-persone').fill(tre.email);
         const senzaSeg = await page.evaluate(() => { const r = document.getElementById('linea-tempo-u006'); return r ? r.textContent : ''; });
         vero(/I periodi minuto per minuto si vedono da quando si registrano le fotografie/.test(senzaSeg), 'e la linea del tempo aperta lo dice');
@@ -1043,6 +1118,27 @@ async function sheetJSNode() {
         risposta = Object.assign({}, F, { calcolato: ora(17, 22) });
         await $('#btn-ascolti-aggiorna').click();
         await aspetta(async () => await page.locator('#ascolti-cornice svg').count() === 1, 10000, 'di nuovo il grafico');
+
+        /* ---------- 14b. la risposta del servizio vero ----------
+           L'evento di Verona sul servizio vero non ha ancora iscritti ne'
+           fotografie: la pagina deve mostrare la risposta vera di 'ascolti'
+           (lib/diretta-ascolti.js) senza errori, con la frase al posto del
+           grafico e gli zeri. */
+        console.log('\n-- la risposta del servizio vero');
+        finta = false;
+        const vera = page.waitForResponse(r => /\/api\/diretta-gestione$/.test(r.url()) && r.request().method() === 'POST' && /"azione":"ascolti"/.test(r.request().postData() || ''), { timeout: 20000 });
+        await $('#btn-ascolti-aggiorna').click();
+        const rispostaVera = await (await vera).json().catch(() => null);
+        await aspetta(async () => (await testo('#ascolti-tessere [data-voce="iscritti"] .tessera-num')) === '0', 15000, 'tessere dal servizio vero');
+        vero(rispostaVera && rispostaVera.ok === true && rispostaVera.registrazione && rispostaVera.registrazione.attiva === false && Array.isArray(rispostaVera.curva)
+            && await $('#ascolti-grafico-vuoto').isVisible() && await testo('#conta-persone') === '' && await testo('#persone-vuoto') === 'Nessun iscritto a questo evento.'
+            && await testo('#ascolti-dispositivi') === 'Ancora nessun accesso con email e password.',
+        'con la risposta vera del servizio (evento senza iscritti né fotografie): tessere a zero, la frase al posto del grafico, «Nessun iscritto a questo evento.»',
+        JSON.stringify(rispostaVera).slice(0, 300));
+        finta = true;
+        risposta = Object.assign({}, F, { calcolato: ora(17, 23) });
+        await $('#btn-ascolti-aggiorna').click();
+        await aspetta(async () => await page.locator('#ascolti-cornice svg').count() === 1, 10000, 'di nuovo la fixture');
 
         /* ---------- 15. telefono ---------- */
         console.log('\n-- telefono 390x844');
@@ -1078,6 +1174,7 @@ async function sheetJSNode() {
         });
         vero(rq.visibile && rq.testo.startsWith(riga(k.minimo)) && dentro, 'sul telefono, toccando il minimo: «' + rq.testo + '» (il riquadrino resta dentro il grafico)');
         await $('#ascolti-riepilogo-titolo').click();
+        await page.evaluate(() => { document.querySelectorAll('.grafico-scorri').forEach(s => { s.scrollLeft = 0; }); });
         await pausa(200);
         await foto('ascolti-telefono');
         await page.setViewportSize({ width: 1440, height: 900 });
