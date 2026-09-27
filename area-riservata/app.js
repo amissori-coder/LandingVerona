@@ -23485,11 +23485,12 @@
     }
     /* Il giro delle 20 di oggi e' gia' passato? Un promemoria confermato per
        oggi dopo le 8 non partirebbe piu': si dice prima. */
-    /* Due giri: alle 20 tutte le mail, alle 7 solo quella della mattina
-       dell'evento (`mattina` sulla proposta e sul record). */
+    /* Un giro per ora: alle 20 le mail senza un'ora loro; alle 7, alle 8,
+       alle 11 e alle 22 quelle che la portano (`ora` sulla proposta e sul
+       record; `mattina`, dei record piu' vecchi, vale le 7). */
     function oraGiro(x) {
         const o = Number(x && x.ora);
-        if (o === 7 || o === 8 || o === 20 || o === 22) return o;
+        if (o === 7 || o === 8 || o === 11 || o === 20 || o === 22) return o;
         return x && x.mattina ? 7 : 20;
     }
     function giroDiOggiPassato(x) { return new Date().getHours() >= oraGiro(x); }
@@ -23824,7 +23825,7 @@
         if (!window.RV_PROMEMORIA) return;
         aggiornaFattiPromemoria(ev);
         apriModale('<h2>Promemoria agli iscritti</h2>'
-            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi, all\'ora indicata sotto la data di ogni riga (<b>7</b>, <b>8</b>, <b>20</b> o <b>22</b>). '
+            + '<p class="hint" style="margin:-4px 0 14px;max-width:none;">Parte <b>solo</b> quello che confermi, all\'ora indicata sotto la data di ogni riga (<b>7</b>, <b>8</b>, <b>11</b>, <b>20</b> o <b>22</b>). '
             + 'A ogni invio il sistema rilegge gli iscritti: i numeri qui sotto sono quelli di oggi.</p>'
             + '<div id="pm-el-dinamico" data-ev="' + esc(ev.id) + '" data-pronto="' + (_evIscrizioni !== null ? '1' : '') + '">' + contenutoElencoPromemoria(ev) + '</div>'
             + '<details class="pm-come"><summary>Come funziona</summary><p class="hint" style="max-width:none;margin:6px 0 0;">'

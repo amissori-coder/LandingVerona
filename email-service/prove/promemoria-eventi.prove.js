@@ -507,7 +507,7 @@ await prova('19) Ogni promemoria parte alla sua ora: 8 dal giro delle 8, 20 da q
         await require(modulo)({ method: 'GET', headers: { authorization: 'Bearer segreto-di-prova' } }, res);
         return Object.assign({ _stato: res._s }, res._j || {});
     };
-    const giro8 = lancia('../api/promemoria-eventi-ore8'), giro7 = lancia('../api/promemoria-eventi-mattina'), giro22 = lancia('../api/promemoria-eventi-ore22');
+    const giro8 = lancia('../api/promemoria-eventi-ore8'), giro7 = lancia('../api/promemoria-eventi-mattina'), giro22 = lancia('../api/promemoria-eventi-ore22'), giro11 = lancia('../api/promemoria-eventi-ore11');
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
     mettiPromemoria([recNormale('n~sala-sabato', '2026-09-26', { ora: 8 }), recNormale('n~sala-presenza', '2026-09-26')]);
@@ -528,6 +528,18 @@ await prova('19) Ogni promemoria parte alla sua ora: 8 dal giro delle 8, 20 da q
     esigi(noCopia().length === 0, 'il giro delle 20 non manda quella delle 22');
     const r22 = await giro22();
     esigi(r22.inviati === 1 && noCopia().length === 1 && /Mancano 8 giorni/.test(noCopia()[0].subject), 'il giro delle 22 la manda, con i giorni di oggi');
+    // una delle 11: solo dal giro delle 11
+    azzera();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([recNormale('n~undici', '2026-09-30', { ora: 11 })]);
+    orologio = alle8('2026-09-30');
+    await giro8();
+    await giro();
+    esigi(noCopia().length === 0, 'i giri delle 8 e delle 20 non mandano quella delle 11');
+    const r11 = await giro11();
+    esigi(r11._stato === 200 && r11.inviati === 1 && noCopia().length === 1 && /Mancano 2 giorni/.test(noCopia()[0].subject), 'il giro delle 11 la manda, con i giorni di oggi');
+    await giro11();
+    esigi(noCopia().length === 1, 'un secondo giro delle 11 non la rimanda');
     // una delle 8 rimasta in un giorno passato
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
@@ -535,6 +547,73 @@ await prova('19) Ogni promemoria parte alla sua ora: 8 dal giro delle 8, 20 da q
     orologio = alle8('2026-09-27');
     await giro8();
     esigi(noCopia().length === 0 && leggiPromemoria('n~x').stato === 'scaduto' && /alle 8/.test(leggiPromemoria('n~x').invio.motivo), 'il giorno dopo non parte: segnata non partita, e dice alle 8');
+});
+
+await prova('20) Napoli, 30 settembre alle 11: l\'ultimo giorno per prenotare gli incontri B2B, con la proposta vera', async () => {
+    const P = require(path.join(RADICE, '..', 'area-riservata', 'promemoria-eventi.js'));
+    const NLF = require(path.join(RADICE, '..', 'area-riservata', 'newsletter-format.js'));
+    const prop = P.proposta('napoli-2026-10-02', 'sala-ultimo-giorno-b2b');
+    esigi(!!prop && prop.serie === 'sala' && prop.ora === 11 && prop.soloIlGiorno === true, 'la proposta c\'e\': in sala, alle 11, solo per il suo giorno');
+    const quando = P.quandoProposto(prop, '2026-10-02');
+    const d = new Date(quando);
+    esigi(d.getFullYear() === 2026 && d.getMonth() === 8 && d.getDate() === 30, 'proposta per il 30 settembre');
+    esigi(P.giornoDaTesto('30 settembre', '2026-10-02') === '2026-09-30', 'che e\' il giorno della chiusura delle prenotazioni B2B');
+    const mail = P.componi(prop.mail, { titolo: 'Napoli', quando: 'venerdì 2 ottobre 2026' }, {}, NLF);
+    const lanciaModulo = modulo => async () => {
+        const res = { _s: 0, _j: null, status(n) { this._s = n; return this; }, json(o) { this._j = o; return this; } };
+        await require(modulo)({ method: 'GET', headers: { authorization: 'Bearer segreto-di-prova' } }, res);
+        return Object.assign({ _stato: res._s }, res._j || {});
+    };
+    const giro11 = lanciaModulo('../api/promemoria-eventi-ore11'), giro8 = lanciaModulo('../api/promemoria-eventi-ore8');
+    const rec = recBase({
+        id: 'napoli-2026-10-02~sala-ultimo-giorno-b2b', proposta: 'sala-ultimo-giorno-b2b', ora: prop.ora, soloIlGiorno: true,
+        quando: giorno('2026-09-30'), giornoEvento: '2026-10-02', chiusuraB2B: '2026-09-30',
+        mail: { oggetto: mail.oggetto, html: mail.html, testo: mail.testo }
+    });
+    azzera();
+    mettiIscrizioni([
+        iscr('anna@esempio.it', 'Anna', 'Verdi', { azienda: 'VERDI SRL' }),
+        iscr('omar@esempio.it', 'Omar', 'Neri', { modalita: 'online' }),
+        iscr('bea@esempio.it', 'Bea', 'Gialli', { modalita: 'sponsor' })
+    ], []);
+    mettiPromemoria([rec]);
+    orologio = Date.parse('2026-09-30T08:05:00+02:00');
+    await giro8();
+    await giro();
+    esigi(noCopia().length === 0, 'il 30 i giri delle 8 e delle 20 non la mandano');
+    orologio = Date.parse('2026-09-30T11:02:00+02:00');
+    const r = await giro11();
+    const a = noCopia();
+    esigi(r._stato === 200 && r.inviati === 1 && JSON.stringify(a.map(m => m.to).sort()) === JSON.stringify(['anna@esempio.it', 'bea@esempio.it']), 'il giro delle 11 la manda a chi e\' in sala, non a chi segue online (' + a.map(m => m.to).join(', ') + ')');
+    const perAnna = a.find(m => m.to === 'anna@esempio.it') || {};
+    esigi(perAnna.subject === 'Oggi è l\'ULTIMO GIORNO per prenotare gli incontri B2B - Verdi S.r.l. - Next Generation Business', 'oggetto: ' + perAnna.subject);
+    esigi(/si chiudono oggi/.test(perAnna.html) && /farlo oggi stesso/.test(perAnna.html) && /Gentile Anna Verdi/.test(perAnna.html), 'corpo: "si chiudono oggi", "oggi stesso", il saluto');
+    esigi(/si chiudono oggi/.test(perAnna.text || '') && !/\{\{/.test(perAnna.html + perAnna.subject + (perAnna.text || '')), 'anche il solo testo, e nessun segnaposto rimasto');
+    esigi(/^\[Copia per te\] Oggi è l'ULTIMO GIORNO/.test((posta.find(m => /^\[Copia/.test(m.subject)) || {}).subject || ''), 'la copia a chi ha programmato, una');
+    esigi(leggiPromemoria(rec.id).stato === 'inviato', 'segnato inviato');
+    // se il servizio non passa il 30, il 1° ottobre non parte: e' una mail di quel giorno
+    azzera();
+    mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
+    mettiPromemoria([Object.assign({}, rec, { stato: 'programmato', invio: null })]);
+    orologio = Date.parse('2026-10-01T11:02:00+02:00');
+    await giro11();
+    esigi(noCopia().length === 0 && leggiPromemoria(rec.id).stato === 'scaduto' && /alle 11/.test(leggiPromemoria(rec.id).invio.motivo), 'il 1° ottobre non parte: segnata non partita, e dice alle 11');
+});
+
+await prova('21) Ogni ora delle proposte ha il suo giro: il cron in vercel.json e la funzione che manda quell\'ora', async () => {
+    const P = require(path.join(RADICE, '..', 'area-riservata', 'promemoria-eventi.js'));
+    const fs = require('fs');
+    const crons = JSON.parse(fs.readFileSync(path.join(RADICE, 'vercel.json'), 'utf8')).crons.filter(c => /^\/api\/promemoria-eventi/.test(c.path));
+    const ore = Array.from(new Set(P.proposteDi('napoli-2026-10-02').map(p => cron._interni.oraDi(p))));
+    ore.forEach(o => {
+        // ora legale di Roma: UTC + 2, e le proposte di Napoli cadono tutte in ora legale
+        const c = crons.find(x => x.schedule === '0 ' + (o - 2) + ' * * *');
+        const src = c ? fs.readFileSync(path.join(RADICE, c.path.replace(/^\//, '') + '.js'), 'utf8') : '';
+        const giusta = c && (o === 20 ? c.path === '/api/promemoria-eventi' : new RegExp('\\{\\s*ora:\\s*' + o + '\\s*\\}').test(src));
+        esigi(!!giusta, 'le ' + o + ': ' + (c ? c.path + ' (' + c.schedule + ')' : 'nessun cron'));
+    });
+    const pm = P.proposteDi('napoli-2026-10-02').filter(p => p.ora !== undefined);
+    esigi(pm.every(p => cron._interni.oraDi(p) === p.ora), 'il servizio riconosce ogni ora scritta sulle proposte');
 });
 
 await prova('6) Chiamata senza segreto: rifiutata', async () => {
