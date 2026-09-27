@@ -732,8 +732,8 @@ precisione di un paio di minuti per collegamento.
 ### 6.6 Il sito: popup, pillola e pagina di Napoli
 
 - **Accesa o nascosta.** In cima ad `assets/diretta-stato.js` c'è
-  l'interruttore **`PUBBLICA`**. Con `false` (com'è ora, per la prova
-  generale) il sito pubblico **non mostra niente** della diretta: niente
+  l'interruttore **`PUBBLICA`** (acceso, `true`, dal 27 settembre). Con
+  `false` il sito pubblico **non mostra niente** della diretta: niente
   popup né pillola in home, niente voce "Diretta" né sezione "Segui la
   diretta" a Napoli, e nessuna richiesta al servizio. Le pagine
   `/diretta/` e `/diretta/gestione/` funzionano lo stesso per chi ne conosce
@@ -1498,7 +1498,8 @@ settembre: c'è tempo, ma non tanto).
    vedono niente, tu fai la prova generale (passi 9-12) dagli indirizzi
    diretti. Poi **accendila** (`PUBBLICA = true`, una riga): popup e pulsanti
    compaiono da soli, nella finestra dell'evento. (Pubblicata nascosta il 26
-   settembre.)
+   settembre, **accesa il 27 settembre**: popup e pillola in home, voce e
+   sezione a Napoli, dai 7 giorni prima dell'evento fino alla fine.)
    - [ ] **Pubblica gli ascolti PRIMA del 2 ottobre** (§6.7): la fotografia di
      chi guarda comincia da quando il codice è online, e quello che non si
      registra il giorno dell'evento non si recupera. Con la stessa
