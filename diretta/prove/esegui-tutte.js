@@ -46,6 +46,7 @@ const PROVE = [
     { nome: 'doppioni', cartella: QUI, file: 'doppioni.prova.js' },
     { nome: 'accesso', cartella: QUI, file: 'accesso.prova.js' },
     { nome: 'coda', cartella: QUI, file: 'coda.prova.js' },
+    { nome: 'programmate', cartella: QUI, file: 'programmate.prova.js' },
     { nome: 'iscrizioni', cartella: QUI, file: 'iscrizioni.prova.js' },
     { nome: 'ascolti', cartella: QUI, file: 'ascolti.prova.js' },
     { nome: 'pagina', cartella: QUI, file: 'pagina.prova.js' },
