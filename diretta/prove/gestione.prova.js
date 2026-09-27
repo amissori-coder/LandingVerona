@@ -2263,7 +2263,9 @@ async function sheetJSNode() {
         vero((await visibiliElenco()).length === 1, 'il filtro «Da confermare (dal modulo del sito)» la trova da sola');
         await $('#filtro-stato-email').selectOption('');
         await page.click('[data-scheda="email"]');
-        await aspetta(async () => await visibile('#blocco-da-confermare') && /Invia anche a loro \(1\)/.test(await testo('#btn-invia-da-confermare')), 10000, 'riquadro «da confermare»');
+        // il riquadro si disegna subito dall'elenco; i conteggi arrivano dal servizio (email-stato) un attimo dopo
+        await aspetta(async () => await visibile('#blocco-da-confermare') && /Invia anche a loro \(1\)/.test(await testo('#btn-invia-da-confermare'))
+            && await testo('#conteggi-email li[data-stato="da confermare"] .conteggio-num') === '1', 10000, 'riquadro e conteggio «da confermare»');
         vero(await testo('#conteggi-email li[data-stato="da confermare"] .conteggio-num') === '1'
             && /^1 persona iscritta dal modulo del sito non ha ancora confermato l'indirizzo: la password parte da sola quando clicca «Conferma il tuo indirizzo email» nella mail del sito\. «Invia le credenziali» non la raggiunge\.$/.test(await testo('#testo-da-confermare'))
             && !/\(1\)|\(2\)/.test(await testo('#btn-invia-tutti')),
