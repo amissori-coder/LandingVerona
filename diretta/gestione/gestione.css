@@ -874,6 +874,62 @@ tr.riga-nota { background: var(--blu-velo); }
 .prom-destinatari:empty { display: none; }
 #promemoria-stato .riga-promemoria { display: block; }
 .email-griglia { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+/* le email programmate: tutto quello che partira' da solo, una voce per riga */
+.nota-cinque-minuti {
+    font-size: 0.86rem; color: var(--scuro); background: var(--chiaro); border-left: 3px solid var(--accento);
+    border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; max-width: 90ch;
+}
+.elenco-programmate { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.voce-programmata {
+    border: 1px solid var(--bordo); border-left: 4px solid #94A3B8; border-radius: 8px; padding: 12px 14px;
+    background: #fff; display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.voce-programmata[data-stato="programmata"], .voce-programmata[data-stato="in-corso"], .voce-programmata[data-stato="attivo"] { border-left-color: var(--accento); }
+.voce-programmata[data-stato="partita"], .voce-programmata[data-stato="partito"] { border-left-color: var(--verde); }
+.voce-programmata[data-stato="non-partira"], .voce-programmata[data-stato="limite"] { border-left-color: var(--ambra-bordo); }
+.voce-programmata[data-stato="annullata"], .voce-programmata[data-stato="fermata"], .voce-programmata[data-stato="spento"] { background: var(--chiaro); }
+.voce-testa { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; margin-bottom: 2px; }
+.voce-titolo { font-weight: 700; color: var(--scuro); overflow-wrap: anywhere; min-width: 0; }
+.voce-riga { font-size: 0.88rem; overflow-wrap: anywhere; }
+.etichetta-voce { font-weight: 600; color: var(--tenue); }
+.voce-dettaglio { font-weight: 600; color: var(--scuro); }
+.voce-registro { font-size: 0.78rem; color: var(--tenue-2); overflow-wrap: anywhere; }
+.voce-testi { font-size: 0.86rem; }
+.voce-testi summary { cursor: pointer; color: var(--blu); font-weight: 600; width: fit-content; }
+.voce-testi[open] summary { margin-bottom: 4px; }
+.voce-nota { white-space: pre-line; background: var(--chiaro); border-radius: 6px; padding: 8px 10px; margin-top: 4px; overflow-wrap: anywhere; }
+.voce-azioni { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; align-items: center; }
+.voce-azioni .btn-collegamento { padding: 4px 0; font-size: 0.86rem; align-self: auto; }
+/* lo stato di una voce: sempre colore + parola, come quello delle email */
+.stato-prog {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px;
+    font-size: 0.74rem; font-weight: 700; white-space: nowrap; background: var(--sfondo); color: var(--tenue);
+}
+.stato-prog::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.prog-programmata, .prog-in-corso { background: var(--blu-velo); color: var(--blu); }
+.prog-partita { background: var(--verde-bg); color: var(--verde); }
+.prog-non-partira { background: var(--ambra-bg); color: var(--ambra); }
+.prog-spento { background: #E2E8F0; color: #334155; }
+.tetto-programmate { margin-top: 10px; max-width: 90ch; }
+.tetto-programmate:empty { display: none; }
+/* il modulo «Programma un promemoria» */
+.form-promemoria { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--bordo); display: flex; flex-direction: column; gap: 14px; }
+.form-promemoria[hidden] { display: none; }
+.form-promemoria h3 { font-family: var(--carattere-titoli); font-size: 1.05rem; color: var(--scuro); }
+.form-promemoria .gruppo-opzioni { margin-top: 0; }
+.griglia-promemoria { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.griglia-promemoria.griglia-testi { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.azioni-promemoria { margin-top: 0; }
+.anteprima-promemoria { border: 1px solid var(--bordo); border-radius: 8px; background: var(--chiaro); padding: 12px 14px; }
+.anteprima-promemoria-testa { font-size: 0.86rem; margin-bottom: 8px; overflow-wrap: anywhere; }
+.anteprima-promemoria-testo {
+    white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 0.86rem; line-height: 1.5;
+    max-height: 420px; overflow: auto; background: #fff; border: 1px solid var(--bordo); border-radius: 6px; padding: 10px 12px;
+}
+@media (max-width: 560px) {
+    .voce-azioni .btn { flex: 1 1 140px; }
+    .azioni-promemoria .btn { flex: 1 1 100%; }
+}
 .legenda { display: grid; gap: 10px 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .legenda > div { display: flex; gap: 12px; align-items: baseline; }
 .legenda dt { flex: 0 0 96px; }

@@ -123,6 +123,28 @@
                                               -> lib/diretta-azzera.js
      email-prova      { idEvento, tipo: 'credenziali'|'iscritto-anche'|
                       'promemoria-giorno'|'promemoria-ora' }
+   LE EMAIL PROGRAMMATE (sezione della scheda Email) -> lib/diretta-programmate.js
+     programmate      { idEvento } -> { adesso, automatici (giorno prima,
+                      un'ora prima: stato, orario, persone), coda
+                      (credenziali in coda), iscrizioniAutomatiche,
+                      programmate (i promemoria in piu', in ordine di
+                      ora), tettoGiorno, inviateOggi, percentoProgrammate,
+                      personeTutti, personeMaiEntrati }
+     programmata-salva { idEvento, id? (per modificare), data
+                      'AAAA-MM-GG', ora 'HH:MM' (Roma), destinatari
+                      'tutti'|'mai-entrati', oggetto, titolo, nota (solo
+                      testo, al massimo 500 caratteri) } -> { programmata,
+                      persone }: 400 campo 'quando' (passata, dopo la
+                      fine), 'oggetto'/'titolo'/'nota' (vuoti, lunghi,
+                      HTML o collegamenti); 409 'cominciato' (si puo'
+                      solo fermare), 'terminato', 'troppe'
+     programmata-annulla { idEvento, id } -> { programmata }: annullata
+                      prima del primo giro, fermata dopo
+     programmata-anteprima { idEvento, data?, ora?, oggetto, titolo, nota }
+                      -> { oggetto, testo }: l'email come la riceve un
+                      partecipante (nome di esempio), in testo semplice
+     programmata-prova { come l'anteprima } -> la prova al gestore, con
+                      la scritta EMAIL DI PROVA
 
    Il modulo delle email si carica solo quando serve (e' un file a parte:
    se mancasse, il resto della gestione funziona lo stesso).
@@ -135,6 +157,7 @@ const PL = require('../lib/diretta-prova-link');
 const I = require('../lib/diretta-iscrizione');
 const Z = require('../lib/diretta-azzera');
 const A = require('../lib/diretta-ascolti');
+const P = require('../lib/diretta-programmate');
 const { contesto } = require('../lib/diretta-firebase');
 
 const TIPI_PROVA = ['credenziali', 'iscritto-anche', 'promemoria-giorno', 'promemoria-ora'];
@@ -231,7 +254,13 @@ const AZIONI = {
     },
     'email-avanza': async (ctx, b) => invio().avanzaCoda(ctx, { idEvento: D.controllaIdEvento(b.idEvento), budgetMs: 40000 }),
     'email-stato': async (ctx, b) => invio().statoCoda(ctx, { idEvento: D.controllaIdEvento(b.idEvento) }),
-    'email-esiti': async (ctx, b) => invio().aggiornaEsiti(ctx, { idEvento: D.controllaIdEvento(b.idEvento) })
+    'email-esiti': async (ctx, b) => invio().aggiornaEsiti(ctx, { idEvento: D.controllaIdEvento(b.idEvento) }),
+
+    'programmate': async (ctx, b) => P.elenco(ctx, b.idEvento),
+    'programmata-salva': async (ctx, b, g) => P.salva(ctx, b, g.email),
+    'programmata-annulla': async (ctx, b, g) => P.annulla(ctx, b, g.email),
+    'programmata-anteprima': async (ctx, b) => P.anteprima(ctx, b),
+    'programmata-prova': async (ctx, b, g) => P.prova(ctx, b, g.email)
 };
 
 module.exports = async (req, res) => {

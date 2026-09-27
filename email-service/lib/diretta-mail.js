@@ -635,9 +635,16 @@ function iscrittoAnche(opz) {
    cominciata") si scelgono sull'istante in cui l'email parte davvero
    (`adesso`), non su quello per cui era prevista.
    ============================================================ */
+/* I promemoria in piu' programmati dal gestore (tipo 'extra', lib/diretta-
+   programmate.js): lo stesso modello, con l'oggetto e il titolo scelti da
+   lui e una sua nota facoltativa, SOLO testo (a capo ammessi), che va in
+   cima. La nota si scrive sempre escapata, riga per riga. */
+function righeNota(nota) {
+    return String(nota == null ? '' : nota).replace(/\r\n?/g, '\n').split('\n').map(r => unaRiga(r)).filter(Boolean).slice(0, 12);
+}
 function promemoria(opz) {
     const o = opz || {};
-    const tipo = o.tipo === 'ora' ? 'ora' : 'giorno';
+    const tipo = o.tipo === 'ora' ? 'ora' : (o.tipo === 'extra' ? 'extra' : 'giorno');
     const ev = datiEvento(o.evento);
     const adesso = Number.isFinite(Number(o.adesso)) ? Number(o.adesso) : Date.now();
     const email = emailDi(o);
@@ -650,7 +657,13 @@ function promemoria(opz) {
     const cominciata = Number.isFinite(ev.inizio) && adesso >= ev.inizio;
     const quando = [ev.giorno, orario(ev)].filter(Boolean).join(', ');
     let titolo, sommario, oggetto;
-    if (tipo === 'giorno') {
+    const nota = tipo === 'extra' ? righeNota(o.nota) : [];
+    if (tipo === 'extra') {
+        titolo = unaRiga(o.titolo).slice(0, 80) || 'Promemoria della diretta';
+        oggetto = (unaRiga(o.oggetto).slice(0, 120) || 'Promemoria della diretta') + ' - ' + ev.titolo;
+        sommario = saluto(o.nome, o.cognome) + ' ' + (cominciata ? 'la diretta di ' + ev.titolo + ' è in onda: puoi entrare quando vuoi.'
+            : 'ti ricordiamo come collegarti alla diretta di ' + ev.titolo + (relativo ? ', ' + relativo : '') + '.');
+    } else if (tipo === 'giorno') {
         titolo = giorni === 0 ? 'Oggi la diretta' : giorni === 1 ? 'Domani la diretta' : 'Promemoria della diretta';
         oggetto = (giorni === 0 ? 'Oggi in diretta' : giorni === 1 ? 'Domani la diretta' : 'Promemoria della diretta') + ' - ' + ev.titolo;
         sommario = saluto(o.nome, o.cognome) + ' ' + (relativo ? relativo + ' comincia' : 'sta per cominciare')
@@ -674,7 +687,8 @@ function promemoria(opz) {
         (o.prova ? fasciaProva(FRASE_PROVA_SENZA_PASSWORD) : '')
         + testata(titolo, sommario)
         + corpo(
-            box(
+            (nota.length ? nota.map(r => paragrafo(r)).join(spazio(8)) + spazio(22) : '')
+            + box(
                 rigaBox('Evento', ev.titolo)
                 + rigaBox('Data', ev.giorno)
                 + rigaBox('Orario', orario(ev))
@@ -701,6 +715,7 @@ function promemoria(opz) {
         o.prova ? 'EMAIL DI PROVA: ' + FRASE_PROVA_SENZA_PASSWORD : '',
         titolo.toUpperCase(),
         sommario,
+        nota.join('\n'),
         'Evento: ' + ev.titolo + (quando ? '\nQuando: ' + quando : '') + '\nLa tua email: ' + email,
         'Accedi alla diretta: ' + accedi,
         frasePassword + ' ' + fraseDimenticata + ': ' + dimenticata,

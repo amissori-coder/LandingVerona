@@ -29,7 +29,10 @@
    gestione) non li legge ne' li scrive nessuno dal browser, nemmeno il
    gestore: li legge la gestione attraverso il servizio. Che il registro
    di «Torna alla fase iniziale» (azzeramenti) e le presenze non si
-   cancellano dal browser: lo fa solo il servizio.
+   cancellano dal browser: lo fa solo il servizio. Che i promemoria
+   programmati dal gestore (programmate: testi, orari, chi li ha
+   programmati) non si leggono ne' si scrivono dal browser, nemmeno dal
+   gestore: passano solo dal servizio.
    Esce con 1 se qualcosa e' rosso.
    ============================================================ */
 'use strict';
@@ -106,6 +109,12 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
             idEvento: 'napoli-2026', chi: 'gestore@prova.it', quando: Timestamp.now(), statoPrima: 'terminato',
             presenze: 3, accessi: 5, accessiTenuti: false, ascolti: true
         });
+        // un promemoria programmato come lo scrive il servizio (lib/diretta-programmate.js)
+        await setDoc(doc(db, 'programmate/p1'), {
+            idEvento: 'napoli-2026', quando: Timestamp.now(), destinatari: 'tutti', oggetto: 'Il link della diretta',
+            titolo: 'Ecco come collegarti', nota: 'Ciao', stato: 'programmata', finito: false, inviate: 0,
+            creatoDa: 'gestore@prova.it', creatoIl: Timestamp.now()
+        });
     });
 
     const anna = env.authenticatedContext('anna', { eventi: ['napoli-2026'] }).firestore();
@@ -128,7 +137,7 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il partecipante legge il proprio profilo', () => assertSucceeds(getDoc(doc(anna, 'partecipanti/anna'))));
     await prova('il partecipante NON legge il profilo di un altro', () => assertFails(getDoc(doc(anna, 'partecipanti/bruno'))));
     await prova('il partecipante NON elenca i partecipanti', () => assertFails(getDocs(collection(anna, 'partecipanti'))));
-    for (const p of ['nomiUtente/annabianchi', 'indirizzi/anna@x.it', 'accessi/a1', 'tentativi/annabianchi', 'code/napoli-2026', 'limiti/x', 'presenze/napoli-2026_anna', 'sessioni/anna', 'eventiRiservati/napoli-2026', 'ascolti/napoli-2026', 'ascoltiCache/napoli-2026', 'azzeramenti/a1']) {
+    for (const p of ['nomiUtente/annabianchi', 'indirizzi/anna@x.it', 'accessi/a1', 'tentativi/annabianchi', 'code/napoli-2026', 'limiti/x', 'presenze/napoli-2026_anna', 'sessioni/anna', 'eventiRiservati/napoli-2026', 'ascolti/napoli-2026', 'ascoltiCache/napoli-2026', 'azzeramenti/a1', 'programmate/p1']) {
         await prova('il partecipante NON legge ' + p.split('/')[0], () => assertFails(getDoc(doc(anna, p))));
     }
     await prova('un account disattivato NON legge piu\' l\'evento (anche con il token ancora valido)', () => assertFails(getDoc(doc(carla, 'eventi/napoli-2026'))));
@@ -148,6 +157,11 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     }
     await prova('il gestore NON legge il registro degli azzeramenti dal browser', () => assertFails(getDoc(doc(gestore, 'azzeramenti/a1'))));
     await prova('il gestore NON elenca gli azzeramenti', () => assertFails(getDocs(collection(gestore, 'azzeramenti'))));
+    // i promemoria programmati: la gestione li legge attraverso il servizio, mai dal browser
+    await prova('il gestore NON legge un promemoria programmato dal browser', () => assertFails(getDoc(doc(gestore, 'programmate/p1'))));
+    await prova('il gestore NON elenca i promemoria programmati', () => assertFails(getDocs(collection(gestore, 'programmate'))));
+    await prova('il partecipante NON elenca i promemoria programmati', () => assertFails(getDocs(collection(anna, 'programmate'))));
+    await prova('senza accesso NON si legge un promemoria programmato', () => assertFails(getDoc(doc(anonimo, 'programmate/p1'))));
 
     console.log('\nScritture vietate');
     await prova('il partecipante NON modifica l\'evento (es. il video)', () => assertFails(updateDoc(doc(anna, 'eventi/napoli-2026'), { videoId: 'https://altro.esempio.it/live/playlist.m3u8' })));
@@ -172,6 +186,13 @@ const secondiFa = s => Timestamp.fromMillis(Date.now() - s * 1000);
     await prova('il gestore NON modifica il registro degli azzeramenti', () => assertFails(updateDoc(doc(gestore, 'azzeramenti/a1'), { chi: 'altro@prova.it' })));
     await prova('il gestore NON cancella il registro degli azzeramenti', () => assertFails(deleteDoc(doc(gestore, 'azzeramenti/a1'))));
     await prova('il partecipante NON cancella il registro degli azzeramenti', () => assertFails(deleteDoc(doc(anna, 'azzeramenti/a1'))));
+    // i promemoria programmati: li programma, modifica e annulla solo il servizio (con i controlli e il registro)
+    await prova('il gestore NON programma un promemoria dal browser', () => assertFails(setDoc(doc(gestore, 'programmate/p2'), { idEvento: 'napoli-2026', quando: Timestamp.now(), stato: 'programmata', oggetto: 'x', titolo: 'x', nota: '<b>x</b>' })));
+    await prova('il gestore NON modifica un promemoria programmato dal browser', () => assertFails(updateDoc(doc(gestore, 'programmate/p1'), { nota: 'Entra da https://truffa.example' })));
+    await prova('il gestore NON annulla un promemoria cancellandolo dal browser', () => assertFails(deleteDoc(doc(gestore, 'programmate/p1'))));
+    await prova('il partecipante NON crea un promemoria programmato', () => assertFails(setDoc(doc(anna, 'programmate/p3'), { idEvento: 'napoli-2026', stato: 'programmata' })));
+    await prova('il partecipante NON modifica un promemoria programmato', () => assertFails(updateDoc(doc(anna, 'programmate/p1'), { stato: 'annullata' })));
+    await prova('senza accesso NON si scrive un promemoria programmato', () => assertFails(setDoc(doc(anonimo, 'programmate/p4'), { stato: 'programmata' })));
     // cancellare la propria presenza (per togliere i minuti o rifarsi un «nuovo collegamento») resta vietato: la cancella solo il servizio
     await prova('il partecipante NON cancella la propria presenza', () => assertFails(deleteDoc(doc(anna, 'presenze/napoli-2026_anna'))));
 

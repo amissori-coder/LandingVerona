@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260927c">
+    <link rel="stylesheet" href="gestione.css?v=20260927d">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -1135,6 +1135,86 @@
                     </div>
                 </div>
 
+                <!-- EMAIL PROGRAMMATE: tutto quello che partira' da solo, e i promemoria
+                     in piu' del gestore (gestione.js, caricaProgrammate; il servizio
+                     in email-service/lib/diretta-programmate.js). Tutto il testo entra
+                     nella pagina come testo (textContent), mai come HTML. -->
+                <div class="riquadro" id="riquadro-programmate">
+                    <div class="riquadro-testa riquadro-testa-riga">
+                        <h2>Email programmate</h2>
+                        <button type="button" id="btn-aggiorna-programmate" class="btn btn-secondario btn-piccolo">Aggiorna</button>
+                    </div>
+                    <p class="regia-dettaglio">Tutto quello che partirà da solo, in ordine di ora (ora italiana), con a chi e quante persone oggi.
+                        Niente parte senza una tua scelta: i promemoria automatici si accendono nella scheda Evento, quelli in più li programmi qui.</p>
+                    <p class="nota-cinque-minuti">Le email partono dal lavoro programmato ogni 5 minuti: possono arrivare fino a 5 minuti dopo l'ora indicata.</p>
+                    <ol id="elenco-programmate" class="elenco-programmate" aria-label="Email programmate"></ol>
+                    <p id="tetto-programmate" class="aiuto tetto-programmate"></p>
+                    <p id="msg-programmate" class="msg" role="status" hidden></p>
+                    <div class="azioni">
+                        <button type="button" id="btn-nuovo-promemoria" class="btn btn-primario" aria-expanded="false" aria-controls="form-promemoria">Programma un promemoria</button>
+                    </div>
+
+                    <form id="form-promemoria" class="form-promemoria" novalidate hidden aria-labelledby="titolo-form-promemoria">
+                        <h3 id="titolo-form-promemoria">Programma un promemoria</h3>
+                        <p class="aiuto">Ricorda come collegarsi: l'evento con data e orario, l'email con cui entrare, il pulsante «Accedi alla diretta»
+                            con l'indirizzo per esteso, e «Non trovi la password? Usa «Password dimenticata?»». Mai la password.</p>
+                        <div class="griglia-promemoria">
+                            <div class="campo">
+                                <label for="prom-data">Giorno</label>
+                                <input type="date" id="prom-data" required>
+                            </div>
+                            <div class="campo">
+                                <label for="prom-ora">Ora (ora italiana)</label>
+                                <input type="time" id="prom-ora" step="60" required>
+                            </div>
+                        </div>
+                        <fieldset class="gruppo-opzioni">
+                            <legend>A chi</legend>
+                            <label class="opzione">
+                                <input type="radio" name="prom-destinatari" id="prom-dest-tutti" value="tutti" checked>
+                                <span><strong>Tutti quelli che hanno ricevuto le credenziali</strong>
+                                    <span id="prom-conta-tutti" class="prom-destinatari"></span></span>
+                            </label>
+                            <label class="opzione">
+                                <input type="radio" name="prom-destinatari" id="prom-dest-mai" value="mai-entrati">
+                                <span><strong>Solo chi non è ancora mai entrato</strong>
+                                    <span id="prom-conta-mai" class="prom-destinatari"></span></span>
+                            </label>
+                            <p class="aiuto">Non lo ricevono: chi è «da confermare» o non ha ancora le credenziali (non ha una password), chi ha l'account
+                                disattivato o è stato tolto dall'evento, e chi riceve le credenziali dopo l'ora di partenza.</p>
+                        </fieldset>
+                        <div class="griglia-promemoria griglia-testi">
+                            <div class="campo">
+                                <label for="prom-oggetto">Oggetto</label>
+                                <input type="text" id="prom-oggetto" maxlength="120" required aria-describedby="prom-oggetto-aiuto">
+                                <p id="prom-oggetto-aiuto" class="aiuto">Nell'email diventa «Oggetto - nome dell'evento».</p>
+                            </div>
+                            <div class="campo">
+                                <label for="prom-titolo">Titolo</label>
+                                <input type="text" id="prom-titolo" maxlength="80" required>
+                            </div>
+                        </div>
+                        <div class="campo">
+                            <label for="prom-nota">Nota <span class="facoltativo">(facoltativa)</span></label>
+                            <textarea id="prom-nota" rows="4" maxlength="500" aria-describedby="prom-nota-aiuto"></textarea>
+                            <p id="prom-nota-aiuto" class="aiuto"><span id="prom-nota-conta">0 di 500 caratteri</span>. Solo testo: niente HTML e niente
+                                collegamenti (quello della diretta c'è già). Puoi andare a capo. Compare in cima all'email.</p>
+                        </div>
+                        <p id="msg-form-promemoria" class="msg" role="alert" hidden></p>
+                        <div class="azioni azioni-promemoria">
+                            <button type="button" id="btn-anteprima-promemoria" class="btn btn-secondario">Anteprima</button>
+                            <button type="button" id="btn-prova-promemoria" class="btn btn-secondario">Invia email di prova a me</button>
+                            <button type="submit" id="btn-salva-promemoria" class="btn btn-primario">Programma</button>
+                            <button type="button" id="btn-chiudi-promemoria" class="btn btn-secondario">Chiudi senza salvare</button>
+                        </div>
+                        <p id="msg-prova-promemoria" class="msg" role="status" hidden></p>
+                        <div id="anteprima-promemoria" class="anteprima-promemoria" hidden>
+                            <p class="anteprima-promemoria-testa">Anteprima (con un nome di esempio): <strong>Oggetto:</strong> <span id="anteprima-promemoria-oggetto"></span></p>
+                            <pre id="anteprima-promemoria-testo" class="anteprima-promemoria-testo" tabindex="0" aria-label="Testo dell'email"></pre>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="riquadro">
                     <h2>Che cosa vuol dire ogni stato</h2>
                     <dl class="legenda">
@@ -1275,6 +1355,6 @@
     <script src="../sorgente-video.js?v=20260925a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260927c"></script>
+    <script src="gestione.js?v=20260927d"></script>
 </body>
 </html>

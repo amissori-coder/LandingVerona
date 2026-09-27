@@ -44,7 +44,9 @@
       gestione.prova.js (04-gestione-tipo-player-*); la regia dopo una
       prova («Riporta in attesa», «Torna alla fase iniziale», la
       conferma con AZZERA, la pagina tornata all'attesa) e2e.prova.js
-      (09-*).
+      (09-*); le email programmate gestione.prova.js (l'elenco, il
+      modulo) ed e2e.prova.js (la conferma, il promemoria partito)
+      (04-gestione-*programm*, 04-gestione-promemoria-*).
    Va lanciato DOPO le prove (esegui-tutte.js, e2e.prova.js,
    anteprima-email.js --screenshot: le email si fotografano da li'). Le foto che una prova non ha
    lasciato si segnalano con «manca» (e restano quelle di prima); quelle
@@ -276,11 +278,18 @@ async function inJpeg(browser, sorgente, destinazione) {
             ['04-gestione-partecipanti-computer', 'screenshot-gestione/computer-partecipanti.png'],
             // chi si e' iscritto dal modulo e non ha ancora confermato l'indirizzo (gestione.prova.js)
             ['04-gestione-da-confermare-computer', 'screenshot-gestione/computer-email-da-confermare.png'],
+            // le email programmate: l'elenco e il modulo (gestione.prova.js), la conferma e il partito (e2e.prova.js)
+            ['04-gestione-email-programmate-computer', 'screenshot-gestione/computer-email-programmate.png'],
+            ['04-gestione-email-programmate-telefono', 'screenshot-gestione/telefono-email-programmate.png'],
+            ['04-gestione-programma-promemoria-computer', 'screenshot-gestione/computer-email-programmata-modulo.png'],
+            ['04-gestione-promemoria-conferma-computer', 'screenshot-e2e/10b-promemoria-conferma-gestione.png'],
+            ['04-gestione-promemoria-partito-computer', 'screenshot-e2e/10c-promemoria-partito-gestione.png'],
             ['05-email-credenziali-telefono', 'email/screenshot/credenziali-telefono.png'],
             ['05-email-credenziali-computer', 'email/screenshot/credenziali-computer.png'],
             ['05-email-iscritto-anche-telefono', 'email/screenshot/iscritto-anche-telefono.png'],
             ['05-email-iscritto-anche-computer', 'email/screenshot/iscritto-anche-computer.png'],
             ['05-email-promemoria-telefono', 'email/screenshot/promemoria-ora-telefono.png'],
+            ['05-email-promemoria-extra-telefono', 'email/screenshot/promemoria-extra-telefono.png'],
             ['06-popup-home-telefono', 'screenshot-sito/popup-home-telefono-in-diretta.png'],
             ['06-popup-home-computer', 'screenshot-sito/popup-home-computer-in-diretta.png'],
             ['06-popup-home-prima-computer', 'screenshot-sito/popup-home-computer-prima.png'],

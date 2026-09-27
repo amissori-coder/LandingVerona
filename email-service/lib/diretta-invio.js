@@ -584,7 +584,9 @@ async function spedisci(trasporto, opz) {
    invece di una per email. Con il tetto a 0 il contatore non si tocca.
    `frazione` serve alle email che arrivano da richieste PUBBLICHE: le
    reimpostazioni si fermano all'80%, le password del modulo del sito al
-   60% (quotaModulo), per lasciare spazio a credenziali e promemoria. Il
+   60% (quotaModulo), i promemoria in piu' programmati dal gestore al 70%
+   (DIRETTA_PROMEMORIA_PERCENTO, lib/diretta-programmate.js), per lasciare
+   spazio a credenziali e promemoria automatici. Il
    contatore e' uno solo: una frazione dice "si parte solo finche' le
    email di oggi, di tutti, sono meno di tanto".
    ============================================================ */
@@ -1083,7 +1085,8 @@ async function ripristina(ctx, ref, idEvento, prec) {
    vero (un giorno prima, un'ora prima), cosi' le parole sono giuste. */
 const ESEMPIO = { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', password: 'Esempio7Kq' };
 /* tipo: 'credenziali', 'iscritto-anche' (l'avviso senza password),
-   'promemoria-giorno', 'promemoria-ora' */
+   'promemoria-giorno', 'promemoria-ora', 'promemoria-extra' (un
+   promemoria in piu': opz.oggetto, opz.titolo, opz.nota, opz.quando) */
 async function inviaProva(ctx, opz) {
     const a = E.normalizzaEmail((opz && opz.a) || '');
     if (!E.emailValida(a)) throw C.errore(400, 'Indirizzo per la prova non valido', 'a');
@@ -1102,6 +1105,9 @@ async function inviaProva(ctx, opz) {
         const giorno = tipo === 'promemoria-giorno';
         const quando = Number.isFinite(inizio) ? inizio - (giorno ? GIORNO : 60 * MINUTO) : ctx.adesso();
         mail = M.promemoria(Object.assign({ tipo: giorno ? 'giorno' : 'ora', adesso: quando }, base));
+    } else if (tipo === 'promemoria-extra') {
+        const quando = Number.isFinite(Number(opz.quando)) ? Number(opz.quando) : ctx.adesso();
+        mail = M.promemoria(Object.assign({ tipo: 'extra', oggetto: opz.oggetto, titolo: opz.titolo, nota: opz.nota, adesso: quando }, base));
     } else throw C.errore(400, 'Tipo di email non valido', 'tipo');
     let trasporto;
     try { trasporto = creaTrasporto(ctx); } catch (e) { throw C.errore(503, motivoBreve(e), 'posta'); }
@@ -1385,6 +1391,12 @@ async function aggiornaEsiti(ctx, opz) {
    bloccato), il segno si toglie e si riprova al giro dopo. Quando
    nessuno manca piu', code/{id}.promemoria.<tipo>.finito evita di
    rileggere mille profili ogni cinque minuti.
+   I PROMEMORIA IN PIU' programmati dal gestore (lib/diretta-programmate.js)
+   passano da qui con la stessa presa in carico: il loro tipo e' 'x' +
+   l'identificativo della programmata, e `extra` porta chi puo' riceverlo
+   (filtro), l'email (mail), la quota del tetto giornaliero (frazione),
+   il controllo prima di ogni lotto (attivo: annullato? ci si ferma) e il
+   registro alla fine del giro (dopo).
    ============================================================ */
 
 /* La finestra in cui un promemoria puo' partire: [da, a). null se
@@ -1407,27 +1419,31 @@ function promemoriaDovuti(evento, adesso, fatti) {
         return f && adesso >= f.da && adesso < f.a && !(fatti && fatti[t] && fatti[t].finito);
     });
 }
-function vuolePromemoria(d, idEvento, tipo) {
+// `filtro` (facoltativo): le condizioni in piu' di un promemoria programmato (vedi lib/diretta-programmate.js)
+function vuolePromemoria(d, idEvento, tipo, filtro) {
     const segno = ((d.promemoria || {})[idEvento] || {})[tipo];
     return segno == null && d.stato === 'attivo' && d.authCreato === true
         && Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0
-        && STATI_PROMEMORIA.indexOf(voce(d, idEvento).stato) >= 0 && E.emailValida(indirizzoDi(d));
+        && STATI_PROMEMORIA.indexOf(voce(d, idEvento).stato) >= 0 && E.emailValida(indirizzoDi(d))
+        && (!filtro || filtro(d));
 }
-async function promemoriaUna(ctx, trasporto, ref, idEvento, evento, tipo) {
+async function promemoriaUna(ctx, trasporto, ref, idEvento, evento, tipo, extra) {
+    const filtro = extra && extra.filtro;
     const campo = new ctx.FieldPath('promemoria', idEvento, tipo);
     const dati = await ctx.db.runTransaction(async tx => {
         const s = await tx.get(ref);
         if (!s.exists) return null;
         const d = s.data();
-        if (!vuolePromemoria(d, idEvento, tipo)) return null;
+        if (!vuolePromemoria(d, idEvento, tipo, filtro)) return null;
         tx.update(ref, campo, 'invio');
         return d;
     });
     if (!dati) return null;
-    const mail = M.promemoria({
+    const base = {
         tipo: tipo, evento: evento, idEvento: idEvento, nome: dati.nome, cognome: dati.cognome, email: indirizzoDi(dati),
         paginaEvento: evento.paginaEvento, assistenza: C.assistenza(), adesso: ctx.adesso()
-    });
+    };
+    const mail = extra && extra.mail ? extra.mail(base) : M.promemoria(base);
     try {
         await spedisci(trasporto, { a: indirizzoDi(dati), mail: mail, custom: 'diretta|' + idEvento + '|' + ref.id, tipo: 'promemoria-' + tipo });
         await ref.update(campo, ts(ctx)).catch(e => log('promemoria partito ma non registrato (resta "invio")', e));
@@ -1443,7 +1459,7 @@ async function promemoriaUna(ctx, trasporto, ref, idEvento, evento, tipo) {
         return esito;
     }
 }
-async function giroPromemoria(ctx, idEvento, evento, tipo, scadenza) {
+async function giroPromemoria(ctx, idEvento, evento, tipo, scadenza, extra) {
     const r = { idEvento: idEvento, tipo: tipo, inviate: 0, respinte: 0, errori: 0, incerti: 0, finito: false, bloccato: null };
     const giro = await prendiLucchetto(ctx, idEvento, LUCCHETTO_CRON_MS);
     if (!giro) return Object.assign(r, { occupato: true });
@@ -1454,22 +1470,24 @@ async function giroPromemoria(ctx, idEvento, evento, tipo, scadenza) {
            una per una (vedi destinatariPromemoria). */
         await rifCoda(ctx, idEvento).set({ promemoria: { [tipo]: { cominciato: ctx.adesso() } } }, { merge: true });
         const snap = await conStato(ctx, idEvento, STATI_PROMEMORIA[0]).get();
-        const idonei = snap.docs.filter(doc => vuolePromemoria(doc.data(), idEvento, tipo));
+        const idonei = snap.docs.filter(doc => vuolePromemoria(doc.data(), idEvento, tipo, extra && extra.filtro));
         let trasporto;
         try { trasporto = creaTrasporto(ctx); } catch (e) { r.bloccato = motivoBreve(e); return r; }
         let fatti = 0;
         const pausa = pausaGruppi();
         try {
             for (let i = 0; i < idonei.length && !r.bloccato && !r.limiteGiorno; i += lotto()) {
+                // un promemoria programmato annullato (o l'evento terminato) nel frattempo: ci si ferma qui
+                if (extra && extra.attivo && !(await extra.attivo())) { r.fermato = true; break; }
                 const blocco = idonei.slice(i, i + lotto());
-                const prenotazione = await riserva(ctx, blocco.length);
+                const prenotazione = await riserva(ctx, blocco.length, extra && extra.frazione);
                 if (!prenotazione.preso) { r.limiteGiorno = true; break; }
                 let usate = 0;
                 for (let j = 0; j < prenotazione.preso && !r.bloccato; j += concorrenza()) {
                     if (Date.now() >= scadenza) break;
                     if (i + j > 0 && pausa > 0) await C.pausa(pausa);
                     const gruppo = blocco.slice(j, Math.min(j + concorrenza(), prenotazione.preso));
-                    const esiti = await Promise.all(gruppo.map(doc => promemoriaUna(ctx, trasporto, doc.ref, idEvento, evento, tipo)
+                    const esiti = await Promise.all(gruppo.map(doc => promemoriaUna(ctx, trasporto, doc.ref, idEvento, evento, tipo, extra)
                         .catch(e => { log('promemoria non preso in carico', e); return { stato: 'guasto' }; })));
                     fatti += gruppo.length;
                     esiti.forEach(e => {
@@ -1485,15 +1503,19 @@ async function giroPromemoria(ctx, idEvento, evento, tipo, scadenza) {
                     });
                 }
                 await restituisci(ctx, prenotazione, prenotazione.preso - usate);
+                // il tetto ne ha concesse meno del lotto: gli altri aspettano domani (o il giro dopo)
+                if (prenotazione.preso < blocco.length) r.limiteGiorno = true;
                 if (Date.now() >= scadenza) break;
             }
         } finally { chiudi(trasporto); }
-        finito = fatti >= idonei.length && !r.bloccato && !r.limiteGiorno && !r.guasti;
+        finito = fatti >= idonei.length && !r.bloccato && !r.limiteGiorno && !r.guasti && !r.fermato;
         r.finito = finito;
     } finally {
         const ora = ctx.adesso();
         const segno = { quando: ora, finito: finito, inviate: ctx.FieldValue.increment(r.inviate) };
         await mollaLucchetto(ctx, idEvento, giro, { promemoria: { [tipo]: segno } });
+        // il registro del promemoria programmato (lib/diretta-programmate.js)
+        if (extra && extra.dopo) { try { await extra.dopo(r); } catch (e) { log('registro del promemoria programmato', e); } }
     }
     if (r.bloccato) log('promemoria ' + tipo + ' di ' + idEvento + ' fermati: ' + mascheraEmail(r.bloccato));
     return r;
@@ -1513,7 +1535,8 @@ async function giroPromemoria(ctx, idEvento, evento, tipo, scadenza) {
    3. gli 'invio' rimasti a meta' da piu' di 10 minuti diventano
       'incerto' (mai rispediti da soli);
    4. le code attive vanno avanti;
-   5. i promemoria dovuti partono;
+   5. i promemoria dovuti partono (anche quelli in piu' programmati dal
+      gestore, lib/diretta-programmate.js);
    6. i rimbalzi di Brevo, al massimo ogni mezz'ora.
    Se non c'e' niente da fare costa poche letture: l'elenco (breve)
    dei gestori, degli eventi con l'interruttore acceso (e, per ognuno,
@@ -1606,6 +1629,13 @@ async function giroCron(ctx, opz) {
             try { riepilogo.promemoria.push(await giroPromemoria(ctx, doc.id, e, tipo, scadenza)); } catch (err) { log('promemoria ' + tipo + ' di ' + doc.id, err); }
         }
     }
+    // i promemoria in piu' programmati dal gestore (lib/diretta-programmate.js)
+    if (Date.now() < scadenza) {
+        try {
+            const P = require('./diretta-programmate');
+            riepilogo.promemoria = riepilogo.promemoria.concat(await P.giroProgrammate(ctx, eventi.docs, statoCode, scadenza));
+        } catch (e) { log('promemoria programmati', e); }
+    }
 
     if (chiaveBrevo() && Date.now() < scadenza) {
         const recenti = code.docs.filter(d => RE_ID_EVENTO.test(d.id) && ctx.adesso() - (Number(d.data().ultimoInvio) || 0) < 3 * GIORNO);
@@ -1630,6 +1660,8 @@ async function giroCron(ctx, opz) {
 module.exports = {
     inviaCredenziali, inviaSubito, inviaProva, inviaReimpostazione, accoda, avanzaCoda, statoCoda, aggiornaEsiti, giroCron,
     STATI,
+    // per i promemoria programmati (lib/diretta-programmate.js)
+    giroPromemoria, vuolePromemoria, finestraPromemoria, destinatariPromemoria, conStato, leggiEvento, maxGiorno, chiaveGiorno, voce, STATI_PROMEMORIA,
     // per le prove: il giro senza lucchetto, la presa in carico, la lettura degli errori
     _interni: {
         lavoraCoda, reclama, classifica, primaDelData, fermaTutto, problemaNostro, promemoriaDovuti, finestraPromemoria,
