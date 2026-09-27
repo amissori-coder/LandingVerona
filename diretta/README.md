@@ -95,6 +95,7 @@ riconciliazione del lavoro programmato, §7):
 | `api/diretta-gestione` | pagina di gestione | eventi, caricamento, partecipanti, email, regia, esportazione |
 | `api/diretta-stato` | home e pagina di Napoli | "in onda sì/no", pubblico, con cache |
 | `api/diretta-cron` | Vercel, ogni 5 minuti | riconciliazione delle iscrizioni dal modulo del sito, coda delle email, promemoria, pulizie |
+| `api/diretta-ascolti` | Vercel, ogni minuto | la fotografia di chi guarda, per la scheda *Ascolti* (§6.7): per ogni evento in finestra, chi ha la pagina aperta in quel minuto |
 | `lib/diretta-*.js` | le funzioni qui sopra | logica, email, password, collegamento a Firebase |
 | `lib/sito-iscrizioni.js` | la riconciliazione (`lib/diretta-riconcilia.js`) | legge **in sola lettura** le schede del modulo nel progetto dello studio (la sua chiave, un'app firebase-admin a parte, una sola raccolta, nessuna scrittura: lo controlla `separazione.prova.js`) |
 
@@ -281,6 +282,10 @@ cui al massimo 60 s per la riconciliazione), lucchetto 330 s (le chiamate a
 mano dalla gestione: 40 s e 90 s). Se non c'è niente da fare esce subito con
 poche letture (per ogni evento con l'interruttore acceso, anche una query
 sulle schede nuove del modulo).
+
+**Il lavoro programmato degli ascolti** `api/diretta-ascolti` gira **ogni
+minuto** (serve il piano Pro di Vercel, che c'è già): `maxDuration` 60 s. Senza
+eventi in finestra fa due piccole query ed esce.
 
 Dopo aver aggiunto le variabili: *Deployments* → l'ultimo → *Redeploy*.
 
@@ -757,6 +762,59 @@ precisione di un paio di minuti per collegamento.
   cima ad `assets/diretta-stato.js` (date con il fuso: `+02:00` d'estate,
   `+01:00` d'inverno).
 
+### 6.7 Gli ascolti (scheda *Ascolti*)
+
+**Che cosa si registra.** Ogni minuto il servizio (il lavoro programmato
+`api/diretta-ascolti`, su Vercel) fa una **fotografia** di chi ha la pagina della
+diretta aperta: le persone che hanno mandato il segnale di presenza negli ultimi
+2 minuti e mezzo (la stessa regola del contatore «Collegati adesso» della
+regia). Lo fa per ogni evento «in finestra»: da 2 ore prima dell'inizio a 2 ore
+dopo la fine, e comunque finché l'evento è in onda o in pausa. Tiene, in un solo
+documento per evento (`ascolti/{idEvento}`), la **curva** (quante persone, minuto
+per minuto, e se in quel minuto l'evento era in onda, in pausa o in attesa) e,
+per ogni persona, i **tratti** in cui c'era («dalle 9.58 alle 11.20»). La pagina
+dei partecipanti e le regole non cambiano: niente scritture in più dai browser.
+
+**Attenzione: quello che non si fotografa non si recupera.** La registrazione
+comincia da quando questo codice è online: per Napoli va pubblicato **prima del 2
+ottobre** (§12).
+
+**Che cosa mostra la scheda** (si aggiorna da sola ogni minuto mentre è aperta):
+- **Riepilogo**: iscritti, credenziali inviate, persone entrate almeno una volta
+  (e la percentuale), persone che hanno visto la diretta, **picco** di spettatori
+  (quanti e a che ora), **minimo** mentre si era in onda, media, tempo medio di
+  visione, ore totali viste.
+- **Spettatori minuto per minuto**: il grafico, con le pause, le voci del
+  programma, il picco, il minimo e i cali più forti.
+- **Ascolto per voce del programma**: media, massimo e minimo di ogni tavola
+  rotonda.
+- **Quando si sono collegati**: gli ingressi ogni 5 minuti, primi ingressi e
+  rientri.
+- **Dispositivi**: telefono, computer, tablet e browser.
+- **Persone**: l'elenco con ricerca, filtri e ordinamento; aprendo una persona,
+  la sua linea del tempo.
+- **Non si sono collegati**: chi ha ricevuto le credenziali e non è mai entrato,
+  con «Copia gli indirizzi».
+- **Esporta in Excel** (sei fogli) e **Stampa il riepilogo**.
+
+**I buchi.** Se Vercel salta qualche giro, nel grafico la linea si
+interrompe dove mancano i dati (oltre 3 minuti) e la scheda lo dice; chi era
+collegato prima e dopo il buco si considera rimasto anche in mezzo (niente finti
+«rientri»).
+
+**Costi**: una fotografia legge le presenze di chi è collegato (circa 1.000
+letture al minuto con 1000 persone, una scrittura); la scheda aperta ricalcola
+al massimo una volta al minuto per tutti i gestori insieme (circa 3.500 letture
+con 1000 iscritti; il risultato si tiene compresso in `ascoltiCache`, riaprirla
+entro un minuto costa una lettura). Vedi §9.
+
+**Le definizioni** (scritte anche in fondo alla scheda): spettatore in un minuto =
+persona con la pagina aperta che ha mandato il segnale negli ultimi 2 minuti e
+mezzo (chi chiude la pagina esce dal conto entro due minuti e mezzo); picco e
+minimo solo nei minuti in onda, pause escluse, e il minimo senza i primi e gli
+ultimi 5 minuti; «Vedi come un partecipante» non conta; i minuti per persona sono
+gli stessi degli attestati (§6.5); orari in ora italiana.
+
 ## 7. L'email come accesso, doppioni, password
 
 **Si entra con l'email.** Nessun nome utente: la persona scrive l'indirizzo
@@ -1010,6 +1068,15 @@ In entrambi 1000 persone e una decina di cambi di stato o di video.
 | Spark (gratuito): quota al giorno | 50.000 | 20.000 | 50.000 | 20.000 |
 | **Blaze**, oltre la quota gratuita, prezzi `eur3` (0,06 $ ogni 100.000 letture, 0,18 $ ogni 100.000 scritture) | ~0,23 $ | ~0,36 $ | ~0,48 $ | ~0,74 $ |
 
+**Gli ascolti** (§6.7) aggiungono, per la giornata di Napoli: le fotografie
+di ogni minuto (circa 660 in finestra, da 2 ore prima a 2 ore dopo), ognuna con
+una lettura per persona collegata: **~400.000-660.000 letture** e 660 scritture;
+la scheda *Ascolti* ricalcola al massimo una volta al minuto (~3.500 letture con
+1000 iscritti): tenuta aperta tutto il giorno **~2 milioni di letture**, aperta
+ogni tanto poche migliaia. In tutto, nel caso peggiore, circa **1,5-2 $ in più**
+per la giornata; nei giorni senza eventi circa 2.900 letture al giorno (dentro
+la quota gratuita).
+
 **Spark non regge in nessuno dei due casi** (le scritture finirebbero dopo
 circa 20 minuti di diretta); **Blaze costa meno di 1 $ per 3 ore e circa
 1,2 $ per la giornata intera**. I giorni prima (creazione degli account, invio
@@ -1033,7 +1100,9 @@ al contatore) ma non aggiunge minuti.
 | Gestione (contatore ogni 20 s, regia, elenchi) | ~1.000 |
 | Stato "in onda" per home e Napoli (servito dalla cache CDN; alla funzione arriva circa 1 chiamata ogni 30 s per zona) | ~1.500 (Napoli: ~3.000) |
 | Lavoro programmato (ogni 5 minuti) | 288 |
-| **Totale del giorno** | **~6.000** (Napoli: ~8.000) |
+| Fotografie degli ascolti (ogni minuto, tutti i giorni) | 1.440 |
+| Scheda *Ascolti* aperta (un aggiornamento al minuto per scheda) | ~600 |
+| **Totale del giorno** | **~8.000** (Napoli: ~10.000) |
 
 Il piano Pro include 1 milione di chiamate al mese: la diretta ne usa lo
 0,6 %. Nessuna funzione è sul percorso del video: lo trasmette Azoto (a
@@ -1138,13 +1207,15 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-video.prove.js` | il video: il codice vero di Azoto (si prende solo l'indirizzo), codice malevolo (script, `onload`, `onerror`, `javascript:`, `data:`, iframe di altri siti, due iframe), solo `https://cdn.azotosolutions.com` (niente altri siti, sottodomini, porte, http); il flusso diretto HLS `.m3u8` (anche con token) e DASH `.mpd`; rifiutati con il motivo RTMP/RTSP/SRT, file video, link con credenziali, indirizzi interni, un `.m3u8` nel campo del player e viceversa; tipo di player e passaggio A↔B (`evento-player`), link principale e di riserva, sorgente scelta dalla regia, nessun link nel documento pubblico fuori onda; la copia del servizio è identica a quella del sito | 265 verdi, 0 rossi |
 | `email-service/prove/diretta-firma.prove.js` | i link firmati a tempo: nginx `secure_link` (con il vettore della documentazione di nginx) e Akamai EdgeAuth, durata, `validoSecondi`, acl non valide rifiutate, la chiave mai restituita | 64 verdi, 0 rossi |
 | `email-service/prove/diretta-prova-link.prove.js` | la prova del link: il player di Azoto (si può incorporare? non risponde? rimanda altrove?), un indirizzo che non è di Azoto rifiutato senza nemmeno provarlo; per il flusso diretto playlist HLS principale e di una qualità, diretta o registrazione, qualità, DVR, codec, CORS su playlist e segmento, DASH, pagine incorporabili o no (`X-Frame-Options`, `frame-ancestors`), indirizzi interni rifiutati anche dopo un redirect o con il DNS che cambia, tempi e dimensioni massime | 120 verdi, 0 rossi |
-| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova | 70 verdi, 0 rossi |
+| `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova; **gli ascolti** (`ascolti`, `ascoltiCache`) chiusi a tutti i browser, anche al gestore | 92 verdi, 0 rossi |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio; l'unico ponte (`lib/sito-iscrizioni.js`, per la riconciliazione) è in sola lettura: un'app con un nome suo, la sola raccolta `iscrizioni`, nessuna scrittura, nessun account, e lo carica solo la riconciliazione | 19 verdi, 0 rossi |
 | `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse, correzioni: **zero account doppi, un account per email** | 89 verdi, 0 rossi |
 | `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player | 201 verdi, 0 rossi |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password; una sola password per persona (chi ha già le credenziali di un altro evento riceve «Sei iscritto anche a…»); il modulo del sito al massimo al 60 % del tetto giornaliero, le credenziali del gestore passano anche dietro un lotto tutto fermo | 164 verdi, 0 rossi |
 | `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account e password subito), iscrizione ripetuta (una sola password), email già con un account (evento aggiunto e «Sei iscritto anche a…», nessuna password nuova), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto; la conferma del sito per chi segue online; **la riconciliazione**: il servizio della diretta che fallisce durante l'iscrizione (la scheda del sito c'è, l'account no) e il giro del cron che crea l'account e manda la password **una volta**, le schede di prima dell'accensione, di un altro evento, in sala o annullate lasciate stare, il limite orario (si aspetta l'ora dopo) e il 60 % del tetto, un secondo giro che non fa niente, la chiave del sito che manca o la lettura che fallisce; **l'annullamento dal sito**: account senza l'evento, credenziali non partite cancellate, riga «da verificare», con il token di prima le regole vere non fanno più leggere l'evento, il cron non manda niente e la riconciliazione non lo rimette dentro, chi ha un'altra scheda attiva resta, un altro posto dell'ordine esce, la riattivazione con l'interruttore acceso («anche», la password di sempre) e spento (solo la riga) | 137 verdi, 0 rossi |
 | `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, «Non sei ancora iscritto? Iscriviti qui.», «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano; l'iscrizione **annullata dal sito con la pagina aperta** (il servizio vero): la pagina dice «Non sei più iscritto a questa diretta», anche rientrando | 61 verdi, 0 rossi |
+| `ascolti.prova.js` | **gli ascolti, lato servizio**, con gli emulatori e l'orologio spostato a mano: una curva nota (attesa, in onda, pausa, rientri), un buco del cron di 2 minuti (i tratti continuano) e uno di 6 (la linea si interrompe, ma chi c'era prima e dopo resta: niente finti rientri), il cron doppio o in ritardo (niente doppioni), gli eventi fuori finestra (nessuna lettura oltre agli eventi); controlli **esatti** di picco (a parità il primo), minimo in onda (senza i primi e gli ultimi 5 minuti), media, cali, ascolto per voce del programma (ore di Roma), ingressi ogni 5 minuti, dispositivi per persona, persone e linee del tempo; la cache di 60 s (poi 10 minuti) compressa; 404 e 400; la funzione del cron con e senza `CRON_SECRET`; **1000 persone**: fotografia in 75-110 ms con 1003 letture, documento degli ascolti di 120-243 KB, risultato di 793 KB che in cache diventa 111 KB | 85 verdi, 0 rossi |
+| `ascolti-pagina.prova.js` | **la scheda *Ascolti* della gestione**, con un risultato realistico (380 persone, 8 ore, pausa pranzo, 13 voci del programma) che coincide voce per voce con quello che calcola il servizio: le tessere del riepilogo, picco e minimo nel grafico nel punto giusto, le pause, le voci del programma, il riquadro con ora e numero al passaggio, al tocco e con le frecce, «Vedi i dati del grafico», la voce più seguita, l'istogramma degli ingressi, i dispositivi, l'elenco delle persone (ricerca, filtri, ordinamento, «Mostra altre», linea del tempo), i non collegati con «Copia gli indirizzi», l'Excel con i sei fogli, la stampa (solo la scheda), l'aggiornamento ogni minuto solo con la scheda aperta, l'evento senza dati, il telefono senza scorrimento di lato; e la risposta vera del servizio per un evento vuoto | 107 verdi, 0 rossi |
 | `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel controllata per **email** (nuovi, già registrati, doppie, email condivise da persone diverse, email sbagliate, correzioni ed esclusioni), creazione a gruppi con "Riprendi" **senza nessuna email** (partono solo con «Invia le credenziali»), l'interruttore «Invia subito la password a chi si iscrive dal modulo del sito» (con i suoi errori), ricerca e azioni sul partecipante, cambio dell'email; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta; il riquadro **«Iscrizioni dal modulo da verificare»** (righe, testo mai HTML, «Segna come vista», azioni protette; anche le righe **annullata dal sito** e **annullamento ritirato**); accanto all'interruttore acceso, da quando | 395 verdi, 0 rossi |
 | `modulo.prova.js` | **il modulo di Napoli e la diretta**: una chiamata al servizio con il corpo del sito principale (main, f26e12e) byte per byte più il solo `percorso`, la conferma a video, nessuna richiesta al foglio Google; 503, rete che cade e 400 con messaggio: l'errore a video, il modulo resta, nessun tentativo automatico | 11 verdi, 0 rossi |
 | `sito.prova.js` | popup della home (finestra di date, precedenza sugli altri popup anche ricaricando, ESC, sfondo, focus, "non mostrare più"), pillola, pagina di Napoli (menu, sezione, IN DIRETTA solo in onda), nessuna chiamata fuori dal giorno dell'evento; **la diretta nascosta** (`PUBBLICA = false`): niente popup, pillola, voce di menu e sezione, nessuna richiesta nemmeno il giorno dell'evento in onda, menu su una riga a 1100px; `?diretta=prova` la mostra solo a quel browser e `?diretta=pubblico` la toglie; con `PUBBLICA = true` tutto compare senza prova | 308 verdi, 0 rossi |
@@ -1227,7 +1298,9 @@ Brevo vero; il progetto Firebase vero (quote, indici, limiti di Google).
 (`03-diretta-azoto-schermo-intero-computer`; sul telefono l'indicazione per
 il ⛶ del player, `03-diretta-azoto-telefono-indicazione`, e il telefono
 girato, `03-diretta-azoto-telefono-girato`), **player che non risponde** con «Ricarica il video»
-(`03-diretta-azoto-lenta-*`), gestione con il campo **«Tipo di player»**
+(`03-diretta-azoto-lenta-*`), la scheda **Ascolti** della gestione
+(`08-ascolti-*`: riepilogo e grafico, ingressi e dispositivi, la linea del
+tempo di una persona, il telefono; con i dati di prova), gestione con il campo **«Tipo di player»**
 (`04-gestione-tipo-player-*`), e poi la modalità B (diretta con «IN DIRETTA»,
 «Torna in diretta», "Stiamo ricollegando la diretta…", video non disponibile,
 schermo intero), la gestione con l'anteprima del caricamento, le email, il
@@ -1349,11 +1422,18 @@ settembre: c'è tempo, ma non tanto).
    imposta `DIRETTA_MAX_GIORNO`), SPF/DKIM/DMARC del dominio verificati, e
    le anteprime delle email transazionali conservate per il periodo più breve
    (il tracciamento resta acceso: lo usa l'area riservata).
-8. [ ] **Pubblica** questo ramo sul sito (unisci la richiesta di modifica)
+8. [x] **Pubblica** questo ramo sul sito (unisci la richiesta di modifica)
    **con la diretta nascosta** (`PUBBLICA = false`, §6.6): i visitatori non
    vedono niente, tu fai la prova generale (passi 9-12) dagli indirizzi
    diretti. Poi **accendila** (`PUBBLICA = true`, una riga): popup e pulsanti
-   compaiono da soli, nella finestra dell'evento.
+   compaiono da soli, nella finestra dell'evento. (Pubblicata nascosta il 26
+   settembre.)
+   - [ ] **Pubblica gli ascolti PRIMA del 2 ottobre** (§6.7): la fotografia di
+     chi guarda comincia da quando il codice è online, e quello che non si
+     registra il giorno dell'evento non si recupera. Con la stessa
+     pubblicazione arriva la correzione dello schermo intero sul telefono
+     (§5.2). Dopo, nella gestione, apri la scheda *Ascolti* dell'evento di
+     prova mentre è in onda: il grafico si riempie un minuto alla volta.
 
 **Prima di inviare le credenziali** (le credenziali non partono mai da sole: le
 mandi tu dalla gestione, quando decidi, con "Invia le credenziali")

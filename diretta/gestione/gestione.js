@@ -4730,9 +4730,9 @@
         return i != null && d.curva[i].stato === 'p' ? pausa.a + MINUTO_MS : pausa.a;
     }
     /* I tratti senza fotografie lunghi piu' di 3 minuti (il cron che per
-       qualche motivo non e' partito): la linea li mostra come un buco, e
-       dopo un buco chi era gia' collegato risulta «rientrato» (per il
-       servizio comincia un periodo nuovo). La pagina lo dice a parole.
+       qualche motivo non e' partito): la linea li mostra come un buco e la
+       pagina lo dice a parole. (Chi c'era prima e dopo il servizio lo
+       considera rimasto: niente finti rientri.)
        { da, a } = il primo e l'ultimo minuto mancanti; ripresa = la prima
        fotografia dopo. */
     function buchiDi(d) {
@@ -4744,8 +4744,6 @@
         return out;
     }
     const intervalloMancante = b => 'dalle ' + oraLeggibile(b.da) + ' alle ' + oraLeggibile(b.a);
-    // la fascia di 5 minuti in cui riprendono le fotografie dopo un buco
-    const fasciaDi = t => Math.floor(t / (5 * MINUTO_MS)) * 5 * MINUTO_MS;
 
     // la voce del programma in cui cade un istante (numerata da 1, come nella tabella)
     function voceDi(d, t) {
@@ -5420,10 +5418,11 @@
         const totPrimi = dati.reduce((s, b) => s + (Number(b.primi) || 0), 0);
         const totRientri = dati.reduce((s, b) => s + (Number(b.rientri) || 0), 0);
         const massimo = dati.reduce((m, b) => ((Number(b.primi) || 0) > (Number(m.primi) || 0) ? b : m), dati[0]);
-        // le fasce subito dopo un buco dei dati: i loro «rientri» sono in buona parte di chi era gia' collegato
-        const dopoBuco = new Map(d.buchi.map(b => [fasciaDi(b.ripresa), b]));
-        $('#ingressi-buchi').textContent = d.buchi.filter(b => dati.some(x => x.t === fasciaDi(b.ripresa))).map(b => '* Mancano i dati ' + intervalloMancante(b)
-            + ': chi era già collegato risulta «rientrato» alle ' + oraLeggibile(b.ripresa) + '.').join(' ');
+        /* Dopo un buco dei dati il servizio considera rimasto chi c'era prima
+           e dopo (lib/diretta-ascolti.js, uniscoBuchi): niente finti
+           «rientri» da segnalare. Resta solo l'avviso che li' mancano i dati. */
+        $('#ingressi-buchi').textContent = d.buchi.length
+            ? 'Mancano i dati ' + d.buchi.map(intervalloMancante).join(' e ') + ': chi era collegato prima e dopo è contato come presente anche in mezzo.' : '';
         const svg = svgEl('svg', {
             classe: 'grafico-svg', viewBox: '0 0 ' + W + ' ' + H, role: 'img',
             'aria-label': 'Ingressi ogni 5 minuti: ' + conNumero(totPrimi, 'primo ingresso', 'primi ingressi') + ' e ' + conNumero(totRientri, 'rientro', 'rientri')
@@ -5453,10 +5452,6 @@
                 const sopra = fondo - hP - (hP > 0 ? 2 : 0);
                 g.appendChild(svgEl('path', { classe: 'g-rientri', d: percorsoColonna(xb, sopra - hR, largo, hR, 4) }));
             }
-            if (dopoBuco.has(b.t)) {
-                g.setAttribute('class', 'g-colonna dopo-buco');
-                g.appendChild(svgEl('text', { classe: 'g-etichetta g-asterisco', x: tondo(xb + largo / 2), y: tondo(fondo - hP - hR - 6), 'text-anchor': 'middle', testo: '*' }));
-            }
             gColonne.appendChild(g);
             return { g: g, x: xb + largo / 2, y: fondo - hP - hR };
         });
@@ -5471,7 +5466,7 @@
                 conNumero(Number(dati[i].primi) || 0, 'primo ingresso', 'primi ingressi'),
                 conNumero(Number(dati[i].rientri) || 0, 'rientro', 'rientri'),
                 'dalle ' + oraLeggibile(dati[i].t) + ' alle ' + oraLeggibile(dati[i].t + 5 * MINUTO_MS)
-            ].concat(dopoBuco.has(dati[i].t) ? ['* prima mancano i dati: molti rientri sono di chi era già collegato'] : []),
+            ],
             chiave: i => dati[i].t,
             trova: t => (perT.has(t) ? perT.get(t) : -1),
             inizio: () => perT.get(massimo.t) || 0,
@@ -5488,7 +5483,7 @@
         d.ingressi.forEach(b => tb.appendChild(el('tr', {}, [
             el('td', { 'data-label': 'Dalle', testo: oraLeggibile(b.t) + '–' + oraLeggibile(b.t + 5 * MINUTO_MS) }),
             el('td', { 'data-label': 'Primi ingressi', classe: 'num', testo: numeroIt(b.primi || 0) }),
-            el('td', { 'data-label': 'Rientri', classe: 'num', testo: numeroIt(b.rientri || 0) + (d.buchi.some(x => fasciaDi(x.ripresa) === b.t) ? ' *' : '') })
+            el('td', { 'data-label': 'Rientri', classe: 'num', testo: numeroIt(b.rientri || 0) })
         ])));
     }
 

@@ -294,6 +294,19 @@ function costruisciFixture() {
         });
         fotoPrima = m;
     });
+    /* E come nel risultato del servizio (uniscoBuchi): dopo un buco grande
+       chi c'era nell'ultima fotografia prima e nella prima dopo si considera
+       rimasto, e il suo periodo si ricuce. */
+    const primaDelBuco = new Map();
+    minuti.forEach((m, i) => { if (i && m - minuti[i - 1] > 3) primaDelBuco.set(m, minuti[i - 1]); });
+    Object.keys(fotografati).forEach(uid => {
+        const uniti = [];
+        fotografati[uid].forEach(t => {
+            const u = uniti[uniti.length - 1];
+            if (u && primaDelBuco.has(t[0]) && u[1] === primaDelBuco.get(t[0])) u[1] = t[1]; else uniti.push(t);
+        });
+        fotografati[uid] = uniti;
+    });
     persone.forEach(p => { p.foto = fotografati[p.uid] || []; });
 
     // la curva: chi era collegato in ogni minuto fotografato
@@ -829,10 +842,10 @@ async function sheetJSNode() {
         vero(col.length === F.ingressi.length && col.every((c, i) => c.t === F.ingressi[i].t && c.primi === F.ingressi[i].primi && c.rientri === F.ingressi[i].rientri)
             && col.some(c => c.parti.join() === 'g-primi,g-rientri') && legenda === 'Primi ingressi Rientri',
         'istogramma degli ingressi: ' + col.length + ' colonne ogni 5 minuti, primi ingressi e rientri in due colori, con la legenda «' + legenda + '»');
-        const dopoBuco = await page.evaluate(() => Array.from(document.querySelectorAll('#ingressi-cornice .g-colonna.dopo-buco')).map(g => ({ t: Number(g.getAttribute('data-t')), testo: g.textContent })));
-        vero(dopoBuco.length === 1 && dopoBuco[0].t === ora(15, 25) && dopoBuco[0].testo === '*'
-            && await testo('#ingressi-buchi') === '* Mancano i dati dalle 15.21 alle 15.25: chi era già collegato risulta «rientrato» alle 15.26.',
-        'dopo il buco del cron i tanti «rientri» delle 15.25 hanno l\'asterisco e la spiegazione: «' + await testo('#ingressi-buchi') + '»', JSON.stringify(dopoBuco));
+        const colonnaBuco = F.ingressi.find(b => b.t === ora(15, 25));
+        vero((!colonnaBuco || colonnaBuco.rientri < 20)
+            && await testo('#ingressi-buchi') === 'Mancano i dati dalle 15.21 alle 15.25: chi era collegato prima e dopo è contato come presente anche in mezzo.',
+        'dopo il buco del cron niente finti «rientri» alle 15.25 (' + (colonnaBuco ? colonnaBuco.rientri : 0) + '), e l\'avviso: «' + await testo('#ingressi-buchi') + '»');
         const massimaColonna = F.ingressi.reduce((m, b) => (b.primi > m.primi ? b : m), F.ingressi[0]);
         await $('#ingressi-cornice').focus();
         let ri = await righeDi('#ingressi-suggerimento');
@@ -950,11 +963,11 @@ async function sheetJSNode() {
         });
         const pct = t => (t - scala.da) / (scala.a - scala.da) * 100;
         const elencoAtteso = tre.segmenti.map(x => 'dalle ' + oraIt(x[0]) + ' alle ' + oraIt(x[1]) + ' (' + durata((x[1] - x[0]) / MIN) + ')').join(' | ');
-        vero(linea && await bottone.getAttribute('aria-expanded') === 'true' && linea.segmenti.length === tre.segmenti.length && tre.segmenti.length === 4
+        vero(linea && await bottone.getAttribute('aria-expanded') === 'true' && linea.segmenti.length === tre.segmenti.length && tre.segmenti.length === 3
             && tre.segmenti.every((s, i) => vicino(linea.segmenti[i].left, pct(s[0]), 0.02) && vicino(linea.segmenti[i].left + linea.segmenti[i].width, pct(s[1]), 0.03))
             && linea.pausa.length === 1 && vicino(linea.pausa[0].left, pct(ora(13, 0)), 0.02)
-            && linea.elenco.join(' | ') === elencoAtteso && elencoAtteso.startsWith('dalle 9.02 alle 10.41 (1 h 39 min) | dalle 10.50 alle 12.59 (2 h 9 min) | dalle 14.03 alle 15.21'),
-        'la linea del tempo di ' + tre.nome + ' ' + tre.cognome + ': quattro periodi (il buco del cron delle 15.21 spezza il pomeriggio) sulla stessa scala del grafico (dalle 8.30 alle 17.15), la pausa in grigio, e l\'elenco «' + (linea ? linea.elenco.join(', ') : '') + '»', JSON.stringify(linea));
+            && linea.elenco.join(' | ') === elencoAtteso && elencoAtteso.startsWith('dalle 9.02 alle 10.41 (1 h 39 min) | dalle 10.50 alle 12.59 (2 h 9 min) | dalle 14.03 alle ') && !/alle 15\.21/.test(elencoAtteso),
+        'la linea del tempo di ' + tre.nome + ' ' + tre.cognome + ': tre periodi (il buco del cron delle 15.21 non spezza il pomeriggio) sulla stessa scala del grafico (dalle 8.30 alle 17.15), la pausa in grigio, e l\'elenco «' + (linea ? linea.elenco.join(', ') : '') + '»', JSON.stringify(linea));
         // la foto della riga con la sua linea del tempo
         const rigaTre = await $('#tabella-persone tr[data-uid="u006"]').boundingBox();
         const lineaTre = await $('#linea-tempo-u006').boundingBox();

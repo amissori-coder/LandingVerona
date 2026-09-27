@@ -1146,7 +1146,6 @@ tr.riga-nota { background: var(--blu-velo); }
 
 .ascolti-cali { font-size: 0.86rem; color: var(--testo); }
 .ascolti-buchi:empty { display: none; }
-.g-asterisco { font-size: 14px; }
 .ascolti-cali:empty { display: none; }
 .ascolti-cali strong { color: var(--rosso-scuro); }
 

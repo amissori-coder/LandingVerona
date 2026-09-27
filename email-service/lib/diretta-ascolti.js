@@ -353,6 +353,34 @@ function programma(ev, inOnda) {
     });
 }
 
+/* I BUCHI GRANDI DEL CRON. Se per piu' di BUCO_MAX_MINUTI minuti non ci
+   sono fotografie (Vercel che salta un giro, un intoppo), la fotografia
+   comincia un tratto nuovo per tutti: non sa se nel frattempo qualcuno e'
+   uscito e rientrato. Per il risultato, chi c'era nell'ultima fotografia
+   prima del buco E nella prima dopo si considera rimasto (la stessa
+   ipotesi dei buchi piccoli): altrimenti la sua linea del tempo si
+   spezzerebbe senza motivo e l'istogramma mostrerebbe centinaia di finti
+   «rientri» subito dopo il buco. Chi arriva o se ne va durante il buco
+   resta com'e'. `minuti`: i minuti fotografati, in ordine. */
+function uniscoBuchi(persone, minuti) {
+    const prima = new Map(); // primo minuto dopo un buco grande -> ultimo minuto prima
+    for (let i = 1; i < minuti.length; i++) {
+        if (minuti[i] - minuti[i - 1] > BUCO_MAX_MINUTI) prima.set(minuti[i], minuti[i - 1]);
+    }
+    if (!prima.size) return persone;
+    const out = {};
+    Object.keys(persone).forEach(uid => {
+        const uniti = [];
+        (persone[uid] || []).forEach(t => {
+            const ultimo = uniti[uniti.length - 1];
+            if (ultimo && prima.has(t[0]) && ultimo[1] === prima.get(t[0])) ultimo[1] = t[1];
+            else uniti.push([t[0], t[1]]);
+        });
+        out[uid] = uniti;
+    });
+    return out;
+}
+
 /* Gli ingressi ogni 5 minuti (fasce allineate all'orologio: 9.00, 9.05...):
    primi = persone il cui PRIMO tratto comincia nella fascia, rientri =
    gli inizi degli altri tratti. Tutti quelli che la curva conta (anche
@@ -393,7 +421,7 @@ function risultato({ id, ev, registrazione, presenze, accessi, partecipanti, ade
     const curvaInterna = reg ? reg.curva.slice().sort((a, b) => a[0] - b[0])
         .map(p => ({ m: Number(p[0]), t: Number(p[0]) * MINUTO, n: Number(p[1]) || 0, stato: String(p[2] || 'a') })) : [];
     const inOnda = curvaInterna.filter(p => p.stato === 'o');
-    const tratti = reg ? reg.persone : {};
+    const tratti = reg ? uniscoBuchi(reg.persone, curvaInterna.map(p => p.m)) : {};
 
     // presenze e accessi per persona
     const presenzaDi = new Map();
@@ -569,6 +597,6 @@ module.exports = {
     // la fotografia
     inFinestra, eventiInFinestra, aggiungiMinuto, leggiRegistrazione, fotografa,
     // il calcolo
-    risultato, calcola, ascolti, durataCache, parti, leggiCache,
+    risultato, calcola, ascolti, durataCache, parti, leggiCache, uniscoBuchi,
     MINUTO, FINESTRA_CONNESSI_MS, BUCO_MAX_MINUTI, CODICI, LIMITE_PERSONE, MAX_CACHE
 };

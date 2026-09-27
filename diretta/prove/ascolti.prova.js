@@ -451,9 +451,8 @@ async function prova(ctx) {
     ], R.programma, 'il programma voce per voce (ore di Roma): fino alla voce dopo o alla fine; la pausa esclusa; una voce senza ora resta senza numeri');
     uguale([
         { t: T(-10), primi: 3, rientri: 0 }, { t: T(-5), primi: 1, rientri: 0 }, { t: T(0), primi: 6, rientri: 0 }, { t: T(5), primi: 1, rientri: 0 },
-        { t: T(10), primi: 1, rientri: 0 }, { t: T(15), primi: 0, rientri: 1 }, { t: T(20), primi: 0, rientri: 1 }, { t: T(40), primi: 0, rientri: 2 },
-        { t: T(50), primi: 0, rientri: 7 }
-    ], R.ingressi, 'gli ingressi ogni 5 minuti: primi e rientri, solo le fasce con qualcosa');
+        { t: T(10), primi: 1, rientri: 0 }, { t: T(15), primi: 0, rientri: 1 }, { t: T(20), primi: 0, rientri: 1 }, { t: T(40), primi: 0, rientri: 2 }
+    ], R.ingressi, 'gli ingressi ogni 5 minuti: primi e rientri, solo le fasce con qualcosa; dopo il buco grande del cron (9.46-9.50) nessun finto rientro di chi c\'era prima e dopo');
     uguale({
         tipi: [{ nome: 'Computer', persone: 6 }, { nome: 'Telefono', persone: 4 }, { nome: 'Altro', persone: 1 }, { nome: 'Tablet', persone: 1 }],
         browser: [{ nome: 'Chrome', persone: 4 }, { nome: 'Safari', persone: 4 }, { nome: 'altro browser', persone: 1 }, { nome: 'Edge', persone: 1 },
@@ -469,14 +468,14 @@ async function prova(ctx) {
     uguale({
         uid: 'p01', nome: 'Anna', cognome: 'Bianchi', email: 'anna.bianchi@esempio.it', azienda: 'Bianchi srl', stato: 'ha-visto', credenziali: 'inviata',
         primoIngresso: T(-11), ultimaPresenza: T(64) - 5000, minutiInOnda: 50, percentuale: 100, collegamenti: 1, accessi: 2,
-        dispositivi: ['Windows · Chrome', 'iPhone · Safari'], segmenti: [[T(-10), T(45)], [T(51), T(65)]]
+        dispositivi: ['Windows · Chrome', 'iPhone · Safari'], segmenti: [[T(-10), T(65)]]
     }, R.persone[0], 'Anna per intero: primo ingresso = il primo accesso (prima della presenza), dispositivi dal piu\' recente, segmenti in ms (fine = fine dell\'ultimo minuto)');
     uguale({
         uid: 'p04', nome: 'Dario', cognome: 'Ferrari', email: 'dario.ferrari@esempio.it', azienda: 'Ferrari srl', stato: 'ha-visto', credenziali: 'inviata',
         primoIngresso: T(0) - 30000, ultimaPresenza: T(56) - 5000, minutiInOnda: 21, percentuale: 50, collegamenti: 1, accessi: 1,
-        dispositivi: ['Windows · Edge'], segmenti: [[T(0), T(45)], [T(51), T(57)]]
+        dispositivi: ['Windows · Edge'], segmenti: [[T(0), T(57)]]
     }, R.persone[3], 'Dario: primo ingresso = la presenza (prima dell\'accesso)');
-    uguale([[T(0), T(21)], [T(24), T(45)], [T(51), T(65)]], R.persone[4].segmenti, 'Elena: tre segmenti (uscita alle 9.21, rientro alle 9.24, il buco del cron)');
+    uguale([[T(0), T(21)], [T(24), T(65)]], R.persone[4].segmenti, 'Elena: due segmenti (uscita alle 9.21, rientro alle 9.24); il buco grande del cron non la spezza: c\'era prima e dopo');
     uguale({
         uid: 'p11', nome: 'Olga', cognome: 'Romano', email: 'olga.romano@esempio.it', azienda: 'Romano srl', stato: 'entrato', credenziali: 'incerto',
         primoIngresso: T(5), ultimaPresenza: null, minutiInOnda: 0, percentuale: 0, collegamenti: 0, accessi: 1, dispositivi: ['Mac · Safari'], segmenti: []
