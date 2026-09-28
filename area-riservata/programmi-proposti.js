@@ -95,7 +95,7 @@
                         + '(Presidente ODCEC di Napoli); Francesco Serao (già Presidente del CNDCEC); Chiara Marciani '
                         + '(Assessore alle Politiche Sociali, Giovanili e al Lavoro, Comune di Napoli); Ciro Fiola '
                         + '(Presidente della Camera di Commercio di Napoli); Guido Bourelly (Presidente del Gruppo '
-                        + 'Piccola Industria di Napoli); Emilio de Vizi (Presidente di Confindustria Campania).'
+                        + 'Piccola Industria di Napoli); Emilio De Vizia (Presidente di Confindustria Campania).'
                 },
                 {
                     tipo: 'intervento', dalle: '09:50', alle: '10:00',
