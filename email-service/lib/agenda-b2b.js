@@ -1239,6 +1239,25 @@ async function esegui(ctx) {
                 desk: desk, esigenze: esigenze, richieste: pren.richieste || [],
                 /* Gli inviti REVOCATI non sono aziende invitate: chi guarda il
                    riepilogo cerca chi viene, non chi non viene piu'. */
+                /* LE RICHIESTE A ORARI ESAURITI: chi ha trovato tutto
+                   prenotato e ha chiesto un incontro lo stesso, scrivendolo.
+                   Vivono nella giornata, dove si gestiscono, ma servono anche
+                   qui: il riepilogo si stampa e ci si lavora sopra il giorno
+                   prima, e una richiesta scritta che resta solo a video e'
+                   una persona che ha bussato e nessuno se ne ricorda con il
+                   foglio in mano. Le aperte prima, e a parita' le piu'
+                   recenti: e' l'ordine in cui si guardano. */
+                richieste: (pren.richieste || []).slice().sort((x, y) => {
+                    const ax = String(x.stato || 'aperta') === 'aperta' ? 0 : 1;
+                    const ay = String(y.stato || 'aperta') === 'aperta' ? 0 : 1;
+                    return ax !== ay ? ax - ay : (y.quando || 0) - (x.quando || 0);
+                }).map(r => ({
+                    doc: r.doc, nome: r.nome, azienda: r.azienda, ruolo: r.ruolo,
+                    email: r.email, telefono: r.telefono,
+                    aziendaId: r.aziendaId, aziendaNome: r.aziendaNome,
+                    area: r.area, nota: r.nota, quando: r.quando,
+                    stato: String(r.stato || 'aperta')
+                })),
                 aziende: aziende.filter(az => !(az.invito && az.invito.revocato)).map(az => ({
                     id: az.id, nome: az.nome, piva: az.piva,
                     referenti: az.referenti, incontri: conIncontro[az.id] || 0,
@@ -1251,6 +1270,7 @@ async function esegui(ctx) {
                     senzaIncontro: aziende.filter(az => !conIncontro[az.id]).length,
                     codaDaAssegnare: codaTotale,
                     esigenzeAperte: esigenze.filter(e => e.stato === 'aperta').length,
+                    richiesteAperte: (pren.richieste || []).filter(r => String(r.stato || 'aperta') === 'aperta').length,
                     liberi: desk.reduce((n, d) => n + ((d.attiva && !d.interno) ? d.liberi : 0), 0),
                     occupati: desk.reduce((n, d) => n + d.occupati, 0),
                     liberiDesk: desk.reduce((n, d) => n + ((d.attiva && d.interno) ? d.liberi : 0), 0)

@@ -67,7 +67,9 @@ const pezzi = [
     ritaglia('function tavoliVietatiPer(', '{', '}'),
     ritaglia('function vietatiSenzaQuesto(', '{', '}'),
     ritaglia('function tendinaDove(', '{', '}'),
-    ritaglia('function disegnaRiepilogoB2B(', '{', '}')
+    ritaglia('function disegnaRiepilogoB2B(', '{', '}'),
+    ritaglia('function nomeAreaB2B(', '{', '}'),
+    ritaglia('function stampaRiepilogoB2B(', '{', '}')
 ].join('\n');
 
 /* Il DOM finto: la funzione scrive in #rb-corpo e poi chiama chi collega i
@@ -89,11 +91,16 @@ const Auth = { eAdmin: () => true };
 const window = { RV_NEWSLETTER: require(path.join(__dirname, '..', '..', 'area-riservata', 'newsletter-format.js')) };
 const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'collegaRiepilogoB2B', 'Auth', 'window',
     'let _rb = null, _rbAperto = "", _rbVista = "tavoli", _rbAzienda = "";\n'
+    + 'let apriStampa = () => {}; const toast = () => {}; const STAMPA_EVENTI_CSS = "";\n'
     + pezzi
     + '\nreturn {'
     + '  disegna: (rb, vista, az, aperto) => { _rb = rb; _rbVista = vista || "tavoli"; _rbAzienda = az || ""; _rbAperto = aperto || ""; '
     + '    disegnaRiepilogoB2B({ id: "napoli-2026-10-02" }); return document.getElementById("rb-corpo").innerHTML; },'
-    + '  sceltaB2B: sceltaB2B, SCELTE_B2B: SCELTE_B2B'
+    + '  sceltaB2B: sceltaB2B, SCELTE_B2B: SCELTE_B2B,'
+    /* La STAMPA: si compone il foglio e si restituisce, invece di aprire una
+       finestra che qui non c'e'. */
+    + '  stampa: rb => { _rb = rb; let uscita = ""; apriStampa = h => { uscita = h; };'
+    + '    stampaRiepilogoB2B({ id: "napoli-2026-10-02", titolo: "Napoli", quando: "2 ottobre 2026" }); return uscita; }'
     + '};'
 )(esc, documentoFinto, () => true, () => { }, Auth, window);
 
@@ -117,7 +124,7 @@ const chi = (azienda, aziendaId, scelta, perChi, extra) => Object.assign({
 }, extra || {});
 const RB = {
     ok: true,
-    conti: { aziende: 2, occupati: 4, codaDaAssegnare: 2, esigenzeAperte: 1, senzaIncontro: 0, liberi: 5 },
+    conti: { aziende: 2, occupati: 4, codaDaAssegnare: 2, esigenzeAperte: 1, senzaIncontro: 0, liberi: 5, richiesteAperte: 1 },
     desk: [
         {
             id: 'merito-creditizio', nome: 'Merito creditizio', attiva: true, interno: false, nota: '',
@@ -142,6 +149,15 @@ const RB = {
     esigenze: [
         { id: 'e1', aziendaId: 'alfa', aziendaNome: 'Alfa Srl', perChi: 'Anna Neri', testo: 'Come si apre una posizione a Bagnoli?', stato: 'aperta' },
         { id: 'e2', aziendaId: 'beta', aziendaNome: 'Beta Srl', perChi: '', testo: 'Ci serve un contatto per il rating.', stato: 'gestita' }
+    ],
+    /* Chi ha trovato tutto prenotato e ha chiesto un incontro lo stesso: sono
+       parole scritte da qualcuno, e il foglio del riepilogo deve portarle. */
+    richieste: [
+        { doc: 'd1', nome: 'Rita Gialli', azienda: 'Gamma Srl', aziendaNome: 'Gamma Srl', email: 'rita@gamma.it',
+          telefono: '349', area: 'merito-creditizio', nota: 'Siamo in trattativa con due banche: ci servirebbe mezz ora.',
+          quando: 20, stato: 'aperta' },
+        { doc: 'd2', nome: 'Nino Blu', azienda: 'Delta Srl', aziendaNome: 'Delta Srl', email: 'nino@delta.it',
+          telefono: '', area: '', nota: 'Va bene anche dopo i lavori.', quando: 30, stato: 'gestita' }
     ],
     aziende: [
         { id: 'beta', nome: 'Beta Srl', piva: '07307010632', referenti: [{ nome: 'Gino Verdi', email: 'gino@beta.it', telefono: '333' }], incontri: 2, coda: 1, esigenze: 1, link: 'https://ngb.it/b2b?a=beta' },
@@ -266,6 +282,36 @@ prova('Un azienda senza niente lo dice, invece di mostrare tre blocchi vuoti', (
     esigi(h.indexOf('Nessun incontro fissato per questa azienda.') >= 0, 'lo dice per gli incontri');
     esigi(h.indexOf('Nessuna preferenza in attesa.') >= 0, 'e per le preferenze');
     esigi(h.indexOf('Nessuna domanda da questa azienda.') >= 0, 'e per le domande');
+});
+
+prova('Il foglio stampato porta tutto quello che le imprese hanno scritto', () => {
+    /* Il riepilogo si stampa e ci si lavora sopra il giorno prima. Le altre
+       esigenze c'erano gia'; le RICHIESTE A ORARI ESAURITI no, e sono persone
+       che hanno bussato: hanno trovato tutto prenotato e hanno scritto lo
+       stesso. Se restano solo a video, con il foglio in mano non se ne ricorda
+       nessuno. */
+    const foglio = AMBIENTE.stampa(RB);
+    esigi(foglio.indexOf('Richieste a orari esauriti') > 0, 'il capitolo c e', foglio.slice(0, 80));
+    esigi(foglio.indexOf('Siamo in trattativa con due banche') > 0,
+        'e dentro c e per intero quello che l impresa ha scritto');
+    esigi(foglio.indexOf('Gamma Srl') > 0 && foglio.indexOf('rita@gamma.it') > 0 && foglio.indexOf('349') > 0,
+        'con l azienda e i contatti per richiamarla');
+    esigi(foglio.indexOf('Merito creditizio') > 0, 'e il tavolo che aveva chiesto');
+    /* Le GESTITE si stampano lo stesso, marcate: servono a non richiamare due
+       volte la stessa persona. */
+    esigi(foglio.indexOf('Va bene anche dopo i lavori') > 0 && /gestita/.test(foglio),
+        'anche quelle gia gestite, marcate come tali');
+    /* In testa al foglio si dice quante aspettano: e' il numero che si guarda
+       per primo. */
+    esigi(/1 richieste da guardare/.test(foglio), 'e in testa si dice quante ne aspettano una risposta');
+    /* Le altre esigenze restano dov erano: il capitolo nuovo si aggiunge, non
+       sostituisce. */
+    esigi(foglio.indexOf('Altre esigenze segnalate') > 0 && foglio.indexOf('Bagnoli') > 0,
+        'e le altre esigenze sono ancora al loro posto');
+    /* Senza richieste il capitolo non compare vuoto. */
+    const senza = AMBIENTE.stampa(Object.assign({}, RB, { richieste: [], conti: Object.assign({}, RB.conti, { richiesteAperte: 0 }) }));
+    esigi(senza.indexOf('Richieste a orari esauriti') < 0, 'e senza richieste il capitolo non compare');
+    esigi(!/richieste da guardare/.test(senza), 'ne il numero in testa');
 });
 
 console.log('\nIl riepilogo degli incontri B2B\n');

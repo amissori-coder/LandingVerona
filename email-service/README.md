@@ -2258,6 +2258,26 @@ Le prove stanno in `prove/riepilogo-b2b.prove.js`: ritagliano le funzioni dal
 sorgente vero di `app.js` e le fanno girare con un DOM finto, quindi collaudano
 la schermata che si apre davvero.
 
+**Il foglio stampato porta tutto quello che le imprese hanno SCRITTO.** Il
+riepilogo si stampa e ci si lavora sopra il giorno prima, quindi sul foglio
+vanno anche le parole che sul foglio del desk non ci stanno:
+
+- le **altre esigenze segnalate** (le domande che a un tavolo del convegno non
+  appartengono), che c'erano gia';
+- le **richieste a orari esauriti** (`b2bPrenotazioni.richieste`): chi ha
+  trovato tutto prenotato e ha chiesto un incontro lo stesso, scrivendolo.
+  Vivono nella giornata, dove si gestiscono, e il riepilogo non le portava: una
+  richiesta che resta solo a video e' qualcuno che ha bussato e di cui, con il
+  foglio in mano, non si ricorda nessuno. Ora l'azione `riepilogo` le
+  restituisce (con `conti.richiesteAperte`), **le aperte prima** e a parita' le
+  piu' recenti, che e' l'ordine in cui si guardano. Le **gestite si stampano
+  lo stesso, marcate**: servono a non richiamare due volte la stessa persona.
+
+Le prove stanno in `prove/riepilogo-b2b.prove.js` (il foglio si compone davvero
+e si legge quello che ne esce) e in `prove/azienda-b2b.prove.js` (la risposta
+del servizio, con l'ordine e il conto).
+
+
 ### Conferma della prenotazione, con il foglio per il desk
 
 Appena l'ospite salva la scelta, `b2b-salva` gli manda una mail di conferma
