@@ -2768,9 +2768,27 @@ per serata (`{cena}~{email}`).
   non torna, si sa a chi chiedere.
 
   Il riquadro "Le cene" nel cruscotto dell'evento mostra presenti e posti per
-  serata; la finestra apre gli elenchi, il collegamento da mandare agli
-  invitati, l'esportazione in CSV, il pulsante "Aggiungi persona", "Modifica"
-  su ogni riga e la crocetta accanto a ogni ospite.
+  serata. Dentro la finestra le due serate stanno in cima come due tessere con
+  i loro numeri - posti, presenti, ospiti, chi non viene - e si premono per
+  passare dall'una all'altra: i conti di tutte e due restano sempre a vista,
+  gli elenchi si leggono uno alla volta. Di ogni serata ci sono il collegamento
+  da mandare agli invitati, "Aggiungi persona", "Stampa l'elenco", la barra con
+  ricerca ed esportazione in CSV, "Modifica" su ogni riga e la crocetta accanto
+  a ogni ospite. I presenti sono in ordine di cognome (l'elenco si legge
+  cercando una persona); chi ha risposto che non viene sta raccolto in fondo,
+  perche' non occupa posti e non si stampa.
+
+- **Il foglio da stampare** (solo area riservata, nessuna chiamata al servizio):
+  la sera della cena non c'e' un'area riservata da aprire, c'e' un foglio in
+  mano a chi accoglie e uno che si porta in cucina. Percio' il foglio dice, in
+  quest'ordine: i COPERTI in grande (il numero comunicato al ristorante), CHI
+  ARRIVA in ordine di cognome con i suoi ospiti sotto il nome e una casella
+  vuota da spuntare all'arrivo, le NOTE, INTOLLERANZE E ALLERGIE raccolte tutte
+  insieme con il nome accanto - cercarle riga per riga dentro l'elenco, in
+  cucina, non le guarda nessuno - e in fondo, breve, chi ha risposto che non
+  viene. Usa `apriStampa()` e il foglio di stile condiviso delle stampe degli
+  eventi (`STAMPA_EVENTI_CSS`), con l'intestazione ripetuta a ogni pagina e le
+  righe che non si spezzano a meta'.
 - **Le prove**: `node prove/cene-evento.prove.js` (Firestore e posta finti,
   niente da installare).
 

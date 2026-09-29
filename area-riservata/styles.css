@@ -3805,6 +3805,39 @@ table.dati.pm-tabella td.pm-dest { white-space: nowrap; width: 110px; }
    chi ha risposto a voce. Sta in fondo al foglio, dov'e' finita
    la roba degli eventi.
    ============================================================ */
+/* LE DUE SERATE IN CIMA. Sono insieme la scelta e il riepilogo: si premono per
+   passare dall'una all'altra, e intanto tengono a vista i numeri di tutte e due.
+   Delle linguette sopra e dei numeri sotto direbbero la stessa cosa due volte. */
+.cene-scelta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+@media (max-width: 720px) { .cene-scelta { grid-template-columns: 1fr; } }
+.cene-tessera { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    background: var(--bianco); border: 1px solid var(--grigio-200); border-left: 3px solid var(--grigio-200);
+    border-radius: var(--raggio); padding: 12px 14px; }
+.cene-tessera:hover { border-color: var(--blu-500); background: var(--blu-050); }
+/* la serata che si sta guardando: il bordo di sinistra e il fondo bastano a
+   dirlo, senza spegnere l'altra - i suoi numeri servono comunque */
+.cene-tessera.attiva { border-color: var(--grigio-200); border-left-color: var(--blu-700); background: var(--blu-050); box-shadow: var(--ombra); }
+.cene-tessera-tit { display: block; font-weight: 700; color: var(--blu-900); font-size: 1rem; text-transform: capitalize; }
+.cene-tessera-chi { display: block; font-size: 0.8rem; color: var(--grigio-600); margin-top: 1px; }
+.cene-tessera-nota { display: block; font-size: 0.76rem; color: var(--grigio-600); margin-top: 6px; font-style: italic; }
+.cene-numeri { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; align-items: baseline; }
+/* i numeri sono quelli della testata degli Eventi: chi li conosce di la' li
+   ritrova uguali qui. "forte" e' il totale dei coperti, l'unico che si comunica
+   al ristorante; "spento" e' chi non viene, che non occupa niente */
+.cene-numeri .ev-num { font-size: 1.15rem; }
+.cene-numeri .ev-num.forte { font-size: 1.7rem; }
+.cene-numeri .ev-num.spento { color: var(--grigio-400); font-size: 1rem; }
+.cene-pannello .ev-bl-az { flex-wrap: wrap; }
+/* chi ha risposto di no: raccolto in fondo, non in mezzo a chi viene */
+.cene-assenti { margin-top: 14px; border-top: 1px solid var(--grigio-200); padding-top: 10px; }
+.cene-assenti > summary { cursor: pointer; font-weight: 600; color: var(--blu-700); font-size: 0.85rem; }
+.cene-assenti table.dati tbody tr td { color: var(--grigio-600); }
+td.cene-chi { font-weight: 600; color: var(--blu-900); }
+/* i due recapiti in una colonna sola: uno sotto l'altro a video, separati da
+   virgola nel CSV (vedi .solo-csv) */
+.cene-mail, .cene-tel { display: block; }
+.cene-tel { color: var(--grigio-600); }
+
 /* Gli ospiti di una scheda, uno per etichetta: si tolgono uno alla volta,
    quindi devono essere cose distinte e non una frase separata da virgole. */
 .ospiti-cella { display: flex; flex-wrap: wrap; gap: 4px; }
