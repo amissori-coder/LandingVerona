@@ -258,6 +258,160 @@ const BASE = { cena: ADERENTI, nome: 'Anna', cognome: 'Verdi', email: 'anna@revi
         esigi(e.conti.risposte === 1, 'e si vede nell\'area riservata');
     });
 
+    await prova('10. Aggiungere una persona a mano', async () => {
+        azzera();
+        const r = await CENE.esegui({
+            db: db, eAdmin: false, ePartner: true, email: 'coord@revilaw.it',
+            body: {
+                azione: 'aggiungi', cena: ADERENTI,
+                nome: 'Carlo', cognome: 'Bianchi', email: 'carlo@revilaw.it',
+                presente: true, quantiOspiti: 1, note: 'ha confermato al telefono'
+            }
+        });
+        esigi(r.stato === 200 && r.corpo.posti === 2, 'chi puo\' aggiungere un\'iscrizione aggiunge anche a cena');
+        esigi(posta.length === 0, 'non parte nessuna mail: la persona ha gia\' detto di si\'');
+        const e = await CENE.elenco(db, ADERENTI);
+        esigi(e.righe[0].aMano === true && e.righe[0].inseritaDa === 'coord@revilaw.it',
+            'la riga dice che e\' stata scritta a mano, e da chi');
+
+        // chi non gestisce non scrive
+        const negata = await CENE.esegui({
+            db: db, eAdmin: false, ePartner: false, email: 'tizio@revilaw.it',
+            body: { azione: 'aggiungi', cena: ADERENTI, nome: 'X', cognome: 'Y', email: 'x@revilaw.it', presente: true }
+        });
+        esigi(negata.stato === 403, 'chi vede soltanto gli Eventi non aggiunge nessuno');
+    });
+
+    await prova('11. Aggiungere qualcuno che aveva gia\' risposto', async () => {
+        azzera();
+        await conferma(Object.assign({}, BASE, { quantiOspiti: 1 }));
+        const r = await CENE.aggiungi(db, {
+            cena: ADERENTI, nome: 'Anna', cognome: 'Verdi', email: 'anna@revilaw.it',
+            presente: true, quantiOspiti: 2
+        }, 'staff@revilaw.it');
+        esigi(r.corpo.aggiornata === true, 'non nasce una seconda riga: si aggiorna la sua');
+        const e = await CENE.elenco(db, ADERENTI);
+        esigi(e.conti.risposte === 1 && e.conti.posti === 3, 'i posti seguono l\'ultimo dato, senza raddoppiare');
+        esigi(e.righe[0].aMano === false, 'la scheda resta di chi l\'aveva compilata');
+        esigi(e.righe[0].modificataDa === 'staff@revilaw.it', 'ma si sa chi l\'ha corretta');
+    });
+
+    await prova('12. Il termine non ferma chi organizza', async () => {
+        azzera();
+        orologio = Date.parse('2026-09-30T18:00:00+02:00');   // tre giorni dopo il termine
+        const dallaPagina = await conferma(BASE);
+        esigi(dallaPagina.stato === 403, 'dalla pagina non si conferma piu\'');
+        const aMano = await CENE.aggiungi(db, {
+            cena: ADERENTI, nome: 'Anna', cognome: 'Verdi', email: 'anna@revilaw.it', presente: true
+        }, 'staff@revilaw.it');
+        esigi(aMano.stato === 200, 'a mano si registra lo stesso: le ultime conferme arrivano sempre adesso');
+        esigi(aMano.corpo.posti === 1, 'e vale un posto, come deve');
+    });
+
+    await prova('13. Correggere una scheda', async () => {
+        azzera();
+        await conferma(Object.assign({}, BASE, { ospiti: ['Luca Verdi'], note: 'niente' }));
+        const uno = (await CENE.elenco(db, ADERENTI)).righe[0];
+        const r = await CENE.modifica(db, {
+            cena: ADERENTI, id: uno.id,
+            nome: 'Anna', cognome: 'Verdi', email: 'anna@revilaw.it',
+            presente: true, quantiOspiti: 2, ospiti: ['Luca Verdi', 'Sara Verdi'],
+            note: 'tavolo vicino alla finestra', telefono: '3331234567'
+        }, 'staff@revilaw.it');
+        esigi(r.stato === 200 && r.corpo.posti === 3, 'ospiti e posti si aggiornano');
+        const e = await CENE.elenco(db, ADERENTI);
+        esigi(e.righe[0].telefono === '3331234567' && e.righe[0].note === 'tavolo vicino alla finestra',
+            'e con loro tutto il resto della scheda');
+        esigi(e.conti.posti === 3 && e.conti.risposte === 1, 'i conti restano di una persona sola');
+
+        // presente -> assente: i posti tornano liberi
+        await CENE.modifica(db, {
+            cena: ADERENTI, id: e.righe[0].id,
+            nome: 'Anna', cognome: 'Verdi', email: 'anna@revilaw.it', presente: false
+        }, 'staff@revilaw.it');
+        const dopo = await CENE.elenco(db, ADERENTI);
+        esigi(dopo.conti.posti === 0 && dopo.conti.assenti === 1, 'chi passa ad assente libera i suoi coperti');
+    });
+
+    await prova('14. Cambiare l\'indirizzo email sposta la scheda', async () => {
+        azzera();
+        await conferma(Object.assign({}, BASE, { quantiOspiti: 1 }));
+        const uno = (await CENE.elenco(db, ADERENTI)).righe[0];
+        const r = await CENE.modifica(db, {
+            cena: ADERENTI, id: uno.id,
+            nome: 'Anna', cognome: 'Verdi', email: 'a.verdi@revilaw.it',
+            presente: true, quantiOspiti: 1
+        }, 'staff@revilaw.it');
+        esigi(r.stato === 200 && r.corpo.spostata === true, 'la scheda si sposta sul nuovo indirizzo');
+        const e = await CENE.elenco(db, ADERENTI);
+        esigi(e.conti.risposte === 1, 'una sola riga: la vecchia non resta indietro');
+        esigi(e.righe[0].email === 'a.verdi@revilaw.it' && e.conti.posti === 2, 'con i suoi dati e i suoi posti');
+
+        // ...ma non sopra la risposta di un altro
+        await conferma({ cena: ADERENTI, nome: 'Bruno', cognome: 'Rossi', email: 'bruno@revilaw.it', presente: true });
+        const scontro = await CENE.modifica(db, {
+            cena: ADERENTI, id: e.righe[0].id,
+            nome: 'Anna', cognome: 'Verdi', email: 'bruno@revilaw.it', presente: true
+        }, 'staff@revilaw.it');
+        esigi(scontro.stato === 409, 'su un indirizzo gia\' usato ci si ferma invece di sovrascrivere');
+        const finale = await CENE.elenco(db, ADERENTI);
+        esigi(finale.conti.risposte === 2, 'e nessuna delle due risposte si perde');
+    });
+
+    await prova('15. Togliere un ospite solo', async () => {
+        azzera();
+        await conferma(Object.assign({}, BASE, { ospiti: ['Luca Verdi', 'Sara Verdi'] }));
+        let riga = (await CENE.elenco(db, ADERENTI)).righe[0];
+        esigi(riga.posti === 3, 'si parte da tre posti');
+
+        const r = await CENE.togliOspite(db, { cena: ADERENTI, id: riga.id, indice: 0 }, 'staff@revilaw.it');
+        esigi(r.stato === 200 && r.corpo.posti === 2, 'tolto un ospite, il posto torna libero subito');
+        riga = (await CENE.elenco(db, ADERENTI)).righe[0];
+        esigi(riga.ospiti.length === 1 && riga.ospiti[0] === 'Sara Verdi', 'e se ne va quello scelto, non un altro');
+
+        // il posto dichiarato e senza nome si toglie scalando il numero
+        azzera();
+        await conferma(Object.assign({}, BASE, { quantiOspiti: 2 }));
+        riga = (await CENE.elenco(db, ADERENTI)).righe[0];
+        const senzaNome = await CENE.togliOspite(db, { cena: ADERENTI, id: riga.id }, 'staff@revilaw.it');
+        esigi(senzaNome.corpo.quantiOspiti === 1 && senzaNome.corpo.posti === 2,
+            'anche un ospite mai intestato a nessuno si toglie');
+
+        // e quando non ce ne sono piu', lo si dice
+        await CENE.togliOspite(db, { cena: ADERENTI, id: riga.id }, 'staff@revilaw.it');
+        const vuoto = await CENE.togliOspite(db, { cena: ADERENTI, id: riga.id }, 'staff@revilaw.it');
+        esigi(vuoto.stato === 400, 'su una scheda senza ospiti non si toglie niente');
+    });
+
+    await prova('16. Le serate restano separate anche da qui', async () => {
+        azzera();
+        await conferma(Object.assign({}, BASE, { cena: COORD, quantiOspiti: 1 }));
+        const riga = (await CENE.elenco(db, COORD)).righe[0];
+        const r = await CENE.modifica(db, {
+            cena: ADERENTI, id: riga.id,
+            nome: 'Anna', cognome: 'Verdi', email: 'anna@revilaw.it', presente: false
+        }, 'staff@revilaw.it');
+        esigi(r.stato === 400, 'una scheda non si modifica dall\'elenco dell\'altra cena');
+        const o = await CENE.togliOspite(db, { cena: ADERENTI, id: riga.id, indice: 0 }, 'staff@revilaw.it');
+        esigi(o.stato === 400, 'e nemmeno le si tolgono gli ospiti');
+        const dopo = await CENE.elenco(db, COORD);
+        esigi(dopo.conti.posti === 2, 'la scheda vera e\' rimasta intatta');
+    });
+
+    await prova('17. Il riepilogo si manda solo se lo si chiede', async () => {
+        azzera();
+        await CENE.aggiungi(db, {
+            cena: ADERENTI, nome: 'Carlo', cognome: 'Bianchi', email: 'carlo@revilaw.it',
+            presente: true, mandaMail: true
+        }, 'staff@revilaw.it');
+        esigi(posta.length === 1, 'con la spunta, il riepilogo parte');
+        posta.length = 0;
+        await CENE.aggiungi(db, {
+            cena: ADERENTI, nome: 'Dino', cognome: 'Neri', email: 'dino@revilaw.it', presente: true
+        }, 'staff@revilaw.it');
+        esigi(posta.length === 0, 'senza spunta, no: chi ha risposto a voce non aspetta nessuna mail');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });

@@ -19394,6 +19394,12 @@
         collegaCorpoCene(ev);
     }
 
+    /* Chi puo' mettere le mani sulle presenze: gli stessi che aggiungono
+       un'iscrizione a un evento. Il servizio applica la stessa regola per
+       conto suo - qui si decide solo cosa mostrare, perche' un pulsante che
+       porta a un "non hai il permesso" e' un pulsante che non doveva esserci. */
+    function puoGestireCene() { return puoAggiungereIscrizioni(); }
+
     function sezioneCenaHtml(d) {
         const c = d.cena || {};
         const conti = d.conti || { risposte: 0, presenti: 0, assenti: 0, ospiti: 0, posti: 0 };
@@ -19406,7 +19412,7 @@
                 + d.righe.map(r => rigaCenaHtml(c, r)).join('')
                 + '</tbody></table></div>'
             : '<div class="tabella-vuota">Nessuna conferma ancora arrivata.</div>';
-        return '<section class="ev-bl" style="margin-top:14px;">'
+        return '<section class="ev-bl" style="margin-top:14px;" data-cena="' + esc(c.id) + '">'
             + '<div class="ev-bl-tit">' + esc(c.titolo || '') + '<span>' + esc(c.quando || '') + '</span></div>'
             + '<div class="ev-bl-stato">'
             + (url
@@ -19418,38 +19424,188 @@
                 + conti.ospiti + (conti.ospiti === 1 ? ' ospite' : ' ospiti') + ')')
             + (c.chiusa ? rigaBl('Termine', '<span class="hint">conferme chiuse</span>') : '')
             + '</div>'
-            + '<div class="ev-bl-az"><button class="btn btn-sm btn-secondary" data-csv="' + esc(c.id) + '">Esporta CSV</button></div>'
+            + '<div class="ev-bl-az">'
+            + (puoGestireCene()
+                ? '<button class="btn btn-sm btn-primary" data-aggiungi="' + esc(c.id) + '">Aggiungi persona</button>'
+                : '')
+            + '<button class="btn btn-sm btn-secondary" data-csv="' + esc(c.id) + '">Esporta CSV</button></div>'
             + elenco
             + '</section>';
     }
 
+    /* GLI OSPITI, UNO PER UNO. Non sono un numero soltanto: quello che si vuole
+       fare, quando qualcuno scrive "mio marito non viene piu'", e' togliere LUI
+       - non riaprire la scheda e ricontare. Accanto a ogni nome c'e' quindi la
+       crocetta, e il posto torna libero subito.
+       I posti dichiarati e mai intestati a nessuno ("siamo in tre") hanno la
+       loro riga: si tolgono scalando il numero, ed e' giusto che si veda che
+       esistono, perche' al ristorante sono coperti come gli altri. */
+    function ospitiCellaHtml(c, r) {
+        if (!r.presente) return '';
+        const nomi = r.ospiti || [];
+        const senzaNome = Math.max(0, (r.quantiOspiti || 0) - nomi.length);
+        if (!nomi.length && !senzaNome) return '';
+        const gestisce = puoGestireCene();
+        /* La crocetta e' disegnata dal foglio di stile e non scritta qui dentro:
+           l'esportazione in CSV copia il TESTO delle celle, e una colonna piena
+           di "x" sarebbe un elenco da ripulire a mano prima di mandarlo al
+           ristorante. */
+        const via = (indice, chi) => gestisce
+            ? '<button type="button" class="ospite-via" data-ospite="' + esc(r.id) + '" data-cena="' + esc(c.id) + '"'
+                + ' data-indice="' + indice + '" data-chi="' + esc(chi) + '" title="Togli questo ospite"'
+                + ' aria-label="Togli ' + esc(chi) + '"></button>'
+            : '';
+        /* La virgola fra un nome e l'altro non si vede - le etichette sono gia'
+           staccate - ma nel testo della cella c'e', ed e' quella che finisce nel
+           CSV: senza, "Luca Verdi" e "Sara Verdi" arriverebbero al ristorante
+           attaccati in una parola sola. */
+        const virgola = '<span class="solo-csv">, </span>';
+        const etichette = nomi.map((n, i) => '<span class="ospite">' + esc(n) + via(i, n) + '</span>');
+        if (senzaNome) {
+            etichette.push('<span class="ospite senza-nome">' + senzaNome + ' senza nome'
+                + via(-1, senzaNome + ' senza nome') + '</span>');
+        }
+        return '<span class="ospiti-cella">' + etichette.join(virgola) + '</span>';
+    }
+
     function rigaCenaHtml(c, r) {
         const admin = Auth.eAdmin() || Auth.eProprietario();
-        const ospiti = r.ospiti && r.ospiti.length
-            ? esc(r.ospiti.join(', '))
-            : (r.quantiOspiti ? r.quantiOspiti + (r.quantiOspiti === 1 ? ' ospite' : ' ospiti') + ' senza nome' : '');
         const quando = r.quando
             ? new Date(r.quando).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
             : '';
+        /* Da dove viene la riga. Chi ha risposto dal suo telefono e chi l'ha
+           dettata a voce non sono la stessa cosa: se un numero non torna, si sa
+           a chi chiedere senza aprire la scheda. */
+        const provenienza = r.aMano
+            ? ' <span class="hint">(a mano' + (r.inseritaDa ? ', ' + esc(r.inseritaDa) : '') + ')</span>'
+            : (r.cambiata ? ' <span class="hint">(modificata)</span>' : '');
+        /* "data-label" non e' un di piu': sotto i 1200px il foglio di stile
+           trasforma le righe in schede e l'intestazione sparisce, e l'etichetta
+           di ogni valore la mette proprio da li'. Senza, la scheda sarebbe una
+           colonna di valori senza nome. */
         return '<tr>'
-            + '<td>' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
-            + '<td>' + esc(r.email) + '</td>'
-            + '<td>' + esc(r.telefono || '') + '</td>'
-            + '<td>' + (r.presente ? '<b class="ev-ok">sì</b>' : 'no') + '</td>'
-            + '<td>' + ospiti + '</td>'
-            + '<td class="num">' + (r.posti || 0) + '</td>'
-            + '<td>' + esc(r.note || '') + '</td>'
-            + '<td>' + esc(quando) + (r.cambiata ? ' <span class="hint">(modificata)</span>' : '') + '</td>'
-            + '<td>' + (admin
+            + '<td data-label="Nome">' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
+            + '<td data-label="Email">' + esc(r.email) + '</td>'
+            + '<td data-label="Telefono">' + esc(r.telefono || '') + '</td>'
+            + '<td data-label="Viene" class="col-mark">' + (r.presente ? '<b class="ev-ok">sì</b>' : 'no') + '</td>'
+            + '<td data-label="Ospiti">' + ospitiCellaHtml(c, r) + '</td>'
+            + '<td data-label="Posti" class="num">' + (r.posti || 0) + '</td>'
+            + '<td data-label="Note">' + esc(r.note || '') + '</td>'
+            + '<td data-label="Risposta">' + esc(quando) + provenienza + '</td>'
+            + '<td data-label="" class="cene-az">'
+            + (puoGestireCene()
+                ? '<button type="button" class="btn btn-sm btn-ghost" data-modifica="' + esc(r.id) + '" data-cena="' + esc(c.id) + '">Modifica</button>'
+                : '')
+            + (admin
                 ? '<button type="button" class="btn btn-sm btn-ghost" data-togli="' + esc(r.id) + '" data-cena="' + esc(c.id) + '" '
                     + 'data-chi="' + esc((r.nome + ' ' + r.cognome).trim()) + '">Togli</button>'
-                : '') + '</td>'
+                : '')
+            + '</td>'
             + '</tr>';
+    }
+
+    /* IL MODULO DI CHI REGISTRA A MANO. Sta DENTRO la finestra delle cene, al
+       posto degli elenchi, e non in una finestra sopra l'altra: una finestra
+       che ne apre un'altra, qui, chiuderebbe la prima (ne esiste una sola alla
+       volta) e tornando indietro si perderebbe il punto in cui si era.
+       I campi sono gli stessi della pagina pubblica, perche' chi registra sta
+       ricopiando quello che una persona ha detto, non inventando un formato
+       suo. Gli ospiti si scrivono uno per riga: al telefono si sentono in fila,
+       e una riga per nome e' come li si prende. */
+    function formCenaHtml(c, r) {
+        const nuova = !r;
+        const v = r || {};
+        const nomiOspiti = (v.ospiti || []).join('\n');
+        const quanti = Math.max(Number(v.quantiOspiti) || 0, (v.ospiti || []).length);
+        return '<section class="ev-bl" style="margin-top:14px;">'
+            + '<div class="ev-bl-tit">' + (nuova ? 'Aggiungi una persona' : 'Correggi la scheda')
+            + '<span>' + esc(c.titolo || '') + ' &middot; ' + esc(c.quando || '') + '</span></div>'
+            + '<div style="padding:14px 16px;">'
+            + '<div class="due-cene">'
+            + '<div class="campo"><label for="cf-nome">Nome</label><input type="text" id="cf-nome" value="' + esc(v.nome || '') + '"></div>'
+            + '<div class="campo"><label for="cf-cognome">Cognome</label><input type="text" id="cf-cognome" value="' + esc(v.cognome || '') + '"></div>'
+            + '</div>'
+            + '<div class="due-cene">'
+            + '<div class="campo"><label for="cf-email">Email</label><input type="email" id="cf-email" value="' + esc(v.email || '') + '">'
+            + '<div class="hint">È l\'identificativo della scheda: cambiandola, la risposta si sposta sul nuovo indirizzo.</div></div>'
+            + '<div class="campo"><label for="cf-tel">Telefono</label><input type="tel" id="cf-tel" value="' + esc(v.telefono || '') + '"></div>'
+            + '</div>'
+            + '<div class="campo"><label>Partecipa alla cena</label>'
+            + '<label class="cene-radio"><input type="radio" name="cf-presente" value="si"'
+            + ((nuova || v.presente) ? ' checked' : '') + '> Sì, ci sarà</label>'
+            + '<label class="cene-radio"><input type="radio" name="cf-presente" value="no"'
+            + ((!nuova && !v.presente) ? ' checked' : '') + '> No, non viene</label></div>'
+            + '<div class="due-cene">'
+            + '<div class="campo"><label for="cf-quanti">Quanti ospiti</label>'
+            + '<input type="number" id="cf-quanti" min="0" max="10" value="' + quanti + '">'
+            + '<div class="hint">Ogni ospite è un posto in più. Il tetto del modulo pubblico qui non vale: si registra quello che la persona ha detto.</div></div>'
+            + '<div class="campo"><label for="cf-ospiti">Nomi degli ospiti</label>'
+            + '<textarea id="cf-ospiti" rows="4" placeholder="Un nome per riga">' + esc(nomiOspiti) + '</textarea>'
+            + '<div class="hint">Facoltativi: se non si sanno, basta il numero qui accanto.</div></div>'
+            + '</div>'
+            + '<div class="campo"><label for="cf-note">Note</label>'
+            + '<textarea id="cf-note" rows="2" maxlength="500" placeholder="Intolleranze, allergie, altro">' + esc(v.note || '') + '</textarea></div>'
+            + '<label class="cene-radio"><input type="checkbox" id="cf-mail"> Manda a questa persona il riepilogo per email</label>'
+            + '<div class="hint" style="margin-top:4px;">Di norma no: chi ha risposto a voce non aspetta nessuna mail da noi.</div>'
+            + '<div class="ev-bl-az" style="margin-top:16px;">'
+            + '<button class="btn btn-sm btn-primary" id="cf-salva">' + (nuova ? 'Aggiungi' : 'Salva') + '</button>'
+            + '<button class="btn btn-sm btn-secondary" id="cf-annulla">Annulla</button>'
+            + '<span id="cf-esito" class="hint"></span>'
+            + '</div></div></section>';
+    }
+
+    function apriFormCena(ev, c, r) {
+        const corpo = document.getElementById('cene-corpo');
+        if (!corpo) return;
+        corpo.innerHTML = formCenaHtml(c, r);
+        const esito = document.getElementById('cf-esito');
+        const val = id => String((document.getElementById(id) || {}).value || '').trim();
+        const ko = msg => { esito.className = 'ev-ko'; esito.textContent = msg; };
+
+        document.getElementById('cf-annulla').addEventListener('click', () => disegnaCorpoCene(ev));
+        document.getElementById('cf-salva').addEventListener('click', e => {
+            const presenteSi = document.querySelector('input[name="cf-presente"][value="si"]').checked;
+            const nome = val('cf-nome'), cognome = val('cf-cognome'), email = val('cf-email').toLowerCase();
+            if (!nome || !cognome) { ko('Servono nome e cognome.'); return; }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { ko('Controlla l\'indirizzo email.'); return; }
+            const nomi = val('cf-ospiti').split(/[\n\r]+/).map(x => x.trim()).filter(Boolean);
+            const corpoReq = {
+                azione: r ? 'modifica' : 'aggiungi',
+                cena: c.id, id: r ? r.id : undefined,
+                nome: nome, cognome: cognome, email: email, telefono: val('cf-tel'),
+                presente: presenteSi,
+                quantiOspiti: presenteSi ? Math.max(Number(val('cf-quanti')) || 0, nomi.length) : 0,
+                ospiti: presenteSi ? nomi : [],
+                note: val('cf-note'),
+                mandaMail: !!(document.getElementById('cf-mail') || {}).checked
+            };
+            const bottone = e.currentTarget;
+            bottone.disabled = true;
+            esito.className = 'hint';
+            esito.textContent = 'Salvo...';
+            Cloud.ceneEvento(corpoReq).then(risp => {
+                bottone.disabled = false;
+                if (!risp || !risp.ok) { ko((risp && risp.msg) || 'Non sono riuscito a salvare.'); return; }
+                toast(r
+                    ? ('Scheda aggiornata' + (risp.spostata ? ' e spostata sul nuovo indirizzo' : '') + '.')
+                    : (risp.aggiornata ? 'Questa persona aveva già risposto: ho aggiornato la sua scheda.' : 'Persona aggiunta.'),
+                    'verde');
+                caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+            });
+        });
     }
 
     function collegaCorpoCene(ev) {
         const corpo = document.getElementById('cene-corpo');
         if (!corpo) return;
+        const dati = ceneDi(ev) || [];
+        const cenaDa = id => (dati.find(d => d.cena && d.cena.id === id) || {}).cena || { id: id };
+        const rigaDa = (idCena, idRiga) => {
+            const d = dati.find(x => x.cena && x.cena.id === idCena);
+            return d ? (d.righe || []).find(x => x.id === idRiga) : null;
+        };
+        const ricarica = () => caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+
         corpo.querySelectorAll('[data-copia]').forEach(b => b.addEventListener('click', () => {
             copiaNegliAppunti(b.dataset.copia, 'Collegamento copiato: mandalo agli invitati.');
         }));
@@ -19459,10 +19615,34 @@
             if (!tab) { toast('Non c\'è ancora niente da esportare.', 'ambra'); return; }
             esportaTabellaCsv(tab, 'cena-' + b.dataset.csv);
         }));
-        /* Togliere una risposta e' dell'amministratore, e il servizio lo
-           ripete per conto suo: qui il pulsante non compare nemmeno. Serve
-           per chi ha compilato con un indirizzo sbagliato - quella scheda non
-           si aggiornera' piu' da sola e resterebbe a contare posti che nessuno
+        // aggiungere una persona: il modulo prende il posto degli elenchi
+        corpo.querySelectorAll('[data-aggiungi]').forEach(b => b.addEventListener('click', () => {
+            apriFormCena(ev, cenaDa(b.dataset.aggiungi), null);
+        }));
+        corpo.querySelectorAll('[data-modifica]').forEach(b => b.addEventListener('click', () => {
+            const riga = rigaDa(b.dataset.cena, b.dataset.modifica);
+            if (!riga) { toast('Questa scheda non c\'è più: aggiorno l\'elenco.', 'ambra'); ricarica(); return; }
+            apriFormCena(ev, cenaDa(b.dataset.cena), riga);
+        }));
+        /* Togliere un ospite solo. Non si chiede conferma: e' un gesto piccolo e
+           rifarlo costa una riga nel modulo di modifica, mentre una finestra di
+           conferma per ogni crocetta renderebbe faticoso proprio il lavoro che
+           questo pulsante doveva rendere veloce. */
+        corpo.querySelectorAll('.ospite-via').forEach(b => b.addEventListener('click', () => {
+            b.disabled = true;
+            Cloud.ceneEvento({
+                azione: 'togli-ospite', cena: b.dataset.cena, id: b.dataset.ospite,
+                indice: Number(b.dataset.indice)
+            }).then(r => {
+                if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a togliere l\'ospite.', 'rosso'); return; }
+                toast('Ospite tolto: il posto è tornato libero.', 'verde');
+                ricarica();
+            });
+        }));
+        /* Togliere una risposta intera e' dell'amministratore, e il servizio lo
+           ripete per conto suo: qui il pulsante non compare nemmeno. Serve per
+           chi ha compilato con un indirizzo sbagliato - quella scheda non si
+           aggiornera' piu' da sola e resterebbe a contare posti che nessuno
            occupera'. */
         corpo.querySelectorAll('[data-togli]').forEach(b => b.addEventListener('click', () => {
             const chi = b.dataset.chi || 'questa risposta';
@@ -19471,7 +19651,7 @@
             Cloud.ceneEvento({ azione: 'cancella', cena: b.dataset.cena, ids: [b.dataset.togli] }).then(r => {
                 if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a togliere la risposta.', 'rosso'); return; }
                 toast('Risposta tolta.', 'verde');
-                caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+                ricarica();
             });
         }));
     }
