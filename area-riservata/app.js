@@ -19382,6 +19382,31 @@
         caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); });
     }
 
+    /* Chi puo' mettere le mani sulle presenze: gli stessi che aggiungono
+       un'iscrizione a un evento. Il servizio applica la stessa regola per
+       conto suo - qui si decide solo cosa mostrare, perche' un pulsante che
+       porta a un "non hai il permesso" e' un pulsante che non doveva esserci. */
+    function puoGestireCene() { return puoAggiungereIscrizioni(); }
+
+    /* QUALE SERATA SI STA GUARDANDO. Le due cene hanno platee diverse e si
+       leggono una alla volta: con tutti e due gli elenchi aperti, per arrivare
+       al secondo bisognava scorrere oltre il primo, e il giorno della cena
+       quello che si cerca e' una persona sola. I NUMERI pero' restano di tutte
+       e due sempre a vista, in cima: "quanti posti la prima sera e quanti la
+       seconda" e' la domanda che si fa piu' spesso, e non deve costare un clic. */
+    let _ceneTab = '';
+    function cenaScelta(dati) {
+        if (!dati || !dati.length) return null;
+        return dati.find(d => d.cena && d.cena.id === _ceneTab) || dati[0];
+    }
+    // i presenti si leggono cercando una persona, quindi in ordine di cognome,
+    // non di ora di arrivo
+    function perCognome(righe) {
+        return (righe || []).slice().sort((a, b) =>
+            (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome, 'it', { sensitivity: 'base' }));
+    }
+    function nomeCompleto(r) { return ((r.cognome || '') + ' ' + (r.nome || '')).trim(); }
+
     function disegnaCorpoCene(ev) {
         const corpo = document.getElementById('cene-corpo');
         if (!corpo) return;
@@ -19390,46 +19415,87 @@
             corpo.innerHTML = '<div class="tabella-vuota">' + esc(_ceneMsg || 'Conferme non leggibili.') + '</div>';
             return;
         }
-        corpo.innerHTML = dati.map(d => sezioneCenaHtml(d)).join('');
+        const scelta = cenaScelta(dati);
+        corpo.innerHTML = tessereCeneHtml(dati, scelta) + (scelta ? pannelloCenaHtml(scelta) : '');
         collegaCorpoCene(ev);
+        /* La barra con la ricerca e l'esportazione la mette l'app, non queste
+           righe: e' la stessa di tutte le altre tabelle dell'area riservata, e
+           chi la conosce da un'altra sezione la ritrova uguale qui. I filtri per
+           colonna restano spenti: su un elenco gia' diviso fra chi viene e chi
+           no sarebbero sei tendine per niente. */
+        corpo.querySelectorAll('table.dati[data-csv]').forEach(t =>
+            attrezzaTabella(t, { ricerca: true, filtri: false, nomeFile: t.dataset.csv }));
     }
 
-    /* Chi puo' mettere le mani sulle presenze: gli stessi che aggiungono
-       un'iscrizione a un evento. Il servizio applica la stessa regola per
-       conto suo - qui si decide solo cosa mostrare, perche' un pulsante che
-       porta a un "non hai il permesso" e' un pulsante che non doveva esserci. */
-    function puoGestireCene() { return puoAggiungereIscrizioni(); }
+    /* LE DUE SERATE IN CIMA, con i numeri che contano. Si premono per passare
+       dall'una all'altra: sono insieme la scelta e il riepilogo, perche' due
+       cose separate - delle linguette sopra e dei numeri sotto - direbbero la
+       stessa cosa due volte. */
+    function numCena(n, et, cl) {
+        return '<span class="ev-num' + (cl ? ' ' + cl : '') + '">' + (n == null ? '-' : n)
+            + '<span>' + esc(et) + '</span></span>';
+    }
+    function tessereCeneHtml(dati, scelta) {
+        const scelto = scelta && scelta.cena ? scelta.cena.id : '';
+        return '<div class="cene-scelta">' + dati.map(d => {
+            const c = d.cena || {};
+            const k = d.conti;
+            return '<button type="button" class="cene-tessera' + (c.id === scelto ? ' attiva' : '') + '"'
+                + ' data-serata="' + esc(c.id) + '" aria-pressed="' + (c.id === scelto ? 'true' : 'false') + '">'
+                + '<span class="cene-tessera-tit">' + esc(giornoCena(c)) + '</span>'
+                + '<span class="cene-tessera-chi">' + esc(c.chi || c.titolo || '') + '</span>'
+                + (k
+                    ? '<span class="cene-numeri">'
+                        + numCena(k.posti, k.posti === 1 ? 'posto' : 'posti', 'forte')
+                        + numCena(k.presenti, 'presenti')
+                        + numCena(k.ospiti, k.ospiti === 1 ? 'ospite' : 'ospiti')
+                        + (k.assenti ? numCena(k.assenti, 'non vengono', 'spento') : '')
+                        + '</span>'
+                    : '<span class="cene-numeri"><span class="ev-ko">conferme non leggibili</span></span>')
+                + (c.chiusa ? '<span class="cene-tessera-nota">conferme chiuse: i numeri sono definitivi</span>' : '')
+                + '</button>';
+        }).join('') + '</div>';
+    }
 
-    function sezioneCenaHtml(d) {
+    /* IL PANNELLO DELLA SERATA SCELTA: il collegamento da mandare, i pulsanti,
+       chi viene e - raccolto in fondo - chi ha detto di no. Gli assenti non
+       stanno nella stessa tabella dei presenti: non occupano posti, non si
+       stampano nell'elenco del ristorante, e in mezzo agli altri facevano solo
+       scorrere piu' a lungo. Restano pero' a portata di mano, perche' "ha
+       risposto che non viene" e "non ha risposto" sono due cose diverse. */
+    function pannelloCenaHtml(d) {
         const c = d.cena || {};
-        const conti = d.conti || { risposte: 0, presenti: 0, assenti: 0, ospiti: 0, posti: 0 };
         const url = indirizzoCena(c);
-        const elenco = d.righe && d.righe.length
-            ? '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
-                + '<th>Nome</th><th>Email</th><th>Telefono</th><th>Viene</th>'
-                + '<th>Ospiti</th><th>Posti</th><th>Note</th><th>Risposta</th><th></th>'
-                + '</tr></thead><tbody>'
-                + d.righe.map(r => rigaCenaHtml(c, r)).join('')
-                + '</tbody></table></div>'
-            : '<div class="tabella-vuota">Nessuna conferma ancora arrivata.</div>';
-        return '<section class="ev-bl" style="margin-top:14px;" data-cena="' + esc(c.id) + '">'
+        const presenti = perCognome((d.righe || []).filter(r => r.presente));
+        const assenti = perCognome((d.righe || []).filter(r => !r.presente));
+        const gestisce = puoGestireCene();
+        return '<section class="ev-bl cene-pannello" data-cena="' + esc(c.id) + '">'
             + '<div class="ev-bl-tit">' + esc(c.titolo || '') + '<span>' + esc(c.quando || '') + '</span></div>'
-            + '<div class="ev-bl-stato">'
             + (url
-                ? rigaBl('Pagina', '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a> '
-                    + '<button type="button" class="btn btn-sm btn-ghost" data-copia="' + esc(url) + '">Copia</button>')
+                ? '<div class="ev-bl-stato">' + rigaBl('Pagina',
+                    '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a> '
+                    + '<button type="button" class="btn btn-sm btn-ghost" data-copia="' + esc(url) + '">Copia</button>') + '</div>'
                 : '')
-            + rigaBl('Conferme', '<b>' + conti.risposte + '</b> arrivate &middot; ' + conti.presenti + ' presenti &middot; '
-                + conti.assenti + ' assenti &middot; <b>' + conti.posti + '</b> posti ('
-                + conti.ospiti + (conti.ospiti === 1 ? ' ospite' : ' ospiti') + ')')
-            + (c.chiusa ? rigaBl('Termine', '<span class="hint">conferme chiuse</span>') : '')
-            + '</div>'
             + '<div class="ev-bl-az">'
-            + (puoGestireCene()
-                ? '<button class="btn btn-sm btn-primary" data-aggiungi="' + esc(c.id) + '">Aggiungi persona</button>'
+            + (gestisce ? '<button class="btn btn-sm btn-primary" data-aggiungi="' + esc(c.id) + '">Aggiungi persona</button>' : '')
+            + '<button class="btn btn-sm btn-secondary" data-stampa="' + esc(c.id) + '">Stampa l\'elenco</button>'
+            + '</div>'
+            + (presenti.length
+                ? '<div class="tabella-wrap"><table class="dati compatta" data-csv="cena-' + esc(c.id) + '"><thead><tr>'
+                    + '<th>Chi viene</th><th>Contatti</th><th>Ospiti</th><th>Posti</th><th>Note</th><th>Risposta</th><th></th>'
+                    + '</tr></thead><tbody>'
+                    + presenti.map(r => rigaCenaHtml(c, r)).join('')
+                    + '</tbody></table></div>'
+                : '<div class="tabella-vuota">Nessuna conferma di presenza, per ora.</div>')
+            + (assenti.length
+                ? '<details class="cene-assenti"><summary>Chi ha risposto che non viene ('
+                    + assenti.length + ')</summary>'
+                    + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+                    + '<th>Chi</th><th>Contatti</th><th>Note</th><th>Risposta</th><th></th>'
+                    + '</tr></thead><tbody>'
+                    + assenti.map(r => rigaAssenteHtml(c, r)).join('')
+                    + '</tbody></table></div></details>'
                 : '')
-            + '<button class="btn btn-sm btn-secondary" data-csv="' + esc(c.id) + '">Esporta CSV</button></div>'
-            + elenco
             + '</section>';
     }
 
@@ -19468,40 +19534,176 @@
         return '<span class="ospiti-cella">' + etichette.join(virgola) + '</span>';
     }
 
-    function rigaCenaHtml(c, r) {
-        const admin = Auth.eAdmin() || Auth.eProprietario();
-        const quando = r.quando
+    /* I recapiti in una colonna sola: sullo schermo stanno uno sotto l'altro e
+       nel CSV escono separati dalla virgola. Due colonne per email e telefono
+       facevano nove colonne in tutto, e sotto i 1200px - dove il foglio di
+       stile trasforma le righe in schede - erano nove righe per persona. */
+    function contattiCellaHtml(r) {
+        const email = r.email ? '<span class="cene-mail">' + esc(r.email) + '</span>' : '';
+        const tel = r.telefono ? '<span class="cene-tel">' + esc(r.telefono) + '</span>' : '';
+        if (!email) return tel;
+        return email + (tel ? '<span class="solo-csv">, </span>' + tel : '');
+    }
+    // da dove viene la riga: chi ha risposto dal suo telefono e chi l'ha dettata
+    // a voce non sono la stessa cosa, e se un numero non torna si sa a chi chiedere
+    function provenienzaHtml(r) {
+        if (r.aMano) return ' <span class="hint">(a mano' + (r.inseritaDa ? ', ' + esc(r.inseritaDa) : '') + ')</span>';
+        return r.cambiata ? ' <span class="hint">(modificata)</span>' : '';
+    }
+    function quandoBreve(r) {
+        return r.quando
             ? new Date(r.quando).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
             : '';
-        /* Da dove viene la riga. Chi ha risposto dal suo telefono e chi l'ha
-           dettata a voce non sono la stessa cosa: se un numero non torna, si sa
-           a chi chiedere senza aprire la scheda. */
-        const provenienza = r.aMano
-            ? ' <span class="hint">(a mano' + (r.inseritaDa ? ', ' + esc(r.inseritaDa) : '') + ')</span>'
-            : (r.cambiata ? ' <span class="hint">(modificata)</span>' : '');
-        /* "data-label" non e' un di piu': sotto i 1200px il foglio di stile
-           trasforma le righe in schede e l'intestazione sparisce, e l'etichetta
-           di ogni valore la mette proprio da li'. Senza, la scheda sarebbe una
-           colonna di valori senza nome. */
-        return '<tr>'
-            + '<td data-label="Nome">' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
-            + '<td data-label="Email">' + esc(r.email) + '</td>'
-            + '<td data-label="Telefono">' + esc(r.telefono || '') + '</td>'
-            + '<td data-label="Viene" class="col-mark">' + (r.presente ? '<b class="ev-ok">sì</b>' : 'no') + '</td>'
-            + '<td data-label="Ospiti">' + ospitiCellaHtml(c, r) + '</td>'
-            + '<td data-label="Posti" class="num">' + (r.posti || 0) + '</td>'
-            + '<td data-label="Note">' + esc(r.note || '') + '</td>'
-            + '<td data-label="Risposta">' + esc(quando) + provenienza + '</td>'
-            + '<td data-label="" class="cene-az">'
+    }
+    function azioniRigaHtml(c, r) {
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        return '<td data-label="" class="cene-az">'
             + (puoGestireCene()
                 ? '<button type="button" class="btn btn-sm btn-ghost" data-modifica="' + esc(r.id) + '" data-cena="' + esc(c.id) + '">Modifica</button>'
                 : '')
             + (admin
                 ? '<button type="button" class="btn btn-sm btn-ghost" data-togli="' + esc(r.id) + '" data-cena="' + esc(c.id) + '" '
-                    + 'data-chi="' + esc((r.nome + ' ' + r.cognome).trim()) + '">Togli</button>'
+                    + 'data-chi="' + esc(nomeCompleto(r)) + '">Togli</button>'
                 : '')
-            + '</td>'
+            + '</td>';
+    }
+
+    /* "data-label" non e' un di piu': sotto i 1200px il foglio di stile
+       trasforma le righe in schede e l'intestazione sparisce, e l'etichetta di
+       ogni valore la mette proprio da li'. Senza, la scheda sarebbe una colonna
+       di valori senza nome. */
+    function rigaCenaHtml(c, r) {
+        return '<tr>'
+            + '<td data-label="Chi viene" class="cene-chi">' + esc(nomeCompleto(r)) + '</td>'
+            + '<td data-label="Contatti">' + contattiCellaHtml(r) + '</td>'
+            + '<td data-label="Ospiti">' + ospitiCellaHtml(c, r) + '</td>'
+            + '<td data-label="Posti" class="num forte">' + (r.posti || 0) + '</td>'
+            + '<td data-label="Note">' + esc(r.note || '') + '</td>'
+            + '<td data-label="Risposta">' + esc(quandoBreve(r)) + provenienzaHtml(r) + '</td>'
+            + azioniRigaHtml(c, r)
             + '</tr>';
+    }
+    function rigaAssenteHtml(c, r) {
+        return '<tr class="cene-assente">'
+            + '<td data-label="Chi">' + esc(nomeCompleto(r)) + '</td>'
+            + '<td data-label="Contatti">' + contattiCellaHtml(r) + '</td>'
+            + '<td data-label="Note">' + esc(r.note || '') + '</td>'
+            + '<td data-label="Risposta">' + esc(quandoBreve(r)) + provenienzaHtml(r) + '</td>'
+            + azioniRigaHtml(c, r)
+            + '</tr>';
+    }
+
+    /* =========================================================
+       IL FOGLIO DA STAMPARE
+       ---------------------------------------------------------
+       La sera della cena non c'e' un'area riservata da aprire: c'e'
+       un foglio in mano a chi accoglie e uno che si porta in
+       cucina. Quindi il foglio deve rispondere da solo a tre
+       domande, e in quest'ordine:
+
+         quanti coperti  - il numero che si e' comunicato al
+                           ristorante, scritto grande;
+         chi arriva      - in ordine di cognome, con i suoi ospiti
+                           sotto e una casella da spuntare: e'
+                           l'unico modo di segnare chi c'e' gia';
+         cosa non si puo' mangiare - le note raccolte tutte insieme
+                           con il nome accanto. Cercarle riga per
+                           riga dentro l'elenco, in cucina, non le
+                           guarda nessuno.
+
+       Chi ha detto che non viene sta in fondo, in breve: serve
+       solo a non richiamare qualcuno che aveva gia' risposto.
+    ========================================================= */
+    const STAMPA_CENE_CSS = 'h1 .quanti{display:block;font-size:12px;color:#475569;font-weight:normal;margin-top:2px;}'
+        + '.conti{display:flex;gap:26px;margin:14px 0 4px;padding:10px 14px;border:1px solid #E2E8F0;border-left:4px solid #0A2844;background:#F4F8FB;}'
+        + '.conti div{line-height:1.2;}'
+        + '.conti b{display:block;font-size:24px;color:#0A2844;}'
+        + '.conti span{font-size:10px;letter-spacing:0.4px;text-transform:uppercase;color:#475569;}'
+        /* la casella da spuntare all'arrivo: un quadrato vuoto, niente sfondo,
+           perche' ci si scrive sopra con la penna */
+        + 'td.spunta{width:26px;}'
+        + 'td.spunta i{display:block;width:13px;height:13px;border:1.2px solid #94A3B8;}'
+        /* "chi" no: quella classe nel foglio condiviso e' un contenitore flex
+           (la usa il programma della giornata), e qui spezzerebbe il nome dai
+           suoi ospiti mettendoli fianco a fianco in due colonne strette. */
+        + 'td.persona{width:34%;}'
+        + '.ospiti{margin-top:2px;color:#475569;font-size:11px;}'
+        + '.ospiti b{color:#1E293B;font-weight:normal;}'
+        + 'td.posti{width:46px;text-align:center;font-weight:bold;color:#0A2844;}'
+        + '.assenti td{color:#475569;}'
+        + '.vuoto-sez{color:#94A3B8;font-style:italic;padding:4px 0;}';
+
+    function stampaElencoCena(d) {
+        const c = d.cena || {};
+        const presenti = perCognome((d.righe || []).filter(r => r.presente));
+        const assenti = perCognome((d.righe || []).filter(r => !r.presente));
+        const k = d.conti || { presenti: presenti.length, ospiti: 0, posti: 0 };
+        const quando = new Date().toLocaleString('it-IT', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        const dove = [c.ora ? 'ore ' + c.ora : '', c.luogo || ''].filter(Boolean).join(' &middot; ');
+
+        const righe = presenti.map(r => {
+            const nomi = r.ospiti || [];
+            const senzaNome = Math.max(0, (r.quantiOspiti || 0) - nomi.length);
+            const conChi = nomi.length || senzaNome
+                ? '<div class="ospiti">con <b>' + esc(nomi.join(', '))
+                    + (nomi.length && senzaNome ? ', ' : '')
+                    + (senzaNome ? senzaNome + (senzaNome === 1 ? ' ospite' : ' ospiti') + ' senza nome' : '')
+                    + '</b></div>'
+                : '';
+            return '<tr><td class="spunta"><i></i></td>'
+                + '<td class="persona"><span class="forte">' + esc(nomeCompleto(r)) + '</span>' + conChi + '</td>'
+                + '<td class="posti">' + (r.posti || 0) + '</td>'
+                + '<td class="nota">' + esc(r.note || '') + '</td>'
+                + '<td class="nota">' + esc(r.telefono || '') + '</td></tr>';
+        }).join('');
+
+        /* Le note raccolte: sono la pagina che si consegna in cucina. Ci sono
+           anche quelle di chi non viene? No: chi non viene non mangia. */
+        const conNote = presenti.filter(r => r.note);
+        const note = conNote.length
+            ? '<table><thead><tr><th>Chi</th><th>Nota</th></tr></thead><tbody>'
+                + conNote.map(r => '<tr><td class="forte">' + esc(nomeCompleto(r)) + '</td>'
+                    + '<td>' + esc(r.note) + '</td></tr>').join('')
+                + '</tbody></table>'
+            : '<div class="vuoto-sez">Nessuna segnalazione.</div>';
+
+        const senzaDiNoi = assenti.length
+            ? '<table class="assenti"><tbody>'
+                + assenti.map(r => '<tr><td class="persona">' + esc(nomeCompleto(r)) + '</td>'
+                    + '<td class="nota">' + esc(r.email || '') + '</td>'
+                    + '<td class="nota">' + esc(r.note || '') + '</td></tr>').join('')
+                + '</tbody></table>'
+            : '';
+
+        const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
+            + '<title>' + esc(c.titolo || 'Cena') + ' - elenco dei presenti</title>'
+            + '<style>' + STAMPA_EVENTI_CSS + STAMPA_CENE_CSS + '</style></head><body>'
+            + '<header><h1>' + esc(c.titolo || 'Cena')
+            + '<span class="quanti">Next Generation Business &middot; ' + esc(c.quando || '')
+            + (dove ? ' &middot; ' + dove : '') + '</span></h1>'
+            + '<div class="meta">stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
+            + '<div class="conti">'
+            + '<div><b>' + (k.posti || 0) + '</b><span>coperti in tutto</span></div>'
+            + '<div><b>' + (k.presenti || 0) + '</b><span>invitati presenti</span></div>'
+            + '<div><b>' + (k.ospiti || 0) + '</b><span>ospiti al seguito</span></div>'
+            + '</div>'
+            + '<section class="tema"><h2>Chi arriva <span class="conta">in ordine di cognome, da spuntare all\'arrivo</span></h2>'
+            + (presenti.length
+                ? '<table><thead><tr><th></th><th>Nome</th><th>Posti</th><th>Note</th><th>Telefono</th></tr></thead>'
+                    + '<tbody>' + righe + '</tbody></table>'
+                : '<div class="vuoto-sez">Nessuna conferma di presenza.</div>')
+            + '</section>'
+            + '<section class="tema"><h2>Note, intolleranze e allergie <span class="conta">per la cucina</span></h2>'
+            + note + '</section>'
+            + (senzaDiNoi
+                ? '<section class="tema"><h2>Ha risposto che non viene <span class="conta">' + assenti.length + '</span></h2>'
+                    + senzaDiNoi + '</section>'
+                : '')
+            + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
+            + '</body></html>';
+        apriStampa(pagina);
     }
 
     /* IL MODULO DI CHI REGISTRA A MANO. Sta DENTRO la finestra delle cene, al
@@ -19599,21 +19801,26 @@
         const corpo = document.getElementById('cene-corpo');
         if (!corpo) return;
         const dati = ceneDi(ev) || [];
-        const cenaDa = id => (dati.find(d => d.cena && d.cena.id === id) || {}).cena || { id: id };
+        const datiDa = id => dati.find(d => d.cena && d.cena.id === id) || null;
+        const cenaDa = id => (datiDa(id) || {}).cena || { id: id };
         const rigaDa = (idCena, idRiga) => {
-            const d = dati.find(x => x.cena && x.cena.id === idCena);
+            const d = datiDa(idCena);
             return d ? (d.righe || []).find(x => x.id === idRiga) : null;
         };
         const ricarica = () => caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
 
+        // le due serate in cima: si passa dall'una all'altra senza rileggere niente
+        corpo.querySelectorAll('[data-serata]').forEach(b => b.addEventListener('click', () => {
+            _ceneTab = b.dataset.serata;
+            disegnaCorpoCene(ev);
+        }));
         corpo.querySelectorAll('[data-copia]').forEach(b => b.addEventListener('click', () => {
             copiaNegliAppunti(b.dataset.copia, 'Collegamento copiato: mandalo agli invitati.');
         }));
-        corpo.querySelectorAll('[data-csv]').forEach(b => b.addEventListener('click', () => {
-            const sez = b.closest('section');
-            const tab = sez && sez.querySelector('table.dati');
-            if (!tab) { toast('Non c\'è ancora niente da esportare.', 'ambra'); return; }
-            esportaTabellaCsv(tab, 'cena-' + b.dataset.csv);
+        corpo.querySelectorAll('[data-stampa]').forEach(b => b.addEventListener('click', () => {
+            const d = datiDa(b.dataset.stampa);
+            if (!d) { toast('Elenco non ancora caricato: riprova fra un momento.', 'ambra'); return; }
+            stampaElencoCena(d);
         }));
         // aggiungere una persona: il modulo prende il posto degli elenchi
         corpo.querySelectorAll('[data-aggiungi]').forEach(b => b.addEventListener('click', () => {
