@@ -2730,15 +2730,47 @@ per serata (`{cena}~{email}`).
   non risponde la conferma resta comunque registrata e si vede nell'area
   riservata.
 - **Dall'area riservata** le richieste arrivano a `/api/presenze` con
-  `sezione: 'cene'` (stessa deviazione dell'agenda B2B e del programma):
-  `elenco` restituisce tutte e due le serate con i conti gia' fatti (risposte,
-  presenti, assenti, ospiti, posti) e lo legge chiunque veda gli Eventi;
-  `cancella` toglie una risposta ed e' del solo **amministratore** - serve per
-  chi ha compilato con un indirizzo sbagliato, perche' quella scheda non si
-  aggiornera' piu' da sola e resterebbe a contare posti che nessuno occupera'.
+  `sezione: 'cene'` (stessa deviazione dell'agenda B2B e del programma). Cinque
+  azioni:
+  - `elenco` — tutte e due le serate con i conti gia' fatti (risposte,
+    presenti, assenti, ospiti, posti). Lo legge chiunque veda gli Eventi.
+  - `aggiungi` — registra una persona a mano, per chi ha risposto a voce, in
+    chat o al telefono e non compilera' mai il modulo. Se per quell'indirizzo
+    una scheda c'e' gia', la AGGIORNA invece di crearne una seconda: due righe
+    per la stessa persona sono due coperti prenotati e uno solo che si presenta.
+  - `modifica` — corregge una scheda: presenza, ospiti, note, recapiti. Cambiare
+    l'email SPOSTA la scheda (l'identificativo nasce da li'); se all'indirizzo
+    nuovo una risposta esiste gia' ci si ferma con un `409`, perche' unirle
+    vorrebbe dire scegliere quale buttare.
+  - `togli-ospite` — toglie UN ospite, non tutta la scheda: quello con un nome
+    per posizione (`indice`), il posto dichiarato e mai intestato scalando il
+    numero. Il coperto torna libero subito.
+  - `cancella` — toglie la risposta intera.
+
+  Chi puo' fare cosa: leggono tutti quelli abilitati agli Eventi; aggiungono,
+  correggono e tolgono un ospite gli stessi che possono aggiungere
+  un'iscrizione (**amministratore, equity e founding partner**, la regola di
+  `ePartner()`); `cancella` resta del solo **amministratore**.
+
+  **Il termine del 27 settembre non vale per queste azioni**: si chiude il
+  modulo pubblico, non il lavoro di chi organizza, e le ultime conferme
+  arrivano sempre nella settimana della cena. Il tetto degli ospiti della
+  pagina (tre) qui sale a dieci: chi ricopia quello che una persona ha detto al
+  telefono non deve trovarsi "siamo in cinque" tagliato a tre.
+
+  **Niente mail automatiche**: qui si registra quello che uno ha gia' detto, e
+  una conferma non richiesta sembrerebbe un errore. Con `mandaMail: true` -
+  la spunta nel modulo, spenta di suo - il riepilogo parte lo stesso.
+
+  Ogni scheda dice da dove viene: `aMano` e `inseritaDa` per chi e' stato
+  scritto da qualcuno, `modificataDa` per chi e' stato corretto, e la `storia`
+  tiene le ultime cinque versioni con il nome di chi ha cambiato. Se un numero
+  non torna, si sa a chi chiedere.
+
   Il riquadro "Le cene" nel cruscotto dell'evento mostra presenti e posti per
   serata; la finestra apre gli elenchi, il collegamento da mandare agli
-  invitati e l'esportazione in CSV.
+  invitati, l'esportazione in CSV, il pulsante "Aggiungi persona", "Modifica"
+  su ogni riga e la crocetta accanto a ogni ospite.
 - **Le prove**: `node prove/cene-evento.prove.js` (Firestore e posta finti,
   niente da installare).
 

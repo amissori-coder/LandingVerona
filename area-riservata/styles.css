@@ -3798,3 +3798,31 @@ table.dati.pm-tabella td.pm-dest { white-space: nowrap; width: 110px; }
     .pm-tabella td.pm-stato, .pm-tabella td.pm-dest { width: auto; }
 }
 .pm-quadra { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--grigio-200); font-size: 12.5px; line-height: 1.55; color: var(--grigio-600); text-align: left; }
+/* ============================================================
+   LE CENE DEL CONVEGNO (finestra "Le cene")
+   ------------------------------------------------------------
+   L'elenco delle conferme e il modulo con cui si registra a mano
+   chi ha risposto a voce. Sta in fondo al foglio, dov'e' finita
+   la roba degli eventi.
+   ============================================================ */
+/* Gli ospiti di una scheda, uno per etichetta: si tolgono uno alla volta,
+   quindi devono essere cose distinte e non una frase separata da virgole. */
+.ospiti-cella { display: flex; flex-wrap: wrap; gap: 4px; }
+.ospite { display: inline-flex; align-items: center; gap: 4px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 10px; padding: 1px 7px; font-size: 0.78rem; white-space: nowrap; }
+.ospite.senza-nome { color: var(--grigio-600); font-style: italic; }
+/* separatore che esiste solo per l'esportazione: si legge nel CSV, non a video */
+.solo-csv { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* La crocetta e' disegnata QUI e non scritta nell'HTML: l'esportazione in CSV
+   copia il testo delle celle, e una colonna piena di "x" sarebbe un elenco da
+   ripulire a mano prima di mandarlo al ristorante. */
+.ospite-via { width: 13px; height: 13px; flex: 0 0 auto; border: 0; border-radius: 50%; background: transparent; color: var(--grigio-400); cursor: pointer; padding: 0; line-height: 1; font-size: 0.72rem; }
+.ospite-via::before { content: '\00d7'; }
+.ospite-via:hover { color: var(--rosso); background: var(--rosso-bg); }
+.ospite-via[disabled] { opacity: 0.4; cursor: default; }
+/* i pulsanti di riga non vanno a capo uno sotto l'altro su schermi stretti */
+td.cene-az { white-space: nowrap; }
+/* il modulo di chi registra a mano: due campi per riga, uno solo sul piccolo */
+.due-cene { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+@media (max-width: 720px) { .due-cene { grid-template-columns: 1fr; } }
+.cene-radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 18px; font-size: 0.9rem; color: var(--grigio-900); cursor: pointer; }
+.cene-radio input { width: auto; margin: 0; }

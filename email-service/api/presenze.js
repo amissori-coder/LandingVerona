@@ -468,7 +468,13 @@ module.exports = async (req, res) => {
                 res.status(500).json({ ok: false, msg: 'Sezione cene non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
                 return;
             }
-            const r = await CENE.esegui({ db: db, body: body, email: email, eAdmin: eAdmin });
+            /* Chi puo' SCRIVERE si calcola qui, dove la funzione che lo sa gia'
+               vive: aggiungere una persona a una cena e' lo stesso gesto che
+               aggiungere un'iscrizione, e chi lo fa e' lo stesso. */
+            const r = await CENE.esegui({
+                db: db, body: body, email: email, eAdmin: eAdmin,
+                ePartner: eAdmin || await ePartner(db, ruolo)
+            });
             res.status(r.stato).json(r.corpo);
             return;
         }
