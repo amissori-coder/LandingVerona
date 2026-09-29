@@ -18617,8 +18617,11 @@
 
     /* La stampa del riepilogo: un capitolo per tavolo, con gli orari e la coda.
        E' il foglio che il giorno prima si guarda insieme, e la sera prima si
-       porta a casa: per questo porta anche le altre esigenze, che sul foglio
-       del desk non ci stanno. */
+       porta a casa: per questo porta anche TUTTO QUELLO CHE LE IMPRESE HANNO
+       SCRITTO e che sul foglio del desk non ci sta - le altre esigenze
+       segnalate e le richieste di chi ha trovato gli orari esauriti. Sono
+       parole di qualcuno che ha bussato: se restano solo a video, con il
+       foglio in mano non se ne ricorda nessuno. */
     function stampaRiepilogoB2B(ev) {
         if (!_rb) { toast('Riepilogo non ancora caricato.', 'rosso'); return; }
         const c = _rb.conti || {};
@@ -18656,15 +18659,42 @@
                 + '</td><td class="nota">' + esc(e.testo) + '</td></tr>').join('')
             + '</tbody></table></section>'
             : '';
+        /* LE RICHIESTE A ORARI ESAURITI, scritte sul foglio. Sono persone che
+           hanno bussato: hanno trovato tutto prenotato e hanno chiesto un
+           incontro lo stesso, scrivendolo. A video stanno nella giornata, dove
+           si gestiscono; sul foglio del riepilogo devono esserci perche' e' il
+           foglio su cui si lavora il giorno prima, e una richiesta che resta
+           solo a video e' qualcuno di cui, con il foglio in mano, non si
+           ricorda nessuno.
+           Le gestite si stampano lo stesso, marcate: servono a non richiamare
+           due volte la stessa persona. */
+        const richieste = (_rb.richieste || []);
+        const sezRichieste = richieste.length
+            ? '<section class="tema"><h2>Richieste a orari esauriti <span class="conta">' + richieste.length
+            + (richieste.filter(r => r.stato !== 'gestita').length
+                ? ' &middot; ' + richieste.filter(r => r.stato !== 'gestita').length + ' da guardare' : '') + '</span></h2>'
+            + '<div class="sotto">Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: '
+            + 'non hanno nessun orario.</div>'
+            + '<table><thead><tr><th>Azienda</th><th>Chi</th><th>Contatti</th><th>Tavolo</th><th>Cosa ha scritto</th><th>Stato</th></tr></thead><tbody>'
+            + richieste.map(r => '<tr><td class="forte">' + esc(r.aziendaNome || r.azienda || '-') + '</td>'
+                + '<td>' + esc(r.nome || '-') + '</td>'
+                + '<td>' + esc((r.email || '') + (r.telefono ? ' - ' + r.telefono : '')) + '</td>'
+                + '<td>' + esc(r.area ? nomeAreaB2B(r.area) : '-') + '</td>'
+                + '<td class="nota">' + esc(r.nota || '') + '</td>'
+                + '<td>' + (r.stato === 'gestita' ? 'gestita' : 'da guardare') + '</td></tr>').join('')
+            + '</tbody></table></section>'
+            : '';
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
             + '<title>Riepilogo incontri B2B - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
             + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
             + '<header><h1>Incontri B2B: il riepilogo dei desk</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
             + '<div class="meta">' + (c.aziende || 0) + ' aziende &middot; ' + (c.occupati || 0) + ' incontri &middot; '
-            + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi &middot; stampato il '
+            + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi'
+            + (c.richiesteAperte ? ' &middot; ' + c.richiesteAperte + ' richieste da guardare' : '')
+            + ' &middot; stampato il '
             + esc(quando) + ' &middot; documento riservato</div></header>'
-            + sezioni + sezEsigenze
+            + sezioni + sezEsigenze + sezRichieste
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
         apriStampa(pagina);

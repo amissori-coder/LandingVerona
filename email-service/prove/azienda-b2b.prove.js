@@ -1069,6 +1069,41 @@ function slotDi(area, ora) {
             'e ogni suo orario ha due posti (' + slotFin.filter(x => x.posti === 2).length + ' su ' + slotFin.length + ')');
     });
 
+    await prova('28) Il riepilogo porta anche le richieste a orari esauriti', async () => {
+        /* Chi trova tutto prenotato puo' chiedere un incontro lo stesso, e lo
+           scrive. Quelle parole vivevano solo nella giornata: il riepilogo -
+           che e' il foglio su cui si lavora il giorno prima, e che si stampa -
+           non le portava, e una richiesta che resta a video e' qualcuno che ha
+           bussato e di cui, con il foglio in mano, non si ricorda nessuno. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }]);
+        // due richieste scritte, una gia' guardata e una no
+        const pren = dati.get('b2bPrenotazioni/' + EVENTO) || { evento: EVENTO, aree: {}, richieste: [] };
+        pren.richieste = [
+            { doc: 'gia', nome: 'Nino Blu', azienda: 'Delta Srl', aziendaNome: 'Delta Srl', email: 'nino@delta.it',
+              area: 'merito-creditizio', nota: 'Va bene anche dopo i lavori.', quando: 100, stato: 'gestita' },
+            { doc: 'nuova', nome: 'Rita Gialli', azienda: 'Gamma Srl', aziendaNome: 'Gamma Srl', email: 'rita@gamma.it',
+              area: 'merito-creditizio', nota: 'Siamo in trattativa con due banche.', quando: 50, stato: 'aperta' }
+        ];
+        dati.set('b2bPrenotazioni/' + EVENTO, pren);
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'riepilogo' });
+        esigi(r.ok === true, 'il riepilogo risponde');
+        esigi(Array.isArray(r.richieste) && r.richieste.length === 2,
+            'e porta le richieste scritte', JSON.stringify((r.richieste || []).length));
+        /* Le APERTE prima, anche se piu' vecchie: e' l'ordine in cui si
+           guardano, non quello in cui sono arrivate. */
+        esigi((r.richieste || [])[0].stato === 'aperta' && r.richieste[0].nome === 'Rita Gialli',
+            'con quelle da guardare in cima, anche se piu vecchie',
+            (r.richieste || []).map(x => x.stato).join(','));
+        esigi(r.richieste[0].nota === 'Siamo in trattativa con due banche.',
+            'e dentro c e per intero quello che l impresa ha scritto');
+        esigi((r.conti || {}).richiesteAperte === 1,
+            'e il conto dice quante ne aspettano una risposta', JSON.stringify((r.conti || {}).richiesteAperte));
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });
