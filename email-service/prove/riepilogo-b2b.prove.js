@@ -67,6 +67,10 @@ const pezzi = [
     ritaglia('function tavoliVietatiPer(', '{', '}'),
     ritaglia('function vietatiSenzaQuesto(', '{', '}'),
     ritaglia('function tendinaDove(', '{', '}'),
+    /* I doppioni d'orario: il riepilogo li disegna in cima e il foglio
+       stampato li porta in capitolo. */
+    ritaglia('function chiaveNominativo(', '{', '}'),
+    ritaglia('function conflittiOrarioB2B(', '{', '}'),
     ritaglia('function disegnaRiepilogoB2B(', '{', '}'),
     ritaglia('function nomeAreaB2B(', '{', '}'),
     ritaglia('function stampaRiepilogoB2B(', '{', '}')
@@ -97,6 +101,7 @@ const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'col
     + '  disegna: (rb, vista, az, aperto) => { _rb = rb; _rbVista = vista || "tavoli"; _rbAzienda = az || ""; _rbAperto = aperto || ""; '
     + '    disegnaRiepilogoB2B({ id: "napoli-2026-10-02" }); return document.getElementById("rb-corpo").innerHTML; },'
     + '  sceltaB2B: sceltaB2B, SCELTE_B2B: SCELTE_B2B,'
+    + '  conflitti: conflittiOrarioB2B,'
     /* La STAMPA: si compone il foglio e si restituisce, invece di aprire una
        finestra che qui non c'e'. */
     + '  stampa: rb => { _rb = rb; let uscita = ""; apriStampa = h => { uscita = h; };'
@@ -312,6 +317,109 @@ prova('Il foglio stampato porta tutto quello che le imprese hanno scritto', () =
     const senza = AMBIENTE.stampa(Object.assign({}, RB, { richieste: [], conti: Object.assign({}, RB.conti, { richiesteAperte: 0 }) }));
     esigi(senza.indexOf('Richieste a orari esauriti') < 0, 'e senza richieste il capitolo non compare');
     esigi(!/richieste da guardare/.test(senza), 'ne il numero in testa');
+});
+
+/* ------------------------------------------------------------
+   DUE INCONTRI ALLA STESSA ORA
+   ------------------------------------------------------------
+   Il servizio impedisce due incontri allo STESSO tavolo, non due
+   incontri a tavoli DIVERSI alla stessa ora: la prima preferenza se
+   la prende l'azienda, la seconda e la terza gliele assegniamo noi, e
+   chi assegna guarda il tavolo, non l'agenda dell'impresa. Il giorno
+   del convegno quell'incontro salta. */
+
+/* Un riepilogo con dentro un doppione: si parte da quello buono e si
+   sposta un incontro all'ora di un altro. */
+function conDoppione(chiSecondo) {
+    const copia = JSON.parse(JSON.stringify(RB));
+    copia.desk[1].slot[0].ora = '10:00';
+    copia.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, chiSecondo);
+    return copia;
+}
+
+prova('Due incontri alla stessa ora si vedono, distinti nei due casi', () => {
+    /* La STESSA PERSONA in due posti e' impossibile; la stessa AZIENDA con
+       due persone diverse si puo' fare, ma solo se viene davvero in due. */
+    const stessa = AMBIENTE.conflitti(conDoppione('Mario Rossi'));
+    esigi(stessa.length === 1, 'la stessa persona in due posti viene trovata', JSON.stringify(stessa));
+    esigi(stessa[0] && stessa[0].stessaPersona === true, 'ed e\' segnata come il caso grave');
+    esigi(stessa[0] && stessa[0].ora === '10:00' && stessa[0].aziendaNome === 'Alfa Srl',
+        'con l\'ora e l\'azienda da chiamare');
+    esigi(stessa[0] && stessa[0].incontri.length === 2
+        && stessa[0].incontri.map(i => i.tavolo).join('|').indexOf('Merito creditizio') >= 0,
+        'e i due posti in cui e\' attesa');
+
+    const due = AMBIENTE.conflitti(conDoppione('Anna Neri'));
+    esigi(due.length === 1, 'due persone della stessa impresa si vedono lo stesso');
+    esigi(due[0] && due[0].stessaPersona === false, 'ma non sono il caso grave: puo\' darsi che vengano in due');
+});
+
+prova('Un riepilogo senza doppioni non ne inventa', () => {
+    esigi(AMBIENTE.conflitti(RB).length === 0, 'nessun avviso quando non c\'e\' niente da sistemare');
+    esigi(AMBIENTE.conflitti({}).length === 0, 'e nemmeno su un riepilogo vuoto');
+    /* Due AZIENDE DIVERSE alla stessa ora sono la normalita': i tavoli
+       ricevono in parallelo, ed e' il senso della giornata. */
+    const altra = JSON.parse(JSON.stringify(RB));
+    altra.desk[1].slot[0].ora = '10:00';
+    altra.desk[1].slot[0].chi = chi('Gamma Srl', 'gamma', 2, 'Rita Gialli');
+    esigi(AMBIENTE.conflitti(altra).length === 0, 'due imprese diverse alla stessa ora non sono un doppione');
+    /* Un orario libero non ha nessuno dentro, anche se porta ancora chi
+       c'era prima. */
+    const libero = JSON.parse(JSON.stringify(RB));
+    libero.desk[1].slot[0].ora = '10:00';
+    libero.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, 'Mario Rossi');
+    libero.desk[1].slot[0].stato = 'libero';
+    esigi(AMBIENTE.conflitti(libero).length === 0, 'e un orario libero non conta come incontro');
+});
+
+prova('Lo stesso nome scritto in due modi resta la stessa persona', () => {
+    /* "Andrea  Missori" e "andrea missori" sono la stessa persona: se il
+       confronto fosse letterale, il doppione grave passerebbe per il caso
+       leggero e nessuno telefonerebbe. */
+    const c = AMBIENTE.conflitti(conDoppione('  mario   ROSSI '));
+    esigi(c.length === 1 && c[0].stessaPersona === true, 'spazi e maiuscole non fanno due persone', JSON.stringify(c));
+    /* Un incontro senza nominativo non si puo' escludere che sia la stessa
+       persona: meglio un avviso in piu' che una persona in due stanze. */
+    const senza = AMBIENTE.conflitti(conDoppione(''));
+    esigi(senza.length === 1 && senza[0].stessaPersona === true,
+        'e un incontro senza nominativo si tratta come il caso grave');
+});
+
+prova('Il caso grave si legge per primo, a video e sul foglio', () => {
+    const misto = JSON.parse(JSON.stringify(RB));
+    /* Alfa: due persone diverse alle 10:00. Beta: la stessa persona alle
+       10:30. Il grave arriva dopo, ma deve leggersi per primo. */
+    misto.desk[1].slot[0].ora = '10:00';
+    misto.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, 'Anna Neri');
+    misto.desk[1].slot[1].ora = '10:30';
+    misto.desk[1].slot[1].chi = chi('Beta Srl', 'beta', 3, 'Gino Verdi');
+    const c = AMBIENTE.conflitti(misto);
+    esigi(c.length === 2, 'tutti e due i doppioni vengono trovati', JSON.stringify(c.map(x => x.ora)));
+    esigi(c[0] && c[0].stessaPersona === true, 'e quello grave sta in cima');
+
+    const h = AMBIENTE.disegna(misto, 'tavoli', '');
+    esigi(h.indexOf('rb-conflitti') >= 0, 'a video c\'e\' il riquadro');
+    esigi(h.indexOf('2 aziende attese in due posti alla stessa ora') >= 0,
+        'che dice quante sono', h.slice(h.indexOf('rb-conflitti-testa'), h.indexOf('rb-conflitti-testa') + 120));
+    esigi(h.indexOf('stessa persona') >= 0 && h.indexOf('due persone') >= 0, 'e distingue i due casi');
+    esigi(h.indexOf('rb-conflitto grave') >= 0, 'marcando il grave, che si vede rosso');
+    esigi(h.indexOf('rb-conflitti') < h.indexOf('rb-conti') || h.indexOf('rb-conflitti') < h.indexOf('rb-legenda'),
+        'e sta in cima, prima della legenda: non e\' un dato da consultare, e\' una cosa da sistemare');
+
+    const foglio = AMBIENTE.stampa(misto);
+    esigi(foglio.indexOf('attese in due posti alla stessa ora') > 0, 'sul foglio stampato c\'e\' il capitolo');
+    esigi(foglio.indexOf('info@alfa.it') > 0, 'con i contatti, perche\' sul foglio l\'unica cosa da fare e\' telefonare');
+    esigi(foglio.indexOf('2 da sistemare') > 0, 'e il numero in testa al foglio');
+    esigi(foglio.indexOf('attese in due posti') < foglio.indexOf('Merito creditizio'),
+        'prima dei tavoli');
+});
+
+prova('Senza doppioni non compare niente, ne a video ne sul foglio', () => {
+    const h = perTavolo();
+    esigi(h.indexOf('rb-conflitti') < 0, 'niente riquadro quando va tutto bene');
+    const foglio = AMBIENTE.stampa(RB);
+    esigi(foglio.indexOf('attese in due posti') < 0, 'e niente capitolo sul foglio');
+    esigi(foglio.indexOf('da sistemare') < 0, 'ne il numero in testa');
 });
 
 console.log('\nIl riepilogo degli incontri B2B\n');

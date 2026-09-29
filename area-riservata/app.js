@@ -18246,6 +18246,60 @@
                 : '<option value="">nessun orario libero</option>')
             + '</select>';
     }
+    /* DUE INCONTRI ALLA STESSA ORA.
+       Il servizio impedisce che un'azienda finisca due volte allo STESSO
+       TAVOLO, ma non che finisca a due tavoli DIVERSI alla stessa ora: la
+       prima preferenza se la prende lei, la seconda e la terza gliele
+       assegniamo noi, e chi assegna guarda il tavolo, non l'agenda
+       dell'impresa. Il giorno del convegno quell'incontro salta, e a saltarlo
+       e' quello che nessuno ha guardato.
+       DUE CASI, e sono diversi:
+         - la STESSA PERSONA attesa in due posti: e' impossibile, punto;
+         - la stessa AZIENDA con due persone diverse: si puo' fare, ed e' anzi
+           il modo di sfruttare la giornata - ma solo se vengono in due, e chi
+           ha invitato quell'impresa sa se e' cosi'.
+       Percio' si segnalano tutti e due, distinti: il primo da sistemare, il
+       secondo da guardare. Il conto si fa QUI e non nel servizio perche' i
+       dati ci sono gia' tutti (il riepilogo porta ogni tavolo con i suoi
+       orari occupati) e perche' cosi' si vede appena si ricarica la pagina,
+       senza aspettare che il servizio riparta. */
+    // "Andrea  Missori" e "andrea missori" sono la stessa persona
+    function chiaveNominativo(v) {
+        const t = String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g, ' ');
+        return t.normalize ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : t;
+    }
+    function conflittiOrarioB2B(rb) {
+        const perOra = {};
+        ((rb && rb.desk) || []).forEach(d => {
+            (d.slot || []).forEach(sl => {
+                const chi = sl.chi;
+                if (!chi || sl.stato !== 'occupato') return;
+                const az = chi.aziendaId || chi.aziendaNome || '';
+                if (!az) return;
+                const k = sl.ora + '|' + az;
+                /* I contatti servono sul foglio stampato, dove non si puo'
+                   spostare niente e l'unica cosa da fare e' telefonare. Si
+                   tiene il primo che si trova: sono contatti della stessa
+                   impresa, e uno basta a chiamarla. */
+                const rec = (perOra[k] = perOra[k] || { ora: sl.ora, aziendaNome: chi.aziendaNome || chi.azienda || '', contatti: '', incontri: [] });
+                if (!rec.contatti) rec.contatti = (chi.email || '') + (chi.telefono ? (chi.email ? ' - ' : '') + chi.telefono : '');
+                rec.incontri.push({ tavolo: etichettaTavoloB2B(d), perChi: chi.perChi || '', scelta: chi.scelta || 1 });
+            });
+        });
+        return Object.keys(perOra).map(k => perOra[k]).filter(x => x.incontri.length > 1)
+            .map(x => {
+                /* La stessa persona in due posti: si guarda il nominativo, non
+                   l'azienda. Un incontro senza nominativo non si puo'
+                   escludere che sia la stessa persona, quindi conta come tale:
+                   meglio un avviso in piu' che una persona in due stanze. */
+                const nomi = x.incontri.map(i => chiaveNominativo(i.perChi));
+                const stessaPersona = nomi.some(n => !n) || nomi.some((n, i) => nomi.indexOf(n) !== i);
+                return Object.assign({}, x, { stessaPersona: stessaPersona });
+            })
+            .sort((a, b) => (a.stessaPersona === b.stessaPersona)
+                ? String(a.ora).localeCompare(String(b.ora))
+                : (a.stessaPersona ? -1 : 1));
+    }
     function disegnaRiepilogoB2B(ev) {
         const box = document.getElementById('rb-corpo');
         if (!box || !_rb) return;
@@ -18476,7 +18530,29 @@
             + '<button type="button" class="rb-vista-b' + (_rbVista === 'tavoli' ? ' scelta' : '') + '" data-v="tavoli">Per tavolo</button>'
             + '<button type="button" class="rb-vista-b' + (_rbVista === 'aziende' ? ' scelta' : '') + '" data-v="aziende">Per azienda</button>'
             + '</div>';
-        box.innerHTML = conti + legenda + viste
+        /* I DOPPIONI D'ORARIO IN CIMA, prima di tutto: non sono un dato da
+           consultare, sono una cosa da sistemare prima del convegno. */
+        const conflitti = conflittiOrarioB2B(_rb);
+        const conflittiHtml = conflitti.length
+            ? '<div class="rb-conflitti">'
+            + '<div class="rb-conflitti-testa">' + conflitti.length
+            + (conflitti.length === 1 ? ' azienda attesa in due posti alla stessa ora' : ' aziende attese in due posti alla stessa ora')
+            + '</div>'
+            + conflitti.map(c => '<div class="rb-conflitto' + (c.stessaPersona ? ' grave' : '') + '">'
+                + '<span class="rb-ora">' + esc(c.ora) + '</span>'
+                + '<span class="rb-chi"><b>' + esc(c.aziendaNome) + '</b>'
+                + (c.stessaPersona
+                    ? '<span class="badge rosso">stessa persona</span>'
+                    : '<span class="badge ambra">due persone</span>')
+                + '<span class="hint">' + c.incontri.map(i => esc(i.tavolo)
+                    + (i.perChi ? ' (' + esc(i.perChi) + ')' : ' (nessun nominativo)')).join(' + ') + '</span>'
+                + '</span></div>').join('')
+            + '<div class="hint">Alla stessa ora si puo\' stare in un posto solo: '
+            + '<b>stessa persona</b> e un incontro che salta, <b>due persone</b> va bene solo se quell\'impresa '
+            + 'viene davvero in due. Si sistema spostando uno dei due incontri dalla sua riga qui sotto.</div>'
+            + '</div>'
+            : '';
+        box.innerHTML = conti + conflittiHtml + legenda + viste
             + (_rbVista === 'aziende'
                 ? vistaAziende()
                 : (deskHtml || '<div class="hint">Nessun tavolo attivo.</div>') + esigenzeHtml);
@@ -18684,6 +18760,25 @@
                 + '<td>' + (r.stato === 'gestita' ? 'gestita' : 'da guardare') + '</td></tr>').join('')
             + '</tbody></table></section>'
             : '';
+        /* I DOPPIONI D'ORARIO, in cima al foglio. Sul foglio stampato non si
+           puo' spostare niente: quello che serve e' saperlo prima di arrivare
+           ai desk, e sapere chi chiamare. Per questo sta prima dei tavoli e
+           porta i contatti, non solo i nomi. */
+        const conflittiSt = conflittiOrarioB2B(_rb);
+        const sezConflitti = conflittiSt.length
+            ? '<section class="tema"><h2>Da sistemare: attese in due posti alla stessa ora <span class="conta">'
+            + conflittiSt.length + (conflittiSt.length === 1 ? ' azienda' : ' aziende') + '</span></h2>'
+            + '<div class="sotto">Alla stessa ora si puo\' stare in un posto solo. '
+            + '"Stessa persona" e\' un incontro che salta; "due persone" va bene solo se quell\'impresa viene davvero in due.</div>'
+            + '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Caso</th><th>Dove e\' attesa</th><th>Contatti</th></tr></thead><tbody>'
+            + conflittiSt.map(x => '<tr><td class="forte' + (x.stessaPersona ? ' grave' : '') + '">' + esc(x.ora) + '</td>'
+                + '<td class="forte">' + esc(x.aziendaNome || '-') + '</td>'
+                + '<td' + (x.stessaPersona ? ' class="grave"' : '') + '>' + (x.stessaPersona ? 'stessa persona' : 'due persone') + '</td>'
+                + '<td class="nota">' + x.incontri.map(i => esc(i.tavolo)
+                    + (i.perChi ? ' (' + esc(i.perChi) + ')' : ' (nessun nominativo)')).join(' + ') + '</td>'
+                + '<td>' + esc(x.contatti || '') + '</td></tr>').join('')
+            + '</tbody></table></section>'
+            : '';
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
             + '<title>Riepilogo incontri B2B - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
             + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
@@ -18692,9 +18787,10 @@
             + '<div class="meta">' + (c.aziende || 0) + ' aziende &middot; ' + (c.occupati || 0) + ' incontri &middot; '
             + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi'
             + (c.richiesteAperte ? ' &middot; ' + c.richiesteAperte + ' richieste da guardare' : '')
+            + (conflittiSt.length ? ' &middot; ' + conflittiSt.length + ' da sistemare' : '')
             + ' &middot; stampato il '
             + esc(quando) + ' &middot; documento riservato</div></header>'
-            + sezioni + sezEsigenze + sezRichieste
+            + sezConflitti + sezioni + sezEsigenze + sezRichieste
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
         apriStampa(pagina);
@@ -18721,6 +18817,9 @@
         + 'tbody tr:nth-child(even) td{background:#F4F8FB;}'
         + 'tr.vuoto td{color:#94A3B8;}'
         + '.forte{font-weight:bold;color:#0A2844;white-space:nowrap;}'
+        /* il doppione grave: la stessa persona attesa in due posti. Rosso,
+           perche' e' l'unica riga del foglio che descrive una cosa impossibile */
+        + '.grave{color:#B3261E;font-weight:bold;}'
         + '.nota{color:#475569;}'
         /* il programma della giornata: la colonna della fase e le righe di
            chi interviene, con l'etichetta incolonnata a sinistra */
