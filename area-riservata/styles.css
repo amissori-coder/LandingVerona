@@ -1553,6 +1553,22 @@ button.ag-slot { cursor: pointer; }
    in due davanti allo stesso schermo. */
 .rb-conti { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 0 14px; border-bottom: 1px solid var(--grigio-200); font-size: 0.9rem; color: var(--grigio-600); }
 .rb-conti span.ambra { color: var(--ambra); }
+/* I DOPPIONI D'ORARIO. Stanno in cima al riepilogo, prima dei conti e della
+   legenda, perche' non sono un dato da consultare: sono una cosa da sistemare
+   prima del convegno. Il riquadro e' ambra - un avviso, non un errore - e la
+   singola riga diventa rossa quando il doppione e' grave, cioe' quando la
+   stessa persona e' attesa in due posti alla stessa ora: quella e' una cosa
+   impossibile, mentre due persone della stessa impresa a volte vengono
+   davvero in due. */
+.rb-conflitti { margin: 12px 0 4px; border: 1px solid var(--ambra); border-left-width: 4px; border-radius: var(--raggio-sm); background: var(--ambra-bg); padding: 10px 12px; }
+.rb-conflitti-testa { font-weight: bold; color: var(--ambra); font-size: 0.95rem; }
+.rb-conflitti .hint { display: block; margin-top: 8px; }
+.rb-conflitto { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 7px 0 0; }
+.rb-conflitto .rb-ora { color: var(--ambra); }
+.rb-conflitto .hint { flex: 1 1 100%; margin-top: 2px; }
+.rb-conflitto.grave .rb-ora { color: var(--rosso); }
+.rb-conflitto.grave b { color: var(--rosso); }
+
 .rb-desk { margin-top: 18px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); overflow: hidden; }
 .rb-desk-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 9px 12px; background: var(--grigio-050, #F8FAFC); border-bottom: 1px solid var(--grigio-200); }
 .rb-riga { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--grigio-100); }

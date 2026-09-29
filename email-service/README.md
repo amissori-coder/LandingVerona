@@ -2277,6 +2277,32 @@ Le prove stanno in `prove/riepilogo-b2b.prove.js` (il foglio si compone davvero
 e si legge quello che ne esce) e in `prove/azienda-b2b.prove.js` (la risposta
 del servizio, con l'ordine e il conto).
 
+**Due incontri alla stessa ora, in cima al riepilogo.** Il servizio impedisce
+che un'azienda finisca due volte allo **stesso tavolo** (`occupatoDaLei` in
+`lib/agenda-b2b.js`), ma non che finisca a **due tavoli diversi alla stessa
+ora**: la prima preferenza se la prende lei, la seconda e la terza gliele
+assegniamo noi, e chi assegna guarda il tavolo, non l'agenda dell'impresa. Il
+giorno del convegno quell'incontro salta, e a saltarlo e' quello che nessuno ha
+guardato. I doppioni si contano ora nella schermata (`conflittiOrarioB2B` in
+`app.js`) e stanno **in cima**, prima della legenda, sia a video sia sul foglio
+stampato: non sono un dato da consultare, sono una cosa da sistemare prima del
+convegno. Sul foglio portano anche i **contatti**, perche' li' non si sposta
+niente e l'unica cosa da fare e' telefonare.
+
+I casi sono due e sono diversi: la **stessa persona** attesa in due posti e'
+impossibile, e si legge rossa e per prima; la stessa azienda con **due persone
+diverse** si puo' fare, ed e' anzi il modo di sfruttare la giornata, ma solo se
+quell'impresa viene davvero in due - lo sa chi l'ha invitata, quindi si segnala
+senza allarmare. Un incontro **senza nominativo** conta come il caso grave:
+non si puo' escludere che sia la stessa persona, e meglio un avviso in piu' che
+qualcuno atteso in due stanze. Il confronto fra i nomi ignora spazi doppi,
+maiuscole e accenti (`chiaveNominativo`), altrimenti "Andrea  Missori" e
+"andrea missori" sarebbero due persone.
+
+Il conto si fa nella schermata e non nel servizio per due motivi: i dati ci sono
+gia' tutti (il riepilogo porta ogni tavolo con i suoi orari occupati), e cosi'
+si vede appena si ricarica la pagina, senza aspettare che il servizio riparta.
+
 
 ### Conferma della prenotazione, con il foglio per il desk
 
