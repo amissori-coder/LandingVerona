@@ -1114,6 +1114,54 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
+### Le due schede di chi in elenco non c'e'
+
+L'elenco degli iscritti mostra chi viene al convegno, e per farlo deve lasciare
+fuori due gruppi di persone. Sono scelte giuste, e tutte e due lasciavano chi
+guarda senza una risposta. Ora ciascuna ha la sua scheda, aperta dai pulsanti
+del riquadro "Iscrizioni": **due schede a parte, non due sezioni dell'elenco**,
+cosi' nessuno dei due gruppi torna in mezzo agli ospiti nelle ricerche, nelle
+esportazioni e nei conteggi. Le compone una funzione sola
+(`schedaElenco` in `area-riservata/app.js`), perche' due finestre che si
+somigliano e divergono sono due finestre da tenere allineate a mano; ognuna
+porta ricerca, filtri per colonna ed esportazione in CSV come qualunque altra
+tabella.
+
+**Cancellati** (solo l'amministratore, che e' l'unico che puo' cancellare). La
+cancellazione toglie la riga per tutti, e con lei spariva la domanda "chi l'ha
+tolta, e quando?": una cancellazione per sbaglio restava invisibile finche'
+qualcuno non chiedeva di quella persona. La traccia sul server c'era da sempre
+(`iscrizioniCancellate`, con `da`, `daNome`, `collab` e `quando`); quello che
+mancava era un posto dove leggerla. `rispondi` in `api/iscrizioni.js` non butta
+piu' via le righe che scarta: le mette da parte e le rimanda in `cancellati`,
+con `tolta` accanto. Due provenienze, e si vedono diverse:
+
+- la riga **c'e' ancora** sul foglio dei moduli (o su Firestore): torna intera,
+  con nome, azienda e recapiti. E' il caso normale, perche' il foglio non si
+  tocca;
+- non c'e' **piu' nessuna riga**: restano l'indirizzo e la data, che stanno
+  dentro l'identificativo (`email|data`), e la riga si marca `sparita` -
+  una scheda mezza vuota senza spiegazione sembra un errore di lettura.
+
+**Invitati ai soli incontri B2B.** Vengono al desk per il loro appuntamento e in
+sala non si siedono: in elenco conterebbero come un posto da preparare (vedi
+"La sezione Solo incontri B2B"). La scheda li elenca con l'azienda, il
+referente, i recapiti e **che cosa hanno gia' prenotato** - che e' la colonna
+per cui la si apre: chi la guarda vuole sapere se quell'impresa ha un tavolo o
+se l'invito e' rimasto senza risposta.
+
+Il riquadro "Iscrizioni" porta anche i **due numeri**, cosi' si leggono senza
+aprire niente: un pulsante da solo non dice se vale la pena premerlo. Compaiono
+solo quando c'e' qualcosa da dire.
+
+**Il servizio indietro si riconosce.** `cancellati` arriva solo dal servizio
+aggiornato; dal vecchio non arriva affatto, e l'area riservata tiene `null`,
+che non e' la stessa cosa di "nessuno cancellato". La scheda lo dice, invece di
+annunciare zero cancellazioni che nessuno ha contato: il servizio si pubblica
+per conto suo e il sito e' statico, quindi per qualche minuto le due meta'
+raccontano storie diverse. Le prove stanno in
+`prove/schede-fuori-elenco.prove.js`.
+
 ## Conferma dell'indirizzo email (`lib/conferma-email.js`)
 
 La mail di conferma dell'iscrizione (`confermaSito` in `lib/mail-ngb.js`, e la

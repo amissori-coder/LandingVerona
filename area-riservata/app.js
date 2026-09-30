@@ -15606,6 +15606,12 @@
     function puoSegnarePresenze() { return puoVedereEventi(); }
 
     let _evIscrizioni = null;    // solo in memoria: i dati personali non si salvano nel browser
+    /* CHI E' STATO CANCELLATO. Arriva insieme alle iscrizioni e vive
+       accanto a loro: e' lo stesso elenco guardato dall'altra parte, e
+       tenerlo in una lettura sua vorrebbe dire due giri al server per
+       rispondere a una domanda sola. Come le iscrizioni, resta in memoria e
+       basta: sono dati personali. */
+    let _evCancellati = null;
     let _evMsg = '';
     let _evInFlight = false;
     let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
@@ -15658,6 +15664,7 @@
         // sapeva, e l'aggiornamento dal server arriva dopo senza schermate vuote
         const c = _evCache[id];
         _evIscrizioni = c ? c.iscrizioni : null;
+        _evCancellati = c ? (c.cancellati || null) : null;
         _evPresenze = c ? c.presenze : {};
         _evFirma = c ? c.firma : '';
         _evAggiornato = c ? c.aggiornato : 0;
@@ -15997,10 +16004,16 @@
                 // come cambiamento: va mostrato, e va tolto quando sparisce
                 cambiato = (nuova !== _evFirma) || ((r.avviso || '') !== _evMsg);
                 _evIscrizioni = r.iscrizioni; _evPresenze = r.presenze || {};
+                /* I cancellati arrivano solo dal servizio aggiornato. Il
+                   vecchio non li manda, e in quel caso resta `null`, che non
+                   e' la stessa cosa di "nessuno cancellato": la finestra lo
+                   dice, invece di annunciare zero cancellazioni che nessuno
+                   ha contato. */
+                _evCancellati = Array.isArray(r.cancellati) ? r.cancellati : null;
                 _evFirma = nuova; _evMsg = r.avviso || ''; _evAggiornato = Date.now();
                 _evRev = (typeof r.rev === 'number') ? r.rev : null;
                 // si tiene in memoria per evento: rientrando, l'elenco e' subito a video
-                _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato, rev: _evRev };
+                _evCache[ev.id] = { iscrizioni: _evIscrizioni, cancellati: _evCancellati, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato, rev: _evRev };
                 // la finestra dei promemoria, se e' aperta, prende subito i numeri nuovi
                 if (cambiato || !document.querySelector('#pm-el-dinamico[data-pronto="1"]')) aggiornaElencoPromemoriaAperto();
             } else {
@@ -17372,10 +17385,32 @@
                     ? '<button class="btn btn-sm btn-secondary" id="ev-conf-pregresso" title="Segna come confermati gli indirizzi di chi si è iscritto finora">Segna confermati gli iscritti finora</button>'
                     : '')
                 + '<button class="btn btn-sm btn-secondary" id="ev-accessi">Accessi</button>'
-                + '<button class="btn btn-sm btn-ghost" id="ev-diag-btn">Diagnostica</button>' : '');
+                /* LE DUE SCHEDE DI CHI IN ELENCO NON C'E'. Stanno qui, accanto
+                   all'elenco che li lascia fuori: e' li' che se ne sente la
+                   mancanza, ed e' li' che si viene a cercarli. I cancellati
+                   solo all'amministratore, che e' l'unico che puo' cancellare. */
+                + (ev.tutti ? '' : '<button class="btn btn-sm btn-ghost" id="ev-cancellati">Cancellati</button>')
+                + '<button class="btn btn-sm btn-ghost" id="ev-diag-btn">Diagnostica</button>' : '')
+            /* Gli invitati ai SOLI incontri li vede chiunque veda gli eventi:
+               non sono un dato piu' delicato dell'elenco, ed e' la scheda che
+               risponde alla domanda "questa azienda dov'e' finita?". Compare
+               dove esistono, cioe' negli eventi con gli inviti B2B. */
+            + ((!ev.tutti && ev.manuale)
+                ? '<button class="btn btn-sm btn-ghost" id="ev-solo-b2b">Solo incontri B2B</button>' : '');
+        /* I DUE NUMERI DI CHI IN ELENCO NON C'E'. Si leggono senza aprire
+           niente: un pulsante da solo non dice se vale la pena premerlo, e
+           "nessun cancellato" e' gia' una risposta. Compaiono solo quando c'e'
+           qualcosa da dire, altrimenti il riquadro si riempie di zeri. */
+        const quantiSoloB2B = (_evIscrizioni || []).filter(r => fuoriElenco(modalitaDi(ev, r))).length;
         const statoIscrizioni = (admin
             ? rigaBl('Accessi', '<b>' + cfg.abilitati.length + '</b> utenti oltre all\'amministratore')
             : '')
+            + ((admin && !ev.tutti && _evCancellati && _evCancellati.length)
+                ? rigaBl('Cancellati', '<b>' + _evCancellati.length + '</b> tolti dall\'elenco')
+                : '')
+            + ((!ev.tutti && quantiSoloB2B)
+                ? rigaBl('Solo incontri B2B', '<b>' + quantiSoloB2B + '</b> al desk, non in sala')
+                : '')
             + ((ev.manuale && puoAggiungereIscrizioni())
                 ? rigaBl('Altri portali', 'chi arriva da Eventbrite si aggiunge a mano')
                 : '');
@@ -17461,6 +17496,10 @@
         });
         const bAcc = document.getElementById('ev-accessi');
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
+        const bCan = document.getElementById('ev-cancellati');
+        if (bCan) bCan.addEventListener('click', () => modaleCancellati(ev));
+        const bSb2b = document.getElementById('ev-solo-b2b');
+        if (bSb2b) bSb2b.addEventListener('click', () => modaleSoloB2B(ev));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
         const bPre = document.getElementById('ev-conf-pregresso');
@@ -17892,6 +17931,132 @@
     /* Cancellazione di un'iscrizione: solo l'amministratore, e con conferma esplicita
        perche' toglie una persona dall'elenco per tutti. Resta traccia sul server, cosi'
        non ricompare se la sua riga esiste ancora sul foglio. */
+    /* ============================================================
+       DUE SCHEDE CHE L'ELENCO NON PUO' MOSTRARE
+       ------------------------------------------------------------
+       L'elenco degli iscritti mostra chi viene al convegno, e per farlo
+       deve lasciare fuori due gruppi di persone. Sono scelte giuste, e
+       tutte e due lasciano chi guarda senza una risposta:
+
+         - CHI E' STATO CANCELLATO. La riga sparisce per tutti, e sparisce
+           anche la domanda "chi l'ha tolta, e quando?". La traccia sul
+           server c'e' da sempre - chi e quando - ma non c'era un posto
+           dove leggerla: una cancellazione per sbaglio restava invisibile
+           finche' qualcuno non chiedeva di quella persona.
+
+         - CHI E' INVITATO AI SOLI INCONTRI B2B. Viene al desk per il suo
+           appuntamento e in sala non si siede: in elenco non ci va,
+           perche' la' dentro conterebbe come un posto da preparare. Ma
+           esiste, ha un invito e spesso ha gia' prenotato un tavolo.
+
+       Due schede a parte, quindi, e non due sezioni dell'elenco: cosi'
+       nessuno dei due gruppi torna in mezzo agli ospiti, nelle ricerche e
+       nei conteggi, e chi li cerca sa dove guardare. Si aprono dai
+       pulsanti del riquadro "Iscrizioni".
+       ============================================================ */
+    /* Il corpo delle due schede si compone allo stesso modo - titolo, una
+       riga che spiega, una tabella - e quello che cambia sono le colonne.
+       Scritto una volta sola: due finestre che si somigliano e divergono
+       sono due finestre da tenere allineate a mano. */
+    function schedaElenco(opts) {
+        const righe = opts.righe || [];
+        const intestazioni = opts.colonne.map(c => '<th>' + esc(c.et) + '</th>').join('');
+        const corpo = righe.length
+            ? righe.map(r => '<tr>' + opts.colonne.map(c => '<td data-label="' + esc(c.et) + '">'
+                + (c.html ? c.html(r) : esc(c.val(r) || '-')) + '</td>').join('') + '</tr>').join('')
+            : '';
+        apriModale('<h2>' + esc(opts.titolo) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;">' + opts.spiega + '</p>'
+            + (righe.length
+                ? '<div class="tabella-wrap"><table class="dati"><thead><tr>' + intestazioni + '</tr></thead>'
+                + '<tbody>' + corpo + '</tbody></table></div>'
+                : '<div class="card tabella-vuota">' + esc(opts.vuoto) + '</div>'),
+            { titolo: opts.titolo, finestra: true });
+        if (righe.length) {
+            const t = document.querySelector('#modale-contenitore table.dati');
+            if (t) attrezzaTabella(t, { ricerca: true, nomeFile: opts.nomeFile });
+        }
+    }
+    /* Quando e da chi: la stessa frase in tutte e due le schede. */
+    function quandoEChi(f) {
+        if (!f) return '-';
+        const chi = f.daNome || f.da || '';
+        const q = f.quando ? new Date(f.quando).toLocaleString('it-IT',
+            { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        return esc([q, chi].filter(Boolean).join(' - ')) || '-';
+    }
+    function modaleCancellati(ev) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        /* Il servizio vecchio non manda i cancellati: `null` non e' "nessun
+           cancellato", ed e' la differenza fra una scheda vuota che dice il
+           vero e una che rassicura a torto. Succede davvero, perche' il
+           servizio si aggiorna per conto suo e il sito e' gia' nuovo. */
+        if (_evCancellati === null) {
+            apriModale('<h2>Cancellati da ' + esc(ev.titolo) + '</h2>'
+                + '<p>Il servizio non manda ancora l\'elenco dei cancellati: e\' indietro rispetto a questa pagina.</p>'
+                + '<p class="hint">Le cancellazioni sono registrate lo stesso - la traccia la scrive il servizio quando si cancella - '
+                + 'e compariranno qui appena la pubblicazione sara\' completata. Riprova fra qualche minuto.</p>'
+                + '<div class="modale-azioni"><button class="btn btn-secondary" id="ca-ok">Chiudi</button></div>',
+                { titolo: 'Cancellati' });
+            const b = document.getElementById('ca-ok');
+            if (b) b.addEventListener('click', chiudiModale);
+            return;
+        }
+        schedaElenco({
+            titolo: 'Cancellati da ' + ev.titolo,
+            /* La riga che spiega dice le due cose che servono a decidere: che
+               si puo' rimettere, e come. Una scheda che elenca e basta lascia
+               chi ha cancellato per sbaglio senza la mossa successiva. */
+            spiega: 'Chi è stato tolto dall\'elenco, con chi l\'ha fatto e quando. '
+                + 'La riga non torna nemmeno se è ancora sul foglio dei moduli: per rimettere qualcuno '
+                + 'si usa <b>Aggiungi iscrizione</b>.',
+            vuoto: 'Nessuna iscrizione cancellata per questo evento.',
+            nomeFile: 'cancellati-' + ev.id,
+            righe: _evCancellati,
+            colonne: [
+                { et: 'Nome', val: r => r.sparita ? '' : nomePersonaVisto(r) },
+                { et: 'Azienda', val: r => r.sparita ? '' : aziendaVista(r.azienda) },
+                { et: 'Email', val: r => r.email },
+                { et: 'Telefono', val: r => r.telefono },
+                { et: 'Iscritta il', val: r => r.data },
+                { et: 'Cancellata', html: r => quandoEChi(r.tolta) },
+                /* Della riga cancellata E tolta dal foglio non resta che
+                   l'indirizzo e la data: dirlo evita che una riga mezza vuota
+                   sembri un errore di lettura. */
+                { et: 'Dati', html: r => r.sparita
+                    ? '<span class="hint">riga non piu\' sul foglio: restano indirizzo e data</span>'
+                    : '<span class="hint">riga ancora sul foglio</span>' }
+            ]
+        });
+    }
+    function modaleSoloB2B(ev) {
+        if (!puoVedereEventi()) return;
+        const righe = (_evIscrizioni || []).filter(r => fuoriElenco(modalitaDi(ev, r)));
+        const voci = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean).map(esc).join(' &middot; ');
+        schedaElenco({
+            titolo: 'Invitati ai soli incontri B2B - ' + ev.titolo,
+            spiega: 'Vengono al desk per il loro appuntamento e <b>in sala non si siedono</b>: non occupano un posto '
+                + 'e non entrano nel totale, per questo l\'elenco degli iscritti non li porta. '
+                + 'Se uno di loro deve venire anche al convegno, si apre la sua riga dagli <b>invii alle aziende</b> '
+                + 'e si riporta in presenza.',
+            vuoto: 'Nessun invitato ai soli incontri B2B per questo evento.',
+            nomeFile: 'solo-incontri-b2b-' + ev.id,
+            righe: righe,
+            colonne: [
+                { et: 'Azienda', val: r => aziendaVista(r.azienda) },
+                { et: 'Referente', val: r => nomePersonaVisto(r) },
+                { et: 'Ruolo', val: r => r.ruolo },
+                { et: 'Email', val: r => r.email },
+                { et: 'Telefono', val: r => r.telefono },
+                /* Che cosa ha gia' prenotato: e' la colonna per cui questa
+                   scheda si apre. Chi la guarda vuole sapere se quell'impresa
+                   ha un tavolo o se l'invito e' rimasto senza risposta. */
+                { et: 'B2B prenotati', html: r => voci((r.extra || {})[COL_B2B_PRENOTATI])
+                    || '<span class="hint">non ha prenotato</span>' },
+                { et: 'Aggiunta', html: r => quandoEChi(r.inserito) }
+            ]
+        });
+    }
     function confermaCancellaIscrizione(ev, ids, nome) {
         if (!(Auth.eAdmin() || Auth.eProprietario())) return;
         const elenco = (ids || []).filter(Boolean);
