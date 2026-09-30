@@ -1337,8 +1337,9 @@ un posto che nessuno occupera', e il totale in sala e' proprio il numero con cui
 si prepara la sala. Nasce quindi con `modalita: 'b2b'` - una quinta sezione
 (`MODALITA_SCELTE` in `api/presenze.js`, `SEZIONI_MODALITA` in
 `area-riservata/app.js`) che vale `sala: false` come l'online, ma che
-`daInvitareB2B` comprende: agli incontri ci va, in sala no. Da li' si sposta in
-`daInvitareB2B` comprende: agli incontri ci va, in sala no.
+`daInvitareB2B` comprende: agli incontri ci va, in sala no. Da li' si sposta
+in presenza come da qualunque altra sezione, il giorno in cui quell'impresa
+decide di venire anche al convegno.
 
 E dall'ELENCO degli iscritti resta fuori del tutto: la sezione ha
 `fuoriElenco: true`, e `soloIscritti` (in `area-riservata/app.js`) la toglie
@@ -1349,6 +1350,30 @@ esportazione e in ogni conto degli indirizzi doppi. Vivono dentro la finestra
 degli inviti B2B, che e' l'unico posto dove servono - e la finestra avverte
 prima di toglierne una, perche' tolta di li' non si trova piu' da nessuna
 parte.
+
+**Chi la cerca fra gli iscritti, pero', non trova niente e non sa perche'.** E'
+il rovescio della stessa scelta: da fuori non si vede che quell'elenco salta
+una sezione, si vede solo che l'azienda non c'e', e chi la cerca conclude che
+e' stata dimenticata. Succede spesso, perche' un referente che ha prenotato un
+incontro esiste per forza da qualche parte: se la sua impresa non risulta fra
+gli iscritti, e' quasi sempre questo.
+
+Ora la ricerca dell'elenco lo dice. Quando non lascia nessuna riga, si guarda
+anche fra gli invitati ai soli incontri (`invitatiFuoriElenco`, che cerca in
+ragione sociale, nominativo, indirizzo, ruolo e telefono) e, se il nome e' li',
+sotto la tabella compare un riquadro: quale impresa, con quali referenti e a
+quale indirizzo le e' arrivato l'invito, perche' non sta in elenco, e un
+pulsante che apre la finestra degli inviti **gia' filtrata su quel nome**
+(terzo parametro di `modaleInvitoB2B`) - arrivarci e dover rifare la ricerca a
+mano vanificherebbe il pulsante. Se quell'impresa deve venire anche in sala,
+da li' la si riporta in presenza.
+
+Il riquadro lo monta `attrezzaTabella` (`opts.seVuoto`, generico: riceve il
+testo cercato e restituisce l'HTML da mettere sotto la tabella, o niente) e si
+legge **solo** quando la ricerca non ha lasciato righe: un avviso accanto a una
+tabella piena direbbe una cosa falsa. Le prove stanno in
+`prove/cerca-fuori-elenco.prove.js`, e verificano anche il montaggio - le
+funzioni possono essere giuste e non servire a nessuno, se nessuno le chiama.
 
 ### Il giustificato e la sillabazione
 

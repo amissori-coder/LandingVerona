@@ -967,6 +967,15 @@ table.dati tbody tr.cliccabile { cursor: pointer; }
 table.dati .cliente-cella { font-weight: 600; color: var(--blu-900); }
 table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 2px solid var(--blu-500); }
 .tabella-vuota { padding: 40px; text-align: center; color: var(--grigio-600); }
+/* LA RICERCA CHE NON TROVA NIENTE. Sotto la tabella, quando chi ha cercato
+   merita una risposta invece di una tabella vuota: nell'elenco degli iscritti
+   dice che quel nome c'e', ma fra gli invitati ai soli incontri B2B. Blu e non
+   ambra: non e' un errore, e' una spiegazione. */
+.tabella-niente { margin: 10px 0 4px; border: 1px solid var(--blu-100); border-left: 4px solid var(--blu-700); border-radius: var(--raggio-sm); background: var(--blu-050); padding: 12px 14px; }
+.tabella-niente .tn-testa { font-weight: bold; color: var(--blu-900); }
+.tabella-niente .tn-riga { padding: 5px 0 0; }
+.tabella-niente .hint { display: block; margin-top: 8px; }
+.tabella-niente .btn { margin-top: 10px; }
 /* Una tabella di due o tre colonne non ha bisogno di tutta la pagina. Con il
    nome a sinistra e l'importo a destra, in mezzo restava mezzo metro di bianco:
    per seguire la riga con l'occhio bisognava attraversarlo tutto, e si leggeva
