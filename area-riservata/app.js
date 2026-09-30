@@ -3428,6 +3428,18 @@
         barra.appendChild(azioni);
         const conteggio = azioni.querySelector('.filtro-conteggio');
         ancora.parentElement.insertBefore(barra, ancora);
+        /* QUANDO LA RICERCA NON TROVA NIENTE, chi ha cercato resta con una
+           tabella vuota e nessuna risposta: quel nome non c'e', oppure c'e'
+           ma in un posto che questo elenco non mostra. Chi usa la tabella puo'
+           dirlo, con `seVuoto`: riceve il testo cercato e restituisce l'HTML
+           da mettere sotto - una riga sola, quando ha qualcosa da dire. */
+        let vuotoEl = null;
+        if (opts.seVuoto) {
+            vuotoEl = document.createElement('div');
+            vuotoEl.className = 'tabella-niente';
+            vuotoEl.hidden = true;
+            ancora.parentElement.insertBefore(vuotoEl, ancora.nextSibling);
+        }
 
         const applica = () => {
             const righe = Array.from(corpo.rows);
@@ -3446,6 +3458,12 @@
             });
             const filtrando = !!q || controlli.some(c => (c.el.value || '').trim());
             conteggio.textContent = filtrando ? (visibili + ' di ' + righe.length) : '';
+            if (vuotoEl) {
+                let dire = '';
+                if (!visibili && q) { try { dire = opts.seVuoto(q) || ''; } catch (e) { dire = ''; } }
+                vuotoEl.innerHTML = dire;
+                vuotoEl.hidden = !dire;
+            }
         };
         controlli.forEach(c => c.el.addEventListener(c.tipo === 'select' ? 'change' : 'input', applica));
         if (ricercaEl) ricercaEl.addEventListener('input', applica);
@@ -16255,6 +16273,30 @@
     function soloIscritti(ev, lista) {
         return (lista || []).filter(r => !fuoriElenco(modalitaDi(ev, r)));
     }
+    /* CHI CERCA UN'AZIENDA CHE NON E' FRA GLI ISCRITTI.
+       L'elenco non porta gli invitati ai soli incontri B2B, ed e' giusto:
+       non hanno un posto in sala e non si contano. Ma da fuori la differenza
+       non si vede - si vede solo che quel nome non c'e' - e chi lo cerca
+       conclude che l'azienda e' stata dimenticata, quando invece e' li',
+       invitata ai tavoli, un pannello piu' in la'. Succede spesso, perche' un
+       referente che prenota un B2B esiste per forza da qualche parte: se la
+       sua impresa non risulta iscritta, e' quasi sempre questo.
+       Quindi quando la ricerca non trova niente si guarda anche fra loro, e
+       se il nome e' li' lo si dice, invece di lasciare una tabella vuota. */
+    function invitatiFuoriElenco(ev, q) {
+        const cerca = String(q || '').trim().toLowerCase();
+        if (!cerca || !_evIscrizioni) return [];
+        const gruppi = {};
+        _evIscrizioni.filter(r => fuoriElenco(modalitaDi(ev, r))).forEach(r => {
+            const dentro = [r.nome, r.cognome, r.email, r.azienda, r.ruolo, r.telefono]
+                .map(x => String(x == null ? '' : x)).join(' ').toLowerCase();
+            if (dentro.indexOf(cerca) < 0) return;
+            const k = String(r.azienda || '').trim().toLowerCase() || ('#' + r.id);
+            const g = gruppi[k] || (gruppi[k] = { azienda: aziendaVista(r.azienda) || 'Senza ragione sociale', persone: [] });
+            g.persone.push({ nome: nomePersonaVisto(r), email: String(r.email || '') });
+        });
+        return Object.keys(gruppi).sort().map(k => gruppi[k]);
+    }
     /* A CHI SI MANDANO GLI INVITI AGLI INCONTRI B2B. Gli incontri si fanno di
        persona, e sono fra IMPRESE OSPITI da abbinare l'una all'altra: chi segue
        online a un tavolo non ci si siede, e un aderente Revilaw non e'
@@ -17811,7 +17853,40 @@
             modaleSpostaModalita(ev, righe, verso);
         }));
         const tab = $vista().querySelector('table.dati');
-        if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
+        if (tab) attrezzaTabella(tab, {
+            ricerca: true, nomeFile: 'iscrizioni-' + ev.id,
+            /* Cercata un'azienda che non e' fra gli iscritti: prima di
+               lasciare la tabella vuota si guarda fra gli invitati ai soli
+               incontri B2B, che qui non compaiono per scelta. Nove volte su
+               dieci e' li' che sta, e chi cerca lo sta cercando proprio
+               perche' un suo referente ha prenotato un tavolo. */
+            seVuoto: q => {
+                const trovati = invitatiFuoriElenco(ev, q);
+                if (!trovati.length) return '';
+                return '<div class="tn-testa">Non \u00e8 fra gli iscritti, ma \u00e8 <b>invitata agli incontri B2B</b></div>'
+                    + trovati.map(g => '<div class="tn-riga"><b>' + esc(g.azienda) + '</b> '
+                        + '<span class="hint">' + g.persone.map(p => esc(p.nome)
+                            + (p.email ? ' (' + esc(p.email) + ')' : '')).join(' &middot; ') + '</span></div>').join('')
+                    + '<div class="hint">Gli invitati ai <b>soli</b> incontri vengono al desk per il loro appuntamento '
+                    + 'e in sala non si siedono: non occupano un posto, non entrano nel totale e per questo l\'elenco '
+                    + 'degli iscritti non li porta. Se invece deve venire anche in sala, aprila qui sotto e riportala in presenza.</div>'
+                    + '<button type="button" class="btn btn-sm btn-secondary" data-vai-inviti="' + esc(q) + '">'
+                    + 'Aprila fra gli invitati ai B2B</button>';
+            }
+        });
+        /* Il pulsante nasce e muore con la ricerca, quindi si ascolta la
+           vista: un aggancio diretto durerebbe fino alla prima lettera
+           digitata dopo. Il vecchio si toglie, perche' la vista e' sempre lo
+           stesso elemento e un ascolto per ogni ridisegno vorrebbe dire
+           aprire la finestra tante volte quante la pagina si e' ridisegnata. */
+        const vistaEl = $vista();
+        if (vistaEl._vaiInviti) vistaEl.removeEventListener('click', vistaEl._vaiInviti);
+        vistaEl._vaiInviti = e => {
+            const b = e.target.closest && e.target.closest('[data-vai-inviti]');
+            if (!b) return;
+            modaleInvitoB2B(ev, null, b.getAttribute('data-vai-inviti') || '');
+        };
+        vistaEl.addEventListener('click', vistaEl._vaiInviti);
     }
 
     /* Cancellazione di un'iscrizione: solo l'amministratore, e con conferma esplicita
@@ -21425,7 +21500,7 @@
          che sa che "Mario di Alfa" in realta' lavora per la controllata.
        A UNA SOLA persona si arriva dal menu della riga (`unica`): li' l'elenco
        delle aziende non serve, il tavolo si sceglie lo stesso. */
-    function modaleInvitoB2B(ev, unica) {
+    function modaleInvitoB2B(ev, unica, cercaSubito) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
         if (unica && !unica.email) return;
@@ -21588,7 +21663,10 @@
             if (!conosciute.has(a.chiave)) { conosciute.add(a.chiave); if (daSpuntare(a)) scelte.add(a.chiave); }
         });
         const aperte = new Set();     // le tendine aperte, per farle sopravvivere al ridisegno
-        let filtroAz = '';
+        /* Si puo' aprire gia' cercando: ci si arriva dall'elenco degli
+           iscritti, dove quel nome non c'era, e ritrovarsi davanti tutte le
+           aziende vorrebbe dire ricominciare la ricerca a mano. */
+        let filtroAz = String(cercaSubito || '');
         let spostamentoAperto = '';   // email del referente per cui e' aperto il riquadro "sposta"
         let spostaScelta = '';        // l'azienda scelta nel menu, e...
         let spostaNuova = '';         // ...la ragione sociale scritta a mano: sopravvivono al ridisegno
