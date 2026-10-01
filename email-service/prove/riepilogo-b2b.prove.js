@@ -73,6 +73,9 @@ const pezzi = [
     ritaglia('function conflittiOrarioB2B(', '{', '}'),
     ritaglia('function disegnaRiepilogoB2B(', '{', '}'),
     ritaglia('function nomeAreaB2B(', '{', '}'),
+    /* I tavoli che hanno cambiato argomento sotto chi aveva gia' prenotato. */
+    ritaglia('const TAVOLI_CONVERTITI = [', '[', ']') + ';',
+    ritaglia('function convertitoDopo(', '{', '}'),
     ritaglia('function stampaRiepilogoB2B(', '{', '}')
 ].join('\n');
 
@@ -471,6 +474,67 @@ prova('Il foglio stampato ha la sua colonna', () => {
     const senza = AMBIENTE.stampa(RB);
     esigi(senza.indexOf('<th>Aveva chiesto</th>') > 0, 'la colonna resta anche quando nessuno e stato spostato');
     esigi(senza.indexOf('Revisione') < 0, 'ma le celle sono vuote', 'trovato "Revisione" senza spostamenti');
+});
+
+/* ------------------------------------------------------------
+   IL TAVOLO CHE E' CAMBIATO SOTTO A CHI AVEVA GIA' PRENOTATO
+   ------------------------------------------------------------
+   Il 26 settembre il secondo desk Revilaw e' diventato il secondo tavolo del
+   merito creditizio. L'identificativo non si e' toccato - e' la chiave con
+   cui il tavolo viaggia fra invito, prenotazione e agenda - quindi le
+   prenotazioni prese prima sono rimaste li' e oggi risultano a un tavolo di
+   merito creditizio. Quelle imprese avevano chiesto dell'altro, e la
+   marcatura dello SPOSTAMENTO non le copre: non sono state spostate, e' stato
+   il tavolo a cambiare sotto di loro. */
+const CONVERSIONE = Date.parse('2026-09-26T01:15:48+02:00');
+function sulTavoloConvertito(quando, chiesta) {
+    const copia = JSON.parse(JSON.stringify(RB));
+    copia.desk[1].id = 'desk-revilaw-b';
+    copia.desk[1].nome = 'Merito creditizio - secondo tavolo';
+    copia.desk[1].interno = false;
+    const chi = copia.desk[1].slot[0].chi;
+    chi.quando = quando;
+    if (chiesta) chi.chiesta = chiesta;
+    return copia;
+}
+
+prova('Chi aveva prenotato il desk Revilaw lo vede scritto', () => {
+    const h = AMBIENTE.disegna(sulTavoloConvertito(CONVERSIONE - 86400000), 'tavoli', '');
+    esigi(/aveva prenotato il Desk Revilaw/.test(h),
+        'la riga dice a che tavolo quell impresa aveva prenotato',
+        (h.match(/aveva prenotato[^<]*/) || [''])[0]);
+    esigi((h.match(/rb-chiesta/g) || []).length === 1, 'e il bollino e uno solo, sulla sua riga');
+    /* Sul foglio stampato finisce nella stessa colonna dello spostamento: per
+       chi lo legge il giorno prima e' la stessa informazione - quell azienda
+       si aspetta un altro argomento - e due colonne diverse direbbero che
+       sono due cose. */
+    const foglio = AMBIENTE.stampa(sulTavoloConvertito(CONVERSIONE - 86400000));
+    esigi(foglio.indexOf('Desk Revilaw') > 0, 'e sul foglio sta nella colonna "Aveva chiesto"');
+});
+
+prova('Chi ha prenotato dopo la conversione non viene marcato', () => {
+    const h = AMBIENTE.disegna(sulTavoloConvertito(CONVERSIONE + 86400000), 'tavoli', '');
+    esigi(h.indexOf('rb-chiesta') < 0,
+        'chi ha prenotato quando il tavolo era gia il secondo del merito creditizio ha scelto quello');
+    /* `quando` si riscrive a ogni tocco: una riga gia' rivista dopo la
+       conversione non si segnala, perche' qualcuno l ha gia' guardata. */
+    const senzaData = AMBIENTE.disegna(sulTavoloConvertito(0), 'tavoli', '');
+    esigi(senzaData.indexOf('rb-chiesta') < 0, 'e senza data non si marca a caso');
+});
+
+prova('Gli altri tavoli non c entrano, e i due avvisi non si sommano', () => {
+    /* La conversione riguarda un tavolo solo: marcare le righe degli altri
+       perche' sono vecchie direbbe una cosa falsa su tutta la giornata. */
+    const altrove = JSON.parse(JSON.stringify(RB));
+    altrove.desk[0].slot[0].chi.quando = CONVERSIONE - 86400000;
+    esigi(AMBIENTE.disegna(altrove, 'tavoli', '').indexOf('rb-chiesta') < 0,
+        'una prenotazione vecchia su un tavolo mai convertito non si segnala');
+    /* Una riga SPOSTATA su quel tavolo porta gia' la sua spiegazione: due
+       bollini direbbero due volte la stessa cosa con due parole diverse. */
+    const due = AMBIENTE.disegna(sulTavoloConvertito(CONVERSIONE - 86400000, 'revisione'), 'tavoli', '');
+    esigi((due.match(/rb-chiesta/g) || []).length === 1, 'e su una riga spostata il bollino resta uno');
+    esigi(/aveva chiesto Revisione/i.test(due), 'e dice lo spostamento, che e la ragione piu recente',
+        (due.match(/aveva [^<]*/) || [''])[0]);
 });
 
 console.log('\nIl riepilogo degli incontri B2B\n');

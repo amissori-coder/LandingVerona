@@ -2410,6 +2410,26 @@ Le prove stanno in `prove/azienda-b2b.prove.js` (lo spostamento vero, e il
 riepilogo che lo riporta) e in `prove/riepilogo-b2b.prove.js` (il bollino nelle
 due viste e la colonna sul foglio).
 
+**Il tavolo che e' cambiato sotto a chi aveva gia' prenotato.** L'identificativo
+di un tavolo non si tocca mai - e' la chiave con cui viaggia fra invito,
+prenotazione e agenda - ma il suo ARGOMENTO si', quando la giornata si
+riorganizza. Il 26 settembre `desk-revilaw-b` e' passato da secondo desk
+Revilaw a secondo tavolo del merito creditizio: le prenotazioni prese prima
+sono rimaste attaccate a quell'identificativo e oggi risultano a un tavolo di
+merito creditizio. Quelle imprese avevano chiesto dell'altro, e la marcatura
+dello spostamento non le copre - non sono state spostate, e' stato il tavolo a
+cambiare sotto di loro.
+
+Il riepilogo le segnala con lo stesso bollino ("aveva prenotato il Desk
+Revilaw") e nella stessa colonna del foglio: per chi legge il giorno prima e' la
+stessa informazione - quell'azienda si aspetta un altro argomento - e due
+colonne direbbero che sono due cose. Si riconoscono dalla data della
+prenotazione (`TAVOLI_CONVERTITI` in `area-riservata/app.js`, una riga per
+tavolo convertito): `quando` si riscrive a ogni tocco, quindi una riga gia'
+rivista dopo la conversione non si segnala, ed e' giusto - qualcuno l'ha gia'
+guardata. Senza data non si marca nulla, e il bollino dello spostamento ha la
+precedenza, perche' e' la ragione piu' recente.
+
 **Due incontri alla stessa ora, in cima al riepilogo.** Il servizio impedisce
 che un'azienda finisca due volte allo **stesso tavolo** (`occupatoDaLei` in
 `lib/agenda-b2b.js`), ma non che finisca a **due tavoli diversi alla stessa
