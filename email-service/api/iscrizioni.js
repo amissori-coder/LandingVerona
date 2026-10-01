@@ -232,10 +232,42 @@ function extraMatching(v) {
 
 /* Unica uscita per le risposte positive: toglie le iscrizioni cancellate
    dall'amministratore (anche se tornassero dal foglio) e allega stati e note,
-   cosi' l'area riservata riceve tutto in una volta sola. */
+   cosi' l'area riservata riceve tutto in una volta sola.
+
+   LE CANCELLATE NON SI BUTTANO VIA: si mettono da parte e tornano indietro
+   in `cancellati`. Una cancellazione e' una decisione di chi organizza, e
+   finora spariva senza lasciare niente da guardare: chi chiedeva "e quella
+   azienda?" non aveva una risposta, e chi aveva cancellato per sbaglio non
+   aveva modo di accorgersene. La traccia sul server c'era gia' (chi e
+   quando): quello che mancava era un posto dove leggerla.
+   Due provenienze, e si vedono diverse:
+     - la riga c'e' ancora sul FOGLIO (o su Firestore): torna intera, con
+       nome, azienda e recapiti - e' il caso normale, perche' il foglio dei
+       moduli non si tocca;
+     - non c'e' piu' nessuna riga: restano l'indirizzo e la data, che stanno
+       dentro l'identificativo ("email|data"), e la riga si marca `sparita`,
+       perche' una scheda mezza vuota senza spiegazione sembra un errore. */
 function rispondi(res, lista, fonti, presenze, cancellate, avviso, rev) {
-    const vive = ordina(lista.filter(x => !cancellate[x.id]));
-    const out = { ok: true, iscrizioni: vive, presenze: presenze || {}, aggiornato: Date.now(), fonti: fonti };
+    const tolte = {};
+    const vive = ordina(lista.filter(x => {
+        if (!cancellate[x.id]) return true;
+        if (!tolte[x.id]) tolte[x.id] = Object.assign({}, x, { tolta: cancellate[x.id] });
+        return false;
+    }));
+    Object.keys(cancellate).forEach(id => {
+        if (tolte[id]) return;
+        const taglio = String(id).lastIndexOf('|');
+        tolte[id] = {
+            id: id,
+            email: taglio > 0 ? String(id).slice(0, taglio) : '',
+            data: taglio >= 0 ? String(id).slice(taglio + 1) : String(id),
+            pagina: '', nome: '', cognome: '', azienda: '', ruolo: '', telefono: '',
+            sparita: true, tolta: cancellate[id]
+        };
+    });
+    const out = { ok: true, iscrizioni: vive, presenze: presenze || {},
+        cancellati: ordina(Object.keys(tolte).map(k => tolte[k])),
+        aggiornato: Date.now(), fonti: fonti };
     if (typeof rev === 'number') out.rev = rev;
     if (avviso) out.avviso = avviso;
     res.status(200).json(out);
@@ -376,7 +408,18 @@ module.exports = async (req, res) => {
             }
             try {
                 const sc = arch.cancellate.filter(v => v && v.evento === idEvento);
-                sc.forEach(v => { if (v.idIscritto) cancellate[v.idIscritto] = true; });
+                /* CHI l'ha cancellata e QUANDO, non piu' un semplice "si":
+                   e' la meta' della traccia che serve a chi la guarda dopo,
+                   e sul server c'era gia'. Resta un valore vero, quindi il
+                   setaccio che toglie le righe dall'elenco non cambia. */
+                sc.forEach(v => {
+                    if (!v.idIscritto) return;
+                    cancellate[v.idIscritto] = {
+                        da: String(v.da || ''), daNome: String(v.daNome || ''),
+                        collab: String(v.collab || ''),
+                        quando: typeof v.quando === 'number' ? v.quando : 0
+                    };
+                });
             } catch (e) {
                 console.error('Lettura cancellate non riuscita:', String((e && e.message) || e).slice(0, 200));
             }

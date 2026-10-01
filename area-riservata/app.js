@@ -3428,6 +3428,18 @@
         barra.appendChild(azioni);
         const conteggio = azioni.querySelector('.filtro-conteggio');
         ancora.parentElement.insertBefore(barra, ancora);
+        /* QUANDO LA RICERCA NON TROVA NIENTE, chi ha cercato resta con una
+           tabella vuota e nessuna risposta: quel nome non c'e', oppure c'e'
+           ma in un posto che questo elenco non mostra. Chi usa la tabella puo'
+           dirlo, con `seVuoto`: riceve il testo cercato e restituisce l'HTML
+           da mettere sotto - una riga sola, quando ha qualcosa da dire. */
+        let vuotoEl = null;
+        if (opts.seVuoto) {
+            vuotoEl = document.createElement('div');
+            vuotoEl.className = 'tabella-niente';
+            vuotoEl.hidden = true;
+            ancora.parentElement.insertBefore(vuotoEl, ancora.nextSibling);
+        }
 
         const applica = () => {
             const righe = Array.from(corpo.rows);
@@ -3446,6 +3458,12 @@
             });
             const filtrando = !!q || controlli.some(c => (c.el.value || '').trim());
             conteggio.textContent = filtrando ? (visibili + ' di ' + righe.length) : '';
+            if (vuotoEl) {
+                let dire = '';
+                if (!visibili && q) { try { dire = opts.seVuoto(q) || ''; } catch (e) { dire = ''; } }
+                vuotoEl.innerHTML = dire;
+                vuotoEl.hidden = !dire;
+            }
         };
         controlli.forEach(c => c.el.addEventListener(c.tipo === 'select' ? 'change' : 'input', applica));
         if (ricercaEl) ricercaEl.addEventListener('input', applica);
@@ -15588,6 +15606,12 @@
     function puoSegnarePresenze() { return puoVedereEventi(); }
 
     let _evIscrizioni = null;    // solo in memoria: i dati personali non si salvano nel browser
+    /* CHI E' STATO CANCELLATO. Arriva insieme alle iscrizioni e vive
+       accanto a loro: e' lo stesso elenco guardato dall'altra parte, e
+       tenerlo in una lettura sua vorrebbe dire due giri al server per
+       rispondere a una domanda sola. Come le iscrizioni, resta in memoria e
+       basta: sono dati personali. */
+    let _evCancellati = null;
     let _evMsg = '';
     let _evInFlight = false;
     let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
@@ -15640,6 +15664,7 @@
         // sapeva, e l'aggiornamento dal server arriva dopo senza schermate vuote
         const c = _evCache[id];
         _evIscrizioni = c ? c.iscrizioni : null;
+        _evCancellati = c ? (c.cancellati || null) : null;
         _evPresenze = c ? c.presenze : {};
         _evFirma = c ? c.firma : '';
         _evAggiornato = c ? c.aggiornato : 0;
@@ -15979,10 +16004,16 @@
                 // come cambiamento: va mostrato, e va tolto quando sparisce
                 cambiato = (nuova !== _evFirma) || ((r.avviso || '') !== _evMsg);
                 _evIscrizioni = r.iscrizioni; _evPresenze = r.presenze || {};
+                /* I cancellati arrivano solo dal servizio aggiornato. Il
+                   vecchio non li manda, e in quel caso resta `null`, che non
+                   e' la stessa cosa di "nessuno cancellato": la finestra lo
+                   dice, invece di annunciare zero cancellazioni che nessuno
+                   ha contato. */
+                _evCancellati = Array.isArray(r.cancellati) ? r.cancellati : null;
                 _evFirma = nuova; _evMsg = r.avviso || ''; _evAggiornato = Date.now();
                 _evRev = (typeof r.rev === 'number') ? r.rev : null;
                 // si tiene in memoria per evento: rientrando, l'elenco e' subito a video
-                _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato, rev: _evRev };
+                _evCache[ev.id] = { iscrizioni: _evIscrizioni, cancellati: _evCancellati, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato, rev: _evRev };
                 // la finestra dei promemoria, se e' aperta, prende subito i numeri nuovi
                 if (cambiato || !document.querySelector('#pm-el-dinamico[data-pronto="1"]')) aggiornaElencoPromemoriaAperto();
             } else {
@@ -16254,6 +16285,30 @@
        resta un punto che le fa ricomparire. */
     function soloIscritti(ev, lista) {
         return (lista || []).filter(r => !fuoriElenco(modalitaDi(ev, r)));
+    }
+    /* CHI CERCA UN'AZIENDA CHE NON E' FRA GLI ISCRITTI.
+       L'elenco non porta gli invitati ai soli incontri B2B, ed e' giusto:
+       non hanno un posto in sala e non si contano. Ma da fuori la differenza
+       non si vede - si vede solo che quel nome non c'e' - e chi lo cerca
+       conclude che l'azienda e' stata dimenticata, quando invece e' li',
+       invitata ai tavoli, un pannello piu' in la'. Succede spesso, perche' un
+       referente che prenota un B2B esiste per forza da qualche parte: se la
+       sua impresa non risulta iscritta, e' quasi sempre questo.
+       Quindi quando la ricerca non trova niente si guarda anche fra loro, e
+       se il nome e' li' lo si dice, invece di lasciare una tabella vuota. */
+    function invitatiFuoriElenco(ev, q) {
+        const cerca = String(q || '').trim().toLowerCase();
+        if (!cerca || !_evIscrizioni) return [];
+        const gruppi = {};
+        _evIscrizioni.filter(r => fuoriElenco(modalitaDi(ev, r))).forEach(r => {
+            const dentro = [r.nome, r.cognome, r.email, r.azienda, r.ruolo, r.telefono]
+                .map(x => String(x == null ? '' : x)).join(' ').toLowerCase();
+            if (dentro.indexOf(cerca) < 0) return;
+            const k = String(r.azienda || '').trim().toLowerCase() || ('#' + r.id);
+            const g = gruppi[k] || (gruppi[k] = { azienda: aziendaVista(r.azienda) || 'Senza ragione sociale', persone: [] });
+            g.persone.push({ nome: nomePersonaVisto(r), email: String(r.email || '') });
+        });
+        return Object.keys(gruppi).sort().map(k => gruppi[k]);
     }
     /* A CHI SI MANDANO GLI INVITI AGLI INCONTRI B2B. Gli incontri si fanno di
        persona, e sono fra IMPRESE OSPITI da abbinare l'una all'altra: chi segue
@@ -17330,10 +17385,32 @@
                     ? '<button class="btn btn-sm btn-secondary" id="ev-conf-pregresso" title="Segna come confermati gli indirizzi di chi si è iscritto finora">Segna confermati gli iscritti finora</button>'
                     : '')
                 + '<button class="btn btn-sm btn-secondary" id="ev-accessi">Accessi</button>'
-                + '<button class="btn btn-sm btn-ghost" id="ev-diag-btn">Diagnostica</button>' : '');
+                /* LE DUE SCHEDE DI CHI IN ELENCO NON C'E'. Stanno qui, accanto
+                   all'elenco che li lascia fuori: e' li' che se ne sente la
+                   mancanza, ed e' li' che si viene a cercarli. I cancellati
+                   solo all'amministratore, che e' l'unico che puo' cancellare. */
+                + (ev.tutti ? '' : '<button class="btn btn-sm btn-ghost" id="ev-cancellati">Cancellati</button>')
+                + '<button class="btn btn-sm btn-ghost" id="ev-diag-btn">Diagnostica</button>' : '')
+            /* Gli invitati ai SOLI incontri li vede chiunque veda gli eventi:
+               non sono un dato piu' delicato dell'elenco, ed e' la scheda che
+               risponde alla domanda "questa azienda dov'e' finita?". Compare
+               dove esistono, cioe' negli eventi con gli inviti B2B. */
+            + ((!ev.tutti && ev.manuale)
+                ? '<button class="btn btn-sm btn-ghost" id="ev-solo-b2b">Incontri B2B</button>' : '');
+        /* I DUE NUMERI DI CHI IN ELENCO NON C'E'. Si leggono senza aprire
+           niente: un pulsante da solo non dice se vale la pena premerlo, e
+           "nessun cancellato" e' gia' una risposta. Compaiono solo quando c'e'
+           qualcosa da dire, altrimenti il riquadro si riempie di zeri. */
+        const quantiSoloB2B = (_evIscrizioni || []).filter(r => fuoriElenco(modalitaDi(ev, r))).length;
         const statoIscrizioni = (admin
             ? rigaBl('Accessi', '<b>' + cfg.abilitati.length + '</b> utenti oltre all\'amministratore')
             : '')
+            + ((admin && !ev.tutti && _evCancellati && _evCancellati.length)
+                ? rigaBl('Cancellati', '<b>' + _evCancellati.length + '</b> tolti dall\'elenco')
+                : '')
+            + ((!ev.tutti && quantiSoloB2B)
+                ? rigaBl('Solo incontri B2B', '<b>' + quantiSoloB2B + '</b> al desk, non in sala')
+                : '')
             + ((ev.manuale && puoAggiungereIscrizioni())
                 ? rigaBl('Altri portali', 'chi arriva da Eventbrite si aggiunge a mano')
                 : '');
@@ -17419,6 +17496,10 @@
         });
         const bAcc = document.getElementById('ev-accessi');
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
+        const bCan = document.getElementById('ev-cancellati');
+        if (bCan) bCan.addEventListener('click', () => modaleCancellati(ev));
+        const bSb2b = document.getElementById('ev-solo-b2b');
+        if (bSb2b) bSb2b.addEventListener('click', () => modaleIncontriB2B(ev));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
         const bPre = document.getElementById('ev-conf-pregresso');
@@ -17811,12 +17892,268 @@
             modaleSpostaModalita(ev, righe, verso);
         }));
         const tab = $vista().querySelector('table.dati');
-        if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
+        if (tab) attrezzaTabella(tab, {
+            ricerca: true, nomeFile: 'iscrizioni-' + ev.id,
+            /* Cercata un'azienda che non e' fra gli iscritti: prima di
+               lasciare la tabella vuota si guarda fra gli invitati ai soli
+               incontri B2B, che qui non compaiono per scelta. Nove volte su
+               dieci e' li' che sta, e chi cerca lo sta cercando proprio
+               perche' un suo referente ha prenotato un tavolo. */
+            seVuoto: q => {
+                const trovati = invitatiFuoriElenco(ev, q);
+                if (!trovati.length) return '';
+                return '<div class="tn-testa">Non \u00e8 fra gli iscritti, ma \u00e8 <b>invitata agli incontri B2B</b></div>'
+                    + trovati.map(g => '<div class="tn-riga"><b>' + esc(g.azienda) + '</b> '
+                        + '<span class="hint">' + g.persone.map(p => esc(p.nome)
+                            + (p.email ? ' (' + esc(p.email) + ')' : '')).join(' &middot; ') + '</span></div>').join('')
+                    + '<div class="hint">Gli invitati ai <b>soli</b> incontri vengono al desk per il loro appuntamento '
+                    + 'e in sala non si siedono: non occupano un posto, non entrano nel totale e per questo l\'elenco '
+                    + 'degli iscritti non li porta. Se invece deve venire anche in sala, aprila qui sotto e riportala in presenza.</div>'
+                    + '<button type="button" class="btn btn-sm btn-secondary" data-vai-inviti="' + esc(q) + '">'
+                    + 'Aprila fra gli invitati ai B2B</button>';
+            }
+        });
+        /* Il pulsante nasce e muore con la ricerca, quindi si ascolta la
+           vista: un aggancio diretto durerebbe fino alla prima lettera
+           digitata dopo. Il vecchio si toglie, perche' la vista e' sempre lo
+           stesso elemento e un ascolto per ogni ridisegno vorrebbe dire
+           aprire la finestra tante volte quante la pagina si e' ridisegnata. */
+        const vistaEl = $vista();
+        if (vistaEl._vaiInviti) vistaEl.removeEventListener('click', vistaEl._vaiInviti);
+        vistaEl._vaiInviti = e => {
+            const b = e.target.closest && e.target.closest('[data-vai-inviti]');
+            if (!b) return;
+            modaleInvitoB2B(ev, null, b.getAttribute('data-vai-inviti') || '');
+        };
+        vistaEl.addEventListener('click', vistaEl._vaiInviti);
     }
 
     /* Cancellazione di un'iscrizione: solo l'amministratore, e con conferma esplicita
        perche' toglie una persona dall'elenco per tutti. Resta traccia sul server, cosi'
        non ricompare se la sua riga esiste ancora sul foglio. */
+    /* ============================================================
+       DUE SCHEDE CHE L'ELENCO NON PUO' MOSTRARE
+       ------------------------------------------------------------
+       L'elenco degli iscritti mostra chi viene al convegno, e per farlo
+       deve lasciare fuori due gruppi di persone. Sono scelte giuste, e
+       tutte e due lasciano chi guarda senza una risposta:
+
+         - CHI E' STATO CANCELLATO. La riga sparisce per tutti, e sparisce
+           anche la domanda "chi l'ha tolta, e quando?". La traccia sul
+           server c'e' da sempre - chi e quando - ma non c'era un posto
+           dove leggerla: una cancellazione per sbaglio restava invisibile
+           finche' qualcuno non chiedeva di quella persona.
+
+         - CHI E' INVITATO AI SOLI INCONTRI B2B. Viene al desk per il suo
+           appuntamento e in sala non si siede: in elenco non ci va,
+           perche' la' dentro conterebbe come un posto da preparare. Ma
+           esiste, ha un invito e spesso ha gia' prenotato un tavolo.
+
+       Due schede a parte, quindi, e non due sezioni dell'elenco: cosi'
+       nessuno dei due gruppi torna in mezzo agli ospiti, nelle ricerche e
+       nei conteggi, e chi li cerca sa dove guardare. Si aprono dai
+       pulsanti del riquadro "Iscrizioni".
+       ============================================================ */
+    /* Il corpo delle due schede si compone allo stesso modo - titolo, una
+       riga che spiega, una tabella - e quello che cambia sono le colonne.
+       Scritto una volta sola: due finestre che si somigliano e divergono
+       sono due finestre da tenere allineate a mano. */
+    function schedaElenco(opts) {
+        const righe = opts.righe || [];
+        const intestazioni = opts.colonne.map(c => '<th>' + esc(c.et) + '</th>').join('');
+        const corpo = righe.length
+            ? righe.map(r => '<tr>' + opts.colonne.map(c => '<td data-label="' + esc(c.et) + '">'
+                + (c.html ? c.html(r) : esc(c.val(r) || '-')) + '</td>').join('') + '</tr>').join('')
+            : '';
+        apriModale('<h2>' + esc(opts.titolo) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;">' + opts.spiega + '</p>'
+            + (righe.length
+                ? '<div class="tabella-wrap"><table class="dati"><thead><tr>' + intestazioni + '</tr></thead>'
+                + '<tbody>' + corpo + '</tbody></table></div>'
+                : '<div class="card tabella-vuota">' + esc(opts.vuoto) + '</div>'),
+            { titolo: opts.titolo, finestra: true });
+        if (righe.length) {
+            const t = document.querySelector('#modale-contenitore table.dati');
+            if (t) attrezzaTabella(t, { ricerca: true, nomeFile: opts.nomeFile });
+        }
+    }
+    /* Quando e da chi: la stessa frase in tutte e due le schede. */
+    function quandoEChi(f) {
+        if (!f) return '-';
+        const chi = f.daNome || f.da || '';
+        const q = f.quando ? new Date(f.quando).toLocaleString('it-IT',
+            { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        return esc([q, chi].filter(Boolean).join(' - ')) || '-';
+    }
+    function modaleCancellati(ev) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        /* Il servizio vecchio non manda i cancellati: `null` non e' "nessun
+           cancellato", ed e' la differenza fra una scheda vuota che dice il
+           vero e una che rassicura a torto. Succede davvero, perche' il
+           servizio si aggiorna per conto suo e il sito e' gia' nuovo. */
+        if (_evCancellati === null) {
+            apriModale('<h2>Cancellati da ' + esc(ev.titolo) + '</h2>'
+                + '<p>Il servizio non manda ancora l\'elenco dei cancellati: e\' indietro rispetto a questa pagina.</p>'
+                + '<p class="hint">Le cancellazioni sono registrate lo stesso - la traccia la scrive il servizio quando si cancella - '
+                + 'e compariranno qui appena la pubblicazione sara\' completata. Riprova fra qualche minuto.</p>'
+                + '<div class="modale-azioni"><button class="btn btn-secondary" id="ca-ok">Chiudi</button></div>',
+                { titolo: 'Cancellati' });
+            const b = document.getElementById('ca-ok');
+            if (b) b.addEventListener('click', chiudiModale);
+            return;
+        }
+        schedaElenco({
+            titolo: 'Cancellati da ' + ev.titolo,
+            /* La riga che spiega dice le due cose che servono a decidere: che
+               si puo' rimettere, e come. Una scheda che elenca e basta lascia
+               chi ha cancellato per sbaglio senza la mossa successiva. */
+            spiega: 'Chi è stato tolto dall\'elenco, con chi l\'ha fatto e quando. '
+                + 'La riga non torna nemmeno se è ancora sul foglio dei moduli: per rimettere qualcuno '
+                + 'si usa <b>Aggiungi iscrizione</b>.',
+            vuoto: 'Nessuna iscrizione cancellata per questo evento.',
+            nomeFile: 'cancellati-' + ev.id,
+            righe: _evCancellati,
+            colonne: [
+                { et: 'Nome', val: r => r.sparita ? '' : nomePersonaVisto(r) },
+                { et: 'Azienda', val: r => r.sparita ? '' : aziendaVista(r.azienda) },
+                { et: 'Email', val: r => r.email },
+                { et: 'Telefono', val: r => r.telefono },
+                { et: 'Iscritta il', val: r => r.data },
+                { et: 'Cancellata', html: r => quandoEChi(r.tolta) },
+                /* Della riga cancellata E tolta dal foglio non resta che
+                   l'indirizzo e la data: dirlo evita che una riga mezza vuota
+                   sembri un errore di lettura. */
+                { et: 'Dati', html: r => r.sparita
+                    ? '<span class="hint">riga non piu\' sul foglio: restano indirizzo e data</span>'
+                    : '<span class="hint">riga ancora sul foglio</span>' }
+            ]
+        });
+    }
+    /* GLI ESITI DELLE MAIL D'INVITO, per indirizzo. Si leggono a richiesta e
+       non all'apertura: la lettura va a Brevo, la cui quota e' di 300
+       chiamate l'ora per tutto il servizio, e una scheda che la chiede da
+       sola ogni volta che si apre la brucerebbe in un pomeriggio.
+       Restano in memoria per evento: riaprendo la scheda si rivedono senza
+       una seconda lettura. */
+    let _evEsitiB2B = {};
+    /* Che cosa dire di un indirizzo. L'assenza della riga NON e' "non ha
+       aperto": e' "non lo sappiamo", ed e' un'altra cosa - Brevo guarda
+       indietro novanta giorni e non garantisce di avere tutto. Le due frasi
+       restano diverse, perche' su di esse si decide se richiamare. */
+    function esitoMailB2B(esiti, email) {
+        const e = esiti && esiti[String(email || '').trim().toLowerCase()];
+        if (!e) return { classe: 'neutro', testo: 'non risulta', nota: 'Brevo non riporta niente per questo indirizzo' };
+        if (e.rimbalzo) return { classe: 'rosso', testo: 'NON arrivata', nota: e.motivo || 'respinta dal server del destinatario' };
+        if (e.spam) return { classe: 'rosso', testo: 'segnata spam', nota: 'il destinatario l\'ha segnalata' };
+        if (e.clic) return { classe: 'verde', testo: 'ha aperto il link', nota: 'ha premuto il pulsante della mail' };
+        if (e.aperta) return { classe: 'verde', testo: 'aperta', nota: '' };
+        if (e.consegnata) return { classe: 'ambra', testo: 'consegnata', nota: 'arrivata, ma non risulta aperta' };
+        return { classe: 'neutro', testo: 'non risulta', nota: '' };
+    }
+    /* CHI PARTECIPA AGLI INCONTRI B2B, tutti quanti.
+       Prima questa scheda portava i soli invitati che in sala non si
+       siedono, e la distinzione "in sala / non in sala" aveva righe da una
+       parte sola: dentro c'erano per definizione solo i secondi, e chi la
+       apriva per sapere chi non viene al convegno non aveva niente da
+       confrontare.
+       Ora porta TUTTI quelli che hanno a che fare con i tavoli - invitate e
+       prenotate - e dice per ciascuno se in sala ci va. E' la domanda da cui
+       nasce: un'impresa che viene per il solo incontro e non si siede al
+       convegno e' una che si puo' ancora invitare, e senza l'elenco davanti
+       non la trova nessuno. */
+    function modaleIncontriB2B(ev) {
+        if (!puoVedereEventi()) return;
+        const righe = (_evIscrizioni || []).filter(r => {
+            if (invitoB2BDi(r, ev.id)) return true;
+            // prenotato senza invito non dovrebbe succedere, ma se succede e'
+            // proprio la riga che chi guarda deve vedere
+            return !!String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim();
+        });
+        const voci = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean).map(esc).join(' &middot; ');
+        const fuori = righe.filter(r => !inSala(modalitaDi(ev, r)));
+        const esiti = _evEsitiB2B[ev.id] || null;
+        /* Il conto in testa e' la risposta breve alla domanda: quanti di
+           quelli che vengono ai tavoli non si siedono in sala. */
+        const conto = righe.length
+            ? '<div class="sb-conto">' + righe.length + (righe.length === 1 ? ' referente' : ' referenti')
+                + ' agli incontri &middot; <b>' + fuori.length + '</b> '
+                + (fuori.length === 1 ? 'non iscritto in presenza' : 'non iscritti in presenza') + '</div>'
+            : '';
+        const statoEsiti = !esiti
+            ? '<span class="hint">Gli esiti delle mail non sono ancora stati letti.</span>'
+            : (esiti.stato === 'vecchio'
+                ? '<span class="hint">Esiti dell\'ultima lettura riuscita' + (esiti.aggiornato
+                    ? ' (' + esc(new Date(esiti.aggiornato).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) + ')'
+                    : '') + ': Brevo non ha risposto adesso.</span>'
+                : '<span class="hint">Esiti letti' + (esiti.aggiornato
+                    ? ' alle ' + esc(new Date(esiti.aggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }))
+                    : '') + '.</span>');
+        schedaElenco({
+            titolo: 'Incontri B2B: chi partecipa - ' + ev.titolo,
+            spiega: conto
+                + 'Tutte le persone invitate ai tavoli o che hanno già prenotato. '
+                + 'La colonna <b>In sala</b> dice chi viene anche al convegno: chi è segnato '
+                + '<b>no, solo B2B</b> viene al desk per il suo appuntamento e in sala non si siede, '
+                + 'quindi non occupa un posto, non entra nel totale e l\'elenco degli iscritti non lo porta. '
+                + 'Per portarne uno anche in sala si apre la sua riga dagli <b>invii alle aziende</b> e si riporta in presenza.'
+                + '<br>' + statoEsiti
+                + ' <button type="button" class="btn btn-sm btn-secondary" id="sb-verifica">'
+                + (esiti ? 'Rileggi gli esiti' : 'Verifica le mail') + '</button>',
+            vuoto: 'Nessun invitato agli incontri B2B per questo evento.',
+            nomeFile: 'incontri-b2b-' + ev.id,
+            righe: righe,
+            colonne: [
+                { et: 'Azienda', val: r => aziendaVista(r.azienda) },
+                { et: 'Referente', val: r => nomePersonaVisto(r) },
+                { et: 'Email', val: r => r.email },
+                /* LA COLONNA PER CUI LA SCHEDA SI APRE. Sta in mezzo e non in
+                   fondo: e' quella che si legge per prima dopo il nome. */
+                { et: 'In sala', html: r => inSala(modalitaDi(ev, r))
+                    ? '<span class="badge verde">sì</span>'
+                    : '<span class="badge rosso">no, solo B2B</span>' },
+                /* L'esito della mail d'invito: una riga vuota finche' nessuno
+                   ha chiesto la lettura, invece di una colonna di "non
+                   risulta" che si leggerebbe come "non e' arrivata a nessuno". */
+                { et: 'Invito', html: r => {
+                    if (!esiti) return '<span class="hint">da verificare</span>';
+                    const e = esitoMailB2B(esiti.esiti, r.email);
+                    return '<span class="badge ' + e.classe + '">' + esc(e.testo) + '</span>'
+                        + (e.nota ? '<br><span class="hint">' + esc(e.nota) + '</span>' : '');
+                } },
+                { et: 'B2B prenotati', html: r => voci((r.extra || {})[COL_B2B_PRENOTATI])
+                    || '<span class="hint">non ha prenotato</span>' },
+                { et: 'Invitata il', html: r => {
+                    const a = invitoB2BDi(r, ev.id);
+                    return (a && a.quando)
+                        ? esc(new Date(a.quando).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }))
+                        : '<span class="hint">non invitata</span>';
+                } }
+            ]
+        });
+        const b = document.getElementById('sb-verifica');
+        if (b) b.addEventListener('click', () => {
+            b.disabled = true; b.textContent = 'Leggo...';
+            Cloud.operaPresenza({ azione: 'b2b-esiti-mail', evento: ev.id }).then(r => {
+                if (!r || !r.ok) {
+                    b.disabled = false; b.textContent = 'Verifica le mail';
+                    toast((r && r.msg) || 'Lettura non riuscita.', 'rosso');
+                    return;
+                }
+                /* "nessuno" e "non-disponibile" non sono esiti: sono due modi
+                   di non saperlo, e mostrarli come una tabella di "non
+                   risulta" direbbe che le mail non sono arrivate. */
+                if (r.stato === 'nessuno' || r.stato === 'non-disponibile' || r.stato === 'errore') {
+                    b.disabled = false; b.textContent = 'Verifica le mail';
+                    toast(r.msg || 'Gli esiti non si possono leggere adesso.', 'ambra');
+                    return;
+                }
+                _evEsitiB2B[ev.id] = { stato: r.stato, aggiornato: r.aggiornato || 0, esiti: r.esiti || {} };
+                chiudiModale();
+                modaleIncontriB2B(ev);
+                if (r.stato === 'attesa') toast('Brevo non ha ancora risposto: riprova fra poco.', 'ambra');
+            });
+        });
+    }
     function confermaCancellaIscrizione(ev, ids, nome) {
         if (!(Auth.eAdmin() || Auth.eProprietario())) return;
         const elenco = (ids || []).filter(Boolean);
@@ -18246,6 +18583,63 @@
                 : '<option value="">nessun orario libero</option>')
             + '</select>';
     }
+    /* DUE INCONTRI ALLA STESSA ORA.
+       Il servizio impedisce che un'azienda finisca due volte allo STESSO
+       TAVOLO, ma non che finisca a due tavoli DIVERSI alla stessa ora: la
+       prima preferenza se la prende lei, la seconda e la terza gliele
+       assegniamo noi, e chi assegna guarda il tavolo, non l'agenda
+       dell'impresa. Il giorno del convegno quell'incontro salta, e a saltarlo
+       e' quello che nessuno ha guardato.
+       DUE CASI, e sono diversi:
+         - la STESSA PERSONA attesa in due posti: e' impossibile, punto;
+         - la stessa AZIENDA con due persone diverse: si puo' fare, ed e' anzi
+           il modo di sfruttare la giornata - ma solo se vengono in due, e chi
+           ha invitato quell'impresa sa se e' cosi'.
+       Percio' si segnalano tutti e due, distinti: il primo da sistemare, il
+       secondo da guardare. Il conto si fa QUI e non nel servizio perche' i
+       dati ci sono gia' tutti (il riepilogo porta ogni tavolo con i suoi
+       orari occupati) e perche' cosi' si vede appena si ricarica la pagina,
+       senza aspettare che il servizio riparta. */
+    // "Andrea  Missori" e "andrea missori" sono la stessa persona
+    function chiaveNominativo(v) {
+        const t = String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g, ' ');
+        return t.normalize ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : t;
+    }
+    function conflittiOrarioB2B(rb) {
+        const perOra = {};
+        ((rb && rb.desk) || []).forEach(d => {
+            (d.slot || []).forEach(sl => {
+                const chi = sl.chi;
+                if (!chi || sl.stato !== 'occupato') return;
+                const az = chi.aziendaId || chi.aziendaNome || '';
+                if (!az) return;
+                const k = sl.ora + '|' + az;
+                /* I contatti servono sul foglio stampato, dove non si puo'
+                   spostare niente e l'unica cosa da fare e' telefonare. Si
+                   tiene il primo che si trova: sono contatti della stessa
+                   impresa, e uno basta a chiamarla. */
+                const rec = (perOra[k] = perOra[k] || { ora: sl.ora, aziendaNome: chi.aziendaNome || chi.azienda || '', contatti: '', incontri: [] });
+                if (!rec.contatti) rec.contatti = (chi.email || '') + (chi.telefono ? (chi.email ? ' - ' : '') + chi.telefono : '');
+                /* L'identificativo del tavolo oltre al nome: serve al foglio
+                   del singolo tavolo, che tiene solo i doppioni che lo
+                   toccano, e un nome non basta a riconoscerlo. */
+                rec.incontri.push({ area: d.id, tavolo: etichettaTavoloB2B(d), perChi: chi.perChi || '', scelta: chi.scelta || 1 });
+            });
+        });
+        return Object.keys(perOra).map(k => perOra[k]).filter(x => x.incontri.length > 1)
+            .map(x => {
+                /* La stessa persona in due posti: si guarda il nominativo, non
+                   l'azienda. Un incontro senza nominativo non si puo'
+                   escludere che sia la stessa persona, quindi conta come tale:
+                   meglio un avviso in piu' che una persona in due stanze. */
+                const nomi = x.incontri.map(i => chiaveNominativo(i.perChi));
+                const stessaPersona = nomi.some(n => !n) || nomi.some((n, i) => nomi.indexOf(n) !== i);
+                return Object.assign({}, x, { stessaPersona: stessaPersona });
+            })
+            .sort((a, b) => (a.stessaPersona === b.stessaPersona)
+                ? String(a.ora).localeCompare(String(b.ora))
+                : (a.stessaPersona ? -1 : 1));
+    }
     function disegnaRiepilogoB2B(ev) {
         const box = document.getElementById('rb-corpo');
         if (!box || !_rb) return;
@@ -18273,6 +18667,23 @@
                 + (chi.perChi ? '<span class="rb-per">per ' + esc(chi.perChi) + '</span>' : '')
                 + (chi.email ? '<span class="hint">' + esc(chi.email) + (chi.telefono ? ' &middot; ' + esc(chi.telefono) : '') + '</span>' : '')
                 + (chi.nota ? '<span class="rb-nota">' + esc(chi.nota) + '</span>' : '')
+                /* LA PREFERENZA CHE QUESTO INCONTRO HA SOSTITUITO. Lo
+                   spostamento su un altro argomento cambia di che cosa
+                   quell'impresa verra' a parlare, e chi legge il riepilogo il
+                   giorno prima non ha modo di saperlo: senza, al desk si
+                   presenta un'azienda convinta di parlare d'altro. Si scrive
+                   solo quando c'e' davvero una sostituzione - fra tavoli
+                   gemelli l'argomento non cambia - e sta accanto al nome,
+                   dove la si legge insieme al tavolo. */
+                + (chi.chiesta ? '<span class="rb-chiesta">aveva chiesto '
+                    + esc(nomeAreaB2B(chi.chiesta)) + '</span>' : '')
+                /* Stessa cosa, altra causa: qui il tavolo e' cambiato sotto a
+                   chi aveva gia' prenotato. Si scrive solo quando la
+                   prenotazione non ha `chiesta`, altrimenti la stessa riga
+                   direbbe due volte la stessa cosa con due parole diverse. */
+                + ((!chi.chiesta && convertitoDopo(d.id, chi))
+                    ? '<span class="rb-chiesta">aveva prenotato il '
+                        + esc(convertitoDopo(d.id, chi)) + '</span>' : '')
                 + '</span>'
                 + (puo ? '<span class="rb-az">'
                     + '<button class="btn btn-sm btn-ghost rb-sposta" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Sposta</button>'
@@ -18315,7 +18726,15 @@
                 + (d.interno ? '<span class="rb-pos">solo nostro</span>' : '')
                 + (d.referenti.length ? '<span class="hint">con ' + esc(d.referenti.map(r => r.nome).join(', ')) + '</span>'
                     : (d.interno ? '' : '<span class="ev-ko">nessun referente</span>'))
-                + '<span class="hint">' + presi.length + ' fissati &middot; ' + d.liberi + ' liberi</span></div>'
+                + '<span class="hint">' + presi.length + ' fissati &middot; ' + d.liberi + ' liberi</span>'
+                /* LA STAMPA DI QUESTO TAVOLO SOLO. Il foglio intero e' di chi
+                   organizza la giornata; chi tiene un tavolo ha bisogno del
+                   suo, e dargli dodici pagine per leggerne una vuol dire che
+                   al desk arriva con le pagine di tutti gli altri in mano.
+                   Sta nella testa del blocco, accanto ai conti: e' li' che si
+                   guarda quando si decide "questo lo stampo". */
+                + '<button type="button" class="btn btn-sm btn-ghost rb-stampa-uno" data-area="' + esc(d.id) + '">Stampa</button>'
+                + '</div>'
                 + (presi.length ? presi.map(s => rigaSlot(d, s)).join('') : '<div class="hint" style="padding:6px 0;">Nessun incontro fissato.</div>')
                 + (d.coda.length
                     ? '<div class="rb-coda-et">In coda a questo tavolo (' + d.coda.length + ')</div>'
@@ -18476,7 +18895,29 @@
             + '<button type="button" class="rb-vista-b' + (_rbVista === 'tavoli' ? ' scelta' : '') + '" data-v="tavoli">Per tavolo</button>'
             + '<button type="button" class="rb-vista-b' + (_rbVista === 'aziende' ? ' scelta' : '') + '" data-v="aziende">Per azienda</button>'
             + '</div>';
-        box.innerHTML = conti + legenda + viste
+        /* I DOPPIONI D'ORARIO IN CIMA, prima di tutto: non sono un dato da
+           consultare, sono una cosa da sistemare prima del convegno. */
+        const conflitti = conflittiOrarioB2B(_rb);
+        const conflittiHtml = conflitti.length
+            ? '<div class="rb-conflitti">'
+            + '<div class="rb-conflitti-testa">' + conflitti.length
+            + (conflitti.length === 1 ? ' azienda attesa in due posti alla stessa ora' : ' aziende attese in due posti alla stessa ora')
+            + '</div>'
+            + conflitti.map(c => '<div class="rb-conflitto' + (c.stessaPersona ? ' grave' : '') + '">'
+                + '<span class="rb-ora">' + esc(c.ora) + '</span>'
+                + '<span class="rb-chi"><b>' + esc(c.aziendaNome) + '</b>'
+                + (c.stessaPersona
+                    ? '<span class="badge rosso">stessa persona</span>'
+                    : '<span class="badge ambra">due persone</span>')
+                + '<span class="hint">' + c.incontri.map(i => esc(i.tavolo)
+                    + (i.perChi ? ' (' + esc(i.perChi) + ')' : ' (nessun nominativo)')).join(' + ') + '</span>'
+                + '</span></div>').join('')
+            + '<div class="hint">Alla stessa ora si puo\' stare in un posto solo: '
+            + '<b>stessa persona</b> e un incontro che salta, <b>due persone</b> va bene solo se quell\'impresa '
+            + 'viene davvero in due. Si sistema spostando uno dei due incontri dalla sua riga qui sotto.</div>'
+            + '</div>'
+            : '';
+        box.innerHTML = conti + conflittiHtml + legenda + viste
             + (_rbVista === 'aziende'
                 ? vistaAziende()
                 : (deskHtml || '<div class="hint">Nessun tavolo attivo.</div>') + esigenzeHtml);
@@ -18527,6 +18968,9 @@
             _rbAperto = '';
             ridisegna();
         });
+        box.querySelectorAll('.rb-stampa-uno').forEach(b => b.addEventListener('click', () => {
+            stampaRiepilogoB2B(ev, b.dataset.area);
+        }));
         box.querySelectorAll('.rb-sposta').forEach(b => b.addEventListener('click', () => {
             _rbAperto = 'sposta|' + b.dataset.area + '|' + b.dataset.chiave; ridisegna();
         }));
@@ -18617,18 +19061,40 @@
 
     /* La stampa del riepilogo: un capitolo per tavolo, con gli orari e la coda.
        E' il foglio che il giorno prima si guarda insieme, e la sera prima si
-       porta a casa: per questo porta anche le altre esigenze, che sul foglio
-       del desk non ci stanno. */
-    function stampaRiepilogoB2B(ev) {
+       porta a casa: per questo porta anche TUTTO QUELLO CHE LE IMPRESE HANNO
+       SCRITTO e che sul foglio del desk non ci sta - le altre esigenze
+       segnalate e le richieste di chi ha trovato gli orari esauriti. Sono
+       parole di qualcuno che ha bussato: se restano solo a video, con il
+       foglio in mano non se ne ricorda nessuno. */
+    /* `soloArea` stampa UN TAVOLO SOLO. Il foglio intero e' di chi organizza
+       la giornata, e va bene cosi'; chi tiene un tavolo ha bisogno del suo, e
+       dargli dodici pagine per leggerne una vuol dire che al desk arriva con
+       le pagine di tutti gli altri in mano.
+       Il foglio del singolo tavolo non e' il foglio intero ritagliato: porta
+       quello che riguarda QUEL tavolo - i suoi incontri, la sua coda, le
+       richieste arrivate per il suo argomento, i doppioni d'orario che lo
+       toccano - e lascia fuori le altre esigenze segnalate, che non
+       appartengono a nessun tavolo e a chi siede li' non servono. */
+    function stampaRiepilogoB2B(ev, soloArea) {
         if (!_rb) { toast('Riepilogo non ancora caricato.', 'rosso'); return; }
         const c = _rb.conti || {};
+        const unoSolo = String(soloArea || '');
+        const deskUno = unoSolo ? ((_rb.desk || []).filter(d => d.id === unoSolo)[0] || null) : null;
+        if (unoSolo && !deskUno) { toast('Quel tavolo non c\'e\' piu\' nel riepilogo: ricarica.', 'rosso'); return; }
+        /* Le richieste e i doppioni si confrontano per FAMIGLIA: chi ha
+           chiesto il merito creditizio ha chiesto quell'argomento, non il
+           tavolo su cui lo mettiamo, e il referente del secondo tavolo deve
+           vedere chi ha bussato al suo argomento. */
+        const famUno = unoSolo ? (capofilaRb(unoSolo) || unoSolo) : '';
         const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const sezioni = (_rb.desk || []).filter(d => d.attiva || d.occupati || d.coda.length).map(d => {
+        const sezioni = (_rb.desk || [])
+            .filter(d => unoSolo ? d.id === unoSolo : (d.attiva || d.occupati || d.coda.length))
+            .map(d => {
             const presi = d.slot.filter(s => s.stato === 'occupato');
             return '<section class="tema"><h2>' + esc(d.nome) + ' <span class="conta">' + presi.length
                 + (presi.length === 1 ? ' incontro' : ' incontri') + (d.coda.length ? ' &middot; ' + d.coda.length + ' in coda' : '') + '</span></h2>'
                 + (d.referenti.length ? '<div class="sotto">Con ' + esc(d.referenti.map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ')) + '</div>' : '')
-                + (presi.length ? '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Scelta</th><th>Partecipa</th><th>Contatti</th><th>Nota</th></tr></thead><tbody>'
+                + (presi.length ? '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Scelta</th><th>Aveva chiesto</th><th>Partecipa</th><th>Contatti</th><th>Nota</th></tr></thead><tbody>'
                     + presi.map(s => {
                         const chi = s.chi || {};
                         return '<tr><td class="forte">' + esc(s.ora) + ' - ' + esc(s.fine) + '</td>'
@@ -18639,6 +19105,16 @@
                                "2a scelta" per gli incontri nati da una domanda
                                dell'impresa - che la seconda scelta non sono. */
                             + '<td>' + esc(sceltaB2B(chi.scelta).breve) + '</td>'
+                            /* LA PREFERENZA SOSTITUITA, in una colonna sua.
+                               Sul foglio del giorno prima e' il dato con cui
+                               si decide se telefonare all'impresa: l'abbiamo
+                               spostata su un altro argomento, e lei non lo
+                               sa ancora o se n'e' dimenticata. Vuota quando
+                               l'incontro sta dove l'azienda lo aveva
+                               chiesto, che e' il caso normale. */
+                            + '<td class="nota">' + (chi.chiesta
+                                ? esc(nomeAreaB2B(chi.chiesta))
+                                : (convertitoDopo(d.id, chi) ? esc(convertitoDopo(d.id, chi)) : '')) + '</td>'
                             + '<td>' + esc(chi.perChi || chi.nome || '-') + '</td>'
                             + '<td>' + esc((chi.email || '') + (chi.telefono ? ' - ' + chi.telefono : '')) + '</td>'
                             + '<td class="nota">' + esc(chi.nota || '') + '</td></tr>';
@@ -18648,7 +19124,11 @@
                     + (v.perChi ? ', per ' + esc(v.perChi) : '') + ')').join('; ') + '</div>' : '')
                 + '</section>';
         }).join('');
-        const esigenze = (_rb.esigenze || []);
+        /* Le ALTRE ESIGENZE non appartengono a nessun tavolo: sono domande
+           che a un tavolo del convegno non si rispondono. Sul foglio di chi
+           tiene un tavolo non servono, e riempirebbero una pagina che deve
+           stare davanti a lui mentre riceve. */
+        const esigenze = unoSolo ? [] : (_rb.esigenze || []);
         const sezEsigenze = esigenze.length
             ? '<section class="tema"><h2>Altre esigenze segnalate <span class="conta">' + esigenze.length + '</span></h2>'
             + '<table><thead><tr><th>Azienda</th><th>Chi</th><th>Cosa</th></tr></thead><tbody>'
@@ -18656,15 +19136,83 @@
                 + '</td><td class="nota">' + esc(e.testo) + '</td></tr>').join('')
             + '</tbody></table></section>'
             : '';
+        /* LE RICHIESTE A ORARI ESAURITI, scritte sul foglio. Sono persone che
+           hanno bussato: hanno trovato tutto prenotato e hanno chiesto un
+           incontro lo stesso, scrivendolo. A video stanno nella giornata, dove
+           si gestiscono; sul foglio del riepilogo devono esserci perche' e' il
+           foglio su cui si lavora il giorno prima, e una richiesta che resta
+           solo a video e' qualcuno di cui, con il foglio in mano, non si
+           ricorda nessuno.
+           Le gestite si stampano lo stesso, marcate: servono a non richiamare
+           due volte la stessa persona. */
+        /* Sul foglio di un tavolo solo, le richieste del SUO argomento: chi ha
+           bussato al merito creditizio deve comparire davanti a chi il merito
+           creditizio lo tiene, e non davanti a tutti gli altri. Il confronto
+           e' per famiglia, perche' l'impresa ha chiesto l'argomento, non il
+           tavolo su cui lo mettiamo noi. */
+        const richieste = (_rb.richieste || []).filter(r => !unoSolo
+            || (capofilaRb(String(r.area || '')) || String(r.area || '')) === famUno);
+        const sezRichieste = richieste.length
+            ? '<section class="tema"><h2>Richieste a orari esauriti <span class="conta">' + richieste.length
+            + (richieste.filter(r => r.stato !== 'gestita').length
+                ? ' &middot; ' + richieste.filter(r => r.stato !== 'gestita').length + ' da guardare' : '') + '</span></h2>'
+            + '<div class="sotto">Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: '
+            + 'non hanno nessun orario.</div>'
+            + '<table><thead><tr><th>Azienda</th><th>Chi</th><th>Contatti</th><th>Tavolo</th><th>Cosa ha scritto</th><th>Stato</th></tr></thead><tbody>'
+            + richieste.map(r => '<tr><td class="forte">' + esc(r.aziendaNome || r.azienda || '-') + '</td>'
+                + '<td>' + esc(r.nome || '-') + '</td>'
+                + '<td>' + esc((r.email || '') + (r.telefono ? ' - ' + r.telefono : '')) + '</td>'
+                + '<td>' + esc(r.area ? nomeAreaB2B(r.area) : '-') + '</td>'
+                + '<td class="nota">' + esc(r.nota || '') + '</td>'
+                + '<td>' + (r.stato === 'gestita' ? 'gestita' : 'da guardare') + '</td></tr>').join('')
+            + '</tbody></table></section>'
+            : '';
+        /* I DOPPIONI D'ORARIO, in cima al foglio. Sul foglio stampato non si
+           puo' spostare niente: quello che serve e' saperlo prima di arrivare
+           ai desk, e sapere chi chiamare. Per questo sta prima dei tavoli e
+           porta i contatti, non solo i nomi. */
+        /* Su un tavolo solo restano i doppioni che lo TOCCANO: a chi siede li'
+           importa che l'azienda delle 10:30 sia attesa anche altrove - e'
+           l'incontro che rischia di saltare, il suo - non che due altre
+           imprese si pestino i piedi a tavoli che non sono i suoi. */
+        const conflittiSt = conflittiOrarioB2B(_rb).filter(x => !unoSolo
+            || (x.incontri || []).some(i => i.area === unoSolo));
+        const sezConflitti = conflittiSt.length
+            ? '<section class="tema"><h2>Da sistemare: attese in due posti alla stessa ora <span class="conta">'
+            + conflittiSt.length + (conflittiSt.length === 1 ? ' azienda' : ' aziende') + '</span></h2>'
+            + '<div class="sotto">Alla stessa ora si puo\' stare in un posto solo. '
+            + '"Stessa persona" e\' un incontro che salta; "due persone" va bene solo se quell\'impresa viene davvero in due.</div>'
+            + '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Caso</th><th>Dove e\' attesa</th><th>Contatti</th></tr></thead><tbody>'
+            + conflittiSt.map(x => '<tr><td class="forte' + (x.stessaPersona ? ' grave' : '') + '">' + esc(x.ora) + '</td>'
+                + '<td class="forte">' + esc(x.aziendaNome || '-') + '</td>'
+                + '<td' + (x.stessaPersona ? ' class="grave"' : '') + '>' + (x.stessaPersona ? 'stessa persona' : 'due persone') + '</td>'
+                + '<td class="nota">' + x.incontri.map(i => esc(i.tavolo)
+                    + (i.perChi ? ' (' + esc(i.perChi) + ')' : ' (nessun nominativo)')).join(' + ') + '</td>'
+                + '<td>' + esc(x.contatti || '') + '</td></tr>').join('')
+            + '</tbody></table></section>'
+            : '';
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
-            + '<title>Riepilogo incontri B2B - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
+            + '<title>' + (deskUno ? esc('Incontri B2B - ' + etichettaTavoloB2B(deskUno)) : 'Riepilogo incontri B2B')
+            + ' - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
             + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
-            + '<header><h1>Incontri B2B: il riepilogo dei desk</h1>'
+            /* Il titolo del foglio di un tavolo e' il NOME DEL TAVOLO: e' il
+               foglio che finisce in mano a chi lo tiene, e deve riconoscerlo
+               da lontano in mezzo agli altri sul banco dell'accoglienza. */
+            + '<header><h1>' + (deskUno
+                ? 'Incontri B2B: ' + esc(etichettaTavoloB2B(deskUno))
+                : 'Incontri B2B: il riepilogo dei desk') + '</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
-            + '<div class="meta">' + (c.aziende || 0) + ' aziende &middot; ' + (c.occupati || 0) + ' incontri &middot; '
-            + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi &middot; stampato il '
+            + '<div class="meta">' + (deskUno
+                ? (deskUno.slot.filter(x => x.stato === 'occupato').length + ' incontri'
+                    + ' &middot; ' + (deskUno.coda || []).length + ' in coda'
+                    + ' &middot; ' + (deskUno.liberi || 0) + ' orari liberi')
+                : ((c.aziende || 0) + ' aziende &middot; ' + (c.occupati || 0) + ' incontri &middot; '
+                    + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi'))
+            + ((!deskUno && c.richiesteAperte) ? ' &middot; ' + c.richiesteAperte + ' richieste da guardare' : '')
+            + (conflittiSt.length ? ' &middot; ' + conflittiSt.length + ' da sistemare' : '')
+            + ' &middot; stampato il '
             + esc(quando) + ' &middot; documento riservato</div></header>'
-            + sezioni + sezEsigenze
+            + sezConflitti + sezioni + sezEsigenze + sezRichieste
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
         apriStampa(pagina);
@@ -18691,6 +19239,9 @@
         + 'tbody tr:nth-child(even) td{background:#F4F8FB;}'
         + 'tr.vuoto td{color:#94A3B8;}'
         + '.forte{font-weight:bold;color:#0A2844;white-space:nowrap;}'
+        /* il doppione grave: la stessa persona attesa in due posti. Rosso,
+           perche' e' l'unica riga del foglio che descrive una cosa impossibile */
+        + '.grave{color:#B3261E;font-weight:bold;}'
         + '.nota{color:#475569;}'
         /* il programma della giornata: la colonna della fase e le righe di
            chi interviene, con l'etichetta incolonnata a sinistra */
@@ -19253,6 +19804,31 @@
         caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); });
     }
 
+    /* Chi puo' mettere le mani sulle presenze: gli stessi che aggiungono
+       un'iscrizione a un evento. Il servizio applica la stessa regola per
+       conto suo - qui si decide solo cosa mostrare, perche' un pulsante che
+       porta a un "non hai il permesso" e' un pulsante che non doveva esserci. */
+    function puoGestireCene() { return puoAggiungereIscrizioni(); }
+
+    /* QUALE SERATA SI STA GUARDANDO. Le due cene hanno platee diverse e si
+       leggono una alla volta: con tutti e due gli elenchi aperti, per arrivare
+       al secondo bisognava scorrere oltre il primo, e il giorno della cena
+       quello che si cerca e' una persona sola. I NUMERI pero' restano di tutte
+       e due sempre a vista, in cima: "quanti posti la prima sera e quanti la
+       seconda" e' la domanda che si fa piu' spesso, e non deve costare un clic. */
+    let _ceneTab = '';
+    function cenaScelta(dati) {
+        if (!dati || !dati.length) return null;
+        return dati.find(d => d.cena && d.cena.id === _ceneTab) || dati[0];
+    }
+    // i presenti si leggono cercando una persona, quindi in ordine di cognome,
+    // non di ora di arrivo
+    function perCognome(righe) {
+        return (righe || []).slice().sort((a, b) =>
+            (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome, 'it', { sensitivity: 'base' }));
+    }
+    function nomeCompleto(r) { return ((r.cognome || '') + ' ' + (r.nome || '')).trim(); }
+
     function disegnaCorpoCene(ev) {
         const corpo = document.getElementById('cene-corpo');
         if (!corpo) return;
@@ -19261,79 +19837,441 @@
             corpo.innerHTML = '<div class="tabella-vuota">' + esc(_ceneMsg || 'Conferme non leggibili.') + '</div>';
             return;
         }
-        corpo.innerHTML = dati.map(d => sezioneCenaHtml(d)).join('');
+        const scelta = cenaScelta(dati);
+        corpo.innerHTML = tessereCeneHtml(dati, scelta) + (scelta ? pannelloCenaHtml(scelta) : '');
         collegaCorpoCene(ev);
+        /* La barra con la ricerca e l'esportazione la mette l'app, non queste
+           righe: e' la stessa di tutte le altre tabelle dell'area riservata, e
+           chi la conosce da un'altra sezione la ritrova uguale qui. I filtri per
+           colonna restano spenti: su un elenco gia' diviso fra chi viene e chi
+           no sarebbero sei tendine per niente. */
+        corpo.querySelectorAll('table.dati[data-csv]').forEach(t =>
+            attrezzaTabella(t, { ricerca: true, filtri: false, nomeFile: t.dataset.csv }));
     }
 
-    function sezioneCenaHtml(d) {
+    /* LE DUE SERATE IN CIMA, con i numeri che contano. Si premono per passare
+       dall'una all'altra: sono insieme la scelta e il riepilogo, perche' due
+       cose separate - delle linguette sopra e dei numeri sotto - direbbero la
+       stessa cosa due volte. */
+    function numCena(n, et, cl) {
+        return '<span class="ev-num' + (cl ? ' ' + cl : '') + '">' + (n == null ? '-' : n)
+            + '<span>' + esc(et) + '</span></span>';
+    }
+    function tessereCeneHtml(dati, scelta) {
+        const scelto = scelta && scelta.cena ? scelta.cena.id : '';
+        return '<div class="cene-scelta">' + dati.map(d => {
+            const c = d.cena || {};
+            const k = d.conti;
+            return '<button type="button" class="cene-tessera' + (c.id === scelto ? ' attiva' : '') + '"'
+                + ' data-serata="' + esc(c.id) + '" aria-pressed="' + (c.id === scelto ? 'true' : 'false') + '">'
+                + '<span class="cene-tessera-tit">' + esc(giornoCena(c)) + '</span>'
+                + '<span class="cene-tessera-chi">' + esc(c.chi || c.titolo || '') + '</span>'
+                + (k
+                    ? '<span class="cene-numeri">'
+                        + numCena(k.posti, k.posti === 1 ? 'posto' : 'posti', 'forte')
+                        + numCena(k.presenti, 'presenti')
+                        + numCena(k.ospiti, k.ospiti === 1 ? 'ospite' : 'ospiti')
+                        + (k.assenti ? numCena(k.assenti, 'non vengono', 'spento') : '')
+                        + '</span>'
+                    : '<span class="cene-numeri"><span class="ev-ko">conferme non leggibili</span></span>')
+                + (c.chiusa ? '<span class="cene-tessera-nota">conferme chiuse: i numeri sono definitivi</span>' : '')
+                + '</button>';
+        }).join('') + '</div>';
+    }
+
+    /* IL PANNELLO DELLA SERATA SCELTA: il collegamento da mandare, i pulsanti,
+       chi viene e - raccolto in fondo - chi ha detto di no. Gli assenti non
+       stanno nella stessa tabella dei presenti: non occupano posti, non si
+       stampano nell'elenco del ristorante, e in mezzo agli altri facevano solo
+       scorrere piu' a lungo. Restano pero' a portata di mano, perche' "ha
+       risposto che non viene" e "non ha risposto" sono due cose diverse. */
+    function pannelloCenaHtml(d) {
         const c = d.cena || {};
-        const conti = d.conti || { risposte: 0, presenti: 0, assenti: 0, ospiti: 0, posti: 0 };
         const url = indirizzoCena(c);
-        const elenco = d.righe && d.righe.length
-            ? '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
-                + '<th>Nome</th><th>Email</th><th>Telefono</th><th>Viene</th>'
-                + '<th>Ospiti</th><th>Posti</th><th>Note</th><th>Risposta</th><th></th>'
-                + '</tr></thead><tbody>'
-                + d.righe.map(r => rigaCenaHtml(c, r)).join('')
-                + '</tbody></table></div>'
-            : '<div class="tabella-vuota">Nessuna conferma ancora arrivata.</div>';
-        return '<section class="ev-bl" style="margin-top:14px;">'
+        const presenti = perCognome((d.righe || []).filter(r => r.presente));
+        const assenti = perCognome((d.righe || []).filter(r => !r.presente));
+        const gestisce = puoGestireCene();
+        return '<section class="ev-bl cene-pannello" data-cena="' + esc(c.id) + '">'
             + '<div class="ev-bl-tit">' + esc(c.titolo || '') + '<span>' + esc(c.quando || '') + '</span></div>'
-            + '<div class="ev-bl-stato">'
             + (url
-                ? rigaBl('Pagina', '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a> '
-                    + '<button type="button" class="btn btn-sm btn-ghost" data-copia="' + esc(url) + '">Copia</button>')
+                ? '<div class="ev-bl-stato">' + rigaBl('Pagina',
+                    '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a> '
+                    + '<button type="button" class="btn btn-sm btn-ghost" data-copia="' + esc(url) + '">Copia</button>') + '</div>'
                 : '')
-            + rigaBl('Conferme', '<b>' + conti.risposte + '</b> arrivate &middot; ' + conti.presenti + ' presenti &middot; '
-                + conti.assenti + ' assenti &middot; <b>' + conti.posti + '</b> posti ('
-                + conti.ospiti + (conti.ospiti === 1 ? ' ospite' : ' ospiti') + ')')
-            + (c.chiusa ? rigaBl('Termine', '<span class="hint">conferme chiuse</span>') : '')
+            + '<div class="ev-bl-az">'
+            + (gestisce ? '<button class="btn btn-sm btn-primary" data-aggiungi="' + esc(c.id) + '">Aggiungi persona</button>' : '')
+            + '<button class="btn btn-sm btn-secondary" data-stampa="' + esc(c.id) + '">Stampa l\'elenco</button>'
             + '</div>'
-            + '<div class="ev-bl-az"><button class="btn btn-sm btn-secondary" data-csv="' + esc(c.id) + '">Esporta CSV</button></div>'
-            + elenco
+            + (presenti.length
+                ? '<div class="tabella-wrap"><table class="dati compatta" data-csv="cena-' + esc(c.id) + '"><thead><tr>'
+                    + '<th>Chi viene</th><th>Contatti</th><th>Ospiti</th><th>Posti</th><th>Note</th><th>Risposta</th><th></th>'
+                    + '</tr></thead><tbody>'
+                    + presenti.map(r => rigaCenaHtml(c, r)).join('')
+                    + '</tbody></table></div>'
+                : '<div class="tabella-vuota">Nessuna conferma di presenza, per ora.</div>')
+            + (assenti.length
+                ? '<details class="cene-assenti"><summary>Chi ha risposto che non viene ('
+                    + assenti.length + ')</summary>'
+                    + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+                    + '<th>Chi</th><th>Contatti</th><th>Note</th><th>Risposta</th><th></th>'
+                    + '</tr></thead><tbody>'
+                    + assenti.map(r => rigaAssenteHtml(c, r)).join('')
+                    + '</tbody></table></div></details>'
+                : '')
             + '</section>';
     }
 
-    function rigaCenaHtml(c, r) {
-        const admin = Auth.eAdmin() || Auth.eProprietario();
-        const ospiti = r.ospiti && r.ospiti.length
-            ? esc(r.ospiti.join(', '))
-            : (r.quantiOspiti ? r.quantiOspiti + (r.quantiOspiti === 1 ? ' ospite' : ' ospiti') + ' senza nome' : '');
-        const quando = r.quando
+    /* GLI OSPITI, UNO PER UNO. Non sono un numero soltanto: quello che si vuole
+       fare, quando qualcuno scrive "mio marito non viene piu'", e' togliere LUI
+       - non riaprire la scheda e ricontare. Accanto a ogni nome c'e' quindi la
+       crocetta, e il posto torna libero subito.
+       I posti dichiarati e mai intestati a nessuno ("siamo in tre") hanno la
+       loro riga: si tolgono scalando il numero, ed e' giusto che si veda che
+       esistono, perche' al ristorante sono coperti come gli altri. */
+    function ospitiCellaHtml(c, r) {
+        if (!r.presente) return '';
+        const nomi = r.ospiti || [];
+        const senzaNome = Math.max(0, (r.quantiOspiti || 0) - nomi.length);
+        if (!nomi.length && !senzaNome) return '';
+        const gestisce = puoGestireCene();
+        /* La crocetta e' disegnata dal foglio di stile e non scritta qui dentro:
+           l'esportazione in CSV copia il TESTO delle celle, e una colonna piena
+           di "x" sarebbe un elenco da ripulire a mano prima di mandarlo al
+           ristorante. */
+        const via = (indice, chi) => gestisce
+            ? '<button type="button" class="ospite-via" data-ospite="' + esc(r.id) + '" data-cena="' + esc(c.id) + '"'
+                + ' data-indice="' + indice + '" data-chi="' + esc(chi) + '" title="Togli questo ospite"'
+                + ' aria-label="Togli ' + esc(chi) + '"></button>'
+            : '';
+        /* La virgola fra un nome e l'altro non si vede - le etichette sono gia'
+           staccate - ma nel testo della cella c'e', ed e' quella che finisce nel
+           CSV: senza, "Luca Verdi" e "Sara Verdi" arriverebbero al ristorante
+           attaccati in una parola sola. */
+        const virgola = '<span class="solo-csv">, </span>';
+        const etichette = nomi.map((n, i) => '<span class="ospite">' + esc(n) + via(i, n) + '</span>');
+        if (senzaNome) {
+            etichette.push('<span class="ospite senza-nome">' + senzaNome + ' senza nome'
+                + via(-1, senzaNome + ' senza nome') + '</span>');
+        }
+        return '<span class="ospiti-cella">' + etichette.join(virgola) + '</span>';
+    }
+
+    /* I recapiti in una colonna sola: sullo schermo stanno uno sotto l'altro e
+       nel CSV escono separati dalla virgola. Due colonne per email e telefono
+       facevano nove colonne in tutto, e sotto i 1200px - dove il foglio di
+       stile trasforma le righe in schede - erano nove righe per persona. */
+    function contattiCellaHtml(r) {
+        const email = r.email ? '<span class="cene-mail">' + esc(r.email) + '</span>' : '';
+        const tel = r.telefono ? '<span class="cene-tel">' + esc(r.telefono) + '</span>' : '';
+        if (!email) return tel;
+        return email + (tel ? '<span class="solo-csv">, </span>' + tel : '');
+    }
+    // da dove viene la riga: chi ha risposto dal suo telefono e chi l'ha dettata
+    // a voce non sono la stessa cosa, e se un numero non torna si sa a chi chiedere
+    function provenienzaHtml(r) {
+        if (r.aMano) return ' <span class="hint">(a mano' + (r.inseritaDa ? ', ' + esc(r.inseritaDa) : '') + ')</span>';
+        return r.cambiata ? ' <span class="hint">(modificata)</span>' : '';
+    }
+    function quandoBreve(r) {
+        return r.quando
             ? new Date(r.quando).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
             : '';
-        return '<tr>'
-            + '<td>' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
-            + '<td>' + esc(r.email) + '</td>'
-            + '<td>' + esc(r.telefono || '') + '</td>'
-            + '<td>' + (r.presente ? '<b class="ev-ok">sì</b>' : 'no') + '</td>'
-            + '<td>' + ospiti + '</td>'
-            + '<td class="num">' + (r.posti || 0) + '</td>'
-            + '<td>' + esc(r.note || '') + '</td>'
-            + '<td>' + esc(quando) + (r.cambiata ? ' <span class="hint">(modificata)</span>' : '') + '</td>'
-            + '<td>' + (admin
+    }
+    function azioniRigaHtml(c, r) {
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        return '<td data-label="" class="cene-az">'
+            + (puoGestireCene()
+                ? '<button type="button" class="btn btn-sm btn-ghost" data-modifica="' + esc(r.id) + '" data-cena="' + esc(c.id) + '">Modifica</button>'
+                : '')
+            + (admin
                 ? '<button type="button" class="btn btn-sm btn-ghost" data-togli="' + esc(r.id) + '" data-cena="' + esc(c.id) + '" '
-                    + 'data-chi="' + esc((r.nome + ' ' + r.cognome).trim()) + '">Togli</button>'
-                : '') + '</td>'
+                    + 'data-chi="' + esc(nomeCompleto(r)) + '">Togli</button>'
+                : '')
+            + '</td>';
+    }
+
+    /* "data-label" non e' un di piu': sotto i 1200px il foglio di stile
+       trasforma le righe in schede e l'intestazione sparisce, e l'etichetta di
+       ogni valore la mette proprio da li'. Senza, la scheda sarebbe una colonna
+       di valori senza nome. */
+    function rigaCenaHtml(c, r) {
+        return '<tr>'
+            + '<td data-label="Chi viene" class="cene-chi">' + esc(nomeCompleto(r)) + '</td>'
+            + '<td data-label="Contatti">' + contattiCellaHtml(r) + '</td>'
+            + '<td data-label="Ospiti">' + ospitiCellaHtml(c, r) + '</td>'
+            + '<td data-label="Posti" class="num forte">' + (r.posti || 0) + '</td>'
+            + '<td data-label="Note">' + esc(r.note || '') + '</td>'
+            + '<td data-label="Risposta">' + esc(quandoBreve(r)) + provenienzaHtml(r) + '</td>'
+            + azioniRigaHtml(c, r)
             + '</tr>';
+    }
+    function rigaAssenteHtml(c, r) {
+        return '<tr class="cene-assente">'
+            + '<td data-label="Chi">' + esc(nomeCompleto(r)) + '</td>'
+            + '<td data-label="Contatti">' + contattiCellaHtml(r) + '</td>'
+            + '<td data-label="Note">' + esc(r.note || '') + '</td>'
+            + '<td data-label="Risposta">' + esc(quandoBreve(r)) + provenienzaHtml(r) + '</td>'
+            + azioniRigaHtml(c, r)
+            + '</tr>';
+    }
+
+    /* =========================================================
+       IL FOGLIO DA STAMPARE
+       ---------------------------------------------------------
+       La sera della cena non c'e' un'area riservata da aprire: c'e'
+       un foglio in mano a chi accoglie e uno che si porta in
+       cucina. Quindi il foglio deve rispondere da solo a tre
+       domande, e in quest'ordine:
+
+         quanti coperti  - il numero che si e' comunicato al
+                           ristorante, scritto grande;
+         chi arriva      - in ordine di cognome, con i suoi ospiti
+                           sotto e una casella da spuntare: e'
+                           l'unico modo di segnare chi c'e' gia';
+         cosa non si puo' mangiare - le note raccolte tutte insieme
+                           con il nome accanto. Cercarle riga per
+                           riga dentro l'elenco, in cucina, non le
+                           guarda nessuno.
+
+       Chi ha detto che non viene sta in fondo, in breve: serve
+       solo a non richiamare qualcuno che aveva gia' risposto.
+    ========================================================= */
+    const STAMPA_CENE_CSS = 'h1 .quanti{display:block;font-size:12px;color:#475569;font-weight:normal;margin-top:2px;}'
+        + '.conti{display:flex;gap:26px;margin:14px 0 4px;padding:10px 14px;border:1px solid #E2E8F0;border-left:4px solid #0A2844;background:#F4F8FB;}'
+        + '.conti div{line-height:1.2;}'
+        + '.conti b{display:block;font-size:24px;color:#0A2844;}'
+        + '.conti span{font-size:10px;letter-spacing:0.4px;text-transform:uppercase;color:#475569;}'
+        /* la casella da spuntare all'arrivo: un quadrato vuoto, niente sfondo,
+           perche' ci si scrive sopra con la penna */
+        + 'td.spunta{width:26px;}'
+        + 'td.spunta i{display:block;width:13px;height:13px;border:1.2px solid #94A3B8;}'
+        /* "chi" no: quella classe nel foglio condiviso e' un contenitore flex
+           (la usa il programma della giornata), e qui spezzerebbe il nome dai
+           suoi ospiti mettendoli fianco a fianco in due colonne strette. */
+        + 'td.persona{width:34%;}'
+        + '.ospiti{margin-top:2px;color:#475569;font-size:11px;}'
+        + '.ospiti b{color:#1E293B;font-weight:normal;}'
+        + 'td.posti{width:46px;text-align:center;font-weight:bold;color:#0A2844;}'
+        + '.assenti td{color:#475569;}'
+        + '.vuoto-sez{color:#94A3B8;font-style:italic;padding:4px 0;}';
+
+    function stampaElencoCena(d) {
+        const c = d.cena || {};
+        const presenti = perCognome((d.righe || []).filter(r => r.presente));
+        const assenti = perCognome((d.righe || []).filter(r => !r.presente));
+        const k = d.conti || { presenti: presenti.length, ospiti: 0, posti: 0 };
+        const quando = new Date().toLocaleString('it-IT', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        const dove = [c.ora ? 'ore ' + c.ora : '', c.luogo || ''].filter(Boolean).join(' &middot; ');
+
+        const righe = presenti.map(r => {
+            const nomi = r.ospiti || [];
+            const senzaNome = Math.max(0, (r.quantiOspiti || 0) - nomi.length);
+            const conChi = nomi.length || senzaNome
+                ? '<div class="ospiti">con <b>' + esc(nomi.join(', '))
+                    + (nomi.length && senzaNome ? ', ' : '')
+                    + (senzaNome ? senzaNome + (senzaNome === 1 ? ' ospite' : ' ospiti') + ' senza nome' : '')
+                    + '</b></div>'
+                : '';
+            return '<tr><td class="spunta"><i></i></td>'
+                + '<td class="persona"><span class="forte">' + esc(nomeCompleto(r)) + '</span>' + conChi + '</td>'
+                + '<td class="posti">' + (r.posti || 0) + '</td>'
+                + '<td class="nota">' + esc(r.note || '') + '</td>'
+                + '<td class="nota">' + esc(r.telefono || '') + '</td></tr>';
+        }).join('');
+
+        /* Le note raccolte: sono la pagina che si consegna in cucina. Ci sono
+           anche quelle di chi non viene? No: chi non viene non mangia. */
+        const conNote = presenti.filter(r => r.note);
+        const note = conNote.length
+            ? '<table><thead><tr><th>Chi</th><th>Nota</th></tr></thead><tbody>'
+                + conNote.map(r => '<tr><td class="forte">' + esc(nomeCompleto(r)) + '</td>'
+                    + '<td>' + esc(r.note) + '</td></tr>').join('')
+                + '</tbody></table>'
+            : '<div class="vuoto-sez">Nessuna segnalazione.</div>';
+
+        const senzaDiNoi = assenti.length
+            ? '<table class="assenti"><tbody>'
+                + assenti.map(r => '<tr><td class="persona">' + esc(nomeCompleto(r)) + '</td>'
+                    + '<td class="nota">' + esc(r.email || '') + '</td>'
+                    + '<td class="nota">' + esc(r.note || '') + '</td></tr>').join('')
+                + '</tbody></table>'
+            : '';
+
+        const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
+            + '<title>' + esc(c.titolo || 'Cena') + ' - elenco dei presenti</title>'
+            + '<style>' + STAMPA_EVENTI_CSS + STAMPA_CENE_CSS + '</style></head><body>'
+            + '<header><h1>' + esc(c.titolo || 'Cena')
+            + '<span class="quanti">Next Generation Business &middot; ' + esc(c.quando || '')
+            + (dove ? ' &middot; ' + dove : '') + '</span></h1>'
+            + '<div class="meta">stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
+            + '<div class="conti">'
+            + '<div><b>' + (k.posti || 0) + '</b><span>coperti in tutto</span></div>'
+            + '<div><b>' + (k.presenti || 0) + '</b><span>invitati presenti</span></div>'
+            + '<div><b>' + (k.ospiti || 0) + '</b><span>ospiti al seguito</span></div>'
+            + '</div>'
+            + '<section class="tema"><h2>Chi arriva <span class="conta">in ordine di cognome, da spuntare all\'arrivo</span></h2>'
+            + (presenti.length
+                ? '<table><thead><tr><th></th><th>Nome</th><th>Posti</th><th>Note</th><th>Telefono</th></tr></thead>'
+                    + '<tbody>' + righe + '</tbody></table>'
+                : '<div class="vuoto-sez">Nessuna conferma di presenza.</div>')
+            + '</section>'
+            + '<section class="tema"><h2>Note, intolleranze e allergie <span class="conta">per la cucina</span></h2>'
+            + note + '</section>'
+            + (senzaDiNoi
+                ? '<section class="tema"><h2>Ha risposto che non viene <span class="conta">' + assenti.length + '</span></h2>'
+                    + senzaDiNoi + '</section>'
+                : '')
+            + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
+            + '</body></html>';
+        apriStampa(pagina);
+    }
+
+    /* IL MODULO DI CHI REGISTRA A MANO. Sta DENTRO la finestra delle cene, al
+       posto degli elenchi, e non in una finestra sopra l'altra: una finestra
+       che ne apre un'altra, qui, chiuderebbe la prima (ne esiste una sola alla
+       volta) e tornando indietro si perderebbe il punto in cui si era.
+       I campi sono gli stessi della pagina pubblica, perche' chi registra sta
+       ricopiando quello che una persona ha detto, non inventando un formato
+       suo. Gli ospiti si scrivono uno per riga: al telefono si sentono in fila,
+       e una riga per nome e' come li si prende. */
+    function formCenaHtml(c, r) {
+        const nuova = !r;
+        const v = r || {};
+        const nomiOspiti = (v.ospiti || []).join('\n');
+        const quanti = Math.max(Number(v.quantiOspiti) || 0, (v.ospiti || []).length);
+        return '<section class="ev-bl" style="margin-top:14px;">'
+            + '<div class="ev-bl-tit">' + (nuova ? 'Aggiungi una persona' : 'Correggi la scheda')
+            + '<span>' + esc(c.titolo || '') + ' &middot; ' + esc(c.quando || '') + '</span></div>'
+            + '<div style="padding:14px 16px;">'
+            + '<div class="due-cene">'
+            + '<div class="campo"><label for="cf-nome">Nome</label><input type="text" id="cf-nome" value="' + esc(v.nome || '') + '"></div>'
+            + '<div class="campo"><label for="cf-cognome">Cognome</label><input type="text" id="cf-cognome" value="' + esc(v.cognome || '') + '"></div>'
+            + '</div>'
+            + '<div class="due-cene">'
+            + '<div class="campo"><label for="cf-email">Email</label><input type="email" id="cf-email" value="' + esc(v.email || '') + '">'
+            + '<div class="hint">È l\'identificativo della scheda: cambiandola, la risposta si sposta sul nuovo indirizzo.</div></div>'
+            + '<div class="campo"><label for="cf-tel">Telefono</label><input type="tel" id="cf-tel" value="' + esc(v.telefono || '') + '"></div>'
+            + '</div>'
+            + '<div class="campo"><label>Partecipa alla cena</label>'
+            + '<label class="cene-radio"><input type="radio" name="cf-presente" value="si"'
+            + ((nuova || v.presente) ? ' checked' : '') + '> Sì, ci sarà</label>'
+            + '<label class="cene-radio"><input type="radio" name="cf-presente" value="no"'
+            + ((!nuova && !v.presente) ? ' checked' : '') + '> No, non viene</label></div>'
+            + '<div class="due-cene">'
+            + '<div class="campo"><label for="cf-quanti">Quanti ospiti</label>'
+            + '<input type="number" id="cf-quanti" min="0" max="10" value="' + quanti + '">'
+            + '<div class="hint">Ogni ospite è un posto in più. Il tetto del modulo pubblico qui non vale: si registra quello che la persona ha detto.</div></div>'
+            + '<div class="campo"><label for="cf-ospiti">Nomi degli ospiti</label>'
+            + '<textarea id="cf-ospiti" rows="4" placeholder="Un nome per riga">' + esc(nomiOspiti) + '</textarea>'
+            + '<div class="hint">Facoltativi: se non si sanno, basta il numero qui accanto.</div></div>'
+            + '</div>'
+            + '<div class="campo"><label for="cf-note">Note</label>'
+            + '<textarea id="cf-note" rows="2" maxlength="500" placeholder="Intolleranze, allergie, altro">' + esc(v.note || '') + '</textarea></div>'
+            + '<label class="cene-radio"><input type="checkbox" id="cf-mail"> Manda a questa persona il riepilogo per email</label>'
+            + '<div class="hint" style="margin-top:4px;">Di norma no: chi ha risposto a voce non aspetta nessuna mail da noi.</div>'
+            + '<div class="ev-bl-az" style="margin-top:16px;">'
+            + '<button class="btn btn-sm btn-primary" id="cf-salva">' + (nuova ? 'Aggiungi' : 'Salva') + '</button>'
+            + '<button class="btn btn-sm btn-secondary" id="cf-annulla">Annulla</button>'
+            + '<span id="cf-esito" class="hint"></span>'
+            + '</div></div></section>';
+    }
+
+    function apriFormCena(ev, c, r) {
+        const corpo = document.getElementById('cene-corpo');
+        if (!corpo) return;
+        corpo.innerHTML = formCenaHtml(c, r);
+        const esito = document.getElementById('cf-esito');
+        const val = id => String((document.getElementById(id) || {}).value || '').trim();
+        const ko = msg => { esito.className = 'ev-ko'; esito.textContent = msg; };
+
+        document.getElementById('cf-annulla').addEventListener('click', () => disegnaCorpoCene(ev));
+        document.getElementById('cf-salva').addEventListener('click', e => {
+            const presenteSi = document.querySelector('input[name="cf-presente"][value="si"]').checked;
+            const nome = val('cf-nome'), cognome = val('cf-cognome'), email = val('cf-email').toLowerCase();
+            if (!nome || !cognome) { ko('Servono nome e cognome.'); return; }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { ko('Controlla l\'indirizzo email.'); return; }
+            const nomi = val('cf-ospiti').split(/[\n\r]+/).map(x => x.trim()).filter(Boolean);
+            const corpoReq = {
+                azione: r ? 'modifica' : 'aggiungi',
+                cena: c.id, id: r ? r.id : undefined,
+                nome: nome, cognome: cognome, email: email, telefono: val('cf-tel'),
+                presente: presenteSi,
+                quantiOspiti: presenteSi ? Math.max(Number(val('cf-quanti')) || 0, nomi.length) : 0,
+                ospiti: presenteSi ? nomi : [],
+                note: val('cf-note'),
+                mandaMail: !!(document.getElementById('cf-mail') || {}).checked
+            };
+            const bottone = e.currentTarget;
+            bottone.disabled = true;
+            esito.className = 'hint';
+            esito.textContent = 'Salvo...';
+            Cloud.ceneEvento(corpoReq).then(risp => {
+                bottone.disabled = false;
+                if (!risp || !risp.ok) { ko((risp && risp.msg) || 'Non sono riuscito a salvare.'); return; }
+                toast(r
+                    ? ('Scheda aggiornata' + (risp.spostata ? ' e spostata sul nuovo indirizzo' : '') + '.')
+                    : (risp.aggiornata ? 'Questa persona aveva già risposto: ho aggiornato la sua scheda.' : 'Persona aggiunta.'),
+                    'verde');
+                caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+            });
+        });
     }
 
     function collegaCorpoCene(ev) {
         const corpo = document.getElementById('cene-corpo');
         if (!corpo) return;
+        const dati = ceneDi(ev) || [];
+        const datiDa = id => dati.find(d => d.cena && d.cena.id === id) || null;
+        const cenaDa = id => (datiDa(id) || {}).cena || { id: id };
+        const rigaDa = (idCena, idRiga) => {
+            const d = datiDa(idCena);
+            return d ? (d.righe || []).find(x => x.id === idRiga) : null;
+        };
+        const ricarica = () => caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+
+        // le due serate in cima: si passa dall'una all'altra senza rileggere niente
+        corpo.querySelectorAll('[data-serata]').forEach(b => b.addEventListener('click', () => {
+            _ceneTab = b.dataset.serata;
+            disegnaCorpoCene(ev);
+        }));
         corpo.querySelectorAll('[data-copia]').forEach(b => b.addEventListener('click', () => {
             copiaNegliAppunti(b.dataset.copia, 'Collegamento copiato: mandalo agli invitati.');
         }));
-        corpo.querySelectorAll('[data-csv]').forEach(b => b.addEventListener('click', () => {
-            const sez = b.closest('section');
-            const tab = sez && sez.querySelector('table.dati');
-            if (!tab) { toast('Non c\'è ancora niente da esportare.', 'ambra'); return; }
-            esportaTabellaCsv(tab, 'cena-' + b.dataset.csv);
+        corpo.querySelectorAll('[data-stampa]').forEach(b => b.addEventListener('click', () => {
+            const d = datiDa(b.dataset.stampa);
+            if (!d) { toast('Elenco non ancora caricato: riprova fra un momento.', 'ambra'); return; }
+            stampaElencoCena(d);
         }));
-        /* Togliere una risposta e' dell'amministratore, e il servizio lo
-           ripete per conto suo: qui il pulsante non compare nemmeno. Serve
-           per chi ha compilato con un indirizzo sbagliato - quella scheda non
-           si aggiornera' piu' da sola e resterebbe a contare posti che nessuno
+        // aggiungere una persona: il modulo prende il posto degli elenchi
+        corpo.querySelectorAll('[data-aggiungi]').forEach(b => b.addEventListener('click', () => {
+            apriFormCena(ev, cenaDa(b.dataset.aggiungi), null);
+        }));
+        corpo.querySelectorAll('[data-modifica]').forEach(b => b.addEventListener('click', () => {
+            const riga = rigaDa(b.dataset.cena, b.dataset.modifica);
+            if (!riga) { toast('Questa scheda non c\'è più: aggiorno l\'elenco.', 'ambra'); ricarica(); return; }
+            apriFormCena(ev, cenaDa(b.dataset.cena), riga);
+        }));
+        /* Togliere un ospite solo. Non si chiede conferma: e' un gesto piccolo e
+           rifarlo costa una riga nel modulo di modifica, mentre una finestra di
+           conferma per ogni crocetta renderebbe faticoso proprio il lavoro che
+           questo pulsante doveva rendere veloce. */
+        corpo.querySelectorAll('.ospite-via').forEach(b => b.addEventListener('click', () => {
+            b.disabled = true;
+            Cloud.ceneEvento({
+                azione: 'togli-ospite', cena: b.dataset.cena, id: b.dataset.ospite,
+                indice: Number(b.dataset.indice)
+            }).then(r => {
+                if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a togliere l\'ospite.', 'rosso'); return; }
+                toast('Ospite tolto: il posto è tornato libero.', 'verde');
+                ricarica();
+            });
+        }));
+        /* Togliere una risposta intera e' dell'amministratore, e il servizio lo
+           ripete per conto suo: qui il pulsante non compare nemmeno. Serve per
+           chi ha compilato con un indirizzo sbagliato - quella scheda non si
+           aggiornera' piu' da sola e resterebbe a contare posti che nessuno
            occupera'. */
         corpo.querySelectorAll('[data-togli]').forEach(b => b.addEventListener('click', () => {
             const chi = b.dataset.chi || 'questa risposta';
@@ -19342,7 +20280,7 @@
             Cloud.ceneEvento({ azione: 'cancella', cena: b.dataset.cena, ids: [b.dataset.togli] }).then(r => {
                 if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a togliere la risposta.', 'rosso'); return; }
                 toast('Risposta tolta.', 'verde');
-                caricaCene(ev, () => { disegnaCorpoCene(ev); aggiornaSchedaCene(ev); }, true);
+                ricarica();
             });
         }));
     }
@@ -19620,6 +20558,35 @@
     function esitoGiornata(testo, ko) {
         const e = document.getElementById('gio-esito');
         if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+    }
+    /* ============================================================
+       I TAVOLI CHE HANNO CAMBIATO ARGOMENTO SOTTO CHI AVEVA GIA' PRENOTATO
+       ------------------------------------------------------------
+       L'identificativo di un tavolo non si cambia mai - e' la chiave con cui
+       viaggia fra invito, prenotazione e agenda - ma il suo ARGOMENTO si',
+       quando la giornata si riorganizza. Il 26 settembre il secondo desk
+       Revilaw e' diventato il secondo tavolo del merito creditizio: le
+       prenotazioni prese prima sono rimaste attaccate a quell'identificativo,
+       e oggi risultano a un tavolo di merito creditizio.
+       Quelle imprese avevano chiesto dell'altro, e nessuno gliel'ha detto. La
+       marcatura dello SPOSTAMENTO non le copre: non sono state spostate, e'
+       stato il tavolo a cambiare sotto di loro. Quindi si segnalano qui, con
+       lo stesso bollino e per la stessa ragione - chi legge il riepilogo il
+       giorno prima deve sapere che quell'azienda si aspetta un'altra cosa.
+       Si riconoscono dalla DATA della prenotazione: `quando` si riscrive a
+       ogni tocco, quindi una riga gia' rivista dopo la conversione non viene
+       segnalata, ed e' giusto - qualcuno l'ha gia' guardata.
+       Una riga per tavolo convertito: il giorno che ne cambia un altro si
+       aggiunge qui e tutto il resto funziona da se'. */
+    const TAVOLI_CONVERTITI = [
+        { id: 'desk-revilaw-b', dal: Date.parse('2026-09-26T01:15:48+02:00'), era: 'Desk Revilaw' }
+    ];
+    function convertitoDopo(areaId, chi) {
+        const c = TAVOLI_CONVERTITI.filter(x => x.id === areaId)[0];
+        if (!c || !chi) return '';
+        const q = Number(chi.quando) || 0;
+        // senza data non si puo' dire: meglio tacere che marcare a caso
+        return (q && q < c.dal) ? c.era : '';
     }
     function nomeAreaB2B(id) {
         const a = areeB2BDef().filter(x => x.id === id)[0];
@@ -20909,7 +21876,7 @@
          che sa che "Mario di Alfa" in realta' lavora per la controllata.
        A UNA SOLA persona si arriva dal menu della riga (`unica`): li' l'elenco
        delle aziende non serve, il tavolo si sceglie lo stesso. */
-    function modaleInvitoB2B(ev, unica) {
+    function modaleInvitoB2B(ev, unica, cercaSubito) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
         if (unica && !unica.email) return;
@@ -21072,7 +22039,10 @@
             if (!conosciute.has(a.chiave)) { conosciute.add(a.chiave); if (daSpuntare(a)) scelte.add(a.chiave); }
         });
         const aperte = new Set();     // le tendine aperte, per farle sopravvivere al ridisegno
-        let filtroAz = '';
+        /* Si puo' aprire gia' cercando: ci si arriva dall'elenco degli
+           iscritti, dove quel nome non c'era, e ritrovarsi davanti tutte le
+           aziende vorrebbe dire ricominciare la ricerca a mano. */
+        let filtroAz = String(cercaSubito || '');
         let spostamentoAperto = '';   // email del referente per cui e' aperto il riquadro "sposta"
         let spostaScelta = '';        // l'azienda scelta nel menu, e...
         let spostaNuova = '';         // ...la ragione sociale scritta a mano: sopravvivono al ridisegno

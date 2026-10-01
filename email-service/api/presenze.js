@@ -79,6 +79,16 @@ function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'c
 // la frase che racconta uno spostamento di azienda: la scrivono in due
 // (qui e in iscrizioni.js), quindi sta in un modulo solo
 const { tracciaSpostamento } = require('../lib/traccia-azienda');
+/* Chi ha ricevuto e chi no: gli esiti che Brevo conosce, per indirizzo
+   (lib/esiti-email.js). Sull'invito agli incontri "inviata" vuol dire solo
+   che il relay ha preso in carico il messaggio; se sia arrivato lo sa chi lo
+   consegna, e a un invito che non arriva nessuno risponde. */
+const ESITI = require('../lib/esiti-email');
+/* La copia condivisa dell'archivio: serve a raccogliere QUI gli indirizzi
+   degli invitati agli incontri, invece di fidarsi di quelli che manda il
+   browser. Chi guarda ha gia' quegli indirizzi davanti, ma l'elenco di cosa
+   si puo' chiedere a Brevo lo deve decidere il server. */
+const COPIA = require('../lib/copia-iscrizioni');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -468,7 +478,13 @@ module.exports = async (req, res) => {
                 res.status(500).json({ ok: false, msg: 'Sezione cene non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
                 return;
             }
-            const r = await CENE.esegui({ db: db, body: body, email: email, eAdmin: eAdmin });
+            /* Chi puo' SCRIVERE si calcola qui, dove la funzione che lo sa gia'
+               vive: aggiungere una persona a una cena e' lo stesso gesto che
+               aggiungere un'iscrizione, e chi lo fa e' lo stesso. */
+            const r = await CENE.esegui({
+                db: db, body: body, email: email, eAdmin: eAdmin,
+                ePartner: eAdmin || await ePartner(db, ruolo)
+            });
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -931,6 +947,67 @@ module.exports = async (req, res) => {
                 // conto deve poterlo capire senza chiederselo
                 mail: mailPartite,
                 fatte: fatte, restanti: restanti, falliti: falliti.slice(0, 50)
+            });
+            return;
+        }
+
+        /* CHI HA RICEVUTO DAVVERO L'INVITO AGLI INCONTRI.
+           "Inviata" vuol dire soltanto che il relay ha preso in carico il
+           messaggio: se poi sia arrivata, il nostro servizio non lo sa. Lo sa
+           Brevo, che quelle mail le consegna, e gliele si chiede per
+           indirizzo - non per etichetta, perche' questi inviti partono dal
+           relay SMTP dove un'etichetta non si puo' attaccare (il perche' per
+           intero sta in lib/esiti-email.js).
+           Una lettura sola per evento, e non una per azienda: la quota di
+           Brevo e' di 300 chiamate l'ora per tutto il servizio, e una colonna
+           che si aggiorna riga per riga la esaurirebbe in un pomeriggio. Per
+           questo non parte all'apertura della scheda ma quando qualcuno la
+           chiede.
+           GLI INDIRIZZI LI RACCOGLIE IL SERVER, dall'archivio: chi guarda li
+           ha gia' davanti in tabella, ma lasciar decidere al browser quali
+           indirizzi interrogare vorrebbe dire aprire una finestra su
+           chiunque. */
+        if (azione === 'b2b-esiti-mail') {
+            /* Stessi permessi dell'invito: chi puo' mandarlo puo' sapere se e'
+               arrivato, e la lettura costa quota a tutto il servizio. */
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono verificare gli inviti l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            if (evento === 'tutti') {
+                res.status(400).json({ ok: false, msg: 'Serve un evento.' }); return;
+            }
+            let arch;
+            try { arch = await COPIA.archivio(db); }
+            catch (e) {
+                res.status(200).json({ ok: true, stato: 'errore', esiti: {}, guardati: 0,
+                    msg: 'Archivio non leggibile in questo momento: riprova fra qualche minuto.' });
+                return;
+            }
+            const indirizzi = [];
+            const visti = {};
+            let dal = 0;
+            (arch.iscrizioni || []).forEach(v => {
+                const a = (v && v.b2bAzienda && typeof v.b2bAzienda === 'object') ? v.b2bAzienda : null;
+                if (!a || String(a.evento || '') !== evento) return;
+                const ind = String(v.email || '').trim().toLowerCase();
+                if (!ind || visti[ind]) return;
+                visti[ind] = true;
+                indirizzi.push(ind);
+                const q = Number(a.quando) || 0;
+                if (q && (!dal || q < dal)) dal = q;
+            });
+            if (!indirizzi.length) {
+                res.status(200).json({ ok: true, stato: 'nessuno', esiti: {}, guardati: 0,
+                    msg: 'Nessun invito agli incontri partito per questo evento.' });
+                return;
+            }
+            const r = await ESITI.leggi(db, {
+                chiave: evento + '~b2b', indirizzi: indirizzi, dal: dal || Date.now()
+            });
+            res.status(200).json({
+                ok: true, stato: r.stato, aggiornato: r.aggiornato || 0,
+                esiti: r.esiti || {}, msg: r.msg || '', guardati: indirizzi.length
             });
             return;
         }

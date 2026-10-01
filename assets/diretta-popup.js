@@ -184,19 +184,20 @@
     + '#dirPromo .dirp-presenza a:hover{color:#0A2844;}'
     + '#dirPromo .dirp-presenza a:focus-visible{outline:2px solid #164068;outline-offset:2px;border-radius:3px;}'
 
-    /* azioni */
+    /* azioni. Il pulsante della diretta e' rosso, lo stesso rosso di IN DIRETTA:
+       bianco su #B01B37-#C8203F sta sopra 5,6:1, leggibile anche a 15px */
     + '#dirPromo .dirp-actions{display:flex;flex-direction:column;gap:6px;}'
     + '#dirPromo .dirp-cta{position:relative;overflow:hidden;display:inline-flex;align-items:center;'
-    + 'justify-content:center;gap:9px;background:linear-gradient(135deg,#164068,#1F5688)!important;'
+    + 'justify-content:center;gap:9px;background:linear-gradient(135deg,#B01B37,#C8203F)!important;'
     + 'color:#fff!important;text-decoration:none!important;font-weight:700;font-size:15px;'
     + 'padding:15px 18px;border-radius:12px;border:0;cursor:pointer;'
-    + 'box-shadow:0 10px 24px rgba(22,64,104,.30);'
+    + 'box-shadow:0 10px 24px rgba(176,27,55,.32);'
     + 'transition:transform .18s ease,box-shadow .18s ease;}'
     + '#dirPromo .dirp-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;'
     + 'background:linear-gradient(120deg,rgba(255,255,255,0),rgba(255,255,255,.34),rgba(255,255,255,0));'
     + 'transform:skewX(-18deg);animation:dirpShine 3.4s ease-in-out 1.2s infinite;}'
     + '@keyframes dirpShine{0%{left:-60%;}55%{left:130%;}100%{left:130%;}}'
-    + '#dirPromo .dirp-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(22,64,104,.40);}'
+    + '#dirPromo .dirp-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(176,27,55,.42);}'
     + '#dirPromo .dirp-cta svg{position:relative;z-index:1;width:17px;height:17px;}'
     + '#dirPromo .dirp-cta span{position:relative;z-index:1;}'
     + '#dirPromo .dirp-row{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}'
@@ -218,7 +219,7 @@
     + '#dirPromo .dirp-close:focus-visible,#dirPromo .dirp-ghost:focus-visible,'
     + '#dirPromo .dirp-dismiss button:focus-visible{outline:2px solid #164068;outline-offset:2px;border-radius:8px;}'
     + '#dirPromo .dirp-close:focus-visible{outline-color:#fff;}'
-    + '#dirPromo .dirp-cta:focus-visible{outline:2px solid #fff;outline-offset:-4px;box-shadow:0 0 0 3px #2A5A85;}'
+    + '#dirPromo .dirp-cta:focus-visible{outline:2px solid #fff;outline-offset:-4px;box-shadow:0 0 0 3px #7A1026;}'
     + '@media (max-width:520px){#dirPromo{padding:14px;}#dirPromo .dirp-head{padding:22px 20px 20px;}'
     + '#dirPromo .dirp-body{padding:18px 20px 20px;}#dirPromo h2{font-size:21px;padding-right:30px;}'
     + '#dirPromo .dirp-info li{font-size:13px;}}'

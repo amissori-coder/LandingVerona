@@ -266,6 +266,23 @@ async function prendiSlot(db, dati) {
            staff, 4 = un'altra esigenza che abbiamo portato a un tavolo. */
         scelta: [1, 2, 3, SCELTA_ESIGENZA].indexOf(Number(dati.scelta)) >= 0 ? Number(dati.scelta) : 1,
         codaId: testo(dati.codaId, 60),
+        /* IL TAVOLO CHE L'IMPRESA AVEVA CHIESTO, quando non e' piu' quello su
+           cui l'incontro si tiene. Lo scrive chi sposta (b2b-sposta): da li'
+           in avanti viaggia con la prenotazione, perche' lo spostamento
+           SOSTITUISCE una preferenza, e chi legge il riepilogo il giorno
+           prima non ha modo di sapere che quell'impresa aveva chiesto
+           dell'altro. Senza, al desk si presenta un'azienda convinta di
+           parlare di finanza agevolata a un tavolo di merito creditizio.
+           Resta la PRIMA: tre spostamenti di fila non cancellano quello che
+           l'impresa aveva indicato all'inizio. Si azzera da se' se l'incontro
+           torna sull'argomento chiesto, e non si scrive affatto se l'azienda
+           ricompone le sue scelte dal modulo - li' la preferenza e' di nuovo
+           la sua. */
+        /* Chi passa `chiesta` DECIDE, anche per azzerarla: `||` farebbe
+           ricadere lo zero sul valore vecchio che viaggia dentro `persona`, e
+           un incontro riportato sul tavolo chiesto continuerebbe a dichiarare
+           una sostituzione che non c'e' piu'. */
+        chiesta: (areaDa(dati.chiesta !== undefined ? dati.chiesta : p.chiesta) || {}).id || '',
         fine: slot.fine, quando: Date.now(),
         da: dati.forzato ? 'staff' : 'ospite'
     };
@@ -1239,6 +1256,25 @@ async function esegui(ctx) {
                 desk: desk, esigenze: esigenze, richieste: pren.richieste || [],
                 /* Gli inviti REVOCATI non sono aziende invitate: chi guarda il
                    riepilogo cerca chi viene, non chi non viene piu'. */
+                /* LE RICHIESTE A ORARI ESAURITI: chi ha trovato tutto
+                   prenotato e ha chiesto un incontro lo stesso, scrivendolo.
+                   Vivono nella giornata, dove si gestiscono, ma servono anche
+                   qui: il riepilogo si stampa e ci si lavora sopra il giorno
+                   prima, e una richiesta scritta che resta solo a video e'
+                   una persona che ha bussato e nessuno se ne ricorda con il
+                   foglio in mano. Le aperte prima, e a parita' le piu'
+                   recenti: e' l'ordine in cui si guardano. */
+                richieste: (pren.richieste || []).slice().sort((x, y) => {
+                    const ax = String(x.stato || 'aperta') === 'aperta' ? 0 : 1;
+                    const ay = String(y.stato || 'aperta') === 'aperta' ? 0 : 1;
+                    return ax !== ay ? ax - ay : (y.quando || 0) - (x.quando || 0);
+                }).map(r => ({
+                    doc: r.doc, nome: r.nome, azienda: r.azienda, ruolo: r.ruolo,
+                    email: r.email, telefono: r.telefono,
+                    aziendaId: r.aziendaId, aziendaNome: r.aziendaNome,
+                    area: r.area, nota: r.nota, quando: r.quando,
+                    stato: String(r.stato || 'aperta')
+                })),
                 aziende: aziende.filter(az => !(az.invito && az.invito.revocato)).map(az => ({
                     id: az.id, nome: az.nome, piva: az.piva,
                     referenti: az.referenti, incontri: conIncontro[az.id] || 0,
@@ -1251,6 +1287,7 @@ async function esegui(ctx) {
                     senzaIncontro: aziende.filter(az => !conIncontro[az.id]).length,
                     codaDaAssegnare: codaTotale,
                     esigenzeAperte: esigenze.filter(e => e.stato === 'aperta').length,
+                    richiesteAperte: (pren.richieste || []).filter(r => String(r.stato || 'aperta') === 'aperta').length,
                     liberi: desk.reduce((n, d) => n + ((d.attiva && !d.interno) ? d.liberi : 0), 0),
                     occupati: desk.reduce((n, d) => n + d.occupati, 0),
                     liberiDesk: desk.reduce((n, d) => n + ((d.attiva && d.interno) ? d.liberi : 0), 0)
@@ -1333,11 +1370,23 @@ async function esegui(ctx) {
                 { slot: { area: daArea, chiave: daChiave }, codaId: String(persona.codaId || '') });
             if (no) return { stato: 409, corpo: { ok: false, motivo: 'stesso-tavolo', msg: no } };
         }
+        /* QUALE PREFERENZA STIAMO SOSTITUENDO.
+           Il confronto e' per ARGOMENTO, non per tavolo: spostare un incontro
+           sul gemello dello stesso tema non sostituisce niente - per
+           l'impresa quei due tavoli sono lo stesso tavolo - e segnalarlo
+           vorrebbe dire riempire il riepilogo di avvisi che non dicono
+           nulla. */
+        const famDa = capofilaDi(daArea) || daArea;
+        const famA = capofilaDi(aArea) || aArea;
+        const giaChiesta = (areaDa(persona.chiesta) || {}).id || '';
+        let chiesta = giaChiesta || (famDa !== famA ? famDa : '');
+        // rimessa dov'era: non c'e' piu' nessuna preferenza sostituita
+        if (chiesta && (capofilaDi(chiesta) || chiesta) === famA) chiesta = '';
         const preso = await prendiSlot(db, {
             evento: evento, area: aArea, chiave: aChiave, da: chi, staff: true,
             scelta: Number(persona.scelta) || 1, codaId: String(persona.codaId || ''),
             forzato: body.forzato === true, slotDa: { area: daArea, chiave: daChiave },
-            persona: persona
+            chiesta: chiesta, persona: persona
         });
         if (!preso.ok) return { stato: 409, corpo: preso };
         const azId = String(persona.aziendaId || '');

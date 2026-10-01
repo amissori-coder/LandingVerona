@@ -1069,6 +1069,125 @@ function slotDi(area, ora) {
             'e ogni suo orario ha due posti (' + slotFin.filter(x => x.posti === 2).length + ' su ' + slotFin.length + ')');
     });
 
+    await prova('28) Il riepilogo porta anche le richieste a orari esauriti', async () => {
+        /* Chi trova tutto prenotato puo' chiedere un incontro lo stesso, e lo
+           scrive. Quelle parole vivevano solo nella giornata: il riepilogo -
+           che e' il foglio su cui si lavora il giorno prima, e che si stampa -
+           non le portava, e una richiesta che resta a video e' qualcuno che ha
+           bussato e di cui, con il foglio in mano, non si ricorda nessuno. */
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }]);
+        // due richieste scritte, una gia' guardata e una no
+        const pren = dati.get('b2bPrenotazioni/' + EVENTO) || { evento: EVENTO, aree: {}, richieste: [] };
+        pren.richieste = [
+            { doc: 'gia', nome: 'Nino Blu', azienda: 'Delta Srl', aziendaNome: 'Delta Srl', email: 'nino@delta.it',
+              area: 'merito-creditizio', nota: 'Va bene anche dopo i lavori.', quando: 100, stato: 'gestita' },
+            { doc: 'nuova', nome: 'Rita Gialli', azienda: 'Gamma Srl', aziendaNome: 'Gamma Srl', email: 'rita@gamma.it',
+              area: 'merito-creditizio', nota: 'Siamo in trattativa con due banche.', quando: 50, stato: 'aperta' }
+        ];
+        dati.set('b2bPrenotazioni/' + EVENTO, pren);
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'riepilogo' });
+        esigi(r.ok === true, 'il riepilogo risponde');
+        esigi(Array.isArray(r.richieste) && r.richieste.length === 2,
+            'e porta le richieste scritte', JSON.stringify((r.richieste || []).length));
+        /* Le APERTE prima, anche se piu' vecchie: e' l'ordine in cui si
+           guardano, non quello in cui sono arrivate. */
+        esigi((r.richieste || [])[0].stato === 'aperta' && r.richieste[0].nome === 'Rita Gialli',
+            'con quelle da guardare in cima, anche se piu vecchie',
+            (r.richieste || []).map(x => x.stato).join(','));
+        esigi(r.richieste[0].nota === 'Siamo in trattativa con due banche.',
+            'e dentro c e per intero quello che l impresa ha scritto');
+        esigi((r.conti || {}).richiesteAperte === 1,
+            'e il conto dice quante ne aspettano una risposta', JSON.stringify((r.conti || {}).richiesteAperte));
+    });
+
+    /* ------------------------------------------------------------
+       LA PREFERENZA CHE LO SPOSTAMENTO SOSTITUISCE
+       ------------------------------------------------------------
+       Spostare un incontro su un altro ARGOMENTO cambia di che cosa
+       quell'impresa verra' a parlare, e chi legge il riepilogo il giorno
+       prima non ha modo di saperlo: senza, al desk si presenta un'azienda
+       convinta di parlare d'altro. */
+    async function unIncontroDa(area, ora) {
+        azzera();
+        dati.set('utenti/staff@revilaw.it', { ruolo: 'admin' });
+        mettiAgenda({ 'merito-creditizio': {}, 'esg': {}, 'revisione': {}, 'desk-revilaw-b': {} });
+        mettiReferente('sergio', 'Sergio', 'Miele', 'Revilaw', 'sergiomiele@revilaw.it', '04641610235');
+        await invita([{ chiave: 'p:04641610235', nome: 'REVILAW', piva: '04641610235', referenti: [{ doc: 'sergio' }] }]);
+        const letto = await chiamaAzienda('p:04641610235', { azione: 'b2b-azienda-leggi' });
+        // l'azienda prenota da se': e' la sua PRIMA preferenza, quella che
+        // uno spostamento andrebbe a sostituire
+        await chiamaAzienda('p:04641610235', {
+            azione: 'b2b-azienda-salva', rev: letto.rev,
+            prima: { area: area, ora: ora, perDoc: 'sergio' }
+        });
+    }
+    function sposta(daArea, daChiave, aArea, aOra, altro) {
+        return chiamaPresenze(Object.assign({
+            sezione: 'b2b', azione: 'b2b-sposta',
+            daArea: daArea, daChiave: daChiave, aArea: aArea, aOra: aOra, avvisa: false
+        }, altro || {}));
+    }
+
+    await prova('32) Spostata su un altro tavolo, resta scritto che cosa aveva chiesto', async () => {
+        await unIncontroDa('merito-creditizio', '16:00');
+        const prima = slotDi('merito-creditizio', '16:00');
+        esigi(prima && !prima.chiesta,
+            'un incontro mai spostato non dichiara nessuna preferenza sostituita',
+            JSON.stringify(prima && prima.chiesta));
+
+        const r = await sposta('merito-creditizio', '1600', 'esg', '16:00');
+        esigi(r._stato === 200 && r.ok, 'lo spostamento su un altro argomento riesce', JSON.stringify(r.msg || ''));
+        const dopo = slotDi('esg', '16:00');
+        esigi(dopo && dopo.chiesta === 'merito-creditizio',
+            'e la prenotazione porta il tavolo che l impresa aveva chiesto', JSON.stringify(dopo && dopo.chiesta));
+
+        /* RESTA LA PRIMA. Tre spostamenti di fila non cancellano quello che
+           l'impresa aveva indicato all'inizio: e' quello il dato che serve a
+           chi deve decidere se telefonarle. */
+        await sposta('esg', '1600', 'revisione', '16:00');
+        const terzo = slotDi('revisione', '16:00');
+        esigi(terzo && terzo.chiesta === 'merito-creditizio',
+            'anche dopo il secondo spostamento resta la preferenza di partenza', JSON.stringify(terzo && terzo.chiesta));
+
+        /* RIMESSA DOV'ERA: non c'e' piu' niente da segnalare, e continuare a
+           dirlo manderebbe qualcuno a telefonare per niente. */
+        await sposta('revisione', '1600', 'merito-creditizio', '16:00');
+        const tornato = slotDi('merito-creditizio', '16:00');
+        esigi(tornato && !tornato.chiesta,
+            'tornata sul tavolo chiesto, la segnalazione sparisce', JSON.stringify(tornato && tornato.chiesta));
+    });
+
+    await prova('33) Fra tavoli gemelli non c e nessuna preferenza sostituita', async () => {
+        /* Per l'impresa i due gemelli sono lo stesso tavolo: l'argomento non
+           cambia, e segnalarlo riempirebbe il riepilogo di avvisi che non
+           dicono niente. */
+        await unIncontroDa('merito-creditizio', '16:30');
+        const r = await sposta('merito-creditizio', '1630', 'desk-revilaw-b', '16:30');
+        esigi(r._stato === 200 && r.ok, 'lo spostamento sul gemello riesce', JSON.stringify(r.msg || ''));
+        const sul = slotDi('desk-revilaw-b', '16:30');
+        esigi(sul && !sul.chiesta, 'e non dichiara nessuna sostituzione', JSON.stringify(sul && sul.chiesta));
+    });
+
+    await prova('34) Il riepilogo porta la preferenza sostituita, al tavolo e all azienda', async () => {
+        await unIncontroDa('merito-creditizio', '16:00');
+        await sposta('merito-creditizio', '1600', 'esg', '16:00');
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'riepilogo' });
+        esigi(r.ok === true, 'il riepilogo risponde');
+        const slot = ((r.desk || []).filter(d => d.id === 'esg')[0] || { slot: [] })
+            .slot.filter(x => x.ora === '16:00')[0] || null;
+        esigi(slot && slot.chi && slot.chi.chiesta === 'merito-creditizio',
+            'e la riga del tavolo dice che cosa l impresa aveva chiesto',
+            JSON.stringify(slot && slot.chi && slot.chi.chiesta));
+        /* Se non arrivasse fin qui, la colonna a video resterebbe vuota
+           qualunque cosa il servizio avesse scritto sulla prenotazione. */
+        const suoi = (r.desk || []).reduce((n, d) => n + d.slot.filter(x => x.chi && x.chi.chiesta).length, 0);
+        esigi(suoi === 1, 'ed e l unica riga marcata, non tutte', String(suoi));
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });

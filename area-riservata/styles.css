@@ -967,6 +967,20 @@ table.dati tbody tr.cliccabile { cursor: pointer; }
 table.dati .cliente-cella { font-weight: 600; color: var(--blu-900); }
 table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 2px solid var(--blu-500); }
 .tabella-vuota { padding: 40px; text-align: center; color: var(--grigio-600); }
+/* LA RICERCA CHE NON TROVA NIENTE. Sotto la tabella, quando chi ha cercato
+   merita una risposta invece di una tabella vuota: nell'elenco degli iscritti
+   dice che quel nome c'e', ma fra gli invitati ai soli incontri B2B. Blu e non
+   ambra: non e' un errore, e' una spiegazione. */
+/* Il conto in testa alla scheda degli incontri B2B: e' la risposta breve alla
+   domanda con cui la si apre - quanti, fra quelli che vengono ai tavoli, non si
+   siedono in sala - e si legge prima della spiegazione. */
+.sb-conto { font-size: 1rem; color: var(--blu-900); margin-bottom: 6px; }
+.sb-conto b { color: var(--rosso); }
+.tabella-niente { margin: 10px 0 4px; border: 1px solid var(--blu-100); border-left: 4px solid var(--blu-700); border-radius: var(--raggio-sm); background: var(--blu-050); padding: 12px 14px; }
+.tabella-niente .tn-testa { font-weight: bold; color: var(--blu-900); }
+.tabella-niente .tn-riga { padding: 5px 0 0; }
+.tabella-niente .hint { display: block; margin-top: 8px; }
+.tabella-niente .btn { margin-top: 10px; }
 /* Una tabella di due o tre colonne non ha bisogno di tutta la pagina. Con il
    nome a sinistra e l'importo a destra, in mezzo restava mezzo metro di bianco:
    per seguire la riga con l'occhio bisognava attraversarlo tutto, e si leggeva
@@ -1553,6 +1567,22 @@ button.ag-slot { cursor: pointer; }
    in due davanti allo stesso schermo. */
 .rb-conti { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 0 14px; border-bottom: 1px solid var(--grigio-200); font-size: 0.9rem; color: var(--grigio-600); }
 .rb-conti span.ambra { color: var(--ambra); }
+/* I DOPPIONI D'ORARIO. Stanno in cima al riepilogo, prima dei conti e della
+   legenda, perche' non sono un dato da consultare: sono una cosa da sistemare
+   prima del convegno. Il riquadro e' ambra - un avviso, non un errore - e la
+   singola riga diventa rossa quando il doppione e' grave, cioe' quando la
+   stessa persona e' attesa in due posti alla stessa ora: quella e' una cosa
+   impossibile, mentre due persone della stessa impresa a volte vengono
+   davvero in due. */
+.rb-conflitti { margin: 12px 0 4px; border: 1px solid var(--ambra); border-left-width: 4px; border-radius: var(--raggio-sm); background: var(--ambra-bg); padding: 10px 12px; }
+.rb-conflitti-testa { font-weight: bold; color: var(--ambra); font-size: 0.95rem; }
+.rb-conflitti .hint { display: block; margin-top: 8px; }
+.rb-conflitto { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 7px 0 0; }
+.rb-conflitto .rb-ora { color: var(--ambra); }
+.rb-conflitto .hint { flex: 1 1 100%; margin-top: 2px; }
+.rb-conflitto.grave .rb-ora { color: var(--rosso); }
+.rb-conflitto.grave b { color: var(--rosso); }
+
 .rb-desk { margin-top: 18px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); overflow: hidden; }
 .rb-desk-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 9px 12px; background: var(--grigio-050, #F8FAFC); border-bottom: 1px solid var(--grigio-200); }
 .rb-riga { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--grigio-100); }
@@ -1590,6 +1620,11 @@ button.ag-slot { cursor: pointer; }
 .rb-az-testa b { font-size: 1.05rem; color: var(--blu-900); }
 .rb-vuoto { padding: 10px 12px; color: var(--grigio-600); font-size: 0.9rem; }
 .rb-tavolo { flex: 0 0 100%; font-weight: bold; color: var(--blu-900); }
+/* "AVEVA CHIESTO X": la preferenza che lo spostamento ha sostituito. Ambra
+   come gli altri avvisi di questa pagina - non e' un errore, e' una cosa da
+   sapere prima di arrivare al desk - e sta accanto al nome dell'azienda,
+   dove la si legge insieme al tavolo su cui l'incontro si tiene adesso. */
+.rb-chiesta { font-size: 0.78rem; background: var(--ambra-bg); color: var(--ambra); border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
 .rb-nota { flex: 1 1 100%; color: var(--grigio-600); font-size: 0.88rem; }
 .rb-az { display: flex; gap: 4px; }
 .rb-coda-et { padding: 8px 12px 2px; font-size: 0.8rem; font-weight: bold; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ambra); }
@@ -3782,3 +3817,64 @@ table.dati.pm-tabella td.pm-dest { white-space: nowrap; width: 110px; }
     .pm-tabella td.pm-stato, .pm-tabella td.pm-dest { width: auto; }
 }
 .pm-quadra { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--grigio-200); font-size: 12.5px; line-height: 1.55; color: var(--grigio-600); text-align: left; }
+/* ============================================================
+   LE CENE DEL CONVEGNO (finestra "Le cene")
+   ------------------------------------------------------------
+   L'elenco delle conferme e il modulo con cui si registra a mano
+   chi ha risposto a voce. Sta in fondo al foglio, dov'e' finita
+   la roba degli eventi.
+   ============================================================ */
+/* LE DUE SERATE IN CIMA. Sono insieme la scelta e il riepilogo: si premono per
+   passare dall'una all'altra, e intanto tengono a vista i numeri di tutte e due.
+   Delle linguette sopra e dei numeri sotto direbbero la stessa cosa due volte. */
+.cene-scelta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+@media (max-width: 720px) { .cene-scelta { grid-template-columns: 1fr; } }
+.cene-tessera { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    background: var(--bianco); border: 1px solid var(--grigio-200); border-left: 3px solid var(--grigio-200);
+    border-radius: var(--raggio); padding: 12px 14px; }
+.cene-tessera:hover { border-color: var(--blu-500); background: var(--blu-050); }
+/* la serata che si sta guardando: il bordo di sinistra e il fondo bastano a
+   dirlo, senza spegnere l'altra - i suoi numeri servono comunque */
+.cene-tessera.attiva { border-color: var(--grigio-200); border-left-color: var(--blu-700); background: var(--blu-050); box-shadow: var(--ombra); }
+.cene-tessera-tit { display: block; font-weight: 700; color: var(--blu-900); font-size: 1rem; text-transform: capitalize; }
+.cene-tessera-chi { display: block; font-size: 0.8rem; color: var(--grigio-600); margin-top: 1px; }
+.cene-tessera-nota { display: block; font-size: 0.76rem; color: var(--grigio-600); margin-top: 6px; font-style: italic; }
+.cene-numeri { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; align-items: baseline; }
+/* i numeri sono quelli della testata degli Eventi: chi li conosce di la' li
+   ritrova uguali qui. "forte" e' il totale dei coperti, l'unico che si comunica
+   al ristorante; "spento" e' chi non viene, che non occupa niente */
+.cene-numeri .ev-num { font-size: 1.15rem; }
+.cene-numeri .ev-num.forte { font-size: 1.7rem; }
+.cene-numeri .ev-num.spento { color: var(--grigio-400); font-size: 1rem; }
+.cene-pannello .ev-bl-az { flex-wrap: wrap; }
+/* chi ha risposto di no: raccolto in fondo, non in mezzo a chi viene */
+.cene-assenti { margin-top: 14px; border-top: 1px solid var(--grigio-200); padding-top: 10px; }
+.cene-assenti > summary { cursor: pointer; font-weight: 600; color: var(--blu-700); font-size: 0.85rem; }
+.cene-assenti table.dati tbody tr td { color: var(--grigio-600); }
+td.cene-chi { font-weight: 600; color: var(--blu-900); }
+/* i due recapiti in una colonna sola: uno sotto l'altro a video, separati da
+   virgola nel CSV (vedi .solo-csv) */
+.cene-mail, .cene-tel { display: block; }
+.cene-tel { color: var(--grigio-600); }
+
+/* Gli ospiti di una scheda, uno per etichetta: si tolgono uno alla volta,
+   quindi devono essere cose distinte e non una frase separata da virgole. */
+.ospiti-cella { display: flex; flex-wrap: wrap; gap: 4px; }
+.ospite { display: inline-flex; align-items: center; gap: 4px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 10px; padding: 1px 7px; font-size: 0.78rem; white-space: nowrap; }
+.ospite.senza-nome { color: var(--grigio-600); font-style: italic; }
+/* separatore che esiste solo per l'esportazione: si legge nel CSV, non a video */
+.solo-csv { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* La crocetta e' disegnata QUI e non scritta nell'HTML: l'esportazione in CSV
+   copia il testo delle celle, e una colonna piena di "x" sarebbe un elenco da
+   ripulire a mano prima di mandarlo al ristorante. */
+.ospite-via { width: 13px; height: 13px; flex: 0 0 auto; border: 0; border-radius: 50%; background: transparent; color: var(--grigio-400); cursor: pointer; padding: 0; line-height: 1; font-size: 0.72rem; }
+.ospite-via::before { content: '\00d7'; }
+.ospite-via:hover { color: var(--rosso); background: var(--rosso-bg); }
+.ospite-via[disabled] { opacity: 0.4; cursor: default; }
+/* i pulsanti di riga non vanno a capo uno sotto l'altro su schermi stretti */
+td.cene-az { white-space: nowrap; }
+/* il modulo di chi registra a mano: due campi per riga, uno solo sul piccolo */
+.due-cene { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+@media (max-width: 720px) { .due-cene { grid-template-columns: 1fr; } }
+.cene-radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 18px; font-size: 0.9rem; color: var(--grigio-900); cursor: pointer; }
+.cene-radio input { width: auto; margin: 0; }

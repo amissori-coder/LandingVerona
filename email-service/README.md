@@ -1114,6 +1114,86 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
+### Le due schede di chi in elenco non c'e'
+
+L'elenco degli iscritti mostra chi viene al convegno, e per farlo deve lasciare
+fuori due gruppi di persone. Sono scelte giuste, e tutte e due lasciavano chi
+guarda senza una risposta. Ora ciascuna ha la sua scheda, aperta dai pulsanti
+del riquadro "Iscrizioni": **due schede a parte, non due sezioni dell'elenco**,
+cosi' nessuno dei due gruppi torna in mezzo agli ospiti nelle ricerche, nelle
+esportazioni e nei conteggi. Le compone una funzione sola
+(`schedaElenco` in `area-riservata/app.js`), perche' due finestre che si
+somigliano e divergono sono due finestre da tenere allineate a mano; ognuna
+porta ricerca, filtri per colonna ed esportazione in CSV come qualunque altra
+tabella.
+
+**Cancellati** (solo l'amministratore, che e' l'unico che puo' cancellare). La
+cancellazione toglie la riga per tutti, e con lei spariva la domanda "chi l'ha
+tolta, e quando?": una cancellazione per sbaglio restava invisibile finche'
+qualcuno non chiedeva di quella persona. La traccia sul server c'era da sempre
+(`iscrizioniCancellate`, con `da`, `daNome`, `collab` e `quando`); quello che
+mancava era un posto dove leggerla. `rispondi` in `api/iscrizioni.js` non butta
+piu' via le righe che scarta: le mette da parte e le rimanda in `cancellati`,
+con `tolta` accanto. Due provenienze, e si vedono diverse:
+
+- la riga **c'e' ancora** sul foglio dei moduli (o su Firestore): torna intera,
+  con nome, azienda e recapiti. E' il caso normale, perche' il foglio non si
+  tocca;
+- non c'e' **piu' nessuna riga**: restano l'indirizzo e la data, che stanno
+  dentro l'identificativo (`email|data`), e la riga si marca `sparita` -
+  una scheda mezza vuota senza spiegazione sembra un errore di lettura.
+
+**Incontri B2B: chi partecipa.** Tutte le persone invitate ai tavoli o che
+hanno gia' prenotato, con una colonna **In sala** che dice chi viene anche al
+convegno. Nasceva come scheda dei soli invitati che in sala non si siedono, e
+cosi' la distinzione aveva righe da una parte sola: dentro c'erano per
+definizione solo quelli, e chi la apriva per sapere chi non viene al convegno
+non aveva niente da confrontare. Ora ci sono tutti, il conto in testa dice
+quanti dei primi non sono iscritti in presenza, e il filtro per colonna isola
+gli uni o gli altri.
+
+Chi risulta **no, solo B2B** viene al desk per il suo appuntamento e in sala non
+si siede: non occupa un posto, non entra nel totale e l'elenco degli iscritti
+non lo porta (vedi "La sezione Solo incontri B2B"). Nel conto rientra anche chi
+segue **online**, che e' un iscritto a tutti gli effetti ma un posto in sala non
+lo occupa: alla domanda "chi non viene in sala?" la risposta lo comprende.
+Accanto, che cosa ha gia' prenotato e la data dell'invito.
+
+**Se l'invito e' arrivato.** "Inviata" vuol dire soltanto che il relay ha preso
+in carico il messaggio; se poi sia arrivato, il nostro servizio non lo sa. Lo sa
+Brevo, e gliele si chiede per indirizzo (`lib/esiti-email.js`, azione
+`b2b-esiti-mail` in `api/presenze.js`): consegnata, aperta, pulsante premuto,
+rimbalzata - con il motivo scritto dal server del destinatario - o segnata come
+spam. Tre scelte dietro questa colonna:
+
+- **a richiesta, non all'apertura.** La quota di Brevo e' di 300 chiamate
+  l'ora per tutto il servizio, e una scheda che la chiede ogni volta che si apre
+  la brucerebbe in un pomeriggio. C'e' un pulsante, e quanto letto resta in
+  memoria per evento;
+- **gli indirizzi li raccoglie il server**, dall'archivio, tenendo le schede il
+  cui `b2bAzienda.evento` e' questo evento. Chi guarda quegli indirizzi li ha
+  gia' davanti in tabella, ma lasciar decidere al browser quali interrogare
+  vorrebbe dire aprire una finestra su chiunque;
+- **non sapere non e' "non arrivata".** L'assenza della riga vuol dire che Brevo
+  non riporta niente per quell'indirizzo (guarda indietro novanta giorni e non
+  garantisce di avere tutto): si scrive "non risulta", in grigio. Leggerlo come
+  un errore di consegna farebbe richiamare gente a cui la mail e' arrivata
+  benissimo. Per lo stesso motivo, finche' nessuno ha premuto il pulsante la
+  colonna dice "da verificare" e non una colonna di "non risulta", che si
+  leggerebbe come "non e' arrivata a nessuno".
+
+Il riquadro "Iscrizioni" porta anche i **due numeri**, cosi' si leggono senza
+aprire niente: un pulsante da solo non dice se vale la pena premerlo. Compaiono
+solo quando c'e' qualcosa da dire.
+
+**Il servizio indietro si riconosce.** `cancellati` arriva solo dal servizio
+aggiornato; dal vecchio non arriva affatto, e l'area riservata tiene `null`,
+che non e' la stessa cosa di "nessuno cancellato". La scheda lo dice, invece di
+annunciare zero cancellazioni che nessuno ha contato: il servizio si pubblica
+per conto suo e il sito e' statico, quindi per qualche minuto le due meta'
+raccontano storie diverse. Le prove stanno in
+`prove/schede-fuori-elenco.prove.js`.
+
 ## Conferma dell'indirizzo email (`lib/conferma-email.js`)
 
 La mail di conferma dell'iscrizione (`confermaSito` in `lib/mail-ngb.js`, e la
@@ -1337,8 +1417,9 @@ un posto che nessuno occupera', e il totale in sala e' proprio il numero con cui
 si prepara la sala. Nasce quindi con `modalita: 'b2b'` - una quinta sezione
 (`MODALITA_SCELTE` in `api/presenze.js`, `SEZIONI_MODALITA` in
 `area-riservata/app.js`) che vale `sala: false` come l'online, ma che
-`daInvitareB2B` comprende: agli incontri ci va, in sala no. Da li' si sposta in
-`daInvitareB2B` comprende: agli incontri ci va, in sala no.
+`daInvitareB2B` comprende: agli incontri ci va, in sala no. Da li' si sposta
+in presenza come da qualunque altra sezione, il giorno in cui quell'impresa
+decide di venire anche al convegno.
 
 E dall'ELENCO degli iscritti resta fuori del tutto: la sezione ha
 `fuoriElenco: true`, e `soloIscritti` (in `area-riservata/app.js`) la toglie
@@ -1349,6 +1430,30 @@ esportazione e in ogni conto degli indirizzi doppi. Vivono dentro la finestra
 degli inviti B2B, che e' l'unico posto dove servono - e la finestra avverte
 prima di toglierne una, perche' tolta di li' non si trova piu' da nessuna
 parte.
+
+**Chi la cerca fra gli iscritti, pero', non trova niente e non sa perche'.** E'
+il rovescio della stessa scelta: da fuori non si vede che quell'elenco salta
+una sezione, si vede solo che l'azienda non c'e', e chi la cerca conclude che
+e' stata dimenticata. Succede spesso, perche' un referente che ha prenotato un
+incontro esiste per forza da qualche parte: se la sua impresa non risulta fra
+gli iscritti, e' quasi sempre questo.
+
+Ora la ricerca dell'elenco lo dice. Quando non lascia nessuna riga, si guarda
+anche fra gli invitati ai soli incontri (`invitatiFuoriElenco`, che cerca in
+ragione sociale, nominativo, indirizzo, ruolo e telefono) e, se il nome e' li',
+sotto la tabella compare un riquadro: quale impresa, con quali referenti e a
+quale indirizzo le e' arrivato l'invito, perche' non sta in elenco, e un
+pulsante che apre la finestra degli inviti **gia' filtrata su quel nome**
+(terzo parametro di `modaleInvitoB2B`) - arrivarci e dover rifare la ricerca a
+mano vanificherebbe il pulsante. Se quell'impresa deve venire anche in sala,
+da li' la si riporta in presenza.
+
+Il riquadro lo monta `attrezzaTabella` (`opts.seVuoto`, generico: riceve il
+testo cercato e restituisce l'HTML da mettere sotto la tabella, o niente) e si
+legge **solo** quando la ricerca non ha lasciato righe: un avviso accanto a una
+tabella piena direbbe una cosa falsa. Le prove stanno in
+`prove/cerca-fuori-elenco.prove.js`, e verificano anche il montaggio - le
+funzioni possono essere giuste e non servire a nessuno, se nessuno le chiama.
 
 ### Il giustificato e la sillabazione
 
@@ -2258,6 +2363,129 @@ Le prove stanno in `prove/riepilogo-b2b.prove.js`: ritagliano le funzioni dal
 sorgente vero di `app.js` e le fanno girare con un DOM finto, quindi collaudano
 la schermata che si apre davvero.
 
+**Si stampa anche un tavolo solo.** Il foglio intero e' di chi organizza la
+giornata; chi TIENE un tavolo ha bisogno del suo, e dargli dodici pagine per
+leggerne una vuol dire che al desk arriva con le pagine di tutti gli altri in
+mano. Ogni blocco del riepilogo ha quindi il suo pulsante "Stampa", accanto ai
+conti del tavolo - e' li' che si guarda quando si decide che cosa stampare - e
+`stampaRiepilogoB2B(ev, soloArea)` compone il foglio di quel tavolo. Quello in
+fondo alla finestra stampa ancora tutto: la stampa del singolo si aggiunge, non
+sostituisce.
+
+Il foglio di un tavolo non e' il foglio intero ritagliato. Porta quello che
+riguarda quel tavolo e lascia fuori il resto, perche' deve stare aperto davanti
+a chi riceve:
+
+- il titolo e' il NOME DEL TAVOLO, anche nel nome del file che si salva: e' il
+  foglio che finisce in mano al referente, e deve riconoscerlo da lontano in
+  mezzo agli altri sul banco dell'accoglienza;
+- i conti in testa sono i suoi (incontri, coda, orari liberi), non quelli della
+  giornata: "12 aziende invitate" su un foglio che ne mostra tre e' un numero
+  che non torna con niente di quello che si ha davanti;
+- le **richieste a orari esauriti** del suo ARGOMENTO (confronto per famiglia,
+  perche' l'impresa ha chiesto l'argomento, non il tavolo su cui lo mettiamo
+  noi): chi ha bussato al merito creditizio deve comparire davanti a chi il
+  merito creditizio lo tiene;
+- i **doppioni d'orario che lo toccano**: a chi siede li' importa che l'azienda
+  delle 10:30 sia attesa anche altrove - e' l'incontro suo che rischia di
+  saltare - non che due altre imprese si pestino i piedi a tavoli che non sono
+  i suoi;
+- **non** le altre esigenze segnalate, che non appartengono a nessun tavolo.
+
+**Il foglio stampato porta tutto quello che le imprese hanno SCRITTO.** Il
+riepilogo si stampa e ci si lavora sopra il giorno prima, quindi sul foglio
+vanno anche le parole che sul foglio del desk non ci stanno:
+
+- le **altre esigenze segnalate** (le domande che a un tavolo del convegno non
+  appartengono), che c'erano gia';
+- le **richieste a orari esauriti** (`b2bPrenotazioni.richieste`): chi ha
+  trovato tutto prenotato e ha chiesto un incontro lo stesso, scrivendolo.
+  Vivono nella giornata, dove si gestiscono, e il riepilogo non le portava: una
+  richiesta che resta solo a video e' qualcuno che ha bussato e di cui, con il
+  foglio in mano, non si ricorda nessuno. Ora l'azione `riepilogo` le
+  restituisce (con `conti.richiesteAperte`), **le aperte prima** e a parita' le
+  piu' recenti, che e' l'ordine in cui si guardano. Le **gestite si stampano
+  lo stesso, marcate**: servono a non richiamare due volte la stessa persona.
+
+Le prove stanno in `prove/riepilogo-b2b.prove.js` (il foglio si compone davvero
+e si legge quello che ne esce) e in `prove/azienda-b2b.prove.js` (la risposta
+del servizio, con l'ordine e il conto).
+
+**Quando lo staff sposta un incontro, resta scritto che cosa l'impresa aveva
+chiesto.** Spostare una prenotazione su un altro ARGOMENTO non e' spostare un
+orario: cambia di che cosa quell'azienda verra' a parlare. Chi legge il
+riepilogo il giorno prima non aveva modo di saperlo, e al desk si presentava
+un'impresa convinta di parlare d'altro. Ora `b2b-sposta` scrive sulla
+prenotazione il tavolo di partenza (`chiesta`), che da li' in avanti viaggia
+con lei: a video e' il bollino ambra "aveva chiesto X" accanto al nome
+dell'azienda, sul foglio stampato una colonna sua, "Aveva chiesto", fra la
+scelta e chi partecipa - li' e' il dato con cui si decide se telefonare.
+
+Tre regole, e tutte e tre hanno un motivo:
+
+- **per argomento, non per tavolo.** Spostare sul gemello dello stesso tema non
+  sostituisce niente: per l'impresa quei due tavoli sono lo stesso tavolo
+  (`capofilaDi`), e segnalarlo riempirebbe il riepilogo di avvisi che non
+  dicono nulla;
+- **resta la PRIMA.** Tre spostamenti di fila non cancellano quello che
+  l'impresa aveva indicato all'inizio, che e' il dato che serve;
+- **si azzera da se'** se l'incontro torna sull'argomento chiesto, e non si
+  scrive affatto quando l'azienda ricompone le sue scelte dal modulo: li' la
+  preferenza e' di nuovo la sua. Per questo `prendiSlot` legge `dati.chiesta`
+  con `!== undefined` e non con `||`: lo zero deve poter cancellare il valore
+  vecchio che viaggia dentro `persona`.
+
+Le prove stanno in `prove/azienda-b2b.prove.js` (lo spostamento vero, e il
+riepilogo che lo riporta) e in `prove/riepilogo-b2b.prove.js` (il bollino nelle
+due viste e la colonna sul foglio).
+
+**Il tavolo che e' cambiato sotto a chi aveva gia' prenotato.** L'identificativo
+di un tavolo non si tocca mai - e' la chiave con cui viaggia fra invito,
+prenotazione e agenda - ma il suo ARGOMENTO si', quando la giornata si
+riorganizza. Il 26 settembre `desk-revilaw-b` e' passato da secondo desk
+Revilaw a secondo tavolo del merito creditizio: le prenotazioni prese prima
+sono rimaste attaccate a quell'identificativo e oggi risultano a un tavolo di
+merito creditizio. Quelle imprese avevano chiesto dell'altro, e la marcatura
+dello spostamento non le copre - non sono state spostate, e' stato il tavolo a
+cambiare sotto di loro.
+
+Il riepilogo le segnala con lo stesso bollino ("aveva prenotato il Desk
+Revilaw") e nella stessa colonna del foglio: per chi legge il giorno prima e' la
+stessa informazione - quell'azienda si aspetta un altro argomento - e due
+colonne direbbero che sono due cose. Si riconoscono dalla data della
+prenotazione (`TAVOLI_CONVERTITI` in `area-riservata/app.js`, una riga per
+tavolo convertito): `quando` si riscrive a ogni tocco, quindi una riga gia'
+rivista dopo la conversione non si segnala, ed e' giusto - qualcuno l'ha gia'
+guardata. Senza data non si marca nulla, e il bollino dello spostamento ha la
+precedenza, perche' e' la ragione piu' recente.
+
+**Due incontri alla stessa ora, in cima al riepilogo.** Il servizio impedisce
+che un'azienda finisca due volte allo **stesso tavolo** (`occupatoDaLei` in
+`lib/agenda-b2b.js`), ma non che finisca a **due tavoli diversi alla stessa
+ora**: la prima preferenza se la prende lei, la seconda e la terza gliele
+assegniamo noi, e chi assegna guarda il tavolo, non l'agenda dell'impresa. Il
+giorno del convegno quell'incontro salta, e a saltarlo e' quello che nessuno ha
+guardato. I doppioni si contano ora nella schermata (`conflittiOrarioB2B` in
+`app.js`) e stanno **in cima**, prima della legenda, sia a video sia sul foglio
+stampato: non sono un dato da consultare, sono una cosa da sistemare prima del
+convegno. Sul foglio portano anche i **contatti**, perche' li' non si sposta
+niente e l'unica cosa da fare e' telefonare.
+
+I casi sono due e sono diversi: la **stessa persona** attesa in due posti e'
+impossibile, e si legge rossa e per prima; la stessa azienda con **due persone
+diverse** si puo' fare, ed e' anzi il modo di sfruttare la giornata, ma solo se
+quell'impresa viene davvero in due - lo sa chi l'ha invitata, quindi si segnala
+senza allarmare. Un incontro **senza nominativo** conta come il caso grave:
+non si puo' escludere che sia la stessa persona, e meglio un avviso in piu' che
+qualcuno atteso in due stanze. Il confronto fra i nomi ignora spazi doppi,
+maiuscole e accenti (`chiaveNominativo`), altrimenti "Andrea  Missori" e
+"andrea missori" sarebbero due persone.
+
+Il conto si fa nella schermata e non nel servizio per due motivi: i dati ci sono
+gia' tutti (il riepilogo porta ogni tavolo con i suoi orari occupati), e cosi'
+si vede appena si ricarica la pagina, senza aspettare che il servizio riparta.
+
+
 ### Conferma della prenotazione, con il foglio per il desk
 
 Appena l'ospite salva la scelta, `b2b-salva` gli manda una mail di conferma
@@ -2684,15 +2912,65 @@ per serata (`{cena}~{email}`).
   non risponde la conferma resta comunque registrata e si vede nell'area
   riservata.
 - **Dall'area riservata** le richieste arrivano a `/api/presenze` con
-  `sezione: 'cene'` (stessa deviazione dell'agenda B2B e del programma):
-  `elenco` restituisce tutte e due le serate con i conti gia' fatti (risposte,
-  presenti, assenti, ospiti, posti) e lo legge chiunque veda gli Eventi;
-  `cancella` toglie una risposta ed e' del solo **amministratore** - serve per
-  chi ha compilato con un indirizzo sbagliato, perche' quella scheda non si
-  aggiornera' piu' da sola e resterebbe a contare posti che nessuno occupera'.
+  `sezione: 'cene'` (stessa deviazione dell'agenda B2B e del programma). Cinque
+  azioni:
+  - `elenco` — tutte e due le serate con i conti gia' fatti (risposte,
+    presenti, assenti, ospiti, posti). Lo legge chiunque veda gli Eventi.
+  - `aggiungi` — registra una persona a mano, per chi ha risposto a voce, in
+    chat o al telefono e non compilera' mai il modulo. Se per quell'indirizzo
+    una scheda c'e' gia', la AGGIORNA invece di crearne una seconda: due righe
+    per la stessa persona sono due coperti prenotati e uno solo che si presenta.
+  - `modifica` — corregge una scheda: presenza, ospiti, note, recapiti. Cambiare
+    l'email SPOSTA la scheda (l'identificativo nasce da li'); se all'indirizzo
+    nuovo una risposta esiste gia' ci si ferma con un `409`, perche' unirle
+    vorrebbe dire scegliere quale buttare.
+  - `togli-ospite` — toglie UN ospite, non tutta la scheda: quello con un nome
+    per posizione (`indice`), il posto dichiarato e mai intestato scalando il
+    numero. Il coperto torna libero subito.
+  - `cancella` — toglie la risposta intera.
+
+  Chi puo' fare cosa: leggono tutti quelli abilitati agli Eventi; aggiungono,
+  correggono e tolgono un ospite gli stessi che possono aggiungere
+  un'iscrizione (**amministratore, equity e founding partner**, la regola di
+  `ePartner()`); `cancella` resta del solo **amministratore**.
+
+  **Il termine del 27 settembre non vale per queste azioni**: si chiude il
+  modulo pubblico, non il lavoro di chi organizza, e le ultime conferme
+  arrivano sempre nella settimana della cena. Il tetto degli ospiti della
+  pagina (tre) qui sale a dieci: chi ricopia quello che una persona ha detto al
+  telefono non deve trovarsi "siamo in cinque" tagliato a tre.
+
+  **Niente mail automatiche**: qui si registra quello che uno ha gia' detto, e
+  una conferma non richiesta sembrerebbe un errore. Con `mandaMail: true` -
+  la spunta nel modulo, spenta di suo - il riepilogo parte lo stesso.
+
+  Ogni scheda dice da dove viene: `aMano` e `inseritaDa` per chi e' stato
+  scritto da qualcuno, `modificataDa` per chi e' stato corretto, e la `storia`
+  tiene le ultime cinque versioni con il nome di chi ha cambiato. Se un numero
+  non torna, si sa a chi chiedere.
+
   Il riquadro "Le cene" nel cruscotto dell'evento mostra presenti e posti per
-  serata; la finestra apre gli elenchi, il collegamento da mandare agli
-  invitati e l'esportazione in CSV.
+  serata. Dentro la finestra le due serate stanno in cima come due tessere con
+  i loro numeri - posti, presenti, ospiti, chi non viene - e si premono per
+  passare dall'una all'altra: i conti di tutte e due restano sempre a vista,
+  gli elenchi si leggono uno alla volta. Di ogni serata ci sono il collegamento
+  da mandare agli invitati, "Aggiungi persona", "Stampa l'elenco", la barra con
+  ricerca ed esportazione in CSV, "Modifica" su ogni riga e la crocetta accanto
+  a ogni ospite. I presenti sono in ordine di cognome (l'elenco si legge
+  cercando una persona); chi ha risposto che non viene sta raccolto in fondo,
+  perche' non occupa posti e non si stampa.
+
+- **Il foglio da stampare** (solo area riservata, nessuna chiamata al servizio):
+  la sera della cena non c'e' un'area riservata da aprire, c'e' un foglio in
+  mano a chi accoglie e uno che si porta in cucina. Percio' il foglio dice, in
+  quest'ordine: i COPERTI in grande (il numero comunicato al ristorante), CHI
+  ARRIVA in ordine di cognome con i suoi ospiti sotto il nome e una casella
+  vuota da spuntare all'arrivo, le NOTE, INTOLLERANZE E ALLERGIE raccolte tutte
+  insieme con il nome accanto - cercarle riga per riga dentro l'elenco, in
+  cucina, non le guarda nessuno - e in fondo, breve, chi ha risposto che non
+  viene. Usa `apriStampa()` e il foglio di stile condiviso delle stampe degli
+  eventi (`STAMPA_EVENTI_CSS`), con l'intestazione ripetuta a ogni pagina e le
+  righe che non si spezzano a meta'.
 - **Le prove**: `node prove/cene-evento.prove.js` (Firestore e posta finti,
   niente da installare).
 

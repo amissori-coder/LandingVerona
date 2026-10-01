@@ -67,7 +67,16 @@ const pezzi = [
     ritaglia('function tavoliVietatiPer(', '{', '}'),
     ritaglia('function vietatiSenzaQuesto(', '{', '}'),
     ritaglia('function tendinaDove(', '{', '}'),
-    ritaglia('function disegnaRiepilogoB2B(', '{', '}')
+    /* I doppioni d'orario: il riepilogo li disegna in cima e il foglio
+       stampato li porta in capitolo. */
+    ritaglia('function chiaveNominativo(', '{', '}'),
+    ritaglia('function conflittiOrarioB2B(', '{', '}'),
+    ritaglia('function disegnaRiepilogoB2B(', '{', '}'),
+    ritaglia('function nomeAreaB2B(', '{', '}'),
+    /* I tavoli che hanno cambiato argomento sotto chi aveva gia' prenotato. */
+    ritaglia('const TAVOLI_CONVERTITI = [', '[', ']') + ';',
+    ritaglia('function convertitoDopo(', '{', '}'),
+    ritaglia('function stampaRiepilogoB2B(', '{', '}')
 ].join('\n');
 
 /* Il DOM finto: la funzione scrive in #rb-corpo e poi chiama chi collega i
@@ -89,11 +98,17 @@ const Auth = { eAdmin: () => true };
 const window = { RV_NEWSLETTER: require(path.join(__dirname, '..', '..', 'area-riservata', 'newsletter-format.js')) };
 const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'collegaRiepilogoB2B', 'Auth', 'window',
     'let _rb = null, _rbAperto = "", _rbVista = "tavoli", _rbAzienda = "";\n'
+    + 'let apriStampa = () => {}; const toast = () => {}; const STAMPA_EVENTI_CSS = "";\n'
     + pezzi
     + '\nreturn {'
     + '  disegna: (rb, vista, az, aperto) => { _rb = rb; _rbVista = vista || "tavoli"; _rbAzienda = az || ""; _rbAperto = aperto || ""; '
     + '    disegnaRiepilogoB2B({ id: "napoli-2026-10-02" }); return document.getElementById("rb-corpo").innerHTML; },'
-    + '  sceltaB2B: sceltaB2B, SCELTE_B2B: SCELTE_B2B'
+    + '  sceltaB2B: sceltaB2B, SCELTE_B2B: SCELTE_B2B,'
+    + '  conflitti: conflittiOrarioB2B,'
+    /* La STAMPA: si compone il foglio e si restituisce, invece di aprire una
+       finestra che qui non c'e'. */
+    + '  stampa: (rb, soloArea) => { _rb = rb; let uscita = ""; apriStampa = h => { uscita = h; };'
+    + '    stampaRiepilogoB2B({ id: "napoli-2026-10-02", titolo: "Napoli", quando: "2 ottobre 2026" }, soloArea); return uscita; }'
     + '};'
 )(esc, documentoFinto, () => true, () => { }, Auth, window);
 
@@ -117,7 +132,7 @@ const chi = (azienda, aziendaId, scelta, perChi, extra) => Object.assign({
 }, extra || {});
 const RB = {
     ok: true,
-    conti: { aziende: 2, occupati: 4, codaDaAssegnare: 2, esigenzeAperte: 1, senzaIncontro: 0, liberi: 5 },
+    conti: { aziende: 2, occupati: 4, codaDaAssegnare: 2, esigenzeAperte: 1, senzaIncontro: 0, liberi: 5, richiesteAperte: 1 },
     desk: [
         {
             id: 'merito-creditizio', nome: 'Merito creditizio', attiva: true, interno: false, nota: '',
@@ -142,6 +157,15 @@ const RB = {
     esigenze: [
         { id: 'e1', aziendaId: 'alfa', aziendaNome: 'Alfa Srl', perChi: 'Anna Neri', testo: 'Come si apre una posizione a Bagnoli?', stato: 'aperta' },
         { id: 'e2', aziendaId: 'beta', aziendaNome: 'Beta Srl', perChi: '', testo: 'Ci serve un contatto per il rating.', stato: 'gestita' }
+    ],
+    /* Chi ha trovato tutto prenotato e ha chiesto un incontro lo stesso: sono
+       parole scritte da qualcuno, e il foglio del riepilogo deve portarle. */
+    richieste: [
+        { doc: 'd1', nome: 'Rita Gialli', azienda: 'Gamma Srl', aziendaNome: 'Gamma Srl', email: 'rita@gamma.it',
+          telefono: '349', area: 'merito-creditizio', nota: 'Siamo in trattativa con due banche: ci servirebbe mezz ora.',
+          quando: 20, stato: 'aperta' },
+        { doc: 'd2', nome: 'Nino Blu', azienda: 'Delta Srl', aziendaNome: 'Delta Srl', email: 'nino@delta.it',
+          telefono: '', area: '', nota: 'Va bene anche dopo i lavori.', quando: 30, stato: 'gestita' }
     ],
     aziende: [
         { id: 'beta', nome: 'Beta Srl', piva: '07307010632', referenti: [{ nome: 'Gino Verdi', email: 'gino@beta.it', telefono: '333' }], incontri: 2, coda: 1, esigenze: 1, link: 'https://ngb.it/b2b?a=beta' },
@@ -266,6 +290,334 @@ prova('Un azienda senza niente lo dice, invece di mostrare tre blocchi vuoti', (
     esigi(h.indexOf('Nessun incontro fissato per questa azienda.') >= 0, 'lo dice per gli incontri');
     esigi(h.indexOf('Nessuna preferenza in attesa.') >= 0, 'e per le preferenze');
     esigi(h.indexOf('Nessuna domanda da questa azienda.') >= 0, 'e per le domande');
+});
+
+prova('Il foglio stampato porta tutto quello che le imprese hanno scritto', () => {
+    /* Il riepilogo si stampa e ci si lavora sopra il giorno prima. Le altre
+       esigenze c'erano gia'; le RICHIESTE A ORARI ESAURITI no, e sono persone
+       che hanno bussato: hanno trovato tutto prenotato e hanno scritto lo
+       stesso. Se restano solo a video, con il foglio in mano non se ne ricorda
+       nessuno. */
+    const foglio = AMBIENTE.stampa(RB);
+    esigi(foglio.indexOf('Richieste a orari esauriti') > 0, 'il capitolo c e', foglio.slice(0, 80));
+    esigi(foglio.indexOf('Siamo in trattativa con due banche') > 0,
+        'e dentro c e per intero quello che l impresa ha scritto');
+    esigi(foglio.indexOf('Gamma Srl') > 0 && foglio.indexOf('rita@gamma.it') > 0 && foglio.indexOf('349') > 0,
+        'con l azienda e i contatti per richiamarla');
+    esigi(foglio.indexOf('Merito creditizio') > 0, 'e il tavolo che aveva chiesto');
+    /* Le GESTITE si stampano lo stesso, marcate: servono a non richiamare due
+       volte la stessa persona. */
+    esigi(foglio.indexOf('Va bene anche dopo i lavori') > 0 && /gestita/.test(foglio),
+        'anche quelle gia gestite, marcate come tali');
+    /* In testa al foglio si dice quante aspettano: e' il numero che si guarda
+       per primo. */
+    esigi(/1 richieste da guardare/.test(foglio), 'e in testa si dice quante ne aspettano una risposta');
+    /* Le altre esigenze restano dov erano: il capitolo nuovo si aggiunge, non
+       sostituisce. */
+    esigi(foglio.indexOf('Altre esigenze segnalate') > 0 && foglio.indexOf('Bagnoli') > 0,
+        'e le altre esigenze sono ancora al loro posto');
+    /* Senza richieste il capitolo non compare vuoto. */
+    const senza = AMBIENTE.stampa(Object.assign({}, RB, { richieste: [], conti: Object.assign({}, RB.conti, { richiesteAperte: 0 }) }));
+    esigi(senza.indexOf('Richieste a orari esauriti') < 0, 'e senza richieste il capitolo non compare');
+    esigi(!/richieste da guardare/.test(senza), 'ne il numero in testa');
+});
+
+/* ------------------------------------------------------------
+   DUE INCONTRI ALLA STESSA ORA
+   ------------------------------------------------------------
+   Il servizio impedisce due incontri allo STESSO tavolo, non due
+   incontri a tavoli DIVERSI alla stessa ora: la prima preferenza se
+   la prende l'azienda, la seconda e la terza gliele assegniamo noi, e
+   chi assegna guarda il tavolo, non l'agenda dell'impresa. Il giorno
+   del convegno quell'incontro salta. */
+
+/* Un riepilogo con dentro un doppione: si parte da quello buono e si
+   sposta un incontro all'ora di un altro. */
+function conDoppione(chiSecondo) {
+    const copia = JSON.parse(JSON.stringify(RB));
+    copia.desk[1].slot[0].ora = '10:00';
+    copia.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, chiSecondo);
+    return copia;
+}
+
+prova('Due incontri alla stessa ora si vedono, distinti nei due casi', () => {
+    /* La STESSA PERSONA in due posti e' impossibile; la stessa AZIENDA con
+       due persone diverse si puo' fare, ma solo se viene davvero in due. */
+    const stessa = AMBIENTE.conflitti(conDoppione('Mario Rossi'));
+    esigi(stessa.length === 1, 'la stessa persona in due posti viene trovata', JSON.stringify(stessa));
+    esigi(stessa[0] && stessa[0].stessaPersona === true, 'ed e\' segnata come il caso grave');
+    esigi(stessa[0] && stessa[0].ora === '10:00' && stessa[0].aziendaNome === 'Alfa Srl',
+        'con l\'ora e l\'azienda da chiamare');
+    esigi(stessa[0] && stessa[0].incontri.length === 2
+        && stessa[0].incontri.map(i => i.tavolo).join('|').indexOf('Merito creditizio') >= 0,
+        'e i due posti in cui e\' attesa');
+
+    const due = AMBIENTE.conflitti(conDoppione('Anna Neri'));
+    esigi(due.length === 1, 'due persone della stessa impresa si vedono lo stesso');
+    esigi(due[0] && due[0].stessaPersona === false, 'ma non sono il caso grave: puo\' darsi che vengano in due');
+});
+
+prova('Un riepilogo senza doppioni non ne inventa', () => {
+    esigi(AMBIENTE.conflitti(RB).length === 0, 'nessun avviso quando non c\'e\' niente da sistemare');
+    esigi(AMBIENTE.conflitti({}).length === 0, 'e nemmeno su un riepilogo vuoto');
+    /* Due AZIENDE DIVERSE alla stessa ora sono la normalita': i tavoli
+       ricevono in parallelo, ed e' il senso della giornata. */
+    const altra = JSON.parse(JSON.stringify(RB));
+    altra.desk[1].slot[0].ora = '10:00';
+    altra.desk[1].slot[0].chi = chi('Gamma Srl', 'gamma', 2, 'Rita Gialli');
+    esigi(AMBIENTE.conflitti(altra).length === 0, 'due imprese diverse alla stessa ora non sono un doppione');
+    /* Un orario libero non ha nessuno dentro, anche se porta ancora chi
+       c'era prima. */
+    const libero = JSON.parse(JSON.stringify(RB));
+    libero.desk[1].slot[0].ora = '10:00';
+    libero.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, 'Mario Rossi');
+    libero.desk[1].slot[0].stato = 'libero';
+    esigi(AMBIENTE.conflitti(libero).length === 0, 'e un orario libero non conta come incontro');
+});
+
+prova('Lo stesso nome scritto in due modi resta la stessa persona', () => {
+    /* "Andrea  Missori" e "andrea missori" sono la stessa persona: se il
+       confronto fosse letterale, il doppione grave passerebbe per il caso
+       leggero e nessuno telefonerebbe. */
+    const c = AMBIENTE.conflitti(conDoppione('  mario   ROSSI '));
+    esigi(c.length === 1 && c[0].stessaPersona === true, 'spazi e maiuscole non fanno due persone', JSON.stringify(c));
+    /* Un incontro senza nominativo non si puo' escludere che sia la stessa
+       persona: meglio un avviso in piu' che una persona in due stanze. */
+    const senza = AMBIENTE.conflitti(conDoppione(''));
+    esigi(senza.length === 1 && senza[0].stessaPersona === true,
+        'e un incontro senza nominativo si tratta come il caso grave');
+});
+
+prova('Il caso grave si legge per primo, a video e sul foglio', () => {
+    const misto = JSON.parse(JSON.stringify(RB));
+    /* Alfa: due persone diverse alle 10:00. Beta: la stessa persona alle
+       10:30. Il grave arriva dopo, ma deve leggersi per primo. */
+    misto.desk[1].slot[0].ora = '10:00';
+    misto.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, 'Anna Neri');
+    misto.desk[1].slot[1].ora = '10:30';
+    misto.desk[1].slot[1].chi = chi('Beta Srl', 'beta', 3, 'Gino Verdi');
+    const c = AMBIENTE.conflitti(misto);
+    esigi(c.length === 2, 'tutti e due i doppioni vengono trovati', JSON.stringify(c.map(x => x.ora)));
+    esigi(c[0] && c[0].stessaPersona === true, 'e quello grave sta in cima');
+
+    const h = AMBIENTE.disegna(misto, 'tavoli', '');
+    esigi(h.indexOf('rb-conflitti') >= 0, 'a video c\'e\' il riquadro');
+    esigi(h.indexOf('2 aziende attese in due posti alla stessa ora') >= 0,
+        'che dice quante sono', h.slice(h.indexOf('rb-conflitti-testa'), h.indexOf('rb-conflitti-testa') + 120));
+    esigi(h.indexOf('stessa persona') >= 0 && h.indexOf('due persone') >= 0, 'e distingue i due casi');
+    esigi(h.indexOf('rb-conflitto grave') >= 0, 'marcando il grave, che si vede rosso');
+    esigi(h.indexOf('rb-conflitti') < h.indexOf('rb-conti') || h.indexOf('rb-conflitti') < h.indexOf('rb-legenda'),
+        'e sta in cima, prima della legenda: non e\' un dato da consultare, e\' una cosa da sistemare');
+
+    const foglio = AMBIENTE.stampa(misto);
+    esigi(foglio.indexOf('attese in due posti alla stessa ora') > 0, 'sul foglio stampato c\'e\' il capitolo');
+    esigi(foglio.indexOf('info@alfa.it') > 0, 'con i contatti, perche\' sul foglio l\'unica cosa da fare e\' telefonare');
+    esigi(foglio.indexOf('2 da sistemare') > 0, 'e il numero in testa al foglio');
+    esigi(foglio.indexOf('attese in due posti') < foglio.indexOf('Merito creditizio'),
+        'prima dei tavoli');
+});
+
+prova('Senza doppioni non compare niente, ne a video ne sul foglio', () => {
+    const h = perTavolo();
+    esigi(h.indexOf('rb-conflitti') < 0, 'niente riquadro quando va tutto bene');
+    const foglio = AMBIENTE.stampa(RB);
+    esigi(foglio.indexOf('attese in due posti') < 0, 'e niente capitolo sul foglio');
+    esigi(foglio.indexOf('da sistemare') < 0, 'ne il numero in testa');
+});
+
+/* ------------------------------------------------------------
+   LA PREFERENZA CHE LO SPOSTAMENTO HA SOSTITUITO
+   ------------------------------------------------------------
+   Quando lo staff sposta un incontro su un altro argomento, quell'impresa
+   verra' a parlare di una cosa diversa da quella che aveva chiesto. Chi
+   legge il riepilogo il giorno prima non ha modo di saperlo: senza, al desk
+   si presenta un'azienda convinta di parlare d'altro. */
+function conSpostamento() {
+    const copia = JSON.parse(JSON.stringify(RB));
+    // Beta e' finita al merito creditizio, ma aveva chiesto la revisione
+    copia.desk[0].slot[1].chi.chiesta = 'revisione';
+    return copia;
+}
+
+prova('Una riga spostata dice che cosa l azienda aveva chiesto', () => {
+    const h = AMBIENTE.disegna(conSpostamento(), 'tavoli', '');
+    esigi(h.indexOf('rb-chiesta') >= 0, 'la riga porta la marcatura');
+    esigi(/aveva chiesto/.test(h), 'e lo dice a parole', h.slice(h.indexOf('rb-chiesta'), h.indexOf('rb-chiesta') + 90));
+    /* IL NOME DEL TAVOLO, non il suo identificativo: "revisione" e'
+       l'etichetta interna, e sul foglio del desk non vuol dire niente. */
+    esigi(/aveva chiesto Revisione/i.test(h), 'con il nome del tavolo e non il codice',
+        (h.match(/aveva chiesto[^<]*/) || [''])[0]);
+    esigi((h.match(/rb-chiesta/g) || []).length === 1, 'e la marcatura sta su quella riga sola');
+});
+
+prova('Chi non e stato spostato non porta nessuna marcatura', () => {
+    const h = perTavolo();
+    esigi(h.indexOf('rb-chiesta') < 0, 'niente marcatura quando l incontro sta dove l azienda lo aveva chiesto');
+    /* Vale anche nella vista per azienda, che usa le stesse funzioni: se
+       divergesse, lo stesso incontro racconterebbe due storie diverse a
+       seconda da dove lo si guarda. */
+    const a = AMBIENTE.disegna(conSpostamento(), 'aziende', 'beta');
+    esigi(a.indexOf('rb-chiesta') >= 0, 'e la vista per azienda la mostra come quella per tavolo');
+});
+
+prova('Il foglio stampato ha la sua colonna', () => {
+    /* L'utente l'ha chiesta come COLONNA: sul foglio del giorno prima e' il
+       dato con cui si decide se telefonare all'impresa. */
+    const foglio = AMBIENTE.stampa(conSpostamento());
+    esigi(foglio.indexOf('<th>Aveva chiesto</th>') > 0, 'la colonna c e', foglio.slice(0, 60));
+    esigi(/Aveva chiesto<\/th>\s*<th>Partecipa<\/th>/.test(foglio),
+        'e sta accanto alla scelta, prima di chi partecipa');
+    esigi(foglio.indexOf('Revisione') > 0, 'e dentro c e il tavolo che l impresa aveva chiesto');
+    /* Le righe non spostate lasciano la cella vuota: scriverci "nessuna"
+       riempirebbe di parole una colonna che per lo piu' non ha niente da
+       dire. */
+    const senza = AMBIENTE.stampa(RB);
+    esigi(senza.indexOf('<th>Aveva chiesto</th>') > 0, 'la colonna resta anche quando nessuno e stato spostato');
+    esigi(senza.indexOf('Revisione') < 0, 'ma le celle sono vuote', 'trovato "Revisione" senza spostamenti');
+});
+
+/* ------------------------------------------------------------
+   IL TAVOLO CHE E' CAMBIATO SOTTO A CHI AVEVA GIA' PRENOTATO
+   ------------------------------------------------------------
+   Il 26 settembre il secondo desk Revilaw e' diventato il secondo tavolo del
+   merito creditizio. L'identificativo non si e' toccato - e' la chiave con
+   cui il tavolo viaggia fra invito, prenotazione e agenda - quindi le
+   prenotazioni prese prima sono rimaste li' e oggi risultano a un tavolo di
+   merito creditizio. Quelle imprese avevano chiesto dell'altro, e la
+   marcatura dello SPOSTAMENTO non le copre: non sono state spostate, e' stato
+   il tavolo a cambiare sotto di loro. */
+const CONVERSIONE = Date.parse('2026-09-26T01:15:48+02:00');
+function sulTavoloConvertito(quando, chiesta) {
+    const copia = JSON.parse(JSON.stringify(RB));
+    copia.desk[1].id = 'desk-revilaw-b';
+    copia.desk[1].nome = 'Merito creditizio - secondo tavolo';
+    copia.desk[1].interno = false;
+    const chi = copia.desk[1].slot[0].chi;
+    chi.quando = quando;
+    if (chiesta) chi.chiesta = chiesta;
+    return copia;
+}
+
+prova('Chi aveva prenotato il desk Revilaw lo vede scritto', () => {
+    const h = AMBIENTE.disegna(sulTavoloConvertito(CONVERSIONE - 86400000), 'tavoli', '');
+    esigi(/aveva prenotato il Desk Revilaw/.test(h),
+        'la riga dice a che tavolo quell impresa aveva prenotato',
+        (h.match(/aveva prenotato[^<]*/) || [''])[0]);
+    esigi((h.match(/rb-chiesta/g) || []).length === 1, 'e il bollino e uno solo, sulla sua riga');
+    /* Sul foglio stampato finisce nella stessa colonna dello spostamento: per
+       chi lo legge il giorno prima e' la stessa informazione - quell azienda
+       si aspetta un altro argomento - e due colonne diverse direbbero che
+       sono due cose. */
+    const foglio = AMBIENTE.stampa(sulTavoloConvertito(CONVERSIONE - 86400000));
+    esigi(foglio.indexOf('Desk Revilaw') > 0, 'e sul foglio sta nella colonna "Aveva chiesto"');
+});
+
+prova('Chi ha prenotato dopo la conversione non viene marcato', () => {
+    const h = AMBIENTE.disegna(sulTavoloConvertito(CONVERSIONE + 86400000), 'tavoli', '');
+    esigi(h.indexOf('rb-chiesta') < 0,
+        'chi ha prenotato quando il tavolo era gia il secondo del merito creditizio ha scelto quello');
+    /* `quando` si riscrive a ogni tocco: una riga gia' rivista dopo la
+       conversione non si segnala, perche' qualcuno l ha gia' guardata. */
+    const senzaData = AMBIENTE.disegna(sulTavoloConvertito(0), 'tavoli', '');
+    esigi(senzaData.indexOf('rb-chiesta') < 0, 'e senza data non si marca a caso');
+});
+
+prova('Gli altri tavoli non c entrano, e i due avvisi non si sommano', () => {
+    /* La conversione riguarda un tavolo solo: marcare le righe degli altri
+       perche' sono vecchie direbbe una cosa falsa su tutta la giornata. */
+    const altrove = JSON.parse(JSON.stringify(RB));
+    altrove.desk[0].slot[0].chi.quando = CONVERSIONE - 86400000;
+    esigi(AMBIENTE.disegna(altrove, 'tavoli', '').indexOf('rb-chiesta') < 0,
+        'una prenotazione vecchia su un tavolo mai convertito non si segnala');
+    /* Una riga SPOSTATA su quel tavolo porta gia' la sua spiegazione: due
+       bollini direbbero due volte la stessa cosa con due parole diverse. */
+    const due = AMBIENTE.disegna(sulTavoloConvertito(CONVERSIONE - 86400000, 'revisione'), 'tavoli', '');
+    esigi((due.match(/rb-chiesta/g) || []).length === 1, 'e su una riga spostata il bollino resta uno');
+    esigi(/aveva chiesto Revisione/i.test(due), 'e dice lo spostamento, che e la ragione piu recente',
+        (due.match(/aveva [^<]*/) || [''])[0]);
+});
+
+/* ------------------------------------------------------------
+   LA STAMPA DI UN TAVOLO SOLO
+   ------------------------------------------------------------
+   Il foglio intero e' di chi organizza la giornata. Chi TIENE un tavolo ha
+   bisogno del suo: dargli dodici pagine per leggerne una vuol dire che al
+   desk arriva con le pagine di tutti gli altri in mano. */
+
+prova('Il foglio di un tavolo porta quel tavolo e nessun altro', () => {
+    const foglio = AMBIENTE.stampa(RB, 'merito-creditizio');
+    esigi(foglio.indexOf('Merito creditizio') > 0, 'il tavolo chiesto c e');
+    esigi(foglio.indexOf('Desk Revilaw') < 0, 'e gli altri tavoli non ci sono', 'trovato "Desk Revilaw"');
+    /* I suoi incontri per intero: il foglio serve a chi riceve, e un nome che
+       manca e' una persona che si presenta e non risulta. */
+    esigi(foglio.indexOf('Mario Rossi') > 0 && foglio.indexOf('Alfa Srl') > 0, 'con i suoi incontri');
+    esigi(foglio.indexOf('Anna Neri') < 0, 'e senza quelli degli altri tavoli', 'trovato "Anna Neri"');
+});
+
+prova('Il titolo e la testata sono quelli del tavolo', () => {
+    /* E' il foglio che finisce in mano a chi lo tiene, e deve riconoscerlo da
+       lontano in mezzo agli altri sul banco dell accoglienza. */
+    const foglio = AMBIENTE.stampa(RB, 'merito-creditizio');
+    esigi(/<h1>Incontri B2B: Merito creditizio<\/h1>/.test(foglio),
+        'il titolo e il nome del tavolo', (foglio.match(/<h1>[^<]*<\/h1>/) || [''])[0]);
+    esigi(/<title>Incontri B2B - Merito creditizio/.test(foglio),
+        'e anche il nome del file che si salva', (foglio.match(/<title>[^<]*<\/title>/) || [''])[0]);
+    /* I conti in testa sono i SUOI: "12 aziende invitate" su un foglio che ne
+       mostra due sarebbe un numero che non torna con niente di quello che si
+       ha davanti. */
+    esigi(foglio.indexOf('aziende &middot;') < 0 && foglio.indexOf('aziende ·') < 0,
+        'e i conti non sono quelli della giornata intera');
+    esigi(/2 incontri/.test(foglio), 'ma quelli del tavolo', (foglio.match(/class="meta">[^<]*/) || [''])[0]);
+});
+
+prova('Sul foglio di un tavolo resta quello che riguarda lui', () => {
+    const foglio = AMBIENTE.stampa(RB, 'merito-creditizio');
+    /* LE RICHIESTE del suo argomento: chi ha bussato al merito creditizio
+       deve comparire davanti a chi il merito creditizio lo tiene. */
+    esigi(foglio.indexOf('Gamma Srl') > 0, 'le richieste arrivate per il suo argomento ci sono');
+    esigi(foglio.indexOf('Delta Srl') < 0, 'e quelle senza tavolo, o di altri argomenti, no', 'trovato "Delta Srl"');
+    /* LE ALTRE ESIGENZE non appartengono a nessun tavolo: sono domande che a
+       un tavolo del convegno non si rispondono, e riempirebbero una pagina
+       che deve stare davanti a chi riceve. */
+    esigi(foglio.indexOf('Altre esigenze segnalate') < 0,
+        'le altre esigenze restano sul foglio intero', 'trovato il capitolo delle esigenze');
+    // sul foglio INTERO invece ci sono tutte: il capitolo non si perde
+    const tutto = AMBIENTE.stampa(RB);
+    esigi(tutto.indexOf('Altre esigenze segnalate') > 0 && tutto.indexOf('Delta Srl') > 0,
+        'mentre il foglio intero le porta tutte');
+});
+
+prova('I doppioni d orario restano solo dove toccano quel tavolo', () => {
+    /* A chi siede li' importa che l azienda delle 10:00 sia attesa anche
+       altrove - e' l incontro suo che rischia di saltare - non che due altre
+       imprese si pestino i piedi a tavoli che non sono i suoi. */
+    const misto = JSON.parse(JSON.stringify(RB));
+    misto.desk[1].slot[0].ora = '10:00';
+    misto.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, 'Mario Rossi');
+    const suo = AMBIENTE.stampa(misto, 'merito-creditizio');
+    esigi(suo.indexOf('attese in due posti') > 0, 'il doppione che lo tocca c e');
+    esigi(/1 da sistemare/.test(suo), 'e il conto in testa lo dice', (suo.match(/class="meta">[^<]*/) || [''])[0]);
+    /* Un doppione fra due ALTRI tavoli non riguarda questo foglio. */
+    const altrove = JSON.parse(JSON.stringify(RB));
+    altrove.desk.push(JSON.parse(JSON.stringify(altrove.desk[1])));
+    altrove.desk[2].id = 'esg'; altrove.desk[2].nome = 'ESG';
+    altrove.desk[2].slot[0].ora = '12:00';
+    altrove.desk[2].slot[0].chi = chi('Alfa Srl', 'alfa', 3, 'Anna Neri');
+    const fuori = AMBIENTE.stampa(altrove, 'merito-creditizio');
+    esigi(fuori.indexOf('attese in due posti') < 0,
+        'mentre un doppione fra altri due tavoli non compare', 'trovato il capitolo dei doppioni');
+});
+
+prova('Il pulsante per stampare un tavolo c e, su ogni tavolo', () => {
+    const h = perTavolo();
+    esigi((h.match(/rb-stampa-uno/g) || []).length === 2, 'ogni tavolo ha il suo',
+        String((h.match(/rb-stampa-uno/g) || []).length));
+    esigi(/data-area="merito-creditizio"[^>]*>Stampa</.test(h.replace(/\n/g, ' ')) || /rb-stampa-uno" data-area="merito-creditizio"/.test(h),
+        'e porta con se quale tavolo stampare');
+    /* Il foglio intero resta: la stampa del singolo si AGGIUNGE, non
+       sostituisce. */
+    esigi(APP.indexOf("stampaRiepilogoB2B(ev, b.dataset.area)") > 0, 'il pulsante stampa quel tavolo');
+    esigi(APP.indexOf("stampaRiepilogoB2B(ev))") > 0, 'e quello in fondo stampa ancora tutto');
 });
 
 console.log('\nIl riepilogo degli incontri B2B\n');
