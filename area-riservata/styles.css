@@ -971,6 +971,11 @@ table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 
    merita una risposta invece di una tabella vuota: nell'elenco degli iscritti
    dice che quel nome c'e', ma fra gli invitati ai soli incontri B2B. Blu e non
    ambra: non e' un errore, e' una spiegazione. */
+/* Il conto in testa alla scheda degli incontri B2B: e' la risposta breve alla
+   domanda con cui la si apre - quanti, fra quelli che vengono ai tavoli, non si
+   siedono in sala - e si legge prima della spiegazione. */
+.sb-conto { font-size: 1rem; color: var(--blu-900); margin-bottom: 6px; }
+.sb-conto b { color: var(--rosso); }
 .tabella-niente { margin: 10px 0 4px; border: 1px solid var(--blu-100); border-left: 4px solid var(--blu-700); border-radius: var(--raggio-sm); background: var(--blu-050); padding: 12px 14px; }
 .tabella-niente .tn-testa { font-weight: bold; color: var(--blu-900); }
 .tabella-niente .tn-riga { padding: 5px 0 0; }
