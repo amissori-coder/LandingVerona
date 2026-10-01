@@ -17396,7 +17396,7 @@
                risponde alla domanda "questa azienda dov'e' finita?". Compare
                dove esistono, cioe' negli eventi con gli inviti B2B. */
             + ((!ev.tutti && ev.manuale)
-                ? '<button class="btn btn-sm btn-ghost" id="ev-solo-b2b">Solo incontri B2B</button>' : '');
+                ? '<button class="btn btn-sm btn-ghost" id="ev-solo-b2b">Incontri B2B</button>' : '');
         /* I DUE NUMERI DI CHI IN ELENCO NON C'E'. Si leggono senza aprire
            niente: un pulsante da solo non dice se vale la pena premerlo, e
            "nessun cancellato" e' gia' una risposta. Compaiono solo quando c'e'
@@ -17499,7 +17499,7 @@
         const bCan = document.getElementById('ev-cancellati');
         if (bCan) bCan.addEventListener('click', () => modaleCancellati(ev));
         const bSb2b = document.getElementById('ev-solo-b2b');
-        if (bSb2b) bSb2b.addEventListener('click', () => modaleSoloB2B(ev));
+        if (bSb2b) bSb2b.addEventListener('click', () => modaleIncontriB2B(ev));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
         const bPre = document.getElementById('ev-conf-pregresso');
@@ -18029,32 +18029,129 @@
             ]
         });
     }
-    function modaleSoloB2B(ev) {
+    /* GLI ESITI DELLE MAIL D'INVITO, per indirizzo. Si leggono a richiesta e
+       non all'apertura: la lettura va a Brevo, la cui quota e' di 300
+       chiamate l'ora per tutto il servizio, e una scheda che la chiede da
+       sola ogni volta che si apre la brucerebbe in un pomeriggio.
+       Restano in memoria per evento: riaprendo la scheda si rivedono senza
+       una seconda lettura. */
+    let _evEsitiB2B = {};
+    /* Che cosa dire di un indirizzo. L'assenza della riga NON e' "non ha
+       aperto": e' "non lo sappiamo", ed e' un'altra cosa - Brevo guarda
+       indietro novanta giorni e non garantisce di avere tutto. Le due frasi
+       restano diverse, perche' su di esse si decide se richiamare. */
+    function esitoMailB2B(esiti, email) {
+        const e = esiti && esiti[String(email || '').trim().toLowerCase()];
+        if (!e) return { classe: 'neutro', testo: 'non risulta', nota: 'Brevo non riporta niente per questo indirizzo' };
+        if (e.rimbalzo) return { classe: 'rosso', testo: 'NON arrivata', nota: e.motivo || 'respinta dal server del destinatario' };
+        if (e.spam) return { classe: 'rosso', testo: 'segnata spam', nota: 'il destinatario l\'ha segnalata' };
+        if (e.clic) return { classe: 'verde', testo: 'ha aperto il link', nota: 'ha premuto il pulsante della mail' };
+        if (e.aperta) return { classe: 'verde', testo: 'aperta', nota: '' };
+        if (e.consegnata) return { classe: 'ambra', testo: 'consegnata', nota: 'arrivata, ma non risulta aperta' };
+        return { classe: 'neutro', testo: 'non risulta', nota: '' };
+    }
+    /* CHI PARTECIPA AGLI INCONTRI B2B, tutti quanti.
+       Prima questa scheda portava i soli invitati che in sala non si
+       siedono, e la distinzione "in sala / non in sala" aveva righe da una
+       parte sola: dentro c'erano per definizione solo i secondi, e chi la
+       apriva per sapere chi non viene al convegno non aveva niente da
+       confrontare.
+       Ora porta TUTTI quelli che hanno a che fare con i tavoli - invitate e
+       prenotate - e dice per ciascuno se in sala ci va. E' la domanda da cui
+       nasce: un'impresa che viene per il solo incontro e non si siede al
+       convegno e' una che si puo' ancora invitare, e senza l'elenco davanti
+       non la trova nessuno. */
+    function modaleIncontriB2B(ev) {
         if (!puoVedereEventi()) return;
-        const righe = (_evIscrizioni || []).filter(r => fuoriElenco(modalitaDi(ev, r)));
+        const righe = (_evIscrizioni || []).filter(r => {
+            if (invitoB2BDi(r, ev.id)) return true;
+            // prenotato senza invito non dovrebbe succedere, ma se succede e'
+            // proprio la riga che chi guarda deve vedere
+            return !!String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim();
+        });
         const voci = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean).map(esc).join(' &middot; ');
+        const fuori = righe.filter(r => !inSala(modalitaDi(ev, r)));
+        const esiti = _evEsitiB2B[ev.id] || null;
+        /* Il conto in testa e' la risposta breve alla domanda: quanti di
+           quelli che vengono ai tavoli non si siedono in sala. */
+        const conto = righe.length
+            ? '<div class="sb-conto">' + righe.length + (righe.length === 1 ? ' referente' : ' referenti')
+                + ' agli incontri &middot; <b>' + fuori.length + '</b> '
+                + (fuori.length === 1 ? 'non iscritto in presenza' : 'non iscritti in presenza') + '</div>'
+            : '';
+        const statoEsiti = !esiti
+            ? '<span class="hint">Gli esiti delle mail non sono ancora stati letti.</span>'
+            : (esiti.stato === 'vecchio'
+                ? '<span class="hint">Esiti dell\'ultima lettura riuscita' + (esiti.aggiornato
+                    ? ' (' + esc(new Date(esiti.aggiornato).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) + ')'
+                    : '') + ': Brevo non ha risposto adesso.</span>'
+                : '<span class="hint">Esiti letti' + (esiti.aggiornato
+                    ? ' alle ' + esc(new Date(esiti.aggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }))
+                    : '') + '.</span>');
         schedaElenco({
-            titolo: 'Invitati ai soli incontri B2B - ' + ev.titolo,
-            spiega: 'Vengono al desk per il loro appuntamento e <b>in sala non si siedono</b>: non occupano un posto '
-                + 'e non entrano nel totale, per questo l\'elenco degli iscritti non li porta. '
-                + 'Se uno di loro deve venire anche al convegno, si apre la sua riga dagli <b>invii alle aziende</b> '
-                + 'e si riporta in presenza.',
-            vuoto: 'Nessun invitato ai soli incontri B2B per questo evento.',
-            nomeFile: 'solo-incontri-b2b-' + ev.id,
+            titolo: 'Incontri B2B: chi partecipa - ' + ev.titolo,
+            spiega: conto
+                + 'Tutte le persone invitate ai tavoli o che hanno già prenotato. '
+                + 'La colonna <b>In sala</b> dice chi viene anche al convegno: chi è segnato '
+                + '<b>no, solo B2B</b> viene al desk per il suo appuntamento e in sala non si siede, '
+                + 'quindi non occupa un posto, non entra nel totale e l\'elenco degli iscritti non lo porta. '
+                + 'Per portarne uno anche in sala si apre la sua riga dagli <b>invii alle aziende</b> e si riporta in presenza.'
+                + '<br>' + statoEsiti
+                + ' <button type="button" class="btn btn-sm btn-secondary" id="sb-verifica">'
+                + (esiti ? 'Rileggi gli esiti' : 'Verifica le mail') + '</button>',
+            vuoto: 'Nessun invitato agli incontri B2B per questo evento.',
+            nomeFile: 'incontri-b2b-' + ev.id,
             righe: righe,
             colonne: [
                 { et: 'Azienda', val: r => aziendaVista(r.azienda) },
                 { et: 'Referente', val: r => nomePersonaVisto(r) },
-                { et: 'Ruolo', val: r => r.ruolo },
                 { et: 'Email', val: r => r.email },
-                { et: 'Telefono', val: r => r.telefono },
-                /* Che cosa ha gia' prenotato: e' la colonna per cui questa
-                   scheda si apre. Chi la guarda vuole sapere se quell'impresa
-                   ha un tavolo o se l'invito e' rimasto senza risposta. */
+                /* LA COLONNA PER CUI LA SCHEDA SI APRE. Sta in mezzo e non in
+                   fondo: e' quella che si legge per prima dopo il nome. */
+                { et: 'In sala', html: r => inSala(modalitaDi(ev, r))
+                    ? '<span class="badge verde">sì</span>'
+                    : '<span class="badge rosso">no, solo B2B</span>' },
+                /* L'esito della mail d'invito: una riga vuota finche' nessuno
+                   ha chiesto la lettura, invece di una colonna di "non
+                   risulta" che si leggerebbe come "non e' arrivata a nessuno". */
+                { et: 'Invito', html: r => {
+                    if (!esiti) return '<span class="hint">da verificare</span>';
+                    const e = esitoMailB2B(esiti.esiti, r.email);
+                    return '<span class="badge ' + e.classe + '">' + esc(e.testo) + '</span>'
+                        + (e.nota ? '<br><span class="hint">' + esc(e.nota) + '</span>' : '');
+                } },
                 { et: 'B2B prenotati', html: r => voci((r.extra || {})[COL_B2B_PRENOTATI])
                     || '<span class="hint">non ha prenotato</span>' },
-                { et: 'Aggiunta', html: r => quandoEChi(r.inserito) }
+                { et: 'Invitata il', html: r => {
+                    const a = invitoB2BDi(r, ev.id);
+                    return (a && a.quando)
+                        ? esc(new Date(a.quando).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }))
+                        : '<span class="hint">non invitata</span>';
+                } }
             ]
+        });
+        const b = document.getElementById('sb-verifica');
+        if (b) b.addEventListener('click', () => {
+            b.disabled = true; b.textContent = 'Leggo...';
+            Cloud.operaPresenza({ azione: 'b2b-esiti-mail', evento: ev.id }).then(r => {
+                if (!r || !r.ok) {
+                    b.disabled = false; b.textContent = 'Verifica le mail';
+                    toast((r && r.msg) || 'Lettura non riuscita.', 'rosso');
+                    return;
+                }
+                /* "nessuno" e "non-disponibile" non sono esiti: sono due modi
+                   di non saperlo, e mostrarli come una tabella di "non
+                   risulta" direbbe che le mail non sono arrivate. */
+                if (r.stato === 'nessuno' || r.stato === 'non-disponibile' || r.stato === 'errore') {
+                    b.disabled = false; b.textContent = 'Verifica le mail';
+                    toast(r.msg || 'Gli esiti non si possono leggere adesso.', 'ambra');
+                    return;
+                }
+                _evEsitiB2B[ev.id] = { stato: r.stato, aggiornato: r.aggiornato || 0, esiti: r.esiti || {} };
+                chiudiModale();
+                modaleIncontriB2B(ev);
+                if (r.stato === 'attesa') toast('Brevo non ha ancora risposto: riprova fra poco.', 'ambra');
+            });
         });
     }
     function confermaCancellaIscrizione(ev, ids, nome) {

@@ -61,8 +61,20 @@ function risposta(lista, cancellate) {
 const SCHERMO = new Function('EventiPresenze',
     ritaglia(APP, 'const SEZIONI_MODALITA = [', '[', ']') + ';\n'
     + ritaglia(APP, 'function modalitaDi(', '{', '}') + '\n'
-    + ritaglia(APP, 'function fuoriElenco(', '{', '}')
-    + '\nreturn (ev, lista) => lista.filter(r => fuoriElenco(modalitaDi(ev, r)));'
+    + ritaglia(APP, 'function inSala(', '{', '}') + '\n'
+    + ritaglia(APP, 'function fuoriElenco(', '{', '}') + '\n'
+    + ritaglia(APP, 'function invitoB2BDi(', '{', '}') + '\n'
+    + ritaglia(APP, 'function esitoMailB2B(', '{', '}')
+    + '\nreturn {'
+    + '  fuori: (ev, lista) => lista.filter(r => fuoriElenco(modalitaDi(ev, r))),'
+    /* Le due righe che decidono chi entra nella scheda degli incontri e chi
+       e' segnato "non in sala": ricopiate da modaleIncontriB2B, che e' dentro
+       una funzione troppo grande per ritagliarla da sola. */
+    + '  aiTavoli: (ev, lista) => lista.filter(r => invitoB2BDi(r, ev.id)'
+    + '      || !!String((r.extra || {})["B2B prenotati"] || "").trim()),'
+    + '  inSala: (ev, r) => inSala(modalitaDi(ev, r)),'
+    + '  esito: esitoMailB2B'
+    + '};'
 )({ di: () => ({}) });
 
 let ok = 0, ko = 0;
@@ -135,7 +147,7 @@ prova('Gli invitati ai soli incontri stanno nella scheda, non in elenco', () => 
         { id: '3', nome: 'Ida', cognome: 'Neri', azienda: 'Beta Srl', modalita: 'online' },
         { id: '4', nome: 'Ugo', cognome: 'Verdi', azienda: 'Delta Srl', modalita: 'aderenti' }
     ];
-    const fuori = SCHERMO({ id: 'napoli' }, lista);
+    const fuori = SCHERMO.fuori({ id: 'napoli' }, lista);
     esigi(fuori.length === 1, 'ce n e uno solo', fuori.map(r => r.azienda).join(' | '));
     esigi(fuori[0].azienda === 'Capri Relax Srl', 'ed e l impresa invitata ai soli tavoli');
     /* Chi segue ONLINE non ha un posto in sala e resta comunque un iscritto:
@@ -146,16 +158,102 @@ prova('Gli invitati ai soli incontri stanno nella scheda, non in elenco', () => 
 });
 
 /* ------------------------------------------------------------
+   CHI VIENE AI TAVOLI E IN SALA NON SI SIEDE
+   ------------------------------------------------------------
+   La scheda degli incontri porta TUTTI quelli che hanno a che fare con i
+   tavoli, invitati e prenotati, e dice per ciascuno se in sala ci va. Prima
+   portava i soli non-in-sala, e la distinzione aveva righe da una parte
+   sola: chi la apriva per sapere chi non viene al convegno non aveva niente
+   da confrontare. */
+const AI_TAVOLI = [
+    /* invitata e iscritta in presenza: viene a tutti e due */
+    { id: '1', nome: 'Mario', cognome: 'Rossi', azienda: 'Alfa Srl', email: 'mario@alfa.it',
+      aziendaB2B: { id: 'alfa', evento: 'napoli', quando: 1758400000000 }, extra: { 'B2B prenotati': 'Merito creditizio' } },
+    /* invitata ma NON in sala: e' la riga per cui la scheda si apre */
+    { id: '2', nome: 'Giovanni', cognome: 'Albanese', azienda: 'Capri Relax Srl', email: 'info@caprirelaxboats.com',
+      modalita: 'b2b', soloB2B: true, aziendaB2B: { id: 'capri', evento: 'napoli', quando: 1758500000000 },
+      extra: { 'B2B prenotati': 'Finanza agevolata' } },
+    /* iscritta in presenza ma mai invitata ai tavoli: fuori da questa scheda */
+    { id: '3', nome: 'Ida', cognome: 'Neri', azienda: 'Beta Srl', email: 'ida@beta.it' },
+    /* invitata per un ALTRO evento: non e' di questa giornata */
+    { id: '4', nome: 'Ugo', cognome: 'Verdi', azienda: 'Delta Srl', email: 'ugo@delta.it',
+      aziendaB2B: { id: 'delta', evento: 'verona', quando: 1750000000000 } },
+    /* segue online: in sala non si siede nemmeno lei, e va detto */
+    { id: '5', nome: 'Lia', cognome: 'Blu', azienda: 'Gamma Srl', email: 'lia@gamma.it', modalita: 'online',
+      aziendaB2B: { id: 'gamma', evento: 'napoli', quando: 1758600000000 } }
+];
+const EV = { id: 'napoli' };
+
+prova('Nella scheda entra chi ha a che fare con i tavoli, e nessun altro', () => {
+    const r = SCHERMO.aiTavoli(EV, AI_TAVOLI).map(x => x.azienda);
+    esigi(r.length === 3, 'le tre invitate di questa giornata', r.join(' | '));
+    esigi(r.indexOf('Beta Srl') < 0, 'chi non e stato invitato ai tavoli non c e');
+    esigi(r.indexOf('Delta Srl') < 0, 'e nemmeno chi e stato invitato a un altro convegno');
+});
+
+prova('Si vede chi, fra quelli dei tavoli, in sala non si siede', () => {
+    const tavoli = SCHERMO.aiTavoli(EV, AI_TAVOLI);
+    const fuori = tavoli.filter(r => !SCHERMO.inSala(EV, r)).map(r => r.azienda);
+    esigi(fuori.length === 2, 'due non sono iscritti in presenza', fuori.join(' | '));
+    esigi(fuori.indexOf('Capri Relax Srl') >= 0, 'l invitata ai soli incontri');
+    /* Chi segue ONLINE in sala non ci va nemmeno lui: e' un iscritto, ma il
+       posto non lo occupa, e alla domanda "chi non viene in sala?" la
+       risposta lo comprende. */
+    esigi(fuori.indexOf('Gamma Srl') >= 0, 'e chi segue online, che in sala non si siede');
+    esigi(SCHERMO.inSala(EV, tavoli[0]) === true, 'mentre chi e iscritto in presenza risulta in sala');
+});
+
+/* ------------------------------------------------------------
+   VERIFICA DELLE MAIL: chi ha ricevuto e chi no
+   ------------------------------------------------------------
+   "Inviata" vuol dire soltanto che il relay ha preso in carico il messaggio.
+   Gli esiti veri li conosce Brevo, e la scheda li legge a richiesta. */
+prova('Ogni esito ha la sua frase, e il rimbalzo si vede rosso', () => {
+    const E = {
+        'rimbalzo@x.it': { rimbalzo: 1, motivo: 'mailbox unavailable' },
+        'spam@x.it': { spam: 1, consegnata: 1 },
+        'clic@x.it': { clic: 1, aperta: 1, consegnata: 1 },
+        'aperta@x.it': { aperta: 1, consegnata: 1 },
+        'consegnata@x.it': { consegnata: 1 }
+    };
+    esigi(SCHERMO.esito(E, 'rimbalzo@x.it').classe === 'rosso', 'la mail non arrivata si vede rossa');
+    esigi(/NON arrivata/.test(SCHERMO.esito(E, 'rimbalzo@x.it').testo), 'e lo dice senza giri di parole');
+    esigi(SCHERMO.esito(E, 'rimbalzo@x.it').nota === 'mailbox unavailable',
+        'con il motivo scritto dal server del destinatario');
+    esigi(SCHERMO.esito(E, 'spam@x.it').classe === 'rosso', 'la segnalazione di spam pesa quanto un rimbalzo');
+    esigi(SCHERMO.esito(E, 'clic@x.it').classe === 'verde', 'chi ha premuto il pulsante e verde');
+    esigi(SCHERMO.esito(E, 'aperta@x.it').classe === 'verde', 'e cosi chi ha aperto');
+    /* Consegnata ma non aperta e' il caso ambiguo per cui si telefona: la
+       mail c'e', nessuno l'ha guardata. Ne verde ne rosso. */
+    esigi(SCHERMO.esito(E, 'consegnata@x.it').classe === 'ambra', 'consegnata ma non aperta resta in mezzo');
+});
+
+prova('Non sapere non e "non arrivata"', () => {
+    /* L assenza della riga vuol dire che Brevo non riporta niente per quell
+       indirizzo: guarda indietro novanta giorni e non garantisce di avere
+       tutto. Leggerlo come "non e arrivata" farebbe richiamare gente a cui la
+       mail e arrivata benissimo. */
+    const e = SCHERMO.esito({}, 'ignoto@x.it');
+    esigi(e.classe === 'neutro', 'un indirizzo di cui non si sa niente non e un errore');
+    esigi(!/NON arrivata/.test(e.testo), 'e non si dice che la mail non e arrivata', e.testo);
+    esigi(SCHERMO.esito(null, 'ignoto@x.it').classe === 'neutro', 'e senza nessuna lettura vale lo stesso');
+    /* Le maiuscole degli indirizzi non devono perdere l esito: Brevo li
+       scrive in minuscolo, le schede no. */
+    esigi(SCHERMO.esito({ 'x@y.it': { consegnata: 1 } }, '  X@Y.IT ').classe === 'ambra',
+        'e l indirizzo si confronta senza maiuscole ne spazi');
+});
+
+/* ------------------------------------------------------------
    IL MONTAGGIO: che le due schede siano davvero raggiungibili
    ------------------------------------------------------------ */
 prova('Le due schede si aprono dal riquadro delle iscrizioni', () => {
     esigi(/id="ev-cancellati"/.test(APP), 'il pulsante dei cancellati c e');
     esigi(/id="ev-solo-b2b"/.test(APP), 'e quello degli invitati ai soli incontri');
     esigi(/bCan\.addEventListener\('click', \(\) => modaleCancellati\(ev\)\)/.test(APP), 'il primo apre la sua scheda');
-    esigi(/bSb2b\.addEventListener\('click', \(\) => modaleSoloB2B\(ev\)\)/.test(APP), 'e il secondo la sua');
+    esigi(/bSb2b\.addEventListener\('click', \(\) => modaleIncontriB2B\(ev\)\)/.test(APP), 'e il secondo la sua');
     /* I cancellati li vede solo chi puo' cancellare: la scheda dice chi ha
        tolto chi, ed e' una traccia di chi lavora, non un elenco di ospiti. */
-    const sched = APP.slice(APP.indexOf('function modaleCancellati('), APP.indexOf('function modaleSoloB2B('));
+    const sched = APP.slice(APP.indexOf('function modaleCancellati('), APP.indexOf('function confermaCancellaIscrizione('));
     esigi(/Auth\.eAdmin\(\) \|\| Auth\.eProprietario\(\)/.test(sched), 'e la scheda dei cancellati resta all amministratore');
     /* Il servizio indietro non deve far dire "nessun cancellato": e' la
        differenza fra una risposta vera e una rassicurazione falsa. */

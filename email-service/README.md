@@ -1143,12 +1143,44 @@ con `tolta` accanto. Due provenienze, e si vedono diverse:
   dentro l'identificativo (`email|data`), e la riga si marca `sparita` -
   una scheda mezza vuota senza spiegazione sembra un errore di lettura.
 
-**Invitati ai soli incontri B2B.** Vengono al desk per il loro appuntamento e in
-sala non si siedono: in elenco conterebbero come un posto da preparare (vedi
-"La sezione Solo incontri B2B"). La scheda li elenca con l'azienda, il
-referente, i recapiti e **che cosa hanno gia' prenotato** - che e' la colonna
-per cui la si apre: chi la guarda vuole sapere se quell'impresa ha un tavolo o
-se l'invito e' rimasto senza risposta.
+**Incontri B2B: chi partecipa.** Tutte le persone invitate ai tavoli o che
+hanno gia' prenotato, con una colonna **In sala** che dice chi viene anche al
+convegno. Nasceva come scheda dei soli invitati che in sala non si siedono, e
+cosi' la distinzione aveva righe da una parte sola: dentro c'erano per
+definizione solo quelli, e chi la apriva per sapere chi non viene al convegno
+non aveva niente da confrontare. Ora ci sono tutti, il conto in testa dice
+quanti dei primi non sono iscritti in presenza, e il filtro per colonna isola
+gli uni o gli altri.
+
+Chi risulta **no, solo B2B** viene al desk per il suo appuntamento e in sala non
+si siede: non occupa un posto, non entra nel totale e l'elenco degli iscritti
+non lo porta (vedi "La sezione Solo incontri B2B"). Nel conto rientra anche chi
+segue **online**, che e' un iscritto a tutti gli effetti ma un posto in sala non
+lo occupa: alla domanda "chi non viene in sala?" la risposta lo comprende.
+Accanto, che cosa ha gia' prenotato e la data dell'invito.
+
+**Se l'invito e' arrivato.** "Inviata" vuol dire soltanto che il relay ha preso
+in carico il messaggio; se poi sia arrivato, il nostro servizio non lo sa. Lo sa
+Brevo, e gliele si chiede per indirizzo (`lib/esiti-email.js`, azione
+`b2b-esiti-mail` in `api/presenze.js`): consegnata, aperta, pulsante premuto,
+rimbalzata - con il motivo scritto dal server del destinatario - o segnata come
+spam. Tre scelte dietro questa colonna:
+
+- **a richiesta, non all'apertura.** La quota di Brevo e' di 300 chiamate
+  l'ora per tutto il servizio, e una scheda che la chiede ogni volta che si apre
+  la brucerebbe in un pomeriggio. C'e' un pulsante, e quanto letto resta in
+  memoria per evento;
+- **gli indirizzi li raccoglie il server**, dall'archivio, tenendo le schede il
+  cui `b2bAzienda.evento` e' questo evento. Chi guarda quegli indirizzi li ha
+  gia' davanti in tabella, ma lasciar decidere al browser quali interrogare
+  vorrebbe dire aprire una finestra su chiunque;
+- **non sapere non e' "non arrivata".** L'assenza della riga vuol dire che Brevo
+  non riporta niente per quell'indirizzo (guarda indietro novanta giorni e non
+  garantisce di avere tutto): si scrive "non risulta", in grigio. Leggerlo come
+  un errore di consegna farebbe richiamare gente a cui la mail e' arrivata
+  benissimo. Per lo stesso motivo, finche' nessuno ha premuto il pulsante la
+  colonna dice "da verificare" e non una colonna di "non risulta", che si
+  leggerebbe come "non e' arrivata a nessuno".
 
 Il riquadro "Iscrizioni" porta anche i **due numeri**, cosi' si leggono senza
 aprire niente: un pulsante da solo non dice se vale la pena premerlo. Compaiono
