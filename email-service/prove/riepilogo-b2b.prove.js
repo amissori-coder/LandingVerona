@@ -422,6 +422,57 @@ prova('Senza doppioni non compare niente, ne a video ne sul foglio', () => {
     esigi(foglio.indexOf('da sistemare') < 0, 'ne il numero in testa');
 });
 
+/* ------------------------------------------------------------
+   LA PREFERENZA CHE LO SPOSTAMENTO HA SOSTITUITO
+   ------------------------------------------------------------
+   Quando lo staff sposta un incontro su un altro argomento, quell'impresa
+   verra' a parlare di una cosa diversa da quella che aveva chiesto. Chi
+   legge il riepilogo il giorno prima non ha modo di saperlo: senza, al desk
+   si presenta un'azienda convinta di parlare d'altro. */
+function conSpostamento() {
+    const copia = JSON.parse(JSON.stringify(RB));
+    // Beta e' finita al merito creditizio, ma aveva chiesto la revisione
+    copia.desk[0].slot[1].chi.chiesta = 'revisione';
+    return copia;
+}
+
+prova('Una riga spostata dice che cosa l azienda aveva chiesto', () => {
+    const h = AMBIENTE.disegna(conSpostamento(), 'tavoli', '');
+    esigi(h.indexOf('rb-chiesta') >= 0, 'la riga porta la marcatura');
+    esigi(/aveva chiesto/.test(h), 'e lo dice a parole', h.slice(h.indexOf('rb-chiesta'), h.indexOf('rb-chiesta') + 90));
+    /* IL NOME DEL TAVOLO, non il suo identificativo: "revisione" e'
+       l'etichetta interna, e sul foglio del desk non vuol dire niente. */
+    esigi(/aveva chiesto Revisione/i.test(h), 'con il nome del tavolo e non il codice',
+        (h.match(/aveva chiesto[^<]*/) || [''])[0]);
+    esigi((h.match(/rb-chiesta/g) || []).length === 1, 'e la marcatura sta su quella riga sola');
+});
+
+prova('Chi non e stato spostato non porta nessuna marcatura', () => {
+    const h = perTavolo();
+    esigi(h.indexOf('rb-chiesta') < 0, 'niente marcatura quando l incontro sta dove l azienda lo aveva chiesto');
+    /* Vale anche nella vista per azienda, che usa le stesse funzioni: se
+       divergesse, lo stesso incontro racconterebbe due storie diverse a
+       seconda da dove lo si guarda. */
+    const a = AMBIENTE.disegna(conSpostamento(), 'aziende', 'beta');
+    esigi(a.indexOf('rb-chiesta') >= 0, 'e la vista per azienda la mostra come quella per tavolo');
+});
+
+prova('Il foglio stampato ha la sua colonna', () => {
+    /* L'utente l'ha chiesta come COLONNA: sul foglio del giorno prima e' il
+       dato con cui si decide se telefonare all'impresa. */
+    const foglio = AMBIENTE.stampa(conSpostamento());
+    esigi(foglio.indexOf('<th>Aveva chiesto</th>') > 0, 'la colonna c e', foglio.slice(0, 60));
+    esigi(/Aveva chiesto<\/th>\s*<th>Partecipa<\/th>/.test(foglio),
+        'e sta accanto alla scelta, prima di chi partecipa');
+    esigi(foglio.indexOf('Revisione') > 0, 'e dentro c e il tavolo che l impresa aveva chiesto');
+    /* Le righe non spostate lasciano la cella vuota: scriverci "nessuna"
+       riempirebbe di parole una colonna che per lo piu' non ha niente da
+       dire. */
+    const senza = AMBIENTE.stampa(RB);
+    esigi(senza.indexOf('<th>Aveva chiesto</th>') > 0, 'la colonna resta anche quando nessuno e stato spostato');
+    esigi(senza.indexOf('Revisione') < 0, 'ma le celle sono vuote', 'trovato "Revisione" senza spostamenti');
+});
+
 console.log('\nIl riepilogo degli incontri B2B\n');
 for (const p of prove) {
     console.log('\n' + p.titolo);

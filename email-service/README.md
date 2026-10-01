@@ -2382,6 +2382,34 @@ Le prove stanno in `prove/riepilogo-b2b.prove.js` (il foglio si compone davvero
 e si legge quello che ne esce) e in `prove/azienda-b2b.prove.js` (la risposta
 del servizio, con l'ordine e il conto).
 
+**Quando lo staff sposta un incontro, resta scritto che cosa l'impresa aveva
+chiesto.** Spostare una prenotazione su un altro ARGOMENTO non e' spostare un
+orario: cambia di che cosa quell'azienda verra' a parlare. Chi legge il
+riepilogo il giorno prima non aveva modo di saperlo, e al desk si presentava
+un'impresa convinta di parlare d'altro. Ora `b2b-sposta` scrive sulla
+prenotazione il tavolo di partenza (`chiesta`), che da li' in avanti viaggia
+con lei: a video e' il bollino ambra "aveva chiesto X" accanto al nome
+dell'azienda, sul foglio stampato una colonna sua, "Aveva chiesto", fra la
+scelta e chi partecipa - li' e' il dato con cui si decide se telefonare.
+
+Tre regole, e tutte e tre hanno un motivo:
+
+- **per argomento, non per tavolo.** Spostare sul gemello dello stesso tema non
+  sostituisce niente: per l'impresa quei due tavoli sono lo stesso tavolo
+  (`capofilaDi`), e segnalarlo riempirebbe il riepilogo di avvisi che non
+  dicono nulla;
+- **resta la PRIMA.** Tre spostamenti di fila non cancellano quello che
+  l'impresa aveva indicato all'inizio, che e' il dato che serve;
+- **si azzera da se'** se l'incontro torna sull'argomento chiesto, e non si
+  scrive affatto quando l'azienda ricompone le sue scelte dal modulo: li' la
+  preferenza e' di nuovo la sua. Per questo `prendiSlot` legge `dati.chiesta`
+  con `!== undefined` e non con `||`: lo zero deve poter cancellare il valore
+  vecchio che viaggia dentro `persona`.
+
+Le prove stanno in `prove/azienda-b2b.prove.js` (lo spostamento vero, e il
+riepilogo che lo riporta) e in `prove/riepilogo-b2b.prove.js` (il bollino nelle
+due viste e la colonna sul foglio).
+
 **Due incontri alla stessa ora, in cima al riepilogo.** Il servizio impedisce
 che un'azienda finisca due volte allo **stesso tavolo** (`occupatoDaLei` in
 `lib/agenda-b2b.js`), ma non che finisca a **due tavoli diversi alla stessa
