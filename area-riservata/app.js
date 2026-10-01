@@ -18620,7 +18620,10 @@
                    impresa, e uno basta a chiamarla. */
                 const rec = (perOra[k] = perOra[k] || { ora: sl.ora, aziendaNome: chi.aziendaNome || chi.azienda || '', contatti: '', incontri: [] });
                 if (!rec.contatti) rec.contatti = (chi.email || '') + (chi.telefono ? (chi.email ? ' - ' : '') + chi.telefono : '');
-                rec.incontri.push({ tavolo: etichettaTavoloB2B(d), perChi: chi.perChi || '', scelta: chi.scelta || 1 });
+                /* L'identificativo del tavolo oltre al nome: serve al foglio
+                   del singolo tavolo, che tiene solo i doppioni che lo
+                   toccano, e un nome non basta a riconoscerlo. */
+                rec.incontri.push({ area: d.id, tavolo: etichettaTavoloB2B(d), perChi: chi.perChi || '', scelta: chi.scelta || 1 });
             });
         });
         return Object.keys(perOra).map(k => perOra[k]).filter(x => x.incontri.length > 1)
@@ -18723,7 +18726,15 @@
                 + (d.interno ? '<span class="rb-pos">solo nostro</span>' : '')
                 + (d.referenti.length ? '<span class="hint">con ' + esc(d.referenti.map(r => r.nome).join(', ')) + '</span>'
                     : (d.interno ? '' : '<span class="ev-ko">nessun referente</span>'))
-                + '<span class="hint">' + presi.length + ' fissati &middot; ' + d.liberi + ' liberi</span></div>'
+                + '<span class="hint">' + presi.length + ' fissati &middot; ' + d.liberi + ' liberi</span>'
+                /* LA STAMPA DI QUESTO TAVOLO SOLO. Il foglio intero e' di chi
+                   organizza la giornata; chi tiene un tavolo ha bisogno del
+                   suo, e dargli dodici pagine per leggerne una vuol dire che
+                   al desk arriva con le pagine di tutti gli altri in mano.
+                   Sta nella testa del blocco, accanto ai conti: e' li' che si
+                   guarda quando si decide "questo lo stampo". */
+                + '<button type="button" class="btn btn-sm btn-ghost rb-stampa-uno" data-area="' + esc(d.id) + '">Stampa</button>'
+                + '</div>'
                 + (presi.length ? presi.map(s => rigaSlot(d, s)).join('') : '<div class="hint" style="padding:6px 0;">Nessun incontro fissato.</div>')
                 + (d.coda.length
                     ? '<div class="rb-coda-et">In coda a questo tavolo (' + d.coda.length + ')</div>'
@@ -18957,6 +18968,9 @@
             _rbAperto = '';
             ridisegna();
         });
+        box.querySelectorAll('.rb-stampa-uno').forEach(b => b.addEventListener('click', () => {
+            stampaRiepilogoB2B(ev, b.dataset.area);
+        }));
         box.querySelectorAll('.rb-sposta').forEach(b => b.addEventListener('click', () => {
             _rbAperto = 'sposta|' + b.dataset.area + '|' + b.dataset.chiave; ridisegna();
         }));
@@ -19052,11 +19066,30 @@
        segnalate e le richieste di chi ha trovato gli orari esauriti. Sono
        parole di qualcuno che ha bussato: se restano solo a video, con il
        foglio in mano non se ne ricorda nessuno. */
-    function stampaRiepilogoB2B(ev) {
+    /* `soloArea` stampa UN TAVOLO SOLO. Il foglio intero e' di chi organizza
+       la giornata, e va bene cosi'; chi tiene un tavolo ha bisogno del suo, e
+       dargli dodici pagine per leggerne una vuol dire che al desk arriva con
+       le pagine di tutti gli altri in mano.
+       Il foglio del singolo tavolo non e' il foglio intero ritagliato: porta
+       quello che riguarda QUEL tavolo - i suoi incontri, la sua coda, le
+       richieste arrivate per il suo argomento, i doppioni d'orario che lo
+       toccano - e lascia fuori le altre esigenze segnalate, che non
+       appartengono a nessun tavolo e a chi siede li' non servono. */
+    function stampaRiepilogoB2B(ev, soloArea) {
         if (!_rb) { toast('Riepilogo non ancora caricato.', 'rosso'); return; }
         const c = _rb.conti || {};
+        const unoSolo = String(soloArea || '');
+        const deskUno = unoSolo ? ((_rb.desk || []).filter(d => d.id === unoSolo)[0] || null) : null;
+        if (unoSolo && !deskUno) { toast('Quel tavolo non c\'e\' piu\' nel riepilogo: ricarica.', 'rosso'); return; }
+        /* Le richieste e i doppioni si confrontano per FAMIGLIA: chi ha
+           chiesto il merito creditizio ha chiesto quell'argomento, non il
+           tavolo su cui lo mettiamo, e il referente del secondo tavolo deve
+           vedere chi ha bussato al suo argomento. */
+        const famUno = unoSolo ? (capofilaRb(unoSolo) || unoSolo) : '';
         const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const sezioni = (_rb.desk || []).filter(d => d.attiva || d.occupati || d.coda.length).map(d => {
+        const sezioni = (_rb.desk || [])
+            .filter(d => unoSolo ? d.id === unoSolo : (d.attiva || d.occupati || d.coda.length))
+            .map(d => {
             const presi = d.slot.filter(s => s.stato === 'occupato');
             return '<section class="tema"><h2>' + esc(d.nome) + ' <span class="conta">' + presi.length
                 + (presi.length === 1 ? ' incontro' : ' incontri') + (d.coda.length ? ' &middot; ' + d.coda.length + ' in coda' : '') + '</span></h2>'
@@ -19091,7 +19124,11 @@
                     + (v.perChi ? ', per ' + esc(v.perChi) : '') + ')').join('; ') + '</div>' : '')
                 + '</section>';
         }).join('');
-        const esigenze = (_rb.esigenze || []);
+        /* Le ALTRE ESIGENZE non appartengono a nessun tavolo: sono domande
+           che a un tavolo del convegno non si rispondono. Sul foglio di chi
+           tiene un tavolo non servono, e riempirebbero una pagina che deve
+           stare davanti a lui mentre riceve. */
+        const esigenze = unoSolo ? [] : (_rb.esigenze || []);
         const sezEsigenze = esigenze.length
             ? '<section class="tema"><h2>Altre esigenze segnalate <span class="conta">' + esigenze.length + '</span></h2>'
             + '<table><thead><tr><th>Azienda</th><th>Chi</th><th>Cosa</th></tr></thead><tbody>'
@@ -19108,7 +19145,13 @@
            ricorda nessuno.
            Le gestite si stampano lo stesso, marcate: servono a non richiamare
            due volte la stessa persona. */
-        const richieste = (_rb.richieste || []);
+        /* Sul foglio di un tavolo solo, le richieste del SUO argomento: chi ha
+           bussato al merito creditizio deve comparire davanti a chi il merito
+           creditizio lo tiene, e non davanti a tutti gli altri. Il confronto
+           e' per famiglia, perche' l'impresa ha chiesto l'argomento, non il
+           tavolo su cui lo mettiamo noi. */
+        const richieste = (_rb.richieste || []).filter(r => !unoSolo
+            || (capofilaRb(String(r.area || '')) || String(r.area || '')) === famUno);
         const sezRichieste = richieste.length
             ? '<section class="tema"><h2>Richieste a orari esauriti <span class="conta">' + richieste.length
             + (richieste.filter(r => r.stato !== 'gestita').length
@@ -19128,7 +19171,12 @@
            puo' spostare niente: quello che serve e' saperlo prima di arrivare
            ai desk, e sapere chi chiamare. Per questo sta prima dei tavoli e
            porta i contatti, non solo i nomi. */
-        const conflittiSt = conflittiOrarioB2B(_rb);
+        /* Su un tavolo solo restano i doppioni che lo TOCCANO: a chi siede li'
+           importa che l'azienda delle 10:30 sia attesa anche altrove - e'
+           l'incontro che rischia di saltare, il suo - non che due altre
+           imprese si pestino i piedi a tavoli che non sono i suoi. */
+        const conflittiSt = conflittiOrarioB2B(_rb).filter(x => !unoSolo
+            || (x.incontri || []).some(i => i.area === unoSolo));
         const sezConflitti = conflittiSt.length
             ? '<section class="tema"><h2>Da sistemare: attese in due posti alla stessa ora <span class="conta">'
             + conflittiSt.length + (conflittiSt.length === 1 ? ' azienda' : ' aziende') + '</span></h2>'
@@ -19144,13 +19192,23 @@
             + '</tbody></table></section>'
             : '';
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
-            + '<title>Riepilogo incontri B2B - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
+            + '<title>' + (deskUno ? esc('Incontri B2B - ' + etichettaTavoloB2B(deskUno)) : 'Riepilogo incontri B2B')
+            + ' - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
             + '<style>' + STAMPA_EVENTI_CSS + '</style></head><body>'
-            + '<header><h1>Incontri B2B: il riepilogo dei desk</h1>'
+            /* Il titolo del foglio di un tavolo e' il NOME DEL TAVOLO: e' il
+               foglio che finisce in mano a chi lo tiene, e deve riconoscerlo
+               da lontano in mezzo agli altri sul banco dell'accoglienza. */
+            + '<header><h1>' + (deskUno
+                ? 'Incontri B2B: ' + esc(etichettaTavoloB2B(deskUno))
+                : 'Incontri B2B: il riepilogo dei desk') + '</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
-            + '<div class="meta">' + (c.aziende || 0) + ' aziende &middot; ' + (c.occupati || 0) + ' incontri &middot; '
-            + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi'
-            + (c.richiesteAperte ? ' &middot; ' + c.richiesteAperte + ' richieste da guardare' : '')
+            + '<div class="meta">' + (deskUno
+                ? (deskUno.slot.filter(x => x.stato === 'occupato').length + ' incontri'
+                    + ' &middot; ' + (deskUno.coda || []).length + ' in coda'
+                    + ' &middot; ' + (deskUno.liberi || 0) + ' orari liberi')
+                : ((c.aziende || 0) + ' aziende &middot; ' + (c.occupati || 0) + ' incontri &middot; '
+                    + (c.codaDaAssegnare || 0) + ' preferenze in coda &middot; ' + (c.liberi || 0) + ' orari liberi'))
+            + ((!deskUno && c.richiesteAperte) ? ' &middot; ' + c.richiesteAperte + ' richieste da guardare' : '')
             + (conflittiSt.length ? ' &middot; ' + conflittiSt.length + ' da sistemare' : '')
             + ' &middot; stampato il '
             + esc(quando) + ' &middot; documento riservato</div></header>'

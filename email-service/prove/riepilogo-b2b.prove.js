@@ -107,8 +107,8 @@ const AMBIENTE = new Function('esc', 'document', 'puoAggiungereIscrizioni', 'col
     + '  conflitti: conflittiOrarioB2B,'
     /* La STAMPA: si compone il foglio e si restituisce, invece di aprire una
        finestra che qui non c'e'. */
-    + '  stampa: rb => { _rb = rb; let uscita = ""; apriStampa = h => { uscita = h; };'
-    + '    stampaRiepilogoB2B({ id: "napoli-2026-10-02", titolo: "Napoli", quando: "2 ottobre 2026" }); return uscita; }'
+    + '  stampa: (rb, soloArea) => { _rb = rb; let uscita = ""; apriStampa = h => { uscita = h; };'
+    + '    stampaRiepilogoB2B({ id: "napoli-2026-10-02", titolo: "Napoli", quando: "2 ottobre 2026" }, soloArea); return uscita; }'
     + '};'
 )(esc, documentoFinto, () => true, () => { }, Auth, window);
 
@@ -535,6 +535,89 @@ prova('Gli altri tavoli non c entrano, e i due avvisi non si sommano', () => {
     esigi((due.match(/rb-chiesta/g) || []).length === 1, 'e su una riga spostata il bollino resta uno');
     esigi(/aveva chiesto Revisione/i.test(due), 'e dice lo spostamento, che e la ragione piu recente',
         (due.match(/aveva [^<]*/) || [''])[0]);
+});
+
+/* ------------------------------------------------------------
+   LA STAMPA DI UN TAVOLO SOLO
+   ------------------------------------------------------------
+   Il foglio intero e' di chi organizza la giornata. Chi TIENE un tavolo ha
+   bisogno del suo: dargli dodici pagine per leggerne una vuol dire che al
+   desk arriva con le pagine di tutti gli altri in mano. */
+
+prova('Il foglio di un tavolo porta quel tavolo e nessun altro', () => {
+    const foglio = AMBIENTE.stampa(RB, 'merito-creditizio');
+    esigi(foglio.indexOf('Merito creditizio') > 0, 'il tavolo chiesto c e');
+    esigi(foglio.indexOf('Desk Revilaw') < 0, 'e gli altri tavoli non ci sono', 'trovato "Desk Revilaw"');
+    /* I suoi incontri per intero: il foglio serve a chi riceve, e un nome che
+       manca e' una persona che si presenta e non risulta. */
+    esigi(foglio.indexOf('Mario Rossi') > 0 && foglio.indexOf('Alfa Srl') > 0, 'con i suoi incontri');
+    esigi(foglio.indexOf('Anna Neri') < 0, 'e senza quelli degli altri tavoli', 'trovato "Anna Neri"');
+});
+
+prova('Il titolo e la testata sono quelli del tavolo', () => {
+    /* E' il foglio che finisce in mano a chi lo tiene, e deve riconoscerlo da
+       lontano in mezzo agli altri sul banco dell accoglienza. */
+    const foglio = AMBIENTE.stampa(RB, 'merito-creditizio');
+    esigi(/<h1>Incontri B2B: Merito creditizio<\/h1>/.test(foglio),
+        'il titolo e il nome del tavolo', (foglio.match(/<h1>[^<]*<\/h1>/) || [''])[0]);
+    esigi(/<title>Incontri B2B - Merito creditizio/.test(foglio),
+        'e anche il nome del file che si salva', (foglio.match(/<title>[^<]*<\/title>/) || [''])[0]);
+    /* I conti in testa sono i SUOI: "12 aziende invitate" su un foglio che ne
+       mostra due sarebbe un numero che non torna con niente di quello che si
+       ha davanti. */
+    esigi(foglio.indexOf('aziende &middot;') < 0 && foglio.indexOf('aziende ·') < 0,
+        'e i conti non sono quelli della giornata intera');
+    esigi(/2 incontri/.test(foglio), 'ma quelli del tavolo', (foglio.match(/class="meta">[^<]*/) || [''])[0]);
+});
+
+prova('Sul foglio di un tavolo resta quello che riguarda lui', () => {
+    const foglio = AMBIENTE.stampa(RB, 'merito-creditizio');
+    /* LE RICHIESTE del suo argomento: chi ha bussato al merito creditizio
+       deve comparire davanti a chi il merito creditizio lo tiene. */
+    esigi(foglio.indexOf('Gamma Srl') > 0, 'le richieste arrivate per il suo argomento ci sono');
+    esigi(foglio.indexOf('Delta Srl') < 0, 'e quelle senza tavolo, o di altri argomenti, no', 'trovato "Delta Srl"');
+    /* LE ALTRE ESIGENZE non appartengono a nessun tavolo: sono domande che a
+       un tavolo del convegno non si rispondono, e riempirebbero una pagina
+       che deve stare davanti a chi riceve. */
+    esigi(foglio.indexOf('Altre esigenze segnalate') < 0,
+        'le altre esigenze restano sul foglio intero', 'trovato il capitolo delle esigenze');
+    // sul foglio INTERO invece ci sono tutte: il capitolo non si perde
+    const tutto = AMBIENTE.stampa(RB);
+    esigi(tutto.indexOf('Altre esigenze segnalate') > 0 && tutto.indexOf('Delta Srl') > 0,
+        'mentre il foglio intero le porta tutte');
+});
+
+prova('I doppioni d orario restano solo dove toccano quel tavolo', () => {
+    /* A chi siede li' importa che l azienda delle 10:00 sia attesa anche
+       altrove - e' l incontro suo che rischia di saltare - non che due altre
+       imprese si pestino i piedi a tavoli che non sono i suoi. */
+    const misto = JSON.parse(JSON.stringify(RB));
+    misto.desk[1].slot[0].ora = '10:00';
+    misto.desk[1].slot[0].chi = chi('Alfa Srl', 'alfa', 2, 'Mario Rossi');
+    const suo = AMBIENTE.stampa(misto, 'merito-creditizio');
+    esigi(suo.indexOf('attese in due posti') > 0, 'il doppione che lo tocca c e');
+    esigi(/1 da sistemare/.test(suo), 'e il conto in testa lo dice', (suo.match(/class="meta">[^<]*/) || [''])[0]);
+    /* Un doppione fra due ALTRI tavoli non riguarda questo foglio. */
+    const altrove = JSON.parse(JSON.stringify(RB));
+    altrove.desk.push(JSON.parse(JSON.stringify(altrove.desk[1])));
+    altrove.desk[2].id = 'esg'; altrove.desk[2].nome = 'ESG';
+    altrove.desk[2].slot[0].ora = '12:00';
+    altrove.desk[2].slot[0].chi = chi('Alfa Srl', 'alfa', 3, 'Anna Neri');
+    const fuori = AMBIENTE.stampa(altrove, 'merito-creditizio');
+    esigi(fuori.indexOf('attese in due posti') < 0,
+        'mentre un doppione fra altri due tavoli non compare', 'trovato il capitolo dei doppioni');
+});
+
+prova('Il pulsante per stampare un tavolo c e, su ogni tavolo', () => {
+    const h = perTavolo();
+    esigi((h.match(/rb-stampa-uno/g) || []).length === 2, 'ogni tavolo ha il suo',
+        String((h.match(/rb-stampa-uno/g) || []).length));
+    esigi(/data-area="merito-creditizio"[^>]*>Stampa</.test(h.replace(/\n/g, ' ')) || /rb-stampa-uno" data-area="merito-creditizio"/.test(h),
+        'e porta con se quale tavolo stampare');
+    /* Il foglio intero resta: la stampa del singolo si AGGIUNGE, non
+       sostituisce. */
+    esigi(APP.indexOf("stampaRiepilogoB2B(ev, b.dataset.area)") > 0, 'il pulsante stampa quel tavolo');
+    esigi(APP.indexOf("stampaRiepilogoB2B(ev))") > 0, 'e quello in fondo stampa ancora tutto');
 });
 
 console.log('\nIl riepilogo degli incontri B2B\n');

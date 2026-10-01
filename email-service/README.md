@@ -2363,6 +2363,35 @@ Le prove stanno in `prove/riepilogo-b2b.prove.js`: ritagliano le funzioni dal
 sorgente vero di `app.js` e le fanno girare con un DOM finto, quindi collaudano
 la schermata che si apre davvero.
 
+**Si stampa anche un tavolo solo.** Il foglio intero e' di chi organizza la
+giornata; chi TIENE un tavolo ha bisogno del suo, e dargli dodici pagine per
+leggerne una vuol dire che al desk arriva con le pagine di tutti gli altri in
+mano. Ogni blocco del riepilogo ha quindi il suo pulsante "Stampa", accanto ai
+conti del tavolo - e' li' che si guarda quando si decide che cosa stampare - e
+`stampaRiepilogoB2B(ev, soloArea)` compone il foglio di quel tavolo. Quello in
+fondo alla finestra stampa ancora tutto: la stampa del singolo si aggiunge, non
+sostituisce.
+
+Il foglio di un tavolo non e' il foglio intero ritagliato. Porta quello che
+riguarda quel tavolo e lascia fuori il resto, perche' deve stare aperto davanti
+a chi riceve:
+
+- il titolo e' il NOME DEL TAVOLO, anche nel nome del file che si salva: e' il
+  foglio che finisce in mano al referente, e deve riconoscerlo da lontano in
+  mezzo agli altri sul banco dell'accoglienza;
+- i conti in testa sono i suoi (incontri, coda, orari liberi), non quelli della
+  giornata: "12 aziende invitate" su un foglio che ne mostra tre e' un numero
+  che non torna con niente di quello che si ha davanti;
+- le **richieste a orari esauriti** del suo ARGOMENTO (confronto per famiglia,
+  perche' l'impresa ha chiesto l'argomento, non il tavolo su cui lo mettiamo
+  noi): chi ha bussato al merito creditizio deve comparire davanti a chi il
+  merito creditizio lo tiene;
+- i **doppioni d'orario che lo toccano**: a chi siede li' importa che l'azienda
+  delle 10:30 sia attesa anche altrove - e' l'incontro suo che rischia di
+  saltare - non che due altre imprese si pestino i piedi a tavoli che non sono
+  i suoi;
+- **non** le altre esigenze segnalate, che non appartengono a nessun tavolo.
+
 **Il foglio stampato porta tutto quello che le imprese hanno SCRITTO.** Il
 riepilogo si stampa e ci si lavora sopra il giorno prima, quindi sul foglio
 vanno anche le parole che sul foglio del desk non ci stanno:
