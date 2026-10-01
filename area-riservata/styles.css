@@ -1620,6 +1620,11 @@ button.ag-slot { cursor: pointer; }
 .rb-az-testa b { font-size: 1.05rem; color: var(--blu-900); }
 .rb-vuoto { padding: 10px 12px; color: var(--grigio-600); font-size: 0.9rem; }
 .rb-tavolo { flex: 0 0 100%; font-weight: bold; color: var(--blu-900); }
+/* "AVEVA CHIESTO X": la preferenza che lo spostamento ha sostituito. Ambra
+   come gli altri avvisi di questa pagina - non e' un errore, e' una cosa da
+   sapere prima di arrivare al desk - e sta accanto al nome dell'azienda,
+   dove la si legge insieme al tavolo su cui l'incontro si tiene adesso. */
+.rb-chiesta { font-size: 0.78rem; background: var(--ambra-bg); color: var(--ambra); border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
 .rb-nota { flex: 1 1 100%; color: var(--grigio-600); font-size: 0.88rem; }
 .rb-az { display: flex; gap: 4px; }
 .rb-coda-et { padding: 8px 12px 2px; font-size: 0.8rem; font-weight: bold; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ambra); }

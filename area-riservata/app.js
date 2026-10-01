@@ -18664,6 +18664,16 @@
                 + (chi.perChi ? '<span class="rb-per">per ' + esc(chi.perChi) + '</span>' : '')
                 + (chi.email ? '<span class="hint">' + esc(chi.email) + (chi.telefono ? ' &middot; ' + esc(chi.telefono) : '') + '</span>' : '')
                 + (chi.nota ? '<span class="rb-nota">' + esc(chi.nota) + '</span>' : '')
+                /* LA PREFERENZA CHE QUESTO INCONTRO HA SOSTITUITO. Lo
+                   spostamento su un altro argomento cambia di che cosa
+                   quell'impresa verra' a parlare, e chi legge il riepilogo il
+                   giorno prima non ha modo di saperlo: senza, al desk si
+                   presenta un'azienda convinta di parlare d'altro. Si scrive
+                   solo quando c'e' davvero una sostituzione - fra tavoli
+                   gemelli l'argomento non cambia - e sta accanto al nome,
+                   dove la si legge insieme al tavolo. */
+                + (chi.chiesta ? '<span class="rb-chiesta">aveva chiesto '
+                    + esc(nomeAreaB2B(chi.chiesta)) + '</span>' : '')
                 + '</span>'
                 + (puo ? '<span class="rb-az">'
                     + '<button class="btn btn-sm btn-ghost rb-sposta" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Sposta</button>'
@@ -19044,7 +19054,7 @@
             return '<section class="tema"><h2>' + esc(d.nome) + ' <span class="conta">' + presi.length
                 + (presi.length === 1 ? ' incontro' : ' incontri') + (d.coda.length ? ' &middot; ' + d.coda.length + ' in coda' : '') + '</span></h2>'
                 + (d.referenti.length ? '<div class="sotto">Con ' + esc(d.referenti.map(r => r.nome + (r.ruolo ? ' - ' + r.ruolo : '')).join(', ')) + '</div>' : '')
-                + (presi.length ? '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Scelta</th><th>Partecipa</th><th>Contatti</th><th>Nota</th></tr></thead><tbody>'
+                + (presi.length ? '<table><thead><tr><th>Ora</th><th>Azienda</th><th>Scelta</th><th>Aveva chiesto</th><th>Partecipa</th><th>Contatti</th><th>Nota</th></tr></thead><tbody>'
                     + presi.map(s => {
                         const chi = s.chi || {};
                         return '<tr><td class="forte">' + esc(s.ora) + ' - ' + esc(s.fine) + '</td>'
@@ -19055,6 +19065,14 @@
                                "2a scelta" per gli incontri nati da una domanda
                                dell'impresa - che la seconda scelta non sono. */
                             + '<td>' + esc(sceltaB2B(chi.scelta).breve) + '</td>'
+                            /* LA PREFERENZA SOSTITUITA, in una colonna sua.
+                               Sul foglio del giorno prima e' il dato con cui
+                               si decide se telefonare all'impresa: l'abbiamo
+                               spostata su un altro argomento, e lei non lo
+                               sa ancora o se n'e' dimenticata. Vuota quando
+                               l'incontro sta dove l'azienda lo aveva
+                               chiesto, che e' il caso normale. */
+                            + '<td class="nota">' + (chi.chiesta ? esc(nomeAreaB2B(chi.chiesta)) : '') + '</td>'
                             + '<td>' + esc(chi.perChi || chi.nome || '-') + '</td>'
                             + '<td>' + esc((chi.email || '') + (chi.telefono ? ' - ' + chi.telefono : '')) + '</td>'
                             + '<td class="nota">' + esc(chi.nota || '') + '</td></tr>';
