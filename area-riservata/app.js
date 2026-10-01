@@ -18674,6 +18674,13 @@
                    dove la si legge insieme al tavolo. */
                 + (chi.chiesta ? '<span class="rb-chiesta">aveva chiesto '
                     + esc(nomeAreaB2B(chi.chiesta)) + '</span>' : '')
+                /* Stessa cosa, altra causa: qui il tavolo e' cambiato sotto a
+                   chi aveva gia' prenotato. Si scrive solo quando la
+                   prenotazione non ha `chiesta`, altrimenti la stessa riga
+                   direbbe due volte la stessa cosa con due parole diverse. */
+                + ((!chi.chiesta && convertitoDopo(d.id, chi))
+                    ? '<span class="rb-chiesta">aveva prenotato il '
+                        + esc(convertitoDopo(d.id, chi)) + '</span>' : '')
                 + '</span>'
                 + (puo ? '<span class="rb-az">'
                     + '<button class="btn btn-sm btn-ghost rb-sposta" data-area="' + esc(d.id) + '" data-chiave="' + esc(s.chiave) + '">Sposta</button>'
@@ -19072,7 +19079,9 @@
                                sa ancora o se n'e' dimenticata. Vuota quando
                                l'incontro sta dove l'azienda lo aveva
                                chiesto, che e' il caso normale. */
-                            + '<td class="nota">' + (chi.chiesta ? esc(nomeAreaB2B(chi.chiesta)) : '') + '</td>'
+                            + '<td class="nota">' + (chi.chiesta
+                                ? esc(nomeAreaB2B(chi.chiesta))
+                                : (convertitoDopo(d.id, chi) ? esc(convertitoDopo(d.id, chi)) : '')) + '</td>'
                             + '<td>' + esc(chi.perChi || chi.nome || '-') + '</td>'
                             + '<td>' + esc((chi.email || '') + (chi.telefono ? ' - ' + chi.telefono : '')) + '</td>'
                             + '<td class="nota">' + esc(chi.nota || '') + '</td></tr>';
@@ -20491,6 +20500,35 @@
     function esitoGiornata(testo, ko) {
         const e = document.getElementById('gio-esito');
         if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+    }
+    /* ============================================================
+       I TAVOLI CHE HANNO CAMBIATO ARGOMENTO SOTTO CHI AVEVA GIA' PRENOTATO
+       ------------------------------------------------------------
+       L'identificativo di un tavolo non si cambia mai - e' la chiave con cui
+       viaggia fra invito, prenotazione e agenda - ma il suo ARGOMENTO si',
+       quando la giornata si riorganizza. Il 26 settembre il secondo desk
+       Revilaw e' diventato il secondo tavolo del merito creditizio: le
+       prenotazioni prese prima sono rimaste attaccate a quell'identificativo,
+       e oggi risultano a un tavolo di merito creditizio.
+       Quelle imprese avevano chiesto dell'altro, e nessuno gliel'ha detto. La
+       marcatura dello SPOSTAMENTO non le copre: non sono state spostate, e'
+       stato il tavolo a cambiare sotto di loro. Quindi si segnalano qui, con
+       lo stesso bollino e per la stessa ragione - chi legge il riepilogo il
+       giorno prima deve sapere che quell'azienda si aspetta un'altra cosa.
+       Si riconoscono dalla DATA della prenotazione: `quando` si riscrive a
+       ogni tocco, quindi una riga gia' rivista dopo la conversione non viene
+       segnalata, ed e' giusto - qualcuno l'ha gia' guardata.
+       Una riga per tavolo convertito: il giorno che ne cambia un altro si
+       aggiunge qui e tutto il resto funziona da se'. */
+    const TAVOLI_CONVERTITI = [
+        { id: 'desk-revilaw-b', dal: Date.parse('2026-09-26T01:15:48+02:00'), era: 'Desk Revilaw' }
+    ];
+    function convertitoDopo(areaId, chi) {
+        const c = TAVOLI_CONVERTITI.filter(x => x.id === areaId)[0];
+        if (!c || !chi) return '';
+        const q = Number(chi.quando) || 0;
+        // senza data non si puo' dire: meglio tacere che marcare a caso
+        return (q && q < c.dal) ? c.era : '';
     }
     function nomeAreaB2B(id) {
         const a = areeB2BDef().filter(x => x.id === id)[0];
