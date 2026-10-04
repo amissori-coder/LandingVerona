@@ -532,7 +532,7 @@ d'ambiente non ne parte nessuno.
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
 | `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 | `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo i promemoria con `ora: 7` (la mattina dell'evento) |
-| `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre e 1° ottobre); benvenuto e giorni passati restano al giro delle 20 |
+| `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre, 1° ottobre e il ringraziamento del lunedi' dopo l'evento); benvenuto e giorni passati restano al giro delle 20 |
 | `/api/promemoria-eventi-ore11` | `0 9 * * *` — alle 11 di Roma (le 10 con l'ora solare) | spedisce solo i promemoria con `ora: 11` (per Napoli l'ultimo giorno per prenotare gli incontri B2B, il 30 settembre) |
 | `/api/promemoria-eventi-ore22` | `0 20 * * *` — alle 22 di Roma (le 21 con l'ora solare) | spedisce solo i promemoria con `ora: 22` (per Napoli la prima mail del 24 settembre) |
 
@@ -954,6 +954,14 @@ segue online servono cose diverse:
 | In sala | `presenza`, `aderenti`, `sponsor` | indirizzo, orari, come arrivare, badge, incontri B2B, e il posto da liberare se non si viene piu' |
 | Online | `online` | cosa serve per seguire, a che ora collegarsi, il collegamento alla diretta (scritto da chi programma) |
 
+Dopo l'evento, per ciascuna serie, c'e' una mail sola: il **ringraziamento**
+(`dopoEvento: true` sulla proposta e sul record, `giorniPrima` negativo: il
+lunedi' dopo, alle 8). E' l'unica che il servizio spedisce a evento passato,
+e l'unica che va anche a chi e' segnato assente: dice a chi non e' riuscito a
+venire, e a chi era online senza incontri B2B, che puo' chiedere una video
+call con uno specialista scrivendo a info@nextgenerationbusiness.it con
+l'argomento che gli interessa.
+
 **Chi decide sta nell'area riservata, chi spedisce sta qui.** I testi e il
 calendario stanno in `area-riservata/promemoria-eventi.js`, evento per evento
 (oggi: Napoli, 2 ottobre 2026); la forma della mail in
@@ -978,7 +986,8 @@ le 8. Per ogni record `programmato` previsto per oggi:
    e' quella decisa da chi organizza (`presenze.modalita`), altrimenti quella
    dichiarata iscrivendosi, altrimenti in presenza: la stessa regola
    dell'area riservata. Restano fuori chi ha annullato, chi e' stato
-   cancellato, chi e' segnato **assente**, chi non ha un indirizzo valido; un
+   cancellato, chi e' segnato **assente** (la mail `dopoEvento` invece lo
+   comprende), chi non ha un indirizzo valido; un
    indirizzo riceve **una** mail anche se ha due iscrizioni;
 2. personalizza: `{{NOME}}` diventa **nome e cognome** ("Gentile Maria
    Rossi": le mail al singolo danno del Lei; un nome scritto tutto maiuscolo
@@ -1052,7 +1061,9 @@ record previsto per un giorno **gia' passato** (servizio fermo, cron non
 attivo, giorno gia' finito quando lo si e' confermato) lo segna `scaduto`, con
 il motivo, e non lo spedisce; l'unica eccezione e' un invio rimasto a meta' il
 giorno prima, che si completa. Dopo il giorno dell'evento non parte niente,
-nemmeno il resto di un invio a meta'. Dall'area riservata compare "Non
+nemmeno il resto di un invio a meta': l'unica mail che parte dopo e' quella
+scritta per il dopo, il ringraziamento (`dopoEvento: true`), per cui vale solo
+la regola del giorno passato. Dall'area riservata compare "Non
 partito" con il pulsante per riprogrammarlo. I giorni si contano nell'ora di Roma.
 
 **Il record si tocca per campo, in transazione** (`applicaPatch`): l'area

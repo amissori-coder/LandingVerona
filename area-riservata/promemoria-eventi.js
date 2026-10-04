@@ -36,6 +36,14 @@
    (l'ultimo giorno per prenotare gli incontri B2B), la mattina dell'evento
    alle 7.
 
+   DOPO L'EVENTO c'e' una mail sola per serie, il ringraziamento
+   (`dopoEvento: true`, con `giorniPrima` negativo: il lunedi' dopo, alle 8).
+   Il servizio di norma non spedisce niente dopo il giorno dell'evento e
+   lascia fuori chi e' segnato assente: per questa mail fa l'una e l'altra
+   cosa, perche' il ringraziamento parla anche a chi non e' riuscito a
+   venire (e a chi era online, senza incontri B2B) e gli dice come chiedere
+   una video call con uno specialista scrivendo a info@nextgenerationbusiness.it.
+
    Ogni proposta: { id, nome, sezioni: 'sala'|'online', giorniPrima,
    campi: ['linkDiretta'], mail: { oggetto, anteprima, titolo,
    sommario, paragrafi, righe, programma, pulsante, nota,
@@ -123,6 +131,14 @@
     const PROGRAMMA_DIRETTA = NAPOLI.programma
         .filter(v => v.nome !== 'Registrazione e welcome coffee')
         .map(v => ({ ora: v.ora, nome: v.nome === 'Lunch buffet e networking' ? 'Pausa pranzo' : v.nome }));
+    /* Dopo l'evento: chi non e' riuscito a venire, o ha seguito online e non
+       ha potuto fare gli incontri B2B, chiede una video call con uno
+       specialista scrivendo qui, con l'argomento che gli interessa. Il
+       pulsante apre la posta con l'oggetto gia' scritto. */
+    const VIDEO_CALL = {
+        email: 'info@nextgenerationbusiness.it',
+        pulsante: { testo: 'Richiedi una video call', url: 'mailto:info@nextgenerationbusiness.it?subject=' + encodeURIComponent('Richiesta di video call - Next Generation Business') }
+    };
 
     /* COME SI LEGGONO I SEGNI SULLE PROPOSTE
        - benvenuto: e' la mail COMPLETA della serie. A chi entra nella serie
@@ -131,13 +147,17 @@
        - soloIlGiorno: vale solo per il suo giorno (la vigilia, la mattina
          dell'evento). Quel giorno arriva a tutti e ha la precedenza sul
          benvenuto; non si manda mai in un altro giorno.
+       - dopoEvento: la mail che parte DOPO il giorno dell'evento (il
+         ringraziamento). Il servizio la spedisce anche a evento passato e la
+         manda anche a chi e' segnato assente: parla pure a chi non e' venuto.
+         Non fa mai da benvenuto.
        - {{MANCANO}} {{QUANDO}} {{CHIUSURA_B2B}} e i paragrafi `se: 'B2B'`: li
          scrive il servizio la mattina dell'invio (vedi tempo, qui sotto). */
     /* La versione dei testi e della forma della mail. Si scrive sul record
        quando si conferma: un promemoria confermato con una versione
        precedente l'area riservata lo segnala, perche' riaprendolo si
        possano prendere i testi nuovi. Va cambiata a ogni revisione. */
-    const VERSIONE_TESTI = '2026-09-24-programma';
+    const VERSIONE_TESTI = '2026-10-04-ringraziamento';
     const PROPOSTE = {
         'napoli-2026-10-02': [
             /* ------------------------- IN SALA ------------------------- */
@@ -257,6 +277,28 @@
                     linkPersonale: false
                 }
             },
+            /* DOPO L'EVENTO: il ringraziamento, il lunedi' alle 8. Va anche a
+               chi e' segnato assente (dopoEvento): il paragrafo "Se non ha
+               potuto essere presente" e' scritto per loro. Niente collegamento
+               personale: non c'e' piu' un'iscrizione da correggere. */
+            {
+                id: 'sala-grazie', serie: 'sala', giorniPrima: -3, ora: 8, dopoEvento: true,
+                nome: 'Dopo l\'evento: grazie a chi era in sala, e la video call per chi non c\'era',
+                mail: {
+                    oggetto: 'Grazie per la Sua partecipazione a Next Generation Business - {{AZIENDA}}',
+                    anteprima: 'Un ringraziamento per la giornata del 2 ottobre a Napoli. Per chi non ha potuto essere presente: una video call con un nostro specialista.',
+                    titolo: 'Grazie per la Sua partecipazione',
+                    sommario: 'Gentile ' + NOME + ', desideriamo ringraziarLa per aver preso parte a Next Generation Business, che si è tenuto venerdì 2 ottobre 2026 presso l\'Hotel Eurostars Excelsior di Napoli.',
+                    paragrafi: [
+                        'La partecipazione di imprese, professionisti e relatori ha fatto della giornata un\'occasione concreta di confronto e di incontro. Ci auguriamo che gli interventi e i momenti di incontro abbiano risposto alle Sue aspettative e Le abbiano offerto spunti utili per la Sua attività.',
+                        { titolo: 'Se non ha potuto essere presente', testo: 'Qualora non Le sia stato possibile partecipare in sala, può comunque approfondire gli argomenti trattati con una video call con un nostro specialista: è sufficiente scrivere a ' + VIDEO_CALL.email + ' indicando l\'argomento di Suo interesse, e sarà ricontattato per fissare l\'appuntamento.' }
+                    ],
+                    righe: [['Evento', 'Next Generation Business, venerdì 2 ottobre 2026'], ['Sede', NAPOLI.dove], ['Video call con uno specialista', 'Scriva a ' + VIDEO_CALL.email + ' indicando l\'argomento di interesse']],
+                    pulsante: VIDEO_CALL.pulsante,
+                    nota: '',
+                    linkPersonale: false
+                }
+            },
 
             /* -------------------------- ONLINE ------------------------- */
             {
@@ -339,6 +381,27 @@
                     ],
                     righe: [],
                     pulsante: null,
+                    nota: '',
+                    linkPersonale: false
+                }
+            },
+            /* DOPO L'EVENTO: il ringraziamento a chi ha seguito la diretta, il
+               lunedi' alle 8. Gli incontri B2B erano solo in sala: a chi era
+               online si offre la video call con uno specialista. */
+            {
+                id: 'online-grazie', serie: 'online', giorniPrima: -3, ora: 8, dopoEvento: true,
+                nome: 'Dopo l\'evento: grazie a chi ha seguito la diretta, e la video call al posto del B2B',
+                mail: {
+                    oggetto: 'Grazie per aver seguito Next Generation Business in diretta - {{AZIENDA}}',
+                    anteprima: 'Un ringraziamento per aver seguito la diretta del 2 ottobre. Gli incontri B2B erano solo in sala: può chiedere una video call con un nostro specialista.',
+                    titolo: 'Grazie per aver seguito la diretta',
+                    sommario: 'Gentile ' + NOME + ', desideriamo ringraziarLa per aver seguito in diretta i lavori di Next Generation Business, che si è tenuto venerdì 2 ottobre 2026 a Napoli.',
+                    paragrafi: [
+                        'Ci auguriamo che gli interventi abbiano risposto alle Sue aspettative e Le abbiano offerto spunti utili per la Sua attività.',
+                        { titolo: 'Una video call al posto degli incontri B2B', testo: 'Gli incontri B2B si sono svolti esclusivamente in presenza, e chi ha seguito la diretta non ha potuto prendervi parte. Può comunque approfondire gli argomenti trattati con una video call con un nostro specialista: è sufficiente scrivere a ' + VIDEO_CALL.email + ' indicando l\'argomento di Suo interesse, e sarà ricontattato per fissare l\'appuntamento.' }
+                    ],
+                    righe: [['Evento', 'Next Generation Business, venerdì 2 ottobre 2026, in diretta da Napoli'], ['Video call con uno specialista', 'Scriva a ' + VIDEO_CALL.email + ' indicando l\'argomento di interesse']],
+                    pulsante: VIDEO_CALL.pulsante,
                     nota: '',
                     linkPersonale: false
                 }
@@ -455,8 +518,9 @@
     function serieDi(id) { return SERIE[id] || SERIE.sala; }
 
     /* Il giorno in cui spedire, in millisecondi, a mezzanotte nell'ora di
-       chi programma: il giorno dell'evento meno `giorniPrima`. L'ora non si
-       sceglie: il servizio passa alle 20. */
+       chi programma: il giorno dell'evento meno `giorniPrima` (negativo per
+       la mail DOPO l'evento: -3 e' il lunedi' seguente). L'ora non si
+       sceglie: e' quella della proposta. */
     function quandoProposto(prop, giornoEvento) {
         const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(giornoEvento || ''));
         if (!m || !prop) return 0;
