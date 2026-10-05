@@ -24407,6 +24407,8 @@
        Record: { id: '<evento>~<proposta>', evento, filtro, proposta, nome,
                  sezioni: ['presenza','aderenti','sponsor'] | ['online'],
                  quando: ms (il giorno, a mezzanotte), stato: 'programmato'|'sospeso'|'inviato'|'scaduto',
+                 dopoEvento: true per la mail che parte DOPO l'evento (il ringraziamento: il
+                   servizio la spedisce anche a evento passato, e anche a chi e' segnato assente),
                  mail: { oggetto, html, testo },      // quello che parte
                  testi: { ...la parte mail della proposta, corretta },
                  campi: { linkDiretta },
@@ -24513,6 +24515,10 @@
     const RE_EMAIL_PM = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     function elenchiPromemoria(ev) {
         const out = { sala: [], online: [], senzaEmail: 0, doppie: 0, assenti: 0, caricato: _evIscrizioni !== null };
+        /* Gli assenti a parte, per serie e con la sezione: la mail DOPO
+           l'evento (il ringraziamento) va anche a loro, e la sua riga li conta. */
+        out.assentiPer = { sala: [], online: [] };
+        const vistiAssenti = { sala: {}, online: {} };
         /* Il conto che porta dai numeri della testata (POSTI: un'iscrizione
            con accompagnatori vale piu' persone) agli indirizzi a cui parte
            la mail. Per serie, perche' il servizio lavora per serie: chi e'
@@ -24527,8 +24533,12 @@
             c.posti += partecipantiDi(r);
             c.iscrizioni++;
             const p = EventiPresenze.di(ev.id, r.id) || {};
-            if (String(p.stato || '') === 'assente') { c.assenti++; out.assenti++; return; }
             const email = String(r.email || '').trim().toLowerCase();
+            if (String(p.stato || '') === 'assente') {
+                c.assenti++; out.assenti++;
+                if (RE_EMAIL_PM.test(email) && !vistiAssenti[serie][email]) { vistiAssenti[serie][email] = true; out.assentiPer[serie].push({ sezione: m, email: email }); }
+                return;
+            }
             if (!RE_EMAIL_PM.test(email)) { c.senzaEmail++; out.senzaEmail++; return; }
             if (visti[serie][email]) { c.doppie++; out.doppie++; return; }
             visti[serie][email] = true;
@@ -24658,8 +24668,13 @@
             const sez = r.sezioni || [];
             const lista = serie === 'online' ? dest.online : dest.sala.filter(x => sez.indexOf(x.sezione) >= 0);
             const parziale = serie === 'sala' && sez.length < RV_PROMEMORIA.SERIE.sala.sezioni.length;
-            return '<b>' + lista.length + '</b><div class="hint">' + (lista.length === 1 ? 'persona' : 'persone')
-                + (parziale ? ': ' + esc(sez.map(id => sezioneDef(id).breve).join(', ')) : '') + '</div>';
+            // la mail dopo l'evento va anche a chi e' segnato assente: qui si contano
+            const dopo = !!((r.prop && r.prop.dopoEvento) || (r.rec && r.rec.dopoEvento));
+            const assenti = dopo ? ((dest.assentiPer || {})[serie] || []).filter(x => serie === 'online' || sez.indexOf(x.sezione) >= 0).length : 0;
+            const n = lista.length + assenti;
+            return '<b>' + n + '</b><div class="hint">' + (n === 1 ? 'persona' : 'persone')
+                + (parziale ? ': ' + esc(sez.map(id => sezioneDef(id).breve).join(', ')) : '')
+                + (assenti ? ', con ' + assenti + ' segnat' + (assenti === 1 ? 'o' : 'i') + ' assent' + (assenti === 1 ? 'e' : 'i') : '') + '</div>';
         };
         /* "Otto giorni prima: programma e..." -> "Programma e...": la data
            sta gia' nella prima colonna. */
@@ -24767,7 +24782,7 @@
             + tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala), dest.conti.sala)
             + tessera('Destinatari online', dest.online.length, 'sezione Online', dest.conti.online)
             + '<div class="pm-riepilogo-azioni"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest"' + (dest.caricato ? '' : ' disabled') + '>Scarica i destinatari (CSV)</button>'
-            + '<div class="hint">In testata si contano i <b>posti</b>; qui gli <b>indirizzi</b> a cui parte la mail: una per iscrizione, niente agli assenti e a chi non ha un\'email valida. Gli invitati ai soli incontri B2B non sono in nessuno dei due conti.</div>'
+            + '<div class="hint">In testata si contano i <b>posti</b>; qui gli <b>indirizzi</b> a cui parte la mail: una per iscrizione, niente agli assenti e a chi non ha un\'email valida. Fa eccezione la mail <b>dopo l\'evento</b> (il ringraziamento), che va anche a chi è segnato assente. Gli invitati ai soli incontri B2B non sono in nessuno dei due conti.</div>'
             + '</div></div>'
             + sezione('sala', 'In sala', 'ospiti in presenza, aderenti Revilaw, sponsor e relatori', dest.sala, true)
             + sezione('online', 'Online', 'chi segue la diretta', dest.online, false);
@@ -24868,19 +24883,23 @@
     /* A chi partirebbe ADESSO: gli iscritti dell'evento a video, nelle
        sezioni scelte, un indirizzo una mail. E' un conteggio di oggi, e lo si
        dice: il servizio rilegge l'elenco al momento dell'invio. */
-    function destinatariPromemoria(ev, sezioni) {
-        const out = { totale: 0, perSezione: {}, senzaEmail: 0, nomeEsempio: '' };
+    function destinatariPromemoria(ev, sezioni, opz) {
+        const out = { totale: 0, perSezione: {}, senzaEmail: 0, assenti: 0, nomeEsempio: '' };
         const visti = {};
+        // la mail DOPO l'evento (il ringraziamento) va anche agli assenti: come nel servizio
+        const conAssenti = !!(opz && opz.conAssenti);
         (_evIscrizioni || []).forEach(r => {
             const m = modalitaDi(ev, r);
             if ((sezioni || []).indexOf(m) < 0) return;
             // chi e' segnato assente non riceve: come nel servizio
-            if (String((EventiPresenze.di(ev.id, r.id) || {}).stato || '') === 'assente') return;
+            const assente = String((EventiPresenze.di(ev.id, r.id) || {}).stato || '') === 'assente';
+            if (assente && !conAssenti) return;
             const e = String(r.email || '').trim().toLowerCase();
             if (!e) { out.senzaEmail++; return; }
             if (visti[e]) return;
             visti[e] = true;
             out.totale++;
+            if (assente) out.assenti++;
             out.perSezione[m] = (out.perSezione[m] || 0) + 1;
             if (!out.nomeEsempio) out.nomeEsempio = (RV_PROMEMORIA.tempo.formaNome(r.nome) + ' ' + RV_PROMEMORIA.tempo.formaNome(r.cognome)).trim();
         });
@@ -24920,11 +24939,15 @@
         const sezioni0 = rec ? (rec.sezioni || []) : RV_PROMEMORIA.SERIE[prop.serie].sezioni.slice();
         const serie = serieDiSezioni(sezioni0);
         const nome = (opz.testiNuovi && prop && prop.nome) || (rec && rec.nome) || (prop && prop.nome) || '';
+        /* La mail DOPO l'evento (il ringraziamento): il servizio la spedisce a
+           evento passato e anche a chi e' segnato assente, e qui si conta cosi'. */
+        const dopoEvento = !!((prop && prop.dopoEvento) || (rec && rec.dopoEvento));
+        const chiRiceve = sez => destinatariPromemoria(ev, sez, { conAssenti: dopoEvento });
         const isoData = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
         const dis = soloLettura ? ' disabled' : '';
 
         const sezioniHtml = '<div class="pm-sezioni">' + RV_PROMEMORIA.SERIE[serie].sezioni.map(id => {
-            const d = destinatariPromemoria(ev, [id]);
+            const d = chiRiceve([id]);
             return '<label><input type="checkbox" class="pm-sez" value="' + esc(id) + '"' + (sezioni0.indexOf(id) >= 0 ? ' checked' : '') + dis + '>'
                 + esc(sezioneDef(id).nome) + ' <span class="pm-n">' + (_evIscrizioni ? d.totale : '-') + '</span></label>';
         }).join('') + '</div>';
@@ -24948,7 +24971,8 @@
 
         const colonnaForm = esitoInvio
             + '<div class="campo"><label>Giorno</label><input type="date" id="pm-data" value="' + esc(isoData(quando0)) + '"' + (soloLettura ? '' : ' min="' + esc(isoData(Date.now())) + '"') + dis + '>'
-            + '<div class="hint">Parte <b>' + quandoGiro((prop || rec)) + '</b> di questo giorno, a chi risulta iscritto in quel momento. I giorni che mancano si calcolano quel giorno: l\'anteprima li mostra già così.</div></div>'
+            + '<div class="hint">Parte <b>' + quandoGiro((prop || rec)) + '</b> di questo giorno, a chi risulta iscritto in quel momento. '
+            + (dopoEvento ? 'È la mail dopo l\'evento: parte anche se l\'evento è passato, e va anche a chi è segnato assente, perché parla pure a chi non è venuto.' : 'I giorni che mancano si calcolano quel giorno: l\'anteprima li mostra già così.') + '</div></div>'
             + '<div class="campo"><label>A chi</label>' + sezioniHtml
             + '<div class="hint" id="pm-conta"></div></div>'
             + campiHtml
@@ -24997,11 +25021,12 @@
         // il giorno scelto, "aaaa-mm-gg": l'anteprima mostra la mail come partira' quel giorno
         const giornoScelto = () => { const v = $id('pm-data') ? $id('pm-data').value : ''; return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''; };
         const aggiornaConta = () => {
-            const d = destinatariPromemoria(ev, sezioniScelte());
+            const d = chiRiceve(sezioniScelte());
             const el = $id('pm-conta');
             if (!el) return;
             el.innerHTML = _evIscrizioni
                 ? 'Oggi partirebbe a <b>' + d.totale + '</b> ' + (d.totale === 1 ? 'indirizzo' : 'indirizzi diversi')
+                + (d.assenti ? ', di cui ' + d.assenti + ' segnat' + (d.assenti === 1 ? 'o' : 'i') + ' assent' + (d.assenti === 1 ? 'e' : 'i') : '')
                 + (d.senzaEmail ? ' (' + d.senzaEmail + ' senza email, da avvisare a mano)' : '') + '.'
                 : 'Elenco non ancora caricato: il servizio leggerà gli iscritti al momento dell\'invio.';
         };
@@ -25013,7 +25038,7 @@
             // l'inviato si mostra com'e' partito, non ricomposto
             const m = inviato && rec.mail ? rec.mail : RV_PROMEMORIA.componi(testiCorrenti(), evDef, valori(), RV_NEWSLETTER);
             if (!m) return null;
-            const d = destinatariPromemoria(ev, sezioniScelte());
+            const d = chiRiceve(sezioniScelte());
             const T = RV_PROMEMORIA.tempo;
             return T.applica(m.html, T.frasi(giornoScelto(), ev.giorno || '', chiusuraB2B))
                 .split(RV_PROMEMORIA.SEGNAPOSTO_NOME).join(esc(d.nomeEsempio || 'Maria Rossi'))
@@ -25063,6 +25088,8 @@
                 soloIlGiorno: !!((prop && prop.soloIlGiorno) || (rec && rec.soloIlGiorno)),
                 // la mail della mattina dell'evento, e l'ora di partenza (7, 8 o 20)
                 mattina: !!((prop && prop.mattina) || (rec && rec.mattina)),
+                // la mail dopo l'evento: il servizio la fa partire a evento passato, e anche agli assenti
+                dopoEvento: dopoEvento,
                 ora: oraGiro(prop || rec),
                 chiusuraB2B: chiusuraB2B,
                 versioneTesti: RV_PROMEMORIA.VERSIONE_TESTI,

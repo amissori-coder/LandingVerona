@@ -532,7 +532,7 @@ d'ambiente non ne parte nessuno.
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
 | `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 | `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo i promemoria con `ora: 7` (la mattina dell'evento) |
-| `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre e 1° ottobre); benvenuto e giorni passati restano al giro delle 20 |
+| `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre, 1° ottobre e il ringraziamento del lunedi' dopo l'evento); benvenuto e giorni passati restano al giro delle 20 |
 | `/api/promemoria-eventi-ore11` | `0 9 * * *` — alle 11 di Roma (le 10 con l'ora solare) | spedisce solo i promemoria con `ora: 11` (per Napoli l'ultimo giorno per prenotare gli incontri B2B, il 30 settembre) |
 | `/api/promemoria-eventi-ore22` | `0 20 * * *` — alle 22 di Roma (le 21 con l'ora solare) | spedisce solo i promemoria con `ora: 22` (per Napoli la prima mail del 24 settembre) |
 
@@ -954,6 +954,14 @@ segue online servono cose diverse:
 | In sala | `presenza`, `aderenti`, `sponsor` | indirizzo, orari, come arrivare, badge, incontri B2B, e il posto da liberare se non si viene piu' |
 | Online | `online` | cosa serve per seguire, a che ora collegarsi, il collegamento alla diretta (scritto da chi programma) |
 
+Dopo l'evento, per ciascuna serie, c'e' una mail sola: il **ringraziamento**
+(`dopoEvento: true` sulla proposta e sul record, `giorniPrima` negativo: il
+lunedi' dopo, alle 8). E' l'unica che il servizio spedisce a evento passato,
+e l'unica che va anche a chi e' segnato assente: dice a chi non e' riuscito a
+venire, e a chi era online senza incontri B2B, che puo' chiedere una video
+call con uno specialista scrivendo a info@nextgenerationbusiness.it con
+l'argomento che gli interessa.
+
 **Chi decide sta nell'area riservata, chi spedisce sta qui.** I testi e il
 calendario stanno in `area-riservata/promemoria-eventi.js`, evento per evento
 (oggi: Napoli, 2 ottobre 2026); la forma della mail in
@@ -978,7 +986,8 @@ le 8. Per ogni record `programmato` previsto per oggi:
    e' quella decisa da chi organizza (`presenze.modalita`), altrimenti quella
    dichiarata iscrivendosi, altrimenti in presenza: la stessa regola
    dell'area riservata. Restano fuori chi ha annullato, chi e' stato
-   cancellato, chi e' segnato **assente**, chi non ha un indirizzo valido; un
+   cancellato, chi e' segnato **assente** (la mail `dopoEvento` invece lo
+   comprende), chi non ha un indirizzo valido; un
    indirizzo riceve **una** mail anche se ha due iscrizioni;
 2. personalizza: `{{NOME}}` diventa **nome e cognome** ("Gentile Maria
    Rossi": le mail al singolo danno del Lei; un nome scritto tutto maiuscolo
@@ -1052,7 +1061,9 @@ record previsto per un giorno **gia' passato** (servizio fermo, cron non
 attivo, giorno gia' finito quando lo si e' confermato) lo segna `scaduto`, con
 il motivo, e non lo spedisce; l'unica eccezione e' un invio rimasto a meta' il
 giorno prima, che si completa. Dopo il giorno dell'evento non parte niente,
-nemmeno il resto di un invio a meta'. Dall'area riservata compare "Non
+nemmeno il resto di un invio a meta': l'unica mail che parte dopo e' quella
+scritta per il dopo, il ringraziamento (`dopoEvento: true`), per cui vale solo
+la regola del giorno passato. Dall'area riservata compare "Non
 partito" con il pulsante per riprogrammarlo. I giorni si contano nell'ora di Roma.
 
 **Il record si tocca per campo, in transazione** (`applicaPatch`): l'area
@@ -1482,10 +1493,101 @@ Due cose che, sbagliate, fanno danno e sono sotto prova
   mail con il segnaposto stampato dentro;
 - **indirizzi e collegamenti** nemmeno: si sillaba solo cio' che e' una parola
   e basta, mai un token che contenga `@`, `.` o `/`. Un indirizzo si
-  seleziona, si incolla e deve funzionare.
+  seleziona, si incolla e deve funzionare. Una parola seguita da un punto o
+  dai due punti ("attivita'.", "specialista:") invece si sillaba: la
+  punteggiatura si stacca, si spezza la parola e la coda si riattacca;
+- il **marchio e i nomi della sede** non si spezzano (`NON_SILLABARE`: Next
+  Generation Business, Eurostars Excelsior, Partenope...): "Next Gene-" a
+  fine riga e' il difetto che la tipografia evita con un'eccezione, e le
+  regole italiane su un nome inglese darebbero tagli sbagliati;
+- **titoli, sopratitoli, etichette e valori del riquadro** dei promemoria
+  passano da `testoHtml(x, true)`: senza trattini morbidi, senza
+  `hyphens:auto` e a sinistra. Un titolo non si giustifica (come nelle
+  altre testate del formato e nell'invito B2B), e un valore del riquadro e'
+  un dato breve: sul telefono va su due righe, e giustificato lascerebbe tre
+  parole con buchi larghi. Un titolo sillabato si legge come un errore, e un
+  indirizzo copiato dal riquadro deve arrivare in Maps senza caratteri
+  invisibili dentro.
 
 Il **testo semplice** resta pulito: li' un carattere invisibile non serve a
 nessuno.
+
+### La mail in ogni lettore di posta, Outlook in testa
+
+Il formato dei promemoria (`promemoriaEvento` in
+`area-riservata/newsletter-format.js`) e' stato passato al setaccio dei
+lettori di posta: Outlook classico per Windows (che impagina con il motore
+di Word), il nuovo Outlook e Outlook.com, le app Outlook, Gmail (anche con
+account non Google, dove il foglio di stile non arriva), Apple Mail, Samsung,
+Yahoo, Thunderbird, e i temi scuri di ciascuno. Quello che ne e' venuto, e
+perche':
+
+- **Outlook per Windows a 125% e 150%**: la tabella a larghezza fissa dentro
+  il commento condizionale porta la larghezza anche nello stile, e l'`<html>`
+  dichiara `xmlns:o`, senza il quale il blocco `PixelsPerInch` viene
+  ignorato. Word tratta i pixel degli attributi come fisici e quelli del CSS
+  come punti scalati: la colonna restava 600 fisici e i margini crescevano.
+- **Spaziatori e filetti** (`stileVuoto`): corpo 1px, interlinea pari
+  all'altezza e `mso-line-height-rule:exactly`. Word non onora `font-size:0`
+  e tratta altezza e interlinea come minimi: un `&nbsp;` senza corpo prende
+  l'altezza di una riga di Times 12pt. Mai su una cella con un'immagine
+  dentro, che con "exactly" verrebbe ritagliata.
+- **Immagini con `height`** calcolato dalle dimensioni reali del file: con le
+  immagini bloccate (l'impostazione predefinita di Outlook) il segnaposto ha
+  l'altezza giusta e la testata non salta al download. `height:auto` nello
+  stile resta e vince negli altri client, cosi' la fascia resta fluida.
+- **Tema scuro**: il meta `color-scheme` vale `light only` (con `light` da
+  solo le app Gmail lo ignorano e invertono la testata); il logo e' un PNG
+  opaco con il navy dentro (`logo-revilaw-bianco-su-navy.png`) e la fascia
+  ha il fondo trasparente (`fascia-filigrana-trasparente.png`): dove un
+  client schiarisce la cella il marchio resta leggibile e la fascia segue la
+  testata. Per gli Outlook a motore web, che segnano con `data-ogsb` e
+  `data-ogsc` quello che ricolorano, le classi `bd` e `bx` scuriscono i soli
+  bordi, che altrimenti restano righe luminose sul grigio. Le classi stanno
+  su tutte le mail del formato (riquadri, scheda, piedi), e il selettore e'
+  solo nella forma sull'antenato (`[data-ogsb] .bd`): quella composta con la
+  classe Outlook.com non la legge.
+- **Niente `<br>` nelle celle giustificate** (`perRiga`): Word stira fino al
+  margine anche la riga che finisce con un'interruzione manuale ("Cordiali
+  saluti," a tutta larghezza). Una riga per cella e' sempre l'ultima del suo
+  paragrafo.
+- **Indirizzi di posta nel testo** diventano un `mailto:` esplicito con il
+  colore dello studio (`linkPosta`): Outlook classico non li renderebbe
+  cliccabili, Gmail li farebbe blu a modo suo. Dopo la chiocciola un `<wbr>`,
+  cosi' nei riquadri stretti l'indirizzo puo' andare a capo senza sfondare.
+  Via e codice fiscale del piede stanno in un `<a>` del colore del piede, per
+  la stessa ragione (`rigaMittente`).
+- **Titoli veri** (`<h1>`, `<h2>`) con tutti gli stili in linea e
+  `margin:0`, cosi' un lettore di schermo ha una struttura da scorrere; a
+  sinistra e senza trattini morbidi, come detto sopra.
+- **Pulsante alto 48px** in ogni client (interlinea esplicita nel link, 48
+  nel VML di Outlook) e, nel **solo testo**, il `mailto` del pulsante scritto
+  in chiaro ("scrivere a info@..., oggetto: ...") con il separatore di firma
+  `-- ` di RFC 3676, che Thunderbird riconosce.
+- `lang="it"` anche su `<body>` e sulle tabelle di involucro: i webmail
+  incollano solo il corpo nella loro pagina, e l'`<html>` non arriva.
+
+Le prove in `prove/mail-telefono.prove.js` e `prove/mail-sillabe.prove.js`
+coprono quello che si legge dal codice; quello che si vede solo aprendo la
+mail (Outlook a 125%, i temi scuri) va controllato con un invio di prova.
+**I gemelli del servizio** (`lib/mail-ngb.js`, `lib/diretta-mail.js`) hanno
+ancora l'involucro di prima: in Outlook per Windows manca perfino la tabella
+a larghezza fissa, e le mail che spediscono da li' (conferme, inviti B2B,
+diretta) si allargano a tutta la finestra. Da allineare in un passaggio a
+parte, insieme a `lib/mail-layout.js` (gli manca solo `:root{color-scheme}`
+e il `lang` sul body) e a `diretta/prove/anteprima/costruisci.js`, che
+elenca ancora i file di prima del logo e della fascia.
+
+**Scelte prese in questa revisione**, da sapere perche' si vedono: titolo,
+sopratitoli, etichette e valori del riquadro dei promemoria sono passati a
+sinistra (prima erano giustificati, e su due righe si stiravano); nel
+catalogo (`area-riservata/promemoria-eventi.js`) le due anteprime del
+ringraziamento stanno sotto i 90 caratteri e nel riquadro l'indirizzo per la
+video call sta da solo, con `VERSIONE_TESTI` aggiornata (i promemoria gia'
+confermati con la versione precedente vengono segnalati da riaprire);
+l'oggetto non e' cambiato; la sillabazione delle parole seguite da punto o
+due punti riguarda la prosa di tutte le mail del formato, non solo i
+promemoria.
 
 ### La forma dell'invito B2B
 

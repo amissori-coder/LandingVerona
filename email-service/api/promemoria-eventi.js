@@ -69,6 +69,15 @@
    riservata lo si riprogramma con un clic. L'unica eccezione e' un invio
    rimasto a meta' il giorno prima, che si completa.
 
+   DOPO L'EVENTO PARTE SOLO IL RINGRAZIAMENTO. Un record con
+   `dopoEvento: true` (la mail di grazie, che nel catalogo ha un
+   `giorniPrima` negativo) e' l'unica eccezione a due regole: si spedisce
+   anche se il giorno dell'evento e' passato, e va anche a chi e' segnato
+   assente, perche' parla pure a chi non e' riuscito a venire e gli dice
+   come chiedere una video call con uno specialista. Per il resto e' un
+   promemoria come gli altri: legato al suo giorno (un giorno passato lo
+   segna scaduto) e mai benvenuto.
+
    UN GIRO AL GIORNO VUOL DIRE CHE DEVE BASTARE. Le mail partono a
    quattro alla volta invece che una dietro l'altra: trecento iscritti
    sono un paio di minuti, dentro il budget del giro. Se il tempo finisse
@@ -166,8 +175,10 @@ function risolviDestinatari(arch, rec) {
         const id = idRiga(v);
         if (cancellate[id]) { out.cancellati++; return; }
         const p = presenze[id] || {};
-        // chi e' segnato assente non viene: non gli si ricorda niente
-        if (String(p.stato || '') === 'assente') { out.esclusi++; return; }
+        /* Chi e' segnato assente non viene: non gli si ricorda niente. La mail
+           DOPO l'evento (il ringraziamento) invece gli parla apposta: gli dice
+           come chiedere una video call al posto della giornata persa. */
+        if (String(p.stato || '') === 'assente' && rec.dopoEvento !== true) { out.esclusi++; return; }
         /* La sezione: la decisione di chi organizza (presenze) vince su quella
            dichiarata iscrivendosi; vuoto o sconosciuto vale in presenza. */
         let m = String(p.modalita || v.modalita || '').toLowerCase();
@@ -429,8 +440,9 @@ module.exports = async (req, res, opz) => {
             try {
                 /* Dopo il giorno dell'evento non parte niente, nemmeno il resto
                    di un invio rimasto a meta': "oggi si comincia" il giorno
-                   dopo e' peggio di nessuna mail. */
-                if (fineEvento(rec) && ora > fineEvento(rec)) {
+                   dopo e' peggio di nessuna mail. L'unica eccezione e' la mail
+                   scritta PER il dopo (dopoEvento: il ringraziamento). */
+                if (rec.dopoEvento !== true && fineEvento(rec) && ora > fineEvento(rec)) {
                     await applicaPatch(db, rec.id, {
                         stato: 'scaduto',
                         invio: Object.assign({}, rec.invio || {}, { inCorso: false, il: ora, motivo: 'Il giorno dell\'evento era già passato: non è partito niente.' })

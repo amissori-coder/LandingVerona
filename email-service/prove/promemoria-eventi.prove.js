@@ -616,6 +616,70 @@ await prova('21) Ogni ora delle proposte ha il suo giro: il cron in vercel.json 
     esigi(pm.every(p => cron._interni.oraDi(p) === p.ora), 'il servizio riconosce ogni ora scritta sulle proposte');
 });
 
+await prova('22) Dopo l\'evento parte il ringraziamento, con le proposte vere: anche a chi e\' segnato assente; un promemoria normale resta fermo', async () => {
+    const P = require(path.join(RADICE, '..', 'area-riservata', 'promemoria-eventi.js'));
+    const NLF = require(path.join(RADICE, '..', 'area-riservata', 'newsletter-format.js'));
+    const sala = P.proposta('napoli-2026-10-02', 'sala-grazie'), online = P.proposta('napoli-2026-10-02', 'online-grazie');
+    esigi(!!sala && !!online && sala.dopoEvento === true && online.dopoEvento === true && sala.ora === 8 && online.ora === 8
+        && !sala.benvenuto && !sala.soloIlGiorno && !online.benvenuto && !online.soloIlGiorno, 'le due proposte ci sono: dopo l\'evento, alle 8, mai benvenuto ne\' legate al giorno');
+    const d = new Date(P.quandoProposto(sala, '2026-10-02'));
+    esigi(d.getFullYear() === 2026 && d.getMonth() === 9 && d.getDate() === 5, 'proposte per lunedi\' 5 ottobre');
+    esigi(sala.mail.linkPersonale === false && online.mail.linkPersonale === false, 'niente collegamento personale: non c\'e\' piu\' un\'iscrizione da correggere');
+    const lanciaModulo = modulo => async () => {
+        const res = { _s: 0, _j: null, status(n) { this._s = n; return this; }, json(o) { this._j = o; return this; } };
+        await require(modulo)({ method: 'GET', headers: { authorization: 'Bearer segreto-di-prova' } }, res);
+        return Object.assign({ _stato: res._s }, res._j || {});
+    };
+    const giro8 = lanciaModulo('../api/promemoria-eventi-ore8');
+    // il record come lo scrive l'area riservata: la mail composta, dopoEvento e l'ora della proposta
+    const recDi = (prop, sezioni) => {
+        const m = P.componi(prop.mail, { titolo: 'Napoli', quando: 'venerdì 2 ottobre 2026' }, {}, NLF);
+        return recBase({
+            id: 'napoli-2026-10-02~' + prop.id, proposta: prop.id, nome: prop.nome, sezioni: sezioni, ora: prop.ora, dopoEvento: true,
+            quando: giorno('2026-10-05'), giornoEvento: '2026-10-02', chiusuraB2B: '2026-09-30',
+            mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
+        });
+    };
+    azzera();
+    const anna = iscr('anna@esempio.it', 'Anna', 'Verdi', { azienda: 'VERDI SRL' });
+    const bea = iscr('bea@esempio.it', 'Bea', 'Gialli', { modalita: 'sponsor' });
+    const omar = iscr('omar@esempio.it', 'Omar', 'Neri', { modalita: 'online' });
+    const dino = iscr('dino@esempio.it', 'Dino', 'Bianchi');
+    const carlo = iscr('carlo@esempio.it', 'Carlo', 'Rossi', { annullato: true });
+    mettiIscrizioni([anna, bea, omar, dino, carlo], [{ evento: 'napoli-2026-10-02', idIscritto: idDi(dino), stato: 'assente' }]);
+    // accanto, un promemoria normale rimasto programmato per lo stesso giorno: dopo l'evento NON parte
+    mettiPromemoria([recDi(sala, ['presenza', 'aderenti', 'sponsor']), recDi(online, ['online']), recBase({ id: 'napoli-2026-10-02~vecchio', proposta: 'vecchio', ora: 8, quando: giorno('2026-10-05') })]);
+    orologio = Date.parse('2026-10-05T08:02:00+02:00');
+    const r = await giro8();
+    const a = noCopia();
+    esigi(r._stato === 200 && r.inviati === 2 && r.scaduti === 1, 'il giro delle 8 del 5 ottobre: due invii, e il promemoria normale segnato scaduto (' + JSON.stringify(r) + ')');
+    const inSala = a.filter(m => /partecipazione/.test(m.subject)).map(m => m.to).sort();
+    const inDiretta = a.filter(m => /diretta/.test(m.subject)).map(m => m.to).sort();
+    esigi(JSON.stringify(inSala) === JSON.stringify(['anna@esempio.it', 'bea@esempio.it', 'dino@esempio.it']), 'in sala: a chi c\'era e a chi e\' segnato assente, non a chi ha annullato (' + inSala.join(', ') + ')');
+    esigi(JSON.stringify(inDiretta) === JSON.stringify(['omar@esempio.it']), 'online: a chi ha seguito la diretta (' + inDiretta.join(', ') + ')');
+    const perAnna = a.find(m => m.to === 'anna@esempio.it') || {};
+    esigi(perAnna.subject === 'Grazie per la Sua partecipazione a Next Generation Business - Verdi S.r.l.', 'oggetto con l\'azienda: ' + perAnna.subject);
+    const perBea = a.find(m => m.to === 'bea@esempio.it') || {};
+    esigi(perBea.subject === 'Grazie per la Sua partecipazione a Next Generation Business', 'senza azienda l\'oggetto perde il trattino: ' + perBea.subject);
+    const perDino = a.find(m => m.to === 'dino@esempio.it') || {};
+    esigi(/Gentile Dino Bianchi/.test(perDino.html) && /info@nextgenerationbusiness\.it/.test(perDino.html) && /video call/.test(perDino.html), 'a chi non e\' venuto: il saluto, l\'indirizzo a cui scrivere e la video call');
+    esigi(/href="mailto:info@nextgenerationbusiness\.it\?subject=/.test(perDino.html), 'il pulsante apre la posta verso info@, con l\'oggetto gia\' scritto');
+    const perOmar = a.find(m => m.to === 'omar@esempio.it') || {};
+    // nell'HTML le parole lunghe portano i trattini invisibili della sillabazione: si tolgono prima di cercare la frase
+    esigi(/incontri B2B si sono svolti esclusivamente in presenza/.test(String(perOmar.html || '').replace(/\u00AD/g, '')) && /info@nextgenerationbusiness\.it/.test(perOmar.text || ''), 'a chi era online: il B2B era solo in sala, e l\'indirizzo anche nel solo testo');
+    const tutte = a.map(m => m.subject + '\n' + m.html + '\n' + (m.text || '')).join('\n');
+    esigi(!/\{\{/.test(tutte) && !/collegamento personale/.test(tutte) && !/[—–]/.test(tutte), 'nessun segnaposto rimasto, niente collegamento personale, niente trattini lunghi');
+    esigi(leggiPromemoria('napoli-2026-10-02~sala-grazie').stato === 'inviato' && leggiPromemoria('napoli-2026-10-02~online-grazie').stato === 'inviato', 'i due ringraziamenti segnati inviati');
+    esigi(leggiPromemoria('napoli-2026-10-02~sala-grazie').invio.inviate === 3, 'il conto comprende chi era segnato assente');
+    const vecchio = leggiPromemoria('napoli-2026-10-02~vecchio');
+    esigi(vecchio.stato === 'scaduto' && /giorno dell'evento era già passato/.test(vecchio.invio.motivo), 'il promemoria normale: scaduto, perche\' l\'evento e\' passato');
+    // la sera dello stesso giorno il giro delle 20 non li rimanda e non fa partire nessun benvenuto
+    const prima = a.length;
+    orologio = Date.parse('2026-10-05T20:02:00+02:00');
+    const r2 = await giro();
+    esigi(noCopia().length === prima && r2.recuperi === 0 && r2.inviati === 0, 'la sera niente di nuovo: ne\' doppioni ne\' benvenuto');
+});
+
 await prova('6) Chiamata senza segreto: rifiutata', async () => {
     azzera();
     const res = { _s: 0, status(n) { this._s = n; return this; }, json() { return this; } };
