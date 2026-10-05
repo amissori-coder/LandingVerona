@@ -1500,9 +1500,12 @@ Due cose che, sbagliate, fanno danno e sono sotto prova
   Generation Business, Eurostars Excelsior, Partenope...): "Next Gene-" a
   fine riga e' il difetto che la tipografia evita con un'eccezione, e le
   regole italiane su un nome inglese darebbero tagli sbagliati;
-- **titoli, sopratitoli, etichette e dati del riquadro** dei promemoria
-  passano da `testoHtml(x, true)`: giustificati ma senza trattini morbidi e
-  senza `hyphens:auto`. Un titolo sillabato si legge come un errore, e un
+- **titoli, sopratitoli, etichette e valori del riquadro** dei promemoria
+  passano da `testoHtml(x, true)`: senza trattini morbidi, senza
+  `hyphens:auto` e a sinistra. Un titolo non si giustifica (come nelle
+  altre testate del formato e nell'invito B2B), e un valore del riquadro e'
+  un dato breve: sul telefono va su due righe, e giustificato lascerebbe tre
+  parole con buchi larghi. Un titolo sillabato si legge come un errore, e un
   indirizzo copiato dal riquadro deve arrivare in Maps senza caratteri
   invisibili dentro.
 
@@ -1540,7 +1543,10 @@ perche':
   client schiarisce la cella il marchio resta leggibile e la fascia segue la
   testata. Per gli Outlook a motore web, che segnano con `data-ogsb` e
   `data-ogsc` quello che ricolorano, le classi `bd` e `bx` scuriscono i soli
-  bordi, che altrimenti restano righe luminose sul grigio.
+  bordi, che altrimenti restano righe luminose sul grigio. Le classi stanno
+  su tutte le mail del formato (riquadri, scheda, piedi), e il selettore e'
+  solo nella forma sull'antenato (`[data-ogsb] .bd`): quella composta con la
+  classe Outlook.com non la legge.
 - **Niente `<br>` nelle celle giustificate** (`perRiga`): Word stira fino al
   margine anche la riga che finisce con un'interruzione manuale ("Cordiali
   saluti," a tutta larghezza). Una riga per cella e' sempre l'ultima del suo
@@ -1552,7 +1558,8 @@ perche':
   Via e codice fiscale del piede stanno in un `<a>` del colore del piede, per
   la stessa ragione (`rigaMittente`).
 - **Titoli veri** (`<h1>`, `<h2>`) con tutti gli stili in linea e
-  `margin:0`, cosi' un lettore di schermo ha una struttura da scorrere.
+  `margin:0`, cosi' un lettore di schermo ha una struttura da scorrere; a
+  sinistra e senza trattini morbidi, come detto sopra.
 - **Pulsante alto 48px** in ogni client (interlinea esplicita nel link, 48
   nel VML di Outlook) e, nel **solo testo**, il `mailto` del pulsante scritto
   in chiaro ("scrivere a info@..., oggetto: ...") con il separatore di firma
@@ -1567,7 +1574,20 @@ mail (Outlook a 125%, i temi scuri) va controllato con un invio di prova.
 ancora l'involucro di prima: in Outlook per Windows manca perfino la tabella
 a larghezza fissa, e le mail che spediscono da li' (conferme, inviti B2B,
 diretta) si allargano a tutta la finestra. Da allineare in un passaggio a
-parte.
+parte, insieme a `lib/mail-layout.js` (gli manca solo `:root{color-scheme}`
+e il `lang` sul body) e a `diretta/prove/anteprima/costruisci.js`, che
+elenca ancora i file di prima del logo e della fascia.
+
+**Scelte prese in questa revisione**, da sapere perche' si vedono: titolo,
+sopratitoli, etichette e valori del riquadro dei promemoria sono passati a
+sinistra (prima erano giustificati, e su due righe si stiravano); nel
+catalogo (`area-riservata/promemoria-eventi.js`) le due anteprime del
+ringraziamento stanno sotto i 90 caratteri e nel riquadro l'indirizzo per la
+video call sta da solo, con `VERSIONE_TESTI` aggiornata (i promemoria gia'
+confermati con la versione precedente vengono segnalati da riaprire);
+l'oggetto non e' cambiato; la sillabazione delle parole seguite da punto o
+due punti riguarda la prosa di tutte le mail del formato, non solo i
+promemoria.
 
 ### La forma dell'invito B2B
 
