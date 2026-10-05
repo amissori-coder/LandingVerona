@@ -67,7 +67,11 @@ function corpoSolo(html) {
     /* Via anche il testo NASCOSTO dell'anteprima (quello che il client mostra
        accanto all'oggetto): sta a 1px apposta, e non lo legge nessuno. */
     return String(html).slice(String(html).indexOf('</style>'))
-        .replace(/<div style="display:none[^>]*>[\s\S]*?<\/div>/g, '');
+        .replace(/<div style="display:none[^>]*>[\s\S]*?<\/div>/g, '')
+        /* Via anche le celle VUOTE a altezza fissa (spaziatori, filetti): il
+           loro font-size:1px e' la ricetta che tiene l'altezza giusta in
+           Outlook, non una misura di testo (dentro c'e' solo un &nbsp;). */
+        .replace(/<td[^>]*mso-line-height-rule:exactly;font-size:1px;[^>]*>&nbsp;<\/td>/g, '');
 }
 
 prova('Niente testo sotto i 13px, e niente prosa sotto i 14', () => {

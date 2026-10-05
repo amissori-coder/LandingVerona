@@ -134,7 +134,11 @@
     /* Dopo l'evento: chi non e' riuscito a venire, o ha seguito online e non
        ha potuto fare gli incontri B2B, chiede una video call con uno
        specialista scrivendo qui, con l'argomento che gli interessa. Il
-       pulsante apre la posta con l'oggetto gia' scritto. */
+       pulsante apre la posta con l'oggetto gia' scritto. Nel riquadro dei
+       dati l'indirizzo sta da solo: su un telefono da 360 pixel "Scriva a"
+       davanti a un indirizzo di 30 caratteri lasciava una riga stirata. Le
+       anteprime stanno sotto i 90 caratteri, con la video call nella prima
+       frase: oltre, i telefoni le tagliano a meta'. */
     const VIDEO_CALL = {
         email: 'info@nextgenerationbusiness.it',
         pulsante: { testo: 'Richiedi una video call', url: 'mailto:info@nextgenerationbusiness.it?subject=' + encodeURIComponent('Richiesta di video call - Next Generation Business') }
@@ -157,7 +161,7 @@
        quando si conferma: un promemoria confermato con una versione
        precedente l'area riservata lo segnala, perche' riaprendolo si
        possano prendere i testi nuovi. Va cambiata a ogni revisione. */
-    const VERSIONE_TESTI = '2026-10-04-ringraziamento';
+    const VERSIONE_TESTI = '2026-10-05-ringraziamento';
     const PROPOSTE = {
         'napoli-2026-10-02': [
             /* ------------------------- IN SALA ------------------------- */
@@ -286,14 +290,14 @@
                 nome: 'Dopo l\'evento: grazie a chi era in sala, e la video call per chi non c\'era',
                 mail: {
                     oggetto: 'Grazie per la Sua partecipazione a Next Generation Business - {{AZIENDA}}',
-                    anteprima: 'Un ringraziamento per la giornata del 2 ottobre a Napoli. Per chi non ha potuto essere presente: una video call con un nostro specialista.',
+                    anteprima: 'Grazie per il 2 ottobre a Napoli. Per chi non c\'era, una video call con uno specialista.',
                     titolo: 'Grazie per la Sua partecipazione',
                     sommario: 'Gentile ' + NOME + ', desideriamo ringraziarLa per aver preso parte a Next Generation Business, che si è tenuto venerdì 2 ottobre 2026 presso l\'Hotel Eurostars Excelsior di Napoli.',
                     paragrafi: [
                         'La partecipazione di imprese, professionisti e relatori ha fatto della giornata un\'occasione concreta di confronto e di incontro. Ci auguriamo che gli interventi e i momenti di incontro abbiano risposto alle Sue aspettative e Le abbiano offerto spunti utili per la Sua attività.',
                         { titolo: 'Se non ha potuto essere presente', testo: 'Qualora non Le sia stato possibile partecipare in sala, può comunque approfondire gli argomenti trattati con una video call con un nostro specialista: è sufficiente scrivere a ' + VIDEO_CALL.email + ' indicando l\'argomento di Suo interesse, e sarà ricontattato per fissare l\'appuntamento.' }
                     ],
-                    righe: [['Evento', 'Next Generation Business, venerdì 2 ottobre 2026'], ['Sede', NAPOLI.dove], ['Video call con uno specialista', 'Scriva a ' + VIDEO_CALL.email + ' indicando l\'argomento di interesse']],
+                    righe: [['Evento', 'Next Generation Business, venerdì 2 ottobre 2026'], ['Sede', NAPOLI.dove], ['Video call con uno specialista', VIDEO_CALL.email]],
                     pulsante: VIDEO_CALL.pulsante,
                     nota: '',
                     linkPersonale: false
@@ -393,14 +397,14 @@
                 nome: 'Dopo l\'evento: grazie a chi ha seguito la diretta, e la video call al posto del B2B',
                 mail: {
                     oggetto: 'Grazie per aver seguito Next Generation Business in diretta - {{AZIENDA}}',
-                    anteprima: 'Un ringraziamento per aver seguito la diretta del 2 ottobre. Gli incontri B2B erano solo in sala: può chiedere una video call con un nostro specialista.',
+                    anteprima: 'Grazie per aver seguito la diretta. Al posto del B2B, una video call con uno specialista.',
                     titolo: 'Grazie per aver seguito la diretta',
                     sommario: 'Gentile ' + NOME + ', desideriamo ringraziarLa per aver seguito in diretta i lavori di Next Generation Business, che si è tenuto venerdì 2 ottobre 2026 a Napoli.',
                     paragrafi: [
                         'Ci auguriamo che gli interventi abbiano risposto alle Sue aspettative e Le abbiano offerto spunti utili per la Sua attività.',
                         { titolo: 'Una video call al posto degli incontri B2B', testo: 'Gli incontri B2B si sono svolti esclusivamente in presenza, e chi ha seguito la diretta non ha potuto prendervi parte. Può comunque approfondire gli argomenti trattati con una video call con un nostro specialista: è sufficiente scrivere a ' + VIDEO_CALL.email + ' indicando l\'argomento di Suo interesse, e sarà ricontattato per fissare l\'appuntamento.' }
                     ],
-                    righe: [['Evento', 'Next Generation Business, venerdì 2 ottobre 2026, in diretta da Napoli'], ['Video call con uno specialista', 'Scriva a ' + VIDEO_CALL.email + ' indicando l\'argomento di interesse']],
+                    righe: [['Evento', 'Next Generation Business, venerdì 2 ottobre 2026, in diretta da Napoli'], ['Video call con uno specialista', VIDEO_CALL.email]],
                     pulsante: VIDEO_CALL.pulsante,
                     nota: '',
                     linkPersonale: false

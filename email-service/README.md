@@ -1493,10 +1493,81 @@ Due cose che, sbagliate, fanno danno e sono sotto prova
   mail con il segnaposto stampato dentro;
 - **indirizzi e collegamenti** nemmeno: si sillaba solo cio' che e' una parola
   e basta, mai un token che contenga `@`, `.` o `/`. Un indirizzo si
-  seleziona, si incolla e deve funzionare.
+  seleziona, si incolla e deve funzionare. Una parola seguita da un punto o
+  dai due punti ("attivita'.", "specialista:") invece si sillaba: la
+  punteggiatura si stacca, si spezza la parola e la coda si riattacca;
+- il **marchio e i nomi della sede** non si spezzano (`NON_SILLABARE`: Next
+  Generation Business, Eurostars Excelsior, Partenope...): "Next Gene-" a
+  fine riga e' il difetto che la tipografia evita con un'eccezione, e le
+  regole italiane su un nome inglese darebbero tagli sbagliati;
+- **titoli, sopratitoli, etichette e dati del riquadro** dei promemoria
+  passano da `testoHtml(x, true)`: giustificati ma senza trattini morbidi e
+  senza `hyphens:auto`. Un titolo sillabato si legge come un errore, e un
+  indirizzo copiato dal riquadro deve arrivare in Maps senza caratteri
+  invisibili dentro.
 
 Il **testo semplice** resta pulito: li' un carattere invisibile non serve a
 nessuno.
+
+### La mail in ogni lettore di posta, Outlook in testa
+
+Il formato dei promemoria (`promemoriaEvento` in
+`area-riservata/newsletter-format.js`) e' stato passato al setaccio dei
+lettori di posta: Outlook classico per Windows (che impagina con il motore
+di Word), il nuovo Outlook e Outlook.com, le app Outlook, Gmail (anche con
+account non Google, dove il foglio di stile non arriva), Apple Mail, Samsung,
+Yahoo, Thunderbird, e i temi scuri di ciascuno. Quello che ne e' venuto, e
+perche':
+
+- **Outlook per Windows a 125% e 150%**: la tabella a larghezza fissa dentro
+  il commento condizionale porta la larghezza anche nello stile, e l'`<html>`
+  dichiara `xmlns:o`, senza il quale il blocco `PixelsPerInch` viene
+  ignorato. Word tratta i pixel degli attributi come fisici e quelli del CSS
+  come punti scalati: la colonna restava 600 fisici e i margini crescevano.
+- **Spaziatori e filetti** (`stileVuoto`): corpo 1px, interlinea pari
+  all'altezza e `mso-line-height-rule:exactly`. Word non onora `font-size:0`
+  e tratta altezza e interlinea come minimi: un `&nbsp;` senza corpo prende
+  l'altezza di una riga di Times 12pt. Mai su una cella con un'immagine
+  dentro, che con "exactly" verrebbe ritagliata.
+- **Immagini con `height`** calcolato dalle dimensioni reali del file: con le
+  immagini bloccate (l'impostazione predefinita di Outlook) il segnaposto ha
+  l'altezza giusta e la testata non salta al download. `height:auto` nello
+  stile resta e vince negli altri client, cosi' la fascia resta fluida.
+- **Tema scuro**: il meta `color-scheme` vale `light only` (con `light` da
+  solo le app Gmail lo ignorano e invertono la testata); il logo e' un PNG
+  opaco con il navy dentro (`logo-revilaw-bianco-su-navy.png`) e la fascia
+  ha il fondo trasparente (`fascia-filigrana-trasparente.png`): dove un
+  client schiarisce la cella il marchio resta leggibile e la fascia segue la
+  testata. Per gli Outlook a motore web, che segnano con `data-ogsb` e
+  `data-ogsc` quello che ricolorano, le classi `bd` e `bx` scuriscono i soli
+  bordi, che altrimenti restano righe luminose sul grigio.
+- **Niente `<br>` nelle celle giustificate** (`perRiga`): Word stira fino al
+  margine anche la riga che finisce con un'interruzione manuale ("Cordiali
+  saluti," a tutta larghezza). Una riga per cella e' sempre l'ultima del suo
+  paragrafo.
+- **Indirizzi di posta nel testo** diventano un `mailto:` esplicito con il
+  colore dello studio (`linkPosta`): Outlook classico non li renderebbe
+  cliccabili, Gmail li farebbe blu a modo suo. Dopo la chiocciola un `<wbr>`,
+  cosi' nei riquadri stretti l'indirizzo puo' andare a capo senza sfondare.
+  Via e codice fiscale del piede stanno in un `<a>` del colore del piede, per
+  la stessa ragione (`rigaMittente`).
+- **Titoli veri** (`<h1>`, `<h2>`) con tutti gli stili in linea e
+  `margin:0`, cosi' un lettore di schermo ha una struttura da scorrere.
+- **Pulsante alto 48px** in ogni client (interlinea esplicita nel link, 48
+  nel VML di Outlook) e, nel **solo testo**, il `mailto` del pulsante scritto
+  in chiaro ("scrivere a info@..., oggetto: ...") con il separatore di firma
+  `-- ` di RFC 3676, che Thunderbird riconosce.
+- `lang="it"` anche su `<body>` e sulle tabelle di involucro: i webmail
+  incollano solo il corpo nella loro pagina, e l'`<html>` non arriva.
+
+Le prove in `prove/mail-telefono.prove.js` e `prove/mail-sillabe.prove.js`
+coprono quello che si legge dal codice; quello che si vede solo aprendo la
+mail (Outlook a 125%, i temi scuri) va controllato con un invio di prova.
+**I gemelli del servizio** (`lib/mail-ngb.js`, `lib/diretta-mail.js`) hanno
+ancora l'involucro di prima: in Outlook per Windows manca perfino la tabella
+a larghezza fissa, e le mail che spediscono da li' (conferme, inviti B2B,
+diretta) si allargano a tutta la finestra. Da allineare in un passaggio a
+parte.
 
 ### La forma dell'invito B2B
 

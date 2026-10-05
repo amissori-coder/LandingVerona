@@ -74,7 +74,21 @@
     /* Marchio in bianco su trasparenza, ricavato da quello con la scritta: serve
        perche' la testata ora e' blu. Senza, l'unico file con il nome esteso
        porterebbe con se' il suo fondo bianco e comparirebbe come un rettangolo. */
-    const LOGO_BIANCO = 'https://nextgenerationbusiness.it/assets/logo-revilaw-bianco.png';
+    /* PNG OPACO, con il navy della testata cotto dentro: dove un client in
+       tema scuro schiarisce la cella (Outlook classico per Windows, Gmail su
+       iPhone) le immagini non vengono ricolorate, e un logo bianco su
+       trasparenza sparirebbe nel chiaro; con il navy nel file resta un
+       rettangolo navy con il marchio bianco. Sul navy la resa e' identica al
+       file trasparente, che resta per le pagine del sito. */
+    const LOGO_BIANCO = 'https://nextgenerationbusiness.it/assets/logo-revilaw-bianco-su-navy.png';
+    /* Dimensioni REALI del file, in pixel. Servono per l'attributo height:
+       Outlook per Windows lo usa per disegnare il segnaposto quando le immagini
+       sono bloccate (impostazione predefinita), e senza l'altezza la testata
+       salta al download. Un height non proporzionale deformerebbe l'immagine
+       proprio in Outlook: se si riesporta il file, aggiornare qui. */
+    const LOGO_BIANCO_PX = { w: 371, h: 115 };
+    const LOGO_LARGO = 150;
+    const LOGO_ALTO = Math.round(LOGO_LARGO * LOGO_BIANCO_PX.h / LOGO_BIANCO_PX.w); // 46
     const SITO = 'https://nextgenerationbusiness.it';
     // la stessa informativa collegata in fondo al sito (iubenda)
     const PRIVACY = 'https://www.iubenda.com/privacy-policy/40996386';
@@ -87,6 +101,18 @@
         indirizzo: 'Via XX Settembre 9 - 37129 Verona',
         cf: 'C.F. 04641610235'
     };
+    /* Via e codice fiscale DENTRO un <a> con il colore del piede: Gmail (web e
+       app), Outlook per telefono e Samsung Mail riconoscono un indirizzo
+       postale e una sequenza di cifre e li trasformano in un collegamento blu
+       sottolineato; il meta format-detection dell'involucro lo legge solo
+       Apple. Dentro un <a> gia' fatto non ne creano un altro, e lo stile in
+       linea vince sul loro. Il collegamento porta ai contatti del sito, cosi'
+       un tocco non finisce nel vuoto (un href="#" in Outlook da' un errore). */
+    const LINK_MITTENTE = SITO + '/#contatti';
+    function rigaMittente() {
+        return '<a href="' + esc(LINK_MITTENTE) + '" style="color:' + C.tenue + ';text-decoration:none;">'
+            + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf) + '</a>';
+    }
     /* Questo testo lo legge il destinatario, non e' un commento nel codice: gli
        accenti ci vanno. Il file e' UTF-8 e la mail dichiara lo stesso charset. */
     const MOTIVO_PREDEFINITO = 'Ricevi questa email perché hai chiesto di essere aggiornato'
@@ -110,7 +136,14 @@
        dello studio si riconosce perche' e' sempre uguale, non perche' ogni volta
        si sceglie qualcosa di diverso. */
     const ORDINE_FASI = ['perche', 'come', 'cosa'];
-    const FASCIA = 'https://nextgenerationbusiness.it/assets/newsletter/fascia-filigrana.png';
+    /* PNG con il fondo TRASPARENTE: il navy lo da' la cella (bgcolor), cosi'
+       dove un client in tema scuro schiarisce la testata la fascia la segue
+       invece di restare una banda scura fra testata chiara e corpo. Sul navy
+       la resa e' identica al file di prima (che resta online per le mail gia'
+       spedite). Le dimensioni servono per l'attributo height, come il logo. */
+    const FASCIA = 'https://nextgenerationbusiness.it/assets/newsletter/fascia-filigrana-trasparente.png';
+    const FASCIA_PX = { w: 1200, h: 260 };
+    const FASCIA_ALTO = Math.round(LARGHEZZA * FASCIA_PX.h / FASCIA_PX.w); // 130
 
     /* --- tipi di blocco: restano solo per le bozze vecchie, gia' salvate come
        elenco di blocchi. Il compositore non li offre piu'. --- */
@@ -142,6 +175,26 @@
         if (/^\//.test(s)) return SITO + s;
         if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return '';   // altri schemi: scartati
         return 'https://' + s;
+    }
+    /* La riga del pulsante nel SOLO TESTO. Un mailto con ?subject= si
+       riscrive in chiaro: chi legge il testo semplice (o lo ascolta con la
+       sintesi vocale) non deve vedere %20 e lo schema. La decodifica e'
+       protetta: un URL malformato non deve far cadere la composizione.
+       Forma impersonale ("scrivere a") perche' le mail sono al tu
+       (newsletter) o al Lei (promemoria, B2B). Gli altri URL, compreso il
+       segnaposto {{COMPLETA}}, passano tali e quali. */
+    function pulsanteInTesto(testo, url) {
+        const u = String(url == null ? '' : url).trim();
+        const dec = x => { try { return decodeURIComponent(String(x || '').replace(/\+/g, '%2B')); } catch (e) { return String(x || ''); } };
+        const m = /^mailto:([^?]+)(?:\?(.*))?$/i.exec(u);
+        if (!m) return testo + ': ' + u;
+        const indirizzi = m[1].split(',').map(dec).map(x => x.trim()).filter(Boolean).join(', ');
+        let oggetto = '';
+        (m[2] || '').split('&').forEach(c => {
+            const i = c.indexOf('=');
+            if (i > 0 && dec(c.slice(0, i)).trim().toLowerCase() === 'subject') oggetto = dec(c.slice(i + 1)).replace(/\s+/g, ' ').trim();
+        });
+        return testo + ': scrivere a ' + indirizzi + (oggetto ? ' (oggetto: "' + oggetto + '")' : '');
     }
     /* Rende assoluto un indirizzo trovato in una pagina (per le immagini).
        Il risultato deve essere http/https: le immagini si scaricano, quindi
@@ -393,11 +446,24 @@
        infilarci dentro dei trattini invisibili le renderebbe inutili da
        copiare - un indirizzo si seleziona, si incolla e deve funzionare.
        Si sillaba solo quello che e' una parola e basta. */
+    /* PAROLE CHE NON SI SPEZZANO. Il marchio e i nomi propri della sede: un
+       "Next Gene-" a fine riga e' il difetto che la sillabazione tipografica
+       evita con un'eccezione, non rinunciando. Le regole italiane su un nome
+       inglese darebbero per di piu' tagli non inglesi (Gene-ra-tion).
+       Confronto in minuscolo: le etichette arrivano anche in MAIUSCOLO.
+       Quando cambia la sede si aggiungono albergo e via. */
+    const NON_SILLABARE = new Set(['generation', 'business', 'revilaw', 'eurostars', 'excelsior', 'partenope', 'napoli', 'verona']);
     function sillabaPezzo(testo) {
-        return String(testo == null ? '' : testo).replace(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9@._\/:+-]*/g, parola => {
-            if (!/^[A-Za-zÀ-ÿ]{8,}$/.test(parola)) return parola;
+        return String(testo == null ? '' : testo).replace(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9@._\/:+-]*/g, token => {
+            /* "attivita'." e "specialista:" arrivano qui come un token solo, con
+               la loro punteggiatura: si sillaba la parola e la coda si riattacca.
+               Un token con altro dentro (un indirizzo, un sito) resta intero. */
+            const m = /^([A-Za-zÀ-ÿ]{8,})([.:]*)$/.exec(token);
+            if (!m) return token;
+            const parola = m[1], coda = m[2];
+            if (NON_SILLABARE.has(parola.toLowerCase())) return token;
             const s = sillabeIt(parola);
-            if (s.length < 2) return parola;
+            if (s.length < 2) return token;
             let fuori = '', fatte = 0;
             for (let i = 0; i < s.length; i++) {
                 // almeno tre lettere da una parte e dall'altra
@@ -405,10 +471,17 @@
                 fuori += s[i];
                 fatte += s[i].length;
             }
-            return fuori;
+            return fuori + coda;
         });
     }
-    function testoHtml(s) { return esc(conSillabe(s)).replace(/\n/g, '<br>'); }
+    /* Il secondo parametro serve a titoli, etichette e dati (indirizzi, nomi,
+       date): niente trattini morbidi, nemmeno quelli arrivati dall'editor,
+       perche' un titolo sillabato si legge come un errore e un indirizzo si
+       copia con i caratteri invisibili dentro. */
+    function testoHtml(s, senzaSillabe) {
+        const t = String(s == null ? '' : s);
+        return esc(senzaSillabe ? t.split(MORBIDO).join('') : conSillabe(t)).replace(/\n/g, '<br>');
+    }
 
     /* =========================================================
        PEZZI DELLA MAIL
@@ -446,20 +519,37 @@
        parole a fine riga: su una colonna di 520px si aprono i "fiumi" bianchi
        che attraversano il paragrafo. La sillabazione li chiude, e si chiede
        in tutti i modi che i programmi di posta conoscono (`lang="it"`
-       sull'involucro dice con quali regole spezzare). Dove non la sanno fare
+       sull'involucro, dall'<html> al body e alle tabelle esterne, dice con
+       quali regole spezzare). Dove non la sanno fare
        - Outlook per primo - gli spazi restano larghi: e' il prezzo del
        giustificato, e lo si paga sapendolo. */
-    const ALLINEA = 'text-align:justify;text-justify:inter-word;'
+    /* Solo il giustificato, senza sillabazione automatica: per titoli,
+       sopratitoli, etichette in maiuscolo e dati del riquadro, che non sono
+       prosa e passano da testoHtml(x, true). */
+    const GIUSTO = 'text-align:justify;text-justify:inter-word;';
+    const ALLINEA = GIUSTO
         + '-webkit-hyphens:auto;-moz-hyphens:auto;-ms-hyphens:auto;hyphens:auto;';
 
+    /* Cella VUOTA di altezza fissa (spaziatori, filetti, barrette): la ricetta
+       che regge anche Outlook per Windows. Word non onora font-size:0 ne'
+       line-height:0 e tratta interlinea e height= come MINIMI: il &nbsp;
+       prende l'altezza di una riga di testo (Times 12pt dove nella catena non
+       c'e' un font-size, com'e' nella testata). Con corpo 1px, interlinea pari
+       all'altezza e mso-line-height-rule:exactly la cella e' alta esattamente
+       h px dappertutto; nei browser il risultato e' identico a prima.
+       NON usarla su celle che contengono immagini: con "exactly" Outlook
+       ritaglia l'immagine all'altezza della riga. */
+    function stileVuoto(h) {
+        return 'mso-line-height-rule:exactly;font-size:1px;line-height:' + h + 'px;height:' + h + 'px;';
+    }
     /* Riga vuota di altezza fissa: in una mail lo spazio si fa cosi', non con
        i margini (Outlook li ignora quasi tutti). */
     function spazio(h) {
-        return '<tr><td height="' + h + '" style="font-size:0;line-height:0;height:' + h + 'px;">&nbsp;</td></tr>';
+        return '<tr><td height="' + h + '" style="' + stileVuoto(h) + '">&nbsp;</td></tr>';
     }
     function filetto(colore, alto) {
-        return '<tr><td bgcolor="' + (colore || C.bordo) + '" height="' + (alto || 1) + '" style="background-color:' + (colore || C.bordo)
-            + ';font-size:0;line-height:0;height:' + (alto || 1) + 'px;">&nbsp;</td></tr>';
+        const c = colore || C.bordo, a = alto || 1;
+        return '<tr><td bgcolor="' + c + '" height="' + a + '" style="background-color:' + c + ';' + stileVuoto(a) + '">&nbsp;</td></tr>';
     }
     /* Cella del corpo, con i margini laterali. La classe "px" la usa la media
        query per stringere i margini sui telefoni. */
@@ -513,7 +603,7 @@
     function segnoSezione() {
         return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="34" style="border-collapse:collapse;">'
             + '<tr><td bgcolor="' + C.accento + '" width="34" height="2" style="background-color:' + C.accento
-            + ';width:34px;height:2px;font-size:0;line-height:0;">&nbsp;</td></tr></table>';
+            + ';width:34px;' + stileVuoto(2) + '">&nbsp;</td></tr></table>';
     }
     function titoloSezione(testo) {
         return tabellaInterna(
@@ -567,12 +657,12 @@
             + '<tr><td align="center" bgcolor="' + sfondo + '" style="background-color:' + sfondo + ';">'
             + '<!--[if mso]>'
             + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + esc(u) + '" '
-            + 'style="height:46px;v-text-anchor:middle;width:' + larghezza + 'px;" arcsize="0%" stroke="f" fillcolor="' + sfondo + '">'
+            + 'style="height:48px;v-text-anchor:middle;width:' + larghezza + 'px;" arcsize="0%" stroke="f" fillcolor="' + sfondo + '">'
             + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">' + esc(testo) + '</center>'
             + '</v:roundrect>'
             + '<![endif]-->'
             + '<!--[if !mso]><!-- -->'
-            + '<a href="' + esc(u) + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + '<a href="' + esc(u) + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
             + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + sfondo + ';mso-hide:all;">' + esc(testo) + '</a>'
             + '<!--<![endif]-->'
             + '</td></tr></table>';
@@ -982,17 +1072,31 @@
         const preheader = '<div style="display:none;font-size:1px;color:' + C.sfondo + ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">'
             + esc(anteprima || '') + '&#8199;&#65279;&#847; '.repeat(30) + '</div>';
         return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n'
-            + '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" lang="it" xml:lang="it">\n<head>\n'
+            /* xmlns:o va dichiarato: il blocco <o:OfficeDocumentSettings> qui sotto
+               (PixelsPerInch, cioe' il rimedio alla scala DPI di Outlook) usa quel
+               prefisso, e senza la dichiarazione Outlook a 125% o 150% puo'
+               ignorarlo e disallineare colonna, immagini e margini. */
+            + '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="it" xml:lang="it">\n<head>\n'
             + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n'
             + '<meta name="viewport" content="width=device-width, initial-scale=1" />\n'
             + '<meta http-equiv="X-UA-Compatible" content="IE=edge" />\n'
             + '<meta name="x-apple-disable-message-reformatting" content="" />\n'
             + '<meta name="format-detection" content="telephone=no,address=no,email=no,date=no" />\n'
-            + '<meta name="color-scheme" content="light" />\n'
+            /* "light only": e' il valore che le app Gmail (iOS e Android) onorano
+               per non invertire i colori in tema scuro; con "light" da solo il
+               meta e' come assente, e la testata navy con il logo bianco veniva
+               invertita. Il secondo meta e' il nome storico di Apple e resta
+               "light". Outlook ignora tutti e due. */
+            + '<meta name="color-scheme" content="light only" />\n'
             + '<meta name="supported-color-schemes" content="light" />\n'
             + '<title>' + esc(oggetto || '') + '</title>\n'
             + '<!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->\n'
             + '<style type="text/css">\n'
+            /* La stessa scelta come proprieta' CSS sulla radice: la leggono Apple
+               Mail, Samsung Email e Thunderbird; Gmail e Outlook la scartano senza
+               effetti. Niente commenti CSS DENTRO il blocco: Gmail scarta la regola
+               che segue un commento. I commenti stanno qui, nel JavaScript. */
+            + ':root{color-scheme:light only;}\n'
             + 'body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}\n'
             + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
             + 'img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}\n'
@@ -1000,6 +1104,20 @@
             + 'a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}\n'
             + '.ExternalClass{width:100%;}\n'
             + '.ExternalClass,.ExternalClass p,.ExternalClass td,.ExternalClass div{line-height:100%;}\n'
+            /* OUTLOOK IN TEMA SCURO (Outlook.com, nuovo Outlook per Windows, app
+               iOS e Android): scurisce gli sfondi chiari e schiarisce i testi,
+               ma NON tocca i colori dei bordi, e segna ogni elemento che ha
+               cambiato con data-ogsb (sfondo) o data-ogsc (colore). Il filetto
+               #E2E8F0, nato per stare appena sotto il bianco, resterebbe una riga
+               luminosa sul grigio: qui si scurisce. Fuori da Outlook in tema scuro
+               questi attributi non esistono e le regole non combinano con nulla;
+               il vecchio Outlook (Word) scarta la regola. .bd = bordo semplice;
+               .bx = riquadro con il bordo sinistro d'accento. */
+            + '[data-ogsb] .bd,[data-ogsc] .bd,.bd[data-ogsb],.bd[data-ogsc]{border-color:#3A4A5E!important;}\n'
+            + '[data-ogsb] .bx,[data-ogsc] .bx,.bx[data-ogsb],.bx[data-ogsc]{border-color:#3A4A5E!important;border-left-color:' + C.chiaroBlu + '!important;}\n'
+            /* I titoli veri (h1, h2) dei promemoria: niente margini di default di
+               Word o di Gmail. Inerte per le altre mail, che non emettono h1/h2. */
+            + 'h1,h2{margin:0!important;padding:0;mso-margin-top-alt:0;mso-margin-bottom-alt:0;}\n'
             + '@media only screen and (max-width:620px){\n'
             + '  .wrap{width:100%!important;max-width:100%!important;}\n'
             + '  .px{padding-left:24px!important;padding-right:24px!important;}\n'
@@ -1025,6 +1143,14 @@
             + '  .t1{font-size:21px!important;line-height:29px!important;}\n'
             /* Promemoria: sul telefono il riquadro dei dati respira meno. */
             + '  .pmbox{padding:14px 16px!important;}\n'
+            /* Promemoria, programma dei lavori: sul telefono ora e voce si
+               impilano (ora sopra, voce sotto a tutta riga), come il riquadro
+               dei dati. Il filetto passa alla sola voce. Outlook per Windows non
+               legge le media query e tiene le due colonne, che su 600px hanno
+               spazio; Gmail con account non Google ignora il foglio di stile e
+               resta com'e'. Stessa tecnica dei .bxet/.bxv del servizio. */
+            + '  .pmora{display:block!important;width:100%!important;white-space:normal!important;padding:6px 0 0!important;border-bottom:0!important;}\n'
+            + '  .pmvoce{display:block!important;width:100%!important;padding:0 0 6px!important;}\n'
             + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
             + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
             + '}\n'
@@ -1049,12 +1175,24 @@
             + '  .h1{font-size:22px!important;line-height:29px!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
-            + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
+            /* lang="it" sta gia' su <html>, ma i webmail (Gmail, Outlook.com,
+               Yahoo) e molte app incollano solo il contenuto del <body> nella
+               propria pagina: l'<html> con la sua lingua non arriva, e il lettore
+               di schermo leggerebbe l'italiano con la voce dell'interfaccia. Si
+               ripete sul body e sulle due tabelle di involucro, su <table> e non
+               sui <td>: Yahoo e AOL lo ignorano sulle celle. Inerte per la resa. */
+            + '<body lang="it" style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
             + preheader
-            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
+            + '<table role="presentation" lang="it" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
             + '<tr><td align="center" style="padding:24px 12px;">'
-            + '<!--[if mso]><table role="presentation" align="center" width="' + LARGHEZZA + '" cellpadding="0" cellspacing="0" border="0"><tr><td width="' + LARGHEZZA + '"><![endif]-->'
-            + '<table role="presentation" class="wrap" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            /* La tabella a larghezza fissa per Outlook porta la larghezza anche
+               nello stile, oltre che nell'attributo: Word tratta i pixel degli
+               attributi come pixel fisici e quelli del CSS come punti scalati, e
+               a 125% o 150% la colonna restava 600 pixel fisici mentre margini e
+               caratteri si ingrandivano, traboccando. Per gli altri client e' un
+               commento. */
+            + '<!--[if mso]><table role="presentation" align="center" width="' + LARGHEZZA + '" cellpadding="0" cellspacing="0" border="0" style="width:' + LARGHEZZA + 'px;"><tr><td width="' + LARGHEZZA + '" style="width:' + LARGHEZZA + 'px;"><![endif]-->'
+            + '<table role="presentation" class="wrap" lang="it" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;width:100%;max-width:' + LARGHEZZA + 'px;margin:0 auto;background-color:' + C.bianco + ';">'
             + corpoInterno
             + '</table>'
@@ -1120,8 +1258,8 @@
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
-                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
-                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="' + LOGO_LARGO + '" height="' + LOGO_ALTO + '" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:' + LOGO_LARGO + 'px;max-width:' + LOGO_LARGO + 'px;height:auto;border:0;outline:none;text-decoration:none;'
                 + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
                 + '</a></td></tr>'
                 + ((occhiello || titolo || sommario) ? spazio(24) : '')
@@ -1136,7 +1274,7 @@
            hanno in fondo, cosi' lo stacco verso il corpo bianco e' identico
            nei due casi. */
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
-            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" height="' + FASCIA_ALTO + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
@@ -1167,7 +1305,7 @@
         const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
             + tabellaInterna(
                 rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
-                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + rigaPiede('color:' + C.tenue + ';', rigaMittente())
                 + spazio(10)
                 + rigaPiede('color:' + C.tenue + ';',
                     '<a href="' + SEGNAPOSTO_DISISCRIVI + '" style="' + linkPiede() + '">Annulla l\'iscrizione</a>'
@@ -1260,8 +1398,8 @@
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
-                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
-                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="' + LOGO_LARGO + '" height="' + LOGO_ALTO + '" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:' + LOGO_LARGO + 'px;max-width:' + LOGO_LARGO + 'px;height:auto;border:0;outline:none;text-decoration:none;'
                 + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
                 + '</a></td></tr>'
                 + spazio(24)
@@ -1273,7 +1411,7 @@
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
-            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" height="' + FASCIA_ALTO + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
@@ -1356,7 +1494,7 @@
         const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
             + tabellaInterna(
                 rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
-                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + rigaPiede('color:' + C.tenue + ';', rigaMittente())
                 + spazio(10)
                 + rigaPiede('color:' + C.tenue + ';',
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
@@ -1428,8 +1566,8 @@
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
-                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
-                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="' + LOGO_LARGO + '" height="' + LOGO_ALTO + '" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:' + LOGO_LARGO + 'px;max-width:' + LOGO_LARGO + 'px;height:auto;border:0;outline:none;text-decoration:none;'
                 + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
                 + '</a></td></tr>'
                 + spazio(24)
@@ -1441,7 +1579,7 @@
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
-            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" height="' + FASCIA_ALTO + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
@@ -1466,12 +1604,12 @@
             + '<tr><td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
             + '<!--[if mso]>'
             + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + SEGNAPOSTO_COMPLETA + '" '
-            + 'style="height:46px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
+            + 'style="height:48px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
             + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">Completa i dati</center>'
             + '</v:roundrect>'
             + '<![endif]-->'
             + '<!--[if !mso]><!-- -->'
-            + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
             + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';mso-hide:all;">Completa i dati</a>'
             + '<!--<![endif]-->'
             + '</td></tr></table>';
@@ -1499,7 +1637,7 @@
         const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
             + tabellaInterna(
                 rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
-                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + rigaPiede('color:' + C.tenue + ';', rigaMittente())
                 + spazio(10)
                 + rigaPiede('color:' + C.tenue + ';',
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
@@ -1628,8 +1766,8 @@
         return '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
-                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
-                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="' + LOGO_LARGO + '" height="' + LOGO_ALTO + '" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:' + LOGO_LARGO + 'px;max-width:' + LOGO_LARGO + 'px;height:auto;border:0;outline:none;text-decoration:none;'
                 + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
                 + '</a></td></tr>'
                 + spazio(24)
@@ -1643,7 +1781,7 @@
     }
     function copertinaB2B() {
         return '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
-            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" height="' + FASCIA_ALTO + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
     }
@@ -1653,7 +1791,7 @@
         return '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
             + tabellaInterna(
                 rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
-                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + rigaPiede('color:' + C.tenue + ';', rigaMittente())
                 + spazio(10)
                 + rigaPiede('color:' + C.tenue + ';',
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
@@ -1702,7 +1840,7 @@
         const bottone = '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
-            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
             + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scelga i Suoi incontri B2B</a>'
             + '</td></tr></table></td></tr>';
 
@@ -1828,7 +1966,7 @@
         const bottone = '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
-            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
             + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scelga il Suo orario</a>'
             + '</td></tr></table></td></tr>';
         const chiusura = 'Gli orari si assegnano a chi prenota per primo: Le consigliamo di scegliere il Suo appena può. '
@@ -2024,7 +2162,7 @@
         const bottone = '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
-            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
             + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scegliete i Vostri incontri</a>'
             + '</td></tr></table></td></tr>';
         const fraseColleghi = 'Questo invito è stato inviato anche a {{REFERENTI}}: è un unico invito per '
@@ -2355,8 +2493,8 @@
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
-                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
-                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="' + LOGO_LARGO + '" height="' + LOGO_ALTO + '" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:' + LOGO_LARGO + 'px;max-width:' + LOGO_LARGO + 'px;height:auto;border:0;outline:none;text-decoration:none;'
                 + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
                 + '</a></td></tr>'
                 + spazio(24)
@@ -2368,7 +2506,7 @@
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
-            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" height="' + FASCIA_ALTO + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
@@ -2423,7 +2561,7 @@
         const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
             + tabellaInterna(
                 rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
-                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + rigaPiede('color:' + C.tenue + ';', rigaMittente())
                 + spazio(10)
                 + rigaPiede('color:' + C.tenue + ';',
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
@@ -2506,37 +2644,82 @@
         const btn = (dati.pulsante && dati.pulsante.testo && dati.pulsante.url) ? dati.pulsante : null;
         const nota = String(dati.nota || '').trim();
         const linkPersonale = dati.linkPersonale !== false;
+        /* Tag di titolo veri dentro la cella, cosi' il lettore di schermo ha una
+           struttura da scorrere ("salta al prossimo titolo"). Tutti gli stili in
+           linea e margin:0: Word e Gmail metterebbero i loro margini e colori ai
+           titoli. La classe "h1" sta sul tag: sulla cella, l'inline del figlio
+           vincerebbe sulla media query che stringe il titolo sul telefono. */
+        const intesta = (livello, classe, stile, testo) => '<' + livello + (classe ? ' class="' + classe + '"' : '')
+            + ' style="margin:0;padding:0;' + stile + '">' + testo + '</' + livello + '>';
 
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
-                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
-                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="' + LOGO_LARGO + '" height="' + LOGO_ALTO + '" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:' + LOGO_LARGO + 'px;max-width:' + LOGO_LARGO + 'px;height:auto;border:0;outline:none;text-decoration:none;'
                 + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
                 + '</a></td></tr>'
                 + spazio(24)
                 + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
                 + spazio(12)
-                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;' + ALLINEA + '">' + testoHtml(titolo) + '</td></tr>'
+                /* Titolo senza trattini morbidi e senza sillabazione automatica
+                   ("Grazie per la Sua parteci-/pazione" sul telefono si legge come
+                   un errore), e a sinistra: un titolo non si giustifica, come nella
+                   newsletter e nell'invito, perche' su due righe il giustificato
+                   stira la prima fino al margine. La cella tiene gli stessi stili
+                   come riserva, se un client scartasse il tag. */
+                + '<tr><td style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;text-align:left;">'
+                + intesta('h1', 'h1', FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;text-align:left;', testoHtml(titolo, true))
+                + '</td></tr>'
                 + spazio(16)
                 + '<tr><td class="lead par pmj" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
             )
             + '</td></tr>';
         const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
-            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" height="' + FASCIA_ALTO + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
 
-        const par = t => '<tr><td class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        /* Ogni indirizzo di posta nel testo diventa un collegamento esplicito con
+           il colore dello studio: Gmail e Outlook.com altrimenti lo linkano con il
+           loro blu, Outlook classico e iOS non lo renderebbero toccabile. Si
+           applica DOPO esc e sillabazione: il testo non contiene < > & ", e
+           sillabaPezzo non mette trattini nei token con @, quindi dentro il mailto
+           non ne finiscono. Il <wbr> dopo la chiocciola e' un punto in cui si PUO'
+           andare a capo: elemento senza testo, copiando l'indirizzo non si porta
+           via niente; serve ai riquadri stretti dei telefoni e a Gmail senza foglio
+           di stile, dove un token da 224px in 208px allargava la card.
+           hyphens:manual toglie la sola sillabazione automatica di WebKit dentro
+           l'indirizzo. Il primo gruppo e' il confine (niente lookbehind: il file
+           gira anche nel browser) ed evita "utente@host" dentro un https://.
+           Solo su fondo chiaro: non su titolo e sommario della testata navy. */
+        const RE_POSTA = /(^|[^A-Za-z0-9._%+\/:\-{}])([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})/g;
+        const linkPosta = html => html.replace(RE_POSTA, (tutto, prima, m) =>
+            prima + '<a href="mailto:' + m + '" style="color:' + C.blu + ';text-decoration:underline;-webkit-hyphens:manual;hyphens:manual;">'
+            + m.replace('@', '@<wbr>') + '</a>');
+        /* Una cella per ogni riga di testo. Word (Outlook per Windows) legge
+           il <br> come interruzione manuale e, nel giustificato, stira fino al
+           margine anche la riga che ci finisce ("Cordiali   saluti," a tutta
+           larghezza). Una riga per cella e' sempre l'ultima del suo paragrafo
+           e resta corta; la riga vuota (\n\n) diventa uno spazio alto quanto
+           l'interlinea, come il <br><br> di prima. Negli altri programmi di
+           posta l'aspetto e' identico. */
+        const perRiga = (t, cellaRiga, interlinea) => String(t).split(/\r?\n/)
+            .map(x => x.trim() ? cellaRiga(x) : spazio(interlinea)).join('');
+        const par = t => perRiga(t, x => '<tr><td class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + linkPosta(testoHtml(x)) + '</td></tr>', 27);
         /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
            lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
            l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
-        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        /* Sopratitolo: e' un titolo, quindi a sinistra e senza trattini morbidi
+           (vedi il titolo in testata). */
+        const sopratitolo = t => '<tr><td class="bd" style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';text-align:left;">'
+            + intesta('h2', '', FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;text-align:left;', testoHtml(t, true))
+            + '</td></tr>';
         /* Elenco puntato a tabelle: i <ul> in Outlook rientrano a caso. */
         const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + voci.map(v => '<tr>'
                 + '<td width="18" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.accento + ';font-weight:bold;padding:2px 0;">&bull;</td>'
-                + '<td valign="top" class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + testoHtml(v) + '</td></tr>').join('')
+                + '<td valign="top" class="par pmj" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;' + ALLINEA + '">' + linkPosta(testoHtml(v)) + '</td></tr>').join('')
             + '</table></td></tr>';
         const corpoParagrafi = paragrafi.map((p, i) => {
             let h = i ? spazio(p.titolo ? 26 : 18) : '';
@@ -2552,10 +2735,16 @@
            buchi del giustificato. Cosi' si legge bene ovunque, anche nelle app
            di posta che ignorano il foglio di stile. I valori sono dati brevi:
            a sinistra. */
-        const riga = (et, val, i) => '<tr><td class="bxet" valign="top" style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:' + (i ? 12 : 0) + 'px 0 2px;' + ALLINEA + '">' + testoHtml(et) + '</td></tr>'
-            + '<tr><td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:0;' + ALLINEA + '">' + testoHtml(val) + '</td></tr>';
+        /* Etichetta e valore sono DATI (indirizzo, data, indirizzo email), non
+           prosa: niente trattini morbidi, che Chrome e WebKit incollano insieme
+           al testo copiato. L'etichetta e' un titoletto e sta a sinistra; il
+           valore resta giustificato, senza sillabazione CSS. word-break sul
+           valore e' la rete di sicurezza per un dato lungo in un riquadro
+           stretto. */
+        const riga = (et, val, i) => '<tr><td class="bxet" valign="top" style="' + FONTE + 'font-size:13px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:' + (i ? 12 : 0) + 'px 0 2px;text-align:left;">' + testoHtml(et, true) + '</td></tr>'
+            + '<tr><td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:0;word-break:break-word;' + GIUSTO + '">' + linkPosta(testoHtml(val, true)) + '</td></tr>';
         const box = righe.length
-            ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            ? '<tr><td><table role="presentation" class="bx" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td class="pmbox" style="padding:16px 22px;">' + tabellaInterna(righe.map((r, i) => riga(r[0], r[1], i)).join('')) + '</td></tr></table></td></tr>'
             : '';
@@ -2566,8 +2755,8 @@
             ? spazio(26) + sopratitolo('Programma dei lavori') + spazio(4)
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
             + programma.map(v => '<tr>'
-                + '<td width="62" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 12px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
-                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
+                + '<td class="pmora bd" width="62" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 12px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '', true) + '</td>'
+                + '<td class="pmvoce bd" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
             + '</table></td></tr>'
             : '';
         /* Il pulsante. Se l'indirizzo e' il segnaposto del collegamento
@@ -2581,12 +2770,12 @@
                     + '<tr><td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
                     + '<!--[if mso]>'
                     + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + SEGNAPOSTO_COMPLETA + '" '
-                    + 'style="height:46px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
+                    + 'style="height:48px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
                     + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">' + esc(btn.testo) + '</center>'
                     + '</v:roundrect>'
                     + '<![endif]-->'
                     + '<!--[if !mso]><!-- -->'
-                    + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+                    + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
                     + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';mso-hide:all;">' + esc(btn.testo) + '</a>'
                     + '<!--<![endif]-->'
                     + '</td></tr></table>';
@@ -2605,11 +2794,20 @@
             + 'Il collegamento è riservato alla Sua iscrizione: La preghiamo di non inoltrarlo.';
         const fraseLinkTesto = 'Qualora non potesse più partecipare o desiderasse modificare i Suoi dati, può farlo attraverso il Suo collegamento personale: '
             + SEGNAPOSTO_COMPLETA + ' (riservato alla Sua iscrizione: La preghiamo di non inoltrarlo).';
-        /* I saluti in chiusura, come in una lettera. */
-        const saluti = spazio(28) + '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">'
-            + 'Cordiali saluti,<br><strong>La Segreteria organizzativa</strong><br>Next Generation Business</td></tr>';
+        /* I saluti in chiusura, come in una lettera: una riga per cella, per
+           la ragione detta sopra a perRiga. */
+        const rigaSaluto = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + t + '</td></tr>';
+        const saluti = spazio(28)
+            + rigaSaluto('Cordiali saluti,')
+            + rigaSaluto('<strong>La Segreteria organizzativa</strong>')
+            + rigaSaluto('Next Generation Business');
+        /* Nota e frase sul collegamento: celle separate (22px e' l'interlinea
+           di "piccolo", cioe' la riga vuota che prima faceva <br><br>). */
         const code = (nota || linkPersonale)
-            ? spazio(24) + piccolo((nota ? testoHtml(nota) : '') + (nota && linkPersonale ? '<br><br>' : '') + (linkPersonale ? fraseLink : ''))
+            ? spazio(24)
+            + (nota ? perRiga(nota, x => piccolo(linkPosta(testoHtml(x))), 22) : '')
+            + (nota && linkPersonale ? spazio(22) : '')
+            + (linkPersonale ? piccolo(fraseLink) : '')
             : '';
 
         const corpo = cella(tabellaInterna(
@@ -2624,10 +2822,10 @@
 
         const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
         const linkPiede = 'color:' + C.tenue + ';text-decoration:underline;';
-        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
+        const piede = '<tr><td class="px bd" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
             + tabellaInterna(
                 rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
-                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + rigaPiede('color:' + C.tenue + ';', rigaMittente())
                 + spazio(10)
                 + rigaPiede('color:' + C.tenue + ';',
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
@@ -2652,11 +2850,14 @@
         });
         if (righe.length) parti.push(righe.map(r => r[0] + ': ' + r[1]).join('\n'));
         if (programma.length) parti.push('IL PROGRAMMA\n' + programma.map(v => (v.ora ? v.ora + '  ' : '') + v.nome).join('\n'));
-        if (btn) parti.push(btn.testo + ': ' + btn.url);
+        if (btn) parti.push(pulsanteInTesto(btn.testo, btn.url));
         parti.push('Cordiali saluti,\nLa Segreteria organizzativa\nNext Generation Business');
         if (nota) parti.push(nota);
         if (linkPersonale) parti.push(fraseLinkTesto);
-        parti.push('--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA, 'Informativa privacy: ' + PRIVACY);
+        /* "-- " con lo spazio in coda: e' il delimitatore di firma di RFC 3676,
+           e Thunderbird lo riconosce solo cosi' (e toglie il piede nelle
+           risposte). Deve restare l'unica riga con uno spazio in coda. */
+        parti.push('-- ', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA, 'Informativa privacy: ' + PRIVACY);
         const testo = parti.filter(Boolean).join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };
