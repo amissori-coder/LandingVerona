@@ -530,11 +530,7 @@ d'ambiente non ne parte nessuno.
 | `/api/programma-newsletter` | `*/15 * * * *` — ogni quarto d'ora | manda avanti le newsletter programmate, un lotto per volta |
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
-| `/api/promemoria-eventi` | `0 18 * * *` — una volta al giorno, alle 20 di Roma (le 19 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
-| `/api/promemoria-eventi-mattina` | `0 5 * * *` — alle 7 di Roma (le 6 con l'ora solare) | spedisce solo i promemoria con `ora: 7` (la mattina dell'evento) |
-| `/api/promemoria-eventi-ore8` | `0 6 * * *` — alle 8 di Roma (le 7 con l'ora solare) | spedisce solo i promemoria con `ora: 8` (per Napoli sabato 26 settembre, 1° ottobre e il ringraziamento del lunedi' dopo l'evento); benvenuto e giorni passati restano al giro delle 20 |
-| `/api/promemoria-eventi-ore11` | `0 9 * * *` — alle 11 di Roma (le 10 con l'ora solare) | spedisce solo i promemoria con `ora: 11` (per Napoli l'ultimo giorno per prenotare gli incontri B2B, il 30 settembre) |
-| `/api/promemoria-eventi-ore22` | `0 20 * * *` — alle 22 di Roma (le 21 con l'ora solare) | spedisce solo i promemoria con `ora: 22` (per Napoli la prima mail del 24 settembre) |
+| `/api/promemoria-eventi` | `0 * * * *` — ogni ora piena | spedisce i promemoria agli iscritti previsti per oggi all'ora di Roma di adesso (il giro legge da se' l'ora legale o solare); quello delle 20 recupera anche chi si e' iscritto dopo un invio e segna scaduti i giorni passati |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -974,11 +970,14 @@ composta** (formato NGB, con i segnaposti `{{NOME}}` e `{{COMPLETA}}` ancora al
 loro posto), il giorno (a mezzanotte, ora di chi programma), le sezioni, chi
 l'ha programmata.
 
-Il lavoro programmato passa **una volta al giorno, alle 20** di
-Roma (`vercel.json`: `0 18 * * *`, che con l'ora solare diventano le 19). Un
-giro solo, per scelta di chi organizza: di un promemoria si sceglie **il
-giorno**, non l'ora, e l'area riservata non lascia confermare per oggi dopo
-le 8. Per ogni record `programmato` previsto per oggi:
+Il lavoro programmato passa **ogni ora piena** (`vercel.json`: `0 * * * *`)
+e calcola da se' l'ora di Roma, legale o solare: di un promemoria si
+scelgono **il giorno e l'ora** (dalle 6 alle 22; la proposta del catalogo da'
+quella predefinita), e l'area riservata non lascia confermare per oggi
+un'ora gia' passata. Prima i giri erano cinque, a ore fisse, uno per cron, e
+si sceglieva solo il giorno. Il giro delle 20 fa in piu' il benvenuto e
+segna scaduti i giorni passati. Per ogni record `programmato` previsto per
+oggi, all'ora del giro:
 
 1. risolve **gli iscritti di quel momento** dalla copia condivisa
    dell'archivio (`lib/copia-iscrizioni.js`): le iscrizioni la cui pagina

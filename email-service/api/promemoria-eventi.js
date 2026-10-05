@@ -1,17 +1,14 @@
 /* ============================================================
    Cron: i promemoria agli iscritti di un evento (sezione Eventi)
    ------------------------------------------------------------
-   Vercel richiama questo endpoint UNA VOLTA AL GIORNO, alle 20 di
-   Roma (vedi vercel.json: 18 UTC, che con l'ora solare diventano le
-   19). I promemoria sono posta della sera, e chi si iscrive durante il
-   giorno riceve il suo la sera stessa, al piu' tardi entro le
-   ventiquattro ore.
-   Alcuni promemoria partono ad altre ore: ogni record porta la sua ora
-   (`ora`: 7, 8, 11, 20 o 22). I giri delle 7 (api/promemoria-eventi-mattina.js),
-   delle 8 (api/promemoria-eventi-ore8.js), delle 11
-   (api/promemoria-eventi-ore11.js) e delle 22 (api/promemoria-eventi-ore22.js)
-   spediscono solo quelli della loro ora; quello delle 20 il resto, il
-   benvenuto e i giorni passati.
+   Vercel richiama questo endpoint OGNI ORA, allo scoccare dell'ora (vedi
+   vercel.json: `0 * * * *`). Il giro calcola da se' l'ora di Roma, ora
+   legale o solare che sia, e spedisce i promemoria che portano QUELLA ora:
+   ogni record ha la sua (`ora`, scelta da chi programma insieme al giorno;
+   la proposta del catalogo da' solo quella predefinita). Il giro delle 20
+   fa in piu' il resto: il benvenuto a chi e' arrivato dopo e i giorni
+   passati da segnare scaduti. Prima c'erano cinque giri a ore fisse, uno
+   per cron, e di un promemoria si sceglieva solo il giorno.
 
    Legge archivio/promemoriaEventi - i promemoria che chi organizza ha
    CONFERMATO dall'area riservata, con la mail gia' composta - e per
@@ -212,13 +209,19 @@ function fineEvento(rec) {
     const t = Date.parse(g + 'T23:59:59+02:00');
     return isNaN(t) ? 0 : t;
 }
-/* L'ora di partenza di un promemoria: `ora` sul record (7, 8, 11, 20 o 22); i record
-   confermati prima che ci fosse, 7 se sono della mattina dell'evento, se no 20. */
-const ORE_GIRO = [7, 8, 11, 20, 22];
+/* L'ora di partenza di un promemoria: `ora` sul record (un'ora intera, 0-23,
+   scelta da chi programma); i record confermati prima che ci fosse, 7 se
+   sono della mattina dell'evento, se no 20. */
 function oraDi(rec) {
     const o = Number(rec && rec.ora);
-    if (ORE_GIRO.indexOf(o) >= 0) return o;
+    if (Number.isInteger(o) && o >= 0 && o <= 23) return o;
     return rec && rec.mattina === true ? 7 : 20;
+}
+/* L'ora di Roma di un istante (0-23), con l'ora legale o solare del giorno:
+   e' quella che decide quali promemoria partono in questo giro. Il cron di
+   Vercel scocca in UTC a ogni ora piena, quindi qui il minuto e' sempre 0. */
+function oraRoma(ts) {
+    return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', hour: 'numeric', hourCycle: 'h23' }).format(new Date(ts)));
 }
 function serieDi(rec) { return (Array.isArray(rec.sezioni) ? rec.sezioni : []).indexOf('online') >= 0 ? 'online' : 'sala'; }
 
@@ -401,10 +404,11 @@ module.exports = async (req, res, opz) => {
     const auth = String((req.headers || {})['authorization'] || '');
     if (!segreto || auth !== 'Bearer ' + segreto) { res.status(401).json({ ok: false, msg: 'Non autorizzato' }); return; }
 
-    /* Un giro per ora di partenza: alle 7, alle 8, alle 11, alle 20 e alle 22
-       (ora di Roma). Ognuno spedisce solo i promemoria della sua ora; il
-       benvenuto e i promemoria rimasti indietro li guarda quello delle 20. */
-    const giroOra = ORE_GIRO.indexOf(Number(opz && opz.ora)) >= 0 ? Number(opz.ora) : (opz && opz.mattina ? 7 : 20);
+    /* Un giro ogni ora: spedisce solo i promemoria dell'ora di Roma di
+       adesso (o dell'ora chiesta esplicitamente, dalle prove). Il benvenuto
+       e i promemoria rimasti indietro li guarda quello delle 20. */
+    const oraChiesta = Number(opz && opz.ora);
+    const giroOra = Number.isInteger(oraChiesta) && oraChiesta >= 0 && oraChiesta <= 23 ? oraChiesta : (opz && opz.mattina ? 7 : oraRoma(Date.now()));
     const giroSera = giroOra === 20;
     const inizio = Date.now();
     const scadenza = inizio + BUDGET_MS;
@@ -513,4 +517,4 @@ module.exports = async (req, res, opz) => {
 };
 
 // esposti per le prove (prove/promemoria-eventi.prove.js)
-module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, formaNome, idRiga, fineEvento, giornoRoma, giornoEventoDi, serieDi, oraDi };
+module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, formaNome, idRiga, fineEvento, giornoRoma, giornoEventoDi, serieDi, oraDi, oraRoma };

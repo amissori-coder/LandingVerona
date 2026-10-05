@@ -29,12 +29,11 @@
    destinatario; {{LINK_DIRETTA}} lo sostituisce l'area riservata
    con il collegamento scritto da chi programma (campo "linkDiretta").
 
-   Il servizio passa cinque volte al giorno, alle 7, alle 8, alle 11, alle 20
-   e alle 22: ogni proposta ha la sua ora (`ora`, se manca 20) e di una
-   proposta si sceglie il giorno. Per Napoli: 24 settembre alle 22, 29
-   settembre alle 20, sabato 26 e 1° ottobre alle 8, 30 settembre alle 11
-   (l'ultimo giorno per prenotare gli incontri B2B), la mattina dell'evento
-   alle 7.
+   Il servizio passa ogni ora piena: ogni proposta porta la sua ora
+   PREDEFINITA (`ora`, se manca 20), e chi programma sceglie giorno e ora
+   nella finestra. Per Napoli: 24 settembre alle 22, 29 settembre alle 20,
+   sabato 26 e 1° ottobre alle 8, 30 settembre alle 11 (l'ultimo giorno per
+   prenotare gli incontri B2B), la mattina dell'evento alle 7.
 
    DOPO L'EVENTO c'e' una mail sola per serie, il ringraziamento
    (`dopoEvento: true`, con `giorniPrima` negativo: il lunedi' dopo, alle 8).

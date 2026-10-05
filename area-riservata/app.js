@@ -24395,9 +24395,9 @@
        servizio (api/promemoria-eventi.js, ogni quarto d'ora) legge
        l'archivio, e per ogni promemoria dovuto risolve GLI ISCRITTI DI
        QUEL MOMENTO nelle sezioni scelte, personalizza e spedisce, poi
-       scrive l'esito sul record. Il servizio passa UNA VOLTA AL GIORNO,
-       alle 20: di un promemoria si sceglie il giorno, non
-       l'ora. I giorni che mancano li scrive il servizio la sera
+       scrive l'esito sul record. Il servizio passa OGNI ORA, e di un
+       promemoria si scelgono il giorno e l'ora (dalle 6 alle 22; la
+       proposta da' quella predefinita). I giorni che mancano li scrive il servizio la sera
        dell'invio. Chi entra in una serie dopo che la sua prima mail e'
        partita riceve alla prima sera utile la mail COMPLETA della serie (il
        "benvenuto"), con i giorni ricalcolati, e poi segue il calendario di
@@ -24447,25 +24447,27 @@
         inviato: { nome: 'Inviato', classe: 'verde' },
         scaduto: { nome: 'Non partito', classe: 'rosso' }
     };
-    /* "gio 17/09": giorno della settimana e data. L'ora non c'e' perche'
-       non si sceglie: il servizio passa alle 20. */
+    /* "gio 17/09": giorno della settimana e data. L'ora sta accanto, scritta
+       a parte ("ore 8"). */
     function quandoPromemoria(ts) {
         if (!ts) return '';
         const d = new Date(ts);
         const g = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
         return g + ' ' + fmtGiorno(ts).slice(0, 5);
     }
-    /* Il giro delle 20 di oggi e' gia' passato? Un promemoria confermato per
-       oggi dopo le 8 non partirebbe piu': si dice prima. */
-    /* Un giro per ora: alle 20 le mail senza un'ora loro; alle 7, alle 8,
-       alle 11 e alle 22 quelle che la portano (`ora` sulla proposta e sul
-       record; `mattina`, dei record piu' vecchi, vale le 7). */
+    /* L'ora di partenza: `ora` sul record (scelta da chi programma) o sulla
+       proposta (quella predefinita); i record piu' vecchi senza ora, 7 se
+       `mattina`, altrimenti 20. Il servizio passa ogni ora piena, e di oggi
+       si puo' scegliere solo un'ora non ancora passata: si dice prima. */
+    const ORE_SCELTA = [];
+    for (let o = 6; o <= 22; o++) ORE_SCELTA.push(o);
     function oraGiro(x) {
         const o = Number(x && x.ora);
-        if (o === 7 || o === 8 || o === 11 || o === 20 || o === 22) return o;
+        if (Number.isInteger(o) && o >= 0 && o <= 23) return o;
         return x && x.mattina ? 7 : 20;
     }
-    function giroDiOggiPassato(x) { return new Date().getHours() >= oraGiro(x); }
+    function oraPassataOggi(ora) { return new Date().getHours() >= ora; }
+    function giroDiOggiPassato(x) { return oraPassataOggi(oraGiro(x)); }
     function quandoGiro(x, oggi) {
         const o = oraGiro(x);
         return o < 12 ? (oggi ? 'stamattina alle ' + o : 'alle ' + o + ' del mattino') : (oggi ? 'stasera alle ' + o : 'alle ' + o);
@@ -24689,7 +24691,6 @@
             else if (r.stato === 'programmato' && passato(r.quando)) stato += '<div class="hint">giorno passato: verrà segnato non partito</div>';
             else if (r.stato === 'scaduto') stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
             if (r.rec && r.prop && (r.stato === 'programmato' || r.stato === 'sospeso') && r.rec.versioneTesti !== RV_PROMEMORIA.VERSIONE_TESTI) stato += '<div class="hint ev-ko">testi della versione precedente: aprila e usa i testi aggiornati</div>';
-            else if (r.rec && r.prop && (r.stato === 'programmato' || r.stato === 'sospeso') && oraGiro(r.rec) !== oraGiro(r.prop)) stato += '<div class="hint ev-ko">confermata per le ' + oraGiro(r.rec) + ': aprila e conferma di nuovo per farla partire alle ' + oraGiro(r.prop) + '</div>';
             // un promemoria della prima versione: testi vecchi, e non va a chi si iscrive dopo
             if (r.rec && !r.prop) stato += '<div class="hint ev-ko">prima versione dei testi: ' + (r.stato === 'programmato' ? 'toglila, o partirà con i testi vecchi' : 'non va a chi si iscrive dopo') + '</div>';
             const chiave = r.rec ? r.rec.id : idPromemoria(ev, r.prop.id);
@@ -24969,9 +24970,16 @@
             + '</div></div>'
             : (inCorso ? '<div class="card" style="margin:0 0 14px;padding:12px 14px;"><strong>Invio in corso</strong><div class="hint">' + (rec.invio.inviate || 0) + ' mail già partite: il servizio continua al prossimo giro.</div></div>' : '');
 
+        /* L'ora: quella gia' scelta sul record, altrimenti quella predefinita
+           della proposta. Dalle 6 alle 22, un'ora piena: il servizio passa allo
+           scoccare di ogni ora. Un record con un'ora fuori dall'elenco la tiene. */
+        const ora0 = oraGiro(rec || prop);
+        const ore = ORE_SCELTA.indexOf(ora0) >= 0 ? ORE_SCELTA : ORE_SCELTA.concat([ora0]).sort((a, b) => a - b);
+        const oraHtml = '<select id="pm-ora"' + dis + ' style="margin-left:8px;">'
+            + ore.map(o => '<option value="' + o + '"' + (o === ora0 ? ' selected' : '') + '>ore ' + o + ':00</option>').join('') + '</select>';
         const colonnaForm = esitoInvio
-            + '<div class="campo"><label>Giorno</label><input type="date" id="pm-data" value="' + esc(isoData(quando0)) + '"' + (soloLettura ? '' : ' min="' + esc(isoData(Date.now())) + '"') + dis + '>'
-            + '<div class="hint">Parte <b>' + quandoGiro((prop || rec)) + '</b> di questo giorno, a chi risulta iscritto in quel momento. '
+            + '<div class="campo"><label>Giorno e ora</label><input type="date" id="pm-data" value="' + esc(isoData(quando0)) + '"' + (soloLettura ? '' : ' min="' + esc(isoData(Date.now())) + '"') + dis + '>' + oraHtml
+            + '<div class="hint">Parte allo scoccare dell\'ora scelta, a chi risulta iscritto in quel momento. '
             + (dopoEvento ? 'È la mail dopo l\'evento: parte anche se l\'evento è passato, e va anche a chi è segnato assente, perché parla pure a chi non è venuto.' : 'I giorni che mancano si calcolano quel giorno: l\'anteprima li mostra già così.') + '</div></div>'
             + '<div class="campo"><label>A chi</label>' + sezioniHtml
             + '<div class="hint" id="pm-conta"></div></div>'
@@ -25066,7 +25074,9 @@
             const quando = new Date(+md[1], +md[2] - 1, +md[3], 0, 0, 0, 0).getTime();
             const oggi0 = inizioGiorno(Date.now());
             if (quando < oggi0) { esito('Quel giorno è passato: scegline uno da oggi in poi.', true); return; }
-            if (quando === oggi0 && giroDiOggiPassato((prop || rec))) { esito('Il giro delle ' + oraGiro((prop || rec)) + ' di oggi è già passato: scegli da domani in poi.', true); return; }
+            const oraV = Number($id('pm-ora') ? $id('pm-ora').value : ora0);
+            if (!Number.isInteger(oraV) || oraV < 0 || oraV > 23) { esito('Indica l\'ora.', true); return; }
+            if (quando === oggi0 && oraPassataOggi(oraV)) { esito('Le ' + oraV + ' di oggi sono già passate: scegli un\'ora più tardi, o da domani in poi.', true); return; }
             const t = testiCorrenti();
             if (!t.oggetto) { esito('L\'oggetto non può essere vuoto.', true); return; }
             const mail = RV_PROMEMORIA.componi(t, evDef, valori(), RV_NEWSLETTER);
@@ -25090,7 +25100,8 @@
                 mattina: !!((prop && prop.mattina) || (rec && rec.mattina)),
                 // la mail dopo l'evento: il servizio la fa partire a evento passato, e anche agli assenti
                 dopoEvento: dopoEvento,
-                ora: oraGiro(prop || rec),
+                // l'ora scelta insieme al giorno: il servizio passa ogni ora piena
+                ora: oraV,
                 chiusuraB2B: chiusuraB2B,
                 versioneTesti: RV_PROMEMORIA.VERSIONE_TESTI,
                 creato: rec && rec.creato ? rec.creato : firmaPromemoria(u),
