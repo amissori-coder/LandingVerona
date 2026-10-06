@@ -33,6 +33,30 @@ p, li, dd, blockquote, figcaption {
     overflow-wrap: break-word;
 }
 
+/* Blocchi di testo che non sono paragrafi: descrizioni e note in span o div
+   (nelle card, nelle FAQ, nelle timeline). Stesse regole dei paragrafi. */
+[class*="-desc"], [class*="-descr"], [class*="-testo"], [class*="-text"], [class*="-sub"],
+[class*="-lead"], [class*="-intro"], [class*="-nota"], [class*="-note"], [class*="-body"],
+[class*="-statement"], [class*="-answer"], [class*="-copy"],
+.faq-answer-inner, .principio-case-text, .timeline-desc, .ebook-cover-sub,
+.tool-text, .tool-bonus, .highlight-box, .switch-text, .piede {
+    text-align: justify !important;
+    text-align-last: start;
+    text-justify: inter-word;
+    -webkit-hyphens: auto !important;
+    hyphens: auto !important;
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+}
+/* ...tranne titoli, etichette, bottoni e voci brevi presi da quei pattern */
+h1[class], h2[class], h3[class], h4[class], h5[class], h6[class], a[class*="btn"], button[class],
+[class*="-title"], [class*="-label"], [class*="-eyebrow"], [class*="-badge"], [class*="-tag"],
+.brand-text, .brand-subtitle, .sect-head-body {
+    text-align: inherit !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+
 /* Le voci di menu e le righe con un solo link non hanno nulla da giustificare */
 nav li, .nav-menu li, .submenu li, .footer-links li {
     text-align: start !important;
