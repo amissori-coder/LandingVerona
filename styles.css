@@ -4631,6 +4631,63 @@ ul {
     gap: 16px;
 }
 
+/* ---------- Eventi passati: pannello a tendina ----------
+   Aprendo "Eventi passati" la pagina non si allunga: l'elenco compare in
+   un pannello sopra il contenuto, agganciato sotto la testata del gruppo,
+   e si chiude cliccando fuori o con Esc (script.js). I loghi dei partner
+   stanno in riquadri bianchi, grandi abbastanza da leggersi. */
+.events-group--passati {
+    position: relative;
+    overflow: visible;
+}
+.events-group--passati[open] { box-shadow: none; }
+.events-group--passati > .events-group-body {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    z-index: 60;
+    background: var(--white);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    box-shadow: 0 18px 48px rgba(10, 40, 68, 0.22);
+    padding: 14px;
+    gap: 12px;
+    max-height: min(72vh, 760px);
+    overflow-y: auto;
+}
+.events-group--passati .event-card {
+    padding: 18px 18px 16px;
+}
+.events-group--passati .event-collab {
+    gap: 10px 14px;
+    padding: 10px 0 0;
+    margin-bottom: 12px;
+    border: 0;
+}
+.events-group--passati .event-collab-item {
+    background: #fff;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+.events-group--passati .event-collab-logo,
+.events-group--passati .event-collab--multi .event-collab-logo,
+.events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--advant,
+.events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--cciaa,
+.events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--simest {
+    height: 44px;
+    max-width: 200px;
+    width: auto;
+    opacity: 1;
+    filter: none;
+}
+@media (max-width: 600px) {
+    .events-group--passati > .events-group-body { padding: 10px; max-height: 70vh; }
+    .events-group--passati .event-collab-logo,
+    .events-group--passati .event-collab--multi .event-collab-logo { height: 36px; max-width: 150px; }
+}
+
 /* ---------- Esplora per argomento: il pannello in evidenza ----------
    In testa alla colonna Approfondimenti & Risorse, al posto dei filtri
    per categoria: un blocco scuro come l'hero, con il titolo grande, i
