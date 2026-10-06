@@ -4655,7 +4655,18 @@ ul {
     gap: 12px;
     max-height: min(72vh, 760px);
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(22, 64, 104, 0.45) transparent;
+    scrollbar-gutter: stable;
 }
+/* Barra di scorrimento del pannello: sottile, navy, senza binario (WebKit) */
+.events-group--passati > .events-group-body::-webkit-scrollbar { width: 6px; }
+.events-group--passati > .events-group-body::-webkit-scrollbar-track { background: transparent; margin: 14px 0; }
+.events-group--passati > .events-group-body::-webkit-scrollbar-thumb {
+    background: rgba(22, 64, 104, 0.45);
+    border-radius: 6px;
+}
+.events-group--passati > .events-group-body::-webkit-scrollbar-thumb:hover { background: var(--navy); }
 .events-group--passati .event-card {
     padding: 18px 18px 16px;
 }
@@ -4665,11 +4676,12 @@ ul {
     margin-bottom: 12px;
     border: 0;
 }
+.events-group--passati .event-collab--multi {
+    column-gap: 32px;
+    row-gap: 14px;
+}
 .events-group--passati .event-collab-item {
-    background: #fff;
-    border: 1px solid var(--hairline);
-    border-radius: 8px;
-    padding: 8px 12px;
+    gap: 8px;
 }
 .events-group--passati .event-collab-logo,
 .events-group--passati .event-collab--multi .event-collab-logo,
