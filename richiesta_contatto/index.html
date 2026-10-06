@@ -23,7 +23,7 @@
         main { max-width: 680px; margin: 0 auto; padding: 24px 20px 60px; }
         .scheda { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 22px; margin-top: 18px; }
         .intro { color: var(--tenue); margin-bottom: 18px; }
-        .riconosciuta { background: var(--chiaro); border: 1px solid var(--bordo); border-left: 3px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; margin-bottom: 18px; }
+        .riconosciuta { background: var(--chiaro); border: 1px solid var(--bordo); border-top: 2px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; margin-bottom: 18px; }
         .riconosciuta b { color: var(--navy-dark); }
         .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
         .campo { display: flex; flex-direction: column; gap: 4px; }
@@ -51,6 +51,7 @@
     <!-- Live reload di sviluppo: si attiva solo aprendo la pagina con ?dev=1,
          in produzione non carica e non esegue nulla. Vedi assets/dev-reload.js -->
     <script>try{var d=/[?&]dev=([01])/.exec(location.search);if(d){d[1]==='1'?sessionStorage.setItem('ngbDevReload','1'):sessionStorage.removeItem('ngbDevReload');}if(sessionStorage.getItem('ngbDevReload')==='1'){var s=document.createElement('script');s.src='/assets/dev-reload.js';s.defer=true;document.head.appendChild(s);}}catch(e){}</script>
+<link rel="stylesheet" href="/assets/testo.css?v=1">
 </head>
 <body>
     <header class="testata">

@@ -1,0 +1,176 @@
+/* ============================================================
+   Testo giustificato in tutto il sito, senza buchi fra le parole.
+
+   Tutto il testo corrente (paragrafi, voci di elenco, citazioni,
+   didascalie) e' giustificato. Per non lasciare spazi vistosi fra le
+   parole il browser puo' sillabare, ma con prudenza: solo parole di
+   almeno 8 lettere, con almeno 4 lettere prima e dopo il trattino e
+   mai su piu' di due righe di seguito. Cosi' non si vedono spezzature
+   come "ri-ceve". La sillabazione usa la lingua della pagina
+   (lang="it" su <html>).
+
+   I paragrafi che erano centrati (sottotitoli, note, pie' di pagina)
+   restano centrati: sono elencati in fondo, pagina per pagina.
+   Questo foglio si carica dopo quello della pagina.
+   ============================================================ */
+
+html {
+    -webkit-hyphenate-limit-before: 4;
+    -webkit-hyphenate-limit-after: 4;
+    -webkit-hyphenate-limit-lines: 2;
+    hyphenate-limit-chars: 8 4 4;
+    hyphenate-limit-lines: 2;
+    hyphenate-limit-last: always;
+}
+
+p, li, dd, blockquote, figcaption {
+    text-align: justify !important;
+    text-align-last: start;
+    text-justify: inter-word;
+    -webkit-hyphens: auto !important;
+    hyphens: auto !important;
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+}
+
+/* Blocchi di testo che non sono paragrafi: descrizioni e note in span o div
+   (nelle card, nelle FAQ, nelle timeline). Stesse regole dei paragrafi.
+   Solo elementi che contengono testo, non contenitori ("-body", "-copy"):
+   un contenitore giustificato passerebbe l'allineamento anche ai titoli. */
+[class*="-desc"], [class*="-descr"], [class*="-testo"], [class*="-text"], [class*="-sub"],
+[class*="-lead"], [class*="-intro"], [class*="-nota"], [class*="-note"],
+[class*="-statement"], [class*="-answer"],
+.faq-answer-inner, .principio-case-text, .timeline-desc, .ebook-cover-sub,
+.tool-text, .tool-bonus, .highlight-box, .switch-text, .piede {
+    text-align: justify !important;
+    text-align-last: start;
+    text-justify: inter-word;
+    -webkit-hyphens: auto !important;
+    hyphens: auto !important;
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+}
+/* ...tranne titoli, etichette, bottoni e voci brevi presi da quei pattern */
+h1[class], h2[class], h3[class], h4[class], h5[class], h6[class], a[class*="btn"], button[class],
+[class*="-label"], [class*="-eyebrow"], [class*="-badge"], [class*="-tag"],
+.brand-text, .brand-subtitle, .sect-head-body {
+    text-align: inherit !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+/* I titoli in span o div (es. "-titolo", "-title") non si giustificano mai */
+[class*="-title"], [class*="-titolo"] {
+    text-align: start !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+
+/* Le voci di menu e le righe con un solo link non hanno nulla da giustificare */
+nav li, .nav-menu li, .submenu li, .footer-links li {
+    text-align: start !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+
+/* Paragrafi che prendono l'allineamento dal contenitore centrato */
+.attivita-card > p:not([class]),
+.caricamento > p:not([class]),
+.carta-piede > p:not([class]),
+.chi-card > p:not([class]),
+.countdown > p:not([class]),
+.footer-bottom > p:not([class]),
+.piano-aree-header > p:not([class]),
+.piano-materialita-header > p:not([class]),
+.piede > p:not([class]),
+.stato > p:not([class]) {
+    text-align: inherit !important;
+    text-align-last: auto;
+}
+
+/* Paragrafi centrati per scelta (anche con stile inline): restano centrati, anche nell'ultima riga */
+p[style*="text-align: center"], p[style*="text-align:center"],
+li[style*="text-align: center"], li[style*="text-align:center"],
+blockquote.chi-siamo-motto,
+p.aig-radar__stato,
+p.aiuto,
+p.area-desc,
+p.area-label,
+p.azioni-stato,
+p.caricamento-lento,
+p.chi-siamo-motto-text,
+p.codice-mio,
+p.curated-statement,
+p.curated-tagline,
+p.footer-legal,
+p.footer-privacy,
+p.form-footnote,
+p.frase-iscrizione,
+p.funz-nota,
+p.hero-conteggio,
+p.hero-cta-note,
+p.hero-subtitle,
+p.mission-risks-sub,
+p.nota-chiara,
+p.nota-riservata,
+p.nota,
+p.org-desc,
+p.partners-modal-note,
+p.privacy,
+p.register-card-lead,
+p.register-card-note,
+p.riga-comandi-aiuto,
+p.riga-link,
+p.schermo-testo,
+p.schermo-titolo,
+p.section-subtitle,
+p.sedi-intro,
+p.servizi-hub-hint,
+p.sottotitolo,
+p.testo-stato {
+    text-align: center !important;
+    text-align-last: center;
+}
+
+p.aig-tag {
+    text-align: right !important;
+    text-align-last: right;
+}
+
+/* In home il sottotitolo dell'hero e' allineato a sinistra, non centrato come nelle altre pagine */
+.landing-split p.hero-subtitle {
+    text-align: justify !important;
+    text-align-last: start;
+}
+
+/* Blocchi troppo stretti per il giustificato (meno di 32 caratteri per riga):
+   elenchi di comuni a colonne, griglie di card a tre o quattro colonne,
+   definizioni, luogo dell'evento. Qui anche la sillabazione lascerebbe buchi: a sinistra. */
+.comuni-list li,
+.principio-cases li,
+.cl-head-body p,
+.aig-fase p,
+.aig-step__item p,
+.piano-flow-step p,
+.link-card p,
+.ambito p,
+.catena-anello p,
+.percorso-tappa p,
+dl dd,
+p.event-venue {
+    text-align: start !important;
+    text-align-last: start;
+}
+
+/* Sui telefoni le citazioni a carattere grande hanno poche parole per riga:
+   giustificate si aprirebbero. Restano a sinistra solo sotto i 600 px. */
+@media (max-width: 600px) {
+    blockquote,
+    blockquote p,
+    p[class*="quote"],
+    [class*="quote"] > p,
+    [class*="citazione"] > p,
+    p[class*="motto"] {
+        text-align: start !important;
+        text-align-last: start;
+    }
+}

@@ -751,3 +751,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { threshold: [0, 0.35] });
     observer.observe(video);
 })();
+
+// Eventi passati: il pannello a tendina si chiude cliccando fuori o con Esc
+(function () {
+    var gruppo = document.querySelector('.events-group--passati');
+    if (!gruppo) return;
+    document.addEventListener('click', function (e) {
+        if (gruppo.open && !gruppo.contains(e.target)) gruppo.open = false;
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && gruppo.open) gruppo.open = false;
+    });
+})();

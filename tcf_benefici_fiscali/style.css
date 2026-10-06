@@ -44,7 +44,7 @@
     padding: 30px 34px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-left: 4px solid #164068;
+    border-top: 2px solid #164068;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     text-decoration: none;
@@ -55,7 +55,7 @@
 .doc-card:hover {
     transform: translateY(-2px);
     border-color: var(--accent-border);
-    border-left-color: #164068;
+    border-top-color: #164068;
     box-shadow: var(--shadow-lg);
 }
 
@@ -215,7 +215,7 @@
     padding: 30px 34px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-left: 4px solid #c8d8e8;
+    border-top: 2px solid #c8d8e8;
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
 }
@@ -223,9 +223,9 @@
 /* L'intensita' del bordo e del numero scende dal
    primo passo al terzo: e' il peso decrescente
    delle tre domande, non un semplice degrade'. */
-.ordine-passo-uno { border-left-color: #164068; }
-.ordine-passo-due { border-left-color: #6d8fae; }
-.ordine-passo-tre { border-left-color: #c8d8e8; }
+.ordine-passo-uno { border-top-color: #164068; }
+.ordine-passo-due { border-top-color: #6d8fae; }
+.ordine-passo-tre { border-top-color: #c8d8e8; }
 
 .ordine-testa {
     display: flex;

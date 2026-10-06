@@ -159,7 +159,7 @@
 }
 .bando-list-checked li {
     background: #f0f9f4;
-    border-left: 3px solid #10b981;
+    border-top: 2px solid #10b981;
 }
 .bando-list-checked li::before {
     content: "✓";
@@ -169,7 +169,7 @@
 }
 .bando-list-x li {
     background: #fef2f2;
-    border-left: 3px solid #ef4444;
+    border-top: 2px solid #ef4444;
 }
 .bando-list-x li::before {
     content: "✕";
@@ -581,7 +581,7 @@
     margin: 16px 0 0;
     padding: 12px 16px;
     background: #fff8e1;
-    border-left: 3px solid #d4a444;
+    border-top: 2px solid #d4a444;
     border-radius: 6px;
     font-size: 0.88rem;
     color: #5a4214;
@@ -675,7 +675,7 @@
     border-radius: 16px;
     padding: 0;
     margin-top: 4px;
-    border-left: 6px solid currentColor;
+    border-top: 2px solid currentColor;
     overflow: hidden;
     background: #fff;
 }
@@ -983,7 +983,7 @@
     border-radius: 10px;
     padding: 14px 16px;
     border: 1px solid #e2e8f0;
-    border-left: 4px solid #d4a444;
+    border-top: 2px solid #d4a444;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1044,7 +1044,7 @@
     font-size: 0.78rem;
     color: #64748b;
     line-height: 1.5;
-    border-left: 3px solid #cbd5e1;
+    border-top: 2px solid #cbd5e1;
 }
 
 /* LEAD FORM */
@@ -1200,7 +1200,7 @@
         padding: 12px 16px;
         text-align: left;
         background: rgba(255, 255, 255, 0.06);
-        border-left: 3px solid #d4a444;
+        border-top: 2px solid #d4a444;
         border-radius: 8px;
     }
     .hero-stats .stat-divider { display: none; }

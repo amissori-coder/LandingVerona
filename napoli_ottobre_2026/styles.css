@@ -875,10 +875,10 @@ ul {
     position: absolute;
     top: 0;
     left: 0;
-    width: 4px;
-    height: 100%;
-    background: linear-gradient(180deg, var(--navy-dark) 0%, var(--navy) 100%);
-    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 100%);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .tema-card:hover {
@@ -1147,12 +1147,12 @@ ul {
     gap: 3px;
     position: relative;
     padding-left: 14px;
-    border-left: 2px solid rgba(22, 64, 104, 0.18);
+    border-top: 2px solid rgba(22, 64, 104, 0.18);
     transition: border-color 0.25s ease;
 }
 
 .speakers-list li:hover {
-    border-left-color: var(--accent);
+    border-top-color: var(--accent);
 }
 
 .speaker-name {
@@ -1243,7 +1243,7 @@ ul {
 /* Intervento in evidenza (Invitalia · Bagnoli e America's Cup 2027) */
 .timeline-item--highlight .timeline-content {
     border-color: rgba(177, 33, 59, 0.28);
-    border-left: 3px solid var(--accent);
+    border-top: 2px solid var(--accent);
     background: linear-gradient(180deg, rgba(177, 33, 59, 0.05), rgba(177, 33, 59, 0.015));
     box-shadow: var(--shadow-md);
 }
@@ -1432,7 +1432,7 @@ ul {
     gap: 16px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-left: 3px solid var(--accent);
+    border-top: 2px solid var(--accent);
     border-radius: var(--radius-md);
 }
 
@@ -1623,7 +1623,7 @@ ul {
 .aderente-scelta {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.14);
-    border-left: 3px solid var(--accent);
+    border-top: 2px solid var(--accent);
     border-radius: var(--radius-sm);
     padding: 14px 16px;
 }
@@ -3237,8 +3237,8 @@ ul {
 .evento-intro p { font-size: 1.05rem; line-height: 1.85; color: #44536a; margin: 0 0 20px; }
 .evento-intro p strong { color: #14365a; }
 .evento-quote {
-    margin: 34px 0 0; padding: 26px 30px; border: 0; border-left: 4px solid var(--navy-light);
-    background: #ffffff; border-radius: 0 12px 12px 0; box-shadow: 0 16px 36px -26px rgba(12,46,78,.45);
+    margin: 34px 0 0; padding: 26px 30px; border: 0; border-top: 2px solid var(--navy-light);
+    background: #ffffff; border-radius: 12px; box-shadow: 0 16px 36px -26px rgba(12,46,78,.45);
     font-family: 'Montserrat', sans-serif; font-size: 1.18rem; font-weight: 600; font-style: italic;
     color: var(--navy-dark); line-height: 1.5;
 }
@@ -3851,11 +3851,11 @@ ul {
 /* Due classi nel selettore contro una: vince per specificita', non per
    ordine nel file, e non teme un riordino del foglio. */
 .speakers-group--mod .speakers-list li {
-    border-left-color: rgba(22, 64, 104, 0.40);
+    border-top-color: rgba(22, 64, 104, 0.40);
 }
 
 .speakers-group--mod .speakers-list li:hover {
-    border-left-color: var(--navy);
+    border-top-color: var(--navy);
 }
 
 /* --- Incontri B2B in parallelo, 10.00 / 17.00, su invito ---
@@ -3871,7 +3871,7 @@ ul {
     gap: 32px;
     padding: 30px 34px;
     border-radius: var(--radius-lg);
-    border-left: 3px solid var(--accent);
+    border-top: 2px solid var(--accent);
     background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%);
     box-shadow: var(--shadow-lg);
 }
@@ -4738,7 +4738,7 @@ html[data-diretta="conclusa"] .diretta-riquadro {
 
     .nav-pillola-diretta .indicatore-pausa::before {
         display: block;
-        border-left-color: var(--white);
+        border-top-color: var(--white);
         border-right-color: var(--white);
     }
 }

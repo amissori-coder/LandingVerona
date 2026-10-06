@@ -334,7 +334,7 @@
    rafforza: il bordo pieno a sinistra dice quale delle
    due regge il peso. */
 .riparto-col.is-consiglio {
-    border-left: 4px solid #164068;
+    border-top: 2px solid #164068;
 }
 
 .riparto-tag {
