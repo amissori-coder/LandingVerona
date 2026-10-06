@@ -50,9 +50,15 @@ p, li, dd, blockquote, figcaption {
 }
 /* ...tranne titoli, etichette, bottoni e voci brevi presi da quei pattern */
 h1[class], h2[class], h3[class], h4[class], h5[class], h6[class], a[class*="btn"], button[class],
-[class*="-title"], [class*="-label"], [class*="-eyebrow"], [class*="-badge"], [class*="-tag"],
+[class*="-label"], [class*="-eyebrow"], [class*="-badge"], [class*="-tag"],
 .brand-text, .brand-subtitle, .sect-head-body {
     text-align: inherit !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+/* I titoli in span o div (es. "-titolo", "-title") non si giustificano mai */
+[class*="-title"], [class*="-titolo"] {
+    text-align: start !important;
     hyphens: manual !important;
     -webkit-hyphens: manual !important;
 }
@@ -66,11 +72,9 @@ nav li, .nav-menu li, .submenu li, .footer-links li {
 
 /* Paragrafi che prendono l'allineamento dal contenitore centrato */
 .attivita-card > p:not([class]),
-.blocco > p:not([class]),
 .caricamento > p:not([class]),
 .carta-piede > p:not([class]),
 .chi-card > p:not([class]),
-.container > p:not([class]),
 .countdown > p:not([class]),
 .footer-bottom > p:not([class]),
 .piano-aree-header > p:not([class]),
