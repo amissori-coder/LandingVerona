@@ -28734,6 +28734,7 @@
         { percorso: '/adeguati_assetti/', nome: 'Adeguati assetti organizzativi (art. 2086 c.c.)' },
         { percorso: '/assetti_early_warning/', nome: 'Assetti adeguati ed early warning' },
         { percorso: '/cassazione_7134_2026/', nome: 'Adeguati assetti e credito: Cassazione 7134/2026' },
+        { percorso: '/amministratori_controllori_revisori/', nome: 'Amministratori, controllori e revisori di S.p.A.: D.Lgs. 47/2026' },
         { percorso: '/crisi_impresa/', nome: 'Crisi d\'impresa: prevenzione e assetti' },
         { percorso: '/modello_231/', nome: 'Modello 231: responsabilità degli enti' },
         { percorso: '/adempimento_collaborativo/', nome: 'Adempimento collaborativo e Tax Control Framework' },
