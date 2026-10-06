@@ -23,6 +23,19 @@
        arrivano quasi mai;
      - immagini con width/height e alt, e display:block per non
        lasciare la riga vuota sotto;
+     - gli ELENCHI sono tabelle (pallino in una cella, testo
+       nell'altra): un <ul> vero prende i rientri di Word su Outlook
+       e perde il punto in qualche webmail;
+     - lo spazio fra due cose si fa con il padding delle CELLE o con
+       righe vuote (spazio), mai con padding o margin su <div>: il
+       motore di Word li ignora;
+     - l'interlinea e' sempre PARI O SUPERIORE al corpo: con
+       mso-line-height-rule:exactly Outlook ritaglia quello che
+       sporge dalla riga (i numeri grandi perdevano la testa);
+     - le barrette sottili usano stileVuoto(h), non font-size:0, che
+       Word non onora (diventavano alte quanto una riga di testo);
+     - le etichette in maiuscolo si scrivono gia' maiuscole nel
+       testo: text-transform su Outlook non esiste;
      - testo di anteprima (preheader) nascosto in cima, quello che
        il client mostra accanto all'oggetto;
      - in fondo, SEMPRE il collegamento per disiscriversi: e' un
@@ -265,16 +278,58 @@
         const pStile = 'margin:0 0 ' + (scuro ? 14 : (stretto ? 12 : 16)) + 'px 0;font-family:' + FONT
             + ';font-size:' + (stretto ? 15 : 16) + 'px;line-height:' + (scuro ? 26 : (stretto ? 24 : 27)) + 'px;color:' + cTesto + ';'
             + ALLINEA;
-        return String(html || '')
+        return listeInTabella(String(html || ''), { scuro: scuro, stretto: stretto })
             .replace(/<p>/g, '<p class="par" style="' + pStile + '">')
             .replace(/<h3>/g, '<h3 style="margin:26px 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:25px;color:' + cTitoli + ';">')
             .replace(/<h4>/g, '<h4 style="margin:20px 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:23px;color:' + cTitoli + ';">')
-            .replace(/<ul>/g, '<ul style="margin:0 0 16px 0;padding-left:22px;">')
-            .replace(/<ol>/g, '<ol style="margin:0 0 16px 0;padding-left:22px;">')
-            .replace(/<li>/g, '<li style="margin:0 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:26px;color:' + cTesto + ';">')
             .replace(/<strong>/g, '<strong style="color:' + cTitoli + ';">')
             .replace(/<b>/g, '<b style="color:' + cTitoli + ';">')
             .replace(/<a href=/g, '<a style="color:' + cLink + ';text-decoration:underline;" href=');
+    }
+    /* GLI ELENCHI DEL TESTO DIVENTANO TABELLE: pallino (o numero) in una
+       cella sua, testo nell'altra. Un <ul> vero in una mail non si vede uguale
+       da nessuna parte: Outlook per Windows (motore di Word) ignora il
+       padding-left dell'elenco e i margini delle voci e mette i suoi rientri
+       da documento Word, con il pallino staccato dal testo; qualche webmail
+       perde il punto; su Gmail con account non Google il margine sparisce.
+       Con la tabella la seconda riga di una voce lunga resta incolonnata sotto
+       la prima, com'e' giusto, e la resa e' una sola dappertutto: e' la stessa
+       tecnica delle voci del "che cosa" e dell'elenco a blocchi.
+       Si parte dall'elenco PIU' INTERNO (quello che non ne contiene altri),
+       cosi' un elenco annidato arrivato da una pagina si risolve dal dentro al
+       fuori. I <p> dentro una voce (li lascia l'editor) diventano a capo. */
+    function listeInTabella(html, opz) {
+        const scuro = opz && opz.scuro, stretto = opz && opz.stretto;
+        const cTesto = scuro ? C.suScuro : C.testo;
+        const cSegno = scuro ? C.chiaroBlu : C.accento;
+        const misura = 'font-size:' + (stretto ? 15 : 16) + 'px;line-height:' + (scuro ? 26 : (stretto ? 24 : 27)) + 'px;';
+        const sotto = scuro ? 14 : (stretto ? 12 : 16);
+        const re = /<(ul|ol)>((?:(?!<\/?(?:ul|ol)\b)[\s\S])*?)<\/\1>/i;
+        let s = String(html || ''), m, giri = 0;
+        while ((m = re.exec(s)) !== null && giri++ < 60) {
+            const numerato = m[1].toLowerCase() === 'ol';
+            const largo = numerato ? 24 : 18;
+            const voci = [];
+            const reLi = /<li>([\s\S]*?)<\/li>/gi;
+            let v;
+            while ((v = reLi.exec(m[2])) !== null) {
+                const t = v[1].trim().replace(/^<p>/i, '').replace(/<\/p>$/i, '').replace(/<\/p>\s*<p>/gi, '<br><br>');
+                if (t.replace(/<[^>]*>/g, '').trim() || /<table/i.test(t)) voci.push(t);
+            }
+            const righe = voci.map((t, i) => {
+                const ultimo = i === voci.length - 1;
+                const pad = 'padding:0 0 ' + (ultimo ? sotto : 7) + 'px 0;';
+                return '<tr>'
+                    + '<td valign="top" width="' + largo + '" style="' + FONTE + misura + 'width:' + largo + 'px;color:' + cSegno + ';font-weight:bold;' + pad + '">'
+                    + (numerato ? (i + 1) + '.' : '&bull;') + '</td>'
+                    + '<td valign="top" style="' + FONTE + misura + 'color:' + cTesto + ';' + pad + '">' + t + '</td>'
+                    + '</tr>';
+            }).join('');
+            const tab = righe ? '<table role="presentation" class="ls" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">' + righe + '</table>' : '';
+            s = s.slice(0, m.index) + tab + s.slice(m.index + m[0].length);
+        }
+        // voci rimaste fuori da un elenco (marcatura spezzata): si leggono come testo
+        return s.replace(/<\/?(ul|ol|li)>/gi, '');
     }
     /* Per i testi che NON passano da stilizza (schede, voci, azioni): senza
        questo i collegamenti restano del blu di default del browser, che e'
@@ -343,6 +398,10 @@
     function testoDaHtml(html) {
         return String(html || '')
             .replace(/<\s*br\s*\/?>/gi, '\n')
+            // una voce che l'editor ha scritto come <li><p>..</p></li> e' una voce sola
+            .replace(/<li([^>]*)>\s*<p[^>]*>/gi, '<li$1>').replace(/<\/p>\s*<\/li>/gi, '</li>')
+            // un elenco annidato comincia a capo, non in coda alla voce che lo contiene
+            .replace(/<(ul|ol)[^>]*>/gi, '\n')
             .replace(/<\/(p|div|li|h[1-6]|tr)\s*>/gi, '\n')
             .replace(/<li[^>]*>/gi, '- ')
             // i collegamenti scritti nel testo devono restare raggiungibili anche da
@@ -643,7 +702,8 @@
             + '</table>';
     }
     function etichetta(testo) {
-        return '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(testo) + '</div>';
+        // gia' maiuscola nel testo: text-transform il motore di Word non lo conosce
+        return '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(String(testo == null ? '' : testo).toUpperCase(), true) + '</div>';
     }
 
     /* Pulsante che funziona anche su Outlook: la parte VML disegna un
@@ -750,14 +810,24 @@
         const attacco = primo && primo.tipo === 'p' && !soloForte
             && L0 >= SOGLIE.ATT_MIN && L0 <= SOGLIE.ATT_MAX;
         const apreConElenco = primo && primo.tipo === 'ul';
+        /* L'attacco sta in una riga di tabella sua, con lo stacco sotto fatto
+           da una riga vuota: era un <div> con margin-bottom, e Outlook per
+           Windows i margini dei div li ignora, cosi' l'attacco si incollava al
+           paragrafo dopo. */
+        const resto = attacco ? stilizza(bl.slice(1).map(b => b.html).join('')) : '';
         const corpo = attacco
-            ? '<div class="att par" style="' + FONTE + 'font-size:20px;line-height:31px;color:' + C.scuro + ';margin:0 0 18px 0;' + ALLINEA + '">'
-              + stilizzaInline(primo.html.replace(/^<p>/i, '').replace(/<\/p>$/i, ''), C.blu, C.scuro) + '</div>'
-              + stilizza(bl.slice(1).map(b => b.html).join(''))
+            ? tabellaInterna(
+                '<tr><td class="att par" style="' + FONTE + 'font-size:20px;line-height:31px;color:' + C.scuro + ';' + ALLINEA + '">'
+                + stilizzaInline(primo.html.replace(/^<p>/i, '').replace(/<\/p>$/i, ''), C.blu, C.scuro) + '</td></tr>'
+                + (resto ? spazio(18) + '<tr><td>' + resto + '</td></tr>' : ''))
             : stilizza(bl.map(b => b.html).join(''));
         return cella(tabellaInterna(
-            '<tr><td class="n1" style="' + FONTE + 'font-size:46px;line-height:40px;font-weight:bold;letter-spacing:-1px;color:' + C.bordo + ';">' + f.n + '</td></tr>'
-            + spazio(10)
+            /* Interlinea PARI al corpo, non inferiore: la catena porta
+               mso-line-height-rule:exactly, e con quella Outlook per Windows
+               ritaglia i glifi che sporgono dalla riga. Il numero perdeva la
+               testa. Vale anche per il "03" della lastra. */
+            '<tr><td class="n1" style="' + FONTE + 'font-size:46px;line-height:46px;font-weight:bold;letter-spacing:-1px;color:' + C.bordo + ';">' + f.n + '</td></tr>'
+            + spazio(8)
             + '<tr><td>' + etichettaFase(f, C.accento) + '</td></tr>'
             + spazio(8)
             + (d.titolo
@@ -774,11 +844,13 @@
        scelta di impaginazione, e' una scelta di scrittura. */
     function schedaCome(n, voce) {
         return '<table role="presentation" class="bd" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="' + C.bianco + '" style="border-collapse:collapse;background-color:' + C.bianco + ';border:1px solid ' + C.bordo + ';">'
-            + '<tr><td bgcolor="' + C.accento + '" height="3" style="background-color:' + C.accento + ';height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>'
-            + '<tr><td style="padding:14px 16px 16px;' + FONTE + '">'
-            + '<div style="' + FONTE + ETI + 'color:' + C.accento + ';font-weight:bold;padding-bottom:6px;">' + (n < 10 ? '0' + n : String(n)) + '</div>'
-            + '<div style="' + FONTE + 'font-size:15px;line-height:23px;color:' + C.testo + ';">' + stilizzaInline(voce, C.blu, C.scuro) + '</div>'
-            + '</td></tr></table>';
+            + '<tr><td bgcolor="' + C.accento + '" height="3" style="background-color:' + C.accento + ';' + stileVuoto(3) + '">&nbsp;</td></tr>'
+            /* Numero e testo in due righe di tabella, con lo stacco nel padding
+               della CELLA: Outlook per Windows ignora il padding dei div, e il
+               numero si incollava al testo. */
+            + '<tr><td style="padding:14px 16px 0;' + FONTE + ETI + 'color:' + C.accento + ';font-weight:bold;">' + (n < 10 ? '0' + n : String(n)) + '</td></tr>'
+            + '<tr><td style="padding:6px 16px 16px;' + FONTE + 'font-size:15px;line-height:23px;color:' + C.testo + ';">' + stilizzaInline(voce, C.blu, C.scuro) + '</td></tr>'
+            + '</table>';
     }
     function righeElencate(voci, colSegno, colTesto, conFiletto) {
         return voci.map((v, i) => '<tr><td style="padding:' + (i ? '12px' : '0') + ' 0 12px 0;'
@@ -811,7 +883,10 @@
             for (let i = 0; i < voci.length; i += 2) {
                 const coppia = [schedaCome(i + 1, voci[i])];
                 if (voci[i + 1] != null) coppia.push(schedaCome(i + 2, voci[i + 1]));
-                righe.push('<tr><td style="padding:' + (i ? '16px' : '6px') + ' 0 0 0;">' + colonne(coppia, null, 20) + '</td></tr>');
+                /* La classe "rw" toglie sul telefono lo stacco della riga: li' le
+                   schede si impilano e ognuna porta gia' il suo sotto (.col),
+                   altrimenti fra la seconda e la terza c'era il doppio. */
+                righe.push('<tr><td' + (i ? ' class="rw"' : '') + ' style="padding:' + (i ? '16px' : '6px') + ' 0 0 0;">' + colonne(coppia, null, 20) + '</td></tr>');
             }
             return tabellaInterna(righe.join('') + spazio(18));
         }).join('');
@@ -824,8 +899,10 @@
                     + 'font-size:15px;line-height:34px;font-weight:bold;color:' + C.bianco + ';text-align:center;">' + f.n + '</td>'
                     + '</tr></table></td>'
                     + '<td valign="top" style="padding-top:2px;' + FONTE + '">'
-                    + '<div style="padding-bottom:6px;">' + etichettaFase(f, C.accento) + '</div>'
-                    + (d.titolo ? '<div style="' + FONTE + 'font-size:20px;line-height:28px;font-weight:bold;color:' + C.scuro + ';">' + testoHtml(d.titolo) + '</div>' : '')
+                    /* etichetta e titolo in due righe di tabella: lo stacco sta nel
+                       padding della cella, perche' quello dei div Outlook lo ignora */
+                    + tabellaInterna('<tr><td style="padding-bottom:6px;">' + etichettaFase(f, C.accento) + '</td></tr>'
+                        + (d.titolo ? '<tr><td style="' + FONTE + 'font-size:20px;line-height:28px;font-weight:bold;color:' + C.scuro + ';">' + testoHtml(d.titolo) + '</td></tr>' : ''))
                     + '</td></tr>')
                 + '</td></tr>'
                 + spazio(16)
@@ -866,7 +943,7 @@
             if (voci.length === 2 && !usateAzioni && voci.every(v => lung(v) <= SOGLIE.AZIONE_MAX)) {
                 usateAzioni = true;
                 const col = v => '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">'
-                    + '<tr><td bgcolor="' + C.chiaroBlu + '" height="2" style="background-color:' + C.chiaroBlu + ';height:2px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+                    + '<tr><td bgcolor="' + C.chiaroBlu + '" height="2" style="background-color:' + C.chiaroBlu + ';' + stileVuoto(2) + '">&nbsp;</td></tr>'
                     + '<tr><td style="padding-top:12px;' + FONTE + 'font-size:16px;line-height:25px;color:' + C.bianco + ';">' + stilizzaInline(v, C.bianco, C.bianco) + '</td></tr></table>';
                 return colonne([col(voci[0]), col(voci[1])], null, 20);
             }
@@ -874,7 +951,7 @@
                 + tabellaInterna('<tr>'
                     + '<td valign="top" width="20" style="width:20px;padding:9px 0 0 0;">'
                     + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="7" style="border-collapse:collapse;"><tr>'
-                    + '<td bgcolor="' + C.chiaroBlu + '" width="7" height="7" style="background-color:' + C.chiaroBlu + ';width:7px;height:7px;font-size:0;line-height:0;">&nbsp;</td>'
+                    + '<td bgcolor="' + C.chiaroBlu + '" width="7" height="7" style="background-color:' + C.chiaroBlu + ';width:7px;' + stileVuoto(7) + '">&nbsp;</td>'
                     + '</tr></table></td>'
                     + '<td valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.suScuro + ';">' + stilizzaInline(v, C.bianco, C.bianco) + '</td>'
                     + '</tr>')
@@ -884,10 +961,10 @@
             + tabellaInterna(
                 '<tr><td>' + tabellaInterna('<tr>'
                     + '<td valign="top" width="86" class="n3" style="width:86px;' + FONTE
-                    + 'font-size:64px;line-height:56px;font-weight:bold;letter-spacing:-2px;color:' + C.accento + ';">' + f.n + '</td>'
+                    + 'font-size:64px;line-height:64px;font-weight:bold;letter-spacing:-2px;color:' + C.accento + ';">' + f.n + '</td>'
                     + '<td valign="top" style="padding-top:6px;' + FONTE + '">'
-                    + '<div style="padding-bottom:8px;">' + etichettaFase(f, C.suScuro) + '</div>'
-                    + (d.titolo ? '<div style="' + FONTE + 'font-size:22px;line-height:30px;font-weight:bold;color:' + C.bianco + ';">' + testoHtml(d.titolo) + '</div>' : '')
+                    + tabellaInterna('<tr><td style="padding-bottom:8px;">' + etichettaFase(f, C.suScuro) + '</td></tr>'
+                        + (d.titolo ? '<tr><td style="' + FONTE + 'font-size:22px;line-height:30px;font-weight:bold;color:' + C.bianco + ';">' + testoHtml(d.titolo) + '</td></tr>' : ''))
                     + '</td></tr>')
                 + '</td></tr>'
                 + (corpo ? spazio(16) + '<tr><td>' + corpo + '</td></tr>' : '')
@@ -946,7 +1023,7 @@
                 + tabellaInterna('<tr>'
                     + '<td valign="top" width="20" style="width:20px;padding:9px 0 0 0;">'
                     + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="7" style="border-collapse:collapse;"><tr>'
-                    + '<td bgcolor="' + C.accento + '" width="7" height="7" style="background-color:' + C.accento + ';width:7px;height:7px;font-size:0;line-height:0;">&nbsp;</td>'
+                    + '<td bgcolor="' + C.accento + '" width="7" height="7" style="background-color:' + C.accento + ';width:7px;' + stileVuoto(7) + '">&nbsp;</td>'
                     + '</tr></table></td>'
                     + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">' + testoHtml(v) + '</td>'
                     + '</tr>')
@@ -963,8 +1040,8 @@
             const dentro = (b.titolo ? '<tr><td style="padding:0 0 8px 0;">' + etichetta(b.titolo) + '</td></tr>' : '')
                 + '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">' + contenuto(b) + '</td></tr>';
             return cella(
-                '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:' + C.chiaro + ';"><tr>'
-                + '<td width="4" bgcolor="' + C.accento + '" style="width:4px;background-color:' + C.accento + ';font-size:0;line-height:0;">&nbsp;</td>'
+                '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="' + C.chiaro + '" style="border-collapse:collapse;background-color:' + C.chiaro + ';"><tr>'
+                + '<td width="4" bgcolor="' + C.accento + '" style="width:4px;background-color:' + C.accento + ';font-size:1px;line-height:1px;">&nbsp;</td>'
                 + '<td style="padding:18px 20px;">' + tabellaInterna(dentro) + '</td>'
                 + '</tr></table>', '30px ' + LATO + 'px 4px');
         }
@@ -976,12 +1053,11 @@
                l'altro. Sotto i 620px si impilano da sole. */
             const scheda = (tit, txt) => {
                 if (!String(tit || '').trim() && !String(txt || '').trim()) return '';
-                return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:' + C.chiaro + ';">'
-                    + '<tr><td bgcolor="' + C.accento + '" height="3" style="background-color:' + C.accento + ';height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>'
-                    + '<tr><td style="padding:15px 17px 17px;' + FONTE + '">'
-                    + (tit ? '<div style="' + FONTE + 'font-size:17px;line-height:24px;color:' + C.scuro + ';font-weight:bold;padding-bottom:7px;">' + testoHtml(tit) + '</div>' : '')
-                    + '<div style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.testo + ';">' + testoHtml(txt) + '</div>'
-                    + '</td></tr></table>';
+                return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="' + C.chiaro + '" style="border-collapse:collapse;background-color:' + C.chiaro + ';">'
+                    + '<tr><td bgcolor="' + C.accento + '" height="3" style="background-color:' + C.accento + ';' + stileVuoto(3) + '">&nbsp;</td></tr>'
+                    + (tit ? '<tr><td style="padding:15px 17px 0;' + FONTE + 'font-size:17px;line-height:24px;color:' + C.scuro + ';font-weight:bold;">' + testoHtml(tit) + '</td></tr>' : '')
+                    + '<tr><td style="padding:' + (tit ? '7px' : '15px') + ' 17px 17px;' + FONTE + 'font-size:15px;line-height:24px;color:' + C.testo + ';">' + testoHtml(txt) + '</td></tr>'
+                    + '</table>';
             };
             const uno = scheda(b.titolo, b.testo), due = scheda(b.titolo2, b.testo2);
             if (!uno && !due) return '';
@@ -993,7 +1069,7 @@
                e diventa una pagina. */
             const src = assoluto(b.src, base);
             const testoDentro = (b.titolo
-                ? '<div style="' + FONTE + 'font-size:18px;line-height:25px;color:' + C.scuro + ';font-weight:bold;padding-bottom:8px;">' + testoHtml(b.titolo) + '</div>'
+                ? tabellaInterna('<tr><td style="padding-bottom:8px;' + FONTE + 'font-size:18px;line-height:25px;color:' + C.scuro + ';font-weight:bold;">' + testoHtml(b.titolo) + '</td></tr>')
                 : '') + contenuto(b, { stretto: true });
             if (!src) return cella(testoDentro, '30px ' + LATO + 'px 4px');
             const img = '<img src="' + esc(src) + '" width="210" alt="' + esc(b.alt || '') + '" '
@@ -1015,11 +1091,12 @@
             return cella(
                 '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="' + C.scuro + '" style="border-collapse:collapse;background-color:' + C.scuro + ';">'
                 + '<tr><td align="center" style="padding:26px 22px 24px;text-align:center;' + FONTE + '">'
-                // sul blu la cifra va in bianco: l'accento e' un blu piu' chiaro,
-                // ma su fondo blu scuro resterebbe troppo poco leggibile
-                + '<div style="' + FONTE + 'font-size:44px;line-height:50px;color:' + C.bianco + ';font-weight:bold;letter-spacing:-1px;">' + testoHtml(cifra) + '</div>'
-                + (b.etichetta ? '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.chiaroBlu + ';font-weight:bold;padding-top:6px;">' + testoHtml(b.etichetta) + '</div>' : '')
-                + (b.testo ? '<div style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.suScuro + ';padding-top:12px;">' + testoHtml(b.testo) + '</div>' : '')
+                + tabellaInterna(
+                    // sul blu la cifra va in bianco: l'accento e' un blu piu' chiaro,
+                    // ma su fondo blu scuro resterebbe troppo poco leggibile
+                    '<tr><td align="center" style="' + FONTE + 'font-size:44px;line-height:50px;color:' + C.bianco + ';font-weight:bold;letter-spacing:-1px;text-align:center;">' + testoHtml(cifra) + '</td></tr>'
+                    + (b.etichetta ? spazio(6) + '<tr><td align="center" style="' + FONTE + SCALA.etichetta + 'color:' + C.chiaroBlu + ';font-weight:bold;text-align:center;">' + testoHtml(String(b.etichetta).toUpperCase(), true) + '</td></tr>' : '')
+                    + (b.testo ? spazio(12) + '<tr><td align="center" style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.suScuro + ';text-align:center;">' + testoHtml(b.testo) + '</td></tr>' : ''))
                 + '</td></tr></table>', '30px ' + LATO + 'px 4px');
         }
         // testo (predefinito)
@@ -1092,6 +1169,11 @@
             + '<meta name="supported-color-schemes" content="light" />\n'
             + '<title>' + esc(oggetto || '') + '</title>\n'
             + '<!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->\n'
+            /* Solo per Outlook per Windows: dove nella catena manca un font-family
+               (celle vuote, &nbsp; di servizio, testo di un segnaposto) Word mette
+               Times New Roman, e un carattere con le grazie in mezzo a una mail
+               in Arial si nota. Gli altri client non leggono il commento. */
+            + '<!--[if mso]><style type="text/css">table,td,th,div,p,a,span{font-family:Arial,Helvetica,sans-serif;}</style><![endif]-->\n'
             + '<style type="text/css">\n'
             /* La stessa scelta come proprieta' CSS sulla radice: la leggono Apple
                Mail, Samsung Email e Thunderbird; Gmail e Outlook la scartano senza
@@ -1103,6 +1185,9 @@
             + 'img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}\n'
             + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
             + 'a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}\n'
+            /* Samsung Email: come Apple, trasforma da solo date e indirizzi in
+               collegamenti blu; i nostri <a> hanno lo stile in linea e non cambiano. */
+            + '#MessageViewBody a{color:inherit;text-decoration:none;}\n'
             + '.ExternalClass{width:100%;}\n'
             + '.ExternalClass,.ExternalClass p,.ExternalClass td,.ExternalClass div{line-height:100%;}\n'
             /* OUTLOOK IN TEMA SCURO (Outlook.com, nuovo Outlook per Windows, app
@@ -1142,6 +1227,7 @@
                impilandosi si toccherebbero. */
             + '  .col{max-width:100%!important;width:100%!important;padding-bottom:16px!important;}\n'
             + '  .gap{display:none!important;width:0!important;}\n'
+            + '  .rw{padding-top:0!important;}\n'
             /* I tre momenti hanno corpi diversi anche sul telefono, altrimenti la
                differenza fra loro sparisce proprio dove lo spazio e' poco.
                ".lead" NON si tocca: e' del sommario nella testata. */
@@ -1159,8 +1245,8 @@
                perche' etichetta e valore sono gia' impilati nel markup. */
             + '  .pmora{display:block!important;width:100%!important;white-space:normal!important;padding:6px 0 0!important;border-bottom:0!important;}\n'
             + '  .pmvoce{display:block!important;width:100%!important;padding:0 0 6px!important;}\n'
-            + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
-            + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
+            + '  .n1{font-size:38px!important;line-height:38px!important;}\n'
+            + '  .n3{width:64px!important;font-size:48px!important;line-height:48px!important;}\n'
             + '}\n'
             /* IL TESTO E' GIUSTIFICATO SU OGNI SCHERMO, telefono compreso.
                Su una colonna da una quarantina di caratteri il giustificato apre
@@ -1189,9 +1275,9 @@
                di schermo leggerebbe l'italiano con la voce dell'interfaccia. Si
                ripete sul body e sulle due tabelle di involucro, su <table> e non
                sui <td>: Yahoo e AOL lo ignorano sulle celle. Inerte per la resa. */
-            + '<body lang="it" style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
+            + '<body lang="it" bgcolor="' + C.sfondo + '" style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
             + preheader
-            + '<table role="presentation" lang="it" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
+            + '<table role="presentation" lang="it" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + C.sfondo + '" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
             + '<tr><td align="center" style="padding:24px 12px;">'
             /* La tabella a larghezza fissa per Outlook porta la larghezza anche
                nello stile, oltre che nell'attributo: Word tratta i pixel degli
@@ -1252,7 +1338,11 @@
            cosi' la giuntura non si vede): quello con il fondo bianco
            incorporato, qui, comparirebbe come un rettangolo. */
         const occhiello = nl.occhiello
-            ? '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">' + testoHtml(nl.occhiello) + '</td></tr>' + spazio(12)
+            /* Maiuscolo scritto nel testo, non solo chiesto con text-transform:
+               Outlook per Windows non lo applica e l'occhiello arrivava in
+               minuscolo, da solo, in mezzo a una testata tutta in maiuscoletto.
+               Senza trattini morbidi: un'etichetta spaziata non si sillaba. */
+            ? '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">' + testoHtml(String(nl.occhiello).toUpperCase(), true) + '</td></tr>' + spazio(12)
             : '';
         const titolo = nl.titolo
             ? '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(nl.titolo) + '</td></tr>'
