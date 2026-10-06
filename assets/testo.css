@@ -34,10 +34,12 @@ p, li, dd, blockquote, figcaption {
 }
 
 /* Blocchi di testo che non sono paragrafi: descrizioni e note in span o div
-   (nelle card, nelle FAQ, nelle timeline). Stesse regole dei paragrafi. */
+   (nelle card, nelle FAQ, nelle timeline). Stesse regole dei paragrafi.
+   Solo elementi che contengono testo, non contenitori ("-body", "-copy"):
+   un contenitore giustificato passerebbe l'allineamento anche ai titoli. */
 [class*="-desc"], [class*="-descr"], [class*="-testo"], [class*="-text"], [class*="-sub"],
-[class*="-lead"], [class*="-intro"], [class*="-nota"], [class*="-note"], [class*="-body"],
-[class*="-statement"], [class*="-answer"], [class*="-copy"],
+[class*="-lead"], [class*="-intro"], [class*="-nota"], [class*="-note"],
+[class*="-statement"], [class*="-answer"],
 .faq-answer-inner, .principio-case-text, .timeline-desc, .ebook-cover-sub,
 .tool-text, .tool-bonus, .highlight-box, .switch-text, .piede {
     text-align: justify !important;
