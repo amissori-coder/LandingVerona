@@ -224,7 +224,7 @@
    regge: il bordo pieno a sinistra dice quale delle due
    porta il peso del discorso. */
 .riparto-col.is-controllo {
-    border-left: 4px solid #164068;
+    border-top: 2px solid #164068;
 }
 
 .riparto-tag {
@@ -478,7 +478,7 @@
 .formula {
     background: #ffffff;
     border: 1px solid rgba(22, 64, 104, 0.12);
-    border-left: 3px solid #164068;
+    border-top: 2px solid #164068;
     border-radius: 12px;
     padding: 22px 22px 20px;
 }
@@ -537,7 +537,7 @@
 .highlight-box.is-prassi {
     background: #f6f7f9;
     border-color: rgba(90, 98, 112, 0.22);
-    border-left-color: #5A6270;
+    border-top-color: #5A6270;
 }
 
 .highlight-box.is-prassi strong {

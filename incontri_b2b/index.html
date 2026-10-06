@@ -24,7 +24,7 @@
         .scheda { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 22px; margin-top: 18px; }
         .avviso { text-align: center; color: var(--tenue); padding: 30px 10px; }
         .avviso.errore { color: var(--rosso); }
-        .riepilogo { background: var(--chiaro); border: 1px solid var(--bordo); border-left: 3px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; }
+        .riepilogo { background: var(--chiaro); border: 1px solid var(--bordo); border-top: 2px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; }
         .temi { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
         .tema { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--bordo); border-radius: 8px; padding: 11px 14px; cursor: pointer; background: #fff; }
         .tema:hover { border-color: var(--navy-light); background: var(--chiaro); }
@@ -86,10 +86,10 @@
    ricevuta e in rosso, perche' "scelte salvate" con sotto, piccolo, "il Suo
    incontro pero' non c'e'" e' il modo migliore per far presentare qualcuno a un
    tavolo che non lo aspetta. */
-        .sfumato { border: 1px solid #f0c3c0; border-left: 3px solid var(--rosso); background: #FDF1F0; border-radius: 6px; padding: 14px 16px; margin: 4px 0 18px; text-align: left; font-size: 0.95rem; color: var(--testo); }
+        .sfumato { border: 1px solid #f0c3c0; border-top: 2px solid var(--rosso); background: #FDF1F0; border-radius: 6px; padding: 14px 16px; margin: 4px 0 18px; text-align: left; font-size: 0.95rem; color: var(--testo); }
         .sfumato b { color: var(--rosso); }
         .sfumato .invia { margin-top: 12px; font-size: 0.98rem; padding: 11px 22px; }
-        .fuori-programma { margin-top: 14px; border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; font-size: 0.93rem; }
+        .fuori-programma { margin-top: 14px; border: 1px solid #f3d4b5; border-top: 2px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; font-size: 0.93rem; }
         .fuori-programma b { color: #8a4a12; }
         .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
         .fatto p { color: var(--tenue); }
@@ -102,8 +102,8 @@
            incontro, allineata a sinistra: un elenco si scorre, un paragrafo
            centrato no. */
         .ricevuta { text-align: left; margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
-        .ric-blocco { border: 1px solid var(--bordo); border-left: 3px solid var(--verde); border-radius: 8px; padding: 14px 16px; background: var(--chiaro); }
-        .ric-blocco.attesa { border-left-color: var(--navy-light); }
+        .ric-blocco { border: 1px solid var(--bordo); border-top: 2px solid var(--verde); border-radius: 8px; padding: 14px 16px; background: var(--chiaro); }
+        .ric-blocco.attesa { border-top-color: var(--navy-light); }
         .ric-et { font-size: 0.78rem; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; color: var(--verde); }
         .ric-blocco.attesa .ric-et { color: var(--navy-light); }
         .ric-lista { list-style: none; margin: 10px 0 0; padding: 0; }
@@ -119,7 +119,7 @@
         .colleghi h2 { font-size: 1.05rem; color: var(--navy-dark); }
         .colleghi .spiega { font-size: 0.88rem; color: var(--tenue); margin-top: 4px; }
         .colleghi ul { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-        .colleghi li { border: 1px solid var(--bordo); border-left: 3px solid var(--navy-light); border-radius: 6px; padding: 10px 14px; background: var(--chiaro); }
+        .colleghi li { border: 1px solid var(--bordo); border-top: 2px solid var(--navy-light); border-radius: 6px; padding: 10px 14px; background: var(--chiaro); }
         .col-chi { font-weight: bold; color: var(--navy-dark); }
         .col-ruolo { color: var(--tenue); font-size: 0.85rem; }
         .col-tavoli { font-size: 0.9rem; margin-top: 3px; }
@@ -179,7 +179,7 @@
         .regole.fitte { padding: 11px 14px; font-size: 0.88rem; margin-top: 12px; }
         .regole.fitte ul { margin: 6px 0 0 16px; }
         .regole.fitte li { margin-bottom: 3px; }
-        .confermato { border: 1px solid #b7dfc9; border-left: 3px solid var(--verde); background: #EAF6F0; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.95rem; }
+        .confermato { border: 1px solid #b7dfc9; border-top: 2px solid var(--verde); background: #EAF6F0; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.95rem; }
         .confermato b { color: var(--verde); }
 /* --- I VOSTRI INCONTRI: l'elenco di quello che e' fissato, e da dove viene ---
    Erano tre cose sparse - la prima preferenza in un riquadro, quelli assegnati
@@ -207,7 +207,7 @@
         .btn-annulla:hover { border-color: var(--rosso); background: #FDF1F0; }
         .btn-annulla[disabled] { opacity: 0.6; cursor: default; }
         .miei-spiega { padding: 11px 14px; background: var(--chiaro); border-top: 1px solid var(--bordo); font-size: 0.88rem; color: var(--tenue); }
-        .esaurito { border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.93rem; }
+        .esaurito { border: 1px solid #f3d4b5; border-top: 2px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.93rem; }
         .esaurito b { color: #8a4a12; }
         .legenda { margin-top: 10px; font-size: 0.82rem; color: var(--tenue); }
         .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }

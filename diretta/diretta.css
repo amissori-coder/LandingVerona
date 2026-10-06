@@ -406,9 +406,9 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 
 .messaggio { font-size: 15.5px; line-height: 1.5; border-radius: var(--raggio-piccolo); }
 .messaggio:empty { display: none; }
-.messaggio[data-tipo="errore"] { background: var(--rosso-chiaro); color: #8A0A20; padding: 12px 14px; border-left: 4px solid var(--rosso); }
-.messaggio[data-tipo="info"] { background: #E8F1FA; color: var(--scuro); padding: 12px 14px; border-left: 4px solid var(--accento); }
-.messaggio[data-tipo="ok"] { background: #E7F5EE; color: #14532D; padding: 12px 14px; border-left: 4px solid var(--verde); }
+.messaggio[data-tipo="errore"] { background: var(--rosso-chiaro); color: #8A0A20; padding: 12px 14px; border-top: 2px solid var(--rosso); }
+.messaggio[data-tipo="info"] { background: #E8F1FA; color: var(--scuro); padding: 12px 14px; border-top: 2px solid var(--accento); }
+.messaggio[data-tipo="ok"] { background: #E7F5EE; color: #14532D; padding: 12px 14px; border-top: 2px solid var(--verde); }
 .riga-link { text-align: center; font-size: 15.5px; }
 .riga-link a { font-weight: 600; display: inline-flex; align-items: center; min-height: 48px; padding: 6px 8px; }
 /* «Non sei ancora iscritto? Iscriviti qui.»: sotto «Password dimenticata?»
