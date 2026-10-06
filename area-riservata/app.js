@@ -15485,7 +15485,7 @@
             }
         },
         {
-            id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', giorno: '2027-02-27', filtro: 'milano', pagina: 'Milano 27 Febbraio 2027',
+            id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
             manuale: true,
             nota: 'Il modulo di iscrizione non è ancora pubblicato: le iscrizioni dal sito compariranno qui da sole appena sarà attivo. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
         },
