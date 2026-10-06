@@ -16,9 +16,12 @@
        miglioramenti su schermo piccolo, e se sparisce non cambia nulla;
      - larghezza fissa 600px con tabella "condizionale" per Outlook e
        max-width per gli altri: sotto i 600px si adatta;
-     - pulsanti "a prova di client" (VML per Outlook, link normale
-       per tutti gli altri): un <a> con padding su Outlook non
-       diventerebbe un rettangolo cliccabile;
+     - pulsanti fatti di una CELLA con sfondo e imbottitura e un link
+       dentro, senza VML ne' commenti condizionali: in inoltro Gmail e
+       Outlook.com tolgono i commenti, e un pulsante che vive li'
+       dentro sparisce (e' successo). Vale per tutto cio' che conta:
+       NIENTE di essenziale sta nel <head>, nel foglio di stile o in
+       un commento, perche' l'inoltro li porta via tutti e tre;
      - font di sistema (Arial/Helvetica): i font scaricati non
        arrivano quasi mai;
      - immagini con width/height e alt, e display:block per non
@@ -706,27 +709,36 @@
         return '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(String(testo == null ? '' : testo).toUpperCase(), true) + '</div>';
     }
 
-    /* Pulsante che funziona anche su Outlook: la parte VML disegna un
-       rettangolo cliccabile, gli altri client vedono il link normale. */
+    /* IL PULSANTE, SENZA VML E SENZA COMMENTI CONDIZIONALI.
+       Prima era in due pezzi: un rettangolo VML dentro <!--[if mso]--> per
+       Outlook, e per tutti gli altri un link con mso-hide:all. Funzionava
+       finche' la mail arrivava diretta. INOLTRATA no: Gmail, Outlook.com e
+       Yahoo, quando inoltrano, tolgono il <head>, il foglio di stile e TUTTI
+       i commenti HTML, VML compreso. A chi leggeva l'inoltro in Outlook per
+       Windows restava solo il link, che pero' aveva mso-hide:all: il
+       pulsante spariva del tutto, e con lui l'unica cosa che la mail chiede
+       di fare. Il nuovo Outlook per Windows, poi, i commenti condizionali
+       non li legge nemmeno in prima battuta.
+       Ora e' una cosa sola, che ogni programma sa disegnare e che sopravvive
+       a qualunque inoltro: sfondo e imbottitura sulla CELLA (Word li onora;
+       sul link no), e dentro un link bianco in grassetto. Su Outlook per
+       Windows e' cliccabile il testo e non tutto il rettangolo: e' il prezzo
+       di un pulsante che non si perde per strada. mso-padding-alt ripete
+       l'imbottitura nel dialetto di Word, per quando la cella la perde. */
+    function pulsanteGrezzo(testo, href, sfondo) {
+        const stileCella = 'background-color:' + sfondo + ';padding:14px 30px;mso-padding-alt:14px 30px;text-align:center;';
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+            + '<tr><td align="center" bgcolor="' + sfondo + '" style="' + stileCella + '">'
+            + '<a href="' + href + '" class="btnlink" style="display:inline-block;' + FONTE
+            + 'font-size:16px;line-height:20px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;">'
+            + '<span style="color:#ffffff;">' + testo + '</span></a>'
+            + '</td></tr></table>';
+    }
     function pulsante(testo, url, opz) {
         opz = opz || {};
         const u = urlSicuro(url);
         if (!u || !String(testo || '').trim()) return '';
-        const sfondo = opz.colore || C.scuro;
-        const larghezza = Math.max(180, Math.min(420, 40 + String(testo).length * 9));
-        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
-            + '<tr><td align="center" bgcolor="' + sfondo + '" style="background-color:' + sfondo + ';">'
-            + '<!--[if mso]>'
-            + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + esc(u) + '" '
-            + 'style="height:48px;v-text-anchor:middle;width:' + larghezza + 'px;" arcsize="0%" stroke="f" fillcolor="' + sfondo + '">'
-            + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">' + esc(testo) + '</center>'
-            + '</v:roundrect>'
-            + '<![endif]-->'
-            + '<!--[if !mso]><!-- -->'
-            + '<a href="' + esc(u) + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
-            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + sfondo + ';mso-hide:all;">' + esc(testo) + '</a>'
-            + '<!--<![endif]-->'
-            + '</td></tr></table>';
+        return pulsanteGrezzo(esc(testo), esc(u), opz.colore || C.scuro);
     }
 
     /* Corpo di un blocco: "html" se arriva gia' formattato (bozza generata da una
@@ -1697,21 +1709,9 @@
             ) + '</td></tr></table>';
 
         /* Il pulsante non passa da pulsante(): li' l'indirizzo viene ripulito, e
-           il segnaposto (che un indirizzo non e') sparirebbe. Stessa struttura
-           a prova di Outlook, con il segnaposto scritto tale e quale. */
-        const bottone = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
-            + '<tr><td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
-            + '<!--[if mso]>'
-            + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + SEGNAPOSTO_COMPLETA + '" '
-            + 'style="height:48px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
-            + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">Completa i dati</center>'
-            + '</v:roundrect>'
-            + '<![endif]-->'
-            + '<!--[if !mso]><!-- -->'
-            + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
-            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';mso-hide:all;">Completa i dati</a>'
-            + '<!--<![endif]-->'
-            + '</td></tr></table>';
+           il segnaposto (che un indirizzo non e') sparirebbe. Stessa struttura,
+           con il segnaposto scritto tale e quale. */
+        const bottone = pulsanteGrezzo('Completa i dati', SEGNAPOSTO_COMPLETA, C.blu);
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const spiegazione = nPart > 1
@@ -2866,19 +2866,7 @@
         let bottone = '';
         if (btn) {
             if (String(btn.url) === SEGNAPOSTO_COMPLETA) {
-                bottone = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
-                    + '<tr><td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
-                    + '<!--[if mso]>'
-                    + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + SEGNAPOSTO_COMPLETA + '" '
-                    + 'style="height:48px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
-                    + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">' + esc(btn.testo) + '</center>'
-                    + '</v:roundrect>'
-                    + '<![endif]-->'
-                    + '<!--[if !mso]><!-- -->'
-                    + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;line-height:20px;font-family:' + FONT
-                    + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';mso-hide:all;">' + esc(btn.testo) + '</a>'
-                    + '<!--<![endif]-->'
-                    + '</td></tr></table>';
+                bottone = pulsanteGrezzo(esc(btn.testo), SEGNAPOSTO_COMPLETA, C.blu);
             } else {
                 bottone = pulsante(btn.testo, btn.url, { colore: C.blu });
             }

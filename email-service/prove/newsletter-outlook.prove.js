@@ -22,8 +22,10 @@
        da 3px diventava alta quanto una riga di testo;
      - text-transform:uppercase Word non lo conosce: le etichette
        vanno scritte gia' maiuscole;
-     - i pulsanti hanno la parte VML per Outlook e il link per gli
-       altri; i due rami devono essere entrambi chiusi bene.
+     - i pulsanti NON stanno in un commento condizionale ne' in VML:
+       in inoltro Gmail e Outlook.com tolgono head, foglio di stile e
+       commenti, e il pulsante spariva. Qui si simula l'inoltro e si
+       guarda che resti tutto quello che conta.
    ============================================================ */
 'use strict';
 const path = require('path');
@@ -141,10 +143,26 @@ Object.keys(MAIL).forEach(nome => {
         esigi(/>PERCH&Eacute;<|>PERCHÉ</.test(h) || nome === 'a blocchi', 'l\'etichetta del momento e\' maiuscola');
     });
 
-    prova('[' + nome + '] il pulsante ha il ramo VML per Outlook e il link per gli altri', () => {
-        esigi(/<v:roundrect[^>]*href="https:\/\/esempio\.it/.test(h), 'VML con l\'indirizzo giusto');
-        esigi(/<w:anchorlock\/>/.test(h), 'w:anchorlock dentro il VML');
-        esigi(/class="btnlink"[^>]*mso-hide:all/.test(h), 'il link normale e\' nascosto a Outlook');
+    prova('[' + nome + '] il pulsante e\' una cella con sfondo e un link dentro, senza VML', () => {
+        esigi(!/<v:|<w:anchorlock/.test(h), 'niente VML');
+        esigi(/<td align="center" bgcolor="#164068" style="background-color:#164068;padding:14px 30px;mso-padding-alt:14px 30px;text-align:center;"><a href="https:\/\/esempio\.it[^"]*" class="btnlink"/.test(h), 'cella con sfondo e imbottitura, link subito dentro');
+        esigi(!/<a [^>]*mso-hide:all/.test(h), 'nessun link nascosto a Outlook');
+    });
+
+    prova('[' + nome + '] INOLTRATA: senza head, foglio di stile e commenti resta tutto quello che conta', () => {
+        /* Quello che fanno Gmail, Outlook.com e Yahoo quando inoltrano. */
+        const inoltrata = h.replace(/<head>[\s\S]*?<\/head>/i, '').replace(/<!--[\s\S]*?-->/g, '');
+        esigi(!/<style|<!--/.test(inoltrata), 'simulazione: niente stile ne\' commenti');
+        ['table', 'tr', 'td', 'div', 'a', 'p'].forEach(tag => {
+            const a = conta(inoltrata, tag);
+            esigi(a.ap === a.ch, '<' + tag + '> ' + a.ap + ' aperti, ' + a.ch + ' chiusi');
+        });
+        esigi(/class="btnlink"[^>]*>[^<]*<span[^>]*>(Prenota il colloquio|Pulsante finale)<\/span><\/a>/.test(inoltrata), 'il pulsante finale c\'e\' ancora, con il suo testo');
+        esigi(/bgcolor="#0A2844"/.test(inoltrata) && /bgcolor="#F1F5F9"/.test(inoltrata), 'gli sfondi stanno negli attributi, non solo nel foglio di stile');
+        esigi(/max-width:600px/.test(inoltrata), 'la larghezza della colonna sta in linea');
+        esigi(/<img [^>]*width="150" height="46"/.test(inoltrata), 'il marchio ha le misure negli attributi');
+        esigi(/display:none;font-size:1px/.test(inoltrata), 'l\'anteprima resta nascosta con lo stile in linea');
+        esigi(!/mso-hide:all;">[^<]*<\/a>/.test(inoltrata), 'nessun collegamento che Outlook nasconderebbe');
     });
 
     prova('[' + nome + '] involucro', () => {
