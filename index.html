@@ -197,76 +197,29 @@
                 </a>
             </div>
 
-            <!-- Ecosystem orbit: Revisione Legale (core) circondata dai servizi -->
-            <div class="orbit" role="group" aria-label="I servizi Revilaw attorno alla Revisione Legale">
-                <span class="orbit-ring orbit-ring-1" aria-hidden="true"></span>
-                <span class="orbit-ring orbit-ring-2" aria-hidden="true"></span>
-                <div class="orbit-arm orbit-arm-1">
-                <a class="planet" style="top:11.35%; left:50%" href="adeguati_assetti/" aria-label="Adeguati Assetti">
-                    <span class="planet-face shape-circle"><span class="planet-label">Adeguati<br>Assetti</span></span>
+            <!-- Sistema dei servizi: mezza orbita che sorge dal bordo del pannello.
+                 Al centro, sul bordo, la revisione legale; sull'arco i servizi collegati.
+                 Da 1181 px il centro sta sul bordo destro, sotto sul bordo inferiore. -->
+            <div class="sistema" role="group" aria-label="La revisione legale e i servizi collegati">
+                <span class="sistema-anello sistema-anello--fondo" aria-hidden="true"></span>
+                <span class="sistema-anello sistema-anello--largo" aria-hidden="true"></span>
+                <span class="sistema-anello sistema-anello--servizi" aria-hidden="true"></span>
+                <span class="sistema-anello sistema-anello--centro" aria-hidden="true"></span>
+                <a class="sistema-centro" href="revisione-demo/">
+                    <span class="sistema-centro-corpo">
+                        <span class="sistema-centro-nome">Revisione legale</span>
+                        <span class="sistema-centro-rif">5 fasi, metodo ISA&nbsp;Italia</span>
+                        <span class="sistema-centro-cta">Scopri il processo</span>
+                    </span>
                 </a>
-                </div>
-                <div class="orbit-arm orbit-arm-2">
-                <a class="planet" style="top:30.67%; left:83.47%" href="modello_231/" aria-label="Modello 231">
-                    <span class="planet-face shape-circle"><span class="planet-label">Modello<br>231</span></span>
-                </a>
-                </div>
-                <div class="orbit-arm orbit-arm-3">
-                <a class="planet" style="top:69.33%; left:83.47%" href="rating_legalita/" aria-label="Rating di Legalità">
-                    <span class="planet-face shape-circle"><span class="planet-label">Rating di<br>Legalità</span></span>
-                </a>
-                </div>
-                <div class="orbit-arm orbit-arm-4">
-                <a class="planet" style="top:88.65%; left:50%" href="adempimento_collaborativo/" aria-label="Tax Control Framework">
-                    <span class="planet-face shape-circle"><span class="planet-label">TCF</span></span>
-                </a>
-                </div>
-                <div class="orbit-arm orbit-arm-5">
-                <a class="planet" style="top:69.33%; left:16.53%" href="sostenibilita_esg/" aria-label="ESG e sostenibilità">
-                    <span class="planet-face shape-circle"><span class="planet-label">ESG</span></span>
-                </a>
-                </div>
-                <div class="orbit-arm orbit-arm-6">
-                <a class="planet" style="top:30.67%; left:16.53%" href="ai_governance/" aria-label="AI Governance">
-                    <span class="planet-face shape-circle"><span class="planet-label">AI<br>Governance</span></span>
-                </a>
-                </div>
-            <!-- Sigillo del core service: testo curvo e freccia -->
-            <a href="revisione-demo/" class="core-seal orbit-sun" aria-label="Scopri la Revisione Legale, il nostro core service">
-                <svg class="core-seal-svg" viewBox="0 0 220 220" aria-hidden="true" focusable="false">
-                    <defs>
-                        <!-- Top arc path: 9 o'clock → 12 → 3 o'clock -->
-                        <path id="coreSealTop" d="M 28 110 A 82 82 0 0 1 192 110"/>
-                    </defs>
-
-                    <!-- Base dim outer ring -->
-                    <circle cx="110" cy="110" r="98" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="1.5"/>
-
-
-                    <!-- Inner hairline ring -->
-                    <circle cx="110" cy="110" r="88" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-
-                    <!-- Top curved text REVISIONE LEGALE -->
-                    <text class="core-seal-top-text">
-                        <textPath href="#coreSealTop" startOffset="50%" text-anchor="middle">
-                            REVISIONE LEGALE
-                        </textPath>
-                    </text>
-
-                    <!-- Decorative dots at 9 and 3 o'clock -->
-                    <circle class="core-seal-dot" cx="20" cy="110" r="2.5"/>
-                    <circle class="core-seal-dot" cx="200" cy="110" r="2.5"/>
-
-                    <!-- Tagline at bottom (horizontal) -->
-                    <text x="110" y="176" text-anchor="middle" class="core-seal-tagline">SCOPRI IL PROCESSO</text>
-                </svg>
-                <div class="core-seal-center">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="core-seal-arrow" aria-hidden="true" focusable="false">
-                        <path d="M7 17 17 7"/>
-                        <path d="M7 7h10v10"/>
-                    </svg>
-                </div>
-            </a>
+                <ul class="sistema-servizi">
+                    <li class="sistema-voce"><a class="sistema-nodo" href="adeguati_assetti/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Adeguati assetti</span> <span class="sistema-rif">Art. 2086 c.c.</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="adempimento_collaborativo/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Tax Control Framework</span> <span class="sistema-rif">Adempimento collaborativo</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="modello_231/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Modello 231</span> <span class="sistema-rif">D.Lgs. 231/2001</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="ai_governance/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">AI Governance</span> <span class="sistema-rif">AI Act e FRIA</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="rating_legalita/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Rating di Legalità</span> <span class="sistema-rif">AGCM</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="sostenibilita_esg/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">ESG</span> <span class="sistema-rif">Bilancio VSME ed ESRS</span></span></a></li>
+                </ul>
             </div>
         </div>
 
