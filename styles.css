@@ -4304,7 +4304,8 @@ ul {
    a destra una scheda bianca con le tre stelle del rating: ognuna mostra il
    proprio soggetto. Testata su una riga (etichetta a sinistra, riferimento a
    destra), link sottolineato, niente ombre, angoli e frecce. --- */
-.themes-panel { gap: 20px; }
+/* la coppia occupa tutta la larghezza della sezione, come titolo e testo: centrata sotto la riga del titolo */
+.themes-panel { gap: 20px; max-width: none; }
 .theme-card { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "head ref" "cifra cifra" "title title" "text text" "link link"; column-gap: 0; row-gap: 0; padding: 22px 26px 22px; border: 0; border-radius: 0; transition: none; }
 .theme-card:hover { transform: none; box-shadow: none; }
 .theme-card-head { grid-area: head; margin: 0; padding-bottom: 12px; border-bottom: 1px solid rgba(22, 64, 104, 0.22); }
@@ -4603,7 +4604,8 @@ ul {
     -webkit-tap-highlight-color: transparent;
 }
 .video-play[hidden] { display: none; }
-.is-avviato .video-play { bottom: 56px; background: rgba(8, 26, 44, 0.68); }
+/* dopo l'avvio il pulsante lascia libera tutta la barra dei comandi del browser (73 px in Chrome) */
+.is-avviato .video-play { bottom: 74px; background: linear-gradient(to bottom, rgba(8, 26, 44, 0.68) calc(100% - 40px), rgba(8, 26, 44, 0)); }
 .video-play-cerchio {
     position: relative;
     display: flex;
@@ -4656,7 +4658,14 @@ ul {
     .video-play-cerchio svg { width: 28px; height: 28px; margin-left: 4px; }
     .video-play-cerchio::after { inset: -6px; }
     .video-play-azione { font-size: 0.72rem; }
-    .is-avviato .video-play { bottom: 48px; }
+    /* sul telefono "Guarda il video" e la durata stanno su una riga, dentro il riquadro */
+    .video-play-etichetta { flex-direction: row; justify-content: center; align-items: baseline; gap: 8px; }
+    /* in pausa sul telefono resta solo il cerchio: la scritta finirebbe sui comandi */
+    .is-avviato .video-play-etichetta { display: none; }
+}
+@media (max-width: 380px) {
+    .is-avviato .video-play-cerchio { width: 56px; height: 56px; }
+    .is-avviato .video-play-cerchio svg { width: 22px; height: 22px; margin-left: 3px; }
 }
 @media (prefers-reduced-motion: reduce) {
     .video-play-cerchio::after { animation: none; opacity: 0; }

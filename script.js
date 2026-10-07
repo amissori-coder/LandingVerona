@@ -711,9 +711,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Video della home: copertina con un grande pulsante play al centro. Il
 // video (senza audio) parte al clic e i comandi del browser compaiono solo
-// da li'. In pausa e alla fine il pulsante torna ("Riprendi", "Rivedi");
-// se il video esce dalla vista si mette in pausa. Senza JavaScript restano
-// la copertina e i comandi del browser.
+// da li'. In pausa e alla fine il pulsante torna ("Riprendi", "Rivedi")
+// lasciando libera la barra dei comandi; non compare mentre si trascina la
+// barra del tempo. Se il file non arriva il pulsante torna e riprova. Fuori
+// vista il video si ferma (non in picture-in-picture). Senza JavaScript
+// restano la copertina e i comandi del browser.
 (function () {
     var video = document.getElementById('ngbHomeVideo');
     if (!video) return;
@@ -727,34 +729,59 @@ document.addEventListener('DOMContentLoaded', () => {
         '<span class="video-play-cerchio" aria-hidden="true">' +
             '<svg viewBox="0 0 24 24" focusable="false"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10-6.4a.8.8 0 0 0 0-1.4l-10-6.4A.8.8 0 0 0 8 5.6z" fill="currentColor"></path></svg>' +
         '</span>' +
-        '<span class="video-play-etichetta"><span class="video-play-azione">Guarda il video</span><span class="video-play-durata">' + DURATA + '</span></span>';
+        '<span class="video-play-etichetta" aria-hidden="true"><span class="video-play-azione"></span><span class="video-play-durata">' + DURATA + '</span></span>';
     cornice.appendChild(play);
     var azione = play.querySelector('.video-play-azione');
     var durata = play.querySelector('.video-play-durata');
     video.controls = false;
 
+    // il nome accessibile sta sul pulsante: sul telefono, in pausa, la scritta non si vede
     function mostra(testo, conDurata) {
         azione.textContent = testo;
         durata.hidden = !conDurata;
+        play.setAttribute('aria-label', conDurata ? testo + ', ' + DURATA : testo);
         play.hidden = false;
     }
+    mostra('Guarda il video', true);
+
+    var clicPlay = 0, attesaPausa = null;
     play.addEventListener('click', function () {
+        clicPlay = Date.now();
+        if (video.networkState === 3) video.load();   // file non arrivato: si riprova
         var avvio = video.play();
         // riproduzione rifiutata dal browser: restano i comandi nativi
         if (avvio && avvio.catch) avvio.catch(function () { video.controls = true; play.hidden = true; });
     });
+    // il secondo clic di un doppio clic sul play non deve rimettere in pausa il video
+    video.addEventListener('click', function (e) {
+        if (Date.now() - clicPlay < 600) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
     video.addEventListener('play', function () {
         var aveva = document.activeElement === play;
+        clearTimeout(attesaPausa);
         cornice.classList.add('is-avviato');
         video.controls = true;
         play.hidden = true;
         if (aveva) { try { video.focus({ preventScroll: true }); } catch (e) { video.focus(); } }
     });
-    video.addEventListener('pause', function () { if (!video.ended) mostra('Riprendi il video', false); });
-    video.addEventListener('ended', function () { mostra('Rivedi il video', false); });
+    // trascinando la barra del tempo il browser mette in pausa e cerca: il
+    // pulsante aspetta mezzo secondo senza ricerche prima di tornare
+    function pausaVera() {
+        clearTimeout(attesaPausa);
+        attesaPausa = setTimeout(function () {
+            if (video.paused && !video.ended && !video.seeking) mostra('Riprendi il video', false);
+        }, 500);
+    }
+    video.addEventListener('pause', pausaVera);
+    video.addEventListener('seeking', function () { if (video.paused && play.hidden) pausaVera(); });
+    video.addEventListener('ended', function () { clearTimeout(attesaPausa); mostra('Rivedi il video', false); });
+    var fonti = video.getElementsByTagName('source');
+    if (fonti.length) {
+        fonti[fonti.length - 1].addEventListener('error', function () { mostra('Video non disponibile, riprova', false); });
+    }
     if ('IntersectionObserver' in window) {
         new IntersectionObserver(function (voci) {
-            if (!voci[voci.length - 1].isIntersecting && !video.paused) video.pause();
+            if (!voci[voci.length - 1].isIntersecting && !video.paused && document.pictureInPictureElement !== video) video.pause();
         }).observe(video);
     }
 })();
@@ -781,7 +808,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // tempo in cui serve: con il mouse sopra la lista o sulle frecce, con il
 // focus da tastiera su una card o sulle frecce, dopo uno scorrimento a mano
 // (riparte dopo 8 secondi), quando la sezione non e' visibile o la scheda
-// del browser e' in secondo piano. Con "riduci movimento" continua a
+// del browser e' in secondo piano. Sul telefono, dopo un tocco sulle frecce
+// o uno scorrimento della lista col dito, resta fermo finche' la sezione e'
+// in vista: chi la sfoglia legge con calma, e riparte quando ci si torna. Con "riduci movimento" continua a
 // scorrere ma a scatti, senza animazione. Le frecce stanno nella riga
 // dell'etichetta, PRIMA della lista, come chiede il modello "carousel"
 // delle linee guida ARIA; la riga di avanzamento prende il posto del
@@ -832,6 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lista.parentNode.insertBefore(avanzamento, lista);
     var barra = avanzamento.firstChild;
 
+    var presoInMano = false, ditoGiu = false;
     var sopra = false, focusDentro = false, fuoriVista = false, attesaManuale = false;
     var timerManuale = null, timer = null, bersaglio = null;
 
@@ -868,7 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(vai.t);
         vai.t = setTimeout(function () { bersaglio = null; }, ridotto ? 50 : 900);
     }
-    function inPausa() { return sopra || focusDentro || fuoriVista || attesaManuale || document.hidden; }
+    function inPausa() { return presoInMano || sopra || focusDentro || fuoriVista || attesaManuale || document.hidden; }
     function avvia() {
         clearInterval(timer);
         timer = setInterval(function () { if (!inPausa()) vai(1); }, INTERVALLO);
@@ -919,6 +949,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     // lo scorrimento a mano si riconosce dai gesti, non dall'evento scroll
     ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(function (ev) { lista.addEventListener(ev, pausaManuale, { passive: true }); });
+    // col dito: freccia toccata o lista fatta scorrere davvero (non la pagina in verticale)
+    frecce.forEach(function (b) { b.addEventListener('pointerdown', function (e) { if (e.pointerType !== 'mouse') presoInMano = true; }); });
+    lista.addEventListener('touchstart', function () { ditoGiu = true; }, { passive: true });
+    ['touchend', 'touchcancel'].forEach(function (ev) { lista.addEventListener(ev, function () { ditoGiu = false; }, { passive: true }); });
+    lista.addEventListener('scroll', function () { if (ditoGiu) presoInMano = true; }, { passive: true });
     lista.addEventListener('scroll', aggiornaBarra, { passive: true });
     window.addEventListener('resize', aggiornaBarra);
     document.addEventListener('visibilitychange', riprendi);
@@ -926,6 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
         new IntersectionObserver(function (voci) {
             var v = voci[voci.length - 1];
             fuoriVista = !(v.isIntersecting && v.intersectionRatio >= 0.3);
+            if (fuoriVista) presoInMano = false;
             riprendi();
         }, { threshold: [0, 0.3] }).observe(lista);
     }
