@@ -21,6 +21,5 @@ diretta/prove/package-lock.json
 diretta/prove/risultati/
 diretta/firebase/*.log
 
-# Dipendenze installate nella radice (Playwright per le anteprime social):
-# non fanno parte del sito.
-/node_modules/
+# Dipendenze installate al volo dai workflow (Playwright per le anteprime).
+node_modules/
