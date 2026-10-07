@@ -775,3 +775,129 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dentro || document.activeElement === document.body) gruppo.querySelector('summary').focus();
     });
 })();
+
+// === Ultimi approfondimenti: scorrimento automatico ===
+// La lista della home scorre da sola di una colonna ogni 5 secondi e
+// ricomincia dall'inizio. Si ferma quando il mouse e' sopra, quando una
+// card ha il focus, quando l'utente la scorre a mano, quando la sezione
+// non e' visibile o la scheda del browser e' in secondo piano. Con
+// "riduci movimento" attivo parte in pausa. I pulsanti (precedenti,
+// pausa/riprendi, successivi, accanto a "Tutti gli approfondimenti") e la
+// riga di avanzamento sopra la lista li crea lo script: senza JavaScript la
+// lista resta una griglia statica.
+(function () {
+    var lista = document.getElementById('contentsGrid');
+    if (!lista || !lista.classList.contains('is-recent')) return;
+    var tutti = lista.parentNode.querySelector('.contents-all');
+
+    var INTERVALLO = 5000;      // ms fra un passo e il successivo
+    var RIPRESA = 8000;         // ms di attesa dopo uno scorrimento a mano
+    var ridotto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    lista.classList.add('is-scorrevole');
+    lista.setAttribute('aria-label', 'Ultimi approfondimenti, scorrimento automatico');
+
+    var comandi = document.createElement('div');
+    comandi.className = 'contents-scorri';
+    comandi.setAttribute('role', 'group');
+    comandi.setAttribute('aria-label', 'Comandi dello scorrimento');
+    var freccia = function (d) { return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="' + (d < 0 ? '15 18 9 12 15 6' : '9 18 15 12 9 6') + '"></polyline></svg>'; };
+    var ICONA_PAUSA = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>';
+    var ICONA_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg>';
+    comandi.innerHTML =
+        '<button type="button" class="contents-scorri-btn" data-passo="-1" aria-label="Approfondimenti precedenti">' + freccia(-1) + '</button>' +
+        '<button type="button" class="contents-scorri-btn contents-scorri-pausa"></button>' +
+        '<button type="button" class="contents-scorri-btn" data-passo="1" aria-label="Approfondimenti successivi">' + freccia(1) + '</button>';
+    // piede: "Tutti gli approfondimenti" a sinistra, comandi a destra (nessuna riga in piu')
+    var piede = document.createElement('div');
+    piede.className = 'contents-piede';
+    lista.parentNode.insertBefore(piede, tutti || lista.nextSibling);
+    if (tutti) piede.appendChild(tutti);
+    piede.appendChild(comandi);
+    var pulsantePausa = comandi.querySelector('.contents-scorri-pausa');
+
+    // riga di avanzamento: prende il posto del filetto sopra la lista
+    var avanzamento = document.createElement('div');
+    avanzamento.className = 'contents-avanzamento';
+    avanzamento.setAttribute('aria-hidden', 'true');
+    avanzamento.innerHTML = '<span></span>';
+    lista.parentNode.insertBefore(avanzamento, lista);
+    var barra = avanzamento.firstChild;
+
+    var fermatoDaUtente = ridotto;   // pausa scelta con il pulsante (o riduci movimento)
+    var sopra = false, focusDentro = false, fuoriVista = false, attesaManuale = false;
+    var timerManuale = null, timer = null;
+
+    // posizioni di partenza delle colonne visibili (in px di scrollLeft): lo
+    // scorrimento va dritto alla colonna successiva o precedente, cosi'
+    // l'aggancio delle card non fa mai saltare un passo
+    function colonne() {
+        var base = lista.getBoundingClientRect().left - lista.scrollLeft;
+        var viste = {};
+        Array.prototype.forEach.call(lista.querySelectorAll('.content-card'), function (c) {
+            if (getComputedStyle(c).display === 'none') return;
+            viste[Math.round(c.getBoundingClientRect().left - base)] = true;
+        });
+        return Object.keys(viste).map(Number).sort(function (a, b) { return a - b; });
+    }
+    function vai(direzione) {
+        var max = lista.scrollWidth - lista.clientWidth;
+        if (max <= 2) return;
+        var ora = lista.scrollLeft, pos = colonne(), destinazione = null, i;
+        if (direzione > 0) {
+            for (i = 0; i < pos.length; i++) if (pos[i] > ora + 2) { destinazione = pos[i]; break; }
+            if (destinazione === null || ora >= max - 2) destinazione = 0;
+        } else {
+            for (i = pos.length - 1; i >= 0; i--) if (pos[i] < ora - 2) { destinazione = pos[i]; break; }
+            if (destinazione === null) destinazione = max;
+        }
+        lista.scrollTo({ left: Math.min(destinazione, max), behavior: ridotto ? 'auto' : 'smooth' });
+    }
+    function inPausa() { return fermatoDaUtente || sopra || focusDentro || fuoriVista || attesaManuale || document.hidden; }
+    function aggiornaPulsante() {
+        pulsantePausa.innerHTML = fermatoDaUtente ? ICONA_PLAY : ICONA_PAUSA;
+        pulsantePausa.setAttribute('aria-label', fermatoDaUtente ? 'Riprendi lo scorrimento automatico' : 'Metti in pausa lo scorrimento automatico');
+        pulsantePausa.setAttribute('aria-pressed', fermatoDaUtente ? 'true' : 'false');
+        comandi.classList.toggle('is-ferma', fermatoDaUtente);
+    }
+    function avvia() {
+        clearInterval(timer);
+        timer = setInterval(function () { if (!inPausa()) vai(1); }, INTERVALLO);
+    }
+    function aggiornaBarra() {
+        var tot = lista.scrollWidth, vis = lista.clientWidth;
+        if (tot <= vis + 2) { avanzamento.hidden = true; comandi.hidden = true; return; }
+        avanzamento.hidden = false; comandi.hidden = false;
+        barra.style.width = (vis / tot * 100) + '%';
+        barra.style.transform = 'translateX(' + (lista.scrollLeft / vis * 100) + '%)';
+    }
+    function pausaManuale() {
+        attesaManuale = true;
+        clearTimeout(timerManuale);
+        timerManuale = setTimeout(function () { attesaManuale = false; }, RIPRESA);
+    }
+
+    pulsantePausa.addEventListener('click', function () { fermatoDaUtente = !fermatoDaUtente; aggiornaPulsante(); });
+    comandi.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-passo]');
+        if (!b) return;
+        vai(parseInt(b.getAttribute('data-passo'), 10));
+        pausaManuale();
+    });
+    lista.addEventListener('mouseenter', function () { sopra = true; });
+    lista.addEventListener('mouseleave', function () { sopra = false; });
+    lista.addEventListener('focusin', function () { focusDentro = true; });
+    lista.addEventListener('focusout', function (e) { if (!lista.contains(e.relatedTarget)) focusDentro = false; });
+    // lo scorrimento a mano si riconosce dai gesti, non dall'evento scroll
+    // (che arriva anche dallo scorrimento automatico e dall'aggancio delle card)
+    ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(function (ev) { lista.addEventListener(ev, pausaManuale, { passive: true }); });
+    lista.addEventListener('scroll', aggiornaBarra, { passive: true });
+    window.addEventListener('resize', aggiornaBarra);
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (voci) { fuoriVista = !voci[0].isIntersecting; }, { threshold: 0.3 }).observe(lista);
+    }
+
+    aggiornaPulsante();
+    aggiornaBarra();
+    avvia();
+})();

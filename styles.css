@@ -4718,3 +4718,36 @@ ul {
     .resp-row { grid-template-columns: 30px 1fr; }
     .resp-row-ref { grid-column: 2; grid-row: 2; text-align: left; white-space: normal; padding-top: 2px; }
 }
+
+/* --- Ultimi approfondimenti che scorrono da soli (script.js aggiunge
+   .is-scorrevole, i comandi e la riga di avanzamento). Desktop: due righe,
+   due colonne visibili, una colonna per passo; schermi bassi: una riga;
+   telefoni: una card per passo. Fino a 12 approfondimenti, i piu' recenti. --- */
+.contents-piede { grid-column: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.contents-piede .contents-all { margin: 0; }
+.contents-scorri { display: flex; gap: 4px; }
+.contents-scorri[hidden] { display: none; }
+.contents-scorri-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; background: transparent; color: #0f2d4a; border: 1px solid rgba(22, 64, 104, 0.3); border-radius: 2px; cursor: pointer; }
+.contents-scorri-btn:hover { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
+.contents-scorri-btn:focus-visible { outline: 2px solid #7fbaff; outline-offset: 2px; }
+.contents-scorri.is-ferma .contents-scorri-pausa { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
+.contents-list.is-recent.is-scorrevole { display: grid; grid-template-columns: none; grid-template-rows: auto auto; grid-auto-flow: column; grid-auto-columns: calc((100% - 28px) / 2); column-gap: 28px; row-gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; margin-top: 0; border-top: 0; }
+.contents-list.is-recent.is-scorrevole::-webkit-scrollbar { display: none; }
+.contents-list.is-recent.is-scorrevole .content-card { scroll-snap-align: start; }
+.contents-list.is-recent.is-scorrevole .content-card:nth-child(-n+12) { display: flex; }
+.contents-list.is-recent.is-scorrevole .content-card:nth-child(n+13) { display: none; }
+.contents-avanzamento { grid-column: 1; position: relative; height: 2px; margin: 0; background: rgba(22, 64, 104, 0.18); overflow: hidden; }
+.contents-avanzamento[hidden] { display: none; }
+.contents-avanzamento span { position: absolute; left: 0; top: 0; bottom: 0; background: #0f2d4a; transition: transform 0.5s ease; }
+@media (min-width: 901px) and (max-height: 820px) {
+    .contents-list.is-recent.is-scorrevole { grid-template-rows: auto; }
+    .contents-list.is-recent.is-scorrevole .content-card:nth-child(n+3):nth-child(-n+12) { display: flex; }
+}
+@media (max-width: 900px) {
+    .contents-avanzamento { margin-bottom: 8px; }
+    .contents-list.is-recent.is-scorrevole { display: flex; grid-auto-flow: initial; gap: 12px; }
+    .contents-list.is-recent.is-scorrevole .content-card:nth-child(-n+12) { display: flex; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .contents-avanzamento span { transition: none; }
+}
