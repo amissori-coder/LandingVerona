@@ -43,12 +43,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Installa Playwright e Chromium
+      # Fuori dal repository: un node_modules nella cartella del sito finirebbe
+      # nel commit (le sue pagine .html rientrano in '*.html') e pubblicato.
+      - name: Installa Playwright, Chromium e sharp
         run: |
-          npm install --no-save --no-package-lock playwright@1
-          npx playwright install --with-deps chromium
+          mkdir -p "$RUNNER_TEMP/anteprime"
+          npm install --prefix "$RUNNER_TEMP/anteprime" --no-save --no-package-lock playwright@1 sharp@0.33
+          "$RUNNER_TEMP/anteprime/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Genera le immagini
+        env:
+          NODE_PATH: ${{ runner.temp }}/anteprime/node_modules
         run: node scripts/anteprime/genera-anteprime.cjs ${{ inputs.forza && '--forza' || '' }}
 
       - name: Salva le modifiche
