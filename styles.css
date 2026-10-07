@@ -489,107 +489,6 @@ ul {
     letter-spacing: 0.3px;
 }
 
-/* ===== CORE SERVICE SEAL =====
-   Static "REVISIONE LEGALE" + dynamic sweeping arc that rotates
-   around the circle. The text stays readable while the seal
-   feels alive. */
-.core-seal {
-    position: absolute;
-    top: 118px;
-    right: 32px;
-    width: 200px;
-    height: 200px;
-    display: block;
-    cursor: pointer;
-    z-index: 3;
-    color: var(--white);
-    text-decoration: none;
-    animation: fadeInUp 0.9s ease 0.6s both;
-    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.core-seal::before {
-    content: "";
-    position: absolute;
-    inset: -18px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(91, 137, 184, 0.22) 0%, transparent 60%);
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    pointer-events: none;
-}
-
-.core-seal:hover { transform: scale(1.05); }
-.core-seal:hover::before { opacity: 1; }
-
-.core-seal-svg {
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-}
-
-/* Dynamic sweep: rotating arc segment */
-
-
-
-.core-seal-top-text {
-    font-family: var(--font-display);
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    fill: #ffffff;
-}
-
-.core-seal-tagline {
-    font-family: 'Inter', sans-serif;
-    font-size: 8.5px;
-    font-weight: 600;
-    letter-spacing: 2.4px;
-    text-transform: uppercase;
-    fill: rgba(255, 255, 255, 0.55);
-}
-
-
-
-.core-seal-center {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 84px;
-    height: 84px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
-}
-
-.core-seal:hover .core-seal-center {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 100%);
-    border-color: rgba(255, 255, 255, 0.55);
-}
-
-.core-seal-arrow {
-    width: 28px;
-    height: 28px;
-    color: #ffffff;
-    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: 2;
-}
-
-.core-seal:hover .core-seal-arrow {
-    transform: translate(3px, -3px);
-}
-
-
-
 /* ===== MIDDLE: events column ===== */
 .split-content {
     background: var(--light-gray);
@@ -3599,15 +3498,6 @@ ul {
             "brand rail";
     }
 
-    .core-seal {
-        width: 170px; height: 170px;
-        top: 110px; right: 22px;
-    }
-    .core-seal-top-text { font-size: 15px; letter-spacing: 2.5px; }
-    .core-seal-tagline { font-size: 7.5px; letter-spacing: 2px; }
-    .core-seal-center { width: 72px; height: 72px; }
-    .core-seal-arrow { width: 24px; height: 24px; }
-
     .split-brand { grid-area: brand; }
     .split-content { grid-area: content; }
     .split-rail {
@@ -3651,14 +3541,6 @@ ul {
         text-align: center;
     }
 
-    /* Re-position seal on stacked layout: centered above hero text */
-    .core-seal {
-        position: relative;
-        top: auto; right: auto;
-        margin: 0 auto 32px;
-        width: 170px; height: 170px;
-        order: -1;
-    }
     .split-brand {
         flex-direction: column;
     }
@@ -4002,117 +3884,6 @@ ul {
 }
 
 /* ============================================================
-   LEFT COLUMN: ecosystem orbit (Revisione Legale core + servizi)
-   Added: brand text on top, orbit (sun + 6 planets) below.
-   ============================================================ */
-.split-brand {
-    flex-direction: column;
-    justify-content: center;
-    gap: clamp(30px, 5vh, 54px);
-}
-
-.orbit {
-    position: relative;
-    --r: 126px;                 /* radius from sun centre to planet centre */
-    width: 326px;
-    height: 326px;
-    margin: 0 auto;
-    flex-shrink: 0;
-    z-index: 2;
-}
-
-.orbit-ring {
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-}
-.orbit-ring-1 {
-    inset: 6px;
-    border: 1px dashed rgba(255, 255, 255, 0.17);
-}
-.orbit-ring-2 {
-    inset: 66px;
-    border: 1px solid rgba(127, 186, 255, 0.14);
-}
-
-/* Sun = the existing "Revisione Legale" seal, re-centred and resized */
-.core-seal.orbit-sun {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    right: auto;
-    bottom: auto;
-    margin: -76px 0 0 -76px;
-    width: 152px;
-    height: 152px;
-    transform: none;
-    animation: none;
-}
-.core-seal.orbit-sun:hover { transform: scale(1.05); }
-
-/* Planets: positioned on the ring via per-planet --a angle, label kept upright */
-.orbit-arm {
-    position: absolute;
-    inset: 0;
-    transform-origin: 50% 50%;
-    pointer-events: none;
-}
-.orbit-arm .planet { pointer-events: auto; }
-
-.planet {
-    position: absolute;
-    width: 80px;
-    height: 80px;
-    margin: -40px 0 0 -40px;
-    text-decoration: none;
-    z-index: 3;
-}
-.planet-face {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 28%, rgba(91, 137, 184, 0.55), rgba(11, 34, 58, 0.94));
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, filter 0.3s ease;
-}
-.planet-face.shape-circle   { border-radius: 50%; }
-/* Ottagono: richiama un chip di silicio, per l'AI Governance */
-.planet-label {
-    font-family: var(--font-display);
-    font-size: 8.7px;
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-    color: #eaf2fb;
-}
-.planet:hover { z-index: 5; }
-.planet:hover .planet-face {
-    border-color: rgba(127, 186, 255, 0.7);
-    background: radial-gradient(circle at 35% 28%, rgba(127, 186, 255, 0.5), rgba(20, 54, 90, 0.96));
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42), 0 0 0 4px rgba(127, 186, 255, 0.16);
-    filter: brightness(1.12);
-}
-
-
-@media (max-width: 1099px) {
-    .orbit { --r: 112px; width: 296px; height: 296px; }
-    .core-seal.orbit-sun { width: 138px; height: 138px; margin: -69px 0 0 -69px; }
-    .planet { width: 74px; height: 74px; margin: -37px 0 0 -37px; }
-}
-@media (max-width: 480px) {
-    .orbit { --r: 98px; width: 256px; height: 256px; }
-    .core-seal.orbit-sun { width: 120px; height: 120px; margin: -60px 0 0 -60px; }
-    .planet { width: 66px; height: 66px; margin: -33px 0 0 -33px; }
-    .planet-label { font-size: 7.9px; }
-}
-
-/* ============================================================
    EVENTS: collapsible groups (prossimi / passati)
    ============================================================ */
 .events-group {
@@ -4392,12 +4163,13 @@ ul {
 
    Queste regole vengono per ultime e vincono per ordine sulle regole
    precedenti con la stessa specificita'. L'hero sta in una schermata:
-   a sinistra titolo, rimandi e orbita dei servizi ferma, a destra eventi
+   a sinistra titolo, rimandi e mezza orbita dei servizi, a destra eventi
    e approfondimenti uno sotto l'altro. Via numeri di sezione, eyebrow,
    divider e card decorative; sezioni con sfondi alternati e testata su
    una riga spessa; Chi siamo e i profili di responsabilita' su due
-   colonne. Sotto i 900 px tutto torna su una colonna, l'orbita sotto il
-   testo, gli approfondimenti in scorrimento orizzontale.
+   colonne. Sotto i 900 px tutto torna su una colonna, la mezza orbita sul
+   bordo inferiore del pannello, gli approfondimenti in scorrimento
+   orizzontale.
    ============================================================ */
 .sect-head { padding-bottom: 8px; margin-bottom: 14px; gap: 0; }
 .sect-title { font-size: 1.15rem; }
@@ -4427,21 +4199,6 @@ ul {
 .hero-subtitle { font-size: 1.05rem; margin-bottom: 18px; max-width: 520px; }
 .brand-curator { margin-bottom: 12px; }
 .brand-highlight { padding: 12px 16px; margin-top: 8px; border-radius: 0; background: transparent; border: 0; border-top: 1px solid rgba(255,255,255,.18); }
-.split-brand { display: grid; grid-template-columns: minmax(0,1fr) 264px; grid-template-rows: auto; align-items: center; column-gap: 28px; }
-.brand-inner { grid-column: 1; min-width: 0; }
-.orbit { grid-column: 2; position: relative; --r: 102px; width: 264px; height: 264px; margin: 0; transform: none; }
-.orbit-ring { display: block; }
-.orbit-ring-1 { inset: 6px; border: 1px solid rgba(255,255,255,.22); animation: none; }
-.orbit-ring-2 { inset: 62px; border: 1px solid rgba(255,255,255,.12); animation: none; }
-.planet { width: 70px; height: 70px; margin: -35px 0 0 -35px; }
-.planet-face { animation: none; border-radius: 50%; clip-path: none; background: #13385e; border: 1px solid rgba(255,255,255,.35); box-shadow: none; }
-.planet-label { font-size: 8.5px; letter-spacing: .3px; }
-.planet:hover .planet-face { background: #fff; border-color: #fff; filter: none; box-shadow: none; }
-.planet:hover .planet-label { color: #0f2d4a; }
-.core-seal.orbit-sun { width: 116px; height: 116px; margin: -58px 0 0 -58px; position: absolute; display: block; background: none; border-radius: 50%; padding: 0; }
-.core-seal-svg { display: block; }
-.core-seal-center { position: absolute; top: 50%; left: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; background: #fff; color: #0f2d4a; border-radius: 50%; display: flex; align-items: center; justify-content: center; transform: none; border: 0; box-shadow: none; }
-.core-seal-arrow { width: 18px; height: 18px; display: block; stroke: #0f2d4a; color: #0f2d4a; }
 .events-stack { gap: 10px; }
 .events-group-head { padding: 10px 0; background: transparent; border: 0; border-bottom: 1px solid rgba(22,64,104,.18); border-radius: 0; }
 .events-group { border: 0; box-shadow: none; background: transparent; border-radius: 0; }
@@ -4494,10 +4251,7 @@ ul {
 .newsletter-field-full { grid-column: auto; }
 .footer-newsletter-description { margin-bottom: 0; }
 .footer-content { margin-bottom: 20px; }
-/* Fra 901 e 1180 px la colonna del brand e' troppo stretta per testo e orbita affiancati: l'orbita scende sotto il testo */
 @media (max-width: 1180px) {
-    .split-brand { grid-template-columns: minmax(0,1fr); row-gap: 20px; }
-    .orbit { grid-column: 1; margin: 0 auto; justify-self: center; }
     .events-group--passati .event-card { grid-template-columns: 80px 1fr; gap: 14px; }
 }
 @media (max-width:900px) {
@@ -4511,9 +4265,6 @@ ul {
     .contents-list { min-width: 0; max-width: 100%; }
     .hero-title { text-align: left; }
     .split-brand { padding: calc(84px + var(--banner-h, 0px)) 20px 28px; gap: 10px; grid-template-columns: minmax(0,1fr); justify-items: start; }
-    .orbit { grid-column: 1; --r: 92px; width: 240px; height: 240px; margin: 12px auto 0; justify-self: center; }
-    .planet { width: 66px; height: 66px; margin: -33px 0 0 -33px; }
-    .core-seal.orbit-sun { width: 112px; height: 112px; margin: -56px 0 0 -56px; }
     .curated-inner { grid-template-columns: 1fr; }
     .split-content { padding: 28px 20px 24px; }
     .split-rail { padding: 20px 20px 28px; }
@@ -4633,7 +4384,6 @@ ul {
     .interviste-avatar + .interviste-avatar { margin-left: -15px; }
 }
 /* --- Dettagli di accessibilita' e contrasto --- */
-.core-seal-dot { fill: #7fbaff; }
 .event-past .event-month { color: rgba(22, 64, 104, 0.8); }
 .sedi-index-cities { color: rgba(22, 64, 104, 0.85); }
 .newsletter-optional { color: rgba(255, 255, 255, 0.65); }
@@ -4642,8 +4392,6 @@ ul {
 .content-tag, .event-badge { font-size: 0.62rem; }
 .newsletter-field label { font-size: 0.72rem; }
 .brand-highlight:hover .brand-highlight-text strong { text-decoration: underline; text-underline-offset: 3px; }
-.planet:focus-visible .planet-face,
-.core-seal:focus-visible .core-seal-center,
 .brand-highlight:focus-visible,
 .content-card:focus-visible,
 .events-group-head:focus-visible,
@@ -4717,4 +4465,178 @@ ul {
     .resp-block-head { padding: 0 0 2px; }
     .resp-row { grid-template-columns: 30px 1fr; }
     .resp-row-ref { grid-column: 2; grid-row: 2; text-align: left; white-space: normal; padding-top: 2px; }
+}
+
+/* --- Sistema dei servizi: mezza orbita che sorge dal bordo del pannello navy.
+   Il centro, la revisione legale, sta SUL bordo: da 1181 px sul bordo destro,
+   dove il pannello incontra la colonna degli eventi (il mezzo disco ha lo
+   stesso grigio chiaro della colonna, che sembra affiorare nel pannello);
+   sotto i 1181 px sul bordo inferiore. Gli anelli sono grandi e sottili e il
+   bordo li taglia (overflow del pannello): fanno da fondo, non da
+   widget. I sei servizi sono punti sull'anello con il nome accanto, rivolto
+   verso il centro. Ogni punto ha coordinate --x e --y (seno e coseno del suo
+   angolo) moltiplicate per il raggio --orb-r; --lw e' la larghezza massima
+   di punto + etichetta, calcolata perche' l'etichetta non tocchi il bordo o
+   il centro. Nessuna animazione: solo il cambio di colore al passaggio. --- */
+.split-brand {
+    --orb-r: clamp(282px, 23vw, 330px);
+    --orb-c: clamp(132px, 10vw, 144px);
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    gap: 0;
+    padding-right: calc(var(--orb-r) + 36px);
+    overflow: clip; /* come hidden, ma il pannello non diventa scorrevole */
+}
+.brand-inner { position: relative; z-index: 1; min-width: 0; }
+.sistema { position: absolute; z-index: 0; right: 0; top: var(--orb-cy, calc(50% + (48px + var(--banner-h, 0px)) / 2)); width: 0; height: 0; }
+.sistema-anello { --d: var(--orb-r); position: absolute; left: calc(-1 * var(--d)); top: calc(-1 * var(--d)); width: calc(2 * var(--d)); height: calc(2 * var(--d)); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 50%; pointer-events: none; }
+.sistema-anello--centro { --d: calc(var(--orb-c) + 16px); border-color: rgba(127, 186, 255, 0.4); }
+
+.sistema-centro { position: absolute; left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: var(--orb-c); height: calc(2 * var(--orb-c)); display: flex; align-items: center; padding: 0 12px 0 calc(var(--orb-c) * 0.15); border-radius: var(--orb-c) 0 0 var(--orb-c); background: var(--light-gray); color: #0f2d4a; text-decoration: none; text-align: left; transition: background-color 0.15s ease; }
+.sistema-centro-corpo { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.sistema-centro-nome { font-family: var(--font-display); font-size: calc(var(--orb-c) * 0.125); font-weight: 800; line-height: 1.12; letter-spacing: -0.2px; }
+.sistema-centro-rif { font-size: 11px; line-height: 1.35; color: #4d5d6e; }
+.sistema-centro-cta { font-size: 11px; font-weight: 600; line-height: 1.3; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.sistema-centro:hover { background: #fff; }
+.sistema-centro:hover .sistema-centro-cta { text-decoration-thickness: 2px; }
+.sistema-centro:focus-visible { outline: 2px solid #164068; outline-offset: -7px; }
+
+.sistema-servizi { margin: 0; padding: 0; list-style: none; }
+.sistema-voce { position: absolute; left: calc(var(--x) * var(--orb-r)); top: calc(var(--y) * var(--orb-r)); width: 0; height: 0; }
+.sistema-nodo { position: absolute; top: 0; left: 0; display: flex; align-items: center; gap: 10px; width: max-content; max-width: var(--lw); transform: translate(-9px, -50%); color: #fff; text-decoration: none; text-align: left; text-align-last: auto; -webkit-hyphens: manual; hyphens: manual; }
+.sistema-punto { flex: none; width: 18px; height: 18px; border: 5px solid #0f2d4a; border-radius: 50%; background: #7fbaff; transition: background-color 0.15s ease; }
+.sistema-etichetta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sistema-nome { font-family: var(--font-display); font-size: 14px; font-weight: 600; line-height: 1.25; color: #fff; }
+.sistema-rif { font-size: 11.5px; line-height: 1.3; color: rgba(255, 255, 255, 0.68); }
+.sistema-nodo:hover .sistema-punto { background: #fff; }
+.sistema-nodo:hover .sistema-nome { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.sistema-nodo:focus-visible { outline: 2px solid #7fbaff; outline-offset: 4px; }
+
+/* bordo destro: angoli di 36, 57, 79, 101, 123 e 144 gradi dall'alto */
+.sistema-voce:nth-child(1) { --x: -0.588; --y: -0.809; --lw: calc(var(--orb-r) * 0.588 - 6px); }
+.sistema-voce:nth-child(2) { --x: -0.839; --y: -0.545; --lw: calc(var(--orb-r) * 0.839 - 6px); }
+.sistema-voce:nth-child(3) { --x: -0.982; --y: -0.191; --lw: calc(var(--orb-r) * 0.982 - var(--orb-c) - 12px); }
+.sistema-voce:nth-child(4) { --x: -0.982; --y: 0.191;  --lw: calc(var(--orb-r) * 0.982 - var(--orb-c) - 12px); }
+.sistema-voce:nth-child(5) { --x: -0.839; --y: 0.545;  --lw: calc(var(--orb-r) * 0.839 - 6px); }
+.sistema-voce:nth-child(6) { --x: -0.588; --y: 0.809;  --lw: calc(var(--orb-r) * 0.588 - 6px); }
+/* in cima e in fondo l'anello e' meno ripido: il nome scende (o sale) quanto basta perche' l'anello non lo tocchi */
+.sistema-voce:nth-child(1) .sistema-nodo { align-items: flex-start; transform: translate(-9px, -9px); }
+.sistema-voce:nth-child(6) .sistema-nodo { align-items: flex-end; transform: translate(-9px, calc(-100% + 9px)); }
+
+/* Sotto i 1181 px il pannello e' stretto per testo e orbita affiancati: la
+   mezza orbita sorge dal bordo inferiore, sotto il testo. Angoli di 166,
+   138, 110, 70, 42 e 14 gradi (da sinistra): a sinistra adeguati assetti,
+   modello 231, TCF; a destra rating, ESG, AI governance. Le etichette dei
+   due punti piu' alti stanno fuori dall'arco, le altre dentro, verso il
+   centro. */
+@media (max-width: 1180px) {
+    .split-brand { --orb-r: clamp(220px, 25vw, 270px); --orb-c: calc(var(--orb-r) * 0.36); align-items: start; padding-right: 48px; padding-bottom: calc(var(--orb-r) + 52px); }
+    .sistema { right: auto; left: 50%; top: 100%; }
+    .sistema-centro { left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: calc(2 * var(--orb-c)); height: var(--orb-c); align-items: flex-end; justify-content: center; padding: 0 12px calc(var(--orb-c) * 0.17); border-radius: var(--orb-c) var(--orb-c) 0 0; text-align: center; }
+    .sistema-centro-corpo { align-items: center; gap: 5px; }
+    .sistema-centro-nome { font-size: 15px; }
+    .sistema-centro-rif { display: none; }
+    .sistema-voce:nth-child(1) { --x: -0.970; --y: -0.242; --lw: calc(var(--orb-r) * 0.970 - var(--orb-c) + 8px); }
+    .sistema-voce:nth-child(3) { --x: -0.743; --y: -0.669; --lw: calc(var(--orb-r) * 0.743 + 1px); }
+    .sistema-voce:nth-child(2) { --x: -0.342; --y: -0.940; --lw: min(200px, 28.75vw - var(--orb-r) * 0.342 - 20px); }
+    .sistema-voce:nth-child(5) { --x: 0.342;  --y: -0.940; --lw: min(200px, 28.75vw - var(--orb-r) * 0.342 - 20px); }
+    .sistema-voce:nth-child(6) { --x: 0.743;  --y: -0.669; --lw: calc(var(--orb-r) * 0.743 + 1px); }
+    .sistema-voce:nth-child(4) { --x: 0.970;  --y: -0.242; --lw: calc(var(--orb-r) * 0.970 - var(--orb-c) + 8px); }
+    .sistema-voce:nth-child(1) .sistema-nodo { align-items: center; transform: translate(-9px, -50%); }
+    .sistema-voce:nth-child(3) .sistema-nodo { align-items: flex-start; transform: translate(-9px, -9px); }
+    .sistema-voce:nth-child(4) .sistema-nodo { flex-direction: row-reverse; transform: translate(calc(-100% + 9px), -50%); text-align: right; }
+    .sistema-voce:nth-child(6) .sistema-nodo { flex-direction: row-reverse; align-items: flex-start; transform: translate(calc(-100% + 9px), -9px); text-align: right; }
+    /* i due punti in cima all'arco: il nome sta sopra il punto, cosi' l'anello che scende non lo attraversa */
+    .sistema-voce:nth-child(2) .sistema-nodo { flex-direction: column-reverse; align-items: flex-end; gap: 6px; transform: translate(calc(-100% + 9px), calc(-100% + 9px)); text-align: right; }
+    .sistema-voce:nth-child(5) .sistema-nodo { flex-direction: column-reverse; align-items: flex-start; gap: 6px; transform: translate(-9px, calc(-100% + 9px)); }
+    .sistema-voce:nth-child(2) .sistema-etichetta,
+    .sistema-voce:nth-child(4) .sistema-etichetta,
+    .sistema-voce:nth-child(6) .sistema-etichetta { align-items: flex-end; }
+}
+/* Telefono: arco piu' piccolo, niente anello attorno al centro (lascia spazio
+   alle etichette), solo i nomi dei servizi. */
+@media (max-width: 900px) {
+    .split-brand { --orb-r: clamp(150px, 43vw, 230px); --orb-c: calc(var(--orb-r) * 0.34); padding-bottom: calc(var(--orb-r) + 64px); }
+    .sistema-anello--centro { display: none; }
+    .sistema-voce:nth-child(2),
+    .sistema-voce:nth-child(5) { --lw: calc(50vw - var(--orb-r) * 0.342 - 11px); }
+    .sistema-voce:nth-child(1),
+    .sistema-voce:nth-child(4) { --lw: calc(var(--orb-r) * 0.66); }
+    /* il nome del curatore resta a sinistra come il resto del pannello */
+    .brand-curator { align-items: flex-start; }
+}
+@media (max-width: 600px) {
+    .sistema-rif, .sistema-centro-cta { display: none; }
+    .sistema-nome { font-size: 13px; }
+    .sistema-centro-nome { font-size: 13px; }
+    .sistema-nodo { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sistema-centro, .sistema-punto { transition: none; }
+}
+
+/* i servizi si riconoscono come link: freccia dopo il nome al passaggio del
+   mouse e al focus, sempre visibile sui dispositivi al tocco */
+.sistema-nome::after { content: "\00a0\2192"; display: inline; margin-left: 2px; color: #7fbaff; opacity: 0; transition: opacity 0.15s ease; }
+.sistema-nodo:hover .sistema-nome::after, .sistema-nodo:focus-visible .sistema-nome::after { opacity: 1; }
+.sistema-nodo:focus-visible .sistema-punto { background: #fff; }
+.sistema-nodo:focus-visible .sistema-nome { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+@media (hover: none) { .sistema-nome::after { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sistema-nome::after { transition: none; } }
+/* Fra 901 e 1180 px sotto il pannello c'e' la sezione video, navy: il disco
+   chiaro resterebbe un sole isolato. Li' il disco e' navy chiaro, testo bianco. */
+@media (min-width: 901px) and (max-width: 1180px) {
+    .sistema-centro { background: #13385e; color: #fff; }
+    .sistema-centro:hover { background: #164068; }
+    .sistema-centro-rif { color: rgba(255, 255, 255, 0.72); }
+    .sistema-centro:focus-visible { outline-color: #7fbaff; }
+}
+
+/* --- Ultimi approfondimenti che scorrono da soli (script.js aggiunge
+   .is-scorrevole, la testata con i comandi e la riga di avanzamento).
+   Desktop: due righe, due colonne visibili, una colonna per passo; fra
+   901 e 1180 px e sugli schermi bassi una riga; telefoni: una card per
+   passo. Fino a 12 approfondimenti, i piu' recenti. --- */
+.contents-testa { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 0 0 4px; }
+.contents-testa .contents-recent-label { margin: 0; }
+.contents-scorri { display: flex; gap: 4px; }
+.contents-scorri[hidden] { display: none; }
+.contents-scorri-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: transparent; color: #0f2d4a; border: 1px solid rgba(22, 64, 104, 0.3); border-radius: 2px; cursor: pointer; }
+.contents-scorri-btn:hover { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
+.contents-scorri-btn:focus-visible { outline: 2px solid #164068; outline-offset: 2px; }
+.contents-scorri.is-ferma .contents-scorri-pausa { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
+.contents-list.is-recent.is-scorrevole { display: grid; grid-template-columns: none; grid-template-rows: auto auto; grid-auto-flow: column; grid-auto-columns: calc((100% - 28px) / 2); column-gap: 28px; row-gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; margin-top: 0; border-top: 0; }
+.contents-list.is-recent.is-scorrevole::-webkit-scrollbar { display: none; }
+.contents-list.is-recent.is-scorrevole.is-ferma-statica { border-top: 1px solid rgba(22, 64, 104, 0.18); }
+.contents-list.is-recent.is-scorrevole .content-card { scroll-snap-align: start; overflow: hidden; }
+.contents-list.is-recent.is-scorrevole .content-card:nth-child(-n+12) { display: flex; }
+.contents-list.is-recent.is-scorrevole .content-card:nth-child(n+13),
+.contents-list.is-recent.is-scorrevole .content-card.is-hidden { display: none; }
+/* il contenitore che scorre taglierebbe l'anello esterno: anello interno, navy */
+.contents-list.is-recent.is-scorrevole .content-card:focus-visible { outline: 2px solid #164068; outline-offset: -2px; }
+/* nelle colonne strette categoria e pillola vanno a capo invece di sporgere */
+.contents-list.is-recent.is-scorrevole .content-tag { white-space: normal; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.contents-list.is-recent.is-scorrevole .content-badge { margin-left: 0; white-space: nowrap; }
+.contents-avanzamento { grid-column: 1; position: relative; height: 2px; margin: 0; background: rgba(22, 64, 104, 0.18); overflow: hidden; }
+.contents-avanzamento[hidden] { display: none; }
+.contents-avanzamento span { position: absolute; left: 0; top: 0; bottom: 0; background: #0f2d4a; transition: transform 0.5s ease; }
+@media (min-width: 901px) and (max-width: 1180px), (min-width: 901px) and (max-height: 820px) {
+    .contents-list.is-recent.is-scorrevole { grid-template-rows: auto; }
+    .contents-list.is-recent.is-scorrevole .content-card:nth-child(n+3):nth-child(-n+12) { display: flex; }
+}
+/* fra 901 e 1180 px la colonna e' stretta: una card per volta, a tutta larghezza */
+@media (min-width: 901px) and (max-width: 1180px) {
+    .contents-list.is-recent.is-scorrevole { grid-auto-columns: 100%; }
+}
+@media (max-width: 900px) {
+    .contents-avanzamento { margin-bottom: 8px; }
+    .contents-list.is-recent.is-scorrevole { display: flex; grid-auto-flow: initial; gap: 12px; }
+    .contents-list.is-recent.is-scorrevole .content-card:nth-child(-n+12) { display: flex; }
+}
+@media (pointer: coarse) {
+    .contents-scorri { gap: 8px; }
+    .contents-scorri-btn { width: 36px; height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .contents-avanzamento span { transition: none; }
 }
