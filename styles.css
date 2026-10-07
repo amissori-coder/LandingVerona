@@ -4133,3 +4133,74 @@ ul {
 @media (prefers-reduced-motion: reduce) {
     .chi-siamo-scheda-link svg { transition: none; }
 }
+
+/* --- Organigramma in evidenza: blocco navy cliccabile in cima alla colonna.
+   Disegna la struttura (Amministratore Unico, Founding Partners, Equity
+   Partners di area, rete) con punti e una linea, come i nodi dell'orbita
+   dell'hero; niente icone generiche ne' angoli arrotondati. --- */
+.cs-org {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 28px;
+    padding: 20px 22px 18px;
+    background: #0f2d4a;
+    color: #fff;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+.cs-org:hover { background: #13385c; }
+.cs-org:focus-visible { outline: 2px solid #164068; outline-offset: 3px; }
+.cs-org-testa { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cs-org-eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+}
+.cs-org-freccia { width: 20px; height: 20px; flex: none; color: #fff; transition: transform 0.2s ease; }
+.cs-org:hover .cs-org-freccia { transform: translateX(4px); }
+.cs-org-titolo {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+}
+.cs-org-livelli { position: relative; display: grid; gap: 9px; margin: 4px 0 2px; padding-left: 20px; }
+/* la linea che unisce i livelli, dal primo all'ultimo punto */
+.cs-org-livelli::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0.62em;
+    bottom: 0.62em;
+    width: 1px;
+    background: rgba(127, 186, 255, 0.45);
+}
+.cs-org-livello { position: relative; font-size: 0.92rem; line-height: 1.3; color: rgba(255, 255, 255, 0.92); }
+.cs-org-livello::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 0.42em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #7fbaff;
+}
+.cs-org-rete { color: rgba(255, 255, 255, 0.7); }
+.cs-org-rete::before { background: #0f2d4a; box-shadow: inset 0 0 0 1.5px #7fbaff; }
+.cs-org-azione {
+    justify-self: start;
+    margin-top: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .cs-org, .cs-org-freccia { transition: none; }
+}
