@@ -133,7 +133,7 @@
             line-height: 1.6;
         }
 
-        /* ---- Simulatore del contributo ---- */
+        /* ---- Simulatore: struttura comune ---- */
         .sim {
             max-width: 1000px;
             margin: 40px auto 0;
@@ -181,7 +181,7 @@
             font-size: 0.95rem;
             color: var(--text-primary);
         }
-        .sim-voce:first-of-type { border-top: 0; }
+        .sim-label + .sim-voce { border-top: 0; }
         .sim-voce input[type="checkbox"] { width: 18px; height: 18px; accent-color: #164068; }
         .sim-voce.is-off { opacity: .45; }
         .sim-voce small { display: block; color: var(--text-secondary); font-size: 0.8rem; }
@@ -220,7 +220,6 @@
         .sim-avviso { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.55; margin-top: auto; }
 
         /* ---- Simulatore del punteggio ---- */
-        .ps-dim { grid-template-columns: repeat(2, 1fr); }
         .ps-campo {
             display: grid;
             grid-template-columns: 1fr auto;
@@ -242,7 +241,18 @@
 
         .ps-campo + .sim-voce { border-top: 1px solid var(--border-color); }
 
+        /* ---- Simulatore unico: descrizioni e colonna dei risultati ---- */
+        .sim-output-inner { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 14px; }
+        .sim-blocco { display: flex; flex-direction: column; gap: 12px; }
+        .sim-blocco + .sim-blocco { border-top: 1px solid var(--accent-border); padding-top: 22px; margin-top: 8px; }
+        .sim-voce .sim-desc { margin-top: 3px; line-height: 1.5; }
+        .sim-voce .sim-regola { margin-top: 3px; font-weight: 600; color: #2A5A85; }
+        .sim-voce.sim-gruppo { cursor: default; }
+        .sim-voce.is-sub { padding-left: 22px; border-top-style: dashed; }
+        .sim-input > div > .sim-label + .sim-voce { border-top: 0; }
+
         @media (max-width: 900px) {
+            .sim-output-inner { position: static; }
             .scheda-grid { grid-template-columns: repeat(2, 1fr); }
             .sim { grid-template-columns: 1fr; }
             .sim-output { border-left: 0; border-top: 1px solid var(--accent-border); }
@@ -360,8 +370,8 @@
                 <strong>punteggio</strong>, non l'ora di invio.
             </p>
             <div class="hero-actions">
-                <a href="#simulatore" class="btn btn-primary">Calcola il tuo contributo</a>
-                <a href="#simulatore-punteggio" class="btn btn-outline">Calcola il tuo punteggio</a>
+                <a href="#simulatore" class="btn btn-primary">Calcola contributo e punteggio</a>
+                <a href="#contatti" class="btn btn-outline">Verifica i requisiti con noi</a>
             </div>
             <div class="hero-stats">
                 <div class="stat">
@@ -515,7 +525,7 @@
                     <h3>Cloud computing</h3>
                     <p>Migrazione di applicazioni e dati aziendali su cloud pubblico, per macchine virtuali di diversa tipologia.</p>
                     <ul class="pillar-list">
-                        <li>Da 5.593,20 euro (backup di database) a 27.656,40 euro (database server) per macchina virtuale</li>
+                        <li>Quattro tipologie di macchina virtuale, da 5.593,20 a 27.656,40 euro</li>
                         <li>Al massimo una macchina virtuale per categoria</li>
                     </ul>
                 </article>
@@ -591,10 +601,28 @@
                     <div class="tabella-num" data-label="Media impresa" role="cell">15.873,60 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">D &middot; Cloud computing<small>per macchina virtuale, secondo la tipologia</small></div>
-                    <div class="tabella-num" data-label="Micro impresa" role="cell">da 5.593,20 a 27.656,40 &euro;</div>
-                    <div class="tabella-num" data-label="Piccola impresa" role="cell">da 5.593,20 a 27.656,40 &euro;</div>
-                    <div class="tabella-num" data-label="Media impresa" role="cell">da 5.593,20 a 27.656,40 &euro;</div>
+                    <div class="tabella-voce" role="rowheader">D.1 &middot; Cloud Application server<small>programmi aziendali, come gestionale o ERP</small></div>
+                    <div class="tabella-num" data-label="Micro impresa" role="cell">17.683,20 &euro;</div>
+                    <div class="tabella-num" data-label="Piccola impresa" role="cell">17.683,20 &euro;</div>
+                    <div class="tabella-num" data-label="Media impresa" role="cell">17.683,20 &euro;</div>
+                </div>
+                <div class="tabella-riga" role="row">
+                    <div class="tabella-voce" role="rowheader">D.2 &middot; Cloud Database server<small>banche dati aziendali</small></div>
+                    <div class="tabella-num" data-label="Micro impresa" role="cell">27.656,40 &euro;</div>
+                    <div class="tabella-num" data-label="Piccola impresa" role="cell">27.656,40 &euro;</div>
+                    <div class="tabella-num" data-label="Media impresa" role="cell">27.656,40 &euro;</div>
+                </div>
+                <div class="tabella-riga" role="row">
+                    <div class="tabella-voce" role="rowheader">D.3 &middot; Cloud Web server<small>sito e servizi web</small></div>
+                    <div class="tabella-num" data-label="Micro impresa" role="cell">14.076,00 &euro;</div>
+                    <div class="tabella-num" data-label="Piccola impresa" role="cell">14.076,00 &euro;</div>
+                    <div class="tabella-num" data-label="Media impresa" role="cell">14.076,00 &euro;</div>
+                </div>
+                <div class="tabella-riga" role="row">
+                    <div class="tabella-voce" role="rowheader">D.4 &middot; Cloud Database backup<small>copia di sicurezza dei dati</small></div>
+                    <div class="tabella-num" data-label="Micro impresa" role="cell">5.593,20 &euro;</div>
+                    <div class="tabella-num" data-label="Piccola impresa" role="cell">5.593,20 &euro;</div>
+                    <div class="tabella-num" data-label="Media impresa" role="cell">5.593,20 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
                     <div class="tabella-voce" role="rowheader">E &middot; Cybersecurity</div>
@@ -610,9 +638,9 @@
                 </div>
             </div>
             <p class="tabella-nota">
-                Importi unitari come riportati nelle schede di sintesi dell'avviso. Per il cloud computing l'importo
-                dipende dalla tipologia di macchina virtuale: i valori di ciascuna categoria e i requisiti tecnici
-                minimi sono nell'allegato tecnico dell'avviso.
+                Importi unitari come riportati nelle schede di sintesi dell'avviso. Per il cloud computing ogni
+                macchina virtuale è un intervento a sé, si può chiedere una sola volta per tipo e vale lo stesso
+                importo per tutte le dimensioni d'impresa.
             </p>
 
             <div class="pillars-grid">
@@ -650,76 +678,8 @@
         </div>
     </section>
 
-    <!-- SIMULATORE -->
-    <section class="section section-alt" id="simulatore">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">Simulatore</span>
-                <h2>Quanto vale <span class="text-accent">il tuo progetto</span></h2>
-                <p class="section-desc">
-                    Scegli la dimensione dell'impresa e gli interventi: il simulatore somma gli importi forfettari e
-                    verifica soglia minima e massimale. Funziona nel browser, senza inviare dati.
-                </p>
-            </div>
-
-            <div class="sim" id="sim">
-                <div class="sim-input">
-                    <div>
-                        <span class="sim-label" id="simDimLabel">Dimensione dell'impresa</span>
-                        <div class="sim-dim" role="radiogroup" aria-labelledby="simDimLabel">
-                            <div><input type="radio" name="simDim" id="simMicro" value="micro"><label for="simMicro">Micro</label></div>
-                            <div><input type="radio" name="simDim" id="simPiccola" value="piccola" checked><label for="simPiccola">Piccola</label></div>
-                            <div><input type="radio" name="simDim" id="simMedia" value="media"><label for="simMedia">Media</label></div>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="sim-label">Interventi del progetto</span>
-                        <label class="sim-voce" id="rowDiag">
-                            <input type="checkbox" id="simDiag" checked>
-                            <span>A &middot; Diagnosi digitale<small id="simDiagNote">obbligatoria per la tua dimensione</small></span>
-                            <span class="sim-importo" id="simDiagVal"></span>
-                        </label>
-                        <div class="sim-voce">
-                            <span aria-hidden="true"></span>
-                            <label for="simDw">B &middot; Digital Workplace<small>numero di postazioni, una per addetto</small></label>
-                            <input type="number" class="sim-num" id="simDw" min="0" max="250" step="1" value="0" inputmode="numeric">
-                        </div>
-                        <label class="sim-voce" id="rowDc">
-                            <input type="checkbox" id="simDc" checked>
-                            <span>C &middot; Digital Commerce &amp; Engagement</span>
-                            <span class="sim-importo" id="simDcVal"></span>
-                        </label>
-                        <div class="sim-voce">
-                            <span aria-hidden="true"></span>
-                            <label for="simCloud">D &middot; Cloud computing<small>importo delle macchine virtuali scelte, in euro</small></label>
-                            <input type="number" class="sim-num is-wide" id="simCloud" min="0" step="0.01" value="0" inputmode="decimal">
-                        </div>
-                        <label class="sim-voce" id="rowCyber">
-                            <input type="checkbox" id="simCyber">
-                            <span>E &middot; Cybersecurity<small id="simCyberNote"></small></span>
-                            <span class="sim-importo" id="simCyberVal"></span>
-                        </label>
-                    </div>
-                </div>
-                <div class="sim-output" aria-live="polite">
-                    <span class="sim-totale-label">Contributo stimato</span>
-                    <span class="sim-totale" id="simTot">0,00 &euro;</span>
-                    <div class="sim-barra" aria-hidden="true"><span id="simBar"></span></div>
-                    <div class="sim-riga"><span>Somma degli interventi</span><strong id="simSum">0,00 &euro;</strong></div>
-                    <div class="sim-riga"><span>Soglia minima</span><strong>14.000,00 &euro;</strong></div>
-                    <div class="sim-riga"><span>Massimale della fascia</span><strong id="simMax">100.000,00 &euro;</strong></div>
-                    <div class="sim-esito" id="simEsito"></div>
-                    <p class="sim-avviso">
-                        Stima indicativa basata sugli importi unitari dell'avviso. L'ammissibilità dipende dai requisiti
-                        tecnici di ogni intervento e dalla verifica di Lazio Innova.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- REQUISITI -->
-    <section class="section" id="requisiti">
+    <section class="section section-alt" id="requisiti">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">Chi può partecipare</span>
@@ -793,7 +753,7 @@
     </section>
 
     <!-- PUNTEGGIO -->
-    <section class="section section-alt" id="punteggio">
+    <section class="section" id="punteggio">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">Come si viene selezionati</span>
@@ -853,27 +813,44 @@
                 aziendale è zero, il valore aggiunto si divide per uno.
             </p>
 
-            <div class="section-header" id="simulatore-punteggio" style="margin-top:64px;">
-                <span class="section-tag">Simulatore del punteggio</span>
-                <h2>Quanti punti fa <span class="text-accent">la tua impresa</span></h2>
+            <div class="highlight-box">
+                <p>
+                    <strong>Dove si gioca la partita.</strong> Valore aggiunto e addetti valgono 55 punti su 100 e
+                    dipendono da dati già fissati: non si possono migliorare a ridosso della scadenza. Le leve ancora
+                    manovrabili sono l'<strong>articolazione del progetto</strong>, cioè quanti interventi diversi
+                    comprende, e le <strong>certificazioni</strong> già possedute. Con la soglia 2025 a 67,79 punti,
+                    un progetto con meno interventi o senza certificazioni rischia di restare fuori anche con ottimi
+                    indicatori. Conta poi non perdere punti in verifica: ogni dato dichiarato deve trovare riscontro
+                    nei documenti allegati, perché un punteggio non documentato viene azzerato senza possibilità di
+                    integrazione.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- SIMULATORE: CONTRIBUTO E PUNTEGGIO -->
+    <section class="section section-alt" id="simulatore">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Simulatore</span>
+                <h2>Contributo e punteggio <span class="text-accent">del tuo progetto</span></h2>
                 <p class="section-desc">
-                    Riproduce le formule della griglia ufficiale dell'avviso e confronta il risultato con la soglia
-                    di ammissione dell'edizione 2025. Funziona nel browser, senza inviare dati.
+                    Un solo calcolo: gli interventi scelti danno il valore del voucher e, insieme ai dati IVA e INPS,
+                    il punteggio secondo le formule della griglia ufficiale, confrontato con la soglia di ammissione
+                    2025. Funziona nel browser, senza inviare dati.
                 </p>
             </div>
 
-            <div class="sim" id="psim">
+            <div class="sim" id="sim">
                 <div class="sim-input">
                     <div>
-                        <span class="sim-label" id="psDimLabel">Dimensione dell'impresa</span>
-                        <div class="sim-dim ps-dim" role="radiogroup" aria-labelledby="psDimLabel">
-                            <div><input type="radio" name="psDim" id="psMicro" value="micro"><label for="psMicro">Micro</label></div>
-                            <div><input type="radio" name="psDim" id="psPm" value="pm" checked><label for="psPm">Piccola o media</label></div>
+                        <span class="sim-label">La tua impresa</span>
+                        <div class="sim-dim" role="radiogroup" aria-label="Dimensione dell'impresa">
+                            <div><input type="radio" name="simDim" id="simMicro" value="micro"><label for="simMicro">Micro</label></div>
+                            <div><input type="radio" name="simDim" id="simPiccola" value="piccola" checked><label for="simPiccola">Piccola</label></div>
+                            <div><input type="radio" name="simDim" id="simMedia" value="media"><label for="simMedia">Media</label></div>
                         </div>
-                    </div>
-                    <div>
-                        <span class="sim-label">Dati IVA e INPS</span>
-                        <div class="ps-campo">
+                        <div class="ps-campo" style="margin-top:8px;">
                             <label for="psVe50">Volume d'affari<small>rigo VE50 della dichiarazione IVA 2026</small></label>
                             <input type="number" class="sim-num is-wide" id="psVe50" min="0" step="1" placeholder="0" inputmode="decimal">
                         </div>
@@ -886,17 +863,66 @@
                             <input type="number" class="sim-num" id="psAddetti" min="0" step="0.01" placeholder="0" inputmode="decimal">
                         </div>
                     </div>
+
                     <div>
-                        <span class="sim-label">Progetto e requisiti</span>
-                        <div class="ps-campo">
-                            <label for="psInterventi">Interventi<small id="psIntNote">oltre alla diagnosi digitale</small></label>
-                            <select class="sim-num is-wide ps-sel" id="psInterventi">
-                                <option value="1">1</option>
-                                <option value="2" selected>2</option>
-                                <option value="3">3</option>
-                                <option value="4">4 o più</option>
-                            </select>
+                        <span class="sim-label">Il progetto</span>
+                        <label class="sim-voce" id="rowDiag">
+                            <input type="checkbox" id="simDiag" checked>
+                            <span>A &middot; Diagnosi digitale
+                                <small class="sim-desc">Un Innovation Manager indipendente fotografa processi e strumenti digitali dell'impresa e indica le priorità di intervento.</small>
+                                <small class="sim-regola" id="simDiagNote">obbligatoria per la tua dimensione</small></span>
+                            <span class="sim-importo" id="simDiagVal"></span>
+                        </label>
+                        <div class="sim-voce">
+                            <span aria-hidden="true"></span>
+                            <label for="simDw">B &middot; Digital Workplace
+                                <small class="sim-desc">Applicazioni di produttività e collaborazione per il singolo addetto: posta, documenti condivisi, riunioni online. Indica quante postazioni.</small>
+                                <small class="sim-regola">2.270,40 &euro; a postazione, una per addetto</small></label>
+                            <input type="number" class="sim-num" id="simDw" min="0" max="250" step="1" value="0" inputmode="numeric" aria-label="Numero di postazioni Digital Workplace">
                         </div>
+                        <label class="sim-voce" id="rowDc">
+                            <input type="checkbox" id="simDc" checked>
+                            <span>C &middot; Digital Commerce &amp; Engagement
+                                <small class="sim-desc">Vendita online e gestione del cliente: negozio e-commerce di proprietà e CRM per contatti, offerte e assistenza. Escluse le piattaforme in abbonamento.</small></span>
+                            <span class="sim-importo" id="simDcVal"></span>
+                        </label>
+                        <div class="sim-voce sim-gruppo">
+                            <span aria-hidden="true"></span>
+                            <span>D &middot; Cloud computing
+                                <small class="sim-desc">Migrazione su cloud pubblico di server e dati aziendali. Ogni macchina virtuale è un intervento a sé, una per tipo.</small></span>
+                            <span></span>
+                        </div>
+                        <label class="sim-voce is-sub">
+                            <input type="checkbox" id="simVm1" data-importo="17683.20">
+                            <span>D.1 &middot; Application server<small class="sim-desc">i programmi aziendali, come gestionale o ERP</small></span>
+                            <span class="sim-importo">17.683,20 &euro;</span>
+                        </label>
+                        <label class="sim-voce is-sub">
+                            <input type="checkbox" id="simVm2" data-importo="27656.40">
+                            <span>D.2 &middot; Database server<small class="sim-desc">le banche dati aziendali</small></span>
+                            <span class="sim-importo">27.656,40 &euro;</span>
+                        </label>
+                        <label class="sim-voce is-sub">
+                            <input type="checkbox" id="simVm3" data-importo="14076.00">
+                            <span>D.3 &middot; Web server<small class="sim-desc">sito e servizi web dell'impresa</small></span>
+                            <span class="sim-importo">14.076,00 &euro;</span>
+                        </label>
+                        <label class="sim-voce is-sub">
+                            <input type="checkbox" id="simVm4" data-importo="5593.20">
+                            <span>D.4 &middot; Database backup<small class="sim-desc">la copia di sicurezza dei dati</small></span>
+                            <span class="sim-importo">5.593,20 &euro;</span>
+                        </label>
+                        <label class="sim-voce" id="rowCyber">
+                            <input type="checkbox" id="simCyber">
+                            <span>E &middot; Cybersecurity
+                                <small class="sim-desc">Nuovi sistemi di protezione di reti, dispositivi e dati aziendali contro gli attacchi informatici.</small>
+                                <small class="sim-regola" id="simCyberNote"></small></span>
+                            <span class="sim-importo" id="simCyberVal"></span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <span class="sim-label">Requisiti che danno punti</span>
                         <label class="sim-voce">
                             <input type="checkbox" id="psGenere">
                             <span>Certificazione di parità di genere<small>UNI/PdR 125:2022</small></span>
@@ -914,39 +940,44 @@
                         </label>
                     </div>
                 </div>
-                <div class="sim-output" aria-live="polite">
-                    <span class="sim-totale-label">Punteggio stimato</span>
-                    <span class="sim-totale"><span id="psTot">0,00</span> <small class="ps-su">/ 100</small></span>
-                    <div class="ps-scala" aria-hidden="true">
-                        <div class="sim-barra"><span id="psBar"></span></div>
-                        <span class="ps-soglia" style="left:67.79%"></span>
-                        <span class="ps-soglia-label" style="left:67.79%">soglia 2025: 67,79</span>
-                    </div>
-                    <div class="sim-riga"><span>Valore aggiunto per addetto <small id="psVaNote" class="ps-nota"></small></span><strong id="psP1">0,00</strong></div>
-                    <div class="sim-riga"><span>Numero di addetti</span><strong id="psP2">0,00</strong></div>
-                    <div class="sim-riga"><span>Articolazione del progetto</span><strong id="psP3">0,00</strong></div>
-                    <div class="sim-riga"><span>Parità di genere</span><strong id="psP4">0,00</strong></div>
-                    <div class="sim-riga"><span>Impresa giovanile</span><strong id="psP5">0,00</strong></div>
-                    <div class="sim-riga"><span>Sostenibilità ambientale</span><strong id="psP6">0,00</strong></div>
-                    <div class="sim-esito" id="psEsito"></div>
-                    <p class="sim-avviso">
-                        Il confronto con il 2025 è solo un riferimento: la soglia dell'edizione 2026 dipenderà dal
-                        numero di domande, dai punteggi dichiarati e dagli importi richiesti rispetto ai 15 milioni.
-                    </p>
-                </div>
-            </div>
 
-            <div class="highlight-box">
-                <p>
-                    <strong>Dove si gioca la partita.</strong> Valore aggiunto e addetti valgono 55 punti su 100 e
-                    dipendono da dati già fissati: non si possono migliorare a ridosso della scadenza. Le leve ancora
-                    manovrabili sono l'<strong>articolazione del progetto</strong>, cioè quanti interventi diversi
-                    comprende, e le <strong>certificazioni</strong> già possedute. Con la soglia 2025 a 67,79 punti,
-                    un progetto con meno interventi o senza certificazioni rischia di restare fuori anche con ottimi
-                    indicatori. Conta poi non perdere punti in verifica: ogni dato dichiarato deve trovare riscontro
-                    nei documenti allegati, perché un punteggio non documentato viene azzerato senza possibilità di
-                    integrazione.
-                </p>
+                <div class="sim-output" aria-live="polite">
+                    <div class="sim-output-inner">
+                        <div class="sim-blocco">
+                            <span class="sim-totale-label">Valore del voucher</span>
+                            <span class="sim-totale" id="simTot">0,00 &euro;</span>
+                            <div class="sim-barra" aria-hidden="true"><span id="simBar"></span></div>
+                            <div class="sim-riga"><span>Somma degli interventi</span><strong id="simSum">0,00 &euro;</strong></div>
+                            <div class="sim-riga"><span>Soglia minima</span><strong>14.000,00 &euro;</strong></div>
+                            <div class="sim-riga"><span>Massimale della fascia</span><strong id="simMax">100.000,00 &euro;</strong></div>
+                            <div class="sim-esito" id="simEsito"></div>
+                        </div>
+
+                        <div class="sim-blocco" id="simulatore-punteggio">
+                            <span class="sim-totale-label">Punteggio stimato</span>
+                            <span class="sim-totale"><span id="psTot">0,00</span> <small class="ps-su">/ 100</small></span>
+                            <div class="ps-scala" aria-hidden="true">
+                                <div class="sim-barra"><span id="psBar"></span></div>
+                                <span class="ps-soglia" style="left:67.79%"></span>
+                                <span class="ps-soglia-label" style="left:67.79%">soglia 2025: 67,79</span>
+                            </div>
+                            <div class="sim-riga"><span>Valore aggiunto per addetto <small id="psVaNote" class="ps-nota"></small></span><strong id="psP1">0,00</strong></div>
+                            <div class="sim-riga"><span>Numero di addetti</span><strong id="psP2">0,00</strong></div>
+                            <div class="sim-riga"><span>Articolazione del progetto <small id="psIntNote" class="ps-nota"></small></span><strong id="psP3">0,00</strong></div>
+                            <div class="sim-riga"><span>Parità di genere</span><strong id="psP4">0,00</strong></div>
+                            <div class="sim-riga"><span>Impresa giovanile</span><strong id="psP5">0,00</strong></div>
+                            <div class="sim-riga"><span>Sostenibilità ambientale</span><strong id="psP6">0,00</strong></div>
+                            <div class="sim-esito" id="psEsito"></div>
+                        </div>
+
+                        <p class="sim-avviso">
+                            Stima indicativa basata sugli importi dell'avviso e sulla griglia punteggi ufficiale.
+                            L'ammissibilità dipende dai requisiti tecnici di ogni intervento e dalla verifica di Lazio
+                            Innova. La soglia 2025 è solo un riferimento: quella del 2026 dipenderà dal numero di
+                            domande e dagli importi richiesti rispetto ai 15 milioni.
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -1037,7 +1068,7 @@
                     </button>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            Non c'è una soglia fissa: si finanzia in ordine di punteggio finché bastano le risorse. Come riferimento, nell'edizione 2025 sono state ammesse le imprese fino a un punteggio di <strong>67,79</strong>. La soglia del 2026 dipenderà da quante domande arriveranno e da quanto chiederanno rispetto ai 15 milioni. Il <a href="#simulatore-punteggio">simulatore del punteggio</a> calcola i punti con le formule della griglia ufficiale e li confronta con quel valore.
+                            Non c'è una soglia fissa: si finanzia in ordine di punteggio finché bastano le risorse. Come riferimento, nell'edizione 2025 sono state ammesse le imprese fino a un punteggio di <strong>67,79</strong>. La soglia del 2026 dipenderà da quante domande arriveranno e da quanto chiederanno rispetto ai 15 milioni. Il <a href="#simulatore">simulatore</a> calcola i punti con le formule della griglia ufficiale e li confronta con quel valore.
                         </div>
                     </div>
                 </div>
@@ -1241,7 +1272,9 @@
             }
         }
 
-        // Simulatore del contributo: somma degli importi forfettari dell'avviso.
+        // Simulatore unico: valore del voucher (importi forfettari dell'avviso)
+        // e punteggio (formule della Griglia punteggi). Gli interventi scelti
+        // alimentano entrambi i calcoli.
         var IMPORTI = {
             micro:   { diag: null,     dc: 4954.80,  cyber: null,     max: 50000 },
             piccola: { diag: 8162.40,  dc: 8125.20,  cyber: 14656.80, max: 100000 },
@@ -1249,102 +1282,26 @@
         };
         var DW = 2270.40;
         var MINIMO = 14000;
+        var SOGLIA_2025 = 67.79;
+        var VM = ['simVm1', 'simVm2', 'simVm3', 'simVm4'];
 
         var sim = document.getElementById('sim');
         if (!sim) return;
         var $ = function (id) { return document.getElementById(id); };
-        var euro = function (n) {
-            return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-        };
-        var num = function (el) {
-            var v = parseFloat(String(el.value).replace(',', '.'));
-            return isFinite(v) && v > 0 ? v : 0;
-        };
-
-        function dimensione() {
-            var r = sim.querySelector('input[name="simDim"]:checked');
-            return r ? r.value : 'piccola';
-        }
-
-        function aggiorna() {
-            var d = dimensione();
-            var t = IMPORTI[d];
-            var micro = d === 'micro';
-
-            // Diagnosi: non prevista per le micro, obbligatoria (sempre inclusa) per piccole e medie.
-            $('simDiag').checked = !micro;
-            $('simDiag').disabled = true;
-            $('rowDiag').classList.toggle('is-off', micro);
-            $('simDiagNote').textContent = micro ? 'non prevista per le micro imprese' : 'obbligatoria per la tua dimensione';
-            $('simDiagVal').textContent = micro ? '—' : euro(t.diag);
-
-            $('simDcVal').textContent = euro(t.dc);
-
-            $('simCyber').disabled = micro;
-            if (micro) $('simCyber').checked = false;
-            $('rowCyber').classList.toggle('is-off', micro);
-            $('simCyberNote').textContent = micro ? 'non prevista per le micro imprese' : '';
-            $('simCyberVal').textContent = micro ? '—' : euro(t.cyber);
-
-            var postazioni = Math.floor(num($('simDw')));
-            var operativi = 0;
-            operativi += postazioni * DW;
-            if ($('simDc').checked) operativi += t.dc;
-            operativi += num($('simCloud'));
-            if (!micro && $('simCyber').checked) operativi += t.cyber;
-
-            var somma = operativi + (micro ? 0 : t.diag);
-            var contributo = Math.min(somma, t.max);
-
-            $('simSum').textContent = euro(somma);
-            $('simMax').textContent = euro(t.max);
-            $('simBar').style.width = Math.min(100, somma / t.max * 100).toFixed(1) + '%';
-
-            var esito = $('simEsito');
-            var titolo, testo, ok;
-            if (operativi <= 0) {
-                ok = false;
-                titolo = 'Progetto non ammissibile';
-                testo = micro
-                    ? 'Seleziona almeno un intervento.'
-                    : 'La sola diagnosi digitale non basta: aggiungi almeno un intervento operativo.';
-                contributo = 0;
-            } else if (somma < MINIMO) {
-                ok = false;
-                titolo = 'Sotto la soglia minima';
-                testo = 'Mancano ' + euro(MINIMO - somma) + ' per arrivare a 14.000 euro: aggiungi postazioni o un altro intervento.';
-                contributo = 0;
-            } else if (somma > t.max) {
-                ok = true;
-                titolo = 'Ammissibile, ridotto al massimale';
-                testo = 'La somma supera il tetto della tua fascia di ' + euro(somma - t.max) + ': il contributo si ferma a ' + euro(t.max) + '.';
-            } else {
-                ok = true;
-                titolo = 'Sopra la soglia minima';
-                testo = 'Il progetto rientra fra 14.000 euro e il massimale della tua fascia.';
-            }
-            $('simTot').textContent = euro(contributo);
-            esito.className = 'sim-esito ' + (ok ? 'is-ok' : 'is-ko');
-            esito.innerHTML = '';
-            var s = document.createElement('strong'); s.textContent = titolo;
-            esito.appendChild(s);
-            esito.appendChild(document.createTextNode(testo));
-        }
-
-        sim.addEventListener('input', aggiorna);
-        sim.addEventListener('change', aggiorna);
-        aggiorna();
-
-        // Simulatore del punteggio: formule della Griglia punteggi dell'avviso.
-        var SOGLIA_2025 = 67.79;
-        var psim = document.getElementById('psim');
-        if (!psim) return;
-        var pti = function (n) { return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+        var due = function (n) { return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+        var euro = function (n) { return due(n) + ' €'; };
         var leggi = function (id) {
             var el = $(id);
             if (String(el.value).trim() === '') return null;
             var v = parseFloat(String(el.value).replace(',', '.'));
             return isFinite(v) ? v : null;
+        };
+        var esito = function (el, ok, titolo, testo) {
+            el.className = 'sim-esito ' + (ok ? 'is-ok' : 'is-ko');
+            el.innerHTML = '';
+            var s = document.createElement('strong'); s.textContent = titolo;
+            el.appendChild(s);
+            el.appendChild(document.createTextNode(testo));
         };
 
         function puntiValoreAggiunto(r) {
@@ -1359,55 +1316,99 @@
         }
         function puntiArticolazione(micro, n) {
             // Micro: 1 -> 5, 2 -> 10, 3+ -> 15. Piccola o media (oltre la diagnosi): 1 -> 0, 2 -> 5, 3 -> 10, 4+ -> 15.
+            if (n <= 0) return 0;
             return micro ? Math.min(n, 3) * 5 : (Math.min(n, 4) - 1) * 5;
         }
 
-        function calcolaPunteggio() {
-            var r = psim.querySelector('input[name="psDim"]:checked');
-            var micro = r && r.value === 'micro';
-            $('psIntNote').textContent = micro ? 'tipologie di intervento del progetto' : 'oltre alla diagnosi digitale';
-            $('psInterventi').options[2].textContent = micro ? '3 o più' : '3';
-            $('psInterventi').options[3].hidden = micro;
-            $('psInterventi').options[3].disabled = micro;
-            if (micro && $('psInterventi').value === '4') $('psInterventi').value = '3';
+        function aggiorna() {
+            var r = sim.querySelector('input[name="simDim"]:checked');
+            var d = r ? r.value : 'piccola';
+            var t = IMPORTI[d];
+            var micro = d === 'micro';
 
-            var ve50 = leggi('psVe50'), vf25 = leggi('psVf25'), addetti = leggi('psAddetti');
+            // Interventi disponibili per dimensione.
+            $('simDiag').checked = !micro;
+            $('simDiag').disabled = true;
+            $('rowDiag').classList.toggle('is-off', micro);
+            $('simDiagNote').textContent = micro ? 'non prevista per le micro imprese' : 'obbligatoria per la tua dimensione';
+            $('simDiagVal').textContent = micro ? '—' : euro(t.diag);
+            $('simDcVal').textContent = euro(t.dc);
+            $('simCyber').disabled = micro;
+            if (micro) $('simCyber').checked = false;
+            $('rowCyber').classList.toggle('is-off', micro);
+            $('simCyberNote').textContent = micro ? 'non prevista per le micro imprese' : '';
+            $('simCyberVal').textContent = micro ? '—' : euro(t.cyber);
+
+            // Valore del voucher.
+            var postazioni = Math.max(0, Math.floor(leggi('simDw') || 0));
+            var vmScelte = VM.filter(function (id) { return $(id).checked; });
+            var cloud = vmScelte.reduce(function (s, id) { return s + parseFloat($(id).dataset.importo); }, 0);
+            var dc = $('simDc').checked;
+            var cyber = !micro && $('simCyber').checked;
+            var operativi = postazioni * DW + (dc ? t.dc : 0) + cloud + (cyber ? t.cyber : 0);
+            var somma = operativi + (micro ? 0 : t.diag);
+            var contributo = Math.min(somma, t.max);
+
+            $('simSum').textContent = euro(somma);
+            $('simMax').textContent = euro(t.max);
+            $('simBar').style.width = Math.min(100, somma / t.max * 100).toFixed(1) + '%';
+
+            var addetti = leggi('psAddetti');
+            var avvisoDw = (addetti !== null && postazioni > Math.max(Math.floor(addetti), 0))
+                ? ' Attenzione: le postazioni superano la forza aziendale indicata, e ne è ammessa una per addetto.' : '';
+            if (operativi <= 0) {
+                contributo = 0;
+                esito($('simEsito'), false, 'Progetto non ammissibile', micro
+                    ? 'Seleziona almeno un intervento.'
+                    : 'La sola diagnosi digitale non basta: aggiungi almeno un intervento operativo.');
+            } else if (somma < MINIMO) {
+                contributo = 0;
+                esito($('simEsito'), false, 'Sotto la soglia minima',
+                    'Mancano ' + euro(MINIMO - somma) + ' per arrivare a 14.000 euro: aggiungi postazioni o un altro intervento.' + avvisoDw);
+            } else if (somma > t.max) {
+                esito($('simEsito'), true, 'Ammissibile, ridotto al massimale',
+                    'La somma supera il tetto della tua fascia di ' + euro(somma - t.max) + ': il contributo si ferma a ' + euro(t.max) + '.' + avvisoDw);
+            } else {
+                esito($('simEsito'), true, 'Sopra la soglia minima',
+                    'Il progetto rientra fra 14.000 euro e il massimale della tua fascia.' + avvisoDw);
+            }
+            $('simTot').textContent = euro(contributo);
+
+            // Punteggio.
+            var nInterventi = (postazioni > 0 ? 1 : 0) + (dc ? 1 : 0) + vmScelte.length + (cyber ? 1 : 0);
+            var ve50 = leggi('psVe50'), vf25 = leggi('psVf25');
             var p1 = 0, notaVa = '';
             if (ve50 !== null) {
-                var va = ve50 - (vf25 || 0);
-                var perAddetto = va / Math.max(addetti || 0, 1);
+                var perAddetto = (ve50 - (vf25 || 0)) / Math.max(addetti || 0, 1);
                 p1 = puntiValoreAggiunto(perAddetto);
                 notaVa = perAddetto.toLocaleString('it-IT', { maximumFractionDigits: 0 }) + ' € per addetto';
             }
             var p2 = puntiAddetti(addetti || 0);
-            var p3 = puntiArticolazione(micro, parseInt($('psInterventi').value, 10));
+            var p3 = puntiArticolazione(micro, nInterventi);
             var p4 = $('psGenere').checked ? 10 : 0;
             var p5 = $('psGiovane').checked ? 10 : 0;
             var p6 = $('psAmbiente').checked ? 10 : 0;
             var tot = Math.round((p1 + p2 + p3 + p4 + p5 + p6) * 100) / 100;
 
             $('psVaNote').textContent = notaVa;
-            [p1, p2, p3, p4, p5, p6].forEach(function (p, i) { $('psP' + (i + 1)).textContent = pti(p); });
-            $('psTot').textContent = pti(tot);
+            $('psIntNote').textContent = nInterventi === 1
+                ? '1 intervento' + (micro ? '' : ' oltre la diagnosi')
+                : nInterventi + ' interventi' + (micro ? '' : ' oltre la diagnosi');
+            [p1, p2, p3, p4, p5, p6].forEach(function (p, i) { $('psP' + (i + 1)).textContent = due(p); });
+            $('psTot').textContent = due(tot);
             $('psBar').style.width = Math.min(100, tot) + '%';
 
-            var esito = $('psEsito');
             var ok = tot >= SOGLIA_2025;
-            var titolo = ok ? 'Sopra la soglia di ammissione 2025' : 'Sotto la soglia di ammissione 2025';
             var testo = ok
-                ? 'Nel 2025 sono state ammesse le imprese fino a 67,79 punti: con ' + pti(tot) + ' punti la domanda sarebbe rientrata, con un margine di ' + pti(tot - SOGLIA_2025) + '.'
-                : 'Nel 2025 sono state ammesse le imprese fino a 67,79 punti: ne mancano ' + pti(SOGLIA_2025 - tot) + '. Valuta se aggiungere interventi o far valere certificazioni già possedute.';
+                ? 'Nel 2025 sono state ammesse le imprese fino a 67,79 punti: con ' + due(tot) + ' punti la domanda sarebbe rientrata, con un margine di ' + due(tot - SOGLIA_2025) + '.'
+                : 'Nel 2025 sono state ammesse le imprese fino a 67,79 punti: ne mancano ' + due(SOGLIA_2025 - tot) + '. Valuta se aggiungere interventi o far valere certificazioni già possedute.';
             if (ve50 === null) testo += ' Inserisci volume d’affari e acquisti per il criterio del valore aggiunto.';
-            esito.className = 'sim-esito ' + (ok ? 'is-ok' : 'is-ko');
-            esito.innerHTML = '';
-            var s = document.createElement('strong'); s.textContent = titolo;
-            esito.appendChild(s);
-            esito.appendChild(document.createTextNode(testo));
+            esito($('psEsito'), ok, ok ? 'Sopra la soglia di ammissione 2025' : 'Sotto la soglia di ammissione 2025', testo);
         }
 
-        psim.addEventListener('input', calcolaPunteggio);
-        psim.addEventListener('change', calcolaPunteggio);
-        calcolaPunteggio();
+        sim.addEventListener('input', aggiorna);
+        sim.addEventListener('change', aggiorna);
+        aggiorna();
     })();
     </script>
     <script src="../zls_zes/script.js"></script>
