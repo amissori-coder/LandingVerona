@@ -4661,3 +4661,60 @@ ul {
 @media (min-width: 901px) and (max-height: 820px) {
     .contents-list.is-recent .content-card:nth-child(n+3) { display: none; }
 }
+
+/* --- Le due schede di "Perche' NGB": non due riquadri uguali ma una coppia.
+   A sinistra una lastra navy con il numero dell'articolo in grande (2086 c.c.),
+   a destra una scheda bianca con le tre stelle del rating: ognuna mostra il
+   proprio soggetto. Testata su una riga (etichetta a sinistra, riferimento a
+   destra), link sottolineato, niente ombre, angoli e frecce. --- */
+.themes-panel { gap: 20px; }
+.theme-card { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "head ref" "cifra cifra" "title title" "text text" "link link"; column-gap: 0; row-gap: 0; padding: 22px 26px 22px; border: 0; border-radius: 0; transition: none; }
+.theme-card:hover { transform: none; box-shadow: none; }
+.theme-card-head { grid-area: head; margin: 0; padding-bottom: 12px; border-bottom: 1px solid rgba(22, 64, 104, 0.22); }
+.theme-card-ref { grid-area: ref; align-self: end; margin: 0; padding: 0 0 12px 16px; border-bottom: 1px solid rgba(22, 64, 104, 0.22); font-size: 0.72rem; letter-spacing: 0.04em; text-align: right; white-space: nowrap; }
+.theme-card-cifra { grid-area: cifra; display: flex; align-items: baseline; gap: 10px; margin: 20px 0 6px; font-family: var(--font-display); font-weight: 800; font-size: 3.4rem; line-height: 1; letter-spacing: -1.5px; color: var(--navy-dark); }
+.theme-card-cifra-pre, .theme-card-cifra-post { font-size: 1rem; font-weight: 600; letter-spacing: 0; opacity: 0.7; }
+.theme-card-cifra--stelle { color: #d4a444; font-size: 2.7rem; letter-spacing: 6px; margin-top: 24px; }
+.theme-card-title { grid-area: title; font-size: 1.35rem; margin: 0 0 8px; }
+.theme-card-text { grid-area: text; margin: 0 0 18px; }
+.theme-card-link { grid-area: link; margin-top: auto; justify-self: start; font-size: 0.9rem; font-weight: 600; letter-spacing: 0; text-transform: none; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.theme-card-link:hover { gap: 8px; }
+.theme-card-link svg { display: none; }
+.theme-card-assetti { background: #0f2d4a; color: rgba(255, 255, 255, 0.88); }
+.theme-card-assetti .theme-card-head, .theme-card-assetti .theme-card-ref { border-bottom-color: rgba(255, 255, 255, 0.28); }
+.theme-card-assetti .theme-card-eyebrow, .theme-card-assetti .theme-card-ref { color: rgba(255, 255, 255, 0.72); }
+.theme-card-assetti .theme-card-cifra, .theme-card-assetti .theme-card-title, .theme-card-assetti .theme-card-text strong, .theme-card-assetti .theme-card-link { color: #fff; }
+.theme-card-assetti .theme-card-text { color: rgba(255, 255, 255, 0.85); }
+.theme-card-assetti .theme-card-link:hover { color: #7fbaff; }
+.theme-card-rating { background: #fff; border: 1px solid rgba(22, 64, 104, 0.28); }
+@media (max-width: 600px) {
+    .theme-card { padding: 18px 18px 16px; }
+    .theme-card-cifra { font-size: 2.8rem; }
+    .theme-card-cifra--stelle { font-size: 2.2rem; }
+}
+
+/* --- Profili di responsabilita': un registro a tutta larghezza. Ogni gruppo
+   (civile, crisi, penale, organi di controllo) ha l'etichetta a sinistra e le
+   sue voci a destra, separate da righe sottili; niente pillole, niente due
+   colonne che restano sbilanciate. --- */
+.mission-risks-flag, .resp-block-eyebrow { padding: 0; background: none; border-radius: 0; }
+.mission-risks-flag { margin-bottom: 10px; color: var(--navy-light); letter-spacing: 0.16em; }
+.resp-list { display: block; max-width: none; margin: 8px 0 0; border-top: 2px solid #0f2d4a; }
+.resp-block, .resp-block:first-child { grid-row: auto; display: grid; grid-template-columns: 200px 1fr; column-gap: 32px; margin: 0; padding: 14px 0 6px; border-top: 0; border-bottom: 1px solid rgba(22, 64, 104, 0.28); }
+.resp-block + .resp-block { margin-top: 0; padding-top: 14px; border-top: 0; }
+.resp-block-head { margin: 0; padding-top: 12px; }
+.resp-block-eyebrow { font-size: 0.68rem; letter-spacing: 0.14em; color: #0f2d4a; }
+.resp-rows { margin: 0; padding: 0; list-style: none; }
+.resp-row { grid-template-columns: 36px 1fr auto; column-gap: 20px; padding: 10px 0; align-items: baseline; }
+.resp-row + .resp-row { border-top: 1px solid rgba(22, 64, 104, 0.12); padding-top: 10px; }
+.resp-row:hover { padding-left: 0; }
+.resp-row-num { color: #5b6b7c; font-weight: 600; padding-top: 0; }
+.resp-row-title { font-size: 1rem; }
+.resp-row-desc { max-width: 64ch; }
+.resp-row-ref { font-weight: 500; padding-top: 0; }
+@media (max-width: 900px) {
+    .resp-block, .resp-block:first-child { grid-template-columns: 1fr; padding: 12px 0 4px; }
+    .resp-block-head { padding: 0 0 2px; }
+    .resp-row { grid-template-columns: 30px 1fr; }
+    .resp-row-ref { grid-column: 2; grid-row: 2; text-align: left; white-space: normal; padding-top: 2px; }
+}
