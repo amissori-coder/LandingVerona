@@ -251,6 +251,38 @@
         .sim-voce.is-sub { padding-left: 22px; border-top-style: dashed; }
         .sim-input > div > .sim-label + .sim-voce { border-top: 0; }
 
+        /* ---- Testo giustificato senza buchi ----
+           Il sito giustifica tutto il testo (assets/testo.css). Nelle colonne
+           strette una riga contiene poche parole e la giustificazione apre
+           spazi vistosi: qui il testo va a sinistra. Su schermi piccoli vale
+           per tutto il testo corrente della pagina. */
+        body.content-page .component-card p,
+        body.content-page .component-card li,
+        body.content-page .pillar-card li,
+        body.content-page .benefit-item p,
+        body.content-page .ref-list li,
+        body.content-page .rimando-occhiello,
+        body.content-page .rimando-titolo,
+        body.content-page .sim .sim-desc,
+        body.content-page .sim .sim-avviso,
+        body.content-page .sim .sim-esito,
+        body.content-page .cta-text h2 {
+            text-align: left !important;
+        }
+        @media (max-width: 640px) {
+            body.content-page .section-desc,
+            body.content-page .detail-block p,
+            body.content-page .highlight-box,
+            body.content-page .highlight-box p,
+            body.content-page .tabella-nota,
+            body.content-page .faq-answer-inner,
+            body.content-page .cta-text p,
+            body.content-page .rimando-desc,
+            body.content-page .footer-legal {
+                text-align: left !important;
+            }
+        }
+
         @media (max-width: 900px) {
             .sim-output-inner { position: static; }
             .scheda-grid { grid-template-columns: repeat(2, 1fr); }
@@ -358,13 +390,13 @@
     <section class="hero" id="hero">
         <div class="hero-bg-overlay"></div>
         <div class="container hero-content">
-            <div class="hero-badge">Regione Lazio &middot; Lazio Innova &middot; PR FESR 2021-2027 &middot; Domande entro il 29 ottobre 2026</div>
+            <div class="hero-badge">Regione Lazio e Lazio Innova, PR FESR 2021-2027, domande entro il 29 ottobre 2026</div>
             <h1>Voucher Digitalizzazione PMI 2026<br><span class="text-accent">fino a 150.000 euro a fondo perduto</span></h1>
             <p class="hero-subtitle">
                 La Regione Lazio mette <strong>15 milioni di euro</strong> sulla trasformazione digitale delle micro,
                 piccole e medie imprese con sede operativa nel Lazio. Il contributo non è una percentuale della spesa:
-                è un <strong>importo forfettario fisso</strong> per ciascun intervento &mdash; diagnosi digitale,
-                postazioni di lavoro digitali, e-commerce e CRM, cloud e cybersecurity &mdash; da un minimo di
+                è un <strong>importo forfettario fisso</strong> per ciascun intervento: diagnosi digitale,
+                postazioni di lavoro digitali, e-commerce e CRM, cloud e cybersecurity. Si va da un minimo di
                 <strong>14.000 euro</strong> fino a <strong>50.000, 100.000 o 150.000 euro</strong> secondo la
                 dimensione dell'impresa. Le domande si presentano su <strong>GeCoWEB Plus</strong> e conta il
                 <strong>punteggio</strong>, non l'ora di invio.
@@ -457,12 +489,12 @@
                 </div>
                 <div class="scheda-cell">
                     <span class="scheda-label">Contributo</span>
-                    <span class="scheda-value">14.000 &ndash; 150.000 &euro;</span>
+                    <span class="scheda-value">da 14.000 a 150.000 &euro;</span>
                     <span class="scheda-foot">tetto di 50, 100 o 150 mila per dimensione</span>
                 </div>
                 <div class="scheda-cell">
                     <span class="scheda-label">Domande</span>
-                    <span class="scheda-value">30.09 &ndash; 29.10.2026</span>
+                    <span class="scheda-value">dal 30.09 al 29.10.2026</span>
                     <span class="scheda-foot">dalle 12:00 alle 17:00, su GeCoWEB Plus</span>
                 </div>
                 <div class="scheda-cell">
@@ -552,10 +584,10 @@
             <div class="highlight-box">
                 <p>
                     <strong>Chi è l'Innovation Manager indipendente.</strong> La diagnosi delle piccole e medie imprese
-                    deve essere firmata da un professionista qualificato &mdash; certificato secondo la norma
+                    deve essere firmata da un professionista qualificato, certificato secondo la norma
                     <strong>UNI 11814</strong> oppure iscritto nell'elenco degli Innovation Manager del Ministero delle
-                    imprese e del made in Italy &mdash; e indipendente sia dall'impresa sia dai fornitori delle
-                    soluzioni. La diagnosi ex ante va prodotta entro il termine fissato dall'avviso dopo la concessione,
+                    imprese e del made in Italy. Il professionista deve essere indipendente sia dall'impresa sia dai
+                    fornitori delle soluzioni. La diagnosi ex ante va prodotta entro il termine fissato dall'avviso dopo la concessione,
                     quella ex post accompagna la richiesta di erogazione. Le micro imprese presentano invece
                     un'autovalutazione ex ante e, a fine progetto, la relazione tecnica del fornitore.
                 </p>
@@ -583,49 +615,49 @@
                     <div role="columnheader">Media impresa</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">A &middot; Diagnosi digitale<small>obbligatoria per piccole e medie</small></div>
+                    <div class="tabella-voce" role="rowheader">A. Diagnosi digitale<small>obbligatoria per piccole e medie</small></div>
                     <div class="tabella-no" data-label="Micro impresa" role="cell">non prevista</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">8.162,40 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">21.427,20 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">B &middot; Digital Workplace<small>per postazione, una per addetto</small></div>
+                    <div class="tabella-voce" role="rowheader">B. Digital Workplace<small>per postazione, una per addetto</small></div>
                     <div class="tabella-num" data-label="Micro impresa" role="cell">2.270,40 &euro;</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">2.270,40 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">2.270,40 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">C &middot; Digital Commerce &amp; Engagement</div>
+                    <div class="tabella-voce" role="rowheader">C. Digital Commerce &amp; Engagement</div>
                     <div class="tabella-num" data-label="Micro impresa" role="cell">4.954,80 &euro;</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">8.125,20 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">15.873,60 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">D.1 &middot; Cloud Application server<small>programmi aziendali, come gestionale o ERP</small></div>
+                    <div class="tabella-voce" role="rowheader">D.1 Cloud Application server<small>programmi aziendali, come gestionale o ERP</small></div>
                     <div class="tabella-num" data-label="Micro impresa" role="cell">17.683,20 &euro;</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">17.683,20 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">17.683,20 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">D.2 &middot; Cloud Database server<small>banche dati aziendali</small></div>
+                    <div class="tabella-voce" role="rowheader">D.2 Cloud Database server<small>banche dati aziendali</small></div>
                     <div class="tabella-num" data-label="Micro impresa" role="cell">27.656,40 &euro;</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">27.656,40 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">27.656,40 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">D.3 &middot; Cloud Web server<small>sito e servizi web</small></div>
+                    <div class="tabella-voce" role="rowheader">D.3 Cloud Web server<small>sito e servizi web</small></div>
                     <div class="tabella-num" data-label="Micro impresa" role="cell">14.076,00 &euro;</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">14.076,00 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">14.076,00 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">D.4 &middot; Cloud Database backup<small>copia di sicurezza dei dati</small></div>
+                    <div class="tabella-voce" role="rowheader">D.4 Cloud Database backup<small>copia di sicurezza dei dati</small></div>
                     <div class="tabella-num" data-label="Micro impresa" role="cell">5.593,20 &euro;</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">5.593,20 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">5.593,20 &euro;</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">E &middot; Cybersecurity</div>
+                    <div class="tabella-voce" role="rowheader">E. Cybersecurity</div>
                     <div class="tabella-no" data-label="Micro impresa" role="cell">non prevista</div>
                     <div class="tabella-num" data-label="Piccola impresa" role="cell">14.656,80 &euro;</div>
                     <div class="tabella-num" data-label="Media impresa" role="cell">44.917,20 &euro;</div>
@@ -772,32 +804,32 @@
                     <div role="columnheader">Punti max</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">1 &middot; Valore aggiunto per addetto<small>dichiarazione IVA 2026, anno 2025</small></div>
+                    <div class="tabella-voce" role="rowheader">1. Valore aggiunto per addetto<small>dichiarazione IVA 2026, anno 2025</small></div>
                     <div data-label="Come si calcola" role="cell">Volume d'affari (rigo VE50) meno totale acquisti (rigo VF25), diviso per la forza aziendale INPS. Il massimo si ottiene a <strong>50.000 euro</strong> per addetto; zero punti fino a 35.000 euro e da 250.000 euro in su; in mezzo il punteggio scala in modo lineare.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">35</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">2 &middot; Numero di addetti<small>denuncia contributiva INPS di luglio 2026</small></div>
-                    <div data-label="Come si calcola" role="cell">Campo &laquo;Forza aziendale&raquo;. Il massimo si ottiene con <strong>20 addetti</strong>; zero punti con nessun addetto e da 100 addetti in su; in mezzo il punteggio scala in modo lineare.</div>
+                    <div class="tabella-voce" role="rowheader">2. Numero di addetti<small>denuncia contributiva INPS di luglio 2026</small></div>
+                    <div data-label="Come si calcola" role="cell">Campo "Forza aziendale". Il massimo si ottiene con <strong>20 addetti</strong>; zero punti con nessun addetto e da 100 addetti in su; in mezzo il punteggio scala in modo lineare.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">20</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">3 &middot; Articolazione del progetto</div>
+                    <div class="tabella-voce" role="rowheader">3. Articolazione del progetto</div>
                     <div data-label="Come si calcola" role="cell">Micro imprese: 5 punti con un intervento, 10 con due, 15 con tre o più. Piccole e medie: oltre alla diagnosi, 0 punti con un intervento, 5 con due, 10 con tre, 15 con quattro o più. Ogni migrazione su una diversa macchina virtuale cloud conta come un intervento a sé.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">15</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">4 &middot; Parità di genere</div>
+                    <div class="tabella-voce" role="rowheader">4. Parità di genere</div>
                     <div data-label="Come si calcola" role="cell">Certificazione di parità di genere UNI/PdR 125:2022, rilasciata da un organismo accreditato Accredia e posseduta alla data della domanda.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">10</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">5 &middot; Impresa giovanile</div>
+                    <div class="tabella-voce" role="rowheader">5. Impresa giovanile</div>
                     <div data-label="Come si calcola" role="cell">Società di capitali con quote e amministratori in maggioranza under 36; cooperative e società di persone con la maggioranza dei soci under 36; impresa individuale con titolare under 36.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">10</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">6 &middot; Sostenibilità ambientale</div>
+                    <div class="tabella-voce" role="rowheader">6. Sostenibilità ambientale</div>
                     <div data-label="Come si calcola" role="cell">Almeno una fra EMAS o ISO 14000, ISO 50001, Ecolabel UE, FSC o PEFC, UNI EN ISO 14064-1, UNI ISO/TS 14067, ISO 14040, EPD, ISO 20400, PEF o OEF, Remade in Italy.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">10</div>
                 </div>
@@ -868,53 +900,53 @@
                         <span class="sim-label">Il progetto</span>
                         <label class="sim-voce" id="rowDiag">
                             <input type="checkbox" id="simDiag" checked>
-                            <span>A &middot; Diagnosi digitale
+                            <span>A. Diagnosi digitale
                                 <small class="sim-desc">Un Innovation Manager indipendente fotografa processi e strumenti digitali dell'impresa e indica le priorità di intervento.</small>
                                 <small class="sim-regola" id="simDiagNote">obbligatoria per la tua dimensione</small></span>
                             <span class="sim-importo" id="simDiagVal"></span>
                         </label>
                         <div class="sim-voce">
                             <span aria-hidden="true"></span>
-                            <label for="simDw">B &middot; Digital Workplace
+                            <label for="simDw">B. Digital Workplace
                                 <small class="sim-desc">Applicazioni di produttività e collaborazione per il singolo addetto: posta, documenti condivisi, riunioni online. Indica quante postazioni.</small>
                                 <small class="sim-regola">2.270,40 &euro; a postazione, una per addetto</small></label>
                             <input type="number" class="sim-num" id="simDw" min="0" max="250" step="1" value="0" inputmode="numeric" aria-label="Numero di postazioni Digital Workplace">
                         </div>
                         <label class="sim-voce" id="rowDc">
                             <input type="checkbox" id="simDc" checked>
-                            <span>C &middot; Digital Commerce &amp; Engagement
+                            <span>C. Digital Commerce &amp; Engagement
                                 <small class="sim-desc">Vendita online e gestione del cliente: negozio e-commerce di proprietà e CRM per contatti, offerte e assistenza. Escluse le piattaforme in abbonamento.</small></span>
                             <span class="sim-importo" id="simDcVal"></span>
                         </label>
                         <div class="sim-voce sim-gruppo">
                             <span aria-hidden="true"></span>
-                            <span>D &middot; Cloud computing
+                            <span>D. Cloud computing
                                 <small class="sim-desc">Migrazione su cloud pubblico di server e dati aziendali. Ogni macchina virtuale è un intervento a sé, una per tipo.</small></span>
                             <span></span>
                         </div>
                         <label class="sim-voce is-sub">
                             <input type="checkbox" id="simVm1" data-importo="17683.20">
-                            <span>D.1 &middot; Application server<small class="sim-desc">i programmi aziendali, come gestionale o ERP</small></span>
+                            <span>D.1 Application server<small class="sim-desc">i programmi aziendali, come gestionale o ERP</small></span>
                             <span class="sim-importo">17.683,20 &euro;</span>
                         </label>
                         <label class="sim-voce is-sub">
                             <input type="checkbox" id="simVm2" data-importo="27656.40">
-                            <span>D.2 &middot; Database server<small class="sim-desc">le banche dati aziendali</small></span>
+                            <span>D.2 Database server<small class="sim-desc">le banche dati aziendali</small></span>
                             <span class="sim-importo">27.656,40 &euro;</span>
                         </label>
                         <label class="sim-voce is-sub">
                             <input type="checkbox" id="simVm3" data-importo="14076.00">
-                            <span>D.3 &middot; Web server<small class="sim-desc">sito e servizi web dell'impresa</small></span>
+                            <span>D.3 Web server<small class="sim-desc">sito e servizi web dell'impresa</small></span>
                             <span class="sim-importo">14.076,00 &euro;</span>
                         </label>
                         <label class="sim-voce is-sub">
                             <input type="checkbox" id="simVm4" data-importo="5593.20">
-                            <span>D.4 &middot; Database backup<small class="sim-desc">la copia di sicurezza dei dati</small></span>
+                            <span>D.4 Database backup<small class="sim-desc">la copia di sicurezza dei dati</small></span>
                             <span class="sim-importo">5.593,20 &euro;</span>
                         </label>
                         <label class="sim-voce" id="rowCyber">
                             <input type="checkbox" id="simCyber">
-                            <span>E &middot; Cybersecurity
+                            <span>E. Cybersecurity
                                 <small class="sim-desc">Nuovi sistemi di protezione di reti, dispositivi e dati aziendali contro gli attacchi informatici.</small>
                                 <small class="sim-regola" id="simCyberNote"></small></span>
                             <span class="sim-importo" id="simCyberVal"></span>
@@ -1046,7 +1078,7 @@
                     </button>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            No. Per le micro imprese la diagnosi non è prevista e non è finanziabile: serve invece un'<strong>autovalutazione ex ante</strong> e, a fine progetto, la relazione tecnica del fornitore. Alle micro imprese non è aperto nemmeno l'intervento di cybersecurity, per cui la soglia dei 14.000 euro si raggiunge combinando digital workplace, digital commerce e cloud.
+                            No. Per le micro imprese la diagnosi non è prevista e non è finanziabile. Al suo posto servono un'<strong>autovalutazione ex ante</strong> e, a fine progetto, la relazione tecnica del fornitore. Alle micro imprese non è aperto nemmeno l'intervento di cybersecurity, per cui la soglia dei 14.000 euro si raggiunge combinando digital workplace, digital commerce e cloud.
                         </div>
                     </div>
                 </div>
@@ -1133,7 +1165,7 @@
 
             <div class="detail-block">
                 <ul class="ref-list">
-                    <li>Regione Lazio, Determinazione n. G12616 del 18 settembre 2026, di approvazione dell'Avviso pubblico &laquo;Voucher Digitalizzazione PMI 2026&raquo;, pubblicata sul BUR Lazio n. 77 del 24 settembre 2026</li>
+                    <li>Regione Lazio, Determinazione n. G12616 del 18 settembre 2026, di approvazione dell'Avviso pubblico "Voucher Digitalizzazione PMI 2026", pubblicata sul BUR Lazio n. 77 del 24 settembre 2026</li>
                     <li>Avviso pubblico, allegato tecnico e modulistica (autovalutazione, modello di diagnosi digitale, griglia dei punteggi) sulla <a href="https://www.lazioinnova.it/bandi/voucher-digitalizzazione-pmi-2026/" target="_blank" rel="noopener">pagina del bando di Lazio Innova</a></li>
                     <li>Griglia punteggi dell'avviso (versione del 7 settembre 2026), con le formule dei sei criteri di selezione e le definizioni dell'Appendice 1</li>
                     <li>Programma Regionale FESR Lazio 2021-2027, priorità dedicata alla competitività e alla transizione digitale delle imprese</li>
@@ -1331,13 +1363,13 @@
             $('simDiag').disabled = true;
             $('rowDiag').classList.toggle('is-off', micro);
             $('simDiagNote').textContent = micro ? 'non prevista per le micro imprese' : 'obbligatoria per la tua dimensione';
-            $('simDiagVal').textContent = micro ? '—' : euro(t.diag);
+            $('simDiagVal').textContent = micro ? '' : euro(t.diag);
             $('simDcVal').textContent = euro(t.dc);
             $('simCyber').disabled = micro;
             if (micro) $('simCyber').checked = false;
             $('rowCyber').classList.toggle('is-off', micro);
             $('simCyberNote').textContent = micro ? 'non prevista per le micro imprese' : '';
-            $('simCyberVal').textContent = micro ? '—' : euro(t.cyber);
+            $('simCyberVal').textContent = micro ? '' : euro(t.cyber);
 
             // Valore del voucher.
             var postazioni = Math.max(0, Math.floor(leggi('simDw') || 0));
