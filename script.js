@@ -215,6 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const navbarHeight = navbar ? navbar.offsetHeight : 80;
             const top = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight - 10;
             window.scrollTo({ top, behavior: 'smooth' });
+            // dopo un clic col mouse il sottomenu dei Quaderni si chiude e non copre
+            // la destinazione (da tastiera, detail 0, il focus resta dov'e')
+            if (e.detail && anchor.closest('.has-submenu')) anchor.blur();
             // il link "Vai al contenuto" porta anche il focus dentro il contenuto
             if (target.id === 'main') target.focus({ preventScroll: true });
         });

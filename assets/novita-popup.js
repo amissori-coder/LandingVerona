@@ -48,23 +48,26 @@
     + 'font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}'
     + '#novitaPromo[hidden]{display:none;}'
     + '#novitaPromo,#novitaPromo *{box-sizing:border-box;}'
-    + '#novitaPromo .novp-backdrop{position:absolute;inset:0;background:rgba(10,40,68,.55);'
+    + '#novitaPromo .novp-backdrop{position:absolute;inset:0;background:rgba(10,40,68,.62);'
+    + '-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);'
     + 'opacity:0;transition:opacity .3s ease;}'
     + '#novitaPromo.is-open .novp-backdrop{opacity:1;transition:opacity .55s ease;}'
     + '#novitaPromo .novp-card{position:relative;width:100%;max-width:460px;background:#fff;'
-    + 'border-radius:4px;overflow:hidden;box-shadow:0 24px 60px rgba(10,40,68,.35);'
+    + 'border-radius:4px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;'
+    + 'overscroll-behavior:contain;box-shadow:0 24px 60px rgba(10,40,68,.35);'
     + 'transform:translateY(14px);opacity:0;transition:transform .3s ease,opacity .3s ease;outline:none;}'
     + '#novitaPromo.is-open .novp-card{transform:none;opacity:1;'
     + 'transition:transform .6s cubic-bezier(.16,1,.3,1),opacity .45s ease;}'
     + '#novitaPromo .novp-pad{padding:24px 26px 22px;}'
-    + '#novitaPromo .novp-testa{display:flex;align-items:baseline;justify-content:space-between;gap:12px;'
+    + '#novitaPromo .novp-testa{display:flex;flex-direction:column;align-items:flex-start;gap:3px;'
     + 'padding:0 40px 12px 0;margin:0 0 16px;border-bottom:1px solid rgba(22,64,104,.22);}'
     + '#novitaPromo .novp-eyebrow{font-family:Montserrat,Inter,system-ui,sans-serif;font-size:11px;'
     + 'font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#164068;}'
     + '#novitaPromo .novp-data{font-size:12px;color:#5b6b7c;white-space:nowrap;}'
     + '#novitaPromo h2{font-family:Montserrat,Inter,system-ui,sans-serif;color:#0A2844;'
     + 'font-size:22px;font-weight:800;line-height:1.2;letter-spacing:-.2px;margin:0 0 10px;}'
-    + '#novitaPromo p{color:#404a5a;font-size:15px;line-height:1.6;margin:0 0 20px;}'
+    + '#novitaPromo p{color:#404a5a;font-size:15px;line-height:1.6;margin:0 0 20px;'
+    + 'hyphenate-limit-chars:6 3 3;-webkit-hyphenate-limit-before:3;-webkit-hyphenate-limit-after:3;}'
     + '#novitaPromo p b{color:#0A2844;}'
     + '#novitaPromo .novp-actions{display:flex;flex-direction:column;gap:9px;text-align:center;}'
     + '#novitaPromo .novp-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;'
@@ -88,7 +91,7 @@
     + '#novitaPromo .novp-dismiss button:focus-visible{outline:2px solid #164068;outline-offset:2px;}'
     + '#novitaPromo .novp-cta:focus-visible{outline:2px solid #fff;outline-offset:-4px;box-shadow:0 0 0 3px #164068;}'
     + '@media (max-width:480px){#novitaPromo .novp-pad{padding:20px 20px 18px;}'
-    + '#novitaPromo h2{font-size:19px;}#novitaPromo .novp-testa{flex-direction:column;gap:2px;}}'
+    + '#novitaPromo h2{font-size:19px;}#novitaPromo .novp-eyebrow{letter-spacing:.12em;}}'
     + '@media (prefers-reduced-motion:reduce){#novitaPromo .novp-backdrop,'
     + '#novitaPromo .novp-card{transition:none;}#novitaPromo .novp-card{transform:none;}}';
 
@@ -175,7 +178,9 @@
         var f = focusables();
         if (!f.length) return;
         var first = f[0], last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        // dalla card stessa (focus iniziale) o da fuori si rientra nel giro
+        if (f.indexOf(document.activeElement) === -1) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     }
@@ -189,6 +194,9 @@
       ss(false, SS_SEEN, "1");
       if (typeof window.gtag === "function") window.gtag("event", "click_popup_novita", { destinazione: URL_APPROFONDIMENTO });
     });
+
+    // Tornando Indietro (bfcache) dopo "Leggi l'approfondimento" il popup non resta aperto
+    window.addEventListener("pageshow", function (e) { if (e.persisted && !root.hidden) close(); });
 
     // --- Turno: dopo il primo popup -------------------------------------
     // Un altro popup e' "aperto" quando il suo contenitore esiste e non e' nascosto.
@@ -214,6 +222,8 @@
         if (altroAperto()) return;          // un primo popup si e' aperto nel frattempo: si riaspetta
         finito = true;
         if (osservatore) osservatore.disconnect();
+        // nel frattempo vista o disattivata (un'altra scheda, Indietro dalla bfcache)
+        if (ls(true, LS_HIDDEN) === "1" || ss(true, SS_SEEN) === "1") return;
         open();
       }, ms);
     }

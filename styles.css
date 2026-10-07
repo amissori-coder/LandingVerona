@@ -4161,7 +4161,6 @@ ul {
     .contents-list.is-recent .content-card:nth-child(n+7) { display: none; }
     .contents-explore { margin: 0 0 14px; }
     #video { padding: 40px 0 44px; }
-    .interviste-banda { padding: 28px 0; }
     .mission-editorial, .mission-risks-head { display: block; }
     /* su una colonna l'ordine e' quello di lettura dell'anteprima: due paragrafi, organigramma, motto, terzo paragrafo, dati, codice etico */
     .chi-siamo-body { display: flex; flex-direction: column; height: auto; }
@@ -4529,4 +4528,49 @@ ul {
 }
 @media (prefers-reduced-motion: reduce) {
     .contents-avanzamento span { transition: none; }
+}
+
+/* ============================================================
+   MENU SULLA GRIGLIA DELL'HERO
+   Il menu e' navy pieno come il pannello di sinistra: il logo parte
+   sulla linea del titolo (56 px), l'ultima voce finisce sul bordo
+   della colonna chiara (48 px); sotto i 900 px tutto a 20 px come
+   l'hero. Il menu a tendina usa lo stesso navy, lascia visibile il
+   filetto della barra e scorre se lo schermo e' basso; il sottomenu
+   dei Quaderni scende dal filetto.
+   ============================================================ */
+@media (min-width: 901px) {
+    .navbar .nav-container { max-width: none; padding: 0 48px 0 56px; }
+    /* eventi e approfondimenti partono dallo stesso bordo, sotto il menu */
+    .content-inner { max-width: none; }
+}
+@media (max-width: 900px) {
+    .navbar .nav-container { padding: 0 20px; }
+    .interviste-banda { padding: 28px 0; }
+}
+/* fra 1360 e 1399 px le voci stanno sulla griglia solo un po' piu' strette */
+@media (min-width: 1360px) and (max-width: 1399px) {
+    .nav-menu { gap: 8px; }
+}
+@media (max-width: 1359px) {
+    .nav-menu {
+        top: calc(100% + 1px);
+        padding: 12px 48px 18px 52px;
+        background: #0f2d4a;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        max-height: calc(100vh - 100% - 1px);
+        max-height: calc(100dvh - 100% - 1px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        box-shadow: 0 18px 34px rgba(6, 22, 38, 0.3);
+    }
+}
+@media (max-width: 900px) {
+    .nav-menu { padding: 12px 20px 18px 16px; }
+}
+@media (min-width: 1360px) {
+    .submenu { top: calc(100% + 23px); background: #0f2d4a; -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0; border-radius: 0 0 4px 4px; }
+    .navbar.scrolled .submenu { top: calc(100% + 17px); }
+    .has-submenu::before { height: 24px; }
 }
