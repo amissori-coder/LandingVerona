@@ -111,7 +111,7 @@ ul {
 /* Il menu esteso (8 voci, con i Quaderni) non sta nei 1140px del
    contenuto: sopra la soglia del menu a tendina la barra usa una
    larghezza maggiore, coerente con il layout full-bleed della pagina. */
-@media (min-width: 1280px) {
+@media (min-width: 1360px) {
     .navbar .nav-container {
         max-width: 1400px;
     }
@@ -3714,7 +3714,7 @@ ul {
 
 /* Menu a tendina fino a 1279px: sotto questa soglia il menu esteso
    (8 voci, con Quaderni, brochure e area riservata) non sta su una riga sola. */
-@media (max-width: 1279px) {
+@media (max-width: 1359px) {
     .nav-toggle {
         display: flex;
     }
@@ -4401,10 +4401,11 @@ ul {
    ============================================================ */
     .sect-head { border-bottom:1px solid rgba(22,64,104,.18); padding-bottom:8px; margin-bottom:14px; gap:0 }
     .sect-title { font-size:1.15rem }
+    #eventi, #contenuti, #video, #interviste-verona, #chi-siamo, #sedi, #obiettivi, #contatti { scroll-margin-top: calc(var(--nav-h, 75px) + var(--banner-h, 0px) + 12px) }
     .landing-split { min-height:0; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); grid-template-areas:"brand content" "brand rail"; grid-template-rows:auto 1fr }
-    .split-brand { grid-area:brand; background:#0f2d4a; padding:96px 48px 40px 56px; gap:16px; align-items:flex-start; justify-content:flex-start }
-    .split-content { grid-area:content; padding:96px 48px 40px 40px; align-items:flex-start }
-    .split-rail { grid-area:rail; padding:8px 48px 40px 40px; border-left:0; box-shadow:none; background:var(--light-gray) }
+    .split-brand { grid-area:brand; background:#0f2d4a; padding:calc(88px + var(--banner-h, 0px)) 48px 40px 56px; gap:16px; align-items:flex-start; justify-content:flex-start }
+    .split-content { grid-area:content; padding:calc(88px + var(--banner-h, 0px)) 48px 40px 40px; align-items:flex-start }
+    .split-rail { grid-area:rail; padding:8px 48px 24px 40px; border-left:0; box-shadow:none; background:var(--light-gray) }
     .rail-inner { display:grid; grid-template-columns:1fr; gap:0; align-items:start }
     .rail-inner .sect-head { grid-column:1; margin-bottom:10px; border-bottom:1px solid rgba(22,64,104,.18) }
     .contents-explore { grid-column:1; margin:0 0 10px; padding:10px 14px; border-radius:0 }
@@ -4415,7 +4416,9 @@ ul {
     .content-title { font-size:.92rem; -webkit-line-clamp:3 }
     .brand-inner { max-width:none; width:100% }
      .orbit { width:100% }
-    .hero-title { font-size:clamp(2.2rem,3vw,2.7rem); line-height:1.02; margin-bottom:16px }
+    .hero-title { line-height:1.02; margin-bottom:16px }
+    /* sotto i 1440 px il titolo si stringe con la colonna: "Generation" a 70 px non ci starebbe */
+    .hero-title .hero-title-line { font-size:clamp(2.6rem, 4.6vw, 4.4rem) }
     .hero-title .hero-title-line { display:inline; margin-right:.25em }
 @media (max-width:900px) { .hero-title .hero-title-line { display:block }
      .brand-inner,.split-brand { text-align:left }
@@ -4500,13 +4503,19 @@ ul {
     .newsletter-field-full { grid-column:auto }
     .footer-newsletter-description { margin-bottom:0 }
     .footer-content { margin-bottom:20px }
+/* Fra 901 e 1180 px la colonna del brand e' troppo stretta per testo e orbita affiancati: l'orbita scende sotto il testo */
+@media (max-width: 1180px) {
+    .split-brand { grid-template-columns:minmax(0,1fr); row-gap:20px }
+    .orbit { grid-column:1; margin:0 auto; justify-self:center }
+    .events-group--passati .event-card { grid-template-columns:80px 1fr; gap:14px }
+}
 @media (max-width:900px) { 
     .landing-split { grid-template-columns:minmax(0,1fr); grid-template-areas:"brand" "content" "rail" }
      .split-brand,.split-content,.split-rail,.brand-inner,.content-inner,.rail-inner,.contents-list { min-width:0; max-width:100% }
      .hero-title { text-align:left }
-    .split-brand { padding:84px 20px 28px; gap:10px; grid-template-columns:minmax(0,1fr); justify-items:start }
+    .split-brand { padding:calc(84px + var(--banner-h, 0px)) 20px 28px; gap:10px; grid-template-columns:minmax(0,1fr); justify-items:start }
     .orbit { grid-column:1; --r:92px; width:240px; height:240px; margin:12px auto 0; justify-self:center }
-    .planet { width:60px; height:60px; margin:-30px 0 0 -30px }
+    .planet { width:66px; height:66px; margin:-33px 0 0 -33px }
     .core-seal.orbit-sun { width:112px; height:112px; margin:-56px 0 0 -56px }
     .curated-inner { grid-template-columns:1fr }
     .split-content { padding:28px 20px 24px }
@@ -4514,8 +4523,8 @@ ul {
     .rail-inner { display:block }
     .contents-list { display:flex; flex-direction:row; overflow-x:auto; gap:12px; border-top:0; padding-bottom:6px; scroll-snap-type:x mandatory }
     .contents-list.is-recent .content-card, .contents-list .content-card { flex:0 0 76%; scroll-snap-align:start; border:1px solid rgba(22,64,104,.18); padding:12px; display:flex }
-    .contents-list .content-card:nth-child(n+5) { display:flex }
-     .contents-list .content-card:nth-child(n+7) { display:none }
+    .contents-list.is-recent .content-card:nth-child(n+5) { display:flex }
+     .contents-list.is-recent .content-card:nth-child(n+7) { display:none }
     .contents-explore { margin:0 0 14px }
     #video { padding:40px 0 44px }
     .interviste-banda { padding:28px 0 }
@@ -4541,7 +4550,8 @@ ul {
     .curated-brand-img { height:72px; max-width:320px; width:auto }
     .curated-brand-second .curated-brand-img { height:84px; max-width:320px }
     .curated-brand-divider { height:64px; width:1px }
-@media (max-width:900px) { .curated-brands { gap:28px; flex-direction:row; flex-wrap:wrap }
+@media (max-width:900px) { .curated-brands { display:flex; flex-wrap:wrap; justify-content:center; gap:28px }
+     .curated-brand-divider { display:none }
     .curated-brand-img { height:54px }
     .curated-brand-second .curated-brand-img { height:64px }
      }
@@ -4584,16 +4594,25 @@ ul {
     .events-group--passati { overflow:visible }
     .events-group--passati>.events-group-body { background:#fff; border:1px solid rgba(22,64,104,.25); border-radius:0; padding:4px 18px; box-shadow:0 18px 48px rgba(10,40,68,.22); gap:0 }
     .events-group--passati .event-card { padding:18px 0; gap:18px }
-    .events-group--passati .event-collab-logo,.events-group--passati .event-collab--multi .event-collab-logo { height:44px; max-width:200px }
+    .event-info-col { min-width:0 }
+    .events-group--passati .event-collab-item { max-width:100% }
+    .events-group--passati .event-collab-logo,
+    .events-group--passati .event-collab--multi .event-collab-logo,
+    .events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--advant,
+    .events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--cciaa,
+    .events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--simest { height:auto; max-height:44px; max-width:min(200px, 100%); width:auto }
     .events-group--passati .event-collab-item { background:none; border:0; padding:0 }
 @media (max-width: 600px) {
     .events-group--passati .event-collab-logo,
     .events-group--passati .event-collab--multi .event-collab-logo,
     .events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--advant,
     .events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--cciaa,
-    .events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--simest { height:32px; max-width:140px }
+    .events-group--passati .event-collab--multi .event-collab-logo.event-collab-logo--simest { height:auto; max-height:32px; max-width:min(140px, 100%) }
     .events-group--passati .event-collab-item { max-width:100%; overflow:visible }
     }
 @media (max-width: 900px) {
     .contents-list.is-recent .content-card, .contents-list .content-card.is-featured { padding:12px }
+}
+@media (max-width: 420px) {
+    .interviste-avatars { flex-wrap:wrap; max-width:100% }
 }
