@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=23">
+    <link rel="stylesheet" href="styles.css?v=24">
     <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
@@ -621,17 +621,23 @@
 
     <!-- Chi Siamo -->
     <!-- Video di presentazione: parte da solo quando entra in vista scorrendo la pagina -->
-    <section class="video-home" id="video" aria-labelledby="video-title">
-        <div class="container">
-            <header class="video-home-header">
-                <h2 class="video-home-title" id="video-title">Il progetto in un video</h2>
-            </header>
-            <div class="video-home-frame">
-                <video id="ngbHomeVideo" controls muted playsinline preload="none" poster="assets/video-home-poster.jpg" aria-label="Video di presentazione di Next Generation Business">
-                    <source src="https://github.com/amissori-coder/LandingVerona/releases/download/media-home/video-homepage-ngb.mp4" type="video/mp4">
-                    Il tuo browser non supporta la riproduzione del video.
-                </video>
-            </div>
+    <!-- Il progetto in sei passaggi: le slide scorrono da sole a tutta
+         larghezza, senza comandi, come una parte della pagina. Il testo
+         per i lettori di schermo dice le stesse cose. -->
+    <section class="video-home vc" id="video" aria-labelledby="video-title">
+        <h2 class="sr-only" id="video-title">Next Generation Business in sei passaggi</h2>
+        <ol class="sr-only">
+            <li>Governare un'impresa significa proteggerla. E proteggere chi la guida.</li>
+            <li>Next Generation Business, il percorso di eventi B2B dedicato a chi guida l'impresa.</li>
+            <li>Gli adeguati assetti (art. 2086 c.c.) non sono una scelta: sono un obbligo.</li>
+            <li>Ogni tema si innesta sullo stesso fondamento: Modello 231, rating di legalità, Tax Control Framework, ESG, crisi d'impresa, protezione del patrimonio, finanza agevolata, crediti d'imposta ZLS e ZES.</li>
+            <li>Una presenza capillare, da Nord a Sud: oltre 130 professionisti in 60 province e 20 regioni.</li>
+            <li>Oltre la verifica, verso il valore.</li>
+        </ol>
+        <div class="video-home-frame">
+            <video id="ngbHomeVideo" muted loop playsinline preload="none" disablepictureinpicture disableremoteplayback poster="assets/video-home-poster.jpg?v=2" aria-hidden="true" tabindex="-1">
+                <source src="assets/video-home.mp4" type="video/mp4">
+            </video>
         </div>
     </section>
 
@@ -1058,7 +1064,7 @@
         </div>
     </footer>
 
-    <script src="script.js?v=9"></script>
+    <script src="script.js?v=10"></script>
     <script src="assets/event-banner.js" defer></script>
     <!-- data-pillola: la pillola fissa "Diretta Napoli" in basso a sinistra -->
     <script src="/assets/diretta-stato.js?v=20260927b" data-pillola defer></script>

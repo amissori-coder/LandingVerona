@@ -709,81 +709,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
-// Video della home: copertina con un grande pulsante play al centro. Il
-// video (senza audio) parte al clic e i comandi del browser compaiono solo
-// da li'. In pausa e alla fine il pulsante torna ("Riprendi", "Rivedi")
-// lasciando libera la barra dei comandi; non compare mentre si trascina la
-// barra del tempo. Se il file non arriva il pulsante torna e riprova. Fuori
-// vista il video si ferma (non in picture-in-picture). Senza JavaScript
-// restano la copertina e i comandi del browser.
+// Video della home: le slide del progetto scorrono da sole a tutta larghezza,
+// senza comandi ne' pulsanti, come una parte della pagina. Partono quando la
+// sezione sta per entrare in vista e si fermano quando esce (niente consumo
+// fuori vista, ne' con la scheda in secondo piano). La copertina e' il
+// fotogramma a 6 secondi: la prima volta si parte da li', cosi' fra copertina
+// e movimento non c'e' salto. Se il browser non avvia il video da solo
+// (risparmio energetico, risparmio dati) resta la copertina.
+// Ai lati, dove lo schermo e' piu' largo del 16:9, le fasce prendono il colore
+// del bordo della slide in corso: la banda sembra larga quanto lo schermo.
 (function () {
     var video = document.getElementById('ngbHomeVideo');
     if (!video) return;
     var cornice = video.parentNode;
-    var DURATA = '54 secondi';
-
-    var play = document.createElement('button');
-    play.type = 'button';
-    play.className = 'video-play';
-    play.innerHTML =
-        '<span class="video-play-cerchio" aria-hidden="true">' +
-            '<svg viewBox="0 0 24 24" focusable="false"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10-6.4a.8.8 0 0 0 0-1.4l-10-6.4A.8.8 0 0 0 8 5.6z" fill="currentColor"></path></svg>' +
-        '</span>' +
-        '<span class="video-play-etichetta" aria-hidden="true"><span class="video-play-azione"></span><span class="video-play-durata">' + DURATA + '</span></span>';
-    cornice.appendChild(play);
-    var azione = play.querySelector('.video-play-azione');
-    var durata = play.querySelector('.video-play-durata');
+    var INIZIO = 6, DURATA = 54;
+    var risparmio = navigator.connection && navigator.connection.saveData;
+    video.muted = true;         // solo i video muti possono partire da soli
     video.controls = false;
+    if (risparmio || !('IntersectionObserver' in window)) return;
 
-    // il nome accessibile sta sul pulsante: sul telefono, in pausa, la scritta non si vede
-    function mostra(testo, conDurata) {
-        azione.textContent = testo;
-        durata.hidden = !conDurata;
-        play.setAttribute('aria-label', conDurata ? testo + ', ' + DURATA : testo);
-        play.hidden = false;
+    // colore del bordo del video, misurato sul file e ridotto ai punti in cui cambia
+    var BORDI = '0 0b2236,0.3 13395b,0.53 164069,3.93 164069,4 174068,4.2 214972,4.23 22496e,4.7 22496e,4.8 1e4870,5.07 164069,5.17 164069,7.43 164069,7.73 123659,8 0a1f33,8.07 3f4d5f,8.1 4e5d6e,8.13 6e7b88,8.23 a6acb5,8.37 dadce0,8.47 f3f3f5,8.57 ffffff,14.93 ffffff,15.03 f3f3f5,15.13 dadce0,15.27 a4acb4,15.37 6c7983,15.47 253849,15.5 0a1f33,15.7 113251,15.97 153f65,16.03 164069,20.1 164069,20.43 1c466e,20.57 204971,21.03 22486e,21.23 1e4871,21.43 164069,23.47 164069,23.73 123659,23.77 123352,23.9 0f2a44,24 0a1f33,24.07 3f4d5f,24.13 6c7983,24.23 a4acb4,24.33 cfd3d7,24.4 e4e5ea,24.5 f9f9f9,24.57 ffffff,39.43 ffffff,39.53 f3f3f5,39.6 e4e5ea,39.7 c2c6cc,39.8 949ca5,39.9 556471,40 0a1f33,40.1 0f2a44,40.13 0f2a44,40.17 142f4d,40.23 123352,40.3 13395b,40.53 164069,44.33 164069,44.6 1a446c,44.77 1f4970,45.17 22486d,45.4 1e4870,45.57 164069,46.43 164069,46.73 123659,46.8 113251,47 0a1f33,47.17 122f4d,47.23 123352,47.3 13395b,47.53 164069,52.07 164069,52.4 1b456e,52.7 21496f,53.17 214870,53.33 1c446a,53.43 183e66,53.57 14375a,53.8 102b47,53.97 0b2236'.split(',').map(function (k) {
+        var p = k.split(' '), n = parseInt(p[1], 16);
+        return [parseFloat(p[0]), n >> 16, (n >> 8) & 255, n & 255];
+    });
+    function coloreA(t) {
+        var i = 1;
+        while (i < BORDI.length - 1 && BORDI[i][0] < t) i++;
+        var a = BORDI[i - 1], b = BORDI[i];
+        var f = Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0])));
+        return 'rgb(' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ',' + Math.round(a[3] + (b[3] - a[3]) * f) + ')';
     }
-    mostra('Guarda il video', true);
+    function colora(t) {
+        if (Math.abs(video.duration - DURATA) < 0.5) cornice.style.backgroundColor = coloreA(t);
+    }
+    var attesa = 0, giro = 0;
+    function suFotogramma(adesso, info) { attesa = 0; colora(info.mediaTime); prenota(); }
+    function prenota() { if (!attesa && video.requestVideoFrameCallback) attesa = video.requestVideoFrameCallback(suFotogramma); }
+    function anima() { colora(video.currentTime); giro = !video.paused ? requestAnimationFrame(anima) : 0; }
+    video.addEventListener('playing', function () { if (video.requestVideoFrameCallback) prenota(); else if (!giro) anima(); });
 
-    var clicPlay = 0, attesaPausa = null;
-    play.addEventListener('click', function () {
-        clicPlay = Date.now();
-        if (video.networkState === 3) video.load();   // file non arrivato: si riprova
+    var primaVolta = true, inVista = false;
+    function parti() {
+        if (!inVista || document.hidden) return;
+        if (primaVolta) {
+            primaVolta = false;
+            var salta = function () { try { video.currentTime = INIZIO; } catch (e) {} };
+            if (video.readyState >= 1) salta(); else video.addEventListener('loadedmetadata', salta, { once: true });
+        }
         var avvio = video.play();
-        // riproduzione rifiutata dal browser: restano i comandi nativi
-        if (avvio && avvio.catch) avvio.catch(function () { video.controls = true; play.hidden = true; });
-    });
-    // il secondo clic di un doppio clic sul play non deve rimettere in pausa il video
-    video.addEventListener('click', function (e) {
-        if (Date.now() - clicPlay < 600) { e.preventDefault(); e.stopPropagation(); }
-    }, true);
-    video.addEventListener('play', function () {
-        var aveva = document.activeElement === play;
-        clearTimeout(attesaPausa);
-        cornice.classList.add('is-avviato');
-        video.controls = true;
-        play.hidden = true;
-        if (aveva) { try { video.focus({ preventScroll: true }); } catch (e) { video.focus(); } }
-    });
-    // trascinando la barra del tempo il browser mette in pausa e cerca: il
-    // pulsante aspetta mezzo secondo senza ricerche prima di tornare
-    function pausaVera() {
-        clearTimeout(attesaPausa);
-        attesaPausa = setTimeout(function () {
-            if (video.paused && !video.ended && !video.seeking) mostra('Riprendi il video', false);
-        }, 500);
+        if (avvio && avvio.catch) avvio.catch(function () {});   // non parte da solo: resta la copertina
     }
-    video.addEventListener('pause', pausaVera);
-    video.addEventListener('seeking', function () { if (video.paused && play.hidden) pausaVera(); });
-    video.addEventListener('ended', function () { clearTimeout(attesaPausa); mostra('Rivedi il video', false); });
-    var fonti = video.getElementsByTagName('source');
-    if (fonti.length) {
-        fonti[fonti.length - 1].addEventListener('error', function () { mostra('Video non disponibile, riprova', false); });
-    }
-    if ('IntersectionObserver' in window) {
-        new IntersectionObserver(function (voci) {
-            if (!voci[voci.length - 1].isIntersecting && !video.paused && document.pictureInPictureElement !== video) video.pause();
-        }).observe(video);
-    }
+    function ferma() { if (!video.paused) video.pause(); }
+    new IntersectionObserver(function (voci) {
+        inVista = voci[voci.length - 1].isIntersecting;
+        if (inVista) parti(); else ferma();
+    }, { rootMargin: '200px 0px' }).observe(cornice);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) ferma(); else parti(); });
 })();
 
 // Eventi passati: il pannello a tendina si chiude cliccando fuori o con Esc

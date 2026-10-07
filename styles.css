@@ -4210,7 +4210,7 @@ ul {
    parte un tono piu' profondo con un filetto a tutta larghezza, cosi' il
    pannello di sinistra non continua nel video e la colonna chiara non
    resta un riquadro appoggiato sul blu */
-#video { background: #0a2238; border-top: 1px solid rgba(255,255,255,.12); }
+#video { background: #0a2238; }
 .interviste-banda { background: #fff; border-top: 0; padding: 44px 0; }
 .chi-siamo { background: #eef2f6; border-top: 1px solid rgba(22,64,104,.28); }
 .sedi { background: #fff; border-top: 1px solid rgba(22,64,104,.28); }
@@ -4576,98 +4576,48 @@ ul {
 }
 
 /* ============================================================
-   VIDEO DELLA HOME: PULSANTE PLAY AL CENTRO
-   Copertina blu con il centro libero e un grande cerchio bianco con
-   il triangolo navy; sotto, "Guarda il video" e la durata. Un anello
-   chiaro si allarga piano attorno al cerchio (fermo con "riduci
-   movimento"). Dopo il primo avvio il pulsante lascia libera la barra
-   dei comandi del browser in basso.
+   VIDEO DELLA HOME: BANDA A TUTTA LARGHEZZA
+   Le slide del progetto scorrono da sole da bordo a bordo, senza
+   comandi, cornice ne' titolo: sembrano una parte della pagina, non un
+   video. Il 16:9 non si taglia mai; dove lo schermo e' piu' largo le
+   fasce ai lati prendono il colore della slide (script.js). La banda
+   sta sempre tutta sotto il menu. Il video e' ingrandito del 6% e i
+   suoi bordi sfumano nelle fasce: il filetto interno delle slide non
+   si vede.
    ============================================================ */
-.video-home-frame { background: #133c63; }
-.video-play {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.sr-only {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%);
+    white-space: nowrap; border: 0;
+}
+#video.vc { padding: 0; background: #164069; border-top: 0; }
+#video.vc .video-home-frame {
+    position: relative;
     width: 100%;
+    max-width: none;
+    aspect-ratio: 16 / 9;
+    max-height: calc(100vh - var(--nav-h, 73px));
     margin: 0;
-    padding: 0;
     border: 0;
     border-radius: 0;
-    cursor: pointer;
-    color: #fff;
-    font: inherit;
-    text-align: center;
+    box-shadow: none;
+    overflow: hidden;
+    background: #164069;
+}
+#video.vc .video-home-frame video {
+    display: block;
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    aspect-ratio: 16 / 9;
+    margin: 0 auto;
+    object-fit: contain;
     background: transparent;
-    -webkit-tap-highlight-color: transparent;
-}
-.video-play[hidden] { display: none; }
-/* dopo l'avvio il pulsante lascia libera tutta la barra dei comandi del browser (73 px in Chrome) */
-.is-avviato .video-play { bottom: 74px; background: linear-gradient(to bottom, rgba(8, 26, 44, 0.68) calc(100% - 40px), rgba(8, 26, 44, 0)); }
-.video-play-cerchio {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 96px;
-    height: 96px;
-    border-radius: 50%;
-    background: #fff;
-    color: #0f2d4a;
-    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.16), 0 14px 34px rgba(4, 16, 28, 0.35);
-    transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
-}
-.video-play-cerchio svg { width: 36px; height: 36px; margin-left: 5px; }
-.video-play-cerchio::after {
-    content: '';
-    position: absolute;
-    inset: -8px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.55);
-    animation: videoPlayAnello 2.4s ease-out infinite;
+    transform: scale(1.06);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%);
     pointer-events: none;
-}
-@keyframes videoPlayAnello {
-    0% { transform: scale(1); opacity: 0.8; }
-    70%, 100% { transform: scale(1.32); opacity: 0; }
-}
-.video-play:hover .video-play-cerchio { transform: scale(1.06); box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.2), 0 18px 40px rgba(4, 16, 28, 0.4); }
-.video-play:active .video-play-cerchio { transform: scale(0.98); }
-.video-play:focus-visible { outline: none; }
-.video-play:focus-visible .video-play-cerchio { outline: 3px solid #fff; outline-offset: 12px; }
-.video-play-etichetta {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(50% + 66px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-display);
-    text-shadow: 0 1px 10px rgba(4, 16, 28, 0.45);
-}
-.video-play-azione { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.video-play-durata { font-family: var(--font-body); font-size: 0.78rem; font-weight: 500; color: rgba(255, 255, 255, 0.72); }
-.video-play-durata[hidden] { display: none; }
-@media (max-width: 600px) {
-    .video-play-etichetta { top: calc(50% + 48px); }
-    .video-play-cerchio { width: 72px; height: 72px; box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.16), 0 10px 24px rgba(4, 16, 28, 0.35); }
-    .video-play-cerchio svg { width: 28px; height: 28px; margin-left: 4px; }
-    .video-play-cerchio::after { inset: -6px; }
-    .video-play-azione { font-size: 0.72rem; }
-    /* sul telefono "Guarda il video" e la durata stanno su una riga, dentro il riquadro */
-    .video-play-etichetta { flex-direction: row; justify-content: center; align-items: baseline; gap: 8px; }
-    /* in pausa sul telefono resta solo il cerchio: la scritta finirebbe sui comandi */
-    .is-avviato .video-play-etichetta { display: none; }
-}
-@media (max-width: 380px) {
-    .is-avviato .video-play-cerchio { width: 56px; height: 56px; }
-    .is-avviato .video-play-cerchio svg { width: 22px; height: 22px; margin-left: 3px; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .video-play-cerchio::after { animation: none; opacity: 0; }
-    .video-play-cerchio { transition: none; }
 }
