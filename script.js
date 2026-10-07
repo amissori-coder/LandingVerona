@@ -204,33 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // === News banner: fixed strip under the navbar ===
-    // Highlights the latest Osservatorio content. Dismissable per session.
-    const newsBanner = document.getElementById('newsBanner');
-    if (newsBanner && navbar && !sessionStorage.getItem('ngbNewsBannerClosed')) {
-        newsBanner.hidden = false;
-        const positionBanner = () => {
-            newsBanner.style.top = navbar.getBoundingClientRect().height + 'px';
-            // l'hero e gli anchor lasciano spazio al banner (vedi --banner-h in styles.css)
-            document.documentElement.style.setProperty('--banner-h', newsBanner.offsetHeight + 'px');
-        };
-        positionBanner();
-        window.addEventListener('resize', positionBanner);
-        window.addEventListener('scroll', positionBanner, { passive: true });
-        const bannerLink = newsBanner.querySelector('.news-banner-link');
-        if (bannerLink) bannerLink.addEventListener('click', () => {
-            if (typeof window.gtag === 'function') window.gtag('event', 'click_banner_novita', { destinazione: bannerLink.getAttribute('href') });
-        });
-        const bannerClose = document.getElementById('newsBannerClose');
-        if (bannerClose) {
-            bannerClose.addEventListener('click', () => {
-                newsBanner.remove();
-                document.documentElement.style.setProperty('--banner-h', '0px');
-                sessionStorage.setItem('ngbNewsBannerClosed', '1');
-            });
-        }
-    }
-
     // === Smooth-scroll for in-page anchor links ===
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', (e) => {
@@ -240,10 +213,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!target) return;
             e.preventDefault();
             const navbarHeight = navbar ? navbar.offsetHeight : 80;
-            const banner = document.getElementById('newsBanner');
-            const bannerHeight = banner && !banner.hidden ? banner.offsetHeight : 0;
-            const top = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight - bannerHeight - 10;
+            const top = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight - 10;
             window.scrollTo({ top, behavior: 'smooth' });
+            // dopo un clic col mouse il sottomenu dei Quaderni si chiude e non copre
+            // la destinazione (da tastiera, detail 0, il focus resta dov'e')
+            if (e.detail && anchor.closest('.has-submenu')) anchor.blur();
             // il link "Vai al contenuto" porta anche il focus dentro il contenuto
             if (target.id === 'main') target.focus({ preventScroll: true });
         });
@@ -968,6 +942,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', allinea);
     window.addEventListener('load', allinea);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(allinea);
-    // il banner delle novita' e la tendina degli eventi cambiano le altezze
+    // la tendina degli eventi cambia le altezze
     if ('ResizeObserver' in window) new ResizeObserver(allinea).observe(document.querySelector('.split-content') || rail);
 })();
