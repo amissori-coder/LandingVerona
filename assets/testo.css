@@ -90,17 +90,13 @@ nav li, .nav-menu li, .submenu li, .footer-links li {
 /* Paragrafi centrati per scelta (anche con stile inline): restano centrati, anche nell'ultima riga */
 p[style*="text-align: center"], p[style*="text-align:center"],
 li[style*="text-align: center"], li[style*="text-align:center"],
-blockquote.chi-siamo-motto,
 p.aig-radar__stato,
 p.aiuto,
 p.area-desc,
 p.area-label,
 p.azioni-stato,
 p.caricamento-lento,
-p.chi-siamo-motto-text,
 p.codice-mio,
-p.curated-statement,
-p.curated-tagline,
 p.footer-legal,
 p.footer-privacy,
 p.form-footnote,
@@ -109,7 +105,6 @@ p.funz-nota,
 p.hero-conteggio,
 p.hero-cta-note,
 p.hero-subtitle,
-p.mission-risks-sub,
 p.nota-chiara,
 p.nota-riservata,
 p.nota,
@@ -123,7 +118,6 @@ p.riga-link,
 p.schermo-testo,
 p.schermo-titolo,
 p.section-subtitle,
-p.sedi-intro,
 p.servizi-hub-hint,
 p.sottotitolo,
 p.testo-stato {
@@ -136,10 +130,16 @@ p.aig-tag {
     text-align-last: right;
 }
 
-/* In home il sottotitolo dell'hero e' allineato a sinistra, non centrato come nelle altre pagine */
-.landing-split p.hero-subtitle {
-    text-align: justify !important;
+/* In home il sottotitolo dell'hero e i due rimandi stanno in una colonna
+   stretta con carattere grande: giustificati si aprirebbero. A sinistra. */
+.landing-split p.hero-subtitle,
+.landing-split .brand-highlight-text,
+.chi-siamo-motto,
+.chi-siamo-motto-text {
+    text-align: start !important;
     text-align-last: start;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
 }
 
 /* Blocchi troppo stretti per il giustificato (meno di 32 caratteri per riga):

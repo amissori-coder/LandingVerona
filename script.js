@@ -75,6 +75,7 @@ function showNgbNotification(message, type) {
 
     const notification = document.createElement('div');
     notification.className = 'ngb-notification ngb-notification-' + type;
+    notification.setAttribute('role', type === 'error' ? 'alert' : 'status');
     notification.innerHTML = '<span></span><button type="button" aria-label="Chiudi">&times;</button>';
     notification.querySelector('span').textContent = message;
 
@@ -210,6 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
         newsBanner.hidden = false;
         const positionBanner = () => {
             newsBanner.style.top = navbar.getBoundingClientRect().height + 'px';
+            // l'hero e gli anchor lasciano spazio al banner (vedi --banner-h in styles.css)
+            document.documentElement.style.setProperty('--banner-h', newsBanner.offsetHeight + 'px');
         };
         positionBanner();
         window.addEventListener('resize', positionBanner);
@@ -222,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bannerClose) {
             bannerClose.addEventListener('click', () => {
                 newsBanner.remove();
+                document.documentElement.style.setProperty('--banner-h', '0px');
                 sessionStorage.setItem('ngbNewsBannerClosed', '1');
             });
         }
@@ -236,8 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!target) return;
             e.preventDefault();
             const navbarHeight = navbar ? navbar.offsetHeight : 80;
-            const top = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight + 10;
+            const banner = document.getElementById('newsBanner');
+            const bannerHeight = banner && !banner.hidden ? banner.offsetHeight : 0;
+            const top = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight - bannerHeight - 10;
             window.scrollTo({ top, behavior: 'smooth' });
+            // il link "Vai al contenuto" porta anche il focus dentro il contenuto
+            if (target.id === 'main') target.focus({ preventScroll: true });
         });
     });
 
@@ -410,6 +418,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const input = newsletterForm.querySelector('[name="' + name + '"]');
             const field = input ? input.closest('.newsletter-field') : null;
             if (field) field.classList.toggle('is-error', !!hasError);
+            const ctrl = field && (field.matches('input, textarea, select') ? field : field.querySelector('input, textarea, select'));
+            if (ctrl) ctrl.setAttribute('aria-invalid', hasError ? 'true' : 'false');
         };
 
         newsletterForm.addEventListener('submit', (e) => {
@@ -638,7 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tooltip.hidden = true;
             const prevMarker = markersContainer.querySelector('.sedi-marker.is-active');
             if (prevMarker) prevMarker.classList.remove('is-active');
-            const prevLi = listContainer.querySelector('.sedi-list > li.is-active');
+            const prevLi = listContainer.querySelector('[data-city].is-active');
             if (prevLi) prevLi.classList.remove('is-active');
             activeSlug = null;
         }
@@ -660,9 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
             marker.setAttribute('r', '4.5');
             marker.setAttribute('class', 'sedi-marker');
             marker.setAttribute('data-city', slug);
-            marker.setAttribute('tabindex', '0');
-            marker.setAttribute('role', 'button');
-            marker.setAttribute('aria-label', 'Sede Revilaw: ' + city.name);
+            // i marker non entrano nel tab order: la mappa e' decorativa (aria-hidden), l'elenco delle citta' e' il testo accessibile
 
             marker.addEventListener('mouseenter', () => activate(city));
             marker.addEventListener('mouseleave', deactivate);
@@ -760,6 +768,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gruppo.open && !gruppo.contains(e.target)) gruppo.open = false;
     });
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && gruppo.open) gruppo.open = false;
+        if (e.key !== 'Escape' || !gruppo.open) return;
+        var dentro = gruppo.contains(document.activeElement);
+        gruppo.open = false;
+        // chi stava navigando dentro il pannello riparte dalla sua testata, non da inizio pagina
+        if (dentro || document.activeElement === document.body) gruppo.querySelector('summary').focus();
     });
 })();
