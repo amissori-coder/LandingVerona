@@ -4018,7 +4018,7 @@ ul {
     clip: rect(0 0 0 0); clip-path: inset(50%);
     white-space: nowrap; border: 0;
 }
-#video.vc { padding: 0; background: #164069; border-top: 0; }
+#video.vc { padding: 0; background: #163f66; border-top: 0; }
 #video.vc .video-home-frame {
     position: relative;
     width: 100%;
@@ -4031,7 +4031,7 @@ ul {
     border-radius: 0;
     box-shadow: none;
     overflow: hidden;
-    background: #164069;
+    background: #163f66;
 }
 #video.vc .video-home-frame video {
     display: block;
