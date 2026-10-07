@@ -28739,6 +28739,7 @@
         { percorso: '/modello_231/', nome: 'Modello 231: responsabilità degli enti' },
         { percorso: '/adempimento_collaborativo/', nome: 'Adempimento collaborativo e Tax Control Framework' },
         { percorso: '/rating_legalita/', nome: 'Rating di legalità: punteggio AGCM' },
+        { percorso: '/rating_legalita_incentivi/', nome: 'Rating di legalità: criterio per gli incentivi' },
         { percorso: '/rating_bancario/', nome: 'Rating bancario: simulatore MCC' },
         { percorso: '/sostenibilita_esg/', nome: 'Sostenibilità d\'impresa ed ESG' },
         { percorso: '/ai_act_2026/', nome: 'AI Act: gli obblighi dal 2 agosto 2026' },
