@@ -4488,11 +4488,9 @@ ul {
     overflow: clip; /* come hidden, ma il pannello non diventa scorrevole */
 }
 .brand-inner { position: relative; z-index: 1; min-width: 0; }
-.sistema { position: absolute; z-index: 0; right: 0; top: calc(50% + (48px + var(--banner-h, 0px)) / 2); width: 0; height: 0; }
+.sistema { position: absolute; z-index: 0; right: 0; top: var(--orb-cy, calc(50% + (48px + var(--banner-h, 0px)) / 2)); width: 0; height: 0; }
 .sistema-anello { --d: var(--orb-r); position: absolute; left: calc(-1 * var(--d)); top: calc(-1 * var(--d)); width: calc(2 * var(--d)); height: calc(2 * var(--d)); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 50%; pointer-events: none; }
 .sistema-anello--centro { --d: calc(var(--orb-c) + 16px); border-color: rgba(127, 186, 255, 0.4); }
-.sistema-anello--largo { --d: calc(var(--orb-r) + 150px); border-color: rgba(255, 255, 255, 0.1); }
-.sistema-anello--fondo { --d: calc(var(--orb-r) + 310px); border-color: rgba(255, 255, 255, 0.06); }
 
 .sistema-centro { position: absolute; left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: var(--orb-c); height: calc(2 * var(--orb-c)); display: flex; align-items: center; padding: 0 12px 0 calc(var(--orb-c) * 0.15); border-radius: var(--orb-c) 0 0 var(--orb-c); background: var(--light-gray); color: #0f2d4a; text-decoration: none; text-align: left; transition: background-color 0.15s ease; }
 .sistema-centro-corpo { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
@@ -4534,7 +4532,6 @@ ul {
 @media (max-width: 1180px) {
     .split-brand { --orb-r: clamp(220px, 25vw, 270px); --orb-c: calc(var(--orb-r) * 0.36); align-items: start; padding-right: 48px; padding-bottom: calc(var(--orb-r) + 52px); }
     .sistema { right: auto; left: 50%; top: 100%; }
-    .sistema-anello--fondo { display: none; }
     .sistema-centro { left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: calc(2 * var(--orb-c)); height: var(--orb-c); align-items: flex-end; justify-content: center; padding: 0 12px calc(var(--orb-c) * 0.17); border-radius: var(--orb-c) var(--orb-c) 0 0; text-align: center; }
     .sistema-centro-corpo { align-items: center; gap: 5px; }
     .sistema-centro-nome { font-size: 15px; }
@@ -4576,35 +4573,69 @@ ul {
 }
 @media (prefers-reduced-motion: reduce) {
     .sistema-centro, .sistema-punto { transition: none; }
+}
+
+/* i servizi si riconoscono come link: freccia dopo il nome al passaggio del
+   mouse e al focus, sempre visibile sui dispositivi al tocco */
+.sistema-nome::after { content: "\00a0\2192"; display: inline; margin-left: 2px; color: #7fbaff; opacity: 0; transition: opacity 0.15s ease; }
+.sistema-nodo:hover .sistema-nome::after, .sistema-nodo:focus-visible .sistema-nome::after { opacity: 1; }
+.sistema-nodo:focus-visible .sistema-punto { background: #fff; }
+.sistema-nodo:focus-visible .sistema-nome { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+@media (hover: none) { .sistema-nome::after { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sistema-nome::after { transition: none; } }
+/* Fra 901 e 1180 px sotto il pannello c'e' la sezione video, navy: il disco
+   chiaro resterebbe un sole isolato. Li' il disco e' navy chiaro, testo bianco. */
+@media (min-width: 901px) and (max-width: 1180px) {
+    .sistema-centro { background: #13385e; color: #fff; }
+    .sistema-centro:hover { background: #164068; }
+    .sistema-centro-rif { color: rgba(255, 255, 255, 0.72); }
+    .sistema-centro:focus-visible { outline-color: #7fbaff; }
+}
 
 /* --- Ultimi approfondimenti che scorrono da soli (script.js aggiunge
-   .is-scorrevole, i comandi e la riga di avanzamento). Desktop: due righe,
-   due colonne visibili, una colonna per passo; schermi bassi: una riga;
-   telefoni: una card per passo. Fino a 12 approfondimenti, i piu' recenti. --- */
-.contents-piede { grid-column: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
-.contents-piede .contents-all { margin: 0; }
+   .is-scorrevole, la testata con i comandi e la riga di avanzamento).
+   Desktop: due righe, due colonne visibili, una colonna per passo; fra
+   901 e 1180 px e sugli schermi bassi una riga; telefoni: una card per
+   passo. Fino a 12 approfondimenti, i piu' recenti. --- */
+.contents-testa { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 0 0 4px; }
+.contents-testa .contents-recent-label { margin: 0; }
 .contents-scorri { display: flex; gap: 4px; }
 .contents-scorri[hidden] { display: none; }
-.contents-scorri-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; background: transparent; color: #0f2d4a; border: 1px solid rgba(22, 64, 104, 0.3); border-radius: 2px; cursor: pointer; }
+.contents-scorri-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: transparent; color: #0f2d4a; border: 1px solid rgba(22, 64, 104, 0.3); border-radius: 2px; cursor: pointer; }
 .contents-scorri-btn:hover { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
-.contents-scorri-btn:focus-visible { outline: 2px solid #7fbaff; outline-offset: 2px; }
+.contents-scorri-btn:focus-visible { outline: 2px solid #164068; outline-offset: 2px; }
 .contents-scorri.is-ferma .contents-scorri-pausa { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
 .contents-list.is-recent.is-scorrevole { display: grid; grid-template-columns: none; grid-template-rows: auto auto; grid-auto-flow: column; grid-auto-columns: calc((100% - 28px) / 2); column-gap: 28px; row-gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; margin-top: 0; border-top: 0; }
 .contents-list.is-recent.is-scorrevole::-webkit-scrollbar { display: none; }
-.contents-list.is-recent.is-scorrevole .content-card { scroll-snap-align: start; }
+.contents-list.is-recent.is-scorrevole.is-ferma-statica { border-top: 1px solid rgba(22, 64, 104, 0.18); }
+.contents-list.is-recent.is-scorrevole .content-card { scroll-snap-align: start; overflow: hidden; }
 .contents-list.is-recent.is-scorrevole .content-card:nth-child(-n+12) { display: flex; }
-.contents-list.is-recent.is-scorrevole .content-card:nth-child(n+13) { display: none; }
+.contents-list.is-recent.is-scorrevole .content-card:nth-child(n+13),
+.contents-list.is-recent.is-scorrevole .content-card.is-hidden { display: none; }
+/* il contenitore che scorre taglierebbe l'anello esterno: anello interno, navy */
+.contents-list.is-recent.is-scorrevole .content-card:focus-visible { outline: 2px solid #164068; outline-offset: -2px; }
+/* nelle colonne strette categoria e pillola vanno a capo invece di sporgere */
+.contents-list.is-recent.is-scorrevole .content-tag { white-space: normal; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.contents-list.is-recent.is-scorrevole .content-badge { margin-left: 0; white-space: nowrap; }
 .contents-avanzamento { grid-column: 1; position: relative; height: 2px; margin: 0; background: rgba(22, 64, 104, 0.18); overflow: hidden; }
 .contents-avanzamento[hidden] { display: none; }
 .contents-avanzamento span { position: absolute; left: 0; top: 0; bottom: 0; background: #0f2d4a; transition: transform 0.5s ease; }
-@media (min-width: 901px) and (max-height: 820px) {
+@media (min-width: 901px) and (max-width: 1180px), (min-width: 901px) and (max-height: 820px) {
     .contents-list.is-recent.is-scorrevole { grid-template-rows: auto; }
     .contents-list.is-recent.is-scorrevole .content-card:nth-child(n+3):nth-child(-n+12) { display: flex; }
+}
+/* fra 901 e 1180 px la colonna e' stretta: una card per volta, a tutta larghezza */
+@media (min-width: 901px) and (max-width: 1180px) {
+    .contents-list.is-recent.is-scorrevole { grid-auto-columns: 100%; }
 }
 @media (max-width: 900px) {
     .contents-avanzamento { margin-bottom: 8px; }
     .contents-list.is-recent.is-scorrevole { display: flex; grid-auto-flow: initial; gap: 12px; }
     .contents-list.is-recent.is-scorrevole .content-card:nth-child(-n+12) { display: flex; }
+}
+@media (pointer: coarse) {
+    .contents-scorri { gap: 8px; }
+    .contents-scorri-btn { width: 36px; height: 36px; }
 }
 @media (prefers-reduced-motion: reduce) {
     .contents-avanzamento span { transition: none; }

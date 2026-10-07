@@ -778,45 +778,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // === Ultimi approfondimenti: scorrimento automatico ===
 // La lista della home scorre da sola di una colonna ogni 5 secondi e
-// ricomincia dall'inizio. Si ferma quando il mouse e' sopra, quando una
-// card ha il focus, quando l'utente la scorre a mano, quando la sezione
-// non e' visibile o la scheda del browser e' in secondo piano. Con
-// "riduci movimento" attivo parte in pausa. I pulsanti (precedenti,
-// pausa/riprendi, successivi, accanto a "Tutti gli approfondimenti") e la
-// riga di avanzamento sopra la lista li crea lo script: senza JavaScript la
-// lista resta una griglia statica.
+// ricomincia dall'inizio. Si ferma con il mouse sopra la lista o sulle
+// frecce, con il focus da tastiera su una card o sulle frecce, dopo uno
+// scorrimento a mano (riparte dopo 8 secondi), quando la sezione non e'
+// visibile o la scheda del browser e' in secondo piano. Con "riduci
+// movimento" parte in pausa. I comandi (precedenti, pausa/riprendi,
+// successivi) stanno nella riga dell'etichetta, PRIMA della lista, come
+// chiede il modello "carousel" delle linee guida ARIA; la riga di
+// avanzamento prende il posto del filetto sopra la lista. Senza JavaScript
+// la lista resta la griglia statica di prima.
 (function () {
     var lista = document.getElementById('contentsGrid');
     if (!lista || !lista.classList.contains('is-recent')) return;
-    var tutti = lista.parentNode.querySelector('.contents-all');
+    var etichetta = lista.parentNode.querySelector('.contents-recent-label');
 
     var INTERVALLO = 5000;      // ms fra un passo e il successivo
     var RIPRESA = 8000;         // ms di attesa dopo uno scorrimento a mano
-    var ridotto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    var ridotto = !!(mq && mq.matches);
 
     lista.classList.add('is-scorrevole');
-    lista.setAttribute('aria-label', 'Ultimi approfondimenti, scorrimento automatico');
+    lista.setAttribute('role', 'region');
+    lista.setAttribute('aria-roledescription', 'carosello');
+    if (etichetta) {
+        if (!etichetta.id) etichetta.id = 'ultimi-approfondimenti-titolo';
+        lista.setAttribute('aria-labelledby', etichetta.id);
+    } else {
+        lista.setAttribute('aria-label', 'Ultimi approfondimenti');
+    }
 
+    var freccia = function (d) { return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="' + (d < 0 ? '15 18 9 12 15 6' : '9 18 15 12 9 6') + '"></polyline></svg>'; };
+    var ICONA_PAUSA = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>';
+    var ICONA_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg>';
+
+    // testata: etichetta a sinistra, comandi a destra, prima della lista
+    var testa = document.createElement('div');
+    testa.className = 'contents-testa';
+    lista.parentNode.insertBefore(testa, etichetta || lista);
+    if (etichetta) testa.appendChild(etichetta);
     var comandi = document.createElement('div');
     comandi.className = 'contents-scorri';
     comandi.setAttribute('role', 'group');
     comandi.setAttribute('aria-label', 'Comandi dello scorrimento');
-    var freccia = function (d) { return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="' + (d < 0 ? '15 18 9 12 15 6' : '9 18 15 12 9 6') + '"></polyline></svg>'; };
-    var ICONA_PAUSA = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>';
-    var ICONA_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg>';
     comandi.innerHTML =
-        '<button type="button" class="contents-scorri-btn" data-passo="-1" aria-label="Approfondimenti precedenti">' + freccia(-1) + '</button>' +
         '<button type="button" class="contents-scorri-btn contents-scorri-pausa"></button>' +
+        '<button type="button" class="contents-scorri-btn" data-passo="-1" aria-label="Approfondimenti precedenti">' + freccia(-1) + '</button>' +
         '<button type="button" class="contents-scorri-btn" data-passo="1" aria-label="Approfondimenti successivi">' + freccia(1) + '</button>';
-    // piede: "Tutti gli approfondimenti" a sinistra, comandi a destra (nessuna riga in piu')
-    var piede = document.createElement('div');
-    piede.className = 'contents-piede';
-    lista.parentNode.insertBefore(piede, tutti || lista.nextSibling);
-    if (tutti) piede.appendChild(tutti);
-    piede.appendChild(comandi);
+    testa.appendChild(comandi);
     var pulsantePausa = comandi.querySelector('.contents-scorri-pausa');
+    var frecce = Array.prototype.slice.call(comandi.querySelectorAll('[data-passo]'));
 
-    // riga di avanzamento: prende il posto del filetto sopra la lista
+    // riga di avanzamento al posto del filetto sopra la lista
     var avanzamento = document.createElement('div');
     avanzamento.className = 'contents-avanzamento';
     avanzamento.setAttribute('aria-hidden', 'true');
@@ -826,78 +838,136 @@ document.addEventListener('DOMContentLoaded', () => {
 
     var fermatoDaUtente = ridotto;   // pausa scelta con il pulsante (o riduci movimento)
     var sopra = false, focusDentro = false, fuoriVista = false, attesaManuale = false;
-    var timerManuale = null, timer = null;
+    var timerManuale = null, timer = null, bersaglio = null;
 
-    // posizioni di partenza delle colonne visibili (in px di scrollLeft): lo
-    // scorrimento va dritto alla colonna successiva o precedente, cosi'
-    // l'aggancio delle card non fa mai saltare un passo
-    function colonne() {
-        var base = lista.getBoundingClientRect().left - lista.scrollLeft;
-        var viste = {};
+    // posizioni (in px di scrollLeft) delle colonne visibili e fine della corsa,
+    // calcolata dal bordo destro delle card: cio' che sporge non allunga la corsa
+    function misure() {
+        var lr = lista.getBoundingClientRect(), base = lr.left - lista.scrollLeft;
+        var viste = {}, destra = 0;
         Array.prototype.forEach.call(lista.querySelectorAll('.content-card'), function (c) {
             if (getComputedStyle(c).display === 'none') return;
-            viste[Math.round(c.getBoundingClientRect().left - base)] = true;
+            var r = c.getBoundingClientRect();
+            viste[Math.round(r.left - base)] = true;
+            destra = Math.max(destra, r.right - base);
         });
-        return Object.keys(viste).map(Number).sort(function (a, b) { return a - b; });
+        var fine = Math.max(0, Math.min(lista.scrollWidth - lista.clientWidth, Math.round(destra - lista.clientWidth)));
+        var pos = Object.keys(viste).map(Number).filter(function (p) { return p < fine - 2; }).sort(function (a, b) { return a - b; });
+        pos.push(fine);
+        return { pos: pos, fine: fine };
     }
     function vai(direzione) {
-        var max = lista.scrollWidth - lista.clientWidth;
-        if (max <= 2) return;
-        var ora = lista.scrollLeft, pos = colonne(), destinazione = null, i;
+        var m = misure();
+        if (m.fine <= 2) return;
+        // durante un'animazione si parte dalla destinazione gia' scelta, non da meta' strada
+        var ora = bersaglio !== null ? bersaglio : lista.scrollLeft, destinazione = null, i;
         if (direzione > 0) {
-            for (i = 0; i < pos.length; i++) if (pos[i] > ora + 2) { destinazione = pos[i]; break; }
-            if (destinazione === null || ora >= max - 2) destinazione = 0;
+            for (i = 0; i < m.pos.length; i++) if (m.pos[i] > ora + 2) { destinazione = m.pos[i]; break; }
+            if (destinazione === null) destinazione = 0;
         } else {
-            for (i = pos.length - 1; i >= 0; i--) if (pos[i] < ora - 2) { destinazione = pos[i]; break; }
-            if (destinazione === null) destinazione = max;
+            for (i = m.pos.length - 1; i >= 0; i--) if (m.pos[i] < ora - 2) { destinazione = m.pos[i]; break; }
+            if (destinazione === null) destinazione = m.fine;
         }
-        lista.scrollTo({ left: Math.min(destinazione, max), behavior: ridotto ? 'auto' : 'smooth' });
+        bersaglio = destinazione;
+        lista.scrollTo({ left: destinazione, behavior: ridotto ? 'auto' : 'smooth' });
+        clearTimeout(vai.t);
+        vai.t = setTimeout(function () { bersaglio = null; }, ridotto ? 50 : 900);
     }
     function inPausa() { return fermatoDaUtente || sopra || focusDentro || fuoriVista || attesaManuale || document.hidden; }
     function aggiornaPulsante() {
+        // l'etichetta cambia con l'icona (modello "carousel"): niente aria-pressed
         pulsantePausa.innerHTML = fermatoDaUtente ? ICONA_PLAY : ICONA_PAUSA;
         pulsantePausa.setAttribute('aria-label', fermatoDaUtente ? 'Riprendi lo scorrimento automatico' : 'Metti in pausa lo scorrimento automatico');
-        pulsantePausa.setAttribute('aria-pressed', fermatoDaUtente ? 'true' : 'false');
         comandi.classList.toggle('is-ferma', fermatoDaUtente);
     }
     function avvia() {
         clearInterval(timer);
         timer = setInterval(function () { if (!inPausa()) vai(1); }, INTERVALLO);
     }
+    // quando una pausa finisce il conteggio riparte da zero: il passo arriva dopo 5 s pieni
+    function riprendi() { if (!inPausa()) avvia(); }
     function aggiornaBarra() {
-        var tot = lista.scrollWidth, vis = lista.clientWidth;
-        if (tot <= vis + 2) { avanzamento.hidden = true; comandi.hidden = true; return; }
-        avanzamento.hidden = false; comandi.hidden = false;
+        var m = misure(), vis = lista.clientWidth, tot = m.fine + vis;
+        var trabocca = m.fine > 2;
+        avanzamento.hidden = !trabocca; comandi.hidden = !trabocca;
+        lista.classList.toggle('is-ferma-statica', !trabocca);
+        if (!trabocca) return;
         barra.style.width = (vis / tot * 100) + '%';
-        barra.style.transform = 'translateX(' + (lista.scrollLeft / vis * 100) + '%)';
+        barra.style.transform = 'translateX(' + (Math.min(lista.scrollLeft, m.fine) / vis * 100) + '%)';
     }
     function pausaManuale() {
         attesaManuale = true;
         clearTimeout(timerManuale);
-        timerManuale = setTimeout(function () { attesaManuale = false; }, RIPRESA);
+        timerManuale = setTimeout(function () { attesaManuale = false; riprendi(); }, RIPRESA);
+    }
+    function focusDaTastiera(e) {
+        try { return e.target.matches(':focus-visible'); } catch (x) { return true; }
     }
 
-    pulsantePausa.addEventListener('click', function () { fermatoDaUtente = !fermatoDaUtente; aggiornaPulsante(); });
-    comandi.addEventListener('click', function (e) {
-        var b = e.target.closest('[data-passo]');
-        if (!b) return;
-        vai(parseInt(b.getAttribute('data-passo'), 10));
-        pausaManuale();
+    pulsantePausa.addEventListener('click', function () { fermatoDaUtente = !fermatoDaUtente; aggiornaPulsante(); riprendi(); });
+    frecce.forEach(function (b) {
+        b.addEventListener('click', function () { vai(parseInt(b.getAttribute('data-passo'), 10)); pausaManuale(); });
     });
-    lista.addEventListener('mouseenter', function () { sopra = true; });
-    lista.addEventListener('mouseleave', function () { sopra = false; });
-    lista.addEventListener('focusin', function () { focusDentro = true; });
-    lista.addEventListener('focusout', function (e) { if (!lista.contains(e.relatedTarget)) focusDentro = false; });
+
+    // lista e frecce contano come un'unica zona per mouse e focus (il pulsante
+    // pausa resta fuori, cosi' "Riprendi" riparte subito anche con il focus sopra)
+    var zone = [lista].concat(frecce);
+    function inZona(n) { return !!n && zone.some(function (z) { return z.contains(n); }); }
+    zone.forEach(function (z) {
+        z.addEventListener('mouseenter', function () { sopra = true; });
+        z.addEventListener('mouseleave', function (e) { if (!inZona(e.relatedTarget)) { sopra = false; riprendi(); } });
+        z.addEventListener('focusin', function (e) { if (focusDaTastiera(e)) focusDentro = true; });
+        z.addEventListener('focusout', function (e) { if (!inZona(e.relatedTarget)) { focusDentro = false; riprendi(); } });
+    });
+    // una card che riceve il focus da tastiera viene portata tutta in vista
+    lista.addEventListener('focusin', function (e) {
+        var c = e.target.closest && e.target.closest('.content-card');
+        if (!c) return;
+        var lr = lista.getBoundingClientRect(), cr = c.getBoundingClientRect();
+        if (cr.left < lr.left - 1 || cr.right > lr.right + 1) {
+            lista.scrollTo({ left: lista.scrollLeft + (cr.left - lr.left), behavior: ridotto ? 'auto' : 'smooth' });
+        }
+    });
     // lo scorrimento a mano si riconosce dai gesti, non dall'evento scroll
-    // (che arriva anche dallo scorrimento automatico e dall'aggancio delle card)
     ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(function (ev) { lista.addEventListener(ev, pausaManuale, { passive: true }); });
     lista.addEventListener('scroll', aggiornaBarra, { passive: true });
     window.addEventListener('resize', aggiornaBarra);
+    document.addEventListener('visibilitychange', riprendi);
     if ('IntersectionObserver' in window) {
-        new IntersectionObserver(function (voci) { fuoriVista = !voci[0].isIntersecting; }, { threshold: 0.3 }).observe(lista);
+        new IntersectionObserver(function (voci) {
+            var v = voci[voci.length - 1];
+            fuoriVista = !(v.isIntersecting && v.intersectionRatio >= 0.3);
+            riprendi();
+        }, { threshold: [0, 0.3] }).observe(lista);
+    }
+    if (mq) {
+        var cambia = function () { ridotto = mq.matches; if (ridotto) fermatoDaUtente = true; aggiornaPulsante(); };
+        if (mq.addEventListener) mq.addEventListener('change', cambia); else if (mq.addListener) mq.addListener(cambia);
     }
 
     aggiornaPulsante();
     aggiornaBarra();
     avvia();
+})();
+
+// === Sistema dei servizi: il disco della revisione legale sta sul filetto ===
+// Da 1181 px il centro della mezza orbita si allinea al filetto che separa
+// "I nostri eventi" da "Approfondimenti & Risorse": il disco chiaro sembra
+// uscire dalla colonna destra proprio li'. Senza script resta centrato.
+(function () {
+    var brand = document.querySelector('.split-brand');
+    var rail = document.querySelector('.split-rail');
+    if (!brand || !rail || !document.querySelector('.sistema')) return;
+    var largo = window.matchMedia ? window.matchMedia('(min-width: 1181px)') : null;
+    function allinea() {
+        if (!largo || !largo.matches) { brand.style.removeProperty('--orb-cy'); return; }
+        var y = rail.getBoundingClientRect().top - brand.getBoundingClientRect().top;
+        if (y > 0) brand.style.setProperty('--orb-cy', Math.round(y) + 'px');
+    }
+    allinea();
+    window.addEventListener('resize', allinea);
+    window.addEventListener('load', allinea);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(allinea);
+    // il banner delle novita' e la tendina degli eventi cambiano le altezze
+    if ('ResizeObserver' in window) new ResizeObserver(allinea).observe(document.querySelector('.split-content') || rail);
 })();
