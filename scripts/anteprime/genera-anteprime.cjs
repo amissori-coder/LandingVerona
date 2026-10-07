@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Genera l'immagine di anteprima social (1200x630) di ogni pagina del sito,
+// Genera l'immagine di anteprima social di ogni pagina del sito,
 // con il titolo e la descrizione della pagina stessa, e la collega nei meta
 // og:image / twitter:image. Così, quando si condivide il link su LinkedIn,
 // Facebook, WhatsApp o X, la scheda mostra di che cosa parla la pagina
@@ -9,7 +9,15 @@
 //       node scripts/anteprime/genera-anteprime.cjs fcd_2026  (solo alcune)
 //       node scripts/anteprime/genera-anteprime.cjs --forza   (rigenera tutto)
 //
-// Richiede Playwright (npm i -D playwright, oppure installato globalmente).
+// Richiede Playwright (npm i -D playwright, oppure installato globalmente) e,
+// per una compressione migliore, sharp (facoltativo).
+//
+// Risoluzione: il modello è disegnato a 1200x630 (il formato dei social) ma
+// fotografato a densità doppia, 2400x1260. Sui telefoni e sugli schermi ad
+// alta densità i social mostrano l'anteprima a 2-3 pixel per punto: a
+// 1200x630 testo e logo arrivano ingranditi e sfocati. Il JPEG è fatto con
+// sharp (mozjpeg, colori pieni 4:4:4) e resta sotto i 290 KB, perché WhatsApp
+// non mostra le immagini troppo pesanti.
 //
 // Quali pagine: ogni index.html che ha già i meta Open Graph. Le pagine con
 // un'immagine scelta a mano (per esempio le interviste di Verona) restano
@@ -19,7 +27,9 @@
 // accanto ricorda con quale titolo e descrizione è stata fatta ciascuna:
 // se non cambiano, l'immagine non viene rifatta. Nell'indirizzo dell'immagine
 // c'è "?v=<impronta>", che cambia quando cambia il testo: i social tengono in
-// cache le anteprime per indirizzo, così vedono subito quella nuova.
+// cache le immagini per indirizzo, così alla prossima lettura della pagina
+// scaricano quella nuova. La pagina stessa resta in cache qualche giorno: per
+// vederla subito si usa LinkedIn Post Inspector o il Debugger di Facebook.
 'use strict';
 
 const fs = require('fs');
@@ -30,7 +40,10 @@ const radice = path.resolve(__dirname, '..', '..');
 const SITO = 'https://nextgenerationbusiness.it';
 const CARTELLA = path.join(radice, 'assets', 'og');
 const MANIFEST = path.join(CARTELLA, 'manifest.json');
-const VERSIONE_GRAFICA = 2; // da aumentare quando si cambia il modello qui sotto
+const VERSIONE_GRAFICA = 3; // da aumentare quando si cambia il modello qui sotto
+const LARGHEZZA = 1200, ALTEZZA = 630; // misure del modello, in punti
+const DENSITA = 2;                      // pixel per punto: l'immagine è 2400x1260
+const PESO_MASSIMO = 290 * 1024;        // byte: oltre, WhatsApp può non mostrarla
 
 // Le copertine che il generatore può sostituire. Tutto il resto è una scelta
 // fatta a mano e non si tocca.
@@ -202,9 +215,12 @@ function aggiornaMeta(html, url, alt) {
     sostituisci('property', 'og:image:secure_url', url);
     if (!sostituisci('name', 'twitter:image', url)) aggiungiDopo('name', 'twitter:description', 'name', 'twitter:image', url);
     if (!sostituisci('property', 'og:image:type', 'image/jpeg')) aggiungiDopo('property', 'og:image', 'property', 'og:image:type', 'image/jpeg');
-    if (!/property="og:image:width"/.test(out)) {
-        aggiungiDopo('property', 'og:image:type', 'property', 'og:image:height', '630');
-        aggiungiDopo('property', 'og:image:type', 'property', 'og:image:width', '1200');
+    const w = String(LARGHEZZA * DENSITA), h = String(ALTEZZA * DENSITA);
+    if (!sostituisci('property', 'og:image:width', w)) {
+        aggiungiDopo('property', 'og:image:type', 'property', 'og:image:height', h);
+        aggiungiDopo('property', 'og:image:type', 'property', 'og:image:width', w);
+    } else {
+        sostituisci('property', 'og:image:height', h);
     }
     if (!sostituisci('property', 'og:image:alt', alt)) aggiungiDopo('property', 'og:image:height', 'property', 'og:image:alt', alt);
     if (!sostituisci('name', 'twitter:image:alt', alt)) aggiungiDopo('name', 'twitter:image', 'name', 'twitter:image:alt', alt);
@@ -213,6 +229,40 @@ function aggiornaMeta(html, url, alt) {
 }
 
 // ---------------------------------------------------------------- main
+
+// sharp è facoltativo: senza, il JPEG lo fa Chromium (un po' meno nitido).
+function caricaSharp() {
+    try { return require('sharp'); } catch (_) { /* proviamo globale */ }
+    try {
+        const globale = require('child_process').execSync('npm root -g', { encoding: 'utf8' }).trim();
+        return require(path.join(globale, 'sharp'));
+    } catch (_) {
+        console.warn('sharp non trovato: JPEG di Chromium (npm i -D sharp per immagini più nitide).');
+        return null;
+    }
+}
+
+// Il JPEG più nitido che resta sotto PESO_MASSIMO.
+async function salvaJpeg(pagina, sharp, file) {
+    const qualita = [90, 86, 82, 78, 74, 70];
+    if (sharp) {
+        const png = await pagina.screenshot({ type: 'png' });
+        let jpeg = null;
+        for (const q of qualita) {
+            jpeg = await sharp(png).jpeg({ quality: q, chromaSubsampling: '4:4:4', mozjpeg: true, progressive: true }).toBuffer();
+            if (jpeg.length <= PESO_MASSIMO) break;
+        }
+        fs.writeFileSync(file, jpeg);
+        return jpeg.length;
+    }
+    let jpeg = null;
+    for (const q of qualita) {
+        jpeg = await pagina.screenshot({ type: 'jpeg', quality: q });
+        if (jpeg.length <= PESO_MASSIMO) break;
+    }
+    fs.writeFileSync(file, jpeg);
+    return jpeg.length;
+}
 
 function caricaPlaywright() {
     try { return require('playwright'); } catch (_) { /* proviamo globale */ }
@@ -251,14 +301,15 @@ async function main() {
     if (daDisegnare.length) {
         const { chromium } = caricaPlaywright();
         const browser = await chromium.launch();
-        const pagina = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+        const pagina = await browser.newPage({ viewport: { width: LARGHEZZA, height: ALTEZZA }, deviceScaleFactor: DENSITA });
+        const sharp = caricaSharp();
         const logo = logoDataUri();
         for (const p of daDisegnare) {
             await pagina.setContent(modello(p, logo), { waitUntil: 'networkidle' });
             await pagina.evaluate(() => document.fonts.ready);
-            await pagina.screenshot({ path: path.join(CARTELLA, `${p.nome}.jpg`), type: 'jpeg', quality: 88 });
+            const peso = await salvaJpeg(pagina, sharp, path.join(CARTELLA, `${p.nome}.jpg`));
             manifest[p.nome] = { pagina: p.rel, impronta: p.impronta, titolo: p.titolo };
-            console.log(`  + ${p.rel} -> assets/og/${p.nome}.jpg`);
+            console.log(`  + ${p.rel} -> assets/og/${p.nome}.jpg (${Math.round(peso / 1024)} KB)`);
         }
         await browser.close();
     }
