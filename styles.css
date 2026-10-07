@@ -4493,7 +4493,6 @@ ul {
 .contents-scorri-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: transparent; color: #0f2d4a; border: 1px solid rgba(22, 64, 104, 0.3); border-radius: 2px; cursor: pointer; }
 .contents-scorri-btn:hover { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
 .contents-scorri-btn:focus-visible { outline: 2px solid #164068; outline-offset: 2px; }
-.contents-scorri.is-ferma .contents-scorri-pausa { background: #0f2d4a; border-color: #0f2d4a; color: #fff; }
 .contents-list.is-recent.is-scorrevole { display: grid; grid-template-columns: none; grid-template-rows: auto auto; grid-auto-flow: column; grid-auto-columns: calc((100% - 28px) / 2); column-gap: 28px; row-gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; margin-top: 0; border-top: 0; }
 .contents-list.is-recent.is-scorrevole::-webkit-scrollbar { display: none; }
 .contents-list.is-recent.is-scorrevole.is-ferma-statica { border-top: 1px solid rgba(22, 64, 104, 0.18); }
@@ -4573,4 +4572,93 @@ ul {
     .submenu { top: calc(100% + 23px); background: #0f2d4a; -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0; border-radius: 0 0 4px 4px; }
     .navbar.scrolled .submenu { top: calc(100% + 17px); }
     .has-submenu::before { height: 24px; }
+}
+
+/* ============================================================
+   VIDEO DELLA HOME: PULSANTE PLAY AL CENTRO
+   Copertina blu con il centro libero e un grande cerchio bianco con
+   il triangolo navy; sotto, "Guarda il video" e la durata. Un anello
+   chiaro si allarga piano attorno al cerchio (fermo con "riduci
+   movimento"). Dopo il primo avvio il pulsante lascia libera la barra
+   dei comandi del browser in basso.
+   ============================================================ */
+.video-home-frame { background: #133c63; }
+.video-play {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
+    color: #fff;
+    font: inherit;
+    text-align: center;
+    background: transparent;
+    -webkit-tap-highlight-color: transparent;
+}
+.video-play[hidden] { display: none; }
+.is-avviato .video-play { bottom: 56px; background: rgba(8, 26, 44, 0.68); }
+.video-play-cerchio {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #fff;
+    color: #0f2d4a;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.16), 0 14px 34px rgba(4, 16, 28, 0.35);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+.video-play-cerchio svg { width: 36px; height: 36px; margin-left: 5px; }
+.video-play-cerchio::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    animation: videoPlayAnello 2.4s ease-out infinite;
+    pointer-events: none;
+}
+@keyframes videoPlayAnello {
+    0% { transform: scale(1); opacity: 0.8; }
+    70%, 100% { transform: scale(1.32); opacity: 0; }
+}
+.video-play:hover .video-play-cerchio { transform: scale(1.06); box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.2), 0 18px 40px rgba(4, 16, 28, 0.4); }
+.video-play:active .video-play-cerchio { transform: scale(0.98); }
+.video-play:focus-visible { outline: none; }
+.video-play:focus-visible .video-play-cerchio { outline: 3px solid #fff; outline-offset: 12px; }
+.video-play-etichetta {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(50% + 66px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-display);
+    text-shadow: 0 1px 10px rgba(4, 16, 28, 0.45);
+}
+.video-play-azione { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.video-play-durata { font-family: var(--font-body); font-size: 0.78rem; font-weight: 500; color: rgba(255, 255, 255, 0.72); }
+.video-play-durata[hidden] { display: none; }
+@media (max-width: 600px) {
+    .video-play-etichetta { top: calc(50% + 48px); }
+    .video-play-cerchio { width: 72px; height: 72px; box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.16), 0 10px 24px rgba(4, 16, 28, 0.35); }
+    .video-play-cerchio svg { width: 28px; height: 28px; margin-left: 4px; }
+    .video-play-cerchio::after { inset: -6px; }
+    .video-play-azione { font-size: 0.72rem; }
+    .is-avviato .video-play { bottom: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .video-play-cerchio::after { animation: none; opacity: 0; }
+    .video-play-cerchio { transition: none; }
 }

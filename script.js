@@ -709,29 +709,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
-// Video della home: senza audio, parte da solo quando entra in vista
-// scorrendo la pagina e si ferma quando esce.
+// Video della home: copertina con un grande pulsante play al centro. Il
+// video (senza audio) parte al clic e i comandi del browser compaiono solo
+// da li'. In pausa e alla fine il pulsante torna ("Riprendi", "Rivedi");
+// se il video esce dalla vista si mette in pausa. Senza JavaScript restano
+// la copertina e i comandi del browser.
 (function () {
     var video = document.getElementById('ngbHomeVideo');
     if (!video) return;
+    var cornice = video.parentNode;
+    var DURATA = '54 secondi';
 
-    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || !('IntersectionObserver' in window)) {
-        video.controls = true;
-        return;
+    var play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'video-play';
+    play.innerHTML =
+        '<span class="video-play-cerchio" aria-hidden="true">' +
+            '<svg viewBox="0 0 24 24" focusable="false"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10-6.4a.8.8 0 0 0 0-1.4l-10-6.4A.8.8 0 0 0 8 5.6z" fill="currentColor"></path></svg>' +
+        '</span>' +
+        '<span class="video-play-etichetta"><span class="video-play-azione">Guarda il video</span><span class="video-play-durata">' + DURATA + '</span></span>';
+    cornice.appendChild(play);
+    var azione = play.querySelector('.video-play-azione');
+    var durata = play.querySelector('.video-play-durata');
+    video.controls = false;
+
+    function mostra(testo, conDurata) {
+        azione.textContent = testo;
+        durata.hidden = !conDurata;
+        play.hidden = false;
     }
-
-    var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-            if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
-                var avvio = video.play();
-                if (avvio && avvio.catch) avvio.catch(function () { video.controls = true; });
-            } else {
-                video.pause();
-            }
-        });
-    }, { threshold: [0, 0.35] });
-    observer.observe(video);
+    play.addEventListener('click', function () {
+        var avvio = video.play();
+        // riproduzione rifiutata dal browser: restano i comandi nativi
+        if (avvio && avvio.catch) avvio.catch(function () { video.controls = true; play.hidden = true; });
+    });
+    video.addEventListener('play', function () {
+        var aveva = document.activeElement === play;
+        cornice.classList.add('is-avviato');
+        video.controls = true;
+        play.hidden = true;
+        if (aveva) { try { video.focus({ preventScroll: true }); } catch (e) { video.focus(); } }
+    });
+    video.addEventListener('pause', function () { if (!video.ended) mostra('Riprendi il video', false); });
+    video.addEventListener('ended', function () { mostra('Rivedi il video', false); });
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (voci) {
+            if (!voci[voci.length - 1].isIntersecting && !video.paused) video.pause();
+        }).observe(video);
+    }
 })();
 
 // Eventi passati: il pannello a tendina si chiude cliccando fuori o con Esc
@@ -752,15 +777,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // === Ultimi approfondimenti: scorrimento automatico ===
 // La lista della home scorre da sola di una colonna ogni 5 secondi e
-// ricomincia dall'inizio. Si ferma con il mouse sopra la lista o sulle
-// frecce, con il focus da tastiera su una card o sulle frecce, dopo uno
-// scorrimento a mano (riparte dopo 8 secondi), quando la sezione non e'
-// visibile o la scheda del browser e' in secondo piano. Con "riduci
-// movimento" parte in pausa. I comandi (precedenti, pausa/riprendi,
-// successivi) stanno nella riga dell'etichetta, PRIMA della lista, come
-// chiede il modello "carousel" delle linee guida ARIA; la riga di
-// avanzamento prende il posto del filetto sopra la lista. Senza JavaScript
-// la lista resta la griglia statica di prima.
+// ricomincia dall'inizio, senza pulsante play/pausa. Si ferma solo per il
+// tempo in cui serve: con il mouse sopra la lista o sulle frecce, con il
+// focus da tastiera su una card o sulle frecce, dopo uno scorrimento a mano
+// (riparte dopo 8 secondi), quando la sezione non e' visibile o la scheda
+// del browser e' in secondo piano. Con "riduci movimento" continua a
+// scorrere ma a scatti, senza animazione. Le frecce stanno nella riga
+// dell'etichetta, PRIMA della lista, come chiede il modello "carousel"
+// delle linee guida ARIA; la riga di avanzamento prende il posto del
+// filetto sopra la lista. Senza JavaScript la lista resta la griglia
+// statica di prima.
 (function () {
     var lista = document.getElementById('contentsGrid');
     if (!lista || !lista.classList.contains('is-recent')) return;
@@ -782,8 +808,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     var freccia = function (d) { return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="' + (d < 0 ? '15 18 9 12 15 6' : '9 18 15 12 9 6') + '"></polyline></svg>'; };
-    var ICONA_PAUSA = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>';
-    var ICONA_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg>';
 
     // testata: etichetta a sinistra, comandi a destra, prima della lista
     var testa = document.createElement('div');
@@ -795,11 +819,9 @@ document.addEventListener('DOMContentLoaded', () => {
     comandi.setAttribute('role', 'group');
     comandi.setAttribute('aria-label', 'Comandi dello scorrimento');
     comandi.innerHTML =
-        '<button type="button" class="contents-scorri-btn contents-scorri-pausa"></button>' +
         '<button type="button" class="contents-scorri-btn" data-passo="-1" aria-label="Approfondimenti precedenti">' + freccia(-1) + '</button>' +
         '<button type="button" class="contents-scorri-btn" data-passo="1" aria-label="Approfondimenti successivi">' + freccia(1) + '</button>';
     testa.appendChild(comandi);
-    var pulsantePausa = comandi.querySelector('.contents-scorri-pausa');
     var frecce = Array.prototype.slice.call(comandi.querySelectorAll('[data-passo]'));
 
     // riga di avanzamento al posto del filetto sopra la lista
@@ -810,7 +832,6 @@ document.addEventListener('DOMContentLoaded', () => {
     lista.parentNode.insertBefore(avanzamento, lista);
     var barra = avanzamento.firstChild;
 
-    var fermatoDaUtente = ridotto;   // pausa scelta con il pulsante (o riduci movimento)
     var sopra = false, focusDentro = false, fuoriVista = false, attesaManuale = false;
     var timerManuale = null, timer = null, bersaglio = null;
 
@@ -847,13 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(vai.t);
         vai.t = setTimeout(function () { bersaglio = null; }, ridotto ? 50 : 900);
     }
-    function inPausa() { return fermatoDaUtente || sopra || focusDentro || fuoriVista || attesaManuale || document.hidden; }
-    function aggiornaPulsante() {
-        // l'etichetta cambia con l'icona (modello "carousel"): niente aria-pressed
-        pulsantePausa.innerHTML = fermatoDaUtente ? ICONA_PLAY : ICONA_PAUSA;
-        pulsantePausa.setAttribute('aria-label', fermatoDaUtente ? 'Riprendi lo scorrimento automatico' : 'Metti in pausa lo scorrimento automatico');
-        comandi.classList.toggle('is-ferma', fermatoDaUtente);
-    }
+    function inPausa() { return sopra || focusDentro || fuoriVista || attesaManuale || document.hidden; }
     function avvia() {
         clearInterval(timer);
         timer = setInterval(function () { if (!inPausa()) vai(1); }, INTERVALLO);
@@ -878,18 +893,18 @@ document.addEventListener('DOMContentLoaded', () => {
         try { return e.target.matches(':focus-visible'); } catch (x) { return true; }
     }
 
-    pulsantePausa.addEventListener('click', function () { fermatoDaUtente = !fermatoDaUtente; aggiornaPulsante(); riprendi(); });
     frecce.forEach(function (b) {
         b.addEventListener('click', function () { vai(parseInt(b.getAttribute('data-passo'), 10)); pausaManuale(); });
     });
 
-    // lista e frecce contano come un'unica zona per mouse e focus (il pulsante
-    // pausa resta fuori, cosi' "Riprendi" riparte subito anche con il focus sopra)
+    // lista e frecce contano come un'unica zona per mouse e focus. Solo il
+    // mouse vero ferma lo scorrimento: un tocco sul telefono genera un
+    // "mouseenter" senza il "mouseleave", e il carosello resterebbe fermo.
     var zone = [lista].concat(frecce);
     function inZona(n) { return !!n && zone.some(function (z) { return z.contains(n); }); }
     zone.forEach(function (z) {
-        z.addEventListener('mouseenter', function () { sopra = true; });
-        z.addEventListener('mouseleave', function (e) { if (!inZona(e.relatedTarget)) { sopra = false; riprendi(); } });
+        z.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') sopra = true; });
+        z.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse' && !inZona(e.relatedTarget)) { sopra = false; riprendi(); } });
         z.addEventListener('focusin', function (e) { if (focusDaTastiera(e)) focusDentro = true; });
         z.addEventListener('focusout', function (e) { if (!inZona(e.relatedTarget)) { focusDentro = false; riprendi(); } });
     });
@@ -915,11 +930,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { threshold: [0, 0.3] }).observe(lista);
     }
     if (mq) {
-        var cambia = function () { ridotto = mq.matches; if (ridotto) fermatoDaUtente = true; aggiornaPulsante(); };
+        var cambia = function () { ridotto = mq.matches; };
         if (mq.addEventListener) mq.addEventListener('change', cambia); else if (mq.addListener) mq.addListener(cambia);
     }
 
-    aggiornaPulsante();
     aggiornaBarra();
     avvia();
 })();
