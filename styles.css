@@ -4006,9 +4006,8 @@ ul {
    comandi, cornice ne' titolo: sembrano una parte della pagina, non un
    video. Il 16:9 non si taglia mai; dove lo schermo e' piu' largo le
    fasce ai lati prendono il colore della slide (script.js). La banda
-   sta sempre tutta sotto il menu. Il video e' ingrandito del 6% e i
-   suoi bordi sfumano nelle fasce: il filetto interno delle slide non
-   si vede.
+   sta sempre tutta sotto il menu. Il video non ha bordi ne' filetti:
+   si vede la slide intera.
    ============================================================ */
 .sr-only {
     position: absolute !important;
@@ -4018,7 +4017,7 @@ ul {
     clip: rect(0 0 0 0); clip-path: inset(50%);
     white-space: nowrap; border: 0;
 }
-#video.vc { padding: 0; background: #163f66; border-top: 0; }
+#video.vc { padding: 0; background: #153e65; border-top: 0; }
 #video.vc .video-home-frame {
     position: relative;
     width: 100%;
@@ -4031,7 +4030,7 @@ ul {
     border-radius: 0;
     box-shadow: none;
     overflow: hidden;
-    background: #163f66;
+    background: #153e65;
 }
 #video.vc .video-home-frame video {
     display: block;
@@ -4042,9 +4041,10 @@ ul {
     margin: 0 auto;
     object-fit: contain;
     background: transparent;
-    transform: scale(1.06);
-    -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 1.7%, #000 3.4%, #000 96.6%, transparent 98.3%, transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, transparent 1.7%, #000 3.4%, #000 96.6%, transparent 98.3%, transparent 100%);
+    /* i margini del video sfumano nelle fasce: la differenza di 1-2 livelli
+       fra i browser nel convertire i colori del video non fa da confine */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%);
     pointer-events: none;
 }
 
