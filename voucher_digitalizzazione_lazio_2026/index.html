@@ -219,6 +219,29 @@
         .sim-esito.is-ko strong { color: #B4483A; }
         .sim-avviso { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.55; margin-top: auto; }
 
+        /* ---- Simulatore del punteggio ---- */
+        .ps-dim { grid-template-columns: repeat(2, 1fr); }
+        .ps-campo {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+        .ps-campo:first-of-type { border-top: 0; }
+        .ps-campo small { display: block; color: var(--text-secondary); font-size: 0.8rem; }
+        .ps-sel { text-align: left; cursor: pointer; }
+        .ps-su { font-size: 1rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0; }
+        .ps-scala { position: relative; padding-bottom: 22px; }
+        .ps-soglia { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; background: #B4483A; border-radius: 2px; }
+        .ps-soglia-label { position: absolute; top: 16px; transform: translateX(-50%); font-size: 0.74rem; font-weight: 700; color: #B4483A; white-space: nowrap; }
+        .ps-nota { display: block; font-size: 0.78rem; color: var(--text-secondary); }
+
+        .ps-campo + .sim-voce { border-top: 1px solid var(--border-color); }
+
         @media (max-width: 900px) {
             .scheda-grid { grid-template-columns: repeat(2, 1fr); }
             .sim { grid-template-columns: 1fr; }
@@ -338,7 +361,7 @@
             </p>
             <div class="hero-actions">
                 <a href="#simulatore" class="btn btn-primary">Calcola il tuo contributo</a>
-                <a href="#contatti" class="btn btn-outline">Verifica i requisiti con noi</a>
+                <a href="#simulatore-punteggio" class="btn btn-outline">Calcola il tuo punteggio</a>
             </div>
             <div class="hero-stats">
                 <div class="stat">
@@ -776,45 +799,46 @@
                 <span class="section-tag">Come si viene selezionati</span>
                 <h2>Sei criteri, cento punti, <span class="text-accent">un ordine di finanziamento</span></h2>
                 <p class="section-desc">
-                    Il punteggio lo calcola l'impresa in domanda, sulla base di dati documentabili. È quello che decide
-                    se il progetto rientra nei 15 milioni.
+                    Il punteggio lo calcola l'impresa con la griglia ufficiale allegata all'avviso, sulla base di dati
+                    documentabili. È quello che decide se il progetto rientra nei 15 milioni: nell'edizione 2025 sono
+                    state ammesse le imprese fino a un punteggio di <strong>67,79</strong>.
                 </p>
             </div>
 
             <div class="tabella tabella-punti" role="table" aria-label="Criteri di punteggio">
                 <div class="tabella-riga tabella-testa" role="row">
                     <div role="columnheader">Criterio</div>
-                    <div role="columnheader">Da dove si ricava</div>
+                    <div role="columnheader">Come si calcola</div>
                     <div role="columnheader">Punti max</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">Valore aggiunto per addetto</div>
-                    <div data-label="Da dove si ricava" role="cell">Dati della dichiarazione IVA 2025, rapportati al numero di addetti</div>
+                    <div class="tabella-voce" role="rowheader">1 &middot; Valore aggiunto per addetto<small>dichiarazione IVA 2026, anno 2025</small></div>
+                    <div data-label="Come si calcola" role="cell">Volume d'affari (rigo VE50) meno totale acquisti (rigo VF25), diviso per la forza aziendale INPS. Il massimo si ottiene a <strong>50.000 euro</strong> per addetto; zero punti fino a 35.000 euro e da 250.000 euro in su; in mezzo il punteggio scala in modo lineare.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">35</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">Numero di addetti</div>
-                    <div data-label="Da dove si ricava" role="cell">Denuncia contributiva INPS di luglio 2026</div>
+                    <div class="tabella-voce" role="rowheader">2 &middot; Numero di addetti<small>denuncia contributiva INPS di luglio 2026</small></div>
+                    <div data-label="Come si calcola" role="cell">Campo &laquo;Forza aziendale&raquo;. Il massimo si ottiene con <strong>20 addetti</strong>; zero punti con nessun addetto e da 100 addetti in su; in mezzo il punteggio scala in modo lineare.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">20</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">Articolazione del progetto</div>
-                    <div data-label="Da dove si ricava" role="cell">Numero di interventi diversi compresi nel progetto</div>
+                    <div class="tabella-voce" role="rowheader">3 &middot; Articolazione del progetto</div>
+                    <div data-label="Come si calcola" role="cell">Micro imprese: 5 punti con un intervento, 10 con due, 15 con tre o più. Piccole e medie: oltre alla diagnosi, 0 punti con un intervento, 5 con due, 10 con tre, 15 con quattro o più. Ogni migrazione su una diversa macchina virtuale cloud conta come un intervento a sé.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">15</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">Parità di genere</div>
-                    <div data-label="Da dove si ricava" role="cell">Certificazione UNI/PdR 125:2022 posseduta alla domanda</div>
+                    <div class="tabella-voce" role="rowheader">4 &middot; Parità di genere</div>
+                    <div data-label="Come si calcola" role="cell">Certificazione di parità di genere UNI/PdR 125:2022, rilasciata da un organismo accreditato Accredia e posseduta alla data della domanda.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">10</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">Impresa giovanile</div>
-                    <div data-label="Da dove si ricava" role="cell">Compagine e governance a prevalenza giovanile, secondo la definizione dell'avviso</div>
+                    <div class="tabella-voce" role="rowheader">5 &middot; Impresa giovanile</div>
+                    <div data-label="Come si calcola" role="cell">Società di capitali con quote e amministratori in maggioranza under 36; cooperative e società di persone con la maggioranza dei soci under 36; impresa individuale con titolare under 36.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">10</div>
                 </div>
                 <div class="tabella-riga" role="row">
-                    <div class="tabella-voce" role="rowheader">Certificazione ambientale</div>
-                    <div data-label="Da dove si ricava" role="cell">Almeno una certificazione ambientale fra quelle ammesse dall'avviso</div>
+                    <div class="tabella-voce" role="rowheader">6 &middot; Sostenibilità ambientale</div>
+                    <div data-label="Come si calcola" role="cell">Almeno una fra EMAS o ISO 14000, ISO 50001, Ecolabel UE, FSC o PEFC, UNI EN ISO 14064-1, UNI ISO/TS 14067, ISO 14040, EPD, ISO 20400, PEF o OEF, Remade in Italy.</div>
                     <div class="tabella-num" data-label="Punti max" role="cell">10</div>
                 </div>
                 <div class="tabella-riga tabella-totale" role="row">
@@ -823,15 +847,105 @@
                     <div data-label="Punti max" role="cell">100</div>
                 </div>
             </div>
+            <p class="tabella-nota">
+                Le imprese in regime forfettario indicano come volume d'affari il reddito imponibile della
+                dichiarazione dei redditi 2025, da allegare alla domanda, e zero come totale acquisti. Se la forza
+                aziendale è zero, il valore aggiunto si divide per uno.
+            </p>
+
+            <div class="section-header" id="simulatore-punteggio" style="margin-top:64px;">
+                <span class="section-tag">Simulatore del punteggio</span>
+                <h2>Quanti punti fa <span class="text-accent">la tua impresa</span></h2>
+                <p class="section-desc">
+                    Riproduce le formule della griglia ufficiale dell'avviso e confronta il risultato con la soglia
+                    di ammissione dell'edizione 2025. Funziona nel browser, senza inviare dati.
+                </p>
+            </div>
+
+            <div class="sim" id="psim">
+                <div class="sim-input">
+                    <div>
+                        <span class="sim-label" id="psDimLabel">Dimensione dell'impresa</span>
+                        <div class="sim-dim ps-dim" role="radiogroup" aria-labelledby="psDimLabel">
+                            <div><input type="radio" name="psDim" id="psMicro" value="micro"><label for="psMicro">Micro</label></div>
+                            <div><input type="radio" name="psDim" id="psPm" value="pm" checked><label for="psPm">Piccola o media</label></div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="sim-label">Dati IVA e INPS</span>
+                        <div class="ps-campo">
+                            <label for="psVe50">Volume d'affari<small>rigo VE50 della dichiarazione IVA 2026</small></label>
+                            <input type="number" class="sim-num is-wide" id="psVe50" min="0" step="1" placeholder="0" inputmode="decimal">
+                        </div>
+                        <div class="ps-campo">
+                            <label for="psVf25">Totale acquisti<small>rigo VF25 della dichiarazione IVA 2026</small></label>
+                            <input type="number" class="sim-num is-wide" id="psVf25" min="0" step="1" placeholder="0" inputmode="decimal">
+                        </div>
+                        <div class="ps-campo">
+                            <label for="psAddetti">Forza aziendale<small>attestazione INPS di luglio 2026</small></label>
+                            <input type="number" class="sim-num" id="psAddetti" min="0" step="0.01" placeholder="0" inputmode="decimal">
+                        </div>
+                    </div>
+                    <div>
+                        <span class="sim-label">Progetto e requisiti</span>
+                        <div class="ps-campo">
+                            <label for="psInterventi">Interventi<small id="psIntNote">oltre alla diagnosi digitale</small></label>
+                            <select class="sim-num is-wide ps-sel" id="psInterventi">
+                                <option value="1">1</option>
+                                <option value="2" selected>2</option>
+                                <option value="3">3</option>
+                                <option value="4">4 o più</option>
+                            </select>
+                        </div>
+                        <label class="sim-voce">
+                            <input type="checkbox" id="psGenere">
+                            <span>Certificazione di parità di genere<small>UNI/PdR 125:2022</small></span>
+                            <span></span>
+                        </label>
+                        <label class="sim-voce">
+                            <input type="checkbox" id="psGiovane">
+                            <span>Impresa giovanile<small>maggioranza under 36, secondo l'avviso</small></span>
+                            <span></span>
+                        </label>
+                        <label class="sim-voce">
+                            <input type="checkbox" id="psAmbiente">
+                            <span>Certificazione ambientale<small>almeno una fra quelle ammesse</small></span>
+                            <span></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="sim-output" aria-live="polite">
+                    <span class="sim-totale-label">Punteggio stimato</span>
+                    <span class="sim-totale"><span id="psTot">0,00</span> <small class="ps-su">/ 100</small></span>
+                    <div class="ps-scala" aria-hidden="true">
+                        <div class="sim-barra"><span id="psBar"></span></div>
+                        <span class="ps-soglia" style="left:67.79%"></span>
+                        <span class="ps-soglia-label" style="left:67.79%">soglia 2025: 67,79</span>
+                    </div>
+                    <div class="sim-riga"><span>Valore aggiunto per addetto <small id="psVaNote" class="ps-nota"></small></span><strong id="psP1">0,00</strong></div>
+                    <div class="sim-riga"><span>Numero di addetti</span><strong id="psP2">0,00</strong></div>
+                    <div class="sim-riga"><span>Articolazione del progetto</span><strong id="psP3">0,00</strong></div>
+                    <div class="sim-riga"><span>Parità di genere</span><strong id="psP4">0,00</strong></div>
+                    <div class="sim-riga"><span>Impresa giovanile</span><strong id="psP5">0,00</strong></div>
+                    <div class="sim-riga"><span>Sostenibilità ambientale</span><strong id="psP6">0,00</strong></div>
+                    <div class="sim-esito" id="psEsito"></div>
+                    <p class="sim-avviso">
+                        Il confronto con il 2025 è solo un riferimento: la soglia dell'edizione 2026 dipenderà dal
+                        numero di domande, dai punteggi dichiarati e dagli importi richiesti rispetto ai 15 milioni.
+                    </p>
+                </div>
+            </div>
 
             <div class="highlight-box">
                 <p>
                     <strong>Dove si gioca la partita.</strong> Valore aggiunto e addetti valgono 55 punti su 100 e
-                    dipendono da dati già fissati: non si possono migliorare in tre settimane. Le leve ancora
+                    dipendono da dati già fissati: non si possono migliorare a ridosso della scadenza. Le leve ancora
                     manovrabili sono l'<strong>articolazione del progetto</strong>, cioè quanti interventi diversi
-                    comprende, e le <strong>certificazioni</strong> già possedute. Soprattutto, conta non perdere
-                    punti in verifica: ogni dato dichiarato deve trovare riscontro nei documenti allegati, perché un
-                    punteggio non documentato viene azzerato senza possibilità di integrazione.
+                    comprende, e le <strong>certificazioni</strong> già possedute. Con la soglia 2025 a 67,79 punti,
+                    un progetto con meno interventi o senza certificazioni rischia di restare fuori anche con ottimi
+                    indicatori. Conta poi non perdere punti in verifica: ogni dato dichiarato deve trovare riscontro
+                    nei documenti allegati, perché un punteggio non documentato viene azzerato senza possibilità di
+                    integrazione.
                 </p>
             </div>
         </div>
@@ -918,6 +1032,17 @@
                 </div>
                 <div class="faq-item">
                     <button class="faq-question" type="button">
+                        <span>Quanti punti servono per essere finanziati?</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Non c'è una soglia fissa: si finanzia in ordine di punteggio finché bastano le risorse. Come riferimento, nell'edizione 2025 sono state ammesse le imprese fino a un punteggio di <strong>67,79</strong>. La soglia del 2026 dipenderà da quante domande arriveranno e da quanto chiederanno rispetto ai 15 milioni. Il <a href="#simulatore-punteggio">simulatore del punteggio</a> calcola i punti con le formule della griglia ufficiale e li confronta con quel valore.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">
                         <span>Che cosa succede se sbaglio il punteggio?</span>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </button>
@@ -979,6 +1104,7 @@
                 <ul class="ref-list">
                     <li>Regione Lazio, Determinazione n. G12616 del 18 settembre 2026, di approvazione dell'Avviso pubblico &laquo;Voucher Digitalizzazione PMI 2026&raquo;, pubblicata sul BUR Lazio n. 77 del 24 settembre 2026</li>
                     <li>Avviso pubblico, allegato tecnico e modulistica (autovalutazione, modello di diagnosi digitale, griglia dei punteggi) sulla <a href="https://www.lazioinnova.it/bandi/voucher-digitalizzazione-pmi-2026/" target="_blank" rel="noopener">pagina del bando di Lazio Innova</a></li>
+                    <li>Griglia punteggi dell'avviso (versione del 7 settembre 2026), con le formule dei sei criteri di selezione e le definizioni dell'Appendice 1</li>
                     <li>Programma Regionale FESR Lazio 2021-2027, priorità dedicata alla competitività e alla transizione digitale delle imprese</li>
                     <li>Raccomandazione 2003/361/CE della Commissione, per la definizione di micro, piccola e media impresa</li>
                     <li>Regolamento (UE) 2023/2831 della Commissione del 13 dicembre 2023, sugli aiuti de minimis</li>
@@ -1208,6 +1334,80 @@
         sim.addEventListener('input', aggiorna);
         sim.addEventListener('change', aggiorna);
         aggiorna();
+
+        // Simulatore del punteggio: formule della Griglia punteggi dell'avviso.
+        var SOGLIA_2025 = 67.79;
+        var psim = document.getElementById('psim');
+        if (!psim) return;
+        var pti = function (n) { return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+        var leggi = function (id) {
+            var el = $(id);
+            if (String(el.value).trim() === '') return null;
+            var v = parseFloat(String(el.value).replace(',', '.'));
+            return isFinite(v) ? v : null;
+        };
+
+        function puntiValoreAggiunto(r) {
+            if (r <= 35000 || r >= 250000) return 0;
+            if (r < 50000) return (r - 35000) / 15000 * 35;
+            return (250000 - r) / 200000 * 35;
+        }
+        function puntiAddetti(n) {
+            if (n <= 0 || n >= 100) return 0;
+            if (n < 20) return n;
+            return (100 - n) / 80 * 20;
+        }
+        function puntiArticolazione(micro, n) {
+            // Micro: 1 -> 5, 2 -> 10, 3+ -> 15. Piccola o media (oltre la diagnosi): 1 -> 0, 2 -> 5, 3 -> 10, 4+ -> 15.
+            return micro ? Math.min(n, 3) * 5 : (Math.min(n, 4) - 1) * 5;
+        }
+
+        function calcolaPunteggio() {
+            var r = psim.querySelector('input[name="psDim"]:checked');
+            var micro = r && r.value === 'micro';
+            $('psIntNote').textContent = micro ? 'tipologie di intervento del progetto' : 'oltre alla diagnosi digitale';
+            $('psInterventi').options[2].textContent = micro ? '3 o più' : '3';
+            $('psInterventi').options[3].hidden = micro;
+            $('psInterventi').options[3].disabled = micro;
+            if (micro && $('psInterventi').value === '4') $('psInterventi').value = '3';
+
+            var ve50 = leggi('psVe50'), vf25 = leggi('psVf25'), addetti = leggi('psAddetti');
+            var p1 = 0, notaVa = '';
+            if (ve50 !== null) {
+                var va = ve50 - (vf25 || 0);
+                var perAddetto = va / Math.max(addetti || 0, 1);
+                p1 = puntiValoreAggiunto(perAddetto);
+                notaVa = perAddetto.toLocaleString('it-IT', { maximumFractionDigits: 0 }) + ' € per addetto';
+            }
+            var p2 = puntiAddetti(addetti || 0);
+            var p3 = puntiArticolazione(micro, parseInt($('psInterventi').value, 10));
+            var p4 = $('psGenere').checked ? 10 : 0;
+            var p5 = $('psGiovane').checked ? 10 : 0;
+            var p6 = $('psAmbiente').checked ? 10 : 0;
+            var tot = Math.round((p1 + p2 + p3 + p4 + p5 + p6) * 100) / 100;
+
+            $('psVaNote').textContent = notaVa;
+            [p1, p2, p3, p4, p5, p6].forEach(function (p, i) { $('psP' + (i + 1)).textContent = pti(p); });
+            $('psTot').textContent = pti(tot);
+            $('psBar').style.width = Math.min(100, tot) + '%';
+
+            var esito = $('psEsito');
+            var ok = tot >= SOGLIA_2025;
+            var titolo = ok ? 'Sopra la soglia di ammissione 2025' : 'Sotto la soglia di ammissione 2025';
+            var testo = ok
+                ? 'Nel 2025 sono state ammesse le imprese fino a 67,79 punti: con ' + pti(tot) + ' punti la domanda sarebbe rientrata, con un margine di ' + pti(tot - SOGLIA_2025) + '.'
+                : 'Nel 2025 sono state ammesse le imprese fino a 67,79 punti: ne mancano ' + pti(SOGLIA_2025 - tot) + '. Valuta se aggiungere interventi o far valere certificazioni già possedute.';
+            if (ve50 === null) testo += ' Inserisci volume d’affari e acquisti per il criterio del valore aggiunto.';
+            esito.className = 'sim-esito ' + (ok ? 'is-ok' : 'is-ko');
+            esito.innerHTML = '';
+            var s = document.createElement('strong'); s.textContent = titolo;
+            esito.appendChild(s);
+            esito.appendChild(document.createTextNode(testo));
+        }
+
+        psim.addEventListener('input', calcolaPunteggio);
+        psim.addEventListener('change', calcolaPunteggio);
+        calcolaPunteggio();
     })();
     </script>
     <script src="../zls_zes/script.js"></script>
