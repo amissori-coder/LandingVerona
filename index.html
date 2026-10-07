@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=24">
+    <link rel="stylesheet" href="styles.css?v=26">
     <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
@@ -686,7 +686,7 @@
             <div class="chi-siamo-layout">
                 <div class="chi-siamo-body">
                     <div class="chi-siamo-testo">
-                        <p>
+                        <p class="chi-siamo-lead">
                             <strong>Revilaw S.p.A.</strong> è una società di revisione legale con sede a Verona e una rete capillare di professionisti distribuita su tutto il territorio nazionale, tutti iscritti al Registro dei Revisori Legali e all'Albo dei Dottori Commercialisti ed Esperti Contabili. Lavoriamo al fianco di imprese italiane di ogni dimensione, dalla PMI al gruppo industriale, offrendo un presidio di competenza tecnica e di visione strategica che va ben oltre il perimetro della revisione tradizionale.
                         </p>
                         <p>
@@ -695,54 +695,42 @@
                         <p>
                             È in questo spirito che è nato <strong>Next Generation Business</strong>, il progetto di eventi B2B che Revilaw promuove per portare sul palco i maggiori esperti di diritto societario, revisione, compliance e fiscalità d'impresa. Un luogo di incontro fra competenze diverse e professionisti qualificati, pensato per trasferire valore reale alle imprese che partecipano.
                         </p>
+                        <p class="chi-siamo-motto-riga">Oltre la verifica, <span>verso il valore.</span></p>
                     </div>
-                    <div class="chi-siamo-lato">
-                        <a href="chi_siamo/" class="chi-siamo-organigramma">
-                            <span class="chi-siamo-organigramma-icona" aria-hidden="true">
-                                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v4M5 17v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 11v6"/></svg>
+                    <aside class="chi-siamo-scheda" aria-labelledby="chi-siamo-scheda-titolo">
+                        <a href="chi_siamo/" class="cs-org" aria-label="Organigramma: chi guida Revilaw e la sua rete">
+                            <span class="cs-org-testa"><span class="cs-org-eyebrow">Organigramma</span><svg class="cs-org-freccia" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
+                            <span class="cs-org-titolo">Chi guida la società e la rete</span>
+                            <span class="cs-org-livelli" aria-hidden="true">
+                                <span class="cs-org-livello">Amministratore Unico</span>
+                                <span class="cs-org-livello">Founding Partners</span>
+                                <span class="cs-org-livello">Equity Partners di area</span>
+                                <span class="cs-org-livello cs-org-rete">La rete dei professionisti, da Nord a Sud</span>
                             </span>
-                            <span class="chi-siamo-organigramma-testo">
-                                <span class="chi-siamo-organigramma-eyebrow">La struttura</span>
-                                <span class="chi-siamo-organigramma-titolo">Scopri l'organigramma della Società</span>
-                                <span class="chi-siamo-organigramma-desc">
-                                    L'Amministratore Unico, i Founding Partners e gli Equity Partners di area
-                                    che guidano la rete di oltre 130 Commercialisti e Revisori Legali.
-                                </span>
-                            </span>
-                            <svg class="chi-siamo-organigramma-freccia" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                            <span class="cs-org-azione">Vedi l'organigramma</span>
                         </a>
-                        <blockquote class="chi-siamo-motto">
-                            <p class="chi-siamo-motto-text">
-                                Oltre la verifica,<br>verso il <span class="chi-siamo-motto-highlight">valore</span>.
-                            </p>
-                        </blockquote>
-                        <div class="chi-siamo-facts">
-                            <div class="chi-siamo-fact">
-                                <span class="chi-siamo-fact-label">Sede</span>
-                                <span class="chi-siamo-fact-value">Verona</span>
+                        <h3 class="chi-siamo-scheda-titolo" id="chi-siamo-scheda-titolo">La società in breve</h3>
+                        <dl class="chi-siamo-scheda-lista">
+                            <div class="chi-siamo-scheda-riga">
+                                <dt>Sede</dt>
+                                <dd>Verona, via XX Settembre 9</dd>
                             </div>
-                            <div class="chi-siamo-fact">
-                                <span class="chi-siamo-fact-label">Rete</span>
-                                <span class="chi-siamo-fact-value">Nazionale</span>
+                            <div class="chi-siamo-scheda-riga">
+                                <dt>Rete</dt>
+                                <dd>Oltre 130 professionisti in 60 province e 20 regioni</dd>
                             </div>
-                            <div class="chi-siamo-fact">
-                                <span class="chi-siamo-fact-label">Iscrizioni</span>
-                                <span class="chi-siamo-fact-value">Registro Revisori Legali</span>
+                            <div class="chi-siamo-scheda-riga">
+                                <dt>Iscrizioni</dt>
+                                <dd>Registro dei Revisori Legali e Albo dei Dottori Commercialisti ed Esperti Contabili</dd>
                             </div>
-                        </div>
-                        <div class="chi-siamo-etico">
-                            <span class="chi-siamo-etico-eyebrow">Integrità</span>
-                            <p class="chi-siamo-etico-testo">
-                                Legalità, indipendenza e trasparenza sono impegni formalizzati nel
-                                Codice Etico che vincola la società e l'intera rete di professionisti.
-                            </p>
-                            <a href="assets/Codice-Etico-Revilaw.pdf" download class="chi-siamo-etico-link">
-                                Consulta il Codice Etico
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                            </a>
-                        </div>
-                    </div>
-
+                            <div class="chi-siamo-scheda-riga">
+                                <dt>Codice Etico</dt>
+                                <dd>Legalità, indipendenza e trasparenza, vincolanti per la società e per tutta la rete
+                                    <a href="assets/Codice-Etico-Revilaw.pdf" download class="chi-siamo-scheda-link" aria-label="Scarica il PDF del Codice Etico">Scarica il PDF <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+                                </dd>
+                            </div>
+                        </dl>
+                    </aside>
                 </div>
 
             </div>
