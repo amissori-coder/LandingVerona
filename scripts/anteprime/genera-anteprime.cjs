@@ -27,7 +27,9 @@
 // accanto ricorda con quale titolo e descrizione è stata fatta ciascuna:
 // se non cambiano, l'immagine non viene rifatta. Nell'indirizzo dell'immagine
 // c'è "?v=<impronta>", che cambia quando cambia il testo: i social tengono in
-// cache le anteprime per indirizzo, così vedono subito quella nuova.
+// cache le immagini per indirizzo, così alla prossima lettura della pagina
+// scaricano quella nuova. La pagina stessa resta in cache qualche giorno: per
+// vederla subito si usa LinkedIn Post Inspector o il Debugger di Facebook.
 'use strict';
 
 const fs = require('fs');
