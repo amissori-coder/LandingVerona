@@ -4692,3 +4692,29 @@ ul {
     .theme-card-cifra { font-size: 2.8rem; }
     .theme-card-cifra--stelle { font-size: 2.2rem; }
 }
+
+/* --- Profili di responsabilita': un registro a tutta larghezza. Ogni gruppo
+   (civile, crisi, penale, organi di controllo) ha l'etichetta a sinistra e le
+   sue voci a destra, separate da righe sottili; niente pillole, niente due
+   colonne che restano sbilanciate. --- */
+.mission-risks-flag, .resp-block-eyebrow { padding: 0; background: none; border-radius: 0; }
+.mission-risks-flag { margin-bottom: 10px; color: var(--navy-light); letter-spacing: 0.16em; }
+.resp-list { display: block; max-width: none; margin: 8px 0 0; border-top: 2px solid #0f2d4a; }
+.resp-block, .resp-block:first-child { grid-row: auto; display: grid; grid-template-columns: 200px 1fr; column-gap: 32px; margin: 0; padding: 14px 0 6px; border-top: 0; border-bottom: 1px solid rgba(22, 64, 104, 0.28); }
+.resp-block + .resp-block { margin-top: 0; padding-top: 14px; border-top: 0; }
+.resp-block-head { margin: 0; padding-top: 12px; }
+.resp-block-eyebrow { font-size: 0.68rem; letter-spacing: 0.14em; color: #0f2d4a; }
+.resp-rows { margin: 0; padding: 0; list-style: none; }
+.resp-row { grid-template-columns: 36px 1fr auto; column-gap: 20px; padding: 10px 0; align-items: baseline; }
+.resp-row + .resp-row { border-top: 1px solid rgba(22, 64, 104, 0.12); padding-top: 10px; }
+.resp-row:hover { padding-left: 0; }
+.resp-row-num { color: #5b6b7c; font-weight: 600; padding-top: 0; }
+.resp-row-title { font-size: 1rem; }
+.resp-row-desc { max-width: 64ch; }
+.resp-row-ref { font-weight: 500; padding-top: 0; }
+@media (max-width: 900px) {
+    .resp-block, .resp-block:first-child { grid-template-columns: 1fr; padding: 12px 0 4px; }
+    .resp-block-head { padding: 0 0 2px; }
+    .resp-row { grid-template-columns: 30px 1fr; }
+    .resp-row-ref { grid-column: 2; grid-row: 2; text-align: left; white-space: normal; padding-top: 2px; }
+}
