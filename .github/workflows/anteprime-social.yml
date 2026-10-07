@@ -1,0 +1,65 @@
+name: Anteprime social
+
+# Quando si pubblica o si modifica una pagina, rifà l'immagine che compare
+# condividendo il link (LinkedIn, Facebook, WhatsApp, X) con il titolo e la
+# descrizione della pagina, e la collega nei meta og:image / twitter:image.
+# Se titolo e descrizione non cambiano, non rifà niente e non fa commit.
+#
+# Le pagine nuove vengono prese da sole, purché abbiano i meta Open Graph
+# (basta copiarli da una pagina esistente, l'immagine può restare quella
+# generica: la sostituisce il generatore).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.html'
+      - 'scripts/anteprime/**'
+      - '.github/workflows/anteprime-social.yml'
+  workflow_dispatch:
+    inputs:
+      forza:
+        description: "Rifare tutte le immagini (dopo un cambio di grafica)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: anteprime-social
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  genera:
+    name: Genera le anteprime
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il repository
+        uses: actions/checkout@v4
+
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Installa Playwright e Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Genera le immagini
+        run: node scripts/anteprime/genera-anteprime.cjs ${{ inputs.forza && '--forza' || '' }}
+
+      - name: Salva le modifiche
+        run: |
+          if [ -z "$(git status --porcelain -- assets/og '*.html')" ]; then
+            echo "Nessuna anteprima da aggiornare."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add assets/og '*.html'
+          git commit -m "Anteprime social aggiornate"
+          git pull --rebase origin main
+          git push origin HEAD:main

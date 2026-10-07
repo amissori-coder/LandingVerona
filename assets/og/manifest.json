@@ -1,0 +1,187 @@
+{
+  "adeguati_assetti": {
+    "pagina": "adeguati_assetti/index.html",
+    "impronta": "6891beebef",
+    "titolo": "Adeguati Assetti Organizzativi e Art. 2086 c.c."
+  },
+  "adempimento_collaborativo": {
+    "pagina": "adempimento_collaborativo/index.html",
+    "impronta": "799736612f",
+    "titolo": "Adempimento Collaborativo e Tax Control Framework"
+  },
+  "ai_act_2026": {
+    "pagina": "ai_act_2026/index.html",
+    "impronta": "e2d9b507e0",
+    "titolo": "AI Act: gli obblighi scattati il 2 agosto 2026"
+  },
+  "ai_governance": {
+    "pagina": "ai_governance/index.html",
+    "impronta": "405b51d0d8",
+    "titolo": "AI Governance in azienda: assetti, AI Act, FRIA e rischi"
+  },
+  "amministratori_controllori_revisori": {
+    "pagina": "amministratori_controllori_revisori/index.html",
+    "impronta": "43cd8ee363",
+    "titolo": "Amministratori, controllori e revisori di S.p.A. dopo il D.Lgs. 47/2026"
+  },
+  "approfondimenti": {
+    "pagina": "approfondimenti/index.html",
+    "impronta": "a55476f3fb",
+    "titolo": "Approfondimenti per argomento: la ricerca guidata"
+  },
+  "assetti_early_warning": {
+    "pagina": "assetti_early_warning/index.html",
+    "impronta": "ec09d1b8db",
+    "titolo": "Assetti adeguati ed early warning: il metodo"
+  },
+  "bando_tipo_2026": {
+    "pagina": "bando_tipo_2026/index.html",
+    "impronta": "26028c50b3",
+    "titolo": "Bando-tipo Mimit 2026: aiuti di Stato alle imprese virtuose"
+  },
+  "cassazione_7134_2026": {
+    "pagina": "cassazione_7134_2026/index.html",
+    "impronta": "a2a9453377",
+    "titolo": "Adeguati assetti e credito: Cassazione 7134/2026"
+  },
+  "chi_siamo": {
+    "pagina": "chi_siamo/index.html",
+    "impronta": "551e1beb8a",
+    "titolo": "Chi siamo: la struttura di Revilaw S.p.A."
+  },
+  "crisi_impresa": {
+    "pagina": "crisi_impresa/index.html",
+    "impronta": "dbe616a2c0",
+    "titolo": "Crisi d'Impresa: prevenzione e adeguati assetti"
+  },
+  "fcd_2026": {
+    "pagina": "fcd_2026/index.html",
+    "impronta": "c37be00675",
+    "titolo": "Fondo Contrasto Deindustrializzazione 2026"
+  },
+  "home": {
+    "pagina": "index.html",
+    "impronta": "a82fa0ac0e",
+    "titolo": "Next Generation Business, eventi B2B"
+  },
+  "inconscio_impresa": {
+    "pagina": "inconscio_impresa/index.html",
+    "impronta": "dcf5cabcb9",
+    "titolo": "L'inconscio dell'impresa: valutare le organizzazioni per come sono fatte"
+  },
+  "iper_ammortamento": {
+    "pagina": "iper_ammortamento/index.html",
+    "impronta": "7d86d2a2e2",
+    "titolo": "Iper Ammortamento 2026-2028 e Transizione 5.0"
+  },
+  "lazio_bandi_2026": {
+    "pagina": "lazio_bandi_2026/index.html",
+    "impronta": "f04ba052a9",
+    "titolo": "Bandi Lazio 2026: Piccolo Credito e Fondo Futuro"
+  },
+  "modello_231": {
+    "pagina": "modello_231/index.html",
+    "impronta": "a6fd641d68",
+    "titolo": "Modello 231: responsabilità degli enti"
+  },
+  "napoli_ottobre_2026": {
+    "pagina": "napoli_ottobre_2026/index.html",
+    "impronta": "41d168bc50",
+    "titolo": "Next Generation Business 2026 · Convegno Napoli"
+  },
+  "organo_di_controllo": {
+    "pagina": "organo_di_controllo/index.html",
+    "impronta": "7ec1b425a2",
+    "titolo": "L'organo di controllo dopo il Dlgs 47/2026"
+  },
+  "protezione_patrimonio": {
+    "pagina": "protezione_patrimonio/index.html",
+    "impronta": "acadeac9af",
+    "titolo": "Protezione del Patrimonio: Holding e Trust"
+  },
+  "rating_bancario": {
+    "pagina": "rating_bancario/index.html",
+    "impronta": "7cc27b8b1f",
+    "titolo": "Rating bancario: simulatore MCC e cruscotto di bancabilità"
+  },
+  "rating_legalita": {
+    "pagina": "rating_legalita/index.html",
+    "impronta": "3ebc21a114",
+    "titolo": "Rating di Legalità: punteggio AGCM e vantaggi"
+  },
+  "rating_legalita_incentivi": {
+    "pagina": "rating_legalita_incentivi/index.html",
+    "impronta": "f94db9a53a",
+    "titolo": "Il rating di legalità diventa criterio per gli incentivi alle imprese"
+  },
+  "reati_231_ia": {
+    "pagina": "reati_231_ia/index.html",
+    "impronta": "c4aff75a25",
+    "titolo": "IA e reati presupposto: il nuovo art. 25-vicies del Dlgs 231/2001"
+  },
+  "responsabilita_amministratori": {
+    "pagina": "responsabilita_amministratori/index.html",
+    "impronta": "b8e779e360",
+    "titolo": "La responsabilità degli amministratori di società: ebook gratuito"
+  },
+  "revisione-demo": {
+    "pagina": "revisione-demo/index.html",
+    "impronta": "7a447abfb7",
+    "titolo": "Revisione legale: metodo, fasi e benefici"
+  },
+  "riforma_governance_2026": {
+    "pagina": "riforma_governance_2026/index.html",
+    "impronta": "88403e3917",
+    "titolo": "Riforma della governance societaria: il Dlgs 47/2026"
+  },
+  "roma_aprile_2026": {
+    "pagina": "roma_aprile_2026/index.html",
+    "impronta": "4e555df746",
+    "titolo": "ZLS e Rating di Legalità, convegno Roma 2026"
+  },
+  "simest_ia_quantum": {
+    "pagina": "simest_ia_quantum/index.html",
+    "impronta": "b81d798cc6",
+    "titolo": "IA e quantum computing nell'export: 200 milioni per le imprese"
+  },
+  "sostenibilita_esg": {
+    "pagina": "sostenibilita_esg/index.html",
+    "impronta": "ecd21b8584",
+    "titolo": "Sostenibilità d'impresa ed ESG: bilancio e strategie"
+  },
+  "tax_control_framework": {
+    "pagina": "tax_control_framework/index.html",
+    "impronta": "fa71c1f943",
+    "titolo": "Tax Control Framework: ebook gratuito"
+  },
+  "tcf_benefici_fiscali": {
+    "pagina": "tcf_benefici_fiscali/index.html",
+    "impronta": "8739900f51",
+    "titolo": "Quanto vale gestire il rischio fiscale: i benefici della Circolare 6/E del 2026"
+  },
+  "verona_marzo_2026": {
+    "pagina": "verona_marzo_2026/index.html",
+    "impronta": "5a07b23282",
+    "titolo": "Next Generation Business Verona 27 marzo 2026"
+  },
+  "verona_marzo_2026-aderenti": {
+    "pagina": "verona_marzo_2026/aderenti/index.html",
+    "impronta": "10cfbd7169",
+    "titolo": "Next Generation Business · Verona 27 Marzo 2026"
+  },
+  "zls_zes": {
+    "pagina": "zls_zes/index.html",
+    "impronta": "e6dda1f4d0",
+    "titolo": "Credito d'imposta ZES e ZLS 2026 fino al 60%"
+  },
+  "zls_zes-zes": {
+    "pagina": "zls_zes/zes.html",
+    "impronta": "9cf9bbcff7",
+    "titolo": "Credito d'Imposta ZES Unica Mezzogiorno"
+  },
+  "zls_zes-zls": {
+    "pagina": "zls_zes/zls.html",
+    "impronta": "0d29115eb4",
+    "titolo": "Credito d'Imposta ZLS 2026 Centro-Nord"
+  }
+}
