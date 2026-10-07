@@ -30,7 +30,7 @@ const radice = path.resolve(__dirname, '..', '..');
 const SITO = 'https://nextgenerationbusiness.it';
 const CARTELLA = path.join(radice, 'assets', 'og');
 const MANIFEST = path.join(CARTELLA, 'manifest.json');
-const VERSIONE_GRAFICA = 1; // da aumentare quando si cambia il modello qui sotto
+const VERSIONE_GRAFICA = 2; // da aumentare quando si cambia il modello qui sotto
 
 // Le copertine che il generatore può sostituire. Tutto il resto è una scelta
 // fatta a mano e non si tocca.
@@ -141,9 +141,12 @@ function logoDataUri() {
 }
 
 function modello(p, logo) {
-    // Titoli lunghi: si scala il carattere invece di tagliare il testo.
+    // Solo titolo, grande: LinkedIn e Facebook mostrano gia' titolo e
+    // descrizione sotto l'immagine, e in anteprima piccola un testo lungo
+    // diventa illeggibile. Titoli lunghi: si scala il carattere invece di
+    // tagliare il testo.
     const n = p.titolo.length;
-    const corpo = n <= 40 ? 68 : n <= 60 ? 60 : n <= 85 ? 52 : n <= 115 ? 45 : 39;
+    const corpo = n <= 30 ? 92 : n <= 45 ? 84 : n <= 65 ? 76 : n <= 85 ? 68 : n <= 115 ? 58 : 50;
     return `<!doctype html><html lang="it"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=block" rel="stylesheet">
@@ -153,31 +156,26 @@ function modello(p, logo) {
   body {
     font-family: Inter, 'Segoe UI', Arial, sans-serif; color: #fff; overflow: hidden; position: relative;
     background:
-      radial-gradient(circle at 92% 18%, rgba(91,137,184,.38) 0, rgba(91,137,184,0) 42%),
-      radial-gradient(circle at 105% 110%, rgba(60,111,160,.45) 0, rgba(60,111,160,0) 50%),
-      linear-gradient(135deg, #0A2844 0%, #164068 62%, #2A5A85 100%);
+      radial-gradient(circle at 88% 12%, rgba(91,137,184,.30) 0, rgba(91,137,184,0) 45%),
+      linear-gradient(135deg, #0A2844 0%, #123A60 55%, #1E4E7A 100%);
   }
-  .anelli { position: absolute; right: -170px; top: -170px; width: 640px; height: 640px; border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,.08); box-shadow: 0 0 0 70px rgba(255,255,255,.025), 0 0 0 140px rgba(255,255,255,.018); }
-  .barra { position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: linear-gradient(#5B89B8, #2A5A85); }
-  .contenuto { position: absolute; left: 84px; right: 84px; top: 66px; bottom: 60px; display: flex; flex-direction: column; }
-  .etichetta { display: inline-flex; align-self: flex-start; align-items: center; gap: 12px;
-    font-size: 20px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #BFD3E8; }
-  .etichetta::before { content: ''; width: 34px; height: 3px; background: #5B89B8; border-radius: 2px; }
-  h1 { margin-top: 30px; font-size: ${corpo}px; line-height: 1.12; font-weight: 800; letter-spacing: -.02em;
+  .anelli { position: absolute; right: -220px; bottom: -260px; width: 620px; height: 620px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.07); box-shadow: 0 0 0 80px rgba(255,255,255,.022), 0 0 0 160px rgba(255,255,255,.014); }
+  .contenuto { position: absolute; left: 80px; right: 80px; top: 64px; bottom: 56px; display: flex; flex-direction: column; }
+  .etichetta { display: inline-flex; align-self: flex-start; align-items: center; gap: 14px;
+    font-size: 22px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: #BFD3E8; }
+  .etichetta::before { content: ''; width: 40px; height: 4px; background: #6E9CCB; border-radius: 2px; }
+  .centro { flex: 1; display: flex; align-items: center; }
+  h1 { font-size: ${corpo}px; line-height: 1.08; font-weight: 800; letter-spacing: -.025em; max-width: 1040px;
     display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; }
-  p { margin-top: 24px; font-size: 25px; line-height: 1.42; color: #C9D8E8; font-weight: 400; max-width: 960px;
-    display: -webkit-box; -webkit-line-clamp: ${corpo >= 52 ? 3 : 2}; -webkit-box-orient: vertical; overflow: hidden; }
-  .piede { margin-top: auto; display: flex; align-items: center; justify-content: space-between;
-    padding-top: 26px; border-top: 1px solid rgba(255,255,255,.16); }
-  .piede img { height: 58px; }
-  .sito { font-size: 21px; font-weight: 500; color: #9FBBD8; letter-spacing: .02em; }
+  .piede { display: flex; align-items: center; justify-content: space-between; }
+  .piede img { height: 62px; }
+  .sito { font-size: 24px; font-weight: 600; color: #BFD3E8; letter-spacing: .01em; }
 </style></head><body>
-  <div class="anelli"></div><div class="barra"></div>
+  <div class="anelli"></div>
   <div class="contenuto">
     <div class="etichetta">${escapeHtml(p.etichetta)}</div>
-    <h1>${escapeHtml(p.titolo)}</h1>
-    ${p.descrizione ? `<p>${escapeHtml(p.descrizione)}</p>` : ''}
+    <div class="centro"><h1>${escapeHtml(p.titolo)}</h1></div>
     <div class="piede"><img src="${logo}" alt=""><span class="sito">nextgenerationbusiness.it</span></div>
   </div>
 </body></html>`;

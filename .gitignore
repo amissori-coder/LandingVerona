@@ -20,3 +20,6 @@ diretta/prove/node_modules/
 diretta/prove/package-lock.json
 diretta/prove/risultati/
 diretta/firebase/*.log
+
+# Dipendenze installate al volo dai workflow (Playwright per le anteprime).
+node_modules/
