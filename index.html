@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=21">
+    <link rel="stylesheet" href="styles.css?v=22">
     <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
@@ -148,21 +148,6 @@
             </button>
         </div>
     </nav>
-
-    <!-- News banner: Osservatorio giurisprudenza, Cass. 7134/2026 -->
-    <div class="news-banner" id="newsBanner" hidden>
-        <div class="news-banner-inner">
-            <a class="news-banner-link" href="cassazione_7134_2026/">
-                <span class="news-banner-tag">Novità</span>
-                <span class="news-banner-text"><strong>Cassazione n. 7134/2026:</strong> nullo il finanziamento all'impresa decotta, anche con garanzia MCC. Gli adeguati assetti diventano condizione di bancabilità.</span>
-                <span class="news-banner-cta">
-                    Leggi l'approfondimento
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                </span>
-            </a>
-            <button type="button" class="news-banner-close" id="newsBannerClose" aria-label="Chiudi avviso">&times;</button>
-        </div>
-    </div>
 
     <!-- Landing split: left = brand/hero, right = eventi + contenuti -->
     <main id="main" tabindex="-1">
@@ -1073,12 +1058,14 @@
         </div>
     </footer>
 
-    <script src="script.js?v=7"></script>
+    <script src="script.js?v=8"></script>
     <script src="assets/event-banner.js" defer></script>
     <!-- data-pillola: la pillola fissa "Diretta Napoli" in basso a sinistra -->
     <script src="/assets/diretta-stato.js?v=20260927b" data-pillola defer></script>
     <script src="/assets/diretta-popup.js?v=20260929a" defer></script>
     <script src="/assets/bando-tipo-popup.js?v=20260924" defer></script>
     <script src="/assets/fcd-popup.js?v=20260924" defer></script>
+    <!-- secondo popup all'entrata: la novita dell'Osservatorio, dopo la chiusura del primo -->
+    <script src="/assets/novita-popup.js?v=1" defer></script>
 </body>
 </html>
