@@ -133,7 +133,9 @@ p.aig-tag {
 /* In home il sottotitolo dell'hero e i due rimandi stanno in una colonna
    stretta con carattere grande: giustificati si aprirebbero. A sinistra. */
 .landing-split p.hero-subtitle,
-.landing-split .brand-highlight-text {
+.landing-split .brand-highlight-text,
+.chi-siamo-motto,
+.chi-siamo-motto-text {
     text-align: start !important;
     text-align-last: start;
     hyphens: manual !important;

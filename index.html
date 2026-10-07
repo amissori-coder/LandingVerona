@@ -47,8 +47,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=16">
-    <link rel="stylesheet" href="/assets/testo.css?v=3">
+    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
     <script type="application/ld+json">
@@ -103,6 +103,7 @@
     </script>
 </head>
 <body>
+    <a class="skip-link" href="#main">Vai al contenuto</a>
 
     <!-- Navbar -->
     <nav class="navbar" id="navbar">
@@ -164,6 +165,7 @@
     </div>
 
     <!-- Landing split: left = brand/hero, right = eventi + contenuti -->
+    <main id="main" tabindex="-1">
     <section class="landing-split" id="hero">
 
         <!-- ========== LEFT: brand / hero left-aligned ========== -->
@@ -231,7 +233,7 @@
                 </div>
             <!-- Sigillo del core service: testo curvo e freccia -->
             <a href="revisione-demo/" class="core-seal orbit-sun" aria-label="Scopri la Revisione Legale, il nostro core service">
-                <svg class="core-seal-svg" viewBox="0 0 220 220">
+                <svg class="core-seal-svg" viewBox="0 0 220 220" aria-hidden="true" focusable="false">
                     <defs>
                         <!-- Top arc path: 9 o'clock → 12 → 3 o'clock -->
                         <path id="coreSealTop" d="M 28 110 A 82 82 0 0 1 192 110"/>
@@ -259,7 +261,7 @@
                     <text x="110" y="176" text-anchor="middle" class="core-seal-tagline">SCOPRI IL PROCESSO</text>
                 </svg>
                 <div class="core-seal-center">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="core-seal-arrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="core-seal-arrow" aria-hidden="true" focusable="false">
                         <path d="M7 17 17 7"/>
                         <path d="M7 7h10v10"/>
                     </svg>
@@ -285,7 +287,7 @@
                                 <span class="events-group-count">1</span>
                             </summary>
                             <div class="events-group-body">
-                        <div class="event-card event-upcoming" data-event-date="2027-02-28" data-event-badge-past="Evento concluso" aria-label="Evento Milano Febbraio 2027">
+                        <div class="event-card event-upcoming" data-event-date="2027-02-28" data-event-badge-past="Evento concluso">
                             <div class="event-date-col">
                                 <span class="event-day event-day--tba">Feb</span>
                                 <div class="event-date-meta">
@@ -327,7 +329,7 @@
                                 <span class="events-group-count">3</span>
                             </summary>
                             <div class="events-group-body">
-                        <a href="napoli_ottobre_2026/" class="event-card event-past" aria-label="Evento Napoli 2 Ottobre 2026">
+                        <a href="napoli_ottobre_2026/" class="event-card event-past">
                             <div class="event-date-col">
                                 <span class="event-day">2</span>
                                 <div class="event-date-meta">
@@ -377,7 +379,7 @@
                             </div>
                         </a>
 
-                        <a href="roma_aprile_2026/" class="event-card event-upcoming" data-event-date="2026-04-29" data-event-badge-upcoming="Prossimo evento" data-event-badge-past="Evento precedente" data-event-link-upcoming="Scopri l'evento e iscriviti" data-event-link-past="Rivedi l'evento" aria-label="Evento Roma 29 Aprile 2026">
+                        <a href="roma_aprile_2026/" class="event-card event-upcoming" data-event-date="2026-04-29" data-event-badge-upcoming="Prossimo evento" data-event-badge-past="Evento precedente" data-event-link-upcoming="Scopri l'evento e iscriviti" data-event-link-past="Rivedi l'evento">
                             <div class="event-date-col">
                                 <span class="event-day">29</span>
                                 <div class="event-date-meta">
@@ -682,7 +684,7 @@
                 <h2 class="video-home-title" id="video-title">Next Generation Business</h2>
             </header>
             <div class="video-home-frame">
-                <video id="ngbHomeVideo" muted loop playsinline preload="metadata" aria-label="Video di presentazione di Next Generation Business">
+                <video id="ngbHomeVideo" controls muted loop playsinline preload="metadata" aria-label="Video di presentazione di Next Generation Business">
                     <source src="https://github.com/amissori-coder/LandingVerona/releases/download/media-home/video-homepage-ngb.mp4" type="video/mp4">
                     Il tuo browser non supporta la riproduzione del video.
                 </video>
@@ -1024,6 +1026,8 @@
         </div>
     </section>
 
+    </main>
+
     <!-- Footer -->
     <footer class="footer" id="contatti">
         <div class="container">
@@ -1109,7 +1113,7 @@
         </div>
     </footer>
 
-    <script src="script.js?v=4"></script>
+    <script src="script.js?v=5"></script>
     <script src="assets/event-banner.js" defer></script>
     <!-- data-pillola: la pillola fissa "Diretta Napoli" in basso a sinistra -->
     <script src="/assets/diretta-stato.js?v=20260927b" data-pillola defer></script>
