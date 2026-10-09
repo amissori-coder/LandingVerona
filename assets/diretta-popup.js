@@ -3,15 +3,14 @@
  * Componente autonomo (HTML + stile + logica iniettati da JS). Date e stato
  * da assets/diretta-stato.js (window.NGBDiretta), che va caricato PRIMA di
  * questo file.
- * - Ha la PRECEDENZA sulle novita' della home (novita-popup.js): quando sta
- *   per comparire imposta subito window.__dirPromoPlanned (novita-popup.js,
- *   caricato dopo, ritira le schede del bando-tipo e del FCD e aspetta la
- *   chiusura di questo popup per l'Osservatorio) e all'apertura marca come
- *   viste anche le schede del bando-tipo e del FCD (mai due volte i bandi
- *   nella stessa sessione). Vale anche al contrario: quelle schede, quando
- *   compaiono, segnano dirPromoSeen, cosi' se la finestra della diretta si
- *   apre a sessione iniziata (il 25 settembre alle 9.00, con la scheda gia'
- *   aperta) il popup della diretta non arriva dopo.
+ * - E' l'unico popup della home: le novita' (il bando-tipo e la Cassazione
+ *   7134) non si aprono piu' in una finestra all'entrata, stanno nella
+ *   sezione "Sotto la lente" della pagina (assets/sotto-la-lente.js).
+ *   Quando sta per comparire imposta comunque subito window.__dirPromoPlanned
+ *   e all'apertura segna come visti btPromoSeen e fcdPromoSeen: erano i
+ *   segnali con cui i popup del bando-tipo e del FCD gli cedevano la
+ *   precedenza. Restano per un eventuale popup futuro; oggi nessun file li
+ *   legge.
  * - Compare SOLO sulla home page e solo nella finestra di date dell'evento:
  *   da NGBDiretta.EVENTO.mostraDaGiorni giorni prima dell'inizio fino alla
  *   fine, poi si spegne da solo (niente da togliere a mano dopo l'evento).
@@ -38,9 +37,9 @@
 
   // --- Configurazione ---------------------------------------------------
   var D = window.NGBDiretta;
-  // Senza diretta-stato.js non si sa quando comparire: niente popup, e gli
-  // altri due si comportano come prima. (Anche con una sua copia vecchia
-  // ancora in cache, senza condizione(): i due file si aggiornano insieme.)
+  // Senza diretta-stato.js non si sa quando comparire: niente popup. (Anche
+  // con una sua copia vecchia ancora in cache, senza condizione(): i due
+  // file si aggiornano insieme.)
   if (!D || !D.EVENTO || typeof D.condizione !== "function") return;
   var EVENTO = D.EVENTO;
   var SHOW_DELAY_MS = 900;
@@ -50,7 +49,7 @@
   var ATTESA_STATO_MS = 2500;
   var SS_SEEN = "dirPromoSeen";                      // gia mostrato in questa sessione
   var LS_HIDDEN = "dirPromoHidden_" + EVENTO.id;     // "non mostrare piu" (per evento)
-  var SS_ALTRI = ["btPromoSeen", "fcdPromoSeen"];    // i popup che cedono la precedenza
+  var SS_ALTRI = ["btPromoSeen", "fcdPromoSeen"];    // i popup dei bandi di una volta (vedi sopra)
 
   // --- Guardie di uscita ------------------------------------------------
   // Mostra SOLO sulla home page.
@@ -72,13 +71,12 @@
   if (ls(true, LS_HIDDEN) === "1") return; // disattivato in modo permanente
   if (ss(true, SS_SEEN) === "1") return;   // gia visto in questa sessione
   // Se in questa scheda si e' gia letto che la diretta e' terminata (finita
-  // prima dell'orario previsto), non ha piu senso prenotarsi: lascia il posto
-  // agli altri popup.
+  // prima dell'orario previsto), non ha piu senso prenotarsi.
   if (D.condizione(D.ultimo()) === "conclusa") return;
 
   // Tutte le guardie superate: questo popup comparira. Il flag, impostato
-  // subito (in modo sincrono), dice a novita-popup.js, caricato dopo, di
-  // cedere la precedenza.
+  // subito (in modo sincrono), lo dice agli script caricati dopo (oggi
+  // nessuno lo legge: vedi l'intestazione).
   window.__dirPromoPlanned = true;
 
   // --- Testi ------------------------------------------------------------
@@ -344,7 +342,7 @@
       lastFocus = document.activeElement;
       root.hidden = false;
       ss(false, SS_SEEN, "1");     // conta come "visto" in questa sessione
-      // niente secondo popup nella stessa sessione: gli altri si ritirano
+      // le chiavi dei popup dei bandi di una volta (vedi l'intestazione)
       for (var i = 0; i < SS_ALTRI.length; i++) ss(false, SS_ALTRI[i], "1");
       // doppio rAF: la transizione parte a stili applicati e layout stabile,
       // senza il "salto" del reflow forzato
