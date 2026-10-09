@@ -208,28 +208,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sul computer porta al video, la prima sezione sotto l'apertura; sul
     // telefono la colonna blu sta sopra gli eventi, e porta li'. Il clic lo
     // gestisce lo scorrimento morbido qui sotto, che legge l'href al clic.
-    // Le frecce si muovono per circa cinque secondi ogni volta che entrano
-    // in vista, poi restano ferme (niente movimento senza fine).
     const scorri = document.querySelector('[data-scorri]');
     if (scorri) {
         const stretto = window.matchMedia('(max-width: 900px)');
         const meta = () => scorri.setAttribute('href', stretto.matches ? '#eventi' : '#video');
         meta();
         if (stretto.addEventListener) stretto.addEventListener('change', meta); else if (stretto.addListener) stretto.addListener(meta);
-        const calmo = window.matchMedia('(prefers-reduced-motion: reduce)');
-        if ('IntersectionObserver' in window && !calmo.matches) {
-            let spegni = null;
-            new IntersectionObserver((voci) => {
-                const dentro = voci[voci.length - 1].isIntersecting;
-                clearTimeout(spegni);
-                if (dentro) {
-                    scorri.classList.add('is-viva');
-                    spegni = setTimeout(() => scorri.classList.remove('is-viva'), 5200);
+    }
+    // Tutti gli inviti (l'apertura e il fondo di ogni sezione): si muovono
+    // per circa cinque secondi ogni volta che entrano in vista, poi restano
+    // fermi. Con "riduci movimento" non si muovono mai.
+    const calmo = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if ('IntersectionObserver' in window && !calmo.matches) {
+        const spegni = new Map();
+        const osserva = new IntersectionObserver((voci) => {
+            voci.forEach((v) => {
+                const el = v.target;
+                clearTimeout(spegni.get(el));
+                if (v.isIntersecting) {
+                    el.classList.add('is-viva');
+                    spegni.set(el, setTimeout(() => el.classList.remove('is-viva'), 5200));
                 } else {
-                    scorri.classList.remove('is-viva');
+                    el.classList.remove('is-viva');
                 }
-            }).observe(scorri);
-        }
+            });
+        });
+        document.querySelectorAll('.scorri').forEach((el) => osserva.observe(el));
     }
 
     // === Smooth-scroll for in-page anchor links ===
@@ -248,9 +252,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.detail && anchor.closest('.has-submenu')) anchor.blur();
             // il link "Vai al contenuto" porta anche il focus dentro il contenuto
             if (target.id === 'main') target.focus({ preventScroll: true });
-            // e cosi' l'invito a scorrere: il Tab dopo riparte dalla sezione d'arrivo
-            if (anchor.hasAttribute('data-scorri')) {
+            // e cosi' gli inviti a scorrere: il Tab dopo riparte dalla sezione d'arrivo
+            if (anchor.classList.contains('scorri')) {
                 if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                target.setAttribute('data-scorri-meta', '');
                 target.focus({ preventScroll: true });
             }
         });
