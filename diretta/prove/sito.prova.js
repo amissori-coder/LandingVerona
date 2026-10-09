@@ -533,6 +533,9 @@ async function provaHome() {
     console.log('\n[home: 26 settembre, nella finestra (computer)]');
     {
         const v = await visitatore(COMPUTER);
+        // la scheda dell'Osservatorio (novita-popup.js) compare dopo la chiusura
+        // della diretta e coprirebbe la pillola misurata scorrendo la pagina
+        await v.ctx.addInitScript(() => { try { localStorage.setItem('novitaPromoHidden_cass7134', '1'); } catch (e) { /* niente */ } });
         const p = await v.scheda('2026-09-26T10:00:00+02:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');

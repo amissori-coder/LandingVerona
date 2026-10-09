@@ -6,9 +6,10 @@
  *   affiancati e tutti nello stesso formato (occhiello e riferimento,
  *   titolo, testo, tre cifre, invito all'approfondimento, Chiudi,
  *   Non mostrare piu').
- * - Sul computer e sul tablet le schede stanno affiancate; sotto i 700 px
- *   (telefono) scorrono di lato, una accanto all'altra: si vede il bordo
- *   della seconda e due trattini dicono quale si sta guardando.
+ * - Sul computer le schede stanno affiancate; sotto gli 800 px (telefono,
+ *   tablet in verticale) scorrono di lato, una accanto all'altra: si vede
+ *   il bordo della seconda e due trattini dicono quale si sta guardando.
+ *   Se lo schermo e' basso scorre la finestra intera.
  * - Le schede sono di due gruppi e di ogni gruppo ne compare al massimo
  *   una, una volta per sessione: "bandi" (il bando-tipo; il Fondo Contrasto
  *   Deindustrializzazione solo per chi ha spento il bando-tipo con "Non
@@ -54,15 +55,15 @@
       nome: "fcd", gruppo: "bandi",
       visto: "fcdPromoSeen", spento: "fcdPromoHidden",
       segna: ["fcdPromoSeen", "btPromoSeen", "dirPromoSeen"],
-      fino: new Date(2026, 10, 29, 0, 0, 0), // fino al 28 novembre 2026 incluso (mese 10 = novembre)
-      occhiello: "Bando aperto",
+      fino: new Date(2026, 10, 28, 12, 0, 0), // fino alle 12 del 28 novembre 2026, quando chiude lo sportello (mese 10 = novembre)
+      occhiello: "Bando nazionale",
       riferimento: ["Invitalia", "sportello aperto dal 28 settembre"],
       titolo: "Fondo Contrasto Deindustrializzazione 2026",
       testo: "Contributo a fondo perduto per le imprese manifatturiere (ATECO sezione C) nei territori "
         + "dei Consorzi industriali del Lazio e di Piceno Consind. Le domande sono valutate "
         + "in ordine cronologico di presentazione, fino a esaurimento delle risorse.",
       cifre: [["300 mila", "euro di contributo massimo"], ["100%", "delle spese ammissibili"],
-        ["28.11.26", "chiusura dello sportello"]],
+        ["28.11.26", "chiusura alle ore 12"]],
       url: "/fcd_2026/", invito: "Leggi l'approfondimento",
       evento: ["click_popup", { pagina: "Fondo Contrasto Deindustrializzazione 2026" }]
     },
@@ -73,7 +74,7 @@
       occhiello: "Osservatorio giurisprudenza",
       riferimento: ["Cassazione n. 7134", "ordinanza 25 marzo 2026"],
       titolo: "Credito all'impresa gi&agrave; decotta: il&nbsp;finanziamento &egrave; nullo",
-      testo: "Vale anche con la garanzia pubblica del Fondo PMI e le somme erogate dalla banca sono "
+      testo: "La nullit&agrave; vale anche con la garanzia pubblica del Fondo PMI e le somme erogate dalla banca sono "
         + "irripetibili. I segnali della crisi erano gi&agrave; scritti nel bilancio 2018: gli "
         + "<b>adeguati assetti</b> diventano una condizione di bancabilit&agrave;.",
       cifre: [["34,05", "debiti su mezzi propri"], ["630 mila", "euro di debiti scaduti"],
@@ -119,22 +120,24 @@
   // Il formato e' quello sobrio del sito: angoli appena smussati, filetti
   // sottili, titoli in Montserrat, un solo pulsante pieno.
   var css = ''
-    + '#novitaPromo{position:fixed;inset:0;z-index:2147482000;display:flex;'
-    + 'align-items:center;justify-content:center;padding:20px;'
+    /* se lo schermo e' basso scorre la finestra intera, mai la scheda da sola
+       (le azioni in fondo restano raggiungibili); margin:auto la centra
+       quando c'e' spazio */
+    + '#novitaPromo{position:fixed;inset:0;z-index:2147482000;display:flex;padding:20px;'
+    + 'overflow-y:auto;overscroll-behavior:contain;'
     + 'font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}'
     + '#novitaPromo[hidden]{display:none;}'
     + '#novitaPromo,#novitaPromo *{box-sizing:border-box;}'
-    + '#novitaPromo .novp-sfondo{position:absolute;inset:0;background:rgba(10,40,68,.62);'
+    + '#novitaPromo .novp-sfondo{position:fixed;inset:0;background:rgba(10,40,68,.62);'
     + '-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);opacity:0;transition:opacity .3s ease;}'
     + '#novitaPromo.is-open .novp-sfondo{opacity:1;transition:opacity .55s ease;}'
-    + '#novitaPromo .novp-finestra{position:relative;width:100%;max-width:940px;max-height:100%;'
+    + '#novitaPromo .novp-finestra{position:relative;width:100%;max-width:940px;margin:auto;'
     + 'display:flex;flex-direction:column;align-items:center;outline:none;}'
     + '#novitaPromo .novp-fila{display:flex;justify-content:center;align-items:stretch;gap:20px;width:100%;}'
 
     /* la scheda */
     + '#novitaPromo .novp-scheda{position:relative;flex:0 1 450px;min-width:0;display:flex;flex-direction:column;'
     + 'background:#fff;border-radius:4px;padding:24px 26px 18px;outline:none;'
-    + 'max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain;'
     + 'box-shadow:0 18px 48px rgba(10,40,68,.30);transform:translateY(14px);opacity:0;'
     + 'transition:transform .3s ease,opacity .3s ease;}'
     + '#novitaPromo .novp-scheda[hidden]{display:none;}'
@@ -200,11 +203,11 @@
     + '#novitaPromo .novp-segni i[hidden]{display:none;}'
     + '#novitaPromo .novp-segni i.is-qui{background:#fff;}'
 
-    /* telefono: le schede scorrono di lato, centrate,
+    /* telefono e tablet stretto: le schede scorrono di lato, centrate,
        con il bordo della vicina in vista. Gli spazi ai lati sono elementi
        (::before e ::after) e non padding: Safari non conta il padding finale
        di un contenitore che scorre, e l'ultima scheda non si centrerebbe. */
-    + '@media (max-width:699px){'
+    + '@media (max-width:799px){'
     + '#novitaPromo{padding:20px 0;}'
     + '#novitaPromo .novp-finestra{max-width:none;}'
     + '#novitaPromo .novp-fila{justify-content:flex-start;align-items:center;gap:12px;overflow-x:auto;overflow-y:hidden;'
@@ -214,7 +217,6 @@
     + 'flex:0 0 calc((100% - min(440px, 100% - 56px)) / 2 - 12px);}'
     + '#novitaPromo .novp-scheda{flex:0 0 min(440px, calc(100% - 56px));scroll-snap-align:center;'
     + 'scroll-snap-stop:always;}'
-    + '#novitaPromo.is-coppia .novp-scheda{max-height:calc(100vh - 57px);max-height:calc(100dvh - 57px);}'
     + '#novitaPromo.is-coppia .novp-segni{display:flex;}}'
     + '@media (max-width:480px){#novitaPromo .novp-scheda{padding:20px 20px 16px;}'
     + '#novitaPromo h2{font-size:19px;}#novitaPromo .novp-occhiello{letter-spacing:.12em;}'
@@ -240,7 +242,7 @@
     }
     return ''
       + '<article class="novp-scheda" data-scheda="' + s.nome + '" tabindex="-1" aria-labelledby="' + id + '">'
-      + '<button type="button" class="novp-x" data-novp-chiudi aria-label="Chiudi questa novit&agrave;">' + iconX + '</button>'
+      + '<button type="button" class="novp-x" data-novp-chiudi aria-label="Chiudi questa novit&agrave;" aria-describedby="' + id + '">' + iconX + '</button>'
       + '<div class="novp-testa"><span class="novp-occhiello">' + s.occhiello + '</span>'
       + '<span class="novp-rif"><span>' + s.riferimento.join('</span>, <span>') + '</span></span></div>'
       + '<h2 id="' + id + '">' + s.titolo + '</h2>'
@@ -248,10 +250,10 @@
       + '<div class="novp-fondo">'
       + '<ul class="novp-cifre">' + cifre + '</ul>'
       + '<div class="novp-azioni">'
-      + '<a class="novp-cta" href="' + s.url + '">' + s.invito + iconArrow + '</a>'
-      + '<button type="button" class="novp-chiudi" data-novp-chiudi>Chiudi</button>'
+      + '<a class="novp-cta" href="' + s.url + '" aria-describedby="' + id + '">' + s.invito + iconArrow + '</a>'
+      + '<button type="button" class="novp-chiudi" data-novp-chiudi aria-describedby="' + id + '">Chiudi</button>'
       + '</div>'
-      + '<div class="novp-mai"><button type="button" data-novp-mai>Non mostrare pi&ugrave;</button></div>'
+      + '<div class="novp-mai"><button type="button" data-novp-mai aria-describedby="' + id + '">Non mostrare pi&ugrave;</button></div>'
       + '</div></article>';
   }
 
@@ -352,6 +354,11 @@
     function close() {
       if (isClosing || root.hidden) return;
       isClosing = true;
+      // via lo scivolamento di una scheda appena chiusa: la dissolvenza vale per tutte
+      Array.prototype.forEach.call(root.querySelectorAll(".novp-scheda"), function (r) {
+        r.style.transition = "";
+        r.style.transform = "";
+      });
       root.classList.remove("is-open");
       document.removeEventListener("keydown", onKey, true);
       setTimeout(function () {
@@ -364,11 +371,13 @@
     }
     // chiude una scheda sola; con l'ultima si chiude la finestra
     function chiudiScheda(el) {
+      if (isClosing) return;
       var resto = aperte().filter(function (x) { return x !== el; });
       if (!resto.length) { close(); return; }
       var avevaFocus = el.contains(document.activeElement);
       el.classList.add("is-chiusa");
       setTimeout(function () {
+        if (isClosing || root.hidden) return; // nel frattempo si chiude tutto
         // FLIP: la scheda che resta scivola al centro invece di saltarci
         var prima = resto.map(function (r) { return r.getBoundingClientRect().left; });
         el.hidden = true;
@@ -381,7 +390,7 @@
           void r.offsetWidth;
           r.style.transition = "transform .4s cubic-bezier(.16,1,.3,1)";
           r.style.transform = "";
-          setTimeout(function () { r.style.transition = ""; }, 450);
+          setTimeout(function () { if (!isClosing) r.style.transition = ""; }, 450);
         });
         if (avevaFocus) {
           try { resto[0].focus({ preventScroll: true }); } catch (e) { resto[0].focus(); }
