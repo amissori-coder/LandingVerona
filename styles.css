@@ -4407,3 +4407,104 @@ ul {
     .lente-voci button, .lente-voci button::after, .lente-banda-titolo svg,
     .lente-banda.is-viva .lente-scheda, .lente-banda.is-viva .lente-scheda.is-qui, .lente-cerchio { transition: none; }
 }
+
+/* ============================================================
+   INVITO A SCORRERE: TRE FRECCE IN FONDO ALL'APERTURA
+   Ultima riga della colonna blu dell'apertura, allineata al testo:
+   tre frecce sottili che si accendono una dopo l'altra verso il
+   basso, come un passo che scende, e la scritta "Scorri per i
+   contenuti". Il clic porta ai contenuti sotto la prima schermata
+   (script.js sceglie la meta: il video sul computer, gli eventi sul
+   telefono). Fuori vista le frecce si fermano; con "riduci
+   movimento" restano ferme, sfumate dall'alto verso il basso.
+   Dove la colonna e' piu' alta dello schermo (portatili da 1366x657,
+   telefoni con le barre del browser) l'invito resta agganciato al
+   fondo dello schermo (sticky) finche' non si scorre fino al suo
+   posto; intanto dietro c'e' una sfumatura blu (classe .is-staccata,
+   da script.js) che copre il testo tagliato dal bordo. Il pannello ha
+   overflow: clip, che lascia funzionare sticky.
+   ============================================================ */
+.scorri {
+    --scorri-rientro: 56px;   /* dal bordo sinistro del pannello al testo */
+    position: sticky;
+    bottom: 14px;
+    z-index: 2;
+    display: flex;
+    width: max-content;
+    align-items: center;
+    gap: 14px;
+    margin-top: 26px;
+    padding: 4px 0;
+    color: rgba(255, 255, 255, 0.72);
+    text-decoration: none;
+    animation: fadeInUp 0.8s ease 0.9s both;
+}
+.scorri::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: calc(-1 * var(--scorri-rientro));
+    bottom: -14px;
+    /* solo sotto la colonna del testo, non sul disco e sull'arco dei servizi */
+    width: calc(var(--scorri-rientro) + 420px);
+    max-width: 100vw;
+    height: 108px;
+    background: linear-gradient(to top, #0f2d4a 60%, rgba(15, 45, 74, 0));
+    -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
+    mask-image: linear-gradient(to right, #000 82%, transparent);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+}
+.scorri.is-staccata::before { opacity: 1; }
+.scorri-segno { display: block; height: 0; }
+.scorri-frecce {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 24px;
+}
+.scorri-frecce svg {
+    display: block;
+    width: 22px;
+    height: 12px;
+    fill: none;
+    stroke: #8FC2EE;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.2;
+    animation: scorriFreccia 2.2s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+.scorri-frecce svg:nth-child(2) { animation-delay: 0.24s; }
+.scorri-frecce svg:nth-child(3) { animation-delay: 0.48s; }
+@keyframes scorriFreccia {
+    0%, 70%, 100% { opacity: 0.2; transform: translateY(-2px); }
+    25% { opacity: 1; transform: translateY(1px); }
+    45% { opacity: 0.45; transform: translateY(3px); }
+}
+.scorri-scritta {
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    transition: color 0.2s ease;
+}
+.scorri-frecce svg { transition: stroke 0.2s ease; }
+.scorri:hover { color: var(--white); }
+.scorri:hover .scorri-frecce svg { stroke: var(--white); }
+.scorri:focus-visible { outline: 2px solid #8FC2EE; outline-offset: 4px; }
+.scorri.is-fermo .scorri-frecce svg { animation-play-state: paused; }
+@media (max-width: 900px) {
+    .scorri { --scorri-rientro: 20px; margin-top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .scorri { animation: none; }
+    .scorri::before { transition: none; }
+    .scorri-frecce svg { animation: none; transform: none; }
+    .scorri-frecce svg:nth-child(1) { opacity: 0.35; }
+    .scorri-frecce svg:nth-child(2) { opacity: 0.65; }
+    .scorri-frecce svg:nth-child(3) { opacity: 1; }
+}

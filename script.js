@@ -204,6 +204,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // === Invito a scorrere (le frecce in fondo all'apertura) ===
+    // Sul computer porta al video, la prima sezione sotto l'apertura; sul
+    // telefono la colonna blu sta sopra gli eventi, e porta li'. Il clic lo
+    // gestisce lo scorrimento morbido qui sotto, che legge l'href al clic.
+    // Fuori vista le frecce si fermano.
+    const scorri = document.querySelector('[data-scorri]');
+    if (scorri) {
+        const stretto = window.matchMedia('(max-width: 900px)');
+        const meta = () => scorri.setAttribute('href', stretto.matches ? '#eventi' : '#video');
+        meta();
+        if (stretto.addEventListener) stretto.addEventListener('change', meta); else if (stretto.addListener) stretto.addListener(meta);
+        if ('IntersectionObserver' in window) {
+            new IntersectionObserver((voci) => {
+                scorri.classList.toggle('is-fermo', !voci[voci.length - 1].isIntersecting);
+            }).observe(scorri);
+        }
+        // agganciato al fondo dello schermo (sticky) quando il suo posto e' piu'
+        // giu': allora dietro compare la sfumatura che copre il testo tagliato
+        const segno = scorri.nextElementSibling;
+        if (segno && segno.classList.contains('scorri-segno')) {
+            let attesa = false;
+            const staccata = () => {
+                attesa = false;
+                const distacco = segno.getBoundingClientRect().top - scorri.getBoundingClientRect().bottom;
+                scorri.classList.toggle('is-staccata', distacco > 1);
+            };
+            const pianifica = () => { if (!attesa) { attesa = true; requestAnimationFrame(staccata); } };
+            window.addEventListener('scroll', pianifica, { passive: true });
+            window.addEventListener('resize', pianifica);
+            window.addEventListener('load', pianifica);
+            // l'entrata dal basso (fadeInUp) sposta il riquadro mentre si misura
+            scorri.addEventListener('animationend', (e) => { if (e.target === scorri) pianifica(); });
+            staccata();
+        }
+    }
+
     // === Smooth-scroll for in-page anchor links ===
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', (e) => {

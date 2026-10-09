@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
     <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
@@ -180,6 +180,21 @@
                         <span class="brand-highlight-text"><strong>Adeguati assetti in 7 azioni</strong> da applicare subito, senza software</span>
                     </span>
                 </a>
+
+                <!-- Invito a scorrere: tre frecce che si accendono una dopo l'altra
+                     verso il basso. Porta ai contenuti sotto la prima schermata (il
+                     video; sul telefono gli eventi, vedi script.js). Se il suo posto
+                     e' sotto il bordo dello schermo resta agganciato in fondo finche'
+                     non si scorre; .scorri-segno segna dove finisce il suo posto. -->
+                <a href="#video" class="scorri" data-scorri>
+                    <span class="scorri-frecce" aria-hidden="true">
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    </span>
+                    <span class="scorri-scritta">Scorri per i contenuti</span>
+                </a>
+                <span class="scorri-segno" aria-hidden="true"></span>
             </div>
 
             <!-- Sistema dei servizi: mezza orbita che sorge dal bordo del pannello.
@@ -1106,7 +1121,7 @@
         </div>
     </footer>
 
-    <script src="script.js?v=12"></script>
+    <script src="script.js?v=13"></script>
     <script src="assets/event-banner.js" defer></script>
     <!-- data-pillola: la pillola fissa "Diretta Napoli" in basso a sinistra -->
     <script src="/assets/diretta-stato.js?v=20260927b" data-pillola defer></script>
