@@ -1,16 +1,17 @@
 /*
  * Popup promozionale - Diretta Napoli (accesso alla diretta dell'evento)
- * Componente autonomo (HTML + stile + logica iniettati da JS), costruito come
- * bando-tipo-popup.js e fcd-popup.js. Date e stato da assets/diretta-stato.js
- * (window.NGBDiretta), che va caricato PRIMA di questo file.
- * - Ha la PRECEDENZA su tutti gli altri popup della home: quando sta per
- *   comparire imposta subito window.__dirPromoPlanned (bando-tipo-popup.js e
- *   fcd-popup.js, caricati dopo, si ritirano) e all'apertura marca come visti
- *   anche quei due popup (mai due popup nella stessa sessione). Vale anche
- *   al contrario: quei due, quando si aprono, segnano dirPromoSeen, cosi'
- *   se la finestra della diretta si apre a sessione iniziata (il 25
- *   settembre alle 9.00, con la scheda gia' aperta) il popup della diretta
- *   non arriva dopo un altro.
+ * Componente autonomo (HTML + stile + logica iniettati da JS). Date e stato
+ * da assets/diretta-stato.js (window.NGBDiretta), che va caricato PRIMA di
+ * questo file.
+ * - Ha la PRECEDENZA sulle novita' della home (novita-popup.js): quando sta
+ *   per comparire imposta subito window.__dirPromoPlanned (novita-popup.js,
+ *   caricato dopo, ritira le schede del bando-tipo e del FCD e aspetta la
+ *   chiusura di questo popup per l'Osservatorio) e all'apertura marca come
+ *   viste anche le schede del bando-tipo e del FCD (mai due volte i bandi
+ *   nella stessa sessione). Vale anche al contrario: quelle schede, quando
+ *   compaiono, segnano dirPromoSeen, cosi' se la finestra della diretta si
+ *   apre a sessione iniziata (il 25 settembre alle 9.00, con la scheda gia'
+ *   aperta) il popup della diretta non arriva dopo.
  * - Compare SOLO sulla home page e solo nella finestra di date dell'evento:
  *   da NGBDiretta.EVENTO.mostraDaGiorni giorni prima dell'inizio fino alla
  *   fine, poi si spegne da solo (niente da togliere a mano dopo l'evento).
@@ -76,8 +77,8 @@
   if (D.condizione(D.ultimo()) === "conclusa") return;
 
   // Tutte le guardie superate: questo popup comparira. Il flag, impostato
-  // subito (in modo sincrono), dice a bando-tipo-popup.js e fcd-popup.js,
-  // caricati dopo, di cedere la precedenza.
+  // subito (in modo sincrono), dice a novita-popup.js, caricato dopo, di
+  // cedere la precedenza.
   window.__dirPromoPlanned = true;
 
   // --- Testi ------------------------------------------------------------

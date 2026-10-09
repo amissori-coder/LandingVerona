@@ -191,21 +191,34 @@ async function passa(page, ms) {
     await page.waitForTimeout(300);
 }
 
+/* Le novita' della home (assets/novita-popup.js) sono una finestra sola,
+   #novitaPromo, con le schede affiancate: bando-tipo (o FCD, per chi ha
+   spento il bando) e Osservatorio. In queste prove 'btPromo' e 'fcdPromo'
+   (i nomi dei vecchi popup) sono le schede del bando e del FCD in quella
+   finestra; la scheda dell'Osservatorio non conta come popup dei bandi. */
+const SCHEDE_NOVITA = { btPromo: 'bando-tipo', fcdPromo: 'fcd' };
+function selettorePopup(id) {
+    return SCHEDE_NOVITA[id] ? '#novitaPromo.is-open .novp-scheda[data-scheda="' + SCHEDE_NOVITA[id] + '"]' : '#' + id + '.is-open';
+}
 async function aspettaPopup(page, id) {
     try {
-        await page.waitForSelector('#' + id + '.is-open', { timeout: 9000 });
+        await page.waitForSelector(selettorePopup(id), { timeout: 9000 });
         await page.waitForTimeout(800); // fine della transizione di entrata (screenshot puliti)
         return true;
     } catch (e) { return false; }
 }
 async function popupPresenti(page) {
-    return page.evaluate(() => ['dirPromo', 'btPromo', 'fcdPromo'].filter(id => {
-        const el = document.getElementById(id);
-        return el && !el.hidden;
-    }));
+    return page.evaluate(schede => ['dirPromo', 'btPromo', 'fcdPromo'].filter(id => {
+        if (!schede[id]) { const el = document.getElementById(id); return !!el && !el.hidden; }
+        const finestra = document.getElementById('novitaPromo');
+        const scheda = finestra && finestra.querySelector('.novp-scheda[data-scheda="' + schede[id] + '"]');
+        return !!scheda && !finestra.hidden && !scheda.hidden;
+    }), SCHEDE_NOVITA);
 }
 async function nelDom(page) {
-    return page.evaluate(() => ['dirPromo', 'btPromo', 'fcdPromo'].filter(id => !!document.getElementById(id)));
+    return page.evaluate(schede => ['dirPromo', 'btPromo', 'fcdPromo'].filter(id => schede[id]
+        ? !!document.querySelector('#novitaPromo .novp-scheda[data-scheda="' + schede[id] + '"]')
+        : !!document.getElementById(id)), SCHEDE_NOVITA);
 }
 async function chiudiPopup(page) {
     await page.keyboard.press('Escape');
@@ -247,7 +260,7 @@ async function pillola(page) {
             href: a.getAttribute('href'),
             rett: { sinistra: Math.round(b.left), destra: Math.round(b.right), alto: Math.round(b.top), basso: Math.round(b.bottom), altezza: Math.round(b.height) },
             finestra: { larghezza: window.innerWidth, altezza: window.innerHeight },
-            chiSopra: !sopra ? '' : a.contains(sopra) ? 'pillola' : sopra.closest('#dirPromo, #btPromo, #fcdPromo') ? 'popup' : 'altro'
+            chiSopra: !sopra ? '' : a.contains(sopra) ? 'pillola' : sopra.closest('#dirPromo, #novitaPromo') ? 'popup' : 'altro'
         };
     });
 }
@@ -277,17 +290,17 @@ async function provaFile() {
     const home = fs.readFileSync(path.join(RADICE, 'index.html'), 'utf8');
     // con o senza ?v= (la versione serve alla cache di GitHub Pages)
     const ordine = [/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" data-pillola defer><\/script>/, /<script src="\/assets\/diretta-popup\.js(\?v=\w+)?" defer><\/script>/,
-        /<script src="\/assets\/bando-tipo-popup\.js(\?v=\w+)?" defer><\/script>/, /<script src="\/assets\/fcd-popup\.js(\?v=\w+)?" defer><\/script>/]
+        /<script src="\/assets\/novita-popup\.js(\?v=\w+)?" defer><\/script>/]
         .map(re => home.search(re));
     vero(ordine.every(i => i > 0) && ordine.every((x, i) => i === 0 || x > ordine[i - 1]),
-        'home: stato (con data-pillola), popup della diretta, bando e FCD caricati in quest\'ordine, tutti defer');
-    for (const f of ['bando-tipo-popup.js', 'fcd-popup.js']) {
-        const s = fs.readFileSync(path.join(RADICE, 'assets', f), 'utf8');
-        vero((s.match(/if \(window\.__dirPromoPlanned\) return;/g) || []).length === 1, f + ': una guardia che cede la precedenza alla diretta');
-        // dentro open(): all'apertura segna come visto anche il popup della diretta
-        const apertura = s.slice(s.indexOf('function open()'), s.indexOf('function close()'));
-        vero((apertura.match(/ss\(false, "dirPromoSeen", "1"\);/g) || []).length === 1, f + ': all\'apertura segna dirPromoSeen (niente popup della diretta dopo, nella stessa sessione)');
-    }
+        'home: stato (con data-pillola), popup della diretta e finestra delle novita\' caricati in quest\'ordine, tutti defer');
+    vero(!/bando-tipo-popup\.js|fcd-popup\.js/.test(home), 'home: i vecchi popup del bando e del FCD non ci sono piu\' (sono schede delle novita\')');
+    const novita = fs.readFileSync(path.join(RADICE, 'assets/novita-popup.js'), 'utf8');
+    vero(/var direttaPrima = !!window\.__dirPromoPlanned;/.test(novita) && /if \(s\.gruppo === "bandi" && direttaPrima\) return false;/.test(novita),
+        'novita-popup.js: le schede dei bandi cedono la precedenza alla diretta');
+    // le schede dei bandi, comparendo, segnano come visto anche il popup della diretta
+    uguale((novita.match(/gruppo: "bandi",\s*visto: "\w+", spento: "\w+",\s*segna: \[[^\]]*"dirPromoSeen"[^\]]*\]/g) || []).length, 2,
+        'novita-popup.js: bando e FCD, comparendo, segnano dirPromoSeen (niente popup della diretta dopo, nella stessa sessione)');
     const popup = fs.readFileSync(path.join(RADICE, 'assets/diretta-popup.js'), 'utf8');
     const stato = fs.readFileSync(path.join(RADICE, 'assets/diretta-stato.js'), 'utf8');
     uguale(popup.match(/\.innerHTML\s*=\s*[^;]+;/g) || [], ['.innerHTML = html;'], 'popup: innerHTML solo con il markup costante (i testi variabili con textContent)');
@@ -520,6 +533,9 @@ async function provaHome() {
     console.log('\n[home: 26 settembre, nella finestra (computer)]');
     {
         const v = await visitatore(COMPUTER);
+        // la scheda dell'Osservatorio (novita-popup.js) compare dopo la chiusura
+        // della diretta e coprirebbe la pillola misurata scorrendo la pagina
+        await v.ctx.addInitScript(() => { try { localStorage.setItem('novitaPromoHidden_cass7134', '1'); } catch (e) { /* niente */ } });
         const p = await v.scheda('2026-09-26T10:00:00+02:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
@@ -844,6 +860,9 @@ async function provaHome() {
     for (const [nome, quando, stato] of [['prima', '2026-09-26T10:00:00+02:00', null], ['in-diretta', '2026-10-02T10:00:00+02:00', 'in_onda']]) {
         console.log('\n[home: telefono, ' + nome + ']');
         const v = await visitatore(TELEFONO, stato);
+        // la scheda dell'Osservatorio (novita-popup.js) compare dopo la chiusura
+        // della diretta e coprirebbe la pillola e l'avviso misurati qui sotto
+        await v.ctx.addInitScript(() => { try { localStorage.setItem('novitaPromoHidden_cass7134', '1'); } catch (e) { /* niente */ } });
         const p = await v.scheda(quando);
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
