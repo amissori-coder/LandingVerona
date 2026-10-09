@@ -208,35 +208,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sul computer porta al video, la prima sezione sotto l'apertura; sul
     // telefono la colonna blu sta sopra gli eventi, e porta li'. Il clic lo
     // gestisce lo scorrimento morbido qui sotto, che legge l'href al clic.
-    // Fuori vista le frecce si fermano.
+    // Le frecce si muovono per circa cinque secondi ogni volta che entrano
+    // in vista, poi restano ferme (niente movimento senza fine).
     const scorri = document.querySelector('[data-scorri]');
     if (scorri) {
         const stretto = window.matchMedia('(max-width: 900px)');
         const meta = () => scorri.setAttribute('href', stretto.matches ? '#eventi' : '#video');
         meta();
         if (stretto.addEventListener) stretto.addEventListener('change', meta); else if (stretto.addListener) stretto.addListener(meta);
-        if ('IntersectionObserver' in window) {
+        const calmo = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if ('IntersectionObserver' in window && !calmo.matches) {
+            let spegni = null;
             new IntersectionObserver((voci) => {
-                scorri.classList.toggle('is-fermo', !voci[voci.length - 1].isIntersecting);
+                const dentro = voci[voci.length - 1].isIntersecting;
+                clearTimeout(spegni);
+                if (dentro) {
+                    scorri.classList.add('is-viva');
+                    spegni = setTimeout(() => scorri.classList.remove('is-viva'), 5200);
+                } else {
+                    scorri.classList.remove('is-viva');
+                }
             }).observe(scorri);
-        }
-        // agganciato al fondo dello schermo (sticky) quando il suo posto e' piu'
-        // giu': allora dietro compare la sfumatura che copre il testo tagliato
-        const segno = scorri.nextElementSibling;
-        if (segno && segno.classList.contains('scorri-segno')) {
-            let attesa = false;
-            const staccata = () => {
-                attesa = false;
-                const distacco = segno.getBoundingClientRect().top - scorri.getBoundingClientRect().bottom;
-                scorri.classList.toggle('is-staccata', distacco > 1);
-            };
-            const pianifica = () => { if (!attesa) { attesa = true; requestAnimationFrame(staccata); } };
-            window.addEventListener('scroll', pianifica, { passive: true });
-            window.addEventListener('resize', pianifica);
-            window.addEventListener('load', pianifica);
-            // l'entrata dal basso (fadeInUp) sposta il riquadro mentre si misura
-            scorri.addEventListener('animationend', (e) => { if (e.target === scorri) pianifica(); });
-            staccata();
         }
     }
 
@@ -256,6 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.detail && anchor.closest('.has-submenu')) anchor.blur();
             // il link "Vai al contenuto" porta anche il focus dentro il contenuto
             if (target.id === 'main') target.focus({ preventScroll: true });
+            // e cosi' l'invito a scorrere: il Tab dopo riparte dalla sezione d'arrivo
+            if (anchor.hasAttribute('data-scorri')) {
+                if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                target.focus({ preventScroll: true });
+            }
         });
     });
 
