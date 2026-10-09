@@ -306,4 +306,20 @@
         <priority>0.9</priority>
     </url>
 
+    <!-- Governare l'intelligenza artificiale -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/governo_ia_impresa/</loc>
+        <lastmod>2026-10-09</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <!-- Merito creditizio ed ESG -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/esg_merito_creditizio/</loc>
+        <lastmod>2026-10-09</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
 </urlset>
