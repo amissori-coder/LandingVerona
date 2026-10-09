@@ -1298,111 +1298,6 @@ ul {
 /* ============================================
    CHI SIAMO section (Revilaw: testo e scheda della societa')
    ============================================ */
-/* ===== Banda di lancio delle interviste di Verona =====
-   Striscia chiara fra il video di presentazione e Chi siamo: testo a
-   sinistra, fila di avatar con le iniziali degli intervistati a destra. */
-.interviste-banda {
-    background: var(--white);
-    padding: 88px 0;
-    border-top: 1px solid rgba(22, 64, 104, 0.08);
-}
-
-.interviste-banda-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 48px;
-}
-
-
-.interviste-titolo {
-    font-family: var(--font-display);
-    font-size: clamp(1.7rem, 2.8vw, 2.3rem);
-    font-weight: 700;
-    color: var(--navy-dark);
-    line-height: 1.2;
-    letter-spacing: -0.5px;
-    margin-bottom: 16px;
-}
-
-.interviste-descrizione {
-    max-width: 560px;
-    font-size: 0.96rem;
-    line-height: 1.7;
-    color: var(--text-muted);
-    margin-bottom: 26px;
-}
-
-.interviste-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--navy-dark);
-    color: var(--white);
-    padding: 14px 30px;
-    border-radius: 100px;
-    font-size: 0.88rem;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    transition: all 0.3s ease;
-}
-
-.interviste-cta svg {
-    width: 14px;
-    height: 14px;
-}
-
-.interviste-cta:hover {
-    background: var(--navy-light);
-    transform: translateY(-2px);
-    box-shadow: 0 12px 26px rgba(10, 40, 68, 0.25);
-}
-
-.interviste-avatars {
-    display: flex;
-    flex-shrink: 0;
-}
-
-.interviste-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: linear-gradient(150deg, var(--navy-dark) 0%, var(--navy-light) 100%);
-    color: var(--white);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    border: 3px solid var(--white);
-    box-shadow: 0 6px 16px rgba(10, 40, 68, 0.22);
-    margin-left: -14px;
-}
-
-.interviste-avatar:first-child {
-    margin-left: 0;
-}
-
-.interviste-avatar-resto {
-    background: var(--light-gray);
-    color: var(--navy-dark);
-    border-color: var(--white);
-}
-
-@media (max-width: 900px) {
-    .interviste-banda {
-        padding: 64px 0;
-    }
-
-    .interviste-banda-inner {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 30px;
-    }
-}
-
 .chi-siamo {
     background: var(--light-gray);
     padding: 112px 0 104px;
@@ -3539,7 +3434,6 @@ ul {
     .curated-brand-img { height: 54px; }
     .curated-brand-second .curated-brand-img { height: 64px; }
 }
-.interviste-banda { background: #fff; border-top: 0; padding: 44px 0; }
 .chi-siamo { background: #eef2f6; border-top: 1px solid rgba(22,64,104,.28); }
 .sedi { background: #fff; border-top: 1px solid rgba(22,64,104,.28); }
 .objectives { background: #eef2f6; border-top: 1px solid rgba(22,64,104,.28); }
@@ -3582,10 +3476,6 @@ ul {
 }
 @media (max-width: 900px) {
     .contents-list.is-recent .content-card, .contents-list .content-card.is-featured { padding: 12px; }
-}
-@media (max-width: 420px) {
-    .interviste-avatars { max-width: 100%; }
-    .interviste-avatar + .interviste-avatar { margin-left: -15px; }
 }
 /* --- Dettagli di accessibilita' e contrasto --- */
 .event-past .event-month { color: rgba(22, 64, 104, 0.8); }
@@ -3859,7 +3749,6 @@ ul {
 }
 @media (max-width: 900px) {
     .navbar .nav-container { padding: 0 20px; }
-    .interviste-banda { padding: 28px 0; }
 }
 /* fra 1360 e 1399 px le voci stanno sulla griglia solo un po' piu' strette */
 @media (min-width: 1360px) and (max-width: 1399px) {
@@ -4537,4 +4426,358 @@ ul {
     .scorri.is-viva .scorri-frecce svg:nth-child(1) { opacity: 0.35; }
     .scorri.is-viva .scorri-frecce svg:nth-child(2) { opacity: 0.65; }
     .scorri.is-viva .scorri-frecce svg:nth-child(3) { opacity: 1; }
+}
+
+/* ============================================================
+   LE INTERVISTE DI VERONA IN HOME
+   Sezione bianca fra la banda del video e Chi siamo. La testata e'
+   quella delle altre sezioni (titolo, riga con luogo e data, testo,
+   riga spessa); a destra il conteggio e il rimando alla pagina
+   dedicata. Sotto, una griglia editoriale: l'intervista di apertura in
+   grande, sette schede scelte per tema e un riquadro per le altre.
+   Ogni scheda e' un solo link (il nome, allargato a tutta la scheda)
+   che apre l'intervista nella pagina dedicata. Le copertine sono
+   fotogrammi dei video in formato ridotto; niente ombre, angoli tondi o
+   sfumature.
+   Computer: quattro colonne, l'apertura prende due colonne e due righe.
+   Fra 700 e 1023 px tre colonne con la stessa apertura. Sul telefono
+   l'apertura sta sopra e le schede scorrono in orizzontale, con lo
+   scatto, fino al bordo dello schermo.
+   ============================================================ */
+.interviste-banda {
+    --iv-bordo: 24px; /* = padding laterale del .container */
+    background: #fff;
+    border-top: 0;
+    padding: 72px 0 64px;
+}
+.interviste-banda .container { max-width: 1180px; }
+
+/* --- Testata --- */
+/* titolo, riga d'appoggio e testo a sinistra, conteggio e rimando a
+   destra in basso; sotto i 1180 px il testo passa sotto a tutta riga */
+.interviste-testata {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "titolo  indice"
+        "accento indice"
+        "intro   indice";
+    column-gap: 56px;
+    padding-bottom: 14px;
+    margin-bottom: 32px;
+    border-bottom: 2px solid #0f2d4a;
+}
+.interviste-titolo {
+    grid-area: titolo;
+    min-width: 0;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.18;
+    letter-spacing: -0.3px;
+    color: var(--navy-dark);
+}
+.interviste-banda p.interviste-accento {
+    grid-area: accento;
+    margin: 4px 0 0;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.2px;
+    color: var(--navy-light);
+    text-align: start !important;
+}
+.interviste-intro {
+    grid-area: intro;
+    min-width: 0;
+    max-width: 780px;
+    margin: 12px 0 0;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+}
+.interviste-indice {
+    grid-area: indice;
+    align-self: end;
+    display: grid;
+    justify-items: end;
+    gap: 8px;
+    padding-bottom: 4px;
+}
+.interviste-banda p.interviste-conteggio {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #5b6b7c;
+    white-space: nowrap;
+    text-align: start !important;
+}
+.interviste-conteggio-cifra {
+    font-size: 2.6rem;
+    line-height: 1;
+    letter-spacing: -1px;
+    color: var(--navy-dark);
+}
+.interviste-tutte {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #164068;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+}
+.interviste-tutte svg { width: 14px; height: 14px; flex: none; transition: transform 0.2s ease; }
+.interviste-tutte:hover { color: #0a2844; }
+.interviste-tutte:hover svg { transform: translateX(3px); }
+.interviste-tutte:focus-visible { outline: 2px solid #164068; outline-offset: 3px; }
+
+/* --- Griglia --- */
+.iv-griglia {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 36px 24px;
+}
+/* sul computer le voci dell'elenco stanno nella griglia insieme all'apertura */
+.iv-elenco { display: contents; list-style: none; margin: 0; padding: 0; }
+.iv--evidenza { grid-column: 1 / span 2; grid-row: 1 / span 2; }
+
+/* --- Scheda --- */
+.iv { position: relative; min-width: 0; margin: 0; }
+.iv-poster {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #0f2d4a;
+}
+.iv-poster img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+.iv:hover .iv-poster img { transform: scale(1.03); }
+.iv-testi { padding-top: 14px; }
+.interviste-banda .iv p {
+    text-align: start !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+.interviste-banda p.iv-tema {
+    margin: 0 0 5px;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #2a5a85;
+}
+.iv-nome {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.1px;
+    color: var(--navy-dark);
+}
+/* blocco a tutta larghezza della scheda: nella fila del telefono il
+   fuoco da tastiera porta in vista la scheda intera, non solo il nome */
+.iv-link { display: block; color: inherit; text-decoration: none; }
+/* il link del nome copre tutta la scheda */
+.iv-link::after { content: ''; position: absolute; inset: 0; z-index: 1; }
+.iv:hover .iv-link {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+}
+.iv-link:focus-visible { outline: none; }
+.iv-link:focus-visible::after { outline: 2px solid #164068; outline-offset: 5px; }
+.interviste-banda p.iv-ruolo {
+    margin: 3px 0 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #5b6b7c;
+}
+.interviste-banda p.iv-sintesi {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    margin: 8px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: #3b4a59;
+}
+
+/* --- Apertura --- */
+/* nella griglia l'apertura e' alta quanto le due righe di schede accanto:
+   la copertina prende lo spazio che il testo lascia libero, da 16:9 fino
+   a 3:2 al massimo (oltre, il volto diventerebbe troppo grande), cosi'
+   sotto il testo non resta un vuoto */
+@media (min-width: 700px) {
+    .iv--evidenza { display: flex; flex-direction: column; container-type: inline-size; }
+    .iv--evidenza .iv-poster { flex: 1 0 auto; max-height: 66.67cqw; }
+}
+.iv--evidenza .iv-testi { padding-top: 18px; }
+.iv--evidenza .iv-nome { font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.3px; }
+.interviste-banda .iv--evidenza p.iv-ruolo { margin-top: 4px; font-size: 0.9rem; }
+.interviste-banda .iv--evidenza p.iv-sintesi,
+.interviste-banda .iv--altre p.iv-sintesi { display: block; overflow: visible; }
+.interviste-banda .iv--evidenza p.iv-sintesi {
+    max-width: 62ch;
+    margin-top: 12px;
+    font-size: 0.97rem;
+    line-height: 1.65;
+    color: var(--text-muted);
+}
+/* nell'apertura, a contenitore pieno, la colonna e' larga abbastanza per
+   il giustificato; piu' stretta le cifre unite ai nomi aprirebbero buchi */
+@media (min-width: 1180px) {
+    .interviste-banda .iv--evidenza p.iv-sintesi {
+        text-align: justify !important;
+        hyphens: auto !important;
+        -webkit-hyphens: auto !important;
+    }
+}
+.iv-guarda {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #164068;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+}
+.iv-guarda svg { width: 14px; height: 14px; flex: none; transition: transform 0.2s ease; }
+.iv--evidenza:hover .iv-guarda { color: #0a2844; }
+.iv--evidenza:hover .iv-guarda svg { transform: translateX(3px); }
+
+/* --- Riquadro delle altre interviste --- */
+.iv-altre-riquadro {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 16px 18px;
+    background: #eef2f6;
+    border: 1px solid rgba(22, 64, 104, 0.18);
+    transition: background-color 0.2s ease;
+}
+.iv-altre-cifra {
+    font-family: var(--font-display);
+    font-size: 2.6rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+    color: var(--navy-dark);
+}
+.iv-altre-etichetta {
+    margin-top: 6px;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #164068;
+}
+.iv--altre:hover .iv-altre-riquadro { background: #e4ebf2; }
+
+/* --- Tre colonne --- */
+/* sotto la larghezza piena del contenitore il testo accanto al conteggio
+   avrebbe righe corte e giustificate larghe: va sotto, a tutta riga */
+@media (max-width: 1179px) {
+    .interviste-testata {
+        grid-template-areas:
+            "titolo  indice"
+            "accento indice"
+            "intro   intro";
+        grid-template-rows: auto auto auto;
+    }
+    .interviste-banda p.interviste-accento { align-self: start; }
+    .interviste-indice { align-self: start; padding: 4px 0 0; }
+    .interviste-intro { max-width: none; margin-top: 14px; }
+}
+@media (max-width: 1023px) {
+    .iv-griglia { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 20px; }
+}
+@media (max-width: 900px) {
+    .interviste-banda { padding: 48px 0 40px; }
+    .interviste-titolo { font-size: 1.5rem; }
+    .iv--evidenza .iv-nome { font-size: 1.3rem; }
+}
+@media (max-width: 768px) {
+    .interviste-banda { --iv-bordo: 20px; }
+}
+
+/* --- Telefono: apertura sopra, schede in scorrimento orizzontale --- */
+@media (max-width: 699px) {
+    .interviste-testata {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "titolo" "accento" "intro" "indice";
+        grid-template-rows: none;
+        margin-bottom: 24px;
+    }
+    /* conteggio e rimando su una riga; se non ci stanno, il rimando va sotto */
+    .interviste-indice {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 6px 20px;
+        margin-top: 14px;
+        padding: 0;
+    }
+    .interviste-conteggio-cifra { font-size: 2rem; }
+    .iv-griglia { display: block; }
+    .iv--evidenza { margin-bottom: 24px; }
+    .interviste-banda .iv--evidenza p.iv-sintesi { max-width: none; }
+    .iv-elenco {
+        display: flex;
+        gap: 14px;
+        margin: 0 calc(-1 * var(--iv-bordo));
+        padding: 6px var(--iv-bordo) 10px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        scroll-padding: 0 var(--iv-bordo);
+        scrollbar-width: thin;
+        scrollbar-color: rgba(22, 64, 104, 0.35) transparent;
+    }
+    .iv-elenco > .iv { flex: 0 0 min(76%, 320px); scroll-snap-align: start; }
+    .iv-link:focus-visible::after { outline-offset: 3px; }
+}
+/* colonna stretta: il testo d'apertura a sinistra, giustificato si aprirebbe */
+@media (max-width: 699px) {
+    .interviste-banda p.interviste-intro {
+        text-align: start !important;
+        hyphens: manual !important;
+        -webkit-hyphens: manual !important;
+    }
+}
+@media (max-width: 480px) {
+    .interviste-banda { --iv-bordo: 16px; }
+    .iv-elenco > .iv { flex-basis: min(78%, 320px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .iv-poster img, .interviste-tutte svg, .iv-guarda svg, .iv-altre-riquadro { transition: none; }
+    .iv:hover .iv-poster img { transform: none; }
 }

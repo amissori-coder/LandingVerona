@@ -1016,3 +1016,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // la tendina degli eventi cambia le altezze
     if ('ResizeObserver' in window) new ResizeObserver(allinea).observe(document.querySelector('.split-content') || rail);
 })();
+
+// === Interviste di Verona: fila di schede sul telefono ===
+// Sotto i 700 px le schede scorrono in orizzontale. Il fuoco da tastiera
+// su una scheda vista solo in parte la porta in vista intera: da soli i
+// browser scorrono solo se il link e' del tutto fuori vista. Sul computer
+// l'elenco non scorre (fa parte della griglia) e qui non succede nulla.
+(function () {
+    var fila = document.querySelector('#interviste-verona .iv-elenco');
+    if (!fila) return;
+    fila.addEventListener('focusin', function (e) {
+        if (fila.scrollWidth <= fila.clientWidth) return;
+        var scheda = e.target.closest('.iv');
+        if (!scheda) return;
+        var f = fila.getBoundingClientRect();
+        var s = scheda.getBoundingClientRect();
+        if (s.left >= f.left && s.right <= f.right) return;
+        var fermo = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        scheda.scrollIntoView({ behavior: fermo ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+    });
+})();
