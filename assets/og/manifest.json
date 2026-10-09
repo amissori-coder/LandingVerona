@@ -54,10 +54,20 @@
     "impronta": "f1e5d2d435",
     "titolo": "Crisi d'Impresa: prevenzione e adeguati assetti"
   },
+  "esg_merito_creditizio": {
+    "pagina": "esg_merito_creditizio/index.html",
+    "impronta": "1dfb651593",
+    "titolo": "Merito creditizio e ESG: cosa cambia nel 2027 per le imprese"
+  },
   "fcd_2026": {
     "pagina": "fcd_2026/index.html",
     "impronta": "2e1526496e",
     "titolo": "Fondo Contrasto Deindustrializzazione 2026"
+  },
+  "governo_ia_impresa": {
+    "pagina": "governo_ia_impresa/index.html",
+    "impronta": "2cca291c7d",
+    "titolo": "Intelligenza artificiale in azienda: l'algoritmo propone, l'impresa risponde"
   },
   "home": {
     "pagina": "index.html",

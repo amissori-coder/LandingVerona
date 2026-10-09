@@ -1,0 +1,174 @@
+/* ============================================================
+   Componenti in più per gli approfondimenti (governo_ia_impresa,
+   esg_merito_creditizio): tabella a tre colonne, verifica a caselle,
+   cronologia, e le regole che evitano buchi nel testo giustificato.
+   Si carica dopo assets/testo.css.
+   ============================================================ */
+
+/* ---- Tabella a tre colonne ---- */
+.tabella {
+    max-width: 1040px;
+    margin: 40px auto 0;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-card);
+}
+.tabella-riga {
+    display: grid;
+    grid-template-columns: 1fr 1.7fr 1.3fr;
+    border-top: 1px solid var(--border-color);
+}
+.tabella-riga:first-child { border-top: 0; }
+.tabella-riga > div {
+    padding: 16px 20px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+.tabella-riga > div + div { border-left: 1px solid var(--border-color); }
+.tabella-testa > div {
+    background: var(--accent-bg);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #2A5A85;
+}
+.tabella-voce { font-weight: 700; color: var(--text-primary) !important; }
+.tabella-riga strong { color: var(--text-primary); }
+
+/* ---- Verifica a caselle ---- */
+.ck {
+    max-width: 1040px;
+    margin: 40px auto 0;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-card);
+}
+.ck-domande { padding: 14px 30px 22px; }
+.ck-gruppo {
+    display: block;
+    margin: 18px 0 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #2A5A85;
+}
+.ck-voce {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 14px 0;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.ck-domande > .ck-voce:first-child,
+.ck-gruppo + .ck-voce { border-top: 0; }
+.ck-voce input { width: 18px; height: 18px; margin-top: 3px; accent-color: #164068; }
+.ck-voce strong { color: var(--text-primary); }
+.ck-esito { background: var(--accent-bg); border-left: 1px solid var(--accent-border); padding: 28px 30px; }
+.ck-esito-inner { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 14px; }
+.ck-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: #2A5A85; }
+.ck-totale { font-size: 2.3rem; font-weight: 800; color: #164068; letter-spacing: -1px; line-height: 1.1; }
+.ck-totale small { font-size: 1rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0; }
+.ck-barra { height: 8px; border-radius: 99px; background: rgba(22,64,104,.12); overflow: hidden; }
+.ck-barra span { display: block; height: 100%; width: 0; background: #164068; border-radius: 99px; transition: width .25s; }
+.ck-titolo { font-size: 1.15rem; font-weight: 800; }
+.ck-titolo.is-ok { color: #2E7D5B; }
+.ck-titolo.is-medio { color: #A86A12; }
+.ck-titolo.is-ko { color: #B4483A; }
+.ck-testo { margin: 0; font-size: 0.92rem; line-height: 1.6; color: var(--text-primary); }
+.ck-aree { display: flex; flex-direction: column; gap: 8px; }
+.ck-area { display: flex; justify-content: space-between; gap: 12px; font-size: 0.92rem; color: var(--text-secondary); }
+.ck-area strong { color: var(--text-primary); }
+.ck-mancanti { margin: 0; padding-left: 18px; font-size: 0.88rem; line-height: 1.55; color: var(--text-secondary); }
+.ck-mancanti li { margin: 3px 0; }
+
+/* ---- Cronologia ---- */
+.cronologia {
+    max-width: 1040px;
+    margin: 40px auto 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+.crono-tappa {
+    position: relative;
+    padding: 22px 24px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+}
+.crono-tappa.is-prossima { border-color: #164068; box-shadow: 0 0 0 1px #164068 inset; }
+.crono-data { display: block; font-size: 1.35rem; font-weight: 800; color: #164068; letter-spacing: -0.3px; }
+.crono-stato { display: inline-block; margin-top: 6px; font-size: 0.7rem; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: #2A5A85; }
+.crono-tappa h3 { margin: 12px 0 6px; font-size: 1.02rem; color: var(--text-primary); }
+.crono-tappa p { margin: 0; font-size: 0.92rem; line-height: 1.6; color: var(--text-secondary); }
+
+@media (max-width: 900px) {
+    .ck { grid-template-columns: 1fr; }
+    .ck-esito { border-left: 0; border-top: 1px solid var(--accent-border); }
+    .ck-esito-inner { position: static; }
+    .cronologia { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+    .tabella-riga { grid-template-columns: 1fr; }
+    .tabella-riga > div + div { border-left: 0; border-top: 1px solid var(--border-light); }
+    .tabella-riga + .tabella-riga { border-top: 3px solid var(--accent-border); }
+    .tabella-testa { display: none; }
+    .tabella-voce { background: var(--accent-bg); }
+    .tabella-riga > div[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 1.3px;
+        text-transform: uppercase;
+        color: #2A5A85;
+        margin-bottom: 4px;
+    }
+    .ck-domande, .ck-esito { padding-left: 18px; padding-right: 18px; }
+}
+
+/* ---- Testo giustificato senza buchi ----
+   Il sito giustifica tutto il testo (assets/testo.css). Nelle colonne
+   strette una riga contiene poche parole e la giustificazione apre spazi
+   vistosi: qui il testo va a sinistra. Su schermi piccoli vale per tutto
+   il testo corrente. */
+body.content-page .component-card p,
+body.content-page .component-card li,
+body.content-page .pillar-card li,
+body.content-page .benefit-item p,
+body.content-page .ref-list li,
+body.content-page .rimando-occhiello,
+body.content-page .rimando-titolo,
+body.content-page .tabella-riga > div,
+body.content-page .ck-voce,
+body.content-page .ck-testo,
+body.content-page .ck-mancanti li,
+body.content-page .crono-tappa p,
+body.content-page .cta-text h2,
+body.content-page .cta-text p,
+body.content-page .cta-text .section-tag {
+    text-align: left !important;
+}
+@media (max-width: 640px) {
+    body.content-page .section-desc,
+    body.content-page .detail-block p,
+    body.content-page .highlight-box,
+    body.content-page .highlight-box p,
+    body.content-page .faq-answer-inner,
+    body.content-page .rimando-desc,
+    body.content-page .footer-legal {
+        text-align: left !important;
+    }
+}
