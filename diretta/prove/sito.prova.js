@@ -20,8 +20,8 @@
       dopo 'terminato'.
    2. Home (assets/diretta-popup.js e la pillola #dirPillola). Le novita'
       (bando-tipo Mimit e Cassazione 7134) non sono piu' una finestra
-      all'entrata ma la sezione «Sotto la lente» della pagina, dopo il
-      video: il popup della diretta e' l'unico della home.
+      all'entrata ma la sezione «Sotto la lente» della pagina, fra
+      l'apertura e il video: il popup della diretta e' l'unico della home.
       - 20 settembre, fuori finestra: nessun popup (ne' della diretta ne'
         delle novita') ne' pillola, la sezione «Sotto la lente» c'e';
         nessuna richiesta; la pillola compare da sola quando si apre la
@@ -220,14 +220,14 @@ async function quiete(page) {
     await page.waitForLoadState('load');
     await page.waitForTimeout(QUIETE_MS);
 }
-// la sezione «Sotto la lente»: i due approfondimenti, subito dopo il video
+// la sezione «Sotto la lente»: i due approfondimenti, fra l'apertura e il video
 async function sezioneLente(page) {
     return page.evaluate(() => {
         const s = document.getElementById('sotto-la-lente');
         if (!s) return false;
         const prima = s.previousElementSibling, dopo = s.nextElementSibling;
         const link = Array.from(s.querySelectorAll('.lente-scheda a.lente-cta')).map(a => a.getAttribute('href')).join(' ');
-        return prima && prima.id === 'video' && dopo && dopo.id === 'interviste-verona'
+        return prima && prima.id === 'hero' && dopo && dopo.id === 'video'
             && link === '/bando_tipo_2026/ /cassazione_7134_2026/';
     });
 }
@@ -307,10 +307,10 @@ async function provaFile() {
     // le novita' sono una sezione della pagina, non piu' una finestra all'entrata
     vero(!/novita-popup\.js|bando-tipo-popup\.js|fcd-popup\.js/.test(home),
         'home: nessuna finestra delle novita\' (ne\' novita-popup.js ne\' bando-tipo-popup.js ne\' fcd-popup.js)');
-    const video = home.indexOf('<section class="video-home vc" id="video"'), lente = home.indexOf('<section class="lente" id="sotto-la-lente"'),
-        interviste = home.indexOf('<section class="interviste-banda" id="interviste-verona"');
-    vero(video > 0 && lente > video && interviste > lente && /<script src="\/assets\/sotto-la-lente\.js(\?v=\w+)?" defer><\/script>/.test(home),
-        'home: la sezione «Sotto la lente» sta fra il video e le interviste, con il suo script (defer)');
+    const apertura = home.indexOf('<section class="landing-split" id="hero"'), lente = home.indexOf('<section class="lente" id="sotto-la-lente"'),
+        video = home.indexOf('<section class="video-home vc" id="video"');
+    vero(apertura > 0 && lente > apertura && video > lente && /<script src="\/assets\/sotto-la-lente\.js(\?v=\w+)?" defer><\/script>/.test(home),
+        'home: la sezione «Sotto la lente» sta fra l\'apertura e il video, con il suo script (defer)');
     const popup = fs.readFileSync(path.join(RADICE, 'assets/diretta-popup.js'), 'utf8');
     const stato = fs.readFileSync(path.join(RADICE, 'assets/diretta-stato.js'), 'utf8');
     uguale(popup.match(/\.innerHTML\s*=\s*[^;]+;/g) || [], ['.innerHTML = html;'], 'popup: innerHTML solo con il markup costante (i testi variabili con textContent)');
@@ -489,7 +489,7 @@ async function provaHome() {
         await p.goto(HOME);
         await quiete(p);
         uguale(await nelDom(p), [], 'nessun popup: ne\' della diretta ne\' delle novita\'');
-        vero(await sezioneLente(p), 'le novita\' sono nella pagina: la sezione «Sotto la lente», dopo il video, con il bando-tipo e la Cassazione 7134');
+        vero(await sezioneLente(p), 'le novita\' sono nella pagina: la sezione «Sotto la lente», prima del video, con il bando-tipo e la Cassazione 7134');
         uguale(await p.evaluate(() => window.__dirPromoPlanned === undefined), true, 'il popup della diretta non si prenota');
         uguale((await pillola(p)).visibile, false, 'nessuna pillola della diretta');
         uguale(v.richieste.length, 0, 'nessuna richiesta allo stato della diretta');

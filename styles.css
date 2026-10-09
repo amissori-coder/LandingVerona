@@ -4207,7 +4207,7 @@ ul {
 
 /* ============================================================
    SOTTO LA LENTE: GLI APPROFONDIMENTI IN EVIDENZA
-   Sezione chiara fra il video (navy) e le interviste (bianca). Testata
+   Sezione chiara fra l'apertura e il video (navy). Testata
    come le altre sezioni: occhiello, titolo e riga spessa. Senza
    JavaScript i due approfondimenti stanno uno dopo l'altro.
    Con assets/sotto-la-lente.js (classe .is-viva) a sinistra c'e' una
@@ -4223,6 +4223,9 @@ ul {
     --lente-fondo: 36px;   /* spazio in fondo alla sezione */
     background: #eef2f6;
     padding: 36px 0 var(--lente-fondo);
+    /* filetto anche in alto: sotto l'apertura il grigio della sezione
+       incontra quello appena diverso della colonna di destra */
+    border-top: 1px solid rgba(22, 64, 104, 0.28);
     border-bottom: 1px solid rgba(22, 64, 104, 0.28);
 }
 .lente-testata {
