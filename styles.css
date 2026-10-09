@@ -3349,115 +3349,11 @@ ul {
     .events-group--passati > .events-group-body { padding: 10px; max-height: 70vh; }
 }
 
-/* ---------- Esplora per argomento: il pannello in evidenza ----------
-   In testa alla colonna Approfondimenti & Risorse, al posto dei filtri
-   per categoria: un blocco scuro come l'hero, con il titolo grande, i
-   tre passi (area, tema, guida) e il tasto tondo con la freccia.
-   Porta a approfondimenti/. */
-.contents-explore {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 14px;
-    row-gap: 6px;
-    margin: 22px 0 4px;
-    padding: 18px 16px 16px 18px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 55%, var(--navy-light) 100%);
-    color: var(--white);
-    text-decoration: none;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(10, 40, 68, 0.22);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-/* Due aloni chiari sullo sfondo, come nell'hero, per dare profondita'. */
-.contents-explore::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-        radial-gradient(circle at 100% 0%, rgba(139, 184, 212, 0.28) 0%, transparent 45%),
-        radial-gradient(circle at 0% 100%, rgba(255, 255, 255, 0.10) 0%, transparent 40%);
-    pointer-events: none;
-}
-
-.contents-explore:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 16px 36px rgba(10, 40, 68, 0.3);
-}
-
-/* Il corpo non fa da contenitore: eyebrow, titolo e passi entrano
-   direttamente nella griglia, cosi' la freccia sta accanto al titolo
-   e i tre passi occupano tutta la larghezza sotto. */
-.contents-explore-body {
-    display: contents;
-}
-
-.contents-explore-eyebrow { grid-column: 1 / -1; position: relative; }
-.contents-explore-title   { grid-column: 1; position: relative; }
-.contents-explore-cta     { grid-column: 2; grid-row: 2; }
-
-.contents-explore-eyebrow {
-    font-family: var(--font-display);
-    font-size: 0.56rem;
-    font-weight: 700;
-    letter-spacing: 2.2px;
-    text-transform: uppercase;
-    color: #8bb8d4;
-}
-
-.contents-explore-title {
-    font-family: var(--font-display);
-    font-size: 1.12rem;
-    font-weight: 800;
-    letter-spacing: -0.3px;
-    line-height: 1.15;
-    color: var(--white);
-}
-
-
-
-
-.contents-explore-cta {
-    position: relative;
-    flex: 0 0 auto;
-    width: 44px;
-    height: 44px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: var(--white);
-    color: var(--navy);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
-    transition: transform 0.3s ease;
-}
-
-.contents-explore-cta svg {
-    width: 20px;
-    height: 20px;
-    transition: transform 0.25s ease;
-}
-
-.contents-explore:hover .contents-explore-cta {
-    transform: scale(1.06);
-}
-
-.contents-explore:hover .contents-explore-cta svg {
-    transform: translateX(3px);
-}
-
-/* Senza la barra dei filtri, la lista comincia subito sotto il pannello. */
-.contents-explore + .contents-list {
-    margin-top: 18px;
-}
-
 /* ---------- Ultimi approfondimenti ----------
-   Sotto il pannello "Esplora per argomento" la colonna mostra solo i
-   cinque contenuti piu' recenti: le altre card restano nel codice (le
-   leggono l'esploratore e il controllo della mappa) ma non si vedono.
-   Il rimando in fondo porta alla mappa completa. */
+   Sotto "Sotto la lente" la colonna mostra solo i contenuti piu'
+   recenti: le altre card restano nel codice (le leggono l'esploratore e
+   il controllo della mappa) ma non si vedono. I rimandi in fondo portano
+   alla mappa completa e alla ricerca per argomento. */
 .contents-recent-label {
     margin: 22px 0 0;
     font-family: var(--font-display);
@@ -3466,10 +3362,6 @@ ul {
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--navy-light);
-}
-
-.contents-explore + .contents-recent-label {
-    margin-top: 26px;
 }
 
 .contents-recent-label + .contents-list {
@@ -3528,7 +3420,6 @@ ul {
 .split-rail { grid-area: rail; padding: 8px 48px 16px 40px; border-left: 0; box-shadow: none; background: var(--light-gray); }
 .rail-inner { display: grid; grid-template-columns: 1fr; gap: 0; align-items: start; }
 .rail-inner .sect-head { grid-column: 1; margin-bottom: 10px; border-bottom: 1px solid rgba(22,64,104,.18); }
-.contents-explore { grid-column: 1; margin: 0 0 6px; padding: 10px 14px; border-radius: 0; }
 .contents-recent-label { grid-column: 1; margin: 0 0 4px; }
 .contents-list { grid-column: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; border-top: 1px solid rgba(22,64,104,.18); }
 .contents-list .content-card:nth-child(n+5) { display: none; }
@@ -3614,7 +3505,6 @@ ul {
     .contents-list.is-recent .content-card, .contents-list .content-card { flex: 0 0 76%; scroll-snap-align: start; border: 1px solid rgba(22,64,104,.18); padding: 12px; display: flex; }
     .contents-list.is-recent .content-card:nth-child(n+5) { display: flex; }
     .contents-list.is-recent .content-card:nth-child(n+7) { display: none; }
-    .contents-explore { margin: 0 0 14px; }
     .mission-editorial, .mission-risks-head { display: block; }
     .sedi-layout { grid-template-columns: 1fr; gap: 20px; }
     .sedi-map-wrap { max-width: 300px; margin: 0 auto; }
@@ -3665,7 +3555,6 @@ ul {
     .chi-siamo-title, .sedi-title, .objectives-title { font-size: 1.5rem; }
 }
 /* pareggi di specificita' con regole precedenti */
-.contents-explore + .contents-recent-label { margin: 0 0 4px; }
 .contents-list.is-recent .content-card, .contents-list .content-card.is-featured { padding: 10px 0; }
 .content-card.is-featured .content-title, .contents-list .content-title { font-size: .92rem; line-height: 1.35; }
 .events-group[open] { box-shadow: none; }
@@ -3710,8 +3599,7 @@ ul {
 .brand-highlight:focus-visible,
 .content-card:focus-visible,
 .events-group-head:focus-visible,
-.event-card:focus-visible,
-.contents-explore:focus-visible { outline: 2px solid #7fbaff; outline-offset: 3px; }
+.event-card:focus-visible { outline: 2px solid #7fbaff; outline-offset: 3px; }
 .newsletter-field input:focus-visible { outline: 2px solid #7fbaff; outline-offset: 2px; }
 /* Link per saltare la navigazione: invisibile finche' non riceve il focus da tastiera */
 .skip-link { position: absolute; top: 8px; left: 8px; z-index: 2000; padding: 8px 12px; background: #fff; color: #164068; font-weight: 600; border-radius: 3px; transform: translateY(-200%); }
@@ -4207,188 +4095,132 @@ ul {
 
 /* ============================================================
    SOTTO LA LENTE: GLI APPROFONDIMENTI IN EVIDENZA
-   Sezione chiara fra l'apertura e il video (navy). Testata
-   come le altre sezioni: occhiello, titolo e riga spessa. Senza
-   JavaScript i due approfondimenti stanno uno dopo l'altro.
+   In testa alla colonna Approfondimenti & Risorse, al posto del blocco
+   scuro "Esplora per argomento" (ora un rimando di testo: sopra i 1260 px
+   sulla riga del titolo della colonna, sotto in fondo alla colonna). Un
+   riquadro navy, piatto come il pannello di sinistra, alto quanto il
+   blocco che sostituisce: l'occhiello con le due voci e il titolo
+   dell'approfondimento, che porta alla pagina. Senza JavaScript i due
+   approfondimenti stanno uno sotto l'altro, ciascuno con il riferimento.
    Con assets/sotto-la-lente.js (classe .is-viva) a sinistra c'e' una
-   pagina stilizzata di approfondimenti, una colonna per ciascuno, con
-   una lente d'ingrandimento posata sul titolo di quello scelto; a
-   destra le due voci e il testo dell'approfondimento scelto, con le tre
-   cifre e l'invito alla pagina. La pagina parte dalla riga della
-   testata e scende sotto il filetto in fondo alla sezione. Sotto i
-   900 px la pagina e' una striscia sopra il testo.
+   pagina stilizzata, a filo del riquadro, con la lente d'ingrandimento
+   posata sul titolo dell'approfondimento scelto; il riferimento passa
+   nelle voci (Bando-tipo Mimit, Cassazione 7134). Sul telefono e fra 901
+   e 1000 px la pagina e' una striscia sopra il testo.
    ============================================================ */
-.lente {
-    --lente-sopra: 20px;   /* fra la riga della testata e il contenuto */
-    --lente-fondo: 36px;   /* spazio in fondo alla sezione */
-    background: #eef2f6;
-    padding: 36px 0 var(--lente-fondo);
-    /* filetto anche in alto: sotto l'apertura il grigio della sezione
-       incontra quello appena diverso della colonna di destra */
-    border-top: 1px solid rgba(22, 64, 104, 0.28);
-    border-bottom: 1px solid rgba(22, 64, 104, 0.28);
+.lente-banda {
+    --scena-w: 150px;
+    grid-column: 1;
+    margin: 0 0 6px;
+    background: #0f2d4a;
+    color: #fff;
 }
-.lente-testata {
-    margin: 0 0 var(--lente-sopra);
-    padding-bottom: 12px;
-    border-bottom: 2px solid #0f2d4a;
-}
-.lente p.lente-occhiello-sezione {
-    margin: 0 0 4px;
-    font-family: var(--font-display);
-    font-size: 0.74rem;
-    font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #164068;
-    text-align: start !important;
-    hyphens: manual !important;
-    -webkit-hyphens: manual !important;
-}
-.lente-titolo-sezione {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.9rem;
-    font-weight: 700;
-    line-height: 1.18;
-    letter-spacing: -0.3px;
-    color: #0A2844;
-    text-wrap: balance;
-}
-
-/* --- Un approfondimento --- */
-.lente-scheda { min-width: 0; max-width: 720px; }
-.lente-scheda + .lente-scheda { margin-top: 28px; padding-top: 28px; border-top: 1px solid rgba(22, 64, 104, 0.18); }
-.lente p.lente-testa {
+.lente-banda-corpo { min-width: 0; padding: 11px 14px 12px 16px; }
+.lente-banda-capo {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 3px 14px;
-    margin: 0 0 12px;
-    padding: 0 0 9px;
-    border-bottom: 1px solid rgba(22, 64, 104, 0.22);
+    justify-content: space-between;
+    gap: 2px 10px;
+    margin: 0 0 4px;
+}
+.lente-banda p.lente-banda-occhiello {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.56rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #8FC2EE;
+    white-space: nowrap;
     text-align: start !important;
     hyphens: manual !important;
     -webkit-hyphens: manual !important;
 }
-.lente-occhiello {
+.lente-scheda { min-width: 0; }
+.lente-scheda + .lente-scheda { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.16); }
+.lente-banda-titolo {
+    margin: 0;
     font-family: var(--font-display);
-    font-size: 0.69rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #164068;
-}
-.lente-rif { font-size: 0.8rem; line-height: 1.45; color: #5b6b7c; }
-.lente-voce-titolo {
-    margin: 0 0 6px;
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    font-weight: 700;
-    line-height: 1.26;
-    letter-spacing: -0.2px;
-    color: #0A2844;
+    line-height: 1.28;
+    letter-spacing: -0.15px;
+    color: #fff;
     text-wrap: balance;
 }
-/* a sinistra per difetto, anche senza JavaScript; giustificate come il
-   resto del sito solo dove lo script ha misurato che fra le parole non si
-   aprono buchi (.is-giustificato, una scelta sola per le due sintesi) */
-.lente p.lente-sintesi { margin: 0 0 14px; font-size: 0.94rem; line-height: 1.65; color: #404a5a; text-align: start !important; }
-.lente .lente-pannelli.is-giustificato p.lente-sintesi { text-align: justify !important; }
-.lente-sintesi strong { color: #0A2844; font-weight: 600; }
-.lente-cifre {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-    margin: 0 0 16px;
-    padding: 9px 0;
-    list-style: none;
-    border-top: 1px solid rgba(22, 64, 104, 0.22);
-    border-bottom: 1px solid rgba(22, 64, 104, 0.22);
+.lente-banda-titolo a { color: inherit; text-decoration: none; }
+/* la freccia dei rimandi della colonna: il titolo si riconosce come link */
+.lente-banda-titolo svg {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 6px;
+    vertical-align: -0.5px;
+    color: #8FC2EE;
+    transition: transform 0.25s ease;
 }
-.lente .lente-cifre li { margin: 0; padding: 0; text-align: start !important; hyphens: manual !important; -webkit-hyphens: manual !important; }
-.lente-cifre b {
-    display: block;
-    font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 800;
-    line-height: 1.2;
-    color: #164068;
-    white-space: nowrap;
+.lente-banda-titolo a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.lente-banda-titolo a:hover svg { transform: translateX(3px); }
+.lente-banda-titolo a:focus-visible { outline: 2px solid #7fbaff; outline-offset: 2px; }
+.lente-banda p.lente-banda-rif {
+    margin: 4px 0 0;
+    font-size: 0.74rem;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: start !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
 }
-.lente-cifre span { display: block; margin-top: 3px; font-size: 0.75rem; line-height: 1.35; color: #5b6b7c; }
-.lente-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    align-self: flex-start;
-    padding: 10px 18px;
-    background: #164068;
-    color: #fff;
-    border-radius: 3px;
-    font-size: 0.88rem;
-    font-weight: 700;
-    line-height: 1.3;
-    transition: background-color 0.2s ease;
-}
-.lente-cta svg { flex: none; width: 16px; height: 16px; transition: transform 0.2s ease; }
-.lente-cta:hover { background: #0A2844; }
-.lente-cta:hover svg { transform: translateX(3px); }
-.lente-cta:focus-visible { outline: 2px solid #164068; outline-offset: 3px; }
 
-/* --- Con lo script: pagina con la lente a sinistra, testo a destra --- */
-.lente.is-viva .lente-corpo {
-    display: grid;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-    grid-template-rows: auto 1fr;
-    grid-template-areas: "scena voci" "scena pannelli";
-    column-gap: 56px;
-}
-.lente.is-viva .lente-rif-nome { display: none; }
-.lente-voci { grid-area: voci; display: flex; flex-wrap: wrap; gap: 0 24px; margin: 0 0 12px; }
+/* le due voci: testo semplice, la scelta sottolineata in azzurro */
+.lente-voci { display: flex; gap: 0 10px; }
 .lente-voci[hidden] { display: none; }
 .lente-voci button {
     position: relative;
     margin: 0;
-    padding: 6px 0 8px;
+    padding: 2px 0 3px;
     background: none;
     border: 0;
     border-radius: 0;
     font-family: var(--font-body);
-    font-size: 0.88rem;
+    font-size: 0.7rem;
     font-weight: 600;
     line-height: 1.2;
-    color: #5b6b7c;
-    text-align: left;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.62);
     cursor: pointer;
     transition: color 0.3s ease;
 }
+/* area di tocco piu' ampia, senza cambiare l'impaginazione */
+.lente-voci button::before { content: ""; position: absolute; inset: -8px -6px -5px; }
 .lente-voci button::after {
     content: "";
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    height: 2px;
-    background: #164068;
+    height: 1.5px;
+    background: #8FC2EE;
     transform: scaleX(0);
     transform-origin: 0 50%;
-    transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .lente-voci button:hover,
-.lente-voci button[aria-selected="true"] { color: #0A2844; }
+.lente-voci button[aria-selected="true"] { color: #fff; }
 .lente-voci button[aria-selected="true"]::after { transform: none; }
-.lente-voci button:focus-visible { outline: 2px solid #164068; outline-offset: 2px; }
-/* i due testi stanno uno sopra l'altro: la colonna ha l'altezza del piu'
-   lungo e non salta al cambio; cifre e invito in fondo, alla stessa altezza */
-.lente.is-viva .lente-pannelli { grid-area: pannelli; display: grid; }
-.lente.is-viva .lente-scheda {
+.lente-voci button:focus-visible { outline: 2px solid #7fbaff; outline-offset: 2px; }
+
+/* --- Con lo script: pagina con la lente a sinistra, testo a destra --- */
+.lente-banda.is-viva { display: grid; grid-template-columns: var(--scena-w) minmax(0, 1fr); }
+.lente-banda.is-viva .lente-banda-corpo { align-self: center; }
+.lente-banda.is-viva p.lente-banda-rif { display: none; }
+/* i due testi stanno uno sopra l'altro: il riquadro ha l'altezza del piu'
+   lungo e non salta al cambio */
+.lente-banda.is-viva .lente-pannelli { display: grid; }
+.lente-banda.is-viva .lente-scheda {
     grid-area: 1 / 1;
-    display: flex;
-    flex-direction: column;
-    max-width: none;
     margin: 0;
     padding: 0;
     border: 0;
@@ -4396,114 +4228,95 @@ ul {
     visibility: hidden;
     transition: opacity 0.24s ease-in, visibility 0s linear 0.24s;
 }
-.lente.is-viva .lente-scheda.is-qui {
+.lente-banda.is-viva .lente-scheda.is-qui {
     opacity: 1;
     visibility: visible;
     transition: opacity 0.42s ease-out 0.2s, visibility 0s linear 0s;
 }
-.lente.is-viva .lente-scheda:focus-visible { outline: 2px solid #164068; outline-offset: 4px; }
-.lente.is-viva .lente-cifre { margin-top: auto; }
-/* titolo su due righe in tutti e due: i testi hanno la stessa forma */
-.lente.is-viva .lente-voce-titolo { max-width: 24em; }
 
-/* la pagina degli approfondimenti (decorativa). --lente: diametro della
-   lente; --m: ingrandimento; --tit: corpo del titolo a grandezza piena;
-   --bordo: distanza minima fra la lente e il bordo della scena. La scena
-   va dalla riga della testata al filetto in fondo alla sezione; la lente
-   posata sul primo approfondimento tocca il bordo sinistro della griglia,
-   come il testo della testata (--bordo-x, lo stesso limite in orizzontale) */
+/* la pagina (decorativa), a filo dei bordi del riquadro, con un filetto
+   dove incontra il fondo chiaro della colonna. Misure della pagina a
+   grandezza piena (dentro la lente; fuori e' ridotta di --m volte):
+   --lente diametro della lente, --m ingrandimento, --tit corpo dei
+   titoli, --col e --gap colonne della pagina, --bordo e --bordo-x
+   distanza minima fra la lente e i bordi. Le colonne sono centrate: i due
+   approfondimenti in mezzo, cosi' la lente passa dall'uno all'altro
+   senza che la pagina si sposti di lato. */
 .lente-scena {
-    --lente: 180px;
-    --m: 2;
-    --tit: 13.5px;
-    --bordo: 0px;
-    --bordo-x: 0px;
-    grid-area: scena;
+    --lente: 80px;
+    --m: 2.4;
+    --tit: 8px;
+    --col: 70px;
+    --gap: 26px;
+    --bordo: 3px;
+    --bordo-x: 5px;
     position: relative;
     overflow: hidden;
-    margin: calc(-1 * var(--lente-sopra)) 0 calc(-1 * var(--lente-fondo));
+    min-height: calc(var(--lente) + 2 * var(--bordo));
+    background: #fff;
     -webkit-user-select: none;
     user-select: none;
 }
+.lente-scena::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border: 1px solid rgba(22, 64, 104, 0.16);
+    border-right: 0;
+    pointer-events: none;
+}
 .lente-foglio {
     position: absolute;
-    top: var(--lente-sopra);
-    left: 40px;
-    bottom: -140px;
-    width: min(440px, calc(100% - 48px));
-    background: #fff;
-    border: 1px solid rgba(22, 64, 104, 0.16);
-    border-bottom: 0;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: -80px;
     overflow: hidden;
+    background: #fff;
 }
 .lente-pagina {
     position: absolute;
     left: 0;
     top: 0;
-    padding: 24px 28px;
+    padding: 12px 22px 12px 6px;
     transform-origin: 0 0;
     font-family: var(--font-display);
     line-height: 1.2;
     color: #0A2844;
 }
-.lente-pagina i { display: block; height: 5px; margin: 0 0 8px; background: #D7DFE7; border-radius: 1px; }
-.lente-pagina .lp-stacco { height: 4px; background: none; }
-.lp-testa {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 8.5px;
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #6b7a8a;
-    white-space: nowrap;
+.lente-pagina i { display: block; height: 5px; margin: 0 0 7px; background: #D7DFE7; border-radius: 1px; }
+.lente-pagina .lp-stacco { height: 3px; background: none; }
+.lente-pagina .lp-riga { height: 1.5px; margin: 0 0 12px; background: rgba(22, 64, 104, 0.38); border-radius: 0; }
+.lp-colonne {
+    display: grid;
+    grid-template-columns: repeat(8, var(--col));
+    justify-content: center;
+    gap: var(--gap);
 }
-.lp-capo { display: block; margin: 9px 0 12px; font-size: 22px; font-weight: 800; line-height: 1.15; letter-spacing: -0.2px; color: #164068; }
-.lente-pagina .lp-riga { height: 1.5px; margin: 0 0 46px; background: rgba(22, 64, 104, 0.38); border-radius: 0; }
-.lp-colonne { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; }
-.lp-occ {
-    display: block;
-    max-width: calc((var(--lente) - 4px) * 0.8);
-    margin: 0 0 6px;
-    font-size: 8px;
-    font-weight: 700;
-    line-height: 1.25;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #164068;
-}
+.lente-pagina .lp-occhio { width: 42%; height: 4px; margin: 0 0 8px; background: #8FC2EE; }
+.lente-pagina .lp-occhio-grigio { background: #D7DFE7; }
 .lp-tit {
     display: block;
-    max-width: calc((var(--lente) - 4px) * 0.84);
-    margin: 0 0 13px;
+    max-width: calc(var(--lente) * 0.82);
+    margin: 0 0 10px;
     font-size: var(--tit);
     font-weight: 800;
-    line-height: 1.17;
+    line-height: 1.12;
     letter-spacing: -0.1px;
     color: #0A2844;
     text-wrap: balance;
 }
-.lp-cifre {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    margin: 4px 0 13px;
-    padding: 7px 0 6px;
-    border-top: 1.5px solid rgba(22, 64, 104, 0.2);
-    border-bottom: 1.5px solid rgba(22, 64, 104, 0.2);
-}
-.lp-cifre b { display: block; font-size: 11px; font-weight: 800; line-height: 1.2; color: #164068; white-space: nowrap; }
-.lente-pagina .lp-cifre i { width: 78%; height: 3.5px; margin: 4px 0 0; }
-.lente-foglio .lp-art { cursor: pointer; }
-.lente-foglio .lp-art.is-qui { cursor: default; }
+.lente-pagina .lp-barra { height: 8px; margin: 0 0 5px; background: #C5D0DC; }
+.lente-pagina .lp-barra + i:not(.lp-barra) { margin-top: 12px; }
+.lente-foglio .lp-art[data-indice] { cursor: pointer; }
 /* la lente: anello sottile e manico corto (SVG); dentro, la pagina a
    grandezza piena ritagliata nel cerchio */
 .lente-cerchio {
     position: absolute;
     left: 0;
     top: 0;
+    z-index: 2;
     width: var(--lente);
     height: var(--lente);
     pointer-events: none;
@@ -4516,15 +4329,7 @@ ul {
     inset: 0;
     overflow: hidden;
     border-radius: 50%;
-    background: #f3f6f9;
-    box-shadow: 0 12px 20px -14px rgba(10, 40, 68, 0.4);
-}
-.lente-vetro::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.6), inset 0 0 0 4px rgba(143, 194, 238, 0.5);
+    background: #fff;
 }
 .lente-copia {
     position: absolute;
@@ -4532,63 +4337,73 @@ ul {
     top: 0;
     overflow: hidden;
     background: #fff;
-    border: 2px solid rgba(22, 64, 104, 0.16);
-    border-bottom: 0;
 }
 .lente-copia .lente-pagina { transform: none; }
 .lente-cerchio svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
 
-/* fra 901 e 1100 px la colonna del testo e' stretta: meno stacco fra le
-   colonne (la lente resta di 180 px, cosi' copre tutta la testata della
-   pagina e non ne lascia frammenti ai lati) */
-@media (min-width: 901px) and (max-width: 1100px) {
-    .lente.is-viva .lente-corpo { column-gap: 40px; }
+/* --- "Esplora per argomento": da 1271 px sulla riga del titolo della
+   colonna, a destra sulla stessa linea di base; sotto, in fondo alla
+   colonna accanto a "Tutti gli approfondimenti" (o sotto, se non c'e'
+   posto) --- */
+.contents-esplora-testa { display: none; }
+.contents-rimandi { grid-column: 1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; margin-top: 16px; }
+.contents-rimandi .contents-all { margin-top: 0; }
+@media (min-width: 1271px) {
+    .rail-inner .sect-head { align-items: baseline; justify-content: space-between; gap: 12px; }
+    .rail-inner .sect-head-body { flex: 0 1 auto; }
+    .contents-esplora-testa { display: inline-flex; flex: none; margin: 0; }
+    .contents-esplora-fondo { display: none; }
 }
-/* tablet e telefono: la pagina e' una striscia fra la riga della testata
-   e un filetto, il testo sotto. La pagina sta a sinistra come sul
-   computer (la lente sul primo approfondimento tocca il bordo della
-   griglia), larga al massimo 560 px; della sua testata resta solo il
-   filetto, che la lente non taglia a meta' */
+
+/* la pagina si stringe con la colonna, cosi' il testo accanto ha sempre
+   posto per occhiello e voci su una riga (fra 1261 e 1400 px) */
+@media (min-width: 1331px) and (max-width: 1400px) {
+    .lente-banda { --scena-w: 140px; }
+}
+/* fra 901 e 1330 px: pagina e lente piu' piccole */
+@media (min-width: 901px) and (max-width: 1330px) {
+    .lente-banda { --scena-w: 120px; }
+    .lente-scena { --lente: 72px; --tit: 7.2px; --col: 62px; --gap: 18px; --bordo: 4px; --bordo-x: 4px; }
+    .lente-pagina { padding: 12px 19px 12px 9px; }
+    .lente-banda p.lente-banda-occhiello { letter-spacing: 1.2px; }
+    .lente-voci button { font-size: 0.68rem; }
+}
+/* fra 901 e 1260 px la colonna e' stretta: titolo piu' piccolo; fra 1181
+   e 1260 le voci sotto l'occhiello, fra 901 e 1180 l'occhiello resta
+   solo per i lettori di schermo (il riquadro non si allunga) */
+@media (min-width: 901px) and (max-width: 1260px) {
+    .lente-banda-titolo { font-size: 0.9rem; }
+}
+@media (min-width: 901px) and (max-width: 1180px) {
+    .lente-banda.is-viva .lente-banda-occhiello {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+    .lente-voci button { font-size: 0.66rem; }
+}
+/* tablet: la colonna e' larga quanto lo schermo */
 @media (max-width: 900px) {
-    .lente { --lente-sopra: 22px; --lente-fondo: 36px; padding-top: 32px; }
-    .lente-titolo-sezione { font-size: 1.5rem; }
-    .lente.is-viva .lente-testata { margin-bottom: 0; }
-    .lente.is-viva .lente-corpo {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto auto auto;
-        grid-template-areas: "scena" "voci" "pannelli";
-    }
-    .lente-scena {
-        --lente: 150px;
-        --tit: 12.5px;
-        --bordo: 10px;
-        --bordo-x: 0px;
-        height: 196px;
-        margin: 0 0 18px;
-        border-bottom: 1px solid rgba(22, 64, 104, 0.18);
-    }
-    .lente-foglio { left: 36px; width: min(560px, calc(100% - 36px)); }
-    .lp-capo { display: none; }
-    .lp-testa { visibility: hidden; }
-    .lente-pagina .lp-riga { margin: 9px 0 44px; }
+    .lente-banda { --scena-w: 196px; margin-bottom: 14px; }
 }
-@media (max-width: 600px) {
-    .lente-scena { --lente: 136px; --tit: 12px; height: 180px; }
-    .lente-foglio { left: 29px; width: calc(100% - 29px); }
-    .lp-occ { display: none; }
-    .lente-cifre { gap: 10px; }
-    .lente-cifre b { font-size: clamp(0.84rem, 4.1vw, 1rem); }
-    .lente-cifre span { font-size: 0.7rem; }
-    .lente-voci { gap: 0 18px; }
+/* fra 901 e 1000 px (colonna di 300-340 px) e sul telefono la pagina e'
+   una striscia sopra il testo, a filo dei bordi del riquadro */
+@media (min-width: 901px) and (max-width: 1000px), (max-width: 600px) {
+    .lente-banda.is-viva { grid-template-columns: minmax(0, 1fr); }
+    .lente-scena { height: 92px; }
+    .lente-scena::after { border: 1px solid rgba(22, 64, 104, 0.16); border-bottom: 0; }
 }
-/* colonna sotto i 380 px circa: giustificando si aprirebbero buchi */
-@media (max-width: 430px) {
-    .lente .lente-pannelli.is-giustificato p.lente-sintesi { text-align: start !important; }
+@media (min-width: 901px) and (max-width: 1000px) {
+    .lente-scena { height: 82px; }
 }
-@media (max-width: 360px) {
-    .lente-cta { padding: 11px 14px; }
+@media (pointer: coarse) {
+    .lente-voci button::before { inset: -10px -6px -6px; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .lente-cta, .lente-cta svg, .lente-voci button, .lente-voci button::after,
-    .lente.is-viva .lente-scheda, .lente.is-viva .lente-scheda.is-qui, .lente-cerchio { transition: none; }
+    .lente-voci button, .lente-voci button::after, .lente-banda-titolo svg,
+    .lente-banda.is-viva .lente-scheda, .lente-banda.is-viva .lente-scheda.is-qui, .lente-cerchio { transition: none; }
 }

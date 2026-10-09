@@ -4,8 +4,8 @@
  * da assets/diretta-stato.js (window.NGBDiretta), che va caricato PRIMA di
  * questo file.
  * - E' l'unico popup della home: le novita' (il bando-tipo e la Cassazione
- *   7134) non si aprono piu' in una finestra all'entrata, stanno nella
- *   sezione "Sotto la lente" della pagina (assets/sotto-la-lente.js).
+ *   7134) non si aprono piu' in una finestra all'entrata, stanno nel
+ *   riquadro "Sotto la lente" della pagina (assets/sotto-la-lente.js).
  *   Quando sta per comparire imposta comunque subito window.__dirPromoPlanned
  *   e all'apertura segna come visti btPromoSeen e fcdPromoSeen: erano i
  *   segnali con cui i popup del bando-tipo e del FCD gli cedevano la
