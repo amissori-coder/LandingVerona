@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=28">
+    <link rel="stylesheet" href="styles.css?v=31">
     <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
@@ -400,17 +400,42 @@
                     <div class="sect-head-body">
                         <h2 class="sect-title">Approfondimenti &amp; Risorse</h2>
                     </div>
+                    <!-- la ricerca guidata per argomento (prima il blocco scuro in testa
+                         alla colonna): qui da 1271 px, in fondo alla colonna sotto -->
+                    <a href="approfondimenti/" class="contents-all contents-esplora contents-esplora-testa">
+                        Esplora per argomento
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
                 </header>
 
-                <a href="approfondimenti/" class="contents-explore" aria-label="Esplora per argomento: dall'area al tema alla guida">
-                    <span class="contents-explore-body">
-                        <span class="contents-explore-eyebrow">Ricerca guidata</span>
-                        <span class="contents-explore-title">Esplora per argomento</span>
-                    </span>
-                    <span class="contents-explore-cta" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                    </span>
-                </a>
+                <!-- Sotto la lente: i due approfondimenti in evidenza, in testa alla
+                     colonna. Senza JavaScript sono uno sotto l'altro (titolo con il
+                     link e riferimento). assets/sotto-la-lente.js aggiunge a sinistra
+                     la pagina stilizzata con la lente sul titolo dell'approfondimento
+                     scelto e mostra le due voci per passare dall'uno all'altro (i ruoli
+                     di tab e tabpanel li aggiunge lo script); il riferimento passa
+                     nelle voci. -->
+                <div class="lente-banda" id="sotto-la-lente">
+                    <div class="lente-banda-corpo">
+                        <div class="lente-banda-capo">
+                            <p class="lente-banda-occhiello" id="lente-banda-occhiello">Sotto la lente</p>
+                            <div class="lente-voci" hidden>
+                                <button type="button" id="lente-voce-bando" data-scheda="lente-bando">Bando-tipo Mimit</button>
+                                <button type="button" id="lente-voce-cassazione" data-scheda="lente-cassazione">Cassazione 7134</button>
+                            </div>
+                        </div>
+                        <div class="lente-pannelli">
+                            <div class="lente-scheda" id="lente-bando">
+                                <h3 class="lente-banda-titolo" id="lente-bando-titolo"><a href="/bando_tipo_2026/">Aiuti di Stato: corsia preferenziale a chi è&nbsp;virtuoso<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a></h3>
+                                <p class="lente-banda-rif">Bando-tipo Mimit, decreto 18 giugno 2026</p>
+                            </div>
+                            <div class="lente-scheda" id="lente-cassazione">
+                                <h3 class="lente-banda-titolo" id="lente-cassazione-titolo"><a href="/cassazione_7134_2026/">Credito all'impresa già decotta: il&nbsp;finanziamento è&nbsp;nullo<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a></h3>
+                                <p class="lente-banda-rif">Cassazione n. 7134, ordinanza 25 marzo 2026</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <p class="contents-recent-label">Ultimi approfondimenti</p>
                 <div class="contents-list is-recent" id="contentsGrid">
@@ -632,10 +657,18 @@
                     </a>
                 </div>
 
-                <a href="approfondimenti/#mappa" class="contents-all">
-                    Tutti gli approfondimenti
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                </a>
+                <!-- In fondo alla colonna la mappa completa; fino a 1270 px anche la
+                     ricerca guidata per argomento (sopra sta accanto al titolo) -->
+                <div class="contents-rimandi">
+                    <a href="approfondimenti/#mappa" class="contents-all">
+                        Tutti gli approfondimenti
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                    <a href="approfondimenti/" class="contents-all contents-esplora contents-esplora-fondo">
+                        Esplora per argomento
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                </div>
             </div>
         </aside>
     </section>
@@ -1078,7 +1111,7 @@
     <!-- data-pillola: la pillola fissa "Diretta Napoli" in basso a sinistra -->
     <script src="/assets/diretta-stato.js?v=20260927b" data-pillola defer></script>
     <script src="/assets/diretta-popup.js?v=20260929a" defer></script>
-    <!-- le novita' all'entrata (bando-tipo o FCD, e l'Osservatorio): una finestra sola, schede affiancate -->
-    <script src="/assets/novita-popup.js?v=2" defer></script>
+    <!-- "Sotto la lente", in testa alla colonna degli approfondimenti: la pagina stilizzata con la lente e le due voci -->
+    <script src="/assets/sotto-la-lente.js?v=3" defer></script>
 </body>
 </html>

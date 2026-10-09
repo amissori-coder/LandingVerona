@@ -18,21 +18,25 @@
       letto prima dell'inizio), orario leggibile, una sola richiesta in
       volo, cache di 60 secondi, lettura fallita = null, lettura chiusa
       dopo 'terminato'.
-   2. Home (assets/diretta-popup.js e la pillola #dirPillola):
-      - 20 settembre, fuori finestra: nessun popup della diretta ne'
-        pillola, compare quello del bando come prima; nessuna richiesta;
-        la pillola compare da sola quando si apre la finestra;
+   2. Home (assets/diretta-popup.js e la pillola #dirPillola). Le novita'
+      (bando-tipo Mimit e Cassazione 7134) non sono piu' una finestra
+      all'entrata ma il riquadro «Sotto la lente» in testa alla colonna
+      degli approfondimenti: il popup della diretta e' l'unico della home.
+      - 20 settembre, fuori finestra: nessun popup (ne' della diretta ne'
+        delle novita') ne' pillola, il riquadro «Sotto la lente» c'e';
+        nessuna richiesta; la pillola compare da sola quando si apre la
+        finestra;
       - 26 settembre: compare il popup della diretta con i suoi testi
         (si entra con la propria email e la password ricevuta via email;
         "Non trovi l'email? Controlla nella cartella Spam o Promozioni..."),
-        e NON compaiono bando ne' FCD, nemmeno ricaricando la pagina nella stessa sessione; la
-        pillola c'e', sotto il popup e sopra ogni contenuto; nessuna
-        richiesta allo stato;
+        ed e' l'unico; ricaricando la pagina nella stessa sessione non
+        ricompare; la pillola c'e', sotto il popup e sopra ogni contenuto;
+        nessuna richiesta allo stato;
       - accessibilita': dialog modale, focus trap con Tab e Maiusc+Tab,
         ESC chiude, clic sullo sfondo chiude;
       - "Non mostrare più": in una nuova sessione (nuova scheda, stesso
-        localStorage) non ricompare e torna il popup del bando, ma la
-        pillola resta;
+        localStorage) non ricompare (e nessun altro popup), ma la pillola
+        resta, in primo piano;
       - 2 ottobre alle 10 in onda: "Siamo in diretta: accedi" e
         l'indicatore IN DIRETTA nel popup e nella pillola, UNA
         richiesta; la pillola segue lo stato da sola ogni minuto; in
@@ -47,8 +51,9 @@
         scorrimento orizzontale; gli avvisi del sito (l'esito del modulo
         newsletter) passano sopra la pillola;
       - la finestra della diretta che si apre a sessione iniziata (25
-        settembre, 8.58 -> 9.01): chi ha gia' visto il popup del bando o
-        quello FCD in quella scheda non vede anche quello della diretta.
+        settembre, 8.58 -> 9.01): alle 8.58 nessun popup; alle 9.01 la
+        pillola compare da sola e, tornando sulla home, il popup della
+        diretta (il primo della sessione).
    3. Pagina di Napoli: voce "Diretta" nel menu subito prima di "Save
       the date" (anche su telefono, a menu aperto, e nel menu a tendina
       fino a 1199px), pillola "Diretta" accanto all'hamburger fuori dal
@@ -191,34 +196,39 @@ async function passa(page, ms) {
     await page.waitForTimeout(300);
 }
 
-/* Le novita' della home (assets/novita-popup.js) sono una finestra sola,
-   #novitaPromo, con le schede affiancate: bando-tipo (o FCD, per chi ha
-   spento il bando) e Osservatorio. In queste prove 'btPromo' e 'fcdPromo'
-   (i nomi dei vecchi popup) sono le schede del bando e del FCD in quella
-   finestra; la scheda dell'Osservatorio non conta come popup dei bandi. */
-const SCHEDE_NOVITA = { btPromo: 'bando-tipo', fcdPromo: 'fcd' };
-function selettorePopup(id) {
-    return SCHEDE_NOVITA[id] ? '#novitaPromo.is-open .novp-scheda[data-scheda="' + SCHEDE_NOVITA[id] + '"]' : '#' + id + '.is-open';
-}
+/* I popup della home: oggi solo quello della diretta (#dirPromo). Le
+   novita' (bando-tipo Mimit e Cassazione 7134) sono nel riquadro «Sotto
+   la lente» della pagina: la vecchia finestra delle novita' (#novitaPromo)
+   e i popup del bando e del FCD (#btPromo, #fcdPromo) non devono tornare,
+   e le prove li cercano lo stesso. */
+const POPUP = ['dirPromo', 'novitaPromo', 'btPromo', 'fcdPromo'];
 async function aspettaPopup(page, id) {
     try {
-        await page.waitForSelector(selettorePopup(id), { timeout: 9000 });
+        await page.waitForSelector('#' + id + '.is-open', { timeout: 9000 });
         await page.waitForTimeout(800); // fine della transizione di entrata (screenshot puliti)
         return true;
     } catch (e) { return false; }
 }
 async function popupPresenti(page) {
-    return page.evaluate(schede => ['dirPromo', 'btPromo', 'fcdPromo'].filter(id => {
-        if (!schede[id]) { const el = document.getElementById(id); return !!el && !el.hidden; }
-        const finestra = document.getElementById('novitaPromo');
-        const scheda = finestra && finestra.querySelector('.novp-scheda[data-scheda="' + schede[id] + '"]');
-        return !!scheda && !finestra.hidden && !scheda.hidden;
-    }), SCHEDE_NOVITA);
+    return page.evaluate(ids => ids.filter(id => { const el = document.getElementById(id); return !!el && !el.hidden; }), POPUP);
 }
 async function nelDom(page) {
-    return page.evaluate(schede => ['dirPromo', 'btPromo', 'fcdPromo'].filter(id => schede[id]
-        ? !!document.querySelector('#novitaPromo .novp-scheda[data-scheda="' + schede[id] + '"]')
-        : !!document.getElementById(id)), SCHEDE_NOVITA);
+    return page.evaluate(ids => ids.filter(id => !!document.getElementById(id)), POPUP);
+}
+// la pagina carica e ferma per il tempo in cui un popup sarebbe comparso
+async function quiete(page) {
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(QUIETE_MS);
+}
+// il riquadro «Sotto la lente»: i due approfondimenti, in testa alla colonna
+// degli approfondimenti (#contenuti), con i link alle due pagine
+async function sezioneLente(page) {
+    return page.evaluate(() => {
+        const s = document.getElementById('sotto-la-lente');
+        if (!s || !s.closest('#contenuti')) return false;
+        const link = Array.from(s.querySelectorAll('.lente-scheda .lente-banda-titolo a')).map(a => a.getAttribute('href')).join(' ');
+        return link === '/bando_tipo_2026/ /cassazione_7134_2026/';
+    });
 }
 async function chiudiPopup(page) {
     await page.keyboard.press('Escape');
@@ -260,7 +270,7 @@ async function pillola(page) {
             href: a.getAttribute('href'),
             rett: { sinistra: Math.round(b.left), destra: Math.round(b.right), alto: Math.round(b.top), basso: Math.round(b.bottom), altezza: Math.round(b.height) },
             finestra: { larghezza: window.innerWidth, altezza: window.innerHeight },
-            chiSopra: !sopra ? '' : a.contains(sopra) ? 'pillola' : sopra.closest('#dirPromo, #novitaPromo') ? 'popup' : 'altro'
+            chiSopra: !sopra ? '' : a.contains(sopra) ? 'pillola' : sopra.closest('#dirPromo') ? 'popup' : 'altro'
         };
     });
 }
@@ -289,18 +299,17 @@ async function provaFile() {
     console.log('\n[file]');
     const home = fs.readFileSync(path.join(RADICE, 'index.html'), 'utf8');
     // con o senza ?v= (la versione serve alla cache di GitHub Pages)
-    const ordine = [/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" data-pillola defer><\/script>/, /<script src="\/assets\/diretta-popup\.js(\?v=\w+)?" defer><\/script>/,
-        /<script src="\/assets\/novita-popup\.js(\?v=\w+)?" defer><\/script>/]
+    const ordine = [/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" data-pillola defer><\/script>/, /<script src="\/assets\/diretta-popup\.js(\?v=\w+)?" defer><\/script>/]
         .map(re => home.search(re));
-    vero(ordine.every(i => i > 0) && ordine.every((x, i) => i === 0 || x > ordine[i - 1]),
-        'home: stato (con data-pillola), popup della diretta e finestra delle novita\' caricati in quest\'ordine, tutti defer');
-    vero(!/bando-tipo-popup\.js|fcd-popup\.js/.test(home), 'home: i vecchi popup del bando e del FCD non ci sono piu\' (sono schede delle novita\')');
-    const novita = fs.readFileSync(path.join(RADICE, 'assets/novita-popup.js'), 'utf8');
-    vero(/var direttaPrima = !!window\.__dirPromoPlanned;/.test(novita) && /if \(s\.gruppo === "bandi" && direttaPrima\) return false;/.test(novita),
-        'novita-popup.js: le schede dei bandi cedono la precedenza alla diretta');
-    // le schede dei bandi, comparendo, segnano come visto anche il popup della diretta
-    uguale((novita.match(/gruppo: "bandi",\s*visto: "\w+", spento: "\w+",\s*segna: \[[^\]]*"dirPromoSeen"[^\]]*\]/g) || []).length, 2,
-        'novita-popup.js: bando e FCD, comparendo, segnano dirPromoSeen (niente popup della diretta dopo, nella stessa sessione)');
+    vero(ordine.every(i => i > 0) && ordine[1] > ordine[0],
+        'home: stato (con data-pillola) e popup della diretta caricati in quest\'ordine, tutti e due defer');
+    // le novita' sono una sezione della pagina, non piu' una finestra all'entrata
+    vero(!/novita-popup\.js|bando-tipo-popup\.js|fcd-popup\.js/.test(home),
+        'home: nessuna finestra delle novita\' (ne\' novita-popup.js ne\' bando-tipo-popup.js ne\' fcd-popup.js)');
+    const colonna = home.indexOf('<aside class="split-rail" id="contenuti"'), lente = home.indexOf('<div class="lente-banda" id="sotto-la-lente"'),
+        video = home.indexOf('<section class="video-home vc" id="video"');
+    vero(colonna > 0 && lente > colonna && video > lente && /<script src="\/assets\/sotto-la-lente\.js(\?v=\w+)?" defer><\/script>/.test(home),
+        'home: il riquadro «Sotto la lente» sta in testa alla colonna degli approfondimenti, con il suo script (defer)');
     const popup = fs.readFileSync(path.join(RADICE, 'assets/diretta-popup.js'), 'utf8');
     const stato = fs.readFileSync(path.join(RADICE, 'assets/diretta-stato.js'), 'utf8');
     uguale(popup.match(/\.innerHTML\s*=\s*[^;]+;/g) || [], ['.innerHTML = html;'], 'popup: innerHTML solo con il markup costante (i testi variabili con textContent)');
@@ -477,9 +486,9 @@ async function provaHome() {
         const v = await visitatore(COMPUTER);
         const p = await v.scheda('2026-09-20T10:00:00+02:00');
         await p.goto(HOME);
-        vero(await aspettaPopup(p, 'btPromo'), 'compare il popup del bando, come prima');
-        await p.waitForTimeout(QUIETE_MS - 800);
-        uguale(await nelDom(p), ['btPromo'], 'nessun popup della diretta (e il bando precede FCD come prima)');
+        await quiete(p);
+        uguale(await nelDom(p), [], 'nessun popup: ne\' della diretta ne\' delle novita\'');
+        vero(await sezioneLente(p), 'le novita\' sono nella pagina: il riquadro «Sotto la lente» nella colonna degli approfondimenti, con il bando-tipo e la Cassazione 7134');
         uguale(await p.evaluate(() => window.__dirPromoPlanned === undefined), true, 'il popup della diretta non si prenota');
         uguale((await pillola(p)).visibile, false, 'nessuna pillola della diretta');
         uguale(v.richieste.length, 0, 'nessuna richiesta allo stato della diretta');
@@ -500,31 +509,28 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    /* La finestra della diretta si apre il 25 settembre alle 9.00. Chi ha
-       visto il popup del bando (o quello FCD) poco prima, nella stessa
-       scheda, e torna sulla home dopo le 9.00 non deve vedere un secondo
-       popup: bando e FCD, aprendosi, segnano anche dirPromoSeen. */
-    for (const [id, bandoSpento, descrizione] of [['btPromo', false, 'il popup del bando'], ['fcdPromo', true, 'il popup FCD (bando disattivato)']]) {
-        console.log('\n[home: la finestra si apre a sessione iniziata, dopo ' + descrizione + ']');
+    /* La finestra della diretta si apre il 25 settembre alle 9.00. Prima
+       la home non apre nessun popup (le novita' sono nella pagina, nel
+       riquadro «Sotto la lente»): chi torna sulla home dopo le 9.00, nella
+       stessa scheda, vede il popup della diretta, il primo della sessione. */
+    console.log('\n[home: la finestra si apre a sessione iniziata]');
+    {
         const v = await visitatore(COMPUTER);
-        if (bandoSpento) await v.ctx.addInitScript(() => { try { localStorage.setItem('btPromoHidden', '1'); } catch (e) { /* niente */ } });
         const p = await v.scheda('2026-09-25T08:58:00+02:00');
         await p.goto(HOME);
-        vero(await aspettaPopup(p, id), 'alle 8.58 del 25 settembre compare ' + descrizione);
-        uguale([await nelDom(p), await p.evaluate(() => window.NGBDiretta.fase())], [[id], 'fuori'], 'un solo popup, la finestra della diretta non e\' ancora aperta');
-        uguale(await p.evaluate(() => sessionStorage.getItem('dirPromoSeen')), '1', 'aprendosi segna come visto anche il popup della diretta');
-        await chiudiPopup(p);
+        await quiete(p);
+        uguale([await nelDom(p), await p.evaluate(() => window.NGBDiretta.fase())], [[], 'fuori'], 'alle 8.58 del 25 settembre nessun popup, la finestra della diretta non e\' ancora aperta');
+        uguale(await p.evaluate(() => sessionStorage.getItem('dirPromoSeen')), null, 'il popup della diretta non risulta visto');
         await passa(p, 3 * MINUTO);
         uguale((await pillola(p)).visibile, true, 'alle 9.01 la finestra si apre: compare la pillola');
         await p.reload();
-        await p.waitForLoadState('load');
-        await p.waitForTimeout(QUIETE_MS);
-        uguale([await p.evaluate(() => window.NGBDiretta.fase()), await nelDom(p)], ['prima', []],
-            'tornando sulla home nella stessa sessione, a finestra aperta: nessun secondo popup (ne\' diretta, ne\' bando, ne\' FCD)');
-        uguale((await pillola(p)).visibile, true, 'la pillola della diretta invece c\'e\'');
+        vero(await aspettaPopup(p, 'dirPromo'), 'tornando sulla home nella stessa sessione, a finestra aperta: compare il popup della diretta');
+        uguale([await p.evaluate(() => window.NGBDiretta.fase()), await nelDom(p)], ['prima', ['dirPromo']], 'ed e\' l\'unico');
+        await chiudiPopup(p);
+        uguale((await pillola(p)).visibile, true, 'la pillola della diretta c\'e\'');
         const nuova = await v.scheda(); // nuova scheda = nuova sessione, stesso orologio
         await nuova.goto(HOME);
-        vero(await aspettaPopup(nuova, 'dirPromo'), 'in una nuova sessione il popup della diretta compare (ha la precedenza)');
+        vero(await aspettaPopup(nuova, 'dirPromo'), 'in una nuova sessione il popup della diretta compare');
         uguale(await nelDom(nuova), ['dirPromo'], 'e resta l\'unico');
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         await v.ctx.close();
@@ -533,9 +539,6 @@ async function provaHome() {
     console.log('\n[home: 26 settembre, nella finestra (computer)]');
     {
         const v = await visitatore(COMPUTER);
-        // la scheda dell'Osservatorio (novita-popup.js) compare dopo la chiusura
-        // della diretta e coprirebbe la pillola misurata scorrendo la pagina
-        await v.ctx.addInitScript(() => { try { localStorage.setItem('novitaPromoHidden_cass7134', '1'); } catch (e) { /* niente */ } });
         const p = await v.scheda('2026-09-26T10:00:00+02:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
@@ -587,8 +590,8 @@ async function provaHome() {
         uguale(t.mai, 'Non mostrare più', '"Non mostrare più" con l\'accento');
         vero(t.chiudi >= 3, 'chiusura da sfondo, X e "Chiudi"');
         vero(t.focus, 'all\'apertura il focus va sul dialogo');
-        uguale(t.sessione, '1,1,1', 'all\'apertura segna come visti anche bando e FCD (mai due popup nella sessione)');
-        uguale(await nelDom(p), ['dirPromo'], 'bando e FCD si ritirano: non vengono nemmeno costruiti');
+        uguale(t.sessione, '1,1,1', 'all\'apertura segna come visti anche btPromoSeen e fcdPromoSeen (le chiavi dei vecchi popup dei bandi)');
+        uguale(await nelDom(p), ['dirPromo'], 'nessun altro popup: le novita\' sono nella pagina');
         uguale(v.richieste.length, 0, 'nessuna richiesta allo stato fuori dal giorno dell\'evento');
         let pl = await pillola(p);
         uguale([pl.visibile, pl.chiSopra], [true, 'popup'], 'la pillola c\'e\', ma sotto il popup');
@@ -631,7 +634,7 @@ async function provaHome() {
         await p.reload();
         await p.waitForLoadState('load');
         await p.waitForTimeout(QUIETE_MS);
-        uguale(await nelDom(p), [], 'ricaricando nella stessa sessione: nessun popup (né diretta, né bando, né FCD)');
+        uguale(await nelDom(p), [], 'ricaricando nella stessa sessione: nessun popup (né diretta, né novità)');
         uguale((await pillola(p)).visibile, true, 'la pillola invece resta');
         uguale(v.richieste.length, 0, 'ancora nessuna richiesta allo stato');
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
@@ -666,13 +669,10 @@ async function provaHome() {
         await p.close();
         const p2 = await v.scheda(); // nuova scheda = nuova sessione, stesso localStorage (orologio del contesto)
         await p2.goto(HOME);
-        vero(await aspettaPopup(p2, 'btPromo'), 'nella nuova sessione torna il popup del bando');
-        uguale(await nelDom(p2), ['btPromo'], 'e il popup della diretta non ricompare');
+        await quiete(p2);
+        uguale(await nelDom(p2), [], 'nella nuova sessione il popup della diretta non ricompare (e nessun altro popup)');
         const pl = await pillola(p2);
-        uguale([pl.visibile, pl.chiSopra], [true, 'popup'], 'la pillola c\'e\' anche nella nuova sessione, sotto il popup del bando');
-        await p2.keyboard.press('Escape');
-        await p2.waitForTimeout(700);
-        uguale((await pillola(p2)).chiSopra, 'pillola', 'chiuso il bando, la pillola e\' in primo piano');
+        uguale([pl.visibile, pl.chiSopra], [true, 'pillola'], 'la pillola c\'e\' anche nella nuova sessione, in primo piano');
         await v.ctx.close();
     }
 
@@ -775,9 +775,8 @@ async function provaHome() {
         const v = await visitatore(COMPUTER, 'in_onda');
         const p = await v.scheda('2026-10-02T17:45:00+02:00');
         await p.goto(HOME);
-        vero(await aspettaPopup(p, 'btPromo'), 'il popup della diretta si e\' spento all\'orario previsto: torna il bando');
-        uguale(await nelDom(p), ['btPromo'], 'un solo popup');
-        await chiudiPopup(p);
+        await quiete(p);
+        uguale(await nelDom(p), [], 'il popup della diretta si e\' spento all\'orario previsto: nessun popup');
         let pl = await pillola(p);
         uguale([pl.visibile, pl.stato], [true, 'in_onda'], 'la pillola invece dice IN DIRETTA finche\' si e\' in onda');
         v.stato = 'terminato';
@@ -795,9 +794,9 @@ async function provaHome() {
         const v = await visitatore(COMPUTER, 'terminato');
         const p = await v.scheda('2026-10-02T19:00:00+02:00');
         await p.goto(HOME);
-        vero(await aspettaPopup(p, 'btPromo'), 'compare il popup del bando, come prima');
-        await p.waitForTimeout(QUIETE_MS - 800);
-        uguale(await nelDom(p), ['btPromo'], 'nessun popup della diretta: si e\' spento da solo');
+        await quiete(p);
+        uguale(await nelDom(p), [], 'nessun popup: quello della diretta si e\' spento da solo');
+        vero(await sezioneLente(p), 'il riquadro «Sotto la lente» c\'e\'');
         uguale((await pillola(p)).visibile, false, 'nessuna pillola');
         uguale(v.richieste.length, 1, 'una richiesta allo stato (si legge fino a 3 ore dopo la fine, se si sfora)');
         await passa(p, 3 * MINUTO);
@@ -810,7 +809,8 @@ async function provaHome() {
         const v = await visitatore(COMPUTER, 'in_onda');
         const p = await v.scheda('2026-10-02T21:00:00+02:00');
         await p.goto(HOME);
-        vero(await aspettaPopup(p, 'btPromo'), 'compare il popup del bando');
+        await quiete(p);
+        uguale(await nelDom(p), [], 'nessun popup');
         const pl = await pillola(p);
         uguale([pl.presente, pl.visibile], [false, false], 'nessuna pillola (non viene nemmeno costruita)');
         await passa(p, 2 * MINUTO);
@@ -828,8 +828,9 @@ async function provaHome() {
         uguale(await popupPresenti(p), [], 'stato "terminato": il popup della diretta non si apre');
         uguale((await pillola(p)).visibile, false, 'e la pillola non c\'e\'');
         await p.reload();
-        vero(await aspettaPopup(p, 'btPromo'), 'alla pagina successiva la diretta non si prenota piu\' e torna il bando');
-        uguale(await nelDom(p), ['btPromo'], 'un solo popup');
+        await quiete(p);
+        uguale([await p.evaluate(() => window.__dirPromoPlanned === undefined), await nelDom(p)], [true, []],
+            'alla pagina successiva la diretta non si prenota piu\': nessun popup');
         uguale(v.richieste.length, 1, 'una sola richiesta allo stato (la seconda pagina usa quello gia\' letto)');
         await v.ctx.close();
     }
@@ -860,9 +861,6 @@ async function provaHome() {
     for (const [nome, quando, stato] of [['prima', '2026-09-26T10:00:00+02:00', null], ['in-diretta', '2026-10-02T10:00:00+02:00', 'in_onda']]) {
         console.log('\n[home: telefono, ' + nome + ']');
         const v = await visitatore(TELEFONO, stato);
-        // la scheda dell'Osservatorio (novita-popup.js) compare dopo la chiusura
-        // della diretta e coprirebbe la pillola e l'avviso misurati qui sotto
-        await v.ctx.addInitScript(() => { try { localStorage.setItem('novitaPromoHidden_cass7134', '1'); } catch (e) { /* niente */ } });
         const p = await v.scheda(quando);
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
