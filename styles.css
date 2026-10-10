@@ -3570,7 +3570,9 @@ ul {
    verso il centro. Ogni punto ha coordinate --x e --y (seno e coseno del suo
    angolo) moltiplicate per il raggio --orb-r; --lw e' la larghezza massima
    di punto + etichetta, calcolata perche' l'etichetta non tocchi il bordo o
-   il centro. Nessuna animazione: solo il cambio di colore al passaggio. --- */
+   il centro. Il centro e' un disco intero di cui il bordo taglia la meta':
+   la mezzaluna. Al passaggio del mouse e al clic fa un giro su se stessa
+   (vedi sotto). --- */
 .split-brand {
     --orb-r: clamp(282px, 23vw, 330px);
     --orb-c: clamp(132px, 10vw, 144px);
@@ -3585,7 +3587,7 @@ ul {
 .sistema-anello { --d: var(--orb-r); position: absolute; left: calc(-1 * var(--d)); top: calc(-1 * var(--d)); width: calc(2 * var(--d)); height: calc(2 * var(--d)); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 50%; pointer-events: none; }
 .sistema-anello--centro { --d: calc(var(--orb-c) + 16px); border-color: rgba(127, 186, 255, 0.4); }
 
-.sistema-centro { position: absolute; left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: var(--orb-c); height: calc(2 * var(--orb-c)); display: flex; align-items: center; padding: 0 12px 0 calc(var(--orb-c) * 0.15); border-radius: var(--orb-c) 0 0 var(--orb-c); background: var(--light-gray); color: #0f2d4a; text-decoration: none; text-align: left; transition: background-color 0.15s ease; }
+.sistema-centro { position: absolute; left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: calc(2 * var(--orb-c)); height: calc(2 * var(--orb-c)); display: flex; align-items: center; padding: 0 calc(var(--orb-c) + 12px) 0 calc(var(--orb-c) * 0.15); border-radius: 50%; background: var(--light-gray); color: #0f2d4a; text-decoration: none; text-align: left; transition: background-color 0.15s ease; }
 .sistema-centro-corpo { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .sistema-centro-nome { font-family: var(--font-display); font-size: calc(var(--orb-c) * 0.125); font-weight: 800; line-height: 1.12; letter-spacing: -0.2px; }
 .sistema-centro-rif { font-size: 11px; line-height: 1.35; color: #4d5d6e; }
@@ -3625,7 +3627,7 @@ ul {
 @media (max-width: 1180px) {
     .split-brand { --orb-r: clamp(220px, 25vw, 270px); --orb-c: calc(var(--orb-r) * 0.36); align-items: start; padding-right: 48px; padding-bottom: calc(var(--orb-r) + 52px); }
     .sistema { right: auto; left: 50%; top: 100%; }
-    .sistema-centro { left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: calc(2 * var(--orb-c)); height: var(--orb-c); align-items: flex-end; justify-content: center; padding: 0 12px calc(var(--orb-c) * 0.17); border-radius: var(--orb-c) var(--orb-c) 0 0; text-align: center; }
+    .sistema-centro { align-items: flex-end; justify-content: center; padding: 0 12px calc(var(--orb-c) * 1.17); text-align: center; }
     .sistema-centro-corpo { align-items: center; gap: 5px; }
     .sistema-centro-nome { font-size: 15px; }
     .sistema-centro-rif { display: none; }
@@ -3666,6 +3668,22 @@ ul {
 }
 @media (prefers-reduced-motion: reduce) {
     .sistema-centro, .sistema-punto { transition: none; }
+}
+/* La mezzaluna gira: script.js aggiunge .is-gira al passaggio del mouse e
+   al clic (al clic il giro e' piu' rapido e la pagina si apre alla fine).
+   Un giro intero in senso orario attorno al centro del disco: il bordo
+   del pannello taglia la meta' nascosta, cosi' il testo sale, passa
+   dietro il bordo, riaffiora dall'altra parte e torna al suo posto. Il
+   profilo resta quello di sempre, perche' il disco e' tondo. Con "riduci
+   movimento" non gira. */
+.sistema-centro.is-gira { animation: lunaGiro 1.2s cubic-bezier(.6, 0, .3, 1); }
+.sistema-centro.is-gira--veloce { animation-duration: 0.75s; }
+@keyframes lunaGiro {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sistema-centro.is-gira { animation: none; }
 }
 
 /* i servizi si riconoscono come link: freccia dopo il nome al passaggio del
@@ -4305,10 +4323,10 @@ ul {
    contenuti". Il clic porta ai contenuti sotto la prima schermata
    (script.js sceglie la meta: il video sul computer, gli eventi sul
    telefono, e ci porta anche il focus).
-   Le frecce si muovono per circa cinque secondi ogni volta che
-   entrano in vista (classe .is-viva, da script.js), poi restano ferme
-   sfumate dall'alto verso il basso: cosi' sono anche senza JavaScript
-   e con "riduci movimento".
+   Le frecce si muovono di continuo finche' sono in vista (classe
+   .is-viva, da script.js, tolta fuori vista): un'onda che scende,
+   freccia dopo freccia. Senza JavaScript e con "riduci movimento"
+   restano ferme, sfumate dall'alto verso il basso.
    Sugli schermi bassi del computer (fino a 780 px di altezza) la
    colonna blu parte dall'alto e si stringe un poco, cosi' l'invito
    sta nella prima schermata anche su un portatile da 1366x657.
@@ -4347,17 +4365,20 @@ ul {
 .scorri-frecce svg:nth-child(1) { opacity: 0.35; }
 .scorri-frecce svg:nth-child(2) { opacity: 0.65; }
 .scorri-frecce svg:nth-child(3) { opacity: 1; }
-/* in movimento: si accendono una dopo l'altra, poi una pausa */
+/* in movimento: ogni freccia si accende scendendo e si spegne in basso,
+   poi risale quasi spenta; le tre sfasate fanno un'onda continua */
 .scorri.is-viva .scorri-frecce svg {
     opacity: 0.2;
-    animation: scorriFreccia 2.2s cubic-bezier(.45, 0, .55, 1) infinite;
+    animation: scorriFreccia 2s cubic-bezier(.45, 0, .55, 1) infinite;
 }
-.scorri.is-viva .scorri-frecce svg:nth-child(2) { animation-delay: 0.24s; }
-.scorri.is-viva .scorri-frecce svg:nth-child(3) { animation-delay: 0.48s; }
+.scorri.is-viva .scorri-frecce svg:nth-child(2) { animation-delay: 0.22s; }
+.scorri.is-viva .scorri-frecce svg:nth-child(3) { animation-delay: 0.44s; }
 @keyframes scorriFreccia {
-    0%, 70%, 100% { opacity: 0.2; transform: translateY(-2px); }
-    25% { opacity: 1; transform: translateY(1px); }
-    45% { opacity: 0.45; transform: translateY(3px); }
+    0%, 100% { opacity: 0.2; transform: translateY(-3px); }
+    24% { opacity: 1; transform: translateY(1px); }
+    46% { opacity: 0.45; transform: translateY(4px); }
+    60% { opacity: 0.1; transform: translateY(5px); }
+    61% { opacity: 0.1; transform: translateY(-3px); }
 }
 .scorri-scritta {
     font-family: var(--font-display);
@@ -4430,19 +4451,19 @@ ul {
 
 /* ============================================================
    LE INTERVISTE DI VERONA IN HOME
-   Sezione bianca fra la banda del video e Chi siamo. La testata e'
-   quella delle altre sezioni (titolo, riga con luogo e data, testo,
-   riga spessa); a destra il conteggio e il rimando alla pagina
-   dedicata. Sotto, una griglia editoriale: l'intervista di apertura in
-   grande, sette schede scelte per tema e un riquadro per le altre.
-   Ogni scheda e' un solo link (il nome, allargato a tutta la scheda)
-   che apre l'intervista nella pagina dedicata. Le copertine sono
-   fotogrammi dei video in formato ridotto; niente ombre, angoli tondi o
-   sfumature.
-   Computer: quattro colonne, l'apertura prende due colonne e due righe.
-   Fra 700 e 1023 px tre colonne con la stessa apertura. Sul telefono
-   l'apertura sta sopra e le schede scorrono in orizzontale, con lo
-   scatto, fino al bordo dello schermo.
+   Sezione bianca fra la banda del video e Chi siamo, solo testo. La
+   testata e' quella delle altre sezioni (titolo, riga con luogo e data,
+   testo, riga spessa); a destra il conteggio e il rimando alla pagina
+   dedicata. Sotto, le interviste divise per area, come l'indice di una
+   rivista: ogni area e' una riga con a sinistra il nome, quante sono e
+   di che cosa parlano, a destra le interviste. Ogni voce dice il tema,
+   chi parla (nome e ruolo) e una frase di sintesi; e' un solo link (il
+   tema, allargato a tutta la voce) che apre l'intervista nella pagina
+   dedicata. Niente immagini, ombre, angoli tondi o sfumature.
+   Computer: interviste su due colonne accanto al nome dell'area. Sotto i
+   900 px il nome dell'area va sopra. Sul telefono le interviste di
+   un'area scorrono in orizzontale, con lo scatto, fino al bordo dello
+   schermo.
    ============================================================ */
 .interviste-banda {
     --iv-bordo: 24px; /* = padding laterale del .container */
@@ -4543,42 +4564,29 @@ ul {
 .interviste-tutte:hover svg { transform: translateX(3px); }
 .interviste-tutte:focus-visible { outline: 2px solid #164068; outline-offset: 3px; }
 
-/* --- Griglia --- */
-.iv-griglia {
+/* --- Aree --- */
+.iv-area {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 36px 24px;
+    grid-template-columns: minmax(0, 250px) minmax(0, 1fr);
+    column-gap: 56px;
+    padding: 28px 0 32px;
+    border-top: 1px solid rgba(22, 64, 104, 0.18);
 }
-/* sul computer le voci dell'elenco stanno nella griglia insieme all'apertura */
-.iv-elenco { display: contents; list-style: none; margin: 0; padding: 0; }
-.iv--evidenza { grid-column: 1 / span 2; grid-row: 1 / span 2; }
-
-/* --- Scheda --- */
-.iv { position: relative; min-width: 0; margin: 0; }
-.iv-poster {
-    position: relative;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: #0f2d4a;
+/* l'apertura sta subito sotto la riga spessa della testata */
+.iv-area--apertura { padding-top: 4px; border-top: 0; }
+.iv-area:last-of-type { padding-bottom: 8px; }
+.iv-area-testa { min-width: 0; }
+.iv-area-titolo {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.1px;
+    color: var(--navy-dark);
 }
-.iv-poster img {
-    position: absolute;
-    inset: 0;
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.5s ease;
-}
-.iv:hover .iv-poster img { transform: scale(1.03); }
-.iv-testi { padding-top: 14px; }
-.interviste-banda .iv p {
-    text-align: start !important;
-    hyphens: manual !important;
-    -webkit-hyphens: manual !important;
-}
-.interviste-banda p.iv-tema {
-    margin: 0 0 5px;
+.interviste-banda p.iv-area-conto {
+    margin: 6px 0 0;
     font-family: var(--font-display);
     font-size: 0.66rem;
     font-weight: 700;
@@ -4587,19 +4595,42 @@ ul {
     text-transform: uppercase;
     color: #2a5a85;
 }
-.iv-nome {
+.interviste-banda p.iv-area-testo {
+    margin: 10px 0 0;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+/* colonne strette: tutto il testo delle aree a sinistra, il giustificato
+   si aprirebbe (anche nei titoli delle voci, che lo erediterebbero dal li) */
+.interviste-banda .iv,
+.interviste-banda .iv-area p {
+    text-align: start !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+
+/* --- Elenco e voce --- */
+.iv-elenco {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px 40px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.iv { position: relative; min-width: 0; margin: 0; }
+.iv-tema {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 1.02rem;
+    font-size: 1rem;
     font-weight: 700;
-    line-height: 1.3;
+    line-height: 1.32;
     letter-spacing: -0.1px;
     color: var(--navy-dark);
 }
-/* blocco a tutta larghezza della scheda: nella fila del telefono il
-   fuoco da tastiera porta in vista la scheda intera, non solo il nome */
-.iv-link { display: block; color: inherit; text-decoration: none; }
-/* il link del nome copre tutta la scheda */
+.iv-link { color: inherit; text-decoration: none; }
+/* il link del tema copre tutta la voce */
 .iv-link::after { content: ''; position: absolute; inset: 0; z-index: 1; }
 .iv:hover .iv-link {
     text-decoration: underline;
@@ -4608,47 +4639,32 @@ ul {
 }
 .iv-link:focus-visible { outline: none; }
 .iv-link:focus-visible::after { outline: 2px solid #164068; outline-offset: 5px; }
-.interviste-banda p.iv-ruolo {
-    margin: 3px 0 0;
+.interviste-banda p.iv-firma {
+    margin: 4px 0 0;
     font-size: 0.8rem;
     line-height: 1.45;
     color: #5b6b7c;
 }
+.iv-nome { font-weight: 600; color: var(--navy-dark); }
 .interviste-banda p.iv-sintesi {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    overflow: hidden;
-    margin: 8px 0 0;
-    font-size: 0.85rem;
+    margin: 7px 0 0;
+    font-size: 0.87rem;
     line-height: 1.55;
     color: #3b4a59;
 }
 
 /* --- Apertura --- */
-/* nella griglia l'apertura e' alta quanto le due righe di schede accanto:
-   la copertina prende lo spazio che il testo lascia libero, da 16:9 fino
-   a 3:2 al massimo (oltre, il volto diventerebbe troppo grande), cosi'
-   sotto il testo non resta un vuoto */
-@media (min-width: 700px) {
-    .iv--evidenza { display: flex; flex-direction: column; container-type: inline-size; }
-    .iv--evidenza .iv-poster { flex: 1 0 auto; max-height: 66.67cqw; }
-}
-.iv--evidenza .iv-testi { padding-top: 18px; }
-.iv--evidenza .iv-nome { font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.3px; }
-.interviste-banda .iv--evidenza p.iv-ruolo { margin-top: 4px; font-size: 0.9rem; }
-.interviste-banda .iv--evidenza p.iv-sintesi,
-.interviste-banda .iv--altre p.iv-sintesi { display: block; overflow: visible; }
+.iv--evidenza .iv-tema { font-size: 1.45rem; line-height: 1.2; letter-spacing: -0.3px; }
+.interviste-banda .iv--evidenza p.iv-firma { margin-top: 6px; font-size: 0.9rem; }
 .interviste-banda .iv--evidenza p.iv-sintesi {
-    max-width: 62ch;
-    margin-top: 12px;
+    max-width: 64ch;
+    margin-top: 10px;
     font-size: 0.97rem;
     line-height: 1.65;
     color: var(--text-muted);
 }
-/* nell'apertura, a contenitore pieno, la colonna e' larga abbastanza per
-   il giustificato; piu' stretta le cifre unite ai nomi aprirebbero buchi */
+/* a contenitore pieno la colonna dell'apertura e' larga abbastanza per il
+   giustificato; piu' stretta le cifre unite ai nomi aprirebbero buchi */
 @media (min-width: 1180px) {
     .interviste-banda .iv--evidenza p.iv-sintesi {
         text-align: justify !important;
@@ -4671,37 +4687,10 @@ ul {
 .iv-guarda svg { width: 14px; height: 14px; flex: none; transition: transform 0.2s ease; }
 .iv--evidenza:hover .iv-guarda { color: #0a2844; }
 .iv--evidenza:hover .iv-guarda svg { transform: translateX(3px); }
+/* il tema dell'apertura e' gia' sottolineato dal rimando */
+.iv--evidenza:hover .iv-link { text-decoration: none; }
 
-/* --- Riquadro delle altre interviste --- */
-.iv-altre-riquadro {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: 16px 18px;
-    background: #eef2f6;
-    border: 1px solid rgba(22, 64, 104, 0.18);
-    transition: background-color 0.2s ease;
-}
-.iv-altre-cifra {
-    font-family: var(--font-display);
-    font-size: 2.6rem;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -1px;
-    color: var(--navy-dark);
-}
-.iv-altre-etichetta {
-    margin-top: 6px;
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #164068;
-}
-.iv--altre:hover .iv-altre-riquadro { background: #e4ebf2; }
-
-/* --- Tre colonne --- */
+/* --- Schermi medi --- */
 /* sotto la larghezza piena del contenitore il testo accanto al conteggio
    avrebbe righe corte e giustificate larghe: va sotto, a tutta riga */
 @media (max-width: 1179px) {
@@ -4717,18 +4706,35 @@ ul {
     .interviste-intro { max-width: none; margin-top: 14px; }
 }
 @media (max-width: 1023px) {
-    .iv-griglia { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 20px; }
+    .iv-area { grid-template-columns: minmax(0, 210px) minmax(0, 1fr); column-gap: 40px; }
+    .iv-elenco { column-gap: 32px; }
 }
+/* il nome dell'area va sopra: titolo e conteggio su una riga, il testo sotto */
 @media (max-width: 900px) {
     .interviste-banda { padding: 48px 0 40px; }
     .interviste-titolo { font-size: 1.5rem; }
-    .iv--evidenza .iv-nome { font-size: 1.3rem; }
+    .iv-area {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 18px;
+        padding: 24px 0 28px;
+    }
+    .iv-area--apertura { padding-top: 4px; }
+    .iv-area-testa {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 2px 16px;
+    }
+    .interviste-banda p.iv-area-conto { margin: 0; }
+    .interviste-banda p.iv-area-testo { flex: 1 0 100%; max-width: 72ch; margin-top: 6px; }
+    .iv--evidenza .iv-tema { font-size: 1.3rem; }
 }
 @media (max-width: 768px) {
     .interviste-banda { --iv-bordo: 20px; }
 }
 
-/* --- Telefono: apertura sopra, schede in scorrimento orizzontale --- */
+/* --- Telefono: le interviste di un'area in scorrimento orizzontale --- */
 @media (max-width: 699px) {
     .interviste-testata {
         grid-template-columns: minmax(0, 1fr);
@@ -4747,14 +4753,13 @@ ul {
         padding: 0;
     }
     .interviste-conteggio-cifra { font-size: 2rem; }
-    .iv-griglia { display: block; }
-    .iv--evidenza { margin-bottom: 24px; }
+    .iv-area { row-gap: 14px; }
     .interviste-banda .iv--evidenza p.iv-sintesi { max-width: none; }
     .iv-elenco {
         display: flex;
-        gap: 14px;
+        gap: 18px;
         margin: 0 calc(-1 * var(--iv-bordo));
-        padding: 6px var(--iv-bordo) 10px;
+        padding: 2px var(--iv-bordo) 10px;
         overflow-x: auto;
         overscroll-behavior-x: contain;
         scroll-snap-type: x mandatory;
@@ -4762,7 +4767,12 @@ ul {
         scrollbar-width: thin;
         scrollbar-color: rgba(22, 64, 104, 0.35) transparent;
     }
-    .iv-elenco > .iv { flex: 0 0 min(76%, 320px); scroll-snap-align: start; }
+    .iv-elenco > .iv {
+        flex: 0 0 min(80%, 300px);
+        padding-top: 12px;
+        border-top: 2px solid #164068;
+        scroll-snap-align: start;
+    }
     .iv-link:focus-visible::after { outline-offset: 3px; }
 }
 /* colonna stretta: il testo d'apertura a sinistra, giustificato si aprirebbe */
@@ -4775,9 +4785,8 @@ ul {
 }
 @media (max-width: 480px) {
     .interviste-banda { --iv-bordo: 16px; }
-    .iv-elenco > .iv { flex-basis: min(78%, 320px); }
+    .iv-elenco > .iv { flex-basis: min(82%, 300px); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .iv-poster img, .interviste-tutte svg, .iv-guarda svg, .iv-altre-riquadro { transition: none; }
-    .iv:hover .iv-poster img { transform: none; }
+    .interviste-tutte svg, .iv-guarda svg { transition: none; }
 }

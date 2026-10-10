@@ -216,24 +216,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stretto.addEventListener) stretto.addEventListener('change', meta); else if (stretto.addListener) stretto.addListener(meta);
     }
     // Tutti gli inviti (l'apertura e il fondo di ogni sezione): si muovono
-    // per circa cinque secondi ogni volta che entrano in vista, poi restano
-    // fermi. Con "riduci movimento" non si muovono mai.
+    // di continuo finche' sono in vista; fuori vista si fermano, per non
+    // lavorare per niente. Con "riduci movimento" non si muovono mai.
     const calmo = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if ('IntersectionObserver' in window && !calmo.matches) {
-        const spegni = new Map();
-        const osserva = new IntersectionObserver((voci) => {
-            voci.forEach((v) => {
-                const el = v.target;
-                clearTimeout(spegni.get(el));
-                if (v.isIntersecting) {
-                    el.classList.add('is-viva');
-                    spegni.set(el, setTimeout(() => el.classList.remove('is-viva'), 5200));
-                } else {
-                    el.classList.remove('is-viva');
-                }
+    const inviti = document.querySelectorAll('.scorri');
+    if (!calmo.matches) {
+        if ('IntersectionObserver' in window) {
+            const osserva = new IntersectionObserver((voci) => {
+                voci.forEach((v) => v.target.classList.toggle('is-viva', v.isIntersecting));
             });
-        });
-        document.querySelectorAll('.scorri').forEach((el) => osserva.observe(el));
+            inviti.forEach((el) => osserva.observe(el));
+        } else {
+            inviti.forEach((el) => el.classList.add('is-viva'));
+        }
     }
 
     // === Smooth-scroll for in-page anchor links ===
@@ -1017,22 +1012,61 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('ResizeObserver' in window) new ResizeObserver(allinea).observe(document.querySelector('.split-content') || rail);
 })();
 
-// === Interviste di Verona: fila di schede sul telefono ===
-// Sotto i 700 px le schede scorrono in orizzontale. Il fuoco da tastiera
-// su una scheda vista solo in parte la porta in vista intera: da soli i
-// browser scorrono solo se il link e' del tutto fuori vista. Sul computer
-// l'elenco non scorre (fa parte della griglia) e qui non succede nulla.
+// === La mezzaluna della revisione legale gira ===
+// Al passaggio del mouse il disco fa un giro intero su se stesso; al clic
+// (e al tocco) fa un giro piu' rapido e alla fine apre la pagina. I clic
+// con Ctrl, Cmd, Maiusc o Alt (nuova scheda o finestra) restano quelli del
+// browser. Con "riduci movimento" niente giro e il link si apre subito.
 (function () {
-    var fila = document.querySelector('#interviste-verona .iv-elenco');
-    if (!fila) return;
-    fila.addEventListener('focusin', function (e) {
-        if (fila.scrollWidth <= fila.clientWidth) return;
-        var scheda = e.target.closest('.iv');
-        if (!scheda) return;
-        var f = fila.getBoundingClientRect();
-        var s = scheda.getBoundingClientRect();
-        if (s.left >= f.left && s.right <= f.right) return;
-        var fermo = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        scheda.scrollIntoView({ behavior: fermo ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+    var luna = document.querySelector('.sistema-centro');
+    if (!luna) return;
+    var calmo = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    var parti = null;
+    function fermo() { return !!(calmo && calmo.matches); }
+    function gira(veloce) {
+        if (fermo() || luna.classList.contains('is-gira')) return;
+        luna.classList.toggle('is-gira--veloce', veloce);
+        luna.classList.add('is-gira');
+    }
+    luna.addEventListener('animationend', function (e) {
+        if (e.target === luna) luna.classList.remove('is-gira', 'is-gira--veloce');
+    });
+    luna.addEventListener('pointerenter', function (e) {
+        if (e.pointerType === 'mouse' || e.pointerType === 'pen') gira(false);
+    });
+    luna.addEventListener('click', function (e) {
+        if (fermo() || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        if (parti) return;
+        gira(true);
+        var meta = luna.href;
+        parti = setTimeout(function () { parti = null; window.location.href = meta; }, 650);
+    });
+    // tornando indietro alla home (cache del browser) il disco e' fermo
+    window.addEventListener('pageshow', function () {
+        clearTimeout(parti);
+        parti = null;
+        luna.classList.remove('is-gira', 'is-gira--veloce');
+    });
+})();
+
+// === Interviste di Verona: file di voci sul telefono ===
+// Sotto i 700 px le interviste di ogni area scorrono in orizzontale. Il
+// fuoco da tastiera su una voce vista solo in parte la porta in vista
+// intera: da soli i browser scorrono solo se il link e' del tutto fuori
+// vista. Sul computer gli elenchi non scorrono e qui non succede nulla.
+(function () {
+    var file = document.querySelectorAll('#interviste-verona .iv-elenco');
+    Array.prototype.forEach.call(file, function (fila) {
+        fila.addEventListener('focusin', function (e) {
+            if (fila.scrollWidth <= fila.clientWidth) return;
+            var voce = e.target.closest('.iv');
+            if (!voce) return;
+            var f = fila.getBoundingClientRect();
+            var s = voce.getBoundingClientRect();
+            if (s.left >= f.left && s.right <= f.right) return;
+            var fermo = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            voce.scrollIntoView({ behavior: fermo ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+        });
     });
 })();

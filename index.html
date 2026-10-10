@@ -718,12 +718,11 @@
         </div>
     </section>
 
-    <!-- Interviste di Verona: testata con il conteggio e il rimando alla
-         pagina dedicata, un'intervista in evidenza, sette schede scelte per
-         tema e un rimando alle altre. Ogni scheda apre la sua intervista
-         nella pagina dedicata (interviste_verona_2026/#nome), dove il video
-         e' gia' pronto nel player. Le copertine sono fotogrammi dei video, in
-         formato ridotto (poster/piccoli). -->
+    <!-- Interviste di Verona: solo testo. Testata con il conteggio e il
+         rimando alla pagina dedicata, poi le interviste divise per area:
+         per ognuna il tema, chi parla e di che cosa. Ogni voce apre la sua
+         intervista nella pagina dedicata (interviste_verona_2026/#nome),
+         dove il video e' gia' pronto nel player. -->
     <section class="interviste-banda" id="interviste-verona" aria-labelledby="interviste-titolo">
         <div class="container">
             <header class="interviste-testata">
@@ -736,96 +735,149 @@
                 </div>
             </header>
 
-            <div class="iv-griglia">
+            <section class="iv-area iv-area--apertura" aria-labelledby="iv-area-convegno">
+                <header class="iv-area-testa">
+                    <h3 class="iv-area-titolo" id="iv-area-convegno">Il convegno</h3>
+                    <p class="iv-area-testo">La giornata del 27 marzo raccontata da chi l'ha organizzata.</p>
+                </header>
                 <article class="iv iv--evidenza">
-                    <div class="iv-poster">
-                        <img src="interviste_verona_2026/poster/piccoli/miele-960.jpg" srcset="interviste_verona_2026/poster/piccoli/miele.jpg 640w, interviste_verona_2026/poster/piccoli/miele-960.jpg 960w" sizes="(min-width: 700px) 720px, 100vw" width="960" height="540" alt="" loading="lazy" decoding="async">
-                    </div>
-                    <div class="iv-testi">
-                        <p class="iv-tema">Il bilancio del convegno</p>
-                        <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#miele"><span class="sr-only">Guarda l'intervista a </span>Sergio Miele</a></h3>
-                        <p class="iv-ruolo">Responsabile marketing e comunicazione Revilaw</p>
-                        <p class="iv-sintesi">400&nbsp;adesioni, 10&nbsp;tavole rotonde, 25&nbsp;relatori, 22&nbsp;sponsor e la copertura mediatica del Sole&nbsp;24&nbsp;Ore: i numeri della giornata di Verona e un format da ripetere.</p>
-                        <span class="iv-guarda" aria-hidden="true">Guarda l'intervista <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
-                    </div>
+                    <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#miele">Il bilancio di Verona<span class="sr-only">: intervista a Sergio Miele</span></a></h4>
+                    <p class="iv-firma"><span class="iv-nome">Sergio Miele</span>, responsabile marketing e comunicazione Revilaw</p>
+                    <p class="iv-sintesi">400&nbsp;adesioni, 10&nbsp;tavole rotonde, 25&nbsp;relatori, 22&nbsp;sponsor e la copertura mediatica del Sole&nbsp;24&nbsp;Ore: i numeri della giornata e le ragioni di un format da ripetere.</p>
+                    <span class="iv-guarda" aria-hidden="true">Guarda l'intervista <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
                 </article>
-
+            </section>
+            <section class="iv-area" aria-labelledby="iv-area-revisione">
+                <header class="iv-area-testa">
+                    <h3 class="iv-area-titolo" id="iv-area-revisione">Revisione legale e controlli</h3>
+                    <p class="iv-area-conto">6 interviste</p>
+                    <p class="iv-area-testo">Che cosa porta la revisione all'impresa: governance, controllo interno, Modello&nbsp;231 e il lavoro del revisore specializzato.</p>
+                </header>
                 <ul class="iv-elenco" role="list">
                     <li class="iv">
-                        <div class="iv-poster"><img src="interviste_verona_2026/poster/piccoli/pizzutelli.jpg" width="640" height="360" alt="" loading="lazy" decoding="async"></div>
-                        <div class="iv-testi">
-                            <p class="iv-tema">Revisione e governance</p>
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#pizzutelli"><span class="sr-only">Guarda l'intervista a </span>Stefano Pizzutelli</a></h3>
-                            <p class="iv-ruolo">Presidente del Comitato Scientifico Revilaw</p>
-                            <p class="iv-sintesi">Il legame con il controllo interno e l'AI per analizzare tutti i dati.</p>
-                        </div>
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#pizzutelli">Revisione, governance e controllo interno<span class="sr-only">: intervista a Stefano Pizzutelli</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Stefano Pizzutelli</span>, presidente del Comitato Scientifico Revilaw</p>
+                        <p class="iv-sintesi">Come si integrano i controlli e come l'AI permette di analizzare l'intero universo dei dati.</p>
                     </li>
                     <li class="iv">
-                        <div class="iv-poster"><img src="interviste_verona_2026/poster/piccoli/novembre.jpg" width="640" height="360" alt="" loading="lazy" decoding="async"></div>
-                        <div class="iv-testi">
-                            <p class="iv-tema">Holding e patrimonio</p>
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#novembre"><span class="sr-only">Guarda l'intervista a </span>Patrick Novembre</a></h3>
-                            <p class="iv-ruolo">Dottore commercialista e founder di Revilaw</p>
-                            <p class="iv-sintesi">Tutela del patrimonio, passaggio generazionale e vantaggi fiscali.</p>
-                        </div>
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#cassia">Revisione legale e Modello&nbsp;231<span class="sr-only">: intervista a Lorenzo Cassia</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Lorenzo Cassia</span>, equity partner, capo area Sicilia</p>
+                        <p class="iv-sintesi">Due facce della stessa medaglia: controlli effettivi sulle aree sensibili per prevenire rischi e responsabilità.</p>
                     </li>
                     <li class="iv">
-                        <div class="iv-poster"><img src="interviste_verona_2026/poster/piccoli/missori.jpg" width="640" height="360" alt="" loading="lazy" decoding="async"></div>
-                        <div class="iv-testi">
-                            <p class="iv-tema">Intelligenza artificiale</p>
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#missori"><span class="sr-only">Guarda l'intervista ad </span>Andrea Missori</a></h3>
-                            <p class="iv-ruolo">Equity partner, capo area Lazio, Umbria e Marche</p>
-                            <p class="iv-sintesi">I rischi dell'AI senza controlli: decisioni, compliance e tracciabilità.</p>
-                        </div>
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#lo-piccolo">La revisione nelle PMI<span class="sr-only">: intervista a Filippo Lo Piccolo</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Filippo Lo Piccolo</span>, equity partner, capo area Emilia-Romagna</p>
+                        <p class="iv-sintesi">Le resistenze da superare e il bilancio revisionato come garanzia del dato e vantaggio competitivo.</p>
                     </li>
                     <li class="iv">
-                        <div class="iv-poster"><img src="interviste_verona_2026/poster/piccoli/candelieri.jpg" width="640" height="360" alt="" loading="lazy" decoding="async"></div>
-                        <div class="iv-testi">
-                            <p class="iv-tema">Revisione dei report ESG</p>
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#candelieri"><span class="sr-only">Guarda l'intervista ad </span>Antonella Candelieri</a></h3>
-                            <p class="iv-ruolo">Professionista associata, vice capo area Toscana</p>
-                            <p class="iv-sintesi">L'affidabilità dei dati, anche qualitativi, e il rischio di greenwashing.</p>
-                        </div>
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#losi">Il punto di vista del sindaco<span class="sr-only">: intervista a Riccardo Losi</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Riccardo Losi</span>, sindaco e revisore legale</p>
+                        <p class="iv-sintesi">Perché affidare la revisione legale a una struttura specializzata riduce rischi e complessità.</p>
                     </li>
                     <li class="iv">
-                        <div class="iv-poster"><img src="interviste_verona_2026/poster/piccoli/cassia.jpg" width="640" height="360" alt="" loading="lazy" decoding="async"></div>
-                        <div class="iv-testi">
-                            <p class="iv-tema">Revisione e Modello 231</p>
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#cassia"><span class="sr-only">Guarda l'intervista a </span>Lorenzo Cassia</a></h3>
-                            <p class="iv-ruolo">Equity partner, capo area Sicilia</p>
-                            <p class="iv-sintesi">Due facce della stessa medaglia: controlli effettivi sulle aree sensibili.</p>
-                        </div>
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#pisano">Il revisore specializzato<span class="sr-only">: intervista a Alfonsina Pisano</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Alfonsina Pisano</span>, equity partner, capo area Calabria</p>
+                        <p class="iv-sintesi">Solo revisione, team dedicati alle singole aree di bilancio e una formazione che va oltre gli obblighi.</p>
                     </li>
                     <li class="iv">
-                        <div class="iv-poster"><img src="interviste_verona_2026/poster/piccoli/testa.jpg" width="640" height="360" alt="" loading="lazy" decoding="async"></div>
-                        <div class="iv-testi">
-                            <p class="iv-tema">Investimenti ZES</p>
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#testa"><span class="sr-only">Guarda l'intervista a </span>Massimiliano Testa</a></h3>
-                            <p class="iv-ruolo">Associato Revilaw, capo area Sardegna</p>
-                            <p class="iv-sintesi">Il revisore come certificatore: requisiti e rischi sul credito d'imposta.</p>
-                        </div>
-                    </li>
-                    <li class="iv">
-                        <div class="iv-poster"><img src="interviste_verona_2026/poster/piccoli/melo-martella.jpg" width="640" height="360" alt="" loading="lazy" decoding="async"></div>
-                        <div class="iv-testi">
-                            <p class="iv-tema">Tax control framework</p>
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#melo-martella"><span class="sr-only">Guarda l'intervista a </span>Melo Martella</a></h3>
-                            <p class="iv-ruolo">Componente del Comitato Scientifico Revilaw</p>
-                            <p class="iv-sintesi">Adempimento collaborativo e presidio del rischio fiscale nei processi.</p>
-                        </div>
-                    </li>
-                    <li class="iv iv--altre">
-                        <div class="iv-poster iv-altre-riquadro" aria-hidden="true">
-                            <span class="iv-altre-cifra">12</span>
-                            <span class="iv-altre-etichetta">altre interviste</span>
-                        </div>
-                        <div class="iv-testi">
-                            <h3 class="iv-nome"><a class="iv-link" href="interviste_verona_2026/#interviste">L'elenco completo<span class="sr-only"> delle 20 interviste</span></a></h3>
-                            <p class="iv-sintesi">Revisione nelle PMI, rischi cyber, proprietà industriale, il punto di vista del sindaco, la rete dei revisori e il franchising.</p>
-                        </div>
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#sideri">Oltre la verifica, verso il valore<span class="sr-only">: intervista a Patrizia Sideri</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Patrizia Sideri</span>, professionista associata, capo area Toscana</p>
+                        <p class="iv-sintesi">Dal controllo formale al miglioramento concreto dei processi aziendali.</p>
                     </li>
                 </ul>
-            </div>
+            </section>
+            <section class="iv-area" aria-labelledby="iv-area-rischi">
+                <header class="iv-area-testa">
+                    <h3 class="iv-area-titolo" id="iv-area-rischi">Rischi, tecnologia e sostenibilità</h3>
+                    <p class="iv-area-conto">4 interviste</p>
+                    <p class="iv-area-testo">Intelligenza artificiale, sicurezza informatica e report ESG: i nuovi rischi in cui la verifica indipendente fa da presidio.</p>
+                </header>
+                <ul class="iv-elenco" role="list">
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#missori">Intelligenza artificiale e controlli<span class="sr-only">: intervista a Andrea Missori</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Andrea Missori</span>, equity partner, capo area Lazio, Umbria e Marche</p>
+                        <p class="iv-sintesi">I rischi dell'AI senza controlli adeguati: decisioni, compliance e tracciabilità.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#napolitano">Rischi integrati e analisi dei dati<span class="sr-only">: intervista a Vincenzo A. Napolitano</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Vincenzo A. Napolitano</span>, equity partner Revilaw</p>
+                        <p class="iv-sintesi">Indipendenza professionale, approccio integrato ai rischi e una revisione che evolve verso l'analisi continua.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#pani">La revisione e i rischi cyber<span class="sr-only">: intervista a Francesco Pani</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Francesco Pani</span>, equity partner Revilaw</p>
+                        <p class="iv-sintesi">Prevenire i danni reputazionali con team multidisciplinari e controllo qualità su più livelli.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#candelieri">La revisione dei report ESG<span class="sr-only">: intervista a Antonella Candelieri</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Antonella Candelieri</span>, professionista associata, vice capo area Toscana</p>
+                        <p class="iv-sintesi">L'affidabilità dei dati, anche qualitativi, e la verifica che allontana il rischio di greenwashing.</p>
+                    </li>
+                </ul>
+            </section>
+            <section class="iv-area" aria-labelledby="iv-area-fisco">
+                <header class="iv-area-testa">
+                    <h3 class="iv-area-titolo" id="iv-area-fisco">Fisco, patrimonio e crescita</h3>
+                    <p class="iv-area-conto">4 interviste</p>
+                    <p class="iv-area-testo">Strumenti per l'impresa: rischio fiscale, holding di famiglia, crediti d'imposta per le ZES e tutela delle idee.</p>
+                </header>
+                <ul class="iv-elenco" role="list">
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#melo-martella">Il tax control framework<span class="sr-only">: intervista a Melo Martella</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Melo Martella</span>, componente del Comitato Scientifico Revilaw</p>
+                        <p class="iv-sintesi">Adempimento collaborativo e presidio del rischio fiscale dentro i processi aziendali.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#novembre">La holding spiegata all'imprenditore<span class="sr-only">: intervista a Patrick Novembre</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Patrick Novembre</span>, dottore commercialista e founder di Revilaw</p>
+                        <p class="iv-sintesi">Protezione del patrimonio, passaggio generazionale e vantaggi fiscali delle riorganizzazioni ben motivate.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#testa">Gli investimenti nelle ZES<span class="sr-only">: intervista a Massimiliano Testa</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Massimiliano Testa</span>, associato Revilaw, capo area Sardegna</p>
+                        <p class="iv-sintesi">Il revisore come certificatore: requisiti e rischi di disconoscimento del credito d'imposta.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#baroni">La proprietà industriale<span class="sr-only">: intervista a Matteo Baroni</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Matteo Baroni</span>, amministratore delegato di Metroconsult</p>
+                        <p class="iv-sintesi">Marchi e brevetti come processo aziendale, fra ricerca, ufficio legale, finanza e marketing.</p>
+                    </li>
+                </ul>
+            </section>
+            <section class="iv-area" aria-labelledby="iv-area-rete">
+                <header class="iv-area-testa">
+                    <h3 class="iv-area-titolo" id="iv-area-rete">La rete dei revisori</h3>
+                    <p class="iv-area-conto">5 interviste</p>
+                    <p class="iv-area-testo">Come lavora una rete di professionisti: metodo comune, confronto continuo e presenza in tutte le regioni.</p>
+                </header>
+                <ul class="iv-elenco" role="list">
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#magaraci">Una comunità di professionisti<span class="sr-only">: intervista a Ombretta Magaraci</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Ombretta Magaraci</span>, equity partner Revilaw</p>
+                        <p class="iv-sintesi">Formazione interna e specializzazioni che si integrano in una consulenza a tutto campo.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#cambrea">Perché la rete è un modello innovativo<span class="sr-only">: intervista a Dario Cambrea</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Dario Cambrea</span>, professionista associato Revilaw</p>
+                        <p class="iv-sintesi">Capillarità sul territorio, autorevolezza verso i mercati e scambio continuo di competenze.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#cecchinato">Il lavoro quotidiano nella rete<span class="sr-only">: intervista a Rita Cecchinato</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Rita Cecchinato</span>, professionista associata, capo area Veneto</p>
+                        <p class="iv-sintesi">Confronto costante, carte di lavoro condivise e una metodologia comune per revisioni solide.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#marengo">Le ragioni dell'adesione<span class="sr-only">: intervista a Federica Marengo</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Federica Marengo</span>, vice capo area Piemonte</p>
+                        <p class="iv-sintesi">Il confronto fra professionisti e un metodo standard per incarichi più efficienti e sicuri.</p>
+                    </li>
+                    <li class="iv">
+                        <h4 class="iv-tema"><a class="iv-link" href="interviste_verona_2026/#comparini">Dalla nascita della rete al franchising<span class="sr-only">: intervista a Mirco Comparini</span></a></h4>
+                        <p class="iv-firma"><span class="iv-nome">Mirco Comparini</span>, commercialista, ideatore della struttura della rete</p>
+                        <p class="iv-sintesi">La prima rete italiana di revisione legale e l'attestazione per le reti in franchising.</p>
+                    </li>
+                </ul>
+            </section>
 
             <!-- invito a scorrere alla sezione dopo -->
             <a href="#chi-siamo" class="scorri scorri--sezione scorri--chiaro" aria-label="Scorri alla sezione Chi siamo">
