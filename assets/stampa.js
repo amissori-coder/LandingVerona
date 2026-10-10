@@ -13,6 +13,9 @@
  *
  * Finita la stampa rimette la pagina com'era. Gli stili sono in
  * assets/stampa.css, caricato con media="print".
+ *
+ * Aggiunge inoltre a ogni pagina pubblica un pulsante fisso "Scarica il
+ * PDF" in basso a sinistra (escluse le pagine di servizio).
  */
 (function () {
     'use strict';
@@ -141,6 +144,60 @@
         prepara();
         window.print();
     });
+
+    // ---- Pulsante "Scarica il PDF" su ogni pagina pubblica ----
+    // Le pagine di servizio (moduli, conferme, diretta) non lo mostrano;
+    // una pagina puo' escluderlo anche con <meta name="ngb-pdf" content="no">.
+    var SERVIZIO = [
+        '/completa_iscrizione', '/conferma_email', '/richiesta_contatto',
+        '/newsletter', '/diretta', '/area-riservata', '/stima-ore-test',
+        '/news-demo', '/n26', '/p26', '/incontri_b2b',
+        '/cene_napoli/aderenti', '/cene_napoli/coordinatori',
+        '/verona_marzo_2026/aderenti'
+    ];
+
+    function pulsanteAmmesso() {
+        var escluso = document.querySelector('meta[name="ngb-pdf"][content="no"]');
+        if (escluso) return false;
+        var percorso = location.pathname.replace(/index\.html$/, '');
+        return !SERVIZIO.some(function (p) { return percorso.indexOf(p) === 0; });
+    }
+
+    function aggiungiPulsante() {
+        if (!pulsanteAmmesso() || document.querySelector('.ngb-pdf-pulsante')) return;
+        var stile = el('style');
+        stile.textContent = [
+            '.ngb-pdf-pulsante{position:fixed;left:20px;bottom:20px;z-index:9990;',
+            'display:inline-flex;align-items:center;gap:9px;padding:11px 18px 11px 15px;',
+            'border:1.5px solid rgba(255,255,255,.55);border-radius:999px;background:#164068;color:#fff;',
+            "font:600 14px/1.1 'Inter',-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.1px;",
+            'cursor:pointer;box-shadow:0 10px 26px rgba(10,25,45,.28),0 2px 6px rgba(10,25,45,.18);',
+            'transition:background .15s,transform .15s,box-shadow .15s;}',
+            '.ngb-pdf-pulsante:hover{background:#0f2f4f;transform:translateY(-1px);',
+            'box-shadow:0 14px 30px rgba(10,25,45,.32),0 3px 8px rgba(10,25,45,.2);}',
+            '.ngb-pdf-pulsante:focus-visible{outline:2px solid #8bb8d4;outline-offset:3px;}',
+            '.ngb-pdf-pulsante svg{width:18px;height:18px;flex:none;}',
+            '@media (max-width:640px){.ngb-pdf-pulsante{left:14px;bottom:14px;width:48px;height:48px;',
+            'padding:0;justify-content:center;}.ngb-pdf-pulsante span{position:absolute;width:1px;height:1px;',
+            'overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}}',
+            '@media print{.ngb-pdf-pulsante{display:none!important;}}'
+        ].join('');
+        document.head.appendChild(stile);
+
+        var b = el('button', 'ngb-pdf-pulsante');
+        b.type = 'button';
+        b.setAttribute('data-stampa', '');
+        b.setAttribute('aria-label', 'Scarica questa pagina in PDF');
+        b.title = 'Scarica questa pagina in PDF: nella finestra di stampa scegli "Salva come PDF"';
+        b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+            'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/>' +
+            '<path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
+        b.appendChild(el('span', '', 'Scarica il PDF'));
+        document.body.appendChild(b);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', aggiungiPulsante);
+    else aggiungiPulsante();
 
     window.NGBStampa = { prepara: prepara, ripristina: ripristina };
 })();
