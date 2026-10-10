@@ -70,6 +70,9 @@
             color: #8bb8d4;
             margin-bottom: 8px;
         }
+        /* arrivando da un link diretto (#nome) il fuoco va sul nome nel
+           player, che non e' un comando: niente cornice */
+        .player-head h2:focus { outline: none; }
         .player-head h2 {
             font-family: 'Montserrat', sans-serif;
             font-size: clamp(1.4rem, 2.6vw, 2rem);
@@ -797,6 +800,50 @@
             card.querySelector('p').textContent = voce.desc;
             card.addEventListener('click', function () { seleziona(voce, card, true); });
             griglia.appendChild(card);
+        });
+
+        // Link diretto a un'intervista (#nome, per esempio dalla home):
+        // l'intervista va nel player e la pagina scorre fino al player.
+        // Il video non parte da solo: i browser bloccano l'avvio con l'audio,
+        // basta il tasto play. Con "riduci movimento" lo scorrimento e' immediato.
+        function apriDaIndirizzo() {
+            var slug = location.hash.replace(/^#/, '');
+            try { slug = decodeURIComponent(slug); } catch (e) {}
+            for (var i = 0; i < INTERVISTE.length; i++) {
+                if (INTERVISTE[i].slug === slug) break;
+            }
+            if (i === INTERVISTE.length) return;
+            seleziona(INTERVISTE[i], griglia.children[i], false);
+            // il fuoco va sul nome nel player: con il Tab si prosegue dal
+            // video, non dalla barra di navigazione
+            nomeEl.setAttribute('tabindex', '-1');
+            try { nomeEl.focus({ preventScroll: true }); } catch (e) {}
+            var player = document.getElementById('player');
+            var fermo = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var scorri = function () {
+                try {
+                    player.scrollIntoView({ behavior: fermo ? 'instant' : 'smooth', block: 'start' });
+                } catch (e) {
+                    player.scrollIntoView(true);
+                }
+            };
+            // all'apertura aspetta che la pagina sia composta, poi scorre
+            if (document.readyState === 'complete') scorri();
+            else window.addEventListener('load', scorri, { once: true });
+        }
+        apriDaIndirizzo();
+        window.addEventListener('hashchange', apriDaIndirizzo);
+        // arrivati da un link diretto, l'indirizzo segue l'intervista scelta
+        // dopo, cosi' ricaricando o condividendo si ritrova quella giusta
+        // (replaceState non genera hashchange); senza #nome non cambia nulla
+        griglia.addEventListener('click', function (e) {
+            var card = e.target.closest('.intervista-card');
+            if (!card || !history.replaceState) return;
+            var attuale = location.hash.replace(/^#/, '');
+            var conHash = INTERVISTE.some(function (v) { return v.slug === attuale; });
+            if (!conHash) return;
+            var voce = INTERVISTE[Array.prototype.indexOf.call(griglia.children, card)];
+            if (voce && voce.slug !== attuale) history.replaceState(null, '', '#' + voce.slug);
         });
     })();
     </script>

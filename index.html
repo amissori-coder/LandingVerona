@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=33">
     <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
@@ -179,6 +179,18 @@
                         <span class="brand-highlight-tag">Percorso operativo</span>
                         <span class="brand-highlight-text"><strong>Adeguati assetti in 7 azioni</strong> da applicare subito, senza software</span>
                     </span>
+                </a>
+
+                <!-- Invito a scorrere: tre frecce che si accendono una dopo l'altra
+                     verso il basso. Porta ai contenuti sotto la prima schermata (il
+                     video; sul telefono gli eventi, vedi script.js). -->
+                <a href="#video" class="scorri" data-scorri>
+                    <span class="scorri-frecce" aria-hidden="true">
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    </span>
+                    <span class="scorri-scritta">Scorri per i contenuti</span>
                 </a>
             </div>
 
@@ -693,34 +705,87 @@
                 <source src="assets/video-home.mp4?v=3" type="video/mp4">
             </video>
         </div>
+        <div class="container scorri-fondo">
+            <!-- invito a scorrere alla sezione dopo -->
+            <a href="#interviste" class="scorri scorri--sezione" aria-label="Scorri alla sezione Le interviste ai protagonisti">
+                <span class="scorri-frecce" aria-hidden="true">
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                </span>
+                <span class="scorri-scritta">Le interviste ai protagonisti</span>
+            </a>
+        </div>
     </section>
 
-    <!-- Interviste di Verona: lancio con link alla pagina dedicata -->
-    <section class="interviste-banda" id="interviste-verona">
+    <!-- Le interviste: i temi che trattiamo sempre, in breve (niente nomi,
+         niente convegno). Testata con il conteggio e il rimando alla pagina
+         dedicata, poi quattro aree: per ogni intervista il tema e una riga
+         sul contenuto. Ogni voce apre la sua intervista nella pagina
+         dedicata (interviste_verona_2026/#nome), dove il video e' gia'
+         pronto nel player. -->
+    <section class="interviste-banda" id="interviste" aria-labelledby="interviste-titolo">
         <div class="container">
-            <div class="interviste-banda-inner">
-                <div class="interviste-banda-testo">
-                    <h2 class="interviste-titolo">Le interviste ai protagonisti</h2>
-                    <p class="interviste-descrizione">
-                        Venti voci dal convegno del 27 marzo 2026: revisione legale, governance,
-                        ESG, intelligenza artificiale e strumenti per l'impresa raccontati da
-                        professionisti della rete Revilaw, ospiti e partner.
-                    </p>
-                    <a class="interviste-cta" href="interviste_verona_2026/">
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-                        Guarda le interviste
-                    </a>
+            <header class="interviste-testata">
+                <h2 class="interviste-titolo" id="interviste-titolo">Le interviste ai protagonisti</h2>
+                <p class="interviste-accento">I temi che trattiamo ogni giorno</p>
+                <div class="interviste-indice">
+                    <p class="interviste-conteggio"><span class="interviste-conteggio-cifra">19</span> interviste in video</p>
+                    <a class="interviste-tutte" href="interviste_verona_2026/#interviste">Guarda tutte le interviste <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
                 </div>
-                <div class="interviste-avatars" aria-hidden="true">
-                    <span class="interviste-avatar">SM</span>
-                    <span class="interviste-avatar">MM</span>
-                    <span class="interviste-avatar">SP</span>
-                    <span class="interviste-avatar">PN</span>
-                    <span class="interviste-avatar">LC</span>
-                    <span class="interviste-avatar">FL</span>
-                    <span class="interviste-avatar interviste-avatar-resto">+14</span>
-                </div>
+            </header>
+
+            <div class="iv-aree">
+                <section class="iv-area" aria-labelledby="iv-area-revisione">
+                    <h3 class="iv-area-titolo" id="iv-area-revisione">Revisione e controlli</h3>
+                    <ul class="iv-elenco" role="list">
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#pizzutelli"><span class="iv-tema">Governance e controllo interno</span><span class="sr-only">:</span> <span class="iv-breve">l'AI per analizzare tutti i dati</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#cassia"><span class="iv-tema">Modello&nbsp;231</span><span class="sr-only">:</span> <span class="iv-breve">controlli effettivi sulle aree sensibili</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#lo-piccolo"><span class="iv-tema">Revisione nelle PMI</span><span class="sr-only">:</span> <span class="iv-breve">il bilancio revisionato come vantaggio</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#losi"><span class="iv-tema">Il punto di vista del sindaco</span><span class="sr-only">:</span> <span class="iv-breve">meno rischi con un revisore dedicato</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#pisano"><span class="iv-tema">Il revisore specializzato</span><span class="sr-only">:</span> <span class="iv-breve">team dedicati e formazione continua</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#sideri"><span class="iv-tema">Oltre la verifica</span><span class="sr-only">:</span> <span class="iv-breve">dal controllo a processi migliori</span></a></li>
+                    </ul>
+                </section>
+                <section class="iv-area" aria-labelledby="iv-area-rischi">
+                    <h3 class="iv-area-titolo" id="iv-area-rischi">Nuovi rischi</h3>
+                    <ul class="iv-elenco" role="list">
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#missori"><span class="iv-tema">Intelligenza artificiale</span><span class="sr-only">:</span> <span class="iv-breve">decisioni, compliance e tracciabilità</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#napolitano"><span class="iv-tema">Rischi integrati</span><span class="sr-only">:</span> <span class="iv-breve">verso l'analisi continua dei dati</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#pani"><span class="iv-tema">Rischi cyber</span><span class="sr-only">:</span> <span class="iv-breve">prevenire i danni reputazionali</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#candelieri"><span class="iv-tema">Report ESG</span><span class="sr-only">:</span> <span class="iv-breve">dati affidabili contro il greenwashing</span></a></li>
+                    </ul>
+                </section>
+                <section class="iv-area" aria-labelledby="iv-area-fisco">
+                    <h3 class="iv-area-titolo" id="iv-area-fisco">Fisco e patrimonio</h3>
+                    <ul class="iv-elenco" role="list">
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#melo-martella"><span class="iv-tema">Tax control framework</span><span class="sr-only">:</span> <span class="iv-breve">presidiare il rischio fiscale nei processi</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#novembre"><span class="iv-tema">Holding di famiglia</span><span class="sr-only">:</span> <span class="iv-breve">patrimonio e passaggio generazionale</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#testa"><span class="iv-tema">Investimenti ZES</span><span class="sr-only">:</span> <span class="iv-breve">il revisore certifica gli investimenti</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#baroni"><span class="iv-tema">Proprietà industriale</span><span class="sr-only">:</span> <span class="iv-breve">proteggere marchi e brevetti</span></a></li>
+                    </ul>
+                </section>
+                <section class="iv-area" aria-labelledby="iv-area-rete">
+                    <h3 class="iv-area-titolo" id="iv-area-rete">Il lavoro in rete</h3>
+                    <ul class="iv-elenco" role="list">
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#magaraci"><span class="iv-tema">Una comunità di professionisti</span><span class="sr-only">:</span> <span class="iv-breve">specializzazioni che si integrano</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#cambrea"><span class="iv-tema">Il modello a rete</span><span class="sr-only">:</span> <span class="iv-breve">territorio e scambio di competenze</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#cecchinato"><span class="iv-tema">Il lavoro quotidiano</span><span class="sr-only">:</span> <span class="iv-breve">carte di lavoro e metodo comune</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#marengo"><span class="iv-tema">Perché aderire</span><span class="sr-only">:</span> <span class="iv-breve">confronto e incarichi più sicuri</span></a></li>
+                        <li class="iv"><a class="iv-link" href="interviste_verona_2026/#comparini"><span class="iv-tema">Reti in franchising</span><span class="sr-only">:</span> <span class="iv-breve">la revisione e l'attestazione per le reti</span></a></li>
+                    </ul>
+                </section>
             </div>
+
+            <!-- invito a scorrere alla sezione dopo -->
+            <a href="#chi-siamo" class="scorri scorri--sezione scorri--chiaro" aria-label="Scorri alla sezione Chi siamo">
+                <span class="scorri-frecce" aria-hidden="true">
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                </span>
+                <span class="scorri-scritta">Chi siamo</span>
+            </a>
         </div>
     </section>
 
@@ -781,6 +846,15 @@
                 </div>
 
             </div>
+            <!-- invito a scorrere alla sezione dopo -->
+            <a href="#sedi" class="scorri scorri--sezione scorri--chiaro" aria-label="Scorri alla sezione Le sedi">
+                <span class="scorri-frecce" aria-hidden="true">
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                </span>
+                <span class="scorri-scritta">Le sedi</span>
+            </a>
         </div>
     </section>
 
@@ -812,6 +886,15 @@
                     <div class="sedi-index" id="sediList" aria-label="Indice alfabetico delle sedi"></div>
                 </div>
             </div>
+            <!-- invito a scorrere alla sezione dopo -->
+            <a href="#obiettivi" class="scorri scorri--sezione scorri--chiaro" aria-label="Scorri alla sezione Perché Next Generation Business">
+                <span class="scorri-frecce" aria-hidden="true">
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                </span>
+                <span class="scorri-scritta">Perché Next Generation Business</span>
+            </a>
         </div>
     </section>
 
@@ -983,11 +1066,20 @@
                     </section>
                 </div>
             </div>
+            <!-- invito a scorrere alla sezione dopo -->
+            <a href="#a-cura-di" class="scorri scorri--sezione scorri--chiaro" aria-label="Scorri alla sezione A cura di Revilaw">
+                <span class="scorri-frecce" aria-hidden="true">
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                </span>
+                <span class="scorri-scritta">A cura di Revilaw</span>
+            </a>
         </div>
     </section>
 
     <!-- Curated by: progetto editoriale a cura di Revilaw, associato Unindustria -->
-    <section class="curated">
+    <section class="curated" id="a-cura-di">
         <div class="curated-top">
             <div class="container">
                 <div class="curated-inner">
@@ -1015,6 +1107,15 @@
                         <img src="assets/logo-unindustria.png" alt="Associato Unindustria - Unione degli Industriali e delle Imprese" class="curated-brand-img">
                     </div>
                 </div>
+                <!-- invito a scorrere alla sezione dopo -->
+                <a href="#contatti" class="scorri scorri--sezione scorri--chiaro" aria-label="Scorri alla sezione Contatti e newsletter">
+                    <span class="scorri-frecce" aria-hidden="true">
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                        <svg viewBox="0 0 22 12" focusable="false"><polyline points="2 2 11 10 20 2"></polyline></svg>
+                    </span>
+                    <span class="scorri-scritta">Contatti e newsletter</span>
+                </a>
             </div>
         </div>
     </section>
@@ -1106,7 +1207,7 @@
         </div>
     </footer>
 
-    <script src="script.js?v=12"></script>
+    <script src="script.js?v=14"></script>
     <script src="assets/event-banner.js" defer></script>
     <!-- data-pillola: la pillola fissa "Diretta Napoli" in basso a sinistra -->
     <script src="/assets/diretta-stato.js?v=20260927b" data-pillola defer></script>

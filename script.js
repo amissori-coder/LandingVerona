@@ -204,6 +204,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // === Invito a scorrere (le frecce in fondo all'apertura) ===
+    // Sul computer porta al video, la prima sezione sotto l'apertura; sul
+    // telefono la colonna blu sta sopra gli eventi, e porta li'. Il clic lo
+    // gestisce lo scorrimento morbido qui sotto, che legge l'href al clic.
+    const scorri = document.querySelector('[data-scorri]');
+    if (scorri) {
+        const stretto = window.matchMedia('(max-width: 900px)');
+        const meta = () => scorri.setAttribute('href', stretto.matches ? '#eventi' : '#video');
+        meta();
+        if (stretto.addEventListener) stretto.addEventListener('change', meta); else if (stretto.addListener) stretto.addListener(meta);
+    }
+    // Tutti gli inviti (l'apertura e il fondo di ogni sezione): si muovono
+    // di continuo finche' sono in vista; fuori vista si fermano, per non
+    // lavorare per niente. Con "riduci movimento" non si muovono mai.
+    const calmo = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const inviti = document.querySelectorAll('.scorri');
+    if (!calmo.matches) {
+        if ('IntersectionObserver' in window) {
+            const osserva = new IntersectionObserver((voci) => {
+                voci.forEach((v) => v.target.classList.toggle('is-viva', v.isIntersecting));
+            });
+            inviti.forEach((el) => osserva.observe(el));
+        } else {
+            inviti.forEach((el) => el.classList.add('is-viva'));
+        }
+    }
+
     // === Smooth-scroll for in-page anchor links ===
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', (e) => {
@@ -220,6 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.detail && anchor.closest('.has-submenu')) anchor.blur();
             // il link "Vai al contenuto" porta anche il focus dentro il contenuto
             if (target.id === 'main') target.focus({ preventScroll: true });
+            // e cosi' gli inviti a scorrere: il Tab dopo riparte dalla sezione d'arrivo
+            if (anchor.classList.contains('scorri')) {
+                if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                target.setAttribute('data-scorri-meta', '');
+                target.focus({ preventScroll: true });
+            }
         });
     });
 
@@ -977,4 +1010,92 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(allinea);
     // la tendina degli eventi cambia le altezze
     if ('ResizeObserver' in window) new ResizeObserver(allinea).observe(document.querySelector('.split-content') || rail);
+})();
+
+// === L'anello dei servizi gira attorno alla revisione legale ===
+// Al passaggio del mouse sull'anello i sei servizi fanno mezzo giro
+// attorno al centro; lo stesso al clic sull'anello. A girare sono copie
+// senza link (la ruota, vedi styles.css): i link veri restano fermi al
+// loro posto, trasparenti durante il giro, e si cliccano sempre. Al clic
+// (o al tocco) su un servizio la ruota fa mezzo giro piu' rapido e poi si
+// apre la pagina; se il giro e' gia' in corso, lo si accelera perche'
+// finisca entro 0,6 secondi. Il disco della revisione legale resta fermo
+// e il suo link si apre subito. I clic con Ctrl, Cmd, Maiusc o Alt e il
+// tasto centrale restano quelli del browser. Con "riduci movimento" niente
+// giro e i link si aprono subito. Senza script l'anello resta com'e'.
+(function () {
+    var sistema = document.querySelector('.sistema');
+    var elenco = sistema && sistema.querySelector('.sistema-servizi');
+    if (!elenco) return;
+    function copia(classe) {
+        var c = elenco.cloneNode(true);
+        c.classList.add(classe);
+        Array.prototype.forEach.call(c.querySelectorAll('a'), function (a) {
+            var s = document.createElement('span');
+            s.className = a.className;
+            while (a.firstChild) s.appendChild(a.firstChild);
+            a.parentNode.replaceChild(s, a);
+        });
+        return c;
+    }
+    // la ruota sta sotto il disco: i nomi che gli passano accanto gli
+    // scorrono dietro
+    var ruota = document.createElement('div');
+    ruota.className = 'sistema-ruota';
+    ruota.setAttribute('aria-hidden', 'true');
+    ruota.appendChild(copia('sistema-servizi--copia'));
+    ruota.appendChild(copia('sistema-servizi--gemello'));
+    var centro = sistema.querySelector('.sistema-centro');
+    sistema.insertBefore(ruota, centro && centro.parentNode === sistema ? centro : elenco);
+
+    var calmo = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    var parti = null;
+    function fermo() { return !!(calmo && calmo.matches); }
+    function gira(veloce) {
+        if (fermo() || sistema.classList.contains('is-gira')) return;
+        sistema.classList.toggle('is-gira--veloce', veloce);
+        sistema.classList.add('is-gira');
+    }
+    // tempo che manca alla fine del giro in corso, accelerandolo se serve
+    var NOMI = ['ruotaGiro', 'voceControgiro', 'etichettaVela'];
+    function fineGiro(massimo) {
+        if (!ruota.getAnimations) return null;
+        var giri = ruota.getAnimations({ subtree: true }).filter(function (a) {
+            return NOMI.indexOf(a.animationName) !== -1;
+        });
+        var capo = giri.filter(function (a) { return a.animationName === 'ruotaGiro'; })[0];
+        if (!capo || !capo.effect || capo.currentTime === null || !(capo.playbackRate > 0)) return null;
+        var resto = (capo.effect.getComputedTiming().endTime - capo.currentTime) / capo.playbackRate;
+        if (resto > massimo) {
+            var fattore = resto / massimo;
+            giri.forEach(function (a) { a.updatePlaybackRate(a.playbackRate * fattore); });
+            resto = massimo;
+        }
+        return Math.max(0, resto);
+    }
+    ruota.addEventListener('animationend', function (e) {
+        if (e.target === ruota && e.animationName === 'ruotaGiro') sistema.classList.remove('is-gira', 'is-gira--veloce');
+    });
+    sistema.addEventListener('pointerenter', function (e) {
+        if (e.pointerType === 'mouse' || e.pointerType === 'pen') gira(false);
+    });
+    sistema.addEventListener('click', function (e) {
+        if (fermo() || e.target.closest('.sistema-centro')) return;
+        var nodo = e.target.closest('a.sistema-nodo');
+        if (!nodo) { gira(true); return; }
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        if (parti) return;
+        var resto = fineGiro(600);
+        var attesa = resto === null ? 700 : resto + 30;
+        if (resto === null) gira(true);
+        var meta = nodo.href;
+        parti = setTimeout(function () { parti = null; window.location.href = meta; }, attesa);
+    });
+    // tornando indietro alla home (cache del browser) la ruota e' ferma
+    window.addEventListener('pageshow', function () {
+        clearTimeout(parti);
+        parti = null;
+        sistema.classList.remove('is-gira', 'is-gira--veloce');
+    });
 })();
