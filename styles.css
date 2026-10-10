@@ -3570,8 +3570,8 @@ ul {
    verso il centro. Ogni punto ha coordinate --x e --y (seno e coseno del suo
    angolo) moltiplicate per il raggio --orb-r; --lw e' la larghezza massima
    di punto + etichetta, calcolata perche' l'etichetta non tocchi il bordo o
-   il centro. Al passaggio del mouse e al clic i servizi fanno mezzo giro
-   attorno al centro (vedi sotto). --- */
+   il centro. Al passaggio del mouse e al clic un arco di luce percorre
+   l'anello e presenta i servizi uno dopo l'altro (vedi sotto). --- */
 .split-brand {
     --orb-r: clamp(282px, 23vw, 330px);
     --orb-c: clamp(132px, 10vw, 144px);
@@ -3668,52 +3668,51 @@ ul {
 @media (prefers-reduced-motion: reduce) {
     .sistema-centro, .sistema-punto { transition: none; }
 }
-/* L'anello dei servizi gira. script.js aggiunge una ruota (.sistema-ruota,
-   con l'origine nel centro, nascosta e senza link) con due copie dei sei
-   servizi: una negli stessi punti e un gemello nei punti opposti, nella
-   meta' dell'anello che il bordo del pannello nasconde. Al passaggio del
-   mouse sull'anello e al clic (.is-gira su .sistema) i servizi veri
-   diventano trasparenti, ma restano al loro posto e cliccabili, e la ruota
-   fa mezzo giro in senso orario: le copie scorrono lungo l'anello e
-   passano dietro il bordo, e il gemello prende il loro posto, cosi' alla
-   fine il disegno e' identico a prima. Ogni voce della ruota gira al
-   contrario attorno al suo punto, quindi i nomi restano dritti; la ruota
-   sta sotto il disco della revisione legale, che resta fermo. Fino a
-   1180 px le etichette hanno lati diversi e durante il giro si
-   accavallerebbero: si spengono e girano solo i punti. Con "riduci
-   movimento" niente giro. */
-.sistema-ruota { position: absolute; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none; }
-.sistema-servizi--gemello .sistema-voce { left: calc(var(--x) * var(--orb-r) * -1); top: calc(var(--y) * var(--orb-r) * -1); }
-/* tutto il disco dell'anello risponde al mouse, non solo i punti */
-.sistema-anello--servizi { pointer-events: auto; }
-.sistema.is-gira > .sistema-servizi { opacity: 0; }
-.sistema.is-gira .sistema-ruota { visibility: visible; animation: ruotaGiro 1.4s cubic-bezier(.55, 0, .3, 1); }
-.sistema.is-gira .sistema-ruota .sistema-voce { animation: voceControgiro 1.4s cubic-bezier(.55, 0, .3, 1); }
-.sistema.is-gira--veloce .sistema-ruota,
-.sistema.is-gira--veloce .sistema-ruota .sistema-voce { animation-duration: 0.8s; }
-@keyframes ruotaGiro {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(180deg); }
+/* L'anello presenta i servizi. script.js aggiunge sull'anello un arco di
+   luce (.sistema-scansione: un SVG grande quanto l'anello, solo decorativo,
+   invisibile ai lettori di schermo e al mouse) con la linea esattamente
+   sulla sua. Al passaggio del mouse sull'anello e al clic sull'anello vuoto
+   (.is-scansione su .sistema) l'arco, corto e con la coda che sfuma,
+   percorre una volta la meta' visibile dell'anello: esce da dietro il bordo
+   del pannello a un capo e ci rientra all'altro, da 1181 px dall'alto in
+   basso, sotto da sinistra a destra. Quando la sua punta arriva a un
+   servizio il punto si accende di bianco e il riferimento sotto il nome
+   diventa bianco, poi tornano come prima. I servizi non si muovono e i link
+   si aprono subito. Durata e curva del passaggio stanno qui: script.js le
+   legge per accendere ogni punto nell'istante giusto, e scrive gli angoli
+   di partenza e di arrivo (--scansione-da, --scansione-a) e il ritardo di
+   ogni servizio (--scansione-t). La curva e' appena addolcita ai capi,
+   dove l'arco esce e rientra dietro il bordo: tra i servizi la velocita'
+   resta quasi costante e i punti si accendono a intervalli regolari. Con
+   "riduci movimento" niente arco. */
+.sistema-scansione { position: absolute; left: calc(-1 * var(--orb-r)); top: calc(-1 * var(--orb-r)); width: calc(2 * var(--orb-r)); height: calc(2 * var(--orb-r)); overflow: visible; visibility: hidden; pointer-events: none; transform-origin: 50% 50%; animation-duration: 2.2s; animation-timing-function: cubic-bezier(.3, .2, .7, .8); animation-fill-mode: both; }
+.sistema-scansione path { fill: none; stroke-width: 1.5px; }
+.sistema-scansione stop { stop-color: #7fbaff; }
+/* tutto il disco dell'anello risponde al mouse e al tocco, non solo i
+   punti; al tocco nessun riquadro grigio, la risposta e' l'arco */
+.sistema-anello--servizi { pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.sistema.is-scansione .sistema-scansione { visibility: visible; animation-name: scansioneArco; }
+.sistema.is-scansione .sistema-punto { animation: scansionePunto 0.5s ease-out var(--scansione-t, 0s); }
+.sistema.is-scansione .sistema-rif { animation: scansioneRif 0.5s ease-out var(--scansione-t, 0s); }
+@keyframes scansioneArco {
+    from { transform: rotate(var(--scansione-da)); }
+    to { transform: rotate(var(--scansione-a)); }
 }
-@keyframes voceControgiro {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(-180deg); }
+/* niente 0% e 100%: punto e riferimento partono dal colore che hanno e ci
+   tornano (il punto resta bianco se il mouse e' gia' sopra). Si accendono
+   in un attimo, mentre la punta dell'arco passa sul punto, e si spengono
+   piano. */
+@keyframes scansionePunto {
+    5%, 22% { background-color: #fff; }
 }
-@media (max-width: 1180px) {
-    .sistema.is-gira .sistema-ruota .sistema-etichetta { animation: etichettaVela 1.4s linear; }
-    .sistema.is-gira--veloce .sistema-ruota .sistema-etichetta { animation-duration: 0.8s; }
-}
-@keyframes etichettaVela {
-    0% { opacity: 1; }
-    15%, 85% { opacity: 0; }
-    100% { opacity: 1; }
+@keyframes scansioneRif {
+    5%, 22% { color: #fff; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .sistema.is-gira .sistema-ruota,
-    .sistema.is-gira .sistema-ruota .sistema-voce,
-    .sistema.is-gira .sistema-ruota .sistema-etichetta { animation: none; }
-    .sistema.is-gira .sistema-ruota { visibility: hidden; }
-    .sistema.is-gira > .sistema-servizi { opacity: 1; }
+    .sistema.is-scansione .sistema-scansione,
+    .sistema.is-scansione .sistema-punto,
+    .sistema.is-scansione .sistema-rif { animation: none; }
+    .sistema.is-scansione .sistema-scansione { visibility: hidden; }
 }
 
 /* i servizi si riconoscono come link: freccia dopo il nome al passaggio del

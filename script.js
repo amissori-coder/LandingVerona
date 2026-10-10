@@ -1012,90 +1012,153 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('ResizeObserver' in window) new ResizeObserver(allinea).observe(document.querySelector('.split-content') || rail);
 })();
 
-// === L'anello dei servizi gira attorno alla revisione legale ===
-// Al passaggio del mouse sull'anello i sei servizi fanno mezzo giro
-// attorno al centro; lo stesso al clic sull'anello. A girare sono copie
-// senza link (la ruota, vedi styles.css): i link veri restano fermi al
-// loro posto, trasparenti durante il giro, e si cliccano sempre. Al clic
-// (o al tocco) su un servizio la ruota fa mezzo giro piu' rapido e poi si
-// apre la pagina; se il giro e' gia' in corso, lo si accelera perche'
-// finisca entro 0,6 secondi. Il disco della revisione legale resta fermo
-// e il suo link si apre subito. I clic con Ctrl, Cmd, Maiusc o Alt e il
-// tasto centrale restano quelli del browser. Con "riduci movimento" niente
-// giro e i link si aprono subito. Senza script l'anello resta com'e'.
+// === L'anello presenta i servizi, uno dopo l'altro ===
+// Al passaggio del mouse sull'anello, e al clic (o al tocco) sull'anello
+// vuoto, un arco di luce percorre una volta la meta' visibile dell'anello e
+// accende in ordine i punti dei sei servizi (vedi styles.css). I servizi
+// non si muovono e lo script non tocca i clic sui link: si aprono subito,
+// come il disco della revisione legale, e Ctrl, Cmd, Maiusc e il tasto
+// centrale restano quelli del browser. Ogni punto si accende quando la
+// punta dell'arco lo raggiunge: l'istante si ricava dalla posizione vera
+// del punto, a ogni larghezza, e dalla durata e dalla curva scritte in
+// styles.css. Mentre l'arco corre non riparte, e al passaggio del mouse
+// non riparte prima di qualche secondo dalla fine del giro: chi attraversa
+// la pagina col mouse non lo rivede a ogni passaggio; il clic (o il tocco)
+// sull'anello vuoto lo fa ripartire subito. Con "riduci movimento" niente
+// arco; senza script l'anello resta com'e'.
 (function () {
     var sistema = document.querySelector('.sistema');
-    var elenco = sistema && sistema.querySelector('.sistema-servizi');
-    if (!elenco) return;
-    function copia(classe) {
-        var c = elenco.cloneNode(true);
-        c.classList.add(classe);
-        Array.prototype.forEach.call(c.querySelectorAll('a'), function (a) {
-            var s = document.createElement('span');
-            s.className = a.className;
-            while (a.firstChild) s.appendChild(a.firstChild);
-            a.parentNode.replaceChild(s, a);
-        });
-        return c;
-    }
-    // la ruota sta sotto il disco: i nomi che gli passano accanto gli
-    // scorrono dietro
-    var ruota = document.createElement('div');
-    ruota.className = 'sistema-ruota';
-    ruota.setAttribute('aria-hidden', 'true');
-    ruota.appendChild(copia('sistema-servizi--copia'));
-    ruota.appendChild(copia('sistema-servizi--gemello'));
-    var centro = sistema.querySelector('.sistema-centro');
-    sistema.insertBefore(ruota, centro && centro.parentNode === sistema ? centro : elenco);
+    var anello = sistema && sistema.querySelector('.sistema-anello--servizi');
+    var voci = sistema ? Array.prototype.slice.call(sistema.querySelectorAll('.sistema-servizi > .sistema-voce')) : [];
+    if (!anello || !voci.length || !window.getComputedStyle) return;
+    var NS = 'http://www.w3.org/2000/svg';
+    var ARCO = 38; // lunghezza dell'arco, in gradi
+    var PAUSA = 6000; // al passaggio del mouse, ms di quiete dopo un giro
+    var GRADI = 180 / Math.PI;
+
+    // l'arco sta sopra l'anello e sotto il disco e i servizi: passa dietro
+    // i punti. La coda sfuma con un gradiente lungo la corda.
+    var arco = document.createElementNS(NS, 'svg');
+    arco.setAttribute('class', 'sistema-scansione');
+    arco.setAttribute('aria-hidden', 'true');
+    arco.setAttribute('focusable', 'false');
+    var coda = document.createElementNS(NS, 'linearGradient');
+    coda.setAttribute('id', 'sistema-scansione-coda');
+    coda.setAttribute('gradientUnits', 'userSpaceOnUse');
+    [[0, 0], [0.25, 0.1], [0.5, 0.3], [0.75, 0.62], [1, 1]].forEach(function (s) {
+        var stop = document.createElementNS(NS, 'stop');
+        stop.setAttribute('offset', s[0]);
+        stop.setAttribute('stop-opacity', s[1]);
+        coda.appendChild(stop);
+    });
+    var defs = document.createElementNS(NS, 'defs');
+    defs.appendChild(coda);
+    var linea = document.createElementNS(NS, 'path');
+    linea.setAttribute('stroke', 'url(#sistema-scansione-coda)');
+    arco.appendChild(defs);
+    arco.appendChild(linea);
+    sistema.insertBefore(arco, anello.nextSibling);
 
     var calmo = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-    var parti = null;
-    function fermo() { return !!(calmo && calmo.matches); }
-    function gira(veloce) {
-        if (fermo() || sistema.classList.contains('is-gira')) return;
-        sistema.classList.toggle('is-gira--veloce', veloce);
-        sistema.classList.add('is-gira');
+    var guardia = null;
+    var ultima = 0; // quando e' finito l'ultimo giro
+    var larghezza = window.innerWidth;
+
+    function centro(el) {
+        var r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 };
     }
-    // tempo che manca alla fine del giro in corso, accelerandolo se serve
-    var NOMI = ['ruotaGiro', 'voceControgiro', 'etichettaVela'];
-    function fineGiro(massimo) {
-        if (!ruota.getAnimations) return null;
-        var giri = ruota.getAnimations({ subtree: true }).filter(function (a) {
-            return NOMI.indexOf(a.animationName) !== -1;
+    // la curva del passaggio (cubic-bezier di styles.css): dato quanto
+    // cammino ha fatto l'arco, a che punto del tempo ci arriva
+    function curva(css) {
+        var nomi = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
+        var m = /cubic-bezier\(([^)]+)\)/.exec(css);
+        var c = m ? m[1].split(',').map(parseFloat) : nomi[css] || [0, 0, 1, 1];
+        function b(s, p1, p2) { return 3 * (1 - s) * (1 - s) * s * p1 + 3 * (1 - s) * s * s * p2 + s * s * s; }
+        return function (cammino) {
+            var giu = 0, su = 1;
+            for (var i = 0; i < 30; i++) {
+                var s = (giu + su) / 2;
+                if (b(s, c[1], c[3]) < cammino) giu = s; else su = s;
+            }
+            return b((giu + su) / 2, c[0], c[2]);
+        };
+    }
+    function secondi(css) { return parseFloat(css) * (/ms$/.test(css) ? 1 : 1000) || 0; }
+
+    function fine() {
+        if (sistema.classList.contains('is-scansione')) ultima = Date.now();
+        clearTimeout(guardia);
+        guardia = null;
+        sistema.classList.remove('is-scansione');
+    }
+    function avvia() {
+        if ((calmo && calmo.matches) || sistema.classList.contains('is-scansione')) return;
+        var c = centro(anello);
+        if (!c.r) return;
+        var raggio = c.r - 0.5; // a meta' del filo di 1 px dell'anello
+        // angoli (in gradi, in senso orario dalle tre) dei punti veri; la
+        // meta' visibile e' quella da cui stanno i servizi: a sinistra da
+        // 1181 px, in alto sotto
+        var mx = 0, my = 0;
+        var punti = voci.map(function (v) {
+            var p = centro(v.querySelector('.sistema-punto') || v);
+            mx += p.x - c.x;
+            my += p.y - c.y;
+            return { voce: v, angolo: Math.atan2(p.y - c.y, p.x - c.x) * GRADI, bordo: p.r / raggio * GRADI };
         });
-        var capo = giri.filter(function (a) { return a.animationName === 'ruotaGiro'; })[0];
-        if (!capo || !capo.effect || capo.currentTime === null || !(capo.playbackRate > 0)) return null;
-        var resto = (capo.effect.getComputedTiming().endTime - capo.currentTime) / capo.playbackRate;
-        if (resto > massimo) {
-            var fattore = resto / massimo;
-            giri.forEach(function (a) { a.updatePlaybackRate(a.playbackRate * fattore); });
-            resto = massimo;
-        }
-        return Math.max(0, resto);
+        var meta = Math.round(Math.atan2(my, mx) * GRADI / 90) * 90;
+        // si parte dal capo in alto (o a sinistra) e si va verso l'altro:
+        // la punta esce da dietro il bordo, la coda ci rientra alla fine
+        var verso = Math.sin((meta + 90) / GRADI) + Math.cos((meta + 90) / GRADI) < 0 ? -1 : 1;
+        var da = meta - 90 * verso;
+        var a = meta + (90 + ARCO) * verso;
+        var corsa = 180 + ARCO;
+
+        // la punta e' all'angolo 0, la coda dietro di lei
+        var t = -ARCO * verso / GRADI;
+        var cx = (raggio * Math.cos(t)).toFixed(2), cy = (raggio * Math.sin(t)).toFixed(2);
+        arco.setAttribute('viewBox', [-c.r, -c.r, 2 * c.r, 2 * c.r].join(' '));
+        linea.setAttribute('d', 'M' + cx + ' ' + cy + 'A' + raggio.toFixed(2) + ' ' + raggio.toFixed(2) + ' 0 0 ' + (verso > 0 ? 1 : 0) + ' ' + raggio.toFixed(2) + ' 0');
+        coda.setAttribute('x1', cx);
+        coda.setAttribute('y1', cy);
+        coda.setAttribute('x2', raggio.toFixed(2));
+        coda.setAttribute('y2', 0);
+        arco.style.setProperty('--scansione-da', da + 'deg');
+        arco.style.setProperty('--scansione-a', a + 'deg');
+
+        // ogni punto si accende quando la punta ne tocca il bordo
+        var stile = getComputedStyle(arco);
+        var durata = secondi(stile.animationDuration);
+        var tempo = curva(stile.animationTimingFunction);
+        punti.forEach(function (p) {
+            var cammino = (((p.angolo - da) * verso) % 360 + 360) % 360 - p.bordo;
+            var quando = tempo(Math.min(1, Math.max(0, cammino / corsa))) * durata;
+            p.voce.style.setProperty('--scansione-t', Math.round(quando) + 'ms');
+        });
+        sistema.classList.add('is-scansione');
+        // se il browser non segnala la fine delle animazioni
+        guardia = setTimeout(fine, 2 * durata + 1000);
     }
-    ruota.addEventListener('animationend', function (e) {
-        if (e.target === ruota && e.animationName === 'ruotaGiro') sistema.classList.remove('is-gira', 'is-gira--veloce');
+    // finito tutto (l'arco e l'ultimo punto), l'anello e' di nuovo pronto
+    sistema.addEventListener('animationend', function (e) {
+        if (!/^scansione/.test(e.animationName) || !sistema.classList.contains('is-scansione')) return;
+        var resta = sistema.getAnimations ? sistema.getAnimations({ subtree: true }).some(function (x) {
+            return x.playState !== 'finished' && /^scansione/.test(x.animationName || '');
+        }) : e.target !== arco;
+        if (!resta) fine();
     });
     sistema.addEventListener('pointerenter', function (e) {
-        if (e.pointerType === 'mouse' || e.pointerType === 'pen') gira(false);
+        if ((e.pointerType === 'mouse' || e.pointerType === 'pen') && Date.now() - ultima >= PAUSA) avvia();
     });
-    sistema.addEventListener('click', function (e) {
-        if (fermo() || e.target.closest('.sistema-centro')) return;
-        var nodo = e.target.closest('a.sistema-nodo');
-        if (!nodo) { gira(true); return; }
-        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        if (parti) return;
-        var resto = fineGiro(600);
-        var attesa = resto === null ? 700 : resto + 30;
-        if (resto === null) gira(true);
-        var meta = nodo.href;
-        parti = setTimeout(function () { parti = null; window.location.href = meta; }, attesa);
+    // il clic (o il tocco) conta solo sull'anello vuoto: i link non passano di qui
+    anello.addEventListener('click', avvia);
+    // se cambia la larghezza la geometria cambia: l'arco si ferma
+    window.addEventListener('resize', function () {
+        if (window.innerWidth === larghezza) return;
+        larghezza = window.innerWidth;
+        fine();
     });
-    // tornando indietro alla home (cache del browser) la ruota e' ferma
-    window.addEventListener('pageshow', function () {
-        clearTimeout(parti);
-        parti = null;
-        sistema.classList.remove('is-gira', 'is-gira--veloce');
-    });
+    // tornando indietro alla home (cache del browser) l'arco e' fermo
+    window.addEventListener('pageshow', fine);
 })();
