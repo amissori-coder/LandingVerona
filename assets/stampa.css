@@ -301,6 +301,7 @@ p, li { orphans: 3; widows: 3; }
     border-radius: 0 !important;
 }
 .tabella-riga, .confronto-riga { break-inside: avoid; page-break-inside: avoid; }
+.tabella-testa, .confronto-testa { break-after: avoid; page-break-after: avoid; }
 .tabella-riga > div, .confronto-riga > div {
     padding: 2mm 3mm !important;
     font-size: 8.5pt !important;
@@ -370,7 +371,7 @@ p, li { orphans: 3; widows: 3; }
 .ck-esito-inner, .sim-output-inner { position: static !important; }
 .ck-voce, .sim-voce, .ps-campo { break-inside: avoid; page-break-inside: avoid; }
 .ck-voce { padding: 2mm 0 !important; font-size: 9pt !important; }
-.ck-esito, .sim-output { break-inside: avoid; page-break-inside: avoid; background: #f5f8fb !important; }
+.ck-esito, .sim-output { background: #f5f8fb !important; }
 
 /* ---- Fonti ---- */
 .ref-list { max-width: none !important; }
