@@ -328,3 +328,87 @@ body.content-page .cta-text .section-tag {
     .indice-blocco, .duo-card { padding: 22px 18px; }
 }
 .ck-avviso { margin: 0; font-size: 0.8rem; line-height: 1.55; color: var(--text-secondary); }
+
+/* ---- Pagine con testo sempre giustificato (classe testo-giustificato sul body) ----
+   Annulla gli allineamenti a sinistra qui sopra: il testo corrente resta
+   giustificato anche nelle colonne strette e su mobile. Gli spazi larghi si
+   evitano con i punti di sillabazione (&shy;) inseriti nel testo e con una
+   sillabazione automatica meno prudente di quella generale del sito. */
+body.content-page.testo-giustificato .section-desc,
+body.content-page.testo-giustificato .detail-block p,
+body.content-page.testo-giustificato .highlight-box,
+body.content-page.testo-giustificato .highlight-box p,
+body.content-page.testo-giustificato .faq-answer-inner,
+body.content-page.testo-giustificato .component-card p,
+body.content-page.testo-giustificato .component-card li,
+body.content-page.testo-giustificato .benefit-item p,
+body.content-page.testo-giustificato .ref-list li,
+body.content-page.testo-giustificato .ref-list li > span,
+body.content-page.testo-giustificato .tabella-riga > div,
+body.content-page.testo-giustificato .tabella-nota,
+body.content-page.testo-giustificato .ck-voce,
+body.content-page.testo-giustificato .ck-voce > span,
+body.content-page.testo-giustificato .ck-avviso,
+body.content-page.testo-giustificato .ck-suggerimento,
+body.content-page.testo-giustificato .indice-punti li,
+body.content-page.testo-giustificato .duo-card p,
+body.content-page.testo-giustificato .fonte,
+body.content-page.testo-giustificato .rimando-desc,
+body.content-page.testo-giustificato .cta-text p,
+body.content-page.testo-giustificato .footer-legal {
+    text-align: justify !important;
+    text-align-last: start !important;
+    text-justify: inter-word;
+    -webkit-hyphens: auto !important;
+    hyphens: auto !important;
+    -webkit-hyphenate-limit-before: 2;
+    -webkit-hyphenate-limit-after: 2;
+    hyphenate-limit-chars: 6 2 2;
+    -webkit-hyphenate-limit-lines: no-limit;
+    hyphenate-limit-lines: no-limit;
+    /* testo.css usa text-wrap: pretty, che riequilibra le ultime righe e in
+       colonna stretta allarga gli spazi: qui l'andata a capo e' quella normale */
+    text-wrap: wrap !important;
+}
+@media (max-width: 640px) {
+    body.content-page.testo-giustificato .section-desc,
+    body.content-page.testo-giustificato .detail-block p,
+    body.content-page.testo-giustificato .highlight-box,
+    body.content-page.testo-giustificato .highlight-box p,
+    body.content-page.testo-giustificato .faq-answer-inner,
+    body.content-page.testo-giustificato .tabella-nota,
+    body.content-page.testo-giustificato .cta-text p,
+    body.content-page.testo-giustificato .rimando-desc,
+    body.content-page.testo-giustificato .footer-legal {
+        text-align: justify !important;
+        text-align-last: start !important;
+    }
+}
+
+/* Le intestazioni di riga delle tabelle sono etichette, non testo corrente */
+body.content-page.testo-giustificato .tabella-riga > .tabella-voce { text-align: left !important; }
+
+/* Tabelle impilate gia' sotto i 900 px: celle larghe, giustificazione senza buchi.
+   Solo a schermo: in stampa le tabelle restano a tre colonne. */
+@media screen and (max-width: 900px) {
+    body.content-page.testo-giustificato .tabella-riga { grid-template-columns: 1fr; }
+    body.content-page.testo-giustificato .tabella-riga > div + div { border-left: 0; border-top: 1px solid var(--border-light); }
+    body.content-page.testo-giustificato .tabella-riga + .tabella-riga { border-top: 3px solid var(--accent-border); }
+    body.content-page.testo-giustificato .tabella-testa { display: none; }
+    body.content-page.testo-giustificato .tabella-voce { background: var(--accent-bg); }
+    body.content-page.testo-giustificato .tabella-riga > div[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 1.3px;
+        text-transform: uppercase;
+        color: #2A5A85;
+        margin-bottom: 4px;
+    }
+}
+
+@media (max-width: 640px) {
+    body.content-page.testo-giustificato .duo-card { padding: 20px 16px; }
+    body.content-page.testo-giustificato .duo-card p { font-size: 0.95rem; }
+}
