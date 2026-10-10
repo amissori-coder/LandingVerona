@@ -1014,7 +1014,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // === La mezzaluna della revisione legale gira ===
 // Al passaggio del mouse il disco fa un giro intero su se stesso; al clic
-// (e al tocco) fa un giro piu' rapido e alla fine apre la pagina. I clic
+// (e al tocco) fa un giro piu' rapido e alla fine apre la pagina; se il
+// giro del passaggio e' gia' in corso, lo accelera perche' finisca entro
+// 0,6 secondi e apre la pagina quando finisce. I clic
 // con Ctrl, Cmd, Maiusc o Alt (nuova scheda o finestra) restano quelli del
 // browser. Con "riduci movimento" niente giro e il link si apre subito.
 (function () {
@@ -1038,9 +1040,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fermo() || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
         if (parti) return;
-        gira(true);
+        var attesa = 650;
+        var giro = null;
+        if (luna.getAnimations) {
+            luna.getAnimations().forEach(function (a) { if (a.animationName === 'lunaGiro') giro = a; });
+        }
+        if (giro && giro.effect && giro.currentTime !== null && giro.playbackRate > 0) {
+            var resto = (giro.effect.getComputedTiming().endTime - giro.currentTime) / giro.playbackRate;
+            if (resto > 600) { giro.updatePlaybackRate(giro.playbackRate * resto / 600); resto = 600; }
+            attesa = Math.max(0, resto) + 30;
+        } else {
+            gira(true);
+        }
         var meta = luna.href;
-        parti = setTimeout(function () { parti = null; window.location.href = meta; }, 650);
+        parti = setTimeout(function () { parti = null; window.location.href = meta; }, attesa);
     });
     // tornando indietro alla home (cache del browser) il disco e' fermo
     window.addEventListener('pageshow', function () {
@@ -1066,7 +1079,9 @@ document.addEventListener('DOMContentLoaded', () => {
             var s = voce.getBoundingClientRect();
             if (s.left >= f.left && s.right <= f.right) return;
             var fermo = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            voce.scrollIntoView({ behavior: fermo ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+            // 'start' e' anche un punto di scatto: con 'nearest' lo scatto
+            // riporterebbe la fila indietro e la voce resterebbe tagliata
+            voce.scrollIntoView({ behavior: fermo ? 'auto' : 'smooth', block: 'nearest', inline: 'start' });
         });
     });
 })();

@@ -4324,8 +4324,8 @@ ul {
    (script.js sceglie la meta: il video sul computer, gli eventi sul
    telefono, e ci porta anche il focus).
    Le frecce si muovono di continuo finche' sono in vista (classe
-   .is-viva, da script.js, tolta fuori vista): un'onda che scende,
-   freccia dopo freccia. Senza JavaScript e con "riduci movimento"
+   .is-viva, da script.js, tolta fuori vista): un'onda che scende senza
+   pause, freccia dopo freccia. Senza JavaScript e con "riduci movimento"
    restano ferme, sfumate dall'alto verso il basso.
    Sugli schermi bassi del computer (fino a 780 px di altezza) la
    colonna blu parte dall'alto e si stringe un poco, cosi' l'invito
@@ -4365,20 +4365,20 @@ ul {
 .scorri-frecce svg:nth-child(1) { opacity: 0.35; }
 .scorri-frecce svg:nth-child(2) { opacity: 0.65; }
 .scorri-frecce svg:nth-child(3) { opacity: 1; }
-/* in movimento: ogni freccia si accende scendendo e si spegne in basso,
-   poi risale quasi spenta; le tre sfasate fanno un'onda continua */
+/* in movimento: ogni freccia scende di continuo, si accende in alto e si
+   spegne in basso, e risale da spenta. Le tre sono sfasate di un terzo
+   di giro (ritardi negativi: partono gia' sfasate), dall'alto verso il
+   basso, cosi' c'e' sempre una freccia accesa e l'onda non si ferma. */
 .scorri.is-viva .scorri-frecce svg {
-    opacity: 0.2;
-    animation: scorriFreccia 2s cubic-bezier(.45, 0, .55, 1) infinite;
+    animation: scorriFreccia 1.8s linear infinite;
 }
-.scorri.is-viva .scorri-frecce svg:nth-child(2) { animation-delay: 0.22s; }
-.scorri.is-viva .scorri-frecce svg:nth-child(3) { animation-delay: 0.44s; }
+.scorri.is-viva .scorri-frecce svg:nth-child(1) { animation-delay: -1.2s; }
+.scorri.is-viva .scorri-frecce svg:nth-child(2) { animation-delay: -0.6s; }
+.scorri.is-viva .scorri-frecce svg:nth-child(3) { animation-delay: 0s; }
 @keyframes scorriFreccia {
-    0%, 100% { opacity: 0.2; transform: translateY(-3px); }
-    24% { opacity: 1; transform: translateY(1px); }
-    46% { opacity: 0.45; transform: translateY(4px); }
-    60% { opacity: 0.1; transform: translateY(5px); }
-    61% { opacity: 0.1; transform: translateY(-3px); }
+    0% { opacity: 0; transform: translateY(-4px); }
+    25% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(4px); }
 }
 .scorri-scritta {
     font-family: var(--font-display);
@@ -4728,6 +4728,9 @@ ul {
     }
     .interviste-banda p.iv-area-conto { margin: 0; }
     .interviste-banda p.iv-area-testo { flex: 1 0 100%; max-width: 72ch; margin-top: 6px; }
+    /* l'apertura non ha il conteggio: senza, il testo starebbe accanto al titolo */
+    .iv-area--apertura .iv-area-testa { display: block; }
+    .interviste-banda .iv-area--apertura p.iv-area-testo { margin-top: 8px; }
     .iv--evidenza .iv-tema { font-size: 1.3rem; }
 }
 @media (max-width: 768px) {
@@ -4759,7 +4762,7 @@ ul {
         display: flex;
         gap: 18px;
         margin: 0 calc(-1 * var(--iv-bordo));
-        padding: 2px var(--iv-bordo) 10px;
+        padding: 3px var(--iv-bordo) 10px; /* il contorno del fuoco sporge di 3 px */
         overflow-x: auto;
         overscroll-behavior-x: contain;
         scroll-snap-type: x mandatory;
@@ -4775,13 +4778,12 @@ ul {
     }
     .iv-link:focus-visible::after { outline-offset: 3px; }
 }
-/* colonna stretta: il testo d'apertura a sinistra, giustificato si aprirebbe */
-@media (max-width: 699px) {
-    .interviste-banda p.interviste-intro {
-        text-align: start !important;
-        hyphens: manual !important;
-        -webkit-hyphens: manual !important;
-    }
+/* il testo d'apertura della testata e' di due righe: giustificato, la prima
+   prenderebbe tutto lo spazio in avanzo e si aprirebbe; resta a sinistra */
+.interviste-banda p.interviste-intro {
+    text-align: start !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
 }
 @media (max-width: 480px) {
     .interviste-banda { --iv-bordo: 16px; }
