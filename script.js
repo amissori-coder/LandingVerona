@@ -1012,64 +1012,97 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('ResizeObserver' in window) new ResizeObserver(allinea).observe(document.querySelector('.split-content') || rail);
 })();
 
-// === La mezzaluna della revisione legale gira ===
-// Al passaggio del mouse il disco fa un giro intero su se stesso; al clic
-// (e al tocco) fa un giro piu' rapido e alla fine apre la pagina; se il
-// giro del passaggio e' gia' in corso, lo accelera perche' finisca entro
-// 0,6 secondi e apre la pagina quando finisce. I clic
-// con Ctrl, Cmd, Maiusc o Alt (nuova scheda o finestra) restano quelli del
-// browser. Con "riduci movimento" niente giro e il link si apre subito.
+// === L'anello dei servizi gira attorno alla revisione legale ===
+// Al passaggio del mouse sull'anello i sei servizi fanno mezzo giro
+// attorno al centro; lo stesso al clic sull'anello. Al clic (o al tocco)
+// su un servizio la ruota fa mezzo giro piu' rapido e poi si apre la
+// pagina; se il giro e' gia' in corso, lo si accelera perche' finisca
+// entro 0,6 secondi. Il disco della revisione legale resta fermo e il suo
+// link si apre subito. I clic con Ctrl, Cmd, Maiusc o Alt restano quelli
+// del browser. Con "riduci movimento" niente giro e i link si aprono
+// subito. Senza script l'anello resta com'e'.
 (function () {
-    var luna = document.querySelector('.sistema-centro');
-    if (!luna) return;
+    var sistema = document.querySelector('.sistema');
+    var elenco = sistema && sistema.querySelector('.sistema-servizi');
+    if (!elenco) return;
+    // la ruota: l'elenco e il suo gemello nei punti opposti (nascosti
+    // dietro il bordo del pannello), con gli stessi nomi ma senza link.
+    // Sta sotto il disco della revisione: durante il giro i nomi che gli
+    // passano accanto gli scorrono dietro. A riposo non si toccano.
+    var ruota = document.createElement('div');
+    ruota.className = 'sistema-ruota';
+    var centro = sistema.querySelector('.sistema-centro');
+    sistema.insertBefore(ruota, centro && centro.parentNode === sistema ? centro : elenco);
+    ruota.appendChild(elenco);
+    var gemello = elenco.cloneNode(true);
+    gemello.classList.add('sistema-servizi--gemello');
+    gemello.setAttribute('aria-hidden', 'true');
+    Array.prototype.forEach.call(gemello.querySelectorAll('a'), function (a) {
+        var s = document.createElement('span');
+        s.className = a.className;
+        while (a.firstChild) s.appendChild(a.firstChild);
+        a.parentNode.replaceChild(s, a);
+    });
+    ruota.appendChild(gemello);
+
     var calmo = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     var parti = null;
     function fermo() { return !!(calmo && calmo.matches); }
     function gira(veloce) {
-        if (fermo() || luna.classList.contains('is-gira')) return;
-        luna.classList.toggle('is-gira--veloce', veloce);
-        luna.classList.add('is-gira');
+        if (fermo() || sistema.classList.contains('is-gira')) return;
+        sistema.classList.toggle('is-gira--veloce', veloce);
+        sistema.classList.add('is-gira');
     }
-    luna.addEventListener('animationend', function (e) {
-        if (e.target === luna) luna.classList.remove('is-gira', 'is-gira--veloce');
+    // tempo che manca alla fine del giro in corso, accelerandolo se serve
+    function fineGiro(massimo) {
+        if (!ruota.getAnimations) return null;
+        var giri = ruota.getAnimations({ subtree: true }).filter(function (a) {
+            return a.animationName === 'ruotaGiro' || a.animationName === 'voceControgiro';
+        });
+        var capo = giri.filter(function (a) { return a.animationName === 'ruotaGiro'; })[0];
+        if (!capo || !capo.effect || capo.currentTime === null || !(capo.playbackRate > 0)) return null;
+        var resto = (capo.effect.getComputedTiming().endTime - capo.currentTime) / capo.playbackRate;
+        if (resto > massimo) {
+            var fattore = resto / massimo;
+            giri.forEach(function (a) { a.updatePlaybackRate(a.playbackRate * fattore); });
+            resto = massimo;
+        }
+        return Math.max(0, resto);
+    }
+    ruota.addEventListener('animationend', function (e) {
+        if (e.target === ruota) sistema.classList.remove('is-gira', 'is-gira--veloce');
     });
-    luna.addEventListener('pointerenter', function (e) {
+    sistema.addEventListener('pointerenter', function (e) {
         if (e.pointerType === 'mouse' || e.pointerType === 'pen') gira(false);
     });
-    luna.addEventListener('click', function (e) {
-        if (fermo() || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    sistema.addEventListener('click', function (e) {
+        if (fermo() || e.target.closest('.sistema-centro')) return;
+        var nodo = e.target.closest('a.sistema-nodo');
+        if (!nodo) { gira(true); return; }
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
         if (parti) return;
-        var attesa = 650;
-        var giro = null;
-        if (luna.getAnimations) {
-            luna.getAnimations().forEach(function (a) { if (a.animationName === 'lunaGiro') giro = a; });
-        }
-        if (giro && giro.effect && giro.currentTime !== null && giro.playbackRate > 0) {
-            var resto = (giro.effect.getComputedTiming().endTime - giro.currentTime) / giro.playbackRate;
-            if (resto > 600) { giro.updatePlaybackRate(giro.playbackRate * resto / 600); resto = 600; }
-            attesa = Math.max(0, resto) + 30;
-        } else {
-            gira(true);
-        }
-        var meta = luna.href;
+        var resto = fineGiro(600);
+        var attesa = resto === null ? 700 : resto + 30;
+        if (resto === null) gira(true);
+        var meta = nodo.href;
         parti = setTimeout(function () { parti = null; window.location.href = meta; }, attesa);
     });
-    // tornando indietro alla home (cache del browser) il disco e' fermo
+    // tornando indietro alla home (cache del browser) la ruota e' ferma
     window.addEventListener('pageshow', function () {
         clearTimeout(parti);
         parti = null;
-        luna.classList.remove('is-gira', 'is-gira--veloce');
+        sistema.classList.remove('is-gira', 'is-gira--veloce');
     });
 })();
 
-// === Interviste di Verona: file di voci sul telefono ===
+// === Le interviste: file di voci sul telefono ===
 // Sotto i 700 px le interviste di ogni area scorrono in orizzontale. Il
 // fuoco da tastiera su una voce vista solo in parte la porta in vista
 // intera: da soli i browser scorrono solo se il link e' del tutto fuori
 // vista. Sul computer gli elenchi non scorrono e qui non succede nulla.
 (function () {
-    var file = document.querySelectorAll('#interviste-verona .iv-elenco');
+    var file = document.querySelectorAll('#interviste .iv-elenco');
     Array.prototype.forEach.call(file, function (fila) {
         fila.addEventListener('focusin', function (e) {
             if (fila.scrollWidth <= fila.clientWidth) return;
