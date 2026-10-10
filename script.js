@@ -1014,36 +1014,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // === L'anello dei servizi gira attorno alla revisione legale ===
 // Al passaggio del mouse sull'anello i sei servizi fanno mezzo giro
-// attorno al centro; lo stesso al clic sull'anello. Al clic (o al tocco)
-// su un servizio la ruota fa mezzo giro piu' rapido e poi si apre la
-// pagina; se il giro e' gia' in corso, lo si accelera perche' finisca
-// entro 0,6 secondi. Il disco della revisione legale resta fermo e il suo
-// link si apre subito. I clic con Ctrl, Cmd, Maiusc o Alt restano quelli
-// del browser. Con "riduci movimento" niente giro e i link si aprono
-// subito. Senza script l'anello resta com'e'.
+// attorno al centro; lo stesso al clic sull'anello. A girare sono copie
+// senza link (la ruota, vedi styles.css): i link veri restano fermi al
+// loro posto, trasparenti durante il giro, e si cliccano sempre. Al clic
+// (o al tocco) su un servizio la ruota fa mezzo giro piu' rapido e poi si
+// apre la pagina; se il giro e' gia' in corso, lo si accelera perche'
+// finisca entro 0,6 secondi. Il disco della revisione legale resta fermo
+// e il suo link si apre subito. I clic con Ctrl, Cmd, Maiusc o Alt e il
+// tasto centrale restano quelli del browser. Con "riduci movimento" niente
+// giro e i link si aprono subito. Senza script l'anello resta com'e'.
 (function () {
     var sistema = document.querySelector('.sistema');
     var elenco = sistema && sistema.querySelector('.sistema-servizi');
     if (!elenco) return;
-    // la ruota: l'elenco e il suo gemello nei punti opposti (nascosti
-    // dietro il bordo del pannello), con gli stessi nomi ma senza link.
-    // Sta sotto il disco della revisione: durante il giro i nomi che gli
-    // passano accanto gli scorrono dietro. A riposo non si toccano.
+    function copia(classe) {
+        var c = elenco.cloneNode(true);
+        c.classList.add(classe);
+        Array.prototype.forEach.call(c.querySelectorAll('a'), function (a) {
+            var s = document.createElement('span');
+            s.className = a.className;
+            while (a.firstChild) s.appendChild(a.firstChild);
+            a.parentNode.replaceChild(s, a);
+        });
+        return c;
+    }
+    // la ruota sta sotto il disco: i nomi che gli passano accanto gli
+    // scorrono dietro
     var ruota = document.createElement('div');
     ruota.className = 'sistema-ruota';
+    ruota.setAttribute('aria-hidden', 'true');
+    ruota.appendChild(copia('sistema-servizi--copia'));
+    ruota.appendChild(copia('sistema-servizi--gemello'));
     var centro = sistema.querySelector('.sistema-centro');
     sistema.insertBefore(ruota, centro && centro.parentNode === sistema ? centro : elenco);
-    ruota.appendChild(elenco);
-    var gemello = elenco.cloneNode(true);
-    gemello.classList.add('sistema-servizi--gemello');
-    gemello.setAttribute('aria-hidden', 'true');
-    Array.prototype.forEach.call(gemello.querySelectorAll('a'), function (a) {
-        var s = document.createElement('span');
-        s.className = a.className;
-        while (a.firstChild) s.appendChild(a.firstChild);
-        a.parentNode.replaceChild(s, a);
-    });
-    ruota.appendChild(gemello);
 
     var calmo = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     var parti = null;
@@ -1054,10 +1057,11 @@ document.addEventListener('DOMContentLoaded', () => {
         sistema.classList.add('is-gira');
     }
     // tempo che manca alla fine del giro in corso, accelerandolo se serve
+    var NOMI = ['ruotaGiro', 'voceControgiro', 'etichettaVela'];
     function fineGiro(massimo) {
         if (!ruota.getAnimations) return null;
         var giri = ruota.getAnimations({ subtree: true }).filter(function (a) {
-            return a.animationName === 'ruotaGiro' || a.animationName === 'voceControgiro';
+            return NOMI.indexOf(a.animationName) !== -1;
         });
         var capo = giri.filter(function (a) { return a.animationName === 'ruotaGiro'; })[0];
         if (!capo || !capo.effect || capo.currentTime === null || !(capo.playbackRate > 0)) return null;
@@ -1070,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.max(0, resto);
     }
     ruota.addEventListener('animationend', function (e) {
-        if (e.target === ruota) sistema.classList.remove('is-gira', 'is-gira--veloce');
+        if (e.target === ruota && e.animationName === 'ruotaGiro') sistema.classList.remove('is-gira', 'is-gira--veloce');
     });
     sistema.addEventListener('pointerenter', function (e) {
         if (e.pointerType === 'mouse' || e.pointerType === 'pen') gira(false);

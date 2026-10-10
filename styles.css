@@ -3668,26 +3668,29 @@ ul {
 @media (prefers-reduced-motion: reduce) {
     .sistema-centro, .sistema-punto { transition: none; }
 }
-/* L'anello dei servizi gira. script.js mette l'elenco in una ruota
-   (.sistema-ruota, con l'origine nel centro) e le aggiunge un gemello:
-   gli stessi sei servizi nei punti opposti, nella meta' dell'anello che il
-   bordo del pannello nasconde. Al passaggio del mouse sull'anello e al
-   clic (.is-gira su .sistema) la ruota fa mezzo giro in senso orario: i
-   servizi scorrono lungo l'anello e passano dietro il bordo, e il gemello
-   prende il loro posto, cosi' alla fine il disegno e' identico a prima.
-   Ogni voce gira al contrario attorno al suo punto, quindi i nomi restano
-   dritti. Il disco della revisione legale resta fermo. Durante il giro i
-   servizi non si cliccano (un clic non apre la voce che passa sotto il
-   mouse per caso). Con "riduci movimento" niente giro. */
-.sistema-ruota { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+/* L'anello dei servizi gira. script.js aggiunge una ruota (.sistema-ruota,
+   con l'origine nel centro, nascosta e senza link) con due copie dei sei
+   servizi: una negli stessi punti e un gemello nei punti opposti, nella
+   meta' dell'anello che il bordo del pannello nasconde. Al passaggio del
+   mouse sull'anello e al clic (.is-gira su .sistema) i servizi veri
+   diventano trasparenti, ma restano al loro posto e cliccabili, e la ruota
+   fa mezzo giro in senso orario: le copie scorrono lungo l'anello e
+   passano dietro il bordo, e il gemello prende il loro posto, cosi' alla
+   fine il disegno e' identico a prima. Ogni voce della ruota gira al
+   contrario attorno al suo punto, quindi i nomi restano dritti; la ruota
+   sta sotto il disco della revisione legale, che resta fermo. Fino a
+   1180 px le etichette hanno lati diversi e durante il giro si
+   accavallerebbero: si spengono e girano solo i punti. Con "riduci
+   movimento" niente giro. */
+.sistema-ruota { position: absolute; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none; }
 .sistema-servizi--gemello .sistema-voce { left: calc(var(--x) * var(--orb-r) * -1); top: calc(var(--y) * var(--orb-r) * -1); }
 /* tutto il disco dell'anello risponde al mouse, non solo i punti */
 .sistema-anello--servizi { pointer-events: auto; }
-.sistema.is-gira .sistema-ruota { animation: ruotaGiro 1.4s cubic-bezier(.55, 0, .3, 1); }
-.sistema.is-gira .sistema-voce { animation: voceControgiro 1.4s cubic-bezier(.55, 0, .3, 1); }
+.sistema.is-gira > .sistema-servizi { opacity: 0; }
+.sistema.is-gira .sistema-ruota { visibility: visible; animation: ruotaGiro 1.4s cubic-bezier(.55, 0, .3, 1); }
+.sistema.is-gira .sistema-ruota .sistema-voce { animation: voceControgiro 1.4s cubic-bezier(.55, 0, .3, 1); }
 .sistema.is-gira--veloce .sistema-ruota,
-.sistema.is-gira--veloce .sistema-voce { animation-duration: 0.8s; }
-.sistema.is-gira .sistema-nodo { pointer-events: none; }
+.sistema.is-gira--veloce .sistema-ruota .sistema-voce { animation-duration: 0.8s; }
 @keyframes ruotaGiro {
     from { transform: rotate(0deg); }
     to { transform: rotate(180deg); }
@@ -3696,8 +3699,21 @@ ul {
     from { transform: rotate(0deg); }
     to { transform: rotate(-180deg); }
 }
+@media (max-width: 1180px) {
+    .sistema.is-gira .sistema-ruota .sistema-etichetta { animation: etichettaVela 1.4s linear; }
+    .sistema.is-gira--veloce .sistema-ruota .sistema-etichetta { animation-duration: 0.8s; }
+}
+@keyframes etichettaVela {
+    0% { opacity: 1; }
+    15%, 85% { opacity: 0; }
+    100% { opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-    .sistema.is-gira .sistema-ruota, .sistema.is-gira .sistema-voce { animation: none; }
+    .sistema.is-gira .sistema-ruota,
+    .sistema.is-gira .sistema-ruota .sistema-voce,
+    .sistema.is-gira .sistema-ruota .sistema-etichetta { animation: none; }
+    .sistema.is-gira .sistema-ruota { visibility: hidden; }
+    .sistema.is-gira > .sistema-servizi { opacity: 1; }
 }
 
 /* i servizi si riconoscono come link: freccia dopo il nome al passaggio del
