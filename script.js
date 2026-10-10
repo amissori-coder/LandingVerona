@@ -1099,26 +1099,3 @@ document.addEventListener('DOMContentLoaded', () => {
         sistema.classList.remove('is-gira', 'is-gira--veloce');
     });
 })();
-
-// === Le interviste: file di voci sul telefono ===
-// Sotto i 700 px le interviste di ogni area scorrono in orizzontale. Il
-// fuoco da tastiera su una voce vista solo in parte la porta in vista
-// intera: da soli i browser scorrono solo se il link e' del tutto fuori
-// vista. Sul computer gli elenchi non scorrono e qui non succede nulla.
-(function () {
-    var file = document.querySelectorAll('#interviste .iv-elenco');
-    Array.prototype.forEach.call(file, function (fila) {
-        fila.addEventListener('focusin', function (e) {
-            if (fila.scrollWidth <= fila.clientWidth) return;
-            var voce = e.target.closest('.iv');
-            if (!voce) return;
-            var f = fila.getBoundingClientRect();
-            var s = voce.getBoundingClientRect();
-            if (s.left >= f.left && s.right <= f.right) return;
-            var fermo = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            // 'start' e' anche un punto di scatto: con 'nearest' lo scatto
-            // riporterebbe la fila indietro e la voce resterebbe tagliata
-            voce.scrollIntoView({ behavior: fermo ? 'auto' : 'smooth', block: 'nearest', inline: 'start' });
-        });
-    });
-})();
