@@ -1,0 +1,384 @@
+/* ============================================================
+   Formato di stampa e PDF comune a tutte le pagine del sito.
+   Caricato con media="print", dopo gli altri fogli: vale solo in
+   stampa. L'intestazione con il logo e il blocco di chiusura li
+   costruisce assets/stampa.js al momento della stampa.
+   ============================================================ */
+
+@page {
+    size: A4;
+    margin: 12mm 15mm 15mm;
+    @bottom-left {
+        content: "nextgenerationbusiness.it";
+        font: 7.5pt "Inter", Arial, sans-serif;
+        color: #64748b;
+    }
+    @bottom-right {
+        content: "Pagina " counter(page) " di " counter(pages);
+        font: 7.5pt "Inter", Arial, sans-serif;
+        color: #64748b;
+    }
+}
+
+html, body {
+    background: #ffffff !important;
+    overflow: visible !important;
+}
+body {
+    font-size: 10pt !important;
+    line-height: 1.5 !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+*, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+/* ---- Quello che serve solo a schermo ---- */
+.navbar, .hamburger, .nav-links, .hero-actions, .hero-bg-overlay,
+.section-cta, #contatti, .cta-form, .footer, .ngb-event-banner,
+#iubenda-cs-banner, .iubenda-tp-btn, video, iframe, audio,
+.ck-azioni, .no-stampa, [data-stampa], .rimando-vai, .rimando-icona,
+.faq-question svg, .contents-explore, .back-to-top,
+.btn, .video-frame, .video-embed, .video-cta, .intro-video-wrap, .intro-video-note,
+.video-anteprima-cornice, .fascia-video, .event-preview-video-shell {
+    display: none !important;
+}
+
+/* ---- Impaginazione con intestazione ripetuta ---- */
+table.stampa-impaginato {
+    width: 100%;
+    border-collapse: collapse;
+    border: 0;
+}
+table.stampa-impaginato > thead { display: table-header-group; }
+table.stampa-impaginato > thead > tr > td,
+table.stampa-impaginato > tbody > tr > td {
+    padding: 0;
+    border: 0;
+    vertical-align: top;
+}
+.stampa-testata {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 10mm;
+    padding-bottom: 2.5mm;
+    margin-bottom: 7mm;
+    border-bottom: 0.75pt solid #164068;
+}
+.stampa-testata img {
+    height: 9mm;
+    width: auto;
+    filter: none !important;
+}
+.stampa-testata-titolo {
+    max-width: 62%;
+    font-size: 7.5pt;
+    line-height: 1.35;
+    color: #475569;
+    text-align: right;
+}
+
+/* ---- Chiusura con i recapiti ---- */
+.stampa-chiusura {
+    display: flex;
+    align-items: center;
+    gap: 6mm;
+    margin-top: 8mm;
+    padding-top: 4mm;
+    border-top: 0.75pt solid #164068;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+.stampa-chiusura img { height: 8mm; width: auto; filter: none !important; }
+.stampa-chiusura-testo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8mm;
+    font-size: 7.5pt;
+    line-height: 1.45;
+    color: #475569;
+}
+.stampa-chiusura-testo strong { color: #164068; font-size: 8pt; }
+
+/* ---- La fascia iniziale diventa un frontespizio pulito ---- */
+.hero {
+    min-height: 0 !important;
+    height: auto !important;
+    display: block !important;
+    padding: 0 0 6mm !important;
+    margin: 0 0 7mm !important;
+    background: none !important;
+    color: #0f172a !important;
+    border-bottom: 0.5pt solid #c8d8e8;
+    overflow: visible !important;
+}
+.hero::before, .hero::after { display: none !important; }
+.hero-content {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+}
+.hero-badge {
+    display: block !important;
+    background: none !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 0 3mm !important;
+    font-size: 8pt !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #2A5A85 !important;
+}
+.hero h1 {
+    font-size: 24pt !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.4px !important;
+    margin: 0 0 4mm !important;
+    color: #164068 !important;
+    -webkit-text-fill-color: #164068 !important;
+    text-align: left !important;
+}
+.hero .text-accent {
+    color: #2A5A85 !important;
+    -webkit-text-fill-color: #2A5A85 !important;
+}
+.hero-subtitle,
+html body .hero .hero-subtitle,
+html body .hero p {
+    margin: 0 0 5mm !important;
+    font-size: 10.5pt !important;
+    line-height: 1.55 !important;
+    color: #334155 !important;
+    text-align: left !important;
+}
+.hero-subtitle strong { color: #0f172a !important; }
+.hero-stats {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    align-items: center;
+    gap: 7mm !important;
+}
+.hero-stats .stat { text-align: left !important; }
+.stat-number {
+    font-size: 15pt !important;
+    color: #164068 !important;
+    -webkit-text-fill-color: #164068 !important;
+}
+.stat-label {
+    font-size: 7pt !important;
+    color: #475569 !important;
+}
+.stat-divider { background: #c8d8e8 !important; height: 9mm !important; }
+
+/* ---- Elementi che a schermo compaiono allo scorrimento ---- */
+.fade-in, .reveal, [class*="reveal"], [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+}
+
+/* ---- Sezioni ---- */
+.section, .section-alt {
+    padding: 0 !important;
+    margin: 0 0 7mm !important;
+    background: none !important;
+    border: 0 !important;
+}
+.container {
+    max-width: none !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.section-header {
+    max-width: none !important;
+    margin: 0 0 4mm !important;
+    text-align: left !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    break-after: avoid;
+    page-break-after: avoid;
+}
+.section-tag {
+    display: block !important;
+    background: none !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 0 1.5mm !important;
+    font-size: 7.5pt !important;
+    color: #2A5A85 !important;
+    break-after: avoid;
+    page-break-after: avoid;
+}
+.section-header h2 {
+    font-size: 15pt !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.2px !important;
+    margin: 0 0 2mm !important;
+    color: #0f172a !important;
+}
+.section-header h2 .text-accent { color: #164068 !important; -webkit-text-fill-color: #164068 !important; }
+.section-desc {
+    font-size: 10pt !important;
+    line-height: 1.55 !important;
+    color: #334155 !important;
+}
+h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+p, li { orphans: 3; widows: 3; }
+
+.detail-block { max-width: none !important; margin: 0 0 4mm !important; }
+.detail-block p {
+    font-size: 10pt !important;
+    line-height: 1.55 !important;
+    color: #1e293b !important;
+    margin-bottom: 2.5mm !important;
+}
+
+/* ---- Schede ---- */
+.components-grid, .components-grid.is-tre, .pillars-grid, .benefits-grid,
+.cards-grid, .scheda-grid, .cronologia, .duo, .indice {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 3mm !important;
+    max-width: none !important;
+    margin: 0 0 4mm !important;
+    background: none !important;
+    border: 0 !important;
+}
+.components-grid.is-tre, .cronologia { grid-template-columns: repeat(3, 1fr) !important; }
+.duo.is-singola { grid-template-columns: 1fr !important; }
+.indice { grid-template-columns: 1.4fr 1fr !important; }
+.component-card, .pillar-card, .benefit-item, .card, .scheda-cell,
+.crono-tappa, .duo-card, .indice-blocco, .stat-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    padding: 3.5mm 4mm !important;
+    border: 0.5pt solid #c8d8e8 !important;
+    border-radius: 2mm !important;
+    background: #ffffff !important;
+    transform: none !important;
+}
+.component-card h3, .pillar-card h3, .benefit-item h3, .duo-card h3, .crono-tappa h3 {
+    font-size: 10.5pt !important;
+    margin: 1mm 0 1.5mm !important;
+}
+.component-card p, .component-card li, .pillar-card li, .benefit-item p,
+.duo-card p, .crono-tappa p, .indice-blocco li {
+    font-size: 9pt !important;
+    line-height: 1.45 !important;
+}
+.component-number, .pillar-label, .duo-etichetta { font-size: 7pt !important; }
+.pillar-number { font-size: 16pt !important; }
+.benefit-icon-wrap { display: none !important; }
+
+.highlight-box {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-width: none !important;
+    margin: 4mm 0 !important;
+    padding: 3.5mm 5mm !important;
+    background: #f5f8fb !important;
+    border: 0.5pt solid #c8d8e8 !important;
+    border-left: 2pt solid #164068 !important;
+    border-radius: 0 !important;
+}
+.highlight-box p { font-size: 9.5pt !important; line-height: 1.5 !important; }
+
+/* ---- Tabelle ---- */
+.tabella, .confronto {
+    max-width: none !important;
+    margin: 3mm 0 4mm !important;
+    border: 0.5pt solid #c8d8e8 !important;
+    border-radius: 0 !important;
+}
+.tabella-riga, .confronto-riga { break-inside: avoid; page-break-inside: avoid; }
+.tabella-riga > div, .confronto-riga > div {
+    padding: 2mm 3mm !important;
+    font-size: 8.5pt !important;
+    line-height: 1.45 !important;
+}
+.tabella-testa > div, .confronto-testa > div {
+    background: #eef3f8 !important;
+    font-size: 7pt !important;
+}
+.tabella-nota { font-size: 8pt !important; margin: 1.5mm 0 4mm !important; }
+
+/* ---- Domande frequenti: tutte aperte ---- */
+.faq-list { max-width: none !important; }
+.faq-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0 !important;
+    border: 0 !important;
+    border-bottom: 0.5pt solid #e2e8f0 !important;
+    border-radius: 0 !important;
+}
+.faq-question {
+    padding: 2.5mm 0 1mm !important;
+    background: none !important;
+    font-size: 10pt !important;
+}
+.faq-answer { max-height: none !important; overflow: visible !important; }
+.faq-answer-inner {
+    padding: 0 0 2.5mm !important;
+    font-size: 9.5pt !important;
+    line-height: 1.5 !important;
+}
+
+/* ---- Rimandi ad altre pagine ---- */
+.rimando {
+    display: block !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-width: none !important;
+    margin: 3mm 0 !important;
+    padding: 3mm 4mm !important;
+    background: none !important;
+    border: 0.5pt solid #c8d8e8 !important;
+}
+.rimando-titolo { font-size: 10pt !important; }
+.rimando-desc { font-size: 8.5pt !important; }
+
+/* ---- Strumenti interattivi: si stampa lo stato attuale ---- */
+.ck, .sim {
+    max-width: none !important;
+    margin: 3mm 0 4mm !important;
+    border: 0.5pt solid #c8d8e8 !important;
+    border-radius: 0 !important;
+}
+.ck, .sim {
+    display: grid !important;
+    grid-template-columns: 1.45fr 1fr !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+.ck-esito, .sim-output {
+    border-top: 0 !important;
+    border-left: 0.5pt solid #c8d8e8 !important;
+}
+.ck-domande, .sim-input, .ck-esito, .sim-output { padding: 4mm 5mm !important; }
+.ck-totale, .sim-totale { font-size: 20pt !important; }
+.ck-esito-inner, .sim-output-inner { position: static !important; }
+.ck-voce, .sim-voce, .ps-campo { break-inside: avoid; page-break-inside: avoid; }
+.ck-voce { padding: 2mm 0 !important; font-size: 9pt !important; }
+.ck-esito, .sim-output { break-inside: avoid; page-break-inside: avoid; background: #f5f8fb !important; }
+
+/* ---- Fonti ---- */
+.ref-list { max-width: none !important; }
+.ref-list li { padding: 1.8mm 0 !important; font-size: 8.5pt !important; line-height: 1.45 !important; }
+
+/* ---- Collegamenti: restano attivi nel PDF, senza colori da schermo ---- */
+a { color: inherit !important; text-decoration: none !important; }
+.ref-list a, .fonte a, .detail-block a, .faq-answer-inner a {
+    color: #164068 !important;
+    text-decoration: underline !important;
+}

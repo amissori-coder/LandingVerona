@@ -157,6 +157,11 @@ body.content-page .ck-testo,
 body.content-page .ck-mancanti li,
 body.content-page .crono-tappa p,
 body.content-page .tabella-nota,
+body.content-page .indice-punti li,
+body.content-page .duo-card p,
+body.content-page .fonte,
+body.content-page .ck-suggerimento,
+body.content-page .ck-avviso,
 body.content-page .cta-text h2,
 body.content-page .cta-text p,
 body.content-page .cta-text .section-tag {
@@ -173,3 +178,153 @@ body.content-page .cta-text .section-tag {
         text-align: left !important;
     }
 }
+
+/* ---- Sintesi e sommario in apertura ---- */
+.indice {
+    max-width: 1040px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1.45fr 1fr;
+    gap: 24px;
+}
+.indice-blocco {
+    padding: 28px 30px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+}
+.indice-etichetta {
+    display: block;
+    margin-bottom: 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #2A5A85;
+}
+.indice-punti { margin: 0; padding: 0; list-style: none; }
+.indice-punti li {
+    position: relative;
+    padding: 10px 0 10px 26px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.97rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+.indice-punti li:first-child { border-top: 0; padding-top: 0; }
+.indice-punti li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 17px;
+    width: 12px;
+    height: 7px;
+    border-left: 2px solid #164068;
+    border-bottom: 2px solid #164068;
+    transform: rotate(-45deg);
+}
+.indice-punti li:first-child::before { top: 7px; }
+.indice-punti strong { color: var(--text-primary); }
+.indice-voci { margin: 0 0 22px; padding: 0; list-style: none; counter-reset: voce; }
+.indice-voci li { counter-increment: voce; border-top: 1px solid var(--border-color); }
+.indice-voci li:first-child { border-top: 0; }
+.indice-voci a {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    padding: 9px 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: color .15s;
+}
+.indice-voci a::before {
+    content: counter(voce);
+    min-width: 22px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: #2A5A85;
+}
+.indice-voci a:hover { color: #164068; }
+
+/* ---- Schede affiancate: per lo studio e per il revisore ---- */
+.duo {
+    max-width: 1040px;
+    margin: 36px auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+.duo.is-singola { grid-template-columns: 1fr; max-width: 820px; }
+.duo-card {
+    padding: 24px 26px;
+    border: 1px solid var(--accent-border);
+    border-top: 3px solid #164068;
+    border-radius: var(--radius);
+    background: var(--bg-card);
+}
+.duo-card.is-revisore { border-top-color: #2E7D5B; }
+.duo-etichetta {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: #164068;
+}
+.duo-card.is-revisore .duo-etichetta { color: #2E7D5B; }
+.duo-etichetta svg { width: 20px; height: 20px; flex: none; }
+.duo-card p { margin: 0; font-size: 0.97rem; line-height: 1.7; color: var(--text-secondary); }
+
+/* ---- Rimando alla fonte ---- */
+.fonte,
+.detail-block .fonte {
+    max-width: 1040px;
+    margin: 14px auto 0;
+    font-size: 0.85rem !important;
+    line-height: 1.55 !important;
+    color: #2A5A85 !important;
+}
+.duo.is-singola + .fonte { max-width: 820px; }
+.detail-block .fonte { max-width: none; margin: -6px 0 16px; }
+.fonte a { color: #2A5A85; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---- Pulsanti della lista di controllo e del PDF ---- */
+.ck-azioni { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.ck-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 13px 18px;
+    border: 1px solid var(--accent-border);
+    border-radius: 10px;
+    background: #ffffff;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: #164068;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .15s;
+}
+.ck-btn svg { width: 18px; height: 18px; flex: none; }
+.ck-btn:hover { background: var(--accent-bg); border-color: #164068; }
+.ck-btn:active { transform: translateY(1px); }
+.ck-btn:focus-visible { outline: 2px solid #2A5A85; outline-offset: 2px; }
+.ck-btn-primario { background: #164068; border-color: #164068; color: #ffffff; }
+.ck-btn-primario:hover { background: #0f2f4f; border-color: #0f2f4f; }
+.ck-suggerimento { margin: 0; font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary); }
+
+@media (max-width: 900px) {
+    .indice, .duo { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+    .indice-blocco, .duo-card { padding: 22px 18px; }
+}
+.ck-avviso { margin: 0; font-size: 0.8rem; line-height: 1.55; color: var(--text-secondary); }

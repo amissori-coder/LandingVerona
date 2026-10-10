@@ -48,38 +48,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
-    <link rel="stylesheet" href="../assets/approfondimento-extra.css?v=1">
+    <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
+    <script src="/assets/stampa.js?v=1" defer></script>
+    <link rel="stylesheet" href="../assets/approfondimento-extra.css?v=2">
 
-    <style>
-        /* Rimando alla fonte in coda a un paragrafo */
-        .fonte { display: block; margin-top: 6px; font-size: 0.85rem; line-height: 1.5; color: #2A5A85; text-align: left !important; }
-        .fonte a { color: #2A5A85; text-decoration: underline; text-underline-offset: 2px; }
-        /* Pulsanti sotto la lista di controllo */
-        .ck-azioni { display: flex; gap: 10px; flex-wrap: wrap; }
-        .ck-azioni button {
-            flex: 1 1 140px;
-            padding: 11px 14px;
-            border: 1px solid var(--accent-border);
-            border-radius: 10px;
-            background: #fff;
-            font: inherit;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #164068;
-            cursor: pointer;
-        }
-        .ck-azioni button:hover { background: var(--accent-bg); }
-        .ck-avviso { margin: 0; font-size: 0.8rem; line-height: 1.55; color: var(--text-secondary); }
-        /* Stampa: articolo e lista di controllo, senza menu, modulo e piè di pagina */
-        @media print {
-            .navbar, .hero-actions, #contatti, .footer, .ck-azioni { display: none !important; }
-            .hero { min-height: auto; padding: 24px 0; background: #fff !important; color: #000; }
-            .hero h1, .hero .text-accent, .hero-subtitle, .stat-number, .stat-label { color: #000 !important; -webkit-text-fill-color: #000 !important; }
-            .section { padding: 24px 0; }
-            .ck-esito-inner { position: static; }
-            .fade-in { opacity: 1 !important; transform: none !important; }
-        }
-    </style>
 
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
@@ -179,6 +151,41 @@
         </div>
     </section>
 
+    <!-- SINTESI E SOMMARIO -->
+    <section class="section section-alt" id="sintesi">
+        <div class="container">
+            <div class="indice">
+                <div class="indice-blocco">
+                    <span class="indice-etichetta">In sintesi</span>
+                    <ul class="indice-punti">
+                        <li>Stato patrimoniale, rendiconto gestionale e relazione di missione formano un <strong>insieme unitario</strong>.</li>
+                        <li>La scelta fra bilancio per competenza e rendiconto per cassa va verificata ogni anno sul testo vigente dell'<strong>art. 13 del Codice del Terzo settore</strong>.</li>
+                        <li>Per le liberalità conta la sostanza dell'accordo: il <strong>vincolo</strong> genera una riserva, la <strong>condizione</strong> un debito.</li>
+                        <li>Ogni stima va documentata con dati, ipotesi e responsabile, così da poter essere ricostruita.</li>
+                        <li>La continuità si valuta su <strong>almeno dodici mesi</strong>, con un budget delle risorse e degli impegni.</li>
+                    </ul>
+                </div>
+                <nav class="indice-blocco" aria-label="Sommario della pagina">
+                    <span class="indice-etichetta">In questa pagina</span>
+                    <ol class="indice-voci">
+                            <li><a href="#principio">Il quadro contabile</a></li>
+                            <li><a href="#modello">Scegliere il modello corretto</a></li>
+                            <li><a href="#piano">Un piano dei conti coerente con le attività</a></li>
+                            <li><a href="#liberalita">Liberalità e contributi</a></li>
+                            <li><a href="#stime">Stime e valutazioni</a></li>
+                            <li><a href="#continuita">Continuità e informativa</a></li>
+                            <li><a href="#revisore">Il lavoro del revisore</a></li>
+                            <li><a href="#verifica">La lista di controllo per la chiusura</a></li>
+                    </ol>
+                    <button type="button" class="ck-btn ck-btn-primario" data-stampa>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                        Scarica il PDF
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </section>
+
     <!-- 1. IL QUADRO CONTABILE -->
     <section class="section" id="principio">
         <div class="container">
@@ -210,16 +217,13 @@
                 </article>
             </div>
 
-            <div class="detail-block">
-                <p>
-                    <strong>Per lo studio.</strong> Il primo passaggio è individuare il quadro applicabile all'ente:
-                    iscrizione al RUNTS, personalità giuridica, attività svolta e modello adottato. La predisposizione del
-                    bilancio richiede una lettura coordinata dello statuto e dell'organizzazione amministrativa. Il piano
-                    dei conti va costruito prima della chiusura, così da evitare riclassificazioni prive di supporto
-                    documentale.
-                    <span class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafi da 1 a 7</a>.</span>
-                </p>
+            <div class="duo is-singola">
+                <article class="duo-card is-studio">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>Per lo studio</span>
+                    <p>Il primo passaggio è individuare il quadro applicabile all'ente: iscrizione al RUNTS, personalità giuridica, attività svolta e modello adottato. La predisposizione del bilancio richiede una lettura coordinata dello statuto e dell'organizzazione amministrativa. Il piano dei conti va costruito prima della chiusura, così da evitare riclassificazioni prive di supporto documentale.</p>
+                </article>
             </div>
+            <p class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafi da 1 a 7</a>.</p>
         </div>
     </section>
 
@@ -265,8 +269,8 @@
                     esercizi solari dal rendiconto 2026. Chiarisce inoltre l'impiego del modello D per gli enti con
                     personalità giuridica ed entrate inferiori a 60.000 euro il cui esercizio era già chiuso al 21 marzo
                     2026.
-                    <span class="fonte">Fonti: <a href="https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2017-07-03;117" target="_blank" rel="noopener">art. 13 CTS, testo vigente</a>; <a href="https://www.lavoro.gov.it/documenti-e-norme/normativa/circolare-n-6-del-09082024" target="_blank" rel="noopener">circolare n. 6 del 9 agosto 2024</a>; <a href="https://www.lavoro.gov.it/notizie/pagine/codice-del-terzo-settore-chiarimenti-utilizzo-del-rendiconto" target="_blank" rel="noopener">chiarimento ministeriale del 2026</a>.</span>
                 </p>
+            <p class="fonte">Fonti: <a href="https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2017-07-03;117" target="_blank" rel="noopener">art. 13 CTS, testo vigente</a>; <a href="https://www.lavoro.gov.it/documenti-e-norme/normativa/circolare-n-6-del-09082024" target="_blank" rel="noopener">circolare n. 6 del 9 agosto 2024</a>; <a href="https://www.lavoro.gov.it/notizie/pagine/codice-del-terzo-settore-chiarimenti-utilizzo-del-rendiconto" target="_blank" rel="noopener">chiarimento ministeriale del 2026</a>.</p>
                 <p>
                     <strong>Sul piano operativo.</strong> Conviene conservare una scheda annuale con i presupposti della
                     scelta: dati dell'esercizio precedente, natura dell'ente, periodo amministrativo e fonti utilizzate. Il
@@ -317,21 +321,17 @@
                 </article>
             </div>
 
-            <div class="detail-block">
-                <p>
-                    <strong>Per lo studio.</strong> Una soluzione organizzativa consiste nell'affiancare a ogni conto una
-                    dimensione di progetto o centro di attività. Per i costi comuni si possono proporre parametri
-                    documentabili: ore lavorate, superfici utilizzate o impiego effettivo delle risorse. La scelta deve
-                    riflettere la gestione reale ed essere riesaminata quando cambiano i programmi.
-                </p>
-                <p>
-                    <strong>Per il revisore.</strong> Si possono selezionare operazioni che attraversano più aree,
-                    confrontare l'attribuzione con contratti e documenti di spesa e verificare la continuità del criterio
-                    rispetto all'esercizio precedente. Le anomalie ricorrenti suggeriscono di rivedere il processo di
-                    registrazione, oltre a correggere il singolo saldo.
-                    <span class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafi da 9 a 12</a>.</span>
-                </p>
+            <div class="duo">
+                <article class="duo-card is-studio">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>Per lo studio</span>
+                    <p>Una soluzione organizzativa consiste nell'affiancare a ogni conto una dimensione di progetto o centro di attività. Per i costi comuni si possono proporre parametri documentabili: ore lavorate, superfici utilizzate o impiego effettivo delle risorse. La scelta deve riflettere la gestione reale ed essere riesaminata quando cambiano i programmi.</p>
+                </article>
+                <article class="duo-card is-revisore">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="m8.5 11 1.8 1.8 3.4-3.6"/></svg>Per il revisore</span>
+                    <p>Si possono selezionare operazioni che attraversano più aree, confrontare l'attribuzione con contratti e documenti di spesa e verificare la continuità del criterio rispetto all'esercizio precedente. Le anomalie ricorrenti suggeriscono di rivedere il processo di registrazione, oltre a correggere il singolo saldo.</p>
+                </article>
             </div>
+            <p class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafi da 9 a 12</a>.</p>
         </div>
     </section>
 
@@ -378,19 +378,15 @@
                 Riferimento: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafi da 16 a 24</a>. La tabella sintetizza i modelli: la qualificazione concreta richiede l'esame completo dell'accordo.
             </p>
 
-            <div class="detail-block" style="margin-top:40px;">
-                <p>
-                    <strong>Per lo studio.</strong> Servono le lettere di assegnazione, le convenzioni con le loro modifiche
-                    e la corrispondenza sulle somme non utilizzate. Le parole "contributo" e "donazione" nella causale bancaria
-                    non bastano a ricostruire il rapporto. È utile un prospetto con importo assegnato, somme ricevute,
-                    destinazione, scadenze e obblighi di restituzione.
-                </p>
-                <p>
-                    <strong>Per il revisore.</strong> Il controllo può seguire il finanziamento dall'atto originario alle
-                    registrazioni, fino alle spese rendicontate. Le verifiche sulle movimentazioni successive alla chiusura
-                    aiutano a individuare contestazioni, revoche o restituzioni da approfondire. Ogni conclusione deve
-                    essere collegata al documento che la sostiene.
-                </p>
+            <div class="duo">
+                <article class="duo-card is-studio">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>Per lo studio</span>
+                    <p>Servono le lettere di assegnazione, le convenzioni con le loro modifiche e la corrispondenza sulle somme non utilizzate. Le parole "contributo" e "donazione" nella causale bancaria non bastano a ricostruire il rapporto. È utile un prospetto con importo assegnato, somme ricevute, destinazione, scadenze e obblighi di restituzione.</p>
+                </article>
+                <article class="duo-card is-revisore">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="m8.5 11 1.8 1.8 3.4-3.6"/></svg>Per il revisore</span>
+                    <p>Il controllo può seguire il finanziamento dall'atto originario alle registrazioni, fino alle spese rendicontate. Le verifiche sulle movimentazioni successive alla chiusura aiutano a individuare contestazioni, revoche o restituzioni da approfondire. Ogni conclusione deve essere collegata al documento che la sostiene.</p>
+                </article>
             </div>
         </div>
     </section>
@@ -431,13 +427,13 @@
                 </article>
             </div>
 
-            <div class="detail-block">
-                <p>
-                    <strong>Per il revisore.</strong> Si valuta quali elementi incidono sul rischio di sovrastima e si
-                    scelgono le procedure in funzione della rilevanza del saldo.
-                    <span class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafi 13 e 14, e da 22 a 30</a>.</span>
-                </p>
+            <div class="duo is-singola">
+                <article class="duo-card is-revisore">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="m8.5 11 1.8 1.8 3.4-3.6"/></svg>Per il revisore</span>
+                    <p>Si valuta quali elementi incidono sul rischio di sovrastima e si scelgono le procedure in funzione della rilevanza del saldo.</p>
+                </article>
             </div>
+            <p class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafi 13 e 14, e da 22 a 30</a>.</p>
         </div>
     </section>
 
@@ -454,21 +450,17 @@
                 </p>
             </div>
 
-            <div class="detail-block">
-                <p>
-                    <strong>Per lo studio.</strong> Un budget mensile rende leggibili ritardi negli incassi, concentrazione
-                    dei finanziatori e picchi di pagamento. Ogni entrata prevista può essere accompagnata da stato della
-                    pratica, data attesa e motivazione dell'importo. I saldi disponibili vanno confrontati con le spese
-                    programmate e con gli impegni già assunti.
-                </p>
-                <p>
-                    <strong>Per il revisore.</strong> Sono utili scenari che simulino il rinvio di un contributo importante
-                    o la riduzione delle donazioni. Il confronto fra previsioni e risultati recenti permette di valutare la
-                    qualità della pianificazione. Eventuali interventi correttivi degli amministratori devono risultare da
-                    piani realistici e documentati.
-                    <span class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafo 6</a>.</span>
-                </p>
+            <div class="duo">
+                <article class="duo-card is-studio">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>Per lo studio</span>
+                    <p>Un budget mensile rende leggibili ritardi negli incassi, concentrazione dei finanziatori e picchi di pagamento. Ogni entrata prevista può essere accompagnata da stato della pratica, data attesa e motivazione dell'importo. I saldi disponibili vanno confrontati con le spese programmate e con gli impegni già assunti.</p>
+                </article>
+                <article class="duo-card is-revisore">
+                    <span class="duo-etichetta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="m8.5 11 1.8 1.8 3.4-3.6"/></svg>Per il revisore</span>
+                    <p>Sono utili scenari che simulino il rinvio di un contributo importante o la riduzione delle donazioni. Il confronto fra previsioni e risultati recenti permette di valutare la qualità della pianificazione. Eventuali interventi correttivi degli amministratori devono risultare da piani realistici e documentati.</p>
+                </article>
             </div>
+            <p class="fonte">Fonte: <a href="https://www.fondazioneoic.eu/wp-content/uploads/2024/11/2023-03-02-OIC-35-ETS-testo-consolidato1.pdf" target="_blank" rel="noopener">OIC 35, paragrafo 6</a>.</p>
 
             <div class="highlight-box">
                 <p>
@@ -599,9 +591,16 @@
                         <ul class="ck-mancanti" id="ckMancanti"></ul>
                         <p class="ck-avviso">Il conteggio misura il completamento della lista. Non esprime un giudizio sulla conformità del bilancio né un'attestazione di revisione.</p>
                         <div class="ck-azioni">
-                            <button type="button" id="ckStampa">Stampa articolo e lista</button>
-                            <button type="button" id="ckAzzera">Azzera le selezioni</button>
+                            <button type="button" class="ck-btn ck-btn-primario" data-stampa>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                                Scarica il PDF
+                            </button>
+                            <button type="button" class="ck-btn" id="ckAzzera">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+                                Azzera le selezioni
+                            </button>
                         </div>
+                        <p class="ck-suggerimento">Il PDF contiene l'articolo e la lista con le voci spuntate. Nella finestra di stampa scegli "Salva come PDF".</p>
                     </div>
                 </div>
             </div>
@@ -820,7 +819,6 @@
             voci.forEach(function (v) { v.checked = false; });
             aggiorna();
         });
-        document.getElementById('ckStampa').addEventListener('click', function () { window.print(); });
         aggiorna();
     })();
     </script>
