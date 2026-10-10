@@ -330,4 +330,12 @@
         <priority>0.9</priority>
     </url>
 
+    <!-- Il verbale di controllo degli ETS come test sugli assetti -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/verbale_controllo_ets/</loc>
+        <lastmod>2026-10-10</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
 </urlset>
