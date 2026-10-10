@@ -14,8 +14,8 @@
  * Finita la stampa rimette la pagina com'era. Gli stili sono in
  * assets/stampa.css, caricato con media="print".
  *
- * Aggiunge inoltre a ogni pagina pubblica un pulsante fisso "Scarica il
- * PDF" in basso a sinistra (escluse le pagine di servizio).
+ * Aggiunge inoltre un pulsante fisso "Scarica il PDF" in basso a sinistra,
+ * solo sulle pagine di articolo (og:type "article").
  */
 (function () {
     'use strict';
@@ -145,22 +145,15 @@
         window.print();
     });
 
-    // ---- Pulsante "Scarica il PDF" su ogni pagina pubblica ----
-    // Le pagine di servizio (moduli, conferme, diretta) non lo mostrano;
-    // una pagina puo' escluderlo anche con <meta name="ngb-pdf" content="no">.
-    var SERVIZIO = [
-        '/completa_iscrizione', '/conferma_email', '/richiesta_contatto',
-        '/newsletter', '/diretta', '/area-riservata', '/stima-ore-test',
-        '/news-demo', '/n26', '/p26', '/incontri_b2b',
-        '/cene_napoli/aderenti', '/cene_napoli/coordinatori',
-        '/verona_marzo_2026/aderenti'
-    ];
-
+    // ---- Pulsante "Scarica il PDF" sulle pagine di articolo ----
+    // Compare solo sulle pagine marcate come articolo (meta og:type "article"):
+    // gli approfondimenti. Non compare su home, chi siamo, eventi, interviste,
+    // mappa degli approfondimenti e pagine di servizio. Una pagina puo' forzare
+    // la scelta con <meta name="ngb-pdf" content="si"> oppure content="no".
     function pulsanteAmmesso() {
-        var escluso = document.querySelector('meta[name="ngb-pdf"][content="no"]');
-        if (escluso) return false;
-        var percorso = location.pathname.replace(/index\.html$/, '');
-        return !SERVIZIO.some(function (p) { return percorso.indexOf(p) === 0; });
+        var scelta = document.querySelector('meta[name="ngb-pdf"]');
+        if (scelta) return (scelta.getAttribute('content') || '').toLowerCase() !== 'no';
+        return meta('meta[property="og:type"]').toLowerCase() === 'article';
     }
 
     function aggiungiPulsante() {
