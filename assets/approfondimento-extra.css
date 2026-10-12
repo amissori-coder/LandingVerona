@@ -101,6 +101,7 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 18px;
 }
+.cronologia.is-due { grid-template-columns: repeat(2, 1fr); }
 .crono-tappa {
     position: relative;
     padding: 22px 24px;
@@ -113,12 +114,13 @@
 .crono-stato { display: inline-block; margin-top: 6px; font-size: 0.7rem; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: #2A5A85; }
 .crono-tappa h3 { margin: 12px 0 6px; font-size: 1.02rem; color: var(--text-primary); }
 .crono-tappa p { margin: 0; font-size: 0.92rem; line-height: 1.6; color: var(--text-secondary); }
+.crono-stato + p { margin-top: 10px; }
 
 @media (max-width: 900px) {
     .ck { grid-template-columns: 1fr; }
     .ck-esito { border-left: 0; border-top: 1px solid var(--accent-border); }
     .ck-esito-inner { position: static; }
-    .cronologia { grid-template-columns: 1fr; }
+    .cronologia, .cronologia.is-due { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
     .tabella-riga { grid-template-columns: 1fr; }
@@ -352,6 +354,7 @@ body.content-page.testo-giustificato .ck-avviso,
 body.content-page.testo-giustificato .ck-suggerimento,
 body.content-page.testo-giustificato .indice-punti li,
 body.content-page.testo-giustificato .duo-card p,
+body.content-page.testo-giustificato .crono-tappa p,
 body.content-page.testo-giustificato .fonte,
 body.content-page.testo-giustificato .rimando-desc,
 body.content-page.testo-giustificato .cta-text p,

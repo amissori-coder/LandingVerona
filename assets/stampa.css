@@ -255,6 +255,7 @@ p, li { orphans: 3; widows: 3; }
     border: 0 !important;
 }
 .components-grid.is-tre, .cronologia { grid-template-columns: repeat(3, 1fr) !important; }
+.cronologia.is-due { grid-template-columns: repeat(2, 1fr) !important; }
 .duo.is-singola { grid-template-columns: 1fr !important; }
 .indice { grid-template-columns: 1.4fr 1fr !important; }
 .component-card, .pillar-card, .benefit-item, .card, .scheda-cell,
