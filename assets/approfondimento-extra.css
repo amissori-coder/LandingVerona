@@ -19,6 +19,8 @@
     grid-template-columns: 1fr 1.7fr 1.3fr;
     border-top: 1px solid var(--border-color);
 }
+/* Variante a due colonne: etichetta e testo */
+.tabella.is-due .tabella-riga { grid-template-columns: 1fr 2.2fr; }
 .tabella-riga:first-child { border-top: 0; }
 .tabella-riga > div {
     padding: 16px 20px;
@@ -389,7 +391,7 @@ body.content-page.testo-giustificato .footer-legal {
 }
 
 /* Le intestazioni di riga delle tabelle sono etichette, non testo corrente */
-body.content-page.testo-giustificato .tabella-riga > .tabella-voce { text-align: left !important; }
+body.content-page.testo-giustificato .tabella-riga > .tabella-voce { text-align: left !important; -webkit-hyphens: manual !important; hyphens: manual !important; }
 
 /* Tabelle impilate gia' sotto i 900 px: celle larghe, giustificazione senza buchi.
    Solo a schermo: in stampa le tabelle restano a tre colonne. */
