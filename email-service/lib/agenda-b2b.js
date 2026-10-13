@@ -474,6 +474,163 @@ async function chiediFuoriSlot(db, dati) {
     return esito || { ok: false, msg: 'Richiesta non registrata: riprovi fra un momento.' };
 }
 
+/* =========================================================
+   LA RICHIESTA DI UN NUOVO INCONTRO, DOPO IL CONVEGNO
+   ------------------------------------------------------------
+   Il convegno e' finito e qualcuno non e' riuscito a fare il suo
+   incontro: la fila al desk, un impegno accavallato, l'orario
+   saltato per via del palco. Oppure ha seguito online e un tavolo
+   non ce l'aveva proprio. A quelle persone si scrive, e da quella
+   mail possono chiedere un incontro NUOVO: indicano di nuovo gli
+   argomenti e, se vogliono, quando preferirebbero.
+
+   PERCHE' VIVE DOVE VIVONO LE ALTRE RICHIESTE. Una richiesta fuori
+   slot e questa sono la stessa cosa per chi organizza: una persona
+   che vuole un incontro e non ce l'ha. Tenerle in due posti
+   vorrebbe dire due elenchi da guardare, due conti da sommare e
+   due volte il rischio di richiamare qualcuno due volte. Si
+   distinguono per `tipo`, che dice da dove nascono, e l'elenco
+   dell'area riservata le mostra diverse.
+
+   LE TRE DIFFERENZE, e ciascuna ha la sua ragione:
+     - `aree` (piu' argomenti) invece di uno solo: qui non c'e' un
+       orario da prendere, quindi non c'e' ragione di far scegliere
+       un tavolo solo. `area` resta scritto e vale il primo, perche'
+       e' il campo che leggono il riquadro della giornata, il foglio
+       stampato e il filtro per tavolo: cambiarlo di forma li
+       avrebbe fatti smettere di funzionare in silenzio;
+     - `quandoPref`, quando preferirebbe: un orario non glielo
+       possiamo far scegliere - la data non c'e' ancora - ma dire
+       "di mattina" o "non il lunedi'" fa risparmiare tre telefonate;
+     - il doppione si guarda SOLO per persona, non per azienda. Nelle
+       richieste fuori slot due colleghi che bussano sono un bussare
+       solo, perche' li' si chiede un posto per l'impresa a un tavolo
+       che sta per riempirsi. Qui no: due persone della stessa
+       azienda possono volere due incontri su due argomenti diversi,
+       e cancellare il primo quando arriva il secondo vorrebbe dire
+       perdere una richiesta che qualcuno ha scritto.
+========================================================= */
+const MAX_AREE_RICHIESTA = 4;
+const TESTO_QUANDO = 120;
+async function chiediNuovoIncontro(db, dati) {
+    const evento = idEvento(dati.evento);
+    const p = dati.persona || {};
+    /* Gli argomenti si normalizzano con `areaDa`, che e' l'unico posto che sa
+       quali esistono: un identificativo inventato dal browser non deve poter
+       entrare in archivio, perche' da li' in avanti nessuna schermata
+       saprebbe piu' che nome dargli. I doppioni si tolgono: lo stesso
+       argomento due volte non e' una scelta in piu'. */
+    const aree = [];
+    (Array.isArray(dati.aree) ? dati.aree : []).forEach(x => {
+        const id = (areaDa(x) || {}).id || '';
+        if (id && !areaInterna(id) && aree.indexOf(id) < 0) aree.push(id);
+    });
+    const voce = {
+        doc: testo(p.doc, 400), nome: testo(p.nome, 160),
+        azienda: testo(p.azienda, 200), ruolo: testo(p.ruolo, 160),
+        email: testo(p.email, 200).toLowerCase(), telefono: testo(p.telefono, 60),
+        aziendaId: testo(p.aziendaId, 40), aziendaNome: testo(p.aziendaNome, 200),
+        tipo: 'nuovo-incontro',
+        aree: aree.slice(0, MAX_AREE_RICHIESTA),
+        // il primo argomento vale anche come `area`: e' il campo che leggono
+        // il riquadro della giornata, il foglio stampato e il filtro per tavolo
+        area: aree[0] || '',
+        quandoPref: testo(dati.quandoPref, TESTO_QUANDO),
+        nota: testo(dati.nota, 800),
+        quando: Date.now(), stato: 'aperta'
+    };
+    if (!evento || !voce.doc) return { ok: false, msg: 'Richiesta non riconosciuta.' };
+    if (!voce.aree.length) return { ok: false, msg: 'Indichi almeno un argomento.' };
+    const rif = rifPrenotazioni(db, evento);
+    let esito = null;
+    await db.runTransaction(async t => {
+        const snap = await t.get(rif);
+        const corrente = normalizzaPrenotazioni(snap.exists ? snap.data() : null, evento);
+        // la seconda richiesta della STESSA persona aggiorna la prima: e' un
+        // ripensamento, non una richiesta in piu' da leggere
+        const altre = (corrente.richieste || []).filter(r => String(r.doc || '') !== voce.doc);
+        const richieste = altre.concat([voce]).slice(-MAX_RICHIESTE);
+        t.set(rif, corpoPrenotazioni(corrente, {
+            evento: evento, richieste: richieste,
+            aggiornato: { quando: Date.now(), da: voce.email }
+        }));
+        esito = { ok: true, voce: voce };
+    });
+    return esito || { ok: false, msg: 'Richiesta non registrata: riprovi fra un momento.' };
+}
+
+/* A CHI ARRIVA L'AVVISO DI UNA RICHIESTA NUOVA.
+   Gli indirizzi stanno in Firestore e non nel codice, per la stessa ragione
+   per cui ci stanno quelli delle richieste di contatto: li cambia chi
+   organizza, non chi pubblica il servizio. I tre di partenza sono scritti
+   qui perche' il primo giro deve funzionare senza che nessuno configuri
+   niente, e perche' una mail che non arriva a nessuno e' una richiesta persa.
+   Chi e' gia' fra i destinatari non va anche in copia. */
+const AVVISO_NUOVO_INCONTRO = [
+    'sergiomiele@revilaw.it',
+    'vincenzoantonionapolitano@revilaw.it',
+    'andreamissori@revilaw.it'
+];
+const MAX_AVVISATI = 10;
+function indirizziPuliti(v) {
+    const dentro = Array.isArray(v) ? v : String(v == null ? '' : v).split(/[,;\n]/);
+    const fuori = [];
+    dentro.forEach(x => {
+        const e = String(x == null ? '' : x).trim().toLowerCase();
+        if (e && EMAIL_RE.test(e) && fuori.indexOf(e) < 0) fuori.push(e);
+    });
+    return fuori.slice(0, MAX_AVVISATI);
+}
+async function destinatariNuovoIncontro(db, evento) {
+    let d = {};
+    try {
+        const s = await db.collection('avvisiNuovoIncontro').doc(idEvento(evento)).get();
+        d = s.exists ? (s.data() || {}) : {};
+    } catch (_) { d = {}; }
+    const a = indirizziPuliti(d.a || []);
+    return a.length ? a : AVVISO_NUOVO_INCONTRO.slice();
+}
+
+/* L'AVVISO A CHI ORGANIZZA, con tutta l'anagrafica.
+   Chi legge questa mail deve poter richiamare la persona senza aprire niente
+   altro: nome, azienda, ruolo, indirizzo e telefono stanno nel messaggio, non
+   dietro un collegamento. `replyTo` e' l'indirizzo di chi ha scritto, cosi'
+   rispondere basta a parlargli.
+   Se la posta non parte la richiesta resta comunque registrata: e' gia' in
+   archivio quando questa funzione viene chiamata, e perderla per un server di
+   posta lento sarebbe il modo peggiore di trattare qualcuno che ha risposto. */
+async function avvisaNuovoIncontro(db, evento, scheda, voce, eventoDati) {
+    const dest = await destinatariNuovoIncontro(db, evento);
+    if (!dest.length) return { ok: false, a: [] };
+    const ev = eventoDati || {};
+    const chi = voce.nome || String(scheda.email || '');
+    const righe = [
+        'Una persona che ha partecipato a ' + ([ev.titolo, ev.quando].filter(Boolean).join(', ') || String(scheda.pagina || 'Next Generation Business'))
+            + ' chiede di programmare un NUOVO incontro.',
+        'Nome: ' + chi,
+        'Azienda: ' + (voce.aziendaNome || voce.azienda || 'non indicata'),
+        voce.ruolo ? 'Ruolo: ' + voce.ruolo : '',
+        'Email: ' + (voce.email || 'non indicata'),
+        'Telefono: ' + (voce.telefono || 'non indicato'),
+        'Argomenti che ha indicato: ' + (voce.aree.map(nomeArea).filter(Boolean).join('; ') || 'nessuno'),
+        voce.quandoPref ? 'Quando preferirebbe: ' + voce.quandoPref : 'Quando preferirebbe: non indicato',
+        voce.nota ? 'Ha scritto: ' + voce.nota : '',
+        'La richiesta e nell\'area riservata, sezione Eventi, finestra "La giornata", sotto "Richieste di incontro".'
+    ].filter(Boolean);
+    const trans = trasporto();
+    try {
+        await trans.sendMail({
+            from: mittenteMail(), to: dest.join(', '),
+            replyTo: voce.email || undefined,
+            subject: 'Nuovo incontro richiesto - ' + chi + (voce.aziendaNome || voce.azienda ? ' (' + (voce.aziendaNome || voce.azienda) + ')' : ''),
+            text: righe.join('\n\n')
+        });
+    } finally {
+        try { trans.close(); } catch (_) { /* niente da chiudere */ }
+    }
+    return { ok: true, a: dest };
+}
+
 /* Segna una richiesta come gestita (o la riapre, o la toglie): lo fa lo
    staff dall'area riservata dopo aver chiamato l'impresa. */
 async function segnaRichiesta(db, evento, idDoc, stato, chi) {
@@ -2093,6 +2250,8 @@ module.exports = {
     orariPresi, bloccoSuPrenotazioni,
     // le operazioni
     prendiSlot, liberaSlot, chiediFuoriSlot, segnaRichiesta,
+    chiediNuovoIncontro, avvisaNuovoIncontro, destinatariNuovoIncontro,
+    MAX_AREE_RICHIESTA,
     letturaOspite, inviaConferma, avvisaRichiesta,
     // gli incontri di un'azienda
     rifAzienda, leggiAzienda, leggiAziendeB2B, regoleB2B, appuntamentiAzienda,

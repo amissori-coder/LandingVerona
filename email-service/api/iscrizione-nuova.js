@@ -520,6 +520,134 @@ function prenotazioniColleghi(righe, scheda, idDoc) {
     fuori.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
     return fuori.slice(0, 60);
 }
+/* ============================================================
+   PROGRAMMARE UN NUOVO INCONTRO, DOPO IL CONVEGNO
+   ------------------------------------------------------------
+   Il convegno e' passato e qualcuno non e' riuscito a fare il suo
+   incontro B2B: la fila al desk, un impegno accavallato, l'orario
+   saltato per via del palco. Oppure ha seguito online, e un tavolo
+   non ce l'aveva proprio. A quelle persone si scrive, e da quella
+   mail arrivano qui: indicano di nuovo gli argomenti - senza
+   orario, perche' una data non c'e' ancora - e dicono quando
+   preferirebbero.
+
+   PERCHE' UNA FIRMA SUA. Il collegamento vale per la SCHEDA e non
+   per l'azienda: questa mail va anche a chi ha seguito online, e
+   chi ha seguito online spesso non ha nessuna impresa fra quelle
+   invitate ai tavoli. Con la firma d'azienda quelle persone non
+   avrebbero un collegamento. E il contesto e' suo, come per tutte
+   le altre pagine: il token che apre questa non deve aprire
+   /completa_iscrizione/, che riscrive i nominativi dei
+   partecipanti.
+
+   PERCHE' NON SI CONTROLLA CHE ABBIA DAVVERO PARTECIPATO. Chi ha
+   il collegamento lo ha ricevuto da noi, in una mail mandata a
+   mano a un elenco scelto: ricontrollare qui vorrebbe dire
+   rifiutare qualcuno che quella mail l'ha ricevuta per una
+   decisione di chi organizza, e lasciarlo davanti a un errore che
+   non sa spiegarsi.
+============================================================ */
+async function nuovoIncontro(azione, body, res) {
+    const idDoc = String(body.d || '').slice(0, 400);
+    const token = String(body.t || '').trim();
+    if (!idDoc || !token || !NL.firmaNuovoIncontroValida(idDoc, token)) {
+        res.status(403).json({ ok: false, msg: MSG_LINK });
+        return;
+    }
+    initAdmin(leggiServiceAccount());
+    const db = admin.firestore();
+    const rif = db.collection('iscrizioni').doc(idDoc);
+    const snap = await rif.get();
+    if (!snap.exists) { res.status(403).json({ ok: false, msg: MSG_LINK }); return; }
+    const scheda = snap.data() || {};
+    /* DA DOVE VIENE L'EVENTO, e l'ordine conta.
+       Lo dice per primo il RICHIAMO che abbiamo mandato noi
+       (`nuovoIncontroInvito.eventoId`): e' l'unico dato che hanno tutti quelli
+       che ricevono questa mail. Chi ha seguito ONLINE non e' mai stato
+       invitato ai tavoli, quindi `b2bInvito` non ce l'ha: fidandosi solo di
+       quello, meta' dei destinatari si sarebbe trovata davanti a un errore
+       che non sa spiegarsi.
+       Poi l'invito agli incontri, per chi ai tavoli c'e' stato. Il corpo della
+       richiesta viene per ultimo: se decidesse il browser, la stessa persona
+       potrebbe far comparire la sua richiesta sotto un convegno a cui non e'
+       mai stata. */
+    const richiamo = (scheda.nuovoIncontroInvito && typeof scheda.nuovoIncontroInvito === 'object')
+        ? scheda.nuovoIncontroInvito : {};
+    const evento = AGENDA.idEvento(richiamo.eventoId || AGENDA.eventoInvito(scheda) || body.e || '');
+    if (!evento) {
+        res.status(400).json({ ok: false, msg: 'Non riesco a capire a quale convegno si riferisce: ci scriva a info@nextgenerationbusiness.it e facciamo noi.' });
+        return;
+    }
+    const agenda = await AGENDA.leggiAgenda(db, evento);
+    const nome = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim());
+    const azScheda = (scheda.b2bAzienda && typeof scheda.b2bAzienda === 'object') ? scheda.b2bAzienda : null;
+
+    if (azione === 'nuovo-incontro-leggi') {
+        /* GLI ARGOMENTI FRA CUI SCEGLIERE sono quelli veri dei tavoli, meno
+           quelli interni: il desk della segreteria non si chiede, ci si
+           finisce quando siamo noi a portarci una domanda. I gemelli sono un
+           argomento solo, perche' per chi sceglie lo sono.
+           Li manda il servizio e non la pagina: la pagina ne terrebbe una
+           quarta copia, e il giorno che un tavolo cambia nome direbbe quello
+           di ieri. */
+        const argomenti = AGENDA.AREE_B2B
+            .filter(a => !a.interno && !a.gemelloDi)
+            .map(a => ({ id: a.id, nome: a.nome }));
+        // la richiesta gia' mandata, se c'e': si rivede e si corregge, invece
+        // di mandarne una seconda che nessuno sa quale delle due vale
+        const pren = await AGENDA.leggiPrenotazioni(db, evento);
+        const mia = (pren.richieste || []).filter(r => String(r.doc || '') === idDoc)[0] || null;
+        res.status(200).json({
+            ok: true,
+            evento: agenda.eventoDati || {},
+            pagina: String(scheda.pagina || ''),
+            persona: {
+                nome: nome, azienda: String(azScheda && azScheda.nome ? azScheda.nome : (scheda.azienda || '')),
+                ruolo: String(scheda.ruolo || ''), email: String(scheda.email || ''),
+                telefono: String(scheda.telefono || '')
+            },
+            argomenti: argomenti,
+            massimo: AGENDA.MAX_AREE_RICHIESTA,
+            mia: mia ? {
+                aree: Array.isArray(mia.aree) ? mia.aree : (mia.area ? [mia.area] : []),
+                quandoPref: String(mia.quandoPref || ''), nota: String(mia.nota || ''),
+                quando: Number(mia.quando) || 0, stato: String(mia.stato || 'aperta')
+            } : null
+        });
+        return;
+    }
+
+    // nuovo-incontro-salva
+    if (troppiSalvataggi(idDoc)) {
+        res.status(429).json({ ok: false, msg: 'Ha gia mandato la richiesta poco fa: la stiamo guardando, non serve rimandarla.' });
+        return;
+    }
+    const persona = {
+        doc: idDoc, nome: nome,
+        azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
+        email: String(scheda.email || ''), telefono: String(scheda.telefono || ''),
+        aziendaId: String((azScheda && azScheda.id) || ''),
+        aziendaNome: String((azScheda && azScheda.nome) || scheda.azienda || '')
+    };
+    const r = await AGENDA.chiediNuovoIncontro(db, {
+        evento: evento, aree: body.aree, quandoPref: body.quandoPref,
+        nota: body.nota, persona: persona
+    });
+    if (!r.ok) { res.status(400).json(r); return; }
+    /* PRIMA L'ARCHIVIO, POI LA POSTA. Se la mail non parte la richiesta resta
+       comunque registrata e si vede nell'area riservata: perderla per un
+       server di posta lento sarebbe il modo peggiore di trattare qualcuno che
+       ha risposto a un nostro invito. */
+    let avvisati = [];
+    try {
+        const inv = await AGENDA.avvisaNuovoIncontro(db, evento, scheda, r.voce, agenda.eventoDati);
+        avvisati = inv.a || [];
+    } catch (e) {
+        console.error('Avviso nuovo incontro non partito:', String((e && e.message) || e).slice(0, 200));
+    }
+    res.status(200).json({ ok: true, avvisati: avvisati.length, aree: r.voce.aree.map(AGENDA.areaDa).filter(Boolean).map(a => a.nome) });
+}
+
 async function interessiB2B(azione, body, res) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
@@ -1330,7 +1458,9 @@ module.exports = async (req, res) => {
             // il collegamento d'azienda ce l'hanno in piu' persone dello stesso
             // ufficio: a maggior ragione qui il freno per indirizzo IP se lo
             // mangerebbero fra loro
-            'b2b-azienda-leggi', 'b2b-azienda-salva', 'b2b-azienda-annulla']
+            'b2b-azienda-leggi', 'b2b-azienda-salva', 'b2b-azienda-annulla',
+            // il richiamo dopo il convegno: firmato anche lui, con il freno per scheda
+            'nuovo-incontro-leggi', 'nuovo-incontro-salva']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1361,6 +1491,11 @@ module.exports = async (req, res) => {
         if (azione === 'b2b-leggi' || azione === 'b2b-salva'
             || azione === 'b2b-slot-prenota' || azione === 'b2b-slot-richiedi') {
             await interessiB2B(azione, body, res);
+            return;
+        }
+        // il richiamo dopo il convegno: altra pagina, altra firma, stessa funzione
+        if (azione === 'nuovo-incontro-leggi' || azione === 'nuovo-incontro-salva') {
+            await nuovoIncontro(azione, body, res);
             return;
         }
         // il collegamento d'azienda: stessa pagina, altra porta

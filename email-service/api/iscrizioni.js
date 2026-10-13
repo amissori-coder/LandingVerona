@@ -473,6 +473,16 @@ module.exports = async (req, res) => {
                        ad annunciare come ospiti del sito le aziende appena
                        aggiunte a mano. */
                     soloB2B: v.soloB2B === true,
+                    /* IL RICHIAMO DOPO IL CONVEGNO gia' mandato a questa
+                       persona. La lettura e' una whitelist campo per campo,
+                       quindi senza questa riga la traccia resterebbe sul
+                       database e la finestra del richiamo riproporrebbe ogni
+                       volta anche chi ha gia' ricevuto la mail. */
+                    nuovoIncontroInvito: (v.nuovoIncontroInvito && typeof v.nuovoIncontroInvito === 'object') ? {
+                        quando: typeof v.nuovoIncontroInvito.quando === 'number' ? v.nuovoIncontroInvito.quando : 0,
+                        da: String(v.nuovoIncontroInvito.da || ''),
+                        eventoId: String(v.nuovoIncontroInvito.eventoId || '')
+                    } : null,
                     /* chi ha inserito la scheda a mano (equity o amministratore):
                        l'area riservata lo mostra in "Aggiornato da" finche' non
                        ci sono presenze. Le iscrizioni dai form non ce l'hanno. */

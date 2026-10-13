@@ -1665,6 +1665,31 @@ button.ag-slot[disabled] { cursor: default; }
 .ag-richiesta.gestita { opacity: 0.6; }
 .ag-richiesta-az { display: flex; gap: 6px; flex: none; }
 .ag-nota-testo { margin-top: 3px; color: var(--grigio-600); font-style: italic; }
+/* LA RICHIESTA DI UN NUOVO INCONTRO, dopo il convegno: stessa riga delle
+   altre, con il bollino che dice da dove nasce e la riga degli argomenti.
+   Non e' un avviso in piu' da guardare, e' una richiesta come le altre: per
+   questo sta nello stesso riquadro e non in uno suo. */
+.ag-rich-tipo { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; background: var(--blu-100); color: var(--blu-700); border-radius: 10px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
+.ag-rich-aree { margin-top: 3px; color: var(--blu-900); font-weight: 600; }
+.ag-rich-quando { margin-top: 2px; color: var(--grigio-600); }
+
+/* IL RICHIAMO DOPO IL CONVEGNO: due platee, una sotto l'altra, ciascuna con
+   la sua spunta generale. Le righe sono alte abbastanza da poterle leggere
+   mentre si decide a chi scrivere, non da elenco telefonico. */
+.rc-platea { margin: 14px 0; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); overflow: hidden; }
+.rc-testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; padding: 9px 12px; background: var(--grigio-050, #F8FAFC); border-bottom: 1px solid var(--grigio-200); }
+.rc-tutti { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.rc-righe { max-height: 260px; overflow: auto; }
+.rc-riga { display: flex; align-items: flex-start; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--grigio-100); cursor: pointer; font-size: 0.9rem; }
+.rc-riga:last-child { border-bottom: none; }
+.rc-riga:hover { background: var(--blu-050); }
+.rc-riga.gia { opacity: 0.65; }
+.rc-riga input { margin-top: 3px; flex: 0 0 auto; }
+.rc-chi { flex: 1 1 auto; min-width: 0; }
+.rc-chi .hint { display: block; }
+.rc-forza { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 0.9rem; color: var(--grigio-600); cursor: pointer; }
+.rc-anteprima { margin-top: 12px; }
+.rc-anteprima iframe { width: 100%; height: 320px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; margin-top: 6px; }
 @media (max-width: 900px) {
     .ag-richiesta { flex-direction: column; }
 }

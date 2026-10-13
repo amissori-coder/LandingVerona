@@ -2750,6 +2750,120 @@ personale appartiene a un'azienda che non ha nominato.
   che lascia passare i ripensamenti veri e ferma l'accanimento sul pulsante, che
   sarebbe una mail dietro l'altra.
 
+### Dopo il convegno: programmare un nuovo incontro
+
+Ai tavoli mezz'ora a testa non basta per tutti. Qualcuno non trova posto,
+qualcuno ha due impegni alla stessa ora, qualcuno si ferma a parlare e salta il
+turno dopo, qualcuno ha seguito online e un tavolo non ce l'aveva proprio.
+Finito il convegno si scrive a quelle persone, e da quella mail chiedono un
+incontro NUOVO: scelgono gli argomenti, **senza orario** (una data non c'e'
+ancora), e dicono quando preferirebbero.
+
+**La mail la manda chi organizza**, dal pulsante "Programma nuovi incontri"
+nella scheda Iscrizioni dell'evento. Compare **solo a convegno passato**:
+proporre di rifare un incontro mentre la giornata si prepara vorrebbe dire
+offrire di rifare una cosa che non si e' ancora tenuta.
+
+**Due platee, spuntate separate**, perche' sono due decisioni diverse:
+
+- **chi ha prenotato un incontro**: invitata ai tavoli di questo evento
+  (`aziendaB2B`) oppure con una prenotazione scritta sulla scheda (colonna
+  "B2B prenotati");
+- **chi ha seguito online**: chi risulta nella sezione online. Se poi si sia
+  collegato davvero lo sa la regia della diretta, che e' un altro archivio: qui
+  si scrive a chi risulta iscritto, e chi non si e' collegato riceve comunque
+  una proposta, che non e' un danno.
+
+La mail cambia **due frasi** fra le due platee: a chi era online non si puo'
+dire "non e' riuscito a fare l'incontro al desk", perche' un desk non ce
+l'aveva. Per questo partono come due invii, uno per platea
+(`invitoNuovoIncontro` in `area-riservata/newsletter-format.js`, con `online`).
+La lettera non da' per scontato che l'incontro sia saltato: la stessa mail va a
+chi l'ha fatto benissimo e a chi non e' nemmeno venuto, quindi si dice quello
+che vale per tutti e si lascia che sia chi legge a riconoscersi.
+
+**Chi ha gia' ricevuto il richiamo resta fuori di suo**: la traccia e' sulla
+scheda (`nuovoIncontroInvito`, esposta dalla lettura delle iscrizioni), e
+scrivere due volte la stessa cosa alla stessa persona e' il modo piu' rapido di
+farsi mettere fra la posta da buttare. Si puo' forzare dicendolo. Due schede con
+la stessa casella sono **una mail sola**: due righe nostre non sono due persone
+da disturbare due volte.
+
+**L'azione e' sua** (`invita-nuovo-incontro` in `api/presenze.js`) e non
+`invita-b2b`. Quella scrive `b2bInvito`, che vuol dire "invitata agli incontri
+di quel convegno": qui il convegno e' passato, e scriverlo sarebbe falso due
+volte, perche' direbbe che e' stata invitata a una giornata finita e farebbe
+credere alla finestra degli inviti che quell'azienda e' gia' a posto. Una mail
+per PERSONA e non per azienda: chi ha seguito online spesso un'impresa fra
+quelle invitate non ce l'ha, e il collegamento e' della scheda.
+
+**La pagina** e' `/nuovo_incontro/`, raggiunta con `?d=<scheda>&t=<firma>`
+(`firmaNuovoIncontro`, contesto `nuovo-incontro|<idDoc>`). Firma **per la
+scheda** e non per l'azienda, per la stessa ragione: chi ha seguito online
+spesso un'azienda non ce l'ha. Contesto suo, come tutte le altre pagine: il
+token che apre questa non deve aprire `/completa_iscrizione/`, che riscrive i
+nominativi dei partecipanti, e viceversa. Le azioni (`nuovo-incontro-leggi` e
+`nuovo-incontro-salva`) stanno dentro `/api/iscrizione-nuova`: gli endpoint
+Vercel sono contati, e le pagine firmate hanno il freno per scheda invece di
+quello per indirizzo IP.
+
+Nel modulo:
+
+- **gli argomenti li manda il servizio**, non la pagina: sono i tavoli veri,
+  meno quelli interni (il desk della segreteria non si chiede, ci si finisce
+  quando siamo noi a portarci una domanda) e con i gemelli contati una volta
+  sola, perche' per chi sceglie sono un argomento solo. Una quarta copia
+  dell'elenco nella pagina direbbe, il giorno che un tavolo cambia nome, quello
+  di ieri;
+- **fino a quattro**, e l'ordine in cui si spuntano e' la preferenza: non si
+  chiede di numerarli, un passaggio in piu' che nessuno fa volentieri;
+- **riaprendo il collegamento la richiesta si rivede e si corregge**: la seconda
+  sostituisce la prima, invece di lasciarne due di cui nessuno sa quale vale.
+
+**La richiesta vive dove vivono le altre**, in `b2bPrenotazioni/{evento}.richieste`
+(`chiediNuovoIncontro` in `lib/agenda-b2b.js`). Una richiesta fuori slot e questa
+sono la stessa cosa per chi organizza - una persona che vuole un incontro e non
+ce l'ha - e tenerle in due posti vorrebbe dire due elenchi da guardare, due
+conti da sommare e due volte il rischio di richiamare qualcuno due volte. Si
+distinguono per `tipo: 'nuovo-incontro'`, e il riquadro della giornata le mostra
+diverse. Tre differenze nei campi, e ciascuna ha la sua ragione:
+
+- **`aree`** (fino a quattro) invece di una sola: qui non c'e' un orario da
+  prendere, quindi non c'e' ragione di far scegliere un tavolo solo. `area`
+  resta scritto e vale il primo, perche' e' il campo che leggono il riquadro
+  della giornata, il foglio stampato e il filtro per tavolo: cambiarlo di forma
+  li avrebbe fatti smettere di funzionare in silenzio;
+- **`quandoPref`**: un orario non glielo possiamo far scegliere, ma "di mattina"
+  o "non il lunedi" fa risparmiare tre telefonate;
+- **il doppione si guarda solo per PERSONA**, non per azienda. Nelle richieste
+  fuori slot due colleghi che bussano sono un bussare solo, perche' li' si
+  chiede un posto per l'impresa a un tavolo che sta per riempirsi. Qui no: due
+  persone della stessa azienda possono volere due incontri su due argomenti
+  diversi, e cancellare il primo quando arriva il secondo vorrebbe dire perdere
+  una richiesta che qualcuno ha scritto.
+
+Un argomento che il servizio non conosce **non entra in archivio**: da li' in
+avanti nessuna schermata saprebbe piu' che nome dargli. Senza nessun argomento
+valido la richiesta non si registra, perche' chi organizza leggerebbe un nome
+senza sapere di che cosa parlargli.
+
+**L'avviso a chi organizza** (`avvisaNuovoIncontro`) porta **tutta
+l'anagrafica** nel messaggio: nome, azienda, ruolo, indirizzo, telefono,
+argomenti per esteso, quando preferirebbe e quello che ha scritto. Chi legge
+deve poter richiamare senza aprire niente altro, e `replyTo` e' l'indirizzo di
+chi ha chiesto, cosi' rispondere basta a parlargli. Gli indirizzi stanno in
+Firestore (`avvisiNuovoIncontro/{evento}`, campo `a`, massimo 10) e non nel
+codice, per la stessa ragione per cui ci stanno quelli delle richieste di
+contatto: li cambia chi organizza, non chi pubblica il servizio. I tre di
+partenza sono scritti nel codice perche' il primo giro deve funzionare senza
+che nessuno configuri niente. **Prima l'archivio, poi la posta**: se la mail non
+parte la richiesta resta comunque registrata, e la pagina dice di si'.
+
+Le prove stanno in `prove/nuovo-incontro.prove.js` (il flusso intero, dalle
+firme all'avviso) e in `prove/riepilogo-b2b.prove.js` (il capitolo del foglio
+stampato, con gli argomenti e il "quando").
+
+
 ## Programma della giornata (`lib/programma-evento.js`)
 
 La scaletta dell'evento: dall'apertura della registrazione alla chiusura dei

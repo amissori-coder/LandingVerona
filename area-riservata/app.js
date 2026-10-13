@@ -17396,7 +17396,15 @@
                risponde alla domanda "questa azienda dov'e' finita?". Compare
                dove esistono, cioe' negli eventi con gli inviti B2B. */
             + ((!ev.tutti && ev.manuale)
-                ? '<button class="btn btn-sm btn-ghost" id="ev-solo-b2b">Incontri B2B</button>' : '');
+                ? '<button class="btn btn-sm btn-ghost" id="ev-solo-b2b">Incontri B2B</button>' : '')
+            /* IL RICHIAMO DOPO IL CONVEGNO. Sta accanto alla scheda degli
+               incontri perche' nasce da li': si guarda chi ha prenotato, si
+               vede chi non ha fatto l'incontro, e si scrive. Compare solo a
+               convegno passato: proporlo mentre la giornata si prepara
+               vorrebbe dire offrire di rifare un incontro che non si e'
+               ancora tenuto. */
+            + ((!ev.tutti && ev.manuale && puoAggiungereIscrizioni() && eventoPassato(ev))
+                ? '<button class="btn btn-sm btn-secondary" id="ev-richiamo">Programma nuovi incontri</button>' : '');
         /* I DUE NUMERI DI CHI IN ELENCO NON C'E'. Si leggono senza aprire
            niente: un pulsante da solo non dice se vale la pena premerlo, e
            "nessun cancellato" e' gia' una risposta. Compaiono solo quando c'e'
@@ -17500,6 +17508,8 @@
         if (bCan) bCan.addEventListener('click', () => modaleCancellati(ev));
         const bSb2b = document.getElementById('ev-solo-b2b');
         if (bSb2b) bSb2b.addEventListener('click', () => modaleIncontriB2B(ev));
+        const bRic = document.getElementById('ev-richiamo');
+        if (bRic) bRic.addEventListener('click', () => modaleRichiamoB2B(ev));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
         const bPre = document.getElementById('ev-conf-pregresso');
@@ -18061,6 +18071,211 @@
        nasce: un'impresa che viene per il solo incontro e non si siede al
        convegno e' una che si puo' ancora invitare, e senza l'elenco davanti
        non la trova nessuno. */
+    /* ============================================================
+       IL RICHIAMO DOPO IL CONVEGNO
+       ------------------------------------------------------------
+       Ai tavoli mezz'ora a testa non basta per tutti: qualcuno non ha
+       trovato posto, qualcuno aveva due impegni alla stessa ora,
+       qualcun altro ha seguito online e un tavolo non ce l'aveva
+       proprio. Finito il convegno si scrive a quelle persone, e da
+       quella mail chiedono un incontro NUOVO: scelgono gli argomenti,
+       dicono quando preferirebbero, e la richiesta arriva nella
+       giornata insieme alle altre.
+
+       DUE PLATEE, e si spuntano separate perche' sono due decisioni
+       diverse: a chi e' stato ai tavoli si scrive quasi sempre, a chi
+       ha seguito online si decide volta per volta. La mail cambia due
+       frasi fra le due - a chi era online non si puo' dire "non e'
+       riuscito a fare l'incontro al desk", perche' un desk non ce
+       l'aveva - quindi partono come due invii, uno per platea.
+
+       CHI HA GIA' RICEVUTO IL RICHIAMO resta fuori di suo: la traccia
+       e' sulla scheda (`nuovoIncontroInvito`), e scrivere due volte la
+       stessa cosa alla stessa persona e' il modo piu' rapido di farsi
+       mettere fra la posta da buttare. Si puo' forzare dicendolo.
+       ============================================================ */
+    /* IL CONVEGNO E' PASSATO. Si guarda il giorno, non l'ora: un evento del
+       mattino e' finito anche alle due del pomeriggio dello stesso giorno, ma
+       proporre di "rifare l'incontro" mentre la sala e' ancora piena sarebbe
+       una cosa che nessuno capisce. Dal giorno dopo in avanti. */
+    function eventoPassato(ev) {
+        const oggi = new Date().toISOString().slice(0, 10);
+        return !!(ev && ev.giorno && ev.giorno < oggi);
+    }
+    function daRichiamareB2B(ev) {
+        /* Chi e' stato ai TAVOLI: invitato agli incontri di questo convegno,
+           oppure con una prenotazione scritta sulla scheda. Non si guarda se
+           l'incontro si sia tenuto davvero - quello non lo sappiamo, al desk
+           non si timbra - e infatti la mail non lo da' per scontato. */
+        const aiTavoli = (_evIscrizioni || []).filter(r => r && r.email
+            && (invitoB2BDi(r, ev.id) || String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim()));
+        /* Chi ha seguito ONLINE: la sezione dice quello che sappiamo noi.
+           Se poi si sia collegato davvero lo sa la regia della diretta, che e'
+           un altro archivio: qui si scrive a chi risulta iscritto online, e
+           chi non si e' collegato riceve comunque una proposta, che non e' un
+           danno. */
+        const online = (_evIscrizioni || []).filter(r => r && r.email
+            && modalitaDi(ev, r) === 'online'
+            && aiTavoli.indexOf(r) < 0);
+        return { tavoli: aiTavoli, online: online };
+    }
+    function giaRichiamato(r, ev) {
+        const n = r && r.nuovoIncontroInvito;
+        if (!n || !n.quando) return false;
+        // un richiamo di un altro convegno non conta: si richiama per evento
+        return !n.eventoId || n.eventoId === ev.id;
+    }
+    function modaleRichiamoB2B(ev) {
+        if (!puoAggiungereIscrizioni()) return;
+        if (!ev || !ev.manuale || ev.tutti) return;
+        if (!window.RV_NEWSLETTER || !RV_NEWSLETTER.invitoNuovoIncontro) {
+            toast('Formato newsletter non caricato: ricarica la pagina.', 'rosso');
+            return;
+        }
+        const gruppi = daRichiamareB2B(ev);
+        if (!gruppi.tavoli.length && !gruppi.online.length) {
+            toast('Nessuno da richiamare per questo evento.', 'ambra');
+            return;
+        }
+        const PLATEE = [
+            { id: 'tavoli', nome: 'Hanno prenotato un incontro', righe: gruppi.tavoli, online: false,
+              spiega: 'invitate ai tavoli o con una prenotazione scritta' },
+            { id: 'online', nome: 'Hanno seguito online', righe: gruppi.online, online: true,
+              spiega: 'iscritti nella sezione online, un tavolo non ce l\'avevano' }
+        ].filter(p => p.righe.length);
+        const scelte = {};
+        PLATEE.forEach(p => {
+            // di partenza si spuntano i NON ancora richiamati: e' la risposta
+            // giusta la prima volta e tutte le volte dopo
+            scelte[p.id] = new Set(p.righe.filter(r => !giaRichiamato(r, ev)).map(r => r.id));
+        });
+        let forza = false;
+        let inCorso = false;
+        const eventoDati = {
+            titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || ''
+        };
+        const mailDi = online => RV_NEWSLETTER.invitoNuovoIncontro({ evento: eventoDati, online: online });
+        const quanti = p => scelte[p.id].size;
+        const totale = () => PLATEE.reduce((n, p) => n + quanti(p), 0);
+
+        function disegna() {
+            const corpo = PLATEE.map(p => {
+                const righe = p.righe.map(r => {
+                    const gia = giaRichiamato(r, ev);
+                    return '<label class="rc-riga' + (gia ? ' gia' : '') + '">'
+                        + '<input type="checkbox" class="rc-uno" data-p="' + esc(p.id) + '" data-id="' + esc(r.id) + '"'
+                        + (scelte[p.id].has(r.id) ? ' checked' : '') + '>'
+                        + '<span class="rc-chi"><b>' + esc(aziendaVista(r.azienda) || nomePersonaVisto(r)) + '</b>'
+                        + '<span class="hint">' + esc(nomePersonaVisto(r)) + ' &middot; ' + esc(r.email) + '</span></span>'
+                        + (gia ? '<span class="badge ambra">già richiamato il ' + esc(fmtDataOra(r.nuovoIncontroInvito.quando)) + '</span>' : '')
+                        + '</label>';
+                }).join('');
+                return '<div class="rc-platea"><div class="rc-testa">'
+                    + '<label class="rc-tutti"><input type="checkbox" class="rc-tutta" data-p="' + esc(p.id) + '"'
+                    + (quanti(p) === p.righe.length ? ' checked' : '') + '> <b>' + esc(p.nome) + '</b></label>'
+                    + '<span class="hint">' + esc(p.spiega) + ' &middot; <b>' + quanti(p) + '</b> di ' + p.righe.length + '</span>'
+                    + '</div><div class="rc-righe">' + righe + '</div></div>';
+            }).join('');
+            const n = totale();
+            return '<h2>Programmiamo un nuovo incontro</h2>'
+                + '<p class="hint" style="margin:-4px 0 14px;">Si scrive a chi non è riuscito a fare il suo incontro B2B. '
+                + 'Dalla mail scelgono gli argomenti, <b>senza orario</b>: ci accordiamo noi. La richiesta arriva nella '
+                + '<b>giornata</b>, sotto le richieste di incontro, e una mail con tutto arriva anche a chi segue gli incontri.</p>'
+                + corpo
+                + '<label class="rc-forza"><input type="checkbox" id="rc-forza"' + (forza ? ' checked' : '') + '> '
+                + 'Scrivi anche a chi è già stato richiamato</label>'
+                + '<div class="rc-anteprima"><div class="hint">Anteprima della mail (versione per chi era ai tavoli):</div>'
+                + '<iframe id="rc-frame" title="Anteprima"></iframe></div>'
+                + '<div class="modale-azioni"><span class="hint" id="rc-esito"></span>'
+                + '<button class="btn btn-secondary" id="rc-no">Chiudi</button>'
+                + '<button class="btn btn-primary" id="rc-si"' + (n && !inCorso ? '' : ' disabled') + '>'
+                + (n ? 'Scrivi a ' + n + (n === 1 ? ' persona' : ' persone') : 'Nessuno selezionato') + '</button></div>';
+        }
+        function collega() {
+            const f = document.getElementById('rc-frame');
+            if (f) f.srcdoc = mailDi(false).html;
+            document.querySelectorAll('.rc-uno').forEach(c => c.addEventListener('change', () => {
+                const s2 = scelte[c.dataset.p];
+                if (c.checked) s2.add(c.dataset.id); else s2.delete(c.dataset.id);
+                ridisegna();
+            }));
+            document.querySelectorAll('.rc-tutta').forEach(c => c.addEventListener('change', () => {
+                const p = PLATEE.filter(x => x.id === c.dataset.p)[0];
+                if (!p) return;
+                scelte[p.id] = c.checked ? new Set(p.righe.map(r => r.id)) : new Set();
+                ridisegna();
+            }));
+            const fz = document.getElementById('rc-forza');
+            if (fz) fz.addEventListener('change', () => { forza = fz.checked; });
+            document.getElementById('rc-no').addEventListener('click', chiudiModale);
+            document.getElementById('rc-si').addEventListener('click', invia);
+        }
+        function ridisegna() {
+            const dentro = document.querySelector('#modale-contenitore .modale-corpo');
+            if (!dentro) return;
+            dentro.innerHTML = disegna();
+            collega();
+        }
+        function invia() {
+            if (inCorso) return;
+            const lotti = [];
+            PLATEE.forEach(p => {
+                const righe = p.righe.filter(r => scelte[p.id].has(r.id));
+                /* A LOTTI DI VENTICINQUE, come l'invito agli incontri: una
+                   funzione che spedisce centoventi mail di fila supera il
+                   tempo massimo e si ferma a meta', senza dire dove. */
+                for (let i = 0; i < righe.length; i += 25) {
+                    lotti.push({ platea: p, righe: righe.slice(i, i + 25) });
+                }
+            });
+            if (!lotti.length) return;
+            inCorso = true;
+            const b = document.getElementById('rc-si');
+            const es = document.getElementById('rc-esito');
+            b.disabled = true;
+            const conti = { inviate: 0, giaScritto: 0, senzaEmail: 0, senzaScheda: 0, falliti: 0 };
+            let fatti = 0;
+            const prossimo = () => {
+                if (!lotti.length) {
+                    chiudiModale();
+                    toast('Richiamo: ' + conti.inviate + (conti.inviate === 1 ? ' mail partita' : ' mail partite')
+                        + (conti.giaScritto ? ', ' + conti.giaScritto + ' già richiamati' : '')
+                        + (conti.senzaEmail ? ', ' + conti.senzaEmail + ' senza indirizzo' : '')
+                        + (conti.falliti ? ', ' + conti.falliti + ' NON riuscite' : ''),
+                        conti.falliti ? 'ambra' : 'verde');
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: richiamo nuovo incontro', 'sistema', ev.id, null, conti.inviate + ' mail'); } catch (e) { }
+                    caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
+                    return;
+                }
+                const l = lotti.shift();
+                const m = mailDi(l.platea.online);
+                if (es) es.textContent = 'Invio in corso: ' + fatti + ' su ' + (fatti + l.righe.length + lotti.reduce((n, x) => n + x.righe.length, 0)) + '...';
+                Cloud.operaPresenza({
+                    azione: 'invita-nuovo-incontro', evento: ev.id, forza: forza,
+                    destinatari: l.righe.map(r => ({ id: r.id, doc: r.doc || '' })),
+                    mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
+                }).then(r => {
+                    if (!r || !r.ok) {
+                        inCorso = false;
+                        if (b) { b.disabled = false; }
+                        if (es) es.textContent = '';
+                        toast((r && r.msg) || 'Invio non riuscito.', 'rosso');
+                        return;
+                    }
+                    conti.inviate += r.inviate || 0;
+                    conti.giaScritto += r.giaScritto || 0;
+                    conti.senzaEmail += r.senzaEmail || 0;
+                    conti.senzaScheda += r.senzaScheda || 0;
+                    conti.falliti += (r.falliti || []).length;
+                    fatti += l.righe.length;
+                    prossimo();
+                });
+            };
+            prossimo();
+        }
+        apriModale(disegna(), { titolo: 'Programmiamo un nuovo incontro', finestra: true });
+        collega();
+    }
     function modaleIncontriB2B(ev) {
         if (!puoVedereEventi()) return;
         const righe = (_evIscrizioni || []).filter(r => {
@@ -19153,16 +19368,22 @@
         const richieste = (_rb.richieste || []).filter(r => !unoSolo
             || (capofilaRb(String(r.area || '')) || String(r.area || '')) === famUno);
         const sezRichieste = richieste.length
-            ? '<section class="tema"><h2>Richieste a orari esauriti <span class="conta">' + richieste.length
+            ? '<section class="tema"><h2>' + (richieste.some(eNuovoIncontro) ? 'Richieste di incontro' : 'Richieste a orari esauriti')
+            + ' <span class="conta">' + richieste.length
             + (richieste.filter(r => r.stato !== 'gestita').length
                 ? ' &middot; ' + richieste.filter(r => r.stato !== 'gestita').length + ' da guardare' : '') + '</span></h2>'
-            + '<div class="sotto">Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: '
-            + 'non hanno nessun orario.</div>'
-            + '<table><thead><tr><th>Azienda</th><th>Chi</th><th>Contatti</th><th>Tavolo</th><th>Cosa ha scritto</th><th>Stato</th></tr></thead><tbody>'
+            + '<div class="sotto">' + (richieste.some(eNuovoIncontro)
+                ? 'Chi ha trovato tutto prenotato, e chi dopo il convegno ha chiesto di rifare l\'incontro: nessuno di loro ha un orario.'
+                : 'Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: non hanno nessun orario.') + '</div>'
+            + '<table><thead><tr><th>Azienda</th><th>Chi</th><th>Contatti</th><th>Argomenti</th><th>Quando</th><th>Cosa ha scritto</th><th>Stato</th></tr></thead><tbody>'
             + richieste.map(r => '<tr><td class="forte">' + esc(r.aziendaNome || r.azienda || '-') + '</td>'
-                + '<td>' + esc(r.nome || '-') + '</td>'
+                + '<td>' + esc(r.nome || '-') + (eNuovoIncontro(r) ? '<br><span class="nota">dopo il convegno</span>' : '') + '</td>'
                 + '<td>' + esc((r.email || '') + (r.telefono ? ' - ' + r.telefono : '')) + '</td>'
-                + '<td>' + esc(r.area ? nomeAreaB2B(r.area) : '-') + '</td>'
+                /* GLI ARGOMENTI, tutti: la richiesta nata dopo il convegno ne
+                   porta fino a quattro, e stamparne uno solo manderebbe chi
+                   telefona a parlare della cosa sbagliata. */
+                + '<td>' + esc(areeRichiesta(r).join(', ') || '-') + '</td>'
+                + '<td class="nota">' + esc(r.quandoPref || '') + '</td>'
                 + '<td class="nota">' + esc(r.nota || '') + '</td>'
                 + '<td>' + (r.stato === 'gestita' ? 'gestita' : 'da guardare') + '</td></tr>').join('')
             + '</tbody></table></section>'
@@ -21143,19 +21364,48 @@
        piu' niente, e ha chiesto un incontro lo stesso. Non e' una prenotazione
        e non impegna nessun orario: sta qui perche' qualcuno decida se aprirgli
        un posto. */
+    /* Gli argomenti di una richiesta: quella nata dopo il convegno ne porta
+       piu' d'uno, quella a orari esauriti uno solo. Si legge `aree` quando c'e'
+       e si ricade su `area`, cosi' le richieste vecchie continuano a vedersi
+       come si sono sempre viste. */
+    function areeRichiesta(r) {
+        const dentro = Array.isArray(r && r.aree) ? r.aree : [];
+        const lista = dentro.length ? dentro : ((r && r.area) ? [r.area] : []);
+        return lista.map(x => nomeAreaB2B(x)).filter(Boolean);
+    }
+    function eNuovoIncontro(r) { return String((r && r.tipo) || '') === 'nuovo-incontro'; }
     function richiesteHtml(a, puo) {
         const lista = ((a && a.richieste) || []).slice().sort((x, y) => (y.quando || 0) - (x.quando || 0));
         if (!lista.length) return '';
         const aperte = richiesteAperte(a).length;
-        return '<div class="ag-richieste"><div class="ag-titolo">Richieste a orari esauriti'
+        /* IL TITOLO DICE QUELLO CHE C'E' DENTRO. Finche' le richieste erano
+           tutte di chi aveva trovato gli orari esauriti, "Richieste a orari
+           esauriti" era il nome giusto. Da quando ci sono anche quelle di chi
+           chiede un incontro dopo il convegno, un titolo solo mentirebbe su
+           meta' dell'elenco. */
+        const nuove = lista.filter(eNuovoIncontro).length;
+        const titolo = nuove === lista.length ? 'Richieste di incontro'
+            : (nuove ? 'Richieste di incontro' : 'Richieste a orari esauriti');
+        return '<div class="ag-richieste"><div class="ag-titolo">' + titolo
             + (aperte ? ' <span class="badge ambra">' + aperte + ' da guardare</span>' : '') + '</div>'
-            + '<div class="hint">Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: non hanno nessun orario. '
+            + '<div class="hint">' + (nuove
+                ? 'Chi ha trovato tutto prenotato, e chi dopo il convegno ha chiesto di rifare l\'incontro: '
+                    + 'nessuno di loro ha un orario. '
+                : 'Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: non hanno nessun orario. ')
             + 'Per dargliene uno apri un orario chiuso nel tavolo giusto e assegnaglielo, oppure segna la richiesta come gestita dopo averli sentiti.</div>'
             + lista.map(r => '<div class="ag-richiesta' + (String(r.stato || 'aperta') === 'gestita' ? ' gestita' : '') + '">'
                 + '<div><b>' + esc(r.nome || r.email || '') + '</b>' + (r.azienda ? ' - ' + esc(r.azienda) : '')
+                + (eNuovoIncontro(r) ? '<span class="ag-rich-tipo">dopo il convegno</span>' : '')
                 + '<div class="hint">' + esc(r.email || '') + (r.telefono ? ' &middot; ' + esc(r.telefono) : '')
-                + (r.area ? ' &middot; tavolo: ' + esc(nomeAreaB2B(r.area)) : '')
+                + (r.ruolo ? ' &middot; ' + esc(r.ruolo) : '')
                 + ' &middot; ' + esc(fmtDataOra(r.quando || 0)) + '</div>'
+                /* GLI ARGOMENTI su una riga loro: sono il motivo per cui si
+                   richiama quella persona, e nascosti in coda ai contatti
+                   nessuno li leggerebbe. */
+                + (areeRichiesta(r).length
+                    ? '<div class="ag-rich-aree">' + esc(areeRichiesta(r).join(' \u00b7 ')) + '</div>'
+                    : '')
+                + (r.quandoPref ? '<div class="ag-rich-quando">Quando preferisce: ' + esc(r.quandoPref) + '</div>' : '')
                 + (r.nota ? '<div class="ag-nota-testo">' + esc(r.nota) + '</div>' : '') + '</div>'
                 + '<div class="ag-richiesta-az">'
                 + (String(r.stato || 'aperta') === 'gestita'

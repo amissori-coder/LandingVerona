@@ -32,6 +32,10 @@ Disallow: /p26/
 # iscrizione, con un collegamento personale.
 Disallow: /conferma_email/
 
+# Richiesta di un nuovo incontro dopo il convegno: si apre dal collegamento
+# personale nella mail, e senza firma valida non mostra nulla.
+Disallow: /nuovo_incontro/
+
 # La diretta degli eventi: accesso degli iscritti, gestione e
 # reimpostazione della password (le pagine hanno anche noindex).
 Disallow: /diretta/
