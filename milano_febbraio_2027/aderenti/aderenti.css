@@ -4,41 +4,23 @@
    etichette): qui solo la testata, il riepilogo e il modulo.
    ============================================================ */
 
-.pagina-aderenti { background: var(--carta); }
 
-.ad-testata {
-    position: relative;
-    padding: 48px 0 64px;
-    background: var(--blu-notte);
-    color: var(--bianco);
-    overflow: hidden;
-    isolation: isolate;
-}
-.ad-testata-corpo {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-}
-.ad-logo { height: 40px; width: auto; margin-bottom: 36px; }
-.ad-testata .hero-occhiello { margin-bottom: 20px; }
-.ad-testata h1 {
-    font-family: var(--font-titoli);
-    font-size: clamp(2rem, 5vw, 3.2rem);
-    font-weight: 900;
-    line-height: 1.08;
-    letter-spacing: -0.03em;
-}
-.ad-testata p.ad-sottotitolo {
-    margin-top: 12px;
-    font-family: var(--font-titoli);
-    font-size: 1.15rem;
-    font-weight: 500;
-    color: var(--azzurro-chiaro);
+/* Testo sotto i titoli di sezione */
+.testata p.testata-sotto {
+    margin: 12px auto 0;
+    max-width: 60ch;
+    color: var(--testo-tenue);
+    font-size: 1.04rem;
     text-align: center !important;
+    text-align-last: center;
 }
+.hero-titolo { max-width: 16ch; }
 
-.ad-corpo { padding: 56px 0 96px; }
+/* Il rimando al convegno, nello stesso riquadro del networking lunch */
+.pranzo-link { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.pranzo-link:hover { border-color: var(--azzurro); box-shadow: var(--ombra); }
+.pranzo-link .pranzo-nota { text-decoration: underline; text-underline-offset: 3px; }
+
 .ad-griglia {
     display: grid;
     grid-template-columns: 340px 1fr;
@@ -49,7 +31,7 @@
 /* --- il riepilogo a sinistra --- */
 .ad-riepilogo {
     position: sticky;
-    top: 24px;
+    top: calc(var(--altezza-nav) + 24px);
     background: var(--bianco);
     border: 1px solid var(--linea);
     border-radius: var(--raggio);
@@ -309,9 +291,6 @@ input[name="provincia"], input[name="codiceDestinatario"], input[name="codiceFis
     .ad-riepilogo { position: static; }
 }
 @media (max-width: 640px) {
-    .ad-testata { padding: 36px 0 48px; }
-    .ad-logo { height: 32px; margin-bottom: 28px; }
-    .ad-corpo { padding: 24px 0 64px; }
     .ad-modulo { padding: 24px 18px; }
     .ad-riepilogo { padding: 22px 18px; }
     .ad-campi { grid-template-columns: 1fr; }
@@ -323,3 +302,21 @@ input[name="provincia"], input[name="codiceDestinatario"], input[name="codiceFis
 input[name="provincia"]::placeholder,
 input[name="codiceDestinatario"]::placeholder { text-transform: none; }
 .ad-quota span { text-align: left !important; -webkit-hyphens: manual !important; hyphens: manual !important; }
+.pagina-aderenti .hero p.hero-tema { max-width: 44ch; }
+
+/* Il riquadro del convegno: al posto dell'icona, l'hotel del save the date */
+.pranzo-hotel {
+    flex: 0 0 168px;
+    align-self: stretch;
+    display: flex;
+    align-items: flex-end;
+    min-height: 100px;
+    padding: 14px 14px 0;
+    border-radius: 8px;
+    background: linear-gradient(160deg, var(--blu-notte) 0%, var(--blu) 100%);
+    overflow: hidden;
+}
+.pranzo-hotel img { display: block; width: 100%; height: auto; }
+@media (max-width: 720px) {
+    .pranzo-hotel { flex-basis: auto; width: 100%; max-width: 260px; }
+}

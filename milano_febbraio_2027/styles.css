@@ -1082,3 +1082,23 @@ ul, ol { list-style: none; }
 @media (prefers-reduced-motion: reduce) {
     .anteprima[open] { animation: none; }
 }
+
+/* ---------------------------------------------------------- l'hotel del save the date */
+
+/* Il disegno dell'Excelsior Hotel Gallia preso dal volantino: bianco su
+   blu, come sta li', in un riquadro accanto ai dati della sede. */
+.sede-illustrazione {
+    width: 100%;
+    margin: 24px 0 0;
+    padding: 28px 28px 0;
+    border-radius: var(--raggio);
+    background:
+        radial-gradient(70% 90% at 50% 0%, rgba(125, 184, 238, 0.25) 0%, rgba(125, 184, 238, 0) 70%),
+        linear-gradient(160deg, var(--blu-notte) 0%, var(--blu-scuro) 55%, var(--blu) 100%);
+    overflow: hidden;
+}
+.sede-illustrazione img {
+    display: block;
+    width: 100%;
+    height: auto;
+}

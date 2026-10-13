@@ -1,6 +1,20 @@
 # Next Generation Business — robots.txt
 # https://nextgenerationbusiness.it
 
+# Chi legge le pagine solo per disegnare l'anteprima di un collegamento
+# condiviso (WhatsApp, Facebook, LinkedIn, X, Telegram) non indicizza
+# niente: puo' leggere anche le pagine escluse qui sotto, cosi' il
+# collegamento mandato agli invitati (aderenti, cene) arriva con immagine,
+# titolo e descrizione. Dai motori di ricerca quelle pagine restano fuori
+# per le righe Disallow e per il loro "noindex".
+User-agent: facebookexternalhit
+User-agent: Facebot
+User-agent: WhatsApp
+User-agent: LinkedInBot
+User-agent: Twitterbot
+User-agent: TelegramBot
+Allow: /
+
 User-agent: *
 Allow: /
 

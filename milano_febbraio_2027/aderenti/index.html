@@ -11,28 +11,162 @@
     <meta name="theme-color" content="#08213A">
     <title>Iscrizione aderenti Revilaw, Milano 26-27 febbraio 2027</title>
     <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <meta name="description" content="Iscrizione riservata agli aderenti Revilaw: cena di venerdì 26 e meeting di sabato 27 febbraio 2027 a Milano. Quota 200 € + IVA.">
+
+    <!-- Anteprima per WhatsApp, LinkedIn, Facebook e X quando si condivide il
+         collegamento. L'immagine la fa scripts/anteprime/genera-anteprime.cjs
+         dal titolo e dalla descrizione qui sotto. -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Next Generation Business">
+    <meta property="og:url" content="https://nextgenerationbusiness.it/milano_febbraio_2027/aderenti/">
+    <meta property="og:title" content="Cena e meeting degli aderenti Revilaw, Milano 26-27 febbraio 2027">
+    <meta property="og:description" content="Iscrizione riservata agli aderenti Revilaw: cena di venerdì 26 e meeting di sabato 27 febbraio 2027 a Milano. Quota 200 € + IVA.">
+    <meta property="og:image" content="https://nextgenerationbusiness.it/assets/og/milano_febbraio_2027-aderenti.jpg?v=5702ac8db3">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="2400">
+    <meta property="og:image:height" content="1260">
+    <meta property="og:image:alt" content="Cena e meeting degli aderenti Revilaw, Milano 26-27 febbraio 2027">
+    <meta property="og:image:secure_url" content="https://nextgenerationbusiness.it/assets/og/milano_febbraio_2027-aderenti.jpg?v=5702ac8db3">
+    <meta property="og:locale" content="it_IT">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cena e meeting degli aderenti Revilaw, Milano 26-27 febbraio 2027">
+    <meta name="twitter:description" content="Iscrizione riservata agli aderenti Revilaw: cena di venerdì 26 e meeting di sabato 27 febbraio 2027 a Milano. Quota 200 € + IVA.">
+    <meta name="twitter:image" content="https://nextgenerationbusiness.it/assets/og/milano_febbraio_2027-aderenti.jpg?v=5702ac8db3">
+    <meta name="twitter:image:alt" content="Cena e meeting degli aderenti Revilaw, Milano 26-27 febbraio 2027">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../styles.css?v=3">
-    <link rel="stylesheet" href="aderenti.css?v=1">
+    <link rel="stylesheet" href="../styles.css?v=4">
+    <link rel="stylesheet" href="aderenti.css?v=3">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
 </head>
 <body class="pagina-aderenti">
 
-    <header class="ad-testata">
-        <div class="hero-sfondo" aria-hidden="true"></div>
-        <div class="wrap ad-testata-corpo">
-            <img class="ad-logo" src="/assets/logo-revilaw-bianco.png" alt="Revilaw" width="371" height="115">
-            <span class="hero-occhiello">Riservato agli aderenti Revilaw</span>
-            <h1>Cena e meeting degli aderenti</h1>
-            <p class="ad-sottotitolo">Milano &middot; 26 e 27 febbraio 2027</p>
+    <a class="salta" href="#iscrizione">Vai al modulo di iscrizione</a>
+
+    <!-- Barra di navigazione: la stessa della pagina dell'evento -->
+    <header class="nav" id="navbar">
+        <div class="wrap nav-wrap">
+            <div class="nav-brand">
+                <a href="../" class="nav-back" aria-label="Torna alla pagina dell'evento di Milano">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </a>
+                <a href="#hero" class="nav-logo" aria-label="Revilaw, inizio pagina">
+                    <img src="/assets/logo-revilaw-bianco.png" alt="Revilaw" width="371" height="115">
+                </a>
+            </div>
+            <button class="nav-toggle" id="navToggle" aria-label="Apri il menu" aria-expanded="false" aria-controls="navMenu">
+                <span></span><span></span><span></span>
+            </button>
+            <nav class="nav-menu" id="navMenu" aria-label="Sezioni della pagina">
+                <a href="#programma">Programma</a>
+                <a href="#iscrizione">Iscrizione</a>
+                <a href="#save-the-date">Save the date</a>
+                <a href="#iscrizione" class="nav-cta">Vai all'iscrizione</a>
+            </nav>
         </div>
     </header>
 
-    <main class="ad-corpo">
-        <div class="wrap ad-griglia">
+    <!-- Apertura -->
+    <section class="hero" id="hero">
+        <div class="hero-sfondo" aria-hidden="true"></div>
+        <div class="wrap hero-corpo">
+            <span class="hero-occhiello">Riservato agli aderenti Revilaw</span>
+            <h1 class="hero-titolo">Cena e meeting <span>degli aderenti</span></h1>
+            <p class="hero-tema">Next Generation Business &middot; Milano, 26 e 27 febbraio 2027</p>
 
+            <dl class="hero-dati">
+                <div>
+                    <dt>Cena</dt>
+                    <dd>Venerdì 26 febbraio</dd>
+                </div>
+                <div>
+                    <dt>Meeting</dt>
+                    <dd>Sabato 27 febbraio</dd>
+                </div>
+                <div>
+                    <dt>Quota</dt>
+                    <dd>200 € + IVA</dd>
+                </div>
+            </dl>
+
+            <div class="conto" id="countdown" aria-label="Tempo che manca all'evento">
+                <div><span id="days">00</span><small>giorni</small></div>
+                <div><span id="hours">00</span><small>ore</small></div>
+                <div><span id="minutes">00</span><small>minuti</small></div>
+                <div><span id="seconds">00</span><small>secondi</small></div>
+            </div>
+
+            <div class="hero-azioni">
+                <a href="#iscrizione" class="btn btn-chiaro">Vai all'iscrizione</a>
+                <a href="../save-the-date-milano-2027.pdf" download class="btn btn-linea">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><polyline points="6 11 12 17 18 11"/><path d="M4 20h16"/></svg>
+                    Scarica il save the date
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Programma -->
+    <section class="sezione" id="programma">
+        <div class="wrap">
+            <header class="testata">
+                <span class="etichetta">Il programma</span>
+                <h2 class="titolo">Due giorni a Milano</h2>
+                <p class="testata-sotto">Alla giornata di Next Generation Business si aggiungono due appuntamenti riservati agli aderenti Revilaw.</p>
+            </header>
+
+            <div class="giornata">
+                <article class="momento">
+                    <div class="momento-testa">
+                        <span class="momento-num">26</span>
+                        <span class="momento-quando">Venerdì sera</span>
+                    </div>
+                    <h3>La cena degli aderenti</h3>
+                    <p class="momento-intro">A chiusura della giornata del convegno, una serata per ritrovarsi fra aderenti, con i partner e lo staff di Revilaw.</p>
+                    <ul class="momento-temi">
+                        <li>Venerdì 26 febbraio 2027</li>
+                        <li>Milano</li>
+                        <li>Sede e orario comunicati agli iscritti</li>
+                    </ul>
+                </article>
+
+                <article class="momento momento-scuro">
+                    <div class="momento-testa">
+                        <span class="momento-num">27</span>
+                        <span class="momento-quando">Sabato</span>
+                    </div>
+                    <h3>Il meeting degli aderenti</h3>
+                    <p class="momento-intro">L'incontro della rete Revilaw: aggiornamenti, progetti e lavoro comune per il 2027.</p>
+                    <ul class="momento-temi">
+                        <li>Sabato 27 febbraio 2027</li>
+                        <li>Milano</li>
+                        <li>Sede e orario comunicati agli iscritti</li>
+                    </ul>
+                </article>
+            </div>
+
+            <a class="pranzo pranzo-link" href="../">
+                <span class="pranzo-hotel" aria-hidden="true">
+                    <img src="../assets/hotel-gallia.png" alt="" width="900" height="480" loading="lazy">
+                </span>
+                <div>
+                    <h3>Venerdì 26, il convegno</h3>
+                    <p>Prima della cena, la giornata pubblica all'Excelsior Hotel Gallia: convegno al mattino, incontri B2B al pomeriggio. <span class="pranzo-nota">Vedi la pagina dell'evento</span></p>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <!-- Iscrizione -->
+    <section class="sezione sezione-grigia" id="iscrizione">
+        <div class="wrap">
+            <header class="testata">
+                <span class="etichetta">Iscrizione</span>
+                <h2 class="titolo">Iscrizione a cena e meeting</h2>
+                <p class="testata-sotto">Dopo l'iscrizione riceverà il riepilogo per email e, nei giorni successivi, la fattura.</p>
+            </header>
+            <div class="ad-griglia">
             <aside class="ad-riepilogo" aria-label="La quota di partecipazione">
                 <span class="etichetta">La partecipazione</span>
                 <ul class="ad-voci">
@@ -92,19 +226,19 @@
 
                     <fieldset>
                         <legend><span class="ad-num">2</span> Dati di fatturazione</legend>
-                        <p class="ad-spiega">La fattura sarà intestata come indicato qui. Con la partita IVA serve il codice destinatario SDI o la PEC.</p>
+                        <p class="ad-spiega">La fattura sarà intestata come indicato qui. Servono partita IVA e codice fiscale (per una società spesso coincidono), l'email a cui inviarla e almeno uno fra codice destinatario SDI e PEC.</p>
                         <div class="ad-campi">
                             <label class="campo campo-largo">
                                 <span>Intestatario (ragione sociale o nome e cognome) <i aria-hidden="true">*</i></span>
                                 <input name="intestatario" autocomplete="organization" required maxlength="160">
                             </label>
                             <label class="campo">
-                                <span>Partita IVA</span>
-                                <input name="partitaIva" inputmode="numeric" maxlength="20" placeholder="11 cifre">
+                                <span>Partita IVA <i aria-hidden="true">*</i></span>
+                                <input name="partitaIva" inputmode="numeric" required maxlength="20" placeholder="11 cifre">
                             </label>
                             <label class="campo">
-                                <span>Codice fiscale</span>
-                                <input name="codiceFiscale" maxlength="20" autocapitalize="characters">
+                                <span>Codice fiscale <i aria-hidden="true">*</i></span>
+                                <input name="codiceFiscale" required maxlength="20" autocapitalize="characters">
                             </label>
                             <label class="campo campo-largo">
                                 <span>Indirizzo della sede <i aria-hidden="true">*</i></span>
@@ -125,16 +259,16 @@
                                 </label>
                             </div>
                             <label class="campo">
-                                <span>Codice destinatario SDI</span>
+                                <span>Codice destinatario SDI <i aria-hidden="true">*</i></span>
                                 <input name="codiceDestinatario" maxlength="7" placeholder="7 caratteri" autocapitalize="characters">
                             </label>
                             <label class="campo">
-                                <span>PEC</span>
+                                <span>PEC <i aria-hidden="true">*</i></span>
                                 <input name="pec" type="email" maxlength="200">
                             </label>
                             <label class="campo campo-largo">
-                                <span>Email a cui inviare copia della fattura</span>
-                                <input name="emailFatture" type="email" maxlength="200" placeholder="Se diversa da quella indicata sopra">
+                                <span>Email a cui inviare la fattura <i aria-hidden="true">*</i></span>
+                                <input name="emailFatture" type="email" autocomplete="email" required maxlength="200" placeholder="Per esempio amministrazione@studio.it">
                             </label>
                         </div>
                     </fieldset>
@@ -158,7 +292,7 @@
                     <div class="ad-invio">
                         <p class="ad-errore" id="errore" role="alert" hidden></p>
                         <button type="submit" class="btn btn-scuro" id="invia">Invia l'iscrizione</button>
-                        <p class="ad-nota-invio">I campi con <i>*</i> sono obbligatori.</p>
+                        <p class="ad-nota-invio">I campi con <i>*</i> sono obbligatori; fra codice destinatario SDI e PEC ne basta uno.</p>
                     </div>
                 </form>
 
@@ -172,18 +306,54 @@
                     <button type="button" class="btn btn-tenue" id="ancora">Correggi i dati</button>
                 </div>
             </section>
+            </div>
         </div>
-    </main>
+    </section>
+
+    <!-- Save the date da scaricare -->
+    <section class="sezione" id="save-the-date">
+        <div class="wrap scarica">
+            <a href="../save-the-date-milano-2027.pdf" target="_blank" rel="noopener" class="scarica-anteprima" aria-label="Apri il save the date in PDF">
+                <img src="../assets/save-the-date-anteprima.jpg" alt="Save the date di Next Generation Business Milano, venerdì 26 febbraio 2027, Excelsior Hotel Gallia" width="909" height="1287" loading="lazy">
+            </a>
+            <div class="scarica-testo">
+                <span class="etichetta">Download</span>
+                <h2 class="titolo">Il save the date</h2>
+                <p>Il volantino della giornata del 26 febbraio, con data, sede e programma preliminare del convegno e degli incontri B2B. Lo scarichi e lo condivida con i Suoi clienti.</p>
+                <dl class="elenco-dati elenco-dati--riga">
+                    <div><dt>Formato</dt><dd>PDF, A4</dd></div>
+                    <div><dt>Peso</dt><dd>310 KB</dd></div>
+                </dl>
+                <a href="../save-the-date-milano-2027.pdf" download class="btn btn-scuro">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><polyline points="6 11 12 17 18 11"/><path d="M4 20h16"/></svg>
+                    Scarica il PDF
+                </a>
+            </div>
+        </div>
+    </section>
 
     <footer class="footer">
         <div class="wrap">
+            <div class="footer-alto">
+                <div>
+                    <p class="footer-nome">Next Generation Business</p>
+                    <p class="footer-evento">Milano &middot; 26 e 27 febbraio 2027</p>
+                </div>
+                <nav class="footer-link" aria-label="Link utili">
+                    <a href="../">L'evento di Milano</a>
+                    <a href="mailto:info@nextgenerationbusiness.it">Contatti</a>
+                    <a href="https://www.revilaw.it" target="_blank" rel="noopener">revilaw.it</a>
+                </nav>
+            </div>
             <div class="footer-bottom">
-                <p>Revilaw S.p.A. &middot; Via XX Settembre, 9 - 37129 Verona &middot; P.IVA 04641610235</p>
-                <p class="footer-privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a> &middot; <a href="/">nextgenerationbusiness.it</a></p>
+                <p>&copy; 2026 Next Generation Business &middot; A cura di Revilaw S.p.A. &middot; <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></p>
+                <p class="footer-privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Privacy Policy</a> &middot; <a href="https://www.iubenda.com/privacy-policy/40996386/cookie-policy" target="_blank" rel="noopener">Cookie Policy</a></p>
+                <p class="footer-legal">P.IVA: 04641610235 | REA: VR 437220 | Sede: Via XX Settembre, 9 - 37129 Verona (VR)</p>
             </div>
         </div>
     </footer>
 
-    <script src="aderenti.js?v=1"></script>
+    <script src="../script.js?v=3"></script>
+    <script src="aderenti.js?v=3"></script>
 </body>
 </html>

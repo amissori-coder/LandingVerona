@@ -65,6 +65,7 @@ const ESCLUSE = new Set([
 const ETICHETTE = {
     '': 'Eventi B2B · Legalità, innovazione, crescita',
     'milano_febbraio_2027': 'Evento · Milano',
+    'milano_febbraio_2027/aderenti': 'Riservato agli aderenti Revilaw',
     'napoli_ottobre_2026': 'Evento · Napoli',
     'roma_aprile_2026': 'Evento · Roma',
     'verona_marzo_2026': 'Evento · Verona',
@@ -135,7 +136,9 @@ function leggiPagina(rel) {
     const descrizione = meta(html, 'property', 'og:description') || meta(html, 'name', 'description') || '';
     const tipo = meta(html, 'property', 'og:type') || 'website';
     const cartella = rel.split('/')[0] === 'index.html' ? '' : rel.split('/')[0];
-    const etichetta = ETICHETTE[cartella] || (tipo === 'article' ? 'Approfondimento' : 'Next Generation Business');
+    // prima la sottocartella (per esempio "milano_febbraio_2027/aderenti"), poi la cartella
+    const sottocartella = path.dirname(rel).split(path.sep).join('/');
+    const etichetta = ETICHETTE[sottocartella] || ETICHETTE[cartella] || (tipo === 'article' ? 'Approfondimento' : 'Next Generation Business');
 
     return {
         rel,
