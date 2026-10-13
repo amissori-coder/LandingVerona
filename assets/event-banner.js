@@ -25,6 +25,11 @@
     //            to `date`. Never shown to the user.
     //   meta     optional custom text for the small grey line under the
     //            title. If omitted, auto-generated as "Wkd Day Month · City".
+    //   finestra optional: on the HOME PAGE this event is presented in a
+    //            centred window instead of the corner banner. Fields:
+    //            titolo, giorno (weekday + date), luogo, punti (short
+    //            facts), nota, pdf (save the date, relative to the site).
+    //            The window opens once per browser session.
     const NGB_EVENTS = [
         {
             city: 'Milano',
@@ -33,7 +38,15 @@
             tagline: 'Save the date',
             meta: 'Ven 26 febbraio 2027 &middot; Milano &middot; iscrizioni a breve',
             url: 'milano_febbraio_2027/',
-            pagePath: 'milano_febbraio_2027'
+            pagePath: 'milano_febbraio_2027',
+            finestra: {
+                titolo: 'Merito creditizio, crescita e competitività delle imprese',
+                giorno: 'Venerdì 26 febbraio 2027',
+                luogo: 'Excelsior Hotel Gallia, Milano',
+                punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
+                nota: 'Le iscrizioni apriranno a breve.',
+                pdf: 'milano_febbraio_2027/save-the-date-milano-2027.pdf'
+            }
         },
         {
             city: 'Roma',
@@ -240,6 +253,182 @@
             all[i].style.bottom = bottomOffset + 'px';
             bottomOffset += all[i].offsetHeight + gap;
         }
+    }
+
+    // ---------------- Home page: centred window ----------------
+    /* In home la comunicazione del prossimo evento non sta in un angolo:
+       si apre una finestra al centro, una volta per sessione del browser
+       (chiusa, non torna finche' non si riapre il sito). Sulle altre pagine
+       resta il banner piccolo in basso a destra. */
+    function eHome() {
+        try {
+            const radice = scriptRoot ? new URL(scriptRoot).pathname : '/';
+            const p = window.location.pathname.replace(/index\.html$/, '');
+            return p === radice;
+        } catch (_) { return false; }
+    }
+    const inFinestra = eHome() ? visible.find(function (e) { return !!e.finestra; }) : null;
+    if (inFinestra) {
+        const chiave = 'ngb-finestra-' + inFinestra.date + '-' + inFinestra.city;
+        let giaVista = false;
+        try { giaVista = window.sessionStorage.getItem(chiave) === '1'; } catch (_) { giaVista = false; }
+        if (!giaVista) apriFinestra(inFinestra, chiave);
+        return;
+    }
+
+    function apriFinestra(ev, chiave) {
+        const f = ev.finestra;
+        const st = document.createElement('style');
+        st.setAttribute('data-ngb-event-finestra', '');
+        st.textContent = [
+            '.ngb-fin-velo{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;',
+            '  padding:20px;background:rgba(6,22,40,.62);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);',
+            '  opacity:0;transition:opacity .35s ease;}',
+            '.ngb-fin-velo.aperta{opacity:1;}',
+            '.ngb-fin{position:relative;width:100%;max-width:540px;max-height:calc(100vh - 40px);overflow:auto;',
+            '  background:#fff;color:#14243A;border-radius:16px;box-shadow:0 40px 90px rgba(6,22,40,.45);',
+            "  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;",
+            '  transform:translateY(16px) scale(.98);transition:transform .45s cubic-bezier(.22,1,.36,1);}',
+            '.ngb-fin-velo.aperta .ngb-fin{transform:none;}',
+            '.ngb-fin-testa{position:relative;padding:32px 36px 28px;color:#fff;overflow:hidden;',
+            '  background:radial-gradient(70% 90% at 50% 0%,rgba(125,184,238,.28) 0%,rgba(125,184,238,0) 70%),',
+            '  linear-gradient(160deg,#08213A 0%,#0E2E4F 55%,#164068 100%);}',
+            '.ngb-fin-testa::after{content:"";position:absolute;inset:0;pointer-events:none;',
+            '  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);',
+            '  background-size:36px 36px;-webkit-mask-image:linear-gradient(180deg,#000,transparent);mask-image:linear-gradient(180deg,#000,transparent);}',
+            '.ngb-fin-occh{position:relative;z-index:1;display:inline-block;margin-right:44px;font-family:Montserrat,sans-serif;font-size:.66rem;font-weight:700;',
+            '  letter-spacing:.22em;text-transform:uppercase;color:#B9DAF7;padding:6px 12px;border:1px solid rgba(185,218,247,.35);border-radius:100px;}',
+            '.ngb-fin-data{position:relative;z-index:1;display:flex;align-items:flex-end;gap:16px;margin-top:22px;}',
+            '.ngb-fin-giorno{font-family:Montserrat,sans-serif;font-size:4.2rem;font-weight:900;line-height:.85;letter-spacing:-.04em;}',
+            '.ngb-fin-mese{font-family:Montserrat,sans-serif;line-height:1.15;padding-bottom:2px;}',
+            '.ngb-fin-mese b{display:block;font-size:1.25rem;font-weight:800;}',
+            '.ngb-fin-mese span{display:block;font-size:.9rem;font-weight:600;color:#7DB8EE;}',
+            '.ngb-fin-citta{position:relative;z-index:1;margin-top:14px;font-family:Montserrat,sans-serif;font-size:1.9rem;font-weight:900;',
+            '  letter-spacing:.02em;text-transform:uppercase;}',
+            '.ngb-fin-corpo{padding:26px 36px 30px;}',
+            '.ngb-fin-tit{margin:0;font-family:Montserrat,sans-serif;font-size:1.3rem;font-weight:800;line-height:1.25;',
+            '  letter-spacing:-.01em;color:#08213A;text-align:left;}',
+            '.ngb-fin-dati{margin:16px 0 0;padding:0;list-style:none;border-top:1px solid #DCE3EC;}',
+            '.ngb-fin-dati li{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #DCE3EC;font-size:.92rem;text-align:left !important;}',
+            '.ngb-fin-dati span{flex:0 0 74px;font-size:.66rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#7A8596;padding-top:3px;}',
+            '.ngb-fin-punti{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0;padding:0;list-style:none;}',
+            '.ngb-fin-punti li{font-size:.78rem;font-weight:600;color:#164068;background:#EAF3FC;border-radius:100px;padding:6px 12px;text-align:left !important;}',
+            '.ngb-fin-nota{margin:16px 0 0;font-size:.88rem;color:#556274;text-align:left !important;}',
+            '.ngb-fin-azioni{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px;}',
+            '.ngb-fin-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 20px;border-radius:6px;',
+            "  font-family:Montserrat,sans-serif;font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;",
+            '  text-decoration:none;cursor:pointer;border:1.5px solid transparent;transition:background-color .2s ease,color .2s ease,border-color .2s ease;}',
+            '.ngb-fin-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;}',
+            '.ngb-fin-btn-pieno{background:#164068;color:#fff;}',
+            '.ngb-fin-btn-pieno:hover{background:#08213A;}',
+            '.ngb-fin-btn-linea{color:#164068;border-color:#C9D3DF;background:#fff;}',
+            '.ngb-fin-btn-linea:hover{border-color:#164068;}',
+            '.ngb-fin-dopo{display:block;margin:16px auto 0;background:none;border:0;padding:6px;font:inherit;font-size:.82rem;',
+            '  color:#7A8596;cursor:pointer;text-decoration:underline;text-underline-offset:3px;}',
+            '.ngb-fin-dopo:hover{color:#14243A;}',
+            '.ngb-fin-x{position:absolute;top:14px;right:14px;z-index:2;width:36px;height:36px;border-radius:50%;border:0;cursor:pointer;',
+            '  display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);color:#fff;transition:background .2s ease;}',
+            '.ngb-fin-x:hover{background:rgba(255,255,255,.24);}',
+            '.ngb-fin-x svg{width:16px;height:16px;stroke:currentColor;fill:none;}',
+            '.ngb-fin :focus-visible{outline:2px solid #7DB8EE;outline-offset:3px;}',
+            '.ngb-fin:focus{outline:none;}',
+            '@media (max-width:520px){',
+            '  .ngb-fin-testa{padding:26px 22px 22px;}.ngb-fin-corpo{padding:22px 22px 24px;}',
+            '  .ngb-fin-giorno{font-size:3.4rem;}.ngb-fin-citta{font-size:1.5rem;}',
+            '  .ngb-fin-azioni{flex-direction:column;}.ngb-fin-btn{width:100%;}',
+            '}',
+            '@media (prefers-reduced-motion:reduce){.ngb-fin-velo,.ngb-fin{transition:none;}}'
+        ].join('');
+        document.head.appendChild(st);
+
+        const giorno = ev._d.getDate();
+        const mese = MONTHS_FULL[ev._d.getMonth()];
+        const anno = ev._d.getFullYear();
+        const giornoSett = (f.giorno || '').split(' ')[0] || '';
+        const freccia = '<svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+        const giu = '<svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><polyline points="6 11 12 17 18 11"/><path d="M4 20h16"/></svg>';
+
+        const velo = document.createElement('div');
+        velo.className = 'ngb-fin-velo';
+        velo.innerHTML =
+            '<div class="ngb-fin" role="dialog" aria-modal="true" aria-labelledby="ngb-fin-tit" tabindex="-1">' +
+                '<button type="button" class="ngb-fin-x" aria-label="Chiudi">' +
+                    '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>' +
+                '</button>' +
+                '<div class="ngb-fin-testa">' +
+                    '<span class="ngb-fin-occh">' + escapeHtml(ev.tagline || 'Prossimo evento') + ' &middot; Next Generation Business</span>' +
+                    '<div class="ngb-fin-data" aria-hidden="true">' +
+                        '<span class="ngb-fin-giorno">' + giorno + '</span>' +
+                        '<span class="ngb-fin-mese"><b>' + escapeHtml(mese.charAt(0).toUpperCase() + mese.slice(1)) + ' ' + anno + '</b>' +
+                        '<span>' + escapeHtml(giornoSett) + '</span></span>' +
+                    '</div>' +
+                    '<div class="ngb-fin-citta">' + escapeHtml(ev.city) + '</div>' +
+                '</div>' +
+                '<div class="ngb-fin-corpo">' +
+                    '<h2 class="ngb-fin-tit" id="ngb-fin-tit">' + escapeHtml(f.titolo || ev.title) + '</h2>' +
+                    '<ul class="ngb-fin-dati">' +
+                        (f.giorno ? '<li><span>Quando</span>' + escapeHtml(f.giorno) + '</li>' : '') +
+                        (f.luogo ? '<li><span>Dove</span>' + escapeHtml(f.luogo) + '</li>' : '') +
+                    '</ul>' +
+                    ((f.punti && f.punti.length)
+                        ? '<ul class="ngb-fin-punti">' + f.punti.map(function (x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul>'
+                        : '') +
+                    (f.nota ? '<p class="ngb-fin-nota">' + escapeHtml(f.nota) + '</p>' : '') +
+                    '<div class="ngb-fin-azioni">' +
+                        '<a class="ngb-fin-btn ngb-fin-btn-pieno" href="' + escapeAttr(resolveUrl(ev.url)) + '">Scopri l\'evento' + freccia + '</a>' +
+                        (f.pdf ? '<a class="ngb-fin-btn ngb-fin-btn-linea" href="' + escapeAttr(resolveUrl(f.pdf)) + '" download>' + giu + 'Save the date</a>' : '') +
+                    '</div>' +
+                    '<button type="button" class="ngb-fin-dopo">Non ora</button>' +
+                '</div>' +
+            '</div>';
+
+        let primaDiAprire = null;
+        function chiudi() {
+            try { window.sessionStorage.setItem(chiave, '1'); } catch (_) { /* senza memoria: si riaprira' */ }
+            velo.classList.remove('aperta');
+            document.removeEventListener('keydown', tasti);
+            setTimeout(function () {
+                if (velo.parentNode) velo.parentNode.removeChild(velo);
+                document.documentElement.style.overflow = '';
+                if (primaDiAprire && primaDiAprire.focus) { try { primaDiAprire.focus(); } catch (_) { } }
+            }, 350);
+        }
+        // Esc chiude; Tab resta dentro la finestra
+        function tasti(e) {
+            if (e.key === 'Escape') { e.preventDefault(); chiudi(); return; }
+            if (e.key !== 'Tab') return;
+            const fuochi = velo.querySelectorAll('a[href],button');
+            if (!fuochi.length) return;
+            const primo = fuochi[0], ultimo = fuochi[fuochi.length - 1];
+            if (e.shiftKey && document.activeElement === primo) { e.preventDefault(); ultimo.focus(); }
+            else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primo.focus(); }
+        }
+        velo.addEventListener('click', function (e) { if (e.target === velo) chiudi(); });
+        velo.querySelector('.ngb-fin-x').addEventListener('click', chiudi);
+        velo.querySelector('.ngb-fin-dopo').addEventListener('click', chiudi);
+        // chi va all'evento o scarica il volantino l'ha vista: non si riapre
+        velo.querySelectorAll('.ngb-fin-btn').forEach(function (a) {
+            a.addEventListener('click', function () { try { window.sessionStorage.setItem(chiave, '1'); } catch (_) { } });
+        });
+
+        function monta() {
+            if (!document.body) return;
+            primaDiAprire = document.activeElement;
+            document.body.appendChild(velo);
+            document.documentElement.style.overflow = 'hidden';
+            document.addEventListener('keydown', tasti);
+            requestAnimationFrame(function () {
+                velo.classList.add('aperta');
+                // il fuoco sulla finestra, non su un bottone: chi usa la tastiera
+                // parte da li', e nessun bottone appare gia' "premuto"
+                const fin = velo.querySelector('.ngb-fin');
+                if (fin) fin.focus({ preventScroll: true });
+            });
+        }
+        // un attimo dopo il caricamento: prima si vede la pagina, poi la finestra
+        const parti = function () { setTimeout(monta, 1200); };
+        if (document.readyState === 'complete') parti();
+        else window.addEventListener('load', parti);
     }
 
     // ---------------- Mount ----------------
