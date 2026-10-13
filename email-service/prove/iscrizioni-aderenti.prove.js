@@ -98,9 +98,9 @@ const BASE = {
     nome: 'Anna', cognome: 'Verdi', email: 'Anna.Verdi@Studio.it', telefono: '+39 333 1234567',
     studio: 'Studio Verdi', citta: 'Verona',
     fatturazione: {
-        intestatario: 'Studio Verdi Associati', partitaIva: 'IT 04641610235', codiceFiscale: '',
+        intestatario: 'Studio Verdi Associati', partitaIva: 'IT 04641610235', codiceFiscale: '04641610235',
         indirizzo: 'Via Roma 1', cap: '37121', comune: 'Verona', provincia: 'vr',
-        codiceDestinatario: 'm5uxcr1', pec: ''
+        codiceDestinatario: 'm5uxcr1', pec: '', emailFatture: 'Amministrazione@Studio.it'
     },
     privacy: true, accettaQuota: true
 };
@@ -162,11 +162,15 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
             [{ telefono: '12' }, null, 'telefono troppo corto'],
             [{}, { intestatario: '' }, 'senza intestatario'],
             [{}, { partitaIva: '04641610236' }, 'partita IVA con la cifra di controllo storta'],
-            [{}, { partitaIva: '', codiceFiscale: '' }, 'ne\' partita IVA ne\' codice fiscale'],
+            [{}, { partitaIva: '' }, 'senza partita IVA'],
+            [{}, { codiceFiscale: '' }, 'senza codice fiscale'],
+            [{}, { codiceFiscale: 'RSSMRA80A01' }, 'codice fiscale storto'],
+            [{}, { emailFatture: '' }, 'senza email per la fattura'],
+            [{}, { emailFatture: 'amministrazione@' }, 'email per la fattura storta'],
             [{}, { cap: '3712' }, 'CAP di 4 cifre'],
             [{}, { provincia: 'Verona' }, 'provincia scritta per intero'],
             [{}, { codiceDestinatario: 'AB' }, 'codice SDI troppo corto'],
-            [{}, { codiceDestinatario: '', pec: '' }, 'partita IVA senza SDI ne\' PEC'],
+            [{}, { codiceDestinatario: '', pec: '' }, 'ne\' SDI ne\' PEC'],
             [{ privacy: false }, null, 'senza consenso privacy'],
             [{ accettaQuota: false }, null, 'senza aver letto la quota']
         ];
@@ -177,10 +181,26 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         esigi(dati.size === 0 && posta.length === 0, 'nessuna scheda e nessuna mail');
     });
 
-    await prova('4. Un privato: codice fiscale, senza SDI', async () => {
+    await prova('4. Basta uno fra SDI e PEC', async () => {
         azzera();
-        const r = await invia({}, { partitaIva: '', codiceFiscale: 'rssmra80a01f205x', codiceDestinatario: '', pec: '' });
-        esigi(r.corpo.ok, 'passa: la fattura la trova nel cassetto fiscale');
+        let r = await invia({}, { codiceDestinatario: '', pec: 'studio@pec.it' });
+        esigi(r.corpo.ok, 'con la sola PEC passa');
+        azzera();
+        r = await invia({}, { codiceFiscale: 'rssmra80a01f205x' });
+        esigi(r.corpo.ok, 'con il codice fiscale di una persona passa');
+        const s = [...dati.values()][0];
+        esigi(s.fatturazione.emailFatture === 'amministrazione@studio.it', 'l\'email per la fattura si salva, in minuscolo');
+    });
+
+    await prova('4b. Le note nell\'avviso dicono che cosa sono', async () => {
+        azzera();
+        await invia({ note: 'Celiaco' });
+        let interna = posta.find(m => /pierluigisterzi/.test(m.to));
+        esigi(/Note \(allergie o intolleranze per la cena, altre indicazioni\)/.test(interna.html) && /Celiaco/.test(interna.html), 'con le note, l\'intestazione le spiega');
+        azzera();
+        await invia({ note: '' });
+        interna = posta.find(m => /pierluigisterzi/.test(m.to));
+        esigi(/allergie o intolleranze/.test(interna.html) && /nessuna/.test(interna.html), 'senza note, l\'avviso dice "nessuna"');
     });
 
     await prova('5. Due invii, una scheda', async () => {
@@ -217,7 +237,7 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
     await prova('8. Area riservata: elenco, fatture, cancellazione', async () => {
         azzera();
         await invia();
-        await invia({ nome: 'Bruno', cognome: 'Neri', email: 'bruno@neri.it' }, { intestatario: 'Bruno Neri', partitaIva: '', codiceFiscale: 'RSSMRA80A01F205X', codiceDestinatario: '' });
+        await invia({ nome: 'Bruno', cognome: 'Neri', email: 'bruno@neri.it' }, { intestatario: 'Bruno Neri', codiceFiscale: 'RSSMRA80A01F205X', codiceDestinatario: '', pec: 'bruno@pec.it' });
         const ctx = (body, chi) => Object.assign({ db: db, body: Object.assign({ sezione: 'aderenti' }, body), email: 'admin@revilaw.it', eAdmin: false, ePartner: false }, chi || {});
         esigi(A.gestisce({ sezione: 'aderenti' }) && !A.gestisce({ sezione: 'cene' }), 'la sezione si riconosce');
 

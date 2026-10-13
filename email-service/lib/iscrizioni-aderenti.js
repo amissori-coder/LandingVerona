@@ -147,13 +147,15 @@ function leggiCampi(q, c) {
         emailFatture: testo(f.emailFatture, 200).toLowerCase()
     };
     if (!fat.intestatario) return { ok: false, msg: 'Indichi l\'intestatario della fattura.' };
-    if (!fat.partitaIva && !fat.codiceFiscale) {
-        return { ok: false, msg: 'Indichi la partita IVA o il codice fiscale dell\'intestatario.' };
-    }
-    if (fat.partitaIva && !partitaIvaValida(fat.partitaIva)) {
+    /* Tutti e due, partita IVA e codice fiscale: chi fattura li vuole entrambi
+       sulla scheda (per una societa' il codice fiscale e' spesso uguale alla
+       partita IVA, e allora si scrive due volte). */
+    if (!fat.partitaIva) return { ok: false, msg: 'Indichi la partita IVA dell\'intestatario.' };
+    if (!partitaIvaValida(fat.partitaIva)) {
         return { ok: false, msg: 'La partita IVA non sembra corretta: sono 11 cifre, controlli di non averne scambiata qualcuna.' };
     }
-    if (fat.codiceFiscale && !codiceFiscaleValido(fat.codiceFiscale)) {
+    if (!fat.codiceFiscale) return { ok: false, msg: 'Indichi il codice fiscale dell\'intestatario.' };
+    if (!codiceFiscaleValido(fat.codiceFiscale)) {
         return { ok: false, msg: 'Il codice fiscale non sembra corretto.' };
     }
     if (!fat.indirizzo || !fat.comune) return { ok: false, msg: 'Indichi l\'indirizzo della sede di fatturazione.' };
@@ -163,14 +165,13 @@ function leggiCampi(q, c) {
         return { ok: false, msg: 'Il codice destinatario SDI è di 7 caratteri, lettere e numeri.' };
     }
     if (fat.pec && !indirizzoValido(fat.pec)) return { ok: false, msg: 'L\'indirizzo PEC non sembra valido.' };
-    /* Con la partita IVA la fattura elettronica deve sapere dove andare: il
-       codice destinatario o la PEC. Un privato puo' lasciarli vuoti, la
-       fattura la trova nel suo cassetto fiscale. */
-    if (fat.partitaIva && !fat.codiceDestinatario && !fat.pec) {
-        return { ok: false, msg: 'Con la partita IVA serve il codice destinatario SDI o la PEC.' };
+    // la fattura elettronica deve sapere dove andare: almeno uno dei due
+    if (!fat.codiceDestinatario && !fat.pec) {
+        return { ok: false, msg: 'Indichi il codice destinatario SDI o la PEC (almeno uno dei due).' };
     }
-    if (fat.emailFatture && !indirizzoValido(fat.emailFatture)) {
-        return { ok: false, msg: 'L\'indirizzo email per la copia della fattura non sembra valido.' };
+    if (!fat.emailFatture) return { ok: false, msg: 'Indichi l\'indirizzo email a cui inviare la fattura.' };
+    if (!indirizzoValido(fat.emailFatture)) {
+        return { ok: false, msg: 'L\'indirizzo email per la fattura non sembra valido.' };
     }
 
     if (c.privacy !== true) return { ok: false, msg: 'Per iscriversi serve il consenso al trattamento dei dati.' };
@@ -233,7 +234,11 @@ function mailInterna(q, r, correzione) {
         ])
         + '<p style="margin:0 0 4px;color:#164068;font-weight:700;">Dati di fatturazione</p>'
         + righeTabella(righeFatturazione(r.fatturazione))
-        + (r.note ? '<p style="margin:0 0 14px;"><b>Note</b><br>' + esc(r.note) + '</p>' : '')
+        /* Le note le scrive l'iscritto sotto la domanda "allergie o intolleranze
+           per la cena, altre indicazioni": l'avviso lo ripete, cosi' chi lo
+           legge sa che cosa sta leggendo, e dice anche quando sono vuote. */
+        + '<p style="margin:0 0 14px;"><b>Note (allergie o intolleranze per la cena, altre indicazioni)</b><br>'
+        + (r.note ? esc(r.note) : '<span style="color:#475569;">nessuna</span>') + '</p>'
         + '<p style="margin:0;font-size:13px;color:#475569;">Rispondendo a questo messaggio si scrive direttamente a '
         + esc(r.email) + '.</p>';
     return {
