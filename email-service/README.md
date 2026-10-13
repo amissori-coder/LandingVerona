@@ -2799,6 +2799,38 @@ meglio di una mail doppia. **Chi si e' disiscritto non si richiama**, e si conta
 a parte: un destinatario che sparisce senza una riga nel riassunto sembra un
 guasto.
 
+**L'elenco e' in ordine alfabetico e si puo' cercare.** Dal servizio le righe
+arrivano dalla piu' recente, che e' l'ordine giusto per l'elenco degli iscritti
+("chi si e' iscritto adesso") e nessun ordine per una finestra in cui si cerca
+un nome preciso fra duecento. Si ordina sulla stessa stringa che si legge in
+grassetto - l'azienda quando c'e', il nome quando manca - con un confronto
+italiano in cui accenti e maiuscole non contano e i numeri si leggono da numeri
+(`inOrdineAlfabetico` in `area-riservata/app.js`). La casella di ricerca sta
+dentro la sua platea, perche' le due liste si spuntano separate, e **nasconde le
+righe in posto**: ridisegnare ricaricherebbe l'anteprima a ogni tasto premuto.
+Cerca per azienda, nome e indirizzo su una chiave costruita dai DATI e non dal
+testo disegnato, altrimenti cercando "venuto" risponderebbero tutti quelli
+segnati "non e' venuto". Nella chiave **l'apostrofo curvo e quello dritto sono
+lo stesso apostrofo**: nei nostri dati convivono - il telefono e il correttore
+automatico scrivono quello curvo, la tastiera quello dritto - e in italiano
+l'apostrofo sta nei cognomi e nelle ragioni sociali piu' comuni, quindi senza
+quella riduzione chi cerca "dell'orto" trova il vuoto e ne conclude che
+l'iscrizione non c'e'. **Le spunte fuori ricerca restano** - la verita' di chi
+riceve e' l'elenco delle spunte, non quello che e' a video - e questo si dice:
+"la ricerca ne mostra 3, 12 spuntati restano fuori". La spunta di testa, mentre
+si cerca, agisce **solo sulle righe mostrate**: "togli tutti" davanti a tre
+risultati deve togliere quei tre, non la selezione costruita prima.
+
+**Chi resta fuori dalle due platee e' scritto in testa alla finestra.** Questo
+elenco non e' quello degli iscritti: basta che un nome non abbia un tavolo
+perche' qui non ci sia, e cercarlo senza trovarlo si legge come un dato perduto
+- e' successo. Quindi si dice quanti iscritti restano fuori e perche', e quando
+non c'e' proprio nessuno da richiamare il messaggio lo spiega invece di dire
+soltanto "nessuno". Le ragioni sono **due e si contano separate**: un tavolo non
+ce l'avevano, oppure un indirizzo non ce l'hanno - un'iscrizione si puo' salvare
+con il solo nome e cognome, e quella e' proprio la riga che si cerca e non si
+trova. Sommarle in un numero solo farebbe cercare la seconda fra le prime.
+
 **L'incontro l'hanno fatto o no? Non lo sappiamo**, al tavolo non si timbra.
 Quello che sappiamo e' chi quel giorno era in sala (`presenze`): chi risulta
 assente il suo incontro non l'ha fatto di sicuro ed e' la riga da richiamare per
@@ -2947,7 +2979,21 @@ lotto, come nell'invito agli incontri e per la stessa ragione: una copia a testa
 riempirebbe la casella di chi ha premuto con settanta messaggi, ciascuno con
 dentro il collegamento firmato di qualcun altro.
 
-Le prove stanno in `prove/nuovo-incontro.prove.js` (il flusso intero, dalle
+**Una iscrizione ai soli incontri B2B non resta invisibile.** La sezione "Solo
+incontri B2B" e' `fuoriElenco`: non occupa un posto in sala e l'elenco degli
+iscritti non la porta, il che e' giusto. Ma la finestra "Aggiungi iscrizione" e'
+l'unico punto che la offre nella tendina, e la nota sotto diceva "Un posto in
+sala" come per le altre sezioni interne: chi la sceglieva salvava una riga che
+poi cercava e non trovava, in nessuna schermata. Adesso la nota dice dove quella
+riga andra' a finire, e la scheda **"Incontri B2B: chi partecipa"** la mostra
+anche quando un invito non e' ancora partito e una prenotazione non c'e'.
+
+Le prove stanno in `prove/elenco-persone.prove.js` (l'ordine alfabetico e la
+chiave di ricerca, ritagliati dal sorgente vero dell'area riservata; il
+montaggio si fa **due volte**, con e senza `Intl`, perche' montandolo una volta
+sola senza le prove passavano tutte dal ramo di scorta e si poteva rompere il
+collatore vero senza che nessuna diventasse rossa), in
+`prove/nuovo-incontro.prove.js` (il flusso intero, dalle
 firme all'avviso, piu' il tetto delle mail allo studio e il taglio del tempo, e i
 quattro punti qui sopra provati dalla risposta VERA del servizio e non da un
 riepilogo costruito a mano), in `prove/riepilogo-b2b.prove.js` (il capitolo del
