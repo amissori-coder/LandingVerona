@@ -1,0 +1,325 @@
+/* ============================================================
+   Iscrizione degli aderenti Revilaw · Milano 2027
+   Si appoggia al foglio della pagina di Milano (colori, bottoni,
+   etichette): qui solo la testata, il riepilogo e il modulo.
+   ============================================================ */
+
+.pagina-aderenti { background: var(--carta); }
+
+.ad-testata {
+    position: relative;
+    padding: 48px 0 64px;
+    background: var(--blu-notte);
+    color: var(--bianco);
+    overflow: hidden;
+    isolation: isolate;
+}
+.ad-testata-corpo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+.ad-logo { height: 40px; width: auto; margin-bottom: 36px; }
+.ad-testata .hero-occhiello { margin-bottom: 20px; }
+.ad-testata h1 {
+    font-family: var(--font-titoli);
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+}
+.ad-testata p.ad-sottotitolo {
+    margin-top: 12px;
+    font-family: var(--font-titoli);
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--azzurro-chiaro);
+    text-align: center !important;
+}
+
+.ad-corpo { padding: 56px 0 96px; }
+.ad-griglia {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 32px;
+    align-items: start;
+}
+
+/* --- il riepilogo a sinistra --- */
+.ad-riepilogo {
+    position: sticky;
+    top: 24px;
+    background: var(--bianco);
+    border: 1px solid var(--linea);
+    border-radius: var(--raggio);
+    padding: 28px;
+    box-shadow: var(--ombra);
+}
+.ad-voci li {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 0;
+    border-top: 1px solid var(--linea);
+    font-size: 0.92rem;
+    color: var(--testo-tenue);
+    line-height: 1.45;
+    text-align: left !important;
+}
+.ad-voci strong { color: var(--blu-notte); }
+.ad-voce-data {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background: var(--blu);
+    color: var(--bianco);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+.ad-voce-data b {
+    font-family: var(--font-titoli);
+    font-size: 1.35rem;
+    letter-spacing: 0;
+    line-height: 1;
+}
+.ad-quota {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 20px;
+    border-radius: 8px;
+    background: var(--azzurro-tenue);
+}
+.ad-quota-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--blu-medio);
+}
+.ad-quota-importo {
+    font-family: var(--font-titoli);
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--blu-notte);
+    line-height: 1.1;
+}
+.ad-quota-importo small { font-size: 1rem; font-weight: 700; color: var(--blu-medio); }
+.ad-quota-nota { font-size: 0.85rem; color: var(--testo-tenue); line-height: 1.5; }
+.ad-passi {
+    list-style: none;
+    counter-reset: passo;
+    margin-top: 22px;
+}
+.ad-passi li {
+    counter-increment: passo;
+    position: relative;
+    padding: 0 0 12px 34px;
+    font-size: 0.88rem;
+    color: var(--testo-tenue);
+    line-height: 1.5;
+    text-align: left !important;
+}
+.ad-passi li::before {
+    content: counter(passo);
+    position: absolute;
+    left: 0;
+    top: -1px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--azzurro);
+    color: var(--blu);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+}
+.ad-riepilogo p.ad-aiuto {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--linea);
+    font-size: 0.85rem;
+    color: var(--testo-tenue);
+    text-align: left !important;
+}
+.ad-aiuto a { color: var(--blu); font-weight: 600; }
+
+/* --- il modulo --- */
+.ad-modulo {
+    background: var(--bianco);
+    border: 1px solid var(--linea);
+    border-radius: var(--raggio);
+    padding: 40px;
+    box-shadow: var(--ombra);
+}
+.ad-modulo fieldset {
+    border: 0;
+    padding: 0 0 32px;
+    margin: 0 0 32px;
+    border-bottom: 1px solid var(--linea);
+}
+.ad-modulo legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    font-family: var(--font-titoli);
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--blu-notte);
+}
+.ad-num {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--blu);
+    color: var(--bianco);
+    font-size: 0.85rem;
+}
+.ad-modulo p.ad-spiega {
+    margin: -8px 0 20px;
+    font-size: 0.88rem;
+    color: var(--testo-tenue);
+    text-align: left !important;
+}
+.ad-campi {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 20px;
+}
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo-largo, .campo-riga { grid-column: 1 / -1; }
+.campo-riga { display: grid; grid-template-columns: 120px 1fr 110px; gap: 20px; }
+.campo > span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--testo);
+}
+.campo i, .ad-nota-invio i { font-style: normal; color: #B42318; }
+.campo input,
+.campo textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 14px;
+    border: 1px solid #C9D3DF;
+    border-radius: 6px;
+    background: var(--bianco);
+    font: inherit;
+    font-size: 0.95rem;
+    color: var(--testo);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.campo textarea { resize: vertical; min-height: 84px; }
+.campo input::placeholder,
+.campo textarea::placeholder { color: #9AA5B4; }
+.campo input:focus,
+.campo textarea:focus {
+    outline: none;
+    border-color: var(--blu-medio);
+    box-shadow: 0 0 0 3px rgba(42, 90, 133, 0.15);
+}
+.campo input[aria-invalid="true"] { border-color: #B42318; box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.1); }
+input[name="provincia"], input[name="codiceDestinatario"], input[name="codiceFiscale"] { text-transform: uppercase; }
+
+.spunta {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-top: 16px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--testo);
+    cursor: pointer;
+}
+.spunta input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--blu);
+}
+.spunta a { color: var(--blu); text-decoration: underline; }
+
+.ad-invio { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.ad-invio .btn { min-width: 240px; cursor: pointer; }
+.ad-invio .btn[disabled] { opacity: 0.6; cursor: progress; transform: none; }
+.ad-modulo p.ad-errore {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 6px;
+    background: #FEF3F2;
+    border: 1px solid #FECDCA;
+    color: #912018;
+    font-size: 0.9rem;
+    text-align: left !important;
+}
+.ad-modulo p.ad-nota-invio { font-size: 0.8rem; color: var(--testo-tenue); }
+
+/* --- l'iscrizione registrata --- */
+.ad-fatto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 8px;
+    outline: none;
+}
+.ad-fatto[hidden] { display: none; }
+.ad-fatto-icona {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--azzurro-tenue);
+    color: var(--blu);
+    margin-bottom: 20px;
+}
+.ad-fatto-icona svg { width: 30px; height: 30px; }
+.ad-fatto h2 {
+    font-family: var(--font-titoli);
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--blu-notte);
+}
+.ad-fatto p {
+    margin-top: 12px;
+    max-width: 52ch;
+    color: var(--testo-tenue);
+    text-align: center !important;
+    text-align-last: center;
+}
+.ad-fatto p.ad-fatto-nota { font-size: 0.85rem; }
+.ad-fatto .btn { margin-top: 24px; }
+
+@media (max-width: 960px) {
+    .ad-griglia { grid-template-columns: 1fr; }
+    .ad-riepilogo { position: static; }
+}
+@media (max-width: 640px) {
+    .ad-testata { padding: 36px 0 48px; }
+    .ad-logo { height: 32px; margin-bottom: 28px; }
+    .ad-corpo { padding: 24px 0 64px; }
+    .ad-modulo { padding: 24px 18px; }
+    .ad-riepilogo { padding: 22px 18px; }
+    .ad-campi { grid-template-columns: 1fr; }
+    .campo-riga { grid-template-columns: 1fr 1fr; }
+    .campo-riga .campo:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }
+    .ad-invio .btn { width: 100%; }
+}
+
+input[name="provincia"]::placeholder,
+input[name="codiceDestinatario"]::placeholder { text-transform: none; }
+.ad-quota span { text-align: left !important; -webkit-hyphens: manual !important; hyphens: manual !important; }

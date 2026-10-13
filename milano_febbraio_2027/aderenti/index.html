@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Pagina riservata agli aderenti Revilaw: si raggiunge SOLO dal
+         collegamento che si manda a loro. Non va indicizzata, non e' nella
+         sitemap, non ha link dal resto del sito ed e' esclusa in robots.txt,
+         come le pagine delle cene di Napoli (/cene_napoli/). -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#08213A">
+    <title>Iscrizione aderenti Revilaw, Milano 26-27 febbraio 2027</title>
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css?v=3">
+    <link rel="stylesheet" href="aderenti.css?v=1">
+    <link rel="stylesheet" href="/assets/testo.css?v=1">
+</head>
+<body class="pagina-aderenti">
+
+    <header class="ad-testata">
+        <div class="hero-sfondo" aria-hidden="true"></div>
+        <div class="wrap ad-testata-corpo">
+            <img class="ad-logo" src="/assets/logo-revilaw-bianco.png" alt="Revilaw" width="371" height="115">
+            <span class="hero-occhiello">Riservato agli aderenti Revilaw</span>
+            <h1>Cena e meeting degli aderenti</h1>
+            <p class="ad-sottotitolo">Milano &middot; 26 e 27 febbraio 2027</p>
+        </div>
+    </header>
+
+    <main class="ad-corpo">
+        <div class="wrap ad-griglia">
+
+            <aside class="ad-riepilogo" aria-label="La quota di partecipazione">
+                <span class="etichetta">La partecipazione</span>
+                <ul class="ad-voci">
+                    <li>
+                        <span class="ad-voce-data"><b>26</b>feb</span>
+                        <span><strong>Cena degli aderenti</strong><br>Venerdì 26 febbraio 2027, Milano</span>
+                    </li>
+                    <li>
+                        <span class="ad-voce-data"><b>27</b>feb</span>
+                        <span><strong>Meeting degli aderenti</strong><br>Sabato 27 febbraio 2027, Milano</span>
+                    </li>
+                </ul>
+                <div class="ad-quota">
+                    <span class="ad-quota-label">Quota di partecipazione</span>
+                    <span class="ad-quota-importo">200 € <small>+ IVA</small></span>
+                    <span class="ad-quota-nota">244,00 € IVA 22% inclusa, per persona. Comprende la cena del 26 e il meeting del 27.</span>
+                </div>
+                <ol class="ad-passi">
+                    <li>Compili il modulo con i Suoi dati e quelli per la fattura.</li>
+                    <li>Riceve subito una mail con il riepilogo dell'iscrizione.</li>
+                    <li>Nei giorni successivi Le inviamo la fattura.</li>
+                </ol>
+                <p class="ad-aiuto">Per informazioni: <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></p>
+            </aside>
+
+            <section class="ad-modulo" id="contenuto" aria-label="Modulo di iscrizione">
+                <form id="modulo" novalidate>
+                    <fieldset>
+                        <legend><span class="ad-num">1</span> Dati anagrafici</legend>
+                        <div class="ad-campi">
+                            <label class="campo">
+                                <span>Nome <i aria-hidden="true">*</i></span>
+                                <input name="nome" autocomplete="given-name" required maxlength="80">
+                            </label>
+                            <label class="campo">
+                                <span>Cognome <i aria-hidden="true">*</i></span>
+                                <input name="cognome" autocomplete="family-name" required maxlength="80">
+                            </label>
+                            <label class="campo">
+                                <span>Email <i aria-hidden="true">*</i></span>
+                                <input name="email" type="email" autocomplete="email" required maxlength="200">
+                            </label>
+                            <label class="campo">
+                                <span>Telefono <i aria-hidden="true">*</i></span>
+                                <input name="telefono" type="tel" autocomplete="tel" required maxlength="40">
+                            </label>
+                            <label class="campo">
+                                <span>Studio o società</span>
+                                <input name="studio" autocomplete="organization" maxlength="160">
+                            </label>
+                            <label class="campo">
+                                <span>Città</span>
+                                <input name="citta" autocomplete="address-level2" maxlength="80">
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend><span class="ad-num">2</span> Dati di fatturazione</legend>
+                        <p class="ad-spiega">La fattura sarà intestata come indicato qui. Con la partita IVA serve il codice destinatario SDI o la PEC.</p>
+                        <div class="ad-campi">
+                            <label class="campo campo-largo">
+                                <span>Intestatario (ragione sociale o nome e cognome) <i aria-hidden="true">*</i></span>
+                                <input name="intestatario" autocomplete="organization" required maxlength="160">
+                            </label>
+                            <label class="campo">
+                                <span>Partita IVA</span>
+                                <input name="partitaIva" inputmode="numeric" maxlength="20" placeholder="11 cifre">
+                            </label>
+                            <label class="campo">
+                                <span>Codice fiscale</span>
+                                <input name="codiceFiscale" maxlength="20" autocapitalize="characters">
+                            </label>
+                            <label class="campo campo-largo">
+                                <span>Indirizzo della sede <i aria-hidden="true">*</i></span>
+                                <input name="indirizzo" autocomplete="street-address" required maxlength="160" placeholder="Via e numero civico">
+                            </label>
+                            <div class="campo-riga">
+                                <label class="campo">
+                                    <span>CAP <i aria-hidden="true">*</i></span>
+                                    <input name="cap" inputmode="numeric" autocomplete="postal-code" required maxlength="5">
+                                </label>
+                                <label class="campo">
+                                    <span>Comune <i aria-hidden="true">*</i></span>
+                                    <input name="comune" autocomplete="address-level2" required maxlength="80">
+                                </label>
+                                <label class="campo">
+                                    <span>Provincia <i aria-hidden="true">*</i></span>
+                                    <input name="provincia" required maxlength="2" placeholder="MI" autocapitalize="characters">
+                                </label>
+                            </div>
+                            <label class="campo">
+                                <span>Codice destinatario SDI</span>
+                                <input name="codiceDestinatario" maxlength="7" placeholder="7 caratteri" autocapitalize="characters">
+                            </label>
+                            <label class="campo">
+                                <span>PEC</span>
+                                <input name="pec" type="email" maxlength="200">
+                            </label>
+                            <label class="campo campo-largo">
+                                <span>Email a cui inviare copia della fattura</span>
+                                <input name="emailFatture" type="email" maxlength="200" placeholder="Se diversa da quella indicata sopra">
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend><span class="ad-num">3</span> Conferma</legend>
+                        <label class="campo campo-largo">
+                            <span>Note (allergie o intolleranze per la cena, altre indicazioni)</span>
+                            <textarea name="note" rows="3" maxlength="600"></textarea>
+                        </label>
+                        <label class="spunta">
+                            <input type="checkbox" name="accettaQuota" required>
+                            <span>Confermo la partecipazione alla cena del 26 e al meeting del 27 febbraio 2027 e la quota di <strong>200 € + IVA</strong>, per la quale riceverò fattura.</span>
+                        </label>
+                        <label class="spunta">
+                            <input type="checkbox" name="privacy" required>
+                            <span>Ho letto l'<a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">informativa privacy</a> e acconsento al trattamento dei dati per l'iscrizione e la fatturazione.</span>
+                        </label>
+                    </fieldset>
+
+                    <div class="ad-invio">
+                        <p class="ad-errore" id="errore" role="alert" hidden></p>
+                        <button type="submit" class="btn btn-scuro" id="invia">Invia l'iscrizione</button>
+                        <p class="ad-nota-invio">I campi con <i>*</i> sono obbligatori.</p>
+                    </div>
+                </form>
+
+                <div class="ad-fatto" id="fatto" hidden tabindex="-1">
+                    <span class="ad-fatto-icona" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    <h2 id="fatto-titolo">Iscrizione registrata</h2>
+                    <p id="fatto-testo"></p>
+                    <p class="ad-fatto-nota">Se un dato non è corretto può inviare di nuovo il modulo con lo stesso indirizzo email: vale l'ultimo invio.</p>
+                    <button type="button" class="btn btn-tenue" id="ancora">Correggi i dati</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="wrap">
+            <div class="footer-bottom">
+                <p>Revilaw S.p.A. &middot; Via XX Settembre, 9 - 37129 Verona &middot; P.IVA 04641610235</p>
+                <p class="footer-privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a> &middot; <a href="/">nextgenerationbusiness.it</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="aderenti.js?v=1"></script>
+</body>
+</html>
