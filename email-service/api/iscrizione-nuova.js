@@ -128,6 +128,13 @@ function initAdmin(cred) {
    che sarebbe una mail dietro l'altra allo stesso indirizzo. */
 const RL_SCHEDA_MS = 10 * 60 * 1000;
 const RL_SCHEDA_MAX = 12;
+/* Gli AVVISI allo studio hanno un tetto piu' basso dei salvataggi, e per una
+   ragione diversa: il salvataggio riscrive una riga in archivio, l'avviso
+   suona in tre caselle. Tre dentro dieci minuti bastano per una correzione
+   fatta subito e per un ripensamento; dal quarto in avanti la richiesta si
+   registra e la mail no. */
+const AVVISO_FINESTRA_MS = 10 * 60 * 1000;
+const AVVISO_MAX = 3;
 const salvataggi = new Map();
 function troppiSalvataggi(idDoc) {
     if (!idDoc) return false;
@@ -550,16 +557,24 @@ function prenotazioniColleghi(righe, scheda, idDoc) {
 async function nuovoIncontro(azione, body, res) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
-    if (!idDoc || !token || !NL.firmaNuovoIncontroValida(idDoc, token)) {
-        res.status(403).json({ ok: false, msg: MSG_LINK });
-        return;
-    }
+    if (!idDoc || !token) { res.status(403).json({ ok: false, msg: MSG_LINK }); return; }
     initAdmin(leggiServiceAccount());
     const db = admin.firestore();
     const rif = db.collection('iscrizioni').doc(idDoc);
     const snap = await rif.get();
     if (!snap.exists) { res.status(403).json({ ok: false, msg: MSG_LINK }); return; }
     const scheda = snap.data() || {};
+    /* LA FIRMA SI CONTROLLA CONTRO IL RICHIAMO SCRITTO SULLA SCHEDA. Un
+       collegamento vale finche' vale quel richiamo: mandandone un altro, i
+       vecchi smettono di aprire. Senza la scheda non si potrebbe nemmeno
+       verificare, ed e' per questo che si legge prima.
+       Lo stesso messaggio della firma sbagliata: dire "il Suo collegamento e'
+       scaduto" sarebbe gia' raccontare qualcosa di quella scheda a chi prova. */
+    const quandoRichiamo = Number((scheda.nuovoIncontroInvito || {}).quando) || 0;
+    if (!NL.firmaNuovoIncontroValida(idDoc, token, quandoRichiamo)) {
+        res.status(403).json({ ok: false, msg: MSG_LINK });
+        return;
+    }
     /* DA DOVE VIENE L'EVENTO, e l'ordine conta.
        Lo dice per primo il RICHIAMO che abbiamo mandato noi
        (`nuovoIncontroInvito.eventoId`): e' l'unico dato che hanno tutti quelli
@@ -597,7 +612,13 @@ async function nuovoIncontro(azione, body, res) {
         // la richiesta gia' mandata, se c'e': si rivede e si corregge, invece
         // di mandarne una seconda che nessuno sa quale delle due vale
         const pren = await AGENDA.leggiPrenotazioni(db, evento);
-        const mia = (pren.richieste || []).filter(r => String(r.doc || '') === idDoc)[0] || null;
+        /* La richiesta da rivedere e' SOLO quella nata qui. Una richiesta a
+           orari esauriti di mesi prima e' un'altra cosa: presentarla come "la
+           Vostra richiesta" la farebbe correggere senza che nessuno capisca
+           che cosa sta correggendo, e il salvataggio la riscriverebbe da capo
+           riportando ad "aperta" una pratica che lo staff aveva gia' chiuso. */
+        const mia = (pren.richieste || []).filter(r => String(r.doc || '') === idDoc
+            && String(r.tipo || '') === 'nuovo-incontro')[0] || null;
         res.status(200).json({
             ok: true,
             evento: agenda.eventoDati || {},
@@ -634,18 +655,54 @@ async function nuovoIncontro(azione, body, res) {
         evento: evento, aree: body.aree, quandoPref: body.quandoPref,
         nota: body.nota, persona: persona
     });
-    if (!r.ok) { res.status(400).json(r); return; }
+    if (!r.ok) { res.status(r.pieno ? 503 : 400).json(r); return; }
     /* PRIMA L'ARCHIVIO, POI LA POSTA. Se la mail non parte la richiesta resta
        comunque registrata e si vede nell'area riservata: perderla per un
        server di posta lento sarebbe il modo peggiore di trattare qualcuno che
        ha risposto a un nostro invito. */
+    /* IL FRENO DELLE MAIL ALLO STUDIO. Il salvataggio si puo' rifare, ed e'
+       giusto: qualcuno aggiunge un argomento due minuti dopo. Ma ogni
+       salvataggio manda una mail a TRE indirizzi, e il freno di prima ne
+       lascia passare dodici in dieci minuti: trentasei mail nella stessa
+       casella, dove la quarta nessuno la legge piu'. Qui si contano gli
+       AVVISI, non i salvataggi, e il conto viaggia sulla richiesta in
+       archivio: in memoria non servirebbe, perche' su serverless l'istanza
+       cambia fra una chiamata e l'altra.
+       Oltre il tetto la richiesta si registra comunque - quella non si perde
+       mai, ed e' la cosa che conta - e si scrive che una correzione e'
+       arrivata senza avvisare nessuno, cosi' chi guarda la giornata lo vede. */
+    const prima = (r.voce && r.voce.avviso && typeof r.voce.avviso === 'object') ? r.voce.avviso : null;
+    const nato = Number(prima && (prima.inizio || prima.quando)) || 0;
+    const dentroFinestra = !!(nato && Date.now() - nato < AVVISO_FINESTRA_MS);
+    const giaAvvisi = dentroFinestra ? (Number(prima.quante) || 1) : 0;
+    const inizioFinestra = dentroFinestra ? nato : Date.now();
+    let saltatiAvviso = dentroFinestra ? (Number(prima.saltati) || 0) : 0;
     let avvisati = [];
-    try {
-        const inv = await AGENDA.avvisaNuovoIncontro(db, evento, scheda, r.voce, agenda.eventoDati);
-        avvisati = inv.a || [];
-    } catch (e) {
-        console.error('Avviso nuovo incontro non partito:', String((e && e.message) || e).slice(0, 200));
+    if (giaAvvisi >= AVVISO_MAX) {
+        saltatiAvviso++;
+        console.warn('Avviso nuovo incontro non mandato, tetto raggiunto per', idDoc);
+    } else {
+        try {
+            const inv = await AGENDA.avvisaNuovoIncontro(db, evento, scheda, r.voce, agenda.eventoDati, {
+                corretta: r.corretta === true, platea: String(richiamo.platea || '')
+            });
+            avvisati = inv.a || [];
+        } catch (e) {
+            console.error('Avviso nuovo incontro non partito:', String((e && e.message) || e).slice(0, 200));
+        }
     }
+    /* L'ESITO DELL'AVVISO resta scritto accanto alla richiesta. Se la posta
+       non parte, la pagina ringrazia e nessuno nello studio sa che qualcuno
+       ha scritto: cosi' invece il riquadro della giornata puo' dire "avviso
+       non partito" accanto a quella riga, ed e' l'unico modo perche' qualcuno
+       se ne accorga. */
+    try {
+        await AGENDA.segnaAvvisoRichiesta(db, evento, idDoc, {
+            a: avvisati, inviata: avvisati.length > 0,
+            inizio: inizioFinestra, quante: giaAvvisi + (avvisati.length ? 1 : 0),
+            saltati: saltatiAvviso
+        });
+    } catch (_) { /* la richiesta e' registrata: e' quello che conta */ }
     res.status(200).json({ ok: true, avvisati: avvisati.length, aree: r.voce.aree.map(AGENDA.areaDa).filter(Boolean).map(a => a.nome) });
 }
 

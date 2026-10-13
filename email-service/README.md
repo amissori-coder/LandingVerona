@@ -2766,9 +2766,11 @@ offrire di rifare una cosa che non si e' ancora tenuta.
 
 **Due platee, spuntate separate**, perche' sono due decisioni diverse:
 
-- **chi ha prenotato un incontro**: invitata ai tavoli di questo evento
+- **chi era agli incontri B2B**: invitata ai tavoli di questo evento
   (`aziendaB2B`) oppure con una prenotazione scritta sulla scheda (colonna
-  "B2B prenotati");
+  "B2B prenotati"). Chi aveva solo l'invito, senza nessuna prenotazione, si
+  riconosce riga per riga dal contrassegno "solo invito": e' una decisione che
+  si prende guardando, non un elenco che decide da se';
 - **chi ha seguito online**: chi risulta nella sezione online. Se poi si sia
   collegato davvero lo sa la regia della diretta, che e' un altro archivio: qui
   si scrive a chi risulta iscritto, e chi non si e' collegato riceve comunque
@@ -2789,6 +2791,35 @@ farsi mettere fra la posta da buttare. Si puo' forzare dicendolo. Due schede con
 la stessa casella sono **una mail sola**: due righe nostre non sono due persone
 da disturbare due volte.
 
+Il confronto e' **per evento**: chi e' stato richiamato dopo Verona deve poter
+essere richiamato dopo Napoli, e un controllo che guardasse solo se la traccia
+esiste lo terrebbe fuori per sempre. Una traccia senza evento - quelle scritte
+prima che il campo ci fosse - vale come "gia' richiamato": una mail in meno e'
+meglio di una mail doppia. **Chi si e' disiscritto non si richiama**, e si conta
+a parte: un destinatario che sparisce senza una riga nel riassunto sembra un
+guasto.
+
+**L'incontro l'hanno fatto o no? Non lo sappiamo**, al tavolo non si timbra.
+Quello che sappiamo e' chi quel giorno era in sala (`presenze`): chi risulta
+assente il suo incontro non l'ha fatto di sicuro ed e' la riga da richiamare per
+prima, chi risulta presente forse l'ha fatto. Si scrive accanto al nome e si puo'
+filtrare ("Solo chi non risulta in sala"), ma il filtro parte spento, perche' la
+presenza non sempre viene segnata e un elenco che si assottiglia da solo e'
+peggio di un elenco lungo.
+
+**Si manda a lotti di venticinque, e il lotto che non riesce non si perde.**
+Lo stato dell'invio vive fuori dalla funzione che spedisce: premendo di nuovo si
+riprende da quello fermo, non dal primo - ricominciare da capo con "scrivi anche
+a chi e' gia' stato richiamato" acceso vorrebbe dire rimandare le prime
+venticinque mail a chi le aveva ricevute un minuto prima. Gli indirizzi gia'
+serviti viaggiano con il lotto successivo (`giaServiti`), perche' la difesa dei
+doppioni vive dentro una chiamata sola e due schede con la stessa casella
+finiscono in due lotti diversi. E il servizio **smette di spedire prima di
+essere troncato** dal tempo massimo: dice quanti e **quali** destinatari non ha
+servito (`rimasti`, `daRifare`), e la finestra li rimette nello stesso lotto.
+Il taglio non scatta mai sul primo, perche' una chiamata che non spedisce niente
+e risponde "riprova" sarebbe un giro a vuoto.
+
 **L'azione e' sua** (`invita-nuovo-incontro` in `api/presenze.js`) e non
 `invita-b2b`. Quella scrive `b2bInvito`, che vuol dire "invitata agli incontri
 di quel convegno": qui il convegno e' passato, e scriverlo sarebbe falso due
@@ -2798,9 +2829,14 @@ per PERSONA e non per azienda: chi ha seguito online spesso un'impresa fra
 quelle invitate non ce l'ha, e il collegamento e' della scheda.
 
 **La pagina** e' `/nuovo_incontro/`, raggiunta con `?d=<scheda>&t=<firma>`
-(`firmaNuovoIncontro`, contesto `nuovo-incontro|<idDoc>`). Firma **per la
-scheda** e non per l'azienda, per la stessa ragione: chi ha seguito online
-spesso un'azienda non ce l'ha. Contesto suo, come tutte le altre pagine: il
+(`firmaNuovoIncontro`, contesto `nuovo-incontro|<idDoc>|<quando>`). Firma **per
+la scheda** e non per l'azienda, per la stessa ragione: chi ha seguito online
+spesso un'azienda non ce l'ha. **Dentro la firma c'e' il momento del richiamo**,
+lo stesso che il servizio scrive sulla scheda nell'istante in cui spedisce:
+senza, un collegamento sarebbe buono per sempre, e uno inoltrato per sbaglio o
+rimasto nei messaggi inviati di una casella condivisa lascerebbe a chiunque
+l'anagrafica di quella persona e la facolta' di riscriverle la richiesta. Cosi'
+invece un richiamo nuovo invalida da se' quelli vecchi: vale l'ultimo mandato. Contesto suo, come tutte le altre pagine: il
 token che apre questa non deve aprire `/completa_iscrizione/`, che riscrive i
 nominativi dei partecipanti, e viceversa. Le azioni (`nuovo-incontro-leggi` e
 `nuovo-incontro-salva`) stanno dentro `/api/iscrizione-nuova`: gli endpoint
@@ -2847,6 +2883,15 @@ avanti nessuna schermata saprebbe piu' che nome dargli. Senza nessun argomento
 valido la richiesta non si registra, perche' chi organizza leggerebbe un nome
 senza sapere di che cosa parlargli.
 
+**Quando l'elenco e' pieno non si butta via la piu' vecchia in silenzio.**
+Finche' le richieste erano quelle di chi trovava i tavoli esauriti erano poche
+decine; adesso la mail del richiamo va a tutta la platea, e un taglio muto
+farebbe sparire una richiesta che qualcuno ha scritto - con la sua nota e il suo
+"gestita" - mentre alla persona si risponde "grazie, ricevuta". Si fa spazio
+togliendo le **gia' gestite**, dalla piu' vecchia, che la loro risposta l'hanno
+gia' avuta; se non ce ne sono abbastanza la richiesta non si registra e si dice,
+con l'indirizzo a cui scrivere.
+
 **L'avviso a chi organizza** (`avvisaNuovoIncontro`) porta **tutta
 l'anagrafica** nel messaggio: nome, azienda, ruolo, indirizzo, telefono,
 argomenti per esteso, quando preferirebbe e quello che ha scritto. Chi legge
@@ -2857,7 +2902,29 @@ codice, per la stessa ragione per cui ci stanno quelli delle richieste di
 contatto: li cambia chi organizza, non chi pubblica il servizio. I tre di
 partenza sono scritti nel codice perche' il primo giro deve funzionare senza
 che nessuno configuri niente. **Prima l'archivio, poi la posta**: se la mail non
-parte la richiesta resta comunque registrata, e la pagina dice di si'.
+parte la richiesta resta comunque registrata, e la pagina dice di si'. L'oggetto
+dice se e' una **richiesta nuova** o una **correzione**, e la prima riga se quella
+persona aveva **seguito online**: tre persone davanti alla stessa casella,
+altrimenti, leggono due mail che sembrano due imprese e due di loro telefonano
+alla stessa.
+
+**Il tetto delle mail allo studio.** Il salvataggio si puo' rifare, ed e' giusto:
+qualcuno aggiunge un argomento due minuti dopo. Ma ogni salvataggio suona in tre
+caselle, e il freno dei salvataggi ne lascia passare dodici in dieci minuti:
+trentasei mail, dove la quarta nessuno la legge piu'. Il tetto e' **sugli
+avvisi** (tre ogni dieci minuti) e il conto viaggia **sulla richiesta in
+archivio**, non in memoria: su serverless l'istanza cambia fra una chiamata e
+l'altra, e un freno in memoria non frena niente. Oltre il tetto la richiesta si
+registra lo stesso - quella non si perde mai - e resta scritto che una
+correzione e' arrivata senza avvisare nessuno.
+
+**L'esito dell'avviso resta accanto alla richiesta** (`avviso`), e il riquadro
+della giornata lo dice in due casi, perche' in tutti e due chi guarda e' l'ultimo
+che puo' accorgersene: la mail **non e' partita** (quella persona ha scritto e
+nelle tre caselle non e' arrivato niente, quindi quella riga e' l'unica traccia
+che esista) oppure sono arrivate **correzioni oltre il tetto** (gli argomenti in
+elenco sono gli ultimi, quelli nella mail sono di prima, e telefonare con la mail
+in mano vorrebbe dire parlare della cosa sbagliata).
 
 **Quattro punti in cui questa richiesta e' DIVERSA dalle altre, e il codice lo
 dice.** La risposta dell'azione `riepilogo` e' una whitelist campo per campo, e
@@ -2881,10 +2948,14 @@ riempirebbe la casella di chi ha premuto con settanta messaggi, ciascuno con
 dentro il collegamento firmato di qualcun altro.
 
 Le prove stanno in `prove/nuovo-incontro.prove.js` (il flusso intero, dalle
-firme all'avviso, e i quattro punti qui sopra provati dalla risposta VERA del
-servizio e non da un riepilogo costruito a mano) e in
-`prove/riepilogo-b2b.prove.js` (il capitolo del foglio stampato, con gli
-argomenti e il "quando").
+firme all'avviso, piu' il tetto delle mail allo studio e il taglio del tempo, e i
+quattro punti qui sopra provati dalla risposta VERA del servizio e non da un
+riepilogo costruito a mano), in `prove/riepilogo-b2b.prove.js` (il capitolo del
+foglio stampato, con gli argomenti e il "quando") e in
+`prove/tavoli-b2b.prove.js`, che controlla che la mail del richiamo **nomini
+tutti** i tavoli che si possono chiedere: li elenca a parole, in una frase, ed e'
+una copia dell'elenco dei tavoli che senza quella prova resterebbe indietro al
+primo tavolo nuovo.
 
 
 ## Programma della giornata (`lib/programma-evento.js`)

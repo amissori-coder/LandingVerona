@@ -116,14 +116,22 @@ function firmaAziendaValida(evento, aziendaId, token) {
    firma d'azienda quelle persone non avrebbero un collegamento.
    Contesto suo, come tutti gli altri: il token che apre questa pagina non deve
    aprire /completa_iscrizione/, che riscrive i nominativi dei partecipanti, ne'
-   il modulo B2B dell'impresa. */
-function firmaNuovoIncontro(idDoc) {
+   il modulo B2B dell'impresa.
+   E DENTRO LA FIRMA C'E' IL MOMENTO DEL RICHIAMO, che il servizio scrive sulla
+   scheda nello stesso istante in cui spedisce. Senza, un collegamento sarebbe
+   buono per sempre: inoltrato per sbaglio, o rimasto nei messaggi inviati di
+   una casella condivisa, lascerebbe a chiunque l'anagrafica di quella persona
+   e la facolta' di riscriverle la richiesta - anche mesi dopo, anche quando lo
+   staff l'aveva gia' chiusa. Cosi' invece un richiamo nuovo invalida da se'
+   quelli vecchi, ed e' il comportamento giusto: l'ultimo collegamento mandato
+   e' l'unico che vale. */
+function firmaNuovoIncontro(idDoc, quando) {
     return crypto.createHmac('sha256', segreto())
-        .update('nuovo-incontro|' + String(idDoc || ''))
+        .update('nuovo-incontro|' + String(idDoc || '') + '|' + String(Number(quando) || 0))
         .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
 }
-function firmaNuovoIncontroValida(idDoc, token) {
-    const attesa = Buffer.from(firmaNuovoIncontro(idDoc));
+function firmaNuovoIncontroValida(idDoc, token, quando) {
+    const attesa = Buffer.from(firmaNuovoIncontro(idDoc, quando));
     const data = Buffer.from(String(token || ''));
     if (attesa.length !== data.length) return false;
     return crypto.timingSafeEqual(attesa, data);
@@ -178,9 +186,9 @@ function linkB2BAzienda(evento, aziendaId) {
 /* La pagina del nuovo incontro: stessa forma delle altre, firma con il suo
    contesto. */
 const PAGINA_NUOVO_INCONTRO = BASE + '/nuovo_incontro/';
-function linkNuovoIncontro(idDoc) {
+function linkNuovoIncontro(idDoc, quando) {
     return PAGINA_NUOVO_INCONTRO + '?d=' + encodeURIComponent(String(idDoc || ''))
-        + '&t=' + encodeURIComponent(firmaNuovoIncontro(idDoc));
+        + '&t=' + encodeURIComponent(firmaNuovoIncontro(idDoc, quando));
 }
 /* Collegamento personale mostrato in fondo alla mail (pagina di conferma). */
 function linkDisiscrizione(email, campagna) {

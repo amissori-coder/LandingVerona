@@ -561,13 +561,44 @@ async function chiediNuovoIncontro(db, dati) {
         const corrente = normalizzaPrenotazioni(snap.exists ? snap.data() : null, evento);
         // la seconda richiesta della STESSA persona aggiorna la prima: e' un
         // ripensamento, non una richiesta in piu' da leggere
+        const prec = (corrente.richieste || []).filter(r => String(r.doc || '') === voce.doc)[0] || null;
         const altre = (corrente.richieste || []).filter(r => String(r.doc || '') !== voce.doc);
-        const richieste = altre.concat([voce]).slice(-MAX_RICHIESTE);
+        /* L'ESITO DELL'AVVISO SI PORTA DIETRO. La richiesta nuova prende il
+           posto della vecchia, ma `avviso` non e' roba della richiesta: e' il
+           conto delle mail che sono andate allo studio per questa persona.
+           Perdendolo a ogni correzione il freno di chi manda ripartirebbe da
+           zero ogni volta, e dodici ripensamenti in dieci minuti tornerebbero
+           trentasei mail nella stessa casella. */
+        const nuova = (prec && prec.avviso && typeof prec.avviso === 'object')
+            ? Object.assign({}, voce, { avviso: prec.avviso }) : voce;
+        esito = { ok: true, voce: nuova, corretta: !!prec };
+        /* QUANDO L'ELENCO E' PIENO non si butta via la piu' vecchia in
+           silenzio. Finche' le richieste erano quelle di chi trovava i tavoli
+           esauriti erano poche decine; adesso la mail del richiamo va a tutta
+           la platea, e un `slice` muto farebbe sparire una richiesta che
+           qualcuno ha scritto - con la sua nota e il suo "gestita" - mentre
+           alla persona si risponde "grazie, ricevuta".
+           Si fa spazio togliendo le GIA' GESTITE, che hanno gia' avuto la loro
+           risposta, dalla piu' vecchia. Se non ce ne sono abbastanza, la
+           richiesta non si registra e si dice: meglio un messaggio a chi
+           scrive che un archivio che perde pezzi. */
+        let richieste = altre.concat([nuova]);
+        if (richieste.length > MAX_RICHIESTE) {
+            const gestite = richieste
+                .map((r, i) => ({ i: i, gestita: String(r.stato || 'aperta') === 'gestita', quando: Number(r.quando) || 0 }))
+                .filter(x => x.gestita).sort((a, b) => a.quando - b.quando)
+                .slice(0, richieste.length - MAX_RICHIESTE).map(x => x.i);
+            if (gestite.length < richieste.length - MAX_RICHIESTE) {
+                esito = { ok: false, pieno: true,
+                    msg: 'In questo momento non riusciamo a registrare altre richieste: ci scriva a info@nextgenerationbusiness.it e ce ne occupiamo noi.' };
+                return;
+            }
+            richieste = richieste.filter((r, i) => gestite.indexOf(i) < 0);
+        }
         t.set(rif, corpoPrenotazioni(corrente, {
             evento: evento, richieste: richieste,
             aggiornato: { quando: Date.now(), da: voce.email }
         }));
-        esito = { ok: true, voce: voce };
     });
     return esito || { ok: false, msg: 'Richiesta non registrata: riprovi fra un momento.' };
 }
@@ -612,13 +643,24 @@ async function destinatariNuovoIncontro(db, evento) {
    Se la posta non parte la richiesta resta comunque registrata: e' gia' in
    archivio quando questa funzione viene chiamata, e perderla per un server di
    posta lento sarebbe il modo peggiore di trattare qualcuno che ha risposto. */
-async function avvisaNuovoIncontro(db, evento, scheda, voce, eventoDati) {
+async function avvisaNuovoIncontro(db, evento, scheda, voce, eventoDati, opz) {
     const dest = await destinatariNuovoIncontro(db, evento);
     if (!dest.length) return { ok: false, a: [] };
     const ev = eventoDati || {};
     const chi = voce.nome || String(scheda.email || '');
+    /* CORREZIONE O RICHIESTA NUOVA, detto nell'oggetto e nella prima riga.
+       Tre persone leggono questa casella: senza, la seconda mail sembrerebbe
+       una seconda impresa, e due di loro telefonerebbero alla stessa. */
+    const corretta = !!(opz && opz.corretta);
+    /* DA DOVE VIENE, perche' cambia come comincia la telefonata: a chi era ai
+       tavoli si chiede com'e' andata, a chi ha seguito online si spiega che
+       cos'e' un incontro B2B. */
+    const online = String((scheda.modalita || '')).toLowerCase() === 'online'
+        || String((opz && opz.platea) || '') === 'online';
     const righe = [
-        'Una persona che ha partecipato a ' + ([ev.titolo, ev.quando].filter(Boolean).join(', ') || String(scheda.pagina || 'Next Generation Business'))
+        (corretta ? 'CORREZIONE di una richiesta già arrivata. ' : '')
+            + 'Una persona che ha partecipato a ' + ([ev.titolo, ev.quando].filter(Boolean).join(', ') || String(scheda.pagina || 'Next Generation Business'))
+            + (online ? ' seguendo ONLINE' : '')
             + ' chiede di programmare un NUOVO incontro.',
         'Nome: ' + chi,
         'Azienda: ' + (voce.aziendaNome || voce.azienda || 'non indicata'),
@@ -638,13 +680,56 @@ async function avvisaNuovoIncontro(db, evento, scheda, voce, eventoDati) {
                rifiutare l'INTERO messaggio dal server di posta, e l'avviso
                non arriverebbe a nessuno per colpa di un campo comodo. */
             replyTo: (voce.email && EMAIL_RE.test(voce.email)) ? voce.email : undefined,
-            subject: 'Nuovo incontro richiesto - ' + chi + (voce.aziendaNome || voce.azienda ? ' (' + (voce.aziendaNome || voce.azienda) + ')' : ''),
+            subject: (corretta ? 'Richiesta corretta' : 'Nuovo incontro richiesto') + ' - ' + chi
+                + (voce.aziendaNome || voce.azienda ? ' (' + (voce.aziendaNome || voce.azienda) + ')' : ''),
             text: righe.join('\n\n')
         });
     } finally {
         try { trans.close(); } catch (_) { /* niente da chiudere */ }
     }
     return { ok: true, a: dest };
+}
+
+/* L'ESITO DELL'AVVISO ALLO STUDIO, scritto accanto alla richiesta.
+   Se la posta non parte la pagina ringrazia lo stesso - la richiesta e' in
+   archivio, ed e' giusto - ma nessuno nello studio lo sa: quella persona
+   resterebbe in elenco senza che nessuno l'abbia mai vista arrivare. Qui
+   resta scritto se l'avviso e' partito e a chi, cosi' il riquadro della
+   giornata puo' dirlo accanto alla sua riga. Scrittura leggera e separata:
+   se fallisce, la richiesta resta comunque. */
+async function segnaAvvisoRichiesta(db, evento, idDoc, esito) {
+    const ev = idEvento(evento);
+    const rif = rifPrenotazioni(db, ev);
+    await db.runTransaction(async t => {
+        const snap = await t.get(rif);
+        const corrente = normalizzaPrenotazioni(snap.exists ? snap.data() : null, ev);
+        let trovata = false;
+        const richieste = (corrente.richieste || []).map(r => {
+            if (String(r.doc || '') !== String(idDoc || '')) return r;
+            trovata = true;
+            return Object.assign({}, r, {
+                avviso: {
+                    quando: Date.now(),
+                    a: (esito && Array.isArray(esito.a) ? esito.a : []).slice(0, 10),
+                    inviata: !!(esito && esito.inviata),
+                    /* IL CONTO DELLA FINESTRA, che e' il freno delle mail allo
+                       studio: `inizio` quando la finestra e' cominciata,
+                       `quante` gli avvisi partiti dentro, `saltati` le
+                       correzioni arrivate quando il tetto era pieno. Sta qui e
+                       non in memoria perche' su serverless l'istanza cambia,
+                       e un freno in memoria non frena niente. `saltati` si
+                       vede nella giornata: una correzione che non ha avvisato
+                       nessuno non deve restare un fatto privato. */
+                    inizio: Number((esito && esito.inizio) || 0) || Date.now(),
+                    quante: Number((esito && esito.quante) || 0),
+                    saltati: Number((esito && esito.saltati) || 0)
+                }
+            });
+        });
+        if (!trovata) return;
+        t.set(rif, corpoPrenotazioni(corrente, { evento: ev, richieste: richieste }));
+    });
+    return { ok: true };
 }
 
 /* Segna una richiesta come gestita (o la riapre, o la toglie): lo fa lo
@@ -1454,6 +1539,15 @@ async function esegui(ctx) {
                     tipo: r.tipo || '',
                     aree: Array.isArray(r.aree) ? r.aree : [],
                     quandoPref: r.quandoPref || '',
+                    /* L'ESITO DELL'AVVISO allo studio passa anche lui: una
+                       richiesta arrivata senza che la mail partisse si vede
+                       solo qui, e se non lo diciamo quella persona resta in
+                       elenco senza che nessuno sappia che ha scritto. */
+                    avviso: (r.avviso && typeof r.avviso === 'object') ? {
+                        quando: Number(r.avviso.quando) || 0,
+                        inviata: r.avviso.inviata !== false,
+                        saltati: Number(r.avviso.saltati) || 0
+                    } : null,
                     area: r.area, nota: r.nota, quando: r.quando,
                     stato: String(r.stato || 'aperta')
                 })),
@@ -2281,7 +2375,7 @@ module.exports = {
     orariPresi, bloccoSuPrenotazioni,
     // le operazioni
     prendiSlot, liberaSlot, chiediFuoriSlot, segnaRichiesta,
-    chiediNuovoIncontro, avvisaNuovoIncontro, destinatariNuovoIncontro,
+    chiediNuovoIncontro, avvisaNuovoIncontro, destinatariNuovoIncontro, segnaAvvisoRichiesta,
     MAX_AREE_RICHIESTA,
     letturaOspite, inviaConferma, avvisaRichiesta,
     // gli incontri di un'azienda

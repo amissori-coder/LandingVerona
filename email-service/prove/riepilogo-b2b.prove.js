@@ -75,6 +75,7 @@ const pezzi = [
     ritaglia('function nomeAreaB2B(', '{', '}'),
     /* Gli argomenti di una richiesta e il suo tipo: il capitolo delle
        richieste sul foglio stampato li legge tutti e due. */
+    ritaglia('function areeDiRichiesta(', '{', '}'),
     ritaglia('function areeRichiesta(', '{', '}'),
     ritaglia('function eNuovoIncontro(', '{', '}'),
     /* I tavoli che hanno cambiato argomento sotto chi aveva gia' prenotato. */
@@ -169,7 +170,16 @@ const RB = {
           telefono: '349', area: 'merito-creditizio', nota: 'Siamo in trattativa con due banche: ci servirebbe mezz ora.',
           quando: 20, stato: 'aperta' },
         { doc: 'd2', nome: 'Nino Blu', azienda: 'Delta Srl', aziendaNome: 'Delta Srl', email: 'nino@delta.it',
-          telefono: '', area: '', nota: 'Va bene anche dopo i lavori.', quando: 30, stato: 'gestita' }
+          telefono: '', area: '', nota: 'Va bene anche dopo i lavori.', quando: 30, stato: 'gestita' },
+        /* LA RICHIESTA NATA DOPO IL CONVEGNO: senza una voce cosi' nel
+           campione, il ramo che la distingue non verrebbe mai eseguito e le
+           prove direbbero verde su un foglio che non l'ha mai stampata.
+           Porta QUATTRO argomenti apposta: il filtro del foglio di un tavolo
+           solo deve trovarla anche sul quarto. */
+        { doc: 'd3', nome: 'Ida Verdi', azienda: 'Omega S.p.A.', aziendaNome: 'Omega S.p.A.', email: 'ida@omega.it',
+          telefono: '02 987654', tipo: 'nuovo-incontro',
+          aree: ['esg', 'merito-creditizio', 'revisione', 'adeguati-assetti'], area: 'esg',
+          quandoPref: 'di mattina, non il lunedi', nota: 'Richiamati il 24.', quando: 40, stato: 'aperta' }
     ],
     aziende: [
         { id: 'beta', nome: 'Beta Srl', piva: '07307010632', referenti: [{ nome: 'Gino Verdi', email: 'gino@beta.it', telefono: '333' }], incontri: 2, coda: 1, esigenze: 1, link: 'https://ngb.it/b2b?a=beta' },
@@ -303,7 +313,9 @@ prova('Il foglio stampato porta tutto quello che le imprese hanno scritto', () =
        stesso. Se restano solo a video, con il foglio in mano non se ne ricorda
        nessuno. */
     const foglio = AMBIENTE.stampa(RB);
-    esigi(foglio.indexOf('Richieste a orari esauriti') > 0, 'il capitolo c e', foglio.slice(0, 80));
+    /* Il titolo dice quello che c'e' dentro: con anche una richiesta nata dopo
+       il convegno, "a orari esauriti" mentirebbe su meta' dell'elenco. */
+    esigi(foglio.indexOf('Richieste di incontro') > 0, 'il capitolo c e', foglio.slice(0, 80));
     esigi(foglio.indexOf('Siamo in trattativa con due banche') > 0,
         'e dentro c e per intero quello che l impresa ha scritto');
     esigi(foglio.indexOf('Gamma Srl') > 0 && foglio.indexOf('rita@gamma.it') > 0 && foglio.indexOf('349') > 0,
@@ -477,7 +489,12 @@ prova('Il foglio stampato ha la sua colonna', () => {
        dire. */
     const senza = AMBIENTE.stampa(RB);
     esigi(senza.indexOf('<th>Aveva chiesto</th>') > 0, 'la colonna resta anche quando nessuno e stato spostato');
-    esigi(senza.indexOf('Revisione') < 0, 'ma le celle sono vuote', 'trovato "Revisione" senza spostamenti');
+    /* Si guarda la COLONNA, non tutto il foglio: "Revisione legale" compare
+       anche fra gli argomenti di una richiesta, e cercarla ovunque farebbe
+       passare la prova per il motivo sbagliato. */
+    const righeTav = senza.split('<th>Aveva chiesto</th>')[1] || '';
+    const celle = (righeTav.match(/<td class="nota">[^<]*<\/td>/g) || []).slice(0, 4);
+    esigi(!celle.some(c => /Revisione/.test(c)), 'ma le celle sono vuote', celle.join(' | '));
 });
 
 /* ------------------------------------------------------------
@@ -610,6 +627,33 @@ prova('I doppioni d orario restano solo dove toccano quel tavolo', () => {
     const fuori = AMBIENTE.stampa(altrove, 'merito-creditizio');
     esigi(fuori.indexOf('attese in due posti') < 0,
         'mentre un doppione fra altri due tavoli non compare', 'trovato il capitolo dei doppioni');
+});
+
+prova('Una richiesta con quattro argomenti si vede su tutti e quattro i tavoli', () => {
+    /* Il foglio di un tavolo solo filtrava sul PRIMO argomento: quella persona
+       compariva davanti al referente del primo tavolo e spariva per gli altri
+       tre, che non sapevano di doverla richiamare. */
+    const suoi = ['esg', 'merito-creditizio', 'revisione', 'adeguati-assetti'];
+    const trovata = suoi.map(a => {
+        const copia = JSON.parse(JSON.stringify(RB));
+        copia.desk[0].id = a;
+        copia.desk[0].nome = a;
+        return AMBIENTE.stampa(copia, a).indexOf('Omega S.p.A.') > 0;
+    });
+    esigi(trovata.every(Boolean), 'si trova sul foglio di ciascuno dei suoi argomenti', JSON.stringify(trovata));
+    /* E non compare dove non l'ha chiesta: un referente che legge un nome che
+       non lo riguarda telefona per niente. */
+    const altro = JSON.parse(JSON.stringify(RB));
+    altro.desk[0].id = 'certificazione-iso';
+    altro.desk[0].nome = 'Certificazione ISO';
+    esigi(AMBIENTE.stampa(altro, 'certificazione-iso').indexOf('Omega S.p.A.') < 0,
+        'e non su un tavolo che non ha chiesto');
+    /* Sul foglio intero gli argomenti si leggono tutti e quattro: chi telefona
+       deve sapere di che cosa parlare. */
+    const tutto = AMBIENTE.stampa(RB);
+    esigi(/Merito creditizio/.test(tutto) && /Revisione legale/.test(tutto) && /Adeguati assetti/.test(tutto),
+        'e sul foglio intero ci sono tutti');
+    esigi(/di mattina, non il lunedi/.test(tutto), 'con quando preferisce');
 });
 
 prova('Il pulsante per stampare un tavolo c e, su ogni tavolo', () => {

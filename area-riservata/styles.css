@@ -1672,6 +1672,10 @@ button.ag-slot[disabled] { cursor: default; }
 .ag-rich-tipo { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; background: var(--blu-100); color: var(--blu-700); border-radius: 10px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
 .ag-rich-aree { margin-top: 3px; color: var(--blu-900); font-weight: 600; }
 .ag-rich-quando { margin-top: 2px; color: var(--grigio-600); }
+/* L'avviso allo studio che non ha fatto il suo lavoro: si legge come una
+   riga di servizio, non come un dato dell'impresa, percio' sta piu' in
+   piccolo e con il distintivo davanti. */
+.ag-rich-avviso { margin-top: 3px; font-size: 0.82rem; color: var(--grigio-600); display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 
 /* IL RICHIAMO DOPO IL CONVEGNO: due platee, una sotto l'altra, ciascuna con
    la sua spunta generale. Le righe sono alte abbastanza da poterle leggere

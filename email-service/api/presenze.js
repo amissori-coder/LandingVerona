@@ -1173,12 +1173,61 @@ module.exports = async (req, res) => {
             const testoBase = String(m.testo || '').slice(0, 20000);
             if (!htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
             const forza = body.forza === true;
+            /* DA QUALE PLATEA arriva questo lotto: lo dice chi manda, e resta
+               scritto sulla scheda. Serve all'avviso che poi arriva allo
+               studio, che con "era online" o "era ai tavoli" fa cominciare la
+               telefonata nel modo giusto. */
+            const plateaNi = ['tavoli', 'online'].indexOf(String(body.platea || '')) >= 0 ? String(body.platea) : '';
+            /* CHI SI E' DISISCRITTO NON SI RICHIAMA. Questa mail propone un
+               incontro a tutta la platea di un convegno, e chi ha gia' detto
+               che non vuole piu' nostre comunicazioni ha detto proprio questo.
+               Si legge una volta per lotto, come fanno gli altri invii a
+               elenco, e chi resta fuori si conta a parte: un destinatario che
+               sparisce senza una riga nel riassunto sembra un guasto. */
+            let fuoriNi = {};
+            try {
+                const dis = await NL.disiscritti(db);
+                (dis instanceof Set ? Array.from(dis) : (Array.isArray(dis) ? dis : Object.keys(dis || {})))
+                    .forEach(x => { fuoriNi[String(x || '').trim().toLowerCase()] = true; });
+            } catch (e) {
+                console.error('Disiscritti non letti per il richiamo:', String((e && e.message) || e).slice(0, 160));
+            }
+            /* LA SCHEDA DEVE ESSERE DI QUESTO CONVEGNO. Il legame fra una
+               scheda e un evento e' la parola che l'area riservata cerca nella
+               colonna Pagina, e la manda lei perche' la tabella degli eventi
+               sta li' e non qui. Quando non arriva non si blocca niente: il
+               filtro e' una rete di sicurezza contro un elenco sbagliato, non
+               un permesso, e chi chiama e' gia' passato dal controllo dei
+               ruoli. */
+            const filtroNi = String(body.filtro || '').trim().toLowerCase();
+            const diQuestoEvento = sc => {
+                if (!filtroNi) return true;
+                return String(sc.pagina || '').toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').indexOf(filtroNi) >= 0;
+            };
             const transNi = trasporto();
             const fromEmailNi = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
             const fromNameNi = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
-            let inviate = 0, senzaScheda = 0, senzaEmail = 0, giaScritto = 0;
-            const vistiNi = {}, fallitiNi = [], fatteNi = [];
+            let inviate = 0, senzaScheda = 0, senzaEmail = 0, giaScritto = 0, disiscritti = 0;
+            const vistiNi = {}, fallitiNi = [], fatteNi = [], servitiNi = [];
+            const giaServiti = {};
+            (Array.isArray(body.giaServiti) ? body.giaServiti : []).slice(0, 2000)
+                .forEach(x => { giaServiti[String(x || '').trim().toLowerCase()] = true; });
+            /* IL TEMPO DELLA FUNZIONE E' CONTATO. Sessanta schede da leggere e
+               sessanta mail da consegnare al server di posta, con una sola
+               mano lenta, superano il massimo: la funzione viene troncata a
+               meta' e chi ha chiamato non sa quali mail sono partite e quali
+               no. Qui invece si smette per tempo e si dice quanti sono
+               rimasti fuori, cosi' la finestra li rimanda in un altro lotto.
+               Il taglio non scatta mai sul primo: una chiamata che non spedisce
+               niente e dice "riprova" sarebbe un giro a vuoto. */
+            const avvioNi = Date.now();
+            const rimastiNi = [];
             for (const d of dest) {
+                /* Si restituiscono gli IDENTIFICATIVI di chi e' rimasto fuori,
+                   non quanti sono: la finestra ricompone il lotto da quelli, e
+                   un conto da solo l'avrebbe fatta indovinare quali fossero. */
+                if (inviate > 0 && Date.now() - avvioNi > 50000) { rimastiNi.push(d.id || d.doc); continue; }
                 const docId = d.doc || idIscrizione(d.id);
                 const rifNi = db.collection('iscrizioni').doc(docId);
                 const snapNi = await rifNi.get();
@@ -1189,11 +1238,41 @@ module.exports = async (req, res) => {
                 // un indirizzo una volta sola: due schede con la stessa casella
                 // sono due righe nostre, non due persone da disturbare due volte
                 if (vistiNi[a]) { giaScritto++; continue; }
+                /* Gli indirizzi gia' serviti nei LOTTI PRECEDENTI li porta chi
+                   manda: `vistiNi` vive dentro una chiamata sola, e senza
+                   questa riga due schede con la stessa casella finite in due
+                   lotti diversi - o nelle due platee - ricevono due mail. */
+                if (giaServiti[a]) { giaScritto++; continue; }
+                if (fuoriNi[a]) { disiscritti++; continue; }
                 if (sc.annullato) { senzaScheda++; continue; }
-                if (sc.nuovoIncontroInvito && !forza) { giaScritto++; continue; }
+                /* La scheda deve essere di QUESTO convegno: il browser manda
+                   gli identificativi, e senza questo controllo basterebbe
+                   un elenco sbagliato per scrivere agli iscritti di un altro
+                   evento con il collegamento di questo. */
+                if (!diQuestoEvento(sc)) { senzaScheda++; continue; }
+                /* GIA' RICHIAMATO PER QUESTO CONVEGNO, e il confronto e' per
+                   evento come lo fa la finestra. Guardare solo se la traccia
+                   esiste teneva fuori per sempre chi era stato richiamato dopo
+                   un altro convegno: una persona richiamata dopo Verona non
+                   avrebbe mai ricevuto la mail di Napoli, e il riassunto
+                   l'avrebbe contata fra i "gia' richiamati" senza dire che
+                   parlava di un'altra giornata.
+                   Una traccia senza evento - quelle scritte prima che ci
+                   fosse il campo - vale come "gia' richiamato": una mail in
+                   meno e' meglio di una mail doppia. */
+                const giaNi = (sc.nuovoIncontroInvito && typeof sc.nuovoIncontroInvito === 'object')
+                    ? sc.nuovoIncontroInvito : null;
+                if (giaNi && !forza && (!giaNi.eventoId || String(giaNi.eventoId) === evento)) { giaScritto++; continue; }
                 vistiNi[a] = true;
                 const nomeDest = ((String(sc.nome || '') + ' ' + String(sc.cognome || '')).trim()) || 'ospite';
-                const linkNi = NL.linkNuovoIncontro(docId);
+                /* IL MOMENTO DEL RICHIAMO ENTRA NELLA FIRMA, e si decide PRIMA
+                   di comporre il collegamento perche' e' lo stesso che finisce
+                   sulla scheda. Cosi' un collegamento vale finche' vale quel
+                   richiamo: se se ne manda un altro, i vecchi smettono di
+                   aprire, e un indirizzo girato per sbaglio non resta una
+                   chiave buona per sempre. */
+                const quandoNi = Date.now();
+                const linkNi = NL.linkNuovoIncontro(docId, quandoNi);
                 /* ANCHE L'OGGETTO passa dalla sostituzione: porta il nome di
                    chi legge, e un segnaposto lasciato scritto per esteso
                    nell'oggetto e' il modo piu' rapido di far buttare una
@@ -1222,9 +1301,11 @@ module.exports = async (req, res) => {
                     });
                     inviate++;
                     fatteNi.push(docId);
+                    servitiNi.push(a);
                     await rifNi.set({
                         nuovoIncontroInvito: {
-                            quando: Date.now(), da: email, collab: collab, eventoId: evento
+                            quando: quandoNi, da: email, collab: collab, eventoId: evento,
+                            platea: plateaNi
                         }
                     }, { merge: true });
                 } catch (e) {
@@ -1239,7 +1320,9 @@ module.exports = async (req, res) => {
             try { await segnaCambiamento(db); } catch (_) { /* la lettura scade comunque */ }
             res.status(200).json({
                 ok: true, inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail,
-                giaScritto: giaScritto, fatte: fatteNi, falliti: fallitiNi.slice(0, 50)
+                giaScritto: giaScritto, disiscritti: disiscritti,
+                rimasti: rimastiNi.length, daRifare: rimastiNi.slice(0, 60),
+                fatte: fatteNi, serviti: servitiNi, falliti: fallitiNi.slice(0, 50)
             });
             return;
         }
