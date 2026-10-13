@@ -2730,7 +2730,13 @@
         const online = dati.online === true;
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
-        const oggetto = SEGNAPOSTO_NOME + ': programmiamo l\'incontro che non avete ancora fatto'
+        /* ANCHE L'OGGETTO cambia fra le due platee. "L'incontro che non avete
+           ancora fatto" a chi ha seguito online non vuol dire niente: un
+           incontro non ce l'aveva, e la prima riga che legge, prima ancora di
+           aprire, direbbe una cosa che non lo riguarda. */
+        const oggetto = SEGNAPOSTO_NOME + (online
+            ? ': un incontro con i nostri professionisti, quando Vi fa comodo'
+            : ': programmiamo l\'incontro che non avete ancora fatto')
             + (quandoEv ? ' - Next Generation Business, ' + quandoEv : '');
         const anteprima = 'Gli incontri del convegno erano a orari fissi. Se il Vostro non si è fatto, lo rifacciamo: scegliete gli argomenti.';
 

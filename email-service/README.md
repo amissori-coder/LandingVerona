@@ -2859,9 +2859,32 @@ partenza sono scritti nel codice perche' il primo giro deve funzionare senza
 che nessuno configuri niente. **Prima l'archivio, poi la posta**: se la mail non
 parte la richiesta resta comunque registrata, e la pagina dice di si'.
 
+**Quattro punti in cui questa richiesta e' DIVERSA dalle altre, e il codice lo
+dice.** La risposta dell'azione `riepilogo` e' una whitelist campo per campo, e
+finche' non portava `tipo`, `aree` e `quandoPref` il foglio stampato riceveva le
+richieste nuove senza sapere che cosa fossero e con un argomento solo: stampava
+la cosa sbagliata senza dirlo a nessuno. `prendiSlot` chiude le richieste di
+tutta l'azienda quando una sua persona ottiene un incontro, ed e' giusto per
+quelle a orari esauriti - li' si chiede un posto per l'impresa - ma non per
+queste, che sono di quella persona su argomenti suoi: assegnare un incontro a un
+collega le cancellerebbe senza che nessuno le abbia lette. `b2b-azienda-elimina`
+non le tocca, perche' togliere un'azienda dagli incontri e' un gesto dell'epoca
+della giornata, mentre quella e' una persona che ha chiesto di essere richiamata
+dieci giorni dopo. E `letturaOspite` non le racconta al modulo degli incontri:
+dire "la Sua richiesta e' gia' arrivata" a chi ne ha mandata una da un'altra
+pagina e per un'altra cosa gli farebbe credere di aver gia' chiesto un posto che
+invece e' ancora libero.
+
+**La copia nascosta a chi preme parte una volta sola**, sul primo messaggio del
+lotto, come nell'invito agli incontri e per la stessa ragione: una copia a testa
+riempirebbe la casella di chi ha premuto con settanta messaggi, ciascuno con
+dentro il collegamento firmato di qualcun altro.
+
 Le prove stanno in `prove/nuovo-incontro.prove.js` (il flusso intero, dalle
-firme all'avviso) e in `prove/riepilogo-b2b.prove.js` (il capitolo del foglio
-stampato, con gli argomenti e il "quando").
+firme all'avviso, e i quattro punti qui sopra provati dalla risposta VERA del
+servizio e non da un riepilogo costruito a mano) e in
+`prove/riepilogo-b2b.prove.js` (il capitolo del foglio stampato, con gli
+argomenti e il "quando").
 
 
 ## Programma della giornata (`lib/programma-evento.js`)
