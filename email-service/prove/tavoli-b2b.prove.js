@@ -260,5 +260,48 @@ prova('9) Quando il servizio non manda un tavolo, l\'agenda lo dice', () => {
     esigi(mancano([]).indexOf('non arrivano') > 0, 'e con l elenco vuoto si dice lo stesso: e la stessa cosa');
 });
 
+prova('La mail del nuovo incontro nomina tutti i tavoli che si possono chiedere', () => {
+    /* La mail del richiamo elenca gli argomenti A PAROLE, in una frase: e'
+       prosa, non un elenco di etichette, e va bene che lo sia - "Modello 231 e
+       Tax Control Framework" in mezzo a un periodo si legge meglio di una
+       lista. Il prezzo e' che quella frase e' una COPIA dell'elenco dei
+       tavoli: il giorno che se ne aggiunge uno, la mail continua a nominare
+       quelli di prima e nessuno se ne accorge, perche' la pagina invece lo
+       propone e la richiesta arriva su un argomento che la mail non aveva mai
+       citato.
+       Qui si controlla che ogni tavolo che si puo' chiedere sia nominato: si
+       confronta la RADICE del nome, perche' la frase dice "certificazioni ISO"
+       dove l'etichetta dice "Certificazione ISO" e sono la stessa cosa. */
+    const radice = nome => String(nome || '').split(/[\s-]+/)[0]
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[aeiou]$/, '');
+    const chiedibili = AREA.AREE_B2B.filter(a => !AREA.areaInternaB2B(a.id) && AREA.capofilaB2B(a.id) === a.id);
+    esigi(chiedibili.length >= 8, 'i tavoli che si possono chiedere sono ' + chiedibili.length);
+    [false, true].forEach(online => {
+        const m = AREA.invitoNuovoIncontro({ evento: { titolo: 'Napoli', quando: '2 ottobre 2026' }, online: online });
+        const quale = online ? 'per chi era online' : 'per chi era ai tavoli';
+        /* Si toglie anche la SILLABAZIONE. L'HTML della mail porta i trattini
+           morbidi dentro le parole lunghe (li mette `testoHtml`, e servono a
+           non far uscire una parola dalla colonna su un telefono): cercando
+           "certificazion" in "cer-ti-fi-ca-zioni" non si trova niente, e la
+           prova direbbe che la mail non nomina un tavolo che invece nomina. */
+        const senzaAccenti = t => String(t || '')
+            .replace(/\u00ad|&shy;|<wbr\s*\/?>/gi, '')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const dentroHtml = senzaAccenti(m.html), dentroTesto = senzaAccenti(m.testo);
+        const mutiHtml = chiedibili.filter(a => dentroHtml.indexOf(radice(a.nome)) < 0);
+        const mutiTesto = chiedibili.filter(a => dentroTesto.indexOf(radice(a.nome)) < 0);
+        esigi(!mutiHtml.length, 'la mail ' + quale + ' li nomina tutti'
+            + (mutiHtml.length ? ' - non ci sono: ' + mutiHtml.map(a => a.nome).join(', ') : ''));
+        esigi(!mutiTesto.length, 'e anche la sua versione senza grafica'
+            + (mutiTesto.length ? ' - non ci sono: ' + mutiTesto.map(a => a.nome).join(', ') : ''));
+    });
+    /* I tavoli INTERNI non si nominano: il desk della segreteria non si
+       prenota, e proporlo in una mail sarebbe un invito a chiedere una cosa
+       che non si da' a nessuno. */
+    const interni = AREA.AREE_B2B.filter(a => AREA.areaInternaB2B(a.id));
+    const m = AREA.invitoNuovoIncontro({ evento: { titolo: 'Napoli', quando: '2 ottobre 2026' } });
+    esigi(!interni.filter(a => m.html.indexOf(a.nome) >= 0).length, 'e i tavoli interni non li nomina');
+});
+
 console.log('\n' + ok + ' ok, ' + ko + ' KO');
 process.exit(ko ? 1 : 0);

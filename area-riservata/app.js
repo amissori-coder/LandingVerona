@@ -18099,14 +18099,19 @@
        proporre di "rifare l'incontro" mentre la sala e' ancora piena sarebbe
        una cosa che nessuno capisce. Dal giorno dopo in avanti. */
     function eventoPassato(ev) {
-        const oggi = new Date().toISOString().slice(0, 10);
-        return !!(ev && ev.giorno && ev.giorno < oggi);
+        /* Il giorno lo da' `oggiISO()`, non `toISOString()`: quello e' il
+           giorno di Greenwich, e per le prime due ore di un giorno d'estate
+           italiana risponderebbe "ieri" - cioe' terrebbe nascosto il pulsante
+           la notte stessa in cui il convegno e' finito. */
+        return !!(ev && ev.giorno && ev.giorno < oggiISO());
     }
     function daRichiamareB2B(ev) {
         /* Chi e' stato ai TAVOLI: invitato agli incontri di questo convegno,
-           oppure con una prenotazione scritta sulla scheda. Non si guarda se
-           l'incontro si sia tenuto davvero - quello non lo sappiamo, al desk
-           non si timbra - e infatti la mail non lo da' per scontato. */
+           oppure con una prenotazione scritta sulla scheda. Chi ha solo
+           l'invito si vede per quello che e', riga per riga: la mail propone
+           di programmare un incontro, e proporlo a chi non l'aveva nemmeno
+           prenotato e' una cosa che si decide guardando, non un elenco che
+           decide da se'. */
         const aiTavoli = (_evIscrizioni || []).filter(r => r && r.email
             && (invitoB2BDi(r, ev.id) || String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim()));
         /* Chi ha seguito ONLINE: la sezione dice quello che sappiamo noi.
@@ -18125,6 +18130,19 @@
         // un richiamo di un altro convegno non conta: si richiama per evento
         return !n.eventoId || n.eventoId === ev.id;
     }
+    /* L'INCONTRO L'HANNO FATTO O NO? Al tavolo non si timbra, e la risposta
+       esatta non ce l'abbiamo. Quello che sappiamo e' chi quel giorno era in
+       sala: chi risulta assente il suo incontro non l'ha fatto di sicuro ed e'
+       la riga da richiamare per prima, chi risulta presente forse l'ha fatto.
+       Si scrive accanto al nome e si puo' filtrare, perche' "se non siete
+       riusciti a fare l'incontro" mandato a chi l'ha fatto si legge come una
+       mail sbagliata. Vuoto quando la presenza non e' stata segnata: allora la
+       riga non dice niente, che e' meglio di dire una cosa falsa. */
+    function statoSalaB2B(ev, r) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        const s = String(p.stato || '').toLowerCase();
+        return (s === 'presente' || s === 'assente') ? s : '';
+    }
     function modaleRichiamoB2B(ev) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale || ev.tutti) return;
@@ -18138,128 +18156,220 @@
             return;
         }
         const PLATEE = [
-            { id: 'tavoli', nome: 'Hanno prenotato un incontro', righe: gruppi.tavoli, online: false,
-              spiega: 'invitate ai tavoli o con una prenotazione scritta' },
+            { id: 'tavoli', nome: 'Erano agli incontri B2B', righe: gruppi.tavoli, online: false,
+              spiega: 'con un invito ai tavoli o una prenotazione scritta' },
             { id: 'online', nome: 'Hanno seguito online', righe: gruppi.online, online: true,
               spiega: 'iscritti nella sezione online, un tavolo non ce l\'avevano' }
         ].filter(p => p.righe.length);
-        const scelte = {};
-        PLATEE.forEach(p => {
-            // di partenza si spuntano i NON ancora richiamati: e' la risposta
-            // giusta la prima volta e tutte le volte dopo
-            scelte[p.id] = new Set(p.righe.filter(r => !giaRichiamato(r, ev)).map(r => r.id));
-        });
         let forza = false;
+        let soloFuoriSala = false;
         let inCorso = false;
+        let vista = PLATEE[0].id;
+        const scelte = {};
+        /* LA SCELTA SI RIFA' DA ZERO ogni volta che si cambia uno dei due
+           interruttori. Le spunte a mano valgono finche' il criterio resta
+           quello: un elenco mezzo vecchio e mezzo nuovo e' il modo piu' rapido
+           di scrivere a chi non si voleva, e quando si accende "scrivi anche a
+           chi e' gia' stato richiamato" quelle righe devono entrare davvero -
+           prima l'interruttore si accendeva e non selezionava nessuno. */
+        function riempi() {
+            PLATEE.forEach(p => {
+                scelte[p.id] = new Set(p.righe.filter(r => (forza || !giaRichiamato(r, ev))
+                    && (!soloFuoriSala || statoSalaB2B(ev, r) !== 'presente')).map(r => r.id));
+            });
+        }
+        riempi();
         const eventoDati = {
             titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || ''
         };
         const mailDi = online => RV_NEWSLETTER.invitoNuovoIncontro({ evento: eventoDati, online: online });
         const quanti = p => scelte[p.id].size;
         const totale = () => PLATEE.reduce((n, p) => n + quanti(p), 0);
+        const inSalaDi = p => p.righe.filter(r => statoSalaB2B(ev, r) === 'presente').length;
 
-        function disegna() {
-            const corpo = PLATEE.map(p => {
-                const righe = p.righe.map(r => {
-                    const gia = giaRichiamato(r, ev);
-                    return '<label class="rc-riga' + (gia ? ' gia' : '') + '">'
-                        + '<input type="checkbox" class="rc-uno" data-p="' + esc(p.id) + '" data-id="' + esc(r.id) + '"'
-                        + (scelte[p.id].has(r.id) ? ' checked' : '') + '>'
-                        + '<span class="rc-chi"><b>' + esc(aziendaVista(r.azienda) || nomePersonaVisto(r)) + '</b>'
-                        + '<span class="hint">' + esc(nomePersonaVisto(r)) + ' &middot; ' + esc(r.email) + '</span></span>'
-                        + (gia ? '<span class="badge ambra">già richiamato il ' + esc(fmtDataOra(r.nuovoIncontroInvito.quando)) + '</span>' : '')
-                        + '</label>';
-                }).join('');
+        function rigaHtml(p, r) {
+            const gia = giaRichiamato(r, ev);
+            const sala = statoSalaB2B(ev, r);
+            const soloInvito = !p.online && !String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim();
+            return '<label class="rc-riga' + (gia ? ' gia' : '') + '">'
+                + '<input type="checkbox" class="rc-uno" data-p="' + esc(p.id) + '" data-id="' + esc(r.id) + '"'
+                + (scelte[p.id].has(r.id) ? ' checked' : '') + '>'
+                + '<span class="rc-chi"><b>' + esc(aziendaVista(r.azienda) || nomePersonaVisto(r)) + '</b>'
+                + '<span class="hint">' + esc(nomePersonaVisto(r)) + ' &middot; ' + esc(r.email) + '</span></span>'
+                + (sala === 'assente' ? '<span class="badge rosso">non è venuto</span>' : '')
+                + (sala === 'presente' ? '<span class="badge neutro">era in sala</span>' : '')
+                + (soloInvito ? '<span class="badge neutro">solo invito</span>' : '')
+                + (gia ? '<span class="badge ambra">già richiamato il ' + esc(fmtDataOra(r.nuovoIncontroInvito.quando)) + '</span>' : '')
+                + '</label>';
+        }
+        function corpoHtml() {
+            const platee = PLATEE.map(p => {
+                const quantiInSala = inSalaDi(p);
                 return '<div class="rc-platea"><div class="rc-testa">'
                     + '<label class="rc-tutti"><input type="checkbox" class="rc-tutta" data-p="' + esc(p.id) + '"'
                     + (quanti(p) === p.righe.length ? ' checked' : '') + '> <b>' + esc(p.nome) + '</b></label>'
-                    + '<span class="hint">' + esc(p.spiega) + ' &middot; <b>' + quanti(p) + '</b> di ' + p.righe.length + '</span>'
-                    + '</div><div class="rc-righe">' + righe + '</div></div>';
+                    + '<span class="hint">' + esc(p.spiega) + ' &middot; <b class="rc-conta" data-p="' + esc(p.id) + '">'
+                    + quanti(p) + '</b> di ' + p.righe.length
+                    + (quantiInSala ? ' &middot; ' + quantiInSala + (quantiInSala === 1 ? ' segnato' : ' segnati') + ' in sala' : '') + '</span>'
+                    + '</div><div class="rc-righe">' + p.righe.map(r => rigaHtml(p, r)).join('') + '</div></div>';
             }).join('');
-            const n = totale();
-            return '<h2>Programmiamo un nuovo incontro</h2>'
-                + '<p class="hint" style="margin:-4px 0 14px;">Si scrive a chi non è riuscito a fare il suo incontro B2B. '
+            /* L'ANTEPRIMA E' PER PLATEA, perche' le due mail non sono la stessa
+               mail: a chi era ai tavoli si chiede com'e' andata, a chi ha
+               seguito online si spiega che cos'e' un incontro B2B. Vederne
+               sempre una sola voleva dire mandare l'altra senza averla mai
+               letta. */
+            const scelta = PLATEE.length > 1
+                ? '<div class="tab-dest tab-sub">' + PLATEE.map(p => '<button type="button" class="tab-btn rc-vedi'
+                    + (vista === p.id ? ' attivo' : '') + '" data-p="' + esc(p.id) + '">'
+                    + (p.online ? 'Mail per chi era online' : 'Mail per chi era ai tavoli') + '</button>').join('') + '</div>'
+                : '<div class="hint">Anteprima della mail'
+                    + (PLATEE[0].online ? ' (versione per chi era online)' : ' (versione per chi era ai tavoli)') + ':</div>';
+            return '<p class="hint" style="margin:-4px 0 14px;">Si scrive a chi non è riuscito a fare il suo incontro B2B. '
                 + 'Dalla mail scelgono gli argomenti, <b>senza orario</b>: ci accordiamo noi. La richiesta arriva nella '
                 + '<b>giornata</b>, sotto le richieste di incontro, e una mail con tutto arriva anche a chi segue gli incontri.</p>'
-                + corpo
+                + platee
+                + '<label class="rc-forza"><input type="checkbox" id="rc-fuorisala"' + (soloFuoriSala ? ' checked' : '') + '> '
+                + 'Solo chi non risulta in sala (il suo incontro non l\'ha fatto)</label>'
                 + '<label class="rc-forza"><input type="checkbox" id="rc-forza"' + (forza ? ' checked' : '') + '> '
                 + 'Scrivi anche a chi è già stato richiamato</label>'
-                + '<div class="rc-anteprima"><div class="hint">Anteprima della mail (versione per chi era ai tavoli):</div>'
-                + '<iframe id="rc-frame" title="Anteprima"></iframe></div>'
+                + '<div class="rc-anteprima">' + scelta + '<iframe id="rc-frame" title="Anteprima"></iframe></div>'
                 + '<div class="modale-azioni"><span class="hint" id="rc-esito"></span>'
                 + '<button class="btn btn-secondary" id="rc-no">Chiudi</button>'
-                + '<button class="btn btn-primary" id="rc-si"' + (n && !inCorso ? '' : ' disabled') + '>'
-                + (n ? 'Scrivi a ' + n + (n === 1 ? ' persona' : ' persone') : 'Nessuno selezionato') + '</button></div>';
+                + '<button class="btn btn-primary" id="rc-si" disabled></button></div>';
+        }
+        /* SI AGGIORNANO I NUMERI, NON SI RIDISEGNA LA FINESTRA. Riscrivere il
+           corpo a ogni spunta ricaricava l'anteprima nel telaio, riportava
+           l'elenco in cima - con duecento righe si perdeva il punto in cui si
+           stava leggendo - e faceva comparire una seconda riga di pulsanti,
+           perche' `apriModale` il piede se lo porta fuori dal corpo e un corpo
+           riscritto se lo rifaceva dentro. */
+        function aggiorna() {
+            PLATEE.forEach(p => {
+                document.querySelectorAll('.rc-uno[data-p="' + p.id + '"]').forEach(c => {
+                    c.checked = scelte[p.id].has(c.dataset.id);
+                });
+                const n = document.querySelector('.rc-conta[data-p="' + p.id + '"]');
+                if (n) n.textContent = String(quanti(p));
+                const t = document.querySelector('.rc-tutta[data-p="' + p.id + '"]');
+                if (t) {
+                    t.checked = quanti(p) === p.righe.length;
+                    t.indeterminate = quanti(p) > 0 && quanti(p) < p.righe.length;
+                }
+            });
+            const b = document.getElementById('rc-si');
+            if (!b) return;
+            const n = totale();
+            const riprendere = !!(lotti && lotti.length && fatti);
+            b.disabled = inCorso || (!n && !riprendere);
+            b.textContent = riprendere ? 'Riprendi da dove si è fermato'
+                : (n ? 'Scrivi a ' + n + (n === 1 ? ' persona' : ' persone') : 'Nessuno selezionato');
+        }
+        function mostraAnteprima() {
+            const p = PLATEE.filter(x => x.id === vista)[0] || PLATEE[0];
+            const f = document.getElementById('rc-frame');
+            if (f) f.srcdoc = mailDi(!!p.online).html;
+            document.querySelectorAll('.rc-vedi').forEach(b => {
+                if (b.dataset.p === vista) b.classList.add('attivo'); else b.classList.remove('attivo');
+            });
         }
         function collega() {
-            const f = document.getElementById('rc-frame');
-            if (f) f.srcdoc = mailDi(false).html;
+            mostraAnteprima();
             document.querySelectorAll('.rc-uno').forEach(c => c.addEventListener('change', () => {
-                const s2 = scelte[c.dataset.p];
-                if (c.checked) s2.add(c.dataset.id); else s2.delete(c.dataset.id);
-                ridisegna();
+                const s = scelte[c.dataset.p];
+                if (!s) return;
+                if (c.checked) s.add(c.dataset.id); else s.delete(c.dataset.id);
+                lotti = null;
+                aggiorna();
             }));
             document.querySelectorAll('.rc-tutta').forEach(c => c.addEventListener('change', () => {
                 const p = PLATEE.filter(x => x.id === c.dataset.p)[0];
                 if (!p) return;
                 scelte[p.id] = c.checked ? new Set(p.righe.map(r => r.id)) : new Set();
-                ridisegna();
+                lotti = null;
+                aggiorna();
             }));
+            document.querySelectorAll('.rc-vedi').forEach(b => b.addEventListener('click', () => {
+                vista = b.dataset.p;
+                mostraAnteprima();
+            }));
+            const fs = document.getElementById('rc-fuorisala');
+            if (fs) fs.addEventListener('change', () => { soloFuoriSala = fs.checked; lotti = null; riempi(); aggiorna(); });
             const fz = document.getElementById('rc-forza');
-            if (fz) fz.addEventListener('change', () => { forza = fz.checked; });
+            if (fz) fz.addEventListener('change', () => { forza = fz.checked; lotti = null; riempi(); aggiorna(); });
             document.getElementById('rc-no').addEventListener('click', chiudiModale);
             document.getElementById('rc-si').addEventListener('click', invia);
+            aggiorna();
         }
-        function ridisegna() {
-            const dentro = document.querySelector('#modale-contenitore .modale-corpo');
-            if (!dentro) return;
-            dentro.innerHTML = disegna();
-            collega();
-        }
+        /* LO STATO DELL'INVIO VIVE FUORI da `invia`: se un lotto non riesce,
+           premendo di nuovo si riprende da quello. Ricostruire l'elenco da capo
+           significava rimandare le prime venticinque mail a chi le aveva
+           ricevute un minuto prima - e con "scrivi anche ai richiamati" acceso
+           non c'era nemmeno la traccia sulla scheda a fermarle.
+           `serviti` sono gli indirizzi a cui il servizio dice di aver scritto:
+           viaggiano con il lotto successivo, perche' la difesa dei doppioni
+           vive dentro una chiamata sola e due schede con la stessa casella
+           finiscono in due lotti diversi. */
+        let lotti = null;
+        let serviti = [];
+        let fatti = 0;
+        const conti = { inviate: 0, giaScritto: 0, senzaEmail: 0, senzaScheda: 0, disiscritti: 0, falliti: 0 };
         function invia() {
             if (inCorso) return;
-            const lotti = [];
-            PLATEE.forEach(p => {
-                const righe = p.righe.filter(r => scelte[p.id].has(r.id));
-                /* A LOTTI DI VENTICINQUE, come l'invito agli incontri: una
-                   funzione che spedisce centoventi mail di fila supera il
-                   tempo massimo e si ferma a meta', senza dire dove. */
-                for (let i = 0; i < righe.length; i += 25) {
-                    lotti.push({ platea: p, righe: righe.slice(i, i + 25) });
-                }
-            });
+            if (!lotti) {
+                lotti = [];
+                PLATEE.forEach(p => {
+                    const righe = p.righe.filter(r => scelte[p.id].has(r.id));
+                    /* A LOTTI DI VENTICINQUE, come l'invito agli incontri: una
+                       funzione che spedisce centoventi mail di fila supera il
+                       tempo massimo e si ferma a meta', senza dire dove. */
+                    for (let i = 0; i < righe.length; i += 25) {
+                        lotti.push({ platea: p, righe: righe.slice(i, i + 25) });
+                    }
+                });
+            }
             if (!lotti.length) return;
             inCorso = true;
-            const b = document.getElementById('rc-si');
-            const es = document.getElementById('rc-esito');
-            b.disabled = true;
-            const conti = { inviate: 0, giaScritto: 0, senzaEmail: 0, senzaScheda: 0, falliti: 0 };
-            let fatti = 0;
+            aggiorna();
             const prossimo = () => {
+                const es = document.getElementById('rc-esito');
                 if (!lotti.length) {
+                    inCorso = false;
                     chiudiModale();
                     toast('Richiamo: ' + conti.inviate + (conti.inviate === 1 ? ' mail partita' : ' mail partite')
                         + (conti.giaScritto ? ', ' + conti.giaScritto + ' già richiamati' : '')
+                        + (conti.disiscritti ? ', ' + conti.disiscritti + ' disiscritti' : '')
                         + (conti.senzaEmail ? ', ' + conti.senzaEmail + ' senza indirizzo' : '')
-                        + (conti.senzaScheda ? ', ' + conti.senzaScheda + ' senza scheda o annullati' : '')
+                        + (conti.senzaScheda ? ', ' + conti.senzaScheda + ' senza scheda, annullati o di un altro evento' : '')
                         + (conti.falliti ? ', ' + conti.falliti + ' NON riuscite' : ''),
                         conti.falliti ? 'ambra' : 'verde');
                     try { Audit.registra(Auth.utenteCorrente, 'Evento: richiamo nuovo incontro', 'sistema', ev.id, null, conti.inviate + ' mail'); } catch (e) { }
                     caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
                     return;
                 }
-                const l = lotti.shift();
+                /* Il lotto esce dall'elenco SOLO quando il servizio ha
+                   risposto bene: finche' e' in testa, premere di nuovo riparte
+                   da lui. */
+                const l = lotti[0];
                 const m = mailDi(l.platea.online);
-                if (es) es.textContent = 'Invio in corso: ' + fatti + ' su ' + (fatti + l.righe.length + lotti.reduce((n, x) => n + x.righe.length, 0)) + '...';
+                const restano = lotti.reduce((n, x) => n + x.righe.length, 0);
+                if (es) es.textContent = 'Invio in corso: ' + fatti + ' su ' + (fatti + restano) + '...';
                 Cloud.operaPresenza({
                     azione: 'invita-nuovo-incontro', evento: ev.id, forza: forza,
+                    /* `filtro` e' la parola che il servizio cerca nella colonna
+                       Pagina: la tabella degli eventi sta qui, e senza quella
+                       parola un elenco sbagliato scriverebbe agli iscritti di
+                       un altro convegno. `platea` resta sulla scheda e fa
+                       cominciare nel modo giusto la telefonata dello studio. */
+                    filtro: ev.filtro || '', platea: l.platea.id,
+                    giaServiti: serviti.slice(0, 2000),
                     destinatari: l.righe.map(r => ({ id: r.id, doc: r.doc || '' })),
                     mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
                 }).then(r => {
                     if (!r || !r.ok) {
                         inCorso = false;
-                        if (b) { b.disabled = false; }
-                        if (es) es.textContent = '';
+                        const e2 = document.getElementById('rc-esito');
+                        if (e2) e2.textContent = 'Fermato dopo ' + fatti + ': premi di nuovo per riprendere da qui.';
+                        aggiorna();
                         toast((r && r.msg) || 'Invio non riuscito.', 'rosso');
                         return;
                     }
@@ -18267,14 +18377,32 @@
                     conti.giaScritto += r.giaScritto || 0;
                     conti.senzaEmail += r.senzaEmail || 0;
                     conti.senzaScheda += r.senzaScheda || 0;
+                    conti.disiscritti += r.disiscritti || 0;
                     conti.falliti += (r.falliti || []).length;
-                    fatti += l.righe.length;
+                    (r.serviti || []).forEach(a => { if (serviti.indexOf(a) < 0) serviti.push(a); });
+                    /* CHI E' RIMASTO FUORI PER TEMPO resta nel lotto, ridotto
+                       a loro. Il servizio smette di spedire prima di essere
+                       troncato e dice CHI non ha servito: senza questa riga
+                       quelle persone non riceverebbero niente, e il riassunto
+                       finale direbbe che e' andato tutto bene. Se tornassero
+                       tutti - non dovrebbe succedere, il taglio non scatta sul
+                       primo - il lotto si chiude comunque, perche' un giro che
+                       non avanza mai e' peggio di una mail non partita. */
+                    const daRifare = Array.isArray(r.daRifare) ? r.daRifare : [];
+                    const resta = daRifare.length
+                        ? l.righe.filter(x => daRifare.indexOf(x.id) >= 0 || daRifare.indexOf(x.doc) >= 0)
+                        : [];
+                    fatti += l.righe.length - resta.length;
+                    if (resta.length && resta.length < l.righe.length) l.righe = resta;
+                    else lotti.shift();
                     prossimo();
                 });
             };
             prossimo();
         }
-        apriModale(disegna(), { titolo: 'Programmiamo un nuovo incontro', finestra: true });
+        /* Il titolo lo scrive la barra della finestra: scriverlo anche come
+           <h2> nel corpo lo faceva leggere due volte. */
+        apriModale(corpoHtml(), { titolo: 'Programmiamo un nuovo incontro', finestra: true });
         collega();
     }
     function modaleIncontriB2B(ev) {
@@ -19366,8 +19494,13 @@
            creditizio lo tiene, e non davanti a tutti gli altri. Il confronto
            e' per famiglia, perche' l'impresa ha chiesto l'argomento, non il
            tavolo su cui lo mettiamo noi. */
+        /* Si guardano TUTTI gli argomenti e non solo il primo: una richiesta
+           nata dopo il convegno ne porta fino a quattro, e filtrando sul solo
+           `area` quella persona compariva davanti al referente del primo
+           tavolo e spariva per gli altri tre, che non sapevano di doverla
+           richiamare. */
         const richieste = (_rb.richieste || []).filter(r => !unoSolo
-            || (capofilaRb(String(r.area || '')) || String(r.area || '')) === famUno);
+            || areeDiRichiesta(r).some(a => (capofilaRb(a) || a) === famUno));
         const sezRichieste = richieste.length
             ? '<section class="tema"><h2>' + (richieste.some(eNuovoIncontro) ? 'Richieste di incontro' : 'Richieste a orari esauriti')
             + ' <span class="conta">' + richieste.length
@@ -21369,12 +21502,44 @@
        piu' d'uno, quella a orari esauriti uno solo. Si legge `aree` quando c'e'
        e si ricade su `area`, cosi' le richieste vecchie continuano a vedersi
        come si sono sempre viste. */
+    /* Gli ARGOMENTI di una richiesta come identificativi, per i confronti.
+       `areeRichiesta` da' i nomi da scrivere, questa gli id da filtrare: sono
+       due mestieri diversi, e un nome usato come chiave smette di combaciare
+       il giorno che un tavolo si ritocca l'etichetta. */
+    function areeDiRichiesta(r) {
+        const dentro = Array.isArray(r && r.aree) ? r.aree : [];
+        return (dentro.length ? dentro : ((r && r.area) ? [r.area] : [])).map(x => String(x || '')).filter(Boolean);
+    }
     function areeRichiesta(r) {
         const dentro = Array.isArray(r && r.aree) ? r.aree : [];
         const lista = dentro.length ? dentro : ((r && r.area) ? [r.area] : []);
         return lista.map(x => nomeAreaB2B(x)).filter(Boolean);
     }
     function eNuovoIncontro(r) { return String((r && r.tipo) || '') === 'nuovo-incontro'; }
+    /* QUANDO L'AVVISO ALLO STUDIO NON HA FATTO IL SUO LAVORO, scritto
+       accanto alla richiesta. Due casi, e in entrambi chi guarda la giornata
+       e' l'ultimo che puo' accorgersene:
+         - la mail non e' partita: quella persona ha scritto e nelle tre
+           caselle non e' arrivato niente, quindi questa riga e' l'unica
+           traccia che esista;
+         - sono arrivate correzioni oltre il tetto di avvisi: gli argomenti
+           scritti qui sono gli ultimi, quelli nella mail sono di prima, e
+           telefonare con la mail in mano vorrebbe dire parlare della cosa
+           sbagliata. */
+    function avvisoRichiestaHtml(r) {
+        const av = (r && r.avviso && typeof r.avviso === 'object') ? r.avviso : null;
+        if (!av) return '';
+        const saltati = Number(av.saltati) || 0;
+        return (av.inviata === false
+            ? '<div class="ag-rich-avviso"><span class="badge rosso">avviso non partito</span> '
+                + 'nessuna mail è arrivata allo studio: questa riga è l\'unica traccia.</div>'
+            : '')
+            + (saltati
+                ? '<div class="ag-rich-avviso"><span class="badge ambra">'
+                    + saltati + (saltati === 1 ? ' correzione' : ' correzioni') + ' senza mail</span> '
+                    + 'qui sopra c\'è l\'ultima versione, nella mail allo studio quella di prima.</div>'
+                : '');
+    }
     function richiesteHtml(a, puo) {
         const lista = ((a && a.richieste) || []).slice().sort((x, y) => (y.quando || 0) - (x.quando || 0));
         if (!lista.length) return '';
@@ -21385,8 +21550,7 @@
            chiede un incontro dopo il convegno, un titolo solo mentirebbe su
            meta' dell'elenco. */
         const nuove = lista.filter(eNuovoIncontro).length;
-        const titolo = nuove === lista.length ? 'Richieste di incontro'
-            : (nuove ? 'Richieste di incontro' : 'Richieste a orari esauriti');
+        const titolo = nuove ? 'Richieste di incontro' : 'Richieste a orari esauriti';
         return '<div class="ag-richieste"><div class="ag-titolo">' + titolo
             + (aperte ? ' <span class="badge ambra">' + aperte + ' da guardare</span>' : '') + '</div>'
             + '<div class="hint">' + (nuove
@@ -21412,6 +21576,7 @@
                     ? '<div class="ag-rich-aree">' + esc(areeRichiesta(r).join(' \u00b7 ')) + '</div>'
                     : '')
                 + (r.quandoPref ? '<div class="ag-rich-quando">Quando preferisce: ' + esc(r.quandoPref) + '</div>' : '')
+                + avvisoRichiestaHtml(r)
                 + (r.nota ? '<div class="ag-nota-testo">' + esc(r.nota) + '</div>' : '') + '</div>'
                 + '<div class="ag-richiesta-az">'
                 + (String(r.stato || 'aperta') === 'gestita'
