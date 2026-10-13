@@ -2852,6 +2852,51 @@ riceve e' l'elenco delle spunte, non quello che e' a video - e questo si dice:
 si cerca, agisce **solo sulle righe mostrate**: "togli tutti" davanti a tre
 risultati deve togliere quei tre, non la selezione costruita prima.
 
+**CHI HA RISPOSTO, e chi no.** Le due meta' del fatto vivono in due archivi
+diversi: "a questa persona ho scritto" sta sulla sua scheda
+(`nuovoIncontroInvito`), "questa persona ha scritto a noi" sta fra le richieste
+della giornata. Si uniscono per `doc`, lo stesso identificativo da entrambe le
+parti - non per l'indirizzo, che due schede della stessa persona possono
+condividere. Non costa nessuna lettura in piu': le richieste sono gia' in
+memoria entrando nell'evento, e se non ci sono la finestra le chiede una volta
+prima di aprirsi.
+
+Si vede in due posti:
+
+- nel riquadro **Iscrizioni**, senza aprire niente: "Nuovi incontri: 40
+  richiamati di 112, 12 hanno risposto". E' la domanda che si fa chi torna
+  sull'evento, e il pulsante che la risolve e' li' accanto;
+- nella **finestra del richiamo**, riga per riga: "ha risposto il ..." (e
+  ", gestita" quando lo staff l'ha chiusa), oppure "nessuna risposta", piu' il
+  conto per platea e un interruttore **"Solo chi non ha ancora risposto"**, che
+  e' la riga su cui si agisce.
+
+Tre regole perche' quei contrassegni non dicano il falso:
+
+- **"nessuna risposta" solo a chi la mail e' partita davvero**: a chi non
+  abbiamo ancora scritto un silenzio non si puo' rimproverare;
+- **finche' le richieste non sono state lette non si scrive niente**, e il
+  conto dice "risposte non lette": una riga muta si leggerebbe come un no, e
+  zero e' un numero mentre quello che abbiamo e' nessun dato;
+- **i due conti non sono una frazione**. "2 su 1 richiamati hanno risposto" e'
+  quello che usciva scrivendoli cosi': il timbro del richiamo e' uno per
+  scheda e un convegno successivo lo riscrive, mentre la risposta resta, quindi
+  il numeratore puo' superare il denominatore. Si dicono separati.
+
+E **"Togli" non cancella piu' la richiesta, la marca** (`stato: 'tolta'`).
+Sparire dall'elenco e sparire dall'archivio sono due cose diverse: la prima la
+decide chi lavora la giornata, la seconda cancellerebbe il fatto che quella
+persona ci ha scritto, e la farebbe ricomparire fra i silenziosi - con una
+seconda mail. Gli elenchi saltano le tolte: e' il loro mestiere, non quello
+dell'archivio.
+
+Nello stesso giro, **il doppione si guarda fra richieste dello stesso tipo**.
+Una persona puo' avere mandato una richiesta a orari esauriti il giorno prima
+del convegno e, un mese dopo, chiedere un incontro nuovo: confrontando il solo
+`doc`, la seconda cancellava la prima in silenzio e si dichiarava pure
+"correzione", cioe' mandava allo studio una mail che diceva di correggere una
+richiesta che nessuno aveva corretto.
+
 **Chi resta fuori dalle due platee e' scritto in testa alla finestra.** Questo
 elenco non e' quello degli iscritti: basta che un nome non abbia un tavolo
 perche' qui non ci sia, e cercarlo senza trovarlo si legge come un dato perduto

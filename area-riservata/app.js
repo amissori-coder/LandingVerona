@@ -17435,6 +17435,8 @@
            "nessun cancellato" e' gia' una risposta. Compaiono solo quando c'e'
            qualcosa da dire, altrimenti il riquadro si riempie di zeri. */
         const quantiSoloB2B = (_evIscrizioni || []).filter(r => fuoriElenco(modalitaDi(ev, r))).length;
+        const cRichiamo = (!ev.tutti && ev.manuale && puoAggiungereIscrizioni() && eventoPassato(ev))
+            ? contiRichiamo(ev) : { scritti: 0 };
         const statoIscrizioni = (admin
             ? rigaBl('Accessi', '<b>' + cfg.abilitati.length + '</b> utenti oltre all\'amministratore')
             : '')
@@ -17443,6 +17445,20 @@
                 : '')
             + ((!ev.tutti && quantiSoloB2B)
                 ? rigaBl('Solo incontri B2B', '<b>' + quantiSoloB2B + '</b> al desk, non in sala')
+                : '')
+            /* COM'E' ANDATO IL RICHIAMO, senza aprire niente. E' la domanda
+               che si fa chi torna sull'evento dopo averlo mandato, e fino a
+               ieri per rispondere bisognava aprire la giornata e scorrere le
+               richieste - dove per di piu' non si vede chi NON ha risposto, che
+               e' la riga su cui si agisce. Il pulsante che lo risolve sta qui
+               accanto: il numero e il gesto nello stesso posto.
+               Compare solo quando qualcuno e' stato richiamato: prima non c'e'
+               niente da raccontare. */
+            + (cRichiamo.scritti
+                ? rigaBl('Nuovi incontri', '<b>' + cRichiamo.scritti + '</b> richiamati di ' + cRichiamo.platea
+                    + (cRichiamo.note
+                        ? ' &middot; <b>' + cRichiamo.risposte + '</b> ha' + (cRichiamo.risposte === 1 ? ' ' : 'nno ') + 'risposto'
+                        : ' &middot; risposte non lette'))
                 : '')
             + ((ev.manuale && puoAggiungereIscrizioni())
                 ? rigaBl('Altri portali', 'chi arriva da Eventbrite si aggiunge a mano')
@@ -18224,6 +18240,44 @@
             nomePersonaVisto(r || {}), (r && r.email) || ''
         ].join(' '));
     }
+    /* CHI HA RISPOSTO AL RICHIAMO. Le due meta' del fatto vivono in due archivi
+       diversi: "a questa persona ho scritto" sta sulla sua scheda
+       (`nuovoIncontroInvito`), "questa persona ha scritto a noi" sta fra le
+       richieste della giornata. Si uniscono per `doc`, che e' lo stesso
+       identificativo da tutte e due le parti - non per l'indirizzo, che due
+       schede della stessa persona possono condividere.
+       TRE STATI E NON DUE, perche' "non lo so" e "non ha risposto" sono cose
+       diverse: finche' l'agenda non e' stata letta, una riga muta si
+       leggerebbe come un silenzio di quella persona. `undefined` vuol dire che
+       non lo sappiamo, `null` che non ha risposto, l'oggetto e' la richiesta. */
+    function rispostaRichiamo(r, ev) {
+        const a = agendaDi(ev);
+        if (!a || !Array.isArray(a.richieste)) return undefined;
+        const d = String((r && r.doc) || '');
+        if (!d) return null;
+        return a.richieste.filter(x => eNuovoIncontro(x) && String(x.doc || '') === d
+            && String(x.stato || 'aperta') !== 'tolta')[0] || null;
+    }
+    /* I CONTI DEL RICHIAMO per il riquadro delle iscrizioni: quanti sono nelle
+       due platee, a quanti abbiamo scritto, quanti hanno risposto. `note` dice
+       se le risposte si sanno: senza l'agenda in memoria il conto delle
+       risposte sarebbe zero, e zero e' un numero - mentre quello che abbiamo
+       e' nessun dato. */
+    function contiRichiamo(ev) {
+        const g = daRichiamareB2B(ev);
+        const tutte = (g.tavoli || []).concat(g.online || []);
+        const scritti = tutte.filter(r => giaRichiamato(r, ev));
+        return {
+            platea: tutte.length,
+            scritti: scritti.length,
+            /* Le risposte si contano su TUTTA la platea e non fra i soli
+               richiamati: il timbro del richiamo e' uno per scheda e un
+               convegno successivo lo riscrive, mentre la risposta resta.
+               Contandole fra gli scritti sparirebbero proprio le piu' vecchie. */
+            risposte: tutte.filter(r => rispostaRichiamo(r, ev)).length,
+            note: !!agendaDi(ev)
+        };
+    }
     function giaRichiamato(r, ev) {
         const n = r && r.nuovoIncontroInvito;
         if (!n || !n.quando) return false;
@@ -18243,11 +18297,23 @@
         const s = String(p.stato || '').toLowerCase();
         return (s === 'presente' || s === 'assente') ? s : '';
     }
-    function modaleRichiamoB2B(ev) {
+    function modaleRichiamoB2B(ev, giaCercata) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale || ev.tutti) return;
         if (!window.RV_NEWSLETTER || !RV_NEWSLETTER.invitoNuovoIncontro) {
             toast('Formato newsletter non caricato: ricarica la pagina.', 'rosso');
+            return;
+        }
+        /* PRIMA L'AGENDA, POI LA FINESTRA. Chi ha risposto sta fra le richieste
+           della giornata, che di solito sono gia' in memoria - la pagina le
+           chiede entrando nell'evento - ma non sempre: entrando da un'altra
+           schermata, o dopo venti secondi, la copia e' scaduta. Aprendo senza,
+           la finestra direbbe di non sapere chi ha risposto proprio mentre il
+           dato e' a una lettura di distanza. Si prova UNA volta sola: se la
+           lettura non riesce la finestra si apre lo stesso, perche' mandare il
+           richiamo si deve poter fare anche quando l'agenda non si legge. */
+        if (!agendaDi(ev) && !giaCercata) {
+            caricaAgendaB2B(ev, () => modaleRichiamoB2B(ev, true));
             return;
         }
         const gruppi = daRichiamareB2B(ev);
@@ -18276,6 +18342,7 @@
         ].filter(p => p.righe.length);
         let forza = false;
         let soloFuoriSala = false;
+        let soloSenzaRisposta = false;
         let inCorso = false;
         let vista = PLATEE[0].id;
         const scelte = {};
@@ -18297,7 +18364,8 @@
         function riempi() {
             PLATEE.forEach(p => {
                 scelte[p.id] = new Set(p.righe.filter(r => (forza || !giaRichiamato(r, ev))
-                    && (!soloFuoriSala || statoSalaB2B(ev, r) !== 'presente')).map(r => r.id));
+                    && (!soloFuoriSala || statoSalaB2B(ev, r) !== 'presente')
+                    && (!soloSenzaRisposta || !rispostaRichiamo(r, ev))).map(r => r.id));
             });
         }
         riempi();
@@ -18308,11 +18376,23 @@
         const quanti = p => scelte[p.id].size;
         const totale = () => PLATEE.reduce((n, p) => n + quanti(p), 0);
         const inSalaDi = p => p.righe.filter(r => statoSalaB2B(ev, r) === 'presente').length;
+        const richiamatiDi = p => p.righe.filter(r => giaRichiamato(r, ev)).length;
+        const rispostiDi = p => p.righe.filter(r => rispostaRichiamo(r, ev)).length;
+        /* Se l'agenda non e' stata letta non si sa chi ha risposto, e lo si
+           dice: scrivere "0 hanno risposto" sarebbe un dato, e non ne abbiamo
+           nessuno. */
+        const risposteNote = () => !!agendaDi(ev);
 
         function rigaHtml(p, r) {
             const gia = giaRichiamato(r, ev);
             const sala = statoSalaB2B(ev, r);
             const soloInvito = !p.online && !String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim();
+            /* "Ha risposto" si scrive sempre; "non ha risposto" SOLO a chi la
+               mail e' partita davvero: a chi non abbiamo ancora scritto un
+               silenzio non si puo' rimproverare. E quando l'agenda non e'
+               stata letta non si scrive niente, perche' la riga muta si
+               leggerebbe come un no. */
+            const risp = rispostaRichiamo(r, ev);
             /* `data-cerca` viaggia con la riga, cosi' filtrare costa un
                confronto di stringhe e non una lettura del testo disegnato. */
             return '<label class="rc-riga' + (gia ? ' gia' : '') + '" data-p="' + esc(p.id) + '"'
@@ -18325,6 +18405,9 @@
                 + (sala === 'presente' ? '<span class="badge neutro">era in sala</span>' : '')
                 + (soloInvito ? '<span class="badge neutro">solo invito</span>' : '')
                 + (gia ? '<span class="badge ambra">già richiamato il ' + esc(fmtDataOra(r.nuovoIncontroInvito.quando)) + '</span>' : '')
+                + (risp ? '<span class="badge verde">ha risposto il ' + esc(fmtDataOra(risp.quando))
+                    + (String(risp.stato || 'aperta') === 'gestita' ? ', gestita' : '') + '</span>' : '')
+                + ((gia && risp === null) ? '<span class="badge neutro">nessuna risposta</span>' : '')
                 + '</label>';
         }
         function corpoHtml() {
@@ -18336,6 +18419,17 @@
                     + '<span class="hint">' + esc(p.spiega) + ' &middot; <b class="rc-conta" data-p="' + esc(p.id) + '">'
                     + quanti(p) + '</b> di ' + p.righe.length
                     + (quantiInSala ? ' &middot; ' + quantiInSala + (quantiInSala === 1 ? ' segnato' : ' segnati') + ' in sala' : '')
+                    /* DUE FATTI, NON UNA FRAZIONE. "2 su 1 richiamati hanno
+                       risposto" e' quello che usciva scrivendoli come
+                       frazione: una risposta puo' esserci anche da chi il
+                       timbro non ce l'ha piu' - un richiamo successivo lo
+                       riscrive - e allora il numeratore supera il
+                       denominatore. Si dicono separati, e tornano sempre. */
+                    + (richiamatiDi(p)
+                        ? ' &middot; ' + richiamatiDi(p) + ' richiamati' + (risposteNote()
+                            ? ' &middot; <b>' + rispostiDi(p) + '</b> ha' + (rispostiDi(p) === 1 ? ' ' : 'nno ') + 'risposto'
+                            : ', risposte non lette')
+                        : '')
                     + '<span class="rc-filtrati" data-p="' + esc(p.id) + '"></span></span>'
                     + '</div>'
                     /* LA CASELLA DI RICERCA sta dentro la sua platea, non sopra
@@ -18393,6 +18487,10 @@
                 + platee
                 + '<label class="rc-forza"><input type="checkbox" id="rc-fuorisala"' + (soloFuoriSala ? ' checked' : '') + '> '
                 + 'Solo chi non risulta in sala (il suo incontro non l\'ha fatto)</label>'
+                + (risposteNote()
+                    ? '<label class="rc-forza"><input type="checkbox" id="rc-senzarisposta"' + (soloSenzaRisposta ? ' checked' : '') + '> '
+                        + 'Solo chi non ha ancora risposto</label>'
+                    : '')
                 + '<label class="rc-forza"><input type="checkbox" id="rc-forza"' + (forza ? ' checked' : '') + '> '
                 + 'Scrivi anche a chi è già stato richiamato</label>'
                 + '<div class="rc-anteprima">' + scelta + '<iframe id="rc-frame" title="Anteprima"></iframe></div>'
@@ -18506,6 +18604,8 @@
             }));
             const fs = document.getElementById('rc-fuorisala');
             if (fs) fs.addEventListener('change', () => { soloFuoriSala = fs.checked; lotti = null; riempi(); aggiorna(); });
+            const sr = document.getElementById('rc-senzarisposta');
+            if (sr) sr.addEventListener('change', () => { soloSenzaRisposta = sr.checked; lotti = null; riempi(); aggiorna(); });
             const fz = document.getElementById('rc-forza');
             if (fz) fz.addEventListener('change', () => { forza = fz.checked; lotti = null; riempi(); aggiorna(); });
             document.getElementById('rc-no').addEventListener('click', chiudiModale);
@@ -19728,7 +19828,7 @@
            `area` quella persona compariva davanti al referente del primo
            tavolo e spariva per gli altri tre, che non sapevano di doverla
            richiamare. */
-        const richieste = (_rb.richieste || []).filter(r => !unoSolo
+        const richieste = (_rb.richieste || []).filter(r => String(r.stato || 'aperta') !== 'tolta').filter(r => !unoSolo
             || areeDiRichiesta(r).some(a => (capofilaRb(a) || a) === famUno));
         const sezRichieste = richieste.length
             ? '<section class="tema"><h2>' + (richieste.some(eNuovoIncontro) ? 'Richieste di incontro' : 'Richieste a orari esauriti')
@@ -20124,7 +20224,12 @@
     }
     // le richieste ancora da guardare: sono il motivo per cui questa scheda
     // deve saltare all'occhio anche quando tutto il resto e' a posto
-    function richiesteAperte(a) { return ((a && a.richieste) || []).filter(r => String(r.stato || 'aperta') !== 'gestita'); }
+    function richiesteAperte(a) {
+        return ((a && a.richieste) || []).filter(r => {
+            const st = String(r.stato || 'aperta');
+            return st !== 'gestita' && st !== 'tolta';
+        });
+    }
 
     /* CHI PUO' STARE DA QUESTA PARTE: gli aderenti Revilaw e gli sponsor e
        relatori iscritti a questo evento. Sono i candidati a tenere un tavolo
@@ -22026,7 +22131,12 @@
                 : '');
     }
     function richiesteHtml(a, puo) {
-        const lista = ((a && a.richieste) || []).slice().sort((x, y) => (y.quando || 0) - (x.quando || 0));
+        /* LE TOLTE NON SI MOSTRANO. "Togli" vuol dire "via dall'elenco", non
+           "non e' mai successo": da quando l'archivio le conserva - serve a
+           sapere chi ha risposto al richiamo e chi no - sono le viste a doverle
+           saltare. */
+        const lista = ((a && a.richieste) || []).filter(r => String(r.stato || 'aperta') !== 'tolta')
+            .slice().sort((x, y) => (y.quando || 0) - (x.quando || 0));
         if (!lista.length) return '';
         const aperte = richiesteAperte(a).length;
         /* IL TITOLO DICE QUELLO CHE C'E' DENTRO. Finche' le richieste erano

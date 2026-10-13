@@ -787,12 +787,21 @@ async function prova(nome, fn) {
         esigi(r.ok === true && r.mia === null, 'la pagina non la propone da correggere', JSON.stringify(r.mia));
         await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['esg'] });
         const tutte = richieste();
-        esigi(tutte.length === 1, 'e salvando resta una richiesta sola, la nuova', String(tutte.length));
-        esigi(tutte[0].tipo === 'nuovo-incontro' && tutte[0].stato === 'aperta', 'nata adesso');
-        /* La vecchia e' stata sostituita, perche' la regola resta "una per
-           persona": quello che non deve succedere e' che la sua nota e il suo
-           "gestita" vengano presentati come roba da correggere. */
-        esigi(!/orari esauriti/.test(JSON.stringify(tutte)), 'e la nota di allora non si trascina dietro');
+        /* E LE DUE CONVIVONO. Sono due cose diverse, nate da due pagine diverse
+           e per due ragioni diverse: una chiedeva un posto a un tavolo che si
+           stava riempiendo, l'altra chiede un appuntamento a convegno finito.
+           Prima il doppione si guardava sul solo `doc` e la seconda cancellava
+           la prima in silenzio - dichiarandosi pure "correzione", cioe'
+           mandando allo studio una mail che diceva di correggere una richiesta
+           che nessuno aveva corretto. */
+        esigi(tutte.length === 2, 'restano tutte e due, la vecchia e la nuova', String(tutte.length));
+        const nuova = tutte.filter(r => r.tipo === 'nuovo-incontro')[0];
+        const vecchia = tutte.filter(r => r.tipo !== 'nuovo-incontro')[0];
+        esigi(nuova && nuova.stato === 'aperta' && nuova.aree[0] === 'esg', 'quella nuova e aperta',
+            JSON.stringify(nuova && nuova.aree));
+        esigi(vecchia && vecchia.stato === 'gestita' && /orari esauriti/.test(String(vecchia.nota || '')),
+            'e quella di allora resta com era, gestita e con la sua nota', JSON.stringify(vecchia && vecchia.nota));
+        esigi(!/orari esauriti/.test(JSON.stringify(nuova)), 'senza trascinarsi dietro niente di quella');
     });
 
     await prova('26) La correzione si riconosce, e dice da dove viene la persona', async () => {
@@ -1071,6 +1080,29 @@ async function prova(nome, fn) {
         esigi(r2.inviate === 1, 'si conta solo quella arrivata', JSON.stringify(r2.inviate));
         esigi(!scheda('tre').nuovoIncontroInvito, 'e chi non l ha ricevuta resta da richiamare');
         esigi(!!scheda('quattro').nuovoIncontroInvito, 'mentre l altro ha il suo timbro');
+    });
+
+    await prova('37) "Togli" non cancella il fatto che quella persona abbia scritto', async () => {
+        /* Sparire dall'elenco e sparire dall'archivio sono due cose diverse.
+           Da quando l'area dice anche chi ha risposto al richiamo e chi no, una
+           voce cancellata farebbe ricomparire fra i silenziosi qualcuno che
+           aveva risposto - e gli si riscriverebbe. */
+        azzera();
+        mettiPersona('mario', 'Mario', 'Rossi');
+        await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['esg'], nota: 'Due banche.' });
+        esigi(richieste().length === 1, 'la richiesta c e');
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'agenda-richiesta', doc: 'mario', stato: 'tolta' });
+        esigi(r._stato === 200 && r.ok, 'si toglie dall elenco', JSON.stringify(r.msg || ''));
+        const dopo = richieste();
+        esigi(dopo.length === 1, 'ma in archivio resta', String(dopo.length));
+        esigi(dopo[0].stato === 'tolta', 'marcata come tolta', JSON.stringify(dopo[0].stato));
+        esigi(dopo[0].tipo === 'nuovo-incontro' && /Due banche/.test(String(dopo[0].nota || '')),
+            'con quello che quella persona aveva scritto');
+        /* E il riepilogo non la conta fra quelle da guardare: per chi lavora la
+           giornata non esiste piu'. */
+        const rip = await chiamaPresenze({ sezione: 'b2b', azione: 'riepilogo' });
+        esigi((rip.conti || {}).richiesteAperte === 0, 'e non si conta piu fra le aperte',
+            JSON.stringify((rip.conti || {}).richiesteAperte));
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
