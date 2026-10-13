@@ -109,13 +109,19 @@ let postaRotta = false;
    della funzione senza aspettare davvero un minuto: l'orologio e' finto, e
    una mano lenta del server di posta e' esattamente una lancetta che corre. */
 let postaLenta = 0;
+/* Gli indirizzi che il server di posta ACCETTA il messaggio ma rifiuta: non
+   solleva niente, li mette in `rejected`. E' il modo in cui una copia nascosta
+   puo' sparire senza che nessuno se ne accorga. */
+let postaRifiuta = [];
 const nodemailer = {
     createTransport: () => ({
         sendMail: async (msg) => {
             if (postaLenta) orologio += postaLenta;
             if (postaRotta) throw new Error('550 casella non raggiungibile');
             posta.push(msg);
-            return { response: '250 ok' };
+            const tutti = [msg.to].concat(msg.bcc || []).map(x => String(x || '').toLowerCase());
+            const rifiutati = tutti.filter(x => postaRifiuta.indexOf(x) >= 0);
+            return { response: '250 ok', rejected: rifiutati, accepted: tutti.filter(x => rifiutati.indexOf(x) < 0) };
         },
         close: () => { }
     })
@@ -143,7 +149,7 @@ const PRESENZE = require(path.join(RADICE, 'api/presenze.js'));
 // ---------- utilita' ----------
 const EVENTO = 'napoli-2026-10-02';
 function azzera() {
-    dati.clear(); posta.length = 0; postaRotta = false; postaLenta = 0;
+    dati.clear(); posta.length = 0; postaRotta = false; postaLenta = 0; postaRifiuta = [];
     /* La lancetta non torna indietro fra una prova e l'altra. Il servizio
        tiene in memoria dei freni a finestra di dieci minuti, e riportando
        l'orologio al punto di partenza se li ritroverebbe pieni dei tentativi
@@ -690,11 +696,14 @@ async function prova(nome, fn) {
         esigi(!letto.richiesta, 'e non dichiara nessuna richiesta a orari esauriti', JSON.stringify(letto.richiesta));
     });
 
-    await prova('21) La copia a chi preme arriva una volta sola', async () => {
-        /* Qui si scrive a decine di persone in un colpo: una copia nascosta
-           per destinatario vorrebbe dire riempire la casella di chi ha premuto
-           con settanta messaggi, ciascuno con dentro il collegamento firmato
-           di qualcun altro. */
+    await prova('21) La copia a chi preme arriva per ogni mail', async () => {
+        /* Questa prova diceva il contrario, e difendeva il comportamento che
+           chi manda ha poi segnalato: la copia partiva solo sulla prima mail
+           della chiamata, e con i lotti da venticinque della finestra su
+           settanta destinatari ne arrivavano tre. Una prova che fissa un
+           comportamento sbagliato e' peggio di nessuna prova: lo rende
+           intoccabile. Adesso dice quello che serve a chi preme - una mail, una
+           copia - come fanno l'invito agli incontri e l'avviso di spostamento. */
         azzera();
         mettiDaRichiamare('uno', 'Uno', 'Rossi');
         mettiDaRichiamare('due', 'Due', 'Rossi');
@@ -706,8 +715,8 @@ async function prova(nome, fn) {
             mail: { oggetto: 'x', html: '<p>{{NUOVO_INCONTRO}}</p>', testo: 'x' }
         });
         esigi(r.inviate === 3, 'partono tre mail', JSON.stringify(r));
-        const conCcn = posta.filter(m => m.bcc).length;
-        esigi(conCcn === 1, 'e una sola porta la copia nascosta', String(conCcn));
+        const conCcn = posta.filter(m => m.bcc && m.bcc.length).length;
+        esigi(conCcn === 3, 'e tutte e tre portano la copia nascosta', String(conCcn));
     });
 
     await prova('22) L oggetto cambia fra chi era ai tavoli e chi era online', async () => {
@@ -965,6 +974,103 @@ async function prova(nome, fn) {
         postaLenta = 0;
         esigi(r.inviate === 1, 'la prima parte comunque', JSON.stringify(r));
         esigi(r.rimasti === 1, 'e la seconda aspetta il lotto dopo', String(r.rimasti));
+    });
+
+    await prova('34) Chi manda riceve una copia di OGNI mail, non una per lotto', async () => {
+        /* La copia nascosta e' la prova, per chi preme, di che cosa e' partito
+           e a chi. Partiva solo sulla prima mail spedita della chiamata, e la
+           finestra manda a lotti di venticinque: su settanta destinatari ne
+           arrivavano tre. Peggio, il numero dipendeva dalle cose sbagliate -
+           da quanti lotti, e dal fatto che il server di posta fosse lento, che
+           spezza un lotto in due e fa arrivare una copia in piu'. Chi guarda la
+           casella non aveva modo di sapere quante dovessero essere. */
+        azzera();
+        const nomi = [];
+        for (let i = 0; i < 6; i++) { nomi.push('p' + i); mettiDaRichiamare('p' + i, 'Nome' + i, 'Cognome' + i); }
+        posta.length = 0;
+        const r = await chiamaPresenze({
+            azione: 'invita-nuovo-incontro',
+            destinatari: nomi.map(n => ({ id: n, doc: n })),
+            mail: { oggetto: 'x', html: '<p>{{NUOVO_INCONTRO}}</p>', testo: 'x' }
+        });
+        esigi(r.inviate === 6, 'sei mail partite', JSON.stringify(r.inviate));
+        const conCopia = posta.filter(m => m.bcc && m.bcc.length);
+        esigi(conCopia.length === 6, 'e sei copie a chi ha premuto, una per mail', String(conCopia.length));
+        esigi(conCopia.every(m => m.bcc.indexOf('staff@revilaw.it') >= 0),
+            'tutte al suo indirizzo', JSON.stringify((conCopia[0] || {}).bcc));
+        /* E in un secondo lotto, che e' una chiamata nuova, le copie non
+           ricominciano a contare da capo: ce n'e' una per mail anche li'. */
+        posta.length = 0;
+        mettiDaRichiamare('q1', 'Altro', 'Uno');
+        mettiDaRichiamare('q2', 'Altro', 'Due');
+        await chiamaPresenze({
+            azione: 'invita-nuovo-incontro', giaServiti: r.serviti,
+            destinatari: [{ id: 'q1', doc: 'q1' }, { id: 'q2', doc: 'q2' }],
+            mail: { oggetto: 'x', html: '<p>{{NUOVO_INCONTRO}}</p>', testo: 'x' }
+        });
+        esigi(posta.filter(m => m.bcc && m.bcc.length).length === 2,
+            'anche nel lotto dopo, una copia per mail', String(posta.length));
+    });
+
+    await prova('35) Se chi manda e anche fra i destinatari, gli altri la copia la ricevono lo stesso', async () => {
+        /* Chi iscrive se stesso non deve ricevere due volte la stessa mail, e
+           infatti dalla propria copia si toglie. Ma prima quel messaggio
+           bruciava lo slot dell'intero lotto: la copia era "la prima spedita",
+           la prima spedita era la sua, se la toglieva, e tutte le altre
+           partivano senza che nessuno ne sapesse niente. */
+        azzera();
+        mettiDaRichiamare('io', 'Chi', 'Manda', { email: 'staff@revilaw.it' });
+        mettiDaRichiamare('altro1', 'Altro', 'Uno');
+        mettiDaRichiamare('altro2', 'Altro', 'Due');
+        posta.length = 0;
+        const r = await chiamaPresenze({
+            azione: 'invita-nuovo-incontro',
+            destinatari: [{ id: 'io', doc: 'io' }, { id: 'altro1', doc: 'altro1' }, { id: 'altro2', doc: 'altro2' }],
+            mail: { oggetto: 'x', html: '<p>{{NUOVO_INCONTRO}}</p>', testo: 'x' }
+        });
+        esigi(r.inviate === 3, 'partono tutte e tre', JSON.stringify(r.inviate));
+        const mia = posta.filter(m => m.to === 'staff@revilaw.it')[0];
+        esigi(mia && !mia.bcc, 'a se stesso non si manda anche la copia', JSON.stringify(mia && mia.bcc));
+        const altre = posta.filter(m => m.to !== 'staff@revilaw.it');
+        esigi(altre.length === 2 && altre.every(m => m.bcc && m.bcc.indexOf('staff@revilaw.it') >= 0),
+            'ma delle altre due la copia arriva', JSON.stringify(altre.map(m => m.bcc)));
+    });
+
+    await prova('36) Un indirizzo che il server di posta rifiuta non sparisce in silenzio', async () => {
+        /* Un indirizzo scartato non fa sollevare niente: la mail "parte" e il
+           riassunto dice che e' andato tutto bene. Qui conta doppio, perche'
+           fra i rifiutati puo' esserci l'indirizzo in COPIA: chi manda
+           resterebbe senza la prova di un invio che gli e' stato dichiarato
+           riuscito, e non avrebbe modo di saperlo. */
+        azzera();
+        mettiDaRichiamare('uno', 'Uno', 'Rossi');
+        mettiDaRichiamare('due', 'Due', 'Rossi');
+        postaRifiuta = ['staff@revilaw.it'];
+        posta.length = 0;
+        const r = await chiamaPresenze({
+            azione: 'invita-nuovo-incontro',
+            destinatari: [{ id: 'uno', doc: 'uno' }, { id: 'due', doc: 'due' }],
+            mail: { oggetto: 'x', html: '<p>{{NUOVO_INCONTRO}}</p>', testo: 'x' }
+        });
+        esigi(r.inviate === 2, 'le mail ai destinatari partono lo stesso', JSON.stringify(r.inviate));
+        esigi((r.falliti || []).length === 2, 'e si dice che la copia non e stata accettata', JSON.stringify(r.falliti));
+        esigi((r.falliti || []).every(f => f.email === 'staff@revilaw.it'), 'con l indirizzo e il motivo',
+            JSON.stringify(r.falliti));
+        /* E se a essere rifiutato e' il DESTINATARIO, quella mail non si conta
+           fra le inviate e la scheda non prende il timbro: altrimenti al giro
+           dopo risulterebbe "gia' richiamato" senza averla mai ricevuta. */
+        azzera();
+        mettiDaRichiamare('tre', 'Tre', 'Rossi', { email: 'rotta@esempio.it' });
+        mettiDaRichiamare('quattro', 'Quattro', 'Rossi');
+        postaRifiuta = ['rotta@esempio.it'];
+        const r2 = await chiamaPresenze({
+            azione: 'invita-nuovo-incontro',
+            destinatari: [{ id: 'tre', doc: 'tre' }, { id: 'quattro', doc: 'quattro' }],
+            mail: { oggetto: 'x', html: '<p>{{NUOVO_INCONTRO}}</p>', testo: 'x' }
+        });
+        esigi(r2.inviate === 1, 'si conta solo quella arrivata', JSON.stringify(r2.inviate));
+        esigi(!scheda('tre').nuovoIncontroInvito, 'e chi non l ha ricevuta resta da richiamare');
+        esigi(!!scheda('quattro').nuovoIncontroInvito, 'mentre l altro ha il suo timbro');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

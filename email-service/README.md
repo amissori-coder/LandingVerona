@@ -3005,10 +3005,41 @@ dire "la Sua richiesta e' gia' arrivata" a chi ne ha mandata una da un'altra
 pagina e per un'altra cosa gli farebbe credere di aver gia' chiesto un posto che
 invece e' ancora libero.
 
-**La copia nascosta a chi preme parte una volta sola**, sul primo messaggio del
-lotto, come nell'invito agli incontri e per la stessa ragione: una copia a testa
-riempirebbe la casella di chi ha premuto con settanta messaggi, ciascuno con
-dentro il collegamento firmato di qualcun altro.
+**La copia nascosta a chi preme parte su OGNI mail**, come nell'invito agli
+incontri e nell'avviso di spostamento fra le sezioni: chi manda deve avere agli
+atti che cosa e' partito e a chi, e la prova di settanta mail non sono tre mail.
+
+Prima partiva solo sulla prima mail "del lotto", e la ragione scritta accanto
+era sbagliata in tre modi, tutti misurati:
+
+- diceva che l'invito agli incontri faceva lo stesso. Non e' vero: quello la
+  copia la manda a ognuna, con gli stessi collegamenti firmati personali che
+  qui venivano addotti come ragione per non mandarla;
+- diceva "una volta sola", ma il contatore nasce dentro la chiamata e la
+  finestra manda a lotti di venticinque: su settanta destinatari ne partivano
+  **tre**, e se il server di posta era lento il taglio del tempo spezzava i
+  lotti e ne partivano cinque. Un numero che chi guarda la casella non ha modo
+  di prevedere;
+- e bruciava lo slot: se il primo servito del lotto era l'operatore stesso -
+  che da se' si toglie dalla copia - quel lotto partiva con **zero** copie, e
+  niente lo diceva.
+
+**Un indirizzo che il server di posta rifiuta non sparisce piu' in silenzio.**
+Un destinatario scartato non fa sollevare niente a nodemailer: la mail "parte",
+e il riassunto dice che e' andato tutto bene. Qui conta doppio, perche' fra i
+rifiutati puo' esserci proprio l'indirizzo in copia, cioe' la prova: chi manda
+si ritroverebbe senza, dopo che il servizio gli ha dichiarato l'invio riuscito.
+Adesso i rifiutati finiscono fra i `falliti`, con il motivo del server, e se il
+rifiutato e' il DESTINATARIO quella mail non si conta fra le inviate e la scheda
+non prende il timbro - altrimenti al giro dopo risulterebbe "gia' richiamato"
+senza averla mai ricevuta.
+
+**Una cosa da sapere, guardando la propria casella.** La copia arriva senza
+intestazione `Bcc` - esce dal relay come destinatario di busta - quindi in
+casella si presenta con il nome del destinatario nell'oggetto e nel `To`: sono
+mail che sembrano indirizzate a qualcun altro, e cercandole fra le proprie non
+si trovano. Si riconoscono dall'oggetto degli incontri B2B, non dal fatto che
+siano indirizzate a noi.
 
 **Una iscrizione ai soli incontri B2B non resta invisibile.** La sezione "Solo
 incontri B2B" e' `fuoriElenco`: non occupa un posto in sala e l'elenco degli
