@@ -66,6 +66,10 @@ const CONTATTI = require('../lib/richieste-contatto');
    non fargli una funzione sua: chi conferma arriva da una pagina che non ha
    nient'altro da chiedere al servizio. */
 const CENE = require('../lib/cene-evento');
+/* Le iscrizioni a pagamento degli aderenti Revilaw (Milano 2027: cena del 26
+   e meeting del 27 febbraio): dati anagrafici e di fatturazione, avviso a chi
+   fattura, riepilogo a chi si iscrive. */
+const ADERENTI = require('../lib/iscrizioni-aderenti');
 /* L'accredito dal QR al desk, il giorno del convegno: chi arriva senza
    iscrizione si registra dal telefono, chi ce l'ha si segna presente con un
    tocco. Stesso genere di endpoint delle cene (pubblico, con freno per IP),
@@ -1597,6 +1601,17 @@ module.exports = async (req, res) => {
             const c = CENE.perLaPagina(CENE.definizione(body.cena));
             if (!c) { res.status(404).json({ ok: false, msg: 'Cena non riconosciuta.' }); return; }
             res.status(200).json({ ok: true, cena: c, adesso: Date.now() });
+            return;
+        }
+        /* L'iscrizione degli aderenti Revilaw a Milano. Il freno per indirizzo
+           IP qui sopra vale anche qui: la pagina si raggiunge solo dal
+           collegamento, ma l'endpoint e' aperto e ogni invio fa partire due
+           mail. */
+        if (azione === 'aderenti-iscrizione') {
+            const credAd = leggiServiceAccount();
+            initAdmin(credAd);
+            const r = await ADERENTI.ricevi(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
             return;
         }
         if (azione === 'cena-conferma') {
