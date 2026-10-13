@@ -1307,22 +1307,54 @@ module.exports = async (req, res) => {
                         .split('{{NUOVO_INCONTRO}}').join(linkNi);
                 };
                 try {
-                    await transNi.sendMail({
+                    const infoNi = await transNi.sendMail({
                         from: '"' + fromNameNi + '" <' + fromEmailNi + '>',
                         replyTo: email,
                         to: a,
-                        /* LA COPIA NASCOSTA UNA VOLTA SOLA, sul primo
-                           messaggio del lotto. L'invito agli incontri fa lo
-                           stesso, e per la stessa ragione: qui si scrive a
-                           decine di persone in un colpo, e una copia a testa
-                           vorrebbe dire riempire la casella di chi ha premuto
-                           con settanta messaggi, ciascuno con dentro il
-                           collegamento firmato di qualcun altro. */
-                        bcc: inviate === 0 ? ccnOperatore(email, emailSessione, a) : undefined,
+                        /* LA COPIA NASCOSTA SU OGNI MAIL, come l'invito agli
+                           incontri qui sopra e l'avviso di spostamento piu' in
+                           basso. Prima partiva solo sulla prima mail "del
+                           lotto", e la ragione scritta accanto era sbagliata in
+                           tutti e tre i modi in cui si puo' sbagliare.
+                           Diceva che l'invito agli incontri faceva lo stesso:
+                           non e' vero, quello la copia la manda a ognuna, con
+                           gli stessi collegamenti firmati personali che qui
+                           venivano addotti come ragione per non mandarla.
+                           Diceva "una volta sola", ma il contatore nasce dentro
+                           la chiamata e la finestra manda a lotti di
+                           venticinque: su settanta destinatari ne partivano tre,
+                           e se il server di posta era lento il taglio del tempo
+                           spezzava i lotti e ne partivano cinque. Un numero che
+                           chi guarda la casella non ha modo di prevedere.
+                           E bruciava lo slot: se il primo servito del lotto era
+                           l'operatore stesso - che da se' si toglie dalla copia -
+                           quel lotto partiva con zero copie, senza che niente lo
+                           dicesse.
+                           Chi preme deve avere agli atti che cosa e' partito e a
+                           chi: una mail, una copia. */
+                        bcc: ccnOperatore(email, emailSessione, a),
                         subject: sostituisciNi(oggettoBase, false),
                         text: testoBase ? sostituisciNi(testoBase, false) : undefined,
                         html: sostituisciNi(htmlBase, true)
                     });
+                    /* CHI IL SERVER DI POSTA HA RIFIUTATO. Un indirizzo
+                       scartato non fa sollevare niente a nodemailer: la mail
+                       "parte" e il riassunto dice che e' andato tutto bene. Qui
+                       conta doppio, perche' fra i rifiutati puo' esserci
+                       l'indirizzo in COPIA: chi manda si ritroverebbe senza la
+                       prova di un invio che il servizio gli ha dichiarato
+                       riuscito, e non avrebbe modo di saperlo. */
+                    const rifiutati = ((infoNi && infoNi.rejected) || []).map(x => String(x).toLowerCase());
+                    if (rifiutati.length) {
+                        const motivoNi = String((infoNi && infoNi.response) || 'rifiutato dal server di posta').slice(0, 150);
+                        rifiutati.forEach(em => fallitiNi.push({ email: em, motivo: motivoNi }));
+                    }
+                    /* La mail al destinatario e' partita comunque, a meno che
+                       il rifiutato sia proprio lui: allora non si conta fra le
+                       inviate e la scheda non prende il timbro, altrimenti al
+                       giro dopo risulterebbe "gia' richiamato" senza averla mai
+                       ricevuta. */
+                    if (rifiutati.indexOf(a) >= 0) { continue; }
                     inviate++;
                     fatteNi.push(docId);
                     servitiNi.push(a);
