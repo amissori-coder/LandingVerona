@@ -397,6 +397,32 @@ prova('Anche la versione breve e giustificata', () => {
         nonGiustificati.length + ' a bandiera');
 });
 
+prova('Un segnaposto dentro un pulsante resta un segnaposto', () => {
+    /* IL GUASTO CHE QUESTA PROVA ESISTE PER NON FAR TORNARE. Chi compone una
+       mail scrive nel pulsante un SEGNAPOSTO - {{NUOVO_INCONTRO}}, {{COMPLETA}},
+       {{B2B}} - e il servizio ci mette il collegamento firmato di quella
+       persona al momento di spedire. Ma `urlSicuro`, che difende dai "javascript:"
+       incollati per sbaglio, davanti a una stringa che non sembra un indirizzo
+       ci mette davanti "https://": l'href diventava https://{{NUOVO_INCONTRO}}
+       e, dopo la sostituzione, https://https://nextgenerationbusiness.it/...
+       Un indirizzo che nessun client sa aprire, in una mail partita a tutta la
+       platea di un convegno. Le altre mail si scrivevano l'href a mano proprio
+       per schivarlo; adesso non serve piu' schivare niente, ma la difesa va
+       tenuta provata. */
+    esigi(NL.urlSicuro('{{NUOVO_INCONTRO}}') === '{{NUOVO_INCONTRO}}', 'un segnaposto esce tale e quale');
+    esigi(NL.urlSicuro('{{COMPLETA}}') === '{{COMPLETA}}', 'e vale per tutti i segnaposto');
+    esigi(NL.urlSicuro('{{B2B}}') === '{{B2B}}', 'anche quello degli incontri');
+    /* E la difesa vera resta in piedi: e' il motivo per cui `urlSicuro` esiste. */
+    esigi(NL.urlSicuro('javascript:alert(1)') === '', 'uno schema che esegue codice resta scartato');
+    esigi(NL.urlSicuro('data:text/html,<script>') === '', 'e cosi un documento messo nell indirizzo');
+    esigi(NL.urlSicuro('nextgenerationbusiness.it') === 'https://nextgenerationbusiness.it',
+        'e un indirizzo senza schema continua a prenderlo');
+    /* Dentro il pulsante, che e' il punto dove serviva. */
+    const b = NL.pulsante('Scegliete gli argomenti', '{{NUOVO_INCONTRO}}');
+    esigi(b.indexOf('href="{{NUOVO_INCONTRO}}"') > 0, 'e il pulsante lo mette nudo nell href', b.slice(0, 200));
+    esigi(!/https?:\/\/\{\{/.test(b), 'senza niente davanti');
+});
+
 console.log('\nLa forma della mail d\'invito B2B\n');
 for (const p of prove) {
     console.log('\n' + p.titolo);

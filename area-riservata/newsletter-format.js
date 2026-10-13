@@ -186,6 +186,19 @@
     function urlSicuro(u) {
         const s = String(u == null ? '' : u).trim();
         if (!s) return '';
+        /* UN SEGNAPOSTO NON E' UN INDIRIZZO, e passa tale e quale. Lo sostituisce
+           il servizio al momento di spedire, con il collegamento firmato di quella
+           persona: qui dentro e' solo una parola fra due graffe, e senza questa
+           riga finiva nell'ultima - quella che davanti a tutto ci mette
+           "https://" - producendo href="https://{{NUOVO_INCONTRO}}" e, dopo la
+           sostituzione, "https://https://nextgenerationbusiness.it/...": un
+           indirizzo che nessun client sa aprire. E' successo davvero, alla mail
+           del nuovo incontro, l'unica che costruiva il pulsante con `pulsante()`
+           invece di scriversi l'href a mano per schivare proprio questo.
+           La forma e' ancorata e ammette solo maiuscole, cifre e trattino basso
+           - le cifre perche' un segnaposto si chiama anche {{B2B}} - quindi non
+           apre niente: un "javascript:" resta scartato come prima. */
+        if (/^\{\{[A-Z0-9_]+\}\}$/.test(s)) return s;
         if (/^(https?:|mailto:)/i.test(s)) return s;
         if (/^\/\//.test(s)) return 'https:' + s;
         if (/^\//.test(s)) return SITO + s;
@@ -2734,21 +2747,29 @@
            ancora fatto" a chi ha seguito online non vuol dire niente: un
            incontro non ce l'aveva, e la prima riga che legge, prima ancora di
            aprire, direbbe una cosa che non lo riguarda. */
-        const oggetto = SEGNAPOSTO_NOME + (online
-            ? ': un incontro con i nostri professionisti, quando Vi fa comodo'
-            : ': programmiamo l\'incontro che non avete ancora fatto')
+        const oggetto = 'Incontri B2B - ' + SEGNAPOSTO_NOME + (online
+            ? ': un incontro riservato con i nostri professionisti'
+            : ': possiamo programmare l\'incontro che non avete ancora fatto')
             + (quandoEv ? ' - Next Generation Business, ' + quandoEv : '');
-        const anteprima = 'Gli incontri del convegno erano a orari fissi. Se il Vostro non si è fatto, lo rifacciamo: scegliete gli argomenti.';
+        /* ANCHE L'ANTEPRIMA E' PER PLATEA: e' la riga che si legge accanto
+           all'oggetto, prima di aprire, e dire a chi ha seguito online "se il
+           Vostro incontro non si e' fatto" significa parlargli di una cosa che
+           non ha mai avuto. */
+        const anteprima = online
+            ? 'Gli incontri B2B si tenevano ai tavoli, in sala. Possiamo programmarne uno per la Vostra impresa, senza vincoli di orario.'
+            : 'Gli incontri B2B del convegno si tenevano a orari fissi. Qualora il Vostro non si sia svolto, possiamo programmarlo ora.';
 
         const sommario = online
-            ? 'Gentile ' + SEGNAPOSTO_NOME + ', avete seguito online i lavori di "' + nomeConvegno + '"'
+            ? 'Gentile ' + SEGNAPOSTO_NOME + ', Vi ringraziamo per aver seguito online i lavori di "' + nomeConvegno + '"'
                 + (quandoEv ? ' di ' + quandoEv : '') + '. Gli incontri B2B si tenevano ai tavoli, in sala: '
-                + 'se Vi interessano, possiamo organizzarne uno per Voi.'
-            : 'Gentile ' + SEGNAPOSTO_NOME + ', avete partecipato a "' + nomeConvegno + '"'
-                + (quandoEv ? ' di ' + quandoEv : '') + '. Gli incontri B2B erano a orari fissi e non tutti '
-                + 'sono riusciti a farli: se è capitato anche a Voi, li rifacciamo con calma.';
+                + 'qualora desideriate approfondire uno degli argomenti trattati, possiamo programmare un incontro '
+                + 'riservato alla Vostra impresa.'
+            : 'Gentile ' + SEGNAPOSTO_NOME + ', Vi ringraziamo per aver preso parte a "' + nomeConvegno + '"'
+                + (quandoEv ? ' di ' + quandoEv : '') + '. Gli incontri B2B si tenevano a orari fissi e non tutte '
+                + 'le imprese invitate hanno potuto svolgerli: qualora sia stato anche il Vostro caso, possiamo '
+                + 'programmare ora un nuovo incontro.';
 
-        const testa = testaB2B('Programmiamo un nuovo incontro', sommario);
+        const testa = testaB2B('Un nuovo incontro per la Vostra impresa', sommario);
         const copertina = copertinaB2B();
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
@@ -2757,14 +2778,14 @@
            per lo stesso collegamento non confondono nessuno, mentre un
            pulsante solo in fondo costa a tutti una lettura intera. */
         const bottone = '<tr><td align="center" style="padding:0;">'
-            + pulsante('Scelgo gli argomenti', SEGNAPOSTO_NUOVO_INCONTRO) + '</td></tr>';
+            + pulsante('Scegliete gli argomenti', SEGNAPOSTO_NUOVO_INCONTRO) + '</td></tr>';
 
         /* Il riquadro chiaro dei tre passi: stessa forma del riepilogo delle
            altre mail NGB, perche' chi le riceve tutte ne riconosca una sola. */
         const comeFunziona = [
-            'Scegliete gli argomenti di cui volete parlare, fino a quattro.',
-            'Non c’è nessun orario da prendere: la data la troviamo insieme.',
-            'Diteci quando Vi fa comodo, e Vi richiamiamo noi.'
+            'Indicate gli argomenti sui quali desiderate confrontarVi, fino a quattro. Il primo è quello a cui attribuiamo la precedenza.',
+            'Non è previsto alcun orario da prenotare: l\'incontro si concorda successivamente, in base alle Vostre disponibilità.',
+            'Segnalate, se lo desiderate, i giorni e le fasce orarie che preferite: sarà nostra cura ricontattarVi.'
         ];
         const riquadro = '<table role="presentation" class="bx" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
@@ -2774,42 +2795,63 @@
                 + '<tr><td>' + elencoPunti(comeFunziona, SCALA.corpo, C.accento, true) + '</td></tr>'
             ) + '</td></tr></table>';
 
+        /* I PARAGRAFI SI SCRIVONO UNA VOLTA SOLA. La mail esce in due forme -
+           con la grafica e in solo testo - e finche' le frasi erano ricopiate
+           nelle due le due erano gia' divergenti: chi legge il testo semplice
+           riceveva una lettera diversa da chi legge l'altra, e nessuno se ne
+           accorgeva perche' nessuno le legge tutte e due. */
+        const primo = online
+            ? 'Gli incontri B2B si sono svolti a margine dei lavori in sala, presso i desk riservati: trenta minuti '
+                + 'per argomento, con i professionisti e gli specialisti della materia. Si tenevano esclusivamente in '
+                + 'presenza, e chi ha seguito i lavori online non ha potuto prendervi parte.'
+            : 'Gli incontri B2B si sono svolti a margine dei lavori in sala, presso i desk riservati: trenta minuti '
+                + 'per argomento, con i professionisti e gli specialisti della materia. Le fasce orarie erano limitate '
+                + 'e in alcuni casi non è stato possibile conciliarle con il programma della giornata.';
+        /* "Svolgerlo" oppure "svolgerne uno": a chi era ai tavoli ci si riferisce
+           all'incontro che aveva in programma, a chi ha seguito online un
+           incontro da riprendere non c'era. Una parola, ma e' la differenza fra
+           una lettera scritta per quella persona e una circolare. */
+        const secondo = 'Per questo desideriamo offrirVi la possibilità di ' + (online ? 'svolgerne uno' : 'svolgerlo')
+            + ' ora, con lo stesso formato e senza il vincolo della giornata: è sufficiente indicare gli argomenti '
+            + 'di Vostro interesse, e sarà nostra cura ricontattarVi per concordare giorno e ora.';
+        const terzo = 'Gli argomenti sono quelli dei tavoli del convegno: merito creditizio, adeguati assetti, '
+            + 'ESG e sostenibilità, Modello 231 e Tax Control Framework, finanza agevolata, revisione legale, '
+            + 'certificazione ISO, rating di legalità. Potete indicarne fino a quattro. Qualora vi siano elementi '
+            + 'utili a preparare l\'incontro, Vi invitiamo a segnalarli nello spazio dedicato: ci consentono di '
+            + 'dedicare l\'intero appuntamento al merito della questione.';
+        const saluti = 'Restiamo a disposizione per qualsiasi chiarimento e, nell\'attesa di incontrarVi, '
+            + 'Vi porgiamo i nostri più cordiali saluti.';
+        const avvertenza = 'Il collegamento è riservato alla Vostra scheda: Vi chiediamo di non inoltrarlo. '
+            + 'Qualora preferiate scriverci, è sufficiente rispondere a questa email: la riceve chi organizza gli incontri.';
+
         const corpo = cella(tabellaInterna(
             spazio(30)
             + bottone
             + spazio(26)
-            + par(online
-                ? 'Ai tavoli del convegno le imprese hanno incontrato i nostri professionisti su un argomento preciso, '
-                    + 'mezz\'ora a testa, senza presentazioni di prodotto. Chi seguiva online quei tavoli non li aveva: '
-                    + 'ora possiamo recuperare, con lo stesso formato e senza il vincolo della giornata.'
-                : 'Il tempo dei tavoli era quello che era: mezz\'ora per argomento, e gli orari si sono riempiti in fretta. '
-                    + 'Qualcuno non ha trovato posto, qualcuno aveva due impegni alla stessa ora, qualcun altro si è fermato '
-                    + 'a parlare e ha saltato il turno dopo. Non c’è ragione perché quell’incontro resti indietro.')
+            + par(primo)
+            + spazio(18)
+            + par(secondo)
             + spazio(22)
             + '<tr><td>' + riquadro + '</td></tr>'
             + spazio(26)
-            + par('Gli argomenti sono gli stessi dei tavoli del convegno: merito creditizio, adeguati assetti, ESG, '
-                + 'Modello 231 e Tax Control Framework, finanza agevolata, revisione legale, certificazioni ISO, '
-                + 'rating di legalità. Sceglietene fino a quattro, e se c’è qualcosa che dobbiamo sapere prima, scrivetecelo: '
-                + 'chi arriva preparato all’incontro fa guadagnare mezz’ora a tutti e due.')
+            + par(terzo)
+            + spazio(22)
+            + par(saluti)
             + spazio(28)
             + bottone
             + spazio(24)
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
-            + 'Il collegamento vale per la Vostra scheda: Vi chiediamo di non inoltrarlo. '
-            + 'Se preferite scriverci, rispondete a questa mail: la legge chi organizza gli incontri.</td></tr>'
+            + testoHtml(avvertenza) + '</td></tr>'
         ));
 
         const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piedeB2B());
 
-        const testo = ['PROGRAMMIAMO UN NUOVO INCONTRO', sommario,
-            online
-                ? 'Ai tavoli del convegno le imprese hanno incontrato i nostri professionisti su un argomento preciso, mezz\'ora a testa, senza presentazioni di prodotto. Chi seguiva online quei tavoli non li aveva: ora possiamo recuperare, con lo stesso formato e senza il vincolo della giornata.'
-                : 'Il tempo dei tavoli era quello che era: mezz\'ora per argomento, e gli orari si sono riempiti in fretta. Qualcuno non ha trovato posto, qualcuno aveva due impegni alla stessa ora, qualcun altro si è fermato a parlare e ha saltato il turno dopo. Non c’è ragione perché quell’incontro resti indietro.',
+        const testo = ['UN NUOVO INCONTRO PER LA VOSTRA IMPRESA', sommario,
+            primo, secondo,
             'COME FUNZIONA\n' + comeFunziona.map(x => '- ' + x).join('\n'),
-            'Gli argomenti sono gli stessi dei tavoli del convegno: merito creditizio, adeguati assetti, ESG, Modello 231 e Tax Control Framework, finanza agevolata, revisione legale, certificazioni ISO, rating di legalità. Sceglietene fino a quattro.',
-            'Scegliete gli argomenti qui: ' + SEGNAPOSTO_NUOVO_INCONTRO,
-            'Il collegamento vale per la Vostra scheda: Vi chiediamo di non inoltrarlo.',
+            terzo,
+            'Scegliete gli argomenti: ' + SEGNAPOSTO_NUOVO_INCONTRO,
+            saluti, avvertenza,
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
             'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
 
