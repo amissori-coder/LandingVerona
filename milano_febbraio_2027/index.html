@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -117,393 +117,263 @@
 </head>
 <body>
 
-    <!-- Navigation -->
-    <nav class="navbar" id="navbar">
-        <div class="container nav-container">
-            <div class="nav-brand-group">
-                <a href="../" class="nav-back" aria-label="Torna alla home">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    <a class="salta" href="#evento">Vai al contenuto</a>
+
+    <!-- Barra di navigazione -->
+    <header class="nav" id="navbar">
+        <div class="wrap nav-wrap">
+            <div class="nav-brand">
+                <a href="../" class="nav-back" aria-label="Torna alla home di Next Generation Business">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
                 </a>
-                <span class="nav-divider"></span>
-                <a href="#hero" class="nav-logo">
-                    <img src="assets/logo-revilaw-mark.png" alt="Revilaw" class="logo-mark-img" onerror="this.style.display='none'">
+                <a href="#hero" class="nav-logo" aria-label="Revilaw, inizio pagina">
+                    <img src="assets/logo-revilaw-bianco.png" alt="Revilaw" width="371" height="115">
                 </a>
             </div>
-            <button class="nav-toggle" id="navToggle" aria-label="Apri menu di navigazione">
-                <span></span>
-                <span></span>
-                <span></span>
+            <button class="nav-toggle" id="navToggle" aria-label="Apri il menu" aria-expanded="false" aria-controls="navMenu">
+                <span></span><span></span><span></span>
             </button>
-            <ul class="nav-menu" id="navMenu">
-                <li><a href="#evento">L'Evento</a></li>
-                <li><a href="#programma">Programma</a></li>
-                <li><a href="#sede">Sede</a></li>
-                <li><a href="save-the-date-milano-2027.pdf" download class="nav-brochure">Scarica il save the date</a></li>
-                <li><a href="#iscrizioni" class="nav-cta">Iscrizioni</a></li>
-            </ul>
+            <nav class="nav-menu" id="navMenu" aria-label="Sezioni della pagina">
+                <a href="#evento">L'evento</a>
+                <a href="#programma">Programma</a>
+                <a href="#sede">Sede</a>
+                <a href="#iscrizioni">Iscrizioni</a>
+                <a href="save-the-date-milano-2027.pdf" download class="nav-cta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><polyline points="6 11 12 17 18 11"/><path d="M4 20h16"/></svg>
+                    Save the date
+                </a>
+            </nav>
         </div>
-    </nav>
+    </header>
 
-    <!-- Hero Section -->
+    <!-- Apertura -->
     <section class="hero" id="hero">
-        <div class="hero-bg-overlay"></div>
-        <div class="hero-particles" id="heroParticles"></div>
-        <div class="container hero-content">
-            <div class="hero-badge">
-                <span class="badge-dot"></span>
-                Save the date
-            </div>
-            <h1 class="hero-title">
-                <span class="hero-title-line">Next</span>
-                <span class="hero-title-line">Generation</span>
-                <span class="hero-title-line accent">Business</span>
-            </h1>
-            <p class="hero-subtitle"><strong>Merito creditizio</strong>, crescita e <strong>competitività</strong> delle imprese</p>
-            <div class="hero-info">
-                <div class="hero-info-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-                    </svg>
-                    <span>Venerdì 26 Febbraio 2027</span>
+        <div class="hero-sfondo" aria-hidden="true"></div>
+        <div class="wrap hero-corpo">
+            <span class="hero-occhiello">Save the date &middot; Milano 2027</span>
+            <h1 class="hero-titolo">Next Generation <span>Business</span></h1>
+            <p class="hero-tema">Merito creditizio, crescita e competitività delle imprese</p>
+
+            <dl class="hero-dati">
+                <div>
+                    <dt>Data</dt>
+                    <dd>Venerdì 26 febbraio 2027</dd>
                 </div>
-                <div class="hero-info-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-                        <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
-                    </svg>
-                    <span>Milano – Excelsior Hotel Gallia</span>
+                <div>
+                    <dt>Sede</dt>
+                    <dd>Excelsior Hotel Gallia, Milano</dd>
                 </div>
-                <div class="hero-info-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
-                    </svg>
-                    <span>Solo in presenza</span>
+                <div>
+                    <dt>Partecipazione</dt>
+                    <dd>Gratuita, solo in presenza</dd>
                 </div>
+            </dl>
+
+            <div class="conto" id="countdown" aria-label="Tempo che manca all'evento">
+                <div><span id="days">00</span><small>giorni</small></div>
+                <div><span id="hours">00</span><small>ore</small></div>
+                <div><span id="minutes">00</span><small>minuti</small></div>
+                <div><span id="seconds">00</span><small>secondi</small></div>
             </div>
 
-            <!-- Countdown -->
-            <div class="countdown" id="countdown">
-                <div class="countdown-item">
-                    <span class="countdown-value" id="days">00</span>
-                    <span class="countdown-label">Giorni</span>
-                </div>
-                <div class="countdown-separator">:</div>
-                <div class="countdown-item">
-                    <span class="countdown-value" id="hours">00</span>
-                    <span class="countdown-label">Ore</span>
-                </div>
-                <div class="countdown-separator">:</div>
-                <div class="countdown-item">
-                    <span class="countdown-value" id="minutes">00</span>
-                    <span class="countdown-label">Minuti</span>
-                </div>
-                <div class="countdown-separator">:</div>
-                <div class="countdown-item">
-                    <span class="countdown-value" id="seconds">00</span>
-                    <span class="countdown-label">Secondi</span>
-                </div>
+            <div class="hero-azioni">
+                <a href="save-the-date-milano-2027.pdf" download class="btn btn-chiaro">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><polyline points="6 11 12 17 18 11"/><path d="M4 20h16"/></svg>
+                    Scarica il save the date
+                </a>
+                <a href="#iscrizioni" class="btn btn-linea">Iscrizioni aperte a breve</a>
             </div>
-
-            <a href="save-the-date-milano-2027.pdf" download class="hero-cta">
-                Scarica il save the date
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 4v12"/>
-                    <polyline points="6 11 12 17 18 11"/>
-                    <path d="M4 20h16"/>
-                </svg>
-            </a>
-            <p class="hero-cta-note">Iscrizioni aperte a breve &middot; Partecipazione gratuita &middot; Solo in presenza</p>
         </div>
     </section>
 
     <!-- L'evento -->
-    <section class="section section-light" id="evento">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">L'Evento</span>
-                <h2 class="section-title">Una giornata per far crescere l'impresa</h2>
-                <div class="section-divider"></div>
-                <p class="section-description">Una nuova giornata promossa da <strong>Revilaw</strong> per imprenditori, amministratori e responsabili finanziari che vogliono rafforzare la propria azienda e affrontare le sfide del mercato. <strong>Per gli imprenditori. Dagli imprenditori.</strong></p>
+    <section class="sezione" id="evento">
+        <div class="wrap evento-griglia">
+            <div>
+                <span class="etichetta">L'evento</span>
+                <h2 class="titolo">Merito creditizio, crescita e <em>competitività</em> delle imprese.</h2>
             </div>
+            <div class="evento-testo">
+                <p>Una nuova giornata promossa da <strong>Revilaw</strong> per imprenditori, amministratori e responsabili finanziari che vogliono rafforzare la propria azienda e affrontare le sfide del mercato.</p>
+                <p>Al mattino il convegno, con banche, professionisti ed esperti a confronto sugli strumenti per la crescita. Al pomeriggio gli incontri B2B one-to-one, sulle esigenze concrete di ciascuna impresa.</p>
+                <p class="firma">Per gli imprenditori. Dagli imprenditori.</p>
+            </div>
+        </div>
 
-            <div class="percorso" aria-label="Il percorso di Next Generation Business">
-                <span class="percorso-label">Il percorso</span>
-                <ol class="percorso-tappe">
-                    <li><a href="../verona_marzo_2026/">Verona</a></li>
-                    <li><a href="../roma_aprile_2026/">Roma</a></li>
-                    <li><a href="../napoli_ottobre_2026/">Napoli</a></li>
-                    <li class="percorso-attuale" aria-current="page"><span>Milano</span></li>
-                </ol>
-            </div>
+        <div class="wrap">
+            <ol class="percorso" aria-label="Il percorso di Next Generation Business">
+                <li><a href="../verona_marzo_2026/"><span class="percorso-citta">Verona</span><span class="percorso-data">27 marzo 2026</span></a></li>
+                <li><a href="../roma_aprile_2026/"><span class="percorso-citta">Roma</span><span class="percorso-data">29 aprile 2026</span></a></li>
+                <li><a href="../napoli_ottobre_2026/"><span class="percorso-citta">Napoli</span><span class="percorso-data">2 ottobre 2026</span></a></li>
+                <li class="percorso-qui" aria-current="page"><span class="percorso-citta">Milano</span><span class="percorso-data">26 febbraio 2027</span></li>
+            </ol>
         </div>
     </section>
 
-    <!-- Programma: mattina e pomeriggio -->
-    <section class="section section-light section-tight" id="programma">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">Programma preliminare</span>
-                <h2 class="section-title">Convegno e incontri B2B</h2>
-                <div class="section-divider"></div>
-            </div>
+    <!-- Programma -->
+    <section class="sezione sezione-grigia" id="programma">
+        <div class="wrap">
+            <header class="testata">
+                <span class="etichetta">Programma preliminare</span>
+                <h2 class="titolo">La giornata</h2>
+            </header>
 
-            <div class="temi-grid">
-                <article class="tema-card">
-                    <div class="tema-card-head">
-                        <span class="tema-card-number">01</span>
-                        <span class="tema-card-label">Mattina</span>
+            <div class="giornata">
+                <article class="momento">
+                    <div class="momento-testa">
+                        <span class="momento-num">01</span>
+                        <span class="momento-quando">Mattina</span>
                     </div>
-                    <h3 class="tema-card-title">Il convegno</h3>
-                    <p class="tema-card-lead">Banche, professionisti ed esperti sugli strumenti per la crescita.</p>
-                    <ul class="tema-card-points">
-                        <li><a href="../adeguati_assetti/"><strong>Adeguati assetti</strong></a></li>
-                        <li><a href="../modello_231/"><strong>Modello 231</strong></a> e <a href="../tax_control_framework/"><strong>TCF</strong></a></li>
-                        <li><a href="../sostenibilita_esg/"><strong>ESG</strong></a> e certificazioni ISO</li>
-                        <li><a href="../rating_legalita/"><strong>Rating di legalità</strong></a></li>
-                        <li><a href="../revisione-demo/"><strong>Revisione legale</strong></a></li>
+                    <h3>Il convegno</h3>
+                    <p class="momento-intro">Banche, professionisti ed esperti sugli strumenti per la crescita.</p>
+                    <ul class="momento-temi">
+                        <li><a href="../adeguati_assetti/">Adeguati assetti</a></li>
+                        <li><a href="../modello_231/">Modello 231</a> e <a href="../tax_control_framework/">TCF</a></li>
+                        <li><a href="../sostenibilita_esg/">ESG</a> e certificazioni ISO</li>
+                        <li><a href="../rating_legalita/">Rating di legalità</a></li>
+                        <li><a href="../revisione-demo/">Revisione legale</a></li>
                     </ul>
                 </article>
 
-                <article class="tema-card">
-                    <div class="tema-card-head">
-                        <span class="tema-card-number">02</span>
-                        <span class="tema-card-label">Pomeriggio</span>
+                <article class="momento momento-scuro">
+                    <div class="momento-testa">
+                        <span class="momento-num">02</span>
+                        <span class="momento-quando">Pomeriggio</span>
                     </div>
-                    <h3 class="tema-card-title">Gli incontri B2B</h3>
-                    <p class="tema-card-lead">Incontri one-to-one sulle esigenze concrete della tua impresa.</p>
-                    <ul class="tema-card-points">
-                        <li><strong>Mercati esteri</strong></li>
-                        <li><a href="../crisi_impresa/"><strong>Crisi d'impresa</strong></a></li>
-                        <li><a href="../ai_governance/"><strong>Intelligenza artificiale</strong></a></li>
-                        <li><strong>Cybersecurity</strong></li>
-                        <li><strong>Finanza agevolata</strong></li>
+                    <h3>Gli incontri B2B</h3>
+                    <p class="momento-intro">Incontri one-to-one sulle esigenze concrete della tua impresa.</p>
+                    <ul class="momento-temi">
+                        <li>Mercati esteri</li>
+                        <li><a href="../crisi_impresa/">Crisi d'impresa</a></li>
+                        <li><a href="../ai_governance/">Intelligenza artificiale</a></li>
+                        <li>Cybersecurity</li>
+                        <li>Finanza agevolata</li>
                     </ul>
                 </article>
             </div>
 
-            <div class="lunch-note">
-                <span class="lunch-note-tag">Networking lunch</span>
-                <p>Pranzo a buffet offerto, un'occasione per incontrarsi e creare nuove relazioni professionali.</p>
-                <p class="lunch-note-small">Su invito e con conferma</p>
+            <div class="pranzo">
+                <span class="pranzo-icona" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v20"/><path d="M4 2v6a3 3 0 0 0 6 0V2"/><path d="M17 2c-1.7 1.3-3 3.6-3 7 0 2 1 3 3 3v10"/></svg>
+                </span>
+                <div>
+                    <h3>Networking lunch</h3>
+                    <p>Pranzo a buffet offerto, un'occasione per incontrarsi e creare nuove relazioni professionali. <span class="pranzo-nota">Su invito e con conferma.</span></p>
+                </div>
             </div>
 
-            <p class="programma-nota">Programma preliminare &middot; seguiranno aggiornamenti su relatori, partecipazione e prenotazione degli incontri B2B.</p>
+            <p class="avvertenza">Programma preliminare: seguiranno aggiornamenti su relatori, partecipazione e prenotazione degli incontri B2B.</p>
         </div>
     </section>
 
-    <!-- Location Section -->
-    <section class="section section-dark" id="sede">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">Sede</span>
-                <h2 class="section-title">Sede dell'Evento</h2>
-                <div class="section-divider"></div>
+    <!-- Sede -->
+    <section class="sezione" id="sede">
+        <div class="wrap sede-griglia">
+            <div class="sede-info">
+                <span class="etichetta">Sede</span>
+                <h2 class="titolo">Excelsior Hotel Gallia</h2>
+                <dl class="elenco-dati">
+                    <div>
+                        <dt>Indirizzo</dt>
+                        <dd>Piazza Duca d'Aosta, 9<br>20124 Milano</dd>
+                    </div>
+                    <div>
+                        <dt>Data</dt>
+                        <dd>Venerdì 26 febbraio 2027</dd>
+                    </div>
+                    <div>
+                        <dt>Come arrivare</dt>
+                        <dd>Di fronte alla Stazione Centrale, a pochi passi dalle linee M2 e M3</dd>
+                    </div>
+                </dl>
+                <a href="https://maps.google.com/?q=Excelsior+Hotel+Gallia,+Piazza+Duca+d'Aosta+9,+Milano" target="_blank" rel="noopener" class="link-freccia">
+                    Apri in Google Maps
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+                </a>
             </div>
-            <div class="location-grid">
-                <div class="location-info">
-                    <h3>Excelsior Hotel Gallia</h3>
-                    <div class="location-address">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-                            <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
-                        </svg>
-                        <div>
-                            <p><strong>Piazza Duca d'Aosta, 9</strong></p>
-                            <p>20124 Milano (MI)</p>
-                        </div>
-                    </div>
-                    <div class="location-details">
-                        <div class="location-detail">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-                            </svg>
-                            <span>Venerdì 26 Febbraio 2027</span>
-                        </div>
-                        <div class="location-detail">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 6v6l4 2"/>
-                                <circle cx="12" cy="12" r="9"/>
-                            </svg>
-                            <span>Mattina: convegno &middot; Pomeriggio: incontri B2B</span>
-                        </div>
-                        <div class="location-detail">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205 3 1m1.5.5-1.5-.5M6.75 7.364V3h-3v18m3-13.636 10.5-3.819"/>
-                            </svg>
-                            <span>Di fronte alla Stazione Centrale</span>
-                        </div>
-                    </div>
-                    <a href="https://maps.google.com/?q=Excelsior+Hotel+Gallia,+Piazza+Duca+d'Aosta+9,+Milano" target="_blank" rel="noopener" class="location-map-link">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"/>
-                        </svg>
-                        Visualizza su Google Maps
-                    </a>
-                </div>
-                <div class="location-map">
-                    <iframe
-                        src="https://www.google.com/maps?q=Excelsior+Hotel+Gallia,+Piazza+Duca+d'Aosta+9,+20124+Milano&amp;output=embed"
-                        width="100%"
-                        height="100%"
-                        style="border:0;"
-                        allowfullscreen=""
-                        loading="lazy"
-                        referrerpolicy="no-referrer-when-downgrade"
-                        title="Mappa - Excelsior Hotel Gallia, Piazza Duca d'Aosta 9, Milano">
-                    </iframe>
-                </div>
+            <div class="sede-mappa">
+                <iframe
+                    src="https://www.google.com/maps?q=Excelsior+Hotel+Gallia,+Piazza+Duca+d'Aosta+9,+20124+Milano&amp;output=embed"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen
+                    title="Mappa: Excelsior Hotel Gallia, Piazza Duca d'Aosta 9, Milano"></iframe>
             </div>
         </div>
     </section>
 
     <!-- Iscrizioni -->
-    <section class="section section-accent" id="iscrizioni">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">Iscrizioni</span>
-                <h2 class="section-title">Le iscrizioni apriranno a breve</h2>
-                <div class="section-divider"></div>
-                <p class="section-description">Il modulo di iscrizione sarà pubblicato su questa pagina nelle prossime settimane, insieme ai relatori e alla prenotazione degli incontri B2B. Intanto segna la data in agenda.</p>
+    <section class="sezione sezione-blu" id="iscrizioni">
+        <div class="wrap iscrizioni">
+            <span class="stato"><span class="stato-punto" aria-hidden="true"></span>Apertura a breve</span>
+            <h2 class="titolo">Le iscrizioni apriranno a breve</h2>
+            <p class="iscrizioni-testo">Il modulo sarà pubblicato su questa pagina nelle prossime settimane, insieme ai relatori e alla prenotazione degli incontri B2B. Intanto segna la data in agenda.</p>
+
+            <div class="presenza">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
+                <p><strong>Evento solo in presenza.</strong> Non sono previste la diretta streaming né la partecipazione da remoto.</p>
             </div>
 
-            <div class="form-benefits-strip">
-                <span class="benefit-item">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    Partecipazione gratuita
-                </span>
-                <span class="benefit-item">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    Incontri B2B one-to-one
-                </span>
-                <span class="benefit-item">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    Networking lunch
-                </span>
-            </div>
+            <ul class="vantaggi">
+                <li>Partecipazione gratuita</li>
+                <li>Incontri B2B one-to-one</li>
+                <li>Networking lunch</li>
+            </ul>
 
-            <div class="register-card">
-                <div class="register-card-head">
-                    <span class="register-card-eyebrow">Evento solo in presenza</span>
-                    <h3 class="register-card-title">Ci vediamo a Milano</h3>
-                </div>
-                <p class="register-card-lead">L'evento si svolge <strong>esclusivamente in presenza</strong> all'Excelsior Hotel Gallia: non è prevista la diretta streaming né la partecipazione da remoto. Le iscrizioni saranno aperte a breve su questa pagina.</p>
-                <div class="register-card-cta-wrap">
-                    <span class="btn-register btn-register--attesa" aria-disabled="true">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <circle cx="12" cy="12" r="9"/>
-                            <path d="M12 7v5l3 2"/>
-                        </svg>
-                        <span>Iscrizioni aperte a breve</span>
-                    </span>
-                    <p class="register-card-note">Per ricevere l'avviso all'apertura scrivi a <a href="mailto:info@nextgenerationbusiness.it?subject=Milano%2026%20febbraio%202027%20-%20avviso%20apertura%20iscrizioni">info@nextgenerationbusiness.it</a></p>
-                </div>
-                <div class="register-card-meta">
-                    <div class="register-card-meta-item">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-                        </svg>
-                        <div>
-                            <span class="meta-label">Data</span>
-                            <span class="meta-value">Venerdì 26 Febbraio 2027</span>
-                        </div>
-                    </div>
-                    <div class="register-card-meta-item">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-                            <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
-                        </svg>
-                        <div>
-                            <span class="meta-label">Sede</span>
-                            <span class="meta-value">Excelsior Hotel Gallia · Piazza Duca d'Aosta, 9 – Milano</span>
-                        </div>
-                    </div>
-                    <div class="register-card-meta-item">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/>
-                        </svg>
-                        <div>
-                            <span class="meta-label">Informazioni</span>
-                            <span class="meta-value"><a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <p class="iscrizioni-avviso">Per ricevere l'avviso all'apertura delle iscrizioni scrivi a <a href="mailto:info@nextgenerationbusiness.it?subject=Milano%2026%20febbraio%202027%20-%20avviso%20apertura%20iscrizioni">info@nextgenerationbusiness.it</a></p>
         </div>
     </section>
 
-    <!-- Save the date: download -->
-    <section class="section section-light" id="save-the-date">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">Download</span>
-                <h2 class="section-title">Il save the date</h2>
-                <div class="section-divider"></div>
-            </div>
-
-            <div class="std-card">
-                <a href="save-the-date-milano-2027.pdf" target="_blank" rel="noopener" class="std-preview" aria-label="Apri il save the date in PDF">
-                    <img src="assets/save-the-date-anteprima.jpg" alt="Save the date di Next Generation Business Milano, venerdì 26 febbraio 2027, Excelsior Hotel Gallia" width="909" height="1287" loading="lazy">
+    <!-- Save the date da scaricare -->
+    <section class="sezione" id="save-the-date">
+        <div class="wrap scarica">
+            <a href="save-the-date-milano-2027.pdf" target="_blank" rel="noopener" class="scarica-anteprima" aria-label="Apri il save the date in PDF">
+                <img src="assets/save-the-date-anteprima.jpg" alt="Save the date di Next Generation Business Milano, venerdì 26 febbraio 2027, Excelsior Hotel Gallia" width="909" height="1287" loading="lazy">
+            </a>
+            <div class="scarica-testo">
+                <span class="etichetta">Download</span>
+                <h2 class="titolo">Il save the date</h2>
+                <p>Il volantino con data, sede e programma preliminare della giornata. Scaricalo e condividilo con colleghi e collaboratori.</p>
+                <dl class="elenco-dati elenco-dati--riga">
+                    <div><dt>Formato</dt><dd>PDF, A4</dd></div>
+                    <div><dt>Peso</dt><dd>310 KB</dd></div>
+                </dl>
+                <a href="save-the-date-milano-2027.pdf" download class="btn btn-scuro">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><polyline points="6 11 12 17 18 11"/><path d="M4 20h16"/></svg>
+                    Scarica il PDF
                 </a>
-                <div class="std-body">
-                    <h3 class="std-title">Next Generation Business &middot; Milano</h3>
-                    <p class="std-text">Il volantino con data, sede e programma preliminare della giornata. Scaricalo e condividilo con colleghi e collaboratori.</p>
-                    <ul class="std-facts">
-                        <li><span>Data</span>Venerdì 26 febbraio 2027</li>
-                        <li><span>Sede</span>Excelsior Hotel Gallia, Milano</li>
-                        <li><span>Formato</span>PDF &middot; A4 &middot; 310 KB</li>
-                    </ul>
-                    <a href="save-the-date-milano-2027.pdf" download class="std-download">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M12 4v12"/>
-                            <polyline points="6 11 12 17 18 11"/>
-                            <path d="M4 20h16"/>
-                        </svg>
-                        Scarica il save the date (PDF)
-                    </a>
-                </div>
             </div>
         </div>
     </section>
 
-    <!-- Partners Section -->
-    <section class="section section-partners" id="partner">
-        <div class="container">
-            <div class="partners-stage">
-                <div class="partners-row">
-                    <div class="partners-label">
-                        <span class="label-line"></span>
-                        <span class="label-text">Una giornata promossa da</span>
-                        <span class="label-line"></span>
-                    </div>
-                    <div class="partners-logos">
-                        <a href="https://www.revilaw.it" target="_blank" rel="noopener" class="partner-brand" aria-label="Revilaw S.p.A.">
-                            <img src="assets/logo-revilaw.png" alt="Revilaw S.p.A." class="partner-brand-img" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'partner-fallback',textContent:'REVILAW S.p.A.'}));">
-                        </a>
-                    </div>
-                </div>
-            </div>
+    <!-- Promotore -->
+    <section class="promotore">
+        <div class="wrap">
+            <span class="etichetta">Una giornata promossa da</span>
+            <a href="https://www.revilaw.it" target="_blank" rel="noopener" aria-label="Revilaw S.p.A.">
+                <img src="assets/logo-revilaw.png" alt="Revilaw S.p.A., revisione legale" width="371" height="115" loading="lazy">
+            </a>
         </div>
     </section>
 
-    <!-- Footer -->
+    <!-- Piè di pagina -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <h4>Next Generation Business</h4>
-                    <p>Merito creditizio, crescita e competitività delle imprese &middot; 26 Febbraio 2027, Milano</p>
+        <div class="wrap">
+            <div class="footer-alto">
+                <div>
+                    <p class="footer-nome">Next Generation Business</p>
+                    <p class="footer-evento">Milano &middot; 26 febbraio 2027</p>
                 </div>
-                <div class="footer-links">
+                <nav class="footer-link" aria-label="Link utili">
                     <a href="../">Home</a>
                     <a href="../#eventi">Prossimi eventi</a>
                     <a href="../interviste_verona_2026/">Interviste di Verona</a>
-                    <a href="../#contenuti">Approfondimenti e risorse</a>
+                    <a href="../#contenuti">Approfondimenti</a>
                     <a href="mailto:info@nextgenerationbusiness.it">Contatti</a>
                     <a href="https://www.revilaw.it" target="_blank" rel="noopener">revilaw.it</a>
-                </div>
+                </nav>
             </div>
             <div class="footer-bottom">
-                <p>Evento promosso da <a href="https://www.revilaw.it" target="_blank" rel="noopener">Revilaw S.p.A.</a></p>
                 <p>&copy; 2026 Next Generation Business &middot; A cura di Revilaw S.p.A. &middot; <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></p>
                 <p class="footer-privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Privacy Policy</a> &middot; <a href="https://www.iubenda.com/privacy-policy/40996386/cookie-policy" target="_blank" rel="noopener">Cookie Policy</a> &middot; <a href="#" class="iubenda-cs-preferences-link">Preferenze cookie</a></p>
                 <p class="footer-legal">P.IVA: 04641610235 | REA: VR 437220 | Sede: Via XX Settembre, 9 - 37129 Verona (VR)</p>
@@ -511,6 +381,6 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
 </body>
 </html>

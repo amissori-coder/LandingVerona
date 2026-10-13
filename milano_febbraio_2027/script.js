@@ -13,19 +13,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const navToggle = document.getElementById('navToggle');
     const navMenu = document.getElementById('navMenu');
 
-    window.addEventListener('scroll', () => {
-        navbar.classList.toggle('scrolled', window.scrollY > 60);
-    });
+    const aggiornaNavbar = () => navbar.classList.toggle('scrolled', window.scrollY > 40);
+    window.addEventListener('scroll', aggiornaNavbar, { passive: true });
+    aggiornaNavbar();
 
     navToggle.addEventListener('click', () => {
-        navToggle.classList.toggle('active');
-        navMenu.classList.toggle('active');
+        const aperto = navMenu.classList.toggle('active');
+        navToggle.classList.toggle('active', aperto);
+        navToggle.setAttribute('aria-expanded', String(aperto));
     });
 
     navMenu.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', () => {
             navToggle.classList.remove('active');
             navMenu.classList.remove('active');
+            navToggle.setAttribute('aria-expanded', 'false');
         });
     });
 
@@ -49,8 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (distance < 0) {
             const testo = now < eventEnd ? 'L\'evento è oggi' : 'L\'evento si è concluso';
-            countdownEl.innerHTML =
-                '<p style="color: var(--white); font-size: 1.1rem; font-weight: 600; letter-spacing: 1px;">' + testo + '</p>';
+            countdownEl.innerHTML = '<p>' + testo + '</p>';
             if (timer) clearInterval(timer);
             return;
         }
@@ -83,43 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
-    document.querySelectorAll('.tema-card, .timeline-item, .location-info, .location-map, .std-card').forEach((el, index) => {
+    document.querySelectorAll('.momento, .pranzo, .percorso li, .sede-info, .sede-mappa, .presenza, .scarica').forEach((el, index) => {
         el.classList.add('fade-in');
         el.style.transitionDelay = `${(index % 4) * 0.08}s`;
         observer.observe(el);
     });
-
-    // ========================
-    // PARTICELLE DELLO SFONDO
-    // ========================
-    const particlesContainer = document.getElementById('heroParticles');
-    if (particlesContainer) {
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes particleDrift {
-                0%   { transform: translateY(0) translateX(0); opacity: 0; }
-                15%  { opacity: 0.6; }
-                85%  { opacity: 0.6; }
-                100% { transform: translateY(-120px) translateX(30px); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        for (let i = 0; i < 18; i++) {
-            const particle = document.createElement('div');
-            const size = Math.random() * 2.5 + 1;
-            particle.style.cssText = `
-                position: absolute;
-                width: ${size}px;
-                height: ${size}px;
-                background: rgba(255, 255, 255, ${Math.random() * 0.15 + 0.05});
-                border-radius: 50%;
-                left: ${Math.random() * 100}%;
-                top: ${Math.random() * 100}%;
-                animation: particleDrift ${Math.random() * 15 + 20}s linear infinite;
-                animation-delay: ${Math.random() * -30}s;
-            `;
-            particlesContainer.appendChild(particle);
-        }
-    }
 });
