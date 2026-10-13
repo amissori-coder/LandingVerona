@@ -1965,6 +1965,31 @@
             }
         },
 
+        /* Le iscrizioni a pagamento degli aderenti (Milano 2027): stesso
+           indirizzo delle cene, altra sezione. Le raccoglie la pagina riservata
+           agli aderenti; da qui si leggono, si segnano le fatture emesse e -
+           solo l'amministratore - si tolgono quelle sbagliate. */
+        async aderentiEvento(corpo) {
+            let url = window.RV_PRESENZE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'presenze$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, sezione: 'aderenti', ...corpo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                return { ...data, ok: true };
+            } catch (e) {
+                return { ok: false, msg: await this._perche(url, e) };
+            }
+        },
+
         /* --- NEWSLETTER ---
            Un unico servizio per l'elenco dei destinatari raccolti dal sito
            (tutte le pagine, non solo gli eventi) e per le disiscrizioni. */
@@ -17431,6 +17456,7 @@
             + promemoriaEventiHtml(ev)
             + giornataHtml(ev)
             + ceneHtml(ev)
+            + aderentiHtml(ev)
             + '</div>';
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const vuoto = ev.nota
@@ -17532,6 +17558,9 @@
         collegaPromemoria(ev);
         collegaGiornataBlocco(ev);
         collegaCeneBlocco(ev);
+        collegaAderentiBlocco(ev);
+        // le iscrizioni degli aderenti si leggono entrando, come le cene
+        if (evHaAderenti(ev)) caricaAderenti(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaAderenti(ev); });
         /* Le conferme alle cene si leggono entrando, come il programma e
            l'agenda: il riquadro deve poter dire quanti posti sono prenotati
            senza che nessuno apra la finestra. Una lettura sola, non a ogni
@@ -20835,6 +20864,262 @@
             Cloud.ceneEvento({ azione: 'cancella', cena: b.dataset.cena, ids: [b.dataset.togli] }).then(r => {
                 if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a togliere la risposta.', 'rosso'); return; }
                 toast('Risposta tolta.', 'verde');
+                ricarica();
+            });
+        }));
+    }
+
+    /* =========================================================
+       LE ISCRIZIONI DEGLI ADERENTI (Milano 2027)
+       ---------------------------------------------------------
+       Cena del 26 e meeting del 27 febbraio, riservati agli aderenti
+       Revilaw, 200 euro + IVA. Ci si iscrive dalla pagina riservata
+       (/milano_febbraio_2027/aderenti/), che passa dal servizio
+       delle iscrizioni: li' si controllano i dati, si registrano e
+       partono le mail. Qui si guarda quello che e' arrivato, con i
+       dati per la fattura, e si segna la fattura emessa: e' il
+       lavoro che si fa su questo elenco.
+
+       Quota, date e conti stanno nel servizio
+       (email-service/lib/iscrizioni-aderenti.js): il totale da
+       fatturare e' quello, dovunque lo si guardi.
+    ========================================================= */
+    const EVENTI_CON_ADERENTI = ['milano-2027-02-26'];
+    function evHaAderenti(ev) { return !!ev && !ev.tutti && EVENTI_CON_ADERENTI.indexOf(ev.id) >= 0; }
+
+    let _aderenti = null;       // l'ultima lettura: [{ quota, righe, conti }, ...]
+    let _aderentiEv = '';
+    let _aderentiQuando = 0;
+    let _aderentiInFlight = false;
+    let _aderentiMsg = '';
+    let _aderentiAttese = [];
+    const ADERENTI_FRESCHI_MS = 20000;
+
+    function aderentiDi(ev) { return (ev && _aderenti && _aderentiEv === ev.id) ? _aderenti : null; }
+    function caricaAderenti(ev, poi, forza) {
+        if (!evHaAderenti(ev)) { if (poi) poi(null); return; }
+        if (!Cloud.attivo) {
+            _aderentiMsg = 'Accesso al database non attivo: le iscrizioni non si possono leggere.';
+            if (poi) poi(null);
+            return;
+        }
+        if (_aderentiInFlight) { if (poi) _aderentiAttese.push(poi); return; }
+        if (!forza && _aderentiEv === ev.id && Date.now() - _aderentiQuando < ADERENTI_FRESCHI_MS) { if (poi) poi(_aderenti); return; }
+        _aderentiInFlight = true;
+        if (poi) _aderentiAttese.push(poi);
+        const finito = r => {
+            _aderentiInFlight = false;
+            const attese = _aderentiAttese;
+            _aderentiAttese = [];
+            attese.forEach(f => { try { f(r); } catch (e) { } });
+        };
+        Cloud.aderentiEvento({ azione: 'elenco', evento: ev.id }).then(r => {
+            if (!r || !r.ok) {
+                _aderentiMsg = (r && r.msg) || 'Iscrizioni degli aderenti non leggibili.';
+                finito(null);
+                return;
+            }
+            _aderentiMsg = '';
+            _aderenti = r.quote || []; _aderentiEv = ev.id; _aderentiQuando = Date.now();
+            finito(_aderenti);
+        }).catch(() => {
+            _aderentiMsg = 'Servizio non raggiungibile: iscrizioni degli aderenti non lette.';
+            finito(null);
+        });
+    }
+
+    function euroAd(n) {
+        return Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    }
+    function indirizzoAderenti(q) {
+        if (!q || !q.pagina) return '';
+        const base = /nextgenerationbusiness\.it$/.test(location.hostname)
+            ? location.origin : 'https://nextgenerationbusiness.it';
+        return base + q.pagina;
+    }
+
+    /* IL BLOCCO NEL CRUSCOTTO: quanti si sono iscritti, quante fatture
+       mancano e quanto resta da fatturare. */
+    function aderentiHtml(ev) {
+        if (!evHaAderenti(ev)) return '';
+        const dati = aderentiDi(ev);
+        const righe = [];
+        if (!dati) {
+            righe.push(rigaBl('Iscritti', esc(_aderentiMsg || 'da leggere...')));
+        } else if (!dati.length) {
+            righe.push(rigaBl('Iscritti', '<span class="hint">nessuna quota configurata</span>'));
+        } else {
+            dati.forEach(d => {
+                const k = d.conti;
+                if (!k) { righe.push(rigaBl('Iscritti', '<span class="ev-ko">non leggibili</span>')); return; }
+                righe.push(rigaBl('Iscritti', '<b>' + k.iscritti + '</b>'
+                    + (k.iscritti ? ' &middot; ' + euroAd(k.totale) + ' IVA inclusa' : '')));
+                righe.push(rigaBl('Fatture', k.iscritti
+                    ? '<b>' + k.fattureEmesse + '</b> emess' + (k.fattureEmesse === 1 ? 'a' : 'e')
+                        + (k.daFatturare
+                            ? ' &middot; <b>' + k.daFatturare + '</b> da emettere (' + euroAd(k.totaleDaFatturare) + ')'
+                            : ' &middot; <span class="hint">tutte emesse</span>')
+                    : '<span class="hint">nessuna da emettere</span>'));
+            });
+        }
+        return gruppoEv({
+            id: 'ev-aderenti-blocco', titolo: 'Aderenti', spiega: 'cena del 26 e meeting del 27',
+            stato: righe.join(''),
+            azioni: '<button class="btn btn-sm btn-secondary" id="ev-aderenti">Apri le iscrizioni</button>'
+        });
+    }
+    function collegaAderentiBlocco(ev) {
+        const b = document.getElementById('ev-aderenti');
+        if (b) b.addEventListener('click', () => modaleAderenti(ev));
+    }
+    function aggiornaSchedaAderenti(ev) {
+        const el = document.getElementById('ev-aderenti-blocco');
+        if (!el) return;
+        el.outerHTML = aderentiHtml(ev);
+        collegaAderentiBlocco(ev);
+    }
+
+    function modaleAderenti(ev) {
+        apriModale('<h2>Iscrizioni degli aderenti &middot; ' + esc(ev.titolo) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;">Arrivano dalla pagina riservata mandata agli aderenti. '
+            + 'Ogni iscrizione va fatturata: quando la fattura è emessa, segnala qui.</p>'
+            + '<div id="aderenti-corpo"><div class="tabella-vuota">Carico le iscrizioni...</div></div>'
+            + '<div class="modale-azioni">'
+            + '<button class="btn btn-secondary" id="aderenti-aggiorna">Aggiorna</button>'
+            + '<button class="btn btn-secondary" id="aderenti-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        document.getElementById('aderenti-chiudi').addEventListener('click', chiudiModale);
+        document.getElementById('aderenti-aggiorna').addEventListener('click', () => {
+            const corpo = document.getElementById('aderenti-corpo');
+            if (corpo) corpo.innerHTML = '<div class="tabella-vuota">Carico le iscrizioni...</div>';
+            caricaAderenti(ev, () => { disegnaCorpoAderenti(ev); aggiornaSchedaAderenti(ev); }, true);
+        });
+        caricaAderenti(ev, () => { disegnaCorpoAderenti(ev); aggiornaSchedaAderenti(ev); });
+    }
+
+    function disegnaCorpoAderenti(ev) {
+        const corpo = document.getElementById('aderenti-corpo');
+        if (!corpo) return;
+        const dati = aderentiDi(ev);
+        if (!dati) {
+            corpo.innerHTML = '<div class="tabella-vuota">' + esc(_aderentiMsg || 'Iscrizioni non leggibili.') + '</div>';
+            return;
+        }
+        corpo.innerHTML = dati.map(pannelloAderentiHtml).join('');
+        collegaCorpoAderenti(ev);
+        corpo.querySelectorAll('table.dati[data-csv]').forEach(t =>
+            attrezzaTabella(t, { ricerca: true, filtri: false, nomeFile: t.dataset.csv }));
+    }
+
+    function pannelloAderentiHtml(d) {
+        const q = d.quota || {};
+        const k = d.conti || { iscritti: 0, fattureEmesse: 0, daFatturare: 0, totale: 0, totaleDaFatturare: 0 };
+        const url = indirizzoAderenti(q);
+        const righe = (d.righe || []).slice().sort((a, b) =>
+            (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome, 'it', { sensitivity: 'base' }));
+        const voci = (q.voci || []).map(v => esc(v.cosa) + ' ' + esc(v.quando)).join(' &middot; ');
+        return '<section class="ev-bl cene-pannello" data-quota="' + esc(q.id) + '">'
+            + '<div class="ev-bl-tit">' + esc(q.titolo || '') + '<span>' + voci + '</span></div>'
+            + '<div class="cene-scelta"><div class="cene-tessera attiva" style="cursor:default">'
+            + '<span class="cene-tessera-tit">' + esc(q.luogo || '') + '</span>'
+            + '<span class="cene-tessera-chi">quota ' + euroAd((q.importi || {}).imponibile) + ' + IVA, '
+            + euroAd((q.importi || {}).totale) + ' IVA inclusa</span>'
+            + '<span class="cene-numeri">'
+            + numCena(k.iscritti, k.iscritti === 1 ? 'iscritto' : 'iscritti', 'forte')
+            + numCena(k.fattureEmesse, k.fattureEmesse === 1 ? 'fattura emessa' : 'fatture emesse')
+            + numCena(k.daFatturare, 'da fatturare')
+            + '</span>'
+            + '<span class="cene-tessera-nota">da fatturare: ' + euroAd(k.totaleDaFatturare)
+            + ' &middot; totale iscrizioni: ' + euroAd(k.totale) + '</span>'
+            + '</div></div>'
+            + (url
+                ? '<div class="ev-bl-stato">' + rigaBl('Pagina',
+                    '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a> '
+                    + '<button type="button" class="btn btn-sm btn-ghost" data-copia="' + esc(url) + '">Copia</button>') + '</div>'
+                : '')
+            + (righe.length
+                ? '<div class="tabella-wrap"><table class="dati compatta" data-csv="aderenti-' + esc(q.id) + '"><thead><tr>'
+                    + '<th>Iscritto</th><th>Contatti</th><th>Intestatario</th><th>P.IVA / C.F.</th>'
+                    + '<th>Sede</th><th>SDI / PEC</th><th>Importo</th><th>Note</th><th>Iscrizione</th><th>Fattura</th><th></th>'
+                    + '</tr></thead><tbody>'
+                    + righe.map(r => rigaAderenteHtml(q, r)).join('')
+                    + '</tbody></table></div>'
+                : '<div class="tabella-vuota">Nessuna iscrizione, per ora.</div>')
+            + '</section>';
+    }
+
+    function rigaAderenteHtml(q, r) {
+        const f = r.fatturazione || {};
+        const sep = '<span class="solo-csv">, </span>';
+        const doppia = (a, b) => [a, b].filter(Boolean).map(x => '<span class="cene-mail">' + esc(x) + '</span>').join(sep);
+        const fiscale = doppia(f.partitaIva ? 'P.IVA ' + f.partitaIva : '', f.codiceFiscale ? 'C.F. ' + f.codiceFiscale : '');
+        const sdi = doppia(f.codiceDestinatario ? 'SDI ' + f.codiceDestinatario : '', f.pec ? 'PEC ' + f.pec : '')
+            + (f.emailFatture ? sep + '<span class="cene-mail">copia a ' + esc(f.emailFatture) + '</span>' : '');
+        const sede = [f.indirizzo, [f.cap, f.comune].filter(Boolean).join(' ') + (f.provincia ? ' (' + f.provincia + ')' : '')]
+            .filter(Boolean).map(esc).join(', ');
+        const fat = r.fattura || {};
+        const statoFattura = fat.emessa
+            ? '<span class="ev-ok">emessa' + (fat.numero ? ' n. ' + esc(fat.numero) : '') + '</span>'
+                + (fat.quando ? ' <span class="hint">' + esc(new Date(fat.quando).toLocaleDateString('it-IT')) + '</span>' : '')
+            : '<span class="ev-ko">da emettere</span>';
+        const gestisce = puoAggiungereIscrizioni();
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        return '<tr>'
+            + '<td data-label="Iscritto" class="cene-chi">' + esc(nomeCompleto(r))
+                + (r.studio ? '<br><span class="hint">' + esc(r.studio) + '</span>' : '')
+                + (r.cambiata ? ' <span class="hint">(dati corretti)</span>' : '') + '</td>'
+            + '<td data-label="Contatti">' + contattiCellaHtml(r) + '</td>'
+            + '<td data-label="Intestatario">' + esc(f.intestatario || '') + '</td>'
+            + '<td data-label="P.IVA / C.F.">' + fiscale + '</td>'
+            + '<td data-label="Sede">' + sede + '</td>'
+            + '<td data-label="SDI / PEC">' + sdi + '</td>'
+            + '<td data-label="Importo" class="num">' + euroAd(r.totale) + '</td>'
+            + '<td data-label="Note">' + esc(r.note || '') + '</td>'
+            + '<td data-label="Iscrizione">' + esc(quandoBreve({ quando: r.primaVolta || r.quando })) + '</td>'
+            + '<td data-label="Fattura">' + statoFattura + '</td>'
+            + '<td data-label="" class="cene-az">'
+            + (gestisce
+                ? (fat.emessa
+                    ? '<button type="button" class="btn btn-sm btn-ghost" data-fattura="no" data-id="' + esc(r.id) + '" data-quota="' + esc(q.id) + '">Annulla</button>'
+                    : '<button type="button" class="btn btn-sm btn-secondary" data-fattura="si" data-id="' + esc(r.id) + '" data-quota="' + esc(q.id) + '">Fattura emessa</button>')
+                : '')
+            + (admin
+                ? '<button type="button" class="btn btn-sm btn-ghost" data-togli-ad="' + esc(r.id) + '" data-quota="' + esc(q.id) + '" '
+                    + 'data-chi="' + esc(nomeCompleto(r)) + '">Togli</button>'
+                : '')
+            + '</td></tr>';
+    }
+
+    function collegaCorpoAderenti(ev) {
+        const corpo = document.getElementById('aderenti-corpo');
+        if (!corpo) return;
+        const ricarica = () => caricaAderenti(ev, () => { disegnaCorpoAderenti(ev); aggiornaSchedaAderenti(ev); }, true);
+        corpo.querySelectorAll('[data-copia]').forEach(b => b.addEventListener('click', () => {
+            copiaNegliAppunti(b.dataset.copia, 'Collegamento copiato: mandalo agli aderenti.');
+        }));
+        /* La fattura emessa si segna con il suo numero, se lo si ha sotto mano:
+           e' quello che si cerca quando un aderente chiede "me l'avete mandata?". */
+        corpo.querySelectorAll('[data-fattura]').forEach(b => b.addEventListener('click', () => {
+            const emessa = b.dataset.fattura === 'si';
+            let numero = '';
+            if (emessa) {
+                const n = window.prompt('Numero della fattura (facoltativo):', '');
+                if (n === null) return;
+                numero = String(n).trim();
+            } else if (!confirm('Tolgo il segno "fattura emessa" da questa iscrizione?')) return;
+            b.disabled = true;
+            Cloud.aderentiEvento({ azione: 'fattura', quota: b.dataset.quota, id: b.dataset.id, emessa: emessa, numero: numero }).then(r => {
+                if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a salvare.', 'rosso'); return; }
+                toast(emessa ? 'Fattura segnata come emessa.' : 'Segno della fattura tolto.', 'verde');
+                ricarica();
+            });
+        }));
+        corpo.querySelectorAll('[data-togli-ad]').forEach(b => b.addEventListener('click', () => {
+            const chi = b.dataset.chi || 'questa iscrizione';
+            if (!confirm('Tolgo l\'iscrizione di ' + chi + '? Non si recupera.')) return;
+            b.disabled = true;
+            Cloud.aderentiEvento({ azione: 'cancella', quota: b.dataset.quota, ids: [b.dataset.togliAd] }).then(r => {
+                if (!r || !r.ok) { b.disabled = false; toast((r && r.msg) || 'Non sono riuscito a togliere l\'iscrizione.', 'rosso'); return; }
+                toast('Iscrizione tolta.', 'verde');
                 ricarica();
             });
         }));
