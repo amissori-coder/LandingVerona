@@ -25,24 +25,34 @@ const Module = require('module');
 const path = require('path');
 
 const dati = new Map();
+let rompiScrittura = false;
 function doc(chiave) {
     return {
         get: async () => ({ exists: dati.has(chiave), data: () => dati.get(chiave) }),
         set: async (patch, opz) => {
+            if (rompiScrittura) throw new Error('firestore giu\'');
             const base = (opz && opz.merge && dati.get(chiave)) ? Object.assign({}, dati.get(chiave)) : {};
             Object.assign(base, patch);
             dati.set(chiave, JSON.parse(JSON.stringify(base)));
-        }
+        },
+        delete: async () => { dati.delete(chiave); }
     };
 }
-let rompiScrittura = false;
+// il solo filtro che usa il modulo: where('quota', '==', x)
 const db = {
     collection: (nome) => ({
-        doc: (id) => {
-            const d = doc(nome + '/' + id);
-            const set = d.set;
-            d.set = async (p, o) => { if (rompiScrittura) throw new Error('firestore giu\''); return set(p, o); };
-            return d;
+        doc: (id) => doc(nome + '/' + id),
+        where: (campo, op, valore) => {
+            const q = {
+                limit: () => q,
+                get: async () => {
+                    const ds = [...dati.keys()].filter(k => k.startsWith(nome + '/'))
+                        .map(k => ({ id: k.slice(nome.length + 1), data: () => dati.get(k) }))
+                        .filter(d => String((d.data() || {})[campo]) === String(valore));
+                    return { forEach: f => ds.forEach(f), size: ds.length };
+                }
+            };
+            return q;
         }
     })
 };
@@ -202,6 +212,46 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         rompiScrittura = true;
         const r = await invia();
         esigi(r.stato === 500 && posta.length === 0, 'errore, e nessuna mail per un\'iscrizione non registrata');
+    });
+
+    await prova('8. Area riservata: elenco, fatture, cancellazione', async () => {
+        azzera();
+        await invia();
+        await invia({ nome: 'Bruno', cognome: 'Neri', email: 'bruno@neri.it' }, { intestatario: 'Bruno Neri', partitaIva: '', codiceFiscale: 'RSSMRA80A01F205X', codiceDestinatario: '' });
+        const ctx = (body, chi) => Object.assign({ db: db, body: Object.assign({ sezione: 'aderenti' }, body), email: 'admin@revilaw.it', eAdmin: false, ePartner: false }, chi || {});
+        esigi(A.gestisce({ sezione: 'aderenti' }) && !A.gestisce({ sezione: 'cene' }), 'la sezione si riconosce');
+
+        let r = await A.esegui(ctx({ azione: 'elenco', evento: 'milano-2027-02-26' }));
+        const q = r.corpo.quote && r.corpo.quote[0];
+        esigi(r.stato === 200 && q && q.righe.length === 2, 'l\'elenco di Milano ha le due iscrizioni');
+        esigi(q.conti.iscritti === 2 && q.conti.daFatturare === 2 && q.conti.totaleDaFatturare === 488, 'conti: 2 iscritti, 2 fatture da emettere, 488 euro');
+        esigi(q.righe[0].fatturazione.intestatario === 'Studio Verdi Associati' && q.righe[0].telefono, 'nella riga ci sono i dati di fatturazione e i contatti');
+        esigi(q.quota.pagina === '/milano_febbraio_2027/aderenti/', 'l\'elenco sa qual e\' la pagina da mandare');
+        r = await A.esegui(ctx({ azione: 'elenco', evento: 'napoli-2026-10-02' }));
+        esigi(r.corpo.quote.length === 0, 'un altro evento non ha iscrizioni degli aderenti');
+
+        const id = q.righe[0].id;
+        r = await A.esegui(ctx({ azione: 'fattura', quota: 'milano-2027-aderenti', id: id, emessa: true, numero: '12/2027' }));
+        esigi(r.stato === 403, 'chi vede soltanto non segna fatture');
+        r = await A.esegui(ctx({ azione: 'fattura', quota: 'milano-2027-aderenti', id: id, emessa: true, numero: '12/2027' }, { ePartner: true }));
+        esigi(r.stato === 200 && r.corpo.fattura.emessa && r.corpo.fattura.numero === '12/2027', 'un partner segna la fattura emessa, con il numero');
+        r = await A.esegui(ctx({ azione: 'elenco' }));
+        esigi(r.corpo.quote[0].conti.fattureEmesse === 1 && r.corpo.quote[0].conti.totaleDaFatturare === 244, 'resta da fatturare una sola iscrizione');
+        esigi(r.corpo.quote[0].righe[0].fattura.da === 'admin@revilaw.it', 'si sa chi l\'ha segnata');
+
+        await invia({}, { intestatario: 'Studio Verdi Associati' });
+        r = await A.esegui(ctx({ azione: 'elenco' }));
+        esigi(r.corpo.quote[0].righe.find(x => x.id === id).fattura.emessa, 'una correzione dell\'iscritto non cancella la fattura segnata');
+
+        r = await A.esegui(ctx({ azione: 'fattura', quota: 'milano-2027-aderenti', id: id, emessa: false }, { eAdmin: true }));
+        esigi(r.corpo.ok && !r.corpo.fattura.emessa, 'segnata per sbaglio si toglie');
+        r = await A.esegui(ctx({ azione: 'fattura', quota: 'milano-2027-aderenti', id: 'non-esiste', emessa: true }, { eAdmin: true }));
+        esigi(r.stato === 404, 'un\'iscrizione che non c\'e\' si dice');
+
+        r = await A.esegui(ctx({ azione: 'cancella', quota: 'milano-2027-aderenti', ids: [id] }, { ePartner: true }));
+        esigi(r.stato === 403, 'togliere un\'iscrizione non e\' dei partner');
+        r = await A.esegui(ctx({ azione: 'cancella', quota: 'milano-2027-aderenti', ids: [id] }, { eAdmin: true }));
+        esigi(r.corpo.tolte === 1 && dati.size === 1, 'l\'amministratore la toglie');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

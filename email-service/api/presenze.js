@@ -76,6 +76,11 @@ function moduloCene() { return require('../lib/cene-evento'); }
    reinvio della mail con il pulsante. Si carica solo quando serve. */
 function moduloConferma() { return require('../lib/conferma-email'); }
 function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'cene'); }
+/* Le iscrizioni a pagamento degli aderenti Revilaw (Milano 2027): le raccoglie
+   la pagina riservata passando da api/iscrizione-nuova, e da qui le legge chi
+   organizza e segna le fatture emesse. Si carica solo con sezione: 'aderenti'. */
+function moduloAderenti() { return require('../lib/iscrizioni-aderenti'); }
+function sezioneAderenti(body) { return !!(body && String(body.sezione || '') === 'aderenti'); }
 // la frase che racconta uno spostamento di azienda: la scrivono in due
 // (qui e in iscrizioni.js), quindi sta in un modulo solo
 const { tracciaSpostamento } = require('../lib/traccia-azienda');
@@ -482,6 +487,25 @@ module.exports = async (req, res) => {
                vive: aggiungere una persona a una cena e' lo stesso gesto che
                aggiungere un'iscrizione, e chi lo fa e' lo stesso. */
             const r = await CENE.esegui({
+                db: db, body: body, email: email, eAdmin: eAdmin,
+                ePartner: eAdmin || await ePartner(db, ruolo)
+            });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+
+        /* Le iscrizioni degli aderenti: stessa deviazione delle cene, stessi
+           permessi. Leggono quelli che vedono gli Eventi; segnano le fatture
+           gli stessi che aggiungono un'iscrizione; toglie solo l'amministratore. */
+        if (sezioneAderenti(body)) {
+            let ADERENTI;
+            try { ADERENTI = moduloAderenti(); }
+            catch (e) {
+                console.error('Sezione aderenti non caricata:', String((e && e.message) || e).slice(0, 300));
+                res.status(500).json({ ok: false, msg: 'Sezione aderenti non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
+                return;
+            }
+            const r = await ADERENTI.esegui({
                 db: db, body: body, email: email, eAdmin: eAdmin,
                 ePartner: eAdmin || await ePartner(db, ruolo)
             });
