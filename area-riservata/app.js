@@ -18122,7 +18122,61 @@
         const online = (_evIscrizioni || []).filter(r => r && r.email
             && modalitaDi(ev, r) === 'online'
             && aiTavoli.indexOf(r) < 0);
-        return { tavoli: aiTavoli, online: online };
+        /* CHI NON RIENTRA NE' NELL'UNA NE' NELL'ALTRA: iscritti a questo
+           convegno che agli incontri non risultavano e online non erano. La
+           mail non li riguarda - propone di rifare un incontro che non avevano
+           - ma il loro NUMERO va detto, perche' una finestra che mostra una
+           parte dell'elenco senza dire che e' una parte si legge come l'elenco
+           intero. Chi cerca qui un nome che non c'e' conclude che l'iscrizione
+           e' andata perduta: e' successo davvero. */
+        const fuori = soloIscritti(ev, _evIscrizioni || []).filter(r => r && r.email
+            && aiTavoli.indexOf(r) < 0 && online.indexOf(r) < 0);
+        return { tavoli: aiTavoli, online: online, fuori: fuori };
+    }
+    /* L'ORDINE CON CUI SI LEGGE UN ELENCO DI PERSONE.
+       Gli elenchi arrivano dal servizio in ordine di DATA, dalla piu' recente:
+       e' l'ordine giusto per l'elenco degli iscritti, dove la domanda e' "chi
+       si e' iscritto adesso". In una finestra dove si cerca un nome preciso
+       fra duecento, invece, l'ordine di arrivo non e' nessun ordine: si scorre
+       due volte la stessa lista senza sapere se il nome c'era.
+       Si ordina sulla stessa stringa che si legge in GRASSETTO - l'azienda
+       quando c'e', il nome quando manca - e non su cognome e nome come fa
+       `perCognome`: ordinare su un campo diverso da quello che l'occhio segue
+       e' come non ordinare. */
+    let _collatoreIt = null;
+    function confrontaIt(a, b) {
+        if (_collatoreIt === null) {
+            /* Confronto italiano: accenti e maiuscole non contano (chi cerca
+               "Citta" deve trovare "Città" dove se l'aspetta) e i numeri si
+               leggono da numeri, cosi' "2M Impianti" non finisce dopo "20". */
+            _collatoreIt = (window.Intl && Intl.Collator)
+                ? new Intl.Collator('it', { sensitivity: 'base', numeric: true }) : false;
+        }
+        return _collatoreIt
+            ? _collatoreIt.compare(String(a || ''), String(b || ''))
+            : String(a || '').localeCompare(String(b || ''), 'it', { sensitivity: 'base', numeric: true });
+    }
+    /* Quello che di una riga si legge per primo, e quindi la chiave con cui si
+       ordina e si cerca. */
+    function etichettaRigaPersona(r) { return aziendaVista(r && r.azienda) || nomePersonaVisto(r || {}); }
+    function inOrdineAlfabetico(righe) {
+        /* Copia, non ordinamento sul posto: la lista che arriva e' quella
+           dell'evento, e riordinarla cambierebbe sotto i piedi a tutte le
+           altre schermate che la leggono nell'ordine in cui e' arrivata. */
+        return (righe || []).slice().sort((x, y) =>
+            confrontaIt(etichettaRigaPersona(x), etichettaRigaPersona(y))
+            || confrontaIt(nomePersonaVisto(x), nomePersonaVisto(y))
+            || confrontaIt(x && x.email, y && y.email));
+    }
+    /* Il testo su cui cerca la casella: azienda, nome, cognome e indirizzo,
+       senza accenti e in minuscolo. Si costruisce dai DATI e non dal testo
+       della riga, altrimenti si pescherebbe dentro i contrassegni ("non e'
+       venuto", "gia' richiamato il ...") e cercare "venuto" risponderebbe. */
+    function testoCercaPersona(r) {
+        return normalizzaTesto([
+            aziendaVista(r && r.azienda), (r && r.azienda) || '',
+            nomePersonaVisto(r || {}), (r && r.email) || ''
+        ].join(' '));
     }
     function giaRichiamato(r, ev) {
         const n = r && r.nuovoIncontroInvito;
@@ -18152,13 +18206,24 @@
         }
         const gruppi = daRichiamareB2B(ev);
         if (!gruppi.tavoli.length && !gruppi.online.length) {
-            toast('Nessuno da richiamare per questo evento.', 'ambra');
+            /* Dire perche', non solo che. "Nessuno da richiamare" davanti a un
+               evento con duecento iscritti sembra un archivio perso, e invece
+               e' il filtro: nessuno di loro aveva un tavolo o seguiva online. */
+            toast(gruppi.fuori.length
+                ? 'Nessuno da richiamare: dei ' + gruppi.fuori.length + ' iscritti a questo evento nessuno risulta agli incontri B2B né nella sezione online.'
+                : 'Nessuno da richiamare per questo evento.', 'ambra');
             return;
         }
+        /* IN ORDINE ALFABETICO, una volta sola e qui. Questo e' l'unico punto
+           che `riempi`, `corpoHtml` e `invia` leggono, quindi l'ordine resta lo
+           stesso in quello che si vede, in quello che si spunta e nei lotti che
+           partono. Dal servizio le righe arrivano dalla piu' recente: va bene
+           per l'elenco degli iscritti, non per una finestra in cui si cerca un
+           nome preciso fra duecento. */
         const PLATEE = [
-            { id: 'tavoli', nome: 'Erano agli incontri B2B', righe: gruppi.tavoli, online: false,
+            { id: 'tavoli', nome: 'Erano agli incontri B2B', righe: inOrdineAlfabetico(gruppi.tavoli), online: false,
               spiega: 'con un invito ai tavoli o una prenotazione scritta' },
-            { id: 'online', nome: 'Hanno seguito online', righe: gruppi.online, online: true,
+            { id: 'online', nome: 'Hanno seguito online', righe: inOrdineAlfabetico(gruppi.online), online: true,
               spiega: 'iscritti nella sezione online, un tavolo non ce l\'avevano' }
         ].filter(p => p.righe.length);
         let forza = false;
@@ -18166,6 +18231,15 @@
         let inCorso = false;
         let vista = PLATEE[0].id;
         const scelte = {};
+        /* QUELLO CHE LA RICERCA STA MOSTRANDO, platea per platea. Si tiene in
+           una variabile e non si legge dal DOM: `aggiorna` deve sapere quante
+           righe sono a video anche quando il disegno non c'e' ancora, e due
+           verita' diverse - una nel DOM e una qui - divergono al primo tasto. */
+        const cerca = {};
+        PLATEE.forEach(p => { cerca[p.id] = ''; });
+        const mostrate = p => (cerca[p.id]
+            ? p.righe.filter(r => testoCercaPersona(r).indexOf(cerca[p.id]) >= 0)
+            : p.righe);
         /* LA SCELTA SI RIFA' DA ZERO ogni volta che si cambia uno dei due
            interruttori. Le spunte a mano valgono finche' il criterio resta
            quello: un elenco mezzo vecchio e mezzo nuovo e' il modo piu' rapido
@@ -18191,7 +18265,10 @@
             const gia = giaRichiamato(r, ev);
             const sala = statoSalaB2B(ev, r);
             const soloInvito = !p.online && !String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim();
-            return '<label class="rc-riga' + (gia ? ' gia' : '') + '">'
+            /* `data-cerca` viaggia con la riga, cosi' filtrare costa un
+               confronto di stringhe e non una lettura del testo disegnato. */
+            return '<label class="rc-riga' + (gia ? ' gia' : '') + '" data-p="' + esc(p.id) + '"'
+                + ' data-cerca="' + esc(testoCercaPersona(r)) + '">'
                 + '<input type="checkbox" class="rc-uno" data-p="' + esc(p.id) + '" data-id="' + esc(r.id) + '"'
                 + (scelte[p.id].has(r.id) ? ' checked' : '') + '>'
                 + '<span class="rc-chi"><b>' + esc(aziendaVista(r.azienda) || nomePersonaVisto(r)) + '</b>'
@@ -18210,8 +18287,18 @@
                     + (quanti(p) === p.righe.length ? ' checked' : '') + '> <b>' + esc(p.nome) + '</b></label>'
                     + '<span class="hint">' + esc(p.spiega) + ' &middot; <b class="rc-conta" data-p="' + esc(p.id) + '">'
                     + quanti(p) + '</b> di ' + p.righe.length
-                    + (quantiInSala ? ' &middot; ' + quantiInSala + (quantiInSala === 1 ? ' segnato' : ' segnati') + ' in sala' : '') + '</span>'
-                    + '</div><div class="rc-righe">' + p.righe.map(r => rigaHtml(p, r)).join('') + '</div></div>';
+                    + (quantiInSala ? ' &middot; ' + quantiInSala + (quantiInSala === 1 ? ' segnato' : ' segnati') + ' in sala' : '')
+                    + '<span class="rc-filtrati" data-p="' + esc(p.id) + '"></span></span>'
+                    + '</div>'
+                    /* LA CASELLA DI RICERCA sta dentro la sua platea, non sopra
+                       tutte e due: le due liste si spuntano separate, e una
+                       ricerca sola che agisse su entrambe nasconderebbe righe
+                       in un elenco mentre si sta lavorando sull'altro. */
+                    + '<div class="rc-cerca-riga"><input type="search" class="rc-cerca mi-cerca" data-p="' + esc(p.id) + '"'
+                    + ' placeholder="Cerca per azienda, nome o indirizzo" autocomplete="off"></div>'
+                    + '<div class="rc-righe">' + p.righe.map(r => rigaHtml(p, r)).join('') + '</div>'
+                    + '<div class="rc-vuoto" data-p="' + esc(p.id) + '" style="display:none;">Nessuno con questo nome in questa platea.</div>'
+                    + '</div>';
             }).join('');
             /* L'ANTEPRIMA E' PER PLATEA, perche' le due mail non sono la stessa
                mail: a chi era ai tavoli si chiede com'e' andata, a chi ha
@@ -18224,9 +18311,21 @@
                     + (p.online ? 'Mail per chi era online' : 'Mail per chi era ai tavoli') + '</button>').join('') + '</div>'
                 : '<div class="hint">Anteprima della mail'
                     + (PLATEE[0].online ? ' (versione per chi era online)' : ' (versione per chi era ai tavoli)') + ':</div>';
+            /* CHI RESTA FUORI, scritto in chiaro. Questo elenco non e' quello
+               degli iscritti: sono le due platee, e basta che un nome non abbia
+               un tavolo perche' qui non ci sia. Senza questa riga, cercarlo e
+               non trovarlo si legge come un dato perduto. */
+            const fuori = (gruppi.fuori || []).length
+                ? '<div class="rc-fuori"><b>' + gruppi.fuori.length + '</b> '
+                    + (gruppi.fuori.length === 1 ? 'altro iscritto a questo convegno non è in questo elenco'
+                        : 'altri iscritti a questo convegno non sono in questo elenco')
+                    + ': agli incontri B2B non risultavano, né con un invito né con una prenotazione, e online non erano. '
+                    + 'Questa mail propone di <i>rifare</i> un incontro, e a loro non ne era stato proposto nessuno.</div>'
+                : '';
             return '<p class="hint" style="margin:-4px 0 14px;">Si scrive a chi non è riuscito a fare il suo incontro B2B. '
                 + 'Dalla mail scelgono gli argomenti, <b>senza orario</b>: ci accordiamo noi. La richiesta arriva nella '
                 + '<b>giornata</b>, sotto le richieste di incontro, e una mail con tutto arriva anche a chi segue gli incontri.</p>'
+                + fuori
                 + platee
                 + '<label class="rc-forza"><input type="checkbox" id="rc-fuorisala"' + (soloFuoriSala ? ' checked' : '') + '> '
                 + 'Solo chi non risulta in sala (il suo incontro non l\'ha fatto)</label>'
@@ -18250,10 +18349,32 @@
                 });
                 const n = document.querySelector('.rc-conta[data-p="' + p.id + '"]');
                 if (n) n.textContent = String(quanti(p));
+                /* CON LA RICERCA ATTIVA SI DICE ANCHE QUANTE SE NE VEDONO, e
+                   quante restano spuntate fuori dalla ricerca. Le spunte non si
+                   perdono cercando - la verita' di chi riceve e' l'elenco delle
+                   spunte, non quello che e' a video - ma allora chi vede tre
+                   righe e un pulsante che dice "scrivi a centoventi persone"
+                   deve poter capire da dove vengono le altre centodiciassette. */
+                const viste = mostrate(p);
+                const f = document.querySelector('.rc-filtrati[data-p="' + p.id + '"]');
+                if (f) {
+                    const fuoriRicerca = cerca[p.id]
+                        ? p.righe.filter(r => scelte[p.id].has(r.id) && viste.indexOf(r) < 0).length : 0;
+                    f.textContent = cerca[p.id]
+                        ? ' \u00b7 la ricerca ne mostra ' + viste.length
+                            + (fuoriRicerca ? ', ' + fuoriRicerca + ' spuntati restano fuori' : '')
+                        : '';
+                }
+                const vuoto = document.querySelector('.rc-vuoto[data-p="' + p.id + '"]');
+                if (vuoto) vuoto.style.display = (cerca[p.id] && !viste.length) ? '' : 'none';
+                /* La spunta di testa parla delle righe CHE SI VEDONO: con un
+                   filtro attivo, "tutte" riferito a righe che non sono a video
+                   e' una casella che dice il falso. */
                 const t = document.querySelector('.rc-tutta[data-p="' + p.id + '"]');
                 if (t) {
-                    t.checked = quanti(p) === p.righe.length;
-                    t.indeterminate = quanti(p) > 0 && quanti(p) < p.righe.length;
+                    const spuntateViste = viste.filter(r => scelte[p.id].has(r.id)).length;
+                    t.checked = viste.length > 0 && spuntateViste === viste.length;
+                    t.indeterminate = spuntateViste > 0 && spuntateViste < viste.length;
                 }
             });
             const b = document.getElementById('rc-si');
@@ -18284,8 +18405,30 @@
             document.querySelectorAll('.rc-tutta').forEach(c => c.addEventListener('change', () => {
                 const p = PLATEE.filter(x => x.id === c.dataset.p)[0];
                 if (!p) return;
-                scelte[p.id] = c.checked ? new Set(p.righe.map(r => r.id)) : new Set();
+                /* CON UNA RICERCA ATTIVA agisce solo su quello che si vede, e
+                   lascia stare il resto. "Togli tutti" mentre si cercano tre
+                   nomi deve togliere quei tre: azzerando l'intera platea si
+                   butterebbe via, senza dirlo, una selezione costruita prima di
+                   cominciare a cercare. */
+                const viste = mostrate(p);
+                if (c.checked) viste.forEach(r => scelte[p.id].add(r.id));
+                else viste.forEach(r => scelte[p.id].delete(r.id));
                 lotti = null;
+                aggiorna();
+            }));
+            /* LA RICERCA NASCONDE IN POSTO, non ridisegna: e' la stessa strada
+               della ricerca fra gli utenti, ed e' l'unica compatibile con la
+               regola di questa finestra - un corpo riscritto ricaricherebbe
+               l'anteprima a ogni tasto premuto e riporterebbe l'elenco in cima.
+               Le spunte non si toccano: nascondere una riga non toglie nessuno
+               dall'invio, e chi ha spuntato venti nomi e poi cerca il
+               ventunesimo non deve ritrovarsi da capo. */
+            document.querySelectorAll('.rc-cerca').forEach(c => c.addEventListener('input', () => {
+                const pid = c.dataset.p;
+                cerca[pid] = normalizzaTesto(c.value);
+                document.querySelectorAll('.rc-riga[data-p="' + pid + '"]').forEach(l => {
+                    l.style.display = (!cerca[pid] || String(l.dataset.cerca || '').indexOf(cerca[pid]) >= 0) ? '' : 'none';
+                });
                 aggiorna();
             }));
             document.querySelectorAll('.rc-vedi').forEach(b => b.addEventListener('click', () => {
@@ -18411,8 +18554,16 @@
             if (invitoB2BDi(r, ev.id)) return true;
             // prenotato senza invito non dovrebbe succedere, ma se succede e'
             // proprio la riga che chi guarda deve vedere
-            return !!String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim();
-        });
+            if (String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim()) return true;
+            /* E CHI E' ISCRITTO AI SOLI INCONTRI B2B, anche se un invito non e'
+               ancora partito e una prenotazione non l'ha ancora fatta. E' una
+               riga che l'elenco degli iscritti non porta - non occupa un posto
+               in sala - e che senza questa condizione non si vedrebbe in
+               nessuna schermata: esisterebbe sul database e basta. Il posto per
+               vederla e' questo, che e' la scheda di chi viene per i tavoli. */
+            return fuoriElenco(modalitaDi(ev, r));
+        }).sort((x, y) => confrontaIt(etichettaRigaPersona(x), etichettaRigaPersona(y))
+            || confrontaIt(nomePersonaVisto(x), nomePersonaVisto(y)));
         const voci = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean).map(esc).join(' &middot; ');
         const fuori = righe.filter(r => !inSala(modalitaDi(ev, r)));
         const esiti = _evEsitiB2B[ev.id] || null;
@@ -18435,7 +18586,7 @@
         schedaElenco({
             titolo: 'Incontri B2B: chi partecipa - ' + ev.titolo,
             spiega: conto
-                + 'Tutte le persone invitate ai tavoli o che hanno già prenotato. '
+                + 'Tutte le persone invitate ai tavoli, che hanno già prenotato o che sono iscritte ai soli incontri B2B, in ordine alfabetico. '
                 + 'La colonna <b>In sala</b> dice chi viene anche al convegno: chi è segnato '
                 + '<b>no, solo B2B</b> viene al desk per il suo appuntamento e in sala non si siede, '
                 + 'quindi non occupa un posto, non entra nel totale e l\'elenco degli iscritti non lo porta. '
@@ -18697,11 +18848,20 @@
             const n = document.getElementById('ni-modalita-nota');
             if (!n) return;
             const m = modalitaScelta();
+            /* "Solo incontri B2B" NON e' un posto in sala, ed e' l'unica voce
+               che cambia dove l'iscrizione andra' a finire: non entra
+               nell'elenco degli iscritti - li' si contano i posti, e un posto
+               non lo occupa - e si ritrova nella scheda degli incontri. Finche'
+               questa nota diceva "Un posto in sala" come per le altre sezioni
+               interne, chi la sceglieva salvava una riga che poi cercava
+               nell'elenco e non trovava. */
             n.textContent = m === 'online'
                 ? 'Nessun posto in sala: la mail di conferma dice che il collegamento arriverà pochi giorni prima dell\'evento.'
                 : m === 'presenza'
                     ? 'Un posto in sala, fra gli ospiti.'
-                    : 'Un posto in sala. La sezione è una divisione interna: la mail di conferma è la stessa degli ospiti.';
+                    : fuoriElenco(m)
+                        ? 'Nessun posto in sala: viene solo al desk degli incontri B2B. Non entra nell\'elenco degli iscritti (lì si contano i posti) e si ritrova nella scheda "Incontri B2B: chi partecipa".'
+                        : 'Un posto in sala. La sezione è una divisione interna: la mail di conferma è la stessa degli ospiti.';
         };
         notaModalita();
         selModalita.addEventListener('change', notaModalita);
