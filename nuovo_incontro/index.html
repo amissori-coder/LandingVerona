@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Pagina di servizio raggiunta SOLO dal collegamento personale nella mail
+         che si manda dopo il convegno: non va indicizzata e non e' nella
+         sitemap. -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Programma un nuovo incontro | Next Generation Business</title>
+    <style>
+        :root {
+            --navy-dark: #0A2844; --navy: #164068; --navy-light: #2A5A85;
+            --testo: #1E293B; --tenue: #475569; --bordo: #E2E8F0;
+            --sfondo: #F1F5F9; --chiaro: #F4F8FB; --rosso: #B3261E; --verde: #1E7F4F;
+            --ambra-bg: #FFF4D6; --ambra: #9A6700;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; background: var(--sfondo); color: var(--testo); line-height: 1.6; }
+        .testata { background: var(--navy-dark); padding: 26px 20px; }
+        .testata-dentro { max-width: 680px; margin: 0 auto; }
+        .testata img { display: block; width: 140px; height: auto; }
+        .testata h1 { color: #fff; font-size: 1.6rem; letter-spacing: -0.3px; margin-top: 18px; }
+        .testata p { color: #C8DAEA; font-size: 1rem; margin-top: 6px; }
+        main { max-width: 680px; margin: 0 auto; padding: 24px 20px 60px; }
+        .scheda { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 22px; margin-top: 18px; }
+        .avviso { text-align: center; color: var(--tenue); padding: 30px 10px; }
+        .avviso.errore { color: var(--rosso); }
+        .blocco-titolo { font-size: 0.8rem; letter-spacing: 1.2px; text-transform: uppercase; font-weight: bold; color: var(--navy); border-bottom: 2px solid var(--navy-light); padding-bottom: 6px; margin: 22px 0 10px; }
+        .blocco-titolo:first-child { margin-top: 0; }
+        .riepilogo { background: var(--chiaro); border: 1px solid var(--bordo); border-top: 2px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; }
+        .gia { background: var(--ambra-bg); border: 1px solid var(--ambra); color: var(--ambra); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; margin-top: 14px; }
+        /* GLI ARGOMENTI sono caselle larghe, non una tendina: si scelgono
+           guardandoli tutti insieme, e su un telefono una tendina con otto voci
+           si apre, copre lo schermo e chiude. */
+        .argomenti { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .arg { display: flex; align-items: flex-start; gap: 9px; border: 1px solid var(--bordo); border-radius: 8px; padding: 11px 12px; cursor: pointer; background: #fff; font-size: 0.95rem; }
+        .arg:hover { border-color: var(--navy-light); }
+        .arg.scelto { border-color: var(--navy); background: var(--chiaro); font-weight: bold; }
+        .arg input { width: 18px; height: 18px; margin-top: 2px; flex: 0 0 auto; }
+        .arg.spento { opacity: 0.45; cursor: default; }
+        .campo { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+        .campo label { font-size: 0.8rem; font-weight: bold; color: var(--tenue); }
+        .campo input, .campo textarea { font: inherit; font-size: 16px; padding: 9px 11px; border: 1px solid var(--bordo); border-radius: 6px; width: 100%; background: #fff; color: var(--testo); }
+        .campo textarea { min-height: 86px; resize: vertical; }
+        .campo input:focus, .campo textarea:focus { outline: 2px solid var(--navy-light); outline-offset: 1px; }
+        .hint { font-size: 0.85rem; color: var(--tenue); margin-top: 8px; }
+        .azioni { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        .invia { font: inherit; font-size: 1.05rem; font-weight: bold; letter-spacing: 0.3px; color: #fff; background: var(--navy); border: none; border-radius: 6px; padding: 14px 34px; cursor: pointer; }
+        .invia:hover { background: var(--navy-dark); }
+        .invia[disabled] { opacity: 0.6; cursor: default; }
+        .esito { min-height: 22px; font-size: 0.92rem; text-align: center; }
+        .esito.ko { color: var(--rosso); font-weight: bold; }
+        .fatto { text-align: center; padding: 26px 10px; }
+        .fatto .segno { font-size: 2.4rem; color: var(--verde); }
+        .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
+        .fatto p { color: var(--tenue); }
+        .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
+        .piede a { color: var(--tenue); }
+        @media (max-width: 560px) { .argomenti { grid-template-columns: 1fr; } }
+    </style>
+    <!-- Live reload di sviluppo: si attiva solo aprendo la pagina con ?dev=1,
+         in produzione non carica e non esegue nulla. Vedi assets/dev-reload.js -->
+    <script>try{var d=/[?&]dev=([01])/.exec(location.search);if(d){d[1]==='1'?sessionStorage.setItem('ngbDevReload','1'):sessionStorage.removeItem('ngbDevReload');}if(sessionStorage.getItem('ngbDevReload')==='1'){var s=document.createElement('script');s.src='/assets/dev-reload.js';s.defer=true;document.head.appendChild(s);}}catch(e){}</script>
+<link rel="stylesheet" href="/assets/testo.css?v=1">
+<link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
+<script src="/assets/stampa.js?v=3" defer></script>
+</head>
+<body>
+    <header class="testata">
+        <div class="testata-dentro">
+            <a href="https://nextgenerationbusiness.it"><img src="/assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale"></a>
+            <h1>Programmiamo un nuovo incontro</h1>
+            <p id="sotto-titolo">Next Generation Business</p>
+        </div>
+    </header>
+    <main>
+        <div class="scheda" id="contenuto">
+            <div class="avviso" id="caricamento">Un momento: recupero i Vostri dati&hellip;</div>
+        </div>
+    </main>
+    <footer class="piede">
+        <p>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235</p>
+        <p><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a>
+            &nbsp;&middot;&nbsp; <a href="https://nextgenerationbusiness.it">nextgenerationbusiness.it</a></p>
+    </footer>
+    <script>
+        (function () {
+            'use strict';
+            /* Stessa funzione dei form del sito (iscrizione-nuova), con azioni
+               dedicate: il piano di Vercel conta le funzioni, e una in piu'
+               farebbe fallire la pubblicazione del servizio intero.
+               Il collegamento personale (d = scheda, t = firma) arriva dalla
+               mail che si manda dopo il convegno: senza firma valida il
+               servizio non risponde nulla, quindi la pagina da sola non mostra
+               i dati di nessuno.
+               SI DA' DEL VOI, come in tutte le pagine e le mail degli incontri
+               B2B: l'interlocutore e' l'impresa, non la singola persona. */
+            var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+            var q = new URLSearchParams(location.search);
+            var d = q.get('d') || '', t = q.get('t') || '';
+            var box = document.getElementById('contenuto');
+            var dati = null;          // la risposta di nuovo-incontro-leggi
+            var scelti = [];          // gli argomenti spuntati, nell'ordine in cui si spuntano
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+                });
+            }
+            function errore(msg) {
+                box.innerHTML = '<div class="avviso errore">' + esc(msg) + '</div>';
+            }
+            function chiama(corpo) {
+                return fetch(API, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(Object.assign({ d: d, t: t }, corpo))
+                }).then(function (r) { return r.json().catch(function () { return {}; }); });
+            }
+            function nomeEvento(r) {
+                var ev = r.evento || {};
+                if (ev.titolo) return 'Next Generation Business - ' + ev.titolo + (ev.quando ? ', ' + ev.quando : '');
+                var p = String(r.pagina || '').split(' - ')[0].trim();
+                return p ? 'Next Generation Business - ' + p : 'Next Generation Business';
+            }
+            function quando(ms) {
+                try { return new Date(ms).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+                catch (e) { return ''; }
+            }
+            /* L'ORDINE IN CUI SI SPUNTANO E' LA PREFERENZA. Non si chiede di
+               numerare gli argomenti - un passaggio in piu' che nessuno fa
+               volentieri - ma il primo spuntato resta il primo, e a chi
+               organizza arriva in quell'ordine. */
+            function aggiorna() {
+                var pieno = scelti.length >= (dati.massimo || 4);
+                (dati.argomenti || []).forEach(function (a) {
+                    var el = document.getElementById('arg-' + a.id);
+                    if (!el) return;
+                    var c = el.querySelector('input');
+                    var dentro = scelti.indexOf(a.id) >= 0;
+                    c.checked = dentro;
+                    c.disabled = !dentro && pieno;
+                    el.classList.toggle('scelto', dentro);
+                    el.classList.toggle('spento', !dentro && pieno);
+                });
+                var q2 = document.getElementById('quanti');
+                if (q2) {
+                    q2.textContent = scelti.length
+                        ? (scelti.length === 1 ? 'Un argomento scelto' : scelti.length + ' argomenti scelti')
+                            + (pieno ? ' (il massimo)' : '')
+                        : 'Nessun argomento scelto';
+                }
+            }
+            function modulo(r) {
+                dati = r;
+                var p = r.persona || {};
+                document.getElementById('sotto-titolo').textContent = nomeEvento(r);
+                scelti = (r.mia && r.mia.aree ? r.mia.aree : []).slice(0, r.massimo || 4);
+                var argomenti = (r.argomenti || []).map(function (a) {
+                    return '<label class="arg" id="arg-' + esc(a.id) + '" data-id="' + esc(a.id) + '">'
+                        + '<input type="checkbox"> <span>' + esc(a.nome) + '</span></label>';
+                }).join('');
+                box.innerHTML =
+                    '<div class="riepilogo">Al convegno gli incontri B2B erano a orari fissi, e non tutti sono riusciti '
+                    + 'a farli. Se \u00e8 capitato anche a Voi, qui potete chiedere un <b>nuovo incontro</b>: scegliete gli '
+                    + 'argomenti e, se volete, diteci quando Vi farebbe comodo. <b>Non c\u2019\u00e8 un orario da prendere</b>: '
+                    + 'Vi richiamiamo noi per accordarci.</div>'
+                    + (r.mia ? '<div class="gia">Una richiesta da parte Vostra ci \u00e8 gi\u00e0 arrivata il '
+                        + esc(quando(r.mia.quando)) + '. Da qui potete <b>correggerla</b>: quello che salvate adesso '
+                        + 'sostituisce quello di prima.</div>' : '')
+                    + '<div class="blocco-titolo">Di che cosa volete parlare</div>'
+                    + '<div class="hint" style="margin-top:0;margin-bottom:10px;">Fino a ' + (r.massimo || 4)
+                    + ' argomenti. Il primo che spuntate \u00e8 quello che ci sta pi\u00f9 a cuore.</div>'
+                    + '<div class="argomenti">' + argomenti + '</div>'
+                    + '<div class="hint" id="quanti"></div>'
+                    + '<div class="blocco-titolo">Quando Vi farebbe comodo</div>'
+                    + '<div class="campo"><label for="pref">Giorni e orari che preferite (facoltativo)</label>'
+                    + '<input type="text" id="pref" maxlength="120" placeholder="es. di mattina, oppure: non il luned&igrave;" value="'
+                    + esc(r.mia ? r.mia.quandoPref : '') + '"></div>'
+                    + '<div class="hint">Una data non c\'&egrave; ancora: ci serve solo per chiamarVi quando Vi trova.</div>'
+                    + '<div class="blocco-titolo">Qualcosa che dobbiamo sapere</div>'
+                    + '<div class="campo"><label for="nota">Scrivete qui la Vostra situazione (facoltativo)</label>'
+                    + '<textarea id="nota" maxlength="800" placeholder="Due righe bastano: chi arriva preparato all\u2019incontro ci fa guadagnare mezz\u2019ora a tutti.">'
+                    + esc(r.mia ? r.mia.nota : '') + '</textarea></div>'
+                    + '<div class="riepilogo" style="margin-top:18px;">Ci risulta: <b>' + esc(p.nome || '') + '</b>'
+                    + (p.azienda ? ' - ' + esc(p.azienda) : '')
+                    + '<br>' + esc(p.email || '') + (p.telefono ? ' &middot; ' + esc(p.telefono) : '')
+                    + '<br><span style="color:#475569;font-size:0.88rem;">Se qualcosa non torna, scrivetelo qui sopra: l\u00ec leggiamo.</span></div>'
+                    + '<div class="azioni"><button type="button" class="invia" id="invia">Chiedo un nuovo incontro</button>'
+                    + '<div class="esito" id="esito"></div></div>';
+                box.querySelectorAll('.arg').forEach(function (el) {
+                    el.addEventListener('click', function (e) {
+                        // il click sulla casella e quello sull'etichetta sono lo
+                        // stesso gesto: si decide qui, una volta sola
+                        e.preventDefault();
+                        var id = el.dataset.id;
+                        var i = scelti.indexOf(id);
+                        if (i >= 0) scelti.splice(i, 1);
+                        else if (scelti.length < (dati.massimo || 4)) scelti.push(id);
+                        aggiorna();
+                    });
+                });
+                aggiorna();
+                document.getElementById('invia').addEventListener('click', invia);
+            }
+            function invia() {
+                var esito = document.getElementById('esito');
+                if (!scelti.length) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Scegliete almeno un argomento: \u00e8 quello che ci dice chi farVi incontrare.';
+                    return;
+                }
+                var b = document.getElementById('invia');
+                b.disabled = true; b.textContent = 'Invio in corso…';
+                esito.className = 'esito'; esito.textContent = '';
+                chiama({
+                    azione: 'nuovo-incontro-salva', aree: scelti,
+                    quandoPref: document.getElementById('pref').value.trim(),
+                    nota: document.getElementById('nota').value.trim()
+                }).then(function (r) {
+                    if (!r || !r.ok) {
+                        b.disabled = false; b.textContent = 'Chiedo un nuovo incontro';
+                        esito.className = 'esito ko';
+                        esito.textContent = (r && r.msg) || 'Invio non riuscito: riprovate fra un momento.';
+                        return;
+                    }
+                    box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
+                        + '<h2>Richiesta ricevuta, grazie!</h2>'
+                        + '<p>Abbiamo preso nota degli argomenti che ci avete indicato'
+                        + ((r.aree && r.aree.length) ? ': <b>' + r.aree.map(esc).join('</b>, <b>') + '</b>' : '')
+                        + '.<br>Vi ricontattiamo noi per accordarci su giorno e ora.'
+                        + '<br>Per correggere la richiesta, riaprite il collegamento della mail: questa pagina resta Vostra.</p></div>';
+                }).catch(function () {
+                    b.disabled = false; b.textContent = 'Chiedo un nuovo incontro';
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Servizio non raggiungibile: riprovate fra un momento.';
+                });
+            }
+            if (!d || !t) {
+                errore('Questa pagina si apre dal collegamento personale che trovate nella mail. Se non la trovate, scriveteci a info@nextgenerationbusiness.it');
+                return;
+            }
+            chiama({ azione: 'nuovo-incontro-leggi' }).then(function (r) {
+                if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scriveteci a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
+                modulo(r);
+            }).catch(function () {
+                errore('Servizio non raggiungibile in questo momento: riprovate fra qualche minuto.');
+            });
+        })();
+    </script>
+</body>
+</html>

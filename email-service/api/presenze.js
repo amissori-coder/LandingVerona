@@ -501,6 +501,8 @@ module.exports = async (req, res) => {
         // "invito-b2b-segna" portano il proprio elenco di schede: sono le sole
         // azioni senza un iscritto da indicare qui
         const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'invita-b2b-azienda', 'sposta-modalita', 'invito-b2b-segna',
+            // il richiamo dopo il convegno porta anche lui il suo elenco di schede
+            'invita-nuovo-incontro',
             // il pregresso della conferma email lavora su tutto l'evento: nessun iscritto da indicare
             'conferma-email-pregresso'];
         if (CON_ELENCO_PROPRIO.indexOf(azione) < 0 && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
@@ -1136,6 +1138,102 @@ module.exports = async (req, res) => {
                 }
             }
             res.status(200).json({ ok: true, inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail, giaInvitate: giaInvitate, falliti: falliti.slice(0, 50) });
+            return;
+        }
+
+        /* IL RICHIAMO DOPO IL CONVEGNO.
+           Ai tavoli mezz'ora a testa non basta per tutti: qualcuno non ha
+           trovato posto, qualcuno aveva due impegni alla stessa ora, qualcuno
+           ha seguito online e un tavolo non ce l'aveva. A quelle persone si
+           scrive dopo, e da quella mail chiedono un incontro nuovo.
+
+           PERCHE' UN'AZIONE SUA E NON `invita-b2b`. Quella scrive `b2bInvito`
+           sulla scheda, che vuol dire "invitata agli incontri di quel
+           convegno": qui il convegno e' passato, e scriverlo sarebbe falso
+           due volte - direbbe che e' stata invitata a una giornata finita, e
+           farebbe credere alla finestra degli inviti che quell'azienda e' gia'
+           a posto. La traccia e' sua: `nuovoIncontroInvito`, che serve a non
+           scrivere due volte alla stessa persona.
+
+           UNA MAIL PER PERSONA, e non per azienda: chi ha seguito online
+           spesso un'azienda fra quelle invitate non ce l'ha, e il collegamento
+           e' della SCHEDA. */
+        if (azione === 'invita-nuovo-incontro') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono scrivere l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            const dest = (Array.isArray(body.destinatari) ? body.destinatari : []).slice(0, 60)
+                .map(x => (x && typeof x === 'object') ? { id: testo(x.id, 300), doc: testo(x.doc, 400) } : null)
+                .filter(x => x && (x.id || x.doc));
+            if (!dest.length) { res.status(400).json({ ok: false, msg: 'Nessun destinatario indicato.' }); return; }
+            const m = body.mail && typeof body.mail === 'object' ? body.mail : {};
+            const oggettoBase = (testo(m.oggetto, 250) || 'Programmiamo un nuovo incontro - Next Generation Business').replace(/[\r\n]/g, ' ');
+            const htmlBase = String(m.html || '').slice(0, 300000);
+            const testoBase = String(m.testo || '').slice(0, 20000);
+            if (!htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
+            const forza = body.forza === true;
+            const transNi = trasporto();
+            const fromEmailNi = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+            const fromNameNi = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+            let inviate = 0, senzaScheda = 0, senzaEmail = 0, giaScritto = 0;
+            const vistiNi = {}, fallitiNi = [], fatteNi = [];
+            for (const d of dest) {
+                const docId = d.doc || idIscrizione(d.id);
+                const rifNi = db.collection('iscrizioni').doc(docId);
+                const snapNi = await rifNi.get();
+                if (!snapNi.exists) { senzaScheda++; continue; }
+                const sc = snapNi.data() || {};
+                const a = String(sc.email || '').toLowerCase();
+                if (!a || !emailValida(a)) { senzaEmail++; continue; }
+                // un indirizzo una volta sola: due schede con la stessa casella
+                // sono due righe nostre, non due persone da disturbare due volte
+                if (vistiNi[a]) { giaScritto++; continue; }
+                if (sc.annullato) { senzaScheda++; continue; }
+                if (sc.nuovoIncontroInvito && !forza) { giaScritto++; continue; }
+                vistiNi[a] = true;
+                const nomeDest = ((String(sc.nome || '') + ' ' + String(sc.cognome || '')).trim()) || 'ospite';
+                const linkNi = NL.linkNuovoIncontro(docId);
+                /* ANCHE L'OGGETTO passa dalla sostituzione: porta il nome di
+                   chi legge, e un segnaposto lasciato scritto per esteso
+                   nell'oggetto e' il modo piu' rapido di far buttare una
+                   mail. */
+                const sostituisciNi = (x, quote) => {
+                    const q = quote ? esc : (y => y);
+                    return String(x || '').split('{{NOME}}').join(q(nomeDest))
+                        .split('{{NUOVO_INCONTRO}}').join(linkNi);
+                };
+                try {
+                    await transNi.sendMail({
+                        from: '"' + fromNameNi + '" <' + fromEmailNi + '>',
+                        replyTo: email,
+                        to: a,
+                        bcc: ccnOperatore(email, emailSessione, a),
+                        subject: sostituisciNi(oggettoBase, false),
+                        text: testoBase ? sostituisciNi(testoBase, false) : undefined,
+                        html: sostituisciNi(htmlBase, true)
+                    });
+                    inviate++;
+                    fatteNi.push(docId);
+                    await rifNi.set({
+                        nuovoIncontroInvito: {
+                            quando: Date.now(), da: email, collab: collab, eventoId: evento
+                        }
+                    }, { merge: true });
+                } catch (e) {
+                    const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
+                    fallitiNi.push({ email: a, motivo: motivo });
+                }
+            }
+            try { transNi.close(); } catch (_) { /* niente da chiudere */ }
+            /* La copia condivisa dell'elenco va avvisata: senza, la colonna
+               "richiamata" resterebbe vecchia fino a sei ore e si scriverebbe
+               due volte alle stesse persone. */
+            try { await segnaCambiamento(db); } catch (_) { /* la lettura scade comunque */ }
+            res.status(200).json({
+                ok: true, inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail,
+                giaScritto: giaScritto, fatte: fatteNi, falliti: fallitiNi.slice(0, 50)
+            });
             return;
         }
 

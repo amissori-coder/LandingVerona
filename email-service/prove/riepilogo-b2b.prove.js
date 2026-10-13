@@ -73,6 +73,10 @@ const pezzi = [
     ritaglia('function conflittiOrarioB2B(', '{', '}'),
     ritaglia('function disegnaRiepilogoB2B(', '{', '}'),
     ritaglia('function nomeAreaB2B(', '{', '}'),
+    /* Gli argomenti di una richiesta e il suo tipo: il capitolo delle
+       richieste sul foglio stampato li legge tutti e due. */
+    ritaglia('function areeRichiesta(', '{', '}'),
+    ritaglia('function eNuovoIncontro(', '{', '}'),
     /* I tavoli che hanno cambiato argomento sotto chi aveva gia' prenotato. */
     ritaglia('const TAVOLI_CONVERTITI = [', '[', ']') + ';',
     ritaglia('function convertitoDopo(', '{', '}'),

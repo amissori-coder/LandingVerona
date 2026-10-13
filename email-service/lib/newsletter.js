@@ -107,6 +107,28 @@ function firmaAziendaValida(evento, aziendaId, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del collegamento "programma un nuovo incontro", la pagina che si apre
+   DOPO il convegno: chi non e' riuscito a fare il suo incontro B2B indica di
+   nuovo gli argomenti, senza orario.
+   Si firma l'identificativo del DOCUMENTO e non l'azienda, per una ragione
+   precisa: questa mail va anche a chi ha seguito online, e chi ha seguito
+   online spesso non ha nessuna azienda fra quelle invitate ai tavoli. Con la
+   firma d'azienda quelle persone non avrebbero un collegamento.
+   Contesto suo, come tutti gli altri: il token che apre questa pagina non deve
+   aprire /completa_iscrizione/, che riscrive i nominativi dei partecipanti, ne'
+   il modulo B2B dell'impresa. */
+function firmaNuovoIncontro(idDoc) {
+    return crypto.createHmac('sha256', segreto())
+        .update('nuovo-incontro|' + String(idDoc || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaNuovoIncontroValida(idDoc, token) {
+    const attesa = Buffer.from(firmaNuovoIncontro(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 /* Firma del collegamento "conferma il tuo indirizzo email", nella mail di
    conferma dell'iscrizione. Contesto suo, stesso segreto: il token che
    conferma un indirizzo non deve aprire /completa_iscrizione/, che SCRIVE
@@ -152,6 +174,13 @@ function linkB2BAzienda(evento, aziendaId) {
     return PAGINA_B2B + '?a=' + encodeURIComponent(String(aziendaId || ''))
         + '&e=' + encodeURIComponent(String(evento || ''))
         + '&t=' + encodeURIComponent(firmaAzienda(evento, aziendaId));
+}
+/* La pagina del nuovo incontro: stessa forma delle altre, firma con il suo
+   contesto. */
+const PAGINA_NUOVO_INCONTRO = BASE + '/nuovo_incontro/';
+function linkNuovoIncontro(idDoc) {
+    return PAGINA_NUOVO_INCONTRO + '?d=' + encodeURIComponent(String(idDoc || ''))
+        + '&t=' + encodeURIComponent(firmaNuovoIncontro(idDoc));
 }
 /* Collegamento personale mostrato in fondo alla mail (pagina di conferma). */
 function linkDisiscrizione(email, campagna) {
@@ -295,7 +324,9 @@ module.exports = {
     firmaCompleta, firmaCompletaValida, linkCompleta, linkB2B,
     firmaAzienda, firmaAziendaValida, linkB2BAzienda,
     firmaConfermaEmail, firmaConfermaEmailValida, linkConfermaEmail,
-    PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL, BASE,
+    firmaNuovoIncontro, firmaNuovoIncontroValida, linkNuovoIncontro,
+    PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL,
+    PAGINA_NUOVO_INCONTRO, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,
     brevoAttivo, chiamataBrevo, bloccatiBrevo
 };

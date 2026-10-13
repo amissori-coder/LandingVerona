@@ -2693,6 +2693,124 @@
 
 
     /* =========================================================
+       DOPO IL CONVEGNO: PROGRAMMIAMO UN NUOVO INCONTRO
+       ---------------------------------------------------------
+       Si manda a chi aveva prenotato un incontro B2B e a chi ha
+       seguito online, qualche giorno dopo i lavori. Dice una cosa
+       sola: se l'incontro non si e' fatto, lo si rifa'.
+
+       PERCHE' E' CORTA. Chi la riceve ha gia' visto il convegno: non
+       ha bisogno che glielo si racconti, ha bisogno di sapere in due
+       righe che cosa puo' fare adesso. Il pulsante sta in alto, prima
+       delle spiegazioni, perche' chi ha gia' deciso non deve leggere
+       niente per arrivarci.
+
+       PERCHE' NON DA' PER SCONTATO CHE L'INCONTRO SIA SALTATO. La
+       stessa mail va a chi l'incontro l'ha fatto benissimo e a chi
+       non e' nemmeno venuto: scrivere "ci dispiace che non sia
+       riuscito a incontrarci" a chi invece c'era sarebbe una figura
+       goffa, e a chi non e' venuto un rimprovero. Si dice quello che
+       vale per tutti - gli incontri erano a orari fissi, non tutti
+       sono riusciti a farli - e si lascia che sia chi legge a
+       riconoscersi.
+
+       Due segnaposto, che il servizio sostituisce per destinatario:
+       {{NOME}} e {{NUOVO_INCONTRO}}, il collegamento personale alla
+       pagina dove si indicano gli argomenti.
+
+       `dati`: { evento: {titolo, quando, sottotitolo}, online: true|false }
+       `online` cambia DUE frasi: a chi ha seguito da casa non si puo'
+       dire "non e' riuscito a fare l'incontro al desk", perche' un
+       desk non ce l'aveva. Il resto della lettera e' lo stesso.
+    ========================================================= */
+    const SEGNAPOSTO_NUOVO_INCONTRO = '{{NUOVO_INCONTRO}}';
+    function invitoNuovoIncontro(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const online = dati.online === true;
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
+        const oggetto = SEGNAPOSTO_NOME + ': programmiamo l\'incontro che non avete ancora fatto'
+            + (quandoEv ? ' - Next Generation Business, ' + quandoEv : '');
+        const anteprima = 'Gli incontri del convegno erano a orari fissi. Se il Vostro non si è fatto, lo rifacciamo: scegliete gli argomenti.';
+
+        const sommario = online
+            ? 'Gentile ' + SEGNAPOSTO_NOME + ', avete seguito online i lavori di "' + nomeConvegno + '"'
+                + (quandoEv ? ' di ' + quandoEv : '') + '. Gli incontri B2B si tenevano ai tavoli, in sala: '
+                + 'se Vi interessano, possiamo organizzarne uno per Voi.'
+            : 'Gentile ' + SEGNAPOSTO_NOME + ', avete partecipato a "' + nomeConvegno + '"'
+                + (quandoEv ? ' di ' + quandoEv : '') + '. Gli incontri B2B erano a orari fissi e non tutti '
+                + 'sono riusciti a farli: se è capitato anche a Voi, li rifacciamo con calma.';
+
+        const testa = testaB2B('Programmiamo un nuovo incontro', sommario);
+        const copertina = copertinaB2B();
+
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        /* IL PULSANTE IN CIMA. Chi ha gia' deciso non deve leggere la lettera
+           per trovarlo, e chi non ha deciso lo ritrova in fondo: due pulsanti
+           per lo stesso collegamento non confondono nessuno, mentre un
+           pulsante solo in fondo costa a tutti una lettura intera. */
+        const bottone = '<tr><td align="center" style="padding:0;">'
+            + pulsante('Scelgo gli argomenti', SEGNAPOSTO_NUOVO_INCONTRO) + '</td></tr>';
+
+        /* Il riquadro chiaro dei tre passi: stessa forma del riepilogo delle
+           altre mail NGB, perche' chi le riceve tutte ne riconosca una sola. */
+        const comeFunziona = [
+            'Scegliete gli argomenti di cui volete parlare, fino a quattro.',
+            'Non c’è nessun orario da prendere: la data la troviamo insieme.',
+            'Diteci quando Vi fa comodo, e Vi richiamiamo noi.'
+        ];
+        const riquadro = '<table role="presentation" class="bx" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(
+                '<tr><td style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:'
+                + C.blu + ';font-weight:bold;padding:0 0 6px;">Come funziona</td></tr>'
+                + '<tr><td>' + elencoPunti(comeFunziona, SCALA.corpo, C.accento, true) + '</td></tr>'
+            ) + '</td></tr></table>';
+
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + bottone
+            + spazio(26)
+            + par(online
+                ? 'Ai tavoli del convegno le imprese hanno incontrato i nostri professionisti su un argomento preciso, '
+                    + 'mezz\'ora a testa, senza presentazioni di prodotto. Chi seguiva online quei tavoli non li aveva: '
+                    + 'ora possiamo recuperare, con lo stesso formato e senza il vincolo della giornata.'
+                : 'Il tempo dei tavoli era quello che era: mezz\'ora per argomento, e gli orari si sono riempiti in fretta. '
+                    + 'Qualcuno non ha trovato posto, qualcuno aveva due impegni alla stessa ora, qualcun altro si è fermato '
+                    + 'a parlare e ha saltato il turno dopo. Non c’è ragione perché quell’incontro resti indietro.')
+            + spazio(22)
+            + '<tr><td>' + riquadro + '</td></tr>'
+            + spazio(26)
+            + par('Gli argomenti sono gli stessi dei tavoli del convegno: merito creditizio, adeguati assetti, ESG, '
+                + 'Modello 231 e Tax Control Framework, finanza agevolata, revisione legale, certificazioni ISO, '
+                + 'rating di legalità. Sceglietene fino a quattro, e se c’è qualcosa che dobbiamo sapere prima, scrivetecelo: '
+                + 'chi arriva preparato all’incontro fa guadagnare mezz’ora a tutti e due.')
+            + spazio(28)
+            + bottone
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
+            + 'Il collegamento vale per la Vostra scheda: Vi chiediamo di non inoltrarlo. '
+            + 'Se preferite scriverci, rispondete a questa mail: la legge chi organizza gli incontri.</td></tr>'
+        ));
+
+        const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piedeB2B());
+
+        const testo = ['PROGRAMMIAMO UN NUOVO INCONTRO', sommario,
+            online
+                ? 'Ai tavoli del convegno le imprese hanno incontrato i nostri professionisti su un argomento preciso, mezz\'ora a testa, senza presentazioni di prodotto. Chi seguiva online quei tavoli non li aveva: ora possiamo recuperare, con lo stesso formato e senza il vincolo della giornata.'
+                : 'Il tempo dei tavoli era quello che era: mezz\'ora per argomento, e gli orari si sono riempiti in fretta. Qualcuno non ha trovato posto, qualcuno aveva due impegni alla stessa ora, qualcun altro si è fermato a parlare e ha saltato il turno dopo. Non c’è ragione perché quell’incontro resti indietro.',
+            'COME FUNZIONA\n' + comeFunziona.map(x => '- ' + x).join('\n'),
+            'Gli argomenti sono gli stessi dei tavoli del convegno: merito creditizio, adeguati assetti, ESG, Modello 231 e Tax Control Framework, finanza agevolata, revisione legale, certificazioni ISO, rating di legalità. Sceglietene fino a quattro.',
+            'Scegliete gli argomenti qui: ' + SEGNAPOSTO_NUOVO_INCONTRO,
+            'Il collegamento vale per la Vostra scheda: Vi chiediamo di non inoltrarlo.',
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_B2B,
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
+    /* =========================================================
        PROMEMORIA AGLI ISCRITTI DI UN EVENTO
        ---------------------------------------------------------
        La mail che ricorda l'evento a chi si e' GIA' iscritto: parte
@@ -3068,6 +3186,7 @@
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
         SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B, AREE_B2B: AREE_B2B,
+        SEGNAPOSTO_NUOVO_INCONTRO: SEGNAPOSTO_NUOVO_INCONTRO, invitoNuovoIncontro: invitoNuovoIncontro,
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
         passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
