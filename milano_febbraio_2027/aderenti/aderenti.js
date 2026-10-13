@@ -43,14 +43,16 @@
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(valore('email'))) return ['L\'indirizzo email non sembra valido.', 'email'];
         if (valore('telefono').replace(/\D/g, '').length < 6) return ['Indichi un numero di telefono.', 'telefono'];
         if (!valore('intestatario')) return ['Indichi l\'intestatario della fattura.', 'intestatario'];
-        if (!valore('partitaIva') && !valore('codiceFiscale')) return ['Indichi la partita IVA o il codice fiscale dell\'intestatario.', 'partitaIva'];
+        if (!/^\d{11}$/.test(valore('partitaIva').replace(/\s+/g, '').replace(/^IT/i, ''))) return ['Indichi la partita IVA dell\'intestatario (11 cifre).', 'partitaIva'];
+        if (!valore('codiceFiscale')) return ['Indichi il codice fiscale dell\'intestatario.', 'codiceFiscale'];
         if (!valore('indirizzo')) return ['Indichi l\'indirizzo della sede di fatturazione.', 'indirizzo'];
         if (!/^\d{5}$/.test(valore('cap'))) return ['Il CAP è di 5 cifre.', 'cap'];
         if (!valore('comune')) return ['Indichi il comune.', 'comune'];
         if (!/^[A-Za-z]{2}$/.test(valore('provincia'))) return ['Indichi la sigla della provincia (per esempio MI).', 'provincia'];
-        if (valore('partitaIva') && !valore('codiceDestinatario') && !valore('pec')) {
-            return ['Con la partita IVA serve il codice destinatario SDI o la PEC.', 'codiceDestinatario'];
+        if (!valore('codiceDestinatario') && !valore('pec')) {
+            return ['Indichi il codice destinatario SDI o la PEC (almeno uno dei due).', 'codiceDestinatario'];
         }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(valore('emailFatture'))) return ['Indichi l\'indirizzo email a cui inviare la fattura.', 'emailFatture'];
         if (!form.elements.accettaQuota.checked) return ['Confermi la partecipazione e la quota.', 'accettaQuota'];
         if (!form.elements.privacy.checked) return ['Per iscriversi serve il consenso al trattamento dei dati.', 'privacy'];
         return null;
@@ -60,7 +62,7 @@
     function campoDa(msg) {
         var m = String(msg || '').toLowerCase();
         var mappa = [['partita iva', 'partitaIva'], ['codice fiscale', 'codiceFiscale'], ['cap', 'cap'], ['provincia', 'provincia'],
-            ['sdi', 'codiceDestinatario'], ['pec', 'pec'], ['copia della fattura', 'emailFatture'], ['intestatario', 'intestatario'],
+            ['sdi', 'codiceDestinatario'], ['pec', 'pec'], ['email a cui inviare la fattura', 'emailFatture'], ['email per la fattura', 'emailFatture'], ['intestatario', 'intestatario'],
             ['indirizzo della sede', 'indirizzo'], ['telefono', 'telefono'], ['email', 'email'], ['nome', 'nome']];
         for (var i = 0; i < mappa.length; i++) if (m.indexOf(mappa[i][0]) >= 0) return mappa[i][1];
         return null;
@@ -123,6 +125,11 @@
         fatto.hidden = true;
         form.hidden = false;
         form.elements.nome.focus();
+    });
+
+    // il bordo rosso se ne va appena si corregge il campo
+    form.addEventListener('input', function (e) {
+        if (e.target && e.target.removeAttribute) e.target.removeAttribute('aria-invalid');
     });
 
     // provincia, SDI e codice fiscale si scrivono in maiuscolo

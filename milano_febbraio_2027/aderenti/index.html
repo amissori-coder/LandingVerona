@@ -204,19 +204,19 @@
 
                     <fieldset>
                         <legend><span class="ad-num">2</span> Dati di fatturazione</legend>
-                        <p class="ad-spiega">La fattura sarà intestata come indicato qui. Con la partita IVA serve il codice destinatario SDI o la PEC.</p>
+                        <p class="ad-spiega">La fattura sarà intestata come indicato qui. Servono partita IVA e codice fiscale (per una società spesso coincidono), l'email a cui inviarla e almeno uno fra codice destinatario SDI e PEC.</p>
                         <div class="ad-campi">
                             <label class="campo campo-largo">
                                 <span>Intestatario (ragione sociale o nome e cognome) <i aria-hidden="true">*</i></span>
                                 <input name="intestatario" autocomplete="organization" required maxlength="160">
                             </label>
                             <label class="campo">
-                                <span>Partita IVA</span>
-                                <input name="partitaIva" inputmode="numeric" maxlength="20" placeholder="11 cifre">
+                                <span>Partita IVA <i aria-hidden="true">*</i></span>
+                                <input name="partitaIva" inputmode="numeric" required maxlength="20" placeholder="11 cifre">
                             </label>
                             <label class="campo">
-                                <span>Codice fiscale</span>
-                                <input name="codiceFiscale" maxlength="20" autocapitalize="characters">
+                                <span>Codice fiscale <i aria-hidden="true">*</i></span>
+                                <input name="codiceFiscale" required maxlength="20" autocapitalize="characters">
                             </label>
                             <label class="campo campo-largo">
                                 <span>Indirizzo della sede <i aria-hidden="true">*</i></span>
@@ -237,16 +237,16 @@
                                 </label>
                             </div>
                             <label class="campo">
-                                <span>Codice destinatario SDI</span>
+                                <span>Codice destinatario SDI <i aria-hidden="true">*</i></span>
                                 <input name="codiceDestinatario" maxlength="7" placeholder="7 caratteri" autocapitalize="characters">
                             </label>
                             <label class="campo">
-                                <span>PEC</span>
+                                <span>PEC <i aria-hidden="true">*</i></span>
                                 <input name="pec" type="email" maxlength="200">
                             </label>
                             <label class="campo campo-largo">
-                                <span>Email a cui inviare copia della fattura</span>
-                                <input name="emailFatture" type="email" maxlength="200" placeholder="Se diversa da quella indicata sopra">
+                                <span>Email a cui inviare la fattura <i aria-hidden="true">*</i></span>
+                                <input name="emailFatture" type="email" autocomplete="email" required maxlength="200" placeholder="Per esempio amministrazione@studio.it">
                             </label>
                         </div>
                     </fieldset>
@@ -270,7 +270,7 @@
                     <div class="ad-invio">
                         <p class="ad-errore" id="errore" role="alert" hidden></p>
                         <button type="submit" class="btn btn-scuro" id="invia">Invia l'iscrizione</button>
-                        <p class="ad-nota-invio">I campi con <i>*</i> sono obbligatori.</p>
+                        <p class="ad-nota-invio">I campi con <i>*</i> sono obbligatori; fra codice destinatario SDI e PEC ne basta uno.</p>
                     </div>
                 </form>
 
@@ -342,6 +342,6 @@
     </footer>
 
     <script src="../script.js?v=3"></script>
-    <script src="aderenti.js?v=2"></script>
+    <script src="aderenti.js?v=3"></script>
 </body>
 </html>
