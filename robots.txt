@@ -24,6 +24,10 @@ Disallow: /n26/
 # raggiungono solo dal collegamento mandato agli invitati.
 Disallow: /cene_napoli/
 
+# Iscrizione degli aderenti Revilaw a Milano (cena e meeting, febbraio
+# 2027): la pagina si raggiunge solo dal collegamento mandato agli aderenti.
+Disallow: /milano_febbraio_2027/aderenti/
+
 # Accredito al desk di Napoli: si apre dal QR sul cartello in sala, il
 # giorno dell'evento, e non ha senso fuori da li'.
 Disallow: /p26/

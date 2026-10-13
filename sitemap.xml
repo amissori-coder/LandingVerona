@@ -28,6 +28,14 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Milano — 26 Febbraio 2027 event (save the date) -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/milano_febbraio_2027/</loc>
+        <lastmod>2026-10-13</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
     <!-- Roma — 29 Aprile 2026 event -->
     <url>
         <loc>https://nextgenerationbusiness.it/roma_aprile_2026/</loc>

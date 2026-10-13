@@ -18333,13 +18333,12 @@
             /* CHI RESTA FUORI, scritto in chiaro. Questo elenco non e' quello
                degli iscritti: sono le due platee, e basta che un nome non abbia
                un tavolo perche' qui non ci sia. Senza questa riga, cercarlo e
-               non trovarlo si legge come un dato perduto. */
-            /* DUE RAGIONI DIVERSE DI RESTARE FUORI, e si dicono separate: un
-               tavolo non ce l'avevano, oppure un indirizzo non ce l'hanno.
-               Sommarle in un numero solo farebbe cercare la seconda fra le
-               prime, e la frase "agli incontri non risultava" sarebbe falsa
-               per chi un tavolo magari ce l'aveva ma senza email non si puo'
-               raggiungere. */
+               non trovarlo si legge come un dato perduto.
+               LE RAGIONI SONO DUE e si contano separate: un tavolo non ce
+               l'avevano, oppure un indirizzo non ce l'hanno. Sommarle in un
+               numero solo farebbe cercare la seconda fra le prime, e la frase
+               "agli incontri non risultava" sarebbe falsa per chi un tavolo
+               magari ce l'aveva ma senza email non si puo' raggiungere. */
             const fuoriTutti = gruppi.fuori || [];
             const senzaIndirizzo = fuoriTutti.filter(r => !r.email).length;
             const senzaTavolo = fuoriTutti.length - senzaIndirizzo;
