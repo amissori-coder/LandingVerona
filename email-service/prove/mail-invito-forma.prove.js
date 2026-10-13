@@ -397,6 +397,77 @@ prova('Anche la versione breve e giustificata', () => {
         nonGiustificati.length + ' a bandiera');
 });
 
+prova('La lettera del nuovo incontro e una sola, e da del Voi', () => {
+    /* LE DUE PROVE DELL'INVITO B2B, ricalcate sulla lettera del richiamo. Sono
+       le due cose che quella lettera ha gia' sbagliato una volta: i paragrafi
+       scritti due volte - una per l'HTML, una per il solo testo - che si erano
+       allontanati senza che nessuno se ne accorgesse, e il registro, che era
+       quello di un messaggio fra conoscenti invece che di una lettera dello
+       studio. Senza queste righe si potrebbe tornare al tu, togliere i saluti o
+       far divergere di nuovo le due forme, e trentotto suite verdi non
+       direbbero niente. */
+    const piano = s => String(s || '').replace(/[àèéìòù]/g, x => 'aeeiou'['àèéìòù'.indexOf(x)]);
+    [false, true].forEach(online => {
+        const m = NL.invitoNuovoIncontro({ evento: { titolo: 'Napoli', quando: '2 ottobre 2026' }, online: online });
+        const quale = online ? '(online)' : '(ai tavoli)';
+        const html = piano(senzaTrattini(m.html)), testo = piano(senzaTrattini(m.testo));
+        /* Le frasi che devono stare in TUTTE E DUE le forme. Si cercano a
+           pezzi, perche' l'HTML le spezza con i trattini morbidi e le manda
+           all'escape: quello che conta e' che la frase ci sia, in entrambe. */
+        [
+            'presso i desk riservati',
+            'sara nostra cura ricontattarVi per concordare giorno e ora',
+            'Potete indicarne fino a quattro',
+            'Vi porgiamo i nostri piu cordiali saluti',
+            'Il collegamento e riservato alla Vostra scheda'
+        ].forEach(frase => {
+            esigi(html.indexOf(piano(frase)) >= 0, quale + ' nell HTML: "' + frase.slice(0, 38) + '..."');
+            esigi(testo.indexOf(piano(frase)) >= 0, quale + ' e nel solo testo, parola per parola');
+        });
+        /* Il registro: niente tu, e niente prima persona nel pulsante - era
+           "Scelgo gli argomenti", l'unico pulsante del file che parlava a nome
+           di chi legge. */
+        const tutto = html + '\n' + testo;
+        [/\bla tua\b/i, /\bil tuo\b/i, /\bscegli\b/, /\bpuoi\b/, /\btrovi\b/, /\bricevi\b/, /\bScelgo\b/]
+            .forEach(r => esigi(!r.test(tutto), quale + ' niente ' + r.source,
+                (tutto.match(r) || [''])[0]));
+        esigi(/Scegliete gli argomenti/.test(html), quale + ' il pulsante da del Voi');
+        esigi(/Vi porgiamo i nostri piu cordiali saluti/.test(html), quale + ' e la lettera si chiude con i saluti');
+        /* La durata dell'incontro non si scrive a mano: e' un campo della
+           giornata, che chi organizza cambia. Senza, la lettera non inventa
+           una cifra. */
+        esigi(!/\d+ minuti per argomento/.test(testo), quale + ' e non si inventa quanto durava l incontro',
+            (testo.match(/.{0,40}minuti per argomento/) || [''])[0]);
+    });
+    const conDurata = NL.invitoNuovoIncontro({ evento: { titolo: 'Napoli' }, durata: 20 });
+    esigi(/20 minuti per argomento/.test(conDurata.testo), 'ma quando la durata si sa, si dice');
+    esigi(/20 minuti per argomento/.test(piano(senzaTrattini(conDurata.html))), 'in tutte e due le forme');
+});
+
+prova('L anteprima della mail del nuovo incontro e per platea', () => {
+    /* E' la riga che si legge accanto all'oggetto, prima di aprire. Era una
+       sola per tutti e diceva a chi aveva seguito online "qualora il Vostro
+       incontro non si sia svolto": un incontro quella persona non ce l'aveva
+       mai avuto, e la prima cosa che leggeva era una cosa che non la
+       riguardava. */
+    const sala = NL.invitoNuovoIncontro({ evento: { titolo: 'Napoli', quando: '2 ottobre 2026' } });
+    const rete = NL.invitoNuovoIncontro({ evento: { titolo: 'Napoli', quando: '2 ottobre 2026' }, online: true });
+    /* L'anteprima e' il primo <div> nascosto del corpo: niente classe, lo si
+       riconosce da "display:none" e dai riempitivi invisibili che lo chiudono
+       (servono a impedire che il client ci infili dentro l'inizio della
+       lettera). Si taglia li', e quello che resta e' la riga che si legge. */
+    const preheader = h => {
+        const m = String(h || '').match(/<div style="display:none;[^"]*">([^<]*)</);
+        return m ? m[1].split('&#')[0].trim() : '';
+    };
+    const a = preheader(sala.html), b = preheader(rete.html);
+    esigi(a.length > 20 && b.length > 20, 'tutte e due le mail hanno un anteprima', JSON.stringify([a.slice(0, 40), b.slice(0, 40)]));
+    esigi(a !== b, 'e non e la stessa', JSON.stringify([a, b]));
+    esigi(/non si sia svolto/.test(a), 'a chi era in sala si parla dell incontro non svolto', a);
+    esigi(!/non si sia svolto/.test(b), 'a chi ha seguito online no, perche un incontro non ce l aveva', b);
+    esigi(/in sala/.test(b), 'a lui si dice dove si tenevano', b);
+});
+
 prova('Un segnaposto dentro un pulsante resta un segnaposto', () => {
     /* IL GUASTO CHE QUESTA PROVA ESISTE PER NON FAR TORNARE. Chi compone una
        mail scrive nel pulsante un SEGNAPOSTO - {{NUOVO_INCONTRO}}, {{COMPLETA}},

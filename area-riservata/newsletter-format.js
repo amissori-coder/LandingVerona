@@ -1721,9 +1721,11 @@
                 + riga('Iscrizione da', dati.portale)
             ) + '</td></tr></table>';
 
-        /* Il pulsante non passa da pulsante(): li' l'indirizzo viene ripulito, e
-           il segnaposto (che un indirizzo non e') sparirebbe. Stessa struttura,
-           con il segnaposto scritto tale e quale. */
+        /* Il segnaposto scritto tale e quale: lo sostituisce il servizio, con il
+           collegamento personale di chi legge. Si puo' usare `pulsante()`, che
+           adesso i segnaposto li riconosce e li lascia passare; qui resta la
+           via diretta perche' il colore e' quello della lettera e non quello
+           di tutti i pulsanti. */
         const bottone = pulsanteGrezzo('Completa i dati', SEGNAPOSTO_COMPLETA, C.blu);
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
@@ -2800,13 +2802,21 @@
            nelle due le due erano gia' divergenti: chi legge il testo semplice
            riceveva una lettera diversa da chi legge l'altra, e nessuno se ne
            accorgeva perche' nessuno le legge tutte e due. */
+        /* QUANTO DURAVA un incontro non si scrive a mano. La durata e' un campo
+           della giornata, predefinito a trenta minuti ma che chi organizza
+           cambia dall'agenda: una lettera che dice "trenta minuti" a una platea
+           che ne ha avuti venti racconta una cosa falsa a tutti insieme. Se chi
+           compone la conosce la diciamo, altrimenti si descrive l'incontro
+           senza la cifra, che e' vero in ogni caso. */
+        const minuti = Number(dati.durata) > 0 ? Math.round(Number(dati.durata)) : 0;
+        const comEra = 'Gli incontri B2B si sono svolti a margine dei lavori in sala, presso i desk riservati: '
+            + (minuti ? minuti + ' minuti per argomento' : 'un appuntamento dedicato per ciascun argomento')
+            + ', con i professionisti e gli specialisti della materia. ';
         const primo = online
-            ? 'Gli incontri B2B si sono svolti a margine dei lavori in sala, presso i desk riservati: trenta minuti '
-                + 'per argomento, con i professionisti e gli specialisti della materia. Si tenevano esclusivamente in '
-                + 'presenza, e chi ha seguito i lavori online non ha potuto prendervi parte.'
-            : 'Gli incontri B2B si sono svolti a margine dei lavori in sala, presso i desk riservati: trenta minuti '
-                + 'per argomento, con i professionisti e gli specialisti della materia. Le fasce orarie erano limitate '
-                + 'e in alcuni casi non è stato possibile conciliarle con il programma della giornata.';
+            ? comEra + 'Si tenevano esclusivamente in presenza, e chi ha seguito i lavori online non ha '
+                + 'potuto prendervi parte.'
+            : comEra + 'Le fasce orarie erano limitate e in alcuni casi non è stato possibile conciliarle '
+                + 'con il programma della giornata.';
         /* "Svolgerlo" oppure "svolgerne uno": a chi era ai tavoli ci si riferisce
            all'incontro che aveva in programma, a chi ha seguito online un
            incontro da riprendere non c'era. Una parola, ma e' la differenza fra
@@ -3025,18 +3035,15 @@
                 + '<td class="pmvoce bd" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';' + ALLINEA + '">' + testoHtml(v.nome) + '</td></tr>').join('')
             + '</table></td></tr>'
             : '';
-        /* Il pulsante. Se l'indirizzo e' il segnaposto del collegamento
-           personale non passa da pulsante(), che lo ripulirebbe: stessa
-           struttura a prova di Outlook, con il segnaposto scritto tale e
-           quale (come nella richiesta dati). */
-        let bottone = '';
-        if (btn) {
-            if (String(btn.url) === SEGNAPOSTO_COMPLETA) {
-                bottone = pulsanteGrezzo(esc(btn.testo), SEGNAPOSTO_COMPLETA, C.blu);
-            } else {
-                bottone = pulsante(btn.testo, btn.url, { colore: C.blu });
-            }
-        }
+        /* Il pulsante, una via sola. C'era un ramo apposta per il segnaposto del
+           collegamento personale, perche' `pulsante()` gli avrebbe messo
+           davanti "https://" e l'indirizzo sarebbe arrivato illeggibile al
+           client. Adesso `urlSicuro` i segnaposto li riconosce e li lascia
+           passare, quindi i due rami producevano lo stesso HTML e il secondo
+           era un ramo morto tenuto in vita da un commento che diceva il
+           contrario del codice: la cosa che fa ricostruire l'aggiramento a chi
+           passa dopo. */
+        const bottone = btn ? pulsante(btn.testo, btn.url, { colore: C.blu }) : '';
         const rigaBottone = bottone ? spazio(28) + '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
             + '</td></tr>' : '';
