@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=2">
+    <link rel="stylesheet" href="styles.css?v=3">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -381,6 +381,27 @@
         </div>
     </footer>
 
-    <script src="script.js?v=2"></script>
+    <!-- Anteprima degli approfondimenti: si apre al clic sui temi della giornata -->
+    <dialog class="anteprima" id="anteprima" aria-labelledby="anteprima-titolo" aria-describedby="anteprima-testo">
+        <div class="anteprima-immagine" aria-hidden="true"><img id="anteprima-img" alt="" width="1200" height="630"></div>
+        <div class="anteprima-corpo">
+            <span class="etichetta">Approfondimento</span>
+            <h2 class="anteprima-titolo" id="anteprima-titolo"></h2>
+            <p class="anteprima-testo" id="anteprima-testo"></p>
+            <p class="anteprima-domanda">Vuoi aprire la pagina per approfondire? Lascerai la pagina dell'evento di Milano.</p>
+            <div class="anteprima-azioni">
+                <button type="button" class="btn btn-tenue" id="anteprima-annulla">Resta qui</button>
+                <a href="#" class="btn btn-scuro" id="anteprima-vai">
+                    Vai all'approfondimento
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
+            </div>
+        </div>
+        <button type="button" class="anteprima-chiudi" id="anteprima-chiudi" aria-label="Chiudi l'anteprima">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+    </dialog>
+
+    <script src="script.js?v=3"></script>
 </body>
 </html>
