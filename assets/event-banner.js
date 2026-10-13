@@ -27,6 +27,15 @@
     //            title. If omitted, auto-generated as "Wkd Day Month · City".
     const NGB_EVENTS = [
         {
+            city: 'Milano',
+            date: '2027-02-26',
+            title: 'Merito creditizio e crescita delle imprese',
+            tagline: 'Save the date',
+            meta: 'Ven 26 febbraio 2027 &middot; Milano &middot; iscrizioni a breve',
+            url: 'milano_febbraio_2027/',
+            pagePath: 'milano_febbraio_2027'
+        },
+        {
             city: 'Roma',
             date: '2026-04-29',
             title: 'ZLS e Rating di Legalita',
