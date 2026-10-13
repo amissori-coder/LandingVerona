@@ -542,8 +542,35 @@ async function prova(nome, fn) {
         const F = require(path.join(RADICE, '..', 'area-riservata', 'newsletter-format.js'));
         const m = F.invitoNuovoIncontro({ evento: { titolo: 'Napoli', quando: '2 ottobre 2026' } });
         esigi(/\{\{NOME\}\}/.test(m.oggetto), 'l oggetto porta il nome di chi legge', m.oggetto);
-        esigi(m.html.indexOf('{{NUOVO_INCONTRO}}') > 0, 'l html porta il collegamento');
+        /* NON BASTA CHE IL SEGNAPOSTO CI SIA: conta che cosa gli sta intorno.
+           Questa prova e' stata verde per settimane mentre l'href era
+           `https://{{NUOVO_INCONTRO}}` - il costruttore del pulsante, non
+           riconoscendo il segnaposto come indirizzo, ci metteva davanti lo
+           schema - e dopo la sostituzione diventava
+           `https://https://nextgenerationbusiness.it/...`, che nessun client
+           sa aprire. Un confronto per sottostringa e' cieco ai prefissi, ed e'
+           esattamente il motivo per cui centosessantacinque prove verdi non
+           hanno visto il guasto che l'utente ha visto al primo clic.
+           Quindi: si compone la mail vera, si sostituisce il segnaposto come
+           fa il servizio, e si pretende che ogni indirizzo sia un indirizzo
+           NOSTRO, letto da `new URL`. */
+        esigi(m.html.indexOf('href="{{NUOVO_INCONTRO}}"') > 0, 'l html porta il collegamento NUDO nell href',
+            (m.html.match(/href="[^"]*\{\{NUOVO_INCONTRO\}\}[^"]*"/g) || []).join(' '));
+        esigi(!/https?:\/\/\{\{/.test(m.html), 'senza niente davanti');
         esigi(m.testo.indexOf('{{NUOVO_INCONTRO}}') > 0, 'e anche la versione a solo testo');
+        const vero = NL.linkNuovoIncontro('mario', 1760000000000);
+        const spedita = m.html.split('{{NUOVO_INCONTRO}}').join(vero);
+        const indirizzi = (spedita.match(/href="([^"]*)"/g) || [])
+            .map(h => h.slice(6, -1)).filter(h => h.indexOf('nuovo_incontro') >= 0);
+        esigi(indirizzi.length === 2, 'i due pulsanti portano il collegamento', JSON.stringify(indirizzi));
+        const casa = indirizzi.map(h => { try { return new URL(h).hostname; } catch (e) { return 'ILLEGGIBILE'; } });
+        esigi(casa.every(h => h === 'nextgenerationbusiness.it'),
+            'e aprono il NOSTRO sito, non un indirizzo che il client non sa leggere', JSON.stringify(casa));
+        const nelTesto = m.testo.split('{{NUOVO_INCONTRO}}').join(vero)
+            .split(/\s+/).filter(x => x.indexOf('nuovo_incontro') >= 0);
+        esigi(nelTesto.length >= 1 && nelTesto.every(h => {
+            try { return new URL(h).hostname === 'nextgenerationbusiness.it'; } catch (e) { return false; }
+        }), 'e lo stesso vale per la versione a solo testo', JSON.stringify(nelTesto));
         esigi(!/[‒–—―]/.test(m.html + m.testo + m.oggetto), 'niente trattini lunghi');
         const o = F.invitoNuovoIncontro({ evento: { titolo: 'Napoli' }, online: true });
         esigi(o.html !== m.html, 'a chi ha seguito online si dice un altra cosa');

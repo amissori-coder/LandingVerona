@@ -2776,13 +2776,44 @@ offrire di rifare una cosa che non si e' ancora tenuta.
   si scrive a chi risulta iscritto, e chi non si e' collegato riceve comunque
   una proposta, che non e' un danno.
 
-La mail cambia **due frasi** fra le due platee: a chi era online non si puo'
-dire "non e' riuscito a fare l'incontro al desk", perche' un desk non ce
-l'aveva. Per questo partono come due invii, uno per platea
-(`invitoNuovoIncontro` in `area-riservata/newsletter-format.js`, con `online`).
-La lettera non da' per scontato che l'incontro sia saltato: la stessa mail va a
-chi l'ha fatto benissimo e a chi non e' nemmeno venuto, quindi si dice quello
-che vale per tutti e si lascia che sia chi legge a riconoscersi.
+La mail cambia **oggetto, anteprima e i primi due paragrafi** fra le due
+platee: a chi era online non si puo' dire "non e' riuscito a fare l'incontro al
+desk", perche' un desk non ce l'aveva, e nemmeno scriverglielo nell'anteprima,
+che e' la riga che si legge prima di aprire. Per questo partono come due invii,
+uno per platea (`invitoNuovoIncontro` in `area-riservata/newsletter-format.js`,
+con `online`). La lettera non da' per scontato che l'incontro sia saltato: la
+stessa mail va a chi l'ha fatto benissimo e a chi non e' nemmeno venuto, quindi
+si dice quello che vale per tutti ("non tutte le imprese invitate hanno potuto
+svolgerli: qualora sia stato anche il Vostro caso") e si lascia che sia chi
+legge a riconoscersi.
+
+**E' una lettera dello studio**, nel registro delle altre mail B2B: Voi, periodi
+distesi ma impersonali, formule di rito ("sara' nostra cura ricontattarVi"),
+saluti in chiusura, nessun aneddoto e nessuna confidenza. I paragrafi si
+scrivono **una volta sola** e valgono per la versione con la grafica e per
+quella in solo testo: finche' erano ricopiati nelle due, le due erano gia'
+divergenti e nessuno se ne accorgeva, perche' nessuno le legge tutte e due.
+
+**IL SEGNAPOSTO NEL PULSANTE, e il guasto che ne e' venuto.** Il collegamento
+nella mail e' un segnaposto finche' non parte: lo sostituisce il servizio, con
+il link firmato di quella persona. Ma `urlSicuro` - la funzione che impedisce a
+un "javascript:" incollato per sbaglio di diventare un collegamento attivo -
+davanti a una stringa che non sembra un indirizzo ci mette davanti `https://`.
+L'href diventava `https://{{NUOVO_INCONTRO}}` e, dopo la sostituzione,
+`https://https://nextgenerationbusiness.it/nuovo_incontro/...`: il browser legge
+"https" come nome dell'host e non arriva da nessuna parte. **Tutte le mail del
+richiamo gia' spedite hanno il pulsante rotto**; il collegamento nella versione
+a solo testo invece e' sempre stato giusto, perche' li' il segnaposto non passa
+dal pulsante. Adesso `urlSicuro` lascia passare i segnaposto tali e quali (forma
+ancorata, solo maiuscole, cifre e trattino basso: un "javascript:" resta
+scartato), cosi' la trappola non c'e' piu' per nessuna mail - prima le altre la
+schivavano scrivendosi l'href a mano, una per una.
+
+Le prove di questo guardano **l'indirizzo vero**, non la presenza del
+segnaposto: si compone la mail, si sostituisce il segnaposto come fa il
+servizio, e si pretende che `new URL(href).hostname` sia il nostro dominio. Un
+confronto per sottostringa e' cieco ai prefissi, ed e' il motivo per cui
+centosessantacinque prove verdi non avevano visto niente.
 
 **Chi ha gia' ricevuto il richiamo resta fuori di suo**: la traccia e' sulla
 scheda (`nuovoIncontroInvito`, esposta dalla lettura delle iscrizioni), e
