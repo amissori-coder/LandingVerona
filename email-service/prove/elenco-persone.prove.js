@@ -46,6 +46,7 @@ function ritaglia(apertura, apre, chiude) {
 }
 const pezzi = [
     ritaglia('function normalizzaTesto(', '{', '}'),
+    ritaglia('function chiaveCerca(', '{', '}'),
     ritaglia('function nomePersonaVisto(', '{', '}'),
     ritaglia('function aziendaVista(', '{', '}'),
     'let _collatoreIt = null;',
@@ -59,15 +60,29 @@ const pezzi = [
    modulo dei promemoria: si prende quello vero invece di ricopiarne il
    comportamento, perche' e' lui che decide come si legge "VERDI SRL". */
 const RV_PROMEMORIA = require(path.join(RADICE, 'area-riservata', 'promemoria-eventi.js'));
-/* Nel browser `RV_PROMEMORIA` e' una globale e le due funzioni la nominano
-   secca dopo averla cercata su `window`: qui va passata in tutti e due i modi,
-   altrimenti il ritaglio gira per meta'. */
-const window = { RV_PROMEMORIA: RV_PROMEMORIA };
-const Intl = global.Intl;
-const A = new Function('window', 'Intl', 'RV_PROMEMORIA', pezzi
-    + '\nreturn { confrontaIt: confrontaIt, inOrdineAlfabetico: inOrdineAlfabetico,'
-    + ' etichettaRigaPersona: etichettaRigaPersona, testoCercaPersona: testoCercaPersona,'
-    + ' nomePersonaVisto: nomePersonaVisto, aziendaVista: aziendaVista };')(window, Intl, RV_PROMEMORIA);
+/* IL MONTAGGIO SI FA DUE VOLTE, e la ragione e' tutta qui. `confrontaIt` usa
+   `Intl.Collator` quando c'e' e ripiega su `localeCompare` quando non c'e',
+   e se ne ricorda in una variabile. Montando una volta sola con un finto
+   `window` senza `Intl`, le prove passavano tutte dal ramo di SCORTA: si
+   poteva rompere il collatore vero - la riga che nel browser decide davvero
+   l'ordine, con la lingua, gli accenti e i numeri - e la prova restava verde.
+   Quindi si monta una volta con Intl e una senza, su due istanze distinte
+   perche' quella variabile non si azzera, e si controlla anche QUALE dei due
+   rami e' stato preso. */
+function monta(conIntl) {
+    const finestra = { RV_PROMEMORIA: RV_PROMEMORIA };
+    if (conIntl) finestra.Intl = global.Intl;
+    return new Function('window', 'Intl', 'RV_PROMEMORIA', pezzi
+        + '\nreturn { confrontaIt: confrontaIt, inOrdineAlfabetico: inOrdineAlfabetico,'
+        + ' etichettaRigaPersona: etichettaRigaPersona, testoCercaPersona: testoCercaPersona,'
+        + ' chiaveCerca: chiaveCerca,'
+        + ' nomePersonaVisto: nomePersonaVisto, aziendaVista: aziendaVista,'
+        /* si espone la memoria del collatore: e' l'unico modo per dire se la
+           riga che conta e' stata eseguita o saltata */
+        + ' collatore: function () { return _collatoreIt; } };')(finestra, global.Intl, RV_PROMEMORIA);
+}
+const A = monta(true);
+const SENZA = monta(false);
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -82,6 +97,7 @@ const p = (id, nome, cognome, azienda, email) => ({
     id: id, nome: nome, cognome: cognome, azienda: azienda, email: email || (id + '@esempio.it')
 });
 const etichette = righe => A.inOrdineAlfabetico(righe).map(A.etichettaRigaPersona);
+const etichetteSenza = righe => SENZA.inOrdineAlfabetico(righe).map(SENZA.etichettaRigaPersona);
 
 prova('1) Alfabetico su quello che si legge in grassetto', () => {
     /* In grassetto c'e' l'azienda quando c'e' e il nome quando manca: e'
@@ -179,6 +195,45 @@ prova('7) La chiave di ricerca si costruisce dai dati, non dalla riga', () => {
 prova('8) Chi non ha niente scritto non fa esplodere la ricerca', () => {
     esigi(A.testoCercaPersona(null) === '', 'una riga che non c e da chiave vuota');
     esigi(A.testoCercaPersona({}) === '', 'e una riga senza campi pure');
+});
+
+prova('9) Si ordina con il collatore vero, non con quello di scorta', () => {
+    /* Nel browser `Intl` c'e' sempre - l'area riservata lo usa senza nemmeno
+       chiederselo, fin dalla prima riga - quindi la riga che decide l'ordine e'
+       quella del collatore. Finche' le prove giravano su un finto `window`
+       senza `Intl`, collaudavano il ramo che in produzione non si prende mai:
+       si poteva cambiare lingua e opzioni del collatore e restavano verdi. */
+    A.confrontaIt('a', 'b');
+    SENZA.confrontaIt('a', 'b');
+    esigi(A.collatore() instanceof Intl.Collator, 'con Intl si usa Intl.Collator', String(A.collatore()));
+    const opz = A.collatore().resolvedOptions();
+    esigi(String(opz.locale || '').indexOf('it') === 0, 'in italiano', opz.locale);
+    esigi(opz.sensitivity === 'base', 'con accenti e maiuscole che non contano', opz.sensitivity);
+    esigi(opz.numeric === true, 'e i numeri letti da numeri', String(opz.numeric));
+    /* E senza Intl non ci si deve fermare: la scorta deve ordinare lo stesso,
+       perche' un elenco non ordinato e' meglio di una finestra che non si
+       apre. */
+    esigi(SENZA.collatore() === false, 'senza Intl si ripiega sulla scorta', String(SENZA.collatore()));
+    const righe = [p('c', 'A', 'B', 'Omega Srl'), p('a', 'C', 'D', 'Alfa Srl'), p('b', 'E', 'F', 'Beta Srl')];
+    esigi(JSON.stringify(etichetteSenza(righe)) === JSON.stringify(['Alfa S.r.l.', 'Beta S.r.l.', 'Omega S.r.l.']),
+        'e anche la scorta mette in ordine', etichetteSenza(righe));
+});
+
+prova('10) L apostrofo curvo e quello dritto sono lo stesso apostrofo', () => {
+    /* Nei nostri dati convivono: il telefono e il correttore automatico
+       scrivono quello curvo, la tastiera quello dritto. In italiano
+       l'apostrofo sta nei cognomi e nelle ragioni sociali piu' comuni, e se i
+       due non si incontrano chi cerca "dell'orto" trova il vuoto e ne conclude
+       che l'iscrizione non c'e'. */
+    const curvo = p('a', 'Ida', 'Dell\u2019Orto', 'L\u2019Isolante S.p.A.');
+    const k = A.testoCercaPersona(curvo);
+    esigi(k.indexOf(A.chiaveCerca('dell\'orto')) >= 0, 'cercato dritto, scritto curvo', k);
+    esigi(k.indexOf(A.chiaveCerca('l\u2019isolante')) >= 0, 'e cercato curvo, scritto curvo', k);
+    const dritto = p('b', 'Ugo', 'Dell\'Orto', 'L\'Isolante S.p.A.');
+    esigi(A.testoCercaPersona(dritto).indexOf(A.chiaveCerca('dell\u2019orto')) >= 0,
+        'e nell altro verso: cercato curvo, scritto dritto');
+    esigi(A.chiaveCerca('D\u00b4Angelo') === A.chiaveCerca('D\'Angelo'),
+        'anche l accento acuto usato come apostrofo');
 });
 
 console.log('\n' + ok + ' ok, ' + ko + ' KO');

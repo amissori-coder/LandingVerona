@@ -18129,8 +18129,14 @@
            parte dell'elenco senza dire che e' una parte si legge come l'elenco
            intero. Chi cerca qui un nome che non c'e' conclude che l'iscrizione
            e' andata perduta: e' successo davvero. */
-        const fuori = soloIscritti(ev, _evIscrizioni || []).filter(r => r && r.email
-            && aiTavoli.indexOf(r) < 0 && online.indexOf(r) < 0);
+        /* Qui NON si chiede l'indirizzo. Le due platee lo chiedono, ed e'
+           giusto - senza non si spedisce - ma questo e' il conto di chi manca
+           dall'elenco, e chi non ha un indirizzo e' proprio la riga che si
+           cerca e non si trova: un'iscrizione si puo' salvare con il solo nome
+           e cognome, e contarla fuori da tutto vorrebbe dire rispondere "non
+           esiste" a chi la sta cercando. */
+        const fuori = soloIscritti(ev, _evIscrizioni || [])
+            .filter(r => r && aiTavoli.indexOf(r) < 0 && online.indexOf(r) < 0);
         return { tavoli: aiTavoli, online: online, fuori: fuori };
     }
     /* L'ORDINE CON CUI SI LEGGE UN ELENCO DI PERSONE.
@@ -18172,8 +18178,19 @@
        senza accenti e in minuscolo. Si costruisce dai DATI e non dal testo
        della riga, altrimenti si pescherebbe dentro i contrassegni ("non e'
        venuto", "gia' richiamato il ...") e cercare "venuto" risponderebbe. */
+    /* LA CHIAVE CON CUI SI CONFRONTA quello che si cerca e quello che c'e'
+       scritto: minuscolo, senza accenti e con gli apostrofi tutti della stessa
+       forma. Le due grafie convivono nei nostri dati - il telefono e il
+       correttore automatico scrivono quello curvo, la tastiera quello dritto -
+       e in italiano l'apostrofo sta nei cognomi e nelle ragioni sociali piu'
+       comuni: senza questa riduzione chi cerca "dell'orto" non trova
+       "Dell'Orto", e ne conclude che l'iscrizione non c'e'. Lo stesso
+       appiattimento lo fa gia' la chiave delle regioni, piu' su. */
+    function chiaveCerca(s) {
+        return normalizzaTesto(s).replace(/[\u2019\u02bc\u0060\u00b4]/g, '\'');
+    }
     function testoCercaPersona(r) {
-        return normalizzaTesto([
+        return chiaveCerca([
             aziendaVista(r && r.azienda), (r && r.azienda) || '',
             nomePersonaVisto(r || {}), (r && r.email) || ''
         ].join(' '));
@@ -18210,7 +18227,9 @@
                evento con duecento iscritti sembra un archivio perso, e invece
                e' il filtro: nessuno di loro aveva un tavolo o seguiva online. */
             toast(gruppi.fuori.length
-                ? 'Nessuno da richiamare: dei ' + gruppi.fuori.length + ' iscritti a questo evento nessuno risulta agli incontri B2B né nella sezione online.'
+                ? (gruppi.fuori.length === 1
+                    ? 'Nessuno da richiamare: l\'unico iscritto a questo evento non risulta agli incontri B2B né nella sezione online.'
+                    : 'Nessuno da richiamare: dei ' + gruppi.fuori.length + ' iscritti a questo evento nessuno risulta agli incontri B2B né nella sezione online.')
                 : 'Nessuno da richiamare per questo evento.', 'ambra');
             return;
         }
@@ -18315,13 +18334,30 @@
                degli iscritti: sono le due platee, e basta che un nome non abbia
                un tavolo perche' qui non ci sia. Senza questa riga, cercarlo e
                non trovarlo si legge come un dato perduto. */
-            const fuori = (gruppi.fuori || []).length
-                ? '<div class="rc-fuori"><b>' + gruppi.fuori.length + '</b> '
-                    + (gruppi.fuori.length === 1 ? 'altro iscritto a questo convegno non è in questo elenco'
-                        : 'altri iscritti a questo convegno non sono in questo elenco')
-                    + ': agli incontri B2B non risultavano, né con un invito né con una prenotazione, e online non erano. '
-                    + 'Questa mail propone di <i>rifare</i> un incontro, e a loro non ne era stato proposto nessuno.</div>'
-                : '';
+            /* DUE RAGIONI DIVERSE DI RESTARE FUORI, e si dicono separate: un
+               tavolo non ce l'avevano, oppure un indirizzo non ce l'hanno.
+               Sommarle in un numero solo farebbe cercare la seconda fra le
+               prime, e la frase "agli incontri non risultava" sarebbe falsa
+               per chi un tavolo magari ce l'aveva ma senza email non si puo'
+               raggiungere. */
+            const fuoriTutti = gruppi.fuori || [];
+            const senzaIndirizzo = fuoriTutti.filter(r => !r.email).length;
+            const senzaTavolo = fuoriTutti.length - senzaIndirizzo;
+            const frasi = [];
+            if (senzaTavolo) {
+                frasi.push('<b>' + senzaTavolo + '</b> '
+                    + (senzaTavolo === 1
+                        ? 'altro iscritto a questo convegno non è in questo elenco: agli incontri B2B non risultava, né con un invito né con una prenotazione, e online non era.'
+                        : 'altri iscritti a questo convegno non sono in questo elenco: agli incontri B2B non risultavano, né con un invito né con una prenotazione, e online non erano.')
+                    + ' Questa mail propone di <i>rifare</i> un incontro: senza un tavolo non c\'è niente da rifare.');
+            }
+            if (senzaIndirizzo) {
+                frasi.push('<b>' + senzaIndirizzo + '</b> '
+                    + (senzaIndirizzo === 1
+                        ? 'iscritto non ha un indirizzo email, quindi una mail non la riceve.'
+                        : 'iscritti non hanno un indirizzo email, quindi una mail non la ricevono.'));
+            }
+            const fuori = frasi.length ? '<div class="rc-fuori">' + frasi.join(' ') + '</div>' : '';
             return '<p class="hint" style="margin:-4px 0 14px;">Si scrive a chi non è riuscito a fare il suo incontro B2B. '
                 + 'Dalla mail scelgono gli argomenti, <b>senza orario</b>: ci accordiamo noi. La richiesta arriva nella '
                 + '<b>giornata</b>, sotto le richieste di incontro, e una mail con tutto arriva anche a chi segue gli incontri.</p>'
@@ -18362,7 +18398,9 @@
                         ? p.righe.filter(r => scelte[p.id].has(r.id) && viste.indexOf(r) < 0).length : 0;
                     f.textContent = cerca[p.id]
                         ? ' \u00b7 la ricerca ne mostra ' + viste.length
-                            + (fuoriRicerca ? ', ' + fuoriRicerca + ' spuntati restano fuori' : '')
+                            + (fuoriRicerca
+                                ? ', ' + fuoriRicerca + (fuoriRicerca === 1 ? ' spuntato resta fuori' : ' spuntati restano fuori')
+                                : '')
                         : '';
                 }
                 const vuoto = document.querySelector('.rc-vuoto[data-p="' + p.id + '"]');
@@ -18425,7 +18463,10 @@
                ventunesimo non deve ritrovarsi da capo. */
             document.querySelectorAll('.rc-cerca').forEach(c => c.addEventListener('input', () => {
                 const pid = c.dataset.p;
-                cerca[pid] = normalizzaTesto(c.value);
+                /* La stessa riduzione dei due lati: confrontare una chiave
+                   appiattita con una query che non lo e' vuol dire non
+                   trovare proprio le righe per cui si appiattisce. */
+                cerca[pid] = chiaveCerca(c.value);
                 document.querySelectorAll('.rc-riga[data-p="' + pid + '"]').forEach(l => {
                     l.style.display = (!cerca[pid] || String(l.dataset.cerca || '').indexOf(cerca[pid]) >= 0) ? '' : 'none';
                 });
