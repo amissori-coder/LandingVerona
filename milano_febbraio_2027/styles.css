@@ -972,3 +972,113 @@ ul, ol { list-style: none; }
     .evento-testo p,
     .scarica-testo > p { text-align: left !important; }
 }
+
+/* ---------------------------------------------------------- anteprima degli approfondimenti */
+
+.btn-tenue {
+    background: var(--carta);
+    color: var(--blu-notte);
+    border-color: var(--linea);
+    cursor: pointer;
+}
+.btn-tenue:hover { background: var(--azzurro-tenue); border-color: var(--azzurro-chiaro); }
+
+.anteprima {
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    background: var(--bianco);
+    color: var(--testo);
+    box-shadow: 0 32px 80px rgba(8, 33, 58, 0.35);
+    overflow: auto;
+}
+.anteprima::backdrop {
+    background: rgba(8, 33, 58, 0.6);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+.anteprima[open] { animation: anteprima-entra 0.25s ease; }
+@keyframes anteprima-entra {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+
+.anteprima-immagine {
+    aspect-ratio: 1200 / 630;
+    background: linear-gradient(135deg, var(--blu-notte), var(--blu));
+}
+.anteprima-immagine img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.anteprima-immagine img.caricata { opacity: 1; }
+
+.anteprima-corpo { padding: 28px 32px 32px; }
+.anteprima-corpo .etichetta { margin-bottom: 8px; }
+.anteprima-titolo {
+    font-family: var(--font-titoli);
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--blu-notte);
+}
+.anteprima p.anteprima-testo {
+    margin-top: 10px;
+    color: var(--testo-tenue);
+    font-size: 0.95rem;
+    text-align: left !important;
+}
+.anteprima p.anteprima-testo:empty { display: none; }
+.anteprima.in-caricamento .anteprima-titolo,
+.anteprima.in-caricamento .anteprima-testo { opacity: 0.55; }
+.anteprima p.anteprima-domanda {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--linea);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--testo);
+    text-align: left !important;
+}
+.anteprima-azioni {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+}
+.anteprima-azioni .btn { min-height: 46px; padding: 0 20px; font-size: 0.76rem; }
+
+.anteprima-chiudi {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(8, 33, 58, 0.55);
+    color: var(--bianco);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.anteprima-chiudi svg { width: 18px; height: 18px; }
+.anteprima-chiudi:hover { background: rgba(8, 33, 58, 0.85); }
+
+@media (max-width: 520px) {
+    .anteprima-corpo { padding: 22px 20px 24px; }
+    .anteprima-azioni { flex-direction: column-reverse; }
+    .anteprima-azioni .btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .anteprima[open] { animation: none; }
+}

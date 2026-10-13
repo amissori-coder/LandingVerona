@@ -89,4 +89,91 @@ document.addEventListener('DOMContentLoaded', () => {
         el.style.transitionDelay = `${(index % 4) * 0.08}s`;
         observer.observe(el);
     });
+
+    // ========================
+    // ANTEPRIMA DEGLI APPROFONDIMENTI
+    // Un clic su un tema della giornata non porta subito via dalla pagina:
+    // apre una finestra con l'immagine, il titolo e la descrizione della
+    // pagina di approfondimento (letti dalla pagina stessa) e chiede se
+    // andarci. Ctrl/Cmd/Maiusc + clic e il clic centrale restano quelli
+    // del browser (nuova scheda o finestra). Senza <dialog> il link va
+    // dritto alla pagina, come prima.
+    // ========================
+    const dialogo = document.getElementById('anteprima');
+    if (dialogo && typeof dialogo.showModal === 'function') {
+        const img = document.getElementById('anteprima-img');
+        const titolo = document.getElementById('anteprima-titolo');
+        const testo = document.getElementById('anteprima-testo');
+        const vai = document.getElementById('anteprima-vai');
+        const cache = new Map();
+        let richiesta = 0;
+
+        const leggiPagina = (url) => {
+            if (!cache.has(url)) {
+                cache.set(url, fetch(url, { credentials: 'same-origin' })
+                    .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+                    .then(html => {
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const meta = (sel) => (doc.querySelector(sel) || {}).content || '';
+                        const h1 = doc.querySelector('h1');
+                        if (h1) h1.querySelectorAll('br').forEach(br => br.replaceWith(' '));
+                        const nome = (h1 && h1.textContent.replace(/\s+/g, ' ').trim())
+                            || meta('meta[property="og:title"]').replace(/\s*\|.*$/, '')
+                            || doc.title;
+                        const immagine = meta('meta[property="og:image"]');
+                        let src = '';
+                        // Stesso sito: l'immagine si prende dal percorso, cosi' funziona anche in prova.
+                        if (immagine) { try { const u = new URL(immagine, url); src = u.pathname + u.search; } catch (e) {} }
+                        return { nome, descrizione: meta('meta[name="description"]'), src };
+                    })
+                    .catch(err => { cache.delete(url); throw err; }));
+            }
+            return cache.get(url);
+        };
+
+        const apri = (link) => {
+            const id = ++richiesta;
+            vai.href = link.href;
+            titolo.textContent = link.textContent.trim();
+            testo.textContent = '';
+            img.classList.remove('caricata');
+            img.removeAttribute('src');
+            dialogo.classList.add('in-caricamento');
+            dialogo.showModal();
+            vai.focus();
+
+            leggiPagina(link.href).then(info => {
+                if (id !== richiesta) return;
+                titolo.textContent = info.nome || titolo.textContent;
+                testo.textContent = info.descrizione;
+                if (info.src) {
+                    img.onload = () => img.classList.add('caricata');
+                    img.src = info.src;
+                }
+            }).catch(() => {
+                if (id === richiesta) testo.textContent = 'Anteprima non disponibile: puoi comunque aprire la pagina.';
+            }).finally(() => {
+                if (id === richiesta) dialogo.classList.remove('in-caricamento');
+            });
+        };
+
+        document.querySelectorAll('.momento-temi a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                apri(link);
+            });
+            // Si comincia a leggere la pagina appena il puntatore ci passa sopra.
+            link.addEventListener('pointerenter', () => { leggiPagina(link.href).catch(() => {}); }, { once: true });
+        });
+
+        const chiudi = () => dialogo.close();
+        document.getElementById('anteprima-annulla').addEventListener('click', chiudi);
+        document.getElementById('anteprima-chiudi').addEventListener('click', chiudi);
+        // Clic sullo sfondo scuro, fuori dalla finestra.
+        dialogo.addEventListener('click', (e) => {
+            const r = dialogo.getBoundingClientRect();
+            if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) chiudi();
+        });
+    }
 });
