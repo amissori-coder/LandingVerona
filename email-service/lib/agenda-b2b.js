@@ -160,7 +160,13 @@ async function letturaOspite(db, scheda, idDoc) {
             liberi: slot.filter(s => s.stato === 'libero').length
         };
     });
-    const richiesta = (pren.richieste || []).filter(r => String(r.doc || '') === String(idDoc || ''))[0] || null;
+    /* La richiesta che questa pagina racconta e' quella A ORARI ESAURITI: la
+       faccia "a slot" parla della giornata del convegno, e dire "la Sua
+       richiesta e' gia' arrivata" a chi ne ha mandata una DOPO, da un'altra
+       pagina e per un'altra cosa, gli farebbe credere di aver gia' chiesto un
+       posto che invece e' ancora libero. */
+    const richiesta = (pren.richieste || []).filter(r => String(r.doc || '') === String(idDoc || '')
+        && String(r.tipo || '') !== 'nuovo-incontro')[0] || null;
     return {
         modo: 'slot',
         evento: agenda.eventoDati,
@@ -368,6 +374,13 @@ async function prendiSlot(db, dati) {
            richiesta del collega restava li'. */
         const richieste = (corrente.richieste || []).filter(r => {
             if (String(r.doc || '') === persona.doc) return false;
+            /* La regola "un collega vale per tutti" vale SOLO per le richieste
+               a orari esauriti: li' si chiede un posto per l'impresa a un
+               tavolo che sta per riempirsi, e due colleghi che bussano sono
+               un bussare solo. La richiesta nata DOPO il convegno no: e' di
+               quella persona, su argomenti suoi, e assegnare un incontro a un
+               collega la cancellerebbe senza che nessuno l'abbia letta. */
+            if (String(r.tipo || '') === 'nuovo-incontro') return true;
             return !(persona.aziendaId && String(r.aziendaId || '') === persona.aziendaId);
         });
         t.set(rif, corpoPrenotazioni(corrente, {
@@ -621,7 +634,10 @@ async function avvisaNuovoIncontro(db, evento, scheda, voce, eventoDati) {
     try {
         await trans.sendMail({
             from: mittenteMail(), to: dest.join(', '),
-            replyTo: voce.email || undefined,
+            /* `replyTo` solo se l'indirizzo e' valido: uno malformato fa
+               rifiutare l'INTERO messaggio dal server di posta, e l'avviso
+               non arriverebbe a nessuno per colpa di un campo comodo. */
+            replyTo: (voce.email && EMAIL_RE.test(voce.email)) ? voce.email : undefined,
             subject: 'Nuovo incontro richiesto - ' + chi + (voce.aziendaNome || voce.azienda ? ' (' + (voce.aziendaNome || voce.azienda) + ')' : ''),
             text: righe.join('\n\n')
         });
@@ -1410,7 +1426,7 @@ async function esegui(ctx) {
             stato: 200,
             corpo: {
                 ok: true, evento: evento, eventoDati: agenda.eventoDati, giornata: agenda.giornata,
-                desk: desk, esigenze: esigenze, richieste: pren.richieste || [],
+                desk: desk, esigenze: esigenze,
                 /* Gli inviti REVOCATI non sono aziende invitate: chi guarda il
                    riepilogo cerca chi viene, non chi non viene piu'. */
                 /* LE RICHIESTE A ORARI ESAURITI: chi ha trovato tutto
@@ -1429,6 +1445,15 @@ async function esegui(ctx) {
                     doc: r.doc, nome: r.nome, azienda: r.azienda, ruolo: r.ruolo,
                     email: r.email, telefono: r.telefono,
                     aziendaId: r.aziendaId, aziendaNome: r.aziendaNome,
+                    /* Da dove nasce la richiesta e TUTTI gli argomenti: questa
+                       e' una whitelist campo per campo, e finche' le tre righe
+                       qui sotto non c'erano il foglio stampato riceveva le
+                       richieste nuove senza il tipo e con un argomento solo -
+                       stampava cioe' la cosa sbagliata senza dire niente a
+                       nessuno. */
+                    tipo: r.tipo || '',
+                    aree: Array.isArray(r.aree) ? r.aree : [],
+                    quandoPref: r.quandoPref || '',
                     area: r.area, nota: r.nota, quando: r.quando,
                     stato: String(r.stato || 'aperta')
                 })),
@@ -1881,7 +1906,13 @@ async function esegui(ctx) {
             });
             /* Anche la richiesta a orari esauriti, se ne aveva una: lasciarla
                manderebbe lo staff a cercare un posto per chi non c'e' piu'. */
-            const richieste = (corrente.richieste || []).filter(r => String(r.aziendaId || '') !== azId);
+            /* Le richieste nate DOPO il convegno restano: togliere un'azienda
+               dagli incontri e' un gesto dell'epoca della giornata - si libera
+               un posto in agenda - mentre quella e' una persona che ha chiesto
+               di essere richiamata dieci giorni dopo, e cancellarla qui
+               vorrebbe dire perdere un contatto che nessuno ha mai letto. */
+            const richieste = (corrente.richieste || []).filter(r => String(r.aziendaId || '') !== azId
+                || String(r.tipo || '') === 'nuovo-incontro');
             t.set(rif, corpoPrenotazioni(corrente, {
                 evento: evento, aree: aree, richieste: richieste,
                 aggiornato: { quando: Date.now(), da: chi }

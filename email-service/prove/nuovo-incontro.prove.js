@@ -513,6 +513,146 @@ async function prova(nome, fn) {
         esigi(!/ha seguito online/i.test(m.testo), 'mentre a chi era in sala no');
     });
 
+    await prova('17) Il riepilogo porta la richiesta nuova INTERA, non meta', async () => {
+        /* La risposta dell'azione riepilogo e' una whitelist campo per campo:
+           finche' tipo, aree e quandoPref non c'erano, il foglio stampato
+           riceveva le richieste nuove senza sapere che cosa fossero e con un
+           argomento solo. Stampava la cosa sbagliata senza dirlo a nessuno, e
+           una prova che si costruisce il riepilogo a mano non se ne accorge:
+           per questo questa parte dal servizio vero. */
+        azzera();
+        mettiPersona('carlo', 'Carlo', 'Bruni');
+        await chiamaNuovo('carlo', {
+            azione: 'nuovo-incontro-salva',
+            aree: ['merito-creditizio', 'esg', 'revisione'],
+            quandoPref: 'di mattina', nota: 'Due banche da riallineare.'
+        });
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'riepilogo' });
+        esigi(r.ok === true, 'il riepilogo risponde');
+        const v = (r.richieste || [])[0];
+        esigi(!!v, 'e porta la richiesta', JSON.stringify((r.richieste || []).length));
+        esigi(v.tipo === 'nuovo-incontro', 'dicendo da dove nasce', JSON.stringify(v.tipo));
+        esigi(Array.isArray(v.aree) && v.aree.length === 3,
+            'con TUTTI gli argomenti, non solo il primo', JSON.stringify(v.aree));
+        esigi(v.quandoPref === 'di mattina', 'e con quando preferisce', JSON.stringify(v.quandoPref));
+        esigi(v.area === 'merito-creditizio', 'piu il primo argomento come "area", per chi la legge cosi');
+        esigi(v.nome === 'Carlo Bruni' && v.telefono === '045 123456', 'e l anagrafica per richiamarlo');
+        /* La richiesta a orari esauriti non ha tipo, e non deve prenderne uno:
+           "assente" vuol dire "a orari esauriti", e riempirlo a posteriori
+           cambierebbe come si legge tutto l'archivio di prima. */
+        esigi((r.conti || {}).richiesteAperte === 1, 'e il conto in testa la vede', JSON.stringify((r.conti || {}).richiesteAperte));
+    });
+
+    await prova('18) Assegnare un incontro a un collega non cancella la sua richiesta', async () => {
+        /* Il percorso felice per soddisfare una richiesta e' assegnare uno
+           slot. Se cosi' facendo sparisse la richiesta di un collega su un
+           altro argomento, il dedup per sola persona non avrebbe protetto
+           niente: la perderemmo nel momento stesso in cui lavoriamo bene. */
+        azzera();
+        mettiPersona('carlo', 'Carlo', 'Bruni', { b2bAzienda: { id: 'az1', nome: 'Alfa S.r.l.', evento: EVENTO } });
+        mettiPersona('anna', 'Anna', 'Neri', { b2bAzienda: { id: 'az1', nome: 'Alfa S.r.l.', evento: EVENTO } });
+        await chiamaNuovo('anna', { azione: 'nuovo-incontro-salva', aree: ['esg'] });
+        esigi(richieste().length === 1, 'la richiesta di Anna c e');
+        const r = await chiamaPresenze({
+            sezione: 'b2b', azione: 'agenda-assegna', area: 'merito-creditizio', ora: '10:00',
+            doc: 'carlo', avvisa: false
+        });
+        esigi(r._stato === 200 && r.ok, 'a Carlo si assegna un incontro', JSON.stringify(r.msg || ''));
+        esigi(richieste().length === 1 && richieste()[0].doc === 'anna',
+            'e la richiesta di Anna resta dov e', JSON.stringify(richieste().map(x => x.doc)));
+        /* Mentre la richiesta di QUELLA STESSA persona si chiude: ha chiesto
+           un incontro e adesso ce l'ha, e lasciarla aperta manderebbe a
+           cercare un posto per chi e' gia' a posto. */
+        azzera();
+        mettiPersona('carlo', 'Carlo', 'Bruni');
+        dati.set('b2bPrenotazioni/' + EVENTO, { evento: EVENTO, aree: {}, richieste: [
+            { doc: 'carlo', nome: 'Carlo Bruni', area: 'merito-creditizio', quando: 1, stato: 'aperta' }
+        ] });
+        await chiamaPresenze({
+            sezione: 'b2b', azione: 'agenda-assegna', area: 'merito-creditizio', ora: '10:00',
+            doc: 'carlo', avvisa: false
+        });
+        esigi(richieste().length === 0, 'la sua si chiude da se', JSON.stringify(richieste()));
+    });
+
+    await prova('19) Togliere un azienda dagli incontri non cancella il contatto di dopo', async () => {
+        /* Togliere un'azienda dagli incontri e' un gesto dell'epoca della
+           giornata: si libera un posto in agenda. La richiesta nata dieci
+           giorni dopo e' un'altra cosa, e cancellarla qui sarebbe perdere un
+           contatto che nessuno ha mai letto. */
+        azzera();
+        mettiPersona('carlo', 'Carlo', 'Bruni', { b2bAzienda: { id: 'az1', nome: 'Alfa S.r.l.', evento: EVENTO } });
+        dati.set('b2bAziende/' + EVENTO + '--az1', {
+            evento: EVENTO, id: 'az1', nome: 'Alfa S.r.l.', chiave: 'p:1', aree: ['merito-creditizio'],
+            referenti: [{ doc: 'carlo', nome: 'Carlo Bruni', email: 'carlo@esempio.it' }], rev: 1
+        });
+        await chiamaNuovo('carlo', { azione: 'nuovo-incontro-salva', aree: ['esg'] });
+        esigi(richieste().length === 1, 'la richiesta c e');
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'b2b-azienda-elimina', aziendaId: 'az1' });
+        esigi(r._stato === 200 && r.ok, 'l azienda si toglie dagli incontri', JSON.stringify(r.msg || ''));
+        esigi(richieste().length === 1 && richieste()[0].tipo === 'nuovo-incontro',
+            'e la richiesta di dopo il convegno resta', JSON.stringify(richieste()));
+    });
+
+    await prova('20) Il modulo degli incontri non racconta la richiesta di dopo', async () => {
+        /* La pagina "a slot" parla della giornata del convegno: dire "la Sua
+           richiesta e' gia' arrivata" a chi ne ha mandata una DOPO, da
+           un'altra pagina e per un'altra cosa, gli farebbe credere di aver
+           gia' chiesto un posto che invece e' ancora libero. */
+        azzera();
+        mettiPersona('carlo', 'Carlo', 'Bruni');
+        await chiamaNuovo('carlo', { azione: 'nuovo-incontro-salva', aree: ['merito-creditizio'] });
+        const res = risposta();
+        await iscrizione({ method: 'POST', headers: {}, body: { d: 'carlo', t: NL.firmaCompleta('carlo'), azione: 'b2b-leggi' } }, res);
+        const letto = res._j || {};
+        esigi(letto.ok === true && letto.modo === 'slot', 'il modulo degli incontri si apre', JSON.stringify(letto.msg || letto.modo));
+        esigi(!letto.richiesta, 'e non dichiara nessuna richiesta a orari esauriti', JSON.stringify(letto.richiesta));
+    });
+
+    await prova('21) La copia a chi preme arriva una volta sola', async () => {
+        /* Qui si scrive a decine di persone in un colpo: una copia nascosta
+           per destinatario vorrebbe dire riempire la casella di chi ha premuto
+           con settanta messaggi, ciascuno con dentro il collegamento firmato
+           di qualcun altro. */
+        azzera();
+        mettiPersona('uno', 'Uno', 'Rossi');
+        mettiPersona('due', 'Due', 'Rossi');
+        mettiPersona('tre', 'Tre', 'Rossi');
+        posta.length = 0;
+        const r = await chiamaPresenze({
+            azione: 'invita-nuovo-incontro',
+            destinatari: [{ id: 'uno', doc: 'uno' }, { id: 'due', doc: 'due' }, { id: 'tre', doc: 'tre' }],
+            mail: { oggetto: 'x', html: '<p>{{NUOVO_INCONTRO}}</p>', testo: 'x' }
+        });
+        esigi(r.inviate === 3, 'partono tre mail', JSON.stringify(r));
+        const conCcn = posta.filter(m => m.bcc).length;
+        esigi(conCcn === 1, 'e una sola porta la copia nascosta', String(conCcn));
+    });
+
+    await prova('22) L oggetto cambia fra chi era ai tavoli e chi era online', async () => {
+        /* "L'incontro che non avete ancora fatto" a chi ha seguito online non
+           vuol dire niente: un incontro non ce l'aveva, e quella e' la prima
+           riga che legge, prima ancora di aprire. */
+        const F = require(path.join(RADICE, '..', 'area-riservata', 'newsletter-format.js'));
+        const sala = F.invitoNuovoIncontro({ evento: { titolo: 'Napoli' } });
+        const online = F.invitoNuovoIncontro({ evento: { titolo: 'Napoli' }, online: true });
+        esigi(sala.oggetto !== online.oggetto, 'i due oggetti sono diversi', sala.oggetto + ' | ' + online.oggetto);
+        esigi(/non avete ancora fatto/.test(sala.oggetto), 'a chi era ai tavoli si parla dell incontro saltato');
+        esigi(!/non avete ancora fatto/.test(online.oggetto), 'a chi era online no', online.oggetto);
+        esigi(/\{\{NOME\}\}/.test(online.oggetto), 'e tutti e due portano il nome di chi legge');
+    });
+
+    await prova('23) L evento non lo sceglie il browser', async () => {
+        /* Con un collegamento valido, chi volesse potrebbe far comparire la
+           sua richiesta sotto una giornata a cui non e' mai stato, e chi la
+           legge il giorno dopo non avrebbe modo di accorgersene. */
+        azzera();
+        dati.set('iscrizioni/zoe', { pagina: 'x', nome: 'Zoe', cognome: 'Verdi', email: 'zoe@esempio.it' });
+        const r = await chiamaNuovo('zoe', { azione: 'nuovo-incontro-salva', aree: ['esg'], e: EVENTO });
+        esigi(r._stato === 400 && !r.ok, 'dire l evento nel corpo non basta', JSON.stringify(r.msg || ''));
+        esigi(richieste().length === 0, 'e in archivio non entra niente');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })().catch(e => { console.error('Errore nelle prove:', e); process.exit(1); });

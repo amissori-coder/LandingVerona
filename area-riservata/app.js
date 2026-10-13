@@ -18241,6 +18241,7 @@
                     toast('Richiamo: ' + conti.inviate + (conti.inviate === 1 ? ' mail partita' : ' mail partite')
                         + (conti.giaScritto ? ', ' + conti.giaScritto + ' già richiamati' : '')
                         + (conti.senzaEmail ? ', ' + conti.senzaEmail + ' senza indirizzo' : '')
+                        + (conti.senzaScheda ? ', ' + conti.senzaScheda + ' senza scheda o annullati' : '')
                         + (conti.falliti ? ', ' + conti.falliti + ' NON riuscite' : ''),
                         conti.falliti ? 'ambra' : 'verde');
                     try { Audit.registra(Auth.utenteCorrente, 'Evento: richiamo nuovo incontro', 'sistema', ev.id, null, conti.inviate + ' mail'); } catch (e) { }
@@ -21392,7 +21393,12 @@
                 ? 'Chi ha trovato tutto prenotato, e chi dopo il convegno ha chiesto di rifare l\'incontro: '
                     + 'nessuno di loro ha un orario. '
                 : 'Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: non hanno nessun orario. ')
-            + 'Per dargliene uno apri un orario chiuso nel tavolo giusto e assegnaglielo, oppure segna la richiesta come gestita dopo averli sentiti.</div>'
+            + (nuove
+                /* A convegno finito non c'e' nessun orario da aprire: quella
+                   frase manderebbe a cercare un posto in una giornata che non
+                   c'e' piu'. Quello che si fa e' telefonare. */
+                ? 'Si richiamano e si concorda un appuntamento, poi si segna la richiesta come gestita.</div>'
+                : 'Per dargliene uno apri un orario chiuso nel tavolo giusto e assegnaglielo, oppure segna la richiesta come gestita dopo averli sentiti.</div>')
             + lista.map(r => '<div class="ag-richiesta' + (String(r.stato || 'aperta') === 'gestita' ? ' gestita' : '') + '">'
                 + '<div><b>' + esc(r.nome || r.email || '') + '</b>' + (r.azienda ? ' - ' + esc(r.azienda) : '')
                 + (eNuovoIncontro(r) ? '<span class="ag-rich-tipo">dopo il convegno</span>' : '')

@@ -1208,7 +1208,14 @@ module.exports = async (req, res) => {
                         from: '"' + fromNameNi + '" <' + fromEmailNi + '>',
                         replyTo: email,
                         to: a,
-                        bcc: ccnOperatore(email, emailSessione, a),
+                        /* LA COPIA NASCOSTA UNA VOLTA SOLA, sul primo
+                           messaggio del lotto. L'invito agli incontri fa lo
+                           stesso, e per la stessa ragione: qui si scrive a
+                           decine di persone in un colpo, e una copia a testa
+                           vorrebbe dire riempire la casella di chi ha premuto
+                           con settanta messaggi, ciascuno con dentro il
+                           collegamento firmato di qualcun altro. */
+                        bcc: inviate === 0 ? ccnOperatore(email, emailSessione, a) : undefined,
                         subject: sostituisciNi(oggettoBase, false),
                         text: testoBase ? sostituisciNi(testoBase, false) : undefined,
                         html: sostituisciNi(htmlBase, true)

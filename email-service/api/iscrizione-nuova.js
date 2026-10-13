@@ -567,13 +567,14 @@ async function nuovoIncontro(azione, body, res) {
        invitato ai tavoli, quindi `b2bInvito` non ce l'ha: fidandosi solo di
        quello, meta' dei destinatari si sarebbe trovata davanti a un errore
        che non sa spiegarsi.
-       Poi l'invito agli incontri, per chi ai tavoli c'e' stato. Il corpo della
-       richiesta viene per ultimo: se decidesse il browser, la stessa persona
-       potrebbe far comparire la sua richiesta sotto un convegno a cui non e'
-       mai stata. */
+       Poi l'invito agli incontri, per chi ai tavoli c'e' stato. Il browser non
+       entra: se potesse dire lui di quale convegno si tratta, chi ha un
+       collegamento valido potrebbe far comparire la sua richiesta sotto una
+       giornata a cui non e' mai stato, e chi la legge il giorno dopo non
+       avrebbe modo di accorgersene. */
     const richiamo = (scheda.nuovoIncontroInvito && typeof scheda.nuovoIncontroInvito === 'object')
         ? scheda.nuovoIncontroInvito : {};
-    const evento = AGENDA.idEvento(richiamo.eventoId || AGENDA.eventoInvito(scheda) || body.e || '');
+    const evento = AGENDA.idEvento(richiamo.eventoId || AGENDA.eventoInvito(scheda) || '');
     if (!evento) {
         res.status(400).json({ ok: false, msg: 'Non riesco a capire a quale convegno si riferisce: ci scriva a info@nextgenerationbusiness.it e facciamo noi.' });
         return;
