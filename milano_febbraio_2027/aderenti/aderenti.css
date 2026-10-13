@@ -303,3 +303,20 @@ input[name="provincia"]::placeholder,
 input[name="codiceDestinatario"]::placeholder { text-transform: none; }
 .ad-quota span { text-align: left !important; -webkit-hyphens: manual !important; hyphens: manual !important; }
 .pagina-aderenti .hero p.hero-tema { max-width: 44ch; }
+
+/* Il riquadro del convegno: al posto dell'icona, l'hotel del save the date */
+.pranzo-hotel {
+    flex: 0 0 168px;
+    align-self: stretch;
+    display: flex;
+    align-items: flex-end;
+    min-height: 100px;
+    padding: 14px 14px 0;
+    border-radius: 8px;
+    background: linear-gradient(160deg, var(--blu-notte) 0%, var(--blu) 100%);
+    overflow: hidden;
+}
+.pranzo-hotel img { display: block; width: 100%; height: auto; }
+@media (max-width: 720px) {
+    .pranzo-hotel { flex-basis: auto; width: 100%; max-width: 260px; }
+}
