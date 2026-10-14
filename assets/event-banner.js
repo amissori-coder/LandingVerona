@@ -28,7 +28,8 @@
     //   finestra optional: on the HOME PAGE this event is presented in a
     //            centred window instead of the corner banner. Fields:
     //            titolo, giorno (weekday + date), luogo, punti (short
-    //            facts), nota, pdf (save the date, relative to the site).
+    //            facts), nota, pdf (save the date, relative to the site),
+    //            anteprima (immagine del save the date, mostrata a sinistra).
     //            The window opens once per browser session.
     const NGB_EVENTS = [
         {
@@ -45,7 +46,8 @@
                 luogo: 'Excelsior Hotel Gallia, Milano',
                 punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
                 nota: 'Le iscrizioni apriranno a breve.',
-                pdf: 'milano_febbraio_2027/save-the-date-milano-2027.pdf'
+                pdf: 'milano_febbraio_2027/save-the-date-milano-2027.pdf',
+                anteprima: 'milano_febbraio_2027/assets/save-the-date-anteprima.jpg'
             }
         },
         {
@@ -332,6 +334,22 @@
             '.ngb-fin-x svg{width:16px;height:16px;stroke:currentColor;fill:none;}',
             '.ngb-fin :focus-visible{outline:2px solid #7DB8EE;outline-offset:3px;}',
             '.ngb-fin:focus{outline:none;}',
+            '.ngb-fin.con-anteprima{max-width:880px;}',
+            '.ngb-fin-griglia{display:grid;grid-template-columns:300px minmax(0,1fr);}',
+            '.ngb-fin-std{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px 28px;',
+            '  background:linear-gradient(180deg,#EAF3FC 0%,#DCE8F5 100%);text-decoration:none;}',
+            '.ngb-fin-std img{display:block;width:100%;max-width:236px;height:auto;border-radius:4px;',
+            '  box-shadow:0 2px 4px rgba(8,33,58,.08),0 18px 40px rgba(8,33,58,.25);transform:rotate(-2deg);transition:transform .3s ease;}',
+            '.ngb-fin-std:hover img{transform:rotate(0deg) translateY(-3px);}',
+            '.ngb-fin-std span{display:inline-flex;align-items:center;gap:6px;font-family:Montserrat,sans-serif;font-size:.68rem;font-weight:700;',
+            '  letter-spacing:.12em;text-transform:uppercase;color:#164068;}',
+            '.ngb-fin-std span svg{width:14px;height:14px;stroke:currentColor;fill:none;}',
+            '@media (max-width:760px){',
+            '  .ngb-fin-griglia{grid-template-columns:1fr;}',
+            '  .ngb-fin-std{flex-direction:row;padding:14px 64px 14px 20px;gap:14px;justify-content:flex-start;}',
+            '  .ngb-fin-std img{width:56px;max-width:none;transform:none;box-shadow:0 4px 12px rgba(8,33,58,.25);}',
+            '  .con-anteprima .ngb-fin-x{background:rgba(8,33,58,.7);}',
+            '}',
             '@media (max-width:520px){',
             '  .ngb-fin-testa{padding:26px 22px 22px;}.ngb-fin-corpo{padding:22px 22px 24px;}',
             '  .ngb-fin-giorno{font-size:3.4rem;}.ngb-fin-citta{font-size:1.5rem;}',
@@ -351,10 +369,15 @@
         const velo = document.createElement('div');
         velo.className = 'ngb-fin-velo';
         velo.innerHTML =
-            '<div class="ngb-fin" role="dialog" aria-modal="true" aria-labelledby="ngb-fin-tit" tabindex="-1">' +
+            '<div class="ngb-fin' + (f.anteprima ? ' con-anteprima' : '') + '" role="dialog" aria-modal="true" aria-labelledby="ngb-fin-tit" tabindex="-1">' +
                 '<button type="button" class="ngb-fin-x" aria-label="Chiudi">' +
                     '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>' +
                 '</button>' +
+                (f.anteprima ? '<div class="ngb-fin-griglia">' +
+                    '<a class="ngb-fin-std" href="' + escapeAttr(resolveUrl(f.pdf || ev.url)) + '" target="_blank" rel="noopener" aria-label="Apri il save the date">' +
+                        '<img src="' + escapeAttr(resolveUrl(f.anteprima)) + '" alt="Save the date di ' + escapeAttr(ev.city) + '" width="909" height="1287">' +
+                        '<span>' + giu + 'Apri il save the date</span>' +
+                    '</a><div class="ngb-fin-dx">' : '') +
                 '<div class="ngb-fin-testa">' +
                     '<span class="ngb-fin-occh">' + escapeHtml(ev.tagline || 'Prossimo evento') + ' &middot; Next Generation Business</span>' +
                     '<div class="ngb-fin-data" aria-hidden="true">' +
@@ -380,6 +403,7 @@
                     '</div>' +
                     '<button type="button" class="ngb-fin-dopo">Non ora</button>' +
                 '</div>' +
+                (f.anteprima ? '</div></div>' : '') +
             '</div>';
 
         let primaDiAprire = null;
@@ -407,7 +431,7 @@
         velo.querySelector('.ngb-fin-x').addEventListener('click', chiudi);
         velo.querySelector('.ngb-fin-dopo').addEventListener('click', chiudi);
         // chi va all'evento o scarica il volantino l'ha vista: non si riapre
-        velo.querySelectorAll('.ngb-fin-btn').forEach(function (a) {
+        velo.querySelectorAll('.ngb-fin-btn, .ngb-fin-std').forEach(function (a) {
             a.addEventListener('click', function () { try { window.sessionStorage.setItem(chiave, '1'); } catch (_) { } });
         });
 
