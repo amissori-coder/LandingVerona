@@ -2883,12 +2883,32 @@ Tre regole perche' quei contrassegni non dicano il falso:
   scheda e un convegno successivo lo riscrive, mentre la risposta resta, quindi
   il numeratore puo' superare il denominatore. Si dicono separati.
 
+**Ogni confronto dice DI QUALE richiesta si parla.** Da quando le due possono
+convivere, "la richiesta di Mario" non individua piu' niente: "Togli" e "Segna
+gestita" le marcavano tutte e due (chiudendo la vecchia si chiudeva anche una
+risposta che nessuno aveva letto), l'esito dell'avviso allo studio si scriveva
+su entrambe (mettendo un "avviso non partito" accanto a una richiesta che non
+doveva far partire nessuna mail), e il modulo degli orari esauriti cancellava la
+risposta al richiamo - bastava che un COLLEGA della stessa azienda chiedesse un
+posto. Adesso il tipo viaggia con il pulsante fino alla transazione, l'avviso si
+scrive sulla sola voce nata dal richiamo, e `chiediFuoriSlot` salta quelle del
+richiamo come gia' faceva `prendiSlot`.
+
 E **"Togli" non cancella piu' la richiesta, la marca** (`stato: 'tolta'`).
 Sparire dall'elenco e sparire dall'archivio sono due cose diverse: la prima la
 decide chi lavora la giornata, la seconda cancellerebbe il fatto che quella
 persona ci ha scritto, e la farebbe ricomparire fra i silenziosi - con una
 seconda mail. Gli elenchi saltano le tolte: e' il loro mestiere, non quello
 dell'archivio.
+
+**Le richieste si chiedono sempre prima di aprire la finestra.** La copia in
+memoria non scade da sola: entrando nell'evento si legge una volta, e da li' in
+avanti resta quella. Ma le risposte arrivano mentre la pagina e' aperta - e' il
+punto di questa funzione - e aprendo la finestra su una copia di due ore prima
+si leggerebbe "nessuna risposta" accanto a chi ha risposto, e l'interruttore la
+rispunterebbe: un secondo richiamo a chi aveva gia' scritto. Chiedere non costa
+quasi niente, perche' la lettura ha il suo controllo di freschezza e sotto i
+venti secondi risponde con quella che ha.
 
 Nello stesso giro, **il doppione si guarda fra richieste dello stesso tipo**.
 Una persona puo' avere mandato una richiesta a orari esauriti il giorno prima

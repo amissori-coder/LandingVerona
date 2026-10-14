@@ -367,6 +367,16 @@ async function prova(nome, fn) {
         esigi(rich.length === 1 && rich[0].doc === 'ugo' && rich[0].stato === 'aperta', 'la richiesta resta in elenco, aperta');
         const ancora = await chiama('ugo', { azione: 'b2b-leggi' });
         esigi(!!ancora.richiesta, 'riaprendo la pagina, sa che la richiesta e gia partita');
+        /* MA NON DOPO CHE LO STAFF L'HA TOLTA. La voce resta in archivio - serve
+           a sapere chi aveva scritto - ma per chi la guarda quella pratica non
+           esiste piu': dirgli "la Sua richiesta e' gia' arrivata" lo terrebbe
+           fermo ad aspettare una risposta a qualcosa che e' stato chiuso. */
+        const tolta = await staff({ azione: 'agenda-richiesta', doc: 'ugo', stato: 'tolta' });
+        esigi(tolta.stato === 200 && tolta.corpo.ok, 'lo staff la toglie dall elenco');
+        esigi((prenotazioni().richieste || []).length === 1, 'in archivio resta');
+        esigi((prenotazioni().richieste || [])[0].stato === 'tolta', 'marcata come tolta');
+        const dopoTolta = await chiama('ugo', { azione: 'b2b-leggi' });
+        esigi(dopoTolta.richiesta === null, 'e la pagina non la dichiara piu');
         esigi(!slotDi('merito-creditizio', '10:00') || slotDi('merito-creditizio', '10:00').doc === 'mario',
             'la richiesta non ruba il posto a nessuno');
     });

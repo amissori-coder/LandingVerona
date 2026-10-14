@@ -17455,10 +17455,14 @@
                Compare solo quando qualcuno e' stato richiamato: prima non c'e'
                niente da raccontare. */
             + (cRichiamo.scritti
-                ? rigaBl('Nuovi incontri', '<b>' + cRichiamo.scritti + '</b> richiamati di ' + cRichiamo.platea
-                    + (cRichiamo.note
-                        ? ' &middot; <b>' + cRichiamo.risposte + '</b> ha' + (cRichiamo.risposte === 1 ? ' ' : 'nno ') + 'risposto'
-                        : ' &middot; risposte non lette'))
+                ? rigaBl('Nuovi incontri', '<b>' + cRichiamo.scritti + '</b> '
+                    + (cRichiamo.scritti === 1 ? 'richiamato' : 'richiamati') + ' di ' + cRichiamo.platea
+                    /* Il pezzo delle risposte ha un posto suo perche' arriva
+                       dopo: le richieste si leggono in un secondo momento, e
+                       quando arrivano si riscrive questo e non tutto il
+                       riquadro. Senza, la riga restava per sempre su "risposte
+                       non lette" anche con le richieste in mano. */
+                    + '<span id="ev-richiamo-risposte">' + risposteRichiamoHtml(ev) + '</span>')
                 : '')
             + ((ev.manuale && puoAggiungereIscrizioni())
                 ? rigaBl('Altri portali', 'chi arriva da Eventbrite si aggiunge a mano')
@@ -17593,7 +17597,15 @@
             /* Il blocco della giornata si riscrive quando l'agenda arriva: le
                incompatibilita' fra chi e' sul palco e chi tiene un tavolo si
                vedono solo con TUTTE E DUE le cose in mano. */
-            caricaAgendaB2B(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaGiornata(ev); });
+            caricaAgendaB2B(ev, r => {
+                if (!r || vistaCorrente !== 'eventi') return;
+                aggiornaSchedaGiornata(ev);
+                /* E il conto delle risposte al richiamo, che fino a un attimo
+                   fa diceva "risposte non lette" perche' le richieste non
+                   erano ancora arrivate. */
+                const ris = document.getElementById('ev-richiamo-risposte');
+                if (ris) ris.innerHTML = risposteRichiamoHtml(ev);
+            });
         }
         /* Se su questo evento c'e' un invio programmato in corso, lo si legge
            SUBITO, senza aspettare che qualcuno apra la finestra delle aziende.
@@ -18278,6 +18290,16 @@
             note: !!agendaDi(ev)
         };
     }
+    /* Il pezzo di riga che dice quante risposte sono arrivate, o che non lo
+       sappiamo ancora. Sta in una funzione sua perche' si scrive due volte:
+       disegnando il riquadro e quando le richieste arrivano. */
+    function risposteRichiamoHtml(ev) {
+        const c = contiRichiamo(ev);
+        if (!c.scritti) return '';
+        return c.note
+            ? ' &middot; <b>' + c.risposte + '</b> ha' + (c.risposte === 1 ? ' ' : 'nno ') + 'risposto'
+            : ' &middot; risposte non lette';
+    }
     function giaRichiamato(r, ev) {
         const n = r && r.nuovoIncontroInvito;
         if (!n || !n.quando) return false;
@@ -18304,15 +18326,20 @@
             toast('Formato newsletter non caricato: ricarica la pagina.', 'rosso');
             return;
         }
-        /* PRIMA L'AGENDA, POI LA FINESTRA. Chi ha risposto sta fra le richieste
-           della giornata, che di solito sono gia' in memoria - la pagina le
-           chiede entrando nell'evento - ma non sempre: entrando da un'altra
-           schermata, o dopo venti secondi, la copia e' scaduta. Aprendo senza,
-           la finestra direbbe di non sapere chi ha risposto proprio mentre il
-           dato e' a una lettura di distanza. Si prova UNA volta sola: se la
-           lettura non riesce la finestra si apre lo stesso, perche' mandare il
-           richiamo si deve poter fare anche quando l'agenda non si legge. */
-        if (!agendaDi(ev) && !giaCercata) {
+        /* PRIMA LE RICHIESTE, POI LA FINESTRA, e si chiedono SEMPRE. La copia
+           in memoria non scade da sola: entrando nell'evento si legge una
+           volta, e da li' in avanti resta quella finche' qualcuno non la
+           rilegge. Ma le risposte arrivano mentre la pagina e' aperta - e'
+           tutto il punto di questa finestra - e aprendola su una copia di due
+           ore prima si leggerebbe "nessuna risposta" accanto a chi ha
+           risposto, e l'interruttore "solo chi non ha ancora risposto" lo
+           rispunterebbe: un secondo richiamo a chi aveva gia' risposto.
+           Chiedere non costa quasi niente: `caricaAgendaB2B` ha il suo
+           controllo di freschezza e se la copia ha meno di venti secondi
+           risponde con quella. Si prova UNA volta sola: se la lettura non
+           riesce la finestra si apre lo stesso, perche' mandare il richiamo si
+           deve poter fare anche quando l'agenda non si legge. */
+        if (!giaCercata) {
             caricaAgendaB2B(ev, () => modaleRichiamoB2B(ev, true));
             return;
         }
@@ -18426,7 +18453,7 @@
                        riscrive - e allora il numeratore supera il
                        denominatore. Si dicono separati, e tornano sempre. */
                     + (richiamatiDi(p)
-                        ? ' &middot; ' + richiamatiDi(p) + ' richiamati' + (risposteNote()
+                        ? ' &middot; ' + richiamatiDi(p) + (richiamatiDi(p) === 1 ? ' richiamato' : ' richiamati') + (risposteNote()
                             ? ' &middot; <b>' + rispostiDi(p) + '</b> ha' + (rispostiDi(p) === 1 ? ' ' : 'nno ') + 'risposto'
                             : ', risposte non lette')
                         : '')
@@ -21336,10 +21363,10 @@
             caricaAgendaB2B(ev, () => disegnaGiornata(ev), true);
         }).catch(() => esitoGiornata('Servizio non raggiungibile.', true));
     }
-    function segnaRichiestaB2B(ev, doc, stato) {
+    function segnaRichiestaB2B(ev, doc, stato, tipo) {
         if (!doc) return;
         if (stato === 'tolta' && !confirm('Tolgo la richiesta dall\'elenco?')) return;
-        Cloud.agendaB2B({ azione: 'agenda-richiesta', evento: ev.id, doc: doc, stato: stato }).then(r => {
+        Cloud.agendaB2B({ azione: 'agenda-richiesta', evento: ev.id, doc: doc, stato: stato, tipo: tipo || '' }).then(r => {
             if (!r || !r.ok) { esitoGiornata((r && r.msg) || 'Operazione non riuscita.', true); return; }
             caricaAgendaB2B(ev, () => disegnaGiornata(ev), true);
         }).catch(() => esitoGiornata('Servizio non raggiungibile.', true));
@@ -22176,8 +22203,13 @@
                 + '<div class="ag-richiesta-az">'
                 + (String(r.stato || 'aperta') === 'gestita'
                     ? '<span class="badge verde">gestita</span>'
-                    : (puo ? '<button class="btn btn-sm btn-secondary ag-rich" data-doc="' + esc(r.doc) + '" data-stato="gestita">Segna gestita</button>' : ''))
-                + (puo ? '<button class="btn btn-sm btn-ghost ag-rich" data-doc="' + esc(r.doc) + '" data-stato="tolta">Togli</button>' : '')
+                    /* IL TIPO VIAGGIA CON IL PULSANTE. Una persona puo' avere
+                       due richieste - quella a orari esauriti e quella nata dal
+                       richiamo - e senza dire di quale si parla il servizio le
+                       marcherebbe tutte e due: chiudendo la vecchia si
+                       chiuderebbe anche una risposta che nessuno ha letto. */
+                    : (puo ? '<button class="btn btn-sm btn-secondary ag-rich" data-doc="' + esc(r.doc) + '" data-tipo="' + esc(r.tipo || '') + '" data-stato="gestita">Segna gestita</button>' : ''))
+                + (puo ? '<button class="btn btn-sm btn-ghost ag-rich" data-doc="' + esc(r.doc) + '" data-tipo="' + esc(r.tipo || '') + '" data-stato="tolta">Togli</button>' : '')
                 + '</div></div>').join('')
             + '</div>';
     }
@@ -22598,7 +22630,7 @@
             e.stopPropagation();
             liberaSlotB2B(ev, b.dataset.doc);
         }));
-        radice.querySelectorAll('.ag-rich').forEach(b => b.addEventListener('click', () => segnaRichiestaB2B(ev, b.dataset.doc, b.dataset.stato)));
+        radice.querySelectorAll('.ag-rich').forEach(b => b.addEventListener('click', () => segnaRichiestaB2B(ev, b.dataset.doc, b.dataset.stato, b.dataset.tipo || '')));
         const sg = document.getElementById('ag-salva-g');
         if (sg) sg.addEventListener('click', () => salvaGiornata(ev));
         /* Le caselle si riempiono, il salvataggio resta a chi guarda: allungare
