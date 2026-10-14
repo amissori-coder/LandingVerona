@@ -622,7 +622,11 @@ async function nuovoIncontro(azione, body, res) {
            che cosa sta correggendo, e il salvataggio la riscriverebbe da capo
            riportando ad "aperta" una pratica che lo staff aveva gia' chiuso. */
         const mia = (pren.richieste || []).filter(r => String(r.doc || '') === idDoc
-            && String(r.tipo || '') === 'nuovo-incontro')[0] || null;
+            && String(r.tipo || '') === 'nuovo-incontro'
+            /* E nemmeno una TOLTA: per chi la guarda non esiste piu', e
+               proporgliela da correggere lo terrebbe fermo ad aspettare una
+               risposta a una pratica che lo staff ha chiuso. */
+            && String(r.stato || 'aperta') !== 'tolta')[0] || null;
         res.status(200).json({
             ok: true,
             evento: agenda.eventoDati || {},

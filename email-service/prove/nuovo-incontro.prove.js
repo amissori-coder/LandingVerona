@@ -787,12 +787,21 @@ async function prova(nome, fn) {
         esigi(r.ok === true && r.mia === null, 'la pagina non la propone da correggere', JSON.stringify(r.mia));
         await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['esg'] });
         const tutte = richieste();
-        esigi(tutte.length === 1, 'e salvando resta una richiesta sola, la nuova', String(tutte.length));
-        esigi(tutte[0].tipo === 'nuovo-incontro' && tutte[0].stato === 'aperta', 'nata adesso');
-        /* La vecchia e' stata sostituita, perche' la regola resta "una per
-           persona": quello che non deve succedere e' che la sua nota e il suo
-           "gestita" vengano presentati come roba da correggere. */
-        esigi(!/orari esauriti/.test(JSON.stringify(tutte)), 'e la nota di allora non si trascina dietro');
+        /* E LE DUE CONVIVONO. Sono due cose diverse, nate da due pagine diverse
+           e per due ragioni diverse: una chiedeva un posto a un tavolo che si
+           stava riempiendo, l'altra chiede un appuntamento a convegno finito.
+           Prima il doppione si guardava sul solo `doc` e la seconda cancellava
+           la prima in silenzio - dichiarandosi pure "correzione", cioe'
+           mandando allo studio una mail che diceva di correggere una richiesta
+           che nessuno aveva corretto. */
+        esigi(tutte.length === 2, 'restano tutte e due, la vecchia e la nuova', String(tutte.length));
+        const nuova = tutte.filter(r => r.tipo === 'nuovo-incontro')[0];
+        const vecchia = tutte.filter(r => r.tipo !== 'nuovo-incontro')[0];
+        esigi(nuova && nuova.stato === 'aperta' && nuova.aree[0] === 'esg', 'quella nuova e aperta',
+            JSON.stringify(nuova && nuova.aree));
+        esigi(vecchia && vecchia.stato === 'gestita' && /orari esauriti/.test(String(vecchia.nota || '')),
+            'e quella di allora resta com era, gestita e con la sua nota', JSON.stringify(vecchia && vecchia.nota));
+        esigi(!/orari esauriti/.test(JSON.stringify(nuova)), 'senza trascinarsi dietro niente di quella');
     });
 
     await prova('26) La correzione si riconosce, e dice da dove viene la persona', async () => {
@@ -1071,6 +1080,111 @@ async function prova(nome, fn) {
         esigi(r2.inviate === 1, 'si conta solo quella arrivata', JSON.stringify(r2.inviate));
         esigi(!scheda('tre').nuovoIncontroInvito, 'e chi non l ha ricevuta resta da richiamare');
         esigi(!!scheda('quattro').nuovoIncontroInvito, 'mentre l altro ha il suo timbro');
+    });
+
+    await prova('37) "Togli" non cancella il fatto che quella persona abbia scritto', async () => {
+        /* Sparire dall'elenco e sparire dall'archivio sono due cose diverse.
+           Da quando l'area dice anche chi ha risposto al richiamo e chi no, una
+           voce cancellata farebbe ricomparire fra i silenziosi qualcuno che
+           aveva risposto - e gli si riscriverebbe. */
+        azzera();
+        mettiPersona('mario', 'Mario', 'Rossi');
+        await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['esg'], nota: 'Due banche.' });
+        esigi(richieste().length === 1, 'la richiesta c e');
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'agenda-richiesta', doc: 'mario', stato: 'tolta', tipo: 'nuovo-incontro' });
+        esigi(r._stato === 200 && r.ok, 'si toglie dall elenco', JSON.stringify(r.msg || ''));
+        const dopo = richieste();
+        esigi(dopo.length === 1, 'ma in archivio resta', String(dopo.length));
+        esigi(dopo[0].stato === 'tolta', 'marcata come tolta', JSON.stringify(dopo[0].stato));
+        esigi(dopo[0].tipo === 'nuovo-incontro' && /Due banche/.test(String(dopo[0].nota || '')),
+            'con quello che quella persona aveva scritto');
+        /* E il riepilogo non la conta fra quelle da guardare: per chi lavora la
+           giornata non esiste piu'. */
+        const rip = await chiamaPresenze({ sezione: 'b2b', azione: 'riepilogo' });
+        esigi((rip.conti || {}).richiesteAperte === 0, 'e non si conta piu fra le aperte',
+            JSON.stringify((rip.conti || {}).richiesteAperte));
+    });
+
+    await prova('38) Si chiude la richiesta su cui si preme, non tutte quelle di quella persona', async () => {
+        /* Da quando le due richieste della stessa persona convivono, "quella di
+           Mario" non individua piu' niente: premendo Togli sulla vecchia si
+           chiudeva anche la risposta al richiamo, che nessuno aveva letto - e
+           da li' quella persona tornava fra i silenziosi e le si riscriveva. */
+        azzera();
+        mettiPersona('mario', 'Mario', 'Rossi');
+        dati.set('b2bPrenotazioni/' + EVENTO, { evento: EVENTO, aree: {}, richieste: [
+            { doc: 'mario', nome: 'Mario Rossi', area: 'merito-creditizio',
+              nota: 'Chiesto a orari esauriti.', quando: 1, stato: 'aperta' }
+        ] });
+        await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['esg'], nota: 'Dopo il convegno.' });
+        esigi(richieste().length === 2, 'in archivio ce ne sono due', String(richieste().length));
+        // si toglie la VECCHIA, quella senza tipo
+        const r = await chiamaPresenze({ sezione: 'b2b', azione: 'agenda-richiesta', doc: 'mario', stato: 'tolta', tipo: '' });
+        esigi(r.ok === true, 'la vecchia si toglie', JSON.stringify(r.msg || ''));
+        const vecchia = richieste().filter(x => x.tipo !== 'nuovo-incontro')[0];
+        const nuova = richieste().filter(x => x.tipo === 'nuovo-incontro')[0];
+        esigi(vecchia && vecchia.stato === 'tolta', 'ed e lei a essere marcata', JSON.stringify(vecchia && vecchia.stato));
+        esigi(nuova && nuova.stato === 'aperta', 'mentre la risposta al richiamo resta aperta',
+            JSON.stringify(nuova && nuova.stato));
+        /* E lo specchio: "Segna gestita" sulla vecchia non chiude la nuova. */
+        azzera();
+        mettiPersona('carlo', 'Carlo', 'Bruni');
+        dati.set('b2bPrenotazioni/' + EVENTO, { evento: EVENTO, aree: {}, richieste: [
+            { doc: 'carlo', nome: 'Carlo Bruni', area: 'merito-creditizio', quando: 1, stato: 'aperta' }
+        ] });
+        await chiamaNuovo('carlo', { azione: 'nuovo-incontro-salva', aree: ['esg'] });
+        await chiamaPresenze({ sezione: 'b2b', azione: 'agenda-richiesta', doc: 'carlo', stato: 'gestita', tipo: '' });
+        const n2 = richieste().filter(x => x.tipo === 'nuovo-incontro')[0];
+        esigi(n2 && n2.stato === 'aperta', 'la risposta al richiamo non si segna gestita da sola',
+            JSON.stringify(n2 && n2.stato));
+    });
+
+    await prova('39) La richiesta nata dal richiamo non la cancella piu nessuno', async () => {
+        /* Il modulo degli orari esauriti teneva una richiesta per persona e una
+           per azienda: li' due colleghi che bussano sono un bussare solo,
+           perche' si chiede un posto per l'impresa. Ma cancellava anche la
+           risposta al richiamo - che e' di quella persona, su argomenti suoi -
+           e bastava un COLLEGA per farla sparire senza che nessuno l'avesse
+           letta. */
+        azzera();
+        mettiPersona('mario', 'Mario', 'Rossi', { b2bAzienda: { id: 'az1', nome: 'Alfa S.r.l.', evento: EVENTO } });
+        mettiPersona('anna', 'Anna', 'Neri', { b2bAzienda: { id: 'az1', nome: 'Alfa S.r.l.', evento: EVENTO } });
+        await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['esg'], nota: 'La mia.' });
+        esigi(richieste().length === 1, 'la risposta di Mario c e');
+        // Anna, collega della stessa azienda, trova tutto esaurito e bussa
+        const res = risposta();
+        await iscrizione({
+            method: 'POST', headers: {},
+            body: { azione: 'b2b-slot-richiedi', d: 'anna', t: NL.firmaCompleta('anna'),
+                area: 'merito-creditizio', nota: 'Siamo in trattativa.' }
+        }, res);
+        const dopo = richieste();
+        const mia = dopo.filter(x => x.doc === 'mario' && x.tipo === 'nuovo-incontro')[0];
+        esigi(!!mia, 'e resta li anche dopo che un collega ha chiesto un posto', JSON.stringify(dopo.map(x => x.doc + ':' + (x.tipo || 'slot'))));
+        esigi(/La mia/.test(String((mia || {}).nota || '')), 'con quello che aveva scritto');
+    });
+
+    await prova('40) La pagina non propone di correggere una richiesta che lo staff ha tolto', async () => {
+        /* Per chi la guarda quella pratica non esiste piu': dirgli "la Vostra
+           richiesta e' gia' arrivata, da qui potete correggerla" lo terrebbe
+           fermo ad aspettare una risposta a qualcosa che e' stato chiuso. */
+        azzera();
+        mettiPersona('mario', 'Mario', 'Rossi');
+        await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['esg'], nota: 'Due banche.' });
+        const prima = await chiamaNuovo('mario', { azione: 'nuovo-incontro-leggi' });
+        esigi(prima.mia && /Due banche/.test(String(prima.mia.nota || '')),
+            'finche e aperta la pagina la propone da correggere');
+        await chiamaPresenze({ sezione: 'b2b', azione: 'agenda-richiesta', doc: 'mario', stato: 'tolta', tipo: 'nuovo-incontro' });
+        const dopo = await chiamaNuovo('mario', { azione: 'nuovo-incontro-leggi' });
+        esigi(dopo.ok === true, 'la pagina si apre lo stesso', JSON.stringify(dopo.msg || ''));
+        esigi(dopo.mia === null, 'ma del modulo tolto non dice piu niente', JSON.stringify(dopo.mia));
+        /* E si puo' ricominciare da capo: la nuova richiesta nasce aperta,
+           senza riportare in vita quella chiusa. */
+        orologio += 11 * 60 * 1000;
+        await chiamaNuovo('mario', { azione: 'nuovo-incontro-salva', aree: ['revisione'] });
+        const viva = richieste().filter(x => String(x.stato || 'aperta') !== 'tolta');
+        esigi(viva.length === 1 && viva[0].aree[0] === 'revisione',
+            'e la richiesta nuova riparte pulita', JSON.stringify(viva.map(x => x.aree)));
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' KO');

@@ -165,8 +165,12 @@ async function letturaOspite(db, scheda, idDoc) {
        richiesta e' gia' arrivata" a chi ne ha mandata una DOPO, da un'altra
        pagina e per un'altra cosa, gli farebbe credere di aver gia' chiesto un
        posto che invece e' ancora libero. */
+    /* E nemmeno una richiesta TOLTA: per chi la guarda non esiste piu', e
+       dirgli "la Sua richiesta e' gia' arrivata" lo terrebbe fermo ad aspettare
+       una risposta a qualcosa che lo staff ha chiuso. */
     const richiesta = (pren.richieste || []).filter(r => String(r.doc || '') === String(idDoc || '')
-        && String(r.tipo || '') !== 'nuovo-incontro')[0] || null;
+        && String(r.tipo || '') !== 'nuovo-incontro'
+        && String(r.stato || 'aperta') !== 'tolta')[0] || null;
     return {
         modo: 'slot',
         evento: agenda.eventoDati,
@@ -473,6 +477,15 @@ async function chiediFuoriSlot(db, dati) {
         // una richiesta per persona: la seconda aggiorna la prima invece di
         // moltiplicare le righe che lo staff deve leggere
         const altre = (corrente.richieste || []).filter(r => {
+            /* LA RICHIESTA NATA DOPO IL CONVEGNO NON SI TOCCA, come gia' fa
+               `prendiSlot`. La regola "una per persona e una per azienda" nasce
+               per i posti ai tavoli: li' due colleghi che bussano sono un
+               bussare solo. Un appuntamento chiesto a convegno finito e' altro,
+               e cancellarlo perche' un collega ha chiesto un posto - o perche'
+               la stessa persona riapre il vecchio collegamento della giornata -
+               vorrebbe dire perderlo senza che nessuno l'abbia letto, e
+               rimandare a quella persona il richiamo. */
+            if (String(r.tipo || '') === 'nuovo-incontro') return true;
             if (String(r.doc || '') === voce.doc) return false;
             // una richiesta per AZIENDA: due colleghi che bussano sono un bussare solo
             return !(voce.aziendaId && String(r.aziendaId || '') === voce.aziendaId);
@@ -561,8 +574,18 @@ async function chiediNuovoIncontro(db, dati) {
         const corrente = normalizzaPrenotazioni(snap.exists ? snap.data() : null, evento);
         // la seconda richiesta della STESSA persona aggiorna la prima: e' un
         // ripensamento, non una richiesta in piu' da leggere
-        const prec = (corrente.richieste || []).filter(r => String(r.doc || '') === voce.doc)[0] || null;
-        const altre = (corrente.richieste || []).filter(r => String(r.doc || '') !== voce.doc);
+        /* IL DOPPIONE SI GUARDA FRA RICHIESTE DELLO STESSO TIPO. Una persona
+           puo' avere mandato una richiesta a orari esauriti il giorno prima del
+           convegno e, un mese dopo, chiedere un incontro nuovo: sono due cose
+           diverse, nate da due pagine diverse e per due ragioni diverse.
+           Confrontando il solo `doc`, la seconda cancellava la prima in
+           silenzio - e si dichiarava pure "correzione", cioe' mandava allo
+           studio una mail che diceva di correggere una richiesta che nessuno
+           aveva corretto. */
+        const prec = (corrente.richieste || [])
+            .filter(r => String(r.doc || '') === voce.doc && String(r.tipo || '') === 'nuovo-incontro')[0] || null;
+        const altre = (corrente.richieste || [])
+            .filter(r => !(String(r.doc || '') === voce.doc && String(r.tipo || '') === 'nuovo-incontro'));
         /* L'ESITO DELL'AVVISO SI PORTA DIETRO. La richiesta nuova prende il
            posto della vecchia, ma `avviso` non e' roba della richiesta: e' il
            conto delle mail che sono andate allo studio per questa persona.
@@ -705,7 +728,11 @@ async function segnaAvvisoRichiesta(db, evento, idDoc, esito) {
         const corrente = normalizzaPrenotazioni(snap.exists ? snap.data() : null, ev);
         let trovata = false;
         const richieste = (corrente.richieste || []).map(r => {
-            if (String(r.doc || '') !== String(idDoc || '')) return r;
+            /* Solo la richiesta NATA DAL RICHIAMO: l'avviso allo studio e' il
+               suo, e scriverlo anche sull'altra le metterebbe accanto un
+               "avviso non partito" per una mail che quella richiesta non ha
+               mai dovuto far partire. */
+            if (!stessaRichiesta(r, idDoc, 'nuovo-incontro')) return r;
             trovata = true;
             return Object.assign({}, r, {
                 avviso: {
@@ -734,7 +761,19 @@ async function segnaAvvisoRichiesta(db, evento, idDoc, esito) {
 
 /* Segna una richiesta come gestita (o la riapre, o la toglie): lo fa lo
    staff dall'area riservata dopo aver chiamato l'impresa. */
-async function segnaRichiesta(db, evento, idDoc, stato, chi) {
+/* QUALE DELLE SUE RICHIESTE. Una persona puo' averne due: quella a orari
+   esauriti del giorno del convegno e quella nata dopo, dal richiamo. Finche'
+   la seconda sostituiva la prima il `doc` bastava a dire di quale si parlasse;
+   da quando convivono, marcare "tutte quelle di Mario" vuol dire chiudere
+   anche quella che nessuno ha guardato - e la risposta al richiamo
+   tornerebbe fra i silenziosi, con una seconda mail a chi aveva risposto.
+   `tipo` vuoto vale "quella a orari esauriti", che e' la richiesta senza tipo
+   di tutto l'archivio di prima. */
+function stessaRichiesta(r, idDoc, tipo) {
+    return String(r.doc || '') === String(idDoc || '')
+        && String(r.tipo || '') === String(tipo || '');
+}
+async function segnaRichiesta(db, evento, idDoc, stato, chi, tipo) {
     const ev = idEvento(evento);
     const rif = rifPrenotazioni(db, ev);
     let esito = null;
@@ -744,9 +783,16 @@ async function segnaRichiesta(db, evento, idDoc, stato, chi) {
         let trovata = false;
         const richieste = [];
         (corrente.richieste || []).forEach(r => {
-            if (String(r.doc || '') !== String(idDoc || '')) { richieste.push(r); return; }
+            if (!stessaRichiesta(r, idDoc, tipo)) { richieste.push(r); return; }
             trovata = true;
-            if (stato === 'tolta') return;     // sparisce dall'elenco
+            /* "TOGLI" NON CANCELLA PIU' LA VOCE, la marca. Sparire dall'elenco
+               e sparire dall'archivio sono due cose diverse: la prima la decide
+               chi lavora la giornata, la seconda cancella un fatto - che quella
+               persona, dopo il convegno, ci ha scritto. Da quando l'area dice
+               anche chi ha risposto al richiamo e chi no, una voce cancellata
+               farebbe ricomparire fra i silenziosi qualcuno che aveva risposto,
+               e gli si riscriverebbe. Gli elenchi saltano le tolte: e' il loro
+               mestiere, non quello dell'archivio. */
             richieste.push(Object.assign({}, r, { stato: stato, gestita: { quando: Date.now(), da: testo(chi, 200) } }));
         });
         if (!trovata) { esito = { ok: false, msg: 'Richiesta non trovata.' }; return; }
@@ -1564,6 +1610,9 @@ async function esegui(ctx) {
                     codaDaAssegnare: codaTotale,
                     esigenzeAperte: esigenze.filter(e => e.stato === 'aperta').length,
                     richiesteAperte: (pren.richieste || []).filter(r => String(r.stato || 'aperta') === 'aperta').length,
+                    /* Le TOLTE restano in archivio - servono a sapere chi ha
+                       risposto al richiamo - ma non si contano fra le aperte
+                       ne' si lavorano: per chi guarda la giornata non esistono. */
                     liberi: desk.reduce((n, d) => n + ((d.attiva && !d.interno) ? d.liberi : 0), 0),
                     occupati: desk.reduce((n, d) => n + d.occupati, 0),
                     liberiDesk: desk.reduce((n, d) => n + ((d.attiva && d.interno) ? d.liberi : 0), 0)
@@ -2354,11 +2403,13 @@ async function esegui(ctx) {
     if (azione === 'agenda-richiesta') {
         const idDoc = testo(body.doc, 400);
         const stato = testo(body.stato, 20);
+        // di quale delle sue richieste si parla: senza, si marcano tutte
+        const tipoRic = testo(body.tipo, 40);
         if (!idDoc) return { stato: 400, corpo: { ok: false, msg: 'Richiesta mancante.' } };
         if (['aperta', 'gestita', 'tolta'].indexOf(stato) < 0) {
             return { stato: 400, corpo: { ok: false, msg: 'Stato non riconosciuto.' } };
         }
-        const r = await segnaRichiesta(db, evento, idDoc, stato, chi);
+        const r = await segnaRichiesta(db, evento, idDoc, stato, chi, tipoRic);
         return { stato: r.ok ? 200 : 404, corpo: r };
     }
 
