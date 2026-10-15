@@ -3841,7 +3841,7 @@ ul {
     clip: rect(0 0 0 0); clip-path: inset(50%);
     white-space: nowrap; border: 0;
 }
-#video.vc { padding: 0; background: #153e65; border-top: 0; }
+#video.vc { padding: 0; background: #091d32; border-top: 0; }
 #video.vc .video-home-frame {
     position: relative;
     width: 100%;
@@ -3854,7 +3854,7 @@ ul {
     border-radius: 0;
     box-shadow: none;
     overflow: hidden;
-    background: #153e65;
+    background: #091d32; /* il bordo della copertina (fotogramma a 6 s) */
 }
 #video.vc .video-home-frame video {
     display: block;
@@ -4434,7 +4434,7 @@ ul {
    sezione dopo e ne dice il nome. Allineato a sinistra sul bordo del
    contenitore, come i titoli; sulle sezioni chiare frecce e scritta
    sono blu (.scorri--chiaro). Sotto il video sta in una riga sullo
-   stesso blu della banda. */
+   stesso navy della banda (il bordo della copertina). */
 .scorri--sezione { margin-top: 44px; }
 .scorri--chiaro { color: rgba(22, 64, 104, 0.82); }
 .scorri--chiaro .scorri-frecce svg { stroke: #164068; }

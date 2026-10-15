@@ -755,27 +755,38 @@ document.addEventListener('DOMContentLoaded', () => {
     var video = document.getElementById('ngbHomeVideo');
     if (!video) return;
     var cornice = video.parentNode;
-    var INIZIO = 6, DURATA = 54;
+    var INIZIO = 6, DURATA = 56;
     var risparmio = navigator.connection && navigator.connection.saveData;
     video.muted = true;         // solo i video muti possono partire da soli
     video.controls = false;
     if (risparmio || !('IntersectionObserver' in window)) return;
 
-    // colore del bordo del video, misurato fotogramma per fotogramma sul file
-    // (mediana delle colonne x 60-100 e 1820-1860, metà alta) e ridotto ai punti in cui cambia: scarto massimo 2 livelli
-    var BORDI = '0 091d30,0.07 0e2439,0.1 0d2842,0.23 0f3354,0.3 113758,0.37 14395d,0.47 133b60,0.5 153e65,7.5 153e65,7.6 123a5f,7.67 13385c,7.73 0e3455,7.8 0f3354,7.83 0e2c4a,7.87 0e2c4a,7.97 0b2136,8 091d32,8.03 24364a,8.1 54626f,8.2 929ba2,8.3 bfc5cb,8.4 e2e6e8,8.5 f6f8f8,8.6 ffffff,14.93 fdfdfd,15.03 f1f3f3,15.1 e2e6e8,15.2 c1c5cb,15.23 afb8bd,15.3 919aa1,15.33 808a91,15.37 6a7683,15.43 414d5a,15.47 24364a,15.5 0c1e32,15.63 0d2a46,15.7 103150,15.77 0e3455,15.83 13385c,16.03 153e65,23.5 153e65,23.67 14395d,23.73 0e3455,23.8 0e3250,23.87 0d2a4a,23.9 0b2a43,23.93 0e2741,23.97 092236,24 0b1f34,24.07 3b4e5c,24.1 546271,24.2 929ba2,24.27 afb8bf,24.33 cbd1d5,24.4 e3e7e9,24.53 fbfbfb,24.67 ffffff,39.43 fdfdfd,39.53 f1f3f3,39.6 e2e6e8,39.67 cdd1d3,39.7 c1c5cd,39.8 999da5,39.87 6d767d,39.9 526469,39.93 3d5061,39.97 27374d,40 091d32,40.07 0e2439,40.1 0d2840,40.13 0d2840,40.2 103150,40.23 103150,40.27 0e3455,40.37 14395d,40.47 133c63,40.87 163f66,46.5 153e65,46.6 123a5f,46.67 13385c,46.73 0e3455,46.83 102e4c,47 091d32,47.23 0f3354,47.3 113758,47.37 14395d,47.47 133c63,47.87 163f66,53.23 153e65,53.43 123a5d,53.53 123859,53.67 0e3253,53.73 103150,53.77 0d2b49,53.9 0c253b,53.97 0a2035'.split(',').map(function (k) {
-        var p = k.split(' '), n = parseInt(p[1], 16);
-        return [parseFloat(p[0]), n >> 16, (n >> 8) & 255, n & 255];
-    });
-    function coloreA(t) {
+    // colore dei due bordi del video, misurati fotogramma per fotogramma sul
+    // file, un lato alla volta (mediana delle colonne x 60-100 e 1820-1860,
+    // meta' alta) e ridotti ai punti in cui cambiano: scarto massimo 2
+    // livelli. I due lati vanno separati perche' i passaggi fra le slide
+    // scorrono da un lato all'altro: per un attimo i bordi sono diversi.
+    function tabella(s) {
+        return s.split(',').map(function (k) {
+            var p = k.split(' '), n = parseInt(p[1], 16);
+            return [parseFloat(p[0]), n >> 16, (n >> 8) & 255, n & 255];
+        });
+    }
+    var SINISTRA = tabella('0 091d30,7.6 091d32,7.633 2c6da7,7.667 2c6da7,7.7 ffffff,15.6 ffffff,15.633 7fbaff,15.667 7fbaff,15.7 163f66,24.6 163f66,24.633 2c6da7,24.667 2c6da7,24.7 091d32,41.6 091d32,41.633 7fbaff,41.667 7fbaff,41.7 ffffff,48.6 ffffff,48.633 2c6da7,48.667 2c6da7,48.7 163f66,55 163f66,55.167 0e3455,55.3 102e4c,55.367 0d2a46,55.5 0a253d,55.733 0a2035,55.967 091d32');
+    var DESTRA = tabella('0 091d30,7.867 091d32,7.9 2c6da7,7.967 2c6da7,8 ffffff,8.333 ffffff,8.367 f7fdff,8.4 2c6da7,8.433 ffffff,15.867 ffffff,15.9 7fbaff,15.967 7fbaff,16 163f66,16.333 163f66,16.367 164076,16.4 7fbaff,16.433 163f66,24.867 163f66,24.9 2c6da7,24.967 2c6da7,25 091d32,25.333 091d32,25.367 091e3b,25.4 2c6da7,25.433 091d32,41.867 091d32,41.9 7fbaff,41.967 7fbaff,42 ffffff,42.333 ffffff,42.367 f0feff,42.4 7fbaff,42.433 ffffff,48.867 ffffff,48.9 2c6da7,48.967 2c6da7,49 163f66,49.333 163f66,49.367 16406a,49.4 2c6da7,49.433 163f66,55 163f66,55.167 0e3455,55.3 102e4c,55.367 0d2a46,55.5 0a253d,55.733 0a2035,55.967 091d32');
+    function coloreA(bordi, t) {
         var i = 1;
-        while (i < BORDI.length - 1 && BORDI[i][0] < t) i++;
-        var a = BORDI[i - 1], b = BORDI[i];
+        while (i < bordi.length - 1 && bordi[i][0] < t) i++;
+        var a = bordi[i - 1], b = bordi[i];
         var f = Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0])));
         return 'rgb(' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ',' + Math.round(a[3] + (b[3] - a[3]) * f) + ')';
     }
+    // il video sta al centro della cornice: la meta' sinistra fa da fondo
+    // alla fascia di sinistra, la destra a quella di destra
     function colora(t) {
-        if (Math.abs(video.duration - DURATA) < 0.5) cornice.style.backgroundColor = coloreA(t);
+        if (Math.abs(video.duration - DURATA) >= 0.5) return;
+        var sx = coloreA(SINISTRA, t), dx = coloreA(DESTRA, t);
+        cornice.style.background = sx === dx ? sx : 'linear-gradient(90deg, ' + sx + ' 50%, ' + dx + ' 50%)';
     }
     var attesa = 0, giro = 0;
     function suFotogramma(adesso, info) { attesa = 0; colora(info.mediaTime); prenota(); }
