@@ -187,8 +187,8 @@ prova('l\'evento in evidenza (save the date) c\'e\' fino al giorno del convegno,
     esigi(!!E && E.data === '2027-02-26', 'l\'evento in evidenza e\' Milano, 26 febbraio 2027');
     const con = NL.costruisci(BOZZA, { anno: 2026, oggi: '2026-10-15T10:00:00' });
     esigi(con.html.indexOf('href="https://nextgenerationbusiness.it/milano_febbraio_2027/"') > 0, 'prima dell\'evento: c\'e\' il collegamento alla pagina');
-    esigi(/<img src="https:\/\/nextgenerationbusiness\.it\/assets\/newsletter\/save-the-date-milano-2027\.jpg" width="180" height="255" alt="Save the date: Milano, Venerd/.test(con.html), 'l\'anteprima del save the date ha misure e testo alternativo');
-    esigi(/save-the-date-milano-2027\.pdf" style="[^"]*">Scarica il save the date \(PDF\)<\/a>/.test(con.html), 'c\'e\' il collegamento al PDF');
+    esigi(/<img src="https:\/\/nextgenerationbusiness\.it\/assets\/newsletter\/save-the-date-milano-2027\.jpg\?v=2" width="180" height="255" alt="Save the date: Milano, Venerd/.test(con.html), 'l\'anteprima del save the date ha misure e testo alternativo');
+    esigi(/save-the-date-milano-2027\.pdf\?v=2" style="[^"]*">Scarica il save the date \(PDF\)<\/a>/.test(con.html), 'c\'e\' il collegamento al PDF');
     esigi(/class="btnlink"[^>]*><span[^>]*>Scopri l'evento<\/span>/.test(con.html), 'c\'e\' il pulsante "Scopri l\'evento"');
     esigi(/>PROSSIMO EVENTO</.test(con.html) && /Excelsior Hotel Gallia, Milano/.test(con.html), 'occhiello maiuscolo e sede');
     esigi(/<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="474" style="width:474px;">/.test(con.html), 'la tabella per Outlook e\' larga quanto l\'interno del riquadro (474), non 520');
