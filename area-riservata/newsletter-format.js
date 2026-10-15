@@ -646,12 +646,16 @@
        Il font-size:0 sul contenitore toglie lo spazio bianco che l'HTML mette
        fra due elementi in linea scritti su righe diverse: senza, la seconda
        colonna scivola sotto anche quando ci starebbe. */
-    function colonne(pezzi, pesi, gap) {
+    function colonne(pezzi, pesi, gap, larghezzaUtile) {
         pezzi = pezzi.filter(p => p != null && p !== '');
         if (!pezzi.length) return '';
         if (pezzi.length === 1) return pezzi[0];
         gap = gap == null ? 20 : gap;
-        const utile = LARGHEZZA - LATO * 2;
+        /* La larghezza di partenza e' la colonna di testo (520px). Dentro un
+           riquadro con i suoi margini va passata quella vera: la tabella per
+           Outlook e' a misura fissa, e a 520 dentro una cella da 474
+           sborderebbe a destra. */
+        const utile = larghezzaUtile || (LARGHEZZA - LATO * 2);
         const tot = (pesi || pezzi.map(() => 1)).reduce((a, b) => a + b, 0);
         const disponibile = utile - gap * (pezzi.length - 1);
         const larghezze = (pesi || pezzi.map(() => 1)).map(p => Math.floor(disponibile * p / tot));
@@ -1161,6 +1165,111 @@
     }
 
     /* =========================================================
+       L'EVENTO IN EVIDENZA: la sezione "save the date"
+       ---------------------------------------------------------
+       Fino al giorno del convegno, OGNI newsletter porta in coda
+       una sezione con il prossimo evento: e' la gemella della
+       finestra che si apre in home page (assets/event-banner.js),
+       con gli stessi testi, l'anteprima del save the date e i due
+       collegamenti (la pagina dell'evento e il PDF). Chi scrive la
+       newsletter non deve fare niente: la sezione c'e' da sola e
+       sparisce da sola il giorno dopo l'evento.
+       Si aggiorna QUI quando cambia l'evento, come nel banner.
+
+       Due casi in cui non si mette:
+         - la newsletter parla gia' di quell'evento (il pulsante o
+           la pagina di partenza puntano alla sua pagina): ripeterlo
+           in fondo sarebbe un doppione;
+         - la bozza porta senzaEvento: true (non c'e' un comando
+           nel compositore: e' una via d'uscita, se mai servisse).
+
+       L'anteprima e' una COPIA a 400px del file della pagina
+       (assets/newsletter/save-the-date-milano-2027.jpg, 44 KB contro
+       150): nella mail si vede a 180px, e un file da 900px li'
+       dentro sarebbe solo peso. Le misure servono per gli attributi
+       width/height, come per il marchio: Outlook disegna il
+       segnaposto con quelle quando le immagini sono bloccate.
+    ========================================================= */
+    const EVENTO_IN_EVIDENZA = {
+        occhiello: 'Prossimo evento',
+        citta: 'Milano',
+        titolo: 'Merito creditizio, crescita e competitivit\u00e0 delle imprese',
+        giorno: 'Venerd\u00ec 26 febbraio 2027',
+        luogo: 'Excelsior Hotel Gallia, Milano',
+        punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
+        nota: 'Le iscrizioni apriranno a breve.',
+        url: SITO + '/milano_febbraio_2027/',
+        pdf: SITO + '/milano_febbraio_2027/save-the-date-milano-2027.pdf',
+        anteprima: SITO + '/assets/newsletter/save-the-date-milano-2027.jpg',
+        anteprimaPx: { w: 400, h: 566 },
+        data: '2027-02-26',            // la sezione resta fino a questo giorno compreso
+        percorso: 'milano_febbraio_2027'
+    };
+    /* L'evento da mostrare in questa newsletter, o null. "oggi" si puo'
+       passare (le prove lo fanno); altrimenti e' la data di chi compone. */
+    function eventoInEvidenza(nl, oggi) {
+        const e = EVENTO_IN_EVIDENZA;
+        if (!e || !e.data) return null;
+        nl = nl || {};
+        if (nl.senzaEvento === true) return null;
+        const giorno = oggi ? new Date(oggi) : new Date();
+        if (isNaN(giorno.getTime())) return null;
+        const limite = new Date(e.data + 'T23:59:59');
+        if (giorno.getTime() > limite.getTime()) return null;
+        const parla = u => e.percorso && String(u || '').indexOf(e.percorso) >= 0;
+        if (parla(nl.cta && nl.cta.url) || parla(nl.fonte && nl.fonte.url)) return null;
+        return e;
+    }
+    function sezioneEvento(e) {
+        if (!e) return '';
+        /* Riquadro con i margini suoi: dentro, le colonne lavorano sulla
+           larghezza che resta (520 meno il bordo e i 22px per lato). */
+        const dentro = LARGHEZZA - LATO * 2 - 2 - 22 * 2;   // 474
+        const gap = 22;
+        const larghe = [Math.floor((dentro - gap) * 2 / 5), 0];
+        larghe[1] = dentro - gap - larghe[0];
+        const imgW = larghe[0];
+        const imgH = Math.round(imgW * e.anteprimaPx.h / e.anteprimaPx.w);
+        const immagine = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td align="center" style="text-align:center;">'
+            + '<a href="' + esc(e.url) + '" style="text-decoration:none;">'
+            + '<img src="' + esc(e.anteprima) + '" width="' + imgW + '" height="' + imgH + '" alt="' + esc('Save the date: ' + e.citta + ', ' + e.giorno) + '" '
+            + 'style="display:block;width:100%;max-width:' + imgW + 'px;height:auto;border:1px solid ' + C.bordo + ';outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;'
+            + FONTE + 'font-size:13px;line-height:18px;color:' + C.tenue + ';">'
+            + '</a></td></tr></table>';
+        const stilePunti = 'font-size:15px;line-height:22px;';
+        const testo = tabellaInterna(
+            '<tr><td style="' + FONTE + ETI + 'color:' + C.accento + ';font-weight:bold;">' + testoHtml(e.occhiello.toUpperCase(), true) + '</td></tr>'
+            + spazio(8)
+            + '<tr><td style="' + FONTE + 'font-size:20px;line-height:27px;font-weight:bold;color:' + C.scuro + ';">' + testoHtml(e.titolo, true) + '</td></tr>'
+            + spazio(10)
+            + '<tr><td style="' + FONTE + 'font-size:15px;line-height:22px;font-weight:bold;color:' + C.blu + ';">' + testoHtml(e.citta + ' \u00b7 ' + e.giorno, true) + '</td></tr>'
+            + '<tr><td style="' + FONTE + 'font-size:15px;line-height:22px;color:' + C.testo + ';">' + testoHtml(e.luogo, true) + '</td></tr>'
+            + spazio(12)
+            + '<tr><td>' + elencoPunti(e.punti.map(p => testoHtml(p, true)), stilePunti + 'color:' + C.testo + ';', C.accento) + '</td></tr>'
+            + (e.nota ? spazio(10) + '<tr><td style="' + FONTE + 'font-size:14px;line-height:21px;color:' + C.tenue + ';">' + testoHtml(e.nota, true) + '</td></tr>' : '')
+            + spazio(18)
+            + '<tr><td>' + pulsante('Scopri l\'evento', e.url, { colore: C.blu }) + '</td></tr>'
+            + (e.pdf ? spazio(12) + '<tr><td style="' + FONTE + 'font-size:14px;line-height:21px;">'
+                + '<a href="' + esc(e.pdf) + '" style="color:' + C.blu + ';text-decoration:underline;">Scarica il save the date (PDF)</a></td></tr>' : '')
+        );
+        return cella(
+            '<table role="presentation" class="bd" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + C.chiaro + '" style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+            + '<tr><td bgcolor="' + C.scuro + '" height="3" style="background-color:' + C.scuro + ';' + stileVuoto(3) + '">&nbsp;</td></tr>'
+            + '<tr><td style="padding:22px 22px 24px;' + FONTE + '">' + colonne([immagine, testo], larghe, gap, dentro) + '</td></tr>'
+            + '</table>', '34px ' + LATO + 'px 0');
+    }
+    function sezioneEventoTesto(e) {
+        if (!e) return '';
+        return e.occhiello.toUpperCase() + '\n'
+            + 'Next Generation Business, ' + e.citta + ': ' + e.titolo + '\n'
+            + e.giorno + ' - ' + e.luogo + '\n'
+            + e.punti.map(p => '- ' + p).join('\n')
+            + (e.nota ? '\n' + e.nota : '')
+            + '\nScopri l\'evento: ' + e.url
+            + (e.pdf ? '\nSave the date (PDF): ' + e.pdf : '');
+    }
+
+    /* =========================================================
        COSTRUZIONE DELLA MAIL COMPLETA
        nl = { oggetto, preheader, occhiello, titolo, sommario,
               immagine, blocchi[], cta:{testo,url}, fonte:{url} }
@@ -1440,7 +1549,11 @@
             )
             + '</td></tr>';
 
-        const corpoInterno = testa + apertura + copertina + blocchi + ctaFinale + spazio(36) + piede;
+        /* L'evento in evidenza sta DOPO il pulsante finale: il pulsante e' la
+           cosa che la newsletter chiede, l'evento e' l'avviso che la segue.
+           Prima del piede, cosi' chi scorre fino in fondo lo trova. */
+        const evento = eventoInEvidenza(nl, opz.oggi);
+        const corpoInterno = testa + apertura + copertina + blocchi + ctaFinale + sezioneEvento(evento) + spazio(36) + piede;
         const html = involucro(nl.oggetto || nl.titolo || 'Newsletter', nl.preheader || nl.sommario || '', corpoInterno);
 
         /* --- versione in solo testo --- */
@@ -1452,6 +1565,7 @@
         if (sezioniTesto.length) sezioniTesto.forEach(t => parti.push(t.trim()));
         else (Array.isArray(nl.blocchi) ? nl.blocchi : []).forEach(b => { const t = bloccoTesto(b); if (t && t.trim()) parti.push(t.trim()); });
         if (nl.cta && nl.cta.url) parti.push((nl.cta.testo ? nl.cta.testo + ': ' : '') + urlSicuro(nl.cta.url));
+        if (evento) parti.push(sezioneEventoTesto(evento));
         parti.push('--');
         parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
         parti.push(motivo);
@@ -3239,6 +3353,7 @@
 
     return {
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
+        EVENTO_IN_EVIDENZA: EVENTO_IN_EVIDENZA, eventoInEvidenza: eventoInEvidenza,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
         SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B, AREE_B2B: AREE_B2B,
         SEGNAPOSTO_NUOVO_INCONTRO: SEGNAPOSTO_NUOVO_INCONTRO, invitoNuovoIncontro: invitoNuovoIncontro,
