@@ -3854,7 +3854,7 @@ ul {
     border-radius: 0;
     box-shadow: none;
     overflow: hidden;
-    background: #153e65;
+    background: #091d32; /* il bordo della copertina (fotogramma a 6 s) */
 }
 #video.vc .video-home-frame video {
     display: block;

@@ -755,7 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var video = document.getElementById('ngbHomeVideo');
     if (!video) return;
     var cornice = video.parentNode;
-    var INIZIO = 6, DURATA = 54;
+    var INIZIO = 6, DURATA = 56;
     var risparmio = navigator.connection && navigator.connection.saveData;
     video.muted = true;         // solo i video muti possono partire da soli
     video.controls = false;
@@ -763,7 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // colore del bordo del video, misurato fotogramma per fotogramma sul file
     // (mediana delle colonne x 60-100 e 1820-1860, metà alta) e ridotto ai punti in cui cambia: scarto massimo 2 livelli
-    var BORDI = '0 091d30,0.07 0e2439,0.1 0d2842,0.23 0f3354,0.3 113758,0.37 14395d,0.47 133b60,0.5 153e65,7.5 153e65,7.6 123a5f,7.67 13385c,7.73 0e3455,7.8 0f3354,7.83 0e2c4a,7.87 0e2c4a,7.97 0b2136,8 091d32,8.03 24364a,8.1 54626f,8.2 929ba2,8.3 bfc5cb,8.4 e2e6e8,8.5 f6f8f8,8.6 ffffff,14.93 fdfdfd,15.03 f1f3f3,15.1 e2e6e8,15.2 c1c5cb,15.23 afb8bd,15.3 919aa1,15.33 808a91,15.37 6a7683,15.43 414d5a,15.47 24364a,15.5 0c1e32,15.63 0d2a46,15.7 103150,15.77 0e3455,15.83 13385c,16.03 153e65,23.5 153e65,23.67 14395d,23.73 0e3455,23.8 0e3250,23.87 0d2a4a,23.9 0b2a43,23.93 0e2741,23.97 092236,24 0b1f34,24.07 3b4e5c,24.1 546271,24.2 929ba2,24.27 afb8bf,24.33 cbd1d5,24.4 e3e7e9,24.53 fbfbfb,24.67 ffffff,39.43 fdfdfd,39.53 f1f3f3,39.6 e2e6e8,39.67 cdd1d3,39.7 c1c5cd,39.8 999da5,39.87 6d767d,39.9 526469,39.93 3d5061,39.97 27374d,40 091d32,40.07 0e2439,40.1 0d2840,40.13 0d2840,40.2 103150,40.23 103150,40.27 0e3455,40.37 14395d,40.47 133c63,40.87 163f66,46.5 153e65,46.6 123a5f,46.67 13385c,46.73 0e3455,46.83 102e4c,47 091d32,47.23 0f3354,47.3 113758,47.37 14395d,47.47 133c63,47.87 163f66,53.23 153e65,53.43 123a5d,53.53 123859,53.67 0e3253,53.73 103150,53.77 0d2b49,53.9 0c253b,53.97 0a2035'.split(',').map(function (k) {
+    var BORDI = '0 091d30,7.6 091d32,7.63 1b446c,7.67 1b446c,7.7 848e98,7.87 848e98,7.9 9eb6d3,7.93 96b6d3,7.97 ffffff,8.37 ffffff,8.4 96b6d3,8.43 ffffff,15.6 ffffff,15.63 bedcff,15.67 bedcff,15.7 8a9eb2,15.87 8a9eb2,15.9 4a79a4,15.93 4a7cb2,15.97 163f66,16.37 163f66,16.4 4a7cb2,16.43 163f66,24.6 163f66,24.63 215688,24.67 215688,24.7 0e2e4c,24.87 0e2e4c,24.9 0c3054,24.93 1a456c,24.97 091d32,25.37 091d32,25.4 1a456c,25.43 091d32,41.6 091d32,41.63 476e9a,41.67 476e9d,41.7 87919d,41.87 87919d,41.9 c9e0ff,41.93 bfdcff,41.97 ffffff,42.37 ffffff,42.4 bfdcff,42.43 ffffff,48.6 ffffff,48.63 94b6d3,48.67 94b6d3,48.7 8aa0b4,48.87 8a9fb2,48.9 21527c,48.93 215686,48.97 163f66,49.37 163f66,49.4 215686,49.43 163f66,55 163f66,55.17 0e3455,55.3 102e4c,55.37 0d2a46,55.5 0a253d,55.73 0a2035,55.97 091d32'.split(',').map(function (k) {
         var p = k.split(' '), n = parseInt(p[1], 16);
         return [parseFloat(p[0]), n >> 16, (n >> 8) & 255, n & 255];
     });
