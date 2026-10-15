@@ -761,21 +761,32 @@ document.addEventListener('DOMContentLoaded', () => {
     video.controls = false;
     if (risparmio || !('IntersectionObserver' in window)) return;
 
-    // colore del bordo del video, misurato fotogramma per fotogramma sul file
-    // (mediana delle colonne x 60-100 e 1820-1860, metà alta) e ridotto ai punti in cui cambia: scarto massimo 2 livelli
-    var BORDI = '0 091d30,7.6 091d32,7.63 1b446c,7.67 1b446c,7.7 848e98,7.87 848e98,7.9 9eb6d3,7.93 96b6d3,7.97 ffffff,8.37 ffffff,8.4 96b6d3,8.43 ffffff,15.6 ffffff,15.63 bedcff,15.67 bedcff,15.7 8a9eb2,15.87 8a9eb2,15.9 4a79a4,15.93 4a7cb2,15.97 163f66,16.37 163f66,16.4 4a7cb2,16.43 163f66,24.6 163f66,24.63 215688,24.67 215688,24.7 0e2e4c,24.87 0e2e4c,24.9 0c3054,24.93 1a456c,24.97 091d32,25.37 091d32,25.4 1a456c,25.43 091d32,41.6 091d32,41.63 476e9a,41.67 476e9d,41.7 87919d,41.87 87919d,41.9 c9e0ff,41.93 bfdcff,41.97 ffffff,42.37 ffffff,42.4 bfdcff,42.43 ffffff,48.6 ffffff,48.63 94b6d3,48.67 94b6d3,48.7 8aa0b4,48.87 8a9fb2,48.9 21527c,48.93 215686,48.97 163f66,49.37 163f66,49.4 215686,49.43 163f66,55 163f66,55.17 0e3455,55.3 102e4c,55.37 0d2a46,55.5 0a253d,55.73 0a2035,55.97 091d32'.split(',').map(function (k) {
-        var p = k.split(' '), n = parseInt(p[1], 16);
-        return [parseFloat(p[0]), n >> 16, (n >> 8) & 255, n & 255];
-    });
-    function coloreA(t) {
+    // colore dei due bordi del video, misurati fotogramma per fotogramma sul
+    // file, un lato alla volta (mediana delle colonne x 60-100 e 1820-1860,
+    // meta' alta) e ridotti ai punti in cui cambiano: scarto massimo 2
+    // livelli. I due lati vanno separati perche' i passaggi fra le slide
+    // scorrono da un lato all'altro: per un attimo i bordi sono diversi.
+    function tabella(s) {
+        return s.split(',').map(function (k) {
+            var p = k.split(' '), n = parseInt(p[1], 16);
+            return [parseFloat(p[0]), n >> 16, (n >> 8) & 255, n & 255];
+        });
+    }
+    var SINISTRA = tabella('0 091d30,7.6 091d32,7.633 2c6da7,7.667 2c6da7,7.7 ffffff,15.6 ffffff,15.633 7fbaff,15.667 7fbaff,15.7 163f66,24.6 163f66,24.633 2c6da7,24.667 2c6da7,24.7 091d32,41.6 091d32,41.633 7fbaff,41.667 7fbaff,41.7 ffffff,48.6 ffffff,48.633 2c6da7,48.667 2c6da7,48.7 163f66,55 163f66,55.167 0e3455,55.3 102e4c,55.367 0d2a46,55.5 0a253d,55.733 0a2035,55.967 091d32');
+    var DESTRA = tabella('0 091d30,7.867 091d32,7.9 2c6da7,7.967 2c6da7,8 ffffff,8.333 ffffff,8.367 f7fdff,8.4 2c6da7,8.433 ffffff,15.867 ffffff,15.9 7fbaff,15.967 7fbaff,16 163f66,16.333 163f66,16.367 164076,16.4 7fbaff,16.433 163f66,24.867 163f66,24.9 2c6da7,24.967 2c6da7,25 091d32,25.333 091d32,25.367 091e3b,25.4 2c6da7,25.433 091d32,41.867 091d32,41.9 7fbaff,41.967 7fbaff,42 ffffff,42.333 ffffff,42.367 f0feff,42.4 7fbaff,42.433 ffffff,48.867 ffffff,48.9 2c6da7,48.967 2c6da7,49 163f66,49.333 163f66,49.367 16406a,49.4 2c6da7,49.433 163f66,55 163f66,55.167 0e3455,55.3 102e4c,55.367 0d2a46,55.5 0a253d,55.733 0a2035,55.967 091d32');
+    function coloreA(bordi, t) {
         var i = 1;
-        while (i < BORDI.length - 1 && BORDI[i][0] < t) i++;
-        var a = BORDI[i - 1], b = BORDI[i];
+        while (i < bordi.length - 1 && bordi[i][0] < t) i++;
+        var a = bordi[i - 1], b = bordi[i];
         var f = Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0])));
         return 'rgb(' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ',' + Math.round(a[3] + (b[3] - a[3]) * f) + ')';
     }
+    // il video sta al centro della cornice: la meta' sinistra fa da fondo
+    // alla fascia di sinistra, la destra a quella di destra
     function colora(t) {
-        if (Math.abs(video.duration - DURATA) < 0.5) cornice.style.backgroundColor = coloreA(t);
+        if (Math.abs(video.duration - DURATA) >= 0.5) return;
+        var sx = coloreA(SINISTRA, t), dx = coloreA(DESTRA, t);
+        cornice.style.background = sx === dx ? sx : 'linear-gradient(90deg, ' + sx + ' 50%, ' + dx + ' 50%)';
     }
     var attesa = 0, giro = 0;
     function suFotogramma(adesso, info) { attesa = 0; colora(info.mediaTime); prenota(); }
