@@ -182,6 +182,30 @@ Object.keys(MAIL).forEach(nome => {
     });
 });
 
+prova('l\'evento in evidenza (save the date) c\'e\' fino al giorno del convegno, e poi no', () => {
+    const E = NL.EVENTO_IN_EVIDENZA;
+    esigi(!!E && E.data === '2027-02-26', 'l\'evento in evidenza e\' Milano, 26 febbraio 2027');
+    const con = NL.costruisci(BOZZA, { anno: 2026, oggi: '2026-10-15T10:00:00' });
+    esigi(con.html.indexOf('href="https://nextgenerationbusiness.it/milano_febbraio_2027/"') > 0, 'prima dell\'evento: c\'e\' il collegamento alla pagina');
+    esigi(/<img src="https:\/\/nextgenerationbusiness\.it\/assets\/newsletter\/save-the-date-milano-2027\.jpg" width="180" height="255" alt="Save the date: Milano, Venerd/.test(con.html), 'l\'anteprima del save the date ha misure e testo alternativo');
+    esigi(/save-the-date-milano-2027\.pdf" style="[^"]*">Scarica il save the date \(PDF\)<\/a>/.test(con.html), 'c\'e\' il collegamento al PDF');
+    esigi(/class="btnlink"[^>]*><span[^>]*>Scopri l'evento<\/span>/.test(con.html), 'c\'e\' il pulsante "Scopri l\'evento"');
+    esigi(/>PROSSIMO EVENTO</.test(con.html) && /Excelsior Hotel Gallia, Milano/.test(con.html), 'occhiello maiuscolo e sede');
+    esigi(/<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="474" style="width:474px;">/.test(con.html), 'la tabella per Outlook e\' larga quanto l\'interno del riquadro (474), non 520');
+    const iPuls = con.html.indexOf('Prenota il colloquio'), iEv = con.html.indexOf('PROSSIMO EVENTO'), iPiede = con.html.indexOf('Annulla l');
+    esigi(iPuls > 0 && iPuls < iEv && iEv < iPiede, 'sta dopo il pulsante finale e prima del piede');
+    esigi(/PROSSIMO EVENTO\nNext Generation Business, Milano: Merito creditizio[\s\S]*Scopri l'evento: https:\/\/nextgenerationbusiness\.it\/milano_febbraio_2027\//.test(con.testo), 'c\'e\' anche nel testo semplice');
+    const ultimo = NL.costruisci(BOZZA, { anno: 2027, oggi: '2027-02-26T18:00:00' });
+    esigi(ultimo.html.indexOf('PROSSIMO EVENTO') > 0, 'il giorno stesso dell\'evento c\'e\' ancora');
+    const dopo = NL.costruisci(BOZZA, { anno: 2027, oggi: '2027-02-27T08:00:00' });
+    esigi(dopo.html.indexOf('PROSSIMO EVENTO') < 0 && dopo.testo.indexOf('Scopri l\'evento') < 0, 'il giorno dopo sparisce, da HTML e testo');
+    const suMilano = NL.costruisci(Object.assign({}, BOZZA, { cta: { testo: 'Scopri', url: 'https://nextgenerationbusiness.it/milano_febbraio_2027/' } }), { oggi: '2026-10-15' });
+    esigi(suMilano.html.indexOf('PROSSIMO EVENTO') < 0, 'una newsletter che parla gia\' di Milano non lo ripete');
+    const senza = NL.costruisci(Object.assign({}, BOZZA, { senzaEvento: true }), { oggi: '2026-10-15' });
+    esigi(senza.html.indexOf('PROSSIMO EVENTO') < 0, 'senzaEvento: true lo toglie');
+    esigi(NL.eventoInEvidenza(BOZZA, 'non-una-data') === null, 'una data illeggibile non fa cadere la composizione: niente sezione');
+});
+
 prova('la cella delle schede affiancate ha la classe per il telefono', () => {
     const h = MAIL['tre momenti'].html;
     esigi(/<td class="rw" style="padding:16px 0 0 0;">/.test(h), 'la seconda riga di schede porta class="rw"');
