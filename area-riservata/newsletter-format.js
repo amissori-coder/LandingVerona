@@ -1199,8 +1199,8 @@
         punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
         nota: 'Le iscrizioni apriranno a breve.',
         url: SITO + '/milano_febbraio_2027/',
-        pdf: SITO + '/milano_febbraio_2027/save-the-date-milano-2027.pdf',
-        anteprima: SITO + '/assets/newsletter/save-the-date-milano-2027.jpg',
+        pdf: SITO + '/milano_febbraio_2027/save-the-date-milano-2027.pdf?v=2',
+        anteprima: SITO + '/assets/newsletter/save-the-date-milano-2027.jpg?v=2',
         anteprimaPx: { w: 400, h: 566 },
         data: '2027-02-26',            // la sezione resta fino a questo giorno compreso
         percorso: 'milano_febbraio_2027'

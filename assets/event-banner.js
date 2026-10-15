@@ -46,8 +46,8 @@
                 luogo: 'Excelsior Hotel Gallia, Milano',
                 punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
                 nota: 'Le iscrizioni apriranno a breve.',
-                pdf: 'milano_febbraio_2027/save-the-date-milano-2027.pdf',
-                anteprima: 'milano_febbraio_2027/assets/save-the-date-anteprima.jpg'
+                pdf: 'milano_febbraio_2027/save-the-date-milano-2027.pdf?v=2',
+                anteprima: 'milano_febbraio_2027/assets/save-the-date-anteprima.jpg?v=2'
             }
         },
         {
