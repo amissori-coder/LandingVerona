@@ -227,8 +227,11 @@ const token = () => NL.firmaConfermaEmail(ID);
         esigi(m.html.indexOf(attesoHtml) > 0, 'il pulsante punta al collegamento di conferma');
         esigi(m.html.indexOf('Conferma il tuo indirizzo email') > 0, 'con il testo del pulsante');
         esigi(m.html.indexOf(attesoHtml) < m.html.indexOf('Modifica o annulla'), 'e sta PRIMA del pulsante "modifica o annulla"');
-        esigi(m.html.split(attesoHtml).length - 1 >= 2, 'l\'indirizzo c\'e\' anche in chiaro sotto il pulsante');
-        esigi(m.html.indexOf('height="48"') > 0 && m.html.indexOf('display:block;padding:13px') > 0, 'il pulsante e\' alto almeno 44px, a blocco pieno');
+        /* Sotto il pulsante non c'e' piu' l'indirizzo lungo da copiare (sul
+           telefono era illeggibile): chi non puo' toccare il pulsante lo trova
+           nella versione di solo testo, qui sotto. */
+        esigi(m.html.split(attesoHtml).length - 1 === 1 && m.html.indexOf('copia questo indirizzo') < 0, 'un pulsante solo, senza l\'indirizzo lungo da copiare');
+        esigi(m.html.indexOf('height="48"') > 0 && m.html.indexOf('display:block;padding:14px') > 0, 'il pulsante e\' alto almeno 44px, a blocco pieno');
         const righe = m.testo.split('\n\n');
         esigi(righe[2] === 'Conferma il tuo indirizzo email (un clic): ' + link, 'nel testo semplice il collegamento e\' subito dopo il saluto');
         const senza = MNGB.confermaSito({ nome: 'Mario', cognome: 'Rossi', email: ROSSI.email, pagina: PAGINA, data: ROSSI.data }, NL.linkCompleta(ID));
