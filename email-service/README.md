@@ -1318,7 +1318,8 @@ SMS** (Brevo → SMS), senza crediti l'invio risponde `402` e il modulo dice
 | Nome | Valore |
 |---|---|
 | `SMS_MITTENTE` | il mittente che compare sul telefono, fino a 11 lettere e cifre (predefinito `NGBusiness`) |
-| `SMS_MAX_GIORNO` | tetto di SMS al giorno per tutto il servizio (predefinito 400) |
+| `SMS_MAX_GIORNO` | tetto di SMS al giorno per tutto il servizio (predefinito 1000) |
+| `TURNSTILE_SECRET` | la chiave **segreta** di Cloudflare Turnstile (vedi sotto). Senza, il CAPTCHA e' spento |
 
 > **Il mittente alfanumerico in Italia va registrato.** Dal 2023 gli SMS con
 > mittente alfanumerico verso numeri italiani devono avere il mittente
@@ -1326,8 +1327,28 @@ SMS** (Brevo → SMS), senza crediti l'invio risponde `402` e il modulo dice
 > Brevo, prima di aprire le iscrizioni. Senza, gli operatori possono
 > scartare i messaggi.
 
-- **Le prove**: `node prove/iscrizione-verificata.prove.js` (Firestore e
-  Brevo finti).
+**Il CAPTCHA prima dell'SMS (Cloudflare Turnstile, `lib/captcha.js`).** Prima
+di ogni SMS il modulo mostra la casella "Non sono un robot" di Turnstile
+(gratuito, quasi sempre senza enigmi da risolvere). Il gettone viaggia con
+`sms-invia` in `captcha` e il servizio lo verifica con Cloudflare; un gettone
+vale una volta, la pagina ne prepara uno nuovo a ogni SMS. Per accenderlo:
+
+1. Cloudflare (account gratuito) -> **Turnstile** -> **Add widget**: dominio
+   `nextgenerationbusiness.it`, modalita' **Managed**.
+2. La chiave **pubblica** (Site Key) va in `milano_febbraio_2027/script.js`,
+   costante `TURNSTILE_CHIAVE`; la chiave **segreta** va su Vercel in
+   `TURNSTILE_SECRET`.
+
+Con la chiave pubblica vuota la casella non compare; senza `TURNSTILE_SECRET`
+il servizio non la chiede. Con il segreto impostato invece il controllo e'
+chiuso: niente gettone buono, o Cloudflare che non risponde, niente SMS.
+
+**Il freno per IP del modulo di Milano** e' di 30 richieste in 10 minuti
+(gli altri moduli restano a 8): dallo stesso ufficio si iscrivono in piu'
+persone, e il freno vero agli SMS sono il CAPTCHA e i limiti per numero.
+
+- **Le prove**: `node prove/iscrizione-verificata.prove.js` (Firestore,
+  Brevo e Cloudflare finti).
 
 ## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
 

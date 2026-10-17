@@ -891,6 +891,8 @@ ul, ol { list-style: none; }
 .campo-riga input { flex: 1; min-width: 0; }
 .campo-nota { font-size: 0.8rem; color: var(--testo-tenue); text-align: left !important; }
 .campo-nota[hidden] { display: none; }
+.captcha { margin-top: 6px; min-height: 65px; }
+.captcha[hidden] { display: none; }
 .campo-ok { font-size: 0.82rem; font-weight: 600; color: #1F6B57; }
 .campo-ok:empty, .campo-errore:empty { display: none; }
 .campo-errore { font-size: 0.82rem; color: #B1213B; text-align: left !important; }

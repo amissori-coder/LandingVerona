@@ -75,7 +75,7 @@ const MAX_INVII_GIORNO = 5;             // e cinque al giorno
 const MAX_TENTATIVI = 5;                // sbagli concessi per codice
 const FIRMA_VALE_MS = 2 * 60 * 60 * 1000; // il numero verificato vale due ore per spedire il modulo
 const GIORNO_MS = 24 * 60 * 60 * 1000;
-function tettoGiornaliero() { return Number(process.env.SMS_MAX_GIORNO) || 400; }
+function tettoGiornaliero() { return Number(process.env.SMS_MAX_GIORNO) || 1000; }
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);

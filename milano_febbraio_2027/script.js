@@ -229,6 +229,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const smsNota = $('smsNota');
     // il numero verificato e la firma che il servizio ha reso: viaggiano con l'iscrizione
     let verificato = { numero: '', token: '' };
+
+    /* ---------- la casella "non sono un robot" ----------
+       Cloudflare Turnstile, prima di ogni SMS (gli SMS costano, e un programma
+       che li chiede a raffica svuota i crediti). TURNSTILE_CHIAVE e' la chiave
+       PUBBLICA del sito, dal pannello Cloudflare (Turnstile -> il sito): la
+       segreta sta nel servizio (TURNSTILE_SECRET). Vuota, la casella non
+       compare, e il servizio senza la segreta non la chiede. Il gettone vale
+       una volta: dopo ogni richiesta se ne prepara uno nuovo. */
+    const TURNSTILE_CHIAVE = '';
+    const boxCaptcha = $('captcha');
+    let captcha = { id: null, gettone: '' };
+    function preparaCaptcha() {
+        if (!TURNSTILE_CHIAVE || !window.turnstile) return;
+        boxCaptcha.hidden = false;
+        captcha.id = window.turnstile.render(boxCaptcha, {
+            sitekey: TURNSTILE_CHIAVE, language: 'it', action: 'sms-iscrizione',
+            callback: (g) => { captcha.gettone = g; errore('telefono', ''); },
+            'expired-callback': () => { captcha.gettone = ''; },
+            'error-callback': () => { captcha.gettone = ''; }
+        });
+    }
+    function rinnovaCaptcha() {
+        captcha.gettone = '';
+        if (captcha.id !== null && window.turnstile) window.turnstile.reset(captcha.id);
+    }
+    if (TURNSTILE_CHIAVE) {
+        window.ngbCaptchaPronto = preparaCaptcha;
+        const sc = document.createElement('script');
+        sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=ngbCaptchaPronto';
+        sc.async = true;
+        sc.defer = true;
+        document.head.appendChild(sc);
+    }
     let numeroInviato = '';
     let attesaTimer = null;
 
@@ -262,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         campoSms.value = '';
         telOk.textContent = '';
         errore('codiceSms', '');
+        if (captcha.id !== null) { boxCaptcha.hidden = false; rinnovaCaptcha(); }
     }
 
     function inviaCodice() {
@@ -272,11 +306,17 @@ document.addEventListener('DOMContentLoaded', () => {
             campoTel.focus();
             return;
         }
+        if (TURNSTILE_CHIAVE && !captcha.gettone) {
+            errore('telefono', 'Spunta la casella «Non sono un robot» qui sotto, poi premi di nuovo «Invia il codice».');
+            return;
+        }
         btnInvia.disabled = true;
         btnDiNuovo.disabled = true;
         btnInvia.textContent = 'Invio...';
-        chiama({ azione: 'sms-invia', telefono: campoTel.value, email: ($('email').value || '').trim() })
+        const gettone = captcha.gettone;
+        chiama({ azione: 'sms-invia', telefono: campoTel.value, email: ($('email').value || '').trim(), captcha: gettone })
             .then(d => {
+                rinnovaCaptcha();
                 btnInvia.textContent = 'Invia il codice';
                 if (!d.ok) {
                     btnInvia.disabled = false;
@@ -296,6 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 campoSms.focus();
             })
             .catch(() => {
+                rinnovaCaptcha();
                 btnInvia.disabled = false;
                 btnInvia.textContent = 'Invia il codice';
                 errore('telefono', 'Errore di connessione. Riprova fra qualche secondo.');
@@ -321,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 campoTel.readOnly = true;
                 btnInvia.textContent = 'Cambia numero';
                 telOk.textContent = '✓ Numero verificato';
+                boxCaptcha.hidden = true;   // a numero verificato la casella non serve piu'
                 errore('telefono', '');
             })
             .catch(() => {

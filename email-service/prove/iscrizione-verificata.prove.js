@@ -109,7 +109,14 @@ admin.firestore.FieldValue = {
 let spedite = [];
 let sms = [];
 let smsGuasto = false;
+let turnstileGiu = false;
 global.fetch = async (url, opz) => {
+    if (/turnstile\/v0\/siteverify/.test(String(url))) {
+        if (turnstileGiu) throw new Error('rete giu');
+        const q = new URLSearchParams(opz.body);
+        const buono = q.get('secret') === 'segreto-turnstile' && q.get('response') === 'gettone-buono';
+        return { ok: true, status: 200, json: async () => ({ success: buono, 'error-codes': buono ? [] : ['invalid-input-response'] }) };
+    }
     if (/transactionalSMS/.test(String(url))) {
         const corpo = JSON.parse(opz.body);
         if (smsGuasto) return { ok: false, status: 402, text: async () => '{"code":"not_enough_credits"}' };
@@ -351,6 +358,45 @@ prova('Un codice invito vale per due iscrizioni, e porta l\'azienda', async () =
     dati.set(k, Object.assign({}, dati.get(k), { annullato: { quando: orologio } }));
     const c4 = await chiama({ azione: 'verifica-codice', pagina: PAGINA, codice: 'A7K2M' });
     esigi(c4.corpo.ok, 'annullata una, il codice torna buono', JSON.stringify(c4.corpo));
+});
+
+prova('Con TURNSTILE_SECRET l\'SMS vuole la casella "non sono un robot"', async () => {
+    process.env.TURNSTILE_SECRET = 'segreto-turnstile';
+    sms = [];
+    const senza = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3505550001' });
+    esigi(senza.stato === 400 && senza.corpo.captchaKo, 'senza gettone non parte', JSON.stringify(senza.corpo));
+    const cattivo = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3505550001', captcha: 'inventato' });
+    esigi(cattivo.corpo.captchaKo, 'con un gettone falso neanche');
+    turnstileGiu = true;
+    const giu = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3505550001', captcha: 'gettone-buono' });
+    esigi(giu.corpo.captchaKo && /riprova/.test(giu.corpo.msg), 'Cloudflare irraggiungibile: non parte, e si dice di riprovare');
+    turnstileGiu = false;
+    esigi(sms.length === 0, 'nessun SMS speso');
+    const buono = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3505550001', captcha: 'gettone-buono' });
+    esigi(buono.corpo.ok && sms.length === 1, 'con il gettone buono parte', JSON.stringify(buono.corpo));
+    const v = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3505550001', codice: ultimoCodice() });
+    esigi(v.corpo.ok, 'la verifica del codice non lo chiede');
+    delete process.env.TURNSTILE_SECRET;
+    avanza(61 * 1000);
+});
+
+prova('Il freno per IP di Milano e\' piu\' largo di quello degli altri moduli', async () => {
+    let stato = 0;
+    const res = { setHeader() { }, status(s) { stato = s; return res; }, json() { return res; }, end() { return res; } };
+    const stessoIp = { 'x-forwarded-for': '192.168.7.7' };
+    let respinte = 0;
+    for (let i = 0; i < 12; i++) {
+        await servizio({ method: 'POST', headers: stessoIp, body: { azione: 'verifica-codice', pagina: PAGINA, codice: 'QQQQQ' } }, res);
+        if (stato === 429) respinte++;
+    }
+    esigi(respinte === 0, 'dodici richieste dallo stesso ufficio passano tutte');
+    const altroIp = { 'x-forwarded-for': '192.168.8.8' };
+    respinte = 0;
+    for (let i = 0; i < 12; i++) {
+        await servizio({ method: 'POST', headers: altroIp, body: { azione: 'verifica-codice', pagina: 'Napoli 2 Ottobre 2026', codice: 'QQQQQ' } }, res);
+        if (stato === 429) respinte++;
+    }
+    esigi(respinte === 4, 'per gli altri moduli restano otto', String(respinte));
 });
 
 prova('Napoli resta com\'era', async () => {

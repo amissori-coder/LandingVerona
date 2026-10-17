@@ -83,6 +83,8 @@ const CONFERMA = require('../lib/conferma-email');
    SMS, una sola iscrizione per email e per numero, due iscrizioni al massimo
    per codice invito. Tutto in lib/iscrizione-verificata.js. */
 const VERIFICATA = require('../lib/iscrizione-verificata');
+// la casella "non sono un robot" prima dell'SMS (lib/captcha.js)
+const CAPTCHA = require('../lib/captcha');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -165,17 +167,26 @@ function troppiSalvataggi(idDoc) {
 const RL_FINESTRA_MS = 10 * 60 * 1000;
 const RL_MAX = 8;
 const invii = new Map();
-function troppiInvii(ip) {
+/* Il modulo di Milano (iscrizioni verificate) ha un freno suo, piu' largo:
+   chi si iscrive li' fa tre o quattro richieste (codice invito, SMS, invio),
+   e quattro colleghi dallo stesso ufficio consumerebbero le otto di tutti.
+   Il freno vero agli SMS sono il CAPTCHA e i limiti per numero
+   (lib/iscrizione-verificata.js). */
+const RL_MAX_VERIFICATE = 30;
+const inviiVerificate = new Map();
+function troppiInvii(ip, mappa, max) {
     if (!ip) return false;
+    mappa = mappa || invii;
+    max = max || RL_MAX;
     const ora = Date.now();
-    const elenco = (invii.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
-    if (elenco.length >= RL_MAX) { invii.set(ip, elenco); return true; }
+    const elenco = (mappa.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
+    if (elenco.length >= max) { mappa.set(ip, elenco); return true; }
     elenco.push(ora);
-    invii.set(ip, elenco);
+    mappa.set(ip, elenco);
     // pulizia: non lasciamo crescere la mappa all'infinito
-    if (invii.size > 500) {
-        for (const [k, v] of invii) {
-            if (!v.length || ora - v[v.length - 1] > RL_FINESTRA_MS) invii.delete(k);
+    if (mappa.size > 500) {
+        for (const [k, v] of mappa) {
+            if (!v.length || ora - v[v.length - 1] > RL_FINESTRA_MS) mappa.delete(k);
         }
     }
     return false;
@@ -1554,7 +1565,11 @@ module.exports = async (req, res) => {
         const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
         if (dalDesk) {
             if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
-        } else if (!conFirma && !soloLettura && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina)
+            ? troppiInvii(ip, inviiVerificate, RL_MAX_VERIFICATE)
+            : troppiInvii(ip))) {
+            res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati: riprova fra qualche minuto.' }); return;
+        }
 
         // completamento dei dati (dal collegamento personale nella mail): altra
         // azione, stessa funzione. I form del sito non mandano "azione", quindi
@@ -1609,6 +1624,18 @@ module.exports = async (req, res) => {
            "sms-verifica" lo controlla e rende la firma del numero che il
            modulo rimanda con l'iscrizione. */
         if (azione === 'sms-invia' || azione === 'sms-verifica') {
+            if (azione === 'sms-invia') {
+                const c = await CAPTCHA.verifica(body.captcha, ip);
+                if (!c.ok) {
+                    res.status(400).json({
+                        ok: false, captchaKo: true,
+                        msg: c.motivo === 'servizio'
+                            ? 'Non riusciamo a controllare la casella «Non sono un robot»: riprova fra qualche secondo.'
+                            : 'Conferma la casella «Non sono un robot» qui sopra, poi premi di nuovo «Invia il codice».'
+                    });
+                    return;
+                }
+            }
             const credS = leggiServiceAccount();
             initAdmin(credS);
             const r = azione === 'sms-invia'
