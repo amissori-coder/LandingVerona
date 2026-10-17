@@ -116,9 +116,16 @@
             function blocco(i, dati, intestatario) {
                 dati = dati || {};
                 var righe = CAMPI.map(function (c) {
-                    var blocca = intestatario && c.id === 'email';
+                    /* L'email dell'intestatario e' l'identita' dell'iscrizione; il
+                       cellulare, quando e' stato verificato con il codice SMS, e' quello
+                       che ha ricevuto il codice. Tutti e due restano come sono: il
+                       servizio comunque non li cambierebbe. */
+                    var bloccaEmail = intestatario && c.id === 'email';
+                    var bloccaTel = intestatario && c.id === 'telefono' && dati.telefonoBloccato;
+                    var blocca = bloccaEmail || bloccaTel;
                     return '<div class="campo"><label for="p' + i + '-' + c.id + '">' + c.et
-                        + (blocca ? ' (non modificabile: è l\'indirizzo di questa iscrizione)' : '') + '</label>'
+                        + (bloccaEmail ? ' (non modificabile: è l\'indirizzo di questa iscrizione)' : '')
+                        + (bloccaTel ? ' (non modificabile: verificato con il codice SMS)' : '') + '</label>'
                         + '<input id="p' + i + '-' + c.id + '" type="' + (c.tipo || 'text') + '" value="' + esc(dati[c.id] || '') + '"'
                         + (blocca ? ' readonly' : '') + (c.ph ? ' placeholder="' + esc(c.ph) + '"' : '') + '>'
                         + '</div>';

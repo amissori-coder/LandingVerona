@@ -1316,6 +1316,8 @@ async function completaIscrizione(azione, body, res, ip) {
                 email: String(scheda.email || ''),
                 azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
                 telefono: String(scheda.telefono || ''),
+                // il cellulare verificato per SMS non si cambia: la pagina lo mostra bloccato
+                telefonoBloccato: !!scheda.telefonoVerificato,
                 annullato: !!scheda.annullato
             },
             // un elemento per posto (2..N): dati gia' scritti, segnaposto di un
