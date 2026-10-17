@@ -53,6 +53,94 @@ function nomeEvento(pagina) {
     return p || 'Next Generation Business';
 }
 
+/* ============================================================
+   LA GRAFICA DELLA PAGINA DELL'EVENTO
+   Le mail dell'iscrizione a un evento con la sua pagina "nuova" (oggi
+   Milano 2027) si vestono come la pagina: testata blu notte con il logo
+   bianco, "Next Generation Business" con la seconda parola in azzurro, il
+   tema della giornata, la fascia con data, sede e partecipazione, e il piede
+   scuro con il nome dell'evento - gli stessi colori e lo stesso carattere
+   (Montserrat, dove il programma di posta lo carica; altrimenti Arial) di
+   milano_febbraio_2027/styles.css. Chi apre la mail dopo la pagina deve
+   riconoscerla al primo sguardo.
+   Vale per le tre mail dell'iscrizione dal sito: richiesta di conferma,
+   invito, variazioni. Le altre (incontri B2B, eventi senza tema) restano
+   con la testata di sempre.
+   ============================================================ */
+const TEMI_EVENTO = [
+    {
+        se: /milano/i,
+        notte: '#08213A', azzurro: '#7DB8EE', azzurroChiaro: '#B9DAF7', suNotte: '#C9D6E3',
+        occhiello: 'Milano &middot; 26 febbraio 2027',
+        tema: 'Merito creditizio, crescita e competitività delle imprese',
+        dati: [['Data', 'Venerdì 26 febbraio 2027'], ['Orario', '8.30 - 18.00'], ['Sede', 'Excelsior Hotel Gallia, Milano']],
+        piede: 'Milano &middot; 26 febbraio 2027 &middot; Excelsior Hotel Gallia',
+        pagina: 'https://nextgenerationbusiness.it/milano_febbraio_2027/'
+    }
+];
+function temaEvento(pagina) {
+    return TEMI_EVENTO.find(t => t.se.test(String(pagina || ''))) || null;
+}
+const TITOLI = "Montserrat, Arial, 'Helvetica Neue', Helvetica, sans-serif";
+
+function testataEvento(t, titolo, sommario) {
+    const occh = 'font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:12px;line-height:18px;letter-spacing:2.4px;text-transform:uppercase;font-weight:bold;';
+    const cella = (et, val, primo) => '<td class="hd" valign="top" width="33%" style="padding:14px 14px 14px ' + (primo ? '0' : '16px') + ';'
+        + (primo ? '' : 'border-left:1px solid #2B4560;') + '">'
+        + '<div style="' + FONTE + 'font-size:11px;line-height:16px;letter-spacing:1.6px;text-transform:uppercase;color:' + t.azzurro + ';font-weight:bold;">' + esc(et) + '</div>'
+        + '<div style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:14px;line-height:20px;color:' + C.bianco + ';font-weight:bold;padding-top:4px;">' + esc(val) + '</div></td>';
+    return '<tr><td bgcolor="' + t.notte + '" class="px" style="background-color:' + t.notte + ';padding:26px ' + LATO + 'px 30px;">'
+        + tabella(
+            '<tr><td>' + tabella('<tr>'
+                + '<td valign="middle"><a href="' + t.pagina + '" style="text-decoration:none;"><img src="' + LOGO_BIANCO + '" width="130" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:130px;max-width:130px;height:auto;border:0;font-family:' + FONT + ';font-size:16px;font-weight:bold;color:' + C.bianco + ';"></a></td>'
+                + '<td valign="middle" align="right" style="' + occh + 'color:' + t.azzurroChiaro + ';text-align:right;font-size:11px;letter-spacing:1.6px;">' + t.occhiello + '</td>'
+                + '</tr>') + '</td></tr>'
+            + spazio(26)
+            + '<tr><td style="border-top:1px solid #2B4560;font-size:0;line-height:0;">&nbsp;</td></tr>'
+            + spazio(22)
+            + '<tr><td style="' + occh + 'color:' + t.azzurro + ';">' + esc(titolo) + '</td></tr>'
+            + spazio(10)
+            + '<tr><td class="h1" style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:32px;line-height:38px;color:' + C.bianco + ';font-weight:800;letter-spacing:-0.5px;">'
+            + 'Next Generation <span style="color:' + t.azzurro + ';">Business</span></td></tr>'
+            + spazio(8)
+            + '<tr><td style="' + FONTE + 'font-size:16px;line-height:24px;color:' + t.azzurroChiaro + ';">' + esc(t.tema) + '</td></tr>'
+            + spazio(20)
+            + '<tr><td style="border-top:1px solid #2B4560;border-bottom:1px solid #2B4560;">' + tabella('<tr>'
+                + t.dati.map((d, i) => cella(d[0], d[1], i === 0)).join('') + '</tr>') + '</td></tr>'
+            + spazio(22)
+            + '<tr><td class="lead par" style="' + FONTE + 'font-size:17px;line-height:28px;color:' + t.suNotte + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">' + esc(sommario) + '</td></tr>'
+        )
+        + '</td></tr>';
+}
+function piedeEvento(t, motivo) {
+    const riga = (stile, dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:13px;line-height:21px;' + stile + 'text-align:center;">' + dentro + '</td></tr>';
+    const link = 'color:' + t.azzurroChiaro + ';text-decoration:underline;';
+    return spazio(36) + '<tr><td class="px" bgcolor="' + t.notte + '" align="center" style="background-color:' + t.notte + ';padding:28px ' + LATO + 'px 28px;text-align:center;">'
+        + tabella(
+            '<tr><td align="center" style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:16px;line-height:22px;color:' + C.bianco + ';font-weight:800;text-align:center;">Next Generation Business</td></tr>'
+            + riga('color:' + t.azzurro + ';font-weight:bold;letter-spacing:1px;', t.piede)
+            + spazio(14)
+            + '<tr><td style="border-top:1px solid #2B4560;font-size:0;line-height:0;">&nbsp;</td></tr>'
+            + spazio(12)
+            + riga('color:' + t.suNotte + ';', esc(MITTENTE.nome) + ' &middot; ' + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+            + riga('color:' + t.suNotte + ';', '<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
+                + ' &nbsp;&middot;&nbsp; <a href="' + t.pagina + '" style="' + link + '">Pagina dell\'evento</a>')
+            + spazio(6)
+            + riga('color:#8FA3B8;font-size:12px;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+        )
+        + '</td></tr>';
+}
+// la testata e il piede giusti per la pagina: quelli dell'evento quando ce l'ha
+function testataPer(pagina, titolo, sommario) {
+    const t = temaEvento(pagina);
+    return t ? testataEvento(t, titolo, sommario) : testata(titolo, sommario);
+}
+function piedePer(pagina, motivo) {
+    const t = temaEvento(pagina);
+    return t ? piedeEvento(t, motivo) : piede(motivo);
+}
+
 function involucro(oggetto, anteprima, corpoInterno) {
     const preheader = '<div style="display:none;font-size:1px;color:' + C.sfondo + ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">'
         + esc(anteprima || '') + '&#8199;&#65279;&#847; '.repeat(30) + '</div>';
@@ -63,6 +151,8 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '<meta name="x-apple-disable-message-reformatting" content="" />\n'
         + '<meta name="color-scheme" content="light" />\n<meta name="supported-color-schemes" content="light" />\n'
         + '<title>' + esc(oggetto) + '</title>\n'
+        // Montserrat, il carattere dei titoli della pagina dell'evento: chi non lo carica usa Arial
+        + '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap" rel="stylesheet" type="text/css" />\n'
         + '<style type="text/css">\n'
         /* I telefoni ingrandiscono da se' il testo che giudicano piccolo, e
            nel farlo scompaginano la colonna: qui si dice di non farlo, perche'
@@ -84,7 +174,9 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '.par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}'
         /* le righe del riquadro si impilano: etichetta sopra, valore sotto */
         + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
-        + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}}\n'
+        + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}'
+        // la fascia data / orario / sede della testata dell'evento: una sotto l'altra
+        + '.hd{display:block!important;width:100%!important;border-left:0!important;padding:10px 0!important;}}\n'
         /* IL TESTO RESTA GIUSTIFICATO ANCHE SUL TELEFONO, come nelle mail
            composte dall'area riservata: e' una scelta di chi firma le lettere.
            Qui sotto resta solo la colonna dell'ora, che e' una larghezza e non
@@ -301,7 +393,7 @@ function confermaSito(dati, link, linkConferma) {
             ? 'La tua richiesta è registrata. Conferma il tuo indirizzo dal pulsante qui sopra: riceverai subito l\'invito in PDF da esibire all\'ingresso. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante in fondo puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
             : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.');
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
-        testata(linkConferma ? 'Richiesta di conferma' : 'Iscrizione ricevuta', sommario)
+        testataPer(dati.pagina, linkConferma ? 'Richiesta di conferma' : 'Iscrizione ricevuta', sommario)
         + corpo(
             /* Prima di tutto la conferma dell'indirizzo, quando c'e' il
                collegamento: e' l'unica cosa che chiediamo di fare, e sta
@@ -324,7 +416,7 @@ function confermaSito(dati, link, linkConferma) {
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
-        + piede(MOTIVO));
+        + piedePer(dati.pagina, MOTIVO));
     const testo = [linkConferma ? 'RICHIESTA DI CONFERMA' : 'ISCRIZIONE RICEVUTA', sommario,
         // nella versione testo il collegamento di conferma sta sulla prima riga utile
         linkConferma ? 'Conferma il tuo indirizzo email (un clic): ' + linkConferma : '',
@@ -360,7 +452,7 @@ function invitoIngresso(dati, link) {
         : 'In allegato trovi il tuo invito in PDF: esibiscilo al desk all\'ingresso, anche dal telefono, e ti consegniamo il badge. Se qualcosa cambia, dal pulsante qui sotto puoi correggere i tuoi dati o annullare la partecipazione, senza scriverci.';
     const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
     const html = involucro(oggetto, online ? 'Indirizzo confermato: la tua partecipazione online è registrata.' : 'Il tuo invito a ' + evento + ' è in allegato: esibiscilo all\'ingresso.',
-        testata(online ? 'Indirizzo confermato' : 'Il tuo invito', sommario)
+        testataPer(dati.pagina, online ? 'Indirizzo confermato' : 'Il tuo invito', sommario)
         + corpo(
             paragrafo(apertura)
             + spazio(22)
@@ -380,7 +472,7 @@ function invitoIngresso(dati, link) {
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
-        + piede(MOTIVO));
+        + piedePer(dati.pagina, MOTIVO));
     const testo = [online ? 'INDIRIZZO CONFERMATO' : 'IL TUO INVITO', sommario, apertura,
         'Evento: Next Generation Business - ' + evento
         + (ev.quando ? '\nGiorno: ' + ev.quando : '') + (ev.orario ? '\nOrario: ' + ev.orario : '') + (dove ? '\nDove: ' + dove : '')
@@ -421,7 +513,7 @@ function confermaVariazioni(dati, link) {
         return rigaBox('Partecipante ' + (i + 1), chi + (p.azienda ? ' - ' + p.azienda : ''));
     }).join('');
     const html = involucro(oggetto, 'Iscrizione aggiornata: ' + dati.postiAttivi + (dati.postiAttivi === 1 ? ' posto' : ' posti') + ' per ' + evento + '.',
-        testata('Iscrizione aggiornata', sommario)
+        testataPer(dati.pagina, 'Iscrizione aggiornata', sommario)
         + corpo(
             '<tr><td>' + box(
                 rigaBox('Evento', 'Next Generation Business - ' + evento)
@@ -435,7 +527,7 @@ function confermaVariazioni(dati, link) {
             + spazio(24)
             + bottone('Modifica o annulla', link)
         )
-        + piede(MOTIVO));
+        + piedePer(dati.pagina, MOTIVO));
     const testo = ['ISCRIZIONE AGGIORNATA', sommario,
         'Posti attivi: ' + dati.postiAttivi + '\n'
         + (dati.attivi || []).map((p, i) => 'Partecipante ' + (i + 1) + ': ' + (((p.nome || '') + ' ' + (p.cognome || '')).trim() || '-') + (p.azienda ? ' - ' + p.azienda : '')).join('\n')
