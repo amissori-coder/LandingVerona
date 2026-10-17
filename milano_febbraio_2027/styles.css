@@ -1033,16 +1033,19 @@ ul, ol { list-style: none; }
 .fatto-passo--ok .fatto-segno { background: #1F6B57; border-color: #1F6B57; color: var(--bianco); }
 .fatto-passo--attesa .fatto-segno { border-color: var(--blu-medio); color: var(--blu-medio); background: var(--azzurro-tenue); }
 .fatto-passo--attesa strong { color: var(--blu-medio); }
+/* il riepilogo come una tabella da documento: filetto blu notte in testa,
+   righe separate da un filetto sottile (come la mail e l'invito in PDF) */
 .fatto-riepilogo {
     margin-top: 28px;
-    padding: 20px 22px;
-    border-radius: 8px;
-    background: var(--carta);
-    border-left: 3px solid var(--blu-medio);
-    display: grid;
-    gap: 10px;
+    border-top: 2px solid var(--blu-notte);
 }
-.fatto-riepilogo > div { display: grid; grid-template-columns: 130px 1fr; gap: 12px; }
+.fatto-riepilogo > div {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--linea);
+}
 .fatto-riepilogo dt {
     font-family: var(--font-titoli);
     font-size: 0.68rem;
@@ -1052,7 +1055,7 @@ ul, ol { list-style: none; }
     color: var(--testo-tenue);
     padding-top: 2px;
 }
-.fatto-riepilogo dd { font-size: 0.92rem; font-weight: 600; color: var(--testo); }
+.fatto-riepilogo dd { font-size: 0.95rem; font-weight: 700; color: var(--blu-notte); }
 .fatto-azioni { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 .fatto-nota { margin-top: 22px; font-size: 0.84rem; line-height: 1.6; color: var(--testo-tenue); }
 .fatto-nota a { color: var(--blu-medio); text-decoration: underline; }

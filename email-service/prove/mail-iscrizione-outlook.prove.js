@@ -53,6 +53,12 @@ for (const nome of Object.keys(mail)) {
     esigi(conClasse.length === 0, 'senza foglio di stile le celle con classe hanno ancora misure proprie', conClasse[0]);
     esigi(/bgcolor="#08213A"/.test(corpo) && /color:#FFFFFF/.test(corpo), 'il blu notte e il bianco sono scritti negli elementi');
     esigi(mail[nome].testo && mail[nome].testo.length > 100, 'c\'e\' anche la versione senza formattazione');
+    // niente testo sotto i 13px (le celle-filetto a 1px non sono testo)
+    const misure = (corpo.replace(/<div style="display:none[^>]*>[\s\S]*?<\/div>/, '')
+        .replace(/<td[^>]*mso-line-height-rule:exactly;font-size:1px;[^>]*>&nbsp;<\/td>/g, '')
+        .match(/font-size:(\d+)px/g) || []).map(x => parseInt(x.replace(/\D/g, ''), 10));
+    esigi(Math.min.apply(null, misure) >= 13, 'niente testo sotto i 13px', Array.from(new Set(misure)).sort((a, b) => a - b).join(' '));
+    esigi(!/border-left:3px/.test(corpo), 'il riquadro non ha la barra laterale');
 }
 
 console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
