@@ -53,11 +53,12 @@ function contenutoPagina(dati) {
     const cimaChi = f.y;
     const sotto = [d.azienda, d.ruolo].filter(Boolean).join(' · ');
     const altoChi = sotto ? 76 : 58;
-    f.rettangolo(LATO, cimaChi, DENTRO, altoChi, C.chiaro);
-    f.rettangolo(LATO, cimaChi, 3, altoChi, C.accento);
-    occhiello('INTESTATO A', cimaChi + 22, LATO + 18);
-    f.testo(d.nome || 'Ospite', { alto: cimaChi + 44, x: LATO + 18, corpo: 18, grassetto: true, colore: C.scuro });
-    if (sotto) f.testo(sotto, { alto: cimaChi + 62, x: LATO + 18, corpo: 10.5, colore: C.tenue });
+    // come le tabelle dello studio: filetto scuro sopra, filetto sottile sotto, niente fondo
+    f.rettangolo(LATO, cimaChi, DENTRO, 2, C.scuro);
+    f.linea(LATO, cimaChi + altoChi, A4.larghezza - LATO, C.bordo, 0.8);
+    occhiello('INTESTATO A', cimaChi + 22);
+    f.testo(d.nome || 'Ospite', { alto: cimaChi + 44, corpo: 18, grassetto: true, colore: C.scuro });
+    if (sotto) f.testo(sotto, { alto: cimaChi + 62, corpo: 10.5, colore: C.tenue });
     f.y = cimaChi + altoChi + 30;
 
     // --- i dati della giornata, in tabella con filetti ---

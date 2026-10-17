@@ -84,21 +84,21 @@ function temaEvento(pagina) {
 const TITOLI = "Montserrat, Arial, 'Helvetica Neue', Helvetica, sans-serif";
 
 function testataEvento(t, titolo, sommario) {
-    const occh = 'font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:12px;line-height:18px;letter-spacing:2.4px;text-transform:uppercase;font-weight:bold;';
+    const occh = 'font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:13px;line-height:18px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;';
     // niente <div>: Outlook li impagina a modo suo. Etichetta e valore sono due righe di tabella.
     const cella = (et, val, primo) => '<td class="hd" valign="top" width="33%" bgcolor="' + t.notte + '" style="padding:14px 14px 14px ' + (primo ? '0' : '16px') + ';'
         + 'background-color:' + t.notte + ';' + (primo ? '' : 'border-left:1px solid ' + t.filetto + ';') + '">'
-        + tabella('<tr><td style="' + FONTE + 'font-size:11px;line-height:16px;letter-spacing:1.6px;text-transform:uppercase;color:' + t.azzurro + ';font-weight:bold;">' + esc(et) + '</td></tr>'
+        + tabella('<tr><td style="' + FONTE + 'font-size:13px;line-height:18px;letter-spacing:1.2px;text-transform:uppercase;color:' + t.azzurro + ';font-weight:bold;">' + esc(et) + '</td></tr>'
             + '<tr><td style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:14px;line-height:20px;color:' + C.bianco + ';font-weight:bold;padding-top:4px;">' + esc(val) + '</td></tr>')
         + '</td>';
     // un filetto che regge in Outlook: una cella alta un pixel con il colore di fondo
-    const filetto = '<tr><td height="1" bgcolor="' + t.filetto + '" style="height:1px;font-size:1px;line-height:1px;background-color:' + t.filetto + ';">&nbsp;</td></tr>';
+    const filetto = '<tr><td height="1" bgcolor="' + t.filetto + '" style="mso-line-height-rule:exactly;font-size:1px;line-height:1px;height:1px;background-color:' + t.filetto + ';">&nbsp;</td></tr>';
     return '<tr><td bgcolor="' + t.notte + '" class="px" style="background-color:' + t.notte + ';padding:26px ' + LATO + 'px 30px;">'
         + tabella(
             '<tr><td>' + tabella('<tr>'
                 + '<td valign="middle"><a href="' + t.pagina + '" style="text-decoration:none;"><img src="' + LOGO_BIANCO + '" width="130" alt="Revilaw - Revisione legale" '
                 + 'style="display:block;width:130px;max-width:130px;height:auto;border:0;font-family:' + FONT + ';font-size:16px;font-weight:bold;color:' + C.bianco + ';"></a></td>'
-                + '<td valign="middle" align="right" style="' + occh + 'color:' + t.azzurroChiaro + ';text-align:right;font-size:11px;letter-spacing:1.6px;">' + t.occhiello + '</td>'
+                + '<td valign="middle" align="right" style="' + occh + 'color:' + t.azzurroChiaro + ';text-align:right;font-size:13px;letter-spacing:1.2px;">' + t.occhiello + '</td>'
                 + '</tr>') + '</td></tr>'
             + spazio(26) + filetto + spazio(22)
             + '<tr><td style="' + occh + 'color:' + t.azzurro + ';">' + esc(titolo) + '</td></tr>'
@@ -124,13 +124,13 @@ function piedeEvento(t, motivo) {
             '<tr><td align="center" style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:16px;line-height:22px;color:' + C.bianco + ';font-weight:800;text-align:center;">Next Generation Business</td></tr>'
             + riga('color:' + t.azzurro + ';font-weight:bold;letter-spacing:1px;', t.piede)
             + spazio(14)
-            + '<tr><td height="1" bgcolor="' + t.filetto + '" style="height:1px;font-size:1px;line-height:1px;background-color:' + t.filetto + ';">&nbsp;</td></tr>'
+            + '<tr><td height="1" bgcolor="' + t.filetto + '" style="mso-line-height-rule:exactly;font-size:1px;line-height:1px;height:1px;background-color:' + t.filetto + ';">&nbsp;</td></tr>'
             + spazio(12)
             + riga('color:' + t.suNotte + ';', esc(MITTENTE.nome) + ' &middot; ' + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
             + riga('color:' + t.suNotte + ';', '<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
                 + ' &nbsp;&middot;&nbsp; <a href="' + t.pagina + '" style="' + link + '">Pagina dell\'evento</a>')
             + spazio(6)
-            + riga('color:#8FA3B8;font-size:12px;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            + riga('color:#8FA3B8;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
         )
         + '</td></tr>';
 }
@@ -184,8 +184,9 @@ function involucro(oggetto, anteprima, corpoInterno) {
            buchi bianchi sulla colonna stretta. */
         + '.par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}'
         /* le righe del riquadro si impilano: etichetta sopra, valore sotto */
-        + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
-        + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}'
+        // sul telefono il filetto sta solo sotto il valore, non fra etichetta e valore
+        + '.bxet{display:block!important;width:100%!important;padding:12px 0 2px!important;line-height:18px!important;border-bottom:0!important;}'
+        + '.bxv{display:block!important;width:100%!important;padding:0 0 12px!important;}'
         // la fascia data / orario / sede della testata dell'evento: una sotto l'altra
         + '.hd{display:block!important;width:100%!important;border-left:0!important;padding:10px 0!important;}}\n'
         /* IL TESTO RESTA GIUSTIFICATO ANCHE SUL TELEFONO, come nelle mail
@@ -237,16 +238,21 @@ function testata(titolo, sommario) {
    le due celle si impilano (classi bxet/bxv nel foglio di stile): con la
    colonna dell'etichetta larga 150px su 400 di schermo, un indirizzo finiva su
    quattro righe strette. */
+/* IL RIQUADRO DEI DATI e' una tabella da documento, come quella dell'invito
+   in PDF: un filetto blu notte in testa, le righe separate da un filetto
+   sottile, l'etichetta piccola in maiuscolo e il valore in grassetto. Niente
+   fondo e niente barra laterale: si legge come un modulo dello studio, non
+   come un avviso. Le linee sono bordi delle CELLE, che Outlook disegna. */
 function rigaBox(et, val) {
     if (!val) return '';
-    return '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + esc(et) + '</td>'
-        + '<td class="bxv" valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';padding:5px 0;">' + esc(val) + '</td></tr>';
+    const riga = 'border-bottom:1px solid ' + C.bordo + ';';
+    return '<tr><td class="bxet" width="140" valign="top" style="' + FONTE + 'font-size:13px;line-height:22px;letter-spacing:1px;text-transform:uppercase;color:' + C.tenue + ';font-weight:bold;padding:12px 14px 12px 0;' + riga + '">' + esc(et) + '</td>'
+        + '<td class="bxv" valign="top" style="' + FONTE + 'font-size:16px;line-height:22px;color:' + C.scuro + ';font-weight:bold;padding:12px 0;' + riga + '">' + esc(val) + '</td></tr>';
 }
 function box(righe) {
-    // bordi e fondo sulla CELLA, con bgcolor: e' cosi' che Outlook li disegna
     return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
-        + '<tr><td bgcolor="' + C.chiaro + '" style="padding:16px 22px;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
-        + tabella(righe) + '</td></tr></table>';
+        + '<tr><td colspan="2" height="2" bgcolor="' + C.scuro + '" style="mso-line-height-rule:exactly;font-size:1px;line-height:2px;height:2px;background-color:' + C.scuro + ';">&nbsp;</td></tr>'
+        + righe + '</table>';
 }
 /* GIUSTIFICATO, con la sillabazione richiesta: e' il modo in cui questo studio
    scrive. Senza sillabazione giustificare allarga gli spazi fra le parole
