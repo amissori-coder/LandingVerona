@@ -196,7 +196,7 @@ const MSG = {
    Il numero va senza il +. Il mittente e' alfanumerico (11 caratteri al
    massimo) e in Italia va registrato presso l'operatore: vedi README. */
 function mittenteSms() {
-    return String(process.env.SMS_MITTENTE || 'NGBusiness').replace(/[^0-9A-Za-z ]/g, '').slice(0, 11) || 'NGBusiness';
+    return String(process.env.SMS_MITTENTE || 'Revilaw').replace(/[^0-9A-Za-z ]/g, '').slice(0, 11) || 'Revilaw';
 }
 async function spedisciSms(numero, contenuto) {
     if (!NL.brevoAttivo()) return { ok: false, errore: 'BREVO_API_KEY mancante' };

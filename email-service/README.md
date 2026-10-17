@@ -1317,7 +1317,7 @@ SMS** (Brevo → SMS), senza crediti l'invio risponde `402` e il modulo dice
 
 | Nome | Valore |
 |---|---|
-| `SMS_MITTENTE` | il mittente che compare sul telefono, fino a 11 lettere e cifre (predefinito `NGBusiness`) |
+| `SMS_MITTENTE` | il mittente che compare sul telefono, fino a 11 lettere e cifre (predefinito `Revilaw`, il mittente registrato su Brevo per l'Italia: deve restare identico, maiuscole comprese) |
 | `SMS_MAX_GIORNO` | tetto di SMS al giorno per tutto il servizio (predefinito 1000) |
 | `TURNSTILE_SECRET` | la chiave **segreta** di Cloudflare Turnstile (vedi sotto). Senza, il CAPTCHA e' spento |
 
