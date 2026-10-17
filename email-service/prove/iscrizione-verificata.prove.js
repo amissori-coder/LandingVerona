@@ -206,7 +206,7 @@ prova('Il codice SMS parte, non torna nella risposta, e si verifica', async () =
     const a = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '333 111 2222', email: 'anna@studio.it' });
     esigi(a.stato === 200 && a.corpo.ok, 'l\'SMS parte', JSON.stringify(a.corpo));
     esigi(sms.length === 1 && sms[0].recipient === '393331112222', 'al numero giusto, senza il +', JSON.stringify(sms[0]));
-    esigi(/Milano/.test(sms[0].content) && /10 minuti/.test(sms[0].content), 'il testo dice evento e scadenza');
+    esigi(/Next Generation Business\./.test(sms[0].content) && !/Milano/.test(sms[0].content) && /10 minuti/.test(sms[0].content), 'il testo dice evento e scadenza, senza la citta\'', sms[0].content);
     const codice = ultimoCodice();
     esigi(!JSON.stringify(a.corpo).includes(codice), 'la risposta non contiene il codice');
     esigi(a.corpo.numero === '+39 333 ••• 2222', 'e il numero torna mascherato', a.corpo.numero);

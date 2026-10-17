@@ -215,8 +215,9 @@ async function spedisciSms(numero, contenuto) {
         return { ok: false, errore: String((e && e.message) || e).slice(0, 200) };
     }
 }
+// il testo non nomina la citta': e' lo stesso per ogni evento, e cosi' e' stato registrato su Brevo
 function testoSms(ev, codice) {
-    return codice + ' è il codice per confermare l\'iscrizione a Next Generation Business ' + ev.nome
+    return codice + ' è il codice per confermare l\'iscrizione a Next Generation Business'
         + '. Scade fra 10 minuti. Non comunicarlo a nessuno.';
 }
 
