@@ -187,12 +187,13 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
         + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
         + 'img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}\n'
-        /* Se un programma di posta trasforma comunque qualcosa in collegamento,
-           che prenda il colore del testo intorno e non il blu di sistema
-           (Apple Mail, Gmail, Samsung). */
+        /* Se Apple Mail trasforma comunque qualcosa in collegamento, che prenda
+           il colore del testo intorno e non il blu di sistema. SOLO per i
+           collegamenti che aggiunge lui (x-apple-data-detectors): una regola
+           su tutti i collegamenti, come quelle che si trovano in giro per
+           Gmail, fa prendere al testo dei PULSANTI il colore scuro del
+           paragrafo, e la scritta sparisce sul blu (successo). */
         + 'a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font-size:inherit!important;font-family:inherit!important;font-weight:inherit!important;line-height:inherit!important;}\n'
-        + 'u + #corpo a{color:inherit!important;text-decoration:none!important;font-size:inherit!important;font-family:inherit!important;font-weight:inherit!important;line-height:inherit!important;}\n'
-        + '#MessageViewBody a{color:inherit;text-decoration:none;font-size:inherit;font-family:inherit;font-weight:inherit;line-height:inherit;}\n'
         + '@media only screen and (max-width:620px){.wrap{width:100%!important;max-width:100%!important;}'
         + '.px{padding-left:24px!important;padding-right:24px!important;}'
         + '.h1{font-size:24px!important;line-height:31px!important;}'
@@ -289,7 +290,7 @@ function bottone(testoBtn, url) {
            applicano al collegamento, e tutto il pulsante resta cliccabile. */
         + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';mso-padding-alt:14px 30px;">'
         + '<a href="' + esc(url) + '" style="display:inline-block;padding:14px 30px;mso-padding-alt:0;font-family:' + FONT
-        + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">' + esc(testoBtn) + '</a>'
+        + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';"><span style="color:#ffffff;text-decoration:none;">' + esc(testoBtn) + '</span></a>'
         + '</td></tr></table></td></tr>';
 }
 /* IL BLOCCO "CONFERMA IL TUO INDIRIZZO", in cima alla conferma di iscrizione.
@@ -317,12 +318,16 @@ function bloccoConferma(url, online) {
         + '<tr><td bgcolor="' + C.chiaro + '" style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
         + '<td align="center" valign="middle" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;mso-padding-alt:13px 16px;">'
-        + '<a href="' + esc(url) + '" style="display:block;padding:13px 16px;mso-padding-alt:0;font-family:' + FONT
-        + ';font-size:17px;line-height:22px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Conferma il tuo indirizzo email</a>'
+        /* Il testo bianco sta anche in uno <span> suo: se un programma di posta
+           ricolora i collegamenti, lo span tiene il bianco sul blu. */
+        + '<a href="' + esc(url) + '" style="display:block;padding:14px 16px;mso-padding-alt:0;font-family:' + FONT
+        + ';font-size:17px;line-height:22px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">'
+        + '<span style="color:#ffffff;text-decoration:none;">Conferma il tuo indirizzo email</span></a>'
         + '</td></tr></table></td></tr>'
-        + '<tr><td bgcolor="' + C.chiaro + '" style="' + FONTE + 'padding:0 22px 16px;font-size:13px;line-height:20px;color:' + C.tenue + ';background-color:' + C.chiaro + ';word-break:break-all;text-align:left;">'
-        + 'Se il pulsante non funziona, copia questo indirizzo nel browser:<br>'
-        + '<a href="' + esc(url) + '" style="color:' + C.accento + ';text-decoration:underline;">' + esc(url) + '</a></td></tr>'
+        /* Niente piu' l'indirizzo lungo da copiare sotto il pulsante: illeggibile
+           sul telefono. Chi non puo' toccare il pulsante lo trova nella versione
+           di solo testo della mail, e c'e' sempre info@. */
+        + spazio(14).replace('<tr><td ', '<tr><td bgcolor="' + C.chiaro + '" ')
         + '</table></td></tr>';
 }
 /* Un'etichetta di sezione: piccola, maiuscola, con il filetto sotto. Serve a
