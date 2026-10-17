@@ -84,6 +84,15 @@ const db = {
     collection(coll) {
         return Object.assign(interroga(coll, [], 0), { doc: id => doc(coll, id) });
     },
+    async getAll(...rif) { return Promise.all(rif.map(r => r.get())); },
+    batch() {
+        const op = [];
+        return {
+            set: (r, patch, opz) => op.push(() => r.set(patch, opz)),
+            delete: r => op.push(async () => { dati.delete(r._chiave); }),
+            commit: async () => { for (const f of op) await f(); }
+        };
+    },
     async runTransaction(fn) {
         // le scritture si applicano alla fine, come in Firestore
         const scritture = [];
@@ -397,6 +406,25 @@ prova('Il freno per IP di Milano e\' piu\' largo di quello degli altri moduli', 
         if (stato === 429) respinte++;
     }
     esigi(respinte === 4, 'per gli altri moduli restano otto', String(respinte));
+});
+
+prova('Dopo l\'iscrizione email e cellulare non si cambiano dal collegamento personale', async () => {
+    const NL = require(path.join(RADICE, 'lib/newsletter.js'));
+    const v = await verificaNumero('3456781234', 'fissa@studio.it');
+    const r = await iscrivi({ email: 'fissa@studio.it', telefono: '3456781234', smsToken: v.token, azienda: 'Gamma' });
+    esigi(r.corpo.ok, 'iscritto');
+    const k = [...dati.keys()].find(x => x.startsWith('iscrizioni/') && dati.get(x).email === 'fissa@studio.it');
+    const idDoc = k.slice('iscrizioni/'.length);
+    const t = NL.firmaCompleta(idDoc);
+    const leggi = await chiama({ azione: 'completa-leggi', d: idDoc, t: t });
+    esigi(leggi.corpo.ok && leggi.corpo.capofila.telefonoBloccato === true, 'la pagina sa che il cellulare e\' bloccato', JSON.stringify(leggi.corpo.capofila));
+    const salva = await chiama({ azione: 'completa-salva', d: idDoc, t: t, partecipanti: [
+        { nome: 'Mario', cognome: 'Fisso', email: 'altra@studio.it', azienda: 'Gamma', ruolo: 'CFO', telefono: '3999999999' }] });
+    esigi(salva.corpo.ok, 'il salvataggio degli altri dati riesce', JSON.stringify(salva.corpo));
+    const dopo = dati.get(k);
+    esigi(dopo.email === 'fissa@studio.it', 'l\'email resta quella dell\'iscrizione', dopo.email);
+    esigi(dopo.telefono === '+39 345 678 1234', 'il cellulare resta quello verificato', dopo.telefono);
+    esigi(dopo.cognome === 'Fisso' && dopo.ruolo === 'CFO', 'gli altri dati invece si aggiornano');
 });
 
 prova('Napoli resta com\'era', async () => {

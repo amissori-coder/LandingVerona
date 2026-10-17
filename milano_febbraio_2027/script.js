@@ -33,11 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========================
     // CONTO ALLA ROVESCIA
-    // L'orario d'inizio non è ancora fissato: si conta fino all'inizio
-    // della giornata del 26 febbraio 2027 (ora di Milano).
+    // La giornata del 26 febbraio 2027 va dalle 8.30 alle 18.00 (ora di Milano).
     // ========================
-    const eventDate = new Date('2027-02-26T00:00:00+01:00').getTime();
-    const eventEnd = new Date('2027-02-27T00:00:00+01:00').getTime();
+    const eventDate = new Date('2027-02-26T08:30:00+01:00').getTime();
+    const eventEnd = new Date('2027-02-26T18:00:00+01:00').getTime();
     const countdownEl = document.getElementById('countdown');
     const daysEl = document.getElementById('days');
     const hoursEl = document.getElementById('hours');
@@ -50,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const distance = eventDate - now;
 
         if (distance < 0) {
-            const testo = now < eventEnd ? 'L\'evento è oggi' : 'L\'evento si è concluso';
+            const testo = now < eventEnd ? 'L\'evento è in corso' : 'L\'evento si è concluso';
             countdownEl.innerHTML = '<p>' + testo + '</p>';
             if (timer) clearInterval(timer);
             return;
@@ -519,8 +518,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---------- la conferma a video ----------
     /* Riepiloga cio' che la persona ha scritto (nome, email, azienda, il
        numero mascherato) e prepara la data in agenda: Google Calendar e un
-       file .ics per Outlook e Apple. L'orario non e' ancora fissato, quindi
-       la giornata entra come evento di un giorno intero. */
+       file .ics per Outlook e Apple, dalle 8.30 alle 18.00 ora di Milano
+       (scritte in UTC: a febbraio Milano e' un'ora avanti). */
     function riempiConferma(c) {
         const chi = (c.nome + ' ' + c.cognome).trim();
         $('fattoNome').textContent = c.nome ? ', ' + c.nome : '';
@@ -534,12 +533,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const dettagli = 'Merito creditizio, crescita e competitività delle imprese. Convegno, networking lunch e incontri B2B. '
             + 'Programma e orari: https://nextgenerationbusiness.it/milano_febbraio_2027/';
         $('fattoGoogle').href = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-            + '&text=' + encodeURIComponent(titolo) + '&dates=20270226/20270227'
+            + '&text=' + encodeURIComponent(titolo) + '&dates=20270226T073000Z/20270226T170000Z'
             + '&location=' + encodeURIComponent(luogo) + '&details=' + encodeURIComponent(dettagli);
         const esc = s => s.replace(/[\\;,]/g, m => '\\' + m);
         const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Revilaw//Next Generation Business//IT', 'BEGIN:VEVENT',
             'UID:ngb-milano-2027@nextgenerationbusiness.it', 'DTSTAMP:20261017T000000Z',
-            'DTSTART;VALUE=DATE:20270226', 'DTEND;VALUE=DATE:20270227',
+            'DTSTART:20270226T073000Z', 'DTEND:20270226T170000Z',
             'SUMMARY:' + esc(titolo), 'LOCATION:' + esc(luogo), 'DESCRIPTION:' + esc(dettagli),
             'URL:https://nextgenerationbusiness.it/milano_febbraio_2027/', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
         $('fattoIcs').href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
