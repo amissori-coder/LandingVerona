@@ -25,6 +25,8 @@
 
 // gli orari letti dalla frase: servono a mettere gli incontri in fila
 const { ordinaPerOrario, normalizzaTavoli, oreDaFrase } = require('./orari-b2b');
+// le larghezze vere dei caratteri, per il testo giustificato (lib/pdf-grafica.js)
+const { larghezzaEsatta } = require('./pdf-grafica');
 
 const A4 = { larghezza: 595.28, altezza: 841.89 };
 const LATO = 46;                       // margine sinistro e destro
@@ -90,6 +92,19 @@ function aCapo(testo, corpo, dentro) {
     if (riga) righe.push(riga);
     return righe.length ? righe : [''];
 }
+// come aCapo, ma sulle larghezze vere: serve al testo giustificato
+function aCapoEsatto(testo, corpo, dentro, grassetto) {
+    const parole = inLatin1(testo).split(' ').filter(x => x !== '');
+    const righe = [];
+    let riga = '';
+    parole.forEach(p => {
+        const prova = riga ? riga + ' ' + p : p;
+        if (riga && larghezzaEsatta(prova, corpo, grassetto) > dentro) { righe.push(riga); riga = p; }
+        else riga = prova;
+    });
+    if (riga) righe.push(riga);
+    return righe.length ? righe : [''];
+}
 /* Un testo lungo tagliato all'ultima parola intera. Serve alla domanda
    dell'impresa, che e' un campo libero: qualcuno ci scrive due righe, qualcuno
    venti, e venti righe spingerebbero fuori pagina l'incontro dopo. Si taglia
@@ -137,11 +152,15 @@ function Foglio() {
             this.colore(o.colore || C.testo);
             pezzi.push('BT ' + font + ' ' + corpo + ' Tf'
                 + (o.spazio ? ' ' + o.spazio + ' Tc' : ' 0 Tc')
+                + ' ' + (o.allarga ? o.allarga.toFixed(3) : '0') + ' Tw'
                 + ' ' + (o.x === undefined ? LATO : o.x).toFixed(2) + ' '
                 + (A4.altezza - (o.alto === undefined ? y : o.alto)).toFixed(2) + ' Td '
                 + stringaPdf(t) + ' Tj ET');
         },
-        /* Un paragrafo che va a capo da solo e fa scendere la quota. */
+        /* Un paragrafo che va a capo da solo e fa scendere la quota.
+           Con `giustifica` va a capo sulle larghezze VERE dei caratteri e
+           allarga gli spazi (operatore Tw) finche' ogni riga tocca il
+           margine destro; l'ultima resta come viene, come sulla carta. */
         paragrafo(t, opz) {
             const o = opz || {};
             const corpo = o.corpo || 11;
@@ -150,11 +169,28 @@ function Foglio() {
             // `alto` non si eredita: le righe di un paragrafo stanno una sotto
             // l'altra, non tutte alla stessa quota
             const stile = Object.assign({}, o, { corpo: corpo, alto: undefined });
+            if (o.giustifica) {
+                const righe = aCapoEsatto(t, corpo, dentro, !!o.grassetto);
+                righe.forEach((riga, i) => {
+                    const spazi = (riga.match(/ /g) || []).length;
+                    const resto = dentro - larghezzaEsatta(riga, corpo, !!o.grassetto);
+                    const tw = (i < righe.length - 1 && spazi && resto > 0) ? resto / spazi : 0;
+                    this.testo(riga, Object.assign({}, stile, { allarga: tw }));
+                    this.scendi(passo);
+                });
+                return y;
+            }
             aCapo(t, corpo, dentro).forEach(riga => {
                 this.testo(riga, stile);
                 this.scendi(passo);
             });
             return y;
+        },
+        /* Un'immagine gia' dichiarata nelle risorse della pagina (vedi
+           pdfDaFlusso, `immagini`), con l'angolo in alto a sinistra in x/alto. */
+        immagine(nome, x, alto, largo, altezza) {
+            pezzi.push('q ' + largo.toFixed(2) + ' 0 0 ' + altezza.toFixed(2) + ' '
+                + x.toFixed(2) + ' ' + (A4.altezza - alto - altezza).toFixed(2) + ' cm /' + nome + ' Do Q');
         },
         contenuto() { return pezzi.join('\n'); }
     };
@@ -399,17 +435,32 @@ function pdfPrenotazione(dati) {
 }
 /* Il file attorno a UN flusso di pagina: lo usa anche l'invito d'ingresso
    (lib/pdf-invito.js), che disegna la sua pagina con lo stesso Foglio. */
-function pdfDaFlusso(flusso, titolo) {
+/* `immagini` (facoltativo): { Nome: { larghezza, altezza, dati } } con
+   `dati` un JPEG in un Buffer; nella pagina si disegnano con f.immagine(). */
+function pdfDaFlusso(flusso, titolo, immagini) {
+    const nomi = Object.keys(immagini || {});
+    const PRIMA = 8;   // i primi sette oggetti sono quelli di sempre
+    const xobj = nomi.length
+        ? ' /XObject << ' + nomi.map((n, i) => '/' + n + ' ' + (PRIMA + i) + ' 0 R').join(' ') + ' >>'
+        : '';
     const oggetti = [
         '<< /Type /Catalog /Pages 2 0 R >>',
         '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
         '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + A4.larghezza + ' ' + A4.altezza + ']'
-        + ' /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>',
+        + ' /Resources << /Font << /F1 5 0 R /F2 6 0 R >>' + xobj + ' >> /Contents 4 0 R >>',
         '<< /Length ' + flusso.length + ' >>\nstream\n' + flusso + '\nendstream',
         '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
         '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
         '<< /Title ' + stringaPdf(titolo) + ' /Producer (Revilaw - Next Generation Business) >>'
     ];
+    // il JPEG entra cosi' com'e': il file si scrive in latin1, un byte per carattere
+    nomi.forEach(n => {
+        const im = immagini[n];
+        const b = Buffer.isBuffer(im.dati) ? im.dati : Buffer.from(im.dati);
+        oggetti.push('<< /Type /XObject /Subtype /Image /Width ' + im.larghezza + ' /Height ' + im.altezza
+            + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + b.length
+            + ' >>\nstream\n' + b.toString('latin1') + '\nendstream');
+    });
     let file = '%PDF-1.4\n%âãÏÓ\n';
     const scarti = [];
     oggetti.forEach((o, i) => {
@@ -419,8 +470,7 @@ function pdfDaFlusso(flusso, titolo) {
     const inizioXref = file.length;
     file += 'xref\n0 ' + (oggetti.length + 1) + '\n0000000000 65535 f \n';
     scarti.forEach(s => { file += String(s).padStart(10, '0') + ' 00000 n \n'; });
-    file += 'trailer\n<< /Size ' + (oggetti.length + 1) + ' /Root 1 0 R /Info '
-        + oggetti.length + ' 0 R >>\nstartxref\n' + inizioXref + '\n%%EOF\n';
+    file += 'trailer\n<< /Size ' + (oggetti.length + 1) + ' /Root 1 0 R /Info 7 0 R >>\nstartxref\n' + inizioXref + '\n%%EOF\n';
     return Buffer.from(file, 'latin1');
 }
 

@@ -10,93 +10,117 @@
    incontri B2B (lib/pdf-prenotazione.js spiega perche' scritto a mano
    e non con una libreria).
 
-   `dati`: { nome, azienda, ruolo, evento: {titolo, quando, luogo,
-   indirizzo, orario}, online, emessoIl }.
+   `dati`: { nome, azienda, ruolo, evento: {titolo, tema, quando, luogo,
+   indirizzo, orario, programma}, online, emessoIl }.
    ============================================================ */
 
-const { pdfDaFlusso, inLatin1, Foglio, aCapo, A4, LATO, DENTRO, C } = require('./pdf-prenotazione');
+const { pdfDaFlusso, inLatin1, Foglio, A4, LATO, DENTRO, C } = require('./pdf-prenotazione');
+// il logo dello studio e le larghezze vere dei caratteri (testo giustificato, allineamento a destra)
+const { LOGO, larghezzaEsatta } = require('./pdf-grafica');
 
+/* L'impaginato e' quello di un documento dello studio: testata bianca con il
+   logo Revilaw, filetti sottili invece di fondi pieni, i dati in tabella e
+   tutto il testo corrente GIUSTIFICATO, come nel resto del sito. Il solo
+   blocco scuro e' la riga per cui il foglio esiste: da presentare al desk. */
 function contenutoPagina(dati) {
     const d = dati || {};
     const ev = d.evento || {};
     const f = Foglio();
+    const DESTRA = A4.larghezza - LATO;
+    const aDestra = (t, opz) => {
+        const o = opz || {};
+        const largo = larghezzaEsatta(inLatin1(t), o.corpo || 11, !!o.grassetto) + (o.spazio || 0) * inLatin1(t).length;
+        f.testo(t, Object.assign({}, o, { x: DESTRA - largo }));
+    };
+    const occhiello = (t, alto, x) => f.testo(t, { alto: alto, x: x, corpo: 8, grassetto: true, colore: C.accento, spazio: 1.4 });
 
-    // --- testata scura ---
-    const altaTesta = 132;
-    f.rettangolo(0, 0, A4.larghezza, altaTesta, C.scuro);
-    f.testo('REVILAW', { alto: 44, corpo: 17, grassetto: true, colore: C.bianco, spazio: 2.2 });
-    f.testo('Revisione legale', { alto: 60, corpo: 9, colore: C.chiaroBlu, spazio: 1.1 });
-    f.testo('NEXT GENERATION BUSINESS', { alto: 92, corpo: 8.5, grassetto: true, colore: C.chiaroBlu, spazio: 1.6 });
-    f.testo(d.online ? 'La tua iscrizione' : 'Il tuo invito', { alto: 114, corpo: 20, grassetto: true, colore: C.bianco });
+    // --- testata: logo a sinistra, il convegno a destra ---
+    const largoLogo = 150;
+    const altoLogo = largoLogo * LOGO.altezza / LOGO.larghezza;
+    f.immagine('Logo', LATO, 40, largoLogo, altoLogo);
+    aDestra('NEXT GENERATION BUSINESS', { alto: 58, corpo: 8.5, grassetto: true, colore: C.scuro, spazio: 1.4 });
+    aDestra(ev.titolo || '', { alto: 73, corpo: 9, colore: C.tenue });
+    f.rettangolo(LATO, 104, DENTRO, 2, C.scuro);
+    f.rettangolo(LATO, 107, 64, 2, C.accento);
 
-    // --- di chi e' ---
-    f.y = altaTesta + 44;
-    f.testo('PARTECIPANTE', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
-    f.scendi(22);
-    f.paragrafo(d.nome || 'Ospite', { corpo: 19, grassetto: true, colore: C.scuro, passo: 24 });
-    const sotto = [d.azienda, d.ruolo].filter(Boolean).join(' - ');
-    if (sotto) f.paragrafo(sotto, { corpo: 11.5, colore: C.tenue, passo: 17 });
+    // --- titolo ---
+    occhiello(d.online ? 'CONFERMA DI ISCRIZIONE' : 'INVITO PERSONALE', 146);
+    f.testo('Next Generation Business', { alto: 176, corpo: 24, grassetto: true, colore: C.scuro });
+    f.y = 198;
+    if (ev.tema) f.paragrafo(ev.tema, { corpo: 12.5, colore: C.accento, passo: 17, giustifica: true });
 
-    // --- riquadro "quando e dove" ---
-    const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
-    const righeBox = [];
-    righeBox.push(['CONVEGNO', 'Next Generation Business - ' + (ev.titolo || '')]);
-    if (ev.quando) righeBox.push(['GIORNO', ev.quando]);
-    if (ev.orario) righeBox.push(['ORARIO', ev.orario]);
-    if (dove) righeBox.push(['DOVE', dove]);
-    righeBox.push(['PARTECIPAZIONE', d.online ? 'Online, in diretta' : 'In sala']);
-    const largoValore = DENTRO - 134;
-    const spezzate = righeBox.map(r => aCapo(r[1], 11, largoValore));
-    const altezza = 20 + spezzate.reduce((t, righe) => t + righe.length * 15 + 8, 0);
-    const cima = f.y + 8;
-    f.rettangolo(LATO, cima, DENTRO, altezza, C.chiaro);
-    f.rettangolo(LATO, cima, 3, altezza, C.accento);
-    let alto = cima + 22;
-    righeBox.forEach((r, i) => {
-        f.testo(r[0], { alto: alto, x: LATO + 18, corpo: 8, grassetto: true, colore: C.accento, spazio: 1 });
-        spezzate[i].forEach((riga, k) => {
-            f.testo(riga, { alto: alto + k * 15, x: LATO + 134, corpo: 11, grassetto: k === 0, colore: C.scuro });
-        });
-        alto += spezzate[i].length * 15 + 8;
+    // --- a chi e' intestato ---
+    f.scendi(18);
+    const cimaChi = f.y;
+    const sotto = [d.azienda, d.ruolo].filter(Boolean).join(' · ');
+    const altoChi = sotto ? 76 : 58;
+    f.rettangolo(LATO, cimaChi, DENTRO, altoChi, C.chiaro);
+    f.rettangolo(LATO, cimaChi, 3, altoChi, C.accento);
+    occhiello('INTESTATO A', cimaChi + 22, LATO + 18);
+    f.testo(d.nome || 'Ospite', { alto: cimaChi + 44, x: LATO + 18, corpo: 18, grassetto: true, colore: C.scuro });
+    if (sotto) f.testo(sotto, { alto: cimaChi + 62, x: LATO + 18, corpo: 10.5, colore: C.tenue });
+    f.y = cimaChi + altoChi + 30;
+
+    // --- i dati della giornata, in tabella con filetti ---
+    occhiello('LA GIORNATA', f.y);
+    f.scendi(10);
+    const righe = [];
+    if (ev.quando) righe.push(['Data', ev.quando]);
+    if (ev.orario) righe.push(['Orario', ev.orario]);
+    if (ev.luogo) righe.push(['Sede', ev.luogo]);
+    if (ev.indirizzo) righe.push(['Indirizzo', ev.indirizzo]);
+    if (ev.programma) righe.push(['Programma', ev.programma]);
+    righe.push(['Partecipazione', d.online ? 'Online, in diretta' : 'In presenza, su invito personale']);
+    const colValore = LATO + 120;
+    const largoValore = DESTRA - colValore;
+    righe.forEach(r => {
+        f.linea(LATO, f.y, DESTRA, C.bordo, 0.8);
+        f.scendi(18);
+        const altoRiga = f.y;
+        f.testo(r[0].toUpperCase(), { alto: altoRiga, corpo: 7.5, grassetto: true, colore: C.tenue, spazio: 1 });
+        f.y = altoRiga;
+        f.paragrafo(r[1], { x: colValore, dentro: largoValore, corpo: 10.5, grassetto: true, colore: C.scuro, passo: 14, giustifica: true });
+        f.scendi(-4);
     });
-    f.y = cima + altezza + 40;
+    f.linea(LATO, f.y, DESTRA, C.bordo, 0.8);
+    f.scendi(30);
 
-    // --- l'avviso: la riga per cui questo foglio esiste ---
+    // --- la riga per cui il foglio esiste ---
     if (d.online) {
-        f.testo('COME SEGUIRE I LAVORI', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
-        f.scendi(10);
-        f.linea(LATO, f.y, A4.larghezza - LATO, C.bordo, 1);
-        f.scendi(22);
-        f.paragrafo('Qualche giorno prima dell\'evento riceverai per email il collegamento e le istruzioni per seguire i lavori in diretta.',
-            { corpo: 11.5, colore: C.testo, passo: 17 });
+        occhiello('COME SEGUIRE I LAVORI', f.y);
+        f.scendi(20);
+        f.paragrafo('Qualche giorno prima dell\'evento riceverai per email il collegamento e le istruzioni per seguire i lavori in diretta. Conserva questa conferma: riporta i dati con cui ti sei iscritto.',
+            { corpo: 10.5, colore: C.testo, passo: 15.5, giustifica: true });
     } else {
-        const altoBox = 74;
-        f.rettangolo(LATO, f.y, DENTRO, altoBox, C.blu);
-        f.testo('DA ESIBIRE ALL\'INGRESSO', { alto: f.y + 28, x: LATO + 22, corpo: 9, grassetto: true, colore: C.chiaroBlu, spazio: 1.6 });
-        f.testo('Mostra questo foglio al desk, anche dal telefono.', { alto: f.y + 52, x: LATO + 22, corpo: 14, grassetto: true, colore: C.bianco });
+        const altoBox = 70;
+        f.rettangolo(LATO, f.y, DENTRO, altoBox, C.scuro);
+        f.testo('DA PRESENTARE ALL\'ACCREDITAMENTO', { alto: f.y + 26, x: LATO + 22, corpo: 8, grassetto: true, colore: C.chiaroBlu, spazio: 1.4 });
+        f.testo('Mostra questo invito al desk Revilaw, stampato o dal telefono.', { alto: f.y + 48, x: LATO + 22, corpo: 12.5, grassetto: true, colore: C.bianco });
         f.scendi(altoBox + 30);
-        f.testo('ALL\'ARRIVO', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
-        f.scendi(10);
-        f.linea(LATO, f.y, A4.larghezza - LATO, C.bordo, 1);
-        f.scendi(22);
-        f.paragrafo('Al desk Revilaw all\'ingresso della sala ti accreditiamo e ti consegniamo il badge. Se qualcosa cambia, dal collegamento personale nella mail di iscrizione puoi correggere i tuoi dati o annullare la partecipazione.',
-            { corpo: 11.5, colore: C.testo, passo: 17 });
+        occhiello('INFORMAZIONI UTILI', f.y);
+        f.scendi(20);
+        f.paragrafo('All\'ingresso della sala il personale Revilaw verifica l\'invito e consegna il badge nominativo. L\'invito è personale e vale per la persona indicata: chi desidera partecipare con un collega lo invita a iscriversi dalla pagina dell\'evento.',
+            { corpo: 10.5, colore: C.testo, passo: 15.5, giustifica: true });
+        f.scendi(6);
+        f.paragrafo('Se i tuoi programmi cambiano, dal collegamento personale nella mail di iscrizione puoi correggere i dati o annullare la partecipazione, liberando il posto per altri ospiti. Per qualunque informazione scrivi a info@nextgenerationbusiness.it.',
+            { corpo: 10.5, colore: C.testo, passo: 15.5, giustifica: true });
     }
 
     // --- piede ---
-    const altoPiede = A4.altezza - 66;
-    f.linea(LATO, altoPiede, A4.larghezza - LATO, C.bordo, 1);
-    f.testo('Revilaw S.p.A. - Via XX Settembre 9, 37129 Verona - C.F. 04641610235',
-        { alto: altoPiede + 18, corpo: 8.5, colore: C.tenue });
-    f.testo('Invito emesso il ' + (d.emessoIl || '') + ' - nextgenerationbusiness.it',
-        { alto: altoPiede + 31, corpo: 8.5, colore: C.tenue });
+    const altoPiede = A4.altezza - 64;
+    f.linea(LATO, altoPiede, DESTRA, C.bordo, 0.8);
+    f.testo('Revilaw S.p.A. · Via XX Settembre 9, 37129 Verona · P.IVA 04641610235',
+        { alto: altoPiede + 18, corpo: 8, colore: C.tenue });
+    f.testo('nextgenerationbusiness.it', { alto: altoPiede + 30, corpo: 8, grassetto: true, colore: C.accento });
+    aDestra('Documento personale e non cedibile', { alto: altoPiede + 18, corpo: 8, colore: C.tenue });
+    aDestra('Emesso il ' + (d.emessoIl || ''), { alto: altoPiede + 30, corpo: 8, colore: C.tenue });
 
     return f.contenuto();
 }
 
 function pdfInvito(dati) {
     const titolo = 'Invito Next Generation Business - ' + inLatin1((dati && dati.nome) || '');
-    return pdfDaFlusso(contenutoPagina(dati), titolo);
+    return pdfDaFlusso(contenutoPagina(dati), titolo, { Logo: LOGO });
 }
 // il nome del file allegato: solo lettere e numeri, che ogni client di posta apre
 function nomeFileInvito(nome) {

@@ -58,11 +58,13 @@ const INVITO = require('./pdf-invito');
 const DETTAGLI_EVENTO = [
     { se: /napoli/i, quando: 'Venerdì 2 ottobre 2026', orario: 'Registrazione dalle 9.00, lavori dalle 9.30 alle 17.30', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli' },
     // l'orario non e' ancora fissato: l'invito esce senza, e lo dira' il programma
-    { se: /milano/i, quando: 'Venerdì 26 febbraio 2027', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano' }
+    { se: /milano/i, quando: 'Venerdì 26 febbraio 2027', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, 20124 Milano',
+      tema: 'Merito creditizio, crescita e competitività delle imprese',
+      programma: 'Convegno, networking lunch e incontri B2B one-to-one' }
 ];
 function dettagliEvento(pagina) {
     const d = DETTAGLI_EVENTO.find(x => x.se.test(String(pagina || '')));
-    return d ? { quando: d.quando, orario: d.orario, luogo: d.luogo, indirizzo: d.indirizzo } : {};
+    return d ? { quando: d.quando, orario: d.orario, luogo: d.luogo, indirizzo: d.indirizzo, tema: d.tema, programma: d.programma } : {};
 }
 function trasporto() {
     return nodemailer.createTransport({
