@@ -57,8 +57,7 @@ const INVITO = require('./pdf-invito');
    nome. */
 const DETTAGLI_EVENTO = [
     { se: /napoli/i, quando: 'Venerdì 2 ottobre 2026', orario: 'Registrazione dalle 9.00, lavori dalle 9.30 alle 17.30', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli' },
-    // l'orario non e' ancora fissato: l'invito esce senza, e lo dira' il programma
-    { se: /milano/i, quando: 'Venerdì 26 febbraio 2027', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, 20124 Milano',
+    { se: /milano/i, quando: 'Venerdì 26 febbraio 2027', orario: 'Dalle 8.30 alle 18.00', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, 20124 Milano',
       tema: 'Merito creditizio, crescita e competitività delle imprese',
       programma: 'Convegno, networking lunch e incontri B2B one-to-one' }
 ];

@@ -42,7 +42,7 @@
             pagePath: 'milano_febbraio_2027',
             finestra: {
                 titolo: 'Merito creditizio, crescita e competitività delle imprese',
-                giorno: 'Venerdì 26 febbraio 2027',
+                giorno: 'Venerdì 26 febbraio 2027 · 8.30 - 18.00',
                 luogo: 'Excelsior Hotel Gallia, Milano',
                 punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
                 nota: 'Le iscrizioni sono aperte: il modulo è sulla pagina dell\'evento.',

@@ -1194,7 +1194,7 @@
         occhiello: 'Prossimo evento',
         citta: 'Milano',
         titolo: 'Merito creditizio, crescita e competitivit\u00e0 delle imprese',
-        giorno: 'Venerd\u00ec 26 febbraio 2027',
+        giorno: 'Venerd\u00ec 26 febbraio 2027 \u00b7 8.30 - 18.00',
         luogo: 'Excelsior Hotel Gallia, Milano',
         punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
         nota: 'Le iscrizioni sono aperte sulla pagina dell\'evento.',
