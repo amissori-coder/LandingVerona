@@ -185,7 +185,7 @@ async function giaIscrittoAMano(db, ev, email) {
 
 const MSG = {
     numero: 'Serve un numero di cellulare italiano (comincia con 3, per esempio 333 123 4567): il codice di verifica arriva per SMS.',
-    email: 'Con questo indirizzo email risulta già un\'iscrizione a questo evento. Per modificarla usa il collegamento nella mail di conferma, oppure scrivici a info@nextgenerationbusiness.it.',
+    email: 'Con questo indirizzo email risulta già un\'iscrizione a questo evento (anche se inserita dalla nostra segreteria). Per modificarla usa il collegamento nella mail di conferma, oppure scrivici a info@nextgenerationbusiness.it.',
     telefono: 'Questo numero di cellulare risulta già usato per un\'iscrizione a questo evento: ogni iscrizione richiede un numero suo. Se è un errore scrivici a info@nextgenerationbusiness.it.',
     codice: 'Questo codice invito è già stato usato per due iscrizioni, il massimo previsto. Puoi iscriverti lasciando vuoto il campo del codice, oppure scriverci a info@nextgenerationbusiness.it.',
     nonVerificato: 'Il numero di cellulare non risulta verificato, o la verifica è scaduta. Chiedi il codice SMS e scrivilo nel modulo prima di inviare.',
@@ -209,7 +209,17 @@ async function spedisciSms(numero, contenuto) {
                 content: contenuto, tag: 'verifica-iscrizione', unicodeEnabled: false
             }
         });
-        if (r.ok) return { ok: true };
+        /* Brevo risponde "accettato" anche quando poi l'operatore scarta il
+           messaggio (mittente non approvato, numero spento): nei log di Vercel
+           resta il riferimento da cercare nei Log SMS di Brevo, e i crediti
+           rimasti. Il numero non si scrive. */
+        if (r.ok) {
+            const d = r.dati || {};
+            console.log('SMS di verifica accettato da Brevo: messageId', d.messageId || '?',
+                '- riferimento', d.reference || '?', '- crediti usati', d.usedCredits == null ? '?' : d.usedCredits,
+                '- rimasti', d.remainingCredits == null ? '?' : d.remainingCredits, '- mittente', mittenteSms());
+            return { ok: true, id: d.messageId || null };
+        }
         return { ok: false, errore: 'Brevo ' + r.stato + ' ' + String(r.testo || '').slice(0, 150) };
     } catch (e) {
         return { ok: false, errore: String((e && e.message) || e).slice(0, 200) };
