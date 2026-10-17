@@ -225,10 +225,16 @@ async function spedisciSms(numero, contenuto) {
         return { ok: false, errore: String((e && e.message) || e).slice(0, 200) };
     }
 }
-// il testo non nomina la citta': e' lo stesso per ogni evento, e cosi' e' stato registrato su Brevo
+/* Il testo non nomina la citta': e' lo stesso per ogni evento, e cosi' e'
+   stato registrato su Brevo. L'ULTIMA RIGA e' per i telefoni: "@dominio
+   #codice" e' il formato con cui Android (WebOTP) e iPhone legano il codice
+   al sito, e lo propongono da soli nel modulo. Il dominio e' quello della
+   pagina; tutto il messaggio resta sotto i 160 caratteri (un SMS solo). */
+const DOMINIO_SITO = 'nextgenerationbusiness.it';
 function testoSms(ev, codice) {
     return codice + ' è il codice per confermare l\'iscrizione a Next Generation Business'
-        + '. Scade fra 10 minuti. Non comunicarlo a nessuno.';
+        + '. Scade fra 10 minuti. Non comunicarlo a nessuno.'
+        + '\n\n@' + DOMINIO_SITO + ' #' + codice;
 }
 
 /* Il tetto giornaliero di tutto il servizio: un contatore per giorno. */

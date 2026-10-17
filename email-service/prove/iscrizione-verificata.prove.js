@@ -216,6 +216,8 @@ prova('Il codice SMS parte, non torna nella risposta, e si verifica', async () =
     esigi(a.stato === 200 && a.corpo.ok, 'l\'SMS parte', JSON.stringify(a.corpo));
     esigi(sms.length === 1 && sms[0].recipient === '393331112222', 'al numero giusto, senza il +', JSON.stringify(sms[0]));
     esigi(/Next Generation Business\./.test(sms[0].content) && !/Milano/.test(sms[0].content) && /10 minuti/.test(sms[0].content), 'il testo dice evento e scadenza, senza la citta\'', sms[0].content);
+    esigi(/\n\n@nextgenerationbusiness\.it #\d{6}$/.test(sms[0].content), 'l\'ultima riga lega il codice al sito (lettura automatica su Android e iPhone)', JSON.stringify(sms[0].content.slice(-40)));
+    esigi(sms[0].content.length <= 160, 'e il messaggio sta in un SMS solo', String(sms[0].content.length));
     const codice = ultimoCodice();
     esigi(!JSON.stringify(a.corpo).includes(codice), 'la risposta non contiene il codice');
     esigi(a.corpo.numero === '+39 333 ••• 2222', 'e il numero torna mascherato', a.corpo.numero);

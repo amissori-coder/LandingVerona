@@ -1327,9 +1327,18 @@ SMS** (Brevo → SMS), senza crediti l'invio risponde `402` e il modulo dice
 > Brevo, prima di aprire le iscrizioni. Senza, gli operatori possono
 > scartare i messaggi.
 
+**Il codice si inserisce da solo sul telefono.** L'SMS finisce con la riga
+`@nextgenerationbusiness.it #123456`: e' il formato con cui Android (WebOTP:
+Chrome, Edge, Samsung Internet) e iPhone legano il codice al sito e lo
+propongono da soli nel campo (`autocomplete="one-time-code"`). Il messaggio
+resta sotto i 160 caratteri.
+
 **Il CAPTCHA prima dell'SMS (Cloudflare Turnstile, `lib/captcha.js`).** Prima
-di ogni SMS il modulo mostra la casella "Non sono un robot" di Turnstile
-(gratuito, quasi sempre senza enigmi da risolvere). Il gettone viaggia con
+di ogni SMS il modulo chiede il gettone di Turnstile (gratuito). La casella
+"Non sono un robot" si vede SOLO quando Cloudflare chiede davvero un clic
+(`appearance: interaction-only`): di norma la verifica avviene senza che la
+persona veda niente, e chi preme «Invia il codice» prima che finisca aspetta
+qualche secondo invece di ricevere un errore. Il gettone viaggia con
 `sms-invia` in `captcha` e il servizio lo verifica con Cloudflare; un gettone
 vale una volta, la pagina ne prepara uno nuovo a ogni SMS. Per accenderlo:
 

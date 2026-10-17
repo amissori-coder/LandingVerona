@@ -239,14 +239,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const TURNSTILE_CHIAVE = '0x4AAAAAAFZkLXVSuromvnHp';
     const boxCaptcha = $('captcha');
     let captcha = { id: null, gettone: '' };
+    /* La casella si vede SOLO quando Cloudflare chiede davvero un clic
+       (appearance: interaction-only). Di solito riconosce da se' un telefono o
+       un computer normale e non chiede niente: prima la casella compariva gia'
+       spuntata, e sul telefono sembrava un errore. Chi preme «Invia il codice»
+       prima che la verifica sia finita aspetta qualche secondo, non riceve un
+       errore. */
+    let attesaGettone = [];
+    function gettonePronto(g) {
+        captcha.gettone = g;
+        errore('telefono', '');
+        attesaGettone.splice(0).forEach(f => f(g));
+    }
     function preparaCaptcha() {
         if (!TURNSTILE_CHIAVE || !window.turnstile) return;
         boxCaptcha.hidden = false;
         captcha.id = window.turnstile.render(boxCaptcha, {
             sitekey: TURNSTILE_CHIAVE, language: 'it', action: 'sms-iscrizione',
-            callback: (g) => { captcha.gettone = g; errore('telefono', ''); },
+            appearance: 'interaction-only', size: 'flexible', theme: 'light',
+            callback: gettonePronto,
             'expired-callback': () => { captcha.gettone = ''; },
-            'error-callback': () => { captcha.gettone = ''; }
+            'error-callback': () => { captcha.gettone = ''; },
+            'before-interactive-callback': () => { boxCaptcha.classList.add('captcha--visibile'); },
+            'after-interactive-callback': () => { boxCaptcha.classList.remove('captcha--visibile'); }
+        });
+    }
+    // il gettone, aspettandolo al massimo `ms` millisecondi: '' se non arriva
+    function aspettaGettone(ms) {
+        if (!TURNSTILE_CHIAVE) return Promise.resolve('');
+        if (captcha.gettone) return Promise.resolve(captcha.gettone);
+        return new Promise(fine => {
+            const t = setTimeout(() => { attesaGettone = attesaGettone.filter(f => f !== pronto); fine(''); }, ms);
+            const pronto = g => { clearTimeout(t); fine(g); };
+            attesaGettone.push(pronto);
         });
     }
     function rinnovaCaptcha() {
@@ -283,6 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function azzeraVerifica() {
+        smettiDiAscoltare();
         verificato = { numero: '', token: '' };
         numeroInviato = '';
         clearInterval(attesaTimer);
@@ -305,16 +331,22 @@ document.addEventListener('DOMContentLoaded', () => {
             campoTel.focus();
             return;
         }
-        if (TURNSTILE_CHIAVE && !captcha.gettone) {
-            errore('telefono', 'Spunta la casella «Non sono un robot» qui sotto, poi premi di nuovo «Invia il codice».');
-            return;
-        }
         btnInvia.disabled = true;
         btnDiNuovo.disabled = true;
-        btnInvia.textContent = 'Invio...';
-        const gettone = captcha.gettone;
-        chiama({ azione: 'sms-invia', telefono: campoTel.value, email: ($('email').value || '').trim(), captcha: gettone })
+        btnInvia.textContent = captcha.gettone || !TURNSTILE_CHIAVE ? 'Invio...' : 'Verifica in corso...';
+        aspettaGettone(15000).then(gettone => {
+            if (TURNSTILE_CHIAVE && !gettone) {
+                btnInvia.disabled = false;
+                btnDiNuovo.disabled = false;
+                btnInvia.textContent = 'Invia il codice';
+                errore('telefono', 'Completa la verifica di sicurezza qui sotto, poi premi di nuovo «Invia il codice».');
+                return null;
+            }
+            btnInvia.textContent = 'Invio...';
+            return chiama({ azione: 'sms-invia', telefono: campoTel.value, email: ($('email').value || '').trim(), captcha: gettone });
+        })
             .then(d => {
+                if (d === null) return;    // la verifica di sicurezza non e' finita: gia' detto
                 rinnovaCaptcha();
                 btnInvia.textContent = 'Invia il codice';
                 if (!d.ok) {
@@ -341,6 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 smsNota.textContent = 'Codice inviato a ' + (d.numero || numero) + '. Vale ' + (d.vale || 10) + ' minuti.';
                 contoAllaRovescia(d.attesa || 60);
                 campoSms.focus();
+                ascoltaSms();
             })
             .catch(() => {
                 rinnovaCaptcha();
@@ -349,6 +382,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 errore('telefono', 'Errore di connessione. Riprova fra qualche secondo.');
             });
     }
+
+    /* ANDROID (Chrome, Edge, Samsung Internet): il codice si legge da solo
+       dall'SMS, con il permesso della persona (WebOTP). Funziona perche' l'SMS
+       finisce con la riga "@nextgenerationbusiness.it #123456": lega il codice
+       a questo sito. Su iPhone ci pensa la tastiera, che propone il codice
+       appena arriva (autocomplete="one-time-code"). Dove nessuno dei due c'e',
+       il codice si scrive a mano come sempre. */
+    let ascoltoSms = null;
+    function ascoltaSms() {
+        if (!('OTPCredential' in window) || !navigator.credentials) return;
+        if (ascoltoSms) ascoltoSms.abort();
+        ascoltoSms = new AbortController();
+        navigator.credentials.get({ otp: { transport: ['sms'] }, signal: ascoltoSms.signal })
+            .then(otp => {
+                if (!otp || !otp.code || verificato.token) return;
+                campoSms.value = String(otp.code).replace(/\D/g, '').slice(0, 6);
+                if (campoSms.value.length === 6) verificaCodice();
+            })
+            .catch(() => { /* annullato, scaduto o rifiutato: si scrive a mano */ });
+    }
+    function smettiDiAscoltare() { if (ascoltoSms) { ascoltoSms.abort(); ascoltoSms = null; } }
 
     function verificaCodice() {
         const codice = campoSms.value.replace(/\D/g, '');
@@ -364,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 verificato = { numero: numeroInviato || cellulare(campoTel.value), token: String(d.token || '') };
+                smettiDiAscoltare();
                 clearInterval(attesaTimer);
                 gruppoSms.hidden = true;
                 campoTel.readOnly = true;
@@ -485,6 +540,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function ruoloScelto() {
         return campoRuolo.value === 'altro' ? campoRuoloAltro.value.trim() : campoRuolo.value;
     }
+
+    // ---------- il tasto «Avanti» della tastiera ----------
+    /* Sul telefono il tasto in basso a destra della tastiera, in un campo di
+       testo, spedirebbe il modulo a meta': qui porta al campo successivo
+       (le tendine e le caselle si saltano solo se nascoste o bloccate). Il
+       cellulare e il codice SMS hanno il loro comportamento, gia' sopra. */
+    const percorso = () => Array.prototype.slice.call(form.querySelectorAll('input, select, button[type="submit"]'))
+        .filter(el => el.type !== 'hidden' && !el.disabled && !el.readOnly && el.offsetParent !== null);
+    form.addEventListener('keydown', (e) => {
+        const el = e.target;
+        if (e.key !== 'Enter' || el.tagName !== 'INPUT' || el.type === 'checkbox' || el === campoTel || el === campoSms) return;
+        e.preventDefault();
+        const campi = percorso();
+        const i = campi.indexOf(el);
+        const dopo = campi[i + 1];
+        if (dopo) dopo.focus(); else el.blur();
+    });
 
     // ---------- campi obbligatori ----------
     const obbligatori = Array.prototype.slice.call(form.querySelectorAll('[required]'));
