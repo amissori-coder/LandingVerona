@@ -373,6 +373,7 @@ function invitoIngresso(dati, link) {
                 + rigaBox('Iscritto', nomeCompleto)
                 + rigaBox('Azienda', dati.azienda)
             ) + '</td></tr>'
+            + (dati.agenda ? spazio(24) + bloccoAgenda(dati.agenda) : '')
             + spazio(28)
             + bottone('Modifica o annulla l\'iscrizione', link)
             + spazio(24)
@@ -385,10 +386,26 @@ function invitoIngresso(dati, link) {
         + (ev.quando ? '\nGiorno: ' + ev.quando : '') + (ev.orario ? '\nOrario: ' + ev.orario : '') + (dove ? '\nDove: ' + dove : '')
         + '\nPartecipazione: ' + (online ? 'Online, in diretta' : 'In sala')
         + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '') + (dati.azienda ? '\nAzienda: ' + dati.azienda : ''),
+        dati.agenda ? 'Aggiungi la giornata al calendario:\nGoogle Calendar: ' + dati.agenda.google + '\nOutlook: ' + dati.agenda.outlook
+            + '\nApple Calendar e altre agende: apri il file .ics in allegato.' : '',
         'Modifica o annulla l\'iscrizione: ' + link,
         '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
-        'Informativa privacy: ' + PRIVACY].join('\n\n');
+        'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
+}
+/* "Aggiungi al calendario" nell'invito: Google e Outlook come collegamenti,
+   Apple e le altre agende con il file .ics in allegato. Collegamenti di
+   testo dentro un riquadro chiaro, non pulsanti: il pulsante della mail resta
+   uno solo, quello per modificare o annullare. */
+function bloccoAgenda(a) {
+    const link = (t, u) => '<a href="' + esc(u) + '" style="color:' + C.blu + ';font-weight:bold;text-decoration:underline;">' + esc(t) + '</a>';
+    return '<tr><td style="' + FONTE + '">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+        + '<tr><td class="par" style="' + FONTE + 'padding:16px 20px;font-size:15px;line-height:25px;color:' + C.testo + ';text-align:justify;">'
+        + '<strong>Aggiungi la giornata al calendario:</strong> ' + link('Google Calendar', a.google) + ' &middot; ' + link('Outlook', a.outlook)
+        + ' &middot; per Apple Calendar e le altre agende apri il file .ics in allegato.'
+        + '</td></tr></table></td></tr>';
 }
 
 /* --- Conferma delle variazioni dopo il modulo "completa i dati" ---

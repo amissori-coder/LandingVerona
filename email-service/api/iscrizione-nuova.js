@@ -1550,7 +1550,9 @@ module.exports = async (req, res) => {
             /* la verifica del codice SMS: ha il suo freno per numero (cinque
                tentativi per codice), e chi sbaglia una cifra non deve
                consumare gli invii di chi esce dallo stesso ufficio */
-            'sms-verifica']
+            'sms-verifica',
+            // lo stato dell'iscrizione, riletto dalla pagina: firmato e di sola lettura
+            'stato-iscrizione']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1620,6 +1622,26 @@ module.exports = async (req, res) => {
                 }
             }
             res.status(200).json({ ok: true, codice: v.codice, azienda: v.ragioneSociale });
+            return;
+        }
+        /* Lo stato dell'iscrizione appena fatta: la pagina di Milano lo rilegge
+           dopo l'invio e, quando la persona conferma l'email (anche da un altro
+           dispositivo), cambia da sola "manca un passo" in "iscrizione
+           confermata". Firmato (NL.firmaStato, reso all'invio) e di sola
+           lettura: due si'/no, niente dati. */
+        if (azione === 'stato-iscrizione') {
+            const idS = testo(body.d, 400);
+            if (!idS || !NL.firmaStatoValida(idS, testo(body.t, 80))) { res.status(403).json({ ok: false }); return; }
+            initAdmin(leggiServiceAccount());
+            const sn = await admin.firestore().collection('iscrizioni').doc(idS).get();
+            if (!sn.exists) { res.status(404).json({ ok: false }); return; }
+            const x = sn.data() || {};
+            res.status(200).json({
+                ok: true,
+                emailConfermata: !!(x.emailConfermata && x.emailConfermata.quando),
+                invito: !!(x.mailInvito && x.mailInvito.ok),
+                annullato: !!x.annullato
+            });
             return;
         }
         /* Il codice SMS del cellulare (Milano 2027): "sms-invia" lo manda,
@@ -1964,7 +1986,10 @@ module.exports = async (req, res) => {
             }
         }
 
-        res.status(200).json({ ok: true });
+        /* Agli eventi verificati la pagina riceve la firma per rileggere lo
+           stato dell'iscrizione (azione "stato-iscrizione"): e' cosi' che la
+           conferma a video si aggiorna da sola quando l'email e' confermata. */
+        res.status(200).json(evVerificato ? { ok: true, stato: { d: idDoc, t: NL.firmaStato(idDoc) } } : { ok: true });
     } catch (e) {
         // il visitatore non deve vedere dettagli tecnici: restano nei log
         console.error('Iscrizione non registrata:', String((e && e.message) || e).slice(0, 200));
