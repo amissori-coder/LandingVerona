@@ -59,6 +59,14 @@ for (const nome of Object.keys(mail)) {
         .match(/font-size:(\d+)px/g) || []).map(x => parseInt(x.replace(/\D/g, ''), 10));
     esigi(Math.min.apply(null, misure) >= 13, 'niente testo sotto i 13px', Array.from(new Set(misure)).sort((a, b) => a - b).join(' '));
     esigi(!/border-left:3px/.test(corpo), 'il riquadro non ha la barra laterale');
+    // il piede: sotto il filetto un colore solo, e indirizzo e codice fiscale non diventano collegamenti
+    const piede = corpo.slice(corpo.lastIndexOf('Next Generation Business</td></tr>'));
+    const dopoFiletto = piede.slice(piede.indexOf('height="1"'));
+    const colori = new Set((dopoFiletto.match(/[^-]color:(#[0-9A-Fa-f]{6})/g) || []).map(c => c.slice(-7).toUpperCase()));
+    esigi(colori.size === 1, 'nel piede, sotto il filetto, un colore solo', Array.from(colori).join(' '));
+    esigi(/046&#8203;416&#8203;102&#8203;35/.test(piede) && /371&#8203;29/.test(piede), 'indirizzo e codice fiscale non si trasformano in collegamenti');
+    esigi(/Milano &middot; 26 febbraio 2027 &middot; Excelsior Hotel Gallia<\/td>/.test(piede) && !/>color:/.test(piede), 'la riga dell\'evento e\' scritta giusta, senza stili a vista');
+    esigi(/format-detection" content="telephone=no/.test(html) && /x-apple-data-detectors/.test(html), 'e il riconoscimento automatico e\' spento anche nell\'intestazione');
 }
 
 console.log('\n' + ok + ' verdi, ' + ko + ' rossi');

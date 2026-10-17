@@ -116,21 +116,31 @@ function testataEvento(t, titolo, sommario) {
         )
         + '</td></tr>';
 }
+/* L'indirizzo e il codice fiscale dello studio, NON cliccabili. Gmail, Apple
+   Mail e Outlook riconoscono da soli indirizzi e numeri e li trasformano in
+   collegamenti con il LORO colore (il blu di sistema), che nel piede scuro
+   stona. Uno spazio di larghezza zero fra le cifre e prima della citta' li
+   rende irriconoscibili senza cambiare cio' che si legge. */
+function senzaCollegamenti(s) {
+    return esc(s).replace(/(\d{3})(?=\d)/g, '$1&#8203;').replace(/ - /g, ' -&#8203; ');
+}
 function piedeEvento(t, motivo) {
-    const riga = (stile, dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:13px;line-height:21px;' + stile + 'text-align:center;">' + dentro + '</td></tr>';
-    const link = 'color:' + t.azzurroChiaro + ';text-decoration:underline;';
+    /* Sotto il filetto UN colore solo, anche per i collegamenti (sottolineati):
+       il bianco del titolo e l'azzurro del nome dell'evento bastano. */
+    const riga = (dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + t.suNotte + ';text-align:center;">' + dentro + '</td></tr>';
+    const link = 'color:' + t.suNotte + ';text-decoration:underline;';
     return spazio(36) + '<tr><td class="px" bgcolor="' + t.notte + '" align="center" style="background-color:' + t.notte + ';padding:28px ' + LATO + 'px 28px;text-align:center;">'
         + tabella(
             '<tr><td align="center" style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:16px;line-height:22px;color:' + C.bianco + ';font-weight:800;text-align:center;">Next Generation Business</td></tr>'
-            + riga('color:' + t.azzurro + ';font-weight:bold;letter-spacing:1px;', t.piede)
+            + '<tr><td align="center" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + t.azzurro + ';font-weight:bold;letter-spacing:1px;text-align:center;">' + t.piede + '</td></tr>'
             + spazio(14)
             + '<tr><td height="1" bgcolor="' + t.filetto + '" style="mso-line-height-rule:exactly;font-size:1px;line-height:1px;height:1px;background-color:' + t.filetto + ';">&nbsp;</td></tr>'
             + spazio(12)
-            + riga('color:' + t.suNotte + ';', esc(MITTENTE.nome) + ' &middot; ' + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
-            + riga('color:' + t.suNotte + ';', '<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
+            + riga(esc(MITTENTE.nome) + ' &middot; ' + senzaCollegamenti(MITTENTE.indirizzo) + ' &middot; ' + senzaCollegamenti(MITTENTE.cf))
+            + riga('<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
                 + ' &nbsp;&middot;&nbsp; <a href="' + t.pagina + '" style="' + link + '">Pagina dell\'evento</a>')
             + spazio(6)
-            + riga('color:#8FA3B8;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            + riga(esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
         )
         + '</td></tr>';
 }
@@ -152,6 +162,8 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n'
         + '<meta name="viewport" content="width=device-width, initial-scale=1" />\n'
         + '<meta name="x-apple-disable-message-reformatting" content="" />\n'
+        // niente collegamenti automatici su numeri, indirizzi e date (iPhone, Android)
+        + '<meta name="format-detection" content="telephone=no, address=no, email=no, date=no" />\n'
         + '<meta name="color-scheme" content="light" />\n<meta name="supported-color-schemes" content="light" />\n'
         + '<title>' + esc(oggetto) + '</title>\n'
         /* Montserrat, il carattere dei titoli della pagina dell'evento: chi non lo
@@ -175,6 +187,12 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
         + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
         + 'img{border:0;height:auto;line-height:100%;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}\n'
+        /* Se un programma di posta trasforma comunque qualcosa in collegamento,
+           che prenda il colore del testo intorno e non il blu di sistema
+           (Apple Mail, Gmail, Samsung). */
+        + 'a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font-size:inherit!important;font-family:inherit!important;font-weight:inherit!important;line-height:inherit!important;}\n'
+        + 'u + #corpo a{color:inherit!important;text-decoration:none!important;font-size:inherit!important;font-family:inherit!important;font-weight:inherit!important;line-height:inherit!important;}\n'
+        + '#MessageViewBody a{color:inherit;text-decoration:none;font-size:inherit;font-family:inherit;font-weight:inherit;line-height:inherit;}\n'
         + '@media only screen and (max-width:620px){.wrap{width:100%!important;max-width:100%!important;}'
         + '.px{padding-left:24px!important;padding-right:24px!important;}'
         + '.h1{font-size:24px!important;line-height:31px!important;}'
@@ -196,7 +214,7 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '@media only screen and (max-width:480px){'
         + '.ora{width:62px!important;white-space:normal!important;padding-right:10px!important;}}\n'
         + '</style>\n</head>\n'
-        + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
+        + '<body id="corpo" style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
         + preheader
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + C.sfondo + '" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
         + '<tr><td align="center" bgcolor="' + C.sfondo + '" style="padding:24px 12px;background-color:' + C.sfondo + ';">'
@@ -357,7 +375,7 @@ function piede(motivo) {
     return spazio(36) + '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
         + tabella(
             riga('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
-            + riga('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+            + riga('color:' + C.tenue + ';', senzaCollegamenti(MITTENTE.indirizzo) + ' &middot; ' + senzaCollegamenti(MITTENTE.cf))
             + spazio(10)
             + riga('color:' + C.tenue + ';', '<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
                 + ' &nbsp;&middot;&nbsp; <a href="' + SITO + '" style="' + link + '">nextgenerationbusiness.it</a>')
