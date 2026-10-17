@@ -154,6 +154,23 @@ function firmaConfermaEmailValida(idDoc, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del "numero verificato": il modulo di iscrizione la riceve quando
+   la persona scrive il codice arrivato per SMS, e la rimanda con il resto
+   dei dati (lib/iscrizione-verificata.js). Contesto suo, come le altre:
+   dentro ci sono l'evento, il numero e la SCADENZA, quindi vale per quel
+   numero, per quell'evento e per un tempo limitato. */
+function firmaSms(evento, numero, scade) {
+    return crypto.createHmac('sha256', segreto())
+        .update('sms-verificato|' + String(evento || '') + '|' + String(numero || '') + '|' + String(Number(scade) || 0))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaSmsValida(evento, numero, scade, token) {
+    const attesa = Buffer.from(firmaSms(evento, numero, scade));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 const BASE = String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 const PAGINA_DISISCRIZIONE = BASE + '/newsletter/disiscriviti.html';
 const PAGINA_COMPLETA = BASE + '/completa_iscrizione/';
@@ -333,6 +350,7 @@ module.exports = {
     firmaAzienda, firmaAziendaValida, linkB2BAzienda,
     firmaConfermaEmail, firmaConfermaEmailValida, linkConfermaEmail,
     firmaNuovoIncontro, firmaNuovoIncontroValida, linkNuovoIncontro,
+    firmaSms, firmaSmsValida,
     PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL,
     PAGINA_NUOVO_INCONTRO, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,

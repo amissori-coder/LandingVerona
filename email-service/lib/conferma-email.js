@@ -56,7 +56,9 @@ const INVITO = require('./pdf-invito');
    un invito. Un evento che non e' in elenco riceve la mail con il solo
    nome. */
 const DETTAGLI_EVENTO = [
-    { se: /napoli/i, quando: 'Venerdì 2 ottobre 2026', orario: 'Registrazione dalle 9.00, lavori dalle 9.30 alle 17.30', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli' }
+    { se: /napoli/i, quando: 'Venerdì 2 ottobre 2026', orario: 'Registrazione dalle 9.00, lavori dalle 9.30 alle 17.30', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli' },
+    // l'orario non e' ancora fissato: l'invito esce senza, e lo dira' il programma
+    { se: /milano/i, quando: 'Venerdì 26 febbraio 2027', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano' }
 ];
 function dettagliEvento(pagina) {
     const d = DETTAGLI_EVENTO.find(x => x.se.test(String(pagina || '')));

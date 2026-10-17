@@ -1268,6 +1268,88 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   risponde `gia: true` senza spedire.
 - **Le prove**: `node prove/conferma-email.prove.js` (Firestore finto).
 
+## Iscrizioni con il cellulare verificato per SMS (`lib/iscrizione-verificata.js`)
+
+Il modulo di **Milano 2027** (`/milano_febbraio_2027/#iscrizioni`, pagina
+`Milano 26 Febbraio 2027 - Iscrizione`) chiede due conferme: il **cellulare**,
+con un codice di 6 cifre che arriva per SMS e si scrive nel modulo **prima** di
+inviare, e l'**email**, con il pulsante della mail di conferma (come Napoli,
+sezione sopra). Valgono tre regole, per evento: **una sola iscrizione per
+email**, **una sola per numero**, **un codice invito per due iscrizioni al
+massimo**. Gli eventi con queste regole stanno in `EVENTI`, in cima al modulo:
+per un evento nuovo basta una riga.
+
+- **`azione: "sms-invia"`** (`pagina`, `telefono`, `email`): solo cellulari
+  italiani (`+39 3...`, scritti come capita). Prima di spendere un SMS guarda
+  se email o numero sono gia' iscritti (risponde `409` con `campo`). Un SMS
+  al minuto e cinque al giorno per numero, e un tetto per tutto il servizio
+  (`SMS_MAX_GIORNO`). Il codice non si salva in chiaro (`verificheSms`, solo
+  l'impronta) e scade dopo 10 minuti.
+- **`azione: "sms-verifica"`** (`pagina`, `telefono`, `codice`): cinque
+  tentativi per codice, il codice vale una volta. A codice giusto rende
+  `token`, la firma del numero (`NL.firmaSms`: evento + numero + scadenza di
+  due ore) che il modulo rimanda con l'iscrizione in `smsToken`. Non pesa sul
+  freno per IP: ha il suo, per numero.
+- **L'iscrizione** senza `smsToken` valido per quel numero risponde `400` con
+  `smsKo`. Con la firma buona, una **transazione** scrive la scheda e i
+  documenti di unicita' (`iscrizioniUniche`, `<evento>|email|...` e
+  `<evento>|tel|...`), e aggiunge la scheda a `iscrizioniUsate` del codice
+  invito. Se l'email o il numero sono di un'iscrizione ancora attiva, o il
+  codice ha gia' due iscrizioni attive, non si scrive niente e risponde `409`
+  (`campo`: `email`, `telefono` o `codice`). **Un'iscrizione annullata libera
+  email, numero e posto del codice.** Per l'email contano anche le schede
+  inserite a mano dall'area riservata (Eventbrite). Sulla scheda:
+  `telefono` leggibile (`+39 333 123 4567`), `telefonoNumero`
+  (`+393331234567`) e `telefonoVerificato: { quando, come: 'sms' }`, che
+  nell'area riservata e' il baffetto accanto al numero. Il numero verificato
+  non si cambia da `/completa_iscrizione/`.
+- **Il codice invito e l'azienda.** `verifica-codice` per questi eventi
+  risponde `motivo: "esaurito"` quando il codice ha gia' due iscrizioni
+  attive, e il modulo lo dice subito. Riconosciuto il codice, il modulo
+  scrive da se' la ragione sociale dell'invito nel campo azienda e lo blocca;
+  il servizio la tiene ferma comunque.
+- **Al desk** (chiave del cartello) il numero non si chiede: la persona e' li'.
+
+**Le variabili.** Gli SMS partono da **Brevo**, con la stessa
+`BREVO_API_KEY` della newsletter: sul conto vanno **acquistati i crediti
+SMS** (Brevo → SMS), senza crediti l'invio risponde `402` e il modulo dice
+"non riusciamo a mandare l'SMS".
+
+| Nome | Valore |
+|---|---|
+| `SMS_MITTENTE` | il mittente che compare sul telefono, fino a 11 lettere e cifre (predefinito `Revilaw`, il mittente registrato su Brevo per l'Italia: deve restare identico, maiuscole comprese) |
+| `SMS_MAX_GIORNO` | tetto di SMS al giorno per tutto il servizio (predefinito 1000) |
+| `TURNSTILE_SECRET` | la chiave **segreta** di Cloudflare Turnstile (vedi sotto). Senza, il CAPTCHA e' spento |
+
+> **Il mittente alfanumerico in Italia va registrato.** Dal 2023 gli SMS con
+> mittente alfanumerico verso numeri italiani devono avere il mittente
+> registrato presso l'operatore (registro AGCOM): si chiede dal pannello
+> Brevo, prima di aprire le iscrizioni. Senza, gli operatori possono
+> scartare i messaggi.
+
+**Il CAPTCHA prima dell'SMS (Cloudflare Turnstile, `lib/captcha.js`).** Prima
+di ogni SMS il modulo mostra la casella "Non sono un robot" di Turnstile
+(gratuito, quasi sempre senza enigmi da risolvere). Il gettone viaggia con
+`sms-invia` in `captcha` e il servizio lo verifica con Cloudflare; un gettone
+vale una volta, la pagina ne prepara uno nuovo a ogni SMS. Per accenderlo:
+
+1. Cloudflare (account gratuito) -> **Turnstile** -> **Add widget**: dominio
+   `nextgenerationbusiness.it`, modalita' **Managed**.
+2. La chiave **pubblica** (Site Key) va in `milano_febbraio_2027/script.js`,
+   costante `TURNSTILE_CHIAVE` (gia' inserita: widget "NGB Milano iscrizioni"); la chiave **segreta** va su Vercel in
+   `TURNSTILE_SECRET`.
+
+Con la chiave pubblica vuota la casella non compare; senza `TURNSTILE_SECRET`
+il servizio non la chiede. Con il segreto impostato invece il controllo e'
+chiuso: niente gettone buono, o Cloudflare che non risponde, niente SMS.
+
+**Il freno per IP del modulo di Milano** e' di 30 richieste in 10 minuti
+(gli altri moduli restano a 8): dallo stesso ufficio si iscrivono in piu'
+persone, e il freno vero agli SMS sono il CAPTCHA e i limiti per numero.
+
+- **Le prove**: `node prove/iscrizione-verificata.prove.js` (Firestore,
+  Brevo e Cloudflare finti).
+
 ## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
 
 Il giorno del convegno al desk c'e' un cartello con un QR (lo produce

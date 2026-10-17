@@ -37,7 +37,7 @@
             date: '2027-02-26',
             title: 'Merito creditizio e crescita delle imprese',
             tagline: 'Save the date',
-            meta: 'Ven 26 febbraio 2027 &middot; Milano &middot; iscrizioni a breve',
+            meta: 'Ven 26 febbraio 2027 &middot; Milano &middot; iscrizioni aperte',
             url: 'milano_febbraio_2027/',
             pagePath: 'milano_febbraio_2027',
             finestra: {
@@ -45,7 +45,7 @@
                 giorno: 'Venerdì 26 febbraio 2027',
                 luogo: 'Excelsior Hotel Gallia, Milano',
                 punti: ['Convegno al mattino', 'Incontri B2B al pomeriggio', 'Partecipazione gratuita', 'Solo in presenza'],
-                nota: 'Le iscrizioni apriranno a breve.',
+                nota: 'Le iscrizioni sono aperte: il modulo è sulla pagina dell\'evento.',
                 pdf: 'milano_febbraio_2027/save-the-date-milano-2027.pdf?v=2',
                 anteprima: 'milano_febbraio_2027/assets/save-the-date-anteprima.jpg?v=2'
             }
