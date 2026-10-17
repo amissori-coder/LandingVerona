@@ -401,8 +401,34 @@
                         </div>
                         <div class="campo">
                             <label for="ruolo">Ruolo *</label>
-                            <input type="text" id="ruolo" name="ruolo" required placeholder="La tua qualifica" autocomplete="organization-title">
+                            <select id="ruolo" name="ruolo" required>
+                                <option value="">Scegli...</option>
+                                <option value="Titolare / Imprenditore">Titolare / Imprenditore</option>
+                                <option value="Amministratore delegato / CEO">Amministratore delegato / CEO</option>
+                                <option value="Presidente / Consigliere di amministrazione">Presidente / Consigliere di amministrazione</option>
+                                <option value="Direttore generale">Direttore generale</option>
+                                <option value="Direttore amministrativo e finanziario / CFO">Direttore amministrativo e finanziario / CFO</option>
+                                <option value="Responsabile amministrazione e contabilit&agrave;">Responsabile amministrazione e contabilit&agrave;</option>
+                                <option value="Controller / Controllo di gestione">Controller / Controllo di gestione</option>
+                                <option value="Responsabile compliance, legale o risk">Responsabile compliance, legale o risk</option>
+                                <option value="Responsabile HR">Responsabile HR</option>
+                                <option value="Dirigente / Manager">Dirigente / Manager</option>
+                                <option value="Dottore commercialista / Esperto contabile">Dottore commercialista / Esperto contabile</option>
+                                <option value="Revisore legale">Revisore legale</option>
+                                <option value="Avvocato">Avvocato</option>
+                                <option value="Consulente">Consulente</option>
+                                <option value="Sindaco / Organo di controllo / ODV">Sindaco / Organo di controllo / ODV</option>
+                                <option value="Banca, finanza o investimenti">Banca, finanza o investimenti</option>
+                                <option value="Pubblica amministrazione o associazione">Pubblica amministrazione o associazione</option>
+                                <option value="altro">Altro (specifica)</option>
+                            </select>
                             <span class="campo-errore" id="ruoloError"></span>
+                        </div>
+                        <!-- con "Altro" il ruolo lo scrive la persona -->
+                        <div class="campo campo-largo" id="gruppoRuoloAltro" hidden>
+                            <label for="ruoloAltro">Il tuo ruolo *</label>
+                            <input type="text" id="ruoloAltro" name="ruoloAltro" placeholder="La tua qualifica" autocomplete="organization-title" maxlength="120">
+                            <span class="campo-errore" id="ruoloAltroError"></span>
                         </div>
                         <div class="campo">
                             <label for="profilo">Ti presenti come *</label>
@@ -444,16 +470,6 @@
                                 <option value="riservato">Preferisco non indicarlo</option>
                             </select>
                             <span class="campo-errore" id="dimensioneError"></span>
-                        </div>
-                        <div class="campo">
-                            <label for="incontro">Incontri B2B del pomeriggio *</label>
-                            <select id="incontro" name="incontro" required>
-                                <option value="">Scegli...</option>
-                                <option value="si">S&igrave;, vorrei incontri riservati one-to-one</option>
-                                <option value="forse">Mi interessa, decider&ograve; pi&ugrave; avanti</option>
-                                <option value="no">No, partecipo solo al convegno</option>
-                            </select>
-                            <span class="campo-errore" id="incontroError"></span>
                         </div>
                     </fieldset>
 
@@ -595,6 +611,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=6"></script>
+    <script src="script.js?v=7"></script>
 </body>
 </html>

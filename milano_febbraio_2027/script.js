@@ -464,6 +464,21 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (statoCodice.esito !== 'vuoto' || aziendaDalCodice) { statoCodice = { valore: '', esito: 'vuoto', azienda: '' }; mostraCodice('vuoto'); }
     });
 
+    // ---------- il ruolo: da elenco, oppure "Altro" scritto a mano ----------
+    const campoRuolo = $('ruolo');
+    const gruppoRuoloAltro = $('gruppoRuoloAltro');
+    const campoRuoloAltro = $('ruoloAltro');
+    campoRuolo.addEventListener('change', () => {
+        const altro = campoRuolo.value === 'altro';
+        gruppoRuoloAltro.hidden = !altro;
+        campoRuoloAltro.required = altro;
+        if (altro) campoRuoloAltro.focus(); else errore('ruoloAltro', '');
+    });
+    // nell'elenco degli iscritti si legge il ruolo, non la parola "altro"
+    function ruoloScelto() {
+        return campoRuolo.value === 'altro' ? campoRuoloAltro.value.trim() : campoRuolo.value;
+    }
+
     // ---------- campi obbligatori ----------
     const obbligatori = Array.prototype.slice.call(form.querySelectorAll('[required]'));
     function valida(campo) {
@@ -484,6 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errore(campo.id, '');
         return true;
     }
+    campoRuoloAltro.addEventListener('input', () => { if (campoRuoloAltro.classList.contains('errore')) valida(campoRuoloAltro); });
     obbligatori.forEach(campo => {
         if (campo.type === 'checkbox') { campo.addEventListener('change', () => valida(campo)); return; }
         campo.addEventListener('blur', () => { if (!campo.readOnly) valida(campo); });
@@ -512,6 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
         erroreInvio.textContent = '';
         let primo = null;
         obbligatori.forEach(campo => { if (!valida(campo) && !primo) primo = campo; });
+        if (campoRuolo.value === 'altro' && !valida(campoRuoloAltro) && !primo) primo = campoRuoloAltro;
         if (!primo && (!verificato.token || verificato.numero !== cellulare(campoTel.value))) {
             errore('telefono', 'Verifica il numero: tocca «Invia il codice» e scrivi il codice che ricevi per SMS.');
             primo = campoTel;
@@ -542,9 +559,9 @@ document.addEventListener('DOMContentLoaded', () => {
             data: data,
             nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
             telefono: valore('telefono'), smsToken: verificato.token,
-            azienda: valore('azienda'), ruolo: valore('ruolo'), messaggio: '',
+            azienda: valore('azienda'), ruolo: ruoloScelto(), messaggio: '',
             profilo: valore('profilo'), settore: valore('settore'), dimensione: valore('dimensione'),
-            incontro: valore('incontro'), interessi: interessi,
+            interessi: interessi,
             codiceInvito: codice,
             modalita: valore('modalita') || 'presenza',
             privacy: $('privacy').checked, marketing: $('marketing').checked,
