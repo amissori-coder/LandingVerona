@@ -45,6 +45,8 @@ const nodemailer = require('nodemailer');
 const NL = require('./newsletter');
 const MNGB = require('./mail-ngb');
 const INVITO = require('./pdf-invito');
+// la giornata in agenda: Google Calendar, Outlook e il file .ics allegato
+const CAL = require('./calendario');
 
 /* LA SECONDA MAIL: l'invito. Dopo la conferma parte una mail con l'invito
    in PDF da esibire all'ingresso (per chi segue online, il promemoria che il
@@ -59,11 +61,17 @@ const DETTAGLI_EVENTO = [
     { se: /napoli/i, quando: 'Venerdì 2 ottobre 2026', orario: 'Registrazione dalle 9.00, lavori dalle 9.30 alle 17.30', luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli' },
     { se: /milano/i, quando: 'Venerdì 26 febbraio 2027', orario: 'Dalle 8.30 alle 18.00', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, 20124 Milano',
       tema: 'Merito creditizio, crescita e competitività delle imprese',
-      programma: 'Convegno, networking lunch e incontri B2B one-to-one' }
+      programma: 'Convegno, networking lunch e incontri B2B one-to-one',
+      // inizio e fine con il fuso: servono all'evento da aggiungere in agenda
+      inizio: '2027-02-26T08:30:00+01:00', fine: '2027-02-26T18:00:00+01:00',
+      url: 'https://nextgenerationbusiness.it/milano_febbraio_2027/' }
 ];
 function dettagliEvento(pagina) {
     const d = DETTAGLI_EVENTO.find(x => x.se.test(String(pagina || '')));
-    return d ? { quando: d.quando, orario: d.orario, luogo: d.luogo, indirizzo: d.indirizzo, tema: d.tema, programma: d.programma } : {};
+    return d ? {
+        quando: d.quando, orario: d.orario, luogo: d.luogo, indirizzo: d.indirizzo, tema: d.tema, programma: d.programma,
+        inizio: d.inizio, fine: d.fine, url: d.url
+    } : {};
 }
 function trasporto() {
     return nodemailer.createTransport({
@@ -95,16 +103,33 @@ async function spedisciInvito(idDoc, scheda) {
         pagina: scheda.pagina, evento: Object.assign({ titolo: MNGB.nomeEvento(scheda.pagina) }, evento),
         modalita: online ? 'online' : 'presenza'
     };
-    const m = MNGB.invitoIngresso(dati, NL.linkCompleta(idDoc));
-    const messaggio = { from: mittente(), to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html };
+    /* La giornata in agenda, quando l'evento ha inizio e fine: i due
+       collegamenti vanno nella mail, il file .ics in allegato (Apple Calendar
+       e qualunque altra agenda lo apre con un tocco). */
+    const perAgenda = {
+        titolo: 'Next Generation Business - ' + dati.evento.titolo.split(' ')[0],
+        luogo: evento.luogo, indirizzo: evento.indirizzo, inizio: evento.inizio, fine: evento.fine, url: evento.url,
+        descrizione: [evento.tema, evento.programma].filter(Boolean).join('. ')
+    };
+    const agenda = CAL.valido(perAgenda) ? { google: CAL.linkGoogle(perAgenda), outlook: CAL.linkOutlook(perAgenda) } : null;
+    const m = MNGB.invitoIngresso(Object.assign({}, dati, { agenda: agenda }), NL.linkCompleta(idDoc));
+    const messaggio = { from: mittente(), to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html, attachments: [] };
     if (!online) {
         const nomeCompleto = (dati.nome + ' ' + dati.cognome).trim();
-        messaggio.attachments = [{
+        messaggio.attachments.push({
             filename: INVITO.nomeFileInvito(nomeCompleto),
             content: INVITO.pdfInvito({ nome: nomeCompleto, azienda: dati.azienda, ruolo: dati.ruolo, evento: dati.evento, online: false, emessoIl: adessoInItalia() }),
             contentType: 'application/pdf'
-        }];
+        });
     }
+    if (agenda) {
+        messaggio.attachments.push({
+            filename: 'Next-Generation-Business-' + dati.evento.titolo.split(' ')[0] + '.ics',
+            content: CAL.ics(perAgenda, 'ngb-' + String(idDoc).replace(/[^A-Za-z0-9-]/g, '').slice(0, 60)),
+            contentType: 'text/calendar; charset=utf-8; method=PUBLISH'
+        });
+    }
+    if (!messaggio.attachments.length) delete messaggio.attachments;
     try {
         await trasporto().sendMail(messaggio);
         return { ok: true };

@@ -41,7 +41,6 @@ function contenutoPagina(dati) {
     aDestra('NEXT GENERATION BUSINESS', { alto: 58, corpo: 8.5, grassetto: true, colore: C.scuro, spazio: 1.4 });
     aDestra(ev.titolo || '', { alto: 73, corpo: 9, colore: C.tenue });
     f.rettangolo(LATO, 104, DENTRO, 2, C.scuro);
-    f.rettangolo(LATO, 107, 64, 2, C.accento);
 
     // --- titolo ---
     occhiello(d.online ? 'CONFERMA DI ISCRIZIONE' : 'INVITO PERSONALE', 146);

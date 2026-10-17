@@ -544,6 +544,61 @@ document.addEventListener('DOMContentLoaded', () => {
         $('fattoIcs').href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
     }
 
+    // ---------- la conferma si aggiorna da sola ----------
+    /* Dopo l'invio la pagina rilegge lo stato dell'iscrizione (azione
+       "stato-iscrizione", con la firma resa dal servizio): quando la persona
+       conferma l'email - da questo telefono o da un altro dispositivo - il
+       riquadro passa da "manca un ultimo passo" a "iscrizione confermata", e
+       segna l'invito come inviato. Si rilegge spesso nei primi minuti, poi
+       piu' di rado, e subito quando si torna sulla scheda del browser. */
+    const SEGNO_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    function segnaFatto(id, titolo, testo) {
+        const li = $(id);
+        li.classList.remove('fatto-passo--attesa');
+        li.classList.add('fatto-passo--ok');
+        li.querySelector('.fatto-segno').innerHTML = SEGNO_OK;
+        li.querySelector('strong').textContent = titolo;
+        $(id + 'Testo').textContent = testo;
+    }
+    function seguiStato(stato, nome) {
+        const inizio = Date.now();
+        let finito = false, timer = null, inCorso = false;
+        const prossimo = () => {
+            const trascorso = Date.now() - inizio;
+            if (trascorso > 2 * 60 * 60 * 1000) return;            // dopo due ore si smette
+            timer = setTimeout(leggi, trascorso < 10 * 60 * 1000 ? 5000 : 20000);
+        };
+        function leggi() {
+            if (finito || inCorso) return;
+            inCorso = true;
+            chiama({ azione: 'stato-iscrizione', d: stato.d, t: stato.t })
+                .then(s => {
+                    inCorso = false;
+                    if (!s || !s.ok) { if (s && (s._stato === 403 || s._stato === 404)) finito = true; else prossimo(); return; }
+                    if (s.emailConfermata) {
+                        $('fattoOcchiello').textContent = 'Iscrizione confermata';
+                        $('fattoTitolo').textContent = 'Iscrizione confermata' + (nome ? ', ' + nome : '') + '.';
+                        $('fattoIntro').textContent = 'Il tuo indirizzo email è confermato e la registrazione è completa. '
+                            + (s.invito ? 'Ti abbiamo inviato per email l\'invito personale in PDF da presentare all\'accreditamento, insieme al file per aggiungere la giornata al calendario.'
+                                : 'L\'invito personale in PDF è in arrivo per email.')
+                            + ' Ti aspettiamo il 26 febbraio all\'Excelsior Hotel Gallia.';
+                        segnaFatto('passoEmail', 'Indirizzo email confermato', 'La registrazione è completa.');
+                        if (s.invito) {
+                            segnaFatto('passoInvito', 'Invito personale inviato', 'Lo trovi nella mail «Il tuo invito», con il PDF da mostrare al desk Revilaw, stampato o dal telefono.');
+                            finito = true;
+                            return;
+                        }
+                    }
+                    prossimo();
+                })
+                .catch(() => { inCorso = false; prossimo(); });
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !finito) { clearTimeout(timer); leggi(); }
+        });
+        prossimo();
+    }
+
     // ---------- invio ----------
     const btnInvio = $('submitBtn');
     const btnTesto = btnInvio.querySelector('.btn-text');
@@ -623,6 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
                 azienda: valore('azienda'), telefono: verificato.numero
             });
+            if (d.stato && d.stato.d && d.stato.t) seguiStato(d.stato, valore('nome'));
             form.hidden = true;
             const fatto = $('formSuccess');
             fatto.hidden = false;

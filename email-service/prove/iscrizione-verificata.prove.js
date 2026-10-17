@@ -427,6 +427,36 @@ prova('Dopo l\'iscrizione email e cellulare non si cambiano dal collegamento per
     esigi(dopo.cognome === 'Fisso' && dopo.ruolo === 'CFO', 'gli altri dati invece si aggiornano');
 });
 
+prova('La pagina si accorge della conferma, e l\'invito porta il calendario', async () => {
+    const NL = require(path.join(RADICE, 'lib/newsletter.js'));
+    const v = await verificaNumero('3471112233', 'stato@studio.it');
+    const r = await iscrivi({ email: 'stato@studio.it', telefono: '3471112233', smsToken: v.token, nome: 'Lia', cognome: 'Verdi', azienda: 'Delta' });
+    esigi(r.corpo.ok && r.corpo.stato && r.corpo.stato.d && r.corpo.stato.t, 'l\'invio rende la firma per rileggere lo stato', JSON.stringify(r.corpo));
+    const st = r.corpo.stato;
+    const prima = await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t });
+    esigi(prima.corpo.ok && prima.corpo.emailConfermata === false && prima.corpo.invito === false, 'prima della conferma: non confermata', JSON.stringify(prima.corpo));
+    esigi(Object.keys(prima.corpo).sort().join(',') === 'annullato,emailConfermata,invito,ok', 'e la risposta non porta dati personali');
+    const falsa = await chiama({ azione: 'stato-iscrizione', d: st.d, t: 'x' + st.t.slice(1) });
+    esigi(falsa.stato === 403, 'con una firma sbagliata non si legge niente');
+    const altra = await chiama({ azione: 'stato-iscrizione', d: st.d, t: NL.firmaCompleta(st.d) });
+    esigi(altra.stato === 403, 'e la firma del collegamento "modifica" non vale qui');
+
+    spedite = [];
+    const c = await chiama({ azione: 'conferma-email', d: st.d, t: NL.firmaConfermaEmail(st.d) });
+    esigi(c.corpo.ok && c.corpo.invito === true, 'la conferma dell\'email spedisce l\'invito', JSON.stringify(c.corpo));
+    const dopo = await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t });
+    esigi(dopo.corpo.emailConfermata === true && dopo.corpo.invito === true, 'dopo la conferma la pagina legge: confermata, invito partito', JSON.stringify(dopo.corpo));
+
+    const mail = spedite[spedite.length - 1] || {};
+    const allegati = (mail.attachments || []).map(a => a.filename);
+    esigi(allegati.some(n => /\.pdf$/.test(n)), 'l\'invito ha il PDF', allegati.join(', '));
+    const ics = (mail.attachments || []).find(a => /\.ics$/.test(a.filename));
+    esigi(!!ics, 'e il file .ics per il calendario');
+    esigi(ics && /DTSTART:20270226T073000Z/.test(ics.content) && /DTEND:20270226T170000Z/.test(ics.content), 'dalle 8.30 alle 18.00 ora di Milano');
+    esigi(/calendar\.google\.com/.test(mail.html) && /outlook\.live\.com/.test(mail.html), 'nella mail i collegamenti per Google Calendar e Outlook');
+    esigi(/Google Calendar: https/.test(mail.text), 'anche nella versione senza formattazione');
+});
+
 prova('Napoli resta com\'era', async () => {
     const r = await chiama({
         pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', nome: 'Ada', cognome: 'Neri',

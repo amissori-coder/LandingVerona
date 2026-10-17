@@ -171,6 +171,22 @@ function firmaSmsValida(evento, numero, scade, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma dello STATO dell'iscrizione, che la pagina di Milano rilegge dopo
+   l'invio per accorgersi da sola della conferma dell'email. Contesto suo:
+   apre solo la lettura di due s/no (indirizzo confermato, invito partito)
+   di quella scheda, non i dati e non la modifica. */
+function firmaStato(idDoc) {
+    return crypto.createHmac('sha256', segreto())
+        .update('stato-iscrizione|' + String(idDoc || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaStatoValida(idDoc, token) {
+    const attesa = Buffer.from(firmaStato(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 const BASE = String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 const PAGINA_DISISCRIZIONE = BASE + '/newsletter/disiscriviti.html';
 const PAGINA_COMPLETA = BASE + '/completa_iscrizione/';
@@ -350,7 +366,7 @@ module.exports = {
     firmaAzienda, firmaAziendaValida, linkB2BAzienda,
     firmaConfermaEmail, firmaConfermaEmailValida, linkConfermaEmail,
     firmaNuovoIncontro, firmaNuovoIncontroValida, linkNuovoIncontro,
-    firmaSms, firmaSmsValida,
+    firmaSms, firmaSmsValida, firmaStato, firmaStatoValida,
     PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL,
     PAGINA_NUOVO_INCONTRO, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,
