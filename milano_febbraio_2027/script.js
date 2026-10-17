@@ -516,6 +516,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // l'email cambiata dopo un "gia' iscritto" va ricontrollata dal servizio, non da qui
     $('email').addEventListener('input', () => { if ($('emailError').textContent && !$('email').classList.contains('errore')) errore('email', ''); });
 
+    // ---------- la conferma a video ----------
+    /* Riepiloga cio' che la persona ha scritto (nome, email, azienda, il
+       numero mascherato) e prepara la data in agenda: Google Calendar e un
+       file .ics per Outlook e Apple. L'orario non e' ancora fissato, quindi
+       la giornata entra come evento di un giorno intero. */
+    function riempiConferma(c) {
+        const chi = (c.nome + ' ' + c.cognome).trim();
+        $('fattoNome').textContent = c.nome ? ', ' + c.nome : '';
+        $('fattoChi').textContent = chi || '-';
+        $('fattoAzienda').textContent = c.azienda || '-';
+        $('fattoEmail').textContent = c.email || 'il tuo indirizzo';
+        const n = String(c.telefono || '').replace(/^\+39/, '');
+        if (n) $('fattoTelefono').textContent = 'Il codice SMS inviato a +39 ' + n.slice(0, 3) + ' ••• ' + n.slice(-4) + ' è stato confermato.';
+        const titolo = 'Next Generation Business - Milano';
+        const luogo = 'Excelsior Hotel Gallia, Piazza Duca d\'Aosta 9, 20124 Milano';
+        const dettagli = 'Merito creditizio, crescita e competitività delle imprese. Convegno, networking lunch e incontri B2B. '
+            + 'Programma e orari: https://nextgenerationbusiness.it/milano_febbraio_2027/';
+        $('fattoGoogle').href = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+            + '&text=' + encodeURIComponent(titolo) + '&dates=20270226/20270227'
+            + '&location=' + encodeURIComponent(luogo) + '&details=' + encodeURIComponent(dettagli);
+        const esc = s => s.replace(/[\\;,]/g, m => '\\' + m);
+        const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Revilaw//Next Generation Business//IT', 'BEGIN:VEVENT',
+            'UID:ngb-milano-2027@nextgenerationbusiness.it', 'DTSTAMP:20261017T000000Z',
+            'DTSTART;VALUE=DATE:20270226', 'DTEND;VALUE=DATE:20270227',
+            'SUMMARY:' + esc(titolo), 'LOCATION:' + esc(luogo), 'DESCRIPTION:' + esc(dettagli),
+            'URL:https://nextgenerationbusiness.it/milano_febbraio_2027/', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+        $('fattoIcs').href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+    }
+
     // ---------- invio ----------
     const btnInvio = $('submitBtn');
     const btnTesto = btnInvio.querySelector('.btn-text');
@@ -591,6 +620,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 erroreInvio.textContent = msg;
                 return;
             }
+            riempiConferma({
+                nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
+                azienda: valore('azienda'), telefono: verificato.numero
+            });
             form.hidden = true;
             const fatto = $('formSuccess');
             fatto.hidden = false;

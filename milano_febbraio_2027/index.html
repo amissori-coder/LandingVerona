@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -518,14 +518,55 @@
                     </div>
                 </form>
 
-                <div id="formSuccess" class="modulo-fatto" hidden tabindex="-1">
-                    <div class="modulo-fatto-segno" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <!-- LA CONFERMA A VIDEO, dopo l'invio. Dice a che punto e' l'iscrizione
+                     (tre passi, l'ultimo e' il clic nella mail), riepiloga i dati
+                     registrati e offre la data in agenda. I campi fra parentesi graffe
+                     li riempie script.js con quello che la persona ha scritto. -->
+                <div id="formSuccess" class="fatto" hidden tabindex="-1">
+                    <div class="fatto-testa">
+                        <img src="assets/logo-revilaw.png" alt="Revilaw S.p.A." width="371" height="115" class="fatto-logo">
+                        <span class="fatto-evento">Next Generation Business<br>Milano &middot; 26 febbraio 2027</span>
                     </div>
-                    <h3>Cellulare verificato, manca un passo</h3>
-                    <p><strong>Controlla la posta:</strong> ti abbiamo mandato una email con il pulsante «Conferma il tuo indirizzo». L'iscrizione è completa dopo quel clic, e subito dopo ricevi l'invito in PDF da mostrare all'ingresso.</p>
-                    <p>Non trovi l'email? Guarda nella cartella Spam o Promozioni e segna il mittente come sicuro.</p>
-                    <p class="modulo-fatto-data">Ci vediamo il 26 febbraio 2027 all'Excelsior Hotel Gallia.</p>
+
+                    <span class="etichetta fatto-occhiello">Richiesta di iscrizione ricevuta</span>
+                    <h3 class="fatto-titolo">Grazie<span id="fattoNome"></span>, manca un ultimo passo.</h3>
+                    <p class="fatto-intro">La tua richiesta è registrata e il numero di cellulare è verificato. Per completare l'iscrizione conferma il tuo indirizzo email dal pulsante nella mail che ti abbiamo appena inviato: subito dopo riceverai l'invito personale in PDF da presentare all'accreditamento.</p>
+
+                    <ol class="fatto-passi">
+                        <li class="fatto-passo fatto-passo--ok">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                            <div><strong>Dati registrati</strong><span>Il modulo è stato ricevuto correttamente.</span></div>
+                        </li>
+                        <li class="fatto-passo fatto-passo--ok">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                            <div><strong>Cellulare verificato</strong><span id="fattoTelefono">Il codice SMS è stato confermato.</span></div>
+                        </li>
+                        <li class="fatto-passo fatto-passo--attesa">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+                            <div><strong>Conferma l'indirizzo email</strong><span>Apri la mail inviata a <b id="fattoEmail">il tuo indirizzo</b> e premi «Conferma il tuo indirizzo». Se non la trovi, controlla le cartelle Spam e Promozioni.</span></div>
+                        </li>
+                        <li class="fatto-passo">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span>
+                            <div><strong>Invito personale in PDF</strong><span>Arriva per email subito dopo la conferma: mostralo al desk Revilaw, stampato o dal telefono.</span></div>
+                        </li>
+                    </ol>
+
+                    <dl class="fatto-riepilogo">
+                        <div><dt>Intestatario</dt><dd id="fattoChi">&nbsp;</dd></div>
+                        <div><dt>Azienda</dt><dd id="fattoAzienda">&nbsp;</dd></div>
+                        <div><dt>Data</dt><dd>Venerdì 26 febbraio 2027</dd></div>
+                        <div><dt>Sede</dt><dd>Excelsior Hotel Gallia, Piazza Duca d'Aosta 9, Milano</dd></div>
+                        <div><dt>Partecipazione</dt><dd>In presenza, gratuita</dd></div>
+                    </dl>
+
+                    <div class="fatto-azioni">
+                        <a class="btn btn-scuro" id="fattoGoogle" href="#" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                            Aggiungi a Google Calendar
+                        </a>
+                        <a class="btn btn-tenue" id="fattoIcs" href="#" download="next-generation-business-milano-2027.ics">Outlook / Apple (.ics)</a>
+                    </div>
+                    <p class="fatto-nota">Per modificare i dati o annullare la partecipazione usa il collegamento personale nella mail di iscrizione. Per qualunque informazione scrivi a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.</p>
                 </div>
             </div>
 
@@ -611,6 +652,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=8"></script>
+    <script src="script.js?v=9"></script>
 </body>
 </html>
