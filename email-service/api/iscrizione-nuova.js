@@ -79,6 +79,10 @@ const DESK = require('../lib/accredito-desk');
    azione pubblica, aperta dal collegamento firmato, con il freno per scheda
    e non per IP (lib/conferma-email.js spiega perche'). */
 const CONFERMA = require('../lib/conferma-email');
+/* Le iscrizioni con il cellulare verificato per SMS (Milano 2027): il codice
+   SMS, una sola iscrizione per email e per numero, due iscrizioni al massimo
+   per codice invito. Tutto in lib/iscrizione-verificata.js. */
+const VERIFICATA = require('../lib/iscrizione-verificata');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -1364,7 +1368,10 @@ async function completaIscrizione(azione, body, res, ip) {
     };
     if (primo && !primo.annulla) {
         patch.nome = primo.nome; patch.cognome = primo.cognome;
-        patch.azienda = primo.azienda; patch.ruolo = primo.ruolo; patch.telefono = primo.telefono;
+        patch.azienda = primo.azienda; patch.ruolo = primo.ruolo;
+        /* Un cellulare verificato per SMS non si cambia da qui: e' quello che
+           ha ricevuto il codice, e un numero nuovo non lo avrebbe ricevuto. */
+        patch.telefono = scheda.telefonoVerificato ? String(scheda.telefono || '') : primo.telefono;
     }
     // annullare e' reversibile: ricompilando i propri dati la scheda si riattiva
     patch.annullato = posto1Annullato
@@ -1526,7 +1533,11 @@ module.exports = async (req, res) => {
             // mangerebbero fra loro
             'b2b-azienda-leggi', 'b2b-azienda-salva', 'b2b-azienda-annulla',
             // il richiamo dopo il convegno: firmato anche lui, con il freno per scheda
-            'nuovo-incontro-leggi', 'nuovo-incontro-salva']
+            'nuovo-incontro-leggi', 'nuovo-incontro-salva',
+            /* la verifica del codice SMS: ha il suo freno per numero (cinque
+               tentativi per codice), e chi sbaglia una cifra non deve
+               consumare gli invii di chi esce dallo stesso ufficio */
+            'sms-verifica']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1582,7 +1593,28 @@ module.exports = async (req, res) => {
             initAdmin(cred0);
             const v = await CODICI.verifica(admin.firestore(), body.codice, testo(body.evento, 80), testo(body.pagina, 200));
             if (!v.ok) { res.status(200).json({ ok: false, motivo: v.motivo }); return; }
+            /* Agli eventi con le iscrizioni verificate un codice vale per due
+               iscrizioni: il modulo lo deve sapere subito, non dopo aver
+               chiesto l'SMS e compilato il resto. */
+            if (VERIFICATA.eventoDi(body.pagina)) {
+                const posti = await VERIFICATA.usiCodice(admin.firestore(), v.codice);
+                if (posti.attive.length >= VERIFICATA.MAX_PER_CODICE) {
+                    res.status(200).json({ ok: false, motivo: 'esaurito' }); return;
+                }
+            }
             res.status(200).json({ ok: true, codice: v.codice, azienda: v.ragioneSociale });
+            return;
+        }
+        /* Il codice SMS del cellulare (Milano 2027): "sms-invia" lo manda,
+           "sms-verifica" lo controlla e rende la firma del numero che il
+           modulo rimanda con l'iscrizione. */
+        if (azione === 'sms-invia' || azione === 'sms-verifica') {
+            const credS = leggiServiceAccount();
+            initAdmin(credS);
+            const r = azione === 'sms-invia'
+                ? await VERIFICATA.invia(admin.firestore(), body)
+                : await VERIFICATA.verifica(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
             return;
         }
         /* La richiesta di contatto del modulo di sponsorizzazione. Il freno
@@ -1657,6 +1689,22 @@ module.exports = async (req, res) => {
         if (!email && !nome && !cognome) { res.status(400).json({ ok: false, msg: 'Dati insufficienti.' }); return; }
         if (email && !emailValida(email)) { res.status(400).json({ ok: false, msg: 'Indirizzo email non valido.' }); return; }
 
+        /* Gli eventi con le iscrizioni verificate (Milano 2027): servono
+           l'email e un cellulare italiano che abbia gia' ricevuto il codice
+           SMS, cioe' la firma che il servizio ha reso al modulo alla verifica.
+           Al desk, con la chiave del cartello, il numero non si chiede: la
+           persona e' li', davanti allo staff. */
+        const evVerificato = VERIFICATA.eventoDi(pagina);
+        let numeroVerificato = '';
+        if (evVerificato && !dalDesk) {
+            if (!email) { res.status(400).json({ ok: false, msg: 'Indirizzo email mancante.' }); return; }
+            numeroVerificato = VERIFICATA.cellulare(body.telefono);
+            if (!numeroVerificato) { res.status(400).json({ ok: false, smsKo: true, msg: VERIFICATA.MSG.numero }); return; }
+            if (!VERIFICATA.firmaNumeroValida(evVerificato.chiave, numeroVerificato, body.smsToken)) {
+                res.status(400).json({ ok: false, smsKo: true, msg: VERIFICATA.MSG.nonVerificato }); return;
+            }
+        }
+
         const cred = leggiServiceAccount();
         initAdmin(cred);
 
@@ -1707,6 +1755,19 @@ module.exports = async (req, res) => {
             scheda.invitoAzienda = invito.ragioneSociale;
             scheda.invitoScheda = invito.scheda;
             scheda.selezionata = true;
+            /* Agli eventi verificati l'azienda e' quella del codice: il modulo
+               la scrive da se' appena il codice e' riconosciuto, e qui si
+               tiene ferma, perche' e' l'unica che combacia con l'elenco. */
+            if (evVerificato && invito.ragioneSociale) scheda.azienda = testo(invito.ragioneSociale, 200);
+        }
+
+        /* Il cellulare verificato: nella forma che si legge, piu' quella unica
+           con cui si confronta, e quando e' stato verificato. Nell'area
+           riservata e' il baffetto accanto al numero. */
+        if (numeroVerificato) {
+            scheda.telefono = VERIFICATA.leggibile(numeroVerificato);
+            scheda.telefonoNumero = numeroVerificato;
+            scheda.telefonoVerificato = { quando: Date.now(), come: 'sms' };
         }
 
         /* Campi per il business matching, oggi mandati solo dal modulo di
@@ -1776,9 +1837,23 @@ module.exports = async (req, res) => {
         if (accreditoDesk) DESK.completaScheda(scheda);
 
         const idDoc = idDocumento(email, data, nome, cognome);
-        await admin.firestore().collection('iscrizioni')
-            .doc(idDoc)
-            .set(scheda, { merge: true });
+        if (evVerificato) {
+            /* Una transazione sola: unicita' di email e numero, posti del
+               codice invito e scheda. Se una regola dice di no non si scrive
+               niente, e il modulo riceve il motivo. */
+            const r = await VERIFICATA.registra(admin.firestore(), {
+                ev: evVerificato, idDoc: idDoc, scheda: scheda, email: email,
+                numero: numeroVerificato, codice: invito ? invito.codice : ''
+            });
+            if (!r.ok) {
+                res.status(409).json({ ok: false, campo: r.campo, codiceKo: r.campo === 'codice', msg: r.msg });
+                return;
+            }
+        } else {
+            await admin.firestore().collection('iscrizioni')
+                .doc(idDoc)
+                .set(scheda, { merge: true });
+        }
         await segnaCambiamento(admin.firestore());
 
 
@@ -1786,7 +1861,9 @@ module.exports = async (req, res) => {
            passa a "iscritta" e si tiene chi si e' registrato. Se qualcosa qui
            non riesce l'iscrizione resta valida: e' informazione di servizio,
            non una condizione. Il codice NON si consuma - un'azienda invitata
-           puo' mandare due persone, e la seconda non va respinta. */
+           puo' mandare due persone, e la seconda non va respinta. Agli eventi
+           con le iscrizioni verificate (Milano 2027) le persone sono DUE al
+           massimo: il conto lo tiene la transazione di VERIFICATA.registra. */
         if (invito) {
             await CODICI.segnaUso(admin.firestore(), invito.codice, { email: email, iscrizione: idDoc });
             if (invito.scheda) {

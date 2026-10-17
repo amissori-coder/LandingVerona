@@ -15512,7 +15512,7 @@
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
             manuale: true,
-            nota: 'Il modulo di iscrizione non è ancora pubblicato: le iscrizioni dal sito compariranno qui da sole appena sarà attivo. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
+            nota: 'Il modulo di iscrizione è pubblicato: chi si iscrive dal sito verifica il cellulare con un codice SMS (il baffetto accanto al numero) e poi conferma l\'email. Un\'iscrizione per email e per numero, due al massimo per codice invito. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
         },
         // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
         { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', giorno: '', filtro: '', tutti: true }
@@ -16959,6 +16959,15 @@
             : 'Iscrizione precedente alla conferma via mail: indirizzo confermato d\'ufficio';
         return ' <span class="ev-mail-ok" title="' + esc(titolo) + '" aria-label="' + esc(titolo) + '">&#10003;</span>';
     }
+    /* IL BAFFETTO ACCANTO AL CELLULARE: il numero ha ricevuto il codice SMS
+       e la persona lo ha scritto nel modulo (Milano 2027). Lo scrive il
+       servizio sulla scheda (telefonoVerificato), e vale per quella riga. */
+    function baffettoTelefono(r) {
+        const v = r && r.telefonoVerificato;
+        if (!v || !v.quando) return '';
+        const titolo = 'Cellulare verificato con il codice SMS il ' + fmtDataOra(v.quando);
+        return ' <span class="ev-mail-ok" title="' + esc(titolo) + '" aria-label="' + esc(titolo) + '">&#10003;</span>';
+    }
     /* LA MAIL DI CONFERMA NON E' PARTITA: il server di posta l'ha rifiutata
        quando la persona si e' iscritta. Prima finiva nei log del servizio e
        basta; ora sta sulla scheda, e qui si legge il motivo. Si mostra solo il
@@ -17260,7 +17269,7 @@
                     ((r.extra || {})[COL_SPOSTATO] || '', r.invito)
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + emailInterrompibile(r.email) + baffettoEmail(r, lista) + esitoMailDi(r) + '</td>'
-                + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
+                + '<td data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>'
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
                    foglio storico, che raccoglieva gli stessi form): si scrive
                    "Sito NGB", perche' e' da li' che e' passata. Il trattino
