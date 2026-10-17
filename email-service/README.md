@@ -1336,7 +1336,7 @@ vale una volta, la pagina ne prepara uno nuovo a ogni SMS. Per accenderlo:
 1. Cloudflare (account gratuito) -> **Turnstile** -> **Add widget**: dominio
    `nextgenerationbusiness.it`, modalita' **Managed**.
 2. La chiave **pubblica** (Site Key) va in `milano_febbraio_2027/script.js`,
-   costante `TURNSTILE_CHIAVE`; la chiave **segreta** va su Vercel in
+   costante `TURNSTILE_CHIAVE` (gia' inserita: widget "NGB Milano iscrizioni"); la chiave **segreta** va su Vercel in
    `TURNSTILE_SECRET`.
 
 Con la chiave pubblica vuota la casella non compare; senza `TURNSTILE_SECRET`

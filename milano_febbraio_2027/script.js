@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
        segreta sta nel servizio (TURNSTILE_SECRET). Vuota, la casella non
        compare, e il servizio senza la segreta non la chiede. Il gettone vale
        una volta: dopo ogni richiesta se ne prepara uno nuovo. */
-    const TURNSTILE_CHIAVE = '';
+    const TURNSTILE_CHIAVE = '0x4AAAAAAFZkLXVSuromvnHp';
     const boxCaptcha = $('captcha');
     let captcha = { id: null, gettone: '' };
     function preparaCaptcha() {
