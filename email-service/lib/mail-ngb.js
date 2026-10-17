@@ -53,16 +53,117 @@ function nomeEvento(pagina) {
     return p || 'Next Generation Business';
 }
 
+/* ============================================================
+   LA GRAFICA DELLA PAGINA DELL'EVENTO
+   Le mail dell'iscrizione a un evento con la sua pagina "nuova" (oggi
+   Milano 2027) si vestono come la pagina: testata blu notte con il logo
+   bianco, "Next Generation Business" con la seconda parola in azzurro, il
+   tema della giornata, la fascia con data, sede e partecipazione, e il piede
+   scuro con il nome dell'evento - gli stessi colori e lo stesso carattere
+   (Montserrat, dove il programma di posta lo carica; altrimenti Arial) di
+   milano_febbraio_2027/styles.css. Chi apre la mail dopo la pagina deve
+   riconoscerla al primo sguardo.
+   Vale per le tre mail dell'iscrizione dal sito: richiesta di conferma,
+   invito, variazioni. Le altre (incontri B2B, eventi senza tema) restano
+   con la testata di sempre.
+   ============================================================ */
+const TEMI_EVENTO = [
+    {
+        se: /milano/i,
+        notte: '#08213A', filetto: '#2B4560', azzurro: '#7DB8EE', azzurroChiaro: '#B9DAF7', suNotte: '#C9D6E3',
+        occhiello: 'Milano &middot; 26 febbraio 2027',
+        tema: 'Merito creditizio, crescita e competitività delle imprese',
+        dati: [['Data', 'Venerdì 26 febbraio 2027'], ['Orario', '8.30 - 18.00'], ['Sede', 'Excelsior Hotel Gallia, Milano']],
+        piede: 'Milano &middot; 26 febbraio 2027 &middot; Excelsior Hotel Gallia',
+        pagina: 'https://nextgenerationbusiness.it/milano_febbraio_2027/'
+    }
+];
+function temaEvento(pagina) {
+    return TEMI_EVENTO.find(t => t.se.test(String(pagina || ''))) || null;
+}
+const TITOLI = "Montserrat, Arial, 'Helvetica Neue', Helvetica, sans-serif";
+
+function testataEvento(t, titolo, sommario) {
+    const occh = 'font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:12px;line-height:18px;letter-spacing:2.4px;text-transform:uppercase;font-weight:bold;';
+    // niente <div>: Outlook li impagina a modo suo. Etichetta e valore sono due righe di tabella.
+    const cella = (et, val, primo) => '<td class="hd" valign="top" width="33%" bgcolor="' + t.notte + '" style="padding:14px 14px 14px ' + (primo ? '0' : '16px') + ';'
+        + 'background-color:' + t.notte + ';' + (primo ? '' : 'border-left:1px solid ' + t.filetto + ';') + '">'
+        + tabella('<tr><td style="' + FONTE + 'font-size:11px;line-height:16px;letter-spacing:1.6px;text-transform:uppercase;color:' + t.azzurro + ';font-weight:bold;">' + esc(et) + '</td></tr>'
+            + '<tr><td style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:14px;line-height:20px;color:' + C.bianco + ';font-weight:bold;padding-top:4px;">' + esc(val) + '</td></tr>')
+        + '</td>';
+    // un filetto che regge in Outlook: una cella alta un pixel con il colore di fondo
+    const filetto = '<tr><td height="1" bgcolor="' + t.filetto + '" style="height:1px;font-size:1px;line-height:1px;background-color:' + t.filetto + ';">&nbsp;</td></tr>';
+    return '<tr><td bgcolor="' + t.notte + '" class="px" style="background-color:' + t.notte + ';padding:26px ' + LATO + 'px 30px;">'
+        + tabella(
+            '<tr><td>' + tabella('<tr>'
+                + '<td valign="middle"><a href="' + t.pagina + '" style="text-decoration:none;"><img src="' + LOGO_BIANCO + '" width="130" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:130px;max-width:130px;height:auto;border:0;font-family:' + FONT + ';font-size:16px;font-weight:bold;color:' + C.bianco + ';"></a></td>'
+                + '<td valign="middle" align="right" style="' + occh + 'color:' + t.azzurroChiaro + ';text-align:right;font-size:11px;letter-spacing:1.6px;">' + t.occhiello + '</td>'
+                + '</tr>') + '</td></tr>'
+            + spazio(26) + filetto + spazio(22)
+            + '<tr><td style="' + occh + 'color:' + t.azzurro + ';">' + esc(titolo) + '</td></tr>'
+            + spazio(10)
+            + '<tr><td class="h1" style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:32px;line-height:38px;color:' + C.bianco + ';font-weight:800;letter-spacing:-0.5px;">'
+            + 'Next Generation <span style="color:' + t.azzurro + ';">Business</span></td></tr>'
+            + spazio(8)
+            + '<tr><td style="' + FONTE + 'font-size:16px;line-height:24px;color:' + t.azzurroChiaro + ';">' + esc(t.tema) + '</td></tr>'
+            + spazio(20)
+            + filetto
+            + '<tr><td>' + tabella('<tr>' + t.dati.map((d, i) => cella(d[0], d[1], i === 0)).join('') + '</tr>') + '</td></tr>'
+            + filetto
+            + spazio(22)
+            + '<tr><td class="lead par" style="' + FONTE + 'font-size:17px;line-height:28px;color:' + t.suNotte + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">' + esc(sommario) + '</td></tr>'
+        )
+        + '</td></tr>';
+}
+function piedeEvento(t, motivo) {
+    const riga = (stile, dentro) => '<tr><td align="center" style="' + FONTE + 'font-size:13px;line-height:21px;' + stile + 'text-align:center;">' + dentro + '</td></tr>';
+    const link = 'color:' + t.azzurroChiaro + ';text-decoration:underline;';
+    return spazio(36) + '<tr><td class="px" bgcolor="' + t.notte + '" align="center" style="background-color:' + t.notte + ';padding:28px ' + LATO + 'px 28px;text-align:center;">'
+        + tabella(
+            '<tr><td align="center" style="font-family:' + TITOLI + ';mso-line-height-rule:exactly;font-size:16px;line-height:22px;color:' + C.bianco + ';font-weight:800;text-align:center;">Next Generation Business</td></tr>'
+            + riga('color:' + t.azzurro + ';font-weight:bold;letter-spacing:1px;', t.piede)
+            + spazio(14)
+            + '<tr><td height="1" bgcolor="' + t.filetto + '" style="height:1px;font-size:1px;line-height:1px;background-color:' + t.filetto + ';">&nbsp;</td></tr>'
+            + spazio(12)
+            + riga('color:' + t.suNotte + ';', esc(MITTENTE.nome) + ' &middot; ' + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+            + riga('color:' + t.suNotte + ';', '<a href="' + PRIVACY + '" style="' + link + '">Informativa privacy</a>'
+                + ' &nbsp;&middot;&nbsp; <a href="' + t.pagina + '" style="' + link + '">Pagina dell\'evento</a>')
+            + spazio(6)
+            + riga('color:#8FA3B8;font-size:12px;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+        )
+        + '</td></tr>';
+}
+// la testata e il piede giusti per la pagina: quelli dell'evento quando ce l'ha
+function testataPer(pagina, titolo, sommario) {
+    const t = temaEvento(pagina);
+    return t ? testataEvento(t, titolo, sommario) : testata(titolo, sommario);
+}
+function piedePer(pagina, motivo) {
+    const t = temaEvento(pagina);
+    return t ? piedeEvento(t, motivo) : piede(motivo);
+}
+
 function involucro(oggetto, anteprima, corpoInterno) {
     const preheader = '<div style="display:none;font-size:1px;color:' + C.sfondo + ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">'
         + esc(anteprima || '') + '&#8199;&#65279;&#847; '.repeat(30) + '</div>';
     return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n'
-        + '<html xmlns="http://www.w3.org/1999/xhtml" lang="it" xml:lang="it">\n<head>\n'
+        + '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="it" xml:lang="it">\n<head>\n'
         + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n'
         + '<meta name="viewport" content="width=device-width, initial-scale=1" />\n'
         + '<meta name="x-apple-disable-message-reformatting" content="" />\n'
         + '<meta name="color-scheme" content="light" />\n<meta name="supported-color-schemes" content="light" />\n'
         + '<title>' + esc(oggetto) + '</title>\n'
+        /* Montserrat, il carattere dei titoli della pagina dell'evento: chi non lo
+           carica usa Arial. Ma OUTLOOK per Windows, davanti a un carattere web,
+           non passa al secondo della lista: scrive tutto in Times New Roman.
+           Percio' il collegamento a Montserrat e' nascosto a Outlook (commento
+           condizionale), e per Outlook c'e' una regola che impone Arial. */
+        + '<!--[if !mso]><!--><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap" rel="stylesheet" type="text/css" /><!--<![endif]-->\n'
+        /* Outlook per Windows impagina con Word: a 120 dpi ingrandisce le
+           immagini se non gli si dice che il foglio e' a 96. */
+        + '<!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>'
+        + '<style type="text/css">body,table,td,a,span,p{font-family:Arial,Helvetica,sans-serif!important;}</style><![endif]-->\n'
         + '<style type="text/css">\n'
         /* I telefoni ingrandiscono da se' il testo che giudicano piccolo, e
            nel farlo scompaginano la colonna: qui si dice di non farlo, perche'
@@ -84,7 +185,9 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '.par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}'
         /* le righe del riquadro si impilano: etichetta sopra, valore sotto */
         + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
-        + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}}\n'
+        + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}'
+        // la fascia data / orario / sede della testata dell'evento: una sotto l'altra
+        + '.hd{display:block!important;width:100%!important;border-left:0!important;padding:10px 0!important;}}\n'
         /* IL TESTO RESTA GIUSTIFICATO ANCHE SUL TELEFONO, come nelle mail
            composte dall'area riservata: e' una scelta di chi firma le lettere.
            Qui sotto resta solo la colonna dell'ora, che e' una larghezza e non
@@ -94,12 +197,22 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '</style>\n</head>\n'
         + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
         + preheader
-        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
-        + '<tr><td align="center" style="padding:24px 12px;">'
-        + '<table role="presentation" class="wrap" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + C.sfondo + '" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
+        + '<tr><td align="center" bgcolor="' + C.sfondo + '" style="padding:24px 12px;background-color:' + C.sfondo + ';">'
+        /* LA COLONNA DA 600. Outlook per Windows non conosce max-width: senza
+           questa tabella "fantasma", visibile solo a lui, la mail si allarga
+           a tutta la finestra. Gli altri la ignorano e usano max-width, che
+           sul telefono lascia stringere la colonna. Tutto il resto e' scritto
+           DENTRO gli elementi (stili in linea, bgcolor sulle celle): inoltrando,
+           molti programmi buttano il <style> dell'intestazione, e la mail deve
+           restare la stessa anche senza. */
+        + '<!--[if mso]><table role="presentation" width="' + LARGHEZZA + '" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->'
+        + '<table role="presentation" class="wrap" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + C.bianco + '" '
         + 'style="border-collapse:collapse;width:100%;max-width:' + LARGHEZZA + 'px;margin:0 auto;background-color:' + C.bianco + ';">'
         + corpoInterno
-        + '</table></td></tr></table>\n</body>\n</html>';
+        + '</table>'
+        + '<!--[if mso]></td></tr></table><![endif]-->'
+        + '</td></tr></table>\n</body>\n</html>';
 }
 
 function testata(titolo, sommario) {
@@ -130,9 +243,10 @@ function rigaBox(et, val) {
         + '<td class="bxv" valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';padding:5px 0;">' + esc(val) + '</td></tr>';
 }
 function box(righe) {
-    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
-        + '<tr><td style="padding:16px 22px;">' + tabella(righe) + '</td></tr></table>';
+    // bordi e fondo sulla CELLA, con bgcolor: e' cosi' che Outlook li disegna
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+        + '<tr><td bgcolor="' + C.chiaro + '" style="padding:16px 22px;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+        + tabella(righe) + '</td></tr></table>';
 }
 /* GIUSTIFICATO, con la sillabazione richiesta: e' il modo in cui questo studio
    scrive. Senza sillabazione giustificare allarga gli spazi fra le parole
@@ -146,8 +260,11 @@ function paragrafo(t) {
 function bottone(testoBtn, url) {
     return '<tr><td align="center" style="text-align:center;">'
         + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
-        + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
-        + '<a href="' + esc(url) + '" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+        /* Outlook non applica il padding a un collegamento: lo prende dalla
+           cella (mso-padding-alt, che gli altri ignorano). Gli altri lo
+           applicano al collegamento, e tutto il pulsante resta cliccabile. */
+        + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';mso-padding-alt:14px 30px;">'
+        + '<a href="' + esc(url) + '" style="display:inline-block;padding:14px 30px;mso-padding-alt:0;font-family:' + FONT
         + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">' + esc(testoBtn) + '</a>'
         + '</td></tr></table></td></tr>';
 }
@@ -166,20 +283,20 @@ function bottone(testoBtn, url) {
 function bloccoConferma(url, online) {
     return '<tr><td style="' + FONTE + '">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
-        + '<tr><td class="par" style="' + FONTE + 'padding:18px 22px 14px;font-size:16px;line-height:26px;color:' + C.testo
+        + 'bgcolor="' + C.chiaro + '" style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+        + '<tr><td class="par" bgcolor="' + C.chiaro + '" style="' + FONTE + 'padding:18px 22px 14px;font-size:16px;line-height:26px;color:' + C.testo
         + ';background-color:' + C.chiaro + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">'
         + '<b style="color:' + C.scuro + ';">Un tocco per confermare il tuo indirizzo.</b> '
         + (online
             ? 'È l\'indirizzo con cui entrerai nella diretta: senza la conferma l\'iscrizione non è completa.</td></tr>'
             : 'Subito dopo ti mandiamo una seconda email con l\'invito in PDF da esibire all\'ingresso: senza la conferma l\'iscrizione non è completa.</td></tr>')
-        + '<tr><td style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
+        + '<tr><td bgcolor="' + C.chiaro + '" style="padding:0 22px 8px;background-color:' + C.chiaro + ';">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
-        + '<td align="center" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;">'
-        + '<a href="' + esc(url) + '" style="display:block;padding:13px 16px;font-family:' + FONT
+        + '<td align="center" valign="middle" bgcolor="' + C.blu + '" height="48" style="background-color:' + C.blu + ';border:1px solid ' + C.blu + ';height:48px;text-align:center;mso-padding-alt:13px 16px;">'
+        + '<a href="' + esc(url) + '" style="display:block;padding:13px 16px;mso-padding-alt:0;font-family:' + FONT
         + ';font-size:17px;line-height:22px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Conferma il tuo indirizzo email</a>'
         + '</td></tr></table></td></tr>'
-        + '<tr><td style="' + FONTE + 'padding:0 22px 16px;font-size:13px;line-height:20px;color:' + C.tenue + ';background-color:' + C.chiaro + ';word-break:break-all;text-align:left;">'
+        + '<tr><td bgcolor="' + C.chiaro + '" style="' + FONTE + 'padding:0 22px 16px;font-size:13px;line-height:20px;color:' + C.tenue + ';background-color:' + C.chiaro + ';word-break:break-all;text-align:left;">'
         + 'Se il pulsante non funziona, copia questo indirizzo nel browser:<br>'
         + '<a href="' + esc(url) + '" style="color:' + C.accento + ';text-decoration:underline;">' + esc(url) + '</a></td></tr>'
         + '</table></td></tr>';
@@ -301,7 +418,7 @@ function confermaSito(dati, link, linkConferma) {
             ? 'La tua richiesta è registrata. Conferma il tuo indirizzo dal pulsante qui sopra: riceverai subito l\'invito in PDF da esibire all\'ingresso. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante in fondo puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
             : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.');
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
-        testata(linkConferma ? 'Richiesta di conferma' : 'Iscrizione ricevuta', sommario)
+        testataPer(dati.pagina, linkConferma ? 'Richiesta di conferma' : 'Iscrizione ricevuta', sommario)
         + corpo(
             /* Prima di tutto la conferma dell'indirizzo, quando c'e' il
                collegamento: e' l'unica cosa che chiediamo di fare, e sta
@@ -324,7 +441,7 @@ function confermaSito(dati, link, linkConferma) {
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
-        + piede(MOTIVO));
+        + piedePer(dati.pagina, MOTIVO));
     const testo = [linkConferma ? 'RICHIESTA DI CONFERMA' : 'ISCRIZIONE RICEVUTA', sommario,
         // nella versione testo il collegamento di conferma sta sulla prima riga utile
         linkConferma ? 'Conferma il tuo indirizzo email (un clic): ' + linkConferma : '',
@@ -360,7 +477,7 @@ function invitoIngresso(dati, link) {
         : 'In allegato trovi il tuo invito in PDF: esibiscilo al desk all\'ingresso, anche dal telefono, e ti consegniamo il badge. Se qualcosa cambia, dal pulsante qui sotto puoi correggere i tuoi dati o annullare la partecipazione, senza scriverci.';
     const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
     const html = involucro(oggetto, online ? 'Indirizzo confermato: la tua partecipazione online è registrata.' : 'Il tuo invito a ' + evento + ' è in allegato: esibiscilo all\'ingresso.',
-        testata(online ? 'Indirizzo confermato' : 'Il tuo invito', sommario)
+        testataPer(dati.pagina, online ? 'Indirizzo confermato' : 'Il tuo invito', sommario)
         + corpo(
             paragrafo(apertura)
             + spazio(22)
@@ -380,7 +497,7 @@ function invitoIngresso(dati, link) {
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
             + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
-        + piede(MOTIVO));
+        + piedePer(dati.pagina, MOTIVO));
     const testo = [online ? 'INDIRIZZO CONFERMATO' : 'IL TUO INVITO', sommario, apertura,
         'Evento: Next Generation Business - ' + evento
         + (ev.quando ? '\nGiorno: ' + ev.quando : '') + (ev.orario ? '\nOrario: ' + ev.orario : '') + (dove ? '\nDove: ' + dove : '')
@@ -401,8 +518,8 @@ function bloccoAgenda(a) {
     const link = (t, u) => '<a href="' + esc(u) + '" style="color:' + C.blu + ';font-weight:bold;text-decoration:underline;">' + esc(t) + '</a>';
     return '<tr><td style="' + FONTE + '">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
-        + '<tr><td class="par" style="' + FONTE + 'padding:16px 20px;font-size:15px;line-height:25px;color:' + C.testo + ';text-align:justify;">'
+        + 'bgcolor="' + C.chiaro + '" style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';">'
+        + '<tr><td class="par" bgcolor="' + C.chiaro + '" style="' + FONTE + 'padding:16px 20px;font-size:15px;line-height:25px;color:' + C.testo + ';text-align:justify;">'
         + '<strong>Aggiungi la giornata al calendario:</strong> ' + link('Google Calendar', a.google) + ' &middot; ' + link('Outlook', a.outlook)
         + ' &middot; per Apple Calendar e le altre agende apri il file .ics in allegato.'
         + '</td></tr></table></td></tr>';
@@ -421,7 +538,7 @@ function confermaVariazioni(dati, link) {
         return rigaBox('Partecipante ' + (i + 1), chi + (p.azienda ? ' - ' + p.azienda : ''));
     }).join('');
     const html = involucro(oggetto, 'Iscrizione aggiornata: ' + dati.postiAttivi + (dati.postiAttivi === 1 ? ' posto' : ' posti') + ' per ' + evento + '.',
-        testata('Iscrizione aggiornata', sommario)
+        testataPer(dati.pagina, 'Iscrizione aggiornata', sommario)
         + corpo(
             '<tr><td>' + box(
                 rigaBox('Evento', 'Next Generation Business - ' + evento)
@@ -435,7 +552,7 @@ function confermaVariazioni(dati, link) {
             + spazio(24)
             + bottone('Modifica o annulla', link)
         )
-        + piede(MOTIVO));
+        + piedePer(dati.pagina, MOTIVO));
     const testo = ['ISCRIZIONE AGGIORNATA', sommario,
         'Posti attivi: ' + dati.postiAttivi + '\n'
         + (dati.attivi || []).map((p, i) => 'Partecipante ' + (i + 1) + ': ' + (((p.nome || '') + ' ' + (p.cognome || '')).trim() || '-') + (p.azienda ? ' - ' + p.azienda : '')).join('\n')
