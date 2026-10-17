@@ -875,6 +875,26 @@ ul, ol { list-style: none; }
     font-size: 1rem;
     transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
+/* Lo stesso aspetto su iPhone, Android e computer: senza, Safari aggiunge
+   un'ombra interna e angoli suoi, e le tendine hanno ognuna la sua freccia.
+   Il testo resta a 16px: sotto, l'iPhone ingrandisce la pagina a ogni tocco. */
+.campo input,
+.campo select {
+    -webkit-appearance: none;
+    appearance: none;
+    font-size: 16px;
+    line-height: 1.3;
+    scroll-margin-top: calc(var(--altezza-nav) + 24px);
+    scroll-margin-bottom: 120px;
+}
+.campo select {
+    padding-right: 40px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23164068' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 12px 8px;
+}
+.campo select::-ms-expand { display: none; }
 .campo input:focus,
 .campo select:focus {
     outline: none;
@@ -891,7 +911,9 @@ ul, ol { list-style: none; }
 .campo-riga input { flex: 1; min-width: 0; }
 .campo-nota { font-size: 0.8rem; color: var(--testo-tenue); text-align: left !important; }
 .campo-nota[hidden] { display: none; }
-.captcha { margin-top: 6px; min-height: 65px; }
+/* la casella di sicurezza: occupa spazio solo quando Cloudflare chiede un clic */
+.captcha { margin-top: 0; }
+.captcha--visibile { margin-top: 10px; }
 .captcha[hidden] { display: none; }
 .campo-ok { font-size: 0.82rem; font-weight: 600; color: #1F6B57; }
 .campo-ok:empty, .campo-errore:empty { display: none; }
@@ -912,6 +934,8 @@ ul, ol { list-style: none; }
     transition: background 0.2s ease, opacity 0.2s ease;
 }
 .btn-modulo:hover { background: var(--blu-scuro); }
+/* /assets/testo.css fa ereditare l'allineamento ai pulsanti: questi restano centrati */
+.btn-modulo { text-align: center !important; }
 .btn-modulo:disabled { opacity: 0.5; cursor: default; }
 .btn-modulo:focus-visible,
 .link-modulo:focus-visible { outline: 2px solid var(--blu-medio); outline-offset: 2px; }
@@ -1225,7 +1249,24 @@ ul, ol { list-style: none; }
     .presenza p { text-align: center !important; text-align-last: center; }
 
     .passi { grid-template-columns: 1fr; }
-    .modulo-involucro { padding: 24px 16px; }
+    .modulo-involucro { padding: 24px 16px; border-radius: 12px; }
+    /* sul telefono: campi alti quanto un dito, e caselle grandi da toccare */
+    .campo input, .campo select, .btn-modulo { min-height: 50px; }
+    .modulo-blocco { gap: 16px; }
+    .interessi { gap: 8px; }
+    .interessi .spunta {
+        padding: 12px 14px;
+        border: 1px solid var(--linea);
+        border-radius: 10px;
+        background: var(--bianco);
+        align-items: center;
+        min-height: 48px;
+    }
+    .interessi .spunta:has(input:checked) { border-color: var(--blu-medio); background: var(--azzurro-tenue); }
+    .spunta input { width: 22px; height: 22px; margin-top: 0; }
+    .modulo-consensi .spunta { padding: 6px 0; }
+    .btn-invio { min-height: 56px; }
+    .link-modulo { padding: 10px 0; }
     .modulo-blocco { grid-template-columns: 1fr; }
     .interessi { grid-template-columns: 1fr; }
     .campo-riga { flex-direction: column; }

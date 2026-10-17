@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 
     <!-- Primary Meta Tags -->
     <title>Merito creditizio e crescita delle imprese, Milano 2027 | Revilaw</title>
@@ -49,7 +49,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -343,17 +343,17 @@
                         <legend>I tuoi dati</legend>
                         <div class="campo">
                             <label for="nome">Nome *</label>
-                            <input type="text" id="nome" name="nome" required autocomplete="given-name">
+                            <input type="text" id="nome" name="nome" required autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next">
                             <span class="campo-errore" id="nomeError"></span>
                         </div>
                         <div class="campo">
                             <label for="cognome">Cognome *</label>
-                            <input type="text" id="cognome" name="cognome" required autocomplete="family-name">
+                            <input type="text" id="cognome" name="cognome" required autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next">
                             <span class="campo-errore" id="cognomeError"></span>
                         </div>
                         <div class="campo campo-largo">
                             <label for="email">Email *</label>
-                            <input type="email" id="email" name="email" required placeholder="nome@azienda.it" autocomplete="email">
+                            <input type="email" id="email" name="email" required placeholder="nome@azienda.it" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next">
                             <span class="campo-nota">Una sola iscrizione per indirizzo: qui arriva la mail con il pulsante per confermarlo.</span>
                             <span class="campo-errore" id="emailError"></span>
                         </div>
@@ -364,7 +364,7 @@
                         <div class="campo campo-largo">
                             <label for="telefono">Cellulare *</label>
                             <div class="campo-riga">
-                                <input type="tel" id="telefono" name="telefono" required placeholder="333 123 4567" autocomplete="tel" inputmode="tel">
+                                <input type="tel" id="telefono" name="telefono" required placeholder="333 123 4567" autocomplete="tel" inputmode="tel" enterkeyhint="send">
                                 <button type="button" class="btn-modulo" id="smsInvia">Invia il codice</button>
                             </div>
                             <span class="campo-nota" id="telefonoNota">Un numero di cellulare italiano: ti mandiamo per SMS un codice di 6 cifre. Una sola iscrizione per numero.</span>
@@ -377,7 +377,7 @@
                         <div class="campo campo-largo" id="gruppoSms" hidden>
                             <label for="codiceSms">Codice ricevuto per SMS *</label>
                             <div class="campo-riga">
-                                <input type="text" id="codiceSms" name="codiceSms" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 cifre" class="campo-codice">
+                                <input type="text" id="codiceSms" name="codiceSms" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="6 cifre" class="campo-codice" enterkeyhint="done" autocorrect="off" spellcheck="false">
                                 <button type="button" class="btn-modulo" id="smsVerifica">Verifica</button>
                             </div>
                             <span class="campo-nota" id="smsNota"></span>
@@ -394,13 +394,13 @@
                              modulo il nome dell'azienda a cui e' stato mandato. -->
                         <div class="campo campo-largo">
                             <label for="codiceInvito">Codice invito <span class="facoltativo">(solo se hai ricevuto l'invito riservato alla tua azienda)</span></label>
-                            <input type="text" id="codiceInvito" name="codiceInvito" placeholder="5 caratteri, per esempio A7K2M" maxlength="12" autocomplete="off" spellcheck="false" class="campo-codice">
+                            <input type="text" id="codiceInvito" name="codiceInvito" placeholder="5 caratteri, per esempio A7K2M" maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" class="campo-codice" enterkeyhint="next">
                             <span class="campo-ok" id="codiceInvitoOk" role="status"></span>
                             <span class="campo-errore" id="codiceInvitoError"></span>
                         </div>
                         <div class="campo">
                             <label for="azienda">Azienda / Studio *</label>
-                            <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization">
+                            <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization" autocapitalize="words" autocorrect="off" enterkeyhint="next">
                             <span class="campo-nota" id="aziendaNota" hidden>Dal codice invito: per cambiarla, togli il codice.</span>
                             <span class="campo-errore" id="aziendaError"></span>
                         </div>
@@ -432,7 +432,7 @@
                         <!-- con "Altro" il ruolo lo scrive la persona -->
                         <div class="campo campo-largo" id="gruppoRuoloAltro" hidden>
                             <label for="ruoloAltro">Il tuo ruolo *</label>
-                            <input type="text" id="ruoloAltro" name="ruoloAltro" placeholder="La tua qualifica" autocomplete="organization-title" maxlength="120">
+                            <input type="text" id="ruoloAltro" name="ruoloAltro" placeholder="La tua qualifica" autocomplete="organization-title" maxlength="120" autocapitalize="sentences" enterkeyhint="next">
                             <span class="campo-errore" id="ruoloAltroError"></span>
                         </div>
                         <div class="campo">
@@ -656,6 +656,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=11"></script>
+    <script src="script.js?v=12"></script>
 </body>
 </html>
