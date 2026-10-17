@@ -325,6 +325,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (d.attesa) { gruppoSms.hidden = false; contoAllaRovescia(d.attesa); }
                     return;
                 }
+                /* Un "ok" senza il numero mascherato non viene da chi spedisce gli
+                   SMS: e' un servizio non ancora aggiornato, che avrebbe preso la
+                   richiesta per un'iscrizione. Meglio dirlo che fingere un invio. */
+                if (!d.numero) {
+                    btnInvia.disabled = false;
+                    errore('telefono', 'Il servizio di verifica non è ancora attivo. Riprova fra qualche minuto, oppure scrivici a info@nextgenerationbusiness.it.');
+                    return;
+                }
                 numeroInviato = numero;
                 // il codice vale per questo numero: per cambiarlo si passa da «Cambia numero»
                 campoTel.readOnly = true;
