@@ -727,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
             interessi: interessi,
             codiceInvito: codice,
             modalita: valore('modalita') || 'presenza',
-            privacy: $('privacy').checked, marketing: $('marketing').checked,
+            privacy: $('privacy').checked, marketing: $('marketing').checked, riprese: $('riprese').checked,
             percorso: location.pathname
         }).then(d => {
             if (!d || !d.ok) {
@@ -737,6 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (d && d.smsKo) { azzeraVerifica(); errore('telefono', msg); vaiA(campoTel); return; }
                 if (d && d.campo === 'telefono') { errore('telefono', msg); vaiA(campoTel); return; }
                 if (d && d.campo === 'email') { errore('email', msg); vaiA($('email')); return; }
+                if (d && d.campo === 'riprese') { errore('riprese', msg); vaiA($('riprese')); return; }
                 if (d && d.codiceKo) {
                     statoCodice = { valore: codice, esito: d.campo === 'codice' ? 'esaurito' : 'cattivo', azienda: '' };
                     mostraCodice(statoCodice.esito);
