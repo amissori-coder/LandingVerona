@@ -66,6 +66,10 @@ function attiva(s) {
 function confermata(s) {
     return !!(s && s.emailConfermata && s.emailConfermata.quando);
 }
+// il cellulare verificato con il codice SMS (le schede inserite a mano non lo hanno)
+function cellulareVerificato(s) {
+    return !!(s && s.telefonoVerificato && s.telefonoVerificato.quando);
+}
 
 /* I conti di un evento per un giorno: dalle schede (id + dati) alle righe
    della mail. `schede` e' un elenco di { id, dati }. */
@@ -87,11 +91,13 @@ function conti(schede, ev, giorno) {
                 telefono: String(s.telefono || ''),
                 ora: (/\d{2}:\d{2}/.exec(String(s.data || '')) || [''])[0],
                 confermata: confermata(s),
+                cellulare: cellulareVerificato(s),
                 invito: s.selezionata ? String(s.invitoAzienda || s.azienda || '') : ''
             };
         }),
         totale: attive.length,
-        confermate: attive.filter(x => confermata(x.dati)).length
+        confermate: attive.filter(x => confermata(x.dati)).length,
+        cellulari: attive.filter(x => cellulareVerificato(x.dati)).length
     };
 }
 

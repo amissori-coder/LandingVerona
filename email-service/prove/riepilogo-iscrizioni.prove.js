@@ -73,7 +73,7 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
 
 (async () => {
     console.log('\nMezzanotte d\'inverno (23 UTC)');
-    scheda('a', { nome: 'Anna', cognome: 'Bianchi', email: 'anna@x.it', telefono: '+39 333 111 2222', azienda: 'Alfa', ruolo: 'CFO', data: '15/01/2027 10:12:00', ricevuto: { toMillis: () => ms('2027-01-15T09:12:00Z') }, emailConfermata: { quando: 1 } });
+    scheda('a', { nome: 'Anna', cognome: 'Bianchi', email: 'anna@x.it', telefono: '+39 333 111 2222', azienda: 'Alfa', ruolo: 'CFO', data: '15/01/2027 10:12:00', ricevuto: { toMillis: () => ms('2027-01-15T09:12:00Z') }, emailConfermata: { quando: 1 }, telefonoVerificato: { quando: 1, come: 'sms' } });
     scheda('b', { nome: 'Bruno', cognome: 'Rossi', email: 'bruno@x.it', data: '15/01/2027 18:40:00', ricevuto: { toMillis: () => ms('2027-01-15T17:40:00Z') }, selezionata: true, invitoAzienda: 'Beta S.p.A.' });
     scheda('c', { nome: 'Carla', email: 'carla@x.it', data: '14/01/2027 09:00:00', ricevuto: { toMillis: () => ms('2027-01-14T08:00:00Z') }, emailConfermata: { quando: 1 } });
     scheda('d', { nome: 'Dario', email: 'dario@x.it', data: '15/01/2027 11:00:00', ricevuto: { toMillis: () => ms('2027-01-15T10:00:00Z') }, annullato: { quando: 1 } });
@@ -94,6 +94,9 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(/area-riservata\/#eventi/.test(m.html) && /area-riservata\/#eventi/.test(m.text), 'c\'e\' il collegamento all\'area riservata');
     esigi(/azienda invitata: Beta S\.p\.A\./.test(m.html), 'chi e\' arrivato con il codice invito si riconosce');
     esigi(/Email confermata/.test(m.html) && /Email da confermare/.test(m.html), 'e si vede chi ha confermato l\'email');
+    esigi(/Cellulare verificato<\/span>/.test(m.html) && /Cellulare non verificato/.test(m.html), 'e chi ha verificato il cellulare (chi e\' inserito a mano no)');
+    esigi(/CELLULARE VERIFICATO|Cellulare verificato<\/td>/i.test(m.html) && /1 su 4/.test(m.html), 'nel riquadro: cellulari verificati sul totale');
+    esigi(/Cellulare verificato: 1 su 4/.test(m.text), 'anche nella versione senza formattazione');
 
     console.log('\nUna volta sola');
     r = await gira();
