@@ -970,4 +970,56 @@ function invitoB2BAnnullato(dati) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };
+/* --- Il riepilogo serale per gli organizzatori ---
+   `c` viene da lib/riepilogo-iscrizioni.js (conti): { evento, giorno, nuove:
+   [{nome, azienda, ruolo, email, telefono, ora, confermata, invito}], totale,
+   confermate }; `link` porta alle iscrizioni nell'area riservata. Si veste
+   come le mail dell'evento (testata e piede della pagina), ma e' una mail
+   interna: niente collegamenti personali, e i dati di contatto ci sono. */
+function riepilogoIscrizioni(c, link, giornoTesto) {
+    const pagina = (c.evento && c.evento.nome ? c.evento.nome : '') + ' 26 Febbraio 2027';
+    const n = c.nuove.length;
+    const oggetto = 'Iscrizioni ' + (c.evento ? c.evento.nome : '') + ' - ' + n + (n === 1 ? ' nuova' : ' nuove') + ' il ' + giornoTesto + ' (totale ' + c.totale + ')';
+    const sommario = 'Il ' + giornoTesto + ' ' + (n === 1 ? 'si è iscritta una persona' : 'si sono iscritte ' + n + ' persone')
+        + '. Le iscrizioni attive sono ' + c.totale + ', e ' + c.confermate + ' hanno già confermato l\'indirizzo email.';
+    const daConfermare = c.totale - c.confermate;
+    const stato = (ok) => '<span style="' + FONTE + 'font-size:13px;line-height:20px;font-weight:bold;color:' + (ok ? '#1F6B57' : '#8D5C14') + ';">'
+        + (ok ? 'Email confermata' : 'Email da confermare') + '</span>';
+    const persona = (p) => '<tr><td style="padding:14px 0;border-bottom:1px solid ' + C.bordo + ';">' + tabella(
+        '<tr><td style="' + FONTE + 'font-size:16px;line-height:22px;font-weight:bold;color:' + C.scuro + ';">' + esc(p.nome) + '</td>'
+        + '<td align="right" valign="top" style="' + FONTE + 'font-size:13px;line-height:22px;color:' + C.tenue + ';text-align:right;white-space:nowrap;">' + esc(p.ora ? 'ore ' + p.ora : '') + '</td></tr>'
+        + ((p.azienda || p.ruolo) ? '<tr><td colspan="2" style="' + FONTE + 'font-size:15px;line-height:22px;color:' + C.testo + ';padding-top:2px;">' + esc([p.azienda, p.ruolo].filter(Boolean).join(' · ')) + '</td></tr>' : '')
+        + '<tr><td colspan="2" style="' + FONTE + 'font-size:14px;line-height:21px;color:' + C.tenue + ';padding-top:2px;">'
+        + [p.email ? '<a href="mailto:' + esc(p.email) + '" style="color:' + C.tenue + ';text-decoration:underline;">' + esc(p.email) + '</a>' : '', esc(p.telefono)].filter(Boolean).join(' &middot; ') + '</td></tr>'
+        + '<tr><td colspan="2" style="padding-top:6px;">' + stato(p.confermata)
+        + (p.invito ? '<span style="' + FONTE + 'font-size:13px;line-height:20px;color:' + C.accento + ';"> &middot; azienda invitata: ' + esc(p.invito) + '</span>' : '') + '</td></tr>'
+    ) + '</td></tr>';
+    const html = involucro(oggetto, sommario,
+        testataPer(pagina, 'Riepilogo iscrizioni del ' + giornoTesto, sommario)
+        + corpo(
+            '<tr><td>' + box(
+                rigaBox('Nuove iscrizioni', String(n))
+                + rigaBox('Iscrizioni totali', String(c.totale))
+                + rigaBox('Email confermata', c.confermate + ' su ' + c.totale + (daConfermare ? ' (' + daConfermare + ' da confermare)' : ''))
+            ) + '</td></tr>'
+            + spazio(30)
+            + occhiello(n === 1 ? 'La nuova iscrizione' : 'Le nuove iscrizioni')
+            + '<tr><td>' + tabella(c.nuove.map(persona).join('')) + '</td></tr>'
+            + spazio(30)
+            + bottone('Apri le iscrizioni nell\'area riservata', link)
+            + spazio(16)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», trovi l\'elenco completo, con lo stato di ogni conferma e le iscrizioni annullate.</td></tr>'
+        )
+        + piedePer(pagina, 'Riepilogo automatico per gli organizzatori: parte a mezzanotte solo nei giorni con nuove iscrizioni.'));
+    const testo = ['RIEPILOGO ISCRIZIONI DEL ' + giornoTesto, sommario,
+        'Nuove iscrizioni: ' + n + '\nIscrizioni totali: ' + c.totale + '\nEmail confermata: ' + c.confermate + ' su ' + c.totale,
+        c.nuove.map(p => '- ' + p.nome + (p.ora ? ' (ore ' + p.ora + ')' : '')
+            + ([p.azienda, p.ruolo].filter(Boolean).length ? '\n  ' + [p.azienda, p.ruolo].filter(Boolean).join(' - ') : '')
+            + '\n  ' + [p.email, p.telefono].filter(Boolean).join(' - ')
+            + '\n  ' + (p.confermata ? 'Email confermata' : 'Email da confermare') + (p.invito ? ' - azienda invitata: ' + p.invito : '')).join('\n'),
+        'Tutte le iscrizioni nell\'area riservata: ' + link,
+        '--', 'Riepilogo automatico per gli organizzatori: parte a mezzanotte solo nei giorni con nuove iscrizioni.'].join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+module.exports = { riepilogoIscrizioni, confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };
