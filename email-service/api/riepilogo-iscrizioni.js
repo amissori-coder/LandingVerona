@@ -7,9 +7,9 @@
    Milano e' mezzanotte. Riepiloga il giorno appena finito.
 
    Per ogni evento di lib/iscrizione-verificata.js (oggi Milano 2027):
-   se nel giorno ci sono iscrizioni nuove, una mail ai destinatari di
-   lib/riepilogo-iscrizioni.js con i nuovi iscritti, il totale e il
-   collegamento all'area riservata. Se non ce ne sono, niente mail.
+   una mail ai destinatari di lib/riepilogo-iscrizioni.js con le
+   iscrizioni confermate nel giorno (email confermata), chi e' ancora in
+   attesa di confermare e il totale. Se non c'e' niente, niente mail.
 
    UNA VOLTA SOLA PER GIORNO: prima di spedire si scrive il giorno sul
    documento meta/riepilogoIscrizioni-<evento> (in una transazione),
@@ -93,13 +93,13 @@ module.exports = async (req, res) => {
         const esiti = [];
         for (const ev of R.EVENTI) {
             const c = R.conti(schede, ev, giorno);
-            if (!c.nuove.length) { esiti.push({ evento: ev.chiave, nuove: 0 }); continue; }
+            if (!R.daSpedire(c)) { esiti.push({ evento: ev.chiave, nuove: 0, inAttesa: 0 }); continue; }
             if (!await prenota(db, ev, giorno, forza)) { esiti.push({ evento: ev.chiave, nuove: c.nuove.length, gia: true }); continue; }
             const m = MNGB.riepilogoIscrizioni(c, LINK_AREA, R.giornoLeggibile(giorno));
             const a = R.destinatari();
             try {
                 await trasporto().sendMail({ from: mittente(), to: a.join(', '), subject: m.oggetto, text: m.testo, html: m.html });
-                esiti.push({ evento: ev.chiave, nuove: c.nuove.length, totale: c.totale, inviata: a.length });
+                esiti.push({ evento: ev.chiave, nuove: c.nuove.length, inAttesa: c.inAttesa.length, totale: c.totale, inviata: a.length });
             } catch (e) {
                 // la mail non e' partita: si libera il giorno, cosi' un nuovo giro (o una chiamata a mano) ci riprova
                 try { await db.collection('meta').doc('riepilogoIscrizioni-' + ev.chiave).set({ ultimoGiorno: null }, { merge: true }); } catch (_) { }
