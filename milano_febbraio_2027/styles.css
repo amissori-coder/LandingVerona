@@ -726,20 +726,17 @@ ul, ol { list-style: none; }
     text-align-last: center;
 }
 
+/* "Evento in presenza": una riga centrata con l'icona, senza riquadro */
 .presenza {
     display: flex;
     align-items: center;
-    gap: 16px;
+    justify-content: center;
+    gap: 12px;
     width: 100%;
-    margin-top: 40px;
-    padding: 20px 24px;
-    border-radius: var(--raggio);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    text-align: left;
+    margin-top: 32px;
 }
-.presenza svg { width: 32px; height: 32px; flex-shrink: 0; color: var(--azzurro); }
-.presenza p { color: rgba(255, 255, 255, 0.8); text-align: left !important; }
+.presenza svg { width: 28px; height: 28px; flex-shrink: 0; color: var(--azzurro); }
+.presenza p { margin: 0; font-size: 1.05rem; color: var(--bianco); text-align: center !important; text-align-last: center; }
 .presenza strong { color: var(--bianco); }
 
 .vantaggi {
@@ -1245,8 +1242,6 @@ ul, ol { list-style: none; }
     .elenco-dati > div { grid-template-columns: 1fr; gap: 2px; }
     .sede-mappa, .sede-mappa iframe { min-height: 300px; }
 
-    .presenza { flex-direction: column; text-align: center; }
-    .presenza p { text-align: center !important; text-align-last: center; }
 
     .passi { grid-template-columns: 1fr; }
     .modulo-involucro { padding: 24px 16px; border-radius: 12px; }
