@@ -262,10 +262,10 @@ function testata(titolo, sommario) {
    sottile, l'etichetta piccola in maiuscolo e il valore in grassetto. Niente
    fondo e niente barra laterale: si legge come un modulo dello studio, non
    come un avviso. Le linee sono bordi delle CELLE, che Outlook disegna. */
-function rigaBox(et, val) {
+function rigaBox(et, val, larga) {
     if (!val) return '';
     const riga = 'border-bottom:1px solid ' + C.bordo + ';';
-    return '<tr><td class="bxet" width="140" valign="top" style="' + FONTE + 'font-size:13px;line-height:22px;letter-spacing:1px;text-transform:uppercase;color:' + C.tenue + ';font-weight:bold;padding:12px 14px 12px 0;' + riga + '">' + esc(et) + '</td>'
+    return '<tr><td class="bxet" width="' + (larga || 140) + '" valign="top" style="' + FONTE + 'font-size:13px;line-height:22px;letter-spacing:1px;text-transform:uppercase;color:' + C.tenue + ';font-weight:bold;padding:12px 14px 12px 0;' + riga + '">' + esc(et) + '</td>'
         + '<td class="bxv" valign="top" style="' + FONTE + 'font-size:16px;line-height:22px;color:' + C.scuro + ';font-weight:bold;padding:12px 0;' + riga + '">' + esc(val) + '</td></tr>';
 }
 function box(righe) {
@@ -1004,9 +1004,9 @@ function riepilogoIscrizioni(c, link, giornoTesto) {
         testataPer(pagina, 'Riepilogo iscrizioni del ' + giornoTesto, sommario)
         + corpo(
             '<tr><td>' + box(
-                rigaBox('Confermate oggi', String(n))
-                + rigaBox('Confermate in tutto', String(c.totale))
-                + rigaBox('In attesa di conferma', String(a))
+                rigaBox('Iscrizioni di oggi', String(n), 330)
+                + rigaBox('Iscrizioni totali', String(c.totale), 330)
+                + rigaBox('Iscrizioni in attesa di conferma mail', String(a), 330)
             ) + '</td></tr>'
             + spazio(30)
             + occhiello('Iscrizioni confermate il ' + giornoTesto)
@@ -1027,7 +1027,7 @@ function riepilogoIscrizioni(c, link, giornoTesto) {
         + '\n  ' + [p.email, p.telefono].filter(Boolean).join(' - ')
         + (p.invito ? '\n  Azienda invitata: ' + p.invito : '');
     const testo = ['RIEPILOGO ISCRIZIONI DEL ' + giornoTesto, sommario,
-        'Confermate oggi: ' + n + '\nConfermate in tutto: ' + c.totale + '\nIn attesa di conferma: ' + a,
+        'Iscrizioni di oggi: ' + n + '\nIscrizioni totali: ' + c.totale + '\nIscrizioni in attesa di conferma mail: ' + a,
         'ISCRIZIONI CONFERMATE IL ' + giornoTesto + '\n' + (n ? c.nuove.map(p => txtPersona(p, p.ora ? 'confermata alle ' + p.ora : '')).join('\n') : 'Nessuna nuova conferma nella giornata.'),
         a ? 'IN ATTESA DI CONFERMA EMAIL\n' + c.inAttesa.map(p => txtPersona(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('\n') : '',
         'Tutte le iscrizioni nell\'area riservata: ' + link,
