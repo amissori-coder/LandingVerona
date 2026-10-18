@@ -2,10 +2,11 @@
    Riepilogo serale delle iscrizioni (Milano 2027)
    ------------------------------------------------------------
    A mezzanotte, ora di Milano, agli organizzatori parte una mail
-   con chi si e' iscritto nella giornata appena finita e il totale
-   delle iscrizioni, con il collegamento all'area riservata.
-   SE NELLA GIORNATA NON SI E' ISCRITTO NESSUNO NON PARTE NIENTE:
-   una mail che dice "zero" ogni notte smette presto di essere letta.
+   con le iscrizioni COMPLETATE nella giornata appena finita (email
+   confermata), chi e' ancora in attesa di confermare l'email e il
+   totale delle iscrizioni confermate, con il collegamento all'area
+   riservata. Se non c'e' nessuna conferma nuova e nessuno in attesa
+   non parte niente.
 
    Gli eventi sono quelli di lib/iscrizione-verificata.js (EVENTI):
    lo stesso riconoscimento della pagina, cosi' contano anche le
@@ -66,39 +67,60 @@ function attiva(s) {
 function confermata(s) {
     return !!(s && s.emailConfermata && s.emailConfermata.quando);
 }
-// il cellulare verificato con il codice SMS (le schede inserite a mano non lo hanno)
-function cellulareVerificato(s) {
-    return !!(s && s.telefonoVerificato && s.telefonoVerificato.quando);
+/* Quando l'email e' stata confermata (ms), o null. */
+function quandoConfermata(s) {
+    const q = s && s.emailConfermata && s.emailConfermata.quando;
+    return typeof q === 'number' ? q : (q && typeof q.toMillis === 'function' ? q.toMillis() : null);
+}
+function oraRomaDi(ms) {
+    return new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
 }
 
-/* I conti di un evento per un giorno: dalle schede (id + dati) alle righe
-   della mail. `schede` e' un elenco di { id, dati }. */
+/* I conti di un evento per un giorno.
+   UN'ISCRIZIONE CONTA QUANDO L'EMAIL E' CONFERMATA: e' quello il momento in
+   cui la registrazione e' completa (il cellulare, dal sito, e' verificato
+   prima ancora di poter inviare il modulo). Percio':
+     - "nuove" sono le iscrizioni con l'email confermata NEL GIORNO, anche se
+       il modulo era stato inviato giorni prima;
+     - "inAttesa" sono quelle inviate (fino a quel giorno compreso) e non
+       ancora confermate: tornano ogni notte, finche' non confermano, e quella
+       notte passano fra le nuove;
+     - "totale" sono le iscrizioni confermate in tutto.
+   `schede` e' un elenco di { id, dati }. */
 function conti(schede, ev, giorno) {
     const dellEvento = schede.filter(x => ev.se.test(String((x.dati || {}).pagina || '').trim()));
     const attive = dellEvento.filter(x => attiva(x.dati));
-    const nuove = attive.filter(x => giornoDi(x.dati) === giorno)
-        .sort((a, b) => String((a.dati || {}).data || '').localeCompare(String((b.dati || {}).data || '')));
+    const persona = (s, ora, quando) => ({
+        nome: [s.nome, s.cognome].filter(Boolean).join(' ').trim() || '(senza nome)',
+        azienda: String(s.azienda || ''),
+        ruolo: String(s.ruolo || ''),
+        email: String(s.email || ''),
+        telefono: String(s.telefono || ''),
+        ora: ora,
+        iscritto: quando,
+        invito: s.selezionata ? String(s.invitoAzienda || s.azienda || '') : ''
+    });
+    const nuove = attive.filter(x => quandoConfermata(x.dati) && giornoRoma(quandoConfermata(x.dati)) === giorno)
+        .sort((a, b) => quandoConfermata(a.dati) - quandoConfermata(b.dati))
+        .map(x => persona(x.dati, oraRomaDi(quandoConfermata(x.dati)), ''));
+    const inAttesa = attive.filter(x => !confermata(x.dati) && giornoDi(x.dati) && giornoDi(x.dati) <= giorno)
+        .sort((a, b) => (giornoDi(a.dati) + String((a.dati || {}).data || '')).localeCompare(giornoDi(b.dati) + String((b.dati || {}).data || '')))
+        .map(x => {
+            const s = x.dati || {};
+            const g = giornoDi(s);
+            return persona(s, (/\d{2}:\d{2}/.exec(String(s.data || '')) || [''])[0], g ? giornoLeggibile(g).slice(0, 5) : '');
+        });
     return {
         evento: ev,
         giorno: giorno,
-        nuove: nuove.map(x => {
-            const s = x.dati || {};
-            return {
-                nome: [s.nome, s.cognome].filter(Boolean).join(' ').trim() || '(senza nome)',
-                azienda: String(s.azienda || ''),
-                ruolo: String(s.ruolo || ''),
-                email: String(s.email || ''),
-                telefono: String(s.telefono || ''),
-                ora: (/\d{2}:\d{2}/.exec(String(s.data || '')) || [''])[0],
-                confermata: confermata(s),
-                cellulare: cellulareVerificato(s),
-                invito: s.selezionata ? String(s.invitoAzienda || s.azienda || '') : ''
-            };
-        }),
-        totale: attive.length,
-        confermate: attive.filter(x => confermata(x.dati)).length,
-        cellulari: attive.filter(x => cellulareVerificato(x.dati)).length
+        nuove: nuove,
+        inAttesa: inAttesa,
+        totale: attive.filter(x => confermata(x.dati)).length
     };
 }
+// c'e' qualcosa da dire? nuove conferme oppure qualcuno ancora in attesa
+function daSpedire(c) {
+    return !!(c && (c.nuove.length || c.inAttesa.length));
+}
 
-module.exports = { EVENTI: VERIFICATA.EVENTI, destinatari, DESTINATARI, giornoRoma, oraRoma, giornoPrima, giornoLeggibile, giornoDi, conti };
+module.exports = { EVENTI: VERIFICATA.EVENTI, destinatari, DESTINATARI, giornoRoma, oraRoma, giornoPrima, giornoLeggibile, giornoDi, conti, daSpedire };

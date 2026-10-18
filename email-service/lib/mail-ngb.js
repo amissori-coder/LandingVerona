@@ -971,59 +971,67 @@ function invitoB2BAnnullato(dati) {
 }
 
 /* --- Il riepilogo serale per gli organizzatori ---
-   `c` viene da lib/riepilogo-iscrizioni.js (conti): { evento, giorno, nuove:
-   [{nome, azienda, ruolo, email, telefono, ora, confermata, invito}], totale,
-   confermate }; `link` porta alle iscrizioni nell'area riservata. Si veste
-   come le mail dell'evento (testata e piede della pagina), ma e' una mail
+   `c` viene da lib/riepilogo-iscrizioni.js (conti): { evento, giorno,
+   nuove: [...], inAttesa: [...], totale }. Ogni persona: { nome, azienda,
+   ruolo, email, telefono, ora, iscritto, invito }. Le NUOVE sono le
+   iscrizioni completate nel giorno (email confermata, `ora` = ora della
+   conferma); quelle IN ATTESA hanno inviato il modulo ma non hanno ancora
+   confermato l'email (`iscritto` = giorno, `ora` = ora del modulo) e
+   tornano ogni notte finche' non confermano. `link` porta alle iscrizioni
+   nell'area riservata. Si veste come le mail dell'evento, ma e' una mail
    interna: niente collegamenti personali, e i dati di contatto ci sono. */
 function riepilogoIscrizioni(c, link, giornoTesto) {
     const pagina = (c.evento && c.evento.nome ? c.evento.nome : '') + ' 26 Febbraio 2027';
     const n = c.nuove.length;
-    const oggetto = 'Iscrizioni ' + (c.evento ? c.evento.nome : '') + ' - ' + n + (n === 1 ? ' nuova' : ' nuove') + ' il ' + giornoTesto + ' (totale ' + c.totale + ')';
-    const sommario = 'Il ' + giornoTesto + ' ' + (n === 1 ? 'si è iscritta una persona' : 'si sono iscritte ' + n + ' persone')
-        + '. Le iscrizioni attive sono ' + c.totale + ': ' + (c.cellulari || 0) + ' con il cellulare verificato e ' + c.confermate + ' con l\'indirizzo email confermato.';
-    const daConfermare = c.totale - c.confermate;
-    // lo stato di una verifica: verde se fatta, ambra se manca
-    const segno = (ok, si, no) => '<span style="' + FONTE + 'font-size:13px;line-height:20px;font-weight:bold;color:' + (ok ? '#1F6B57' : '#8D5C14') + ';">'
-        + (ok ? si : no) + '</span>';
-    const stato = (p) => segno(p.cellulare, 'Cellulare verificato', 'Cellulare non verificato')
-        + '<span style="' + FONTE + 'font-size:13px;line-height:20px;color:' + C.tenue + ';"> &middot; </span>'
-        + segno(p.confermata, 'Email confermata', 'Email da confermare');
-    const persona = (p) => '<tr><td style="padding:14px 0;border-bottom:1px solid ' + C.bordo + ';">' + tabella(
+    const a = c.inAttesa.length;
+    const oggetto = 'Iscrizioni ' + (c.evento ? c.evento.nome : '') + ' - ' + n + (n === 1 ? ' confermata' : ' confermate') + ' il ' + giornoTesto
+        + ' (totale ' + c.totale + (a ? ', ' + a + ' in attesa' : '') + ')';
+    const sommario = (n
+        ? 'Il ' + giornoTesto + ' ' + (n === 1 ? 'una persona ha completato l\'iscrizione' : n + ' persone hanno completato l\'iscrizione') + ' confermando l\'email.'
+        : 'Il ' + giornoTesto + ' nessuna nuova iscrizione confermata.')
+        + ' Le iscrizioni confermate sono ' + c.totale
+        + (a ? '; ' + (a === 1 ? 'una persona attende' : a + ' persone attendono') + ' ancora di confermare l\'email.' : '.');
+    const riga = (p, nota) => '<tr><td style="padding:14px 0;border-bottom:1px solid ' + C.bordo + ';">' + tabella(
         '<tr><td style="' + FONTE + 'font-size:16px;line-height:22px;font-weight:bold;color:' + C.scuro + ';">' + esc(p.nome) + '</td>'
-        + '<td align="right" valign="top" style="' + FONTE + 'font-size:13px;line-height:22px;color:' + C.tenue + ';text-align:right;white-space:nowrap;">' + esc(p.ora ? 'ore ' + p.ora : '') + '</td></tr>'
+        + '<td align="right" valign="top" style="' + FONTE + 'font-size:13px;line-height:22px;color:' + C.tenue + ';text-align:right;white-space:nowrap;">' + esc(nota) + '</td></tr>'
         + ((p.azienda || p.ruolo) ? '<tr><td colspan="2" style="' + FONTE + 'font-size:15px;line-height:22px;color:' + C.testo + ';padding-top:2px;">' + esc([p.azienda, p.ruolo].filter(Boolean).join(' · ')) + '</td></tr>' : '')
         + '<tr><td colspan="2" style="' + FONTE + 'font-size:14px;line-height:21px;color:' + C.tenue + ';padding-top:2px;">'
         + [p.email ? '<a href="mailto:' + esc(p.email) + '" style="color:' + C.tenue + ';text-decoration:underline;">' + esc(p.email) + '</a>' : '', esc(p.telefono)].filter(Boolean).join(' &middot; ') + '</td></tr>'
-        + '<tr><td colspan="2" style="padding-top:6px;">' + stato(p)
-        + (p.invito ? '<span style="' + FONTE + 'font-size:13px;line-height:20px;color:' + C.accento + ';"> &middot; azienda invitata: ' + esc(p.invito) + '</span>' : '') + '</td></tr>'
+        + (p.invito ? '<tr><td colspan="2" style="' + FONTE + 'font-size:13px;line-height:20px;color:' + C.accento + ';padding-top:4px;">Azienda invitata: ' + esc(p.invito) + '</td></tr>' : '')
     ) + '</td></tr>';
+    const vuoto = (t) => '<tr><td class="par" style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.tenue + ';padding:14px 0;border-bottom:1px solid ' + C.bordo + ';">' + esc(t) + '</td></tr>';
     const html = involucro(oggetto, sommario,
         testataPer(pagina, 'Riepilogo iscrizioni del ' + giornoTesto, sommario)
         + corpo(
             '<tr><td>' + box(
-                rigaBox('Nuove iscrizioni', String(n))
-                + rigaBox('Iscrizioni totali', String(c.totale))
-                + rigaBox('Cellulare verificato', (c.cellulari || 0) + ' su ' + c.totale)
-                + rigaBox('Email confermata', c.confermate + ' su ' + c.totale + (daConfermare ? ' (' + daConfermare + ' da confermare)' : ''))
+                rigaBox('Confermate oggi', String(n))
+                + rigaBox('Confermate in tutto', String(c.totale))
+                + rigaBox('In attesa di conferma', String(a))
             ) + '</td></tr>'
             + spazio(30)
-            + occhiello(n === 1 ? 'La nuova iscrizione' : 'Le nuove iscrizioni')
-            + '<tr><td>' + tabella(c.nuove.map(persona).join('')) + '</td></tr>'
+            + occhiello('Iscrizioni confermate il ' + giornoTesto)
+            + '<tr><td>' + tabella(n ? c.nuove.map(p => riga(p, p.ora ? 'confermata alle ' + p.ora : '')).join('') : vuoto('Nessuna nuova conferma nella giornata.')) + '</td></tr>'
+            + (a ? spazio(30)
+                + occhiello('In attesa di conferma email')
+                + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';padding:10px 0 2px;text-align:justify;">Hanno inviato il modulo e verificato il cellulare, ma non hanno ancora premuto il pulsante nella mail di conferma. Restano in questo elenco finché non confermano; quel giorno passano fra le confermate.</td></tr>'
+                + '<tr><td>' + tabella(c.inAttesa.map(p => riga(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('')) + '</td></tr>'
+                : '')
             + spazio(30)
             + bottone('Apri le iscrizioni nell\'area riservata', link)
             + spazio(16)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», trovi l\'elenco completo, con lo stato di ogni conferma e le iscrizioni annullate.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», trovi l\'elenco completo; da lì si può anche rimandare a chi è in attesa la mail di conferma.</td></tr>'
         )
-        + piedePer(pagina, 'Riepilogo automatico per gli organizzatori: parte a mezzanotte solo nei giorni con nuove iscrizioni.'));
+        + piedePer(pagina, 'Riepilogo automatico per gli organizzatori: parte a mezzanotte quando ci sono conferme nuove o iscrizioni in attesa.'));
+    const txtPersona = (p, nota) => '- ' + p.nome + (nota ? ' (' + nota + ')' : '')
+        + ([p.azienda, p.ruolo].filter(Boolean).length ? '\n  ' + [p.azienda, p.ruolo].filter(Boolean).join(' - ') : '')
+        + '\n  ' + [p.email, p.telefono].filter(Boolean).join(' - ')
+        + (p.invito ? '\n  Azienda invitata: ' + p.invito : '');
     const testo = ['RIEPILOGO ISCRIZIONI DEL ' + giornoTesto, sommario,
-        'Nuove iscrizioni: ' + n + '\nIscrizioni totali: ' + c.totale + '\nCellulare verificato: ' + (c.cellulari || 0) + ' su ' + c.totale + '\nEmail confermata: ' + c.confermate + ' su ' + c.totale,
-        c.nuove.map(p => '- ' + p.nome + (p.ora ? ' (ore ' + p.ora + ')' : '')
-            + ([p.azienda, p.ruolo].filter(Boolean).length ? '\n  ' + [p.azienda, p.ruolo].filter(Boolean).join(' - ') : '')
-            + '\n  ' + [p.email, p.telefono].filter(Boolean).join(' - ')
-            + '\n  ' + (p.cellulare ? 'Cellulare verificato' : 'Cellulare non verificato') + ' - ' + (p.confermata ? 'Email confermata' : 'Email da confermare') + (p.invito ? ' - azienda invitata: ' + p.invito : '')).join('\n'),
+        'Confermate oggi: ' + n + '\nConfermate in tutto: ' + c.totale + '\nIn attesa di conferma: ' + a,
+        'ISCRIZIONI CONFERMATE IL ' + giornoTesto + '\n' + (n ? c.nuove.map(p => txtPersona(p, p.ora ? 'confermata alle ' + p.ora : '')).join('\n') : 'Nessuna nuova conferma nella giornata.'),
+        a ? 'IN ATTESA DI CONFERMA EMAIL\n' + c.inAttesa.map(p => txtPersona(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('\n') : '',
         'Tutte le iscrizioni nell\'area riservata: ' + link,
-        '--', 'Riepilogo automatico per gli organizzatori: parte a mezzanotte solo nei giorni con nuove iscrizioni.'].join('\n\n');
+        '--', 'Riepilogo automatico per gli organizzatori: parte a mezzanotte quando ci sono conferme nuove o iscrizioni in attesa.'].filter(Boolean).join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
