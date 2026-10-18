@@ -186,7 +186,7 @@ async function iscrivi(campi) {
     spedite = [];
     avanza(1000);   // l'identificativo della scheda porta data e ora
     const r = await chiama(Object.assign({
-        pagina: PAGINA, nome: 'Mario', cognome: 'Rossi', privacy: true, marketing: true, modalita: 'presenza'
+        pagina: PAGINA, nome: 'Mario', cognome: 'Rossi', privacy: true, marketing: true, riprese: true, modalita: 'presenza'
     }, campi));
     return r;
 }
@@ -457,6 +457,16 @@ prova('La pagina si accorge della conferma, e l\'invito porta il calendario', as
     esigi(ics && /DTSTART:20270226T073000Z/.test(ics.content) && /DTEND:20270226T170000Z/.test(ics.content), 'dalle 8.30 alle 18.00 ora di Milano');
     esigi(/calendar\.google\.com/.test(mail.html) && /outlook\.live\.com/.test(mail.html), 'nella mail i collegamenti per Google Calendar e Outlook');
     esigi(/Google Calendar: https/.test(mail.text), 'anche nella versione senza formattazione');
+});
+
+prova('Senza il consenso alle riprese non ci si iscrive', async () => {
+    const v = await verificaNumero('3477778888', 'riprese@studio.it');
+    const no = await iscrivi({ email: 'riprese@studio.it', telefono: '3477778888', smsToken: v.token, riprese: false });
+    esigi(no.stato === 400 && no.corpo.campo === 'riprese', 'senza consenso: rifiutata, e si dice perche\'', JSON.stringify(no.corpo));
+    esigi(!schede().some(s => s.email === 'riprese@studio.it'), 'e non si scrive niente');
+    const si = await iscrivi({ email: 'riprese@studio.it', telefono: '3477778888', smsToken: v.token });
+    const s = schede().find(x => x.email === 'riprese@studio.it');
+    esigi(si.corpo.ok && s && s.consensoRiprese && s.consensoRiprese.come === 'modulo', 'con il consenso passa, e il consenso resta sulla scheda');
 });
 
 prova('Napoli resta com\'era', async () => {

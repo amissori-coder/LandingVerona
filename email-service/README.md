@@ -1359,6 +1359,30 @@ persone, e il freno vero agli SMS sono il CAPTCHA e i limiti per numero.
 - **Le prove**: `node prove/iscrizione-verificata.prove.js` (Firestore,
   Brevo e Cloudflare finti).
 
+## Riepilogo serale delle iscrizioni (`/api/riepilogo-iscrizioni`)
+
+A **mezzanotte, ora di Milano**, se nella giornata appena finita ci sono state
+iscrizioni nuove agli eventi di `lib/iscrizione-verificata.js` (oggi Milano
+2027), parte agli organizzatori una mail con i nuovi iscritti (nome, azienda,
+ruolo, email, cellulare, ora, conferma dell'email, azienda invitata), il
+totale delle iscrizioni attive, quante hanno confermato l'email e il
+pulsante per l'area riservata (`/area-riservata/#eventi`). **Nei giorni senza
+iscrizioni nuove non parte niente.** Le annullate non contano.
+
+- **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
+  23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,
+  cosi' regge il cambio dell'ora legale.
+- **Una volta sola per giorno**: il giorno spedito resta su
+  `meta/riepilogoIscrizioni-<evento>`. Se la posta non risponde il giorno si
+  libera, e si recupera a mano.
+- **A mano** (prova o recupero): `GET /api/riepilogo-iscrizioni?giorno=aaaa-mm-gg`
+  con `Authorization: Bearer <CRON_SECRET>`; `&forza=1` rispedisce un giorno
+  gia' mandato.
+- **Destinatari**: in `lib/riepilogo-iscrizioni.js` (DESTINATARI); si possono
+  cambiare senza toccare il codice con la variabile `RIEPILOGO_DESTINATARI`
+  (indirizzi separati da virgola).
+- **Le prove**: `node prove/riepilogo-iscrizioni.prove.js`.
+
 ## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
 
 Il giorno del convegno al desk c'e' un cartello con un QR (lo produce

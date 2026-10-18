@@ -1754,6 +1754,12 @@ module.exports = async (req, res) => {
             if (!VERIFICATA.firmaNumeroValida(evVerificato.chiave, numeroVerificato, body.smsToken)) {
                 res.status(400).json({ ok: false, smsKo: true, msg: VERIFICATA.MSG.nonVerificato }); return;
             }
+            /* Il consenso alle riprese: la giornata e' registrata e possono
+               esserci troupe dei telegiornali. Obbligatorio come nel modulo,
+               cosi' non lo si salta chiamando il servizio a mano. */
+            if (consenso(body.riprese) !== true) {
+                res.status(400).json({ ok: false, campo: 'riprese', msg: 'Per partecipare serve il consenso alle riprese: la giornata sarà registrata e potranno essere presenti troupe televisive.' }); return;
+            }
         }
 
         const cred = leggiServiceAccount();
@@ -1815,6 +1821,8 @@ module.exports = async (req, res) => {
         /* Il cellulare verificato: nella forma che si legge, piu' quella unica
            con cui si confronta, e quando e' stato verificato. Nell'area
            riservata e' il baffetto accanto al numero. */
+        // il consenso alle riprese, con il momento in cui e' stato dato
+        if (evVerificato && consenso(body.riprese) === true) scheda.consensoRiprese = { quando: Date.now(), come: 'modulo' };
         if (numeroVerificato) {
             scheda.telefono = VERIFICATA.leggibile(numeroVerificato);
             scheda.telefonoNumero = numeroVerificato;

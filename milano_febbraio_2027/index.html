@@ -509,6 +509,13 @@
                             <span>Desidero ricevere aggiornamenti su programma, relatori e future iniziative. *</span>
                         </label>
                         <span class="campo-errore" id="marketingError"></span>
+                        <!-- Le riprese: la giornata e' registrata e possono esserci troupe
+                             televisive. Obbligatorio, e lo controlla anche il servizio. -->
+                        <label class="spunta">
+                            <input type="checkbox" id="riprese" name="riprese" required>
+                            <span>Acconsento alle riprese fotografiche e video: la giornata sarà registrata e potranno essere presenti troupe di telegiornali e organi di informazione. Le immagini potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali. *</span>
+                        </label>
+                        <span class="campo-errore" id="ripreseError"></span>
                     </div>
 
                     <div class="modulo-invio">
@@ -656,6 +663,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=12"></script>
+    <script src="script.js?v=13"></script>
 </body>
 </html>
