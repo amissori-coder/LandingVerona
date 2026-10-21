@@ -15511,8 +15511,15 @@
         },
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
-            manuale: true,
-            nota: 'Il modulo di iscrizione è pubblicato: chi si iscrive dal sito verifica il cellulare con un codice SMS (il baffetto accanto al numero) e poi conferma l\'email. Un\'iscrizione per email e per numero, due al massimo per codice invito. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
+            manuale: true, luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano', urlPagina: '/milano_febbraio_2027/',
+            /* L'ISCRIZIONE VALE DOPO LA CONFERMA DELL'EMAIL. Chi si iscrive dal
+               sito riceve una mail con il pulsante di conferma, e finche' non lo
+               preme non e' un posto in sala: sta nella sezione "In attesa di
+               conferma mail", fuori dai conteggi della sala. E' la stessa regola
+               del server (lib/conferma-email.js, inAttesaDiConferma), che con
+               questa ragione tiene fuori queste persone dai promemoria. */
+            confermaEmail: true,
+            nota: 'Il modulo di iscrizione è pubblicato: chi si iscrive dal sito verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Un\'iscrizione per email e per numero, due al massimo per codice invito. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
         },
         // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
         { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', giorno: '', filtro: '', tutti: true }
