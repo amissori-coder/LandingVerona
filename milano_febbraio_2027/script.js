@@ -652,6 +652,116 @@ document.addEventListener('DOMContentLoaded', () => {
         li.querySelector('strong').textContent = titolo;
         $(id + 'Testo').textContent = testo;
     }
+    // ---------- la mail di conferma: se e' partita, e rimandarla ----------
+    /* Chi non trova la mail non deve restare fermo: il riquadro dice dove
+       cercarla, e il pulsante «Non e' arrivata? Rimandala» la fa ripartire
+       (azione "rimanda-conferma", con la stessa firma dello stato). Si
+       accende un minuto dopo l'invio, perche' prima la mail di solito sta
+       ancora arrivando; subito, se il servizio dice che l'invio non e'
+       riuscito. Fra un invio e l'altro decide il servizio quanto aspettare
+       (risponde "attesa", in secondi), e il pulsante conta alla rovescia. */
+    const btnRimanda = $('rimandaMail');
+    const rimandaEsito = $('rimandaEsito');
+    const statoMail = $('fattoMailStato');
+    const RIMANDALA = 'Non è arrivata? Rimandala';
+    const rimanda = { stato: null, timer: null, inCorso: false, okAlle: 0, inviataAlle: 0, vincolo: false };
+    function durata(s) {
+        if (s < 90) return s + ' s';
+        if (s < 5400) return Math.ceil(s / 60) + ' min';
+        return Math.ceil(s / 3600) + ' ore';
+    }
+    // `vincolo`: l'attesa l'ha chiesta il servizio, e un invio non riuscito non la scavalca
+    function rimandaFra(secondi, vincolo) {
+        clearInterval(rimanda.timer);
+        let restano = Math.max(0, Math.round(Number(secondi) || 0));
+        rimanda.vincolo = !!(vincolo && restano);
+        const libero = () => { rimanda.vincolo = false; btnRimanda.disabled = false; btnRimanda.textContent = RIMANDALA; };
+        if (!restano) { libero(); return; }
+        const scrivi = () => { btnRimanda.textContent = RIMANDALA + ' (fra ' + durata(restano) + ')'; };
+        btnRimanda.disabled = true;
+        scrivi();
+        rimanda.timer = setInterval(() => {
+            restano--;
+            if (restano <= 0) { clearInterval(rimanda.timer); libero(); return; }
+            scrivi();
+        }, 1000);
+    }
+    function esitoRimanda(testo, ko) {
+        rimandaEsito.textContent = testo || '';
+        rimandaEsito.classList.toggle('ko', !!ko);
+    }
+    function preparaRimanda(stato) {
+        rimanda.stato = stato;
+        rimanda.inviataAlle = Date.now();
+        btnRimanda.hidden = false;
+        rimandaFra(60);
+    }
+    /* Il campo "mail" dello stato: 'inviata', 'errore' (l'invio non e'
+       riuscito: il servizio riprova da solo) o 'in-attesa' (nessun invio
+       registrato ancora). Dopo un "rimandata" riuscito si crede a quello per
+       due minuti, finche' lo stato non si e' aggiornato. */
+    function mostraStatoMail(mail) {
+        let testo = '';
+        const oltreMinuto = Date.now() - rimanda.inviataAlle > 60 * 1000;
+        // il pulsante si offre solo se c'e' e non sta aspettando il servizio
+        const subito = !btnRimanda.hidden && !rimanda.vincolo ? ' Se vuoi, rimandala subito dal pulsante qui sotto.' : '';
+        if (Date.now() - rimanda.okAlle < 2 * 60 * 1000) testo = '';
+        else if (mail === 'errore') testo = 'L\'invio della mail ha avuto un problema: stiamo riprovando in automatico.' + subito;
+        else if (mail === 'in-attesa') testo = oltreMinuto
+            ? 'La mail non risulta ancora partita: stiamo riprovando in automatico.' + subito
+            : 'Invio della mail in corso...';
+        statoMail.textContent = testo;
+        statoMail.hidden = !testo;
+        // invio non riuscito: il pulsante non aspetta il minuto (ma rispetta l'attesa chiesta dal servizio)
+        if ((mail === 'errore' || (mail === 'in-attesa' && oltreMinuto)) && testo
+            && rimanda.stato && !rimanda.inCorso && !rimanda.vincolo && btnRimanda.disabled) rimandaFra(0);
+    }
+    btnRimanda.addEventListener('click', () => {
+        if (!rimanda.stato || rimanda.inCorso) return;
+        rimanda.inCorso = true;
+        clearInterval(rimanda.timer);
+        btnRimanda.disabled = true;
+        btnRimanda.textContent = 'Invio in corso...';
+        esitoRimanda('');
+        chiama({ azione: 'rimanda-conferma', d: rimanda.stato.d, t: rimanda.stato.t })
+            .then(r => {
+                rimanda.inCorso = false;
+                if (r && r.ok && r.inviata !== false) {
+                    // l'indirizzo a cui e' partita, come lo ha scritto il servizio
+                    const elEmail = $('fattoEmail');
+                    if (r.a && elEmail) elEmail.textContent = String(r.a);
+                    rimanda.okAlle = Date.now();
+                    statoMail.hidden = true;
+                    esitoRimanda('Rimandata a ' + (r.a || (elEmail && elEmail.textContent) || 'il tuo indirizzo') + '. Può volerci qualche minuto: guarda anche in Spam e Promozioni.');
+                    rimandaFra(r.attesa || 120, true);
+                    return;
+                }
+                if (r && r._stato === 403) {
+                    btnRimanda.hidden = true;
+                    btnRimanda.textContent = RIMANDALA;
+                    esitoRimanda('Da qui non riusciamo a rimandarla: scrivici dal modulo qui sotto e ci pensiamo noi.', true);
+                    return;
+                }
+                if (r && r._stato === 429) {
+                    esitoRimanda(r.msg || 'Troppe richieste ravvicinate: riprova fra qualche minuto.', true);
+                    rimandaFra(r.attesa || 60, true);
+                    return;
+                }
+                if (r && r.attesa) {
+                    esitoRimanda(r.msg || ('Per ora non possiamo rimandarla di nuovo: riprova fra ' + durata(r.attesa) + '.'));
+                    rimandaFra(r.attesa, true);
+                    return;
+                }
+                esitoRimanda((r && r.msg) || 'Non siamo riusciti a rimandarla. Riprova fra qualche minuto, oppure scrivici dal modulo qui sotto.', true);
+                rimandaFra(0);
+            })
+            .catch(() => {
+                rimanda.inCorso = false;
+                esitoRimanda('Errore di connessione. Riprova fra qualche secondo.', true);
+                rimandaFra(0);
+            });
+    });
+
     function seguiStato(stato, nome) {
         const inizio = Date.now();
         let finito = false, timer = null, inCorso = false;
@@ -667,7 +777,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then(s => {
                     inCorso = false;
                     if (!s || !s.ok) { if (s && (s._stato === 403 || s._stato === 404)) finito = true; else prossimo(); return; }
+                    // un servizio non ancora aggiornato non manda "mail": allora non si dice niente
+                    if (!s.emailConfermata && s.mail) mostraStatoMail(s.mail);
                     if (s.emailConfermata) {
+                        // confermato: dove cercare la mail e come rimandarla non servono piu'
+                        $('fattoMail').hidden = true;
+                        clearInterval(rimanda.timer);
                         $('fattoOcchiello').textContent = 'Iscrizione confermata';
                         $('fattoTitolo').textContent = 'Iscrizione confermata' + (nome ? ', ' + nome : '') + '.';
                         $('fattoIntro').textContent = 'Il tuo indirizzo email è confermato e la registrazione è completa. '
@@ -780,7 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
                 azienda: (d && d.azienda) || valore('azienda'), telefono: verificato.numero
             });
-            if (d.stato && d.stato.d && d.stato.t) seguiStato(d.stato, valore('nome'));
+            if (d.stato && d.stato.d && d.stato.t) { preparaRimanda(d.stato); seguiStato(d.stato, valore('nome')); }
             form.hidden = true;
             const fatto = $('formSuccess');
             fatto.hidden = false;

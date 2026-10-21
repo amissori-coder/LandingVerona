@@ -1093,6 +1093,39 @@ ul, ol { list-style: none; }
 .fatto-azioni { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 .fatto-nota { margin-top: 22px; font-size: 0.84rem; line-height: 1.6; color: var(--testo-tenue); }
 .fatto-nota a { color: var(--blu-medio); text-decoration: underline; }
+/* sotto il passo della mail: dove cercarla, lo stato dell'invio, il
+   pulsante per rimandarla e il modulo per scriverci */
+.fatto-passo .fatto-mail { gap: 10px; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--linea); }
+.fatto-mail[hidden] { display: none; }
+/* le parole in neretto qui sono cartelle, non indirizzi: si spezzano solo fra le parole */
+.fatto-passo .fatto-mail-dove b { word-break: normal; }
+.fatto-passo .fatto-mail-dove { overflow-wrap: anywhere; }
+.fatto-passo .fatto-mail-stato {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #FFF6E5;
+    border: 1px solid #F0D9A8;
+    color: #6B4A00;
+    font-weight: 600;
+    text-align: left !important;
+}
+.fatto-passo .fatto-mail-stato[hidden] { display: none; }
+.fatto-passo .fatto-rimanda { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.fatto-rimanda .btn-modulo[hidden] { display: none; }
+/* /assets/testo.css fa ereditare l'allineamento ai pulsanti, e qui il riquadro e' giustificato */
+.fatto-rimanda .btn-modulo { text-align: center !important; text-align-last: center; }
+.fatto-passo .fatto-rimanda-esito { flex: 1 1 220px; font-weight: 600; color: var(--testo); text-align: left !important; }
+.fatto-passo .fatto-rimanda-esito.ko { color: #B1213B; }
+.fatto-rimanda-esito:empty { display: none; }
+.fatto-mail-modulo {
+    align-self: flex-start;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--blu-medio);
+    text-decoration: underline;
+}
+.fatto-mail-modulo:hover { color: var(--blu); }
+.fatto-mail-modulo:focus-visible { outline: 2px solid var(--blu-medio); outline-offset: 2px; }
 
 /* ---------------------------------------------------------- save the date */
 
@@ -1307,7 +1340,8 @@ ul, ol { list-style: none; }
 
 @media (max-width: 720px) {
     .evento-testo p,
-    .scarica-testo > p { text-align: left !important; }
+    .scarica-testo > p,
+    .fatto-passo .fatto-mail-dove { text-align: left !important; }
 }
 
 /* ---------------------------------------------------------- anteprima degli approfondimenti */
