@@ -338,14 +338,19 @@ function staInDueSms(s) {
     const n = caratteriSms(s);
     return n >= 0 && n <= SMS_MAX_CARATTERI;
 }
-const SMS_MODULO = 'Scrivici dal modulo: ' + LINK_MODULO_MAIL;
+/* dove scriverci se la mail non arriva: il modulo contatti del sito, gia'
+   aperto sulla richiesta "mail di conferma non ricevuta". Corto apposta:
+   ogni carattere in piu' qui ne toglie uno all'indirizzo email, che con i
+   testi di sotto ci sta fino a 38 caratteri (36 in quello della mail non
+   partita); piu' lungo, l'SMS esce nella versione senza. */
+const SMS_MODULO = 'Scrivici dal modulo contatti: ' + LINK_MODULO_MAIL;
 const TESTI_CONFERMA = {
     // la mail e' partita: dov'e' il pulsante e dove cercarla
     inviata: a => 'Next Generation Business: per confermare l\'iscrizione premi "Conferma il tuo indirizzo email" nella mail '
         + (a ? 'inviata a ' + a : 'che ti abbiamo inviato')
         + '. Se non la trovi guarda in Spam/Posta indesiderata. Non l\'hai ricevuta? ' + SMS_MODULO,
     // la mail non e' partita: l'iscrizione c'e', si riprova da soli
-    'non-inviata': a => 'Next Generation Business: la tua iscrizione è registrata, ma la mail per confermarla non è ancora partita'
+    'non-inviata': a => 'Next Generation Business: la tua iscrizione è registrata ma la mail di conferma non è ancora partita'
         + (a ? ' verso ' + a : '') + ': riproviamo in automatico. '
         + 'Guarda anche in Spam/Posta indesiderata. Se non arriva ' + SMS_MODULO.charAt(0).toLowerCase() + SMS_MODULO.slice(1),
     // il promemoria del giro automatico, dopo un giorno senza conferma

@@ -1729,7 +1729,8 @@ persone, e il freno vero agli SMS sono il CAPTCHA e i limiti per numero.
 la mail con il pulsante, al cellulare appena verificato parte un SMS (tag
 Brevo `conferma-email`, stesso mittente) che dice quale pulsante premere,
 nella mail mandata a quale indirizzo, di guardare in Spam/Posta indesiderata,
-e dove scriverci se non arriva: `https://nextgenerationbusiness.it/contatti/?t=mail`.
+e che se non arriva puo' scriverci dal **modulo contatti** del sito
+("Scrivici dal modulo contatti: `https://nextgenerationbusiness.it/contatti/?t=mail`").
 Tre testi: mail **partita**, mail **non partita** ("la tua iscrizione e'
 registrata... riproviamo in automatico") e il **promemoria** del giro
 automatico dopo un giorno. Regole:

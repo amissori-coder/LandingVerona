@@ -736,6 +736,20 @@ prova('Se la mail non parte: l\'SMS lo dice, la scheda e la pagina lo sanno', as
     esigi(st3.corpo.attesaRimanda === 0 && ora.stato === 200 && ora.corpo.inviata === true, 'a due minuti dal tentativo: 0, e il rinvio parte', JSON.stringify(ora.corpo));
 });
 
+prova('Gli SMS "conferma la tua email" mandano al modulo contatti, e un indirizzo di 36 caratteri ci sta ancora', async () => {
+    const ind = n => 'a'.repeat(n - 13) + '@studio-xy.it';
+    for (const tipo of ['inviata', 'non-inviata', 'promemoria']) {
+        const t = V.testoSmsConferma(tipo, ind(36));
+        esigi(/[Ss]crivici dal modulo contatti: https:\/\/nextgenerationbusiness\.it\/contatti\/\?t=mail$/.test(t),
+            tipo + ': dice di scriverci dal modulo contatti, con il link', t);
+        esigi(t.indexOf(ind(36)) > 0 && V.caratteriSms(t) > 0 && V.caratteriSms(t) <= 306,
+            tipo + ': un indirizzo di 36 caratteri c\'e\' ancora, sempre in due SMS', String(V.caratteriSms(t)));
+        const lungo = V.testoSmsConferma(tipo, ind(60));
+        esigi(lungo.indexOf(ind(60)) < 0 && V.caratteriSms(lungo) > 0 && V.caratteriSms(lungo) <= 306,
+            tipo + ': uno troppo lungo esce nella versione senza', lungo);
+    }
+});
+
 prova('Se l\'SMS non parte, o il tetto del giorno e\' pieno, l\'iscrizione passa lo stesso', async () => {
     let v = await verificaNumero('3471230003', 'smsrotto@studio.it');
     smsGuasto = true;
