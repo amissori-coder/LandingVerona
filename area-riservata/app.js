@@ -15519,6 +15519,10 @@
                del server (lib/conferma-email.js, inAttesaDiConferma), che con
                questa ragione tiene fuori queste persone dai promemoria. */
             confermaEmail: true,
+            /* Quante iscrizioni ammette un codice invito: lo fa rispettare il
+               servizio (lib/iscrizione-verificata.js, MAX_PER_CODICE) e lo
+               dice la PEC di invito. Il numero va tenuto uguale ai due lati. */
+            iscrizioniPerCodice: 2,
             nota: 'Il modulo di iscrizione è pubblicato: chi si iscrive dal sito verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Un\'iscrizione per email e per numero, due al massimo per codice invito. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
         },
         // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
