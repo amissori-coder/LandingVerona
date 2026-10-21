@@ -987,7 +987,13 @@ oggi, all'ora del giro:
    dell'area riservata. Restano fuori chi ha annullato, chi e' stato
    cancellato, chi e' segnato **assente** (la mail `dopoEvento` invece lo
    comprende), chi non ha un indirizzo valido; un
-   indirizzo riceve **una** mail anche se ha due iscrizioni;
+   indirizzo riceve **una** mail anche se ha due iscrizioni. Dove
+   l'iscrizione vale solo dopo la conferma dell'email (Milano 2027) resta
+   fuori anche chi **non l'ha ancora confermata** (`inAttesaDiConferma`, in
+   "Conferma dell'indirizzo email"): non ha l'invito in PDF, e non e' un posto
+   in sala. Si conta a parte e non come doppione: se la stessa persona ha
+   anche una scheda valida (dal desk, inserita a mano) la mail arriva a
+   quella;
 2. personalizza: `{{NOME}}` diventa **nome e cognome** ("Gentile Maria
    Rossi": le mail al singolo danno del Lei; un nome scritto tutto maiuscolo
    o tutto minuscolo si rimette in forma), `{{COMPLETA}}` il collegamento personale firmato
@@ -998,8 +1004,8 @@ oggi, all'ora del giro:
    all'inizio del primo giro: e' la prova di cosa e' partito e con che testo,
    senza una copia nascosta per ogni destinatario;
 4. scrive l'esito sul record (`stato: 'inviato'`, `invio: { il, inviate,
-   falliti, dettaglioFalliti, senzaEmail, doppie, destinatari }`), che l'area
-   riservata mostra sulla riga e nella finestra.
+   falliti, dettaglioFalliti, senzaEmail, doppie, inAttesa, destinatari }`),
+   che l'area riservata mostra sulla riga e nella finestra.
 
 **Perche' piu' giri non rispediscono**: e' la stessa strada delle
 comunicazioni programmate. L'avanzamento si scrive **durante** l'invio in
@@ -1101,7 +1107,13 @@ scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
 
 - `azione: "completa-leggi"`: evento, posti, dati gia noti dell'intestatario
   e dei partecipanti gia scritti (con lo stato di eventuali posti annullati),
-  per precompilare il modulo della pagina.
+  per precompilare il modulo della pagina. Sull'intestatario due bandiere per
+  i campi che da qui non si cambiano: `telefonoBloccato` (il cellulare
+  verificato per SMS) e `aziendaBloccata` (chi si e' registrato con il
+  **codice invito**: l'azienda e' quella dell'invito, l'unica che combacia
+  con l'elenco delle aziende invitate). `completa-salva` le rispetta comunque,
+  qualunque cosa arrivi dalla pagina: l'azienda resta quella della scheda, e
+  la mail di riepilogo dice quella.
 - `azione: "completa-salva"`: un elemento PER POSTO (dati, `{annulla:true}`,
   oppure null = posto riservato senza nome). Il primo aggiorna la scheda
   originale (mai l'email); gli altri diventano schede proprie con documenti dal
@@ -1114,6 +1126,16 @@ scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
   dall'elenco. A ogni salvataggio parte all'intestatario la mail di riepilogo
   (composta DAL SERVIZIO, lib/mail-ngb.js) con lo stesso collegamento per
   modificare o annullare ancora, in copia nascosta a chi aveva chiesto i dati.
+- **Riattivare con un codice invito** (Milano 2027, gli eventi di
+  `lib/iscrizione-verificata.js`): chi ha annullato e ricompila riprende il
+  posto del codice **solo se e' ancora libero**. Mentre la scheda era
+  annullata il posto puo' essere andato a un altro (A e B si iscrivono, A
+  annulla, C si iscrive con lo stesso codice): senza questo controllo A
+  tornava attiva e il codice si ritrovava con tre iscrizioni. Il conto e' lo
+  stesso della registrazione, in una transazione con la scheda
+  (`VERIFICATA.riattiva`); se il codice ha gia' due iscrizioni attive non si
+  scrive niente e la pagina riceve `409` con `codiceKo` e il motivo.
+  Email e cellulare non si ricontrollano: restano le regole di prima.
 
 Le iscrizioni dai **moduli degli eventi del sito** (pagina che contiene
 verona/roma/napoli/milano) ricevono ora anche loro una conferma automatica in
@@ -1266,6 +1288,17 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   servizio conosce), una volta ogni 10 minuti per scheda; sulla scheda resta
   `emailConfermaRimandata: { da, daNome, quando }`. A chi ha gia' confermato
   risponde `gia: true` senza spedire.
+- **Chi e' "in attesa di conferma"** (`inAttesaDiConferma`): non annullata,
+  con un indirizzo, iscritta dal sito e senza `emailConfermata`. Mai una
+  scheda inserita a mano dall'area riservata (`inserito`) o arrivata con un
+  `Portale` (Eventbrite, il desk): quelle non hanno una mail da confermare.
+  Conta solo dove l'iscrizione **vale dopo la conferma** (gli eventi di
+  `lib/iscrizione-verificata.js`, oggi Milano 2027): li' chi attende non e'
+  un posto in sala, non riceve i promemoria (`/api/promemoria-eventi`) e nel
+  riepilogo serale sta fra gli in attesa. A Napoli una scheda senza conferma
+  e' un iscritto come gli altri. La stessa regola, in `area-riservata/app.js`
+  (`inAttesaConfermaMail`), riempie la sezione "In attesa di conferma mail":
+  vanno cambiate insieme.
 - **Le prove**: `node prove/conferma-email.prove.js` (Firestore finto).
 
 ## Iscrizioni con il cellulare verificato per SMS (`lib/iscrizione-verificata.js`)
@@ -1307,7 +1340,10 @@ per un evento nuovo basta una riga.
   risponde `motivo: "esaurito"` quando il codice ha gia' due iscrizioni
   attive, e il modulo lo dice subito. Riconosciuto il codice, il modulo
   scrive da se' la ragione sociale dell'invito nel campo azienda e lo blocca;
-  il servizio la tiene ferma comunque.
+  il servizio la tiene ferma comunque, anche dopo: da `/completa_iscrizione/`
+  l'azienda di chi ha il codice non si cambia (`aziendaBloccata`), e chi ha
+  annullato e ricompila riprende il posto del codice solo se e' ancora libero
+  (vedi "Completamento dati partecipanti").
 - **Al desk** (chiave del cartello) il numero non si chiede: la persona e' li'.
 
 **Le variabili.** Gli SMS partono da **Brevo**, con la stessa
@@ -1361,13 +1397,18 @@ persone, e il freno vero agli SMS sono il CAPTCHA e i limiti per numero.
 
 ## Riepilogo serale delle iscrizioni (`/api/riepilogo-iscrizioni`)
 
-A **mezzanotte, ora di Milano**, se nella giornata appena finita ci sono state
-iscrizioni nuove agli eventi di `lib/iscrizione-verificata.js` (oggi Milano
-2027), parte agli organizzatori una mail con i nuovi iscritti (nome, azienda,
-ruolo, email, cellulare, ora, conferma dell'email, azienda invitata), il
-totale delle iscrizioni attive, quante hanno confermato l'email e il
-pulsante per l'area riservata (`/area-riservata/#eventi`). **Nei giorni senza
-iscrizioni nuove non parte niente.** Le annullate non contano.
+A **mezzanotte, ora di Milano**, per gli eventi di
+`lib/iscrizione-verificata.js` (oggi Milano 2027) parte agli organizzatori una
+mail con le iscrizioni **completate** nella giornata appena finita (l'email
+confermata quel giorno, anche se il modulo era di giorni prima: nome,
+azienda, ruolo, email, cellulare, ora, azienda invitata), chi e' ancora **in
+attesa di confermare** l'email, il totale delle iscrizioni confermate e il
+pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
+conferme nuove ne' persone in attesa non parte niente.** Le annullate non
+contano. "In attesa" e' la stessa regola dei promemoria e dell'area
+riservata (`inAttesaDiConferma`, in "Conferma dell'indirizzo email"): le
+iscrizioni inserite a mano e quelle arrivate con un Portale (Eventbrite, il
+desk) non hanno una mail da confermare e non ci compaiono mai.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,
@@ -4144,6 +4185,50 @@ un elenco che entra a meta' senza spiegazioni e' peggio di uno che non entra.
 L'asterisco che nel modello segna le colonne obbligatorie viene ignorato in
 lettura: toglierlo o lasciarlo non cambia nulla.
 
+**Non serve il modello: entra anche un file fatto altrove**, come quello delle
+imprese lombarde per Milano 2027 (diciotto colonne: `#`, `Ragione sociale
+(file)`, `Codice fiscale`, `PEC`, ricavi, utile, attivo, capitale,
+dipendenti, chiusura del bilancio, provincia e comune della sede operativa,
+provincia della sede legale, `Settore di attivita`, `Partita IVA`, numero
+CCIAA, revisore, data di nomina). Le intestazioni si riconoscono per nome
+(`ALIAS` in `lib/aziende-invito.js`), prima esatte e poi **senza la
+parentesi in fondo**: "Ragione sociale (file)" vale "Ragione sociale",
+"Comune (sede operativa)" vale "Comune". Prima di questa regola quel file
+entrava con **zero** aziende, tutte "senza denominazione". La parentesi non
+si toglie mai per la **provincia**: il campo e' la sigla (si tiene fino a
+quattro caratteri), e "Milano" o "Monza e della Brianza" diventerebbero
+"Mila" e "Monz". Un nome esatto vince su uno che lo diventa togliendo la
+parentesi, e per ogni campo vince la prima colonna.
+
+**Ogni colonna del file resta nella scheda**, riconosciuta o no: in
+`datiFile`, un elenco `[{ c: intestazione, v: valore }]` **nell'ordine del
+file**, celle vuote comprese (`v: ''`), fino a 80 colonne, intestazioni fino
+a 80 caratteri (senza l'asterisco del modello) e valori fino a 1.000 (i
+settori lunghi, 600 caratteri e piu', restano interi; i campi riconosciuti si
+fermano a 300). `extra`, la mappa delle sole colonne non riconosciute, si
+scrive come prima per chi la legge gia'. `datiFile` **non torna** nell'elenco
+della finestra degli inviti: su undicimila aziende peserebbe piu' di tutto il
+resto. Cambiando la PEC a mano la scheda cambia identificativo, e `datiFile`
+ed `extra` vanno con lei.
+
+Quando un'azienda si registra con il suo **codice invito**, quelle colonne
+passano sulla scheda dell'iscritto (`datiInvito`, stessa forma: lo copia
+`api/iscrizione-nuova.js` leggendo la scheda indicata dal codice) e
+`/api/iscrizioni` le restituisce, cosi' l'elenco degli iscritti le mostra
+come colonne in piu' senza interrogare l'elenco delle aziende riga per riga.
+Per le aziende caricate prima di `datiFile` l'elenco si ricostruisce dai
+campi riconosciuti non vuoti e dalle colonne di `extra` in ordine alfabetico
+(`lib/dati-file-azienda.js`, `datiFileDi`). Se la lettura non riesce,
+l'iscrizione passa lo stesso. Il modulo e' a parte, senza dipendenze, perche'
+l'endpoint pubblico dell'iscrizione non deve caricare `lib/aziende-invito.js`
+(vedi "Il modulo si carica solo quando serve").
+
+Le prove: `node prove/aziende-invito.prove.js` carica un CSV con le diciotto
+intestazioni esatte del file lombardo (celle vuote, un settore di 630
+caratteri, partite IVA con lo zero davanti, un utile negativo) e il modello
+di sempre; `node prove/iscrizione-verificata.prove.js` copre la copia in
+`datiInvito`, anche per le schede caricate prima.
+
 
 ## Codici di invito: il filo fra le due tabelle
 
@@ -4171,8 +4256,13 @@ Regole che valgono la pena di essere ricordate:
   risulta, e al momento di registrarsi si sentirebbe dire di no.
 - **Un secondo invito ripete lo stesso codice**, non ne crea un altro:
   altrimenti quello ricevuto per primo smetterebbe di valere in silenzio.
-- **Il codice non si consuma.** Un'azienda selezionata puo' mandare due
-  persone; si contano gli usi e si ricorda il primo.
+- **Il codice non si consuma al primo uso, ma ha un tetto.** Un'azienda
+  selezionata puo' mandare due persone; si contano gli usi e si ricorda il
+  primo. Agli eventi con le iscrizioni verificate (Milano 2027,
+  `lib/iscrizione-verificata.js`) un codice ammette **al massimo due
+  iscrizioni attive** (`MAX_PER_CODICE`): la terza viene respinta, e lo dice
+  la PEC di invito. Un'iscrizione annullata libera il posto; chi ha annullato
+  lo riprende solo se e' ancora libero. Agli altri eventi il tetto non c'e'.
 - **Nel modulo pubblico e' facoltativo**, perche' la pagina resta aperta a
   tutti. Ma se viene scritto dev'essere uno di quelli spediti davvero: un
   codice inventato che passasse renderebbe "azienda selezionata" un'etichetta
@@ -4186,9 +4276,13 @@ Regole che valgono la pena di essere ricordate:
   rende impraticabile provare codici a tappeto.
 
 Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
-`invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa
-a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
+`invitoCodice`, `invitoAzienda`, `invitoScheda`, `selezionata` e le colonne
+del file da cui era stata caricata l'azienda (`datiInvito`, vedi "Il modello
+per il caricamento delle aziende"), e la scheda dell'azienda passa a
+`iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
 **l'iscrizione resta valida**: e' informazione di servizio, non una condizione.
+Da `/completa_iscrizione/` l'azienda di chi ha il codice non si cambia
+(`aziendaBloccata`).
 
 ## Diretta degli eventi (`/api/diretta-*`)
 

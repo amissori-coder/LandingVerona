@@ -34,7 +34,8 @@
    Il codice invito segue la stessa strada: sul suo documento c'e'
    l'elenco delle iscrizioni fatte con lui (`iscrizioniUsate`) e si
    contano quelle ancora attive. Anche qui un'annullata libera il
-   posto.
+   posto, e se chi ha annullato ci ripensa lo riprende solo se e'
+   ancora libero (riattiva, qui sotto).
 
    GLI SMS COSTANO, e il modulo e' aperto a chiunque: un robot che
    chiede codici a raffica verso numeri a pagamento e' una truffa nota
@@ -188,6 +189,7 @@ const MSG = {
     email: 'Con questo indirizzo email risulta già un\'iscrizione a questo evento (anche se inserita dalla nostra segreteria). Per modificarla usa il collegamento nella mail di conferma, oppure scrivici a info@nextgenerationbusiness.it.',
     telefono: 'Questo numero di cellulare risulta già usato per un\'iscrizione a questo evento: ogni iscrizione richiede un numero suo. Se è un errore scrivici a info@nextgenerationbusiness.it.',
     codice: 'Questo codice invito è già stato usato per due iscrizioni, il massimo previsto. Puoi iscriverti lasciando vuoto il campo del codice, oppure scriverci a info@nextgenerationbusiness.it.',
+    riattiva: 'Non possiamo riattivare questa iscrizione: nel frattempo il codice invito con cui era stata fatta è stato usato per altre due iscrizioni, il massimo previsto. Puoi iscriverti di nuovo dal modulo lasciando vuoto il campo del codice, oppure scriverci a info@nextgenerationbusiness.it.',
     nonVerificato: 'Il numero di cellulare non risulta verificato, o la verifica è scaduta. Chiedi il codice SMS e scrivilo nel modulo prima di inviare.',
     servizio: 'In questo momento non riusciamo a mandare l\'SMS. Riprova fra qualche minuto, oppure scrivici a info@nextgenerationbusiness.it.'
 };
@@ -361,7 +363,7 @@ async function usiCodice(db, codice, tx) {
         const x = await leggi(db.collection('iscrizioni').doc(String(id)));
         if (x.exists && attiva(x.data())) attive.push(String(id));
     }
-    return { rif: rif, attive: attive };
+    return { rif: rif, attive: attive, esiste: s.exists };
 }
 
 /* ---------- la scrittura dell'iscrizione ----------
@@ -392,8 +394,34 @@ async function registra(db, dati) {
     });
 }
 
+/* ---------- la riattivazione dal collegamento personale ----------
+   Chi ha annullato puo' ripensarci: ricompilando i propri dati da
+   /completa_iscrizione/ la scheda torna attiva. Con un codice invito
+   quella era una porta sul retro: A e B si iscrivono, A annulla e il
+   posto passa a C, poi A ricompila - e il codice si ritrova con TRE
+   iscrizioni attive, senza che nessuno l'abbia contato. Qui la
+   riattivazione passa dallo stesso conto della registrazione, nella
+   stessa transazione che riscrive la scheda: se il codice ha gia' due
+   iscrizioni attive (questa esclusa) non si scrive niente.
+   Email e numero non si ricontrollano qui: restano le regole di prima.
+   dati: { idDoc, codice, patch }
+   Restituisce { ok: true } oppure { ok: false, campo: 'codice', msg }. */
+async function riattiva(db, dati) {
+    const rif = db.collection('iscrizioni').doc(String(dati.idDoc));
+    return db.runTransaction(async tx => {
+        const posti = await usiCodice(db, dati.codice, tx);
+        // la scheda stessa non conta: un doppio invio del modulo la troverebbe gia' attiva
+        const altre = posti.attive.filter(id => id !== String(dati.idDoc));
+        if (altre.length >= MAX_PER_CODICE) return { ok: false, campo: 'codice', msg: MSG.riattiva };
+        // un codice che non c'e' piu' non si ricrea: un documento senza evento ne' pagina varrebbe ovunque
+        if (posti.esiste) tx.set(posti.rif, { iscrizioniUsate: altre.concat([String(dati.idDoc)]) }, { merge: true });
+        tx.set(rif, dati.patch, { merge: true });
+        return { ok: true };
+    });
+}
+
 module.exports = {
     EVENTI, eventoDi, cellulare, leggibile, mascherato,
-    invia, verifica, registra, usiCodice, firmaNumero, firmaNumeroValida,
+    invia, verifica, registra, riattiva, usiCodice, firmaNumero, firmaNumeroValida,
     MAX_PER_CODICE, MSG
 };

@@ -24,7 +24,11 @@
        rete di chi clicca e il momento della scheda), che manda la
        password; mai alla seconda apertura, mai per la sala, mai per
        una scheda annullata, mai con il pregresso; se la diretta si
-       rompe, la conferma resta e il log non scrive l'indirizzo.
+       rompe, la conferma resta e il log non scrive l'indirizzo;
+     - "in attesa di conferma" (inAttesaDiConferma, la regola dei
+       promemoria e del riepilogo serale) e' solo chi si e' iscritto
+       dal sito e non ha ancora cliccato: mai una scheda inserita a
+       mano o arrivata con un Portale, mai una senza indirizzo.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -307,6 +311,22 @@ const token = () => NL.firmaConfermaEmail(ID);
             'la diretta si rompe: l\'indirizzo e\' confermato lo stesso, e l\'invito parte');
         esigi(righe.some(x => /Diretta: conferma dell'indirizzo non passata alla diretta: diretta giu' per <email>/.test(x)) && !righe.some(x => /@esempio/.test(x)),
             'il log lo dice senza l\'indirizzo');
+    });
+
+    await prova('In attesa di conferma: solo chi si e\' iscritto dal sito e non ha ancora cliccato', async () => {
+        const A = CONF.inAttesaDiConferma;
+        const sito = { pagina: 'Milano 26 Febbraio 2027 - Iscrizione', email: 'chi@x.it', nome: 'Chi' };
+        esigi(A(sito) === true, 'dal sito, senza conferma: in attesa');
+        esigi(A(Object.assign({}, sito, { emailConfermata: { quando: 1, come: 'mail' } })) === false, 'confermata con il clic: no');
+        esigi(A(Object.assign({}, sito, { emailConfermata: { quando: 1, come: 'pregresso' } })) === false, 'confermata d\'ufficio (pregresso): no');
+        esigi(A(Object.assign({}, sito, { emailConfermata: { quando: 0 } })) === true, 'un campo senza data non e\' una conferma');
+        esigi(A(Object.assign({}, sito, { annullato: { quando: 1 } })) === false, 'annullata: no');
+        esigi(A(Object.assign({}, sito, { email: '  ' })) === false && A(Object.assign({}, sito, { email: undefined })) === false, 'senza indirizzo non c\'e\' niente da confermare');
+        esigi(A(Object.assign({}, sito, { inserito: { da: 'segreteria@revilaw.it', quando: 1 } })) === false, 'inserita a mano dall\'area riservata: no');
+        esigi(A(Object.assign({}, sito, { extra: { Portale: 'Eventbrite' } })) === false && A(Object.assign({}, sito, { extra: { Portale: 'Desk Revilaw' } })) === false,
+            'arrivata da un altro portale o dal desk: no');
+        esigi(A(Object.assign({}, sito, { extra: { Partecipanti: '1' } })) === true, 'altre colonne aggiuntive non cambiano niente');
+        esigi(A(null) === false && A(undefined) === false, 'nessuna scheda: no');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' ko');

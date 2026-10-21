@@ -85,6 +85,11 @@ const CONFERMA = require('../lib/conferma-email');
 const VERIFICATA = require('../lib/iscrizione-verificata');
 // la casella "non sono un robot" prima dell'SMS (lib/captcha.js)
 const CAPTCHA = require('../lib/captcha');
+/* Le colonne del file da cui e' stata caricata l'azienda invitata, che con
+   il codice passano sulla scheda di chi si registra. Il modulo e' piccolo e
+   non carica niente: lib/aziende-invito.js, che le scrive, da qui non si
+   carica (si porta dietro il lettore della PEC). */
+const DATI_FILE = require('../lib/dati-file-azienda');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -1318,6 +1323,8 @@ async function completaIscrizione(azione, body, res, ip) {
                 telefono: String(scheda.telefono || ''),
                 // il cellulare verificato per SMS non si cambia: la pagina lo mostra bloccato
                 telefonoBloccato: !!scheda.telefonoVerificato,
+                // e nemmeno l'azienda di chi si e' registrato con il codice dell'invito
+                aziendaBloccata: !!scheda.invitoCodice,
                 annullato: !!scheda.annullato
             },
             // un elemento per posto (2..N): dati gia' scritti, segnaposto di un
@@ -1355,6 +1362,12 @@ async function completaIscrizione(azione, body, res, ip) {
     }
 
     const primo = posti[0];
+    /* L'AZIENDA DELL'INVITO non si cambia da qui: chi si e' registrato con
+       il codice e' arrivato per QUELL'azienda, ed e' l'unico nome che
+       combacia con l'elenco delle aziende invitate. Si rimette quella della
+       scheda prima di tutto il resto, cosi' anche la mail di riepilogo dice
+       quella vera e non quella scritta nel modulo. */
+    if (primo && !primo.annulla && scheda.invitoCodice) primo.azienda = String(scheda.azienda || '');
     const posto1Annullato = !!(primo && primo.annulla);
     const senzaNomeAltri = posti.slice(1).filter(p => !p).length;
     const figliCompilati = posti.slice(1).filter(p => p && !p.annulla).length;
@@ -1390,7 +1403,18 @@ async function completaIscrizione(azione, body, res, ip) {
     patch.annullato = posto1Annullato
         ? { quando: Date.now(), da: 'intestatario' }
         : admin.firestore.FieldValue.delete();
-    await rif.set(patch, { merge: true });
+    /* Ma agli eventi con le iscrizioni verificate (Milano 2027) un codice
+       invito vale per due iscrizioni attive, e mentre questa era annullata il
+       suo posto puo' essere andato a un altro: la riattivazione lo riprende
+       solo se e' ancora libero, nella stessa transazione che riscrive la
+       scheda (lib/iscrizione-verificata.js, riattiva). Se non lo e' non si
+       scrive niente - nemmeno i posti degli altri - e la pagina lo dice. */
+    if (scheda.annullato && !posto1Annullato && scheda.invitoCodice && VERIFICATA.eventoDi(scheda.pagina)) {
+        const r = await VERIFICATA.riattiva(db, { idDoc: idDoc, codice: scheda.invitoCodice, patch: patch });
+        if (!r.ok) { res.status(409).json({ ok: false, campo: r.campo, codiceKo: true, msg: r.msg }); return; }
+    } else {
+        await rif.set(patch, { merge: true });
+    }
 
     // i posti 2..N per POSIZIONE: documenti dal nome fisso, cosi' rimandare il
     // modulo sovrascrive invece di duplicare
@@ -1816,6 +1840,21 @@ module.exports = async (req, res) => {
                la scrive da se' appena il codice e' riconosciuto, e qui si
                tiene ferma, perche' e' l'unica che combacia con l'elenco. */
             if (evVerificato && invito.ragioneSociale) scheda.azienda = testo(invito.ragioneSociale, 200);
+            /* LE COLONNE DEL FILE dell'azienda invitata (ricavi, dipendenti,
+               revisore, sede...): si copiano qui, una volta, perche' l'elenco
+               degli iscritti si legge da solo e non va a cercare l'azienda
+               riga per riga. Una lettura in piu' solo per chi ha il codice.
+               Se non riesce l'iscrizione passa lo stesso: e' un dato in piu',
+               non una condizione. */
+            if (invito.scheda) {
+                try {
+                    const az = await admin.firestore().collection('aziendeInvito').doc(invito.scheda).get();
+                    const datiInvito = az.exists ? DATI_FILE.datiFileDi(az.data() || {}) : [];
+                    if (datiInvito.length) scheda.datiInvito = datiInvito;
+                } catch (e) {
+                    console.error('Dati dell\'azienda invitata non copiati:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
         }
 
         /* Il cellulare verificato: nella forma che si legge, piu' quella unica
@@ -1922,7 +1961,8 @@ module.exports = async (req, res) => {
            non una condizione. Il codice NON si consuma - un'azienda invitata
            puo' mandare due persone, e la seconda non va respinta. Agli eventi
            con le iscrizioni verificate (Milano 2027) le persone sono DUE al
-           massimo: il conto lo tiene la transazione di VERIFICATA.registra. */
+           massimo: il conto lo tiene la transazione di VERIFICATA.registra
+           (e VERIFICATA.riattiva, per chi ci ripensa dopo aver annullato). */
         if (invito) {
             await CODICI.segnaUso(admin.firestore(), invito.codice, { email: email, iscrizione: idDoc });
             if (invito.scheda) {

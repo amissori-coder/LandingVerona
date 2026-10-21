@@ -26,6 +26,8 @@ const { tracciaSpostamento } = require('../lib/traccia-azienda');
 // la copia condivisa dell'archivio (lib/copia-iscrizioni.js): due letture a richiesta
 // invece di tutti i documenti, e un messaggio chiaro se la quota di Firebase e' finita
 const C = require('../lib/copia-iscrizioni');
+// le colonne del file dell'azienda invitata, nella loro forma (lib/dati-file-azienda.js)
+const DATI_FILE = require('../lib/dati-file-azienda');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -530,6 +532,14 @@ module.exports = async (req, res) => {
                         azienda: String(v.invitoAzienda || ''),
                         scheda: String(v.invitoScheda || '')
                     } : null,
+                    /* E le colonne del file da cui era stata caricata quella
+                       azienda, copiate alla registrazione: [{ c, v }]
+                       nell'ordine del file, null se non ci sono. Stanno a
+                       parte e non in `extra` perche' sono un'altra cosa - il
+                       file di chi invita, non quello che ha scritto chi si
+                       iscrive - e la tabella le tiene distinte. Rimesse in
+                       forma anche qui: sono dati caricati da un foglio. */
+                    datiInvito: DATI_FILE.pulito(v.datiInvito),
                     /* Gli orari dei tavoli con cui questa persona e' stata invitata.
                        Non e' una colonna: e' il dato che permette all'area riservata
                        di riproporre gli orari gia' usati anche da un altro computer,

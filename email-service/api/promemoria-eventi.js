@@ -19,7 +19,9 @@
         copia condivisa dell'archivio (lib/copia-iscrizioni.js): chi si
         e' iscritto dopo la conferma entra da solo, chi ha annullato o
         e' stato cancellato resta fuori, un indirizzo riceve una mail
-        sola anche se ha due iscrizioni;
+        sola anche se ha due iscrizioni; dove l'iscrizione vale solo
+        dopo la conferma dell'email (Milano 2027) resta fuori anche chi
+        non l'ha ancora confermata;
      2. personalizza {{NOME}} (il nome di battesimo) e {{COMPLETA}} (il
         collegamento personale firmato, per correggere i dati o
         rinunciare) e spedisce, una mail per destinatario;
@@ -91,6 +93,11 @@ const C = require('../lib/copia-iscrizioni');
 const NL = require('../lib/newsletter');
 const AV = require('../lib/comunicazioni-avanzamento');
 const TEMPO = require('../lib/promemoria-tempo');
+/* Agli eventi dove l'iscrizione vale dopo la conferma dell'email (Milano
+   2027: quelli di lib/iscrizione-verificata.js) chi non ha ancora
+   confermato non riceve promemoria: la regola sta in lib/conferma-email.js. */
+const VERIFICATA = require('../lib/iscrizione-verificata');
+const CONFERMA = require('../lib/conferma-email');
 
 /* Stessi tre numeri di cron-comunicazioni: il budget sta DENTRO il
    maxDuration di vercel.json (300 s) con un minuto per scrivere l'esito;
@@ -154,12 +161,13 @@ function nomeSaluto(v) {
 }
 
 /* Gli iscritti a cui scrivere ADESSO: { destinatari: [{email, nome, doc}],
-   senzaEmail, doppie, cancellati }. `filtro` e' la parola che la pagina
-   dell'iscrizione deve contenere ("napoli"), la stessa dell'area riservata. */
+   senzaEmail, doppie, cancellati, esclusi, inAttesa }. `filtro` e' la parola
+   che la pagina dell'iscrizione deve contenere ("napoli"), la stessa
+   dell'area riservata. */
 function risolviDestinatari(arch, rec) {
     const filtro = chiave(rec.filtro || '');
     const sezioni = (Array.isArray(rec.sezioni) ? rec.sezioni : []).map(s => String(s).toLowerCase()).filter(s => SEZIONI.indexOf(s) >= 0);
-    const out = { destinatari: [], senzaEmail: 0, doppie: 0, cancellati: 0, esclusi: 0 };
+    const out = { destinatari: [], senzaEmail: 0, doppie: 0, cancellati: 0, esclusi: 0, inAttesa: 0 };
     if (!filtro || !sezioni.length) return out;
     const presenze = {};
     (arch.presenze || []).forEach(p => { if (p && p.evento === rec.evento && p.idIscritto) presenze[p.idIscritto] = p; });
@@ -184,6 +192,13 @@ function risolviDestinatari(arch, rec) {
         if (m === 'b2b') { out.esclusi++; return; }
         if (SEZIONI.indexOf(m) < 0) m = 'presenza';
         if (sezioni.indexOf(m) < 0) return;
+        /* IN ATTESA DI CONFERMA DELL'EMAIL, dove l'iscrizione vale solo dopo
+           (Milano 2027). Non e' in sala: non ha l'invito in PDF, e un
+           "ci vediamo venerdi'" a un indirizzo forse sbagliato e' una mail
+           che non doveva partire. Si conta a parte, e non si segna fra gli
+           indirizzi visti: se la stessa persona ha anche una scheda valida
+           (dal desk, inserita a mano) quella riceve la sua mail. */
+        if (VERIFICATA.eventoDi(v.pagina) && CONFERMA.inAttesaDiConferma(v)) { out.inAttesa++; return; }
         const email = String(v.email || '').trim().toLowerCase();
         if (!email || !reEmail.test(email)) { out.senzaEmail++; return; }
         if (visti[email]) { out.doppie++; return; }
@@ -467,7 +482,7 @@ module.exports = async (req, res, opz) => {
                 if (!r.destinatari.length) {
                     await applicaPatch(db, rec.id, {
                         stato: 'inviato',
-                        invio: { il: ora, inviate: 0, falliti: 0, senzaEmail: r.senzaEmail, doppie: r.doppie, destinatari: 0, motivo: 'Nessun iscritto con email nelle sezioni scelte.' }
+                        invio: { il: ora, inviate: 0, falliti: 0, senzaEmail: r.senzaEmail, doppie: r.doppie, inAttesa: r.inAttesa, destinatari: 0, motivo: 'Nessun iscritto con email nelle sezioni scelte.' }
                     });
                     continue;
                 }
@@ -497,7 +512,9 @@ module.exports = async (req, res, opz) => {
                     if (esito.inviati) inviatiTot++;
                     const invio = {
                         il: Date.now(), inviate: n, falliti: falliti.length, dettaglioFalliti: falliti.slice(0, 100),
-                        senzaEmail: r.senzaEmail, doppie: r.doppie, destinatari: r.destinatari.length, inCorso: false
+                        senzaEmail: r.senzaEmail, doppie: r.doppie, destinatari: r.destinatari.length, inCorso: false,
+                        // chi non ha ancora confermato l'email (Milano): saltato apposta, non dimenticato
+                        inAttesa: r.inAttesa
                     };
                     /* L'esito sul record. L'avanzamento NON si cancella: da qui in
                        poi e' la memoria di chi ha ricevuto, e serve ai recuperi. */

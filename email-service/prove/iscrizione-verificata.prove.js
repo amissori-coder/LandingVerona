@@ -19,6 +19,12 @@
        annullata li libera;
      - un codice invito vale per due iscrizioni, e il modulo lo sa gia'
        dalla verifica del codice; l'azienda e' quella del codice;
+     - chi ha annullato e ricompila dal collegamento personale riprende
+       il posto del codice solo se e' ancora libero, e l'azienda
+       dell'invito da li' non si cambia;
+     - con il codice la scheda porta le colonne del file da cui e'
+       stata caricata l'azienda (datiInvito), anche per le aziende
+       caricate prima, e se la lettura non riesce l'iscrizione passa;
      - il codice SMS non viaggia mai nella risposta, e Napoli resta
        com'era.
    ============================================================ */
@@ -467,6 +473,146 @@ prova('Senza il consenso alle riprese non ci si iscrive', async () => {
     const si = await iscrivi({ email: 'riprese@studio.it', telefono: '3477778888', smsToken: v.token });
     const s = schede().find(x => x.email === 'riprese@studio.it');
     esigi(si.corpo.ok && s && s.consensoRiprese && s.consensoRiprese.come === 'modulo', 'con il consenso passa, e il consenso resta sulla scheda');
+});
+
+/* Le colonne del file da cui e' stata caricata l'azienda invitata passano,
+   con il codice, sulla scheda di chi si registra: l'elenco degli iscritti
+   le mostra senza andare a cercare l'azienda riga per riga. */
+function schedaDi(email) {
+    const k = [...dati.keys()].find(x => x.startsWith('iscrizioni/') && dati.get(x).email === email);
+    return k ? { id: k.slice('iscrizioni/'.length), s: dati.get(k) } : { id: '', s: null };
+}
+prova('Con il codice la scheda porta le colonne del file dell\'azienda invitata', async () => {
+    const DATI_FILE = [
+        { c: '#', v: '1' }, { c: 'Ragione sociale (file)', v: 'AVAS PHARMACEUTICALS S.R.L.' }, { c: 'Ricavi (EUR)', v: '100674810' },
+        { c: 'Totale attivo (EUR)', v: '' }, { c: 'Revisore o societa di revisione', v: 'Sig. Alessandro Ballardini' }
+    ];
+    dati.set('aziendeInvito/milano~info@pec-avaspharma-com', {
+        evento: 'milano', ragioneSociale: 'AVAS PHARMACEUTICALS S.R.L.', pec: 'info@pec.avaspharma.com', stato: 'inviata',
+        datiFile: DATI_FILE, extra: { 'Ricavi (EUR)': '100674810' }
+    });
+    dati.set('codiciInvito/B8N3P', { codice: 'B8N3P', evento: 'milano', scheda: 'milano~info@pec-avaspharma-com', pagina: 'Milano 26 Febbraio 2027', ragioneSociale: 'AVAS PHARMACEUTICALS S.R.L.', usato: null });
+    let v = await verificaNumero('3661110001', 'ballardini@avas.it');
+    let r = await iscrivi({ email: 'ballardini@avas.it', telefono: '3661110001', smsToken: v.token, codiceInvito: 'B8N3P', azienda: 'scritta a mano' });
+    let s = schedaDi('ballardini@avas.it').s;
+    esigi(r.corpo.ok && s && JSON.stringify(s.datiInvito) === JSON.stringify(DATI_FILE),
+        'la scheda ha datiInvito: le colonne del file, nell\'ordine del file, celle vuote comprese', s && JSON.stringify(s.datiInvito));
+    esigi(s && s.azienda === 'AVAS PHARMACEUTICALS S.R.L.' && dati.get('aziendeInvito/milano~info@pec-avaspharma-com').stato === 'iscritta',
+        'e il resto come prima: azienda dell\'invito, scheda dell\'azienda "iscritta"');
+
+    /* Una scheda caricata prima di datiFile: l'elenco si ricostruisce dai
+       campi riconosciuti (solo quelli pieni) e dalle colonne in extra. */
+    dati.set('aziendeInvito/milano~vecchia@pec-it', {
+        evento: 'milano', ragioneSociale: 'Vecchia Srl', pec: 'vecchia@pec.it', email: '', piva: '01234567890', provincia: '',
+        citta: 'Lodi', extra: { 'Ricavi (EUR)': '5000', '#': '9' }
+    });
+    dati.set('codiciInvito/C9P4Q', { codice: 'C9P4Q', evento: 'milano', scheda: 'milano~vecchia@pec-it', pagina: 'Milano 26 Febbraio 2027', ragioneSociale: 'Vecchia Srl', usato: null });
+    v = await verificaNumero('3661110002', 'uno@vecchia.it');
+    r = await iscrivi({ email: 'uno@vecchia.it', telefono: '3661110002', smsToken: v.token, codiceInvito: 'C9P4Q' });
+    s = schedaDi('uno@vecchia.it').s;
+    const atteso = [{ c: 'Ragione sociale', v: 'Vecchia Srl' }, { c: 'PEC', v: 'vecchia@pec.it' }, { c: 'Partita IVA', v: '01234567890' },
+        { c: 'Citta', v: 'Lodi' }, { c: '#', v: '9' }, { c: 'Ricavi (EUR)', v: '5000' }];
+    esigi(r.corpo.ok && s && JSON.stringify(s.datiInvito) === JSON.stringify(atteso),
+        'scheda caricata prima di datiFile: i campi pieni, poi le colonne di extra in ordine', s && JSON.stringify(s.datiInvito));
+
+    // l'azienda del codice non c'e' piu', o la lettura non riesce: l'iscrizione passa lo stesso
+    dati.set('codiciInvito/D7R5S', { codice: 'D7R5S', evento: 'milano', scheda: 'milano~sparita@pec-it', pagina: 'Milano 26 Febbraio 2027', ragioneSociale: 'Sparita Srl', usato: null });
+    v = await verificaNumero('3661110003', 'chi@sparita.it');
+    r = await iscrivi({ email: 'chi@sparita.it', telefono: '3661110003', smsToken: v.token, codiceInvito: 'D7R5S' });
+    s = schedaDi('chi@sparita.it').s;
+    esigi(r.corpo.ok && s && !('datiInvito' in s) && s.invitoCodice === 'D7R5S', 'azienda sparita: iscritto, con il codice, senza datiInvito');
+    dati.set('codiciInvito/E6T2V', { codice: 'E6T2V', evento: 'milano', scheda: 'milano~guasta', pagina: 'Milano 26 Febbraio 2027', ragioneSociale: 'Guasta Srl', usato: null });
+    const veraCollection = db.collection;
+    db.collection = c => c === 'aziendeInvito'
+        ? { doc: () => ({ get: async () => { throw new Error('lettura non riuscita'); }, set: async () => { throw new Error('scrittura non riuscita'); } }) }
+        : veraCollection.call(db, c);
+    const errori = [];
+    const errVero = console.error;
+    console.error = (...x) => errori.push(x.join(' '));
+    try {
+        v = await verificaNumero('3661110004', 'chi@guasta.it');
+        r = await iscrivi({ email: 'chi@guasta.it', telefono: '3661110004', smsToken: v.token, codiceInvito: 'E6T2V' });
+    } finally { db.collection = veraCollection; console.error = errVero; }
+    s = schedaDi('chi@guasta.it').s;
+    esigi(r.corpo.ok && s && !('datiInvito' in s), 'lettura dell\'azienda in errore: l\'iscrizione passa lo stesso', JSON.stringify(r.corpo));
+    esigi(errori.some(x => /Dati dell'azienda invitata non copiati/.test(x)), 'e il log lo dice');
+
+    v = await verificaNumero('3661110005', 'senza@codice.it');
+    r = await iscrivi({ email: 'senza@codice.it', telefono: '3661110005', smsToken: v.token });
+    s = schedaDi('senza@codice.it').s;
+    esigi(r.corpo.ok && s && !('datiInvito' in s), 'senza codice niente datiInvito');
+
+    // non solo Milano: vale per ogni evento che usa i codici
+    dati.set('codiciInvito/F5V8W', { codice: 'F5V8W', evento: 'napoli', scheda: 'milano~info@pec-avaspharma-com', pagina: 'Napoli 2 Ottobre 2026', ragioneSociale: 'AVAS PHARMACEUTICALS S.R.L.', usato: null });
+    r = await chiama({ pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', nome: 'Ugo', cognome: 'Napoletano', email: 'ugo@avas.it', privacy: true, marketing: true, codiceInvito: 'F5V8W' });
+    s = schedaDi('ugo@avas.it').s;
+    esigi(r.corpo.ok && s && JSON.stringify(s.datiInvito) === JSON.stringify(DATI_FILE), 'anche a Napoli, con il codice, la scheda porta le colonne del file');
+});
+
+prova('Dal collegamento personale l\'azienda dell\'invito non si cambia', async () => {
+    const NL = require(path.join(RADICE, 'lib/newsletter.js'));
+    const inv = schedaDi('ballardini@avas.it');
+    const t = NL.firmaCompleta(inv.id);
+    const leggi = await chiama({ azione: 'completa-leggi', d: inv.id, t: t });
+    esigi(leggi.corpo.ok && leggi.corpo.capofila.aziendaBloccata === true, 'con il codice la pagina sa che l\'azienda e\' bloccata', JSON.stringify(leggi.corpo.capofila));
+    spedite = [];
+    const salva = await chiama({ azione: 'completa-salva', d: inv.id, t: t, partecipanti: [
+        { nome: 'Alessandro', cognome: 'Ballardini', email: 'ballardini@avas.it', azienda: 'Altra Srl', ruolo: 'Revisore', telefono: '3661110001' }] });
+    const dopo = dati.get('iscrizioni/' + inv.id);
+    esigi(salva.corpo.ok && dopo.azienda === 'AVAS PHARMACEUTICALS S.R.L.' && dopo.ruolo === 'Revisore',
+        'il salvataggio riesce, ma l\'azienda resta quella dell\'invito', dopo.azienda);
+    esigi(spedite.length === 1 && /AVAS PHARMACEUTICALS/.test(spedite[0].text) && !/Altra Srl/.test(spedite[0].html + spedite[0].text),
+        'e la mail di riepilogo nomina quella dell\'invito, non quella scritta nel modulo');
+
+    const libero = schedaDi('giulia@studio.it');
+    const t2 = NL.firmaCompleta(libero.id);
+    const leggi2 = await chiama({ azione: 'completa-leggi', d: libero.id, t: t2 });
+    esigi(leggi2.corpo.ok && leggi2.corpo.capofila.aziendaBloccata === false, 'senza codice l\'azienda non e\' bloccata');
+    const salva2 = await chiama({ azione: 'completa-salva', d: libero.id, t: t2, partecipanti: [
+        { nome: 'Giulia', cognome: 'Rossi', email: 'giulia@studio.it', azienda: 'Beta Due srl', ruolo: '', telefono: '' }] });
+    esigi(salva2.corpo.ok && dati.get('iscrizioni/' + libero.id).azienda === 'Beta Due srl', 'e si cambia come prima');
+});
+
+prova('Chi ha annullato riprende il posto del codice solo se e\' ancora libero', async () => {
+    const NL = require(path.join(RADICE, 'lib/newsletter.js'));
+    dati.set('codiciInvito/G4X7Y', { codice: 'G4X7Y', evento: 'milano', scheda: 'az-g', pagina: 'Milano 26 Febbraio 2027', ragioneSociale: 'Gi Srl', usato: null });
+    const iscrittoConCodice = async (email, tel) => {
+        const v = await verificaNumero(tel, email);
+        const r = await iscrivi({ email: email, telefono: tel, smsToken: v.token, codiceInvito: 'G4X7Y', nome: 'Pino', cognome: email.split('@')[0] });
+        const x = schedaDi(email);
+        return { ok: r.corpo.ok, id: x.id, t: NL.firmaCompleta(x.id) };
+    };
+    const salva = (x, partecipanti) => chiama({ azione: 'completa-salva', d: x.id, t: x.t, partecipanti: partecipanti });
+    const ricompila = x => salva(x, [{ nome: 'Pino', cognome: 'Ripensato', email: '', azienda: 'Altro', ruolo: '', telefono: '' }]);
+    const a = await iscrittoConCodice('a@gi.it', '3681110001');
+    const b = await iscrittoConCodice('b@gi.it', '3681110002');
+    esigi(a.ok && b.ok, 'A e B si iscrivono con il codice');
+    const ann = await salva(a, [{ annulla: true }]);
+    esigi(ann.corpo.ok && !!dati.get('iscrizioni/' + a.id).annullato, 'A annulla dal collegamento personale');
+    const c = await iscrittoConCodice('c@gi.it', '3681110003');
+    esigi(c.ok, 'il posto di A va a C');
+    const no = await ricompila(a);
+    esigi(no.stato === 409 && no.corpo.codiceKo === true && /due iscrizioni/.test(no.corpo.msg || ''),
+        'A ricompila: rifiutato, e il messaggio dice perche\'', JSON.stringify(no.corpo));
+    esigi(!!dati.get('iscrizioni/' + a.id).annullato && dati.get('iscrizioni/' + a.id).cognome === 'a',
+        'e non si e\' scritto niente: A resta annullata, con i dati di prima');
+    const usate = () => (dati.get('codiciInvito/G4X7Y').iscrizioniUsate || []).slice().sort().join(',');
+    esigi(usate() === [b.id, c.id].sort().join(','), 'il codice conta B e C', usate());
+    const cAnn = await salva(c, [{ annulla: true }]);
+    esigi(cAnn.corpo.ok, 'C annulla');
+    const si = await ricompila(a);
+    const sa = dati.get('iscrizioni/' + a.id);
+    esigi(si.corpo.ok && !sa.annullato && sa.cognome === 'Ripensato', 'con il posto libero A si riattiva', JSON.stringify(si.corpo));
+    esigi(sa.azienda === 'Gi Srl', 'con l\'azienda dell\'invito, non quella scritta nel modulo', sa.azienda);
+    esigi(usate() === [a.id, b.id].sort().join(','), 'e il codice torna a contare A e B', usate());
+    const ver = await chiama({ azione: 'verifica-codice', pagina: PAGINA, codice: 'G4X7Y' });
+    esigi(!ver.corpo.ok && ver.corpo.motivo === 'esaurito', 'il codice e\' di nuovo esaurito', JSON.stringify(ver.corpo));
+    // un secondo invio della stessa riattivazione non si conta da solo
+    const ancora = await V.riattiva(db, { idDoc: a.id, codice: 'G4X7Y', patch: {} });
+    esigi(ancora.ok && usate() === [a.id, b.id].sort().join(','), 'la scheda stessa non occupa il posto che sta riprendendo');
+    // un codice che non esiste piu' non si ricrea
+    const senza = await V.riattiva(db, { idDoc: a.id, codice: 'H3Z9K', patch: {} });
+    esigi(senza.ok && !dati.has('codiciInvito/H3Z9K'), 'un codice sparito non rinasce vuoto (varrebbe ovunque)');
 });
 
 prova('Napoli resta com\'era', async () => {

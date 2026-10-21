@@ -274,4 +274,26 @@ function confermata(scheda) {
     return !!(c && typeof c === 'object' && c.quando);
 }
 
-module.exports = { conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, RL_MAX };
+/* IN ATTESA DI CONFERMA: si e' iscritta dal sito, la mail con il pulsante
+   e' partita, e non l'ha ancora premuto. Agli eventi dove l'iscrizione vale
+   solo dopo la conferma (Milano 2027, quelli di lib/iscrizione-verificata.js)
+   non e' ancora un posto: non ha ricevuto l'invito in PDF, non riceve i
+   promemoria, e nel riepilogo serale sta fra quelli in attesa.
+   Non lo e' mai chi non poteva ricevere la mail: le iscrizioni inserite a
+   mano dall'area riservata (`inserito`) e quelle arrivate da un altro
+   portale o dal desk (`extra.Portale`) sono gia' complete cosi'; e nemmeno
+   chi non ha un indirizzo, che non avrebbe niente da confermare.
+   La regola deve restare la stessa dell'area riservata (app.js,
+   inAttesaConfermaMail): altrimenti la sezione "In attesa di conferma
+   mail" e chi riceve i promemoria direbbero due cose diverse.
+   Chi la usa la applica SOLO agli eventi che chiedono la conferma: a
+   Napoli una scheda senza conferma e' un iscritto come gli altri. */
+function inAttesaDiConferma(scheda) {
+    if (!scheda || scheda.annullato) return false;
+    if (!String(scheda.email || '').trim()) return false;
+    if (scheda.inserito) return false;
+    if (scheda.extra && scheda.extra.Portale) return false;
+    return !confermata(scheda);
+}
+
+module.exports = { conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, RL_MAX };
