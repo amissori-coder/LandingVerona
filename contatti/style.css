@@ -131,41 +131,6 @@
     text-align: left !important;
 }
 
-.contatti-recapiti {
-    margin-top: 36px;
-}
-
-.contatti-recapiti-titolo {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 1.6px;
-    text-transform: uppercase;
-    color: #5A6270;
-    margin-bottom: 16px;
-}
-
-.contatti-recapiti .contact-item {
-    align-items: flex-start;
-    line-height: 1.5;
-}
-
-.contatti-recapiti .contact-item strong {
-    color: var(--text-primary);
-}
-
-.contatti-recapiti .contact-item a {
-    color: #164068;
-    font-weight: 600;
-    text-decoration: underline;
-    text-decoration-color: rgba(22, 64, 104, 0.32);
-    text-underline-offset: 3px;
-    overflow-wrap: anywhere;
-}
-
-.contatti-recapiti .contact-item a:hover {
-    text-decoration-color: #164068;
-}
-
 /* ============================================
    3. IL MODULO
    ============================================ */
