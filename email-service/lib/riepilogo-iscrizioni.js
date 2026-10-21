@@ -17,6 +17,8 @@
    ============================================================ */
 
 const VERIFICATA = require('./iscrizione-verificata');
+// chi e' "in attesa di conferma": la stessa regola dei promemoria e dell'area riservata
+const CONFERMA = require('./conferma-email');
 
 /* Chi riceve il riepilogo. Si puo' cambiare senza toccare il codice con la
    variabile RIEPILOGO_DESTINATARI (indirizzi separati da virgola). */
@@ -84,7 +86,11 @@ function oraRomaDi(ms) {
        il modulo era stato inviato giorni prima;
      - "inAttesa" sono quelle inviate (fino a quel giorno compreso) e non
        ancora confermate: tornano ogni notte, finche' non confermano, e quella
-       notte passano fra le nuove;
+       notte passano fra le nuove. Chi e' "in attesa" lo dice
+       CONFERMA.inAttesaDiConferma, la regola dei promemoria e della sezione
+       dell'area riservata: le iscrizioni inserite a mano e quelle con un
+       Portale (Eventbrite, il desk) non hanno una mail da confermare e qui
+       non compaiono mai;
      - "totale" sono le iscrizioni confermate in tutto.
    `schede` e' un elenco di { id, dati }. */
 function conti(schede, ev, giorno) {
@@ -103,7 +109,7 @@ function conti(schede, ev, giorno) {
     const nuove = attive.filter(x => quandoConfermata(x.dati) && giornoRoma(quandoConfermata(x.dati)) === giorno)
         .sort((a, b) => quandoConfermata(a.dati) - quandoConfermata(b.dati))
         .map(x => persona(x.dati, oraRomaDi(quandoConfermata(x.dati)), ''));
-    const inAttesa = attive.filter(x => !confermata(x.dati) && giornoDi(x.dati) && giornoDi(x.dati) <= giorno)
+    const inAttesa = attive.filter(x => CONFERMA.inAttesaDiConferma(x.dati) && giornoDi(x.dati) && giornoDi(x.dati) <= giorno)
         .sort((a, b) => (giornoDi(a.dati) + String((a.dati || {}).data || '')).localeCompare(giornoDi(b.dati) + String((b.dati || {}).data || '')))
         .map(x => {
             const s = x.dati || {};

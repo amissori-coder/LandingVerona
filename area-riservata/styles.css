@@ -1859,6 +1859,12 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    quando un posto si libera e' l'unica riga che si sta cercando, e in una
    colonna di ambre e verdi il blu si trova a colpo d'occhio. */
 .ev-in-coda { color: var(--blu-500); }
+/* "email da confermare": iscritto dal sito che non ha ancora premuto il
+   pulsante nella mail, quindi non e' ancora un posto in sala. Ambra come le
+   cose che aspettano, ma senza il grassetto di "mail da inviare": qui da fare
+   non c'e' niente - la mail l'ha gia' ricevuta, e si rimanda dal menu. */
+.ev-attesa-mail { margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--ambra); }
+.ev-attesa-mail .ev-mail-mai { color: #B1213B; font-weight: 600; }
 
 /* Le sezioni sopra l'elenco: una riga di voci con il proprio numero, che si
    legge come un riepilogo anche senza premerle. La voce vuota resta visibile,
@@ -1874,6 +1880,13 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-sez-btn:hover { border-color: var(--blu-700); color: var(--blu-900); }
 .ev-sez-btn.attiva { background: var(--blu-050); border-color: var(--blu-700); color: var(--blu-900); font-weight: 600; }
 .ev-sez-btn.vuota { opacity: 0.55; }
+/* "In attesa di conferma mail" e' una voce come le sezioni (si apre e si
+   conta, e sta con loro prima dei comandi), ma non e' un posto in sala:
+   l'ambra lo dice prima ancora del nome. Accesa resta ambra - nel blu della
+   voce attiva sembrerebbe una sezione della sala come le altre. */
+.ev-sez-btn[data-sez="attesa"] { color: var(--ambra); }
+.ev-sez-btn[data-sez="attesa"]:hover { border-color: var(--ambra); color: var(--ambra); background: var(--ambra-bg); }
+.ev-sez-btn[data-sez="attesa"].attiva { border-color: var(--ambra); background: var(--ambra-bg); color: var(--ambra); }
 /* "Riconosci aderenti" sta nella stessa riga ma non e' una sezione: e' un
    comando, e si stacca da solo con un filo di margine e il colore della
    sezione a cui porta. */
@@ -1946,6 +1959,10 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    cose da sistemare a mano - da qui non si tocca nessuno di loro. */
 .ed-attenzione { color: var(--ambra); }
 .ed-ok { color: var(--verde); }
+/* Chi chiede la sala e aspetta ancora la conferma dell'email, fuori
+   dall'elenco: un blocco suo sotto gli ospiti in sala, con la frase che
+   spiega perche' sta a parte - ambra come la sua sezione. */
+.ed-attesa-testa { margin: 14px 0 8px; font-size: 0.88rem; }
 .ed-mancanti {
     list-style: none; margin: 8px 0 0; padding: 0; max-height: 22vh; overflow-y: auto;
     border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco);
@@ -2372,6 +2389,8 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-num { font-weight: 800; font-size: 1.6rem; color: var(--blu-700); line-height: 1; display: flex; align-items: baseline; gap: 7px; }
 .ev-num span { font-size: 0.76rem; font-weight: 600; color: var(--grigio-600); }
 .ev-num.verde { color: var(--verde); }
+/* chi aspetta di confermare l'email: fuori dal totale in sala, nell'ambra della sua sezione */
+.ev-num.ambra { color: var(--ambra); }
 /* IL RIQUADRO DEI NUMERI SU CUI SI DECIDE: quanti posti in sala servono, quanti
    seguono online, quanti hanno confermato. Sta a destra, su fondo suo e dentro
    una cornice, perche' e' li' che si guarda dieci volte al giorno mentre la
@@ -2400,6 +2419,21 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-colonne-elenco { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 9px; }
 .ev-colonne-elenco label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--grigio-900); }
 .ev-colonne-elenco input { width: auto; margin: 0; }
+/* I due gruppi del pannello - quello che arriva con l'iscrizione e quello che
+   arriva dal file delle aziende invitate - con il titolo, una riga che dice
+   cosa c'e' dentro e i due comandi "Aggiungi tutte" / "Togli tutte" a
+   destra. Le caselle portano la tinta che la colonna avra' in tabella, cosi'
+   si sceglie gia' sapendo da dove viene il dato. */
+.ev-colonne-gruppo { margin-top: 10px; }
+.ev-colonne-gruppo + .ev-colonne-gruppo { padding-top: 10px; border-top: 1px solid var(--grigio-100); }
+.ev-colonne-titolo { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 10px; font-size: 0.85rem; color: var(--grigio-900); }
+.ev-colonne-titolo .hint { font-size: 0.78rem; }
+.ev-colonne-comandi { display: inline-flex; gap: 6px; margin-left: auto; }
+.ev-colonne-comandi .btn { padding: 2px 9px; font-size: 0.78rem; }
+.ev-colonne-elenco label.ev-col-modulo,
+.ev-colonne-elenco label.ev-col-file { padding: 1px 7px; border-radius: 4px; }
+.ev-colonne-elenco label.ev-col-modulo { background: var(--tinta-modulo-testa); }
+.ev-colonne-elenco label.ev-col-file { background: var(--tinta-file-testa); }
 /* barra della selezione multipla sopra l'elenco iscritti */
 .ev-barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--blu-700); border-radius: 6px; background: var(--blu-050); font-size: 0.88rem; }
 .ev-barra.vuota { display: none; }
@@ -2575,6 +2609,81 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    era piu' largo della colonna piu' stretta, e sbordava sulla colonna prima. */
 .ev-wrap .ev-menu-btn { min-width: 22px; padding: 1px 4px; }
 .ev-wrap td.ev-azioni { padding-left: 2px; padding-right: 2px; }
+
+/* DA DOVE VIENE IL DATO, nell'elenco degli iscritti. Due tinte e basta:
+   AZZURRO quello che ha scritto la persona nel modulo di iscrizione (nome,
+   ruolo, email, telefono, le preferenze e le colonne del modulo), VERDE quello
+   che viene dal file delle aziende invitate: le colonne del file, e la
+   ragione sociale di chi e' arrivato con il codice dove il modulo la blocca
+   (Milano 2027). L'azzurro nelle CELLE e' della riga, non solo della
+   colonna: lo hanno le sole righe scritte da chi si iscrive, non quelle
+   inserite da chi organizza, arrivate da altri portali o da un file (app.js,
+   scrittoDaChiSiIscrive); le intestazioni restano tinte comunque. Il
+   verde e' quello del codice invito accanto al nome: stessa campagna, stessa
+   tinta. Le colonne di chi organizza (sezione, stato, nota, firma) restano
+   bianche: sono le piu' lette, e una tinta le farebbe sembrare un dato come
+   gli altri.
+   Il fondo delle celle e' TRASPARENTE apposta: sotto si vedono ancora le
+   righe alternate e la riga sotto il puntatore. L'intestazione invece e'
+   piena - e' appiccicata in alto, e le righe che le scorrono sotto non
+   devono vedersi - con il filetto del suo colore: il gruppo si riconosce
+   anche a meta' elenco. */
+:root {
+    --tinta-modulo: rgba(47, 128, 214, 0.075);
+    --tinta-modulo-testa: #E3EEFA;
+    --tinta-modulo-segno: #1F5FA6;
+    --tinta-file: rgba(30, 127, 79, 0.085);
+    --tinta-file-testa: #E2F1E8;
+    --tinta-file-segno: #1E7F4F;
+}
+.ev-wrap table.dati td.ev-col-modulo { background: var(--tinta-modulo); }
+.ev-wrap table.dati td.ev-col-file { background: var(--tinta-file); }
+.ev-wrap table.dati th.ev-col-modulo { background: var(--tinta-modulo-testa); color: var(--tinta-modulo-segno); box-shadow: inset 0 -2px 0 var(--tinta-modulo-segno); }
+.ev-wrap table.dati th.ev-col-file { background: var(--tinta-file-testa); color: var(--tinta-file-segno); box-shadow: inset 0 -2px 0 var(--tinta-file-segno); }
+/* La legenda sopra la tabella: un quadratino per tinta, come quelli che
+   l'occhio poi cerca nelle intestazioni. Senza, due tinte sono due
+   decorazioni. Su carta i quadratini si stampano: le intestazioni colorate
+   si stampano anche loro, e la legenda deve continuare a spiegarle. */
+.ev-legenda { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; font-size: 0.8rem; color: var(--grigio-600); }
+.ev-legenda .hint { font-size: 0.78rem; }
+.ev-legenda-voce { display: inline-flex; align-items: baseline; gap: 6px; color: var(--grigio-900); }
+.ev-legenda-voce::before {
+    content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid; align-self: center;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.ev-legenda-voce.ev-col-modulo::before { background: var(--tinta-modulo-testa); border-color: var(--tinta-modulo-segno); }
+.ev-legenda-voce.ev-col-file::before { background: var(--tinta-file-testa); border-color: var(--tinta-file-segno); }
+/* LA TABELLA LARGA. Appena si sceglie una colonna aggiuntiva (app.js,
+   tabellaIscrizioni) la regola "tutta nella pagina, senza barra" non si
+   tiene piu': le colonne fisse sono gia' tante, e a larghezza fissa nome,
+   azienda, nota e le colonne nuove scenderebbero a una trentina di pixel -
+   con le diciotto del file a pochi - e il testo andrebbe a capo lettera per
+   lettera. Allora ogni colonna senza misura propria - nome, azienda, nota,
+   l'evento e le aggiuntive - ne riceve una leggibile, la tabella diventa
+   larga quanto la somma (con table-layout: fixed vince la piu' grande fra
+   la larghezza dichiarata e quella delle colonne) e scorre in orizzontale
+   dentro il suo riquadro. Se la somma sta nella pagina, lo spazio che
+   avanza si divide fra le colonne come prima, e la barra non compare.
+   Il prezzo, accettato: l'intestazione resta appiccicata al riquadro e non
+   piu' alla finestra. Il menu delle ultime righe, che il riquadro
+   taglierebbe, si fa spazio allungandolo finche' resta aperto (app.js).
+   Solo a video largo: sotto i 1200px le righe sono gia' schede, e su carta
+   valgono le percentuali della stampa. */
+@media screen and (min-width: 1201px) {
+    .ev-wrap.ev-larga { overflow-x: auto; }
+    .ev-wrap.ev-larga col.c-nome { width: 150px; }
+    .ev-wrap.ev-larga col.c-azienda { width: 190px; }
+    .ev-wrap.ev-larga col.c-nota,
+    .ev-wrap.ev-larga col.c-evento { width: 130px; }
+    .ev-wrap.ev-larga col.c-extra { width: 135px; }
+}
+/* Nelle schede (fino a 1200px) le tinte restano, con un filo di margine
+   intorno al testo: senza, il colore arriverebbe a filo delle lettere. */
+@media screen and (max-width: 1200px) {
+    .ev-wrap table.dati tbody td.ev-col-modulo,
+    .ev-wrap table.dati tbody td.ev-col-file { padding: 4px 6px; border-radius: 4px; }
+    .ev-wrap table.dati tbody td.cliente-cella.ev-col-modulo { padding: 2px 6px 7px; }
+}
 
 /* scelta dell'evento: un riquadro per evento, si apre uno alla volta */
 .ev-schede { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }

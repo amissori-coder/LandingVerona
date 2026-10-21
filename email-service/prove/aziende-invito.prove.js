@@ -31,6 +31,15 @@
    che spedire il file a blocchi dia esattamente lo stesso elenco che
    si otteneva mandandolo intero - a capo dentro le virgolette
    compresi.
+
+   E IL FILE DELLA LOMBARDIA, che entrava con ZERO aziende: le sue
+   intestazioni hanno una parentesi in fondo ("Ragione sociale
+   (file)") e la colonna del nome non veniva trovata. Si carica con le
+   sue diciotto intestazioni esatte e si verifica che entri tutto, che
+   la provincia scritta per intero non diventi una sigla tagliata, e
+   che ogni colonna resti nella scheda (datiFile) nell'ordine del file,
+   celle vuote comprese - senza appesantire l'elenco della finestra
+   degli inviti, e senza perdersi quando si cambia la PEC a mano.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -75,10 +84,26 @@ function query(filtro) {
     };
     return q;
 }
+/* La scheda singola serve alla modifica a mano (leggi, scrivi, togli la
+   vecchia quando cambia la PEC): il merge e' di primo livello, come il
+   batch qui sotto. */
+function rifScheda(id) {
+    const rif = {
+        id: id,
+        get: async () => ({
+            id: id, ref: rif,
+            exists: Object.prototype.hasOwnProperty.call(dati, id),
+            data: () => dati[id]
+        }),
+        set: async (patch, opz) => { dati[id] = Object.assign({}, (opz && opz.merge) ? (dati[id] || {}) : {}, patch); },
+        delete: async () => { delete dati[id]; }
+    };
+    return rif;
+}
 const db = {
     collection() {
         return {
-            doc: id => ({ id: id }),
+            doc: id => rifScheda(id),
             where: (campo, op, val) => query(id => (dati[id] || {})[campo] === val)
         };
     },
@@ -290,6 +315,114 @@ function dallAreaRiservata(nome) {
     esigi(senzaOra(dati) === senzaOra(inUnaVolta), 'e l\'elenco che ne esce e\' lo stesso');
     esigi(String(dati[id('alfa@pec.it')].note || '').indexOf('scala B') > 0,
         'la cella con l\'a capo dentro arriva intera', JSON.stringify(dati[id('alfa@pec.it')].note));
+
+    console.log('\nIl file della Lombardia, con le sue diciotto colonne');
+    /* Le intestazioni ESATTE del file vero, e righe come le sue: numeri
+       come testo, date gia' scritte, celle vuote, la partita IVA con lo zero
+       davanti. Prima di questa prova il file entrava con zero aziende: la
+       colonna "Ragione sociale (file)" non era riconosciuta e ogni riga
+       finiva fra le "senza denominazione". Il CSV lo compone la funzione
+       vera dell'area riservata, la stessa che converte il foglio .xlsx. */
+    const inCsv = dallAreaRiservata('righeInCsv');
+    const INTEST18 = ['#', 'Ragione sociale (file)', 'Codice fiscale', 'PEC', 'Ricavi (EUR)', 'Utile netto (EUR)',
+        'Totale attivo (EUR)', 'Capitale sociale (EUR)', 'Dipendenti', 'Chiusura bilancio', 'Provincia (sede operativa)',
+        'Comune (sede operativa)', 'Provincia (sede legale)', 'Settore di attivita', 'Partita IVA', 'Numero CCIAA',
+        'Revisore o societa di revisione', 'Data nomina revisore'];
+    const settoreLungo = ('FABBRICAZIONE DI MACCHINE PER L\'INDUSTRIA ALIMENTARE, DELLE BEVANDE E DEL TABACCO; '
+        + 'COMPRESE PARTI E ACCESSORI; ').repeat(10).slice(0, 629) + '.';
+    const AVAS = ['1', 'AVAS PHARMACEUTICALS S.R.L.', '09190500968', 'info@pec.avaspharma.com', '100674810', '1557044',
+        '102555667', '1000000', '12', '31/12/2025', 'Milano', 'MILANO', 'Milano', 'COMMERCIO ALL\'INGROSSO DI MEDICINALI',
+        '09190500968', 'MI2074797', 'Sig. Alessandro Ballardini', '30/06/2026'];
+    // celle vuote in mezzo, un utile negativo, e le ultime due che il foglio non scrive proprio
+    const BETA = ['2', 'BETA COSTRUZIONI S.P.A.', '01234560157', 'beta@pec.betacostruzioni.it', '5400000', '-1769584',
+        '', '', '', '31/12/2025', 'Monza e della Brianza', 'MONZA', 'Monza e della Brianza', '', '01234560157', 'MB1234567'];
+    const GAMMA = ['3', 'GAMMA "MECCANICA" S.R.L.', '00987650123', 'gamma@pec.gamma.it', '820000', '0', '1500000', '50000',
+        '7', '30/06/2025', 'Bergamo', 'BERGAMO', 'Bergamo', settoreLungo, '00987650123', 'BG7654321',
+        'Studio Revisori Associati', '15/05/2026'];
+    esigi(settoreLungo.length === 630, 'il settore di prova e\' lungo come quelli veri (630 caratteri)', String(settoreLungo.length));
+    scenario({}, 0);
+    r = await carica(inCsv([INTEST18, AVAS, BETA, GAMMA]));
+    esigi(r.nuove === 3 && r.senzaDenominazione === 0 && r.senzaRecapito === 0,
+        'entrano tutte e tre, nessuna "senza denominazione"', JSON.stringify(r));
+    const avas = dati[id('info@pec.avaspharma.com')] || {};
+    const beta = dati[id('beta@pec.betacostruzioni.it')] || {};
+    const gamma = dati[id('gamma@pec.gamma.it')] || {};
+    esigi(avas.ragioneSociale === 'AVAS PHARMACEUTICALS S.R.L.' && gamma.ragioneSociale === 'GAMMA "MECCANICA" S.R.L.',
+        '"Ragione sociale (file)" e\' la ragione sociale', avas.ragioneSociale + ' | ' + gamma.ragioneSociale);
+    esigi(avas.pec === 'info@pec.avaspharma.com', 'la PEC', avas.pec);
+    esigi(avas.piva === '09190500968' && beta.piva === '01234560157' && gamma.cf === '00987650123',
+        'partita IVA e codice fiscale con lo zero davanti', [avas.piva, beta.piva, gamma.cf].join(' '));
+    esigi(avas.cf === '09190500968', 'il codice fiscale', avas.cf);
+    esigi(avas.citta === 'MILANO' && beta.citta === 'MONZA', 'la citta\' da "Comune (sede operativa)"', avas.citta + ' | ' + beta.citta);
+    esigi(avas.settore === 'COMMERCIO ALL\'INGROSSO DI MEDICINALI', 'il settore da "Settore di attivita"', avas.settore);
+    esigi(!avas.provincia && !beta.provincia,
+        'la provincia NON diventa "Mila" o "Monz": il nome intero resta fra i dati del file', JSON.stringify([avas.provincia, beta.provincia]));
+    const etichette = l => (l || []).map(x => x.c).join('|');
+    esigi(Array.isArray(avas.datiFile) && avas.datiFile.length === 18 && etichette(avas.datiFile) === INTEST18.join('|'),
+        'datiFile: diciotto colonne, nell\'ordine del file', etichette(avas.datiFile));
+    const valore = (l, c) => ((l || []).find(x => x.c === c) || {}).v;
+    esigi(valore(avas.datiFile, 'Ricavi (EUR)') === '100674810' && valore(avas.datiFile, 'PEC') === 'info@pec.avaspharma.com'
+        && valore(avas.datiFile, 'Partita IVA') === '09190500968' && valore(avas.datiFile, 'Provincia (sede operativa)') === 'Milano',
+        'con i valori come nel file, anche delle colonne riconosciute');
+    esigi(beta.datiFile.length === 18 && valore(beta.datiFile, 'Totale attivo (EUR)') === '' && valore(beta.datiFile, 'Settore di attivita') === ''
+        && valore(beta.datiFile, 'Data nomina revisore') === '' && valore(beta.datiFile, 'Utile netto (EUR)') === '-1769584',
+        'le celle vuote ci sono, con v vuoto (anche quelle in fondo che il foglio non scrive), e il negativo resta com\'e\'',
+        JSON.stringify(beta.datiFile.slice(5, 9)));
+    esigi(valore(gamma.datiFile, 'Settore di attivita') === settoreLungo && gamma.settore.length === 300,
+        'il settore lungo e\' intero fra i dati del file (il campo settore resta a 300)', String((valore(gamma.datiFile, 'Settore di attivita') || '').length));
+    esigi(avas.extra && avas.extra['Ricavi (EUR)'] === '100674810' && avas.extra['Provincia (sede operativa)'] === 'Milano' && !('PEC' in avas.extra),
+        '`extra` si scrive come prima, per chi lo legge gia\'', JSON.stringify(avas.extra));
+    e = await leggiElenco('invito');
+    esigi(e.aziende.length === 3 && e.aziende.every(a => !('datiFile' in a)),
+        'l\'elenco della finestra degli inviti non si porta dietro datiFile');
+
+    console.log('\nCambiare la PEC a mano non perde le colonne del file');
+    const vecchiaId = id('info@pec.avaspharma.com');
+    const daFile = JSON.stringify(avas.datiFile);
+    const rm = await AZ.esegui({
+        db: db, email: 'chi.carica@esempio.it', eAdmin: true,
+        body: {
+            sezione: 'aziende', azione: 'modifica', evento: 'ev1', campagna: 'invito', id: vecchiaId,
+            azienda: { ragioneSociale: 'AVAS PHARMACEUTICALS S.R.L.', pec: 'amministrazione@pec.avaspharma.com', piva: '09190500968' }
+        }
+    });
+    const spostata = dati[id('amministrazione@pec.avaspharma.com')] || {};
+    esigi(rm.corpo.ok && !dati[vecchiaId] && JSON.stringify(spostata.datiFile) === daFile,
+        'la scheda cambia identificativo e i dati del file vanno con lei', JSON.stringify(rm.corpo).slice(0, 200));
+    esigi(spostata.extra && spostata.extra['Numero CCIAA'] === 'MI2074797', 'e anche `extra`');
+    esigi(rm.corpo.azienda && !('datiFile' in rm.corpo.azienda), 'la risposta della modifica non li rimanda indietro');
+
+    console.log('\nIl modello di sempre, e i nomi esatti prima di quelli con la parentesi');
+    scenario({}, 0);
+    r = await carica('Denominazione *;PEC *;Partita IVA;Referente;Email;Telefono;Citta;Provincia;Settore;Note\n'
+        + 'Delta Srl;delta@pec.it;01112223334;Anna Neri;info@delta.it;02 1234567;Milano;MI;Meccanica;cliente storico');
+    const delta = dati[id('delta@pec.it')] || {};
+    esigi(r.nuove === 1 && delta.ragioneSociale === 'Delta Srl' && delta.provincia === 'MI' && delta.citta === 'Milano'
+        && delta.settore === 'Meccanica' && delta.referente === 'Anna Neri' && delta.email === 'info@delta.it' && delta.note === 'cliente storico',
+        'il modello scaricabile entra come prima', JSON.stringify(delta).slice(0, 300));
+    esigi((delta.datiFile || []).length === 10 && delta.datiFile[0].c === 'Denominazione' && delta.datiFile[1].c === 'PEC'
+        && delta.datiFile[7].c === 'Provincia' && delta.datiFile[7].v === 'MI',
+        'datiFile anche qui, senza l\'asterisco del modello', etichette(delta.datiFile));
+    scenario({}, 0);
+    r = await carica('Nome (referente);Provincia (sede legale);Denominazione;PEC;Provincia\nMario Bianchi;Milano;Epsilon Srl;eps@pec.it;MI');
+    const eps = dati[id('eps@pec.it')] || {};
+    esigi(eps.ragioneSociale === 'Epsilon Srl' && eps.provincia === 'MI',
+        '"Denominazione" vince su "Nome (referente)", "Provincia" su "Provincia (sede legale)"', JSON.stringify([eps.ragioneSociale, eps.provincia]));
+
+    console.log('\nLa forma dei dati del file (lib/dati-file-azienda.js)');
+    const DF = require(path.join(RADICE, 'lib/dati-file-azienda.js'));
+    const sporco = [{ c: ' Ricavi ', v: 12 }, null, 'testo', { c: '', v: 'senza intestazione' }, { c: 'X'.repeat(100), v: 'Y'.repeat(1200) }, { c: 'A\u0007capo', v: 'riga\nnuova' }];
+    const pulita = DF.pulito(sporco);
+    esigi(pulita.length === 3 && pulita[0].c === 'Ricavi' && pulita[0].v === '12' && pulita[1].c.length === 80 && pulita[1].v.length === 1000
+        && pulita[2].c === 'A capo' && pulita[2].v === 'riga nuova',
+        'solo voci con l\'intestazione, stringhe, nei limiti (80 e 1000), senza caratteri di controllo', JSON.stringify(pulita).slice(0, 160));
+    esigi(DF.pulito([]) === null && DF.pulito(null) === null && DF.pulito({ c: 'a' }) === null, 'vuoto o non un elenco: null');
+    esigi(DF.pulito(Array.from({ length: 120 }, (x, i) => ({ c: 'c' + i, v: '' }))).length === 80, 'al massimo 80 voci');
+    /* La lettura dell'area riservata e' una whitelist campo per campo: senza
+       la riga che passa datiInvito, il dato resterebbe sul database e la
+       tabella non lo vedrebbe mai. */
+    const API_ISCRIZIONI = require('fs').readFileSync(path.join(RADICE, 'api/iscrizioni.js'), 'utf8');
+    esigi(/datiInvito:\s*DATI_FILE\.pulito\(v\.datiInvito\)/.test(API_ISCRIZIONI), 'api/iscrizioni.js passa datiInvito, rimesso in forma');
 
     console.log('\n' + '-'.repeat(58));
     console.log(ok + ' verifiche verdi, ' + ko + ' fallite');

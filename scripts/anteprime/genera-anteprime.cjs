@@ -70,6 +70,7 @@ const ETICHETTE = {
     'roma_aprile_2026': 'Evento · Roma',
     'verona_marzo_2026': 'Evento · Verona',
     'chi_siamo': 'Chi siamo',
+    'contatti': 'Domande e contatti',
     'approfondimenti': 'Approfondimenti per argomento',
 };
 

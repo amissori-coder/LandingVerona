@@ -1,0 +1,548 @@
+/* ============================================
+   Domande e contatti
+   Il modulo delle domande del sito
+
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css
+   (barra, apertura, pie' di pagina, campi di
+   testo, pulsanti) e aggiunge quello che li'
+   manca: la griglia del modulo, le tendine
+   (zls_zes stila solo input e textarea), gli
+   errori accanto ai campi, il riquadro per chi
+   non trova la mail di conferma e il grazie
+   dopo l'invio.
+   ============================================ */
+
+/* ============================================
+   1. APERTURA
+   Pagina di servizio: l'apertura e' bassa, il
+   modulo deve vedersi senza scorrere troppo.
+   ============================================ */
+.theme-contatti .hero-mini {
+    padding: 140px 0 96px;
+}
+
+/* la sfumatura verso il bianco in fondo all'apertura e' piu' corta:
+   alta come nelle aperture a tutto schermo coprirebbe l'ultima riga */
+.theme-contatti .hero::after {
+    height: 56px;
+}
+
+.theme-contatti .hero-subtitle {
+    margin-bottom: 0;
+}
+
+/* ============================================
+   2. TESTO A SINISTRA, MODULO A DESTRA
+   ============================================ */
+.contatti-sezione {
+    padding: 80px 0 100px;
+}
+
+.contatti-griglia {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 56px;
+    align-items: start;
+}
+
+.contatti-titolo {
+    font-size: 2.1rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1.2;
+    margin-bottom: 18px;
+    color: var(--text-primary);
+}
+
+.contatti-intro {
+    color: var(--text-secondary);
+    font-size: 1.02rem;
+    line-height: 1.8;
+    margin-bottom: 28px;
+}
+
+/* La scorciatoia per chi non trova la mail di conferma: tutta la
+   scheda e' cliccabile, come i rimandi delle pagine di contenuto. */
+.contatti-scorciatoia {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px 20px;
+    background: #ffffff;
+    border: 1px solid var(--accent-border);
+    border-left: 3px solid #164068;
+    border-radius: var(--radius);
+    color: inherit;
+}
+
+.contatti-scorciatoia:hover {
+    background: #f4f8fc;
+    border-color: #164068;
+    box-shadow: 0 8px 22px rgba(15, 47, 79, 0.12);
+}
+
+.contatti-scorciatoia:focus-visible {
+    outline: 3px solid #164068;
+    outline-offset: 3px;
+}
+
+.contatti-scorciatoia-icona {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: var(--accent-bg);
+    color: #164068;
+}
+
+.contatti-scorciatoia-icona svg {
+    width: 21px;
+    height: 21px;
+}
+
+.contatti-scorciatoia-titolo {
+    display: block;
+    font-weight: 700;
+    font-size: 0.98rem;
+    line-height: 1.4;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+/* righe corte accanto all'icona: giustificate si aprirebbero */
+.contatti-scorciatoia .contatti-scorciatoia-desc {
+    display: block;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    text-align: left !important;
+}
+
+.contatti-recapiti {
+    margin-top: 36px;
+}
+
+.contatti-recapiti-titolo {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: #5A6270;
+    margin-bottom: 16px;
+}
+
+.contatti-recapiti .contact-item {
+    align-items: flex-start;
+    line-height: 1.5;
+}
+
+.contatti-recapiti .contact-item strong {
+    color: var(--text-primary);
+}
+
+.contatti-recapiti .contact-item a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: rgba(22, 64, 104, 0.32);
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+}
+
+.contatti-recapiti .contact-item a:hover {
+    text-decoration-color: #164068;
+}
+
+/* ============================================
+   3. IL MODULO
+   ============================================ */
+.contatti-scheda {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    box-shadow: var(--shadow);
+}
+
+.domande-titolo {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.domande-modulo p.domande-obbligatori {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    text-align: left !important;
+}
+
+.domande-sottotitolo {
+    margin: 8px 0 18px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: #5A6270;
+}
+
+.domande-griglia {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 20px;
+}
+
+.domande-griglia .form-group[hidden] {
+    display: none;
+}
+
+.domande-largo {
+    grid-column: 1 / -1;
+}
+
+.form-optional {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* Le tendine: stesso aspetto dei campi di testo, con la freccia
+   disegnata (quella del sistema cambia da un browser all'altro). */
+.domande-modulo .form-group select {
+    width: 100%;
+    padding: 12px 42px 12px 16px;
+    background-color: var(--bg-secondary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23164068' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 12px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    line-height: 1.4;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.domande-modulo .form-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    background-color: var(--bg-card);
+}
+
+.domande-modulo .form-group input:focus-visible,
+.domande-modulo .form-group select:focus-visible,
+.domande-modulo .form-group textarea:focus-visible {
+    box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.25);
+}
+
+.domande-modulo .form-group textarea {
+    min-height: 150px;
+}
+
+.domande-modulo .form-group .errore {
+    border-color: #B1213B;
+    background-color: #FDF3F5;
+}
+
+/* sotto i campi: la nota e l'errore */
+.domande-modulo .campo-nota {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.domande-modulo .campo-nota[hidden] {
+    display: none;
+}
+
+.domande-modulo .campo-errore {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #B1213B;
+    text-align: left !important;
+}
+
+.domande-modulo .campo-errore:empty {
+    display: none;
+}
+
+.domande-modulo .domande-errore-spunta {
+    margin: -12px 0 16px 30px;
+}
+
+.domande-conta {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.domande-conta.vicino {
+    color: #9A5B00;
+    font-weight: 600;
+}
+
+/* Le spunte: il grigio chiaro di zls_zes su fondo bianco si legge a
+   fatica, qui il testo dei consensi resta del colore delle note. */
+.domande-modulo .form-check label {
+    font-size: 0.85rem;
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.domande-modulo .form-check input[type="checkbox"] {
+    flex: none;
+    width: 18px;
+    height: 18px;
+}
+
+.domande-modulo .form-check label a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+/* Il riquadro per chi non trova la mail di conferma */
+.domande-aiuto {
+    margin: 4px 0 22px;
+    padding: 18px 20px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-left: 3px solid #164068;
+    border-radius: 10px;
+}
+
+.domande-aiuto[hidden] {
+    display: none;
+}
+
+.domande-modulo .domande-aiuto-titolo {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    text-align: left !important;
+}
+
+.domande-aiuto ul {
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* voci strette con indirizzi lunghi: giustificate si aprirebbero */
+.domande-aiuto li {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    text-align: left !important;
+}
+
+.domande-aiuto strong {
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+/* La trappola per i programmi: fuori dallo schermo, non nascosta con
+   display:none (alcuni programmi saltano i campi nascosti). */
+.domande-trappola {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+/* la casella di sicurezza: occupa spazio solo quando Cloudflare chiede un clic */
+.domande-modulo .captcha[hidden] {
+    display: none;
+}
+
+.domande-modulo .captcha--visibile {
+    margin: 4px 0 16px;
+}
+
+.domande-modulo .domande-invia {
+    margin-top: 8px;
+    padding: 16px;
+    font-size: 1.05rem;
+}
+
+.domande-modulo .domande-invia:disabled {
+    opacity: 0.6;
+    cursor: default;
+    transform: none;
+}
+
+.domande-modulo p.domande-errore {
+    margin-top: 14px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #B1213B;
+    text-align: left !important;
+}
+
+.domande-modulo p.domande-errore:empty {
+    display: none;
+}
+
+.domande-errore a {
+    color: #B1213B;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+/* ============================================
+   4. IL GRAZIE DOPO L'INVIO
+   ============================================ */
+.domande-fatto {
+    outline: none;
+    text-align: center;
+}
+
+.domande-fatto[hidden] {
+    display: none;
+}
+
+.domande-fatto-segno {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #1F6B57;
+    color: #ffffff;
+    margin-bottom: 18px;
+}
+
+.domande-fatto-segno svg {
+    width: 26px;
+    height: 26px;
+}
+
+.domande-fatto .domande-fatto-titolo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+    text-align: center !important;
+}
+
+.domande-fatto p {
+    font-size: 0.98rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    text-align: left !important;
+}
+
+.domande-fatto p strong {
+    color: var(--text-primary);
+}
+
+.domande-fatto p a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.domande-indirizzo {
+    overflow-wrap: anywhere;
+}
+
+.domande-fatto .btn {
+    margin-top: 12px;
+}
+
+/* ============================================
+   5. RESPONSIVE
+   ============================================ */
+@media (max-width: 968px) {
+    .contatti-griglia {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 40px;
+    }
+}
+
+@media (max-width: 600px) {
+    /* margini di 16px ai lati, come nelle altre pagine col modulo */
+    .theme-contatti .container {
+        padding: 0 16px;
+    }
+
+    .theme-contatti .hero-mini {
+        padding: 112px 0 72px;
+    }
+
+    .contatti-sezione {
+        padding: 48px 0 64px;
+    }
+
+    .contatti-titolo {
+        font-size: 1.7rem;
+    }
+
+    /* l'indirizzo email lungo, giustificato, aprirebbe buchi nella riga prima */
+    .contatti-testo p.contatti-intro {
+        text-align: left !important;
+    }
+
+    .contatti-scheda {
+        padding: 26px 18px;
+        border-radius: 14px;
+    }
+
+    .domande-griglia {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* 16px: sotto questa misura iPhone ingrandisce la pagina al tocco;
+       e campi alti quanto un dito */
+    .domande-modulo .form-group input,
+    .domande-modulo .form-group select,
+    .domande-modulo .form-group textarea {
+        font-size: 16px;
+    }
+
+    .domande-modulo .form-group input,
+    .domande-modulo .form-group select {
+        min-height: 48px;
+    }
+
+    .domande-modulo .form-check input[type="checkbox"] {
+        width: 22px;
+        height: 22px;
+        min-height: 0;
+    }
+
+    .domande-modulo .domande-errore-spunta {
+        margin-left: 34px;
+    }
+
+    .domande-modulo .domande-invia {
+        min-height: 54px;
+    }
+}

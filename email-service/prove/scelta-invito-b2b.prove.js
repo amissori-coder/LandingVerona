@@ -124,6 +124,11 @@ const daSpuntareB2B = daAppJs('daSpuntareB2B');
 /* modalitaDi legge le presenze dalla chiusura dell'app: qui la modalita' la
    porta la riga stessa, che e' quanto basta a questa prova. */
 const modalitaDi = (ev, r) => String(r.modalita || 'presenza');
+/* La sezione in cui una riga si guarda (l'attesa della conferma email, poi la
+   modalita'): vere, dall'app. Qui l'evento e' un nome e non chiede la
+   conferma, quindi decide la sola modalita' - come prima. */
+const inAttesaConfermaMail = daAppJs('inAttesaConfermaMail');
+const sezioneVista = daAppJs('sezioneVista');
 
 // ---------- utilita' ----------
 let ok = 0, ko = 0;

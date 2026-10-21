@@ -3353,6 +3353,47 @@
         return copia.textContent.trim().replace(/\s+/g, ' ');
     }
 
+    /* Il TESTO di un CSV come lo apre Excel in italiano: virgolette intorno a
+       ogni valore, separatore ";", a capo alla Windows e la guardia contro le
+       formule - un valore che comincia con = + - @ Excel lo eseguirebbe, e un
+       apice davanti lo tiene testo.
+       `opz.numeri`: un numero e basta ("-1769584", "0", "1234.5") passa senza
+       apice. Non e' una formula, e con l'apice davanti un utile negativo
+       diventerebbe una scritta in cui Excel vede anche l'apice. Lo chiede chi
+       esporta importi (l'elenco degli iscritti, con le colonne del file);
+       le altre tabelle restano come erano.
+       Con `opz.numeri` c'e' anche il caso opposto: cifre e basta con lo ZERO
+       DAVANTI ("09190500968") non sono un numero ma un codice - partita IVA,
+       codice fiscale, un cellulare senza prefisso - ed Excel, che le
+       virgolette non le rispetta, le leggerebbe come 9190500968: nel file
+       della Lombardia sono l'85% delle partite IVA. Si scrivono come la
+       formula ="09190500968", che Excel mostra come testo, zeri compresi.
+       Non apre nessuna porta alle formule vere: dentro ci sono solo cifre.
+       Lo zero da solo ("0") resta un numero. */
+    function testoCsv(righe, opz) {
+        const numeri = !!(opz && opz.numeri);
+        return (righe || []).map(r => r.map(v => {
+            let s = String(v == null ? '' : v).replace(/"/g, '""');
+            /* Excel lo tiene testo: gli zeri davanti restano (partita IVA, codice
+               fiscale), un codice invito come "12E45" non diventa 1,2E+46 e un
+               cellulare "+39 333..." non prende l'apostrofo della guardia qui
+               sotto. Dentro ci sono solo cifre, spazi, "+" ed "E": nessuna
+               formula vera puo' passare di qui. */
+            if (numeri && (/^0\d+$/.test(s) || /^\d+E\d+$/i.test(s) || /^\+\d[\d ]*$/.test(s))) return '"=""' + s + '"""';
+            if (/^[=+\-@\t\r]/.test(s) && !(numeri && /^-?\d+(\.\d+)?$/.test(s))) s = "'" + s; // niente formule in Excel
+            return '"' + s + '"';
+        }).join(';')).join('\r\n');
+    }
+    /* Lo scarica: BOM in testa (senza, Excel legge le lettere accentate come
+       due caratteri a caso) e la data di oggi nel nome. */
+    function scaricaCsv(righe, nomeFile, opz) {
+        const blob = new Blob(['﻿' + testoCsv(righe, opz)], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (nomeFile || 'tabella') + '_' + oggiISO() + '.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
     /* Esporta in CSV le righe VISIBILI (rispetta i filtri) di una tabella "dati",
        saltando le colonne d'azione (intestazione vuota). Formato come l'export
        incarichi: BOM, virgolette, separatore ";", guardia anti-formula Excel. */
@@ -3366,17 +3407,7 @@
             if (tr.style.display === 'none') return;
             righe.push(colonne.map(i => _testoCella(tr.cells[i])));
         });
-        const csv = righe.map(r => r.map(v => {
-            let s = String(v).replace(/"/g, '""');
-            if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // niente formule in Excel
-            return '"' + s + '"';
-        }).join(';')).join('\r\n');
-        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = (nomeFile || 'tabella') + '_' + oggiISO() + '.csv';
-        a.click();
-        URL.revokeObjectURL(a.href);
+        scaricaCsv(righe, nomeFile);
         toast('CSV esportato (' + (righe.length - 1) + ' righe).', 'verde');
         Audit.registra(Auth.utenteCorrente, 'Esportazione CSV', 'sistema', null, null, nomeFile || null);
     }
@@ -3384,7 +3415,7 @@
     /* Attrezza una tabella "dati" con una barra strumenti professionale: un filtro
        PER COLONNA (tendina per le colonne categoriali, casella di testo per le
        altre) e un pulsante "Esporta CSV". Generico, guidato dai dati della tabella.
-       opts: { nomeFile, filtri = true }. */
+       opts: { nomeFile, filtri = true, ricerca, seVuoto, esporta, esportaTitolo }. */
     /* Filtro "combinato" riusabile: campo di testo con suggerimenti (datalist).
        Si digita liberamente O si sceglie dall'elenco; vuoto = tutti.
        Chi lo usa confronta con "contiene" (minuscole), cosi' il suggerimento
@@ -3492,7 +3523,13 @@
         };
         controlli.forEach(c => c.el.addEventListener(c.tipo === 'select' ? 'change' : 'input', applica));
         if (ricercaEl) ricercaEl.addEventListener('input', applica);
-        azioni.querySelector('[data-esporta]').addEventListener('click', () => esportaTabellaCsv(tabella, opts.nomeFile));
+        /* `opts.esporta`: chi usa la tabella puo' esportare a modo suo, dai dati
+           invece che dalle celle a video - l'elenco degli iscritti lo fa, perche'
+           deve scaricare tutte le sezioni e tutte le colonne, non quelle aperte.
+           `opts.esportaTitolo` lo dice nel suggerimento del pulsante. */
+        const bEsporta = azioni.querySelector('[data-esporta]');
+        if (opts.esportaTitolo) bEsporta.title = opts.esportaTitolo;
+        bEsporta.addEventListener('click', () => opts.esporta ? opts.esporta() : esportaTabellaCsv(tabella, opts.nomeFile));
         return applica;
     }
 
@@ -15511,8 +15548,19 @@
         },
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
-            manuale: true,
-            nota: 'Il modulo di iscrizione è pubblicato: chi si iscrive dal sito verifica il cellulare con un codice SMS (il baffetto accanto al numero) e poi conferma l\'email. Un\'iscrizione per email e per numero, due al massimo per codice invito. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
+            manuale: true, luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano', urlPagina: '/milano_febbraio_2027/',
+            /* L'ISCRIZIONE VALE DOPO LA CONFERMA DELL'EMAIL. Chi si iscrive dal
+               sito riceve una mail con il pulsante di conferma, e finche' non lo
+               preme non e' un posto in sala: sta nella sezione "In attesa di
+               conferma mail", fuori dai conteggi della sala. E' la stessa regola
+               del server (lib/conferma-email.js, inAttesaDiConferma), che con
+               questa ragione tiene fuori queste persone dai promemoria. */
+            confermaEmail: true,
+            /* Quante iscrizioni ammette un codice invito: lo fa rispettare il
+               servizio (lib/iscrizione-verificata.js, MAX_PER_CODICE) e lo
+               dice la PEC di invito. Il numero va tenuto uguale ai due lati. */
+            iscrizioniPerCodice: 2,
+            nota: 'Il modulo di iscrizione è pubblicato: chi si iscrive dal sito verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Un\'iscrizione per email e per numero, due al massimo per codice invito. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
         },
         // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
         { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', giorno: '', filtro: '', tutti: true }
@@ -15705,7 +15753,8 @@
     /* Nell'impronta dell'elenco entra anche la conferma dell'indirizzo (e l'esito
        della mail): il tempo reale rilegge l'elenco quando qualcuno clicca nella
        mail, ma senza questa riga l'impronta restava uguale e la tabella non si
-       ridisegnava - il baffetto compariva solo ricaricando la pagina. */
+       ridisegnava - chi aveva confermato restava "in attesa di conferma mail"
+       finche' non si ricaricava la pagina. */
     function firmaIscr(l) {
         return (l || []).map(r => r.id + '~' + (r.azienda || '')
             + '~' + ((r.emailConfermata && r.emailConfermata.come) || '')
@@ -15890,10 +15939,13 @@
        Sta qui fuori, e non dentro la finestra degli inviti, perche' e' la
        regola che decide A CHI parte la mail: va detta in un posto solo e
        dev'essere possibile provarla. */
+    /* Chi ha l'email ancora da confermare resta fuori come chi segue online:
+       non e' ancora un posto in sala, e un invito ai tavoli a un indirizzo che
+       nessuno ha confermato e' un invito che forse non legge nessuno. */
     function iscrittiPerInvitoB2B(ev, lista) {
         return (lista || []).filter(r => r && r.email
             && segnatoInvitoB2B(r)
-            && daInvitareB2B(modalitaDi(ev, r)));
+            && daInvitareB2B(sezioneVista(ev, r, lista)));
     }
     /* A LOTTI. Le azioni che toccano molte schede insieme hanno un tetto per
        chiamata (trecento), perche' la funzione che le esegue ha un tempo suo e
@@ -16117,7 +16169,14 @@
     }
     function vistaEventiMantenendoPosto() {
         const y = window.scrollY || window.pageYOffset || 0;
+        /* E il posto in ORIZZONTALE: la tabella larga (.ev-larga) scorre
+           dentro il suo riquadro, e il riquadro nuovo nasce a sinistra. Senza
+           questo, chi legge i ricavi in fondo a destra ci tornerebbe a ogni
+           salvataggio di un collega e a ogni colonna spuntata. */
+        const w0 = $vista().querySelector('.ev-wrap');
+        const x = w0 ? w0.scrollLeft : 0;
         vistaEventi();
+        if (x) { const w1 = $vista().querySelector('.ev-wrap'); if (w1) w1.scrollLeft = x; }
         // il ridisegno puo' aver accorciato la pagina per un istante: se lo
         // scorrimento e' saltato, lo si rimette dov'era
         if (y && Math.abs((window.scrollY || window.pageYOffset || 0) - y) > 2) window.scrollTo(0, y);
@@ -16311,6 +16370,79 @@
     function soloIscritti(ev, lista) {
         return (lista || []).filter(r => !fuoriElenco(modalitaDi(ev, r)));
     }
+    /* LA SCHEDA L'HA SCRITTA IL MODULO DEL SITO? E' la domanda che fanno in
+       due: l'attesa della conferma (solo a chi si e' iscritto dal sito parte
+       la mail con il pulsante) e la tinta azzurra della tabella ("scritto da
+       chi si iscrive"). Una regola sola, cosi' non si allontanano. No per:
+         - le schede inserite a mano dall'area riservata (`inserito`);
+         - quelle arrivate da un altro portale o dal desk (`extra.Portale`);
+         - quelle caricate con "Importa" (`importato`) che la mail di conferma
+           non l'hanno mai avuta: le ha scritte un file, non la persona. Chi
+           si era iscritto dal sito e poi e' stato toccato da un'importazione
+           (la colonna degli inviti B2B) la mail ce l'ha (`mailConferma`), e
+           resta quello che era.
+       La stessa regola sta nel servizio (lib/conferma-email.js,
+       inAttesaDiConferma). */
+    function dalModuloDelSito(r) {
+        if (!r) return false;
+        if (r.inserito || (r.extra && r.extra.Portale)) return false;
+        if (r.importato && !r.mailConferma) return false;
+        return true;
+    }
+    /* IN ATTESA DI CONFERMA MAIL (solo negli eventi con `confermaEmail`, oggi
+       Milano). Chi si iscrive dal sito riceve una mail con il pulsante
+       "conferma il tuo indirizzo", e finche' non lo preme l'iscrizione non e'
+       un posto in sala: l'indirizzo potrebbe essere scritto male, o non essere
+       suo. Non e' una modalita' - in sala o online lo ha detto lui, e resta
+       scritto - ma uno stato che viene PRIMA della modalita'. Per questo non
+       sta in SEZIONI_MODALITA: quell'elenco alimenta le tendine, gli
+       spostamenti in blocco e la whitelist del servizio (MODALITA_SCELTE),
+       che un valore "attesa" lo rifiuterebbe.
+       E' la stessa regola del servizio (lib/conferma-email.js,
+       inAttesaDiConferma), che con questa tiene fuori queste persone dai
+       promemoria: se le due si allontanassero, l'elenco direbbe una cosa e la
+       posta ne farebbe un'altra. Restano sempre fuori dall'attesa:
+         - le righe del vecchio foglio (senza `doc`): sono pregresso;
+         - chi non ha un indirizzo: non avrebbe niente da confermare;
+         - chi non arriva dal modulo del sito (dalModuloDelSito): inserito a
+           mano, da un altro portale (Eventbrite, il desk) o caricato con
+           "Importa" - l'indirizzo lo ha scritto chi organizza o un file, e la
+           mail con il pulsante a loro non e' partita;
+         - chi e' stato segnato PRESENTE: e' in sala, l'ha visto chi lo ha
+           accolto, e confermato o no deve contare fra chi c'e'. E' la regola
+           dei promemoria del servizio (api/promemoria-eventi.js), che a chi e'
+           presente scrive anche se l'email non l'ha mai confermata.
+       La conferma vale per INDIRIZZO, non per riga (confermaEmailDi): `lista`
+       deve essere l'elenco intero dell'evento, non quello della sezione
+       aperta. Senza, il default e' proprio quello. */
+    function inAttesaConfermaMail(ev, r, lista) {
+        if (!ev || ev.tutti || !ev.confermaEmail || !r || !r.doc) return false;
+        if (!String(r.email || '').trim()) return false;
+        if (!dalModuloDelSito(r)) return false;
+        if (String((EventiPresenze.di(ev.id, r.id) || {}).stato || '') === 'presente') return false;
+        return !confermaEmailDi(r, lista);
+    }
+    /* LA SEZIONE IN CUI UNA RIGA SI GUARDA: l'attesa della conferma, se c'e',
+       altrimenti la sua modalita'. E' la risposta alla domanda "chi c'e' in
+       presenza", e la fanno in tanti - i conteggi, le voci sopra l'elenco,
+       l'elenco definitivo, gli inviti B2B, i promemoria: passano tutti di qui,
+       cosi' nessuno conta in sala chi non ha ancora confermato. La modalita'
+       vera (modalitaDi) resta quella che si sceglie e si sposta. */
+    function sezioneVista(ev, r, lista) {
+        return inAttesaConfermaMail(ev, r, lista) ? 'attesa' : modalitaDi(ev, r);
+    }
+    /* Le parole della sezione dell'attesa, come quelle di SEZIONI_MODALITA:
+       il nome per la voce sopra l'elenco e per l'esportazione, il breve per il
+       riquadro dei conteggi, e la spiegazione che sta nel suggerimento. */
+    const SEZIONE_ATTESA = {
+        id: 'attesa', nome: 'In attesa di conferma mail', breve: 'in attesa di conferma mail',
+        spiega: 'Iscritti dal sito che non hanno ancora premuto il pulsante di conferma nella mail: '
+            + 'finché non lo fanno non occupano un posto, non entrano nei conteggi della sala e non ricevono i promemoria. '
+            + 'Dal menu della riga si può rimandare la mail.'
+    };
+    function nomeSezioneVista(id) {
+        return id === SEZIONE_ATTESA.id ? SEZIONE_ATTESA.nome : sezioneDef(id).nome;
+    }
     /* CHI CERCA UN'AZIENDA CHE NON E' FRA GLI ISCRITTI.
        L'elenco non porta gli invitati ai soli incontri B2B, ed e' giusto:
        non hanno un posto in sala e non si contano. Ma da fuori la differenza
@@ -16393,6 +16525,12 @@
                toglierebbe l'etichetta piu' precisa delle due. */
             const sez = modalitaDi(ev, r);
             if (sez === 'aderenti' || sez === 'sponsor') return;
+            /* Chi non ha ancora confermato l'indirizzo si riconosce DOPO: fino
+               ad allora sta nella sezione dell'attesa, e spostarlo fra gli
+               aderenti non lo farebbe comparire la' - la proposta tornerebbe
+               uguale a ogni apertura, come se lo spostamento non fosse
+               riuscito. Quando conferma, se e' un aderente, lo si propone. */
+            if (inAttesaConfermaMail(ev, r)) return;
             const e = String(r.email || '').trim().toLowerCase();
             const inAnagrafica = !!(noti && e && noti.has(e));
             if (!inAnagrafica && r.aderente !== true) return;
@@ -16518,16 +16656,31 @@
                          dire che quell'indirizzo non risulta iscritto.
        Le righe di aderenti, sponsor e online si leggono - servono a dire
        DOVE sta un indirizzo che in sala manca - ma non finiscono mai fra
-       quelle da spostare. */
+       quelle da spostare. Chi ha l'email ancora da confermare non e' un
+       ospite in sala finche' non conferma: se il suo indirizzo e'
+       nell'elenco si dice che sta nella sezione dell'attesa. Se invece NON
+       c'e', e ha chiesto la sala, sta in una quinta risposta:
+         daConfermare    in attesa della conferma, in presenza per la sua
+                         modalita', e fuori dall'elenco. Oggi in sala non
+                         conta, ma il giorno che preme il pulsante ci entra
+                         - scavalcando l'elenco definitivo, senza che
+                         nessuno se ne accorga. Non e' fra i "fuori" (non
+                         libera nessun posto): si mostra a parte, e si
+                         sposta solo se lo si spunta. */
     function confrontoElencoDefinitivo(ev, lista, indirizzi) {
         const dentro = new Set(indirizzi || []);
         const fuori = [];
         const senzaIndirizzo = [];
+        const daConfermare = [];
         const trovati = new Set();
         const altrove = new Map();
         (lista || []).forEach(r => {
-            const sez = modalitaDi(ev, r);
+            const sez = sezioneVista(ev, r, lista);
             const e = String(r.email || '').trim().toLowerCase();
+            if (sez === SEZIONE_ATTESA.id && e && !dentro.has(e) && modalitaDi(ev, r) === 'presenza') {
+                daConfermare.push({ riga: r, email: e, sezione: sez, motivo: 'email da confermare' });
+                return;
+            }
             if (sez !== 'presenza') {
                 // la prima sezione in cui lo si incontra: e' quella che si mostra
                 if (e && dentro.has(e) && !altrove.has(e)) altrove.set(e, sez);
@@ -16541,7 +16694,7 @@
         // nell'ordine in cui sono stati incollati: e' l'ordine del foglio da cui
         // arrivano, ed e' li' che chi guarda andra' a cercarli
         dentro.forEach(e => { if (!trovati.has(e)) mancanti.push({ email: e, dove: altrove.get(e) || '' }); });
-        return { fuori: fuori, senzaIndirizzo: senzaIndirizzo, trovati: trovati.size, mancanti: mancanti };
+        return { fuori: fuori, senzaIndirizzo: senzaIndirizzo, daConfermare: daConfermare, trovati: trovati.size, mancanti: mancanti };
     }
     /* =========================================================
        LO STESSO INDIRIZZO SU PIU' ISCRIZIONI
@@ -16750,6 +16903,44 @@
             inCoda ? '<div class="hint ev-in-coda" title="' + esc(TITOLO_LISTA_ATTESA) + '">in lista d\u2019attesa</div>' : '']
             .filter(Boolean).join(' ');
     }
+    /* "email da confermare", in cima alle righine sotto la modalita'. Nella
+       vista "Tutte" e' l'unico segno che quella persona non e' ancora un
+       posto: la tendina dice "In presenza" perche' e' quello che ha chiesto,
+       e senza questa riga sembrerebbe un ospite in sala come gli altri.
+       Ambra come le altre cose che aspettano, ma senza grassetto: da fare,
+       qui, non c'e' niente - la mail l'ha gia' ricevuta, e se serve la si
+       rimanda dal menu della riga. Sta fuori da hintModalitaHtml perche' non
+       dipende dalla modalita': cambiando sezione resta dov'e'. */
+    function hintAttesaMailHtml(ev, r) {
+        if (!inAttesaConfermaMail(ev, r)) return '';
+        /* Chi aspetta da giorni va guardato in un altro modo da chi si e'
+           iscritto adesso: il suggerimento dice che cosa e' gia' partito -
+           la mail (o il suo errore), quante volte, l'SMS, il promemoria - e
+           la riga lo dice a voce alta solo quando la mail non e' MAI partita
+           da piu' di dieci minuti, che e' il caso in cui qualcuno deve
+           guardare (il servizio intanto la riprova da solo). */
+        const titolo = SEZIONE_ATTESA.spiega + ' ' + invioConfermaTesto(r);
+        const mai = !r.mailConferma && Date.now() - dataIscrizioneMs(r.data) > 10 * 60 * 1000;
+        return '<div class="hint ev-attesa-mail" title="' + esc(titolo) + '">email da confermare'
+            + (mai ? ' &middot; <span class="ev-mail-mai">mail non ancora partita</span>' : '') + '</div>';
+    }
+    /* Quello che il servizio ha gia' fatto per far arrivare la mail di
+       conferma, in una frase: lo scrivono l'iscrizione, i rinvii e il giro
+       automatico ogni dieci minuti (email-service/lib/giro-conferme.js). */
+    function invioConfermaTesto(r) {
+        const pezzi = [];
+        const m = r && r.mailConferma;
+        if (!m) pezzi.push('Mail di conferma non ancora partita: il servizio la riprova da solo ogni dieci minuti.');
+        else pezzi.push((m.ok ? 'Mail di conferma partita' : 'Mail di conferma NON partita') + (m.quando ? ' il ' + fmtDataOra(m.quando) : '')
+            + (!m.ok && m.errore ? ' (' + m.errore + ')' : '') + '.');
+        const t = Number(r && r.invioConferma && r.invioConferma.tentativi) || 0;
+        if (t > 1) pezzi.push('Tentativi di invio: ' + t + '.');
+        const s = r && r.smsConferma;
+        if (s && s.quando) pezzi.push((s.ok ? 'SMS mandato il ' : 'SMS NON partito il ') + fmtDataOra(s.quando) + '.');
+        const p = r && r.promemoriaConferma;
+        if (p && p.quando) pezzi.push('Promemoria (mail e SMS) mandato il ' + fmtDataOra(p.quando) + '.');
+        return pezzi.join(' ');
+    }
     /* LA CELLA DELLE AZIONI: il menu dei tre puntini della riga.
        Sta in una funzione sua, e non dentro il modello della riga, perche' si
        RIFA' DA SOLA quando la persona cambia sezione: quali voci ci siano
@@ -16783,9 +16974,11 @@
                 ? '<button type="button" class="ev-menu-voce ev-req" data-id="' + esc(r.id) + '">Chiedi dati partecipanti</button>'
                 : '')
             /* La mail con il pulsante "conferma il tuo indirizzo", rimandata a
-               chi non ha ancora il baffetto: per tutti gli abilitati, perche'
+               chi non ha ancora confermato: per tutti gli abilitati, perche'
                e' la stessa mail che la persona ha gia' ricevuto. Solo sulle
-               schede di Firestore (r.doc): quelle del foglio sono pregresso. */
+               schede di Firestore (r.doc): quelle del foglio sono pregresso.
+               Nella sezione "In attesa di conferma mail" e' la voce che si
+               cerca. */
             + (!ev.tutti && r.email && r.doc && !confermaEmailDi(r)
                 ? '<button type="button" class="ev-menu-voce ev-conf" data-id="' + esc(r.id) + '">Rimanda la mail di conferma</button>'
                 : '')
@@ -16795,8 +16988,9 @@
                dello studio. Per loro la voce non compare - un invito che non
                si puo' onorare e' peggio di un invito mancato. Sponsor e
                relatori invece in sala ci sono, e agli incontri ci tengono piu'
-               di tutti: per loro resta. */
-            + (puoRichiedere && ev.manuale && r.email && daInvitareB2B(md)
+               di tutti: per loro resta. Non resta per chi ha l'email ancora da
+               confermare: in sala non c'e' ancora (iscrittiPerInvitoB2B). */
+            + (puoRichiedere && ev.manuale && r.email && daInvitareB2B(md) && !inAttesaConfermaMail(ev, r)
                 ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
                 : ''),
             /* Una persona alla volta: le sezioni in cui NON e' gia', piu' -
@@ -16840,6 +17034,33 @@
                 + '<div class="ev-menu-lista hidden">' + voci + '</div></div>' : '')
             + '</td>';
     }
+    /* IL MENU DENTRO LA TABELLA LARGA. Il riquadro .ev-larga scorre in
+       orizzontale, e un riquadro che scorre taglia quello che ne esce: il
+       menu delle ultime righe, che si apre verso il basso, finiva sotto il
+       bordo. In "In attesa di conferma mail", con due righe, si vedeva la
+       sola "Modifica", e "Rimanda la mail di conferma" - il comando per cui
+       quella sezione esiste - si raggiungeva solo scorrendo dentro il
+       riquadro, cosa che niente a video suggerisce.
+       Finche' il menu e' aperto, il riquadro si allunga in fondo di quanto il
+       menu sporge; quando si chiude torna com'era. Verso l'alto non serve:
+       il menu si apre sotto il pulsante, e sopra la riga c'e' sempre almeno
+       l'intestazione, che sta dentro il riquadro. Fuori dalla tabella larga
+       il riquadro non taglia niente (overflow visibile), e qui non si fa
+       nulla. */
+    function menuEvNelRiquadro(lista) {
+        const riquadro = lista && lista.closest ? lista.closest('.ev-wrap.ev-larga') : null;
+        if (!riquadro) return;
+        const r = riquadro.getBoundingClientRect();
+        // il fondo VISIBILE: sopra la barra di scorrimento orizzontale, se c'e'
+        const fondo = r.top + riquadro.clientTop + riquadro.clientHeight;
+        const sporge = Math.ceil(lista.getBoundingClientRect().bottom - fondo);
+        if (sporge <= 0) return;
+        const base = parseFloat(getComputedStyle(riquadro).paddingBottom) || 0;
+        riquadro.style.paddingBottom = (base + sporge + 8) + 'px';
+    }
+    function menuEvFuoriDalRiquadro() {
+        document.querySelectorAll('.ev-wrap.ev-larga').forEach(w => { if (w.style.paddingBottom) w.style.paddingBottom = ''; });
+    }
     // colonne aggiuntive scelte dall'utente, per evento: gli elenchi hanno colonne
     // diverse fra loro (citta, partita IVA, fatturato...) e si mostrano su richiesta
     let _evColonne = {};
@@ -16851,6 +17072,133 @@
         });
         return viste.sort((a, b) => a.localeCompare(b));
     }
+    /* Negli eventi con inserimento manuale quattro colonne di `extra` sono gia'
+       fisse nella tabella (Portale, Partecipanti, B2B prenotati e le
+       preferenze dell'iscrizione): offrirle anche fra le aggiuntive le farebbe
+       raddoppiare. Scritte una volta sola: la tabella, la scelta delle colonne
+       e l'esportazione devono togliere le stesse. */
+    const COLONNE_FISSE_MANUALE = ['Portale', 'Partecipanti', COL_B2B_PRENOTATI, COL_PREF_ISCRIZIONE];
+    /* LE COLONNE CHE SCRIVE LA PERSONA, nel modulo di iscrizione: in tabella
+       hanno una tinta loro (.ev-col-modulo), come nome, ruolo, email e
+       telefono. Le altre colonne di `extra` le scrive chi organizza o il
+       servizio (portale, tavoli e orari B2B, spostamenti d'azienda, le
+       colonne dei file importati) e restano senza tinta. I nomi sono le
+       etichette di CAMPI_MATCHING in email-service/api/iscrizioni.js: se
+       cambiano la', vanno cambiati qui, o la colonna perde la tinta. */
+    const COLONNE_DAL_MODULO = ['Profilo', 'Settore', 'Fatturato', 'Incontro B2B', COL_PREF_ISCRIZIONE];
+    /* LE COLONNE DAL FILE DELLE AZIENDE INVITATE.
+       Chi si iscrive con il codice della PEC porta con se' la riga della sua
+       azienda nel file importato per gli inviti: ragione sociale, ricavi,
+       dipendenti, revisore... Il servizio la copia sulla scheda al momento
+       dell'iscrizione (`datiInvito`: una coppia intestazione-valore per ogni
+       colonna, nell'ordine del file), e qui diventa un gruppo di colonne
+       aggiuntive a parte da quelle di `extra`. A parte per due ragioni:
+       vengono da un'altra fonte - il nostro file, non quello che la persona ha
+       scritto - e i nomi possono coincidere: "Settore" del modulo non e'
+       "Settore di attivita" del file, ma il giorno che un file avesse una
+       colonna "Settore" le due si sovrapporrebbero. Per questo la chiave della
+       scelta porta davanti PREFISSO_COL_FILE. */
+    const PREFISSO_COL_FILE = 'file:';
+    function datiInvitoDi(r) {
+        const d = r && r.datiInvito;
+        if (!Array.isArray(d)) return [];
+        return d.filter(x => x && typeof x === 'object' && String(x.c == null ? '' : x.c).trim());
+    }
+    /* Nell'ORDINE DEL FILE, non in ordine alfabetico: chi lo ha preparato le
+       ha messe in fila con un criterio (prima la ragione sociale, poi i conti,
+       poi il revisore), e in ordine alfabetico "#" finirebbe in testa e i
+       conti in mezzo agli indirizzi. Le righe hanno di norma le stesse
+       intestazioni; se una ne porta una nuova (un file reimportato con una
+       colonna in piu'), la si mette subito dopo quella che la precede nella
+       sua riga. */
+    function colonneFileDisponibili(lista) {
+        const viste = [];
+        (lista || []).forEach(r => {
+            let dopo = -1;
+            datiInvitoDi(r).forEach(x => {
+                const c = String(x.c).trim();
+                const i = viste.indexOf(c);
+                if (i >= 0) { dopo = i; return; }
+                viste.splice(dopo + 1, 0, c);
+                dopo++;
+            });
+        });
+        return viste;
+    }
+    function valoreFileDi(r, c) {
+        const x = datiInvitoDi(r).find(y => String(y.c).trim() === c);
+        return x && x.v != null ? String(x.v) : '';
+    }
+    /* Il valore di una colonna aggiuntiva COME SI LEGGE in tabella.
+       Lo zero e' un valore: "Dipendenti 0" o un utile a zero non sono "-".
+       Gli importi del file arrivano come li scrive Excel, cifre nude
+       ("100674810"), e in una colonna di numeri a nove cifre non si legge
+       l'ordine di grandezza: si mettono i separatori delle migliaia, ma SOLO
+       dove l'intestazione dice che e' un importo ("(EUR)", "€"), e SOLO sui
+       numeri interi nudi. Un file caricato in .csv da un Excel italiano porta
+       gli importi gia' scritti ("557.044", "1.557.044"): letti come numeri,
+       "557.044" diventerebbe 557 euro e qualcosa. Quello che non e' un intero
+       nudo si mostra com'e'. Partita IVA, codice fiscale e numero CCIAA sono
+       cifre anche loro, con gli zeri davanti che contano: formattati
+       diventerebbero un altro numero.
+       E' un fatto di lettura e basta: il CSV esporta il valore com'e'. */
+    function valoreColonnaVisto(c, v) {
+        const s = v == null ? '' : String(v).trim();
+        if (!s) return '-';
+        if (/\(eur\)|€/i.test(String(c || '')) && /^-?\d+$/.test(s)) {
+            const n = Number(s);
+            if (Number.isSafeInteger(n)) return n.toLocaleString('it-IT');
+        }
+        return s;
+    }
+    /* Le colonne aggiuntive che l'evento OFFRE, divise per provenienza:
+       quelle di `extra` (il modulo, gli altri portali, gli incontri B2B) e
+       quelle del file delle aziende invitate. Si calcolano sull'elenco intero
+       dell'evento, mai sulla sezione aperta. */
+    function colonneAggiuntiveDi(ev, lista) {
+        let extra = colonneExtraDisponibili(lista);
+        if (ev && ev.manuale) extra = extra.filter(c => COLONNE_FISSE_MANUALE.indexOf(c) < 0);
+        return { extra: extra, file: colonneFileDisponibili(lista) };
+    }
+    /* LA SCELTA DELLE COLONNE RESTA FRA UNA SESSIONE E L'ALTRA, per evento e
+       per browser. Non e' un dato personale - sono nomi di colonne, non
+       persone - ed e' proprio il genere di cosa che si rifa' ogni mattina:
+       diciotto spunte per ritrovare la tabella di ieri. Se lo spazio del
+       browser non c'e' (finestra anonima, archivio pieno) si ricomincia da
+       zero, senza errori. */
+    const CHIAVE_COLONNE_EVENTO = 'rvArea.evColonne.';
+    function colonneScelteDi(ev) {
+        if (!Array.isArray(_evColonne[ev.id])) {
+            let salvate = [];
+            try {
+                const a = JSON.parse(localStorage.getItem(CHIAVE_COLONNE_EVENTO + ev.id) || '[]');
+                if (Array.isArray(a)) salvate = a.filter(x => typeof x === 'string');
+            } catch (e) { salvate = []; }
+            _evColonne[ev.id] = salvate;
+        }
+        return _evColonne[ev.id];
+    }
+    function salvaColonneScelte(ev, scelte) {
+        _evColonne[ev.id] = (scelte || []).filter(x => typeof x === 'string');
+        try { localStorage.setItem(CHIAVE_COLONNE_EVENTO + ev.id, JSON.stringify(_evColonne[ev.id])); } catch (e) { }
+    }
+    /* Le colonne da MOSTRARE, nell'ordine del pannello - prima quelle di
+       `extra`, poi quelle del file, ciascun gruppo nel suo ordine - e non in
+       quello in cui sono state spuntate. Le scelte rimaste in memoria che oggi
+       non esistono piu' (un file reimportato senza quella colonna) si
+       ignorano senza dire niente. */
+    function colonneDaMostrare(ev, lista) {
+        const scelte = colonneScelteDi(ev);
+        const disp = colonneAggiuntiveDi(ev, lista);
+        return disp.extra.filter(c => scelte.indexOf(c) >= 0)
+            .map(c => ({ chiave: c, nome: c, file: false, modulo: COLONNE_DAL_MODULO.indexOf(c) >= 0 }))
+            .concat(disp.file.filter(c => scelte.indexOf(PREFISSO_COL_FILE + c) >= 0)
+                .map(c => ({ chiave: PREFISSO_COL_FILE + c, nome: c, file: true, modulo: false })));
+    }
+    /* Il pannello resta aperto fra un ridisegno e l'altro: ogni spunta
+       ridisegna la tabella, e prima ogni spunta lo richiudeva - diciotto
+       colonne volevano dire riaprirlo diciotto volte. */
+    let _evColonneAperte = {};
     /* Da quale evento arriva la persona. Nel foglio la colonna "Pagina" contiene il
        titolo completo del modulo ("Napoli 2 Ottobre 2026 - Manifestazione di
        interesse"): qui basta il nome dell'evento. */
@@ -16859,27 +17207,57 @@
         const e = EVENTI_DEF.find(x => !x.tutti && x.filtro && p.indexOf(x.filtro) >= 0);
         return e ? e.titolo + ' ' + e.quando : (pagina || '-');
     }
+    /* IL PANNELLO DELLE COLONNE AGGIUNTIVE, in due gruppi per provenienza:
+       quello che arriva con l'iscrizione (il modulo, gli altri portali, gli
+       incontri B2B) e quello che arriva dal file delle aziende invitate. Ogni
+       gruppo ha i suoi "Aggiungi tutte" e "Togli tutte", e quando i gruppi sono
+       due ci sono anche quelli per tutto il pannello: chi prepara un estratto
+       per la segreteria vuole tutte le colonne del file, non diciotto spunte. */
     function sceltaColonneHtml(ev, lista) {
-        let disp = colonneExtraDisponibili(lista);
-        /* negli eventi con inserimento manuale quattro colonne sono gia' fisse
-           nella tabella (Portale, Partecipanti, B2B prenotati e le preferenze
-           dell'iscrizione): offrirle anche qui le farebbe raddoppiare */
-        const FISSE = ['Portale', 'Partecipanti', COL_B2B_PRENOTATI, COL_PREF_ISCRIZIONE];
-        if (ev.manuale) disp = disp.filter(c => FISSE.indexOf(c) < 0);
+        const disp = colonneAggiuntiveDi(ev, lista);
+        const tutte = disp.extra.concat(disp.file.map(c => PREFISSO_COL_FILE + c));
         // il pannello si mostra SEMPRE: se non c'e' niente da aggiungere lo dice, invece
         // di sparire e lasciare il dubbio che la funzione non esista
-        if (!disp.length) {
+        if (!tutte.length) {
             return '<details class="ev-colonne"><summary>Colonne aggiuntive (nessuna disponibile)</summary>'
                 + '<div class="hint" style="margin-top:8px;">Questo elenco non ha colonne oltre a quelle standard. '
-                + 'Compaiono qui quando il file importato ne contiene altre (città, partita IVA, fatturato...): '
+                + 'Compaiono qui quando il file importato ne contiene altre (città, partita IVA, fatturato...), '
+                + 'e per chi si iscrive con il codice dell\'invito PEC tutte le colonne del file delle aziende invitate: '
                 + 'se le attendevi, reimporta il file dopo l\'ultimo aggiornamento del servizio.</div></details>';
         }
-        const scelte = _evColonne[ev.id] || [];
-        return '<details class="ev-colonne"><summary>Colonne aggiuntive ('
-            + scelte.length + ' di ' + disp.length + ')</summary><div class="ev-colonne-elenco">'
-            + disp.map(c => '<label><input type="checkbox" class="ev-col" value="' + esc(c) + '"'
-                + (scelte.indexOf(c) >= 0 ? ' checked' : '') + '> ' + esc(c) + '</label>').join('')
-            + '</div></details>';
+        const scelte = colonneScelteDi(ev).filter(k => tutte.indexOf(k) >= 0);
+        const voce = (chiave, nome, cl) => '<label' + (cl ? ' class="' + cl + '"' : '') + '>'
+            + '<input type="checkbox" class="ev-col" value="' + esc(chiave) + '"'
+            + (scelte.indexOf(chiave) >= 0 ? ' checked' : '') + '> ' + esc(nome) + '</label>';
+        /* I due comandi si spengono quando non hanno niente da fare: "Aggiungi
+           tutte" con tutte gia' spuntate non e' un comando, e' un dubbio. */
+        const comandi = (gruppo, chiavi) => {
+            const dentro = chiavi.filter(k => scelte.indexOf(k) >= 0).length;
+            return '<span class="ev-colonne-comandi">'
+                + '<button type="button" class="btn btn-sm btn-ghost ev-col-tutte" data-gruppo="' + gruppo + '"'
+                + (dentro === chiavi.length ? ' disabled' : '') + '>Aggiungi tutte</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost ev-col-nessuna" data-gruppo="' + gruppo + '"'
+                + (dentro === 0 ? ' disabled' : '') + '>Togli tutte</button></span>';
+        };
+        const gruppo = (id, titolo, spiega, chiavi, voci) => !chiavi.length ? ''
+            : '<div class="ev-colonne-gruppo" data-gruppo="' + id + '">'
+            + '<div class="ev-colonne-titolo"><b>' + esc(titolo) + '</b>'
+            + ' <span class="hint">' + esc(spiega) + '</span>' + comandi(id, chiavi) + '</div>'
+            + '<div class="ev-colonne-elenco">' + voci.join('') + '</div></div>';
+        const chiaviFile = disp.file.map(c => PREFISSO_COL_FILE + c);
+        return '<details class="ev-colonne"' + (_evColonneAperte[ev.id] ? ' open' : '') + '><summary>Colonne aggiuntive ('
+            + scelte.length + ' di ' + tutte.length + ')</summary>'
+            + (disp.extra.length && disp.file.length
+                ? '<div class="ev-colonne-titolo ev-colonne-tutto"><b>Tutte le colonne</b>' + comandi('tutte', tutte) + '</div>' : '')
+            + gruppo('extra', 'Dal modulo e dagli altri portali',
+                (disp.extra.some(c => COLONNE_DAL_MODULO.indexOf(c) >= 0)
+                    ? 'quelle in azzurro le scrive chi si iscrive; le altre arrivano dai portali, dai file importati e dagli incontri B2B'
+                    : 'arrivano con le iscrizioni: dai portali, dai file importati e dagli incontri B2B'),
+                disp.extra, disp.extra.map(c => voce(c, c, COLONNE_DAL_MODULO.indexOf(c) >= 0 ? 'ev-col-modulo' : '')))
+            + gruppo('file', 'Dal file delle aziende invitate',
+                'la riga dell\'azienda nel file degli inviti PEC, per chi si è iscritto con il suo codice, nell\'ordine del file',
+                chiaviFile, disp.file.map(c => voce(PREFISSO_COL_FILE + c, c, 'ev-col-file')))
+            + '</details>';
     }
 
     /* Partecipanti di una riga: le iscrizioni dai form valgono 1, quelle
@@ -16925,12 +17303,16 @@
         const i = e.indexOf('@');
         return i < 0 ? e : e.slice(0, i + 1) + '<wbr>' + e.slice(i + 1);
     }
-    /* IL BAFFETTO VERDE accanto all'indirizzo: l'indirizzo e' confermato.
-       E' confermato L'INDIRIZZO, non la riga: se la stessa persona ha due
-       iscrizioni e ne ha confermata una, il segno va su tutte e due. Il
-       suggerimento dice come: dal pulsante nella mail, oppure "pregresso"
-       (iscritto prima che la mail avesse il pulsante, segnato d'ufficio).
-       Chi non ha confermato non ha niente: non e' una colpa. */
+    /* GLI INDIRIZZI CONFERMATI. E' confermato L'INDIRIZZO, non la riga: se la
+       stessa persona ha due iscrizioni e ne ha confermata una, valgono
+       confermate tutte e due. Come: dal pulsante nella mail, oppure
+       "pregresso" (iscritto prima che la mail avesse il pulsante, segnato
+       d'ufficio).
+       Accanto all'indirizzo, in tabella, non c'e' piu' nessun segno: il
+       baffetto verde su quasi tutte le righe era rumore, e dove la conferma
+       conta davvero (Milano) chi non ha confermato sta in una sezione sua,
+       "In attesa di conferma mail". Il dato resta: lo usano la sezione, il
+       conteggio in testa, il menu della riga e l'esportazione. */
     let _evConfCache = { lista: null, mappa: null };
     function indirizziConfermati(lista) {
         if (_evConfCache.lista === lista && _evConfCache.mappa) return _evConfCache.mappa;
@@ -16950,14 +17332,6 @@
         const em = String((r && r.email) || '').trim().toLowerCase();
         if (!em) return null;
         return indirizziConfermati(lista || _evIscrizioni).get(em) || null;
-    }
-    function baffettoEmail(r, lista) {
-        const c = confermaEmailDi(r, lista);
-        if (!c) return '';
-        const titolo = c.come === 'mail'
-            ? 'Indirizzo confermato dall\'interessato' + (c.quando ? ' il ' + fmtDataOra(c.quando) : '')
-            : 'Iscrizione precedente alla conferma via mail: indirizzo confermato d\'ufficio';
-        return ' <span class="ev-mail-ok" title="' + esc(titolo) + '" aria-label="' + esc(titolo) + '">&#10003;</span>';
     }
     /* IL BAFFETTO ACCANTO AL CELLULARE: il numero ha ricevuto il codice SMS
        e la persona lo ha scritto nel modulo (Milano 2027). Lo scrive il
@@ -16999,14 +17373,25 @@
        diverse: chi si iscrive due volte vale due righe, e un'iscrizione da
        Eventbrite puo' coprire piu' posti. Per la sala contano le persone.
        In sala ci sono ospiti E aderenti: nessuno dei due numeri, da solo, dice
-       quanti posti servono. */
+       quanti posti servono.
+       Chi ha l'email ancora da confermare (eventi con `confermaEmail`) ha un
+       conto suo, `postiSezione.attesa`, e non sta in nessuna delle sezioni
+       della sala: il totale in sala lo salta da se'. Iscrizioni, persone e
+       indirizzi in testa invece lo comprendono - sono iscrizioni anche loro,
+       e la voce "Tutte" le mostra. */
     function contiEvento(ev) {
         const lista = _evIscrizioni ? soloIscritti(ev, _evIscrizioni) : _evIscrizioni;
         const conModalita = !!(lista && !ev.tutti);
         const postiSezione = {};
-        if (conModalita) SEZIONI_MODALITA.filter(x => !x.fuoriElenco).forEach(x => {
-            postiSezione[x.id] = lista.filter(r => modalitaDi(ev, r) === x.id).reduce((t, r) => t + partecipantiDi(r), 0);
-        });
+        if (conModalita) {
+            SEZIONI_MODALITA.filter(x => !x.fuoriElenco).forEach(x => { postiSezione[x.id] = 0; });
+            if (ev.confermaEmail) postiSezione[SEZIONE_ATTESA.id] = 0;
+            // una passata sola: la sezione di ogni riga si chiede una volta
+            lista.forEach(r => {
+                const s = sezioneVista(ev, r);
+                if (postiSezione[s] !== undefined) postiSezione[s] += partecipantiDi(r);
+            });
+        }
         return {
             nIsc: lista ? lista.length : null,
             nPart: lista ? lista.reduce((t, r) => t + partecipantiDi(r), 0) : null,
@@ -17020,7 +17405,7 @@
                scrive con questa etichetta (lib/accredito-desk.js). E' il
                numero che dice quanti sono arrivati senza iscrizione. */
             desk: lista ? lista.filter(r => (r.extra && r.extra.Portale) === PORTALE_DESK).length : 0,
-            // gli indirizzi (non le righe) con il baffetto verde
+            // gli indirizzi (non le righe) confermati
             nConfMail: lista ? indirizziConfermati(lista).size : null,
             conModalita: conModalita,
             postiSezione: postiSezione,
@@ -17074,6 +17459,7 @@
             if (el && inSala(x.id)) el.setAttribute('title', frase);
         });
         { const el = num('sala'); scriviNumero(el, c.conModalita ? c.nInSala : '-'); if (el) el.setAttribute('title', frase); }
+        scriviNumero(num(SEZIONE_ATTESA.id), c.conModalita ? (c.postiSezione[SEZIONE_ATTESA.id] || 0) : '-');
         scriviNumero(num('conf'), c.conf);
         scriviNumero(num('desk'), c.desk);
         scriviNumero(num('confmail'), c.nConfMail === null ? '-' : c.nConfMail);
@@ -17084,13 +17470,12 @@
         const tutte = soloIscritti(ev, _evIscrizioni || []);
         vista.querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => {
             const id = b.dataset.sez;
-            const righe = id === 'tutte' ? tutte : tutte.filter(r => modalitaDi(ev, r) === id);
+            const righe = id === 'tutte' ? tutte : tutte.filter(r => sezioneVista(ev, r) === id);
             const n = righe.reduce((t, r) => t + partecipantiDi(r), 0);
             const v = b.querySelector('.ev-sez-n');
             if (v) v.textContent = n;
             b.classList.toggle('vuota', n === 0 && id !== 'tutte');
-            b.setAttribute('title', n + (n === 1 ? ' persona' : ' persone')
-                + (righe.length !== n ? ', su ' + righe.length + (righe.length === 1 ? ' iscrizione' : ' iscrizioni') : ''));
+            b.setAttribute('title', titoloVoceSezione(id, n, righe.length));
         });
         /* "Riconosci aderenti" conta chi risulta aderente e non e' ancora nella
            sua sezione: spostandone uno, quel numero cala - e quando arriva a
@@ -17110,6 +17495,15 @@
         }
     }
 
+    /* Il suggerimento di una voce sopra l'elenco: persone e iscrizioni, e per
+       la sezione dell'attesa anche il perche' di quella sezione, che dal nome
+       solo non si indovina. Una funzione sola: lo scrivono il disegno della
+       pagina e l'aggiornamento al volo, e devono dire la stessa cosa. */
+    function titoloVoceSezione(id, n, quante) {
+        return n + (n === 1 ? ' persona' : ' persone')
+            + (quante !== n ? ', su ' + quante + (quante === 1 ? ' iscrizione' : ' iscrizioni') : '')
+            + (id === SEZIONE_ATTESA.id ? '. ' + SEZIONE_ATTESA.spiega : '');
+    }
     function filtroSezioniHtml(ev, tutte) {
         if (ev.tutti) return '';   // nel riepilogo le presenze non si leggono
         const scelta = sezioneDi(ev);
@@ -17118,16 +17512,18 @@
            tre posti vale tre. Due numeri diversi per la stessa sezione - tre
            qui e cinque sopra - li mette d'accordo solo chi conosce il codice.
            Quante righe siano lo dice il suggerimento, che e' dove serve: per
-           sapere quanto sara' lungo l'elenco che si sta per aprire. */
-        const dellaSezione = id => id === 'tutte' ? tutte : tutte.filter(r => modalitaDi(ev, r) === id);
+           sapere quanto sara' lungo l'elenco che si sta per aprire.
+           Le righe si contano per la sezione in cui si GUARDANO (sezioneVista):
+           chi aspetta di confermare l'email sta nella sua voce, e nelle altre
+           non c'e'. */
+        const dellaSezione = id => id === 'tutte' ? tutte : tutte.filter(r => sezioneVista(ev, r) === id);
         const voce = (id, nome) => {
             const righe = dellaSezione(id);
             const n = righe.reduce((t, r) => t + partecipantiDi(r), 0);
             const quante = righe.length;
             return '<button type="button" class="ev-sez-btn'
                 + (scelta === id ? ' attiva' : '') + (n === 0 && id !== 'tutte' ? ' vuota' : '')
-                + '" data-sez="' + id + '" title="' + esc(n + (n === 1 ? ' persona' : ' persone')
-                    + (quante !== n ? ', su ' + quante + (quante === 1 ? ' iscrizione' : ' iscrizioni') : '')) + '">'
+                + '" data-sez="' + id + '" title="' + esc(titoloVoceSezione(id, n, quante)) + '">'
                 + '<span class="ev-sez-nome">' + esc(nome) + '</span>'
                 + '<span class="ev-sez-n">' + n + '</span></button>';
         };
@@ -17144,7 +17540,7 @@
            pulsante e' proprio quello: quanti ospiti ci sono adesso, cioe'
            l'elenco che il foglio incollato dovra' ridurre. */
         const ospiti = (!ev.tutti && puoAggiungereIscrizioni())
-            ? tutte.filter(r => modalitaDi(ev, r) === 'presenza').length : 0;
+            ? tutte.filter(r => sezioneVista(ev, r) === 'presenza').length : 0;
         /* Gli avvisi rimasti indietro. Il pulsante compare SOLO quando ce ne
            sono: a invio finito sparisce, ed e' proprio quella sparizione a
            dire "hai finito" - un conteggio a zero fermo li' si guarda ogni
@@ -17153,6 +17549,10 @@
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
             + voce('tutte', 'Tutte')
             + SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
+            /* L'attesa della conferma viene DOPO le sezioni vere, ed e' una voce
+               come loro (data-sez): si apre, si conta, si svuota da sola quando
+               le persone confermano. Solo dove la conferma e' chiesta. */
+            + (ev.confermaEmail ? voce(SEZIONE_ATTESA.id, SEZIONE_ATTESA.nome) : '')
             + (daRiconoscere
                 ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
                 + 'title="Mostra le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le spunta se confermi, e le sposti poi con il pulsante della barra">'
@@ -17177,14 +17577,158 @@
             + '</div>';
     }
 
+    /* LA LEGENDA DELLE DUE TINTE, sopra la tabella. Le tinte dicono chi ha
+       scritto quel dato: la persona, nel modulo di iscrizione, oppure il file
+       delle aziende invitate - che e' nostro, e quindi si legge in un altro
+       modo (una ragione sociale del file e' quella giusta; una scritta nel
+       modulo puo' avere un errore di battitura). Senza legenda due tinte sono
+       due decorazioni. La voce del file compare solo dove il file c'entra:
+       colonne dal file, iscritti con il codice, o un evento con i codici. */
+    function legendaColonneHtml(ev, tutte) {
+        const conFile = !!ev.iscrizioniPerCodice || colonneFileDisponibili(tutte).length > 0
+            || (tutte || []).some(r => r && r.invito && r.invito.codice);
+        return '<div class="ev-legenda">'
+            + '<span class="ev-legenda-voce ev-col-modulo">Scritto da chi si iscrive, nel modulo</span>'
+            + (conFile ? '<span class="ev-legenda-voce ev-col-file">Dal file delle aziende invitate'
+                + ' <span class="hint">(anche la ragione sociale di chi è arrivato con il codice)</span></span>' : '')
+            + '<span class="hint">Senza tinta: sezione, stato, nota e le altre colonne che scrivete voi o il servizio, '
+            + 'e le righe inserite da voi, arrivate da altri portali (Eventbrite) o caricate con «Importa».</span>'
+            + '</div>';
+    }
+    /* LA TINTA AZZURRA E' DELLA RIGA, NON SOLO DELLA COLONNA. "Scritto da chi
+       si iscrive" e' vero per il nome di chi si e' iscritto dal sito, non per
+       quello di un'iscrizione Eventbrite che avete riportato voi con
+       "Aggiungi iscrizione", ne' di una riga caricata da un file: li' la
+       colonna e' la stessa, ma a scriverla e' stato qualcun altro, e la
+       tabella direbbe il falso sulla provenienza del dato - che e' tutto il
+       motivo per cui la tinta c'e'. La regola e' quella dell'attesa della
+       conferma (dalModuloDelSito), piu' tre casi:
+         - le righe del vecchio foglio (senza `doc`): venivano dagli stessi
+           moduli del sito ("Sito NGB" nella colonna Portale);
+         - chi si e' registrato al desk dal QR del cartello: il Portale dice
+           "Desk (QR)", ma il questionario e' quello del sito e l'ha
+           compilato lui, dal suo telefono (lib/accredito-desk.js);
+         - chi ha compilato "completa i dati" dal suo collegamento
+           (`compilato`): nome, azienda, ruolo e telefono li ha riscritti lui.
+           L'email dell'intestatario no - e' l'identita' della scheda, e quel
+           modulo non la cambia - mentre quella degli accompagnatori (le
+           schede ~p2, ~p3...) l'ha scritta proprio li'.
+       Le intestazioni restano tinte comunque: dicono che cosa PUO' venire
+       dal modulo, e la legenda le spiega. */
+    function scrittoDaChiSiIscrive(r, email) {
+        if (!r) return false;
+        if (!r.doc || dalModuloDelSito(r)) return true;
+        if (!r.inserito && r.extra && r.extra.Portale === PORTALE_DESK) return true;
+        /* Gli accompagnatori (~p2, ~p3) nascono dal modulo "completa i dati":
+           tutto quello che hanno lo ha scritto l'intestatario. Sull'intestatario
+           invece conta "completato", che scrive solo quel modulo: "compilato"
+           lo lascia anche la prenotazione dei tavoli B2B, che non tocca nome,
+           azienda, ruolo e telefono - e una riga inserita da voi tornerebbe
+           azzurra appena l'ospite sceglie un tavolo. */
+        if (/~p\d+$/.test(String(r.doc))) return !!r.compilato;
+        return !email && !!r.completato;
+    }
+    /* La ragione sociale e' DEL FILE solo dove il codice la impone: agli
+       eventi con le iscrizioni per codice (Milano 2027) il servizio scrive
+       quella dell'invito e il modulo la blocca. Altrove il codice si mostra
+       accanto, ma il nome l'ha digitato la persona, errori compresi. Nel
+       riepilogo di tutti gli eventi vale l'evento della riga. */
+    function aziendaDalFileDi(ev, r) {
+        if (!r || !r.invito || !r.invito.codice) return false;
+        const p = String(r.pagina || '').toLowerCase();
+        const e = ev && ev.tutti ? EVENTI_DEF.find(x => !x.tutti && x.filtro && p.indexOf(x.filtro) >= 0) : ev;
+        return !!(e && e.iscrizioniPerCodice);
+    }
+    /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
+       presenza o nota c'e' quella firma; poi viene chi ha COMPILATO il modulo
+       "completa i dati" (l'intestatario, marcato "dal modulo"); per ultima la
+       firma di chi ha inserito la scheda a mano. La leggono la tabella e
+       l'esportazione, e devono dire la stessa cosa. */
+    function aggiornatoDaDi(p, r) {
+        return firmaPresenza(p)
+            || (r && r.compilato && r.compilato.daNome
+                ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
+            || firmaPresenza(r && r.inserito) || '';
+    }
+    /* =========================================================
+       L'ESPORTAZIONE DELL'ELENCO DEGLI ISCRITTI
+       ---------------------------------------------------------
+       Non e' "quello che vedi", come nelle altre tabelle: e' TUTTO
+       l'elenco dell'evento, qualunque sezione si stia guardando, con
+       qualunque ricerca e qualunque scelta di colonne. Chi esporta sta
+       preparando qualcosa per qualcun altro - la segreteria, il desk, chi
+       stampa i badge - e un file con la sola sezione aperta, o con le sole
+       colonne spuntate quel giorno, e' un file che si scopre incompleto
+       quando e' gia' partito.
+       Una riga per iscrizione, con la SEZIONE in prima colonna, nell'ordine
+       delle voci sopra l'elenco (l'attesa della conferma per ultima): un
+       CSV non ha fogli, e una colonna "Sezione" in Excel si filtra in un
+       clic. Fuori restano soltanto gli invitati ai SOLI incontri B2B, che di
+       questo elenco non fanno parte (hanno la loro scheda). Nel riepilogo di
+       tutti gli eventi la sezione non c'e': li' le presenze non si leggono,
+       e "In presenza" per tutti sarebbe un'informazione falsa.
+       Le colonne ci sono tutte: quelle fisse, tutte le aggiuntive di `extra`
+       e tutte quelle del file delle aziende invitate, nell'ordine del file.
+       Se un'intestazione del file si chiama come un'altra colonna, prende
+       " (file)" in coda: due colonne con lo stesso nome in Excel non si
+       distinguono.
+       I valori si prendono dai DATI, non dal testo delle celle: niente codice
+       invito attaccato alla ragione sociale, niente segni, niente scritte di
+       servizio sotto la modalita'. Gli importi del file restano come sono
+       arrivati, cifre nude, e lo zero resta zero: Excel li legge da numeri.
+       I codici con lo zero davanti (partita IVA, codice fiscale) restano
+       anche loro come sono: a non farli diventare numeri ci pensa testoCsv.
+       `presenzeDi(id)` da' la presenza di una riga (stato, nota, firma). */
+    function righeCsvIscrizioni(ev, lista, presenzeDi) {
+        const tutte = soloIscritti(ev, lista || []);
+        const pres = id => (presenzeDi && presenzeDi(id)) || {};
+        const fisse = !!ev.manuale;
+        const conSezioni = !ev.tutti;
+        const extra = colonneAggiuntiveDi(ev, tutte).extra;
+        const file = colonneFileDisponibili(tutte);
+        const T = window.RV_PROMEMORIA && RV_PROMEMORIA.tempo;
+        const nome = s => T ? T.formaNome(s) : String(s || '').trim();
+        const azienda = s => T ? T.formaAzienda(s) : String(s || '').trim();
+        const coda = conSezioni ? ['Modalità', 'Stato', 'Nota', 'Aggiornato da'] : [];
+        const testa = (conSezioni ? ['Sezione'] : [])
+            .concat(['Data', 'Nome', 'Cognome', 'Azienda', 'Codice invito', 'Ruolo', 'Email', 'Email confermata', 'Telefono'])
+            .concat(fisse ? ['Portale', 'Partecipanti', COL_B2B_PRENOTATI, 'Preferenze iscrizione'] : [])
+            .concat(ev.tutti ? ['Evento'] : [])
+            .concat(extra);
+        const usati = testa.concat(coda).map(x => x.toLowerCase());
+        const nomiFile = file.map(c => usati.indexOf(c.toLowerCase()) >= 0 ? c + ' (file)' : c);
+        const ordine = SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x => x.id).concat([SEZIONE_ATTESA.id]);
+        const voci = tutte.map((r, i) => ({ r: r, i: i, s: conSezioni ? sezioneVista(ev, r, lista) : '' }));
+        if (conSezioni) voci.sort((a, b) => (ordine.indexOf(a.s) - ordine.indexOf(b.s)) || (a.i - b.i));
+        const testo = v => v == null ? '' : String(v);
+        return [testa.concat(nomiFile).concat(coda)].concat(voci.map(x => {
+            const r = x.r, e = r.extra || {}, p = pres(r.id);
+            const c = confermaEmailDi(r, lista);
+            const conferma = !String(r.email || '').trim() ? ''
+                : (c ? 'sì' + (c.quando ? ' il ' + fmtDataOra(c.quando) : '') + (c.come === 'mail' ? '' : ' (d\'ufficio)') : 'no');
+            return (conSezioni ? [nomeSezioneVista(x.s)] : [])
+                .concat([testo(r.data), nome(r.nome), nome(r.cognome), azienda(r.azienda),
+                    (r.invito && r.invito.codice) || '', testo(r.ruolo), testo(r.email), conferma, testo(r.telefono)])
+                .concat(fisse ? [testo(e.Portale) || 'Sito NGB', String(partecipantiDi(r)), testo(e[COL_B2B_PRENOTATI]), testo(e[COL_PREF_ISCRIZIONE])] : [])
+                .concat(ev.tutti ? [nomeEventoDa(r.pagina)] : [])
+                .concat(extra.map(k => testo(e[k])))
+                .concat(file.map(k => valoreFileDi(r, k)))
+                .concat(conSezioni ? [NOMI_MODALITA[modalitaDi(ev, r)] || '', p.stato ? (NOMI_STATO[p.stato] || p.stato) : '',
+                    testo(p.nota), aggiornatoDaDi(p, r)] : []);
+        }));
+    }
+
     function tabellaIscrizioni(ev, lista) {
         /* La sezione scelta filtra le RIGHE, non i conteggi in testa alla
-           pagina, che restano quelli dell'evento intero. Il filtro di ricerca e
-           l'esportazione in CSV lavorano su quello che resta, quindi "esporta
-           gli aderenti" si fa scegliendo la sezione e premendo Esporta. */
+           pagina, che restano quelli dell'evento intero. Il filtro di ricerca
+           lavora su quello che resta; l'esportazione in CSV no: scarica sempre
+           l'elenco intero, con la sezione nella prima colonna (vedi
+           righeCsvIscrizioni) - "esporta gli aderenti" si fa filtrando quella
+           colonna in Excel. La sezione di una riga e' quella in cui si GUARDA
+           (sezioneVista): chi aspetta di confermare l'email sta nella sua. */
         const tutte = lista;
         const sezione = sezioneDi(ev);
-        if (!ev.tutti && sezione !== 'tutte') lista = lista.filter(r => modalitaDi(ev, r) === sezione);
+        if (!ev.tutti && sezione !== 'tutte') lista = lista.filter(r => sezioneVista(ev, r) === sezione);
         const segna = puoSegnarePresenze() && !ev.tutti;   // nel riepilogo le presenze non servono
         const adminEv = Auth.eAdmin() || Auth.eProprietario();
         // gli equity e founding partner non modificano ne' cancellano, ma dalle
@@ -17204,10 +17748,33 @@
         const fisse = !!ev.manuale;
         // "a, b, c" scritto come "a · b · c", con ogni voce al riparo dall'HTML
         const elencoVoci = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean).map(esc).join(' &middot; ');
-        const FISSE_EXTRA = ['Portale', 'Partecipanti', COL_B2B_PRENOTATI, COL_PREF_ISCRIZIONE];
-        const extra = (_evColonne[ev.id] || []).filter(c => !(fisse && FISSE_EXTRA.indexOf(c) >= 0));
+        /* Le colonne aggiuntive scelte, nell'ordine del pannello. Ognuna sa da
+           dove viene, perche' in tabella le si tinge diversamente: azzurro
+           quello che ha scritto la persona nel modulo, verde quello che viene
+           dal file delle aziende invitate, nessuna tinta quello che scrive chi
+           organizza (vedi .ev-col-modulo e .ev-col-file nel foglio di stile).
+           `tinta` e' quella dell'INTESTAZIONE; nelle celle l'azzurro c'e' solo
+           se quella riga l'ha scritta davvero chi si e' iscritto
+           (scrittoDaChiSiIscrive): il verde del file invece e' sempre del file. */
+        const extra = colonneDaMostrare(ev, tutte);
+        const tinta = c => c.file ? ' class="ev-col-file"' : (c.modulo ? ' class="ev-col-modulo"' : '');
+        const classe = c => c ? ' class="' + c + '"' : '';
+        const valoreExtra = (r, c) => c.file ? valoreFileDi(r, c.nome) : ((r.extra || {})[c.nome]);
+        /* LA TABELLA LARGA, appena c'e' UNA colonna aggiuntiva: da li' la
+           tabella smette di stare tutta nella pagina e scorre in orizzontale
+           dentro il suo riquadro (vedi .ev-larga nel foglio di stile). Prima
+           scattava oltre la quarta, ma le colonne fisse sono gia' tante (negli
+           eventi con l'inserimento a mano ce ne sono quattro in piu' di
+           serie): a 1440px gia' con una sola aggiunta nome, azienda e nota
+           scendevano a una trentina di pixel, con quattro a sedici, e il
+           testo andava a capo lettera per lettera - proprio nel caso piu'
+           comune, "aggiungo un paio di colonne del file". */
+        const larga = extra.length > 0;
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
+            // l'azzurro "dal modulo" di questa riga: per i dati, e per l'email
+            const tm = scrittoDaChiSiIscrive(r) ? 'ev-col-modulo' : '';
+            const tmEmail = scrittoDaChiSiIscrive(r, true) ? 'ev-col-modulo' : '';
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
             // in sola lettura si mostra il valore, senza comandi che non salverebbero
             const cellaStato = segna
@@ -17224,9 +17791,10 @@
                conferma che l'avviso e' partito e quando, che deve ancora
                partire, oppure - per chi quella sezione se l'e' scelta
                iscrivendosi - da dove viene, che e' anche il motivo per cui non
-               c'e' nessun avviso da mandargli. */
+               c'e' nessun avviso da mandargli. In cima a tutte, per chi non ha
+               ancora confermato l'email, "email da confermare". */
             const md = modalitaDi(ev, r);
-            const hintM = hintModalitaHtml(ev, r, md);
+            const hintM = [hintAttesaMailHtml(ev, r), hintModalitaHtml(ev, r, md)].filter(Boolean).join(' ');
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
             const cellaModalita = segna
                 ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '">'
@@ -17241,7 +17809,7 @@
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
                 + cellaDataOra(r.data)
-                + '<td class="cliente-cella" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>'
+                + '<td class="cliente-cella' + (tm ? ' ' + tm : '') + '" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>'
                 /* Sotto la ragione sociale, se c'e', da dove viene questa persona:
                    spostarla d'azienda e' una decisione di chi organizza, non un
                    dato dell'iscritto, e chi legge la tabella deve poterlo sapere
@@ -17255,8 +17823,14 @@
                    no, sfalsando tutta la tabella. Il verde basta a dire cosa
                    e', e il resto sta nel suggerimento, ragione sociale
                    dell'invito compresa quando non coincide con quella digitata
-                   (l'unica che combacia con l'altro elenco). */
-                + ((t, inv) => '<td data-label="Azienda">' + esc(aziendaVista(r.azienda))
+                   (l'unica che combacia con l'altro elenco).
+                   La tinta della cella dice da dove viene la ragione sociale:
+                   dove il codice la impone (aziendaDalFileDi: Milano 2027) la
+                   scrive il file delle aziende invitate e il modulo la blocca;
+                   altrove, e senza codice, e' quella della riga - la persona,
+                   se la riga l'ha scritta lei. */
+                + ((t, inv) => '<td' + classe(aziendaDalFileDi(ev, r) ? 'ev-col-file' : tm) + ' data-label="Azienda">'
+                    + esc(aziendaVista(r.azienda))
                     + (inv && inv.codice
                         ? ' <span class="ev-sel" title="Azienda selezionata: registrata con il codice '
                         + esc(inv.codice) + ' riservato all\'invito'
@@ -17267,9 +17841,12 @@
                     + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
                     + '</td>')
                     ((r.extra || {})[COL_SPOSTATO] || '', r.invito)
-                + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
-                + '<td data-label="Email">' + emailInterrompibile(r.email) + baffettoEmail(r, lista) + esitoMailDi(r) + '</td>'
-                + '<td data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>'
+                + '<td' + classe(tm) + ' data-label="Ruolo">' + esc(r.ruolo) + '</td>'
+                /* Accanto all'indirizzo nessun segno di conferma (vedi
+                   indirizziConfermati): resta solo "mail non inviata", che non
+                   e' uno stato ma un errore da sistemare. */
+                + '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + '</td>'
+                + '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>'
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
                    foglio storico, che raccoglieva gli stessi form): si scrive
                    "Sito NGB", perche' e' da li' che e' passata. Il trattino
@@ -17280,19 +17857,18 @@
                     + (v => '<td data-label="B2B prenotati">'
                         + (v ? '<span class="ev-b2b-si">' + v + '</span>' : '<span class="hint">non prenotato</span>')
                         + '</td>')(elencoVoci((r.extra || {})[COL_B2B_PRENOTATI]))
-                    + '<td data-label="Preferenze iscrizione"><span class="ev-b2b-pref">'
+                    + '<td' + classe(tm) + ' data-label="Preferenze iscrizione"><span class="ev-b2b-pref">'
                     + (elencoVoci((r.extra || {})[COL_PREF_ISCRIZIONE]) || '-') + '</span></td>' : '')
                 + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
-                + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
+                + extra.map(c => '<td' + (c.file ? ' class="ev-col-file"' : classe(c.modulo ? tm : '')) + ' data-label="' + esc(c.nome) + '">'
+                    + esc(valoreColonnaVisto(c.nome, valoreExtra(r, c))) + '</td>').join('')
                 /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
                    presenza o nota c'e' quella firma; poi viene chi ha COMPILATO il
                    modulo "completa i dati" (l'intestatario, marcato "dal modulo");
                    per ultima la firma di chi ha inserito la scheda a mano. Tutte
                    hanno la forma di una presenza, quindi si scrivono uguali. */
                 + (ev.tutti ? '' : cellaModalita + cellaStato + cellaNota
-                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(firmaPresenza(p)
-                        || (r.compilato && r.compilato.daNome ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
-                        || firmaPresenza(r.inserito) || '-') + '</span></td>')
+                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(aggiornatoDaDi(p, r) || '-') + '</span></td>')
                 + cellaAzioniHtml(ev, r, md)
                 + '</tr>';
         }).join('');
@@ -17319,15 +17895,20 @@
         const filtro = filtroSezioniHtml(ev, tutte);
         // sezione senza righe: lo si scrive, invece di mostrare una tabella con
         // le sole intestazioni, che sembra un errore di caricamento
+        /* Anche qui l'esportazione resta a portata di mano: scarica TUTTE le
+           sezioni (righeCsvIscrizioni), quindi una sezione vuota non e' un
+           motivo per non averla - prima, senza tabella, il pulsante spariva. */
         if (!lista.length) {
             return filtro + '<div class="card tabella-vuota">Nessuna iscrizione in questa sezione.'
-                + '<br><span class="hint">Le altre sezioni sono qui sopra, con il loro numero.</span></div>';
+                + '<br><span class="hint">Le altre sezioni sono qui sopra, con il loro numero.</span>'
+                + '<div class="no-stampa" style="margin-top:12px;"><button type="button" class="btn btn-sm btn-secondary" id="ev-esporta-tutto" '
+                + 'title="Tutte le iscrizioni dell\'evento, di ogni sezione, con tutte le colonne">Esporta CSV di tutte le sezioni</button></div></div>';
         }
         /* Le colonne aggiuntive si calcolano su TUTTO l'evento, non sulla sezione
            aperta: altrimenti guardando gli aderenti sparirebbero dall'elenco le
            colonne che solo gli ospiti hanno, e chi le cerca penserebbe di averle
            perse. */
-        return filtro + barra + sceltaColonneHtml(ev, tutte)
+        return filtro + barra + sceltaColonneHtml(ev, tutte) + legendaColonneHtml(ev, tutte)
             // su schermo piccolo l'intestazione della tabella e nascosta (le righe
             // diventano schede), quindi la casella "tutte" che sta li dentro sparirebbe:
             // questa la ripropone sopra l'elenco. A video largo resta nascosta.
@@ -17335,12 +17916,19 @@
             // "ev-wrap": questa tabella deve ENTRARE in larghezza, senza barra di
             // scorrimento; ci riesce con le larghezze di colonna del colgroup qui
             // sotto. L'overflow visibile non taglia il menu a tendina delle azioni.
+            /* Con anche una sola colonna aggiuntiva questo non si tiene piu':
+               "ev-larga" da' a ogni colonna una misura leggibile e lascia
+               scorrere la tabella in orizzontale dentro il suo riquadro.
+               Il prezzo e' che l'intestazione resta appiccicata al riquadro e
+               non piu' alla finestra: meglio che colonne larghe un dito. Il
+               menu delle ultime righe, che il riquadro taglierebbe, gli fa
+               spazio da se' (vedi menuEvNelRiquadro). */
             /* tabindex sul contenitore: senza, premendo una freccia dopo aver
                toccato l'elenco non si muove niente - il fuoco e' su un pezzo di
                pagina che non lo prende. Con il fuoco qui, frecce, PagSu/PagGiu,
                Inizio e Fine scorrono come ci si aspetta, e chi naviga con il
                solo tastierino ci arriva con il tabulatore. */
-            + '<div class="tabella-wrap ev-wrap" tabindex="0" role="region" aria-label="Elenco delle iscrizioni">'
+            + '<div class="tabella-wrap ev-wrap' + (larga ? ' ev-larga' : '') + '" tabindex="0" role="region" aria-label="Elenco delle iscrizioni">'
             + '<table class="dati compatta">'
             /* Le larghezze delle colonne: questa tabella deve stare tutta nella
                pagina, senza barra di scorrimento, e per riuscirci il browser deve
@@ -17355,19 +17943,24 @@
             + (adminEv ? '<col class="c-sel">' : '')
             + '<col class="c-data"><col class="c-nome"><col class="c-azienda"><col class="c-ruolo"><col class="c-email"><col class="c-tel">'
             + (fisse ? '<col class="c-portale"><col class="c-part"><col class="c-b2b"><col class="c-pref">' : '')
-            + (ev.tutti ? '<col>' : '')
-            + extra.map(() => '<col>').join('')
-            + (ev.tutti ? '' : '<col class="c-modalita"><col class="c-stato"><col><col class="c-agg">')
+            /* Le colonne senza misura propria hanno comunque una classe (c-evento,
+               c-extra, c-nota): a tabella normale non hanno regole e si dividono
+               lo spazio che resta, come prima; a tabella larga ricevono la loro
+               misura. Su carta valgono il 7% come ogni colonna senza misura. */
+            + (ev.tutti ? '<col class="c-evento">' : '')
+            + extra.map(() => '<col class="c-extra">').join('')
+            + (ev.tutti ? '' : '<col class="c-modalita"><col class="c-stato"><col class="c-nota"><col class="c-agg">')
             + (azioniEv ? '<col class="c-azioni">' : '')
             + '</colgroup>'
             + '<thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
-            + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th>'
+            + '<th>Data</th><th class="ev-col-modulo">Nome</th><th>Azienda</th><th class="ev-col-modulo">Ruolo</th>'
+            + '<th class="ev-col-modulo">Email</th><th class="ev-col-modulo">Telefono</th>'
             + (fisse ? '<th>Portale</th><th>Partecipanti</th>'
                 + '<th title="I tavoli scelti rispondendo all\'invito B2B">B2B prenotati</th>'
-                + '<th title="I temi indicati al momento dell\'iscrizione: preferenze, non prenotazioni">Preferenze iscrizione</th>' : '')
+                + '<th class="ev-col-modulo" title="I temi indicati al momento dell\'iscrizione: preferenze, non prenotazioni">Preferenze iscrizione</th>' : '')
             + (ev.tutti ? '<th>Evento</th>' : '')
-            + extra.map(c => '<th>' + esc(c) + '</th>').join('')
+            + extra.map(c => '<th' + tinta(c) + (c.file ? ' title="Dal file delle aziende invitate"' : '') + '>' + esc(c.nome) + '</th>').join('')
             + (ev.tutti ? '' : '<th title="In sala oppure online: quando i posti in presenza finiscono, chi resta fuori si sposta all\'online">Modalità</th>'
                 + '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
             + (azioniEv ? '<th></th>' : '')
@@ -17413,9 +18006,13 @@
                    che la mail avesse il pulsante "conferma il tuo indirizzo"
                    e' confermato d'ufficio. Si preme una volta per evento,
                    DOPO aver pubblicato il servizio con il pulsante: da li'
-                   in avanti il baffetto lo mettono le persone. Compare finche'
-                   c'e' qualcuno senza baffetto, poi non serve piu'. */
-                + ((!ev.tutti && _evIscrizioni && _evIscrizioni.some(r => r.email && !confermaEmailDi(r, _evIscrizioni)))
+                   in avanti l'indirizzo lo confermano le persone. Compare
+                   finche' c'e' qualcuno senza conferma, poi non serve piu'.
+                   MAI dove la conferma e' chiesta (`confermaEmail`, Milano):
+                   li' non c'e' nessun pregresso, e un clic svuoterebbe la
+                   sezione "In attesa di conferma mail" mettendo in sala
+                   indirizzi che nessuno ha confermato. */
+                + ((!ev.tutti && !ev.confermaEmail && _evIscrizioni && _evIscrizioni.some(r => r.email && !confermaEmailDi(r, _evIscrizioni)))
                     ? '<button class="btn btn-sm btn-secondary" id="ev-conf-pregresso" title="Segna come confermati gli indirizzi di chi si è iscritto finora">Segna confermati gli iscritti finora</button>'
                     : '')
                 + '<button class="btn btn-sm btn-secondary" id="ev-accessi">Accessi</button>'
@@ -17534,7 +18131,7 @@
             + '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
-            + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi con il baffetto verde: confermati dal pulsante nella mail di iscrizione, oppure iscritti prima che la mail lo avesse (pregresso)', 'verde', 'confmail')
+            + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi confermati dal pulsante nella mail di iscrizione, oppure iscritti prima che la mail lo avesse (pregresso)', 'verde', 'confmail')
             + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
                 .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join(''))
             + '</div>'
@@ -17542,6 +18139,13 @@
                 + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte', 'sala')
                 + SEZIONI_MODALITA.filter(x => !inSala(x.id) && !x.fuoriElenco)
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
+                /* Chi aspetta di confermare l'email sta fuori dal totale in sala
+                   e ha il suo numero, accanto all'online: sono le persone che
+                   potrebbero ancora occupare un posto, e mentre la sala si
+                   riempie e' il numero che si guarda insieme all'altro. */
+                + (ev.confermaEmail
+                    ? riquadroNum(conModalita ? (postiSezione[SEZIONE_ATTESA.id] || 0) : '-', SEZIONE_ATTESA.breve, SEZIONE_ATTESA.spiega, 'ambra', SEZIONE_ATTESA.id)
+                    : '')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
                 + '</div>') + '</div>'
@@ -17570,8 +18174,8 @@
         const bPre = document.getElementById('ev-conf-pregresso');
         if (bPre) bPre.addEventListener('click', () => {
             const senza = (_evIscrizioni || []).filter(r => r.email && !confermaEmailDi(r, _evIscrizioni)).length;
-            if (!confirm('Tutte le ' + senza + ' iscrizioni di questo evento senza baffetto verranno segnate come confermate (indirizzo confermato d\'ufficio, "pregresso").\n\n'
-                + 'Da qui in avanti il baffetto lo mettono solo le persone, dal pulsante nella mail. Va premuto DOPO aver pubblicato il servizio con la mail nuova.\n\nProcedo?')) return;
+            if (!confirm('Tutte le ' + senza + ' iscrizioni di questo evento con l\'indirizzo non ancora confermato verranno segnate come confermate (indirizzo confermato d\'ufficio, "pregresso").\n\n'
+                + 'Da qui in avanti l\'indirizzo lo confermano solo le persone, dal pulsante nella mail. Va premuto DOPO aver pubblicato il servizio con la mail nuova.\n\nProcedo?')) return;
             bPre.disabled = true; bPre.textContent = 'Un attimo...';
             Cloud.operaPresenza({ azione: 'conferma-email-pregresso', evento: ev.id, filtro: ev.filtro || ev.id }).then(r => {
                 if (!r.ok) { bPre.disabled = false; bPre.textContent = 'Segna confermati gli iscritti finora'; toast(r.msg || 'Non riuscito.', 'rosso'); return; }
@@ -17666,6 +18270,8 @@
         $vista().querySelectorAll('.ev-modalita, .ev-stato').forEach(conMouse);
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;
+            const rr = (_evIscrizioni || []).find(x => x.id === id);
+            const sezPrima = rr ? sezioneVista(ev, rr) : '';
             EventiPresenze.imposta(ev.id, id, { stato: s.value }, () => {
                 if (vistaCorrente !== 'eventi') return;
                 // se il server ha rifiutato, la tendina deve tornare al valore vero
@@ -17675,6 +18281,11 @@
                 // cambia anche il riquadro "confermati / presenti"
                 aggiornaNumeriEventi(ev);
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+                /* "Presente" toglie dall'attesa della conferma (e toglierlo ci
+                   rimette): la riga cambia sezione, e con lei la scritta sotto
+                   la modalita' e le voci del menu. Qui non si rifa' un pezzo
+                   per volta: si ridisegna, appena la pagina e' libera. */
+                if (rr && sezioneVista(ev, rr) !== sezPrima) ridisegnaEventiSeLibero();
             });
             aggiornaFirma(s, id);
             restituisciFuoco(s);
@@ -17707,7 +18318,7 @@
                 const cella = s.parentNode;
                 if (cella) {
                     cella.querySelectorAll('.hint').forEach(x => x.remove());
-                    const h = rr ? hintModalitaHtml(ev, rr, vero) : '';
+                    const h = rr ? [hintAttesaMailHtml(ev, rr), hintModalitaHtml(ev, rr, vero)].filter(Boolean).join(' ') : '';
                     if (h) s.insertAdjacentHTML('afterend', h);
                 }
                 /* E SI RIFA' ANCHE IL MENU DELLA RIGA: le sue voci dipendono
@@ -17737,9 +18348,14 @@
                    peggio che sparire - l'elenco direbbe il falso sul filtro che
                    si ha davanti. Quando esce l'ultima si ridisegna: li' non c'e'
                    piu' niente da conservare, e serve il riquadro che dice
-                   "nessuna iscrizione in questa sezione". */
+                   "nessuna iscrizione in questa sezione".
+                   Si confronta la sezione in cui la riga si GUARDA, non la sua
+                   modalita': nell'attesa della conferma si puo' cambiare la
+                   modalita' di qualcuno (dove andra' quando conferma) e lui
+                   resta li', perche' l'email non l'ha ancora confermata. */
                 const sez = sezioneDi(ev);
-                if (riga && sez !== 'tutte' && vero !== sez) {
+                const dove = rr ? sezioneVista(ev, rr) : vero;
+                if (riga && sez !== 'tutte' && dove !== sez) {
                     _evSelezionate.delete(id);
                     const corpo = riga.parentNode;
                     riga.remove();
@@ -17762,11 +18378,14 @@
             aggiornaFirma(n, id);
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
-        const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
-            l.classList.add('hidden');
-            const b = l.previousElementSibling;
-            if (b) b.setAttribute('aria-expanded', 'false');
-        });
+        const chiudiMenuEv = () => {
+            $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
+                l.classList.add('hidden');
+                const b = l.previousElementSibling;
+                if (b) b.setAttribute('aria-expanded', 'false');
+            });
+            menuEvFuoriDalRiquadro();
+        };
         /* I COMANDI DEL MENU DELLA RIGA, collegati su una RADICE qualunque:
            all'inizio e' tutta la vista, ma quando una persona cambia sezione la
            sua cella delle azioni si rifa' da capo (le voci dipendono da dove si
@@ -17808,7 +18427,7 @@
                 const lista = b.nextElementSibling;
                 const eraChiuso = lista.classList.contains('hidden');
                 chiudiMenuEv();
-                if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
+                if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); menuEvNelRiquadro(lista); }
             }));
             radice.querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
         };
@@ -17871,6 +18490,15 @@
             document.body.dataset.evScorrimento = '1';
             window.addEventListener('scroll', () => { _evScorrendoFino = Date.now() + EV_QUIETE_MS; }, { passive: true });
         }
+        /* Lo stesso per la tabella larga, che scorre in orizzontale dentro il
+           SUO riquadro: quello scorrimento alla finestra non arriva (non
+           risale), e un ridisegno a meta' di un trascinamento verso destra
+           e' lo stesso salto. Il riquadro e' nuovo a ogni ridisegno, quindi
+           l'ascoltatore si attacca ogni volta, e se ne va con lui. */
+        {
+            const riquadro = $vista().querySelector('.ev-wrap');
+            if (riquadro) riquadro.addEventListener('scroll', () => { _evScorrendoFino = Date.now() + EV_QUIETE_MS; }, { passive: true });
+        }
         /* Le frecce sull'elenco. Il browser lo farebbe da se' su un contenitore
            che scorre; questo invece e' largo quanto la pagina (le colonne sono
            calcolate per entrarci), quindi a scorrere e' la FINESTRA, e lo si fa
@@ -17900,14 +18528,77 @@
                     const b = l.previousElementSibling;
                     if (b) b.setAttribute('aria-expanded', 'false');
                 });
+                // e il riquadro della tabella larga, allungato per il menu, torna com'era
+                menuEvFuoriDalRiquadro();
             });
         }
-        // colonne aggiuntive: si spuntano e la tabella si ridisegna con quelle in piu'
-        $vista().querySelectorAll('.ev-col').forEach(c => c.addEventListener('change', () => {
-            const scelte = Array.from($vista().querySelectorAll('.ev-col:checked')).map(x => x.value);
-            _evColonne[ev.id] = scelte;
-            if (vistaCorrente === 'eventi') vistaEventi();
-        }));
+        /* COLONNE AGGIUNTIVE: si spuntano e la tabella si ridisegna con quelle
+           in piu'. Il pannello resta aperto (_evColonneAperte), la pagina resta
+           dov'era e il fuoco torna sul comando appena usato: chi spunta da
+           tastiera continua dalla casella dopo, invece di ripartire da capo. */
+        {
+            const pannello = $vista().querySelector('details.ev-colonne');
+            if (pannello) pannello.addEventListener('toggle', () => { _evColonneAperte[ev.id] = pannello.open; });
+            const cambiaColonne = (scelte, ritrova) => {
+                salvaColonneScelte(ev, scelte);
+                _evColonneAperte[ev.id] = true;
+                if (vistaCorrente !== 'eventi') return;
+                vistaEventiMantenendoPosto();
+                const el = ritrova();
+                if (el && !el.disabled) { try { el.focus({ preventScroll: true }); } catch (e) { } }
+            };
+            const spuntate = () => Array.from($vista().querySelectorAll('.ev-col:checked')).map(x => x.value);
+            /* Sulla casella il fuoco torna solo a chi spunta da TASTIERA: una
+               casella con il fuoco vale "qualcuno sta scrivendo" e trattiene i
+               ridisegni automatici (evQualcunoStaUsando), e a chi usa il mouse
+               non serve - e' la stessa ragione di restituisciFuoco. */
+            $vista().querySelectorAll('.ev-col').forEach(c => {
+                // sulla scritta accanto, non solo sulla casella: anche li' e' un clic
+                (c.closest('label') || c).addEventListener('pointerdown', () => { c.dataset.conMouse = '1'; });
+                c.addEventListener('change', () => {
+                    const v = c.value;
+                    const daTastiera = c.dataset.conMouse !== '1';
+                    cambiaColonne(spuntate(), () => daTastiera
+                        ? Array.from($vista().querySelectorAll('.ev-col')).find(x => x.value === v) : null);
+                });
+            });
+            // "Aggiungi tutte" e "Togli tutte": di un gruppo, o di tutto il pannello
+            $vista().querySelectorAll('.ev-col-tutte, .ev-col-nessuna').forEach(b => b.addEventListener('click', () => {
+                const g = b.dataset.gruppo;
+                const metti = b.classList.contains('ev-col-tutte');
+                const caselle = g === 'tutte' ? $vista().querySelectorAll('.ev-col')
+                    : $vista().querySelectorAll('.ev-colonne-gruppo[data-gruppo="' + g + '"] .ev-col');
+                const scelte = spuntate();
+                Array.prototype.forEach.call(caselle, c => {
+                    const i = scelte.indexOf(c.value);
+                    if (metti && i < 0) scelte.push(c.value);
+                    if (!metti && i >= 0) scelte.splice(i, 1);
+                });
+                // il fuoco torna sul pulsante premuto; se ora e' spento (non ha
+                // piu' niente da fare), sul suo compagno, che invece si e' acceso
+                cambiaColonne(scelte, () => {
+                    const q = cl => $vista().querySelector(cl + '[data-gruppo="' + g + '"]');
+                    const stesso = q(metti ? '.ev-col-tutte' : '.ev-col-nessuna');
+                    if (stesso && !stesso.disabled) return stesso;
+                    return q(metti ? '.ev-col-nessuna' : '.ev-col-tutte') || $vista().querySelector('details.ev-colonne summary');
+                });
+            }));
+        }
+        /* L'esportazione dell'elenco: sempre TUTTO, qualunque sezione si stia
+           guardando (vedi righeCsvIscrizioni). La stessa per il pulsante della
+           barra della tabella e per quello della sezione vuota. */
+        const esportaIscritti = () => {
+            const righe = righeCsvIscrizioni(ev, _evIscrizioni || [], id => EventiPresenze.di(ev.id, id));
+            const n = righe.length - 1;
+            if (n < 1) { toast('Nessuna iscrizione da esportare.', 'rosso'); return; }
+            const nomeFile = 'iscrizioni-' + ev.id;
+            scaricaCsv(righe, nomeFile, { numeri: true });
+            toast('CSV esportato: ' + n + (n === 1 ? ' iscrizione' : ' iscrizioni')
+                + (ev.tutti ? ' di tutti gli eventi' : ', di tutte le sezioni (anche quelle che non stai guardando)')
+                + ', con tutte le colonne.', 'verde');
+            Audit.registra(Auth.utenteCorrente, 'Esportazione CSV', 'sistema', null, null, nomeFile);
+        };
+        { const b = document.getElementById('ev-esporta-tutto'); if (b) b.addEventListener('click', esportaIscritti); }
         // selezione multipla: la barra si aggiorna senza ridisegnare tutta la tabella
         const aggiornaBarra = () => {
             const barra = $vista().querySelector('.ev-barra');
@@ -17970,6 +18661,9 @@
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, {
             ricerca: true, nomeFile: 'iscrizioni-' + ev.id,
+            esporta: esportaIscritti,
+            esportaTitolo: ev.tutti ? 'Tutte le iscrizioni di tutti gli eventi, con tutte le colonne'
+                : 'Tutte le iscrizioni dell\'evento, di ogni sezione, con tutte le colonne: non solo quelle che vedi',
             /* Cercata un'azienda che non e' fra gli iscritti: prima di
                lasciare la tabella vuota si guarda fra gli invitati ai soli
                incontri B2B, che qui non compaiono per scelta. Nove volte su
@@ -18184,9 +18878,10 @@
            Se poi si sia collegato davvero lo sa la regia della diretta, che e'
            un altro archivio: qui si scrive a chi risulta iscritto online, e
            chi non si e' collegato riceve comunque una proposta, che non e' un
-           danno. */
+           danno. Chi non ha mai confermato l'email non e' online: non e' mai
+           diventato un iscritto, e resta fra quelli contati qui sotto. */
         const online = (_evIscrizioni || []).filter(r => r && r.email
-            && modalitaDi(ev, r) === 'online'
+            && sezioneVista(ev, r) === 'online'
             && aiTavoli.indexOf(r) < 0);
         /* CHI NON RIENTRA NE' NELL'UNA NE' NELL'ALTRA: iscritti a questo
            convegno che agli incontri non risultavano e online non erano. La
@@ -18770,7 +19465,8 @@
         }).sort((x, y) => confrontaIt(etichettaRigaPersona(x), etichettaRigaPersona(y))
             || confrontaIt(nomePersonaVisto(x), nomePersonaVisto(y)));
         const voci = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean).map(esc).join(' &middot; ');
-        const fuori = righe.filter(r => !inSala(modalitaDi(ev, r)));
+        // chi ha l'email da confermare in sala non c'e' ancora: si conta fuori
+        const fuori = righe.filter(r => !inSala(sezioneVista(ev, r)));
         const esiti = _evEsitiB2B[ev.id] || null;
         /* Il conto in testa e' la risposta breve alla domanda: quanti di
            quelli che vengono ai tavoli non si siedono in sala. */
@@ -18808,9 +19504,13 @@
                 { et: 'Email', val: r => r.email },
                 /* LA COLONNA PER CUI LA SCHEDA SI APRE. Sta in mezzo e non in
                    fondo: e' quella che si legge per prima dopo il nome. */
-                { et: 'In sala', html: r => inSala(modalitaDi(ev, r))
-                    ? '<span class="badge verde">sì</span>'
-                    : '<span class="badge rosso">no, solo B2B</span>' },
+                /* Chi aspetta di confermare l'email non e' "solo B2B": si e'
+                   iscritto al convegno, ma il posto lo avra' quando conferma. */
+                { et: 'In sala', html: r => inAttesaConfermaMail(ev, r)
+                    ? '<span class="badge ambra" title="' + esc(SEZIONE_ATTESA.spiega) + '">email da confermare</span>'
+                    : inSala(modalitaDi(ev, r))
+                        ? '<span class="badge verde">sì</span>'
+                        : '<span class="badge rosso">no, solo B2B</span>' },
                 /* L'esito della mail d'invito: una riga vuota finche' nessuno
                    ha chiesto la lettura, invece di una colonna di "non
                    risulta" che si leggerebbe come "non e' arrivata a nessuno". */
@@ -20275,7 +20975,8 @@
     function relatoriEAderenti(ev) {
         const visti = {}, fuori = [];
         (_evIscrizioni || []).forEach(r => {
-            const m = modalitaDi(ev, r);
+            // chi aspetta di confermare l'email quel giorno in sala non e' sicuro
+            const m = sezioneVista(ev, r);
             if (m !== 'aderenti' && m !== 'sponsor') return;
             const nome = ((r.nome || '') + ' ' + (r.cognome || '')).trim() || String(r.email || '');
             if (!nome) return;
@@ -22998,13 +23699,14 @@
            mano, se ne toglie una. Se restassero quelli dell'apertura la
            finestra racconterebbe l'elenco di prima.
            "Segnati fuori sala" sono aziende del file che NON diventeranno un
-           invito (seguono online, o sono aderenti Revilaw): tacerle vorrebbe
-           dire lasciar credere che la mail sia partita anche a loro. */
+           invito (seguono online, sono aderenti Revilaw o non hanno ancora
+           confermato l'email): tacerle vorrebbe dire lasciar credere che la
+           mail sia partita anche a loro. */
         let quantiSegnati = 0, segnatiFuoriSala = 0;
         function riconta() {
             quantiSegnati = unica ? 0 : iscrittiPerInvitoB2B(ev, _evIscrizioni).length;
             segnatiFuoriSala = unica ? 0 : (_evIscrizioni || []).filter(r =>
-                r.email && segnatoInvitoB2B(r) && !daInvitareB2B(modalitaDi(ev, r))).length;
+                r.email && segnatoInvitoB2B(r) && !daInvitareB2B(sezioneVista(ev, r))).length;
             const t = document.getElementById('ib-testa-elenco');
             if (t) t.innerHTML = fraseElenco();
         }
@@ -23483,7 +24185,8 @@
                 + (segnatiFuoriSala
                     ? '<div class="hint" style="margin-top:4px;"><span class="ev-ko">' + segnatiFuoriSala
                     + (segnatiFuoriSala === 1 ? ' persona del file non &egrave; in sala' : ' persone del file non sono in sala')
-                    + ' (online o aderenti Revilaw): a loro l\'invito non parte, e in elenco non compaiono.</span></div>'
+                    + (ev.confermaEmail ? ' (online, aderenti Revilaw o con l\'email da confermare)' : ' (online o aderenti Revilaw)')
+                    + ': a loro l\'invito non parte, e in elenco non compaiono.</span></div>'
                     : '')
                 + '<div class="hint" style="margin-top:4px;">Le scritture diverse della stessa impresa ("Alfa S.r.l.", "ALFA SPA") stanno in una riga sola; '
                 + 'nel dubbio conta il dominio della mail, così chi ha lasciato in bianco l\'azienda finisce comunque con i suoi colleghi. '
@@ -24383,6 +25086,7 @@
             const posti = partecipantiDi(r);
             if (posti > 1) d.push(posti + ' posti');
             d.push(NOMI_MODALITA[modalitaDi(ev, r)] || '');
+            if (inAttesaConfermaMail(ev, r)) d.push('email da confermare');
             if (p.stato) d.push((NOMI_STATO[p.stato] || p.stato).toLowerCase());
             if (p.nota) d.push('con nota');
             if (p.avvisoModalita && p.avvisoModalita.quando) d.push('avvisata');
@@ -24620,9 +25324,12 @@
     function modaleElencoDefinitivo(ev) {
         if (!puoAggiungereIscrizioni() || !ev || ev.tutti) return;
         const tutte = _evIscrizioni || [];
-        const inSala = tutte.filter(r => modalitaDi(ev, r) === 'presenza');
+        // gli ospiti in sala come li conta il confronto: senza chi aspetta di confermare l'email
+        const inSala = tutte.filter(r => sezioneVista(ev, r) === 'presenza');
         if (!inSala.length) { toast('Nessun ospite in sala: non c\'e\' niente da confrontare.', 'verde'); return; }
         const posti = inSala.reduce((t, r) => t + partecipantiDi(r), 0);
+        // e quanti aspettano la conferma chiedendo la sala: il confronto li guarda a parte
+        const inAttesa = tutte.filter(r => sezioneVista(ev, r) === SEZIONE_ATTESA.id && modalitaDi(ev, r) === 'presenza').length;
         apriModale('<h2>Elenco definitivo di chi resta in sala</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">Incolla qui l\'elenco di chi <b>resta in presenza</b>. '
             + 'Il confronto e\' per <b>indirizzo email</b> - l\'unico dato che combacia fra un foglio e un modulo compilato a mano - '
@@ -24631,7 +25338,13 @@
             + 'gli indirizzi li trova da se\'.</p>'
             + '<p class="hint" style="margin:0 0 10px;">In sala ci sono ora <b>' + inSala.length + '</b> '
             + (inSala.length === 1 ? 'iscrizione di ospiti' : 'iscrizioni di ospiti')
-            + (posti !== inSala.length ? ', per <b>' + posti + '</b> posti' : '') + '.</p>'
+            + (posti !== inSala.length ? ', per <b>' + posti + '</b> posti' : '') + '.'
+            + (inAttesa
+                ? (inAttesa === 1 ? ' <b>Un\'altra</b> chiede la sala ma è ' : ' Altre <b>' + inAttesa + '</b> chiedono la sala ma sono ')
+                + esc(SEZIONE_ATTESA.breve) + ': non ' + (inAttesa === 1 ? 'è un ospite' : 'sono ospiti') + ' in sala, '
+                + 'e dopo il confronto ' + (inAttesa === 1 ? 'se non è nell\'elenco compare' : 'chi non è nell\'elenco compare') + ' a parte.'
+                : '')
+            + '</p>'
             + '<div class="campo"><label for="ed-testo">L\'elenco definitivo</label>'
             + '<textarea id="ed-testo" class="ed-testo" rows="10" spellcheck="false" '
             + 'placeholder="mario.rossi@esempio.it&#10;segreteria@altraimpresa.it&#10;..."></textarea></div>'
@@ -24679,15 +25392,24 @@
        DUE ECCEZIONI partono SENZA spunta, perche' non sono una
        proposta ma una domanda: gli ospiti SENZA INDIRIZZO, che sul solo
        dato del confronto non si possono giudicare - potrebbero essere
-       nell'elenco e non risultarci - e che nessuna mail raggiungerebbe.
+       nell'elenco e non risultarci - e che nessuna mail raggiungerebbe;
+       e, in un blocco loro sotto, chi ha chiesto la sala ma non ha ancora
+       CONFERMATO L'EMAIL e nell'elenco non c'e' (daConfermare). Oggi in
+       sala non conta - quindi non e' fra gli ospiti da spostare, e non
+       libera posti - ma il giorno che conferma ci entra: lasciato li' in
+       silenzio scavalcherebbe l'elenco definitivo. Lo si dice, e lo si
+       sposta all'online solo se lo si spunta.
     ========================================================= */
     function modaleConfrontoElenco(ev, indirizzi, esito) {
         if (!puoAggiungereIscrizioni() || !ev || ev.tutti) return;
         esito = esito || {};
         const fuori = esito.fuori || [];
         const muti = esito.senzaIndirizzo || [];
+        const daConf = esito.daConfermare || [];
         const mancanti = esito.mancanti || [];
-        const elenco = fuori.concat(muti);
+        // le caselle: prima gli ospiti in sala, poi - nel loro blocco - chi aspetta la conferma
+        const principali = fuori.concat(muti);
+        const elenco = principali.concat(daConf);
         const nomeDi = r => (r.nome + ' ' + r.cognome).trim() || r.email || r.id;
         const postiDi = v => v.reduce((t, x) => t + partecipantiDi(x.riga), 0);
         /* I mancanti divisi in due, perche' si rimedia in due modi diversi:
@@ -24712,10 +25434,13 @@
             const posti = partecipantiDi(t.riga);
             const perche = t.motivo === 'senza indirizzo'
                 ? 'nessun indirizzo sulla scheda: il confronto non lo raggiunge, e nemmeno la mail'
-                : 'non e\' nell\'elenco incollato';
+                : t.motivo === 'email da confermare'
+                    ? 'chiede la sala e non ha ancora confermato l\'email: se conferma, entra in sala'
+                    : 'non e\' nell\'elenco incollato';
+            const spuntata = t.motivo !== 'senza indirizzo' && t.motivo !== 'email da confermare';
             return '<li><label>'
                 + '<input type="checkbox" class="ed-scelta" value="' + i + '"'
-                + (t.motivo === 'senza indirizzo' ? '' : ' checked') + '>'
+                + (spuntata ? ' checked' : '') + '>'
                 + '<span class="ra-testo">'
                 + '<span class="ra-mail">' + esc(t.email || '(senza indirizzo)') + '</span>'
                 + '<span class="ra-chi">' + esc(nome)
@@ -24726,7 +25451,7 @@
         };
         const rigaMancante = m => '<li><span class="ra-mail">' + esc(m.email) + '</span>'
             + '<span class="ra-dove">' + (m.dove
-                ? 'gia\' nella sezione ' + esc(NOMI_MODALITA[m.dove] || m.dove) + ': in sala non c\'e\''
+                ? 'gia\' nella sezione ' + esc(m.dove === SEZIONE_ATTESA.id ? SEZIONE_ATTESA.nome : (NOMI_MODALITA[m.dove] || m.dove)) + ': in sala non c\'e\''
                 : 'non risulta iscritto a questo evento') + '</span></li>';
         /* IL CONTO, in una frase per ciascuna delle due direzioni. Le due
            domande sono diverse e vanno separate: "chi e' in sala e non
@@ -24751,6 +25476,21 @@
             + '<p class="hint" style="margin:-4px 0 12px;">Confronto per <b>indirizzo email</b> sui soli <b>ospiti in sala</b>. '
             + 'Aderenti Revilaw, sponsor e relatori non sono stati confrontati e restano dove sono.</p>'
             + conti;
+        /* Chi aspetta la conferma, a parte: le frasi e i numeri qui sopra
+           parlano degli ospiti in sala, e queste righe in sala oggi non ci
+           sono. Si spostano con gli altri, ma solo se le si spunta. */
+        const nc = daConf.length, unoC = nc === 1;
+        const bloccoAttesa = nc
+            ? '<p class="ed-attenzione ed-attesa-testa"><b>' + nc + '</b> '
+            + (unoC ? 'iscrizione ' : 'iscrizioni ') + esc(SEZIONE_ATTESA.breve) + (unoC ? ' chiede' : ' chiedono')
+            + ' la sala e nell\'elenco non ' + (unoC ? 'c\'è' : 'ci sono') + '. '
+            + 'Oggi non ' + (unoC ? 'conta' : 'contano') + ' fra gli ospiti in sala e non ' + (unoC ? 'libera' : 'liberano') + ' posti, '
+            + 'ma appena ' + (unoC ? 'conferma' : 'confermano') + ' l\'email ' + (unoC ? 'entra' : 'entrano') + ' in sala, '
+            + 'anche se l\'elenco definitivo non ' + (unoC ? 'la' : 'le') + ' comprende. '
+            + (unoC ? 'Parte' : 'Partono') + ' <b>senza spunta</b>: se in sala non ' + (unoC ? 'deve' : 'devono') + ' entrare, '
+            + (unoC ? 'spuntala' : 'spuntale') + ' e ' + (unoC ? 'spostala' : 'spostale') + ' all\'online con gli altri.</p>'
+            + '<ul class="ra-elenco">' + daConf.map((t, j) => voce(t, principali.length + j)).join('') + '</ul>'
+            : '';
         if (!elenco.length) {
             apriModale(testa
                 + '<p class="hint">Tutti gli ospiti in sala sono nell\'elenco definitivo: non c\'e\' niente da spostare.</p>'
@@ -24761,18 +25501,21 @@
             return;
         }
         apriModale(testa
-            + '<p class="hint" style="margin:0 0 8px;"><b>' + fuori.length + '</b> '
-            + (fuori.length === 1 ? 'ospite e\' da spostare all\'online' : 'ospiti sono da spostare all\'online')
-            + (postiDi(fuori) !== fuori.length ? ' (' + postiDi(fuori) + ' posti che si liberano)' : '')
-            + (muti.length
-                ? '. <b>' + muti.length + '</b> ' + (muti.length === 1 ? 'iscrizione e\' senza indirizzo' : 'iscrizioni sono senza indirizzo')
-                + ' e ' + (muti.length === 1 ? 'parte' : 'partono') + ' <b>senza spunta</b>: '
-                + 'il confronto non ' + (muti.length === 1 ? 'la' : 'le') + ' raggiunge, e nemmeno la mail. '
-                + (muti.length === 1 ? 'Decidila' : 'Decidile') + ' tu.'
-                : '.')
-            + ' Togli la spunta a chi deve restare in sala.</p>'
-            + '<label class="ra-tutte"><input type="checkbox" id="ed2-tutte"> Tutte</label>'
-            + '<ul class="ra-elenco">' + elenco.map(voce).join('') + '</ul>'
+            + (principali.length
+                ? '<p class="hint" style="margin:0 0 8px;"><b>' + fuori.length + '</b> '
+                + (fuori.length === 1 ? 'ospite e\' da spostare all\'online' : 'ospiti sono da spostare all\'online')
+                + (postiDi(fuori) !== fuori.length ? ' (' + postiDi(fuori) + ' posti che si liberano)' : '')
+                + (muti.length
+                    ? '. <b>' + muti.length + '</b> ' + (muti.length === 1 ? 'iscrizione e\' senza indirizzo' : 'iscrizioni sono senza indirizzo')
+                    + ' e ' + (muti.length === 1 ? 'parte' : 'partono') + ' <b>senza spunta</b>: '
+                    + 'il confronto non ' + (muti.length === 1 ? 'la' : 'le') + ' raggiunge, e nemmeno la mail. '
+                    + (muti.length === 1 ? 'Decidila' : 'Decidile') + ' tu.'
+                    : '.')
+                + ' Togli la spunta a chi deve restare in sala.</p>'
+                + '<label class="ra-tutte"><input type="checkbox" id="ed2-tutte"> Tutte</label>'
+                + '<ul class="ra-elenco">' + principali.map(voce).join('') + '</ul>'
+                : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala sono nell\'elenco definitivo: fra loro non c\'e\' niente da spostare.</p>')
+            + bloccoAttesa
             + '<div id="ed2-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed2-indietro">Cambia elenco</button>'
             + '<button class="btn btn-secondary" id="ed2-spunta">Spunta in elenco</button>'
@@ -24792,8 +25535,10 @@
             bSi.disabled = s.length === 0;
             bSpunta.disabled = s.length === 0;
             bSi.textContent = s.length ? 'Sposta online e avvisa (' + s.length + ')' : 'Sposta online e avvisa';
+            // "Tutte" vale per gli ospiti in sala: chi aspetta la conferma si spunta uno per uno
+            const nSala = s.filter(x => principali.indexOf(x) >= 0).length;
             const t = document.getElementById('ed2-tutte');
-            if (t) { t.checked = s.length === elenco.length; t.indeterminate = s.length > 0 && s.length < elenco.length; }
+            if (t) { t.checked = nSala === principali.length; t.indeterminate = nSala > 0 && nSala < principali.length; }
             /* Le spunte senza indirizzo si ricordano fino all'ultimo: si
                spostano eccome, ma la mail a loro non parte e vanno avvisate
                a voce. E' la cosa che si dimentica. */
@@ -24806,19 +25551,22 @@
         document.querySelectorAll('.ed-scelta').forEach(c => c.addEventListener('change', aggiornaPulsanti));
         { const t = document.getElementById('ed2-tutte');
           if (t) t.addEventListener('change', () => {
-              document.querySelectorAll('.ed-scelta').forEach(c => { c.checked = t.checked; });
+              document.querySelectorAll('.ed-scelta').forEach(c => { if (Number(c.value) < principali.length) c.checked = t.checked; });
               aggiornaPulsanti();
           }); }
         aggiornaPulsanti();
         document.getElementById('ed2-indietro').addEventListener('click', () => modaleElencoDefinitivo(ev));
         /* La via lunga: le righe si spuntano nell'elenco vero, dove accanto
-           c'e' il resto della scheda. Si apre "In presenza", che e' l'unica
-           sezione da cui possono venire. */
+           c'e' il resto della scheda. Si apre la sezione da cui vengono: "In
+           presenza" per gli ospiti in sala, l'attesa della conferma per chi
+           la aspetta, "Tutte" se sono delle due - una spunta su una riga che
+           non e' a video sarebbe una scelta fatta al buio. */
         bSpunta.addEventListener('click', () => {
             const s = scelte();
             if (!s.length) return;
             chiudiModale();
-            _evSezione[ev.id] = 'presenza';
+            const nAttesa = s.filter(x => x.motivo === 'email da confermare').length;
+            _evSezione[ev.id] = !nAttesa ? 'presenza' : (nAttesa === s.length ? SEZIONE_ATTESA.id : 'tutte');
             _evSelezionate = new Set(s.map(t => t.riga.id));
             if (vistaCorrente === 'eventi') vistaEventi();
             toast(s.length + (s.length === 1 ? ' riga spuntata' : ' righe spuntate')
@@ -25572,8 +26320,13 @@
        volta sola. Il servizio rifa' il conto la sera dell'invio: chi si
        iscrive o si sposta nel frattempo e' gia' compreso. */
     const RE_EMAIL_PM = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    /* Chi aspetta di confermare l'email (eventi con `confermaEmail`) non e' in
+       nessuna delle due serie: il servizio lo salta (inAttesaDiConferma), e
+       qui lo si salta PRIMA di contare, cosi' i posti di partenza sono quelli
+       della testata, che li tiene gia' fuori dal totale in sala. Se ne tiene
+       il numero, perche' la finestra lo dica. */
     function elenchiPromemoria(ev) {
-        const out = { sala: [], online: [], senzaEmail: 0, doppie: 0, assenti: 0, caricato: _evIscrizioni !== null };
+        const out = { sala: [], online: [], senzaEmail: 0, doppie: 0, assenti: 0, inAttesa: 0, caricato: _evIscrizioni !== null };
         /* Gli assenti a parte, per serie e con la sezione: la mail DOPO
            l'evento (il ringraziamento) va anche a loro, e la sua riga li conta. */
         out.assentiPer = { sala: [], online: [] };
@@ -25586,6 +26339,7 @@
         out.conti = { sala: conto(), online: conto() };
         const visti = { sala: {}, online: {} };
         soloIscritti(ev, _evIscrizioni || []).forEach(r => {
+            if (inAttesaConfermaMail(ev, r)) { out.inAttesa++; return; }
             const m = modalitaDi(ev, r);
             const serie = m === 'online' ? 'online' : 'sala';
             const c = out.conti[serie];
@@ -25840,7 +26594,10 @@
             + tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala), dest.conti.sala)
             + tessera('Destinatari online', dest.online.length, 'sezione Online', dest.conti.online)
             + '<div class="pm-riepilogo-azioni"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest"' + (dest.caricato ? '' : ' disabled') + '>Scarica i destinatari (CSV)</button>'
-            + '<div class="hint">In testata si contano i <b>posti</b>; qui gli <b>indirizzi</b> a cui parte la mail: una per iscrizione, niente agli assenti e a chi non ha un\'email valida. Fa eccezione la mail <b>dopo l\'evento</b> (il ringraziamento), che va anche a chi è segnato assente. Gli invitati ai soli incontri B2B non sono in nessuno dei due conti.</div>'
+            + '<div class="hint">In testata si contano i <b>posti</b>; qui gli <b>indirizzi</b> a cui parte la mail: una per iscrizione, niente agli assenti e a chi non ha un\'email valida. Fa eccezione la mail <b>dopo l\'evento</b> (il ringraziamento), che va anche a chi è segnato assente. Gli invitati ai soli incontri B2B non sono in nessuno dei due conti.'
+            + (dest.inAttesa ? ' Nemmeno ' + (dest.inAttesa === 1 ? 'l\'iscrizione' : 'le <b>' + dest.inAttesa + '</b> iscrizioni')
+                + ' <b>in attesa di conferma mail</b>: ' + (dest.inAttesa === 1 ? 'riceve' : 'ricevono') + ' da quando l\'indirizzo è confermato.' : '')
+            + '</div>'
             + '</div></div>'
             + sezione('sala', 'In sala', 'ospiti in presenza, aderenti Revilaw, sponsor e relatori', dest.sala, true)
             + sezione('online', 'Online', 'chi segue la diretta', dest.online, false);
@@ -25947,7 +26704,8 @@
         // la mail DOPO l'evento (il ringraziamento) va anche agli assenti: come nel servizio
         const conAssenti = !!(opz && opz.conAssenti);
         (_evIscrizioni || []).forEach(r => {
-            const m = modalitaDi(ev, r);
+            // chi aspetta di confermare l'email non e' in nessuna sezione: come nel servizio
+            const m = sezioneVista(ev, r);
             if ((sezioni || []).indexOf(m) < 0) return;
             // chi e' segnato assente non riceve: come nel servizio
             const assente = String((EventiPresenze.di(ev.id, r.id) || {}).stato || '') === 'assente';
@@ -26662,21 +27420,66 @@
         return ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
     }
 
-    /* VERSIONE "SALA": l'invito di sempre, con il posto in presenza da
-       riservare. */
-    function invTestoSala(ev) {
-        return invAperturaInvito(ev)
-            /* Il codice. Va detto per cosa serve e cosa succede se non lo si
-               usa, altrimenti resta cinque caratteri buttati in fondo a una
-               mail e nessuno lo trascrive. Il segnaposto {codice} lo sostituisce
-               il servizio, azienda per azienda, con quello riservato a lei. */
-            + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
+    /* Quante iscrizioni ammette un codice, se l'evento lo fissa
+       (iscrizioniPerCodice in EVENTI_DEF); zero vuol dire nessun tetto. */
+    function invIscrizioniPerCodice(ev) {
+        const n = Math.floor(Number(ev && ev.iscrizioniPerCodice));
+        return n > 0 ? n : 0;
+    }
+    /* Il tetto in lettere: in una lettera formale "due iscrizioni" si legge,
+       "2 iscrizioni" sembra un modulo. Al femminile, perche' si contano
+       iscrizioni e persone; oltre il dieci restano le cifre. */
+    function invInLettere(n) {
+        return ['', 'una', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove', 'dieci'][n] || String(n);
+    }
+
+    /* IL CODICE, scritto una volta sola per le due versioni. Va detto per
+       cosa serve e cosa succede se non lo si usa, altrimenti resta cinque
+       caratteri buttati in fondo a una mail e nessuno lo trascrive. Il
+       segnaposto {codice} lo sostituisce il servizio, azienda per azienda,
+       con quello riservato a lei. Fra le due versioni cambiano solo una
+       parola (in sala ci si registra, alla diretta ci si iscrive) e il
+       mestiere del codice: tenere il posto, oppure dare la precedenza in
+       coda. Stava scritto due volte, ed e' proprio il pezzo in cui due copie
+       che divergono mandano a centinaia di aziende due regole diverse.
+
+       QUANTE ISCRIZIONI. Se l'evento fissa un tetto per codice (a Milano
+       due), la lettera lo dice. E' una regola che il servizio fa rispettare
+       (lib/iscrizione-verificata.js, MAX_PER_CODICE), e scoprirla al
+       modulo, quando la terza persona si vede rifiutare il codice, vuol dire
+       una telefonata in segreteria e un'azienda scontenta. Detto qui, chi
+       riceve la PEC sa che il codice si passa a un collega, non a tutto
+       l'ufficio, e che ognuno si registra con i propri dati: il modulo
+       accetta un'iscrizione per email e per cellulare, verificato via SMS.
+       Senza tetto il testo resta quello di sempre, parola per parola. */
+    function invParagrafoCodice(ev, versione) {
+        const diretta = versione === 'diretta';
+        const n = invIscrizioniPerCodice(ev);
+        const comeSiIscrive = (diretta ? 'iscrivendosi' : 'registrandosi')
+            + ' con il proprio nome, il proprio indirizzo email e il proprio numero di cellulare.';
+        const tetto = !n ? ''
+            : (n === 1
+                ? 'Il codice consente una sola iscrizione: può utilizzarlo una persona della Vostra azienda, '
+                : 'Lo stesso codice consente al massimo ' + invInLettere(n) + ' iscrizioni: possono utilizzarlo '
+                + 'fino a ' + invInLettere(n) + ' persone della Vostra azienda, ciascuna ')
+            + comeSiIscrive + '\n\n';
+        return 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
             /* Da sola su una riga: cosi' diventa il riquadro. Gli spazi davanti
                non servivano a niente, l'HTML se li mangia. */
             + '{codice}\n\n'
             + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato '
-            + 'e va indicato nel modulo di registrazione, nel campo dedicato: è quello che ci permette '
-            + 'di riconoscere le aziende selezionate e di tenere il posto riservato.\n\n'
+            + 'e va indicato nel modulo di ' + (diretta ? 'iscrizione' : 'registrazione')
+            + ', nel campo dedicato: è quello che ci permette di riconoscere le aziende selezionate e di '
+            + (diretta ? 'darVi la precedenza sulla lista d\'attesa per la sala' : 'tenere il posto riservato')
+            + '.\n\n'
+            + tetto;
+    }
+
+    /* VERSIONE "SALA": l'invito di sempre, con il posto in presenza da
+       riservare. */
+    function invTestoSala(ev) {
+        return invAperturaInvito(ev)
+            + invParagrafoCodice(ev, 'sala')
             + 'La partecipazione è gratuita e i posti sono limitati. Per riservare il posto Vi chiediamo '
             + 'di registrarVi a stretto giro: le adesioni si raccolgono in ordine di arrivo e i posti '
             + 'riservati alle aziende selezionate restano disponibili fino a esaurimento della sala.\n\n'
@@ -26712,11 +27515,7 @@
             + 'dell\'ultima settimana ci sono sempre, e quando un posto si libera Vi scriviamo, lasciandoVi '
             + 'decidere se venire di persona. Non occorre fare altro: l\'iscrizione alla diretta vale anche '
             + 'come richiesta di un posto in presenza.\n\n'
-            + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
-            + '{codice}\n\n'
-            + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato e va '
-            + 'indicato nel modulo di iscrizione, nel campo dedicato: è quello che ci permette di riconoscere '
-            + 'le aziende selezionate e di darVi la precedenza sulla lista d\'attesa per la sala.\n\n'
+            + invParagrafoCodice(ev, 'diretta')
             + 'Nei giorni precedenti l\'evento riceverete il collegamento e le istruzioni per seguire i lavori.\n\n'
             + 'Il programma completo e il modulo di iscrizione alla diretta sono qui:\n\n'
             + invPaginaEvento(ev) + '\n\n'
@@ -28971,6 +29770,8 @@
            domanda a cui prima o poi qualcuno risponde male. */
         const conVersioni = campI.id !== 'sponsor';
         let versione = conVersioni ? invVersionePredefinita(ev) : 'sala';
+        // quante iscrizioni ammette un codice (a Milano due): lo ricorda l'aiuto sotto il testo
+        const perCodice = invIscrizioniPerCodice(ev);
         /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
            campagna ma dal TESTO: il pulsante si puo' togliere dallo sponsor e
            si puo' incollare in un invito, e in tutti e due i casi la domanda
@@ -29072,7 +29873,18 @@
                 + 'pulsante sparisce e chi vuole essere ricontattato non ha più come dirlo.'
                 : '<b>{codice}</b> è diverso: è il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
                 + 'al momento dell\'invio e che l\'azienda dovrà scrivere nel modulo di registrazione. Toglilo dal testo e '
-                + 'nessuno saprà di averlo.')
+                + 'nessuno saprà di averlo.'
+                /* Il tetto per codice sta nel capoverso proposto, e un capoverso
+                   riscritto a mano lo perde senza che nessuno se ne accorga:
+                   lo si scopre quando la terza persona si vede rifiutare il
+                   codice. */
+                + (perCodice
+                    ? ' Per questo evento il codice ammette ' + (perCodice === 1
+                        ? '<b>una sola iscrizione</b>'
+                        : 'al massimo <b>' + invInLettere(perCodice) + ' iscrizioni</b>')
+                    + ': il modulo rifiuta quelle in più, e il testo proposto lo dice. Se riscrivi quel capoverso, '
+                    + 'lascia la frase, altrimenti l\'azienda lo scopre solo quando il codice non passa.'
+                    : ''))
             + '</div></div>'
             /* La spunta del rinvio. Prima diceva solo "manda anche a chi ha gia
                ricevuto l'invito", che lascia aperta la domanda vera: e se NON

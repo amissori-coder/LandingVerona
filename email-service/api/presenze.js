@@ -75,6 +75,10 @@ function moduloCene() { return require('../lib/cene-evento'); }
 /* La conferma dell'indirizzo email: il pregresso (amministratore) e il
    reinvio della mail con il pulsante. Si carica solo quando serve. */
 function moduloConferma() { return require('../lib/conferma-email'); }
+/* Le iscrizioni verificate (Milano 2027): il codice invito e il cellulare
+   contano le schede per nome di documento, e la Modifica che sposta una
+   scheda li deve riportare sul nome nuovo (trasloca). Si carica solo allora. */
+function moduloVerificata() { return require('../lib/iscrizione-verificata'); }
 function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'cene'); }
 /* Le iscrizioni a pagamento degli aderenti Revilaw (Milano 2027): le raccoglie
    la pagina riservata passando da api/iscrizione-nuova, e da qui le legge chi
@@ -278,13 +282,16 @@ async function ePartner(db, ruolo) {
     } catch (_) { return false; }
 }
 
-// stesso trasporto SMTP delle altre mail dell'area riservata
+/* stesso trasporto SMTP delle altre mail dell'area riservata, con i tempi
+   massimi: un server di posta muto non deve tenere ferma l'area riservata
+   fino al limite della funzione */
 function trasporto() {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT) || 465,
         secure: (Number(process.env.SMTP_PORT) || 465) === 465,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 15000, dnsTimeout: 5000
     });
 }
 
@@ -688,7 +695,21 @@ module.exports = async (req, res) => {
            mail dell'iscrizione dal sito, composta dal servizio perche' il
            pulsante porta una firma che solo il servizio conosce. Una volta
            ogni dieci minuti per scheda: e' una mail a una persona, e chi
-           preme due volte ne manderebbe due. */
+           preme due volte ne manderebbe due.
+           Parte dalla stessa funzione dell'iscrizione (lib/conferma-email.js,
+           spedisciConferma), che riscrive `mailConferma`: un "mail non
+           inviata" rimasto dall'iscrizione sparisce quando il rinvio riesce, e
+           se il rinvio fallisce resta scritto con il motivo nuovo. Agli eventi
+           che chiedono la conferma parte anche l'SMS "conferma la tua email"
+           al cellulare verificato, e la scheda torna nel giro automatico (il
+           promemoria del giorno dopo, se non l'ha gia' avuto).
+           Una scheda che NON viene dal modulo del sito (inserita a mano, da un
+           portale, importata: CONF.dalModuloDelSito, deciso sulla scheda di
+           PRIMA dell'invio) riceve la mail ma non la sua traccia
+           (`traccia: false`): con `mailConferma` un'importata diventerebbe
+           "in attesa di conferma" - fuori dai conti della sala e dai
+           promemoria - per una mail che lo staff le ha solo rimandato. Niente
+           SMS e niente giro automatico per lei: non ha niente da confermare. */
         if (azione === 'richiedi-conferma-email') {
             const rif = db.collection('iscrizioni').doc(testo(body.doc, 400) || idIscrizione(idIscritto));
             const snap = await rif.get();
@@ -702,22 +723,31 @@ module.exports = async (req, res) => {
                 res.status(429).json({ ok: false, msg: 'Mail già rimandata pochi minuti fa: aspetta dieci minuti prima di rimandarla.' });
                 return;
             }
-            const m = CONF.mailDiConferma(rif.id, scheda);
-            try {
-                const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-                const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
-                const messaggio = Object.assign({ from: '"' + fromName + '" <' + fromEmail + '>' }, m);
-                const ccn = ccnOperatore(email, emailSessione, scheda.email);
-                if (ccn) messaggio.bcc = ccn;
-                await trasporto().sendMail(messaggio);
-            } catch (e) {
-                const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+            const V = moduloVerificata();
+            const evV = V.eventoDi(scheda.pagina);
+            const daSito = CONF.dalModuloDelSito(scheda);
+            const esito = await CONF.spedisciConferma(db, rif.id, scheda, daSito ? {
+                via: 'staff',
+                bcc: ccnOperatore(email, emailSessione, scheda.email),
+                attesa: !!evV && CONF.inAttesaDiConferma(scheda)
+            } : {
+                via: 'staff',
+                bcc: ccnOperatore(email, emailSessione, scheda.email),
+                traccia: false
+            });
+            if (!esito.ok) {
+                const motivo = String(esito.errore || 'errore del server di posta').slice(0, 200);
                 console.error('Mail di conferma a', scheda.email, 'non rimandata:', motivo);
                 res.status(502).json({ ok: false, msg: 'Mail non inviata: ' + motivo });
                 return;
             }
             await rif.set({ emailConfermaRimandata: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() } }, { merge: true });
-            res.status(200).json({ ok: true, mail: { inviata: true } });
+            let sms = { inviato: false };
+            if (evV && daSito && scheda.telefonoNumero) {
+                const s = await V.smsConfermaEmail(db, { idDoc: rif.id, numero: scheda.telefonoNumero, email: scheda.email, tipo: 'inviata' });
+                sms = { inviato: s.ok === true };
+            }
+            res.status(200).json({ ok: true, mail: { inviata: true }, sms: sms });
             return;
         }
         if (azione === 'richiedi-dati') {
@@ -1799,15 +1829,101 @@ module.exports = async (req, res) => {
             // un nuovo documento e con lei lo stato e la nota gia' registrati.
             const idNuovo = (nuovo.email || (chiaveTesto(nuovo.nome) + '.' + chiaveTesto(nuovo.cognome))) + '|' + nuovo.data;
             const rifNuovo = db.collection('iscrizioni').doc(idIscrizione(idNuovo));
+            const trasloco = idIscrizione(idNuovo) !== idIscrizione(idIscritto);
+            const stessoIndirizzo = String(attuale.email || '').trim().toLowerCase() === String(nuovo.email || '').trim().toLowerCase();
+            if (trasloco) {
+                /* E con loro tutto quello che dice DA DOVE VIENE la scheda e
+                   cosa le e' gia' successo: chi l'ha inserita a mano, da quale
+                   portale o importazione arriva, il codice invito con l'azienda
+                   e le colonne del suo file, il cellulare verificato per SMS, i
+                   consensi, le mail gia' partite, i posti dell'ordine, gli
+                   spostamenti d'azienda, l'annullamento. Sullo stesso documento
+                   il merge li conserva da se'; sul documento nuovo, senza queste
+                   righe, una lettera corretta nell'email farebbe di
+                   un'iscrizione da Eventbrite una "in attesa di conferma"
+                   (Milano), di un invitato con il codice uno senza azienda
+                   bloccata ne' colonne del file, e di un'annullata una scheda
+                   di nuovo attiva. Restano indietro gli inviti B2B e il
+                   richiamo dopo il convegno: sono legati al documento vecchio
+                   (i collegamenti firmati, i referenti dell'agenda), e vanno
+                   rifatti. */
+                ['inserito', 'origine', 'portale', 'portaleNome', 'partecipanti', 'partecipantiOrdine', 'extra', 'importato', 'soloB2B',
+                    'invitoCodice', 'invitoAzienda', 'invitoScheda', 'selezionata', 'datiInvito',
+                    'telefonoVerificato', 'telefonoNumero', 'consensoRiprese', 'privacy', 'marketing', 'ricevuto',
+                    'profilo', 'settore', 'dimensione', 'incontro', 'interessi',
+                    'mailConferma', 'mailInvito', 'compilato', 'completato', 'aziendaSpostata', 'aziendaStorico', 'annullato']
+                    .forEach(k => { if (attuale[k] !== undefined && nuovo[k] === undefined) nuovo[k] = attuale[k]; });
+                /* La conferma dell'email vale per QUELL'indirizzo: segue la
+                   scheda se l'indirizzo e' lo stesso (si e' corretta la data),
+                   non se e' cambiato. Un indirizzo nuovo non e' confermato: a
+                   Milano la riga va "In attesa di conferma mail", e dal menu
+                   della riga si rimanda la mail al nuovo indirizzo - subito,
+                   senza la pausa di dieci minuti di quello vecchio. */
+                if (stessoIndirizzo) {
+                    if (attuale.emailConfermata !== undefined) nuovo.emailConfermata = attuale.emailConfermata;
+                    if (attuale.emailConfermaRimandata !== undefined) nuovo.emailConfermaRimandata = attuale.emailConfermaRimandata;
+                    /* E il giro automatico delle mail di conferma: la bandiera
+                       e i conti degli invii a quell'indirizzo (lib/conferma-email.js) */
+                    ['confermaInAttesa', 'invioConferma', 'promemoriaConferma', 'rimandaConferma', 'smsConferma']
+                        .forEach(k => { if (attuale[k] !== undefined) nuovo[k] = attuale[k]; });
+                } else {
+                    /* Un indirizzo NUOVO non ha ricevuto niente. La mail partita
+                       resta scritta (dice che la scheda viene dal modulo, e
+                       un'importata senza mail non e' "in attesa"), ma con
+                       l'indirizzo a cui era andata: per quello nuovo non vale.
+                       E a un evento che chiede la conferma la scheda entra nel
+                       giro automatico, che al nuovo indirizzo manda la mail da
+                       solo, entro dieci minuti. */
+                    if (nuovo.mailConferma && typeof nuovo.mailConferma === 'object' && !nuovo.mailConferma.a) {
+                        nuovo.mailConferma = Object.assign({}, nuovo.mailConferma, { a: String(attuale.email || '').trim().toLowerCase() });
+                    }
+                    // solo per una scheda che c'era davvero (non una riga del vecchio foglio)
+                    if (snap.exists && moduloVerificata().eventoDi(nuovo.pagina) && moduloConferma().inAttesaDiConferma(nuovo)) nuovo.confermaInAttesa = true;
+                }
+            }
             await rifNuovo.set(nuovo, { merge: true });
-            if (idIscrizione(idNuovo) !== idIscrizione(idIscritto)) {
+            if (trasloco) {
+                /* I conti delle iscrizioni verificate (Milano 2027) puntano
+                   alla scheda per nome: i due posti del codice invito e il
+                   cellulare (e l'email, se e' rimasta la stessa). Si riportano
+                   sul nome nuovo PRIMA di cancellare il vecchio: se qualcosa si
+                   ferma a meta', il posto resta contato e la modifica si puo'
+                   ripetere (lib/iscrizione-verificata.js, trasloca). */
+                const V = moduloVerificata();
+                await V.trasloca(db, {
+                    da: idIscrizione(idIscritto), a: idIscrizione(idNuovo),
+                    codice: String(attuale.invitoCodice || ''),
+                    ev: V.eventoDi(nuovo.pagina),
+                    email: stessoIndirizzo ? String(nuovo.email || '').trim().toLowerCase() : '',
+                    numero: String(attuale.telefonoNumero || '')
+                });
                 const pVecchia = await db.collection('presenze').doc(idDoc(evento, idIscritto)).get();
                 if (pVecchia.exists) {
                     const pd = pVecchia.data() || {};
                     await db.collection('presenze').doc(idDoc(evento, idNuovo))
                         .set({ ...pd, idIscritto: idNuovo }, { merge: true });
                 }
+                /* I posti 2..N dell'ordine che hanno un nome stanno su documenti
+                   loro ("<scheda>~p2", "~p3"...), legati a questa con "gruppo":
+                   il modulo "completa i dati" li ritrova per nome. Lasciati
+                   indietro, dal collegamento nuovo quei posti sembrerebbero
+                   vuoti: rimandando il modulo si conterebbero due volte, e
+                   annullandoli non si annullerebbe nessuno. Traslocano con la
+                   scheda; la loro presenza ha la chiave del loro indirizzo e
+                   della loro data, che non cambiano, e resta dov'e'. */
+                const nPosti = Math.min(99, Math.max(1,
+                    parseInt(attuale.partecipantiOrdine, 10) || parseInt(attuale.partecipanti, 10) || 1));
+                const figli = [];
+                for (let i = 2; i <= nPosti; i++) {
+                    const sf = await db.collection('iscrizioni').doc(idIscrizione(idIscritto) + '~p' + i).get();
+                    if (sf.exists) figli.push({ i: i, dati: sf.data() || {} });
+                }
                 const b = db.batch();
+                figli.forEach(f => {
+                    b.set(db.collection('iscrizioni').doc(idIscrizione(idNuovo) + '~p' + f.i),
+                        { ...f.dati, gruppo: idIscrizione(idNuovo) });
+                    b.delete(db.collection('iscrizioni').doc(idIscrizione(idIscritto) + '~p' + f.i));
+                });
                 b.delete(rifVecchio);
                 b.delete(db.collection('presenze').doc(idDoc(evento, idIscritto)));
                 await b.commit();

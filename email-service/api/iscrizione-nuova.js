@@ -85,14 +85,26 @@ const CONFERMA = require('../lib/conferma-email');
 const VERIFICATA = require('../lib/iscrizione-verificata');
 // la casella "non sono un robot" prima dell'SMS (lib/captcha.js)
 const CAPTCHA = require('../lib/captcha');
+/* Le colonne del file da cui e' stata caricata l'azienda invitata, che con
+   il codice passano sulla scheda di chi si registra. Il modulo e' piccolo e
+   non carica niente: lib/aziende-invito.js, che le scrive, da qui non si
+   carica (si porta dietro il lettore della PEC). */
+const DATI_FILE = require('../lib/dati-file-azienda');
+/* Le domande dal modulo del sito (/contatti/): una pagina aperta, con il
+   freno per indirizzo IP di questo file, il CAPTCHA e un tetto per
+   indirizzo. Tutto in lib/domande-sito.js. */
+const DOMANDE = require('../lib/domande-sito');
 
-// stesso trasporto SMTP delle altre mail di servizio
+/* stesso trasporto SMTP delle altre mail di servizio, con i tempi massimi:
+   senza, un server di posta muto tiene ferma la risposta al modulo fino al
+   limite della funzione (nodemailer aspetta minuti) */
 function trasporto() {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT) || 465,
         secure: (Number(process.env.SMTP_PORT) || 465) === 465,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 15000, dnsTimeout: 5000
     });
 }
 function mittenteMail() {
@@ -102,7 +114,9 @@ function mittenteMail() {
 }
 /* Le conferme automatiche partono SOLO per i moduli degli eventi: su questo
    archivio scrivono anche gli altri moduli del sito (approfondimenti,
-   newsletter), e a quelli non va spedito nulla. */
+   newsletter), e a quelli non va spedito nulla. Per i moduli di contatto
+   delle pagine dei temi parte solo l'avviso a noi (la richiesta di
+   check-up, in fondo), e mai per una pagina che nomina un evento. */
 const RE_PAGINA_EVENTO = /verona|roma|napoli|milano/i;
 
 function leggiServiceAccount() {
@@ -255,21 +269,6 @@ function idDocumento(email, data, nome, cognome) {
     return base.replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
 }
 
-
-/* COM'E' ANDATA LA MAIL DI CONFERMA, scritto sulla scheda. Un invio che
-   fallisce finiva solo nei log del servizio, dove nessuno guarda: chi
-   organizza vedeva l'iscritto e basta, e chi si era iscritto aspettava una
-   mail che non sarebbe arrivata. Con `mailConferma` sulla scheda l'area
-   riservata puo' dire "mail non inviata" accanto all'indirizzo, con il
-   motivo che ha dato il server di posta. E' informazione, non condizione:
-   se questa scrittura fallisce l'iscrizione resta com'e'. */
-async function tracciaMail(db, idDoc, esito) {
-    try {
-        await db.collection('iscrizioni').doc(idDoc).set({
-            mailConferma: { quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200) }
-        }, { merge: true });
-    } catch (e) { /* la mail e' gia' partita o gia' fallita: qui non cambia niente */ }
-}
 
 /* Segna che i dati sono cambiati, cosi la lettura sa che deve rileggere. */
 async function segnaCambiamento(db) {
@@ -1318,6 +1317,12 @@ async function completaIscrizione(azione, body, res, ip) {
                 telefono: String(scheda.telefono || ''),
                 // il cellulare verificato per SMS non si cambia: la pagina lo mostra bloccato
                 telefonoBloccato: !!scheda.telefonoVerificato,
+                /* e nemmeno l'azienda di chi si e' registrato con il codice
+                   dell'invito, dove la registrazione l'ha presa dal codice
+                   (gli eventi verificati, Milano 2027). Altrove (Napoli) il
+                   codice non tocca l'azienda: e' quella scritta nel modulo,
+                   e chi l'ha scritta la corregge da qui come prima. */
+                aziendaBloccata: !!(scheda.invitoCodice && VERIFICATA.eventoDi(scheda.pagina)),
                 annullato: !!scheda.annullato
             },
             // un elemento per posto (2..N): dati gia' scritti, segnaposto di un
@@ -1355,6 +1360,16 @@ async function completaIscrizione(azione, body, res, ip) {
     }
 
     const primo = posti[0];
+    /* L'AZIENDA DELL'INVITO non si cambia da qui: chi si e' registrato con
+       il codice e' arrivato per QUELL'azienda, ed e' l'unico nome che
+       combacia con l'elenco delle aziende invitate. Si rimette quella della
+       scheda prima di tutto il resto, cosi' anche la mail di riepilogo dice
+       quella vera e non quella scritta nel modulo. Solo dove l'azienda
+       della scheda e' davvero quella del codice: agli eventi verificati
+       (Milano 2027) la registrazione la scrive dall'invito; altrove e'
+       quella digitata nel modulo, e bloccarla vorrebbe dire tenersi un
+       errore di battitura. */
+    if (primo && !primo.annulla && scheda.invitoCodice && VERIFICATA.eventoDi(scheda.pagina)) primo.azienda = String(scheda.azienda || '');
     const posto1Annullato = !!(primo && primo.annulla);
     const senzaNomeAltri = posti.slice(1).filter(p => !p).length;
     const figliCompilati = posti.slice(1).filter(p => p && !p.annulla).length;
@@ -1390,7 +1405,29 @@ async function completaIscrizione(azione, body, res, ip) {
     patch.annullato = posto1Annullato
         ? { quando: Date.now(), da: 'intestatario' }
         : admin.firestore.FieldValue.delete();
-    await rif.set(patch, { merge: true });
+    /* La bandiera del giro delle mail di conferma (lib/conferma-email.js):
+       un'iscrizione annullata non aspetta piu' nessuna mail; una che si
+       riattiva senza aver confermato l'indirizzo, a un evento che lo chiede,
+       torna ad aspettarla (e il giro le manda il promemoria, se non l'ha
+       gia' avuto). */
+    if (posto1Annullato) {
+        patch.confermaInAttesa = admin.firestore.FieldValue.delete();
+    } else if (scheda.annullato && VERIFICATA.eventoDi(scheda.pagina)
+        && CONFERMA.inAttesaDiConferma(Object.assign({}, scheda, { annullato: null }))) {
+        patch.confermaInAttesa = true;
+    }
+    /* Ma agli eventi con le iscrizioni verificate (Milano 2027) un codice
+       invito vale per due iscrizioni attive, e mentre questa era annullata il
+       suo posto puo' essere andato a un altro: la riattivazione lo riprende
+       solo se e' ancora libero, nella stessa transazione che riscrive la
+       scheda (lib/iscrizione-verificata.js, riattiva). Se non lo e' non si
+       scrive niente - nemmeno i posti degli altri - e la pagina lo dice. */
+    if (scheda.annullato && !posto1Annullato && scheda.invitoCodice && VERIFICATA.eventoDi(scheda.pagina)) {
+        const r = await VERIFICATA.riattiva(db, { idDoc: idDoc, codice: scheda.invitoCodice, patch: patch });
+        if (!r.ok) { res.status(409).json({ ok: false, campo: r.campo, codiceKo: true, msg: r.msg }); return; }
+    } else {
+        await rif.set(patch, { merge: true });
+    }
 
     // i posti 2..N per POSIZIONE: documenti dal nome fisso, cosi' rimandare il
     // modulo sovrascrive invece di duplicare
@@ -1552,7 +1589,12 @@ module.exports = async (req, res) => {
                consumare gli invii di chi esce dallo stesso ufficio */
             'sms-verifica',
             // lo stato dell'iscrizione, riletto dalla pagina: firmato e di sola lettura
-            'stato-iscrizione']
+            'stato-iscrizione',
+            /* "non e' arrivata? rimandala": firmato come lo stato, con il
+               freno suo sulla scheda (due minuti, cinque al giorno). Dallo
+               stesso ufficio si iscrivono in tanti, e il freno per IP se lo
+               mangerebbero fra loro */
+            'rimanda-conferma']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1569,7 +1611,7 @@ module.exports = async (req, res) => {
         const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
         if (dalDesk) {
             if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
-        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina)
+        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina) && String(body.azione || '') !== 'domanda-sito'
             ? troppiInvii(ip, inviiVerificate, RL_MAX_VERIFICATE)
             : troppiInvii(ip))) {
             res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati: riprova fra qualche minuto.' }); return;
@@ -1628,7 +1670,12 @@ module.exports = async (req, res) => {
            dopo l'invio e, quando la persona conferma l'email (anche da un altro
            dispositivo), cambia da sola "manca un passo" in "iscrizione
            confermata". Firmato (NL.firmaStato, reso all'invio) e di sola
-           lettura: due si'/no, niente dati. */
+           lettura: tre si'/no, com'e' andata la mail di conferma ('inviata',
+           'errore' se l'ultimo invio non e' partito - riprova il giro
+           automatico - o 'in-attesa' se non ne risulta ancora nessuno) e
+           `attesaRimanda`, i secondi che mancano prima che il pulsante
+           "rimandala" possa chiederne un'altra (0: adesso), con lo stesso
+           freno di "rimanda-conferma". Niente dati. */
         if (azione === 'stato-iscrizione') {
             const idS = testo(body.d, 400);
             if (!idS || !NL.firmaStatoValida(idS, testo(body.t, 80))) { res.status(403).json({ ok: false }); return; }
@@ -1640,8 +1687,45 @@ module.exports = async (req, res) => {
                 ok: true,
                 emailConfermata: !!(x.emailConfermata && x.emailConfermata.quando),
                 invito: !!(x.mailInvito && x.mailInvito.ok),
-                annullato: !!x.annullato
+                annullato: !!x.annullato,
+                mail: CONFERMA.statoMail(x),
+                attesaRimanda: CONFERMA.attesaRimanda(x)
             });
+            return;
+        }
+        /* "NON E' ARRIVATA? RIMANDALA", dalla pagina di Milano dopo l'invio:
+           stessa firma di "stato-iscrizione" (la pagina la tiene gia'), stessa
+           mail con il pulsante, e il freno sulla scheda (lib/conferma-email.js,
+           rimandaConferma). Risponde l'indirizzo a cui e' partita, perche' chi
+           lo ha scritto male se ne accorga leggendolo. Dentro i due minuti
+           dall'ultimo invio il messaggio dice com'e' andato: "ti abbiamo
+           appena mandato la mail" solo se e' partita davvero. */
+        if (azione === 'rimanda-conferma') {
+            const idR = testo(body.d, 400);
+            if (!idR || !NL.firmaStatoValida(idR, testo(body.t, 80))) { res.status(403).json({ ok: false }); return; }
+            initAdmin(leggiServiceAccount());
+            const r = await CONFERMA.rimandaConferma(admin.firestore(), idR, { via: 'rimanda' });
+            const PIU = ' Se non arriva, scrivici dal modulo: ' + VERIFICATA.LINK_MODULO_MAIL;
+            if (r.esito === 'inviata') { res.status(200).json({ ok: true, inviata: true, a: r.a }); return; }
+            if (r.esito === 'assente') { res.status(404).json({ ok: false, msg: 'Iscrizione non trovata.' }); return; }
+            if (r.esito === 'confermata') {
+                res.status(200).json({ ok: false, confermata: true, msg: 'Il tuo indirizzo risulta già confermato: non serve un\'altra mail.' }); return;
+            }
+            if (r.esito === 'attesa') {
+                res.status(429).json({
+                    ok: false, attesa: r.attesa,
+                    msg: r.ultimoOk
+                        ? 'Ti abbiamo appena mandato la mail: per chiederne un\'altra aspetta ' + r.attesa + ' secondi. Intanto guarda anche nelle cartelle Spam, Posta indesiderata e Promozioni.'
+                        : 'Abbiamo appena provato a spedirti la mail e riproviamo in automatico: per chiederne un\'altra aspetta ' + r.attesa + ' secondi.'
+                }); return;
+            }
+            if (r.esito === 'troppi') {
+                res.status(429).json({ ok: false, attesa: r.attesa, msg: 'Per oggi ti abbiamo già rimandato la mail più volte: cercala nelle cartelle Spam, Posta indesiderata e Promozioni.' + PIU }); return;
+            }
+            if (r.esito === 'errore') {
+                res.status(502).json({ ok: false, msg: 'In questo momento non riusciamo a spedire la mail: riproviamo noi in automatico nei prossimi minuti.' + PIU }); return;
+            }
+            res.status(409).json({ ok: false, msg: 'Per questa iscrizione non c\'è una mail di conferma da rimandare.' + PIU });
             return;
         }
         /* Il codice SMS del cellulare (Milano 2027): "sms-invia" lo manda,
@@ -1676,6 +1760,18 @@ module.exports = async (req, res) => {
             const cred1 = leggiServiceAccount();
             initAdmin(cred1);
             const r = await CONTATTI.ricevi(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* LA DOMANDA DAL MODULO DEL SITO (/contatti/). Sta qui, prima della
+           scrittura generica qui sotto, e ci deve restare: quella scrive una
+           riga fra le iscrizioni e, con una `pagina` che nomina un evento, fa
+           partire la mail di conferma. Il freno per IP qui sopra vale anche
+           per lei (quello stretto, anche se arrivasse con una pagina di
+           Milano): e' un modulo aperto, che fa partire due mail. */
+        if (azione === 'domanda-sito') {
+            initAdmin(leggiServiceAccount());
+            const r = await DOMANDE.ricevi(admin.firestore(), body, { ip: ip });
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -1816,6 +1912,21 @@ module.exports = async (req, res) => {
                la scrive da se' appena il codice e' riconosciuto, e qui si
                tiene ferma, perche' e' l'unica che combacia con l'elenco. */
             if (evVerificato && invito.ragioneSociale) scheda.azienda = testo(invito.ragioneSociale, 200);
+            /* LE COLONNE DEL FILE dell'azienda invitata (ricavi, dipendenti,
+               revisore, sede...): si copiano qui, una volta, perche' l'elenco
+               degli iscritti si legge da solo e non va a cercare l'azienda
+               riga per riga. Una lettura in piu' solo per chi ha il codice.
+               Se non riesce l'iscrizione passa lo stesso: e' un dato in piu',
+               non una condizione. */
+            if (invito.scheda) {
+                try {
+                    const az = await admin.firestore().collection('aziendeInvito').doc(invito.scheda).get();
+                    const datiInvito = az.exists ? DATI_FILE.datiFileDi(az.data() || {}) : [];
+                    if (datiInvito.length) scheda.datiInvito = datiInvito;
+                } catch (e) {
+                    console.error('Dati dell\'azienda invitata non copiati:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
         }
 
         /* Il cellulare verificato: nella forma che si legge, piu' quella unica
@@ -1895,6 +2006,14 @@ module.exports = async (req, res) => {
         const accreditoDesk = dalDesk;
         if (accreditoDesk) DESK.completaScheda(scheda);
 
+        /* LA BANDIERA DEL GIRO DELLE MAIL DI CONFERMA (api/conferme-email.js):
+           a un evento che chiede la conferma, chi si iscrive dal sito aspetta
+           la mail con il pulsante. Si scrive con la scheda, nella stessa
+           transazione: se la funzione si chiudesse prima di spedire, il giro
+           la trova lo stesso e la mail parte da li'. Al desk no (la persona e'
+           in sala, la scheda ha il suo Portale). */
+        if (evVerificato && !dalDesk && CONFERMA.inAttesaDiConferma(scheda)) scheda.confermaInAttesa = true;
+
         const idDoc = idDocumento(email, data, nome, cognome);
         if (evVerificato) {
             /* Una transazione sola: unicita' di email e numero, posti del
@@ -1905,7 +2024,24 @@ module.exports = async (req, res) => {
                 numero: numeroVerificato, codice: invito ? invito.codice : ''
             });
             if (!r.ok) {
-                res.status(409).json({ ok: false, campo: r.campo, codiceKo: r.campo === 'codice', msg: r.msg });
+                /* Chi si riscrive mentre la sua iscrizione aspetta ancora la
+                   conferma, quasi sempre, e' chi non ha trovato la mail: gliela
+                   si rimanda (con il freno del pulsante "rimandala") e il
+                   messaggio dice dove cercarla e dove scriverci. Il numero qui
+                   e' gia' verificato per SMS: non e' un modo per far partire
+                   mail verso l'indirizzo di un altro. */
+                let msg = r.msg;
+                if (r.inAttesa) {
+                    let rimandata = false;
+                    try {
+                        const rr = await CONFERMA.rimandaConferma(admin.firestore(), r.inAttesa, { via: 'rimanda' });
+                        rimandata = rr.esito === 'inviata';
+                    } catch (e) {
+                        console.error('Mail di conferma non rimandata a chi si riscrive:', String((e && e.message) || e).slice(0, 200));
+                    }
+                    msg = VERIFICATA.msgInAttesa(r.campo, rimandata);
+                }
+                res.status(409).json({ ok: false, campo: r.campo, codiceKo: r.campo === 'codice', msg: msg });
                 return;
             }
         } else {
@@ -1922,7 +2058,8 @@ module.exports = async (req, res) => {
            non una condizione. Il codice NON si consuma - un'azienda invitata
            puo' mandare due persone, e la seconda non va respinta. Agli eventi
            con le iscrizioni verificate (Milano 2027) le persone sono DUE al
-           massimo: il conto lo tiene la transazione di VERIFICATA.registra. */
+           massimo: il conto lo tiene la transazione di VERIFICATA.registra
+           (e VERIFICATA.riattiva, per chi ci ripensa dopo aver annullato). */
         if (invito) {
             await CODICI.segnaUso(admin.firestore(), invito.codice, { email: email, iscrizione: idDoc });
             if (invito.scheda) {
@@ -1943,31 +2080,51 @@ module.exports = async (req, res) => {
         }
 
         /* Conferma automatica a chi si iscrive dai moduli degli EVENTI, con il
-           collegamento personale per modificare o annullare l'iscrizione: la
-           stessa possibilita' che ha chi viene inserito a mano. Se l'invio
-           fallisce l'iscrizione resta valida e il visitatore non se ne
-           accorge: la registrazione e' il lavoro, la mail la cortesia. */
+           pulsante "conferma il tuo indirizzo" in cima e il collegamento
+           personale per modificare o annullare l'iscrizione: la stessa
+           possibilita' che ha chi viene inserito a mano. Parte da
+           lib/conferma-email.js (spedisciConferma), che ha i tempi massimi,
+           un secondo tentativo se l'errore passa, e scrive com'e' andata
+           sulla scheda (`mailConferma`): l'area riservata la mostra, e agli
+           eventi che chiedono la conferma il giro automatico riprova da solo.
+           Se l'invio fallisce l'iscrizione resta valida: la registrazione e'
+           il lavoro, la mail la cortesia. */
+        let esitoMail = null;
         if (email && RE_PAGINA_EVENTO.test(pagina)) {
-            try {
-                const m = MNGB.confermaSito(
-                    {
-                        nome: nome, cognome: cognome, email: email, azienda: scheda.azienda,
-                        pagina: pagina, data: data, modalita: scheda.modalita || '',
-                        listaAttesa: scheda.listaAttesa === true
-                    },
-                    NL.linkCompleta(idDoc),
-                    // il pulsante "conferma il tuo indirizzo", in cima alla mail
-                    NL.linkConfermaEmail(idDoc));
-                await trasporto().sendMail({
-                    from: mittenteMail(), to: email,
-                    subject: m.oggetto, text: m.testo, html: m.html
-                });
-                await tracciaMail(admin.firestore(), idDoc, { ok: true });
-            } catch (e) {
-                const motivo = String((e && e.message) || e).slice(0, 200);
-                console.error('Conferma iscrizione dal sito non inviata:', motivo);
-                await tracciaMail(admin.firestore(), idDoc, { ok: false, errore: motivo });
-            }
+            esitoMail = await CONFERMA.spedisciConferma(admin.firestore(), idDoc, scheda, { via: 'iscrizione' });
+        }
+        /* LA RICHIESTA DI CHECK-UP dalle pagine dei temi (crisi_impresa/,
+           modello_231/...: `pagina` "<Tema> - Contatto"). Salvata la riga,
+           UNA mail a noi - info@ o DOMANDE_DESTINATARI - con "Rispondi" verso
+           chi l'ha chiesta, solo con un indirizzo nudo e dentro i tetti del
+           giorno (per indirizzo e per tutti); a chi scrive niente, perche'
+           qui non c'e' la casella "non sono un robot" (lib/domande-sito.js
+           spiega). Il messaggio va alla mail com'e' arrivato, con gli a capo
+           del riassunto dei simulatori: sulla riga e' su una riga sola.
+           QUANDO avvisare, invece, lo dicono queste condizioni, che
+           lasciano fuori ogni altro modulo che passa da questa strada: le
+           pagine degli eventi (anche quelle verificate e il desk, che
+           ricevono semmai la conferma qui sopra), la newsletter della home e
+           degli ebook ("- Newsletter"), qualunque corpo con un'azione. Se la
+           mail non parte (posta giu', un tetto raggiunto) la risposta resta
+           "ok": la riga e' salva, e l'esito ci resta scritto
+           (`avvisoInterno`). */
+        if (!azione && !dalDesk && !evVerificato && !RE_PAGINA_EVENTO.test(pagina) && DOMANDE.paginaCheckUp(pagina)) {
+            try { await DOMANDE.avvisaCheckUp(admin.firestore(), idDoc, scheda, { messaggio: body.messaggio }); }
+            catch (e) { console.error('Richiesta di check-up, avviso non riuscito:', String((e && e.message) || e).slice(0, 200)); }
+        }
+        /* E al cellulare appena verificato, l'SMS che dice dove cercare la
+           mail (anche fra la posta indesiderata) e dove chiederne un'altra; se
+           la mail non e' partita, che l'iscrizione c'e' e si riprova da soli.
+           Mai al desk (non c'e' un numero verificato) ne' a Napoli. Non ferma
+           niente: un SMS che non parte resta scritto sulla scheda, e basta.
+           Com'e' andato torna anche alla pagina (vedi la risposta, in fondo). */
+        const smsTipo = esitoMail && esitoMail.ok ? 'inviata' : 'non-inviata';
+        let esitoSms = null;
+        if (evVerificato && numeroVerificato && esitoMail) {
+            esitoSms = await VERIFICATA.smsConfermaEmail(admin.firestore(), {
+                idDoc: idDoc, numero: numeroVerificato, email: email, tipo: smsTipo
+            });
         }
 
         /* La diretta degli eventi (progetto Firebase SEPARATO, tutto in
@@ -1996,8 +2153,19 @@ module.exports = async (req, res) => {
 
         /* Agli eventi verificati la pagina riceve la firma per rileggere lo
            stato dell'iscrizione (azione "stato-iscrizione"): e' cosi' che la
-           conferma a video si aggiorna da sola quando l'email e' confermata. */
-        res.status(200).json(evVerificato ? { ok: true, stato: { d: idDoc, t: NL.firmaStato(idDoc) } } : { ok: true });
+           conferma a video si aggiorna da sola quando l'email e' confermata.
+           E l'azienda come e' stata scritta: con il codice e' quella
+           dell'invito, non per forza quella che c'era nel campo (una
+           verifica del codice andata a vuoto lo lascia libero), e la
+           conferma a video deve dire la stessa della mail e dell'elenco.
+           Poi l'SMS: `sms` vero solo se l'SMS "conferma la tua email" e'
+           partito davvero (tetto del giorno, Brevo giu': la pagina non deve
+           dire di cercarne uno che non c'e'), e `smsTipo` quale dei due testi
+           - 'inviata' se la mail e' partita, 'non-inviata' se no. */
+        res.status(200).json(evVerificato ? {
+            ok: true, azienda: scheda.azienda, stato: { d: idDoc, t: NL.firmaStato(idDoc) },
+            sms: !!(esitoSms && esitoSms.ok === true), smsTipo: smsTipo
+        } : { ok: true });
     } catch (e) {
         // il visitatore non deve vedere dettagli tecnici: restano nei log
         console.error('Iscrizione non registrata:', String((e && e.message) || e).slice(0, 200));

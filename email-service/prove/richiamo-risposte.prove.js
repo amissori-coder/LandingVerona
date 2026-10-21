@@ -51,13 +51,20 @@ const pezzi = [
     ritaglia('function giaRichiamato(', '{', '}'),
     ritaglia('function contiRichiamo(', '{', '}'),
     ritaglia('function risposteRichiamoHtml(', '{', '}'),
-    ritaglia('function daRichiamareB2B(', '{', '}')
+    ritaglia('function daRichiamareB2B(', '{', '}'),
+    /* chi e' online si decide con la sezione in cui la riga si guarda: vere
+       anche queste, perche' chi non ha mai confermato l'email non e' online */
+    ritaglia('function indirizziConfermati(', '{', '}'),
+    ritaglia('function confermaEmailDi(', '{', '}'),
+    ritaglia('function dalModuloDelSito(', '{', '}'),
+    ritaglia('function inAttesaConfermaMail(', '{', '}'),
+    ritaglia('function sezioneVista(', '{', '}')
 ].join('\n');
 
 /* Gli appigli che le funzioni ritagliate cercano intorno a se'. Sono gli
    stessi dell'app, ridotti all'osso: qui si prova la REGOLA, non il disegno. */
 const AMBIENTE = new Function('dammi',
-    'let _evIscrizioni = [], _AG = null;\n'
+    'let _evIscrizioni = [], _AG = null, _evConfCache = { lista: null, mappa: null };\n'
     + 'const COL_B2B_PRENOTATI = "B2B prenotati";\n'
     + 'const SEZIONI_MODALITA = [{ id: "presenza" }, { id: "online" }, { id: "b2b", fuoriElenco: true }];\n'
     + 'function fuoriElenco(m) { return !!(SEZIONI_MODALITA.find(x => x.id === m) || {}).fuoriElenco; }\n'
@@ -65,6 +72,8 @@ const AMBIENTE = new Function('dammi',
     + 'function modalitaDi(ev, r) { return String((r && r.modalita) || "presenza"); }\n'
     + 'function invitoB2BDi(r, evId) { return (r && r.b2bInvito && r.b2bInvito.eventoId === evId) ? r.b2bInvito : null; }\n'
     + 'function agendaDi(ev) { return _AG; }\n'
+    // le presenze: qui nessuno e' segnato (l'attesa della conferma le guarda per chi e' presente)
+    + 'const EventiPresenze = { di() { return null; } };\n'
     + pezzi
     + '\nreturn {'
     + '  metti: (righe, agenda) => { _evIscrizioni = righe || []; _AG = agenda === undefined ? null : agenda; },'
@@ -179,6 +188,20 @@ prova('6) Le platee e chi resta fuori', () => {
     esigi(g.online.length === 1 && g.online[0].doc === 'due', 'online chi risulta nella sezione online', g.online.length);
     esigi(g.fuori.length === 1 && g.fuori[0].doc === 'tre',
         'e fuori chi era in sala senza un tavolo', g.fuori.map(r => r.doc));
+});
+
+prova('7) Dove la conferma email e\' chiesta, chi non ha confermato non e\' online', () => {
+    const MI = { id: 'milano-2027-02-26', confermaEmail: true };
+    const righe = [
+        Object.assign(tizio('cinque', 0), { extra: {}, modalita: 'online', emailConfermata: { quando: 5, come: 'mail' } }),
+        /* iscritto dal sito per la diretta, l'email mai confermata: per l'elenco
+           e' "in attesa di conferma mail", e la proposta non gli si scrive */
+        Object.assign(tizio('sei', 0), { extra: {}, modalita: 'online' })
+    ];
+    AMBIENTE.metti(righe, { richieste: [] });
+    const g = AMBIENTE.platee(MI);
+    esigi(g.online.length === 1 && g.online[0].doc === 'cinque', 'online solo chi ha confermato', g.online.map(r => r.doc));
+    esigi(g.fuori.length === 1 && g.fuori[0].doc === 'sei', 'e chi non ha confermato si conta fra quelli fuori', g.fuori.map(r => r.doc));
 });
 
 console.log('\n' + ok + ' verdi, ' + ko + ' rossi');

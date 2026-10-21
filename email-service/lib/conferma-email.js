@@ -38,6 +38,29 @@
    risposta alla pagina non aspetta la diretta (waitUntil). Se l'avviso
    non arriva, lo ritrova la riconciliazione della diretta, che rilegge
    le schede confermate (emailConfermata.quando).
+
+   LA MAIL CON IL PULSANTE PARTE DA UN POSTO SOLO (spedisciConferma):
+   l'iscrizione dal sito, "Rimanda la mail di conferma" dell'area
+   riservata, il pulsante "non e' arrivata? rimandala" della pagina
+   (rimandaConferma), la domanda "non ho ricevuto la mail" dal modulo
+   /contatti/ e il giro automatico (api/conferme-email.js). Ognuno lascia
+   sulla scheda com'e' andata - `mailConferma: { quando, ok, errore, via,
+   a }`, con `a` l'indirizzo a cui e' partita - e il conto dei tentativi
+   (`invioConferma`). Cosi' un "mail non inviata" non resta indietro
+   quando un invio dopo riesce, e il giro sa a chi deve ancora scrivere.
+   Il server di posta ha tempi massimi stretti e un secondo tentativo,
+   uno solo, se l'errore e' di quelli che passano (rete, tempo scaduto,
+   un 4xx): una mail ferma non deve tenere ferma la risposta al modulo
+   fino al limite della funzione, che chiude tutto senza lasciare
+   traccia.
+
+   LA BANDIERA `confermaInAttesa`. Scritta a true sulle iscrizioni dal
+   sito agli eventi che chiedono la conferma (lib/iscrizione-verificata.js),
+   nella stessa transazione della scheda: e' cio' che il giro automatico
+   cerca, invece di rileggere tutte le iscrizioni ogni dieci minuti. Si
+   toglie quando l'indirizzo e' confermato (qui sotto, dal clic e dal
+   pregresso), quando l'iscrizione si annulla, e dal giro stesso quando
+   non ha piu' niente da fare.
    ============================================================ */
 
 const admin = require('firebase-admin');
@@ -73,18 +96,28 @@ function dettagliEvento(pagina) {
         inizio: d.inizio, fine: d.fine, url: d.url
     } : {};
 }
+/* Il trasporto, con i TEMPI MASSIMI. Senza, nodemailer aspetta due minuti
+   la connessione e dieci un server che non risponde: molto oltre il limite
+   della funzione, che si chiude senza lasciare traccia sulla scheda. */
 function trasporto() {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT) || 465,
         secure: (Number(process.env.SMTP_PORT) || 465) === 465,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 15000, dnsTimeout: 5000
     });
 }
 function mittente() {
     const ind = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
     const nome = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
     return '"' + nome + '" <' + ind + '>';
+}
+/* A chi arriva una risposta alla mail di conferma: il mittente e' noreply,
+   e chi risponde "non riesco a confermare" deve trovare qualcuno. */
+function rispondiA() {
+    const v = String(process.env.CONFERMA_RISPONDI_A || '').trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) ? v : 'info@nextgenerationbusiness.it';
 }
 function adessoInItalia() {
     const f = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -203,7 +236,8 @@ async function conferma(db, body, opz) {
         return { stato: 200, corpo: { ok: true, gia: true, quando: prima.quando, nome: nome, evento: evento } };
     }
     const quando = Date.now();
-    await rif.set({ emailConfermata: { quando: quando, come: 'mail' } }, { merge: true });
+    // confermata: il giro automatico non ha piu' niente da mandarle
+    await rif.set({ emailConfermata: { quando: quando, come: 'mail' }, confermaInAttesa: admin.firestore.FieldValue.delete() }, { merge: true });
     await segnaCambiamento(db);
     const online = String(scheda.modalita || '').toLowerCase() === 'online';
     // la password della diretta, adesso che l'indirizzo e' confermato (vedi LA DIRETTA)
@@ -237,7 +271,11 @@ async function pregresso(db, opz) {
     if (!filtro) return { stato: 400, corpo: { ok: false, msg: 'Evento mancante.' } };
     const snap = await db.collection('iscrizioni').get();
     const quando = Date.now();
-    const patch = { emailConfermata: { quando: quando, come: 'pregresso', da: testo((opz || {}).da, 200) } };
+    const patch = {
+        emailConfermata: { quando: quando, come: 'pregresso', da: testo((opz || {}).da, 200) },
+        // confermate d'ufficio: il giro automatico non le cerca piu'
+        confermaInAttesa: admin.firestore.FieldValue.delete()
+    };
     let batch = db.batch(), nel = 0, segnate = 0, giaFatte = 0;
     const docs = [];
     snap.forEach(d => docs.push(d));
@@ -274,4 +312,258 @@ function confermata(scheda) {
     return !!(c && typeof c === 'object' && c.quando);
 }
 
-module.exports = { conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, RL_MAX };
+/* IN ATTESA DI CONFERMA: si e' iscritta dal sito, la mail con il pulsante
+   e' partita, e non l'ha ancora premuto. Agli eventi dove l'iscrizione vale
+   solo dopo la conferma (Milano 2027, quelli di lib/iscrizione-verificata.js)
+   non e' ancora un posto: non ha ricevuto l'invito in PDF, non riceve i
+   promemoria, e nel riepilogo serale sta fra quelli in attesa.
+   Non lo e' mai chi non poteva ricevere la mail: le iscrizioni inserite a
+   mano dall'area riservata (`inserito`), quelle arrivate da un altro
+   portale o dal desk (`extra.Portale`) e quelle caricate con "Importa"
+   (`importato` senza `mailConferma`: l'importazione non manda nessuna
+   mail) sono gia' complete cosi'; e nemmeno chi non ha un indirizzo, che
+   non avrebbe niente da confermare. Una scheda del sito toccata dopo da
+   un'importazione (la colonna degli inviti B2B) ha `importato` ma anche
+   la sua `mailConferma`: e' partita dal modulo, e resta in attesa.
+   E non lo e' piu' chi e' venuto: `presenza` e' il documento delle
+   presenze di quell'evento, quando chi chiama lo ha, e con lo stato
+   "presente" la persona era in sala - le mail del giorno e il
+   ringraziamento devono arrivarle. Solo "presente": "confermato" lo
+   segna chi organizza prima dell'evento, e non dice niente
+   dell'indirizzo.
+   La regola deve restare la stessa dell'area riservata (app.js,
+   inAttesaConfermaMail): altrimenti la sezione "In attesa di conferma
+   mail" e chi riceve i promemoria direbbero due cose diverse.
+   Chi la usa la applica SOLO agli eventi che chiedono la conferma: a
+   Napoli una scheda senza conferma e' un iscritto come gli altri. */
+function inAttesaDiConferma(scheda, presenza) {
+    if (!scheda || scheda.annullato) return false;
+    if (!String(scheda.email || '').trim()) return false;
+    if (!dalModuloDelSito(scheda)) return false;
+    if (presenza && String(presenza.stato || '') === 'presente') return false;
+    return !confermata(scheda);
+}
+/* DAL MODULO DEL SITO: la scheda a cui la mail con il pulsante e' partita
+   da se', con l'iscrizione. Non lo sono quelle inserite a mano
+   (`inserito`), quelle di un altro portale o del desk (`extra.Portale`) e
+   quelle importate (`importato` senza `mailConferma`). La stessa regola
+   dell'area riservata (app.js, dalModuloDelSito). Per questo un rinvio
+   dallo staff a una di quelle non scrive `mailConferma` (spedisciConferma,
+   `traccia: false`): la farebbe diventare, da li' in poi, una scheda del
+   sito in attesa di conferma. */
+function dalModuloDelSito(scheda) {
+    if (!scheda) return false;
+    if (scheda.inserito || (scheda.extra && scheda.extra.Portale)) return false;
+    if (scheda.importato && !scheda.mailConferma) return false;
+    return true;
+}
+
+/* ============================================================
+   La spedizione della mail con il pulsante, e la sua traccia
+   ============================================================ */
+const VIE = ['iscrizione', 'rimanda', 'automatico', 'promemoria', 'staff'];
+const PAUSA_RIPROVA_MS = 1500;
+/* Oltre questo tempo il secondo tentativo non si fa: la risposta al modulo
+   (con l'SMS dopo) deve stare dentro il limite della funzione, e un server
+   che ci ha gia' messo tanto a dire di no non e' un intoppo di un attimo. */
+const RIPROVA_ENTRO_MS = 12000;
+function indirizzoDi(scheda) { return String((scheda && scheda.email) || '').trim().toLowerCase(); }
+/* Un errore che passa: la rete, un tempo scaduto, una connessione caduta, o
+   un 4xx del server di posta ("riprova piu' tardi"). Un 5xx e' un no. */
+function transitorio(e) {
+    if (!e) return false;
+    const rc = Number(e.responseCode);
+    if (rc >= 400 && rc < 500) return true;
+    return ['ETIMEDOUT', 'ECONNRESET', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'EPIPE']
+        .indexOf(String(e.code || '')) >= 0;
+}
+function motivo(e) { return String((e && e.message) || e || 'errore del server di posta').slice(0, 200); }
+const pausa = ms => new Promise(r => setTimeout(r, ms));
+
+/* La traccia della mail per l'indirizzo che la scheda ha ADESSO. Una
+   `mailConferma` partita per un altro indirizzo (l'amministratore lo ha
+   corretto dopo) per quello nuovo non vale: e' come se non ci fosse. */
+function mailPerIndirizzo(scheda) {
+    const m = scheda && scheda.mailConferma;
+    if (!m || typeof m !== 'object') return null;
+    if (m.a && String(m.a).toLowerCase() !== indirizzoDi(scheda)) return null;
+    return m;
+}
+function invioPerIndirizzo(scheda) {
+    const i = scheda && scheda.invioConferma;
+    return (i && typeof i === 'object' && String(i.a || '') === indirizzoDi(scheda)) ? i : null;
+}
+/* Quello che la pagina di Milano legge con "stato-iscrizione": 'inviata',
+   'errore' (l'ultimo invio non e' partito: si riprova da soli) o
+   'in-attesa' (nessun invio registrato per questo indirizzo). */
+function statoMail(scheda) {
+    const m = mailPerIndirizzo(scheda);
+    if (!m) return 'in-attesa';
+    return m.ok === true ? 'inviata' : 'errore';
+}
+
+/* Spedisce la mail di conferma di una scheda e scrive com'e' andata.
+   opz: { via, bcc, attesa, riprova, traccia }. `via` dice chi l'ha fatta
+   partire (VIE), `bcc` la copia nascosta a chi la rimanda dall'area
+   riservata, `attesa` rimette la bandiera per il giro automatico (chi
+   rimanda una mail a chi deve ancora confermare vuole anche il promemoria
+   del giorno dopo), `riprova: false` toglie il secondo tentativo (al giro
+   automatico non serve: riprova lui, con le sue pause, e il suo tempo e'
+   contato). `traccia: false` (lo staff che la rimanda a una scheda che non
+   viene dal modulo del sito, vedi dalModuloDelSito) non scrive ne'
+   `mailConferma` ne' `invioConferma` ne' la bandiera, che di quella scheda
+   farebbero una "in attesa di conferma": com'e' andata resta solo in
+   `mailConfermaStaff`, che nessuna regola legge.
+   Restituisce { ok, errore, a } e non lancia mai: se la traccia non si
+   scrive la mail e' gia' partita, o gia' fallita. */
+async function spedisciConferma(db, idDoc, scheda, opz) {
+    opz = opz || {};
+    const via = VIE.indexOf(opz.via) >= 0 ? opz.via : 'iscrizione';
+    const a = indirizzoDi(scheda);
+    let m = null;
+    try { m = mailDiConferma(idDoc, scheda); }
+    catch (e) { console.error('Mail di conferma (' + via + ') non composta:', motivo(e)); return { ok: false, errore: 'mail non composta', a: a }; }
+    if (!m || !a) return { ok: false, errore: 'indirizzo mancante', a: a };
+    const messaggio = Object.assign({
+        from: mittente(),
+        replyTo: rispondiA(),
+        // il tag con cui la si ritrova fra i log transazionali di Brevo
+        headers: { 'X-Mailin-Tag': 'conferma-iscrizione' }
+    }, m);
+    if (via === 'promemoria') messaggio.subject = 'Promemoria: ' + m.subject;
+    if (opz.bcc) messaggio.bcc = opz.bcc;
+    const inizio = Date.now();
+    let esito;
+    try {
+        await trasporto().sendMail(messaggio);
+        esito = { ok: true };
+    } catch (e) {
+        if (opz.riprova !== false && transitorio(e) && Date.now() - inizio < RIPROVA_ENTRO_MS) {
+            await pausa(PAUSA_RIPROVA_MS);
+            try {
+                await trasporto().sendMail(messaggio);
+                esito = { ok: true };
+            } catch (e2) { esito = { ok: false, errore: motivo(e2) }; }
+        } else {
+            esito = { ok: false, errore: motivo(e) };
+        }
+    }
+    if (!esito.ok) console.error('Mail di conferma (' + via + ') non inviata:', esito.errore);
+    const quando = Date.now();
+    let patch;
+    if (opz.traccia === false) {
+        patch = { mailConfermaStaff: { quando: quando, ok: esito.ok === true, errore: testo(esito.errore, 200), via: via, a: a } };
+    } else {
+        /* i conti di prima, per questo indirizzo; una scheda di prima del conto
+           ha solo mailConferma, che vale un tentativo (fallito o no) */
+        const mPrima = mailPerIndirizzo(scheda);
+        const prima = invioPerIndirizzo(scheda) || (mPrima ? { tentativi: 1, falliti: mPrima.ok === true ? 0 : 1 } : {});
+        patch = {
+            mailConferma: { quando: quando, ok: esito.ok === true, errore: testo(esito.errore, 200), via: via, a: a },
+            invioConferma: {
+                a: a, ultimo: quando,
+                tentativi: (Number(prima.tentativi) || 0) + 1,
+                // i fallimenti DI FILA: un invio riuscito li azzera (il giro li usa per le pause)
+                falliti: esito.ok ? 0 : (Number(prima.falliti) || 0) + 1
+            }
+        };
+        if (opz.attesa) patch.confermaInAttesa = true;
+        // l'invio e' finito: chi aspettava che finisse (il rinvio, il giro) puo' decidere da qui
+        patch.invioInCorsoFino = 0;
+    }
+    try {
+        const rif = db.collection('iscrizioni').doc(String(idDoc));
+        /* Il giro automatico scrive solo su una scheda che c'e' ancora. Se lo
+           staff la cancella mentre la mail parte, un set(merge) la farebbe
+           rinascere come guscio vuoto - senza pagina, quindi invisibile in
+           elenco, ma "attivo" per i controlli di unicita' - e la persona non
+           potrebbe piu' iscriversi con quell'email o quel cellulare. update()
+           su una scheda che non c'e' fallisce, e qui sotto si lascia correre. */
+        if (opz.soloSeEsiste) await rif.update(patch);
+        else await rif.set(patch, { merge: true });
+    } catch (e) { /* informazione, non condizione */ }
+    return { ok: esito.ok === true, errore: esito.errore || '', a: a };
+}
+
+/* --- "Non e' arrivata? Rimandala" ---
+   Dalla pagina di Milano (azione "rimanda-conferma", firmata come
+   "stato-iscrizione") e dalla domanda "non ho ricevuto la mail" del modulo
+   /contatti/. Solo per chi deve ancora confermare, a un evento che chiede
+   la conferma. Il freno sta sulla scheda, in una transazione: due minuti
+   fra un invio e l'altro (qualunque invio: anche quello dell'iscrizione) e
+   cinque rinvii nelle ventiquattr'ore. E' una mail a una persona: senza
+   freno un pulsante premuto a ripetizione, o un modulo compilato da un
+   altro con il suo indirizzo, gliene manderebbe una dietro l'altra.
+   Restituisce { esito, ... }: 'inviata' (con `a`), 'errore', 'attesa' e
+   'troppi' (con `attesa` in secondi; 'attesa' anche con `ultimoOk`, se
+   l'ultimo invio e' partito o no), 'confermata', 'assente', 'fuori'. */
+const RIMANDA_PAUSA_MS = 2 * 60 * 1000;
+/* UN INVIO ALLA VOLTA. Chi sta per spedire (il rinvio della pagina o del
+   modulo, il giro automatico) lo scrive sulla scheda in una transazione,
+   PRIMA di spedire: `invioInCorsoFino`. Senza, il giro e un "Rimandala"
+   premuto nello stesso momento vedrebbero tutti e due l'ultimo invio di
+   prima - quello che scrive la traccia arriva solo a mail partita - e
+   partirebbero due mail. Il segno scade da solo: un minuto copre i tempi
+   del server di posta (8 + 15 secondi, piu' un secondo tentativo), e chi
+   finisce lo azzera scrivendo la traccia. */
+const INVIO_IN_CORSO_MS = 60 * 1000;
+const RIMANDA_MAX_GIORNO = 5;
+const GIORNO_MS = 24 * 60 * 60 * 1000;
+/* Il freno, senza scrivere niente: lo usano il rinvio (qui sotto) e lo
+   stato che la pagina rilegge ("stato-iscrizione", attesaRimanda), cosi'
+   il conto alla rovescia del pulsante e il servizio non si contraddicono.
+   Restituisce { esito, attesa, ultimoOk, invii }: esito '' se si puo'
+   rimandare adesso, 'troppi' se i rinvii del giorno sono finiti (attesa:
+   fino a quando se ne libera uno, e almeno la pausa), 'attesa' se l'ultimo
+   invio a questo indirizzo - qualunque invio, anche quello
+   dell'iscrizione o del giro, riuscito o no - e' di meno di due minuti fa. */
+function frenoRimanda(x, ora) {
+    // l'ultimo invio a questo indirizzo (le schede di prima hanno solo mailConferma)
+    const m = mailPerIndirizzo(x);
+    const inv = invioPerIndirizzo(x);
+    const ultimo = inv ? Number(inv.ultimo) || 0 : Number((m || {}).quando) || 0;
+    const dopoUltimo = ultimo && ora - ultimo < RIMANDA_PAUSA_MS ? Math.ceil((RIMANDA_PAUSA_MS - (ora - ultimo)) / 1000) : 0;
+    // un invio in corso adesso (vedi UN INVIO ALLA VOLTA): si aspetta che finisca
+    const inCorso = Number(x && x.invioInCorsoFino) || 0;
+    const pausa = Math.max(dopoUltimo, inCorso > ora ? Math.ceil((inCorso - ora) / 1000) : 0);
+    const rr = x && x.rimandaConferma && typeof x.rimandaConferma === 'object' ? x.rimandaConferma : {};
+    const invii = (Array.isArray(rr.invii) ? rr.invii : []).map(Number).filter(t => t && ora - t < GIORNO_MS);
+    const ultimoOk = !!(m && m.ok === true);
+    if (invii.length >= RIMANDA_MAX_GIORNO) {
+        const tetto = Math.max(1, Math.ceil((Math.min.apply(null, invii) + GIORNO_MS - ora) / 1000));
+        return { esito: 'troppi', attesa: Math.max(tetto, pausa), ultimoOk: ultimoOk, invii: invii };
+    }
+    if (pausa) return { esito: 'attesa', attesa: pausa, ultimoOk: ultimoOk, invii: invii };
+    return { esito: '', attesa: 0, ultimoOk: ultimoOk, invii: invii };
+}
+/* Fra quanti secondi la persona puo' chiedere un'altra mail (0: adesso). */
+function attesaRimanda(x, ora) {
+    return frenoRimanda(x || {}, ora == null ? Date.now() : ora).attesa;
+}
+async function rimandaConferma(db, idDoc, opz) {
+    opz = opz || {};
+    const rif = db.collection('iscrizioni').doc(String(idDoc));
+    const ora = Date.now();
+    const r = await db.runTransaction(async tx => {
+        const s = await tx.get(rif);
+        if (!s.exists) return { esito: 'assente' };
+        const x = s.data() || {};
+        if (confermata(x)) return { esito: 'confermata' };
+        // gli eventi che chiedono la conferma: la regola sta in iscrizione-verificata
+        if (!require('./iscrizione-verificata').eventoDi(x.pagina) || !inAttesaDiConferma(x)) return { esito: 'fuori' };
+        const f = frenoRimanda(x, ora);
+        if (f.esito) return { esito: f.esito, attesa: f.attesa, ultimoOk: f.ultimoOk };
+        const invii = f.invii.concat([ora]);
+        tx.set(rif, { rimandaConferma: { invii: invii, ultimo: ora }, invioInCorsoFino: ora + INVIO_IN_CORSO_MS }, { merge: true });
+        return { esito: 'ok', scheda: x };
+    });
+    if (r.esito !== 'ok') return r;
+    const e = await spedisciConferma(db, idDoc, r.scheda, { via: opz.via || 'rimanda', attesa: true });
+    return { esito: e.ok ? 'inviata' : 'errore', a: e.a, errore: e.errore };
+}
+
+module.exports = {
+    conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
+    spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio,
+    RIMANDA_PAUSA_MS, RIMANDA_MAX_GIORNO, INVIO_IN_CORSO_MS
+};

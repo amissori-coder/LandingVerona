@@ -9,7 +9,9 @@
    COSA DIMOSTRANO. Che un promemoria confermato parte alle persone
    giuste e a quelle sole: la sezione decisa da chi organizza vince
    su quella dichiarata, chi ha annullato o e' cancellato resta fuori,
-   un indirizzo riceve una mail sola; che {{NOME}} e {{COMPLETA}}
+   un indirizzo riceve una mail sola, e a Milano resta fuori anche chi
+   non ha ancora confermato l'email (ma non chi e' stato importato, ne'
+   chi lo staff ha segnato presente); che {{NOME}} e {{COMPLETA}}
    diventano nome e cognome e il collegamento personale; che i giorni
    che mancano si contano la mattina dell'invio; che chi arriva dopo
    riceve il benvenuto, una mail al giorno, con la precedenza alla
@@ -672,6 +674,80 @@ await prova('22) Dopo l\'evento parte il ringraziamento, con le proposte vere: a
     orologio = Date.parse('2026-10-05T20:02:00+02:00');
     const r2 = await giro();
     esigi(noCopia().length === prima && r2.recuperi === 0 && r2.inviati === 0, 'la sera niente di nuovo: ne\' doppioni ne\' benvenuto');
+});
+
+await prova('23) Milano: chi non ha ancora confermato l\'email non riceve promemoria; a Napoli non cambia niente', async () => {
+    azzera();
+    const MILANO = 'Milano 26 Febbraio 2027 - Iscrizione';
+    const confermata = { emailConfermata: { quando: Date.parse('2026-09-10T10:00:00Z'), come: 'mail' } };
+    mettiIscrizioni([
+        iscr('attesa@esempio.it', 'Paola', 'Attesa', { pagina: MILANO }),                                    // dal sito, non ha confermato
+        iscr('confermata@esempio.it', 'Carlo', 'Confermato', Object.assign({ pagina: MILANO }, confermata)),
+        iscr('pregresso@esempio.it', 'Pia', 'Pregresso', { pagina: MILANO, emailConfermata: { quando: 5, come: 'pregresso' } }),
+        // inserita a mano dall'area riservata (Eventbrite): non ha una mail da confermare
+        iscr('mano@esempio.it', 'Mara', 'Mano', { pagina: 'Milano 26 Febbraio 2027', inserito: { da: 'segreteria@revilaw.it', quando: 1 } }),
+        // la stessa persona: in attesa dal sito, e poi registrata al desk
+        iscr('desk@esempio.it', 'Dino', 'Desk', { pagina: MILANO, _doc: 'desk-sito' }),
+        iscr('desk@esempio.it', 'Dino', 'Desk', { pagina: MILANO, data: '12/09/2026 09:00:00', _doc: 'desk-qr', extra: { Portale: 'Desk Revilaw' } }),
+        // Napoli: la conferma non e' una condizione
+        iscr('napoli@esempio.it', 'Nino', 'Napoli')
+    ], []);
+    mettiPromemoria([
+        recBase({ id: 'milano-2027-02-26~s1', evento: 'milano-2027-02-26', filtro: 'milano' }),
+        recBase()
+    ]);
+    const r = await giro();
+    const dest = noCopia().map(m => m.to).sort();
+    esigi(r._stato === 200 && JSON.stringify(dest) === JSON.stringify(['confermata@esempio.it', 'desk@esempio.it', 'mano@esempio.it', 'napoli@esempio.it', 'pregresso@esempio.it']),
+        'partono a confermati, inseriti a mano, desk e a Napoli; non a chi e\' in attesa (' + dest.join(', ') + ')');
+    esigi(noCopia().filter(m => m.to === 'desk@esempio.it').length === 1, 'chi e\' in attesa dal sito e poi passa dal desk riceve una mail, dalla scheda del desk');
+    const rec = leggiPromemoria('milano-2027-02-26~s1');
+    esigi(rec.invio && rec.invio.inAttesa === 2 && rec.invio.doppie === 0 && rec.invio.destinatari === 4,
+        'il record conta 2 in attesa (non doppioni) e 4 destinatari: ' + JSON.stringify(rec.invio && { inAttesa: rec.invio.inAttesa, doppie: rec.invio.doppie, destinatari: rec.invio.destinatari }));
+    esigi(leggiPromemoria('napoli-2026-10-02~s1').invio.inAttesa === 0, 'a Napoli nessuno e\' in attesa');
+    // la regola sta in un posto solo, e si applica solo dove la conferma e' una condizione
+    const I = cron._interni;
+    const soloAttesa = I.risolviDestinatari({ iscrizioni: [iscr('attesa@esempio.it', 'Paola', 'Attesa', { pagina: MILANO })] }, recBase({ evento: 'milano-2027-02-26', filtro: 'milano' }));
+    esigi(soloAttesa.destinatari.length === 0 && soloAttesa.inAttesa === 1, 'risolviDestinatari: 0 destinatari, 1 in attesa');
+    const annullata = I.risolviDestinatari({ iscrizioni: [iscr('attesa@esempio.it', 'Paola', 'Attesa', { pagina: MILANO, annullato: true })] }, recBase({ evento: 'milano-2027-02-26', filtro: 'milano' }));
+    esigi(annullata.inAttesa === 0 && annullata.cancellati === 1, 'un\'annullata resta un\'annullata, non un\'attesa');
+});
+
+await prova('24) Milano: chi lo staff ha segnato presente riceve le mail anche senza aver confermato; chi e\' stato importato non aspetta nessuna conferma', async () => {
+    azzera();
+    const MILANO = 'Milano 26 Febbraio 2027 - Iscrizione';
+    const EV = 'milano-2027-02-26';
+    const presente = iscr('presente@esempio.it', 'Pina', 'Presente', { pagina: MILANO });      // dal sito, mai confermato, ma era in sala
+    const aVoce = iscr('avoce@esempio.it', 'Vito', 'Voce', { pagina: MILANO });                // segnato "confermato": non basta
+    const mai = iscr('mai@esempio.it', 'Mario', 'Mai', { pagina: MILANO });                    // nessuna presenza
+    // caricata con "Importa": nessuna mail di conferma e' mai partita
+    const importata = iscr('importata@esempio.it', 'Ida', 'Importata', { pagina: 'Milano 26 Febbraio 2027', importato: true, extra: { Ruolo: 'CFO' } });
+    // dal sito, e poi toccata dalla colonna degli inviti B2B: la mail era partita, resta in attesa
+    const sitoImportata = iscr('sito@esempio.it', 'Saro', 'Sito', { pagina: MILANO, importato: true, mailConferma: { quando: 1, ok: true, errore: '' }, extra: { 'Invito B2B': 'si' } });
+    const iscrizioni = [presente, aVoce, mai, importata, sitoImportata];
+    const presenze = [
+        { evento: EV, idIscritto: idDi(presente), stato: 'presente' },
+        { evento: EV, idIscritto: idDi(aVoce), stato: 'confermato' },
+        // la stessa persona segnata presente a un ALTRO evento non conta qui
+        { evento: 'napoli-2026-10-02', idIscritto: idDi(mai), stato: 'presente' }
+    ];
+    mettiIscrizioni(iscrizioni, presenze);
+    mettiPromemoria([recBase({ id: EV + '~s1', evento: EV, filtro: 'milano' })]);
+    const r = await giro();
+    const dest = noCopia().map(m => m.to).sort();
+    esigi(r._stato === 200 && JSON.stringify(dest) === JSON.stringify(['importata@esempio.it', 'presente@esempio.it']),
+        'partono a chi e\' stato segnato presente e a chi e\' stato importato (' + dest.join(', ') + ')');
+    const rec = leggiPromemoria(EV + '~s1');
+    esigi(rec.invio && rec.invio.inAttesa === 3 && rec.invio.destinatari === 2,
+        'in attesa restano "confermato", chi non ha presenza e la scheda del sito importata dopo: ' + JSON.stringify(rec.invio && { inAttesa: rec.invio.inAttesa, destinatari: rec.invio.destinatari }));
+    // il ringraziamento dopo l'evento: chi era in sala lo riceve, chi non c'era e non ha confermato no
+    const I = cron._interni;
+    const dopo = I.risolviDestinatari({ iscrizioni: iscrizioni, presenze: presenze }, recBase({ evento: EV, filtro: 'milano', dopoEvento: true }));
+    esigi(dopo.destinatari.map(d => d.email).sort().join(',') === 'importata@esempio.it,presente@esempio.it' && dopo.inAttesa === 3,
+        'dopoEvento: il ringraziamento va a chi era presente, non a chi non ha mai confermato (' + dopo.destinatari.map(d => d.email).join(', ') + ')');
+    const assente = I.risolviDestinatari({ iscrizioni: [mai], presenze: [{ evento: EV, idIscritto: idDi(mai), stato: 'assente' }] },
+        recBase({ evento: EV, filtro: 'milano', dopoEvento: true }));
+    esigi(assente.destinatari.length === 0 && assente.inAttesa === 1, 'segnato assente e mai confermato: resta in attesa anche per il ringraziamento');
 });
 
 await prova('6) Chiamata senza segreto: rifiutata', async () => {

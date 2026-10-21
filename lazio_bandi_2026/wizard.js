@@ -670,32 +670,72 @@
             marketing: !!data.marketing
         };
 
-        // Seconda strada, indipendente dalla prima: gli stessi dati vanno anche sul
-        // database dell'area riservata, cosi' la richiesta si vede subito nella
-        // sezione Newsletter senza dipendere dal foglio. Se questa fallisce non
-        // cambia nulla per chi la manda: il foglio resta la conferma dell'invio,
-        // ed e' il foglio a comandare il messaggio a schermo.
+        // Due strade, insieme. Il foglio Google, come sempre: con no-cors la sua
+        // risposta non si legge, dice solo se la rete c'era. E il servizio
+        // dell'area riservata, che salva la richiesta (sezione Newsletter) e
+        // avvisa info@ con il riassunto del simulatore (email-service,
+        // lib/domande-sito.js, avvisaCheckUp): e' la sua risposta a dire cosa
+        // scrivere a schermo. Stessa logica di zls_zes/script.js.
         // (text/plain evita la richiesta di verifica preliminare del browser;
         //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
-        fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-            body: JSON.stringify(jsonData)
-        }).catch(function () { /* il foglio resta la strada principale */ });
-
-        fetch(GOOGLE_SHEET_URL, {
+        var viaServizio = chiediAlServizio(jsonData);
+        var viaFoglio = fetch(GOOGLE_SHEET_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(jsonData)
-        }).then(function () {
-            showNotification('Grazie! La richiesta è stata registrata. Ti contatteremo a breve.', 'success');
-            form.reset();
-        }).catch(function () {
-            showNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
+        }).then(function () { return true; }, function () { return false; });
+
+        Promise.all([viaServizio, viaFoglio]).then(function (r) {
+            var esito = esitoRichiesta(r[0], r[1]);
+            showNotification(esito.testo, esito.tipo, esito.durata);
+            if (esito.svuota) form.reset();
         }).finally(function () {
             btn.textContent = originalText;
             btn.disabled = false;
+        });
+    }
+
+    // La risposta del servizio, letta davvero: { stato, corpo }, oppure null
+    // se non si e' raggiunto (rete, servizio giu', risposta che il browser non
+    // lascia leggere) o se dopo 20 secondi non ha ancora detto niente.
+    function chiediAlServizio(jsonData) {
+        var risposta = fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: JSON.stringify(jsonData)
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (corpo) { return { stato: r.status, corpo: corpo || {} }; });
+        });
+        var attesa = new Promise(function (fatto) { setTimeout(function () { fatto(null); }, 20000); });
+        return Promise.race([risposta, attesa]).catch(function () { return null; });
+    }
+
+    // Cosa dire: ok dal servizio -> arrivata al team; 400/429 con un msg ->
+    // quel messaggio e dove scriverci; servizio non raggiunto -> col foglio
+    // arrivato "registrata" (senza promettere la mail a info@), se no l'errore.
+    function esitoRichiesta(servizio, foglioOk) {
+        var corpo = (servizio && servizio.corpo) || {};
+        if (corpo.ok === true) {
+            return { tipo: 'success', svuota: true, testo: 'Grazie! La tua richiesta è arrivata al nostro team: ti risponderemo al più presto da info@nextgenerationbusiness.it.' };
+        }
+        if (servizio && (servizio.stato === 400 || servizio.stato === 429) && corpo.msg) {
+            return {
+                tipo: 'error', svuota: false, durata: 12000,
+                testo: testoSicuro(corpo.msg) + ' Se serve, scrivici a ' +
+                    '<a href="mailto:info@nextgenerationbusiness.it" style="color:inherit;text-decoration:underline;">info@nextgenerationbusiness.it</a>' +
+                    ' oppure da <a href="/contatti/" style="color:inherit;text-decoration:underline;">Domande e contatti</a>.'
+            };
+        }
+        if (foglioOk) {
+            return { tipo: 'success', svuota: true, testo: 'Richiesta registrata: ti ricontatteremo al più presto. Per urgenze scrivi a info@nextgenerationbusiness.it.' };
+        }
+        return { tipo: 'error', svuota: false, testo: 'Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it' };
+    }
+    // il messaggio del servizio va a schermo come testo, non come HTML
+    function testoSicuro(x) {
+        return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c];
         });
     }
 
@@ -766,7 +806,8 @@
     // ============================================
     // NOTIFICATION
     // ============================================
-    function showNotification(message, type) {
+    // `durata` (facoltativa): quanto resta a schermo, per i messaggi con un collegamento
+    function showNotification(message, type, durata) {
         var existing = document.querySelector('.notification');
         if (existing) existing.remove();
 
@@ -794,7 +835,7 @@
             n.style.transform = 'translateY(12px)';
             n.style.transition = '0.3s ease-out';
             setTimeout(function () { n.remove(); }, 300);
-        }, 5000);
+        }, durata || 5000);
     }
 
     // ============================================

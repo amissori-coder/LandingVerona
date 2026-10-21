@@ -51,6 +51,9 @@ Serve per generare i link di reimpostazione password.
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
 | `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
+| `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
+| `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
+| `CHECKUP_MAX_GIORNO` | *(facoltativa)* quanti avvisi delle richieste di check-up dalle pagine dei temi possono partire in tutto in un giorno (intero positivo). Senza: `40`. Vedi "Le richieste di check-up dalle pagine dei temi" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
 > bloccato gli invii con un `525 5.7.13` (protezione anti-abuso della casella:
@@ -531,6 +534,8 @@ d'ambiente non ne parte nessuno.
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
 | `/api/promemoria-eventi` | `0 * * * *` — ogni ora piena | spedisce i promemoria agli iscritti previsti per oggi all'ora di Roma di adesso (il giro legge da se' l'ora legale o solare); quello delle 20 recupera anche chi si e' iscritto dopo un invio e segna scaduti i giorni passati |
+| `/api/riepilogo-iscrizioni` | `0 22,23 * * *` | il riepilogo serale delle iscrizioni agli organizzatori (lavora solo a mezzanotte di Milano) |
+| `/api/conferme-email` | `*/10 * * * *` — ogni dieci minuti | rispedisce la mail di conferma dell'iscrizione a chi non l'ha avuta (mai partita, o rifiutata dal server di posta) e manda UN promemoria, mail e SMS (dalle 8 alle 21), a chi dopo un giorno non ha ancora confermato; fino alla fine dell'evento, un giro alla volta. Vedi "Il giro automatico delle mail di conferma" |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -651,6 +656,8 @@ Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
 | `api/invia-comunicazione.js` | *(predefinito, ~10 s)* | **120** | stesso invio in fila, avviato a mano dall'area riservata |
 | `api/invii-programmati.js` | *(nuova)* | **300** | una PEC ogni secondo e mezzo: quaranta messaggi sono gia' un minuto |
 | `api/promemoria-eventi.js` | *(nuova)* | **300** | una mail per iscritto, a quattro alla volta: con un giro al giorno il tempo deve bastare, e se non basta il resto parte domattina |
+| `api/iscrizione-nuova.js` | 30 | **60** | l'iscrizione a Milano spedisce in fila la mail di conferma (con un secondo tentativo se l'errore passa) e l'SMS "conferma la tua email": con i tempi massimi del server di posta (8 s per collegarsi, 15 s di silenzio) e di Brevo (8 s) il caso peggiore sta intorno ai 40 secondi |
+| `api/conferme-email.js` | *(nuova)* | **60** | il giro delle mail di conferma comincia schede nuove solo nei primi 35 s (una scheda nel caso peggiore ne chiede altri venti): quello che resta lo prende il giro dopo, dieci minuti piu' tardi |
 
 > **E perche' gli invii programmati non entrano da `presenze.js`**, che pure
 > e' la porta di tutta la sezione aziende. Perche' `presenze.js` ha gia' un
@@ -700,6 +707,117 @@ aggiorna la stessa scheda invece di creare un duplicato.
 Nessuna configurazione aggiuntiva: usa `FIREBASE_SERVICE_ACCOUNT`, gia presente.
 Per collegare un altro form basta aggiungere nella pagina un secondo `fetch` a
 questo indirizzo con lo stesso payload (vedi `napoli_ottobre_2026/script.js`).
+
+## Domande dal sito (`/contatti/`, dentro `/api/iscrizione-nuova`)
+
+La pagina `https://nextgenerationbusiness.it/contatti/` raccoglie le domande
+su tutti i temi del sito e sugli eventi. Manda `azione: "domanda-sito"` a
+`/api/iscrizione-nuova` (text/plain, come gli altri moduli), **senza
+`pagina`**: l'azione si smista prima della scrittura generica, e una domanda
+non diventa mai una riga fra le iscrizioni. Il lavoro sta in
+`lib/domande-sito.js`.
+
+- **Campi**: `nome`, `cognome`, `email`, `tema` e `messaggio` (fino a 2000
+  caratteri; puo' mancare solo per "mail di conferma non ricevuta"),
+  `privacy: true`; facoltativi `telefono`, `azienda`, `marketing`. Per
+  `tema: 'eventi'` anche `evento` e `motivo`. Gli identificativi li
+  controlla il servizio: uno sconosciuto vale `altro`.
+  - `tema`: eventi, governance, assetti, revisione, modello-231, tcf,
+    legalita, ia, credito, bandi, crisi, esg, altro
+  - `evento`: milano-2027, milano-2027-aderenti, napoli-2026, roma-2026,
+    verona-2026, altro
+  - `motivo`: mail-non-ricevuta, modifica-annulla, info, diretta,
+    sponsor-relatore, altro
+- **I freni**: il campo nascosto `sito` (pieno: risposta "ok" e non succede
+  niente), `ms` (il modulo aperto da meno di tre secondi: `400` con "Attendi
+  un attimo e premi di nuovo «Invia la domanda»." - non un "ok" finto, perche'
+  il browser che rimette i campi col tasto indietro lo fa anche a una
+  persona; il gettone di Turnstile non si consuma), Turnstile
+  con la stessa chiave del modulo di Milano e l'azione `domanda-sito`
+  (`captchaKo` se manca o e' di un altro modulo; senza `TURNSTILE_SECRET` e'
+  spento), **cinque domande al giorno per indirizzo** (`domandeSitoLimiti`,
+  per impronta) e il freno per IP dei moduli aperti (8 in 10 minuti, `429`).
+- **L'indirizzo e' solo un indirizzo**: lettere, cifre e `. _ % + ' -`, la
+  chiocciola, un dominio; niente spazi, virgolette, `< > , ; : ( ) [ ]` o
+  barre. Con `testo<vittima@altro.it>` la ricevuta partirebbe per l'altro con
+  quel testo in vista, e ogni testo diverso aggirerebbe le cinque al giorno.
+  Il contatore conta l'indirizzo senza `+qualcosa` e, per Gmail (anche
+  googlemail.com), senza i punti: le varianti della stessa casella contano
+  insieme. Ricevuta, "Rispondi" e archivio usano l'indirizzo com'e' stato
+  scritto (in minuscolo).
+- **Prima si salva** (`domandeSito`), poi due mail: **a noi**, a
+  `DOMANDE_DESTINATARI` (o `info@nextgenerationbusiness.it`), oggetto
+  "Domanda dal sito - <Argomento> [· <Evento> · <Motivo>] - Nome Cognome", con
+  "Rispondi" che scrive alla persona; **a chi scrive**, una ricevuta che **non
+  ripete il messaggio** (il modulo non deve servire a far arrivare un testo
+  qualsiasi a un indirizzo qualsiasi con il nostro nome) e dice di guardare
+  nello spam. Sulla domanda restano `avvisati` e `confermato`. La risposta e'
+  `{ ok: true }` appena la domanda e' salva, anche con la posta giu'.
+- **"Mail di conferma non ricevuta"** (`?t=mail` sulla pagina): nella mail a
+  noi, e **solo li'**, il riquadro "Solo per noi" con le iscrizioni di
+  quell'indirizzo (evento, data, conferma, mail partita o con che errore, SMS,
+  annullamento). Se una di loro aspetta la conferma a un evento che la chiede,
+  la mail **riparte subito** (con il freno del pulsante "rimandala": due
+  minuti, cinque al giorno) e il riquadro lo dice. La ricevuta dice a tutti
+  allo stesso modo "se risulta un'iscrizione in attesa di conferma con questo
+  indirizzo, ti abbiamo rimandato la mail": non rivela se l'indirizzo e'
+  iscritto.
+- **Le prove**: `node prove/domande-sito.prove.js`.
+
+### Le richieste di check-up dalle pagine dei temi
+
+Il modulo in fondo alle pagine dei temi ("Richiedi un check-up riservato" o
+"Richiedi informazioni": `crisi_impresa/`, `modello_231/`... con
+`zls_zes/script.js`; `revisione-demo/`, `lazio_bandi_2026/` e `fcd_2026/` con
+il loro script) passa dalla **scrittura generica** con
+`pagina: "<Tema> - Contatto"`, come prima: riga fra le `iscrizioni` (sezione
+Newsletter, gruppo della pagina) e foglio Google. In piu', salvata la riga,
+parte **una mail a noi** (`avvisaCheckUp` in `lib/domande-sito.js`):
+
+- agli stessi indirizzi delle domande (`DOMANDE_DESTINATARI`, o info@),
+  oggetto "Richiesta di check-up dal sito - <Tema> - Nome Cognome", una
+  tabella con nome, cognome, email, azienda, ruolo, telefono, pagina, data,
+  privacy e marketing (piu' il messaggio, quando la pagina lo manda: il
+  riassunto dei simulatori di Lazio e FCD, con gli a capo), tutto
+  neutralizzato. Il tema viene da una lista nostra, `PAGINE_CHECK_UP` in
+  `lib/domande-sito.js`: i `data-pagina` "<...> - Contatto" del sito, che le
+  prove confrontano con i file HTML. **Una pagina nuova va aggiunta li'**:
+  finche' manca, le sue richieste arrivano con "tema non riconosciuto"
+  nell'oggetto (e la pagina scritta nel modulo solo dentro la mail);
+- "Rispondi" scrive a chi ha chiesto, e la mail parte **solo se
+  l'indirizzo e' nudo** (la stessa regola delle domande) **e c'e' il nome o
+  il cognome**: la scrittura generica accetta indirizzi piu' larghi, e con
+  `testo<vittima@altro.it>` la risposta partirebbe per l'altro;
+- **i tetti**, perche' qui non c'e' Turnstile e il freno per IP vive nella
+  memoria della funzione (chi cambia IP lo salta): **tre avvisi al giorno
+  per indirizzo** (il contatore delle domande, `domandeSitoLimiti`, con il
+  prefisso `checkup|`: stessa impronta, stesse varianti contate insieme) e
+  **quaranta in tutto al giorno** (`checkUpLimiti/<giorno italiano>`, in
+  transazione; `CHECKUP_MAX_GIORNO` lo cambia). Oltre un tetto, o se un
+  contatore non si legge, la riga si salva e la mail non parte;
+- **nessuna ricevuta** a chi scrive: qui non c'e' Turnstile, e una mail
+  all'indirizzo scritto nel modulo farebbe partire la nostra posta verso
+  chiunque. La pagina dice "ti risponderemo da info@" solo se il servizio
+  ha risposto `ok`; con un `400`/`429` mostra il suo messaggio (e dove
+  scriverci), con il servizio irraggiungibile ma il foglio arrivato
+  "Richiesta registrata: ti ricontatteremo al più presto";
+- **quando**: solo `pagina` che finisce con " - Contatto", senza `azione`,
+  non dal desk, mai una pagina che nomina un evento (`RE_PAGINA_EVENTO`, ne'
+  Milano verificata). Restano fuori la newsletter della home e degli ebook
+  (`- Newsletter`), le iscrizioni agli eventi (Roma, Napoli e `p26/`,
+  Milano), le cene, gli aderenti, le domande di `/contatti/` e ogni altra
+  azione. Vale il freno per IP dei moduli aperti (8 in 10 minuti);
+- **non ferma niente**: con la posta giu' o un tetto raggiunto la risposta
+  resta `{ ok: true }`. Sulla riga resta `avvisoInterno: { quando, ok, a,
+  errore }` (per esempio `tetto del giorno: 40 avvisi`); una riga gia'
+  avvisata (lo stesso modulo spedito due volte nello stesso secondo) non
+  avvisa di nuovo.
+
+Sotto il modulo le pagine mostrano "Hai una domanda su un altro tema o sugli
+eventi? Scrivici da Domande e contatti", verso `/contatti/?tema=<id>` con il
+tema ricavato dalla pagina (`TEMI_CONTATTI` in `zls_zes/script.js`; scritta
+nell'HTML nelle tre pagine con uno script loro). Le prove:
+`node prove/check-up-temi.prove.js`.
 
 ## Download dell'ebook per gli iscritti (`/api/scarica-ebook`)
 
@@ -751,6 +869,24 @@ al minuto per utente.
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
+- `azione: "modifica"`: **solo amministratore**. Corregge nome, email,
+  azienda, ruolo, telefono, data e messaggio. Il nome del documento nasce da
+  email e data: se cambiano, la scheda **trasloca** su un documento nuovo con
+  la sua presenza, e si porta dietro cio' che dice da dove viene e cosa le e'
+  gia' successo (`inserito`, `extra` con il Portale, `importato`, il codice
+  invito con `invitoAzienda`, `invitoScheda`, `selezionata` e `datiInvito`, il
+  cellulare verificato, i consensi, `mailConferma` e `mailInvito`, i posti
+  dell'ordine, l'annullamento). `emailConfermata` la segue solo se
+  l'indirizzo e' lo stesso: un indirizzo nuovo non e' confermato, e a Milano
+  la riga va "In attesa di conferma mail" finche' dal menu non si rimanda la
+  mail (subito: la pausa di dieci minuti era del vecchio). Prima di
+  cancellare il documento vecchio, `iscrizioniUsate` del codice invito e i
+  documenti di unicita' del cellulare (e dell'email, se e' la stessa) passano
+  al nome nuovo (`VERIFICATA.trasloca`): il codice continua a contare questa
+  iscrizione fra le sue due. Restano indietro gli inviti B2B e il richiamo
+  dopo il convegno, legati al documento vecchio (i collegamenti firmati, i
+  referenti dell'agenda): vanno rifatti. Le prove:
+  `node prove/modifica-iscrizione.prove.js` (Firestore finto).
 - **Gli indirizzi doppi** (stesso indirizzo su piu iscrizioni dello stesso
   evento) non sono un caso del servizio ma dell'area riservata, e vale la pena
   saperlo qui perche' toccano gli invii: gli invii scartano i doppioni PER
@@ -987,7 +1123,15 @@ oggi, all'ora del giro:
    dell'area riservata. Restano fuori chi ha annullato, chi e' stato
    cancellato, chi e' segnato **assente** (la mail `dopoEvento` invece lo
    comprende), chi non ha un indirizzo valido; un
-   indirizzo riceve **una** mail anche se ha due iscrizioni;
+   indirizzo riceve **una** mail anche se ha due iscrizioni. Dove
+   l'iscrizione vale solo dopo la conferma dell'email (Milano 2027) resta
+   fuori anche chi **non l'ha ancora confermata** (`inAttesaDiConferma`, in
+   "Conferma dell'indirizzo email"): non ha l'invito in PDF, e non e' un posto
+   in sala. Si conta a parte e non come doppione: se la stessa persona ha
+   anche una scheda valida (dal desk, inserita a mano) la mail arriva a
+   quella. Chi lo staff ha segnato **presente** pero' era in sala, confermato
+   o no: le mail del giorno e il ringraziamento gli arrivano (solo
+   "presente", non "confermato");
 2. personalizza: `{{NOME}}` diventa **nome e cognome** ("Gentile Maria
    Rossi": le mail al singolo danno del Lei; un nome scritto tutto maiuscolo
    o tutto minuscolo si rimette in forma), `{{COMPLETA}}` il collegamento personale firmato
@@ -998,8 +1142,8 @@ oggi, all'ora del giro:
    all'inizio del primo giro: e' la prova di cosa e' partito e con che testo,
    senza una copia nascosta per ogni destinatario;
 4. scrive l'esito sul record (`stato: 'inviato'`, `invio: { il, inviate,
-   falliti, dettaglioFalliti, senzaEmail, doppie, destinatari }`), che l'area
-   riservata mostra sulla riga e nella finestra.
+   falliti, dettaglioFalliti, senzaEmail, doppie, inAttesa, destinatari }`),
+   che l'area riservata mostra sulla riga e nella finestra.
 
 **Perche' piu' giri non rispediscono**: e' la stessa strada delle
 comunicazioni programmate. L'avanzamento si scrive **durante** l'invio in
@@ -1101,7 +1245,16 @@ scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
 
 - `azione: "completa-leggi"`: evento, posti, dati gia noti dell'intestatario
   e dei partecipanti gia scritti (con lo stato di eventuali posti annullati),
-  per precompilare il modulo della pagina.
+  per precompilare il modulo della pagina. Sull'intestatario due bandiere per
+  i campi che da qui non si cambiano: `telefonoBloccato` (il cellulare
+  verificato per SMS) e `aziendaBloccata` (chi si e' registrato con il
+  **codice invito** a un evento con le iscrizioni verificate, Milano 2027:
+  l'azienda e' quella dell'invito, l'unica che combacia con l'elenco delle
+  aziende invitate). `completa-salva` le rispetta comunque, qualunque cosa
+  arrivi dalla pagina: l'azienda resta quella della scheda, e la mail di
+  riepilogo dice quella. Agli altri eventi (Napoli) il codice non tocca
+  l'azienda, che resta quella scritta nel modulo: non e' bloccata, e da qui
+  si corregge come prima.
 - `azione: "completa-salva"`: un elemento PER POSTO (dati, `{annulla:true}`,
   oppure null = posto riservato senza nome). Il primo aggiorna la scheda
   originale (mai l'email); gli altri diventano schede proprie con documenti dal
@@ -1114,6 +1267,16 @@ scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
   dall'elenco. A ogni salvataggio parte all'intestatario la mail di riepilogo
   (composta DAL SERVIZIO, lib/mail-ngb.js) con lo stesso collegamento per
   modificare o annullare ancora, in copia nascosta a chi aveva chiesto i dati.
+- **Riattivare con un codice invito** (Milano 2027, gli eventi di
+  `lib/iscrizione-verificata.js`): chi ha annullato e ricompila riprende il
+  posto del codice **solo se e' ancora libero**. Mentre la scheda era
+  annullata il posto puo' essere andato a un altro (A e B si iscrivono, A
+  annulla, C si iscrive con lo stesso codice): senza questo controllo A
+  tornava attiva e il codice si ritrovava con tre iscrizioni. Il conto e' lo
+  stesso della registrazione, in una transazione con la scheda
+  (`VERIFICATA.riattiva`); se il codice ha gia' due iscrizioni attive non si
+  scrive niente e la pagina riceve `409` con `codiceKo` e il motivo.
+  Email e cellulare non si ricontrollano: restano le regole di prima.
 
 Le iscrizioni dai **moduli degli eventi del sito** (pagina che contiene
 verona/roma/napoli/milano) ricevono ora anche loro una conferma automatica in
@@ -1265,8 +1428,208 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   sito, composta dal servizio (il pulsante porta una firma che solo il
   servizio conosce), una volta ogni 10 minuti per scheda; sulla scheda resta
   `emailConfermaRimandata: { da, daNome, quando }`. A chi ha gia' confermato
-  risponde `gia: true` senza spedire.
+  risponde `gia: true` senza spedire. Il rinvio **riscrive `mailConferma`**:
+  un "mail non inviata" rimasto dall'iscrizione sparisce quando il rinvio
+  riesce (e se fallisce resta, con il motivo nuovo). Agli eventi che chiedono
+  la conferma parte anche l'**SMS "conferma la tua email"** al cellulare
+  verificato (`smsConferma` sulla scheda, `sms: { inviato }` nella risposta),
+  e la scheda torna nel giro automatico per il promemoria del giorno dopo.
+  **Una scheda che non viene dal modulo del sito** (inserita a mano, da un
+  `Portale`, importata senza `mailConferma`: `CONF.dalModuloDelSito`, deciso
+  sulla scheda di prima dell'invio) riceve la mail ma **non la sua traccia**
+  (`spedisciConferma` con `traccia: false`): niente `mailConferma`,
+  `invioConferma` o bandiera, che la farebbero diventare "in attesa di
+  conferma" (fuori dai conti della sala e dai promemoria), e niente SMS.
+  Com'e' andata resta in `mailConfermaStaff: { quando, ok, errore, via, a }`.
+- **La mail parte da un posto solo** (`spedisciConferma`): l'iscrizione dal
+  sito, il rinvio dall'area riservata, il pulsante "rimandala" della pagina,
+  la domanda "non ho ricevuto la mail" dal modulo `/contatti/` e il giro
+  automatico. Ha "Rispondi" verso `info@nextgenerationbusiness.it`
+  (`CONFERMA_RISPONDI_A`), l'intestazione `X-Mailin-Tag: conferma-iscrizione`
+  (nei log transazionali di Brevo si filtra per tag), i **tempi massimi** del
+  server di posta (8 s per collegarsi e per il saluto, 15 s di silenzio, 5 s
+  per il DNS: senza, nodemailer aspetta minuti e la funzione si chiude senza
+  lasciare traccia) e **un secondo tentativo**, dopo un secondo e mezzo, solo
+  per gli errori che passano (tempo scaduto, connessione caduta, un 4xx). Sulla
+  scheda scrive `mailConferma: { quando, ok, errore, via, a }` - `via` dice chi
+  l'ha fatta partire (`iscrizione`, `rimanda`, `automatico`, `promemoria`,
+  `staff`), `a` a quale indirizzo - e `invioConferma: { a, tentativi, falliti,
+  ultimo }`. Una `mailConferma` partita per un indirizzo che l'amministratore
+  ha corretto dopo, per quello nuovo non vale.
+- **`azione: "rimanda-conferma"`** su `/api/iscrizione-nuova` (pubblica, dalla
+  pagina di Milano dopo l'invio: "Non e' arrivata? Rimandala"): `{ d, t }` con
+  la stessa firma di `stato-iscrizione` (`NL.firmaStato`, resa
+  all'iscrizione). Firma cattiva: `403`. Solo per chi deve ancora confermare,
+  a un evento che chiede la conferma. **Due minuti** fra un invio e l'altro
+  (contando anche la mail dell'iscrizione) e **cinque rinvii nelle
+  ventiquattr'ore**, sulla scheda (`rimandaConferma`), in una transazione.
+  Risponde `{ ok: true, inviata: true, a }` (l'indirizzo, perche' chi l'ha
+  scritto male se ne accorga) oppure `{ ok: false, msg, attesa }` (secondi da
+  aspettare, `429`); a chi ha gia' confermato `{ ok: false, confermata: true }`.
+  Dentro i due minuti il messaggio dice com'e' andato l'ultimo invio: "Ti
+  abbiamo appena mandato la mail..." solo se e' partito, altrimenti "Abbiamo
+  appena provato a spedirti la mail e riproviamo in automatico: per chiederne
+  un'altra aspetta N secondi." Con i cinque rinvii del giorno finiti vale quel
+  limite (anche dentro i due minuti). Non pesa sul freno per IP: ha il suo,
+  per scheda.
+- **`stato-iscrizione`** porta anche `mail`: `'inviata'`, `'errore'` (l'ultimo
+  invio non e' partito: lo riprova il giro automatico) o `'in-attesa'`
+  (nessun invio registrato per l'indirizzo di adesso), e **`attesaRimanda`**:
+  i secondi prima che "rimandala" possa chiederne un'altra (`0`: adesso),
+  calcolati dallo stesso freno di `rimanda-conferma` (`frenoRimanda`: due
+  minuti dall'ultimo tentativo, riuscito o no, e il tetto dei cinque al
+  giorno), cosi' il conto alla rovescia del pulsante e il servizio non si
+  contraddicono.
+- **La risposta all'iscrizione** agli eventi verificati porta, oltre a
+  `azienda` e `stato`, **`sms`** (vero solo se l'SMS "conferma la tua email"
+  e' partito davvero: tetto del giorno o Brevo giu' lo fanno falso) e
+  **`smsTipo`**: `'inviata'` se la mail e' partita, `'non-inviata'` se no (e'
+  il testo dell'SMS che e' stato usato).
+- **Chi si riscrive mentre la sua iscrizione aspetta la conferma** (stessa
+  email, o stesso cellulare) non legge piu' "usa il collegamento nella mail
+  di conferma", che era un vicolo cieco: il `409` dice che l'iscrizione c'e'
+  ma l'indirizzo non e' confermato, di cercare la mail anche in Spam,
+  Posta indesiderata e Promozioni, e di scriverci da
+  `https://nextgenerationbusiness.it/contatti/?t=mail`. Se si riscrive con il
+  numero gia' verificato, la mail riparte (con il freno del pulsante) e il
+  messaggio lo dice. Mai l'indirizzo dell'iscrizione trovata. A chi ha gia'
+  confermato resta il messaggio di sempre.
+- **La bandiera `confermaInAttesa`.** Scritta a `true` sulle iscrizioni dal
+  sito agli eventi che chiedono la conferma, **nella stessa transazione della
+  scheda** (`VERIFICATA.registra`): se la funzione si chiudesse prima di
+  spedire, il giro automatico la ritrova. Si toglie con la conferma (il clic
+  e il pregresso), con l'annullamento dal collegamento personale (e torna se
+  l'iscrizione si riattiva senza conferma), e dal giro quando non ha piu'
+  niente da fare. La Modifica dall'area riservata la porta sul documento nuovo
+  se l'indirizzo e' lo stesso, e la **accende** se l'indirizzo e' cambiato su
+  una scheda del sito di Milano: al nuovo indirizzo la mail la manda il giro,
+  entro dieci minuti.
+- **Chi e' "in attesa di conferma"** (`inAttesaDiConferma`): non annullata,
+  con un indirizzo, iscritta dal sito e senza `emailConfermata`. Mai una
+  scheda inserita a mano dall'area riservata (`inserito`), arrivata con un
+  `Portale` (Eventbrite, il desk) o caricata con "Importa" (`importato` senza
+  `mailConferma`): quelle non hanno una mail da confermare. Una scheda del
+  sito che un'importazione ha solo aggiornato (la colonna degli inviti B2B)
+  ha la sua `mailConferma`, e resta in attesa. E mai chi lo staff ha segnato
+  **presente** (il secondo argomento, la presenza, per chi la conosce: i
+  promemoria).
+  Conta solo dove l'iscrizione **vale dopo la conferma** (gli eventi di
+  `lib/iscrizione-verificata.js`, oggi Milano 2027): li' chi attende non e'
+  un posto in sala, non riceve i promemoria (`/api/promemoria-eventi`) e nel
+  riepilogo serale sta fra gli in attesa. A Napoli una scheda senza conferma
+  e' un iscritto come gli altri. La stessa regola, in `area-riservata/app.js`
+  (`inAttesaConfermaMail`), riempie la sezione "In attesa di conferma mail":
+  vanno cambiate insieme.
+- **L'area riservata** riceve da `/api/iscrizioni`, oltre a `mailConferma`,
+  `smsConferma: { quando, ok }`, `invioConferma: { tentativi }` e
+  `promemoriaConferma: { quando }`: chi risponde a "non mi e' arrivata" vede
+  dall'elenco cosa e' gia' stato fatto.
 - **Le prove**: `node prove/conferma-email.prove.js` (Firestore finto).
+
+## Il giro automatico delle mail di conferma (`/api/conferme-email`)
+
+Agli eventi dove l'iscrizione vale solo dopo la conferma dell'email (Milano
+2027) una mail con il pulsante che non arriva vuol dire un iscritto che non e'
+iscritto, e che di solito non lo sa. Ogni dieci minuti il giro
+(`lib/giro-conferme.js`) legge **solo** le schede con la bandiera
+`confermaInAttesa` (fino a 2000 per giro; schede nuove solo nei primi 35
+secondi, e senza il secondo tentativo immediato della mail: riprova il giro,
+con le sue pause) e per ognuna:
+
+| Com'e' la scheda | Cosa fa |
+|---|---|
+| confermata, annullata, inserita a mano, importata senza mail, da un Portale (Eventbrite, desk), di un evento che non chiede la conferma, segnata **presente** (il documento `presenze/<evento~idIscritto>`, come per i promemoria degli eventi), o **dopo la fine dell'evento** (`fine` in `VERIFICATA.EVENTI`: Milano, 26 febbraio 2027 alle 18) | toglie la bandiera, non spedisce niente |
+| nessuna `mailConferma` per l'indirizzo di adesso (la funzione si e' chiusa prima di spedire, o l'indirizzo e' stato corretto) | passati **5 minuti** dall'iscrizione spedisce (`via: 'automatico'`), con l'SMS "conferma la tua email" se non era partito |
+| `mailConferma.ok` falso | riprova dopo **5 minuti, 30 minuti, 2 ore e 12 ore** dall'ultimo tentativo: **cinque tentativi** in tutto, poi toglie la bandiera e la lascia allo staff ("mail non inviata" nell'elenco) |
+| `mailConferma.ok` vero e niente clic da **24 ore** | **UN promemoria**, **solo dalle 8 alle 21 ora di Milano** (di notte aspetta, con la bandiera): la stessa mail con "Promemoria:" davanti all'oggetto e l'SMS del promemoria; resta `promemoriaConferma: { quando, mail, sms }` e la bandiera se ne va. Mai un secondo promemoria |
+
+**Prima i guasti.** Le schede lette si lavorano per urgenza: prima le mail
+mai partite e quelle da riprovare, poi le bandiere da togliere, per ultimi i
+promemoria (i piu' lenti): una fila di promemoria arretrati non fa aspettare
+chi si e' appena iscritto. Se le schede lette arrivano al limite il giro lo
+scrive nel log (`limitePieno`).
+
+**La scheda di adesso.** La ricerca e' una fotografia: prima di agire su una
+scheda il giro la **rilegge** (con la sua presenza) e rifa' il conto. Una
+scheda cancellata o spostata nel frattempo si lascia stare, una confermata
+non riceve niente; la bandiera si toglie con `update()`, che su un documento
+cancellato fallisce invece di ricrearlo vuoto.
+
+**Un giro alla volta.** All'inizio il giro prende un lucchetto su
+`meta/confermeEmail` (`lucchettoFino`, 120 secondi, piu' della funzione, e
+`lucchettoGiro`) in una transazione; se lo trova preso risponde `occupato` e
+non fa niente (un giro lanciato a mano mentre lavora quello programmato, o lo
+stesso cron consegnato due volte, manderebbe due mail e due SMS). Alla fine lo
+molla solo se e' ancora suo; se la funzione muore, scade da solo.
+
+**Un invio alla volta, anche fra il giro e la persona.** Il lucchetto tiene
+lontani due giri, non il giro e il pulsante «Rimandala» (o il rinvio del modulo
+/contatti/). Per questo chi sta per spedire lo scrive sulla scheda in una
+transazione, PRIMA di spedire: `invioInCorsoFino` (un minuto, azzerato da chi
+finisce scrivendo la traccia). Il giro prende cosi' ogni scheda da riprovare;
+il rinvio, se trova un invio in corso, risponde di aspettare. Le tracce del
+giro (mail, SMS, promemoria) si scrivono con `update()`: una scheda cancellata
+dallo staff mentre la mail parte non rinasce come guscio vuoto, che bloccherebbe
+una nuova iscrizione con quell'email o quel cellulare.
+
+**Il recupero, una volta.** Le iscrizioni fatte prima della bandiera non
+l'hanno: al primo giro dopo la pubblicazione si rilegge l'archivio una volta,
+si mette la bandiera a chi aspetta ancora la conferma (e non ha gia' avuto il
+promemoria) e si segna su `meta/confermeEmail` (`recupero: 1`). **Chi era in
+attesa da piu' di un giorno riceve subito il promemoria, mail e SMS**: e' il
+caso di chi dice di non aver mai ricevuto la mail. Per non farlo, prima di
+pubblicare si scrive a mano `recupero: 1` su `meta/confermeEmail`.
+
+Protezione come gli altri lavori programmati: `Authorization: Bearer
+<CRON_SECRET>`. A mano: `GET /api/conferme-email` con la stessa intestazione;
+risponde i conti del giro (`occupato`, `lette`, `limitePieno`, `inviate`,
+`riprovate`, `promemoria`, `sms`, `tolte`, `aspettano`, `cambiate` - sparite o
+uscite dal giro fra la ricerca e il lavoro -, `errori`, `rimaste`). Le prove:
+`node prove/conferme-email.prove.js`.
+
+## Mail di conferma non arrivata: cosa controllare
+
+Quando qualcuno scrive "non ho ricevuto la mail di conferma" (di solito dal
+modulo `/contatti/`, e allora la mail a info@ ha gia' in fondo il riquadro
+**"Solo per noi"** con quello che risulta):
+
+1. **La scheda su Firestore** (`iscrizioni`, o il riquadro della domanda):
+   - nessuna scheda con quell'indirizzo: quasi sempre un **errore di
+     battitura**. Si cerca per nome o cellulare nell'area riservata e si
+     corregge l'indirizzo con Modifica (la mail al nuovo indirizzo la manda il
+     giro automatico entro dieci minuti, o subito con "Rimanda la mail di
+     conferma");
+   - `mailConferma` assente: la mail non e' mai partita (la funzione si e'
+     chiusa prima). Il giro automatico la manda da solo;
+   - `mailConferma.ok: false`: il server di posta l'ha rifiutata, con il
+     motivo in `errore`. Il giro riprova cinque volte; poi "Rimanda la mail di
+     conferma" dal menu della riga;
+   - `mailConferma.ok: true`: Brevo l'ha **presa in carico**, che non vuol dire
+     consegnata. Avanti al punto 2.
+2. **I log transazionali di Brevo** (Transactional -> Logs, filtrando per
+   l'indirizzo o per il tag `conferma-iscrizione`): consegnata, rinviata
+   (deferred), rimbalzata (soft/hard bounce), bloccata (blocked), segnalata come
+   spam.
+3. **La blocklist di Brevo** (Contacts -> Blocklisted, transazionali): chi si
+   e' disiscritto da una newsletter con il pulsante di Brevo, o ha avuto un
+   rimbalzo duro, o ha segnalato spam, finisce li', e da quel momento Brevo
+   **accetta e poi scarta in silenzio** anche le mail di conferma
+   (`mailConferma.ok` resta vero). Se l'indirizzo e' li' e la persona vuole le
+   mail, lo si toglie dalla blocklist e si rimanda.
+4. **Lo spam della persona**: cartelle Spam, Posta indesiderata, Promozioni
+   (Gmail), e la **quarantena aziendale** che la persona non vede (va chiesta
+   al suo reparto informatico). Il mittente e' `noreply@nextgenerationbusiness.it`
+   e l'oggetto comincia con "Richiesta di conferma".
+5. **Il tracciamento di Brevo.** Con il tracciamento di aperture e clic acceso
+   sulle mail transazionali Brevo aggiunge un pixel e riscrive i collegamenti
+   (il pulsante passa da un dominio di tracciamento): e' una delle cose che
+   piu' fanno finire una mail fra lo spam, soprattutto con Outlook, Libero,
+   Aruba e i filtri aziendali. **Si spegne dal pannello di Brevo**, nelle
+   impostazioni delle mail transazionali (la voce sul tracciamento di aperture
+   e clic), senza toccare il codice; in alternativa serve un dominio di
+   tracciamento proprio ben configurato.
+6. **Sempre**: la persona ha anche l'SMS "conferma la tua email" con il
+   collegamento al modulo, e dalla pagina di Milano il pulsante "rimandala".
 
 ## Iscrizioni con il cellulare verificato per SMS (`lib/iscrizione-verificata.js`)
 
@@ -1307,7 +1670,13 @@ per un evento nuovo basta una riga.
   risponde `motivo: "esaurito"` quando il codice ha gia' due iscrizioni
   attive, e il modulo lo dice subito. Riconosciuto il codice, il modulo
   scrive da se' la ragione sociale dell'invito nel campo azienda e lo blocca;
-  il servizio la tiene ferma comunque.
+  il servizio la tiene ferma comunque, anche dopo: da `/completa_iscrizione/`
+  l'azienda di chi ha il codice non si cambia (`aziendaBloccata`), e chi ha
+  annullato e ricompila riprende il posto del codice solo se e' ancora libero
+  (vedi "Completamento dati partecipanti"). La risposta all'iscrizione porta
+  `azienda`, quella scritta davvero sulla scheda: la conferma a video mostra
+  quella, anche se il campo era rimasto libero (una verifica del codice
+  andata a vuoto).
 - **Al desk** (chiave del cartello) il numero non si chiede: la persona e' li'.
 
 **Le variabili.** Gli SMS partono da **Brevo**, con la stessa
@@ -1356,18 +1725,51 @@ chiuso: niente gettone buono, o Cloudflare che non risponde, niente SMS.
 (gli altri moduli restano a 8): dallo stesso ufficio si iscrivono in piu'
 persone, e il freno vero agli SMS sono il CAPTCHA e i limiti per numero.
 
+**Il secondo SMS: "conferma la tua email"** (`smsConfermaEmail`). Subito dopo
+la mail con il pulsante, al cellulare appena verificato parte un SMS (tag
+Brevo `conferma-email`, stesso mittente) che dice quale pulsante premere,
+nella mail mandata a quale indirizzo, di guardare in Spam/Posta indesiderata,
+e dove scriverci se non arriva: `https://nextgenerationbusiness.it/contatti/?t=mail`.
+Tre testi: mail **partita**, mail **non partita** ("la tua iscrizione e'
+registrata... riproviamo in automatico") e il **promemoria** del giro
+automatico dopo un giorno. Regole:
+
+- solo agli eventi verificati e con il numero verificato: mai al desk, mai a
+  Napoli; parte anche dal rinvio "Rimanda la mail di conferma" dell'area
+  riservata;
+- tutti nell'**alfabeto GSM-7** (niente virgolette tipografiche, trattini
+  lunghi, puntini di sospensione, maiuscole accentate: `caratteriSms` li conta
+  e li rifiuta) e dentro **due SMS** (306 caratteri): l'indirizzo email c'e'
+  quando ci sta, altrimenti c'e' la versione senza. Mai la riga
+  `@dominio #codice` dell'SMS con il codice;
+- **costano due SMS** ciascuno (Brevo conta ogni segmento come un SMS) e
+  contano nel tetto giornaliero `SMS_MAX_GIORNO`: a tetto pieno non partono, e
+  l'iscrizione passa lo stesso;
+- aspettano Brevo al massimo 8 secondi (`chiamataBrevo` con `attesa`), e un
+  SMS che non parte non ferma niente: resta scritto sulla scheda in
+  `smsConferma: { quando, ok, errore, id, tipo }` (senza il numero);
+- **il testo e' nuovo**: se sul conto Brevo i contenuti degli SMS vanno
+  approvati per il mittente registrato (`Revilaw`), questi tre vanno fatti
+  approvare prima di aprire le iscrizioni, o gli operatori possono scartarli.
+
 - **Le prove**: `node prove/iscrizione-verificata.prove.js` (Firestore,
   Brevo e Cloudflare finti).
 
 ## Riepilogo serale delle iscrizioni (`/api/riepilogo-iscrizioni`)
 
-A **mezzanotte, ora di Milano**, se nella giornata appena finita ci sono state
-iscrizioni nuove agli eventi di `lib/iscrizione-verificata.js` (oggi Milano
-2027), parte agli organizzatori una mail con i nuovi iscritti (nome, azienda,
-ruolo, email, cellulare, ora, conferma dell'email, azienda invitata), il
-totale delle iscrizioni attive, quante hanno confermato l'email e il
-pulsante per l'area riservata (`/area-riservata/#eventi`). **Nei giorni senza
-iscrizioni nuove non parte niente.** Le annullate non contano.
+A **mezzanotte, ora di Milano**, per gli eventi di
+`lib/iscrizione-verificata.js` (oggi Milano 2027) parte agli organizzatori una
+mail con le iscrizioni **completate** nella giornata appena finita (l'email
+confermata quel giorno, anche se il modulo era di giorni prima: nome,
+azienda, ruolo, email, cellulare, ora, azienda invitata), chi e' ancora **in
+attesa di confermare** l'email, il totale delle iscrizioni confermate e il
+pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
+conferme nuove ne' persone in attesa non parte niente.** Le annullate non
+contano. "In attesa" e' la stessa regola dei promemoria e dell'area
+riservata (`inAttesaDiConferma`, in "Conferma dell'indirizzo email"): le
+iscrizioni inserite a mano, quelle arrivate con un Portale (Eventbrite, il
+desk) e quelle caricate con "Importa" non hanno una mail da confermare e non
+ci compaiono mai.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,
@@ -4144,6 +4546,50 @@ un elenco che entra a meta' senza spiegazioni e' peggio di uno che non entra.
 L'asterisco che nel modello segna le colonne obbligatorie viene ignorato in
 lettura: toglierlo o lasciarlo non cambia nulla.
 
+**Non serve il modello: entra anche un file fatto altrove**, come quello delle
+imprese lombarde per Milano 2027 (diciotto colonne: `#`, `Ragione sociale
+(file)`, `Codice fiscale`, `PEC`, ricavi, utile, attivo, capitale,
+dipendenti, chiusura del bilancio, provincia e comune della sede operativa,
+provincia della sede legale, `Settore di attivita`, `Partita IVA`, numero
+CCIAA, revisore, data di nomina). Le intestazioni si riconoscono per nome
+(`ALIAS` in `lib/aziende-invito.js`), prima esatte e poi **senza la
+parentesi in fondo**: "Ragione sociale (file)" vale "Ragione sociale",
+"Comune (sede operativa)" vale "Comune". Prima di questa regola quel file
+entrava con **zero** aziende, tutte "senza denominazione". La parentesi non
+si toglie mai per la **provincia**: il campo e' la sigla (si tiene fino a
+quattro caratteri), e "Milano" o "Monza e della Brianza" diventerebbero
+"Mila" e "Monz". Un nome esatto vince su uno che lo diventa togliendo la
+parentesi, e per ogni campo vince la prima colonna.
+
+**Ogni colonna del file resta nella scheda**, riconosciuta o no: in
+`datiFile`, un elenco `[{ c: intestazione, v: valore }]` **nell'ordine del
+file**, celle vuote comprese (`v: ''`), fino a 80 colonne, intestazioni fino
+a 80 caratteri (senza l'asterisco del modello) e valori fino a 1.000 (i
+settori lunghi, 600 caratteri e piu', restano interi; i campi riconosciuti si
+fermano a 300). `extra`, la mappa delle sole colonne non riconosciute, si
+scrive come prima per chi la legge gia'. `datiFile` **non torna** nell'elenco
+della finestra degli inviti: su undicimila aziende peserebbe piu' di tutto il
+resto. Cambiando la PEC a mano la scheda cambia identificativo, e `datiFile`
+ed `extra` vanno con lei.
+
+Quando un'azienda si registra con il suo **codice invito**, quelle colonne
+passano sulla scheda dell'iscritto (`datiInvito`, stessa forma: lo copia
+`api/iscrizione-nuova.js` leggendo la scheda indicata dal codice) e
+`/api/iscrizioni` le restituisce, cosi' l'elenco degli iscritti le mostra
+come colonne in piu' senza interrogare l'elenco delle aziende riga per riga.
+Per le aziende caricate prima di `datiFile` l'elenco si ricostruisce dai
+campi riconosciuti non vuoti e dalle colonne di `extra` in ordine alfabetico
+(`lib/dati-file-azienda.js`, `datiFileDi`). Se la lettura non riesce,
+l'iscrizione passa lo stesso. Il modulo e' a parte, senza dipendenze, perche'
+l'endpoint pubblico dell'iscrizione non deve caricare `lib/aziende-invito.js`
+(vedi "Il modulo si carica solo quando serve").
+
+Le prove: `node prove/aziende-invito.prove.js` carica un CSV con le diciotto
+intestazioni esatte del file lombardo (celle vuote, un settore di 630
+caratteri, partite IVA con lo zero davanti, un utile negativo) e il modello
+di sempre; `node prove/iscrizione-verificata.prove.js` copre la copia in
+`datiInvito`, anche per le schede caricate prima.
+
 
 ## Codici di invito: il filo fra le due tabelle
 
@@ -4171,8 +4617,13 @@ Regole che valgono la pena di essere ricordate:
   risulta, e al momento di registrarsi si sentirebbe dire di no.
 - **Un secondo invito ripete lo stesso codice**, non ne crea un altro:
   altrimenti quello ricevuto per primo smetterebbe di valere in silenzio.
-- **Il codice non si consuma.** Un'azienda selezionata puo' mandare due
-  persone; si contano gli usi e si ricorda il primo.
+- **Il codice non si consuma al primo uso, ma ha un tetto.** Un'azienda
+  selezionata puo' mandare due persone; si contano gli usi e si ricorda il
+  primo. Agli eventi con le iscrizioni verificate (Milano 2027,
+  `lib/iscrizione-verificata.js`) un codice ammette **al massimo due
+  iscrizioni attive** (`MAX_PER_CODICE`): la terza viene respinta, e lo dice
+  la PEC di invito. Un'iscrizione annullata libera il posto; chi ha annullato
+  lo riprende solo se e' ancora libero. Agli altri eventi il tetto non c'e'.
 - **Nel modulo pubblico e' facoltativo**, perche' la pagina resta aperta a
   tutti. Ma se viene scritto dev'essere uno di quelli spediti davvero: un
   codice inventato che passasse renderebbe "azienda selezionata" un'etichetta
@@ -4186,9 +4637,14 @@ Regole che valgono la pena di essere ricordate:
   rende impraticabile provare codici a tappeto.
 
 Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
-`invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa
-a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
+`invitoCodice`, `invitoAzienda`, `invitoScheda`, `selezionata` e le colonne
+del file da cui era stata caricata l'azienda (`datiInvito`, vedi "Il modello
+per il caricamento delle aziende"), e la scheda dell'azienda passa a
+`iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
 **l'iscrizione resta valida**: e' informazione di servizio, non una condizione.
+Agli eventi con le iscrizioni verificate (Milano 2027), dove l'azienda della
+scheda e' quella del codice, da `/completa_iscrizione/` non si cambia
+(`aziendaBloccata`).
 
 ## Diretta degli eventi (`/api/diretta-*`)
 

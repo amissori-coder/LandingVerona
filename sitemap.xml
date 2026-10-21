@@ -28,6 +28,14 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Domande e contatti — modulo delle domande sui temi e sugli eventi -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/contatti/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+
     <!-- Milano — 26 Febbraio 2027 event (save the date) -->
     <url>
         <loc>https://nextgenerationbusiness.it/milano_febbraio_2027/</loc>

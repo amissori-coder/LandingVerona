@@ -131,29 +131,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: (contactForm.dataset.pagina || 'ZLS & ZES - Contatto') });
 
-            // Seconda strada, indipendente dalla prima: gli stessi dati vanno anche
-            // sul database dell'area riservata, cosi' l'iscrizione si vede subito
-            // nella sezione Newsletter senza dipendere dal foglio. Se questa fallisce
-            // non cambia nulla per chi si iscrive: il foglio resta la conferma
-            // dell'invio, ed e' il foglio a comandare il messaggio a schermo.
+            // Due strade, insieme. Il foglio Google, come sempre: con no-cors
+            // la sua risposta non si legge, dice solo se la rete c'era. E il
+            // servizio dell'area riservata, che salva la riga (sezione
+            // Newsletter) e avvisa info@ (email-service, lib/domande-sito.js,
+            // avvisaCheckUp): e' la sua risposta a dire cosa scrivere a schermo.
             // (text/plain evita la richiesta di verifica preliminare del browser;
             //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
-            fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                body: JSON.stringify(jsonData)
-            }).catch(() => { /* il foglio resta la strada principale */ });
-
-            fetch(GOOGLE_SHEET_URL, {
+            const viaServizio = chiediAlServizio(jsonData);
+            const viaFoglio = fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(jsonData)
-            }).then(() => {
-                showNotification('Grazie! La tua richiesta è stata inviata. Ti ricontatteremo al più presto.', 'success');
-                contactForm.reset();
-            }).catch(() => {
-                showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');
+            }).then(() => true, () => false);
+
+            Promise.all([viaServizio, viaFoglio]).then(([servizio, foglioOk]) => {
+                const esito = esitoRichiesta(servizio, foglioOk);
+                showNotification(esito.testo, esito.tipo, esito.durata);
+                if (esito.svuota) contactForm.reset();
             }).finally(() => {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
@@ -161,8 +157,92 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- La risposta del servizio, letta davvero ---
+    // { stato, corpo } se il servizio ha risposto; null se non si e'
+    // raggiunto (rete, servizio giu', una risposta che il browser non lascia
+    // leggere) o se dopo 20 secondi non ha ancora detto niente: allora si fa
+    // come se non ci fosse, e la richiesta (se gli arriva) va avanti da se'.
+    function chiediAlServizio(jsonData) {
+        const risposta = fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: JSON.stringify(jsonData)
+        }).then(r => r.json().catch(() => ({})).then(corpo => ({ stato: r.status, corpo: corpo || {} })));
+        const attesa = new Promise(fatto => setTimeout(() => fatto(null), 20000));
+        return Promise.race([risposta, attesa]).catch(() => null);
+    }
+
+    // Cosa dire a chi ha mandato la richiesta:
+    //   ok: true dal servizio  -> e' arrivata al team (riga salvata, info@ avvisato);
+    //   400/429 con un msg     -> quel messaggio, e dove scriverci lo stesso;
+    //   servizio non raggiunto -> col foglio arrivato "registrata", senza
+    //                             promettere la mail a info@; senza, l'errore.
+    function esitoRichiesta(servizio, foglioOk) {
+        const corpo = (servizio && servizio.corpo) || {};
+        if (corpo.ok === true) {
+            return { tipo: 'success', svuota: true, testo: 'Grazie! La tua richiesta è arrivata al nostro team: ti risponderemo al più presto da info@nextgenerationbusiness.it.' };
+        }
+        if (servizio && (servizio.stato === 400 || servizio.stato === 429) && corpo.msg) {
+            return {
+                tipo: 'error', svuota: false, durata: 12000,
+                testo: testoSicuro(corpo.msg) + ' Se serve, scrivici a '
+                    + '<a href="mailto:info@nextgenerationbusiness.it" style="color:inherit;text-decoration:underline;">info@nextgenerationbusiness.it</a>'
+                    + ' oppure da <a href="/contatti/" style="color:inherit;text-decoration:underline;">Domande e contatti</a>.'
+            };
+        }
+        if (foglioOk) {
+            return { tipo: 'success', svuota: true, testo: 'Richiesta registrata: ti ricontatteremo al più presto. Per urgenze scrivi a info@nextgenerationbusiness.it.' };
+        }
+        return { tipo: 'error', svuota: false, testo: 'Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it' };
+    }
+    // il messaggio del servizio va a schermo come testo, non come HTML
+    function testoSicuro(x) {
+        return String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
+    }
+
+    // --- Le altre domande: il rimando a Domande e contatti ---
+    // Il modulo in fondo alle pagine dei temi chiede un check-up su QUEL
+    // tema. Chi ha una domanda su un altro tema, o sugli eventi, ha la
+    // pagina /contatti/: una riga sotto il modulo ce la porta, con il tema
+    // gia' scelto quando la pagina lo lascia capire (contatti/contatti.js
+    // legge ?tema=, e un tema che non conosce lo ignora). Solo sotto i
+    // moduli "<Tema> - Contatto": le pagine senza non cambiano.
+    // L'ordine conta: "IA e reati presupposto 231" e' 231, "Rating di
+    // legalita e incentivi" e' legalita, "ESG e merito creditizio" e'
+    // credito, l'export di SIMEST (IA e quantum) e' un finanziamento.
+    const TEMI_CONTATTI = [
+        [/\b231\b/i, 'modello-231'],
+        [/tax control|\btcf\b/i, 'tcf'],
+        [/legalit/i, 'legalita'],
+        [/crisi/i, 'crisi'],
+        [/assetti|early warning/i, 'assetti'],
+        [/band|voucher|tasso zero|ammortamento|deindustrializzazione|\bzls\b|\bzes\b|aiuti di stato|export/i, 'bandi'],
+        [/\bai act\b|\bai governance\b|\bia\b|intelligenza artificiale|vibe coding/i, 'ia'],
+        [/governance|amministratori/i, 'governance'],
+        [/revision|organo di controllo|\bets\b/i, 'revisione'],
+        [/credit|rating bancario/i, 'credito'],
+        [/\besg\b|sostenibilit/i, 'esg']
+    ];
+    const RE_CONTATTO_TEMA = /\s-\s*contatto\s*$/i;
+    document.querySelectorAll('form[data-pagina]').forEach(form => {
+        const pagina = form.dataset.pagina || '';
+        if (!RE_CONTATTO_TEMA.test(pagina)) return;
+        const voce = TEMI_CONTATTI.find(t => t[0].test(pagina));
+        // la stessa riga di email e telefono accanto al modulo (un div come
+        // quelle: un paragrafo verrebbe giustificato da assets/testo.css)
+        const riga = document.createElement('div');
+        riga.className = 'contact-item';
+        riga.style.margin = '20px 4px 0';
+        riga.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+            + '<span>Hai una domanda su un altro tema o sugli eventi? Scrivici da '
+            + '<a class="text-accent" style="font-weight:600;text-decoration:underline;text-underline-offset:3px;" href="/contatti/'
+            + (voce ? '?tema=' + encodeURIComponent(voce[1]) : '') + '">Domande e contatti</a></span>';
+        form.insertAdjacentElement('afterend', riga);
+    });
+
     // --- Notification system ---
-    function showNotification(message, type) {
+    // `durata` (facoltativa): quanto resta a schermo, per i messaggi con un collegamento
+    function showNotification(message, type, durata) {
         // Remove existing notification
         const existing = document.querySelector('.notification');
         if (existing) existing.remove();
@@ -213,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
             notification.style.transform = 'translateY(12px)';
             notification.style.transition = '0.3s ease-out';
             setTimeout(() => notification.remove(), 300);
-        }, 5000);
+        }, durata || 5000);
     }
 
     // --- Regioni ZLS interactive explorer ---

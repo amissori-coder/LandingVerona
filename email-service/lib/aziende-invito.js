@@ -70,6 +70,10 @@ const CONTATTI = require('./richieste-contatto');
 const MOTORE = require('./invio-inviti');
 const PROG = require('./programmazione-inviti');
 const RITMI = require('./ritmi-invito');
+/* Tutte le colonne del file, nell'ordine del file: la forma sta in un
+   modulo suo perche' la usa anche l'endpoint pubblico dell'iscrizione,
+   che questo file non lo deve caricare. */
+const DATI_FILE = require('./dati-file-azienda');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -194,8 +198,26 @@ const ALIAS = {
     'provincia': 'provincia', 'prov': 'provincia', 'sigla provincia': 'provincia',
     'telefono': 'telefono', 'tel': 'telefono', 'cellulare': 'telefono',
     'email': 'email', 'e-mail': 'email', 'mail': 'email', 'email ordinaria': 'email', 'posta elettronica': 'email',
-    'note': 'note', 'nota': 'note', 'settore': 'settore', 'ateco': 'settore', 'attivita': 'settore'
+    'note': 'note', 'nota': 'note', 'settore': 'settore', 'ateco': 'settore', 'attivita': 'settore',
+    'settore di attivita': 'settore'
 };
+/* Il campo di un'intestazione. Prima il nome esatto; se non c'e', lo
+   stesso nome senza la parentesi in fondo: il foglio della Lombardia
+   scrive "Ragione sociale (file)" e "Comune (sede operativa)", e senza
+   questo secondo tentativo non entrava NESSUNA azienda (tutte "senza
+   denominazione", perche' la colonna del nome non veniva trovata).
+   Mai per la provincia: qui e' la sigla di due lettere (si tiene fino a
+   quattro), e quel foglio ha il nome intero - "Milano", "Monza e della
+   Brianza" - che tagliato diventerebbe "Mila" e "Monz". Quelle colonne
+   restano dove restano tutte le altre, fra i dati del file. */
+function campoDiIntestazione(h, ancheSenzaParentesi) {
+    if (ALIAS[h]) return ALIAS[h];
+    if (!ancheSenzaParentesi) return '';
+    const senza = h.replace(/\s*\([^()]*\)$/, '').trim();
+    if (!senza || senza === h) return '';
+    const campo = ALIAS[senza] || '';
+    return campo === 'provincia' ? '' : campo;
+}
 
 /* Freno agli invii, per utente e per canale. Il conteggio sta su Firestore
    (non in memoria) perche' ogni chiamata puo' finire su una macchina diversa,
@@ -344,7 +366,10 @@ async function sovrapposizioni(db, evento, campagna, contatti) {
 }
 
 /* La scheda come la vede l'area riservata: fuori restano solo i campi
-   che servono a video, non l'intero documento. */
+   che servono a video, non l'intero documento. Fra quelli che restano
+   fuori c'e' `datiFile`, la riga intera del file caricato: moltiplicata
+   per migliaia di schede peserebbe piu' di tutto il resto della pagina, e
+   la finestra degli inviti non la mostra. Viaggia solo con l'iscrizione. */
 function inChiaro(id, d) {
     d = d || {};
     return {
@@ -705,11 +730,18 @@ async function esegui(ctx) {
             const intest = righe[0].map(h => chiave(h).replace(/\*/g, '').replace(/\s+/g, ' ').trim());
             const campoDi = {};
             const presi = {};
-            intest.forEach((h, i) => {
-                const campo = ALIAS[h];
-                // la prima colonna che vale per un campo vince: se il file ha sia
-                // "Denominazione" sia "Nome", la ragione sociale resta una sola
-                if (campo && !presi[campo]) { campoDi[i] = campo; presi[campo] = true; }
+            /* Due giri: prima i nomi esatti, poi quelli senza la parentesi.
+               Cosi' una colonna chiamata giusta vince sempre su una che lo
+               diventa togliendo un pezzo ("Nome (referente)" non porta via
+               la ragione sociale a "Denominazione" che viene dopo). */
+            [false, true].forEach(ancheSenzaParentesi => {
+                intest.forEach((h, i) => {
+                    if (campoDi[i]) return;
+                    const campo = campoDiIntestazione(h, ancheSenzaParentesi);
+                    // la prima colonna che vale per un campo vince: se il file ha sia
+                    // "Denominazione" sia "Nome", la ragione sociale resta una sola
+                    if (campo && !presi[campo]) { campoDi[i] = campo; presi[campo] = true; }
+                });
             });
             const col = n => { for (const i in campoDi) { if (campoDi[i] === n) return +i; } return -1; };
             const iPec = col('pec'), iMail = col('email'), iRag = col('ragioneSociale');
@@ -770,6 +802,15 @@ async function esegui(ctx) {
                         referente: cella(riga, col('referente')), citta: cella(riga, col('citta')),
                         provincia: cella(riga, col('provincia')).slice(0, 4), telefono: cella(riga, col('telefono')),
                         settore: cella(riga, col('settore')), note: cella(riga, col('note')), extra: extra,
+                        /* LA RIGA DEL FILE COM'E': tutte le colonne, nell'ordine
+                           del file, comprese quelle riconosciute qui sopra e le
+                           celle vuote. `extra` resta per chi lo legge gia', ma
+                           perde l'ordine, le colonne riconosciute e i valori
+                           oltre i 300 caratteri; questo elenco e' quello che
+                           arriva, con il codice, accanto a chi si registra
+                           (lib/dati-file-azienda.js). Nell'elenco della
+                           finestra degli inviti non torna (vedi inChiaro). */
+                        datiFile: DATI_FILE.colonne(righe[0], riga),
                         aggiornata: { quando: Date.now(), da: email, collab: collab }
                     }
                 });
@@ -877,6 +918,13 @@ async function esegui(ctx) {
                         if (v.invio) campi.invio = v.invio;
                         if (v.errore) campi.errore = v.errore;
                         if (v.aggiunta) campi.aggiunta = v.aggiunta;
+                    }
+                    /* E i dati del file: il modulo di modifica non li mostra,
+                       quindi non li rimanda, e con la scheda vecchia se ne
+                       andavano tutte le colonne caricate. */
+                    if (!prima.exists) {
+                        if (Array.isArray(v.datiFile)) campi.datiFile = v.datiFile;
+                        if (v.extra && typeof v.extra === 'object') campi.extra = v.extra;
                     }
                     await vecchia.ref.delete().catch(() => { });
                 }
