@@ -49,7 +49,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=11">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -394,14 +394,17 @@
                              modulo il nome dell'azienda a cui e' stato mandato. -->
                         <div class="campo campo-largo">
                             <label for="codiceInvito">Codice invito <span class="facoltativo">(solo se hai ricevuto l'invito riservato alla tua azienda)</span></label>
-                            <input type="text" id="codiceInvito" name="codiceInvito" placeholder="5 caratteri, per esempio A7K2M" maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" class="campo-codice" enterkeyhint="next">
+                            <input type="text" id="codiceInvito" name="codiceInvito" placeholder="5 caratteri, per esempio A7K2M" maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" class="campo-codice" enterkeyhint="next" aria-describedby="codiceInvitoNota">
+                            <!-- Detto qui, prima: la regola altrimenti si scopre solo quando
+                                 la terza persona della stessa azienda si vede rifiutare il codice. -->
+                            <span class="campo-nota" id="codiceInvitoNota">Vale per due iscrizioni: se partecipate in due, ognuno si iscrive con nome, email e cellulare propri.</span>
                             <span class="campo-ok" id="codiceInvitoOk" role="status"></span>
                             <span class="campo-errore" id="codiceInvitoError"></span>
                         </div>
                         <div class="campo">
                             <label for="azienda">Azienda / Studio *</label>
                             <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization" autocapitalize="words" autocorrect="off" enterkeyhint="next">
-                            <span class="campo-nota" id="aziendaNota" hidden>Dal codice invito: per cambiarla, togli il codice.</span>
+                            <span class="campo-nota" id="aziendaNota" hidden>Dal codice invito: è l'azienda invitata e non si può modificare.</span>
                             <span class="campo-errore" id="aziendaError"></span>
                         </div>
                         <div class="campo">
@@ -663,6 +666,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=13"></script>
+    <script src="script.js?v=14"></script>
 </body>
 </html>

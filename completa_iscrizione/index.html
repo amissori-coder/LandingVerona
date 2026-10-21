@@ -119,13 +119,18 @@
                     /* L'email dell'intestatario e' l'identita' dell'iscrizione; il
                        cellulare, quando e' stato verificato con il codice SMS, e' quello
                        che ha ricevuto il codice. Tutti e due restano come sono: il
-                       servizio comunque non li cambierebbe. */
+                       servizio comunque non li cambierebbe.
+                       L'azienda, quando l'iscrizione e' arrivata con un codice invito,
+                       e' quella dell'elenco delle aziende invitate: e' cio' che lega la
+                       persona all'invito, e il servizio la tiene ferma anche qui. */
                     var bloccaEmail = intestatario && c.id === 'email';
                     var bloccaTel = intestatario && c.id === 'telefono' && dati.telefonoBloccato;
-                    var blocca = bloccaEmail || bloccaTel;
+                    var bloccaAzienda = intestatario && c.id === 'azienda' && dati.aziendaBloccata;
+                    var blocca = bloccaEmail || bloccaTel || bloccaAzienda;
                     return '<div class="campo"><label for="p' + i + '-' + c.id + '">' + c.et
                         + (bloccaEmail ? ' (non modificabile: è l\'indirizzo di questa iscrizione)' : '')
-                        + (bloccaTel ? ' (non modificabile: verificato con il codice SMS)' : '') + '</label>'
+                        + (bloccaTel ? ' (non modificabile: verificato con il codice SMS)' : '')
+                        + (bloccaAzienda ? ' (non modificabile: viene dal codice invito)' : '') + '</label>'
                         + '<input id="p' + i + '-' + c.id + '" type="' + (c.tipo || 'text') + '" value="' + esc(dati[c.id] || '') + '"'
                         + (blocca ? ' readonly' : '') + (c.ph ? ' placeholder="' + esc(c.ph) + '"' : '') + '>'
                         + '</div>';
@@ -153,7 +158,13 @@
             function modulo(r) {
                 var n = Math.max(1, r.partecipanti || 1);
                 document.getElementById('sotto-titolo').textContent = 'Next Generation Business - ' + nomeEvento(r.pagina);
-                var blocchi = blocco(1, r.capofila, true);
+                /* L'azienda ferma: il servizio lo dice in cima alla risposta
+                   (aziendaBloccata, per le iscrizioni con codice invito); lo si
+                   accetta anche accanto ai dati, dove sta telefonoBloccato. */
+                var capofila = Object.assign({}, r.capofila, {
+                    aziendaBloccata: !!(r.aziendaBloccata || (r.capofila && r.capofila.aziendaBloccata))
+                });
+                var blocchi = blocco(1, capofila, true);
                 for (var i = 2; i <= n; i++) blocchi += blocco(i, (r.altri && r.altri[i - 2]) || null, false);
                 box.innerHTML =
                     '<div class="riepilogo">' + (n > 1

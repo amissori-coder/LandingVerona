@@ -27179,21 +27179,66 @@
         return ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
     }
 
-    /* VERSIONE "SALA": l'invito di sempre, con il posto in presenza da
-       riservare. */
-    function invTestoSala(ev) {
-        return invAperturaInvito(ev)
-            /* Il codice. Va detto per cosa serve e cosa succede se non lo si
-               usa, altrimenti resta cinque caratteri buttati in fondo a una
-               mail e nessuno lo trascrive. Il segnaposto {codice} lo sostituisce
-               il servizio, azienda per azienda, con quello riservato a lei. */
-            + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
+    /* Quante iscrizioni ammette un codice, se l'evento lo fissa
+       (iscrizioniPerCodice in EVENTI_DEF); zero vuol dire nessun tetto. */
+    function invIscrizioniPerCodice(ev) {
+        const n = Math.floor(Number(ev && ev.iscrizioniPerCodice));
+        return n > 0 ? n : 0;
+    }
+    /* Il tetto in lettere: in una lettera formale "due iscrizioni" si legge,
+       "2 iscrizioni" sembra un modulo. Al femminile, perche' si contano
+       iscrizioni e persone; oltre il dieci restano le cifre. */
+    function invInLettere(n) {
+        return ['', 'una', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove', 'dieci'][n] || String(n);
+    }
+
+    /* IL CODICE, scritto una volta sola per le due versioni. Va detto per
+       cosa serve e cosa succede se non lo si usa, altrimenti resta cinque
+       caratteri buttati in fondo a una mail e nessuno lo trascrive. Il
+       segnaposto {codice} lo sostituisce il servizio, azienda per azienda,
+       con quello riservato a lei. Fra le due versioni cambiano solo una
+       parola (in sala ci si registra, alla diretta ci si iscrive) e il
+       mestiere del codice: tenere il posto, oppure dare la precedenza in
+       coda. Stava scritto due volte, ed e' proprio il pezzo in cui due copie
+       che divergono mandano a centinaia di aziende due regole diverse.
+
+       QUANTE ISCRIZIONI. Se l'evento fissa un tetto per codice (a Milano
+       due), la lettera lo dice. E' una regola che il servizio fa rispettare
+       (lib/iscrizione-verificata.js, MAX_PER_CODICE), e scoprirla al
+       modulo, quando la terza persona si vede rifiutare il codice, vuol dire
+       una telefonata in segreteria e un'azienda scontenta. Detto qui, chi
+       riceve la PEC sa che il codice si passa a un collega, non a tutto
+       l'ufficio, e che ognuno si registra con i propri dati: il modulo
+       accetta un'iscrizione per email e per cellulare, verificato via SMS.
+       Senza tetto il testo resta quello di sempre, parola per parola. */
+    function invParagrafoCodice(ev, versione) {
+        const diretta = versione === 'diretta';
+        const n = invIscrizioniPerCodice(ev);
+        const comeSiIscrive = (diretta ? 'iscrivendosi' : 'registrandosi')
+            + ' con il proprio nome, il proprio indirizzo email e il proprio numero di cellulare.';
+        const tetto = !n ? ''
+            : (n === 1
+                ? 'Il codice consente una sola iscrizione: può utilizzarlo una persona della Vostra azienda, '
+                : 'Lo stesso codice consente al massimo ' + invInLettere(n) + ' iscrizioni: possono utilizzarlo '
+                + 'fino a ' + invInLettere(n) + ' persone della Vostra azienda, ciascuna ')
+            + comeSiIscrive + '\n\n';
+        return 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
             /* Da sola su una riga: cosi' diventa il riquadro. Gli spazi davanti
                non servivano a niente, l'HTML se li mangia. */
             + '{codice}\n\n'
             + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato '
-            + 'e va indicato nel modulo di registrazione, nel campo dedicato: è quello che ci permette '
-            + 'di riconoscere le aziende selezionate e di tenere il posto riservato.\n\n'
+            + 'e va indicato nel modulo di ' + (diretta ? 'iscrizione' : 'registrazione')
+            + ', nel campo dedicato: è quello che ci permette di riconoscere le aziende selezionate e di '
+            + (diretta ? 'darVi la precedenza sulla lista d\'attesa per la sala' : 'tenere il posto riservato')
+            + '.\n\n'
+            + tetto;
+    }
+
+    /* VERSIONE "SALA": l'invito di sempre, con il posto in presenza da
+       riservare. */
+    function invTestoSala(ev) {
+        return invAperturaInvito(ev)
+            + invParagrafoCodice(ev, 'sala')
             + 'La partecipazione è gratuita e i posti sono limitati. Per riservare il posto Vi chiediamo '
             + 'di registrarVi a stretto giro: le adesioni si raccolgono in ordine di arrivo e i posti '
             + 'riservati alle aziende selezionate restano disponibili fino a esaurimento della sala.\n\n'
@@ -27229,11 +27274,7 @@
             + 'dell\'ultima settimana ci sono sempre, e quando un posto si libera Vi scriviamo, lasciandoVi '
             + 'decidere se venire di persona. Non occorre fare altro: l\'iscrizione alla diretta vale anche '
             + 'come richiesta di un posto in presenza.\n\n'
-            + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
-            + '{codice}\n\n'
-            + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato e va '
-            + 'indicato nel modulo di iscrizione, nel campo dedicato: è quello che ci permette di riconoscere '
-            + 'le aziende selezionate e di darVi la precedenza sulla lista d\'attesa per la sala.\n\n'
+            + invParagrafoCodice(ev, 'diretta')
             + 'Nei giorni precedenti l\'evento riceverete il collegamento e le istruzioni per seguire i lavori.\n\n'
             + 'Il programma completo e il modulo di iscrizione alla diretta sono qui:\n\n'
             + invPaginaEvento(ev) + '\n\n'
@@ -29488,6 +29529,8 @@
            domanda a cui prima o poi qualcuno risponde male. */
         const conVersioni = campI.id !== 'sponsor';
         let versione = conVersioni ? invVersionePredefinita(ev) : 'sala';
+        // quante iscrizioni ammette un codice (a Milano due): lo ricorda l'aiuto sotto il testo
+        const perCodice = invIscrizioniPerCodice(ev);
         /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
            campagna ma dal TESTO: il pulsante si puo' togliere dallo sponsor e
            si puo' incollare in un invito, e in tutti e due i casi la domanda
@@ -29589,7 +29632,18 @@
                 + 'pulsante sparisce e chi vuole essere ricontattato non ha più come dirlo.'
                 : '<b>{codice}</b> è diverso: è il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
                 + 'al momento dell\'invio e che l\'azienda dovrà scrivere nel modulo di registrazione. Toglilo dal testo e '
-                + 'nessuno saprà di averlo.')
+                + 'nessuno saprà di averlo.'
+                /* Il tetto per codice sta nel capoverso proposto, e un capoverso
+                   riscritto a mano lo perde senza che nessuno se ne accorga:
+                   lo si scopre quando la terza persona si vede rifiutare il
+                   codice. */
+                + (perCodice
+                    ? ' Per questo evento il codice ammette ' + (perCodice === 1
+                        ? '<b>una sola iscrizione</b>'
+                        : 'al massimo <b>' + invInLettere(perCodice) + ' iscrizioni</b>')
+                    + ': il modulo rifiuta quelle in più, e il testo proposto lo dice. Se riscrivi quel capoverso, '
+                    + 'lascia la frase, altrimenti l\'azienda lo scopre solo quando il codice non passa.'
+                    : ''))
             + '</div></div>'
             /* La spunta del rinvio. Prima diceva solo "manda anche a chi ha gia
                ricevuto l'invito", che lascia aperta la domanda vera: e se NON
