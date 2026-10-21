@@ -53,6 +53,7 @@ Serve per generare i link di reimpostazione password.
 | `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 | `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
 | `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
+| `CHECKUP_MAX_GIORNO` | *(facoltativa)* quanti avvisi delle richieste di check-up dalle pagine dei temi possono partire in tutto in un giorno (intero positivo). Senza: `40`. Vedi "Le richieste di check-up dalle pagine dei temi" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
 > bloccato gli invii con un `525 5.7.13` (protezione anti-abuso della casella:
@@ -774,26 +775,41 @@ Newsletter, gruppo della pagina) e foglio Google. In piu', salvata la riga,
 parte **una mail a noi** (`avvisaCheckUp` in `lib/domande-sito.js`):
 
 - agli stessi indirizzi delle domande (`DOMANDE_DESTINATARI`, o info@),
-  oggetto "Richiesta di check-up dal sito - <Tema> - Nome Cognome" (il tema
-  e' la pagina senza " - Contatto"), una tabella con nome, cognome, email,
-  azienda, ruolo, telefono, pagina, data, privacy e marketing (piu' il
-  messaggio, quando la pagina lo manda: i simulatori di Lazio e FCD), tutto
-  neutralizzato;
-- "Rispondi" scrive a chi ha chiesto **solo se l'indirizzo e' nudo** (la
-  stessa regola delle domande): la scrittura generica accetta indirizzi piu'
-  larghi, e con `testo<vittima@altro.it>` la mail parte senza "Rispondi" e lo
-  dice;
+  oggetto "Richiesta di check-up dal sito - <Tema> - Nome Cognome", una
+  tabella con nome, cognome, email, azienda, ruolo, telefono, pagina, data,
+  privacy e marketing (piu' il messaggio, quando la pagina lo manda: il
+  riassunto dei simulatori di Lazio e FCD, con gli a capo), tutto
+  neutralizzato. Il tema viene da una lista nostra, `PAGINE_CHECK_UP` in
+  `lib/domande-sito.js`: i `data-pagina` "<...> - Contatto" del sito, che le
+  prove confrontano con i file HTML. **Una pagina nuova va aggiunta li'**:
+  finche' manca, le sue richieste arrivano con "tema non riconosciuto"
+  nell'oggetto (e la pagina scritta nel modulo solo dentro la mail);
+- "Rispondi" scrive a chi ha chiesto, e la mail parte **solo se
+  l'indirizzo e' nudo** (la stessa regola delle domande) **e c'e' il nome o
+  il cognome**: la scrittura generica accetta indirizzi piu' larghi, e con
+  `testo<vittima@altro.it>` la risposta partirebbe per l'altro;
+- **i tetti**, perche' qui non c'e' Turnstile e il freno per IP vive nella
+  memoria della funzione (chi cambia IP lo salta): **tre avvisi al giorno
+  per indirizzo** (il contatore delle domande, `domandeSitoLimiti`, con il
+  prefisso `checkup|`: stessa impronta, stesse varianti contate insieme) e
+  **quaranta in tutto al giorno** (`checkUpLimiti/<giorno italiano>`, in
+  transazione; `CHECKUP_MAX_GIORNO` lo cambia). Oltre un tetto, o se un
+  contatore non si legge, la riga si salva e la mail non parte;
 - **nessuna ricevuta** a chi scrive: qui non c'e' Turnstile, e una mail
   all'indirizzo scritto nel modulo farebbe partire la nostra posta verso
-  chiunque. La pagina dice "ti risponderemo da info@";
+  chiunque. La pagina dice "ti risponderemo da info@" solo se il servizio
+  ha risposto `ok`; con un `400`/`429` mostra il suo messaggio (e dove
+  scriverci), con il servizio irraggiungibile ma il foglio arrivato
+  "Richiesta registrata: ti ricontatteremo al più presto";
 - **quando**: solo `pagina` che finisce con " - Contatto", senza `azione`,
   non dal desk, mai una pagina che nomina un evento (`RE_PAGINA_EVENTO`, ne'
   Milano verificata). Restano fuori la newsletter della home e degli ebook
   (`- Newsletter`), le iscrizioni agli eventi (Roma, Napoli e `p26/`,
   Milano), le cene, gli aderenti, le domande di `/contatti/` e ogni altra
   azione. Vale il freno per IP dei moduli aperti (8 in 10 minuti);
-- **non ferma niente**: con la posta giu' la risposta resta `{ ok: true }`.
-  Sulla riga resta `avvisoInterno: { quando, ok, a, errore }`; una riga gia'
+- **non ferma niente**: con la posta giu' o un tetto raggiunto la risposta
+  resta `{ ok: true }`. Sulla riga resta `avvisoInterno: { quando, ok, a,
+  errore }` (per esempio `tetto del giorno: 40 avvisi`); una riga gia'
   avvisata (lo stesso modulo spedito due volte nello stesso secondo) non
   avvisa di nuovo.
 

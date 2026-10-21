@@ -2096,17 +2096,21 @@ module.exports = async (req, res) => {
         /* LA RICHIESTA DI CHECK-UP dalle pagine dei temi (crisi_impresa/,
            modello_231/...: `pagina` "<Tema> - Contatto"). Salvata la riga,
            UNA mail a noi - info@ o DOMANDE_DESTINATARI - con "Rispondi" verso
-           chi l'ha chiesta se l'indirizzo e' un indirizzo nudo; a chi scrive
-           niente, perche' qui non c'e' la casella "non sono un robot"
-           (lib/domande-sito.js spiega). Le condizioni stanno tutte qui e
+           chi l'ha chiesta, solo con un indirizzo nudo e dentro i tetti del
+           giorno (per indirizzo e per tutti); a chi scrive niente, perche'
+           qui non c'e' la casella "non sono un robot" (lib/domande-sito.js
+           spiega). Il messaggio va alla mail com'e' arrivato, con gli a capo
+           del riassunto dei simulatori: sulla riga e' su una riga sola.
+           QUANDO avvisare, invece, lo dicono queste condizioni, che
            lasciano fuori ogni altro modulo che passa da questa strada: le
            pagine degli eventi (anche quelle verificate e il desk, che
            ricevono semmai la conferma qui sopra), la newsletter della home e
            degli ebook ("- Newsletter"), qualunque corpo con un'azione. Se la
-           mail non parte la risposta resta "ok": la riga e' salva, e
-           l'esito ci resta scritto (`avvisoInterno`). */
+           mail non parte (posta giu', un tetto raggiunto) la risposta resta
+           "ok": la riga e' salva, e l'esito ci resta scritto
+           (`avvisoInterno`). */
         if (!azione && !dalDesk && !evVerificato && !RE_PAGINA_EVENTO.test(pagina) && DOMANDE.paginaCheckUp(pagina)) {
-            try { await DOMANDE.avvisaCheckUp(admin.firestore(), idDoc, scheda); }
+            try { await DOMANDE.avvisaCheckUp(admin.firestore(), idDoc, scheda, { messaggio: body.messaggio }); }
             catch (e) { console.error('Richiesta di check-up, avviso non riuscito:', String((e && e.message) || e).slice(0, 200)); }
         }
         /* E al cellulare appena verificato, l'SMS che dice dove cercare la

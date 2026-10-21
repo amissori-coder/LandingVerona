@@ -198,15 +198,18 @@ function quandoLeggibile(ms) {
 
 /* Il contatore per indirizzo, nella giornata italiana. Il nome del
    documento e' un'impronta: l'indirizzo non ci sta scritto. L'indirizzo e'
-   contato nella sua forma per contare (formaPerContare). */
-async function prenotaDelGiorno(db, email) {
-    const rif = db.collection('domandeSitoLimiti').doc(crypto.createHash('sha256').update('domanda|' + formaPerContare(email)).digest('hex').slice(0, 40));
+   contato nella sua forma per contare (formaPerContare). Lo stesso
+   contatore serve alle richieste di check-up (in fondo), con un altro
+   prefisso nell'impronta e un altro tetto: i due conti non si toccano. */
+async function prenotaDelGiorno(db, email, prefisso, massimo) {
+    const rif = db.collection('domandeSitoLimiti').doc(crypto.createHash('sha256').update((prefisso || 'domanda|') + formaPerContare(email)).digest('hex').slice(0, 40));
+    const tetto = massimo || MAX_AL_GIORNO;
     const oggi = giornoItaliano(Date.now());
     return db.runTransaction(async tx => {
         const s = await tx.get(rif);
         const d = s.exists ? (s.data() || {}) : {};
         const quante = d.giorno === oggi ? (Number(d.quante) || 0) : 0;
-        if (quante >= MAX_AL_GIORNO) return false;
+        if (quante >= tetto) return false;
         tx.set(rif, { giorno: oggi, quante: quante + 1 }, { merge: true });
         return true;
     });
@@ -499,10 +502,10 @@ async function ricevi(db, corpo, opz) {
        casella "non sono un robot": una mail all'indirizzo scritto nel
        modulo farebbe partire la nostra posta verso chiunque. Chi scrive ha
        gia' il messaggio a schermo, e la risposta gli arriva da info@;
-     - "Rispondi" verso chi scrive SOLO con un indirizzo nudo
-       (indirizzoValido): la scrittura generica accetta indirizzi piu'
+     - "Rispondi" verso chi scrive, e la mail parte SOLO con un indirizzo
+       nudo (indirizzoValido): la scrittura generica accetta indirizzi piu'
        larghi, e con "testo<vittima@altro.it>" la nostra risposta
-       partirebbe per l'altro. Senza, la mail dice di controllarlo;
+       partirebbe per l'altro (vedi i freni, qui sotto);
      - QUANDO avvisare lo decide iscrizione-nuova.js, accanto alla mail di
        conferma degli eventi: `pagina` che finisce con "- Contatto"
        (paginaCheckUp), mai una pagina di evento, mai un corpo con
@@ -511,22 +514,128 @@ async function ricevi(db, corpo, opz) {
        resta scritto li' (`avvisoInterno`: quando, ok, a quanti, l'errore).
        Lo stesso modulo spedito due volte nello stesso secondo riscrive la
        stessa riga, e una riga gia' avvisata non avvisa di nuovo.
+
+   I FRENI. Senza la casella "non sono un robot", e con il freno per IP che
+   vive nella memoria di una funzione (un robot che cambia IP lo salta),
+   questa strada potrebbe far arrivare a info@ quante mail vuole chiunque.
+   Percio' la mail parte solo se:
+     - l'indirizzo e' un indirizzo nudo (indirizzoValido) e c'e' almeno il
+       nome o il cognome: una riga senza una persona a cui rispondere resta
+       nell'area riservata, e basta;
+     - quell'indirizzo, oggi, non ha gia' fatto partire tre avvisi (il
+       contatore delle domande, `domandeSitoLimiti`, con il prefisso
+       'checkup|': stessa impronta, stessa forma per contare);
+     - oggi, in tutto, non sono gia' partiti quaranta avvisi
+       (`checkUpLimiti/<giorno italiano>`, un contatore in transazione;
+       CHECKUP_MAX_GIORNO lo cambia). Il tetto per indirizzo si guarda per
+       primo: chi lo ha gia' raggiunto non consuma il tetto di tutti;
+     - l'oggetto dice il tema solo se la pagina e' una di quelle del sito
+       (PAGINE_CHECK_UP, la stessa lista dell'HTML: le prove la confrontano
+       con i file). Una pagina sconosciuta salva la riga e avvisa lo stesso
+       (dentro i tetti), con "tema non riconosciuto" nell'oggetto: il testo
+       scritto nel modulo si legge solo dentro la mail, neutralizzato.
+   Oltre un tetto la riga c'e' e non parte niente: su `avvisoInterno`
+   resta ok falso e quale tetto. Se un contatore non si legge la mail non
+   parte (un robot che intasa il contatore non deve aprirsi la strada); la
+   riga c'e' comunque.
    ============================================================ */
 const RE_CHECK_UP = /\s-\s*contatto\s*$/i;
+const MAX_CHECK_UP_INDIRIZZO = 3;
+const MAX_CHECK_UP_GIORNO = 40;
+/* Le pagine dei temi, come le scrive `data-pagina` nei moduli del sito.
+   Una pagina nuova va aggiunta qui: finche' non c'e', le sue richieste
+   arrivano con "tema non riconosciuto" (e prove/check-up-temi.prove.js e'
+   rossa). */
+const PAGINE_CHECK_UP = [
+    'AI Act 2 agosto 2026 - Contatto',
+    'AI Governance - Contatto',
+    'Adeguati Assetti - Contatto',
+    'Bandi Lazio 2026 - Contatto',
+    'Bando-tipo aiuti di Stato 2026 - Contatto',
+    'Benefici fiscali TCF - Circolare 6/E 2026 - Contatto',
+    'Bilancio di sostenibilità e ISO - Contatto',
+    'Cassazione 7134/2026 - Adeguati Assetti - Contatto',
+    'Chi Siamo - Contatto',
+    'Dlgs 47/2026 Amministratori controllori revisori - Contatto',
+    'ESG e merito creditizio - Contatto',
+    'Early Warning e Adeguati Assetti - Contatto',
+    'Fondo Contrasto Deindustrializzazione 2026 - Contatto',
+    'Holding, Protezione del Patrimonio e Trust - Contatto',
+    'IA e Quantum Computing nell\'export - Contatto',
+    'IA e reati presupposto 231 - Contatto',
+    'Intelligenza artificiale in azienda - Contatto',
+    'Iper Ammortamento 2026-2028 - Contatto',
+    'L\'inconscio dell\'impresa - Contatto',
+    'La Crisi d\'Impresa - Contatto',
+    'Modello 231 - Contatto',
+    'Nuove imprese a tasso zero - Contatto',
+    'OIC 35 bilancio ETS - Contatto',
+    'Organo di controllo Dlgs 47/2026 - Contatto',
+    'Rating Bancario - Contatto',
+    'Rating di Legalità - Contatto',
+    'Rating di legalita e incentivi - Contatto',
+    'Responsabilita Amministratori - Contatto',
+    'Revisione Legale Demo - Contatto',
+    'Riforma governance Dlgs 47/2026 - Contatto',
+    'Sostenibilità ed ESG - Contatto',
+    'Tax Control Framework - Contatto',
+    'Tax Control Framework e Adempimento Collaborativo - Contatto',
+    'Verbale di controllo ETS - Contatto',
+    'Vibe coding e conformità UE - Contatto',
+    'Voucher Digitalizzazione PMI 2026 Lazio - Contatto',
+    'ZLS & ZES - Contatto'
+];
+// la chiave con cui si cerca: minuscole e spazi semplici
+function chiavePagina(p) {
+    return String(p || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+// "la crisi d'impresa - contatto" -> "La Crisi d'Impresa": l'etichetta e' la nostra
+const TEMA_DI_PAGINA = {};
+PAGINE_CHECK_UP.forEach(p => { TEMA_DI_PAGINA[chiavePagina(p)] = p.replace(RE_CHECK_UP, '').trim(); });
+
 function paginaCheckUp(pagina) {
     return RE_CHECK_UP.test(String(pagina || ''));
 }
-// "La Crisi d'Impresa - Contatto" -> "La Crisi d'Impresa"
+/* "La Crisi d'Impresa - Contatto" -> "La Crisi d'Impresa", dalla lista qui
+   sopra; una pagina che non c'e' -> '' (il testo scritto nel modulo non
+   diventa un'etichetta). */
 function temaDaPagina(pagina) {
-    const p = testo(pagina, 200);
-    return p.replace(RE_CHECK_UP, '').trim() || p;
+    const k = chiavePagina(testo(pagina, 200));
+    return Object.prototype.hasOwnProperty.call(TEMA_DI_PAGINA, k) ? TEMA_DI_PAGINA[k] : '';
+}
+// il tetto di tutti, al giorno: CHECKUP_MAX_GIORNO se e' un intero positivo
+function tettoCheckUpGiorno() {
+    const n = Number(String(process.env.CHECKUP_MAX_GIORNO || '').trim());
+    return Number.isInteger(n) && n > 0 ? n : MAX_CHECK_UP_GIORNO;
+}
+/* Il contatore di tutti gli avvisi del giorno italiano: un documento per
+   giorno, che non si riapre il giorno dopo. Restituisce false se il tetto
+   e' gia' raggiunto (e allora non conta). */
+async function prenotaCheckUpDelGiorno(db, tetto) {
+    const oggi = giornoItaliano(Date.now());
+    const rif = db.collection('checkUpLimiti').doc(oggi);
+    return db.runTransaction(async tx => {
+        const s = await tx.get(rif);
+        const quante = s.exists ? (Number((s.data() || {}).quante) || 0) : 0;
+        if (quante >= tetto) return false;
+        tx.set(rif, { giorno: oggi, quante: quante + 1 }, { merge: true });
+        return true;
+    });
+}
+/* Il messaggio dei simulatori (fcd_2026, lazio_bandi_2026): un riassunto su
+   piu' righe, che la riga fra le iscrizioni tiene su una. Per la mail si
+   ripulisce dal testo che arriva dal modulo, con gli a capo. */
+function messaggioCheckUp(v) {
+    return testoLungo(String(v == null ? '' : v).slice(0, 4 * MAX_MESSAGGIO)).slice(0, MAX_MESSAGGIO).trim();
 }
 function siNo(v) {
     return v === true ? 'sì' : (v === false ? 'no' : 'non indicato');
 }
 /* La mail a noi. `rispondi` e' l'indirizzo per "Rispondi", gia' controllato
    (vuoto se l'indirizzo scritto non e' un indirizzo nudo). Tutto quello che
-   viene dal modulo passa da esc(): la riga l'ha scritta chiunque. */
+   viene dal modulo passa da esc(): la riga l'ha scritta chiunque. Il tema
+   nell'oggetto e nella prima riga e' solo un'etichetta nostra; la pagina
+   com'e' arrivata sta nella tabella. */
 function mailCheckUp(s, rispondi) {
     const x = s || {};
     const tema = temaDaPagina(x.pagina);
@@ -537,22 +646,25 @@ function mailCheckUp(s, rispondi) {
         ['Pagina', testo(x.pagina, 200)], ['Data', testo(x.data, 40)],
         ['Consenso privacy', siNo(x.privacy)], ['Consenso marketing', siNo(x.marketing)]
     ];
-    const messaggio = testo(x.messaggio, 2000);
+    const messaggio = messaggioCheckUp(x.messaggio);
     const riga = r => '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;vertical-align:top;">' + esc(r[0]) + '</td>'
         + '<td style="padding:4px 0;font-weight:600;">' + esc(r[1] || '-') + '</td></tr>';
     const nota = rispondi
         ? 'Rispondendo a questo messaggio si scrive direttamente a ' + rispondi + '.'
         : 'L\'indirizzo scritto nel modulo non è un indirizzo semplice: «Rispondi» non scrive a chi ha fatto la richiesta. Controllarlo prima di rispondere.';
     // il modulo si chiama "Richiedi un check-up riservato" o "Richiedi informazioni", secondo la pagina
-    const apertura = 'Richiesta dal modulo di contatto della pagina «' + tema + '» del sito.';
+    const apertura = tema
+        ? 'Richiesta dal modulo di contatto della pagina «' + tema + '» del sito.'
+        : 'Richiesta dal modulo di contatto di una pagina che non è fra quelle dei temi del sito: la pagina scritta nel modulo è nella tabella, alla voce «Pagina».';
     const dove = 'La richiesta è salvata anche nell\'area riservata, sezione Newsletter, nel gruppo della pagina.';
     const dentro = '<p style="margin:0 0 14px;">' + esc(apertura) + '</p>'
         + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;font-size:14px;">'
         + dati.map(riga).join('') + '</table>'
-        + (messaggio ? '<p style="margin:0 0 14px;"><b>Messaggio</b><br>' + esc(messaggio) + '</p>' : '')
+        // gli a capo del riassunto dei simulatori restano: testo neutralizzato, riga per riga
+        + (messaggio ? '<p style="margin:0 0 14px;"><b>Messaggio</b><br>' + esc(messaggio).split('\n').join('<br>') + '</p>' : '')
         + '<p style="margin:0 0 8px;font-size:13px;color:#475569;">' + esc(nota) + '</p>'
         + '<p style="margin:0;font-size:13px;color:#475569;">' + esc(dove) + '</p>';
-    const oggetto = senzaTrattiniLunghi('Richiesta di check-up dal sito - ' + tema + (chi ? ' - ' + chi : ''))
+    const oggetto = senzaTrattiniLunghi('Richiesta di check-up dal sito - ' + (tema || 'tema non riconosciuto') + (chi ? ' - ' + chi : ''))
         .replace(/[\r\n]+/g, ' ').slice(0, 250);
     const testoMail = [apertura,
         dati.map(r => r[0] + ': ' + (r[1] || '-')).join('\n'),
@@ -561,8 +673,10 @@ function mailCheckUp(s, rispondi) {
     return { oggetto: oggetto, html: avvolgi(dentro), testo: senzaTrattiniLunghi(testoMail) };
 }
 /* Dopo il salvataggio della riga `iscrizioni/<idDoc>`. Non lancia mai:
-   restituisce l'esito, che e' anche quello scritto sulla riga. */
-async function avvisaCheckUp(db, idDoc, scheda) {
+   restituisce l'esito, che e' anche quello scritto sulla riga. opz:
+   { messaggio } il messaggio come l'ha mandato la pagina, con gli a capo
+   (sulla riga e' su una riga sola). */
+async function avvisaCheckUp(db, idDoc, scheda, opz) {
     const s = scheda || {};
     const rif = db.collection('iscrizioni').doc(String(idDoc));
     try {
@@ -571,16 +685,43 @@ async function avvisaCheckUp(db, idDoc, scheda) {
         if (gia && gia.ok === true) return { ok: true, gia: true };
     } catch (_) { /* non si legge: meglio una mail in piu' che una richiesta persa */ }
 
-    const a = destinatari();
-    const email = testo(s.email, 200).toLowerCase();
-    const rispondi = indirizzoValido(email) ? email : '';
     const esito = { quando: Date.now(), ok: false };
+    const annota = async () => {
+        try { await rif.set({ avvisoInterno: esito }, { merge: true }); } catch (_) { /* dato di servizio */ }
+        return esito;
+    };
+    // una persona a cui rispondere: un indirizzo nudo, e un nome o un cognome
+    const email = testo(s.email, 200).toLowerCase();
+    if (!indirizzoValido(email)) { esito.errore = 'nessun avviso: l\'indirizzo email non è un indirizzo semplice'; return annota(); }
+    if (!testo(s.nome, 120) && !testo(s.cognome, 120)) { esito.errore = 'nessun avviso: mancano nome e cognome'; return annota(); }
+
+    // i tetti: prima quello dell'indirizzo, poi quello di tutti (vedi sopra)
+    const tetto = tettoCheckUpGiorno();
+    try {
+        if (!await prenotaDelGiorno(db, email, 'checkup|', MAX_CHECK_UP_INDIRIZZO)) {
+            esito.errore = 'tetto per indirizzo: ' + MAX_CHECK_UP_INDIRIZZO + ' avvisi al giorno';
+            console.warn('Richiesta di check-up: tetto per indirizzo raggiunto, nessun avviso.');
+            return annota();
+        }
+        if (!await prenotaCheckUpDelGiorno(db, tetto)) {
+            esito.errore = 'tetto del giorno: ' + tetto + ' avvisi';
+            console.warn('Richiesta di check-up: tetto del giorno raggiunto (' + tetto + '), nessun avviso.');
+            return annota();
+        }
+    } catch (e) {
+        esito.errore = 'nessun avviso: contatore non letto (' + String((e && e.message) || e).slice(0, 150) + ')';
+        console.error('Richiesta di check-up, contatore non letto:', esito.errore);
+        return annota();
+    }
+
+    const a = destinatari();
     let trans = null;
     try {
-        const m = mailCheckUp(s, rispondi);
-        const msg = { from: mittente(), to: a.join(', '), subject: m.oggetto, html: m.html, text: m.testo };
-        // "Rispondi" scrive alla persona, ma solo a un indirizzo nudo (vedi sopra)
-        if (rispondi) msg.replyTo = rispondi;
+        const o = opz || {};
+        const dati = Object.assign({}, s, { email: email, messaggio: 'messaggio' in o ? o.messaggio : s.messaggio });
+        const m = mailCheckUp(dati, email);
+        // "Rispondi" scrive alla persona: l'indirizzo e' nudo (controllato qui sopra)
+        const msg = { from: mittente(), to: a.join(', '), replyTo: email, subject: m.oggetto, html: m.html, text: m.testo };
         trans = trasporto();
         await trans.sendMail(msg);
         esito.ok = true;
@@ -590,11 +731,11 @@ async function avvisaCheckUp(db, idDoc, scheda) {
         console.error('Richiesta di check-up, avviso interno non partito:', esito.errore);
     }
     try { if (trans) trans.close(); } catch (_) { /* niente da chiudere */ }
-    try { await rif.set({ avvisoInterno: esito }, { merge: true }); } catch (_) { /* dato di servizio */ }
-    return esito;
+    return annota();
 }
 
 module.exports = {
     ricevi, destinatari, mailInterna, mailRicevuta, indirizzoValido, formaPerContare, TEMI, EVENTI, MOTIVI, MAX_AL_GIORNO,
-    paginaCheckUp, temaDaPagina, mailCheckUp, avvisaCheckUp
+    paginaCheckUp, temaDaPagina, mailCheckUp, avvisaCheckUp,
+    PAGINE_CHECK_UP, MAX_CHECK_UP_INDIRIZZO, MAX_CHECK_UP_GIORNO
 };

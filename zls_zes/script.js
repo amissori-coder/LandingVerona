@@ -131,35 +131,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: (contactForm.dataset.pagina || 'ZLS & ZES - Contatto') });
 
-            // Seconda strada, indipendente dalla prima: gli stessi dati vanno anche
-            // sul database dell'area riservata, cosi' l'iscrizione si vede subito
-            // nella sezione Newsletter senza dipendere dal foglio. Se questa fallisce
-            // non cambia nulla per chi si iscrive: il foglio resta la conferma
-            // dell'invio, ed e' il foglio a comandare il messaggio a schermo.
+            // Due strade, insieme. Il foglio Google, come sempre: con no-cors
+            // la sua risposta non si legge, dice solo se la rete c'era. E il
+            // servizio dell'area riservata, che salva la riga (sezione
+            // Newsletter) e avvisa info@ (email-service, lib/domande-sito.js,
+            // avvisaCheckUp): e' la sua risposta a dire cosa scrivere a schermo.
             // (text/plain evita la richiesta di verifica preliminare del browser;
             //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
-            fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                body: JSON.stringify(jsonData)
-            }).catch(() => { /* il foglio resta la strada principale */ });
-
-            fetch(GOOGLE_SHEET_URL, {
+            const viaServizio = chiediAlServizio(jsonData);
+            const viaFoglio = fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(jsonData)
-            }).then(() => {
-                // la richiesta arriva anche per mail a info@ (lib/domande-sito.js, avvisaCheckUp)
-                showNotification('Grazie! La tua richiesta è arrivata al nostro team: ti risponderemo al più presto da info@nextgenerationbusiness.it.', 'success');
-                contactForm.reset();
-            }).catch(() => {
-                showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');
+            }).then(() => true, () => false);
+
+            Promise.all([viaServizio, viaFoglio]).then(([servizio, foglioOk]) => {
+                const esito = esitoRichiesta(servizio, foglioOk);
+                showNotification(esito.testo, esito.tipo, esito.durata);
+                if (esito.svuota) contactForm.reset();
             }).finally(() => {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
             });
         });
+    }
+
+    // --- La risposta del servizio, letta davvero ---
+    // { stato, corpo } se il servizio ha risposto; null se non si e'
+    // raggiunto (rete, servizio giu', una risposta che il browser non lascia
+    // leggere) o se dopo 20 secondi non ha ancora detto niente: allora si fa
+    // come se non ci fosse, e la richiesta (se gli arriva) va avanti da se'.
+    function chiediAlServizio(jsonData) {
+        const risposta = fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: JSON.stringify(jsonData)
+        }).then(r => r.json().catch(() => ({})).then(corpo => ({ stato: r.status, corpo: corpo || {} })));
+        const attesa = new Promise(fatto => setTimeout(() => fatto(null), 20000));
+        return Promise.race([risposta, attesa]).catch(() => null);
+    }
+
+    // Cosa dire a chi ha mandato la richiesta:
+    //   ok: true dal servizio  -> e' arrivata al team (riga salvata, info@ avvisato);
+    //   400/429 con un msg     -> quel messaggio, e dove scriverci lo stesso;
+    //   servizio non raggiunto -> col foglio arrivato "registrata", senza
+    //                             promettere la mail a info@; senza, l'errore.
+    function esitoRichiesta(servizio, foglioOk) {
+        const corpo = (servizio && servizio.corpo) || {};
+        if (corpo.ok === true) {
+            return { tipo: 'success', svuota: true, testo: 'Grazie! La tua richiesta è arrivata al nostro team: ti risponderemo al più presto da info@nextgenerationbusiness.it.' };
+        }
+        if (servizio && (servizio.stato === 400 || servizio.stato === 429) && corpo.msg) {
+            return {
+                tipo: 'error', svuota: false, durata: 12000,
+                testo: testoSicuro(corpo.msg) + ' Se serve, scrivici a '
+                    + '<a href="mailto:info@nextgenerationbusiness.it" style="color:inherit;text-decoration:underline;">info@nextgenerationbusiness.it</a>'
+                    + ' oppure da <a href="/contatti/" style="color:inherit;text-decoration:underline;">Domande e contatti</a>.'
+            };
+        }
+        if (foglioOk) {
+            return { tipo: 'success', svuota: true, testo: 'Richiesta registrata: ti ricontatteremo al più presto. Per urgenze scrivi a info@nextgenerationbusiness.it.' };
+        }
+        return { tipo: 'error', svuota: false, testo: 'Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it' };
+    }
+    // il messaggio del servizio va a schermo come testo, non come HTML
+    function testoSicuro(x) {
+        return String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
     }
 
     // --- Le altre domande: il rimando a Domande e contatti ---
@@ -203,7 +241,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Notification system ---
-    function showNotification(message, type) {
+    // `durata` (facoltativa): quanto resta a schermo, per i messaggi con un collegamento
+    function showNotification(message, type, durata) {
         // Remove existing notification
         const existing = document.querySelector('.notification');
         if (existing) existing.remove();
@@ -254,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
             notification.style.transform = 'translateY(12px)';
             notification.style.transition = '0.3s ease-out';
             setTimeout(() => notification.remove(), 300);
-        }, 5000);
+        }, durata || 5000);
     }
 
     // --- Regioni ZLS interactive explorer ---
