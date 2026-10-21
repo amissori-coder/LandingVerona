@@ -16913,7 +16913,33 @@
        dipende dalla modalita': cambiando sezione resta dov'e'. */
     function hintAttesaMailHtml(ev, r) {
         if (!inAttesaConfermaMail(ev, r)) return '';
-        return '<div class="hint ev-attesa-mail" title="' + esc(SEZIONE_ATTESA.spiega) + '">email da confermare</div>';
+        /* Chi aspetta da giorni va guardato in un altro modo da chi si e'
+           iscritto adesso: il suggerimento dice che cosa e' gia' partito -
+           la mail (o il suo errore), quante volte, l'SMS, il promemoria - e
+           la riga lo dice a voce alta solo quando la mail non e' MAI partita
+           da piu' di dieci minuti, che e' il caso in cui qualcuno deve
+           guardare (il servizio intanto la riprova da solo). */
+        const titolo = SEZIONE_ATTESA.spiega + ' ' + invioConfermaTesto(r);
+        const mai = !r.mailConferma && Date.now() - dataIscrizioneMs(r.data) > 10 * 60 * 1000;
+        return '<div class="hint ev-attesa-mail" title="' + esc(titolo) + '">email da confermare'
+            + (mai ? ' &middot; <span class="ev-mail-mai">mail non ancora partita</span>' : '') + '</div>';
+    }
+    /* Quello che il servizio ha gia' fatto per far arrivare la mail di
+       conferma, in una frase: lo scrivono l'iscrizione, i rinvii e il giro
+       automatico ogni dieci minuti (email-service/lib/giro-conferme.js). */
+    function invioConfermaTesto(r) {
+        const pezzi = [];
+        const m = r && r.mailConferma;
+        if (!m) pezzi.push('Mail di conferma non ancora partita: il servizio la riprova da solo ogni dieci minuti.');
+        else pezzi.push((m.ok ? 'Mail di conferma partita' : 'Mail di conferma NON partita') + (m.quando ? ' il ' + fmtDataOra(m.quando) : '')
+            + (!m.ok && m.errore ? ' (' + m.errore + ')' : '') + '.');
+        const t = Number(r && r.invioConferma && r.invioConferma.tentativi) || 0;
+        if (t > 1) pezzi.push('Tentativi di invio: ' + t + '.');
+        const s = r && r.smsConferma;
+        if (s && s.quando) pezzi.push((s.ok ? 'SMS mandato il ' : 'SMS NON partito il ') + fmtDataOra(s.quando) + '.');
+        const p = r && r.promemoriaConferma;
+        if (p && p.quando) pezzi.push('Promemoria (mail e SMS) mandato il ' + fmtDataOra(p.quando) + '.');
+        return pezzi.join(' ');
     }
     /* LA CELLA DELLE AZIONI: il menu dei tre puntini della riga.
        Sta in una funzione sua, e non dentro il modello della riga, perche' si

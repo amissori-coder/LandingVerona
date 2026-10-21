@@ -98,7 +98,7 @@ const NOMI = ['modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'dalMod
     'colonneExtraDisponibili', 'datiInvitoDi', 'colonneFileDisponibili', 'valoreFileDi',
     'valoreColonnaVisto', 'colonneAggiuntiveDi', 'colonneScelteDi', 'salvaColonneScelte',
     'colonneDaMostrare', 'fmtDataOra', 'firmaPresenza', 'aggiornatoDaDi', 'nomeEventoDa',
-    'righeCsvIscrizioni', 'testoCsv'];
+    'righeCsvIscrizioni', 'testoCsv', 'esc', 'dataIscrizioneMs', 'invioConfermaTesto', 'hintAttesaMailHtml'];
 const sorgente = NOMI.map(n => ritaglia('function ' + n + '(', '{', '}')).join('\n');
 
 /* Le finzioni. Le presenze sono una tabella che ogni scenario riempie;
@@ -629,6 +629,26 @@ prova('Il CSV: partita IVA e codice fiscale con lo zero davanti restano testo', 
     const testo = A.testoCsv(righe, { numeri: true });
     esigi(testo.indexOf('"=""09190500968"""') >= 0, 'la partita IVA di AVAS nel file esportato, zero compreso');
     esigi(testo.indexOf('"-1769584"') >= 0, 'e l\'utile negativo resta un numero, senza apice');
+});
+
+prova('Chi e\' in attesa: che cosa e\' gia\' partito per fargli arrivare la mail', () => {
+    const adesso = new Date(Date.now() - 60 * 1000), ieri = new Date(Date.now() - 26 * 3600 * 1000);
+    const dataDi = d => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear()
+        + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':00';
+    const appena = riga({ doc: 'n1', data: dataDi(adesso) });
+    const mai = riga({ doc: 'n2', data: dataDi(ieri) });
+    const fallita = riga({ doc: 'n3', data: dataDi(ieri), mailConferma: { quando: 1, ok: false, errore: '421 timeout' }, invioConferma: { tentativi: 3 } });
+    const partita = riga({ doc: 'n4', data: dataDi(ieri), mailConferma: { quando: 1, ok: true },
+        smsConferma: { quando: 2, ok: true }, promemoriaConferma: { quando: 3 } });
+    A.metti([appena, mai, fallita, partita]);
+    esigi(A.hintAttesaMailHtml(MILANO, appena).indexOf('mail non ancora partita') < 0, 'iscritta un minuto fa: niente allarme, la mail sta partendo');
+    esigi(A.hintAttesaMailHtml(MILANO, mai).indexOf('mail non ancora partita') >= 0, 'da ieri senza nessun invio: lo dice la riga');
+    const tf = A.invioConfermaTesto(fallita);
+    esigi(tf.indexOf('NON partita') >= 0 && tf.indexOf('421 timeout') >= 0 && tf.indexOf('Tentativi di invio: 3') >= 0, 'il suggerimento dice l\'errore e i tentativi', tf);
+    const tp = A.invioConfermaTesto(partita);
+    esigi(tp.indexOf('Mail di conferma partita') >= 0 && tp.indexOf('SMS mandato') >= 0 && tp.indexOf('Promemoria') >= 0, 'e la mail, l\'SMS e il promemoria partiti', tp);
+    esigi(A.hintAttesaMailHtml(MILANO, partita).indexOf('mail non ancora partita') < 0, 'una mail partita non fa allarme');
+    esigi(A.hintAttesaMailHtml(NAPOLI, mai) === '', 'a Napoli nessuna attesa, nessun segno');
 });
 
 console.log('\nL\'elenco degli iscritti: attesa della conferma, colonne dal file, esportazione\n');
