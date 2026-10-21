@@ -138,6 +138,7 @@ let chiamateSmtp = 0;
 let passoMail = 0;
 // l'errore del server finto: di norma uno che non passa
 let erroreMail = () => new Error('550 casella inesistente');
+let durantePosta = null;
 let sms = [];
 global.fetch = async (url, opz) => {
     if (/transactionalSMS/.test(String(url))) {
@@ -151,6 +152,8 @@ Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return admin;
     if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => {
         chiamateSmtp++;
+        // quello che succede mentre la mail sta partendo (una prova lo mette, e vale una volta)
+        if (durantePosta) { const f = durantePosta; durantePosta = null; await f(); }
         orologio += passoMail;
         if (mailGuasta > 0) { mailGuasta--; throw erroreMail(); }
         spedite.push(m); return {};
@@ -166,6 +169,7 @@ const RADICE = path.join(__dirname, '..');
 const cron = require(path.join(RADICE, 'api/conferme-email.js'));
 const GIRO = require(path.join(RADICE, 'lib/giro-conferme.js'));
 const V = require(path.join(RADICE, 'lib/iscrizione-verificata.js'));
+const CONF = require(path.join(RADICE, 'lib/conferma-email.js'));
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -198,7 +202,7 @@ function iscritto(id, campi) {
 }
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
-    dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; passoMail = 0;
+    dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; passoMail = 0; durantePosta = null;
     erroreMail = () => new Error('550 casella inesistente');
     // il recupero una tantum lo prova la sua prova: qui risulta gia' fatto
     dati.set('meta/confermeEmail', { recupero: 1 });
@@ -538,6 +542,61 @@ prova('Al limite delle schede lette il giro lo dice', async () => {
     try { c = await GIRO.giro(db); } finally { console.warn = avvVero; }
     esigi(GIRO.LIMITE >= 2000 && c.lette === GIRO.LIMITE && c.limitePieno === true, 'limitePieno nei conti', JSON.stringify(c));
     esigi(avvisi.some(x => /il limite del giro/.test(x)), 'e un avviso nel log', avvisi.join(' | '));
+});
+
+prova('Un invio alla volta: il giro e il "Rimandala" della pagina non spediscono due mail', async () => {
+    // la mail non e' partita all'iscrizione; il giro la riprova mentre la persona preme "Rimandala"
+    azzera();
+    const t0 = orologio;
+    const riprova = () => iscritto('doppia', {
+        ricevuto: t0, mailConferma: { quando: t0, ok: false, errore: 'tempo scaduto', via: 'iscrizione', a: 'doppia@studio.it' },
+        invioConferma: { a: 'doppia@studio.it', tentativi: 1, falliti: 1, ultimo: t0 }, smsConferma: { quando: t0, ok: true, tipo: 'non-inviata' }
+    });
+    riprova();
+    avanza(6 * MIN);
+    let rimanda = null;
+    durantePosta = async () => { rimanda = await zitti(() => CONF.rimandaConferma(db, 'doppia')); };
+    await giro();
+    esigi(spedite.length === 1, 'parte una mail sola', String(spedite.length));
+    esigi(rimanda && rimanda.esito === 'attesa', '"Rimandala" premuto mentre il giro spedisce: aspetta', JSON.stringify(rimanda));
+    esigi(scheda('doppia').invioConferma.tentativi === 2 && !(scheda('doppia').invioInCorsoFino > orologio), 'la traccia del giro resta giusta, e il segno dell\'invio in corso e\' chiuso');
+    // e il contrario: un rinvio della pagina in corso, il giro la lascia stare
+    azzera();
+    riprova();
+    avanza(6 * MIN);
+    dati.set('iscrizioni/doppia', Object.assign({}, scheda('doppia'), { invioInCorsoFino: orologio + 30 * 1000 }));
+    const r = await giro();
+    esigi(spedite.length === 0 && r.corpo.cambiate >= 1, 'con un rinvio in corso il giro non spedisce', JSON.stringify(r.corpo));
+    // un segno rimasto da un invio interrotto scade da solo
+    avanza(2 * MIN);
+    await giro();
+    esigi(spedite.length === 1, 'scaduto il segno, il giro riprova');
+});
+
+prova('Cancellata mentre la mail parte: la scheda non rinasce', async () => {
+    azzera();
+    const t0 = orologio;
+    iscritto('via', {
+        ricevuto: t0, mailConferma: { quando: t0, ok: false, errore: 'tempo scaduto', via: 'iscrizione', a: 'via@studio.it' },
+        invioConferma: { a: 'via@studio.it', tentativi: 1, falliti: 1, ultimo: t0 }, smsConferma: { quando: t0, ok: true }
+    });
+    avanza(6 * MIN);
+    durantePosta = async () => { dati.delete('iscrizioni/via'); };
+    await giro();
+    esigi(!dati.has('iscrizioni/via'), 'riprova: la scheda cancellata durante l\'invio resta cancellata');
+    // il promemoria, con mail e SMS
+    azzera();
+    iscritto('prom', { ricevuto: orologio - 2 * GIORNO, mailConferma: { quando: orologio - 2 * GIORNO, ok: true, a: 'prom@studio.it' },
+        invioConferma: { a: 'prom@studio.it', tentativi: 1, falliti: 0, ultimo: orologio - 2 * GIORNO }, smsConferma: { quando: 1, ok: true } });
+    durantePosta = async () => { dati.delete('iscrizioni/prom'); };
+    await giro();
+    esigi(spedite.length === 1 && !dati.has('iscrizioni/prom'), 'promemoria: mail partita, e la scheda cancellata non rinasce (nemmeno con l\'SMS)');
+    // e nel caso normale la traccia si scrive come sempre
+    azzera();
+    iscritto('mai', { ricevuto: orologio - 10 * MIN });
+    await giro();
+    const s = scheda('mai');
+    esigi(s.mailConferma && s.mailConferma.via === 'automatico' && s.smsConferma && s.smsConferma.ok === true, 'senza cancellazioni la traccia di mail e SMS c\'e\'');
 });
 
 (async () => {

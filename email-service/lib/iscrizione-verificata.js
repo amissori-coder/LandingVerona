@@ -387,12 +387,16 @@ async function smsConfermaEmail(db, dati) {
     if (!esito.ok) console.error('SMS di conferma email non inviato:', String(esito.errore || '').replace(/\+?\d{9,}/g, '<numero>'));
     if (dati.idDoc) {
         try {
-            await db.collection('iscrizioni').doc(String(dati.idDoc)).set({
+            const rif = db.collection('iscrizioni').doc(String(dati.idDoc));
+            const patch = {
                 smsConferma: {
                     quando: Date.now(), ok: esito.ok === true, tipo: tipo, id: esito.id == null ? null : String(esito.id),
                     errore: testo(String(esito.errore || '').replace(/\+?\d{9,}/g, '<numero>'), 200)
                 }
-            }, { merge: true });
+            };
+            // il giro automatico non fa rinascere una scheda cancellata nel frattempo (lib/conferma-email.js)
+            if (dati.soloSeEsiste) await rif.update(patch);
+            else await rif.set(patch, { merge: true });
         } catch (e) { /* informazione, non condizione */ }
     }
     return esito;

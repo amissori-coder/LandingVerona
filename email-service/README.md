@@ -1506,6 +1506,16 @@ non fa niente (un giro lanciato a mano mentre lavora quello programmato, o lo
 stesso cron consegnato due volte, manderebbe due mail e due SMS). Alla fine lo
 molla solo se e' ancora suo; se la funzione muore, scade da solo.
 
+**Un invio alla volta, anche fra il giro e la persona.** Il lucchetto tiene
+lontani due giri, non il giro e il pulsante «Rimandala» (o il rinvio del modulo
+/contatti/). Per questo chi sta per spedire lo scrive sulla scheda in una
+transazione, PRIMA di spedire: `invioInCorsoFino` (un minuto, azzerato da chi
+finisce scrivendo la traccia). Il giro prende cosi' ogni scheda da riprovare;
+il rinvio, se trova un invio in corso, risponde di aspettare. Le tracce del
+giro (mail, SMS, promemoria) si scrivono con `update()`: una scheda cancellata
+dallo staff mentre la mail parte non rinasce come guscio vuoto, che bloccherebbe
+una nuova iscrizione con quell'email o quel cellulare.
+
 **Il recupero, una volta.** Le iscrizioni fatte prima della bandiera non
 l'hanno: al primo giro dopo la pubblicazione si rilegge l'archivio una volta,
 si mette la bandiera a chi aspetta ancora la conferma (e non ha gia' avuto il

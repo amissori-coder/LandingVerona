@@ -213,10 +213,10 @@ async function promemoria(db, id, presenza) {
         return z;
     });
     if (!y) return { fatto: false };
-    const e = await CONF.spedisciConferma(db, id, y, { via: 'promemoria', riprova: false });
+    const e = await CONF.spedisciConferma(db, id, y, { via: 'promemoria', riprova: false, soloSeEsiste: true });
     let sms = null;
     if (y.telefonoNumero) {
-        const s = await VERIFICATA.smsConfermaEmail(db, { idDoc: id, numero: y.telefonoNumero, email: y.email, tipo: 'promemoria' });
+        const s = await VERIFICATA.smsConfermaEmail(db, { idDoc: id, numero: y.telefonoNumero, email: y.email, tipo: 'promemoria', soloSeEsiste: true });
         sms = s.ok === true;
     }
     const patch = { promemoriaConferma: { quando: ora, mail: e.ok === true, sms: sms } };
@@ -237,8 +237,9 @@ async function lavora(db, id, conti) {
     if (x.confermaInAttesa !== true) { conti.cambiate++; return; }
     const ora = Date.now();
     let c = cosaFare(x, ora);
+    let presenza = null;
     if (c.fare === 'invia' || c.fare === 'riprova' || c.fare === 'promemoria') {
-        const presenza = await leggiPresenza(db, VERIFICATA.eventoDi(x.pagina), x);
+        presenza = await leggiPresenza(db, VERIFICATA.eventoDi(x.pagina), x);
         c = cosaFare(x, ora, presenza);
         if (c.fare === 'promemoria') {
             const p = await promemoria(db, id, presenza);
@@ -258,16 +259,32 @@ async function lavora(db, id, conti) {
         return;
     }
     if (c.fare === 'aspetta') { conti.aspettano++; return; }
-    // invia o riprova, con la scheda di adesso
-    const e = await CONF.spedisciConferma(db, id, x, { via: 'automatico', riprova: false });
-    conti[c.fare === 'invia' ? 'inviate' : 'riprovate']++;
+    /* Invia o riprova. La scheda si PRENDE in una transazione prima di
+       spedire (vedi UN INVIO ALLA VOLTA in lib/conferma-email.js): se nel
+       frattempo e' partito un "Rimandala", o ne sta partendo uno, o il conto
+       non torna piu', questo giro la lascia. Si spedisce con la scheda letta
+       nella transazione. */
+    const fare = c.fare;
+    const z = await db.runTransaction(async tx => {
+        const s2 = await tx.get(rif);
+        if (!s2.exists) return null;
+        const y = s2.data() || {};
+        const adesso = Date.now();
+        if (y.confermaInAttesa !== true || (Number(y.invioInCorsoFino) || 0) > adesso) return null;
+        if (cosaFare(y, adesso, presenza).fare !== fare) return null;
+        tx.set(rif, { invioInCorsoFino: adesso + CONF.INVIO_IN_CORSO_MS }, { merge: true });
+        return y;
+    });
+    if (!z) { conti.cambiate++; return; }
+    const e = await CONF.spedisciConferma(db, id, z, { via: 'automatico', riprova: false, soloSeEsiste: true });
+    conti[fare === 'invia' ? 'inviate' : 'riprovate']++;
     if (!e.ok) conti.errori++;
     /* Mai partita: con lei non era partito nemmeno l'SMS che la
        accompagna. Parte adesso, una volta (chi riprova dopo un
        errore l'SMS l'ha gia' avuto, con la notizia del ritardo). */
-    if (c.fare === 'invia' && !x.smsConferma && x.telefonoNumero) {
+    if (fare === 'invia' && !z.smsConferma && z.telefonoNumero) {
         const sm = await VERIFICATA.smsConfermaEmail(db, {
-            idDoc: id, numero: x.telefonoNumero, email: x.email, tipo: e.ok ? 'inviata' : 'non-inviata'
+            idDoc: id, numero: z.telefonoNumero, email: z.email, tipo: e.ok ? 'inviata' : 'non-inviata', soloSeEsiste: true
         });
         if (sm.ok) conti.sms++;
     }

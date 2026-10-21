@@ -468,9 +468,19 @@ async function spedisciConferma(db, idDoc, scheda, opz) {
             }
         };
         if (opz.attesa) patch.confermaInAttesa = true;
+        // l'invio e' finito: chi aspettava che finisse (il rinvio, il giro) puo' decidere da qui
+        patch.invioInCorsoFino = 0;
     }
     try {
-        await db.collection('iscrizioni').doc(String(idDoc)).set(patch, { merge: true });
+        const rif = db.collection('iscrizioni').doc(String(idDoc));
+        /* Il giro automatico scrive solo su una scheda che c'e' ancora. Se lo
+           staff la cancella mentre la mail parte, un set(merge) la farebbe
+           rinascere come guscio vuoto - senza pagina, quindi invisibile in
+           elenco, ma "attivo" per i controlli di unicita' - e la persona non
+           potrebbe piu' iscriversi con quell'email o quel cellulare. update()
+           su una scheda che non c'e' fallisce, e qui sotto si lascia correre. */
+        if (opz.soloSeEsiste) await rif.update(patch);
+        else await rif.set(patch, { merge: true });
     } catch (e) { /* informazione, non condizione */ }
     return { ok: esito.ok === true, errore: esito.errore || '', a: a };
 }
@@ -488,6 +498,15 @@ async function spedisciConferma(db, idDoc, scheda, opz) {
    'troppi' (con `attesa` in secondi; 'attesa' anche con `ultimoOk`, se
    l'ultimo invio e' partito o no), 'confermata', 'assente', 'fuori'. */
 const RIMANDA_PAUSA_MS = 2 * 60 * 1000;
+/* UN INVIO ALLA VOLTA. Chi sta per spedire (il rinvio della pagina o del
+   modulo, il giro automatico) lo scrive sulla scheda in una transazione,
+   PRIMA di spedire: `invioInCorsoFino`. Senza, il giro e un "Rimandala"
+   premuto nello stesso momento vedrebbero tutti e due l'ultimo invio di
+   prima - quello che scrive la traccia arriva solo a mail partita - e
+   partirebbero due mail. Il segno scade da solo: un minuto copre i tempi
+   del server di posta (8 + 15 secondi, piu' un secondo tentativo), e chi
+   finisce lo azzera scrivendo la traccia. */
+const INVIO_IN_CORSO_MS = 60 * 1000;
 const RIMANDA_MAX_GIORNO = 5;
 const GIORNO_MS = 24 * 60 * 60 * 1000;
 /* Il freno, senza scrivere niente: lo usano il rinvio (qui sotto) e lo
@@ -503,7 +522,10 @@ function frenoRimanda(x, ora) {
     const m = mailPerIndirizzo(x);
     const inv = invioPerIndirizzo(x);
     const ultimo = inv ? Number(inv.ultimo) || 0 : Number((m || {}).quando) || 0;
-    const pausa = ultimo && ora - ultimo < RIMANDA_PAUSA_MS ? Math.ceil((RIMANDA_PAUSA_MS - (ora - ultimo)) / 1000) : 0;
+    const dopoUltimo = ultimo && ora - ultimo < RIMANDA_PAUSA_MS ? Math.ceil((RIMANDA_PAUSA_MS - (ora - ultimo)) / 1000) : 0;
+    // un invio in corso adesso (vedi UN INVIO ALLA VOLTA): si aspetta che finisca
+    const inCorso = Number(x && x.invioInCorsoFino) || 0;
+    const pausa = Math.max(dopoUltimo, inCorso > ora ? Math.ceil((inCorso - ora) / 1000) : 0);
     const rr = x && x.rimandaConferma && typeof x.rimandaConferma === 'object' ? x.rimandaConferma : {};
     const invii = (Array.isArray(rr.invii) ? rr.invii : []).map(Number).filter(t => t && ora - t < GIORNO_MS);
     const ultimoOk = !!(m && m.ok === true);
@@ -532,7 +554,7 @@ async function rimandaConferma(db, idDoc, opz) {
         const f = frenoRimanda(x, ora);
         if (f.esito) return { esito: f.esito, attesa: f.attesa, ultimoOk: f.ultimoOk };
         const invii = f.invii.concat([ora]);
-        tx.set(rif, { rimandaConferma: { invii: invii, ultimo: ora } }, { merge: true });
+        tx.set(rif, { rimandaConferma: { invii: invii, ultimo: ora }, invioInCorsoFino: ora + INVIO_IN_CORSO_MS }, { merge: true });
         return { esito: 'ok', scheda: x };
     });
     if (r.esito !== 'ok') return r;
@@ -543,5 +565,5 @@ async function rimandaConferma(db, idDoc, opz) {
 module.exports = {
     conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
     spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio,
-    RIMANDA_PAUSA_MS, RIMANDA_MAX_GIORNO
+    RIMANDA_PAUSA_MS, RIMANDA_MAX_GIORNO, INVIO_IN_CORSO_MS
 };
