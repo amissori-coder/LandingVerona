@@ -763,26 +763,49 @@ ul, ol { list-style: none; }
     transform: rotate(-45deg) translateY(-2px);
 }
 
-.iscrizioni p.iscrizioni-avviso {
+/* "Per informazioni": un'etichetta e due pillole (il modulo delle domande e
+   l'indirizzo), su una riga a schermo largo. Su schermo stretto si va a capo
+   fra un pezzo e l'altro, mai dentro una pillola. */
+.iscrizioni .iscrizioni-avviso {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px 14px;
     margin-top: 36px;
     padding-top: 28px;
     width: 100%;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
-    /* piu' grande e un po' piu' chiara: e' la strada per chi ha un dubbio
-       sull'iscrizione, e in fondo alla sezione scura si perdeva */
-    font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.2rem);
-    line-height: 1.6;
-    color: rgba(255, 255, 255, 0.78);
-    text-align: center !important;
-    text-align-last: center;
 }
-.iscrizioni-avviso a {
+.iscrizioni-avviso-etichetta {
+    font-size: 1.02rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.72);
+    white-space: nowrap;
+}
+.iscrizioni-avviso-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
     color: var(--bianco);
+    font-size: 1rem;
     font-weight: 600;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-    transition: border-color 0.2s ease;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
-.iscrizioni-avviso a:hover { border-color: var(--bianco); }
+.iscrizioni-avviso-link svg { width: 18px; height: 18px; flex: none; color: var(--azzurro-chiaro); }
+.iscrizioni-avviso-link:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--bianco); }
+.iscrizioni-avviso-link:focus-visible { outline: 2px solid var(--azzurro-chiaro); outline-offset: 3px; }
+/* sul telefono l'etichetta sta sopra e le pillole sotto, ognuna intera */
+@media (max-width: 560px) {
+    .iscrizioni-avviso-etichetta { flex-basis: 100%; text-align: center; }
+    .iscrizioni-avviso-link { font-size: 0.95rem; padding: 9px 16px; }
+}
 
 /* ---------------------------------------------------------- modulo di iscrizione */
 
