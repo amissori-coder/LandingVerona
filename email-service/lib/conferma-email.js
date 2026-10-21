@@ -280,19 +280,31 @@ function confermata(scheda) {
    non e' ancora un posto: non ha ricevuto l'invito in PDF, non riceve i
    promemoria, e nel riepilogo serale sta fra quelli in attesa.
    Non lo e' mai chi non poteva ricevere la mail: le iscrizioni inserite a
-   mano dall'area riservata (`inserito`) e quelle arrivate da un altro
-   portale o dal desk (`extra.Portale`) sono gia' complete cosi'; e nemmeno
-   chi non ha un indirizzo, che non avrebbe niente da confermare.
+   mano dall'area riservata (`inserito`), quelle arrivate da un altro
+   portale o dal desk (`extra.Portale`) e quelle caricate con "Importa"
+   (`importato` senza `mailConferma`: l'importazione non manda nessuna
+   mail) sono gia' complete cosi'; e nemmeno chi non ha un indirizzo, che
+   non avrebbe niente da confermare. Una scheda del sito toccata dopo da
+   un'importazione (la colonna degli inviti B2B) ha `importato` ma anche
+   la sua `mailConferma`: e' partita dal modulo, e resta in attesa.
+   E non lo e' piu' chi e' venuto: `presenza` e' il documento delle
+   presenze di quell'evento, quando chi chiama lo ha, e con lo stato
+   "presente" la persona era in sala - le mail del giorno e il
+   ringraziamento devono arrivarle. Solo "presente": "confermato" lo
+   segna chi organizza prima dell'evento, e non dice niente
+   dell'indirizzo.
    La regola deve restare la stessa dell'area riservata (app.js,
    inAttesaConfermaMail): altrimenti la sezione "In attesa di conferma
    mail" e chi riceve i promemoria direbbero due cose diverse.
    Chi la usa la applica SOLO agli eventi che chiedono la conferma: a
    Napoli una scheda senza conferma e' un iscritto come gli altri. */
-function inAttesaDiConferma(scheda) {
+function inAttesaDiConferma(scheda, presenza) {
     if (!scheda || scheda.annullato) return false;
     if (!String(scheda.email || '').trim()) return false;
     if (scheda.inserito) return false;
     if (scheda.extra && scheda.extra.Portale) return false;
+    if (scheda.importato && !scheda.mailConferma) return false;
+    if (presenza && String(presenza.stato || '') === 'presente') return false;
     return !confermata(scheda);
 }
 

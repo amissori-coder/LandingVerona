@@ -475,6 +475,15 @@ module.exports = async (req, res) => {
                        ad annunciare come ospiti del sito le aziende appena
                        aggiunte a mano. */
                     soloB2B: v.soloB2B === true,
+                    /* CARICATA CON "IMPORTA" (un file o il foglio), non dal
+                       modulo del sito: l'importazione non manda la mail con
+                       il pulsante di conferma, quindi a Milano una scheda
+                       importata senza `mailConferma` non e' "in attesa di
+                       conferma mail" (la regola e' in lib/conferma-email.js,
+                       inAttesaDiConferma, e l'area riservata la ripete).
+                       Whitelist: senza questa riga l'area riservata non lo
+                       saprebbe. */
+                    importato: v.importato === true,
                     /* IL RICHIAMO DOPO IL CONVEGNO gia' mandato a questa
                        persona. La lettura e' una whitelist campo per campo,
                        quindi senza questa riga la traccia resterebbe sul

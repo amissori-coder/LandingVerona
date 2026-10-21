@@ -75,6 +75,10 @@ function moduloCene() { return require('../lib/cene-evento'); }
 /* La conferma dell'indirizzo email: il pregresso (amministratore) e il
    reinvio della mail con il pulsante. Si carica solo quando serve. */
 function moduloConferma() { return require('../lib/conferma-email'); }
+/* Le iscrizioni verificate (Milano 2027): il codice invito e il cellulare
+   contano le schede per nome di documento, e la Modifica che sposta una
+   scheda li deve riportare sul nome nuovo (trasloca). Si carica solo allora. */
+function moduloVerificata() { return require('../lib/iscrizione-verificata'); }
 function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'cene'); }
 /* Le iscrizioni a pagamento degli aderenti Revilaw (Milano 2027): le raccoglie
    la pagina riservata passando da api/iscrizione-nuova, e da qui le legge chi
@@ -1799,8 +1803,57 @@ module.exports = async (req, res) => {
             // un nuovo documento e con lei lo stato e la nota gia' registrati.
             const idNuovo = (nuovo.email || (chiaveTesto(nuovo.nome) + '.' + chiaveTesto(nuovo.cognome))) + '|' + nuovo.data;
             const rifNuovo = db.collection('iscrizioni').doc(idIscrizione(idNuovo));
+            const trasloco = idIscrizione(idNuovo) !== idIscrizione(idIscritto);
+            const stessoIndirizzo = String(attuale.email || '').trim().toLowerCase() === String(nuovo.email || '').trim().toLowerCase();
+            if (trasloco) {
+                /* E con loro tutto quello che dice DA DOVE VIENE la scheda e
+                   cosa le e' gia' successo: chi l'ha inserita a mano, da quale
+                   portale o importazione arriva, il codice invito con l'azienda
+                   e le colonne del suo file, il cellulare verificato per SMS, i
+                   consensi, le mail gia' partite, i posti dell'ordine, gli
+                   spostamenti d'azienda, l'annullamento. Sullo stesso documento
+                   il merge li conserva da se'; sul documento nuovo, senza queste
+                   righe, una lettera corretta nell'email farebbe di
+                   un'iscrizione da Eventbrite una "in attesa di conferma"
+                   (Milano), di un invitato con il codice uno senza azienda
+                   bloccata ne' colonne del file, e di un'annullata una scheda
+                   di nuovo attiva. Restano indietro gli inviti B2B e il
+                   richiamo dopo il convegno: sono legati al documento vecchio
+                   (i collegamenti firmati, i referenti dell'agenda), e vanno
+                   rifatti. */
+                ['inserito', 'origine', 'portale', 'portaleNome', 'partecipanti', 'partecipantiOrdine', 'extra', 'importato', 'soloB2B',
+                    'invitoCodice', 'invitoAzienda', 'invitoScheda', 'selezionata', 'datiInvito',
+                    'telefonoVerificato', 'telefonoNumero', 'consensoRiprese', 'privacy', 'marketing', 'ricevuto',
+                    'profilo', 'settore', 'dimensione', 'incontro', 'interessi',
+                    'mailConferma', 'mailInvito', 'compilato', 'completato', 'aziendaSpostata', 'aziendaStorico', 'annullato']
+                    .forEach(k => { if (attuale[k] !== undefined && nuovo[k] === undefined) nuovo[k] = attuale[k]; });
+                /* La conferma dell'email vale per QUELL'indirizzo: segue la
+                   scheda se l'indirizzo e' lo stesso (si e' corretta la data),
+                   non se e' cambiato. Un indirizzo nuovo non e' confermato: a
+                   Milano la riga va "In attesa di conferma mail", e dal menu
+                   della riga si rimanda la mail al nuovo indirizzo - subito,
+                   senza la pausa di dieci minuti di quello vecchio. */
+                if (stessoIndirizzo) {
+                    if (attuale.emailConfermata !== undefined) nuovo.emailConfermata = attuale.emailConfermata;
+                    if (attuale.emailConfermaRimandata !== undefined) nuovo.emailConfermaRimandata = attuale.emailConfermaRimandata;
+                }
+            }
             await rifNuovo.set(nuovo, { merge: true });
-            if (idIscrizione(idNuovo) !== idIscrizione(idIscritto)) {
+            if (trasloco) {
+                /* I conti delle iscrizioni verificate (Milano 2027) puntano
+                   alla scheda per nome: i due posti del codice invito e il
+                   cellulare (e l'email, se e' rimasta la stessa). Si riportano
+                   sul nome nuovo PRIMA di cancellare il vecchio: se qualcosa si
+                   ferma a meta', il posto resta contato e la modifica si puo'
+                   ripetere (lib/iscrizione-verificata.js, trasloca). */
+                const V = moduloVerificata();
+                await V.trasloca(db, {
+                    da: idIscrizione(idIscritto), a: idIscrizione(idNuovo),
+                    codice: String(attuale.invitoCodice || ''),
+                    ev: V.eventoDi(nuovo.pagina),
+                    email: stessoIndirizzo ? String(nuovo.email || '').trim().toLowerCase() : '',
+                    numero: String(attuale.telefonoNumero || '')
+                });
                 const pVecchia = await db.collection('presenze').doc(idDoc(evento, idIscritto)).get();
                 if (pVecchia.exists) {
                     const pd = pVecchia.data() || {};

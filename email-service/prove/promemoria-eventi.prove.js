@@ -10,7 +10,8 @@
    giuste e a quelle sole: la sezione decisa da chi organizza vince
    su quella dichiarata, chi ha annullato o e' cancellato resta fuori,
    un indirizzo riceve una mail sola, e a Milano resta fuori anche chi
-   non ha ancora confermato l'email; che {{NOME}} e {{COMPLETA}}
+   non ha ancora confermato l'email (ma non chi e' stato importato, ne'
+   chi lo staff ha segnato presente); che {{NOME}} e {{COMPLETA}}
    diventano nome e cognome e il collegamento personale; che i giorni
    che mancano si contano la mattina dell'invio; che chi arriva dopo
    riceve il benvenuto, una mail al giorno, con la precedenza alla
@@ -710,6 +711,43 @@ await prova('23) Milano: chi non ha ancora confermato l\'email non riceve promem
     esigi(soloAttesa.destinatari.length === 0 && soloAttesa.inAttesa === 1, 'risolviDestinatari: 0 destinatari, 1 in attesa');
     const annullata = I.risolviDestinatari({ iscrizioni: [iscr('attesa@esempio.it', 'Paola', 'Attesa', { pagina: MILANO, annullato: true })] }, recBase({ evento: 'milano-2027-02-26', filtro: 'milano' }));
     esigi(annullata.inAttesa === 0 && annullata.cancellati === 1, 'un\'annullata resta un\'annullata, non un\'attesa');
+});
+
+await prova('24) Milano: chi lo staff ha segnato presente riceve le mail anche senza aver confermato; chi e\' stato importato non aspetta nessuna conferma', async () => {
+    azzera();
+    const MILANO = 'Milano 26 Febbraio 2027 - Iscrizione';
+    const EV = 'milano-2027-02-26';
+    const presente = iscr('presente@esempio.it', 'Pina', 'Presente', { pagina: MILANO });      // dal sito, mai confermato, ma era in sala
+    const aVoce = iscr('avoce@esempio.it', 'Vito', 'Voce', { pagina: MILANO });                // segnato "confermato": non basta
+    const mai = iscr('mai@esempio.it', 'Mario', 'Mai', { pagina: MILANO });                    // nessuna presenza
+    // caricata con "Importa": nessuna mail di conferma e' mai partita
+    const importata = iscr('importata@esempio.it', 'Ida', 'Importata', { pagina: 'Milano 26 Febbraio 2027', importato: true, extra: { Ruolo: 'CFO' } });
+    // dal sito, e poi toccata dalla colonna degli inviti B2B: la mail era partita, resta in attesa
+    const sitoImportata = iscr('sito@esempio.it', 'Saro', 'Sito', { pagina: MILANO, importato: true, mailConferma: { quando: 1, ok: true, errore: '' }, extra: { 'Invito B2B': 'si' } });
+    const iscrizioni = [presente, aVoce, mai, importata, sitoImportata];
+    const presenze = [
+        { evento: EV, idIscritto: idDi(presente), stato: 'presente' },
+        { evento: EV, idIscritto: idDi(aVoce), stato: 'confermato' },
+        // la stessa persona segnata presente a un ALTRO evento non conta qui
+        { evento: 'napoli-2026-10-02', idIscritto: idDi(mai), stato: 'presente' }
+    ];
+    mettiIscrizioni(iscrizioni, presenze);
+    mettiPromemoria([recBase({ id: EV + '~s1', evento: EV, filtro: 'milano' })]);
+    const r = await giro();
+    const dest = noCopia().map(m => m.to).sort();
+    esigi(r._stato === 200 && JSON.stringify(dest) === JSON.stringify(['importata@esempio.it', 'presente@esempio.it']),
+        'partono a chi e\' stato segnato presente e a chi e\' stato importato (' + dest.join(', ') + ')');
+    const rec = leggiPromemoria(EV + '~s1');
+    esigi(rec.invio && rec.invio.inAttesa === 3 && rec.invio.destinatari === 2,
+        'in attesa restano "confermato", chi non ha presenza e la scheda del sito importata dopo: ' + JSON.stringify(rec.invio && { inAttesa: rec.invio.inAttesa, destinatari: rec.invio.destinatari }));
+    // il ringraziamento dopo l'evento: chi era in sala lo riceve, chi non c'era e non ha confermato no
+    const I = cron._interni;
+    const dopo = I.risolviDestinatari({ iscrizioni: iscrizioni, presenze: presenze }, recBase({ evento: EV, filtro: 'milano', dopoEvento: true }));
+    esigi(dopo.destinatari.map(d => d.email).sort().join(',') === 'importata@esempio.it,presente@esempio.it' && dopo.inAttesa === 3,
+        'dopoEvento: il ringraziamento va a chi era presente, non a chi non ha mai confermato (' + dopo.destinatari.map(d => d.email).join(', ') + ')');
+    const assente = I.risolviDestinatari({ iscrizioni: [mai], presenze: [{ evento: EV, idIscritto: idDi(mai), stato: 'assente' }] },
+        recBase({ evento: EV, filtro: 'milano', dopoEvento: true }));
+    esigi(assente.destinatari.length === 0 && assente.inAttesa === 1, 'segnato assente e mai confermato: resta in attesa anche per il ringraziamento');
 });
 
 await prova('6) Chiamata senza segreto: rifiutata', async () => {

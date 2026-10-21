@@ -28,7 +28,8 @@
      - "in attesa di conferma" (inAttesaDiConferma, la regola dei
        promemoria e del riepilogo serale) e' solo chi si e' iscritto
        dal sito e non ha ancora cliccato: mai una scheda inserita a
-       mano o arrivata con un Portale, mai una senza indirizzo.
+       mano, arrivata con un Portale o caricata con "Importa", mai una
+       senza indirizzo, mai chi lo staff ha segnato presente.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -326,6 +327,17 @@ const token = () => NL.firmaConfermaEmail(ID);
         esigi(A(Object.assign({}, sito, { extra: { Portale: 'Eventbrite' } })) === false && A(Object.assign({}, sito, { extra: { Portale: 'Desk Revilaw' } })) === false,
             'arrivata da un altro portale o dal desk: no');
         esigi(A(Object.assign({}, sito, { extra: { Partecipanti: '1' } })) === true, 'altre colonne aggiuntive non cambiano niente');
+        esigi(A(Object.assign({}, sito, { importato: true, extra: { Ruolo: 'CFO' } })) === false,
+            'caricata con "Importa" (nessuna mail di conferma partita): no');
+        esigi(A(Object.assign({}, sito, { importato: true, mailConferma: { quando: 1, ok: true, errore: '' }, extra: { 'Invito B2B': 'si' } })) === true,
+            'dal sito e poi aggiornata da un\'importazione (la mail era partita): si\'');
+        esigi(A(Object.assign({}, sito, { importato: true, mailConferma: { quando: 1, ok: true }, emailConfermata: { quando: 2, come: 'mail' } })) === false,
+            'e confermata dopo: no');
+        esigi(A(Object.assign({}, sito, { mailConferma: { quando: 1, ok: false, errore: 'casella inesistente' } })) === true,
+            'dal sito con la mail fallita: resta in attesa (dal menu si rimanda)');
+        esigi(A(sito, { stato: 'presente' }) === false, 'segnata presente dallo staff: no, era in sala');
+        esigi(A(sito, { stato: 'confermato' }) === true && A(sito, { stato: 'assente' }) === true && A(sito, { modalita: 'online' }) === true && A(sito, {}) === true && A(sito, null) === true,
+            'segnata "confermato", assente, spostata o senza presenza: resta in attesa');
         esigi(A(null) === false && A(undefined) === false, 'nessuna scheda: no');
     });
 

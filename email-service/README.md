@@ -751,6 +751,24 @@ al minuto per utente.
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
+- `azione: "modifica"`: **solo amministratore**. Corregge nome, email,
+  azienda, ruolo, telefono, data e messaggio. Il nome del documento nasce da
+  email e data: se cambiano, la scheda **trasloca** su un documento nuovo con
+  la sua presenza, e si porta dietro cio' che dice da dove viene e cosa le e'
+  gia' successo (`inserito`, `extra` con il Portale, `importato`, il codice
+  invito con `invitoAzienda`, `invitoScheda`, `selezionata` e `datiInvito`, il
+  cellulare verificato, i consensi, `mailConferma` e `mailInvito`, i posti
+  dell'ordine, l'annullamento). `emailConfermata` la segue solo se
+  l'indirizzo e' lo stesso: un indirizzo nuovo non e' confermato, e a Milano
+  la riga va "In attesa di conferma mail" finche' dal menu non si rimanda la
+  mail (subito: la pausa di dieci minuti era del vecchio). Prima di
+  cancellare il documento vecchio, `iscrizioniUsate` del codice invito e i
+  documenti di unicita' del cellulare (e dell'email, se e' la stessa) passano
+  al nome nuovo (`VERIFICATA.trasloca`): il codice continua a contare questa
+  iscrizione fra le sue due. Restano indietro gli inviti B2B e il richiamo
+  dopo il convegno, legati al documento vecchio (i collegamenti firmati, i
+  referenti dell'agenda): vanno rifatti. Le prove:
+  `node prove/modifica-iscrizione.prove.js` (Firestore finto).
 - **Gli indirizzi doppi** (stesso indirizzo su piu iscrizioni dello stesso
   evento) non sono un caso del servizio ma dell'area riservata, e vale la pena
   saperlo qui perche' toccano gli invii: gli invii scartano i doppioni PER
@@ -993,7 +1011,9 @@ oggi, all'ora del giro:
    "Conferma dell'indirizzo email"): non ha l'invito in PDF, e non e' un posto
    in sala. Si conta a parte e non come doppione: se la stessa persona ha
    anche una scheda valida (dal desk, inserita a mano) la mail arriva a
-   quella;
+   quella. Chi lo staff ha segnato **presente** pero' era in sala, confermato
+   o no: le mail del giorno e il ringraziamento gli arrivano (solo
+   "presente", non "confermato");
 2. personalizza: `{{NOME}}` diventa **nome e cognome** ("Gentile Maria
    Rossi": le mail al singolo danno del Lei; un nome scritto tutto maiuscolo
    o tutto minuscolo si rimette in forma), `{{COMPLETA}}` il collegamento personale firmato
@@ -1110,10 +1130,13 @@ scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
   per precompilare il modulo della pagina. Sull'intestatario due bandiere per
   i campi che da qui non si cambiano: `telefonoBloccato` (il cellulare
   verificato per SMS) e `aziendaBloccata` (chi si e' registrato con il
-  **codice invito**: l'azienda e' quella dell'invito, l'unica che combacia
-  con l'elenco delle aziende invitate). `completa-salva` le rispetta comunque,
-  qualunque cosa arrivi dalla pagina: l'azienda resta quella della scheda, e
-  la mail di riepilogo dice quella.
+  **codice invito** a un evento con le iscrizioni verificate, Milano 2027:
+  l'azienda e' quella dell'invito, l'unica che combacia con l'elenco delle
+  aziende invitate). `completa-salva` le rispetta comunque, qualunque cosa
+  arrivi dalla pagina: l'azienda resta quella della scheda, e la mail di
+  riepilogo dice quella. Agli altri eventi (Napoli) il codice non tocca
+  l'azienda, che resta quella scritta nel modulo: non e' bloccata, e da qui
+  si corregge come prima.
 - `azione: "completa-salva"`: un elemento PER POSTO (dati, `{annulla:true}`,
   oppure null = posto riservato senza nome). Il primo aggiorna la scheda
   originale (mai l'email); gli altri diventano schede proprie con documenti dal
@@ -1290,8 +1313,13 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   risponde `gia: true` senza spedire.
 - **Chi e' "in attesa di conferma"** (`inAttesaDiConferma`): non annullata,
   con un indirizzo, iscritta dal sito e senza `emailConfermata`. Mai una
-  scheda inserita a mano dall'area riservata (`inserito`) o arrivata con un
-  `Portale` (Eventbrite, il desk): quelle non hanno una mail da confermare.
+  scheda inserita a mano dall'area riservata (`inserito`), arrivata con un
+  `Portale` (Eventbrite, il desk) o caricata con "Importa" (`importato` senza
+  `mailConferma`): quelle non hanno una mail da confermare. Una scheda del
+  sito che un'importazione ha solo aggiornato (la colonna degli inviti B2B)
+  ha la sua `mailConferma`, e resta in attesa. E mai chi lo staff ha segnato
+  **presente** (il secondo argomento, la presenza, per chi la conosce: i
+  promemoria).
   Conta solo dove l'iscrizione **vale dopo la conferma** (gli eventi di
   `lib/iscrizione-verificata.js`, oggi Milano 2027): li' chi attende non e'
   un posto in sala, non riceve i promemoria (`/api/promemoria-eventi`) e nel
@@ -1343,7 +1371,10 @@ per un evento nuovo basta una riga.
   il servizio la tiene ferma comunque, anche dopo: da `/completa_iscrizione/`
   l'azienda di chi ha il codice non si cambia (`aziendaBloccata`), e chi ha
   annullato e ricompila riprende il posto del codice solo se e' ancora libero
-  (vedi "Completamento dati partecipanti").
+  (vedi "Completamento dati partecipanti"). La risposta all'iscrizione porta
+  `azienda`, quella scritta davvero sulla scheda: la conferma a video mostra
+  quella, anche se il campo era rimasto libero (una verifica del codice
+  andata a vuoto).
 - **Al desk** (chiave del cartello) il numero non si chiede: la persona e' li'.
 
 **Le variabili.** Gli SMS partono da **Brevo**, con la stessa
@@ -1407,8 +1438,9 @@ pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
 conferme nuove ne' persone in attesa non parte niente.** Le annullate non
 contano. "In attesa" e' la stessa regola dei promemoria e dell'area
 riservata (`inAttesaDiConferma`, in "Conferma dell'indirizzo email"): le
-iscrizioni inserite a mano e quelle arrivate con un Portale (Eventbrite, il
-desk) non hanno una mail da confermare e non ci compaiono mai.
+iscrizioni inserite a mano, quelle arrivate con un Portale (Eventbrite, il
+desk) e quelle caricate con "Importa" non hanno una mail da confermare e non
+ci compaiono mai.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,
@@ -4281,7 +4313,8 @@ del file da cui era stata caricata l'azienda (`datiInvito`, vedi "Il modello
 per il caricamento delle aziende"), e la scheda dell'azienda passa a
 `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
 **l'iscrizione resta valida**: e' informazione di servizio, non una condizione.
-Da `/completa_iscrizione/` l'azienda di chi ha il codice non si cambia
+Agli eventi con le iscrizioni verificate (Milano 2027), dove l'azienda della
+scheda e' quella del codice, da `/completa_iscrizione/` non si cambia
 (`aziendaBloccata`).
 
 ## Diretta degli eventi (`/api/diretta-*`)

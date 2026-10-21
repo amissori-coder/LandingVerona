@@ -21,7 +21,9 @@
        dalla verifica del codice; l'azienda e' quella del codice;
      - chi ha annullato e ricompila dal collegamento personale riprende
        il posto del codice solo se e' ancora libero, e l'azienda
-       dell'invito da li' non si cambia;
+       dell'invito da li' non si cambia (a Napoli, dove il codice non
+       tocca l'azienda scritta, invece si');
+     - la risposta all'iscrizione dice l'azienda scritta sulla scheda;
      - con il codice la scheda porta le colonne del file da cui e'
        stata caricata l'azienda (datiInvito), anche per le aziende
        caricate prima, e se la lettura non riesce l'iscrizione passa;
@@ -361,6 +363,10 @@ prova('Un codice invito vale per due iscrizioni, e porta l\'azienda', async () =
         esigi(r.corpo.ok, 'iscrizione ' + i + ' con il codice', JSON.stringify(r.corpo));
         const s = schede().find(x => x.email === 'alfa' + i + '@alfa.it');
         esigi(s && s.azienda === 'Alfa S.p.A.' && s.selezionata === true, 'l\'azienda e\' quella del codice', s && s.azienda);
+        /* La conferma a video la legge dalla risposta: con il campo rimasto
+           libero (una verifica del codice andata a vuoto) mostrerebbe quella
+           scritta a mano, che sulla scheda non c'e'. */
+        esigi(r.corpo.azienda === 'Alfa S.p.A.', 'e la risposta dice quella scritta sulla scheda, non quella del campo', r.corpo.azienda);
     }
     const c3 = await chiama({ azione: 'verifica-codice', pagina: PAGINA, codice: 'A7K2M' });
     esigi(!c3.corpo.ok && c3.corpo.motivo === 'esaurito', 'la verifica del codice lo dice esaurito', JSON.stringify(c3.corpo));
@@ -440,6 +446,8 @@ prova('La pagina si accorge della conferma, e l\'invito porta il calendario', as
     const v = await verificaNumero('3471112233', 'stato@studio.it');
     const r = await iscrivi({ email: 'stato@studio.it', telefono: '3471112233', smsToken: v.token, nome: 'Lia', cognome: 'Verdi', azienda: 'Delta' });
     esigi(r.corpo.ok && r.corpo.stato && r.corpo.stato.d && r.corpo.stato.t, 'l\'invio rende la firma per rileggere lo stato', JSON.stringify(r.corpo));
+    esigi(Object.keys(r.corpo).sort().join(',') === 'azienda,ok,stato' && r.corpo.azienda === 'Delta',
+        'e l\'azienda scritta (senza codice, quella del modulo): nient\'altro', JSON.stringify(r.corpo));
     const st = r.corpo.stato;
     const prima = await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t });
     esigi(prima.corpo.ok && prima.corpo.emailConfermata === false && prima.corpo.invito === false, 'prima della conferma: non confermata', JSON.stringify(prima.corpo));
@@ -571,6 +579,22 @@ prova('Dal collegamento personale l\'azienda dell\'invito non si cambia', async 
     const salva2 = await chiama({ azione: 'completa-salva', d: libero.id, t: t2, partecipanti: [
         { nome: 'Giulia', cognome: 'Rossi', email: 'giulia@studio.it', azienda: 'Beta Due srl', ruolo: '', telefono: '' }] });
     esigi(salva2.corpo.ok && dati.get('iscrizioni/' + libero.id).azienda === 'Beta Due srl', 'e si cambia come prima');
+
+    /* A Napoli il codice non tocca l'azienda: la registrazione tiene quella
+       scritta nel modulo, errori di battitura compresi. Bloccarla vorrebbe
+       dire non poterla piu' correggere, con la scritta "viene dal codice
+       invito" che non e' vera. */
+    const rN = await chiama({ pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', nome: 'Rino', cognome: 'Rossi', email: 'rino@rossi.it',
+        azienda: 'Rosssi srl', privacy: true, marketing: true, codiceInvito: 'F5V8W' });
+    const nap = schedaDi('rino@rossi.it');
+    esigi(rN.corpo.ok && nap.s && nap.s.invitoCodice === 'F5V8W' && nap.s.azienda === 'Rosssi srl',
+        'Napoli con il codice: la scheda ha il codice e l\'azienda scritta nel modulo', nap.s && nap.s.azienda);
+    const tN = NL.firmaCompleta(nap.id);
+    const leggiN = await chiama({ azione: 'completa-leggi', d: nap.id, t: tN });
+    esigi(leggiN.corpo.ok && leggiN.corpo.capofila.aziendaBloccata === false, 'a Napoli l\'azienda non e\' bloccata, anche con il codice', JSON.stringify(leggiN.corpo.capofila));
+    const salvaN = await chiama({ azione: 'completa-salva', d: nap.id, t: tN, partecipanti: [
+        { nome: 'Rino', cognome: 'Rossi', email: 'rino@rossi.it', azienda: 'Rossi srl', ruolo: '', telefono: '' }] });
+    esigi(salvaN.corpo.ok && dati.get('iscrizioni/' + nap.id).azienda === 'Rossi srl', 'e chi l\'ha scritta la corregge', dati.get('iscrizioni/' + nap.id).azienda);
 });
 
 prova('Chi ha annullato riprende il posto del codice solo se e\' ancora libero', async () => {
@@ -621,6 +645,7 @@ prova('Napoli resta com\'era', async () => {
         email: 'ada@studio.it', telefono: '06 1234567', privacy: true, marketing: true
     });
     esigi(r.corpo.ok, 'senza SMS e con un fisso', JSON.stringify(r.corpo));
+    esigi(JSON.stringify(r.corpo) === '{"ok":true}', 'e la risposta e\' quella di sempre, senza stato ne\' azienda', JSON.stringify(r.corpo));
     const r2 = await chiama({
         pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', nome: 'Ada', cognome: 'Neri',
         email: 'ada@studio.it', privacy: true, marketing: true, data: '01/01/2026 10:00:00'

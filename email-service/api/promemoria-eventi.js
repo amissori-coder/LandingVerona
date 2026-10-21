@@ -21,7 +21,8 @@
         e' stato cancellato resta fuori, un indirizzo riceve una mail
         sola anche se ha due iscrizioni; dove l'iscrizione vale solo
         dopo la conferma dell'email (Milano 2027) resta fuori anche chi
-        non l'ha ancora confermata;
+        non l'ha ancora confermata, a meno che lo staff non l'abbia
+        segnato presente;
      2. personalizza {{NOME}} (il nome di battesimo) e {{COMPLETA}} (il
         collegamento personale firmato, per correggere i dati o
         rinunciare) e spedisce, una mail per destinatario;
@@ -197,8 +198,12 @@ function risolviDestinatari(arch, rec) {
            "ci vediamo venerdi'" a un indirizzo forse sbagliato e' una mail
            che non doveva partire. Si conta a parte, e non si segna fra gli
            indirizzi visti: se la stessa persona ha anche una scheda valida
-           (dal desk, inserita a mano) quella riceve la sua mail. */
-        if (VERIFICATA.eventoDi(v.pagina) && CONFERMA.inAttesaDiConferma(v)) { out.inAttesa++; return; }
+           (dal desk, inserita a mano) quella riceve la sua mail.
+           Con la presenza: chi lo staff ha segnato "presente" era in sala
+           anche senza aver mai premuto il pulsante, e la mail del giorno e
+           il ringraziamento gli arrivano come agli altri. Solo "presente",
+           non "confermato" (lib/conferma-email.js). */
+        if (VERIFICATA.eventoDi(v.pagina) && CONFERMA.inAttesaDiConferma(v, p)) { out.inAttesa++; return; }
         const email = String(v.email || '').trim().toLowerCase();
         if (!email || !reEmail.test(email)) { out.senzaEmail++; return; }
         if (visti[email]) { out.doppie++; return; }

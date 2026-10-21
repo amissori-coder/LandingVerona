@@ -9,9 +9,10 @@
        giorno della conferma, anche se il modulo era di giorni prima;
      - chi non ha confermato compare fra gli "in attesa" ogni notte,
        finche' non conferma, e quella notte passa fra le nuove;
-     - chi e' stato inserito a mano o viene dal desk (con un Portale)
-       non e' mai "in attesa": non ha una mail da confermare (la regola
-       e' CONFERMA.inAttesaDiConferma, la stessa dei promemoria);
+     - chi e' stato inserito a mano, viene dal desk (con un Portale) o
+       e' stato caricato con "Importa" non e' mai "in attesa": non ha una
+       mail da confermare (la regola e' CONFERMA.inAttesaDiConferma, la
+       stessa dei promemoria);
      - solo l'evento giusto, e le annullate non contano;
      - senza conferme nuove e senza attese non parte niente;
      - parte una volta sola per giorno, anche se il lavoro gira due volte;
@@ -89,6 +90,8 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     // registrata al desk, con il QR: nemmeno lei
     scheda('h', { nome: 'Ugo', cognome: 'Desk', email: 'ugo@x.it', data: '15/01/2027 16:00:00', ricevuto: T('2027-01-15T15:00:00Z'), extra: { Portale: 'Desk Revilaw' } });
     scheda('i', { nome: 'Ivo', cognome: 'Neri', email: 'ivo@x.it', data: '15/01/2027 19:30:00', ricevuto: T('2027-01-15T18:30:00Z') });
+    // caricata con "Importa" (da un altro portale): nessuna mail di conferma e' partita
+    scheda('j', { nome: 'Ida', cognome: 'Importata', email: 'ida@x.it', pagina: 'Milano 26 Febbraio 2027', data: '15/01/2027 17:00:00', importato: true, extra: { Ruolo: 'CFO' } });
     scheda('g', { nome: 'Gino', email: 'gino@x.it', data: '16/01/2027 10:00:00', ricevuto: T('2027-01-16T09:00:00Z') });
 
     console.log('\nMezzanotte d\'inverno (23 UTC)');
@@ -107,6 +110,7 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(/confermata alle 10:20/.test(conf), 'con l\'ora della conferma');
     esigi(/Bruno Rossi/.test(attesa || '') && /Ivo Neri/.test(attesa || ''), 'fra gli in attesa: chi si e\' iscritto dal sito e non ha confermato');
     esigi(!/Fabio/.test(m.html) && !/Ugo Desk/.test(m.html), 'mai chi e\' stato inserito a mano o viene dal desk: non ha una mail da confermare');
+    esigi(!/Ida Importata/.test(m.html), 'e nemmeno chi e\' stato caricato con "Importa"');
     esigi(!/Bruno/.test(conf) && !/Gino/.test(m.html), 'chi attende non e\' fra le confermate, e chi si iscrive domani non c\'e\'');
     esigi(/iscritto il 15\/01 alle 18:40/.test(attesa || ''), 'per chi attende, il giorno e l\'ora del modulo');
     esigi(!/Dario/.test(m.html) && !/Elena/.test(m.html), 'non ci sono gli annullati ne\' un altro evento');

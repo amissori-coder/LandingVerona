@@ -35,7 +35,9 @@
    l'elenco delle iscrizioni fatte con lui (`iscrizioniUsate`) e si
    contano quelle ancora attive. Anche qui un'annullata libera il
    posto, e se chi ha annullato ci ripensa lo riprende solo se e'
-   ancora libero (riattiva, qui sotto).
+   ancora libero (riattiva, qui sotto). Una scheda che l'area riservata
+   sposta su un documento nuovo (Modifica di email o data) si porta
+   dietro il suo posto (trasloca, in fondo).
 
    GLI SMS COSTANO, e il modulo e' aperto a chiunque: un robot che
    chiede codici a raffica verso numeri a pagamento e' una truffa nota
@@ -420,8 +422,55 @@ async function riattiva(db, dati) {
     });
 }
 
+/* ---------- il trasloco di una scheda (Modifica dall'area riservata) ----------
+   Il nome del documento nasce da email e data: correggendo l'una o
+   l'altra l'amministratore sposta la scheda su un documento nuovo
+   (api/presenze.js, 'modifica'). Ma i conti di questo modulo puntano alla
+   scheda per NOME: il codice invito (`iscrizioniUsate`) e i documenti di
+   unicita'. Lasciati sul nome vecchio, che sparisce, il codice non
+   conterebbe piu' questa iscrizione - e ne lascerebbe passare una terza -
+   e il cellulare verificato risulterebbe libero per un'altra persona.
+   Qui il nome vecchio diventa quello nuovo, in una transazione, e solo
+   dove c'era: un codice o un documento che puntano altrove non si
+   toccano, e un codice che non c'e' piu' non si ricrea. Rifarlo non cambia
+   niente: e' quello che serve se la modifica va ripetuta.
+   dati: { da, a, codice, ev, email, numero }. `email` solo se e' rimasta
+   la stessa: un indirizzo nuovo non eredita il posto del vecchio, e il
+   vecchio cosi' torna libero. `numero` e' il cellulare verificato
+   (telefonoNumero). Restituisce { codice: true/false, unici: N }. */
+async function trasloca(db, dati) {
+    const da = String(dati.da || ''), a = String(dati.a || '');
+    if (!da || !a || da === a) return { codice: false, unici: 0 };
+    const rifCodice = dati.codice ? db.collection('codiciInvito').doc(CODICI.normalizza(dati.codice)) : null;
+    const unici = [];
+    if (dati.ev && dati.email) unici.push(rifUnico(db, dati.ev.chiave, 'email', dati.email));
+    if (dati.ev && dati.numero) unici.push(rifUnico(db, dati.ev.chiave, 'tel', dati.numero));
+    if (!rifCodice && !unici.length) return { codice: false, unici: 0 };
+    return db.runTransaction(async tx => {
+        // prima tutte le letture, poi tutte le scritture (lo vuole Firestore)
+        const sCodice = rifCodice ? await tx.get(rifCodice) : null;
+        const sUnici = [];
+        for (const r of unici) sUnici.push(await tx.get(r));
+        const esito = { codice: false, unici: 0 };
+        const usate = (sCodice && sCodice.exists && Array.isArray((sCodice.data() || {}).iscrizioniUsate))
+            ? sCodice.data().iscrizioniUsate.map(String) : [];
+        if (usate.indexOf(da) >= 0) {
+            const nuove = [];
+            usate.forEach(id => { const x = id === da ? a : id; if (nuove.indexOf(x) < 0) nuove.push(x); });
+            tx.set(rifCodice, { iscrizioniUsate: nuove }, { merge: true });
+            esito.codice = true;
+        }
+        sUnici.forEach((s, k) => {
+            if (!s.exists || String((s.data() || {}).iscrizione || '') !== da) return;
+            tx.set(unici[k], { iscrizione: a }, { merge: true });
+            esito.unici++;
+        });
+        return esito;
+    });
+}
+
 module.exports = {
     EVENTI, eventoDi, cellulare, leggibile, mascherato,
-    invia, verifica, registra, riattiva, usiCodice, firmaNumero, firmaNumeroValida,
+    invia, verifica, registra, riattiva, trasloca, usiCodice, firmaNumero, firmaNumeroValida,
     MAX_PER_CODICE, MSG
 };

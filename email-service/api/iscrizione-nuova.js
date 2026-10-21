@@ -1323,8 +1323,12 @@ async function completaIscrizione(azione, body, res, ip) {
                 telefono: String(scheda.telefono || ''),
                 // il cellulare verificato per SMS non si cambia: la pagina lo mostra bloccato
                 telefonoBloccato: !!scheda.telefonoVerificato,
-                // e nemmeno l'azienda di chi si e' registrato con il codice dell'invito
-                aziendaBloccata: !!scheda.invitoCodice,
+                /* e nemmeno l'azienda di chi si e' registrato con il codice
+                   dell'invito, dove la registrazione l'ha presa dal codice
+                   (gli eventi verificati, Milano 2027). Altrove (Napoli) il
+                   codice non tocca l'azienda: e' quella scritta nel modulo,
+                   e chi l'ha scritta la corregge da qui come prima. */
+                aziendaBloccata: !!(scheda.invitoCodice && VERIFICATA.eventoDi(scheda.pagina)),
                 annullato: !!scheda.annullato
             },
             // un elemento per posto (2..N): dati gia' scritti, segnaposto di un
@@ -1366,8 +1370,12 @@ async function completaIscrizione(azione, body, res, ip) {
        il codice e' arrivato per QUELL'azienda, ed e' l'unico nome che
        combacia con l'elenco delle aziende invitate. Si rimette quella della
        scheda prima di tutto il resto, cosi' anche la mail di riepilogo dice
-       quella vera e non quella scritta nel modulo. */
-    if (primo && !primo.annulla && scheda.invitoCodice) primo.azienda = String(scheda.azienda || '');
+       quella vera e non quella scritta nel modulo. Solo dove l'azienda
+       della scheda e' davvero quella del codice: agli eventi verificati
+       (Milano 2027) la registrazione la scrive dall'invito; altrove e'
+       quella digitata nel modulo, e bloccarla vorrebbe dire tenersi un
+       errore di battitura. */
+    if (primo && !primo.annulla && scheda.invitoCodice && VERIFICATA.eventoDi(scheda.pagina)) primo.azienda = String(scheda.azienda || '');
     const posto1Annullato = !!(primo && primo.annulla);
     const senzaNomeAltri = posti.slice(1).filter(p => !p).length;
     const figliCompilati = posti.slice(1).filter(p => p && !p.annulla).length;
@@ -2036,8 +2044,12 @@ module.exports = async (req, res) => {
 
         /* Agli eventi verificati la pagina riceve la firma per rileggere lo
            stato dell'iscrizione (azione "stato-iscrizione"): e' cosi' che la
-           conferma a video si aggiorna da sola quando l'email e' confermata. */
-        res.status(200).json(evVerificato ? { ok: true, stato: { d: idDoc, t: NL.firmaStato(idDoc) } } : { ok: true });
+           conferma a video si aggiorna da sola quando l'email e' confermata.
+           E l'azienda come e' stata scritta: con il codice e' quella
+           dell'invito, non per forza quella che c'era nel campo (una
+           verifica del codice andata a vuoto lo lascia libero), e la
+           conferma a video deve dire la stessa della mail e dell'elenco. */
+        res.status(200).json(evVerificato ? { ok: true, azienda: scheda.azienda, stato: { d: idDoc, t: NL.firmaStato(idDoc) } } : { ok: true });
     } catch (e) {
         // il visitatore non deve vedere dettagli tecnici: restano nei log
         console.error('Iscrizione non registrata:', String((e && e.message) || e).slice(0, 200));
