@@ -16,15 +16,25 @@
 (function () {
     'use strict';
 
-    // quando la pagina si e' aperta: un modulo compilato in un secondo e' un programma
-    const APERTA = Date.now();
-
     const SERVIZIO = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
     const INFO = 'info@nextgenerationbusiness.it';
+    const TELEFONO = '+39 045 8010734';
     const $ = (id) => document.getElementById(id);
 
     const form = $('domandeForm');
     if (!form) return;
+
+    /* Il tempo passato sul modulo (campo "ms"): un modulo compilato in un
+       secondo e' un programma, e il servizio lo scarta. Si conta da quando
+       la persona comincia a usarlo (il primo campo toccato, scritto o
+       cambiato), non da quando si apre la pagina: tornando indietro il
+       browser puo' rimettere il modulo gia' compilato, e chi lo ricontrolla
+       prima di spedirlo non deve risultare "troppo veloce". Chi invece preme
+       subito «Invia» comincia a contare li': se il servizio risponde di
+       attendere un attimo (lo dice nel messaggio), il secondo invio passa. */
+    let toccato = 0;
+    const tocca = () => { if (!toccato) toccato = Date.now(); };
+    ['focusin', 'input', 'change'].forEach(t => form.addEventListener(t, tocca, true));
 
     const campoTema = $('tema');
     const campoEvento = $('evento');
@@ -196,8 +206,11 @@
        (TURNSTILE_SECRET). La casella si vede SOLO quando Cloudflare chiede
        davvero un clic (appearance: interaction-only); di solito non chiede
        niente. Il gettone vale una volta: dopo ogni invio se ne prepara uno
-       nuovo. Se lo script di Cloudflare non si carica (bloccato, rete) la
-       domanda parte lo stesso senza gettone, e decide il servizio. */
+       nuovo. Se lo script di Cloudflare non si carica (bloccato dalla rete o
+       da un'estensione del browser) la domanda parte senza gettone: se il
+       servizio ha la chiave segreta la rifiuta (captchaKo), e allora non
+       serve riprovare, si dice di scriverci per mail o di chiamarci; senza
+       la chiave la accetta. */
     const TURNSTILE_CHIAVE = '0x4AAAAAAFZkLXVSuromvnHp';
     const boxCaptcha = $('captcha');
     const captcha = { id: null, gettone: '', guasto: false };
@@ -263,10 +276,16 @@
         return 'mailto:' + INFO + '?subject=' + encodeURIComponent(oggetto)
             + '&body=' + encodeURIComponent(campoMessaggio.value.slice(0, 1500));
     }
+    /* L'indirizzo e il telefono, se il testo li nomina, diventano
+       collegamenti (la mail con il messaggio gia' scritto); se non nomina
+       l'indirizzo, con conMail lo si aggiunge in fondo. */
     function mostraErrore(testo, conMail) {
-        erroreInvio.innerHTML = esc(testo) + (conMail
-            ? ' Puoi anche scriverci direttamente a <a href="' + esc(mailPronta()) + '">' + INFO + '</a>.'
-            : '');
+        let html = esc(testo);
+        const mail = '<a href="' + esc(mailPronta()) + '">' + INFO + '</a>';
+        if (conMail && html.indexOf(INFO) >= 0) html = html.split(INFO).join(mail);
+        else if (conMail) html += ' Puoi anche scriverci direttamente a ' + mail + '.';
+        html = html.split(TELEFONO).join('<a href="tel:' + TELEFONO.replace(/\s/g, '') + '">' + TELEFONO + '</a>');
+        erroreInvio.innerHTML = html;
     }
 
     function grazie(nome, email, motivo) {
@@ -284,6 +303,7 @@
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (inCorso) return;
+        tocca();
         erroreInvio.textContent = '';
         let primo = null;
         daControllare().forEach(campo => { if (!valida(campo) && !primo) primo = campo; });
@@ -320,7 +340,7 @@
                     marketing: $('marketing').checked === true,
                     captcha: gettone,
                     sito: $('sito').value,
-                    ms: Date.now() - APERTA
+                    ms: Date.now() - toccato
                 })
             }).then(r => r.json().catch(() => ({})).then(d => Object.assign({ _stato: r.status }, d)));
         }).then(d => {
@@ -329,11 +349,18 @@
             if (d.ok) { grazie(valore('nome'), valore('email'), motivo); return; }
             rinnovaCaptcha();
             inAttesa('');
+            // due freni diversi, e il servizio dice quale: troppi invii da questa rete, o troppe domande oggi da questo indirizzo
             if (d._stato === 429) {
-                mostraErrore('Abbiamo ricevuto troppe richieste ravvicinate da questa rete: riprova fra qualche minuto.', true);
+                mostraErrore(d.msg || 'Abbiamo ricevuto troppe richieste ravvicinate da questa rete: riprova fra qualche minuto.', true);
                 return;
             }
             if (d.captchaKo) {
+                // lo script di Cloudflare non c'e': riprovare non serve, e la casella resterebbe vuota
+                if (captcha.guasto || !window.turnstile) {
+                    boxCaptcha.hidden = true;
+                    mostraErrore('La verifica di sicurezza di Cloudflare non si carica su questa rete o con le estensioni attive nel browser, e senza di essa il modulo non può partire. Scrivici direttamente a ' + INFO + ' (il collegamento apre una mail con il tuo messaggio già scritto) oppure chiamaci al numero ' + TELEFONO + '.', true);
+                    return;
+                }
                 boxCaptcha.hidden = false;
                 mostraErrore('La verifica di sicurezza non è andata a buon fine: attendi qualche secondo e premi di nuovo «Invia la domanda». Se Cloudflare mostra una casella, spuntala.', true);
                 return;
