@@ -17593,7 +17593,14 @@
         if (!r) return false;
         if (!r.doc || dalModuloDelSito(r)) return true;
         if (!r.inserito && r.extra && r.extra.Portale === PORTALE_DESK) return true;
-        return !!r.compilato && (!email || /~p\d+$/.test(String(r.doc)));
+        /* Gli accompagnatori (~p2, ~p3) nascono dal modulo "completa i dati":
+           tutto quello che hanno lo ha scritto l'intestatario. Sull'intestatario
+           invece conta "completato", che scrive solo quel modulo: "compilato"
+           lo lascia anche la prenotazione dei tavoli B2B, che non tocca nome,
+           azienda, ruolo e telefono - e una riga inserita da voi tornerebbe
+           azzurra appena l'ospite sceglie un tavolo. */
+        if (/~p\d+$/.test(String(r.doc))) return !!r.compilato;
+        return !email && !!r.completato;
     }
     /* La ragione sociale e' DEL FILE solo dove il codice la impone: agli
        eventi con le iscrizioni per codice (Milano 2027) il servizio scrive

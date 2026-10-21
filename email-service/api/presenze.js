@@ -1860,7 +1860,27 @@ module.exports = async (req, res) => {
                     await db.collection('presenze').doc(idDoc(evento, idNuovo))
                         .set({ ...pd, idIscritto: idNuovo }, { merge: true });
                 }
+                /* I posti 2..N dell'ordine che hanno un nome stanno su documenti
+                   loro ("<scheda>~p2", "~p3"...), legati a questa con "gruppo":
+                   il modulo "completa i dati" li ritrova per nome. Lasciati
+                   indietro, dal collegamento nuovo quei posti sembrerebbero
+                   vuoti: rimandando il modulo si conterebbero due volte, e
+                   annullandoli non si annullerebbe nessuno. Traslocano con la
+                   scheda; la loro presenza ha la chiave del loro indirizzo e
+                   della loro data, che non cambiano, e resta dov'e'. */
+                const nPosti = Math.min(99, Math.max(1,
+                    parseInt(attuale.partecipantiOrdine, 10) || parseInt(attuale.partecipanti, 10) || 1));
+                const figli = [];
+                for (let i = 2; i <= nPosti; i++) {
+                    const sf = await db.collection('iscrizioni').doc(idIscrizione(idIscritto) + '~p' + i).get();
+                    if (sf.exists) figli.push({ i: i, dati: sf.data() || {} });
+                }
                 const b = db.batch();
+                figli.forEach(f => {
+                    b.set(db.collection('iscrizioni').doc(idIscrizione(idNuovo) + '~p' + f.i),
+                        { ...f.dati, gruppo: idIscrizione(idNuovo) });
+                    b.delete(db.collection('iscrizioni').doc(idIscrizione(idIscritto) + '~p' + f.i));
+                });
                 b.delete(rifVecchio);
                 b.delete(db.collection('presenze').doc(idDoc(evento, idIscritto)));
                 await b.commit();

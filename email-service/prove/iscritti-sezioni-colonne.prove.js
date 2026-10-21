@@ -392,12 +392,22 @@ prova('Chi completa i dati dal suo collegamento li ha scritti lui (l\'email no)'
        l'email dell'intestatario, che e' l'identita' della scheda; quella
        degli accompagnatori (~p2, ~p3) si scrive proprio li'. */
     const compilato = { daNome: 'Mario Rossi', quando: 5 };
-    const intestatario = riga({ doc: 'abc', inserito: { da: 'a@x.it' }, extra: { Portale: 'Eventbrite' }, compilato: compilato });
+    const intestatario = riga({ doc: 'abc', inserito: { da: 'a@x.it' }, extra: { Portale: 'Eventbrite' }, compilato: compilato, completato: true });
     const accompagnatore = riga({ doc: 'abc~p2', extra: { Portale: 'Eventbrite' }, compilato: compilato });
     esigi(A.scrittoDaChiSiIscrive(intestatario), 'i dati dell\'intestatario: azzurri');
     esigi(!A.scrittoDaChiSiIscrive(intestatario, true), 'la sua email no: l\'avete scritta voi');
     esigi(A.scrittoDaChiSiIscrive(accompagnatore) && A.scrittoDaChiSiIscrive(accompagnatore, true),
         'l\'accompagnatore: dati ed email, scritti nel modulo');
+});
+
+prova('Chi prenota un tavolo B2B non ha scritto lui i dati della riga', () => {
+    /* La prenotazione dei tavoli lascia "compilato" (la firma di "Aggiornato
+       da") ma non "completato": nome, azienda e ruolo di una riga inserita da
+       voi restano vostri. */
+    const prenotato = riga({ doc: 'abc', inserito: { da: 'a@x.it' }, extra: { Portale: 'Eventbrite' },
+        compilato: { daNome: 'Mario Rossi', quando: 5 }, b2bRisposta: { quando: 5, temi: 2 } });
+    esigi(!A.scrittoDaChiSiIscrive(prenotato), 'senza "completato" la riga resta senza tinta');
+    esigi(!A.scrittoDaChiSiIscrive(prenotato, true), 'e la sua email pure');
 });
 
 prova('La ragione sociale e\' "del file" solo dove il codice la impone', () => {

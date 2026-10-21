@@ -310,6 +310,35 @@ prova('Un\'iscrizione da Eventbrite o importata non diventa "in attesa" per una 
     esigi(CONF.inAttesaDiConferma(i) === false, 'e non e\' in attesa');
 });
 
+prova('Un ordine con piu\' posti: i partecipanti con un nome seguono la scheda', async () => {
+    /* Elio aveva 3 posti e dal suo collegamento ha dato il nome a Fabio e
+       Gina (i documenti "~p2" e "~p3"): la sua riga conta ormai 1. Corretta la
+       sua email, il collegamento nuovo deve ritrovarli - non vederli vuoti,
+       contarli due volte o annullare dei segnaposto al posto loro. */
+    scenario();
+    const vecchio = idScheda(E);
+    dati.set('iscrizioni/' + vecchio, Object.assign({}, scheda(E), {
+        partecipanti: 1, partecipantiOrdine: 3, extra: { Portale: 'Eventbrite', Partecipanti: '1' },
+        completato: { quando: 8, partecipanti: 3 }, compilato: { daNome: 'Elio Beta', quando: 8 }
+    }));
+    const figlio = (n, nome) => ({ data: '11/01/2027 09:00:00', pagina: 'Milano 26 Febbraio 2027', nome: nome, email: nome.toLowerCase() + '@beta.it',
+        partecipanti: 1, extra: { Partecipanti: '1', Portale: 'Eventbrite' }, origine: 'partecipante', gruppo: vecchio, compilato: { daNome: 'Elio Beta', quando: 8 } });
+    dati.set('iscrizioni/' + vecchio + '~p2', figlio(2, 'Fabio'));
+    dati.set('iscrizioni/' + vecchio + '~p3', figlio(3, 'Gina'));
+    const r = await modifica(E, { email: 'elio@beta.com' });
+    const nuovo = idScheda('elio@beta.com|11/01/2027 09:00:00');
+    esigi(r.corpo.ok && !!scheda('elio@beta.com|11/01/2027 09:00:00'), 'la scheda trasloca');
+    const p2 = dati.get('iscrizioni/' + nuovo + '~p2') || {}, p3 = dati.get('iscrizioni/' + nuovo + '~p3') || {};
+    esigi(p2.nome === 'Fabio' && p3.nome === 'Gina' && p2.gruppo === nuovo && p3.gruppo === nuovo,
+        'Fabio e Gina stanno sotto il nome nuovo, legati alla scheda nuova', JSON.stringify([p2.gruppo, p3.gruppo]));
+    esigi(!dati.has('iscrizioni/' + vecchio + '~p2') && !dati.has('iscrizioni/' + vecchio + '~p3'), 'e sotto il nome vecchio non restano copie');
+    esigi(p2.data === '11/01/2027 09:00:00' && p2.email === 'fabio@beta.it', 'con i loro dati, data compresa (la loro presenza si ritrova)');
+    // un ordine senza partecipanti con il nome: non si crea niente
+    scenario();
+    await modifica(E, { email: 'elio@beta.org' });
+    esigi(![...dati.keys()].some(k => /~p\d+$/.test(k)), 'senza partecipanti con il nome non nasce nessun "~p"');
+});
+
 prova('Un\'annullata resta annullata, e il codice non la conta', async () => {
     scenario();
     dati.set('codiciInvito/K7M3P', Object.assign({}, dati.get('codiciInvito/K7M3P'), { iscrizioniUsate: [idScheda(O), idScheda(A), idScheda(B)] }));

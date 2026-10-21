@@ -529,6 +529,11 @@ module.exports = async (req, res) => {
                         daNome: String(v.compilato.daNome || ''),
                         quando: typeof v.compilato.quando === 'number' ? v.compilato.quando : 0
                     } : null,
+                    /* Se i dati li ha riscritti proprio quel modulo: "compilato"
+                       lo lascia anche la prenotazione dei tavoli B2B, che nome,
+                       azienda e ruolo non li tocca. L'area riservata lo usa per
+                       dire chi ha scritto cosa (la tinta "dal modulo"). */
+                    completato: !!(v.completato && typeof v.completato === 'object'),
                     /* L'altra meta' del filo: questa persona si e' registrata con
                        il codice riservato a un'azienda invitata. La lettura e' una
                        whitelist campo per campo, quindi senza queste righe il dato
