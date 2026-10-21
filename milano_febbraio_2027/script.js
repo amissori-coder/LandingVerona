@@ -655,36 +655,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---------- la mail di conferma: se e' partita, e rimandarla ----------
     /* Chi non trova la mail non deve restare fermo: il riquadro dice dove
        cercarla, e il pulsante «Non e' arrivata? Rimandala» la fa ripartire
-       (azione "rimanda-conferma", con la stessa firma dello stato). Si
-       accende un minuto dopo l'invio, perche' prima la mail di solito sta
-       ancora arrivando; subito, se il servizio dice che l'invio non e'
-       riuscito. Fra un invio e l'altro decide il servizio quanto aspettare
-       (risponde "attesa", in secondi), e il pulsante conta alla rovescia. */
+       (azione "rimanda-conferma", con la stessa firma dello stato). I tempi
+       sono quelli del servizio (lib/conferma-email.js, rimandaConferma): due
+       minuti dall'ultimo tentativo verso l'indirizzo, riuscito o no, e un
+       tetto di rinvii al giorno. Offrire il pulsante prima vorrebbe dire
+       farselo rifiutare: parte spento per i due minuti dall'iscrizione, e si
+       rimette sull'attesa che dice il servizio, nello stato ("attesaRimanda",
+       i secondi che mancano: un tentativo del giro automatico la fa
+       ripartire) e nelle risposte al rinvio ("attesa"). */
     const btnRimanda = $('rimandaMail');
     const rimandaEsito = $('rimandaEsito');
     const statoMail = $('fattoMailStato');
     const RIMANDALA = 'Non è arrivata? Rimandala';
-    const rimanda = { stato: null, timer: null, inCorso: false, okAlle: 0, inviataAlle: 0, vincolo: false };
+    const PAUSA_RIMANDA = 120;   // secondi: RIMANDA_PAUSA_MS del servizio
+    // `fine`: quando il pulsante si riaccende (0: e' acceso); `giro`: i rinvii chiesti da qui
+    const rimanda = { stato: null, timer: null, inCorso: false, okAlle: 0, inviataAlle: 0, fine: 0, mail: '', giro: 0 };
     function durata(s) {
         if (s < 90) return s + ' s';
         if (s < 5400) return Math.ceil(s / 60) + ' min';
         return Math.ceil(s / 3600) + ' ore';
     }
-    // `vincolo`: l'attesa l'ha chiesta il servizio, e un invio non riuscito non la scavalca
-    function rimandaFra(secondi, vincolo) {
+    // i secondi che mancano, dall'orologio: in una scheda in secondo piano i timer rallentano
+    const restano = () => Math.max(0, Math.ceil((rimanda.fine - Date.now()) / 1000));
+    function rimandaFra(secondi) {
         clearInterval(rimanda.timer);
-        let restano = Math.max(0, Math.round(Number(secondi) || 0));
-        rimanda.vincolo = !!(vincolo && restano);
-        const libero = () => { rimanda.vincolo = false; btnRimanda.disabled = false; btnRimanda.textContent = RIMANDALA; };
-        if (!restano) { libero(); return; }
-        const scrivi = () => { btnRimanda.textContent = RIMANDALA + ' (fra ' + durata(restano) + ')'; };
-        btnRimanda.disabled = true;
+        const s = Math.max(0, Math.round(Number(secondi) || 0));
+        rimanda.fine = s ? Date.now() + s * 1000 : 0;
+        const scrivi = () => {
+            const r = restano();
+            if (!r) { clearInterval(rimanda.timer); rimanda.fine = 0; }
+            btnRimanda.disabled = r > 0;
+            btnRimanda.textContent = r ? RIMANDALA + ' (fra ' + durata(r) + ')' : RIMANDALA;
+            scriviStatoMail();
+        };
         scrivi();
-        rimanda.timer = setInterval(() => {
-            restano--;
-            if (restano <= 0) { clearInterval(rimanda.timer); libero(); return; }
-            scrivi();
-        }, 1000);
+        if (rimanda.fine) rimanda.timer = setInterval(scrivi, 1000);
     }
     function esitoRimanda(testo, ko) {
         rimandaEsito.textContent = testo || '';
@@ -694,35 +699,78 @@ document.addEventListener('DOMContentLoaded', () => {
         rimanda.stato = stato;
         rimanda.inviataAlle = Date.now();
         btnRimanda.hidden = false;
-        rimandaFra(60);
+        rimandaFra(PAUSA_RIMANDA);
     }
-    /* Il campo "mail" dello stato: 'inviata', 'errore' (l'invio non e'
-       riuscito: il servizio riprova da solo) o 'in-attesa' (nessun invio
-       registrato ancora). Dopo un "rimandata" riuscito si crede a quello per
-       due minuti, finche' lo stato non si e' aggiornato. */
-    function mostraStatoMail(mail) {
-        let testo = '';
+    /* Fra quanto, nella riga dello stato: a grandi passi, perche' la riga la
+       leggono i lettori di schermo a ogni cambio; i secondi esatti li conta
+       il pulsante. */
+    function fraQuanto(s) {
+        if (s <= 60) return 'fra meno di un minuto';
+        if (s < 5400) return 'fra ' + Math.ceil(s / 60) + ' minuti';
+        return 'fra ' + Math.ceil(s / 3600) + ' ore';
+    }
+    /* La riga sullo stato della mail, dal campo "mail" dello stato:
+       'inviata', 'errore' (l'ultimo invio non e' riuscito: il servizio
+       riprova da solo) o 'in-attesa' (nessun invio registrato ancora). Dopo
+       un "rimandata" riuscito si crede a quello per due minuti, finche' lo
+       stato non si e' aggiornato. "Rimandala subito" solo a pulsante acceso:
+       se no, fra quanto si potra'. */
+    function scriviStatoMail() {
+        const r = restano();
         const oltreMinuto = Date.now() - rimanda.inviataAlle > 60 * 1000;
-        // il pulsante si offre solo se c'e' e non sta aspettando il servizio
-        const subito = !btnRimanda.hidden && !rimanda.vincolo ? ' Se vuoi, rimandala subito dal pulsante qui sotto.' : '';
+        let testo = '', rimandabile = false;
         if (Date.now() - rimanda.okAlle < 2 * 60 * 1000) testo = '';
-        else if (mail === 'errore') testo = 'L\'invio della mail ha avuto un problema: stiamo riprovando in automatico.' + subito;
-        else if (mail === 'in-attesa') testo = oltreMinuto
-            ? 'La mail non risulta ancora partita: stiamo riprovando in automatico.' + subito
-            : 'Invio della mail in corso...';
-        statoMail.textContent = testo;
+        else if (rimanda.mail === 'errore') {
+            testo = 'L\'invio della mail ha avuto un problema: stiamo riprovando in automatico.';
+            rimandabile = true;
+        } else if (rimanda.mail === 'in-attesa' && (oltreMinuto || !r)) {
+            testo = 'La mail non risulta ancora partita: stiamo riprovando in automatico.';
+            rimandabile = true;
+        } else if (rimanda.mail === 'in-attesa') testo = 'Invio della mail in corso...';
+        if (rimandabile && !btnRimanda.hidden && !rimanda.inCorso) {
+            testo += r ? ' Potrai rimandarla anche tu dal pulsante qui sotto ' + fraQuanto(r) + '.'
+                : ' Se vuoi, rimandala subito dal pulsante qui sotto.';
+        }
+        if (statoMail.textContent !== testo) statoMail.textContent = testo;
         statoMail.hidden = !testo;
-        // invio non riuscito: il pulsante non aspetta il minuto (ma rispetta l'attesa chiesta dal servizio)
-        if ((mail === 'errore' || (mail === 'in-attesa' && oltreMinuto)) && testo
-            && rimanda.stato && !rimanda.inCorso && !rimanda.vincolo && btnRimanda.disabled) rimandaFra(0);
+    }
+    /* Lo stato riletto (solo finche' l'email non e' confermata): com'e'
+       andata la mail e, da un servizio aggiornato, fra quanti secondi si puo'
+       rimandarla. Una lettura partita prima o durante un rinvio non ne sa
+       niente (giro -1 o diverso): per i tempi vale la risposta del rinvio.
+       Il pulsante si risistema solo se il servizio dice altro da quello che
+       conta qui, oltre un paio di secondi. */
+    function aggiornaRimanda(s, giro) {
+        if (s.mail) rimanda.mail = String(s.mail);
+        const attesa = s.attesaRimanda;
+        if (typeof attesa === 'number' && isFinite(attesa) && attesa >= 0 && giro === rimanda.giro
+            && !rimanda.inCorso && !btnRimanda.hidden && Math.abs(attesa - restano()) > 2) {
+            rimandaFra(attesa);   // scrive anche la riga dello stato
+            return;
+        }
+        scriviStatoMail();
+    }
+    /* La frase sull'SMS mandato dopo l'iscrizione: solo se il servizio dice
+       che e' partito davvero (sms: true; un servizio di prima non lo dice, e
+       allora niente), con le parole di quell'SMS: dove cercare la mail, o che
+       la mail non era ancora partita e si riprova da soli. */
+    function mostraSms(d) {
+        const el = $('fattoMailSms');
+        if (!el) return;
+        if (d && d.smsTipo === 'non-inviata') {
+            el.textContent = ' Ti abbiamo avvisato anche con un SMS al cellulare verificato: al momento dell\'iscrizione la mail non era ancora partita, e riproviamo a spedirla in automatico.';
+        }
+        el.hidden = !(d && d.sms === true);
     }
     btnRimanda.addEventListener('click', () => {
         if (!rimanda.stato || rimanda.inCorso) return;
         rimanda.inCorso = true;
+        rimanda.giro++;
         clearInterval(rimanda.timer);
         btnRimanda.disabled = true;
         btnRimanda.textContent = 'Invio in corso...';
         esitoRimanda('');
+        scriviStatoMail();
         chiama({ azione: 'rimanda-conferma', d: rimanda.stato.d, t: rimanda.stato.t })
             .then(r => {
                 rimanda.inCorso = false;
@@ -731,29 +779,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const elEmail = $('fattoEmail');
                     if (r.a && elEmail) elEmail.textContent = String(r.a);
                     rimanda.okAlle = Date.now();
-                    statoMail.hidden = true;
                     esitoRimanda('Rimandata a ' + (r.a || (elEmail && elEmail.textContent) || 'il tuo indirizzo') + '. Può volerci qualche minuto: guarda anche in Spam e Promozioni.');
-                    rimandaFra(r.attesa || 120, true);
+                    rimandaFra(r.attesa || PAUSA_RIMANDA);
                     return;
                 }
                 if (r && r._stato === 403) {
                     btnRimanda.hidden = true;
                     btnRimanda.textContent = RIMANDALA;
                     esitoRimanda('Da qui non riusciamo a rimandarla: scrivici dal modulo qui sotto e ci pensiamo noi.', true);
+                    scriviStatoMail();
                     return;
                 }
+                // il freno del servizio, con il suo messaggio: dice anche se l'ultimo tentativo non e' riuscito
                 if (r && r._stato === 429) {
                     esitoRimanda(r.msg || 'Troppe richieste ravvicinate: riprova fra qualche minuto.', true);
-                    rimandaFra(r.attesa || 60, true);
+                    rimandaFra(r.attesa || PAUSA_RIMANDA);
                     return;
                 }
                 if (r && r.attesa) {
                     esitoRimanda(r.msg || ('Per ora non possiamo rimandarla di nuovo: riprova fra ' + durata(r.attesa) + '.'));
-                    rimandaFra(r.attesa, true);
+                    rimandaFra(r.attesa);
                     return;
                 }
                 esitoRimanda((r && r.msg) || 'Non siamo riusciti a rimandarla. Riprova fra qualche minuto, oppure scrivici dal modulo qui sotto.', true);
-                rimandaFra(0);
+                // 502: il tentativo c'e' stato e non e' riuscito; il servizio riprova da solo e conta i due minuti da adesso
+                rimandaFra(r && r._stato === 502 ? PAUSA_RIMANDA : 0);
             })
             .catch(() => {
                 rimanda.inCorso = false;
@@ -773,12 +823,14 @@ document.addEventListener('DOMContentLoaded', () => {
         function leggi() {
             if (finito || inCorso) return;
             inCorso = true;
+            // i rinvii chiesti finora: una lettura partita durante un rinvio non conta per i tempi
+            const giro = rimanda.inCorso ? -1 : rimanda.giro;
             chiama({ azione: 'stato-iscrizione', d: stato.d, t: stato.t })
                 .then(s => {
                     inCorso = false;
                     if (!s || !s.ok) { if (s && (s._stato === 403 || s._stato === 404)) finito = true; else prossimo(); return; }
-                    // un servizio non ancora aggiornato non manda "mail": allora non si dice niente
-                    if (!s.emailConfermata && s.mail) mostraStatoMail(s.mail);
+                    // un servizio non ancora aggiornato non manda "mail" ne' "attesaRimanda": allora non si dice niente
+                    if (!s.emailConfermata) aggiornaRimanda(s, giro);
                     if (s.emailConfermata) {
                         // confermato: dove cercare la mail e come rimandarla non servono piu'
                         $('fattoMail').hidden = true;
@@ -895,6 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
                 azienda: (d && d.azienda) || valore('azienda'), telefono: verificato.numero
             });
+            mostraSms(d);
             if (d.stato && d.stato.d && d.stato.t) { preparaRimanda(d.stato); seguiStato(d.stato, valore('nome')); }
             form.hidden = true;
             const fatto = $('formSuccess');

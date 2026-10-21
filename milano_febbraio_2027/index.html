@@ -562,9 +562,10 @@
                                 <!-- Per chi non la trova: dove cercarla, se e' partita davvero
                                      (lo dice il servizio, campo "mail" dello stato), il pulsante
                                      per rimandarla e il modulo per scriverci. Tutto sparisce
-                                     quando l'indirizzo e' confermato. -->
+                                     quando l'indirizzo e' confermato. La frase sull'SMS si vede
+                                     solo se il servizio dice che l'SMS e' partito (sms: true). -->
                                 <div class="fatto-mail" id="fattoMail">
-                                    <span class="fatto-mail-dove">Non la vedi? Controlla le cartelle <b>Spam</b> o <b>Posta indesiderata</b> e, se usi Gmail, la scheda <b>Promozioni</b>: il mittente è Revilaw S.p.A. (noreply@nextgenerationbusiness.it). Ti abbiamo mandato anche un SMS con queste indicazioni al cellulare verificato.</span>
+                                    <span class="fatto-mail-dove">Non la vedi? Controlla le cartelle <b>Spam</b> o <b>Posta indesiderata</b> e, se usi Gmail, la scheda <b>Promozioni</b>: il mittente è Revilaw S.p.A. (noreply@nextgenerationbusiness.it).<span id="fattoMailSms" hidden> Ti abbiamo mandato anche un SMS con queste indicazioni al cellulare verificato.</span></span>
                                     <span class="fatto-mail-stato" id="fattoMailStato" role="status" hidden></span>
                                     <div class="fatto-rimanda">
                                         <button type="button" class="btn-modulo" id="rimandaMail" disabled hidden>Non è arrivata? Rimandala</button>
@@ -682,6 +683,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=16"></script>
+    <script src="script.js?v=17"></script>
 </body>
 </html>
