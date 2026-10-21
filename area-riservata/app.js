@@ -3374,7 +3374,12 @@
         const numeri = !!(opz && opz.numeri);
         return (righe || []).map(r => r.map(v => {
             let s = String(v == null ? '' : v).replace(/"/g, '""');
-            if (numeri && /^0\d+$/.test(s)) return '"=""' + s + '"""'; // Excel lo tiene testo: gli zeri restano
+            /* Excel lo tiene testo: gli zeri davanti restano (partita IVA, codice
+               fiscale), un codice invito come "12E45" non diventa 1,2E+46 e un
+               cellulare "+39 333..." non prende l'apostrofo della guardia qui
+               sotto. Dentro ci sono solo cifre, spazi, "+" ed "E": nessuna
+               formula vera puo' passare di qui. */
+            if (numeri && (/^0\d+$/.test(s) || /^\d+E\d+$/i.test(s) || /^\+\d[\d ]*$/.test(s))) return '"=""' + s + '"""';
             if (/^[=+\-@\t\r]/.test(s) && !(numeri && /^-?\d+(\.\d+)?$/.test(s))) s = "'" + s; // niente formule in Excel
             return '"' + s + '"';
         }).join(';')).join('\r\n');

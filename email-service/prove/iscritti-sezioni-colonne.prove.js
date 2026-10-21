@@ -592,7 +592,15 @@ prova('Il testo del CSV: virgolette, punto e virgola, guardia contro le formule'
     esigi(r[1] === '"\'=SOMMA(1;2)";"\'+39 333";"\'-1769584"', 'senza opzione: la guardia vale per tutto, come prima', r[1]);
     esigi(r[2] === '"0";"\'@x";"1234.5"', 'lo zero e\' "0"', r[2]);
     const n = A.testoCsv([['=1+1', '-1769584', '-1+1', '-0.5', '+5']], { numeri: true }).split('\r\n')[0];
-    esigi(n === '"\'=1+1";"-1769584";"\'-1+1";"-0.5";"\'+5"', 'con { numeri: true } passano i soli numeri negativi', n);
+    esigi(n === '"\'=1+1";"-1769584";"\'-1+1";"-0.5";"=""+5"""', 'con { numeri: true } passano i numeri negativi, e "+5" resta testo senza apice', n);
+});
+
+prova('Il CSV: cellulari con il prefisso e codici che Excel leggerebbe come esponenti', () => {
+    const n = A.testoCsv([['+39 333 1234567', '+393331234567', '12E45', '1e7', 'AB3K9', '+39 333 x', '12345']], { numeri: true }).split('\r\n')[0];
+    esigi(n === '"=""+39 333 1234567""";"=""+393331234567""";"=""12E45""";"=""1e7""";"AB3K9";"\'+39 333 x";"12345"',
+        'il cellulare e il codice "12E45" restano testo; il resto come prima', n);
+    const senza = A.testoCsv([['+39 333 1234567', '12E45']]).split('\r\n')[0];
+    esigi(senza === '"\'+39 333 1234567";"12E45"', 'senza opzione le altre tabelle restano come erano', senza);
 });
 
 prova('Il CSV: partita IVA e codice fiscale con lo zero davanti restano testo', () => {
