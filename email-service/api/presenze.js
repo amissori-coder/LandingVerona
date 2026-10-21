@@ -282,13 +282,16 @@ async function ePartner(db, ruolo) {
     } catch (_) { return false; }
 }
 
-// stesso trasporto SMTP delle altre mail dell'area riservata
+/* stesso trasporto SMTP delle altre mail dell'area riservata, con i tempi
+   massimi: un server di posta muto non deve tenere ferma l'area riservata
+   fino al limite della funzione */
 function trasporto() {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT) || 465,
         secure: (Number(process.env.SMTP_PORT) || 465) === 465,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 15000, dnsTimeout: 5000
     });
 }
 
@@ -692,7 +695,14 @@ module.exports = async (req, res) => {
            mail dell'iscrizione dal sito, composta dal servizio perche' il
            pulsante porta una firma che solo il servizio conosce. Una volta
            ogni dieci minuti per scheda: e' una mail a una persona, e chi
-           preme due volte ne manderebbe due. */
+           preme due volte ne manderebbe due.
+           Parte dalla stessa funzione dell'iscrizione (lib/conferma-email.js,
+           spedisciConferma), che riscrive `mailConferma`: un "mail non
+           inviata" rimasto dall'iscrizione sparisce quando il rinvio riesce, e
+           se il rinvio fallisce resta scritto con il motivo nuovo. Agli eventi
+           che chiedono la conferma parte anche l'SMS "conferma la tua email"
+           al cellulare verificato, e la scheda torna nel giro automatico (il
+           promemoria del giorno dopo, se non l'ha gia' avuto). */
         if (azione === 'richiedi-conferma-email') {
             const rif = db.collection('iscrizioni').doc(testo(body.doc, 400) || idIscrizione(idIscritto));
             const snap = await rif.get();
@@ -706,22 +716,26 @@ module.exports = async (req, res) => {
                 res.status(429).json({ ok: false, msg: 'Mail già rimandata pochi minuti fa: aspetta dieci minuti prima di rimandarla.' });
                 return;
             }
-            const m = CONF.mailDiConferma(rif.id, scheda);
-            try {
-                const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-                const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
-                const messaggio = Object.assign({ from: '"' + fromName + '" <' + fromEmail + '>' }, m);
-                const ccn = ccnOperatore(email, emailSessione, scheda.email);
-                if (ccn) messaggio.bcc = ccn;
-                await trasporto().sendMail(messaggio);
-            } catch (e) {
-                const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+            const V = moduloVerificata();
+            const evV = V.eventoDi(scheda.pagina);
+            const esito = await CONF.spedisciConferma(db, rif.id, scheda, {
+                via: 'staff',
+                bcc: ccnOperatore(email, emailSessione, scheda.email),
+                attesa: !!evV && CONF.inAttesaDiConferma(scheda)
+            });
+            if (!esito.ok) {
+                const motivo = String(esito.errore || 'errore del server di posta').slice(0, 200);
                 console.error('Mail di conferma a', scheda.email, 'non rimandata:', motivo);
                 res.status(502).json({ ok: false, msg: 'Mail non inviata: ' + motivo });
                 return;
             }
             await rif.set({ emailConfermaRimandata: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() } }, { merge: true });
-            res.status(200).json({ ok: true, mail: { inviata: true } });
+            let sms = { inviato: false };
+            if (evV && scheda.telefonoNumero) {
+                const s = await V.smsConfermaEmail(db, { idDoc: rif.id, numero: scheda.telefonoNumero, email: scheda.email, tipo: 'inviata' });
+                sms = { inviato: s.ok === true };
+            }
+            res.status(200).json({ ok: true, mail: { inviata: true }, sms: sms });
             return;
         }
         if (azione === 'richiedi-dati') {
@@ -1836,6 +1850,23 @@ module.exports = async (req, res) => {
                 if (stessoIndirizzo) {
                     if (attuale.emailConfermata !== undefined) nuovo.emailConfermata = attuale.emailConfermata;
                     if (attuale.emailConfermaRimandata !== undefined) nuovo.emailConfermaRimandata = attuale.emailConfermaRimandata;
+                    /* E il giro automatico delle mail di conferma: la bandiera
+                       e i conti degli invii a quell'indirizzo (lib/conferma-email.js) */
+                    ['confermaInAttesa', 'invioConferma', 'promemoriaConferma', 'rimandaConferma', 'smsConferma']
+                        .forEach(k => { if (attuale[k] !== undefined) nuovo[k] = attuale[k]; });
+                } else {
+                    /* Un indirizzo NUOVO non ha ricevuto niente. La mail partita
+                       resta scritta (dice che la scheda viene dal modulo, e
+                       un'importata senza mail non e' "in attesa"), ma con
+                       l'indirizzo a cui era andata: per quello nuovo non vale.
+                       E a un evento che chiede la conferma la scheda entra nel
+                       giro automatico, che al nuovo indirizzo manda la mail da
+                       solo, entro dieci minuti. */
+                    if (nuovo.mailConferma && typeof nuovo.mailConferma === 'object' && !nuovo.mailConferma.a) {
+                        nuovo.mailConferma = Object.assign({}, nuovo.mailConferma, { a: String(attuale.email || '').trim().toLowerCase() });
+                    }
+                    // solo per una scheda che c'era davvero (non una riga del vecchio foglio)
+                    if (snap.exists && moduloVerificata().eventoDi(nuovo.pagina) && moduloConferma().inAttesaDiConferma(nuovo)) nuovo.confermaInAttesa = true;
                 }
             }
             await rifNuovo.set(nuovo, { merge: true });

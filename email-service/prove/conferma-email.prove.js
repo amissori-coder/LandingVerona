@@ -29,7 +29,16 @@
        promemoria e del riepilogo serale) e' solo chi si e' iscritto
        dal sito e non ha ancora cliccato: mai una scheda inserita a
        mano, arrivata con un Portale o caricata con "Importa", mai una
-       senza indirizzo, mai chi lo staff ha segnato presente.
+       senza indirizzo, mai chi lo staff ha segnato presente;
+     - la bandiera del giro automatico (`confermaInAttesa`) se ne va
+       con la conferma, dal clic e dal pregresso;
+     - la mail con il pulsante parte da un posto solo (spedisciConferma):
+       con "Rispondi" verso info@, il tag per i log di Brevo, la traccia
+       sulla scheda (com'e' andata, da dove, a quale indirizzo, quante
+       volte), un secondo tentativo solo per gli errori che passano, e
+       "Promemoria:" davanti all'oggetto quando e' il promemoria;
+     - lo stato che legge la pagina ('inviata', 'errore', 'in-attesa')
+       vale per l'indirizzo di adesso, non per uno corretto dopo.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -49,6 +58,7 @@ function applica(vecchio, patch, merge) {
     const base = (merge && vecchio) ? Object.assign({}, vecchio) : {};
     for (const k of Object.keys(patch)) {
         if (patch[k] && patch[k].__incrementa) base[k] = (base[k] || 0) + patch[k].__incrementa;
+        else if (patch[k] && patch[k].__togli) delete base[k];
         else base[k] = patch[k];
     }
     return base;
@@ -72,17 +82,30 @@ function collection(nome) {
 let commit = 0;
 const db = {
     collection: collection,
-    batch: () => { const ops = []; return { set: (r, p, o) => ops.push(() => r.set(p, o)), commit: async () => { commit++; for (const f of ops) await f(); } }; }
+    batch: () => { const ops = []; return { set: (r, p, o) => ops.push(() => r.set(p, o)), commit: async () => { commit++; for (const f of ops) await f(); } }; },
+    // le scritture alla fine, come in Firestore
+    runTransaction: async fn => {
+        const scritture = [];
+        const esito = await fn({ get: r => r.get(), set: (r, p, o) => scritture.push([r, p, o]) });
+        for (const [r, p, o] of scritture) await r.set(p, o);
+        return esito;
+    }
 };
-const adminFinto = { firestore: { FieldValue: { increment: n => ({ __incrementa: n }) } } };
+const adminFinto = { firestore: { FieldValue: { increment: n => ({ __incrementa: n }), delete: () => ({ __togli: true }) } } };
 
 // ---------- SMTP finto ----------
 const posta = [];
 let rompiInvio = 0;
+let tentativiInvio = 0;
+// l'errore che il server finto da' quando e' rotto: di norma uno che non passa
+let erroreInvio = () => new Error('server di posta non raggiungibile');
+let opzioniTrasporto = null;
 const nodemailerFinto = {
-    createTransport: () => ({
+    createTransport: (o) => ({
         sendMail: async (msg) => {
-            if (rompiInvio > 0) { rompiInvio--; throw new Error('server di posta non raggiungibile'); }
+            opzioniTrasporto = o;
+            tentativiInvio++;
+            if (rompiInvio > 0) { rompiInvio--; throw erroreInvio(); }
             posta.push(msg);
             return { response: '250 ok' };
         }
@@ -129,7 +152,11 @@ async function prova(titolo, fn) {
     try { await fn(); }
     catch (e) { ko++; console.log('  KO   eccezione: ' + (e && e.stack)); }
 }
-function azzera() { dati.clear(); commit = 0; posta.length = 0; rompiInvio = 0; avvisiDiretta.length = 0; rompiDiretta = false; orologio = Date.parse('2026-09-26T10:00:00+02:00'); }
+function azzera() {
+    dati.clear(); commit = 0; posta.length = 0; rompiInvio = 0; tentativiInvio = 0; avvisiDiretta.length = 0; rompiDiretta = false;
+    erroreInvio = () => new Error('server di posta non raggiungibile');
+    orologio = Date.parse('2026-09-26T10:00:00+02:00');
+}
 const PAGINA = 'Napoli 2 Ottobre 2026 - Manifestazione di interesse';
 const ID = 'mario-rossi@esempio-it|20-09-2026 10:00:00';
 const ROSSI = { pagina: PAGINA, data: '20/09/2026 10:00:00', nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', telefono: '333', azienda: 'Rossi Srl' };
@@ -339,6 +366,97 @@ const token = () => NL.firmaConfermaEmail(ID);
         esigi(A(sito, { stato: 'confermato' }) === true && A(sito, { stato: 'assente' }) === true && A(sito, { modalita: 'online' }) === true && A(sito, {}) === true && A(sito, null) === true,
             'segnata "confermato", assente, spostata o senza presenza: resta in attesa');
         esigi(A(null) === false && A(undefined) === false, 'nessuna scheda: no');
+    });
+
+    await prova('La bandiera del giro automatico: la conferma e il pregresso la tolgono', async () => {
+        azzera();
+        // una scheda sua: quella delle prove di prima ha gia' consumato il freno
+        dati.set('iscrizioni/bandiera', Object.assign({}, ROSSI, { confermaInAttesa: true }));
+        await CONF.conferma(db, { d: 'bandiera', t: NL.firmaConfermaEmail('bandiera') });
+        const s = dati.get('iscrizioni/bandiera');
+        esigi(s.emailConfermata && !('confermaInAttesa' in s), 'confermata dal clic: la bandiera non c\'e\' piu\'');
+        dati.set('iscrizioni/p', Object.assign({}, ROSSI, { email: 'p@x.it', confermaInAttesa: true }));
+        dati.set('iscrizioni/v', Object.assign({}, ROSSI, { email: 'v@x.it', pagina: 'Verona 20 Marzo 2026', confermaInAttesa: true }));
+        await CONF.pregresso(db, { filtro: 'napoli', da: 'admin@revilaw.it' });
+        esigi(dati.get('iscrizioni/p').emailConfermata.come === 'pregresso' && !('confermaInAttesa' in dati.get('iscrizioni/p')),
+            'confermata d\'ufficio: la bandiera non c\'e\' piu\'');
+        esigi(dati.get('iscrizioni/v').confermaInAttesa === true, 'un altro evento non si tocca');
+    });
+
+    await prova('La mail con il pulsante: un posto solo, e la traccia sulla scheda', async () => {
+        azzera();
+        const M = 'Milano 26 Febbraio 2027 - Iscrizione';
+        const x = Object.assign({}, ROSSI, { pagina: M, email: 'Mario.Rossi@Esempio.it' });
+        dati.set('iscrizioni/m', x);
+        const e = await CONF.spedisciConferma(db, 'm', x, { via: 'iscrizione' });
+        const m = posta[0] || {};
+        esigi(e.ok && e.a === 'mario.rossi@esempio.it' && posta.length === 1 && m.to === 'Mario.Rossi@Esempio.it', 'parte, all\'indirizzo della scheda');
+        esigi(m.replyTo === 'info@nextgenerationbusiness.it', '"Rispondi" scrive a info@, non a noreply');
+        esigi(m.headers && m.headers['X-Mailin-Tag'] === 'conferma-iscrizione', 'con il tag per ritrovarla nei log di Brevo');
+        esigi(/^Richiesta di conferma/.test(m.subject) && m.html.indexOf(NL.linkConfermaEmail('m').replace(/&/g, '&amp;')) > 0,
+            'ed e\' la mail con il pulsante firmato per quella scheda');
+        esigi(opzioniTrasporto && opzioniTrasporto.connectionTimeout === 8000 && opzioniTrasporto.greetingTimeout === 8000
+            && opzioniTrasporto.socketTimeout === 15000 && opzioniTrasporto.dnsTimeout === 5000, 'il server di posta ha i tempi massimi');
+        let s = dati.get('iscrizioni/m');
+        esigi(s.mailConferma.ok === true && s.mailConferma.via === 'iscrizione' && s.mailConferma.a === 'mario.rossi@esempio.it' && s.mailConferma.quando === Date.now(),
+            'sulla scheda: partita, da dove, a quale indirizzo');
+        esigi(s.invioConferma.tentativi === 1 && s.invioConferma.falliti === 0 && s.invioConferma.ultimo === Date.now(), 'e il conto degli invii');
+        esigi(CONF.statoMail(s) === 'inviata', 'la pagina legge "inviata"');
+
+        // un errore che non passa: un tentativo solo, e la traccia dice perche'
+        rompiInvio = 1; tentativiInvio = 0;
+        const errori = [];
+        const errVero = console.error;
+        console.error = (...a) => errori.push(a.join(' '));
+        let e2;
+        try { e2 = await CONF.spedisciConferma(db, 'm', s, { via: 'staff' }); } finally { console.error = errVero; }
+        s = dati.get('iscrizioni/m');
+        esigi(!e2.ok && tentativiInvio === 1, 'un errore che non passa: un tentativo solo');
+        esigi(s.mailConferma.ok === false && /non raggiungibile/.test(s.mailConferma.errore) && s.mailConferma.via === 'staff', 'sulla scheda: non partita, con il motivo');
+        esigi(s.invioConferma.tentativi === 2 && s.invioConferma.falliti === 1, 'due invii, uno fallito di fila');
+        esigi(CONF.statoMail(s) === 'errore' && errori.some(r => /Mail di conferma \(staff\) non inviata/.test(r)), 'la pagina legge "errore", il log lo dice');
+
+        // un errore che passa (tempo scaduto): si riprova una volta, dopo un attimo
+        rompiInvio = 1; tentativiInvio = 0; posta.length = 0;
+        erroreInvio = () => Object.assign(new Error('Connection timeout'), { code: 'ETIMEDOUT' });
+        const e3 = await CONF.spedisciConferma(db, 'm', s, { via: 'automatico' });
+        s = dati.get('iscrizioni/m');
+        esigi(e3.ok && tentativiInvio === 2 && posta.length === 1, 'tempo scaduto: secondo tentativo, e parte');
+        esigi(s.mailConferma.ok === true && s.invioConferma.falliti === 0 && s.invioConferma.tentativi === 3, 'il riuscito azzera i fallimenti di fila');
+        rompiInvio = 2; tentativiInvio = 0;
+        erroreInvio = () => Object.assign(new Error('451 riprova piu\' tardi'), { responseCode: 451 });
+        console.error = () => { };
+        let e4;
+        try { e4 = await CONF.spedisciConferma(db, 'm', dati.get('iscrizioni/m'), { via: 'automatico' }); } finally { console.error = errVero; }
+        esigi(!e4.ok && tentativiInvio === 2, 'un 4xx due volte: due tentativi, non tre');
+        esigi(CONF.transitorio({ responseCode: 550 }) === false && CONF.transitorio({ code: 'EAUTH' }) === false && CONF.transitorio({ code: 'ECONNRESET' }) === true,
+            'un 5xx e l\'autenticazione non si riprovano; una connessione caduta si\'');
+
+        // il promemoria
+        posta.length = 0;
+        await CONF.spedisciConferma(db, 'm', dati.get('iscrizioni/m'), { via: 'promemoria' });
+        esigi(/^Promemoria: Richiesta di conferma/.test((posta[0] || {}).subject), 'il promemoria ha "Promemoria:" davanti all\'oggetto');
+        // la copia nascosta a chi la rimanda dall'area riservata, e "Rispondi" da variabile
+        posta.length = 0;
+        process.env.CONFERMA_RISPONDI_A = 'segreteria@revilaw.it';
+        await CONF.spedisciConferma(db, 'm', dati.get('iscrizioni/m'), { via: 'staff', bcc: ['op@revilaw.it'] });
+        delete process.env.CONFERMA_RISPONDI_A;
+        esigi(posta[0] && posta[0].bcc && posta[0].bcc[0] === 'op@revilaw.it' && posta[0].replyTo === 'segreteria@revilaw.it',
+            'copia nascosta all\'operatore, "Rispondi" da CONFERMA_RISPONDI_A');
+        esigi(!('confermaInAttesa' in dati.get('iscrizioni/m')), 'senza `attesa` la bandiera non si scrive');
+        await CONF.spedisciConferma(db, 'm', dati.get('iscrizioni/m'), { via: 'rimanda', attesa: true });
+        esigi(dati.get('iscrizioni/m').confermaInAttesa === true, 'con `attesa` la scheda torna nel giro automatico');
+        const senza = await CONF.spedisciConferma(db, 'nessuno', { nome: 'Senza' }, {});
+        esigi(!senza.ok && !dati.has('iscrizioni/nessuno'), 'senza indirizzo non parte e non scrive niente');
+    });
+
+    await prova('Lo stato della mail vale per l\'indirizzo di adesso', async () => {
+        const S = CONF.statoMail;
+        const base = { email: 'nuovo@x.it' };
+        esigi(S(base) === 'in-attesa', 'nessun invio: "in-attesa"');
+        esigi(S(Object.assign({}, base, { mailConferma: { quando: 1, ok: true } })) === 'inviata', 'una traccia di prima, senza indirizzo: vale');
+        esigi(S(Object.assign({}, base, { mailConferma: { quando: 1, ok: true, a: 'vecchio@x.it' } })) === 'in-attesa', 'partita per l\'indirizzo vecchio: per il nuovo non vale');
+        esigi(S(Object.assign({}, base, { mailConferma: { quando: 1, ok: false, a: 'nuovo@x.it' } })) === 'errore', 'non partita per questo indirizzo: "errore"');
     });
 
     console.log('\n' + ok + ' ok, ' + ko + ' ko');

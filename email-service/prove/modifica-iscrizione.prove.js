@@ -29,7 +29,16 @@
        sul codice; un codice che non c'e' piu' non rinasca;
      - senza trasloco (si corregge il nome) non cambi niente del resto;
      - rifare il trasloco non cambi niente: e' quello che serve se la
-       modifica va ripetuta.
+       modifica va ripetuta;
+     - il giro automatico delle mail di conferma: con lo stesso
+       indirizzo la bandiera e i conti seguono la scheda; con un
+       indirizzo nuovo, a Milano e per una scheda del sito, la bandiera
+       si accende e la mail partita resta scritta con l'indirizzo
+       vecchio (per il nuovo non vale: il giro gliela manda);
+     - "Rimanda la mail di conferma" (richiedi-conferma-email) riscrive
+       la traccia della mail - un "mail non inviata" vecchio sparisce - e
+       a Milano manda l'SMS "conferma la tua email" al cellulare
+       verificato; a Napoli niente SMS.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -97,12 +106,24 @@ admin.firestore.FieldValue = {
     arrayUnion: (...a) => ({ __union: a }), delete: () => ({ __del: true })
 };
 
-// ---------- server di posta finto ----------
+// ---------- server di posta e SMS finti ----------
 let spedite = [];
+let mailGuasta = 0;
+let sms = [];
+global.fetch = async (url, opz) => {
+    if (/transactionalSMS/.test(String(url))) {
+        sms.push(JSON.parse(opz.body));
+        return { ok: true, status: 201, text: async () => '{"messageId":7}' };
+    }
+    throw new Error('rete non prevista: ' + url);
+};
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return admin;
-    if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => { spedite.push(m); return {}; } }) };
+    if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => {
+        if (mailGuasta > 0) { mailGuasta--; throw new Error('552 casella piena'); }
+        spedite.push(m); return {};
+    } }) };
     if (nome === 'imapflow') return { ImapFlow: function () { } };
     if (nome === 'google-auth-library') return { JWT: function () { }, GoogleAuth: function () { } };
     return veroRequire.apply(this, arguments);
@@ -113,12 +134,14 @@ process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({
 });
 process.env.SMTP_FROM_EMAIL = 'noreply@esempio.it';
 process.env.SMTP_FROM_NAME = 'Revilaw S.p.A.';
+process.env.BREVO_API_KEY = 'chiave-brevo-finta';
 
 const RADICE = path.join(__dirname, '..');
 const presenze = require(path.join(RADICE, 'api/presenze.js'));
 const V = require(path.join(RADICE, 'lib/iscrizione-verificata.js'));
 const CONF = require(path.join(RADICE, 'lib/conferma-email.js'));
 const NL = require(path.join(RADICE, 'lib/newsletter.js'));
+const GIRO = require(path.join(RADICE, 'lib/giro-conferme.js'));
 
 // ---------- utilita' ----------
 let ok = 0, ko = 0;
@@ -167,7 +190,7 @@ const O = 'olga@alfa.it|09/01/2027 08:00:00';
 const N = 'nino@delta.it|01/09/2026 10:00:00';
 const DATI_FILE = [{ c: 'Ragione sociale (file)', v: 'ALFA S.P.A.' }, { c: 'Partita IVA', v: '01234567890' }, { c: 'Ricavi (EUR)', v: '100674810' }];
 function scenario() {
-    dati.clear(); spedite = []; transazioni = 0;
+    dati.clear(); spedite = []; transazioni = 0; sms = []; mailGuasta = 0;
     dati.set('utenti/admin@esempio.it', { nome: 'Anna Admin', ruolo: 'admin', attivo: true, eventi: true });
     dati.set('iscrizioni/' + idScheda(A), {
         data: '10/01/2027 10:00:00', pagina: MILANO, nome: 'Anna', cognome: 'Alfa', email: 'anna@alfa.it',
@@ -374,6 +397,81 @@ prova('Senza trasloco non cambia niente del resto', async () => {
     esigi(s.emailConfermata && s.emailConfermata.quando === 4 && JSON.stringify(s.datiInvito) === JSON.stringify(DATI_FILE) && s.invitoCodice === 'K7M3P',
         'la conferma e il resto restano dov\'erano');
     esigi(transazioni === 0 && JSON.stringify(dati.get('codiciInvito/K7M3P')) === primaCodice, 'nessuna transazione sul codice');
+});
+
+prova('Il giro delle mail di conferma: la bandiera segue la scheda, e un indirizzo nuovo la accende', async () => {
+    scenario();
+    const conti = { confermaInAttesa: true, invioConferma: { a: 'bruno@alfa.it', tentativi: 1, falliti: 0, ultimo: 3 },
+        smsConferma: { quando: 3, ok: true, tipo: 'inviata' }, rimandaConferma: { invii: [3], ultimo: 3 } };
+    dati.set('iscrizioni/' + idScheda(B), Object.assign({}, scheda(B), conti));
+    await modifica(B, { data: '10/01/2027 11:05:00' });
+    let s = scheda('bruno@alfa.it|10/01/2027 11:05:00') || {};
+    esigi(s.confermaInAttesa === true && JSON.stringify(s.invioConferma) === JSON.stringify(conti.invioConferma)
+        && s.smsConferma && s.smsConferma.ok === true && s.rimandaConferma && s.rimandaConferma.ultimo === 3,
+        'stesso indirizzo (si e\' corretta la data): la bandiera e i conti seguono la scheda');
+
+    scenario();
+    dati.set('iscrizioni/' + idScheda(B), Object.assign({}, scheda(B), conti));
+    await modifica(B, { email: 'Bruno@Alfa.com' });
+    s = scheda('bruno@alfa.com|10/01/2027 11:00:00') || {};
+    esigi(s.confermaInAttesa === true, 'indirizzo nuovo, a Milano: la scheda entra (o resta) nel giro automatico');
+    esigi(s.mailConferma && s.mailConferma.ok === true && s.mailConferma.a === 'bruno@alfa.it', 'la mail partita resta scritta, con l\'indirizzo vecchio', JSON.stringify(s.mailConferma));
+    esigi(!('invioConferma' in s) && !('smsConferma' in s) && !('rimandaConferma' in s), 'i conti dell\'indirizzo vecchio restano indietro');
+    esigi(CONF.statoMail(s) === 'in-attesa' && GIRO.cosaFare(s, Date.now()).fare === 'invia', 'per il nuovo indirizzo non e\' partito niente: il giro la manda');
+
+    // Anna aveva confermato: il nuovo indirizzo no, e la bandiera si accende anche senza esserci prima
+    scenario();
+    await modifica(A, { email: 'anna@alfa.com' });
+    s = scheda('anna@alfa.com|10/01/2027 10:00:00') || {};
+    esigi(s.confermaInAttesa === true && s.mailConferma.a === 'anna@alfa.it', 'Anna, confermata con l\'indirizzo vecchio: in attesa con il nuovo, nel giro');
+
+    // chi la mail con il pulsante non la deve ricevere: niente bandiera
+    scenario();
+    await modifica(E, { email: 'elio@beta.com' });
+    await modifica(I, { email: 'ida@gamma.com' });
+    await modifica(O, { email: 'olga@alfa.com' });
+    await modifica(N, { email: 'nino@delta.com' });
+    const senza = ['elio@beta.com|11/01/2027 09:00:00', 'ida@gamma.com|11/01/2027 10:00:00', 'olga@alfa.com|09/01/2027 08:00:00', 'nino@delta.com|01/09/2026 10:00:00']
+        .map(id => scheda(id) || {});
+    esigi(senza.every(x => x.email && !('confermaInAttesa' in x)), 'Eventbrite, importata, annullata, Napoli: nessuna bandiera',
+        JSON.stringify(senza.map(x => x.confermaInAttesa)));
+});
+
+prova('"Rimanda la mail di conferma" dall\'area riservata: la traccia si aggiorna, e a Milano parte l\'SMS', async () => {
+    scenario();
+    // la mail dell'iscrizione era fallita: l'elenco diceva "mail non inviata"
+    dati.set('iscrizioni/' + idScheda(B), Object.assign({}, scheda(B), { mailConferma: { quando: 3, ok: false, errore: 'casella piena' } }));
+    const r = await chiama({ azione: 'richiedi-conferma-email', evento: EV, idIscritto: B });
+    esigi(r.stato === 200 && r.corpo.ok && r.corpo.mail && r.corpo.mail.inviata && r.corpo.sms && r.corpo.sms.inviato === true,
+        'rimandata, e la risposta dice anche dell\'SMS', JSON.stringify(r.corpo));
+    let s = scheda(B);
+    esigi(s.mailConferma.ok === true && s.mailConferma.errore === '' && s.mailConferma.via === 'staff' && s.mailConferma.a === 'bruno@alfa.it',
+        'il "mail non inviata" vecchio sparisce: la traccia e\' quella del rinvio', JSON.stringify(s.mailConferma));
+    esigi(s.emailConfermaRimandata && s.emailConfermaRimandata.da === 'admin@esempio.it', 'chi l\'ha rimandata, come prima');
+    esigi(s.confermaInAttesa === true, 'e la scheda e\' nel giro automatico (il promemoria del giorno dopo)');
+    const m = spedite[0] || {};
+    esigi(spedite.length === 1 && m.to === 'bruno@alfa.it' && m.replyTo === 'info@nextgenerationbusiness.it' && Array.isArray(m.bcc) && m.bcc[0] === 'admin@esempio.it',
+        'la mail va a Bruno, con "Rispondi" verso info@ e la copia nascosta a chi l\'ha rimandata');
+    esigi(sms.length === 1 && sms[0].tag === 'conferma-email' && sms[0].recipient === '393331113333' && /inviata a bruno@alfa\.it/.test(sms[0].content)
+        && /contatti\/\?t=mail/.test(sms[0].content), 'l\'SMS "conferma la tua email" al cellulare verificato', JSON.stringify(sms[0]));
+    esigi(s.smsConferma && s.smsConferma.ok === true && s.smsConferma.tipo === 'inviata', 'e resta scritto sulla scheda');
+
+    // il rinvio che non parte: 502, e la traccia dice il motivo nuovo
+    scenario();
+    mailGuasta = 1;
+    const errVero = console.error;
+    console.error = () => { };
+    let k;
+    try { k = await chiama({ azione: 'richiedi-conferma-email', evento: EV, idIscritto: B }); } finally { console.error = errVero; }
+    s = scheda(B);
+    esigi(k.stato === 502 && /casella piena/.test(k.corpo.msg) && s.mailConferma.ok === false && /casella piena/.test(s.mailConferma.errore) && sms.length === 0,
+        'posta giu\': 502, la traccia lo dice, e niente SMS', JSON.stringify(k.corpo));
+
+    // Napoli: la mail si', l'SMS no
+    scenario();
+    const n = await chiama({ azione: 'richiedi-conferma-email', evento: 'napoli', idIscritto: N });
+    esigi(n.corpo.ok && n.corpo.sms && n.corpo.sms.inviato === false && sms.length === 0 && spedite.length === 1, 'a Napoli la mail riparte, senza SMS', JSON.stringify(n.corpo));
+    esigi(!('confermaInAttesa' in (scheda(N) || {})), 'e niente giro automatico');
 });
 
 prova('Rifare il trasloco non cambia niente', async () => {

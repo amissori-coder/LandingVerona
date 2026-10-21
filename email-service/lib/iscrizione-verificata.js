@@ -53,11 +53,31 @@
 
    GLI SMS PARTONO DA BREVO, lo stesso conto delle mail, con la
    chiave BREVO_API_KEY e il mittente SMS_MITTENTE (vedi README).
+
+   IL SECONDO SMS: "CONFERMA LA TUA EMAIL". Subito dopo la mail con il
+   pulsante, al numero appena verificato parte un SMS che dice dove
+   cercarla (anche Spam e Posta indesiderata) e, se non arriva, dove
+   chiederne un'altra: il modulo delle domande, /contatti/?t=mail.
+   Chi si iscrive guarda il telefono in quel momento, e una mail finita
+   fra la posta indesiderata non la cerca nessuno. Se la mail non e'
+   partita l'SMS lo dice, e dice che si riprova da soli (il giro
+   automatico di api/conferme-email.js). Lo stesso giro, dopo un giorno
+   senza conferma, manda UN promemoria. I testi stanno dentro due SMS
+   (306 caratteri dell'alfabeto GSM-7, niente virgolette tipografiche ne'
+   lettere maiuscole accentate) e non hanno MAI la riga "@dominio
+   #codice": il telefono proporrebbe di incollare un codice che non c'e'.
+   Contano nel tetto giornaliero degli SMS: a tetto raggiunto non partono,
+   e l'iscrizione va avanti lo stesso.
    ============================================================ */
 
 const crypto = require('crypto');
 const NL = require('./newsletter');
 const CODICI = require('./codici-invito');
+/* "In attesa di conferma" e' una regola sola (lib/conferma-email.js), e
+   serve qui per il messaggio a chi si riscrive. Si carica quando serve:
+   conferma-email si porta dietro la posta e i PDF, e questo modulo lo
+   caricano anche le prove e i lavori che non spediscono niente. */
+function moduloConferma() { return require('./conferma-email'); }
 
 /* Gli eventi con le iscrizioni verificate. `se` riconosce la pagina del
    modulo ("Milano 26 Febbraio 2027 - Iscrizione") e anche il titolo corto
@@ -158,7 +178,8 @@ function firmaNumeroValida(evento, numero, token) {
    questo modulo hanno il documento di unicita'; quelle inserite a mano
    dall'area riservata no, e per l'email si cercano fra le schede. Per il
    numero basta il documento: a mano lo si scrive come capita, e confrontarlo
-   vorrebbe dire indovinare. Restituisce 'email', 'telefono' oppure ''. */
+   vorrebbe dire indovinare. Restituisce `campo` ('email', 'telefono' oppure
+   '') e, quando c'e', la scheda trovata (`id`, `scheda`). */
 async function giaIscritto(db, ev, email, numero, tx) {
     const leggi = r => (tx ? tx.get(r) : r.get());
     const controlli = [];
@@ -171,19 +192,57 @@ async function giaIscritto(db, ev, email, numero, tx) {
         const id = String((b.data() || {}).iscrizione || '');
         if (!id) continue;
         const s = await leggi(db.collection('iscrizioni').doc(id));
-        if (s.exists && attiva(s.data())) return { campo: controlli[k][0], blocchi: blocchi };
+        // la scheda trovata serve al messaggio: confermata o ancora in attesa
+        if (s.exists && attiva(s.data())) return { campo: controlli[k][0], blocchi: blocchi, id: id, scheda: s.data() || {} };
     }
     return { campo: '', blocchi: blocchi };
 }
+/* IL MESSAGGIO A CHI SI RISCRIVE. Un'iscrizione gia' fatta e confermata ha
+   la mail con il collegamento personale: il messaggio di sempre. Una ancora
+   IN ATTESA DI CONFERMA invece no, o quasi: e' proprio chi non ha trovato la
+   mail che torna sul modulo e si riscrive, e "usa il collegamento nella mail"
+   era un vicolo cieco. Qui gli si dice che l'iscrizione c'e', che manca la
+   conferma, dove cercare la mail e dove chiederne un'altra. Mai l'indirizzo
+   dell'iscrizione trovata: chi scrive un numero non deve leggere l'email di
+   un altro. `rimandata`: la mail e' appena ripartita (iscrizione-nuova.js). */
+const LINK_MODULO_MAIL = 'https://nextgenerationbusiness.it/contatti/?t=mail';
+function msgInAttesa(campo, rimandata) {
+    const chi = campo === 'telefono'
+        ? 'Con questo numero di cellulare risulta già un\'iscrizione a questo evento, ma il suo indirizzo email non è ancora confermato'
+        : 'Con questo indirizzo email risulta già un\'iscrizione a questo evento, ma l\'indirizzo non è ancora confermato';
+    return chi + (rimandata ? ': ti abbiamo appena rimandato la mail di conferma. ' : '. ')
+        + 'Cerca la mail «Richiesta di conferma» anche nelle cartelle Spam, Posta indesiderata e Promozioni, e premi «Conferma il tuo indirizzo email». '
+        + (campo === 'telefono' ? 'Se l\'indirizzo era sbagliato o la mail non arriva' : 'Se non la trovi')
+        + ', scrivici dal modulo: ' + LINK_MODULO_MAIL;
+}
+// la scheda trovata aspetta ancora la conferma dell'email?
+function inAttesa(gia) {
+    return !!(gia && gia.scheda && moduloConferma().inAttesaDiConferma(gia.scheda));
+}
+// il messaggio giusto per quello che ha trovato giaIscritto (o giaIscrittoAMano)
+function msgGia(gia) {
+    return inAttesa(gia) ? msgInAttesa(gia.campo, false) : MSG[gia.campo];
+}
+/* Il no della registrazione. `inAttesa`: la scheda trovata aspetta ancora
+   la conferma, e iscrizione-nuova.js le rimanda la mail (con il suo freno)
+   dicendolo nel messaggio: chi si riscrive e' quasi sempre chi non l'ha
+   trovata. */
+function rifiuto(gia) {
+    return { ok: false, campo: gia.campo, msg: msgGia(gia), inAttesa: inAttesa(gia) ? String(gia.id || '') : '' };
+}
+/* Per l'email anche le schede SENZA documento di unicita' (inserite a mano,
+   o di prima): la prima attiva per questo evento, { campo, id, scheda },
+   oppure null. */
 async function giaIscrittoAMano(db, ev, email) {
-    if (!email) return false;
+    if (!email) return null;
     try {
         const snap = await db.collection('iscrizioni').where('email', '==', email).limit(50).get();
-        return snap.docs.some(d => {
-            const x = d.data() || {};
+        const d = snap.docs.find(s => {
+            const x = s.data() || {};
             return ev.se.test(String(x.pagina || '').trim()) && attiva(x);
         });
-    } catch (_) { return false; }   // la transazione resta il controllo vero
+        return d ? { campo: 'email', id: d.id, scheda: d.data() || {} } : null;
+    } catch (_) { return null; }   // la transazione resta il controllo vero
 }
 
 const MSG = {
@@ -202,15 +261,22 @@ const MSG = {
 function mittenteSms() {
     return String(process.env.SMS_MITTENTE || 'Revilaw').replace(/[^0-9A-Za-z ]/g, '').slice(0, 11) || 'Revilaw';
 }
-async function spedisciSms(numero, contenuto) {
+/* `opz`: { tag, etichetta, attesa }. Il tag e' quello con cui l'SMS si
+   ritrova fra i Log SMS di Brevo, l'etichetta quella delle righe nei log di
+   Vercel, l'attesa il tempo massimo per la risposta di Brevo. Senza, sono
+   quelli dell'SMS con il codice, com'erano. */
+async function spedisciSms(numero, contenuto, opz) {
+    opz = opz || {};
+    const etichetta = String(opz.etichetta || 'SMS di verifica');
     if (!NL.brevoAttivo()) return { ok: false, errore: 'BREVO_API_KEY mancante' };
     try {
         const r = await NL.chiamataBrevo('/transactionalSMS/sms', {
             metodo: 'POST',
+            attesa: opz.attesa,
             corpo: {
                 type: 'transactional', sender: mittenteSms(),
                 recipient: String(numero).replace(/^\+/, ''),
-                content: contenuto, tag: 'verifica-iscrizione', unicodeEnabled: false
+                content: contenuto, tag: String(opz.tag || 'verifica-iscrizione'), unicodeEnabled: false
             }
         });
         /* Brevo risponde "accettato" anche quando poi l'operatore scarta il
@@ -219,7 +285,7 @@ async function spedisciSms(numero, contenuto) {
            rimasti. Il numero non si scrive. */
         if (r.ok) {
             const d = r.dati || {};
-            console.log('SMS di verifica accettato da Brevo: messageId', d.messageId || '?',
+            console.log(etichetta + ' accettato da Brevo: messageId', d.messageId || '?',
                 '- riferimento', d.reference || '?', '- crediti usati', d.usedCredits == null ? '?' : d.usedCredits,
                 '- rimasti', d.remainingCredits == null ? '?' : d.remainingCredits, '- mittente', mittenteSms());
             return { ok: true, id: d.messageId || null };
@@ -239,6 +305,93 @@ function testoSms(ev, codice) {
     return codice + ' è il codice per confermare l\'iscrizione a Next Generation Business'
         + '. Scade fra 10 minuti. Non comunicarlo a nessuno.'
         + '\n\n@' + DOMINIO_SITO + ' #' + codice;
+}
+
+/* --- il secondo SMS: "conferma la tua email" ---
+   Tre testi, tutti nell'alfabeto GSM-7 (quello degli SMS normali: con un
+   carattere fuori, Brevo passerebbe all'Unicode e i caratteri per SMS
+   scenderebbero da 153 a 67) e dentro due SMS. Ognuno nomina l'indirizzo a
+   cui e' partita la mail - chi lo ha scritto male se ne accorge leggendo -
+   quando ci sta; altrimenti c'e' la versione senza. */
+const SMS_MAX_CARATTERI = 306;          // due SMS concatenati: 2 x 153
+// i caratteri sicuri: quelli che ogni telefono mostra come sono, uno per uno
+const GSM7_SICURI = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyzàèéìòù\n';
+// questi stanno nell'estensione dell'alfabeto: valgono due caratteri ciascuno
+const GSM7_ESTESI = '^{}\\[~]|€';
+/* Quanti caratteri vale un testo in un SMS, oppure -1 se ha un carattere
+   fuori dall'alfabeto (una lettera maiuscola accentata, le virgolette
+   tipografiche, i puntini di sospensione...). */
+function caratteriSms(s) {
+    let n = 0;
+    for (const c of String(s == null ? '' : s)) {
+        if (GSM7_SICURI.indexOf(c) >= 0) n += 1;
+        else if (GSM7_ESTESI.indexOf(c) >= 0) n += 2;
+        else return -1;
+    }
+    return n;
+}
+function staInDueSms(s) {
+    const n = caratteriSms(s);
+    return n >= 0 && n <= SMS_MAX_CARATTERI;
+}
+const SMS_MODULO = 'Scrivici dal modulo: ' + LINK_MODULO_MAIL;
+const TESTI_CONFERMA = {
+    // la mail e' partita: dov'e' il pulsante e dove cercarla
+    inviata: a => 'Next Generation Business: per confermare l\'iscrizione premi "Conferma il tuo indirizzo email" nella mail '
+        + (a ? 'inviata a ' + a : 'che ti abbiamo inviato')
+        + '. Se non la trovi guarda in Spam/Posta indesiderata. Non l\'hai ricevuta? ' + SMS_MODULO,
+    // la mail non e' partita: l'iscrizione c'e', si riprova da soli
+    'non-inviata': a => 'Next Generation Business: la tua iscrizione è registrata, ma la mail per confermarla non è ancora partita'
+        + (a ? ' verso ' + a : '') + ': riproviamo in automatico. '
+        + 'Guarda anche in Spam/Posta indesiderata. Se non arriva ' + SMS_MODULO.charAt(0).toLowerCase() + SMS_MODULO.slice(1),
+    // il promemoria del giro automatico, dopo un giorno senza conferma
+    promemoria: a => 'Next Generation Business: la tua iscrizione non è ancora confermata. Premi "Conferma il tuo indirizzo email" nella mail '
+        + (a ? 'inviata a ' + a : 'che ti abbiamo inviato')
+        + ' (guarda anche in Spam/Posta indesiderata). Non la trovi? ' + SMS_MODULO
+};
+function testoSmsConferma(tipo, email) {
+    const t = TESTI_CONFERMA[tipo] || TESTI_CONFERMA.inviata;
+    const conIndirizzo = t(String(email || '').trim().toLowerCase());
+    return email && staInDueSms(conIndirizzo) ? conIndirizzo : t('');
+}
+
+/* L'SMS dopo la mail di conferma. dati: { idDoc, numero, email, tipo }, con
+   `tipo` 'inviata' (la mail e' partita), 'non-inviata' (non e' partita) o
+   'promemoria' (il giro automatico, dopo un giorno). Mai un'eccezione: e'
+   un avviso in piu', e chi lo chiama ha gia' fatto il lavoro vero. Sulla
+   scheda resta `smsConferma: { quando, ok, errore, id, tipo }`, che l'area
+   riservata mostra accanto al numero. Senza Brevo non parte niente e non si
+   scrive niente: non c'e' un servizio SMS da cui aspettarselo. */
+async function smsConfermaEmail(db, dati) {
+    dati = dati || {};
+    const numero = cellulare(dati.numero);
+    const tipo = TESTI_CONFERMA[dati.tipo] ? dati.tipo : 'inviata';
+    if (!numero) return { ok: false, saltato: 'numero' };
+    if (!NL.brevoAttivo()) return { ok: false, saltato: 'brevo' };
+    let esito;
+    try {
+        if (!await prenotaSmsDelGiorno(db)) {
+            console.error('SMS di conferma email: raggiunto il tetto giornaliero (SMS_MAX_GIORNO), non parte.');
+            esito = { ok: false, errore: 'tetto giornaliero degli SMS raggiunto', saltato: 'tetto' };
+        } else {
+            esito = await spedisciSms(numero, testoSmsConferma(tipo, dati.email),
+                { tag: 'conferma-email', etichetta: 'SMS di conferma email', attesa: 8000 });
+        }
+    } catch (e) {
+        esito = { ok: false, errore: String((e && e.message) || e).slice(0, 200) };
+    }
+    if (!esito.ok) console.error('SMS di conferma email non inviato:', String(esito.errore || '').replace(/\+?\d{9,}/g, '<numero>'));
+    if (dati.idDoc) {
+        try {
+            await db.collection('iscrizioni').doc(String(dati.idDoc)).set({
+                smsConferma: {
+                    quando: Date.now(), ok: esito.ok === true, tipo: tipo, id: esito.id == null ? null : String(esito.id),
+                    errore: testo(String(esito.errore || '').replace(/\+?\d{9,}/g, '<numero>'), 200)
+                }
+            }, { merge: true });
+        } catch (e) { /* informazione, non condizione */ }
+    }
+    return esito;
 }
 
 /* Il tetto giornaliero di tutto il servizio: un contatore per giorno. */
@@ -266,10 +419,10 @@ async function invia(db, body) {
 
     // prima di spendere un SMS: l'iscrizione si potrebbe fare?
     const gia = await giaIscritto(db, ev, NL.EMAIL_RE.test(email) ? email : '', numero);
-    if (gia.campo) return { stato: 409, corpo: { ok: false, campo: gia.campo, msg: MSG[gia.campo] } };
-    if (NL.EMAIL_RE.test(email) && await giaIscrittoAMano(db, ev, email)) {
-        return { stato: 409, corpo: { ok: false, campo: 'email', msg: MSG.email } };
-    }
+    // qui la mail non si rimanda: il numero non e' ancora verificato
+    if (gia.campo) return { stato: 409, corpo: { ok: false, campo: gia.campo, msg: msgGia(gia) } };
+    const aMano = NL.EMAIL_RE.test(email) ? await giaIscrittoAMano(db, ev, email) : null;
+    if (aMano) return { stato: 409, corpo: { ok: false, campo: 'email', msg: msgGia(aMano) } };
 
     const rif = rifVerifica(db, ev.chiave, numero);
     const ora = Date.now();
@@ -372,16 +525,19 @@ async function usiCodice(db, codice, tx) {
    Tutto in una transazione: i controlli di unicita', i posti del codice e
    la scheda. O passa tutto o non si scrive niente.
    dati: { ev, idDoc, scheda, email, numero, codice }
-   Restituisce { ok: true } oppure { ok: false, campo, msg }. */
+   Restituisce { ok: true } oppure { ok: false, campo, msg, inAttesa }, con
+   `inAttesa` la scheda gia' iscritta che aspetta ancora la conferma
+   dell'email (vedi rifiuto). */
 async function registra(db, dati) {
     const ev = dati.ev;
     const email = String(dati.email || '');
     const numero = String(dati.numero || '');
-    if (await giaIscrittoAMano(db, ev, email)) return { ok: false, campo: 'email', msg: MSG.email };
+    const aMano = await giaIscrittoAMano(db, ev, email);
+    if (aMano) return rifiuto(aMano);
     return db.runTransaction(async tx => {
         // prima tutte le letture, poi tutte le scritture (lo vuole Firestore)
         const gia = await giaIscritto(db, ev, email, numero, tx);
-        if (gia.campo) return { ok: false, campo: gia.campo, msg: MSG[gia.campo] };
+        if (gia.campo) return rifiuto(gia);
         let posti = null;
         if (dati.codice) {
             posti = await usiCodice(db, dati.codice, tx);
@@ -472,5 +628,6 @@ async function trasloca(db, dati) {
 module.exports = {
     EVENTI, eventoDi, cellulare, leggibile, mascherato,
     invia, verifica, registra, riattiva, trasloca, usiCodice, firmaNumero, firmaNumeroValida,
+    smsConfermaEmail, testoSmsConferma, caratteriSms, msgInAttesa, LINK_MODULO_MAIL, SMS_MAX_CARATTERI,
     MAX_PER_CODICE, MSG
 };

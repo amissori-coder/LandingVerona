@@ -519,6 +519,23 @@ module.exports = async (req, res) => {
                         ok: v.mailConferma.ok === true,
                         errore: String(v.mailConferma.errore || '')
                     } : null,
+                    /* Il resto della storia della mail di conferma
+                       (lib/conferma-email.js, lib/giro-conferme.js): l'SMS
+                       "conferma la tua email" al cellulare verificato, quante
+                       volte la mail e' partita (l'iscrizione, i rinvii, il giro
+                       automatico) e il promemoria del giorno dopo. Tre oggetti
+                       piccoli, perche' chi risponde a "non mi e' arrivata"
+                       veda dall'elenco cosa e' gia' stato fatto. */
+                    smsConferma: (v.smsConferma && typeof v.smsConferma === 'object') ? {
+                        quando: typeof v.smsConferma.quando === 'number' ? v.smsConferma.quando : 0,
+                        ok: v.smsConferma.ok === true
+                    } : null,
+                    invioConferma: (v.invioConferma && typeof v.invioConferma === 'object') ? {
+                        tentativi: Number(v.invioConferma.tentativi) || 0
+                    } : null,
+                    promemoriaConferma: (v.promemoriaConferma && typeof v.promemoriaConferma === 'object') ? {
+                        quando: typeof v.promemoriaConferma.quando === 'number' ? v.promemoriaConferma.quando : 0
+                    } : null,
                     emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {
                         quando: typeof v.emailConfermata.quando === 'number' ? v.emailConfermata.quando : 0,
                         come: String(v.emailConfermata.come || 'mail')

@@ -28,7 +28,20 @@
        stata caricata l'azienda (datiInvito), anche per le aziende
        caricate prima, e se la lettura non riesce l'iscrizione passa;
      - il codice SMS non viaggia mai nella risposta, e Napoli resta
-       com'era.
+       com'era;
+     - dopo la mail di conferma parte UN SMS "conferma la tua email"
+       (tag conferma-email, alfabeto GSM-7, due SMS al massimo, con il
+       pulsante, lo spam, l'indirizzo e il modulo /contatti/?t=mail, mai
+       la riga del codice); se la mail non parte l'SMS lo dice, se l'SMS
+       non parte o il tetto e' pieno l'iscrizione passa lo stesso; la
+       scheda entra nel giro automatico (confermaInAttesa), ne esce
+       annullando e ci torna riattivandosi senza conferma;
+     - "rimanda-conferma": firmata come lo stato, due minuti fra un
+       invio e l'altro, cinque al giorno, niente a chi ha confermato;
+     - "stato-iscrizione" dice com'e' andata la mail;
+     - chi si riscrive mentre la sua iscrizione aspetta la conferma
+       legge dove cercare la mail e dove scriverci, e la mail riparte;
+       a chi ha confermato resta il messaggio di sempre.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -126,6 +139,8 @@ admin.firestore.FieldValue = {
 let spedite = [];
 let sms = [];
 let smsGuasto = false;
+// quante delle prossime mail il server di posta finto rifiuta (con un errore che non passa)
+let mailGuasta = 0;
 let turnstileGiu = false;
 global.fetch = async (url, opz) => {
     if (/turnstile\/v0\/siteverify/.test(String(url))) {
@@ -146,7 +161,10 @@ global.fetch = async (url, opz) => {
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return admin;
-    if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => { spedite.push(m); return {}; } }) };
+    if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => {
+        if (mailGuasta > 0) { mailGuasta--; throw new Error('550 casella inesistente'); }
+        spedite.push(m); return {};
+    } }) };
     if (nome === 'imapflow') return { ImapFlow: function () { } };
     if (nome === 'google-auth-library') return { JWT: function () { }, GoogleAuth: function () { } };
     return veroRequire.apply(this, arguments);
@@ -451,7 +469,8 @@ prova('La pagina si accorge della conferma, e l\'invito porta il calendario', as
     const st = r.corpo.stato;
     const prima = await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t });
     esigi(prima.corpo.ok && prima.corpo.emailConfermata === false && prima.corpo.invito === false, 'prima della conferma: non confermata', JSON.stringify(prima.corpo));
-    esigi(Object.keys(prima.corpo).sort().join(',') === 'annullato,emailConfermata,invito,ok', 'e la risposta non porta dati personali');
+    esigi(prima.corpo.mail === 'inviata', 'e la mail di conferma risulta partita', JSON.stringify(prima.corpo));
+    esigi(Object.keys(prima.corpo).sort().join(',') === 'annullato,emailConfermata,invito,mail,ok', 'e la risposta non porta dati personali', Object.keys(prima.corpo).join(','));
     const falsa = await chiama({ azione: 'stato-iscrizione', d: st.d, t: 'x' + st.t.slice(1) });
     esigi(falsa.stato === 403, 'con una firma sbagliata non si legge niente');
     const altra = await chiama({ azione: 'stato-iscrizione', d: st.d, t: NL.firmaCompleta(st.d) });
@@ -611,8 +630,10 @@ prova('Chi ha annullato riprende il posto del codice solo se e\' ancora libero',
     const a = await iscrittoConCodice('a@gi.it', '3681110001');
     const b = await iscrittoConCodice('b@gi.it', '3681110002');
     esigi(a.ok && b.ok, 'A e B si iscrivono con il codice');
+    esigi(dati.get('iscrizioni/' + a.id).confermaInAttesa === true, 'A aspetta la conferma: e\' nel giro automatico');
     const ann = await salva(a, [{ annulla: true }]);
     esigi(ann.corpo.ok && !!dati.get('iscrizioni/' + a.id).annullato, 'A annulla dal collegamento personale');
+    esigi(!('confermaInAttesa' in dati.get('iscrizioni/' + a.id)), 'e annullando esce dal giro automatico delle mail di conferma');
     const c = await iscrittoConCodice('c@gi.it', '3681110003');
     esigi(c.ok, 'il posto di A va a C');
     const no = await ricompila(a);
@@ -627,6 +648,7 @@ prova('Chi ha annullato riprende il posto del codice solo se e\' ancora libero',
     const si = await ricompila(a);
     const sa = dati.get('iscrizioni/' + a.id);
     esigi(si.corpo.ok && !sa.annullato && sa.cognome === 'Ripensato', 'con il posto libero A si riattiva', JSON.stringify(si.corpo));
+    esigi(sa.confermaInAttesa === true, 'e, senza aver confermato l\'indirizzo, torna nel giro automatico');
     esigi(sa.azienda === 'Gi Srl', 'con l\'azienda dell\'invito, non quella scritta nel modulo', sa.azienda);
     esigi(usate() === [a.id, b.id].sort().join(','), 'e il codice torna a contare A e B', usate());
     const ver = await chiama({ azione: 'verifica-codice', pagina: PAGINA, codice: 'G4X7Y' });
@@ -639,7 +661,150 @@ prova('Chi ha annullato riprende il posto del codice solo se e\' ancora libero',
     esigi(senza.ok && !dati.has('codiciInvito/H3Z9K'), 'un codice sparito non rinasce vuoto (varrebbe ovunque)');
 });
 
+prova('Con l\'iscrizione parte l\'SMS "conferma la tua email", e la scheda entra nel giro automatico', async () => {
+    const v = await verificaNumero('347 123 0001', 'sms2@studio.it');
+    const prima = sms.length;
+    const r = await iscrivi({ email: 'sms2@studio.it', telefono: '347 123 0001', smsToken: v.token });
+    const nuovi = sms.slice(prima);
+    esigi(r.stato === 200 && r.corpo.ok && nuovi.length === 1, 'iscritto, e parte un SMS solo', String(nuovi.length));
+    const m = nuovi[0] || {};
+    const t = String(m.content || '');
+    esigi(m.tag === 'conferma-email' && m.recipient === '393471230001' && m.unicodeEnabled === false && m.sender === 'Revilaw',
+        'con il tag suo, al numero verificato, dal mittente di sempre', JSON.stringify(Object.assign({}, m, { content: undefined })));
+    const n = V.caratteriSms(t);
+    esigi(n > 0 && n <= 306 && t.length <= 306, 'nell\'alfabeto GSM-7, in due SMS al massimo', String(n));
+    esigi(!/[«»’‘“”–—…]/.test(t) && !/[ÀÈÉÌÒÙ]/.test(t), 'niente virgolette tipografiche, trattini lunghi o maiuscole accentate');
+    esigi(/"Conferma il tuo indirizzo email"/.test(t) && /Spam\/Posta indesiderata/.test(t), 'dice quale pulsante premere e di guardare nello spam', t);
+    esigi(t.indexOf('https://nextgenerationbusiness.it/contatti/?t=mail') > 0 && t.indexOf('inviata a sms2@studio.it') > 0,
+        'con l\'indirizzo a cui e\' partita la mail e il modulo per chi non la riceve');
+    esigi(!/#\d{6}/.test(t) && !/@nextgenerationbusiness\.it #/.test(t) && !/^\d{6}/.test(t), 'nessun codice e nessuna riga da incollare');
+    const s = schedaDi('sms2@studio.it').s;
+    esigi(s && s.smsConferma && s.smsConferma.ok === true && s.smsConferma.tipo === 'inviata' && s.smsConferma.id === '1',
+        'sulla scheda: SMS partito', JSON.stringify(s && s.smsConferma));
+    esigi(s && s.confermaInAttesa === true, 'la scheda ha la bandiera del giro automatico');
+    esigi(s && s.mailConferma && s.mailConferma.ok === true && s.mailConferma.via === 'iscrizione' && s.mailConferma.a === 'sms2@studio.it',
+        'e la traccia della mail: partita dall\'iscrizione, a quell\'indirizzo');
+    esigi(spedite.length === 1 && spedite[0].replyTo === 'info@nextgenerationbusiness.it' && spedite[0].headers && spedite[0].headers['X-Mailin-Tag'] === 'conferma-iscrizione',
+        'la mail ha "Rispondi" verso info@ e il tag per i log di Brevo');
+    esigi(JSON.stringify(Object.keys(r.corpo).sort()) === '["azienda","ok","stato"]', 'la risposta al modulo resta quella di prima');
+});
+
+prova('Se la mail non parte: l\'SMS lo dice, la scheda e la pagina lo sanno', async () => {
+    const v = await verificaNumero('3471230002', 'guasta@studio.it');
+    const prima = sms.length;
+    mailGuasta = 1;
+    const errVero = console.error;
+    const errori = [];
+    console.error = (...x) => errori.push(x.join(' '));
+    let r;
+    try { r = await iscrivi({ email: 'guasta@studio.it', telefono: '3471230002', smsToken: v.token }); }
+    finally { console.error = errVero; mailGuasta = 0; }
+    esigi(r.stato === 200 && r.corpo.ok, 'l\'iscrizione passa lo stesso', JSON.stringify(r.corpo));
+    const s = schedaDi('guasta@studio.it').s;
+    esigi(s && s.mailConferma && s.mailConferma.ok === false && /casella inesistente/.test(s.mailConferma.errore), 'sulla scheda: mail non partita, con il motivo');
+    const t = String((sms[prima] || {}).content || '');
+    esigi(sms.length === prima + 1 && /non è ancora partita/.test(t) && /riproviamo in automatico/.test(t) && /Spam/.test(t)
+        && t.indexOf('/contatti/?t=mail') > 0, 'l\'SMS dice che la mail non e\' ancora partita e che si riprova da soli', t);
+    esigi(V.caratteriSms(t) > 0 && V.caratteriSms(t) <= 306, 'anche questo in due SMS al massimo, GSM-7');
+    esigi(s && s.smsConferma && s.smsConferma.tipo === 'non-inviata' && s.confermaInAttesa === true, 'e la scheda resta nel giro automatico, che riprova');
+    const st = await chiama({ azione: 'stato-iscrizione', d: r.corpo.stato.d, t: r.corpo.stato.t });
+    esigi(st.corpo.mail === 'errore', 'la pagina legge "errore"', JSON.stringify(st.corpo));
+    esigi(errori.some(x => /Mail di conferma \(iscrizione\) non inviata/.test(x)), 'e il log lo dice');
+});
+
+prova('Se l\'SMS non parte, o il tetto del giorno e\' pieno, l\'iscrizione passa lo stesso', async () => {
+    let v = await verificaNumero('3471230003', 'smsrotto@studio.it');
+    smsGuasto = true;
+    const errVero = console.error;
+    console.error = () => { };
+    let r;
+    try { r = await iscrivi({ email: 'smsrotto@studio.it', telefono: '3471230003', smsToken: v.token }); }
+    finally { console.error = errVero; smsGuasto = false; }
+    let s = schedaDi('smsrotto@studio.it').s;
+    esigi(r.stato === 200 && r.corpo.ok && s && s.mailConferma.ok === true, 'iscritto, con la mail partita', JSON.stringify(r.corpo));
+    esigi(s && s.smsConferma && s.smsConferma.ok === false && /402/.test(s.smsConferma.errore) && !/347/.test(s.smsConferma.errore),
+        'sulla scheda: SMS non partito, con il motivo e senza il numero', JSON.stringify(s && s.smsConferma));
+
+    v = await verificaNumero('3471230004', 'tetto@studio.it');
+    const conto = dati.get('meta/smsVerifica') || {};
+    process.env.SMS_MAX_GIORNO = String(conto.inviati);
+    const prima = sms.length;
+    console.error = () => { };
+    try { r = await iscrivi({ email: 'tetto@studio.it', telefono: '3471230004', smsToken: v.token }); }
+    finally { console.error = errVero; delete process.env.SMS_MAX_GIORNO; }
+    s = schedaDi('tetto@studio.it').s;
+    esigi(r.corpo.ok && sms.length === prima, 'tetto del giorno pieno: iscritto, e nessun SMS speso');
+    esigi(s && s.smsConferma && s.smsConferma.ok === false && /tetto/.test(s.smsConferma.errore), 'e la scheda lo dice');
+});
+
+prova('"Non e\' arrivata? Rimandala": firmata, due minuti fra un invio e l\'altro, cinque al giorno', async () => {
+    const NL = require(path.join(RADICE, 'lib/newsletter.js'));
+    const v = await verificaNumero('3401010101', 'rimanda@studio.it');
+    const r = await iscrivi({ email: 'rimanda@studio.it', telefono: '3401010101', smsToken: v.token });
+    const st = r.corpo.stato;
+    const rimanda = () => chiama({ azione: 'rimanda-conferma', d: st.d, t: st.t });
+    const falsa = await chiama({ azione: 'rimanda-conferma', d: st.d, t: 'x' + st.t.slice(1) });
+    esigi(falsa.stato === 403 && !falsa.corpo.msg, 'firma sbagliata: 403, e nient\'altro');
+    const altra = await chiama({ azione: 'rimanda-conferma', d: st.d, t: NL.firmaConfermaEmail(st.d) });
+    esigi(altra.stato === 403, 'la firma del pulsante di conferma non vale qui');
+    spedite = [];
+    const subito = await rimanda();
+    esigi(subito.stato === 429 && subito.corpo.attesa > 0 && subito.corpo.attesa <= 120 && /Spam/.test(subito.corpo.msg) && spedite.length === 0,
+        'appena iscritto: aspetta i due minuti dalla mail dell\'iscrizione', JSON.stringify(subito.corpo));
+    avanza(121 * 1000);
+    const uno = await rimanda();
+    esigi(uno.stato === 200 && uno.corpo.ok && uno.corpo.inviata === true && uno.corpo.a === 'rimanda@studio.it', 'dopo due minuti riparte, e la risposta dice a quale indirizzo', JSON.stringify(uno.corpo));
+    esigi(spedite.length === 1 && spedite[0].to === 'rimanda@studio.it' && /Richiesta di conferma/.test(spedite[0].subject), 'ed e\' la mail con il pulsante');
+    let s = schedaDi('rimanda@studio.it').s;
+    esigi(s.mailConferma.via === 'rimanda' && s.invioConferma.tentativi === 2 && s.rimandaConferma.invii.length === 1, 'sulla scheda: rimandata, secondo invio');
+    const ancora = await rimanda();
+    esigi(ancora.stato === 429 && ancora.corpo.attesa > 100 && spedite.length === 1, 'subito dopo no: due minuti fra un invio e l\'altro');
+    for (let i = 0; i < 4; i++) { avanza(121 * 1000); await rimanda(); }
+    esigi(spedite.length === 5, 'cinque rinvii in tutto', String(spedite.length));
+    avanza(121 * 1000);
+    const sesta = await rimanda();
+    esigi(sesta.stato === 429 && sesta.corpo.attesa > 0 && /più volte/.test(sesta.corpo.msg) && sesta.corpo.msg.indexOf('/contatti/?t=mail') > 0 && spedite.length === 5,
+        'il sesto nello stesso giorno no: dice quanto aspettare e dove scriverci', JSON.stringify(sesta.corpo));
+    avanza(24 * 60 * 60 * 1000);
+    const domani = await rimanda();
+    esigi(domani.corpo.ok && spedite.length === 6, 'il giorno dopo si\'', JSON.stringify(domani.corpo));
+    await chiama({ azione: 'conferma-email', d: st.d, t: NL.firmaConfermaEmail(st.d) });
+    avanza(121 * 1000);
+    spedite = [];
+    const conf = await rimanda();
+    esigi(conf.corpo.ok === false && conf.corpo.confermata === true && spedite.length === 0, 'a chi ha confermato non riparte niente', JSON.stringify(conf.corpo));
+    s = schedaDi('rimanda@studio.it').s;
+    esigi(!('confermaInAttesa' in s), 'e la bandiera del giro automatico non c\'e\' piu\'');
+    const ign = await chiama({ azione: 'rimanda-conferma', d: 'non-esiste', t: NL.firmaStato('non-esiste') });
+    esigi(ign.stato === 404, 'una scheda che non c\'e\': 404');
+});
+
+prova('Chi si riscrive mentre la sua iscrizione aspetta la conferma: dove cercare la mail, e la mail riparte', async () => {
+    const v1 = await verificaNumero('3402020202', 'riscrive@studio.it');
+    const r1 = await iscrivi({ email: 'riscrive@studio.it', telefono: '3402020202', smsToken: v1.token });
+    esigi(r1.corpo.ok, 'la prima iscrizione passa');
+    sms = [];
+    const pre = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3402020303', email: 'Riscrive@studio.it' });
+    esigi(pre.stato === 409 && pre.corpo.campo === 'email' && /non è ancora confermato/.test(pre.corpo.msg) && /Spam/.test(pre.corpo.msg)
+        && pre.corpo.msg.indexOf('https://nextgenerationbusiness.it/contatti/?t=mail') > 0 && !/rimandato/.test(pre.corpo.msg) && sms.length === 0,
+        'gia\' alla richiesta dell\'SMS: manca la conferma, dove cercare, dove scrivere (e niente SMS speso)', pre.corpo.msg);
+    const v2 = await verificaNumero('3402020303', 'per-il-codice@studio.it');
+    avanza(2 * 60 * 1000);   // i due minuti dalla mail dell'iscrizione
+    const r2 = await iscrivi({ email: 'riscrive@studio.it', telefono: '3402020303', smsToken: v2.token });
+    esigi(r2.stato === 409 && r2.corpo.campo === 'email' && /ti abbiamo appena rimandato la mail di conferma/.test(r2.corpo.msg),
+        'riscrivendosi con il numero verificato: la mail riparte, e il messaggio lo dice', r2.corpo.msg);
+    esigi(spedite.length === 1 && spedite[0].to === 'riscrive@studio.it' && /Richiesta di conferma/.test(spedite[0].subject), 'all\'indirizzo dell\'iscrizione');
+    const r3 = await iscrivi({ email: 'diverso@studio.it', telefono: '3402020202', smsToken: v1.token });
+    esigi(r3.stato === 409 && r3.corpo.campo === 'telefono' && /numero di cellulare/.test(r3.corpo.msg) && /non è ancora confermato/.test(r3.corpo.msg)
+        && r3.corpo.msg.indexOf('riscrive@') < 0, 'con lo stesso numero: lo stesso aiuto, senza l\'indirizzo dell\'altra iscrizione', r3.corpo.msg);
+    esigi(spedite.length === 0 && !/rimandato/.test(r3.corpo.msg), 'appena rimandata: non riparte una seconda volta');
+    // chi ha confermato: il messaggio di sempre
+    const conf = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3402020404', email: 'stato@studio.it' });
+    esigi(conf.stato === 409 && conf.corpo.msg === V.MSG.email, 'a un indirizzo gia\' confermato il messaggio di sempre', conf.corpo.msg);
+});
+
 prova('Napoli resta com\'era', async () => {
+    const smsPrima = sms.length;
     const r = await chiama({
         pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', nome: 'Ada', cognome: 'Neri',
         email: 'ada@studio.it', telefono: '06 1234567', privacy: true, marketing: true
@@ -651,6 +816,10 @@ prova('Napoli resta com\'era', async () => {
         email: 'ada@studio.it', privacy: true, marketing: true, data: '01/01/2026 10:00:00'
     });
     esigi(r2.corpo.ok, 'e senza la regola dell\'email unica');
+    esigi(sms.length === smsPrima, 'nessun SMS "conferma la tua email" per Napoli');
+    const napoli = schede().filter(x => x.email === 'ada@studio.it');
+    esigi(napoli.length && napoli.every(x => !('confermaInAttesa' in x) && x.mailConferma && x.mailConferma.ok === true),
+        'ne\' la bandiera del giro automatico (la mail parte come prima)');
     const sbagliato = await chiama({ azione: 'sms-invia', pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', telefono: '3331234567' });
     esigi(sbagliato.stato === 400, 'e l\'SMS per Napoli non parte');
 });

@@ -7,11 +7,12 @@
     { "path": "/api/promemoria-eventi", "schedule": "0 * * * *" },
     { "path": "/api/diretta-cron", "schedule": "*/5 * * * *" },
     { "path": "/api/diretta-ascolti", "schedule": "* * * * *" },
-    { "path": "/api/riepilogo-iscrizioni", "schedule": "0 22,23 * * *" }
+    { "path": "/api/riepilogo-iscrizioni", "schedule": "0 22,23 * * *" },
+    { "path": "/api/conferme-email", "schedule": "*/10 * * * *" }
   ],
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },
-    "api/iscrizione-nuova.js": { "maxDuration": 30 },
+    "api/iscrizione-nuova.js": { "maxDuration": 60 },
     "api/scarica-ebook.js": { "maxDuration": 30 },
     "api/cron-comunicazioni.js": { "maxDuration": 300 },
     "api/invia-comunicazione.js": { "maxDuration": 120 },
@@ -27,6 +28,7 @@
     "api/diretta-accesso.js": { "maxDuration": 60 },
     "api/diretta-stato.js": { "maxDuration": 10 },
     "api/diretta-ascolti.js": { "maxDuration": 60 },
-    "api/riepilogo-iscrizioni.js": { "maxDuration": 60 }
+    "api/riepilogo-iscrizioni.js": { "maxDuration": 60 },
+    "api/conferme-email.js": { "maxDuration": 60 }
   }
 }

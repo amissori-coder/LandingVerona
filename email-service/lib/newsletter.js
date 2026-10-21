@@ -264,8 +264,11 @@ async function chiamataBrevo(percorso, opz) {
     if (opz.sandbox) intestazioni['X-Sib-Sandbox'] = 'drop';
     /* Tempo massimo di attesa. Senza, una risposta lenta di Brevo blocca la
        funzione fino al suo limite: nella lettura dell'elenco (che di Brevo puo'
-       fare a meno) significherebbe una sezione che non si apre. */
-    const attesa = Number(process.env.BREVO_TIMEOUT_MS) || (opz.metodo === 'POST' ? 25000 : 6000);
+       fare a meno) significherebbe una sezione che non si apre.
+       `opz.attesa` lo stringe per UNA chiamata: l'SMS che segue la mail di
+       conferma sta dentro la risposta al modulo, e venticinque secondi dopo
+       quelli del server di posta sarebbero troppi. */
+    const attesa = Number(opz.attesa) || Number(process.env.BREVO_TIMEOUT_MS) || (opz.metodo === 'POST' ? 25000 : 6000);
     const r = await fetch(BREVO_API + percorso, {
         method: opz.metodo || 'GET',
         headers: intestazioni,
