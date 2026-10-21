@@ -113,7 +113,16 @@
     margin-bottom: 4px;
 }
 
-/* righe corte accanto all'icona: giustificate si aprirebbero */
+/* righe corte accanto all'icona: giustificate si aprirebbero, e una parola
+   spezzata col trattino ("riman-diamo") in due righe si legge male. Il
+   testo e' corto apposta per stare su una riga; dove non ci sta va a capo
+   fra una parola e l'altra, mai a meta'. */
+.contatti-scorciatoia .contatti-scorciatoia-titolo,
+.contatti-scorciatoia .contatti-scorciatoia-desc {
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+    text-wrap: balance;
+}
 .contatti-scorciatoia .contatti-scorciatoia-desc {
     display: block;
     font-size: 0.88rem;

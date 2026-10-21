@@ -101,6 +101,15 @@
         if (!eventi) { errore('evento', ''); errore('motivo', ''); }
 
         const mail = eventi && campoMotivo.value === 'mail-non-ricevuta';
+        /* La cena e il meeting degli aderenti non hanno una mail di conferma
+           da recuperare: con "mail non ricevuta" la voce sparisce, e chi
+           l'aveva scelta passa al convegno di Milano. */
+        const voceAderenti = campoEvento.querySelector('option[value="milano-2027-aderenti"]');
+        if (voceAderenti) {
+            voceAderenti.hidden = mail;
+            voceAderenti.disabled = mail;
+            if (mail && campoEvento.value === 'milano-2027-aderenti') campoEvento.value = 'milano-2027';
+        }
         aiutoMail.hidden = !mail;
         $('telefonoQuanto').textContent = mail ? '(consigliato)' : '(facoltativo)';
         $('telefonoNota').hidden = !mail;
