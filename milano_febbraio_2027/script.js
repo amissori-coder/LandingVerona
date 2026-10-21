@@ -466,16 +466,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let statoCodice = { valore: '', esito: 'vuoto', azienda: '' };
     let aziendaDalCodice = false;
 
+    /* Il campo fermo si deve VEDERE fermo, non solo esserlo: con lo stesso
+       aspetto degli altri, chi prova a correggere la ragione sociale pensa
+       che la pagina non risponda. Il lucchetto e il cursore lo dicono a
+       chi guarda; aria-readonly e la nota collegata lo dicono a chi usa un
+       lettore di schermo, che altrimenti sente solo "campo di testo". La
+       nota si collega solo quando c'e': nascosta, verrebbe letta lo stesso. */
     function applicaAzienda(nome) {
         if (nome) {
             campoAzienda.value = nome;
             campoAzienda.readOnly = true;
+            campoAzienda.classList.add('campo-bloccato');
+            campoAzienda.setAttribute('aria-readonly', 'true');
+            campoAzienda.setAttribute('aria-describedby', 'aziendaNota');
             aziendaDalCodice = true;
             aziendaNota.hidden = false;
             errore('azienda', '');
         } else if (aziendaDalCodice) {
             campoAzienda.value = '';
             campoAzienda.readOnly = false;
+            campoAzienda.classList.remove('campo-bloccato');
+            campoAzienda.removeAttribute('aria-readonly');
+            campoAzienda.removeAttribute('aria-describedby');
             aziendaDalCodice = false;
             aziendaNota.hidden = true;
         }
