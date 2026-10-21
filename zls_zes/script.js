@@ -150,7 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(jsonData)
             }).then(() => {
-                showNotification('Grazie! La tua richiesta è stata inviata. Ti ricontatteremo al più presto.', 'success');
+                // la richiesta arriva anche per mail a info@ (lib/domande-sito.js, avvisaCheckUp)
+                showNotification('Grazie! La tua richiesta è arrivata al nostro team: ti risponderemo al più presto da info@nextgenerationbusiness.it.', 'success');
                 contactForm.reset();
             }).catch(() => {
                 showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');
@@ -160,6 +161,46 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+
+    // --- Le altre domande: il rimando a Domande e contatti ---
+    // Il modulo in fondo alle pagine dei temi chiede un check-up su QUEL
+    // tema. Chi ha una domanda su un altro tema, o sugli eventi, ha la
+    // pagina /contatti/: una riga sotto il modulo ce la porta, con il tema
+    // gia' scelto quando la pagina lo lascia capire (contatti/contatti.js
+    // legge ?tema=, e un tema che non conosce lo ignora). Solo sotto i
+    // moduli "<Tema> - Contatto": le pagine senza non cambiano.
+    // L'ordine conta: "IA e reati presupposto 231" e' 231, "Rating di
+    // legalita e incentivi" e' legalita, "ESG e merito creditizio" e'
+    // credito, l'export di SIMEST (IA e quantum) e' un finanziamento.
+    const TEMI_CONTATTI = [
+        [/\b231\b/i, 'modello-231'],
+        [/tax control|\btcf\b/i, 'tcf'],
+        [/legalit/i, 'legalita'],
+        [/crisi/i, 'crisi'],
+        [/assetti|early warning/i, 'assetti'],
+        [/band|voucher|tasso zero|ammortamento|deindustrializzazione|\bzls\b|\bzes\b|aiuti di stato|export/i, 'bandi'],
+        [/\bai act\b|\bai governance\b|\bia\b|intelligenza artificiale|vibe coding/i, 'ia'],
+        [/governance|amministratori/i, 'governance'],
+        [/revision|organo di controllo|\bets\b/i, 'revisione'],
+        [/credit|rating bancario/i, 'credito'],
+        [/\besg\b|sostenibilit/i, 'esg']
+    ];
+    const RE_CONTATTO_TEMA = /\s-\s*contatto\s*$/i;
+    document.querySelectorAll('form[data-pagina]').forEach(form => {
+        const pagina = form.dataset.pagina || '';
+        if (!RE_CONTATTO_TEMA.test(pagina)) return;
+        const voce = TEMI_CONTATTI.find(t => t[0].test(pagina));
+        // la stessa riga di email e telefono accanto al modulo (un div come
+        // quelle: un paragrafo verrebbe giustificato da assets/testo.css)
+        const riga = document.createElement('div');
+        riga.className = 'contact-item';
+        riga.style.margin = '20px 4px 0';
+        riga.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+            + '<span>Hai una domanda su un altro tema o sugli eventi? Scrivici da '
+            + '<a class="text-accent" style="font-weight:600;text-decoration:underline;text-underline-offset:3px;" href="/contatti/'
+            + (voce ? '?tema=' + encodeURIComponent(voce[1]) : '') + '">Domande e contatti</a></span>';
+        form.insertAdjacentElement('afterend', riga);
+    });
 
     // --- Notification system ---
     function showNotification(message, type) {

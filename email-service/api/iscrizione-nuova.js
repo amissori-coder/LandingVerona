@@ -114,7 +114,9 @@ function mittenteMail() {
 }
 /* Le conferme automatiche partono SOLO per i moduli degli eventi: su questo
    archivio scrivono anche gli altri moduli del sito (approfondimenti,
-   newsletter), e a quelli non va spedito nulla. */
+   newsletter), e a quelli non va spedito nulla. Per i moduli di contatto
+   delle pagine dei temi parte solo l'avviso a noi (la richiesta di
+   check-up, in fondo), e mai per una pagina che nomina un evento. */
 const RE_PAGINA_EVENTO = /verona|roma|napoli|milano/i;
 
 function leggiServiceAccount() {
@@ -2090,6 +2092,22 @@ module.exports = async (req, res) => {
         let esitoMail = null;
         if (email && RE_PAGINA_EVENTO.test(pagina)) {
             esitoMail = await CONFERMA.spedisciConferma(admin.firestore(), idDoc, scheda, { via: 'iscrizione' });
+        }
+        /* LA RICHIESTA DI CHECK-UP dalle pagine dei temi (crisi_impresa/,
+           modello_231/...: `pagina` "<Tema> - Contatto"). Salvata la riga,
+           UNA mail a noi - info@ o DOMANDE_DESTINATARI - con "Rispondi" verso
+           chi l'ha chiesta se l'indirizzo e' un indirizzo nudo; a chi scrive
+           niente, perche' qui non c'e' la casella "non sono un robot"
+           (lib/domande-sito.js spiega). Le condizioni stanno tutte qui e
+           lasciano fuori ogni altro modulo che passa da questa strada: le
+           pagine degli eventi (anche quelle verificate e il desk, che
+           ricevono semmai la conferma qui sopra), la newsletter della home e
+           degli ebook ("- Newsletter"), qualunque corpo con un'azione. Se la
+           mail non parte la risposta resta "ok": la riga e' salva, e
+           l'esito ci resta scritto (`avvisoInterno`). */
+        if (!azione && !dalDesk && !evVerificato && !RE_PAGINA_EVENTO.test(pagina) && DOMANDE.paginaCheckUp(pagina)) {
+            try { await DOMANDE.avvisaCheckUp(admin.firestore(), idDoc, scheda); }
+            catch (e) { console.error('Richiesta di check-up, avviso non riuscito:', String((e && e.message) || e).slice(0, 200)); }
         }
         /* E al cellulare appena verificato, l'SMS che dice dove cercare la
            mail (anche fra la posta indesiderata) e dove chiederne un'altra; se

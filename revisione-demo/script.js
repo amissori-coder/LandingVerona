@@ -1768,7 +1768,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(jsonData)
             }).then(() => {
-                showNotification('Grazie! La tua richiesta è stata inviata. Ti ricontatteremo al più presto.', 'success');
+                // la richiesta arriva anche per mail a info@ (email-service, lib/domande-sito.js)
+                showNotification('Grazie! La tua richiesta è arrivata al nostro team: ti risponderemo al più presto da info@nextgenerationbusiness.it.', 'success');
                 contactForm.reset();
             }).catch(() => {
                 showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');

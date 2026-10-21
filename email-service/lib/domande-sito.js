@@ -60,6 +60,9 @@
    diverso conterebbe come un indirizzo nuovo nelle cinque al giorno. Il
    contatore, poi, conta l'indirizzo nella forma che arriva alla stessa
    casella: senza "+qualcosa" e, per Gmail, senza i punti.
+
+   IN FONDO, le richieste di check-up dalle pagine dei temi: stessi
+   destinatari, una mail sola a noi e nessuna ricevuta (vedi li').
    ============================================================ */
 
 const crypto = require('crypto');
@@ -478,4 +481,120 @@ async function ricevi(db, corpo, opz) {
     return { stato: 200, corpo: { ok: true } };
 }
 
-module.exports = { ricevi, destinatari, mailInterna, mailRicevuta, indirizzoValido, formaPerContare, TEMI, EVENTI, MOTIVI, MAX_AL_GIORNO };
+/* ============================================================
+   Le richieste di check-up dalle pagine dei temi
+   ------------------------------------------------------------
+   Le pagine dei temi (crisi_impresa/, modello_231/, adeguati_assetti/...)
+   chiudono con il modulo "Richiedi un check-up riservato". Lo gestisce
+   zls_zes/script.js (e, nelle tre pagine che non lo caricano, il loro
+   script): le stesse colonne vanno al foglio Google e alla scrittura
+   generica di api/iscrizione-nuova.js, con `pagina` = "<Tema> - Contatto".
+   Fin qui la riga restava li' e basta: nessuno sapeva che qualcuno
+   aspettava una risposta.
+
+   Adesso, salvata la riga, parte UNA mail a noi, agli stessi indirizzi
+   delle domande (DOMANDE_DESTINATARI, o info@), con i dati del modulo.
+   Le differenze dalle domande di /contatti/, e perche':
+     - NIENTE RICEVUTA a chi scrive. La scrittura generica non ha la
+       casella "non sono un robot": una mail all'indirizzo scritto nel
+       modulo farebbe partire la nostra posta verso chiunque. Chi scrive ha
+       gia' il messaggio a schermo, e la risposta gli arriva da info@;
+     - "Rispondi" verso chi scrive SOLO con un indirizzo nudo
+       (indirizzoValido): la scrittura generica accetta indirizzi piu'
+       larghi, e con "testo<vittima@altro.it>" la nostra risposta
+       partirebbe per l'altro. Senza, la mail dice di controllarlo;
+     - QUANDO avvisare lo decide iscrizione-nuova.js, accanto alla mail di
+       conferma degli eventi: `pagina` che finisce con "- Contatto"
+       (paginaCheckUp), mai una pagina di evento, mai un corpo con
+       un'azione, mai il desk;
+     - la mail non ferma niente: la riga e' gia' salva, e com'e' andata
+       resta scritto li' (`avvisoInterno`: quando, ok, a quanti, l'errore).
+       Lo stesso modulo spedito due volte nello stesso secondo riscrive la
+       stessa riga, e una riga gia' avvisata non avvisa di nuovo.
+   ============================================================ */
+const RE_CHECK_UP = /\s-\s*contatto\s*$/i;
+function paginaCheckUp(pagina) {
+    return RE_CHECK_UP.test(String(pagina || ''));
+}
+// "La Crisi d'Impresa - Contatto" -> "La Crisi d'Impresa"
+function temaDaPagina(pagina) {
+    const p = testo(pagina, 200);
+    return p.replace(RE_CHECK_UP, '').trim() || p;
+}
+function siNo(v) {
+    return v === true ? 'sì' : (v === false ? 'no' : 'non indicato');
+}
+/* La mail a noi. `rispondi` e' l'indirizzo per "Rispondi", gia' controllato
+   (vuoto se l'indirizzo scritto non e' un indirizzo nudo). Tutto quello che
+   viene dal modulo passa da esc(): la riga l'ha scritta chiunque. */
+function mailCheckUp(s, rispondi) {
+    const x = s || {};
+    const tema = temaDaPagina(x.pagina);
+    const chi = (testo(x.nome, 120) + ' ' + testo(x.cognome, 120)).trim();
+    const dati = [
+        ['Nome', testo(x.nome, 120)], ['Cognome', testo(x.cognome, 120)], ['Email', testo(x.email, 200)],
+        ['Azienda', testo(x.azienda, 200)], ['Ruolo', testo(x.ruolo, 200)], ['Telefono', testo(x.telefono, 60)],
+        ['Pagina', testo(x.pagina, 200)], ['Data', testo(x.data, 40)],
+        ['Consenso privacy', siNo(x.privacy)], ['Consenso marketing', siNo(x.marketing)]
+    ];
+    const messaggio = testo(x.messaggio, 2000);
+    const riga = r => '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;vertical-align:top;">' + esc(r[0]) + '</td>'
+        + '<td style="padding:4px 0;font-weight:600;">' + esc(r[1] || '-') + '</td></tr>';
+    const nota = rispondi
+        ? 'Rispondendo a questo messaggio si scrive direttamente a ' + rispondi + '.'
+        : 'L\'indirizzo scritto nel modulo non è un indirizzo semplice: «Rispondi» non scrive a chi ha fatto la richiesta. Controllarlo prima di rispondere.';
+    // il modulo si chiama "Richiedi un check-up riservato" o "Richiedi informazioni", secondo la pagina
+    const apertura = 'Richiesta dal modulo di contatto della pagina «' + tema + '» del sito.';
+    const dove = 'La richiesta è salvata anche nell\'area riservata, sezione Newsletter, nel gruppo della pagina.';
+    const dentro = '<p style="margin:0 0 14px;">' + esc(apertura) + '</p>'
+        + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;font-size:14px;">'
+        + dati.map(riga).join('') + '</table>'
+        + (messaggio ? '<p style="margin:0 0 14px;"><b>Messaggio</b><br>' + esc(messaggio) + '</p>' : '')
+        + '<p style="margin:0 0 8px;font-size:13px;color:#475569;">' + esc(nota) + '</p>'
+        + '<p style="margin:0;font-size:13px;color:#475569;">' + esc(dove) + '</p>';
+    const oggetto = senzaTrattiniLunghi('Richiesta di check-up dal sito - ' + tema + (chi ? ' - ' + chi : ''))
+        .replace(/[\r\n]+/g, ' ').slice(0, 250);
+    const testoMail = [apertura,
+        dati.map(r => r[0] + ': ' + (r[1] || '-')).join('\n'),
+        messaggio ? 'Messaggio:\n' + messaggio : '',
+        nota, dove].filter(Boolean).join('\n\n');
+    return { oggetto: oggetto, html: avvolgi(dentro), testo: senzaTrattiniLunghi(testoMail) };
+}
+/* Dopo il salvataggio della riga `iscrizioni/<idDoc>`. Non lancia mai:
+   restituisce l'esito, che e' anche quello scritto sulla riga. */
+async function avvisaCheckUp(db, idDoc, scheda) {
+    const s = scheda || {};
+    const rif = db.collection('iscrizioni').doc(String(idDoc));
+    try {
+        const prima = await rif.get();
+        const gia = prima.exists ? ((prima.data() || {}).avvisoInterno || null) : null;
+        if (gia && gia.ok === true) return { ok: true, gia: true };
+    } catch (_) { /* non si legge: meglio una mail in piu' che una richiesta persa */ }
+
+    const a = destinatari();
+    const email = testo(s.email, 200).toLowerCase();
+    const rispondi = indirizzoValido(email) ? email : '';
+    const esito = { quando: Date.now(), ok: false };
+    let trans = null;
+    try {
+        const m = mailCheckUp(s, rispondi);
+        const msg = { from: mittente(), to: a.join(', '), subject: m.oggetto, html: m.html, text: m.testo };
+        // "Rispondi" scrive alla persona, ma solo a un indirizzo nudo (vedi sopra)
+        if (rispondi) msg.replyTo = rispondi;
+        trans = trasporto();
+        await trans.sendMail(msg);
+        esito.ok = true;
+        esito.a = a.length;
+    } catch (e) {
+        esito.errore = String((e && e.message) || e).slice(0, 200);
+        console.error('Richiesta di check-up, avviso interno non partito:', esito.errore);
+    }
+    try { if (trans) trans.close(); } catch (_) { /* niente da chiudere */ }
+    try { await rif.set({ avvisoInterno: esito }, { merge: true }); } catch (_) { /* dato di servizio */ }
+    return esito;
+}
+
+module.exports = {
+    ricevi, destinatari, mailInterna, mailRicevuta, indirizzoValido, formaPerContare, TEMI, EVENTI, MOTIVI, MAX_AL_GIORNO,
+    paginaCheckUp, temaDaPagina, mailCheckUp, avvisaCheckUp
+};

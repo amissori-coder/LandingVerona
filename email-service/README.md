@@ -51,7 +51,7 @@ Serve per generare i link di reimpostazione password.
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
 | `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
-| `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/`, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
+| `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
 | `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
@@ -762,6 +762,46 @@ non diventa mai una riga fra le iscrizioni. Il lavoro sta in
   indirizzo, ti abbiamo rimandato la mail": non rivela se l'indirizzo e'
   iscritto.
 - **Le prove**: `node prove/domande-sito.prove.js`.
+
+### Le richieste di check-up dalle pagine dei temi
+
+Il modulo in fondo alle pagine dei temi ("Richiedi un check-up riservato" o
+"Richiedi informazioni": `crisi_impresa/`, `modello_231/`... con
+`zls_zes/script.js`; `revisione-demo/`, `lazio_bandi_2026/` e `fcd_2026/` con
+il loro script) passa dalla **scrittura generica** con
+`pagina: "<Tema> - Contatto"`, come prima: riga fra le `iscrizioni` (sezione
+Newsletter, gruppo della pagina) e foglio Google. In piu', salvata la riga,
+parte **una mail a noi** (`avvisaCheckUp` in `lib/domande-sito.js`):
+
+- agli stessi indirizzi delle domande (`DOMANDE_DESTINATARI`, o info@),
+  oggetto "Richiesta di check-up dal sito - <Tema> - Nome Cognome" (il tema
+  e' la pagina senza " - Contatto"), una tabella con nome, cognome, email,
+  azienda, ruolo, telefono, pagina, data, privacy e marketing (piu' il
+  messaggio, quando la pagina lo manda: i simulatori di Lazio e FCD), tutto
+  neutralizzato;
+- "Rispondi" scrive a chi ha chiesto **solo se l'indirizzo e' nudo** (la
+  stessa regola delle domande): la scrittura generica accetta indirizzi piu'
+  larghi, e con `testo<vittima@altro.it>` la mail parte senza "Rispondi" e lo
+  dice;
+- **nessuna ricevuta** a chi scrive: qui non c'e' Turnstile, e una mail
+  all'indirizzo scritto nel modulo farebbe partire la nostra posta verso
+  chiunque. La pagina dice "ti risponderemo da info@";
+- **quando**: solo `pagina` che finisce con " - Contatto", senza `azione`,
+  non dal desk, mai una pagina che nomina un evento (`RE_PAGINA_EVENTO`, ne'
+  Milano verificata). Restano fuori la newsletter della home e degli ebook
+  (`- Newsletter`), le iscrizioni agli eventi (Roma, Napoli e `p26/`,
+  Milano), le cene, gli aderenti, le domande di `/contatti/` e ogni altra
+  azione. Vale il freno per IP dei moduli aperti (8 in 10 minuti);
+- **non ferma niente**: con la posta giu' la risposta resta `{ ok: true }`.
+  Sulla riga resta `avvisoInterno: { quando, ok, a, errore }`; una riga gia'
+  avvisata (lo stesso modulo spedito due volte nello stesso secondo) non
+  avvisa di nuovo.
+
+Sotto il modulo le pagine mostrano "Hai una domanda su un altro tema o sugli
+eventi? Scrivici da Domande e contatti", verso `/contatti/?tema=<id>` con il
+tema ricavato dalla pagina (`TEMI_CONTATTI` in `zls_zes/script.js`; scritta
+nell'HTML nelle tre pagine con uno script loro). Le prove:
+`node prove/check-up-temi.prove.js`.
 
 ## Download dell'ebook per gli iscritti (`/api/scarica-ebook`)
 

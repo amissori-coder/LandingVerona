@@ -957,7 +957,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(jsonData)
         }).then(function () {
-            showNotification('Grazie! La richiesta è stata registrata. Ti contatteremo a breve.', 'success');
+            // la richiesta arriva anche per mail a info@ (email-service, lib/domande-sito.js)
+            showNotification('Grazie! La tua richiesta è arrivata al nostro team: ti risponderemo al più presto da info@nextgenerationbusiness.it.', 'success');
             form.reset();
         }).catch(function () {
             showNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
