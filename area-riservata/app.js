@@ -3361,11 +3361,20 @@
        apice. Non e' una formula, e con l'apice davanti un utile negativo
        diventerebbe una scritta in cui Excel vede anche l'apice. Lo chiede chi
        esporta importi (l'elenco degli iscritti, con le colonne del file);
-       le altre tabelle restano come erano. */
+       le altre tabelle restano come erano.
+       Con `opz.numeri` c'e' anche il caso opposto: cifre e basta con lo ZERO
+       DAVANTI ("09190500968") non sono un numero ma un codice - partita IVA,
+       codice fiscale, un cellulare senza prefisso - ed Excel, che le
+       virgolette non le rispetta, le leggerebbe come 9190500968: nel file
+       della Lombardia sono l'85% delle partite IVA. Si scrivono come la
+       formula ="09190500968", che Excel mostra come testo, zeri compresi.
+       Non apre nessuna porta alle formule vere: dentro ci sono solo cifre.
+       Lo zero da solo ("0") resta un numero. */
     function testoCsv(righe, opz) {
         const numeri = !!(opz && opz.numeri);
         return (righe || []).map(r => r.map(v => {
             let s = String(v == null ? '' : v).replace(/"/g, '""');
+            if (numeri && /^0\d+$/.test(s)) return '"=""' + s + '"""'; // Excel lo tiene testo: gli zeri restano
             if (/^[=+\-@\t\r]/.test(s) && !(numeri && /^-?\d+(\.\d+)?$/.test(s))) s = "'" + s; // niente formule in Excel
             return '"' + s + '"';
         }).join(';')).join('\r\n');
@@ -16155,7 +16164,14 @@
     }
     function vistaEventiMantenendoPosto() {
         const y = window.scrollY || window.pageYOffset || 0;
+        /* E il posto in ORIZZONTALE: la tabella larga (.ev-larga) scorre
+           dentro il suo riquadro, e il riquadro nuovo nasce a sinistra. Senza
+           questo, chi legge i ricavi in fondo a destra ci tornerebbe a ogni
+           salvataggio di un collega e a ogni colonna spuntata. */
+        const w0 = $vista().querySelector('.ev-wrap');
+        const x = w0 ? w0.scrollLeft : 0;
         vistaEventi();
+        if (x) { const w1 = $vista().querySelector('.ev-wrap'); if (w1) w1.scrollLeft = x; }
         // il ridisegno puo' aver accorciato la pagina per un istante: se lo
         // scorrimento e' saltato, lo si rimette dov'era
         if (y && Math.abs((window.scrollY || window.pageYOffset || 0) - y) > 2) window.scrollTo(0, y);
@@ -16349,6 +16365,25 @@
     function soloIscritti(ev, lista) {
         return (lista || []).filter(r => !fuoriElenco(modalitaDi(ev, r)));
     }
+    /* LA SCHEDA L'HA SCRITTA IL MODULO DEL SITO? E' la domanda che fanno in
+       due: l'attesa della conferma (solo a chi si e' iscritto dal sito parte
+       la mail con il pulsante) e la tinta azzurra della tabella ("scritto da
+       chi si iscrive"). Una regola sola, cosi' non si allontanano. No per:
+         - le schede inserite a mano dall'area riservata (`inserito`);
+         - quelle arrivate da un altro portale o dal desk (`extra.Portale`);
+         - quelle caricate con "Importa" (`importato`) che la mail di conferma
+           non l'hanno mai avuta: le ha scritte un file, non la persona. Chi
+           si era iscritto dal sito e poi e' stato toccato da un'importazione
+           (la colonna degli inviti B2B) la mail ce l'ha (`mailConferma`), e
+           resta quello che era.
+       La stessa regola sta nel servizio (lib/conferma-email.js,
+       inAttesaDiConferma). */
+    function dalModuloDelSito(r) {
+        if (!r) return false;
+        if (r.inserito || (r.extra && r.extra.Portale)) return false;
+        if (r.importato && !r.mailConferma) return false;
+        return true;
+    }
     /* IN ATTESA DI CONFERMA MAIL (solo negli eventi con `confermaEmail`, oggi
        Milano). Chi si iscrive dal sito riceve una mail con il pulsante
        "conferma il tuo indirizzo", e finche' non lo preme l'iscrizione non e'
@@ -16364,16 +16399,22 @@
        posta ne farebbe un'altra. Restano sempre fuori dall'attesa:
          - le righe del vecchio foglio (senza `doc`): sono pregresso;
          - chi non ha un indirizzo: non avrebbe niente da confermare;
-         - chi e' stato inserito a mano o arriva da un altro portale
-           (Eventbrite, il desk): l'indirizzo lo ha scritto chi organizza, e
-           la mail con il pulsante a loro non parte.
+         - chi non arriva dal modulo del sito (dalModuloDelSito): inserito a
+           mano, da un altro portale (Eventbrite, il desk) o caricato con
+           "Importa" - l'indirizzo lo ha scritto chi organizza o un file, e la
+           mail con il pulsante a loro non e' partita;
+         - chi e' stato segnato PRESENTE: e' in sala, l'ha visto chi lo ha
+           accolto, e confermato o no deve contare fra chi c'e'. E' la regola
+           dei promemoria del servizio (api/promemoria-eventi.js), che a chi e'
+           presente scrive anche se l'email non l'ha mai confermata.
        La conferma vale per INDIRIZZO, non per riga (confermaEmailDi): `lista`
        deve essere l'elenco intero dell'evento, non quello della sezione
        aperta. Senza, il default e' proprio quello. */
     function inAttesaConfermaMail(ev, r, lista) {
         if (!ev || ev.tutti || !ev.confermaEmail || !r || !r.doc) return false;
         if (!String(r.email || '').trim()) return false;
-        if (r.inserito || (r.extra && r.extra.Portale)) return false;
+        if (!dalModuloDelSito(r)) return false;
+        if (String((EventiPresenze.di(ev.id, r.id) || {}).stato || '') === 'presente') return false;
         return !confermaEmailDi(r, lista);
     }
     /* LA SEZIONE IN CUI UNA RIGA SI GUARDA: l'attesa della conferma, se c'e',
@@ -16610,18 +16651,31 @@
                          dire che quell'indirizzo non risulta iscritto.
        Le righe di aderenti, sponsor e online si leggono - servono a dire
        DOVE sta un indirizzo che in sala manca - ma non finiscono mai fra
-       quelle da spostare. Lo stesso per chi ha l'email ancora da confermare:
-       non e' un ospite in sala finche' non conferma, e se il suo indirizzo e'
-       nell'elenco si dice che sta nella sezione dell'attesa. */
+       quelle da spostare. Chi ha l'email ancora da confermare non e' un
+       ospite in sala finche' non conferma: se il suo indirizzo e'
+       nell'elenco si dice che sta nella sezione dell'attesa. Se invece NON
+       c'e', e ha chiesto la sala, sta in una quinta risposta:
+         daConfermare    in attesa della conferma, in presenza per la sua
+                         modalita', e fuori dall'elenco. Oggi in sala non
+                         conta, ma il giorno che preme il pulsante ci entra
+                         - scavalcando l'elenco definitivo, senza che
+                         nessuno se ne accorga. Non e' fra i "fuori" (non
+                         libera nessun posto): si mostra a parte, e si
+                         sposta solo se lo si spunta. */
     function confrontoElencoDefinitivo(ev, lista, indirizzi) {
         const dentro = new Set(indirizzi || []);
         const fuori = [];
         const senzaIndirizzo = [];
+        const daConfermare = [];
         const trovati = new Set();
         const altrove = new Map();
         (lista || []).forEach(r => {
             const sez = sezioneVista(ev, r, lista);
             const e = String(r.email || '').trim().toLowerCase();
+            if (sez === SEZIONE_ATTESA.id && e && !dentro.has(e) && modalitaDi(ev, r) === 'presenza') {
+                daConfermare.push({ riga: r, email: e, sezione: sez, motivo: 'email da confermare' });
+                return;
+            }
             if (sez !== 'presenza') {
                 // la prima sezione in cui lo si incontra: e' quella che si mostra
                 if (e && dentro.has(e) && !altrove.has(e)) altrove.set(e, sez);
@@ -16635,7 +16689,7 @@
         // nell'ordine in cui sono stati incollati: e' l'ordine del foglio da cui
         // arrivano, ed e' li' che chi guarda andra' a cercarli
         dentro.forEach(e => { if (!trovati.has(e)) mancanti.push({ email: e, dove: altrove.get(e) || '' }); });
-        return { fuori: fuori, senzaIndirizzo: senzaIndirizzo, trovati: trovati.size, mancanti: mancanti };
+        return { fuori: fuori, senzaIndirizzo: senzaIndirizzo, daConfermare: daConfermare, trovati: trovati.size, mancanti: mancanti };
     }
     /* =========================================================
        LO STESSO INDIRIZZO SU PIU' ISCRIZIONI
@@ -16949,6 +17003,33 @@
                 + '<div class="ev-menu-lista hidden">' + voci + '</div></div>' : '')
             + '</td>';
     }
+    /* IL MENU DENTRO LA TABELLA LARGA. Il riquadro .ev-larga scorre in
+       orizzontale, e un riquadro che scorre taglia quello che ne esce: il
+       menu delle ultime righe, che si apre verso il basso, finiva sotto il
+       bordo. In "In attesa di conferma mail", con due righe, si vedeva la
+       sola "Modifica", e "Rimanda la mail di conferma" - il comando per cui
+       quella sezione esiste - si raggiungeva solo scorrendo dentro il
+       riquadro, cosa che niente a video suggerisce.
+       Finche' il menu e' aperto, il riquadro si allunga in fondo di quanto il
+       menu sporge; quando si chiude torna com'era. Verso l'alto non serve:
+       il menu si apre sotto il pulsante, e sopra la riga c'e' sempre almeno
+       l'intestazione, che sta dentro il riquadro. Fuori dalla tabella larga
+       il riquadro non taglia niente (overflow visibile), e qui non si fa
+       nulla. */
+    function menuEvNelRiquadro(lista) {
+        const riquadro = lista && lista.closest ? lista.closest('.ev-wrap.ev-larga') : null;
+        if (!riquadro) return;
+        const r = riquadro.getBoundingClientRect();
+        // il fondo VISIBILE: sopra la barra di scorrimento orizzontale, se c'e'
+        const fondo = r.top + riquadro.clientTop + riquadro.clientHeight;
+        const sporge = Math.ceil(lista.getBoundingClientRect().bottom - fondo);
+        if (sporge <= 0) return;
+        const base = parseFloat(getComputedStyle(riquadro).paddingBottom) || 0;
+        riquadro.style.paddingBottom = (base + sporge + 8) + 'px';
+    }
+    function menuEvFuoriDalRiquadro() {
+        document.querySelectorAll('.ev-wrap.ev-larga').forEach(w => { if (w.style.paddingBottom) w.style.paddingBottom = ''; });
+    }
     // colonne aggiuntive scelte dall'utente, per evento: gli elenchi hanno colonne
     // diverse fra loro (citta, partita IVA, fatturato...) e si mostrano su richiesta
     let _evColonne = {};
@@ -17022,16 +17103,20 @@
        Gli importi del file arrivano come li scrive Excel, cifre nude
        ("100674810"), e in una colonna di numeri a nove cifre non si legge
        l'ordine di grandezza: si mettono i separatori delle migliaia, ma SOLO
-       dove l'intestazione dice che e' un importo ("(EUR)", "€"). Partita IVA,
-       codice fiscale e numero CCIAA sono cifre anche loro, con gli zeri
-       davanti che contano: formattati diventerebbero un altro numero.
+       dove l'intestazione dice che e' un importo ("(EUR)", "€"), e SOLO sui
+       numeri interi nudi. Un file caricato in .csv da un Excel italiano porta
+       gli importi gia' scritti ("557.044", "1.557.044"): letti come numeri,
+       "557.044" diventerebbe 557 euro e qualcosa. Quello che non e' un intero
+       nudo si mostra com'e'. Partita IVA, codice fiscale e numero CCIAA sono
+       cifre anche loro, con gli zeri davanti che contano: formattati
+       diventerebbero un altro numero.
        E' un fatto di lettura e basta: il CSV esporta il valore com'e'. */
     function valoreColonnaVisto(c, v) {
         const s = v == null ? '' : String(v).trim();
         if (!s) return '-';
-        if (/\(eur\)|€/i.test(String(c || '')) && /^-?\d+(\.\d+)?$/.test(s)) {
+        if (/\(eur\)|€/i.test(String(c || '')) && /^-?\d+$/.test(s)) {
             const n = Number(s);
-            if (isFinite(n)) return n.toLocaleString('it-IT', { maximumFractionDigits: 2 });
+            if (Number.isSafeInteger(n)) return n.toLocaleString('it-IT');
         }
         return s;
     }
@@ -17083,12 +17168,6 @@
        ridisegna la tabella, e prima ogni spunta lo richiudeva - diciotto
        colonne volevano dire riaprirlo diciotto volte. */
     let _evColonneAperte = {};
-    /* Oltre questo numero di colonne aggiuntive la tabella smette di stare
-       tutta nella pagina e scorre in orizzontale dentro il suo riquadro (vedi
-       .ev-larga nel foglio di stile): con le diciotto colonne del file e le
-       altre insieme, a larghezza fissa ogni colonna resterebbe larga pochi
-       pixel e il testo andrebbe a capo lettera per lettera. */
-    const COLONNE_PRIMA_DI_SCORRERE = 4;
     /* Da quale evento arriva la persona. Nel foglio la colonna "Pagina" contiene il
        titolo completo del modulo ("Napoli 2 Ottobre 2026 - Manifestazione di
        interesse"): qui basta il nome dell'evento. */
@@ -17481,8 +17560,46 @@
             + '<span class="ev-legenda-voce ev-col-modulo">Scritto da chi si iscrive, nel modulo</span>'
             + (conFile ? '<span class="ev-legenda-voce ev-col-file">Dal file delle aziende invitate'
                 + ' <span class="hint">(anche la ragione sociale di chi è arrivato con il codice)</span></span>' : '')
-            + '<span class="hint">Senza tinta: sezione, stato, nota e le altre colonne che scrivete voi o il servizio.</span>'
+            + '<span class="hint">Senza tinta: sezione, stato, nota e le altre colonne che scrivete voi o il servizio, '
+            + 'e le righe inserite da voi, arrivate da altri portali (Eventbrite) o caricate con «Importa».</span>'
             + '</div>';
+    }
+    /* LA TINTA AZZURRA E' DELLA RIGA, NON SOLO DELLA COLONNA. "Scritto da chi
+       si iscrive" e' vero per il nome di chi si e' iscritto dal sito, non per
+       quello di un'iscrizione Eventbrite che avete riportato voi con
+       "Aggiungi iscrizione", ne' di una riga caricata da un file: li' la
+       colonna e' la stessa, ma a scriverla e' stato qualcun altro, e la
+       tabella direbbe il falso sulla provenienza del dato - che e' tutto il
+       motivo per cui la tinta c'e'. La regola e' quella dell'attesa della
+       conferma (dalModuloDelSito), piu' tre casi:
+         - le righe del vecchio foglio (senza `doc`): venivano dagli stessi
+           moduli del sito ("Sito NGB" nella colonna Portale);
+         - chi si e' registrato al desk dal QR del cartello: il Portale dice
+           "Desk (QR)", ma il questionario e' quello del sito e l'ha
+           compilato lui, dal suo telefono (lib/accredito-desk.js);
+         - chi ha compilato "completa i dati" dal suo collegamento
+           (`compilato`): nome, azienda, ruolo e telefono li ha riscritti lui.
+           L'email dell'intestatario no - e' l'identita' della scheda, e quel
+           modulo non la cambia - mentre quella degli accompagnatori (le
+           schede ~p2, ~p3...) l'ha scritta proprio li'.
+       Le intestazioni restano tinte comunque: dicono che cosa PUO' venire
+       dal modulo, e la legenda le spiega. */
+    function scrittoDaChiSiIscrive(r, email) {
+        if (!r) return false;
+        if (!r.doc || dalModuloDelSito(r)) return true;
+        if (!r.inserito && r.extra && r.extra.Portale === PORTALE_DESK) return true;
+        return !!r.compilato && (!email || /~p\d+$/.test(String(r.doc)));
+    }
+    /* La ragione sociale e' DEL FILE solo dove il codice la impone: agli
+       eventi con le iscrizioni per codice (Milano 2027) il servizio scrive
+       quella dell'invito e il modulo la blocca. Altrove il codice si mostra
+       accanto, ma il nome l'ha digitato la persona, errori compresi. Nel
+       riepilogo di tutti gli eventi vale l'evento della riga. */
+    function aziendaDalFileDi(ev, r) {
+        if (!r || !r.invito || !r.invito.codice) return false;
+        const p = String(r.pagina || '').toLowerCase();
+        const e = ev && ev.tutti ? EVENTI_DEF.find(x => !x.tutti && x.filtro && p.indexOf(x.filtro) >= 0) : ev;
+        return !!(e && e.iscrizioniPerCodice);
     }
     /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
        presenza o nota c'e' quella firma; poi viene chi ha COMPILATO il modulo
@@ -17521,6 +17638,8 @@
        invito attaccato alla ragione sociale, niente segni, niente scritte di
        servizio sotto la modalita'. Gli importi del file restano come sono
        arrivati, cifre nude, e lo zero resta zero: Excel li legge da numeri.
+       I codici con lo zero davanti (partita IVA, codice fiscale) restano
+       anche loro come sono: a non farli diventare numeri ci pensa testoCsv.
        `presenzeDi(id)` da' la presenza di una riga (stato, nota, firma). */
     function righeCsvIscrizioni(ev, lista, presenzeDi) {
         const tutte = soloIscritti(ev, lista || []);
@@ -17595,13 +17714,29 @@
            dove viene, perche' in tabella le si tinge diversamente: azzurro
            quello che ha scritto la persona nel modulo, verde quello che viene
            dal file delle aziende invitate, nessuna tinta quello che scrive chi
-           organizza (vedi .ev-col-modulo e .ev-col-file nel foglio di stile). */
+           organizza (vedi .ev-col-modulo e .ev-col-file nel foglio di stile).
+           `tinta` e' quella dell'INTESTAZIONE; nelle celle l'azzurro c'e' solo
+           se quella riga l'ha scritta davvero chi si e' iscritto
+           (scrittoDaChiSiIscrive): il verde del file invece e' sempre del file. */
         const extra = colonneDaMostrare(ev, tutte);
         const tinta = c => c.file ? ' class="ev-col-file"' : (c.modulo ? ' class="ev-col-modulo"' : '');
+        const classe = c => c ? ' class="' + c + '"' : '';
         const valoreExtra = (r, c) => c.file ? valoreFileDi(r, c.nome) : ((r.extra || {})[c.nome]);
-        const larga = extra.length > COLONNE_PRIMA_DI_SCORRERE;
+        /* LA TABELLA LARGA, appena c'e' UNA colonna aggiuntiva: da li' la
+           tabella smette di stare tutta nella pagina e scorre in orizzontale
+           dentro il suo riquadro (vedi .ev-larga nel foglio di stile). Prima
+           scattava oltre la quarta, ma le colonne fisse sono gia' tante (negli
+           eventi con l'inserimento a mano ce ne sono quattro in piu' di
+           serie): a 1440px gia' con una sola aggiunta nome, azienda e nota
+           scendevano a una trentina di pixel, con quattro a sedici, e il
+           testo andava a capo lettera per lettera - proprio nel caso piu'
+           comune, "aggiungo un paio di colonne del file". */
+        const larga = extra.length > 0;
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
+            // l'azzurro "dal modulo" di questa riga: per i dati, e per l'email
+            const tm = scrittoDaChiSiIscrive(r) ? 'ev-col-modulo' : '';
+            const tmEmail = scrittoDaChiSiIscrive(r, true) ? 'ev-col-modulo' : '';
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
             // in sola lettura si mostra il valore, senza comandi che non salverebbero
             const cellaStato = segna
@@ -17636,7 +17771,7 @@
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
                 + cellaDataOra(r.data)
-                + '<td class="cliente-cella ev-col-modulo" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>'
+                + '<td class="cliente-cella' + (tm ? ' ' + tm : '') + '" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>'
                 /* Sotto la ragione sociale, se c'e', da dove viene questa persona:
                    spostarla d'azienda e' una decisione di chi organizza, non un
                    dato dell'iscritto, e chi legge la tabella deve poterlo sapere
@@ -17652,9 +17787,11 @@
                    dell'invito compresa quando non coincide con quella digitata
                    (l'unica che combacia con l'altro elenco).
                    La tinta della cella dice da dove viene la ragione sociale:
-                   con il codice la scrive il file delle aziende invitate (il
-                   modulo la blocca), senza la scrive la persona. */
-                + ((t, inv) => '<td class="' + (inv && inv.codice ? 'ev-col-file' : 'ev-col-modulo') + '" data-label="Azienda">'
+                   dove il codice la impone (aziendaDalFileDi: Milano 2027) la
+                   scrive il file delle aziende invitate e il modulo la blocca;
+                   altrove, e senza codice, e' quella della riga - la persona,
+                   se la riga l'ha scritta lei. */
+                + ((t, inv) => '<td' + classe(aziendaDalFileDi(ev, r) ? 'ev-col-file' : tm) + ' data-label="Azienda">'
                     + esc(aziendaVista(r.azienda))
                     + (inv && inv.codice
                         ? ' <span class="ev-sel" title="Azienda selezionata: registrata con il codice '
@@ -17666,12 +17803,12 @@
                     + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
                     + '</td>')
                     ((r.extra || {})[COL_SPOSTATO] || '', r.invito)
-                + '<td class="ev-col-modulo" data-label="Ruolo">' + esc(r.ruolo) + '</td>'
+                + '<td' + classe(tm) + ' data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 /* Accanto all'indirizzo nessun segno di conferma (vedi
                    indirizziConfermati): resta solo "mail non inviata", che non
                    e' uno stato ma un errore da sistemare. */
-                + '<td class="ev-col-modulo" data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + '</td>'
-                + '<td class="ev-col-modulo" data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>'
+                + '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + '</td>'
+                + '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>'
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
                    foglio storico, che raccoglieva gli stessi form): si scrive
                    "Sito NGB", perche' e' da li' che e' passata. Il trattino
@@ -17682,10 +17819,10 @@
                     + (v => '<td data-label="B2B prenotati">'
                         + (v ? '<span class="ev-b2b-si">' + v + '</span>' : '<span class="hint">non prenotato</span>')
                         + '</td>')(elencoVoci((r.extra || {})[COL_B2B_PRENOTATI]))
-                    + '<td class="ev-col-modulo" data-label="Preferenze iscrizione"><span class="ev-b2b-pref">'
+                    + '<td' + classe(tm) + ' data-label="Preferenze iscrizione"><span class="ev-b2b-pref">'
                     + (elencoVoci((r.extra || {})[COL_PREF_ISCRIZIONE]) || '-') + '</span></td>' : '')
                 + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
-                + extra.map(c => '<td' + tinta(c) + ' data-label="' + esc(c.nome) + '">'
+                + extra.map(c => '<td' + (c.file ? ' class="ev-col-file"' : classe(c.modulo ? tm : '')) + ' data-label="' + esc(c.nome) + '">'
                     + esc(valoreColonnaVisto(c.nome, valoreExtra(r, c))) + '</td>').join('')
                 /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
                    presenza o nota c'e' quella firma; poi viene chi ha COMPILATO il
@@ -17741,11 +17878,13 @@
             // "ev-wrap": questa tabella deve ENTRARE in larghezza, senza barra di
             // scorrimento; ci riesce con le larghezze di colonna del colgroup qui
             // sotto. L'overflow visibile non taglia il menu a tendina delle azioni.
-            /* Con PIU' DI COLONNE_PRIMA_DI_SCORRERE colonne aggiuntive questo non
-               si tiene piu': "ev-larga" da' a ogni colonna una misura leggibile e
-               lascia scorrere la tabella in orizzontale dentro il suo riquadro.
+            /* Con anche una sola colonna aggiuntiva questo non si tiene piu':
+               "ev-larga" da' a ogni colonna una misura leggibile e lascia
+               scorrere la tabella in orizzontale dentro il suo riquadro.
                Il prezzo e' che l'intestazione resta appiccicata al riquadro e
-               non piu' alla finestra: meglio che diciotto colonne larghe un dito. */
+               non piu' alla finestra: meglio che colonne larghe un dito. Il
+               menu delle ultime righe, che il riquadro taglierebbe, gli fa
+               spazio da se' (vedi menuEvNelRiquadro). */
             /* tabindex sul contenitore: senza, premendo una freccia dopo aver
                toccato l'elenco non si muove niente - il fuoco e' su un pezzo di
                pagina che non lo prende. Con il fuoco qui, frecce, PagSu/PagGiu,
@@ -18093,6 +18232,8 @@
         $vista().querySelectorAll('.ev-modalita, .ev-stato').forEach(conMouse);
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;
+            const rr = (_evIscrizioni || []).find(x => x.id === id);
+            const sezPrima = rr ? sezioneVista(ev, rr) : '';
             EventiPresenze.imposta(ev.id, id, { stato: s.value }, () => {
                 if (vistaCorrente !== 'eventi') return;
                 // se il server ha rifiutato, la tendina deve tornare al valore vero
@@ -18102,6 +18243,11 @@
                 // cambia anche il riquadro "confermati / presenti"
                 aggiornaNumeriEventi(ev);
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+                /* "Presente" toglie dall'attesa della conferma (e toglierlo ci
+                   rimette): la riga cambia sezione, e con lei la scritta sotto
+                   la modalita' e le voci del menu. Qui non si rifa' un pezzo
+                   per volta: si ridisegna, appena la pagina e' libera. */
+                if (rr && sezioneVista(ev, rr) !== sezPrima) ridisegnaEventiSeLibero();
             });
             aggiornaFirma(s, id);
             restituisciFuoco(s);
@@ -18194,11 +18340,14 @@
             aggiornaFirma(n, id);
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
-        const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
-            l.classList.add('hidden');
-            const b = l.previousElementSibling;
-            if (b) b.setAttribute('aria-expanded', 'false');
-        });
+        const chiudiMenuEv = () => {
+            $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
+                l.classList.add('hidden');
+                const b = l.previousElementSibling;
+                if (b) b.setAttribute('aria-expanded', 'false');
+            });
+            menuEvFuoriDalRiquadro();
+        };
         /* I COMANDI DEL MENU DELLA RIGA, collegati su una RADICE qualunque:
            all'inizio e' tutta la vista, ma quando una persona cambia sezione la
            sua cella delle azioni si rifa' da capo (le voci dipendono da dove si
@@ -18240,7 +18389,7 @@
                 const lista = b.nextElementSibling;
                 const eraChiuso = lista.classList.contains('hidden');
                 chiudiMenuEv();
-                if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
+                if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); menuEvNelRiquadro(lista); }
             }));
             radice.querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
         };
@@ -18303,6 +18452,15 @@
             document.body.dataset.evScorrimento = '1';
             window.addEventListener('scroll', () => { _evScorrendoFino = Date.now() + EV_QUIETE_MS; }, { passive: true });
         }
+        /* Lo stesso per la tabella larga, che scorre in orizzontale dentro il
+           SUO riquadro: quello scorrimento alla finestra non arriva (non
+           risale), e un ridisegno a meta' di un trascinamento verso destra
+           e' lo stesso salto. Il riquadro e' nuovo a ogni ridisegno, quindi
+           l'ascoltatore si attacca ogni volta, e se ne va con lui. */
+        {
+            const riquadro = $vista().querySelector('.ev-wrap');
+            if (riquadro) riquadro.addEventListener('scroll', () => { _evScorrendoFino = Date.now() + EV_QUIETE_MS; }, { passive: true });
+        }
         /* Le frecce sull'elenco. Il browser lo farebbe da se' su un contenitore
            che scorre; questo invece e' largo quanto la pagina (le colonne sono
            calcolate per entrarci), quindi a scorrere e' la FINESTRA, e lo si fa
@@ -18332,6 +18490,8 @@
                     const b = l.previousElementSibling;
                     if (b) b.setAttribute('aria-expanded', 'false');
                 });
+                // e il riquadro della tabella larga, allungato per il menu, torna com'era
+                menuEvFuoriDalRiquadro();
             });
         }
         /* COLONNE AGGIUNTIVE: si spuntano e la tabella si ridisegna con quelle
@@ -25130,6 +25290,8 @@
         const inSala = tutte.filter(r => sezioneVista(ev, r) === 'presenza');
         if (!inSala.length) { toast('Nessun ospite in sala: non c\'e\' niente da confrontare.', 'verde'); return; }
         const posti = inSala.reduce((t, r) => t + partecipantiDi(r), 0);
+        // e quanti aspettano la conferma chiedendo la sala: il confronto li guarda a parte
+        const inAttesa = tutte.filter(r => sezioneVista(ev, r) === SEZIONE_ATTESA.id && modalitaDi(ev, r) === 'presenza').length;
         apriModale('<h2>Elenco definitivo di chi resta in sala</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">Incolla qui l\'elenco di chi <b>resta in presenza</b>. '
             + 'Il confronto e\' per <b>indirizzo email</b> - l\'unico dato che combacia fra un foglio e un modulo compilato a mano - '
@@ -25138,7 +25300,13 @@
             + 'gli indirizzi li trova da se\'.</p>'
             + '<p class="hint" style="margin:0 0 10px;">In sala ci sono ora <b>' + inSala.length + '</b> '
             + (inSala.length === 1 ? 'iscrizione di ospiti' : 'iscrizioni di ospiti')
-            + (posti !== inSala.length ? ', per <b>' + posti + '</b> posti' : '') + '.</p>'
+            + (posti !== inSala.length ? ', per <b>' + posti + '</b> posti' : '') + '.'
+            + (inAttesa
+                ? (inAttesa === 1 ? ' <b>Un\'altra</b> chiede la sala ma è ' : ' Altre <b>' + inAttesa + '</b> chiedono la sala ma sono ')
+                + esc(SEZIONE_ATTESA.breve) + ': non ' + (inAttesa === 1 ? 'è un ospite' : 'sono ospiti') + ' in sala, '
+                + 'e dopo il confronto ' + (inAttesa === 1 ? 'se non è nell\'elenco compare' : 'chi non è nell\'elenco compare') + ' a parte.'
+                : '')
+            + '</p>'
             + '<div class="campo"><label for="ed-testo">L\'elenco definitivo</label>'
             + '<textarea id="ed-testo" class="ed-testo" rows="10" spellcheck="false" '
             + 'placeholder="mario.rossi@esempio.it&#10;segreteria@altraimpresa.it&#10;..."></textarea></div>'
@@ -25186,15 +25354,24 @@
        DUE ECCEZIONI partono SENZA spunta, perche' non sono una
        proposta ma una domanda: gli ospiti SENZA INDIRIZZO, che sul solo
        dato del confronto non si possono giudicare - potrebbero essere
-       nell'elenco e non risultarci - e che nessuna mail raggiungerebbe.
+       nell'elenco e non risultarci - e che nessuna mail raggiungerebbe;
+       e, in un blocco loro sotto, chi ha chiesto la sala ma non ha ancora
+       CONFERMATO L'EMAIL e nell'elenco non c'e' (daConfermare). Oggi in
+       sala non conta - quindi non e' fra gli ospiti da spostare, e non
+       libera posti - ma il giorno che conferma ci entra: lasciato li' in
+       silenzio scavalcherebbe l'elenco definitivo. Lo si dice, e lo si
+       sposta all'online solo se lo si spunta.
     ========================================================= */
     function modaleConfrontoElenco(ev, indirizzi, esito) {
         if (!puoAggiungereIscrizioni() || !ev || ev.tutti) return;
         esito = esito || {};
         const fuori = esito.fuori || [];
         const muti = esito.senzaIndirizzo || [];
+        const daConf = esito.daConfermare || [];
         const mancanti = esito.mancanti || [];
-        const elenco = fuori.concat(muti);
+        // le caselle: prima gli ospiti in sala, poi - nel loro blocco - chi aspetta la conferma
+        const principali = fuori.concat(muti);
+        const elenco = principali.concat(daConf);
         const nomeDi = r => (r.nome + ' ' + r.cognome).trim() || r.email || r.id;
         const postiDi = v => v.reduce((t, x) => t + partecipantiDi(x.riga), 0);
         /* I mancanti divisi in due, perche' si rimedia in due modi diversi:
@@ -25219,10 +25396,13 @@
             const posti = partecipantiDi(t.riga);
             const perche = t.motivo === 'senza indirizzo'
                 ? 'nessun indirizzo sulla scheda: il confronto non lo raggiunge, e nemmeno la mail'
-                : 'non e\' nell\'elenco incollato';
+                : t.motivo === 'email da confermare'
+                    ? 'chiede la sala e non ha ancora confermato l\'email: se conferma, entra in sala'
+                    : 'non e\' nell\'elenco incollato';
+            const spuntata = t.motivo !== 'senza indirizzo' && t.motivo !== 'email da confermare';
             return '<li><label>'
                 + '<input type="checkbox" class="ed-scelta" value="' + i + '"'
-                + (t.motivo === 'senza indirizzo' ? '' : ' checked') + '>'
+                + (spuntata ? ' checked' : '') + '>'
                 + '<span class="ra-testo">'
                 + '<span class="ra-mail">' + esc(t.email || '(senza indirizzo)') + '</span>'
                 + '<span class="ra-chi">' + esc(nome)
@@ -25258,6 +25438,21 @@
             + '<p class="hint" style="margin:-4px 0 12px;">Confronto per <b>indirizzo email</b> sui soli <b>ospiti in sala</b>. '
             + 'Aderenti Revilaw, sponsor e relatori non sono stati confrontati e restano dove sono.</p>'
             + conti;
+        /* Chi aspetta la conferma, a parte: le frasi e i numeri qui sopra
+           parlano degli ospiti in sala, e queste righe in sala oggi non ci
+           sono. Si spostano con gli altri, ma solo se le si spunta. */
+        const nc = daConf.length, unoC = nc === 1;
+        const bloccoAttesa = nc
+            ? '<p class="ed-attenzione ed-attesa-testa"><b>' + nc + '</b> '
+            + (unoC ? 'iscrizione ' : 'iscrizioni ') + esc(SEZIONE_ATTESA.breve) + (unoC ? ' chiede' : ' chiedono')
+            + ' la sala e nell\'elenco non ' + (unoC ? 'c\'è' : 'ci sono') + '. '
+            + 'Oggi non ' + (unoC ? 'conta' : 'contano') + ' fra gli ospiti in sala e non ' + (unoC ? 'libera' : 'liberano') + ' posti, '
+            + 'ma appena ' + (unoC ? 'conferma' : 'confermano') + ' l\'email ' + (unoC ? 'entra' : 'entrano') + ' in sala, '
+            + 'anche se l\'elenco definitivo non ' + (unoC ? 'la' : 'le') + ' comprende. '
+            + (unoC ? 'Parte' : 'Partono') + ' <b>senza spunta</b>: se in sala non ' + (unoC ? 'deve' : 'devono') + ' entrare, '
+            + (unoC ? 'spuntala' : 'spuntale') + ' e ' + (unoC ? 'spostala' : 'spostale') + ' all\'online con gli altri.</p>'
+            + '<ul class="ra-elenco">' + daConf.map((t, j) => voce(t, principali.length + j)).join('') + '</ul>'
+            : '';
         if (!elenco.length) {
             apriModale(testa
                 + '<p class="hint">Tutti gli ospiti in sala sono nell\'elenco definitivo: non c\'e\' niente da spostare.</p>'
@@ -25268,18 +25463,21 @@
             return;
         }
         apriModale(testa
-            + '<p class="hint" style="margin:0 0 8px;"><b>' + fuori.length + '</b> '
-            + (fuori.length === 1 ? 'ospite e\' da spostare all\'online' : 'ospiti sono da spostare all\'online')
-            + (postiDi(fuori) !== fuori.length ? ' (' + postiDi(fuori) + ' posti che si liberano)' : '')
-            + (muti.length
-                ? '. <b>' + muti.length + '</b> ' + (muti.length === 1 ? 'iscrizione e\' senza indirizzo' : 'iscrizioni sono senza indirizzo')
-                + ' e ' + (muti.length === 1 ? 'parte' : 'partono') + ' <b>senza spunta</b>: '
-                + 'il confronto non ' + (muti.length === 1 ? 'la' : 'le') + ' raggiunge, e nemmeno la mail. '
-                + (muti.length === 1 ? 'Decidila' : 'Decidile') + ' tu.'
-                : '.')
-            + ' Togli la spunta a chi deve restare in sala.</p>'
-            + '<label class="ra-tutte"><input type="checkbox" id="ed2-tutte"> Tutte</label>'
-            + '<ul class="ra-elenco">' + elenco.map(voce).join('') + '</ul>'
+            + (principali.length
+                ? '<p class="hint" style="margin:0 0 8px;"><b>' + fuori.length + '</b> '
+                + (fuori.length === 1 ? 'ospite e\' da spostare all\'online' : 'ospiti sono da spostare all\'online')
+                + (postiDi(fuori) !== fuori.length ? ' (' + postiDi(fuori) + ' posti che si liberano)' : '')
+                + (muti.length
+                    ? '. <b>' + muti.length + '</b> ' + (muti.length === 1 ? 'iscrizione e\' senza indirizzo' : 'iscrizioni sono senza indirizzo')
+                    + ' e ' + (muti.length === 1 ? 'parte' : 'partono') + ' <b>senza spunta</b>: '
+                    + 'il confronto non ' + (muti.length === 1 ? 'la' : 'le') + ' raggiunge, e nemmeno la mail. '
+                    + (muti.length === 1 ? 'Decidila' : 'Decidile') + ' tu.'
+                    : '.')
+                + ' Togli la spunta a chi deve restare in sala.</p>'
+                + '<label class="ra-tutte"><input type="checkbox" id="ed2-tutte"> Tutte</label>'
+                + '<ul class="ra-elenco">' + principali.map(voce).join('') + '</ul>'
+                : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala sono nell\'elenco definitivo: fra loro non c\'e\' niente da spostare.</p>')
+            + bloccoAttesa
             + '<div id="ed2-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed2-indietro">Cambia elenco</button>'
             + '<button class="btn btn-secondary" id="ed2-spunta">Spunta in elenco</button>'
@@ -25299,8 +25497,10 @@
             bSi.disabled = s.length === 0;
             bSpunta.disabled = s.length === 0;
             bSi.textContent = s.length ? 'Sposta online e avvisa (' + s.length + ')' : 'Sposta online e avvisa';
+            // "Tutte" vale per gli ospiti in sala: chi aspetta la conferma si spunta uno per uno
+            const nSala = s.filter(x => principali.indexOf(x) >= 0).length;
             const t = document.getElementById('ed2-tutte');
-            if (t) { t.checked = s.length === elenco.length; t.indeterminate = s.length > 0 && s.length < elenco.length; }
+            if (t) { t.checked = nSala === principali.length; t.indeterminate = nSala > 0 && nSala < principali.length; }
             /* Le spunte senza indirizzo si ricordano fino all'ultimo: si
                spostano eccome, ma la mail a loro non parte e vanno avvisate
                a voce. E' la cosa che si dimentica. */
@@ -25313,19 +25513,22 @@
         document.querySelectorAll('.ed-scelta').forEach(c => c.addEventListener('change', aggiornaPulsanti));
         { const t = document.getElementById('ed2-tutte');
           if (t) t.addEventListener('change', () => {
-              document.querySelectorAll('.ed-scelta').forEach(c => { c.checked = t.checked; });
+              document.querySelectorAll('.ed-scelta').forEach(c => { if (Number(c.value) < principali.length) c.checked = t.checked; });
               aggiornaPulsanti();
           }); }
         aggiornaPulsanti();
         document.getElementById('ed2-indietro').addEventListener('click', () => modaleElencoDefinitivo(ev));
         /* La via lunga: le righe si spuntano nell'elenco vero, dove accanto
-           c'e' il resto della scheda. Si apre "In presenza", che e' l'unica
-           sezione da cui possono venire. */
+           c'e' il resto della scheda. Si apre la sezione da cui vengono: "In
+           presenza" per gli ospiti in sala, l'attesa della conferma per chi
+           la aspetta, "Tutte" se sono delle due - una spunta su una riga che
+           non e' a video sarebbe una scelta fatta al buio. */
         bSpunta.addEventListener('click', () => {
             const s = scelte();
             if (!s.length) return;
             chiudiModale();
-            _evSezione[ev.id] = 'presenza';
+            const nAttesa = s.filter(x => x.motivo === 'email da confermare').length;
+            _evSezione[ev.id] = !nAttesa ? 'presenza' : (nAttesa === s.length ? SEZIONE_ATTESA.id : 'tutte');
             _evSelezionate = new Set(s.map(t => t.riga.id));
             if (vistaCorrente === 'eventi') vistaEventi();
             toast(s.length + (s.length === 1 ? ' riga spuntata' : ' righe spuntate')

@@ -31,6 +31,10 @@
        dicendo per ognuno se sta in un'altra sezione o se non risulta
        iscritto: e' la domanda opposta, ed e' quella che scopre il
        foglio vecchio e l'indirizzo scritto male;
+     - chi aspetta ancora la conferma dell'email (Milano), ha chiesto la
+       sala e nell'elenco non c'e' non sfugga: non e' un ospite in sala da
+       spostare, ma torna in un gruppo suo (daConfermare), perche' il
+       giorno che conferma entrerebbe in sala scavalcando l'elenco;
      - la sezione VUOTA valga "in presenza", come ovunque nell'app.
    ============================================================ */
 'use strict';
@@ -84,8 +88,11 @@ let _evIscrizioni = null;
 let _evConfCache = { lista: null, mappa: null };
 const indirizziConfermati = daAppJs('indirizziConfermati');
 const confermaEmailDi = daAppJs('confermaEmailDi');
+const dalModuloDelSito = daAppJs('dalModuloDelSito');
 const inAttesaConfermaMail = daAppJs('inAttesaConfermaMail');
 const sezioneVista = daAppJs('sezioneVista');
+const SEZIONE_ATTESA = eval('(' + ritaglia('const SEZIONE_ATTESA = {', '{', '}')
+    .slice('const SEZIONE_ATTESA = '.length) + ')');
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -274,6 +281,58 @@ prova('Chi aspetta di confermare l email non e un ospite in sala', () => {
     const n = confrontoElencoDefinitivo(EV, lista, ['mario@alfa.it', 'lucia@beta.it']);
     esigi(n.trovati === 2 && n.fuori.length === 1, 'dove la conferma non e chiesta sono ospiti come gli altri',
         JSON.stringify({ trovati: n.trovati, fuori: n.fuori.length }));
+    esigi(n.daConfermare.length === 0, 'e nessuno aspetta la conferma', String(n.daConfermare.length));
+});
+
+prova('Chi aspetta la conferma, chiede la sala e non e nell elenco non sfugge', () => {
+    presenze = {}; seq = 0;
+    /* Il buco che questa risposta chiude: chi non ha ancora confermato oggi
+       in sala non conta, quindi non e' fra i "fuori"; ma se non lo si dice
+       a nessuno, il giorno che preme il pulsante entra in sala e scavalca
+       l'elenco definitivo. Torna in un gruppo suo, daConfermare. */
+    const MI = { id: 'milano-2027-02-26', confermaEmail: true };
+    const ospite = riga('mario@alfa.it', 'presenza', { doc: 'd1', emailConfermata: { quando: 1, come: 'mail' } });
+    const fuoriConf = riga('gino@gamma.it', 'presenza', { doc: 'd2', emailConfermata: { quando: 1, come: 'mail' } });
+    const attesaFuori = riga('lucia@beta.it', 'presenza', { doc: 'd3', extra: { Partecipanti: '3' } });
+    const attesaDentro = riga('nino@delta.it', 'presenza', { doc: 'd4' });
+    const attesaOnline = riga('remoto@zeta.it', 'online', { doc: 'd5' });
+    const attesaAderente = riga('socio@revilaw.it', 'aderenti', { doc: 'd6' });
+    const lista = [ospite, fuoriConf, attesaFuori, attesaDentro, attesaOnline, attesaAderente];
+    const c = confrontoElencoDefinitivo(MI, lista, ['mario@alfa.it', 'nino@delta.it']);
+    esigi(c.daConfermare.length === 1 && c.daConfermare[0].riga === attesaFuori,
+        'in attesa, in presenza e fuori elenco: torna fra quelli da confermare', JSON.stringify(c.daConfermare.map(x => x.email)));
+    esigi(c.daConfermare[0].motivo === 'email da confermare' && c.daConfermare[0].sezione === SEZIONE_ATTESA.id,
+        'con il suo perche e la sua sezione', JSON.stringify([c.daConfermare[0].motivo, c.daConfermare[0].sezione]));
+    /* Non e' un ospite in sala: non sta fra i "fuori", e i posti che si
+       liberano (contati sui "fuori") non lo comprendono. */
+    esigi(c.fuori.length === 1 && c.fuori[0].riga === fuoriConf, 'fra i fuori resta il solo ospite in sala',
+        JSON.stringify(c.fuori.map(x => x.email)));
+    esigi(c.trovati === 1, 'e fra i trovati in sala solo chi ha confermato', String(c.trovati));
+    // chi aspetta ed e' nell'elenco non e' da confermare: si dice dove sta
+    esigi(c.mancanti.length === 1 && c.mancanti[0].email === 'nino@delta.it' && c.mancanti[0].dove === SEZIONE_ATTESA.id,
+        'chi aspetta ed e nell elenco risulta nella sezione dell attesa', JSON.stringify(c.mancanti));
+    /* Chi aspetta ma ha chiesto l'online, o e' fra gli aderenti: in sala non
+       entra da ospite nemmeno confermando, e l'elenco degli ospiti non lo
+       riguarda. */
+    esigi(!c.daConfermare.some(x => x.riga === attesaOnline || x.riga === attesaAderente),
+        'chi aspetta per l online o fra gli aderenti non e da confermare qui');
+    // senza indirizzo non si aspetta nessuna conferma: resta fra quelli senza indirizzo
+    const muto = riga('', 'presenza', { doc: 'd7' });
+    const m = confrontoElencoDefinitivo(MI, [muto], ['mario@alfa.it']);
+    esigi(m.daConfermare.length === 0 && m.senzaIndirizzo.length === 1, 'chi non ha indirizzo resta fra quelli senza');
+});
+
+prova('Chi e segnato presente non aspetta piu la conferma', () => {
+    presenze = {}; seq = 0;
+    /* E' entrato in sala, l'ha visto chi lo ha accolto: e' un ospite in sala
+       come gli altri, e il confronto lo tratta da ospite. */
+    const MI = { id: 'milano-2027-02-26', confermaEmail: true };
+    const r = riga('lucia@beta.it', 'presenza', { doc: 'd1' });
+    presenze[r.id].stato = 'presente';
+    const c = confrontoElencoDefinitivo(MI, [r], ['mario@alfa.it']);
+    esigi(c.daConfermare.length === 0 && c.fuori.length === 1 && c.fuori[0].riga === r,
+        'segnato presente e fuori elenco: e fra i fuori, non fra quelli da confermare',
+        JSON.stringify({ fuori: c.fuori.length, daConfermare: c.daConfermare.length }));
 });
 
 prova('Le sezioni collaudate sono quelle vere dell app', () => {

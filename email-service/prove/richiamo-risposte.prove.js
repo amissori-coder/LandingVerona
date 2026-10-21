@@ -56,6 +56,7 @@ const pezzi = [
        anche queste, perche' chi non ha mai confermato l'email non e' online */
     ritaglia('function indirizziConfermati(', '{', '}'),
     ritaglia('function confermaEmailDi(', '{', '}'),
+    ritaglia('function dalModuloDelSito(', '{', '}'),
     ritaglia('function inAttesaConfermaMail(', '{', '}'),
     ritaglia('function sezioneVista(', '{', '}')
 ].join('\n');
@@ -71,6 +72,8 @@ const AMBIENTE = new Function('dammi',
     + 'function modalitaDi(ev, r) { return String((r && r.modalita) || "presenza"); }\n'
     + 'function invitoB2BDi(r, evId) { return (r && r.b2bInvito && r.b2bInvito.eventoId === evId) ? r.b2bInvito : null; }\n'
     + 'function agendaDi(ev) { return _AG; }\n'
+    // le presenze: qui nessuno e' segnato (l'attesa della conferma le guarda per chi e' presente)
+    + 'const EventiPresenze = { di() { return null; } };\n'
     + pezzi
     + '\nreturn {'
     + '  metti: (righe, agenda) => { _evIscrizioni = righe || []; _AG = agenda === undefined ? null : agenda; },'

@@ -20,25 +20,35 @@
      - la regola dell'attesa sia quella del servizio
        (lib/conferma-email.js, inAttesaDiConferma): solo dove la
        conferma e' chiesta, mai per le righe inserite a mano, quelle
-       da altri portali, quelle del vecchio foglio o senza indirizzo;
-       e che la conferma valga per INDIRIZZO sull'elenco intero, non
-       sulla sola sezione aperta;
+       da altri portali, quelle caricate con "Importa" (a cui la mail
+       non e' mai partita), quelle del vecchio foglio o senza indirizzo,
+       e mai per chi e' stato segnato presente; e che la conferma valga
+       per INDIRIZZO sull'elenco intero, non sulla sola sezione aperta;
      - la sezione in cui una riga si guarda sia l'attesa prima della
        modalita', e che l'attesa NON sia una modalita' (le tendine e
        il servizio non la conoscono);
      - le colonne del file restino nell'ordine del file, anche quando
        le righe non portano tutte le stesse intestazioni, e non si
        confondano con quelle di `extra` che si chiamano uguale;
-     - lo zero si legga zero, gli importi abbiano i separatori e i
-       codici (partita IVA, CCIAA) restino come sono;
+     - lo zero si legga zero, gli importi abbiano i separatori - solo
+       quelli nudi: un importo gia' scritto all'italiana ("557.044")
+       resta com'e' - e i codici (partita IVA, CCIAA) restino come sono;
+     - la tinta azzurra "dal modulo" sia della RIGA: la hanno le righe
+       scritte da chi si iscrive, non quelle inserite a mano, da altri
+       portali o da un file; e la ragione sociale sia "del file" solo
+       dove il codice la impone (Milano);
+     - la tabella larga tenga il posto in orizzontale fra un ridisegno e
+       l'altro, e il menu delle ultime righe non resti tagliato;
      - le colonne scelte sopravvivano alla sessione e quelle che non
        esistono piu' si ignorino;
      - l'esportazione porti TUTTE le sezioni con la colonna "Sezione",
        TUTTE le colonne aggiuntive e del file anche se non scelte, lo
        zero, le intestazioni doppie distinte, nessun segno di spunta,
        e lasci fuori i soli invitati ai soli incontri B2B;
-     - il testo del CSV tenga la guardia contro le formule, e lasci
-       passare i numeri negativi solo a chi lo chiede.
+     - il testo del CSV tenga la guardia contro le formule, lasci
+       passare i numeri negativi solo a chi lo chiede, e a chi lo chiede
+       scriva i codici con lo zero davanti (partita IVA, codice fiscale)
+       in modo che Excel non li trasformi in numeri.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -70,6 +80,7 @@ const COSTANTI = [
     rigaDaAppJs('const COL_PREF_ISCRIZIONE ='),
     rigaDaAppJs('const PREFISSO_COL_FILE ='),
     rigaDaAppJs('const CHIAVE_COLONNE_EVENTO ='),
+    rigaDaAppJs('const PORTALE_DESK ='),
     ritaglia('const NOMI_MODALITA = {', '{', '}') + ';',
     ritaglia('const NOMI_STATO = {', '{', '}') + ';',
     ritaglia('const SEZIONI_MODALITA = [', '[', ']') + ';',
@@ -81,7 +92,8 @@ const COSTANTI = [
 ].join('\n');
 /* Le funzioni ritagliate si chiamano fra loro: si dichiarano tutte nello
    stesso giro, dentro una funzione sola, cosi' si vedono come dentro app.js. */
-const NOMI = ['modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'inAttesaConfermaMail',
+const NOMI = ['modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'dalModuloDelSito', 'inAttesaConfermaMail',
+    'scrittoDaChiSiIscrive', 'aziendaDalFileDi',
     'sezioneVista', 'nomeSezioneVista', 'indirizziConfermati', 'confermaEmailDi', 'partecipantiDi',
     'colonneExtraDisponibili', 'datiInvitoDi', 'colonneFileDisponibili', 'valoreFileDi',
     'valoreColonnaVisto', 'colonneAggiuntiveDi', 'colonneScelteDi', 'salvaColonneScelte',
@@ -103,7 +115,7 @@ const localStorage = {
 const AMBIENTE = new Function('EventiPresenze', 'window', 'localStorage', 'vedoCollaboratoreDi', 'nomeDaFirma',
     'let _evIscrizioni = null, _evColonne = {}, _evConfCache = { lista: null, mappa: null };\n'
     + COSTANTI + '\n' + sorgente
-    + '\nreturn { ' + NOMI.join(', ') + ', SEZIONI_MODALITA, SEZIONE_ATTESA, EVENTI_DEF, PREFISSO_COL_FILE, CHIAVE_COLONNE_EVENTO,'
+    + '\nreturn { ' + NOMI.join(', ') + ', SEZIONI_MODALITA, SEZIONE_ATTESA, EVENTI_DEF, PREFISSO_COL_FILE, CHIAVE_COLONNE_EVENTO, PORTALE_DESK,'
     + '  azzeraColonne: () => { _evColonne = {}; }, metti: l => { _evIscrizioni = l; } };')(
     EventiPresenze, {}, localStorage, () => false, x => x);
 const A = AMBIENTE;
@@ -181,6 +193,45 @@ prova('Fuori dall\'attesa: a mano, da altri portali, senza indirizzo', () => {
     esigi(!A.inAttesaConfermaMail(MILANO, portale, lista), 'da Eventbrite: la mail con il pulsante non parte');
     esigi(!A.inAttesaConfermaMail(MILANO, desk, lista), 'registrata al desk: nemmeno');
     esigi(!A.inAttesaConfermaMail(MILANO, senza, lista), 'senza indirizzo: non c\'e\' niente da confermare');
+});
+
+prova('Le righe caricate con "Importa": in attesa solo se la mail era partita', () => {
+    presenze = {};
+    /* Un file di un altro portale caricato con "Importa": la scheda nasce con
+       `importato` e nessuna mail di conferma. Nessuno la potrebbe confermare,
+       e in attesa resterebbe per sempre, fuori dalla sala e dai promemoria.
+       Chi si era iscritto dal sito e poi e' stato toccato da un'importazione
+       (la colonna degli inviti B2B) la mail ce l'ha: quello resta in attesa. */
+    const importata = riga({ importato: true });
+    const dalSito = riga({ importato: true, mailConferma: { quando: 5, ok: true, errore: '' } });
+    const lista = [importata, dalSito];
+    esigi(A.inAttesaConfermaMail(MILANO, importata, lista) === false, 'importata senza mail di conferma: mai in attesa');
+    esigi(A.sezioneVista(MILANO, importata, lista) === 'presenza', 'e sta nella sua modalita\'');
+    esigi(A.inAttesaConfermaMail(MILANO, dalSito, lista) === true, 'iscritta dal sito e poi toccata da un\'importazione: in attesa');
+    esigi(A.dalModuloDelSito(importata) === false && A.dalModuloDelSito(dalSito) === true,
+        'la regola e\' una sola (dalModuloDelSito)');
+    esigi(A.dalModuloDelSito(riga({ inserito: { da: 'a@x.it' } })) === false
+        && A.dalModuloDelSito(riga({ extra: { Portale: 'Eventbrite' } })) === false
+        && A.dalModuloDelSito(riga()) === true && A.dalModuloDelSito(null) === false,
+        'a mano e da altri portali no, dal sito si\'');
+});
+
+prova('Chi e\' segnato presente non e\' piu\' in attesa', () => {
+    presenze = {};
+    /* E' entrato in sala: chi lo ha accolto l'ha visto. Conta fra chi c'e',
+       confermato o no - e' la regola dei promemoria del servizio. Gli altri
+       stati non bastano: "confermato" e' una telefonata, non una presenza. */
+    const presente = riga();
+    const confermato = riga();
+    const assente = riga();
+    presenze[presente.id] = { stato: 'presente', modalita: 'aderenti' };
+    presenze[confermato.id] = { stato: 'confermato' };
+    presenze[assente.id] = { stato: 'assente' };
+    const lista = [presente, confermato, assente];
+    esigi(A.inAttesaConfermaMail(MILANO, presente, lista) === false, 'presente: non in attesa');
+    esigi(A.sezioneVista(MILANO, presente, lista) === 'aderenti', 'e sta nella sua sezione', A.sezioneVista(MILANO, presente, lista));
+    esigi(A.inAttesaConfermaMail(MILANO, confermato, lista) === true, 'confermato da voi: ancora in attesa della mail');
+    esigi(A.inAttesaConfermaMail(MILANO, assente, lista) === true, 'assente: ancora in attesa');
 });
 
 prova('Dove la conferma non e\' chiesta nessuno e\' mai in attesa', () => {
@@ -294,12 +345,134 @@ prova('Come si legge un valore: lo zero, gli importi, i codici', () => {
     esigi(A.valoreColonnaVisto('Utile netto (EUR)', '-1769584') === '-1.769.584', 'anche negativi',
         A.valoreColonnaVisto('Utile netto (EUR)', '-1769584'));
     esigi(A.valoreColonnaVisto('Utile netto (EUR)', '0') === '0', 'un utile a zero e\' zero');
-    esigi(A.valoreColonnaVisto('Fatturato €', '2500000.5') === '2.500.000,5', 'anche con il simbolo dell\'euro',
+    esigi(A.valoreColonnaVisto('Fatturato €', '2500000') === '2.500.000', 'anche con il simbolo dell\'euro',
+        A.valoreColonnaVisto('Fatturato €', '2500000'));
+    /* Un file .csv salvato da un Excel italiano porta gli importi gia'
+       scritti: "557.044" sono 557 mila euro, non 557 euro e 4 centesimi.
+       Si mostrano com'erano, e cosi' tutto quello che non e' un intero nudo. */
+    esigi(A.valoreColonnaVisto('Utile netto (EUR)', '557.044') === '557.044', 'un importo gia\' scritto all\'italiana resta com\'e\'',
+        A.valoreColonnaVisto('Utile netto (EUR)', '557.044'));
+    esigi(A.valoreColonnaVisto('Utile netto (EUR)', '1.557.044') === '1.557.044', 'anche con due punti',
+        A.valoreColonnaVisto('Utile netto (EUR)', '1.557.044'));
+    esigi(A.valoreColonnaVisto('Utile netto (EUR)', '-114.178') === '-114.178', 'e negativo',
+        A.valoreColonnaVisto('Utile netto (EUR)', '-114.178'));
+    esigi(A.valoreColonnaVisto('Fatturato €', '2500000.5') === '2500000.5', 'un decimale non si indovina: resta com\'e\'',
         A.valoreColonnaVisto('Fatturato €', '2500000.5'));
+    esigi(A.valoreColonnaVisto('Ricavi (EUR)', '1.234,56') === '1.234,56', 'e nemmeno la virgola');
     esigi(A.valoreColonnaVisto('Partita IVA', '09190500968') === '09190500968', 'la partita IVA resta com\'e\', zero davanti');
     esigi(A.valoreColonnaVisto('Codice fiscale', '00123456789') === '00123456789', 'e cosi\' il codice fiscale');
     esigi(A.valoreColonnaVisto('Numero CCIAA', 'MI2074797') === 'MI2074797', 'e il numero CCIAA');
     esigi(A.valoreColonnaVisto('Ricavi (EUR)', 'n.d.') === 'n.d.', 'un importo che non e\' un numero si mostra com\'e\'');
+});
+
+/* ------------------------------------------------------------
+   LA TINTA "DAL MODULO" E' DELLA RIGA
+   ------------------------------------------------------------ */
+
+prova('L\'azzurro "dal modulo" solo sulle righe scritte da chi si iscrive', () => {
+    const dalSito = riga();
+    const vecchioFoglio = riga({ doc: '' });
+    const aMano = riga({ inserito: { da: 'a@x.it', daNome: 'Admin', quando: 1 }, extra: { Portale: 'Eventbrite' } });
+    const portale = riga({ extra: { Portale: 'Eventbrite' } });
+    const importata = riga({ importato: true });
+    const desk = riga({ extra: { Portale: A.PORTALE_DESK } });
+    esigi(A.scrittoDaChiSiIscrive(dalSito) && A.scrittoDaChiSiIscrive(dalSito, true), 'dal sito: dati ed email');
+    esigi(A.scrittoDaChiSiIscrive(vecchioFoglio, true), 'il vecchio foglio raccoglieva gli stessi moduli');
+    esigi(!A.scrittoDaChiSiIscrive(aMano) && !A.scrittoDaChiSiIscrive(aMano, true), 'inserita a mano (Eventbrite): niente azzurro');
+    esigi(!A.scrittoDaChiSiIscrive(portale), 'da un altro portale: niente');
+    esigi(!A.scrittoDaChiSiIscrive(importata), 'caricata con "Importa": niente');
+    esigi(A.scrittoDaChiSiIscrive(desk, true), 'dal QR del desk: il questionario del sito, compilato da lui');
+    esigi(!A.scrittoDaChiSiIscrive(riga({ inserito: { da: 'a@x.it' }, extra: { Portale: A.PORTALE_DESK } })),
+        'ma "Desk (QR)" scritto a mano da voi resta vostro');
+    esigi(!A.scrittoDaChiSiIscrive(null), 'senza riga, niente');
+});
+
+prova('Chi completa i dati dal suo collegamento li ha scritti lui (l\'email no)', () => {
+    /* "Completa i dati" riscrive nome, azienda, ruolo e telefono, ma mai
+       l'email dell'intestatario, che e' l'identita' della scheda; quella
+       degli accompagnatori (~p2, ~p3) si scrive proprio li'. */
+    const compilato = { daNome: 'Mario Rossi', quando: 5 };
+    const intestatario = riga({ doc: 'abc', inserito: { da: 'a@x.it' }, extra: { Portale: 'Eventbrite' }, compilato: compilato });
+    const accompagnatore = riga({ doc: 'abc~p2', extra: { Portale: 'Eventbrite' }, compilato: compilato });
+    esigi(A.scrittoDaChiSiIscrive(intestatario), 'i dati dell\'intestatario: azzurri');
+    esigi(!A.scrittoDaChiSiIscrive(intestatario, true), 'la sua email no: l\'avete scritta voi');
+    esigi(A.scrittoDaChiSiIscrive(accompagnatore) && A.scrittoDaChiSiIscrive(accompagnatore, true),
+        'l\'accompagnatore: dati ed email, scritti nel modulo');
+});
+
+prova('La ragione sociale e\' "del file" solo dove il codice la impone', () => {
+    const conCodice = riga({ invito: { codice: 'AB3K9', azienda: 'AVAS PHARMACEUTICALS S.R.L.', scheda: 's1' } });
+    const napoli = riga({ pagina: 'Napoli 2 Ottobre 2026', invito: { codice: 'ZZ9Q1', azienda: 'BETA SPA', scheda: 's2' } });
+    esigi(A.aziendaDalFileDi(MILANO, conCodice) === true, 'Milano, con il codice: il nome e\' quello del file');
+    esigi(A.aziendaDalFileDi(MILANO, riga()) === false, 'Milano, senza codice: lo ha scritto la persona');
+    esigi(A.aziendaDalFileDi(NAPOLI, napoli) === false, 'Napoli, con il codice: il nome lo ha digitato lui');
+    esigi(A.aziendaDalFileDi(TUTTI, conCodice) === true && A.aziendaDalFileDi(TUTTI, napoli) === false,
+        'nel riepilogo di tutti gli eventi vale l\'evento della riga');
+});
+
+prova('La tabella larga appena c\'e\' una colonna aggiuntiva', () => {
+    /* Con una sola colonna in piu', a 1440px nome, azienda e nota
+       scendevano a una trentina di pixel: la tabella larga scatta subito. */
+    esigi(/const larga = extra\.length > 0;/.test(APP), 'in tabellaIscrizioni: extra.length > 0');
+    esigi(APP.indexOf('COLONNE_PRIMA_DI_SCORRERE') < 0, 'e la vecchia soglia di quattro non c\'e\' piu\'');
+});
+
+/* Il posto in orizzontale e il menu dentro il riquadro: le funzioni vere,
+   con un finto pezzo di pagina - quanto basta a leggerne i conti. */
+const PAGINA = { riquadro: null, ridisegni: 0 };
+const DOM = new Function('window', 'document', 'getComputedStyle', '$vista', 'vistaEventi',
+    [ritaglia('function vistaEventiMantenendoPosto(', '{', '}'),
+        ritaglia('function menuEvNelRiquadro(', '{', '}'),
+        ritaglia('function menuEvFuoriDalRiquadro(', '{', '}')].join('\n')
+    + '\nreturn { vistaEventiMantenendoPosto, menuEvNelRiquadro, menuEvFuoriDalRiquadro };')(
+    { scrollY: 0, scrollTo() { } },
+    { querySelectorAll: s => (s === '.ev-wrap.ev-larga' && PAGINA.riquadro ? [PAGINA.riquadro] : []) },
+    el => ({ paddingBottom: (el && el.base) || '0px' }),
+    () => ({ querySelector: s => (s === '.ev-wrap' ? PAGINA.riquadro : null) }),
+    // il ridisegno: un riquadro NUOVO, che nasce a sinistra come nel browser
+    () => { PAGINA.ridisegni++; PAGINA.riquadro = { scrollLeft: 0, style: { paddingBottom: '' } }; });
+
+prova('La tabella larga resta dov\'era quando si ridisegna', () => {
+    PAGINA.riquadro = { scrollLeft: 640, style: {} };
+    const prima = PAGINA.riquadro;
+    DOM.vistaEventiMantenendoPosto();
+    esigi(PAGINA.ridisegni === 1 && PAGINA.riquadro !== prima, 'il riquadro e\' nuovo');
+    esigi(PAGINA.riquadro.scrollLeft === 640, 'e riparte da dove si era arrivati a destra', PAGINA.riquadro.scrollLeft);
+    PAGINA.riquadro.scrollLeft = 0;
+    DOM.vistaEventiMantenendoPosto();
+    esigi(PAGINA.riquadro.scrollLeft === 0, 'chi era a sinistra resta a sinistra');
+    /* E lo scorrimento DENTRO il riquadro conta come "in movimento": i
+       ridisegni automatici aspettano che si fermi, come per la finestra. */
+    esigi(/querySelector\('\.ev-wrap'\);\s*if \(riquadro\) riquadro\.addEventListener\('scroll', \(\) => \{ _evScorrendoFino = Date\.now\(\) \+ EV_QUIETE_MS; \}/.test(APP),
+        'lo scorrimento del riquadro tiene fermi i ridisegni (_evScorrendoFino)');
+});
+
+prova('Il menu delle ultime righe non resta tagliato dal riquadro', () => {
+    /* Il riquadro largo e' alto 148px dal suo bordo (in cima a 100px, bordo di
+       1px); il menu dell'ultima riga arriva 60px piu' giu': il riquadro si
+       allunga di quanto sporge, piu' un filo, e torna com'era alla chiusura. */
+    const riquadro = { getBoundingClientRect: () => ({ top: 100 }), clientTop: 1, clientHeight: 148, style: { paddingBottom: '' } };
+    PAGINA.riquadro = riquadro;
+    const menu = fondo => ({
+        closest: s => (s === '.ev-wrap.ev-larga' ? riquadro : null),
+        getBoundingClientRect: () => ({ bottom: fondo })
+    });
+    DOM.menuEvNelRiquadro(menu(100 + 1 + 148 + 60));
+    esigi(riquadro.style.paddingBottom === '68px', 'sporge di 60px: il riquadro si allunga di 68', riquadro.style.paddingBottom);
+    DOM.menuEvFuoriDalRiquadro();
+    esigi(riquadro.style.paddingBottom === '', 'chiuso il menu, torna com\'era', riquadro.style.paddingBottom);
+    riquadro.base = '4px';
+    DOM.menuEvNelRiquadro(menu(100 + 1 + 148 + 10.2));
+    esigi(riquadro.style.paddingBottom === '23px', 'sopra il margine che il riquadro ha gia\'', riquadro.style.paddingBottom);
+    DOM.menuEvFuoriDalRiquadro();
+    delete riquadro.base;
+    DOM.menuEvNelRiquadro(menu(100 + 1 + 100));
+    esigi(riquadro.style.paddingBottom === '', 'un menu che sta dentro non tocca niente');
+    // fuori dalla tabella larga il riquadro non taglia: non si fa nulla
+    const altrove = { closest: () => null, getBoundingClientRect: () => ({ bottom: 9999 }) };
+    let errore = null;
+    try { DOM.menuEvNelRiquadro(altrove); DOM.menuEvNelRiquadro(null); } catch (e) { errore = e; }
+    esigi(!errore && riquadro.style.paddingBottom === '', 'fuori dalla tabella larga, e senza menu, niente');
 });
 
 /* ------------------------------------------------------------
@@ -420,6 +593,24 @@ prova('Il testo del CSV: virgolette, punto e virgola, guardia contro le formule'
     esigi(r[2] === '"0";"\'@x";"1234.5"', 'lo zero e\' "0"', r[2]);
     const n = A.testoCsv([['=1+1', '-1769584', '-1+1', '-0.5', '+5']], { numeri: true }).split('\r\n')[0];
     esigi(n === '"\'=1+1";"-1769584";"\'-1+1";"-0.5";"\'+5"', 'con { numeri: true } passano i soli numeri negativi', n);
+});
+
+prova('Il CSV: partita IVA e codice fiscale con lo zero davanti restano testo', () => {
+    /* Nel file della Lombardia l'85% delle partite IVA comincia con 0, ed
+       Excel le virgolette non le rispetta: "09190500968" diventerebbe
+       9190500968. Si scrivono come ="09190500968", che Excel mostra come
+       testo, zeri compresi. Solo per chi lo chiede (l'elenco degli iscritti). */
+    const n = A.testoCsv([['09190500968', '0', '100674810', '-1769584', '00', '0,5', '0.5', '0123A']], { numeri: true }).split('\r\n')[0];
+    esigi(n === '"=""09190500968""";"0";"100674810";"-1769584";"=""00""";"0,5";"0.5";"0123A"',
+        'zero davanti: testo per Excel; lo zero, gli importi e i decimali restano numeri', n);
+    const senza = A.testoCsv([['09190500968']]).split('\r\n')[0];
+    esigi(senza === '"09190500968"', 'senza opzione le altre tabelle restano come erano', senza);
+    // e l'esportazione vera lo chiede: la partita IVA del file arriva cosi' nel CSV
+    const e = elencoMilano();
+    const righe = A.righeCsvIscrizioni(MILANO, e.lista, id => presenze[id] || null);
+    const testo = A.testoCsv(righe, { numeri: true });
+    esigi(testo.indexOf('"=""09190500968"""') >= 0, 'la partita IVA di AVAS nel file esportato, zero compreso');
+    esigi(testo.indexOf('"-1769584"') >= 0, 'e l\'utile negativo resta un numero, senza apice');
 });
 
 console.log('\nL\'elenco degli iscritti: attesa della conferma, colonne dal file, esportazione\n');
