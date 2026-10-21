@@ -1958,6 +1958,10 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    cose da sistemare a mano - da qui non si tocca nessuno di loro. */
 .ed-attenzione { color: var(--ambra); }
 .ed-ok { color: var(--verde); }
+/* Chi chiede la sala e aspetta ancora la conferma dell'email, fuori
+   dall'elenco: un blocco suo sotto gli ospiti in sala, con la frase che
+   spiega perche' sta a parte - ambra come la sua sezione. */
+.ed-attesa-testa { margin: 14px 0 8px; font-size: 0.88rem; }
 .ed-mancanti {
     list-style: none; margin: 8px 0 0; padding: 0; max-height: 22vh; overflow-y: auto;
     border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: var(--bianco);
@@ -2609,7 +2613,11 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    AZZURRO quello che ha scritto la persona nel modulo di iscrizione (nome,
    ruolo, email, telefono, le preferenze e le colonne del modulo), VERDE quello
    che viene dal file delle aziende invitate: le colonne del file, e la
-   ragione sociale di chi e' arrivato con il codice, che il modulo blocca. Il
+   ragione sociale di chi e' arrivato con il codice dove il modulo la blocca
+   (Milano 2027). L'azzurro nelle CELLE e' della riga, non solo della
+   colonna: lo hanno le sole righe scritte da chi si iscrive, non quelle
+   inserite da chi organizza, arrivate da altri portali o da un file (app.js,
+   scrittoDaChiSiIscrive); le intestazioni restano tinte comunque. Il
    verde e' quello del codice invito accanto al nome: stessa campagna, stessa
    tinta. Le colonne di chi organizza (sezione, stato, nota, firma) restano
    bianche: sono le piu' lette, e una tinta le farebbe sembrare un dato come
@@ -2644,19 +2652,22 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 }
 .ev-legenda-voce.ev-col-modulo::before { background: var(--tinta-modulo-testa); border-color: var(--tinta-modulo-segno); }
 .ev-legenda-voce.ev-col-file::before { background: var(--tinta-file-testa); border-color: var(--tinta-file-segno); }
-/* LA TABELLA LARGA. Con piu' di quattro colonne aggiuntive (app.js,
-   COLONNE_PRIMA_DI_SCORRERE) la regola "tutta nella pagina, senza barra"
-   non si tiene piu': con le diciotto colonne del file e le altre insieme,
-   a larghezza fissa ogni colonna resterebbe di pochi pixel e il testo
-   andrebbe a capo lettera per lettera. Allora ogni colonna senza misura
-   propria - nome, azienda, nota, l'evento e le aggiuntive - ne riceve una
-   leggibile, la tabella diventa larga quanto la somma (con table-layout:
-   fixed vince la piu' grande fra la larghezza dichiarata e quella delle
-   colonne) e scorre in orizzontale dentro il suo riquadro.
+/* LA TABELLA LARGA. Appena si sceglie una colonna aggiuntiva (app.js,
+   tabellaIscrizioni) la regola "tutta nella pagina, senza barra" non si
+   tiene piu': le colonne fisse sono gia' tante, e a larghezza fissa nome,
+   azienda, nota e le colonne nuove scenderebbero a una trentina di pixel -
+   con le diciotto del file a pochi - e il testo andrebbe a capo lettera per
+   lettera. Allora ogni colonna senza misura propria - nome, azienda, nota,
+   l'evento e le aggiuntive - ne riceve una leggibile, la tabella diventa
+   larga quanto la somma (con table-layout: fixed vince la piu' grande fra
+   la larghezza dichiarata e quella delle colonne) e scorre in orizzontale
+   dentro il suo riquadro. Se la somma sta nella pagina, lo spazio che
+   avanza si divide fra le colonne come prima, e la barra non compare.
    Il prezzo, accettato: l'intestazione resta appiccicata al riquadro e non
-   piu' alla finestra, e il menu delle ultime righe si legge scorrendo il
-   riquadro. Solo a video largo: sotto i 1200px le righe sono gia' schede, e
-   su carta valgono le percentuali della stampa. */
+   piu' alla finestra. Il menu delle ultime righe, che il riquadro
+   taglierebbe, si fa spazio allungandolo finche' resta aperto (app.js).
+   Solo a video largo: sotto i 1200px le righe sono gia' schede, e su carta
+   valgono le percentuali della stampa. */
 @media screen and (min-width: 1201px) {
     .ev-wrap.ev-larga { overflow-x: auto; }
     .ev-wrap.ev-larga col.c-nome { width: 150px; }

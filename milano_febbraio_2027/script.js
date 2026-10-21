@@ -465,6 +465,13 @@ document.addEventListener('DOMContentLoaded', () => {
         .replace(/[IL]/g, '1').replace(/O/g, '0').slice(0, 5);
     let statoCodice = { valore: '', esito: 'vuoto', azienda: '' };
     let aziendaDalCodice = false;
+    /* Un controllo del codice fallito per la rete ('ignoto') si riprova UNA
+       volta all'invio: se il servizio ora risponde, il campo dell'azienda si
+       blocca col nome dell'invito come deve. Una volta sola, perche' un
+       servizio che continua a non rispondere non tenga ferma l'iscrizione
+       (il codice lo ricontrolla comunque il server). Si riazzera quando il
+       codice cambia. */
+    let codiceRiprovato = false;
 
     /* Il campo fermo si deve VEDERE fermo, non solo esserlo: con lo stesso
        aspetto degli altri, chi prova a correggere la ragione sociale pensa
@@ -532,6 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     campoCodice.addEventListener('blur', () => { verificaInvito(); });
     campoCodice.addEventListener('input', () => {
+        codiceRiprovato = false;
         const c = ripulisci(campoCodice.value);
         if (campoCodice.value !== c) campoCodice.value = c;
         if (c.length === 5) verificaInvito();
@@ -711,9 +719,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (primo) { vaiA(primo); return; }
 
         // il codice invito, se c'e', deve essere buono: lo si verifica adesso se non lo e' ancora
+        // (e se il controllo era fallito per la rete, lo si riprova una volta)
         const codice = ripulisci(campoCodice.value);
-        if (codice && statoCodice.esito !== 'buono' && statoCodice.esito !== 'ignoto') {
+        if (codice && statoCodice.esito !== 'buono' && (statoCodice.esito !== 'ignoto' || !codiceRiprovato)) {
+            if (statoCodice.esito === 'ignoto') codiceRiprovato = true;
+            // pulsante fermo mentre si controlla: un secondo clic partirebbe senza aspettare
+            inAttesa(true);
             verificaInvito().then(buono => {
+                inAttesa(false);
                 if (buono) { if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true })); }
                 else vaiA(campoCodice);
             });
@@ -759,9 +772,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 erroreInvio.textContent = msg;
                 return;
             }
+            /* L'azienda e' quella che il servizio ha SCRITTO: con un codice
+               invito e' la ragione sociale dell'invito, anche se il campo era
+               rimasto libero (un controllo del codice fallito per la rete).
+               La schermata deve dire quello che diranno la mail e l'elenco. */
             riempiConferma({
                 nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
-                azienda: valore('azienda'), telefono: verificato.numero
+                azienda: (d && d.azienda) || valore('azienda'), telefono: verificato.numero
             });
             if (d.stato && d.stato.d && d.stato.t) seguiStato(d.stato, valore('nome'));
             form.hidden = true;
