@@ -82,9 +82,13 @@ function moduloConferma() { return require('./conferma-email'); }
 /* Gli eventi con le iscrizioni verificate. `se` riconosce la pagina del
    modulo ("Milano 26 Febbraio 2027 - Iscrizione") e anche il titolo corto
    delle iscrizioni inserite a mano dall'area riservata. `chiave` e' il nome
-   stabile con cui l'evento entra nei documenti di unicita'. */
+   stabile con cui l'evento entra nei documenti di unicita', ed e' lo stesso
+   identificativo dell'evento nella sezione Eventi dell'area riservata:
+   quello dei documenti delle presenze ("evento~idIscritto"). `fine` e' la
+   fine dell'evento (ora di Milano): dopo, il giro automatico delle mail di
+   conferma (lib/giro-conferme.js) non riprova e non ricorda piu' niente. */
 const EVENTI = [
-    { chiave: 'milano-2027-02-26', se: /^milano 26 febbraio 2027/i, nome: 'Milano' }
+    { chiave: 'milano-2027-02-26', se: /^milano 26 febbraio 2027/i, nome: 'Milano', fine: Date.parse('2027-02-26T18:00:00+01:00') }
 ];
 function eventoDi(pagina) {
     const p = String(pagina || '').trim();

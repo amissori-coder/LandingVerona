@@ -339,11 +339,23 @@ function confermata(scheda) {
 function inAttesaDiConferma(scheda, presenza) {
     if (!scheda || scheda.annullato) return false;
     if (!String(scheda.email || '').trim()) return false;
-    if (scheda.inserito) return false;
-    if (scheda.extra && scheda.extra.Portale) return false;
-    if (scheda.importato && !scheda.mailConferma) return false;
+    if (!dalModuloDelSito(scheda)) return false;
     if (presenza && String(presenza.stato || '') === 'presente') return false;
     return !confermata(scheda);
+}
+/* DAL MODULO DEL SITO: la scheda a cui la mail con il pulsante e' partita
+   da se', con l'iscrizione. Non lo sono quelle inserite a mano
+   (`inserito`), quelle di un altro portale o del desk (`extra.Portale`) e
+   quelle importate (`importato` senza `mailConferma`). La stessa regola
+   dell'area riservata (app.js, dalModuloDelSito). Per questo un rinvio
+   dallo staff a una di quelle non scrive `mailConferma` (spedisciConferma,
+   `traccia: false`): la farebbe diventare, da li' in poi, una scheda del
+   sito in attesa di conferma. */
+function dalModuloDelSito(scheda) {
+    if (!scheda) return false;
+    if (scheda.inserito || (scheda.extra && scheda.extra.Portale)) return false;
+    if (scheda.importato && !scheda.mailConferma) return false;
+    return true;
 }
 
 /* ============================================================
@@ -391,12 +403,17 @@ function statoMail(scheda) {
 }
 
 /* Spedisce la mail di conferma di una scheda e scrive com'e' andata.
-   opz: { via, bcc, attesa, riprova }. `via` dice chi l'ha fatta partire
-   (VIE), `bcc` la copia nascosta a chi la rimanda dall'area riservata,
-   `attesa` rimette la bandiera per il giro automatico (chi rimanda una mail
-   a chi deve ancora confermare vuole anche il promemoria del giorno dopo),
-   `riprova: false` toglie il secondo tentativo (al giro automatico non
-   serve: riprova lui, con le sue pause, e il suo tempo e' contato).
+   opz: { via, bcc, attesa, riprova, traccia }. `via` dice chi l'ha fatta
+   partire (VIE), `bcc` la copia nascosta a chi la rimanda dall'area
+   riservata, `attesa` rimette la bandiera per il giro automatico (chi
+   rimanda una mail a chi deve ancora confermare vuole anche il promemoria
+   del giorno dopo), `riprova: false` toglie il secondo tentativo (al giro
+   automatico non serve: riprova lui, con le sue pause, e il suo tempo e'
+   contato). `traccia: false` (lo staff che la rimanda a una scheda che non
+   viene dal modulo del sito, vedi dalModuloDelSito) non scrive ne'
+   `mailConferma` ne' `invioConferma` ne' la bandiera, che di quella scheda
+   farebbero una "in attesa di conferma": com'e' andata resta solo in
+   `mailConfermaStaff`, che nessuna regola legge.
    Restituisce { ok, errore, a } e non lancia mai: se la traccia non si
    scrive la mail e' gia' partita, o gia' fallita. */
 async function spedisciConferma(db, idDoc, scheda, opz) {
@@ -433,20 +450,25 @@ async function spedisciConferma(db, idDoc, scheda, opz) {
     }
     if (!esito.ok) console.error('Mail di conferma (' + via + ') non inviata:', esito.errore);
     const quando = Date.now();
-    /* i conti di prima, per questo indirizzo; una scheda di prima del conto
-       ha solo mailConferma, che vale un tentativo (fallito o no) */
-    const mPrima = mailPerIndirizzo(scheda);
-    const prima = invioPerIndirizzo(scheda) || (mPrima ? { tentativi: 1, falliti: mPrima.ok === true ? 0 : 1 } : {});
-    const patch = {
-        mailConferma: { quando: quando, ok: esito.ok === true, errore: testo(esito.errore, 200), via: via, a: a },
-        invioConferma: {
-            a: a, ultimo: quando,
-            tentativi: (Number(prima.tentativi) || 0) + 1,
-            // i fallimenti DI FILA: un invio riuscito li azzera (il giro li usa per le pause)
-            falliti: esito.ok ? 0 : (Number(prima.falliti) || 0) + 1
-        }
-    };
-    if (opz.attesa) patch.confermaInAttesa = true;
+    let patch;
+    if (opz.traccia === false) {
+        patch = { mailConfermaStaff: { quando: quando, ok: esito.ok === true, errore: testo(esito.errore, 200), via: via, a: a } };
+    } else {
+        /* i conti di prima, per questo indirizzo; una scheda di prima del conto
+           ha solo mailConferma, che vale un tentativo (fallito o no) */
+        const mPrima = mailPerIndirizzo(scheda);
+        const prima = invioPerIndirizzo(scheda) || (mPrima ? { tentativi: 1, falliti: mPrima.ok === true ? 0 : 1 } : {});
+        patch = {
+            mailConferma: { quando: quando, ok: esito.ok === true, errore: testo(esito.errore, 200), via: via, a: a },
+            invioConferma: {
+                a: a, ultimo: quando,
+                tentativi: (Number(prima.tentativi) || 0) + 1,
+                // i fallimenti DI FILA: un invio riuscito li azzera (il giro li usa per le pause)
+                falliti: esito.ok ? 0 : (Number(prima.falliti) || 0) + 1
+            }
+        };
+        if (opz.attesa) patch.confermaInAttesa = true;
+    }
     try {
         await db.collection('iscrizioni').doc(String(idDoc)).set(patch, { merge: true });
     } catch (e) { /* informazione, non condizione */ }
@@ -463,10 +485,39 @@ async function spedisciConferma(db, idDoc, scheda, opz) {
    freno un pulsante premuto a ripetizione, o un modulo compilato da un
    altro con il suo indirizzo, gliene manderebbe una dietro l'altra.
    Restituisce { esito, ... }: 'inviata' (con `a`), 'errore', 'attesa' e
-   'troppi' (con `attesa` in secondi), 'confermata', 'assente', 'fuori'. */
+   'troppi' (con `attesa` in secondi; 'attesa' anche con `ultimoOk`, se
+   l'ultimo invio e' partito o no), 'confermata', 'assente', 'fuori'. */
 const RIMANDA_PAUSA_MS = 2 * 60 * 1000;
 const RIMANDA_MAX_GIORNO = 5;
 const GIORNO_MS = 24 * 60 * 60 * 1000;
+/* Il freno, senza scrivere niente: lo usano il rinvio (qui sotto) e lo
+   stato che la pagina rilegge ("stato-iscrizione", attesaRimanda), cosi'
+   il conto alla rovescia del pulsante e il servizio non si contraddicono.
+   Restituisce { esito, attesa, ultimoOk, invii }: esito '' se si puo'
+   rimandare adesso, 'troppi' se i rinvii del giorno sono finiti (attesa:
+   fino a quando se ne libera uno, e almeno la pausa), 'attesa' se l'ultimo
+   invio a questo indirizzo - qualunque invio, anche quello
+   dell'iscrizione o del giro, riuscito o no - e' di meno di due minuti fa. */
+function frenoRimanda(x, ora) {
+    // l'ultimo invio a questo indirizzo (le schede di prima hanno solo mailConferma)
+    const m = mailPerIndirizzo(x);
+    const inv = invioPerIndirizzo(x);
+    const ultimo = inv ? Number(inv.ultimo) || 0 : Number((m || {}).quando) || 0;
+    const pausa = ultimo && ora - ultimo < RIMANDA_PAUSA_MS ? Math.ceil((RIMANDA_PAUSA_MS - (ora - ultimo)) / 1000) : 0;
+    const rr = x && x.rimandaConferma && typeof x.rimandaConferma === 'object' ? x.rimandaConferma : {};
+    const invii = (Array.isArray(rr.invii) ? rr.invii : []).map(Number).filter(t => t && ora - t < GIORNO_MS);
+    const ultimoOk = !!(m && m.ok === true);
+    if (invii.length >= RIMANDA_MAX_GIORNO) {
+        const tetto = Math.max(1, Math.ceil((Math.min.apply(null, invii) + GIORNO_MS - ora) / 1000));
+        return { esito: 'troppi', attesa: Math.max(tetto, pausa), ultimoOk: ultimoOk, invii: invii };
+    }
+    if (pausa) return { esito: 'attesa', attesa: pausa, ultimoOk: ultimoOk, invii: invii };
+    return { esito: '', attesa: 0, ultimoOk: ultimoOk, invii: invii };
+}
+/* Fra quanti secondi la persona puo' chiedere un'altra mail (0: adesso). */
+function attesaRimanda(x, ora) {
+    return frenoRimanda(x || {}, ora == null ? Date.now() : ora).attesa;
+}
 async function rimandaConferma(db, idDoc, opz) {
     opz = opz || {};
     const rif = db.collection('iscrizioni').doc(String(idDoc));
@@ -478,18 +529,9 @@ async function rimandaConferma(db, idDoc, opz) {
         if (confermata(x)) return { esito: 'confermata' };
         // gli eventi che chiedono la conferma: la regola sta in iscrizione-verificata
         if (!require('./iscrizione-verificata').eventoDi(x.pagina) || !inAttesaDiConferma(x)) return { esito: 'fuori' };
-        // l'ultimo invio a questo indirizzo (le schede di prima hanno solo mailConferma)
-        const inv = invioPerIndirizzo(x);
-        const ultimo = inv ? Number(inv.ultimo) || 0 : Number((mailPerIndirizzo(x) || {}).quando) || 0;
-        if (ultimo && ora - ultimo < RIMANDA_PAUSA_MS) {
-            return { esito: 'attesa', attesa: Math.ceil((RIMANDA_PAUSA_MS - (ora - ultimo)) / 1000) };
-        }
-        const rr = x.rimandaConferma && typeof x.rimandaConferma === 'object' ? x.rimandaConferma : {};
-        const invii = (Array.isArray(rr.invii) ? rr.invii : []).map(Number).filter(t => t && ora - t < GIORNO_MS);
-        if (invii.length >= RIMANDA_MAX_GIORNO) {
-            return { esito: 'troppi', attesa: Math.max(1, Math.ceil((Math.min.apply(null, invii) + GIORNO_MS - ora) / 1000)) };
-        }
-        invii.push(ora);
+        const f = frenoRimanda(x, ora);
+        if (f.esito) return { esito: f.esito, attesa: f.attesa, ultimoOk: f.ultimoOk };
+        const invii = f.invii.concat([ora]);
         tx.set(rif, { rimandaConferma: { invii: invii, ultimo: ora } }, { merge: true });
         return { esito: 'ok', scheda: x };
     });
@@ -499,7 +541,7 @@ async function rimandaConferma(db, idDoc, opz) {
 }
 
 module.exports = {
-    conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, RL_MAX,
-    spedisciConferma, rimandaConferma, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio,
+    conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
+    spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio,
     RIMANDA_PAUSA_MS, RIMANDA_MAX_GIORNO
 };

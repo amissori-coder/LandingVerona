@@ -42,12 +42,24 @@
      - un campo nascosto (`sito`) che una persona non vede e un robot
        riempie: se c'e' qualcosa si risponde "ok" e non succede niente;
      - il tempo: un modulo spedito meno di tre secondi dopo l'apertura
-       (`ms`) non l'ha compilato una persona. Stessa risposta finta;
+       (`ms`) e' troppo presto. Qui la risposta NON e' finta: un browser
+       che rimette i campi gia' scritti (il tasto indietro, una pagina
+       ricaricata) lo fa anche a una persona, che deve saperlo e premere di
+       nuovo - un "ok" finto le farebbe credere spedita una domanda persa;
      - la casella "non sono un robot" di Turnstile (lib/captcha.js), con
        l'azione 'domanda-sito';
      - cinque domande al giorno per indirizzo email (un contatore in
        `domandeSitoLimiti`, per impronta dell'indirizzo);
      - il freno per indirizzo IP di iscrizione-nuova.js.
+
+   L'INDIRIZZO E' SOLO UN INDIRIZZO: lettere, cifre e . _ % + ' - prima
+   della chiocciola, un dominio dopo, niente spazi, virgolette, < > , ; :
+   ( ) [ ] o barre. Con "testo<vittima@altro.it>" il server di posta
+   leggerebbe un nome (il testo) e un indirizzo: la ricevuta partirebbe
+   per l'altro con il nostro mittente e quel testo in vista, e ogni testo
+   diverso conterebbe come un indirizzo nuovo nelle cinque al giorno. Il
+   contatore, poi, conta l'indirizzo nella forma che arriva alla stessa
+   casella: senza "+qualcosa" e, per Gmail, senza i punti.
    ============================================================ */
 
 const crypto = require('crypto');
@@ -106,8 +118,25 @@ function testoLungo(v) {
 function esc(x) {
     return String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
 }
+/* Un indirizzo nudo, gia' in minuscolo e senza spazi intorno (vedi in cima):
+   e' quello che va al contatore, al "Rispondi" e alla ricevuta. */
 function indirizzoValido(e) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e || ''));
+    return /^[a-z0-9._%+'-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(String(e || ''));
+}
+/* La forma con cui si contano le domande di un indirizzo: quella che arriva
+   alla stessa casella. "lucia+1@studio.it" e "lucia+2@..." sono
+   lucia@studio.it; per Gmail anche i punti non contano ("l.u.c.i.a@gmail.com")
+   e googlemail.com e' gmail.com. */
+function formaPerContare(email) {
+    const e = String(email || '').toLowerCase();
+    const i = e.lastIndexOf('@');
+    if (i < 1) return e;
+    let locale = e.slice(0, i);
+    let dominio = e.slice(i + 1);
+    locale = locale.split('+')[0] || locale;
+    if (dominio === 'googlemail.com') dominio = 'gmail.com';
+    if (dominio === 'gmail.com') locale = locale.replace(/\./g, '') || locale;
+    return locale + '@' + dominio;
 }
 // come in iscrizione-nuova.js: true, false, oppure null se il campo non c'e'
 function consenso(v) {
@@ -165,9 +194,10 @@ function quandoLeggibile(ms) {
 }
 
 /* Il contatore per indirizzo, nella giornata italiana. Il nome del
-   documento e' un'impronta: l'indirizzo non ci sta scritto. */
+   documento e' un'impronta: l'indirizzo non ci sta scritto. L'indirizzo e'
+   contato nella sua forma per contare (formaPerContare). */
 async function prenotaDelGiorno(db, email) {
-    const rif = db.collection('domandeSitoLimiti').doc(crypto.createHash('sha256').update('domanda|' + email).digest('hex').slice(0, 40));
+    const rif = db.collection('domandeSitoLimiti').doc(crypto.createHash('sha256').update('domanda|' + formaPerContare(email)).digest('hex').slice(0, 40));
     const oggi = giornoItaliano(Date.now());
     return db.runTransaction(async tx => {
         const s = await tx.get(rif);
@@ -235,7 +265,9 @@ async function controlloMail(db, email) {
             const detto = {
                 inviata: 'RIMANDATA ADESSO in automatico a ' + (r.a || email),
                 errore: 'rimandata adesso, ma il server di posta non l\'ha presa: ' + testo(r.errore, 200) + ' (il giro automatico riprova)',
-                attesa: 'non rimandata adesso: era appena partita (fra ' + r.attesa + ' secondi si può)',
+                attesa: r.ultimoOk === false
+                    ? 'non rimandata adesso: l\'ultimo tentativo, appena fatto, non è partito (il giro automatico riprova; fra ' + r.attesa + ' secondi si può)'
+                    : 'non rimandata adesso: era appena partita (fra ' + r.attesa + ' secondi si può)',
                 troppi: 'non rimandata adesso: oggi è già stata rimandata 5 volte'
             }[r.esito] || ('non rimandata (' + r.esito + ')');
             blocco.righe.push(['Rinvio', detto]);
@@ -334,16 +366,19 @@ function mailRicevuta(r) {
    chiunque. opz: { ip } per Turnstile. Restituisce { stato, corpo }. */
 async function ricevi(db, corpo, opz) {
     const c = corpo || {};
-    // i due freni silenziosi: a un robot si risponde come a una persona
+    // il freno silenzioso: a un robot si risponde come a una persona
     if (testo(c.sito, 200)) return { stato: 200, corpo: { ok: true } };
+    /* troppo presto: lo si dice (vedi in cima). Niente si salva e il
+       gettone di Turnstile non si consuma: si controlla dopo */
     const ms = Number(c.ms);
     if (!(ms >= MIN_MS)) {
-        console.warn('Domanda dal sito scartata: modulo spedito dopo ' + (isFinite(ms) ? Math.round(ms) : '?') + ' ms.');
-        return { stato: 200, corpo: { ok: true } };
+        console.warn('Domanda dal sito respinta: modulo spedito dopo ' + (isFinite(ms) ? Math.round(ms) : '?') + ' ms.');
+        return { stato: 400, corpo: { ok: false, msg: 'Attendi un attimo e premi di nuovo «Invia la domanda».' } };
     }
 
     const nome = testo(c.nome, 80);
     const cognome = testo(c.cognome, 80);
+    // la forma nuda e minuscola: e' questa che va al contatore, al "Rispondi" e alla ricevuta
     const email = testo(c.email, 200).toLowerCase();
     const tema = voce(TEMI, c.tema);
     const evento = tema === 'eventi' ? voce(EVENTI, c.evento) : '';
@@ -443,4 +478,4 @@ async function ricevi(db, corpo, opz) {
     return { stato: 200, corpo: { ok: true } };
 }
 
-module.exports = { ricevi, destinatari, mailInterna, mailRicevuta, TEMI, EVENTI, MOTIVI, MAX_AL_GIORNO };
+module.exports = { ricevi, destinatari, mailInterna, mailRicevuta, indirizzoValido, formaPerContare, TEMI, EVENTI, MOTIVI, MAX_AL_GIORNO };

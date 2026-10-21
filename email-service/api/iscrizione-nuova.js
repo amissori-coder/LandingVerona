@@ -1668,10 +1668,12 @@ module.exports = async (req, res) => {
            dopo l'invio e, quando la persona conferma l'email (anche da un altro
            dispositivo), cambia da sola "manca un passo" in "iscrizione
            confermata". Firmato (NL.firmaStato, reso all'invio) e di sola
-           lettura: tre si'/no e com'e' andata la mail di conferma ('inviata',
+           lettura: tre si'/no, com'e' andata la mail di conferma ('inviata',
            'errore' se l'ultimo invio non e' partito - riprova il giro
-           automatico - o 'in-attesa' se non ne risulta ancora nessuno),
-           niente dati. */
+           automatico - o 'in-attesa' se non ne risulta ancora nessuno) e
+           `attesaRimanda`, i secondi che mancano prima che il pulsante
+           "rimandala" possa chiederne un'altra (0: adesso), con lo stesso
+           freno di "rimanda-conferma". Niente dati. */
         if (azione === 'stato-iscrizione') {
             const idS = testo(body.d, 400);
             if (!idS || !NL.firmaStatoValida(idS, testo(body.t, 80))) { res.status(403).json({ ok: false }); return; }
@@ -1684,7 +1686,8 @@ module.exports = async (req, res) => {
                 emailConfermata: !!(x.emailConfermata && x.emailConfermata.quando),
                 invito: !!(x.mailInvito && x.mailInvito.ok),
                 annullato: !!x.annullato,
-                mail: CONFERMA.statoMail(x)
+                mail: CONFERMA.statoMail(x),
+                attesaRimanda: CONFERMA.attesaRimanda(x)
             });
             return;
         }
@@ -1692,7 +1695,9 @@ module.exports = async (req, res) => {
            stessa firma di "stato-iscrizione" (la pagina la tiene gia'), stessa
            mail con il pulsante, e il freno sulla scheda (lib/conferma-email.js,
            rimandaConferma). Risponde l'indirizzo a cui e' partita, perche' chi
-           lo ha scritto male se ne accorga leggendolo. */
+           lo ha scritto male se ne accorga leggendolo. Dentro i due minuti
+           dall'ultimo invio il messaggio dice com'e' andato: "ti abbiamo
+           appena mandato la mail" solo se e' partita davvero. */
         if (azione === 'rimanda-conferma') {
             const idR = testo(body.d, 400);
             if (!idR || !NL.firmaStatoValida(idR, testo(body.t, 80))) { res.status(403).json({ ok: false }); return; }
@@ -1705,7 +1710,12 @@ module.exports = async (req, res) => {
                 res.status(200).json({ ok: false, confermata: true, msg: 'Il tuo indirizzo risulta già confermato: non serve un\'altra mail.' }); return;
             }
             if (r.esito === 'attesa') {
-                res.status(429).json({ ok: false, attesa: r.attesa, msg: 'Ti abbiamo appena mandato la mail: per chiederne un\'altra aspetta ' + r.attesa + ' secondi. Intanto guarda anche nelle cartelle Spam, Posta indesiderata e Promozioni.' }); return;
+                res.status(429).json({
+                    ok: false, attesa: r.attesa,
+                    msg: r.ultimoOk
+                        ? 'Ti abbiamo appena mandato la mail: per chiederne un\'altra aspetta ' + r.attesa + ' secondi. Intanto guarda anche nelle cartelle Spam, Posta indesiderata e Promozioni.'
+                        : 'Abbiamo appena provato a spedirti la mail e riproviamo in automatico: per chiederne un\'altra aspetta ' + r.attesa + ' secondi.'
+                }); return;
             }
             if (r.esito === 'troppi') {
                 res.status(429).json({ ok: false, attesa: r.attesa, msg: 'Per oggi ti abbiamo già rimandato la mail più volte: cercala nelle cartelle Spam, Posta indesiderata e Promozioni.' + PIU }); return;
@@ -2085,10 +2095,13 @@ module.exports = async (req, res) => {
            mail (anche fra la posta indesiderata) e dove chiederne un'altra; se
            la mail non e' partita, che l'iscrizione c'e' e si riprova da soli.
            Mai al desk (non c'e' un numero verificato) ne' a Napoli. Non ferma
-           niente: un SMS che non parte resta scritto sulla scheda, e basta. */
+           niente: un SMS che non parte resta scritto sulla scheda, e basta.
+           Com'e' andato torna anche alla pagina (vedi la risposta, in fondo). */
+        const smsTipo = esitoMail && esitoMail.ok ? 'inviata' : 'non-inviata';
+        let esitoSms = null;
         if (evVerificato && numeroVerificato && esitoMail) {
-            await VERIFICATA.smsConfermaEmail(admin.firestore(), {
-                idDoc: idDoc, numero: numeroVerificato, email: email, tipo: esitoMail.ok ? 'inviata' : 'non-inviata'
+            esitoSms = await VERIFICATA.smsConfermaEmail(admin.firestore(), {
+                idDoc: idDoc, numero: numeroVerificato, email: email, tipo: smsTipo
             });
         }
 
@@ -2122,8 +2135,15 @@ module.exports = async (req, res) => {
            E l'azienda come e' stata scritta: con il codice e' quella
            dell'invito, non per forza quella che c'era nel campo (una
            verifica del codice andata a vuoto lo lascia libero), e la
-           conferma a video deve dire la stessa della mail e dell'elenco. */
-        res.status(200).json(evVerificato ? { ok: true, azienda: scheda.azienda, stato: { d: idDoc, t: NL.firmaStato(idDoc) } } : { ok: true });
+           conferma a video deve dire la stessa della mail e dell'elenco.
+           Poi l'SMS: `sms` vero solo se l'SMS "conferma la tua email" e'
+           partito davvero (tetto del giorno, Brevo giu': la pagina non deve
+           dire di cercarne uno che non c'e'), e `smsTipo` quale dei due testi
+           - 'inviata' se la mail e' partita, 'non-inviata' se no. */
+        res.status(200).json(evVerificato ? {
+            ok: true, azienda: scheda.azienda, stato: { d: idDoc, t: NL.firmaStato(idDoc) },
+            sms: !!(esitoSms && esitoSms.ok === true), smsTipo: smsTipo
+        } : { ok: true });
     } catch (e) {
         // il visitatore non deve vedere dettagli tecnici: restano nei log
         console.error('Iscrizione non registrata:', String((e && e.message) || e).slice(0, 200));

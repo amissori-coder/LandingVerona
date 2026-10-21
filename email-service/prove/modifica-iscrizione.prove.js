@@ -38,7 +38,10 @@
      - "Rimanda la mail di conferma" (richiedi-conferma-email) riscrive
        la traccia della mail - un "mail non inviata" vecchio sparisce - e
        a Milano manda l'SMS "conferma la tua email" al cellulare
-       verificato; a Napoli niente SMS.
+       verificato; a Napoli niente SMS. A una scheda che non viene dal
+       modulo del sito (importata, inserita a mano) la mail parte, ma
+       senza la traccia del sito, la bandiera e l'SMS: non diventa "in
+       attesa di conferma", nemmeno al secondo rinvio.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -417,7 +420,8 @@ prova('Il giro delle mail di conferma: la bandiera segue la scheda, e un indiriz
     esigi(s.confermaInAttesa === true, 'indirizzo nuovo, a Milano: la scheda entra (o resta) nel giro automatico');
     esigi(s.mailConferma && s.mailConferma.ok === true && s.mailConferma.a === 'bruno@alfa.it', 'la mail partita resta scritta, con l\'indirizzo vecchio', JSON.stringify(s.mailConferma));
     esigi(!('invioConferma' in s) && !('smsConferma' in s) && !('rimandaConferma' in s), 'i conti dell\'indirizzo vecchio restano indietro');
-    esigi(CONF.statoMail(s) === 'in-attesa' && GIRO.cosaFare(s, Date.now()).fare === 'invia', 'per il nuovo indirizzo non e\' partito niente: il giro la manda');
+    // un momento fisso prima dell'evento: dopo la sua fine il giro non manda piu' niente
+    esigi(CONF.statoMail(s) === 'in-attesa' && GIRO.cosaFare(s, Date.parse('2027-01-20T10:00:00+01:00')).fare === 'invia', 'per il nuovo indirizzo non e\' partito niente: il giro la manda');
 
     // Anna aveva confermato: il nuovo indirizzo no, e la bandiera si accende anche senza esserci prima
     scenario();
@@ -472,6 +476,48 @@ prova('"Rimanda la mail di conferma" dall\'area riservata: la traccia si aggiorn
     const n = await chiama({ azione: 'richiedi-conferma-email', evento: 'napoli', idIscritto: N });
     esigi(n.corpo.ok && n.corpo.sms && n.corpo.sms.inviato === false && sms.length === 0 && spedite.length === 1, 'a Napoli la mail riparte, senza SMS', JSON.stringify(n.corpo));
     esigi(!('confermaInAttesa' in (scheda(N) || {})), 'e niente giro automatico');
+});
+
+prova('"Rimanda la mail di conferma" a un\'importata o a un\'inserita a mano: la mail parte, ma la scheda non diventa "in attesa"', async () => {
+    scenario();
+    // Ida, caricata con "Importa" (e un cellulare, per vedere che l'SMS non parte)
+    dati.set('iscrizioni/' + idScheda(I), Object.assign({}, scheda(I), { telefonoNumero: '+393339998888' }));
+    esigi(CONF.dalModuloDelSito(scheda(I)) === false && CONF.inAttesaDiConferma(scheda(I)) === false, 'prima: importata, non in attesa');
+    const r = await chiama({ azione: 'richiedi-conferma-email', evento: EV, idIscritto: I });
+    let i = scheda(I);
+    esigi(r.stato === 200 && r.corpo.ok && spedite.length === 1 && spedite[0].to === 'ida@gamma.it' && /Richiesta di conferma/.test(spedite[0].subject),
+        'la mail con il pulsante parte', JSON.stringify(r.corpo));
+    esigi(!('mailConferma' in i) && !('invioConferma' in i) && !('confermaInAttesa' in i), 'ma la scheda non prende la traccia del sito, ne\' la bandiera', JSON.stringify(Object.keys(i)));
+    esigi(i.mailConfermaStaff && i.mailConfermaStaff.ok === true && i.mailConfermaStaff.via === 'staff' && i.mailConfermaStaff.a === 'ida@gamma.it',
+        'com\'e\' andata resta scritto a parte', JSON.stringify(i.mailConfermaStaff));
+    esigi(CONF.inAttesaDiConferma(i) === false && CONF.dalModuloDelSito(i) === false, 'dopo: ancora non in attesa (conta in sala, riceve i promemoria)');
+    esigi(sms.length === 0 && r.corpo.sms && r.corpo.sms.inviato === false, 'e nessun SMS "conferma la tua email": non ha niente da confermare');
+    // il secondo rinvio, dopo i dieci minuti: e' quello che prima accendeva la bandiera
+    dati.set('iscrizioni/' + idScheda(I), Object.assign({}, scheda(I), { emailConfermaRimandata: { da: 'admin@esempio.it', quando: Date.now() - 11 * 60 * 1000 } }));
+    const r2 = await chiama({ azione: 'richiedi-conferma-email', evento: EV, idIscritto: I });
+    i = scheda(I);
+    esigi(r2.corpo.ok && spedite.length === 2 && !('confermaInAttesa' in i) && !('mailConferma' in i) && CONF.inAttesaDiConferma(i) === false,
+        'anche al secondo rinvio: niente bandiera, niente "in attesa"', JSON.stringify(r2.corpo));
+    esigi(GIRO.cosaFare(Object.assign({}, i, { confermaInAttesa: true }), Date.parse('2027-01-20T10:00:00+01:00')).fare === 'togli',
+        'e il giro automatico, se la trovasse, non avrebbe niente da mandarle');
+    // la posta giu': 502 come sempre, e la traccia resta a parte
+    mailGuasta = 1;
+    dati.set('iscrizioni/' + idScheda(I), Object.assign({}, scheda(I), { emailConfermaRimandata: { da: 'admin@esempio.it', quando: Date.now() - 11 * 60 * 1000 } }));
+    const errVero = console.error;
+    console.error = () => { };
+    let k;
+    try { k = await chiama({ azione: 'richiedi-conferma-email', evento: EV, idIscritto: I }); } finally { console.error = errVero; mailGuasta = 0; }
+    i = scheda(I);
+    esigi(k.stato === 502 && i.mailConfermaStaff.ok === false && /casella piena/.test(i.mailConfermaStaff.errore) && !('mailConferma' in i),
+        'posta giu\': 502, e il motivo resta nella traccia dello staff', JSON.stringify(i.mailConfermaStaff));
+    // Elio, inserito a mano da Eventbrite: lo stesso
+    const re = await chiama({ azione: 'richiedi-conferma-email', evento: EV, idIscritto: E });
+    const e = scheda(E);
+    esigi(re.corpo.ok && !('mailConferma' in e) && !('confermaInAttesa' in e) && e.mailConfermaStaff && e.mailConfermaStaff.ok === true && CONF.inAttesaDiConferma(e) === false,
+        'lo stesso per chi e\' stato inserito a mano (Eventbrite)', JSON.stringify(re.corpo));
+    // una scheda del sito invece si', come prima (la prova qui sopra): Bruno torna nel giro
+    const rb = await chiama({ azione: 'richiedi-conferma-email', evento: EV, idIscritto: B });
+    esigi(rb.corpo.ok && scheda(B).mailConferma.via === 'staff' && scheda(B).confermaInAttesa === true && !scheda(B).mailConfermaStaff, 'Bruno, dal sito: traccia del sito e bandiera');
 });
 
 prova('Rifare il trasloco non cambia niente', async () => {

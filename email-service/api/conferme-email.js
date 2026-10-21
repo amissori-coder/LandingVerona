@@ -11,7 +11,9 @@
    Protezione: come gli altri lavori programmati, solo con
    l'intestazione Authorization e il segreto CRON_SECRET, che Vercel
    mette da se'. Chiamata a mano (per provare): GET con la stessa
-   intestazione.
+   intestazione. Un giro alla volta: se ne sta gia' lavorando un altro
+   (il lucchetto su meta/confermeEmail) questo risponde `occupato` e non
+   fa niente.
    ============================================================ */
 
 const admin = require('firebase-admin');
@@ -42,7 +44,8 @@ module.exports = async (req, res) => {
         initAdmin();
         const conti = await GIRO.giro(admin.firestore());
         // i conti finiscono nei log di Vercel: e' li' che si guarda se il giro lavora
-        if (conti.inviate || conti.riprovate || conti.promemoria || conti.errori) console.log('Conferme email:', JSON.stringify(conti));
+        if (conti.limitePieno || conti.rimaste) console.warn('Conferme email:', JSON.stringify(conti));
+        else if (conti.inviate || conti.riprovate || conti.promemoria || conti.errori || conti.occupato) console.log('Conferme email:', JSON.stringify(conti));
         res.status(200).json(Object.assign({ ok: true }, conti));
     } catch (e) {
         console.error('Conferme email:', String((e && e.message) || e).slice(0, 200));

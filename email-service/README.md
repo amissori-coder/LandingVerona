@@ -534,7 +534,7 @@ d'ambiente non ne parte nessuno.
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
 | `/api/promemoria-eventi` | `0 * * * *` — ogni ora piena | spedisce i promemoria agli iscritti previsti per oggi all'ora di Roma di adesso (il giro legge da se' l'ora legale o solare); quello delle 20 recupera anche chi si e' iscritto dopo un invio e segna scaduti i giorni passati |
 | `/api/riepilogo-iscrizioni` | `0 22,23 * * *` | il riepilogo serale delle iscrizioni agli organizzatori (lavora solo a mezzanotte di Milano) |
-| `/api/conferme-email` | `*/10 * * * *` — ogni dieci minuti | rispedisce la mail di conferma dell'iscrizione a chi non l'ha avuta (mai partita, o rifiutata dal server di posta) e manda UN promemoria, mail e SMS, a chi dopo un giorno non ha ancora confermato. Vedi "Il giro automatico delle mail di conferma" |
+| `/api/conferme-email` | `*/10 * * * *` — ogni dieci minuti | rispedisce la mail di conferma dell'iscrizione a chi non l'ha avuta (mai partita, o rifiutata dal server di posta) e manda UN promemoria, mail e SMS (dalle 8 alle 21), a chi dopo un giorno non ha ancora confermato; fino alla fine dell'evento, un giro alla volta. Vedi "Il giro automatico delle mail di conferma" |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -728,11 +728,22 @@ non diventa mai una riga fra le iscrizioni. Il lavoro sta in
   - `motivo`: mail-non-ricevuta, modifica-annulla, info, diretta,
     sponsor-relatore, altro
 - **I freni**: il campo nascosto `sito` (pieno: risposta "ok" e non succede
-  niente), `ms` (il modulo aperto da meno di tre secondi: idem), Turnstile
+  niente), `ms` (il modulo aperto da meno di tre secondi: `400` con "Attendi
+  un attimo e premi di nuovo «Invia la domanda»." - non un "ok" finto, perche'
+  il browser che rimette i campi col tasto indietro lo fa anche a una
+  persona; il gettone di Turnstile non si consuma), Turnstile
   con la stessa chiave del modulo di Milano e l'azione `domanda-sito`
   (`captchaKo` se manca o e' di un altro modulo; senza `TURNSTILE_SECRET` e'
   spento), **cinque domande al giorno per indirizzo** (`domandeSitoLimiti`,
   per impronta) e il freno per IP dei moduli aperti (8 in 10 minuti, `429`).
+- **L'indirizzo e' solo un indirizzo**: lettere, cifre e `. _ % + ' -`, la
+  chiocciola, un dominio; niente spazi, virgolette, `< > , ; : ( ) [ ]` o
+  barre. Con `testo<vittima@altro.it>` la ricevuta partirebbe per l'altro con
+  quel testo in vista, e ogni testo diverso aggirerebbe le cinque al giorno.
+  Il contatore conta l'indirizzo senza `+qualcosa` e, per Gmail (anche
+  googlemail.com), senza i punti: le varianti della stessa casella contano
+  insieme. Ricevuta, "Rispondi" e archivio usano l'indirizzo com'e' stato
+  scritto (in minuscolo).
 - **Prima si salva** (`domandeSito`), poi due mail: **a noi**, a
   `DOMANDE_DESTINATARI` (o `info@nextgenerationbusiness.it`), oggetto
   "Domanda dal sito - <Argomento> [· <Evento> · <Motivo>] - Nome Cognome", con
@@ -1367,6 +1378,13 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   la conferma parte anche l'**SMS "conferma la tua email"** al cellulare
   verificato (`smsConferma` sulla scheda, `sms: { inviato }` nella risposta),
   e la scheda torna nel giro automatico per il promemoria del giorno dopo.
+  **Una scheda che non viene dal modulo del sito** (inserita a mano, da un
+  `Portale`, importata senza `mailConferma`: `CONF.dalModuloDelSito`, deciso
+  sulla scheda di prima dell'invio) riceve la mail ma **non la sua traccia**
+  (`spedisciConferma` con `traccia: false`): niente `mailConferma`,
+  `invioConferma` o bandiera, che la farebbero diventare "in attesa di
+  conferma" (fuori dai conti della sala e dai promemoria), e niente SMS.
+  Com'e' andata resta in `mailConfermaStaff: { quando, ok, errore, via, a }`.
 - **La mail parte da un posto solo** (`spedisciConferma`): l'iscrizione dal
   sito, il rinvio dall'area riservata, il pulsante "rimandala" della pagina,
   la domanda "non ho ricevuto la mail" dal modulo `/contatti/` e il giro
@@ -1392,10 +1410,25 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   Risponde `{ ok: true, inviata: true, a }` (l'indirizzo, perche' chi l'ha
   scritto male se ne accorga) oppure `{ ok: false, msg, attesa }` (secondi da
   aspettare, `429`); a chi ha gia' confermato `{ ok: false, confermata: true }`.
-  Non pesa sul freno per IP: ha il suo, per scheda.
+  Dentro i due minuti il messaggio dice com'e' andato l'ultimo invio: "Ti
+  abbiamo appena mandato la mail..." solo se e' partito, altrimenti "Abbiamo
+  appena provato a spedirti la mail e riproviamo in automatico: per chiederne
+  un'altra aspetta N secondi." Con i cinque rinvii del giorno finiti vale quel
+  limite (anche dentro i due minuti). Non pesa sul freno per IP: ha il suo,
+  per scheda.
 - **`stato-iscrizione`** porta anche `mail`: `'inviata'`, `'errore'` (l'ultimo
   invio non e' partito: lo riprova il giro automatico) o `'in-attesa'`
-  (nessun invio registrato per l'indirizzo di adesso).
+  (nessun invio registrato per l'indirizzo di adesso), e **`attesaRimanda`**:
+  i secondi prima che "rimandala" possa chiederne un'altra (`0`: adesso),
+  calcolati dallo stesso freno di `rimanda-conferma` (`frenoRimanda`: due
+  minuti dall'ultimo tentativo, riuscito o no, e il tetto dei cinque al
+  giorno), cosi' il conto alla rovescia del pulsante e il servizio non si
+  contraddicono.
+- **La risposta all'iscrizione** agli eventi verificati porta, oltre a
+  `azienda` e `stato`, **`sms`** (vero solo se l'SMS "conferma la tua email"
+  e' partito davvero: tetto del giorno o Brevo giu' lo fanno falso) e
+  **`smsTipo`**: `'inviata'` se la mail e' partita, `'non-inviata'` se no (e'
+  il testo dell'SMS che e' stato usato).
 - **Chi si riscrive mentre la sua iscrizione aspetta la conferma** (stessa
   email, o stesso cellulare) non legge piu' "usa il collegamento nella mail
   di conferma", che era un vicolo cieco: il `409` dice che l'iscrizione c'e'
@@ -1443,16 +1476,35 @@ Agli eventi dove l'iscrizione vale solo dopo la conferma dell'email (Milano
 2027) una mail con il pulsante che non arriva vuol dire un iscritto che non e'
 iscritto, e che di solito non lo sa. Ogni dieci minuti il giro
 (`lib/giro-conferme.js`) legge **solo** le schede con la bandiera
-`confermaInAttesa` (fino a 200 per giro; schede nuove solo nei primi 35
+`confermaInAttesa` (fino a 2000 per giro; schede nuove solo nei primi 35
 secondi, e senza il secondo tentativo immediato della mail: riprova il giro,
 con le sue pause) e per ognuna:
 
 | Com'e' la scheda | Cosa fa |
 |---|---|
-| confermata, annullata, inserita a mano, importata senza mail, da un Portale (Eventbrite, desk), o di un evento che non chiede la conferma | toglie la bandiera, non spedisce niente |
+| confermata, annullata, inserita a mano, importata senza mail, da un Portale (Eventbrite, desk), di un evento che non chiede la conferma, segnata **presente** (il documento `presenze/<evento~idIscritto>`, come per i promemoria degli eventi), o **dopo la fine dell'evento** (`fine` in `VERIFICATA.EVENTI`: Milano, 26 febbraio 2027 alle 18) | toglie la bandiera, non spedisce niente |
 | nessuna `mailConferma` per l'indirizzo di adesso (la funzione si e' chiusa prima di spedire, o l'indirizzo e' stato corretto) | passati **5 minuti** dall'iscrizione spedisce (`via: 'automatico'`), con l'SMS "conferma la tua email" se non era partito |
 | `mailConferma.ok` falso | riprova dopo **5 minuti, 30 minuti, 2 ore e 12 ore** dall'ultimo tentativo: **cinque tentativi** in tutto, poi toglie la bandiera e la lascia allo staff ("mail non inviata" nell'elenco) |
-| `mailConferma.ok` vero e niente clic da **24 ore** | **UN promemoria**: la stessa mail con "Promemoria:" davanti all'oggetto e l'SMS del promemoria; resta `promemoriaConferma: { quando, mail, sms }` e la bandiera se ne va. Mai un secondo promemoria |
+| `mailConferma.ok` vero e niente clic da **24 ore** | **UN promemoria**, **solo dalle 8 alle 21 ora di Milano** (di notte aspetta, con la bandiera): la stessa mail con "Promemoria:" davanti all'oggetto e l'SMS del promemoria; resta `promemoriaConferma: { quando, mail, sms }` e la bandiera se ne va. Mai un secondo promemoria |
+
+**Prima i guasti.** Le schede lette si lavorano per urgenza: prima le mail
+mai partite e quelle da riprovare, poi le bandiere da togliere, per ultimi i
+promemoria (i piu' lenti): una fila di promemoria arretrati non fa aspettare
+chi si e' appena iscritto. Se le schede lette arrivano al limite il giro lo
+scrive nel log (`limitePieno`).
+
+**La scheda di adesso.** La ricerca e' una fotografia: prima di agire su una
+scheda il giro la **rilegge** (con la sua presenza) e rifa' il conto. Una
+scheda cancellata o spostata nel frattempo si lascia stare, una confermata
+non riceve niente; la bandiera si toglie con `update()`, che su un documento
+cancellato fallisce invece di ricrearlo vuoto.
+
+**Un giro alla volta.** All'inizio il giro prende un lucchetto su
+`meta/confermeEmail` (`lucchettoFino`, 120 secondi, piu' della funzione, e
+`lucchettoGiro`) in una transazione; se lo trova preso risponde `occupato` e
+non fa niente (un giro lanciato a mano mentre lavora quello programmato, o lo
+stesso cron consegnato due volte, manderebbe due mail e due SMS). Alla fine lo
+molla solo se e' ancora suo; se la funzione muore, scade da solo.
 
 **Il recupero, una volta.** Le iscrizioni fatte prima della bandiera non
 l'hanno: al primo giro dopo la pubblicazione si rilegge l'archivio una volta,
@@ -1464,8 +1516,9 @@ pubblicare si scrive a mano `recupero: 1` su `meta/confermeEmail`.
 
 Protezione come gli altri lavori programmati: `Authorization: Bearer
 <CRON_SECRET>`. A mano: `GET /api/conferme-email` con la stessa intestazione;
-risponde i conti del giro (`inviate`, `riprovate`, `promemoria`, `sms`,
-`tolte`, `aspettano`, `errori`, `rimaste`). Le prove:
+risponde i conti del giro (`occupato`, `lette`, `limitePieno`, `inviate`,
+`riprovate`, `promemoria`, `sms`, `tolte`, `aspettano`, `cambiate` - sparite o
+uscite dal giro fra la ricerca e il lavoro -, `errori`, `rimaste`). Le prove:
 `node prove/conferme-email.prove.js`.
 
 ## Mail di conferma non arrivata: cosa controllare

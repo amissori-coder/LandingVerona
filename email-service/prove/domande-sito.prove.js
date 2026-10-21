@@ -13,8 +13,13 @@
        indirizzi di DOMANDE_DESTINATARI), con "Rispondi" verso chi ha
        scritto; a chi ha scritto parte una ricevuta che NON ripete il
        messaggio;
-     - il campo nascosto pieno, o un modulo spedito in meno di tre
-       secondi: "ok", e non si salva ne' si spedisce niente;
+     - il campo nascosto pieno: "ok", e non si salva ne' si spedisce
+       niente; un modulo spedito in meno di tre secondi: 400 con "premi
+       di nuovo", perche' puo' essere una persona (i campi rimessi dal
+       browser), e il gettone di Turnstile non si spreca;
+     - l'indirizzo e' solo un indirizzo ("testo<vittima@altro.it>" non
+       passa, e non aggira il limite del giorno); le sue varianti
+       (+qualcosa, i punti di Gmail) contano insieme;
      - i campi obbligatori, il consenso, la lunghezza del messaggio;
      - con TURNSTILE_SECRET serve il gettone, e di QUESTO modulo;
      - con la posta giu' la domanda e' salva e la risposta e' "ok";
@@ -100,8 +105,10 @@ let spedite = [];
 let mailGuasta = 0;
 let sms = [];
 let turnstileGiu = false;
+let verificheTurnstile = 0;
 global.fetch = async (url, opz) => {
     if (/turnstile\/v0\/siteverify/.test(String(url))) {
+        verificheTurnstile++;
         if (turnstileGiu) throw new Error('rete giu');
         const q = new URLSearchParams(opz.body);
         const g = q.get('response');
@@ -214,13 +221,66 @@ prova('Il nome nella ricevuta solo se e\' un nome; argomenti, eventi e motivi so
     esigi(ricDest.replyTo === 'segreteria@revilaw.it', 'e la ricevuta risponde al primo');
 });
 
-prova('Il campo nascosto pieno, o un modulo troppo veloce: "ok", e niente', async () => {
+prova('Il campo nascosto pieno: "ok", e niente; un modulo troppo veloce: lo si dice', async () => {
     azzera();
     const robot = await chiama(domanda({ sito: 'https://spam.example' }));
+    esigi(robot.stato === 200 && JSON.stringify(robot.corpo) === '{"ok":true}', 'campo nascosto pieno: la risposta e\' la stessa di una domanda vera');
     const veloce = await chiama(domanda({ ms: 1200 }));
     const senzaTempo = await chiama(domanda({ ms: undefined }));
-    esigi([robot, veloce, senzaTempo].every(r => r.stato === 200 && JSON.stringify(r.corpo) === '{"ok":true}'), 'la risposta e\' la stessa di una domanda vera');
+    /* un browser che rimette i campi (il tasto indietro) fa partire il modulo
+       presto anche a una persona: un "ok" finto le farebbe credere spedita
+       una domanda che non e' arrivata a nessuno */
+    esigi([veloce, senzaTempo].every(r => r.stato === 400 && r.corpo.ok === false && r.corpo.msg === 'Attendi un attimo e premi di nuovo «Invia la domanda».'
+        && !r.corpo.campo && !r.corpo.captchaKo), 'troppo presto (o senza tempo): 400, e il modulo dice di premere di nuovo', JSON.stringify(veloce.corpo));
     esigi(domande().length === 0 && spedite.length === 0, 'e non si salva ne\' si spedisce niente');
+    // il gettone di Turnstile non si consuma: la seconda pressione lo usa
+    process.env.TURNSTILE_SECRET = 'segreto-turnstile';
+    try {
+        const prima = verificheTurnstile;
+        const presto = await chiama(domanda({ ms: 900, captcha: 'gettone-buono' }));
+        esigi(presto.stato === 400 && !presto.corpo.captchaKo && verificheTurnstile === prima, 'troppo presto: il gettone non va nemmeno a Cloudflare');
+        const dopo = await chiama(domanda({ ms: 4000, captcha: 'gettone-buono' }));
+        esigi(dopo.corpo.ok === true && domande().length === 1, 'premuto di nuovo, la domanda passa');
+    } finally { delete process.env.TURNSTILE_SECRET; }
+});
+
+prova('L\'indirizzo e\' solo un indirizzo: "testo<vittima@altro.it>" non passa', async () => {
+    azzera();
+    const DS = require(path.join(RADICE, 'lib/domande-sito.js'));
+    const buoni = ['lucia@studio.it', 'lucia.bianchi+news@studio.co.uk', 'o\'brien@studio.ie', 'a_b-c%d@sotto-dominio.studio.it', 'x@y.it'];
+    const cattivi = ['visit-casino.example/promo-1<vittima@altro.it>', 'testo<vittima@altro.it>', '"nome" <vittima@altro.it>', 'vittima@altro.it>',
+        'a,b@altro.it', 'vittima@altro.it,altra@altro.it', 'a;b@altro.it', 'a:b@altro.it', 'a(b)@altro.it', 'a[b]@altro.it', 'a b@altro.it', 'a/b@altro.it',
+        'vittima@altro', 'vittima@@altro.it', 'vittima@-', 'vittima@altro.i', '@altro.it', 'vittima@[1.2.3.4]'];
+    esigi(buoni.every(e => DS.indirizzoValido(e)), 'gli indirizzi veri passano', buoni.filter(e => !DS.indirizzoValido(e)).join(' '));
+    esigi(cattivi.every(e => !DS.indirizzoValido(e)), 'nome e indirizzo, virgole, punti e virgola, parentesi, spazi, barre: no', cattivi.filter(e => DS.indirizzoValido(e)).join(' '));
+    // il caso vero: cinque domande a vittima@, poi una sesta con un testo davanti
+    for (let i = 0; i < 5; i++) await chiama(domanda({ email: 'vittima@altro.it' }));
+    spedite = [];
+    const sesta = await chiama(domanda({ email: 'vittima@altro.it' }));
+    const furba = await chiama(domanda({ email: 'VISIT-casino.example/promo-1<vittima@altro.it>' }));
+    esigi(sesta.stato === 429 && furba.stato === 400 && furba.corpo.campo === 'email', 'con il testo davanti non si aggira il limite: l\'indirizzo e\' respinto', JSON.stringify(furba.corpo));
+    esigi(spedite.length === 0 && domande().length === 5, 'e alla vittima non arriva niente');
+    // spazi intorno e maiuscole: l'indirizzo che si usa e' quello nudo, in minuscolo
+    azzera();
+    await chiama(domanda({ email: '  Lucia@Studio.IT ' }));
+    const ric = spedite.find(m => /^Abbiamo ricevuto/.test(m.subject)) || {};
+    const interna = spedite.find(m => /^Domanda dal sito/.test(m.subject)) || {};
+    esigi(ric.to === 'lucia@studio.it' && interna.replyTo === 'lucia@studio.it' && domande()[0].email === 'lucia@studio.it', 'ricevuta, "Rispondi" e archivio: lucia@studio.it');
+});
+
+prova('Le varianti dello stesso indirizzo contano insieme: +qualcosa, e per Gmail i punti', async () => {
+    azzera();
+    const DS = require(path.join(RADICE, 'lib/domande-sito.js'));
+    esigi(DS.formaPerContare('lucia+uno@studio.it') === 'lucia@studio.it' && DS.formaPerContare('lucia@studio.it') === 'lucia@studio.it', '+qualcosa non conta');
+    esigi(DS.formaPerContare('l.u.c.i.a+x@googlemail.com') === 'lucia@gmail.com' && DS.formaPerContare('l.ucia@gmail.com') === 'lucia@gmail.com', 'per Gmail i punti non contano, e googlemail e\' gmail');
+    esigi(DS.formaPerContare('l.ucia@studio.it') === 'l.ucia@studio.it', 'per gli altri i punti si\'');
+    const varianti = ['mario@gmail.com', 'm.ario@gmail.com', 'mario+1@gmail.com', 'ma.rio+due@googlemail.com', 'MARIO@gmail.com'];
+    let passate = 0;
+    for (const e of varianti) { const r = await chiama(domanda({ email: e })); if (r.corpo.ok) passate++; }
+    const sesta = await chiama(domanda({ email: 'm.a.r.i.o+sei@gmail.com' }));
+    esigi(passate === 5 && sesta.stato === 429, 'cinque varianti passano, la sesta no', JSON.stringify(sesta.corpo));
+    const ric = domande().map(d => d.email);
+    esigi(ric.indexOf('m.ario@gmail.com') >= 0 && ric.indexOf('mario+1@gmail.com') >= 0, 'ma ognuno resta scritto e riceve com\'e\' stato scritto', ric.join(' '));
 });
 
 prova('I campi: nome, cognome, email, argomento, messaggio e consenso', async () => {

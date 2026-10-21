@@ -21,7 +21,16 @@
      - una scheda confermata, annullata, inserita a mano, importata,
        arrivata da un portale o di un evento che non chiede la conferma
        esce dal giro senza che parta niente;
-     - le iscrizioni di prima della bandiera si recuperano, una volta.
+     - le iscrizioni di prima della bandiera si recuperano, una volta;
+     - un giro alla volta: due giri insieme spediscono una volta sola, e
+       il lucchetto di un giro morto scade da solo;
+     - la scheda si rilegge prima di lavorarla: una cancellata nel
+       frattempo non rinasce, una confermata non riceve niente;
+     - chi e' segnato "presente" e, a evento finito, tutti escono dal
+       giro senza mail ne' SMS;
+     - il promemoria parte solo dalle 8 alle 21 ora di Milano;
+     - prima i guasti: una mail da riprovare in fondo alla fila parte
+       prima dei promemoria, e il limite delle schede lette si vede.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -58,11 +67,25 @@ function doc(coll, id) {
     const chiave = coll + '/' + id;
     const self = {
         id: id, _chiave: chiave,
-        get: async () => istantanea(chiave, self),
-        set: async (patch, opz) => { dati.set(chiave, applica(dati.get(chiave), patch, !!(opz && opz.merge))); }
+        get: async () => {
+            const s = istantanea(chiave, self);
+            // quello che succede subito dopo questa lettura (una prova lo mette, e vale una volta)
+            if (alLeggere[chiave]) { const f = alLeggere[chiave]; delete alLeggere[chiave]; await f(); }
+            return s;
+        },
+        set: async (patch, opz) => { dati.set(chiave, applica(dati.get(chiave), patch, !!(opz && opz.merge))); },
+        // come Firestore: su un documento che non c'e' update fallisce (NOT_FOUND, codice 5) e non lo crea
+        update: async (patch) => {
+            if (!dati.has(chiave)) { const e = new Error('5 NOT_FOUND: No document to update: ' + chiave); e.code = 5; throw e; }
+            dati.set(chiave, applica(dati.get(chiave), patch, true));
+        }
     };
     return self;
 }
+/* Un momento fra la ricerca e il lavoro sulla scheda: le prove ci mettono
+   quello che succede nel frattempo (una cancellazione, una conferma). */
+let fraRicercaELavoro = null;
+let alLeggere = {};
 let letture = 0;
 function interroga(coll, filtri, max) {
     return {
@@ -70,25 +93,35 @@ function interroga(coll, filtri, max) {
         limit(n) { return interroga(coll, filtri, n); },
         async get() {
             letture++;
+            // in ordine di nome, come Firestore senza orderBy
             const docs = [...dati.keys()].filter(k => k.startsWith(coll + '/') && k.split('/').length === 2)
                 .filter(k => filtri.every(([c, v]) => (dati.get(k) || {})[c] === v))
+                .sort()
                 .slice(0, max || 1e9)
                 .map(k => istantanea(k, doc(coll, k.split('/')[1])));
+            if (coll === 'iscrizioni' && filtri.length && fraRicercaELavoro) { const f = fraRicercaELavoro; fraRicercaELavoro = null; await f(); }
             return { docs: docs, forEach: f => docs.forEach(f), size: docs.length };
         }
     };
 }
+/* Le transazioni una alla volta, come le vede chi le usa in Firestore: due
+   giri che prendono il lucchetto insieme non lo prendono tutti e due. */
+let codaTransazioni = Promise.resolve();
 const db = {
     collection(coll) { return Object.assign(interroga(coll, [], 0), { doc: id => doc(coll, id) }); },
     batch() {
         const op = [];
         return { set: (r, patch, opz) => op.push(() => r.set(patch, opz)), commit: async () => { for (const f of op) await f(); } };
     },
-    async runTransaction(fn) {
-        const scritture = [];
-        const esito = await fn({ get: async r => r.get(), set: (r, patch, opz) => { scritture.push([r, patch, opz]); } });
-        for (const [r, patch, opz] of scritture) await r.set(patch, opz);
-        return esito;
+    runTransaction(fn) {
+        const giro = codaTransazioni.then(async () => {
+            const scritture = [];
+            const esito = await fn({ get: async r => r.get(), set: (r, patch, opz) => { scritture.push([r, patch, opz]); } });
+            for (const [r, patch, opz] of scritture) await r.set(patch, opz);
+            return esito;
+        });
+        codaTransazioni = giro.catch(() => { });
+        return giro;
     }
 };
 const admin = {
@@ -101,6 +134,8 @@ admin.firestore.FieldValue = { delete: () => ({ __del: true }), increment: n => 
 let spedite = [];
 let mailGuasta = 0;
 let chiamateSmtp = 0;
+// quanto dura una mail, sull'orologio delle prove (di norma niente)
+let passoMail = 0;
 // l'errore del server finto: di norma uno che non passa
 let erroreMail = () => new Error('550 casella inesistente');
 let sms = [];
@@ -116,6 +151,7 @@ Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return admin;
     if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => {
         chiamateSmtp++;
+        orologio += passoMail;
         if (mailGuasta > 0) { mailGuasta--; throw erroreMail(); }
         spedite.push(m); return {};
     } }) };
@@ -139,12 +175,18 @@ function esigi(cond, cosa, extra) {
 async function giro(intestazioni) {
     let stato = 0, risposta = null;
     const res = { status(s) { stato = s; return res; }, json(c) { risposta = c; return res; } };
-    const errVero = console.error, logVero = console.log;
-    console.error = () => { }; console.log = () => { };
+    const errVero = console.error, logVero = console.log, avvVero = console.warn;
+    console.error = () => { }; console.log = () => { }; console.warn = () => { };
     try {
         await cron({ method: 'GET', headers: intestazioni === undefined ? { authorization: 'Bearer segreto-cron' } : intestazioni, query: {} }, res);
-    } finally { console.error = errVero; console.log = logVero; }
+    } finally { console.error = errVero; console.log = logVero; console.warn = avvVero; }
     return { stato: stato, corpo: risposta || {} };
+}
+// la stessa cosa senza l'endpoint: per i giri che si sovrappongono
+async function zitti(fn) {
+    const errVero = console.error, logVero = console.log, avvVero = console.warn;
+    console.error = () => { }; console.log = () => { }; console.warn = () => { };
+    try { return await fn(); } finally { console.error = errVero; console.log = logVero; console.warn = avvVero; }
 }
 const MILANO = 'Milano 26 Febbraio 2027 - Iscrizione';
 function iscritto(id, campi) {
@@ -156,7 +198,7 @@ function iscritto(id, campi) {
 }
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
-    dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO;
+    dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; passoMail = 0;
     erroreMail = () => new Error('550 casella inesistente');
     // il recupero una tantum lo prova la sua prova: qui risulta gia' fatto
     dati.set('meta/confermeEmail', { recupero: 1 });
@@ -342,6 +384,160 @@ prova('Le iscrizioni di prima della bandiera si recuperano, una volta', async ()
     const letturePrima = letture;
     await giro();
     esigi(!scheda('dopo').confermaInAttesa && letture === letturePrima + 1, 'il recupero non si ripete: un\'altra scheda senza bandiera resta fuori, e si legge solo la ricerca');
+});
+
+const EV = 'milano-2027-02-26';
+// il documento delle presenze, con lo stesso nome che gli danno /api/presenze e l'area riservata
+function idPresenza(id) { return (EV + '~' + id + '@studio.it|15/01/2027 10:00:00').replace(/[\/\\.#$\[\]]/g, '-').slice(0, 400); }
+
+prova('Un giro alla volta: due giri insieme spediscono una volta sola', async () => {
+    azzera();
+    iscritto('mai', { ricevuto: orologio - 10 * MIN });
+    iscritto('rotta', { ricevuto: orologio - 10 * MIN, mailConferma: { quando: orologio - 10 * MIN, ok: false, errore: 'x', a: 'rotta@studio.it' },
+        invioConferma: { a: 'rotta@studio.it', tentativi: 1, falliti: 1, ultimo: orologio - 10 * MIN }, smsConferma: { quando: 1, ok: true, tipo: 'non-inviata' } });
+    const [a, b] = await zitti(() => Promise.all([GIRO.giro(db), GIRO.giro(db)]));
+    const lavoro = [a, b].filter(c => !c.occupato);
+    esigi(lavoro.length === 1 && [a, b].some(c => c.occupato === true && c.esaminate === 0 && c.inviate === 0),
+        'uno lavora, l\'altro trova il lucchetto e si ferma senza fare niente', JSON.stringify([a, b]));
+    esigi(spedite.length === 2 && spedite.filter(m => m.to === 'mai@studio.it').length === 1 && spedite.filter(m => m.to === 'rotta@studio.it').length === 1,
+        'una mail per scheda, non due', spedite.map(m => m.to).join(', '));
+    esigi(sms.length === 1 && scheda('rotta').invioConferma.tentativi === 2, 'un SMS solo, e il conto dei tentativi giusto');
+    const meta = dati.get('meta/confermeEmail') || {};
+    esigi(meta.lucchettoFino === 0 && meta.lucchettoGiro === null, 'alla fine il lucchetto e\' mollato', JSON.stringify(meta));
+    // un giro morto lascia il lucchetto: scade da solo
+    dati.set('meta/confermeEmail', Object.assign({}, meta, { lucchettoFino: orologio + GIRO.LUCCHETTO_MS, lucchettoGiro: 'morto' }));
+    iscritto('dopo', { ricevuto: orologio - 10 * MIN });
+    let r = await giro();
+    esigi(r.corpo.ok === true && r.corpo.occupato === true && !scheda('dopo').mailConferma, 'con il lucchetto di un giro morto: si aspetta', JSON.stringify(r.corpo));
+    avanza(GIRO.LUCCHETTO_MS + 1000);
+    r = await giro();
+    esigi(r.corpo.occupato === false && scheda('dopo').mailConferma && scheda('dopo').mailConferma.ok === true, 'scaduto il lucchetto, il giro lavora');
+    // il lucchetto di un altro giro non si molla: lo scaduto ripreso da un altro resta suo
+    iscritto('ancora', { ricevuto: orologio - 10 * MIN });
+    fraRicercaELavoro = async () => {
+        dati.set('meta/confermeEmail', Object.assign({}, dati.get('meta/confermeEmail'), { lucchettoFino: orologio + GIRO.LUCCHETTO_MS, lucchettoGiro: 'altro' }));
+    };
+    await giro();
+    esigi((dati.get('meta/confermeEmail') || {}).lucchettoGiro === 'altro', 'il lucchetto preso da un altro giro resta a lui');
+});
+
+prova('La scheda di adesso: cancellata o confermata fra la ricerca e il lavoro, non riparte niente e non rinasce niente', async () => {
+    azzera();
+    iscritto('cancellata', { ricevuto: orologio - 10 * MIN });
+    iscritto('importata', { ricevuto: orologio - GIORNO, importato: true });
+    iscritto('cliccata', { ricevuto: orologio - 10 * MIN });
+    iscritto('promemoria', { ricevuto: orologio - 2 * GIORNO, mailConferma: { quando: orologio - 2 * GIORNO, ok: true, a: 'promemoria@studio.it' } });
+    fraRicercaELavoro = async () => {
+        dati.delete('iscrizioni/cancellata');
+        dati.delete('iscrizioni/importata');
+        dati.delete('iscrizioni/promemoria');
+        const c = scheda('cliccata');
+        c.emailConfermata = { quando: orologio, come: 'mail' };
+        delete c.confermaInAttesa;
+        dati.set('iscrizioni/cliccata', c);
+    };
+    const r = await giro();
+    esigi(spedite.length === 0 && sms.length === 0, 'nessuna mail e nessun SMS', spedite.map(m => m.to).join(', '));
+    esigi(!dati.has('iscrizioni/cancellata') && !dati.has('iscrizioni/importata') && !dati.has('iscrizioni/promemoria'),
+        'le schede cancellate restano cancellate: niente documenti rinati vuoti');
+    esigi(!scheda('cliccata').mailConferma && r.corpo.cambiate === 4 && r.corpo.errori === 0, 'chi ha confermato nel frattempo non riceve la richiesta', JSON.stringify(r.corpo));
+    // cancellata subito dopo la rilettura: la bandiera si toglie con update, che non la ricrea
+    azzera();
+    iscritto('portale', { ricevuto: orologio - GIORNO, extra: { Portale: 'Eventbrite' } });
+    alLeggere['iscrizioni/portale'] = async () => { dati.delete('iscrizioni/portale'); };
+    const r2 = await giro();
+    esigi(!dati.has('iscrizioni/portale') && r2.corpo.errori === 0, 'togliere la bandiera a una scheda appena cancellata non la fa rinascere', JSON.stringify(r2.corpo));
+});
+
+prova('Chi e\' segnato "presente" esce dal giro, senza mail ne\' SMS', async () => {
+    azzera();
+    const vecchia = orologio - 2 * GIORNO;
+    iscritto('sala', { ricevuto: vecchia, mailConferma: { quando: vecchia, ok: true, a: 'sala@studio.it' } });
+    iscritto('salamai', { ricevuto: orologio - 10 * MIN });
+    iscritto('salarotta', { ricevuto: orologio - 10 * MIN, mailConferma: { quando: orologio - 10 * MIN, ok: false, errore: 'x', a: 'salarotta@studio.it' } });
+    iscritto('confermato', { ricevuto: vecchia, mailConferma: { quando: vecchia, ok: true, a: 'confermato@studio.it' } });
+    ['sala', 'salamai', 'salarotta'].forEach(id => dati.set('presenze/' + idPresenza(id), { evento: EV, idIscritto: id + '@studio.it|15/01/2027 10:00:00', stato: 'presente' }));
+    dati.set('presenze/' + idPresenza('confermato'), { evento: EV, idIscritto: 'confermato@studio.it|15/01/2027 10:00:00', stato: 'confermato' });
+    esigi(GIRO.idPresenza({ chiave: EV }, scheda('sala')) === idPresenza('sala'), 'il documento delle presenze ha il nome che gli da\' l\'area riservata', GIRO.idPresenza({ chiave: EV }, scheda('sala')));
+    const r = await giro();
+    esigi(['sala', 'salamai', 'salarotta'].every(id => !('confermaInAttesa' in scheda(id)) && !scheda(id).promemoriaConferma && !(scheda(id).invioConferma)),
+        'presente: la bandiera se ne va, e non si scrive nient\'altro');
+    esigi(spedite.length === 1 && spedite[0].to === 'confermato@studio.it' && sms.length === 1, 'nessuna mail a chi era in sala; "confermato" (deciso prima dall\'organizzazione) riceve il promemoria',
+        spedite.map(m => m.to).join(', '));
+    esigi(r.corpo.tolte === 3 && r.corpo.promemoria === 1, 'i conti lo dicono', JSON.stringify(r.corpo));
+});
+
+prova('Dopo la fine dell\'evento non si riprova e non si ricorda piu\' niente', async () => {
+    azzera();
+    const fine = V.eventoDi(MILANO).fine;
+    esigi(fine === Date.parse('2027-02-26T18:00:00+01:00'), 'Milano finisce il 26 febbraio 2027 alle 18 (ora di Milano)');
+    orologio = fine - 10 * MIN;
+    const vecchia = orologio - 2 * GIORNO;
+    iscritto('tardi', { ricevuto: vecchia, mailConferma: { quando: vecchia, ok: true, a: 'tardi@studio.it' } });
+    iscritto('rottatardi', { ricevuto: orologio - 20 * MIN, mailConferma: { quando: orologio - 20 * MIN, ok: false, errore: 'x', a: 'rottatardi@studio.it' } });
+    iscritto('maitardi', { ricevuto: orologio - 20 * MIN });
+    esigi(['tardi', 'rottatardi', 'maitardi'].map(id => GIRO.cosaFare(scheda(id), orologio).fare).join(',') === 'promemoria,riprova,invia',
+        'dieci minuti prima della fine: promemoria, riprova, invio');
+    esigi(GIRO.cosaFare(scheda('tardi'), fine).perche === 'evento finito', 'alla fine: "evento finito"');
+    orologio = fine;
+    const r = await giro();
+    esigi(spedite.length === 0 && sms.length === 0 && r.corpo.tolte === 3, 'a evento finito: nessuna mail, nessun SMS', JSON.stringify(r.corpo));
+    esigi(['tardi', 'rottatardi', 'maitardi'].every(id => !('confermaInAttesa' in scheda(id))), 'e la bandiera se ne va da tutte');
+});
+
+prova('Il promemoria di notte aspetta il mattino', async () => {
+    azzera();
+    orologio = Date.parse('2027-01-15T23:00:00+01:00');
+    const vecchia = orologio - 2 * GIORNO;
+    iscritto('notte', { ricevuto: vecchia, mailConferma: { quando: vecchia, ok: true, a: 'notte@studio.it' } });
+    iscritto('nottemai', { ricevuto: orologio - 10 * MIN });
+    let r = await giro();
+    esigi(!spedite.some(m => m.to === 'notte@studio.it') && !scheda('notte').promemoriaConferma && scheda('notte').confermaInAttesa === true && r.corpo.aspettano === 1,
+        'alle 23 il promemoria non parte, e la scheda resta nel giro', JSON.stringify(r.corpo));
+    esigi(GIRO.cosaFare(scheda('notte'), orologio).perche === 'notte', 'perche\': "notte"');
+    esigi(spedite.length === 1 && spedite[0].to === 'nottemai@studio.it', 'la mail mai partita a chi si e\' appena iscritto parte anche di notte');
+    esigi(GIRO.cosaFare(scheda('notte'), Date.parse('2027-01-16T07:59:00+01:00')).fare === 'aspetta'
+        && GIRO.cosaFare(scheda('notte'), Date.parse('2027-01-16T08:00:00+01:00')).fare === 'promemoria'
+        && GIRO.cosaFare(scheda('notte'), Date.parse('2027-01-16T20:59:00+01:00')).fare === 'promemoria'
+        && GIRO.cosaFare(scheda('notte'), Date.parse('2027-01-16T21:00:00+01:00')).fare === 'aspetta', 'dalle 8 alle 21, ora di Milano');
+    esigi(GIRO.oraRoma(Date.parse('2027-07-01T06:30:00Z')) === 8 && GIRO.oraRoma(Date.parse('2027-01-15T06:30:00Z')) === 7, 'con l\'ora legale d\'estate e quella solare d\'inverno');
+    sms = []; spedite = [];
+    orologio = Date.parse('2027-01-16T07:50:00+01:00');
+    await giro();
+    esigi(spedite.length === 0 && sms.length === 0, 'alle 7.50 ancora niente');
+    orologio = Date.parse('2027-01-16T10:00:00+01:00');
+    r = await giro();
+    esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject) && spedite[0].to === 'notte@studio.it' && sms.length === 1 && r.corpo.promemoria === 1,
+        'alle 10 parte: mail e SMS', JSON.stringify(r.corpo));
+});
+
+prova('Prima i guasti: una mail da riprovare in fondo alla fila non aspetta i promemoria', async () => {
+    azzera();
+    // 250 schede che aspettano (mail partita un'ora fa), 30 promemoria dovuti, e in fondo (per nome) una mail fallita
+    for (let i = 0; i < 250; i++) iscritto('a' + String(i).padStart(3, '0'), { ricevuto: orologio - ORA, mailConferma: { quando: orologio - ORA, ok: true, a: 'a' + String(i).padStart(3, '0') + '@studio.it' } });
+    for (let i = 0; i < 30; i++) iscritto('b' + String(i).padStart(2, '0'), { ricevuto: orologio - 2 * GIORNO, mailConferma: { quando: orologio - 2 * GIORNO, ok: true, a: 'b' + String(i).padStart(2, '0') + '@studio.it' } });
+    iscritto('zeta', { ricevuto: orologio - 10 * MIN, mailConferma: { quando: orologio - 10 * MIN, ok: false, errore: 'x', a: 'zeta@studio.it' },
+        invioConferma: { a: 'zeta@studio.it', tentativi: 1, falliti: 1, ultimo: orologio - 10 * MIN }, smsConferma: { quando: 1, ok: true, tipo: 'non-inviata' } });
+    passoMail = 3000;   // ogni mail tre secondi: il tempo del giro finisce prima dei promemoria
+    const r = await giro();
+    const z = scheda('zeta');
+    esigi(z.invioConferma.tentativi === 2 && z.mailConferma.ok === true && r.corpo.riprovate === 1, 'la mail fallita e\' riprovata in questo giro', JSON.stringify(r.corpo));
+    esigi(spedite[0] && spedite[0].to === 'zeta@studio.it', 'ed e\' la prima a partire');
+    esigi(r.corpo.lette === 281 && r.corpo.aspettano === 250 && r.corpo.promemoria > 0 && r.corpo.promemoria < 30 && r.corpo.rimaste === 30 - r.corpo.promemoria,
+        'poi i promemoria finche\' c\'e\' tempo; gli altri al giro dopo, e i conti lo dicono', JSON.stringify(r.corpo));
+    esigi(r.corpo.limitePieno === false, 'sotto il limite: nessun avviso');
+});
+
+prova('Al limite delle schede lette il giro lo dice', async () => {
+    azzera();
+    for (let i = 0; i < GIRO.LIMITE; i++) iscritto('l' + String(i).padStart(4, '0'), { ricevuto: orologio - ORA, mailConferma: { quando: orologio - ORA, ok: true, a: 'l' + String(i).padStart(4, '0') + '@studio.it' } });
+    const avvisi = [];
+    const avvVero = console.warn;
+    console.warn = (...x) => avvisi.push(x.join(' '));
+    let c;
+    try { c = await GIRO.giro(db); } finally { console.warn = avvVero; }
+    esigi(GIRO.LIMITE >= 2000 && c.lette === GIRO.LIMITE && c.limitePieno === true, 'limitePieno nei conti', JSON.stringify(c));
+    esigi(avvisi.some(x => /il limite del giro/.test(x)), 'e un avviso nel log', avvisi.join(' | '));
 });
 
 (async () => {

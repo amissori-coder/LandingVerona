@@ -35,10 +35,16 @@
        la riga del codice); se la mail non parte l'SMS lo dice, se l'SMS
        non parte o il tetto e' pieno l'iscrizione passa lo stesso; la
        scheda entra nel giro automatico (confermaInAttesa), ne esce
-       annullando e ci torna riattivandosi senza conferma;
+       annullando e ci torna riattivandosi senza conferma; la risposta
+       al modulo dice se l'SMS e' partito (`sms`) e quale (`smsTipo`:
+       'inviata' o 'non-inviata', come la mail);
      - "rimanda-conferma": firmata come lo stato, due minuti fra un
        invio e l'altro, cinque al giorno, niente a chi ha confermato;
-     - "stato-iscrizione" dice com'e' andata la mail;
+       dentro i due minuti da un invio fallito non dice "ti abbiamo
+       appena mandato la mail";
+     - "stato-iscrizione" dice com'e' andata la mail, e fra quanti
+       secondi il pulsante "rimandala" puo' chiederne un'altra
+       (`attesaRimanda`, lo stesso freno di "rimanda-conferma");
      - chi si riscrive mentre la sua iscrizione aspetta la conferma
        legge dove cercare la mail e dove scriverci, e la mail riparte;
        a chi ha confermato resta il messaggio di sempre.
@@ -464,13 +470,14 @@ prova('La pagina si accorge della conferma, e l\'invito porta il calendario', as
     const v = await verificaNumero('3471112233', 'stato@studio.it');
     const r = await iscrivi({ email: 'stato@studio.it', telefono: '3471112233', smsToken: v.token, nome: 'Lia', cognome: 'Verdi', azienda: 'Delta' });
     esigi(r.corpo.ok && r.corpo.stato && r.corpo.stato.d && r.corpo.stato.t, 'l\'invio rende la firma per rileggere lo stato', JSON.stringify(r.corpo));
-    esigi(Object.keys(r.corpo).sort().join(',') === 'azienda,ok,stato' && r.corpo.azienda === 'Delta',
-        'e l\'azienda scritta (senza codice, quella del modulo): nient\'altro', JSON.stringify(r.corpo));
+    esigi(Object.keys(r.corpo).sort().join(',') === 'azienda,ok,sms,smsTipo,stato' && r.corpo.azienda === 'Delta',
+        'e l\'azienda scritta (senza codice, quella del modulo) e com\'e\' andato l\'SMS: nient\'altro', JSON.stringify(r.corpo));
     const st = r.corpo.stato;
     const prima = await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t });
     esigi(prima.corpo.ok && prima.corpo.emailConfermata === false && prima.corpo.invito === false, 'prima della conferma: non confermata', JSON.stringify(prima.corpo));
     esigi(prima.corpo.mail === 'inviata', 'e la mail di conferma risulta partita', JSON.stringify(prima.corpo));
-    esigi(Object.keys(prima.corpo).sort().join(',') === 'annullato,emailConfermata,invito,mail,ok', 'e la risposta non porta dati personali', Object.keys(prima.corpo).join(','));
+    esigi(Object.keys(prima.corpo).sort().join(',') === 'annullato,attesaRimanda,emailConfermata,invito,mail,ok', 'e la risposta non porta dati personali', Object.keys(prima.corpo).join(','));
+    esigi(prima.corpo.attesaRimanda > 110 && prima.corpo.attesaRimanda <= 120, 'mail appena partita: il pulsante "rimandala" aspetta i suoi due minuti', String(prima.corpo.attesaRimanda));
     const falsa = await chiama({ azione: 'stato-iscrizione', d: st.d, t: 'x' + st.t.slice(1) });
     esigi(falsa.stato === 403, 'con una firma sbagliata non si legge niente');
     const altra = await chiama({ azione: 'stato-iscrizione', d: st.d, t: NL.firmaCompleta(st.d) });
@@ -686,7 +693,8 @@ prova('Con l\'iscrizione parte l\'SMS "conferma la tua email", e la scheda entra
         'e la traccia della mail: partita dall\'iscrizione, a quell\'indirizzo');
     esigi(spedite.length === 1 && spedite[0].replyTo === 'info@nextgenerationbusiness.it' && spedite[0].headers && spedite[0].headers['X-Mailin-Tag'] === 'conferma-iscrizione',
         'la mail ha "Rispondi" verso info@ e il tag per i log di Brevo');
-    esigi(JSON.stringify(Object.keys(r.corpo).sort()) === '["azienda","ok","stato"]', 'la risposta al modulo resta quella di prima');
+    esigi(JSON.stringify(Object.keys(r.corpo).sort()) === '["azienda","ok","sms","smsTipo","stato"]' && r.corpo.sms === true && r.corpo.smsTipo === 'inviata',
+        'la risposta al modulo dice anche che l\'SMS e\' partito, ed e\' quello della mail partita', JSON.stringify(r.corpo));
 });
 
 prova('Se la mail non parte: l\'SMS lo dice, la scheda e la pagina lo sanno', async () => {
@@ -707,9 +715,25 @@ prova('Se la mail non parte: l\'SMS lo dice, la scheda e la pagina lo sanno', as
         && t.indexOf('/contatti/?t=mail') > 0, 'l\'SMS dice che la mail non e\' ancora partita e che si riprova da soli', t);
     esigi(V.caratteriSms(t) > 0 && V.caratteriSms(t) <= 306, 'anche questo in due SMS al massimo, GSM-7');
     esigi(s && s.smsConferma && s.smsConferma.tipo === 'non-inviata' && s.confermaInAttesa === true, 'e la scheda resta nel giro automatico, che riprova');
+    esigi(r.corpo.sms === true && r.corpo.smsTipo === 'non-inviata', 'la risposta al modulo: SMS partito, quello della mail non partita', JSON.stringify(r.corpo));
     const st = await chiama({ azione: 'stato-iscrizione', d: r.corpo.stato.d, t: r.corpo.stato.t });
     esigi(st.corpo.mail === 'errore', 'la pagina legge "errore"', JSON.stringify(st.corpo));
+    esigi(st.corpo.attesaRimanda > 110 && st.corpo.attesaRimanda <= 120, 'e anche dopo un invio fallito il pulsante aspetta i due minuti dal tentativo', String(st.corpo.attesaRimanda));
     esigi(errori.some(x => /Mail di conferma \(iscrizione\) non inviata/.test(x)), 'e il log lo dice');
+    /* chi preme "rimandala" dentro i due minuti: il messaggio non dice "ti
+       abbiamo appena mandato la mail", perche' non e' partita */
+    spedite = [];
+    avanza(30 * 1000);
+    const presto = await chiama({ azione: 'rimanda-conferma', d: r.corpo.stato.d, t: r.corpo.stato.t });
+    esigi(presto.stato === 429 && /^Abbiamo appena provato a spedirti la mail e riproviamo in automatico: per chiederne un'altra aspetta \d+ secondi\.$/.test(presto.corpo.msg)
+        && !/Ti abbiamo appena mandato/.test(presto.corpo.msg) && spedite.length === 0, 'premuto presto: "abbiamo appena provato... riproviamo in automatico"', presto.corpo.msg);
+    const st2 = await chiama({ azione: 'stato-iscrizione', d: r.corpo.stato.d, t: r.corpo.stato.t });
+    esigi(presto.corpo.attesa === st2.corpo.attesaRimanda && st2.corpo.attesaRimanda > 80 && st2.corpo.attesaRimanda <= 90,
+        'e i secondi sono gli stessi che la pagina legge nello stato', presto.corpo.attesa + ' / ' + st2.corpo.attesaRimanda);
+    avanza(91 * 1000);
+    const st3 = await chiama({ azione: 'stato-iscrizione', d: r.corpo.stato.d, t: r.corpo.stato.t });
+    const ora = await chiama({ azione: 'rimanda-conferma', d: r.corpo.stato.d, t: r.corpo.stato.t });
+    esigi(st3.corpo.attesaRimanda === 0 && ora.stato === 200 && ora.corpo.inviata === true, 'a due minuti dal tentativo: 0, e il rinvio parte', JSON.stringify(ora.corpo));
 });
 
 prova('Se l\'SMS non parte, o il tetto del giorno e\' pieno, l\'iscrizione passa lo stesso', async () => {
@@ -724,6 +748,7 @@ prova('Se l\'SMS non parte, o il tetto del giorno e\' pieno, l\'iscrizione passa
     esigi(r.stato === 200 && r.corpo.ok && s && s.mailConferma.ok === true, 'iscritto, con la mail partita', JSON.stringify(r.corpo));
     esigi(s && s.smsConferma && s.smsConferma.ok === false && /402/.test(s.smsConferma.errore) && !/347/.test(s.smsConferma.errore),
         'sulla scheda: SMS non partito, con il motivo e senza il numero', JSON.stringify(s && s.smsConferma));
+    esigi(r.corpo.sms === false && r.corpo.smsTipo === 'inviata', 'e la pagina lo sa: niente "ti abbiamo mandato anche un SMS"', JSON.stringify(r.corpo));
 
     v = await verificaNumero('3471230004', 'tetto@studio.it');
     const conto = dati.get('meta/smsVerifica') || {};
@@ -733,7 +758,7 @@ prova('Se l\'SMS non parte, o il tetto del giorno e\' pieno, l\'iscrizione passa
     try { r = await iscrivi({ email: 'tetto@studio.it', telefono: '3471230004', smsToken: v.token }); }
     finally { console.error = errVero; delete process.env.SMS_MAX_GIORNO; }
     s = schedaDi('tetto@studio.it').s;
-    esigi(r.corpo.ok && sms.length === prima, 'tetto del giorno pieno: iscritto, e nessun SMS speso');
+    esigi(r.corpo.ok && sms.length === prima && r.corpo.sms === false, 'tetto del giorno pieno: iscritto, nessun SMS speso, e la risposta lo dice', JSON.stringify(r.corpo));
     esigi(s && s.smsConferma && s.smsConferma.ok === false && /tetto/.test(s.smsConferma.errore), 'e la scheda lo dice');
 });
 
@@ -749,9 +774,13 @@ prova('"Non e\' arrivata? Rimandala": firmata, due minuti fra un invio e l\'altr
     esigi(altra.stato === 403, 'la firma del pulsante di conferma non vale qui');
     spedite = [];
     const subito = await rimanda();
-    esigi(subito.stato === 429 && subito.corpo.attesa > 0 && subito.corpo.attesa <= 120 && /Spam/.test(subito.corpo.msg) && spedite.length === 0,
-        'appena iscritto: aspetta i due minuti dalla mail dell\'iscrizione', JSON.stringify(subito.corpo));
+    esigi(subito.stato === 429 && subito.corpo.attesa > 0 && subito.corpo.attesa <= 120 && /^Ti abbiamo appena mandato la mail/.test(subito.corpo.msg)
+        && /Spam/.test(subito.corpo.msg) && spedite.length === 0,
+        'appena iscritto: aspetta i due minuti dalla mail dell\'iscrizione (partita: "ti abbiamo appena mandato")', JSON.stringify(subito.corpo));
+    const statoSubito = await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t });
+    esigi(statoSubito.corpo.attesaRimanda === subito.corpo.attesa, 'lo stato dice gli stessi secondi', statoSubito.corpo.attesaRimanda + ' / ' + subito.corpo.attesa);
     avanza(121 * 1000);
+    esigi((await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t })).corpo.attesaRimanda === 0, 'passati i due minuti lo stato dice 0');
     const uno = await rimanda();
     esigi(uno.stato === 200 && uno.corpo.ok && uno.corpo.inviata === true && uno.corpo.a === 'rimanda@studio.it', 'dopo due minuti riparte, e la risposta dice a quale indirizzo', JSON.stringify(uno.corpo));
     esigi(spedite.length === 1 && spedite[0].to === 'rimanda@studio.it' && /Richiesta di conferma/.test(spedite[0].subject), 'ed e\' la mail con il pulsante');
@@ -765,6 +794,9 @@ prova('"Non e\' arrivata? Rimandala": firmata, due minuti fra un invio e l\'altr
     const sesta = await rimanda();
     esigi(sesta.stato === 429 && sesta.corpo.attesa > 0 && /più volte/.test(sesta.corpo.msg) && sesta.corpo.msg.indexOf('/contatti/?t=mail') > 0 && spedite.length === 5,
         'il sesto nello stesso giorno no: dice quanto aspettare e dove scriverci', JSON.stringify(sesta.corpo));
+    const statoTetto = await chiama({ azione: 'stato-iscrizione', d: st.d, t: st.t });
+    esigi(statoTetto.corpo.attesaRimanda === sesta.corpo.attesa && statoTetto.corpo.attesaRimanda > 20 * 60 * 60,
+        'e lo stato conta anche il tetto del giorno: i secondi fino al primo rinvio che scade', statoTetto.corpo.attesaRimanda + ' / ' + sesta.corpo.attesa);
     avanza(24 * 60 * 60 * 1000);
     const domani = await rimanda();
     esigi(domani.corpo.ok && spedite.length === 6, 'il giorno dopo si\'', JSON.stringify(domani.corpo));

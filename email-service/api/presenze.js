@@ -702,7 +702,14 @@ module.exports = async (req, res) => {
            se il rinvio fallisce resta scritto con il motivo nuovo. Agli eventi
            che chiedono la conferma parte anche l'SMS "conferma la tua email"
            al cellulare verificato, e la scheda torna nel giro automatico (il
-           promemoria del giorno dopo, se non l'ha gia' avuto). */
+           promemoria del giorno dopo, se non l'ha gia' avuto).
+           Una scheda che NON viene dal modulo del sito (inserita a mano, da un
+           portale, importata: CONF.dalModuloDelSito, deciso sulla scheda di
+           PRIMA dell'invio) riceve la mail ma non la sua traccia
+           (`traccia: false`): con `mailConferma` un'importata diventerebbe
+           "in attesa di conferma" - fuori dai conti della sala e dai
+           promemoria - per una mail che lo staff le ha solo rimandato. Niente
+           SMS e niente giro automatico per lei: non ha niente da confermare. */
         if (azione === 'richiedi-conferma-email') {
             const rif = db.collection('iscrizioni').doc(testo(body.doc, 400) || idIscrizione(idIscritto));
             const snap = await rif.get();
@@ -718,10 +725,15 @@ module.exports = async (req, res) => {
             }
             const V = moduloVerificata();
             const evV = V.eventoDi(scheda.pagina);
-            const esito = await CONF.spedisciConferma(db, rif.id, scheda, {
+            const daSito = CONF.dalModuloDelSito(scheda);
+            const esito = await CONF.spedisciConferma(db, rif.id, scheda, daSito ? {
                 via: 'staff',
                 bcc: ccnOperatore(email, emailSessione, scheda.email),
                 attesa: !!evV && CONF.inAttesaDiConferma(scheda)
+            } : {
+                via: 'staff',
+                bcc: ccnOperatore(email, emailSessione, scheda.email),
+                traccia: false
             });
             if (!esito.ok) {
                 const motivo = String(esito.errore || 'errore del server di posta').slice(0, 200);
@@ -731,7 +743,7 @@ module.exports = async (req, res) => {
             }
             await rif.set({ emailConfermaRimandata: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() } }, { merge: true });
             let sms = { inviato: false };
-            if (evV && scheda.telefonoNumero) {
+            if (evV && daSito && scheda.telefonoNumero) {
                 const s = await V.smsConfermaEmail(db, { idDoc: rif.id, numero: scheda.telefonoNumero, email: scheda.email, tipo: 'inviata' });
                 sms = { inviato: s.ok === true };
             }
