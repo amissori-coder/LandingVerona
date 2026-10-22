@@ -1744,7 +1744,10 @@ Brevo `conferma-email`, stesso mittente) che dice quale pulsante premere,
 nella mail mandata a quale indirizzo, di guardare nello Spam, e che per
 qualunque problema puo' scriverci a **info@** o dal **modulo contatti** del
 sito ("Problemi? Scrivici a info@nextgenerationbusiness.it o dal modulo
-contatti: `https://nextgenerationbusiness.it/contatti/?t=mail`").
+contatti del sito."). **Senza link**: finche' l'SMS ha avuto
+`https://nextgenerationbusiness.it/contatti/?t=mail`, alle prove non e'
+arrivato, mentre quello con il codice (nessun indirizzo web) arrivava;
+operatori e filtri anti-phishing scartano gli SMS aziendali con un link.
 Tre testi: mail **partita**, mail **non partita** ("iscrizione
 registrata... riproviamo in automatico") e il **promemoria** del giro
 automatico dopo un giorno. Regole:
