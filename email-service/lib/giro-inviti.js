@@ -96,7 +96,13 @@ async function prenota(db, id, quanti) {
         // la finestra si apre adesso se non era mai partita: la apre il primo messaggio
         const inizio = f.inizio || Date.now();
         tx.set(P.rif(db, id), {
-            finestra: { inizio: inizio, usati: f.usati + concessi }
+            finestra: { inizio: inizio, usati: f.usati + concessi },
+            /* Quanti sono "in volo": prenotati nella finestra ma non ancora nei
+               conti, che si scrivono dopo la spedizione (un paio di minuti per
+               sessanta PEC). Solo per l'area riservata: senza, in quei minuti
+               la previsione li contava due volte - gia' partiti nel blocco e
+               ancora da mandare. Torna a zero con i conti. */
+            inVolo: concessi
         }, { merge: true });
         esito = { concessi: concessi, inizio: inizio };
     });
@@ -161,7 +167,7 @@ async function concludi(db, id, stato, conti, motivo) {
         stato: stato, concluso: { il: Date.now(), motivo: String(motivo || '').slice(0, 300) },
         // fuori scena: il giro non deve piu' nemmeno leggerla
         attiva: false,
-        lucchetto: null, conti: conti
+        lucchetto: null, inVolo: 0, conti: conti
     }, { merge: true });
     /* Gli identificativi se ne vanno con la conclusione: hanno finito il
        loro lavoro, e sono l'unico posto nuovo in cui vivevano dei
@@ -231,6 +237,7 @@ async function lavora(db, id, dati, scadenza, fuori) {
     }
 
     let conti = Object.assign({}, CONTI_ZERO, dati.conti || {});
+    let velocita = 0;
     let restaQuota = voluti;
     let bloccato = '';
     let fermato = '';
@@ -303,6 +310,7 @@ async function lavora(db, id, dati, scadenza, fuori) {
             const daFare = fetta.slice(0, p.concessi);
 
             let r;
+            const partitaFetta = Date.now();
             try {
                 r = await MOTORE.inviaSchede(db, {
                     evento: dati.evento, campagna: dati.campagna, canale: canale,
@@ -369,7 +377,20 @@ async function lavora(db, id, dati, scadenza, fuori) {
                 fatti: fatti, quando: Date.now(),
                 stato: fatti >= ids.length ? 'fatto' : 'attesa'
             }, { merge: true });
-            await P.rif(db, id).set({ conti: conti, ultimoGiro: Date.now() }, { merge: true });
+            /* Quanto ci mette davvero un messaggio, misurato sulle spedizioni
+               vere (le saltate non contano: sono letture). Serve alla
+               previsione nell'area riservata: un server di posta lento fa
+               partire meno messaggi per giro, e la fine si sposta. Media
+               mobile, cosi' un giro storto non la stravolge. */
+            const spediteFetta = (r.inviate || 0) + ((r.falliti || []).length);
+            const aggiorna = { conti: conti, ultimoGiro: Date.now(), inVolo: 0 };
+            if (spediteFetta > 0) {
+                const misura = (Date.now() - partitaFetta) / spediteFetta;
+                const prima = Number(velocita) || Number(dati.velocita && dati.velocita.msPerMessaggio) || 0;
+                velocita = Math.round(prima ? prima * 0.7 + misura * 0.3 : misura);
+                aggiorna.velocita = { msPerMessaggio: velocita, quando: Date.now() };
+            }
+            await P.rif(db, id).set(aggiorna, { merge: true });
 
             if (r.bloccato) { bloccato = r.bloccato; break; }
             if (r.errore) { fermato = r.errore; break; }
@@ -396,7 +417,7 @@ async function lavora(db, id, dati, scadenza, fuori) {
        c'e' da fare qualcosa e non che l'invio e' lento. */
     if (bloccato) {
         await P.rif(db, id).set({
-            stato: 'sospesa', lucchetto: null,
+            stato: 'sospesa', lucchetto: null, inVolo: 0,
             sospesa: { il: Date.now(), da: 'servizio' },
             conti: conti,
             ultimoErrore: 'Il server di posta ha bloccato l\'invio: "' + String(bloccato).slice(0, 200)
@@ -433,7 +454,7 @@ async function lavora(db, id, dati, scadenza, fuori) {
        contare i giorni sul calendario. */
     const nonTieneIlRitmo = fermato === 'tempo del giro esaurito' && restaQuota > 0;
     await P.rif(db, id).set({
-        conti: conti, daLotto: cursore, lucchetto: null, ultimoGiro: Date.now(),
+        conti: conti, daLotto: cursore, lucchetto: null, ultimoGiro: Date.now(), inVolo: 0,
         ultimoErrore: nonTieneIlRitmo
             ? ('Il server di posta sta rispondendo lentamente: in questo giro sono partiti '
                 + (voluti - restaQuota) + ' messaggi dei ' + voluti + ' che il ritmo concedeva. '
@@ -557,4 +578,4 @@ async function eseguiGiro(db) {
     }
 }
 
-module.exports = { eseguiGiro, BUDGET_MS, LUCCHETTO_MS, RITMI };
+module.exports = { eseguiGiro, BUDGET_MS, BUDGET_UNA_MS, LUCCHETTO_MS, RITMI };

@@ -305,6 +305,35 @@ async function principale() {
                 'la previsione coincide con i giri veri (' + canale + ' ' + r.quanti + ' ogni ' + r.ogniMin + ' minuti)',
                 JSON.stringify([new Date(attesa.fine).toISOString(), new Date(ultimo).toISOString()]));
         }
+        esigi(P.previsione(Object.assign({}, inCorso, { annullaRichiesto: true }), ora, 10) === null,
+            'annullata mentre un giro spedisce: niente "prossimo invio", si ferma');
+
+        // il giro in corso: i prenotati ma non ancora nei conti non si contano due volte
+        const lucchetto = { fino: ora + 5 * MIN };
+        pv = P.previsione(Object.assign({}, inCorso, { lucchetto: lucchetto, inVolo: 61, finestra: { inizio: Date.parse('2026-10-22T14:43:20Z'), usati: 250 } }), ora, 10);
+        esigi(pv.inPartenza === 61 && pv.restano === 9750 && pv.prossimoInvio === Date.parse('2026-10-22T15:50:00Z'),
+            'mentre il giro spedisce: 61 in partenza, ne restano 9.750 in tutto, il prossimo invio dopo il blocco', JSON.stringify([pv.inPartenza, pv.restano]));
+        const senzaVolo = P.previsione(Object.assign({}, inCorso, { finestra: { inizio: Date.parse('2026-10-22T14:43:20Z'), usati: 250 }, conti: { inviate: 1311 } }), ora, 10);
+        esigi(Math.abs(senzaVolo.fine - pv.fine) < 5 * MIN, 'e la fine prevista non salta avanti mentre il giro spedisce',
+            new Date(pv.fine).toISOString() + ' / ' + new Date(senzaVolo.fine).toISOString());
+        pv = P.previsione(Object.assign({}, inCorso, { lucchetto: { fino: ora - MIN }, inVolo: 61 }), ora, 10);
+        esigi(pv.inPartenza === 0 && pv.restano === 9750, 'un "in volo" di un giro morto (lucchetto scaduto) non conta piu\'');
+        pv = P.previsione(Object.assign({}, inCorso, { totale: 1311, lucchetto: lucchetto, inVolo: 61 }), ora, 10);
+        esigi(pv.inPartenza === 61 && !pv.prossimoInvio && pv.fine > ora && pv.fine < ora + 5 * MIN,
+            'l\'ultimo gruppo in partenza: nessun altro invio, finisce con lui', JSON.stringify(pv));
+
+        // il blocco si riapre a ridosso di uno scoccare: quel giro puo' trovarlo aperto o no
+        pv = P.previsione(Object.assign({}, inCorso, { finestra: { inizio: Date.parse('2026-10-22T14:30:05Z'), usati: 250 } }), ora, 10);
+        esigi(pv.forseAlle === Date.parse('2026-10-22T15:30:00Z') && pv.prossimoInvio === Date.parse('2026-10-22T15:40:00Z'),
+            'riapertura alle 15:30:05: "verso le 15:30, o al giro delle 15:40"', JSON.stringify([new Date(pv.forseAlle).toISOString(), new Date(pv.prossimoInvio).toISOString()]));
+
+        // un server di posta lento: per giro ne stanno meno, e la fine si sposta
+        const GIRO = require(path.join(RADICE, 'lib/giro-inviti.js'));
+        esigi(P.BUDGET_GIRO_MS === GIRO.BUDGET_UNA_MS, 'il tempo di un giro e\' lo stesso nella previsione e nel giro vero');
+        const lento = P.previsione(Object.assign({}, inCorso, { velocita: { msPerMessaggio: 3200 } }), ora, 10);
+        esigi(lento.perGiro === Math.floor(GIRO.BUDGET_UNA_MS / 3200) && lento.fine > P.previsione(inCorso, ora, 10).fine,
+            'a 3,2 secondi per PEC ne partono ' + Math.floor(GIRO.BUDGET_UNA_MS / 3200) + ' per giro, e la fine si sposta in avanti', String(lento.perGiro));
+
         const vivo = Object.assign({}, inCorso, { finestra: { inizio: Date.now() - 20 * MIN, usati: 189 } });
         const video = P.perVideo('x', vivo);
         esigi(video.finestra.inizio === vivo.finestra.inizio && video.finestra.fine === vivo.finestra.inizio + 60 * MIN && video.finestra.usati === 189
@@ -492,8 +521,14 @@ async function principale() {
         await chiama('programma-lotto', { n: 1, ids: Object.keys(molte).map(idScheda) });
         await chiama('programma-avvia', {});
 
+        let volo = [];
+        comeVaSendMail = () => { volo.push(docProg().inVolo); return { messageId: 'x', response: '250 ok' }; };
         await GIRO.eseguiGiro(db);
+        comeVaSendMail = () => ({ messageId: 'x', response: '250 ok' });
         esigi(spediti.length === 3, 'in una finestra da tre non ne partono quattro', 'partiti ' + spediti.length);
+        esigi(volo.length === 3 && volo.every(v => v === 3) && docProg().inVolo === 0,
+            'mentre spedisce il giro dice quanti sono in partenza, e dopo torna a zero', JSON.stringify([volo, docProg().inVolo]));
+        esigi(docProg().velocita && docProg().velocita.msPerMessaggio >= 0, 'e scrive quanto ci mette un messaggio', JSON.stringify(docProg().velocita));
         esigi(docProg().stato === 'in-corso', 'e la programmazione resta aperta, con il resto da fare');
 
         const primi = spediti.length;

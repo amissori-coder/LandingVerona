@@ -26231,9 +26231,12 @@
         }
         // in corso: il prossimo invio e la fine prevista (vedi tempiProgrammazione)
         const pv = p.previsione || null;
-        return 'Invio programmato in corso: <b>' + fatte + '</b> ' + esc(camp.fatto)
-            + ' su ' + totale + ', ' + ritmo + '.'
-            + (pv && pv.prossimoInvio ? ' Prossimo invio ' + esc(versoLe(pv.prossimoInvio)) + ' (' + contoHtml(pv.prossimoInvio) + ').' : '')
+        const base = 'Invio programmato in corso: <b>' + fatte + '</b> ' + esc(camp.fatto)
+            + ' su ' + totale + ', ' + ritmo + '.';
+        if (cronFermo()) return base + ' <span class="ko">Il servizio è fermo: non parte niente finché non riprende.</span>';
+        return base
+            + (pv && pv.inPartenza ? ' In partenza adesso: ' + Number(pv.inPartenza).toLocaleString('it-IT') + '.' : '')
+            + (pv && pv.prossimoInvio ? ' Prossimo invio ' + esc(prossimoTesto(pv)) + ' (' + contoHtml(pv.forseAlle || pv.prossimoInvio) + ').' : '')
             + (pv && pv.fine ? ' Fine prevista ' + esc(versoLe(pv.fine)) + '.' : '');
     }
 
@@ -27239,6 +27242,7 @@
         const ms = Math.max(0, (quando || 0) - Date.now());
         if (!ms) return '';
         const sec = Math.round(ms / 1000);
+        if (sec < 1) return '';   // "fra 0 secondi" no: chi chiama dice "a momenti"
         if (sec < 60) return sec + (sec === 1 ? ' secondo' : ' secondi');
         const min = Math.round(sec / 60);
         if (min < 60) return min + (min === 1 ? ' minuto' : ' minuti');
@@ -28001,6 +28005,14 @@
          - vecchio: girava e si e' fermato;
          - fresco: si dice l'ora e basta, cosi' chi guarda sa che il silenzio
            non e' il servizio, e' il ritmo.  */
+    /* Il lavoro automatico e' fermo: nessun giro da piu' di quattro passi (o
+       mai). E' la stessa regola dell'avviso qui sotto, e serve anche a non
+       promettere un "prossimo invio fra 5 minuti" che non arrivera'. */
+    function cronFermo() {
+        const q = _invCron && Number(_invCron.quando) || 0;
+        const passo = _invPassoCron || 10;
+        return !q || (Date.now() - q > Math.max(45, passo * 4) * 60 * 1000);
+    }
     function battitoHtml() {
         const q = _invCron && Number(_invCron.quando) || 0;
         const passo = _invPassoCron || 10;
@@ -28030,6 +28042,13 @@
          - il prossimo invio: a che ora, fra quanto (il conto scorre) e quante;
          - la fine prevista, e quante restano. E' un tetto: le aziende saltate
            non consumano il ritmo, quindi puo' finire prima. */
+    /* "Verso le 11:00 o al giro delle 11:10": il prossimo invio, con il giro
+       prima quando il blocco si riapre proprio a ridosso di uno scoccare (il
+       servizio non puo' sapere quale dei due lo trovera' aperto, e lo dice). */
+    function prossimoTesto(pv) {
+        if (pv.forseAlle) return versoLe(pv.forseAlle) + ' o al giro delle ' + giornoEOra(pv.prossimoInvio).ora;
+        return versoLe(pv.prossimoInvio);
+    }
     function tempiProgrammazione(p, camp) {
         const pv = p.previsione;
         if (!pv || p.stato === 'sospesa' || p.stato === 'preparazione') return '';
@@ -28038,22 +28057,37 @@
         const f = p.finestra || {};
         const n = x => Number(x || 0).toLocaleString('it-IT');
         const righe = [];
+        /* Il blocco: quanti in questa finestra del ritmo, senza un'ora. L'ora
+           in cui "comincia il prossimo blocco" (la riapertura del conteggio)
+           e quella in cui parte davvero la prossima PEC (il primo giro dopo)
+           sono due cose diverse, e scritte una sopra l'altra si
+           contraddicevano. L'ora che conta e' una: quella del prossimo invio. */
         if (f.inizio && f.fine > Date.now()) {
-            const piena = !f.disponibili;
             righe.push('<span class="inv-prog-et">Blocco in corso</span>'
-                + '<span><b>' + n(f.usati) + '</b> di ' + n(r.quanti) + ' ' + cosa + ' partite'
-                + (piena ? ' (completo)' : '') + ' &middot; il prossimo blocco comincia '
-                + esc(versoLe(f.fine).replace('verso le', 'alle')) + '</span>');
+                + '<span><b>' + n(f.usati) + '</b> di ' + n(r.quanti) + ' ' + cosa
+                + (f.disponibili ? '' : ' (completo)') + '</span>');
         }
-        if (pv.prossimoInvio) {
+        if (pv.inPartenza) {
+            righe.push('<span class="inv-prog-et">In partenza adesso</span>'
+                + '<span><b>' + n(pv.inPartenza) + '</b> ' + cosa + ': il servizio le sta spedendo</span>');
+        }
+        /* Il lavoro automatico e' fermo: niente "prossimo invio fra 5 minuti"
+           che non arrivera', e niente fine prevista che si sposta a ogni
+           lettura. L'avviso rosso qui sotto dice cosa fare. */
+        if (cronFermo()) {
             righe.push('<span class="inv-prog-et">Prossimo invio</span>'
-                + '<span><b>' + esc(versoLe(pv.prossimoInvio)) + '</b> (' + contoHtml(pv.prossimoInvio) + ')'
-                + (pv.quantiProssimo ? ': circa ' + n(pv.quantiProssimo) + ' ' + cosa : '') + '</span>');
-        }
-        if (pv.fine) {
-            righe.push('<span class="inv-prog-et">Fine prevista</span>'
-                + '<span><b>' + esc(versoLe(pv.fine)) + '</b> &middot; ne restano ' + n(pv.restano) + ' da ' + esc(camp.azione)
-                + ' <span class="hint">(prima, se qualcuna viene saltata)</span></span>');
+                + '<span>quando il servizio riparte: adesso non parte niente</span>');
+        } else {
+            if (pv.prossimoInvio) {
+                righe.push('<span class="inv-prog-et">Prossimo invio</span>'
+                    + '<span><b>' + esc(prossimoTesto(pv)) + '</b> (' + contoHtml(pv.forseAlle || pv.prossimoInvio) + ')'
+                    + (pv.quantiProssimo ? ': circa ' + n(pv.quantiProssimo) + ' ' + cosa : '') + '</span>');
+            }
+            if (pv.fine) {
+                righe.push('<span class="inv-prog-et">Fine prevista</span>'
+                    + '<span><b>' + esc(versoLe(pv.fine)) + '</b> &middot; ne restano ' + n(pv.restano) + ' da ' + esc(camp.azione)
+                    + ' <span class="hint">(prima se qualcuna viene saltata, dopo se la posta rallenta)</span></span>');
+            }
         }
         return righe.length ? '<div class="inv-prog-tempi">' + righe.map(x => '<div>' + x + '</div>').join('') + '</div>' : '';
     }
@@ -30236,11 +30270,18 @@
             const man = document.getElementById('ii-manca');
             if (man) {
                 const restanti = Math.max(0, totale - fatte);
-                if (fatte > 0 && restanti > 0 && c.da) {
-                    const secondi = Math.round((Date.now() - c.da) / fatte * restanti / 1000);
-                    man.textContent = secondi < 60
-                        ? 'meno di un minuto'
-                        : ('circa ' + Math.round(secondi / 60) + ' minuti');
+                /* A mano il tetto orario ferma l'invio: la stima vale solo per
+                   quelle che ci stanno in quest'ora, e si dice. Senza, su
+                   undicimila PEC diceva "circa 320 minuti" per un invio che si
+                   ferma dopo 250. */
+                const fr = modoInvio === 'ora' ? frenoCfg(canale) : null;
+                const nelTetto = fr && typeof fr.disponibili === 'number'
+                    ? Math.max(0, fr.disponibili - (c.inviate || 0)) : restanti;
+                const contate = Math.min(restanti, nelTetto);
+                if (fatte > 0 && contate > 0 && c.da) {
+                    const secondi = Math.round((Date.now() - c.da) / fatte * contate / 1000);
+                    man.textContent = (secondi < 60 ? 'meno di un minuto' : ('circa ' + Math.round(secondi / 60) + ' minuti'))
+                        + (contate < restanti ? ' per le ' + contate + ' di quest\'ora, poi si ferma per il tetto orario' : '');
                 } else man.textContent = '';
             }
             const pa = document.getElementById('ii-passo');
@@ -30257,6 +30298,7 @@
                da solo. "Riprova piu' tardi" lascia a indovinare, e chi
                indovina riprova ogni due minuti. */
         let _tettoTimer = null;
+        let _tettoRiletto = 0;
         const aggiornaTetto = quanti => {
             const avviso = document.getElementById('ii-tetto');
             if (!avviso) return;
@@ -30267,6 +30309,19 @@
             if (!tetto || !quanti) { avviso.innerHTML = ''; avviso.classList.remove('ii-tetto-fermo'); return; }
             const liberi = f ? f.disponibili : tetto;
 
+            /* Il tetto si e' riaperto mentre la finestra era aperta: il conto
+               in memoria e' di prima. Si rilegge dal servizio (una volta per
+               riapertura) e intanto lo si dice, invece di lasciare "Si
+               riprende fra " vuoto sotto un tetto che non c'e' piu'. */
+            if (f && liberi === 0 && f.riprendeAlle && f.riprendeAlle <= Date.now()) {
+                avviso.classList.remove('ii-tetto-fermo');
+                avviso.innerHTML = 'Il tetto orario si è riaperto: premi <b>Invia le restanti</b> per il blocco successivo.';
+                if (_tettoRiletto !== f.riprendeAlle) {
+                    _tettoRiletto = f.riprendeAlle;
+                    rileggiFreno(() => aggiornaTetto(quanti));
+                }
+                return;
+            }
             if (f && liberi === 0 && f.riprendeAlle) {
                 avviso.classList.add('ii-tetto-fermo');
                 avviso.innerHTML = 'Il tetto di <b>' + tetto + ' ' + quale + ' all\'ora</b> e esaurito: '
@@ -30279,8 +30334,9 @@
             avviso.classList.remove('ii-tetto-fermo');
             avviso.innerHTML = (quanti > liberi)
                 ? 'In questa finestra oraria restano <b>' + liberi + '</b> invii dei ' + tetto + ' ' + quale
-                + ': ne partono ' + liberi + ' adesso, gli altri ' + (quanti - liberi)
-                + ' restano da inviare e ripartono fra un\'ora.'
+                + ': ne partono ' + liberi + ' adesso; per gli altri ' + (quanti - liberi)
+                + ' si preme di nuovo <b>Invia le restanti</b> quando il tetto si riapre, un blocco all\'ora.'
+                + (quanti - liberi > tetto ? ' Per un elenco così lungo conviene <b>Programmato</b>: va avanti da solo, anche a finestra chiusa.' : '')
                 : '';
         };
         const chiudi = () => { clearTimeout(_tettoTimer); chiudiModale(); modaleAziendeInvito(ev); };

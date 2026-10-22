@@ -174,19 +174,30 @@ pausa, si riprende e si annulla dal riquadro in cima all'elenco delle aziende.
 cose, con il conto alla rovescia che scorre da solo:
 
 - **Blocco in corso**: quante ne sono partite nella finestra del ritmo (per
-  esempio 189 di 250) e a che ora comincia il blocco successivo;
+  esempio 189 di 250, o "completo");
+- **In partenza adesso**: quante ne sta spedendo il giro in corso (il giro
+  scrive `inVolo` quando le prenota e lo rimette a zero con i conti);
 - **Prossimo invio**: a che ora parte il prossimo gruppo e quante sono (con
   250 PEC all'ora e il cron ogni dieci minuti, circa 63 per giro, finche' il
-  blocco dell'ora non e' pieno);
+  blocco dell'ora non e' pieno). Quando il blocco si riapre a ridosso di uno
+  scoccare dei dieci minuti si dicono le due ore possibili ("verso le 11:00 o
+  al giro delle 11:10"): dipende da quale ritardo e' piu' lungo, e il
+  servizio non puo' saperlo prima;
 - **Fine prevista**: quando finisce tutto, e quante restano.
+
+Se il lavoro automatico e' fermo (nessun giro da quattro passi) non si
+promette nessun prossimo invio: si dice che non parte niente finche' non
+riprende.
 
 I numeri li calcola il servizio (`previsione` in
 `lib/programmazione-inviti.js`) rifacendo i giri del lavoro automatico con le
 sue stesse regole: il prossimo giro e' allo scoccare dei dieci minuti, la
 quota per giro e' quella di `ritmi-invito.js`, la finestra si riapre come in
-`finestraDi`. La fine prevista e' un tetto: le aziende saltate non consumano
-il ritmo, quindi puo' finire prima; un server di posta lento, dopo. In pausa
-non si prevede niente.
+`finestraDi`, e quanti ne stanno in un giro si misura: il giro scrive quanto
+ci mette davvero un messaggio (`velocita.msPerMessaggio`), e con un server di
+posta lento in un giro ne partono meno. Le aziende saltate non consumano il
+ritmo, quindi puo' finire prima. In pausa, o appena annullata, non si
+prevede niente.
 
 **Tre doppioni che non possono succedere**, ed e' bene sapere perche':
 

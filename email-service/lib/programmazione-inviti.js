@@ -160,9 +160,22 @@ function prossimoGiro(adesso, passoMin) {
 }
 
 /* Quanto ci mette un messaggio dentro un giro: la pausa fra una PEC e
-   l'altra (lib/canali-invito.js, 1,5 secondi) piu' la consegna. Serve solo
-   a dire a che ora finisce l'ultimo giro, quindi un valore tondo basta. */
+   l'altra (lib/canali-invito.js, 1,5 secondi) piu' la consegna. E' il valore
+   di partenza: appena il giro ha spedito qualcosa, si usa quello misurato
+   (velocita.msPerMessaggio, scritto da lib/giro-inviti.js). */
 const SECONDI_PER_MESSAGGIO = { pec: 2, email: 0.5 };
+/* Il tempo che il giro concede a una programmazione (BUDGET_UNA_MS in
+   lib/giro-inviti.js, che lo esporta: le prove controllano che coincidano).
+   Con un server lento e' questo, non il ritmo, a dire quanti partono per
+   giro. */
+const BUDGET_GIRO_MS = 150 * 1000;
+/* Il giro allo scoccare dei dieci minuti parte con qualche secondo di
+   ritardo, e un blocco si riapre qualche secondo dopo uno scoccare (lo ha
+   aperto il primo messaggio di un giro). Se la riapertura cade entro questo
+   margine da uno scoccare, quel giro puo' trovarlo gia' riaperto oppure no:
+   dipende da quale dei due ritardi e' piu' lungo. Non si sceglie a caso: si
+   dicono le due ore. */
+const MARGINE_RIAPERTURA_MS = 2 * 60 * 1000;
 
 /* LA PREVISIONE, per chi guarda l'invio partire: quando parte il prossimo
    gruppo di messaggi, quanti sono, e a che ora finisce tutto. Non e' una
@@ -174,24 +187,47 @@ const SECONDI_PER_MESSAGGIO = { pec: 2, email: 0.5 };
    E' un tetto, non una promessa al minuto: le aziende saltate (gia'
    servite, escluse, senza recapito) non consumano il ritmo, quindi l'invio
    puo' finire prima; un server di posta lento, o un giro saltato, dopo.
-   Per una programmazione ferma (in pausa, in preparazione, finita) non si
-   prevede niente: dipende da una persona, non dall'orologio. */
+   Per una programmazione ferma (in pausa, in preparazione, finita, o
+   annullata e in attesa che il giro in corso se ne accorga) non si prevede
+   niente: dipende da una persona, non dall'orologio.
+
+   Cosa torna: prossimoGiro (lo scoccare prossimo), prossimoInvio e
+   quantiProssimo (il primo giro che spedira' davvero), forseAlle (un giro
+   prima, se il blocco si riapre proprio a ridosso di uno scoccare: vedi
+   MARGINE_RIAPERTURA_MS), inPartenza (quanti sta spedendo adesso il giro in
+   corso), fine e restano. */
 function previsione(dati, adesso, passoMin) {
     const d = dati || {};
-    if (!daLavorare(d.stato)) return null;
+    if (!daLavorare(d.stato) || d.annullaRichiesto === true) return null;
     const ora = Number(adesso) || Date.now();
     const passoM = Number(passoMin) || RITMI.passoCronMin();
     const passo = passoM * 60000;
     const ritmo = RITMI.normalizza(d.canale, d.ritmo);
     const durata = ritmo.ogniMin * 60000;
-    const perGiro = RITMI.perGiro(ritmo, passoM);
-    const secondi = SECONDI_PER_MESSAGGIO[RITMI.canaleValido(d.canale)];
+    const misurati = Number(d.velocita && d.velocita.msPerMessaggio) || 0;
+    const msMessaggio = misurati > 0 ? misurati : SECONDI_PER_MESSAGGIO[RITMI.canaleValido(d.canale)] * 1000;
+    // quanti ne fa davvero un giro: la quota del ritmo, ma non piu' di quanti ne stanno nel suo tempo
+    const perGiro = Math.max(1, Math.min(RITMI.perGiro(ritmo, passoM), Math.floor(BUDGET_GIRO_MS / msMessaggio)));
+    const secondi = msMessaggio / 1000;
     const c = d.conti || {};
     const fatte = ['inviate', 'falliti', 'saltate', 'senzaRecapito', 'disiscritte', 'incerte']
         .reduce((s, k) => s + (Number(c[k]) || 0), 0);
     let resto = Math.max(0, (Number(d.totale) || 0) - fatte);
-    const fuori = { prossimoGiro: prossimoGiro(ora, passoM), prossimoInvio: 0, quantiProssimo: 0, fine: 0, restano: resto, perGiro: perGiro };
-    if (!resto) return fuori;
+    /* Quelli che il giro in corso sta spedendo adesso: sono gia' nel blocco
+       (prenotati) ma non ancora nei conti. Solo finche' il giro tiene il
+       lucchetto: un "in volo" rimasto da un giro morto non vale piu'. */
+    const giroAdesso = !!(d.lucchetto && Number(d.lucchetto.fino) > ora);
+    const volo = giroAdesso ? Math.max(0, Math.min(resto, Number(d.inVolo) || 0)) : 0;
+    resto -= volo;
+    const fuori = {
+        prossimoGiro: prossimoGiro(ora, passoM), prossimoInvio: 0, quantiProssimo: 0, forseAlle: 0,
+        inPartenza: volo, fine: 0, restano: resto + volo, perGiro: perGiro
+    };
+    if (!resto) {
+        // l'ultimo gruppo sta partendo adesso: finisce con lui
+        if (volo) fuori.fine = ora + Math.round(volo * secondi * 1000);
+        return fuori;
+    }
 
     // il primo giro che puo' spedire: non prima dell'ora scelta per la partenza
     const parte = Number(d.quando) || 0;
@@ -208,7 +244,12 @@ function previsione(dati, adesso, passoMin) {
         const liberi = ritmo.quanti - usati;
         if (liberi <= 0) {
             // finestra piena: si salta al primo giro dentro la prossima
-            t = prossimoGiro(inizio + durata - 1, passoM);
+            const riapre = inizio + durata;
+            t = prossimoGiro(riapre - 1, passoM);
+            /* ...ma se si riapre a ridosso di uno scoccare, quel giro potrebbe
+               gia' trovarla aperta: si dice anche lui (solo per il primo invio). */
+            const giroPrima = t - passo;
+            if (!fuori.prossimoInvio && giroPrima > ora && riapre - giroPrima <= MARGINE_RIAPERTURA_MS) fuori.forseAlle = giroPrima;
             continue;
         }
         const n = Math.min(resto, perGiro, liberi);
@@ -335,6 +376,6 @@ async function ricordaTesto(db, evento, campagna, dati, oggetto, chi) {
 module.exports = {
     COLL, META, ATTIVI, DA_LAVORARE, IN_PREPARAZIONE, PER_LOTTO, SCADE_PREPARAZIONE_MS,
     eAttiva, daLavorare, idDi, rif, rifLotti, nomeLotto,
-    finestraDi, quantiOra, prossimoGiro, previsione, battito, leggiBattito, cancellaLotti, perVideo,
+    finestraDi, quantiOra, prossimoGiro, previsione, BUDGET_GIRO_MS, battito, leggiBattito, cancellaLotti, perVideo,
     rifTestoInvito, ricordaTesto
 };
