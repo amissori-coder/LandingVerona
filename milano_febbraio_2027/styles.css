@@ -1239,7 +1239,12 @@ ul, ol { list-style: none; }
     text-align: left !important;
 }
 .fatto-rimanda-fondo .btn-modulo { text-align: center !important; text-align-last: center; }
+.fatto-rimanda-fondo .btn-modulo[hidden] { display: none; }
+/* l'esito puo' contenere un indirizzo lungo senza spazi: va a capo dentro
+   il riquadro invece di uscirne */
 .fatto-rimanda-fondo .fatto-rimanda-esito {
+    min-width: 0;
+    overflow-wrap: anywhere;
     flex: 1 1 100%;
     font-size: 0.86rem;
     font-weight: 600;
@@ -1268,7 +1273,7 @@ ul, ol { list-style: none; }
 .fatto-rimanda .btn-modulo[hidden] { display: none; }
 /* /assets/testo.css fa ereditare l'allineamento ai pulsanti, e qui il riquadro e' giustificato */
 .fatto-rimanda .btn-modulo { text-align: center !important; text-align-last: center; }
-.fatto-passo .fatto-rimanda-esito { flex: 1 1 220px; font-weight: 600; color: var(--testo); text-align: left !important; }
+.fatto-passo .fatto-rimanda-esito { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; font-weight: 600; color: var(--testo); text-align: left !important; }
 .fatto-passo .fatto-rimanda-esito.ko { color: #B1213B; }
 .fatto-rimanda-esito:empty { display: none; }
 .fatto-mail-modulo {

@@ -648,10 +648,19 @@ prova('Chi e\' in attesa: che cosa e\' gia\' partito per fargli arrivare la mail
     const tp = A.invioConfermaTesto(partita);
     esigi(tp.indexOf('Mail di conferma partita') >= 0 && tp.indexOf('SMS mandato') >= 0 && tp.indexOf('Promemoria') >= 0, 'e la mail, l\'SMS e il promemoria partiti', tp);
     esigi(A.hintAttesaMailHtml(MILANO, partita).indexOf('mail non ancora partita') < 0, 'una mail partita non fa allarme');
+    /* l'SMS passa dalla whitelist VERA del servizio (api/iscrizioni.js), come
+       arriva all'area riservata: una riga fatta a mano qui non lo direbbe */
+    const API = fs.readFileSync(path.join(__dirname, '..', 'api', 'iscrizioni.js'), 'utf8');
+    const da = API.indexOf('smsConferma: (v.smsConferma');
+    const proiettaSms = new Function('v', 'return ' + API.slice(da + 'smsConferma: '.length, API.indexOf('} : null,', da) + '} : null'.length) + ';');
     const smsKo = riga({ doc: 'n5', data: dataDi(ieri), mailConferma: { quando: 1, ok: true },
-        smsConferma: { quando: 2, ok: false, errore: 'Brevo 402 not enough credits' } });
+        smsConferma: proiettaSms({ smsConferma: { quando: 2, ok: false, tipo: 'inviata', id: null, errore: 'Brevo 402 not enough credits' } }) });
     const ts = A.invioConfermaTesto(smsKo);
     esigi(ts.indexOf('SMS NON partito') >= 0 && ts.indexOf('Brevo 402 not enough credits') >= 0, 'un SMS non partito dice anche perche\'', ts);
+    const smsOk = riga({ doc: 'n6', data: dataDi(ieri), mailConferma: { quando: 1, ok: true },
+        smsConferma: proiettaSms({ smsConferma: { quando: 2, ok: true, tipo: 'inviata', id: 'abc123', errore: '' } }) });
+    const to = A.invioConfermaTesto(smsOk);
+    esigi(to.indexOf('SMS mandato') >= 0 && to.indexOf('(Brevo abc123)') >= 0, 'e uno partito il suo riferimento nei log di Brevo', to);
     esigi(A.hintAttesaMailHtml(NAPOLI, mai) === '', 'a Napoli nessuna attesa, nessun segno');
 });
 

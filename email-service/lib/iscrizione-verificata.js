@@ -56,8 +56,8 @@
 
    IL SECONDO SMS: "CONFERMA LA TUA EMAIL". Subito dopo la mail con il
    pulsante, al numero appena verificato parte un SMS che dice dove
-   cercarla (anche Spam e Posta indesiderata) e, se non arriva, dove
-   chiederne un'altra: il modulo delle domande, /contatti/?t=mail.
+   cercarla (anche nello Spam) e, per qualunque problema, dove scriverci:
+   info@nextgenerationbusiness.it o il modulo delle domande, /contatti/?t=mail.
    Chi si iscrive guarda il telefono in quel momento, e una mail finita
    fra la posta indesiderata non la cerca nessuno. Se la mail non e'
    partita l'SMS lo dice, e dice che si riprova da soli (il giro

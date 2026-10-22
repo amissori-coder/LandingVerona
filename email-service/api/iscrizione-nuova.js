@@ -2114,7 +2114,7 @@ module.exports = async (req, res) => {
             catch (e) { console.error('Richiesta di check-up, avviso non riuscito:', String((e && e.message) || e).slice(0, 200)); }
         }
         /* E al cellulare appena verificato, l'SMS che dice dove cercare la
-           mail (anche fra la posta indesiderata) e dove chiederne un'altra; se
+           mail (anche nello Spam) e dove scriverci per un problema; se
            la mail non e' partita, che l'iscrizione c'e' e si riprova da soli.
            Mai al desk (non c'e' un numero verificato) ne' a Napoli. Non ferma
            niente: un SMS che non parte resta scritto sulla scheda, e basta.

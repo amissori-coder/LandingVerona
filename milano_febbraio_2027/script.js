@@ -670,10 +670,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const PAUSA_RIMANDA = 120;   // secondi: RIMANDA_PAUSA_MS del servizio
     // `fine`: quando il pulsante si riaccende (0: e' acceso); `giro`: i rinvii chiesti da qui
     const rimanda = { stato: null, timer: null, inCorso: false, okAlle: 0, inviataAlle: 0, fine: 0, mail: '', giro: 0 };
+    // numero e unita' con lo spazio che non va a capo: mai "(fra 2 / min)"
     function durata(s) {
-        if (s < 90) return s + ' s';
-        if (s < 5400) return Math.ceil(s / 60) + ' min';
-        return Math.ceil(s / 3600) + ' ore';
+        if (s < 90) return s + '\u00a0s';
+        if (s < 5400) return Math.ceil(s / 60) + '\u00a0min';
+        return Math.ceil(s / 3600) + '\u00a0ore';
     }
     // i secondi che mancano, dall'orologio: in una scheda in secondo piano i timer rallentano
     const restano = () => Math.max(0, Math.ceil((rimanda.fine - Date.now()) / 1000));
@@ -773,11 +774,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnFondo = $('rimandaMailFondo');
         const esitoFondo = $('rimandaEsitoFondo');
         const riquadroMail = $('fattoMail');
+        /* Senza il pulsante di sopra (un rinvio che il servizio rifiuta per
+           sempre, 403) resta l'esito, che dice dove scriverci: il riquadro
+           sparisce solo se non ha piu' niente da dire. */
         const allineaFondo = () => {
-            fondo.hidden = btnRimanda.hidden || !!(riquadroMail && riquadroMail.hidden);
+            const esito = rimandaEsito ? rimandaEsito.textContent : '';
+            fondo.hidden = !!(riquadroMail && riquadroMail.hidden) || (btnRimanda.hidden && !esito);
+            btnFondo.hidden = btnRimanda.hidden;
             btnFondo.disabled = btnRimanda.disabled;
             btnFondo.textContent = btnRimanda.textContent.replace(RIMANDALA, 'Rimanda la mail di conferma');
-            esitoFondo.textContent = rimandaEsito ? rimandaEsito.textContent : '';
+            esitoFondo.textContent = esito;
             esitoFondo.classList.toggle('ko', !!(rimandaEsito && rimandaEsito.classList.contains('ko')));
         };
         const osserva = (el, filtro) => {

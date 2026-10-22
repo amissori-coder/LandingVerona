@@ -526,9 +526,15 @@ module.exports = async (req, res) => {
                        automatico) e il promemoria del giorno dopo. Tre oggetti
                        piccoli, perche' chi risponde a "non mi e' arrivata"
                        veda dall'elenco cosa e' gia' stato fatto. */
+                    /* dell'SMS anche il motivo, se non e' partito (tetto,
+                       crediti, Brevo che lo rifiuta: il testo e' gia' senza
+                       numeri e corto, lib/iscrizione-verificata.js), e il
+                       messageId di Brevo, per ritrovarlo nei Log SMS */
                     smsConferma: (v.smsConferma && typeof v.smsConferma === 'object') ? {
                         quando: typeof v.smsConferma.quando === 'number' ? v.smsConferma.quando : 0,
-                        ok: v.smsConferma.ok === true
+                        ok: v.smsConferma.ok === true,
+                        errore: String(v.smsConferma.errore || '').slice(0, 200),
+                        id: v.smsConferma.id == null ? '' : String(v.smsConferma.id).slice(0, 80)
                     } : null,
                     invioConferma: (v.invioConferma && typeof v.invioConferma === 'object') ? {
                         tentativi: Number(v.invioConferma.tentativi) || 0
