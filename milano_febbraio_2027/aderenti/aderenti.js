@@ -3,8 +3,9 @@
    ------------------------------------------------------------
    Il modulo manda i dati al servizio email (azione
    "aderenti-iscrizione"): li' si controllano davvero, si
-   registrano e partono le due mail, l'avviso a chi fattura e
-   il riepilogo a chi si iscrive. Qui si controlla solo quello
+   registrano e parte il riepilogo a chi si iscrive (chi
+   fattura li riceve a mezzanotte, tutti insieme). Qui si
+   controlla solo quello
    che serve a non far aspettare una risposta "manca il CAP".
    La quota e le date le decide il servizio, non questa pagina.
    ============================================================ */

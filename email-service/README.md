@@ -1807,8 +1807,17 @@ c'e' un'email da confermare, perche' l'iscrizione vale da quando arriva: niente
   precedente (dalla `storia` della scheda);
 - **i totali**: iscritti e fatture da emettere, con l'importo.
 
+Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
+(`mail: false` sulla scheda), il riepilogo lo scrive sotto il suo nome.
+
 Senza iscrizioni nuove o aggiornate non parte niente. Una volta per notte su
-`meta/riepilogoAderenti-<quota>`; `?giorno=` e `&forza=1` valgono anche qui.
+`meta/riepilogoAderenti-<quota>`, che tiene l'**ultimo giorno spedito
+davvero**. Questa mail e' l'unico avviso di un'iscrizione da fatturare, quindi
+**non si perde un giorno**: se una notte la posta non risponde, la notte dopo
+la mail copre anche il giorno rimasto indietro ("dal ... al ...", fino a una
+settimana). Un errore nella parte delle aziende non ferma quella degli
+aderenti. Ogni persona e' un blocco solo, e la mail resta sotto il taglio di
+Gmail a 102 KB anche con trenta iscrizioni in un giorno.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,
@@ -1818,7 +1827,10 @@ Senza iscrizioni nuove o aggiornate non parte niente. Una volta per notte su
   libera, e si recupera a mano.
 - **A mano** (prova o recupero): `GET /api/riepilogo-iscrizioni?giorno=aaaa-mm-gg`
   con `Authorization: Bearer <CRON_SECRET>`; `&forza=1` rispedisce un giorno
-  gia' mandato.
+  gia' mandato. Con il **giorno di oggi** (o uno futuro) e' un'**anteprima**:
+  le mail partono con "Anteprima:" nell'oggetto e il giorno non si segna,
+  cosi' a mezzanotte la mail vera parte lo stesso, con chi si e' iscritto
+  dopo la prova.
 - **Destinatari**: in `lib/riepilogo-iscrizioni.js` (DESTINATARI); si possono
   cambiare senza toccare il codice con la variabile `RIEPILOGO_DESTINATARI`
   (indirizzi separati da virgola).

@@ -28,7 +28,15 @@
      - niente "in attesa" ne' "confermata": la conferma qui non c'e';
      - i totali e le fatture da emettere (quelle segnate emesse no);
      - senza niente di nuovo niente mail, e una volta sola per notte;
-     - le due mail partono insieme, la notte che servono tutte e due.
+     - le due mail partono insieme, la notte che servono tutte e due;
+     - se una notte la posta non risponde, la notte dopo la mail copre
+       anche il giorno rimasto indietro ("dal ... al ...");
+     - un errore nella parte delle aziende non ferma quella degli aderenti;
+     - ?giorno= con il giorno di oggi e' un'anteprima: non segna niente,
+       e a mezzanotte la mail vera parte con chi si e' iscritto dopo;
+     - se all'iscritto la sua mail non e' partita, il riepilogo lo dice;
+     - con trenta iscrizioni in un giorno la mail resta sotto i 102 KB
+       oltre i quali Gmail la tronca.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -49,10 +57,13 @@ function doc(coll, id) {
         set: async (p, o) => { dati.set(k, Object.assign({}, (o && o.merge) ? dati.get(k) : {}, p)); }
     };
 }
+const rompiLettura = new Set();   // collezioni la cui prossima lettura fallisce
+let postaGiu = 0;                 // quante spedizioni falliscono, d'ora in poi
 const db = {
     collection: c => ({
         doc: id => doc(c, id),
         get: async () => {
+            if (rompiLettura.has(c)) { rompiLettura.delete(c); throw new Error('firestore giu\''); }
             const docs = [...dati.keys()].filter(k => k.startsWith(c + '/')).map(k => ({ id: k.split('/')[1], data: () => dati.get(k) }));
             return { forEach: f => docs.forEach(f) };
         }
@@ -69,7 +80,7 @@ let spedite = [];
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (n) {
     if (n === 'firebase-admin') return admin;
-    if (n === 'nodemailer') return { createTransport: () => ({ sendMail: async m => { spedite.push(m); return {}; } }) };
+    if (n === 'nodemailer') return { createTransport: () => ({ sendMail: async m => { if (postaGiu > 0) { postaGiu--; throw new Error('posta giu\''); } spedite.push(m); return {}; } }) };
     return veroRequire.apply(this, arguments);
 };
 process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({ private_key: 'x' });
@@ -184,6 +195,8 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     // un'altra quota (un evento futuro): non e' di questa mail
     aderente('ezio', { quota: 'altra-quota', nome: 'Ezio', cognome: 'Altrove', email: 'ezio@x.it', primaVolta: ms('2027-02-03T10:00:00Z'), quando: ms('2027-02-03T10:00:00Z') });
 
+    // come se il lavoro avesse girato tutte le notti fino al 2 febbraio
+    dati.set('meta/riepilogoAderenti-milano-2027-aderenti', { ultimoGiorno: '2027-02-02' });
     const prima = spedite.length;
     orologio = ms('2027-02-03T23:00:05Z');
     r = await gira();
@@ -196,9 +209,9 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(m.subject === 'Iscrizioni aderenti Milano - 2 nuove, 1 aggiornata il 03/02/2027 (totale 4)', 'oggetto: nuove, aggiornate, totale', m.subject);
     const [nuoveA, aggA] = String(m.html || '').split('Iscrizioni aggiornate</td>');
     esigi(/Anna Verdi/.test(nuoveA) && /Bruno Neri/.test(nuoveA) && !/Carla/.test(nuoveA), 'fra le nuove: chi si e\' iscritto oggi');
-    esigi(/iscritto alle 10:00/.test(nuoveA) && /iscritto alle 15:00, corretto alle 18:00/.test(nuoveA), 'con l\'ora, e l\'ora della correzione per chi ha corretto subito');
-    esigi(/Bruno Neri<\/td>/.test(nuoveA) && /bruno@pec\.it/.test(nuoveA) && !/Bruno N\.</.test(nuoveA), 'Bruno con i dati della correzione');
-    esigi(/Carla Bassi/.test(aggA || '') && /aggiornato alle 12:00/.test(aggA || '') && /Cambiati: Intestatario, PEC\./.test(aggA || ''), 'Carla fra le aggiornate, con i campi cambiati', (aggA || '').slice(0, 0));
+    esigi(/iscrizione alle 10:00/.test(nuoveA) && /iscrizione alle 15:00, corretta alle 18:00/.test(nuoveA), 'con l\'ora, e l\'ora della correzione per chi ha corretto subito');
+    esigi(/Bruno Neri<\/b>/.test(nuoveA) && /bruno@pec\.it/.test(nuoveA) && !/Bruno N\.</.test(nuoveA), 'Bruno con i dati della correzione');
+    esigi(/Carla Bassi/.test(aggA || '') && /aggiornata alle 12:00/.test(aggA || '') && /Cambiati: Intestatario, PEC\./.test(aggA || ''), 'Carla fra le aggiornate, con i campi cambiati');
     esigi(/Carla Nuova Srl/.test(aggA || '') && !/Carla Vecchia/.test(m.html), 'e i dati nuovi, non quelli vecchi');
     esigi(!/Dario/.test(m.html) && !/Ezio/.test(m.html), 'non c\'e\' chi non ha fatto niente oggi, ne\' un\'altra quota');
     esigi(/04641610235/.test(nuoveA) && /M5UXCR1/.test(nuoveA) && /Via Roma 1, 37121 Verona \(VR\)/.test(nuoveA) && /amministrazione@studio\.it/.test(nuoveA),
@@ -209,8 +222,16 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         'niente "in attesa" ne\' "confermata": per gli aderenti la conferma non c\'e\'');
     esigi(/non c'è la conferma dell'email/.test(m.html), 'e la mail lo dice');
     esigi(/area-riservata\/#eventi/.test(m.html) && /area-riservata\/#eventi/.test(m.text), 'c\'e\' il collegamento all\'area riservata');
-    esigi(/NUOVE ISCRIZIONI DEL 03\/02\/2027\n- Anna Verdi \(iscritto alle 10:00\)/.test(m.text) && /ISCRIZIONI AGGIORNATE\n- Carla Bassi/.test(m.text)
+    esigi(/NUOVE ISCRIZIONI DEL 03\/02\/2027\n- Anna Verdi \(iscrizione alle 10:00\)/.test(m.text) && /ISCRIZIONI AGGIORNATE\n- Carla Bassi/.test(m.text)
         && /Fattura: Intestatario Studio Verdi Associati; Partita IVA 04641610235/.test(m.text), 'anche nella versione senza formattazione');
+    esigi(/non c'è la conferma dell'email/.test(m.text) && /Cena: Venerdì 26 febbraio 2027 - Meeting degli aderenti: Sabato 27 febbraio 2027 - Quota: 200 € \+ IVA/.test(m.text)
+        && /«Aderenti» › «Apri le iscrizioni»/.test(m.text), 'e il testo semplice dice anche date, quota, niente conferma e dove trovarle');
+    esigi(/Il 03\/02\/2027 sono arrivate 2 nuove iscrizioni a «Cena e meeting degli aderenti Revilaw»\. Un'iscrizione è stata aggiornata: valgono i dati qui sotto\. Iscrizioni in tutto: 4; fatture da emettere: 3 \(732,00 € IVA inclusa\)\./.test(m.text),
+        'il sommario, in italiano corretto', (m.text || '').split('\n\n')[2]);
+    esigi(/Milano &middot; 26-27 febbraio 2027/.test(m.html) && !/8\.30 - 18\.00/.test(m.html) && !/Merito creditizio/.test(m.html) && !/Excelsior/.test(m.html),
+        'testata e piede dicono cena e meeting, non il convegno');
+    esigi(/href="https:\/\/nextgenerationbusiness\.it\/milano_febbraio_2027\/aderenti\/"/.test(m.html), 'e il piede porta alla pagina degli aderenti');
+    esigi(!/white-space:nowrap/.test(String(m.html).split('Nuove iscrizioni del')[1] || 'x'), 'nessun pezzo che non va a capo: sul telefono non esce dallo schermo');
 
     r = await gira();
     esigi(spedite.length === prima + 1 && (r.corpo.esiti.find(e => e.quota === 'milano-2027-aderenti') || {}).gia, 'il secondo giro della notte non rispedisce');
@@ -230,6 +251,64 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(/Katia Ferri/.test(due[0].html) && !/Fabio Conti/.test(due[0].html) && /Fabio Conti/.test(due[1].html) && !/Katia/.test(due[1].html),
         'ognuno nella sua');
     esigi(r.corpo.esiti[0].evento && r.corpo.esiti[0].nuove === 1, 'l\'esito delle aziende resta il primo', JSON.stringify(r.corpo.esiti[0]));
+
+    console.log('\nUna notte la posta non risponde: la notte dopo recupera');
+    let n0 = spedite.length;
+    aderente('gina', { nome: 'Gina', cognome: 'Rota', email: 'gina@rota.it', telefono: '341', fatturazione: FAT(), primaVolta: ms('2027-02-06T10:00:00Z'), quando: ms('2027-02-06T10:00:00Z') });
+    postaGiu = 1;
+    orologio = ms('2027-02-06T23:00:05Z');
+    r = await gira();
+    let esG = r.corpo.esiti.find(e => e.quota) || {};
+    esigi(spedite.length === n0 && esG.errore, 'la mail non parte', JSON.stringify(esG));
+    esigi(dati.get('meta/riepilogoAderenti-milano-2027-aderenti').ultimoGiorno === '2027-02-05', 'e il giorno torna da spedire', JSON.stringify(dati.get('meta/riepilogoAderenti-milano-2027-aderenti')));
+    aderente('ivo', { nome: 'Ivo', cognome: 'Sala', email: 'ivo@sala.it', telefono: '342', fatturazione: FAT(), primaVolta: ms('2027-02-07T09:00:00Z'), quando: ms('2027-02-07T09:00:00Z') });
+    orologio = ms('2027-02-07T23:00:05Z');
+    r = await gira();
+    m = spedite[n0] || {};
+    esigi(spedite.length === n0 + 1 && m.subject === 'Iscrizioni aderenti Milano - 2 nuove dal 06/02/2027 al 07/02/2027 (totale 7)', 'la notte dopo: una mail con i due giorni', m.subject);
+    esigi(/Gina Rota/.test(m.html) && /Ivo Sala/.test(m.html) && /iscrizione 06\/02 alle 11:00/.test(m.html) && /iscrizione 07\/02 alle 10:00/.test(m.html), 'Gina del 6 e Ivo del 7, con il giorno accanto all\'ora');
+    esigi(/Nuove iscrizioni dal 06\/02\/2027 al 07\/02\/2027/.test(m.html), 'e il titolo dice il periodo');
+
+    console.log('\nSe la parte delle aziende si rompe, gli aderenti partono lo stesso');
+    n0 = spedite.length;
+    aderente('lia', { nome: 'Lia', cognome: 'Moro', email: 'lia@moro.it', telefono: '343', fatturazione: FAT(), primaVolta: ms('2027-02-08T09:00:00Z'), quando: ms('2027-02-08T09:00:00Z') });
+    rompiLettura.add('iscrizioni');
+    orologio = ms('2027-02-08T23:00:05Z');
+    r = await gira();
+    esigi(r.stato === 200 && r.corpo.esiti.some(e => e.evento === '' && e.errore), 'le aziende danno errore', JSON.stringify(r.corpo));
+    esigi(spedite.length === n0 + 1 && /Lia Moro/.test(spedite[n0].html), 'e la mail degli aderenti parte');
+
+    console.log('\nL\'anteprima di oggi non segna niente');
+    n0 = spedite.length;
+    aderente('mia', { nome: 'Mia', cognome: 'Fumo', email: 'mia@fumo.it', telefono: '344', fatturazione: FAT(), primaVolta: ms('2027-02-09T09:00:00Z'), quando: ms('2027-02-09T09:00:00Z') });
+    orologio = ms('2027-02-09T10:00:00Z');
+    r = await gira({ giorno: '2027-02-09' });
+    esigi(r.corpo.anteprima === true && spedite.length === n0 + 1 && /^Anteprima: Iscrizioni aderenti Milano - 1 nuova il 09\/02\/2027/.test(spedite[n0].subject), 'parte un\'anteprima', spedite[n0] && spedite[n0].subject);
+    esigi(dati.get('meta/riepilogoAderenti-milano-2027-aderenti').ultimoGiorno === '2027-02-08', 'il giorno non si segna');
+    aderente('nino', { nome: 'Nino', cognome: 'Lupo', email: 'nino@lupo.it', telefono: '345', fatturazione: FAT(), mail: false, primaVolta: ms('2027-02-09T15:00:00Z'), quando: ms('2027-02-09T15:00:00Z') });
+    orologio = ms('2027-02-09T23:00:05Z');
+    r = await gira();
+    m = spedite[n0 + 1] || {};
+    esigi(spedite.length === n0 + 2 && /^Iscrizioni aderenti Milano - 2 nuove il 09\/02\/2027/.test(m.subject || ''), 'a mezzanotte la mail vera, con chi si e\' iscritto dopo la prova', m.subject);
+    esigi(/Mia Fumo/.test(m.html) && /Nino Lupo/.test(m.html), 'Mia e Nino');
+    const [, nino] = String(m.html).split('Nino Lupo');
+    esigi(/NON è partita: scrivigli tu/.test((nino || '').split('Dati per la fattura')[0]) && /NON è partita/.test(m.text), 'a Nino la mail non era partita: il riepilogo lo dice');
+    esigi(!/NON è partita/.test(String(m.html).split('Nino Lupo')[0]), 'solo per lui');
+
+    console.log('\nTrenta iscrizioni in un giorno: la mail resta sotto il taglio di Gmail');
+    n0 = spedite.length;
+    for (let k = 0; k < 30; k++) {
+        aderente('tanti' + k, { nome: 'Persona' + k, cognome: 'Con Un Cognome Lungo', email: 'persona.numero' + k + '@studio-associati-esempio.it', telefono: '+39 333 123 45' + String(k).padStart(2, '0'),
+            studio: 'Studio Associato Esempio di Professionisti', citta: 'Reggio nell\'Emilia', note: 'Vegetariano, nessuna allergia nota, arrivo alle 20',
+            fatturazione: FAT({ intestatario: 'Studio Associato Esempio di Professionisti S.t.p.', pec: 'studio.associato.esempio@pec.it', emailFatture: 'amministrazione.fatture@studio-associati-esempio.it', indirizzo: 'Via Giuseppe Garibaldi 123/B' }),
+            primaVolta: ms('2027-02-10T09:00:00Z') + k * 60000, quando: ms('2027-02-10T09:00:00Z') + k * 60000 });
+    }
+    orologio = ms('2027-02-10T23:00:05Z');
+    r = await gira();
+    m = spedite[n0] || {};
+    const kb = Buffer.byteLength(String(m.html || ''), 'utf8') / 1024;
+    esigi(spedite.length === n0 + 1 && /30 nuove/.test(m.subject) && kb < 95, 'trenta persone, ' + kb.toFixed(1) + ' KB di HTML: sotto i 95');
+    esigi(/Persona29 Con Un Cognome Lungo/.test(m.html) && /Apri le iscrizioni nell'area riservata/.test(m.html), 'e c\'e\' tutto, fino all\'ultima persona e al pulsante');
 
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
     require('fs').writeFileSync(process.env.ANTEPRIMA || '/dev/null', (spedite[0] || {}).html || '');
