@@ -59,6 +59,7 @@ const admin = require('firebase-admin');
 const CANALI = require('./canali-invito');
 const NL = require('./newsletter');
 const LETTORE = require('./lettore-pec');
+const INOLTRO = require('./inoltro-risposte-pec');
 const CAMPAGNE = require('./campagne-invito');
 const ESITI = require('./esiti-email');
 const CONTATTI = require('./richieste-contatto');
@@ -991,7 +992,12 @@ async function esegui(ctx) {
                    cancellazione. */
                 try {
                     const snap = await rif.get();
-                    if (snap.exists) n += LETTORE.dimenticaRiferimenti(batch, db, snap.data());
+                    if (snap.exists) {
+                        const d = snap.data() || {};
+                        n += LETTORE.dimenticaRiferimenti(batch, db, d);
+                        // e le risposte in coda per l'inoltro via email, se ha risposto
+                        if (d.ricevute && d.ricevute.risposta) n += await INOLTRO.dimentica(db, batch, id);
+                    }
                 } catch (_) { /* la scheda si toglie comunque */ }
                 batch.delete(rif);
                 n++;

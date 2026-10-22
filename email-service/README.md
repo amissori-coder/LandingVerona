@@ -404,26 +404,38 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > risposta parte con un'**email ordinaria** agli organizzatori
 > (`lib/inoltro-risposte-pec.js`): azienda, mittente, ora, oggetto, codice
 > invito, il **testo del messaggio** (quello scritto dall'azienda, dentro la
-> busta PEC, anche se l'ha scritto solo in HTML) e i suoi **allegati** fino a
-> circa 4 MB in tutto; quelli piu' grandi sono elencati e restano nella
+> busta PEC: solo testo, solo HTML o tutti e due) e i suoi **allegati** fino a
+> circa 4 MB in tutto; quelli che non ci stanno sono elencati e restano nella
 > casella. Destinatari: `PEC_RISPOSTE_DESTINATARI`, altrimenti gli stessi del
-> riepilogo di mezzanotte. Le risposte automatiche ("fuori sede", "risposta
-> automatica") non si inoltrano.
+> riepilogo di mezzanotte.
+>
+> Le **risposte automatiche** ("fuori sede", "risposta automatica", o con
+> l'intestazione `Auto-Submitted` dentro la busta) non si inoltrano e non
+> segnano "ha risposto", ma restano elencate sulla scheda e si possono aprire.
 >
 > Come funziona: il lettore, quando riconosce una risposta, la mette in coda
 > (`pecInoltri`, una riga per messaggio con chiave il suo Message-ID: riletto
 > due volte resta una riga sola); a fine giro, con la casella ancora aperta,
 > l'inoltro legge il testo e spedisce. Quindi arriva entro un quarto d'ora, o
-> subito con "Controlla le ricevute". Se la posta non parte la riga resta in
-> attesa e si riprova al giro dopo, fino a cinque volte. Nella coda **non c'e'
-> il testo**, solo le coordinate che la scheda ha gia': il testo si legge dalla
-> casella al momento di spedire. Risposte di piu' di un mese fa (una casella
-> riletta da capo) non si inoltrano.
+> subito con "Controlla le ricevute". Se la coda non si scrive, il messaggio
+> non si segna come letto e si rilegge al giro dopo (alla terza volta di fila
+> si va avanti, per non fermare le ricevute). Se la **posta non parte** si
+> riprova dopo 10 minuti, poi 20, 40... fino a 6 ore fra un tentativo e
+> l'altro: i tentativi si contano nel tempo, quindi premere "Controlla le
+> ricevute" durante un guasto non li consuma. Dopo circa un giorno e mezzo si
+> smette, e il riquadro della casella PEC nell'area riservata dice quale
+> risposta non e' partita (per una settimana). Se il server di posta rifiuta
+> la mail per un allegato, si rispedisce senza. Nella coda **non c'e' il
+> testo**, solo le coordinate che la scheda ha gia', e mittente e oggetto si
+> cancellano appena la mail e' partita; eliminando l'azienda le sue righe se ne
+> vanno con lei. Risposte di piu' di un mese fa (una casella riletta da capo)
+> non si inoltrano.
 >
-> "Rispondi" su quella mail porta all'email **ordinaria** dell'azienda se la
-> scheda ce l'ha, mai alla sua PEC: una casella PEC di norma rifiuta la posta
-> non certificata (vedi sotto), e la risposta rimbalzerebbe. Per rispondere
-> con valore di PEC si scrive dalla casella PEC dello studio, e la mail lo dice.
+> "Rispondi" su quella mail non porta mai a una PEC: una casella PEC di norma
+> rifiuta la posta non certificata (vedi sotto), e la risposta rimbalzerebbe.
+> Porta all'indirizzo da cui l'azienda ha scritto, se non era una PEC, oppure
+> all'email ordinaria della scheda; altrimenti la mail dice di rispondere
+> dalla casella PEC dello studio.
 
 > **Cosa il lettore non fa.** Non segna niente come letto, non sposta e non
 > cancella: quella casella e' l'archivio con valore legale, e il segno "letto"

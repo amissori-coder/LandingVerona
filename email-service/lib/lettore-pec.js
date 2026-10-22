@@ -84,6 +84,13 @@ const MAX_TESTO = 200 * 1024;               // il testo di un messaggio che si a
    se ne comincia un altro, e le righe aspettano il giro dopo. Con i tempi
    stretti della posta, un inoltro cominciato qui finisce dentro i 60 s. */
 const LIMITE_INOLTRI_MS = 25000;
+const LIMITE_ALLEGATI_MS = 38000;   // oltre, gli allegati si elencano e basta
+const LIMITE_INVIO_MS = 42000;      // oltre, la mail non si spedisce: aspetta il giro dopo
+/* Un messaggio la cui risposta non si riesce a mettere in coda si rilegge al
+   giro dopo, ma non per sempre: alla terza volta di fila si va avanti senza
+   inoltro, perche' un lettore fermo su un messaggio smette di leggere anche
+   tutte le ricevute che vengono dopo. */
+const MAX_ACCODA_FALLITE = 3;
 const LUCCHETTO_MS = 3 * 60 * 1000;
 const PAUSA_ERRORE_MS = 10 * 60 * 1000;     // dopo un guasto non si ribatte subito
 const MAX_ERRORI_AUTH = 3;                  // poi ci si ferma: e' una password da rifare
@@ -344,7 +351,9 @@ async function stato(db) {
         // la password per i programmi di posta di Aruba scade ogni sei mesi:
         // quando succede il lettore si ferma qui, invece di ribattere all'infinito
         fermoPerCredenziali: (d.erroriAuth || 0) >= MAX_ERRORI_AUTH,
-        inCorso: !!(d.lucchetto && d.lucchetto.fino > Date.now())
+        inCorso: !!(d.lucchetto && d.lucchetto.fino > Date.now()),
+        // l'ultima risposta che non e' partita per email (lib/inoltro-risposte-pec.js)
+        inoltroFallito: d.inoltroFallito || null
     };
 }
 
@@ -395,6 +404,7 @@ async function giro(db, opz) {
     const nonRiconosciute = [];
     let restanti = false, uidValidity = '', ultimoUid = 0, esito = 'ok', motivo = '';
     let inoltri = null;
+    let accodaFallita = null;
 
     try {
         await client.connect();
@@ -435,9 +445,20 @@ async function giro(db, opz) {
                 if (gia) { ultimoUid = uid; continue; }
 
                 let annotato = null;
+                const giaFallita = prima.accodaFallita && prima.accodaFallita.chiave === chiaveVisto ? (Number(prima.accodaFallita.volte) || 0) : 0;
                 try {
-                    annotato = await lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRiconosciute);
+                    annotato = await lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRiconosciute,
+                        { senzaCoda: giaFallita >= MAX_ACCODA_FALLITE });
                 } catch (e) {
+                    /* La risposta non e' entrata nella coda dell'inoltro: il
+                       messaggio NON si segna come visto e il giro si ferma qui,
+                       cosi' il prossimo lo rilegge (scheda e coda sono
+                       idempotenti). Vedi MAX_ACCODA_FALLITE. */
+                    if (e && e.riprova) {
+                        accodaFallita = { chiave: chiaveVisto, volte: giaFallita + 1 };
+                        restanti = true;
+                        break;
+                    }
                     /* Un guasto della CONNESSIONE non e' un messaggio storto:
                        se si continuasse, il giro finirebbe dicendo "tutto bene"
                        dopo aver saltato tutto il resto. */
@@ -474,7 +495,10 @@ async function giro(db, opz) {
         if (Date.now() - inizio < LIMITE_INOLTRI_MS) {
             try {
                 inoltri = await INOLTRO.inoltra(db, client, {
-                    uidValidity: uidValidity, scadenza: inizio + LIMITE_INOLTRI_MS, casella: c.utente
+                    uidValidity: uidValidity, casella: c.utente,
+                    scadenza: inizio + LIMITE_INOLTRI_MS,
+                    limiteLettura: inizio + LIMITE_ALLEGATI_MS,
+                    limiteInvio: inizio + LIMITE_INVIO_MS
                 });
             } catch (e) {
                 console.error('Inoltro risposte PEC:', String((e && e.message) || e).slice(0, 200));
@@ -516,9 +540,10 @@ async function giro(db, opz) {
         letti: conto.letti, ricevute: conto.ricevute, risposte: conto.risposte,
         estranei: conto.estranei, nonRiconosciute: conto.nonRiconosciute,
         // le risposte partite per email in questo giro (lib/inoltro-risposte-pec.js)
-        inoltrate: inoltri ? inoltri.inoltrate : 0
+        inoltrate: inoltri ? inoltri.inoltrate : 0,
+        inoltriFalliti: inoltri ? inoltri.fallite : 0
     };
-    const daSalvare = { ultimoGiro: riepilogo };
+    const daSalvare = { ultimoGiro: riepilogo, accodaFallita: accodaFallita };
     if (esito === 'ok') {
         daSalvare.uidValidity = uidValidity;
         daSalvare.cartella = configurazione().cartella;
@@ -537,7 +562,8 @@ async function giro(db, opz) {
 }
 
 /* Un singolo messaggio: che cos'e', a chi appartiene, cosa se ne scrive. */
-async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRiconosciute) {
+async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRiconosciute, opz) {
+    opz = opz || {};
     const h = D.intestazioni(m.headers);
     const g = D.genere(h);
     const chiaveVisto = uidValidity + '_' + Number(m.uid);
@@ -629,7 +655,14 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
         }
     } else {
         // risposta vera o messaggio non certificato arrivato per posta ordinaria
-        if (D.automatica(h)) {
+        if (D.automatica(h) || await automaticaDentro(client, m)) {
+            /* Non e' una risposta: niente "ha risposto", niente inoltro. Il
+               messaggio pero' si elenca sulla scheda e si puo' aprire: un
+               "questa casella non e' presidiata, scrivete a..." e' un'
+               informazione, non spazzatura. */
+            const scrittoAuto = await applicaRicevuta(db, trovata.scheda, Object.assign(
+                { genere: 'automatica', etichetta: 'risposta automatica' }, coordinate, { quando: quandoMsg }));
+            if (scrittoAuto && scrittoAuto.cambiato) toccate[trovata.scheda] = scrittoAuto.esito || '';
             return { genere: 'ignorato', tipo: 'automatica', scheda: trovata.scheda };
         }
         conto.risposte++;
@@ -652,6 +685,8 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
             });
         } catch (e) {
             console.error('Risposta PEC non accodata per l\'inoltro (' + chiaveVisto + '):', String((e && e.message) || e).slice(0, 200));
+            // il giro la rilegge (vedi MAX_ACCODA_FALLITE): qui non si scrive niente
+            if (!opz.senzaCoda) { const r = new Error('accodamento non riuscito'); r.riprova = true; throw r; }
         }
     }
 
@@ -664,6 +699,26 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
         try { await registraIdentificativo(db, fatto.identificativo, trovata); } catch (_) { }
     }
     return { genere: g.genere, tipo: fatto.genere, scheda: trovata.scheda };
+}
+
+/* Le risposte automatiche che si riconoscono solo DENTRO la busta. Sulla
+   busta PEC le intestazioni sono quelle del gestore: l'Auto-Submitted, l'
+   X-Autoreply e il Precedence messi dal risponditore automatico
+   dell'azienda stanno sul messaggio incapsulato (postacert.eml). Si legge
+   solo la sua intestazione, pochi kB, e solo per i messaggi gia'
+   riconosciuti come risposte a un invito. */
+async function automaticaDentro(client, m) {
+    const busta = D.trovaBusta(m && m.bodyStructure);
+    if (!busta || !busta.part) return false;
+    const chiave = busta.part + '.HEADER';
+    try {
+        const r = await client.fetchOne(String(m.uid), { uid: true, bodyParts: [chiave] }, { uid: true });
+        const grezzo = r && r.bodyParts ? (r.bodyParts.get(chiave.toLowerCase()) || r.bodyParts.get(chiave)) : null;
+        return grezzo ? D.automatica(D.intestazioni(grezzo.toString('utf8'))) : false;
+    } catch (e) {
+        if (client.usable === false) throw e;
+        return false;
+    }
 }
 
 /* Il testo di UN messaggio, letto dalla casella al momento.
@@ -707,18 +762,20 @@ async function leggiMessaggio(db, opz) {
         if (!trovato) return { ok: false, msg: 'Messaggio non trovato nella casella.' };
 
         const h = D.intestazioni(trovato.headers);
-        const parte = D.trovaLeggibile(trovato.bodyStructure);
-        let testo = '';
-        if (parte && parte.dimensione <= MAX_TESTO) {
+        /* La struttura rinumerata (daticert normalizzaParti) e la parte
+           scaricata e decodificata da se' (inoltro-risposte-pec scaricaParte):
+           prima una risposta di solo testo mostrava il sorgente grezzo del
+           messaggio incapsulato, e una di solo HTML il testo del gestore. */
+        const struttura = D.normalizzaParti(trovato.bodyStructure);
+        const parte = D.trovaLeggibile(struttura);
+        let testo = '', troncato = false;
+        if (parte) {
             try {
-                const scaricato = await client.download(uid, parte.parte, { uid: true, maxBytes: MAX_TESTO });
-                if (scaricato && scaricato.content) {
-                    /* Il gioco di caratteri dello SCARICAMENTO, non quello
-                       dichiarato: imapflow porta da se' in UTF-8 il testo delle
-                       parti in linea, e ridecodificarlo come iso-8859-1 faceva
-                       di ogni "e'" un "Ã¨". */
-                    testo = D.decodificaTesto(await leggiBuffer(scaricato.content, MAX_TESTO), (scaricato.meta && scaricato.meta.charset) || parte.gioco);
+                const sc = await INOLTRO.scaricaParte(client, uid, parte, MAX_TESTO);
+                if (sc) {
+                    testo = D.decodificaTesto(sc.buf, parte.gioco, sc.tagliato);
                     if (parte.html) testo = D.testoDaHtml(testo);
+                    troncato = sc.tagliato;
                 }
             } catch (_) { testo = ''; }
         }
@@ -730,8 +787,8 @@ async function leggiMessaggio(db, opz) {
             da: D.soloIndirizzo(h['reply-to']) || D.soloIndirizzo(h['from']),
             quando: trovato.internalDate ? new Date(trovato.internalDate).getTime() : 0,
             testo: String(testo || '').slice(0, MAX_TESTO),
-            troncato: !!(parte && parte.dimensione > MAX_TESTO),
-            allegati: D.trovaAllegati(trovato.bodyStructure)
+            troncato: troncato || String(testo || '').length > MAX_TESTO,
+            allegati: D.trovaAllegati(struttura).map(a => ({ nome: a.nome, dimensione: a.dimensione }))
         };
     } catch (e) {
         const testo = String((e && (e.responseText || e.message)) || 'errore').slice(0, 200);
@@ -740,19 +797,6 @@ async function leggiMessaggio(db, opz) {
         try { await client.logout(); } catch (_) { try { client.close(); } catch (_) { } }
     }
 }
-function leggiBuffer(stream, max) {
-    return new Promise((risolvi, rifiuta) => {
-        const pezzi = []; let letti = 0, finito = false;
-        stream.on('data', p => {
-            letti += p.length;
-            pezzi.push(p);
-            if (letti > max) { stream.destroy(); if (!finito) { finito = true; risolvi(Buffer.concat(pezzi).slice(0, max)); } }
-        });
-        stream.on('end', () => { if (!finito) { finito = true; risolvi(Buffer.concat(pezzi)); } });
-        stream.on('error', e => { if (!finito) { finito = true; rifiuta(e); } });
-    });
-}
-
 module.exports = {
     configurato, configurazione, stato, giro, leggiMessaggio,
     registraRiferimento, registraIdentificativo, dimenticaRiferimenti, chiaviInvio,

@@ -1168,8 +1168,11 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
    porta il messaggio dove lo si legge davvero.
    `d`: { azienda, da, oggetto, quandoTesto, certificata, pagina, eventoNome,
    sponsor, codice, testo, troncato, nonLetto, allegati: [{ nome, dimensione,
-   allegato }], casella, rispondiA } - rispondiA e' l'email ORDINARIA
-   dell'azienda a cui porta "Rispondi", se c'e'. Il testo del messaggio va a capo dove
+   allegato, motivo }], casella, rispondiA } - rispondiA e' l'indirizzo
+   ORDINARIO a cui porta "Rispondi", se c'e' (quello da cui l'azienda ha
+   scritto, se non era una PEC, o l'email della scheda); `motivo` dice
+   perche' un allegato non e' allegato ('grande', 'troppi', altro).
+   Il testo del messaggio va a capo dove
    andava a capo l'originale, e non si giustifica: e' una citazione, non una
    lettera nostra. */
 function kb(n) {
@@ -1187,12 +1190,17 @@ function rispostaPec(d, link) {
     const tipo = d.certificata ? 'PEC' : 'Email ordinaria arrivata nella casella PEC (senza valore di PEC)';
     const righeTesto = String(d.testo || '').split('\n').map(r => esc(r)).join('<br>');
     const dallaPec = 'dalla casella ' + (d.casella || 'PEC dello studio') + (d.da ? ' a ' + d.da : '');
-    const nota = d.rispondiA
-        ? 'Rispondendo a questa email scrivi all\'indirizzo email ordinario dell\'azienda (' + d.rispondiA + '). Per una risposta con valore di PEC scrivi ' + dallaPec + '.'
-        : 'Per rispondere scrivi ' + dallaPec + ': una casella PEC di norma non accetta la posta ordinaria.';
+    const nota = !d.certificata && d.rispondiA
+        ? 'L\'azienda ha scritto da un indirizzo email ordinario: rispondendo a questa email le scrivi lì (' + d.rispondiA + ').'
+        : d.rispondiA
+            ? 'Rispondendo a questa email scrivi all\'indirizzo email ordinario dell\'azienda (' + d.rispondiA + '). Per una risposta con valore di PEC scrivi ' + dallaPec + '.'
+            : 'Per rispondere scrivi ' + dallaPec + ': una casella PEC di norma non accetta la posta ordinaria.';
+    const perche = a => a.motivo === 'grande' ? 'Troppo grande per questa email: è nella casella PEC.'
+        : a.motivo === 'troppi' ? 'Oltre il numero di allegati che questa email porta: è nella casella PEC.'
+            : 'Non allegato a questa email: è nella casella PEC.';
     const rigaAllegato = a => '<tr><td style="' + FONTE + 'font-size:15px;line-height:22px;color:' + C.testo + ';padding:10px 0;border-bottom:1px solid ' + C.bordo + ';word-break:break-word;overflow-wrap:anywhere;">'
         + '<b>' + esc(a.nome) + '</b> <span style="color:' + C.tenue + ';">(' + esc(kb(a.dimensione)) + ')</span>'
-        + (a.allegato ? '' : '<br><span style="font-size:13px;color:' + C.tenue + ';">Troppo grande per questa email: è nella casella PEC.</span>')
+        + (a.allegato ? '' : '<br><span style="font-size:13px;color:' + C.tenue + ';">' + esc(perche(a)) + '</span>')
         + '</td></tr>';
     const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">' + esc(t) + '</td></tr>';
     const html = involucro(oggetto, sommario,
@@ -1229,7 +1237,7 @@ function rispostaPec(d, link) {
         'IL MESSAGGIO\n' + (d.nonLetto
             ? 'Il testo non si è potuto leggere (' + d.nonLetto + '): il messaggio è nella casella PEC.'
             : (String(d.testo || '') || '(messaggio senza testo)') + (d.troncato ? '\n\n[Il messaggio è lungo: il resto è nella casella PEC.]' : '')),
-        allegati.length ? 'ALLEGATI\n' + allegati.map(a => '- ' + a.nome + ' (' + kb(a.dimensione) + ')' + (a.allegato ? '' : ' - troppo grande: è nella casella PEC')).join('\n') : '',
+        allegati.length ? 'ALLEGATI\n' + allegati.map(a => '- ' + a.nome + ' (' + kb(a.dimensione) + ')' + (a.allegato ? '' : ' - ' + perche(a))).join('\n') : '',
         nota,
         'Gli inviti nell\'area riservata: ' + link,
         '--', 'Avviso automatico per gli organizzatori: parte quando un\'azienda risponde alla PEC dell\'invito.'].filter(Boolean).join('\n\n');

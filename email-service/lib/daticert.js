@@ -61,7 +61,7 @@ function intestazioni(grezzo) {
         const k = nome.toLowerCase();
         // se la stessa intestazione compare due volte vince la prima,
         // come fanno i client di posta
-        if (out[k] === undefined) out[k] = valore.trim();
+        if (out[k] === undefined) out[k] = DA_DECODIFICARE.indexOf(k) >= 0 ? decodificaParole(valore.trim()) : valore.trim();
         nome = ''; valore = '';
     };
     testo.split('\n').forEach(riga => {
@@ -74,6 +74,31 @@ function intestazioni(grezzo) {
     });
     chiudi();
     return out;
+}
+/* Le intestazioni che si leggono a video arrivano spesso codificate
+   (RFC 2047): un oggetto con una lettera accentata e' "=?UTF-8?Q?Opportunit=C3=A0?=",
+   e a volte il gestore codifica la riga intera, prefisso "POSTA CERTIFICATA:"
+   compreso. Senza decodificarle, l'oggetto si leggeva cosi' nell'area
+   riservata e nell'inoltro, e una risposta automatica con l'oggetto
+   codificato non si riconosceva. */
+const DA_DECODIFICARE = ['subject', 'from', 'reply-to'];
+const RE_PAROLA = /=\?([^?\s]+)\?([bBqQ])\?([^?\s]*)\?=/;
+function decodificaParola(intera) {
+    const m = RE_PAROLA.exec(intera);
+    if (!m) return intera;
+    try {
+        const gioco = m[1].split('*')[0];
+        const buf = m[2].toUpperCase() === 'B'
+            ? Buffer.from(m[3], 'base64')
+            : Buffer.from(m[3].replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (x, h) => String.fromCharCode(parseInt(h, 16))), 'latin1');
+        return decodificaTesto(buf, gioco);
+    } catch (_) { return intera; }
+}
+function decodificaParole(v) {
+    const s = String(v == null ? '' : v);
+    if (s.indexOf('=?') < 0) return s;
+    // fra due parole codificate lo spazio non conta (RFC 2047, 6.2)
+    return s.replace(/=\?[^?\s]+\?[bBqQ]\?[^?\s]*\?=(?:\s+(?==\?[^?\s]+\?[bBqQ]\?[^?\s]*\?=))?/g, p => decodificaParola(p.trim()));
 }
 function intestazione(grezzo, nome) {
     const h = (grezzo && typeof grezzo === 'object' && !Buffer.isBuffer(grezzo)) ? grezzo : intestazioni(grezzo);
@@ -262,17 +287,88 @@ function esitoDa(r) {
 /* Il testo di un messaggio, decodificato secondo il gioco di caratteri
    dichiarato dal mittente. Le PEC italiane usano quasi sempre iso-8859-1 o
    utf-8: letto con quello sbagliato, un "e' andata" diventa "Ã¨". Se la
-   dichiarazione manca o e' sconosciuta si prova utf-8 e, se ne esce
-   spazzatura (il carattere di sostituzione), si ripiega su latin1. */
-function decodificaTesto(buffer, gioco) {
-    const b = Buffer.isBuffer(buffer) ? buffer : Buffer.from(String(buffer || ''), 'utf8');
+   dichiarazione manca o e' sconosciuta si prova utf-8 e, se i byte NON sono
+   utf-8 valido, si ripiega su latin1. Non si guarda se nel risultato c'e'
+   il carattere di sostituzione: un messaggio che cita un "perch\uFFFD" gia'
+   rovinato, o un testo tagliato a meta' di una lettera accentata, finivano
+   interi in latin1, con ogni "a'" diventata "Ã ".
+   `tagliato`: il chiamante ha accorciato il testo a un numero di byte. Solo
+   allora una lettera lasciata a meta' in fondo si toglie, invece di far
+   fallire tutto il resto: senza quel segno, un byte alto in fondo e' piu'
+   facile che sia una "a'" in latin1. */
+function decodificaTesto(buffer, gioco, tagliato) {
+    let b = Buffer.isBuffer(buffer) ? buffer : Buffer.from(String(buffer || ''), 'utf8');
     const nome = String(gioco || '').trim().toLowerCase();
-    if (nome && nome !== 'utf-8' && nome !== 'utf8' && nome !== 'us-ascii') {
+    if (nome && nome !== 'utf-8' && nome !== 'utf8' && nome !== 'us-ascii' && nome !== 'ascii') {
         try { return new TextDecoder(nome).decode(b); }
         catch (_) { return b.toString('latin1'); }
     }
-    const utf = b.toString('utf8');
-    return utf.indexOf('\uFFFD') >= 0 ? b.toString('latin1') : utf;
+    if (tagliato) {
+        let fine = b.length, indietro = 0;
+        while (fine > 0 && indietro < 3 && (b[fine - 1] & 0xC0) === 0x80) { fine--; indietro++; }
+        if (fine > 0 && b[fine - 1] >= 0xC0) {
+            const serve = b[fine - 1] >= 0xF0 ? 4 : b[fine - 1] >= 0xE0 ? 3 : 2;
+            if (b.length - (fine - 1) < serve) b = b.slice(0, fine - 1);
+        }
+    }
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(b); }
+    catch (_) { return b.toString('latin1'); }
+}
+
+/* Il contenuto di una parte com'e' sul server (base64, quoted-printable o
+   cosi' com'e') riportato ai byte veri. Serve a chi scarica le parti da se'
+   (lib/inoltro-risposte-pec.js, scaricaParte): la codifica si legge dalla
+   struttura del messaggio, senza chiederla al server. */
+function decodificaTrasferimento(buf, codifica) {
+    const c = String(codifica || '').trim().toLowerCase();
+    const b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ''), 'latin1');
+    if (c === 'base64') return Buffer.from(b.toString('latin1').replace(/[^A-Za-z0-9+/=]/g, ''), 'base64');
+    if (c === 'quoted-printable') {
+        return Buffer.from(b.toString('latin1')
+            .replace(/[ \t]+(\r?\n)/g, '$1')
+            .replace(/=\r?\n/g, '')
+            .replace(/=([0-9A-Fa-f]{2})/g, (x, h) => String.fromCharCode(parseInt(h, 16))), 'latin1');
+    }
+    return b;
+}
+
+/* LA NUMERAZIONE DELLE PARTI DENTRO LA BUSTA. imapflow (tools.js,
+   parseBodystructure) da' al corpo di un messaggio incapsulato lo STESSO
+   numero dell'involucro message/rfc822. Se quel corpo e' multipart va bene
+   (i figli sono 2.1, 2.2...), ma se e' una parte sola - una risposta di solo
+   testo, o di solo HTML, che e' il caso piu' comune - quel numero indica il
+   messaggio INTERO, intestazioni comprese: scaricandolo usciva il sorgente
+   grezzo con il testo ancora in quoted-printable. Per IMAP (RFC 3501, 6.4.5)
+   il corpo di un messaggio incapsulato di una parte sola e' "<numero>.1": qui
+   si rinumera una copia della struttura, prima di cercarci dentro. */
+function normalizzaParti(nodo) {
+    if (!nodo || typeof nodo !== 'object') return nodo;
+    const copia = Object.assign({}, nodo);
+    if (Array.isArray(nodo.childNodes)) {
+        const busta = String(nodo.type || '').toLowerCase() === 'message/rfc822';
+        copia.childNodes = nodo.childNodes.map(f => {
+            const c = normalizzaParti(f);
+            if (busta && c && !(c.childNodes && c.childNodes.length) && nodo.part && (!c.part || c.part === nodo.part)) {
+                c.part = nodo.part + '.1';
+            }
+            return c;
+        });
+    }
+    return copia;
+}
+
+/* La busta (postacert.eml), se il messaggio ne ha una. */
+function trovaBusta(nodo) {
+    if (!nodo) return null;
+    const p = nodo.parameters || {};
+    const dp = nodo.dispositionParameters || {};
+    const nomeFile = String(dp.filename || p.name || '').toLowerCase();
+    if (nomeFile === 'postacert.eml' || String(nodo.type || '').toLowerCase() === 'message/rfc822') return nodo;
+    for (const f of (nodo.childNodes || [])) {
+        const t = trovaBusta(f);
+        if (t) return t;
+    }
+    return null;
 }
 
 /* Dove sta il testo leggibile dentro il messaggio.
@@ -297,7 +393,7 @@ function trovaTesto(nodo, dentroBusta) {
     }
     let migliore = null;
     if (tipo === 'text/plain' && nomeFile !== 'daticert.xml') {
-        migliore = { parte: nodo.part || '1', gioco: p.charset || '', dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta };
+        migliore = { parte: nodo.part || '1', gioco: p.charset || '', codifica: String(nodo.encoding || '').toLowerCase(), dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta };
     }
     for (const figlio of (nodo.childNodes || [])) {
         const t = trovaTesto(figlio, dentroBusta);
@@ -325,7 +421,7 @@ function trovaHtml(nodo, dentroBusta) {
     }
     let migliore = null;
     if (tipo === 'text/html' && String(nodo.disposition || '').toLowerCase() !== 'attachment') {
-        migliore = { parte: nodo.part || '1', gioco: p.charset || '', dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta };
+        migliore = { parte: nodo.part || '1', gioco: p.charset || '', codifica: String(nodo.encoding || '').toLowerCase(), dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta };
     }
     for (const figlio of (nodo.childNodes || [])) {
         const t = trovaHtml(figlio, dentroBusta);
@@ -355,8 +451,12 @@ function testoDaHtml(html) {
     return String(html == null ? '' : html)
         .replace(/<!--[\s\S]*?-->/g, '')
         .replace(/<(script|style|head|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+        // gli a capo e i rientri del SORGENTE non contano, in HTML: si
+        // schiacciano prima, e gli a capo veri li fanno i tag qui sotto
+        .replace(/\s+/g, ' ')
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/(p|div|li|tr|h[1-6]|blockquote|table|ul|ol)\s*>/gi, '\n')
+        .replace(/<\/t[dh]\s*>/gi, ' ')
         .replace(/<li\b[^>]*>/gi, '- ')
         .replace(/<[^>]*>/g, '')
         .replace(/&#(\d{1,7});/g, (m, n) => carattere(Number(n)))
@@ -364,6 +464,8 @@ function testoDaHtml(html) {
         .replace(/&([a-z]+);/gi, (m, n) => (Object.prototype.hasOwnProperty.call(ENTITA, n) ? ENTITA[n] : m))
         .replace(/\r\n?/g, '\n')
         .replace(/[ \t ]+\n/g, '\n')
+        .replace(/\n[ \t\u00A0]+/g, '\n')
+        .replace(/[ \t]{2,}/g, ' ')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 }
@@ -394,14 +496,18 @@ function trovaAllegati(nodo, elenco) {
     const nome = String(dp.filename || p.name || '');
     const tipo = String(nodo.type || '').toLowerCase();
     if (nome && PARTI_DI_SERVIZIO.indexOf(nome.toLowerCase()) < 0 && tipo.indexOf('multipart') !== 0) {
-        elenco.push({ nome: nome.slice(0, 120), dimensione: Number(nodo.size) || 0, parte: String(nodo.part || ''), tipo: tipo.slice(0, 100) });
+        elenco.push({
+            nome: nome.slice(0, 120), dimensione: Number(nodo.size) || 0,
+            parte: String(nodo.part || ''), tipo: tipo.slice(0, 100), codifica: String(nodo.encoding || '').toLowerCase()
+        });
     }
     (nodo.childNodes || []).forEach(f => trovaAllegati(f, elenco));
     return elenco;
 }
 
 module.exports = {
-    decodificaTesto, trovaTesto, trovaHtml, trovaLeggibile, testoDaHtml, trovaAllegati,
+    decodificaTesto, decodificaTrasferimento, decodificaParole, normalizzaParti, trovaBusta,
+    trovaTesto, trovaHtml, trovaLeggibile, testoDaHtml, trovaAllegati,
     RICEVUTE, INTESTAZIONI,
     intestazioni, intestazione, chiaveMsgId, parteLocale,
     leggiDaticert, quandoDa, genere, automatica, soloIndirizzo, oggettoPulito,
