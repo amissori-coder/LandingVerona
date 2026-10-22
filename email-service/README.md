@@ -168,8 +168,25 @@ Variabili facoltative:
 Una programmazione sola per elenco, garantita dall'identificativo del
 documento (`evento~campagna`): due programmazioni sulla stessa lista
 scriverebbero alle stesse aziende senza saperlo l'una dell'altra. Si mette in
-pausa, si riprende e si annulla dal riquadro in cima all'elenco delle aziende,
-dove si vede anche a che punto e' e fra quanto riparte.
+pausa, si riprende e si annulla dal riquadro in cima all'elenco delle aziende.
+
+**A che punto e'.** Il riquadro (e, in breve, la scheda dell'evento) dice tre
+cose, con il conto alla rovescia che scorre da solo:
+
+- **Blocco in corso**: quante ne sono partite nella finestra del ritmo (per
+  esempio 189 di 250) e a che ora comincia il blocco successivo;
+- **Prossimo invio**: a che ora parte il prossimo gruppo e quante sono (con
+  250 PEC all'ora e il cron ogni dieci minuti, circa 63 per giro, finche' il
+  blocco dell'ora non e' pieno);
+- **Fine prevista**: quando finisce tutto, e quante restano.
+
+I numeri li calcola il servizio (`previsione` in
+`lib/programmazione-inviti.js`) rifacendo i giri del lavoro automatico con le
+sue stesse regole: il prossimo giro e' allo scoccare dei dieci minuti, la
+quota per giro e' quella di `ritmi-invito.js`, la finestra si riapre come in
+`finestraDi`. La fine prevista e' un tetto: le aziende saltate non consumano
+il ritmo, quindi puo' finire prima; un server di posta lento, dopo. In pausa
+non si prevede niente.
 
 **Tre doppioni che non possono succedere**, ed e' bene sapere perche':
 

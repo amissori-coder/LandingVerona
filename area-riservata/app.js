@@ -26229,11 +26229,12 @@
                 + ', ' + ritmo + '. In attesa del primo giro del servizio'
                 + (_invPassoCron ? ' (entro ' + _invPassoCron + ' minuti)' : '') + '.';
         }
-        // in corso
-        const manca = p.finestra && p.finestra.riprendeAlle ? fraQuanto(p.finestra.riprendeAlle) : '';
+        // in corso: il prossimo invio e la fine prevista (vedi tempiProgrammazione)
+        const pv = p.previsione || null;
         return 'Invio programmato in corso: <b>' + fatte + '</b> ' + esc(camp.fatto)
             + ' su ' + totale + ', ' + ritmo + '.'
-            + (manca ? ' Riparte fra ' + esc(manca) + '.' : '');
+            + (pv && pv.prossimoInvio ? ' Prossimo invio ' + esc(versoLe(pv.prossimoInvio)) + ' (' + contoHtml(pv.prossimoInvio) + ').' : '')
+            + (pv && pv.fine ? ' Fine prevista ' + esc(versoLe(pv.fine)) + '.' : '');
     }
 
     /* =========================================================
@@ -27241,8 +27242,51 @@
         if (sec < 60) return sec + (sec === 1 ? ' secondo' : ' secondi');
         const min = Math.round(sec / 60);
         if (min < 60) return min + (min === 1 ? ' minuto' : ' minuti');
-        return 'circa un\'ora';
+        /* Oltre l'ora si dice quanto davvero: un invio di undicimila PEC a
+           250 l'ora finisce fra un giorno e mezzo, e "circa un'ora" detto di
+           tutto quello che supera i sessanta minuti era falso. */
+        const ore = Math.floor(min / 60), minResto = min % 60;
+        if (ore < 24) {
+            return (ore === 1 ? 'un\'ora' : ore + ' ore')
+                + (minResto ? ' e ' + minResto + (minResto === 1 ? ' minuto' : ' minuti') : '');
+        }
+        const giorni = Math.floor(ore / 24), oreResto = ore % 24;
+        return (giorni === 1 ? 'un giorno' : giorni + ' giorni')
+            + (oreResto ? ' e ' + (oreResto === 1 ? 'un\'ora' : oreResto + ' ore') : '');
     }
+
+    /* Un'ora detta come la direbbe una persona: "alle 15:10" oggi, "domani
+       alle 03:40", "sabato 24 ottobre alle 06:12" piu' in la'. Torna giorno
+       e ora separati, perche' a volte serve "verso le" al posto di "alle". */
+    const INV_GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+    const INV_MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+    function giornoEOra(ms) {
+        const d = new Date(ms), oggi = new Date();
+        const stesso = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        const ora = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        if (stesso(d, oggi)) return { giorno: '', ora: ora };
+        if (stesso(d, new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() + 1))) return { giorno: 'domani', ora: ora };
+        return { giorno: INV_GIORNI[d.getDay()] + ' ' + d.getDate() + ' ' + INV_MESI[d.getMonth()], ora: ora };
+    }
+    function versoLe(ms) {
+        const g = giornoEOra(ms);
+        return (g.giorno ? g.giorno + ' ' : '') + 'verso le ' + g.ora;
+    }
+    /* IL CONTO ALLA ROVESCIA CHE SCORRE. Il riquadro si rilegge dal servizio
+       una volta al minuto; in mezzo, "fra 4 minuti" restava fermo. Un solo
+       timer per tutta la pagina aggiorna ogni scritta che porta l'istante a
+       cui conta (data-alle): non fa chiamate, non ridisegna niente, e se
+       nella pagina non ce n'e' nessuna non fa niente. */
+    function contoHtml(ms) {
+        const t = fraQuanto(ms);
+        return '<span class="inv-conto" data-alle="' + Number(ms || 0) + '">' + (t ? 'fra ' + esc(t) : 'a momenti') + '</span>';
+    }
+    setInterval(() => {
+        document.querySelectorAll('.inv-conto[data-alle]').forEach(s => {
+            const t = fraQuanto(Number(s.getAttribute('data-alle')));
+            s.textContent = t ? 'fra ' + t : 'a momenti';
+        });
+    }, 20000);
 
     /* LA PROGRAMMAZIONE IN CORSO. Si chiedono TUTTE E DUE le campagne in una
        volta sola: la card dell'evento le mostra insieme, e due chiamate per
@@ -27974,6 +28018,46 @@
             + esc(fmtDataOra(q).slice(-5)) + ', e gira ogni ' + passo + ' minuti.</div>';
     }
 
+    /* A CHE PUNTO E' L'INVIO, IN TRE RIGHE. Il riquadro diceva quante su
+       quante e, solo a blocco dell'ora gia' pieno, "riparte fra": su undicimila
+       PEC a 250 l'ora non si capiva ne' cosa stesse succedendo nell'ora in
+       corso, ne' quando sarebbe partito il prossimo gruppo, ne' quando
+       sarebbe finito tutto. I numeri li calcola il servizio
+       (lib/programmazione-inviti.js, previsione), rifacendo i giri del lavoro
+       automatico con le sue stesse regole:
+         - il blocco in corso: quante ne sono partite in questa finestra del
+           ritmo, e quando comincia la prossima;
+         - il prossimo invio: a che ora, fra quanto (il conto scorre) e quante;
+         - la fine prevista, e quante restano. E' un tetto: le aziende saltate
+           non consumano il ritmo, quindi puo' finire prima. */
+    function tempiProgrammazione(p, camp) {
+        const pv = p.previsione;
+        if (!pv || p.stato === 'sospesa' || p.stato === 'preparazione') return '';
+        const cosa = p.canale === 'pec' ? 'PEC' : 'email';
+        const r = p.ritmo || {};
+        const f = p.finestra || {};
+        const n = x => Number(x || 0).toLocaleString('it-IT');
+        const righe = [];
+        if (f.inizio && f.fine > Date.now()) {
+            const piena = !f.disponibili;
+            righe.push('<span class="inv-prog-et">Blocco in corso</span>'
+                + '<span><b>' + n(f.usati) + '</b> di ' + n(r.quanti) + ' ' + cosa + ' partite'
+                + (piena ? ' (completo)' : '') + ' &middot; il prossimo blocco comincia '
+                + esc(versoLe(f.fine).replace('verso le', 'alle')) + '</span>');
+        }
+        if (pv.prossimoInvio) {
+            righe.push('<span class="inv-prog-et">Prossimo invio</span>'
+                + '<span><b>' + esc(versoLe(pv.prossimoInvio)) + '</b> (' + contoHtml(pv.prossimoInvio) + ')'
+                + (pv.quantiProssimo ? ': circa ' + n(pv.quantiProssimo) + ' ' + cosa : '') + '</span>');
+        }
+        if (pv.fine) {
+            righe.push('<span class="inv-prog-et">Fine prevista</span>'
+                + '<span><b>' + esc(versoLe(pv.fine)) + '</b> &middot; ne restano ' + n(pv.restano) + ' da ' + esc(camp.azione)
+                + ' <span class="hint">(prima, se qualcuna viene saltata)</span></span>');
+        }
+        return righe.length ? '<div class="inv-prog-tempi">' + righe.map(x => '<div>' + x + '</div>').join('') + '</div>' : '';
+    }
+
     function riquadroProgrammazione(ev) {
         const p = progAttiva(ev, _invCampagna);
         if (!p) return '';
@@ -27982,7 +28066,6 @@
         const inPreparazione = p.stato === 'preparazione';
         const c = p.conti || {};
         const perc = p.totale ? Math.min(100, Math.round((p.fatte || 0) / p.totale * 100)) : 0;
-        const quando = p.finestra && p.finestra.riprendeAlle ? fraQuanto(p.finestra.riprendeAlle) : '';
 
         /* Una preparazione rimasta a meta' non e' un invio in corso: e' una
            finestra chiusa mentre caricava. Si dice cosi', con la via d'uscita
@@ -28025,10 +28108,8 @@
             + '<span><b>' + Number(c.inviate || 0).toLocaleString('it-IT') + '</b> '
             + esc(camp.fatto) + ' su ' + Number(p.totale || 0).toLocaleString('it-IT') + '</span>'
             + (dettagli.length ? '<span class="hint">' + dettagli.join(' &middot; ') + '</span>' : '')
-            /* Il tempo che manca, non "più tardi": chi non sa quanto aspettare
-               ricarica la pagina ogni due minuti. */
-            + (!ferma && quando ? '<span class="hint inv-prog-manca">riparte fra ' + esc(quando) + '</span>' : '')
             + '</div>'
+            + tempiProgrammazione(p, camp)
             + (p.ultimoErrore ? '<div class="inv-prog-ko">' + esc(p.ultimoErrore) + '</div>' : '')
             /* IL BATTITO DEL LAVORO AUTOMATICO, e sono tre casi, non due.
                Prima l'avviso compariva solo se un battito c'era ED era vecchio:

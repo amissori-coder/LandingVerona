@@ -258,6 +258,60 @@ async function principale() {
         esigi(moltoTardi.inizio === adesso + 360 * MIN, 'anche saltando quattro finestre la cadenza non si sposta');
     }
 
+    console.log('\nLa previsione: blocco in corso, prossimo invio, fine');
+    {
+        const ritmo = { quanti: 250, ogniMin: 60 };
+        const ora = Date.parse('2026-10-22T15:04:00Z');
+        const inCorso = {
+            stato: 'in-corso', canale: 'pec', ritmo: ritmo, totale: 11000, conti: { inviate: 1250 },
+            finestra: { inizio: Date.parse('2026-10-22T14:43:20Z'), usati: 189 }, quando: Date.parse('2026-10-22T10:00:00Z')
+        };
+        let pv = P.previsione(inCorso, ora, 10);
+        esigi(pv.prossimoGiro === Date.parse('2026-10-22T15:10:00Z'), 'il prossimo giro e\' allo scoccare dei dieci minuti', new Date(pv.prossimoGiro).toISOString());
+        esigi(pv.prossimoInvio === pv.prossimoGiro && pv.quantiProssimo === 61, 'nel blocco in corso ne restano 61: partono al prossimo giro', JSON.stringify([new Date(pv.prossimoInvio).toISOString(), pv.quantiProssimo]));
+        esigi(pv.restano === 9750, 'ne restano 9.750');
+        const ore = (pv.fine - ora) / (60 * MIN);
+        esigi(ore > 38 && ore < 40, '11.000 PEC a 250 l\'ora, 1.250 gia\' partite: la fine e\' fra circa 39 ore', ore.toFixed(1) + ' ore');
+
+        pv = P.previsione(Object.assign({}, inCorso, { finestra: { inizio: Date.parse('2026-10-22T14:43:20Z'), usati: 250 } }), ora, 10);
+        esigi(pv.prossimoInvio === Date.parse('2026-10-22T15:50:00Z') && pv.quantiProssimo === RITMI.perGiro(ritmo, 10),
+            'a blocco pieno il prossimo invio e\' il primo giro dopo che il blocco si riapre (15:43 -> 15:50)', new Date(pv.prossimoInvio).toISOString());
+
+        esigi(P.previsione(Object.assign({}, inCorso, { stato: 'sospesa' }), ora, 10) === null, 'in pausa non si prevede niente: dipende da una persona');
+        pv = P.previsione({ stato: 'programmata', canale: 'pec', ritmo: ritmo, totale: 500, conti: {}, quando: Date.parse('2026-10-22T16:05:00Z') }, ora, 10);
+        esigi(pv.prossimoInvio === Date.parse('2026-10-22T16:10:00Z') && pv.quantiProssimo === RITMI.perGiro(ritmo, 10),
+            'programmata per le 16:05: il primo invio e\' al giro delle 16:10', new Date(pv.prossimoInvio).toISOString());
+
+        /* La previsione deve dire quello che il giro FARA': si rifanno i giri
+           con le funzioni del giro vero (quantiOra, finestraDi, la prenotazione
+           che apre la finestra al primo messaggio) e si confronta. */
+        for (const r of [{ quanti: 250, ogniMin: 60 }, { quanti: 250, ogniMin: 90 }, { quanti: 1000, ogniMin: 60 }]) {
+            const canale = r.quanti === 1000 ? 'email' : 'pec';
+            const t0 = Date.parse('2026-10-22T09:03:00Z');
+            const doc = { stato: 'in-corso', canale: canale, ritmo: r, totale: 3000, conti: {}, finestra: { inizio: 0, usati: 0 }, quando: t0 };
+            const attesa = P.previsione(doc, t0, 10);
+            let t = P.prossimoGiro(t0, 10), resto = 3000, ultimo = 0, primo = 0;
+            const vero = JSON.parse(JSON.stringify(doc));
+            while (resto > 0 && t < t0 + 30 * 24 * 60 * MIN) {
+                const q = Math.min(resto, P.quantiOra(vero, t));
+                if (q > 0) {
+                    const f = P.finestraDi(vero, t);
+                    vero.finestra = { inizio: f.inizio || t, usati: f.usati + q };
+                    resto -= q; ultimo = t; if (!primo) primo = t;
+                }
+                t += 10 * MIN;
+            }
+            esigi(attesa.prossimoInvio === primo && attesa.fine >= ultimo && attesa.fine - ultimo < 15 * MIN,
+                'la previsione coincide con i giri veri (' + canale + ' ' + r.quanti + ' ogni ' + r.ogniMin + ' minuti)',
+                JSON.stringify([new Date(attesa.fine).toISOString(), new Date(ultimo).toISOString()]));
+        }
+        const vivo = Object.assign({}, inCorso, { finestra: { inizio: Date.now() - 20 * MIN, usati: 189 } });
+        const video = P.perVideo('x', vivo);
+        esigi(video.finestra.inizio === vivo.finestra.inizio && video.finestra.fine === vivo.finestra.inizio + 60 * MIN && video.finestra.usati === 189
+            && video.previsione && video.previsione.restano === 9750 && video.previsione.quantiProssimo === 61,
+            'l\'area riservata riceve il blocco in corso (inizio e fine) e la previsione', JSON.stringify(video.finestra));
+    }
+
     console.log('\nIl motore: chi salta e chi no');
     {
         scenario({ 'a@x.it': {}, 'b@x.it': {}, 'c@x.it': { stato: 'esclusa' } });

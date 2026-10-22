@@ -148,6 +148,80 @@ function quantiOra(dati, adesso) {
     return Math.min(f.disponibili, RITMI.perGiro(f.ritmo));
 }
 
+/* IL PROSSIMO GIRO del lavoro automatico. Vercel lo fa partire allo scoccare
+   di ogni passo (vercel.json, ogni dieci minuti: alle :00, :10, :20... dell'ora UTC,
+   che per i minuti e' la stessa di Roma): il primo multiplo del passo DOPO
+   l'istante dato. Puo' arrivare con qualche decina di secondi di ritardo,
+   percio' a video si dice "verso le". */
+function prossimoGiro(adesso, passoMin) {
+    const passo = (Number(passoMin) || RITMI.passoCronMin()) * 60000;
+    const ora = Number(adesso) || Date.now();
+    return Math.floor(ora / passo) * passo + passo;
+}
+
+/* Quanto ci mette un messaggio dentro un giro: la pausa fra una PEC e
+   l'altra (lib/canali-invito.js, 1,5 secondi) piu' la consegna. Serve solo
+   a dire a che ora finisce l'ultimo giro, quindi un valore tondo basta. */
+const SECONDI_PER_MESSAGGIO = { pec: 2, email: 0.5 };
+
+/* LA PREVISIONE, per chi guarda l'invio partire: quando parte il prossimo
+   gruppo di messaggi, quanti sono, e a che ora finisce tutto. Non e' una
+   stima a occhio: si rifanno i giri del lavoro automatico con le sue stesse
+   regole - lo stesso passo, la stessa quota per giro (RITMI.perGiro), la
+   stessa finestra che si riapre a multipli interi della sua durata
+   (finestraDi) - finche' l'elenco non e' finito.
+
+   E' un tetto, non una promessa al minuto: le aziende saltate (gia'
+   servite, escluse, senza recapito) non consumano il ritmo, quindi l'invio
+   puo' finire prima; un server di posta lento, o un giro saltato, dopo.
+   Per una programmazione ferma (in pausa, in preparazione, finita) non si
+   prevede niente: dipende da una persona, non dall'orologio. */
+function previsione(dati, adesso, passoMin) {
+    const d = dati || {};
+    if (!daLavorare(d.stato)) return null;
+    const ora = Number(adesso) || Date.now();
+    const passoM = Number(passoMin) || RITMI.passoCronMin();
+    const passo = passoM * 60000;
+    const ritmo = RITMI.normalizza(d.canale, d.ritmo);
+    const durata = ritmo.ogniMin * 60000;
+    const perGiro = RITMI.perGiro(ritmo, passoM);
+    const secondi = SECONDI_PER_MESSAGGIO[RITMI.canaleValido(d.canale)];
+    const c = d.conti || {};
+    const fatte = ['inviate', 'falliti', 'saltate', 'senzaRecapito', 'disiscritte', 'incerte']
+        .reduce((s, k) => s + (Number(c[k]) || 0), 0);
+    let resto = Math.max(0, (Number(d.totale) || 0) - fatte);
+    const fuori = { prossimoGiro: prossimoGiro(ora, passoM), prossimoInvio: 0, quantiProssimo: 0, fine: 0, restano: resto, perGiro: perGiro };
+    if (!resto) return fuori;
+
+    // il primo giro che puo' spedire: non prima dell'ora scelta per la partenza
+    const parte = Number(d.quando) || 0;
+    let t = parte > ora ? prossimoGiro(parte - 1, passoM) : prossimoGiro(ora, passoM);
+    const f = d.finestra || {};
+    let inizio = Number(f.inizio) || 0;
+    let usati = Number(f.usati) || 0;
+    // un tetto ai giri simulati: cento giorni di invio, ben oltre qualunque elenco
+    for (let i = 0; i < 20000 && resto > 0; i++) {
+        if (inizio && t - inizio >= durata) {
+            inizio += Math.floor((t - inizio) / durata) * durata;
+            usati = 0;
+        }
+        const liberi = ritmo.quanti - usati;
+        if (liberi <= 0) {
+            // finestra piena: si salta al primo giro dentro la prossima
+            t = prossimoGiro(inizio + durata - 1, passoM);
+            continue;
+        }
+        const n = Math.min(resto, perGiro, liberi);
+        if (!inizio) inizio = t;   // la finestra la apre il primo messaggio
+        usati += n;
+        resto -= n;
+        if (!fuori.prossimoInvio) { fuori.prossimoInvio = t; fuori.quantiProssimo = n; }
+        if (!resto) fuori.fine = t + Math.round(n * secondi * 1000);
+        t += passo;
+    }
+    return fuori;
+}
+
 /* Il battito del lavoro automatico. Serve a una cosa sola ma
    importante: accorgersi che il giro NON e' partito. Vercel non
    ritenta le esecuzioni fallite, quindi senza questo un invio
@@ -211,7 +285,14 @@ function perVideo(id, d) {
         },
         fatte: fatte,
         restano: Math.max(0, (d.totale || 0) - fatte),
-        finestra: { usati: f.usati, disponibili: f.disponibili, riprendeAlle: f.riprendeAlle },
+        /* La finestra in corso con il suo inizio e la sua fine: e' "il blocco
+           di quest'ora" che si vede nel riquadro (quanti ne sono partiti e
+           quando comincia il prossimo). */
+        finestra: {
+            usati: f.usati, disponibili: f.disponibili, riprendeAlle: f.riprendeAlle,
+            inizio: f.inizio, fine: f.inizio ? f.inizio + f.durata : 0
+        },
+        previsione: previsione(d, Date.now()),
         oggetto: String(d.mail && d.mail.oggetto || '').slice(0, 250),
         forza: d.forza === true,
         soloNonIscritte: d.soloNonIscritte === true,
@@ -254,6 +335,6 @@ async function ricordaTesto(db, evento, campagna, dati, oggetto, chi) {
 module.exports = {
     COLL, META, ATTIVI, DA_LAVORARE, IN_PREPARAZIONE, PER_LOTTO, SCADE_PREPARAZIONE_MS,
     eAttiva, daLavorare, idDi, rif, rifLotti, nomeLotto,
-    finestraDi, quantiOra, battito, leggiBattito, cancellaLotti, perVideo,
+    finestraDi, quantiOra, prossimoGiro, previsione, battito, leggiBattito, cancellaLotti, perVideo,
     rifTestoInvito, ricordaTesto
 };
