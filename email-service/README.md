@@ -1789,6 +1789,27 @@ iscrizioni inserite a mano, quelle arrivate con un Portale (Eventbrite, il
 desk) e quelle caricate con "Importa" non hanno una mail da confermare e non
 ci compaiono mai.
 
+**Gli aderenti** (cena del 26 e meeting del 27 febbraio, la pagina
+`/milano_febbraio_2027/aderenti/`, collezione `iscrizioniAderenti`, in
+`lib/iscrizioni-aderenti.js`) hanno **una mail a parte, la stessa notte e agli
+stessi destinatari**. A ogni iscrizione non parte piu' nessun avviso interno:
+parte solo la mail all'iscritto, con quota e dati di fatturazione. Qui non
+c'e' un'email da confermare, perche' l'iscrizione vale da quando arriva: niente
+"in attesa" e niente "confermata". Per ogni quota (`contiAderenti` in
+`lib/riepilogo-iscrizioni.js`, la mail e' `riepilogoAderenti` in
+`lib/mail-ngb.js`) la mail contiene:
+- **le nuove iscrizioni del giorno** (`primaVolta`), con recapiti, studio e
+  citta', tutti i dati per la fattura, la quota IVA inclusa e le note per la
+  cena. Chi ha corretto il modulo lo stesso giorno resta fra le nuove, con i
+  dati nuovi;
+- **le iscrizioni aggiornate**: arrivate prima e inviate di nuovo quel giorno
+  (`quando`), con i campi della fatturazione cambiati rispetto a fine giornata
+  precedente (dalla `storia` della scheda);
+- **i totali**: iscritti e fatture da emettere, con l'importo.
+
+Senza iscrizioni nuove o aggiornate non parte niente. Una volta per notte su
+`meta/riepilogoAderenti-<quota>`; `?giorno=` e `&forza=1` valgono anche qui.
+
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,
   cosi' regge il cambio dell'ora legale.
@@ -1801,7 +1822,7 @@ ci compaiono mai.
 - **Destinatari**: in `lib/riepilogo-iscrizioni.js` (DESTINATARI); si possono
   cambiare senza toccare il codice con la variabile `RIEPILOGO_DESTINATARI`
   (indirizzi separati da virgola).
-- **Le prove**: `node prove/riepilogo-iscrizioni.prove.js`.
+- **Le prove**: `node prove/riepilogo-iscrizioni.prove.js` (anche gli aderenti) e `node prove/iscrizioni-aderenti.prove.js` (all'iscrizione parte solo la mail all'iscritto).
 
 ## Accredito dal QR al desk (dentro `/api/iscrizione-nuova`, `lib/accredito-desk.js`)
 

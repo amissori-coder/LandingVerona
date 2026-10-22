@@ -8,16 +8,17 @@
 
    COSA DIMOSTRANO. Da questa scheda parte una fattura, quindi:
      - un'iscrizione completa passa, viene registrata e fa partire
-       DUE mail: l'avviso a Pierluigi Sterzi e Andrea Missori (con
-       "rispondi a" l'iscritto) e il riepilogo all'iscritto;
+       UNA mail sola, il riepilogo all'iscritto: a noi non parte
+       niente adesso, i dati li porta il riepilogo di mezzanotte
+       (prove/riepilogo-iscrizioni.prove.js);
      - la quota la decide il servizio: 200 + IVA 22% = 244 euro,
        qualunque cosa mandi la pagina;
      - i dati fiscali sbagliati si fermano qui: partita IVA con la
        cifra di controllo storta, CAP, provincia, codice SDI;
      - con la partita IVA serve il codice destinatario o la PEC;
      - chi compila due volte NON diventa due schede (due fatture):
-       la seconda aggiorna la prima e l'avviso dice che e' una
-       correzione;
+       la seconda aggiorna la prima, i dati di prima restano nella
+       storia e la mail all'iscritto dice che e' un aggiornamento;
      - se la posta non parte l'iscrizione resta registrata.
    ============================================================ */
 'use strict';
@@ -122,7 +123,7 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         esigi(i.imponibile === 200 && i.iva === 44 && i.totale === 244, '200 + IVA 22% = 244');
     });
 
-    await prova('1. Un\'iscrizione completa: registrata, due mail', async () => {
+    await prova('1. Un\'iscrizione completa: registrata, una mail all\'iscritto e nessun avviso a noi', async () => {
         azzera();
         const r = await invia();
         esigi(r.stato === 200 && r.corpo.ok, 'passa (' + (r.corpo.msg || 'ok') + ')');
@@ -134,16 +135,14 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         esigi(s.fatturazione.partitaIva === '04641610235', 'il prefisso IT e gli spazi della partita IVA si tolgono');
         esigi(s.fatturazione.provincia === 'VR' && s.fatturazione.codiceDestinatario === 'M5UXCR1', 'provincia e SDI in maiuscolo');
         esigi(s.importi.totale === 244, 'sulla scheda c\'e\' il totale da fatturare');
-        esigi(posta.length === 2, 'partono due mail');
-        const interna = posta.find(m => /pierluigisterzi@revilaw\.it/.test(m.to));
-        esigi(!!interna && /andreamissori@revilaw\.it/.test(interna.to), 'l\'avviso va a Pierluigi Sterzi e Andrea Missori');
-        esigi(interna && interna.replyTo === 'anna.verdi@studio.it', 'rispondendo all\'avviso si scrive all\'iscritto');
-        esigi(interna && /Studio Verdi Associati/.test(interna.html) && /04641610235/.test(interna.html) && /M5UXCR1/.test(interna.html),
-            'nell\'avviso ci sono i dati di fatturazione');
-        esigi(interna && /244,00/.test(interna.html), 'nell\'avviso c\'e\' l\'importo IVA inclusa');
+        esigi(posta.length === 1, 'parte una mail sola');
+        esigi(!posta.some(m => /revilaw\.it/.test(String(m.to))), 'nessun avviso agli organizzatori: lo porta il riepilogo di mezzanotte');
         const conf = posta.find(m => m.to === 'anna.verdi@studio.it');
         esigi(!!conf && /fattura/i.test(conf.html) && /200,00/.test(conf.html), 'all\'iscritto il riepilogo con quota e fattura in arrivo');
-        esigi(dati.get(chiavi[0]).avvisati === true && dati.get(chiavi[0]).mail === true, 'sulla scheda risulta che le mail sono partite');
+        esigi(conf && /Studio Verdi Associati/.test(conf.html) && /M5UXCR1/.test(conf.html), 'con i dati di fatturazione che ha scritto');
+        esigi(!/conferma (il tuo|il Suo) indirizzo|Conferma il tuo indirizzo email/i.test(conf ? conf.html : ''), 'e nessuna richiesta di confermare l\'email');
+        esigi(dati.get(chiavi[0]).mail === true && !('avvisati' in dati.get(chiavi[0])), 'sulla scheda risulta che la mail e\' partita');
+        esigi(dati.get(chiavi[0]).primaVolta === dati.get(chiavi[0]).quando, 'primo invio: primaVolta e quando coincidono (il riepilogo la conta fra le nuove)');
     });
 
     await prova('2. La quota non la decide la pagina', async () => {
@@ -192,15 +191,12 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         esigi(s.fatturazione.emailFatture === 'amministrazione@studio.it', 'l\'email per la fattura si salva, in minuscolo');
     });
 
-    await prova('4b. Le note nell\'avviso dicono che cosa sono', async () => {
+    await prova('4b. Le note restano sulla scheda (le mostra il riepilogo di mezzanotte)', async () => {
         azzera();
         await invia({ note: 'Celiaco' });
-        let interna = posta.find(m => /pierluigisterzi/.test(m.to));
-        esigi(/Note \(allergie o intolleranze per la cena, altre indicazioni\)/.test(interna.html) && /Celiaco/.test(interna.html), 'con le note, l\'intestazione le spiega');
-        azzera();
-        await invia({ note: '' });
-        interna = posta.find(m => /pierluigisterzi/.test(m.to));
-        esigi(/allergie o intolleranze/.test(interna.html) && /nessuna/.test(interna.html), 'senza note, l\'avviso dice "nessuna"');
+        const s = [...dati.values()][0];
+        esigi(s.note === 'Celiaco', 'le note si salvano');
+        esigi(posta.length === 1 && posta[0].to === 'anna.verdi@studio.it', 'e parte solo la mail all\'iscritto');
     });
 
     await prova('5. Due invii, una scheda', async () => {
@@ -214,17 +210,18 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         esigi(s.fatturazione.intestatario === 'Verdi Srl', 'valgono i dati nuovi');
         esigi(Array.isArray(s.storia) && s.storia.length === 1 && s.storia[0].fatturazione.intestatario === 'Studio Verdi Associati',
             'quelli di prima restano nella storia');
-        const interna = posta.find(m => /pierluigisterzi/.test(m.to));
-        esigi(interna && /aggiornata/i.test(interna.subject), 'l\'avviso dice che e\' una correzione');
+        esigi(posta.length === 1 && /aggiornata/i.test(posta[0].subject) && posta[0].to === 'anna.verdi@studio.it',
+            'all\'iscritto la mail dice che l\'iscrizione e\' aggiornata, e a noi non parte niente');
+        esigi(s.primaVolta < s.quando || s.primaVolta === s.storia[0].quando, 'primaVolta resta quella del primo invio');
     });
 
     await prova('6. Se la posta non parte l\'iscrizione resta', async () => {
         azzera();
-        rompiInvio = 2;
+        rompiInvio = 1;
         const r = await invia();
-        esigi(r.corpo.ok, 'la risposta e\' ok');
+        esigi(r.corpo.ok && r.corpo.mail === false, 'la risposta e\' ok, e dice che la mail non e\' partita');
         const s = [...dati.values()][0];
-        esigi(s && s.avvisati === false && s.mail === false, 'la scheda c\'e\' e dice che le mail non sono partite');
+        esigi(s && s.mail === false, 'la scheda c\'e\' e dice che la mail non e\' partita');
     });
 
     await prova('7. Se l\'archivio non risponde non parte niente', async () => {
