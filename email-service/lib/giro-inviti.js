@@ -378,16 +378,21 @@ async function lavora(db, id, dati, scadenza, fuori) {
                 stato: fatti >= ids.length ? 'fatto' : 'attesa'
             }, { merge: true });
             /* Quanto ci mette davvero un messaggio, misurato sulle spedizioni
-               vere (le saltate non contano: sono letture). Serve alla
-               previsione nell'area riservata: un server di posta lento fa
-               partire meno messaggi per giro, e la fine si sposta. Media
-               mobile, cosi' un giro storto non la stravolge. */
-            const spediteFetta = (r.inviate || 0) + ((r.falliti || []).length);
+               riuscite (le saltate non contano: sono letture) di una fetta
+               andata a buon fine. Serve alla previsione nell'area riservata:
+               un server di posta lento fa partire meno messaggi per giro, e la
+               fine si sposta. Una fetta bloccata o finita in errore non si
+               misura: un collegamento che va in timeout sulla prima PEC
+               direbbe venti secondi a messaggio, e la previsione sbaglierebbe
+               di giorni per ore. Media mobile pesata sui messaggi: una fetta
+               da uno conta poco, una da sessanta conta il giusto. */
             const aggiorna = { conti: conti, ultimoGiro: Date.now(), inVolo: 0 };
-            if (spediteFetta > 0) {
-                const misura = (Date.now() - partitaFetta) / spediteFetta;
+            const riuscite = Number(r.inviate) || 0;
+            if (riuscite > 0 && !r.bloccato && !r.errore) {
+                const misura = (Date.now() - partitaFetta) / riuscite;
                 const prima = Number(velocita) || Number(dati.velocita && dati.velocita.msPerMessaggio) || 0;
-                velocita = Math.round(prima ? prima * 0.7 + misura * 0.3 : misura);
+                const peso = Math.min(0.3, riuscite / 60);
+                velocita = Math.round(prima ? prima * (1 - peso) + misura * peso : misura);
                 aggiorna.velocita = { msPerMessaggio: velocita, quando: Date.now() };
             }
             await P.rif(db, id).set(aggiorna, { merge: true });

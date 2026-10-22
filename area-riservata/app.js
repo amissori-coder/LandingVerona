@@ -26225,6 +26225,10 @@
                 return 'Invio programmato: <b>' + totale + '</b> ' + esc(camp.fatto)
                     + ' a partire dalle <b>' + esc(fmtDataOra(quando).slice(-5)) + '</b>, ' + ritmo + '.';
             }
+            if (cronFermo()) {
+                return 'Invio programmato: <b>' + totale + '</b> da ' + esc(camp.azione) + ', ' + ritmo + '. '
+                    + '<span class="ko">Il servizio è fermo: non parte niente finché non riprende.</span>';
+            }
             return 'Invio programmato: <b>' + totale + '</b> da ' + esc(camp.azione)
                 + ', ' + ritmo + '. In attesa del primo giro del servizio'
                 + (_invPassoCron ? ' (entro ' + _invPassoCron + ' minuti)' : '') + '.';
@@ -28046,7 +28050,11 @@
        prima quando il blocco si riapre proprio a ridosso di uno scoccare (il
        servizio non puo' sapere quale dei due lo trovera' aperto, e lo dice). */
     function prossimoTesto(pv) {
-        if (pv.forseAlle) return versoLe(pv.forseAlle) + ' o al giro delle ' + giornoEOra(pv.prossimoInvio).ora;
+        if (pv.forseAlle) {
+            const a = giornoEOra(pv.forseAlle), b = giornoEOra(pv.prossimoInvio);
+            // a cavallo della mezzanotte il secondo giro e' un altro giorno: lo si dice
+            return versoLe(pv.forseAlle) + ' o al giro delle ' + (b.giorno !== a.giorno ? (b.giorno || 'oggi') + ' alle ' : '') + b.ora;
+        }
         return versoLe(pv.prossimoInvio);
     }
     function tempiProgrammazione(p, camp) {
@@ -30275,8 +30283,9 @@
                    undicimila PEC diceva "circa 320 minuti" per un invio che si
                    ferma dopo 250. */
                 const fr = modoInvio === 'ora' ? frenoCfg(canale) : null;
+                // il tetto si consuma anche con quelle non riuscite (vedi consumaGettoni nel servizio)
                 const nelTetto = fr && typeof fr.disponibili === 'number'
-                    ? Math.max(0, fr.disponibili - (c.inviate || 0)) : restanti;
+                    ? Math.max(0, fr.disponibili - (c.inviate || 0) - (c.falliti || 0)) : restanti;
                 const contate = Math.min(restanti, nelTetto);
                 if (fatte > 0 && contate > 0 && c.da) {
                     const secondi = Math.round((Date.now() - c.da) / fatte * contate / 1000);
@@ -30712,6 +30721,11 @@
                         fine();
                     }));
                 }
+                /* Il tetto orario come lo vede il servizio ADESSO, non
+                   all'apertura della finestra: dopo un invio fermato a meta' e
+                   ripreso, la stima "per le N di quest'ora" partiva dal conto
+                   di prima e prometteva piu' di quanto il servizio concede. */
+                if (modoInvio === 'ora') await new Promise(fine => rileggiFreno(fine));
                 const lotto = Math.max(1, Number(canaleCfg(canale).maxLotto) || 40);
                 let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, incerte = 0, msgKo = '';
                 const totale = elencoInvio.length;

@@ -334,6 +334,21 @@ async function principale() {
         esigi(lento.perGiro === Math.floor(GIRO.BUDGET_UNA_MS / 3200) && lento.fine > P.previsione(inCorso, ora, 10).fine,
             'a 3,2 secondi per PEC ne partono ' + Math.floor(GIRO.BUDGET_UNA_MS / 3200) + ' per giro, e la fine si sposta in avanti', String(lento.perGiro));
 
+        // lo scoccare appena passato il cui giro non e' ancora partito: e' quello il prossimo
+        pv = P.previsione(Object.assign({}, inCorso, { ultimoGiro: Date.parse('2026-10-22T15:00:40Z') }), Date.parse('2026-10-22T15:10:20Z'), 10);
+        esigi(pv.prossimoInvio === Date.parse('2026-10-22T15:10:00Z'), 'alle 15:10:20, con il giro delle 15:10 non ancora partito, il prossimo invio e\' quello', new Date(pv.prossimoInvio).toISOString());
+        pv = P.previsione(Object.assign({}, inCorso, { ultimoGiro: Date.parse('2026-10-22T15:10:15Z') }), Date.parse('2026-10-22T15:10:20Z'), 10);
+        esigi(pv.prossimoInvio === Date.parse('2026-10-22T15:20:00Z'), 'e se quel giro e\' gia\' passato, e\' il successivo', new Date(pv.prossimoInvio).toISOString());
+
+        // server lento: il giro prenota 63 ma ne fa partire solo quante ne stanno nel suo tempo
+        pv = P.previsione(Object.assign({}, inCorso, { lucchetto: lucchetto, inVolo: 63, velocita: { msPerMessaggio: 3000 },
+            finestra: { inizio: Date.parse('2026-10-22T14:43:20Z'), usati: 252 } }), ora, 10);
+        esigi(pv.inPartenza === 50 && pv.prenotatiInPiu === 13, 'a 3 secondi per PEC: 50 in partenza, non tutte le 63 prenotate', JSON.stringify([pv.inPartenza, pv.prenotatiInPiu]));
+        const lentoVivo = Object.assign({}, inCorso, { lucchetto: { fino: Date.now() + 5 * MIN }, inVolo: 63, velocita: { msPerMessaggio: 3000 },
+            finestra: { inizio: Date.now() - 20 * MIN, usati: 126 } });
+        const vl = P.perVideo('x', lentoVivo);
+        esigi(vl.finestra.usati === 113 && vl.previsione.inPartenza === 50, 'e il blocco in corso conta le 50, non le 63', JSON.stringify(vl.finestra));
+
         const vivo = Object.assign({}, inCorso, { finestra: { inizio: Date.now() - 20 * MIN, usati: 189 } });
         const video = P.perVideo('x', vivo);
         esigi(video.finestra.inizio === vivo.finestra.inizio && video.finestra.fine === vivo.finestra.inizio + 60 * MIN && video.finestra.usati === 189
@@ -549,6 +564,16 @@ async function principale() {
         esigi(RITMI.perGiro({ quanti: 3, ogniMin: 60 }, 10) === 1,
             'una finestra larga si spalma sui giri invece di svuotarsi subito',
             'per giro ' + RITMI.perGiro({ quanti: 3, ogniMin: 60 }, 10));
+        /* Una fetta bloccata (il collegamento che va in timeout sulla prima
+           PEC) non si misura: direbbe venti secondi a messaggio. */
+        const primaVel = JSON.stringify(docProg().velocita);
+        docProg().finestra = { inizio: Date.now() - 16 * MIN, usati: 3 };
+        comeVaSendMail = () => { const e = new Error('connect ETIMEDOUT'); e.code = 'ETIMEDOUT'; throw e; };
+        await GIRO.eseguiGiro(db);
+        comeVaSendMail = () => ({ messageId: 'x', response: '250 ok' });
+        esigi(docProg().stato === 'sospesa' && JSON.stringify(docProg().velocita) === primaVel && docProg().inVolo === 0,
+            'una fetta bloccata non cambia la velocita misurata, e l\'in volo torna a zero', JSON.stringify([docProg().stato, docProg().velocita, docProg().inVolo]));
+        await chiama('programma-riprendi', {});
     }
 
     console.log('\nIl secondo invio della campagna: il sollecito programmato');

@@ -217,11 +217,17 @@ function previsione(dati, adesso, passoMin) {
        (prenotati) ma non ancora nei conti. Solo finche' il giro tiene il
        lucchetto: un "in volo" rimasto da un giro morto non vale piu'. */
     const giroAdesso = !!(d.lucchetto && Number(d.lucchetto.fino) > ora);
-    const volo = giroAdesso ? Math.max(0, Math.min(resto, Number(d.inVolo) || 0)) : 0;
+    /* Il giro prenota tutta la quota, ma con un server lento ne fa partire
+       solo quante ne stanno nel suo tempo (perGiro, gia' ridotto dalla
+       velocita' misurata) e il resto lo restituisce alla fine. Si conta in
+       partenza solo quello, e l'eccesso torna nel blocco (prenotatiInPiu:
+       perVideo lo toglie anche dal "blocco in corso"). */
+    const prenotati = giroAdesso ? Math.max(0, Number(d.inVolo) || 0) : 0;
+    const volo = Math.min(resto, prenotati, perGiro);
     resto -= volo;
     const fuori = {
         prossimoGiro: prossimoGiro(ora, passoM), prossimoInvio: 0, quantiProssimo: 0, forseAlle: 0,
-        inPartenza: volo, fine: 0, restano: resto + volo, perGiro: perGiro
+        inPartenza: volo, prenotatiInPiu: Math.max(0, prenotati - volo), fine: 0, restano: resto + volo, perGiro: perGiro
     };
     if (!resto) {
         // l'ultimo gruppo sta partendo adesso: finisce con lui
@@ -232,9 +238,18 @@ function previsione(dati, adesso, passoMin) {
     // il primo giro che puo' spedire: non prima dell'ora scelta per la partenza
     const parte = Number(d.quando) || 0;
     let t = parte > ora ? prossimoGiro(parte - 1, passoM) : prossimoGiro(ora, passoM);
+    /* Lo scoccare appena passato il cui giro non e' ancora partito (Vercel lo
+       avvia con qualche secondo, a volte un minuto, di ritardo): e' quello il
+       prossimo, non lo scoccare dopo. Lo si riconosce perche' quel giro non
+       ha ancora toccato la programmazione e nessuno ci sta lavorando. */
+    const ultimoScoccare = t - passo;
+    if (parte <= ultimoScoccare && !giroAdesso && ora - ultimoScoccare < MARGINE_RIAPERTURA_MS
+        && (Number(d.ultimoGiro) || 0) < ultimoScoccare) {
+        t = ultimoScoccare;
+    }
     const f = d.finestra || {};
     let inizio = Number(f.inizio) || 0;
-    let usati = Number(f.usati) || 0;
+    let usati = Math.max(0, (Number(f.usati) || 0) - fuori.prenotatiInPiu);
     // un tetto ai giri simulati: cento giorni di invio, ben oltre qualunque elenco
     for (let i = 0; i < 20000 && resto > 0; i++) {
         if (inizio && t - inizio >= durata) {
@@ -249,7 +264,8 @@ function previsione(dati, adesso, passoMin) {
             /* ...ma se si riapre a ridosso di uno scoccare, quel giro potrebbe
                gia' trovarla aperta: si dice anche lui (solo per il primo invio). */
             const giroPrima = t - passo;
-            if (!fuori.prossimoInvio && giroPrima > ora && riapre - giroPrima <= MARGINE_RIAPERTURA_MS) fuori.forseAlle = giroPrima;
+            if (!fuori.prossimoInvio && giroPrima > ora - MARGINE_RIAPERTURA_MS && riapre - giroPrima <= MARGINE_RIAPERTURA_MS
+                && (Number(d.ultimoGiro) || 0) < giroPrima) fuori.forseAlle = giroPrima;
             continue;
         }
         const n = Math.min(resto, perGiro, liberi);
@@ -306,6 +322,9 @@ async function cancellaLotti(db, id) {
 function perVideo(id, d) {
     if (!d) return null;
     const f = finestraDi(d);
+    const pv = previsione(d, Date.now());
+    // la quota prenotata dal giro in corso che non fara' in tempo a partire (vedi previsione)
+    const inPiu = (pv && pv.prenotatiInPiu) || 0;
     const conti = d.conti || {};
     const fatte = (Number(conti.inviate) || 0) + (Number(conti.falliti) || 0)
         + (Number(conti.saltate) || 0) + (Number(conti.senzaRecapito) || 0)
@@ -330,10 +349,10 @@ function perVideo(id, d) {
            di quest'ora" che si vede nel riquadro (quanti ne sono partiti e
            quando comincia il prossimo). */
         finestra: {
-            usati: f.usati, disponibili: f.disponibili, riprendeAlle: f.riprendeAlle,
+            usati: Math.max(0, f.usati - inPiu), disponibili: f.disponibili + Math.min(inPiu, f.usati), riprendeAlle: inPiu ? 0 : f.riprendeAlle,
             inizio: f.inizio, fine: f.inizio ? f.inizio + f.durata : 0
         },
-        previsione: previsione(d, Date.now()),
+        previsione: pv,
         oggetto: String(d.mail && d.mail.oggetto || '').slice(0, 250),
         forza: d.forza === true,
         soloNonIscritte: d.soloNonIscritte === true,
