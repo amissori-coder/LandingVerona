@@ -783,6 +783,8 @@ ul, ol { list-style: none; }
     text-align: left;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
+/* dopo l'invio script.js la nasconde: il display qui sopra vincerebbe su hidden */
+.iscrizioni .mail-non-ricevuta[hidden] { display: none; }
 .iscrizioni .mail-non-ricevuta:hover {
     transform: translateY(-2px);
     border-color: var(--azzurro);

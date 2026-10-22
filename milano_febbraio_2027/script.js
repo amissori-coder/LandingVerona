@@ -950,6 +950,11 @@ document.addEventListener('DOMContentLoaded', () => {
             mostraSms(d);
             if (d.stato && d.stato.d && d.stato.t) { preparaRimanda(d.stato); seguiStato(d.stato, valore('nome')); }
             form.hidden = true;
+            /* sotto la conferma il pulsante "Mail di conferma non ricevuta?"
+               ripeterebbe il collegamento del riquadro della mail, e a mail
+               confermata direbbe il contrario della schermata: va via */
+            const mailNonRicevuta = document.querySelector('.mail-non-ricevuta');
+            if (mailNonRicevuta) mailNonRicevuta.hidden = true;
             const fatto = $('formSuccess');
             fatto.hidden = false;
             vaiA(fatto);
