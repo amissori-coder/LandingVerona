@@ -63,7 +63,7 @@ function doc(coll, id) {
     const k = coll + '/' + id;
     return {
         id: id, _coll: coll,
-        get: async () => ({ id: id, exists: dati.has(k), data: () => copia(dati.get(k)) }),
+        get: async () => ({ id: id, exists: dati.has(k), data: () => copia(dati.get(k)), ref: doc(coll, id) }),
         set: async (p, o) => { dati.set(k, (o && o.merge) ? fondi(dati.get(k), p) : copia(p)); },
         // come Firestore: update su un documento che non c'e' fallisce
         update: async p => { if (!dati.has(k)) throw new Error('NOT_FOUND'); dati.set(k, fondi(dati.get(k), p)); },
@@ -110,6 +110,7 @@ let spedite = [];
 let postaGiu = 0;
 let rifiutoDefinitivo = false;
 let passwordSbagliata = false;
+let dataRespinto = false;
 let postaLenta = false;
 let primaDiSpedire = null;   // cosa succede nel mondo mentre la mail parte
 /* ---------- casella finta ---------- */
@@ -120,12 +121,15 @@ class ClientFinto {
     async connect() { }
     async mailboxOpen() { return { uidValidity: casella.uidValidity, uidNext: Math.max(0, ...casella.messaggi.keys()) + 1 }; }
     async search(q) {
+        if (casella.ricercaKo) return false;
         const cercato = String((q.header || {})['message-id'] || '');
         return [...casella.messaggi.entries()].filter(([, m]) => m.headers.indexOf('Message-ID: ' + cercato + '\r\n') >= 0).map(([uid]) => uid);
     }
     async *fetch(q) {
         const [a, b] = String(q.uid).split(':').map(Number);
         if (a === b && casella.rifiuta && casella.rifiuta.has(a)) throw new Error('Command failed');
+        // la connessione cade e imapflow non lo dice: il comando torna vuoto
+        if (a === b && casella.cadeZitto && casella.cadeZitto.has(a)) { this.usable = false; return; }
         for (const [uid, m] of [...casella.messaggi.entries()].sort((x, y) => x[0] - y[0])) {
             if (uid >= a && uid <= b) yield { uid: uid, size: 5000, internalDate: new Date(m.quando), headers: Buffer.from(m.headers), bodyStructure: copia(m.struttura) };
         }
@@ -160,6 +164,7 @@ Module.prototype.require = function (n) {
                 sendMail: async m => {
                     if (primaDiSpedire) { const f = primaDiSpedire; primaDiSpedire = null; f(); }
                     if (rifiutoDefinitivo && m.attachments) { const e = new Error('552 allegato rifiutato'); e.responseCode = 552; e.code = 'EMESSAGE'; e.command = 'DATA'; throw e; }
+                    if (dataRespinto) { const e = new Error('Data command failed: 554 5.7.1 policy'); e.responseCode = 554; e.code = 'EENVELOPE'; e.command = 'DATA'; throw e; }
                     if (passwordSbagliata) { const e = new Error('Invalid login: 535 5.7.8 Authentication failed'); e.responseCode = 535; e.code = 'EAUTH'; e.command = 'AUTH PLAIN'; throw e; }
                     if (postaLenta) return new Promise(() => { });
                     if (postaGiu > 0) { postaGiu--; throw new Error('posta giu\''); }
@@ -289,7 +294,7 @@ async function lavora(client, uid) {
 const lontano = () => Date.now() + 60000;
 const giro = (client, o) => INOLTRO.inoltra(db, client, Object.assign({ uidValidity: '777', scadenza: lontano(), casella: 'studio@pec.esempio.it' }, o || {}));
 function azzera() {
-    dati.clear(); spedite = []; postaGiu = 0; rifiutoDefinitivo = false; passwordSbagliata = false; postaLenta = false; rompiCoda = 0; avanti = 0;
+    dati.clear(); spedite = []; postaGiu = 0; rifiutoDefinitivo = false; passwordSbagliata = false; dataRespinto = false; postaLenta = false; rompiCoda = 0; avanti = 0;
     casella = { uidValidity: 777, messaggi: new Map() }; delete process.env.PEC_RISPOSTE_DESTINATARI;
 }
 function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.it>', 's1'); }
@@ -675,6 +680,77 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     await new Promise(r => setImmediate(r));
     esigi(righe().length === 0, 'una riga tolta mentre la mail partiva non rinasce vuota', JSON.stringify(righe()));
 
+    console.log('\nUltimi casi della coda');
+    base();
+    messaggio(91);
+    client = clientDiProva();
+    await lavora(client, 91);
+    casella.cadeZitto = new Set([91]);
+    e = await giro(client);
+    casella.cadeZitto = null;
+    esigi(spedite.length === 0 && righe()[0].cadute === 1 && righe()[0].tentativi === 0 && righe()[0].stato === 'da-inviare', 'una connessione che cade senza dirlo non fa partire la mail senza testo', JSON.stringify(righe()[0]));
+    base();
+    messaggio(92);
+    client = clientDiProva();
+    await lavora(client, 92);
+    casella.ricercaKo = true;
+    e = await giro(client, { uidValidity: '999' });
+    casella.ricercaKo = false;
+    esigi(spedite.length === 0 && righe()[0].tentativi === 1 && righe()[0].prossimo > Date.now(), 'una ricerca che non riesce non e\' "messaggio sparito": si riprova', JSON.stringify(righe()[0]));
+    base();
+    messaggio(93);
+    client = clientDiProva();
+    await lavora(client, 93);
+    dati.set('pecInoltri/' + righe()[0].id, Object.assign(righe()[0], { tentativi: INOLTRO.MAX_TENTATIVI - 1 }));
+    casella.rifiuta = new Set([93]);
+    e = await giro(client);
+    casella.rifiuta = null;
+    m = spedite[0] || {};
+    esigi(spedite.length === 1 && /non si riesce a leggere dalla casella/.test(m.text) && righe()[0].stato === 'inviata', 'all\'ultimo tentativo un messaggio che la casella rifiuta parte lo stesso, senza testo', JSON.stringify(righe()[0]));
+    base();
+    messaggio(94);
+    client = clientDiProva();
+    await lavora(client, 94);
+    dataRespinto = true;
+    await giro(client);
+    dataRespinto = false;
+    esigi(!righe()[0].senzaAllegati, 'il comando DATA respinto prima del contenuto non toglie gli allegati');
+    avanti += 11 * 60000;
+    postaLenta = true;
+    await giro(client, { limiteFine: Date.now() + 50 });
+    postaLenta = false;
+    esigi(righe()[0].senzaAllegati === true, 'una spedizione con allegati che non finisce in tempo: la prossima parte senza');
+    base();
+    messaggio(95);
+    client = clientDiProva();
+    await lavora(client, 95);
+    dati.set('pecInoltri/' + righe()[0].id, Object.assign(righe()[0], { tentativi: INOLTRO.MAX_TENTATIVI - 1 }));
+    postaGiu = 1;
+    e = await giro(client);
+    esigi(e.fallite === 0 && e.abbandonate === 1, 'una risposta abbandonata non si conta fra quelle "che si riproveranno"', JSON.stringify(e));
+
+    console.log('\nModifica ed Elimina, dal servizio delle aziende');
+    const AZ = require(path.join(radice, 'lib/aziende-invito'));
+    const esegui = body => AZ.esegui({ db: db, body: Object.assign({ sezione: 'aziende', evento: 'milano-2027-02-26', campagna: 'invito' }, body), email: 'admin@revilaw.it', eAdmin: true, ruolo: 'admin' });
+    base();
+    riferimento('<ngb.vecchio@revilaw.it>', 's1');   // il primo invio, prima di un secondo invio
+    messaggio(96);
+    client = clientDiProva();
+    await lavora(client, 96);
+    let rr = await esegui({ azione: 'modifica', id: 's1', azienda: { ragioneSociale: 'Alfa S.r.l.', pec: 'nuova@pec.alfa.it' } });
+    const nuovoId = 'milano-2027-02-26~nuova@pec-alfa-it';
+    const rifs = [...dati.keys()].filter(k => k.startsWith('pecRiferimenti/')).map(k => dati.get(k).scheda);
+    esigi(rr.stato === 200 && !leggi('aziendeInvito', 's1') && leggi('aziendeInvito', nuovoId) && rifs.length === 2 && rifs.every(x => x === nuovoId) && righe()[0].scheda === nuovoId,
+        '"Modifica" con un recapito nuovo: riferimenti PEC e risposte in coda seguono la scheda', JSON.stringify([rr.stato, rifs, righe().map(x => x.scheda)]));
+    await giro(client);
+    esigi(spedite.length === 1 && /Alfa S\.r\.l\./.test(spedite[0].subject), 'e la mail parte con il nome dell\'azienda', spedite[0] && spedite[0].subject);
+    messaggio(97, { msgId: '<dopo.97@pec.alfa.it>' });
+    await lavora(client, 97);
+    esigi(righe().length === 2 && righe().every(x => x.scheda === nuovoId), 'una risposta arrivata dopo la modifica trova la scheda nuova');
+    rr = await esegui({ azione: 'cancella', ids: [nuovoId] });
+    const restano = [...dati.keys()].filter(k => k.startsWith('pecRiferimenti/') || k.startsWith('pecInoltri/'));
+    esigi(rr.stato === 200 && restano.length === 0, '"Elimina" toglie tutti i riferimenti PEC (anche del primo invio) e le risposte in coda', JSON.stringify(restano));
+
     console.log('\nIl testo aperto dall\'area riservata');
     base();
     messaggio(1);
@@ -698,7 +774,12 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     esigi(D.decodificaTesto(Buffer.from('ci sarà').slice(0, -1), 'utf-8', true) === 'ci sar', 'un testo tagliato a meta\' di una lettera perde solo quella');
     esigi(D.decodificaTesto(Buffer.from('ci sar\xe0', 'latin1'), '') === 'ci sarà', 'un latin1 non dichiarato resta latin1');
     esigi(D.testoDaHtml('a&nbsp;b &amp;lt; &#232; &#xE0; &egrave;') === 'a b &lt; è à è', 'le entita\' si sciolgono una volta sola', D.testoDaHtml('a&nbsp;b &amp;lt; &#232; &#xE0; &egrave;'));
-    esigi(/^Buongiorno,\nci saremo in due\.\n+Mario Rossi$/.test(D.testoDaHtml('Buongiorno,<div>ci saremo in due.</div><div>Mario Rossi</div>')), 'il testo prima di un blocco HTML va a capo', JSON.stringify(D.testoDaHtml('Buongiorno,<div>ci saremo in due.</div><div>Mario Rossi</div>')));
+    esigi(D.testoDaHtml('Buongiorno,<div>ci saremo in due.</div><div>Mario Rossi</div>') === 'Buongiorno,\nci saremo in due.\nMario Rossi', 'il testo prima di un blocco HTML va a capo', JSON.stringify(D.testoDaHtml('Buongiorno,<div>ci saremo in due.</div><div>Mario Rossi</div>')));
+    const html = h => D.testoDaHtml(h);
+    esigi(html('<div>Buongiorno,</div><div><br></div><div>confermiamo.</div><div>Cordiali saluti</div><div>Mario Rossi</div>') === 'Buongiorno,\n\nconfermiamo.\nCordiali saluti\nMario Rossi', 'Gmail: una riga per <div>, e la riga vuota solo dove c\'era', JSON.stringify(html('<div>Buongiorno,</div><div><br></div><div>confermiamo.</div><div>Cordiali saluti</div><div>Mario Rossi</div>')));
+    esigi(html('<p class=MsoNormal>Riga uno<o:p></o:p></p><p class=MsoNormal>Riga due<o:p></o:p></p>') === 'Riga uno\nRiga due', 'Outlook: un <p> per riga, senza righe vuote in mezzo');
+    esigi(html('<p>Partecipanti:</p><ul><li><p>Mario</p></li><li dir="ltr"><p dir="ltr"><span>Luigi</span></p></li></ul><p>Saluti</p>') === 'Partecipanti:\n- Mario\n- Luigi\nSaluti', 'un elenco con il testo dentro <p> (Google Documenti): trattino e testo sulla stessa riga', JSON.stringify(html('<p>Partecipanti:</p><ul><li><p>Mario</p></li><li dir="ltr"><p dir="ltr"><span>Luigi</span></p></li></ul><p>Saluti</p>')));
+    esigi(html('<table><tr><td>Nome</td><td>Mario</td></tr><tr><td>Ruolo</td><td>CFO</td></tr></table>') === 'Nome Mario\nRuolo CFO', 'una tabella: una riga per riga');
     esigi(D.decodificaParole('=?UTF-8?Q?Re:_Opportunit=C3?= =?UTF-8?Q?=A0_bella?=') === 'Re: Opportunità bella', 'una lettera spezzata fra due parole codificate si ricompone');
     const nn = D.normalizzaParti({ type: 'multipart/mixed', childNodes: [{ part: '1', type: 'text/plain' }, { part: '2', type: 'message/rfc822', childNodes: [{ part: '2', type: 'message/rfc822', childNodes: [{ part: '2', type: 'text/plain' }] }] }] });
     esigi(nn.childNodes[1].childNodes[0].part === '2.1' && nn.childNodes[1].childNodes[0].childNodes[0].part === '2.1.1', 'una busta dentro la busta si rinumera a sua volta', JSON.stringify(nn.childNodes[1]));

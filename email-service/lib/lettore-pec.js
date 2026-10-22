@@ -148,6 +148,23 @@ async function registraIdentificativo(db, identificativo, dati) {
         gestore: true, quando: Date.now()
     }, { merge: true });
 }
+/* Tutti i riferimenti che puntano a queste schede, anche quelli che il loro
+   invio attuale non elenca piu' (il primo invio, dopo un secondo invio; i
+   riferimenti di una scheda unita a questa da "Modifica"). Trenta schede per
+   interrogazione. Lasciati li', una risposta arrivata dopo l'eliminazione
+   finiva in coda per l'inoltro a nome di una scheda che non c'e' piu'. */
+async function dimenticaRiferimentiDi(db, ids) {
+    const elenco = (Array.isArray(ids) ? ids : [ids]).map(x => String(x || '')).filter(Boolean);
+    let n = 0;
+    for (let i = 0; i < elenco.length; i += 30) {
+        const snap = await db.collection(RIF).where('scheda', 'in', elenco.slice(i, i + 30)).get();
+        const b = db.batch();
+        let k = 0;
+        snap.forEach(d => { b.delete(db.collection(RIF).doc(d.id)); k++; });
+        if (k) { await b.commit(); n += k; }
+    }
+    return n;
+}
 /* Quando una scheda viene eliminata, i suoi riferimenti se ne vanno con
    lei: dentro ci sono l'indirizzo PEC dell'azienda e il legame con
    l'evento, e una cancellazione fatta a meta' non e' una cancellazione. */
@@ -818,7 +835,7 @@ async function leggiMessaggio(db, opz) {
 }
 module.exports = {
     configurato, configurazione, stato, giro, leggiMessaggio,
-    registraRiferimento, registraIdentificativo, dimenticaRiferimenti, chiaviInvio,
+    registraRiferimento, registraIdentificativo, dimenticaRiferimenti, dimenticaRiferimentiDi, chiaviInvio,
     MAX_MESSAGGI, RECUPERO,
     /* Esposti per le prove: il pezzo che decide a chi appartiene un messaggio
        e quello che scrive sulla scheda vanno potuti provare sui messaggi PEC

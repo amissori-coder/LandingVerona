@@ -516,13 +516,19 @@ function testoDaHtml(html) {
         // schiacciano prima, e gli a capo veri li fanno i tag qui sotto
         .replace(/\s+/g, ' ')
         .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/?(p|div|li|tr|h[1-6]|blockquote|table|ul|ol)\b[^>]*>/gi, m => (/^<li\b/i.test(m) ? m : '\n'))
+        /* I blocchi (aperti o chiusi) diventano un SEGNO, non un a capo: piu'
+           segni di fila sono un a capo solo. Cosi' "</div><div>" di Gmail e
+           "</p><p>" di Outlook non lasciano una riga vuota fra ogni riga, e il
+           testo prima di un blocco va comunque a capo. Il <p> o <div> subito
+           dentro un <li> (Google Documenti, Word) non stacca il trattino. */
+        .replace(/<li\b[^>]*>(?:\s*<(?:p|div)\b[^>]*>)*/gi, '\u0001- ')
+        .replace(/<\/?(p|div|li|tr|h[1-6]|blockquote|table|ul|ol)\b[^>]*>/gi, '\u0001')
         .replace(/<\/t[dh]\s*>/gi, ' ')
-        .replace(/<li\b[^>]*>/gi, '- ')
         .replace(/<[^>]*>/g, '')
         .replace(/&#(\d{1,7});/g, (m, n) => carattere(Number(n)))
         .replace(/&#x([0-9a-f]{1,6});/gi, (m, n) => carattere(parseInt(n, 16)))
         .replace(/&([a-z]+);/gi, (m, n) => (Object.prototype.hasOwnProperty.call(ENTITA, n) ? ENTITA[n] : m))
+        .replace(/[ \t]*\u0001(?:[ \t]*\u0001)*[ \t]*/g, '\n')
         .replace(/\r\n?/g, '\n')
         .replace(/[ \t ]+\n/g, '\n')
         .replace(/\n[ \t\u00A0]+/g, '\n')

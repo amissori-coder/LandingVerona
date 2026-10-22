@@ -426,11 +426,13 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > consuma. Dopo poco piu' di un giorno (dieci tentativi) si smette, e il
 > riquadro della casella PEC nell'area riservata dice, per una settimana,
 > quali risposte di quell'evento non sono partite. Se il server di posta
-> rifiuta proprio quel messaggio quando lo riceve (un allegato), si
-> rispedisce senza allegati; una password sbagliata o un guasto no. Se la
-> casella cade mentre si legge un messaggio non si consuma il tentativo, ma
-> alla terza volta il messaggio parte senza testo invece di bloccare gli
-> altri. Se la cartella e' stata rigenerata, il messaggio si ritrova dal suo
+> rifiuta proprio quel messaggio quando lo riceve (un allegato), o la
+> spedizione non finisce in tempo, si rispedisce senza allegati; una password
+> sbagliata o un guasto no. Se la casella cade mentre si legge un messaggio
+> non si consuma il tentativo, ma alla terza volta il messaggio parte senza
+> testo invece di bloccare gli altri; se la casella rifiuta proprio quel
+> messaggio, all'ultimo tentativo parte senza testo. "Elimina" toglie anche
+> i riferimenti PEC dei primi invii. Se la cartella e' stata rigenerata, il messaggio si ritrova dal suo
 > Message-ID. Nella coda **non c'e' il testo**, solo le coordinate che la
 > scheda ha gia', e mittente e oggetto si cancellano appena la mail e'
 > partita; le righe seguono la scheda se cambia identificativo ("Modifica") e

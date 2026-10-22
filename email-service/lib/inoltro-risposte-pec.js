@@ -65,6 +65,7 @@ const MAX_PER_GIRO = 5;                       // risposte inoltrate al massimo p
    potevano nascondere quelle gia' pronte. In pratica sono poche decine. */
 const LETTE_PER_GIRO = 500;
 const MAX_NON_PARTITI = 10;                   // quanti inoltri abbandonati ricorda lo stato del lettore
+const ILLEGGIBILE = 'il messaggio non si riesce a leggere dalla casella';
 const ETA_MAX_MS = 30 * 24 * 60 * 60 * 1000;  // piu' vecchie di cosi' non si inoltrano (vedi accoda)
 const PRESA_MS = 5 * 60 * 1000;               // quanto vale la presa su una riga
 const MAX_LETTURA = 512 * 1024;               // il testo che si scarica dalla casella (codificato)
@@ -302,7 +303,14 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
     opz = opz || {};
     const vuoto = motivo => ({ testo: '', troncato: false, allegati: [], file: [], nonLetto: motivo });
     if (!client) return vuoto('casella non aperta');
-    if ((Number(riga.cadute) || 0) >= MAX_CADUTE) return vuoto('il messaggio non si riesce a leggere dalla casella');
+    if ((Number(riga.cadute) || 0) >= MAX_CADUTE) return vuoto(ILLEGGIBILE);
+    /* imapflow non sempre lancia un errore quando la connessione cade: a
+       volte un comando torna vuoto (search false, fetch senza niente). Prima
+       di concludere "il messaggio non c'e'" si guarda se la casella e' ancora
+       collegata: se non lo e', e' una connessione caduta, non un messaggio
+       sparito, e la mail non deve partire senza testo. */
+    const viva = () => { if (client.usable === false) throw new Error('connessione con la casella caduta'); };
+    viva();
     let uid = Number(riga.uid) || 0;
     /* Cartella rigenerata (o cambiata): le coordinate salvate non portano
        piu' al messaggio. Lo si cerca per il suo Message-ID, una richiesta
@@ -310,10 +318,11 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
     if (s(riga.uidValidity) !== s(uidValidity) || (riga.cartella && opz.cartella && s(riga.cartella) !== s(opz.cartella))) {
         uid = 0;
         if (riga.messageId) {
-            try {
-                const trovati = await client.search({ header: { 'message-id': s(riga.messageId) } }, { uid: true });
-                if (Array.isArray(trovati) && trovati.length) uid = Number(trovati[trovati.length - 1]) || 0;
-            } catch (e) { if (client.usable === false) throw e; }
+            const trovati = await client.search({ header: { 'message-id': s(riga.messageId) } }, { uid: true });
+            viva();
+            // false (non []) vuol dire che la ricerca stessa non e' riuscita: si riprova
+            if (trovati === false) throw new Error('ricerca nella casella non riuscita');
+            if (Array.isArray(trovati) && trovati.length) uid = Number(trovati[trovati.length - 1]) || 0;
         }
         if (!uid) return vuoto('la cartella della casella è stata rigenerata');
     }
@@ -323,6 +332,7 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
         { uid: true, size: true, bodyStructure: true }, { uid: true })) {
         if (Number(m.uid) === uid) trovato = m;
     }
+    viva();
     if (!trovato) return vuoto('il messaggio non è più nella casella: può essere stato spostato o cancellato');
 
     const struttura = D.normalizzaParti(trovato.bodyStructure);
@@ -336,6 +346,7 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
     if (usabile) {
         try {
             const letto = await testoDiParte(client, uid, parte, MAX_LETTURA);
+            viva();
             if (letto) {
                 out.troncato = letto.tagliato || letto.testo.length > MAX_TESTO_MAIL;
                 out.testo = letto.testo.slice(0, MAX_TESTO_MAIL);
@@ -357,6 +368,7 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
         if (opz.scadenza && Date.now() > opz.scadenza) { voce.motivo = 'non allegato'; continue; }
         try {
             const sc = await scaricaParte(client, uid, a, MAX_ALLEGATI_BYTE + 1);
+            viva();
             if (!sc || sc.tagliato) { voce.motivo = sc ? 'grande' : 'non allegato'; continue; }
             usati += Math.max(sc.buf.length, a.dimensione || 0);
             out.file.push({ filename: voce.nome, content: sc.buf, contentType: a.tipo || 'application/octet-stream' });
@@ -420,7 +432,7 @@ async function inoltra(db, client, opz) {
                 letto = await leggiDallaCasella(client, riga, opz.uidValidity,
                     { scadenza: opz.limiteLettura, senzaAllegati: riga.senzaAllegati === true, cartella: opz.cartella });
             } catch (e) {
-                const motivo = 'casella: ' + unaRiga((e && e.message) || e, 150);
+                const motivo = 'casella: ' + unaRiga((e && (e.responseText || e.message)) || e, 150);
                 if (client && client.usable === false) {
                     /* La connessione e' caduta: non e' colpa della posta, il
                        tentativo non si conta. Si riprova fra dieci minuti, e
@@ -434,12 +446,16 @@ async function inoltra(db, client, opz) {
                     esito.rimaste++;
                     continue;
                 }
-                // la casella ha risposto con un errore su questo messaggio: un tentativo come gli altri
-                const finita = riga.tentativi >= MAX_TENTATIVI;
-                await chiudi(db, r.id, { stato: finita ? 'non-inviata' : 'da-inviare', errore: motivo, prossimo: Date.now() + attesaDopo(riga.tentativi) });
-                esito.fallite++;
-                if (finita) { esito.abbandonate++; await segnaAbbandono(db, riga, sch.ragioneSociale, motivo); }
-                continue;
+                /* La casella ha risposto con un errore su QUESTO messaggio: un
+                   tentativo come gli altri, con la sua attesa. All'ultimo la
+                   mail parte lo stesso, senza testo: una risposta arrivata vale
+                   piu' del suo testo mancante. */
+                if (riga.tentativi < MAX_TENTATIVI) {
+                    await chiudi(db, r.id, { stato: 'da-inviare', errore: motivo, prossimo: Date.now() + attesaDopo(riga.tentativi) });
+                    esito.fallite++;
+                    continue;
+                }
+                letto = { testo: '', troncato: false, allegati: [], file: [], nonLetto: ILLEGGIBILE };
             }
             const ev = evento(riga.evento || sch.evento);
             /* "Rispondi" porta a un indirizzo che accetta posta ordinaria, mai
@@ -482,20 +498,26 @@ async function inoltra(db, client, opz) {
             } catch (e) {
                 const motivo = 'posta: ' + unaRiga((e && e.message) || e, 150);
                 const finita = riga.tentativi >= MAX_TENTATIVI;
-                if (e && e.tempo && posta) { try { posta.close(); } catch (_) { } posta = null; }
-                /* Il server di posta ha rifiutato PROPRIO QUESTO messaggio,
-                   quando l'ha ricevuto (dopo DATA, codice 5xx), e dentro c'erano
-                   degli allegati: il tentativo dopo parte senza. Non per una
-                   password sbagliata o un indirizzo rifiutato (anche quelli
-                   sono 5xx): li' gli allegati non c'entrano. */
-                const rifiuto = Number(e && e.responseCode) >= 500 && letto.file.length > 0
-                    && (String((e && e.code) || '') === 'EMESSAGE' || String((e && e.command) || '').toUpperCase() === 'DATA');
+                // un trasporto che ha sforato il tempo non si riusa
+                if (e && e.tempo) posta = null;
+                /* Senza allegati dal tentativo dopo, in due casi soli:
+                   - il server di posta ha rifiutato PROPRIO QUESTO messaggio
+                     dopo averlo ricevuto (EMESSAGE, 5xx: un allegato che non gli
+                     piace). Non una password sbagliata, un indirizzo rifiutato
+                     o il comando DATA respinto prima del contenuto: li' gli
+                     allegati non c'entrano;
+                   - la spedizione non e' finita in tempo con degli allegati
+                     dentro. Quella mail potrebbe arrivare lo stesso (nodemailer
+                     non interrompe un invio cominciato): la prossima, piu'
+                     leggera, non deve fare la stessa fine dieci volte. */
+                const rifiuto = letto.file.length > 0 && (
+                    (Number(e && e.responseCode) >= 500 && String((e && e.code) || '') === 'EMESSAGE') || !!(e && e.tempo));
                 await chiudi(db, r.id, Object.assign(
                     { stato: finita ? 'non-inviata' : 'da-inviare', errore: motivo, prossimo: Date.now() + attesaDopo(riga.tentativi) },
                     rifiuto ? { senzaAllegati: true } : {}));
-                esito.fallite++;
+                // "fallite" sono quelle che si riproveranno; le abbandonate a parte
                 if (finita) { esito.abbandonate++; await segnaAbbandono(db, riga, sch.ragioneSociale, motivo); }
-                else console.error('Inoltro risposta PEC ' + r.id + ', tentativo ' + riga.tentativi + ':', motivo);
+                else { esito.fallite++; console.error('Inoltro risposta PEC ' + r.id + ', tentativo ' + riga.tentativi + ':', motivo); }
             }
         }
     } finally {
@@ -506,9 +528,11 @@ async function inoltra(db, client, opz) {
 
 /* La spedizione con un tempo massimo. I tempi di nodemailer sono di
    INATTIVITA': una posta lenta ma viva puo' andare oltre il minuto della
-   funzione. Se il tempo scade la mail forse e' partita e forse no: la riga
-   torna in attesa e si riprova (meglio un doppione, raro, che una risposta
-   persa), e la funzione resta viva per salvare il giro. */
+   funzione. Se il tempo scade la mail forse e' partita e forse no - e
+   potrebbe ancora partire: nodemailer non interrompe un invio cominciato.
+   La riga torna in attesa e si riprova, senza allegati (meglio un doppione,
+   raro, che una risposta persa), e la funzione resta viva per salvare il
+   giro. */
 function spedisci(posta, msg, limiteFine) {
     const resta = limiteFine ? limiteFine - Date.now() : 0;
     if (!limiteFine) return posta.sendMail(msg);
