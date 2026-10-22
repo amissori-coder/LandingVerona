@@ -25,10 +25,13 @@
    crescono (10 minuti, 20, 40... fino a 6 ore): i tentativi si contano
    nel TEMPO, non nei giri, quindi premere dieci volte "Controlla le
    ricevute" durante un guasto della posta non brucia la risposta. Dopo
-   circa un giorno e mezzo si smette, e il riquadro della casella PEC
-   nell'area riservata lo dice. Se il server di posta rifiuta proprio quel
-   messaggio (un allegato che non gli piace), dal tentativo dopo si
-   spedisce senza allegati, elencandoli.
+   poco piu' di un giorno si smette, e il riquadro della casella PEC
+   nell'area riservata lo dice (meta/pecLettore.inoltriNonPartiti). Se il
+   server di posta rifiuta proprio quel messaggio quando lo riceve (un
+   allegato che non gli piace), dal tentativo dopo si spedisce senza
+   allegati, elencandoli. Un messaggio che non si riesce a leggere dalla
+   casella si riprova con le stesse attese; alla terza connessione caduta
+   sullo stesso messaggio parte senza testo, dicendo dove leggerlo.
 
    SU FIRESTORE NON VA IL TESTO, per la stessa ragione per cui non ci va
    per il lettore: quella casella e' corrispondenza dello studio. Nella
@@ -51,12 +54,17 @@ const MNGB = require('./mail-ngb');
 const COLL = 'pecInoltri';
 const SCHEDE = 'aziendeInvito';
 const META = ['meta', 'pecLettore'];
-const MAX_TENTATIVI = 10;                     // con le attese qui sotto: circa un giorno e mezzo
+const MAX_TENTATIVI = 10;                     // con le attese qui sotto: poco piu' di un giorno (28 ore e mezza)
 const ATTESA_PRIMA_MS = 10 * 60 * 1000;       // dopo il primo errore; poi raddoppia...
 const ATTESA_MAX_MS = 6 * 60 * 60 * 1000;     // ...fino a sei ore
-const SENZA_ALLEGATI_DA = 4;                  // dal quarto tentativo si spedisce senza allegati
+const MAX_CADUTE = 3;                         // connessioni cadute leggendo lo stesso messaggio, poi parte senza testo
 const MAX_PER_GIRO = 5;                       // risposte inoltrate al massimo per giro
-const LETTE_PER_GIRO = 50;                    // righe in attesa guardate per giro (alcune aspettano il loro turno)
+/* Le righe in attesa si leggono TUTTE (fino a questo tetto) e si sceglie
+   qui quali sono pronte: con un limite piccolo e senza un ordine (che
+   chiederebbe un indice composto) le righe ancora in attesa del loro turno
+   potevano nascondere quelle gia' pronte. In pratica sono poche decine. */
+const LETTE_PER_GIRO = 500;
+const MAX_NON_PARTITI = 10;                   // quanti inoltri abbandonati ricorda lo stato del lettore
 const ETA_MAX_MS = 30 * 24 * 60 * 60 * 1000;  // piu' vecchie di cosi' non si inoltrano (vedi accoda)
 const PRESA_MS = 5 * 60 * 1000;               // quanto vale la presa su una riga
 const MAX_LETTURA = 512 * 1024;               // il testo che si scarica dalla casella (codificato)
@@ -154,16 +162,16 @@ async function accoda(db, dati) {
         const snap = await tx.get(rif);
         if (snap.exists) {
             const d = snap.data() || {};
-            if (d.stato !== 'inviata' && (Number(d.uid) !== uid || s(d.uidValidity) !== uidValidity)) {
-                tx.set(rif, { uid: uid, uidValidity: uidValidity }, { merge: true });
+            if (d.stato !== 'inviata' && (Number(d.uid) !== uid || s(d.uidValidity) !== uidValidity || s(d.cartella) !== s(dati.cartella))) {
+                tx.set(rif, { uid: uid, uidValidity: uidValidity, cartella: s(dati.cartella) }, { merge: true });
                 return { accodata: false, motivo: 'gia-accodata', aggiornata: true };
             }
             return { accodata: false, motivo: 'gia-accodata' };
         }
         tx.set(rif, {
-            stato: 'da-inviare', tentativi: 0, creato: ora, fino: 0, prossimo: 0,
+            stato: 'da-inviare', tentativi: 0, cadute: 0, creato: ora, fino: 0, prossimo: 0,
             scheda: s(dati.scheda), evento: s(dati.evento),
-            uid: uid, uidValidity: uidValidity,
+            uid: uid, uidValidity: uidValidity, cartella: s(dati.cartella),
             messageId: s(dati.messageId).slice(0, 400),
             quando: Number(dati.quando) || ora,
             da: unaRiga(dati.da, 200), oggetto: unaRiga(dati.oggetto, 250),
@@ -173,14 +181,30 @@ async function accoda(db, dati) {
     });
 }
 
-/* Le righe di una scheda che si elimina se ne vanno con lei (vedi la
+/* Le righe delle schede che si eliminano se ne vanno con loro (vedi la
    cancellazione in lib/aziende-invito.js): dentro c'e' l'indirizzo PEC
-   dell'azienda. Solo per chi ha risposto, che sono pochi. */
-async function dimentica(db, batch, idScheda) {
-    if (!idScheda) return 0;
-    const snap = await db.collection(COLL).where('scheda', '==', String(idScheda)).get();
+   dell'azienda. Trenta schede per interrogazione ("in" ne accetta trenta),
+   e batch propri: la cancellazione ne fa fino a cinquecento. */
+async function dimentica(db, ids) {
+    const elenco = (Array.isArray(ids) ? ids : [ids]).map(s).filter(Boolean);
     let n = 0;
-    snap.forEach(d => { batch.delete(db.collection(COLL).doc(d.id)); n++; });
+    for (let i = 0; i < elenco.length; i += 30) {
+        const snap = await db.collection(COLL).where('scheda', 'in', elenco.slice(i, i + 30)).get();
+        let batch = db.batch(), k = 0;
+        snap.forEach(d => { batch.delete(db.collection(COLL).doc(d.id)); k++; n++; });
+        if (k) await batch.commit();
+    }
+    return n;
+}
+/* Una scheda che cambia identificativo ("Modifica" con un recapito nuovo):
+   le sue righe in coda la seguono, come il codice in codiciInvito. */
+async function ripunta(db, idVecchio, idNuovo) {
+    if (!idVecchio || !idNuovo || idVecchio === idNuovo) return 0;
+    const snap = await db.collection(COLL).where('scheda', '==', String(idVecchio)).get();
+    let n = 0;
+    const batch = db.batch();
+    snap.forEach(d => { batch.set(db.collection(COLL).doc(d.id), { scheda: String(idNuovo) }, { merge: true }); n++; });
+    if (n) await batch.commit();
     return n;
 }
 
@@ -209,23 +233,32 @@ async function prendi(db, id) {
         return Object.assign({}, d, { tentativi: tentativi });
     });
 }
+/* update e non set: se nel frattempo la riga e' stata tolta (la scheda
+   eliminata mentre si spediva) non deve rinascere vuota, senza scheda ne'
+   messaggio, e partire come "Un'azienda ha risposto". */
 async function chiudi(db, id, campi) {
-    try { await db.collection(COLL).doc(id).set(Object.assign({ fino: 0 }, campi), { merge: true }); }
-    catch (_) { /* la presa scade da sola: al massimo si riprova */ }
+    try { await db.collection(COLL).doc(id).update(Object.assign({ fino: 0 }, campi)); }
+    catch (_) { /* tolta, o la presa scade da sola: al massimo si riprova */ }
 }
-/* Una risposta che non partira' piu': la riga lo dice, e il riquadro
-   della casella PEC nell'area riservata anche (lettore stato()). La
-   risposta resta comunque sulla scheda, e si legge da li'. */
+/* Una risposta che non partira' per email: la riga lo dice, e il riquadro
+   della casella PEC nell'area riservata anche (lettore stato(),
+   inoltriNonPartiti: le ultime dieci, non solo l'ultima - un guasto lungo
+   della posta le fa abbandonare tutte insieme). La risposta resta comunque
+   sulla scheda, e si legge da li'. */
 async function segnaAbbandono(db, riga, azienda, motivo) {
+    const voce = {
+        quando: Date.now(), azienda: unaRiga(azienda || riga.da || 'un\'azienda', 200),
+        scheda: s(riga.scheda), evento: s(riga.evento), motivo: unaRiga(motivo, 200)
+    };
     try {
-        await db.collection(META[0]).doc(META[1]).set({
-            inoltroFallito: {
-                quando: Date.now(), azienda: unaRiga(azienda || riga.da, 200),
-                scheda: s(riga.scheda), evento: s(riga.evento), motivo: unaRiga(motivo, 200)
-            }
-        }, { merge: true });
+        const rif = db.collection(META[0]).doc(META[1]);
+        await db.runTransaction(async tx => {
+            const snap = await tx.get(rif);
+            const prima = snap.exists ? ((snap.data() || {}).inoltriNonPartiti || []) : [];
+            tx.set(rif, { inoltriNonPartiti: (Array.isArray(prima) ? prima : []).concat([voce]).slice(-MAX_NON_PARTITI) }, { merge: true });
+        });
     } catch (_) { /* resta il registro */ }
-    console.error('Inoltro risposta PEC abbandonato (' + unaRiga(azienda || riga.da, 120) + '):', unaRiga(motivo, 200));
+    console.error('Inoltro risposta PEC non partito (' + voce.azienda + '):', voce.motivo);
 }
 
 /* ---------- la lettura dalla casella ----------
@@ -242,7 +275,18 @@ async function scaricaParte(client, uid, p, max) {
     const r = await client.fetchOne(String(uid), { uid: true, bodyParts: [{ key: chiave, start: 0, maxLength: max }] }, { uid: true });
     const grezzo = r && r.bodyParts ? (r.bodyParts.get(chiave.toLowerCase()) || r.bodyParts.get(chiave)) : null;
     if (!grezzo) return null;
-    return { buf: D.decodificaTrasferimento(grezzo, p.codifica), tagliato: grezzo.length >= max };
+    const tagliato = grezzo.length >= max;
+    return { buf: D.decodificaTrasferimento(grezzo, p.codifica, tagliato), tagliato: tagliato };
+}
+/* Il testo di una parte, pronto da leggere: byte decodificati, gioco di
+   caratteri, righe "flowed" ricucite, HTML ridotto a testo. */
+async function testoDiParte(client, uid, parte, max) {
+    const sc = await scaricaParte(client, uid, parte, max);
+    if (!sc) return null;
+    let t = D.decodificaTesto(sc.buf, parte.gioco, sc.tagliato);
+    if (parte.html) t = D.testoDaHtml(t);
+    else if (parte.flowed) t = D.testoFlowed(t.replace(/\r\n?/g, '\n'), parte.delsp);
+    return { testo: t.replace(/\r\n?/g, '\n').trim(), tagliato: sc.tagliato };
 }
 function nomeFile(v) {
     const n = unaRiga(v, 120).replace(/[\/\\]/g, '-');
@@ -258,15 +302,28 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
     opz = opz || {};
     const vuoto = motivo => ({ testo: '', troncato: false, allegati: [], file: [], nonLetto: motivo });
     if (!client) return vuoto('casella non aperta');
-    if (s(riga.uidValidity) !== s(uidValidity)) return vuoto('la cartella della casella è stata rigenerata');
-    const uid = Number(riga.uid) || 0;
+    if ((Number(riga.cadute) || 0) >= MAX_CADUTE) return vuoto('il messaggio non si riesce a leggere dalla casella');
+    let uid = Number(riga.uid) || 0;
+    /* Cartella rigenerata (o cambiata): le coordinate salvate non portano
+       piu' al messaggio. Lo si cerca per il suo Message-ID, una richiesta
+       sola; solo se non lo si trova si spedisce senza testo. */
+    if (s(riga.uidValidity) !== s(uidValidity) || (riga.cartella && opz.cartella && s(riga.cartella) !== s(opz.cartella))) {
+        uid = 0;
+        if (riga.messageId) {
+            try {
+                const trovati = await client.search({ header: { 'message-id': s(riga.messageId) } }, { uid: true });
+                if (Array.isArray(trovati) && trovati.length) uid = Number(trovati[trovati.length - 1]) || 0;
+            } catch (e) { if (client.usable === false) throw e; }
+        }
+        if (!uid) return vuoto('la cartella della casella è stata rigenerata');
+    }
     if (!uid) return vuoto('messaggio non indicato');
     let trovato = null;
     for await (const m of client.fetch({ uid: uid + ':' + uid },
         { uid: true, size: true, bodyStructure: true }, { uid: true })) {
         if (Number(m.uid) === uid) trovato = m;
     }
-    if (!trovato) return vuoto('il messaggio non è più nella casella');
+    if (!trovato) return vuoto('il messaggio non è più nella casella: può essere stato spostato o cancellato');
 
     const struttura = D.normalizzaParti(trovato.bodyStructure);
     const out = { testo: '', troncato: false, allegati: [], file: [], nonLetto: '' };
@@ -278,13 +335,10 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
     const usabile = parte && (parte.dentroBusta || !D.trovaBusta(struttura));
     if (usabile) {
         try {
-            const sc = await scaricaParte(client, uid, parte, MAX_LETTURA);
-            if (sc) {
-                let t = D.decodificaTesto(sc.buf, parte.gioco, sc.tagliato);
-                if (parte.html) t = D.testoDaHtml(t);
-                t = t.replace(/\r\n?/g, '\n').trim();
-                out.troncato = sc.tagliato || t.length > MAX_TESTO_MAIL;
-                out.testo = t.slice(0, MAX_TESTO_MAIL);
+            const letto = await testoDiParte(client, uid, parte, MAX_LETTURA);
+            if (letto) {
+                out.troncato = letto.tagliato || letto.testo.length > MAX_TESTO_MAIL;
+                out.testo = letto.testo.slice(0, MAX_TESTO_MAIL);
             }
         } catch (e) {
             if (client.usable === false) throw e;
@@ -307,6 +361,7 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
             usati += Math.max(sc.buf.length, a.dimensione || 0);
             out.file.push({ filename: voce.nome, content: sc.buf, contentType: a.tipo || 'application/octet-stream' });
             voce.allegato = true;
+            voce.dimensione = sc.buf.length;   // quella vera, non quella codificata
         } catch (e) {
             if (client.usable === false) throw e;
             voce.motivo = 'non allegato';
@@ -323,6 +378,9 @@ async function leggiDallaCasella(client, riga, uidValidity, opz) {
      limiteInvio  oltre quell'istante non si spedisce: la riga torna in
                   attesa senza consumare il tentativo (la funzione ha un
                   minuto, e una mail partita mentre muore partirebbe due volte);
+     limiteFine   la spedizione cominciata deve finire entro quell'istante:
+                  oltre, si lascia perdere e la riga si riprova (vedi sotto);
+     cartella     la cartella aperta;
      casella      l'indirizzo PEC dello studio (per dire da dove rispondere) }. */
 async function inoltra(db, client, opz) {
     opz = opz || {};
@@ -357,14 +415,30 @@ async function inoltra(db, client, opz) {
                 esito.abbandonate++;
                 continue;
             }
-            const senzaAllegati = riga.tentativi >= SENZA_ALLEGATI_DA || riga.senzaAllegati === true;
             let letto;
             try {
-                letto = await leggiDallaCasella(client, riga, opz.uidValidity, { scadenza: opz.limiteLettura, senzaAllegati: senzaAllegati });
+                letto = await leggiDallaCasella(client, riga, opz.uidValidity,
+                    { scadenza: opz.limiteLettura, senzaAllegati: riga.senzaAllegati === true, cartella: opz.cartella });
             } catch (e) {
-                // la connessione e' caduta: la riga torna in attesa e si riprova al giro dopo
-                await chiudi(db, r.id, { stato: 'da-inviare', tentativi: riga.tentativi - 1, errore: 'casella: ' + unaRiga((e && e.message) || e, 150) });
-                esito.rimaste++;
+                const motivo = 'casella: ' + unaRiga((e && e.message) || e, 150);
+                if (client && client.usable === false) {
+                    /* La connessione e' caduta: non e' colpa della posta, il
+                       tentativo non si conta. Si riprova fra dieci minuti, e
+                       si tiene il conto: un messaggio che fa cadere la
+                       connessione ogni volta, alla terza parte senza testo
+                       (MAX_CADUTE) invece di bloccare tutti gli altri. */
+                    await chiudi(db, r.id, {
+                        stato: 'da-inviare', tentativi: riga.tentativi - 1, errore: motivo,
+                        cadute: (Number(riga.cadute) || 0) + 1, prossimo: Date.now() + ATTESA_PRIMA_MS
+                    });
+                    esito.rimaste++;
+                    continue;
+                }
+                // la casella ha risposto con un errore su questo messaggio: un tentativo come gli altri
+                const finita = riga.tentativi >= MAX_TENTATIVI;
+                await chiudi(db, r.id, { stato: finita ? 'non-inviata' : 'da-inviare', errore: motivo, prossimo: Date.now() + attesaDopo(riga.tentativi) });
+                esito.fallite++;
+                if (finita) { esito.abbandonate++; await segnaAbbandono(db, riga, sch.ragioneSociale, motivo); }
                 continue;
             }
             const ev = evento(riga.evento || sch.evento);
@@ -401,16 +475,21 @@ async function inoltra(db, client, opz) {
                 const msg = { from: mittente(), to: a.join(', '), subject: unaRiga(mail.oggetto, 300), text: mail.testo, html: mail.html };
                 if (rispondiA) msg.replyTo = rispondiA;
                 if (letto.file.length) msg.attachments = letto.file;
-                await posta.sendMail(msg);
+                await spedisci(posta, msg, opz.limiteFine);
                 // mittente e oggetto servivano a spedire: la scheda li ha gia'
                 await chiudi(db, r.id, { stato: 'inviata', inviata: Date.now(), a: a.length, errore: null, da: '', oggetto: '' });
                 esito.inoltrate++;
             } catch (e) {
                 const motivo = 'posta: ' + unaRiga((e && e.message) || e, 150);
                 const finita = riga.tentativi >= MAX_TENTATIVI;
-                /* Un rifiuto DEFINITIVO del server di posta (codice 5xx) con
-                   degli allegati dentro: il tentativo dopo parte senza. */
-                const rifiuto = Number(e && e.responseCode) >= 500 && letto.file.length > 0;
+                if (e && e.tempo && posta) { try { posta.close(); } catch (_) { } posta = null; }
+                /* Il server di posta ha rifiutato PROPRIO QUESTO messaggio,
+                   quando l'ha ricevuto (dopo DATA, codice 5xx), e dentro c'erano
+                   degli allegati: il tentativo dopo parte senza. Non per una
+                   password sbagliata o un indirizzo rifiutato (anche quelli
+                   sono 5xx): li' gli allegati non c'entrano. */
+                const rifiuto = Number(e && e.responseCode) >= 500 && letto.file.length > 0
+                    && (String((e && e.code) || '') === 'EMESSAGE' || String((e && e.command) || '').toUpperCase() === 'DATA');
                 await chiudi(db, r.id, Object.assign(
                     { stato: finita ? 'non-inviata' : 'da-inviare', errore: motivo, prossimo: Date.now() + attesaDopo(riga.tentativi) },
                     rifiuto ? { senzaAllegati: true } : {}));
@@ -425,8 +504,24 @@ async function inoltra(db, client, opz) {
     return esito;
 }
 
+/* La spedizione con un tempo massimo. I tempi di nodemailer sono di
+   INATTIVITA': una posta lenta ma viva puo' andare oltre il minuto della
+   funzione. Se il tempo scade la mail forse e' partita e forse no: la riga
+   torna in attesa e si riprova (meglio un doppione, raro, che una risposta
+   persa), e la funzione resta viva per salvare il giro. */
+function spedisci(posta, msg, limiteFine) {
+    const resta = limiteFine ? limiteFine - Date.now() : 0;
+    if (!limiteFine) return posta.sendMail(msg);
+    if (resta <= 0) { const e = new Error('tempo scaduto prima di spedire'); e.tempo = true; return Promise.reject(e); }
+    let timer = null;
+    return Promise.race([
+        posta.sendMail(msg),
+        new Promise((_, rifiuta) => { timer = setTimeout(() => { const e = new Error('la posta non ha finito in tempo'); e.tempo = true; rifiuta(e); }, resta); })
+    ]).finally(() => clearTimeout(timer));
+}
+
 module.exports = {
-    accoda, inoltra, dimentica, destinatari, evento, quandoTesto, scaricaParte,
+    accoda, inoltra, dimentica, ripunta, segnaAbbandono, destinatari, evento, quandoTesto, scaricaParte, testoDiParte,
     COLL, MAX_TENTATIVI, ETA_MAX_MS,
     _interni: { prendi, leggiDallaCasella, idRiga, attesaDopo }
 };

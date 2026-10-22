@@ -418,18 +418,24 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > due volte resta una riga sola); a fine giro, con la casella ancora aperta,
 > l'inoltro legge il testo e spedisce. Quindi arriva entro un quarto d'ora, o
 > subito con "Controlla le ricevute". Se la coda non si scrive, il messaggio
-> non si segna come letto e si rilegge al giro dopo (alla terza volta di fila
-> si va avanti, per non fermare le ricevute). Se la **posta non parte** si
-> riprova dopo 10 minuti, poi 20, 40... fino a 6 ore fra un tentativo e
-> l'altro: i tentativi si contano nel tempo, quindi premere "Controlla le
-> ricevute" durante un guasto non li consuma. Dopo circa un giorno e mezzo si
-> smette, e il riquadro della casella PEC nell'area riservata dice quale
-> risposta non e' partita (per una settimana). Se il server di posta rifiuta
-> la mail per un allegato, si rispedisce senza. Nella coda **non c'e' il
-> testo**, solo le coordinate che la scheda ha gia', e mittente e oggetto si
-> cancellano appena la mail e' partita; eliminando l'azienda le sue righe se ne
-> vanno con lei. Risposte di piu' di un mese fa (una casella riletta da capo)
-> non si inoltrano.
+> non si segna come letto e si rilegge al giro dopo (dopo tre giri falliti e
+> almeno un'ora si va avanti, per non fermare le ricevute, e l'area riservata
+> lo dice). Se la **posta non parte** si riprova dopo 10 minuti, poi 20,
+> 40... fino a 6 ore fra un tentativo e l'altro: i tentativi si contano nel
+> tempo, quindi premere "Controlla le ricevute" durante un guasto non li
+> consuma. Dopo poco piu' di un giorno (dieci tentativi) si smette, e il
+> riquadro della casella PEC nell'area riservata dice, per una settimana,
+> quali risposte di quell'evento non sono partite. Se il server di posta
+> rifiuta proprio quel messaggio quando lo riceve (un allegato), si
+> rispedisce senza allegati; una password sbagliata o un guasto no. Se la
+> casella cade mentre si legge un messaggio non si consuma il tentativo, ma
+> alla terza volta il messaggio parte senza testo invece di bloccare gli
+> altri. Se la cartella e' stata rigenerata, il messaggio si ritrova dal suo
+> Message-ID. Nella coda **non c'e' il testo**, solo le coordinate che la
+> scheda ha gia', e mittente e oggetto si cancellano appena la mail e'
+> partita; le righe seguono la scheda se cambia identificativo ("Modifica") e
+> se ne vanno con lei quando la si elimina. Risposte di piu' di un mese fa
+> (una casella riletta da capo) non si inoltrano.
 >
 > "Rispondi" su quella mail non porta mai a una PEC: una casella PEC di norma
 > rifiuta la posta non certificata (vedi sotto), e la risposta rimbalzerebbe.

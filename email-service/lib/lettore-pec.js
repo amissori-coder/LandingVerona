@@ -84,13 +84,17 @@ const MAX_TESTO = 200 * 1024;               // il testo di un messaggio che si a
    se ne comincia un altro, e le righe aspettano il giro dopo. Con i tempi
    stretti della posta, un inoltro cominciato qui finisce dentro i 60 s. */
 const LIMITE_INOLTRI_MS = 25000;
-const LIMITE_ALLEGATI_MS = 38000;   // oltre, gli allegati si elencano e basta
-const LIMITE_INVIO_MS = 42000;      // oltre, la mail non si spedisce: aspetta il giro dopo
+const LIMITE_ALLEGATI_MS = 32000;   // oltre, gli allegati si elencano e basta
+const LIMITE_INVIO_MS = 36000;      // oltre, la mail non si spedisce: aspetta il giro dopo
+const LIMITE_FINE_MS = 50000;       // la spedizione cominciata deve finire entro qui
 /* Un messaggio la cui risposta non si riesce a mettere in coda si rilegge al
-   giro dopo, ma non per sempre: alla terza volta di fila si va avanti senza
-   inoltro, perche' un lettore fermo su un messaggio smette di leggere anche
-   tutte le ricevute che vengono dopo. */
+   giro dopo, ma non per sempre: dopo tre giri falliti E almeno un'ora dal
+   primo (contare solo i giri non basta: "Controlla le ricevute" ne fa sei
+   di fila in pochi secondi) si va avanti senza inoltro, perche' un lettore
+   fermo su un messaggio smette di leggere anche tutte le ricevute che
+   vengono dopo. E lo si dice, come un inoltro non partito. */
 const MAX_ACCODA_FALLITE = 3;
+const ATTESA_ACCODA_MS = 60 * 60 * 1000;
 const LUCCHETTO_MS = 3 * 60 * 1000;
 const PAUSA_ERRORE_MS = 10 * 60 * 1000;     // dopo un guasto non si ribatte subito
 const MAX_ERRORI_AUTH = 3;                  // poi ci si ferma: e' una password da rifare
@@ -352,8 +356,8 @@ async function stato(db) {
         // quando succede il lettore si ferma qui, invece di ribattere all'infinito
         fermoPerCredenziali: (d.erroriAuth || 0) >= MAX_ERRORI_AUTH,
         inCorso: !!(d.lucchetto && d.lucchetto.fino > Date.now()),
-        // l'ultima risposta che non e' partita per email (lib/inoltro-risposte-pec.js)
-        inoltroFallito: d.inoltroFallito || null
+        // le ultime risposte che non sono partite per email (lib/inoltro-risposte-pec.js)
+        inoltriNonPartiti: Array.isArray(d.inoltriNonPartiti) ? d.inoltriNonPartiti : []
     };
 }
 
@@ -445,17 +449,19 @@ async function giro(db, opz) {
                 if (gia) { ultimoUid = uid; continue; }
 
                 let annotato = null;
-                const giaFallita = prima.accodaFallita && prima.accodaFallita.chiave === chiaveVisto ? (Number(prima.accodaFallita.volte) || 0) : 0;
+                const fallita = prima.accodaFallita && prima.accodaFallita.chiave === chiaveVisto ? prima.accodaFallita : null;
+                const giaFallita = fallita ? (Number(fallita.volte) || 0) : 0;
+                const senzaCoda = giaFallita >= MAX_ACCODA_FALLITE && (Date.now() - (Number(fallita.dal) || 0)) >= ATTESA_ACCODA_MS;
                 try {
                     annotato = await lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRiconosciute,
-                        { senzaCoda: giaFallita >= MAX_ACCODA_FALLITE });
+                        { senzaCoda: senzaCoda, cartella: c.cartella });
                 } catch (e) {
                     /* La risposta non e' entrata nella coda dell'inoltro: il
                        messaggio NON si segna come visto e il giro si ferma qui,
                        cosi' il prossimo lo rilegge (scheda e coda sono
                        idempotenti). Vedi MAX_ACCODA_FALLITE. */
                     if (e && e.riprova) {
-                        accodaFallita = { chiave: chiaveVisto, volte: giaFallita + 1 };
+                        accodaFallita = { chiave: chiaveVisto, volte: giaFallita + 1, dal: fallita ? (Number(fallita.dal) || Date.now()) : Date.now() };
                         restanti = true;
                         break;
                     }
@@ -493,12 +499,22 @@ async function giro(db, opz) {
            e' un guasto della lettura: il giro resta "ok" e le righe restano
            in attesa. */
         if (Date.now() - inizio < LIMITE_INOLTRI_MS) {
+            /* Prima di spedire si salva fin dove si e' letto: se la posta
+               tenesse la funzione oltre il minuto, il giro dopo ripartirebbe
+               da qui e non da capo. Il lucchetto resta preso. */
+            try {
+                await docMeta(db).set({
+                    uidValidity: uidValidity, cartella: c.cartella, ultimoUid: ultimoUid, erroriAuth: 0,
+                    accodaFallita: accodaFallita
+                }, { merge: true });
+            } catch (_) { /* si salva comunque alla fine */ }
             try {
                 inoltri = await INOLTRO.inoltra(db, client, {
-                    uidValidity: uidValidity, casella: c.utente,
+                    uidValidity: uidValidity, cartella: c.cartella, casella: c.utente,
                     scadenza: inizio + LIMITE_INOLTRI_MS,
                     limiteLettura: inizio + LIMITE_ALLEGATI_MS,
-                    limiteInvio: inizio + LIMITE_INVIO_MS
+                    limiteInvio: inizio + LIMITE_INVIO_MS,
+                    limiteFine: inizio + LIMITE_FINE_MS
                 });
             } catch (e) {
                 console.error('Inoltro risposte PEC:', String((e && e.message) || e).slice(0, 200));
@@ -665,7 +681,6 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
             if (scrittoAuto && scrittoAuto.cambiato) toccate[trovata.scheda] = scrittoAuto.esito || '';
             return { genere: 'ignorato', tipo: 'automatica', scheda: trovata.scheda };
         }
-        conto.risposte++;
         fatto = {
             genere: 'risposta', quando: quandoMsg,
             da: D.soloIndirizzo(h['reply-to']) || D.soloIndirizzo(h['from']),
@@ -679,7 +694,7 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
            inoltrata. Due accodamenti dello stesso messaggio sono uno solo. */
         try {
             await INOLTRO.accoda(db, {
-                messageId: h['message-id'], uid: Number(m.uid), uidValidity: uidValidity,
+                messageId: h['message-id'], uid: Number(m.uid), uidValidity: uidValidity, cartella: opz.cartella || '',
                 scheda: trovata.scheda, evento: trovata.evento,
                 quando: quandoMsg, da: fatto.da, oggetto: fatto.oggetto, certificata: fatto.certificata
             });
@@ -687,7 +702,13 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
             console.error('Risposta PEC non accodata per l\'inoltro (' + chiaveVisto + '):', String((e && e.message) || e).slice(0, 200));
             // il giro la rilegge (vedi MAX_ACCODA_FALLITE): qui non si scrive niente
             if (!opz.senzaCoda) { const r = new Error('accodamento non riuscito'); r.riprova = true; throw r; }
+            // si va avanti senza inoltro: almeno l'area riservata lo dice
+            let nome = '';
+            try { const sn = await db.collection(SCHEDE).doc(trovata.scheda).get(); nome = sn.exists ? ((sn.data() || {}).ragioneSociale || '') : ''; } catch (_) { }
+            await INOLTRO.segnaAbbandono(db, { scheda: trovata.scheda, evento: trovata.evento, da: fatto.da }, nome, 'non messa in coda per l\'inoltro');
         }
+        // si conta solo una risposta trattata davvero: un giro fermato qui sopra la rileggera'
+        conto.risposte++;
     }
 
     // l'etichetta e' quella che si legge nell'elenco dei messaggi
@@ -767,19 +788,17 @@ async function leggiMessaggio(db, opz) {
            prima una risposta di solo testo mostrava il sorgente grezzo del
            messaggio incapsulato, e una di solo HTML il testo del gestore. */
         const struttura = D.normalizzaParti(trovato.bodyStructure);
-        const parte = D.trovaLeggibile(struttura);
+        const g = D.genere(h);
+        /* Di una RICEVUTA si legge il testo del gestore, fuori dalla busta:
+           dentro, nella ricevuta di consegna completa, c'e' il nostro invito. */
+        const parte = D.trovaLeggibile(struttura, { fuoriBusta: g.genere === 'ricevuta' });
         let testo = '', troncato = false;
         if (parte) {
             try {
-                const sc = await INOLTRO.scaricaParte(client, uid, parte, MAX_TESTO);
-                if (sc) {
-                    testo = D.decodificaTesto(sc.buf, parte.gioco, sc.tagliato);
-                    if (parte.html) testo = D.testoDaHtml(testo);
-                    troncato = sc.tagliato;
-                }
+                const letto = await INOLTRO.testoDiParte(client, uid, parte, MAX_TESTO);
+                if (letto) { testo = letto.testo; troncato = letto.tagliato; }
             } catch (_) { testo = ''; }
         }
-        const g = D.genere(h);
         return {
             ok: true,
             genere: g.genere, tipo: g.tipo,

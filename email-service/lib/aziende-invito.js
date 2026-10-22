@@ -966,6 +966,23 @@ async function esegui(ctx) {
                     console.error('Codice invito non spostato sulla scheda nuova:', String((e && e.message) || e).slice(0, 200));
                 }
             }
+            /* Anche i riferimenti PEC e le risposte in coda per l'inoltro via
+               email seguono la scheda: puntano all'identificativo, e lasciati
+               sulla vecchia una ricevuta o una risposta arrivata dopo la
+               modifica finiva su una scheda che non c'e' piu' (e l'email agli
+               organizzatori partiva senza il nome dell'azienda). */
+            if (azione === 'modifica' && idVecchio && idVecchio !== id) {
+                try {
+                    const snap = await db.collection('pecRiferimenti').where('scheda', '==', idVecchio).get();
+                    const b = db.batch();
+                    let k = 0;
+                    snap.forEach(d => { b.set(db.collection('pecRiferimenti').doc(d.id), { scheda: id }, { merge: true }); k++; });
+                    if (k) await b.commit();
+                    await INOLTRO.ripunta(db, idVecchio, id);
+                } catch (e) {
+                    console.error('Riferimenti PEC non spostati sulla scheda nuova:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
             const dopo = await rif.get();
             /* Stesso controllo dell'importazione: una scheda aggiunta a mano
                puo' sovrapporsi all'altra lista esattamente come una riga di
@@ -992,18 +1009,16 @@ async function esegui(ctx) {
                    cancellazione. */
                 try {
                     const snap = await rif.get();
-                    if (snap.exists) {
-                        const d = snap.data() || {};
-                        n += LETTORE.dimenticaRiferimenti(batch, db, d);
-                        // e le risposte in coda per l'inoltro via email, se ha risposto
-                        if (d.ricevute && d.ricevute.risposta) n += await INOLTRO.dimentica(db, batch, id);
-                    }
+                    if (snap.exists) n += LETTORE.dimenticaRiferimenti(batch, db, snap.data());
                 } catch (_) { /* la scheda si toglie comunque */ }
                 batch.delete(rif);
                 n++;
                 if (n >= 300) { await batch.commit(); batch = db.batch(); n = 0; }
             }
             if (n) await batch.commit();
+            // e le risposte in coda per l'inoltro via email (trenta schede per interrogazione)
+            try { await INOLTRO.dimentica(db, ids); }
+            catch (e) { console.error('Risposte in coda non tolte:', String((e && e.message) || e).slice(0, 200)); }
             res.status(200).json({ ok: true, tolte: ids.length });
             return;
         }

@@ -1186,10 +1186,10 @@ function rispostaPec(d, link) {
     const allegati = Array.isArray(d.allegati) ? d.allegati : [];
     const conAllegati = allegati.some(a => a.allegato);
     const sommario = azienda + ' ha risposto ' + cosa + (d.eventoNome ? ' (' + d.eventoNome + ')' : '') + '. '
-        + (d.nonLetto ? 'Il testo non si è potuto leggere dalla casella: lo trovi nella casella PEC.' : 'Il messaggio è qui sotto' + (conAllegati ? ', e gli allegati sono allegati a questa email.' : '.'));
+        + (d.nonLetto ? 'Il testo non si è potuto leggere dalla casella: cercalo nella casella PEC.' : 'Il messaggio è qui sotto' + (conAllegati ? ', con i suoi allegati.' : '.'));
     const tipo = d.certificata ? 'PEC' : 'Email ordinaria arrivata nella casella PEC (senza valore di PEC)';
     const righeTesto = String(d.testo || '').split('\n').map(r => esc(r)).join('<br>');
-    const dallaPec = 'dalla casella ' + (d.casella || 'PEC dello studio') + (d.da ? ' a ' + d.da : '');
+    const dallaPec = 'dalla casella ' + (d.casella || 'PEC dello studio') + (d.da ? ' all\'indirizzo ' + d.da : '');
     const nota = !d.certificata && d.rispondiA
         ? 'L\'azienda ha scritto da un indirizzo email ordinario: rispondendo a questa email le scrivi lì (' + d.rispondiA + ').'
         : d.rispondiA
@@ -1218,7 +1218,7 @@ function rispostaPec(d, link) {
             + occhiello('Il messaggio')
             + (d.nonLetto
                 ? '<tr><td class="par" style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.tenue + ';padding:14px 0;">'
-                + esc('Il testo non si è potuto leggere (' + d.nonLetto + '). Il messaggio è nella casella PEC ' + (d.casella || 'dello studio') + ' e si apre anche dall\'area riservata, nella scheda dell\'azienda.') + '</td></tr>'
+                + esc('Il testo non si è potuto leggere (' + d.nonLetto + '). Cercalo nella casella PEC ' + (d.casella || 'dello studio') + '; nell\'area riservata, nella scheda dell\'azienda, ci sono la data e l\'oggetto.') + '</td></tr>'
                 : '<tr><td bgcolor="' + C.chiaro + '" style="' + FONTE + 'font-size:15px;line-height:23px;color:' + C.testo + ';background-color:' + C.chiaro + ';padding:16px 18px;word-break:break-word;overflow-wrap:anywhere;">'
                 + (righeTesto || '<i>(messaggio senza testo)</i>') + '</td></tr>'
                 + (d.troncato ? spazio(8) + piccolo('Il messaggio è lungo: qui c\'è la prima parte, il resto è nella casella PEC.') : ''))
@@ -1235,7 +1235,7 @@ function rispostaPec(d, link) {
         ['Azienda: ' + azienda, d.da ? 'Da: ' + d.da : '', d.quandoTesto ? 'Arrivata il: ' + d.quandoTesto : '',
             d.oggetto ? 'Oggetto: ' + d.oggetto : '', 'Tipo: ' + tipo, d.codice ? 'Codice invito: ' + d.codice : ''].filter(Boolean).join('\n'),
         'IL MESSAGGIO\n' + (d.nonLetto
-            ? 'Il testo non si è potuto leggere (' + d.nonLetto + '): il messaggio è nella casella PEC.'
+            ? 'Il testo non si è potuto leggere (' + d.nonLetto + '): cercalo nella casella PEC.'
             : (String(d.testo || '') || '(messaggio senza testo)') + (d.troncato ? '\n\n[Il messaggio è lungo: il resto è nella casella PEC.]' : '')),
         allegati.length ? 'ALLEGATI\n' + allegati.map(a => '- ' + a.nome + ' (' + kb(a.dimensione) + ')' + (a.allegato ? '' : ' - ' + perche(a))).join('\n') : '',
         nota,

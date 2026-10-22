@@ -65,6 +65,8 @@ function doc(coll, id) {
         id: id, _coll: coll,
         get: async () => ({ id: id, exists: dati.has(k), data: () => copia(dati.get(k)) }),
         set: async (p, o) => { dati.set(k, (o && o.merge) ? fondi(dati.get(k), p) : copia(p)); },
+        // come Firestore: update su un documento che non c'e' fallisce
+        update: async p => { if (!dati.has(k)) throw new Error('NOT_FOUND'); dati.set(k, fondi(dati.get(k), p)); },
         delete: async () => { dati.delete(k); }
     };
 }
@@ -75,7 +77,7 @@ function interroga(coll, filtri, quante) {
         get: async () => {
             let docs = [...dati.keys()].filter(k => k.startsWith(coll + '/'))
                 .map(k => ({ id: k.slice(coll.length + 1), data: () => copia(dati.get(k)) }))
-                .filter(d => filtri.every(([c, op, v]) => op === '==' && (d.data() || {})[c] === v));
+                .filter(d => filtri.every(([c, op, v]) => op === '==' ? (d.data() || {})[c] === v : op === 'in' ? v.indexOf((d.data() || {})[c]) >= 0 : false));
             if (quante) docs = docs.slice(0, quante);
             return { forEach: f => docs.forEach(f), size: docs.length, docs: docs };
         }
@@ -107,6 +109,9 @@ const righe = () => [...dati.keys()].filter(k => k.startsWith('pecInoltri/')).ma
 let spedite = [];
 let postaGiu = 0;
 let rifiutoDefinitivo = false;
+let passwordSbagliata = false;
+let postaLenta = false;
+let primaDiSpedire = null;   // cosa succede nel mondo mentre la mail parte
 /* ---------- casella finta ---------- */
 let casella = { uidValidity: 777, messaggi: new Map() };
 class ClientFinto {
@@ -114,8 +119,13 @@ class ClientFinto {
     on() { }
     async connect() { }
     async mailboxOpen() { return { uidValidity: casella.uidValidity, uidNext: Math.max(0, ...casella.messaggi.keys()) + 1 }; }
+    async search(q) {
+        const cercato = String((q.header || {})['message-id'] || '');
+        return [...casella.messaggi.entries()].filter(([, m]) => m.headers.indexOf('Message-ID: ' + cercato + '\r\n') >= 0).map(([uid]) => uid);
+    }
     async *fetch(q) {
         const [a, b] = String(q.uid).split(':').map(Number);
+        if (a === b && casella.rifiuta && casella.rifiuta.has(a)) throw new Error('Command failed');
         for (const [uid, m] of [...casella.messaggi.entries()].sort((x, y) => x[0] - y[0])) {
             if (uid >= a && uid <= b) yield { uid: uid, size: 5000, internalDate: new Date(m.quando), headers: Buffer.from(m.headers), bodyStructure: copia(m.struttura) };
         }
@@ -148,7 +158,10 @@ Module.prototype.require = function (n) {
         return {
             createTransport: () => ({
                 sendMail: async m => {
-                    if (rifiutoDefinitivo && m.attachments) { const e = new Error('552 allegato rifiutato'); e.responseCode = 552; throw e; }
+                    if (primaDiSpedire) { const f = primaDiSpedire; primaDiSpedire = null; f(); }
+                    if (rifiutoDefinitivo && m.attachments) { const e = new Error('552 allegato rifiutato'); e.responseCode = 552; e.code = 'EMESSAGE'; e.command = 'DATA'; throw e; }
+                    if (passwordSbagliata) { const e = new Error('Invalid login: 535 5.7.8 Authentication failed'); e.responseCode = 535; e.code = 'EAUTH'; e.command = 'AUTH PLAIN'; throw e; }
+                    if (postaLenta) return new Promise(() => { });
                     if (postaGiu > 0) { postaGiu--; throw new Error('posta giu\''); }
                     spedite.push(m); return {};
                 },
@@ -214,6 +227,23 @@ function messaggio(uid, o) {
             dentro.push({ part: '2.1', type: 'text/plain', parameters: { charset: 'iso-8859-1' }, encoding: 'quoted-printable', size: 80 });
             grezze['2.1'] = Buffer.from(qp(o.testo || TESTO).replace(/\n/g, '\r\n'), 'latin1');
         }
+        if (forma === 'htmlConNote') {
+            dentro.push({ part: '2.1', type: 'text/html', parameters: { charset: 'utf-8' }, encoding: '7bit', size: 80 });
+            grezze['2.1'] = Buffer.from('<p>Ci saremo, grazie.</p>');
+            dentro.push({ part: '2.3', type: 'text/plain', disposition: 'attachment', dispositionParameters: { filename: 'note.txt' }, encoding: '7bit', size: 20 });
+            grezze['2.3'] = Buffer.from('colonna1;colonna2');
+            dentro.push({ part: '2.4', type: 'message/rfc822', parameters: { name: 'Invito.eml' }, size: 200,
+                childNodes: [{ part: '2.4', type: 'text/plain', encoding: '7bit', size: 40 }] });
+            grezze['2.4.1'] = Buffer.from('Gentile azienda, la invitiamo...');
+        }
+        if (o.cp1252) {
+            dentro[0] = { part: '2.1', type: 'text/plain', parameters: { charset: 'iso-8859-1' }, encoding: 'base64', size: 80 };
+            grezze['2.1'] = Buffer.from(Buffer.from([0x6c, 0x92, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x6f, 0x20, 0x63, 0x6f, 0x73, 0x74, 0x61, 0x20, 0x33, 0x30, 0x20, 0x80]).toString('base64'));
+        }
+        if (o.flowed) {
+            dentro[0] = { part: '2.1', type: 'text/plain', parameters: { charset: 'utf-8', format: 'flowed', delsp: 'yes' }, encoding: '7bit', size: 80 };
+            grezze['2.1'] = Buffer.from('Parteciperemo vo \r\nlentieri all\'evento.\r\nMario');
+        }
         const nPdf = forma === 'soloAllegato' ? '2.1' : '2.2';
         dentro.push({ part: nPdf, type: 'application/pdf', disposition: 'attachment', dispositionParameters: { filename: 'adesione.pdf' }, encoding: 'base64', size: Math.ceil((o.pdf || 2000) * 4 / 3) });
         grezze[nPdf] = Buffer.from(Buffer.alloc(o.pdf || 2000, 7).toString('base64'));
@@ -259,7 +289,7 @@ async function lavora(client, uid) {
 const lontano = () => Date.now() + 60000;
 const giro = (client, o) => INOLTRO.inoltra(db, client, Object.assign({ uidValidity: '777', scadenza: lontano(), casella: 'studio@pec.esempio.it' }, o || {}));
 function azzera() {
-    dati.clear(); spedite = []; postaGiu = 0; rifiutoDefinitivo = false; rompiCoda = 0; avanti = 0;
+    dati.clear(); spedite = []; postaGiu = 0; rifiutoDefinitivo = false; passwordSbagliata = false; postaLenta = false; rompiCoda = 0; avanti = 0;
     casella = { uidValidity: 777, messaggi: new Map() }; delete process.env.PEC_RISPOSTE_DESTINATARI;
 }
 function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.it>', 's1'); }
@@ -320,7 +350,7 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     esigi(/Mario Rossi<br>Alfa S\.r\.l\./.test(m.html), 'gli a capo dell\'originale restano a capo');
     esigi(/KK22K/.test(m.html) && /alfa@pec\.alfa\.it/.test(m.html) && /Re: Invito - Next Generation Business/.test(m.html), 'codice, mittente e oggetto nel riquadro');
     esigi(/Excelsior Hotel Gallia/.test(m.html), 'vestita come le mail dell\'evento di Milano');
-    esigi(m.replyTo === undefined && /Per rispondere scrivi dalla casella studio@pec\.esempio\.it a alfa@pec\.alfa\.it/.test(m.text), '"Rispondi" non porta alla PEC dell\'azienda: la mail dice da dove rispondere');
+    esigi(m.replyTo === undefined && /Per rispondere scrivi dalla casella studio@pec\.esempio\.it all'indirizzo alfa@pec\.alfa\.it/.test(m.text), '"Rispondi" non porta alla PEC dell\'azienda: la mail dice da dove rispondere');
     esigi(/area-riservata\/#eventi/.test(m.html), 'con il collegamento all\'area riservata');
     const pdf = (m.attachments || [])[0] || {};
     esigi((m.attachments || []).length === 1 && pdf.filename === 'adesione.pdf' && pdf.content.length === 2000 && pdf.content[0] === 7 && pdf.contentType === 'application/pdf', 'l\'allegato, decodificato dal base64', JSON.stringify((m.attachments || []).map(a => [a.filename, a.content.length])));
@@ -403,7 +433,8 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     riga = righe()[0];
     esigi(riga.stato === 'non-inviata' && riga.tentativi === INOLTRO.MAX_TENTATIVI && tentativi === INOLTRO.MAX_TENTATIVI, 'dopo l\'ultimo tentativo si smette', JSON.stringify([riga.stato, riga.tentativi, tentativi]));
     const stato = await LETTORE.stato(db);
-    esigi(stato.inoltroFallito && stato.inoltroFallito.azienda === 'Alfa S.r.l.' && /posta giu/.test(stato.inoltroFallito.motivo), 'e lo stato del lettore lo dice, per l\'area riservata', JSON.stringify(stato.inoltroFallito));
+    const np = stato.inoltriNonPartiti || [];
+    esigi(np.length === 1 && np[0].azienda === 'Alfa S.r.l.' && np[0].evento === 'milano-2027-02-26' && /posta giu/.test(np[0].motivo), 'e lo stato del lettore lo dice, per l\'area riservata', JSON.stringify(np));
     avanti += GIORNO;
     await giro(client);
     esigi(spedite.length === 0, 'e non si riprova piu\'');
@@ -439,9 +470,19 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     messaggio(50);
     client = clientDiProva();
     await lavora(client, 50);
+    casella.messaggi.set(77, casella.messaggi.get(50));
+    casella.messaggi.delete(50);
     e = await giro(client, { uidValidity: '999' });
     m = spedite[0] || {};
-    esigi(e.inoltrate === 1 && /Il testo non si è potuto leggere \(la cartella della casella è stata rigenerata\)/.test(m.text) && !m.attachments, 'cartella rigenerata: parte lo stesso, e dice dove leggere', m.text && m.text.slice(0, 300));
+    esigi(e.inoltrate === 1 && /è un piacere/.test(m.text) && (m.attachments || []).length === 1, 'cartella rigenerata: il messaggio si ritrova dal suo Message-ID', m.text && m.text.slice(0, 300));
+    base();
+    messaggio(53);
+    client = clientDiProva();
+    await lavora(client, 53);
+    casella.messaggi.delete(53);
+    e = await giro(client, { uidValidity: '999' });
+    m = spedite[0] || {};
+    esigi(e.inoltrate === 1 && /Il testo non si è potuto leggere \(la cartella della casella è stata rigenerata\)/.test(m.text) && /cercalo nella casella PEC/.test(m.text) && !m.attachments, 'e se non si ritrova parte lo stesso, e dice dove cercarlo', m.text && m.text.slice(0, 300));
 
     base();
     messaggio(51);
@@ -449,7 +490,8 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     await lavora(client, 51);
     client.cade = true;
     e = await giro(client);
-    esigi(spedite.length === 0 && righe()[0].stato === 'da-inviare' && righe()[0].tentativi === 0 && /casella/.test(righe()[0].errore), 'se cade la connessione la riga resta in attesa, senza perdere il tentativo', JSON.stringify(righe()[0]));
+    esigi(spedite.length === 0 && righe()[0].stato === 'da-inviare' && righe()[0].tentativi === 0 && /casella/.test(righe()[0].errore) && righe()[0].cadute === 1, 'se cade la connessione la riga resta in attesa, senza perdere il tentativo', JSON.stringify(righe()[0]));
+    avanti += 11 * 60000;
 
     client = clientDiProva();
     e = await giro(client, { scadenza: Date.now() - 1 });
@@ -495,20 +537,143 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     base();
     messaggio(1);
     messaggio(2, { msgId: '<altra.2@pec.alfa.it>' });
-    for (let i = 0; i < 3; i++) { rompiCoda = 1; await LETTORE.giro(db, { forza: true, da: 'prova' }); }
+    let risposteContate = 0;
+    for (let i = 0; i < 6; i++) { rompiCoda = 1; g = await LETTORE.giro(db, { forza: true, da: 'prova' }); risposteContate += g.ultimoGiro.risposte; }
+    esigi(!leggi('pecMessaggi', '777_1') && risposteContate === 0, 'sei giri di fila in pochi secondi ("Controlla le ricevute") non fanno rinunciare, e non contano risposte mai trattate', String(risposteContate));
+    avanti += 61 * 60000;
     rompiCoda = 1;
     g = await LETTORE.giro(db, { forza: true, da: 'prova' });
-    esigi(leggi('pecMessaggi', '777_1') && leggi('pecMessaggi', '777_2') && leggi('aziendeInvito', 's1').stato === 'risposta', 'alla terza volta di fila si va avanti, senza fermare la lettura per sempre', JSON.stringify(g.ultimoGiro));
+    esigi(leggi('pecMessaggi', '777_1') && leggi('pecMessaggi', '777_2') && leggi('aziendeInvito', 's1').stato === 'risposta', 'dopo un\'ora e tre giri falliti si va avanti, senza fermare la lettura per sempre', JSON.stringify(g.ultimoGiro));
+    const npc = (await LETTORE.stato(db)).inoltriNonPartiti || [];
+    esigi(npc.length === 1 && npc[0].azienda === 'Alfa S.r.l.' && /non messa in coda/.test(npc[0].motivo), 'e la risposta rimasta senza inoltro si dice nell\'area riservata', JSON.stringify(npc));
 
     console.log('\nLa scheda eliminata');
     base();
     messaggio(60);
     client = clientDiProva();
     await lavora(client, 60);
-    const b = db.batch();
-    const tolte = await INOLTRO.dimentica(db, b, 's1');
-    await b.commit();
+    const tolte = await INOLTRO.dimentica(db, ['s1', 's9']);
     esigi(tolte === 1 && righe().length === 0, 'le righe in coda se ne vanno con la scheda');
+    messaggio(61, { msgId: '<altra.61@pec.alfa.it>' });
+    await lavora(client, 61);
+    const spostate = await INOLTRO.ripunta(db, 's1', 's1-nuova');
+    esigi(spostate === 1 && righe()[0].scheda === 's1-nuova', 'e seguono la scheda quando cambia identificativo ("Modifica")');
+
+    console.log('\nAltri casi della lettura');
+    base();
+    messaggio(70, { cp1252: true });
+    client = clientDiProva();
+    await lavora(client, 70);
+    await giro(client);
+    m = spedite[0] || {};
+    esigi(/l’evento costa 30 €/.test(m.text), 'Outlook (iso-8859-1 che e\' windows-1252): apostrofo curvo ed euro restano', JSON.stringify(m.text && m.text.slice(m.text.indexOf('IL MESSAGGIO'), m.text.indexOf('IL MESSAGGIO') + 60)));
+    base();
+    messaggio(71, { flowed: true });
+    client = clientDiProva();
+    await lavora(client, 71);
+    await giro(client);
+    m = spedite[0] || {};
+    esigi(/Parteciperemo volentieri all'evento\.\nMario/.test(m.text), 'format=flowed (Thunderbird): le righe si ricuciono', m.text && m.text.slice(0, 500));
+    base();
+    messaggio(72, { forma: 'htmlConNote' });
+    client = clientDiProva();
+    await lavora(client, 72);
+    await giro(client);
+    m = spedite[0] || {};
+    esigi(/Ci saremo, grazie\./.test(m.text) && !/colonna1/.test(m.text) && !/Gentile azienda/.test(m.text), 'un note.txt allegato o un invito inoltrato non sono il testo dell\'azienda', m.text && m.text.slice(0, 500));
+    const testoLungo = 'Citt=C3=A0 di Verona, perch=C3=A9 no.\r\n'.repeat(3);
+    const tagli = [];
+    for (let max = 30; max < testoLungo.length; max++) {
+        const finto = { fetchOne: async () => ({ bodyParts: new Map([['2.1', Buffer.from(testoLungo).slice(0, max)]]) }) };
+        const l = await INOLTRO.testoDiParte(finto, 1, { parte: '2.1', codifica: 'quoted-printable', gioco: 'utf-8' }, max);
+        if (/Ã|=/.test(l.testo)) tagli.push(max);
+    }
+    esigi(tagli.length === 0, 'un testo quoted-printable tagliato a qualunque byte non diventa "Ã"', JSON.stringify(tagli));
+
+    console.log('\nAltri casi della coda');
+    base();
+    messaggio(80);
+    messaggio(81, { msgId: '<altra.81@pec.alfa.it>' });
+    client = clientDiProva();
+    await lavora(client, 80);
+    await lavora(client, 81);
+    casella.rifiuta = new Set([80]);
+    e = await giro(client);
+    const r80 = righe().find(x => x.uid === 80), r81 = righe().find(x => x.uid === 81);
+    esigi(r80.stato === 'da-inviare' && r80.tentativi === 1 && r80.prossimo > Date.now() && r81.stato === 'inviata' && spedite.length === 1, 'un messaggio che la casella rifiuta: tentativo contato, attesa, e gli altri partono', JSON.stringify([r80, e]));
+    casella.rifiuta = null;
+    base();
+    messaggio(82);
+    messaggio(83, { msgId: '<altra.83@pec.alfa.it>' });
+    await lavora(clientDiProva(), 82);
+    await lavora(clientDiProva(), 83);
+    for (let i = 0; i < 3; i++) { client = clientDiProva(); client.cade = true; await giro(client); avanti += 11 * 60000; }
+    const r82 = righe().find(x => x.uid === 82);
+    esigi(r82.cadute === 3 && r82.tentativi === 0 && spedite.length === 0, 'connessione caduta tre volte: nessun tentativo consumato, ma si conta', JSON.stringify(r82));
+    client = clientDiProva();
+    await giro(client);
+    esigi(spedite.length === 2 && spedite.some(x => /non si riesce a leggere dalla casella/.test(x.text)), 'e alla quarta il messaggio parte senza testo invece di bloccare gli altri', String(spedite.length));
+
+    base();
+    messaggio(84);
+    client = clientDiProva();
+    await lavora(client, 84);
+    passwordSbagliata = true;
+    await giro(client);
+    passwordSbagliata = false;
+    avanti += 11 * 60000;
+    await giro(client);
+    m = spedite[0] || {};
+    esigi(!righe()[0].senzaAllegati && (m.attachments || []).length === 1, 'una password sbagliata (535) non toglie gli allegati alla volta dopo');
+    base();
+    for (let i = 0; i < 4; i++) postaGiu = 0;
+    messaggio(85);
+    client = clientDiProva();
+    await lavora(client, 85);
+    for (let i = 0; i < 3; i++) { postaGiu = 1; await giro(client); avanti += 7 * 60 * 60 * 1000; }
+    await giro(client);
+    m = spedite[0] || {};
+    esigi(spedite.length === 1 && (m.attachments || []).length === 1, 'nemmeno tre guasti della posta: al quarto tentativo gli allegati ci sono');
+
+    base();
+    scheda('s2', { ragioneSociale: 'Beta S.p.A.' });
+    riferimento('<opec.invito.2@pec.aruba.it>', 's2');
+    messaggio(86);
+    messaggio(87, { msgId: '<b.87@pec.beta.it>', inReplyTo: '<opec.invito.2@pec.aruba.it>' });
+    client = clientDiProva();
+    await lavora(client, 86);
+    await lavora(client, 87);
+    for (let i = 0; i < 12; i++) { postaGiu = 2; await giro(client); avanti += 7 * 60 * 60 * 1000; }
+    const tutte = (await LETTORE.stato(db)).inoltriNonPartiti || [];
+    esigi(tutte.length === 2 && tutte.some(x => x.azienda === 'Alfa S.r.l.') && tutte.some(x => x.azienda === 'Beta S.p.A.'), 'un guasto lungo che ne fa abbandonare due: si dicono tutte e due', JSON.stringify(tutte.map(x => x.azienda)));
+
+    base();
+    for (let i = 0; i < 50; i++) dati.set('pecInoltri/m~attesa' + i, { stato: 'da-inviare', prossimo: Date.now() + 3600000, scheda: 's1', uid: 0, uidValidity: '777', quando: 1 });
+    messaggio(88, { msgId: '<z.88@pec.alfa.it>' });
+    client = clientDiProva();
+    await lavora(client, 88);
+    await giro(client);
+    esigi(spedite.length === 1, 'cinquanta righe in attesa del loro turno non nascondono quella pronta');
+
+    base();
+    messaggio(89);
+    client = clientDiProva();
+    await lavora(client, 89);
+    postaLenta = true;
+    e = await giro(client, { limiteFine: Date.now() + 50 });
+    postaLenta = false;
+    esigi(e.fallite === 1 && righe()[0].stato === 'da-inviare' && /in tempo/.test(righe()[0].errore) && righe()[0].prossimo > Date.now(), 'una posta che non finisce in tempo: si lascia perdere e si riprova, la funzione resta viva', JSON.stringify(righe()[0]));
+
+    base();
+    messaggio(90);
+    client = clientDiProva();
+    await lavora(client, 90);
+    // la scheda (e le sue righe) si elimina mentre la mail sta partendo, e la posta fallisce
+    primaDiSpedire = () => { dati.delete('aziendeInvito/s1'); INOLTRO.dimentica(db, ['s1']); };
+    postaGiu = 1;
+    await giro(client);
+    await new Promise(r => setImmediate(r));
+    esigi(righe().length === 0, 'una riga tolta mentre la mail partiva non rinasce vuota', JSON.stringify(righe()));
 
     console.log('\nIl testo aperto dall\'area riservata');
     base();
@@ -521,6 +686,10 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     esigi(letto.ok && /ci sarà il nostro CFO/.test(letto.testo) && !/posta certificata/i.test(letto.testo) && !/<p>/.test(letto.testo), 'una risposta solo HTML mostra il testo dell\'azienda', letto.testo);
     letto = await LETTORE.leggiMessaggio(db, { uid: 4, uidValidity: '777' });
     esigi(letto.ok && /è un piacere/.test(letto.testo) && !/Received:|=E8/.test(letto.testo), 'una risposta di solo testo mostra il testo, non il sorgente grezzo', letto.testo);
+    messaggio(5, { msgId: '<ric.5@pec.aruba.it>' });
+    casella.messaggi.get(5).headers = casella.messaggi.get(5).headers.replace('X-Trasporto: posta-certificata', 'X-Ricevuta: avvenuta-consegna');
+    letto = await LETTORE.leggiMessaggio(db, { uid: 5, uidValidity: '777' });
+    esigi(letto.ok && /Messaggio di posta certificata/.test(letto.testo) && !/è un piacere/.test(letto.testo), 'una ricevuta di consegna completa mostra il testo del gestore, non il messaggio dentro', letto.testo);
 
     console.log('\nI pezzi');
     esigi(D.automatica(D.intestazioni('Subject: POSTA CERTIFICATA: Risposta automatica: sono in ferie')) && !D.automatica(D.intestazioni('Subject: POSTA CERTIFICATA: Re: Invito')), 'le risposte automatiche si riconoscono dietro "POSTA CERTIFICATA:"');
@@ -529,6 +698,10 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     esigi(D.decodificaTesto(Buffer.from('ci sarà').slice(0, -1), 'utf-8', true) === 'ci sar', 'un testo tagliato a meta\' di una lettera perde solo quella');
     esigi(D.decodificaTesto(Buffer.from('ci sar\xe0', 'latin1'), '') === 'ci sarà', 'un latin1 non dichiarato resta latin1');
     esigi(D.testoDaHtml('a&nbsp;b &amp;lt; &#232; &#xE0; &egrave;') === 'a b &lt; è à è', 'le entita\' si sciolgono una volta sola', D.testoDaHtml('a&nbsp;b &amp;lt; &#232; &#xE0; &egrave;'));
+    esigi(/^Buongiorno,\nci saremo in due\.\n+Mario Rossi$/.test(D.testoDaHtml('Buongiorno,<div>ci saremo in due.</div><div>Mario Rossi</div>')), 'il testo prima di un blocco HTML va a capo', JSON.stringify(D.testoDaHtml('Buongiorno,<div>ci saremo in due.</div><div>Mario Rossi</div>')));
+    esigi(D.decodificaParole('=?UTF-8?Q?Re:_Opportunit=C3?= =?UTF-8?Q?=A0_bella?=') === 'Re: Opportunità bella', 'una lettera spezzata fra due parole codificate si ricompone');
+    const nn = D.normalizzaParti({ type: 'multipart/mixed', childNodes: [{ part: '1', type: 'text/plain' }, { part: '2', type: 'message/rfc822', childNodes: [{ part: '2', type: 'message/rfc822', childNodes: [{ part: '2', type: 'text/plain' }] }] }] });
+    esigi(nn.childNodes[1].childNodes[0].part === '2.1' && nn.childNodes[1].childNodes[0].childNodes[0].part === '2.1.1', 'una busta dentro la busta si rinumera a sua volta', JSON.stringify(nn.childNodes[1]));
     const fatta = MNGB.rispostaPec({ azienda: 'Gamma <b>', da: 'g@pec.it', certificata: true, testo: 'Ciao <script>alert(1)</script>\nriga due', casella: 'studio@pec.it' }, 'https://x/area-riservata/#eventi');
     esigi(!/<script>/.test(fatta.html) && /&lt;script&gt;/.test(fatta.html) && /Gamma &lt;b&gt;/.test(fatta.html), 'il testo dell\'azienda e\' scritto come testo, non come HTML');
     esigi(Buffer.byteLength(MNGB.rispostaPec({ azienda: 'A', testo: 'parola '.repeat(4300) }, 'x').html) < 102 * 1024, 'con il testo piu\' lungo resta sotto i 102 KB di Gmail');

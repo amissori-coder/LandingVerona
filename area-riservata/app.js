@@ -27838,16 +27838,21 @@
             : (ultimo.esito === 'ok'
                 ? 'Ultimo controllo ' + esc(fmtDataOra(ultimo.quando)) + ': ' + (ultimo.ricevute || 0) + ' ricevute, ' + (ultimo.risposte || 0) + ' risposte'
                 + (ultimo.inoltrate ? ', ' + ultimo.inoltrate + (ultimo.inoltrate === 1 ? ' inoltrata' : ' inoltrate') + ' per email' : '')
+                + (ultimo.inoltriFalliti ? ', ' + ultimo.inoltriFalliti + ' non ' + (ultimo.inoltriFalliti === 1 ? 'partita' : 'partite') + ' per email (si riprova)' : '')
                 + (ultimo.nonRiconosciute ? ', ' + ultimo.nonRiconosciute + ' da guardare a mano' : '') + '.'
                 : 'L\'ultimo controllo non è riuscito: ' + esc(ultimo.motivo || ''));
         /* Le risposte delle aziende partono anche per email agli organizzatori
-           (email-service/lib/inoltro-risposte-pec.js). Se una non e' partita
-           nemmeno dopo un giorno e mezzo di tentativi lo si dice qui, per una
-           settimana: la risposta resta sulla scheda e si legge da li'. */
-        const f = l && l.inoltroFallito;
-        const fallito = f && f.quando && (Date.now() - f.quando) < 7 * 24 * 60 * 60 * 1000
-            ? ' <b>La risposta di ' + esc(f.azienda || 'un\'azienda') + ' non è partita per email</b>'
-            + (f.motivo ? ' (' + esc(f.motivo) + ')' : '') + ': la leggi dalla sua scheda.'
+           (email-service/lib/inoltro-risposte-pec.js). Quelle di QUESTO evento
+           che non sono partite nemmeno dopo un giorno di tentativi si dicono
+           qui, per una settimana: la risposta resta sulla scheda e si legge da
+           li'. */
+        const nonPartite = ((l && l.inoltriNonPartiti) || []).filter(f => f && f.quando
+            && (!f.evento || f.evento === ev.id) && (Date.now() - f.quando) < 7 * 24 * 60 * 60 * 1000);
+        const aziendeNP = nonPartite.map(f => esc(f.azienda || 'un\'azienda')).filter((x, i, a) => a.indexOf(x) === i);
+        const fallito = aziendeNP.length
+            ? ' <b>' + (aziendeNP.length === 1 ? 'La risposta di ' + aziendeNP[0] + ' non è partita' : 'Le risposte di ' + aziendeNP.join(', ') + ' non sono partite')
+            + ' per email</b>' + (nonPartite.length === 1 && nonPartite[0].motivo ? ' (' + esc(nonPartite[0].motivo) + ')' : '')
+            + ': ' + (aziendeNP.length === 1 ? 'la leggi dalla sua scheda.' : 'le leggi dalle loro schede.')
             : '';
         return '<div class="inv-lettore' + ((ultimo && ultimo.esito !== 'ok') || vecchio || fallito ? ' ko' : '') + '">'
             + '<span>' + detto + (vecchio ? ' <b>Sono passate più di 24 ore.</b>' : '') + fallito + '</span>'
