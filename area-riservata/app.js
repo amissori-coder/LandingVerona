@@ -15560,6 +15560,51 @@
                servizio (lib/iscrizione-verificata.js, MAX_PER_CODICE) e lo
                dice la PEC di invito. Il numero va tenuto uguale ai due lati. */
             iscrizioniPerCodice: 2,
+            /* LA LETTERA DI MILANO, parola per parola come l'ha voluta lo
+               studio (l'esempio della PEC approvato): non la lettera comune
+               di invAperturaInvito con i dati dell'evento dentro, ma un testo
+               suo, con il codice subito dopo il primo capoverso e la giornata
+               raccontata per parti (mattina, colazione, pomeriggio). Vale per
+               la versione "sala"; l'oggetto pure. Fra un capoverso e l'altro
+               invTestoSala mette la riga vuota, e prima di `saluti` il
+               pulsante della pagina dell'evento. Il "due" delle iscrizioni
+               deve restare quello di iscrizioniPerCodice qui sopra: lo
+               controlla prove/testo-invito-codice.prove.js. */
+            invito: {
+                oggetto: 'Invito - Next Generation Business, 26 febbraio 2027 - Excelsior Hotel Gallia, Milano',
+                lettera: [
+                    'Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario',
+                    'Spettabile {ragione_sociale},',
+                    'abbiamo il piacere di invitarVi a Next Generation Business, convegno nazionale dedicato alle imprese, '
+                        + 'che si terrà venerdì 26 febbraio 2027 presso l\'Excelsior Hotel Gallia, Piazza Duca d\'Aosta 9, Milano. '
+                        + 'L\'invito è riservato: alla Vostra azienda è assegnato il seguente codice di accesso, da indicare nel modulo di registrazione.',
+                    '{codice}',
+                    'Accesso al credito, finanziamento degli investimenti, apertura ai mercati esteri e impiego dell\'intelligenza '
+                        + 'artificiale sono oggi passaggi decisivi per lo sviluppo di un\'impresa, e ciascuno richiede competenze '
+                        + 'specifiche e interlocutori qualificati. Il convegno offre un\'occasione di approfondimento su questi temi '
+                        + 'e di confronto diretto con chi se ne occupa.',
+                    'Ai lavori prenderanno parte i rappresentanti delle principali istituzioni, che saranno indicati nel programma dei lavori.',
+                    'La mattina sarà dedicata alla solidità e all\'affidabilità dell\'impresa nei confronti delle banche e di tutti '
+                        + 'i soggetti con cui entra in relazione. Esperti di riconosciuta competenza illustreranno come organizzazione '
+                        + 'aziendale, adeguati assetti organizzativi, amministrativi e contabili, controllo di gestione e prevenzione '
+                        + 'dei rischi concorrano a rafforzare il merito creditizio e a sostenere i progetti di crescita.',
+                    'Al termine dei lavori i partecipanti sono invitati a una colazione di lavoro, occasione di dialogo con i '
+                        + 'relatori, i professionisti presenti e gli altri imprenditori.',
+                    'Il pomeriggio, dalle 14:30 alle 18:00, è dedicato agli incontri individuali sui temi del convegno e su '
+                        + 'ulteriori ambiti: finanza agevolata, internazionalizzazione, intelligenza artificiale, sicurezza '
+                        + 'informatica, sostenibilità e certificazioni. Nelle prossime settimane riceverete, all\'indirizzo email '
+                        + 'indicato in fase di registrazione, il programma dei lavori e l\'invito agli incontri individuali. '
+                        + 'L\'iniziativa è promossa da Revilaw S.p.A., con il contributo di professionisti e partner specializzati '
+                        + 'nelle diverse aree della consulenza d\'impresa.',
+                    'Il codice di accesso è nominativo, valido solamente per la Vostra azienda e consente al massimo due '
+                        + 'iscrizioni: possono quindi utilizzarlo fino a due delegati, ciascuno registrandosi con il proprio '
+                        + 'nominativo e recapiti personali (email e numero di cellulare).',
+                    'La partecipazione è gratuita e i posti disponibili sono 300: Vi invitiamo pertanto a registrarVi per tempo. '
+                        + 'Le informazioni sulla giornata e il modulo di registrazione sono disponibili qui:'
+                ],
+                saluti: 'Nell\'auspicio di poterVi accogliere a Milano, restiamo a disposizione per ogni informazione '
+                    + 'e porgiamo i nostri più cordiali saluti.'
+            },
             nota: 'Il modulo di iscrizione è pubblicato: chi si iscrive dal sito verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Un\'iscrizione per email e per numero, due al massimo per codice invito. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
         },
         // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
@@ -27482,8 +27527,15 @@
     }
 
     /* VERSIONE "SALA": l'invito di sempre, con il posto in presenza da
-       riservare. */
+       riservare. Un evento con una lettera sua (invito.lettera, oggi Milano)
+       manda quella, con il pulsante della pagina prima dei saluti. */
     function invTestoSala(ev) {
+        const inv = ev.invito || {};
+        if (Array.isArray(inv.lettera) && inv.lettera.length) {
+            return inv.lettera.join('\n\n') + '\n\n'
+                + invPaginaEvento(ev) + '\n\n'
+                + (inv.saluti || 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.');
+        }
         return invAperturaInvito(ev)
             + invParagrafoCodice(ev, 'sala')
             + 'La partecipazione è gratuita e i posti sono limitati. Per riservare il posto Vi chiediamo '
@@ -27540,11 +27592,12 @@
        nell'oggetto vuol dire che chi quel giorno non puo' spostarsi scopre
        dal solo elenco della posta che c'e' comunque un modo di esserci. */
     function invOggettoPredefinito(ev, campagna, versione) {
-        const quale = campagnaDef(campagna || _invCampagna).id === 'sponsor'
-            ? 'Proposta di sponsorizzazione - '
-            : (versioneDef(versione || invVersionePredefinita(ev)).id === 'diretta'
-                ? 'Invito alla diretta online - '
-                : 'Invito - ');
+        const sponsor = campagnaDef(campagna || _invCampagna).id === 'sponsor';
+        const diretta = versioneDef(versione || invVersionePredefinita(ev)).id === 'diretta';
+        // la lettera propria di un evento (Milano) porta anche il suo oggetto
+        if (!sponsor && !diretta && ev.invito && ev.invito.oggetto) return ev.invito.oggetto;
+        const quale = sponsor ? 'Proposta di sponsorizzazione - '
+            : (diretta ? 'Invito alla diretta online - ' : 'Invito - ');
         return quale + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
     }
 

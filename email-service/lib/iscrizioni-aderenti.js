@@ -14,14 +14,18 @@
    PEC). Chiederli nel modulo evita il giro di mail "ci manda i
    dati per la fattura?" con ciascun iscritto.
 
-   DUE MAIL, COME LE RICHIESTE DI CONTATTO:
+   UNA MAIL SUBITO, E UN RIEPILOGO A MEZZANOTTE:
 
-     A NOI   tutti i dati, agli indirizzi di AVVISA qui sotto,
-             con "rispondi a" l'iscritto. Da li' parte la
-             fattura.
-     A LORO  il riepilogo: cosa si sono iscritti a fare, quanto
-             costa e che la fattura arrivera' all'indirizzo di
-             fatturazione indicato.
+     A LORO  subito, il riepilogo: cosa si sono iscritti a fare,
+             quanto costa e che la fattura arrivera' all'indirizzo
+             di fatturazione indicato.
+     A NOI   niente a ogni iscrizione: a mezzanotte, come per le
+             aziende che si iscrivono al convegno, una mail con le
+             iscrizioni del giorno e tutti i dati per la fattura,
+             agli stessi destinatari di quel riepilogo
+             (api/riepilogo-iscrizioni.js, contiAderenti in
+             lib/riepilogo-iscrizioni.js). Qui non c'e' un'email da
+             confermare: l'iscrizione vale da quando arriva.
 
    L'ORDINE CONTA. Prima si scrive in archivio (collezione
    "iscrizioniAderenti"), poi si spedisce: se la posta non
@@ -30,8 +34,9 @@
    UN INDIRIZZO, UNA SCHEDA. Chi compila due volte - per
    correggere un dato di fatturazione, per esempio - aggiorna la
    sua scheda invece di crearne una seconda: due righe sarebbero
-   due fatture. L'avviso interno riparte e dice che e' una
-   correzione, cosi' chi fattura usa i dati nuovi.
+   due fatture. Il riepilogo di mezzanotte la mette fra le
+   iscrizioni aggiornate, con i campi cambiati, cosi' chi fattura
+   usa i dati nuovi.
    ============================================================ */
 
 const nodemailer = require('nodemailer');
@@ -56,7 +61,6 @@ const QUOTE = [
         imponibile: 200,
         aliquotaIva: 22,
         pagina: '/milano_febbraio_2027/aderenti/',
-        avvisa: ['pierluigisterzi@revilaw.it', 'andreamissori@revilaw.it'],
         // nessun termine per ora: quando si fissa, un istante con il fuso
         scadenza: 0
     }
@@ -190,7 +194,7 @@ function leggiCampi(q, c) {
     };
 }
 
-/* --- le due mail --- */
+/* --- la mail all'iscritto (i dati, a noi, li porta il riepilogo di mezzanotte) --- */
 function righeTabella(righe) {
     return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;font-size:14px;">'
         + righe.filter(x => x[1]).map(x =>
@@ -211,41 +215,6 @@ function righeFatturazione(f) {
 }
 function cosaQuando(q) {
     return q.voci.map(v => v.cosa + ' - ' + v.quando);
-}
-
-function mailInterna(q, r, correzione) {
-    const imp = r.importi;
-    const dentro = '<p style="margin:0 0 14px;">'
-        + (correzione
-            ? '<b>Iscrizione aggiornata.</b> ' + esc(r.nome + ' ' + r.cognome) + ' ha inviato di nuovo il modulo: valgono i dati qui sotto, che sostituiscono quelli ricevuti prima.'
-            : 'Nuova iscrizione dalla pagina riservata agli aderenti.')
-        + '</p>'
-        + '<p style="margin:0 0 6px;"><b>' + esc(q.titolo) + ' · ' + esc(q.luogo) + '</b><br>'
-        + cosaQuando(q).map(esc).join('<br>') + '</p>'
-        + '<p style="margin:0 0 16px;">Quota: ' + euro(imp.imponibile) + ' + IVA ' + q.aliquotaIva + '% (' + euro(imp.iva)
-        + ') = <b>' + euro(imp.totale) + '</b>. Da fatturare.</p>'
-        + '<p style="margin:0 0 4px;color:#164068;font-weight:700;">Partecipante</p>'
-        + righeTabella([
-            ['Nome', r.nome + ' ' + r.cognome],
-            ['Email', r.email],
-            ['Telefono', r.telefono],
-            ['Studio / società', r.studio],
-            ['Città', r.citta]
-        ])
-        + '<p style="margin:0 0 4px;color:#164068;font-weight:700;">Dati di fatturazione</p>'
-        + righeTabella(righeFatturazione(r.fatturazione))
-        /* Le note le scrive l'iscritto sotto la domanda "allergie o intolleranze
-           per la cena, altre indicazioni": l'avviso lo ripete, cosi' chi lo
-           legge sa che cosa sta leggendo, e dice anche quando sono vuote. */
-        + '<p style="margin:0 0 14px;"><b>Note (allergie o intolleranze per la cena, altre indicazioni)</b><br>'
-        + (r.note ? esc(r.note) : '<span style="color:#475569;">nessuna</span>') + '</p>'
-        + '<p style="margin:0;font-size:13px;color:#475569;">Rispondendo a questo messaggio si scrive direttamente a '
-        + esc(r.email) + '.</p>';
-    return {
-        oggetto: senzaTrattiniLunghi((correzione ? 'Iscrizione aggiornata' : 'Nuova iscrizione') + ' aderenti Milano - '
-            + r.nome + ' ' + r.cognome + (r.fatturazione.intestatario ? ' (' + r.fatturazione.intestatario + ')' : '')),
-        html: avvolgi(dentro)
-    };
 }
 
 function mailConferma(q, r, correzione) {
@@ -318,20 +287,12 @@ async function ricevi(db, corpo) {
         return { stato: 500, corpo: { ok: false, msg: 'Non siamo riusciti a registrare l\'iscrizione: riprovi fra poco.' } };
     }
 
-    // le mail sono una conseguenza, non una condizione: l'iscrizione e' gia' salva
-    let avvisati = false, confermata = false;
+    /* La mail all'iscritto e' una conseguenza, non una condizione:
+       l'iscrizione e' gia' salva. A noi niente adesso: la porta il
+       riepilogo di mezzanotte (vedi in cima). */
+    let confermata = false;
     if (configurato()) {
         const trans = trasporto();
-        const interna = mailInterna(q, r, !!prima);
-        try {
-            await trans.sendMail({
-                from: mittente(), to: q.avvisa.join(', '), replyTo: r.email,
-                subject: interna.oggetto, html: interna.html
-            });
-            avvisati = true;
-        } catch (e) {
-            console.error('Iscrizione aderente, avviso interno non partito:', String((e && e.message) || e).slice(0, 200));
-        }
         const conferma = mailConferma(q, r, !!prima);
         try {
             await trans.sendMail({ from: mittente(), to: r.email, subject: conferma.oggetto, html: conferma.html });
@@ -341,7 +302,7 @@ async function ricevi(db, corpo) {
         }
         try { trans.close(); } catch (_) { /* niente da chiudere */ }
     }
-    try { await rif.set({ avvisati: avvisati, mail: confermata }, { merge: true }); }
+    try { await rif.set({ mail: confermata }, { merge: true }); }
     catch (_) { /* dato di servizio */ }
 
     return { stato: 200, corpo: { ok: true, aggiornata: !!prima, mail: confermata, importi: r.importi } };
@@ -379,7 +340,7 @@ function rigaElenco(id, v) {
         totale: Number((v.importi || {}).totale) || 0,
         imponibile: Number((v.importi || {}).imponibile) || 0,
         note: v.note || '',
-        mail: !!v.mail, avvisati: !!v.avvisati,
+        mail: !!v.mail,
         cambiata: Array.isArray(v.storia) && v.storia.length > 0,
         fattura: {
             emessa: !!fat.emessa,

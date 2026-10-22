@@ -21,9 +21,12 @@
    corregge dopo.
 
    Qui si verifica che:
-     - con il tetto (Milano) la frase "due iscrizioni" ci sia, in
-       tutte e due le versioni (sala e diretta), in lettere, nel
-       capoverso che segue il codice;
+     - a Milano la versione sala sia la lettera dell'esempio PEC
+       approvato dallo studio, parola per parola, con il suo oggetto,
+       e che il "due" delle iscrizioni sia quello del servizio;
+     - con il tetto (Milano) la frase "due iscrizioni" ci sia anche
+       nella versione diretta, in lettere, nel capoverso che segue il
+       codice;
      - il codice resti da solo nel suo capoverso: e' quello che lo
        fa diventare il riquadro nella mail;
      - il numero scritto sull'evento sia lo stesso del servizio;
@@ -76,11 +79,19 @@ const pezzi = [
     ritaglia('function invInLettere(', '{', '}'),
     ritaglia('function invParagrafoCodice(', '{', '}'),
     ritaglia('function invTestoSala(', '{', '}'),
-    ritaglia('function invTestoDiretta(', '{', '}')
+    ritaglia('function invTestoDiretta(', '{', '}'),
+    ritaglia('const INV_CAMPAGNE = [', '[', ']') + ';',
+    ritaglia('function campagnaDef(', '{', '}'),
+    ritaglia('const INV_VERSIONI = [', '[', ']') + ';',
+    ritaglia('function versioneDef(', '{', '}'),
+    ritaglia('function invVersionePredefinita(', '{', '}'),
+    ritaglia('function invOggettoPredefinito(', '{', '}'),
+    // la campagna aperta nella finestra: qui quella degli inviti
+    'let _invCampagna = \'invito\';'
 ].join('\n');
 const APPJS = new Function(pezzi + '\nreturn {'
     + ' EVENTI_DEF, SITO_PUBBLICO, invTestoSala, invTestoDiretta, invTestoInHtml,'
-    + ' invParagrafoCodice, invIscrizioniPerCodice, invInLettere };')();
+    + ' invParagrafoCodice, invIscrizioniPerCodice, invInLettere, invOggettoPredefinito };')();
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -122,16 +133,70 @@ prova('L evento di Milano e il servizio dicono lo stesso numero', () => {
         'iscrizioniPerCodice di Milano = MAX_PER_CODICE del servizio', MILANO.iscrizioniPerCodice + ' / ' + (m && m[1]));
 });
 
-prova('Versione sala: il codice da solo, poi la frase delle due iscrizioni', () => {
+/* LA LETTERA DI MILANO COME NELL'ESEMPIO. Copiata a parte dal PDF
+   dell'esempio PEC approvato (Invito_PEC_Milano_2027_esempio_7): se
+   qualcuno ritocca la lettera in app.js senza volerlo, qui diventa rosso.
+   I capoversi sono questi e in quest'ordine; {ragione_sociale} e
+   {codice} li mette il servizio, azienda per azienda. */
+const LETTERA_MILANO = [
+    'Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario',
+    'Spettabile {ragione_sociale},',
+    'abbiamo il piacere di invitarVi a Next Generation Business, convegno nazionale dedicato alle imprese, che si terrà venerdì 26 febbraio 2027 presso l\'Excelsior Hotel Gallia, Piazza Duca d\'Aosta 9, Milano. L\'invito è riservato: alla Vostra azienda è assegnato il seguente codice di accesso, da indicare nel modulo di registrazione.',
+    '{codice}',
+    'Accesso al credito, finanziamento degli investimenti, apertura ai mercati esteri e impiego dell\'intelligenza artificiale sono oggi passaggi decisivi per lo sviluppo di un\'impresa, e ciascuno richiede competenze specifiche e interlocutori qualificati. Il convegno offre un\'occasione di approfondimento su questi temi e di confronto diretto con chi se ne occupa.',
+    'Ai lavori prenderanno parte i rappresentanti delle principali istituzioni, che saranno indicati nel programma dei lavori.',
+    'La mattina sarà dedicata alla solidità e all\'affidabilità dell\'impresa nei confronti delle banche e di tutti i soggetti con cui entra in relazione. Esperti di riconosciuta competenza illustreranno come organizzazione aziendale, adeguati assetti organizzativi, amministrativi e contabili, controllo di gestione e prevenzione dei rischi concorrano a rafforzare il merito creditizio e a sostenere i progetti di crescita.',
+    'Al termine dei lavori i partecipanti sono invitati a una colazione di lavoro, occasione di dialogo con i relatori, i professionisti presenti e gli altri imprenditori.',
+    'Il pomeriggio, dalle 14:30 alle 18:00, è dedicato agli incontri individuali sui temi del convegno e su ulteriori ambiti: finanza agevolata, internazionalizzazione, intelligenza artificiale, sicurezza informatica, sostenibilità e certificazioni. Nelle prossime settimane riceverete, all\'indirizzo email indicato in fase di registrazione, il programma dei lavori e l\'invito agli incontri individuali. L\'iniziativa è promossa da Revilaw S.p.A., con il contributo di professionisti e partner specializzati nelle diverse aree della consulenza d\'impresa.',
+    'Il codice di accesso è nominativo, valido solamente per la Vostra azienda e consente al massimo due iscrizioni: possono quindi utilizzarlo fino a due delegati, ciascuno registrandosi con il proprio nominativo e recapiti personali (email e numero di cellulare).',
+    'La partecipazione è gratuita e i posti disponibili sono 300: Vi invitiamo pertanto a registrarVi per tempo. Le informazioni sulla giornata e il modulo di registrazione sono disponibili qui:',
+    'https://nextgenerationbusiness.it/milano_febbraio_2027/',
+    'Nell\'auspicio di poterVi accogliere a Milano, restiamo a disposizione per ogni informazione e porgiamo i nostri più cordiali saluti.'
+];
+
+prova('Versione sala di Milano: la lettera dell esempio PEC, parola per parola', () => {
     const p = capoversi(APPJS.invTestoSala(MILANO));
+    esigi(p.length === LETTERA_MILANO.length, 'lo stesso numero di capoversi', p.length + ' / ' + LETTERA_MILANO.length);
+    LETTERA_MILANO.forEach((atteso, k) => esigi(p[k] === atteso, 'capoverso ' + (k + 1) + ' come nell esempio', p[k]));
+    esigi(p.filter(x => x.indexOf('{codice}') >= 0).length === 1 && p[3] === '{codice}', 'il codice da solo, subito dopo il primo capoverso');
+    esigi(!/\n\n\n|^\s|\s$/.test(APPJS.invTestoSala(MILANO)), 'nessuna riga vuota doppia, niente spazi in testa o in coda');
+});
+
+prova('Milano: il "due" della lettera e quello del servizio', () => {
+    const n = APPJS.invInLettere(MILANO.iscrizioniPerCodice);
+    const p = capoversi(APPJS.invTestoSala(MILANO));
+    const frase = p.find(x => /consente al massimo/.test(x)) || '';
+    esigi(frase.indexOf('consente al massimo ' + n + ' iscrizioni: possono quindi utilizzarlo fino a ' + n + ' delegati') >= 0,
+        'la frase dice "' + n + ' iscrizioni" e "' + n + ' delegati", come iscrizioniPerCodice', frase);
+    esigi(!/2 iscrizioni/.test(p.join('\n\n')), 'il numero e scritto in lettere');
+});
+
+prova('Milano: l oggetto dell esempio, solo per l invito in sala', () => {
+    esigi(APPJS.invOggettoPredefinito(MILANO, 'invito', 'sala') === 'Invito - Next Generation Business, 26 febbraio 2027 - Excelsior Hotel Gallia, Milano',
+        'sala: l oggetto dell esempio', APPJS.invOggettoPredefinito(MILANO, 'invito', 'sala'));
+    esigi(APPJS.invOggettoPredefinito(MILANO) === APPJS.invOggettoPredefinito(MILANO, 'invito', 'sala'), 'ed e quello proposto all apertura');
+    esigi(APPJS.invOggettoPredefinito(MILANO, 'invito', 'diretta') === 'Invito alla diretta online - Milano, 26 febbraio 2027 - Next Generation Business',
+        'diretta: l oggetto di sempre');
+    esigi(APPJS.invOggettoPredefinito(MILANO, 'sponsor') === 'Proposta di sponsorizzazione - Milano, 26 febbraio 2027 - Next Generation Business',
+        'sponsor: l oggetto di sempre');
+    esigi(APPJS.invOggettoPredefinito(NAPOLI, 'invito', 'sala') === 'Invito - Napoli, 2 ottobre 2026 - Next Generation Business',
+        'un altro evento: l oggetto di sempre', APPJS.invOggettoPredefinito(NAPOLI, 'invito', 'sala'));
+});
+
+/* La lettera comune con il tetto: Milano ha la sua, ma un evento che fissa
+   iscrizioniPerCodice senza una lettera propria (o Milano, se la sua si
+   togliesse) passa da qui, e la frase delle due iscrizioni non deve sparire. */
+prova('Versione sala comune con il tetto: il codice da solo, poi la frase delle due iscrizioni', () => {
+    const comune = Object.assign({}, MILANO, { invito: undefined });
+    const p = capoversi(APPJS.invTestoSala(comune));
     const i = p.indexOf('{codice}');
     esigi(i > 0, 'il codice sta da solo nel suo capoverso');
-    esigi(p.filter(x => x.indexOf('{codice}') >= 0).length === 1, 'e compare una volta sola');
     esigi(p[i - 1] === 'Alla Vostra azienda è riservato il seguente codice di accesso:', 'preceduto dalla riga che lo annuncia');
     esigi(p[i + 1] === VECCHIO_SALA, 'seguito dalla spiegazione di sempre', p[i + 1]);
     esigi(p[i + 2] === DUE_SALA, 'e subito dopo la frase delle due iscrizioni', p[i + 2]);
-    esigi(/due iscrizioni/.test(p[i + 2]) && !/2 iscrizioni/.test(p.join('\n\n')), 'il numero e scritto in lettere');
     esigi(/^La partecipazione è gratuita/.test(p[i + 3]), 'poi la lettera riprende come prima');
+    esigi(APPJS.invOggettoPredefinito(comune, 'invito', 'sala') === 'Invito - Milano, 26 febbraio 2027 - Next Generation Business',
+        'e l oggetto di sempre');
 });
 
 prova('Versione diretta: la stessa frase, con "iscriversi"', () => {
@@ -147,8 +212,14 @@ prova('Nella mail il codice diventa il riquadro e la frase resta un capoverso', 
     const html = APPJS.invTestoInHtml(APPJS.invTestoSala(MILANO));
     esigi((html.match(/Codice riservato/g) || []).length === 1, 'un riquadro "Codice riservato"');
     esigi((html.match(/\{codice\}/g) || []).length === 1, 'il segnaposto sta solo dentro il riquadro');
-    esigi(html.indexOf('<p style="margin:0 0 14px;line-height:1.6;">Lo stesso codice consente al massimo due iscrizioni') >= 0,
+    esigi(html.indexOf('<p style="margin:0 0 14px;line-height:1.6;">Il codice di accesso è nominativo, valido solamente per la Vostra azienda e consente al massimo due iscrizioni') >= 0,
         'la frase delle due iscrizioni e un capoverso della lettera');
+    const riga = html.indexOf('Alla cortese attenzione'), codice = html.indexOf('Codice riservato'), mattina = html.indexOf('Accesso al credito');
+    esigi(/border-bottom:1px solid #E2E8F0;[^>]*>Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario<\/p>/.test(html),
+        'la riga dei destinatari interni ha la sua forma, in cima');
+    esigi(riga >= 0 && riga < codice && codice < mattina, 'il riquadro sta fra il primo capoverso e "Accesso al credito"');
+    const pulsante = html.indexOf('>Programma e registrazione</a>'), saluti = html.search(/Nell(&#39;|')auspicio/);
+    esigi(pulsante > 0 && saluti > pulsante, 'il pulsante prima dei saluti');
 });
 
 prova('Il pulsante porta alla pagina di Milano, l apertura dice dove', () => {
@@ -159,8 +230,10 @@ prova('Il pulsante porta alla pagina di Milano, l apertura dice dove', () => {
     const html = APPJS.invTestoInHtml(t);
     esigi(html.indexOf('href="' + atteso + '"') >= 0 && html.indexOf('>Programma e registrazione</a>') >= 0,
         'e diventa il pulsante "Programma e registrazione"');
-    esigi(t.indexOf('in programma il 26 febbraio 2027 presso Excelsior Hotel Gallia, Piazza Duca d\'Aosta 9, Milano.') >= 0,
-        'l apertura dice sede e indirizzo');
+    esigi(t.indexOf('venerdì 26 febbraio 2027 presso l\'Excelsior Hotel Gallia, Piazza Duca d\'Aosta 9, Milano.') >= 0,
+        'l apertura dice giorno, sede e indirizzo');
+    esigi(APPJS.invTestoDiretta(MILANO).indexOf('in programma il 26 febbraio 2027 presso Excelsior Hotel Gallia, Piazza Duca d\'Aosta 9, Milano.') >= 0,
+        'e la versione diretta resta quella di sempre');
     esigi(capoversi(APPJS.invTestoDiretta(MILANO)).indexOf(atteso) >= 0, 'anche nella versione diretta');
 });
 

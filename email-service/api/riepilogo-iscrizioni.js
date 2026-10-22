@@ -11,8 +11,16 @@
    iscrizioni confermate nel giorno (email confermata), chi e' ancora in
    attesa di confermare e il totale. Se non c'e' niente, niente mail.
 
+   Per ogni quota degli aderenti (lib/iscrizioni-aderenti.js, la cena e il
+   meeting di Milano): una mail a parte, agli stessi destinatari, con le
+   iscrizioni arrivate nel giorno e i dati per la fattura, quelle corrette
+   e i totali. Gli aderenti non confermano l'email, e a ogni iscrizione non
+   parte piu' nessun avviso: e' questo riepilogo a dirlo. Anche qui, se non
+   c'e' niente di nuovo, niente mail.
+
    UNA VOLTA SOLA PER GIORNO: prima di spedire si scrive il giorno sul
-   documento meta/riepilogoIscrizioni-<evento> (in una transazione),
+   documento meta/riepilogoIscrizioni-<evento> (per gli aderenti
+   meta/riepilogoAderenti-<quota>), in una transazione,
    cosi' un secondo giro - un riavvio, una chiamata a mano - non
    rispedisce.
 
@@ -59,9 +67,9 @@ function mittente() {
     return '"' + nome + '" <' + ind + '>';
 }
 
-// segna il giorno come spedito; false se lo era gia'
-async function prenota(db, ev, giorno, forza) {
-    const rif = db.collection('meta').doc('riepilogoIscrizioni-' + ev.chiave);
+// segna il giorno come spedito sul documento `nome` di meta; false se lo era gia'
+async function prenota(db, nome, giorno, forza) {
+    const rif = db.collection('meta').doc(nome);
     return db.runTransaction(async tx => {
         const s = await tx.get(rif);
         const d = s.exists ? (s.data() || {}) : {};
@@ -90,22 +98,51 @@ module.exports = async (req, res) => {
         const snap = await db.collection('iscrizioni').get();
         const schede = [];
         snap.forEach(d => schede.push({ id: d.id, dati: d.data() || {} }));
-        const esiti = [];
-        for (const ev of R.EVENTI) {
-            const c = R.conti(schede, ev, giorno);
-            if (!R.daSpedire(c)) { esiti.push({ evento: ev.chiave, nuove: 0, inAttesa: 0 }); continue; }
-            if (!await prenota(db, ev, giorno, forza)) { esiti.push({ evento: ev.chiave, nuove: c.nuove.length, gia: true }); continue; }
-            const m = MNGB.riepilogoIscrizioni(c, LINK_AREA, R.giornoLeggibile(giorno));
+        /* Una mail: si prenota il giorno, si spedisce, e se la posta non
+           risponde si libera il giorno, cosi' un nuovo giro (o una chiamata a
+           mano) ci riprova. */
+        const spedisci = async (nome, m) => {
             const a = R.destinatari();
             try {
                 await trasporto().sendMail({ from: mittente(), to: a.join(', '), subject: m.oggetto, text: m.testo, html: m.html });
-                esiti.push({ evento: ev.chiave, nuove: c.nuove.length, inAttesa: c.inAttesa.length, totale: c.totale, inviata: a.length });
+                return a.length;
             } catch (e) {
-                // la mail non e' partita: si libera il giorno, cosi' un nuovo giro (o una chiamata a mano) ci riprova
-                try { await db.collection('meta').doc('riepilogoIscrizioni-' + ev.chiave).set({ ultimoGiorno: null }, { merge: true }); } catch (_) { }
-                console.error('Riepilogo iscrizioni non inviato:', String((e && e.message) || e).slice(0, 200));
-                esiti.push({ evento: ev.chiave, nuove: c.nuove.length, errore: true });
+                try { await db.collection('meta').doc(nome).set({ ultimoGiorno: null }, { merge: true }); } catch (_) { }
+                console.error('Riepilogo ' + nome + ' non inviato:', String((e && e.message) || e).slice(0, 200));
+                return 0;
             }
+        };
+        const esiti = [];
+        for (const ev of R.EVENTI) {
+            const c = R.conti(schede, ev, giorno);
+            const nome = 'riepilogoIscrizioni-' + ev.chiave;
+            if (!R.daSpedire(c)) { esiti.push({ evento: ev.chiave, nuove: 0, inAttesa: 0 }); continue; }
+            if (!await prenota(db, nome, giorno, forza)) { esiti.push({ evento: ev.chiave, nuove: c.nuove.length, gia: true }); continue; }
+            const inviata = await spedisci(nome, MNGB.riepilogoIscrizioni(c, LINK_AREA, R.giornoLeggibile(giorno)));
+            esiti.push(inviata
+                ? { evento: ev.chiave, nuove: c.nuove.length, inAttesa: c.inAttesa.length, totale: c.totale, inviata: inviata }
+                : { evento: ev.chiave, nuove: c.nuove.length, errore: true });
+        }
+        /* Gli aderenti: un'altra collezione, e una lettura sua. Se non riesce,
+           il riepilogo delle aziende e' gia' partito e resta valido. */
+        let aderenti = null;
+        try {
+            const snapA = await db.collection(R.COLLEZIONE_ADERENTI).get();
+            aderenti = [];
+            snapA.forEach(d => aderenti.push({ id: d.id, dati: d.data() || {} }));
+        } catch (e) {
+            console.error('Riepilogo aderenti, iscrizioni non lette:', String((e && e.message) || e).slice(0, 200));
+        }
+        for (const q of R.QUOTE_ADERENTI) {
+            if (!aderenti) { esiti.push({ quota: q.id, errore: true }); continue; }
+            const c = R.contiAderenti(aderenti, q, giorno);
+            const nome = 'riepilogoAderenti-' + q.id;
+            if (!R.daSpedireAderenti(c)) { esiti.push({ quota: q.id, nuove: 0, aggiornate: 0 }); continue; }
+            if (!await prenota(db, nome, giorno, forza)) { esiti.push({ quota: q.id, nuove: c.nuove.length, gia: true }); continue; }
+            const inviata = await spedisci(nome, MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno)));
+            esiti.push(inviata
+                ? { quota: q.id, nuove: c.nuove.length, aggiornate: c.aggiornate.length, totale: c.totale, inviata: inviata }
+                : { quota: q.id, nuove: c.nuove.length, errore: true });
         }
         res.status(200).json({ ok: true, giorno: giorno, esiti: esiti });
     } catch (e) {

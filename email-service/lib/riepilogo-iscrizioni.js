@@ -12,11 +12,19 @@
    lo stesso riconoscimento della pagina, cosi' contano anche le
    iscrizioni inserite a mano dall'area riservata (titolo corto).
 
+   GLI ADERENTI (cena e meeting di Milano, lib/iscrizioni-aderenti.js)
+   hanno un riepilogo loro, una mail a parte agli stessi destinatari:
+   non c'e' un'email da confermare - l'iscrizione vale dall'invio del
+   modulo - e quello che serve a chi organizza sono i dati per la
+   fattura. Niente avviso a ogni iscrizione: tutto a mezzanotte, come
+   per le aziende (vedi contiAderenti).
+
    Il lavoro lo fa api/riepilogo-iscrizioni.js; qui ci sono i conti,
    separati perche' si possano provare senza Firestore vero.
    ============================================================ */
 
 const VERIFICATA = require('./iscrizione-verificata');
+const ADERENTI = require('./iscrizioni-aderenti');
 // chi e' "in attesa di conferma": la stessa regola dei promemoria e dell'area riservata
 const CONFERMA = require('./conferma-email');
 
@@ -129,4 +137,96 @@ function daSpedire(c) {
     return !!(c && (c.nuove.length || c.inAttesa.length));
 }
 
-module.exports = { EVENTI: VERIFICATA.EVENTI, destinatari, DESTINATARI, giornoRoma, oraRoma, giornoPrima, giornoLeggibile, giornoDi, conti, daSpedire };
+/* ---------- gli aderenti ----------
+   UN'ISCRIZIONE DEGLI ADERENTI CONTA QUANDO ARRIVA: non c'e' una conferma
+   dell'email da aspettare. Per una quota e un giorno:
+     - "nuove" sono le schede arrivate per la prima volta quel giorno
+       (primaVolta), con i dati dell'ultimo invio: se la persona ha corretto
+       qualcosa in giornata, vale gia' la correzione;
+     - "aggiornate" sono quelle arrivate prima e inviate di nuovo quel giorno
+       (quando): chi fattura deve usare i dati nuovi, e quali campi della
+       fatturazione sono cambiati lo dice `cambiati`, rispetto ai dati che
+       c'erano alla fine del giorno prima (la `storia` della scheda);
+     - "totale" sono le iscrizioni in tutto, e "daFatturare" quelle senza la
+       fattura segnata come emessa, con l'importo IVA inclusa.
+   Le schede tolte dall'area riservata non ci sono piu', e non contano.
+   `schede` e' un elenco di { id, dati } della collezione delle quote. */
+const CAMPI_FATTURA = [
+    ['Intestatario', f => f.intestatario],
+    ['Partita IVA', f => f.partitaIva],
+    ['Codice fiscale', f => f.codiceFiscale],
+    ['Sede', f => [f.indirizzo, f.cap, f.comune, f.provincia].join('|')],
+    ['Codice destinatario', f => f.codiceDestinatario],
+    ['PEC', f => f.pec],
+    ['Email per la fattura', f => f.emailFatture]
+];
+function contiAderenti(schede, q, giorno) {
+    const ms = v => Number(v) || 0;
+    const primaDi = s => ms(s.primaVolta) || ms(s.quando);
+    const della = schede.filter(x => String((x.dati || {}).quota || '') === q.id);
+    const aderente = s => {
+        const f = s.fatturazione || {};
+        const p = primaDi(s), u = ms(s.quando);
+        return {
+            nome: [s.nome, s.cognome].filter(Boolean).join(' ').trim() || '(senza nome)',
+            email: String(s.email || ''),
+            telefono: String(s.telefono || ''),
+            studio: String(s.studio || ''),
+            citta: String(s.citta || ''),
+            ora: p ? oraRomaDi(p) : '',
+            // l'ultimo invio, se non e' il primo
+            aggiornataAlle: u && u !== p && giornoRoma(u) === giorno ? oraRomaDi(u) : '',
+            fatturazione: {
+                intestatario: String(f.intestatario || ''), partitaIva: String(f.partitaIva || ''),
+                codiceFiscale: String(f.codiceFiscale || ''),
+                sede: f.indirizzo ? f.indirizzo + ', ' + [f.cap, f.comune].filter(Boolean).join(' ') + (f.provincia ? ' (' + f.provincia + ')' : '') : '',
+                codiceDestinatario: String(f.codiceDestinatario || ''), pec: String(f.pec || ''),
+                emailFatture: String(f.emailFatture || '')
+            },
+            note: String(s.note || ''),
+            totale: Number((s.importi || {}).totale) || 0,
+            fatturaEmessa: !!(s.fattura && s.fattura.emessa)
+        };
+    };
+    const nuove = della.filter(x => primaDi(x.dati) && giornoRoma(primaDi(x.dati)) === giorno)
+        .sort((a, b) => primaDi(a.dati) - primaDi(b.dati))
+        .map(x => aderente(x.dati));
+    const aggiornate = della.filter(x => {
+        const p = primaDi(x.dati), u = ms(x.dati.quando);
+        return p && u && giornoRoma(p) < giorno && giornoRoma(u) === giorno;
+    }).sort((a, b) => ms(a.dati.quando) - ms(b.dati.quando)).map(x => {
+        const s = x.dati;
+        const a = aderente(s);
+        a.aggiornataAlle = oraRomaDi(ms(s.quando));
+        /* I dati che c'erano a fine giornata ieri: l'ultima versione della
+           storia arrivata prima di oggi. Senza (una storia gia' sfoltita) non
+           si sa che cosa e' cambiato, e non lo si inventa. */
+        const prima = (Array.isArray(s.storia) ? s.storia : [])
+            .filter(v => v && ms(v.quando) && giornoRoma(ms(v.quando)) < giorno && v.fatturazione).pop();
+        a.cambiati = prima
+            ? CAMPI_FATTURA.filter(c => String(c[1](prima.fatturazione || {}) || '') !== String(c[1](s.fatturazione || {}) || '')).map(c => c[0])
+            : null;
+        return a;
+    });
+    const daFatturare = della.filter(x => !((x.dati || {}).fattura && x.dati.fattura.emessa));
+    const somma = rr => Math.round(rr.reduce((t, x) => t + (Number(((x.dati || {}).importi || {}).totale) || 0), 0) * 100) / 100;
+    return {
+        quota: q,
+        giorno: giorno,
+        nuove: nuove,
+        aggiornate: aggiornate,
+        totale: della.length,
+        daFatturare: daFatturare.length,
+        totaleDaFatturare: somma(daFatturare)
+    };
+}
+// c'e' qualcosa da dire? iscrizioni nuove oppure dati cambiati
+function daSpedireAderenti(c) {
+    return !!(c && (c.nuove.length || c.aggiornate.length));
+}
+
+module.exports = {
+    EVENTI: VERIFICATA.EVENTI, QUOTE_ADERENTI: ADERENTI.QUOTE, COLLEZIONE_ADERENTI: ADERENTI.COLLEZIONE,
+    destinatari, DESTINATARI, giornoRoma, oraRoma, giornoPrima, giornoLeggibile, giornoDi,
+    conti, daSpedire, contiAderenti, daSpedireAderenti
+};
