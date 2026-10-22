@@ -41,6 +41,7 @@
    si iscrive dopo la prova.
    ============================================================ */
 
+const crypto = require('crypto');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 const R = require('../lib/riepilogo-iscrizioni');
@@ -95,44 +96,57 @@ function mittente() {
    Se la posta non risponde, o la funzione si interrompe a meta',
    `ultimoGiorno` resta quello di prima e la notte dopo recupera. Un
    `inCorso` di piu' di dieci minuti e' un giro morto e non ferma nessuno.
-   La prima notte in assoluto (nessun `ultimoGiorno`) si segna subito il
-   giorno PRIMA del periodo: se quella notte la mail non parte, la notte
-   dopo riparte da li' e non la prende per un'altra prima volta.
+   L'`inCorso` vale per QUALUNQUE giorno: una chiamata a mano per un altro
+   giorno mentre il lavoro spedisce manderebbe le stesse persone due volte;
+   cosi' aspetta (e il giorno del lavoro, se resta indietro, lo recupera la
+   notte dopo). Ogni giro lo toglie solo se e' ancora il suo (`id`).
+   Senza `ultimoGiorno` (la prima notte, o se la prima e' fallita prima di
+   scrivere qualcosa) si parte da `inizio`, il giorno da cui il riepilogo
+   ha preso il posto degli avvisi (QUOTE[].riepilogoDal), sempre entro la
+   settimana; senza nemmeno quello, dal giorno stesso. E la prima notte si
+   segna subito il giorno PRIMA del periodo, cosi' una mail che non parte
+   la notte dopo si recupera da li'.
    Con forza: un giorno gia' coperto si rispedisce da solo; uno non ancora
    coperto si copre come di solito, dal giorno dopo l'ultimo spedito, cosi'
    forza aggiunge e non salta mai. null: gia' spedito (o in corso). */
 const MAX_GIORNI_RECUPERO = 7;
 const IN_CORSO_MS = 10 * 60 * 1000;
-async function apriAderenti(db, nome, giorno, forza) {
+async function apriAderenti(db, nome, giorno, forza, inizio) {
     const rif = db.collection('meta').doc(nome);
+    const id = crypto.randomBytes(6).toString('hex');
     return db.runTransaction(async tx => {
         const s = await tx.get(rif);
         const d = s.exists ? (s.data() || {}) : {};
         const prima = String(d.ultimoGiorno || '');
         const ic = d.inCorso || null;
-        if (ic && ic.giorno === giorno && Date.now() - (Number(ic.da) || 0) < IN_CORSO_MS) return null;
+        if (ic && Date.now() - (Number(ic.da) || 0) < IN_CORSO_MS) return null;
         let dal;
+        const limite = R.giorniPrima(giorno, MAX_GIORNI_RECUPERO - 1);
         if (prima && prima >= giorno) {
             if (!forza) return null;
             dal = giorno;
+        } else if (prima) {
+            dal = R.giornoDopo(prima) > limite ? R.giornoDopo(prima) : limite;
         } else {
-            const limite = R.giorniPrima(giorno, MAX_GIORNI_RECUPERO - 1);
-            dal = prima ? (R.giornoDopo(prima) > limite ? R.giornoDopo(prima) : limite) : giorno;
+            dal = inizio && inizio < giorno ? (inizio > limite ? inizio : limite) : giorno;
         }
-        const patch = { inCorso: { giorno: giorno, da: Date.now() } };
+        const patch = { inCorso: { giorno: giorno, da: Date.now(), id: id } };
         if (!prima) patch.ultimoGiorno = R.giornoPrima(dal);
         tx.set(rif, patch, { merge: true });
-        return { dal: dal };
+        return { dal: dal, id: id };
     });
 }
-async function chiudiAderenti(db, nome, giorno, spedita) {
+async function chiudiAderenti(db, nome, giorno, spedita, id) {
     const rif = db.collection('meta').doc(nome);
     return db.runTransaction(async tx => {
         const s = await tx.get(rif);
-        const prima = String((s.exists ? (s.data() || {}) : {}).ultimoGiorno || '');
-        const patch = { inCorso: null };
+        const d = s.exists ? (s.data() || {}) : {};
+        const prima = String(d.ultimoGiorno || '');
+        const patch = {};
+        // l'"in corso" si toglie solo se e' ancora quello di questo giro
+        if (d.inCorso && d.inCorso.id === id) patch.inCorso = null;
         if (spedita) Object.assign(patch, { ultimoGiorno: prima > giorno ? prima : giorno, quando: Date.now() });
-        tx.set(rif, patch, { merge: true });
+        if (Object.keys(patch).length) tx.set(rif, patch, { merge: true });
     });
 }
 
@@ -216,7 +230,7 @@ module.exports = async (req, res) => {
         for (const q of R.QUOTE_ADERENTI) {
             if (!aderenti) { esiti.push({ quota: q.id, errore: true }); continue; }
             const nome = 'riepilogoAderenti-' + q.id;
-            let aperto = false;
+            let aperto = null;
             try {
                 if (anteprima) {
                     const c = R.contiAderenti(aderenti, q, giorno);
@@ -225,27 +239,27 @@ module.exports = async (req, res) => {
                     esiti.push({ quota: q.id, nuove: c.nuove.length, aggiornate: c.aggiornate.length, anteprima: true, inviata: inviata, errore: !inviata || undefined });
                     continue;
                 }
-                const p = await apriAderenti(db, nome, giorno, forza);
+                const p = await apriAderenti(db, nome, giorno, forza, q.riepilogoDal);
                 if (!p) { esiti.push({ quota: q.id, gia: true }); continue; }
-                aperto = true;
+                aperto = p.id;
                 const c = R.contiAderenti(aderenti, q, giorno, p.dal);
                 // niente di nuovo: il periodo e' coperto lo stesso, e domani si riparte da li'
                 if (!R.daSpedireAderenti(c)) {
-                    await chiudiAderenti(db, nome, giorno, true);
-                    aperto = false;
+                    await chiudiAderenti(db, nome, giorno, true, p.id);
+                    aperto = null;
                     esiti.push({ quota: q.id, nuove: 0, aggiornate: 0, dal: c.dal });
                     continue;
                 }
                 const inviata = await spedisci(nome, MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno), R.giornoLeggibile(c.dal)), null);
                 // il giorno si segna solo se la mail e' partita; se no resta da spedire
-                await chiudiAderenti(db, nome, giorno, !!inviata);
-                aperto = false;
+                await chiudiAderenti(db, nome, giorno, !!inviata, p.id);
+                aperto = null;
                 esiti.push(inviata
                     ? { quota: q.id, dal: c.dal, nuove: c.nuove.length, aggiornate: c.aggiornate.length, totale: c.totale, inviata: inviata }
                     : { quota: q.id, dal: c.dal, nuove: c.nuove.length, errore: true });
             } catch (e) {
                 // il giorno non e' stato segnato: si toglie solo l'"in corso", e la notte dopo recupera
-                if (aperto) { try { await chiudiAderenti(db, nome, giorno, false); } catch (_) { } }
+                if (aperto) { try { await chiudiAderenti(db, nome, giorno, false, aperto); } catch (_) { } }
                 console.error('Riepilogo aderenti:', String((e && e.message) || e).slice(0, 200));
                 esiti.push({ quota: q.id, errore: true });
             }
