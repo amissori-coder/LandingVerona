@@ -1082,7 +1082,8 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
     const ET_NOTE = 'Note (allergie, intolleranze, altre indicazioni)';
     const MAIL_KO = 'La mail all\'iscritto con quota e dati di fatturazione NON è partita: scrivigli tu.';
     const et = t => '<span style="color:' + C.tenue + ';">' + esc(t) + ':</span> ';
-    const voce = (p, nota, cambiati) => '<tr><td style="' + FONTE + 'font-size:14px;line-height:21px;color:' + C.scuro + ';padding:14px 0;border-bottom:1px solid ' + C.bordo + ';">'
+    // gli indirizzi lunghi (una PEC di studio) vanno a capo invece di allargare la mail sul telefono
+    const voce = (p, nota, cambiati) => '<tr><td style="' + FONTE + 'font-size:14px;line-height:21px;color:' + C.scuro + ';padding:14px 0;border-bottom:1px solid ' + C.bordo + ';word-wrap:break-word;overflow-wrap:anywhere;word-break:break-word;">'
         + '<b style="font-size:16px;line-height:22px;">' + esc(p.nome) + '</b>'
         + (nota ? ' <span style="font-size:13px;color:' + C.tenue + ';">&middot; ' + esc(nota) + '</span>' : '')
         + ((p.studio || p.citta) ? '<br><span style="font-size:15px;color:' + C.testo + ';">' + esc([p.studio, p.citta].filter(Boolean).join(' · ')) + '</span>' : '')
@@ -1120,8 +1121,9 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
         (temaAderenti ? testataEvento(temaAderenti, titoloTestata, sommario) : testata(titoloTestata, sommario))
         + corpo(
             '<tr><td>' + box(
-                rigaBox(periodo ? 'Nuove iscrizioni' : 'Iscrizioni di oggi', String(n), 330)
-                + (u ? rigaBox(periodo ? 'Iscrizioni aggiornate' : 'Iscrizioni aggiornate oggi', String(u), 330) : '')
+                // non "di oggi": la mail si legge il giorno dopo quello che racconta
+                rigaBox('Nuove iscrizioni', String(n), 330)
+                + (u ? rigaBox('Iscrizioni aggiornate', String(u), 330) : '')
                 + rigaBox('Iscrizioni totali', String(c.totale), 330)
                 + rigaBox('Fatture da emettere', c.daFatturare ? c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ')' : '0', 330)
             ) + '</td></tr>'
@@ -1150,7 +1152,7 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
     const testo = ['RIEPILOGO ISCRIZIONI ADERENTI ' + (periodo ? 'DAL ' + dalTesto + ' AL ' + giornoTesto : 'DEL ' + giornoTesto),
         titolo + (datiQuota.length ? '\n' + datiQuota.map(d => d[0] + ': ' + d[1]).join(' - ') : ''),
         sommario,
-        (periodo ? 'Nuove iscrizioni: ' : 'Iscrizioni di oggi: ') + n + (u ? '\nIscrizioni aggiornate: ' + u : '') + '\nIscrizioni totali: ' + c.totale
+        'Nuove iscrizioni: ' + n + (u ? '\nIscrizioni aggiornate: ' + u : '') + '\nIscrizioni totali: ' + c.totale
             + '\nFatture da emettere: ' + (c.daFatturare ? c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ')' : '0'),
         'NUOVE ISCRIZIONI ' + (periodo ? 'DAL ' + dalTesto + ' AL ' + giornoTesto : 'DEL ' + giornoTesto) + '\n' + (n ? c.nuove.map(p => txtPersona(p, notaNuova(p))).join('\n') : 'Nessuna nuova iscrizione.'),
         u ? 'ISCRIZIONI AGGIORNATE\n' + c.aggiornate.map(p => txtPersona(p, notaAggiornata(p), cosaCambia(p))).join('\n') : '',

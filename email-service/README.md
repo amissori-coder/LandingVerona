@@ -1812,10 +1812,14 @@ Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
 
 Senza iscrizioni nuove o aggiornate non parte niente. Una volta per notte su
 `meta/riepilogoAderenti-<quota>`, che tiene l'**ultimo giorno spedito
-davvero**. Questa mail e' l'unico avviso di un'iscrizione da fatturare, quindi
-**non si perde un giorno**: se una notte la posta non risponde, la notte dopo
-la mail copre anche il giorno rimasto indietro ("dal ... al ...", fino a una
-settimana). Un errore nella parte delle aziende non ferma quella degli
+davvero** (`ultimoGiorno`, segnato solo DOPO che la mail e' partita; mentre
+spedisce c'e' `inCorso`, che ferma un secondo giro della stessa notte).
+Questa mail e' l'unico avviso di un'iscrizione da fatturare, quindi **non si
+perde un giorno**: se una notte la posta non risponde, o la funzione si ferma
+a meta', la notte dopo la mail copre anche il giorno rimasto indietro ("dal
+... al ...", fino a una settimana), anche la prima notte in assoluto. Con
+`&forza=1` un giorno gia' coperto si rispedisce da solo, uno non ancora
+coperto si copre insieme a quelli prima: forza non salta giorni. Un errore nella parte delle aziende non ferma quella degli
 aderenti. Ogni persona e' un blocco solo, e la mail resta sotto il taglio di
 Gmail a 102 KB anche con trenta iscrizioni in un giorno.
 
