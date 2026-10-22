@@ -197,7 +197,10 @@ function automatica(h) {
     if (String(h['x-autoreply'] || '').trim()) return true;
     const prec = String(h['precedence'] || '').trim().toLowerCase();
     if (prec === 'auto_reply' || prec === 'bulk' || prec === 'junk') return true;
-    return RE_AUTOMATICA.test(String(h['subject'] || ''));
+    /* L'oggetto SENZA il prefisso del gestore: sulla busta di una risposta
+       PEC l'oggetto e' "POSTA CERTIFICATA: Risposta automatica: ...", e con
+       il prefisso davanti l'espressione non riconosceva mai niente. */
+    return RE_AUTOMATICA.test(oggettoPulito(h['subject']));
 }
 
 /* Il solo indirizzo, senza il nome che di solito lo precede.
@@ -305,8 +308,83 @@ function trovaTesto(nodo, dentroBusta) {
     return migliore;
 }
 
+/* La versione HTML del testo, per chi scrive SOLO in HTML (capita con
+   alcuni programmi di posta e con le webmail): stesse regole di trovaTesto,
+   la busta prima di tutto. Serve quando di text/plain non ce n'e'. */
+function trovaHtml(nodo, dentroBusta) {
+    if (!nodo) return null;
+    const p = nodo.parameters || {};
+    const dp = nodo.dispositionParameters || {};
+    const nomeFile = String(dp.filename || p.name || '').toLowerCase();
+    const tipo = String(nodo.type || '').toLowerCase();
+    if (nomeFile === 'postacert.eml' || tipo === 'message/rfc822') {
+        for (const figlio of (nodo.childNodes || [])) {
+            const t = trovaHtml(figlio, true);
+            if (t) return t;
+        }
+    }
+    let migliore = null;
+    if (tipo === 'text/html' && String(nodo.disposition || '').toLowerCase() !== 'attachment') {
+        migliore = { parte: nodo.part || '1', gioco: p.charset || '', dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta };
+    }
+    for (const figlio of (nodo.childNodes || [])) {
+        const t = trovaHtml(figlio, dentroBusta);
+        if (!t) continue;
+        if (!migliore || (t.dentroBusta && !migliore.dentroBusta)) migliore = t;
+    }
+    return migliore;
+}
+
+/* Da HTML a testo semplice, quanto basta per leggere un messaggio: i capoversi
+   restano capoversi, i tag spariscono, le entita' piu' comuni (anche quelle
+   delle lettere accentate, che i programmi italiani scrivono spesso come
+   &egrave;) tornano caratteri. Non e' un convertitore completo e non deve
+   esserlo: il messaggio vero resta nella casella PEC. */
+const ENTITA = {
+    nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'',
+    agrave: 'à', aacute: 'á', egrave: 'è', eacute: 'é', igrave: 'ì', iacute: 'í',
+    ograve: 'ò', oacute: 'ó', ugrave: 'ù', uacute: 'ú',
+    Agrave: 'À', Egrave: 'È', Eacute: 'É', Igrave: 'Ì', Ograve: 'Ò', Ugrave: 'Ù',
+    euro: '€', laquo: '«', raquo: '»', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+    ndash: '–', mdash: '—', hellip: '…', deg: '°', copy: '©', middot: '·', bull: '•'
+};
+function carattere(n) {
+    return (n > 0 && n <= 0x10FFFF && !(n >= 0xD800 && n <= 0xDFFF)) ? String.fromCodePoint(n) : '';
+}
+function testoDaHtml(html) {
+    return String(html == null ? '' : html)
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(script|style|head|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|tr|h[1-6]|blockquote|table|ul|ol)\s*>/gi, '\n')
+        .replace(/<li\b[^>]*>/gi, '- ')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&#(\d{1,7});/g, (m, n) => carattere(Number(n)))
+        .replace(/&#x([0-9a-f]{1,6});/gi, (m, n) => carattere(parseInt(n, 16)))
+        .replace(/&([a-z]+);/gi, (m, n) => (Object.prototype.hasOwnProperty.call(ENTITA, n) ? ENTITA[n] : m))
+        .replace(/\r\n?/g, '\n')
+        .replace(/[ \t ]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+/* Il testo da mostrare: quello semplice o, se dentro la busta c'e' solo
+   l'HTML, l'HTML. Senza questa scelta una risposta scritta solo in HTML
+   mostrava il testo FUORI dalla busta, cioe' la descrizione del gestore
+   ("Messaggio di posta certificata..."), al posto di quello dell'azienda.
+   `html: true` dice a chi lo scarica di passarlo per testoDaHtml. */
+function trovaLeggibile(nodo) {
+    const t = trovaTesto(nodo);
+    if (t && t.dentroBusta) return Object.assign({ html: false }, t);
+    const h = trovaHtml(nodo);
+    if (h && (h.dentroBusta || !t)) return Object.assign({ html: true }, h);
+    return t ? Object.assign({ html: false }, t) : null;
+}
+
 /* Gli allegati che il messaggio porta con se', per dire almeno che ci sono.
-   Si escludono le parti di servizio della PEC, che non interessano a nessuno. */
+   Si escludono le parti di servizio della PEC, che non interessano a nessuno.
+   `parte` e `tipo` servono a chi li va a prendere (l'inoltro delle risposte,
+   lib/inoltro-risposte-pec.js). */
 const PARTI_DI_SERVIZIO = ['daticert.xml', 'smime.p7s', 'postacert.eml'];
 function trovaAllegati(nodo, elenco) {
     elenco = elenco || [];
@@ -316,14 +394,14 @@ function trovaAllegati(nodo, elenco) {
     const nome = String(dp.filename || p.name || '');
     const tipo = String(nodo.type || '').toLowerCase();
     if (nome && PARTI_DI_SERVIZIO.indexOf(nome.toLowerCase()) < 0 && tipo.indexOf('multipart') !== 0) {
-        elenco.push({ nome: nome.slice(0, 120), dimensione: Number(nodo.size) || 0 });
+        elenco.push({ nome: nome.slice(0, 120), dimensione: Number(nodo.size) || 0, parte: String(nodo.part || ''), tipo: tipo.slice(0, 100) });
     }
     (nodo.childNodes || []).forEach(f => trovaAllegati(f, elenco));
     return elenco;
 }
 
 module.exports = {
-    decodificaTesto, trovaTesto, trovaAllegati,
+    decodificaTesto, trovaTesto, trovaHtml, trovaLeggibile, testoDaHtml, trovaAllegati,
     RICEVUTE, INTESTAZIONI,
     intestazioni, intestazione, chiaveMsgId, parteLocale,
     leggiDaticert, quandoDa, genere, automatica, soloIndirizzo, oggettoPulito,

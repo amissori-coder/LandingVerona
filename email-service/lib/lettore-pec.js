@@ -50,6 +50,7 @@ function ImapFlowClasse() {
     return _ImapFlow;
 }
 const D = require('./daticert');
+const INOLTRO = require('./inoltro-risposte-pec');
 
 const s = v => String(v == null ? '' : v).trim();
 
@@ -78,6 +79,11 @@ const MAX_MESSAGGI = Number(process.env.PEC_LETTORE_MAX) || 40;
 const FINESTRA_UID = MAX_MESSAGGI * 5;      // quanti UID si chiedono al server per giro
 const MAX_DATICERT = 64 * 1024;             // un daticert.xml vero sta in pochi kB
 const MAX_TESTO = 200 * 1024;               // il testo di un messaggio che si apre a video
+/* L'inoltro per email delle risposte (lib/inoltro-risposte-pec.js) parte a
+   fine giro solo se c'e' ancora tempo: oltre questo istante dall'inizio non
+   se ne comincia un altro, e le righe aspettano il giro dopo. Con i tempi
+   stretti della posta, un inoltro cominciato qui finisce dentro i 60 s. */
+const LIMITE_INOLTRI_MS = 25000;
 const LUCCHETTO_MS = 3 * 60 * 1000;
 const PAUSA_ERRORE_MS = 10 * 60 * 1000;     // dopo un guasto non si ribatte subito
 const MAX_ERRORI_AUTH = 3;                  // poi ci si ferma: e' una password da rifare
@@ -388,6 +394,7 @@ async function giro(db, opz) {
     const toccate = {};      // scheda -> esito aggiornato, per l'area riservata
     const nonRiconosciute = [];
     let restanti = false, uidValidity = '', ultimoUid = 0, esito = 'ok', motivo = '';
+    let inoltri = null;
 
     try {
         await client.connect();
@@ -458,6 +465,21 @@ async function giro(db, opz) {
             }
             if (!restanti && aUid < uidNext - 1) restanti = true;
         }
+
+        /* Le risposte da inoltrare per email, con la casella ancora aperta:
+           il testo si legge da li'. Anche quelle rimaste indietro dai giri
+           prima (posta che non rispondeva, tempo finito). Un guasto qui non
+           e' un guasto della lettura: il giro resta "ok" e le righe restano
+           in attesa. */
+        if (Date.now() - inizio < LIMITE_INOLTRI_MS) {
+            try {
+                inoltri = await INOLTRO.inoltra(db, client, {
+                    uidValidity: uidValidity, scadenza: inizio + LIMITE_INOLTRI_MS, casella: c.utente
+                });
+            } catch (e) {
+                console.error('Inoltro risposte PEC:', String((e && e.message) || e).slice(0, 200));
+            }
+        }
     } catch (e) {
         const testo = String((e && (e.responseText || e.message)) || 'errore').slice(0, 200);
         const auth = /auth|login|credential|invalid user|password/i.test(testo) || (e && e.authenticationFailed);
@@ -492,7 +514,9 @@ async function giro(db, opz) {
         quando: Date.now(), esito: esito, motivo: motivo,
         durataMs: Date.now() - inizio, restanti: restanti,
         letti: conto.letti, ricevute: conto.ricevute, risposte: conto.risposte,
-        estranei: conto.estranei, nonRiconosciute: conto.nonRiconosciute
+        estranei: conto.estranei, nonRiconosciute: conto.nonRiconosciute,
+        // le risposte partite per email in questo giro (lib/inoltro-risposte-pec.js)
+        inoltrate: inoltri ? inoltri.inoltrate : 0
     };
     const daSalvare = { ultimoGiro: riepilogo };
     if (esito === 'ok') {
@@ -615,6 +639,20 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
             oggetto: D.oggettoPulito(h['subject']),
             certificata: g.genere === 'risposta'
         };
+        /* In coda per l'inoltro via email PRIMA di scrivere sulla scheda: se
+           la funzione si fermasse fra le due cose, il messaggio verrebbe
+           riletto (il segnaposto si scrive dopo) e la scheda si sistemerebbe
+           da se'; al contrario la risposta resterebbe segnata ma non
+           inoltrata. Due accodamenti dello stesso messaggio sono uno solo. */
+        try {
+            await INOLTRO.accoda(db, {
+                messageId: h['message-id'], uid: Number(m.uid), uidValidity: uidValidity,
+                scheda: trovata.scheda, evento: trovata.evento,
+                quando: quandoMsg, da: fatto.da, oggetto: fatto.oggetto, certificata: fatto.certificata
+            });
+        } catch (e) {
+            console.error('Risposta PEC non accodata per l\'inoltro (' + chiaveVisto + '):', String((e && e.message) || e).slice(0, 200));
+        }
     }
 
     // l'etichetta e' quella che si legge nell'elenco dei messaggi
@@ -669,13 +707,18 @@ async function leggiMessaggio(db, opz) {
         if (!trovato) return { ok: false, msg: 'Messaggio non trovato nella casella.' };
 
         const h = D.intestazioni(trovato.headers);
-        const parte = D.trovaTesto(trovato.bodyStructure);
+        const parte = D.trovaLeggibile(trovato.bodyStructure);
         let testo = '';
         if (parte && parte.dimensione <= MAX_TESTO) {
             try {
                 const scaricato = await client.download(uid, parte.parte, { uid: true, maxBytes: MAX_TESTO });
                 if (scaricato && scaricato.content) {
-                    testo = D.decodificaTesto(await leggiBuffer(scaricato.content, MAX_TESTO), parte.gioco);
+                    /* Il gioco di caratteri dello SCARICAMENTO, non quello
+                       dichiarato: imapflow porta da se' in UTF-8 il testo delle
+                       parti in linea, e ridecodificarlo come iso-8859-1 faceva
+                       di ogni "e'" un "Ã¨". */
+                    testo = D.decodificaTesto(await leggiBuffer(scaricato.content, MAX_TESTO), (scaricato.meta && scaricato.meta.charset) || parte.gioco);
+                    if (parte.html) testo = D.testoDaHtml(testo);
                 }
             } catch (_) { testo = ''; }
         }
