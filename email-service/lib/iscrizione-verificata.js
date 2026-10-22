@@ -159,6 +159,13 @@ function giornoItaliano(ms) {
     const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' });
     return f.format(new Date(ms));
 }
+/* "oggi dopo le 15:20" / "domani dopo le 09:15": quando un numero arrivato
+   al limite dei codici puo' chiederne un altro (ora di Milano). */
+function quandoLibero(ms, ora) {
+    ms = Math.ceil(ms / 60000) * 60000;   // al minuto dopo: "dopo le 15:00" non deve arrivare prima del via libera
+    const alle = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+    return (giornoItaliano(ms) === giornoItaliano(ora) ? 'oggi' : 'domani') + ' dopo le ' + alle;
+}
 function attiva(scheda) {
     return !!scheda && !scheda.annullato;
 }
@@ -424,6 +431,20 @@ async function prenotaSmsDelGiorno(db) {
 
 /* ---------- azione "sms-invia" (pubblica, dal modulo) ----------
    body: { pagina, telefono, email } */
+/* I codici ancora buoni di un numero. Ogni SMS col codice partito davvero
+   lascia la sua impronta, che vale dieci minuti: chi chiede un nuovo codice
+   perche' il primo tarda deve poter usare quello che arriva per primo (e il
+   telefono lo propone da solo, WebOTP o tastiera). Prima c'era un'impronta
+   sola, e il nuovo invio rendeva "non corretto" il codice in arrivo. Sono al
+   massimo cinque al giorno (MAX_INVII_GIORNO), e ognuno si usa una volta:
+   alla verifica riuscita si cancellano tutti. `impronta`/`scade` sono il
+   formato di prima, che si legge ancora (documenti gia' scritti). */
+function codiciValidi(d, ora) {
+    const l = Array.isArray(d.codici) ? d.codici.slice() : [];
+    if (d.impronta) l.push({ impronta: d.impronta, scade: Number(d.scade) || 0 });
+    return l.filter(c => c && c.impronta && Number(c.scade) >= ora);
+}
+
 async function invia(db, body) {
     const ev = eventoDi((body || {}).pagina);
     if (!ev) return { stato: 400, corpo: { ok: false, msg: 'Evento non riconosciuto.' } };
@@ -441,6 +462,7 @@ async function invia(db, body) {
     const rif = rifVerifica(db, ev.chiave, numero);
     const ora = Date.now();
     const codice = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const questo = improntaCodice(ev.chiave, numero, codice);
     const esito = await db.runTransaction(async tx => {
         const s = await tx.get(rif);
         const d = s.exists ? (s.data() || {}) : {};
@@ -449,30 +471,48 @@ async function invia(db, body) {
         if (ultimo && ora - ultimo < PAUSA_INVII_MS) {
             return { attesa: Math.ceil((PAUSA_INVII_MS - (ora - ultimo)) / 1000) };
         }
-        if (invii.length >= MAX_INVII_GIORNO) return { troppi: true };
+        // la finestra e' di 24 ore che scorrono: il prossimo codice, quando esce il piu' vecchio
+        if (invii.length >= MAX_INVII_GIORNO) return { troppi: true, libero: Math.min.apply(null, invii) + GIORNO_MS };
         invii.push(ora);
+        const codici = codiciValidi(d, ora).concat([{ impronta: questo, scade: ora + CODICE_VALE_MS }]);
         tx.set(rif, {
-            evento: ev.chiave, numero: numero, invii: invii,
-            impronta: improntaCodice(ev.chiave, numero, codice),
-            scade: ora + CODICE_VALE_MS, tentativi: 0, verificato: null
+            evento: ev.chiave, numero: numero, invii: invii, codici: codici,
+            impronta: null, scade: ora + CODICE_VALE_MS, tentativi: 0, verificato: null
         }, { merge: true });
-        return { invii: invii };
+        return { invii: invii, tentativiPrima: Number(d.tentativi) || 0 };
     });
+    /* Un SMS che non parte (tetto del giorno, Brevo) non deve contare: si
+       toglie QUESTO invio e il suo codice, e il numero puo' riprovare subito.
+       Si rilegge il documento (una transazione): nel frattempo un codice gia'
+       arrivato puo' essere stato usato, e non deve tornare buono. E tornano
+       gli sbagli di prima: un invio fallito non regala cinque tentativi in
+       piu' sui codici gia' arrivati. */
+    const annullaInvio = () => db.runTransaction(async tx => {
+        const s = await tx.get(rif);
+        const d = s.exists ? (s.data() || {}) : {};
+        tx.set(rif, {
+            invii: (Array.isArray(d.invii) ? d.invii : []).filter(t => t !== ora),
+            codici: (Array.isArray(d.codici) ? d.codici : []).filter(c => c && c.impronta !== questo),
+            tentativi: Math.min(MAX_TENTATIVI, esito.tentativiPrima + (Number(d.tentativi) || 0))
+        }, { merge: true });
+    }).catch(() => { /* resta il freno */ });
     if (esito.attesa) {
         return { stato: 429, corpo: { ok: false, campo: 'telefono', attesa: esito.attesa, msg: 'Ti abbiamo appena mandato un codice: per chiederne un altro aspetta ' + esito.attesa + ' secondi.' } };
     }
     if (esito.troppi) {
-        return { stato: 429, corpo: { ok: false, campo: 'telefono', msg: 'Per oggi abbiamo già mandato a questo numero tutti i codici previsti. Riprova domani, oppure scrivici a info@nextgenerationbusiness.it.' } };
+        return { stato: 429, corpo: { ok: false, campo: 'telefono', msg: 'Nelle ultime 24 ore abbiamo già mandato a questo numero ' + MAX_INVII_GIORNO
+            + ' codici: puoi chiederne un altro ' + quandoLibero(esito.libero, ora) + ', oppure scrivici a info@nextgenerationbusiness.it.' } };
     }
     if (!await prenotaSmsDelGiorno(db)) {
         console.error('SMS di verifica: raggiunto il tetto giornaliero (SMS_MAX_GIORNO).');
+        await annullaInvio();
         return { stato: 503, corpo: { ok: false, msg: MSG.servizio } };
     }
     const sms = await spedisciSms(numero, testoSms(ev, codice));
     if (!sms.ok) {
         console.error('SMS di verifica non inviato:', String(sms.errore || '').replace(/\+?\d{9,}/g, '<numero>'));
         // l'invio fallito non deve far aspettare un minuto per riprovare
-        try { await rif.set({ invii: esito.invii.slice(0, -1), impronta: null }, { merge: true }); } catch (_) { /* resta il freno */ }
+        await annullaInvio();
         return { stato: 502, corpo: { ok: false, msg: MSG.servizio } };
     }
     return { stato: 200, corpo: { ok: true, numero: mascherato(numero), attesa: PAUSA_INVII_MS / 1000, vale: CODICE_VALE_MS / 60000 } };
@@ -495,17 +535,21 @@ async function verifica(db, body) {
     const r = await db.runTransaction(async tx => {
         const s = await tx.get(rif);
         const d = s.exists ? (s.data() || {}) : {};
-        if (!d.impronta) return { esito: 'nessuno' };
-        if (Number(d.scade) < ora) return { esito: 'scaduto' };
+        const codici = codiciValidi(d, ora);
+        if (!codici.length) return { esito: (d.impronta || (Array.isArray(d.codici) && d.codici.length)) ? 'scaduto' : 'nessuno' };
         const tentativi = Number(d.tentativi) || 0;
         if (tentativi >= MAX_TENTATIVI) return { esito: 'troppi' };
-        const giusto = crypto.timingSafeEqual(
-            Buffer.from(String(d.impronta)), Buffer.from(improntaCodice(ev.chiave, numero, codice)));
+        // ogni codice ancora buono, di questo invio o di quelli prima (vedi codiciValidi)
+        const atteso = Buffer.from(improntaCodice(ev.chiave, numero, codice));
+        const giusto = codici.some(c => {
+            const b = Buffer.from(String(c.impronta));
+            return b.length === atteso.length && crypto.timingSafeEqual(b, atteso);
+        });
         if (!giusto) {
             tx.set(rif, { tentativi: tentativi + 1 }, { merge: true });
             return { esito: 'sbagliato', restano: MAX_TENTATIVI - tentativi - 1 };
         }
-        tx.set(rif, { impronta: null, verificato: ora }, { merge: true });
+        tx.set(rif, { impronta: null, codici: [], verificato: ora }, { merge: true });
         return { esito: 'ok' };
     });
     if (r.esito === 'ok') {
