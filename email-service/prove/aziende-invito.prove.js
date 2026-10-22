@@ -409,6 +409,25 @@ function dallAreaRiservata(nome) {
     esigi(eps.ragioneSociale === 'Epsilon Srl' && eps.provincia === 'MI',
         '"Denominazione" vince su "Nome (referente)", "Provincia" su "Provincia (sede legale)"', JSON.stringify([eps.ragioneSociale, eps.provincia]));
 
+    console.log('\nIl modello da scaricare: le colonne del file delle aziende da invitare');
+    /* Il modello si ritaglia dal sorgente vero dell'area riservata
+       (INV_MODELLO): le sue intestazioni devono essere quelle del foglio
+       "PEC Lombardia", nello stesso ordine, e le sue righe di esempio devono
+       entrare intere. */
+    const APP = require('fs').readFileSync(path.join(RADICE, '..', 'area-riservata', 'app.js'), 'utf8');
+    const daModello = APP.indexOf('const INV_MODELLO = [');
+    const MODELLO = eval(APP.slice(daModello + 'const INV_MODELLO = '.length, APP.indexOf('\n    ];', daModello) + 6));
+    const intestModello = MODELLO.map(c => c.nome);
+    esigi(intestModello.join('|') === INTEST18.join('|'), 'il modello ha le diciotto colonne del file, con gli stessi nomi e nello stesso ordine', intestModello.join('|'));
+    esigi(MODELLO.filter(c => c.obbligatoria).map(c => c.nome).join('|') === 'Ragione sociale (file)|PEC', 'obbligatorie la ragione sociale e la PEC');
+    scenario({}, 0);
+    r = await carica(inCsv([intestModello].concat([0, 1].map(i => MODELLO.map(c => c.es[i] || '')))));
+    const alfaModello = dati[id('alfaindustrie@pec.it')] || {};
+    esigi(r.nuove === 2 && r.senzaDenominazione === 0 && r.senzaRecapito === 0, 'le due righe di esempio entrano', JSON.stringify(r));
+    esigi(alfaModello.ragioneSociale === 'ALFA INDUSTRIE S.R.L.' && alfaModello.piva === '01234567890' && alfaModello.cf === '01234567890'
+        && alfaModello.citta === 'MILANO' && (alfaModello.datiFile || []).length === 18 && etichette(alfaModello.datiFile) === INTEST18.join('|'),
+        'con ragione sociale, partita IVA e codice fiscale con lo zero, comune, e tutte le colonne fra i dati del file', JSON.stringify(alfaModello).slice(0, 300));
+
     console.log('\nLa forma dei dati del file (lib/dati-file-azienda.js)');
     const DF = require(path.join(RADICE, 'lib/dati-file-azienda.js'));
     const sporco = [{ c: ' Ricavi ', v: 12 }, null, 'testo', { c: '', v: 'senza intestazione' }, { c: 'X'.repeat(100), v: 'Y'.repeat(1200) }, { c: 'A\u0007capo', v: 'riga\nnuova' }];

@@ -28956,20 +28956,34 @@
         ]);
     }
 
-    /* Le colonne del modello. Le prime due sono obbligatorie e l'asterisco lo
-       dice a chi apre il file; il servizio, quando rilegge le intestazioni,
-       l'asterisco lo ignora, cosi' toglierlo non rompe nulla. */
+    /* Le colonne del modello: quelle del file delle aziende da invitare (il
+       foglio "PEC Lombardia"), nello stesso ordine e con gli stessi nomi,
+       senza asterischi: i nomi delle colonne diventano le etichette delle
+       colonne aggiuntive degli iscritti. Obbligatorie la ragione sociale e la
+       PEC (lo dice la finestra; un asterisco messo a mano il servizio lo
+       ignora). Tutte le colonne restano
+       sulla scheda dell'azienda e arrivano, con il codice, sulla riga di chi
+       si iscrive. Il servizio riconosce anche i nomi di prima (Denominazione,
+       Citta, Referente...): un file fatto col vecchio modello entra lo stesso. */
     const INV_MODELLO = [
-        { nome: 'Denominazione *', largo: 34, es: ['Alfa Costruzioni S.r.l.', 'Beta Servizi S.p.A.'] },
-        { nome: 'PEC *', largo: 30, es: ['alfacostruzioni@pec.it', 'betaservizi@legalmail.it'] },
-        { nome: 'Partita IVA', largo: 15, es: ['01234567890', '09876543210'] },
-        { nome: 'Referente', largo: 22, es: ['Mario Rossi', 'Anna Bianchi'] },
-        { nome: 'Email', largo: 26, es: ['info@alfacostruzioni.it', ''] },
-        { nome: 'Telefono', largo: 16, es: ['081 1234567', ''] },
-        { nome: 'Citta', largo: 18, es: ['Napoli', 'Pozzuoli'] },
-        { nome: 'Provincia', largo: 10, es: ['NA', 'NA'] },
-        { nome: 'Settore', largo: 22, es: ['Edilizia', 'Servizi alle imprese'] },
-        { nome: 'Note', largo: 28, es: ['', ''] }
+        { nome: '#', largo: 6, es: ['1', '2'] },
+        { nome: 'Ragione sociale (file)', largo: 34, obbligatoria: true, es: ['ALFA INDUSTRIE S.R.L.', 'BETA SERVIZI S.P.A.'] },
+        { nome: 'Codice fiscale', largo: 16, es: ['01234567890', '09876543210'] },
+        { nome: 'PEC', largo: 30, obbligatoria: true, es: ['alfaindustrie@pec.it', 'betaservizi@legalmail.it'] },
+        { nome: 'Ricavi (EUR)', largo: 14, es: ['12500000', '48000000'] },
+        { nome: 'Utile netto (EUR)', largo: 16, es: ['850000', '-320000'] },
+        { nome: 'Totale attivo (EUR)', largo: 18, es: ['9800000', '51000000'] },
+        { nome: 'Capitale sociale (EUR)', largo: 20, es: ['100000', '1000000'] },
+        { nome: 'Dipendenti', largo: 11, es: ['45', '210'] },
+        { nome: 'Chiusura bilancio', largo: 16, es: ['31/12/2025', '31/12/2025'] },
+        { nome: 'Provincia (sede operativa)', largo: 22, es: ['Milano', 'Monza e della Brianza'] },
+        { nome: 'Comune (sede operativa)', largo: 22, es: ['MILANO', 'MONZA'] },
+        { nome: 'Provincia (sede legale)', largo: 22, es: ['Milano', 'Monza e della Brianza'] },
+        { nome: 'Settore di attivita', largo: 32, es: ['FABBRICAZIONE DI MACCHINARI', 'SERVIZI ALLE IMPRESE'] },
+        { nome: 'Partita IVA', largo: 14, es: ['01234567890', '09876543210'] },
+        { nome: 'Numero CCIAA', largo: 14, es: ['MI1234567', 'MB7654321'] },
+        { nome: 'Revisore o societa di revisione', largo: 28, es: ['Dott. Mario Rossi', 'Revisori Associati S.r.l.'] },
+        { nome: 'Data nomina revisore', largo: 18, es: ['30/06/2026', '15/05/2026'] }
     ];
     function scaricaModelloAziende() {
         const intest = INV_MODELLO.map(c => c.nome);
@@ -29017,14 +29031,17 @@
 
     function modaleImportaAziendeInvito(ev) {
         if (!puoGestireInviti()) return;
-        const colonne = INV_MODELLO.map(c => c.nome.replace(' *', '')).join(', ');
+        const nomeColonna = c => c.nome;
+        const obbligatorie = INV_MODELLO.filter(c => c.obbligatoria).map(c => '<b>' + esc(nomeColonna(c)) + '</b>').join(' e ');
+        const facoltative = INV_MODELLO.filter(c => !c.obbligatoria && c.nome !== '#').map(nomeColonna).join(', ');
         apriModale('<h2>Carica l\'elenco delle aziende</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">Il modo più rapido è partire dal modello: ha già le colonne '
             + 'giuste, nell\'ordine giusto, e due righe di esempio da sostituire.</p>'
             + '<div class="inv-imp-modello">'
             + '<button class="btn btn-secondary btn-sm" id="inv-modello">Scarica il modello (.xlsx)</button>'
-            + '<span class="hint">Obbligatorie <b>Denominazione</b> e <b>PEC</b>. Le altre colonne ('
-            + esc(colonne.replace('Denominazione, PEC, ', '')) + ') sono facoltative: quello che c\'è finisce sulla scheda.</span>'
+            + '<span class="hint">Obbligatorie ' + obbligatorie + '. Le altre colonne ('
+            + esc(facoltative) + ') sono facoltative: quello che c\'è finisce sulla scheda dell\'azienda e, con il codice, '
+            + 'sulla riga di chi si iscrive.</span>'
             + '</div>'
             + '<div class="ev-imp-passo"><label for="inv-file"><b>Il file compilato</b></label>'
             + '<input type="file" id="inv-file" accept=".xlsx,.csv,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>'
