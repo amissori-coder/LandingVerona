@@ -315,6 +315,8 @@ async function lavora(db, id, dati, scadenza, fuori) {
                        che questa chiave esistesse non ce l'hanno: li' si ricade
                        sull'identificativo, che e' quello che facevano gia'. */
                     forza: dati.forza === true, prog: dati.corsa ? (id + '#' + dati.corsa) : id,
+                    // il secondo invio: solo a chi non si e' fatto vivo, ricontrollato a ogni scheda
+                    soloNonIscritte: dati.soloNonIscritte === true,
                     email: (dati.creato && dati.creato.da) || '',
                     collab: (dati.creato && dati.creato.collab) || '',
                     pagina: dati.pagina || '',

@@ -301,6 +301,31 @@ async function gettoniStato(db, chi, canale) {
     };
 }
 
+/* IL TESTO DELL'INVITO, per il secondo invio. Il secondo invio deve essere
+   IDENTICO al primo - stesso oggetto, stesso testo, stessa versione - e il
+   testo vive nella finestra dell'area riservata, che di suo lo riscrive da
+   capo a ogni apertura. Percio' a ogni invio "normale" (non un rinvio, non
+   un secondo invio) l'area riservata manda anche il testo com'era scritto
+   nella finestra, e qui lo si tiene, uno per evento e campagna: il secondo
+   invio lo ripropone tale e quale. E' l'ultimo testo con cui sono partiti
+   gli inviti nuovi, cioe' quello che hanno ricevuto le aziende da
+   sollecitare. */
+function rifTestoInvito(db, evento, campagna) {
+    return db.collection('meta').doc(('testoInvito-' + evento + '~' + campagna).replace(/\//g, '%2F').slice(0, 400));
+}
+async function ricordaTesto(db, evento, campagna, body, oggetto, chi) {
+    const t = String(body.testo || '').slice(0, 100000);
+    if (!t.trim()) return;
+    try {
+        await rifTestoInvito(db, evento, campagna).set({
+            evento: evento, campagna: campagna, oggetto: oggetto, testo: t,
+            versione: testo(body.versione, 20), quando: Date.now(), da: String(chi || '').slice(0, 200)
+        }, { merge: true });
+    } catch (e) {
+        console.error('Testo dell\'invito non ricordato:', String((e && e.message) || e).slice(0, 200));
+    }
+}
+
 /* Ha risposto? Le tre forme che una risposta puo' prendere, in un posto
    solo: la risposta a una PEC, il modulo di richiesta contatto, e
    l'iscrizione all'evento col codice. Sono tre strade diverse per dire la
@@ -569,12 +594,24 @@ async function esegui(ctx) {
                 if (k && fuoriCampagna[k]) a.anche = fuoriCampagna[k];
             });
             aziende.sort((a, b) => String(a.ragioneSociale).localeCompare(String(b.ragioneSociale), 'it'));
+            // il testo dell'ultimo invito, per il secondo invio: con la prima pagina
+            let testoInvito = null;
+            if (!dopo) {
+                try {
+                    const t = await rifTestoInvito(db, evento, campagna).get();
+                    if (t.exists) {
+                        const v = t.data() || {};
+                        testoInvito = { oggetto: v.oggetto || '', testo: v.testo || '', versione: v.versione || '', quando: v.quando || 0, da: v.da || '' };
+                    }
+                } catch (_) { testoInvito = null; }
+            }
             /* L'altra lista viaggia anche a parte: la sovrapposizione fra due
                schede puo' cadere su due pagine diverse, e chi rimette insieme
                le pagine e' l'unico che le ha davanti tutte e due. */
             res.status(200).json({
                 ok: true, aziende: aziende, aggiornato: Date.now(),
                 altre: aPagine ? fuoriCampagna : {},
+                testoInvito: testoInvito,
                 cursore: quanteLette >= quante ? ultimo : '',
                 ancora: quanteLette >= quante,
                 limite: MAX_AZIENDE_EVENTO
@@ -1004,7 +1041,10 @@ async function esegui(ctx) {
             const html = String(mail.html || '').slice(0, 300000);
             if (!oggetto) { res.status(400).json({ ok: false, msg: 'Oggetto dell\'invito mancante.' }); return; }
             if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Testo dell\'invito mancante.' }); return; }
-            const forza = body.forza === true;
+            const soloNonIscritte = body.soloNonIscritte === true;
+            // il secondo invio e' per definizione a chi ha gia' ricevuto
+            const forza = body.forza === true || soloNonIscritte;
+            if (!forza) await ricordaTesto(db, evento, campagna, body, oggetto, email);
 
             /* Chi ha gia' chiesto di non ricevere piu' nulla non lo si tocca,
                qualunque sia la lista da cui e' rispuntato. Si legge una volta
@@ -1037,6 +1077,7 @@ async function esegui(ctx) {
             const r = await MOTORE.inviaSchede(db, {
                 evento: evento, campagna: campagna, canale: canale,
                 ids: daFare, mail: { oggetto: oggetto, html: html }, forza: forza,
+                soloNonIscritte: soloNonIscritte,
                 email: email, collab: collab,
                 /* Il nome della pagina di iscrizione viaggia col codice: e' l'unico
                    modo che ha il modulo pubblico, che l'evento lo conosce solo per
@@ -1170,6 +1211,8 @@ async function esegui(ctx) {
             }
             const ritmo = RITMI.normalizza(canale, body.ritmo);
             const id = PROG.idDi(evento, campagna);
+            const soloNonIscritte = body.soloNonIscritte === true;
+            const forzaProg = body.forza === true || soloNonIscritte;
 
             /* Una sola programmazione per elenco, e lo garantisce la
                transazione: due persone che programmano lo stesso elenco, anche
@@ -1223,7 +1266,8 @@ async function esegui(ctx) {
                     quando: quando, ritmo: ritmo,
                     mail: { oggetto: oggetto, html: html },
                     pagina: testo(body.pagina, 200),
-                    forza: body.forza === true,
+                    forza: forzaProg,
+                    soloNonIscritte: soloNonIscritte,
                     creato: { da: email, collab: collab, il: adesso },
                     totale: 0, lotti: 0,
                     conti: { inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, falliti: 0 },
@@ -1251,6 +1295,8 @@ async function esegui(ctx) {
                campagna nuova spedisce anche alle aziende della vecchia, che
                nessuno ha selezionato. Su un elenco vuoto non costa niente. */
             await PROG.cancellaLotti(db, id);
+            // un invito nuovo programmato: il suo testo e' quello del secondo invio
+            if (!forzaProg) await ricordaTesto(db, evento, campagna, body, oggetto, email);
 
             res.status(200).json({
                 ok: true, id: id, perLotto: PROG.PER_LOTTO,

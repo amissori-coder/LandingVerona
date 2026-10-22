@@ -214,6 +214,7 @@ function perVideo(id, d) {
         finestra: { usati: f.usati, disponibili: f.disponibili, riprendeAlle: f.riprendeAlle },
         oggetto: String(d.mail && d.mail.oggetto || '').slice(0, 250),
         forza: d.forza === true,
+        soloNonIscritte: d.soloNonIscritte === true,
         creato: d.creato || null, avviato: d.avviato || null, concluso: d.concluso || null,
         sospesa: d.sospesa || null, annullato: d.annullato || null,
         ultimoErrore: String(d.ultimoErrore || '').slice(0, 300),

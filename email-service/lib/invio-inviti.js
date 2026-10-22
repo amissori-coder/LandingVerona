@@ -80,6 +80,25 @@ function indirizzoValido(e) {
        cinque volte. Il segno lo lascia l'invio stesso (invio.prog),
        quindi non serve tenere un segnalibro da nessuna parte: e'
        la scheda a ricordare, come per tutto il resto. */
+/* IL SECONDO INVIO (soloNonIscritte): parte di nuovo, identico, solo a chi
+   l'invito l'ha GIA' ricevuto e da allora non si e' fatto vivo. La regola di
+   "si e' fatta viva" e' quella di lib/aziende-invito.js (haRisposto) e
+   dell'area riservata: ha risposto alla PEC, ha chiesto di essere
+   contattata, o si e' iscritta col codice. Si ricontrolla QUI, sulla scheda
+   riletta nella transazione, e non solo nella selezione dell'area
+   riservata: fra la scelta e l'invio - su un secondo invio programmato,
+   giorni - un'azienda si puo' iscrivere, e il sollecito non le deve
+   arrivare. */
+function fattaViva(a) {
+    if (!a) return false;
+    if (a.contatto && a.contatto.quando) return true;
+    if (a.ricevute && a.ricevute.risposta && a.ricevute.risposta.quando) return true;
+    return a.stato === 'risposta' || a.stato === 'iscritta';
+}
+function fuoriDalSecondoInvio(a) {
+    return !(a && a.invio && a.invio.quando) || fattaViva(a);
+}
+
 function giaServita(a, forza, prog) {
     const invio = a && a.invio;
     if (!invio || !invio.quando) return false;
@@ -132,6 +151,8 @@ const INCERTO_DOPO_MS = Math.max(
    opz:
      evento, campagna, canale, ids, mail {oggetto, html}
      forza      rispedire a chi ha gia' ricevuto
+     soloNonIscritte  il secondo invio: solo a chi ha gia' ricevuto e non si
+                e' fatto vivo (fuoriDalSecondoInvio), con forza
      prog       identificativo della programmazione, se l'invio e' automatico
      email      chi firma l'invio (finisce nei timbri delle schede)
      collab     il collaboratore reale, se c'e'
@@ -157,6 +178,7 @@ async function inviaSchede(db, opz) {
     const oggetto = testo(mail.oggetto, 250);
     const html = String(mail.html || '');
     const forza = opz.forza === true;
+    const soloNonIscritte = opz.soloNonIscritte === true;
     const prog = String(opz.prog || '');
     const email = String(opz.email || '');
     const collab = opz.collab || '';
@@ -218,6 +240,7 @@ async function inviaSchede(db, opz) {
                     if (CAMPAGNE.diScheda(a) !== campagna) return { cosa: 'saltata' };
                     if (a.stato === 'esclusa' || a.stato === 'disiscritta') return { cosa: 'saltata' };
                     if (giaServita(a, forza, prog)) return { cosa: 'saltata' };
+                    if (soloNonIscritte && fuoriDalSecondoInvio(a)) return { cosa: 'saltata' };
                     /* Un tentativo rimasto appeso: vedi il commento su
                        INCERTO_DOPO_MS. Fresco vuol dire "ci sta lavorando
                        qualcun altro proprio adesso"; vecchio vuol dire "non si
@@ -359,4 +382,4 @@ async function inviaSchede(db, opz) {
     return conti;
 }
 
-module.exports = { inviaSchede, giaServita };
+module.exports = { inviaSchede, giaServita, fuoriDalSecondoInvio };

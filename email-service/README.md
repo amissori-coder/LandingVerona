@@ -200,6 +200,35 @@ dove si vede anche a che punto e' e fra quanto riparte.
   fra la lettura e il timbro passavano decine di millisecondi, e in quella
   finestra ci passavano tutti e due.
 
+**Il secondo invio a chi non si e' iscritto.** Nella finestra delle aziende da
+invitare, scheda "Inviate", il pulsante **"Secondo invio a chi non si e'
+iscritto (N)"** riapre l'invio gia' pronto per le aziende che l'invito l'hanno
+ricevuto e da allora non si sono fatte vive. Fuori restano quelle che:
+- si sono iscritte col codice;
+- hanno risposto alla PEC;
+- hanno chiesto di essere contattate;
+- hanno la PEC non arrivata o un errore;
+- sono state escluse o si sono disiscritte.
+
+Il messaggio e' **identico al primo**: stesso oggetto, stesso testo, stessa
+versione e stesso canale, e **lo stesso codice** di ogni azienda (il motore
+tiene quello gia' assegnato). Si spedisce a mano o programmato, come un invio
+normale. Come funziona:
+- **Dove sta il testo.** A ogni invito *nuovo*, a mano o programmato, l'area
+  riservata manda anche il testo com'e' scritto nella finestra, con la
+  versione. Il servizio lo tiene su `meta/testoInvito-<evento>~<campagna>`
+  (`ricordaTesto` in `lib/aziende-invito.js`) e lo restituisce con la prima
+  pagina dell'elenco (`testoInvito`).
+- **Cosa non lo cambia.** I rinvii ("manda una seconda volta") e i secondi
+  invii non lo sovrascrivono.
+- **Testo non salvato.** Se manca (inviti partiti prima di questa funzione),
+  la finestra lo dice e propone il testo attuale.
+- **Il controllo di chi lo riceve.** L'invio porta `soloNonIscritte: true`, che
+  per il servizio vale anche `forza`. Il motore (`fuoriDalSecondoInvio` in
+  `lib/invio-inviti.js`) **ricontrolla ogni scheda** nella transazione prima di
+  spedire, anche nel lavoro programmato: chi si iscrive fra la scelta e
+  l'invio non riceve il sollecito.
+
 Un'ultima cosa che vale la pena sapere: il ritmo scritto a video e' una
 promessa che regge finche' il server di posta risponde in fretta. Se una
 sendMail comincia a costare tre secondi invece di uno, in un giro escono meta'
@@ -211,7 +240,9 @@ concedeva") invece di lasciar contare i giorni sul calendario.
 Le prove stanno in `prove/inviti-programmati.prove.js` e si lanciano con
 `node prove/inviti-programmati.prove.js`: non richiedono niente di installato.
 Coprono il ritmo e la finestra scorrevole, i tre doppioni qui sopra (compresi
-il sollecito e i due invii in parallelo), l'elenco piu' lungo della finestra
+il sollecito e i due invii in parallelo), il secondo invio a chi non si e'
+iscritto (chi resta fuori, lo stesso codice, il testo ricordato, l'iscrizione
+arrivata dopo la programmazione), l'elenco piu' lungo della finestra
 di lettura dei lotti, la rotazione fra programmazioni, e l'invio a mano dopo
 l'estrazione del motore.
 

@@ -27104,10 +27104,13 @@
         const aziende = [];
         const altre = {};
         let aggiornato = 0;
+        // il testo dell'ultimo invito (per il secondo invio): arriva con la prima pagina
+        let testoInvito = null;
         const giro = (dopo, pagina) => Cloud.aziendeInvito({
             azione: 'elenco', evento: ev.id, campagna: campagna, aPagine: true, dopo: dopo
         }).then(r => {
             if (!r || !r.ok) return r || { ok: false, msg: 'Elenco non disponibile.' };
+            if (pagina === 1) testoInvito = r.testoInvito || null;
             (r.aziende || []).forEach(a => aziende.push(a));
             Object.assign(altre, r.altre || {});
             aggiornato = r.aggiornato || aggiornato;
@@ -27121,7 +27124,7 @@
             aziende.sort((x, y) => conf
                 ? conf.compare(String(x.ragioneSociale || ''), String(y.ragioneSociale || ''))
                 : String(x.ragioneSociale || '').localeCompare(String(y.ragioneSociale || ''), 'it'));
-            return { ok: true, aziende: aziende, aggiornato: aggiornato || Date.now() };
+            return { ok: true, aziende: aziende, aggiornato: aggiornato || Date.now(), testoInvito: testoInvito };
         });
         return giro('', 1);
     }
@@ -27161,7 +27164,7 @@
         };
         leggiElencoInvito(ev, _invCampagna, passo).then(r => {
             _invInCaricamento = false;
-            if (r.ok) _invCache[k] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
+            if (r.ok) _invCache[k] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now(), testoInvito: r.testoInvito || null };
             /* Se nel frattempo qualcuno ha risposto lo si DICE. Senza, la
                riga si sposta nella scheda delle risposte e chi stava
                guardando le contattate vede solo un numero calare: e' la
@@ -28155,6 +28158,17 @@
                non cambia scheda, e deve poterlo chiedere. L'ora dell'ultima
                lettura sta accanto, altrimenti non si sa se quello che si vede
                e' di adesso o di venti minuti fa. */
+            /* IL SECONDO INVIO. Sta nella scheda "Inviate" perche' le aziende
+               a cui parte sono proprio quelle: invitate, e da allora niente -
+               non iscritte, nessuna risposta. Un pulsante solo, con il numero
+               sopra, invece di "seleziona tutte, Invia, spunta la seconda
+               volta, ricopia il testo di allora": e' il gesto che si fa a ogni
+               campagna, e ognuno di quei passi e' un posto dove sbagliare. */
+            + (camp.id === 'invito' && _invFiltro.vista === 'inviate' && n.inviate
+                ? '<button class="btn btn-primary btn-sm" id="inv-secondo" title="Lo stesso invito, con lo stesso codice, '
+                + 'alle aziende invitate che non si sono iscritte e non hanno risposto">'
+                + 'Secondo invio a chi non si è iscritto (' + n.inviate.toLocaleString('it-IT') + ')</button>'
+                : '')
             + '<button class="btn btn-secondary btn-sm" id="inv-rileggi" title="Rilegge l\'elenco dal servizio: '
             + 'le risposte al modulo e le ricevute arrivano da fuori, non da questa finestra">Aggiorna l\'elenco</button>'
             + (letto ? '<span class="inv-letto hint">letto ' + esc(letto) + '</span>' : '')
@@ -28627,6 +28641,9 @@
         }));
 
         const selezionate = () => tutte.filter(a => _invSel.has(a.id));
+        const bSecondo = document.getElementById('inv-secondo');
+        if (bSecondo) bSecondo.addEventListener('click', () =>
+            modaleInviaInvito(ev, tutte.filter(a => vistaDi(a) === 'inviate'), 'ora', { secondo: true }));
         const bInvia = document.getElementById('inv-invia');
         if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'ora'));
         const bProg = document.getElementById('inv-programma');
@@ -29779,16 +29796,40 @@
        sempre quello a video. Si spedisce a LOTTI, cosi' nessuna chiamata sfora
        il tempo massimo del servizio, e a ogni giro l'esito e' gia' scritto sulle
        schede: interrompere e riprendere non fa danni. */
-    function modaleInviaInvito(ev, elenco, modoIniziale) {
+    /* opz.secondo: IL SECONDO INVIO. Alle aziende gia' invitate che non si
+       sono iscritte e non hanno risposto riparte lo stesso invito: stesso
+       oggetto, stesso testo, stessa versione (quelli ricordati dal servizio
+       all'ultimo invio, vedi rifTestoInvito in lib/aziende-invito.js), stesso
+       canale e - lo fa il servizio - stesso codice. Il servizio ricontrolla
+       ogni scheda prima di spedire (soloNonIscritte): chi si iscrive nel
+       frattempo non lo riceve. */
+    function modaleInviaInvito(ev, elenco, modoIniziale, opz) {
         if (!puoGestireInviti()) return;
-        const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta');
-        if (!scelte.length) { toast('Nessuna azienda selezionata (escluse e disiscritte non contano).', 'rosso'); return; }
+        opz = opz || {};
+        const secondo = !!opz.secondo;
+        const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta')
+            .filter(a => !secondo || (a.invio && a.invio.quando && !haRisposto(a)));
+        if (!scelte.length) {
+            toast(secondo ? 'Nessuna azienda da sollecitare: tutte le invitate si sono iscritte o hanno risposto.'
+                : 'Nessuna azienda selezionata (escluse e disiscritte non contano).', 'rosso');
+            return;
+        }
         const cEmail = canaleCfg('email'), cPec = canaleCfg('pec');
         // canale iniziale: l'email ordinaria, che e' quella dell'invito normale
         let canale = cEmail.pronto ? 'email' : 'pec';
+        /* Il secondo invio parte dal canale del primo: un'azienda invitata per
+           PEC riceve il sollecito per PEC. Se le invitate sono un misto, quello
+           della maggior parte (e si puo' sempre cambiare). */
+        if (secondo) {
+            const viaPec = scelte.filter(a => a.invio && a.invio.canale === 'pec').length;
+            const pref = viaPec * 2 >= scelte.length ? 'pec' : 'email';
+            if (canaleCfg(pref).pronto) canale = pref;
+        }
 
         const raggiungibili = c => scelte.filter(a => recapitoDi(c, a)).length;
         const gia = scelte.filter(a => a.invio && a.invio.quando).length;
+        // il testo con cui e' partito l'ultimo invito (per il secondo invio)
+        const ricordato = secondo ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
 
         const opzione = (id, nome, etichetta, spiega, attivo, pronto) =>
             '<label class="inv-canale' + (attivo ? ' attiva' : '') + (pronto ? '' : ' spenta') + '">'
@@ -29846,6 +29887,7 @@
            domanda a cui prima o poi qualcuno risponde male. */
         const conVersioni = campI.id !== 'sponsor';
         let versione = conVersioni ? invVersionePredefinita(ev) : 'sala';
+        if (ricordato && ricordato.versione && INV_VERSIONI.some(v => v.id === ricordato.versione)) versione = ricordato.versione;
         // quante iscrizioni ammette un codice (a Milano due): lo ricorda l'aiuto sotto il testo
         const perCodice = invIscrizioniPerCodice(ev);
         /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
@@ -29853,7 +29895,8 @@
            si puo' incollare in un invito, e in tutti e due i casi la domanda
            "a chi arrivano le risposte" segue il pulsante, non l'etichetta
            della lista. */
-        const testoIniziale = invTestoPredefinito(ev, _invCampagna, versione);
+        const testoIniziale = (ricordato && ricordato.testo) ? ricordato.testo : invTestoPredefinito(ev, _invCampagna, versione);
+        const oggettoIniziale = (ricordato && ricordato.oggetto) ? ricordato.oggetto : invOggettoPredefinito(ev, _invCampagna, versione);
         const contatti = contattiDi(ev);
         /* Il blocco compare solo se i destinatari di adesso sono GIA' stati
            letti. Mostrarlo vuoto perche' la lettura non e' ancora tornata
@@ -29864,10 +29907,21 @@
            archivio, che continua a valere. */
         const usaModulo = testoIniziale.indexOf('richiesta_contatto') >= 0 && !!contatti;
         const destAttuali = (contatti && contatti.destinatari) || { a: [], cc: [] };
-        apriModale('<h2>' + esc(campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito')
+        apriModale('<h2>' + esc(secondo ? 'Secondo invio' : (campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito'))
             + ' - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
-            + '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai più destinatari insieme: così ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
-            + (gia ? ' <b>' + gia + '</b> hanno già ricevuto il messaggio e vengono saltate, salvo la spunta in fondo.' : '') + '</p>'
+            + (secondo
+                ? '<p class="hint" style="margin:-4px 0 10px;">Riparte <b>lo stesso invito</b> - stesso oggetto, stesso testo, '
+                + 'stesso codice di ogni azienda - alle <b>' + scelte.length.toLocaleString('it-IT') + '</b> aziende che l\'hanno già ricevuto '
+                + 'e da allora <b>non si sono iscritte né hanno risposto</b>. Restano fuori quelle iscritte, quelle che hanno risposto, '
+                + 'quelle con la PEC non arrivata o con un errore, le escluse e le disiscritte; e se una si iscrive prima che il suo '
+                + 'messaggio parta, il servizio la salta. '
+                + (ricordato && ricordato.testo
+                    ? 'Oggetto e testo sono quelli dell\'invito spedito ' + (ricordato.quando ? 'il ' + esc(fmtDataOra(ricordato.quando)) : 'l\'ultima volta') + '.'
+                    : '<b>Il testo del primo invio non risulta salvato</b> (era partito prima di questa funzione): qui sotto c\'è il testo '
+                    + 'attuale dell\'invito. Controlla che sia quello che le aziende hanno ricevuto.')
+                + '</p>'
+                : '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai più destinatari insieme: così ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
+                + (gia ? ' <b>' + gia + '</b> hanno già ricevuto il messaggio e vengono saltate, salvo la spunta in fondo.' : '') + '</p>')
             + '<div class="campo"><label>Come far partire ' + esc(campI.spedizione) + '</label>'
             + opzione('inv-c-email', 'email', 'Email ordinaria',
                 cEmail.pronto
@@ -29925,7 +29979,10 @@
                riscrive tutti e due: e' la domanda che decide cosa dice il
                messaggio, non un'etichetta da mettere sopra a quello che si e'
                gia' scritto. */
-            + (conVersioni
+            /* Nel secondo invio la versione e' quella del primo, e cambiarla
+               riscriverebbe il testo che deve restare identico: la domanda
+               non c'e'. */
+            + (conVersioni && !secondo
                 ? '<div class="campo"><label>Quale invito</label>'
                 + INV_VERSIONI.map(v => versioneOpz(v, v.id === versione)).join('')
                 + '<div class="hint">' + (invVersionePredefinita(ev) === 'diretta'
@@ -29934,7 +29991,7 @@
                 + 'Cambiando voce si riscrivono oggetto e testo, che restano comunque modificabili a mano.</div></div>'
                 : '')
             + '<div class="campo"><label for="ii-ogg">Oggetto</label>'
-            + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev, _invCampagna, versione)) + '"></div>'
+            + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(oggettoIniziale) + '"></div>'
             + '<div class="campo"><label for="ii-testo">Testo ' + esc(campI.id === 'sponsor' ? 'della richiesta' : 'dell\'invito') + '</label>'
             + '<textarea id="ii-testo" rows="14">' + esc(testoIniziale) + '</textarea>'
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
@@ -29967,7 +30024,13 @@
                la spunto, cosa succede a quelle aziende? Ora la risposta c'e',
                con il numero davanti, e quando non c'e' nessuno da rimandare la
                spunta e' spenta invece di stare li' a far pensare. */
-            + '<div class="campo inv-rinvio' + (gia ? '' : ' spenta') + '">'
+            + (secondo
+                /* Nel secondo invio la spunta e' la cosa stessa che si sta
+                   facendo: accesa e ferma, con scritto perche'. */
+                ? '<div class="campo inv-rinvio"><label class="mi-flag" style="margin:0;">'
+                + '<input type="checkbox" id="ii-forza" checked disabled> '
+                + 'È il <b>secondo invio</b>: parte a tutte le ' + scelte.length.toLocaleString('it-IT') + ', che l\'invito l\'hanno già ricevuto</label></div>'
+                : '<div class="campo inv-rinvio' + (gia ? '' : ' spenta') + '">'
             + '<label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"' + (gia ? '' : ' disabled') + '> '
             + (gia
                 ? 'Manda una <b>seconda volta</b> alle ' + gia + ' che l\'hanno già ricevuto'
@@ -29978,7 +30041,7 @@
                 + (scelte.length - gia) + ': è quello che serve per riprendere un invio interrotto senza mandare doppioni. '
                 + 'Spuntandola, l\'invito riparte anche a loro.'
                 : 'Nessuna delle ' + scelte.length + ' selezionate ha ancora ricevuto l\'invito, quindi qui non c\'è niente da rimandare.')
-            + '</div></div>'
+            + '</div></div>')
             /* A CHI ARRIVANO LE RISPOSTE AL MODULO. Sta qui, dentro l'invio, e
                non solo in una finestra a parte: e' mentre si sta per spedire
                che ci si accorge di non averlo mai impostato, e una richiesta
@@ -30236,7 +30299,7 @@
            PROPOSTO, non con quello iniziale: cosi' la domanda arriva solo a
            chi ha davvero scritto qualcosa, e non a ogni secondo cambio. */
         let testoProposto = testoIniziale;
-        let oggettoProposto = invOggettoPredefinito(ev, _invCampagna, versione);
+        let oggettoProposto = oggettoIniziale;
         document.querySelectorAll('input[name="inv-versione"]').forEach(r => r.addEventListener('change', () => {
             const campoT = document.getElementById('ii-testo');
             const campoO = document.getElementById('ii-ogg');
@@ -30369,8 +30432,12 @@
 
             const nato = await Cloud.aziendeInvito({
                 azione: 'programma', evento: ev.id, campagna: _invCampagna,
-                canale: canale, ritmo: r0, quando: quando, forza: forza,
-                pagina: ev.pagina || '', mail: { oggetto: oggetto, html: html }
+                canale: canale, ritmo: r0, quando: quando, forza: forza || secondo,
+                pagina: ev.pagina || '', mail: { oggetto: oggetto, html: html },
+                /* il testo com'e' scritto qui, che il servizio ricorda per il
+                   secondo invio, e il secondo invio stesso (solo a chi non si
+                   e' fatto vivo, ricontrollato scheda per scheda) */
+                testo: testoInvito, versione: versione, soloNonIscritte: secondo
             });
             if (!nato.ok) {
                 stato.inCorso = false;
@@ -30481,7 +30548,9 @@
                     let r;
                     try {
                         r = await Cloud.aziendeInvito({
-                            azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza,
+                            azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza || secondo,
+                            // vedi la programmazione qui sopra: il testo da ricordare e il secondo invio
+                            testo: testoInvito, versione: versione, soloNonIscritte: secondo,
                             /* Il nome della pagina di iscrizione viaggia col codice:
                                e' l'unico modo che ha il modulo pubblico, che l'evento
                                lo conosce solo per nome, di accorgersi che gli stanno
