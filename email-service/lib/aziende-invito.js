@@ -59,6 +59,7 @@ const admin = require('firebase-admin');
 const CANALI = require('./canali-invito');
 const NL = require('./newsletter');
 const LETTORE = require('./lettore-pec');
+const INOLTRO = require('./inoltro-risposte-pec');
 const CAMPAGNE = require('./campagne-invito');
 const ESITI = require('./esiti-email');
 const CONTATTI = require('./richieste-contatto');
@@ -965,6 +966,25 @@ async function esegui(ctx) {
                     console.error('Codice invito non spostato sulla scheda nuova:', String((e && e.message) || e).slice(0, 200));
                 }
             }
+            /* Anche i riferimenti PEC e le risposte in coda per l'inoltro via
+               email seguono la scheda: puntano all'identificativo, e lasciati
+               sulla vecchia una ricevuta o una risposta arrivata dopo la
+               modifica finiva su una scheda che non c'e' piu' (e l'email agli
+               organizzatori partiva senza il nome dell'azienda). */
+            if (azione === 'modifica' && idVecchio && idVecchio !== id) {
+                // due passi indipendenti: se il primo non riesce, il secondo si fa lo stesso
+                try {
+                    const snap = await db.collection('pecRiferimenti').where('scheda', '==', idVecchio).get();
+                    const b = db.batch();
+                    let k = 0;
+                    snap.forEach(d => { b.set(db.collection('pecRiferimenti').doc(d.id), { scheda: id }, { merge: true }); k++; });
+                    if (k) await b.commit();
+                } catch (e) {
+                    console.error('Riferimenti PEC non spostati sulla scheda nuova:', String((e && e.message) || e).slice(0, 200));
+                }
+                try { await INOLTRO.ripunta(db, idVecchio, id); }
+                catch (e) { console.error('Risposte in coda non spostate sulla scheda nuova:', String((e && e.message) || e).slice(0, 200)); }
+            }
             const dopo = await rif.get();
             /* Stesso controllo dell'importazione: una scheda aggiunta a mano
                puo' sovrapporsi all'altra lista esattamente come una riga di
@@ -998,6 +1018,13 @@ async function esegui(ctx) {
                 if (n >= 300) { await batch.commit(); batch = db.batch(); n = 0; }
             }
             if (n) await batch.commit();
+            /* E tutto il resto che punta a quelle schede, trenta per volta: i
+               riferimenti PEC che l'invio attuale non elenca piu' e le risposte
+               in coda per l'inoltro via email. Passi indipendenti. */
+            try { await LETTORE.dimenticaRiferimentiDi(db, ids); }
+            catch (e) { console.error('Riferimenti PEC non tolti:', String((e && e.message) || e).slice(0, 200)); }
+            try { await INOLTRO.dimentica(db, ids); }
+            catch (e) { console.error('Risposte in coda non tolte:', String((e && e.message) || e).slice(0, 200)); }
             res.status(200).json({ ok: true, tolte: ids.length });
             return;
         }

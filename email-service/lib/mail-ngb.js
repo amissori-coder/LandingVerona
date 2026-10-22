@@ -1162,4 +1162,86 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { riepilogoIscrizioni, riepilogoAderenti, confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };
+/* LA RISPOSTA DI UN'AZIENDA ALLA PEC DELL'INVITO, inoltrata agli
+   organizzatori per posta ordinaria (lib/inoltro-risposte-pec.js). La
+   casella PEC dello studio non la apre nessuno tutti i giorni: questa mail
+   porta il messaggio dove lo si legge davvero.
+   `d`: { azienda, da, oggetto, quandoTesto, certificata, pagina, eventoNome,
+   sponsor, codice, testo, troncato, nonLetto, allegati: [{ nome, dimensione,
+   allegato, motivo }], casella, rispondiA } - rispondiA e' l'indirizzo
+   ORDINARIO a cui porta "Rispondi", se c'e' (quello da cui l'azienda ha
+   scritto, se non era una PEC, o l'email della scheda); `motivo` dice
+   perche' un allegato non e' allegato ('grande', 'troppi', altro).
+   Il testo del messaggio va a capo dove
+   andava a capo l'originale, e non si giustifica: e' una citazione, non una
+   lettera nostra. */
+function kb(n) {
+    const v = Number(n || 0);
+    return v >= 1024 * 1024 ? (v / (1024 * 1024)).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' MB' : Math.max(1, Math.round(v / 1024)) + ' KB';
+}
+function rispostaPec(d, link) {
+    const azienda = String(d.azienda || '').trim() || String(d.da || '').trim() || 'Un\'azienda';
+    const cosa = d.sponsor ? 'alla PEC con la richiesta di sponsorizzazione' : 'alla PEC dell\'invito';
+    const oggetto = 'Risposta ' + (d.sponsor ? 'alla PEC di sponsorizzazione' : 'alla PEC dell\'invito') + ' - ' + azienda;
+    const allegati = Array.isArray(d.allegati) ? d.allegati : [];
+    const conAllegati = allegati.some(a => a.allegato);
+    const sommario = azienda + ' ha risposto ' + cosa + (d.eventoNome ? ' (' + d.eventoNome + ')' : '') + '. '
+        + (d.nonLetto ? 'Il testo non si è potuto leggere dalla casella: cercalo nella casella PEC.' : 'Il messaggio è qui sotto' + (conAllegati ? ', con i suoi allegati.' : '.'));
+    const tipo = d.certificata ? 'PEC' : 'Email ordinaria arrivata nella casella PEC (senza valore di PEC)';
+    const righeTesto = String(d.testo || '').split('\n').map(r => esc(r)).join('<br>');
+    const dallaPec = 'dalla casella ' + (d.casella || 'PEC dello studio') + (d.da ? ' all\'indirizzo ' + d.da : '');
+    const nota = !d.certificata && d.rispondiA
+        ? 'L\'azienda ha scritto da un indirizzo email ordinario: rispondendo a questa email le scrivi lì (' + d.rispondiA + ').'
+        : d.rispondiA
+            ? 'Rispondendo a questa email scrivi all\'indirizzo email ordinario dell\'azienda (' + d.rispondiA + '). Per una risposta con valore di PEC scrivi ' + dallaPec + '.'
+            : 'Per rispondere scrivi ' + dallaPec + ': una casella PEC di norma non accetta la posta ordinaria.';
+    const perche = a => a.motivo === 'grande' ? 'Troppo grande per questa email: è nella casella PEC.'
+        : a.motivo === 'troppi' ? 'Oltre il numero di allegati che questa email porta: è nella casella PEC.'
+            : 'Non allegato a questa email: è nella casella PEC.';
+    const rigaAllegato = a => '<tr><td style="' + FONTE + 'font-size:15px;line-height:22px;color:' + C.testo + ';padding:10px 0;border-bottom:1px solid ' + C.bordo + ';word-break:break-word;overflow-wrap:anywhere;">'
+        + '<b>' + esc(a.nome) + '</b> <span style="color:' + C.tenue + ';">(' + esc(kb(a.dimensione)) + ')</span>'
+        + (a.allegato ? '' : '<br><span style="font-size:13px;color:' + C.tenue + ';">' + esc(perche(a)) + '</span>')
+        + '</td></tr>';
+    const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">' + esc(t) + '</td></tr>';
+    const html = involucro(oggetto, sommario,
+        testataPer(d.pagina, d.sponsor ? 'Risposta alla PEC di sponsorizzazione' : 'Risposta alla PEC dell\'invito', sommario)
+        + corpo(
+            '<tr><td>' + box(
+                rigaBox('Azienda', azienda, 150)
+                + rigaBox('Da', d.da, 150)
+                + rigaBox('Arrivata il', d.quandoTesto, 150)
+                + rigaBox('Oggetto', d.oggetto, 150)
+                + rigaBox('Tipo', tipo, 150)
+                + rigaBox('Codice invito', d.codice, 150)
+            ) + '</td></tr>'
+            + spazio(30)
+            + occhiello('Il messaggio')
+            + (d.nonLetto
+                ? '<tr><td class="par" style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.tenue + ';padding:14px 0;">'
+                + esc('Il testo non si è potuto leggere (' + d.nonLetto + '). Cercalo nella casella PEC ' + (d.casella || 'dello studio') + '; nell\'area riservata, nella scheda dell\'azienda, ci sono la data e l\'oggetto.') + '</td></tr>'
+                : '<tr><td bgcolor="' + C.chiaro + '" style="' + FONTE + 'font-size:15px;line-height:23px;color:' + C.testo + ';background-color:' + C.chiaro + ';padding:16px 18px;word-break:break-word;overflow-wrap:anywhere;">'
+                + (righeTesto || '<i>(messaggio senza testo)</i>') + '</td></tr>'
+                + (d.troncato ? spazio(8) + piccolo('Il messaggio è lungo: qui c\'è la prima parte, il resto è nella casella PEC.') : ''))
+            + (allegati.length
+                ? spazio(30) + occhiello('Allegati') + '<tr><td>' + tabella(allegati.map(rigaAllegato).join('')) + '</td></tr>'
+                : '')
+            + spazio(24)
+            + piccolo(nota)
+            + spazio(24)
+            + bottone('Apri gli inviti nell\'area riservata', link)
+        )
+        + piedePer(d.pagina, 'Avviso automatico per gli organizzatori: parte quando un\'azienda risponde alla PEC dell\'invito.'));
+    const testo = [oggetto.toUpperCase(), sommario,
+        ['Azienda: ' + azienda, d.da ? 'Da: ' + d.da : '', d.quandoTesto ? 'Arrivata il: ' + d.quandoTesto : '',
+            d.oggetto ? 'Oggetto: ' + d.oggetto : '', 'Tipo: ' + tipo, d.codice ? 'Codice invito: ' + d.codice : ''].filter(Boolean).join('\n'),
+        'IL MESSAGGIO\n' + (d.nonLetto
+            ? 'Il testo non si è potuto leggere (' + d.nonLetto + '): cercalo nella casella PEC.'
+            : (String(d.testo || '') || '(messaggio senza testo)') + (d.troncato ? '\n\n[Il messaggio è lungo: il resto è nella casella PEC.]' : '')),
+        allegati.length ? 'ALLEGATI\n' + allegati.map(a => '- ' + a.nome + ' (' + kb(a.dimensione) + ')' + (a.allegato ? '' : ' - ' + perche(a))).join('\n') : '',
+        nota,
+        'Gli inviti nell\'area riservata: ' + link,
+        '--', 'Avviso automatico per gli organizzatori: parte quando un\'azienda risponde alla PEC dell\'invito.'].filter(Boolean).join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+module.exports = { riepilogoIscrizioni, riepilogoAderenti, rispostaPec, confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };

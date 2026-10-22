@@ -337,6 +337,7 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 | `PEC_LETTORE_MAX` | quanti messaggi per giro (predefinito 40) |
 | `PEC_LETTORE_RECUPERO` | quanti messaggi guardare all'indietro alla prima accensione (predefinito 200) |
 | `PEC_CRON_SECRET` | **di norma non serve**: solo per guidare il controllo da uno scheduler ESTERNO al posto del cron di Vercel (vedi sotto) |
+| `PEC_RISPOSTE_DESTINATARI` | **si puo' omettere**: a chi arrivano per email le risposte delle aziende alla PEC (indirizzi separati da virgola). Senza, vanno agli stessi destinatari del riepilogo di mezzanotte (`RIEPILOGO_DESTINATARI`, o i cinque organizzatori) |
 
 > **La password che scade: e' il punto piu' fragile di tutto l'impianto.** Con
 > la verifica in due passaggi attiva sulla casella PEC (obbligatoria nel
@@ -398,13 +399,59 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > gia' collegato alla scheda che si sta guardando: senza quel controllo
 > l'endpoint diventerebbe "leggimi qualunque messaggio della PEC dello studio".
 
+> **Le risposte arrivano anche per email.** Quando un'azienda risponde alla
+> PEC dell'invito (o della sponsorizzazione), oltre a comparire sulla scheda la
+> risposta parte con un'**email ordinaria** agli organizzatori
+> (`lib/inoltro-risposte-pec.js`): azienda, mittente, ora, oggetto, codice
+> invito, il **testo del messaggio** (quello scritto dall'azienda, dentro la
+> busta PEC: solo testo, solo HTML o tutti e due) e i suoi **allegati** fino a
+> circa 4 MB in tutto; quelli che non ci stanno sono elencati e restano nella
+> casella. Destinatari: `PEC_RISPOSTE_DESTINATARI`, altrimenti gli stessi del
+> riepilogo di mezzanotte.
+>
+> Le **risposte automatiche** ("fuori sede", "risposta automatica", o con
+> l'intestazione `Auto-Submitted` dentro la busta) non si inoltrano e non
+> segnano "ha risposto", ma restano elencate sulla scheda e si possono aprire.
+>
+> Come funziona: il lettore, quando riconosce una risposta, la mette in coda
+> (`pecInoltri`, una riga per messaggio con chiave il suo Message-ID: riletto
+> due volte resta una riga sola); a fine giro, con la casella ancora aperta,
+> l'inoltro legge il testo e spedisce. Quindi arriva entro un quarto d'ora, o
+> subito con "Controlla le ricevute". Se la coda non si scrive, il messaggio
+> non si segna come letto e si rilegge al giro dopo (dopo tre giri falliti e
+> almeno un'ora si va avanti, per non fermare le ricevute, e l'area riservata
+> lo dice). Se la **posta non parte** si riprova dopo 10 minuti, poi 20,
+> 40... fino a 6 ore fra un tentativo e l'altro: i tentativi si contano nel
+> tempo, quindi premere "Controlla le ricevute" durante un guasto non li
+> consuma. Dopo poco piu' di un giorno (dieci tentativi) si smette, e il
+> riquadro della casella PEC nell'area riservata dice, per una settimana,
+> quali risposte di quell'evento non sono partite. Se il server di posta
+> rifiuta proprio quel messaggio quando lo riceve (un allegato), o la
+> spedizione non finisce in tempo, si rispedisce senza allegati; una password
+> sbagliata o un guasto no. Se la casella cade mentre si legge un messaggio
+> non si consuma il tentativo, ma alla terza volta il messaggio parte senza
+> testo invece di bloccare gli altri; se la casella rifiuta proprio quel
+> messaggio, all'ultimo tentativo parte senza testo. "Elimina" toglie anche
+> i riferimenti PEC dei primi invii. Se la cartella e' stata rigenerata, il messaggio si ritrova dal suo
+> Message-ID. Nella coda **non c'e' il testo**, solo le coordinate che la
+> scheda ha gia', e mittente e oggetto si cancellano appena la mail e'
+> partita; le righe seguono la scheda se cambia identificativo ("Modifica") e
+> se ne vanno con lei quando la si elimina. Risposte di piu' di un mese fa
+> (una casella riletta da capo) non si inoltrano.
+>
+> "Rispondi" su quella mail non porta mai a una PEC: una casella PEC di norma
+> rifiuta la posta non certificata (vedi sotto), e la risposta rimbalzerebbe.
+> Porta all'indirizzo da cui l'azienda ha scritto, se non era una PEC, oppure
+> all'email ordinaria della scheda; altrimenti la mail dice di rispondere
+> dalla casella PEC dello studio.
+
 > **Cosa il lettore non fa.** Non segna niente come letto, non sposta e non
 > cancella: quella casella e' l'archivio con valore legale, e il segno "letto"
 > e' condiviso con la webmail. Non verifica la firma S/MIME con cui il gestore
 > sigilla le ricevute: per un cruscotto interno va bene, ma la prova in una
 > contestazione resta il messaggio nella casella, non la riga sullo schermo.
-> Non scarica gli allegati delle risposte: ne mostra i nomi, il file si apre
-> dalla casella.
+> Nell'area riservata gli allegati delle risposte sono solo elencati: il file
+> si apre dalla casella (o dall'email di inoltro, qui sopra).
 
 > **Le risposte da posta ordinaria non arrivano.** Di predefinito una casella
 > PEC Aruba **rifiuta** i messaggi non certificati: se un'azienda risponde

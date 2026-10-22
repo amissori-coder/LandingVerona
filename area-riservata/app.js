@@ -27837,10 +27837,25 @@
                 + esc((l && l.casella) || '') + ' risponda.')
             : (ultimo.esito === 'ok'
                 ? 'Ultimo controllo ' + esc(fmtDataOra(ultimo.quando)) + ': ' + (ultimo.ricevute || 0) + ' ricevute, ' + (ultimo.risposte || 0) + ' risposte'
+                + (ultimo.inoltrate ? ', ' + ultimo.inoltrate + (ultimo.inoltrate === 1 ? ' inoltrata' : ' inoltrate') + ' per email' : '')
+                + (ultimo.inoltriFalliti ? ', ' + ultimo.inoltriFalliti + ' non ' + (ultimo.inoltriFalliti === 1 ? 'partita' : 'partite') + ' per email (si riprova)' : '')
                 + (ultimo.nonRiconosciute ? ', ' + ultimo.nonRiconosciute + ' da guardare a mano' : '') + '.'
                 : 'L\'ultimo controllo non è riuscito: ' + esc(ultimo.motivo || ''));
-        return '<div class="inv-lettore' + ((ultimo && ultimo.esito !== 'ok') || vecchio ? ' ko' : '') + '">'
-            + '<span>' + detto + (vecchio ? ' <b>Sono passate più di 24 ore.</b>' : '') + '</span>'
+        /* Le risposte delle aziende partono anche per email agli organizzatori
+           (email-service/lib/inoltro-risposte-pec.js). Quelle di QUESTO evento
+           che non sono partite nemmeno dopo un giorno di tentativi si dicono
+           qui, per una settimana: la risposta resta sulla scheda e si legge da
+           li'. */
+        const nonPartite = ((l && l.inoltriNonPartiti) || []).filter(f => f && f.quando
+            && (!f.evento || f.evento === ev.id) && (Date.now() - f.quando) < 7 * 24 * 60 * 60 * 1000);
+        const aziendeNP = nonPartite.map(f => esc(f.azienda || 'un\'azienda')).filter((x, i, a) => a.indexOf(x) === i);
+        const fallito = aziendeNP.length
+            ? ' <b>' + (aziendeNP.length === 1 ? 'La risposta di ' + aziendeNP[0] + ' non è partita' : 'Le risposte di ' + aziendeNP.join(', ') + ' non sono partite')
+            + ' per email</b>' + (nonPartite.length === 1 && nonPartite[0].motivo ? ' (' + esc(nonPartite[0].motivo) + ')' : '')
+            + ': ' + (aziendeNP.length === 1 ? 'la leggi dalla sua scheda.' : 'le leggi dalle loro schede.')
+            : '';
+        return '<div class="inv-lettore' + ((ultimo && ultimo.esito !== 'ok') || vecchio || fallito ? ' ko' : '') + '">'
+            + '<span>' + detto + (vecchio ? ' <b>Sono passate più di 24 ore.</b>' : '') + fallito + '</span>'
             + '<button class="btn btn-sm btn-secondary" id="inv-ric">'
             + (conPec ? 'Controlla le ricevute' : 'Prova la casella PEC') + '</button></div>';
     }
@@ -28520,7 +28535,7 @@
         if (bRic) bRic.addEventListener('click', () => {
             bRic.disabled = true;
             const testoPrima = bRic.textContent;
-            let ricevute = 0, risposte = 0, giri = 0, ko = '';
+            let ricevute = 0, risposte = 0, inoltrate = 0, giri = 0, ko = '';
             const MAX_GIRI = 6;
             (async () => {
                 let restanti = true;
@@ -28534,6 +28549,7 @@
                     const g = r.ultimoGiro || {};
                     ricevute += g.ricevute || 0;
                     risposte += g.risposte || 0;
+                    inoltrate += g.inoltrate || 0;
                     restanti = !!r.restanti;
                     // lo stato del lettore in memoria si aggiorna, cosi' il
                     // riquadro dice l'ora giusta senza rileggere tutto
@@ -28542,6 +28558,7 @@
                 bRic.disabled = false; bRic.textContent = testoPrima;
                 if (ko) { esito(ko, true); ridisegna(); return; }
                 const riepilogo = ricevute + ' ricevute e ' + risposte + ' risposte lette'
+                    + (inoltrate ? ', ' + inoltrate + (inoltrate === 1 ? ' inoltrata' : ' inoltrate') + ' per email agli organizzatori' : '')
                     + (restanti ? '. Ce ne sono altre: premi di nuovo.' : '.');
                 esito(riepilogo, false);
                 // le schede toccate arrivano gia' dal servizio, ma rileggere

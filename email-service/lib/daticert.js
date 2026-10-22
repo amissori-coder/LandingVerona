@@ -61,7 +61,7 @@ function intestazioni(grezzo) {
         const k = nome.toLowerCase();
         // se la stessa intestazione compare due volte vince la prima,
         // come fanno i client di posta
-        if (out[k] === undefined) out[k] = valore.trim();
+        if (out[k] === undefined) out[k] = DA_DECODIFICARE.indexOf(k) >= 0 ? decodificaParole(valore.trim()) : valore.trim();
         nome = ''; valore = '';
     };
     testo.split('\n').forEach(riga => {
@@ -74,6 +74,52 @@ function intestazioni(grezzo) {
     });
     chiudi();
     return out;
+}
+/* Le intestazioni che si leggono a video arrivano spesso codificate
+   (RFC 2047): un oggetto con una lettera accentata e' "=?UTF-8?Q?Opportunit=C3=A0?=",
+   e a volte il gestore codifica la riga intera, prefisso "POSTA CERTIFICATA:"
+   compreso. Senza decodificarle, l'oggetto si leggeva cosi' nell'area
+   riservata e nell'inoltro, e una risposta automatica con l'oggetto
+   codificato non si riconosceva. */
+const DA_DECODIFICARE = ['subject', 'from', 'reply-to'];
+const RE_PAROLA = /=\?([^?\s]+)\?([bBqQ])\?([^?\s]*)\?=/g;
+function byteParola(codifica, dentro) {
+    return codifica.toUpperCase() === 'B'
+        ? Buffer.from(dentro, 'base64')
+        : Buffer.from(dentro.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (x, h) => String.fromCharCode(parseInt(h, 16))), 'latin1');
+}
+/* Le parole codificate una accanto all'altra con lo stesso gioco di
+   caratteri si decodificano INSIEME: c'e' chi spezza una lettera accentata
+   fra due parole, e ciascuna meta' da sola non e' utf-8 valido. Fra due
+   parole codificate lo spazio non conta (RFC 2047, 6.2). */
+function decodificaParole(v) {
+    const s = String(v == null ? '' : v);
+    if (s.indexOf('=?') < 0) return s;
+    let out = '', dopo = 0, gruppo = null, codificata = false;
+    const chiudi = () => {
+        if (!gruppo) return;
+        try { out += decodificaTesto(Buffer.concat(gruppo.pezzi), gruppo.gioco); }
+        catch (_) { out += gruppo.grezzo; }
+        gruppo = null;
+    };
+    let m;
+    RE_PAROLA.lastIndex = 0;
+    while ((m = RE_PAROLA.exec(s))) {
+        const fra = s.slice(dopo, m.index);
+        const gioco = m[1].split('*')[0].toLowerCase();
+        const soloSpazio = codificata && /^\s*$/.test(fra);
+        if (gruppo && soloSpazio && gruppo.gioco === gioco) {
+            gruppo.pezzi.push(byteParola(m[2], m[3])); gruppo.grezzo += fra + m[0];
+        } else {
+            chiudi();
+            if (!soloSpazio) out += fra;
+            gruppo = { gioco: gioco, pezzi: [byteParola(m[2], m[3])], grezzo: m[0] };
+        }
+        codificata = true;
+        dopo = m.index + m[0].length;
+    }
+    chiudi();
+    return out + s.slice(dopo);
 }
 function intestazione(grezzo, nome) {
     const h = (grezzo && typeof grezzo === 'object' && !Buffer.isBuffer(grezzo)) ? grezzo : intestazioni(grezzo);
@@ -197,7 +243,10 @@ function automatica(h) {
     if (String(h['x-autoreply'] || '').trim()) return true;
     const prec = String(h['precedence'] || '').trim().toLowerCase();
     if (prec === 'auto_reply' || prec === 'bulk' || prec === 'junk') return true;
-    return RE_AUTOMATICA.test(String(h['subject'] || ''));
+    /* L'oggetto SENZA il prefisso del gestore: sulla busta di una risposta
+       PEC l'oggetto e' "POSTA CERTIFICATA: Risposta automatica: ...", e con
+       il prefisso davanti l'espressione non riconosceva mai niente. */
+    return RE_AUTOMATICA.test(oggettoPulito(h['subject']));
 }
 
 /* Il solo indirizzo, senza il nome che di solito lo precede.
@@ -259,17 +308,140 @@ function esitoDa(r) {
 /* Il testo di un messaggio, decodificato secondo il gioco di caratteri
    dichiarato dal mittente. Le PEC italiane usano quasi sempre iso-8859-1 o
    utf-8: letto con quello sbagliato, un "e' andata" diventa "Ã¨". Se la
-   dichiarazione manca o e' sconosciuta si prova utf-8 e, se ne esce
-   spazzatura (il carattere di sostituzione), si ripiega su latin1. */
-function decodificaTesto(buffer, gioco) {
-    const b = Buffer.isBuffer(buffer) ? buffer : Buffer.from(String(buffer || ''), 'utf8');
+   dichiarazione manca o e' sconosciuta si prova utf-8 e, se i byte NON sono
+   utf-8 valido, si ripiega su latin1. Non si guarda se nel risultato c'e'
+   il carattere di sostituzione: un messaggio che cita un "perch\uFFFD" gia'
+   rovinato, o un testo tagliato a meta' di una lettera accentata, finivano
+   interi in latin1, con ogni "a'" diventata "Ã ".
+   `tagliato`: il chiamante ha accorciato il testo a un numero di byte. Solo
+   allora una lettera lasciata a meta' in fondo si toglie, invece di far
+   fallire tutto il resto: senza quel segno, un byte alto in fondo e' piu'
+   facile che sia una "a'" in latin1. */
+/* windows-1252 a mano. iso-8859-1 dichiarato e' quasi sempre windows-1252
+   (Outlook scrive cosi' l'apostrofo curvo, le virgolette e l'euro, fra
+   0x80 e 0x9F), e il TextDecoder di Node 22 per queste etichette restituisce
+   i caratteri di controllo invisibili U+0080-U+009F: "l'evento" diventava
+   "levento" e "30 €" "30 ". Il resto della tabella coincide con latin1. */
+const CP1252 = [0x20AC, 0x81, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x8D, 0x017D, 0x8F,
+    0x90, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x9D, 0x017E, 0x0178];
+function daWindows1252(b) {
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i] >= 0x80 && b[i] <= 0x9F ? CP1252[b[i] - 0x80] : b[i]);
+    return s;
+}
+function decodificaTesto(buffer, gioco, tagliato) {
+    let b = Buffer.isBuffer(buffer) ? buffer : Buffer.from(String(buffer || ''), 'utf8');
     const nome = String(gioco || '').trim().toLowerCase();
-    if (nome && nome !== 'utf-8' && nome !== 'utf8' && nome !== 'us-ascii') {
-        try { return new TextDecoder(nome).decode(b); }
-        catch (_) { return b.toString('latin1'); }
+    if (nome && nome !== 'utf-8' && nome !== 'utf8' && nome !== 'us-ascii' && nome !== 'ascii') {
+        let dec = null;
+        try { dec = new TextDecoder(nome); } catch (_) { return daWindows1252(b); }
+        return dec.encoding === 'windows-1252' ? daWindows1252(b) : dec.decode(b);
     }
-    const utf = b.toString('utf8');
-    return utf.indexOf('\uFFFD') >= 0 ? b.toString('latin1') : utf;
+    if (tagliato) {
+        let fine = b.length, indietro = 0;
+        while (fine > 0 && indietro < 3 && (b[fine - 1] & 0xC0) === 0x80) { fine--; indietro++; }
+        if (fine > 0 && b[fine - 1] >= 0xC0) {
+            const serve = b[fine - 1] >= 0xF0 ? 4 : b[fine - 1] >= 0xE0 ? 3 : 2;
+            if (b.length - (fine - 1) < serve) b = b.slice(0, fine - 1);
+        }
+    }
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(b); }
+    catch (_) { return daWindows1252(b); }
+}
+
+/* format=flowed (RFC 3676, Thunderbird e altri): una riga che finisce con
+   uno spazio continua nella riga dopo. Senza ricucirle il testo arriva a
+   capo ogni settanta caratteri, e con delsp=yes con le parole spezzate. */
+function testoFlowed(testo, delsp) {
+    const out = [];
+    let acc = null, livAcc = 0;
+    // la riga "-- " che apre la firma resta com'e'
+    const chiudi = () => { if (acc !== null) out.push((livAcc ? '>'.repeat(livAcc) + ' ' : '') + (acc === '-- ' ? acc : acc.replace(/ +$/, ''))); acc = null; };
+    String(testo == null ? '' : testo).split('\n').forEach(grezza => {
+        const liv = /^>*/.exec(grezza)[0].length;
+        let r = grezza.slice(liv);
+        if (r.charAt(0) === ' ') r = r.slice(1);
+        const fluisce = / $/.test(r) && r !== '-- ';
+        if (fluisce && delsp) r = r.slice(0, -1);
+        if (acc !== null && liv === livAcc) acc += r;
+        else { chiudi(); acc = r; livAcc = liv; }
+        if (!fluisce) chiudi();
+    });
+    chiudi();
+    return out.join('\n');
+}
+
+/* Il contenuto di una parte com'e' sul server (base64, quoted-printable o
+   cosi' com'e') riportato ai byte veri. Serve a chi scarica le parti da se'
+   (lib/inoltro-risposte-pec.js, scaricaParte): la codifica si legge dalla
+   struttura del messaggio, senza chiederla al server. */
+function decodificaTrasferimento(buf, codifica, tagliato) {
+    const c = String(codifica || '').trim().toLowerCase();
+    let b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ''), 'latin1');
+    /* Tagliata a un numero di byte, la parte puo' finire a meta' di un
+       "=C3=A0": si torna all'ultimo a capo, e si perde al massimo una riga
+       invece di rovinare tutto il testo. */
+    if (tagliato && c === 'quoted-printable') {
+        const fine = b.lastIndexOf(0x0A);
+        if (fine > 0) b = b.slice(0, fine + 1);
+        else b = Buffer.from(b.toString('latin1').replace(/=[0-9A-Fa-f]?\r?$/, ''), 'latin1');
+    }
+    if (c === 'base64') return Buffer.from(b.toString('latin1').replace(/[^A-Za-z0-9+/=]/g, ''), 'base64');
+    if (c === 'quoted-printable') {
+        return Buffer.from(b.toString('latin1')
+            .replace(/[ \t]+(\r?\n)/g, '$1')
+            .replace(/=\r?\n/g, '')
+            .replace(/=([0-9A-Fa-f]{2})/g, (x, h) => String.fromCharCode(parseInt(h, 16))), 'latin1');
+    }
+    return b;
+}
+
+/* LA NUMERAZIONE DELLE PARTI DENTRO LA BUSTA. imapflow (tools.js,
+   parseBodystructure) da' al corpo di un messaggio incapsulato lo STESSO
+   numero dell'involucro message/rfc822. Se quel corpo e' multipart va bene
+   (i figli sono 2.1, 2.2...), ma se e' una parte sola - una risposta di solo
+   testo, o di solo HTML, che e' il caso piu' comune - quel numero indica il
+   messaggio INTERO, intestazioni comprese: scaricandolo usciva il sorgente
+   grezzo con il testo ancora in quoted-printable. Per IMAP (RFC 3501, 6.4.5)
+   il corpo di un messaggio incapsulato di una parte sola e' "<numero>.1": qui
+   si rinumera una copia della struttura, prima di cercarci dentro. */
+function normalizzaParti(nodo, mappa) {
+    if (!nodo || typeof nodo !== 'object') return nodo;
+    mappa = mappa || (x => x);
+    const copia = Object.assign({}, nodo);
+    if (nodo.part) copia.part = mappa(String(nodo.part));
+    if (Array.isArray(nodo.childNodes)) {
+        const busta = String(nodo.type || '').toLowerCase() === 'message/rfc822';
+        copia.childNodes = nodo.childNodes.map(f => {
+            const multi = String((f && f.type) || '').toLowerCase().indexOf('multipart/') === 0;
+            if (busta && f && !multi && copia.part) {
+                /* Il corpo di una parte sola (anche un'altra busta): lui e
+                   tutto quello che ha sotto passano da "<n>" a "<n>.1".
+                   Dall'alto in basso, cosi' una busta dentro la busta si
+                   rinumera a sua volta sul numero gia' corretto. */
+                const vecchio = String(f.part || nodo.part);
+                const nuovo = copia.part + '.1';
+                const sotto = x => (x === vecchio || x.indexOf(vecchio + '.') === 0) ? nuovo + x.slice(vecchio.length) : mappa(x);
+                return normalizzaParti(f, sotto);
+            }
+            return normalizzaParti(f, mappa);
+        });
+    }
+    return copia;
+}
+
+/* La busta (postacert.eml), se il messaggio ne ha una. */
+function trovaBusta(nodo) {
+    if (!nodo) return null;
+    const p = nodo.parameters || {};
+    const dp = nodo.dispositionParameters || {};
+    const nomeFile = String(dp.filename || p.name || '').toLowerCase();
+    if (nomeFile === 'postacert.eml' || String(nodo.type || '').toLowerCase() === 'message/rfc822') return nodo;
+    for (const f of (nodo.childNodes || [])) {
+        const t = trovaBusta(f);
+        if (t) return t;
+    }
+    return null;
 }
 
 /* Dove sta il testo leggibile dentro il messaggio.
@@ -277,8 +449,12 @@ function decodificaTesto(buffer, gioco) {
    trasporto contiene postacert.eml, e dentro c'e' quello che l'azienda ha
    scritto davvero. Si cerca quindi PRIMA dentro la busta, e solo se non
    c'e' si prende il testo esterno (che per una ricevuta e' la descrizione
-   del gestore, cioe' proprio quello che serve leggere). */
-function trovaTesto(nodo, dentroBusta) {
+   del gestore, cioe' proprio quello che serve leggere).
+   Non sono "il testo": le parti allegate (un note.txt) e un messaggio
+   inoltrato come allegato dentro la busta (che di solito e' il nostro
+   invito). `fuoriBusta` guarda solo fuori: per le ricevute, dove dentro la
+   busta c'e' il nostro invito e il testo da leggere e' quello del gestore. */
+function trovaParteTesto(nodo, cercato, dentroBusta, fuoriBusta) {
     if (!nodo) return null;
     const p = nodo.parameters || {};
     const dp = nodo.dispositionParameters || {};
@@ -287,26 +463,103 @@ function trovaTesto(nodo, dentroBusta) {
 
     // la busta: si scende li' dentro e quello che si trova ha la precedenza
     if (nomeFile === 'postacert.eml' || tipo === 'message/rfc822') {
+        if (dentroBusta || fuoriBusta) return null;
         for (const figlio of (nodo.childNodes || [])) {
-            const t = trovaTesto(figlio, true);
+            const t = trovaParteTesto(figlio, cercato, true, false);
             if (t) return t;
         }
+        return null;
     }
     let migliore = null;
-    if (tipo === 'text/plain' && nomeFile !== 'daticert.xml') {
-        migliore = { parte: nodo.part || '1', gioco: p.charset || '', dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta };
+    const allegato = String(nodo.disposition || '').toLowerCase() === 'attachment' || !!nomeFile;
+    if (tipo === cercato && !allegato) {
+        migliore = {
+            parte: nodo.part || '1', gioco: p.charset || '', codifica: String(nodo.encoding || '').toLowerCase(),
+            flowed: String(p.format || '').toLowerCase() === 'flowed', delsp: String(p.delsp || '').toLowerCase() === 'yes',
+            dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta
+        };
     }
     for (const figlio of (nodo.childNodes || [])) {
-        const t = trovaTesto(figlio, dentroBusta);
+        const t = trovaParteTesto(figlio, cercato, dentroBusta, fuoriBusta);
         if (!t) continue;
         // il testo dentro la busta vince sempre su quello fuori
         if (!migliore || (t.dentroBusta && !migliore.dentroBusta)) migliore = t;
     }
     return migliore;
 }
+function trovaTesto(nodo, dentroBusta) { return trovaParteTesto(nodo, 'text/plain', !!dentroBusta, false); }
+/* La versione HTML del testo, per chi scrive SOLO in HTML (capita con
+   alcuni programmi di posta e con le webmail): stesse regole. */
+function trovaHtml(nodo, dentroBusta) { return trovaParteTesto(nodo, 'text/html', !!dentroBusta, false); }
+
+/* Da HTML a testo semplice, quanto basta per leggere un messaggio: i capoversi
+   restano capoversi, i tag spariscono, le entita' piu' comuni (anche quelle
+   delle lettere accentate, che i programmi italiani scrivono spesso come
+   &egrave;) tornano caratteri. Non e' un convertitore completo e non deve
+   esserlo: il messaggio vero resta nella casella PEC. */
+const ENTITA = {
+    nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'',
+    agrave: 'à', aacute: 'á', egrave: 'è', eacute: 'é', igrave: 'ì', iacute: 'í',
+    ograve: 'ò', oacute: 'ó', ugrave: 'ù', uacute: 'ú',
+    Agrave: 'À', Egrave: 'È', Eacute: 'É', Igrave: 'Ì', Ograve: 'Ò', Ugrave: 'Ù',
+    euro: '€', laquo: '«', raquo: '»', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+    ndash: '–', mdash: '—', hellip: '…', deg: '°', copy: '©', middot: '·', bull: '•'
+};
+function carattere(n) {
+    return (n > 0 && n <= 0x10FFFF && !(n >= 0xD800 && n <= 0xDFFF)) ? String.fromCodePoint(n) : '';
+}
+function testoDaHtml(html) {
+    return String(html == null ? '' : html)
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(script|style|head|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+        // gli a capo e i rientri del SORGENTE non contano, in HTML: si
+        // schiacciano prima, e gli a capo veri li fanno i tag qui sotto
+        .replace(/\s+/g, ' ')
+        .replace(/<br\s*\/?>/gi, '\n')
+        /* I blocchi (aperti o chiusi) diventano un SEGNO, non un a capo: piu'
+           segni di fila sono un a capo solo. Cosi' "</div><div>" di Gmail e
+           "</p><p>" di Outlook non lasciano una riga vuota fra ogni riga, e il
+           testo prima di un blocco va comunque a capo. Il <p> o <div> subito
+           dentro un <li> (Google Documenti, Word) non stacca il trattino. */
+        .replace(/<li\b[^>]*>(?:\s*<(?:p|div)\b[^>]*>)*/gi, '\u0001- ')
+        .replace(/<\/?(p|div|li|tr|h[1-6]|blockquote|table|ul|ol)\b[^>]*>/gi, '\u0001')
+        .replace(/<\/t[dh]\s*>/gi, ' ')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&#(\d{1,7});/g, (m, n) => carattere(Number(n)))
+        .replace(/&#x([0-9a-f]{1,6});/gi, (m, n) => carattere(parseInt(n, 16)))
+        .replace(/&([a-z]+);/gi, (m, n) => (Object.prototype.hasOwnProperty.call(ENTITA, n) ? ENTITA[n] : m))
+        .replace(/[ \t]*\u0001(?:[ \t]*\u0001)*[ \t]*/g, '\n')
+        .replace(/\r\n?/g, '\n')
+        .replace(/[ \t ]+\n/g, '\n')
+        .replace(/\n[ \t\u00A0]+/g, '\n')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+/* Il testo da mostrare: quello semplice o, se dentro la busta c'e' solo
+   l'HTML, l'HTML. Senza questa scelta una risposta scritta solo in HTML
+   mostrava il testo FUORI dalla busta, cioe' la descrizione del gestore
+   ("Messaggio di posta certificata..."), al posto di quello dell'azienda.
+   `html: true` dice a chi lo scarica di passarlo per testoDaHtml. */
+function trovaLeggibile(nodo, opz) {
+    if (opz && opz.fuoriBusta) {
+        const fuori = trovaParteTesto(nodo, 'text/plain', false, true);
+        if (fuori) return Object.assign({ html: false }, fuori);
+        const fuoriHtml = trovaParteTesto(nodo, 'text/html', false, true);
+        return fuoriHtml ? Object.assign({ html: true }, fuoriHtml) : null;
+    }
+    const t = trovaTesto(nodo);
+    if (t && t.dentroBusta) return Object.assign({ html: false }, t);
+    const h = trovaHtml(nodo);
+    if (h && (h.dentroBusta || !t)) return Object.assign({ html: true }, h);
+    return t ? Object.assign({ html: false }, t) : null;
+}
 
 /* Gli allegati che il messaggio porta con se', per dire almeno che ci sono.
-   Si escludono le parti di servizio della PEC, che non interessano a nessuno. */
+   Si escludono le parti di servizio della PEC, che non interessano a nessuno.
+   `parte` e `tipo` servono a chi li va a prendere (l'inoltro delle risposte,
+   lib/inoltro-risposte-pec.js). */
 const PARTI_DI_SERVIZIO = ['daticert.xml', 'smime.p7s', 'postacert.eml'];
 function trovaAllegati(nodo, elenco) {
     elenco = elenco || [];
@@ -316,14 +569,18 @@ function trovaAllegati(nodo, elenco) {
     const nome = String(dp.filename || p.name || '');
     const tipo = String(nodo.type || '').toLowerCase();
     if (nome && PARTI_DI_SERVIZIO.indexOf(nome.toLowerCase()) < 0 && tipo.indexOf('multipart') !== 0) {
-        elenco.push({ nome: nome.slice(0, 120), dimensione: Number(nodo.size) || 0 });
+        elenco.push({
+            nome: nome.slice(0, 120), dimensione: Number(nodo.size) || 0,
+            parte: String(nodo.part || ''), tipo: tipo.slice(0, 100), codifica: String(nodo.encoding || '').toLowerCase()
+        });
     }
     (nodo.childNodes || []).forEach(f => trovaAllegati(f, elenco));
     return elenco;
 }
 
 module.exports = {
-    decodificaTesto, trovaTesto, trovaAllegati,
+    decodificaTesto, decodificaTrasferimento, decodificaParole, normalizzaParti, trovaBusta, testoFlowed,
+    trovaTesto, trovaHtml, trovaLeggibile, testoDaHtml, trovaAllegati,
     RICEVUTE, INTESTAZIONI,
     intestazioni, intestazione, chiaveMsgId, parteLocale,
     leggiDaticert, quandoDa, genere, automatica, soloIndirizzo, oggettoPulito,
