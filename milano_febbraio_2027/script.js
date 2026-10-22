@@ -460,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnInvia.textContent = 'Cambia numero';
                 gruppoSms.hidden = false;
                 // dopo un nuovo invio vale anche il codice di prima, se arriva (il servizio li tiene buoni tutti e due)
-                smsNota.textContent = (nuovo ? 'Nuovo codice inviato a ' : 'Codice inviato a ') + (d.numero || numero) + '. Vale ' + (d.vale || 10) + ' minuti.'
+                smsNota.textContent = (nuovo ? 'Nuovo codice inviato a ' : 'Codice inviato a ') + (d.numero || numero) + '. Vale ' + (d.vale || 5) + ' minuti.'
                     + (nuovo ? ' Va bene anche quello di prima, se arriva.' : '');
                 contoAllaRovescia(d.attesa || 60);
                 campoSms.focus();

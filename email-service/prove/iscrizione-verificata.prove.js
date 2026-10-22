@@ -96,11 +96,11 @@ function doc(coll, id) {
 }
 function interroga(coll, filtri, max) {
     return {
-        where(campo, op, val) { return interroga(coll, filtri.concat([[campo, val]]), max); },
+        where(campo, op, val) { return interroga(coll, filtri.concat([[campo, op, val]]), max); },
         limit(n) { return interroga(coll, filtri, n); },
         async get() {
             const docs = [...dati.keys()].filter(k => k.startsWith(coll + '/') && k.split('/').length === 2)
-                .filter(k => filtri.every(([c, v]) => (dati.get(k) || {})[c] === v))
+                .filter(k => filtri.every(([c, op, v]) => op === 'in' ? v.includes((dati.get(k) || {})[c]) : (dati.get(k) || {})[c] === v))
                 .slice(0, max || 1e9)
                 .map(k => istantanea(k, doc(coll, k.split('/')[1])));
             return { docs: docs, forEach: f => docs.forEach(f), size: docs.length };
@@ -250,7 +250,7 @@ prova('Il codice SMS parte, non torna nella risposta, e si verifica', async () =
     const a = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '333 111 2222', email: 'anna@studio.it' });
     esigi(a.stato === 200 && a.corpo.ok, 'l\'SMS parte', JSON.stringify(a.corpo));
     esigi(sms.length === 1 && sms[0].recipient === '393331112222', 'al numero giusto, senza il +', JSON.stringify(sms[0]));
-    esigi(/Next Generation Business\./.test(sms[0].content) && !/Milano/.test(sms[0].content) && /10 minuti/.test(sms[0].content), 'il testo dice evento e scadenza, senza la citta\'', sms[0].content);
+    esigi(/Next Generation Business\./.test(sms[0].content) && !/Milano/.test(sms[0].content) && /5 minuti/.test(sms[0].content), 'il testo dice evento e scadenza (5 minuti), senza la citta\'', sms[0].content);
     esigi(/\n\n@nextgenerationbusiness\.it #\d{6}$/.test(sms[0].content), 'l\'ultima riga lega il codice al sito (lettura automatica su Android e iPhone)', JSON.stringify(sms[0].content.slice(-40)));
     esigi(sms[0].content.length <= 160, 'e il messaggio sta in un SMS solo', String(sms[0].content.length));
     const codice = ultimoCodice();
@@ -291,12 +291,17 @@ prova('Cinque sbagli, poi serve un codice nuovo', async () => {
     avanza(61 * 1000);
 });
 
-prova('Il codice scade dopo dieci minuti', async () => {
+prova('Il codice vale cinque minuti', async () => {
     sms = [];
+    const a = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3338889998' });
+    esigi(a.corpo.vale === 5, 'la pagina sa che vale 5 minuti', JSON.stringify(a.corpo));
+    avanza(4 * 60 * 1000 + 50 * 1000);
+    const buono = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3338889998', codice: ultimoCodice() });
+    esigi(buono.corpo.ok, 'a 4 minuti e 50 secondi vale ancora', JSON.stringify(buono.corpo));
     await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3338889999' });
-    avanza(11 * 60 * 1000);
+    avanza(5 * 60 * 1000 + 10 * 1000);
     const r = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3338889999', codice: ultimoCodice() });
-    esigi(!r.corpo.ok && r.corpo.esito === 'scaduto', 'scaduto', JSON.stringify(r.corpo));
+    esigi(!r.corpo.ok && r.corpo.esito === 'scaduto', 'a 5 minuti e 10 secondi e\' scaduto', JSON.stringify(r.corpo));
 });
 
 prova('Un SMS che Brevo rifiuta non fa aspettare un minuto', async () => {
@@ -393,17 +398,40 @@ prova('Tetto del giorno pieno: nessun codice speso, e si riprova subito', async 
     avanza(61 * 1000);
 });
 
-prova('Cinque codici in 24 ore: il sesto dice da quando si puo\' riprovare', async () => {
+prova('Nessun tetto al giorno: un codice al minuto, quanti se ne chiedono', async () => {
     sms = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 8; i++) {
         const r = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3474445566' });
         esigi(r.corpo.ok, 'invio ' + (i + 1), JSON.stringify(r.corpo));
         avanza(61 * 1000);
     }
-    const sesto = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3474445566' });
-    esigi(sesto.stato === 429 && !sesto.corpo.attesa && /Nelle ultime 24 ore/.test(sesto.corpo.msg) && /domani dopo le \d\d:\d\d/.test(sesto.corpo.msg),
-        'il limite e\' di 24 ore che scorrono, e il messaggio dice l\'ora', sesto.corpo.msg);
-    esigi(sms.length === 5, 'e il sesto non parte');
+    esigi(sms.length === 8, 'partono tutti e otto');
+    // e senza SMS_MAX_GIORNO su Vercel non c'e' nemmeno il tetto di tutto il servizio
+    const conto = dati.get('meta/smsVerifica') || {};
+    dati.set('meta/smsVerifica', Object.assign({}, conto, { inviati: 1000000 }));
+    const ancora = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3474445567' });
+    esigi(ancora.corpo.ok && sms.length === 9, 'anche dopo un milione di SMS nel giorno', JSON.stringify(ancora.corpo));
+    dati.set('meta/smsVerifica', conto);
+    avanza(61 * 1000);
+});
+
+prova('A un numero gia\' iscritto il codice non parte, anche se l\'iscrizione l\'ha inserita la segreteria', async () => {
+    sms = [];
+    dati.set('iscrizioni/segreteria-1', { pagina: 'Milano 26 Febbraio 2027', nome: 'Pia', email: '', telefono: '333 444 7788', origine: 'manuale' });
+    dati.set('iscrizioni/segreteria-2', { pagina: 'Milano 26 Febbraio 2027', nome: 'Leo', email: '', telefono: '+39 3334447799', origine: 'manuale' });
+    dati.set('iscrizioni/segreteria-3', { pagina: 'Milano 26 Febbraio 2027', nome: 'Ada', email: '', telefono: '3334447700', origine: 'manuale', annullato: { quando: 1 } });
+    dati.set('iscrizioni/segreteria-4', { pagina: 'Napoli 2 Ottobre 2026', nome: 'Rino', email: '', telefono: '3334447711', origine: 'manuale' });
+    const a = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '+39 333 4447788' });
+    esigi(a.stato === 409 && a.corpo.campo === 'telefono' && /già usato/.test(a.corpo.msg), 'scritto "333 444 7788" dalla segreteria: no', JSON.stringify(a.corpo));
+    const b = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3334447799' });
+    esigi(b.stato === 409 && b.corpo.campo === 'telefono', 'scritto "+39 3334447799": no', JSON.stringify(b.corpo));
+    esigi(sms.length === 0, 'e nessun SMS parte');
+    const c = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3334447700' });
+    esigi(c.corpo.ok && sms.length === 1, 'un\'iscrizione annullata libera il numero', JSON.stringify(c.corpo));
+    const d = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3334447711' });
+    esigi(d.corpo.ok && sms.length === 2, 'e quella di un altro evento non conta', JSON.stringify(d.corpo));
+    ['segreteria-1', 'segreteria-2', 'segreteria-3', 'segreteria-4'].forEach(k => dati.delete('iscrizioni/' + k));
+    avanza(61 * 1000);
 });
 
 prova('Senza numero verificato non c\'e\' iscrizione', async () => {
