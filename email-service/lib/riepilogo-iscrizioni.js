@@ -139,14 +139,17 @@ function daSpedire(c) {
 
 /* ---------- gli aderenti ----------
    UN'ISCRIZIONE DEGLI ADERENTI CONTA QUANDO ARRIVA: non c'e' una conferma
-   dell'email da aspettare. Per una quota e un giorno:
-     - "nuove" sono le schede arrivate per la prima volta quel giorno
+   dell'email da aspettare. Per una quota e un PERIODO di giorni, da `dal` a
+   `giorno` compresi (di solito uno solo: la giornata appena finita; di piu'
+   quando una notte la mail non e' partita e la notte dopo recupera, vedi
+   api/riepilogo-iscrizioni.js):
+     - "nuove" sono le schede arrivate per la prima volta nel periodo
        (primaVolta), con i dati dell'ultimo invio: se la persona ha corretto
-       qualcosa in giornata, vale gia' la correzione;
-     - "aggiornate" sono quelle arrivate prima e inviate di nuovo quel giorno
+       qualcosa nel frattempo, vale gia' la correzione;
+     - "aggiornate" sono quelle arrivate prima e inviate di nuovo nel periodo
        (quando): chi fattura deve usare i dati nuovi, e quali campi della
        fatturazione sono cambiati lo dice `cambiati`, rispetto ai dati che
-       c'erano alla fine del giorno prima (la `storia` della scheda);
+       c'erano prima del periodo (la `storia` della scheda);
      - "totale" sono le iscrizioni in tutto, e "daFatturare" quelle senza la
        fattura segnata come emessa, con l'importo IVA inclusa.
    Le schede tolte dall'area riservata non ci sono piu', e non contano.
@@ -160,7 +163,22 @@ const CAMPI_FATTURA = [
     ['PEC', f => f.pec],
     ['Email per la fattura', f => f.emailFatture]
 ];
-function contiAderenti(schede, q, giorno) {
+// il giorno dopo di "aaaa-mm-gg", e quello di n giorni prima
+function giornoDopo(g) {
+    const d = new Date(g + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+}
+function giorniPrima(g, n) {
+    const d = new Date(g + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+}
+function contiAderenti(schede, q, giorno, dal) {
+    dal = dal && dal < giorno ? dal : giorno;
+    const nelPeriodo = g => !!g && g >= dal && g <= giorno;
+    // su piu' giorni l'ora da sola non basta: "04/11 alle 10:00"
+    const quando = ms => ms ? (dal !== giorno ? giornoLeggibile(giornoRoma(ms)).slice(0, 5) + ' alle ' : 'alle ') + oraRomaDi(ms) : '';
     const ms = v => Number(v) || 0;
     const primaDi = s => ms(s.primaVolta) || ms(s.quando);
     const della = schede.filter(x => String((x.dati || {}).quota || '') === q.id);
@@ -173,9 +191,9 @@ function contiAderenti(schede, q, giorno) {
             telefono: String(s.telefono || ''),
             studio: String(s.studio || ''),
             citta: String(s.citta || ''),
-            ora: p ? oraRomaDi(p) : '',
-            // l'ultimo invio, se non e' il primo
-            aggiornataAlle: u && u !== p && giornoRoma(u) === giorno ? oraRomaDi(u) : '',
+            arrivata: quando(p),
+            // l'ultimo invio, se non e' il primo e sta nel periodo
+            corretta: u && u !== p && nelPeriodo(giornoRoma(u)) ? quando(u) : '',
             fatturazione: {
                 intestatario: String(f.intestatario || ''), partitaIva: String(f.partitaIva || ''),
                 codiceFiscale: String(f.codiceFiscale || ''),
@@ -185,24 +203,27 @@ function contiAderenti(schede, q, giorno) {
             },
             note: String(s.note || ''),
             totale: Number((s.importi || {}).totale) || 0,
-            fatturaEmessa: !!(s.fattura && s.fattura.emessa)
+            fatturaEmessa: !!(s.fattura && s.fattura.emessa),
+            /* la mail all'iscritto (quota e dati di fatturazione) e' partita?
+               Senza l'avviso interno di una volta, e' qui che lo si scopre */
+            mailNonPartita: s.mail === false
         };
     };
-    const nuove = della.filter(x => primaDi(x.dati) && giornoRoma(primaDi(x.dati)) === giorno)
+    const nuove = della.filter(x => nelPeriodo(primaDi(x.dati) ? giornoRoma(primaDi(x.dati)) : ''))
         .sort((a, b) => primaDi(a.dati) - primaDi(b.dati))
         .map(x => aderente(x.dati));
     const aggiornate = della.filter(x => {
         const p = primaDi(x.dati), u = ms(x.dati.quando);
-        return p && u && giornoRoma(p) < giorno && giornoRoma(u) === giorno;
+        return p && u && giornoRoma(p) < dal && nelPeriodo(giornoRoma(u));
     }).sort((a, b) => ms(a.dati.quando) - ms(b.dati.quando)).map(x => {
         const s = x.dati;
         const a = aderente(s);
-        a.aggiornataAlle = oraRomaDi(ms(s.quando));
-        /* I dati che c'erano a fine giornata ieri: l'ultima versione della
-           storia arrivata prima di oggi. Senza (una storia gia' sfoltita) non
-           si sa che cosa e' cambiato, e non lo si inventa. */
+        a.corretta = quando(ms(s.quando));
+        /* I dati che c'erano prima del periodo: l'ultima versione della
+           storia arrivata prima di `dal`. Senza (una storia gia' sfoltita)
+           non si sa che cosa e' cambiato, e non lo si inventa. */
         const prima = (Array.isArray(s.storia) ? s.storia : [])
-            .filter(v => v && ms(v.quando) && giornoRoma(ms(v.quando)) < giorno && v.fatturazione).pop();
+            .filter(v => v && ms(v.quando) && giornoRoma(ms(v.quando)) < dal && v.fatturazione).pop();
         a.cambiati = prima
             ? CAMPI_FATTURA.filter(c => String(c[1](prima.fatturazione || {}) || '') !== String(c[1](s.fatturazione || {}) || '')).map(c => c[0])
             : null;
@@ -212,6 +233,7 @@ function contiAderenti(schede, q, giorno) {
     const somma = rr => Math.round(rr.reduce((t, x) => t + (Number(((x.dati || {}).importi || {}).totale) || 0), 0) * 100) / 100;
     return {
         quota: q,
+        dal: dal,
         giorno: giorno,
         nuove: nuove,
         aggiornate: aggiornate,
@@ -227,6 +249,6 @@ function daSpedireAderenti(c) {
 
 module.exports = {
     EVENTI: VERIFICATA.EVENTI, QUOTE_ADERENTI: ADERENTI.QUOTE, COLLEZIONE_ADERENTI: ADERENTI.COLLEZIONE,
-    destinatari, DESTINATARI, giornoRoma, oraRoma, giornoPrima, giornoLeggibile, giornoDi,
+    destinatari, DESTINATARI, giornoRoma, oraRoma, giornoPrima, giornoDopo, giorniPrima, giornoLeggibile, giornoDi,
     conti, daSpedire, contiAderenti, daSpedireAderenti
 };

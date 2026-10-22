@@ -45,15 +45,18 @@ const { avvolgi, senzaTrattiniLunghi } = require('./mail-layout');
 const COLLEZIONE = 'iscrizioniAderenti';
 
 /* --- LE QUOTE ---
-   Restano qui e non nella pagina: importo, date e destinatari degli avvisi
-   li decide il servizio. Se arrivassero dal browser basterebbe cambiarli
-   per iscriversi a un altro prezzo o far partire l'avviso altrove. */
+   Restano qui e non nella pagina: importo e date li decide il servizio. Se
+   arrivassero dal browser basterebbe cambiarli per iscriversi a un altro
+   prezzo. Chi riceve il riepilogo di mezzanotte non sta qui: sono i
+   destinatari di quello delle aziende (lib/riepilogo-iscrizioni.js). */
 const QUOTE = [
     {
         id: 'milano-2027-aderenti',
         evento: 'milano-2027-02-26',
         titolo: 'Cena e meeting degli aderenti Revilaw',
         luogo: 'Milano',
+        // per la testata e il piede del riepilogo di mezzanotte
+        date: '26-27 febbraio 2027',
         voci: [
             { cosa: 'Cena', quando: 'venerdì 26 febbraio 2027' },
             { cosa: 'Meeting degli aderenti', quando: 'sabato 27 febbraio 2027' }
@@ -268,11 +271,18 @@ async function ricevi(db, corpo) {
     const r = v.r;
 
     const rif = db.collection(COLLEZIONE).doc(idScheda(q.id, r.email));
+    /* Se la scheda di prima non si legge non si va avanti alla cieca: si
+       scriverebbe una prima iscrizione sopra una che c'e' gia', con la
+       storia azzerata, e il riepilogo di mezzanotte la darebbe per nuova
+       invece che aggiornata. */
     let prima = null;
     try {
         const s = await rif.get();
         prima = s.exists ? (s.data() || {}) : null;
-    } catch (_) { prima = null; }
+    } catch (e) {
+        console.error('Iscrizione aderente, scheda non letta:', String((e && e.message) || e).slice(0, 200));
+        return { stato: 500, corpo: { ok: false, msg: 'Non siamo riusciti a registrare l\'iscrizione: riprovi fra poco.' } };
+    }
 
     // le versioni precedenti dei dati, per sapere che cosa e' cambiato
     const storia = Array.isArray(prima && prima.storia) ? prima.storia.slice(-4) : [];

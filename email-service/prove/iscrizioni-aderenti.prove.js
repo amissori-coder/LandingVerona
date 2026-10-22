@@ -27,9 +27,13 @@ const path = require('path');
 
 const dati = new Map();
 let rompiScrittura = false;
+let rompiLettura = false;
 function doc(chiave) {
     return {
-        get: async () => ({ exists: dati.has(chiave), data: () => dati.get(chiave) }),
+        get: async () => {
+            if (rompiLettura) throw new Error('firestore giu\' in lettura');
+            return { exists: dati.has(chiave), data: () => dati.get(chiave) };
+        },
         set: async (patch, opz) => {
             if (rompiScrittura) throw new Error('firestore giu\'');
             const base = (opz && opz.merge && dati.get(chiave)) ? Object.assign({}, dati.get(chiave)) : {};
@@ -92,7 +96,7 @@ async function prova(titolo, fn) {
     try { await fn(); }
     catch (e) { ko++; console.log('  KO   eccezione: ' + (e && e.message)); }
 }
-function azzera() { dati.clear(); posta.length = 0; rompiInvio = 0; rompiScrittura = false; }
+function azzera() { dati.clear(); posta.length = 0; rompiInvio = 0; rompiScrittura = false; rompiLettura = false; }
 
 const BASE = {
     quota: 'milano-2027-aderenti',
@@ -229,6 +233,20 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         rompiScrittura = true;
         const r = await invia();
         esigi(r.stato === 500 && posta.length === 0, 'errore, e nessuna mail per un\'iscrizione non registrata');
+    });
+
+    await prova('7b. Se la scheda di prima non si legge, non si scrive alla cieca', async () => {
+        azzera();
+        await invia();
+        const prima = JSON.parse(JSON.stringify([...dati.values()][0]));
+        posta.length = 0;
+        rompiLettura = true;
+        const r = await invia({}, { intestatario: 'Verdi Srl' });
+        rompiLettura = false;
+        esigi(r.stato === 500 && !r.corpo.ok && /riprovi/.test(r.corpo.msg), 'errore, "riprovi fra poco"');
+        const s = [...dati.values()][0];
+        esigi(s.primaVolta === prima.primaVolta && s.fatturazione.intestatario === 'Studio Verdi Associati' && posta.length === 0,
+            'la scheda resta com\'era (primaVolta e dati), e nessuna mail: il riepilogo non la scambia per nuova');
     });
 
     await prova('8. Area riservata: elenco, fatture, cancellazione', async () => {

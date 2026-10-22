@@ -1788,7 +1788,7 @@ module.exports = async (req, res) => {
         }
         /* L'iscrizione degli aderenti Revilaw a Milano. Il freno per indirizzo
            IP qui sopra vale anche qui: la pagina si raggiunge solo dal
-           collegamento, ma l'endpoint e' aperto e ogni invio fa partire due
+           collegamento, ma l'endpoint e' aperto e ogni invio fa partire una
            mail. */
         if (azione === 'aderenti-iscrizione') {
             const credAd = leggiServiceAccount();
