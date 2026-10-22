@@ -763,6 +763,103 @@ ul, ol { list-style: none; }
     transform: rotate(-45deg) translateY(-2px);
 }
 
+/* "Mail di conferma non ricevuta?": sotto il modulo, una scheda blu piu'
+   chiara del fondo della sezione, con il bordo azzurro, perche' si veda
+   subito. Tutta la scheda e' il collegamento al modulo contatti. Titolo e
+   descrizione stanno su una riga: dove la sezione e' stretta la freccia si
+   toglie per lasciare loro lo spazio. */
+.iscrizioni .mail-non-ricevuta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    margin-top: 20px;
+    padding: 20px 22px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--blu) 0%, var(--blu-medio) 100%);
+    border: 1px solid rgba(125, 184, 238, 0.45);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+    color: var(--bianco);
+    text-align: left;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+/* dopo l'invio script.js la nasconde: il display qui sopra vincerebbe su hidden */
+.iscrizioni .mail-non-ricevuta[hidden] { display: none; }
+.iscrizioni .mail-non-ricevuta:hover {
+    transform: translateY(-2px);
+    border-color: var(--azzurro);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.3);
+}
+.iscrizioni .mail-non-ricevuta:focus-visible { outline: 2px solid var(--azzurro-chiaro); outline-offset: 3px; }
+.mail-non-ricevuta-icona {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--bianco);
+    color: var(--blu);
+}
+.mail-non-ricevuta-icona svg { width: 22px; height: 22px; }
+.mail-non-ricevuta-corpo { flex: 1; min-width: 0; }
+/* righe corte: giustificate o sillabate (testo.css) si leggerebbero male */
+.mail-non-ricevuta .mail-non-ricevuta-titolo,
+.mail-non-ricevuta .mail-non-ricevuta-desc {
+    display: block;
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+    text-align: left !important;
+}
+.mail-non-ricevuta .mail-non-ricevuta-titolo {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--bianco);
+    margin-bottom: 3px;
+}
+.mail-non-ricevuta .mail-non-ricevuta-desc {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.78);
+}
+.mail-non-ricevuta-freccia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: var(--bianco);
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.mail-non-ricevuta-freccia svg { width: 16px; height: 16px; transition: transform 0.2s ease; }
+.mail-non-ricevuta:hover .mail-non-ricevuta-freccia { background: var(--bianco); color: var(--blu); }
+.mail-non-ricevuta:hover .mail-non-ricevuta-freccia svg { transform: translateX(2px); }
+@media (max-width: 480px) {
+    .iscrizioni .mail-non-ricevuta { gap: 14px; padding: 18px; }
+    .mail-non-ricevuta-icona { width: 44px; height: 44px; }
+    .mail-non-ricevuta-freccia { display: none; }
+}
+/* i telefoni piu' stretti (360 px): un po' meno di margini e di corpo, e
+   titolo e descrizione restano comunque su una riga */
+@media (max-width: 380px) {
+    .iscrizioni .mail-non-ricevuta { gap: 12px; padding: 16px; }
+    .mail-non-ricevuta-icona { width: 40px; height: 40px; border-radius: 11px; }
+    .mail-non-ricevuta-icona svg { width: 20px; height: 20px; }
+    .mail-non-ricevuta .mail-non-ricevuta-titolo { font-size: 1rem; }
+    .mail-non-ricevuta .mail-non-ricevuta-desc { font-size: 0.86rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .iscrizioni .mail-non-ricevuta,
+    .mail-non-ricevuta-freccia svg { transition: none; }
+    .iscrizioni .mail-non-ricevuta:hover,
+    .mail-non-ricevuta:hover .mail-non-ricevuta-freccia svg { transform: none; }
+}
+
 /* "Per informazioni": un'etichetta e due pillole (il modulo delle domande e
    l'indirizzo), su una riga a schermo largo. Su schermo stretto si va a capo
    fra un pezzo e l'altro, mai dentro una pillola. */

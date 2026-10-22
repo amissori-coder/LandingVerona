@@ -164,20 +164,6 @@
         aggiornaScelte();
     }
 
-    // la scorciatoia "non trovi la mail di conferma?": stesse scelte, senza ricaricare
-    const scorciatoia = $('scorciatoiaMail');
-    if (scorciatoia) {
-        scorciatoia.addEventListener('click', (e) => {
-            // a domanda gia' inviata il modulo non c'e' piu': si riapre la pagina con le scelte
-            if (form.hidden || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-            e.preventDefault();
-            const s = scelteDa(scorciatoia.search);
-            applicaScelte(s[0], s[1], s[2]);
-            $('schedaModulo').scrollIntoView({ behavior: 'smooth', block: 'start' });
-            campoMotivo.focus({ preventScroll: true });
-        });
-    }
-
     // ---------- campi obbligatori ----------
     function valida(campo) {
         if (campo.type === 'checkbox') {
