@@ -1645,9 +1645,13 @@ per un evento nuovo basta una riga.
 - **`azione: "sms-invia"`** (`pagina`, `telefono`, `email`): solo cellulari
   italiani (`+39 3...`, scritti come capita). Prima di spendere un SMS guarda
   se email o numero sono gia' iscritti (risponde `409` con `campo`). Un SMS
-  al minuto e cinque al giorno per numero, e un tetto per tutto il servizio
-  (`SMS_MAX_GIORNO`). Il codice non si salva in chiaro (`verificheSms`, solo
-  l'impronta) e scade dopo 10 minuti.
+  al minuto e cinque in 24 ore per numero (il `429` dice da che ora se ne puo'
+  chiedere un altro), e un tetto per tutto il servizio (`SMS_MAX_GIORNO`). Un
+  SMS che non parte (tetto pieno, Brevo) non conta: l'invio si toglie e si
+  riprova subito. Il codice non si salva in chiaro (`verificheSms.codici`,
+  solo le impronte) e scade dopo 10 minuti; dopo «Invia di nuovo il codice»
+  vale anche quello di prima, se arriva in ritardo (alla verifica si
+  cancellano tutti).
 - **`azione: "sms-verifica"`** (`pagina`, `telefono`, `codice`): cinque
   tentativi per codice, il codice vale una volta. A codice giusto rende
   `token`, la firma del numero (`NL.firmaSms`: evento + numero + scadenza di
@@ -1709,7 +1713,13 @@ di ogni SMS il modulo chiede il gettone di Turnstile (gratuito). La casella
 persona veda niente, e chi preme «Invia il codice» prima che finisca aspetta
 qualche secondo invece di ricevere un errore. Il gettone viaggia con
 `sms-invia` in `captcha` e il servizio lo verifica con Cloudflare; un gettone
-vale una volta, la pagina ne prepara uno nuovo a ogni SMS. Per accenderlo:
+vale una volta, e la pagina ne chiede uno nuovo SOLO quando la persona chiede
+un altro codice (`refresh-expired: 'never'`, niente `reset` in sottofondo:
+una verifica rifatta dopo ogni SMS faceva comparire la casella a meta' strada
+e cancellava il messaggio del servizio sotto il cellulare). Se Cloudflare
+chiede la spunta, la pagina lo dice e aspetta senza limite: il codice parte
+da solo appena la casella e' spuntata. Se lo script di Cloudflare non si
+carica (rete, estensioni) lo dice subito. Per accenderlo:
 
 1. Cloudflare (account gratuito) -> **Turnstile** -> **Add widget**: dominio
    `nextgenerationbusiness.it`, modalita' **Managed**.

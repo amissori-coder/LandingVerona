@@ -1739,7 +1739,7 @@ module.exports = async (req, res) => {
                         ok: false, captchaKo: true,
                         msg: c.motivo === 'servizio'
                             ? 'Non riusciamo a controllare la casella «Non sono un robot»: riprova fra qualche secondo.'
-                            : 'Conferma la casella «Non sono un robot» qui sopra, poi premi di nuovo «Invia il codice».'
+                            : 'La verifica di sicurezza «Non sono un robot» non è andata a buon fine: riprova fra qualche secondo.'
                     });
                     return;
                 }

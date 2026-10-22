@@ -238,18 +238,41 @@ document.addEventListener('DOMContentLoaded', () => {
        una volta: dopo ogni richiesta se ne prepara uno nuovo. */
     const TURNSTILE_CHIAVE = '0x4AAAAAAFZkLXVSuromvnHp';
     const boxCaptcha = $('captcha');
-    let captcha = { id: null, gettone: '' };
+    /* `usato`: il gettone e' stato speso (o e' scaduto) e la verifica va
+       rifatta, ma SOLO quando la persona chiede un codice. Rifarla in
+       sottofondo dopo ogni SMS faceva comparire la casella a meta' strada e,
+       arrivando, cancellava il messaggio del servizio sotto il cellulare
+       ("numero gia' usato", "cinque codici al giorno"): restava una pagina
+       muta, e sembrava che l'SMS non arrivasse. `guasto`: lo script di
+       Cloudflare non si carica (rete o estensioni del browser).
+       `interattivo`: Cloudflare sta chiedendo la spunta. */
+    let captcha = { id: null, gettone: '', usato: false, guasto: false, interattivo: false };
     /* La casella si vede SOLO quando Cloudflare chiede davvero un clic
        (appearance: interaction-only). Di solito riconosce da se' un telefono o
        un computer normale e non chiede niente: prima la casella compariva gia'
        spuntata, e sul telefono sembrava un errore. Chi preme «Invia il codice»
        prima che la verifica sia finita aspetta qualche secondo, non riceve un
-       errore. */
+       errore; se Cloudflare chiede la spunta, si aspetta lui, senza limite, e
+       il codice parte da solo appena ha spuntato. */
+    const MSG_SPUNTA = 'Spunta la casella qui sopra: il codice parte da solo appena la verifica è finita.';
     let attesaGettone = [];
+    let limiteAttesa = null;
+    function consegnaGettone(g) {
+        clearTimeout(limiteAttesa);
+        attesaGettone.splice(0).forEach(f => f(g));
+    }
     function gettonePronto(g) {
         captcha.gettone = g;
-        errore('telefono', '');
-        attesaGettone.splice(0).forEach(f => f(g));
+        // si cancella solo la richiesta di spuntare la casella: i messaggi del servizio restano
+        if ($('telefonoError').textContent === MSG_SPUNTA) errore('telefono', '');
+        consegnaGettone(g);
+    }
+    // Cloudflare chiede la spunta: se qualcuno aspetta il codice glielo si dice, e lo si aspetta
+    function chiediSpunta() {
+        if (!attesaGettone.length) return;
+        clearTimeout(limiteAttesa);
+        errore('telefono', MSG_SPUNTA);
+        if (boxCaptcha.scrollIntoView) boxCaptcha.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
     function preparaCaptcha() {
         if (!TURNSTILE_CHIAVE || !window.turnstile) return;
@@ -257,26 +280,34 @@ document.addEventListener('DOMContentLoaded', () => {
         captcha.id = window.turnstile.render(boxCaptcha, {
             sitekey: TURNSTILE_CHIAVE, language: 'it', action: 'sms-iscrizione',
             appearance: 'interaction-only', size: 'flexible', theme: 'light',
+            // scaduto, si rifa' alla prossima richiesta (vedi `usato`), non in sottofondo
+            'refresh-expired': 'never',
             callback: gettonePronto,
-            'expired-callback': () => { captcha.gettone = ''; },
+            'expired-callback': () => { captcha.gettone = ''; captcha.usato = true; },
             'error-callback': () => { captcha.gettone = ''; },
-            'before-interactive-callback': () => { boxCaptcha.classList.add('captcha--visibile'); },
-            'after-interactive-callback': () => { boxCaptcha.classList.remove('captcha--visibile'); }
+            'unsupported-callback': () => { captcha.guasto = true; consegnaGettone(''); },
+            'before-interactive-callback': () => { captcha.interattivo = true; boxCaptcha.classList.add('captcha--visibile'); chiediSpunta(); },
+            'after-interactive-callback': () => { captcha.interattivo = false; boxCaptcha.classList.remove('captcha--visibile'); }
         });
     }
-    // il gettone, aspettandolo al massimo `ms` millisecondi: '' se non arriva
+    // il gettone, aspettandolo al massimo `ms` millisecondi ('' se non arriva), senza limite se c'e' da spuntare
     function aspettaGettone(ms) {
         if (!TURNSTILE_CHIAVE) return Promise.resolve('');
         if (captcha.gettone) return Promise.resolve(captcha.gettone);
+        if (captcha.guasto) return Promise.resolve('');
+        // gettone gia' speso o scaduto: la verifica riparte adesso, perche' l'ha chiesta la persona
+        if (captcha.usato && captcha.id !== null && window.turnstile) { captcha.usato = false; window.turnstile.reset(captcha.id); }
         return new Promise(fine => {
-            const t = setTimeout(() => { attesaGettone = attesaGettone.filter(f => f !== pronto); fine(''); }, ms);
-            const pronto = g => { clearTimeout(t); fine(g); };
-            attesaGettone.push(pronto);
+            attesaGettone.push(fine);
+            clearTimeout(limiteAttesa);
+            limiteAttesa = setTimeout(() => consegnaGettone(''), ms);
+            if (captcha.interattivo) chiediSpunta();
         });
     }
+    // il gettone vale una volta: si spende con la richiesta, e si rifa' alla prossima
     function rinnovaCaptcha() {
         captcha.gettone = '';
-        if (captcha.id !== null && window.turnstile) window.turnstile.reset(captcha.id);
+        captcha.usato = true;
     }
     if (TURNSTILE_CHIAVE) {
         window.ngbCaptchaPronto = preparaCaptcha;
@@ -284,6 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=ngbCaptchaPronto';
         sc.async = true;
         sc.defer = true;
+        sc.onerror = () => { captcha.guasto = true; consegnaGettone(''); };
         document.head.appendChild(sc);
     }
     let numeroInviato = '';
@@ -299,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
             restano--;
             if (restano <= 0) {
                 clearInterval(attesaTimer);
+                attesaTimer = null;
                 btnDiNuovo.disabled = false;
                 btnDiNuovo.textContent = 'Invia di nuovo il codice';
                 return;
@@ -312,6 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         verificato = { numero: '', token: '' };
         numeroInviato = '';
         clearInterval(attesaTimer);
+        attesaTimer = null;
         campoTel.readOnly = false;
         btnInvia.hidden = false;
         btnInvia.disabled = false;
@@ -320,66 +354,95 @@ document.addEventListener('DOMContentLoaded', () => {
         campoSms.value = '';
         telOk.textContent = '';
         errore('codiceSms', '');
-        if (captcha.id !== null) { boxCaptcha.hidden = false; rinnovaCaptcha(); }
+        // niente verifica nuova qui: riparte quando si chiede il codice per il numero nuovo
+        if (captcha.id !== null) boxCaptcha.hidden = false;
     }
 
-    function inviaCodice() {
+    /* Dopo un invio non riuscito i pulsanti tornano a dire quello che fanno:
+       «Cambia numero» resta «Cambia numero» (prima diventava «Invia il codice»
+       ma azzerava tutto), e «Invia di nuovo il codice» si riaccende, o aspetta
+       i secondi che dice il servizio. Prima restava spento per sempre. */
+    const etichettaInvia = () => (numeroInviato || verificato.token) ? 'Cambia numero' : 'Invia il codice';
+    function dopoInvioFallito(attesa) {
+        btnInvia.disabled = false;
+        btnInvia.textContent = etichettaInvia();
+        if (attesa) { gruppoSms.hidden = false; contoAllaRovescia(attesa); return; }
+        if (!attesaTimer) { btnDiNuovo.disabled = false; btnDiNuovo.textContent = 'Invia di nuovo il codice'; }
+    }
+    // il messaggio accanto al pulsante premuto: sotto il codice se era un nuovo invio, se no sotto il cellulare
+    function avvisoInvio(msg) {
+        if (numeroInviato) $('codiceSmsError').textContent = msg || '';
+        else errore('telefono', msg);
+    }
+    let invioInCorso = false;
+    function inviaCodice(e) {
+        // una richiesta alla volta: l'invio della tastiera premuto due volte spenderebbe due volte lo stesso gettone
+        if (invioInCorso) return;
+        const btn = e && e.currentTarget === btnDiNuovo ? btnDiNuovo : btnInvia;
+        const nomeBtn = btn === btnDiNuovo ? 'Invia di nuovo il codice' : 'Invia il codice';
         const numero = cellulare(campoTel.value);
         errore('telefono', '');
+        $('codiceSmsError').textContent = '';
         if (!numero) {
             errore('telefono', 'Scrivi un numero di cellulare italiano, per esempio 333 123 4567.');
             campoTel.focus();
             return;
         }
+        invioInCorso = true;
         btnInvia.disabled = true;
         btnDiNuovo.disabled = true;
-        btnInvia.textContent = captcha.gettone || !TURNSTILE_CHIAVE ? 'Invio...' : 'Verifica in corso...';
+        btn.textContent = captcha.gettone || !TURNSTILE_CHIAVE ? 'Invio...' : 'Verifica in corso...';
         aspettaGettone(15000).then(gettone => {
             if (TURNSTILE_CHIAVE && !gettone) {
-                btnInvia.disabled = false;
-                btnDiNuovo.disabled = false;
-                btnInvia.textContent = 'Invia il codice';
-                errore('telefono', 'Completa la verifica di sicurezza qui sotto, poi premi di nuovo «Invia il codice».');
+                invioInCorso = false;
+                dopoInvioFallito(0);
+                avvisoInvio(captcha.guasto
+                    ? 'La verifica di sicurezza di Cloudflare non si carica su questa rete o con le estensioni del browser, e senza non possiamo mandare l\'SMS. Prova con un\'altra connessione (per esempio i dati del telefono) o un altro browser, oppure scrivici a info@nextgenerationbusiness.it.'
+                    : !window.turnstile
+                        ? 'La verifica di sicurezza si sta ancora caricando: attendi qualche secondo e premi di nuovo «' + nomeBtn + '».'
+                        : 'La verifica di sicurezza non è ancora riuscita: attendi qualche secondo e premi di nuovo «' + nomeBtn + '». Se continua, ricarica la pagina.');
                 return null;
             }
-            btnInvia.textContent = 'Invio...';
+            btn.textContent = 'Invio...';
+            rinnovaCaptcha();   // speso adesso: vale per questa richiesta sola
             return chiama({ azione: 'sms-invia', telefono: campoTel.value, email: ($('email').value || '').trim(), captcha: gettone });
         })
             .then(d => {
                 if (d === null) return;    // la verifica di sicurezza non e' finita: gia' detto
-                rinnovaCaptcha();
-                btnInvia.textContent = 'Invia il codice';
+                invioInCorso = false;
                 if (!d.ok) {
-                    btnInvia.disabled = false;
+                    dopoInvioFallito(d.attesa);
                     if (d.campo === 'email') { errore('email', d.msg); $('email').focus(); }
-                    else errore('telefono', d.msg || 'Non siamo riusciti a mandare l\'SMS. Riprova fra qualche minuto.');
-                    if (d.attesa) { gruppoSms.hidden = false; contoAllaRovescia(d.attesa); }
+                    else if (d.captchaKo) avvisoInvio('La verifica di sicurezza non è andata a buon fine: premi di nuovo «' + nomeBtn + '».');
+                    else avvisoInvio(d.msg || 'Non siamo riusciti a mandare l\'SMS. Riprova fra qualche minuto.');
                     return;
                 }
                 /* Un "ok" senza il numero mascherato non viene da chi spedisce gli
                    SMS: e' un servizio non ancora aggiornato, che avrebbe preso la
                    richiesta per un'iscrizione. Meglio dirlo che fingere un invio. */
                 if (!d.numero) {
-                    btnInvia.disabled = false;
-                    errore('telefono', 'Il servizio di verifica non è ancora attivo. Riprova fra qualche minuto, oppure scrivici a info@nextgenerationbusiness.it.');
+                    dopoInvioFallito(0);
+                    avvisoInvio('Il servizio di verifica non è ancora attivo. Riprova fra qualche minuto, oppure scrivici a info@nextgenerationbusiness.it.');
                     return;
                 }
+                const nuovo = !!numeroInviato;
                 numeroInviato = numero;
                 // il codice vale per questo numero: per cambiarlo si passa da «Cambia numero»
                 campoTel.readOnly = true;
                 btnInvia.disabled = false;
                 btnInvia.textContent = 'Cambia numero';
                 gruppoSms.hidden = false;
-                smsNota.textContent = 'Codice inviato a ' + (d.numero || numero) + '. Vale ' + (d.vale || 10) + ' minuti.';
+                // dopo un nuovo invio vale anche il codice di prima, se arriva (il servizio li tiene buoni tutti e due)
+                smsNota.textContent = (nuovo ? 'Nuovo codice inviato a ' : 'Codice inviato a ') + (d.numero || numero) + '. Vale ' + (d.vale || 10) + ' minuti.'
+                    + (nuovo ? ' Va bene anche quello di prima, se arriva.' : '');
                 contoAllaRovescia(d.attesa || 60);
                 campoSms.focus();
                 ascoltaSms();
             })
             .catch(() => {
-                rinnovaCaptcha();
-                btnInvia.disabled = false;
-                btnInvia.textContent = 'Invia il codice';
-                errore('telefono', 'Errore di connessione. Riprova fra qualche secondo.');
+                invioInCorso = false;
+                dopoInvioFallito(0);
+                avvisoInvio('Errore di connessione. Riprova fra qualche secondo.');
             });
     }
 
@@ -414,12 +477,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnVerifica.disabled = false;
                 if (!d.ok) {
                     errore('codiceSms', d.msg || 'Il codice non è corretto.');
-                    if (d.esito === 'scaduto' || d.esito === 'troppi' || d.esito === 'nessuno') btnDiNuovo.disabled = false;
+                    // il nuovo invio si riaccende, ma non prima della fine del conto alla rovescia (il servizio lo rifiuterebbe)
+                    if ((d.esito === 'scaduto' || d.esito === 'troppi' || d.esito === 'nessuno') && !attesaTimer) btnDiNuovo.disabled = false;
                     return;
                 }
                 verificato = { numero: numeroInviato || cellulare(campoTel.value), token: String(d.token || '') };
                 smettiDiAscoltare();
                 clearInterval(attesaTimer);
+                attesaTimer = null;
                 gruppoSms.hidden = true;
                 campoTel.readOnly = true;
                 btnInvia.textContent = 'Cambia numero';
@@ -433,10 +498,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    btnInvia.addEventListener('click', () => {
+    btnInvia.addEventListener('click', (e) => {
         // a numero gia' inviato o verificato, lo stesso pulsante serve a cambiarlo
         if (numeroInviato || verificato.token) { azzeraVerifica(); campoTel.focus(); return; }
-        inviaCodice();
+        inviaCodice(e);
     });
     btnDiNuovo.addEventListener('click', inviaCodice);
     btnVerifica.addEventListener('click', verificaCodice);

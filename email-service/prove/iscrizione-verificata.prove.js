@@ -306,6 +306,71 @@ prova('Un SMS che Brevo rifiuta non fa aspettare un minuto', async () => {
     avanza(61 * 1000);
 });
 
+prova('Il codice arrivato tardi vale anche dopo «Invia di nuovo il codice», una volta sola', async () => {
+    sms = [];
+    await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3471112233' });
+    const primo = ultimoCodice();
+    avanza(61 * 1000);
+    await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3471112233' });
+    const secondo = ultimoCodice();
+    esigi(sms.length === 2 && primo && secondo, 'due SMS, due codici');
+    const r = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3471112233', codice: primo });
+    esigi(r.corpo.ok && r.corpo.token, 'il primo codice, arrivato dopo il secondo invio, verifica il numero', JSON.stringify(r.corpo));
+    const ancora = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3471112233', codice: secondo });
+    esigi(!ancora.corpo.ok, 'e dopo la verifica nessun codice vale piu\'', JSON.stringify(ancora.corpo));
+    avanza(61 * 1000);
+});
+
+prova('Un nuovo invio che non parte non rende inutile il codice gia\' arrivato', async () => {
+    sms = [];
+    await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3472223344' });
+    const arrivato = ultimoCodice();
+    avanza(61 * 1000);
+    smsGuasto = true;
+    const errVero = console.error;
+    console.error = () => { };
+    let r;
+    try { r = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3472223344' }); }
+    finally { console.error = errVero; smsGuasto = false; }
+    esigi(r.stato === 502, 'il nuovo invio non parte', JSON.stringify(r.corpo));
+    const v = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3472223344', codice: arrivato });
+    esigi(v.corpo.ok && v.corpo.token, 'e il codice arrivato prima verifica ancora il numero', JSON.stringify(v.corpo));
+    avanza(61 * 1000);
+});
+
+prova('Tetto del giorno pieno: nessun codice speso, e si riprova subito', async () => {
+    sms = [];
+    await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3479990000' });   // il contatore del giorno c'e'
+    const conto = dati.get('meta/smsVerifica') || {};
+    process.env.SMS_MAX_GIORNO = String(conto.inviati);
+    const errVero = console.error;
+    console.error = () => { };
+    let a, b;
+    try {
+        a = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3473334455' });
+        b = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3473334455' });
+    } finally { console.error = errVero; delete process.env.SMS_MAX_GIORNO; }
+    esigi(a.stato === 503 && b.stato === 503 && !b.corpo.attesa, 'due volte "non riusciamo a mandare l\'SMS", mai "ti abbiamo appena mandato un codice"', JSON.stringify(b.corpo));
+    const doc = [...dati.entries()].find(([k, d]) => k.startsWith('verificheSms/') && d.numero === '+393473334455');
+    esigi(!doc || ((doc[1].invii || []).length === 0 && (doc[1].codici || []).length === 0), 'e il numero non ha invii ne\' codici in conto', JSON.stringify(doc && doc[1]));
+    const c = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3473334455' });
+    esigi(c.corpo.ok && sms.length === 2, 'tolto il tetto, il codice parte subito', JSON.stringify(c.corpo));
+    avanza(61 * 1000);
+});
+
+prova('Cinque codici in 24 ore: il sesto dice da quando si puo\' riprovare', async () => {
+    sms = [];
+    for (let i = 0; i < 5; i++) {
+        const r = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3474445566' });
+        esigi(r.corpo.ok, 'invio ' + (i + 1), JSON.stringify(r.corpo));
+        avanza(61 * 1000);
+    }
+    const sesto = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3474445566' });
+    esigi(sesto.stato === 429 && !sesto.corpo.attesa && /Nelle ultime 24 ore/.test(sesto.corpo.msg) && /domani dopo le \d\d:\d\d/.test(sesto.corpo.msg),
+        'il limite e\' di 24 ore che scorrono, e il messaggio dice l\'ora', sesto.corpo.msg);
+    esigi(sms.length === 5, 'e il sesto non parte');
+});
+
 prova('Senza numero verificato non c\'e\' iscrizione', async () => {
     const senza = await iscrivi({ email: 'luca@studio.it', telefono: '3401234567' });
     esigi(senza.stato === 400 && senza.corpo.smsKo, 'senza firma no', JSON.stringify(senza.corpo));
