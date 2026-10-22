@@ -457,7 +457,7 @@ prova('"Rimanda la mail di conferma" dall\'area riservata: la traccia si aggiorn
     esigi(spedite.length === 1 && m.to === 'bruno@alfa.it' && m.replyTo === 'info@nextgenerationbusiness.it' && Array.isArray(m.bcc) && m.bcc[0] === 'admin@esempio.it',
         'la mail va a Bruno, con "Rispondi" verso info@ e la copia nascosta a chi l\'ha rimandata');
     esigi(sms.length === 1 && sms[0].tag === 'conferma-email' && sms[0].recipient === '393331113333' && /inviata a bruno@alfa\.it/.test(sms[0].content)
-        && /contatti\/\?t=mail/.test(sms[0].content), 'l\'SMS "conferma la tua email" al cellulare verificato', JSON.stringify(sms[0]));
+        && /modulo contatti del sito/.test(sms[0].content) && !/https?:/.test(sms[0].content), 'l\'SMS "conferma la tua email" al cellulare verificato', JSON.stringify(sms[0]));
     esigi(s.smsConferma && s.smsConferma.ok === true && s.smsConferma.tipo === 'inviata', 'e resta scritto sulla scheda');
 
     // il rinvio che non parte: 502, e la traccia dice il motivo nuovo

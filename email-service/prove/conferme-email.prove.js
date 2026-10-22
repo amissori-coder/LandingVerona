@@ -313,7 +313,7 @@ prova('Partita e mai cliccata: dopo un giorno UN promemoria, mail e SMS', async 
         'a un giorno: la mail con "Promemoria:" nell\'oggetto', spedite[0] && spedite[0].subject);
     const t = String((sms[0] || {}).content || '');
     esigi(sms.length === 1 && sms[0].tag === 'conferma-email' && /non ancora confermata/.test(t) && /inviata a lenta@studio\.it/.test(t)
-        && /nello Spam/.test(t) && /info@nextgenerationbusiness\.it/.test(t) && t.indexOf('https://nextgenerationbusiness.it/contatti/?t=mail') > 0,
+        && /nello Spam/.test(t) && /info@nextgenerationbusiness\.it/.test(t) && /modulo contatti del sito/.test(t) && !/https?:|www\./.test(t),
         'e l\'SMS del promemoria', t);
     esigi(V.caratteriSms(t) > 0 && V.caratteriSms(t) <= 306 && !/#\d{6}/.test(t), 'GSM-7, due SMS al massimo, senza codice');
     esigi(s.promemoriaConferma && s.promemoriaConferma.quando === orologio && s.promemoriaConferma.mail === true && s.promemoriaConferma.sms === true,

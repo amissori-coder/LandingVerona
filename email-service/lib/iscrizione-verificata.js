@@ -61,7 +61,8 @@
    IL SECONDO SMS: "CONFERMA LA TUA EMAIL". Subito dopo la mail con il
    pulsante, al numero appena verificato parte un SMS che dice dove
    cercarla (anche nello Spam) e, per qualunque problema, dove scriverci:
-   info@nextgenerationbusiness.it o il modulo delle domande, /contatti/?t=mail.
+   info@nextgenerationbusiness.it o il modulo contatti del sito (nominato,
+   senza link: vedi SMS_AIUTO).
    Chi si iscrive guarda il telefono in quel momento, e una mail finita
    fra la posta indesiderata non la cerca nessuno. Se la mail non e'
    partita l'SMS lo dice, e dice che si riprova da soli (il giro
@@ -364,12 +365,15 @@ function staInDueSms(s) {
     return n >= 0 && n <= SMS_MAX_CARATTERI;
 }
 /* dove scriverci per qualunque problema: info@ e il modulo contatti del
-   sito, gia' aperto sulla richiesta "mail di conferma non ricevuta". Tutto
-   in due SMS: ogni carattere in piu' toglie spazio all'indirizzo email, che
-   con i testi di sotto ci sta fino a 38 caratteri (33 in quello della mail
-   non partita, 32 nel promemoria); piu' lungo, l'SMS esce nella versione
-   senza. Per lo stesso motivo lo spam e' "Spam" e basta. */
-const SMS_AIUTO = 'Problemi? Scrivici a info@nextgenerationbusiness.it o dal modulo contatti: ' + LINK_MODULO_MAIL;
+   sito, NOMINATO MA SENZA LINK. L'SMS con il codice, che non ha indirizzi
+   web, arriva; questo, finche' ha avuto https://nextgenerationbusiness.it/
+   contatti/?t=mail, alle prove non e' arrivato: operatori e filtri
+   anti-phishing scartano volentieri gli SMS di un mittente aziendale con un
+   link dentro. Niente "https://", niente "www.". Tutto in due SMS: ogni
+   carattere in piu' toglie spazio all'indirizzo email, che con i testi di
+   sotto ci sta fino a 80 caratteri (75 in quello della mail non partita, 74
+   nel promemoria); piu' lungo, l'SMS esce nella versione senza. */
+const SMS_AIUTO = 'Problemi? Scrivici a info@nextgenerationbusiness.it o dal modulo contatti del sito.';
 const TESTI_CONFERMA = {
     // la mail e' partita: dov'e' il pulsante e dove cercarla
     inviata: a => 'Next Generation Business: per confermare l\'iscrizione premi "Conferma il tuo indirizzo email" nella mail '
