@@ -82,6 +82,7 @@ function rifColl(base) {
         /* startAt su un campo ordinato: e' quello che usa il giro per far
            avanzare la finestra di lettura dei lotti insieme al lavoro. */
         startAt(v) { daValore = v; return q; },
+        startAfter() { return q; },
         limit(n) { tetto = n; return q; },
         select() { return q; },
         get: async () => {
@@ -141,7 +142,8 @@ const nodemailer = {
 // ---------- intercetta i require ----------
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
-    if (nome === 'firebase-admin') return { firestore: { FieldValue: { increment: INC } }, apps: [] };
+    // FieldPath serve alla lettura dell'elenco a pagine (paginaEvento)
+    if (nome === 'firebase-admin') return { firestore: { FieldValue: { increment: INC }, FieldPath: { documentId: () => '__name__' } }, apps: [] };
     if (nome === 'nodemailer') return nodemailer;
     if (nome === 'imapflow') return { ImapFlow: function () { } };
     if (nome === 'google-auth-library') return { GoogleAuth: function () { } };
@@ -666,6 +668,139 @@ async function principale() {
         esigi(!spediti.length, 'senza credenziali PEC non si spedisce posta ordinaria spacciandola per certificata');
         esigi(docProg().stato === 'sospesa' && /PEC/.test(String(docProg().ultimoErrore)),
             'la programmazione si mette in pausa e dice perche', String(docProg().ultimoErrore).slice(0, 60));
+    }
+
+    console.log('\nIl secondo invio: solo a chi e\' stato invitato e non si e\' fatto vivo');
+    {
+        const inv = { quando: 1, canale: 'pec' };
+        scenario({
+            'zitta@x.it': { stato: 'inviata', invio: inv, codice: 'AB12C' },
+            'iscritta@x.it': { stato: 'iscritta', invio: inv, codice: 'DE34F' },
+            'rispostapec@x.it': { stato: 'inviata', invio: inv, ricevute: { risposta: { quando: 5 } } },
+            'contatto@x.it': { stato: 'inviata', invio: inv, contatto: { quando: 6 } },
+            'mai@x.it': {},
+            'esclusa@x.it': { stato: 'esclusa', invio: inv }
+        });
+        const tutte = ['zitta@x.it', 'iscritta@x.it', 'rispostapec@x.it', 'contatto@x.it', 'mai@x.it', 'esclusa@x.it'];
+        let r = await invia(tutte, { forza: true, soloNonIscritte: true });
+        esigi(r.inviate === 1 && spediti.length === 1 && spediti[0].to === 'zitta@x.it',
+            'parte solo all\'invitata che non si e\' iscritta e non ha risposto', spediti.map(m => m.to).join(','));
+        esigi(r.saltate === 5, 'le altre cinque si saltano: iscritta, risposta alla PEC, richiesta di contatto, mai invitata, esclusa', String(r.saltate));
+        const z = dati['aziendeInvito/' + idScheda('zitta@x.it')];
+        esigi(z.codice === 'AB12C' && z.invio.codice === 'AB12C' && z.stato === 'inviata', 'con lo stesso codice di prima', JSON.stringify({ c: z.codice, i: z.invio && z.invio.codice }));
+        esigi(dati['aziendeInvito/' + idScheda('iscritta@x.it')].stato === 'iscritta', 'e l\'iscritta resta iscritta');
+
+        // dall'area riservata: soloNonIscritte basta, anche senza forza
+        scenario({ 'zitta@x.it': { stato: 'inviata', invio: inv }, 'iscritta@x.it': { stato: 'iscritta', invio: inv } });
+        const rr = await chiama('invia', { canale: 'pec', ids: [idScheda('zitta@x.it'), idScheda('iscritta@x.it')], mail: MAIL, soloNonIscritte: true });
+        esigi(rr.ok && spediti.length === 1 && spediti[0].to === 'zitta@x.it', 'l\'azione "invia" con soloNonIscritte rispedisce a chi aveva gia\' ricevuto, e non all\'iscritta', JSON.stringify(rr).slice(0, 160));
+    }
+
+    console.log('\nIl testo del primo invio si ricorda, e il secondo lo ritrova uguale');
+    {
+        scenario({ 'nuova@x.it': {}, 'altra@x.it': {} });
+        const TESTO = 'Alla cortese attenzione del Legale Rappresentante\n\nSpettabile {ragione_sociale},\n\n{codice}\n\nhttps://esempio.it/';
+        await chiama('invia', { canale: 'pec', ids: [idScheda('nuova@x.it')], mail: MAIL, testo: TESTO, versione: 'sala' });
+        const m = dati['meta/testoInvito-ev1~invito'];
+        esigi(m && m.testo === TESTO && m.oggetto === 'Invito' && m.versione === 'sala' && m.da === 'chi@studio.it',
+            'l\'invito nuovo lascia il suo testo, con gli a capo, l\'oggetto e la versione', JSON.stringify(m || {}).slice(0, 160));
+        let el = await chiama('elenco', { aPagine: true });
+        esigi(el.ok && el.testoInvito && el.testoInvito.testo === TESTO && el.testoInvito.oggetto === 'Invito',
+            'e l\'elenco lo restituisce con la prima pagina', JSON.stringify(el.testoInvito || null).slice(0, 120));
+        // il secondo invio, e un rinvio a mano, NON lo sovrascrivono
+        await chiama('invia', { canale: 'pec', ids: [idScheda('nuova@x.it')], mail: MAIL, testo: 'altro testo', soloNonIscritte: true });
+        await chiama('invia', { canale: 'pec', ids: [idScheda('nuova@x.it')], mail: MAIL, testo: 'altro ancora', forza: true });
+        esigi(dati['meta/testoInvito-ev1~invito'].testo === TESTO, 'il secondo invio e i rinvii non lo cambiano');
+        // un invio a mano in cui non parte niente (tutte gia' servite) non lo cambia
+        await chiama('invia', { canale: 'pec', ids: [idScheda('nuova@x.it')], mail: MAIL, testo: 'non partito', versione: 'sala' });
+        esigi(dati['meta/testoInvito-ev1~invito'].testo === TESTO, 'un invio in cui non parte niente non lo cambia');
+        // una programmazione di inviti nuovi: il testo si ricorda quando il giro spedisce davvero
+        await chiama('programma', { canale: 'pec', mail: { oggetto: 'Invito 2', html: '<p>x</p>' }, quando: Date.now(), testo: 'testo programmato', versione: 'sala' });
+        esigi(dati['meta/testoInvito-ev1~invito'].testo === TESTO && docProg().testo === 'testo programmato',
+            'programmare non basta: il testo sta sulla programmazione, non ancora fra quelli ricordati');
+        await chiama('programma-lotto', { n: 1, ids: [idScheda('altra@x.it')] });
+        await chiama('programma-avvia', {});
+        await GIRO.eseguiGiro(db);
+        esigi(dati['meta/testoInvito-ev1~invito'].testo === 'testo programmato' && dati['meta/testoInvito-ev1~invito'].oggetto === 'Invito 2',
+            'quando il giro spedisce il primo messaggio, il testo diventa quello da ricordare', JSON.stringify(dati['meta/testoInvito-ev1~invito']).slice(0, 120));
+        // un secondo invio programmato non lo cambia
+        delete dati['invitiProgrammati/ev1~invito'];
+        await chiama('programma', { canale: 'pec', mail: MAIL, quando: Date.now(), testo: 'sollecito', soloNonIscritte: true });
+        esigi(docProg() && docProg().soloNonIscritte === true && docProg().forza === true, 'la programmazione si ricorda che e\' un secondo invio', JSON.stringify({ s: docProg() && docProg().soloNonIscritte, f: docProg() && docProg().forza }));
+        await chiama('programma-lotto', { n: 1, ids: [idScheda('altra@x.it')] });
+        await chiama('programma-avvia', {});
+        await GIRO.eseguiGiro(db);
+        esigi(dati['meta/testoInvito-ev1~invito'].testo === 'testo programmato', 'e quando spedisce non cambia il testo ricordato');
+    }
+
+    console.log('\nIl secondo invio parte una volta sola, e ripete il primo');
+    {
+        const inv = { quando: 1, canale: 'pec', codice: 'QQ11Q' };
+        scenario({
+            'a@x.it': { stato: 'inviata', invio: inv, codice: 'QQ11Q' },
+            'b@x.it': { stato: 'inviata', invio: inv, codice: 'BB22B' },
+            'mail@x.it': { stato: 'inviata', invio: { quando: 1, canale: 'email' }, email: 'mail@x.it' },
+            'ko@x.it': { stato: 'inviata', invio: inv, ricevute: { esito: 'non-consegnata' } },
+            'errore@x.it': { stato: 'errore', invio: inv, errore: { incerto: true } },
+            // spostata su un indirizzo nuovo: il campo codice non c'e' piu', quello spedito si'
+            'spostata@x.it': { stato: 'inviata', invio: { quando: 1, canale: 'pec', codice: 'SP33S' } }
+        });
+        const tutte = ['a@x.it', 'b@x.it', 'mail@x.it', 'ko@x.it', 'errore@x.it', 'spostata@x.it'];
+        let r = await invia(tutte, { forza: true, soloNonIscritte: true });
+        const a = spediti.map(m => m.to).sort().join(',');
+        esigi(a === 'a@x.it,b@x.it,spostata@x.it', 'sulla PEC: le invitate per PEC, non quella per email, non la PEC non arrivata, non quella in errore', a);
+        const sa = dati['aziendeInvito/' + idScheda('a@x.it')];
+        esigi(sa.secondoInvio && sa.secondoInvio.quando && sa.secondoInvio.canale === 'pec' && !sa.invio.secondoInvio, 'la scheda si segna il secondo invio, fuori da "invio"', JSON.stringify(sa.secondoInvio));
+        const sp = dati['aziendeInvito/' + idScheda('spostata@x.it')];
+        esigi(sp.codice === 'SP33S' && sp.invio.codice === 'SP33S', 'la scheda spostata riceve lo stesso codice del primo invio, non uno nuovo', JSON.stringify({ c: sp.codice, i: sp.invio.codice }));
+        // riprendere (tetto orario, Ferma, il pulsante premuto di nuovo): nessuna terza copia
+        spediti = [];
+        r = await invia(tutte, { forza: true, soloNonIscritte: true });
+        esigi(!spediti.length && r.inviate === 0, 'ripassare lo stesso elenco non manda una terza copia a nessuno', String(spediti.length));
+        // l'email ordinaria si fa a parte, e prende solo chi era stata invitata per email
+        r = await invia(tutte, { forza: true, soloNonIscritte: true, canale: 'email' });
+        esigi(spediti.length === 1 && spediti[0].to === 'mail@x.it', 'il passaggio per email raggiunge solo l\'invitata per email', spediti.map(m => m.to).join(','));
+        // dall'area riservata: il tetto ferma a meta', "Invia le restanti" riprende senza doppioni
+        scenario({ 'p1@x.it': { stato: 'inviata', invio: inv }, 'p2@x.it': { stato: 'inviata', invio: inv } });
+        const r1 = await chiama('invia', { canale: 'pec', ids: [idScheda('p1@x.it')], mail: MAIL, soloNonIscritte: true });
+        const r2 = await chiama('invia', { canale: 'pec', ids: [idScheda('p1@x.it'), idScheda('p2@x.it')], mail: MAIL, soloNonIscritte: true });
+        esigi(r1.ok && r2.ok && spediti.map(m => m.to).join(',') === 'p1@x.it,p2@x.it', 'ripresa dall\'area riservata: ognuna una volta', spediti.map(m => m.to).join(','));
+        esigi(r2.esiti && r2.esiti[idScheda('p2@x.it')] && r2.esiti[idScheda('p2@x.it')].secondoInvio, 'e l\'esito lo dice all\'area riservata');
+    }
+
+    console.log('\nUn indirizzo corretto (Modifica) non fa ripartire il secondo invio, e il codice resta buono');
+    {
+        scenario({ 'vecchia@x.it': { stato: 'inviata', invio: { quando: 1, canale: 'pec', codice: 'VV11V' }, codice: 'VV11V', secondoInvio: { quando: 2, canale: 'pec' }, ricevute: { esito: 'consegnata' } } });
+        dati['codiciInvito/VV11V'] = { scheda: idScheda('vecchia@x.it'), evento: 'ev1' };
+        const m = await chiama('modifica', { id: idScheda('vecchia@x.it'), azienda: { ragioneSociale: 'Alfa', pec: 'nuova@x.it' } });
+        const idNuovo = m.azienda && m.azienda.id;
+        const nuova = dati['aziendeInvito/' + idNuovo] || {};
+        esigi(m.ok && idNuovo && idNuovo !== idScheda('vecchia@x.it') && !dati['aziendeInvito/' + idScheda('vecchia@x.it')], 'la scheda passa all\'indirizzo nuovo', JSON.stringify(m).slice(0, 120));
+        esigi(nuova.codice === 'VV11V' && nuova.secondoInvio && nuova.secondoInvio.quando === 2 && nuova.ricevute && nuova.ricevute.esito === 'consegnata',
+            'e si porta il codice, il segno del secondo invio e le ricevute', JSON.stringify({ c: nuova.codice, s: nuova.secondoInvio, r: nuova.ricevute }));
+        esigi(dati['codiciInvito/VV11V'].scheda === idNuovo, 'il codice ora ritrova la scheda nuova (l\'iscrizione col codice la segna "iscritta")', dati['codiciInvito/VV11V'].scheda);
+        const r = await MOTORE.inviaSchede(db, { evento: 'ev1', campagna: 'invito', canale: 'pec', ids: [idNuovo], mail: MAIL, email: 'chi@studio.it', fuori: {}, forza: true, soloNonIscritte: true });
+        esigi(r.inviate === 0 && !spediti.length, 'e un nuovo secondo invio la salta: niente terza copia');
+
+        // una scheda spostata prima di questa correzione: il codice c'e' solo sull'invio, e punta alla scheda che non c'e' piu'
+        scenario({ 'spostata@x.it': { stato: 'inviata', invio: { quando: 1, canale: 'pec', codice: 'KK22K' } } });
+        dati['codiciInvito/KK22K'] = { scheda: 'ev1~sparita@x.it', evento: 'ev1' };
+        await invia(['spostata@x.it'], { forza: true, soloNonIscritte: true });
+        esigi(spediti.length === 1 && dati['aziendeInvito/' + idScheda('spostata@x.it')].codice === 'KK22K'
+            && dati['codiciInvito/KK22K'].scheda === idScheda('spostata@x.it'), 'il secondo invio ripete il codice e lo fa puntare alla scheda viva', JSON.stringify(dati['codiciInvito/KK22K']));
+    }
+
+    console.log('\nIl secondo invio programmato: il giro ricontrolla ogni scheda');
+    {
+        const inv = { quando: 1, canale: 'pec' };
+        scenario({ 'zitta@x.it': { stato: 'inviata', invio: inv }, 'tardi@x.it': { stato: 'inviata', invio: inv } });
+        await chiama('programma', { canale: 'pec', mail: MAIL, quando: Date.now(), soloNonIscritte: true });
+        await chiama('programma-lotto', { n: 1, ids: [idScheda('zitta@x.it'), idScheda('tardi@x.it')] });
+        await chiama('programma-avvia', {});
+        // fra la programmazione e il giro, "tardi" si iscrive col codice
+        dati['aziendeInvito/' + idScheda('tardi@x.it')].stato = 'iscritta';
+        await GIRO.eseguiGiro(db);
+        esigi(spediti.length === 1 && spediti[0].to === 'zitta@x.it', 'chi si iscrive dopo la programmazione non riceve il sollecito', spediti.map(x => x.to).join(','));
     }
 
     console.log('\n----------------------------------------------------------');

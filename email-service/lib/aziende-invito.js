@@ -68,6 +68,7 @@ const CONTATTI = require('./richieste-contatto');
    invio a freddo a migliaia di aziende quel genere di divergenza non si
    scopre - si paga. */
 const MOTORE = require('./invio-inviti');
+const CODICI = require('./codici-invito');
 const PROG = require('./programmazione-inviti');
 const RITMI = require('./ritmi-invito');
 /* Tutte le colonne del file, nell'ordine del file: la forma sta in un
@@ -382,7 +383,7 @@ function inChiaro(id, d) {
         campagna: CAMPAGNE.diScheda(d),
         codice: d.codice || '',
         iscritti: Array.isArray(d.iscritti) ? d.iscritti.slice(0, 20) : [],
-        invio: d.invio || null, errore: d.errore || null, aggiunta: d.aggiunta || null,
+        invio: d.invio || null, secondoInvio: d.secondoInvio || null, errore: d.errore || null, aggiunta: d.aggiunta || null,
         /* Chi ha premuto il pulsante nella mail e ha lasciato i propri
            recapiti. E' l'esito che conta su una campagna di
            sponsorizzazione, e sta sulla scheda perche' la riga lo dica
@@ -569,12 +570,24 @@ async function esegui(ctx) {
                 if (k && fuoriCampagna[k]) a.anche = fuoriCampagna[k];
             });
             aziende.sort((a, b) => String(a.ragioneSociale).localeCompare(String(b.ragioneSociale), 'it'));
+            // il testo dell'ultimo invito, per il secondo invio: con la prima pagina
+            let testoInvito = null;
+            if (!dopo) {
+                try {
+                    const t = await PROG.rifTestoInvito(db, evento, campagna).get();
+                    if (t.exists) {
+                        const v = t.data() || {};
+                        testoInvito = { oggetto: v.oggetto || '', testo: v.testo || '', versione: v.versione || '', quando: v.quando || 0, da: v.da || '' };
+                    }
+                } catch (_) { testoInvito = null; }
+            }
             /* L'altra lista viaggia anche a parte: la sovrapposizione fra due
                schede puo' cadere su due pagine diverse, e chi rimette insieme
                le pagine e' l'unico che le ha davanti tutte e due. */
             res.status(200).json({
                 ok: true, aziende: aziende, aggiornato: Date.now(),
                 altre: aPagine ? fuoriCampagna : {},
+                testoInvito: testoInvito,
                 cursore: quanteLette >= quante ? ultimo : '',
                 ancora: quanteLette >= quante,
                 limite: MAX_AZIENDE_EVENTO
@@ -918,6 +931,13 @@ async function esegui(ctx) {
                         if (v.invio) campi.invio = v.invio;
                         if (v.errore) campi.errore = v.errore;
                         if (v.aggiunta) campi.aggiunta = v.aggiunta;
+                        /* E quello che e' dell'AZIENDA, non dell'indirizzo: il
+                           codice che ha in mano, il segno del secondo invio
+                           (senza, il pulsante la ricontava e le arrivava una
+                           terza copia), le ricevute e le risposte. */
+                        ['codice', 'secondoInvio', 'ricevute', 'contatto', 'risposto'].forEach(k => {
+                            if (v[k] != null) campi[k] = v[k];
+                        });
                     }
                     /* E i dati del file: il modulo di modifica non li mostra,
                        quindi non li rimanda, e con la scheda vecchia se ne
@@ -930,6 +950,21 @@ async function esegui(ctx) {
                 }
             }
             await rif.set(campi, { merge: true });
+            /* Il codice deve puntare alla scheda nuova: e' da li' che
+               l'iscrizione col codice (e la richiesta di contatto) ritrovano
+               l'azienda. Lasciato sulla vecchia, chi si iscrive finiva su una
+               scheda che non c'e' piu', la scheda vera restava "inviata" e il
+               secondo invio le mandava il sollecito. Solo se puntava proprio
+               alla vecchia: un codice di un'altra scheda non si tocca. */
+            if (azione === 'modifica' && idVecchio && idVecchio !== id && campi.codice) {
+                try {
+                    const rc = db.collection('codiciInvito').doc(CODICI.normalizza(campi.codice));
+                    const sc = await rc.get();
+                    if (sc.exists && String((sc.data() || {}).scheda || '') === idVecchio) await rc.set({ scheda: id }, { merge: true });
+                } catch (e) {
+                    console.error('Codice invito non spostato sulla scheda nuova:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
             const dopo = await rif.get();
             /* Stesso controllo dell'importazione: una scheda aggiunta a mano
                puo' sovrapporsi all'altra lista esattamente come una riga di
@@ -1004,7 +1039,9 @@ async function esegui(ctx) {
             const html = String(mail.html || '').slice(0, 300000);
             if (!oggetto) { res.status(400).json({ ok: false, msg: 'Oggetto dell\'invito mancante.' }); return; }
             if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Testo dell\'invito mancante.' }); return; }
-            const forza = body.forza === true;
+            const soloNonIscritte = body.soloNonIscritte === true;
+            // il secondo invio e' per definizione a chi ha gia' ricevuto
+            const forza = body.forza === true || soloNonIscritte;
 
             /* Chi ha gia' chiesto di non ricevere piu' nulla non lo si tocca,
                qualunque sia la lista da cui e' rispuntato. Si legge una volta
@@ -1037,6 +1074,7 @@ async function esegui(ctx) {
             const r = await MOTORE.inviaSchede(db, {
                 evento: evento, campagna: campagna, canale: canale,
                 ids: daFare, mail: { oggetto: oggetto, html: html }, forza: forza,
+                soloNonIscritte: soloNonIscritte,
                 email: email, collab: collab,
                 /* Il nome della pagina di iscrizione viaggia col codice: e' l'unico
                    modo che ha il modulo pubblico, che l'evento lo conosce solo per
@@ -1052,6 +1090,8 @@ async function esegui(ctx) {
             /* Gettoni prenotati e non usati (tempo scaduto, schede saltate):
                si restituiscono, altrimenti il tetto orario si consumerebbe
                anche per gli invii che non sono mai partiti. */
+            // il testo di un invito nuovo si ricorda solo se e' partito davvero (vedi PROG.ricordaTesto)
+            if (!forza && r.inviate > 0) await PROG.ricordaTesto(db, evento, campagna, body, oggetto, email);
             const nonUsati = daFare.length - r.trattate;
             if (nonUsati > 0) {
                 try { await restituisciGettoni(db, email, canale, nonUsati, gettoni.inizioFinestra); }
@@ -1170,6 +1210,8 @@ async function esegui(ctx) {
             }
             const ritmo = RITMI.normalizza(canale, body.ritmo);
             const id = PROG.idDi(evento, campagna);
+            const soloNonIscritte = body.soloNonIscritte === true;
+            const forzaProg = body.forza === true || soloNonIscritte;
 
             /* Una sola programmazione per elenco, e lo garantisce la
                transazione: due persone che programmano lo stesso elenco, anche
@@ -1223,7 +1265,13 @@ async function esegui(ctx) {
                     quando: quando, ritmo: ritmo,
                     mail: { oggetto: oggetto, html: html },
                     pagina: testo(body.pagina, 200),
-                    forza: body.forza === true,
+                    forza: forzaProg,
+                    soloNonIscritte: soloNonIscritte,
+                    /* il testo com'era scritto nella finestra: il giro lo
+                       ricorda per il secondo invio quando i primi messaggi
+                       partono davvero */
+                    testo: String(body.testo || '').slice(0, 100000),
+                    versione: testo(body.versione, 20),
                     creato: { da: email, collab: collab, il: adesso },
                     totale: 0, lotti: 0,
                     conti: { inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, falliti: 0 },

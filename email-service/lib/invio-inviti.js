@@ -80,6 +80,42 @@ function indirizzoValido(e) {
        cinque volte. Il segno lo lascia l'invio stesso (invio.prog),
        quindi non serve tenere un segnalibro da nessuna parte: e'
        la scheda a ricordare, come per tutto il resto. */
+/* IL SECONDO INVIO (soloNonIscritte): parte di nuovo, identico, solo a chi
+   l'invito l'ha GIA' ricevuto e da allora non si e' fatto vivo. La regola di
+   "si e' fatta viva" e' quella di lib/aziende-invito.js (haRisposto) e
+   dell'area riservata: ha risposto alla PEC, ha chiesto di essere
+   contattata, o si e' iscritta col codice. Si ricontrolla QUI, sulla scheda
+   riletta nella transazione, e non solo nella selezione dell'area
+   riservata: fra la scelta e l'invio - su un secondo invio programmato,
+   giorni - un'azienda si puo' iscrivere, e il sollecito non le deve
+   arrivare. Restano fuori anche, come nella scheda "Inviate" dell'area
+   riservata (vistaDi):
+     - chi il secondo invio l'ha GIA' avuto (`secondoInvio`, scritto qui
+       sotto a ogni secondo invio riuscito): riprendere un invio fermato dal
+       tetto orario, o ripremere il pulsante, non deve mandare una terza
+       PEC a chi e' gia' stato sollecitato;
+     - chi non e' (piu') "inviata": in errore, con l'esito ignoto, rimessa
+       da invitare;
+     - chi ha la PEC non arrivata: a un indirizzo che respinge non si
+       rispedisce una PEC che si paga;
+     - chi era stata invitata su un ALTRO canale: il secondo invio ripete il
+       primo, e una PEC a chi era stata scritta un'email (o un'email a una
+       casella PEC, che spesso la rifiuta) non e' ripeterlo. */
+const PEC_KO = ['non-consegnata', 'non-accettata', 'in-dubbio'];
+function fattaViva(a) {
+    if (!a) return false;
+    if (a.contatto && a.contatto.quando) return true;
+    if (a.ricevute && a.ricevute.risposta && a.ricevute.risposta.quando) return true;
+    return a.stato === 'risposta' || a.stato === 'iscritta';
+}
+function fuoriDalSecondoInvio(a, canale) {
+    if (!(a && a.invio && a.invio.quando) || fattaViva(a)) return true;
+    if (a.secondoInvio && a.secondoInvio.quando) return true;
+    if (a.stato !== 'inviata') return true;
+    if (a.invio.canale === 'pec' && PEC_KO.indexOf(String((a.ricevute && a.ricevute.esito) || '')) >= 0) return true;
+    return !!(canale && a.invio.canale && a.invio.canale !== canale);
+}
+
 function giaServita(a, forza, prog) {
     const invio = a && a.invio;
     if (!invio || !invio.quando) return false;
@@ -132,6 +168,8 @@ const INCERTO_DOPO_MS = Math.max(
    opz:
      evento, campagna, canale, ids, mail {oggetto, html}
      forza      rispedire a chi ha gia' ricevuto
+     soloNonIscritte  il secondo invio: solo a chi ha gia' ricevuto e non si
+                e' fatto vivo (fuoriDalSecondoInvio), con forza
      prog       identificativo della programmazione, se l'invio e' automatico
      email      chi firma l'invio (finisce nei timbri delle schede)
      collab     il collaboratore reale, se c'e'
@@ -157,6 +195,7 @@ async function inviaSchede(db, opz) {
     const oggetto = testo(mail.oggetto, 250);
     const html = String(mail.html || '');
     const forza = opz.forza === true;
+    const soloNonIscritte = opz.soloNonIscritte === true;
     const prog = String(opz.prog || '');
     const email = String(opz.email || '');
     const collab = opz.collab || '';
@@ -218,6 +257,7 @@ async function inviaSchede(db, opz) {
                     if (CAMPAGNE.diScheda(a) !== campagna) return { cosa: 'saltata' };
                     if (a.stato === 'esclusa' || a.stato === 'disiscritta') return { cosa: 'saltata' };
                     if (giaServita(a, forza, prog)) return { cosa: 'saltata' };
+                    if (soloNonIscritte && fuoriDalSecondoInvio(a, canale)) return { cosa: 'saltata' };
                     /* Un tentativo rimasto appeso: vedi il commento su
                        INCERTO_DOPO_MS. Fresco vuol dire "ci sta lavorando
                        qualcun altro proprio adesso"; vecchio vuol dire "non si
@@ -290,6 +330,24 @@ async function inviaSchede(db, opz) {
                secondo invito deve ripetere lo stesso, altrimenti il primo
                smette di valere senza che nessuno lo sappia. */
             let codice = String(a.codice || '');
+            /* Una scheda spostata su un indirizzo nuovo (Modifica) puo' aver
+               perso il campo `codice` ma avere ancora quello spedito con il
+               primo invito: il secondo deve ripetere quello. */
+            if (!codice && a.invio && a.invio.codice) {
+                codice = String(a.invio.codice);
+                try { await rif.set({ codice: codice }, { merge: true }); } catch (_) { /* resta sull'invio */ }
+                /* e il codice deve ritrovare questa scheda: se punta ancora a
+                   quella vecchia, che non c'e' piu', chi si iscrive con il
+                   codice del sollecito finirebbe nel vuoto */
+                try {
+                    const rc = db.collection('codiciInvito').doc(CODICI.normalizza(codice));
+                    const sc = await rc.get();
+                    const punta = sc.exists ? String((sc.data() || {}).scheda || '') : '';
+                    if (punta && punta !== id && !(await db.collection('aziendeInvito').doc(punta).get()).exists) {
+                        await rc.set({ scheda: id }, { merge: true });
+                    }
+                } catch (_) { /* il codice resta valido; l'iscrizione lo riconosce lo stesso */ }
+            }
             if (!codice) {
                 try {
                     codice = await CODICI.assegna(db, {
@@ -333,8 +391,14 @@ async function inviaSchede(db, opz) {
                    il messaggio, che e' la prima domanda quando qualcosa non
                    torna. */
                 if (prog) invio.prog = prog;
-                await rif.set({ stato: 'inviata', invio: invio, errore: null, tentativo: null }, { merge: true });
-                if (raccogliEsiti) conti.esiti[id] = { stato: 'inviata', invio: invio, codice: codice };
+                const scrivi = { stato: 'inviata', invio: invio, errore: null, tentativo: null };
+                /* Il segno del secondo invio, a parte e non dentro `invio`: una
+                   scrittura con merge fonderebbe il campo dentro l'invio dopo e
+                   se lo porterebbe dietro. E' cio' che lo rende una volta sola
+                   (fuoriDalSecondoInvio). */
+                if (soloNonIscritte) scrivi.secondoInvio = { quando: invio.quando, canale: canale, prog: prog || '' };
+                await rif.set(scrivi, { merge: true });
+                if (raccogliEsiti) conti.esiti[id] = { stato: 'inviata', invio: invio, codice: codice, secondoInvio: scrivi.secondoInvio || null };
                 conti.inviate++;
                 conti.trattate++;
             } catch (e) {
@@ -359,4 +423,4 @@ async function inviaSchede(db, opz) {
     return conti;
 }
 
-module.exports = { inviaSchede, giaServita };
+module.exports = { inviaSchede, giaServita, fuoriDalSecondoInvio };

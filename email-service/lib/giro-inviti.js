@@ -315,6 +315,8 @@ async function lavora(db, id, dati, scadenza, fuori) {
                        che questa chiave esistesse non ce l'hanno: li' si ricade
                        sull'identificativo, che e' quello che facevano gia'. */
                     forza: dati.forza === true, prog: dati.corsa ? (id + '#' + dati.corsa) : id,
+                    // il secondo invio: solo a chi non si e' fatto vivo, ricontrollato a ogni scheda
+                    soloNonIscritte: dati.soloNonIscritte === true,
                     email: (dati.creato && dati.creato.da) || '',
                     collab: (dati.creato && dati.creato.collab) || '',
                     pagina: dati.pagina || '',
@@ -345,6 +347,11 @@ async function lavora(db, id, dati, scadenza, fuori) {
                perche'. */
             await restituisci(db, id, p.concessi - r.trattate, p.inizio);
             restaQuota -= r.trattate;
+            // un invito nuovo partito davvero: il suo testo e' quello del secondo invio
+            if (dati.forza !== true && r.inviate > 0 && dati.testo) {
+                await P.ricordaTesto(db, dati.evento, dati.campagna, { testo: dati.testo, versione: dati.versione },
+                    (dati.mail || {}).oggetto, (dati.creato && dati.creato.da) || '');
+            }
             conti = sommaConti(conti, r);
             /* Il segnalibro si sposta solo fin dove le schede sono DEFINITE.
                Una rimandata - qualcuno ci sta lavorando adesso, o e' appena
