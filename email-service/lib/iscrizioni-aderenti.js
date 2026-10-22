@@ -57,6 +57,10 @@ const QUOTE = [
         luogo: 'Milano',
         // per la testata e il piede del riepilogo di mezzanotte
         date: '26-27 febbraio 2027',
+        /* il giorno da cui il riepilogo di mezzanotte ha preso il posto
+           dell'avviso a ogni iscrizione: se la prima notte fallisce, la
+           notte dopo riparte da qui (api/riepilogo-iscrizioni.js) */
+        riepilogoDal: '2026-10-22',
         voci: [
             { cosa: 'Cena', quando: 'venerdì 26 febbraio 2027' },
             { cosa: 'Meeting degli aderenti', quando: 'sabato 27 febbraio 2027' }

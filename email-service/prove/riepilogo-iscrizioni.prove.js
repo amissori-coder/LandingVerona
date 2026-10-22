@@ -39,7 +39,8 @@
        uno gia' coperto non riporta indietro l'ultimo giorno spedito;
      - se la funzione si ferma a meta' (posta che non risponde) il giorno
        non risulta spedito, e la notte dopo lo recupera; anche la prima
-       notte in assoluto;
+       notte in assoluto, che riparte dal giorno del cambio (riepilogoDal);
+     - un giro in corso, anche per un altro giorno, ferma gli altri;
      - con trenta iscrizioni in un giorno la mail resta sotto i 102 KB
        oltre i quali Gmail la tronca.
    ============================================================ */
@@ -335,18 +336,43 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(/Rita Bosco/.test(m.html || '') && /Sara Neve/.test(m.html || '') && /dal 13\/02\/2027 al 14\/02\/2027/.test(m.subject || ''), 'la notte dopo recupera il 13', m.subject);
     esigi(!dati.get('meta/riepilogoAderenti-milano-2027-aderenti').inCorso, 'e l\'"in corso" e\' tolto');
 
-    console.log('\nLa prima notte in assoluto la posta non risponde: la notte dopo recupera');
+    console.log('\nLa prima notte in assoluto: se fallisce, la notte dopo riparte dal giorno del cambio');
+    // come se il riepilogo avesse preso il posto degli avvisi il 15 febbraio
+    const QUOTA = require(path.join(__dirname, '..', 'lib/iscrizioni-aderenti.js')).QUOTE[0];
+    const dalVero = QUOTA.riepilogoDal;
+    QUOTA.riepilogoDal = '2027-02-15';
     n0 = spedite.length;
     dati.delete('meta/riepilogoAderenti-milano-2027-aderenti');
     aderente('tea', { nome: 'Tea', cognome: 'Prima', email: 'tea@prima.it', telefono: '350', fatturazione: FAT(), primaVolta: ms('2027-02-15T09:00:00Z'), quando: ms('2027-02-15T09:00:00Z') });
-    postaGiu = 1;
+    // la prima notte non si leggono nemmeno le iscrizioni: sul documento meta non si scrive niente
+    rompiLettura.add('iscrizioniAderenti');
     orologio = ms('2027-02-15T23:00:05Z');
     r = await gira();
-    esigi(spedite.length === n0 && dati.get('meta/riepilogoAderenti-milano-2027-aderenti').ultimoGiorno === '2027-02-14', 'non parte, e il giorno prima resta segnato', JSON.stringify(dati.get('meta/riepilogoAderenti-milano-2027-aderenti')));
+    esigi(spedite.length === n0 && !dati.has('meta/riepilogoAderenti-milano-2027-aderenti'), 'la prima notte fallisce prima di cominciare');
+    aderente('ugo', { nome: 'Ugo', cognome: 'Dopo', email: 'ugo@dopo.it', telefono: '351', fatturazione: FAT(), primaVolta: ms('2027-02-16T09:00:00Z'), quando: ms('2027-02-16T09:00:00Z') });
+    postaGiu = 1;
     orologio = ms('2027-02-16T23:00:05Z');
     r = await gira();
+    esigi(spedite.length === n0 && dati.get('meta/riepilogoAderenti-milano-2027-aderenti').ultimoGiorno === '2027-02-14',
+        'la seconda la posta non risponde: resta segnato il giorno prima del cambio', JSON.stringify(dati.get('meta/riepilogoAderenti-milano-2027-aderenti')));
+    orologio = ms('2027-02-17T23:00:05Z');
+    r = await gira();
     m = spedite[n0] || {};
-    esigi(/Tea Prima/.test(m.html || '') && /dal 15\/02\/2027 al 16\/02\/2027/.test(m.subject || ''), 'la notte dopo c\'e\' Tea', m.subject);
+    esigi(/Tea Prima/.test(m.html || '') && /Ugo Dopo/.test(m.html || '') && /dal 15\/02\/2027 al 17\/02\/2027/.test(m.subject || ''), 'la terza ci sono tutti, dal giorno del cambio', m.subject);
+    QUOTA.riepilogoDal = dalVero;
+
+    console.log('\nUn giro in corso (anche per un altro giorno) ferma gli altri: niente doppioni');
+    n0 = spedite.length;
+    aderente('vera', { nome: 'Vera', cognome: 'Lago', email: 'vera@lago.it', telefono: '352', fatturazione: FAT(), primaVolta: ms('2027-02-18T09:00:00Z'), quando: ms('2027-02-18T09:00:00Z') });
+    orologio = ms('2027-02-18T23:00:05Z');
+    dati.set('meta/riepilogoAderenti-milano-2027-aderenti', Object.assign({}, dati.get('meta/riepilogoAderenti-milano-2027-aderenti'),
+        { inCorso: { giorno: '2027-02-16', da: orologio - 30000, id: 'manuale' } }));
+    r = await gira();
+    esigi(spedite.length === n0 && (r.corpo.esiti.find(e => e.quota) || {}).gia, 'una chiamata a mano sta spedendo: il lavoro aspetta', JSON.stringify(r.corpo.esiti));
+    esigi(dati.get('meta/riepilogoAderenti-milano-2027-aderenti').inCorso.id === 'manuale', 'e non tocca l\'"in corso" dell\'altro');
+    orologio = ms('2027-02-19T23:00:05Z');
+    r = await gira();
+    esigi(spedite.length === n0 + 1 && /Vera Lago/.test(spedite[n0].html) && /dal 18\/02\/2027 al 19\/02\/2027/.test(spedite[n0].subject), 'la notte dopo (giro di prima scaduto) recupera il 18', (spedite[n0] || {}).subject);
 
     console.log('\nTrenta iscrizioni in un giorno: la mail resta sotto il taglio di Gmail');
     n0 = spedite.length;
@@ -354,9 +380,9 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         aderente('tanti' + k, { nome: 'Persona' + k, cognome: 'Con Un Cognome Lungo', email: 'persona.numero' + k + '@studio-associati-esempio.it', telefono: '+39 333 123 45' + String(k).padStart(2, '0'),
             studio: 'Studio Associato Esempio di Professionisti', citta: 'Reggio nell\'Emilia', note: 'Vegetariano, nessuna allergia nota, arrivo alle 20',
             fatturazione: FAT({ intestatario: 'Studio Associato Esempio di Professionisti S.t.p.', pec: 'studio.associato.esempio@pec.it', emailFatture: 'amministrazione.fatture@studio-associati-esempio.it', indirizzo: 'Via Giuseppe Garibaldi 123/B' }),
-            primaVolta: ms('2027-02-17T09:00:00Z') + k * 60000, quando: ms('2027-02-17T09:00:00Z') + k * 60000 });
+            primaVolta: ms('2027-02-20T09:00:00Z') + k * 60000, quando: ms('2027-02-20T09:00:00Z') + k * 60000 });
     }
-    orologio = ms('2027-02-17T23:00:05Z');
+    orologio = ms('2027-02-20T23:00:05Z');
     r = await gira();
     m = spedite[n0] || {};
     const kb = Buffer.byteLength(String(m.html || ''), 'utf8') / 1024;

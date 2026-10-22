@@ -1813,7 +1813,11 @@ Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
 Senza iscrizioni nuove o aggiornate non parte niente. Una volta per notte su
 `meta/riepilogoAderenti-<quota>`, che tiene l'**ultimo giorno spedito
 davvero** (`ultimoGiorno`, segnato solo DOPO che la mail e' partita; mentre
-spedisce c'e' `inCorso`, che ferma un secondo giro della stessa notte).
+spedisce c'e' `inCorso`, che ferma qualunque altro giro, anche per un altro
+giorno, finche' non finisce o non passano dieci minuti). Senza `ultimoGiorno`
+(la prima notte, anche se e' fallita prima di cominciare) si parte da
+`riepilogoDal` della quota, il giorno in cui il riepilogo ha preso il posto
+degli avvisi (2026-10-22).
 Questa mail e' l'unico avviso di un'iscrizione da fatturare, quindi **non si
 perde un giorno**: se una notte la posta non risponde, o la funzione si ferma
 a meta', la notte dopo la mail copre anche il giorno rimasto indietro ("dal
