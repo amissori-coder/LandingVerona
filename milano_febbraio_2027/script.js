@@ -379,7 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
        i secondi che dice il servizio. Prima restava spento per sempre. */
     const etichettaInvia = () => (numeroInviato || verificato.token) ? 'Cambia numero' : 'Invia il codice';
     function dopoInvioFallito(attesa) {
-        campoTel.readOnly = !!(numeroInviato || verificato.token);
         btnInvia.disabled = false;
         btnInvia.textContent = etichettaInvia();
         if (attesa) { gruppoSms.hidden = false; contoAllaRovescia(attesa); return; }
@@ -396,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (invioInCorso) return;
         const btn = e && e.currentTarget === btnDiNuovo ? btnDiNuovo : btnInvia;
         const nomeBtn = btn === btnDiNuovo ? 'Invia di nuovo il codice' : 'Invia il codice';
-        const numero = cellulare(campoTel.value);
+        let numero = cellulare(campoTel.value);
         errore('telefono', '');
         $('codiceSmsError').textContent = '';
         if (!numero) {
@@ -405,8 +404,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         invioInCorso = true;
-        // il numero resta quello per cui si chiede il codice, anche se la verifica di sicurezza si fa aspettare
-        campoTel.readOnly = true;
         btnInvia.disabled = true;
         btnDiNuovo.disabled = true;
         btn.textContent = captcha.gettone || !TURNSTILE_CHIAVE ? 'Invio...' : 'Verifica in corso...';
@@ -422,6 +419,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     : !window.turnstile
                         ? 'La verifica di sicurezza si sta ancora caricando: attendi qualche secondo e premi di nuovo «' + nomeBtn + '».'
                         : 'La verifica di sicurezza non è ancora riuscita: attendi qualche secondo e premi di nuovo «' + nomeBtn + '». Se continua, ricarica la pagina.');
+                return null;
+            }
+            /* il numero di adesso: chi corregge un errore mentre aspetta la
+               verifica di sicurezza riceve il codice sul numero giusto */
+            numero = cellulare(campoTel.value);
+            if (!numero) {
+                invioInCorso = false;
+                dopoInvioFallito(0);
+                errore('telefono', 'Scrivi un numero di cellulare italiano, per esempio 333 123 4567.');
                 return null;
             }
             btn.textContent = 'Invio...';
