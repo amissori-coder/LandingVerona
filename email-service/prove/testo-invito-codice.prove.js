@@ -183,6 +183,22 @@ prova('Milano: l oggetto dell esempio, solo per l invito in sala', () => {
         'un altro evento: l oggetto di sempre', APPJS.invOggettoPredefinito(NAPOLI, 'invito', 'sala'));
 });
 
+/* La lettera comune con il tetto: Milano ha la sua, ma un evento che fissa
+   iscrizioniPerCodice senza una lettera propria (o Milano, se la sua si
+   togliesse) passa da qui, e la frase delle due iscrizioni non deve sparire. */
+prova('Versione sala comune con il tetto: il codice da solo, poi la frase delle due iscrizioni', () => {
+    const comune = Object.assign({}, MILANO, { invito: undefined });
+    const p = capoversi(APPJS.invTestoSala(comune));
+    const i = p.indexOf('{codice}');
+    esigi(i > 0, 'il codice sta da solo nel suo capoverso');
+    esigi(p[i - 1] === 'Alla Vostra azienda è riservato il seguente codice di accesso:', 'preceduto dalla riga che lo annuncia');
+    esigi(p[i + 1] === VECCHIO_SALA, 'seguito dalla spiegazione di sempre', p[i + 1]);
+    esigi(p[i + 2] === DUE_SALA, 'e subito dopo la frase delle due iscrizioni', p[i + 2]);
+    esigi(/^La partecipazione è gratuita/.test(p[i + 3]), 'poi la lettera riprende come prima');
+    esigi(APPJS.invOggettoPredefinito(comune, 'invito', 'sala') === 'Invito - Milano, 26 febbraio 2027 - Next Generation Business',
+        'e l oggetto di sempre');
+});
+
 prova('Versione diretta: la stessa frase, con "iscriversi"', () => {
     const p = capoversi(APPJS.invTestoDiretta(MILANO));
     const i = p.indexOf('{codice}');
