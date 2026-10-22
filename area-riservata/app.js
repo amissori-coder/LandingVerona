@@ -27841,8 +27841,8 @@
                 + (ultimo.inoltriFalliti ? ', ' + ultimo.inoltriFalliti + ' non ' + (ultimo.inoltriFalliti === 1 ? 'partita' : 'partite') + ' per email (si riprova)' : '')
                 + (ultimo.nonRiconosciute ? ', ' + ultimo.nonRiconosciute + ' da guardare a mano' : '') + '.'
                 : 'L\'ultimo controllo non è riuscito: ' + esc(ultimo.motivo || ''));
-        /* Le risposte delle aziende partono anche per email agli organizzatori
-           (email-service/lib/inoltro-risposte-pec.js). Quelle di QUESTO evento
+        /* Le risposte delle aziende partono anche per email (ad Andrea Missori,
+           email-service/lib/inoltro-risposte-pec.js). Quelle di QUESTO evento
            che non sono partite nemmeno dopo un giorno di tentativi si dicono
            qui, per una settimana: la risposta resta sulla scheda e si legge da
            li'. */
@@ -28558,7 +28558,7 @@
                 bRic.disabled = false; bRic.textContent = testoPrima;
                 if (ko) { esito(ko, true); ridisegna(); return; }
                 const riepilogo = ricevute + ' ricevute e ' + risposte + ' risposte lette'
-                    + (inoltrate ? ', ' + inoltrate + (inoltrate === 1 ? ' inoltrata' : ' inoltrate') + ' per email agli organizzatori' : '')
+                    + (inoltrate ? ', ' + inoltrate + (inoltrate === 1 ? ' inoltrata' : ' inoltrate') + ' per email' : '')
                     + (restanti ? '. Ce ne sono altre: premi di nuovo.' : '.');
                 esito(riepilogo, false);
                 // le schede toccate arrivano gia' dal servizio, ma rileggere

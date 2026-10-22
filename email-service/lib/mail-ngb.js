@@ -1162,8 +1162,8 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-/* LA RISPOSTA DI UN'AZIENDA ALLA PEC DELL'INVITO, inoltrata agli
-   organizzatori per posta ordinaria (lib/inoltro-risposte-pec.js). La
+/* LA RISPOSTA DI UN'AZIENDA ALLA PEC DELL'INVITO, inoltrata ad
+   Andrea Missori per posta ordinaria (lib/inoltro-risposte-pec.js). La
    casella PEC dello studio non la apre nessuno tutti i giorni: questa mail
    porta il messaggio dove lo si legge davvero.
    `d`: { azienda, da, oggetto, quandoTesto, certificata, pagina, eventoNome,
@@ -1230,7 +1230,7 @@ function rispostaPec(d, link) {
             + spazio(24)
             + bottone('Apri gli inviti nell\'area riservata', link)
         )
-        + piedePer(d.pagina, 'Avviso automatico per gli organizzatori: parte quando un\'azienda risponde alla PEC dell\'invito.'));
+        + piedePer(d.pagina, 'Avviso automatico: parte quando un\'azienda risponde alla PEC dell\'invito.'));
     const testo = [oggetto.toUpperCase(), sommario,
         ['Azienda: ' + azienda, d.da ? 'Da: ' + d.da : '', d.quandoTesto ? 'Arrivata il: ' + d.quandoTesto : '',
             d.oggetto ? 'Oggetto: ' + d.oggetto : '', 'Tipo: ' + tipo, d.codice ? 'Codice invito: ' + d.codice : ''].filter(Boolean).join('\n'),
@@ -1240,7 +1240,7 @@ function rispostaPec(d, link) {
         allegati.length ? 'ALLEGATI\n' + allegati.map(a => '- ' + a.nome + ' (' + kb(a.dimensione) + ')' + (a.allegato ? '' : ' - ' + perche(a))).join('\n') : '',
         nota,
         'Gli inviti nell\'area riservata: ' + link,
-        '--', 'Avviso automatico per gli organizzatori: parte quando un\'azienda risponde alla PEC dell\'invito.'].filter(Boolean).join('\n\n');
+        '--', 'Avviso automatico: parte quando un\'azienda risponde alla PEC dell\'invito.'].filter(Boolean).join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
