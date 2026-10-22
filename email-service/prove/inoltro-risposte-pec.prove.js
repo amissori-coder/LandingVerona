@@ -198,7 +198,7 @@ function esigi(c, cosa, extra) { if (c) { ok++; console.log('  verde  ' + cosa);
 
 const ORA = Date.now();
 const GIORNO = 24 * 60 * 60 * 1000;
-const ORGANIZZATORI = 'andreamissori@revilaw.it, pierluigisterzi@revilaw.it, ombrettamagaraci@revilaw.it, sergiomiele@revilaw.it, vincenzoantonionapolitano@revilaw.it';
+const DESTINATARIO = 'andreamissori@revilaw.it';
 
 /* ---------- i messaggi ----------
    Una risposta PEC come arriva davvero: la busta del gestore con il suo
@@ -348,7 +348,7 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     let e = await giro(client);
     esigi(e.inoltrate === 1 && spedite.length === 1, 'parte una mail', JSON.stringify(e));
     let m = spedite[0] || {};
-    esigi(m.to === ORGANIZZATORI, 'agli organizzatori del riepilogo', m.to);
+    esigi(m.to === DESTINATARIO, 'solo ad andreamissori@revilaw.it, non agli organizzatori del riepilogo', m.to);
     esigi(m.subject === 'Risposta alla PEC dell\'invito - Alfa S.r.l.', 'oggetto con l\'azienda', m.subject);
     esigi(/Parteciperemo volentieri: è un piacere\./.test(m.text) && /Parteciperemo volentieri: è un piacere\./.test(m.html), 'il testo dell\'azienda, decodificato dal quoted-printable latin1');
     esigi(!/Ã|=E8|Messaggio di posta certificata/.test(m.text), 'niente "Ã¨", niente codifica, niente testo del gestore');
@@ -359,7 +359,7 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     esigi(/area-riservata\/#eventi/.test(m.html), 'con il collegamento all\'area riservata');
     const pdf = (m.attachments || [])[0] || {};
     esigi((m.attachments || []).length === 1 && pdf.filename === 'adesione.pdf' && pdf.content.length === 2000 && pdf.content[0] === 7 && pdf.contentType === 'application/pdf', 'l\'allegato, decodificato dal base64', JSON.stringify((m.attachments || []).map(a => [a.filename, a.content.length])));
-    esigi(righe()[0].stato === 'inviata' && righe()[0].a === 5 && righe()[0].da === '' && righe()[0].oggetto === '', 'la riga e\' inviata, e mittente e oggetto si cancellano', JSON.stringify(righe()[0]));
+    esigi(righe()[0].stato === 'inviata' && righe()[0].a === 1 && righe()[0].da === '' && righe()[0].oggetto === '', 'la riga e\' inviata, e mittente e oggetto si cancellano', JSON.stringify(righe()[0]));
     e = await giro(client);
     esigi(e.inoltrate === 0 && spedite.length === 1, 'al giro dopo non riparte');
 

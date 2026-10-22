@@ -41,9 +41,10 @@
    si cancellano dalla riga appena la mail e' partita, e le righe se ne
    vanno con la scheda quando la si elimina (dimentica).
 
-   A CHI: agli stessi destinatari dei riepiloghi di mezzanotte
-   (RIEPILOGO_DESTINATARI, o l'elenco in lib/riepilogo-iscrizioni.js),
-   a meno che PEC_RISPOSTE_DESTINATARI indichi un elenco suo.
+   A CHI: solo ad Andrea Missori (DESTINATARI qui sotto), a meno che
+   PEC_RISPOSTE_DESTINATARI su Vercel indichi un elenco suo. Non agli
+   organizzatori del riepilogo di mezzanotte: le risposte alle PEC le
+   segue lui.
    ============================================================ */
 
 const nodemailer = require('nodemailer');
@@ -89,12 +90,10 @@ function elencoIndirizzi(v) {
     return String(v || '').split(/[,;\s]+/).map(x => x.trim().toLowerCase())
         .filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
 }
+const DESTINATARI = ['andreamissori@revilaw.it'];
 function destinatari() {
     const propri = elencoIndirizzi(process.env.PEC_RISPOSTE_DESTINATARI);
-    if (propri.length) return propri;
-    // caricato qui e non in cima: il lettore PEC non deve portarsi dietro
-    // tutto il riepilogo delle iscrizioni solo per sapere a chi scrivere
-    return require('./riepilogo-iscrizioni').destinatari();
+    return propri.length ? propri : DESTINATARI.slice();
 }
 /* Tempi stretti, sotto il minuto della funzione (vercel.json): l'inoltro
    parte a fine giro, e una posta che non risponde non deve far morire il

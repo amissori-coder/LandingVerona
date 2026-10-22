@@ -337,7 +337,7 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 | `PEC_LETTORE_MAX` | quanti messaggi per giro (predefinito 40) |
 | `PEC_LETTORE_RECUPERO` | quanti messaggi guardare all'indietro alla prima accensione (predefinito 200) |
 | `PEC_CRON_SECRET` | **di norma non serve**: solo per guidare il controllo da uno scheduler ESTERNO al posto del cron di Vercel (vedi sotto) |
-| `PEC_RISPOSTE_DESTINATARI` | **si puo' omettere**: a chi arrivano per email le risposte delle aziende alla PEC (indirizzi separati da virgola). Senza, vanno agli stessi destinatari del riepilogo di mezzanotte (`RIEPILOGO_DESTINATARI`, o i cinque organizzatori) |
+| `PEC_RISPOSTE_DESTINATARI` | **si puo' omettere**: a chi arrivano per email le risposte delle aziende alla PEC (indirizzi separati da virgola). Senza, solo ad `andreamissori@revilaw.it` |
 
 > **La password che scade: e' il punto piu' fragile di tutto l'impianto.** Con
 > la verifica in due passaggi attiva sulla casella PEC (obbligatoria nel
@@ -406,8 +406,9 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > invito, il **testo del messaggio** (quello scritto dall'azienda, dentro la
 > busta PEC: solo testo, solo HTML o tutti e due) e i suoi **allegati** fino a
 > circa 4 MB in tutto; quelli che non ci stanno sono elencati e restano nella
-> casella. Destinatari: `PEC_RISPOSTE_DESTINATARI`, altrimenti gli stessi del
-> riepilogo di mezzanotte.
+> casella. Destinatario: solo `andreamissori@revilaw.it` (non gli
+> organizzatori del riepilogo), a meno che `PEC_RISPOSTE_DESTINATARI` indichi
+> un elenco diverso.
 >
 > Le **risposte automatiche** ("fuori sede", "risposta automatica", o con
 > l'intestazione `Auto-Submitted` dentro la busta) non si inoltrano e non
