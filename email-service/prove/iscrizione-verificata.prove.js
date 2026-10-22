@@ -681,7 +681,7 @@ prova('Con l\'iscrizione parte l\'SMS "conferma la tua email", e la scheda entra
     const n = V.caratteriSms(t);
     esigi(n > 0 && n <= 306 && t.length <= 306, 'nell\'alfabeto GSM-7, in due SMS al massimo', String(n));
     esigi(!/[«»’‘“”–—…]/.test(t) && !/[ÀÈÉÌÒÙ]/.test(t), 'niente virgolette tipografiche, trattini lunghi o maiuscole accentate');
-    esigi(/"Conferma il tuo indirizzo email"/.test(t) && /Spam\/Posta indesiderata/.test(t), 'dice quale pulsante premere e di guardare nello spam', t);
+    esigi(/"Conferma il tuo indirizzo email"/.test(t) && /nello Spam/.test(t), 'dice quale pulsante premere e di guardare nello spam', t);
     esigi(t.indexOf('https://nextgenerationbusiness.it/contatti/?t=mail') > 0 && t.indexOf('inviata a sms2@studio.it') > 0,
         'con l\'indirizzo a cui e\' partita la mail e il modulo per chi non la riceve');
     esigi(!/#\d{6}/.test(t) && !/@nextgenerationbusiness\.it #/.test(t) && !/^\d{6}/.test(t), 'nessun codice e nessuna riga da incollare');
@@ -736,14 +736,15 @@ prova('Se la mail non parte: l\'SMS lo dice, la scheda e la pagina lo sanno', as
     esigi(st3.corpo.attesaRimanda === 0 && ora.stato === 200 && ora.corpo.inviata === true, 'a due minuti dal tentativo: 0, e il rinvio parte', JSON.stringify(ora.corpo));
 });
 
-prova('Gli SMS "conferma la tua email" mandano al modulo contatti, e un indirizzo di 36 caratteri ci sta ancora', async () => {
+prova('Gli SMS "conferma la tua email": spam, info@ e modulo contatti, e un indirizzo di 32 caratteri ci sta ancora', async () => {
     const ind = n => 'a'.repeat(n - 13) + '@studio-xy.it';
     for (const tipo of ['inviata', 'non-inviata', 'promemoria']) {
-        const t = V.testoSmsConferma(tipo, ind(36));
-        esigi(/[Ss]crivici dal modulo contatti: https:\/\/nextgenerationbusiness\.it\/contatti\/\?t=mail$/.test(t),
-            tipo + ': dice di scriverci dal modulo contatti, con il link', t);
-        esigi(t.indexOf(ind(36)) > 0 && V.caratteriSms(t) > 0 && V.caratteriSms(t) <= 306,
-            tipo + ': un indirizzo di 36 caratteri c\'e\' ancora, sempre in due SMS', String(V.caratteriSms(t)));
+        const t = V.testoSmsConferma(tipo, ind(32));
+        esigi(/nello Spam/.test(t), tipo + ': dice di guardare nello spam', t);
+        esigi(/Problemi\? Scrivici a info@nextgenerationbusiness\.it o dal modulo contatti: https:\/\/nextgenerationbusiness\.it\/contatti\/\?t=mail$/.test(t),
+            tipo + ': per i problemi info@ e il modulo contatti, con il link', t);
+        esigi(t.indexOf(ind(32)) > 0 && V.caratteriSms(t) > 0 && V.caratteriSms(t) <= 306,
+            tipo + ': un indirizzo di 32 caratteri c\'e\' ancora, sempre in due SMS', String(V.caratteriSms(t)));
         const lungo = V.testoSmsConferma(tipo, ind(60));
         esigi(lungo.indexOf(ind(60)) < 0 && V.caratteriSms(lungo) > 0 && V.caratteriSms(lungo) <= 306,
             tipo + ': uno troppo lungo esce nella versione senza', lungo);

@@ -648,6 +648,10 @@ prova('Chi e\' in attesa: che cosa e\' gia\' partito per fargli arrivare la mail
     const tp = A.invioConfermaTesto(partita);
     esigi(tp.indexOf('Mail di conferma partita') >= 0 && tp.indexOf('SMS mandato') >= 0 && tp.indexOf('Promemoria') >= 0, 'e la mail, l\'SMS e il promemoria partiti', tp);
     esigi(A.hintAttesaMailHtml(MILANO, partita).indexOf('mail non ancora partita') < 0, 'una mail partita non fa allarme');
+    const smsKo = riga({ doc: 'n5', data: dataDi(ieri), mailConferma: { quando: 1, ok: true },
+        smsConferma: { quando: 2, ok: false, errore: 'Brevo 402 not enough credits' } });
+    const ts = A.invioConfermaTesto(smsKo);
+    esigi(ts.indexOf('SMS NON partito') >= 0 && ts.indexOf('Brevo 402 not enough credits') >= 0, 'un SMS non partito dice anche perche\'', ts);
     esigi(A.hintAttesaMailHtml(NAPOLI, mai) === '', 'a Napoli nessuna attesa, nessun segno');
 });
 

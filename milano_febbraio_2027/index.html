@@ -49,7 +49,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=15">
+    <link rel="stylesheet" href="styles.css?v=16">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -597,6 +597,16 @@
                         </a>
                         <a class="btn btn-tenue" id="fattoIcs" href="#" download="next-generation-business-milano-2027.ics">Outlook / Apple (.ics)</a>
                     </div>
+                    <!-- In fondo, per chi la cerca dopo aver letto tutto: lo stesso
+                         rinvio del passo della mail. script.js tiene questo
+                         pulsante uguale a quello (acceso o spento, attesa, esito)
+                         e lo fa sparire con lui, quando l'indirizzo e' confermato.
+                         L'esito qui non ha role="status": lo legge gia' quello di sopra. -->
+                    <div class="fatto-rimanda-fondo" id="rimandaFondo" hidden>
+                        <span class="fatto-rimanda-fondo-domanda">Non hai ricevuto la mail di conferma?</span>
+                        <button type="button" class="btn-modulo" id="rimandaMailFondo" disabled>Rimanda la mail di conferma</button>
+                        <span class="fatto-rimanda-esito" id="rimandaEsitoFondo"></span>
+                    </div>
                     <p class="fatto-nota">Per modificare i dati o annullare la partecipazione usa il collegamento personale nella mail di iscrizione. Per qualunque informazione scrivici dal <a href="../contatti/?tema=eventi&amp;evento=milano-2027">modulo delle domande</a> oppure a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.</p>
                 </div>
             </div>
@@ -713,6 +723,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=18"></script>
+    <script src="script.js?v=19"></script>
 </body>
 </html>
