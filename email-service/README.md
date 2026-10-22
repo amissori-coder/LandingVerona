@@ -1644,12 +1644,15 @@ per un evento nuovo basta una riga.
 
 - **`azione: "sms-invia"`** (`pagina`, `telefono`, `email`): solo cellulari
   italiani (`+39 3...`, scritti come capita). Prima di spendere un SMS guarda
-  se email o numero sono gia' iscritti (risponde `409` con `campo`). Un SMS
-  al minuto e cinque in 24 ore per numero (il `429` dice da che ora se ne puo'
-  chiedere un altro), e un tetto per tutto il servizio (`SMS_MAX_GIORNO`). Un
-  SMS che non parte (tetto pieno, Brevo) non conta: l'invio si toglie e si
-  riprova subito. Il codice non si salva in chiaro (`verificheSms.codici`,
-  solo le impronte) e scade dopo 10 minuti; dopo «Invia di nuovo il codice»
+  se email o numero sono gia' iscritti (risponde `409` con `campo`): a un
+  numero gia' iscritto all'evento il codice non parte mai, nemmeno se
+  l'iscrizione l'ha inserita la segreteria scrivendo il numero a modo suo
+  ("333 123 4567", "+39 3331234567": `variantiNumero`). Un SMS al minuto per
+  numero e **nessun tetto al giorno**, ne' per numero ne' per il servizio
+  (`SMS_MAX_GIORNO` vale solo se lo si imposta). Un SMS che non parte (tetto
+  pieno, Brevo) non conta: l'invio si toglie e si riprova subito. Il codice
+  non si salva in chiaro (`verificheSms.codici`, solo le impronte) e scade
+  dopo **5 minuti**; dopo «Invia di nuovo il codice»
   vale anche quello di prima, se arriva in ritardo (alla verifica si
   cancellano tutti).
 - **`azione: "sms-verifica"`** (`pagina`, `telefono`, `codice`): cinque
@@ -1691,7 +1694,7 @@ SMS** (Brevo → SMS), senza crediti l'invio risponde `402` e il modulo dice
 | Nome | Valore |
 |---|---|
 | `SMS_MITTENTE` | il mittente che compare sul telefono, fino a 11 lettere e cifre (predefinito `Revilaw`, il mittente registrato su Brevo per l'Italia: deve restare identico, maiuscole comprese) |
-| `SMS_MAX_GIORNO` | tetto di SMS al giorno per tutto il servizio (predefinito 1000) |
+| `SMS_MAX_GIORNO` | tetto di SMS al giorno per tutto il servizio; senza, nessun tetto (predefinito: nessuno) |
 | `TURNSTILE_SECRET` | la chiave **segreta** di Cloudflare Turnstile (vedi sotto). Senza, il CAPTCHA e' spento |
 
 > **Il mittente alfanumerico in Italia va registrato.** Dal 2023 gli SMS con
@@ -1755,7 +1758,7 @@ automatico dopo un giorno. Regole:
   quando ci sta, altrimenti c'e' la versione senza. Mai la riga
   `@dominio #codice` dell'SMS con il codice;
 - **costano due SMS** ciascuno (Brevo conta ogni segmento come un SMS) e
-  contano nel tetto giornaliero `SMS_MAX_GIORNO`: a tetto pieno non partono, e
+  contano nel tetto giornaliero `SMS_MAX_GIORNO`, se impostato: a tetto pieno non partono, e
   l'iscrizione passa lo stesso;
 - aspettano Brevo al massimo 8 secondi (`chiamataBrevo` con `attesa`), e un
   SMS che non parte non ferma niente: resta scritto sulla scheda in

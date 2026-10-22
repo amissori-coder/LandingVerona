@@ -43,11 +43,15 @@
    chiede codici a raffica verso numeri a pagamento e' una truffa nota
    (SMS pumping). I freni, dal piu' stretto:
      - solo cellulari ITALIANI (+39 3...): niente numeri esteri;
-     - un SMS al minuto e cinque al giorno per lo stesso numero;
-     - un tetto giornaliero per tutto il servizio (SMS_MAX_GIORNO);
-     - il freno per indirizzo IP di iscrizione-nuova.js;
-     - prima di spedire si guarda se email o numero sono gia' iscritti:
-       un codice per un'iscrizione che non si puo' fare e' uno spreco.
+     - un SMS al minuto per lo stesso numero (nessun tetto al giorno: lo
+       ha chiesto chi organizza, i codici non devono finire);
+     - un tetto giornaliero per tutto il servizio SOLO se SMS_MAX_GIORNO e'
+       impostato su Vercel (senza, nessun tetto);
+     - la casella "non sono un robot" (Turnstile) e il freno per indirizzo
+       IP di iscrizione-nuova.js;
+     - a un numero (o a un'email) gia' iscritto all'evento il codice non
+       parte mai: ne' dal modulo, ne' per le iscrizioni inserite a mano
+       dalla segreteria (giaIscrittoAMano, anche per il numero).
    Il codice non si salva in chiaro (solo l'impronta) e si puo'
    sbagliare cinque volte, poi se ne chiede un altro.
 
@@ -96,13 +100,13 @@ function eventoDi(pagina) {
 }
 
 const MAX_PER_CODICE = 2;               // iscrizioni per codice invito
-const CODICE_VALE_MS = 10 * 60 * 1000;  // il codice SMS scade dopo dieci minuti
-const PAUSA_INVII_MS = 60 * 1000;       // un SMS al minuto per numero
-const MAX_INVII_GIORNO = 5;             // e cinque al giorno
+const CODICE_VALE_MS = 5 * 60 * 1000;   // il codice SMS scade dopo cinque minuti
+const PAUSA_INVII_MS = 60 * 1000;       // un SMS al minuto per numero (nessun tetto al giorno)
 const MAX_TENTATIVI = 5;                // sbagli concessi per codice
 const FIRMA_VALE_MS = 2 * 60 * 60 * 1000; // il numero verificato vale due ore per spedire il modulo
 const GIORNO_MS = 24 * 60 * 60 * 1000;
-function tettoGiornaliero() { return Number(process.env.SMS_MAX_GIORNO) || 1000; }
+// il tetto di tutto il servizio: solo se impostato su Vercel; senza, nessun tetto
+function tettoGiornaliero() { return Number(process.env.SMS_MAX_GIORNO) || Infinity; }
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -158,13 +162,6 @@ function rifUnico(db, evento, campo, valore) {
 function giornoItaliano(ms) {
     const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' });
     return f.format(new Date(ms));
-}
-/* "oggi dopo le 15:20" / "domani dopo le 09:15": quando un numero arrivato
-   al limite dei codici puo' chiederne un altro (ora di Milano). */
-function quandoLibero(ms, ora) {
-    ms = Math.ceil(ms / 60000) * 60000;   // al minuto dopo: "dopo le 15:00" non deve arrivare prima del via libera
-    const alle = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
-    return (giornoItaliano(ms) === giornoItaliano(ora) ? 'oggi' : 'domani') + ' dopo le ' + alle;
 }
 function attiva(scheda) {
     return !!scheda && !scheda.annullato;
@@ -241,19 +238,40 @@ function msgGia(gia) {
 function rifiuto(gia) {
     return { ok: false, campo: gia.campo, msg: msgGia(gia), inAttesa: inAttesa(gia) ? String(gia.id || '') : '' };
 }
-/* Per l'email anche le schede SENZA documento di unicita' (inserite a mano,
-   o di prima): la prima attiva per questo evento, { campo, id, scheda },
-   oppure null. */
-async function giaIscrittoAMano(db, ev, email) {
-    if (!email) return null;
+/* Anche le schede SENZA documento di unicita' (inserite a mano dalla
+   segreteria, o di prima): la prima attiva per questo evento con quella
+   email o con quel numero, { campo, id, scheda }, oppure null. Il numero
+   la segreteria lo scrive come capita ("333 123 4567", "+39 3331234567"):
+   si cercano i modi piu' comuni (variantiNumero). */
+async function giaIscrittoAMano(db, ev, email, numero) {
+    const delEvento = snap => snap.docs.find(s => {
+        const x = s.data() || {};
+        return ev.se.test(String(x.pagina || '').trim()) && attiva(x);
+    });
     try {
-        const snap = await db.collection('iscrizioni').where('email', '==', email).limit(50).get();
-        const d = snap.docs.find(s => {
-            const x = s.data() || {};
-            return ev.se.test(String(x.pagina || '').trim()) && attiva(x);
-        });
-        return d ? { campo: 'email', id: d.id, scheda: d.data() || {} } : null;
+        if (email) {
+            const d = delEvento(await db.collection('iscrizioni').where('email', '==', email).limit(50).get());
+            if (d) return { campo: 'email', id: d.id, scheda: d.data() || {} };
+        }
+        const varianti = variantiNumero(numero);
+        if (varianti.length) {
+            const d = delEvento(await db.collection('iscrizioni').where('telefono', 'in', varianti).limit(50).get());
+            if (d) return { campo: 'telefono', id: d.id, scheda: d.data() || {} };
+        }
+        return null;
     } catch (_) { return null; }   // la transazione resta il controllo vero
+}
+/* I modi in cui si scrive di solito un cellulare: con o senza +39, tutto
+   attaccato o a gruppi. `in` di Firestore ne accetta fino a trenta. */
+function variantiNumero(numero) {
+    const n = String(numero || '').replace(/^\+39/, '');
+    if (!/^3\d{8,9}$/.test(n)) return [];
+    const a = n.slice(0, 3), b = n.slice(3);
+    const locali = [n, a + ' ' + b, a + ' ' + b.slice(0, 3) + ' ' + b.slice(3), a + '-' + b, a + '.' + b, a + '/' + b, a + ' ' + b.slice(0, 2) + ' ' + b.slice(2, 4) + ' ' + b.slice(4)];
+    const tutte = [];
+    locali.forEach(l => tutte.push(l, '+39' + l, '+39 ' + l));
+    tutte.push('39' + n, '0039' + n, '0039 ' + n, '+39 ' + n.slice(0, 3) + '.' + b);
+    return Array.from(new Set(tutte)).slice(0, 30);
 }
 
 const MSG = {
@@ -314,7 +332,7 @@ async function spedisciSms(numero, contenuto, opz) {
 const DOMINIO_SITO = 'nextgenerationbusiness.it';
 function testoSms(ev, codice) {
     return codice + ' è il codice per confermare l\'iscrizione a Next Generation Business'
-        + '. Scade fra 10 minuti. Non comunicarlo a nessuno.'
+        + '. Scade fra 5 minuti. Non comunicarlo a nessuno.'
         + '\n\n@' + DOMINIO_SITO + ' #' + codice;
 }
 
@@ -432,11 +450,12 @@ async function prenotaSmsDelGiorno(db) {
 /* ---------- azione "sms-invia" (pubblica, dal modulo) ----------
    body: { pagina, telefono, email } */
 /* I codici ancora buoni di un numero. Ogni SMS col codice partito davvero
-   lascia la sua impronta, che vale dieci minuti: chi chiede un nuovo codice
+   lascia la sua impronta, che vale cinque minuti: chi chiede un nuovo codice
    perche' il primo tarda deve poter usare quello che arriva per primo (e il
    telefono lo propone da solo, WebOTP o tastiera). Prima c'era un'impronta
-   sola, e il nuovo invio rendeva "non corretto" il codice in arrivo. Sono al
-   massimo cinque al giorno (MAX_INVII_GIORNO), e ognuno si usa una volta:
+   sola, e il nuovo invio rendeva "non corretto" il codice in arrivo. Con un
+   SMS al minuto e cinque minuti di vita sono al massimo cinque insieme, e
+   ognuno si usa una volta:
    alla verifica riuscita si cancellano tutti. `impronta`/`scade` sono il
    formato di prima, che si legge ancora (documenti gia' scritti). */
 function codiciValidi(d, ora) {
@@ -456,8 +475,8 @@ async function invia(db, body) {
     const gia = await giaIscritto(db, ev, NL.EMAIL_RE.test(email) ? email : '', numero);
     // qui la mail non si rimanda: il numero non e' ancora verificato
     if (gia.campo) return { stato: 409, corpo: { ok: false, campo: gia.campo, msg: msgGia(gia) } };
-    const aMano = NL.EMAIL_RE.test(email) ? await giaIscrittoAMano(db, ev, email) : null;
-    if (aMano) return { stato: 409, corpo: { ok: false, campo: 'email', msg: msgGia(aMano) } };
+    const aMano = await giaIscrittoAMano(db, ev, NL.EMAIL_RE.test(email) ? email : '', numero);
+    if (aMano) return { stato: 409, corpo: { ok: false, campo: aMano.campo, msg: msgGia(aMano) } };
 
     const rif = rifVerifica(db, ev.chiave, numero);
     const ora = Date.now();
@@ -466,13 +485,12 @@ async function invia(db, body) {
     const esito = await db.runTransaction(async tx => {
         const s = await tx.get(rif);
         const d = s.exists ? (s.data() || {}) : {};
-        const invii = (Array.isArray(d.invii) ? d.invii : []).filter(t => ora - t < GIORNO_MS);
+        // gli invii servono solo alla pausa di un minuto: si tengono gli ultimi, senza tetto al giorno
+        const invii = (Array.isArray(d.invii) ? d.invii : []).filter(t => ora - t < GIORNO_MS).slice(-20);
         const ultimo = invii.length ? Math.max.apply(null, invii) : 0;
         if (ultimo && ora - ultimo < PAUSA_INVII_MS) {
             return { attesa: Math.ceil((PAUSA_INVII_MS - (ora - ultimo)) / 1000) };
         }
-        // la finestra e' di 24 ore che scorrono: il prossimo codice, quando esce il piu' vecchio
-        if (invii.length >= MAX_INVII_GIORNO) return { troppi: true, libero: Math.min.apply(null, invii) + GIORNO_MS };
         invii.push(ora);
         const codici = codiciValidi(d, ora).concat([{ impronta: questo, scade: ora + CODICE_VALE_MS }]);
         tx.set(rif, {
@@ -498,10 +516,6 @@ async function invia(db, body) {
     }).catch(() => { /* resta il freno */ });
     if (esito.attesa) {
         return { stato: 429, corpo: { ok: false, campo: 'telefono', attesa: esito.attesa, msg: 'Ti abbiamo appena mandato un codice: per chiederne un altro aspetta ' + esito.attesa + ' secondi.' } };
-    }
-    if (esito.troppi) {
-        return { stato: 429, corpo: { ok: false, campo: 'telefono', msg: 'Nelle ultime 24 ore abbiamo già mandato a questo numero ' + MAX_INVII_GIORNO
-            + ' codici: puoi chiederne un altro ' + quandoLibero(esito.libero, ora) + ', oppure scrivici a info@nextgenerationbusiness.it.' } };
     }
     if (!await prenotaSmsDelGiorno(db)) {
         console.error('SMS di verifica: raggiunto il tetto giornaliero (SMS_MAX_GIORNO).');
