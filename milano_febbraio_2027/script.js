@@ -246,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
        muta, e sembrava che l'SMS non arrivasse. `guasto`: lo script di
        Cloudflare non si carica (rete o estensioni del browser).
        `interattivo`: Cloudflare sta chiedendo la spunta. */
-    let captcha = { id: null, gettone: '', usato: false, guasto: false, interattivo: false };
+    let captcha = { id: null, gettone: '', usato: false, guasto: false, interattivo: false, fallita: false };
     /* La casella si vede SOLO quando Cloudflare chiede davvero un clic
        (appearance: interaction-only). Di solito riconosce da se' un telefono o
        un computer normale e non chiede niente: prima la casella compariva gia'
@@ -259,10 +259,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let limiteAttesa = null;
     function consegnaGettone(g) {
         clearTimeout(limiteAttesa);
+        limiteAttesa = null;
         attesaGettone.splice(0).forEach(f => f(g));
     }
     function gettonePronto(g) {
         captcha.gettone = g;
+        captcha.fallita = false;
         // si cancella solo la richiesta di spuntare la casella: i messaggi del servizio restano
         if ($('telefonoError').textContent === MSG_SPUNTA) errore('telefono', '');
         consegnaGettone(g);
@@ -271,6 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function chiediSpunta() {
         if (!attesaGettone.length) return;
         clearTimeout(limiteAttesa);
+        limiteAttesa = null;
         errore('telefono', MSG_SPUNTA);
         if (boxCaptcha.scrollIntoView) boxCaptcha.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
@@ -284,7 +287,15 @@ document.addEventListener('DOMContentLoaded', () => {
             'refresh-expired': 'never',
             callback: gettonePronto,
             'expired-callback': () => { captcha.gettone = ''; captcha.usato = true; },
-            'error-callback': () => { captcha.gettone = ''; },
+            /* la verifica non e' riuscita (anche dopo la spunta): chi aspettava
+               senza limite riprende i suoi 15 secondi, poi riceve un messaggio
+               invece di restare fermo. Cloudflare intanto riprova da solo. */
+            'error-callback': () => {
+                captcha.gettone = '';
+                captcha.interattivo = false;
+                captcha.fallita = true;   // alla prossima richiesta si ricomincia da capo
+                if (attesaGettone.length && limiteAttesa === null) limiteAttesa = setTimeout(() => consegnaGettone(''), 15000);
+            },
             'unsupported-callback': () => { captcha.guasto = true; consegnaGettone(''); },
             'before-interactive-callback': () => { captcha.interattivo = true; boxCaptcha.classList.add('captcha--visibile'); chiediSpunta(); },
             'after-interactive-callback': () => { captcha.interattivo = false; boxCaptcha.classList.remove('captcha--visibile'); }
@@ -296,7 +307,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (captcha.gettone) return Promise.resolve(captcha.gettone);
         if (captcha.guasto) return Promise.resolve('');
         // gettone gia' speso o scaduto: la verifica riparte adesso, perche' l'ha chiesta la persona
-        if (captcha.usato && captcha.id !== null && window.turnstile) { captcha.usato = false; window.turnstile.reset(captcha.id); }
+        if ((captcha.usato || captcha.fallita) && captcha.id !== null && window.turnstile) {
+            captcha.usato = false;
+            captcha.fallita = false;
+            window.turnstile.reset(captcha.id);
+        }
         return new Promise(fine => {
             attesaGettone.push(fine);
             clearTimeout(limiteAttesa);
@@ -364,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
        i secondi che dice il servizio. Prima restava spento per sempre. */
     const etichettaInvia = () => (numeroInviato || verificato.token) ? 'Cambia numero' : 'Invia il codice';
     function dopoInvioFallito(attesa) {
+        campoTel.readOnly = !!(numeroInviato || verificato.token);
         btnInvia.disabled = false;
         btnInvia.textContent = etichettaInvia();
         if (attesa) { gruppoSms.hidden = false; contoAllaRovescia(attesa); return; }
@@ -389,13 +405,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         invioInCorso = true;
+        // il numero resta quello per cui si chiede il codice, anche se la verifica di sicurezza si fa aspettare
+        campoTel.readOnly = true;
         btnInvia.disabled = true;
         btnDiNuovo.disabled = true;
         btn.textContent = captcha.gettone || !TURNSTILE_CHIAVE ? 'Invio...' : 'Verifica in corso...';
         aspettaGettone(15000).then(gettone => {
             if (TURNSTILE_CHIAVE && !gettone) {
                 invioInCorso = false;
+                if ($('telefonoError').textContent === MSG_SPUNTA) errore('telefono', '');
                 dopoInvioFallito(0);
+                // il numero e' stato verificato nel frattempo (con il codice di prima): non serve dire niente
+                if (verificato.token) return null;
                 avvisoInvio(captcha.guasto
                     ? 'La verifica di sicurezza di Cloudflare non si carica su questa rete o con le estensioni del browser, e senza non possiamo mandare l\'SMS. Prova con un\'altra connessione (per esempio i dati del telefono) o un altro browser, oppure scrivici a info@nextgenerationbusiness.it.'
                     : !window.turnstile
@@ -490,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnInvia.textContent = 'Cambia numero';
                 telOk.textContent = '✓ Numero verificato';
                 boxCaptcha.hidden = true;   // a numero verificato la casella non serve piu'
+                consegnaGettone('');        // e un nuovo invio che aspettava la spunta non serve piu'
                 errore('telefono', '');
             })
             .catch(() => {

@@ -145,6 +145,7 @@ admin.firestore.FieldValue = {
 let spedite = [];
 let sms = [];
 let smsGuasto = false;
+let primaDiBrevo = null;
 // quante delle prossime mail il server di posta finto rifiuta (con un errore che non passa)
 let mailGuasta = 0;
 let turnstileGiu = false;
@@ -157,6 +158,8 @@ global.fetch = async (url, opz) => {
     }
     if (/transactionalSMS/.test(String(url))) {
         const corpo = JSON.parse(opz.body);
+        // quello che succede mentre Brevo risponde (una verifica fatta nel frattempo)
+        if (primaDiBrevo) { const f = primaDiBrevo; primaDiBrevo = null; await f(); }
         if (smsGuasto) return { ok: false, status: 402, text: async () => '{"code":"not_enough_credits"}' };
         sms.push(corpo);
         return { ok: true, status: 201, text: async () => '{"messageId":1}' };
@@ -335,6 +338,38 @@ prova('Un nuovo invio che non parte non rende inutile il codice gia\' arrivato',
     esigi(r.stato === 502, 'il nuovo invio non parte', JSON.stringify(r.corpo));
     const v = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3472223344', codice: arrivato });
     esigi(v.corpo.ok && v.corpo.token, 'e il codice arrivato prima verifica ancora il numero', JSON.stringify(v.corpo));
+    avanza(61 * 1000);
+});
+
+prova('Un nuovo invio che non parte non regala tentativi, e non fa rivalere un codice usato nel frattempo', async () => {
+    sms = [];
+    await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3475556677' });
+    const giusto = ultimoCodice();
+    const altro = giusto === '123456' ? '654321' : '123456';
+    for (let i = 0; i < 5; i++) await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3475556677', codice: altro });
+    avanza(61 * 1000);
+    smsGuasto = true;
+    const errVero = console.error;
+    console.error = () => { };
+    try { await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3475556677' }); }
+    finally { console.error = errVero; smsGuasto = false; }
+    const r = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3475556677', codice: giusto });
+    esigi(!r.corpo.ok && r.corpo.esito === 'troppi', 'dopo cinque sbagli e un invio fallito, il codice resta bloccato', JSON.stringify(r.corpo));
+    avanza(61 * 1000);
+
+    sms = [];
+    await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3476667788' });
+    const primo = ultimoCodice();
+    avanza(61 * 1000);
+    let v1 = null;
+    primaDiBrevo = async () => { v1 = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3476667788', codice: primo }); };
+    smsGuasto = true;
+    console.error = () => { };
+    try { await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3476667788' }); }
+    finally { console.error = errVero; smsGuasto = false; primaDiBrevo = null; }
+    esigi(v1 && v1.corpo.ok, 'il primo codice, usato mentre Brevo rispondeva, verifica il numero', JSON.stringify(v1 && v1.corpo));
+    const v2 = await chiama({ azione: 'sms-verifica', pagina: PAGINA, telefono: '3476667788', codice: primo });
+    esigi(!v2.corpo.ok, 'e dopo il nuovo invio fallito non vale una seconda volta', JSON.stringify(v2.corpo));
     avanza(61 * 1000);
 });
 

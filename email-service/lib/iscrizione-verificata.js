@@ -162,6 +162,7 @@ function giornoItaliano(ms) {
 /* "oggi dopo le 15:20" / "domani dopo le 09:15": quando un numero arrivato
    al limite dei codici puo' chiederne un altro (ora di Milano). */
 function quandoLibero(ms, ora) {
+    ms = Math.ceil(ms / 60000) * 60000;   // al minuto dopo: "dopo le 15:00" non deve arrivare prima del via libera
     const alle = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
     return (giornoItaliano(ms) === giornoItaliano(ora) ? 'oggi' : 'domani') + ' dopo le ' + alle;
 }
@@ -461,6 +462,7 @@ async function invia(db, body) {
     const rif = rifVerifica(db, ev.chiave, numero);
     const ora = Date.now();
     const codice = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const questo = improntaCodice(ev.chiave, numero, codice);
     const esito = await db.runTransaction(async tx => {
         const s = await tx.get(rif);
         const d = s.exists ? (s.data() || {}) : {};
@@ -472,18 +474,28 @@ async function invia(db, body) {
         // la finestra e' di 24 ore che scorrono: il prossimo codice, quando esce il piu' vecchio
         if (invii.length >= MAX_INVII_GIORNO) return { troppi: true, libero: Math.min.apply(null, invii) + GIORNO_MS };
         invii.push(ora);
-        const codici = codiciValidi(d, ora).concat([{ impronta: improntaCodice(ev.chiave, numero, codice), scade: ora + CODICE_VALE_MS }]);
+        const codici = codiciValidi(d, ora).concat([{ impronta: questo, scade: ora + CODICE_VALE_MS }]);
         tx.set(rif, {
             evento: ev.chiave, numero: numero, invii: invii, codici: codici,
             impronta: null, scade: ora + CODICE_VALE_MS, tentativi: 0, verificato: null
         }, { merge: true });
-        return { invii: invii, codici: codici };
+        return { invii: invii, tentativiPrima: Number(d.tentativi) || 0 };
     });
     /* Un SMS che non parte (tetto del giorno, Brevo) non deve contare: si
-       toglie l'ultimo invio e il suo codice, e il numero puo' riprovare
-       subito. I codici gia' arrivati restano buoni. */
-    const annullaInvio = () => rif.set({ invii: esito.invii.slice(0, -1), codici: esito.codici.slice(0, -1) }, { merge: true })
-        .catch(() => { /* resta il freno */ });
+       toglie QUESTO invio e il suo codice, e il numero puo' riprovare subito.
+       Si rilegge il documento (una transazione): nel frattempo un codice gia'
+       arrivato puo' essere stato usato, e non deve tornare buono. E tornano
+       gli sbagli di prima: un invio fallito non regala cinque tentativi in
+       piu' sui codici gia' arrivati. */
+    const annullaInvio = () => db.runTransaction(async tx => {
+        const s = await tx.get(rif);
+        const d = s.exists ? (s.data() || {}) : {};
+        tx.set(rif, {
+            invii: (Array.isArray(d.invii) ? d.invii : []).filter(t => t !== ora),
+            codici: (Array.isArray(d.codici) ? d.codici : []).filter(c => c && c.impronta !== questo),
+            tentativi: Math.min(MAX_TENTATIVI, esito.tentativiPrima + (Number(d.tentativi) || 0))
+        }, { merge: true });
+    }).catch(() => { /* resta il freno */ });
     if (esito.attesa) {
         return { stato: 429, corpo: { ok: false, campo: 'telefono', attesa: esito.attesa, msg: 'Ti abbiamo appena mandato un codice: per chiederne un altro aspetta ' + esito.attesa + ' secondi.' } };
     }
