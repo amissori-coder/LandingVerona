@@ -16936,7 +16936,13 @@
         const t = Number(r && r.invioConferma && r.invioConferma.tentativi) || 0;
         if (t > 1) pezzi.push('Tentativi di invio: ' + t + '.');
         const s = r && r.smsConferma;
-        if (s && s.quando) pezzi.push((s.ok ? 'SMS mandato il ' : 'SMS NON partito il ') + fmtDataOra(s.quando) + '.');
+        /* "mandato" e' quello che dice Brevo quando lo accetta: se poi al
+           telefono non arriva, l'esito vero e' nei Log SMS di Brevo, dove lo
+           si ritrova con il suo messageId (fra parentesi). Il motivo di un
+           SMS non partito (tetto, crediti, Brevo che lo rifiuta) si legge qui. */
+        if (s && s.quando) pezzi.push((s.ok ? 'SMS mandato il ' : 'SMS NON partito il ') + fmtDataOra(s.quando)
+            + (!s.ok && s.errore ? ' (' + s.errore + ')' : '')
+            + (s.ok && s.id ? ' (Brevo ' + s.id + ')' : '') + '.');
         const p = r && r.promemoriaConferma;
         if (p && p.quando) pezzi.push('Promemoria (mail e SMS) mandato il ' + fmtDataOra(p.quando) + '.');
         return pezzi.join(' ');

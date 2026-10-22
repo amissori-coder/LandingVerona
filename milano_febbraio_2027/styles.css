@@ -1216,6 +1216,42 @@ ul, ol { list-style: none; }
 .fatto-azioni { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 .fatto-nota { margin-top: 22px; font-size: 0.84rem; line-height: 1.6; color: var(--testo-tenue); }
 .fatto-nota a { color: var(--blu-medio); text-decoration: underline; }
+/* in fondo alla conferma, il doppione del pulsante per rimandare la mail
+   (script.js lo tiene uguale a quello del passo della mail) */
+.fatto-rimanda-fondo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    margin-top: 22px;
+    padding: 16px 18px;
+    border-radius: 10px;
+    background: var(--azzurro-tenue);
+    border: 1px solid var(--azzurro-chiaro);
+}
+.fatto-rimanda-fondo[hidden] { display: none; }
+.fatto-rimanda-fondo .fatto-rimanda-fondo-domanda {
+    flex: 1 1 240px;
+    font-weight: 700;
+    color: var(--blu-notte);
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+    text-align: left !important;
+}
+.fatto-rimanda-fondo .btn-modulo { text-align: center !important; text-align-last: center; }
+.fatto-rimanda-fondo .btn-modulo[hidden] { display: none; }
+/* l'esito puo' contenere un indirizzo lungo senza spazi: va a capo dentro
+   il riquadro invece di uscirne */
+.fatto-rimanda-fondo .fatto-rimanda-esito {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    flex: 1 1 100%;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--testo);
+    text-align: left !important;
+}
+.fatto-rimanda-fondo .fatto-rimanda-esito.ko { color: #B1213B; }
 /* sotto il passo della mail: dove cercarla, lo stato dell'invio, il
    pulsante per rimandarla e il modulo per scriverci */
 .fatto-passo .fatto-mail { gap: 10px; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--linea); }
@@ -1237,7 +1273,7 @@ ul, ol { list-style: none; }
 .fatto-rimanda .btn-modulo[hidden] { display: none; }
 /* /assets/testo.css fa ereditare l'allineamento ai pulsanti, e qui il riquadro e' giustificato */
 .fatto-rimanda .btn-modulo { text-align: center !important; text-align-last: center; }
-.fatto-passo .fatto-rimanda-esito { flex: 1 1 220px; font-weight: 600; color: var(--testo); text-align: left !important; }
+.fatto-passo .fatto-rimanda-esito { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; font-weight: 600; color: var(--testo); text-align: left !important; }
 .fatto-passo .fatto-rimanda-esito.ko { color: #B1213B; }
 .fatto-rimanda-esito:empty { display: none; }
 .fatto-mail-modulo {

@@ -56,8 +56,8 @@
 
    IL SECONDO SMS: "CONFERMA LA TUA EMAIL". Subito dopo la mail con il
    pulsante, al numero appena verificato parte un SMS che dice dove
-   cercarla (anche Spam e Posta indesiderata) e, se non arriva, dove
-   chiederne un'altra: il modulo delle domande, /contatti/?t=mail.
+   cercarla (anche nello Spam) e, per qualunque problema, dove scriverci:
+   info@nextgenerationbusiness.it o il modulo delle domande, /contatti/?t=mail.
    Chi si iscrive guarda il telefono in quel momento, e una mail finita
    fra la posta indesiderata non la cerca nessuno. Se la mail non e'
    partita l'SMS lo dice, e dice che si riprova da soli (il giro
@@ -338,25 +338,26 @@ function staInDueSms(s) {
     const n = caratteriSms(s);
     return n >= 0 && n <= SMS_MAX_CARATTERI;
 }
-/* dove scriverci se la mail non arriva: il modulo contatti del sito, gia'
-   aperto sulla richiesta "mail di conferma non ricevuta". Corto apposta:
-   ogni carattere in piu' qui ne toglie uno all'indirizzo email, che con i
-   testi di sotto ci sta fino a 38 caratteri (36 in quello della mail non
-   partita); piu' lungo, l'SMS esce nella versione senza. */
-const SMS_MODULO = 'Scrivici dal modulo contatti: ' + LINK_MODULO_MAIL;
+/* dove scriverci per qualunque problema: info@ e il modulo contatti del
+   sito, gia' aperto sulla richiesta "mail di conferma non ricevuta". Tutto
+   in due SMS: ogni carattere in piu' toglie spazio all'indirizzo email, che
+   con i testi di sotto ci sta fino a 38 caratteri (33 in quello della mail
+   non partita, 32 nel promemoria); piu' lungo, l'SMS esce nella versione
+   senza. Per lo stesso motivo lo spam e' "Spam" e basta. */
+const SMS_AIUTO = 'Problemi? Scrivici a info@nextgenerationbusiness.it o dal modulo contatti: ' + LINK_MODULO_MAIL;
 const TESTI_CONFERMA = {
     // la mail e' partita: dov'e' il pulsante e dove cercarla
     inviata: a => 'Next Generation Business: per confermare l\'iscrizione premi "Conferma il tuo indirizzo email" nella mail '
         + (a ? 'inviata a ' + a : 'che ti abbiamo inviato')
-        + '. Se non la trovi guarda in Spam/Posta indesiderata. Non l\'hai ricevuta? ' + SMS_MODULO,
+        + ' (guarda anche nello Spam). ' + SMS_AIUTO,
     // la mail non e' partita: l'iscrizione c'e', si riprova da soli
-    'non-inviata': a => 'Next Generation Business: la tua iscrizione è registrata ma la mail di conferma non è ancora partita'
-        + (a ? ' verso ' + a : '') + ': riproviamo in automatico. '
-        + 'Guarda anche in Spam/Posta indesiderata. Se non arriva ' + SMS_MODULO.charAt(0).toLowerCase() + SMS_MODULO.slice(1),
+    'non-inviata': a => 'Next Generation Business: iscrizione registrata, ma la mail di conferma'
+        + (a ? ' a ' + a : '') + ' non è ancora partita: riproviamo in automatico. '
+        + 'Guarda anche nello Spam. ' + SMS_AIUTO,
     // il promemoria del giro automatico, dopo un giorno senza conferma
-    promemoria: a => 'Next Generation Business: la tua iscrizione non è ancora confermata. Premi "Conferma il tuo indirizzo email" nella mail '
+    promemoria: a => 'Next Generation Business: iscrizione non ancora confermata. Premi "Conferma il tuo indirizzo email" nella mail '
         + (a ? 'inviata a ' + a : 'che ti abbiamo inviato')
-        + ' (guarda anche in Spam/Posta indesiderata). Non la trovi? ' + SMS_MODULO
+        + ' (guarda anche nello Spam). ' + SMS_AIUTO
 };
 function testoSmsConferma(tipo, email) {
     const t = TESTI_CONFERMA[tipo] || TESTI_CONFERMA.inviata;

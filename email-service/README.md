@@ -1728,10 +1728,11 @@ persone, e il freno vero agli SMS sono il CAPTCHA e i limiti per numero.
 **Il secondo SMS: "conferma la tua email"** (`smsConfermaEmail`). Subito dopo
 la mail con il pulsante, al cellulare appena verificato parte un SMS (tag
 Brevo `conferma-email`, stesso mittente) che dice quale pulsante premere,
-nella mail mandata a quale indirizzo, di guardare in Spam/Posta indesiderata,
-e che se non arriva puo' scriverci dal **modulo contatti** del sito
-("Scrivici dal modulo contatti: `https://nextgenerationbusiness.it/contatti/?t=mail`").
-Tre testi: mail **partita**, mail **non partita** ("la tua iscrizione e'
+nella mail mandata a quale indirizzo, di guardare nello Spam, e che per
+qualunque problema puo' scriverci a **info@** o dal **modulo contatti** del
+sito ("Problemi? Scrivici a info@nextgenerationbusiness.it o dal modulo
+contatti: `https://nextgenerationbusiness.it/contatti/?t=mail`").
+Tre testi: mail **partita**, mail **non partita** ("iscrizione
 registrata... riproviamo in automatico") e il **promemoria** del giro
 automatico dopo un giorno. Regole:
 

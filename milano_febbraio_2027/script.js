@@ -670,10 +670,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const PAUSA_RIMANDA = 120;   // secondi: RIMANDA_PAUSA_MS del servizio
     // `fine`: quando il pulsante si riaccende (0: e' acceso); `giro`: i rinvii chiesti da qui
     const rimanda = { stato: null, timer: null, inCorso: false, okAlle: 0, inviataAlle: 0, fine: 0, mail: '', giro: 0 };
+    // numero e unita' con lo spazio che non va a capo: mai "(fra 2 / min)"
     function durata(s) {
-        if (s < 90) return s + ' s';
-        if (s < 5400) return Math.ceil(s / 60) + ' min';
-        return Math.ceil(s / 3600) + ' ore';
+        if (s < 90) return s + '\u00a0s';
+        if (s < 5400) return Math.ceil(s / 60) + '\u00a0min';
+        return Math.ceil(s / 3600) + '\u00a0ore';
     }
     // i secondi che mancano, dall'orologio: in una scheda in secondo piano i timer rallentano
     const restano = () => Math.max(0, Math.ceil((rimanda.fine - Date.now()) / 1000));
@@ -761,6 +762,38 @@ document.addEventListener('DOMContentLoaded', () => {
             el.textContent = ' Ti abbiamo avvisato anche con un SMS al cellulare verificato: al momento dell\'iscrizione la mail non era ancora partita, e riproviamo a spedirla in automatico.';
         }
         el.hidden = !(d && d.sms === true);
+    }
+    /* Il doppione in fondo alla conferma, accanto al calendario: chi arriva
+       li' dopo aver letto tutto non deve risalire a cercarlo. Non ha una
+       logica sua: copia quello del passo della mail ogni volta che cambia
+       (acceso o spento, il testo con l'attesa, l'esito) e sparisce con lui
+       - anche quando l'indirizzo e' confermato e il riquadro della mail va
+       via. Il clic e' il suo. */
+    const fondo = $('rimandaFondo');
+    if (fondo && btnRimanda) {
+        const btnFondo = $('rimandaMailFondo');
+        const esitoFondo = $('rimandaEsitoFondo');
+        const riquadroMail = $('fattoMail');
+        /* Senza il pulsante di sopra (un rinvio che il servizio rifiuta per
+           sempre, 403) resta l'esito, che dice dove scriverci: il riquadro
+           sparisce solo se non ha piu' niente da dire. */
+        const allineaFondo = () => {
+            const esito = rimandaEsito ? rimandaEsito.textContent : '';
+            fondo.hidden = !!(riquadroMail && riquadroMail.hidden) || (btnRimanda.hidden && !esito);
+            btnFondo.hidden = btnRimanda.hidden;
+            btnFondo.disabled = btnRimanda.disabled;
+            btnFondo.textContent = btnRimanda.textContent.replace(RIMANDALA, 'Rimanda la mail di conferma');
+            esitoFondo.textContent = esito;
+            esitoFondo.classList.toggle('ko', !!(rimandaEsito && rimandaEsito.classList.contains('ko')));
+        };
+        const osserva = (el, filtro) => {
+            if (el) new MutationObserver(allineaFondo).observe(el, { attributes: true, attributeFilter: filtro, childList: true, characterData: true, subtree: true });
+        };
+        osserva(btnRimanda, ['disabled', 'hidden']);
+        osserva(rimandaEsito, ['class']);
+        osserva(riquadroMail, ['hidden']);
+        btnFondo.addEventListener('click', () => { if (!btnRimanda.disabled && !btnRimanda.hidden) btnRimanda.click(); });
+        allineaFondo();
     }
     btnRimanda.addEventListener('click', () => {
         if (!rimanda.stato || rimanda.inCorso) return;
