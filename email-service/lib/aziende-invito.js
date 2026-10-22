@@ -301,31 +301,6 @@ async function gettoniStato(db, chi, canale) {
     };
 }
 
-/* IL TESTO DELL'INVITO, per il secondo invio. Il secondo invio deve essere
-   IDENTICO al primo - stesso oggetto, stesso testo, stessa versione - e il
-   testo vive nella finestra dell'area riservata, che di suo lo riscrive da
-   capo a ogni apertura. Percio' a ogni invio "normale" (non un rinvio, non
-   un secondo invio) l'area riservata manda anche il testo com'era scritto
-   nella finestra, e qui lo si tiene, uno per evento e campagna: il secondo
-   invio lo ripropone tale e quale. E' l'ultimo testo con cui sono partiti
-   gli inviti nuovi, cioe' quello che hanno ricevuto le aziende da
-   sollecitare. */
-function rifTestoInvito(db, evento, campagna) {
-    return db.collection('meta').doc(('testoInvito-' + evento + '~' + campagna).replace(/\//g, '%2F').slice(0, 400));
-}
-async function ricordaTesto(db, evento, campagna, body, oggetto, chi) {
-    const t = String(body.testo || '').slice(0, 100000);
-    if (!t.trim()) return;
-    try {
-        await rifTestoInvito(db, evento, campagna).set({
-            evento: evento, campagna: campagna, oggetto: oggetto, testo: t,
-            versione: testo(body.versione, 20), quando: Date.now(), da: String(chi || '').slice(0, 200)
-        }, { merge: true });
-    } catch (e) {
-        console.error('Testo dell\'invito non ricordato:', String((e && e.message) || e).slice(0, 200));
-    }
-}
-
 /* Ha risposto? Le tre forme che una risposta puo' prendere, in un posto
    solo: la risposta a una PEC, il modulo di richiesta contatto, e
    l'iscrizione all'evento col codice. Sono tre strade diverse per dire la
@@ -407,7 +382,7 @@ function inChiaro(id, d) {
         campagna: CAMPAGNE.diScheda(d),
         codice: d.codice || '',
         iscritti: Array.isArray(d.iscritti) ? d.iscritti.slice(0, 20) : [],
-        invio: d.invio || null, errore: d.errore || null, aggiunta: d.aggiunta || null,
+        invio: d.invio || null, secondoInvio: d.secondoInvio || null, errore: d.errore || null, aggiunta: d.aggiunta || null,
         /* Chi ha premuto il pulsante nella mail e ha lasciato i propri
            recapiti. E' l'esito che conta su una campagna di
            sponsorizzazione, e sta sulla scheda perche' la riga lo dica
@@ -598,7 +573,7 @@ async function esegui(ctx) {
             let testoInvito = null;
             if (!dopo) {
                 try {
-                    const t = await rifTestoInvito(db, evento, campagna).get();
+                    const t = await PROG.rifTestoInvito(db, evento, campagna).get();
                     if (t.exists) {
                         const v = t.data() || {};
                         testoInvito = { oggetto: v.oggetto || '', testo: v.testo || '', versione: v.versione || '', quando: v.quando || 0, da: v.da || '' };
@@ -1044,7 +1019,6 @@ async function esegui(ctx) {
             const soloNonIscritte = body.soloNonIscritte === true;
             // il secondo invio e' per definizione a chi ha gia' ricevuto
             const forza = body.forza === true || soloNonIscritte;
-            if (!forza) await ricordaTesto(db, evento, campagna, body, oggetto, email);
 
             /* Chi ha gia' chiesto di non ricevere piu' nulla non lo si tocca,
                qualunque sia la lista da cui e' rispuntato. Si legge una volta
@@ -1093,6 +1067,8 @@ async function esegui(ctx) {
             /* Gettoni prenotati e non usati (tempo scaduto, schede saltate):
                si restituiscono, altrimenti il tetto orario si consumerebbe
                anche per gli invii che non sono mai partiti. */
+            // il testo di un invito nuovo si ricorda solo se e' partito davvero (vedi PROG.ricordaTesto)
+            if (!forza && r.inviate > 0) await PROG.ricordaTesto(db, evento, campagna, body, oggetto, email);
             const nonUsati = daFare.length - r.trattate;
             if (nonUsati > 0) {
                 try { await restituisciGettoni(db, email, canale, nonUsati, gettoni.inizioFinestra); }
@@ -1268,6 +1244,11 @@ async function esegui(ctx) {
                     pagina: testo(body.pagina, 200),
                     forza: forzaProg,
                     soloNonIscritte: soloNonIscritte,
+                    /* il testo com'era scritto nella finestra: il giro lo
+                       ricorda per il secondo invio quando i primi messaggi
+                       partono davvero */
+                    testo: String(body.testo || '').slice(0, 100000),
+                    versione: testo(body.versione, 20),
                     creato: { da: email, collab: collab, il: adesso },
                     totale: 0, lotti: 0,
                     conti: { inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, falliti: 0 },
@@ -1295,8 +1276,6 @@ async function esegui(ctx) {
                campagna nuova spedisce anche alle aziende della vecchia, che
                nessuno ha selezionato. Su un elenco vuoto non costa niente. */
             await PROG.cancellaLotti(db, id);
-            // un invito nuovo programmato: il suo testo e' quello del secondo invio
-            if (!forzaProg) await ricordaTesto(db, evento, campagna, body, oggetto, email);
 
             res.status(200).json({
                 ok: true, id: id, perLotto: PROG.PER_LOTTO,

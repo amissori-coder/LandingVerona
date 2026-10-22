@@ -208,17 +208,23 @@ ricevuto e da allora non si sono fatte vive. Fuori restano quelle che:
 - hanno risposto alla PEC;
 - hanno chiesto di essere contattate;
 - hanno la PEC non arrivata o un errore;
-- sono state escluse o si sono disiscritte.
+- sono state escluse o si sono disiscritte;
+- **il secondo invio l'hanno gia' avuto**.
 
 Il messaggio e' **identico al primo**: stesso oggetto, stesso testo, stessa
-versione e stesso canale, e **lo stesso codice** di ogni azienda (il motore
-tiene quello gia' assegnato). Si spedisce a mano o programmato, come un invio
-normale. Come funziona:
-- **Dove sta il testo.** A ogni invito *nuovo*, a mano o programmato, l'area
-  riservata manda anche il testo com'e' scritto nella finestra, con la
-  versione. Il servizio lo tiene su `meta/testoInvito-<evento>~<campagna>`
-  (`ricordaTesto` in `lib/aziende-invito.js`) e lo restituisce con la prima
-  pagina dell'elenco (`testoInvito`).
+versione e **lo stesso codice** di ogni azienda (il motore tiene quello gia'
+assegnato, o quello scritto sul primo invio se la scheda e' stata spostata su
+un indirizzo nuovo). Ognuna lo riceve **sul canale del primo invio**: si sceglie
+quale gruppo parte (PEC o email) e l'altro con un secondo passaggio. Si
+spedisce a mano o programmato, come un invio normale. Come funziona:
+- **Dove sta il testo.** Gli inviti *nuovi*, a mano o programmati, portano anche
+  il testo com'e' scritto nella finestra, con la versione. Il servizio lo
+  ricorda su `meta/testoInvito-<evento>~<campagna>` (`ricordaTesto` in
+  `lib/programmazione-inviti.js`) **solo quando qualcosa e' partito davvero**:
+  dopo un invio a mano con messaggi spediti, e nel giro della programmazione
+  dopo un lotto spedito. Una programmazione annullata, un invio tutto saltato
+  o fermato dal tetto non lo cambiano. Torna con la prima pagina dell'elenco
+  (`testoInvito`).
 - **Cosa non lo cambia.** I rinvii ("manda una seconda volta") e i secondi
   invii non lo sovrascrivono.
 - **Testo non salvato.** Se manca (inviti partiti prima di questa funzione),
@@ -226,8 +232,15 @@ normale. Come funziona:
 - **Il controllo di chi lo riceve.** L'invio porta `soloNonIscritte: true`, che
   per il servizio vale anche `forza`. Il motore (`fuoriDalSecondoInvio` in
   `lib/invio-inviti.js`) **ricontrolla ogni scheda** nella transazione prima di
-  spedire, anche nel lavoro programmato: chi si iscrive fra la scelta e
-  l'invio non riceve il sollecito.
+  spedire, anche nel lavoro programmato. Salta chi si e' iscritta o ha
+  risposto nel frattempo, chi non e' piu' "inviata", chi ha la PEC non
+  arrivata, chi era stata invitata su un altro canale e chi ha gia'
+  `secondoInvio`.
+- **Una volta sola.** `secondoInvio` (`{ quando, canale, prog }`) si scrive
+  sulla scheda a ogni secondo invio riuscito, fuori da `invio`. Riprendere un
+  invio fermato dal tetto orario o da "Ferma", ripremere il pulsante o fare il
+  passaggio sull'altro canale non manda mai una terza copia. Il pulsante conta
+  solo le aziende ancora da sollecitare e accanto dice quante lo sono gia'.
 
 Un'ultima cosa che vale la pena sapere: il ritmo scritto a video e' una
 promessa che regge finche' il server di posta risponde in fretta. Se una
@@ -241,8 +254,10 @@ Le prove stanno in `prove/inviti-programmati.prove.js` e si lanciano con
 `node prove/inviti-programmati.prove.js`: non richiedono niente di installato.
 Coprono il ritmo e la finestra scorrevole, i tre doppioni qui sopra (compresi
 il sollecito e i due invii in parallelo), il secondo invio a chi non si e'
-iscritto (chi resta fuori, lo stesso codice, il testo ricordato, l'iscrizione
-arrivata dopo la programmazione), l'elenco piu' lungo della finestra
+iscritto (chi resta fuori, il canale del primo invio, lo stesso codice anche
+su una scheda spostata, una volta sola anche riprendendo, il testo ricordato
+solo dopo un invio vero, l'iscrizione arrivata dopo la programmazione),
+l'elenco piu' lungo della finestra
 di lettura dei lotti, la rotazione fra programmazioni, e l'invio a mano dopo
 l'estrazione del motore.
 

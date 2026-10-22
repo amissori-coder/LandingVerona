@@ -26119,6 +26119,13 @@
         if (a.ricevute && a.ricevute.risposta && a.ricevute.risposta.quando) return true;
         return a.stato === 'risposta' || a.stato === 'iscritta';
     }
+    /* Da sollecitare col secondo invio: nella scheda "Inviate" e non ancora
+       sollecitata (`secondoInvio`, lo scrive il servizio). E' la stessa regola
+       del servizio (lib/invio-inviti.js, fuoriDalSecondoInvio), che la
+       ricontrolla prima di ogni messaggio. */
+    function daSollecitare(a) {
+        return vistaDi(a) === 'inviate' && !(a.secondoInvio && a.secondoInvio.quando);
+    }
     function vistaDi(a) {
         const st = (a && a.stato) || 'da-invitare';
         if (st === 'esclusa' || st === 'disiscritta') return 'fuori';
@@ -28027,6 +28034,9 @@
         if (!corpo) return;
         const tutte = aziendeInvitoDi(ev);
         const n = contaInviti(tutte);
+        // il secondo invio: quante da sollecitare, quante gia' sollecitate (scheda "Inviate")
+        const nSollecitare = tutte.filter(daSollecitare).length;
+        const nSollecitate = tutte.filter(a => vistaDi(a) === 'inviate' && a.secondoInvio && a.secondoInvio.quando).length;
         // la selezione non deve trascinarsi dietro schede cancellate nel frattempo
         const esistenti = new Set(tutte.map(a => a.id));
         Array.from(_invSel).forEach(id => { if (!esistenti.has(id)) _invSel.delete(id); });
@@ -28165,9 +28175,13 @@
                volta, ricopia il testo di allora": e' il gesto che si fa a ogni
                campagna, e ognuno di quei passi e' un posto dove sbagliare. */
             + (camp.id === 'invito' && _invFiltro.vista === 'inviate' && n.inviate
-                ? '<button class="btn btn-primary btn-sm" id="inv-secondo" title="Lo stesso invito, con lo stesso codice, '
-                + 'alle aziende invitate che non si sono iscritte e non hanno risposto">'
-                + 'Secondo invio a chi non si è iscritto (' + n.inviate.toLocaleString('it-IT') + ')</button>'
+                ? (nSollecitare
+                    ? '<button class="btn btn-primary btn-sm" id="inv-secondo" title="Lo stesso invito, con lo stesso codice, '
+                    + 'alle aziende invitate che non si sono iscritte e non hanno risposto'
+                    + (nSollecitate ? '. ' + nSollecitate + ' hanno già avuto il secondo invio e non lo ricevono di nuovo' : '') + '">'
+                    + 'Secondo invio a chi non si è iscritto (' + nSollecitare.toLocaleString('it-IT') + ')</button>'
+                    : '')
+                + (nSollecitate ? '<span class="inv-letto hint">' + nSollecitate.toLocaleString('it-IT') + ' già sollecitate</span>' : '')
                 : '')
             + '<button class="btn btn-secondary btn-sm" id="inv-rileggi" title="Rilegge l\'elenco dal servizio: '
             + 'le risposte al modulo e le ricevute arrivano da fuori, non da questa finestra">Aggiorna l\'elenco</button>'
@@ -28643,7 +28657,7 @@
         const selezionate = () => tutte.filter(a => _invSel.has(a.id));
         const bSecondo = document.getElementById('inv-secondo');
         if (bSecondo) bSecondo.addEventListener('click', () =>
-            modaleInviaInvito(ev, tutte.filter(a => vistaDi(a) === 'inviate'), 'ora', { secondo: true }));
+            modaleInviaInvito(ev, tutte.filter(daSollecitare), 'ora', { secondo: true }));
         const bInvia = document.getElementById('inv-invia');
         if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'ora'));
         const bProg = document.getElementById('inv-programma');
@@ -29808,7 +29822,7 @@
         opz = opz || {};
         const secondo = !!opz.secondo;
         const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta')
-            .filter(a => !secondo || (a.invio && a.invio.quando && !haRisposto(a)));
+            .filter(a => !secondo || daSollecitare(a));
         if (!scelte.length) {
             toast(secondo ? 'Nessuna azienda da sollecitare: tutte le invitate si sono iscritte o hanno risposto.'
                 : 'Nessuna azienda selezionata (escluse e disiscritte non contano).', 'rosso');
@@ -29826,7 +29840,13 @@
             if (canaleCfg(pref).pronto) canale = pref;
         }
 
-        const raggiungibili = c => scelte.filter(a => recapitoDi(c, a)).length;
+        /* Nel secondo invio ogni azienda lo riceve sul canale del PRIMO: chi
+           era stata invitata per PEC per PEC, chi per email per email. Il
+           canale scelto qui decide quale dei due gruppi parte; l'altro si fa
+           con un secondo passaggio (il servizio salta chi e' gia' sollecitata,
+           quindi non ci sono doppioni). */
+        const delCanale = c => a => !secondo || (a.invio && (a.invio.canale || 'email') === c);
+        const raggiungibili = c => scelte.filter(delCanale(c)).filter(a => recapitoDi(c, a)).length;
         const gia = scelte.filter(a => a.invio && a.invio.quando).length;
         // il testo con cui e' partito l'ultimo invito (per il secondo invio)
         const ricordato = secondo ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
@@ -29913,8 +29933,11 @@
                 ? '<p class="hint" style="margin:-4px 0 10px;">Riparte <b>lo stesso invito</b> - stesso oggetto, stesso testo, '
                 + 'stesso codice di ogni azienda - alle <b>' + scelte.length.toLocaleString('it-IT') + '</b> aziende che l\'hanno già ricevuto '
                 + 'e da allora <b>non si sono iscritte né hanno risposto</b>. Restano fuori quelle iscritte, quelle che hanno risposto, '
-                + 'quelle con la PEC non arrivata o con un errore, le escluse e le disiscritte; e se una si iscrive prima che il suo '
-                + 'messaggio parta, il servizio la salta. '
+                + 'quelle con la PEC non arrivata o con un errore, le escluse, le disiscritte e quelle che il secondo invio l\'hanno già avuto; '
+                + 'e se una si iscrive prima che il suo messaggio parta, il servizio la salta. '
+                + 'Ognuna lo riceve <b>sul canale del primo invio</b>: '
+                + [['pec', 'per PEC'], ['email', 'per email']].map(x => scelte.filter(delCanale(x[0])).length + ' ' + x[1]).join(', ')
+                + '. Qui sotto scegli quale gruppo parte adesso; l\'altro con un secondo passaggio, senza doppioni. '
                 + (ricordato && ricordato.testo
                     ? 'Oggetto e testo sono quelli dell\'invito spedito ' + (ricordato.quando ? 'il ' + esc(fmtDataOra(ricordato.quando)) : 'l\'ultima volta') + '.'
                     : '<b>Il testo del primo invio non risulta salvato</b> (era partito prima di questa funzione): qui sotto c\'è il testo '
@@ -30176,7 +30199,9 @@
         });
 
         // quante ne partono davvero su questo canale: si aggiorna il pulsante
-        const daFare = () => scelte.filter(a => recapitoDi(canale, a));
+        // nel secondo invio: quelle del canale scelto, e non quelle gia' partite da questa finestra
+        const partite = new Set();
+        const daFare = () => scelte.filter(delCanale(canale)).filter(a => !partite.has(a.id)).filter(a => recapitoDi(canale, a));
         /* Il ritmo scelto adesso, letto dalla tendina. Se la tendina non c'e'
            (modo "adesso") vale il primo del canale, che e' quello buono. */
         const ritmoScelto = () => {
@@ -30583,6 +30608,12 @@
                        una saltata e' una cosa chiusa, questa e' una cosa da
                        guardare. */
                     incerte += r.incerte || 0;
+                    /* Nel secondo invio, "Invia le restanti" (dopo il tetto
+                       orario o "Ferma") non deve ripartire dalla cima: quelle
+                       gia' partite da qui si tolgono dall'elenco. Il servizio le
+                       salterebbe comunque (secondoInvio), ma cosi' non si
+                       spreca il tetto a farle saltare. */
+                    if (secondo) Object.keys(r.esiti || {}).forEach(id => { if ((r.esiti[id] || {}).stato === 'inviata') partite.add(id); });
                     conti.inviate = inviate; conti.saltate = saltate;
                     conti.disiscritte = disiscritte; conti.falliti = falliti;
                     conti.incerte = incerte;

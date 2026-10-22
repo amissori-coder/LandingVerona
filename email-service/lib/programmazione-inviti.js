@@ -222,8 +222,38 @@ function perVideo(id, d) {
     };
 }
 
+/* IL TESTO DELL'INVITO, per il secondo invio. Il secondo invio deve essere
+   IDENTICO al primo - stesso oggetto, stesso testo, stessa versione - e il
+   testo vive nella finestra dell'area riservata, che di suo lo riscrive da
+   capo a ogni apertura. Percio' gli inviti "normali" (non un rinvio, non un
+   secondo invio) portano anche il testo com'era scritto nella finestra, e lo
+   si tiene, uno per evento e campagna: il secondo invio lo ripropone tale e
+   quale. Si scrive SOLO quando qualcosa e' partito davvero - dopo l'invio a
+   mano, e nel giro della programmazione dopo un lotto con messaggi spediti -
+   cosi' non diventa "il testo del primo invio" un testo che nessuna azienda
+   ha ricevuto (una programmazione annullata, un invio tutto saltato o
+   fermato dal tetto). Sta qui e non in aziende-invito.js perche' lo usano
+   tutti e due: l'invio a mano e il giro (lib/giro-inviti.js). */
+function rifTestoInvito(db, evento, campagna) {
+    return db.collection('meta').doc(('testoInvito-' + evento + '~' + campagna).replace(/\//g, '%2F').slice(0, 400));
+}
+async function ricordaTesto(db, evento, campagna, dati, oggetto, chi) {
+    const t = String((dati && dati.testo) || '').slice(0, 100000);
+    if (!t.trim()) return;
+    try {
+        await rifTestoInvito(db, evento, campagna).set({
+            evento: evento, campagna: campagna, oggetto: String(oggetto || '').slice(0, 250), testo: t,
+            versione: String((dati && dati.versione) || '').replace(/[^a-z]/g, '').slice(0, 20),
+            quando: Date.now(), da: String(chi || '').slice(0, 200)
+        }, { merge: true });
+    } catch (e) {
+        console.error('Testo dell\'invito non ricordato:', String((e && e.message) || e).slice(0, 200));
+    }
+}
+
 module.exports = {
     COLL, META, ATTIVI, DA_LAVORARE, IN_PREPARAZIONE, PER_LOTTO, SCADE_PREPARAZIONE_MS,
     eAttiva, daLavorare, idDi, rif, rifLotti, nomeLotto,
-    finestraDi, quantiOra, battito, leggiBattito, cancellaLotti, perVideo
+    finestraDi, quantiOra, battito, leggiBattito, cancellaLotti, perVideo,
+    rifTestoInvito, ricordaTesto
 };
