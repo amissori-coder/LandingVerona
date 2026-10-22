@@ -30052,7 +30052,7 @@
                    facendo: accesa e ferma, con scritto perche'. */
                 ? '<div class="campo inv-rinvio"><label class="mi-flag" style="margin:0;">'
                 + '<input type="checkbox" id="ii-forza" checked disabled> '
-                + 'È il <b>secondo invio</b>: parte a tutte le ' + scelte.length.toLocaleString('it-IT') + ', che l\'invito l\'hanno già ricevuto</label></div>'
+                + 'È il <b>secondo invio</b>: parte a quelle del canale scelto qui sopra, che l\'invito l\'hanno già ricevuto</label></div>'
                 : '<div class="campo inv-rinvio' + (gia ? '' : ' spenta') + '">'
             + '<label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"' + (gia ? '' : ' disabled') + '> '
             + (gia
@@ -30526,7 +30526,12 @@
             if (!oggetto) { esito('Manca l\'oggetto.', true); return; }
             if (!testoInvito) { esito('Manca il testo dell\'invito.', true); return; }
             const elencoInvio = daFare();
-            if (!elencoInvio.length) { esito('Nessuna delle aziende scelte ha un recapito su questo canale.', true); return; }
+            if (!elencoInvio.length) {
+                esito(secondo && scelte.filter(delCanale(canale)).length
+                    ? 'Su questo canale il secondo invio è già partito a tutte (o non hanno un recapito): per le altre scegli l\'altro canale.'
+                    : 'Nessuna delle aziende scelte ha un recapito su questo canale.', true);
+                return;
+            }
             const forza = !!(document.getElementById('ii-forza') || {}).checked;
             const quale = canale === 'pec' ? 'PEC' : 'email';
             /* La biforcazione, e da qui in giu' non cambia una riga: il ramo

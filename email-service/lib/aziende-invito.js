@@ -68,6 +68,7 @@ const CONTATTI = require('./richieste-contatto');
    invio a freddo a migliaia di aziende quel genere di divergenza non si
    scopre - si paga. */
 const MOTORE = require('./invio-inviti');
+const CODICI = require('./codici-invito');
 const PROG = require('./programmazione-inviti');
 const RITMI = require('./ritmi-invito');
 /* Tutte le colonne del file, nell'ordine del file: la forma sta in un
@@ -930,6 +931,13 @@ async function esegui(ctx) {
                         if (v.invio) campi.invio = v.invio;
                         if (v.errore) campi.errore = v.errore;
                         if (v.aggiunta) campi.aggiunta = v.aggiunta;
+                        /* E quello che e' dell'AZIENDA, non dell'indirizzo: il
+                           codice che ha in mano, il segno del secondo invio
+                           (senza, il pulsante la ricontava e le arrivava una
+                           terza copia), le ricevute e le risposte. */
+                        ['codice', 'secondoInvio', 'ricevute', 'contatto', 'risposto'].forEach(k => {
+                            if (v[k] != null) campi[k] = v[k];
+                        });
                     }
                     /* E i dati del file: il modulo di modifica non li mostra,
                        quindi non li rimanda, e con la scheda vecchia se ne
@@ -942,6 +950,21 @@ async function esegui(ctx) {
                 }
             }
             await rif.set(campi, { merge: true });
+            /* Il codice deve puntare alla scheda nuova: e' da li' che
+               l'iscrizione col codice (e la richiesta di contatto) ritrovano
+               l'azienda. Lasciato sulla vecchia, chi si iscrive finiva su una
+               scheda che non c'e' piu', la scheda vera restava "inviata" e il
+               secondo invio le mandava il sollecito. Solo se puntava proprio
+               alla vecchia: un codice di un'altra scheda non si tocca. */
+            if (azione === 'modifica' && idVecchio && idVecchio !== id && campi.codice) {
+                try {
+                    const rc = db.collection('codiciInvito').doc(CODICI.normalizza(campi.codice));
+                    const sc = await rc.get();
+                    if (sc.exists && String((sc.data() || {}).scheda || '') === idVecchio) await rc.set({ scheda: id }, { merge: true });
+                } catch (e) {
+                    console.error('Codice invito non spostato sulla scheda nuova:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
             const dopo = await rif.get();
             /* Stesso controllo dell'importazione: una scheda aggiunta a mano
                puo' sovrapporsi all'altra lista esattamente come una riga di

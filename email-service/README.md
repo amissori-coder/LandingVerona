@@ -241,6 +241,13 @@ spedisce a mano o programmato, come un invio normale. Come funziona:
   invio fermato dal tetto orario o da "Ferma", ripremere il pulsante o fare il
   passaggio sull'altro canale non manda mai una terza copia. Il pulsante conta
   solo le aziende ancora da sollecitare e accanto dice quante lo sono gia'.
+- **Un indirizzo corretto non cambia niente.** Con "Modifica" su PEC o email la
+  scheda passa a un identificativo nuovo, e si porta dietro quello che e'
+  dell'azienda: codice, `secondoInvio`, ricevute e risposte. Il codice in
+  `codiciInvito` viene spostato sulla scheda nuova, cosi' l'iscrizione col
+  codice la ritrova e la segna "iscritta". Per le schede spostate prima di
+  questa correzione ci pensa il secondo invio, che ripete il codice scritto sul
+  primo invio e lo rimette sulla scheda viva.
 
 Un'ultima cosa che vale la pena sapere: il ritmo scritto a video e' una
 promessa che regge finche' il server di posta risponde in fretta. Se una

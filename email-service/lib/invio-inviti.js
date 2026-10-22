@@ -336,6 +336,17 @@ async function inviaSchede(db, opz) {
             if (!codice && a.invio && a.invio.codice) {
                 codice = String(a.invio.codice);
                 try { await rif.set({ codice: codice }, { merge: true }); } catch (_) { /* resta sull'invio */ }
+                /* e il codice deve ritrovare questa scheda: se punta ancora a
+                   quella vecchia, che non c'e' piu', chi si iscrive con il
+                   codice del sollecito finirebbe nel vuoto */
+                try {
+                    const rc = db.collection('codiciInvito').doc(CODICI.normalizza(codice));
+                    const sc = await rc.get();
+                    const punta = sc.exists ? String((sc.data() || {}).scheda || '') : '';
+                    if (punta && punta !== id && !(await db.collection('aziendeInvito').doc(punta).get()).exists) {
+                        await rc.set({ scheda: id }, { merge: true });
+                    }
+                } catch (_) { /* il codice resta valido; l'iscrizione lo riconosce lo stesso */ }
             }
             if (!codice) {
                 try {

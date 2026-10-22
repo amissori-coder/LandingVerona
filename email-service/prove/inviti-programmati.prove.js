@@ -768,6 +768,28 @@ async function principale() {
         esigi(r2.esiti && r2.esiti[idScheda('p2@x.it')] && r2.esiti[idScheda('p2@x.it')].secondoInvio, 'e l\'esito lo dice all\'area riservata');
     }
 
+    console.log('\nUn indirizzo corretto (Modifica) non fa ripartire il secondo invio, e il codice resta buono');
+    {
+        scenario({ 'vecchia@x.it': { stato: 'inviata', invio: { quando: 1, canale: 'pec', codice: 'VV11V' }, codice: 'VV11V', secondoInvio: { quando: 2, canale: 'pec' }, ricevute: { esito: 'consegnata' } } });
+        dati['codiciInvito/VV11V'] = { scheda: idScheda('vecchia@x.it'), evento: 'ev1' };
+        const m = await chiama('modifica', { id: idScheda('vecchia@x.it'), azienda: { ragioneSociale: 'Alfa', pec: 'nuova@x.it' } });
+        const idNuovo = m.azienda && m.azienda.id;
+        const nuova = dati['aziendeInvito/' + idNuovo] || {};
+        esigi(m.ok && idNuovo && idNuovo !== idScheda('vecchia@x.it') && !dati['aziendeInvito/' + idScheda('vecchia@x.it')], 'la scheda passa all\'indirizzo nuovo', JSON.stringify(m).slice(0, 120));
+        esigi(nuova.codice === 'VV11V' && nuova.secondoInvio && nuova.secondoInvio.quando === 2 && nuova.ricevute && nuova.ricevute.esito === 'consegnata',
+            'e si porta il codice, il segno del secondo invio e le ricevute', JSON.stringify({ c: nuova.codice, s: nuova.secondoInvio, r: nuova.ricevute }));
+        esigi(dati['codiciInvito/VV11V'].scheda === idNuovo, 'il codice ora ritrova la scheda nuova (l\'iscrizione col codice la segna "iscritta")', dati['codiciInvito/VV11V'].scheda);
+        const r = await MOTORE.inviaSchede(db, { evento: 'ev1', campagna: 'invito', canale: 'pec', ids: [idNuovo], mail: MAIL, email: 'chi@studio.it', fuori: {}, forza: true, soloNonIscritte: true });
+        esigi(r.inviate === 0 && !spediti.length, 'e un nuovo secondo invio la salta: niente terza copia');
+
+        // una scheda spostata prima di questa correzione: il codice c'e' solo sull'invio, e punta alla scheda che non c'e' piu'
+        scenario({ 'spostata@x.it': { stato: 'inviata', invio: { quando: 1, canale: 'pec', codice: 'KK22K' } } });
+        dati['codiciInvito/KK22K'] = { scheda: 'ev1~sparita@x.it', evento: 'ev1' };
+        await invia(['spostata@x.it'], { forza: true, soloNonIscritte: true });
+        esigi(spediti.length === 1 && dati['aziendeInvito/' + idScheda('spostata@x.it')].codice === 'KK22K'
+            && dati['codiciInvito/KK22K'].scheda === idScheda('spostata@x.it'), 'il secondo invio ripete il codice e lo fa puntare alla scheda viva', JSON.stringify(dati['codiciInvito/KK22K']));
+    }
+
     console.log('\nIl secondo invio programmato: il giro ricontrolla ogni scheda');
     {
         const inv = { quando: 1, canale: 'pec' };
