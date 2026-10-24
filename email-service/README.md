@@ -2065,9 +2065,10 @@ attesa piu' vecchi e poi le ultime confermate, e scrive quante ne mancano ("E
 altri 85, iscritti prima di questi: l'elenco completo e' nell'area
 riservata"). Gli in attesa, che tornano ogni notte, sono comunque al massimo
 quaranta, gli ultimi arrivati; i numeri nel riquadro in cima li contano tutti.
-Se gli aderenti da soli sono troppi (dalla cinquantina in su in una notte)
-togliere le aziende non basterebbe: restano intere, e in cima la mail dice
-che Gmail potrebbe accorciarla e come aprirla tutta ("Visualizza intero
+Se anche senza le righe delle aziende la mail passa il taglio vero di Gmail
+(102 KB: gli aderenti da soli sono troppi, dalla cinquantina in su in una
+notte) toglierle non servirebbe: restano intere, e in cima la mail dice che
+Gmail potrebbe accorciarla e come aprirla tutta ("Visualizza intero
 messaggio"); gli aderenti sono anche nell'area riservata.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle

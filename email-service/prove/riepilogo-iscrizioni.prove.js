@@ -621,6 +621,18 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         esigi(iAvviso > 0 && iAvviso < ml.html.indexOf('Aderenti: nuove iscrizioni del') && /«Visualizza intero messaggio»/.test(ml.html), 'sessanta aderenti: l\'avviso in cima, prima degli aderenti');
         esigi(/Socio59 Con Un Cognome Lungo/.test(ml.html) && /Confermata4 Qui/.test(ml.html) && /Nuovo4 DiOggi/.test(ml.html) && !/Stanotte la mail non ha posto/.test(ml.html) && !/E altr[ie] \d/.test(ml.html),
             'e tutti interi: gli aderenti e le aziende, che toglierle non avrebbe fatto stare la mail sotto il taglio');
+        // al limite (con questi dati): fino a 42 aderenti, tolte le righe delle aziende, la mail sta fra i 98 e i 102 KB: accorciata, senza avviso
+        const venti = Array.from({ length: 20 }, (_, k) => Object.assign(persona('Venti' + k + ' Qui', k, '21/02'), { ora: '11:00' }));
+        const quaranta = Array.from({ length: 40 }, (_, k) => persona('Quaranta' + k + ' Qui', 200 + k, '21/02'));
+        for (const na of [40, 41, 42]) {
+            const mb = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: venti, inAttesa: quaranta, totale: 60 }, ad: quota(na), t: tt }, 'https://x');
+            const sz = inPosta(mb.html);
+            esigi(sz < 102 * 1024 && !/Gmail potrebbe accorciarla/.test(mb.html) && new RegExp('Socio' + (na - 1) + ' Con Un Cognome Lungo').test(mb.html),
+                na + ' aderenti con sessanta aziende: accorciata a ' + (sz / 1024).toFixed(1) + ' KB come viaggia, sotto il taglio, senza avviso');
+        }
+        const m43 = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: venti, inAttesa: quaranta, totale: 60 }, ad: quota(43), t: tt }, 'https://x');
+        esigi(/Gmail potrebbe accorciarla/.test(m43.html) && /Venti19 Qui/.test(m43.html) && /Quaranta39 Qui/.test(m43.html) && /per leggerla tutta/.test(m43.html),
+            '43 aderenti: senza aziende passerebbe i 102 KB, quindi aziende intere e l\'avviso');
         const mq = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: pochi, inAttesa: nuovi, totale: 10 }, ad: quota(30), t: tt }, 'https://x');
         esigi(!/Gmail potrebbe accorciarla/.test(mq.html) && /Confermata4 Qui/.test(mq.html), 'con trenta aderenti nessun avviso, e le aziende intere');
     }

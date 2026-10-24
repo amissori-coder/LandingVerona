@@ -1022,8 +1022,8 @@ function notaTotali(t) {
        aderenti la mail passerebbe LIMITE_MAIL, gli elenchi delle aziende si
        accorciano (prima gli in attesa, poi le confermate) e la mail dice
        quante ne mancano: i numeri restano tutti nel riquadro in cima. Se non
-       basta (gli aderenti da soli sono troppi) le aziende restano intere e
-       in cima un avviso dice come leggere la mail tutta;
+       basta (anche senza aziende la mail passa il taglio vero di Gmail) le
+       aziende restano intere e in cima un avviso dice come leggerla tutta;
    OGNI PERSONA E' UN BLOCCO SOLO, una cella con le righe separate da <br>:
    con una riga di tabella per campo una giornata con venti aderenti
    superava i 102 KB oltre i quali Gmail tronca il messaggio. Niente colonne
@@ -1076,12 +1076,13 @@ const MAX_IN_ATTESA_MAIL = 40;
    76 ne aggiunge tre per l'a capo. Per un testo italiano e' il 7% in piu'
    dei byte; per dei nomi in cirillico anche il triplo. */
 const LIMITE_MAIL = 98 * 1024;
+const TAGLIO_GMAIL = 102 * 1024;
 function pesoInPosta(x) {
     let n = 0;
     for (const c of Buffer.from(String(x), 'utf8')) n += (c === 0x3d || c > 0x7e || (c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d)) ? 3 : 1;
     return n + Math.ceil(n / 73) * 3;
 }
-const AVVISO_MAIL_LUNGA = 'Stanotte la mail è molto lunga e Gmail potrebbe accorciarla: se in fondo vedi «[Messaggio troncato]», apri «Visualizza intero messaggio» per leggere tutti gli aderenti con i dati per la fattura. Sono anche nell\'area riservata, in «Aderenti» › «Apri le iscrizioni».';
+const AVVISO_MAIL_LUNGA = 'Stanotte la mail è molto lunga e Gmail potrebbe accorciarla: se in fondo vedi «[Messaggio troncato]», apri «Visualizza intero messaggio» per leggerla tutta. Gli aderenti, con i dati per la fattura, sono anche nell\'area riservata, in «Aderenti» › «Apri le iscrizioni».';
 function testoAzienda(p, nota) {
     return '- ' + p.nome + (nota ? ' (' + nota + ')' : '')
         + ([p.azienda, p.ruolo].filter(Boolean).length ? '\n  ' + [p.azienda, p.ruolo].filter(Boolean).join(' - ') : '')
@@ -1250,8 +1251,9 @@ function riepilogoSerale(d, link) {
         + piedePer(pagina, MOTIVO));
     /* Troppo pesante: via le righe delle aziende (prima gli in attesa piu'
        vecchi, poi le ultime confermate), e si ricompone con le righe "E
-       altri...". Se nemmeno senza aziende ci sta, toglierle non serve: restano
-       intere, e l'avviso in cima dice come leggere la mail tutta. */
+       altri...". Se nemmeno senza aziende sta sotto il taglio vero di Gmail,
+       toglierle non serve: restano intere, e l'avviso in cima dice come
+       leggere la mail tutta. Fra LIMITE_MAIL e il taglio resta accorciata. */
     let kN = righeN.length, kA = righeA.length;
     let html = componi(htmlAziende(kN, kA));
     while (pesoInPosta(html) > LIMITE_MAIL && (kN || kA)) {
@@ -1260,7 +1262,7 @@ function riepilogoSerale(d, link) {
         while (troppo > 0 && kN) troppo -= pesoInPosta(righeN[--kN]);
         html = componi(htmlAziende(kN, kA));
     }
-    if (pesoInPosta(html) > LIMITE_MAIL) html = componi(htmlAziende(righeN.length, righeA.length), true);
+    if (pesoInPosta(html) > TAGLIO_GMAIL) html = componi(htmlAziende(righeN.length, righeA.length), true);
     const testo = ['RIEPILOGO ISCRIZIONI DEL ' + giornoTesto, sommario,
         [az ? 'Aziende: nuove conferme: ' + n + '\nAziende: in attesa di conferma mail: ' + a : '',
             ads.length ? 'Aderenti: nuove iscrizioni' + periodoAd + ': ' + nA + (uA ? '\nAderenti: iscrizioni aggiornate: ' + uA : '')
