@@ -1711,8 +1711,13 @@ di spedire:
 - **un giorno** dalla conferma (chi era iscritto da prima la riceve al primo
   giro utile dopo la pubblicazione);
 - il codice e' di un **invito** (`campagna: 'invito'`, non degli sponsor) e
-  all'azienda e' partito **per PEC** (`invio.canale` o `secondoInvio.canale`
-  `'pec'` sulla scheda di `aziendeInvito`);
+  all'azienda e' partito **per PEC**: sulla scheda di `aziendeInvito`
+  `invio.canale` o `secondoInvio.canale` `'pec'`, oppure la ricevuta di
+  consegna (`ricevute.consegnata`, che un invio dopo per email non cancella),
+  oppure una PEC dall'esito mai scritto (`errore.incerto`/`tentativo` sul
+  canale `'pec'`, senza invii dopo). La scheda dell'azienda si cerca da quella
+  del codice, poi da quella dell'iscrizione, poi per `codice`; se non c'e'
+  l'azienda si salta (senza segno) e si riprova al giro dopo;
 - l'evento non e' a meno di un giorno.
 
 **Una per azienda, una volta.** Il segno sta sul codice:
@@ -1721,8 +1726,14 @@ tentativi, errore, prossimo, fino }`, preso in una transazione **prima** di
 spedire (`in-corso`, due minuti). Stati: `inviata`; `errore` (un no del server
 di posta: si riprova dopo **30 minuti** e dopo **3 ore**, tre tentativi in
 tutto) e poi `non-partita`; `incerta` (il server non ha risposto entro 25
-secondi, o la funzione si e' chiusa a meta': **non** si riprova, meglio una
-mail in meno che due uguali). A lavoro finito il segno si copia sulla scheda,
+secondi, la connessione e' caduta o il tempo e' scaduto dopo l'inizio
+dell'invio, o la funzione si e' chiusa a meta': il messaggio puo' essere
+arrivato e **non** si riprova, meglio una mail in meno che due uguali). Un
+**guasto del canale** (credenziali, server irraggiungibile, conto Brevo
+bloccato o al tetto, 421/45x) non consuma i tentativi: l'azienda resta in
+`errore` con i tentativi di prima e riprova fra mezz'ora, e il giro si ferma
+(`bloccato` nei conti e nel log), cosi' durante un guasto si prova al piu'
+un'azienda per giro. Lo stesso dopo un esito incerto. A lavoro finito il segno si copia sulla scheda,
 `promemoriaSecondaPersona: { quando, codice, ok }` (con `escluso` per le
 aziende fuori per sempre: codice di sponsor o sparito, invito non per PEC), e
 Modifica se lo porta dietro: e' quello che fa saltare l'azienda ai giri dopo.
@@ -1739,7 +1750,7 @@ Un giro alla volta (lucchetto su `meta/promemoriaSecondaPersona`, come quello
 delle conferme). A mano: `GET /api/promemoria-seconda-persona` con
 `Authorization: Bearer <CRON_SECRET>`; risponde i conti (`spento`,
 `fuoriOrario`, `occupato`, `lette`, `candidate`, `inviate`, `errori`,
-`incerte`, `aspettano`, `escluse`, `saltate`, `rimaste`). Le prove:
+`incerte`, `aspettano`, `escluse`, `saltate`, `rimaste`, `bloccato`). Le prove:
 `node prove/seconda-persona.prove.js`.
 
 ## Mail di conferma non arrivata: cosa controllare

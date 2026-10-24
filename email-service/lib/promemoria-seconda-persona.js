@@ -25,8 +25,9 @@
        giro utile;
      - il codice e' quello di un invito (`campagna` 'invito', non la PEC
        degli sponsor) e all'azienda e' partito PER PEC: l'ultimo invio o il
-       secondo invio sul canale 'pec'. Chi l'ha avuto per email ordinaria
-       resta fuori, come ha chiesto chi organizza;
+       secondo invio sul canale 'pec', la ricevuta di consegna della PEC, o
+       una PEC dall'esito mai scritto (vedi invitataPerPec). Chi l'ha avuto
+       solo per email ordinaria resta fuori, come ha chiesto chi organizza;
      - l'evento non e' a meno di un giorno (dopo, un "registra il collega"
        arriva troppo tardi per servire).
 
@@ -36,9 +37,15 @@
    transazione PRIMA di spedire (stato 'in-corso', con una scadenza): due
    giri insieme non ne mandano due. Se la funzione si chiude a meta', alla
    scadenza il segno diventa 'incerta' e non si riprova: una mail in meno e'
-   meglio della stessa mail due volte. Un no del server di posta si
-   riprova dopo mezz'ora e dopo tre ore, tre tentativi in tutto, poi
-   'non-partita'.
+   meglio della stessa mail due volte. Per la stessa ragione e' 'incerta'
+   anche un errore di nodemailer arrivato dopo l'inizio dell'invio senza
+   una risposta del server (tempo scaduto, connessione caduta: il messaggio
+   puo' essere arrivato). Un no del server a questo messaggio si riprova
+   dopo mezz'ora e dopo tre ore, tre tentativi in tutto, poi 'non-partita'.
+   Un guasto del canale (credenziali, server irraggiungibile, conto
+   bloccato o al tetto) non consuma i tentativi dell'azienda e ferma il
+   giro (`bloccato`): si riprova al giro dopo, una azienda alla volta,
+   finche' il guasto non passa (vedi esitoErrore).
    Lo stesso segno, finito il lavoro, si copia sulla scheda
    (`promemoriaSecondaPersona`): e' quello che fa saltare l'azienda ai giri
    dopo senza rileggere il codice ogni venti minuti.
@@ -61,6 +68,7 @@ const CODICI = require('./codici-invito');
 const VERIFICATA = require('./iscrizione-verificata');
 const CONF = require('./conferma-email');
 const MNGB = require('./mail-ngb');
+const CANALI = require('./canali-invito');
 
 // dalla conferma dell'email
 const DOPO_CONFERMA_MS = 24 * 60 * 60 * 1000;
@@ -143,11 +151,72 @@ function candidati(schede, ora) {
     return fuori.sort((a, b) => a.confermata - b.confermata);
 }
 
-/* L'invito e' partito per PEC: l'ultimo invio, o il secondo invio, sul
-   canale 'pec' (lib/invio-inviti.js scrive `invio` e `secondoInvio`). */
+/* L'invito e' partito per PEC. lib/invio-inviti.js scrive il canale
+   sull'ultimo invio (`invio`) e sul secondo invio (`secondoInvio`), ma
+   un invio dopo per email ordinaria riscrive `invio`, e una PEC partita
+   senza che la funzione abbia scritto com'e' andata ("Esito ignoto") non
+   ha `invio.canale` per niente. Valgono quindi anche:
+     - la ricevuta di CONSEGNA (`ricevute.consegnata`): la scrive solo il
+       lettore della casella PEC (lib/lettore-pec.js) e un invio dopo non la
+       cancella. L'accettazione no: la da' il nostro gestore anche a una PEC
+       che poi non arriva;
+     - la PEC dall'esito ignoto (`errore.incerto` o il `tentativo` rimasto
+       sul canale 'pec') quando non c'e' nessun invio dopo: l'azienda si e'
+       iscritta con quel codice, quindi le e' arrivato da li'. */
 function invitataPerPec(a) {
     if (!a) return false;
-    return (a.invio && a.invio.canale === 'pec') || (a.secondoInvio && a.secondoInvio.canale === 'pec') || false;
+    if (a.invio && a.invio.canale === 'pec') return true;
+    if (a.secondoInvio && a.secondoInvio.canale === 'pec') return true;
+    if (a.ricevute && a.ricevute.consegnata) return true;
+    if (!(a.invio && a.invio.canale)
+        && ((a.errore && a.errore.canale === 'pec' && a.errore.incerto) || (a.tentativo && a.tentativo.canale === 'pec'))) return true;
+    return false;
+}
+/* Una scheda di aziendeInvito che e' davvero quella di un invito, e non il
+   guscio che l'iscrizione riscrive su un nome che non c'e' piu' (solo
+   `stato` e `iscritti`, api/iscrizione-nuova.js): senza nessuna traccia di
+   invio non dice niente sul canale. */
+function conTracciaDiInvio(a) {
+    return !!a && !!(a.invio || a.secondoInvio || a.tentativo || a.errore || a.ricevute);
+}
+
+/* ---------- come si legge un errore del server di posta ----------
+   L'errore e' avvenuto PRIMA che il messaggio partisse (prima del DATA)?
+   Allora e' certo che non e' arrivato niente. Stessa regola di
+   lib/diretta-invio.js (primaDelData), con lo stesso avvertimento: gli
+   errori della connessione di nodemailer (tempo scaduto, socket chiuso)
+   portano command 'CONN' in QUALUNQUE momento, anche dopo che il messaggio
+   e' stato trasmesso e si aspettava solo il "250 OK". 'CONN' vale "prima"
+   solo se la connessione non si e' nemmeno aperta. */
+const COMANDI_PRIMA_DEL_DATA = /^(EHLO|HELO|LHLO|STARTTLS|MAIL FROM|RCPT TO|API|AUTH\b.*)$/;
+function primaDelData(e) {
+    if (!e) return false;
+    if (e.code === 'EAUTH' || e.code === 'ECONFIG') return true;
+    const comando = String(e.command || '').toUpperCase();
+    if (COMANDI_PRIMA_DEL_DATA.test(comando)) return true;
+    if (comando === 'CONN' || !comando) {
+        if (e.code === 'EDNS') return true;
+        return /Connection timeout|Greeting never received|Invalid greeting|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|getaddrinfo|Error initiating TLS/i.test(String(e.message || ''));
+    }
+    return false;
+}
+/* Da un errore a cosa fare:
+     incerta  il messaggio puo' essere arrivato (nessuna risposta del server
+              dopo l'inizio dell'invio, o il tempo massimo): non si riprova;
+     nostro   non e' partito niente e il guasto e' del canale, uguale per
+              tutti (credenziali, server irraggiungibile, conto bloccato o
+              al tetto, 421/45x): il tentativo non conta, si riprova al giro
+              dopo e questo giro si ferma, invece di bruciare una dopo
+              l'altra le mail di quindici aziende;
+     conta    il server ha detto no a questo messaggio o a questo
+              destinatario: e' un tentativo dei tre. */
+function esitoErrore(e) {
+    if (!e || e.limite) return 'incerta';
+    const prima = primaDelData(e);
+    if (!prima && !(Number(e.responseCode) >= 400)) return 'incerta';
+    const comando = String(e.command || '').toUpperCase();
+    if (comando === 'RCPT TO' || comando === 'API') return 'conta';
+    return (prima || CANALI.fermaTutto(e)) ? 'nostro' : 'conta';
 }
 
 /* Il segno sul codice: tutti i campi ogni volta, perche' set con merge
@@ -210,10 +279,23 @@ async function lavora(db, c, conti, spedisci, limiteInvio) {
         if (!si.exists) return { no: 'scheda' };
         const x = si.data() || {};
         if (CODICI.normalizza(x.invitoCodice) !== c.codice || !pronta(x, ora)) return { no: 'scheda' };
-        const idAzienda = String(d.scheda || x.invitoScheda || '');
-        if (!idAzienda) return { no: 'pec' };
-        const sa = await tx.get(db.collection('aziendeInvito').doc(idAzienda));
-        if (!sa.exists || !invitataPerPec(sa.data() || {})) return { no: 'pec' };
+        /* La scheda dell'azienda: quella a cui punta il codice (Modifica del
+           recapito la sposta e aggiorna il codice), poi quella scritta
+           sull'iscrizione, poi la ricerca per codice. Se non se ne trova
+           nessuna con un invio, si salta senza segnare niente: e' un buco
+           dei dati, non la prova che l'invito non e' partito per PEC. */
+        let az = null;
+        for (const id of [String(d.scheda || ''), String(x.invitoScheda || '')].filter((v, i, t) => v && t.indexOf(v) === i)) {
+            const sa = await tx.get(db.collection('aziendeInvito').doc(id));
+            if (sa.exists && conTracciaDiInvio(sa.data())) { az = sa.data(); break; }
+        }
+        if (!az) {
+            const q = await tx.get(db.collection('aziendeInvito').where('codice', '==', c.codice).limit(1));
+            const trovata = q && q.docs && q.docs.length ? (q.docs[0].data() || {}) : null;
+            if (conTracciaDiInvio(trovata)) az = trovata;
+        }
+        if (!az) return { no: 'azienda' };
+        if (!invitataPerPec(az)) return { no: 'pec' };
         const tentativi = Number(sp && sp.tentativi) || 0;
         tx.set(rifCodice, { secondaPersona: segno({ stato: 'in-corso', quando: ora, iscrizione: c.id, a: String(x.email), tentativi: tentativi, fino: ora + IN_CORSO_MS }) }, { merge: true });
         return { x: x, d: d, tentativi: tentativi };
@@ -251,15 +333,23 @@ async function lavora(db, c, conti, spedisci, limiteInvio) {
     } catch (e) { errore = e; }
     const ora = Date.now();
     const tentativi = presa.tentativi + 1;
+    const base = { quando: ora, iscrizione: c.id, a: a };
+    const come = errore ? esitoErrore(errore) : 'inviata';
     let s;
-    if (!errore) s = segno({ stato: 'inviata', quando: ora, iscrizione: c.id, a: a, tentativi: tentativi });
-    else if (errore.limite) s = segno({ stato: 'incerta', quando: ora, iscrizione: c.id, a: a, tentativi: tentativi, errore: 'il server di posta non ha risposto in tempo' });
-    else if (tentativi >= MAX_TENTATIVI) s = segno({ stato: 'non-partita', quando: ora, iscrizione: c.id, a: a, tentativi: tentativi, errore: motivo(errore) });
-    else s = segno({ stato: 'errore', quando: ora, iscrizione: c.id, a: a, tentativi: tentativi, errore: motivo(errore), prossimo: ora + PAUSE_MS[tentativi - 1] });
+    if (come === 'inviata') s = segno(Object.assign(base, { stato: 'inviata', tentativi: tentativi }));
+    else if (come === 'incerta') s = segno(Object.assign(base, { stato: 'incerta', tentativi: tentativi, errore: errore.limite ? 'il server di posta non ha risposto in tempo' : motivo(errore) }));
+    // il guasto del canale non consuma i tentativi dell'azienda
+    else if (come === 'nostro') s = segno(Object.assign(base, { stato: 'errore', tentativi: presa.tentativi, errore: motivo(errore), prossimo: ora + PAUSE_MS[0] }));
+    else if (tentativi >= MAX_TENTATIVI) s = segno(Object.assign(base, { stato: 'non-partita', tentativi: tentativi, errore: motivo(errore) }));
+    else s = segno(Object.assign(base, { stato: 'errore', tentativi: tentativi, errore: motivo(errore), prossimo: ora + PAUSE_MS[tentativi - 1] }));
     if (s.stato === 'inviata') conti.inviate++;
     else if (s.stato === 'incerta') conti.incerte++;
     else conti.errori++;
-    if (errore) console.error('Seconda persona: mail per il codice ' + c.codice + ' non partita:', motivo(errore));
+    /* Un guasto del canale, o un server che smette di rispondere a meta':
+       il giro si ferma qui (vedi giro). Al piu' un'azienda per giro paga un
+       esito incerto. */
+    if (errore && come !== 'conta') conti.bloccato = motivo(errore);
+    if (errore) console.error('Seconda persona: mail per il codice ' + c.codice + ' non partita (' + come + '):', motivo(errore));
     await rifCodice.update({ secondaPersona: s });
     if (FINITI.indexOf(s.stato) >= 0) await segnaScheda(db, c.id, { quando: ora, codice: c.codice, ok: s.stato === 'inviata' });
     return true;
@@ -298,13 +388,15 @@ async function mollaLucchetto(db, giro) {
    persona sola pronte adesso, `escluse` quelle fuori per sempre (invito non
    per PEC, codice di sponsor o sparito), `aspettano` quelle con un
    tentativo da rifare piu' tardi, `saltate` quelle che la rilettura ha
-   trovato cambiate (un secondo iscritto, la scheda modificata), `rimaste`
-   quelle per il giro dopo. */
+   trovato cambiate (un secondo iscritto, la scheda modificata) o senza la
+   scheda dell'azienda, `rimaste` quelle per il giro dopo, `bloccato` il
+   guasto del server di posta che ha fermato il giro. */
 async function giro(db, opz) {
     opz = opz || {};
     const conti = {
         spento: false, fuoriOrario: false, occupato: false,
-        lette: 0, candidate: 0, inviate: 0, errori: 0, incerte: 0, aspettano: 0, escluse: 0, saltate: 0, rimaste: 0
+        lette: 0, candidate: 0, inviate: 0, errori: 0, incerte: 0, aspettano: 0, escluse: 0, saltate: 0, rimaste: 0,
+        bloccato: ''
     };
     if (spento()) { conti.spento = true; return conti; }
     if (!inOrario(Date.now())) { conti.fuoriOrario = true; return conti; }
@@ -322,7 +414,7 @@ async function giro(db, opz) {
         conti.candidate = fila.length;
         let fatte = 0;
         for (const c of fila) {
-            if (fatte >= PER_GIRO || Date.now() >= scadenza) { conti.rimaste++; continue; }
+            if (fatte >= PER_GIRO || conti.bloccato || Date.now() >= scadenza) { conti.rimaste++; continue; }
             try {
                 if (await lavora(db, c, conti, spedisci, Number(opz.limiteInvio) || LIMITE_INVIO_MS)) fatte++;
             } catch (e) {
@@ -337,6 +429,6 @@ async function giro(db, opz) {
 }
 
 module.exports = {
-    giro, candidati, pronta, inOrario, invitataPerPec, puoPartire,
+    giro, candidati, pronta, inOrario, invitataPerPec, puoPartire, esitoErrore,
     DOPO_CONFERMA_MS, FERMO_PRIMA_MS, PER_GIRO, PAUSE_MS, MAX_TENTATIVI, IN_CORSO_MS, LIMITE_INVIO_MS, CAMPI
 };

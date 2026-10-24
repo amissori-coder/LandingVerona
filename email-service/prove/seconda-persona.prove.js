@@ -92,15 +92,17 @@ function doc(coll, id) {
 }
 let dopoRicerca = null;
 let ricerche = 0;
-function interroga(coll, filtri, campi) {
+function interroga(coll, filtri, campi, max) {
     return {
-        where(campo, op, val) { return interroga(coll, filtri.concat([[campo, val]]), campi); },
-        select(...c) { return interroga(coll, filtri, c); },
+        where(campo, op, val) { return interroga(coll, filtri.concat([[campo, val]]), campi, max); },
+        select(...c) { return interroga(coll, filtri, c, max); },
+        limit(n) { return interroga(coll, filtri, campi, n); },
         async get() {
             ricerche++;
             const docs = [...dati.keys()].filter(k => k.startsWith(coll + '/') && k.split('/').length === 2)
                 .filter(k => filtri.every(([c, v]) => (dati.get(k) || {})[c] === v))
                 .sort()
+                .slice(0, max || 1e9)
                 .map(k => istantanea(k, doc(coll, k.split('/')[1]), campi));
             letture += docs.length;
             if (dopoRicerca) { const f = dopoRicerca; dopoRicerca = null; await f(); }
@@ -159,10 +161,15 @@ function esigi(cond, cosa, extra) {
     if (cond) { ok++; console.log('  verde  ' + cosa); }
     else { ko++; console.log('  ROSSO  ' + cosa + (extra ? '   ' + extra : '')); }
 }
+/* Zitti anche uno dentro l'altro (due giri insieme): la console vera la
+   rimette solo l'ultimo che finisce, altrimenti il primo a finire la
+   rimetterebbe muta e i verdetti dopo non si vedrebbero. */
+const consoleVera = { error: console.error, log: console.log, warn: console.warn };
+let zittiAperti = 0;
 async function zitti(fn) {
-    const e = console.error, l = console.log, w = console.warn;
-    console.error = () => { }; console.log = () => { }; console.warn = () => { };
-    try { return await fn(); } finally { console.error = e; console.log = l; console.warn = w; }
+    if (!zittiAperti++) { console.error = () => { }; console.log = () => { }; console.warn = () => { }; }
+    try { return await fn(); }
+    finally { if (!--zittiAperti) { console.error = consoleVera.error; console.log = consoleVera.log; console.warn = consoleVera.warn; } }
 }
 async function giro(intestazioni) {
     let stato = 0, risposta = null;
@@ -386,9 +393,9 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
     const g1 = zitti(() => P2.giro(db, { spedisci: x => new Promise(ok => { lenta = () => { spedite.push(x); ok(); }; }) }));
     await new Promise(t => setTimeout(t, 20));
     const c2 = await zitti(() => P2.giro(db, { spedisci: async x => { spedite.push(x); } }));
-    esigi(c2.occupato === true, 'un secondo giro trova il lucchetto e non fa niente');
     lenta && lenta();
     await g1;
+    esigi(c2.occupato === true, 'un secondo giro trova il lucchetto e non fa niente');
     esigi(spedite.length === 1, 'una mail sola');
     pulisci();
     for (let k = 0; k < 20; k++) azienda('Q' + String(1000 + k));
@@ -421,6 +428,127 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
     azienda('V2222');
     await giro();
     esigi(!spedite.length, 'dopo, non parte piu\'');
+
+    console.log('\nUna per azienda: il segno sul codice');
+    pulisci();
+    const x1 = azienda('X1111');
+    await giro();
+    esigi(spedite.length === 1, 'partita la prima');
+    // la segreteria cancella la prima iscritta (presenze, 'cancella'): il segno sulla scheda se ne va con lei
+    dati.delete('iscrizioni/' + x1.iscritte[0]);
+    dati.set('iscrizioni/sola@ditta.it|18-11-2026', { pagina: MILANO, nome: 'Eva', cognome: 'Sola', email: 'sola@ditta.it', invitoCodice: 'X1111', selezionata: true, emailConfermata: { quando: orologio - 2 * GIORNO } });
+    codice('X1111').iscrizioniUsate = ['sola@ditta.it|18-11-2026'];
+    r = await giro();
+    esigi(spedite.length === 1 && r.corpo.inviate === 0, 'la nuova iscritta da sola non la riceve: la ferma il segno sul codice', JSON.stringify(r.corpo));
+    esigi(scheda('sola@ditta.it|18-11-2026').promemoriaSecondaPersona && scheda('sola@ditta.it|18-11-2026').promemoriaSecondaPersona.ok === true, 'e la nuova scheda prende il segno dal codice');
+    letture = 0;
+    await giro();
+    esigi(letture <= 3, 'e dal giro dopo non si rilegge piu\' il codice', String(letture));
+
+    console.log('\nLa scheda dell\'azienda');
+    pulisci();
+    {
+        // Modifica del recapito: la scheda cambia nome, il codice la segue, l'iscrizione resta con il nome vecchio
+        const sp = azienda('K2345');
+        const v = dati.get('aziendeInvito/' + sp.idAz);
+        dati.delete('aziendeInvito/' + sp.idAz);
+        dati.set('aziendeInvito/nuovo-id', v);
+        dati.get('codiciInvito/K2345').scheda = 'nuovo-id';
+        r = await giro();
+        esigi(spedite.length === 1 && spedite[0].to === 'k2345-0@ditta.it', 'scheda spostata: la ritrova dal codice', JSON.stringify(r.corpo));
+    }
+    pulisci();
+    {
+        // il codice punta a una scheda che non c'e' piu', l'iscrizione a quella giusta
+        const sp = azienda('K3456');
+        dati.get('codiciInvito/K3456').scheda = 'sparita';
+        r = await giro();
+        esigi(spedite.length === 1, 'il codice punta nel vuoto: la ritrova dall\'iscrizione', JSON.stringify(r.corpo));
+    }
+    pulisci();
+    {
+        // nessuno dei due nomi porta alla scheda: la si cerca per codice
+        const sp = azienda('K4567');
+        const v = dati.get('aziendeInvito/' + sp.idAz);
+        dati.delete('aziendeInvito/' + sp.idAz);
+        dati.set('aziendeInvito/altro-nome', v);
+        // il guscio che l'iscrizione riscrive sul nome vecchio non e' una scheda di invito
+        dati.set('aziendeInvito/' + sp.idAz, { stato: 'iscritta', iscritti: [{ quando: 1 }] });
+        r = await giro();
+        esigi(spedite.length === 1, 'la ritrova per codice, e il guscio senza invio non conta', JSON.stringify(r.corpo));
+    }
+    pulisci();
+    {
+        const sp = azienda('K5678');
+        const v = dati.get('aziendeInvito/' + sp.idAz);
+        dati.delete('aziendeInvito/' + sp.idAz);
+        r = await giro();
+        esigi(!spedite.length && r.corpo.saltate === 1 && r.corpo.escluse === 0, 'nessuna scheda: si salta', JSON.stringify(r.corpo));
+        esigi(!scheda(sp.iscritte[0]).promemoriaSecondaPersona && !codice('K5678').secondaPersona, 'senza segnare niente');
+        dati.set('aziendeInvito/' + sp.idAz, v);
+        r = await giro();
+        esigi(spedite.length === 1, 'tornata la scheda, parte');
+    }
+
+    console.log('\nL\'invito partito per PEC');
+    pulisci();
+    {
+        // PEC consegnata, poi un nuovo invio forzato per email ordinaria: invio.canale e' 'email'
+        const sp = azienda('Y1111', { canale: 'email' });
+        dati.get('aziendeInvito/' + sp.idAz).ricevute = { accettata: { quando: 1 }, consegnata: { quando: 2 }, problema: null, risposta: null };
+        // PEC dall'esito mai scritto, poi sistemata dalle ricevute: un invio senza canale
+        const sq = azienda('Y2222');
+        dati.get('aziendeInvito/' + sq.idAz).invio = { destinatario: 'pec@ditta.it', pecMsgId: 'x' };
+        dati.get('aziendeInvito/' + sq.idAz).errore = { quando: 1, canale: 'pec', incerto: true };
+        // solo accettata, e il codice mandato per email: fuori
+        const sr = azienda('Y3333', { canale: 'email' });
+        dati.get('aziendeInvito/' + sr.idAz).ricevute = { accettata: { quando: 1 }, consegnata: null };
+        r = await giro();
+        const a2 = spedite.map(x => x.to).sort();
+        esigi(a2.length === 2 && a2[0] === 'y1111-0@ditta.it' && a2[1] === 'y2222-0@ditta.it', 'la consegna della PEC e la PEC dall\'esito ignoto valgono; la sola accettazione no', a2.join(', '));
+    }
+    esigi(P2.invitataPerPec({ tentativo: { canale: 'pec' } }) && !P2.invitataPerPec({ invio: { canale: 'email' }, tentativo: { canale: 'pec' } }), 'il tentativo PEC rimasto vale solo senza un invio dopo');
+    esigi(!P2.invitataPerPec({ invio: { canale: 'email' }, errore: { canale: 'pec', incerto: true } }), 'e cosi\' l\'errore incerto');
+
+    console.log('\nGli errori del server di posta');
+    const err = (msg, campi) => Object.assign(new Error(msg), campi || {});
+    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' })) === 'incerta', 'tempo scaduto a connessione aperta: incerta');
+    esigi(P2.esitoErrore(err('Connection closed unexpectedly', { code: 'ECONNECTION', command: 'CONN' })) === 'incerta', 'connessione caduta: incerta');
+    esigi(P2.esitoErrore(err('qualcosa')) === 'incerta', 'un errore senza risposta del server: incerta');
+    esigi(P2.esitoErrore(err('Invalid login: 535 Authentication failed', { code: 'EAUTH', command: 'AUTH PLAIN', responseCode: 535 })) === 'nostro', 'credenziali: guasto nostro');
+    esigi(P2.esitoErrore(err('Connection timeout', { code: 'ETIMEDOUT', command: 'CONN' })) === 'nostro', 'server irraggiungibile: guasto nostro');
+    esigi(P2.esitoErrore(err('421 Service not available', { code: 'EPROTOCOL', command: 'CONN', responseCode: 421 })) === 'nostro', '421: guasto nostro');
+    esigi(P2.esitoErrore(err('554 5.7.1 message rejected as spam', { code: 'EMESSAGE', command: 'DATA', responseCode: 554 })) === 'nostro', 'rifiutata come spam: guasto nostro');
+    esigi(P2.esitoErrore(err('550 5.1.1 user unknown', { code: 'EENVELOPE', command: 'RCPT TO', responseCode: 550 })) === 'conta', 'destinatario rifiutato: un tentativo');
+    esigi(P2.esitoErrore(err('452 4.2.2 mailbox full', { code: 'EENVELOPE', command: 'RCPT TO', responseCode: 452 })) === 'conta', 'casella piena del destinatario: un tentativo');
+    pulisci();
+    azienda('Z1111');
+    azienda('Z2222', { persone: [{ confermata: GIORNO + ORA }] });
+    // il server riceve il messaggio, poi non risponde piu': nodemailer dice 'Timeout'
+    const consegnaPoiTimeout = async x => { spedite.push(x); throw err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }); };
+    conti = await zitti(() => P2.giro(db, { spedisci: consegnaPoiTimeout }));
+    esigi(spedite.length === 1 && codice('Z1111').secondaPersona.stato === 'incerta' && conti.incerte === 1, 'consegnata e poi tempo scaduto: incerta', JSON.stringify(conti));
+    esigi(conti.bloccato && conti.rimaste === 1 && !codice('Z2222').secondaPersona, 'e il giro si ferma: l\'altra azienda aspetta il giro dopo', JSON.stringify(conti));
+    orologio += 4 * ORA;
+    conti = await zitti(() => P2.giro(db, { spedisci: async x => { spedite.push(x); } }));
+    const zz = spedite.map(x => x.to);
+    esigi(zz.filter(t => t === 'z1111-0@ditta.it').length === 1 && zz.indexOf('z2222-0@ditta.it') >= 0, 'la prima non si rimanda, l\'altra parte', zz.join(', '));
+    pulisci();
+    for (let k = 0; k < 4; k++) azienda('AA' + String(100 + k));
+    const auth = async () => { throw err('Invalid login: 535 Authentication failed', { code: 'EAUTH', command: 'AUTH PLAIN', responseCode: 535 }); };
+    let prove = 0;
+    for (let k = 0; k < 12; k++) {
+        conti = await zitti(() => P2.giro(db, { spedisci: x => { prove++; return auth(x); } }));
+        orologio += 20 * MIN;
+    }
+    const stati = ['AA100', 'AA101', 'AA102', 'AA103'].map(c => codice(c).secondaPersona || {});
+    // a ogni giro si prova la prima azienda che non sta aspettando la sua mezz'ora: le altre non si toccano
+    esigi(stati.every(x => !x.stato || (x.stato === 'errore' && x.tentativi === 0)) && stati.filter(x => x.stato).length >= 1, 'credenziali sbagliate per quattro ore: nessuna azienda consuma i tentativi', JSON.stringify(stati.map(x => x.stato + '/' + x.tentativi)));
+    esigi(prove === 12, 'una sola prova per giro', String(prove));
+    esigi(/535/.test(conti.bloccato), 'e i conti dicono perche\' il giro si e\' fermato', conti.bloccato);
+    orologio += 20 * MIN;
+    for (let k = 0; k < 2; k++) { await giro(); orologio += 31 * MIN; }
+    esigi(spedite.length === 4, 'sistemato il guasto, partono tutte', String(spedite.length));
 
     console.log('\nLe regole pure');
     orologio = INIZIO;
