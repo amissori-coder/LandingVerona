@@ -2056,13 +2056,19 @@ coperto si copre insieme a quelli prima: forza non salta giorni. Senza
 niente di nuovo il periodo degli aderenti si segna coperto lo stesso. Un
 errore nella lettura delle aziende non ferma gli aderenti (la mail parte e lo
 dice), e viceversa. Ogni persona e' un blocco solo, e la mail resta sotto il
-taglio di Gmail a 102 KB: l'HTML si ferma a 90 KB (`LIMITE_HTML`, la codifica
-della posta aggiunge il 7% circa). Gli aderenti ci stanno sempre (trenta in un
-giorno pesano una settantina di KB); se con loro non c'e' posto, la mail
-accorcia gli elenchi delle aziende, prima gli in attesa e poi le confermate,
-e scrive quante ne mancano ("E altri 85: l'elenco completo e' nell'area
+taglio di Gmail a 102 KB: la parte HTML si misura come viaggia, in
+quoted-printable (`LIMITE_MAIL`, 98 KB: per un testo italiano il 7% in piu'
+dei byte, per dei nomi in cirillico anche il triplo). Gli aderenti ci stanno
+sempre interi (trenta in un giorno pesano una settantina di KB); se con loro
+non c'e' posto, la mail accorcia gli elenchi delle aziende, prima gli in
+attesa piu' vecchi e poi le ultime confermate, e scrive quante ne mancano ("E
+altri 85, iscritti prima di questi: l'elenco completo e' nell'area
 riservata"). Gli in attesa, che tornano ogni notte, sono comunque al massimo
-quaranta; i numeri nel riquadro in cima li contano tutti.
+quaranta, gli ultimi arrivati; i numeri nel riquadro in cima li contano tutti.
+Se gli aderenti da soli sono troppi (dalla cinquantina in su in una notte)
+togliere le aziende non basterebbe: restano intere, e in cima la mail dice
+che Gmail potrebbe accorciarla e come aprirla tutta ("Visualizza intero
+messaggio"); gli aderenti sono anche nell'area riservata.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,

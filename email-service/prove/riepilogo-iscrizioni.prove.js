@@ -114,6 +114,8 @@ async function gira(query, chiave) {
     return { stato, corpo };
 }
 const ms = iso => DateVera.parse(iso);
+const QP = require('nodemailer/lib/qp');   // la codifica vera della parte HTML (il 'nodemailer' finto sopra e' solo il trasporto)
+const inPosta = html => QP.wrap(QP.encode(Buffer.from(String(html || ''), 'utf8')), 76).length;
 function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'Milano 26 Febbraio 2027 - Iscrizione', partecipanti: undefined }, o)); }
 
 (async () => {
@@ -439,22 +441,23 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     orologio = ms('2027-02-21T23:00:05Z');
     r = await gira();
     m = spedite[n0] || {};
-    const kbTutti = Buffer.byteLength(String(m.html || ''), 'utf8') / 1024;
+    const kbTutti = inPosta(m.html) / 1024;
     esigi(spedite.length === n0 + 1 && /aziende: 20 confermate, \d+ in attesa; aderenti: 30 nuove/.test(m.subject || ''), 'una mail sola, con tutti', m.subject);
-    esigi(kbTutti < 90, 'trenta aderenti e centoventi aziende: ' + kbTutti.toFixed(1) + ' KB di HTML, sotto il taglio di Gmail (102 KB, codifica compresa)');
+    esigi(kbTutti < 100, 'trenta aderenti e centoventi aziende: ' + kbTutti.toFixed(1) + ' KB di HTML come viaggia (quoted-printable), sotto il taglio di Gmail a 102');
+    esigi(!/Gmail potrebbe accorciarla/.test(m.html || ''), 'e niente avviso: accorciando le aziende ci sta');
     const dopoUltimo = String(m.html || '').split('Socio29 Con Un Cognome Lungo')[1] || '';
     esigi(/Studio Socio29 S\.t\.p\./.test(dopoUltimo) && /04641610029/.test(dopoUltimo), 'l\'ultimo aderente c\'e\', con i dati per la fattura');
     const hT = String(m.html || '');
     esigi(hT.indexOf('Socio29 Con Un Cognome Lungo') < hT.indexOf('Aziende: iscrizioni confermate il 21/02/2027'), 'gli aderenti vengono prima delle aziende');
     const nAttesa = ((r.corpo.esiti[0] || {}).aziende || {}).inAttesa || 0;
     const kA = (hT.match(/&middot; iscritto il /g) || []).length, kN = (hT.match(/&middot; confermata alle /g) || []).length;
-    esigi(nAttesa >= 100 && kA < 40 && new RegExp('E altri ' + (nAttesa - kA) + ': l\'elenco completo è nell\'area riservata').test(hT),
+    esigi(nAttesa >= 100 && kA < 40 && new RegExp('E altri ' + (nAttesa - kA) + ', iscritti prima di questi: l\'elenco completo è nell\'area riservata').test(hT),
         'le aziende in attesa: quelle che ci stanno (' + kA + '), e quante ne restano', String(nAttesa));
     esigi(kN === 20 || new RegExp('E altre ' + (20 - kN) + ' conferme').test(hT), 'le confermate tutte, o il conto di quelle che mancano', String(kN));
     esigi(/Apri le iscrizioni nell'area riservata/.test(hT) && /Riepilogo automatico per gli organizzatori/.test(hT), 'e la mail arriva intera fino al pulsante e al piede');
     esigi(/Aziende: in attesa di conferma mail/.test(hT) && new RegExp('>' + nAttesa + '<').test(hT) && />20</.test(hT), 'il riquadro in cima le conta tutte');
     esigi(/Confermata19 Con/.test(m.text || '') && (String(m.text || '').split('IN ATTESA DI CONFERMA EMAIL')[1] || '').split('(iscritto il ').length - 1 === 40
-        && new RegExp('E altri ' + (nAttesa - 40) + ': l\'elenco completo è nell\'area riservata').test(m.text || ''), 'il testo semplice ha le confermate e i primi quaranta in attesa');
+        && new RegExp('E altri ' + (nAttesa - 40) + ', iscritti prima di questi: l\'elenco completo è nell\'area riservata').test(m.text || ''), 'il testo semplice ha le confermate e gli ultimi quaranta in attesa');
     for (let k = 0; k < 100; k++) dati.delete('iscrizioni/attesa' + k);
     for (let k = 0; k < 20; k++) dati.delete('iscrizioni/conf' + k);
 
@@ -577,6 +580,49 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         const r = await gira({ giorno: '2027-01-15', forza: '1' });
         const mm = spedite.slice(n0).find(x => /^Iscrizioni Milano/.test(x.subject)) || {};
         esigi(r.stato === 200 && !/con gli aderenti/.test(mm.subject || '') && /Aziende: iscrizioni confermate in tutto/.test(mm.html || ''), 'presenze non lette: la mail parte senza i due totali', mm.subject);
+    }
+
+    console.log('\nLa mail lunga: gli in attesa piu\' recenti, i nomi non latini, troppi aderenti');
+    {
+        const MNGB = require(path.join(__dirname, '..', 'lib/mail-ngb.js'));
+        const R = require(path.join(__dirname, '..', 'lib/riepilogo-iscrizioni.js'));
+        const ev = R.EVENTI[0];
+        const persona = (nome, k, giorno) => ({ nome: nome, azienda: 'Azienda di Esempio con un Nome Molto Lungo S.p.A.', ruolo: 'Direttore amministrazione, finanza e controllo',
+            email: 'persona.numero' + k + '@azienda-di-esempio-con-nome-lungo.it', telefono: '+39 347 000 ' + String(k).padStart(4, '0'), iscritto: giorno, ora: '10:00' });
+        const socio = k => ({ nome: 'Socio' + k + ' Con Un Cognome Lungo', studio: 'Studio Associato Esempio di Professionisti', citta: 'Reggio nell\'Emilia',
+            email: 'socio.numero' + k + '@studio-associati-esempio.it', telefono: '+39 333 765 4321', note: 'Vegetariano, nessuna allergia nota, arrivo alle 20', totale: 244, arrivata: 'alle 10:00',
+            fatturazione: { intestatario: 'Studio Socio' + k + ' S.t.p.', partitaIva: '0464161' + String(k).padStart(4, '0'), codiceFiscale: '04641610235', codiceDestinatario: 'M5UXCR1',
+                pec: 'studio.associato.esempio@pec.it', emailFatture: 'amministrazione.fatture@studio-associati-esempio.it', sede: 'Via Giuseppe Garibaldi 123/B, 42121 Reggio nell\'Emilia (RE)' } });
+        const quota = (nn) => [{ c: { quota: R.QUOTE_ADERENTI[0], nuove: Array.from({ length: nn }, (_, k) => socio(k)), aggiornate: [], totale: nn, daFatturare: nn, totaleDaFatturare: nn * 244 }, dalTesto: null }];
+        const tt = { aziende: 100, aderenti: 30, cena: 30, soloConvegno: 0, anche: 0, tutti: 130 };
+
+        // quaranta che non confermano da settimane e cinque arrivati oggi: si vedono i cinque di oggi
+        const vecchi = Array.from({ length: 40 }, (_, k) => persona('Vecchio' + k + ' Fermo', k, '01/02'));
+        const nuovi = Array.from({ length: 5 }, (_, k) => persona('Nuovo' + k + ' DiOggi', 100 + k, '21/02'));
+        const mv = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: [], inAttesa: vecchi.concat(nuovi), totale: 10 }, ad: [], t: tt }, 'https://x');
+        esigi(/Nuovo0 DiOggi/.test(mv.html) && /Nuovo4 DiOggi/.test(mv.html) && !/Vecchio0 Fermo/.test(mv.html) && /Vecchio5 Fermo/.test(mv.html)
+            && /E altri 5, iscritti prima di questi: l'elenco completo è nell'area riservata, nella sezione «In attesa di conferma mail»\./.test(mv.html),
+            'quarantacinque in attesa: gli ultimi quaranta, con i cinque di oggi, e i cinque piu\' vecchi contati');
+        esigi(/Nuovo4 DiOggi/.test(mv.testo) && !/Vecchio4 Fermo/.test(mv.testo) && /E altri 5, iscritti prima di questi/.test(mv.testo), 'anche nel testo semplice');
+        esigi(mv.html.indexOf('Vecchio39 Fermo') < mv.html.indexOf('Nuovo0 DiOggi'), 'in ordine di arrivo');
+        const m1 = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: [], inAttesa: vecchi.concat(nuovi.slice(0, 1)), totale: 10 }, ad: [], t: tt }, 'https://x');
+        esigi(/E un altro, iscritto prima di questi/.test(m1.html) && /E un altro, iscritto prima di questi/.test(m1.testo), 'e uno solo si dice al singolare');
+
+        // nomi in cirillico: la codifica li triplica, la misura lo sa
+        const cir = Array.from({ length: 200 }, (_, k) => Object.assign(persona('Олександр' + k + ' Ковальчук-Шевченко', k, '21/02'), { azienda: 'ТОВ Українська Компанія з Дуже Довгою Назвою', ruolo: 'Фінансовий директор' }));
+        const mc = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: cir, inAttesa: [], totale: 200 }, ad: quota(10), t: tt }, 'https://x');
+        esigi(inPosta(mc.html) < 102 * 1024 && /E altre \d+ conferme: l'elenco completo è/.test(mc.html), 'duecento nomi in cirillico: ' + (inPosta(mc.html) / 1024).toFixed(1) + ' KB come viaggia, sotto il taglio');
+        esigi(/Socio9 Con Un Cognome Lungo/.test(mc.html), 'e gli aderenti ci sono tutti');
+
+        // troppi aderenti: le aziende non si tolgono (non servirebbe), e in cima c'e' l'avviso
+        const pochi = Array.from({ length: 5 }, (_, k) => Object.assign(persona('Confermata' + k + ' Qui', k, '21/02'), { ora: '11:00' }));
+        const ml = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: pochi, inAttesa: nuovi, totale: 10 }, ad: quota(60), t: tt }, 'https://x');
+        const iAvviso = ml.html.indexOf('Gmail potrebbe accorciarla');
+        esigi(iAvviso > 0 && iAvviso < ml.html.indexOf('Aderenti: nuove iscrizioni del') && /«Visualizza intero messaggio»/.test(ml.html), 'sessanta aderenti: l\'avviso in cima, prima degli aderenti');
+        esigi(/Socio59 Con Un Cognome Lungo/.test(ml.html) && /Confermata4 Qui/.test(ml.html) && /Nuovo4 DiOggi/.test(ml.html) && !/Stanotte la mail non ha posto/.test(ml.html) && !/E altr[ie] \d/.test(ml.html),
+            'e tutti interi: gli aderenti e le aziende, che toglierle non avrebbe fatto stare la mail sotto il taglio');
+        const mq = MNGB.riepilogoSerale({ giornoTesto: '21/02/2027', ev: ev, az: { nuove: pochi, inAttesa: nuovi, totale: 10 }, ad: quota(30), t: tt }, 'https://x');
+        esigi(!/Gmail potrebbe accorciarla/.test(mq.html) && /Confermata4 Qui/.test(mq.html), 'con trenta aderenti nessun avviso, e le aziende intere');
     }
 
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');

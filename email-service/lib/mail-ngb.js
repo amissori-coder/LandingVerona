@@ -1017,11 +1017,13 @@ function notaTotali(t) {
      - LE AZIENDE: le iscrizioni completate nella giornata (l'email
        confermata quel giorno, `ora` = l'ora della conferma) e chi aspetta
        ancora di confermare (`iscritto` = giorno, `ora` = ora del modulo),
-       che torna ogni notte finche' non conferma (i primi
-       MAX_IN_ATTESA_MAIL, gli altri contati). Se con gli aderenti la mail
-       passerebbe LIMITE_HTML, gli elenchi delle aziende si accorciano
-       (prima gli in attesa, poi le confermate) e la mail dice quante ne
-       mancano: i numeri restano tutti nel riquadro in cima;
+       che torna ogni notte finche' non conferma (gli ultimi
+       MAX_IN_ATTESA_MAIL arrivati, i piu' vecchi contati). Se con gli
+       aderenti la mail passerebbe LIMITE_MAIL, gli elenchi delle aziende si
+       accorciano (prima gli in attesa, poi le confermate) e la mail dice
+       quante ne mancano: i numeri restano tutti nel riquadro in cima. Se non
+       basta (gli aderenti da soli sono troppi) le aziende restano intere e
+       in cima un avviso dice come leggere la mail tutta;
    OGNI PERSONA E' UN BLOCCO SOLO, una cella con le righe separate da <br>:
    con una riga di tabella per campo una giornata con venti aderenti
    superava i 102 KB oltre i quali Gmail tronca il messaggio. Niente colonne
@@ -1063,12 +1065,23 @@ function rigaAzienda(p, nota) {
         + '</td></tr>';
 }
 /* Quanti "in attesa" si elencano: la lista torna ogni notte finche' non
-   confermano, e cresce per tutto il periodo delle iscrizioni. Gli altri si
-   contano, e l'elenco completo sta nell'area riservata. */
+   confermano, e cresce per tutto il periodo delle iscrizioni. Si elencano
+   gli ultimi arrivati (chi aspetta da settimane non e' una notizia); i piu'
+   vecchi si contano, e l'elenco completo sta nell'area riservata. */
 const MAX_IN_ATTESA_MAIL = 40;
-/* Il tetto dell'HTML del riepilogo: Gmail tronca oltre i 102 KB, e la
-   codifica della posta (quoted-printable) aggiunge il 7% circa. */
-const LIMITE_HTML = 90 * 1024;
+/* Il tetto del riepilogo: Gmail tronca un messaggio oltre i 102 KB. La
+   parte HTML si misura come viaggia, in quoted-printable (la codifica che
+   nodemailer sceglie per un testo quasi tutto latino): ogni byte fuori
+   dall'ASCII stampabile, e ogni "=", diventa tre caratteri, e ogni riga di
+   76 ne aggiunge tre per l'a capo. Per un testo italiano e' il 7% in piu'
+   dei byte; per dei nomi in cirillico anche il triplo. */
+const LIMITE_MAIL = 98 * 1024;
+function pesoInPosta(x) {
+    let n = 0;
+    for (const c of Buffer.from(String(x), 'utf8')) n += (c === 0x3d || c > 0x7e || (c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d)) ? 3 : 1;
+    return n + Math.ceil(n / 73) * 3;
+}
+const AVVISO_MAIL_LUNGA = 'Stanotte la mail è molto lunga e Gmail potrebbe accorciarla: se in fondo vedi «[Messaggio troncato]», apri «Visualizza intero messaggio» per leggere tutti gli aderenti con i dati per la fattura. Sono anche nell\'area riservata, in «Aderenti» › «Apri le iscrizioni».';
 function testoAzienda(p, nota) {
     return '- ' + p.nome + (nota ? ' (' + nota + ')' : '')
         + ([p.azienda, p.ruolo].filter(Boolean).length ? '\n  ' + [p.azienda, p.ruolo].filter(Boolean).join(' - ') : '')
@@ -1142,9 +1155,13 @@ function riepilogoSerale(d, link) {
     const fraseT = t ? 'Totale aziende: ' + t.aziende + '; totale aziende + aderenti: ' + t.tutti + '.' : '';
     const sommario = [fraseAz, fraseAd, fraseT].filter(Boolean).join(' ');
 
-    // LE AZIENDE: nell'HTML kN confermate e kA in attesa (vedi LIMITE_HTML); il testo semplice ha tutte le confermate e i primi MAX_IN_ATTESA_MAIL in attesa
+    /* LE AZIENDE: nell'HTML le prime kN confermate e gli ultimi kA in attesa
+       (vedi LIMITE_MAIL); il testo semplice ha tutte le confermate e gli
+       ultimi MAX_IN_ATTESA_MAIL in attesa. inAttesa e' in ordine di arrivo. */
+    const ultimiA = az ? az.inAttesa.slice(-MAX_IN_ATTESA_MAIL) : [];
+    const altriA = k => (a - k === 1 ? 'E un altro, iscritto' : 'E altri ' + (a - k) + ', iscritti') + ' prima di questi: l\'elenco completo è nell\'area riservata';
     const righeN = az ? az.nuove.map(p => rigaAzienda(p, p.ora ? 'confermata alle ' + p.ora : '')) : [];
-    const righeA = az ? az.inAttesa.slice(0, MAX_IN_ATTESA_MAIL).map(p => rigaAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))) : [];
+    const righeA = ultimiA.map(p => rigaAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : '')));
     const htmlAziende = (kN, kA) => {
         let h = '';
         if (az) {
@@ -1153,10 +1170,10 @@ function riepilogoSerale(d, link) {
                 + (kN < n ? piccolo((kN ? (n - kN === 1 ? 'E un\'altra conferma' : 'E altre ' + (n - kN) + ' conferme') + ': l\'elenco completo è' : 'Stanotte la mail non ha posto per l\'elenco delle conferme: lo trovi')
                     + ' nell\'area riservata, alla voce «Iscrizioni Eventi NGB».') : '')
                 + (a ? spazio(24) + occhiello('Aziende: in attesa di conferma email')
-                    + piccolo('Hanno inviato il modulo e verificato il cellulare, ma non hanno ancora premuto il pulsante nella mail di conferma. Restano in questo elenco finché non confermano; quel giorno passano fra le confermate.')
-                    + (kA ? '<tr><td>' + tabella(righeA.slice(0, kA).join('')) + '</td></tr>' : '')
-                    + (kA < a ? piccolo((kA ? (a - kA === 1 ? 'E un altro' : 'E altri ' + (a - kA)) + ': l\'elenco completo è' : 'Stanotte la mail non ha posto per l\'elenco: lo trovi')
-                        + ' nell\'area riservata, nella sezione «In attesa di conferma mail».') : '')
+                    + piccolo('Hanno inviato il modulo e verificato il cellulare, ma non hanno ancora premuto il pulsante nella mail di conferma. Restano in attesa finché non confermano; quel giorno passano fra le confermate.')
+                    + (kA ? '<tr><td>' + tabella(righeA.slice(righeA.length - kA).join('')) + '</td></tr>' : '')
+                    + (kA < a ? piccolo((kA ? altriA(kA) : 'Stanotte la mail non ha posto per l\'elenco: lo trovi nell\'area riservata')
+                        + ', nella sezione «In attesa di conferma mail».') : '')
                     : '');
         }
         if (d.azNota) h += (h ? spazio(16) : occhiello('Aziende')) + piccolo(d.azNota);
@@ -1166,8 +1183,8 @@ function riepilogoSerale(d, link) {
     if (az) {
         testoAz = 'AZIENDE: ISCRIZIONI CONFERMATE IL ' + giornoTesto + '\n'
             + (n ? az.nuove.map(p => testoAzienda(p, p.ora ? 'confermata alle ' + p.ora : '')).join('\n') : 'Nessuna nuova conferma nella giornata.')
-            + (a ? '\n\nAZIENDE: IN ATTESA DI CONFERMA EMAIL\n' + az.inAttesa.slice(0, MAX_IN_ATTESA_MAIL).map(p => testoAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('\n')
-                + (a > MAX_IN_ATTESA_MAIL ? '\n' + (a - MAX_IN_ATTESA_MAIL === 1 ? 'E un altro' : 'E altri ' + (a - MAX_IN_ATTESA_MAIL)) + ': l\'elenco completo è nell\'area riservata.' : '') : '');
+            + (a ? '\n\nAZIENDE: IN ATTESA DI CONFERMA EMAIL\n' + ultimiA.map(p => testoAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('\n')
+                + (a > ultimiA.length ? '\n' + altriA(ultimiA.length) + '.' : '') : '');
     }
     if (d.azNota) testoAz += (testoAz ? '\n' : 'AZIENDE\n') + d.azNota;
 
@@ -1211,17 +1228,18 @@ function riepilogoSerale(d, link) {
         + (ads.length ? rigaBox('Aderenti: nuove iscrizioni' + periodoAd, String(nA), 330)
             + (uA ? rigaBox('Aderenti: iscrizioni aggiornate', String(uA), 330) : '')
             + rigaBox('Aderenti: fatture da emettere', daFatt ? daFatt + ' (' + euroIt(daFattEuro) + ')' : '0', 330) : '');
-    const componi = htmlAz => involucro(oggetto, sommario,
+    const componi = (htmlAz, lunga) => involucro(oggetto, sommario,
         testataPer(pagina, 'Riepilogo iscrizioni del ' + giornoTesto, sommario)
         + corpo(
             '<tr><td>' + box(giornata) + '</td></tr>'
+            + (lunga ? '<tr><td class="par" style="' + FONTE + 'font-size:15px;line-height:23px;color:#B42318;font-weight:bold;padding:14px 0 0;text-align:justify;">' + esc(AVVISO_MAIL_LUNGA) + '</td></tr>' : '')
             + (t
                 ? spazio(24) + occhiello('Totali dell\'evento') + '<tr><td>' + box(righeTotali(t)) + '</td></tr>' + notaTotali(t)
                 : (az ? spazio(24) + '<tr><td>' + box(rigaBox('Aziende: iscrizioni confermate in tutto', String(az.totale), 330)) + '</td></tr>' : ''))
             /* PRIMA GLI ADERENTI: i loro dati per la fattura stanno solo qui, e
                oltre i 102 KB Gmail taglia la coda della mail. Se non c'e' posto
                si accorciano gli elenchi delle aziende (sotto), che sono
-               comunque tutti nell'area riservata. */
+               comunque tutti nell'area riservata (vedi LIMITE_MAIL). */
             + (htmlAd ? spazio(30) + htmlAd : '')
             + (htmlAz ? spazio(30) + htmlAz : '')
             + spazio(30)
@@ -1230,16 +1248,19 @@ function riepilogoSerale(d, link) {
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">' + esc(CHIUSURA + ' ' + DOVE) + '</td></tr>'
         )
         + piedePer(pagina, MOTIVO));
-    // troppo pesante: via le ultime righe delle aziende (prima gli in attesa), poi si ricompone con le righe "E altri..."
-    const peso = x => Buffer.byteLength(x, 'utf8');
+    /* Troppo pesante: via le righe delle aziende (prima gli in attesa piu'
+       vecchi, poi le ultime confermate), e si ricompone con le righe "E
+       altri...". Se nemmeno senza aziende ci sta, toglierle non serve: restano
+       intere, e l'avviso in cima dice come leggere la mail tutta. */
     let kN = righeN.length, kA = righeA.length;
     let html = componi(htmlAziende(kN, kA));
-    while (peso(html) > LIMITE_HTML && (kN || kA)) {
-        let troppo = peso(html) - LIMITE_HTML;
-        while (troppo > 0 && kA) troppo -= peso(righeA[--kA]);
-        while (troppo > 0 && kN) troppo -= peso(righeN[--kN]);
+    while (pesoInPosta(html) > LIMITE_MAIL && (kN || kA)) {
+        let troppo = pesoInPosta(html) - LIMITE_MAIL;
+        while (troppo > 0 && kA) { troppo -= pesoInPosta(righeA[righeA.length - kA]); kA--; }
+        while (troppo > 0 && kN) troppo -= pesoInPosta(righeN[--kN]);
         html = componi(htmlAziende(kN, kA));
     }
+    if (pesoInPosta(html) > LIMITE_MAIL) html = componi(htmlAziende(righeN.length, righeA.length), true);
     const testo = ['RIEPILOGO ISCRIZIONI DEL ' + giornoTesto, sommario,
         [az ? 'Aziende: nuove conferme: ' + n + '\nAziende: in attesa di conferma mail: ' + a : '',
             ads.length ? 'Aderenti: nuove iscrizioni' + periodoAd + ': ' + nA + (uA ? '\nAderenti: iscrizioni aggiornate: ' + uA : '')
