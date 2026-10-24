@@ -441,6 +441,11 @@ module.exports = async (req, res) => {
                 daFirestore.push({
                     id: (em.toLowerCase() || (chiave(v.nome) + '.' + chiave(v.cognome))) + '|' + String(v.data || ''),
                     doc: String(v._doc || ''),
+                    /* Il gruppo di un ordine per piu' posti (completa-salva: i posti 2..N
+                       hanno gruppo = il documento dell'intestatario). Serve ai totali con
+                       gli aderenti (app.js, totaliConAderenti): un compagno di gruppo con
+                       lo stesso indirizzo dell'intestatario e' un'altra persona. */
+                    gruppo: String(v.gruppo || ''),
                     data: String(v.data || ''), pagina: pag,
                     nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
                     azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),

@@ -455,6 +455,16 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         const t4 = R.totali([{ id: 'g', dati: { pagina: MI, email: 'socio@studio.it', data: '01/01/2027', inserito: { da: 'x' }, extra: { Portale: 'Eventbrite', Partecipanti: '3' } } }], new Map(), ev,
             [{ id: 'c', dati: { quota: 'milano-2027-aderenti', email: 'socio@studio.it' } }]);
         esigi(t4.aziende === 2 && t4.aderenti === 1 && t4.tutti === 3, 'un gruppo da tre con un aderente della cena: lui con la cena, gli altri due fra le aziende', JSON.stringify(t4));
+        // un ordine da Eventbrite completato dall'intestatario: il compagno ha lo stesso indirizzo dello studio
+        const t5 = R.totali([
+            { id: 'ord|1', dati: { pagina: MI, email: 'seg@studio.it', data: '01/01/2027', inserito: { da: 'x' }, extra: { Portale: 'Eventbrite', Partecipanti: '1' } } },
+            { id: 'ord|1~p2', dati: { pagina: MI, email: 'seg@studio.it', data: '01/01/2027', gruppo: 'ord|1', origine: 'partecipante', partecipanti: 1, extra: { Partecipanti: '1', Portale: 'Eventbrite' } } },
+            { id: 'ord|1~p3', dati: { pagina: MI, email: 'luca@x.it', data: '01/01/2027', gruppo: 'ord|1', origine: 'partecipante', partecipanti: 1, extra: { Partecipanti: '1', Portale: 'Eventbrite' } } }
+        ], new Map(), ev, [{ id: 'c', dati: { quota: 'milano-2027-aderenti', email: 'seg@studio.it' } }]);
+        esigi(t5.aziende === 2 && t5.tutti === 3, 'l\'intestatario va alla cena: il compagno con lo stesso indirizzo resta fra le aziende', JSON.stringify(t5));
+        // la stessa persona su due righe, una confermata: non e' "in attesa" nemmeno nella lista della mail
+        const cp2 = R.conti(sc2, ev, '2027-01-02', pres);
+        esigi(!cp2.inAttesa.some(p => p.email === 'attesa@gamma.it'), 'chi ha una riga confermata non e\' fra gli in attesa della mail: e\' gia\' nel totale');
         // chi e' segnato presente in sala non e' piu' "in attesa", nemmeno nella lista della mail
         const pres2 = new Map(pres);
         pres2.set(GIRO.idPresenza(ev, sc[2].dati), { stato: 'presente' });

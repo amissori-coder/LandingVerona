@@ -121,7 +121,13 @@ function conti(schede, ev, giorno, presenze) {
     const nuove = attive.filter(x => quandoConfermata(x.dati) && giornoRoma(quandoConfermata(x.dati)) === giorno)
         .sort((a, b) => quandoConfermata(a.dati) - quandoConfermata(b.dati))
         .map(x => persona(x.dati, oraRomaDi(quandoConfermata(x.dati)), ''));
-    const inAttesa = attive.filter(x => CONFERMA.inAttesaDiConferma(x.dati, presenzaDi(x.dati)) && giornoDi(x.dati) && giornoDi(x.dati) <= giorno)
+    /* La conferma vale per l'INDIRIZZO, come nei totali e nell'elenco (app.js,
+       confermaEmailDi): chi ha un'altra riga confermata con lo stesso indirizzo
+       non aspetta, e la mail non lo conta due volte (nel totale e fra gli in attesa). */
+    const em = v => String(v || '').trim().toLowerCase();
+    const confermati = new Set(schede.map(x => x.dati || {}).filter(s => dellEventoComeElenco(ev, s) && attiva(s) && s.emailConfermata && em(s.email)).map(s => em(s.email)));
+    const inAttesa = attive.filter(x => CONFERMA.inAttesaDiConferma(x.dati, presenzaDi(x.dati)) && !confermati.has(em((x.dati || {}).email))
+        && giornoDi(x.dati) && giornoDi(x.dati) <= giorno)
         .sort((a, b) => (giornoDi(a.dati) + String((a.dati || {}).data || '')).localeCompare(giornoDi(b.dati) + String((b.dati || {}).data || '')))
         .map(x => {
             const s = x.dati || {};
@@ -270,7 +276,8 @@ function daSpedireAderenti(c) {
    LA STESSA REGOLA sta in area-riservata/app.js (totaliConAderenti): se
    cambia qui va cambiata la', e prove/totali-aderenti.prove.js le mette a
    confronto.
-   `convegno`: [{ email, persone, aderente }], le righe gia' scelte;
+   `convegno`: [{ email, persone, aderente, gruppo }], le righe gia' scelte
+   (`gruppo`: il gruppo dell'ordine, o il documento della riga);
    `cena`: [{ email }], le iscrizioni alla cena e al meeting. Un aderente
    della cena che sta su una riga del convegno per piu' persone toglie da
    quella riga solo se stesso. */
@@ -279,14 +286,21 @@ function totaliConAderenti(convegno, cena) {
     const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
     let aziende = 0, soloConvegno = 0;
     const anche = new Set();
+    const tolti = new Set();
     (convegno || []).forEach(r => {
         const k = chiave(r && r.email);
         let n = Math.max(0, Number(r && r.persone) || 0);
         /* E' un aderente della cena: lui si conta con la cena, una volta sola
-           (due righe con il suo indirizzo sono lui due volte, un doppio). Gli
-           altri della sua riga (un ordine da Eventbrite per tre) restano
-           nella loro sezione. */
-        if (k && dellaCena.has(k)) { anche.add(k); n = Math.max(0, n - 1); }
+           per ogni iscrizione (due iscrizioni con il suo indirizzo sono lui due
+           volte, un doppio). Dentro lo STESSO gruppo (un ordine per piu' posti:
+           l'intestatario e i posti 2..N) toglie se stesso una volta: un compagno
+           con lo stesso indirizzo dell'intestatario e' un'altra persona, e gli
+           altri della riga (un ordine da Eventbrite per tre) restano dove sono. */
+        if (k && dellaCena.has(k)) {
+            anche.add(k);
+            const g = r && r.gruppo ? k + '\n' + r.gruppo : '';
+            if (!g || !tolti.has(g)) { if (g) tolti.add(g); n = Math.max(0, n - 1); }
+        }
         if (r && r.aderente) soloConvegno += n; else aziende += n;
     });
     const cenaN = (cena || []).length;
@@ -328,16 +342,16 @@ function dellEventoComeElenco(ev, s) {
 function totali(schede, presenze, ev, aderenti, cancellate) {
     const GIRO = require('./giro-conferme');
     const em = v => String(v || '').trim().toLowerCase();
-    const righe = (schede || []).map(x => x.dati || {}).filter(s => dellEventoComeElenco(ev, s) && attiva(s)
-        && !(cancellate && cancellate.has(ev.chiave + '~' + GIRO.idIscritto(s))));
-    const confermati = new Set(righe.filter(s => s.emailConfermata && em(s.email)).map(s => em(s.email)));
+    const righe = (schede || []).map(x => ({ s: x.dati || {}, id: String(x.id || '') }))
+        .filter(({ s }) => dellEventoComeElenco(ev, s) && attiva(s) && !(cancellate && cancellate.has(ev.chiave + '~' + GIRO.idIscritto(s))));
+    const confermati = new Set(righe.filter(({ s }) => s.emailConfermata && em(s.email)).map(({ s }) => em(s.email)));
     const convegno = [];
-    righe.forEach(s => {
+    righe.forEach(({ s, id }) => {
         const p = (presenze && presenze.get(GIRO.idPresenza(ev, s))) || null;
         const sez = sezioneDi(s, p);
         if (s.soloB2B === true || sez === 'b2b') return;
         if (CONFERMA.inAttesaDiConferma(s, p) && !confermati.has(em(s.email))) return;
-        convegno.push({ email: s.email, persone: personeDi(s), aderente: sez === 'aderenti' });
+        convegno.push({ email: s.email, persone: personeDi(s), aderente: sez === 'aderenti', gruppo: String(s.gruppo || id || '') });
     });
     const quote = ADERENTI.QUOTE.filter(q => q.evento === ev.chiave).map(q => q.id);
     const cena = (aderenti || []).filter(x => quote.indexOf(String((x.dati || {}).quota || '')) >= 0)

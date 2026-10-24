@@ -54,6 +54,10 @@ t = R.totaliConAderenti([{ email: 'a@x.it', persone: 3 }, { email: 'b@x.it', per
 esigi(t.aziende === 3 && t.cena === 1 && t.anche === 1 && t.tutti === 4, 'un gruppo da tre con l\'aderente della cena: gli altri due restano fra le aziende', JSON.stringify(t));
 t = R.totaliConAderenti([{ email: 'a@x.it', persone: 3, aderente: true }], [{ email: 'a@x.it' }]);
 esigi(t.soloConvegno === 2 && t.tutti === 3, 'e nella sezione degli aderenti restano li\'', JSON.stringify(t));
+t = R.totaliConAderenti([{ email: 'seg@studio.it', persone: 1, gruppo: 'ord1' }, { email: 'seg@studio.it', persone: 1, gruppo: 'ord1' }, { email: 'luca@x.it', persone: 1, gruppo: 'ord1' }], [{ email: 'seg@studio.it' }]);
+esigi(t.aziende === 2 && t.tutti === 3, 'un compagno di gruppo con lo stesso indirizzo dell\'intestatario e\' un\'altra persona: resta fra le aziende', JSON.stringify(t));
+t = R.totaliConAderenti([{ email: 'a@x.it', persone: 1, gruppo: 'doc1' }, { email: 'a@x.it', persone: 1, gruppo: 'doc2' }], [{ email: 'a@x.it' }]);
+esigi(t.aziende === 0 && t.tutti === 1, 'due iscrizioni separate con lo stesso indirizzo restano un doppio', JSON.stringify(t));
 
 console.log('\nL\'area riservata e il servizio contano allo stesso modo');
 let seme = 7;
@@ -64,7 +68,8 @@ for (let k = 0; k < 1000; k++) {
     const conv = Array.from({ length: Math.floor(caso() * 12) }, () => ({
         email: indirizzi[Math.floor(caso() * indirizzi.length)],
         persone: 1 + Math.floor(caso() * 3),
-        aderente: caso() < 0.2
+        aderente: caso() < 0.2,
+        gruppo: caso() < 0.5 ? 'g' + Math.floor(caso() * 3) : ''
     }));
     const cena = Array.from({ length: Math.floor(caso() * 5) }, () => ({ email: indirizzi[Math.floor(caso() * indirizzi.length)] }));
     const a = daApp(conv, cena), b = R.totaliConAderenti(conv, cena);

@@ -16309,7 +16309,9 @@
             /* Le iscrizioni alla cena e al meeting non muovono l'elenco del convegno,
                quindi l'aggiornamento qui sotto non le vede: si rileggono da sole, al
                passo lento (ogni quattro minuti), per i totali in testa. */
-            if (evHaAderenti(evOra) && Date.now() - _aderentiQuando >= EV_INTERVALLO) {
+            // il passo si misura dal tentativo, non dalla lettura riuscita: a servizio giu' non si insiste ogni trenta secondi
+            if (evHaAderenti(evOra) && Date.now() - Math.max(_aderentiQuando, _aderentiTentativo) >= EV_INTERVALLO) {
+                _aderentiTentativo = Date.now();
                 caricaAderenti(evOra, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaAderenti(evOra); });
             }
             const intervallo = _evAscoltoOk ? EV_INTERVALLO_ASCOLTO : EV_INTERVALLO;
@@ -17501,20 +17503,27 @@
        LA STESSA REGOLA sta nel servizio (email-service/lib/riepilogo-iscrizioni.js,
        totaliConAderenti), per le mail di mezzanotte: se cambia qui va cambiata
        la', e prove/totali-aderenti.prove.js le mette a confronto.
-       `convegno`: [{ email, persone, aderente }]; `cena`: [{ email }]. */
+       `convegno`: [{ email, persone, aderente, gruppo }]; `cena`: [{ email }]. */
     function totaliConAderenti(convegno, cena) {
         const chiave = e => String(e || '').trim().toLowerCase();
         const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
         let aziende = 0, soloConvegno = 0;
         const anche = new Set();
+        const tolti = new Set();
         (convegno || []).forEach(r => {
             const k = chiave(r && r.email);
             let n = Math.max(0, Number(r && r.persone) || 0);
             /* E' un aderente della cena: lui si conta con la cena, una volta sola
-               (due righe con il suo indirizzo sono lui due volte, un doppio). Gli
-               altri della sua riga (un ordine da Eventbrite per tre) restano
-               nella loro sezione. */
-            if (k && dellaCena.has(k)) { anche.add(k); n = Math.max(0, n - 1); }
+               per ogni iscrizione (due iscrizioni con il suo indirizzo sono lui due
+               volte, un doppio). Dentro lo STESSO gruppo (un ordine per piu' posti:
+               l'intestatario e i posti 2..N) toglie se stesso una volta: un compagno
+               con lo stesso indirizzo dell'intestatario e' un'altra persona, e gli
+               altri della riga (un ordine da Eventbrite per tre) restano dove sono. */
+            if (k && dellaCena.has(k)) {
+                anche.add(k);
+                const g = r && r.gruppo ? k + '\n' + r.gruppo : '';
+                if (!g || !tolti.has(g)) { if (g) tolti.add(g); n = Math.max(0, n - 1); }
+            }
             if (r && r.aderente) soloConvegno += n; else aziende += n;
         });
         const cenaN = (cena || []).length;
@@ -17538,7 +17547,7 @@
         if (!quote || quote.some(d => !d || !d.conti || !Array.isArray(d.righe))) return null;
         const convegno = soloIscritti(ev, _evIscrizioni)
             .filter(r => sezioneVista(ev, r) !== SEZIONE_ATTESA.id)
-            .map(r => ({ email: r.email, persone: partecipantiDi(r), aderente: modalitaDi(ev, r) === 'aderenti' }));
+            .map(r => ({ email: r.email, persone: partecipantiDi(r), aderente: modalitaDi(ev, r) === 'aderenti', gruppo: r.gruppo || r.doc || '' }));
         const cena = [];
         quote.forEach(d => d.righe.forEach(x => cena.push({ email: x.email })));
         return totaliConAderenti(convegno, cena);
@@ -21893,6 +21902,7 @@
     let _aderenti = null;       // l'ultima lettura: [{ quota, righe, conti }, ...]
     let _aderentiEv = '';
     let _aderentiQuando = 0;
+    let _aderentiTentativo = 0;  // l'ultimo tentativo del giro automatico, riuscito o no
     let _aderentiInFlight = false;
     let _aderentiMsg = '';
     let _aderentiAttese = [];
