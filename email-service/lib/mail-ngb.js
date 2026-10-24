@@ -1008,15 +1008,20 @@ function notaTotali(t) {
        iscrizioni nuove e corrette degli aderenti, fatture da emettere);
      - I DUE TOTALI dell'evento, aziende e aziende + aderenti, con la frase
        che dice che cosa conta ciascuno (righeTotali);
-     - LE AZIENDE: le iscrizioni completate nella giornata (l'email
-       confermata quel giorno, `ora` = l'ora della conferma) e chi aspetta
-       ancora di confermare (`iscritto` = giorno, `ora` = ora del modulo),
-       che torna ogni notte finche' non conferma;
      - GLI ADERENTI: per ogni quota le iscrizioni nuove (primaVolta) e quelle
        corrette (con i campi della fatturazione cambiati), con recapiti, dati
        per la fattura, quota e note per la cena. Per loro non c'e' una
        conferma dell'email; il periodo puo' essere piu' di un giorno, quando
-       una notte la mail non e' partita e la notte dopo recupera.
+       una notte la mail non e' partita e la notte dopo recupera. Vengono
+       PRIMA delle aziende: i dati per la fattura stanno solo qui;
+     - LE AZIENDE: le iscrizioni completate nella giornata (l'email
+       confermata quel giorno, `ora` = l'ora della conferma) e chi aspetta
+       ancora di confermare (`iscritto` = giorno, `ora` = ora del modulo),
+       che torna ogni notte finche' non conferma (i primi
+       MAX_IN_ATTESA_MAIL, gli altri contati). Se con gli aderenti la mail
+       passerebbe LIMITE_HTML, gli elenchi delle aziende si accorciano
+       (prima gli in attesa, poi le confermate) e la mail dice quante ne
+       mancano: i numeri restano tutti nel riquadro in cima;
    OGNI PERSONA E' UN BLOCCO SOLO, una cella con le righe separate da <br>:
    con una riga di tabella per campo una giornata con venti aderenti
    superava i 102 KB oltre i quali Gmail tronca il messaggio. Niente colonne
@@ -1046,17 +1051,24 @@ function fatturaRighe(f) {
         ['Sede', f.sede], ['Codice destinatario', f.codiceDestinatario], ['PEC', f.pec], ['Email per la fattura', f.emailFatture]
     ].filter(x => x[1]);
 }
-// una persona delle aziende
+/* Una persona delle aziende: un blocco solo, come gli aderenti (la tabella
+   per riga di prima pesava il doppio, e la mail ha un tetto). */
 function rigaAzienda(p, nota) {
-    return '<tr><td style="padding:14px 0;border-bottom:1px solid ' + C.bordo + ';">' + tabella(
-        '<tr><td style="' + FONTE + 'font-size:16px;line-height:22px;font-weight:bold;color:' + C.scuro + ';">' + esc(p.nome) + '</td>'
-        + '<td align="right" valign="top" style="' + FONTE + 'font-size:13px;line-height:22px;color:' + C.tenue + ';text-align:right;white-space:nowrap;">' + esc(nota) + '</td></tr>'
-        + ((p.azienda || p.ruolo) ? '<tr><td colspan="2" style="' + FONTE + 'font-size:15px;line-height:22px;color:' + C.testo + ';padding-top:2px;">' + esc([p.azienda, p.ruolo].filter(Boolean).join(' · ')) + '</td></tr>' : '')
-        + '<tr><td colspan="2" style="' + FONTE + 'font-size:14px;line-height:21px;color:' + C.tenue + ';padding-top:2px;">'
-        + [p.email ? '<a href="mailto:' + esc(p.email) + '" style="color:' + C.tenue + ';text-decoration:underline;">' + esc(p.email) + '</a>' : '', esc(p.telefono)].filter(Boolean).join(' &middot; ') + '</td></tr>'
-        + (p.invito ? '<tr><td colspan="2" style="' + FONTE + 'font-size:13px;line-height:20px;color:' + C.accento + ';padding-top:4px;">Azienda invitata: ' + esc(p.invito) + '</td></tr>' : '')
-    ) + '</td></tr>';
+    return '<tr><td style="' + FONTE + 'font-size:14px;line-height:21px;color:' + C.tenue + ';padding:12px 0;border-bottom:1px solid ' + C.bordo + ';word-wrap:break-word;overflow-wrap:anywhere;word-break:break-word;">'
+        + '<b style="font-size:16px;line-height:22px;color:' + C.scuro + ';">' + esc(p.nome) + '</b>'
+        + (nota ? ' <span style="font-size:13px;">&middot; ' + esc(nota) + '</span>' : '')
+        + ((p.azienda || p.ruolo) ? '<br><span style="font-size:15px;color:' + C.testo + ';">' + esc([p.azienda, p.ruolo].filter(Boolean).join(' · ')) + '</span>' : '')
+        + '<br>' + [p.email ? '<a href="mailto:' + esc(p.email) + '" style="color:' + C.tenue + ';text-decoration:underline;">' + esc(p.email) + '</a>' : '', esc(p.telefono)].filter(Boolean).join(' &middot; ')
+        + (p.invito ? '<br><span style="font-size:13px;color:' + C.accento + ';">Azienda invitata: ' + esc(p.invito) + '</span>' : '')
+        + '</td></tr>';
 }
+/* Quanti "in attesa" si elencano: la lista torna ogni notte finche' non
+   confermano, e cresce per tutto il periodo delle iscrizioni. Gli altri si
+   contano, e l'elenco completo sta nell'area riservata. */
+const MAX_IN_ATTESA_MAIL = 40;
+/* Il tetto dell'HTML del riepilogo: Gmail tronca oltre i 102 KB, e la
+   codifica della posta (quoted-printable) aggiunge il 7% circa. */
+const LIMITE_HTML = 90 * 1024;
 function testoAzienda(p, nota) {
     return '- ' + p.nome + (nota ? ' (' + nota + ')' : '')
         + ([p.azienda, p.ruolo].filter(Boolean).length ? '\n  ' + [p.azienda, p.ruolo].filter(Boolean).join(' - ') : '')
@@ -1117,12 +1129,12 @@ function riepilogoSerale(d, link) {
     const periodoAd = ads.length && ads[0].dalTesto && ads[0].dalTesto !== giornoTesto ? ' dal ' + ads[0].dalTesto + ' al ' + giornoTesto : '';
     if (ads.length) pezzi.push('aderenti' + periodoAd + ': ' + nA + (nA === 1 ? ' nuova' : ' nuove') + (uA ? ', ' + uA + (uA === 1 ? ' aggiornata' : ' aggiornate') : ''));
     const oggetto = 'Iscrizioni ' + (ev.nome || '') + ' del ' + giornoTesto + (pezzi.length ? ' - ' + pezzi.join('; ') : '')
-        + (t ? ' (aziende ' + t.aziende + ', con gli aderenti ' + t.tutti + ')' : '');
+        + (t ? ' (aziende ' + t.aziende + ', con gli aderenti ' + t.tutti + ')' : (az ? ' (aziende confermate in tutto ' + az.totale + ')' : ''));
     const fraseAz = az ? 'Aziende: ' + (n
         ? (n === 1 ? 'una persona ha completato l\'iscrizione' : n + ' persone hanno completato l\'iscrizione') + ' confermando l\'email'
         : 'nessuna nuova iscrizione confermata')
         + (a ? '; ' + (a === 1 ? 'una persona attende' : a + ' persone attendono') + ' ancora di confermare l\'email' : '') + '.' : '';
-    const fraseAd = ads.length ? 'Aderenti: ' + (nA
+    const fraseAd = ads.length ? 'Aderenti' + periodoAd + ': ' + (nA
         ? (nA === 1 ? 'una nuova iscrizione' : nA + ' nuove iscrizioni') + ' alla cena e al meeting'
         : 'nessuna nuova iscrizione alla cena e al meeting')
         + (uA ? ', ' + (uA === 1 ? 'una aggiornata' : uA + ' aggiornate') : '')
@@ -1130,23 +1142,34 @@ function riepilogoSerale(d, link) {
     const fraseT = t ? 'Totale aziende: ' + t.aziende + '; totale aziende + aderenti: ' + t.tutti + '.' : '';
     const sommario = [fraseAz, fraseAd, fraseT].filter(Boolean).join(' ');
 
-    // LE AZIENDE
-    let htmlAz = '', testoAz = '';
+    // LE AZIENDE: nell'HTML kN confermate e kA in attesa (vedi LIMITE_HTML); il testo semplice ha tutte le confermate e i primi MAX_IN_ATTESA_MAIL in attesa
+    const righeN = az ? az.nuove.map(p => rigaAzienda(p, p.ora ? 'confermata alle ' + p.ora : '')) : [];
+    const righeA = az ? az.inAttesa.slice(0, MAX_IN_ATTESA_MAIL).map(p => rigaAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))) : [];
+    const htmlAziende = (kN, kA) => {
+        let h = '';
+        if (az) {
+            h = occhiello('Aziende: iscrizioni confermate il ' + giornoTesto)
+                + (n && !kN ? '' : '<tr><td>' + tabella(n ? righeN.slice(0, kN).join('') : vuoto('Nessuna nuova conferma nella giornata.')) + '</td></tr>')
+                + (kN < n ? piccolo((kN ? (n - kN === 1 ? 'E un\'altra conferma' : 'E altre ' + (n - kN) + ' conferme') + ': l\'elenco completo è' : 'Stanotte la mail non ha posto per l\'elenco delle conferme: lo trovi')
+                    + ' nell\'area riservata, alla voce «Iscrizioni Eventi NGB».') : '')
+                + (a ? spazio(24) + occhiello('Aziende: in attesa di conferma email')
+                    + piccolo('Hanno inviato il modulo e verificato il cellulare, ma non hanno ancora premuto il pulsante nella mail di conferma. Restano in questo elenco finché non confermano; quel giorno passano fra le confermate.')
+                    + (kA ? '<tr><td>' + tabella(righeA.slice(0, kA).join('')) + '</td></tr>' : '')
+                    + (kA < a ? piccolo((kA ? (a - kA === 1 ? 'E un altro' : 'E altri ' + (a - kA)) + ': l\'elenco completo è' : 'Stanotte la mail non ha posto per l\'elenco: lo trovi')
+                        + ' nell\'area riservata, nella sezione «In attesa di conferma mail».') : '')
+                    : '');
+        }
+        if (d.azNota) h += (h ? spazio(16) : occhiello('Aziende')) + piccolo(d.azNota);
+        return h;
+    };
+    let testoAz = '';
     if (az) {
-        htmlAz = occhiello('Aziende: iscrizioni confermate il ' + giornoTesto)
-            + '<tr><td>' + tabella(n ? az.nuove.map(p => rigaAzienda(p, p.ora ? 'confermata alle ' + p.ora : '')).join('') : vuoto('Nessuna nuova conferma nella giornata.')) + '</td></tr>'
-            + (a ? spazio(24) + occhiello('Aziende: in attesa di conferma email')
-                + piccolo('Hanno inviato il modulo e verificato il cellulare, ma non hanno ancora premuto il pulsante nella mail di conferma. Restano in questo elenco finché non confermano; quel giorno passano fra le confermate.')
-                + '<tr><td>' + tabella(az.inAttesa.map(p => rigaAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('')) + '</td></tr>'
-                : '');
         testoAz = 'AZIENDE: ISCRIZIONI CONFERMATE IL ' + giornoTesto + '\n'
             + (n ? az.nuove.map(p => testoAzienda(p, p.ora ? 'confermata alle ' + p.ora : '')).join('\n') : 'Nessuna nuova conferma nella giornata.')
-            + (a ? '\n\nAZIENDE: IN ATTESA DI CONFERMA EMAIL\n' + az.inAttesa.map(p => testoAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('\n') : '');
+            + (a ? '\n\nAZIENDE: IN ATTESA DI CONFERMA EMAIL\n' + az.inAttesa.slice(0, MAX_IN_ATTESA_MAIL).map(p => testoAzienda(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('\n')
+                + (a > MAX_IN_ATTESA_MAIL ? '\n' + (a - MAX_IN_ATTESA_MAIL === 1 ? 'E un altro' : 'E altri ' + (a - MAX_IN_ATTESA_MAIL)) + ': l\'elenco completo è nell\'area riservata.' : '') : '');
     }
-    if (d.azNota) {
-        htmlAz += (htmlAz ? spazio(16) : occhiello('Aziende')) + piccolo(d.azNota);
-        testoAz += (testoAz ? '\n' : 'AZIENDE\n') + d.azNota;
-    }
+    if (d.azNota) testoAz += (testoAz ? '\n' : 'AZIENDE\n') + d.azNota;
 
     // GLI ADERENTI, quota per quota
     const notaNuova = p => p.arrivata ? 'iscrizione ' + p.arrivata + (p.corretta ? ', corretta ' + p.corretta : '') : '';
@@ -1182,32 +1205,47 @@ function riepilogoSerale(d, link) {
     const DOVE = 'Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», evento di ' + (ev.nome || 'Milano') + ', trovi l\'elenco completo delle aziende (da lì si rimanda la mail di conferma a chi è in attesa) e, in «Aderenti» › «Apri le iscrizioni», gli aderenti, dove si segnano le fatture emesse.';
     const MOTIVO = 'Riepilogo automatico per gli organizzatori: parte a mezzanotte quando ci sono conferme nuove o iscrizioni in attesa delle aziende, o iscrizioni nuove o corrette degli aderenti.';
 
-    const giornata = rigaBox('Aziende: nuove conferme', String(n), 330)
-        + rigaBox('Aziende: in attesa di conferma mail', String(a), 330)
-        + (ads.length ? rigaBox('Aderenti: nuove iscrizioni', String(nA), 330)
+    // una parte che non c'e' (non letta, gia' mandata) non ha numeri: niente zeri che direbbero il falso
+    const giornata = (az ? rigaBox('Aziende: nuove conferme', String(n), 330)
+        + rigaBox('Aziende: in attesa di conferma mail', String(a), 330) : '')
+        + (ads.length ? rigaBox('Aderenti: nuove iscrizioni' + periodoAd, String(nA), 330)
             + (uA ? rigaBox('Aderenti: iscrizioni aggiornate', String(uA), 330) : '')
             + rigaBox('Aderenti: fatture da emettere', daFatt ? daFatt + ' (' + euroIt(daFattEuro) + ')' : '0', 330) : '');
-    const html = involucro(oggetto, sommario,
+    const componi = htmlAz => involucro(oggetto, sommario,
         testataPer(pagina, 'Riepilogo iscrizioni del ' + giornoTesto, sommario)
         + corpo(
             '<tr><td>' + box(giornata) + '</td></tr>'
             + (t
                 ? spazio(24) + occhiello('Totali dell\'evento') + '<tr><td>' + box(righeTotali(t)) + '</td></tr>' + notaTotali(t)
-                : (az ? spazio(24) + '<tr><td>' + box(rigaBox('Iscrizioni totali', String(az.totale), 330)) + '</td></tr>' : ''))
-            + (htmlAz ? spazio(30) + htmlAz : '')
+                : (az ? spazio(24) + '<tr><td>' + box(rigaBox('Aziende: iscrizioni confermate in tutto', String(az.totale), 330)) + '</td></tr>' : ''))
+            /* PRIMA GLI ADERENTI: i loro dati per la fattura stanno solo qui, e
+               oltre i 102 KB Gmail taglia la coda della mail. Se non c'e' posto
+               si accorciano gli elenchi delle aziende (sotto), che sono
+               comunque tutti nell'area riservata. */
             + (htmlAd ? spazio(30) + htmlAd : '')
+            + (htmlAz ? spazio(30) + htmlAz : '')
             + spazio(30)
             + bottone('Apri le iscrizioni nell\'area riservata', link)
             + spazio(16)
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">' + esc(CHIUSURA + ' ' + DOVE) + '</td></tr>'
         )
         + piedePer(pagina, MOTIVO));
+    // troppo pesante: via le ultime righe delle aziende (prima gli in attesa), poi si ricompone con le righe "E altri..."
+    const peso = x => Buffer.byteLength(x, 'utf8');
+    let kN = righeN.length, kA = righeA.length;
+    let html = componi(htmlAziende(kN, kA));
+    while (peso(html) > LIMITE_HTML && (kN || kA)) {
+        let troppo = peso(html) - LIMITE_HTML;
+        while (troppo > 0 && kA) troppo -= peso(righeA[--kA]);
+        while (troppo > 0 && kN) troppo -= peso(righeN[--kN]);
+        html = componi(htmlAziende(kN, kA));
+    }
     const testo = ['RIEPILOGO ISCRIZIONI DEL ' + giornoTesto, sommario,
-        'Aziende: nuove conferme: ' + n + '\nAziende: in attesa di conferma mail: ' + a
-            + (ads.length ? '\nAderenti: nuove iscrizioni: ' + nA + (uA ? '\nAderenti: iscrizioni aggiornate: ' + uA : '')
-                + '\nAderenti: fatture da emettere: ' + (daFatt ? daFatt + ' (' + euroIt(daFattEuro) + ')' : '0') : ''),
-        t ? 'TOTALI DELL\'EVENTO\n' + testoTotali(t) + '\n' + spiegaTotali(t) : (az ? 'Iscrizioni totali: ' + az.totale : ''),
-        testoAz, testoAd,
+        [az ? 'Aziende: nuove conferme: ' + n + '\nAziende: in attesa di conferma mail: ' + a : '',
+            ads.length ? 'Aderenti: nuove iscrizioni' + periodoAd + ': ' + nA + (uA ? '\nAderenti: iscrizioni aggiornate: ' + uA : '')
+                + '\nAderenti: fatture da emettere: ' + (daFatt ? daFatt + ' (' + euroIt(daFattEuro) + ')' : '0') : ''].filter(Boolean).join('\n'),
+        t ? 'TOTALI DELL\'EVENTO\n' + testoTotali(t) + '\n' + spiegaTotali(t) : (az ? 'Aziende: iscrizioni confermate in tutto: ' + az.totale : ''),
+        testoAd, testoAz,
         CHIUSURA + '\n' + DOVE,
         'Tutte le iscrizioni nell\'area riservata: ' + link,
         '--', MOTIVO].filter(Boolean).join('\n\n');

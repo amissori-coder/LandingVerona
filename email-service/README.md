@@ -1970,12 +1970,17 @@ ci compaiono mai.
 `lib/mail-ngb.js`; fino a ottobre 2026 erano due). Dall'alto: la giornata in
 numeri (nuove conferme e attese delle aziende, iscrizioni nuove e corrette
 degli aderenti, fatture da emettere), i due totali dell'evento, la parte
-delle **aziende** (le confermate del giorno, chi e' in attesa) e quella degli
-**aderenti**. L'oggetto dice tutte e due: "Iscrizioni Milano del 15/01/2027 -
-aziende: 2 confermate, 1 in attesa; aderenti: 1 nuova (aziende 152, con gli
-aderenti 190)". Parte se almeno una delle due parti ha qualcosa di nuovo;
-l'altra c'e' lo stesso, con i suoi numeri. Se una lettura fallisce la mail
-parte con l'altra parte e una riga che lo dice.
+degli **aderenti** e poi quella delle **aziende** (le confermate del giorno,
+chi e' in attesa). Gli aderenti vengono prima perche' i loro dati per la
+fattura stanno solo in questa mail: se la mail e' troppo lunga si accorciano
+gli elenchi delle aziende, mai quelli degli aderenti (vedi sotto). L'oggetto
+dice tutte e due: "Iscrizioni Milano del 15/01/2027 - aziende: 2 confermate,
+1 in attesa; aderenti: 1 nuova (aziende 152, con gli aderenti 190)"; una
+notte recuperata lo dice anche qui e nel riquadro in cima ("aderenti dal
+06/02/2027 al 07/02/2027: 2 nuove"). Parte se almeno una delle due parti ha
+qualcosa di nuovo; l'altra c'e' lo stesso, con i suoi numeri. Una parte che
+non si e' potuta leggere, o che per quel giorno e' gia' stata mandata, non
+ha numeri (direbbero zero): c'e' solo una riga che lo dice.
 
 **Gli aderenti** (cena del 26 e meeting del 27 febbraio, la pagina
 `/milano_febbraio_2027/aderenti/`, collezione `iscrizioniAderenti`, in
@@ -2017,23 +2022,23 @@ Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
   la mail lo dice. Se la sua riga del convegno vale per piu' persone (un
   ordine da Eventbrite), gli altri restano fra le aziende.
 
-Nella mail degli aderenti il numero della cena si chiama "Iscritti alla cena
-e al meeting" (anche nell'oggetto), per non confonderlo con i due totali. Nella
-mail delle aziende la lista "in attesa di conferma" non porta piu' chi e' gia'
-segnato presente in sala.
+Nella parte degli aderenti il numero della cena si chiama "Iscritti", per non
+confonderlo con i due totali. La lista "in attesa di conferma" delle aziende
+non porta piu' chi e' gia' segnato presente in sala.
 
 La regola sta in `totaliConAderenti` (`lib/riepilogo-iscrizioni.js`) e, uguale,
 in `area-riservata/app.js`: `prove/totali-aderenti.prove.js` le confronta. Per
 sapere chi e' nella sezione degli aderenti e chi e' stato cancellato il lavoro
 legge anche le presenze e `iscrizioniCancellate`; se una di queste letture, o
-quella degli aderenti, non riesce, le mail partono come prima ("Iscrizioni
-totali", le confermate), senza i due totali. Nell'area riservata i totali si
+quella degli aderenti, non riesce, la mail parte senza i due totali, con le
+confermate delle aziende ("Aziende: iscrizioni confermate in tutto"). Nell'area riservata i totali si
 aggiornano con l'elenco e, per le iscrizioni alla cena e al meeting, ogni
 quattro minuti.
 
 **Le due parti tengono ognuna il suo modo di non spedire due volte.** Le
 aziende si prenotano su `meta/riepilogoIscrizioni-<evento>` solo quando hanno
-qualcosa da dire (e se la mail non parte la prenotazione si toglie). Gli
+qualcosa da dire (e se la mail non parte la prenotazione si toglie; se e'
+partita resta, anche quando dopo Firestore non risponde). Gli
 aderenti, una volta per notte su
 `meta/riepilogoAderenti-<quota>`, che tiene l'**ultimo giorno spedito
 davvero** (`ultimoGiorno`, segnato solo DOPO che la mail e' partita; mentre
@@ -2051,7 +2056,13 @@ coperto si copre insieme a quelli prima: forza non salta giorni. Senza
 niente di nuovo il periodo degli aderenti si segna coperto lo stesso. Un
 errore nella lettura delle aziende non ferma gli aderenti (la mail parte e lo
 dice), e viceversa. Ogni persona e' un blocco solo, e la mail resta sotto il
-taglio di Gmail a 102 KB anche con trenta aderenti in un giorno.
+taglio di Gmail a 102 KB: l'HTML si ferma a 90 KB (`LIMITE_HTML`, la codifica
+della posta aggiunge il 7% circa). Gli aderenti ci stanno sempre (trenta in un
+giorno pesano una settantina di KB); se con loro non c'e' posto, la mail
+accorcia gli elenchi delle aziende, prima gli in attesa e poi le confermate,
+e scrive quante ne mancano ("E altri 85: l'elenco completo e' nell'area
+riservata"). Gli in attesa, che tornano ogni notte, sono comunque al massimo
+quaranta; i numeri nel riquadro in cima li contano tutti.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,

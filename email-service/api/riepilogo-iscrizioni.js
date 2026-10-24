@@ -253,13 +253,11 @@ module.exports = async (req, res) => {
            l'altra c'e' lo stesso, con i suoi numeri. Se una lettura fallisce
            la mail parte con l'altra parte e una riga che lo dice: un errore
            sulle aziende non ferma le fatture degli aderenti, e viceversa. */
-        const senzaListe = c => Object.assign({}, c, { nuove: [], inAttesa: [] });
-        const senzaPersone = c => Object.assign({}, c, { nuove: [], aggiornate: [] });
         for (const ev of R.EVENTI) {
             const esito = { evento: ev.chiave };
             esiti.push(esito);
             const nomeAz = 'riepilogoIscrizioni-' + ev.chiave;
-            let azPrenotata = false;
+            let azPrenotata = false, partita = 0;
             const aperti = [];
             try {
                 // LE AZIENDE
@@ -274,7 +272,7 @@ module.exports = async (req, res) => {
                     else if (anteprima) az = c;
                     else if (await prenota(db, nomeAz, giorno, forza)) { az = c; azPrenotata = true; }
                     else {
-                        az = senzaListe(c);
+                        // gia' mandate: niente numeri (direbbero zero), solo la riga che lo dice
                         azNota = 'Le iscrizioni delle aziende di questo giorno sono già state mandate.';
                         esito.aziende.gia = true;
                     }
@@ -297,9 +295,8 @@ module.exports = async (req, res) => {
                     }
                     const p = await apriAderenti(db, 'riepilogoAderenti-' + q.id, giorno, forza, q.riepilogoDal);
                     if (!p) {
-                        // gia' spedito, o un altro giro in corso: nella mail solo i numeri, senza le persone
-                        ad.push({ c: senzaPersone(R.contiAderenti(aderenti, q, giorno)), dalTesto: null, nuovo: false });
-                        adNota = 'Le iscrizioni degli aderenti di questo periodo sono già state mandate.';
+                        // gia' spedito, o un altro giro in corso: niente numeri, solo la riga che lo dice
+                        adNota = 'Le iscrizioni degli aderenti di questo periodo sono già state mandate, o le sta mandando un altro giro.';
                         esito.aderenti.push({ quota: q.id, gia: true });
                         continue;
                     }
@@ -322,6 +319,7 @@ module.exports = async (req, res) => {
                 }, LINK_AREA);
                 const inviata = await spedisci(nomeAz, conAnteprima(m),
                     azPrenotata ? () => db.collection('meta').doc(nomeAz).set({ ultimoGiorno: null }, { merge: true }) : null);
+                partita = inviata;
                 // il periodo degli aderenti si segna solo se la mail e' partita; se no resta da spedire
                 for (const x of aperti) await chiudiAderenti(db, x.nome, giorno, !!inviata, x.id);
                 aperti.length = 0;
@@ -329,10 +327,12 @@ module.exports = async (req, res) => {
                 else esito.errore = true;
                 if (anteprima) esito.anteprima = true;
             } catch (e) {
-                // niente si segna come spedito: si tolgono gli "in corso", e la notte dopo recupera
-                for (const x of aperti) { try { await chiudiAderenti(db, x.nome, giorno, false, x.id); } catch (_) { } }
-                if (azPrenotata) { try { await db.collection('meta').doc(nomeAz).set({ ultimoGiorno: null }, { merge: true }); } catch (_) { } }
+                // se la mail e' partita si riprova a segnarla; se no si tolgono gli "in corso", e la notte dopo recupera
+                for (const x of aperti) { try { await chiudiAderenti(db, x.nome, giorno, !!partita, x.id); } catch (_) { } }
+                // la prenotazione delle aziende si toglie solo se la mail NON e' partita: se no un nuovo giro le rimanderebbe
+                if (azPrenotata && !partita) { try { await db.collection('meta').doc(nomeAz).set({ ultimoGiorno: null }, { merge: true }); } catch (_) { } }
                 console.error('Riepilogo iscrizioni (' + ev.chiave + '):', String((e && e.message) || e).slice(0, 200));
+                if (partita) esito.inviata = partita;
                 esito.errore = true;
             }
         }
