@@ -13,11 +13,11 @@
    iscrizioni inserite a mano dall'area riservata (titolo corto).
 
    GLI ADERENTI (cena e meeting di Milano, lib/iscrizioni-aderenti.js)
-   hanno un riepilogo loro, una mail a parte agli stessi destinatari:
-   non c'e' un'email da confermare - l'iscrizione vale dall'invio del
-   modulo - e quello che serve a chi organizza sono i dati per la
-   fattura. Niente avviso a ogni iscrizione: tutto a mezzanotte, come
-   per le aziende (vedi contiAderenti).
+   stanno nella STESSA mail, in una parte loro: non c'e' un'email da
+   confermare - l'iscrizione vale dall'invio del modulo - e quello che
+   serve a chi organizza sono i dati per la fattura. Niente avviso a ogni
+   iscrizione: tutto a mezzanotte, come per le aziende (vedi
+   contiAderenti; la mail e' MNGB.riepilogoSerale).
 
    Il lavoro lo fa api/riepilogo-iscrizioni.js; qui ci sono i conti,
    separati perche' si possano provare senza Firestore vero.
@@ -258,7 +258,7 @@ function daSpedireAderenti(c) {
 }
 
 /* ---------- il totale con gli aderenti ----------
-   Due numeri da non confondere, nelle due mail di mezzanotte come nei
+   Due numeri da non confondere, nella mail di mezzanotte come nei
    riquadri dell'area riservata:
      TOTALE AZIENDE            le persone iscritte al convegno, in sala e
                                online, tolti gli aderenti;

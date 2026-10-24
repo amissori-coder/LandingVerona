@@ -19,10 +19,9 @@
      A LORO  subito, il riepilogo: cosa si sono iscritti a fare,
              quanto costa e che la fattura arrivera' all'indirizzo
              di fatturazione indicato.
-     A NOI   niente a ogni iscrizione: a mezzanotte, come per le
-             aziende che si iscrivono al convegno, una mail con le
-             iscrizioni del giorno e tutti i dati per la fattura,
-             agli stessi destinatari di quel riepilogo
+     A NOI   niente a ogni iscrizione: a mezzanotte, nella stessa
+             mail delle aziende che si iscrivono al convegno, le
+             iscrizioni del giorno e tutti i dati per la fattura
              (api/riepilogo-iscrizioni.js, contiAderenti in
              lib/riepilogo-iscrizioni.js). Qui non c'e' un'email da
              confermare: l'iscrizione vale da quando arriva.
