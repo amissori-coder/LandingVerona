@@ -1244,4 +1244,41 @@ function rispostaPec(d, link) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { riepilogoIscrizioni, riepilogoAderenti, rispostaPec, confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, nomeEvento };
+/* --- "L'invito vale per due persone" (lib/promemoria-seconda-persona.js) ---
+   A chi si e' iscritto con il codice riservato alla sua azienda quando con
+   quel codice e' iscritta una persona sola. SOLO TESTO, senza HTML: l'ha
+   chiesto chi organizza, ed e' una lettera breve fra persone, non una
+   comunicazione con la grafica dell'evento. Il codice sta da solo sulla sua
+   riga, perche' si copi senza portarsi dietro la frase.
+   d: { nome, cognome, azienda, codice, pagina, evento: { quando, luogo,
+   indirizzo, url }, contatto } */
+function secondaPersona(d) {
+    const ev = d.evento || {};
+    const evento = nomeEvento(d.pagina);
+    const nomeCompleto = ((d.nome || '') + ' ' + (d.cognome || '')).trim();
+    const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(', ');
+    const quando = ev.quando ? String(ev.quando).charAt(0).toLowerCase() + String(ev.quando).slice(1) : '';
+    const azienda = String(d.azienda || '').trim();
+    const contatto = String(d.contatto || 'info@nextgenerationbusiness.it');
+    const modulo = ev.url ? String(ev.url).replace(/#.*$/, '') + '#iscrizioni' : SITO;
+    const oggetto = 'L\'invito vale per due persone - Next Generation Business, ' + evento;
+    const testo = [
+        'Gentile ' + (nomeCompleto || 'ospite') + ',',
+        'grazie per la tua iscrizione a Next Generation Business'
+            + (quando ? ', il convegno di ' + quando : '') + (dove ? ' (' + dove + ')' : '') + '.',
+        'L\'invito riservato ' + (azienda ? 'a ' + azienda : 'alla tua azienda') + ' vale per due persone, e finora il codice '
+            + 'dell\'azienda è stato usato solo per la tua iscrizione. Se un collega vuole partecipare, ti invitiamo a farlo '
+            + 'registrare al più presto, prima che i posti si esauriscano.',
+        'Il codice riservato alla tua azienda è:\n\n' + d.codice,
+        'Il collega si registra dal modulo della pagina dell\'evento, con il proprio nome, il proprio indirizzo email e il '
+            + 'proprio cellulare, e scrive il codice nel campo "Codice invito":\n' + modulo,
+        'Se un collega si è già iscritto, puoi ignorare questa email. Per qualunque informazione scrivici a ' + contatto + '.',
+        'A presto,\nla segreteria di Next Generation Business',
+        '--\n' + MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf + '\n'
+            + 'Ricevi questa email per la tua iscrizione all\'evento con il codice riservato alla tua azienda: non è una comunicazione promozionale.\n'
+            + 'Informativa privacy: ' + PRIVACY
+    ].join('\n\n');
+    return { oggetto: oggetto, testo: testo };
+}
+
+module.exports = { riepilogoIscrizioni, riepilogoAderenti, rispostaPec, confermaSito, invitoIngresso, confermaVariazioni, confermaB2B, confermaB2BAzienda, invitoB2BAnnullato, secondaPersona, nomeEvento };

@@ -53,6 +53,7 @@ Serve per generare i link di reimpostazione password.
 | `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 | `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
 | `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
+| `PROMEMORIA_SECONDA_PERSONA` | *(facoltativa)* `no` spegne la mail "l'invito vale per due persone" (per esempio a sala piena). Senza: accesa. Vedi "L'invito vale per due persone" |
 | `CHECKUP_MAX_GIORNO` | *(facoltativa)* quanti avvisi delle richieste di check-up dalle pagine dei temi possono partire in tutto in un giorno (intero positivo). Senza: `40`. Vedi "Le richieste di check-up dalle pagine dei temi" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
@@ -637,6 +638,7 @@ d'ambiente non ne parte nessuno.
 | `/api/promemoria-eventi` | `0 * * * *` — ogni ora piena | spedisce i promemoria agli iscritti previsti per oggi all'ora di Roma di adesso (il giro legge da se' l'ora legale o solare); quello delle 20 recupera anche chi si e' iscritto dopo un invio e segna scaduti i giorni passati |
 | `/api/riepilogo-iscrizioni` | `0 22,23 * * *` | il riepilogo serale delle iscrizioni agli organizzatori (lavora solo a mezzanotte di Milano) |
 | `/api/conferme-email` | `*/10 * * * *` — ogni dieci minuti | rispedisce la mail di conferma dell'iscrizione a chi non l'ha avuta (mai partita, o rifiutata dal server di posta) e manda UN promemoria, mail e SMS (dalle 8 alle 21), a chi dopo un giorno non ha ancora confermato; fino alla fine dell'evento, un giro alla volta. Vedi "Il giro automatico delle mail di conferma" |
+| `/api/promemoria-seconda-persona` | `8,28,48 7-18 * * 1-5` — ogni venti minuti, giorni feriali | "l'invito vale per due persone": UNA mail, solo testo, a chi si e' iscritto con il codice riservato arrivato per PEC quando e' l'unica persona della sua azienda (lavora solo lun-ven, 9-19 ora di Milano). Vedi "L'invito vale per due persone" |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -759,6 +761,7 @@ Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
 | `api/promemoria-eventi.js` | *(nuova)* | **300** | una mail per iscritto, a quattro alla volta: con un giro al giorno il tempo deve bastare, e se non basta il resto parte domattina |
 | `api/iscrizione-nuova.js` | 30 | **60** | l'iscrizione a Milano spedisce in fila la mail di conferma (con un secondo tentativo se l'errore passa) e l'SMS "conferma la tua email": con i tempi massimi del server di posta (8 s per collegarsi, 15 s di silenzio) e di Brevo (8 s) il caso peggiore sta intorno ai 40 secondi |
 | `api/conferme-email.js` | *(nuova)* | **60** | il giro delle mail di conferma comincia schede nuove solo nei primi 35 s (una scheda nel caso peggiore ne chiede altri venti): quello che resta lo prende il giro dopo, dieci minuti piu' tardi |
+| `api/promemoria-seconda-persona.js` | *(nuova)* | **60** | al piu' 15 mail a giro, cominciate solo nei primi 30 s, e ognuna con 25 s al massimo: quello che resta lo prende il giro dopo, venti minuti piu' tardi |
 
 > **E perche' gli invii programmati non entrano da `presenze.js`**, che pure
 > e' la porta di tutta la sezione aziende. Perche' `presenze.js` ha gia' un
@@ -1687,6 +1690,57 @@ risponde i conti del giro (`occupato`, `lette`, `limitePieno`, `inviate`,
 `riprovate`, `promemoria`, `sms`, `tolte`, `aspettano`, `cambiate` - sparite o
 uscite dal giro fra la ricerca e il lavoro -, `errori`, `rimaste`). Le prove:
 `node prove/conferme-email.prove.js`.
+
+## L'invito vale per due persone (`/api/promemoria-seconda-persona`)
+
+A Milano 2027 il codice riservato della PEC di invito vale per **due**
+iscrizioni (`MAX_PER_CODICE`). Il giro (`lib/promemoria-seconda-persona.js`)
+scrive **una** mail, **solo testo** (`MNGB.secondaPersona`), a chi si e'
+iscritto con il codice quando e' l'unica persona della sua azienda: l'invito e'
+per due, la seconda persona si registri prima che i posti finiscano, con il
+codice riportato su una riga sua e il modulo della pagina dell'evento.
+
+**A chi**, tutte le condizioni insieme, rilette sulla scheda di adesso prima
+di spedire:
+
+- iscrizione **attiva** a un evento con il tetto per codice (oggi Milano) fatta
+  con il codice (`selezionata`, `invitoCodice`);
+- con quel codice **una sola iscrizione attiva**, nell'elenco e nel conto del
+  codice (`iscrizioniUsate`): un'annullata non conta;
+- **indirizzo email confermato** (`emailConfermata`): la mail va li';
+- **un giorno** dalla conferma (chi era iscritto da prima la riceve al primo
+  giro utile dopo la pubblicazione);
+- il codice e' di un **invito** (`campagna: 'invito'`, non degli sponsor) e
+  all'azienda e' partito **per PEC** (`invio.canale` o `secondoInvio.canale`
+  `'pec'` sulla scheda di `aziendeInvito`);
+- l'evento non e' a meno di un giorno.
+
+**Una per azienda, una volta.** Il segno sta sul codice:
+`codiciInvito/<codice>.secondaPersona: { stato, quando, iscrizione, a,
+tentativi, errore, prossimo, fino }`, preso in una transazione **prima** di
+spedire (`in-corso`, due minuti). Stati: `inviata`; `errore` (un no del server
+di posta: si riprova dopo **30 minuti** e dopo **3 ore**, tre tentativi in
+tutto) e poi `non-partita`; `incerta` (il server non ha risposto entro 25
+secondi, o la funzione si e' chiusa a meta': **non** si riprova, meglio una
+mail in meno che due uguali). A lavoro finito il segno si copia sulla scheda,
+`promemoriaSecondaPersona: { quando, codice, ok }` (con `escluso` per le
+aziende fuori per sempre: codice di sponsor o sparito, invito non per PEC), e
+Modifica se lo porta dietro: e' quello che fa saltare l'azienda ai giri dopo.
+
+**Quando.** Dal lunedi' al venerdi', dalle **9 alle 19** ora di Milano; fuori
+orario il giro non legge niente. Al piu' **15 mail a giro**. Mittente quello
+delle mail di conferma, "Rispondi" verso `info@nextgenerationbusiness.it`
+(`CONFERMA_RISPONDI_A`), tag Brevo `X-Mailin-Tag: seconda-persona`.
+
+**Spegnerlo** (per esempio a sala piena): `PROMEMORIA_SECONDA_PERSONA=no` su
+Vercel, poi un nuovo deploy; il giro risponde `spento`.
+
+Un giro alla volta (lucchetto su `meta/promemoriaSecondaPersona`, come quello
+delle conferme). A mano: `GET /api/promemoria-seconda-persona` con
+`Authorization: Bearer <CRON_SECRET>`; risponde i conti (`spento`,
+`fuoriOrario`, `occupato`, `lette`, `candidate`, `inviate`, `errori`,
+`incerte`, `aspettano`, `escluse`, `saltate`, `rimaste`). Le prove:
+`node prove/seconda-persona.prove.js`.
 
 ## Mail di conferma non arrivata: cosa controllare
 

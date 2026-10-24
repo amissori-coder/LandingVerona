@@ -702,7 +702,7 @@ async function trasloca(db, dati) {
 }
 
 module.exports = {
-    EVENTI, eventoDi, cellulare, leggibile, mascherato,
+    EVENTI, eventoDi, attiva, cellulare, leggibile, mascherato,
     invia, verifica, registra, riattiva, trasloca, usiCodice, firmaNumero, firmaNumeroValida,
     smsConfermaEmail, testoSmsConferma, caratteriSms, msgInAttesa, LINK_MODULO_MAIL, SMS_MAX_CARATTERI,
     MAX_PER_CODICE, MSG
