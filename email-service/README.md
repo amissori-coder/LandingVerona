@@ -1957,8 +1957,8 @@ A **mezzanotte, ora di Milano**, per gli eventi di
 mail con le iscrizioni **completate** nella giornata appena finita (l'email
 confermata quel giorno, anche se il modulo era di giorni prima: nome,
 azienda, ruolo, email, cellulare, ora, azienda invitata), chi e' ancora **in
-attesa di confermare** l'email, il totale delle iscrizioni confermate e il
-pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
+attesa di confermare** l'email, i due totali (aziende, e aziende + aderenti:
+vedi sotto) e il pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
 conferme nuove ne' persone in attesa non parte niente.** Le annullate non
 contano. "In attesa" e' la stessa regola dei promemoria e dell'area
 riservata (`inAttesaDiConferma`, in "Conferma dell'indirizzo email"): le
@@ -1982,10 +1982,33 @@ c'e' un'email da confermare, perche' l'iscrizione vale da quando arriva: niente
 - **le iscrizioni aggiornate**: arrivate prima e inviate di nuovo quel giorno
   (`quando`), con i campi della fatturazione cambiati rispetto a fine giornata
   precedente (dalla `storia` della scheda);
-- **i totali**: iscritti e fatture da emettere, con l'importo.
+- **i totali**: iscritti e fatture da emettere, con l'importo, e i due totali
+  dell'evento (aziende, e aziende + aderenti), gli stessi della mail delle
+  aziende.
 
 Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
 (`mail: false` sulla scheda), il riepilogo lo scrive sotto il suo nome.
+
+**I due totali, in tutte e due le mail** (e negli stessi termini nella riga
+"Totali dell'evento" dell'area riservata, sotto i riquadri di Milano):
+- **Totale aziende**: le persone iscritte al convegno, in sala e online, senza
+  gli aderenti e senza chi aspetta ancora di confermare l'email. Contano anche
+  le iscrizioni inserite a mano, dal desk e importate (come nei riquadri
+  dell'area riservata), una riga per le persone della colonna Partecipanti;
+  non contano le annullate e gli invitati ai soli incontri B2B;
+- **Aderenti**: gli iscritti alla cena e al meeting, piu' chi chi organizza ha
+  messo nella sezione "Aderenti Revilaw" del convegno ("38 (35 cena e
+  meeting, 3 solo convegno)");
+- **Totale aziende + aderenti**: la somma dei due, cioe' tutte le persone
+  dell'evento una volta sola. Chi e' iscritto al convegno **e** alla cena
+  (stesso indirizzo email) e' un aderente e si conta una volta, con la cena;
+  la mail lo dice.
+
+La regola sta in `totaliConAderenti` (`lib/riepilogo-iscrizioni.js`) e, uguale,
+in `area-riservata/app.js`: `prove/totali-aderenti.prove.js` le confronta. Per
+sapere chi e' nella sezione degli aderenti il lavoro legge anche le presenze;
+se le presenze o le iscrizioni degli aderenti non si leggono, le mail partono
+come prima ("Iscrizioni totali", le confermate), senza i due totali.
 
 Senza iscrizioni nuove o aggiornate non parte niente. Una volta per notte su
 `meta/riepilogoAderenti-<quota>`, che tiene l'**ultimo giorno spedito

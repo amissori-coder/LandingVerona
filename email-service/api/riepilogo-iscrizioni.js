@@ -196,17 +196,49 @@ module.exports = async (req, res) => {
             }
         };
         const esiti = [];
-        // le aziende: se qualcosa si rompe qui, gli aderenti partono lo stesso
+        /* Le tre letture, ognuna per conto suo: un guasto in una non ferma le
+           altre mail. Gli aderenti e le presenze servono anche ai due totali
+           (aziende, aziende + aderenti) che stanno in TUTTE E DUE le mail;
+           se uno dei due manca le mail partono come prima, senza i totali. */
+        let schede = null;
         try {
             const snap = await db.collection('iscrizioni').get();
-            const schede = [];
+            schede = [];
             snap.forEach(d => schede.push({ id: d.id, dati: d.data() || {} }));
+        } catch (e) {
+            console.error('Riepilogo iscrizioni, iscrizioni non lette:', String((e && e.message) || e).slice(0, 200));
+        }
+        let aderenti = null;
+        try {
+            const snapA = await db.collection(R.COLLEZIONE_ADERENTI).get();
+            aderenti = [];
+            snapA.forEach(d => aderenti.push({ id: d.id, dati: d.data() || {} }));
+        } catch (e) {
+            console.error('Riepilogo aderenti, iscrizioni non lette:', String((e && e.message) || e).slice(0, 200));
+        }
+        // le presenze dicono chi chi organizza ha messo fra gli aderenti (e chi era gia' in sala)
+        let presenze = null;
+        try {
+            const snapP = await db.collection('presenze').get();
+            presenze = new Map();
+            snapP.forEach(d => presenze.set(d.id, d.data() || {}));
+        } catch (e) {
+            console.error('Riepilogo iscrizioni, presenze non lette (niente totali con gli aderenti):', String((e && e.message) || e).slice(0, 200));
+        }
+        const totaliDi = ev => {
+            if (!ev || !schede || !aderenti || !presenze) return null;
+            try { return R.totali(schede, presenze, ev, aderenti); }
+            catch (e) { console.error('Riepilogo, totali non calcolati:', String((e && e.message) || e).slice(0, 200)); return null; }
+        };
+        // le aziende: se qualcosa si rompe qui, gli aderenti partono lo stesso
+        try {
+            if (!schede) throw new Error('iscrizioni non lette');
             for (const ev of R.EVENTI) {
                 const c = R.conti(schede, ev, giorno);
                 const nome = 'riepilogoIscrizioni-' + ev.chiave;
                 if (!R.daSpedire(c)) { esiti.push({ evento: ev.chiave, nuove: 0, inAttesa: 0 }); continue; }
                 if (!anteprima && !await prenota(db, nome, giorno, forza)) { esiti.push({ evento: ev.chiave, nuove: c.nuove.length, gia: true }); continue; }
-                const inviata = await spedisci(nome, conAnteprima(MNGB.riepilogoIscrizioni(c, LINK_AREA, R.giornoLeggibile(giorno))),
+                const inviata = await spedisci(nome, conAnteprima(MNGB.riepilogoIscrizioni(c, LINK_AREA, R.giornoLeggibile(giorno), totaliDi(ev))),
                     anteprima ? null : () => db.collection('meta').doc(nome).set({ ultimoGiorno: null }, { merge: true }));
                 esiti.push(inviata
                     ? { evento: ev.chiave, nuove: c.nuove.length, inAttesa: c.inAttesa.length, totale: c.totale, inviata: inviata }
@@ -216,18 +248,11 @@ module.exports = async (req, res) => {
             console.error('Riepilogo iscrizioni (aziende):', String((e && e.message) || e).slice(0, 200));
             esiti.push({ evento: '', errore: true });
         }
-        /* Gli aderenti: un'altra collezione, e una lettura sua. Se non riesce,
-           il riepilogo delle aziende e' gia' partito e resta valido; il
+        /* Gli aderenti: un'altra collezione, letta qui sopra. Se non si e'
+           letta, il riepilogo delle aziende e' gia' partito e resta valido; il
            giorno resta da spedire, e lo recupera la notte dopo. */
-        let aderenti = null;
-        try {
-            const snapA = await db.collection(R.COLLEZIONE_ADERENTI).get();
-            aderenti = [];
-            snapA.forEach(d => aderenti.push({ id: d.id, dati: d.data() || {} }));
-        } catch (e) {
-            console.error('Riepilogo aderenti, iscrizioni non lette:', String((e && e.message) || e).slice(0, 200));
-        }
         for (const q of R.QUOTE_ADERENTI) {
+            const evQ = R.EVENTI.find(e => e.chiave === q.evento) || null;
             if (!aderenti) { esiti.push({ quota: q.id, errore: true }); continue; }
             const nome = 'riepilogoAderenti-' + q.id;
             let aperto = null;
@@ -235,7 +260,7 @@ module.exports = async (req, res) => {
                 if (anteprima) {
                     const c = R.contiAderenti(aderenti, q, giorno);
                     if (!R.daSpedireAderenti(c)) { esiti.push({ quota: q.id, nuove: 0, aggiornate: 0, anteprima: true }); continue; }
-                    const inviata = await spedisci(nome, conAnteprima(MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno))), null);
+                    const inviata = await spedisci(nome, conAnteprima(MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno), null, totaliDi(evQ))), null);
                     esiti.push({ quota: q.id, nuove: c.nuove.length, aggiornate: c.aggiornate.length, anteprima: true, inviata: inviata, errore: !inviata || undefined });
                     continue;
                 }
@@ -250,7 +275,7 @@ module.exports = async (req, res) => {
                     esiti.push({ quota: q.id, nuove: 0, aggiornate: 0, dal: c.dal });
                     continue;
                 }
-                const inviata = await spedisci(nome, MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno), R.giornoLeggibile(c.dal)), null);
+                const inviata = await spedisci(nome, MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno), R.giornoLeggibile(c.dal), totaliDi(evQ)), null);
                 // il giorno si segna solo se la mail e' partita; se no resta da spedire
                 await chiudiAderenti(db, nome, giorno, !!inviata, p.id);
                 aperto = null;

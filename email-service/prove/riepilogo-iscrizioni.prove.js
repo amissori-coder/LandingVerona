@@ -133,7 +133,14 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(spedite.length === 1, 'parte una mail');
     let m = spedite[0] || {};
     esigi(m.to === 'andreamissori@revilaw.it, pierluigisterzi@revilaw.it, ombrettamagaraci@revilaw.it, sergiomiele@revilaw.it, vincenzoantonionapolitano@revilaw.it', 'ai cinque organizzatori', m.to);
-    esigi(/2 confermate/.test(m.subject) && /totale 2/.test(m.subject) && /2 in attesa/.test(m.subject), 'oggetto: due confermate, due in tutto, due in attesa', m.subject);
+    /* Il totale delle aziende conta chi e' nell'elenco e non aspetta la
+       conferma: Anna e Carla, che hanno confermato, e chi una mail da
+       confermare non l'ha (Fabio inserito a mano, Ugo dal desk, Ida importata),
+       come i riquadri dell'area riservata. Aderenti ancora nessuno. */
+    esigi(/2 confermate/.test(m.subject) && /aziende 5, con gli aderenti 5/.test(m.subject) && /2 in attesa/.test(m.subject), 'oggetto: due confermate, cinque aziende, cinque con gli aderenti, due in attesa', m.subject);
+    esigi(/Totale aziende<\/td>[\s\S]*?>5<\/td>/.test(m.html) && /Totale aziende \+ aderenti<\/td>[\s\S]*?>5<\/td>/.test(m.html), 'nel riquadro: totale aziende e totale aziende + aderenti');
+    esigi(/Totale aziende: le persone iscritte al convegno/.test(m.html) && /Totale aziende: 5\nAderenti: 0\nTotale aziende \+ aderenti: 5/.test(m.text), 'con la frase che dice che cosa conta ciascuno, anche nel testo semplice');
+    esigi(!/Iscrizioni totali/.test(m.html), 'e senza un terzo "totale" che direbbe un altro numero');
     const [conf, attesa] = m.html.split('In attesa di conferma email');
     esigi(/Anna Bianchi/.test(conf) && /Carla Verdi/.test(conf), 'fra le confermate: chi ha confermato oggi, anche se iscritto ieri');
     esigi(/confermata alle 10:20/.test(conf), 'con l\'ora della conferma');
@@ -161,7 +168,7 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(/Bruno Rossi/.test(conf2) && !/Bruno/.test(attesa2 || ''), 'Bruno ha confermato: ora e\' fra le nuove, non piu\' in attesa');
     esigi(!/Anna/.test(conf2), 'Anna non torna: era nuova ieri');
     esigi(/Ivo/.test(attesa2 || '') && /Gino/.test(attesa2 || '') && !/Fabio/.test(m.html || ''), 'Ivo resta in attesa, e si aggiunge Gino');
-    esigi(/totale 3/.test(m.subject || ''), 'tre confermate in tutto', m.subject);
+    esigi(/aziende 6/.test(m.subject || ''), 'sei aziende: si e\' aggiunto Bruno', m.subject);
 
     console.log('\nNiente da dire, niente mail');
     // confermano gli ultimi due dal sito; Fabio e Ugo non confermano mai, e non tengono viva la mail
@@ -388,6 +395,60 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     const kb = Buffer.byteLength(String(m.html || ''), 'utf8') / 1024;
     esigi(spedite.length === n0 + 1 && /30 nuove/.test(m.subject) && kb < 95, 'trenta persone, ' + kb.toFixed(1) + ' KB di HTML: sotto i 95');
     esigi(/Persona29 Con Un Cognome Lungo/.test(m.html) && /Apri le iscrizioni nell'area riservata/.test(m.html), 'e c\'e\' tutto, fino all\'ultima persona e al pulsante');
+
+    console.log('\nI due totali: aziende, e aziende + aderenti');
+    {
+        const R = require(path.join(__dirname, '..', 'lib/riepilogo-iscrizioni.js'));
+        const GIRO = require(path.join(__dirname, '..', 'lib/giro-conferme.js'));
+        const ev = R.EVENTI[0];
+        const MI = 'Milano 26 Febbraio 2027 - Iscrizione';
+        const conf = { quando: 1, come: 'mail' };
+        const sc = [
+            { id: 's1', dati: { pagina: MI, email: 'uno@alfa.it', data: '01/01/2027', emailConfermata: conf } },
+            // un gruppo da Eventbrite: tre persone su una riga
+            { id: 's2', dati: { pagina: MI, email: 'gruppo@beta.it', data: '01/01/2027', inserito: { da: 'x' }, extra: { Partecipanti: '3' } } },
+            // aspetta la conferma: non conta
+            { id: 's3', dati: { pagina: MI, email: 'attesa@gamma.it', data: '01/01/2027' } },
+            // annullata, solo B2B, altro evento: non contano
+            { id: 's4', dati: { pagina: MI, email: 'via@delta.it', data: '01/01/2027', emailConfermata: conf, annullato: { quando: 1 } } },
+            { id: 's5', dati: { pagina: MI, email: 'b2b@eps.it', data: '01/01/2027', inserito: { da: 'x' }, soloB2B: true } },
+            { id: 's6', dati: { pagina: 'Napoli 2 Ottobre 2026 - Iscrizione', email: 'napoli@x.it', data: '01/01/2027', emailConfermata: conf } },
+            // messo fra gli aderenti da chi organizza, e non iscritto alla cena
+            { id: 's7', dati: { pagina: MI, email: 'aderente@studio.it', data: '01/01/2027', emailConfermata: conf } },
+            // iscritto al convegno E alla cena: e' un aderente, si conta una volta
+            { id: 's8', dati: { pagina: MI, email: 'Doppio@Studio.it', data: '01/01/2027', emailConfermata: conf } },
+            // spostato fra i soli incontri B2B dall'elenco
+            { id: 's9', dati: { pagina: MI, email: 'spostato@zeta.it', data: '01/01/2027', emailConfermata: conf } },
+            { id: 's10', dati: { pagina: MI, email: 'online@eta.it', data: '01/01/2027', emailConfermata: conf, modalita: 'online' } }
+        ];
+        const pres = new Map();
+        pres.set(GIRO.idPresenza(ev, sc[6].dati), { modalita: 'aderenti' });
+        pres.set(GIRO.idPresenza(ev, sc[8].dati), { modalita: 'b2b' });
+        const ad = [
+            { id: 'a1', dati: { quota: 'milano-2027-aderenti', email: 'doppio@studio.it' } },
+            { id: 'a2', dati: { quota: 'milano-2027-aderenti', email: 'solo.cena@studio.it' } },
+            { id: 'a3', dati: { quota: 'altra-quota', email: 'altrove@studio.it' } }
+        ];
+        const t = R.totali(sc, pres, ev, ad);
+        esigi(t.aziende === 5, 'aziende: una confermata, un gruppo da tre, una online (fuori attesa, annullate, B2B, altri eventi e aderenti)', JSON.stringify(t));
+        esigi(t.cena === 2 && t.soloConvegno === 1 && t.aderenti === 3, 'aderenti: i due della cena e quello messo fra gli aderenti del convegno');
+        esigi(t.anche === 1 && t.tutti === 8, 'chi e\' al convegno e alla cena si conta una volta: 5 + 3 = 8');
+        const MNGB = require(path.join(__dirname, '..', 'lib/mail-ngb.js'));
+        const ma = MNGB.riepilogoAderenti(R.contiAderenti(ad, R.QUOTE_ADERENTI[0], '2027-01-01'), 'https://x', '01/01/2027', null, t);
+        esigi(/Totale aziende<\/td>[\s\S]*?>5<\/td>/.test(ma.html) && /Totale aziende \+ aderenti<\/td>[\s\S]*?>8<\/td>/.test(ma.html), 'anche la mail degli aderenti ha i due totali');
+        esigi(/3 \(2 cena e meeting, 1 solo convegno\)/.test(ma.html) && /Un aderente è iscritto anche al convegno: si conta una volta sola/.test(ma.html), 'con gli aderenti divisi fra cena e solo convegno, e il doppio detto');
+        const mz = MNGB.riepilogoIscrizioni({ evento: ev, nuove: [], inAttesa: [], totale: 4 }, 'https://x', '01/01/2027', null);
+        esigi(/totale 4/.test(mz.oggetto) && /Iscrizioni totali/.test(mz.html) && !/Totale aziende/.test(mz.html), 'senza i totali (una lettura fallita) la mail resta com\'era');
+    }
+    {
+        // le presenze non si leggono: le mail partono, senza i totali
+        const n0 = spedite.length;
+        rompiLettura.add('presenze');
+        orologio = ms('2027-03-01T23:00:05Z');
+        const r = await gira({ giorno: '2027-01-15', forza: '1' });
+        const mm = spedite.slice(n0).find(x => /^Iscrizioni Milano/.test(x.subject)) || {};
+        esigi(r.stato === 200 && /totale \d+/.test(mm.subject || '') && /Iscrizioni totali/.test(mm.html || ''), 'presenze non lette: la mail delle aziende parte com\'era', mm.subject);
+    }
 
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
     require('fs').writeFileSync(process.env.ANTEPRIMA || '/dev/null', (spedite[0] || {}).html || '');

@@ -17481,6 +17481,91 @@
             : quante;
     }
 
+    /* I DUE TOTALI DELL'EVENTO (Milano), da non confondere fra loro ne' con i
+       posti in sala:
+         TOTALE AZIENDE            le persone iscritte al convegno, in sala e
+                                   online, tolti gli aderenti e chi aspetta
+                                   ancora di confermare l'email;
+         TOTALE AZIENDE + ADERENTI tutte le persone dell'evento, ognuna una
+                                   volta: le aziende piu' gli aderenti, cioe'
+                                   gli iscritti alla cena e al meeting e chi
+                                   sta nella sezione "Aderenti Revilaw".
+       Chi e' iscritto al convegno E alla cena e al meeting (stesso indirizzo)
+       e' un aderente, e si conta una volta sola, con la cena.
+       LA STESSA REGOLA sta nel servizio (email-service/lib/riepilogo-iscrizioni.js,
+       totaliConAderenti), per le mail di mezzanotte: se cambia qui va cambiata
+       la', e prove/totali-aderenti.prove.js le mette a confronto.
+       `convegno`: [{ email, persone, aderente }]; `cena`: [{ email }]. */
+    function totaliConAderenti(convegno, cena) {
+        const chiave = e => String(e || '').trim().toLowerCase();
+        const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
+        let aziende = 0, soloConvegno = 0;
+        const anche = new Set();
+        (convegno || []).forEach(r => {
+            const k = chiave(r && r.email);
+            // e' un aderente della cena: si conta con la cena
+            if (k && dellaCena.has(k)) { anche.add(k); return; }
+            const n = Math.max(0, Number(r && r.persone) || 0);
+            if (r && r.aderente) soloConvegno += n; else aziende += n;
+        });
+        const cenaN = (cena || []).length;
+        return {
+            aziende: aziende,
+            aderenti: cenaN + soloConvegno,
+            cena: cenaN,
+            soloConvegno: soloConvegno,
+            anche: anche.size,
+            tutti: aziende + cenaN + soloConvegno
+        };
+    }
+    /* I totali di un evento con gli aderenti, o null: dove gli aderenti non ci
+       sono, o finche' le loro iscrizioni non sono lette (senza, le aziende
+       conterebbero anche gli aderenti della cena iscritti al convegno). Le
+       righe del convegno sono quelle dei riquadri: l'elenco, fuori chi aspetta
+       la conferma dell'email, ognuna per le sue persone. */
+    function totaliEvento(ev) {
+        if (!evHaAderenti(ev) || !_evIscrizioni) return null;
+        const quote = aderentiDi(ev);
+        if (!quote || quote.some(d => !d || !d.conti || !Array.isArray(d.righe))) return null;
+        const convegno = soloIscritti(ev, _evIscrizioni)
+            .filter(r => sezioneVista(ev, r) !== SEZIONE_ATTESA.id)
+            .map(r => ({ email: r.email, persone: partecipantiDi(r), aderente: modalitaDi(ev, r) === 'aderenti' }));
+        const cena = [];
+        quote.forEach(d => d.righe.forEach(x => cena.push({ email: x.email })));
+        return totaliConAderenti(convegno, cena);
+    }
+    // i suggerimenti dei tre riquadri: che cosa conta ciascun numero
+    function titoliTotali(t) {
+        const att = 'Chi aspetta ancora di confermare l\'email non è contato.';
+        if (!t) {
+            const msg = 'Si calcola quando sono lette le iscrizioni degli aderenti' + (_aderentiMsg ? ': ' + _aderentiMsg : '.');
+            return { aziende: msg, aderenti: msg, tutti: msg };
+        }
+        return {
+            aziende: 'Le persone iscritte al convegno, in sala e online, senza gli aderenti. ' + att,
+            aderenti: t.cena + (t.cena === 1 ? ' iscritto' : ' iscritti') + ' alla cena e al meeting'
+                + (t.soloConvegno ? ', ' + t.soloConvegno + ' nella sezione Aderenti Revilaw del convegno' : '')
+                + (t.anche ? '. ' + (t.anche === 1 ? 'Uno è iscritto' : t.anche + ' sono iscritti') + ' anche al convegno: si conta una volta sola.' : '.'),
+            tutti: 'Tutte le persone dell\'evento, ognuna una volta: ' + t.aziende + ' aziende + ' + t.aderenti + ' aderenti. ' + att
+        };
+    }
+    function totaliHtml(ev, riquadroNum) {
+        if (!evHaAderenti(ev)) return '';
+        const t = totaliEvento(ev);
+        const ti = titoliTotali(t);
+        const v = n => t ? n : '-';
+        return '<div class="ev-num-totali">'
+            + '<span class="ev-tot-titolo">Totali dell\'evento</span>'
+            + riquadroNum(v(t && t.aziende), 'totale aziende', ti.aziende, '', 'tot-aziende')
+            + '<span class="ev-tot-op" aria-hidden="true">+</span>'
+            /* "in tutto": nella fila sopra "aderenti" sono quelli seduti in sala,
+               la sezione del convegno; qui ci sono anche la cena e il meeting */
+            + riquadroNum(v(t && t.aderenti), 'aderenti in tutto', ti.aderenti, '', 'tot-aderenti')
+            + '<span class="ev-tot-op" aria-hidden="true">=</span>'
+            + riquadroNum(v(t && t.tutti), 'totale aziende + aderenti', ti.tutti, 'forte', 'tot-tutti')
+            + '</div>';
+    }
+
     /* I NUMERI SI MUOVONO CON LA RIGA
        ---------------------------------------------------------
        Spostare un iscritto fra le sezioni cambia i conteggi in testa, i numeri
@@ -17517,6 +17602,16 @@
         scriviNumero(num('iscrizioni'), c.nIsc === null ? '-' : c.nIsc);
         scriviNumero(num('partecipanti'), c.nPart === null ? '-' : c.nPart);
         scriviNumero(num('indirizzi'), c.nIndir === null ? '-' : c.nIndir);
+        // i due totali con gli aderenti (Milano): cambiano con le sezioni e con le iscrizioni alla cena
+        if (evHaAderenti(ev)) {
+            const t = totaliEvento(ev);
+            const ti = titoliTotali(t);
+            [['tot-aziende', 'aziende'], ['tot-aderenti', 'aderenti'], ['tot-tutti', 'tutti']].forEach(([q, k]) => {
+                const el = num(q);
+                scriviNumero(el, t ? t[k] : '-');
+                if (el) el.setAttribute('title', ti[k]);
+            });
+        }
         // le voci sopra l'elenco: numero, suggerimento e la veste "sezione vuota"
         const tutte = soloIscritti(ev, _evIscrizioni || []);
         vista.querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => {
@@ -18199,7 +18294,12 @@
                     : '')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
-                + '</div>') + '</div>'
+                + '</div>')
+            /* I DUE TOTALI CON GLI ADERENTI della cena e del meeting: una fila
+               sua, sotto, perche' non si confondano con i posti in sala e fra
+               loro ("aziende" + "aderenti" = il totale di tutti). */
+            + (ev.tutti ? '' : totaliHtml(ev, riquadroNum))
+            + '</div>'
             + cruscotto + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
@@ -21866,6 +21966,8 @@
         if (b) b.addEventListener('click', () => modaleAderenti(ev));
     }
     function aggiornaSchedaAderenti(ev) {
+        // i totali in testa contano anche gli aderenti: arrivati loro, si riscrivono
+        aggiornaNumeriEventi(ev);
         const el = document.getElementById('ev-aderenti-blocco');
         if (!el) return;
         el.outerHTML = aderentiHtml(ev);

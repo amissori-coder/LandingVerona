@@ -970,6 +970,33 @@ function invitoB2BAnnullato(dati) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
+/* I DUE TOTALI, nelle due mail di mezzanotte (aziende e aderenti): `t` viene
+   da lib/riepilogo-iscrizioni.js (totali) ed e' null se le iscrizioni degli
+   aderenti o le presenze non si sono potute leggere - allora la mail resta
+   com'era, senza un totale a meta'. Le righe del riquadro e la frase che dice
+   che cosa conta ciascun numero: "aziende" e "aziende + aderenti" non si
+   devono poter confondere. */
+function aderentiTesto(t) {
+    return String(t.aderenti) + (t.soloConvegno ? ' (' + t.cena + ' cena e meeting, ' + t.soloConvegno + ' solo convegno)' : '');
+}
+function righeTotali(t) {
+    return rigaBox('Totale aziende', String(t.aziende), 330)
+        + rigaBox('Aderenti', aderentiTesto(t), 330)
+        + rigaBox('Totale aziende + aderenti', String(t.tutti), 330);
+}
+function spiegaTotali(t) {
+    return 'Totale aziende: le persone iscritte al convegno, in sala e online, senza gli aderenti e senza chi aspetta di confermare l\'email. '
+        + 'Totale aziende + aderenti: in più gli aderenti, cioè gli iscritti alla cena e al meeting'
+        + (t.soloConvegno ? ' e quelli iscritti al solo convegno' : '') + '.'
+        + (t.anche ? ' ' + (t.anche === 1 ? 'Un aderente è iscritto' : t.anche + ' aderenti sono iscritti') + ' anche al convegno: si conta una volta sola.' : '');
+}
+function testoTotali(t) {
+    return 'Totale aziende: ' + t.aziende + '\nAderenti: ' + aderentiTesto(t) + '\nTotale aziende + aderenti: ' + t.tutti;
+}
+function notaTotali(t) {
+    return '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:20px;color:' + C.tenue + ';padding:10px 0 0;text-align:justify;">' + esc(spiegaTotali(t)) + '</td></tr>';
+}
+
 /* --- Il riepilogo serale per gli organizzatori ---
    `c` viene da lib/riepilogo-iscrizioni.js (conti): { evento, giorno,
    nuove: [...], inAttesa: [...], totale }. Ogni persona: { nome, azienda,
@@ -979,17 +1006,22 @@ function invitoB2BAnnullato(dati) {
    confermato l'email (`iscritto` = giorno, `ora` = ora del modulo) e
    tornano ogni notte finche' non confermano. `link` porta alle iscrizioni
    nell'area riservata. Si veste come le mail dell'evento, ma e' una mail
-   interna: niente collegamenti personali, e i dati di contatto ci sono. */
-function riepilogoIscrizioni(c, link, giornoTesto) {
+   interna: niente collegamenti personali, e i dati di contatto ci sono.
+   `t`: i due totali (righeTotali), o null. */
+function riepilogoIscrizioni(c, link, giornoTesto, t) {
     const pagina = (c.evento && c.evento.nome ? c.evento.nome : '') + ' 26 Febbraio 2027';
     const n = c.nuove.length;
     const a = c.inAttesa.length;
     const oggetto = 'Iscrizioni ' + (c.evento ? c.evento.nome : '') + ' - ' + n + (n === 1 ? ' confermata' : ' confermate') + ' il ' + giornoTesto
-        + ' (totale ' + c.totale + (a ? ', ' + a + ' in attesa' : '') + ')';
+        + (t
+            ? ' (aziende ' + t.aziende + ', con gli aderenti ' + t.tutti + (a ? ', ' + a + ' in attesa' : '') + ')'
+            : ' (totale ' + c.totale + (a ? ', ' + a + ' in attesa' : '') + ')');
     const sommario = (n
         ? 'Il ' + giornoTesto + ' ' + (n === 1 ? 'una persona ha completato l\'iscrizione' : n + ' persone hanno completato l\'iscrizione') + ' confermando l\'email.'
         : 'Il ' + giornoTesto + ' nessuna nuova iscrizione confermata.')
-        + ' Le iscrizioni confermate sono ' + c.totale
+        + (t
+            ? ' Totale aziende: ' + t.aziende + '; totale aziende + aderenti: ' + t.tutti
+            : ' Le iscrizioni confermate sono ' + c.totale)
         + (a ? '; ' + (a === 1 ? 'una persona attende' : a + ' persone attendono') + ' ancora di confermare l\'email.' : '.');
     const riga = (p, nota) => '<tr><td style="padding:14px 0;border-bottom:1px solid ' + C.bordo + ';">' + tabella(
         '<tr><td style="' + FONTE + 'font-size:16px;line-height:22px;font-weight:bold;color:' + C.scuro + ';">' + esc(p.nome) + '</td>'
@@ -1005,9 +1037,10 @@ function riepilogoIscrizioni(c, link, giornoTesto) {
         + corpo(
             '<tr><td>' + box(
                 rigaBox('Iscrizioni di oggi', String(n), 330)
-                + rigaBox('Iscrizioni totali', String(c.totale), 330)
+                + (t ? righeTotali(t) : rigaBox('Iscrizioni totali', String(c.totale), 330))
                 + rigaBox('Iscrizioni in attesa di conferma mail', String(a), 330)
             ) + '</td></tr>'
+            + (t ? notaTotali(t) : '')
             + spazio(30)
             + occhiello('Iscrizioni confermate il ' + giornoTesto)
             + '<tr><td>' + tabella(n ? c.nuove.map(p => riga(p, p.ora ? 'confermata alle ' + p.ora : '')).join('') : vuoto('Nessuna nuova conferma nella giornata.')) + '</td></tr>'
@@ -1027,7 +1060,8 @@ function riepilogoIscrizioni(c, link, giornoTesto) {
         + '\n  ' + [p.email, p.telefono].filter(Boolean).join(' - ')
         + (p.invito ? '\n  Azienda invitata: ' + p.invito : '');
     const testo = ['RIEPILOGO ISCRIZIONI DEL ' + giornoTesto, sommario,
-        'Iscrizioni di oggi: ' + n + '\nIscrizioni totali: ' + c.totale + '\nIscrizioni in attesa di conferma mail: ' + a,
+        'Iscrizioni di oggi: ' + n + '\n' + (t ? testoTotali(t) : 'Iscrizioni totali: ' + c.totale) + '\nIscrizioni in attesa di conferma mail: ' + a
+            + (t ? '\n' + spiegaTotali(t) : ''),
         'ISCRIZIONI CONFERMATE IL ' + giornoTesto + '\n' + (n ? c.nuove.map(p => txtPersona(p, p.ora ? 'confermata alle ' + p.ora : '')).join('\n') : 'Nessuna nuova conferma nella giornata.'),
         a ? 'IN ATTESA DI CONFERMA EMAIL\n' + c.inAttesa.map(p => txtPersona(p, 'iscritto il ' + p.iscritto + (p.ora ? ' alle ' + p.ora : ''))).join('\n') : '',
         'Tutte le iscrizioni nell\'area riservata: ' + link,
@@ -1053,11 +1087,13 @@ function riepilogoIscrizioni(c, link, giornoTesto) {
    "nowrap": sul telefono non esce dallo schermo.
    `c` e' quello che restituisce contiAderenti (lib/riepilogo-iscrizioni.js);
    `dalTesto`, se c'e' ed e' diverso da `giornoTesto`, e' l'inizio del periodo
-   (una notte in cui la mail non era partita, recuperata la notte dopo). */
+   (una notte in cui la mail non era partita, recuperata la notte dopo);
+   `t`, i due totali dell'evento come nella mail delle aziende (righeTotali),
+   o null. */
 function euroIt(n) {
     return Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
-function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
+function riepilogoAderenti(c, link, giornoTesto, dalTesto, t) {
     const q = c.quota || {};
     const pagina = (q.luogo || 'Milano') + ' 26 Febbraio 2027';
     const titolo = q.titolo || 'Cena e meeting degli aderenti Revilaw';
@@ -1126,7 +1162,10 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
                 + (u ? rigaBox('Iscrizioni aggiornate', String(u), 330) : '')
                 + rigaBox('Iscrizioni totali', String(c.totale), 330)
                 + rigaBox('Fatture da emettere', c.daFatturare ? c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ')' : '0', 330)
+                // i due totali dell'evento, gli stessi della mail delle aziende
+                + (t ? righeTotali(t) : '')
             ) + '</td></tr>'
+            + (t ? notaTotali(t) : '')
             + spazio(30)
             + occhiello('Nuove iscrizioni ' + (periodo ? 'dal ' + dalTesto + ' al ' + giornoTesto : 'del ' + giornoTesto))
             + '<tr><td>' + tabella(n ? c.nuove.map(p => voce(p, notaNuova(p))).join('') : vuoto('Nessuna nuova iscrizione.')) + '</td></tr>'
@@ -1153,7 +1192,8 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto) {
         titolo + (datiQuota.length ? '\n' + datiQuota.map(d => d[0] + ': ' + d[1]).join(' - ') : ''),
         sommario,
         'Nuove iscrizioni: ' + n + (u ? '\nIscrizioni aggiornate: ' + u : '') + '\nIscrizioni totali: ' + c.totale
-            + '\nFatture da emettere: ' + (c.daFatturare ? c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ')' : '0'),
+            + '\nFatture da emettere: ' + (c.daFatturare ? c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ')' : '0')
+            + (t ? '\n' + testoTotali(t) + '\n' + spiegaTotali(t) : ''),
         'NUOVE ISCRIZIONI ' + (periodo ? 'DAL ' + dalTesto + ' AL ' + giornoTesto : 'DEL ' + giornoTesto) + '\n' + (n ? c.nuove.map(p => txtPersona(p, notaNuova(p))).join('\n') : 'Nessuna nuova iscrizione.'),
         u ? 'ISCRIZIONI AGGIORNATE\n' + c.aggiornate.map(p => txtPersona(p, notaAggiornata(p), cosaCambia(p))).join('\n') : '',
         CHIUSURA + '\n' + DOVE,

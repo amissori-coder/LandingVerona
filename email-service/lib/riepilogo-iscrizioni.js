@@ -247,8 +247,82 @@ function daSpedireAderenti(c) {
     return !!(c && (c.nuove.length || c.aggiornate.length));
 }
 
+/* ---------- il totale con gli aderenti ----------
+   Due numeri da non confondere, nelle due mail di mezzanotte come nei
+   riquadri dell'area riservata:
+     TOTALE AZIENDE            le persone iscritte al convegno, in sala e
+                               online, tolti gli aderenti;
+     TOTALE AZIENDE + ADERENTI tutte le persone dell'evento, ognuna una
+                               volta: le aziende piu' gli aderenti, cioe'
+                               chi e' iscritto alla cena e al meeting e chi
+                               sta nella sezione "Aderenti Revilaw"
+                               dell'elenco del convegno.
+   Chi e' iscritto al convegno E alla cena e al meeting (stesso indirizzo
+   email) e' un aderente, e si conta una volta sola, con la cena.
+   Del convegno contano le stesse persone dei riquadri dell'area riservata:
+   le iscrizioni attive, fuori chi aspetta ancora di confermare l'email e
+   gli invitati ai soli incontri B2B (che in elenco non ci sono), una riga
+   per le persone della colonna Partecipanti se c'e', altrimenti una.
+   LA STESSA REGOLA sta in area-riservata/app.js (totaliConAderenti): se
+   cambia qui va cambiata la', e prove/totali-aderenti.prove.js le mette a
+   confronto.
+   `convegno`: [{ email, persone, aderente }], le righe gia' scelte;
+   `cena`: [{ email }], le iscrizioni alla cena e al meeting. */
+function totaliConAderenti(convegno, cena) {
+    const chiave = e => String(e || '').trim().toLowerCase();
+    const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
+    let aziende = 0, soloConvegno = 0;
+    const anche = new Set();
+    (convegno || []).forEach(r => {
+        const k = chiave(r && r.email);
+        // e' un aderente della cena: si conta con la cena
+        if (k && dellaCena.has(k)) { anche.add(k); return; }
+        const n = Math.max(0, Number(r && r.persone) || 0);
+        if (r && r.aderente) soloConvegno += n; else aziende += n;
+    });
+    const cenaN = (cena || []).length;
+    return {
+        aziende: aziende,
+        aderenti: cenaN + soloConvegno,
+        cena: cenaN,
+        soloConvegno: soloConvegno,
+        anche: anche.size,
+        tutti: aziende + cenaN + soloConvegno
+    };
+}
+const SEZIONI = ['presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
+// la sezione di una riga: la scelta di chi organizza (fra le presenze), poi il modulo; il resto vale in presenza
+function sezioneDi(s, p) {
+    const m = String((p && p.modalita) || (s && s.modalita) || '').toLowerCase();
+    return SEZIONI.indexOf(m) >= 0 ? m : 'presenza';
+}
+function personeDi(s) {
+    const n = parseInt((s && s.extra && s.extra.Partecipanti) || '', 10);
+    return n > 0 ? Math.min(99, n) : 1;
+}
+/* I totali di un evento dai dati del servizio: `schede` le iscrizioni, `presenze`
+   una Map dal nome del documento delle presenze ai suoi dati, `aderenti` le
+   schede della collezione delle quote ({ id, dati }). */
+function totali(schede, presenze, ev, aderenti) {
+    const GIRO = require('./giro-conferme');
+    const convegno = [];
+    (schede || []).forEach(x => {
+        const s = x.dati || {};
+        if (!ev.se.test(String(s.pagina || '').trim()) || !attiva(s)) return;
+        const p = (presenze && presenze.get(GIRO.idPresenza(ev, s))) || null;
+        const sez = sezioneDi(s, p);
+        if (s.soloB2B === true || sez === 'b2b') return;
+        if (CONFERMA.inAttesaDiConferma(s, p)) return;
+        convegno.push({ email: s.email, persone: personeDi(s), aderente: sez === 'aderenti' });
+    });
+    const quote = ADERENTI.QUOTE.filter(q => q.evento === ev.chiave).map(q => q.id);
+    const cena = (aderenti || []).filter(x => quote.indexOf(String((x.dati || {}).quota || '')) >= 0)
+        .map(x => ({ email: (x.dati || {}).email }));
+    return totaliConAderenti(convegno, cena);
+}
+
 module.exports = {
     EVENTI: VERIFICATA.EVENTI, QUOTE_ADERENTI: ADERENTI.QUOTE, COLLEZIONE_ADERENTI: ADERENTI.COLLEZIONE,
     destinatari, DESTINATARI, giornoRoma, oraRoma, giornoPrima, giornoDopo, giorniPrima, giornoLeggibile, giornoDi,
-    conti, daSpedire, contiAderenti, daSpedireAderenti
+    conti, daSpedire, contiAderenti, daSpedireAderenti, totali, totaliConAderenti
 };
