@@ -723,6 +723,18 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
         s1 = codice('BB888').secondaPersona || {};
         esigi(s1.stato === 'incerta' && corpi === 1, 'testo ricevuto e poi nessuna risposta fino al tempo massimo: incerta', JSON.stringify(s1));
         modo = 'ok';
+
+        // nessuno in ascolto: la connessione non si apre
+        pulisci(); corpi = 0;
+        azienda('BB999');
+        const chiusa = net.createServer();
+        await new Promise(ok => chiusa.listen(0, '127.0.0.1', ok));
+        const portaChiusa = chiusa.address().port;
+        await new Promise(ok => chiusa.close(ok));
+        postaVera = { porta: portaChiusa };
+        conti = await zitti(() => P2.giro(db, {}));
+        s1 = codice('BB999').secondaPersona || {};
+        esigi(s1.stato === 'errore' && s1.tentativi === 0 && conti.bloccato && /ECONNREFUSED/.test(conti.bloccato), 'connessione rifiutata: guasto nostro', JSON.stringify(s1) + ' ' + conti.bloccato);
     } finally {
         postaVera = null; ritardo = 0;
         aperte.forEach(x => x.destroy());

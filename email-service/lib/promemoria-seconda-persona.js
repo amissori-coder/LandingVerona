@@ -290,6 +290,11 @@ function postaDelGiro() {
                 else if (d.tnx === 'server' && corrente.data && !corrente.corpo && /^[23]/.test(riga)) corrente.corpo = true;
             }
         },
+        /* Il socket passa a nodemailer solo quando e' aperto: con la porta 465
+           nodemailer ci mette sopra il TLS subito, e su un socket ancora in
+           apertura Node puo' cambiarlo sotto (prova un secondo indirizzo
+           dello stesso nome) e lasciare il TLS su quello chiuso. L'apertura
+           ha il suo tempo massimo, quello di nodemailer (connectionTimeout). */
         getSocket: (o, fatto) => {
             const tr = corrente;
             if (tr && tr.annullata) { fatto(new Error('invio annullato: tempo scaduto')); return; }
@@ -297,7 +302,15 @@ function postaDelGiro() {
             // un errore dopo che nodemailer ha lasciato il socket non deve fermare la funzione
             s.on('error', () => { });
             if (tr) { tr.aperta = true; tr.chiudi = () => s.destroy(); }
-            fatto(null, { connection: s });
+            let fatta = false;
+            const una = (e, v) => { if (fatta) return; fatta = true; clearTimeout(attesa); fatto(e, v); };
+            const attesa = setTimeout(() => {
+                una(Object.assign(new Error('Connection timeout'), { code: 'ETIMEDOUT', command: 'CONN' }));
+                s.destroy();
+            }, Number(o.connectionTimeout) || 8000);
+            s.once('connect', () => una(null, { connection: s }));
+            s.once('error', e => una(e));
+            s.once('close', () => una(Object.assign(new Error('Connection closed before it opened'), { code: 'ECONNECTION', command: 'CONN', syscall: 'connect' })));
         }
     });
     return (mess, traccia) => { corrente = traccia; traccia.seguita = true; return t.sendMail(mess); };
