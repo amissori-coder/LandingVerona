@@ -326,6 +326,19 @@ async function principale() {
             'e la scheda finisce sotto gli occhi di una persona, non sparisce');
         esigi(/ignoto/i.test(String(scheda.errore && scheda.errore.motivo)),
             'con scritto perche, cosi chi la rimanda a mano sa cosa sta rischiando');
+        esigi(scheda.errore && scheda.errore.canale === 'pec' && scheda.errore.incerto === true,
+            'e con il canale del tentativo');
+
+        /* Il tentativo era per email ordinaria e a trovarlo e' un giro PEC:
+           l'errore dice 'email', il canale da cui il messaggio puo' essere
+           partito (lib/promemoria-seconda-persona.js, invitataPerPec, conta
+           come PEC un esito ignoto solo se era una PEC). */
+        scenario({ 'a@x.it': {} });
+        dati['aziendeInvito/' + idScheda('a@x.it')].tentativo = { quando: Date.now() - 60 * MIN, canale: 'email' };
+        r = await invia(['a@x.it']);
+        const sch2 = dati['aziendeInvito/' + idScheda('a@x.it')];
+        esigi(r.incerte === 1 && sch2.errore && sch2.errore.canale === 'email',
+            'un tentativo per email trovato da un giro PEC resta "email"', JSON.stringify(sch2.errore));
     }
 
     console.log('\nIl motore: i disiscritti e i rifiuti che riguardano noi');

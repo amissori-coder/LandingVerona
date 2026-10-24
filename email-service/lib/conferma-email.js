@@ -98,15 +98,17 @@ function dettagliEvento(pagina) {
 }
 /* Il trasporto, con i TEMPI MASSIMI. Senza, nodemailer aspetta due minuti
    la connessione e dieci un server che non risponde: molto oltre il limite
-   della funzione, che si chiude senza lasciare traccia sulla scheda. */
-function trasporto() {
-    return nodemailer.createTransport({
+   della funzione, che si chiude senza lasciare traccia sulla scheda.
+   `extra`: opzioni in piu' di nodemailer (il registro dei comandi del giro
+   di lib/promemoria-seconda-persona.js). */
+function trasporto(extra) {
+    return nodemailer.createTransport(Object.assign({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT) || 465,
         secure: (Number(process.env.SMTP_PORT) || 465) === 465,
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
         connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 15000, dnsTimeout: 5000
-    });
+    }, extra || {}));
 }
 function mittente() {
     const ind = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
@@ -564,6 +566,7 @@ async function rimandaConferma(db, idDoc, opz) {
 
 module.exports = {
     conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
+    trasporto, mittente, rispondiA,
     spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio,
     RIMANDA_PAUSA_MS, RIMANDA_MAX_GIORNO, INVIO_IN_CORSO_MS
 };

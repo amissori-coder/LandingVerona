@@ -1851,7 +1851,7 @@ module.exports = async (req, res) => {
                     'invitoCodice', 'invitoAzienda', 'invitoScheda', 'selezionata', 'datiInvito',
                     'telefonoVerificato', 'telefonoNumero', 'consensoRiprese', 'privacy', 'marketing', 'ricevuto',
                     'profilo', 'settore', 'dimensione', 'incontro', 'interessi',
-                    'mailConferma', 'mailInvito', 'compilato', 'completato', 'aziendaSpostata', 'aziendaStorico', 'annullato']
+                    'mailConferma', 'mailInvito', 'promemoriaSecondaPersona', 'compilato', 'completato', 'aziendaSpostata', 'aziendaStorico', 'annullato']
                     .forEach(k => { if (attuale[k] !== undefined && nuovo[k] === undefined) nuovo[k] = attuale[k]; });
                 /* La conferma dell'email vale per QUELL'indirizzo: segue la
                    scheda se l'indirizzo e' lo stesso (si e' corretta la data),
