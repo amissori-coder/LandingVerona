@@ -225,16 +225,25 @@ module.exports = async (req, res) => {
         } catch (e) {
             console.error('Riepilogo iscrizioni, presenze non lette (niente totali con gli aderenti):', String((e && e.message) || e).slice(0, 200));
         }
+        // le righe tolte dall'elenco dall'area riservata: fuori anche dai totali
+        let cancellate = null;
+        try {
+            const snapC = await db.collection('iscrizioniCancellate').get();
+            cancellate = new Set();
+            snapC.forEach(d => { const v = d.data() || {}; if (v.evento && v.idIscritto) cancellate.add(v.evento + '~' + v.idIscritto); });
+        } catch (e) {
+            console.error('Riepilogo iscrizioni, cancellate non lette (niente totali con gli aderenti):', String((e && e.message) || e).slice(0, 200));
+        }
         const totaliDi = ev => {
-            if (!ev || !schede || !aderenti || !presenze) return null;
-            try { return R.totali(schede, presenze, ev, aderenti); }
+            if (!ev || !schede || !aderenti || !presenze || !cancellate) return null;
+            try { return R.totali(schede, presenze, ev, aderenti, cancellate); }
             catch (e) { console.error('Riepilogo, totali non calcolati:', String((e && e.message) || e).slice(0, 200)); return null; }
         };
         // le aziende: se qualcosa si rompe qui, gli aderenti partono lo stesso
         try {
             if (!schede) throw new Error('iscrizioni non lette');
             for (const ev of R.EVENTI) {
-                const c = R.conti(schede, ev, giorno);
+                const c = R.conti(schede, ev, giorno, presenze);
                 const nome = 'riepilogoIscrizioni-' + ev.chiave;
                 if (!R.daSpedire(c)) { esiti.push({ evento: ev.chiave, nuove: 0, inAttesa: 0 }); continue; }
                 if (!anteprima && !await prenota(db, nome, giorno, forza)) { esiti.push({ evento: ev.chiave, nuove: c.nuove.length, gia: true }); continue; }

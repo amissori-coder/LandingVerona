@@ -100,8 +100,12 @@ function oraRomaDi(ms) {
        Portale (Eventbrite, il desk) non hanno una mail da confermare e qui
        non compaiono mai;
      - "totale" sono le iscrizioni confermate in tutto.
-   `schede` e' un elenco di { id, dati }. */
-function conti(schede, ev, giorno) {
+   `schede` e' un elenco di { id, dati }; `presenze`, se c'e', la Map dei
+   documenti delle presenze: chi e' segnato "presente" in sala non aspetta
+   piu' la conferma (CONFERMA.inAttesaDiConferma). */
+function conti(schede, ev, giorno, presenze) {
+    const GIRO = presenze ? require('./giro-conferme') : null;
+    const presenzaDi = s => (GIRO ? presenze.get(GIRO.idPresenza(ev, s)) : null) || null;
     const dellEvento = schede.filter(x => ev.se.test(String((x.dati || {}).pagina || '').trim()));
     const attive = dellEvento.filter(x => attiva(x.dati));
     const persona = (s, ora, quando) => ({
@@ -117,7 +121,7 @@ function conti(schede, ev, giorno) {
     const nuove = attive.filter(x => quandoConfermata(x.dati) && giornoRoma(quandoConfermata(x.dati)) === giorno)
         .sort((a, b) => quandoConfermata(a.dati) - quandoConfermata(b.dati))
         .map(x => persona(x.dati, oraRomaDi(quandoConfermata(x.dati)), ''));
-    const inAttesa = attive.filter(x => CONFERMA.inAttesaDiConferma(x.dati) && giornoDi(x.dati) && giornoDi(x.dati) <= giorno)
+    const inAttesa = attive.filter(x => CONFERMA.inAttesaDiConferma(x.dati, presenzaDi(x.dati)) && giornoDi(x.dati) && giornoDi(x.dati) <= giorno)
         .sort((a, b) => (giornoDi(a.dati) + String((a.dati || {}).data || '')).localeCompare(giornoDi(b.dati) + String((b.dati || {}).data || '')))
         .map(x => {
             const s = x.dati || {};
@@ -267,7 +271,9 @@ function daSpedireAderenti(c) {
    cambia qui va cambiata la', e prove/totali-aderenti.prove.js le mette a
    confronto.
    `convegno`: [{ email, persone, aderente }], le righe gia' scelte;
-   `cena`: [{ email }], le iscrizioni alla cena e al meeting. */
+   `cena`: [{ email }], le iscrizioni alla cena e al meeting. Un aderente
+   della cena che sta su una riga del convegno per piu' persone toglie da
+   quella riga solo se stesso. */
 function totaliConAderenti(convegno, cena) {
     const chiave = e => String(e || '').trim().toLowerCase();
     const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
@@ -275,9 +281,12 @@ function totaliConAderenti(convegno, cena) {
     const anche = new Set();
     (convegno || []).forEach(r => {
         const k = chiave(r && r.email);
-        // e' un aderente della cena: si conta con la cena
-        if (k && dellaCena.has(k)) { anche.add(k); return; }
-        const n = Math.max(0, Number(r && r.persone) || 0);
+        let n = Math.max(0, Number(r && r.persone) || 0);
+        /* E' un aderente della cena: lui si conta con la cena, una volta sola
+           (due righe con il suo indirizzo sono lui due volte, un doppio). Gli
+           altri della sua riga (un ordine da Eventbrite per tre) restano
+           nella loro sezione. */
+        if (k && dellaCena.has(k)) { anche.add(k); n = Math.max(0, n - 1); }
         if (r && r.aderente) soloConvegno += n; else aziende += n;
     });
     const cenaN = (cena || []).length;
@@ -300,19 +309,34 @@ function personeDi(s) {
     const n = parseInt((s && s.extra && s.extra.Partecipanti) || '', 10);
     return n > 0 ? Math.min(99, n) : 1;
 }
-/* I totali di un evento dai dati del servizio: `schede` le iscrizioni, `presenze`
-   una Map dal nome del documento delle presenze ai suoi dati, `aderenti` le
-   schede della collezione delle quote ({ id, dati }). */
-function totali(schede, presenze, ev, aderenti) {
+function chiaveTesto(s) {
+    return String(s == null ? '' : s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+/* La riga e' dell'evento? Come l'elenco dell'area riservata (api/iscrizioni.js):
+   la pagina, senza maiuscole e accenti, contiene il `filtro` dell'evento. */
+function dellEventoComeElenco(ev, s) {
+    return ev.filtro ? chiaveTesto(s && s.pagina).indexOf(ev.filtro) >= 0 : ev.se.test(String((s && s.pagina) || '').trim());
+}
+/* I totali di un evento dai dati del servizio, contando le STESSE righe
+   dell'elenco dell'area riservata: `schede` le iscrizioni, `presenze` una Map
+   dal nome del documento delle presenze ai suoi dati, `aderenti` le schede
+   della collezione delle quote ({ id, dati }), `cancellate` un Set di
+   "evento~idIscritto" delle righe tolte dall'elenco (iscrizioniCancellate).
+   Come nell'elenco, la conferma dell'email vale per l'INDIRIZZO: una riga
+   che aspetta la conferma non aspetta piu' se un'altra riga con lo stesso
+   indirizzo l'ha confermata (app.js, confermaEmailDi). */
+function totali(schede, presenze, ev, aderenti, cancellate) {
     const GIRO = require('./giro-conferme');
+    const em = v => String(v || '').trim().toLowerCase();
+    const righe = (schede || []).map(x => x.dati || {}).filter(s => dellEventoComeElenco(ev, s) && attiva(s)
+        && !(cancellate && cancellate.has(ev.chiave + '~' + GIRO.idIscritto(s))));
+    const confermati = new Set(righe.filter(s => s.emailConfermata && em(s.email)).map(s => em(s.email)));
     const convegno = [];
-    (schede || []).forEach(x => {
-        const s = x.dati || {};
-        if (!ev.se.test(String(s.pagina || '').trim()) || !attiva(s)) return;
+    righe.forEach(s => {
         const p = (presenze && presenze.get(GIRO.idPresenza(ev, s))) || null;
         const sez = sezioneDi(s, p);
         if (s.soloB2B === true || sez === 'b2b') return;
-        if (CONFERMA.inAttesaDiConferma(s, p)) return;
+        if (CONFERMA.inAttesaDiConferma(s, p) && !confermati.has(em(s.email))) return;
         convegno.push({ email: s.email, persone: personeDi(s), aderente: sez === 'aderenti' });
     });
     const quote = ADERENTI.QUOTE.filter(q => q.evento === ev.chiave).map(q => q.id);

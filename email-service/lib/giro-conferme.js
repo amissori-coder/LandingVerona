@@ -174,10 +174,13 @@ function cosaFare(x, ora, presenza) {
 function chiaveTesto(s) {
     return String(s == null ? '' : s).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
-function idPresenza(ev, x) {
+// l'identificativo dell'iscritto come lo compone l'elenco (vale anche per le cancellate, iscrizioniCancellate)
+function idIscritto(x) {
     const em = String((x && x.email) || '');
-    const idIscritto = (em.toLowerCase() || (chiaveTesto(x && x.nome) + '.' + chiaveTesto(x && x.cognome))) + '|' + String((x && x.data) || '');
-    return (ev.chiave + '~' + idIscritto).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 400);
+    return (em.toLowerCase() || (chiaveTesto(x && x.nome) + '.' + chiaveTesto(x && x.cognome))) + '|' + String((x && x.data) || '');
+}
+function idPresenza(ev, x) {
+    return (ev.chiave + '~' + idIscritto(x)).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 400);
 }
 async function leggiPresenza(db, ev, x) {
     const s = await db.collection('presenze').doc(idPresenza(ev, x)).get();
@@ -386,6 +389,6 @@ async function giro(db, opz) {
 }
 
 module.exports = {
-    giro, cosaFare, registrataIl, recupero, idPresenza, oraRoma,
+    giro, cosaFare, registrataIl, recupero, idPresenza, idIscritto, oraRoma,
     PAUSE_MS, MAX_TENTATIVI, PRIMA_ATTESA_MS, PROMEMORIA_DOPO_MS, PROMEMORIA_DALLE, PROMEMORIA_ALLE, LIMITE, LUCCHETTO_MS
 };

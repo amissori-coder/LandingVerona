@@ -16306,6 +16306,12 @@
             // quota del database esaurita poco fa: si aspetta, "Aggiorna adesso" resta disponibile
             if (Date.now() < _evPausaFino) return;
             const evOra = eventoCorrente();
+            /* Le iscrizioni alla cena e al meeting non muovono l'elenco del convegno,
+               quindi l'aggiornamento qui sotto non le vede: si rileggono da sole, al
+               passo lento (ogni quattro minuti), per i totali in testa. */
+            if (evHaAderenti(evOra) && Date.now() - _aderentiQuando >= EV_INTERVALLO) {
+                caricaAderenti(evOra, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaAderenti(evOra); });
+            }
             const intervallo = _evAscoltoOk ? EV_INTERVALLO_ASCOLTO : EV_INTERVALLO;
             if (Date.now() - (_evUltimoTentativo[evOra.id] || 0) < intervallo) return;
             const a = document.activeElement;
@@ -17503,9 +17509,12 @@
         const anche = new Set();
         (convegno || []).forEach(r => {
             const k = chiave(r && r.email);
-            // e' un aderente della cena: si conta con la cena
-            if (k && dellaCena.has(k)) { anche.add(k); return; }
-            const n = Math.max(0, Number(r && r.persone) || 0);
+            let n = Math.max(0, Number(r && r.persone) || 0);
+            /* E' un aderente della cena: lui si conta con la cena, una volta sola
+               (due righe con il suo indirizzo sono lui due volte, un doppio). Gli
+               altri della sua riga (un ordine da Eventbrite per tre) restano
+               nella loro sezione. */
+            if (k && dellaCena.has(k)) { anche.add(k); n = Math.max(0, n - 1); }
             if (r && r.aderente) soloConvegno += n; else aziende += n;
         });
         const cenaN = (cena || []).length;
@@ -17583,7 +17592,8 @@
         else el.insertBefore(document.createTextNode(String(n)), el.firstChild || null);
     }
     function aggiornaNumeriEventi(ev) {
-        if (!ev || ev.tutti || vistaCorrente !== 'eventi') return;
+        // solo l'evento aperto: i numeri di un altro, calcolati sull'elenco di questo, sarebbero sbagliati
+        if (!ev || ev.tutti || vistaCorrente !== 'eventi' || ev.id !== _evSel) return;
         const vista = $vista();
         if (!vista || !vista.querySelector('.ev-testa')) return;
         const c = contiEvento(ev);
@@ -21966,10 +21976,11 @@
         if (b) b.addEventListener('click', () => modaleAderenti(ev));
     }
     function aggiornaSchedaAderenti(ev) {
-        // i totali in testa contano anche gli aderenti: arrivati loro, si riscrivono
-        aggiornaNumeriEventi(ev);
+        // il blocco c'e' solo mentre l'evento e' sullo schermo: una risposta arrivata tardi, a evento cambiato, non tocca niente
         const el = document.getElementById('ev-aderenti-blocco');
         if (!el) return;
+        // i totali in testa contano anche gli aderenti: arrivati loro, si riscrivono
+        aggiornaNumeriEventi(ev);
         el.outerHTML = aderentiHtml(ev);
         collegaAderentiBlocco(ev);
     }

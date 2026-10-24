@@ -1103,13 +1103,13 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto, t) {
     const quando = periodo ? 'dal ' + dalTesto + ' al ' + giornoTesto : 'il ' + giornoTesto;
     const oggetto = 'Iscrizioni aderenti ' + (q.luogo || '') + ' - ' + n + (n === 1 ? ' nuova' : ' nuove')
         + (u ? ', ' + u + (u === 1 ? ' aggiornata' : ' aggiornate') : '') + ' ' + quando
-        + ' (totale ' + c.totale + ')';
+        + ' (' + c.totale + (c.totale === 1 ? ' iscritto' : ' iscritti') + ' alla cena e al meeting)';
     const Quando = quando.charAt(0).toUpperCase() + quando.slice(1);
     const sommario = (n
         ? Quando + ' ' + (n === 1 ? 'è arrivata una nuova iscrizione' : 'sono arrivate ' + n + ' nuove iscrizioni') + ' a «' + titolo + '».'
         : Quando + ' nessuna nuova iscrizione a «' + titolo + '».')
         + (u ? ' ' + (u === 1 ? 'Un\'iscrizione è stata aggiornata' : u + ' iscrizioni sono state aggiornate') + ': valgono i dati qui sotto.' : '')
-        + ' Iscrizioni in tutto: ' + c.totale + '; '
+        + ' Iscritti alla cena e al meeting: ' + c.totale + '; '
         + (c.daFatturare ? 'fatture da emettere: ' + c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ' IVA inclusa).' : 'nessuna fattura da emettere.');
     const fatturaRighe = f => [
         ['Intestatario', f.intestatario], ['Partita IVA', f.partitaIva], ['Codice fiscale', f.codiceFiscale],
@@ -1160,7 +1160,8 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto, t) {
                 // non "di oggi": la mail si legge il giorno dopo quello che racconta
                 rigaBox('Nuove iscrizioni', String(n), 330)
                 + (u ? rigaBox('Iscrizioni aggiornate', String(u), 330) : '')
-                + rigaBox('Iscrizioni totali', String(c.totale), 330)
+                // "iscritti alla cena e al meeting", non "totali": i totali dell'evento sono le righe sotto
+                + rigaBox('Iscritti alla cena e al meeting', String(c.totale), 330)
                 + rigaBox('Fatture da emettere', c.daFatturare ? c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ')' : '0', 330)
                 // i due totali dell'evento, gli stessi della mail delle aziende
                 + (t ? righeTotali(t) : '')
@@ -1191,7 +1192,7 @@ function riepilogoAderenti(c, link, giornoTesto, dalTesto, t) {
     const testo = ['RIEPILOGO ISCRIZIONI ADERENTI ' + (periodo ? 'DAL ' + dalTesto + ' AL ' + giornoTesto : 'DEL ' + giornoTesto),
         titolo + (datiQuota.length ? '\n' + datiQuota.map(d => d[0] + ': ' + d[1]).join(' - ') : ''),
         sommario,
-        'Nuove iscrizioni: ' + n + (u ? '\nIscrizioni aggiornate: ' + u : '') + '\nIscrizioni totali: ' + c.totale
+        'Nuove iscrizioni: ' + n + (u ? '\nIscrizioni aggiornate: ' + u : '') + '\nIscritti alla cena e al meeting: ' + c.totale
             + '\nFatture da emettere: ' + (c.daFatturare ? c.daFatturare + ' (' + euroIt(c.totaleDaFatturare) + ')' : '0')
             + (t ? '\n' + testoTotali(t) + '\n' + spiegaTotali(t) : ''),
         'NUOVE ISCRIZIONI ' + (periodo ? 'DAL ' + dalTesto + ' AL ' + giornoTesto : 'DEL ' + giornoTesto) + '\n' + (n ? c.nuove.map(p => txtPersona(p, notaNuova(p))).join('\n') : 'Nessuna nuova iscrizione.'),

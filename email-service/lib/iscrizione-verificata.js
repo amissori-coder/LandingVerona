@@ -93,7 +93,10 @@ function moduloConferma() { return require('./conferma-email'); }
    fine dell'evento (ora di Milano): dopo, il giro automatico delle mail di
    conferma (lib/giro-conferme.js) non riprova e non ricorda piu' niente. */
 const EVENTI = [
-    { chiave: 'milano-2027-02-26', se: /^milano 26 febbraio 2027/i, nome: 'Milano', fine: Date.parse('2027-02-26T18:00:00+01:00') }
+    /* `filtro`: la parola con cui l'elenco dell'area riservata prende le
+       iscrizioni dell'evento (api/iscrizioni.js, EVENTI_DEF in app.js). La usano
+       i totali del riepilogo di mezzanotte, che devono contare le stesse righe. */
+    { chiave: 'milano-2027-02-26', se: /^milano 26 febbraio 2027/i, filtro: 'milano', nome: 'Milano', fine: Date.parse('2027-02-26T18:00:00+01:00') }
 ];
 function eventoDi(pagina) {
     const p = String(pagina || '').trim();

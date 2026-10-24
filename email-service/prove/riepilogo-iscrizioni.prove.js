@@ -220,7 +220,7 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     esigi(esA.nuove === 2 && esA.aggiornate === 1 && esA.totale === 4 && esA.inviata === 5, 'l\'esito del lavoro la conta', JSON.stringify(esA));
     esigi(m.to === 'andreamissori@revilaw.it, pierluigisterzi@revilaw.it, ombrettamagaraci@revilaw.it, sergiomiele@revilaw.it, vincenzoantonionapolitano@revilaw.it',
         'agli stessi cinque del riepilogo delle aziende', m.to);
-    esigi(m.subject === 'Iscrizioni aderenti Milano - 2 nuove, 1 aggiornata il 03/02/2027 (totale 4)', 'oggetto: nuove, aggiornate, totale', m.subject);
+    esigi(m.subject === 'Iscrizioni aderenti Milano - 2 nuove, 1 aggiornata il 03/02/2027 (4 iscritti alla cena e al meeting)', 'oggetto: nuove, aggiornate, iscritti alla cena e al meeting', m.subject);
     // dopo il titolo delle nuove; le aggiornate cominciano con la loro spiegazione
     const [nuoveA, aggA] = (String(m.html || '').split('Nuove iscrizioni del 03/02/2027')[1] || '').split('Iscrizioni arrivate nei giorni scorsi');
     esigi(/Anna Verdi/.test(nuoveA) && /Bruno Neri/.test(nuoveA) && !/Carla/.test(nuoveA), 'fra le nuove: chi si e\' iscritto oggi');
@@ -241,7 +241,7 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         && /Fattura: Intestatario Studio Verdi Associati; Partita IVA 04641610235/.test(m.text), 'anche nella versione senza formattazione');
     esigi(/non c'è la conferma dell'email/.test(m.text) && /Cena: Venerdì 26 febbraio 2027 - Meeting degli aderenti: Sabato 27 febbraio 2027 - Quota: 200 € \+ IVA/.test(m.text)
         && /«Aderenti» › «Apri le iscrizioni»/.test(m.text), 'e il testo semplice dice anche date, quota, niente conferma e dove trovarle');
-    esigi(/Il 03\/02\/2027 sono arrivate 2 nuove iscrizioni a «Cena e meeting degli aderenti Revilaw»\. Un'iscrizione è stata aggiornata: valgono i dati qui sotto\. Iscrizioni in tutto: 4; fatture da emettere: 3 \(732,00 € IVA inclusa\)\./.test(m.text),
+    esigi(/Il 03\/02\/2027 sono arrivate 2 nuove iscrizioni a «Cena e meeting degli aderenti Revilaw»\. Un'iscrizione è stata aggiornata: valgono i dati qui sotto\. Iscritti alla cena e al meeting: 4; fatture da emettere: 3 \(732,00 € IVA inclusa\)\./.test(m.text),
         'il sommario, in italiano corretto', (m.text || '').split('\n\n')[2]);
     esigi(/Milano &middot; 26-27 febbraio 2027/.test(m.html) && !/8\.30 - 18\.00/.test(m.html) && !/Merito creditizio/.test(m.html) && !/Excelsior/.test(m.html),
         'testata e piede dicono cena e meeting, non il convegno');
@@ -281,7 +281,7 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
     orologio = ms('2027-02-07T23:00:05Z');
     r = await gira();
     m = spedite[n0] || {};
-    esigi(spedite.length === n0 + 1 && m.subject === 'Iscrizioni aderenti Milano - 2 nuove dal 06/02/2027 al 07/02/2027 (totale 7)', 'la notte dopo: una mail con i due giorni', m.subject);
+    esigi(spedite.length === n0 + 1 && m.subject === 'Iscrizioni aderenti Milano - 2 nuove dal 06/02/2027 al 07/02/2027 (7 iscritti alla cena e al meeting)', 'la notte dopo: una mail con i due giorni', m.subject);
     esigi(/Gina Rota/.test(m.html) && /Ivo Sala/.test(m.html) && /iscrizione 06\/02 alle 11:00/.test(m.html) && /iscrizione 07\/02 alle 10:00/.test(m.html), 'Gina del 6 e Ivo del 7, con il giorno accanto all\'ora');
     esigi(/Nuove iscrizioni dal 06\/02\/2027 al 07\/02\/2027/.test(m.html), 'e il titolo dice il periodo');
 
@@ -437,6 +437,32 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         const ma = MNGB.riepilogoAderenti(R.contiAderenti(ad, R.QUOTE_ADERENTI[0], '2027-01-01'), 'https://x', '01/01/2027', null, t);
         esigi(/Totale aziende<\/td>[\s\S]*?>5<\/td>/.test(ma.html) && /Totale aziende \+ aderenti<\/td>[\s\S]*?>8<\/td>/.test(ma.html), 'anche la mail degli aderenti ha i due totali');
         esigi(/3 \(2 cena e meeting, 1 solo convegno\)/.test(ma.html) && /Un aderente è iscritto anche al convegno: si conta una volta sola/.test(ma.html), 'con gli aderenti divisi fra cena e solo convegno, e il doppio detto');
+        esigi(/Iscritti alla cena e al meeting<\/td>/.test(ma.html) && !/Iscrizioni totali/.test(ma.html), 'nella mail degli aderenti la cena si chiama per nome: "iscritti alla cena e al meeting", non un altro "totale"');
+
+        // le righe che l'elenco toglie le toglie anche il totale
+        const GIROx = GIRO;
+        const canc = new Set([ev.chiave + '~' + GIROx.idIscritto(sc[0].dati)]);
+        const tc = R.totali(sc, pres, ev, ad, canc);
+        esigi(tc.aziende === 4 && tc.tutti === 7, 'una riga cancellata dall\'elenco esce anche dal totale delle aziende', JSON.stringify(tc));
+        // la conferma vale per l'indirizzo: la stessa persona su due righe, una confermata
+        const sc2 = sc.concat([{ id: 's11', dati: { pagina: MI, email: 'attesa@gamma.it', data: '02/01/2027', inserito: { da: 'x' }, emailConfermata: conf } }]);
+        const t2 = R.totali(sc2, pres, ev, ad);
+        esigi(t2.aziende === 7, 'chi ha una riga confermata con lo stesso indirizzo non aspetta piu\': conta (come nell\'elenco)', JSON.stringify(t2));
+        // la pagina dell'evento come la legge l'elenco: basta "milano"
+        const t3 = R.totali(sc.concat([{ id: 's12', dati: { pagina: 'NGB Milano 2027', email: 'import@x.it', data: '03/01/2027', importato: true } }]), pres, ev, ad);
+        esigi(t3.aziende === 6, 'una riga importata con la pagina "NGB Milano 2027" conta, come nell\'elenco', JSON.stringify(t3));
+        // un ordine da Eventbrite per tre, con l'indirizzo di un aderente della cena
+        const t4 = R.totali([{ id: 'g', dati: { pagina: MI, email: 'socio@studio.it', data: '01/01/2027', inserito: { da: 'x' }, extra: { Portale: 'Eventbrite', Partecipanti: '3' } } }], new Map(), ev,
+            [{ id: 'c', dati: { quota: 'milano-2027-aderenti', email: 'socio@studio.it' } }]);
+        esigi(t4.aziende === 2 && t4.aderenti === 1 && t4.tutti === 3, 'un gruppo da tre con un aderente della cena: lui con la cena, gli altri due fra le aziende', JSON.stringify(t4));
+        // chi e' segnato presente in sala non e' piu' "in attesa", nemmeno nella lista della mail
+        const pres2 = new Map(pres);
+        pres2.set(GIRO.idPresenza(ev, sc[2].dati), { stato: 'presente' });
+        const cp = R.conti(sc, ev, '2027-01-01', pres2);
+        const cp0 = R.conti(sc, ev, '2027-01-01', pres);
+        const tp = R.totali(sc, pres2, ev, ad);
+        esigi(cp0.inAttesa.some(p => p.email === 'attesa@gamma.it') && !cp.inAttesa.some(p => p.email === 'attesa@gamma.it') && tp.aziende === 6,
+            'segnato presente: fuori dagli in attesa e dentro il totale', JSON.stringify(tp));
         const mz = MNGB.riepilogoIscrizioni({ evento: ev, nuove: [], inAttesa: [], totale: 4 }, 'https://x', '01/01/2027', null);
         esigi(/totale 4/.test(mz.oggetto) && /Iscrizioni totali/.test(mz.html) && !/Totale aziende/.test(mz.html), 'senza i totali (una lettura fallita) la mail resta com\'era');
     }

@@ -50,6 +50,10 @@ esigi(t.aziende === 1 && t.cena === 2 && t.soloConvegno === 1 && t.anche === 1 &
     'chi e\' al convegno e alla cena (maiuscole e spazi a parte) si conta una volta, con la cena', JSON.stringify(t));
 t = R.totaliConAderenti([{ email: 'a@x.it', persone: 1 }, { email: 'a@x.it', persone: 1 }], [{ email: 'a@x.it' }]);
 esigi(t.aziende === 0 && t.anche === 1 && t.tutti === 1, 'anche se e\' su due righe del convegno');
+t = R.totaliConAderenti([{ email: 'a@x.it', persone: 3 }, { email: 'b@x.it', persone: 1 }], [{ email: 'a@x.it' }]);
+esigi(t.aziende === 3 && t.cena === 1 && t.anche === 1 && t.tutti === 4, 'un gruppo da tre con l\'aderente della cena: gli altri due restano fra le aziende', JSON.stringify(t));
+t = R.totaliConAderenti([{ email: 'a@x.it', persone: 3, aderente: true }], [{ email: 'a@x.it' }]);
+esigi(t.soloConvegno === 2 && t.tutti === 3, 'e nella sezione degli aderenti restano li\'', JSON.stringify(t));
 
 console.log('\nL\'area riservata e il servizio contano allo stesso modo');
 let seme = 7;
