@@ -269,7 +269,10 @@ async function inviaSchede(db, opz) {
                         if (Date.now() - tent < INCERTO_DOPO_MS) return { cosa: 'rimandata' };
                         const motivo = 'Esito ignoto: il servizio si e interrotto dopo aver consegnato il messaggio al server '
                             + 'di posta. Non e stato ritentato per non rischiare un doppione: se serve, rimandalo a mano.';
-                        const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo, incerto: true };
+                        /* Il canale del tentativo rimasto appeso, non quello di questo
+                           giro: e' da li' che il messaggio puo' essere partito (lo legge
+                           lib/promemoria-seconda-persona.js, invitataPerPec). */
+                        const errore = { quando: Date.now(), da: email, collab: collab, canale: String((a.tentativo && a.tentativo.canale) || canale), motivo: motivo, incerto: true };
                         tx.set(rif, { stato: 'errore', errore: errore, tentativo: null }, { merge: true });
                         return { cosa: 'incerta', errore: errore };
                     }

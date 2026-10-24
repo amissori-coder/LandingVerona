@@ -1716,24 +1716,30 @@ di spedire:
   consegna (`ricevute.consegnata`, che un invio dopo per email non cancella),
   oppure una PEC dall'esito mai scritto (`errore.incerto`/`tentativo` sul
   canale `'pec'`, senza invii dopo). La scheda dell'azienda si cerca da quella
-  del codice, poi da quella dell'iscrizione, poi per `codice`; se non c'e'
-  l'azienda si salta (senza segno) e si riprova al giro dopo;
+  del codice, poi da quella dell'iscrizione, poi per `codice` e per
+  `invio.codice` (le schede spostate prima del 22 ottobre 2026), e vale solo
+  una scheda con un invio e con quel codice; se non c'e' l'azienda si salta
+  (senza segno) e si riprova al giro dopo;
 - l'evento non e' a meno di un giorno.
 
 **Una per azienda, una volta.** Il segno sta sul codice:
 `codiciInvito/<codice>.secondaPersona: { stato, quando, iscrizione, a,
-tentativi, errore, prossimo, fino }`, preso in una transazione **prima** di
+tentativi, rinvii, errore, prossimo, fino }`, preso in una transazione **prima** di
 spedire (`in-corso`, due minuti). Stati: `inviata`; `errore` (un no del server
 di posta: si riprova dopo **30 minuti** e dopo **3 ore**, tre tentativi in
-tutto) e poi `non-partita`; `incerta` (il server non ha risposto entro 25
-secondi, la connessione e' caduta o il tempo e' scaduto dopo l'inizio
-dell'invio, o la funzione si e' chiusa a meta': il messaggio puo' essere
-arrivato e **non** si riprova, meglio una mail in meno che due uguali). Un
-**guasto del canale** (credenziali, server irraggiungibile, conto Brevo
-bloccato o al tetto, 421/45x) non consuma i tentativi: l'azienda resta in
-`errore` con i tentativi di prima e riprova fra mezz'ora, e il giro si ferma
-(`bloccato` nei conti e nel log), cosi' durante un guasto si prova al piu'
-un'azienda per giro. Lo stesso dopo un esito incerto. A lavoro finito il segno si copia sulla scheda,
+tutto, solo per un no a quella casella o a quel messaggio) e poi
+`non-partita`; `incerta` (il server non ha risposto entro 25 secondi, o la
+connessione e' caduta o il tempo e' scaduto **dopo il comando DATA**, o la
+funzione si e' chiusa a meta': il messaggio puo' essere arrivato e **non** si
+riprova, meglio una mail in meno che due uguali). Se DATA sia partito lo sa la
+posta del giro: il trasporto delle conferme con `transactionLog` e un logger
+che guarda solo quel comando. Un **guasto del canale** (credenziali mancanti o
+sbagliate, server irraggiungibile o muto prima di DATA, TLS, conto Brevo
+bloccato o al tetto, 421/45x, anche quando arrivano sul destinatario) non
+consuma i tentativi: l'azienda resta in `errore` con i tentativi di prima e
+riprova fra mezz'ora, poi un'ora, due... fino a un giorno (`rinvii`), e il
+giro si ferma (`bloccato` nei conti e nel log), cosi' durante un guasto si
+prova al piu' un'azienda per giro. Lo stesso dopo un esito incerto. A lavoro finito il segno si copia sulla scheda,
 `promemoriaSecondaPersona: { quando, codice, ok }` (con `escluso` per le
 aziende fuori per sempre: codice di sponsor o sparito, invito non per PEC), e
 Modifica se lo porta dietro: e' quello che fa saltare l'azienda ai giri dopo.

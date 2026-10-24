@@ -100,7 +100,8 @@ function interroga(coll, filtri, campi, max) {
         async get() {
             ricerche++;
             const docs = [...dati.keys()].filter(k => k.startsWith(coll + '/') && k.split('/').length === 2)
-                .filter(k => filtri.every(([c, v]) => (dati.get(k) || {})[c] === v))
+                // come Firestore: "invio.codice" e' il campo codice dentro invio
+                .filter(k => filtri.every(([c, v]) => c.split('.').reduce((o, p) => (o == null ? undefined : o[p]), dati.get(k) || {}) === v))
                 .sort()
                 .slice(0, max || 1e9)
                 .map(k => istantanea(k, doc(coll, k.split('/')[1]), campi));
@@ -135,9 +136,16 @@ let spedite = [];
 let guasti = 0;
 let durantePosta = null;
 const veroRequire = Module.prototype.require;
+/* La posta VERA (nodemailer com'e', verso un server finto su questa
+   macchina): solo nelle prove che la accendono, per vedere che cosa
+   dice davvero nodemailer quando il server si chiude a meta'. */
+let postaVera = null;
+const nodemailerVero = veroRequire.call(module, path.join(__dirname, '..', 'node_modules', 'nodemailer'));
 Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return admin;
-    if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => {
+    if (nome === 'nodemailer') return { createTransport: opz => postaVera
+        ? nodemailerVero.createTransport(Object.assign({}, opz, { host: '127.0.0.1', port: postaVera.porta, secure: false, ignoreTLS: true }))
+        : ({ sendMail: async m => {
         if (durantePosta) { const f = durantePosta; durantePosta = null; await f(); }
         if (guasti > 0) { guasti--; const e = new Error('550 5.1.1 casella inesistente'); e.responseCode = 550; throw e; }
         spedite.push(m); return {};
@@ -489,6 +497,29 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
         r = await giro();
         esigi(spedite.length === 1, 'tornata la scheda, parte');
     }
+    pulisci();
+    {
+        // spostata prima del 22 ottobre 2026: sulla scheda nuova il codice c'e' solo dentro l'invio
+        const sp = azienda('K6789');
+        const v = dati.get('aziendeInvito/' + sp.idAz);
+        delete v.codice;
+        dati.delete('aziendeInvito/' + sp.idAz);
+        dati.set('aziendeInvito/spostata', v);
+        dati.set('aziendeInvito/' + sp.idAz, { stato: 'iscritta', iscritti: [{ quando: 1 }] });
+        r = await giro();
+        esigi(spedite.length === 1, 'la ritrova anche dal codice dell\'invio', JSON.stringify(r.corpo));
+    }
+    pulisci();
+    {
+        // il nome vecchio rinato dal file e invitato per email con un codice NUOVO: non dice niente di questo codice
+        const sp = azienda('K7890');
+        const v = dati.get('aziendeInvito/' + sp.idAz);
+        delete v.codice;
+        dati.set('aziendeInvito/spostata', v);
+        dati.set('aziendeInvito/' + sp.idAz, { ragioneSociale: 'Alfa', codice: 'M9999', invio: { canale: 'email', codice: 'M9999' } });
+        r = await giro();
+        esigi(spedite.length === 1 && !scheda(sp.iscritte[0]).promemoriaSecondaPersona.escluso, 'una scheda con un altro codice non conta: vale quella con questo', JSON.stringify(r.corpo));
+    }
 
     console.log('\nL\'invito partito per PEC');
     pulisci();
@@ -536,19 +567,110 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
     pulisci();
     for (let k = 0; k < 4; k++) azienda('AA' + String(100 + k));
     const auth = async () => { throw err('Invalid login: 535 Authentication failed', { code: 'EAUTH', command: 'AUTH PLAIN', responseCode: 535 }); };
-    let prove = 0;
+    let prove = 0, piuDiUna = 0;
     for (let k = 0; k < 12; k++) {
-        conti = await zitti(() => P2.giro(db, { spedisci: x => { prove++; return auth(x); } }));
+        let qui = 0;
+        conti = await zitti(() => P2.giro(db, { spedisci: x => { prove++; qui++; return auth(x); } }));
+        if (qui > 1) piuDiUna++;
         orologio += 20 * MIN;
     }
     const stati = ['AA100', 'AA101', 'AA102', 'AA103'].map(c => codice(c).secondaPersona || {});
-    // a ogni giro si prova la prima azienda che non sta aspettando la sua mezz'ora: le altre non si toccano
-    esigi(stati.every(x => !x.stato || (x.stato === 'errore' && x.tentativi === 0)) && stati.filter(x => x.stato).length >= 1, 'credenziali sbagliate per quattro ore: nessuna azienda consuma i tentativi', JSON.stringify(stati.map(x => x.stato + '/' + x.tentativi)));
-    esigi(prove === 12, 'una sola prova per giro', String(prove));
-    esigi(/535/.test(conti.bloccato), 'e i conti dicono perche\' il giro si e\' fermato', conti.bloccato);
-    orologio += 20 * MIN;
-    for (let k = 0; k < 2; k++) { await giro(); orologio += 31 * MIN; }
+    esigi(stati.every(x => !x.stato || (x.stato === 'errore' && x.tentativi === 0)) && stati.filter(x => x.stato).length >= 2, 'credenziali sbagliate per quattro ore: nessuna azienda consuma i tentativi', JSON.stringify(stati.map(x => x.stato + '/' + x.tentativi + '/' + x.rinvii)));
+    esigi(!piuDiUna && prove >= 4, 'al piu\' una prova per giro', prove + ' prove');
+    esigi(stati.some(x => x.rinvii >= 2 && x.prossimo - x.quando > 30 * MIN), 'e la stessa azienda riprova sempre piu\' di rado', JSON.stringify(stati.map(x => x.rinvii + ':' + Math.round((x.prossimo - x.quando) / MIN))));
+    esigi(/535/.test(conti.bloccato) || conti.candidate > 0, 'i conti dicono perche\' il giro si e\' fermato', conti.bloccato);
+    // sistemato il guasto: il mattino dopo partono tutte
+    orologio = Date.parse('2026-11-17T10:00:00+01:00');
+    await giro();
     esigi(spedite.length === 4, 'sistemato il guasto, partono tutte', String(spedite.length));
+    esigi(P2.pausaGuasto(0) === 30 * MIN && P2.pausaGuasto(1) === ORA && P2.pausaGuasto(10) === GIORNO, 'le pause del guasto: mezz\'ora, un\'ora, ... fino a un giorno');
+
+    console.log('\nGli errori che dicono "guasto nostro" anche sul destinatario');
+    const rcpt = (cod, testo) => err('Can\'t send mail - all recipients were rejected: ' + cod + ' ' + testo, { code: 'EENVELOPE', command: 'RCPT TO', responseCode: Number(cod) });
+    esigi(P2.esitoErrore(err('Missing credentials for "PLAIN"', { code: 'EAUTH', command: 'API' })) === 'nostro', 'credenziali mancanti su Vercel: guasto nostro');
+    esigi(P2.esitoErrore(rcpt(421, '4.7.0 Service not available, closing transmission channel')) === 'nostro', '421 sul destinatario: guasto nostro');
+    esigi(P2.esitoErrore(rcpt(450, '4.7.1 <a@b.it>: Recipient address rejected: Rate limit exceeded')) === 'nostro', 'tetto di invio sul destinatario: guasto nostro');
+    esigi(P2.esitoErrore(rcpt(452, '4.5.3 Too many recipients')) === 'nostro', 'troppi destinatari: guasto nostro');
+    esigi(P2.esitoErrore(rcpt(550, '5.4.5 Daily user sending quota exceeded')) === 'nostro', 'quota del giorno: guasto nostro');
+    esigi(P2.esitoErrore(rcpt(554, '5.7.1 <a@b.it>: Relay access denied')) === 'nostro', 'relay negato: guasto nostro');
+    esigi(P2.esitoErrore(rcpt(550, '5.1.1 <a@b.it>: user unknown')) === 'conta' && P2.esitoErrore(rcpt(452, '4.2.2 mailbox full')) === 'conta', 'casella inesistente o piena: un tentativo');
+    esigi(P2.esitoErrore(err('Empty message', { code: 'EMESSAGE', command: 'API' })) === 'nostro' && P2.esitoErrore(err('Invalid recipient', { code: 'EENVELOPE', command: 'API' })) === 'conta', 'gli errori di nodemailer prima del server: del canale, salvo l\'indirizzo malformato');
+    esigi(P2.esitoErrore(err('self-signed certificate', { code: 'ESOCKET', command: 'CONN' })) === 'nostro', 'certificato TLS rifiutato: guasto nostro');
+    esigi(P2.esitoErrore(err('connect ECONNRESET 1.2.3.4:465', { code: 'ESOCKET', command: 'CONN', syscall: 'connect' })) === 'nostro', 'connessione azzerata all\'apertura: guasto nostro');
+    esigi(P2.esitoErrore(err('Unexpected socket close')) === 'nostro', 'chiusa prima del saluto: guasto nostro');
+    esigi(P2.esitoErrore(err('read ECONNRESET', { code: 'ESOCKET', command: 'CONN', syscall: 'read' })) === 'incerta', 'azzerata a sessione aperta, senza sapere a che punto: incerta');
+    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }), { seguita: true, data: false }) === 'nostro', 'tempo scaduto prima di DATA (lo dice la posta del giro): guasto nostro');
+    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }), { seguita: true, data: true }) === 'incerta', 'tempo scaduto dopo DATA: incerta');
+
+    console.log('\nCon il vero nodemailer, contro un server finto');
+    /* Un server SMTP di poche righe: saluta, risponde a EHLO, MAIL, RCPT e
+       DATA, e chiude la connessione nel punto che la prova sceglie. */
+    const net = require('net');
+    let modo = 'ok', corpi = 0;
+    const server = net.createServer(sock => {
+        let buf = '', inCorpo = false;
+        sock.write('220 finto ESMTP\r\n');
+        sock.on('data', d => {
+            buf += d.toString('latin1');
+            for (;;) {
+                if (inCorpo) {
+                    const i = buf.indexOf('\r\n.\r\n');
+                    if (i < 0) return;
+                    buf = buf.slice(i + 5); inCorpo = false; corpi++;
+                    if (modo === 'chiudiDopoCorpo') { sock.destroy(); return; }
+                    sock.write('250 2.0.0 Ok: queued\r\n');
+                    continue;
+                }
+                const i = buf.indexOf('\r\n');
+                if (i < 0) return;
+                const riga = buf.slice(0, i).toUpperCase(); buf = buf.slice(i + 2);
+                if (/^(EHLO|HELO)/.test(riga)) sock.write('250-finto\r\n250 8BITMIME\r\n');
+                else if (/^MAIL FROM/.test(riga)) sock.write('250 2.1.0 Ok\r\n');
+                else if (/^RCPT TO/.test(riga)) {
+                    if (modo === 'chiudiDopoRcpt') { sock.destroy(); return; }
+                    if (modo === 'rcpt421') { sock.write('421 4.7.0 Service not available, closing transmission channel\r\n'); sock.end(); return; }
+                    sock.write('250 2.1.5 Ok\r\n');
+                } else if (/^DATA/.test(riga)) { sock.write('354 End data with <CR><LF>.<CR><LF>\r\n'); inCorpo = true; }
+                else if (/^QUIT/.test(riga)) { sock.write('221 Bye\r\n'); sock.end(); }
+                else sock.write('250 Ok\r\n');
+            }
+        });
+        sock.on('error', () => { });
+    });
+    await new Promise(ok => server.listen(0, '127.0.0.1', ok));
+    postaVera = { porta: server.address().port };
+    try {
+        pulisci();
+        azienda('BB111');
+        modo = 'chiudiDopoRcpt';
+        conti = await zitti(() => P2.giro(db, {}));
+        let s1 = codice('BB111').secondaPersona || {};
+        esigi(s1.stato === 'errore' && s1.tentativi === 0 && corpi === 0 && conti.bloccato, 'chiusa dopo RCPT, prima di DATA: guasto nostro, il tentativo non conta', JSON.stringify(s1) + ' ' + JSON.stringify(conti));
+        pulisci(); corpi = 0;
+        azienda('BB222');
+        modo = 'rcpt421';
+        conti = await zitti(() => P2.giro(db, {}));
+        s1 = codice('BB222').secondaPersona || {};
+        esigi(s1.stato === 'errore' && s1.tentativi === 0 && conti.bloccato, '421 sul destinatario: guasto nostro', JSON.stringify(s1));
+        pulisci(); corpi = 0;
+        azienda('BB333');
+        modo = 'chiudiDopoCorpo';
+        conti = await zitti(() => P2.giro(db, {}));
+        s1 = codice('BB333').secondaPersona || {};
+        esigi(s1.stato === 'incerta' && corpi === 1, 'chiusa dopo aver ricevuto il messaggio: incerta', JSON.stringify(s1));
+        modo = 'ok';
+        orologio += 4 * ORA;
+        await zitti(() => P2.giro(db, {}));
+        esigi(corpi === 1, 'e non si rimanda');
+        pulisci(); corpi = 0;
+        azienda('BB444');
+        modo = 'ok';
+        conti = await zitti(() => P2.giro(db, {}));
+        esigi(conti.inviate === 1 && corpi === 1 && (codice('BB444').secondaPersona || {}).stato === 'inviata', 'e quando il server risponde, parte', JSON.stringify(conti));
+    } finally {
+        postaVera = null;
+        await new Promise(ok => server.close(ok));
+    }
 
     console.log('\nLe regole pure');
     orologio = INIZIO;
