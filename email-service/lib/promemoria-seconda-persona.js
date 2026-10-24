@@ -38,13 +38,16 @@
    giri insieme non ne mandano due. Se la funzione si chiude a meta', alla
    scadenza il segno diventa 'incerta' e non si riprova: una mail in meno e'
    meglio della stessa mail due volte. Per la stessa ragione e' 'incerta'
-   un errore senza risposta del server arrivato DOPO il comando DATA (tempo
-   scaduto, connessione caduta: il messaggio puo' essere arrivato); la
-   posta del giro tiene il conto dei comandi spediti e lo sa (postaDelGiro).
+   un errore senza risposta del server arrivato DOPO il via al testo (la
+   risposta 354 al comando DATA: tempo scaduto, connessione caduta, il
+   messaggio puo' essere arrivato); la posta del giro segue la
+   conversazione e lo sa, e prima del via, allo scadere del tempo, chiude
+   la connessione da se' (postaDelGiro, conLimite).
    Un no del server a questa casella o a questo messaggio si riprova dopo
    mezz'ora e dopo tre ore, tre tentativi in tutto, poi 'non-partita'. Un
-   guasto del canale (credenziali, server irraggiungibile o muto prima di
-   DATA, TLS, conto bloccato o al tetto, 421/45x) non consuma i tentativi
+   guasto del canale (credenziali, server irraggiungibile, lento o muto
+   prima del via al testo, TLS, conto bloccato o al tetto, mittente
+   rifiutato, 421/4xx) non consuma i tentativi
    dell'azienda e ferma il giro (`bloccato`): si riprova al giro dopo, una
    azienda alla volta, e la stessa azienda sempre piu' di rado, fino a una
    volta al giorno (vedi esitoErrore e pausaGuasto).
@@ -66,6 +69,7 @@
    ============================================================ */
 
 const crypto = require('crypto');
+const net = require('net');
 const CODICI = require('./codici-invito');
 const VERIFICATA = require('./iscrizione-verificata');
 const CONF = require('./conferma-email');
@@ -185,13 +189,13 @@ function conTracciaDiInvio(a) {
 
 /* ---------- come si legge un errore del server di posta ----------
    La domanda e' una: il messaggio PUO' essere stato accettato? Solo se il
-   comando DATA e' partito. Prima di DATA il server non ha niente da
-   consegnare. nodemailer pero' non lo dice nell'errore: quelli della
-   connessione (tempo scaduto, socket chiuso o azzerato) portano command
-   'CONN' in QUALUNQUE momento, anche dopo che il messaggio e' stato
-   trasmesso e si aspettava solo il "250 OK". Per questo la posta del giro
-   tiene il conto dei comandi spediti (vedi postaDelGiro): `traccia.data`
-   dice se DATA e' partito.
+   server ha dato il via al testo (la risposta 354 al comando DATA): prima
+   ha al piu' una busta, e niente da consegnare. nodemailer pero' non lo
+   dice nell'errore: quelli della connessione (tempo scaduto, socket chiuso
+   o azzerato) portano command 'CONN' in QUALUNQUE momento, anche dopo che
+   il messaggio e' stato trasmesso e si aspettava solo il "250 OK". Per
+   questo la posta del giro tiene il conto della conversazione (vedi
+   postaDelGiro): `traccia.corpo` dice se il via e' arrivato.
    Senza quel conto (una spedisci data dalle prove) valgono le forme
    dell'errore, come in lib/diretta-invio.js (primaDelData): un comando di
    prima di DATA, le credenziali, o una connessione che non si e' nemmeno
@@ -226,22 +230,28 @@ function primaDelData(e) {
      conta    il server ha detto no a questo messaggio o a questa casella
               (indirizzo inesistente, casella piena): e' un tentativo dei
               tre.
-   `traccia` e' quella della posta del giro: { seguita, data }. */
+   `traccia` e' quella della posta del giro: { seguita, data, corpo }. Il
+   tempo massimo del giro (conLimite) e' 'nostro' solo se ha potuto chiudere
+   la connessione prima del via al testo (`primaDelCorpo`). */
 function esitoErrore(e, traccia) {
-    if (!e || e.limite) return 'incerta';
+    if (!e) return 'incerta';
+    if (e.limite) return e.primaDelCorpo ? 'nostro' : 'incerta';
     const comando = String(e.command || '').toUpperCase();
     const testo = String(e.message || '');
     if (e.code === 'EAUTH' || e.code === 'ECONFIG') return 'nostro';
     // un indirizzo malformato e' di quella riga; gli altri errori di nodemailer prima del server sono del canale
     if (comando === 'API') return e.code === 'EENVELOPE' ? 'conta' : 'nostro';
     if (comando === 'RCPT TO') {
+        // il MITTENTE rifiutato: Postfix lo dice sulla risposta al destinatario (X.1.7, X.1.8, "Sender address rejected")
+        const mittente = /sender/i.test(testo) || /\b[45]\.1\.[78]\b/.test(testo);
         // la casella: inesistente (5.1.x), piena o disattivata (4.2.x, 5.2.x)
-        if (/\b[45]\.[12]\.\d{1,3}\b/.test(testo) && !/rate limit|quota|too many|troppi/i.test(testo)) return 'conta';
-        return (Number(e.responseCode) === 421 || CANALI.fermaTutto(e)) ? 'nostro' : 'conta';
+        if (!mittente && /\b[45]\.[12]\.\d{1,3}\b/.test(testo) && !/rate limit|quota|too many|troppi/i.test(testo)) return 'conta';
+        const r = Number(e.responseCode);
+        return (mittente || (r >= 400 && r < 500) || CANALI.fermaTutto(e)) ? 'nostro' : 'conta';
     }
     if (Number(e.responseCode) >= 400) return (primaDelData(e) || CANALI.fermaTutto(e)) ? 'nostro' : 'conta';
     // nessuna risposta del server
-    if (primaDelData(e) || (traccia && traccia.seguita && !traccia.data)) return 'nostro';
+    if (primaDelData(e) || (traccia && traccia.seguita && !traccia.corpo)) return 'nostro';
     return 'incerta';
 }
 /* Dopo un guasto del canale l'azienda riprova fra mezz'ora, poi un'ora,
@@ -251,10 +261,21 @@ function esitoErrore(e, traccia) {
 function pausaGuasto(rinvii) {
     return Math.min(PAUSE_MS[0] * Math.pow(2, Math.max(0, rinvii)), GIORNO_MS);
 }
-/* La posta del giro: il trasporto delle mail di conferma, con il registro
-   dei comandi acceso (transactionLog) e un logger che guarda una cosa
-   sola, se il comando DATA e' partito. Le mail partono una alla volta, e
-   `corrente` e' la traccia di quella in corso. */
+/* La posta del giro: il trasporto delle mail di conferma con due cose in
+   piu'.
+     - Il registro della conversazione acceso (transactionLog) e un logger
+       che guarda solo due righe: il comando DATA e la prima risposta del
+       server dopo, il via al testo (354). nodemailer scrive nel registro
+       PRIMA di spedire il testo, quindi `corpo` falso vuol dire che il
+       testo non e' partito. Il resto del registro (dove AUTH e' gia'
+       mascherato e il testo non c'e') non va da nessuna parte.
+     - La connessione la apre il giro (getSocket), e nodemailer ci fa sopra
+       STARTTLS o TLS come sempre: cosi' allo scadere del tempo massimo,
+       se il via non e' arrivato, conLimite la chiude subito e niente puo'
+       piu' partire, invece di lasciare una conversazione orfana che
+       potrebbe spedire il testo piu' tardi.
+   Le mail partono una alla volta, e `corrente` e' la traccia di quella in
+   corso. */
 function postaDelGiro() {
     let corrente = null;
     const zitto = () => { };
@@ -262,7 +283,21 @@ function postaDelGiro() {
         transactionLog: true,
         logger: {
             trace: zitto, info: zitto, warn: zitto, error: zitto, fatal: zitto,
-            debug: (d, m) => { if (corrente && d && d.tnx === 'client' && /^DATA$/i.test(String(m || '').trim())) corrente.data = true; }
+            debug: (d, m) => {
+                if (!corrente || !d) return;
+                const riga = String(m || '').trim();
+                if (d.tnx === 'client' && /^DATA$/i.test(riga)) corrente.data = true;
+                else if (d.tnx === 'server' && corrente.data && !corrente.corpo && /^[23]/.test(riga)) corrente.corpo = true;
+            }
+        },
+        getSocket: (o, fatto) => {
+            const tr = corrente;
+            if (tr && tr.annullata) { fatto(new Error('invio annullato: tempo scaduto')); return; }
+            const s = net.connect({ host: o.host, port: o.port });
+            // un errore dopo che nodemailer ha lasciato il socket non deve fermare la funzione
+            s.on('error', () => { });
+            if (tr) { tr.aperta = true; tr.chiudi = () => s.destroy(); }
+            fatto(null, { connection: s });
         }
     });
     return (mess, traccia) => { corrente = traccia; traccia.seguita = true; return t.sendMail(mess); };
@@ -292,10 +327,25 @@ async function segnaScheda(db, id, campi) {
     catch (e) { if (!nonTrovata(e)) throw e; }
 }
 
-/* La spedizione, con il suo tempo massimo: oltre, l'esito e' incerto. */
-function conLimite(p, ms) {
+/* La spedizione, con il suo tempo massimo. Allo scadere, se la posta del
+   giro non ha ancora avuto il via al testo, la connessione si chiude qui,
+   nello stesso momento (o non si apre piu': `annullata`), e l'errore lo
+   dice (`primaDelCorpo`): niente e' partito. Altrimenti l'esito e'
+   incerto. */
+function conLimite(p, ms, traccia) {
     let t;
-    const scade = new Promise((_, no) => { t = setTimeout(() => { const e = new Error('tempo scaduto'); e.limite = true; no(e); }, ms); });
+    const scade = new Promise((_, no) => {
+        t = setTimeout(() => {
+            const e = new Error('tempo scaduto');
+            e.limite = true;
+            if (traccia && traccia.seguita && !traccia.corpo && (traccia.chiudi || !traccia.aperta)) {
+                traccia.annullata = true;
+                if (traccia.chiudi) traccia.chiudi();
+                e.primaDelCorpo = true;
+            }
+            no(e);
+        }, ms);
+    });
     return Promise.race([p, scade]).finally(() => clearTimeout(t));
 }
 
@@ -383,13 +433,13 @@ async function lavora(db, c, conti, spedisci, limiteInvio) {
     const a = String(x.email).trim();
     let errore = null;
     // che cosa ha visto la posta del giro (vedi esitoErrore); una spedisci delle prove la lascia com'e'
-    const traccia = { seguita: false, data: false };
+    const traccia = { seguita: false, data: false, corpo: false };
     try {
         await conLimite(Promise.resolve().then(() => spedisci({
             from: CONF.mittente(), to: a, replyTo: CONF.rispondiA(), subject: m.oggetto, text: m.testo,
             // nei log transazionali di Brevo si filtra per tag, come per la mail di conferma
             headers: { 'X-Mailin-Tag': 'seconda-persona' }
-        }, traccia)), limiteInvio);
+        }, traccia)), limiteInvio, traccia);
     } catch (e) { errore = e; }
     const ora = Date.now();
     const tentativi = presa.tentativi + 1;
@@ -398,6 +448,8 @@ async function lavora(db, c, conti, spedisci, limiteInvio) {
     let s;
     if (come === 'inviata') s = segno(Object.assign(base, { stato: 'inviata', tentativi: tentativi }));
     else if (come === 'incerta') s = segno(Object.assign(base, { stato: 'incerta', tentativi: tentativi, errore: errore.limite ? 'il server di posta non ha risposto in tempo' : motivo(errore) }));
+    // il tempo massimo prima del via al testo: la connessione e' chiusa, niente e' partito
+    else if (come === 'nostro' && errore.limite) s = segno(Object.assign(base, { stato: 'errore', tentativi: presa.tentativi, rinvii: presa.rinvii + 1, errore: 'il server di posta non ha risposto in tempo (prima del testo)', prossimo: ora + pausaGuasto(presa.rinvii) }));
     // il guasto del canale non consuma i tentativi dell'azienda
     else if (come === 'nostro') s = segno(Object.assign(base, { stato: 'errore', tentativi: presa.tentativi, rinvii: presa.rinvii + 1, errore: motivo(errore), prossimo: ora + pausaGuasto(presa.rinvii) }));
     else if (tentativi >= MAX_TENTATIVI) s = segno(Object.assign(base, { stato: 'non-partita', tentativi: tentativi, errore: motivo(errore) }));

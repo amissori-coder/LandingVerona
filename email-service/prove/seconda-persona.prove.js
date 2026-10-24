@@ -599,16 +599,27 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
     esigi(P2.esitoErrore(err('connect ECONNRESET 1.2.3.4:465', { code: 'ESOCKET', command: 'CONN', syscall: 'connect' })) === 'nostro', 'connessione azzerata all\'apertura: guasto nostro');
     esigi(P2.esitoErrore(err('Unexpected socket close')) === 'nostro', 'chiusa prima del saluto: guasto nostro');
     esigi(P2.esitoErrore(err('read ECONNRESET', { code: 'ESOCKET', command: 'CONN', syscall: 'read' })) === 'incerta', 'azzerata a sessione aperta, senza sapere a che punto: incerta');
-    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }), { seguita: true, data: false }) === 'nostro', 'tempo scaduto prima di DATA (lo dice la posta del giro): guasto nostro');
-    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }), { seguita: true, data: true }) === 'incerta', 'tempo scaduto dopo DATA: incerta');
+    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }), { seguita: true, data: false, corpo: false }) === 'nostro', 'tempo scaduto prima di DATA (lo dice la posta del giro): guasto nostro');
+    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }), { seguita: true, data: true, corpo: false }) === 'nostro', 'tempo scaduto dopo DATA ma prima del via al testo: guasto nostro');
+    esigi(P2.esitoErrore(err('Timeout', { code: 'ETIMEDOUT', command: 'CONN' }), { seguita: true, data: true, corpo: true }) === 'incerta', 'tempo scaduto dopo il via al testo: incerta');
+    esigi(P2.esitoErrore(Object.assign(err('tempo scaduto'), { limite: true, primaDelCorpo: true })) === 'nostro' && P2.esitoErrore(Object.assign(err('tempo scaduto'), { limite: true })) === 'incerta', 'il tempo massimo: nostro solo se ha chiuso prima del testo');
+    esigi(P2.esitoErrore(rcpt(450, '4.1.8 <noreply@esempio.it>: Sender address rejected: Domain not found')) === 'nostro', 'mittente rifiutato sul destinatario: guasto nostro');
+    esigi(P2.esitoErrore(rcpt(553, '5.1.8 <noreply@esempio.it>: Sender address rejected')) === 'nostro', 'mittente rifiutato (5.1.8): guasto nostro');
+    esigi(P2.esitoErrore(rcpt(454, '4.7.1 <a@b.it>: Relay access denied')) === 'nostro', '454 sul destinatario: guasto nostro');
 
     console.log('\nCon il vero nodemailer, contro un server finto');
     /* Un server SMTP di poche righe: saluta, risponde a EHLO, MAIL, RCPT e
        DATA, e chiude la connessione nel punto che la prova sceglie. */
     const net = require('net');
-    let modo = 'ok', corpi = 0;
+    let modo = 'ok', corpi = 0, comandiData = 0, ritardo = 0;
+    const aperte = new Set();
     const server = net.createServer(sock => {
+        aperte.add(sock);
+        sock.on('close', () => aperte.delete(sock));
         let buf = '', inCorpo = false;
+        // le risposte, con il ritardo che la prova sceglie
+        const w = sock.write.bind(sock);
+        sock.write = t => { if (!ritardo) return w(t); setTimeout(() => { if (!sock.destroyed) w(t); }, ritardo); return true; };
         sock.write('220 finto ESMTP\r\n');
         sock.on('data', d => {
             buf += d.toString('latin1');
@@ -618,6 +629,7 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
                     if (i < 0) return;
                     buf = buf.slice(i + 5); inCorpo = false; corpi++;
                     if (modo === 'chiudiDopoCorpo') { sock.destroy(); return; }
+                    if (modo === 'mutoDopoCorpo') return;
                     sock.write('250 2.0.0 Ok: queued\r\n');
                     continue;
                 }
@@ -625,12 +637,17 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
                 if (i < 0) return;
                 const riga = buf.slice(0, i).toUpperCase(); buf = buf.slice(i + 2);
                 if (/^(EHLO|HELO)/.test(riga)) sock.write('250-finto\r\n250 8BITMIME\r\n');
-                else if (/^MAIL FROM/.test(riga)) sock.write('250 2.1.0 Ok\r\n');
+                else if (/^MAIL FROM/.test(riga)) { if (modo === 'mutoSuMail') return; sock.write('250 2.1.0 Ok\r\n'); }
                 else if (/^RCPT TO/.test(riga)) {
                     if (modo === 'chiudiDopoRcpt') { sock.destroy(); return; }
                     if (modo === 'rcpt421') { sock.write('421 4.7.0 Service not available, closing transmission channel\r\n'); sock.end(); return; }
                     sock.write('250 2.1.5 Ok\r\n');
-                } else if (/^DATA/.test(riga)) { sock.write('354 End data with <CR><LF>.<CR><LF>\r\n'); inCorpo = true; }
+                } else if (/^DATA/.test(riga)) {
+                    comandiData++;
+                    if (modo === 'chiudiSuData') { sock.destroy(); return; }
+                    if (modo === 'mutoSuData') return;
+                    sock.write('354 End data with <CR><LF>.<CR><LF>\r\n'); inCorpo = true;
+                }
                 else if (/^QUIT/.test(riga)) { sock.write('221 Bye\r\n'); sock.end(); }
                 else sock.write('250 Ok\r\n');
             }
@@ -667,8 +684,48 @@ const scheda = id => dati.get('iscrizioni/' + id) || {};
         modo = 'ok';
         conti = await zitti(() => P2.giro(db, {}));
         esigi(conti.inviate === 1 && corpi === 1 && (codice('BB444').secondaPersona || {}).stato === 'inviata', 'e quando il server risponde, parte', JSON.stringify(conti));
+
+        pulisci(); corpi = 0;
+        azienda('BB555');
+        modo = 'chiudiSuData';
+        conti = await zitti(() => P2.giro(db, {}));
+        s1 = codice('BB555').secondaPersona || {};
+        esigi(s1.stato === 'errore' && s1.tentativi === 0 && corpi === 0 && conti.bloccato, 'chiusa sul comando DATA, prima del via al testo: guasto nostro', JSON.stringify(s1));
+
+        // lento ma vivo, poi muto: il tempo massimo del giro arriva prima di quelli di nodemailer
+        pulisci(); corpi = 0; comandiData = 0;
+        azienda('BB666');
+        modo = 'mutoSuMail'; ritardo = 300;
+        conti = await zitti(() => P2.giro(db, { limiteInvio: 1500 }));
+        s1 = codice('BB666').secondaPersona || {};
+        await new Promise(t => setTimeout(t, 400));
+        esigi(s1.stato === 'errore' && s1.tentativi === 0 && conti.bloccato, 'tempo massimo prima di DATA: guasto nostro, il tentativo non conta', JSON.stringify(s1) + ' ' + JSON.stringify(conti));
+        esigi(aperte.size === 0, 'e la connessione e\' chiusa subito', String(aperte.size));
+        // il server si riprende: la conversazione orfana non c'e', e la mail parte una volta sola, dal giro dopo
+        modo = 'ok'; ritardo = 0;
+        await new Promise(t => setTimeout(t, 300));
+        esigi(corpi === 0 && comandiData === 0, 'niente e\' partito dopo il tempo massimo');
+        orologio += ORA;
+        await zitti(() => P2.giro(db, {}));
+        esigi(corpi === 1 && (codice('BB666').secondaPersona || {}).stato === 'inviata', 'e il giro dopo la manda, una volta');
+
+        pulisci(); corpi = 0; comandiData = 0;
+        azienda('BB777');
+        modo = 'mutoSuData';
+        conti = await zitti(() => P2.giro(db, { limiteInvio: 1500 }));
+        s1 = codice('BB777').secondaPersona || {};
+        esigi(s1.stato === 'errore' && s1.tentativi === 0 && comandiData === 1 && corpi === 0, 'DATA senza risposta fino al tempo massimo: chiusa, guasto nostro', JSON.stringify(s1));
+
+        pulisci(); corpi = 0;
+        azienda('BB888');
+        modo = 'mutoDopoCorpo';
+        conti = await zitti(() => P2.giro(db, { limiteInvio: 1500 }));
+        s1 = codice('BB888').secondaPersona || {};
+        esigi(s1.stato === 'incerta' && corpi === 1, 'testo ricevuto e poi nessuna risposta fino al tempo massimo: incerta', JSON.stringify(s1));
+        modo = 'ok';
     } finally {
-        postaVera = null;
+        postaVera = null; ritardo = 0;
+        aperte.forEach(x => x.destroy());
         await new Promise(ok => server.close(ok));
     }
 

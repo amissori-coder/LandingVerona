@@ -1728,14 +1728,19 @@ tentativi, rinvii, errore, prossimo, fino }`, preso in una transazione **prima**
 spedire (`in-corso`, due minuti). Stati: `inviata`; `errore` (un no del server
 di posta: si riprova dopo **30 minuti** e dopo **3 ore**, tre tentativi in
 tutto, solo per un no a quella casella o a quel messaggio) e poi
-`non-partita`; `incerta` (il server non ha risposto entro 25 secondi, o la
-connessione e' caduta o il tempo e' scaduto **dopo il comando DATA**, o la
-funzione si e' chiusa a meta': il messaggio puo' essere arrivato e **non** si
-riprova, meglio una mail in meno che due uguali). Se DATA sia partito lo sa la
-posta del giro: il trasporto delle conferme con `transactionLog` e un logger
-che guarda solo quel comando. Un **guasto del canale** (credenziali mancanti o
-sbagliate, server irraggiungibile o muto prima di DATA, TLS, conto Brevo
-bloccato o al tetto, 421/45x, anche quando arrivano sul destinatario) non
+`non-partita`; `incerta` (la connessione e' caduta, il tempo e' scaduto o il
+server non ha risposto entro 25 secondi **dopo il via al testo** - la risposta
+354 al comando DATA -, o la funzione si e' chiusa a meta': il messaggio puo'
+essere arrivato e **non** si riprova, meglio una mail in meno che due uguali).
+Se il via sia arrivato lo sa la posta del giro: il trasporto delle conferme con
+`transactionLog` e un logger che guarda solo il comando DATA e la risposta dopo
+(il testo e la password non passano di li'), e la connessione aperta dal giro
+(`getSocket`, nodemailer ci fa sopra STARTTLS o TLS e verifica il certificato
+come sempre): ai 25 secondi, se il via non e' arrivato, la connessione si
+chiude subito e niente puo' piu' partire. Un **guasto del canale**
+(credenziali mancanti o sbagliate, server irraggiungibile, lento o muto prima
+del via al testo, TLS, conto Brevo bloccato o al tetto, mittente rifiutato,
+421/4xx, anche quando arrivano sul destinatario) non
 consuma i tentativi: l'azienda resta in `errore` con i tentativi di prima e
 riprova fra mezz'ora, poi un'ora, due... fino a un giorno (`rinvii`), e il
 giro si ferma (`bloccato` nei conti e nel log), cosi' durante un guasto si
