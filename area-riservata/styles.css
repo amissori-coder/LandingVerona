@@ -2414,8 +2414,14 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 }
 .ev-tot-titolo { font-size: 0.76rem; font-weight: 700; color: var(--grigio-600); text-transform: uppercase; letter-spacing: 0.04em; }
 .ev-tot-op { font-size: 1.2rem; font-weight: 700; color: var(--grigio-400); }
-/* sul telefono il titolo va sopra, e la somma resta tutta sulle righe sotto */
-@media (max-width: 600px) { .ev-tot-titolo { flex-basis: 100%; } }
+/* chi aspetta di confermare l'email sta FUORI dalla somma, oltre una riga
+   verticale: riga e numero vanno a capo insieme, cosi' la riga non resta mai
+   sola in fondo alla fila */
+.ev-tot-fuori { display: flex; align-items: center; gap: 14px 18px; }
+.ev-tot-sep { width: 1px; height: 26px; background: var(--grigio-200); }
+/* sul telefono il titolo va sopra, la somma resta tutta sulle righe sotto, e
+   chi aspetta la conferma va su una riga sua, senza la riga di separazione */
+@media (max-width: 600px) { .ev-tot-titolo, .ev-tot-fuori { flex-basis: 100%; } .ev-tot-sep { display: none; } }
 .ev-stato { padding: 5px 7px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; background: #fff; }
 .ev-nota { width: 100%; min-width: 110px; padding: 5px 8px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; }
 .ev-live { font-size: 0.78rem; color: var(--grigio-600); align-self: center; white-space: nowrap; }

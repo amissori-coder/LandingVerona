@@ -17500,6 +17500,9 @@
                                    sta nella sezione "Aderenti Revilaw".
        Chi e' iscritto al convegno E alla cena e al meeting (stesso indirizzo)
        e' un aderente, e si conta una volta sola, con la cena.
+       Accanto, in ambra, LE AZIENDE IN ATTESA DI CONFERMA MAIL: non sono nei
+       totali, e il suggerimento dice quanti sarebbero i totali se confermassero
+       tutte (calcolati con la stessa regola, le righe dell'attesa comprese).
        LA STESSA REGOLA sta nel servizio (email-service/lib/riepilogo-iscrizioni.js,
        totaliConAderenti), per le mail di mezzanotte: se cambia qui va cambiata
        la', e prove/totali-aderenti.prove.js le mette a confronto.
@@ -17545,21 +17548,33 @@
         if (!evHaAderenti(ev) || !_evIscrizioni) return null;
         const quote = aderentiDi(ev);
         if (!quote || quote.some(d => !d || !d.conti || !Array.isArray(d.righe))) return null;
-        const convegno = soloIscritti(ev, _evIscrizioni)
-            .filter(r => sezioneVista(ev, r) !== SEZIONE_ATTESA.id)
-            .map(r => ({ email: r.email, persone: partecipantiDi(r), aderente: modalitaDi(ev, r) === 'aderenti', gruppo: r.gruppo || r.doc || '' }));
+        const riga = r => ({ email: r.email, persone: partecipantiDi(r), aderente: modalitaDi(ev, r) === 'aderenti', gruppo: r.gruppo || r.doc || '' });
+        const tutte = soloIscritti(ev, _evIscrizioni);
+        const inAttesa = tutte.filter(r => sezioneVista(ev, r) === SEZIONE_ATTESA.id);
+        const convegno = tutte.filter(r => sezioneVista(ev, r) !== SEZIONE_ATTESA.id).map(riga);
         const cena = [];
         quote.forEach(d => d.righe.forEach(x => cena.push({ email: x.email })));
-        return totaliConAderenti(convegno, cena);
+        const t = totaliConAderenti(convegno, cena);
+        /* chi aspetta di confermare l'email: le persone, e i totali che ci
+           sarebbero se confermassero tutte (con la stessa regola: chi di loro e'
+           alla cena e' gia' contato fra gli aderenti, e non si aggiungerebbe) */
+        t.attesa = inAttesa.reduce((n, r) => n + partecipantiDi(r), 0);
+        // le righe nell'ordine dell'elenco, come le contera' totaliEvento a conferme avvenute
+        t.seConfermano = totaliConAderenti(tutte.map(riga), cena);
+        return t;
     }
     // i suggerimenti dei tre riquadri: che cosa conta ciascun numero
     function titoliTotali(t) {
         const att = 'Chi aspetta ancora di confermare l\'email non è contato.';
         if (!t) {
             const msg = 'Si calcola quando sono lette le iscrizioni degli aderenti' + (_aderentiMsg ? ': ' + _aderentiMsg : '.');
-            return { aziende: msg, aderenti: msg, tutti: msg };
+            return { aziende: msg, aderenti: msg, tutti: msg, attesa: msg };
         }
+        const sc = t.seConfermano || t;
         return {
+            attesa: 'Iscritte dal sito, non hanno ancora premuto il pulsante di conferma nella mail: non sono nei totali. '
+                + (t.attesa ? 'Se confermassero tutte, le aziende sarebbero ' + sc.aziende + ' e il totale aziende + aderenti ' + sc.tutti + '. ' : '')
+                + 'Dal menu della riga si può rimandare la mail.',
             aziende: 'Le persone iscritte al convegno, in sala e online, senza gli aderenti. ' + att,
             aderenti: t.cena + (t.cena === 1 ? ' iscritto' : ' iscritti') + ' alla cena e al meeting'
                 + (t.soloConvegno ? ', ' + t.soloConvegno + ' nella sezione Aderenti Revilaw del convegno' : '')
@@ -17581,6 +17596,11 @@
             + riquadroNum(v(t && t.aderenti), 'aderenti in tutto', ti.aderenti, '', 'tot-aderenti')
             + '<span class="ev-tot-op" aria-hidden="true">=</span>'
             + riquadroNum(v(t && t.tutti), 'totale aziende + aderenti', ti.tutti, 'forte', 'tot-tutti')
+            /* fuori dalla somma, oltre una riga: le aziende che devono ancora
+               confermare l'email, nell'ambra della loro sezione. Non sono nei
+               totali; il suggerimento dice quanto sarebbero se confermassero. */
+            + (ev.confermaEmail ? '<span class="ev-tot-fuori"><span class="ev-tot-sep" aria-hidden="true"></span>'
+                + riquadroNum(v(t && t.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', 'tot-attesa') + '</span>' : '')
             + '</div>';
     }
 
@@ -17625,7 +17645,7 @@
         if (evHaAderenti(ev)) {
             const t = totaliEvento(ev);
             const ti = titoliTotali(t);
-            [['tot-aziende', 'aziende'], ['tot-aderenti', 'aderenti'], ['tot-tutti', 'tutti']].forEach(([q, k]) => {
+            [['tot-aziende', 'aziende'], ['tot-aderenti', 'aderenti'], ['tot-tutti', 'tutti'], ['tot-attesa', 'attesa']].forEach(([q, k]) => {
                 const el = num(q);
                 scriviNumero(el, t ? t[k] : '-');
                 if (el) el.setAttribute('title', ti[k]);

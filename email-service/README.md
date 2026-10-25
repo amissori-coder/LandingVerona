@@ -2033,7 +2033,9 @@ legge anche le presenze e `iscrizioniCancellate`; se una di queste letture, o
 quella degli aderenti, non riesce, la mail parte senza i due totali, con le
 confermate delle aziende ("Aziende: iscrizioni confermate in tutto"). Nell'area riservata i totali si
 aggiornano con l'elenco e, per le iscrizioni alla cena e al meeting, ogni
-quattro minuti.
+quattro minuti; accanto, in ambra e fuori dalla somma, ci sono le aziende in
+attesa di conferma mail, con nel suggerimento i totali che ci sarebbero se
+confermassero tutte.
 
 **Le due parti tengono ognuna il suo modo di non spedire due volte.** Le
 aziende si prenotano su `meta/riepilogoIscrizioni-<evento>` solo quando hanno
