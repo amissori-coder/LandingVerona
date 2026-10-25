@@ -7,16 +7,17 @@
    Milano e' mezzanotte. Riepiloga il giorno appena finito.
 
    Per ogni evento di lib/iscrizione-verificata.js (oggi Milano 2027):
-   una mail ai destinatari di lib/riepilogo-iscrizioni.js con le
-   iscrizioni confermate nel giorno (email confermata), chi e' ancora in
-   attesa di confermare e il totale. Se non c'e' niente, niente mail.
-
-   Per ogni quota degli aderenti (lib/iscrizioni-aderenti.js, la cena e il
-   meeting di Milano): una mail a parte, agli stessi destinatari, con le
-   iscrizioni arrivate nel giorno e i dati per la fattura, quelle corrette
-   e i totali. Gli aderenti non confermano l'email, e a ogni iscrizione non
-   parte piu' nessun avviso: e' questo riepilogo a dirlo. Anche qui, se non
-   c'e' niente di nuovo, niente mail.
+   UNA mail ai destinatari di lib/riepilogo-iscrizioni.js, con insieme
+     - le AZIENDE: le iscrizioni confermate nel giorno (email confermata)
+       e chi e' ancora in attesa di confermare;
+     - gli ADERENTI di ogni quota dell'evento (lib/iscrizioni-aderenti.js,
+       la cena e il meeting di Milano): le iscrizioni arrivate nel giorno
+       con i dati per la fattura, e quelle corrette. Gli aderenti non
+       confermano l'email, e a ogni iscrizione non parte piu' nessun
+       avviso: e' questo riepilogo a dirlo;
+     - i due totali dell'evento (aziende, e aziende + aderenti).
+   La mail parte se almeno una delle due parti ha qualcosa di nuovo; se
+   non c'e' niente, niente mail. Fino a ottobre 2026 erano due mail.
    PER GLI ADERENTI NON SI PERDE UN GIORNO. Questa mail e' l'unico avviso di
    un'iscrizione da fatturare, e il lavoro gira davvero una volta sola per
    notte: se una notte la posta non risponde, la notte dopo la mail copre
@@ -196,29 +197,18 @@ module.exports = async (req, res) => {
             }
         };
         const esiti = [];
-        // le aziende: se qualcosa si rompe qui, gli aderenti partono lo stesso
+        /* Le tre letture, ognuna per conto suo: un guasto in una non ferma le
+           altre mail. Gli aderenti e le presenze servono anche ai due totali
+           (aziende, aziende + aderenti) che stanno in TUTTE E DUE le mail;
+           se uno dei due manca le mail partono come prima, senza i totali. */
+        let schede = null;
         try {
             const snap = await db.collection('iscrizioni').get();
-            const schede = [];
+            schede = [];
             snap.forEach(d => schede.push({ id: d.id, dati: d.data() || {} }));
-            for (const ev of R.EVENTI) {
-                const c = R.conti(schede, ev, giorno);
-                const nome = 'riepilogoIscrizioni-' + ev.chiave;
-                if (!R.daSpedire(c)) { esiti.push({ evento: ev.chiave, nuove: 0, inAttesa: 0 }); continue; }
-                if (!anteprima && !await prenota(db, nome, giorno, forza)) { esiti.push({ evento: ev.chiave, nuove: c.nuove.length, gia: true }); continue; }
-                const inviata = await spedisci(nome, conAnteprima(MNGB.riepilogoIscrizioni(c, LINK_AREA, R.giornoLeggibile(giorno))),
-                    anteprima ? null : () => db.collection('meta').doc(nome).set({ ultimoGiorno: null }, { merge: true }));
-                esiti.push(inviata
-                    ? { evento: ev.chiave, nuove: c.nuove.length, inAttesa: c.inAttesa.length, totale: c.totale, inviata: inviata }
-                    : { evento: ev.chiave, nuove: c.nuove.length, errore: true });
-            }
         } catch (e) {
-            console.error('Riepilogo iscrizioni (aziende):', String((e && e.message) || e).slice(0, 200));
-            esiti.push({ evento: '', errore: true });
+            console.error('Riepilogo iscrizioni, iscrizioni non lette:', String((e && e.message) || e).slice(0, 200));
         }
-        /* Gli aderenti: un'altra collezione, e una lettura sua. Se non riesce,
-           il riepilogo delle aziende e' gia' partito e resta valido; il
-           giorno resta da spedire, e lo recupera la notte dopo. */
         let aderenti = null;
         try {
             const snapA = await db.collection(R.COLLEZIONE_ADERENTI).get();
@@ -227,41 +217,123 @@ module.exports = async (req, res) => {
         } catch (e) {
             console.error('Riepilogo aderenti, iscrizioni non lette:', String((e && e.message) || e).slice(0, 200));
         }
-        for (const q of R.QUOTE_ADERENTI) {
-            if (!aderenti) { esiti.push({ quota: q.id, errore: true }); continue; }
-            const nome = 'riepilogoAderenti-' + q.id;
-            let aperto = null;
+        // le presenze dicono chi chi organizza ha messo fra gli aderenti (e chi era gia' in sala)
+        let presenze = null;
+        try {
+            const snapP = await db.collection('presenze').get();
+            presenze = new Map();
+            snapP.forEach(d => presenze.set(d.id, d.data() || {}));
+        } catch (e) {
+            console.error('Riepilogo iscrizioni, presenze non lette (niente totali con gli aderenti):', String((e && e.message) || e).slice(0, 200));
+        }
+        // le righe tolte dall'elenco dall'area riservata: fuori anche dai totali
+        let cancellate = null;
+        try {
+            const snapC = await db.collection('iscrizioniCancellate').get();
+            cancellate = new Set();
+            snapC.forEach(d => { const v = d.data() || {}; if (v.evento && v.idIscritto) cancellate.add(v.evento + '~' + v.idIscritto); });
+        } catch (e) {
+            console.error('Riepilogo iscrizioni, cancellate non lette (niente totali con gli aderenti):', String((e && e.message) || e).slice(0, 200));
+        }
+        const totaliDi = ev => {
+            if (!ev || !schede || !aderenti || !presenze || !cancellate) return null;
+            try { return R.totali(schede, presenze, ev, aderenti, cancellate); }
+            catch (e) { console.error('Riepilogo, totali non calcolati:', String((e && e.message) || e).slice(0, 200)); return null; }
+        };
+        /* UNA MAIL PER EVENTO, con le aziende e gli aderenti insieme
+           (MNGB.riepilogoSerale). Ogni parte tiene il suo modo di non
+           spedire due volte e di non perdere niente:
+             AZIENDE   il giorno si prenota (prenota) solo se c'e' qualcosa da
+                       dire, e se la mail non parte si rimette com'era;
+             ADERENTI  il periodo si apre (apriAderenti) e si chiude
+                       (chiudiAderenti) DOPO che la mail e' partita: se non
+                       parte, la notte dopo copre anche i giorni rimasti
+                       indietro.
+           La mail parte se almeno una delle due parti ha qualcosa di nuovo;
+           l'altra c'e' lo stesso, con i suoi numeri. Se una lettura fallisce
+           la mail parte con l'altra parte e una riga che lo dice: un errore
+           sulle aziende non ferma le fatture degli aderenti, e viceversa. */
+        for (const ev of R.EVENTI) {
+            const esito = { evento: ev.chiave };
+            esiti.push(esito);
+            const nomeAz = 'riepilogoIscrizioni-' + ev.chiave;
+            let azPrenotata = false, partita = 0;
+            const aperti = [];
             try {
-                if (anteprima) {
-                    const c = R.contiAderenti(aderenti, q, giorno);
-                    if (!R.daSpedireAderenti(c)) { esiti.push({ quota: q.id, nuove: 0, aggiornate: 0, anteprima: true }); continue; }
-                    const inviata = await spedisci(nome, conAnteprima(MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno))), null);
-                    esiti.push({ quota: q.id, nuove: c.nuove.length, aggiornate: c.aggiornate.length, anteprima: true, inviata: inviata, errore: !inviata || undefined });
+                // LE AZIENDE
+                let az = null, azNota = '';
+                if (!schede) {
+                    azNota = 'Le iscrizioni delle aziende non si sono potute leggere stanotte: le trovi nell\'area riservata.';
+                    esito.aziende = { errore: true };
+                } else {
+                    const c = R.conti(schede, ev, giorno, presenze);
+                    esito.aziende = { nuove: c.nuove.length, inAttesa: c.inAttesa.length, totale: c.totale };
+                    if (!R.daSpedire(c)) az = c;
+                    else if (anteprima) az = c;
+                    else if (await prenota(db, nomeAz, giorno, forza)) { az = c; azPrenotata = true; }
+                    else {
+                        // gia' mandate: niente numeri (direbbero zero), solo la riga che lo dice
+                        azNota = 'Le iscrizioni delle aziende di questo giorno sono già state mandate.';
+                        esito.aziende.gia = true;
+                    }
+                }
+                // GLI ADERENTI, quota per quota
+                const ad = [];
+                let adNota = '';
+                esito.aderenti = [];
+                for (const q of R.QUOTE_ADERENTI.filter(x => x.evento === ev.chiave)) {
+                    if (!aderenti) {
+                        adNota = 'Le iscrizioni degli aderenti non si sono potute leggere stanotte: arrivano nel riepilogo di domani, con i giorni rimasti indietro.';
+                        esito.aderenti.push({ quota: q.id, errore: true });
+                        continue;
+                    }
+                    if (anteprima) {
+                        const c = R.contiAderenti(aderenti, q, giorno);
+                        ad.push({ c: c, dalTesto: null, nuovo: R.daSpedireAderenti(c) });
+                        esito.aderenti.push({ quota: q.id, nuove: c.nuove.length, aggiornate: c.aggiornate.length, anteprima: true });
+                        continue;
+                    }
+                    const p = await apriAderenti(db, 'riepilogoAderenti-' + q.id, giorno, forza, q.riepilogoDal);
+                    if (!p) {
+                        // gia' spedito, o un altro giro in corso: niente numeri, solo la riga che lo dice
+                        adNota = 'Le iscrizioni degli aderenti di questo periodo sono già state mandate, o le sta mandando un altro giro.';
+                        esito.aderenti.push({ quota: q.id, gia: true });
+                        continue;
+                    }
+                    aperti.push({ nome: 'riepilogoAderenti-' + q.id, id: p.id });
+                    const c = R.contiAderenti(aderenti, q, giorno, p.dal);
+                    ad.push({ c: c, dalTesto: R.giornoLeggibile(c.dal), nuovo: R.daSpedireAderenti(c) });
+                    esito.aderenti.push({ quota: q.id, dal: c.dal, nuove: c.nuove.length, aggiornate: c.aggiornate.length, totale: c.totale });
+                }
+                const daDire = (!!az && R.daSpedire(az)) || ad.some(x => x.nuovo);
+                if (!daDire) {
+                    // niente di nuovo: il periodo degli aderenti e' coperto lo stesso, e domani si riparte da li'
+                    for (const x of aperti) await chiudiAderenti(db, x.nome, giorno, true, x.id);
+                    aperti.length = 0;
+                    esito.vuota = true;
                     continue;
                 }
-                const p = await apriAderenti(db, nome, giorno, forza, q.riepilogoDal);
-                if (!p) { esiti.push({ quota: q.id, gia: true }); continue; }
-                aperto = p.id;
-                const c = R.contiAderenti(aderenti, q, giorno, p.dal);
-                // niente di nuovo: il periodo e' coperto lo stesso, e domani si riparte da li'
-                if (!R.daSpedireAderenti(c)) {
-                    await chiudiAderenti(db, nome, giorno, true, p.id);
-                    aperto = null;
-                    esiti.push({ quota: q.id, nuove: 0, aggiornate: 0, dal: c.dal });
-                    continue;
-                }
-                const inviata = await spedisci(nome, MNGB.riepilogoAderenti(c, LINK_AREA, R.giornoLeggibile(giorno), R.giornoLeggibile(c.dal)), null);
-                // il giorno si segna solo se la mail e' partita; se no resta da spedire
-                await chiudiAderenti(db, nome, giorno, !!inviata, p.id);
-                aperto = null;
-                esiti.push(inviata
-                    ? { quota: q.id, dal: c.dal, nuove: c.nuove.length, aggiornate: c.aggiornate.length, totale: c.totale, inviata: inviata }
-                    : { quota: q.id, dal: c.dal, nuove: c.nuove.length, errore: true });
+                const m = MNGB.riepilogoSerale({
+                    giornoTesto: R.giornoLeggibile(giorno), ev: ev, az: az, azNota: azNota,
+                    ad: ad.map(x => ({ c: x.c, dalTesto: x.dalTesto })), adNota: adNota, t: totaliDi(ev)
+                }, LINK_AREA);
+                const inviata = await spedisci(nomeAz, conAnteprima(m),
+                    azPrenotata ? () => db.collection('meta').doc(nomeAz).set({ ultimoGiorno: null }, { merge: true }) : null);
+                partita = inviata;
+                // il periodo degli aderenti si segna solo se la mail e' partita; se no resta da spedire
+                for (const x of aperti) await chiudiAderenti(db, x.nome, giorno, !!inviata, x.id);
+                aperti.length = 0;
+                if (inviata) esito.inviata = inviata;
+                else esito.errore = true;
+                if (anteprima) esito.anteprima = true;
             } catch (e) {
-                // il giorno non e' stato segnato: si toglie solo l'"in corso", e la notte dopo recupera
-                if (aperto) { try { await chiudiAderenti(db, nome, giorno, false, aperto); } catch (_) { } }
-                console.error('Riepilogo aderenti:', String((e && e.message) || e).slice(0, 200));
-                esiti.push({ quota: q.id, errore: true });
+                // se la mail e' partita si riprova a segnarla; se no si tolgono gli "in corso", e la notte dopo recupera
+                for (const x of aperti) { try { await chiudiAderenti(db, x.nome, giorno, !!partita, x.id); } catch (_) { } }
+                // la prenotazione delle aziende si toglie solo se la mail NON e' partita: se no un nuovo giro le rimanderebbe
+                if (azPrenotata && !partita) { try { await db.collection('meta').doc(nomeAz).set({ ultimoGiorno: null }, { merge: true }); } catch (_) { } }
+                console.error('Riepilogo iscrizioni (' + ev.chiave + '):', String((e && e.message) || e).slice(0, 200));
+                if (partita) esito.inviata = partita;
+                esito.errore = true;
             }
         }
         res.status(200).json({ ok: true, giorno: giorno, anteprima: anteprima || undefined, esiti: esiti });

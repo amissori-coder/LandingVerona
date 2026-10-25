@@ -1957,8 +1957,8 @@ A **mezzanotte, ora di Milano**, per gli eventi di
 mail con le iscrizioni **completate** nella giornata appena finita (l'email
 confermata quel giorno, anche se il modulo era di giorni prima: nome,
 azienda, ruolo, email, cellulare, ora, azienda invitata), chi e' ancora **in
-attesa di confermare** l'email, il totale delle iscrizioni confermate e il
-pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
+attesa di confermare** l'email, i due totali (aziende, e aziende + aderenti:
+vedi sotto) e il pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
 conferme nuove ne' persone in attesa non parte niente.** Le annullate non
 contano. "In attesa" e' la stessa regola dei promemoria e dell'area
 riservata (`inAttesaDiConferma`, in "Conferma dell'indirizzo email"): le
@@ -1966,15 +1966,29 @@ iscrizioni inserite a mano, quelle arrivate con un Portale (Eventbrite, il
 desk) e quelle caricate con "Importa" non hanno una mail da confermare e non
 ci compaiono mai.
 
+**UNA MAIL SOLA per aziende e aderenti** (`riepilogoSerale` in
+`lib/mail-ngb.js`; fino a ottobre 2026 erano due). Dall'alto: la giornata in
+numeri (nuove conferme e attese delle aziende, iscrizioni nuove e corrette
+degli aderenti, fatture da emettere), i due totali dell'evento, la parte
+degli **aderenti** e poi quella delle **aziende** (le confermate del giorno,
+chi e' in attesa). Gli aderenti vengono prima perche' i loro dati per la
+fattura stanno solo in questa mail: se la mail e' troppo lunga si accorciano
+gli elenchi delle aziende, mai quelli degli aderenti (vedi sotto). L'oggetto
+dice tutte e due: "Iscrizioni Milano del 15/01/2027 - aziende: 2 confermate,
+1 in attesa; aderenti: 1 nuova (aziende 152, con gli aderenti 190)"; una
+notte recuperata lo dice anche qui e nel riquadro in cima ("aderenti dal
+06/02/2027 al 07/02/2027: 2 nuove"). Parte se almeno una delle due parti ha
+qualcosa di nuovo; l'altra c'e' lo stesso, con i suoi numeri. Una parte che
+non si e' potuta leggere, o che per quel giorno e' gia' stata mandata, non
+ha numeri (direbbero zero): c'e' solo una riga che lo dice.
+
 **Gli aderenti** (cena del 26 e meeting del 27 febbraio, la pagina
 `/milano_febbraio_2027/aderenti/`, collezione `iscrizioniAderenti`, in
-`lib/iscrizioni-aderenti.js`) hanno **una mail a parte, la stessa notte e agli
-stessi destinatari**. A ogni iscrizione non parte piu' nessun avviso interno:
-parte solo la mail all'iscritto, con quota e dati di fatturazione. Qui non
-c'e' un'email da confermare, perche' l'iscrizione vale da quando arriva: niente
-"in attesa" e niente "confermata". Per ogni quota (`contiAderenti` in
-`lib/riepilogo-iscrizioni.js`, la mail e' `riepilogoAderenti` in
-`lib/mail-ngb.js`) la mail contiene:
+`lib/iscrizioni-aderenti.js`): a ogni iscrizione non parte piu' nessun avviso
+interno, parte solo la mail all'iscritto, con quota e dati di fatturazione.
+Qui non c'e' un'email da confermare, perche' l'iscrizione vale da quando
+arriva: niente "in attesa" e niente "confermata". Per ogni quota
+(`contiAderenti` in `lib/riepilogo-iscrizioni.js`) la loro parte contiene:
 - **le nuove iscrizioni del giorno** (`primaVolta`), con recapiti, studio e
   citta', tutti i dati per la fattura, la quota IVA inclusa e le note per la
   cena. Chi ha corretto il modulo lo stesso giorno resta fra le nuove, con i
@@ -1982,12 +1996,50 @@ c'e' un'email da confermare, perche' l'iscrizione vale da quando arriva: niente
 - **le iscrizioni aggiornate**: arrivate prima e inviate di nuovo quel giorno
   (`quando`), con i campi della fatturazione cambiati rispetto a fine giornata
   precedente (dalla `storia` della scheda);
-- **i totali**: iscritti e fatture da emettere, con l'importo.
+- **i numeri**: iscritti alla cena e al meeting e fatture da emettere, con
+  l'importo.
 
 Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
 (`mail: false` sulla scheda), il riepilogo lo scrive sotto il suo nome.
 
-Senza iscrizioni nuove o aggiornate non parte niente. Una volta per notte su
+**I due totali, nella mail** (e negli stessi termini nella riga
+"Totali dell'evento" dell'area riservata, sotto i riquadri di Milano):
+- **Totale aziende**: le persone iscritte al convegno, in sala e online, senza
+  gli aderenti e senza chi aspetta ancora di confermare l'email. Si contano le
+  STESSE righe dell'elenco dell'area riservata: la pagina che contiene
+  "milano" (il `filtro` dell'evento in `VERIFICATA.EVENTI`), anche le
+  iscrizioni inserite a mano, dal desk e importate, una riga per le persone
+  della colonna Partecipanti; la conferma dell'email vale per l'indirizzo (una
+  riga confermata con lo stesso indirizzo basta) e chi e' segnato "presente"
+  non aspetta piu'. Non contano le annullate, le righe cancellate dall'elenco
+  (`iscrizioniCancellate`) e gli invitati ai soli incontri B2B;
+- **Aderenti**: gli iscritti alla cena e al meeting, piu' chi chi organizza ha
+  messo nella sezione "Aderenti Revilaw" del convegno ("38 (35 cena e
+  meeting, 3 solo convegno)");
+- **Totale aziende + aderenti**: la somma dei due, cioe' tutte le persone
+  dell'evento una volta sola. Chi e' iscritto al convegno **e** alla cena
+  (stesso indirizzo email) e' un aderente e si conta una volta, con la cena;
+  la mail lo dice. Se la sua riga del convegno vale per piu' persone (un
+  ordine da Eventbrite), gli altri restano fra le aziende.
+
+Nella parte degli aderenti il numero della cena si chiama "Iscritti", per non
+confonderlo con i due totali. La lista "in attesa di conferma" delle aziende
+non porta piu' chi e' gia' segnato presente in sala.
+
+La regola sta in `totaliConAderenti` (`lib/riepilogo-iscrizioni.js`) e, uguale,
+in `area-riservata/app.js`: `prove/totali-aderenti.prove.js` le confronta. Per
+sapere chi e' nella sezione degli aderenti e chi e' stato cancellato il lavoro
+legge anche le presenze e `iscrizioniCancellate`; se una di queste letture, o
+quella degli aderenti, non riesce, la mail parte senza i due totali, con le
+confermate delle aziende ("Aziende: iscrizioni confermate in tutto"). Nell'area riservata i totali si
+aggiornano con l'elenco e, per le iscrizioni alla cena e al meeting, ogni
+quattro minuti.
+
+**Le due parti tengono ognuna il suo modo di non spedire due volte.** Le
+aziende si prenotano su `meta/riepilogoIscrizioni-<evento>` solo quando hanno
+qualcosa da dire (e se la mail non parte la prenotazione si toglie; se e'
+partita resta, anche quando dopo Firestore non risponde). Gli
+aderenti, una volta per notte su
 `meta/riepilogoAderenti-<quota>`, che tiene l'**ultimo giorno spedito
 davvero** (`ultimoGiorno`, segnato solo DOPO che la mail e' partita; mentre
 spedisce c'e' `inCorso`, che ferma qualunque altro giro, anche per un altro
@@ -2000,9 +2052,24 @@ perde un giorno**: se una notte la posta non risponde, o la funzione si ferma
 a meta', la notte dopo la mail copre anche il giorno rimasto indietro ("dal
 ... al ...", fino a una settimana), anche la prima notte in assoluto. Con
 `&forza=1` un giorno gia' coperto si rispedisce da solo, uno non ancora
-coperto si copre insieme a quelli prima: forza non salta giorni. Un errore nella parte delle aziende non ferma quella degli
-aderenti. Ogni persona e' un blocco solo, e la mail resta sotto il taglio di
-Gmail a 102 KB anche con trenta iscrizioni in un giorno.
+coperto si copre insieme a quelli prima: forza non salta giorni. Senza
+niente di nuovo il periodo degli aderenti si segna coperto lo stesso. Un
+errore nella lettura delle aziende non ferma gli aderenti (la mail parte e lo
+dice), e viceversa. Ogni persona e' un blocco solo, e la mail resta sotto il
+taglio di Gmail a 102 KB: la parte HTML si misura come viaggia, in
+quoted-printable (`LIMITE_MAIL`, 98 KB: per un testo italiano il 7% in piu'
+dei byte, per dei nomi in cirillico anche il triplo). Gli aderenti ci stanno
+sempre interi (trenta in un giorno pesano una settantina di KB); se con loro
+non c'e' posto, la mail accorcia gli elenchi delle aziende, prima gli in
+attesa piu' vecchi e poi le ultime confermate, e scrive quante ne mancano ("E
+altri 85, iscritti prima di questi: l'elenco completo e' nell'area
+riservata"). Gli in attesa, che tornano ogni notte, sono comunque al massimo
+quaranta, gli ultimi arrivati; i numeri nel riquadro in cima li contano tutti.
+Se anche senza le righe delle aziende la mail passa il taglio vero di Gmail
+(102 KB: gli aderenti da soli sono troppi, dalla cinquantina in su in una
+notte) toglierle non servirebbe: restano intere, e in cima la mail dice che
+Gmail potrebbe accorciarla e come aprirla tutta ("Visualizza intero
+messaggio"); gli aderenti sono anche nell'area riservata.
 
 - **Quando.** I cron di Vercel contano in UTC: il lavoro gira alle 22 e alle
   23 UTC (`vercel.json`) e fa qualcosa solo quando a Milano e' mezzanotte,

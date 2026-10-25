@@ -441,6 +441,11 @@ module.exports = async (req, res) => {
                 daFirestore.push({
                     id: (em.toLowerCase() || (chiave(v.nome) + '.' + chiave(v.cognome))) + '|' + String(v.data || ''),
                     doc: String(v._doc || ''),
+                    /* Il gruppo di un ordine per piu' posti (completa-salva: i posti 2..N
+                       hanno gruppo = il documento dell'intestatario). Serve ai totali con
+                       gli aderenti (app.js, totaliConAderenti): un compagno di gruppo con
+                       lo stesso indirizzo dell'intestatario e' un'altra persona. */
+                    gruppo: String(v.gruppo || ''),
                     data: String(v.data || ''), pagina: pag,
                     nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
                     azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),
@@ -683,10 +688,14 @@ module.exports = async (req, res) => {
         // 8) unione delle due fonti: a parita' di identificativo vince Firestore,
         //    che e' la fonte aggiornata. Cosi le iscrizioni raccolte prima del
         //    passaggio restano visibili e non ci sono doppioni.
+        //    Firestore toglie solo le righe del FOGLIO, mai le sue: due schede con
+        //    lo stesso identificativo (l'intestatario di un ordine e un compagno con
+        //    lo stesso indirizzo, che ne prende la data) sono due persone, ed
+        //    escono tutte e due come senza il foglio.
         const perId = {};
         iscrizioni.forEach(x => { perId[x.id] = x; });
-        daFirestore.forEach(x => { perId[x.id] = x; });
-        rispondi(res, Object.keys(perId).map(k => perId[k]), ['firestore', 'foglio'], presenze, cancellate, arch.avviso, revDati);
+        daFirestore.forEach(x => { delete perId[x.id]; });
+        rispondi(res, Object.keys(perId).map(k => perId[k]).concat(daFirestore), ['firestore', 'foglio'], presenze, cancellate, arch.avviso, revDati);
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Iscrizioni: lettura non riuscita:', motivo);

@@ -16306,6 +16306,14 @@
             // quota del database esaurita poco fa: si aspetta, "Aggiorna adesso" resta disponibile
             if (Date.now() < _evPausaFino) return;
             const evOra = eventoCorrente();
+            /* Le iscrizioni alla cena e al meeting non muovono l'elenco del convegno,
+               quindi l'aggiornamento qui sotto non le vede: si rileggono da sole, al
+               passo lento (ogni quattro minuti), per i totali in testa. */
+            // il passo si misura dal tentativo, non dalla lettura riuscita: a servizio giu' non si insiste ogni trenta secondi
+            if (evHaAderenti(evOra) && Date.now() - Math.max(_aderentiQuando, _aderentiTentativo) >= EV_INTERVALLO) {
+                _aderentiTentativo = Date.now();
+                caricaAderenti(evOra, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaAderenti(evOra); });
+            }
             const intervallo = _evAscoltoOk ? EV_INTERVALLO_ASCOLTO : EV_INTERVALLO;
             if (Date.now() - (_evUltimoTentativo[evOra.id] || 0) < intervallo) return;
             const a = document.activeElement;
@@ -17481,6 +17489,101 @@
             : quante;
     }
 
+    /* I DUE TOTALI DELL'EVENTO (Milano), da non confondere fra loro ne' con i
+       posti in sala:
+         TOTALE AZIENDE            le persone iscritte al convegno, in sala e
+                                   online, tolti gli aderenti e chi aspetta
+                                   ancora di confermare l'email;
+         TOTALE AZIENDE + ADERENTI tutte le persone dell'evento, ognuna una
+                                   volta: le aziende piu' gli aderenti, cioe'
+                                   gli iscritti alla cena e al meeting e chi
+                                   sta nella sezione "Aderenti Revilaw".
+       Chi e' iscritto al convegno E alla cena e al meeting (stesso indirizzo)
+       e' un aderente, e si conta una volta sola, con la cena.
+       LA STESSA REGOLA sta nel servizio (email-service/lib/riepilogo-iscrizioni.js,
+       totaliConAderenti), per le mail di mezzanotte: se cambia qui va cambiata
+       la', e prove/totali-aderenti.prove.js le mette a confronto.
+       `convegno`: [{ email, persone, aderente, gruppo }]; `cena`: [{ email }]. */
+    function totaliConAderenti(convegno, cena) {
+        const chiave = e => String(e || '').trim().toLowerCase();
+        const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
+        let aziende = 0, soloConvegno = 0;
+        const anche = new Set();
+        const tolti = new Set();
+        (convegno || []).forEach(r => {
+            const k = chiave(r && r.email);
+            let n = Math.max(0, Number(r && r.persone) || 0);
+            /* E' un aderente della cena: lui si conta con la cena, una volta sola
+               per ogni iscrizione (due iscrizioni con il suo indirizzo sono lui due
+               volte, un doppio). Dentro lo STESSO gruppo (un ordine per piu' posti:
+               l'intestatario e i posti 2..N) toglie se stesso una volta: un compagno
+               con lo stesso indirizzo dell'intestatario e' un'altra persona, e gli
+               altri della riga (un ordine da Eventbrite per tre) restano dove sono. */
+            if (k && dellaCena.has(k)) {
+                anche.add(k);
+                const g = r && r.gruppo ? k + '\n' + r.gruppo : '';
+                if (!g || !tolti.has(g)) { if (g) tolti.add(g); n = Math.max(0, n - 1); }
+            }
+            if (r && r.aderente) soloConvegno += n; else aziende += n;
+        });
+        const cenaN = (cena || []).length;
+        return {
+            aziende: aziende,
+            aderenti: cenaN + soloConvegno,
+            cena: cenaN,
+            soloConvegno: soloConvegno,
+            anche: anche.size,
+            tutti: aziende + cenaN + soloConvegno
+        };
+    }
+    /* I totali di un evento con gli aderenti, o null: dove gli aderenti non ci
+       sono, o finche' le loro iscrizioni non sono lette (senza, le aziende
+       conterebbero anche gli aderenti della cena iscritti al convegno). Le
+       righe del convegno sono quelle dei riquadri: l'elenco, fuori chi aspetta
+       la conferma dell'email, ognuna per le sue persone. */
+    function totaliEvento(ev) {
+        if (!evHaAderenti(ev) || !_evIscrizioni) return null;
+        const quote = aderentiDi(ev);
+        if (!quote || quote.some(d => !d || !d.conti || !Array.isArray(d.righe))) return null;
+        const convegno = soloIscritti(ev, _evIscrizioni)
+            .filter(r => sezioneVista(ev, r) !== SEZIONE_ATTESA.id)
+            .map(r => ({ email: r.email, persone: partecipantiDi(r), aderente: modalitaDi(ev, r) === 'aderenti', gruppo: r.gruppo || r.doc || '' }));
+        const cena = [];
+        quote.forEach(d => d.righe.forEach(x => cena.push({ email: x.email })));
+        return totaliConAderenti(convegno, cena);
+    }
+    // i suggerimenti dei tre riquadri: che cosa conta ciascun numero
+    function titoliTotali(t) {
+        const att = 'Chi aspetta ancora di confermare l\'email non è contato.';
+        if (!t) {
+            const msg = 'Si calcola quando sono lette le iscrizioni degli aderenti' + (_aderentiMsg ? ': ' + _aderentiMsg : '.');
+            return { aziende: msg, aderenti: msg, tutti: msg };
+        }
+        return {
+            aziende: 'Le persone iscritte al convegno, in sala e online, senza gli aderenti. ' + att,
+            aderenti: t.cena + (t.cena === 1 ? ' iscritto' : ' iscritti') + ' alla cena e al meeting'
+                + (t.soloConvegno ? ', ' + t.soloConvegno + ' nella sezione Aderenti Revilaw del convegno' : '')
+                + (t.anche ? '. ' + (t.anche === 1 ? 'Uno è iscritto' : t.anche + ' sono iscritti') + ' anche al convegno: si conta una volta sola.' : '.'),
+            tutti: 'Tutte le persone dell\'evento, ognuna una volta: ' + t.aziende + ' aziende + ' + t.aderenti + ' aderenti. ' + att
+        };
+    }
+    function totaliHtml(ev, riquadroNum) {
+        if (!evHaAderenti(ev)) return '';
+        const t = totaliEvento(ev);
+        const ti = titoliTotali(t);
+        const v = n => t ? n : '-';
+        return '<div class="ev-num-totali">'
+            + '<span class="ev-tot-titolo">Totali dell\'evento</span>'
+            + riquadroNum(v(t && t.aziende), 'totale aziende', ti.aziende, '', 'tot-aziende')
+            + '<span class="ev-tot-op" aria-hidden="true">+</span>'
+            /* "in tutto": nella fila sopra "aderenti" sono quelli seduti in sala,
+               la sezione del convegno; qui ci sono anche la cena e il meeting */
+            + riquadroNum(v(t && t.aderenti), 'aderenti in tutto', ti.aderenti, '', 'tot-aderenti')
+            + '<span class="ev-tot-op" aria-hidden="true">=</span>'
+            + riquadroNum(v(t && t.tutti), 'totale aziende + aderenti', ti.tutti, 'forte', 'tot-tutti')
+            + '</div>';
+    }
+
     /* I NUMERI SI MUOVONO CON LA RIGA
        ---------------------------------------------------------
        Spostare un iscritto fra le sezioni cambia i conteggi in testa, i numeri
@@ -17498,7 +17601,8 @@
         else el.insertBefore(document.createTextNode(String(n)), el.firstChild || null);
     }
     function aggiornaNumeriEventi(ev) {
-        if (!ev || ev.tutti || vistaCorrente !== 'eventi') return;
+        // solo l'evento aperto: i numeri di un altro, calcolati sull'elenco di questo, sarebbero sbagliati
+        if (!ev || ev.tutti || vistaCorrente !== 'eventi' || ev.id !== _evSel) return;
         const vista = $vista();
         if (!vista || !vista.querySelector('.ev-testa')) return;
         const c = contiEvento(ev);
@@ -17517,6 +17621,16 @@
         scriviNumero(num('iscrizioni'), c.nIsc === null ? '-' : c.nIsc);
         scriviNumero(num('partecipanti'), c.nPart === null ? '-' : c.nPart);
         scriviNumero(num('indirizzi'), c.nIndir === null ? '-' : c.nIndir);
+        // i due totali con gli aderenti (Milano): cambiano con le sezioni e con le iscrizioni alla cena
+        if (evHaAderenti(ev)) {
+            const t = totaliEvento(ev);
+            const ti = titoliTotali(t);
+            [['tot-aziende', 'aziende'], ['tot-aderenti', 'aderenti'], ['tot-tutti', 'tutti']].forEach(([q, k]) => {
+                const el = num(q);
+                scriviNumero(el, t ? t[k] : '-');
+                if (el) el.setAttribute('title', ti[k]);
+            });
+        }
         // le voci sopra l'elenco: numero, suggerimento e la veste "sezione vuota"
         const tutte = soloIscritti(ev, _evIscrizioni || []);
         vista.querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => {
@@ -18199,7 +18313,12 @@
                     : '')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
-                + '</div>') + '</div>'
+                + '</div>')
+            /* I DUE TOTALI CON GLI ADERENTI della cena e del meeting: una fila
+               sua, sotto, perche' non si confondano con i posti in sala e fra
+               loro ("aziende" + "aderenti" = il totale di tutti). */
+            + (ev.tutti ? '' : totaliHtml(ev, riquadroNum))
+            + '</div>'
             + cruscotto + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
@@ -21783,6 +21902,7 @@
     let _aderenti = null;       // l'ultima lettura: [{ quota, righe, conti }, ...]
     let _aderentiEv = '';
     let _aderentiQuando = 0;
+    let _aderentiTentativo = 0;  // l'ultimo tentativo del giro automatico, riuscito o no
     let _aderentiInFlight = false;
     let _aderentiMsg = '';
     let _aderentiAttese = [];
@@ -21866,8 +21986,11 @@
         if (b) b.addEventListener('click', () => modaleAderenti(ev));
     }
     function aggiornaSchedaAderenti(ev) {
+        // il blocco c'e' solo mentre l'evento e' sullo schermo: una risposta arrivata tardi, a evento cambiato, non tocca niente
         const el = document.getElementById('ev-aderenti-blocco');
         if (!el) return;
+        // i totali in testa contano anche gli aderenti: arrivati loro, si riscrivono
+        aggiornaNumeriEventi(ev);
         el.outerHTML = aderentiHtml(ev);
         collegaAderentiBlocco(ev);
     }
