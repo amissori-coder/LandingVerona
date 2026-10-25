@@ -17559,7 +17559,8 @@
            sarebbero se confermassero tutte (con la stessa regola: chi di loro e'
            alla cena e' gia' contato fra gli aderenti, e non si aggiungerebbe) */
         t.attesa = inAttesa.reduce((n, r) => n + partecipantiDi(r), 0);
-        t.seConfermano = totaliConAderenti(convegno.concat(inAttesa.map(riga)), cena);
+        // le righe nell'ordine dell'elenco, come le contera' totaliEvento a conferme avvenute
+        t.seConfermano = totaliConAderenti(tutte.map(riga), cena);
         return t;
     }
     // i suggerimenti dei tre riquadri: che cosa conta ciascun numero
