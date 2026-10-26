@@ -1668,7 +1668,10 @@ nelle cartelle Promozioni e Aggiornamenti, che dopo il clic arriva l'invito
 in PDF (per chi segue online: la conferma, e le istruzioni con un'email a
 parte), e di rispondere se non la trova. Personalizzata con nome, azienda del modulo, data e sede dell'evento
 (`CONF.dettagliEvento`); tag Brevo `X-Mailin-Tag: sollecito-conferma`. Una
-per scheda. **La copia nascosta non copre un no alla persona**: con due
+per scheda. Sulla riga dell'area riservata ogni invio tentato si vede con
+data e ora ("sollecito 26/10/2026 15:51", "PEC 27/10/2026 15:51, consegnata
+(ha risposto)"), in rosso quello che non e' andato ("NON partito",
+"PEC non mandata: nessun indirizzo PEC"). **La copia nascosta non copre un no alla persona**: con due
 destinatari, davanti a un no alla casella dell'iscritto, nodemailer va avanti
 con la copia e la spedizione "riesce"; il rifiuto si legge dopo, in
 `info.rejected` (`rifiutato`, con il dominio in punycode com'e' nella busta),
@@ -1680,6 +1683,25 @@ resta segnata (`copia`) e ai tentativi dopo non si rimanda: Andrea ha gia' la
 lettera, e' la persona che manca. Nell'area riservata il suggerimento sulla riga dice "Sollecito
 personale mandato il ..." (o "NON partito", "dall'esito incerto", con il
 motivo).
+
+**Quello che il giro scrive si vede subito.** L'area riservata legge da una
+copia condivisa dell'archivio (`lib/copia-iscrizioni.js`) che si rinnova solo
+quando chi scrive alza il numero di revisione (`meta/iscrizioni.rev`): il
+giro lo alza una volta per giro, se ha scritto su qualche scheda (mail
+partita o riprovata, sollecito, promemoria, PEC, scheda uscita dal giro,
+errore). Prima una lettera partita si vedeva solo dopo un'altra scrittura o
+dopo sei ore.
+
+**Lo stato del giro si vede nell'area riservata.** Ogni giro lascia su
+`meta/confermeEmail` l'ultimo giro con i suoi conti (`ultimoGiro: { quando,
+durata, conti }`); `api/iscrizioni.js` lo manda con l'elenco (`giroConferme`,
+anche con la risposta "invariato", perche' cambia da solo), e sotto i totali
+dell'evento una riga dice "ultimo giro delle conferme alle hh:mm · N
+solleciti, N promemoria, N PEC; N in attesa", in rosso con "giro fermo" se
+l'ultimo giro ha piu' di 25 minuti e "solleciti fermi: motivo" quando il
+mittente non passa o la posta e' giu' (il suggerimento ha tutti i conti e
+l'esito del controllo del mittente). Prima un fermo si leggeva solo nei log
+di Vercel.
 
 **Il mittente va verificato su Brevo, e il giro lo controlla.** Brevo spedisce
 solo da un indirizzo verificato o da un dominio autenticato, e **non lo dice

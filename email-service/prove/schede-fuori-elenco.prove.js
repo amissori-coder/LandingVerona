@@ -246,6 +246,19 @@ prova('Non sapere non e "non arrivata"', () => {
 /* ------------------------------------------------------------
    IL MONTAGGIO: che le due schede siano davvero raggiungibili
    ------------------------------------------------------------ */
+prova('Con l elenco viaggia lo stato del giro delle conferme (extra), e nient altro', () => {
+    let uscita = null;
+    const res = { status: () => ({ json: o => { uscita = o; } }) };
+    SERVIZIO(res)(res, [], ['firestore'], {}, {}, '', 3, { giroConferme: { quando: 5, conti: { solleciti: 1 } } });
+    esigi(uscita && uscita.giroConferme && uscita.giroConferme.quando === 5 && uscita.giroConferme.conti.solleciti === 1, 'giroConferme arriva com e');
+    SERVIZIO(res)(res, [], ['firestore'], {}, {}, '', 3);
+    esigi(uscita && !('giroConferme' in uscita) && uscita.ok === true && uscita.rev === 3, 'senza extra la risposta e quella di sempre');
+    SERVIZIO(res)(res, [], ['firestore'], {}, {}, '', 3, { ok: false, iscrizioni: 'no' });
+    esigi(uscita && uscita.ok === false, 'extra scrive sopra: chi lo passa deve passare solo il suo (giroConferme)');
+    esigi(/_evGiro = r\.giroConferme; _evGiroLetto = Date\.now\(\); aggiornaGiroConferme\(\)/.test(APP) && /function giroConfermeHtml\(\)/.test(APP) && /class="ev-giro/.test(APP),
+        'e l area riservata lo tiene e lo mostra sotto i totali');
+});
+
 prova('Le due schede si aprono dal riquadro delle iscrizioni', () => {
     esigi(/id="ev-cancellati"/.test(APP), 'il pulsante dei cancellati c e');
     esigi(/id="ev-solo-b2b"/.test(APP), 'e quello degli invitati ai soli incontri');

@@ -595,11 +595,12 @@ async function recuperoSollecito(db) {
    `rimaste` quelle che avevano qualcosa da fare e aspettano il giro dopo. */
 async function giro(db, opz) {
     opz = opz || {};
-    const scadenza = Date.now() + (Number(opz.budget) || BUDGET_MS);
+    const inizio = Date.now();
+    const scadenza = inizio + (Number(opz.budget) || BUDGET_MS);
     const conti = {
         occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0,
         solleciti: 0, sollecitoBloccato: false, sollecitoMotivo: '', mittenteOk: false, pec: 0, pecEscluse: 0, pecBloccato: false, promemoria: 0,
-        sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0
+        sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0, revisione: false
     };
     const idGiro = crypto.randomBytes(8).toString('hex');
     if (!await prendiLucchetto(db, idGiro)) { conti.occupato = true; return conti; }
@@ -636,6 +637,17 @@ async function giro(db, opz) {
         if (conti.mittenteOk || conti.sollecitoMotivo) {
             try { await rifMeta(db).set({ sollecitoMittente: { quando: Date.now(), ok: !!conti.mittenteOk, motivo: conti.sollecitoMotivo || '', mittente: SOLL.mittenteEmail() } }, { merge: true }); } catch (_) { }
         }
+        /* L'AREA RISERVATA LEGGE DA UNA COPIA (lib/copia-iscrizioni.js) che si
+           rinnova solo quando chi scrive alza il numero di revisione: senza
+           questo, una lettera partita, un promemoria, una PEC, una scheda uscita
+           dal giro si vedevano solo dopo un'altra scrittura o dopo sei ore.
+           Una volta per giro, e solo se il giro ha scritto su qualche scheda
+           (ogni alzata costa una rilettura dell'archivio a chi guarda). */
+        conti.revisione = !!(conti.inviate || conti.riprovate || conti.solleciti || conti.promemoria || conti.pec || conti.pecEscluse || conti.tolte || conti.recuperate || conti.arretrati || conti.errori);
+        /* l'ultimo giro con i suoi conti, per l'area riservata (api/iscrizioni.js,
+           giroConferme): si vede se il giro gira, quando, e se e perche' e' fermo */
+        try { await rifMeta(db).set({ ultimoGiro: { quando: Date.now(), durata: Date.now() - inizio, conti: Object.assign({}, conti) } }, { merge: true }); } catch (_) { }
+        if (conti.revisione) await CONF.segnaCambiamento(db);
         await mollaLucchetto(db, idGiro);
     }
     return conti;

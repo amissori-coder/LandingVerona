@@ -1287,6 +1287,64 @@ prova('Cancellata mentre la mail parte: la scheda non rinasce', async () => {
     esigi(s.mailConferma && s.mailConferma.via === 'automatico' && s.smsConferma && s.smsConferma.ok === true, 'senza cancellazioni la traccia di mail e SMS c\'e\'');
 });
 
+prova('Lo stato del giro per l\'area riservata: l\'ultimo giro con i suoi conti, su meta e dall\'API', async () => {
+    azzera();
+    dati.delete('meta/confermeEmail');
+    const t0 = orologio;
+    const partita = id => ({ ricevuto: t0, sollecitoConferma: undefined, mailConferma: { quando: t0, ok: true, errore: '', via: 'iscrizione', a: id + '@studio.it' } });
+    /* la funzione VERA dell'API (api/iscrizioni.js, giroConferme), ritagliata dal sorgente */
+    const API = require('fs').readFileSync(path.join(RADICE, 'api/iscrizioni.js'), 'utf8');
+    const ini = API.indexOf('async function giroConferme(');
+    let i = API.indexOf('{', ini), aperte = 0, fine = -1;
+    for (; i < API.length; i++) { if (API[i] === '{') aperte++; else if (API[i] === '}') { aperte--; if (!aperte) { fine = i + 1; break; } } }
+    const giroConferme = new Function(API.slice(ini, fine) + '\nreturn giroConferme;')();
+    const vuoto = await giroConferme(db);
+    esigi(vuoto && vuoto.quando === 0 && vuoto.conti === null && vuoto.mittente === null, 'senza meta/confermeEmail: nessun giro registrato (quando 0), non un errore', JSON.stringify(vuoto));
+    const dbRotto = { collection: () => ({ doc: () => ({ get: async () => { throw new Error('RESOURCE_EXHAUSTED: letture finite'); } }) }) };
+    esigi(await giroConferme(dbRotto) === null, 'e la lettura non riuscita e\' null: un\'altra cosa da "nessun giro"');
+    iscritto('stato', partita('stato'));
+    avanza(ORA);
+    const r = await giro();
+    const meta = dati.get('meta/confermeEmail') || {};
+    const ug = meta.ultimoGiro;
+    esigi(ug && ug.quando === orologio && ug.conti && ug.conti.solleciti === 1 && ug.conti.mittenteOk === true && ug.conti.esaminate === 1 && typeof ug.durata === 'number',
+        'dopo un giro, su meta restano quando e conti dell\'ultimo giro', JSON.stringify(ug));
+    /* la copia dell'archivio (lib/copia-iscrizioni.js) si rinnova solo con il numero di
+       revisione alzato: il giro lo alza quando ha scritto, e solo allora */
+    esigi((dati.get('meta/iscrizioni') || {}).rev === 1 && r.corpo.revisione === true && dati.get('meta/confermeEmail').ultimoGiro.conti.revisione === true, 'la lettera partita alza la revisione dell\'archivio: l\'area riservata la vede (e l\'ultimo giro lo registra)', JSON.stringify(dati.get('meta/iscrizioni')));
+    const g = await giroConferme(db);
+    esigi(g && g.quando === orologio && g.conti.solleciti === 1 && g.conti.sollecitoBloccato === false && g.conti.sollecitoMotivo === '' && g.mittente && g.mittente.ok === true && g.mittente.mittente === 'revilaw@nextgenerationbusiness.it' && g.mittente.quando === orologio,
+        'l\'API li rimette in forma: conti e mittente verificato', JSON.stringify(g));
+    esigi(!('lucchettoFino' in g) && !('lucchettoGiro' in g) && Object.keys(g).sort().join(',') === 'arretrati,conti,durata,mittente,quando', 'e manda solo quello: niente lucchetto, niente altro', Object.keys(g).join(','));
+    const fermo = await giro();
+    esigi((dati.get('meta/iscrizioni') || {}).rev === 1 && fermo.corpo.revisione === false && fermo.corpo.esaminate === 1, 'un giro che non scrive niente non alza la revisione');
+    // il mittente non verificato: il motivo arriva fino all'area riservata
+    mittentiBrevo = []; SOLL.azzeraVerifica();
+    iscritto('stato2', partita('stato2'));
+    avanza(ORA);
+    await giro();
+    const g2 = await giroConferme(db);
+    esigi((dati.get('meta/iscrizioni') || {}).rev === 1, 'con i solleciti fermi (niente scritto sulle schede) la revisione resta');
+    esigi(g2.conti.sollecitoBloccato === true && /non è fra i mittenti verificati/.test(g2.conti.sollecitoMotivo) && g2.mittente.ok === false && /non è fra i mittenti verificati/.test(g2.mittente.motivo) && g2.conti.aspettano === 2,
+        'con il mittente non verificato: solleciti fermi, con il motivo (e aspettano in due: la nuova e quella che attende il promemoria)', JSON.stringify(g2));
+    // un giro "occupato" (lucchetto preso da un altro) non sovrascrive l'ultimo giro vero
+    dati.set('meta/confermeEmail', Object.assign({}, dati.get('meta/confermeEmail'), { lucchettoFino: orologio + 5 * MIN, lucchettoGiro: 'altro' }));
+    const prima = JSON.stringify((dati.get('meta/confermeEmail') || {}).ultimoGiro);
+    const occ = await giro();
+    esigi(occ.corpo.occupato === true && JSON.stringify((dati.get('meta/confermeEmail') || {}).ultimoGiro) === prima, 'il giro che trova il lucchetto non tocca l\'ultimo giro registrato');
+    esigi(/giroConferme: giro \}\)/.test(API) && /invariato: true, rev: revDati, aggiornato: Date\.now\(\), giroConferme: giro/.test(API), 'e lo stato viaggia con ogni risposta dell\'elenco, anche "invariato"');
+    /* l'area riservata distingue i tre "non so" dal fermo vero (giroConfermeHtml) */
+    const APP = require('fs').readFileSync(path.join(RADICE, '..', 'area-riservata', 'app.js'), 'utf8');
+    const html = APP.slice(APP.indexOf('function giroConfermeHtml('), APP.indexOf('function aggiornaGiroConferme('));
+    esigi(/g === undefined\)/.test(html) && /g === null\)/.test(html) && /_evGiroLetto > 25 \* 60 \* 1000/.test(html) && /if \(!g\.quando\) \{/.test(html),
+        'l\'area riservata: stato in lettura, non leggibile, non aggiornato (in grigio) e nessun giro (in rosso) sono quattro cose diverse');
+    esigi(/if \('giroConferme' in data\) esito\.giroConferme/.test(APP) && /let _evGiro;/.test(APP), 'e con un servizio piu\' vecchio lo stato resta "in lettura", non "nessun giro"');
+    /* ogni alzata della revisione fa rileggere l'archivio a chi guarda: una scheda in secondo piano non rilegge, lo fa al rientro */
+    const ric = APP.slice(APP.indexOf('function programmaRicaricaEventi('), APP.indexOf('function avviaAscoltoEventi('));
+    esigi(/visibilityState === 'hidden'\) \{ _evRicaricaDopo = true; return; \}/.test(ric) && /function agganciaRientroEventi\(\)/.test(ric) && /visibilitychange/.test(ric) && /agganciaRientroEventi\(\);/.test(APP.slice(APP.indexOf('function avviaAscoltoEventi('), APP.indexOf('function avviaAscoltoEventi(') + 400)),
+        'l\'area riservata in secondo piano non rilegge a ogni cambiamento: rilegge al rientro');
+});
+
 (async () => {
     for (const p of prove) { console.log('\n' + p.titolo); await p.fn(); }
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
