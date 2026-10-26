@@ -501,7 +501,13 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     avanza(ORA);
     await giro();
     esigi(spedite.length === 1 && spedite[0].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[0].replyTo === 'segreteria@revilaw.it', 'il mittente dalle variabili', spedite[0] && spedite[0].from);
-    delete process.env.SOLLECITO_FROM_EMAIL; delete process.env.SOLLECITO_FROM_NAME;
+    // e "Rispondi" verso un altro indirizzo: la lettera parte da un dominio autenticato, le risposte tornano ad Andrea
+    process.env.SOLLECITO_RISPONDI_A = 'AndreaMissori@revilaw.it';
+    iscritto('risposta', partita('risposta'));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 2 && spedite[1].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[1].replyTo === 'andreamissori@revilaw.it', '"Rispondi" dalle variabili', spedite[1] && spedite[1].replyTo);
+    delete process.env.SOLLECITO_FROM_EMAIL; delete process.env.SOLLECITO_FROM_NAME; delete process.env.SOLLECITO_RISPONDI_A;
 });
 
 prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il promemoria', async () => {

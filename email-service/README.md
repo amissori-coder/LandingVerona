@@ -56,6 +56,7 @@ Serve per generare i link di reimpostazione password.
 | `PROMEMORIA_SECONDA_PERSONA` | *(facoltativa)* `no` spegne la mail "l'invito vale per due persone" (per esempio a sala piena). Senza: accesa. Vedi "L'invito vale per due persone" |
 | `SOLLECITO_FROM_EMAIL` | *(facoltativa)* il mittente del sollecito personale della conferma email (a un'ora dalla mail non cliccata). Senza: `andreamissori@revilaw.it`. **Deve essere un mittente verificato su Brevo** (o un dominio autenticato), altrimenti Brevo lo rifiuta. Vedi "Il sollecito personale" |
 | `SOLLECITO_FROM_NAME` | *(facoltativa)* il nome del mittente del sollecito. Senza: `Andrea Missori - Revilaw` |
+| `SOLLECITO_RISPONDI_A` | *(facoltativa)* a chi torna "Rispondi" sul sollecito. Senza: al mittente. Serve per spedire da un indirizzo di un dominio **autenticato** su Brevo (DKIM e DMARC) tenendo le risposte verso Andrea: es. `SOLLECITO_FROM_EMAIL=revilaw@nextgenerationbusiness.it`, `SOLLECITO_FROM_NAME=Andrea Missori - Revilaw`, `SOLLECITO_RISPONDI_A=andreamissori@revilaw.it` |
 | `SOLLECITO_CONFERMA` | *(facoltativa)* `no` spegne il sollecito personale; resta il promemoria del giorno dopo. Senza: acceso |
 | `CHECKUP_MAX_GIORNO` | *(facoltativa)* quanti avvisi delle richieste di check-up dalle pagine dei temi possono partire in tutto in un giorno (intero positivo). Senza: `40`. Vedi "Le richieste di check-up dalle pagine dei temi" |
 

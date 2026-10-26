@@ -67,6 +67,14 @@ function mittenteEmail() {
 function mittenteNome() {
     return (String(process.env.SOLLECITO_FROM_NAME || '').trim() || MITTENTE_NOME).replace(/[\r\n"<>]/g, ' ').slice(0, 80);
 }
+/* A chi torna "Rispondi": al mittente, salvo SOLLECITO_RISPONDI_A. Serve
+   quando si spedisce da un indirizzo di un dominio autenticato su Brevo
+   (DKIM e DMARC a posto) e le risposte devono arrivare lo stesso ad
+   Andrea: la lettera resta sua. */
+function rispondiA() {
+    const v = String(process.env.SOLLECITO_RISPONDI_A || '').trim().toLowerCase();
+    return EMAIL_RE.test(v) ? v : mittenteEmail();
+}
 function pulito(v, max) { return String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' ').trim().slice(0, max || 200); }
 function mailDiConferma() { return String(process.env.SMTP_FROM_EMAIL || 'noreply@nextgenerationbusiness.it').trim(); }
 
@@ -120,7 +128,7 @@ async function spedisci(scheda) {
     const m = componi(scheda);
     const messaggio = {
         from: '"' + mittenteNome() + '" <' + mittenteEmail() + '>',
-        replyTo: mittenteEmail(),
+        replyTo: rispondiA(),
         to: a,
         subject: m.oggetto,
         text: m.testo,
@@ -182,4 +190,4 @@ async function mittenteVerificato(adesso) {
     return esito;
 }
 
-module.exports = { spento, componi, spedisci, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, MITTENTE_EMAIL, MITTENTE_NOME, VERIFICA_VALE_MS };
+module.exports = { spento, componi, spedisci, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, MITTENTE_EMAIL, MITTENTE_NOME, VERIFICA_VALE_MS };
