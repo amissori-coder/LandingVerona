@@ -1673,7 +1673,9 @@ destinatari, davanti a un no alla casella dell'iscritto, nodemailer va avanti
 con la copia e la spedizione "riesce"; il rifiuto si legge dopo, in
 `info.rejected` (`rifiutato`, con il dominio in punycode com'e' nella busta),
 ed e' un no come gli altri (temporaneo: mezz'ora e si riprova; 5xx:
-definitivo), non una lettera mandata. La copia che il server ha gia' accettato
+definitivo), non una lettera mandata; con tutti e due rifiutati nodemailer
+lancia un errore solo, con la risposta dell'ultimo, e la persona si giudica
+dalla sua (`rejectedErrors`). La copia che il server ha gia' accettato
 resta segnata (`copia`) e ai tentativi dopo non si rimanda: Andrea ha gia' la
 lettera, e' la persona che manca. Nell'area riservata il suggerimento sulla riga dice "Sollecito
 personale mandato il ..." (o "NON partito", "dall'esito incerto", con il

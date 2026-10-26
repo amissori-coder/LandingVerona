@@ -255,8 +255,12 @@ async function spedisci(scheda) {
         if (info && Array.isArray(info.rejected) && info.rejected.length) console.warn('Sollecito conferma: la copia nascosta e\' stata rifiutata (' + info.rejected.join(', ') + '); la lettera a ' + a + ' e\' partita');
         return { ok: true, errore: '', a: a, incerto: false, canale: false, definitivo: false, copia: copia };
     } catch (e) {
-        const errore = String((e && e.message) || e || 'errore del server di posta').slice(0, 200);
-        const c = classifica(e, tr.traccia);
+        /* Con tutti e due i destinatari rifiutati nodemailer lancia UN errore
+           con la risposta dell'ultimo (la copia): la persona si giudica dalla
+           sua, che sta in rejectedErrors. */
+        const suo = (Array.isArray(e && e.rejectedErrors) ? e.rejectedErrors : []).find(x => indirizzoAscii(x && x.recipient) === indirizzoAscii(a)) || e;
+        const errore = String((suo && suo.message) || e || 'errore del server di posta').slice(0, 200);
+        const c = classifica(suo, tr.traccia);
         console.error('Sollecito conferma non inviato' + (c.incerto ? ' (esito incerto)' : (c.canale ? ' (guasto del canale: ' + String((e && e.command) || e && e.code || '') + ')' : (c.definitivo ? ' (no definitivo)' : ''))) + ':', errore);
         return { ok: false, errore: errore, a: a, incerto: c.incerto, canale: c.canale, definitivo: c.definitivo, copia: giaInCopia };
     }

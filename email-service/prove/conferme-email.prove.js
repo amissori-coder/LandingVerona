@@ -457,6 +457,21 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
         && SOLL.classifica({ responseCode: 550, command: 'MAIL FROM' }).definitivo === false && SOLL.classifica({ responseCode: 550, command: 'MAIL FROM' }).canale === true,
         'classifica: 5xx al messaggio e\' definitivo, 4xx no, e un 5xx del canale resta del canale');
 
+    // tutti e due rifiutati: nodemailer lancia un errore solo, con la risposta dell'ULTIMO (la copia, 550); la persona si giudica dalla sua (451, temporanea)
+    azzera();
+    erroreMail = () => Object.assign(new Error('Can\'t send mail - all recipients were rejected: 550 5.1.1 no such user'), { code: 'EENVELOPE', responseCode: 550, command: 'RCPT TO', rejected: ['doppio@studio.it', 'andreamissori@revilaw.it'],
+        rejectedErrors: [Object.assign(new Error('Recipient command failed: 451 4.2.1 riprova piu\' tardi'), { responseCode: 451, command: 'RCPT TO', recipient: 'doppio@studio.it' }), Object.assign(new Error('Recipient command failed: 550 5.1.1 no such user'), { responseCode: 550, command: 'RCPT TO', recipient: 'andreamissori@revilaw.it' })] });
+    iscritto('doppio', partita('doppio'));
+    avanza(ORA);
+    mailGuasta = 1;
+    await giro();
+    sc = scheda('doppio');
+    esigi(sc.sollecitoConferma.ok === false && sc.sollecitoConferma.definitivo === false && sc.sollecitoConferma.copia === false && sc.sollecitoConferma.tentativi === 1 && /451 4\.2\.1/.test(sc.sollecitoConferma.errore),
+        'tutti e due rifiutati: la persona si giudica dalla SUA risposta (temporanea), non da quella della copia', JSON.stringify(sc.sollecitoConferma));
+    avanza(30 * MIN);
+    await giro();
+    esigi(chiamateSmtp === 2 && spedite.length === 1 && spedite[0].to === 'doppio@studio.it' && spedite[0].bcc === 'andreamissori@revilaw.it' && scheda('doppio').sollecitoConferma.ok === true, 'a mezz\'ora si riprova, con la copia (non era arrivata)');
+
     // il no alla persona con la copia nascosta accettata: nodemailer risolve lo stesso, ma per la persona e' un no.
     // Temporaneo (4xx): si riprova a mezz'ora, SENZA rimandare la copia ad Andrea, che l'ha gia'
     azzera();
