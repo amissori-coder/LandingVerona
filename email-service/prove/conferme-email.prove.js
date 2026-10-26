@@ -1309,16 +1309,22 @@ prova('Lo stato del giro per l\'area riservata: l\'ultimo giro con i suoi conti,
     const ug = meta.ultimoGiro;
     esigi(ug && ug.quando === orologio && ug.conti && ug.conti.solleciti === 1 && ug.conti.mittenteOk === true && ug.conti.esaminate === 1 && typeof ug.durata === 'number',
         'dopo un giro, su meta restano quando e conti dell\'ultimo giro', JSON.stringify(ug));
+    /* la copia dell'archivio (lib/copia-iscrizioni.js) si rinnova solo con il numero di
+       revisione alzato: il giro lo alza quando ha scritto, e solo allora */
+    esigi((dati.get('meta/iscrizioni') || {}).rev === 1 && r.corpo.revisione === true, 'la lettera partita alza la revisione dell\'archivio: l\'area riservata la vede', JSON.stringify(dati.get('meta/iscrizioni')));
     const g = await giroConferme(db);
     esigi(g && g.quando === orologio && g.conti.solleciti === 1 && g.conti.sollecitoBloccato === false && g.conti.sollecitoMotivo === '' && g.mittente && g.mittente.ok === true && g.mittente.mittente === 'revilaw@nextgenerationbusiness.it' && g.mittente.quando === orologio,
         'l\'API li rimette in forma: conti e mittente verificato', JSON.stringify(g));
     esigi(!('lucchettoFino' in g) && !('lucchettoGiro' in g) && Object.keys(g).sort().join(',') === 'arretrati,conti,durata,mittente,quando', 'e manda solo quello: niente lucchetto, niente altro', Object.keys(g).join(','));
+    const fermo = await giro();
+    esigi((dati.get('meta/iscrizioni') || {}).rev === 1 && fermo.corpo.revisione === false && fermo.corpo.esaminate === 1, 'un giro che non scrive niente non alza la revisione');
     // il mittente non verificato: il motivo arriva fino all'area riservata
     mittentiBrevo = []; SOLL.azzeraVerifica();
     iscritto('stato2', partita('stato2'));
     avanza(ORA);
     await giro();
     const g2 = await giroConferme(db);
+    esigi((dati.get('meta/iscrizioni') || {}).rev === 1, 'con i solleciti fermi (niente scritto sulle schede) la revisione resta');
     esigi(g2.conti.sollecitoBloccato === true && /non è fra i mittenti verificati/.test(g2.conti.sollecitoMotivo) && g2.mittente.ok === false && /non è fra i mittenti verificati/.test(g2.mittente.motivo) && g2.conti.aspettano === 2,
         'con il mittente non verificato: solleciti fermi, con il motivo (e aspettano in due: la nuova e quella che attende il promemoria)', JSON.stringify(g2));
     // un giro "occupato" (lucchetto preso da un altro) non sovrascrive l'ultimo giro vero

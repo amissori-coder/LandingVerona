@@ -567,6 +567,6 @@ async function rimandaConferma(db, idDoc, opz) {
 module.exports = {
     conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
     trasporto, mittente, rispondiA,
-    spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio,
+    spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio, segnaCambiamento,
     RIMANDA_PAUSA_MS, RIMANDA_MAX_GIORNO, INVIO_IN_CORSO_MS
 };

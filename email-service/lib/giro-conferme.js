@@ -600,7 +600,7 @@ async function giro(db, opz) {
     const conti = {
         occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0,
         solleciti: 0, sollecitoBloccato: false, sollecitoMotivo: '', mittenteOk: false, pec: 0, pecEscluse: 0, pecBloccato: false, promemoria: 0,
-        sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0
+        sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0, revisione: false
     };
     const idGiro = crypto.randomBytes(8).toString('hex');
     if (!await prendiLucchetto(db, idGiro)) { conti.occupato = true; return conti; }
@@ -640,6 +640,15 @@ async function giro(db, opz) {
         /* l'ultimo giro con i suoi conti, per l'area riservata (api/iscrizioni.js,
            giroConferme): si vede se il giro gira, quando, e se e perche' e' fermo */
         try { await rifMeta(db).set({ ultimoGiro: { quando: Date.now(), durata: Date.now() - inizio, conti: Object.assign({}, conti) } }, { merge: true }); } catch (_) { }
+        /* L'AREA RISERVATA LEGGE DA UNA COPIA (lib/copia-iscrizioni.js) che si
+           rinnova solo quando chi scrive alza il numero di revisione: senza
+           questo, una lettera partita, un promemoria, una PEC, una scheda uscita
+           dal giro si vedevano solo dopo un'altra scrittura o dopo sei ore.
+           Una volta per giro, e solo se il giro ha scritto su qualche scheda. */
+        if (conti.inviate || conti.riprovate || conti.solleciti || conti.promemoria || conti.pec || conti.pecEscluse || conti.tolte || conti.recuperate || conti.arretrati || conti.errori) {
+            conti.revisione = true;
+            await CONF.segnaCambiamento(db);
+        }
         await mollaLucchetto(db, idGiro);
     }
     return conti;

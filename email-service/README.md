@@ -1681,6 +1681,14 @@ lettera, e' la persona che manca. Nell'area riservata il suggerimento sulla riga
 personale mandato il ..." (o "NON partito", "dall'esito incerto", con il
 motivo).
 
+**Quello che il giro scrive si vede subito.** L'area riservata legge da una
+copia condivisa dell'archivio (`lib/copia-iscrizioni.js`) che si rinnova solo
+quando chi scrive alza il numero di revisione (`meta/iscrizioni.rev`): il
+giro lo alza una volta per giro, se ha scritto su qualche scheda (mail
+partita o riprovata, sollecito, promemoria, PEC, scheda uscita dal giro,
+errore). Prima una lettera partita si vedeva solo dopo un'altra scrittura o
+dopo sei ore.
+
 **Lo stato del giro si vede nell'area riservata.** Ogni giro lascia su
 `meta/confermeEmail` l'ultimo giro con i suoi conti (`ultimoGiro: { quando,
 durata, conti }`); `api/iscrizioni.js` lo manda con l'elenco (`giroConferme`,
