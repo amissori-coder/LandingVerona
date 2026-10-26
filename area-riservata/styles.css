@@ -2531,6 +2531,14 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 /* L'elenco prende il fuoco (ci si arriva con il tabulatore, o toccandolo dopo
    aver scelto in una tendina): da li' le frecce scorrono la pagina. L'anello si
    vede solo con la tastiera - con il mouse sarebbe rumore. */
+/* LA BARRA ORIZZONTALE CHE SEGUE (app.js, agganciaScorriX): appiccicata al
+   fondo della finestra finche' il fondo del riquadro, con la barra vera, non
+   e' in vista. Un filo piu' marcata di quella del riquadro: e' l'unica cosa
+   che si vede di lei. */
+.ev-scorri-x { display: none; position: sticky; bottom: 0; z-index: 6; overflow-x: auto; overflow-y: hidden; height: 14px; background: #fff; border-top: 1px solid var(--grigio-200); scrollbar-width: thin; scrollbar-color: rgba(10, 40, 68, 0.45) transparent; }
+.ev-scorri-x.visibile { display: block; }
+.ev-scorri-x-dentro { height: 1px; }
+@media print { .ev-scorri-x { display: none !important; } }
 .ev-wrap:focus { outline: none; }
 .ev-wrap:focus-visible { outline: 2px solid var(--blu-700); outline-offset: 2px; }
 /* Il corpo del testo cresce e cala con lo spazio davvero disponibile, che non e'

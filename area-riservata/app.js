@@ -18262,7 +18262,55 @@
             + (ev.tutti ? '' : '<th title="In sala oppure online: quando i posti in presenza finiscono, chi resta fuori si sposta all\'online">Modalità</th>'
                 + '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
             + (azioniEv ? '<th></th>' : '')
-            + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
+            + '</tr></thead><tbody>' + righe + '</tbody></table></div>'
+            /* la barra orizzontale che segue, sotto il riquadro: la aggancia
+               agganciaScorriX dopo il disegno, e si vede solo se serve */
+            + '<div class="ev-scorri-x" aria-hidden="true"><div class="ev-scorri-x-dentro"></div></div>';
+    }
+    /* LA BARRA ORIZZONTALE CHE SEGUE. La tabella larga scorre dentro il suo
+       riquadro, e la barra di scorrimento sta in fondo al riquadro: per
+       spostarsi a destra bisognava arrivare in fondo all'elenco. Sotto il
+       riquadro c'e' una seconda barra, appiccicata al fondo della finestra
+       (position: sticky), larga quanto la tabella e legata al riquadro nei
+       due sensi: si vede solo se c'e' qualcosa da scorrere, e finche' il fondo
+       del riquadro - con la barra vera - non e' in vista. Si aggancia a ogni
+       disegno; gli ascolti sulla finestra del disegno prima si staccano. */
+    let _evScorriXStacca = null;
+    function agganciaScorriX() {
+        if (_evScorriXStacca) { _evScorriXStacca(); _evScorriXStacca = null; }
+        const wrap = $vista().querySelector('.ev-wrap');
+        const barra = $vista().querySelector('.ev-scorri-x');
+        if (!wrap || !barra || !barra.firstElementChild) return;
+        const dentro = barra.firstElementChild;
+        const misura = () => {
+            const serve = wrap.scrollWidth > wrap.clientWidth + 1;
+            const fondoInVista = wrap.getBoundingClientRect().bottom <= window.innerHeight + 1;
+            barra.classList.toggle('visibile', serve && !fondoInVista);
+            if (!serve) return;
+            const l = wrap.scrollWidth + 'px';
+            if (dentro.style.width !== l) dentro.style.width = l;
+            if (Math.abs(barra.scrollLeft - wrap.scrollLeft) > 0.5) barra.scrollLeft = wrap.scrollLeft;
+        };
+        // nei due sensi; impostare uno scorrimento uguale a quello che c'e' non rimbalza
+        const daBarra = () => { if (Math.abs(wrap.scrollLeft - barra.scrollLeft) > 0.5) wrap.scrollLeft = barra.scrollLeft; };
+        const daRiquadro = () => { if (Math.abs(barra.scrollLeft - wrap.scrollLeft) > 0.5) barra.scrollLeft = wrap.scrollLeft; };
+        barra.addEventListener('scroll', daBarra);
+        wrap.addEventListener('scroll', daRiquadro);
+        window.addEventListener('scroll', misura, { passive: true });
+        window.addEventListener('resize', misura);
+        let oss = null;
+        if (typeof ResizeObserver !== 'undefined') {
+            oss = new ResizeObserver(misura);
+            oss.observe(wrap);
+            const tab = wrap.querySelector('table');
+            if (tab) oss.observe(tab);
+        }
+        _evScorriXStacca = () => {
+            window.removeEventListener('scroll', misura);
+            window.removeEventListener('resize', misura);
+            if (oss) { try { oss.disconnect(); } catch (_) { } }
+        };
+        misura();
     }
 
     function vistaEventi() {
@@ -18571,6 +18619,7 @@
             if (elenco) elenco.focus({ preventScroll: true }); else el.blur();
         };
         $vista().querySelectorAll('.ev-modalita, .ev-stato').forEach(conMouse);
+        agganciaScorriX();
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;
             const rr = (_evIscrizioni || []).find(x => x.id === id);
