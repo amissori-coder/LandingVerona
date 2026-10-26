@@ -605,6 +605,19 @@ prova('Il testo del CSV: virgolette, punto e virgola, guardia contro le formule'
     esigi(n === '"\'=1+1";"-1769584";"\'-1+1";"-0.5";"=""+5"""', 'con { numeri: true } passano i numeri negativi, e "+5" resta testo senza apice', n);
 });
 
+prova('La barra orizzontale che segue: sotto la tabella, agganciata dopo il disegno, nascosta in stampa', () => {
+    const tab = APP.slice(APP.indexOf('function tabellaIscrizioni('), APP.indexOf('function agganciaScorriX('));
+    esigi(/<\/tbody><\/table><\/div>'\s*\n[\s\S]*?\+ '<div class="ev-scorri-x" aria-hidden="true"><div class="ev-scorri-x-dentro"><\/div><\/div>';/.test(tab), 'la barra sta subito dopo il riquadro della tabella');
+    const agg = APP.slice(APP.indexOf('function agganciaScorriX('), APP.indexOf('function agganciaScorriX(') + 3000);
+    esigi(/barra\.addEventListener\('scroll', daBarra\)/.test(agg) && /wrap\.addEventListener\('scroll', daRiquadro\)/.test(agg), 'legata al riquadro nei due sensi');
+    esigi(/window\.addEventListener\('scroll', misura/.test(agg) && /_evScorriXStacca = \(\) =>/.test(agg) && /if \(_evScorriXStacca\) \{ _evScorriXStacca\(\); _evScorriXStacca = null; \}/.test(agg), 'gli ascolti sulla finestra si staccano al disegno dopo');
+    esigi(/getBoundingClientRect\(\)\.bottom <= window\.innerHeight/.test(agg) && /serve && !fondoInVista/.test(agg), 'si vede solo se c\'e\' da scorrere e il fondo del riquadro non e\' in vista');
+    const dopo = APP.slice(APP.indexOf("$vista().querySelectorAll('.ev-modalita, .ev-stato').forEach(conMouse);"), APP.indexOf("$vista().querySelectorAll('.ev-modalita, .ev-stato').forEach(conMouse);") + 120);
+    esigi(/agganciaScorriX\(\);/.test(dopo), 'e si aggancia dopo ogni disegno dell\'elenco');
+    const CSS = fs.readFileSync(path.join(__dirname, '..', '..', 'area-riservata', 'styles.css'), 'utf8');
+    esigi(/\.ev-scorri-x \{ display: none; position: sticky; bottom: 0;/.test(CSS) && /\.ev-scorri-x\.visibile \{ display: block; \}/.test(CSS) && /@media print \{ \.ev-scorri-x \{ display: none !important; \} \}/.test(CSS), 'appiccicata in fondo alla finestra, nascosta se non serve e in stampa');
+});
+
 prova('Il CSV: cellulari con il prefisso e codici che Excel leggerebbe come esponenti', () => {
     const n = A.testoCsv([['+39 333 1234567', '+393331234567', '12E45', '1e7', 'AB3K9', '+39 333 x', '12345']], { numeri: true }).split('\r\n')[0];
     esigi(n === '"=""+39 333 1234567""";"=""+393331234567""";"=""12E45""";"=""1e7""";"AB3K9";"\'+39 333 x";"12345"',
