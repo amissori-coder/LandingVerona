@@ -17025,6 +17025,16 @@
         const gruppi = [
             (adminEv
                 ? '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
+                /* IL CODICE INVITO A CHI SI E' ISCRITTO SENZA SCRIVERLO: agli
+                   eventi con il tetto per codice (Milano), sulle schede di
+                   Firestore che un codice non ce l'hanno. Scrive sulla scheda
+                   quello che avrebbe scritto il modulo con il codice, prende il
+                   posto nel conto del codice, e da li' il promemoria "l'invito
+                   vale per due persone" vede l'azienda (api/presenze.js,
+                   'assegna-codice'). */
+                + (ev.iscrizioniPerCodice && r.doc && !(r.invito && r.invito.codice)
+                    ? '<button type="button" class="ev-menu-voce ev-codice" data-id="' + esc(r.id) + '">Assegna codice invito</button>'
+                    : '')
                 : ''),
             /* Le mail che si mandano a QUESTA persona. "Chiedi dati
                partecipanti" compare sulle righe MANUALI con email: manda
@@ -18591,6 +18601,25 @@
             radice.querySelectorAll('.ev-req').forEach(b => b.addEventListener('click', () => {
                 const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
                 if (r) modaleRichiediDati(ev, r);
+            }));
+            radice.querySelectorAll('.ev-codice').forEach(b => b.addEventListener('click', () => {
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                if (!r) return;
+                const chi = ((r.nome || '') + ' ' + (r.cognome || '')).trim() || r.email;
+                const scritto = prompt('Codice invito riservato all\'azienda di ' + chi + ' (cinque caratteri, come nella PEC di invito):', '');
+                if (scritto === null) return;
+                const codice = String(scritto).trim().toUpperCase();
+                if (!codice) return;
+                Cloud.operaPresenza({ azione: 'assegna-codice', evento: ev.id, idIscritto: r.id, doc: r.doc || '', codice: codice }).then(res => {
+                    if (!res.ok) { toast(res.msg || 'Codice non assegnato.', 'rosso'); return; }
+                    const inv = res.invito || {};
+                    toast(res.gia ? 'La scheda aveva già il codice ' + inv.codice + '.'
+                        : 'Codice ' + inv.codice + ' assegnato' + (inv.azienda ? ': ' + inv.azienda : '') + '.', 'verde');
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: codice invito assegnato', 'sistema', ev.id, null, r.id + ' ' + inv.codice); } catch (e) { }
+                    // si rilegge dal server: azienda, codice e colonne del file sono quelli scritti
+                    _evUltimoTentativo[ev.id] = 0;
+                    caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
+                });
             }));
             radice.querySelectorAll('.ev-conf').forEach(b => b.addEventListener('click', () => {
                 const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);

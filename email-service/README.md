@@ -1722,6 +1722,19 @@ di spedire:
   (senza segno) e si riprova al giro dopo;
 - l'evento non e' a meno di un giorno.
 
+**Chi si e' iscritto senza scrivere il codice** non ha `invitoCodice` e il
+giro non lo vede. L'amministratore glielo assegna dall'area riservata, dal
+menu della riga, «Assegna codice invito» (`api/presenze.js`,
+`assegna-codice`): si scrive quello che avrebbe scritto il modulo con il
+codice (codice, ragione sociale e scheda dell'invito, l'azienda del codice, le
+colonne del file, il segno dell'uso sul codice e `stato: 'iscritta'`
+sull'azienda) e, agli eventi con il tetto, il posto nel conto del codice nella
+stessa transazione (`riattiva`): un codice gia' pieno dice di no. Un codice
+gia' sulla scheda non si cambia da li'. Sulla scheda resta `codiceAssegnato:
+{ da, daNome, collab, quando, codice, aziendaPrima }`. Da li' in poi vale
+tutto quanto sopra: la mail parte a un giorno dalla conferma dell'email, al
+primo giro feriale fra le 9 e le 19. Le prove: `node prove/assegna-codice.prove.js`.
+
 **Una per azienda, una volta.** Il segno sta sul codice:
 `codiciInvito/<codice>.secondaPersona: { stato, quando, iscrizione, a,
 tentativi, rinvii, errore, prossimo, fino }`, preso in una transazione **prima** di
