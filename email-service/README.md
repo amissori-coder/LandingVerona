@@ -1722,6 +1722,28 @@ di spedire:
   (senza segno) e si riprova al giro dopo;
 - l'evento non e' a meno di un giorno.
 
+**Chi si e' iscritto senza scrivere il codice** non ha `invitoCodice` e il
+giro non lo vede. L'amministratore glielo assegna dall'area riservata, dal
+menu della riga, «Assegna codice invito» (`api/presenze.js`,
+`assegna-codice`). Vale solo un codice fra quelli spediti per quell'evento
+(`codiciInvito`, `CODICI.verifica`): uno sconosciuto o di un altro evento si
+rifiuta e non si scrive niente. Prima di scrivere l'area riservata chiede
+l'anteprima (`anteprima: 1`, stessi controlli senza scritture) e mostra a quale
+azienda e' riservato il codice, e quante iscrizioni ha gia', chiedendo
+conferma. Poi si scrive quello che avrebbe scritto il modulo con il
+codice (codice, ragione sociale e scheda dell'invito, l'azienda del codice, le
+colonne del file, il segno dell'uso sul codice e `stato: 'iscritta'`
+sull'azienda). La scheda e, agli eventi con il tetto, il posto nel conto del
+codice si scrivono in una transazione che rilegge la scheda
+(`lib/iscrizione-verificata.js`, `assegnaCodice`): un codice gia' pieno dice
+di no, due richieste insieme (un doppio clic, due amministratori) non contano
+due volte ne' su due codici. Un codice gia' sulla scheda non si cambia da li';
+i posti 2..N di un ordine (`gruppo`) non lo prendono, e' dell'intestatario.
+Sulla scheda resta `codiceAssegnato: { da, daNome, collab, quando, codice,
+aziendaPrima }`, che Modifica si porta dietro. Da li' in poi vale
+tutto quanto sopra: la mail parte a un giorno dalla conferma dell'email, al
+primo giro feriale fra le 9 e le 19. Le prove: `node prove/assegna-codice.prove.js`.
+
 **Una per azienda, una volta.** Il segno sta sul codice:
 `codiciInvito/<codice>.secondaPersona: { stato, quando, iscrizione, a,
 tentativi, rinvii, errore, prossimo, fino }`, preso in una transazione **prima** di

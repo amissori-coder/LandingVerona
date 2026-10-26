@@ -17025,6 +17025,19 @@
         const gruppi = [
             (adminEv
                 ? '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
+                /* IL CODICE INVITO A CHI SI E' ISCRITTO SENZA SCRIVERLO: agli
+                   eventi con il tetto per codice (Milano), sulle schede di
+                   Firestore che un codice non ce l'hanno. Scrive sulla scheda
+                   quello che avrebbe scritto il modulo con il codice, prende il
+                   posto nel conto del codice, e da li' il promemoria "l'invito
+                   vale per due persone" vede l'azienda (api/presenze.js,
+                   'assegna-codice'). Non sui posti 2..N di un ordine (gruppo):
+                   il codice e' dell'intestatario, e un compagno con il suo
+                   stesso indirizzo ha il suo stesso identificativo - la voce
+                   ritrova la riga dal documento, non dall'identificativo. */
+                + (ev.iscrizioniPerCodice && r.doc && !r.gruppo && !(r.invito && r.invito.codice)
+                    ? '<button type="button" class="ev-menu-voce ev-codice" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc) + '">Assegna codice invito</button>'
+                    : '')
                 : ''),
             /* Le mail che si mandano a QUESTA persona. "Chiedi dati
                partecipanti" compare sulle righe MANUALI con email: manda
@@ -18591,6 +18604,44 @@
             radice.querySelectorAll('.ev-req').forEach(b => b.addEventListener('click', () => {
                 const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
                 if (r) modaleRichiediDati(ev, r);
+            }));
+            radice.querySelectorAll('.ev-codice').forEach(b => b.addEventListener('click', () => {
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id && String(x.doc || '') === String(b.dataset.doc || ''));
+                if (!r) return;
+                const chi = ((r.nome || '') + ' ' + (r.cognome || '')).trim() || r.email;
+                const scritto = prompt('Codice invito riservato all\'azienda di ' + chi + ' (cinque caratteri, come nella PEC di invito):', '');
+                if (scritto === null) return;
+                const codice = String(scritto).trim().toUpperCase();
+                if (!codice) return;
+                const chiedi = extra => Cloud.operaPresenza(Object.assign({ azione: 'assegna-codice', evento: ev.id, idIscritto: r.id, doc: r.doc || '', codice: codice }, extra));
+                /* Prima si guarda, poi si scrive: il servizio accetta solo un codice
+                   fra quelli spediti per questo evento, e qui si legge a quale
+                   azienda e' riservato prima di assegnarlo - un codice di un'altra
+                   azienda e' buono per il servizio, ma non per questa persona. */
+                const dopoScritto = res2 => {
+                    const inv2 = res2.invito || {};
+                    toast(res2.gia ? 'La scheda aveva già il codice ' + inv2.codice + '.'
+                        : 'Codice ' + inv2.codice + ' assegnato' + (inv2.azienda ? ': ' + inv2.azienda : '') + '.', 'verde');
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: codice invito assegnato', 'sistema', ev.id, null, r.id + ' ' + inv2.codice); } catch (e) { }
+                    // si rilegge dal server: azienda, codice e colonne del file sono quelli scritti
+                    _evUltimoTentativo[ev.id] = 0;
+                    caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
+                };
+                chiedi({ anteprima: 1 }).then(res => {
+                    if (!res.ok) { toast(res.msg || 'Codice non assegnato.', 'rosso'); return; }
+                    // un servizio di prima dell'anteprima ha gia' scritto: si prende per quello che e'
+                    if (!res.anteprima) { dopoScritto(res); return; }
+                    const inv = res.invito || {};
+                    if (res.gia) { toast('La scheda ha già il codice ' + inv.codice + '.', 'verde'); return; }
+                    const n = Number(res.iscritte) || 0;
+                    if (!confirm('Il codice ' + inv.codice + ' è riservato a ' + (inv.azienda || 'un\'azienda senza ragione sociale')
+                        + (n ? ' (ha già ' + (n === 1 ? 'un\'iscrizione' : n + ' iscrizioni') + ' con questo codice)' : '') + '.\n'
+                        + 'Lo assegno a ' + chi + (r.azienda ? ' (' + r.azienda + ')' : '') + '?')) return;
+                    chiedi({}).then(res2 => {
+                        if (!res2.ok) { toast(res2.msg || 'Codice non assegnato.', 'rosso'); return; }
+                        dopoScritto(res2);
+                    });
+                });
             }));
             radice.querySelectorAll('.ev-conf').forEach(b => b.addEventListener('click', () => {
                 const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);

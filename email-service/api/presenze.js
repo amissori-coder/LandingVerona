@@ -79,6 +79,11 @@ function moduloConferma() { return require('../lib/conferma-email'); }
    contano le schede per nome di documento, e la Modifica che sposta una
    scheda li deve riportare sul nome nuovo (trasloca). Si carica solo allora. */
 function moduloVerificata() { return require('../lib/iscrizione-verificata'); }
+/* Il codice invito assegnato a un'iscrizione gia' fatta ('assegna-codice'):
+   la verifica del codice e il segno dell'uso (lib/codici-invito.js) e le
+   colonne del file dell'azienda (lib/dati-file-azienda.js). Solo allora. */
+function moduloCodici() { return require('../lib/codici-invito'); }
+function moduloDatiFile() { return require('../lib/dati-file-azienda'); }
 function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'cene'); }
 /* Le iscrizioni a pagamento degli aderenti Revilaw (Milano 2027): le raccoglie
    la pagina riservata passando da api/iscrizione-nuova, e da qui le legge chi
@@ -1786,6 +1791,110 @@ module.exports = async (req, res) => {
             return;
         }
 
+        /* IL CODICE INVITO A UN'ISCRIZIONE GIA' FATTA (amministratore). Chi si
+           iscrive dal sito senza scrivere il codice riservato della sua azienda
+           e' in elenco come uno qualsiasi: senza "azienda selezionata", fuori
+           dal conto dei due posti del codice, e il promemoria "l'invito vale
+           per due persone" (lib/promemoria-seconda-persona.js) non lo vede.
+           Qui si scrive quello che avrebbe scritto il modulo con il codice
+           (api/iscrizione-nuova.js): codice, ragione sociale e scheda
+           dell'invito, l'azienda del codice, le colonne del file, il segno
+           dell'uso sul codice e sulla scheda dell'azienda. La scheda e il posto
+           nel conto del codice si scrivono in UNA transazione che rilegge la
+           scheda (lib/iscrizione-verificata.js, assegnaCodice): un codice gia'
+           pieno dice di no, due richieste insieme non contano due volte, e un
+           codice gia' sulla scheda non si cambia da qui (toglierebbe un posto
+           a un altro codice senza che nessuno lo veda). I posti 2..N di un
+           ordine non lo prendono: il codice e' dell'intestatario. Il codice si
+           scrive come si legge: minuscole, O e I al posto di 0 e 1 valgono
+           (lib/codici-invito.js, normalizza). Con `anteprima` si fanno tutti i
+           controlli e non si scrive niente: l'area riservata mostra a chi e'
+           riservato il codice e chiede conferma prima di assegnarlo. */
+        if (azione === 'assegna-codice') {
+            if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo assegnare un codice invito.' }); return; }
+            const rif = db.collection('iscrizioni').doc(testo(body.doc, 400) || idIscrizione(idIscritto));
+            const snap = await rif.get();
+            if (!snap.exists) { res.status(404).json({ ok: false, msg: 'Scheda non trovata: aggiorna l\'elenco e riprova.' }); return; }
+            const scheda = snap.data() || {};
+            const CODICI = moduloCodici();
+            const V = moduloVerificata();
+            const codice = CODICI.normalizza(testo(body.codice, 40));
+            if (!CODICI.valido(codice)) { res.status(400).json({ ok: false, msg: 'Il codice non ha la forma giusta: cinque lettere o cifre, come nella PEC di invito.' }); return; }
+            const NO = {
+                scheda: [404, 'Scheda non trovata: aggiorna l\'elenco e riprova.'],
+                annullata: [400, 'L\'iscrizione è annullata: il codice non si assegna.'],
+                compagno: [400, 'È un posto di un ordine per più persone: il codice si assegna all\'intestatario, e vale per tutto l\'ordine.'],
+                altro: [400, 'La scheda ha già il codice {suo}: da qui non si cambia.'],
+                pieno: [409, 'Il codice ' + codice + ' è già stato usato per due iscrizioni attive, il massimo previsto: la scheda resta com\'è.']
+            };
+            const rifiuta = r => {
+                const [stato, msg] = NO[r.no] || [400, 'Codice non assegnato.'];
+                res.status(stato).json({ ok: false, msg: msg.replace('{suo}', String(r.codice || '')) });
+            };
+            // le stesse regole della transazione, prima di leggere il codice: un no pronto non legge niente
+            const suo = CODICI.normalizza(scheda.invitoCodice || '');
+            if (scheda.annullato) { rifiuta({ no: 'annullata' }); return; }
+            if (scheda.gruppo) { rifiuta({ no: 'compagno' }); return; }
+            if (suo && CODICI.valido(suo) && suo !== codice) { rifiuta({ no: 'altro', codice: suo }); return; }
+            const v = await CODICI.verifica(db, codice, '', String(scheda.pagina || ''));
+            if (!v.ok) {
+                const perche = { inesistente: 'non risulta fra quelli inviati', 'altro-evento': 'è di un altro evento', lettura: 'non si è potuto leggere: riprova' }[v.motivo]
+                    || 'non è valido';
+                res.status(400).json({ ok: false, msg: 'Il codice ' + codice + ' ' + perche + '.' }); return;
+            }
+            const evV = V.eventoDi(scheda.pagina);
+            const invito = { codice: v.codice, azienda: v.ragioneSociale, scheda: v.scheda };
+            if (body.anteprima) {
+                // gli stessi no della transazione, nello stesso ordine, senza scrivere: il codice pieno si vede prima di confermare
+                const gia = !!suo && suo === codice;
+                let altre = 0;
+                if (evV) {
+                    const posti = await V.usiCodice(db, v.codice);
+                    altre = posti.attive.filter(id => id !== rif.id).length;
+                    if (!gia && altre >= V.MAX_PER_CODICE) { rifiuta({ no: 'pieno' }); return; }
+                }
+                res.status(200).json({ ok: true, anteprima: true, gia: gia, invito: invito, iscritte: altre });
+                return;
+            }
+            const patch = {
+                invitoCodice: v.codice, invitoAzienda: v.ragioneSociale, invitoScheda: v.scheda, selezionata: true,
+                codiceAssegnato: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now(), codice: v.codice, aziendaPrima: String(scheda.azienda || '') }
+            };
+            // agli eventi verificati l'azienda e' quella del codice: l'unica che combacia con l'elenco delle aziende
+            if (evV && v.ragioneSociale) patch.azienda = testo(v.ragioneSociale, 200);
+            if (v.scheda) {
+                try {
+                    const az = await db.collection('aziendeInvito').doc(v.scheda).get();
+                    const datiInvito = az.exists ? moduloDatiFile().datiFileDi(az.data() || {}) : [];
+                    if (datiInvito.length) patch.datiInvito = datiInvito;
+                } catch (e) {
+                    console.error('Dati dell\'azienda invitata non copiati:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
+            const r = await V.assegnaCodice(db, { idDoc: rif.id, codice: v.codice, patch: patch, conto: !!evV });
+            if (!r.ok) { rifiuta(r); return; }
+            if (r.gia) { res.status(200).json({ ok: true, gia: true, invito: invito }); return; }
+            await CODICI.segnaUso(db, v.codice, { email: String(scheda.email || ''), iscrizione: rif.id });
+            if (v.scheda) {
+                try {
+                    await db.collection('aziendeInvito').doc(v.scheda).set({
+                        stato: 'iscritta',
+                        iscritti: admin.firestore.FieldValue.arrayUnion({
+                            quando: Date.now(),
+                            nome: (String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim().slice(0, 200),
+                            email: String(scheda.email || ''),
+                            iscrizione: rif.id
+                        })
+                    }, { merge: true });
+                } catch (e) {
+                    console.error('Azienda invitata non aggiornata:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
+            await segnaCambiamento(db);
+            res.status(200).json({ ok: true, invito: invito, azienda: patch.azienda || String(scheda.azienda || '') });
+            return;
+        }
+
         if (azione === 'modifica') {
             if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo modificare un\'iscrizione.' }); return; }
             const c = body.campi || {};
@@ -1851,7 +1960,7 @@ module.exports = async (req, res) => {
                     'invitoCodice', 'invitoAzienda', 'invitoScheda', 'selezionata', 'datiInvito',
                     'telefonoVerificato', 'telefonoNumero', 'consensoRiprese', 'privacy', 'marketing', 'ricevuto',
                     'profilo', 'settore', 'dimensione', 'incontro', 'interessi',
-                    'mailConferma', 'mailInvito', 'promemoriaSecondaPersona', 'compilato', 'completato', 'aziendaSpostata', 'aziendaStorico', 'annullato']
+                    'mailConferma', 'mailInvito', 'promemoriaSecondaPersona', 'codiceAssegnato', 'compilato', 'completato', 'aziendaSpostata', 'aziendaStorico', 'annullato']
                     .forEach(k => { if (attuale[k] !== undefined && nuovo[k] === undefined) nuovo[k] = attuale[k]; });
                 /* La conferma dell'email vale per QUELL'indirizzo: segue la
                    scheda se l'indirizzo e' lo stesso (si e' corretta la data),

@@ -657,6 +657,40 @@ async function riattiva(db, dati) {
     });
 }
 
+/* ---------- il codice invito a una scheda gia' scritta (area riservata, 'assegna-codice') ----------
+   Chi si e' iscritto senza scrivere il codice della sua azienda lo riceve
+   dall'amministratore. Una transazione sola, che RILEGGE la scheda: due
+   richieste insieme (un doppio clic, due amministratori) non devono
+   scriverla due volte, ne' contarla su due codici. Dove il codice tiene il
+   conto (`conto`, gli eventi verificati) il posto si prende come alla
+   registrazione: con due attive il codice dice di no e non si scrive
+   niente. I posti 2..N di un ordine (`gruppo`) non prendono il codice: e'
+   dell'intestatario, e il trasloco di Modifica conosce solo lui.
+   dati: { idDoc, codice, patch, conto }
+   Restituisce { ok: true, gia } oppure
+   { ok: false, no: 'scheda' | 'annullata' | 'compagno' | 'altro' | 'pieno', codice }. */
+async function assegnaCodice(db, dati) {
+    const rif = db.collection('iscrizioni').doc(String(dati.idDoc));
+    const codice = CODICI.normalizza(dati.codice);
+    return db.runTransaction(async tx => {
+        const s = await tx.get(rif);
+        if (!s.exists) return { ok: false, no: 'scheda' };
+        const x = s.data() || {};
+        if (!attiva(x)) return { ok: false, no: 'annullata' };
+        if (x.gruppo) return { ok: false, no: 'compagno' };
+        const suo = CODICI.normalizza(x.invitoCodice || '');
+        if (suo && CODICI.valido(suo)) return suo === codice ? { ok: true, gia: true } : { ok: false, no: 'altro', codice: suo };
+        if (dati.conto) {
+            const posti = await usiCodice(db, codice, tx);
+            const altre = posti.attive.filter(id => id !== String(dati.idDoc));
+            if (altre.length >= MAX_PER_CODICE) return { ok: false, no: 'pieno' };
+            if (posti.esiste) tx.set(posti.rif, { iscrizioniUsate: altre.concat([String(dati.idDoc)]) }, { merge: true });
+        }
+        tx.set(rif, dati.patch, { merge: true });
+        return { ok: true };
+    });
+}
+
 /* ---------- il trasloco di una scheda (Modifica dall'area riservata) ----------
    Il nome del documento nasce da email e data: correggendo l'una o
    l'altra l'amministratore sposta la scheda su un documento nuovo
@@ -706,7 +740,7 @@ async function trasloca(db, dati) {
 
 module.exports = {
     EVENTI, eventoDi, attiva, cellulare, leggibile, mascherato,
-    invia, verifica, registra, riattiva, trasloca, usiCodice, firmaNumero, firmaNumeroValida,
+    invia, verifica, registra, riattiva, assegnaCodice, trasloca, usiCodice, firmaNumero, firmaNumeroValida,
     smsConfermaEmail, testoSmsConferma, caratteriSms, msgInAttesa, LINK_MODULO_MAIL, SMS_MAX_CARATTERI,
     MAX_PER_CODICE, MSG
 };
