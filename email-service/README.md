@@ -3105,10 +3105,12 @@ cosa interessa all'impresa, non che qualcuno verra a un tavolo. La PRENOTAZIONE
 e la risposta all'invito e sta per conto suo in `b2bScelte` (etichette dei
 tavoli), con `b2bRisposta` a fare da data; `b2b-salva` non tocca piu `interessi`.
 
-- L'area riservata riceve le due cose in due colonne aggiuntive distinte:
-  `B2B prenotati` (da `b2bScelte`) e `Interessi`; negli eventi con inserimento
-  manuale si vedono SEMPRE, una accanto all'altra, perche e il confronto fra le
-  due che dice a chi vale la pena richiedere la prenotazione.
+- L'area riservata riceve le due cose in due colonne distinte:
+  `B2B prenotati` (da `b2bScelte`) e `Interessi` ("Preferenze iscrizione" in
+  tabella); negli eventi con inserimento manuale stanno nel catalogo delle
+  colonne (sotto), le preferenze fra quelle di base e le prenotazioni a
+  richiesta dal "+": e' il confronto fra le due che dice a chi vale la pena
+  richiedere la prenotazione.
 - Il riepilogo per argomento conta SOLO le prenotazioni: sommarci le preferenze
   gonfierebbe i tavoli di gente che non ha detto di venire.
 - Il riquadro "La Sua scelta attuale" della mail riporta la prenotazione, non le
@@ -3116,6 +3118,35 @@ tavoli), con `b2bRisposta` a fare da data; `b2b-salva` non tocca piu `interessi`
 - Vale SOLO `b2bScelte`: prima di questo invito nessun modulo di prenotazione
   era mai partito, quindi non c'e' niente da recuperare altrove e `interessi`
   non e mai una prenotazione.
+
+### Le colonne dell'elenco degli iscritti (area riservata)
+
+Ogni colonna della tabella ha una chiave nel **catalogo** (`catalogoColonne`
+in `area-riservata/app.js`): `b:` le colonne della tabella (data, nome,
+azienda, ruolo, email, telefono; negli eventi manuali portale, partecipanti,
+B2B prenotati, preferenze; modalita', stato, nota, aggiornato da; nel
+riepilogo l'evento), `x:` quelle di `extra` (il modulo, gli altri portali, i
+file importati), `file:` quelle del file delle aziende invitate, `d:` le due
+**calcolate** dal file: `Regione (sede operativa)` - quella del file se c'e',
+altrimenti ricavata dalla provincia della sede operativa (`regioneDaProvincia`,
+nomi e sigle di tutte le province con le varianti d'uso) - e `Revisore e data
+nomina` ("Dott. Mario Rossi · 30/06/2026"). I nomi delle colonne del file si
+riconoscono senza badare a maiuscole e accenti.
+
+**Le colonne di base**, senza una scelta: data, nome, azienda, ruolo, email,
+telefono, preferenze iscrizione, ricavi, regione e comune della sede
+operativa, revisore e data nomina, modalita' (`COLONNE_DI_BASE`); quelle che
+l'evento non ha si saltano. **Il "+"** in cima all'ultima colonna - appiccicata
+a destra con le azioni della riga, sempre in vista - apre il pannello con
+tutto il catalogo: una spunta aggiunge la colonna in coda o la toglie,
+"Colonne di base" rimette quelle di partenza. **Le frecce** sulle
+intestazioni (compaiono passandoci sopra) spostano la colonna di un posto,
+la x la toglie. La scelta, con l'ordine, resta nel browser per evento
+(`rvArea.evColonne.<evento>`: le chiavi in fila; una scelta della versione
+di prima, senza le colonne di base, si legge ancora). Sotto la tabella larga
+una barra di scorrimento appiccicata al fondo della finestra la fa scorrere
+senza arrivare in fondo all'elenco. Il CSV esporta sempre tutte le colonne,
+compresa la regione ricavata.
 
 ### Gli orari sono di tutti, e la pagina lo mostra mentre succede
 
