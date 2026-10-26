@@ -637,18 +637,17 @@ async function giro(db, opz) {
         if (conti.mittenteOk || conti.sollecitoMotivo) {
             try { await rifMeta(db).set({ sollecitoMittente: { quando: Date.now(), ok: !!conti.mittenteOk, motivo: conti.sollecitoMotivo || '', mittente: SOLL.mittenteEmail() } }, { merge: true }); } catch (_) { }
         }
-        /* l'ultimo giro con i suoi conti, per l'area riservata (api/iscrizioni.js,
-           giroConferme): si vede se il giro gira, quando, e se e perche' e' fermo */
-        try { await rifMeta(db).set({ ultimoGiro: { quando: Date.now(), durata: Date.now() - inizio, conti: Object.assign({}, conti) } }, { merge: true }); } catch (_) { }
         /* L'AREA RISERVATA LEGGE DA UNA COPIA (lib/copia-iscrizioni.js) che si
            rinnova solo quando chi scrive alza il numero di revisione: senza
            questo, una lettera partita, un promemoria, una PEC, una scheda uscita
            dal giro si vedevano solo dopo un'altra scrittura o dopo sei ore.
-           Una volta per giro, e solo se il giro ha scritto su qualche scheda. */
-        if (conti.inviate || conti.riprovate || conti.solleciti || conti.promemoria || conti.pec || conti.pecEscluse || conti.tolte || conti.recuperate || conti.arretrati || conti.errori) {
-            conti.revisione = true;
-            await CONF.segnaCambiamento(db);
-        }
+           Una volta per giro, e solo se il giro ha scritto su qualche scheda
+           (ogni alzata costa una rilettura dell'archivio a chi guarda). */
+        conti.revisione = !!(conti.inviate || conti.riprovate || conti.solleciti || conti.promemoria || conti.pec || conti.pecEscluse || conti.tolte || conti.recuperate || conti.arretrati || conti.errori);
+        /* l'ultimo giro con i suoi conti, per l'area riservata (api/iscrizioni.js,
+           giroConferme): si vede se il giro gira, quando, e se e perche' e' fermo */
+        try { await rifMeta(db).set({ ultimoGiro: { quando: Date.now(), durata: Date.now() - inizio, conti: Object.assign({}, conti) } }, { merge: true }); } catch (_) { }
+        if (conti.revisione) await CONF.segnaCambiamento(db);
         await mollaLucchetto(db, idGiro);
     }
     return conti;

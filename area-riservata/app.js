@@ -15766,7 +15766,8 @@
     const EV_TICK = 30000;
     let _evAscolto = null;         // funzione che stacca l'ascolto
     let _evAscoltoOk = false;      // il primo aggiornamento e' arrivato: l'ascolto funziona
-    let _evRicaricaDopo = false;   // e' cambiato qualcosa mentre una lettura era in corso
+    let _evRicaricaDopo = false;   // e' cambiato qualcosa mentre una lettura era in corso (o con la scheda in secondo piano)
+    let _evVisibHook = false;      // il rientro sulla scheda rilegge quello che si era rimandato
     let _evRevAscolto = null;      // ultimo numero di revisione segnalato dall'ascolto
     let _evRicaricaTimer = null;
 
@@ -16271,13 +16272,27 @@
             _evRicaricaTimer = null;
             if (vistaCorrente !== 'eventi' || !Auth.utenteCorrente) return;
             if (Date.now() < _evPausaFino) return;
+            /* scheda in secondo piano: nessuno guarda, e ogni rilettura costa (nove
+               colleghi con la scheda aperta rileggono tutti a ogni cambiamento, e
+               il giro delle conferme ne fa uno a ogni lettera): si rilegge al rientro */
+            if (document.visibilityState === 'hidden') { _evRicaricaDopo = true; return; }
             if (_evInFlight) { _evRicaricaDopo = true; return; }
             const a = document.activeElement;
             if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) { _evRicaricaDopo = true; return; }
             caricaIscrizioni(eventoCorrente(), cambiato => { if (cambiato) ridisegnaEventiSeLibero(); });
         }, 300 + Math.floor(Math.random() * 3000));
     }
+    function agganciaRientroEventi() {
+        if (_evVisibHook) return;
+        _evVisibHook = true;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible' || !_evRicaricaDopo || _evInFlight || vistaCorrente !== 'eventi') return;
+            _evRicaricaDopo = false;
+            programmaRicaricaEventi();
+        });
+    }
     function avviaAscoltoEventi() {
+        agganciaRientroEventi();
         if (_evAscolto || !Cloud.attivo || !Cloud.db || !Cloud.fb || !Cloud.fb.fsMod) return;
         const { doc, onSnapshot } = Cloud.fb.fsMod;
         try {

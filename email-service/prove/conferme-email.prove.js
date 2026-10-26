@@ -1311,7 +1311,7 @@ prova('Lo stato del giro per l\'area riservata: l\'ultimo giro con i suoi conti,
         'dopo un giro, su meta restano quando e conti dell\'ultimo giro', JSON.stringify(ug));
     /* la copia dell'archivio (lib/copia-iscrizioni.js) si rinnova solo con il numero di
        revisione alzato: il giro lo alza quando ha scritto, e solo allora */
-    esigi((dati.get('meta/iscrizioni') || {}).rev === 1 && r.corpo.revisione === true, 'la lettera partita alza la revisione dell\'archivio: l\'area riservata la vede', JSON.stringify(dati.get('meta/iscrizioni')));
+    esigi((dati.get('meta/iscrizioni') || {}).rev === 1 && r.corpo.revisione === true && dati.get('meta/confermeEmail').ultimoGiro.conti.revisione === true, 'la lettera partita alza la revisione dell\'archivio: l\'area riservata la vede (e l\'ultimo giro lo registra)', JSON.stringify(dati.get('meta/iscrizioni')));
     const g = await giroConferme(db);
     esigi(g && g.quando === orologio && g.conti.solleciti === 1 && g.conti.sollecitoBloccato === false && g.conti.sollecitoMotivo === '' && g.mittente && g.mittente.ok === true && g.mittente.mittente === 'revilaw@nextgenerationbusiness.it' && g.mittente.quando === orologio,
         'l\'API li rimette in forma: conti e mittente verificato', JSON.stringify(g));
@@ -1339,6 +1339,10 @@ prova('Lo stato del giro per l\'area riservata: l\'ultimo giro con i suoi conti,
     esigi(/g === undefined\)/.test(html) && /g === null\)/.test(html) && /_evGiroLetto > 25 \* 60 \* 1000/.test(html) && /if \(!g\.quando\) \{/.test(html),
         'l\'area riservata: stato in lettura, non leggibile, non aggiornato (in grigio) e nessun giro (in rosso) sono quattro cose diverse');
     esigi(/if \('giroConferme' in data\) esito\.giroConferme/.test(APP) && /let _evGiro;/.test(APP), 'e con un servizio piu\' vecchio lo stato resta "in lettura", non "nessun giro"');
+    /* ogni alzata della revisione fa rileggere l'archivio a chi guarda: una scheda in secondo piano non rilegge, lo fa al rientro */
+    const ric = APP.slice(APP.indexOf('function programmaRicaricaEventi('), APP.indexOf('function avviaAscoltoEventi('));
+    esigi(/visibilityState === 'hidden'\) \{ _evRicaricaDopo = true; return; \}/.test(ric) && /function agganciaRientroEventi\(\)/.test(ric) && /visibilitychange/.test(ric) && /agganciaRientroEventi\(\);/.test(APP.slice(APP.indexOf('function avviaAscoltoEventi('), APP.indexOf('function avviaAscoltoEventi(') + 400)),
+        'l\'area riservata in secondo piano non rilegge a ogni cambiamento: rilegge al rientro');
 });
 
 (async () => {
