@@ -634,6 +634,16 @@ prova('Il mittente non verificato su Brevo: le lettere aspettano, senza consumar
     avanza(ORA);
     await giro();
     esigi(spedite.length === 1, 'senza il mittente ma con il dominio revilaw.it autenticato: parte');
+    // Brevo risponde male sui domini: e' una verifica non riuscita, non un dominio senza autenticazione
+    azzera();
+    mittentiBrevo = [];
+    const fetchVero = global.fetch;
+    global.fetch = async (url, opz) => /senders\/domains/.test(String(url)) ? { ok: false, status: 503, text: async () => 'Service Unavailable' } : fetchVero(url, opz);
+    iscritto('domini503', partita('domini503'));
+    avanza(ORA);
+    r = await giro();
+    global.fetch = fetchVero;
+    esigi(spedite.length === 0 && /verifica del mittente .* non riuscita: Brevo 503/.test(r.corpo.sollecitoMotivo), 'un 503 sui domini: "verifica non riuscita", non "dominio non autenticato"', r.corpo.sollecitoMotivo);
     // Brevo non risponde: si aspetta, senza consumare
     azzera();
     brevoGiu = true;

@@ -167,7 +167,8 @@ async function mittenteVerificato(adesso) {
             } else {
                 const dominio = email.split('@')[1] || '';
                 const d = await NL.chiamataBrevo('/senders/domains');
-                const domini = d.ok && Array.isArray(d.dati && d.dati.domains) ? d.dati.domains : [];
+                if (!d.ok) throw new Error('Brevo ' + d.stato + (d.testo ? ': ' + d.testo.slice(0, 120) : ''));
+                const domini = Array.isArray(d.dati && d.dati.domains) ? d.dati.domains : [];
                 const mio = domini.find(x => String((x && (x.domain_name || x.domain)) || '').trim().toLowerCase() === dominio);
                 esito = mio && (mio.authenticated === true || mio.verified === true)
                     ? { ok: true }
