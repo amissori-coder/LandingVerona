@@ -103,7 +103,8 @@ function interroga(coll, filtri, max) {
             letture++;
             // in ordine di nome, come Firestore senza orderBy
             const docs = [...dati.keys()].filter(k => k.startsWith(coll + '/') && k.split('/').length === 2)
-                .filter(k => filtri.every(([c, v]) => (dati.get(k) || {})[c] === v))
+                // anche i percorsi con il punto ("invio.codice"), come Firestore
+                .filter(k => filtri.every(([c, v]) => c.split('.').reduce((o, parte) => (o && typeof o === 'object') ? o[parte] : undefined, dati.get(k) || {}) === v))
                 .sort()
                 .slice(0, max || 1e9)
                 .map(k => istantanea(k, doc(coll, k.split('/')[1])));
@@ -149,7 +150,7 @@ let erroreMail = () => new Error('550 casella inesistente');
 let durantePosta = null;
 let sms = [];
 // i mittenti e i domini che Brevo dice di avere (il sollecito personale li chiede prima di spedire)
-let mittentiBrevo = [{ email: 'andreamissori@revilaw.it', name: 'Andrea Missori', active: true }];
+let mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }];
 let dominiBrevo = [];
 let chiamateBrevo = 0;
 let brevoGiu = false;
@@ -187,6 +188,8 @@ process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({ client_email: 'servizio@
 process.env.SMTP_FROM_EMAIL = 'noreply@esempio.it';
 process.env.BREVO_API_KEY = 'chiave-brevo-finta';
 process.env.CRON_SECRET = 'segreto-cron';
+// il canale PEC degli inviti, da cui parte la PEC di sollecito (lib/sollecito-pec.js)
+process.env.PEC_SMTP_HOST = 'smtps.pec.aruba.it'; process.env.PEC_SMTP_USER = 'revilawngb@pec.it'; process.env.PEC_SMTP_PASS = 'pec-finta'; process.env.PEC_FROM_EMAIL = 'revilawngb@pec.it';
 
 const RADICE = path.join(__dirname, '..');
 const cron = require(path.join(RADICE, 'api/conferme-email.js'));
@@ -235,7 +238,7 @@ function iscritto(id, campi) {
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
     dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; rompiUpdate = {}; passoMail = 0; durantePosta = null;
-    mittentiBrevo = [{ email: 'andreamissori@revilaw.it', name: 'Andrea Missori', active: true }]; dominiBrevo = []; chiamateBrevo = 0; brevoGiu = false; SOLL.azzeraVerifica();
+    mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }]; dominiBrevo = []; chiamateBrevo = 0; brevoGiu = false; SOLL.azzeraVerifica();
     erroreMail = () => new Error('550 casella inesistente');
     // i recuperi una tantum (la bandiera, il sollecito agli arretrati) li provano le loro prove: qui risultano gia' fatti
     dati.set('meta/confermeEmail', { recupero: 1, sollecitoArretrati: 1 });
@@ -344,7 +347,8 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     let r = await giro();
     const m = spedite[0] || {};
     esigi(spedite.length === 1 && r.corpo.solleciti === 1 && m.to === 'luca@studio.it', 'a un\'ora: la mail del sollecito', JSON.stringify(r.corpo));
-    esigi(m.from === '"Andrea Missori - Revilaw" <andreamissori@revilaw.it>' && m.replyTo === 'andreamissori@revilaw.it', 'dal suo indirizzo, e "Rispondi" torna a lui', m.from);
+    esigi(m.from === '"Andrea Missori - Revilaw" <revilaw@nextgenerationbusiness.it>' && m.replyTo === 'andreamissori@revilaw.it' && m.bcc === 'andreamissori@revilaw.it',
+        'con il suo nome dal dominio autenticato, "Rispondi" torna a lui, e lui e\' in copia nascosta', m.from + ' / ' + m.replyTo + ' / ' + m.bcc);
     esigi(!m.html && typeof m.text === 'string' && !/https?:\/\/|<a |www\./.test(m.text) && !m.list && !(m.headers || {})['List-Unsubscribe'],
         'solo testo: niente HTML, niente collegamenti, niente intestazioni da invio di massa');
     esigi(m.subject === 'Next Generation Business Milano, 26 febbraio 2027 – conferma della sua iscrizione', 'l\'oggetto', m.subject);
@@ -500,14 +504,14 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     iscritto('altro', partita('altro'));
     avanza(ORA);
     await giro();
-    esigi(spedite.length === 1 && spedite[0].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[0].replyTo === 'segreteria@revilaw.it', 'il mittente dalle variabili', spedite[0] && spedite[0].from);
+    esigi(spedite.length === 1 && spedite[0].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[0].replyTo === 'andreamissori@revilaw.it', 'il mittente dalle variabili (e "Rispondi" resta ad Andrea)', spedite[0] && spedite[0].from);
     // e "Rispondi" verso un altro indirizzo: la lettera parte da un dominio autenticato, le risposte tornano ad Andrea
-    process.env.SOLLECITO_RISPONDI_A = 'AndreaMissori@revilaw.it';
+    process.env.SOLLECITO_RISPONDI_A = 'Segreteria@revilaw.it'; process.env.SOLLECITO_CCN = 'no';
     iscritto('risposta', partita('risposta'));
     avanza(ORA);
     await giro();
-    esigi(spedite.length === 2 && spedite[1].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[1].replyTo === 'andreamissori@revilaw.it', '"Rispondi" dalle variabili', spedite[1] && spedite[1].replyTo);
-    delete process.env.SOLLECITO_FROM_EMAIL; delete process.env.SOLLECITO_FROM_NAME; delete process.env.SOLLECITO_RISPONDI_A;
+    esigi(spedite.length === 2 && spedite[1].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[1].replyTo === 'segreteria@revilaw.it' && !spedite[1].bcc, '"Rispondi" e la copia nascosta dalle variabili (qui: nessuna copia)', spedite[1] && spedite[1].replyTo);
+    delete process.env.SOLLECITO_FROM_EMAIL; delete process.env.SOLLECITO_FROM_NAME; delete process.env.SOLLECITO_RISPONDI_A; delete process.env.SOLLECITO_CCN;
 });
 
 prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il promemoria', async () => {
@@ -534,7 +538,7 @@ prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il pro
         && ['fatta', 'annullata', 'manuale', 'giafatto', 'maipartita', 'napoli'].every(id => !scheda(id).sollecitoArretrato),
         'quali: non chi e\' gia\' nel giro (segue la strada di tutti), ne\' le confermate, annullate, inserite a mano, gia\' sollecitate, senza mail partita, di Napoli');
     const aChi = x => x.to.split('@')[0];
-    esigi(spedite.length === 3 && spedite.map(aChi).sort().join(' ') === 'arr arr2 fresca' && spedite.every(x => /andreamissori@revilaw\.it/.test(x.from) && !x.html),
+    esigi(spedite.length === 3 && spedite.map(aChi).sort().join(' ') === 'arr arr2 fresca' && spedite.every(x => x.replyTo === 'andreamissori@revilaw.it' && !x.html),
         'nello stesso giro, di giorno, il sollecito alle tre (a chi e\' in sala no: la presenza si rilegge)', JSON.stringify(spedite.map(aChi)));
     esigi(scheda('arr').sollecitoConferma.ok === true && !('confermaInAttesa' in scheda('insala')), 'sulla scheda il segno; chi e\' in sala esce dal giro');
     r = await giro();
@@ -600,6 +604,134 @@ prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il pro
     esigi(spedite.length === 2 && /^Promemoria:/.test(spedite[1].subject) && scheda('rinviata').sollecitoConferma.quando === quandoLettera, 'e a un giorno dal rinvio il promemoria, una lettera sola');
 });
 
+prova('La PEC di sollecito, un giorno dopo la lettera, firmata Revilaw S.p.A.', async () => {
+    azzera();
+    const t0 = orologio;
+    const partita = id => ({ ricevuto: t0, sollecitoConferma: undefined, mailConferma: { quando: t0, ok: true, errore: '', via: 'iscrizione', a: id + '@studio.it' } });
+    dati.set('aziendeInvito/milano~guna@pec-it', { ragioneSociale: 'GUNA S.P.A.', pec: 'Guna@pec.it', codice: 'P0Y1M', evento: 'milano-2027-02-26', invio: { canale: 'pec', codice: 'P0Y1M', quando: 1 }, ricevute: { consegnata: { quando: 1 } } });
+    iscritto('guna', Object.assign(partita('guna'), { nome: 'Andrea', cognome: 'Antonini', azienda: 'Guna S.p.A.', invitoCodice: 'P0Y1M', invitoScheda: 'milano~guna@pec-it' }));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 1 && spedite[0].to === 'guna@studio.it' && spedite[0].replyTo === 'andreamissori@revilaw.it', 'a un\'ora la lettera');
+    avanza(23 * ORA);
+    await giro();
+    esigi(spedite.length === 2 && /^Promemoria:/.test(spedite[1].subject) && scheda('guna').confermaInAttesa === true, 'a un giorno il promemoria, e la scheda resta nel giro: la PEC e\' ancora da mandare');
+    avanza(50 * MIN);
+    await giro();
+    esigi(spedite.length === 2, 'a ventitre ore e cinquanta dalla lettera: ancora niente');
+    avanza(10 * MIN);
+    let r = await giro();
+    const p = spedite[2] || {};
+    esigi(spedite.length === 3 && r.corpo.pec === 1 && p.to === 'guna@pec.it' && p.from === '"Revilaw S.p.A." <revilawngb@pec.it>' && !p.replyTo && !p.bcc && !p.html && /^<sol-[0-9a-f]{16}@pec\.it>$/.test(p.messageId),
+        'a un giorno dalla lettera la PEC: dalla casella PEC, alla PEC dell\'azienda, solo testo, con il suo Message-ID', JSON.stringify(r.corpo) + ' ' + p.from + ' ' + p.messageId);
+    esigi(p.subject === spedite[0].subject && /^Gentile Andrea Antonini,/.test(p.text) && /la ringraziamo per la sua iscrizione/.test(p.text) && /La richiesta per Guna S\.p\.A\. risulta registrata/.test(p.text)
+        && /Le chiediamo di cercarla/.test(p.text) && /ci risponda pure a questa PEC/.test(p.text) && /Restiamo a disposizione/.test(p.text)
+        && /Cordiali saluti,\n\nRevilaw S\.p\.A\.\nVia XX Settembre 9 - 37129 Verona - C\.F\. 04641610235\n/.test(p.text) && !/Andrea Missori/.test(p.text),
+        'lo stesso testo, dallo studio, firmato Revilaw S.p.A.', p.text);
+    const sp = scheda('guna').pecSollecito || {};
+    esigi(sp.ok === true && sp.a === 'guna@pec.it' && sp.azienda === 'milano~guna@pec-it' && sp.tentativi === 1 && /^sol-/.test(sp.riferimento) && p.messageId === '<' + sp.riferimento + '>',
+        'sulla scheda: quando, a chi, quale azienda, il riferimento', JSON.stringify(sp));
+    const chiaviRif = [...dati.keys()].filter(k => k.startsWith('pecRiferimenti/'));
+    const rif = dati.get(chiaviRif[0]) || {};
+    esigi(chiaviRif.length === 2 && rif.tipo === 'sollecito' && rif.iscrizione === 'guna' && rif.scheda === 'milano~guna@pec-it' && rif.destinatario === 'guna@pec.it' && rif.msgid === sp.riferimento,
+        'il Message-ID e\' registrato per il lettore della casella: PEC di sollecito, di questa iscrizione', JSON.stringify(rif));
+    esigi(!dati.get('aziendeInvito/milano~guna@pec-it').pecSollecito && dati.get('aziendeInvito/milano~guna@pec-it').ricevute.consegnata.quando === 1, 'l\'invito dell\'azienda non si tocca');
+    r = await giro();
+    esigi(spedite.length === 3 && !('confermaInAttesa' in scheda('guna')) && r.corpo.tolte === 1, 'poi la scheda esce dal giro');
+    avanza(GIORNO);
+    await giro();
+    esigi(spedite.length === 3, 'e non riceve altro');
+
+    // senza un'azienda invitata collegata (nessun codice): niente PEC, e dopo il promemoria si esce come prima
+    azzera();
+    iscritto('senza', partita('senza'));
+    avanza(ORA); await giro();
+    avanza(23 * ORA); await giro();
+    esigi(spedite.length === 2 && !('confermaInAttesa' in scheda('senza')) && !scheda('senza').pecSollecito, 'senza codice: lettera e promemoria, nessuna PEC, fuori dal giro');
+    // con il codice ma un'azienda senza PEC: esclusa, e lo dice
+    azzera();
+    dati.set('codiciInvito/Q2W3E', { codice: 'Q2W3E', scheda: 'milano~omega' });
+    dati.set('aziendeInvito/milano~omega', { ragioneSociale: 'OMEGA S.R.L.', email: 'info@omega.it' });
+    iscritto('omega', Object.assign(partita('omega'), { invitoCodice: 'Q2W3E' }));
+    avanza(ORA); await giro();
+    avanza(24 * ORA); await giro();
+    r = await giro();
+    const so = scheda('omega').pecSollecito || {};
+    esigi(spedite.length === 2 && r.corpo.pecEscluse === 1 && so.esclusa === true && /non ha un indirizzo PEC/.test(so.errore), 'l\'azienda (trovata dal codice) non ha una PEC: esclusa, e lo dice', JSON.stringify(so));
+    await giro();
+    esigi(!('confermaInAttesa' in scheda('omega')), 'e la scheda esce');
+    // l'azienda trovata per codice fra le schede (invio.codice, le spostate di prima): la PEC parte
+    azzera();
+    dati.set('aziendeInvito/milano~theta', { ragioneSociale: 'THETA', pec: 'theta@pec.it', invio: { canale: 'pec', codice: 'T7T7T' } });
+    iscritto('theta', Object.assign(partita('theta'), { invitoCodice: 'T7T7T' }));
+    avanza(ORA); await giro();
+    avanza(24 * ORA); await giro(); await giro();
+    esigi(spedite.length === 3 && spedite[2].to === 'theta@pec.it' && scheda('theta').pecSollecito.azienda === 'milano~theta', 'l\'azienda si trova anche dal codice dell\'invio');
+    // un arretrato: la lettera, e il giorno dopo la PEC; poi esce
+    azzera();
+    dati.set('meta/confermeEmail', { recupero: 1 });
+    dati.set('aziendeInvito/milano~arr', { ragioneSociale: 'ARR', pec: 'arr@pec.it', codice: 'A4A4A' });
+    iscritto('arr', { confermaInAttesa: undefined, sollecitoConferma: undefined, ricevuto: t0 - 3 * GIORNO, invitoCodice: 'A4A4A', invitoScheda: 'milano~arr',
+        mailConferma: { quando: t0 - 3 * GIORNO, ok: true, a: 'arr@studio.it' }, promemoriaConferma: { quando: t0 - 2 * GIORNO, mail: true, sms: true } });
+    await giro();
+    esigi(spedite.length === 1 && spedite[0].to === 'arr@studio.it' && scheda('arr').confermaInAttesa === true, 'l\'arretrato riceve la lettera e resta nel giro');
+    avanza(24 * ORA); await giro();
+    esigi(spedite.length === 2 && spedite[1].to === 'arr@pec.it' && /Revilaw S\.p\.A\.\nVia XX/.test(spedite[1].text), 'e il giorno dopo la PEC');
+    await giro();
+    esigi(!('confermaInAttesa' in scheda('arr')), 'poi esce');
+    // chi conferma dopo la lettera non riceve la PEC
+    azzera();
+    dati.set('aziendeInvito/milano~ok', { pec: 'ok@pec.it' });
+    iscritto('ok', Object.assign(partita('ok'), { invitoScheda: 'milano~ok' }));
+    avanza(ORA); await giro();
+    avanza(2 * ORA);
+    dati.set('iscrizioni/ok', Object.assign({}, scheda('ok'), { emailConfermata: { quando: orologio, come: 'mail' } }));
+    avanza(22 * ORA); await giro();
+    esigi(spedite.length === 1 && !scheda('ok').pecSollecito, 'chi conferma dopo la lettera: niente PEC');
+    // di notte aspetta; il gestore dice no sulle credenziali: guasto del canale, non si contano i tentativi
+    azzera();
+    orologio = DateVera.parse('2027-01-15T22:00:00+01:00');
+    dati.set('aziendeInvito/milano~notte', { pec: 'notte@pec.it' });
+    dati.set('aziendeInvito/milano~notte2', { pec: 'notte2@pec.it' });
+    iscritto('notte', Object.assign(partita('notte'), { invitoScheda: 'milano~notte', mailConferma: { quando: orologio - 25 * ORA, ok: true, a: 'notte@studio.it' }, promemoriaConferma: { quando: orologio - ORA }, sollecitoConferma: { quando: orologio - 24 * ORA, ok: true, tentativi: 1 } }));
+    iscritto('notte2', Object.assign(partita('notte2'), { invitoScheda: 'milano~notte2', mailConferma: { quando: orologio - 25 * ORA, ok: true, a: 'notte2@studio.it' }, promemoriaConferma: { quando: orologio - ORA }, sollecitoConferma: { quando: orologio - 24 * ORA, ok: true, tentativi: 1 } }));
+    r = await giro();
+    esigi(spedite.length === 0 && r.corpo.aspettano === 2 && GIRO.cosaFare(scheda('notte'), orologio).perche === 'pec a un giorno dalla lettera', 'alle 22 la PEC aspetta il mattino', JSON.stringify(GIRO.cosaFare(scheda('notte'), orologio)));
+    orologio = DateVera.parse('2027-01-16T09:00:00+01:00');
+    erroreMail = () => Object.assign(new Error('535 Authentication failed'), { responseCode: 535, code: 'EAUTH', command: 'AUTH PLAIN' });
+    mailGuasta = 9;
+    r = await giro();
+    const provata = ['notte', 'notte2'].find(id => scheda(id).pecSollecito);
+    esigi(chiamateSmtp === 1 && r.corpo.pec === 1 && r.corpo.pecBloccato === true && scheda(provata).pecSollecito.canale === true && scheda(provata).pecSollecito.tentativi === 0,
+        'alle 9 il gestore rifiuta le credenziali: una provata, il tentativo non conta, le altre aspettano', JSON.stringify(r.corpo));
+    mailGuasta = 0;
+    avanza(30 * MIN);
+    r = await giro();
+    esigi(spedite.length === 2 && ['notte', 'notte2'].every(id => scheda(id).pecSollecito.ok === true && scheda(id).pecSollecito.tentativi === 1), 'sistemato, partono tutte e due');
+    // un no certo alla casella: si riprova dopo mezz'ora, tre volte, poi basta
+    azzera();
+    dati.set('aziendeInvito/milano~no', { pec: 'no@pec.it' });
+    iscritto('no', Object.assign(partita('no'), { invitoScheda: 'milano~no' }));
+    avanza(ORA); await giro();
+    avanza(24 * ORA);
+    await giro();   // il promemoria, prima della PEC
+    erroreMail = () => Object.assign(new Error('550 casella PEC inesistente'), { responseCode: 550, command: 'RCPT TO' });
+    mailGuasta = 9;
+    for (let k = 0; k < 4; k++) { await giro(); avanza(30 * MIN); }
+    esigi(chiamateSmtp === 5 && scheda('no').pecSollecito.ok === false && scheda('no').pecSollecito.tentativi === 3 && /550/.test(scheda('no').pecSollecito.errore), 'tre no certi, poi basta (una lettera, tre PEC provate)', JSON.stringify(scheda('no').pecSollecito));
+    await giro();
+    esigi(!('confermaInAttesa' in scheda('no')), 'e la scheda esce');
+    // spenta: niente PEC, si esce dopo il promemoria
+    azzera();
+    process.env.SOLLECITO_PEC = 'no';
+    dati.set('aziendeInvito/milano~sp', { pec: 'sp@pec.it' });
+    iscritto('sp', Object.assign(partita('sp'), { invitoScheda: 'milano~sp' }));
+    avanza(ORA); await giro();
+    avanza(24 * ORA); await giro();
+    esigi(spedite.length === 2 && !scheda('sp').pecSollecito && !('confermaInAttesa' in scheda('sp')), 'spenta: lettera e promemoria, nessuna PEC, fuori dal giro');
+    delete process.env.SOLLECITO_PEC;
+});
+
 prova('Il mittente non verificato su Brevo: le lettere aspettano, senza consumare niente', async () => {
     azzera();
     const t0 = orologio;
@@ -608,17 +740,17 @@ prova('Il mittente non verificato su Brevo: le lettere aspettano, senza consumar
     mittentiBrevo = [{ email: 'noreply@esempio.it', active: true }];
     avanza(ORA);
     let r = await giro();
-    esigi(spedite.length === 0 && chiamateSmtp === 0 && r.corpo.sollecitoBloccato === true && /andreamissori@revilaw\.it non è fra i mittenti verificati/.test(r.corpo.sollecitoMotivo) && r.corpo.aspettano === 2,
+    esigi(spedite.length === 0 && chiamateSmtp === 0 && r.corpo.sollecitoBloccato === true && /revilaw@nextgenerationbusiness\.it non è fra i mittenti verificati/.test(r.corpo.sollecitoMotivo) && r.corpo.aspettano === 2,
         'Brevo non ha il mittente: nessuna lettera parte, e il motivo e\' nei conti', JSON.stringify(r.corpo.sollecitoMotivo));
     esigi(['uno', 'due'].every(id => !scheda(id).sollecitoConferma && scheda(id).confermaInAttesa === true), 'e sulle schede nessun tentativo');
     const nota = (dati.get('meta/confermeEmail') || {}).sollecitoMittente || {};
-    esigi(nota.ok === false && /non è fra i mittenti verificati/.test(nota.motivo) && nota.mittente === 'andreamissori@revilaw.it', 'lo stato del mittente sta anche su meta', JSON.stringify(nota));
+    esigi(nota.ok === false && /non è fra i mittenti verificati/.test(nota.motivo) && nota.mittente === 'revilaw@nextgenerationbusiness.it', 'lo stato del mittente sta anche su meta', JSON.stringify(nota));
     esigi(chiamateBrevo === 2, 'si e\' chiesto a Brevo una volta sola per giro (i mittenti, poi i domini)');
     avanza(10 * MIN);
     await giro();
     esigi(spedite.length === 0 && chiamateBrevo === 4, 'al giro dopo si richiede, e si aspetta ancora');
     // il mittente viene verificato: partono tutte, e per un'ora non si richiede
-    mittentiBrevo.push({ email: 'AndreaMissori@revilaw.it', active: true });
+    mittentiBrevo.push({ email: 'Revilaw@NextGenerationBusiness.it', active: true });
     avanza(10 * MIN);
     r = await giro();
     esigi(spedite.length === 2 && r.corpo.sollecitoBloccato === false && r.corpo.mittenteOk === true && (dati.get('meta/confermeEmail') || {}).sollecitoMittente.ok === true,
@@ -635,11 +767,11 @@ prova('Il mittente non verificato su Brevo: le lettere aspettano, senza consumar
     // il dominio autenticato vale per tutti i suoi indirizzi
     azzera();
     mittentiBrevo = [];
-    dominiBrevo = [{ domain_name: 'revilaw.it', authenticated: true, verified: true }];
+    dominiBrevo = [{ domain_name: 'nextgenerationbusiness.it', authenticated: true, verified: true }];
     iscritto('dominio', partita('dominio'));
     avanza(ORA);
     await giro();
-    esigi(spedite.length === 1, 'senza il mittente ma con il dominio revilaw.it autenticato: parte');
+    esigi(spedite.length === 1, 'senza il mittente ma con il dominio nextgenerationbusiness.it autenticato: parte');
     // Brevo risponde male sui domini: e' una verifica non riuscita, non un dominio senza autenticazione
     azzera();
     mittentiBrevo = [];
@@ -932,7 +1064,7 @@ prova('Il promemoria di notte aspetta il mattino', async () => {
     esigi(spedite.some(m => /^Promemoria:/.test(m.subject) && m.to === 'notte@studio.it') && sms.length === 1 && r.corpo.promemoria === 1,
         'alle 10 parte: mail e SMS', JSON.stringify(r.corpo));
     // e a chi si era iscritto alle 23, con la mail partita subito, al mattino arriva il sollecito personale
-    esigi(spedite.length === 2 && spedite.some(m => m.to === 'nottemai@studio.it' && /andreamissori@revilaw\.it/.test(m.from)) && r.corpo.solleciti === 1,
+    esigi(spedite.length === 2 && spedite.some(m => m.to === 'nottemai@studio.it' && m.replyTo === 'andreamissori@revilaw.it') && r.corpo.solleciti === 1,
         'e il sollecito di un\'ora dopo, rimasto ad aspettare la notte, parte con lui');
 });
 

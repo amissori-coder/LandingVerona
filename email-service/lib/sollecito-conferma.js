@@ -44,8 +44,21 @@
 const CONF = require('./conferma-email');
 const NL = require('./newsletter');
 
-const MITTENTE_EMAIL = 'andreamissori@revilaw.it';
+/* DA CHI PARTE. Il dominio revilaw.it non e' autenticato su Brevo (DKIM e
+   DMARC mancano): una lettera "da andreamissori@revilaw.it" firmata da un
+   altro dominio e' proprio il profilo che i filtri guardano storto. Parte
+   quindi da un indirizzo del dominio autenticato, con il nome di Andrea,
+   "Rispondi" verso la sua casella e lui in copia nascosta: la lettera resta
+   sua, e lui vede quello che parte. Tutto si cambia dalle variabili. */
+const MITTENTE_EMAIL = 'revilaw@nextgenerationbusiness.it';
 const MITTENTE_NOME = 'Andrea Missori - Revilaw';
+const RISPONDI_A_EMAIL = 'andreamissori@revilaw.it';
+const CCN_EMAIL = 'andreamissori@revilaw.it';
+const FIRMA_PEC = [
+    'Revilaw S.p.A.',
+    'Via XX Settembre 9 - 37129 Verona - C.F. 04641610235',
+    'nextgenerationbusiness.it | revilaw.it'
+].join('\n');
 const FIRMA = [
     'Andrea Missori',
     'Equity Partner e Procuratore di Revilaw S.p.A.',
@@ -73,18 +86,29 @@ function mittenteNome() {
    Andrea: la lettera resta sua. */
 function rispondiA() {
     const v = String(process.env.SOLLECITO_RISPONDI_A || '').trim().toLowerCase();
-    return EMAIL_RE.test(v) ? v : mittenteEmail();
+    return EMAIL_RE.test(v) ? v : RISPONDI_A_EMAIL;
+}
+/* Chi riceve la copia nascosta: Andrea, salvo SOLLECITO_CCN (un altro
+   indirizzo, o `no` per nessuno). */
+function copiaNascosta() {
+    const v = String(process.env.SOLLECITO_CCN || '').trim().toLowerCase();
+    if (/^(no|off|0|false|nessuno|-)$/.test(v)) return '';
+    return EMAIL_RE.test(v) ? v : CCN_EMAIL;
 }
 function pulito(v, max) { return String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' ').trim().slice(0, max || 200); }
 function mailDiConferma() { return String(process.env.SMTP_FROM_EMAIL || 'noreply@nextgenerationbusiness.it').trim(); }
 
 /* Il testo, personalizzato: il nome, l'azienda scritta nel modulo, la
    data e la sede dell'evento (CONF.dettagliEvento), e quello che arriva
-   dopo il clic - l'invito in PDF per chi viene in sala, il collegamento per
-   chi segue online. Niente collegamenti: un indirizzo scritto come testo
-   non e' un link che un filtro debba controllare, e nemmeno uno che un
-   antispam aziendale "visiti" al posto della persona. */
-function componi(scheda) {
+   dopo il clic - l'invito in PDF per chi viene in sala, le istruzioni a
+   parte per chi segue online. Niente collegamenti: un indirizzo scritto
+   come testo non e' un link che un filtro debba controllare, e nemmeno uno
+   che un antispam aziendale "visiti" al posto della persona.
+   Con `opz.pec` e' lo stesso testo per la PEC di sollecito, un giorno dopo
+   (lib/sollecito-pec.js): parla lo studio ("la ringraziamo", "ci risponda a
+   questa PEC") e firma Revilaw S.p.A. */
+function componi(scheda, opz) {
+    const pec = !!(opz && opz.pec);
     const ev = CONF.dettagliEvento(scheda && scheda.pagina);
     const nome = pulito(((scheda && scheda.nome) || '') + ' ' + ((scheda && scheda.cognome) || ''), 160);
     const azienda = pulito(scheda && scheda.azienda, 200);
@@ -95,19 +119,20 @@ function componi(scheda) {
     const oggetto = 'Next Generation Business ' + citta + (giorno ? ', ' + giorno : '') + ' – conferma della sua iscrizione';
     const testo = [
         'Gentile ' + (nome || 'iscritto') + ',',
-        'la ringrazio per la sua iscrizione a Next Generation Business, il convegno con incontri B2B in programma a ' + citta
+        (pec ? 'la ringraziamo' : 'la ringrazio') + ' per la sua iscrizione a Next Generation Business, il convegno con incontri B2B in programma a ' + citta
             + (quando ? ' ' + quando : '') + (ev.luogo ? ' presso l\'' + ev.luogo : '') + '.',
         (azienda ? 'La richiesta per ' + azienda + ' risulta registrata' : 'La sua richiesta risulta registrata')
             + ', ma l\'iscrizione non è ancora completa: manca la conferma dell\'indirizzo email. Subito dopo l\'invio del modulo le è arrivata una mail da '
             + mailDiConferma() + ' con il pulsante «Conferma il tuo indirizzo email».',
-        'Le chiedo di cercarla anche nella posta indesiderata (spam) o nelle cartelle Promozioni e Aggiornamenti, dove a volte la spostano i filtri. '
+        (pec ? 'Le chiediamo' : 'Le chiedo') + ' di cercarla anche nella posta indesiderata (spam) o nelle cartelle Promozioni e Aggiornamenti, dove a volte la spostano i filtri. '
             + 'Se la trova, basta un clic sul pulsante: subito dopo '
             + (online ? 'riceverà la conferma dell\'iscrizione; le istruzioni per seguire i lavori online le arriveranno con un\'email a parte prima dell\'evento.'
                 : 'riceverà l\'invito personale in PDF da presentare all\'accreditamento.'),
-        'Se invece non la trova, mi risponda pure a questa email e predisporremo un nuovo invio.',
-        'Resto a disposizione per qualsiasi chiarimento.',
+        pec ? 'Se invece non la trova, ci risponda pure a questa PEC e predisporremo un nuovo invio.'
+            : 'Se invece non la trova, mi risponda pure a questa email e predisporremo un nuovo invio.',
+        pec ? 'Restiamo a disposizione per qualsiasi chiarimento.' : 'Resto a disposizione per qualsiasi chiarimento.',
         'Cordiali saluti,',
-        FIRMA
+        pec ? FIRMA_PEC : FIRMA
     ].join('\n\n');
     return { oggetto: oggetto, testo: testo };
 }
@@ -135,6 +160,8 @@ async function spedisci(scheda) {
         // il tag con cui la si ritrova fra i log transazionali di Brevo
         headers: { 'X-Mailin-Tag': 'sollecito-conferma' }
     };
+    const ccn = copiaNascosta();
+    if (ccn && ccn !== a) messaggio.bcc = ccn;
     try {
         await CONF.trasporto().sendMail(messaggio);
         return { ok: true, errore: '', a: a };
@@ -190,4 +217,4 @@ async function mittenteVerificato(adesso) {
     return esito;
 }
 
-module.exports = { spento, componi, spedisci, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, MITTENTE_EMAIL, MITTENTE_NOME, VERIFICA_VALE_MS };
+module.exports = { spento, componi, spedisci, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, copiaNascosta, MITTENTE_EMAIL, MITTENTE_NOME, RISPONDI_A_EMAIL, CCN_EMAIL, VERIFICA_VALE_MS };

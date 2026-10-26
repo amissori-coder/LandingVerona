@@ -548,6 +548,19 @@ module.exports = async (req, res) => {
                         quando: typeof v.promemoriaConferma.quando === 'number' ? v.promemoriaConferma.quando : 0
                     } : null,
                     // il sollecito personale di un'ora dopo (lib/sollecito-conferma.js): quando, e se e' partito
+                    // la PEC di sollecito, un giorno dopo la lettera (lib/sollecito-pec.js): quando, a chi, e che cosa e' tornato
+                    pecSollecito: (v.pecSollecito && typeof v.pecSollecito === 'object') ? {
+                        quando: typeof v.pecSollecito.quando === 'number' ? v.pecSollecito.quando : 0,
+                        ok: v.pecSollecito.ok === true,
+                        incerto: v.pecSollecito.incerto === true,
+                        canale: v.pecSollecito.canale === true,
+                        esclusa: v.pecSollecito.esclusa === true,
+                        errore: String(v.pecSollecito.errore || '').slice(0, 200),
+                        a: String(v.pecSollecito.a || '').slice(0, 200),
+                        consegnata: (v.pecSollecito.consegnata && typeof v.pecSollecito.consegnata === 'object') ? { quando: Number(v.pecSollecito.consegnata.quando) || 0 } : null,
+                        problema: (v.pecSollecito.problema && typeof v.pecSollecito.problema === 'object') ? { quando: Number(v.pecSollecito.problema.quando) || 0, motivo: String(v.pecSollecito.problema.motivo || '').slice(0, 200) } : null,
+                        risposta: (v.pecSollecito.risposta && typeof v.pecSollecito.risposta === 'object') ? { quando: Number(v.pecSollecito.risposta.quando) || 0, da: String(v.pecSollecito.risposta.da || '').slice(0, 200) } : null
+                    } : null,
                     sollecitoConferma: (v.sollecitoConferma && typeof v.sollecitoConferma === 'object') ? {
                         quando: typeof v.sollecitoConferma.quando === 'number' ? v.sollecitoConferma.quando : 0,
                         ok: v.sollecitoConferma.ok === true,

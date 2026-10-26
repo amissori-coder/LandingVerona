@@ -1294,8 +1294,9 @@ function kb(n) {
 }
 function rispostaPec(d, link) {
     const azienda = String(d.azienda || '').trim() || String(d.da || '').trim() || 'Un\'azienda';
-    const cosa = d.sponsor ? 'alla PEC con la richiesta di sponsorizzazione' : 'alla PEC dell\'invito';
-    const oggetto = 'Risposta ' + (d.sponsor ? 'alla PEC di sponsorizzazione' : 'alla PEC dell\'invito') + ' - ' + azienda;
+    const cosa = d.sponsor ? 'alla PEC con la richiesta di sponsorizzazione' : (d.sollecito ? 'alla PEC di sollecito per la conferma dell\'email di iscrizione' : 'alla PEC dell\'invito');
+    const titolo = d.sponsor ? 'Risposta alla PEC di sponsorizzazione' : (d.sollecito ? 'Risposta alla PEC di sollecito (conferma email)' : 'Risposta alla PEC dell\'invito');
+    const oggetto = titolo + ' - ' + azienda;
     const allegati = Array.isArray(d.allegati) ? d.allegati : [];
     const conAllegati = allegati.some(a => a.allegato);
     const sommario = azienda + ' ha risposto ' + cosa + (d.eventoNome ? ' (' + d.eventoNome + ')' : '') + '. '
@@ -1317,7 +1318,7 @@ function rispostaPec(d, link) {
         + '</td></tr>';
     const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';text-align:justify;">' + esc(t) + '</td></tr>';
     const html = involucro(oggetto, sommario,
-        testataPer(d.pagina, d.sponsor ? 'Risposta alla PEC di sponsorizzazione' : 'Risposta alla PEC dell\'invito', sommario)
+        testataPer(d.pagina, titolo, sommario)
         + corpo(
             '<tr><td>' + box(
                 rigaBox('Azienda', azienda, 150)
@@ -1343,7 +1344,7 @@ function rispostaPec(d, link) {
             + spazio(24)
             + bottone('Apri gli inviti nell\'area riservata', link)
         )
-        + piedePer(d.pagina, 'Avviso automatico: parte quando un\'azienda risponde alla PEC dell\'invito.'));
+        + piedePer(d.pagina, 'Avviso automatico: parte quando un\'azienda risponde alla PEC dell\'invito o a quella di sollecito.'));
     const testo = [oggetto.toUpperCase(), sommario,
         ['Azienda: ' + azienda, d.da ? 'Da: ' + d.da : '', d.quandoTesto ? 'Arrivata il: ' + d.quandoTesto : '',
             d.oggetto ? 'Oggetto: ' + d.oggetto : '', 'Tipo: ' + tipo, d.codice ? 'Codice invito: ' + d.codice : ''].filter(Boolean).join('\n'),
@@ -1353,7 +1354,7 @@ function rispostaPec(d, link) {
         allegati.length ? 'ALLEGATI\n' + allegati.map(a => '- ' + a.nome + ' (' + kb(a.dimensione) + ')' + (a.allegato ? '' : ' - ' + perche(a))).join('\n') : '',
         nota,
         'Gli inviti nell\'area riservata: ' + link,
-        '--', 'Avviso automatico: parte quando un\'azienda risponde alla PEC dell\'invito.'].filter(Boolean).join('\n\n');
+        '--', 'Avviso automatico: parte quando un\'azienda risponde alla PEC dell\'invito o a quella di sollecito.'].filter(Boolean).join('\n\n');
     return { oggetto: oggetto, html: html, testo: testo };
 }
 

@@ -1865,6 +1865,8 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    non c'e' niente - la mail l'ha gia' ricevuta, e si rimanda dal menu. */
 .ev-attesa-mail { margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--ambra); }
 .ev-attesa-mail .ev-mail-mai { color: #B1213B; font-weight: 600; }
+/* i solleciti della conferma gia' partiti (la lettera, la PEC), con data e ora: in grigio, non e' un allarme */
+.ev-attesa-mail .ev-solleciti { color: var(--grigio-600); font-weight: 500; }
 
 /* Le sezioni sopra l'elenco: una riga di voci con il proprio numero, che si
    legge come un riepilogo anche senza premerle. La voce vuota resta visibile,

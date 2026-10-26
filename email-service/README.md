@@ -54,9 +54,11 @@ Serve per generare i link di reimpostazione password.
 | `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
 | `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
 | `PROMEMORIA_SECONDA_PERSONA` | *(facoltativa)* `no` spegne la mail "l'invito vale per due persone" (per esempio a sala piena). Senza: accesa. Vedi "L'invito vale per due persone" |
-| `SOLLECITO_FROM_EMAIL` | *(facoltativa)* il mittente del sollecito personale della conferma email (a un'ora dalla mail non cliccata). Senza: `andreamissori@revilaw.it`. **Deve essere un mittente verificato su Brevo** (o un dominio autenticato), altrimenti Brevo lo rifiuta. Vedi "Il sollecito personale" |
+| `SOLLECITO_FROM_EMAIL` | *(facoltativa)* il mittente del sollecito personale della conferma email (a un'ora dalla mail non cliccata). Senza: `revilaw@nextgenerationbusiness.it` (il dominio autenticato su Brevo: `revilaw.it` non lo e'). **Deve essere un mittente verificato su Brevo** o di un dominio autenticato: il giro lo controlla prima di spedire. Vedi "Il sollecito personale" |
 | `SOLLECITO_FROM_NAME` | *(facoltativa)* il nome del mittente del sollecito. Senza: `Andrea Missori - Revilaw` |
-| `SOLLECITO_RISPONDI_A` | *(facoltativa)* a chi torna "Rispondi" sul sollecito. Senza: al mittente. Serve per spedire da un indirizzo di un dominio **autenticato** su Brevo (DKIM e DMARC) tenendo le risposte verso Andrea: es. `SOLLECITO_FROM_EMAIL=revilaw@nextgenerationbusiness.it`, `SOLLECITO_FROM_NAME=Andrea Missori - Revilaw`, `SOLLECITO_RISPONDI_A=andreamissori@revilaw.it` |
+| `SOLLECITO_RISPONDI_A` | *(facoltativa)* a chi torna "Rispondi" sul sollecito. Senza: `andreamissori@revilaw.it` |
+| `SOLLECITO_CCN` | *(facoltativa)* chi riceve il sollecito in copia nascosta. Senza: `andreamissori@revilaw.it`; `no` per nessuno |
+| `SOLLECITO_PEC` | *(facoltativa)* `no` spegne la PEC di sollecito del giorno dopo (vedi "La PEC di sollecito"). Senza: accesa, se il canale PEC e' configurato (`PEC_SMTP_*`) |
 | `SOLLECITO_CONFERMA` | *(facoltativa)* `no` spegne il sollecito personale; resta il promemoria del giorno dopo. Senza: acceso |
 | `CHECKUP_MAX_GIORNO` | *(facoltativa)* quanti avvisi delle richieste di check-up dalle pagine dei temi possono partire in tutto in un giorno (intero positivo). Senza: `40`. Vedi "Le richieste di check-up dalle pagine dei temi" |
 
@@ -1653,10 +1655,13 @@ con le sue pause) e per ognuna:
 | `mailConferma.ok` vero e niente clic da **24 ore** | **UN promemoria**, **solo dalle 8 alle 21 ora di Milano** (di notte aspetta, con la bandiera): la stessa mail con "Promemoria:" davanti all'oggetto e l'SMS del promemoria; resta `promemoriaConferma: { quando, mail, sms }` e la bandiera se ne va. Mai un secondo promemoria |
 
 **Il sollecito personale** (`lib/sollecito-conferma.js`). A un'ora dalla mail
-con il pulsante partita e non cliccata, una seconda mail: da **Andrea
-Missori**, con il suo indirizzo come mittente e come "Rispondi", **solo
-testo**, senza collegamenti, immagini o intestazioni da invio di massa (e'
-una lettera, non una circolare: e' quello che le fa passare i filtri). Dice
+con il pulsante partita e non cliccata, una seconda mail: a nome di **Andrea
+Missori**, da `revilaw@nextgenerationbusiness.it` (il dominio autenticato su
+Brevo con DKIM e DMARC: `revilaw.it` non lo e', e una lettera "da revilaw.it"
+firmata da un altro dominio e' il profilo che i filtri guardano storto), con
+"Rispondi" verso `andreamissori@revilaw.it` e lui in **copia nascosta**,
+**solo testo**, senza collegamenti, immagini o intestazioni da invio di massa
+(e' una lettera, non una circolare: e' quello che le fa passare i filtri). Dice
 che la richiesta per l'azienda e' registrata ma l'iscrizione non e' completa,
 di cercare la mail di `noreply@nextgenerationbusiness.it` anche nello spam e
 nelle cartelle Promozioni e Aggiornamenti, che dopo il clic arriva l'invito
@@ -1681,6 +1686,34 @@ e `sollecitoMotivo` nei conti e nel log; su `meta/confermeEmail`
 dopo. Per attivare il sollecito basta quindi aggiungere
 `andreamissori@revilaw.it` ai mittenti di Brevo (Mittenti e IP › Aggiungi
 mittente, con la conferma dalla casella): al giro successivo partono tutte.
+
+**La PEC di sollecito, un giorno dopo** (`lib/sollecito-pec.js`, azione `pec`
+del giro). Se un giorno dopo la lettera l'indirizzo non e' ancora confermato,
+lo stesso testo parte **per PEC** dalla casella PEC dello studio (il canale
+degli inviti: `PEC_SMTP_*`, `PEC_FROM_EMAIL`) all'indirizzo PEC con cui
+l'azienda e' stata invitata, **firmato Revilaw S.p.A.** ("la ringraziamo",
+"ci risponda pure a questa PEC"), solo testo. L'azienda e' quella collegata
+all'iscrizione: la scheda di `aziendeInvito` scritta sull'iscrizione
+(`invitoScheda`), quella a cui punta il codice, o quella con quel codice
+(`codice`, `invio.codice`); senza un'azienda con una PEC la scheda resta
+`esclusa` e lo dice (chi si e' iscritto senza codice: si assegna il codice dal
+menu della riga, e da li' la PEC parte). Di giorno; viene **dopo il promemoria**
+di sempre (la scheda resta nel giro finche' la PEC non e' fatta), e dopo la
+PEC la scheda esce. Un no certo del gestore (alla casella, al messaggio) si
+riprova dopo mezz'ora, tre volte; un no sulle credenziali o sul saluto e' un
+guasto del canale (`pecBloccato`): non conta, e si riprova; un esito incerto
+non si ripete. Sulla scheda resta `pecSollecito: { quando, ok, incerto, canale,
+esclusa, errore, tentativi, a, azienda, riferimento, messageId }`.
+**Le ricevute e la risposta** tornano nella casella PEC: il Message-ID si
+registra prima di spedire (`pecRiferimenti`, `tipo: 'sollecito'`, con
+l'iscrizione), e il lettore (`lib/lettore-pec.js`) scrive accettazione,
+consegna, problema e risposta su `pecSollecito` dell'iscrizione - **non**
+sull'invito dell'azienda - e mette la risposta in coda per l'**inoltro per
+email ad Andrea Missori** (`lib/inoltro-risposte-pec.js`, come le risposte
+agli inviti: oggetto "Risposta alla PEC di sollecito (conferma email) -
+<azienda>"). Nell'area riservata, sulla riga: a vista "sollecito gg/mm hh:mm ·
+PEC gg/mm hh:mm (ha risposto)", e nel suggerimento a chi, consegnata quando,
+la risposta.
 
 **Gli arretrati, una volta** (`recuperoSollecito`, `VERSIONE_SOLLECITO`). Al
 primo giro dopo la pubblicazione si rilegge l'archivio e chi aspettava gia' da

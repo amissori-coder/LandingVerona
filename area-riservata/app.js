@@ -16974,8 +16974,17 @@
            guardare (il servizio intanto la riprova da solo). */
         const titolo = SEZIONE_ATTESA.spiega + ' ' + invioConfermaTesto(r);
         const mai = !r.mailConferma && Date.now() - dataIscrizioneMs(r.data) > 10 * 60 * 1000;
+        /* I solleciti, con data e ora, a vista: la lettera personale e la PEC
+           del giorno dopo (il resto - esiti, consegna, risposta - sta nel
+           suggerimento). E' quello che si guarda per decidere se chiamare. */
+        const so = r.sollecitoConferma, pc = r.pecSollecito;
+        const solleciti = [
+            so && so.quando && so.ok ? 'sollecito ' + fmtDataOra(so.quando) : '',
+            pc && pc.quando && pc.ok ? 'PEC ' + fmtDataOra(pc.quando) + (pc.risposta && pc.risposta.quando ? ' (ha risposto)' : '') : ''
+        ].filter(Boolean);
         return '<div class="hint ev-attesa-mail" title="' + esc(titolo) + '">email da confermare'
-            + (mai ? ' &middot; <span class="ev-mail-mai">mail non ancora partita</span>' : '') + '</div>';
+            + (mai ? ' &middot; <span class="ev-mail-mai">mail non ancora partita</span>' : '')
+            + (solleciti.length ? ' &middot; <span class="ev-solleciti">' + esc(solleciti.join(' · ')) + '</span>' : '') + '</div>';
     }
     /* Quello che il servizio ha gia' fatto per far arrivare la mail di
        conferma, in una frase: lo scrivono l'iscrizione, i rinvii e il giro
@@ -17002,6 +17011,17 @@
             + (!so.ok && so.errore ? ' (' + so.errore + ')' : '') + (so.canale && !so.ok && !(r && r.promemoriaConferma) ? '; si riprova da solo' : '') + '.');
         const p = r && r.promemoriaConferma;
         if (p && p.quando) pezzi.push('Promemoria (mail e SMS) mandato il ' + fmtDataOra(p.quando) + '.');
+        // la PEC di sollecito, un giorno dopo la lettera: a chi, e che cosa e' tornato dal gestore
+        const pc = r && r.pecSollecito;
+        if (pc && pc.quando) {
+            if (pc.ok) pezzi.push('PEC di sollecito mandata il ' + fmtDataOra(pc.quando) + (pc.a ? ' a ' + pc.a : '')
+                + (pc.consegnata && pc.consegnata.quando ? ', consegnata il ' + fmtDataOra(pc.consegnata.quando) : '')
+                + (pc.problema && pc.problema.quando ? ', NON consegnata (' + (pc.problema.motivo || 'problema del gestore') + ')' : '')
+                + (pc.risposta && pc.risposta.quando ? '; risposta arrivata il ' + fmtDataOra(pc.risposta.quando) + (pc.risposta.da ? ' da ' + pc.risposta.da : '') + ', inoltrata per email' : '') + '.');
+            else if (pc.esclusa) pezzi.push('PEC di sollecito non mandata: ' + (pc.errore || 'nessuna PEC') + '.');
+            else pezzi.push((pc.incerto ? 'PEC di sollecito dall\'esito incerto il ' : (pc.canale ? 'PEC di sollecito ferma per un guasto del gestore il ' : 'PEC di sollecito NON partita il ')) + fmtDataOra(pc.quando)
+                + (pc.errore ? ' (' + pc.errore + ')' : '') + (pc.canale && !(r && r.promemoriaConferma) ? '; si riprova da solo' : '') + '.');
+        }
         return pezzi.join(' ');
     }
     /* LA CELLA DELLE AZIONI: il menu dei tre puntini della riga.
