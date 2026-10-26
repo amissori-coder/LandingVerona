@@ -15,9 +15,14 @@
        dopo cinque minuti dall'iscrizione, con il suo SMS, e non prima;
      - una mail NON PARTITA si riprova dopo 5 minuti, 30 minuti, 2 ore
        e 12 ore: cinque tentativi in tutto, poi la scheda esce dal giro;
-     - una mail PARTITA e mai cliccata riceve dopo un giorno UN
-       promemoria, mail ("Promemoria:" nell'oggetto) e SMS, e mai un
-       secondo, nemmeno se la bandiera tornasse;
+     - una mail PARTITA e non cliccata riceve a UN'ORA il sollecito
+       personale di Andrea Missori: solo testo, dal suo indirizzo, con
+       "Rispondi" verso di lui, senza collegamenti, personalizzato (nome,
+       azienda, in sala o online); una volta; di giorno; se la posta dice
+       no si riprova dopo mezz'ora, tre volte; spento non parte; chi
+       conferma prima non lo riceve;
+     - e dopo un giorno UN promemoria, mail ("Promemoria:" nell'oggetto)
+       e SMS, e mai un secondo, nemmeno se la bandiera tornasse;
      - una scheda confermata, annullata, inserita a mano, importata,
        arrivata da un portale o di un evento che non chiede la conferma
        esce dal giro senza che parta niente;
@@ -193,12 +198,20 @@ async function zitti(fn) {
     try { return await fn(); } finally { console.error = errVero; console.log = logVero; console.warn = avvVero; }
 }
 const MILANO = 'Milano 26 Febbraio 2027 - Iscrizione';
+/* Una scheda con la mail gia' partita ha, salvo che la prova dica
+   altrimenti, anche il sollecito personale gia' partito: le prove del
+   promemoria del giorno dopo guardano quello, non il sollecito (che ha la
+   sua prova, e passa `sollecitoConferma: undefined`). */
 function iscritto(id, campi) {
+    campi = campi || {};
+    const m = campi.mailConferma;
+    const sollecito = m && m.ok === true && !('sollecitoConferma' in campi)
+        ? { sollecitoConferma: { quando: Number(m.quando) || orologio, ok: true, tentativi: 1, a: id + '@studio.it' } } : {};
     dati.set('iscrizioni/' + id, Object.assign({
         pagina: MILANO, data: '15/01/2027 10:00:00', nome: 'Pia', cognome: id, email: id + '@studio.it',
         telefono: '+39 333 000 0000', telefonoNumero: '+393330000000', telefonoVerificato: { quando: 1, come: 'sms' },
         ricevuto: orologio, confermaInAttesa: true
-    }, campi || {}));
+    }, sollecito, campi));
 }
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
@@ -296,6 +309,124 @@ prova('Non partita: si riprova dopo 5 minuti, 30 minuti, 2 ore e 12 ore, poi bas
     iscritto('vecchia', { ricevuto: orologio - 3 * GIORNO, mailConferma: { quando: orologio - 3 * GIORNO, ok: false, errore: 'x' } });
     await giro();
     esigi(spedite.length === 1 && scheda('vecchia').invioConferma.tentativi === 2, 'una scheda di prima del conto: il fallimento vecchio conta come primo tentativo');
+});
+
+prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', async () => {
+    azzera();
+    const t0 = orologio;
+    const partita = id => ({ ricevuto: t0, mailConferma: { quando: t0, ok: true, errore: '', via: 'iscrizione', a: id + '@studio.it' },
+        invioConferma: { a: id + '@studio.it', tentativi: 1, falliti: 0, ultimo: t0 }, smsConferma: { quando: t0, ok: true, tipo: 'inviata' }, sollecitoConferma: undefined });
+    iscritto('luca', Object.assign(partita('luca'), { nome: 'Luca', cognome: 'Mereghetti', azienda: 'Aresys S.r.l.' }));
+    avanza(59 * MIN);
+    await giro();
+    esigi(spedite.length === 0, 'a 59 minuti: niente');
+    avanza(MIN);
+    let r = await giro();
+    const m = spedite[0] || {};
+    esigi(spedite.length === 1 && r.corpo.solleciti === 1 && m.to === 'luca@studio.it', 'a un\'ora: la mail del sollecito', JSON.stringify(r.corpo));
+    esigi(m.from === '"Andrea Missori - Revilaw" <andreamissori@revilaw.it>' && m.replyTo === 'andreamissori@revilaw.it', 'dal suo indirizzo, e "Rispondi" torna a lui', m.from);
+    esigi(!m.html && typeof m.text === 'string' && !/https?:\/\/|<a |www\./.test(m.text) && !m.list && !(m.headers || {})['List-Unsubscribe'],
+        'solo testo: niente HTML, niente collegamenti, niente intestazioni da invio di massa');
+    esigi(m.subject === 'Next Generation Business Milano, 26 febbraio 2027 – conferma della sua iscrizione', 'l\'oggetto', m.subject);
+    esigi(/^Gentile Luca Mereghetti,\n/.test(m.text) && /La richiesta per Aresys S\.r\.l\. risulta registrata, ma l'iscrizione non è ancora completa/.test(m.text)
+        && /una mail da noreply@esempio\.it con il pulsante «Conferma il tuo indirizzo email»/.test(m.text)
+        && /posta indesiderata \(spam\) o nelle cartelle Promozioni e Aggiornamenti/.test(m.text)
+        && /riceverà l'invito personale in PDF da presentare all'accreditamento/.test(m.text)
+        && /mi risponda pure a questa email/.test(m.text) && /\n\nAndrea Missori\nEquity Partner e Procuratore di Revilaw S\.p\.A\.\n/.test(m.text)
+        && /venerdì 26 febbraio 2027 presso l'Excelsior Hotel Gallia/.test(m.text),
+        'personalizzata: nome, azienda, la mail da cercare, l\'invito in PDF, la firma', m.text);
+    esigi((m.headers || {})['X-Mailin-Tag'] === 'sollecito-conferma', 'con il tag per i log di Brevo');
+    let sc = scheda('luca');
+    esigi(sc.sollecitoConferma && sc.sollecitoConferma.ok === true && sc.sollecitoConferma.tentativi === 1 && sc.sollecitoConferma.a === 'luca@studio.it'
+        && sc.confermaInAttesa === true && sms.length === 0, 'sulla scheda il segno; resta nel giro per il promemoria; niente SMS', JSON.stringify(sc.sollecitoConferma));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 1, 'un\'ora dopo: non si ripete');
+    avanza(22 * ORA);
+    await giro();
+    esigi(spedite.length === 2 && /^Promemoria:/.test(spedite[1].subject) && sms.length === 1, 'e a un giorno il promemoria di sempre, con l\'SMS');
+
+    // online, senza azienda: quello che arriva dopo il clic e' il collegamento
+    azzera();
+    iscritto('online', Object.assign(partita('online'), { nome: 'Ada', cognome: 'Rossi', azienda: '', modalita: 'online' }));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 1 && /La sua richiesta risulta registrata/.test(spedite[0].text) && /riceverà la conferma con il collegamento per seguire i lavori online/.test(spedite[0].text)
+        && !/invito personale in PDF/.test(spedite[0].text), 'online e senza azienda: il testo lo sa', spedite[0] && spedite[0].text.slice(0, 400));
+
+    // di notte aspetta: la mail parte alle 23, il sollecito alle 8
+    azzera();
+    orologio = DateVera.parse('2027-01-15T23:00:00+01:00');
+    iscritto('notte', partita('notte'));
+    dati.set('iscrizioni/notte', Object.assign({}, scheda('notte'), { ricevuto: orologio, mailConferma: Object.assign({}, scheda('notte').mailConferma, { quando: orologio }) }));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 0 && GIRO.cosaFare(scheda('notte'), orologio).perche === 'notte', 'a mezzanotte aspetta');
+    avanza(7 * ORA + 59 * MIN);
+    await giro();
+    esigi(spedite.length === 0, 'alle 7:59 ancora niente');
+    avanza(MIN);
+    await giro();
+    esigi(spedite.length === 1 && spedite[0].to === 'notte@studio.it', 'alle 8 parte');
+
+    // la posta dice no: si riprova dopo mezz'ora, tre volte, poi resta il promemoria
+    azzera();
+    iscritto('giu', partita('giu'));
+    avanza(ORA);
+    mailGuasta = 1;
+    r = await giro();
+    sc = scheda('giu');
+    esigi(spedite.length === 0 && r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.tentativi === 1 && /550/.test(sc.sollecitoConferma.errore),
+        'la posta dice no: resta il tentativo con l\'errore', JSON.stringify(sc.sollecitoConferma));
+    avanza(10 * MIN);
+    await giro();
+    esigi(chiamateSmtp === 1, 'dieci minuti dopo non si riprova ancora');
+    avanza(20 * MIN);
+    mailGuasta = 1;
+    await giro();
+    esigi(chiamateSmtp === 2 && scheda('giu').sollecitoConferma.tentativi === 2, 'a mezz\'ora si riprova');
+    avanza(30 * MIN);
+    mailGuasta = 1;
+    await giro();
+    esigi(chiamateSmtp === 3 && scheda('giu').sollecitoConferma.tentativi === 3 && scheda('giu').sollecitoConferma.ok === false, 'il terzo no');
+    avanza(30 * MIN);
+    await giro();
+    esigi(chiamateSmtp === 3 && spedite.length === 0 && scheda('giu').confermaInAttesa === true, 'poi basta: la scheda resta nel giro');
+    avanza(22 * ORA);
+    await giro();
+    esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'e il promemoria del giorno dopo parte lo stesso');
+
+    // spento: si salta, e il promemoria resta
+    azzera();
+    process.env.SOLLECITO_CONFERMA = 'no';
+    iscritto('spento', partita('spento'));
+    avanza(2 * ORA);
+    await giro();
+    esigi(spedite.length === 0 && !scheda('spento').sollecitoConferma, 'spento: niente sollecito');
+    avanza(23 * ORA);
+    await giro();
+    esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'ma il promemoria si\'');
+    delete process.env.SOLLECITO_CONFERMA;
+
+    // chi conferma prima dell'ora, o e' gia' in sala, non lo riceve
+    azzera();
+    iscritto('pronta', partita('pronta'));
+    iscritto('insala', partita('insala'));
+    dati.set('presenze/' + GIRO.idPresenza(V.eventoDi(MILANO), scheda('insala')), { stato: 'presente' });
+    avanza(30 * MIN);
+    dati.set('iscrizioni/pronta', Object.assign({}, scheda('pronta'), { emailConfermata: { quando: orologio, come: 'mail' } }));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 0 && !('confermaInAttesa' in scheda('pronta')) && !('confermaInAttesa' in scheda('insala')), 'confermata, o presente in sala: niente, e fuori dal giro');
+
+    // il mittente si cambia dalle variabili
+    azzera();
+    process.env.SOLLECITO_FROM_EMAIL = 'segreteria@revilaw.it'; process.env.SOLLECITO_FROM_NAME = 'Segreteria NGB';
+    iscritto('altro', partita('altro'));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 1 && spedite[0].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[0].replyTo === 'segreteria@revilaw.it', 'il mittente dalle variabili', spedite[0] && spedite[0].from);
+    delete process.env.SOLLECITO_FROM_EMAIL; delete process.env.SOLLECITO_FROM_NAME;
 });
 
 prova('Partita e mai cliccata: dopo un giorno UN promemoria, mail e SMS', async () => {
@@ -512,8 +643,11 @@ prova('Il promemoria di notte aspetta il mattino', async () => {
     esigi(spedite.length === 0 && sms.length === 0, 'alle 7.50 ancora niente');
     orologio = Date.parse('2027-01-16T10:00:00+01:00');
     r = await giro();
-    esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject) && spedite[0].to === 'notte@studio.it' && sms.length === 1 && r.corpo.promemoria === 1,
+    esigi(spedite.some(m => /^Promemoria:/.test(m.subject) && m.to === 'notte@studio.it') && sms.length === 1 && r.corpo.promemoria === 1,
         'alle 10 parte: mail e SMS', JSON.stringify(r.corpo));
+    // e a chi si era iscritto alle 23, con la mail partita subito, al mattino arriva il sollecito personale
+    esigi(spedite.length === 2 && spedite.some(m => m.to === 'nottemai@studio.it' && /andreamissori@revilaw\.it/.test(m.from)) && r.corpo.solleciti === 1,
+        'e il sollecito di un\'ora dopo, rimasto ad aspettare la notte, parte con lui');
 });
 
 prova('Prima i guasti: una mail da riprovare in fondo alla fila non aspetta i promemoria', async () => {

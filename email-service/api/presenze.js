@@ -1973,7 +1973,7 @@ module.exports = async (req, res) => {
                     if (attuale.emailConfermaRimandata !== undefined) nuovo.emailConfermaRimandata = attuale.emailConfermaRimandata;
                     /* E il giro automatico delle mail di conferma: la bandiera
                        e i conti degli invii a quell'indirizzo (lib/conferma-email.js) */
-                    ['confermaInAttesa', 'invioConferma', 'promemoriaConferma', 'rimandaConferma', 'smsConferma']
+                    ['confermaInAttesa', 'invioConferma', 'promemoriaConferma', 'sollecitoConferma', 'rimandaConferma', 'smsConferma']
                         .forEach(k => { if (attuale[k] !== undefined) nuovo[k] = attuale[k]; });
                 } else {
                     /* Un indirizzo NUOVO non ha ricevuto niente. La mail partita

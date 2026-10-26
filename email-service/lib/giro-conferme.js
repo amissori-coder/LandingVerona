@@ -16,8 +16,14 @@
                    falso): si riprova dopo 5 minuti, 30 minuti, 2 ore e
                    12 ore, cinque tentativi in tutto, poi si lascia allo
                    staff (l'area riservata la mostra "mail non inviata");
-     PARTITA MA NIENTE CLIC   dopo un giorno dall'ultimo invio riuscito
-                   parte UN promemoria: la stessa mail, con "Promemoria:"
+     PARTITA MA NIENTE CLIC   a UN'ORA dall'ultimo invio riuscito parte
+                   il SOLLECITO PERSONALE (lib/sollecito-conferma.js): una
+                   mail solo testo da Andrea Missori, dal suo indirizzo, che
+                   dice di cercare la prima nello spam e di rispondere se
+                   non la trova. Una per scheda; se la posta dice no si
+                   riprova dopo mezz'ora, tre tentativi in tutto; di giorno,
+                   come il promemoria. Poi, dopo un giorno dall'ultimo invio
+                   riuscito, parte UN promemoria: la stessa mail, con "Promemoria:"
                    davanti all'oggetto, e un SMS che dice di cercarla anche
                    fra la posta indesiderata. Uno solo, mai un secondo:
                    resta scritto in `promemoriaConferma`. E solo di giorno,
@@ -87,6 +93,7 @@ const crypto = require('crypto');
 const admin = require('firebase-admin');
 const CONF = require('./conferma-email');
 const VERIFICATA = require('./iscrizione-verificata');
+const SOLL = require('./sollecito-conferma');
 
 const BUDGET_MS = 35 * 1000;
 // le schede con la bandiera lette per giro: molte piu' di quelle che ci sono di solito
@@ -97,6 +104,10 @@ const PRIMA_ATTESA_MS = 5 * 60 * 1000;
 const PAUSE_MS = [5 * 60 * 1000, 30 * 60 * 1000, 2 * 60 * 60 * 1000, 12 * 60 * 60 * 1000];
 const MAX_TENTATIVI = 5;
 const PROMEMORIA_DOPO_MS = 24 * 60 * 60 * 1000;
+// il sollecito personale: a un'ora dalla mail partita; se non parte, dopo mezz'ora, tre volte
+const SOLLECITO_DOPO_MS = 60 * 60 * 1000;
+const SOLLECITO_RIPROVA_MS = 30 * 60 * 1000;
+const SOLLECITO_MAX_TENTATIVI = 3;
 // il promemoria parte solo di giorno, ora di Milano: dalle 8 (compresa) alle 21 (esclusa)
 const PROMEMORIA_DALLE = 8;
 const PROMEMORIA_ALLE = 21;
@@ -105,7 +116,7 @@ const LUCCHETTO_MS = 120 * 1000;
 // alzarla rifa' il recupero (vedi in cima) al giro dopo
 const VERSIONE_RECUPERO = 1;
 // l'ordine del lavoro (vedi PRIMA I GUASTI): l'attesa non costa niente e non entra nel tempo
-const PRIORITA = { invia: 0, riprova: 0, togli: 1, promemoria: 2, aspetta: 3 };
+const PRIORITA = { invia: 0, riprova: 0, togli: 1, sollecito: 2, promemoria: 3, aspetta: 4 };
 
 function motivo(e) { return String((e && e.message) || e).replace(/[^\s/@'"]+@[^\s/'"]+/g, '<email>').slice(0, 200); }
 
@@ -160,6 +171,16 @@ function cosaFare(x, ora, presenza) {
         return ora - (Number(m.quando) || 0) >= pausa ? { fare: 'riprova' } : { fare: 'aspetta' };
     }
     if (x.promemoriaConferma) return { fare: 'togli', perche: 'promemoria gia\' mandato' };
+    /* Il sollecito personale, prima del promemoria: a un'ora dalla mail
+       partita, finche' non e' partito (o i tentativi sono finiti), e con lo
+       stesso orario di giorno. Spento, si salta e si passa al promemoria. */
+    const so = x.sollecitoConferma && typeof x.sollecitoConferma === 'object' ? x.sollecitoConferma : null;
+    const soFatto = !!so && (so.ok === true || (Number(so.tentativi) || 0) >= SOLLECITO_MAX_TENTATIVI);
+    if (!soFatto && !SOLL.spento()) {
+        if (ora - (Number(m.quando) || 0) < SOLLECITO_DOPO_MS) return { fare: 'aspetta' };
+        if (so && ora - (Number(so.quando) || 0) < SOLLECITO_RIPROVA_MS) return { fare: 'aspetta', perche: 'sollecito da riprovare' };
+        return diGiorno(ora) ? { fare: 'sollecito' } : { fare: 'aspetta', perche: 'notte' };
+    }
     if (ora - (Number(m.quando) || 0) < PROMEMORIA_DOPO_MS) return { fare: 'aspetta' };
     return diGiorno(ora) ? { fare: 'promemoria' } : { fare: 'aspetta', perche: 'notte' };
 }
@@ -228,6 +249,30 @@ async function promemoria(db, id, presenza) {
     return { fatto: true, mail: e.ok === true, sms: sms };
 }
 
+/* IL SOLLECITO PERSONALE, come il promemoria: prima si scrive che parte (in
+   una transazione, e solo se la scheda di adesso lo chiede ancora), con il
+   tentativo contato, poi si spedisce con la scheda letta li'. Se la mail non
+   parte resta il tentativo con il suo errore, e il giro riprova dopo
+   mezz'ora; al terzo no si lascia stare, e resta il promemoria. */
+async function sollecito(db, id, presenza) {
+    const rif = db.collection('iscrizioni').doc(id);
+    const ora = Date.now();
+    const y = await db.runTransaction(async tx => {
+        const s = await tx.get(rif);
+        const z = s.exists ? (s.data() || {}) : null;
+        if (!z || z.confermaInAttesa !== true || cosaFare(z, ora, presenza).fare !== 'sollecito') return null;
+        const prima = z.sollecitoConferma && typeof z.sollecitoConferma === 'object' ? z.sollecitoConferma : {};
+        tx.set(rif, { sollecitoConferma: { quando: ora, ok: false, errore: 'in corso', tentativi: (Number(prima.tentativi) || 0) + 1, a: String(z.email || '').trim().toLowerCase() } }, { merge: true });
+        return z;
+    });
+    if (!y) return { fatto: false };
+    const prima = y.sollecitoConferma && typeof y.sollecitoConferma === 'object' ? y.sollecitoConferma : {};
+    const e = await SOLL.spedisci(y);
+    const patch = { sollecitoConferma: { quando: ora, ok: e.ok === true, errore: String(e.errore || '').slice(0, 200), tentativi: (Number(prima.tentativi) || 0) + 1, a: e.a } };
+    try { await rif.update(patch); } catch (_) { /* la scheda non c'e' piu': non rinasce */ }
+    return { fatto: true, mail: e.ok === true };
+}
+
 /* Una scheda, adesso (vedi LA SCHEDA DI ADESSO): si rilegge, si rifa' il
    conto con la scheda fresca - e, se c'e' da spedire, con la sua presenza -
    e si lavora su quella. I conti si aggiornano qui. */
@@ -241,9 +286,19 @@ async function lavora(db, id, conti) {
     const ora = Date.now();
     let c = cosaFare(x, ora);
     let presenza = null;
-    if (c.fare === 'invia' || c.fare === 'riprova' || c.fare === 'promemoria') {
+    if (c.fare === 'invia' || c.fare === 'riprova' || c.fare === 'promemoria' || c.fare === 'sollecito') {
         presenza = await leggiPresenza(db, VERIFICATA.eventoDi(x.pagina), x);
         c = cosaFare(x, ora, presenza);
+        if (c.fare === 'sollecito') {
+            const p = await sollecito(db, id, presenza);
+            if (p.fatto) {
+                conti.solleciti++;
+                if (!p.mail) conti.errori++;
+            } else {
+                conti.cambiate++;
+            }
+            return;
+        }
         if (c.fare === 'promemoria') {
             const p = await promemoria(db, id, presenza);
             if (p.fatto) {
@@ -352,7 +407,7 @@ async function giro(db, opz) {
     opz = opz || {};
     const scadenza = Date.now() + (Number(opz.budget) || BUDGET_MS);
     const conti = {
-        occupato: false, recuperate: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0, promemoria: 0,
+        occupato: false, recuperate: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0, solleciti: 0, promemoria: 0,
         sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0
     };
     const idGiro = crypto.randomBytes(8).toString('hex');
@@ -390,5 +445,6 @@ async function giro(db, opz) {
 
 module.exports = {
     giro, cosaFare, registrataIl, recupero, idPresenza, idIscritto, oraRoma,
-    PAUSE_MS, MAX_TENTATIVI, PRIMA_ATTESA_MS, PROMEMORIA_DOPO_MS, PROMEMORIA_DALLE, PROMEMORIA_ALLE, LIMITE, LUCCHETTO_MS
+    PAUSE_MS, MAX_TENTATIVI, PRIMA_ATTESA_MS, PROMEMORIA_DOPO_MS, PROMEMORIA_DALLE, PROMEMORIA_ALLE, LIMITE, LUCCHETTO_MS,
+    SOLLECITO_DOPO_MS, SOLLECITO_RIPROVA_MS, SOLLECITO_MAX_TENTATIVI
 };

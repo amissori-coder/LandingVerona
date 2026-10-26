@@ -547,6 +547,12 @@ module.exports = async (req, res) => {
                     promemoriaConferma: (v.promemoriaConferma && typeof v.promemoriaConferma === 'object') ? {
                         quando: typeof v.promemoriaConferma.quando === 'number' ? v.promemoriaConferma.quando : 0
                     } : null,
+                    // il sollecito personale di un'ora dopo (lib/sollecito-conferma.js): quando, e se e' partito
+                    sollecitoConferma: (v.sollecitoConferma && typeof v.sollecitoConferma === 'object') ? {
+                        quando: typeof v.sollecitoConferma.quando === 'number' ? v.sollecitoConferma.quando : 0,
+                        ok: v.sollecitoConferma.ok === true,
+                        errore: String(v.sollecitoConferma.errore || '').slice(0, 200)
+                    } : null,
                     emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {
                         quando: typeof v.emailConfermata.quando === 'number' ? v.emailConfermata.quando : 0,
                         come: String(v.emailConfermata.come || 'mail')

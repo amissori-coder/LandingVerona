@@ -4,8 +4,10 @@
    Lavoro programmato (vercel.json), ogni dieci minuti. Rispedisce la
    mail con il pulsante "Conferma il tuo indirizzo email" a chi si e'
    iscritto a un evento che chiede la conferma (Milano 2027) e non l'ha
-   avuta - mai partita, o rifiutata dal server di posta - e manda UN
-   promemoria (mail e SMS) a chi dopo un giorno non ha ancora cliccato.
+   avuta - mai partita, o rifiutata dal server di posta -, manda a un'ora
+   dalla mail il sollecito personale di Andrea Missori (solo testo, dal suo
+   indirizzo) e UN promemoria (mail e SMS) a chi dopo un giorno non ha
+   ancora cliccato.
    Il lavoro vero, e le sue regole, stanno in lib/giro-conferme.js.
 
    Protezione: come gli altri lavori programmati, solo con
@@ -45,7 +47,7 @@ module.exports = async (req, res) => {
         const conti = await GIRO.giro(admin.firestore());
         // i conti finiscono nei log di Vercel: e' li' che si guarda se il giro lavora
         if (conti.limitePieno || conti.rimaste) console.warn('Conferme email:', JSON.stringify(conti));
-        else if (conti.inviate || conti.riprovate || conti.promemoria || conti.errori || conti.occupato) console.log('Conferme email:', JSON.stringify(conti));
+        else if (conti.inviate || conti.riprovate || conti.solleciti || conti.promemoria || conti.errori || conti.occupato) console.log('Conferme email:', JSON.stringify(conti));
         res.status(200).json(Object.assign({ ok: true }, conti));
     } catch (e) {
         console.error('Conferme email:', String((e && e.message) || e).slice(0, 200));
