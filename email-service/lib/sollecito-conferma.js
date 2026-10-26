@@ -26,14 +26,23 @@
    incerto, errore, tentativi, a }`; Modifica se lo porta dietro con la
    conferma.
 
-   IL MITTENTE. Brevo accetta come mittente solo un indirizzo verificato
-   (o un dominio autenticato): `andreamissori@revilaw.it` va aggiunto fra
-   i mittenti di Brevo, una volta. Si cambia senza toccare il codice con
-   SOLLECITO_FROM_EMAIL e SOLLECITO_FROM_NAME; SOLLECITO_CONFERMA=no lo
-   spegne (il giro lo salta e passa al promemoria).
+   IL MITTENTE. Brevo spedisce solo da un indirizzo verificato (o da un
+   dominio autenticato): `andreamissori@revilaw.it` va aggiunto fra i
+   mittenti di Brevo, una volta. E non lo dice al momento: il relay
+   ACCETTA la mail (250) e la scarta dopo, in silenzio, con un "sender
+   not valid" che si legge solo nei suoi log. Una lettera segnata partita
+   e mai arrivata sarebbe il peggio: per questo, prima di spedire, il giro
+   chiede a Brevo (API, la chiave degli SMS) se il mittente e' fra i
+   verificati o il suo dominio fra gli autenticati (mittenteVerificato);
+   se no, o se non riesce a chiederlo, le lettere ASPETTANO senza
+   consumare tentativi, e si riprova al giro dopo. Si cambia senza toccare
+   il codice con SOLLECITO_FROM_EMAIL e SOLLECITO_FROM_NAME;
+   SOLLECITO_CONFERMA=no lo spegne (il giro lo salta e passa al
+   promemoria).
    ============================================================ */
 'use strict';
 const CONF = require('./conferma-email');
+const NL = require('./newsletter');
 
 const MITTENTE_EMAIL = 'andreamissori@revilaw.it';
 const MITTENTE_NOME = 'Andrea Missori - Revilaw';
@@ -132,4 +141,44 @@ async function spedisci(scheda) {
     }
 }
 
-module.exports = { spento, componi, spedisci, mittenteEmail, mittenteNome, MITTENTE_EMAIL, MITTENTE_NOME };
+/* Il mittente e' verificato su Brevo? Si chiede ai mittenti (/senders:
+   l'indirizzo, attivo) e, se non c'e', ai domini (/senders/domains: il suo
+   dominio autenticato). Un si' vale un'ora, in memoria; un no, o una
+   chiamata non riuscita (chiave mancante, rete), si richiede al giro dopo.
+   Restituisce { ok, motivo }. */
+const VERIFICA_VALE_MS = 60 * 60 * 1000;
+let verifica = { quando: 0, mittente: '', esito: null };
+function azzeraVerifica() { verifica = { quando: 0, mittente: '', esito: null }; }
+async function mittenteVerificato(adesso) {
+    const ora = Number(adesso) || Date.now();
+    const email = mittenteEmail();
+    if (verifica.esito && verifica.esito.ok && verifica.mittente === email && ora - verifica.quando < VERIFICA_VALE_MS) return verifica.esito;
+    let esito;
+    if (!NL.brevoAttivo()) {
+        esito = { ok: false, motivo: 'BREVO_API_KEY mancante: non si può verificare il mittente ' + email };
+    } else {
+        try {
+            const r = await NL.chiamataBrevo('/senders');
+            if (!r.ok) throw new Error('Brevo ' + r.stato + (r.testo ? ': ' + r.testo.slice(0, 120) : ''));
+            const lista = Array.isArray(r.dati && r.dati.senders) ? r.dati.senders : [];
+            const suo = lista.find(x => String((x && x.email) || '').trim().toLowerCase() === email);
+            if (suo && suo.active !== false) {
+                esito = { ok: true };
+            } else {
+                const dominio = email.split('@')[1] || '';
+                const d = await NL.chiamataBrevo('/senders/domains');
+                const domini = d.ok && Array.isArray(d.dati && d.dati.domains) ? d.dati.domains : [];
+                const mio = domini.find(x => String((x && (x.domain_name || x.domain)) || '').trim().toLowerCase() === dominio);
+                esito = mio && (mio.authenticated === true || mio.verified === true)
+                    ? { ok: true }
+                    : { ok: false, motivo: 'il mittente ' + email + ' non è fra i mittenti verificati di Brevo, e il dominio ' + dominio + ' non è autenticato: le lettere aspettano' };
+            }
+        } catch (e) {
+            esito = { ok: false, motivo: 'verifica del mittente ' + email + ' non riuscita: ' + String((e && e.message) || e).slice(0, 160) };
+        }
+    }
+    verifica = { quando: ora, mittente: email, esito: esito };
+    return esito;
+}
+
+module.exports = { spento, componi, spedisci, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, MITTENTE_EMAIL, MITTENTE_NOME, VERIFICA_VALE_MS };

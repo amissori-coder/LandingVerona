@@ -1666,15 +1666,31 @@ per scheda. Nell'area riservata il suggerimento sulla riga dice "Sollecito
 personale mandato il ..." (o "NON partito", "dall'esito incerto", con il
 motivo).
 
+**Il mittente va verificato su Brevo, e il giro lo controlla.** Brevo spedisce
+solo da un indirizzo verificato o da un dominio autenticato, e **non lo dice
+al momento**: il relay accetta la mail e la scarta dopo, in silenzio ("sender
+not valid", solo nei suoi log). Per non segnare partita una lettera mai
+arrivata, prima della prima lettera di ogni giro il servizio chiede a Brevo
+(API, la chiave `BREVO_API_KEY` degli SMS: `/senders`, poi `/senders/domains`)
+se il mittente e' fra i verificati o il suo dominio fra gli autenticati
+(`mittenteVerificato`); un si' vale un'ora. Se no, o se non riesce a
+chiederlo, **le lettere aspettano** senza consumare tentativi (`sollecitoBloccato`
+e `sollecitoMotivo` nei conti e nel log; su `meta/confermeEmail`
+`sollecitoMittente: { quando, ok, motivo, mittente }`), e si riprova al giro
+dopo. Per attivare il sollecito basta quindi aggiungere
+`andreamissori@revilaw.it` ai mittenti di Brevo (Mittenti e IP › Aggiungi
+mittente, con la conferma dalla casella): al giro successivo partono tutte.
+
 **Gli arretrati, una volta** (`recuperoSollecito`, `VERSIONE_SOLLECITO`). Al
 primo giro dopo la pubblicazione si rilegge l'archivio e chi aspettava gia' da
 prima - fuori dal giro, con il promemoria gia' ricevuto o la mail di giorni
 fa - viene segnato (`sollecitoArretrato`) e rimesso nel giro: riceve il
 sollecito, di giorno, poche schede per giro, con la presenza riletta prima
 di spedire (e, dopo un rinvio della mail con il pulsante, l'ora di tutti), e
-poi esce: dopo la lettera non arriva un altro promemoria, a meno che la mail
-con il pulsante non riparta dopo (un rinvio dello staff): allora e' una
-scheda come le altre. Chi era ancora nel giro segue la strada di tutti. Su
+poi esce: dopo la lettera non arriva un altro promemoria. Se la mail con il
+pulsante riparte dopo la lettera (un rinvio dello staff) la scheda torna
+sulla strada di tutti, ma un secondo promemoria non parte mai: lo riceve solo
+chi non l'aveva ancora avuto. Chi era ancora nel giro segue la strada di tutti. Su
 `meta/confermeEmail` resta `sollecitoArretrati: 1` con `sollecitiArretrati`
 (quante). Spento (`SOLLECITO_CONFERMA=no`) il recupero non parte e resta da
 fare; spento dopo, gli arretrati aspettano e ripartono quando si riaccende. Il mittente va verificato su Brevo una volta

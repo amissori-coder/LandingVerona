@@ -148,10 +148,25 @@ let passoMail = 0;
 let erroreMail = () => new Error('550 casella inesistente');
 let durantePosta = null;
 let sms = [];
+// i mittenti e i domini che Brevo dice di avere (il sollecito personale li chiede prima di spedire)
+let mittentiBrevo = [{ email: 'andreamissori@revilaw.it', name: 'Andrea Missori', active: true }];
+let dominiBrevo = [];
+let chiamateBrevo = 0;
+let brevoGiu = false;
 global.fetch = async (url, opz) => {
     if (/transactionalSMS/.test(String(url))) {
         sms.push(JSON.parse(opz.body));
         return { ok: true, status: 201, text: async () => '{"messageId":42}' };
+    }
+    if (/\/v3\/senders\/domains/.test(String(url))) {
+        chiamateBrevo++;
+        if (brevoGiu) throw new Error('fetch failed');
+        return { ok: true, status: 200, text: async () => JSON.stringify({ domains: dominiBrevo }) };
+    }
+    if (/\/v3\/senders/.test(String(url))) {
+        chiamateBrevo++;
+        if (brevoGiu) throw new Error('fetch failed');
+        return { ok: true, status: 200, text: async () => JSON.stringify({ senders: mittentiBrevo }) };
     }
     throw new Error('rete non prevista: ' + url);
 };
@@ -178,6 +193,7 @@ const cron = require(path.join(RADICE, 'api/conferme-email.js'));
 const GIRO = require(path.join(RADICE, 'lib/giro-conferme.js'));
 const V = require(path.join(RADICE, 'lib/iscrizione-verificata.js'));
 const CONF = require(path.join(RADICE, 'lib/conferma-email.js'));
+const SOLL = require(path.join(RADICE, 'lib/sollecito-conferma.js'));
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -219,6 +235,7 @@ function iscritto(id, campi) {
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
     dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; rompiUpdate = {}; passoMail = 0; durantePosta = null;
+    mittentiBrevo = [{ email: 'andreamissori@revilaw.it', name: 'Andrea Missori', active: true }]; dominiBrevo = []; chiamateBrevo = 0; brevoGiu = false; SOLL.azzeraVerifica();
     erroreMail = () => new Error('550 casella inesistente');
     // i recuperi una tantum (la bandiera, il sollecito agli arretrati) li provano le loro prove: qui risultano gia' fatti
     dati.set('meta/confermeEmail', { recupero: 1, sollecitoArretrati: 1 });
@@ -479,6 +496,7 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     // il mittente si cambia dalle variabili
     azzera();
     process.env.SOLLECITO_FROM_EMAIL = 'segreteria@revilaw.it'; process.env.SOLLECITO_FROM_NAME = 'Segreteria NGB';
+    mittentiBrevo.push({ email: 'segreteria@revilaw.it', active: true });
     iscritto('altro', partita('altro'));
     avanza(ORA);
     await giro();
@@ -565,6 +583,7 @@ prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il pro
     await giro();
     esigi(spedite.length === 1 && spedite[0].to === 'rinviata@studio.it', 'e parte a un\'ora dal rinvio');
     // dopo la lettera un rinvio dello staff: e' una scheda come le altre, con il promemoria a un giorno
+    // (qui il promemoria non l'aveva ancora avuto: chi l'ha gia' avuto esce lo stesso, mai un secondo)
     const quandoLettera = orologio;
     avanza(2 * ORA);
     dati.set('iscrizioni/rinviata', Object.assign({}, scheda('rinviata'), { confermaInAttesa: true, promemoriaConferma: undefined, mailConferma: { quando: orologio, ok: true, a: 'rinviata@studio.it', via: 'staff' } }));
@@ -573,6 +592,72 @@ prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il pro
     avanza(GIORNO);
     await giro();
     esigi(spedite.length === 2 && /^Promemoria:/.test(spedite[1].subject) && scheda('rinviata').sollecitoConferma.quando === quandoLettera, 'e a un giorno dal rinvio il promemoria, una lettera sola');
+});
+
+prova('Il mittente non verificato su Brevo: le lettere aspettano, senza consumare niente', async () => {
+    azzera();
+    const t0 = orologio;
+    const partita = id => ({ ricevuto: t0, sollecitoConferma: undefined, mailConferma: { quando: t0, ok: true, errore: '', via: 'iscrizione', a: id + '@studio.it' } });
+    ['uno', 'due'].forEach(id => iscritto(id, partita(id)));
+    mittentiBrevo = [{ email: 'noreply@esempio.it', active: true }];
+    avanza(ORA);
+    let r = await giro();
+    esigi(spedite.length === 0 && chiamateSmtp === 0 && r.corpo.sollecitoBloccato === true && /andreamissori@revilaw\.it non è fra i mittenti verificati/.test(r.corpo.sollecitoMotivo) && r.corpo.aspettano === 2,
+        'Brevo non ha il mittente: nessuna lettera parte, e il motivo e\' nei conti', JSON.stringify(r.corpo.sollecitoMotivo));
+    esigi(['uno', 'due'].every(id => !scheda(id).sollecitoConferma && scheda(id).confermaInAttesa === true), 'e sulle schede nessun tentativo');
+    const nota = (dati.get('meta/confermeEmail') || {}).sollecitoMittente || {};
+    esigi(nota.ok === false && /non è fra i mittenti verificati/.test(nota.motivo) && nota.mittente === 'andreamissori@revilaw.it', 'lo stato del mittente sta anche su meta', JSON.stringify(nota));
+    esigi(chiamateBrevo === 2, 'si e\' chiesto a Brevo una volta sola per giro (i mittenti, poi i domini)');
+    avanza(10 * MIN);
+    await giro();
+    esigi(spedite.length === 0 && chiamateBrevo === 4, 'al giro dopo si richiede, e si aspetta ancora');
+    // il mittente viene verificato: partono tutte, e per un'ora non si richiede
+    mittentiBrevo.push({ email: 'AndreaMissori@revilaw.it', active: true });
+    avanza(10 * MIN);
+    r = await giro();
+    esigi(spedite.length === 2 && r.corpo.sollecitoBloccato === false && r.corpo.mittenteOk === true && (dati.get('meta/confermeEmail') || {}).sollecitoMittente.ok === true,
+        'verificato (anche con le maiuscole diverse): partono tutte e due', JSON.stringify(r.corpo));
+    const prima = chiamateBrevo;
+    iscritto('tre', Object.assign(partita('tre'), { mailConferma: { quando: orologio - 30 * MIN, ok: true, a: 'tre@studio.it' } }));
+    avanza(30 * MIN);
+    await giro();
+    esigi(spedite.length === 3 && chiamateBrevo === prima, 'entro un\'ora dal si\' non si richiede');
+    iscritto('quattro', partita('quattro'));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 4 && chiamateBrevo === prima + 1, 'dopo un\'ora si richiede, una volta');
+    // il dominio autenticato vale per tutti i suoi indirizzi
+    azzera();
+    mittentiBrevo = [];
+    dominiBrevo = [{ domain_name: 'revilaw.it', authenticated: true, verified: true }];
+    iscritto('dominio', partita('dominio'));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 1, 'senza il mittente ma con il dominio revilaw.it autenticato: parte');
+    // Brevo non risponde: si aspetta, senza consumare
+    azzera();
+    brevoGiu = true;
+    iscritto('rete', partita('rete'));
+    avanza(ORA);
+    r = await giro();
+    esigi(spedite.length === 0 && r.corpo.sollecitoBloccato === true && /verifica del mittente .* non riuscita/.test(r.corpo.sollecitoMotivo) && !scheda('rete').sollecitoConferma, 'Brevo non risponde: si aspetta', r.corpo.sollecitoMotivo);
+    brevoGiu = false;
+    avanza(10 * MIN);
+    await giro();
+    esigi(spedite.length === 1, 'tornato, parte');
+    // senza la chiave di Brevo non si puo' verificare: si aspetta
+    azzera();
+    const chiave = process.env.BREVO_API_KEY;
+    delete process.env.BREVO_API_KEY;
+    iscritto('senzachiave', partita('senzachiave'));
+    avanza(ORA);
+    r = await giro();
+    esigi(spedite.length === 0 && /BREVO_API_KEY mancante/.test(r.corpo.sollecitoMotivo), 'senza BREVO_API_KEY: si aspetta, e il motivo lo dice');
+    process.env.BREVO_API_KEY = chiave;
+    // il promemoria del giorno dopo non aspetta il mittente
+    avanza(23 * ORA);
+    await giro();
+    esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'e il promemoria di sempre parte lo stesso');
 });
 
 prova('Il mittente rifiutato da Brevo (non verificato) e\' un guasto del canale: non brucia i tentativi', async () => {

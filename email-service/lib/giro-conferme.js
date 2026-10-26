@@ -329,6 +329,20 @@ async function lavora(db, id, conti) {
         if (c.fare === 'sollecito') {
             // con il canale guasto (vedi sollecito) le altre lettere aspettano il giro dopo
             if (conti.sollecitoBloccato) { conti.aspettano++; return; }
+            /* Prima della prima lettera del giro: il mittente e' verificato su
+               Brevo? Se no, Brevo accetterebbe e scarterebbe in silenzio
+               (lib/sollecito-conferma.js): tutte aspettano, senza tentativi. */
+            if (!conti.mittenteOk) {
+                const v = await SOLL.mittenteVerificato();
+                if (!v.ok) {
+                    conti.sollecitoBloccato = true;
+                    conti.sollecitoMotivo = String(v.motivo || '').slice(0, 300);
+                    console.warn('Sollecito conferma fermo:', conti.sollecitoMotivo);
+                    conti.aspettano++;
+                    return;
+                }
+                conti.mittenteOk = true;
+            }
             const p = await sollecito(db, id, presenza);
             if (p.fatto) {
                 conti.solleciti++;
@@ -483,7 +497,8 @@ async function giro(db, opz) {
     opz = opz || {};
     const scadenza = Date.now() + (Number(opz.budget) || BUDGET_MS);
     const conti = {
-        occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0, solleciti: 0, sollecitoBloccato: false, promemoria: 0,
+        occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0,
+        solleciti: 0, sollecitoBloccato: false, sollecitoMotivo: '', mittenteOk: false, promemoria: 0,
         sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0
     };
     const idGiro = crypto.randomBytes(8).toString('hex');
@@ -516,6 +531,11 @@ async function giro(db, opz) {
             }
         }
     } finally {
+        /* lo stato del mittente, dove lo si puo' leggere senza i log: su meta,
+           solo quando il giro l'ha chiesto (una lettera da spedire c'era) */
+        if (conti.mittenteOk || conti.sollecitoMotivo) {
+            try { await rifMeta(db).set({ sollecitoMittente: { quando: Date.now(), ok: !!conti.mittenteOk, motivo: conti.sollecitoMotivo || '', mittente: SOLL.mittenteEmail() } }, { merge: true }); } catch (_) { }
+        }
         await mollaLucchetto(db, idGiro);
     }
     return conti;

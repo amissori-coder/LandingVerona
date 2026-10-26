@@ -16999,7 +16999,7 @@
         // il sollecito personale di un'ora dopo (solo testo, dall'indirizzo di Andrea Missori)
         const so = r && r.sollecitoConferma;
         if (so && so.quando) pezzi.push((so.ok ? 'Sollecito personale mandato il ' : (so.incerto ? 'Sollecito personale dall\'esito incerto il ' : (so.canale ? 'Sollecito personale fermo per un guasto della posta il ' : 'Sollecito personale NON partito il '))) + fmtDataOra(so.quando)
-            + (!so.ok && so.errore ? ' (' + so.errore + ')' : '') + (so.canale && !so.ok ? '; si riprova da solo' : '') + '.');
+            + (!so.ok && so.errore ? ' (' + so.errore + ')' : '') + (so.canale && !so.ok && !(r && r.promemoriaConferma) ? '; si riprova da solo' : '') + '.');
         const p = r && r.promemoriaConferma;
         if (p && p.quando) pezzi.push('Promemoria (mail e SMS) mandato il ' + fmtDataOra(p.quando) + '.');
         return pezzi.join(' ');
