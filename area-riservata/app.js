@@ -17561,18 +17561,22 @@
 
     /* I DUE TOTALI DELL'EVENTO (Milano), da non confondere fra loro ne' con i
        posti in sala:
-         TOTALE AZIENDE            le persone iscritte al convegno, in sala e
-                                   online, tolti gli aderenti e chi aspetta
-                                   ancora di confermare l'email;
+         TOTALE AZIENDE            le persone iscritte al convegno, tolti gli
+                                   aderenti e chi aspetta ancora di confermare
+                                   l'email;
          TOTALE AZIENDE + ADERENTI tutte le persone dell'evento, ognuna una
                                    volta: le aziende piu' gli aderenti, cioe'
                                    gli iscritti alla cena e al meeting e chi
                                    sta nella sezione "Aderenti Revilaw".
        Chi e' iscritto al convegno E alla cena e al meeting (stesso indirizzo)
        e' un aderente, e si conta una volta sola, con la cena.
-       Accanto, in ambra, LE AZIENDE IN ATTESA DI CONFERMA MAIL: non sono nei
-       totali, e il suggerimento dice quanti sarebbero i totali se confermassero
-       tutte (calcolati con la stessa regola, le righe dell'attesa comprese).
+       Nell'area riservata i due totali si leggono in DUE RIEPILOGHI, in
+       presenza e online (RIEPILOGHI e totaliPerDove, qui sotto): questa e' la
+       regola di ciascuno, e la somma dei due e' l'evento intero, il numero
+       della mail di mezzanotte. Accanto a ciascuno, in ambra, LE AZIENDE IN
+       ATTESA DI CONFERMA MAIL: non sono nei totali, e il suggerimento dice
+       quanti sarebbero i totali se confermassero tutte (calcolati con la
+       stessa regola, le righe dell'attesa comprese).
        LA STESSA REGOLA sta nel servizio (email-service/lib/riepilogo-iscrizioni.js,
        totaliConAderenti), per le mail di mezzanotte: se cambia qui va cambiata
        la', e prove/totali-aderenti.prove.js le mette a confronto.
@@ -17609,47 +17613,120 @@
             tutti: aziende + cenaN + soloConvegno
         };
     }
-    /* I totali di un evento con gli aderenti, o null: dove gli aderenti non ci
-       sono, o finche' le loro iscrizioni non sono lette (senza, le aziende
-       conterebbero anche gli aderenti della cena iscritti al convegno). Le
-       righe del convegno sono quelle dei riquadri: l'elenco, fuori chi aspetta
-       la conferma dell'email, ognuna per le sue persone. */
+    /* I DUE RIEPILOGHI: IN PRESENZA E ONLINE.
+       Chi organizza prepara due cose diverse - la sala e la diretta - e i
+       totali dell'evento messi insieme non dicevano quante persone servono a
+       ciascuna. Qui i totali si leggono due volte, con le stesse caselle
+       (aziende + aderenti = tutti, e accanto chi aspetta la conferma mail):
+       una per chi viene in sala, una per chi segue online. La somma dei due
+       riepiloghi e' l'evento intero, ogni persona una volta: il numero della
+       mail di mezzanotte. `dove` e' la coda delle frasi dei suggerimenti. */
+    const RIEPILOGHI = [
+        { id: 'presenza', titolo: 'Totali in presenza', sala: true, dove: 'in presenza' },
+        { id: 'online', titolo: 'Totali online', sala: false, dove: 'online' }
+    ];
+    /* LA SPARTIZIONE FRA I DUE RIEPILOGHI, con la regola di sempre
+       (totaliConAderenti) applicata a ciascuna meta'.
+       Le righe del convegno vanno dove dice la loro sezione (`sala`): in
+       presenza stanno "in presenza", gli aderenti Revilaw e sponsor e
+       relatori; online la sezione online. Gli iscritti alla cena e al meeting
+       vengono di persona e stanno in presenza, salvo chi segue il convegno
+       online: lui e' un aderente che si conta online, una volta, con la cena,
+       cosi' il riepilogo online dice quante persone seguono davvero la diretta
+       e la somma dei due riepiloghi resta ogni persona una volta. Chi ha una
+       riga in sala e una online e' in sala.
+       A ciascuna meta' si passa TUTTA la cena, non la sua parte: chi e' alla
+       cena si toglie dalle aziende di qualunque meta' in cui abbia una riga,
+       come nel totale intero; poi la cena si spartisce per conto suo.
+       `convegno`: le righe di totaliConAderenti con in piu' `sala`;
+       `inAttesa`: le righe che aspettano la conferma dell'email, nella stessa
+       forma. Non si contano, ma dicono dove sta chi e' alla cena: l'iscrizione
+       alla cena non aspetta nessuna conferma, e se lui ha scelto di seguire il
+       convegno online e' online gia' adesso, non quando premera' il pulsante. */
+    function totaliPerDove(convegno, cena, inAttesa) {
+        const chiave = e => String(e || '').trim().toLowerCase();
+        const righe = convegno || [], tavola = cena || [];
+        const conRigaInSala = new Set(), conRigaOnline = new Set();
+        righe.concat(inAttesa || []).forEach(r => { const k = chiave(r && r.email); if (k) (r && r.sala ? conRigaInSala : conRigaOnline).add(k); });
+        const segueOnline = x => { const k = chiave(x && x.email); return !!k && conRigaOnline.has(k) && !conRigaInSala.has(k); };
+        const cenaOnline = tavola.filter(segueOnline).length;
+        const meta = (sue, quantiCena) => {
+            const t = totaliConAderenti(sue, tavola);
+            t.cena = quantiCena;
+            t.aderenti = t.cena + t.soloConvegno;
+            t.tutti = t.aziende + t.aderenti;
+            return t;
+        };
+        const t = {
+            presenza: meta(righe.filter(r => r && r.sala), tavola.length - cenaOnline),
+            online: meta(righe.filter(r => !(r && r.sala)), cenaOnline)
+        };
+        // quanti della cena stanno nell'altro riepilogo: lo dice il suggerimento
+        t.presenza.cenaAltrove = t.online.cena;
+        t.online.cenaAltrove = t.presenza.cena;
+        return t;
+    }
+    /* I totali di un evento nei due riepiloghi ({ presenza, online }), o null:
+       dove gli aderenti non ci sono, o finche' le loro iscrizioni non sono
+       lette (senza, le aziende conterebbero anche gli aderenti della cena
+       iscritti al convegno). Le righe del convegno sono quelle dei riquadri:
+       l'elenco, fuori chi aspetta la conferma dell'email, ognuna per le sue
+       persone. In quale riepilogo sta una riga lo dice la sua modalita'
+       (modalitaDi), non la sezione in cui si guarda: chi aspetta la conferma
+       ha gia' detto se viene in sala o segue online, e aspetta nel riepilogo
+       giusto. */
     function totaliEvento(ev) {
         if (!evHaAderenti(ev) || !_evIscrizioni) return null;
         const quote = aderentiDi(ev);
         if (!quote || quote.some(d => !d || !d.conti || !Array.isArray(d.righe))) return null;
-        const riga = r => ({ email: r.email, persone: partecipantiDi(r), aderente: modalitaDi(ev, r) === 'aderenti', gruppo: r.gruppo || r.doc || '' });
+        const riga = r => {
+            const m = modalitaDi(ev, r);
+            return { email: r.email, persone: partecipantiDi(r), aderente: m === 'aderenti', gruppo: r.gruppo || r.doc || '', sala: inSala(m) };
+        };
         const tutte = soloIscritti(ev, _evIscrizioni);
-        const inAttesa = tutte.filter(r => sezioneVista(ev, r) === SEZIONE_ATTESA.id);
+        const inAttesa = tutte.filter(r => sezioneVista(ev, r) === SEZIONE_ATTESA.id).map(riga);
         const convegno = tutte.filter(r => sezioneVista(ev, r) !== SEZIONE_ATTESA.id).map(riga);
         const cena = [];
         quote.forEach(d => d.righe.forEach(x => cena.push({ email: x.email })));
-        const t = totaliConAderenti(convegno, cena);
-        /* chi aspetta di confermare l'email: le persone, e i totali che ci
-           sarebbero se confermassero tutte (con la stessa regola: chi di loro e'
-           alla cena e' gia' contato fra gli aderenti, e non si aggiungerebbe) */
-        t.attesa = inAttesa.reduce((n, r) => n + partecipantiDi(r), 0);
+        const t = totaliPerDove(convegno, cena, inAttesa);
+        /* chi aspetta di confermare l'email: le persone, nel riepilogo della
+           modalita' che hanno scelto, e i totali che ci sarebbero se
+           confermassero tutte (con la stessa regola: chi di loro e' alla cena
+           e' gia' contato fra gli aderenti, e non si aggiungerebbe) */
+        const attesa = { presenza: 0, online: 0 };
+        inAttesa.forEach(r => { attesa[r.sala ? 'presenza' : 'online'] += r.persone; });
         // le righe nell'ordine dell'elenco, come le contera' totaliEvento a conferme avvenute
-        t.seConfermano = totaliConAderenti(tutte.map(riga), cena);
+        const se = totaliPerDove(tutte.map(riga), cena);
+        RIEPILOGHI.forEach(h => { t[h.id].attesa = attesa[h.id]; t[h.id].seConfermano = se[h.id]; });
         return t;
     }
-    // i suggerimenti dei tre riquadri: che cosa conta ciascun numero
-    function titoliTotali(t) {
+    // i suggerimenti dei riquadri di un riepilogo (`h`, una voce di RIEPILOGHI): che cosa conta ciascun numero
+    function titoliTotali(t, h) {
         const att = 'Chi aspetta ancora di confermare l\'email non è contato.';
         if (!t) {
             const msg = 'Si calcola quando sono lette le iscrizioni degli aderenti' + (_aderentiMsg ? ': ' + _aderentiMsg : '.');
             return { aziende: msg, aderenti: msg, tutti: msg, attesa: msg };
         }
         const sc = t.seConfermano || t;
+        const online = !h.sala;
+        const quanti = (q, uno, piu) => q + ' ' + (q === 1 ? uno : piu);
         return {
-            attesa: 'Iscritte dal sito, non hanno ancora premuto il pulsante di conferma nella mail: non sono nei totali. '
-                + (t.attesa ? 'Se confermassero tutte, le aziende sarebbero ' + sc.aziende + ' e il totale aziende + aderenti ' + sc.tutti + '. ' : '')
+            attesa: 'Iscritte dal sito per seguire ' + h.dove + ', non hanno ancora premuto il pulsante di conferma nella mail: non sono nei totali. '
+                + (t.attesa ? 'Se confermassero tutte, le aziende ' + h.dove + ' sarebbero ' + sc.aziende + ' e il totale aziende + aderenti ' + sc.tutti + '. ' : '')
                 + 'Dal menu della riga si può rimandare la mail.',
-            aziende: 'Le persone iscritte al convegno, in sala e online, senza gli aderenti. ' + att,
-            aderenti: t.cena + (t.cena === 1 ? ' iscritto' : ' iscritti') + ' alla cena e al meeting'
-                + (t.soloConvegno ? ', ' + t.soloConvegno + ' nella sezione Aderenti Revilaw del convegno' : '')
-                + (t.anche ? '. ' + (t.anche === 1 ? 'Uno è iscritto' : t.anche + ' sono iscritti') + ' anche al convegno: si conta una volta sola.' : '.'),
-            tutti: 'Tutte le persone dell\'evento, ognuna una volta: ' + t.aziende + ' aziende + ' + t.aderenti + ' aderenti. ' + att
+            aziende: (online
+                ? 'Le persone iscritte al convegno che lo seguono online, senza gli aderenti. '
+                : 'Le persone iscritte al convegno che vengono in sala (in presenza, sponsor e relatori), senza gli aderenti. ') + att,
+            aderenti: online
+                ? (t.cena
+                    ? quanti(t.cena, 'iscritto', 'iscritti') + ' alla cena e al meeting che ' + (t.cena === 1 ? 'segue' : 'seguono')
+                        + ' il convegno online: si ' + (t.cena === 1 ? 'conta' : 'contano') + ' una volta sola, qui e non in presenza.'
+                    : 'Nessun iscritto alla cena e al meeting segue il convegno online: gli aderenti sono tutti nei totali in presenza.')
+                : quanti(t.cena, 'iscritto', 'iscritti') + ' alla cena e al meeting'
+                    + (t.soloConvegno ? ', ' + t.soloConvegno + ' nella sezione Aderenti Revilaw del convegno' : '')
+                    + (t.anche ? '. ' + (t.anche === 1 ? 'Uno è iscritto' : t.anche + ' sono iscritti') + ' anche al convegno in sala: si conta una volta sola.' : '.')
+                    + (t.cenaAltrove ? ' ' + (t.cenaAltrove === 1 ? 'Un altro segue il convegno online e sta' : 'Altri ' + t.cenaAltrove + ' seguono il convegno online e stanno') + ' nei totali online.' : ''),
+            tutti: 'Tutte le persone dell\'evento ' + h.dove + ', ognuna una volta: ' + t.aziende + ' aziende + ' + t.aderenti + ' aderenti. ' + att
         };
     }
     /* LO STATO DEL GIRO DELLE CONFERME, accanto a chi aspetta. Il servizio
@@ -17694,27 +17771,35 @@
     function aggiornaGiroConferme() {
         document.querySelectorAll('.ev-giro').forEach(el => { el.outerHTML = giroConfermeHtml(); });
     }
+    /* I DUE RIEPILOGHI, uno sotto l'altro con le stesse caselle, cosi' si
+       leggono in colonna: aziende + aderenti = tutti, e oltre la riga chi
+       aspetta la conferma mail. Sotto, una volta sola, lo stato del giro delle
+       conferme: e' dell'evento, non di una meta'. */
     function totaliHtml(ev, riquadroNum) {
         if (!evHaAderenti(ev)) return '';
         const t = totaliEvento(ev);
-        const ti = titoliTotali(t);
-        const v = n => t ? n : '-';
-        return '<div class="ev-num-totali">'
-            + '<span class="ev-tot-titolo">Totali dell\'evento</span>'
-            + riquadroNum(v(t && t.aziende), 'totale aziende', ti.aziende, '', 'tot-aziende')
-            + '<span class="ev-tot-op" aria-hidden="true">+</span>'
-            /* "in tutto": nella fila sopra "aderenti" sono quelli seduti in sala,
-               la sezione del convegno; qui ci sono anche la cena e il meeting */
-            + riquadroNum(v(t && t.aderenti), 'aderenti in tutto', ti.aderenti, '', 'tot-aderenti')
-            + '<span class="ev-tot-op" aria-hidden="true">=</span>'
-            + riquadroNum(v(t && t.tutti), 'totale aziende + aderenti', ti.tutti, 'forte', 'tot-tutti')
-            /* fuori dalla somma, oltre una riga: le aziende che devono ancora
-               confermare l'email, nell'ambra della loro sezione. Non sono nei
-               totali; il suggerimento dice quanto sarebbero se confermassero. */
-            + (ev.confermaEmail ? '<span class="ev-tot-fuori"><span class="ev-tot-sep" aria-hidden="true"></span>'
-                + riquadroNum(v(t && t.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', 'tot-attesa') + '</span>'
-                + giroConfermeHtml() : '')
-            + '</div>';
+        const blocco = h => {
+            const th = t && t[h.id];
+            const ti = titoliTotali(th, h);
+            const v = n => th ? n : '-';
+            const q = k => 'tot-' + h.id + '-' + k;
+            return '<div class="ev-num-totali" data-tot="' + h.id + '">'
+                + '<span class="ev-tot-titolo">' + esc(h.titolo) + '</span>'
+                + riquadroNum(v(th && th.aziende), 'totale aziende', ti.aziende, '', q('aziende'))
+                + '<span class="ev-tot-op" aria-hidden="true">+</span>'
+                /* "in tutto": nella fila sopra "aderenti" sono quelli seduti in sala,
+                   la sezione del convegno; qui ci sono anche la cena e il meeting */
+                + riquadroNum(v(th && th.aderenti), 'aderenti in tutto', ti.aderenti, '', q('aderenti'))
+                + '<span class="ev-tot-op" aria-hidden="true">=</span>'
+                + riquadroNum(v(th && th.tutti), 'totale aziende + aderenti', ti.tutti, 'forte', q('tutti'))
+                /* fuori dalla somma, oltre una riga: le aziende che devono ancora
+                   confermare l'email, nell'ambra della loro sezione. Non sono nei
+                   totali; il suggerimento dice quanto sarebbero se confermassero. */
+                + (ev.confermaEmail ? '<span class="ev-tot-fuori"><span class="ev-tot-sep" aria-hidden="true"></span>'
+                    + riquadroNum(v(th && th.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', q('attesa')) + '</span>' : '')
+                + '</div>';
+        };
+        return '<div class="ev-totali">' + RIEPILOGHI.map(blocco).join('') + (ev.confermaEmail ? giroConfermeHtml() : '') + '</div>';
     }
 
     /* I NUMERI SI MUOVONO CON LA RIGA
@@ -17754,14 +17839,17 @@
         scriviNumero(num('iscrizioni'), c.nIsc === null ? '-' : c.nIsc);
         scriviNumero(num('partecipanti'), c.nPart === null ? '-' : c.nPart);
         scriviNumero(num('indirizzi'), c.nIndir === null ? '-' : c.nIndir);
-        // i due totali con gli aderenti (Milano): cambiano con le sezioni e con le iscrizioni alla cena
+        // i due riepiloghi con gli aderenti (Milano), in presenza e online: cambiano con le sezioni e con le iscrizioni alla cena
         if (evHaAderenti(ev)) {
             const t = totaliEvento(ev);
-            const ti = titoliTotali(t);
-            [['tot-aziende', 'aziende'], ['tot-aderenti', 'aderenti'], ['tot-tutti', 'tutti'], ['tot-attesa', 'attesa']].forEach(([q, k]) => {
-                const el = num(q);
-                scriviNumero(el, t ? t[k] : '-');
-                if (el) el.setAttribute('title', ti[k]);
+            RIEPILOGHI.forEach(h => {
+                const th = t && t[h.id];
+                const ti = titoliTotali(th, h);
+                ['aziende', 'aderenti', 'tutti', 'attesa'].forEach(k => {
+                    const el = num('tot-' + h.id + '-' + k);
+                    scriviNumero(el, th ? th[k] : '-');
+                    if (el) el.setAttribute('title', ti[k]);
+                });
             });
         }
         // le voci sopra l'elenco: numero, suggerimento e la veste "sezione vuota"
@@ -18495,9 +18583,10 @@
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
                 + '</div>')
-            /* I DUE TOTALI CON GLI ADERENTI della cena e del meeting: una fila
-               sua, sotto, perche' non si confondano con i posti in sala e fra
-               loro ("aziende" + "aderenti" = il totale di tutti). */
+            /* I DUE RIEPILOGHI CON GLI ADERENTI della cena e del meeting, in
+               presenza e online: due file loro, sotto, perche' non si
+               confondano con i posti in sala e fra loro ("aziende" +
+               "aderenti" = il totale di tutti, in ciascuno). */
             + (ev.tutti ? '' : totaliHtml(ev, riquadroNum))
             + '</div>'
             + cruscotto + avviso + corpo;

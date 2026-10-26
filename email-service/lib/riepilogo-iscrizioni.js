@@ -259,7 +259,8 @@ function daSpedireAderenti(c) {
 
 /* ---------- il totale con gli aderenti ----------
    Due numeri da non confondere, nella mail di mezzanotte come nei
-   riquadri dell'area riservata:
+   riquadri dell'area riservata (che li spartisce in due riepiloghi, in
+   presenza e online, con questa stessa regola: la loro somma e' questa):
      TOTALE AZIENDE            le persone iscritte al convegno, in sala e
                                online, tolti gli aderenti;
      TOTALE AZIENDE + ADERENTI tutte le persone dell'evento, ognuna una

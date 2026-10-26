@@ -79,6 +79,57 @@ for (let k = 0; k < 1000; k++) {
 esigi(uguali === 1000, 'mille elenchi a caso: stesso risultato', uguali + '/1000');
 esigi(somme === 1000, 'e sempre aziende + aderenti = il totale di tutti', somme + '/1000');
 
+/* I DUE RIEPILOGHI DELL'AREA RISERVATA, in presenza e online (totaliPerDove):
+   la stessa regola applicata a ciascuna meta', e le due meta' insieme devono
+   rifare il totale intero, quello della mail. Le righe di uno stesso ordine
+   (`gruppo`) hanno la stessa modalita', come nei dati veri: un ordine da
+   Eventbrite per tre posti e' tutto in sala o tutto online. */
+const daAppDove = new Function(ritaglia('function totaliConAderenti(convegno, cena)') + '\n'
+    + ritaglia('function totaliPerDove(convegno, cena, inAttesa)') + '\nreturn totaliPerDove;')();
+console.log('\nI due riepiloghi dell\'area riservata: in presenza e online');
+const S = (email, persone, extra) => Object.assign({ email: email, persone: persone, sala: true }, extra || {});
+const O = (email, persone, extra) => Object.assign({ email: email, persone: persone, sala: false }, extra || {});
+let d = daAppDove([S('a@x.it', 1), O('b@x.it', 2)], []);
+esigi(d.presenza.aziende === 1 && d.presenza.tutti === 1 && d.online.aziende === 2 && d.online.aderenti === 0 && d.online.tutti === 2,
+    'le righe del convegno vanno dove dice la loro sezione', JSON.stringify(d));
+d = daAppDove([S('a@x.it', 1)], [{ email: 'c@x.it' }]);
+esigi(d.presenza.cena === 1 && d.presenza.aderenti === 1 && d.presenza.tutti === 2 && d.online.cena === 0 && d.online.tutti === 0 && d.online.cenaAltrove === 1,
+    'chi e\' solo alla cena viene di persona: sta in presenza', JSON.stringify(d));
+d = daAppDove([O('c@x.it', 1), O('b@x.it', 1)], [{ email: 'c@x.it' }]);
+esigi(d.online.cena === 1 && d.online.aziende === 1 && d.online.aderenti === 1 && d.online.tutti === 2 && d.presenza.tutti === 0 && d.presenza.cenaAltrove === 1,
+    'chi e\' alla cena e segue il convegno online e\' un aderente online, una volta', JSON.stringify(d));
+d = daAppDove([S('c@x.it', 1), O('c@x.it', 1)], [{ email: 'c@x.it' }]);
+esigi(d.presenza.cena === 1 && d.presenza.aziende === 0 && d.presenza.tutti === 1 && d.online.cena === 0 && d.online.aziende === 0 && d.online.tutti === 0,
+    'con una riga in sala e una online e\' in sala, e si conta una volta', JSON.stringify(d));
+d = daAppDove([S('c@x.it', 1, { aderente: true }), S('e@x.it', 2, { aderente: true })], [{ email: 'c@x.it' }]);
+esigi(d.presenza.soloConvegno === 2 && d.presenza.aderenti === 3 && d.presenza.aziende === 0 && d.presenza.tutti === 3,
+    'la sezione Aderenti Revilaw e\' in presenza; chi di loro e\' anche alla cena si conta con la cena', JSON.stringify(d));
+d = daAppDove([], [{ email: 'c@x.it' }], [O('c@x.it', 1)]);
+esigi(d.online.cena === 1 && d.online.tutti === 1 && d.presenza.cena === 0,
+    'chi aspetta la conferma dice gia\' dove sta chi e\' alla cena', JSON.stringify(d));
+d = daAppDove(null, null);
+esigi(d.presenza.tutti === 0 && d.online.tutti === 0, 'niente di niente: tutto a zero');
+let insieme = 0, ciascuno = 0;
+for (let k = 0; k < 1000; k++) {
+    const conv = Array.from({ length: Math.floor(caso() * 12) }, () => {
+        const gruppo = caso() < 0.5 ? 'g' + Math.floor(caso() * 3) : '';
+        return {
+            email: indirizzi[Math.floor(caso() * indirizzi.length)],
+            persone: 1 + Math.floor(caso() * 3),
+            aderente: caso() < 0.2,
+            gruppo: gruppo,
+            // un ordine sta tutto da una parte: la sua sorte la decide il gruppo
+            sala: gruppo ? gruppo !== 'g1' : caso() < 0.6
+        };
+    });
+    const cena = Array.from({ length: Math.floor(caso() * 5) }, () => ({ email: indirizzi[Math.floor(caso() * indirizzi.length)] }));
+    const intero = R.totaliConAderenti(conv, cena), due = daAppDove(conv, cena);
+    if (['aziende', 'aderenti', 'cena', 'soloConvegno', 'tutti'].every(c => due.presenza[c] + due.online[c] === intero[c])) insieme++;
+    if (due.presenza.aziende + due.presenza.aderenti === due.presenza.tutti && due.online.aziende + due.online.aderenti === due.online.tutti) ciascuno++;
+}
+esigi(insieme === 1000, 'mille elenchi a caso: in presenza + online = il totale intero, numero per numero', insieme + '/1000');
+esigi(ciascuno === 1000, 'e in ciascun riepilogo aziende + aderenti = il totale di tutti', ciascuno + '/1000');
+
 console.log('\nNelle due parti ci sono le stesse parole');
 esigi(/'totale aziende'/.test(APP) && /'totale aziende \+ aderenti'/.test(APP), 'l\'area riservata dice "totale aziende" e "totale aziende + aderenti"');
 const MNGB = fs.readFileSync(path.join(__dirname, '..', 'lib', 'mail-ngb.js'), 'utf8');
