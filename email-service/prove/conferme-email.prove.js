@@ -152,6 +152,7 @@ let guastoDopoIlVia = false;
 /* il server dice no alla PERSONA ma si' alla copia nascosta: con due destinatari nodemailer
    va avanti e risolve, e il rifiuto sta in info.rejected (lib/sollecito-conferma.js, rifiutato) */
 let rifiutaPersona = 0;
+let rispostaRifiuto = '550 5.1.1 casella inesistente';
 let sms = [];
 // i mittenti e i domini che Brevo dice di avere (il sollecito personale li chiede prima di spedire)
 let mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }];
@@ -193,7 +194,7 @@ Module.prototype.require = function (nome) {
         }
         if (rifiutaPersona > 0 && m.bcc) {
             rifiutaPersona--;
-            const e = Object.assign(new Error('Recipient command failed: 550 5.1.1 casella inesistente'), { code: 'EENVELOPE', responseCode: 550, response: '550 5.1.1 casella inesistente', command: 'RCPT TO', recipient: m.to });
+            const e = Object.assign(new Error('Recipient command failed: ' + rispostaRifiuto), { code: 'EENVELOPE', responseCode: Number(rispostaRifiuto.slice(0, 3)), response: rispostaRifiuto, command: 'RCPT TO', recipient: m.to });
             return { accepted: [m.bcc], rejected: [m.to], rejectedErrors: [e], response: '250 OK queued' };
         }
         spedite.push(m); return { accepted: [m.to].concat(m.bcc ? [m.bcc] : []), rejected: [] };
@@ -254,7 +255,7 @@ function iscritto(id, campi) {
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
     dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; rompiUpdate = {}; passoMail = 0; durantePosta = null;
-    mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }]; dominiBrevo = []; chiamateBrevo = 0; brevoGiu = false; guastoDopoIlVia = false; rifiutaPersona = 0; SOLL.azzeraVerifica();
+    mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }]; dominiBrevo = []; chiamateBrevo = 0; brevoGiu = false; guastoDopoIlVia = false; rifiutaPersona = 0; rispostaRifiuto = '550 5.1.1 casella inesistente'; SOLL.azzeraVerifica();
     erroreMail = () => new Error('550 casella inesistente');
     // i recuperi una tantum (la bandiera, il sollecito agli arretrati) li provano le loro prove: qui risultano gia' fatti
     dati.set('meta/confermeEmail', { recupero: 1, sollecitoArretrati: 1 });
@@ -409,15 +410,15 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     await giro();
     esigi(spedite.length === 1 && spedite[0].to === 'notte@studio.it', 'alle 8 parte');
 
-    // la posta dice no: si riprova dopo mezz'ora, tre volte, poi resta il promemoria
+    // la posta dice un no temporaneo (4xx): si riprova dopo mezz'ora, tre volte, poi resta il promemoria
     azzera();
-    erroreMail = () => Object.assign(new Error('550 casella inesistente'), { responseCode: 550 });
+    erroreMail = () => Object.assign(new Error('451 4.7.1 riprova piu\' tardi'), { responseCode: 451 });
     iscritto('giu', partita('giu'));
     avanza(ORA);
     mailGuasta = 1;
     r = await giro();
     sc = scheda('giu');
-    esigi(spedite.length === 0 && r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === false && sc.sollecitoConferma.tentativi === 1 && /550/.test(sc.sollecitoConferma.errore),
+    esigi(spedite.length === 0 && r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === false && sc.sollecitoConferma.definitivo === false && sc.sollecitoConferma.tentativi === 1 && /451/.test(sc.sollecitoConferma.errore),
         'la posta dice no (con il suo codice): resta il tentativo con l\'errore', JSON.stringify(sc.sollecitoConferma));
     avanza(10 * MIN);
     await giro();
@@ -437,22 +438,61 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     await giro();
     esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'e il promemoria del giorno dopo parte lo stesso');
 
-    // il no alla persona con la copia nascosta accettata: nodemailer risolve lo stesso, ma per la persona e' un no (si riprova a mezz'ora, come il 550)
+    // un no DEFINITIVO (5xx: la casella non esiste): un tentativo solo, non si riprova, e il promemoria del giorno dopo parte lo stesso
     azzera();
+    erroreMail = () => Object.assign(new Error('550 5.1.1 casella inesistente'), { responseCode: 550, command: 'RCPT TO' });
+    iscritto('mai', partita('mai'));
+    avanza(ORA);
+    mailGuasta = 1;
+    r = await giro();
+    sc = scheda('mai');
+    esigi(r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.definitivo === true && sc.sollecitoConferma.canale === false && sc.sollecitoConferma.incerto === false && sc.sollecitoConferma.tentativi === 1,
+        'un 550 alla casella: no definitivo', JSON.stringify(sc.sollecitoConferma));
+    avanza(30 * MIN); await giro(); avanza(30 * MIN); await giro();
+    esigi(chiamateSmtp === 1 && spedite.length === 0 && scheda('mai').confermaInAttesa === true, 'e non si riprova: la scheda resta nel giro');
+    avanza(22 * ORA);
+    await giro();
+    esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'il promemoria del giorno dopo parte lo stesso');
+    esigi(SOLL.classifica({ responseCode: 554, command: 'DATA' }).definitivo === true && SOLL.classifica({ responseCode: 452, command: 'RCPT TO' }).definitivo === false
+        && SOLL.classifica({ responseCode: 550, command: 'MAIL FROM' }).definitivo === false && SOLL.classifica({ responseCode: 550, command: 'MAIL FROM' }).canale === true,
+        'classifica: 5xx al messaggio e\' definitivo, 4xx no, e un 5xx del canale resta del canale');
+
+    // il no alla persona con la copia nascosta accettata: nodemailer risolve lo stesso, ma per la persona e' un no.
+    // Temporaneo (4xx): si riprova a mezz'ora, SENZA rimandare la copia ad Andrea, che l'ha gia'
+    azzera();
+    rispostaRifiuto = '451 4.2.1 casella momentaneamente non disponibile';
     iscritto('copia', partita('copia'));
     avanza(ORA);
     rifiutaPersona = 1;
     r = await giro();
     sc = scheda('copia');
     esigi(chiamateSmtp === 1 && spedite.length === 0 && r.corpo.solleciti === 1 && r.corpo.errori === 1 && r.corpo.sollecitoBloccato === false
-        && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === false && sc.sollecitoConferma.canale === false && sc.sollecitoConferma.tentativi === 1 && /550 5\.1\.1/.test(sc.sollecitoConferma.errore),
-        'la casella della persona rifiutata e la copia accettata: un no, con il motivo del server', JSON.stringify(sc.sollecitoConferma));
+        && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === false && sc.sollecitoConferma.canale === false && sc.sollecitoConferma.definitivo === false && sc.sollecitoConferma.copia === true && sc.sollecitoConferma.tentativi === 1 && /451 4\.2\.1/.test(sc.sollecitoConferma.errore),
+        'la casella della persona rifiutata e la copia accettata: un no, con il motivo del server, e la copia segnata come arrivata', JSON.stringify(sc.sollecitoConferma));
     avanza(30 * MIN);
     await giro();
-    esigi(chiamateSmtp === 2 && spedite.length === 1 && spedite[0].to === 'copia@studio.it' && scheda('copia').sollecitoConferma.ok === true && scheda('copia').sollecitoConferma.tentativi === 2, 'a mezz\'ora si riprova, e stavolta passa');
-    const rifiutatoDiretto = SOLL.rifiutato({ accepted: ['copia@studio.it'], rejected: ['andreamissori@revilaw.it'] }, 'copia@studio.it');
-    esigi(rifiutatoDiretto === '' && SOLL.rifiutato({ rejected: ['Copia@Studio.it'] }, 'copia@studio.it') === 'destinatario rifiutato (RCPT TO)' && SOLL.rifiutato(undefined, 'copia@studio.it') === '',
-        'rifiutato: la copia rifiutata non conta, la persona si cerca senza maiuscole, senza esito non e\' un no', JSON.stringify(rifiutatoDiretto));
+    esigi(chiamateSmtp === 2 && spedite.length === 1 && spedite[0].to === 'copia@studio.it' && !spedite[0].bcc && scheda('copia').sollecitoConferma.ok === true && scheda('copia').sollecitoConferma.copia === true && scheda('copia').sollecitoConferma.tentativi === 2,
+        'a mezz\'ora si riprova senza la copia (Andrea l\'ha gia\'), e stavolta passa', JSON.stringify(spedite[0]));
+    // definitivo (5xx) con la copia accettata: un tentativo solo, una copia sola ad Andrea
+    azzera();
+    iscritto('copia5', partita('copia5'));
+    avanza(ORA);
+    rifiutaPersona = 9;
+    await giro();
+    avanza(30 * MIN); await giro(); avanza(30 * MIN); await giro();
+    sc = scheda('copia5');
+    esigi(chiamateSmtp === 1 && spedite.length === 0 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.definitivo === true && sc.sollecitoConferma.copia === true && sc.sollecitoConferma.tentativi === 1 && /550 5\.1\.1/.test(sc.sollecitoConferma.errore),
+        'un 550 alla persona con la copia accettata: definitivo, una copia sola', JSON.stringify(sc.sollecitoConferma));
+    // rifiutato, da solo: la copia rifiutata non conta, la persona si cerca senza maiuscole e con il dominio in ASCII, senza esito non e' un no
+    esigi(SOLL.rifiutato({ accepted: ['copia@studio.it'], rejected: ['andreamissori@revilaw.it'] }, 'copia@studio.it') === null && SOLL.rifiutato(undefined, 'copia@studio.it') === null,
+        'rifiutato: la copia rifiutata non conta, senza esito non e\' un no');
+    const senzaMaiuscole = SOLL.rifiutato({ rejected: ['Copia@Studio.it'] }, 'copia@studio.it');
+    esigi(senzaMaiuscole && senzaMaiuscole.motivo === 'destinatario rifiutato (RCPT TO)' && senzaMaiuscole.definitivo === false, 'rifiutato: senza maiuscole, e senza codice non e\' definitivo', JSON.stringify(senzaMaiuscole));
+    const accentato = SOLL.rifiutato({ accepted: ['andreamissori@revilaw.it'], rejected: ['mario@xn--societ-nta.it'], rejectedErrors: [{ recipient: 'mario@xn--societ-nta.it', responseCode: 550, response: '550 5.1.1 User unknown' }] }, 'mario@società.it');
+    esigi(accentato && accentato.definitivo === true && accentato.motivo === '550 5.1.1 User unknown' && SOLL.indirizzoAscii('Mario@Società.IT') === 'mario@xn--societ-nta.it',
+        'rifiutato: il dominio con l\'accento si ritrova in punycode, com\'e\' nella busta di nodemailer', JSON.stringify(accentato));
+    const nonAccettata = SOLL.rifiutato({ accepted: [], rejected: ['qualcuno@altrove.it'] }, 'copia@studio.it');
+    esigi(nonAccettata && nonAccettata.motivo === 'destinatario rifiutato (RCPT TO)', 'rifiutato: qualcuno rifiutato e la persona non fra gli accettati, e\' lei');
 
     // la posta non risponde PRIMA del via al testo (connessione, DNS, saluto): non e' partito niente, e' il canale: si riprova senza contare
     azzera();
@@ -783,12 +823,24 @@ prova('La PEC di sollecito, un giorno dopo la lettera, firmata Revilaw S.p.A.', 
     avanza(ORA); await giro();
     avanza(24 * ORA);
     await giro();   // il promemoria, prima della PEC
-    erroreMail = () => Object.assign(new Error('550 casella PEC inesistente'), { responseCode: 550, command: 'RCPT TO' });
+    erroreMail = () => Object.assign(new Error('450 4.2.1 casella PEC momentaneamente piena'), { responseCode: 450, command: 'RCPT TO' });
     mailGuasta = 9;
     for (let k = 0; k < 4; k++) { await giro(); avanza(30 * MIN); }
-    esigi(chiamateSmtp === 5 && scheda('no').pecSollecito.ok === false && scheda('no').pecSollecito.tentativi === 3 && /550/.test(scheda('no').pecSollecito.errore), 'tre no certi, poi basta (una lettera, tre PEC provate)', JSON.stringify(scheda('no').pecSollecito));
+    esigi(chiamateSmtp === 5 && scheda('no').pecSollecito.ok === false && scheda('no').pecSollecito.definitivo === false && scheda('no').pecSollecito.tentativi === 3 && /450/.test(scheda('no').pecSollecito.errore), 'tre no temporanei, poi basta (una lettera, tre PEC provate)', JSON.stringify(scheda('no').pecSollecito));
     await giro();
     esigi(!('confermaInAttesa' in scheda('no')), 'e la scheda esce');
+    // un no definitivo del gestore (5xx: la casella PEC non c'e'): una PEC provata, e basta
+    azzera();
+    dati.set('aziendeInvito/milano~no5', { pec: 'no5@pec.it' });
+    iscritto('no5', Object.assign(partita('no5'), { invitoScheda: 'milano~no5' }));
+    avanza(ORA); await giro();
+    avanza(24 * ORA);
+    await giro();   // il promemoria, prima della PEC
+    erroreMail = () => Object.assign(new Error('550 casella PEC inesistente'), { responseCode: 550, command: 'RCPT TO' });
+    mailGuasta = 9;
+    for (let k = 0; k < 3; k++) { await giro(); avanza(30 * MIN); }
+    esigi(chiamateSmtp === 3 && scheda('no5').pecSollecito.ok === false && scheda('no5').pecSollecito.definitivo === true && scheda('no5').pecSollecito.tentativi === 1 && /550/.test(scheda('no5').pecSollecito.errore) && !('confermaInAttesa' in scheda('no5')),
+        'un 550 del gestore: definitivo, una PEC provata, e la scheda esce', JSON.stringify(scheda('no5').pecSollecito));
     // spenta: niente PEC, si esce dopo il promemoria
     azzera();
     process.env.SOLLECITO_PEC = 'no';

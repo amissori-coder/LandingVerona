@@ -173,7 +173,7 @@ function pecStato(x, so, ora) {
     if (!x.invitoScheda && !x.invitoCodice) return 'no';
     if (!PEC.configurata()) return 'no';
     const p = x.pecSollecito && typeof x.pecSollecito === 'object' ? x.pecSollecito : null;
-    if (p && (p.ok === true || p.incerto === true || p.esclusa === true || (Number(p.tentativi) || 0) >= PEC_MAX_TENTATIVI)) return 'fatta';
+    if (p && (p.ok === true || p.incerto === true || p.esclusa === true || p.definitivo === true || (Number(p.tentativi) || 0) >= PEC_MAX_TENTATIVI)) return 'fatta';
     if (ora - (Number(so.quando) || 0) < PEC_DOPO_MS) return 'aspetta';
     if (p && ora - (Number(p.quando) || 0) < PEC_RIPROVA_MS) return 'aspetta';
     return diGiorno(ora) ? 'fare' : 'aspetta';
@@ -211,7 +211,7 @@ function cosaFare(x, ora, presenza) {
     /* fatto: partito; o i tentativi finiti; o un esito incerto (la posta non
        ha risposto, o la funzione si e' chiusa fra la presa e la traccia): meglio
        una lettera in meno che due uguali. */
-    const soFatto = !!so && (so.ok === true || so.incerto === true || (Number(so.tentativi) || 0) >= SOLLECITO_MAX_TENTATIVI);
+    const soFatto = !!so && (so.ok === true || so.incerto === true || so.definitivo === true || (Number(so.tentativi) || 0) >= SOLLECITO_MAX_TENTATIVI);
     const soRiprova = !!so && ora - (Number(so.quando) || 0) < SOLLECITO_RIPROVA_MS;
     // la PEC, un giorno dopo la lettera: finche' e' da fare la scheda non esce
     const pec = pecStato(x, so, ora);
@@ -334,9 +334,13 @@ async function sollecito(db, id, presenza) {
     const e = await SOLL.spedisci(y);
     /* Un guasto del canale (il mittente rifiutato, le credenziali, il saluto)
        non e' un no a questa persona: il tentativo non si conta, si riprova
-       fra mezz'ora come dopo un no, e il giro non prova altre lettere. */
+       fra mezz'ora come dopo un no, e il giro non prova altre lettere. Un no
+       definitivo (5xx) chiude: non si riprova. `copia`: la copia nascosta
+       e' gia' arrivata (con lei il server aveva detto si'), e ai tentativi
+       dopo non si rimanda. */
     const tentativi = (Number(prima.tentativi) || 0) + (e.ok || !e.canale ? 1 : 0);
-    const patch = { sollecitoConferma: { quando: ora, ok: e.ok === true, incerto: !e.ok && e.incerto === true, canale: !e.ok && e.canale === true, errore: String(e.errore || '').slice(0, 200), tentativi: tentativi, a: e.a } };
+    const patch = { sollecitoConferma: { quando: ora, ok: e.ok === true, incerto: !e.ok && e.incerto === true, canale: !e.ok && e.canale === true, definitivo: !e.ok && e.definitivo === true,
+        errore: String(e.errore || '').slice(0, 200), tentativi: tentativi, a: e.a, copia: prima.copia === true || e.copia === true } };
     try { await rif.update(patch); } catch (_) { /* la scheda non c'e' piu': non rinasce */ }
     return { fatto: true, mail: e.ok === true, canale: !e.ok && e.canale === true };
 }
@@ -385,7 +389,7 @@ async function pecSollecito(db, id, presenza) {
     }
     const e = await PEC.spedisci(y, az, riferimento);
     await scrivi({
-        quando: ora, ok: e.ok === true, incerto: !e.ok && e.incerto === true, canale: !e.ok && e.canale === true,
+        quando: ora, ok: e.ok === true, incerto: !e.ok && e.incerto === true, canale: !e.ok && e.canale === true, definitivo: !e.ok && e.definitivo === true,
         errore: String(e.errore || '').slice(0, 200), tentativi: (Number(prima.tentativi) || 0) + (e.ok || !e.canale ? 1 : 0),
         a: a, azienda: az.id, riferimento: e.ok ? riferimento : '', messageId: e.ok ? String(e.messageId || '') : ''
     });

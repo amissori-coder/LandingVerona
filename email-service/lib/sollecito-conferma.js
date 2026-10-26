@@ -41,6 +41,7 @@
    promemoria).
    ============================================================ */
 'use strict';
+const url = require('url');
 const CONF = require('./conferma-email');
 const NL = require('./newsletter');
 
@@ -160,38 +161,71 @@ function tracciatore() {
     };
     return { traccia: t, opzioni: { transactionLog: true, logger: logger } };
 }
-/* Che cos'e' un errore della posta: { incerto, canale }.
+/* Che cos'e' un errore della posta: { incerto, canale, definitivo }.
    Con la risposta del server (responseCode): un no al destinatario (RCPT TO)
    o al messaggio (DATA) e' di questa persona e conta; un no prima - il
    saluto, le credenziali, il mittente ("Sender not valid" di Brevo per un
    indirizzo non verificato) - e' del canale, vale per tutti, e non consuma
-   i tentativi di nessuno. Senza risposta: incerto se il via al testo era
-   arrivato, altrimenti canale. */
+   i tentativi di nessuno. Un no di questa persona con un codice 5xx e'
+   DEFINITIVO (la casella non esiste, il messaggio rifiutato: riprovare non
+   cambia niente, e con la copia nascosta ogni tentativo rimanderebbe la
+   copia); un 4xx e' temporaneo e si riprova. Senza risposta: incerto se il
+   via al testo era arrivato, altrimenti canale. */
 function classifica(e, traccia) {
-    const conRisposta = Number(e && e.responseCode) > 0;
+    const codice = Number(e && e.responseCode) || 0;
     const comando = String((e && e.command) || '').toUpperCase();
     // una risposta senza il comando (non succede con nodemailer) si prende per un no a questa persona
-    if (conRisposta) return { incerto: false, canale: !!comando && !(comando === 'RCPT TO' || comando === 'DATA') };
-    if (traccia && traccia.corpo) return { incerto: true, canale: false };
-    return { incerto: false, canale: true };
+    if (codice > 0) {
+        const canale = !!comando && !(comando === 'RCPT TO' || comando === 'DATA');
+        return { incerto: false, canale: canale, definitivo: !canale && codice >= 500 };
+    }
+    if (traccia && traccia.corpo) return { incerto: true, canale: false, definitivo: false };
+    return { incerto: false, canale: true, definitivo: false };
+}
+/* Un indirizzo come lo scrive nodemailer nella busta: minuscolo, con il
+   dominio in ASCII (punycode: "società.it" diventa "xn--societ-nta.it").
+   Senza, un indirizzo con l'accento non si ritroverebbe fra gli accettati
+   e i rifiutati di `info`. */
+function indirizzoAscii(x) {
+    const v = String(x || '').trim().toLowerCase();
+    const at = v.lastIndexOf('@');
+    if (at < 0) return v;
+    let dominio = v.slice(at + 1);
+    try { dominio = url.domainToASCII(dominio) || dominio; } catch (_) { }
+    return v.slice(0, at) + '@' + dominio;
 }
 /* Il no del server a QUESTA persona quando la mail ha anche la copia
-   nascosta. Con due destinatari nodemailer, davanti a un 550 al RCPT TO
+   nascosta. Con due destinatari nodemailer, davanti a un no al RCPT TO
    della persona, va avanti con l'altro e la promessa si risolve lo stesso:
    il rifiuto sta in `info.rejected` (e il suo errore in `rejectedErrors`),
-   non in un'eccezione. Restituisce il motivo, o '' se la persona e' passata. */
+   non in un'eccezione. Restituisce null se la persona e' passata, altrimenti
+   { motivo, definitivo } (definitivo con un codice 5xx, vedi classifica).
+   Con qualcuno rifiutato e la persona non fra gli accettati, e' lei. */
 function rifiutato(info, a) {
-    const rifiutati = (info && Array.isArray(info.rejected) ? info.rejected : []).map(x => String(x || '').trim().toLowerCase());
-    if (rifiutati.indexOf(a) < 0) return '';
-    const errori = (info && Array.isArray(info.rejectedErrors)) ? info.rejectedErrors : [];
-    const suo = errori.find(e => String((e && e.recipient) || '').trim().toLowerCase() === a) || errori[0];
-    return String((suo && (suo.response || suo.message)) || 'destinatario rifiutato (RCPT TO)').slice(0, 200);
+    if (!info) return null;
+    const persona = indirizzoAscii(a);
+    const rifiutati = (Array.isArray(info.rejected) ? info.rejected : []).map(indirizzoAscii);
+    const accettati = (Array.isArray(info.accepted) ? info.accepted : []).map(indirizzoAscii);
+    if (rifiutati.indexOf(persona) < 0 && !(rifiutati.length && accettati.indexOf(persona) < 0)) return null;
+    const errori = Array.isArray(info.rejectedErrors) ? info.rejectedErrors : [];
+    const suo = errori.find(e => indirizzoAscii(e && e.recipient) === persona) || errori[0];
+    const motivo = String((suo && (suo.response || suo.message)) || 'destinatario rifiutato (RCPT TO)').slice(0, 200);
+    const codice = Number(suo && suo.responseCode) || Number((motivo.match(/^(\d{3})\b/) || [])[1]) || 0;
+    return { motivo: motivo, definitivo: codice >= 500 };
+}
+// la copia nascosta e' stata accettata dal server (sta fra gli accettati di `info`)
+function copiaAccettata(info, ccn) {
+    if (!info || !ccn || !Array.isArray(info.accepted)) return false;
+    return info.accepted.map(indirizzoAscii).indexOf(indirizzoAscii(ccn)) >= 0;
 }
 
 /* La spedizione: una mail sola, solo testo, con i tempi massimi del
-   trasporto delle conferme. Restituisce { ok, errore, a, incerto, canale }
-   (vedi classifica). Niente secondo tentativo qui: lo fa il giro, dopo
-   mezz'ora, e solo per un no certo o un guasto del canale. */
+   trasporto delle conferme. Restituisce { ok, errore, a, incerto, canale,
+   definitivo, copia } (vedi classifica; `copia`: la copia nascosta e'
+   arrivata al server). Niente secondo tentativo qui: lo fa il giro, dopo
+   mezz'ora, e solo per un no temporaneo o un guasto del canale. Ai
+   tentativi dopo una copia gia' consegnata (`sollecitoConferma.copia`) la
+   copia non si rimanda: Andrea ha gia' la lettera, e' la persona che manca. */
 async function spedisci(scheda) {
     const a = String((scheda && scheda.email) || '').trim().toLowerCase();
     if (!EMAIL_RE.test(a)) return { ok: false, errore: 'indirizzo mancante', a: a };
@@ -206,23 +240,25 @@ async function spedisci(scheda) {
         headers: { 'X-Mailin-Tag': 'sollecito-conferma' }
     };
     const ccn = copiaNascosta();
-    if (ccn && ccn !== a) messaggio.bcc = ccn;
+    const giaInCopia = !!(scheda && scheda.sollecitoConferma && scheda.sollecitoConferma.copia === true);
+    if (ccn && ccn !== a && !giaInCopia) messaggio.bcc = ccn;
     const tr = tracciatore();
     try {
         const info = await CONF.trasporto(tr.opzioni).sendMail(messaggio);
-        // la copia nascosta non copre un no alla persona: con lei rifiutata e' un no, come un 550 senza copia
+        const copia = giaInCopia || copiaAccettata(info, messaggio.bcc);
+        // la copia nascosta non copre un no alla persona: con lei rifiutata e' un no, come senza copia
         const no = rifiutato(info, a);
         if (no) {
-            console.error('Sollecito conferma rifiutato dal server per ' + a + ':', no);
-            return { ok: false, errore: no, a: a, incerto: false, canale: false };
+            console.error('Sollecito conferma rifiutato dal server per ' + a + (no.definitivo ? ' (definitivo)' : '') + ':', no.motivo);
+            return { ok: false, errore: no.motivo, a: a, incerto: false, canale: false, definitivo: no.definitivo, copia: copia };
         }
         if (info && Array.isArray(info.rejected) && info.rejected.length) console.warn('Sollecito conferma: la copia nascosta e\' stata rifiutata (' + info.rejected.join(', ') + '); la lettera a ' + a + ' e\' partita');
-        return { ok: true, errore: '', a: a };
+        return { ok: true, errore: '', a: a, incerto: false, canale: false, definitivo: false, copia: copia };
     } catch (e) {
         const errore = String((e && e.message) || e || 'errore del server di posta').slice(0, 200);
         const c = classifica(e, tr.traccia);
-        console.error('Sollecito conferma non inviato' + (c.incerto ? ' (esito incerto)' : (c.canale ? ' (guasto del canale: ' + String((e && e.command) || e && e.code || '') + ')' : '')) + ':', errore);
-        return { ok: false, errore: errore, a: a, incerto: c.incerto, canale: c.canale };
+        console.error('Sollecito conferma non inviato' + (c.incerto ? ' (esito incerto)' : (c.canale ? ' (guasto del canale: ' + String((e && e.command) || e && e.code || '') + ')' : (c.definitivo ? ' (no definitivo)' : ''))) + ':', errore);
+        return { ok: false, errore: errore, a: a, incerto: c.incerto, canale: c.canale, definitivo: c.definitivo, copia: giaInCopia };
     }
 }
 
@@ -267,4 +303,4 @@ async function mittenteVerificato(adesso) {
     return esito;
 }
 
-module.exports = { spento, componi, spedisci, tracciatore, classifica, rifiutato, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, copiaNascosta, MITTENTE_EMAIL, MITTENTE_NOME, RISPONDI_A_EMAIL, CCN_EMAIL, VERIFICA_VALE_MS };
+module.exports = { spento, componi, spedisci, tracciatore, classifica, rifiutato, indirizzoAscii, copiaAccettata, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, copiaNascosta, MITTENTE_EMAIL, MITTENTE_NOME, RISPONDI_A_EMAIL, CCN_EMAIL, VERIFICA_VALE_MS };

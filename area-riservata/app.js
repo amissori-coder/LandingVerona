@@ -17008,7 +17008,7 @@
         // il sollecito personale di un'ora dopo (solo testo, dall'indirizzo di Andrea Missori)
         const so = r && r.sollecitoConferma;
         if (so && so.quando) pezzi.push((so.ok ? 'Sollecito personale mandato il ' : (so.incerto ? 'Sollecito personale dall\'esito incerto il ' : (so.canale ? 'Sollecito personale fermo per un guasto della posta il ' : 'Sollecito personale NON partito il '))) + fmtDataOra(so.quando)
-            + (!so.ok && so.errore ? ' (' + so.errore + ')' : '') + (so.canale && !so.ok && !(r && r.promemoriaConferma) ? '; si riprova da solo' : '') + '.');
+            + (!so.ok && so.errore ? ' (' + so.errore + ')' : '') + (so.canale && !so.ok && !(r && r.promemoriaConferma) ? '; si riprova da solo' : '') + (so.definitivo && !so.ok ? '; la posta lo rifiuta, non si riprova' : '') + '.');
         const p = r && r.promemoriaConferma;
         if (p && p.quando) pezzi.push('Promemoria (mail e SMS) mandato il ' + fmtDataOra(p.quando) + '.');
         // la PEC di sollecito, un giorno dopo la lettera: a chi, e che cosa e' tornato dal gestore
@@ -17020,7 +17020,7 @@
                 + (pc.risposta && pc.risposta.quando ? '; risposta arrivata il ' + fmtDataOra(pc.risposta.quando) + (pc.risposta.da ? ' da ' + pc.risposta.da : '') + ', inoltrata per email' : '') + '.');
             else if (pc.esclusa) pezzi.push('PEC di sollecito non mandata: ' + (pc.errore || 'nessuna PEC') + '.');
             else pezzi.push((pc.incerto ? 'PEC di sollecito dall\'esito incerto il ' : (pc.canale ? 'PEC di sollecito ferma per un guasto del gestore il ' : 'PEC di sollecito NON partita il ')) + fmtDataOra(pc.quando)
-                + (pc.errore ? ' (' + pc.errore + ')' : '') + (pc.canale && !(r && r.promemoriaConferma) ? '; si riprova da solo' : '') + '.');
+                + (pc.errore ? ' (' + pc.errore + ')' : '') + (pc.canale && !(r && r.promemoriaConferma) ? '; si riprova da solo' : '') + (pc.definitivo ? '; il gestore la rifiuta, non si riprova' : '') + '.');
         }
         return pezzi.join(' ');
     }

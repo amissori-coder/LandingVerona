@@ -554,6 +554,7 @@ module.exports = async (req, res) => {
                         ok: v.pecSollecito.ok === true,
                         incerto: v.pecSollecito.incerto === true,
                         canale: v.pecSollecito.canale === true,
+                        definitivo: v.pecSollecito.definitivo === true,
                         esclusa: v.pecSollecito.esclusa === true,
                         errore: String(v.pecSollecito.errore || '').slice(0, 200),
                         a: String(v.pecSollecito.a || '').slice(0, 200),
@@ -566,6 +567,7 @@ module.exports = async (req, res) => {
                         ok: v.sollecitoConferma.ok === true,
                         incerto: v.sollecitoConferma.incerto === true,
                         canale: v.sollecitoConferma.canale === true,
+                        definitivo: v.sollecitoConferma.definitivo === true,
                         errore: String(v.sollecitoConferma.errore || '').slice(0, 200)
                     } : null,
                     emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {

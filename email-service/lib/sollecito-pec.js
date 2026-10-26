@@ -22,8 +22,9 @@
    inoltra per email ad Andrea Missori come le risposte agli inviti.
 
    La manda il giro delle conferme (lib/giro-conferme.js, 'pec'): una per
-   scheda, di giorno; un no certo del gestore si riprova dopo mezz'ora,
-   tre tentativi; un esito incerto non si ripete. SOLLECITO_PEC=no la
+   scheda, di giorno; un no temporaneo del gestore (4xx) si riprova dopo
+   mezz'ora, tre tentativi; un no definitivo (5xx: la casella non c'e') e
+   un esito incerto non si ripetono. SOLLECITO_PEC=no la
    spegne; senza le credenziali PEC non parte e la scheda esce come prima.
    ============================================================ */
 'use strict';
@@ -102,7 +103,7 @@ function trasporto(extra) {
    la riconosce dal Message-ID e la inoltra. */
 async function spedisci(scheda, azienda, riferimento) {
     const a = pecDi(azienda);
-    if (!a) return { ok: false, errore: 'PEC dell\'azienda mancante', a: '', incerto: false, canale: false };
+    if (!a) return { ok: false, errore: 'PEC dell\'azienda mancante', a: '', incerto: false, canale: false, definitivo: false };
     const m = SOLL.componi(scheda, { pec: true });
     const mitt = mittente();
     const messaggio = {
@@ -116,12 +117,12 @@ async function spedisci(scheda, azienda, riferimento) {
     const tr = SOLL.tracciatore();
     try {
         const info = await trasporto(tr.opzioni).sendMail(messaggio);
-        return { ok: true, errore: '', a: a, incerto: false, canale: false, messageId: String((info && info.messageId) || '').slice(0, 300) };
+        return { ok: true, errore: '', a: a, incerto: false, canale: false, definitivo: false, messageId: String((info && info.messageId) || '').slice(0, 300) };
     } catch (e) {
         const errore = String((e && e.message) || e || 'errore del gestore PEC').slice(0, 200);
         const c = SOLL.classifica(e, tr.traccia);
-        console.error('PEC di sollecito non inviata' + (c.incerto ? ' (esito incerto)' : (c.canale ? ' (guasto del canale: ' + String((e && e.command) || e && e.code || '') + ')' : '')) + ':', errore);
-        return { ok: false, errore: errore, a: a, incerto: c.incerto, canale: c.canale };
+        console.error('PEC di sollecito non inviata' + (c.incerto ? ' (esito incerto)' : (c.canale ? ' (guasto del canale: ' + String((e && e.command) || e && e.code || '') + ')' : (c.definitivo ? ' (no definitivo)' : ''))) + ':', errore);
+        return { ok: false, errore: errore, a: a, incerto: c.incerto, canale: c.canale, definitivo: c.definitivo };
     }
 }
 
