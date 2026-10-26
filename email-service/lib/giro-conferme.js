@@ -190,11 +190,20 @@ function cosaFare(x, ora, presenza) {
     const soRiprova = !!so && ora - (Number(so.quando) || 0) < SOLLECITO_RIPROVA_MS;
     /* Gli arretrati (recuperoSollecito): anche con il promemoria gia' mandato
        e la mail di giorni fa, una volta; poi la scheda esce, com'era: il
-       sollecito e' la sua ultima mail, non l'anticamera di un promemoria. */
+       sollecito e' la sua ultima mail, non l'anticamera di un promemoria.
+       Salvo che DOPO la lettera la mail con il pulsante sia ripartita (un
+       rinvio dello staff, "Rimandala"): allora e' una scheda come le altre,
+       con il promemoria a un giorno. Spento, aspetta: riacceso riparte, e
+       nessuno resta indietro. Dopo un rinvio aspetta l'ora di tutti. */
     if (x.sollecitoArretrato === true) {
-        if (soFatto || SOLL.spento()) return { fare: 'togli', perche: 'sollecito agli arretrati fatto' };
-        if (soRiprova) return { fare: 'aspetta', perche: 'sollecito da riprovare' };
-        return diGiorno(ora) ? { fare: 'sollecito' } : { fare: 'aspetta', perche: 'notte' };
+        const ripartita = !!so && (Number(m.quando) || 0) > (Number(so.quando) || 0);
+        if (soFatto && !ripartita) return { fare: 'togli', perche: 'sollecito agli arretrati fatto' };
+        if (!soFatto) {
+            if (SOLL.spento()) return { fare: 'aspetta', perche: 'spento' };
+            if (ora - (Number(m.quando) || 0) < SOLLECITO_DOPO_MS) return { fare: 'aspetta' };
+            if (soRiprova) return { fare: 'aspetta', perche: 'sollecito da riprovare' };
+            return diGiorno(ora) ? { fare: 'sollecito' } : { fare: 'aspetta', perche: 'notte' };
+        }
     }
     if (x.promemoriaConferma) return { fare: 'togli', perche: 'promemoria gia\' mandato' };
     // e solo finche' il promemoria non e' alle porte: una scheda vecchia ha quello
@@ -292,9 +301,13 @@ async function sollecito(db, id, presenza) {
     if (!y) return { fatto: false };
     const prima = y.sollecitoConferma && typeof y.sollecitoConferma === 'object' ? y.sollecitoConferma : {};
     const e = await SOLL.spedisci(y);
-    const patch = { sollecitoConferma: { quando: ora, ok: e.ok === true, incerto: !e.ok && e.incerto === true, errore: String(e.errore || '').slice(0, 200), tentativi: (Number(prima.tentativi) || 0) + 1, a: e.a } };
+    /* Un guasto del canale (il mittente rifiutato, le credenziali, il saluto)
+       non e' un no a questa persona: il tentativo non si conta, si riprova
+       fra mezz'ora come dopo un no, e il giro non prova altre lettere. */
+    const tentativi = (Number(prima.tentativi) || 0) + (e.ok || !e.canale ? 1 : 0);
+    const patch = { sollecitoConferma: { quando: ora, ok: e.ok === true, incerto: !e.ok && e.incerto === true, canale: !e.ok && e.canale === true, errore: String(e.errore || '').slice(0, 200), tentativi: tentativi, a: e.a } };
     try { await rif.update(patch); } catch (_) { /* la scheda non c'e' piu': non rinasce */ }
-    return { fatto: true, mail: e.ok === true };
+    return { fatto: true, mail: e.ok === true, canale: !e.ok && e.canale === true };
 }
 
 /* Una scheda, adesso (vedi LA SCHEDA DI ADESSO): si rilegge, si rifa' il
@@ -314,10 +327,13 @@ async function lavora(db, id, conti) {
         presenza = await leggiPresenza(db, VERIFICATA.eventoDi(x.pagina), x);
         c = cosaFare(x, ora, presenza);
         if (c.fare === 'sollecito') {
+            // con il canale guasto (vedi sollecito) le altre lettere aspettano il giro dopo
+            if (conti.sollecitoBloccato) { conti.aspettano++; return; }
             const p = await sollecito(db, id, presenza);
             if (p.fatto) {
                 conti.solleciti++;
                 if (!p.mail) conti.errori++;
+                if (p.canale) conti.sollecitoBloccato = true;
             } else {
                 conti.cambiate++;
             }
@@ -467,7 +483,7 @@ async function giro(db, opz) {
     opz = opz || {};
     const scadenza = Date.now() + (Number(opz.budget) || BUDGET_MS);
     const conti = {
-        occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0, solleciti: 0, promemoria: 0,
+        occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0, solleciti: 0, sollecitoBloccato: false, promemoria: 0,
         sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0
     };
     const idGiro = crypto.randomBytes(8).toString('hex');

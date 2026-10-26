@@ -552,6 +552,7 @@ module.exports = async (req, res) => {
                         quando: typeof v.sollecitoConferma.quando === 'number' ? v.sollecitoConferma.quando : 0,
                         ok: v.sollecitoConferma.ok === true,
                         incerto: v.sollecitoConferma.incerto === true,
+                        canale: v.sollecitoConferma.canale === true,
                         errore: String(v.sollecitoConferma.errore || '').slice(0, 200)
                     } : null,
                     emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {

@@ -537,6 +537,81 @@ prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il pro
     r = await giro();
     esigi(r.corpo.arretrati === 0 && !(dati.get('meta/confermeEmail') || {}).sollecitoArretrati && !scheda('spenta').sollecitoArretrato, 'spento: niente, e il recupero resta da fare');
     delete process.env.SOLLECITO_CONFERMA;
+    // spento DOPO il recupero: gli arretrati aspettano, e riacceso ripartono
+    azzera();
+    dati.set('meta/confermeEmail', { recupero: 1 });
+    orologio = DateVera.parse('2027-01-15T23:00:00+01:00');
+    vecchia('pausa', 3, { promemoriaConferma: { quando: giorni(2) } });
+    await giro();
+    process.env.SOLLECITO_CONFERMA = 'no';
+    orologio = DateVera.parse('2027-01-16T09:00:00+01:00');
+    r = await giro();
+    esigi(spedite.length === 0 && scheda('pausa').confermaInAttesa === true && scheda('pausa').sollecitoArretrato === true && r.corpo.aspettano === 1, 'spento dopo il recupero: l\'arretrato aspetta, con la bandiera');
+    delete process.env.SOLLECITO_CONFERMA;
+    await giro();
+    esigi(spedite.length === 1 && spedite[0].to === 'pausa@studio.it', 'riacceso: parte');
+    // un rinvio della mail con il pulsante prima della lettera: anche l'arretrato aspetta l'ora di tutti
+    azzera();
+    dati.set('meta/confermeEmail', { recupero: 1 });
+    orologio = DateVera.parse('2027-01-15T23:00:00+01:00');
+    vecchia('rinviata', 3, { promemoriaConferma: { quando: giorni(2) } });
+    await giro();
+    orologio = DateVera.parse('2027-01-16T07:55:00+01:00');
+    dati.set('iscrizioni/rinviata', Object.assign({}, scheda('rinviata'), { mailConferma: { quando: orologio, ok: true, a: 'rinviata@studio.it', via: 'staff' } }));
+    orologio = DateVera.parse('2027-01-16T08:00:00+01:00');
+    await giro();
+    esigi(spedite.length === 0, 'la mail con il pulsante e\' ripartita cinque minuti fa: la lettera aspetta');
+    orologio = DateVera.parse('2027-01-16T08:56:00+01:00');
+    await giro();
+    esigi(spedite.length === 1 && spedite[0].to === 'rinviata@studio.it', 'e parte a un\'ora dal rinvio');
+    // dopo la lettera un rinvio dello staff: e' una scheda come le altre, con il promemoria a un giorno
+    const quandoLettera = orologio;
+    avanza(2 * ORA);
+    dati.set('iscrizioni/rinviata', Object.assign({}, scheda('rinviata'), { confermaInAttesa: true, promemoriaConferma: undefined, mailConferma: { quando: orologio, ok: true, a: 'rinviata@studio.it', via: 'staff' } }));
+    await giro();
+    esigi(spedite.length === 1 && scheda('rinviata').confermaInAttesa === true, 'rimandata dopo la lettera: resta nel giro, senza una seconda lettera');
+    avanza(GIORNO);
+    await giro();
+    esigi(spedite.length === 2 && /^Promemoria:/.test(spedite[1].subject) && scheda('rinviata').sollecitoConferma.quando === quandoLettera, 'e a un giorno dal rinvio il promemoria, una lettera sola');
+});
+
+prova('Il mittente rifiutato da Brevo (non verificato) e\' un guasto del canale: non brucia i tentativi', async () => {
+    azzera();
+    const t0 = orologio;
+    const partita = id => ({ ricevuto: t0, sollecitoConferma: undefined, mailConferma: { quando: t0, ok: true, errore: '', via: 'iscrizione', a: id + '@studio.it' } });
+    ['uno', 'due', 'tre'].forEach(id => iscritto(id, partita(id)));
+    avanza(ORA);
+    erroreMail = () => Object.assign(new Error('550 Sender not valid'), { responseCode: 550, command: 'MAIL FROM' });
+    mailGuasta = 99;
+    let r = await giro();
+    const provate = () => ['uno', 'due', 'tre'].filter(id => scheda(id).sollecitoConferma);
+    esigi(chiamateSmtp === 1 && r.corpo.solleciti === 1 && r.corpo.sollecitoBloccato === true && r.corpo.aspettano === 2 && provate().length === 1,
+        'al primo no sul mittente il giro si ferma: una lettera provata, le altre aspettano', JSON.stringify(r.corpo));
+    const s1 = scheda(provate()[0]);
+    esigi(s1.sollecitoConferma.ok === false && s1.sollecitoConferma.canale === true && s1.sollecitoConferma.tentativi === 0 && /Sender not valid/.test(s1.sollecitoConferma.errore),
+        'e il tentativo non si conta', JSON.stringify(s1.sollecitoConferma));
+    avanza(10 * MIN);
+    r = await giro();
+    esigi(chiamateSmtp === 2 && provate().length === 2, 'dieci minuti dopo si prova un\'altra (la prima aspetta la sua mezz\'ora)');
+    for (let k = 0; k < 12; k++) { avanza(30 * MIN); await giro(); }
+    esigi(['uno', 'due', 'tre'].every(id => (!scheda(id).sollecitoConferma || scheda(id).sollecitoConferma.tentativi === 0) && scheda(id).confermaInAttesa === true) && spedite.length === 0,
+        'dopo sei ore di guasto nessuno ha consumato un tentativo, e tutte aspettano', JSON.stringify(['uno', 'due', 'tre'].map(id => scheda(id).sollecitoConferma)));
+    // il mittente viene verificato: partono tutte
+    mailGuasta = 0;
+    avanza(30 * MIN);
+    r = await giro();
+    esigi(spedite.length === 3 && ['uno', 'due', 'tre'].every(id => scheda(id).sollecitoConferma.ok === true && scheda(id).sollecitoConferma.tentativi === 1) && r.corpo.sollecitoBloccato === false,
+        'sistemato il mittente, al giro dopo partono tutte e tre', JSON.stringify(r.corpo));
+    // un no sul DESTINATARIO invece conta, e non ferma gli altri
+    azzera();
+    ['quattro', 'cinque'].forEach(id => iscritto(id, partita(id)));
+    avanza(ORA);
+    erroreMail = () => Object.assign(new Error('550 5.1.1 casella inesistente'), { responseCode: 550, command: 'RCPT TO' });
+    mailGuasta = 1;
+    r = await giro();
+    esigi(chiamateSmtp === 2 && spedite.length === 1 && r.corpo.sollecitoBloccato === false
+        && ['quattro', 'cinque'].some(id => scheda(id).sollecitoConferma.ok === false && scheda(id).sollecitoConferma.canale === false && scheda(id).sollecitoConferma.tentativi === 1),
+        'un no alla casella: conta per quella persona, e l\'altra parte lo stesso', JSON.stringify(r.corpo));
 });
 
 prova('Partita e mai cliccata: dopo un giorno UN promemoria, mail e SMS', async () => {

@@ -96,11 +96,15 @@ function componi(scheda) {
 }
 
 /* La spedizione: una mail sola, solo testo, con i tempi massimi del
-   trasporto delle conferme. Restituisce { ok, errore, a, incerto }:
+   trasporto delle conferme. Restituisce { ok, errore, a, incerto, canale }:
    `incerto` quando il server non ha risposto con un suo codice (tempo
    scaduto, connessione caduta) e la mail potrebbe essere partita lo
-   stesso. Niente secondo tentativo qui: lo fa il giro, dopo mezz'ora, e
-   solo per un no certo. */
+   stesso; `canale` quando il no e' arrivato PRIMA del destinatario (il
+   saluto, le credenziali, il MITTENTE: "Sender not valid" di Brevo per un
+   indirizzo non verificato) - un guasto che vale per tutti, non per
+   questa persona, e che non deve consumare i suoi tentativi. Niente
+   secondo tentativo qui: lo fa il giro, dopo mezz'ora, e solo per un no
+   certo. */
 async function spedisci(scheda) {
     const a = String((scheda && scheda.email) || '').trim().toLowerCase();
     if (!EMAIL_RE.test(a)) return { ok: false, errore: 'indirizzo mancante', a: a };
@@ -120,8 +124,11 @@ async function spedisci(scheda) {
     } catch (e) {
         const errore = String((e && e.message) || e || 'errore del server di posta').slice(0, 200);
         const incerto = !(Number(e && e.responseCode) > 0);
-        console.error('Sollecito conferma non inviato' + (incerto ? ' (esito incerto)' : '') + ':', errore);
-        return { ok: false, errore: errore, a: a, incerto: incerto };
+        // il comando a cui il server ha detto no (nodemailer lo scrive): prima del destinatario e' il canale
+        const comando = String((e && e.command) || '').toUpperCase();
+        const canale = !incerto && (/^(CONN|EHLO|HELO|STARTTLS|AUTH|MAIL FROM)/.test(comando) || String((e && e.code) || '') === 'EAUTH');
+        console.error('Sollecito conferma non inviato' + (incerto ? ' (esito incerto)' : (canale ? ' (guasto del canale: ' + comando + ')' : '')) + ':', errore);
+        return { ok: false, errore: errore, a: a, incerto: incerto, canale: canale };
     }
 }
 
