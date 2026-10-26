@@ -175,6 +175,18 @@ function classifica(e, traccia) {
     if (traccia && traccia.corpo) return { incerto: true, canale: false };
     return { incerto: false, canale: true };
 }
+/* Il no del server a QUESTA persona quando la mail ha anche la copia
+   nascosta. Con due destinatari nodemailer, davanti a un 550 al RCPT TO
+   della persona, va avanti con l'altro e la promessa si risolve lo stesso:
+   il rifiuto sta in `info.rejected` (e il suo errore in `rejectedErrors`),
+   non in un'eccezione. Restituisce il motivo, o '' se la persona e' passata. */
+function rifiutato(info, a) {
+    const rifiutati = (info && Array.isArray(info.rejected) ? info.rejected : []).map(x => String(x || '').trim().toLowerCase());
+    if (rifiutati.indexOf(a) < 0) return '';
+    const errori = (info && Array.isArray(info.rejectedErrors)) ? info.rejectedErrors : [];
+    const suo = errori.find(e => String((e && e.recipient) || '').trim().toLowerCase() === a) || errori[0];
+    return String((suo && (suo.response || suo.message)) || 'destinatario rifiutato (RCPT TO)').slice(0, 200);
+}
 
 /* La spedizione: una mail sola, solo testo, con i tempi massimi del
    trasporto delle conferme. Restituisce { ok, errore, a, incerto, canale }
@@ -197,7 +209,14 @@ async function spedisci(scheda) {
     if (ccn && ccn !== a) messaggio.bcc = ccn;
     const tr = tracciatore();
     try {
-        await CONF.trasporto(tr.opzioni).sendMail(messaggio);
+        const info = await CONF.trasporto(tr.opzioni).sendMail(messaggio);
+        // la copia nascosta non copre un no alla persona: con lei rifiutata e' un no, come un 550 senza copia
+        const no = rifiutato(info, a);
+        if (no) {
+            console.error('Sollecito conferma rifiutato dal server per ' + a + ':', no);
+            return { ok: false, errore: no, a: a, incerto: false, canale: false };
+        }
+        if (info && Array.isArray(info.rejected) && info.rejected.length) console.warn('Sollecito conferma: la copia nascosta e\' stata rifiutata (' + info.rejected.join(', ') + '); la lettera a ' + a + ' e\' partita');
         return { ok: true, errore: '', a: a };
     } catch (e) {
         const errore = String((e && e.message) || e || 'errore del server di posta').slice(0, 200);
@@ -248,4 +267,4 @@ async function mittenteVerificato(adesso) {
     return esito;
 }
 
-module.exports = { spento, componi, spedisci, tracciatore, classifica, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, copiaNascosta, MITTENTE_EMAIL, MITTENTE_NOME, RISPONDI_A_EMAIL, CCN_EMAIL, VERIFICA_VALE_MS };
+module.exports = { spento, componi, spedisci, tracciatore, classifica, rifiutato, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, copiaNascosta, MITTENTE_EMAIL, MITTENTE_NOME, RISPONDI_A_EMAIL, CCN_EMAIL, VERIFICA_VALE_MS };

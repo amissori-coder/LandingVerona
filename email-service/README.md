@@ -1668,7 +1668,11 @@ nelle cartelle Promozioni e Aggiornamenti, che dopo il clic arriva l'invito
 in PDF (per chi segue online: la conferma, e le istruzioni con un'email a
 parte), e di rispondere se non la trova. Personalizzata con nome, azienda del modulo, data e sede dell'evento
 (`CONF.dettagliEvento`); tag Brevo `X-Mailin-Tag: sollecito-conferma`. Una
-per scheda. Nell'area riservata il suggerimento sulla riga dice "Sollecito
+per scheda. **La copia nascosta non copre un no alla persona**: con due
+destinatari, davanti a un 550 alla casella dell'iscritto, nodemailer va avanti
+con la copia e la spedizione "riesce"; il rifiuto si legge dopo, in
+`info.rejected` (`rifiutato`), ed e' un no come gli altri (mezz'ora, tre
+tentativi), non una lettera mandata. Nell'area riservata il suggerimento sulla riga dice "Sollecito
 personale mandato il ..." (o "NON partito", "dall'esito incerto", con il
 motivo).
 
@@ -1683,9 +1687,10 @@ se il mittente e' fra i verificati o il suo dominio fra gli autenticati
 chiederlo, **le lettere aspettano** senza consumare tentativi (`sollecitoBloccato`
 e `sollecitoMotivo` nei conti e nel log; su `meta/confermeEmail`
 `sollecitoMittente: { quando, ok, motivo, mittente }`), e si riprova al giro
-dopo. Per attivare il sollecito basta quindi aggiungere
-`andreamissori@revilaw.it` ai mittenti di Brevo (Mittenti e IP › Aggiungi
-mittente, con la conferma dalla casella): al giro successivo partono tutte.
+dopo. Il mittente predefinito (`revilaw@nextgenerationbusiness.it`) e' gia'
+fra i verificati; se si cambia `SOLLECITO_FROM_EMAIL`, il nuovo indirizzo va
+aggiunto ai mittenti di Brevo (Mittenti e IP › Aggiungi mittente, con la
+conferma dalla casella): al giro successivo partono tutte.
 
 **La PEC di sollecito, un giorno dopo** (`lib/sollecito-pec.js`, azione `pec`
 del giro). Se un giorno dopo la lettera l'indirizzo non e' ancora confermato,
