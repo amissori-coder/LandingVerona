@@ -1867,6 +1867,7 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-attesa-mail .ev-mail-mai { color: #B1213B; font-weight: 600; }
 /* i solleciti della conferma gia' partiti (la lettera, la PEC), con data e ora: in grigio, non e' un allarme */
 .ev-attesa-mail .ev-solleciti { color: var(--grigio-600); font-weight: 500; }
+.ev-attesa-mail .ev-solleciti-no { color: #B1213B; }
 /* lo stato del giro delle conferme, una riga sotto i totali (giroConfermeHtml); in rosso quando e' fermo */
 .ev-num-totali .ev-giro { flex-basis: 100%; font-size: 0.78rem; color: var(--grigio-600); cursor: default; }
 .ev-num-totali .ev-giro.fermo { color: var(--rosso); font-weight: 600; }

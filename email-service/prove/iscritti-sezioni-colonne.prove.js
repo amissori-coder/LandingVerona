@@ -662,6 +662,29 @@ prova('Chi e\' in attesa: che cosa e\' gia\' partito per fargli arrivare la mail
     const to = A.invioConfermaTesto(smsOk);
     esigi(to.indexOf('SMS mandato') >= 0 && to.indexOf('(Brevo abc123)') >= 0, 'e uno partito il suo riferimento nei log di Brevo', to);
     esigi(A.hintAttesaMailHtml(NAPOLI, mai) === '', 'a Napoli nessuna attesa, nessun segno');
+    /* i solleciti sulla riga, a vista: ogni invio tentato con data e ora, in rosso quello che non e' andato */
+    const h = x => A.hintAttesaMailHtml(MILANO, riga(Object.assign({ doc: 'n7', data: dataDi(ieri), mailConferma: { quando: 1, ok: true } }, x)));
+    const q = new Date(2026, 9, 26, 15, 51).getTime();
+    let s = h({ sollecitoConferma: { quando: q, ok: true } });
+    esigi(s.indexOf('sollecito 26/10/2026 15:51') >= 0 && s.indexOf('ev-solleciti-no') < 0, 'la lettera partita: data e ora, in grigio', s);
+    s = h({ sollecitoConferma: { quando: q, ok: false, definitivo: true, errore: '550 5.1.1' } });
+    esigi(s.indexOf('sollecito NON partito 26/10/2026 15:51 (rifiutato)') >= 0 && s.indexOf('ev-solleciti-no') >= 0, 'la lettera rifiutata: NON partito, in rosso', s);
+    s = h({ sollecitoConferma: { quando: q, ok: false, errore: '451' } });
+    esigi(s.indexOf('sollecito NON partito 26/10/2026 15:51 (si riprova)') >= 0, 'il no temporaneo: si riprova', s);
+    s = h({ sollecitoConferma: { quando: q, ok: false, canale: true, errore: 'ECONNREFUSED' } });
+    esigi(s.indexOf('sollecito 26/10/2026 15:51 (ferma per un guasto, si riprova)') >= 0 && s.indexOf('ev-solleciti-no') < 0, 'il guasto del canale non e\' un no', s);
+    s = h({ sollecitoConferma: { quando: q, ok: true }, pecSollecito: { quando: q + 86400000, ok: true, a: 'x@pec.it', consegnata: { quando: q + 86400000 + 60000 }, risposta: { quando: q + 90000000, da: 'x@pec.it' } } });
+    esigi(s.indexOf('sollecito 26/10/2026 15:51') >= 0 && s.indexOf('PEC 27/10/2026 15:51, consegnata (ha risposto)') >= 0, 'la PEC mandata: data e ora, consegna e risposta', s);
+    s = h({ sollecitoConferma: { quando: q, ok: true }, pecSollecito: { quando: q + 86400000, ok: true, a: 'x@pec.it', problema: { quando: q + 86400000 + 60000, motivo: 'casella piena' } } });
+    esigi(s.indexOf('PEC 27/10/2026 15:51, NON consegnata') >= 0, 'la PEC non consegnata lo dice', s);
+    s = h({ sollecitoConferma: { quando: q, ok: true }, pecSollecito: { quando: q + 86400000, ok: false, esclusa: true, errore: 'l\'azienda invitata non ha un indirizzo PEC' } });
+    esigi(s.indexOf('PEC non mandata: nessun indirizzo PEC') >= 0 && s.indexOf('ev-solleciti-no') >= 0, 'la PEC che non si puo\' mandare: in rosso, con il perche\'', s);
+    s = h({ sollecitoConferma: { quando: q, ok: true }, pecSollecito: { quando: q + 86400000, ok: false, esclusa: true, errore: 'nessuna azienda invitata collegata all\'iscrizione' } });
+    esigi(s.indexOf('PEC non mandata: nessuna azienda collegata') >= 0, 'senza azienda collegata lo dice', s);
+    s = h({ sollecitoConferma: { quando: q, ok: true }, pecSollecito: { quando: q + 86400000, ok: false, incerto: true, errore: 'timeout' } });
+    esigi(s.indexOf('PEC 27/10/2026 15:51 (esito incerto)') >= 0, 'la PEC dall\'esito incerto', s);
+    s = h({ sollecitoConferma: { quando: q, ok: true }, pecSollecito: { quando: q + 86400000, ok: false, definitivo: true, errore: '550' } });
+    esigi(s.indexOf('PEC NON partita 27/10/2026 15:51 (rifiutato)') >= 0, 'la PEC rifiutata dal gestore', s);
 });
 
 console.log('\nL\'elenco degli iscritti: attesa della conferma, colonne dal file, esportazione\n');

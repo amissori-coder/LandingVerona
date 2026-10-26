@@ -16988,13 +16988,21 @@
            del giorno dopo (il resto - esiti, consegna, risposta - sta nel
            suggerimento). E' quello che si guarda per decidere se chiamare. */
         const so = r.sollecitoConferma, pc = r.pecSollecito;
-        const solleciti = [
-            so && so.quando && so.ok ? 'sollecito ' + fmtDataOra(so.quando) : '',
-            pc && pc.quando && pc.ok ? 'PEC ' + fmtDataOra(pc.quando) + (pc.risposta && pc.risposta.quando ? ' (ha risposto)' : '') : ''
-        ].filter(Boolean);
+        /* ogni invio tentato si vede, con data e ora, anche quando non e' andato:
+           in rosso il no e la PEC che non si puo' mandare, perche' li' c'e' da fare */
+        const voce = (nome, x, coda) => {
+            if (!x || !x.quando) return '';
+            if (x.ok) return { t: nome + ' ' + fmtDataOra(x.quando) + (coda || ''), male: false };
+            if (x.esclusa) return { t: nome + ' non mandata: ' + (/non ha un indirizzo PEC/.test(x.errore || '') ? 'nessun indirizzo PEC' : (/nessuna azienda/.test(x.errore || '') ? 'nessuna azienda collegata' : (x.errore || 'nessuna PEC'))), male: true };
+            if (x.incerto) return { t: nome + ' ' + fmtDataOra(x.quando) + ' (esito incerto)', male: false };
+            if (x.canale) return { t: nome + ' ' + fmtDataOra(x.quando) + ' (ferma per un guasto, si riprova)', male: false };
+            return { t: nome + ' NON ' + (nome === 'PEC' ? 'partita' : 'partito') + ' ' + fmtDataOra(x.quando) + (x.definitivo ? ' (rifiutato)' : ' (si riprova)'), male: true };
+        };
+        const codaPec = pc && pc.ok ? (pc.consegnata && pc.consegnata.quando ? ', consegnata' : (pc.problema && pc.problema.quando ? ', NON consegnata' : '')) + (pc.risposta && pc.risposta.quando ? ' (ha risposto)' : '') : '';
+        const solleciti = [voce('sollecito', so), voce('PEC', pc, codaPec)].filter(Boolean);
         return '<div class="hint ev-attesa-mail" title="' + esc(titolo) + '">email da confermare'
             + (mai ? ' &middot; <span class="ev-mail-mai">mail non ancora partita</span>' : '')
-            + (solleciti.length ? ' &middot; <span class="ev-solleciti">' + esc(solleciti.join(' · ')) + '</span>' : '') + '</div>';
+            + solleciti.map(v => ' &middot; <span class="ev-solleciti' + (v.male ? ' ev-solleciti-no' : '') + '">' + esc(v.t) + '</span>').join('') + '</div>';
     }
     /* Quello che il servizio ha gia' fatto per far arrivare la mail di
        conferma, in una frase: lo scrivono l'iscrizione, i rinvii e il giro
