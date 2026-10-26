@@ -1298,7 +1298,10 @@ prova('Lo stato del giro per l\'area riservata: l\'ultimo giro con i suoi conti,
     let i = API.indexOf('{', ini), aperte = 0, fine = -1;
     for (; i < API.length; i++) { if (API[i] === '{') aperte++; else if (API[i] === '}') { aperte--; if (!aperte) { fine = i + 1; break; } } }
     const giroConferme = new Function(API.slice(ini, fine) + '\nreturn giroConferme;')();
-    esigi(await giroConferme(db) === null, 'senza meta/confermeEmail: null (servizio appena pubblicato, o nessun giro)');
+    const vuoto = await giroConferme(db);
+    esigi(vuoto && vuoto.quando === 0 && vuoto.conti === null && vuoto.mittente === null, 'senza meta/confermeEmail: nessun giro registrato (quando 0), non un errore', JSON.stringify(vuoto));
+    const dbRotto = { collection: () => ({ doc: () => ({ get: async () => { throw new Error('RESOURCE_EXHAUSTED: letture finite'); } }) }) };
+    esigi(await giroConferme(dbRotto) === null, 'e la lettura non riuscita e\' null: un\'altra cosa da "nessun giro"');
     iscritto('stato', partita('stato'));
     avanza(ORA);
     const r = await giro();
@@ -1324,6 +1327,12 @@ prova('Lo stato del giro per l\'area riservata: l\'ultimo giro con i suoi conti,
     const occ = await giro();
     esigi(occ.corpo.occupato === true && JSON.stringify((dati.get('meta/confermeEmail') || {}).ultimoGiro) === prima, 'il giro che trova il lucchetto non tocca l\'ultimo giro registrato');
     esigi(/giroConferme: giro \}\)/.test(API) && /invariato: true, rev: revDati, aggiornato: Date\.now\(\), giroConferme: giro/.test(API), 'e lo stato viaggia con ogni risposta dell\'elenco, anche "invariato"');
+    /* l'area riservata distingue i tre "non so" dal fermo vero (giroConfermeHtml) */
+    const APP = require('fs').readFileSync(path.join(RADICE, '..', 'area-riservata', 'app.js'), 'utf8');
+    const html = APP.slice(APP.indexOf('function giroConfermeHtml('), APP.indexOf('function aggiornaGiroConferme('));
+    esigi(/g === undefined\)/.test(html) && /g === null\)/.test(html) && /_evGiroLetto > 25 \* 60 \* 1000/.test(html) && /if \(!g\.quando\) \{/.test(html),
+        'l\'area riservata: stato in lettura, non leggibile, non aggiornato (in grigio) e nessun giro (in rosso) sono quattro cose diverse');
+    esigi(/if \('giroConferme' in data\) esito\.giroConferme/.test(APP) && /let _evGiro;/.test(APP), 'e con un servizio piu\' vecchio lo stato resta "in lettura", non "nessun giro"');
 });
 
 (async () => {

@@ -255,7 +255,7 @@ prova('Con l elenco viaggia lo stato del giro delle conferme (extra), e nient al
     esigi(uscita && !('giroConferme' in uscita) && uscita.ok === true && uscita.rev === 3, 'senza extra la risposta e quella di sempre');
     SERVIZIO(res)(res, [], ['firestore'], {}, {}, '', 3, { ok: false, iscrizioni: 'no' });
     esigi(uscita && uscita.ok === false, 'extra scrive sopra: chi lo passa deve passare solo il suo (giroConferme)');
-    esigi(/_evGiro = r\.giroConferme; aggiornaGiroConferme\(\)/.test(APP) && /function giroConfermeHtml\(\)/.test(APP) && /class="ev-giro/.test(APP),
+    esigi(/_evGiro = r\.giroConferme; _evGiroLetto = Date\.now\(\); aggiornaGiroConferme\(\)/.test(APP) && /function giroConfermeHtml\(\)/.test(APP) && /class="ev-giro/.test(APP),
         'e l area riservata lo tiene e lo mostra sotto i totali');
 });
 

@@ -1739,10 +1739,13 @@
                 const data = await r.json().catch(() => ({}));
                 // quota: il database ha finito le letture del giorno; chi chiama rallenta i tentativi
                 if (!r.ok || !data.ok) return { ok: false, quota: !!(data && data.quota), msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
-                // lo stato del giro delle conferme viaggia con l'elenco, anche "invariato" (giroConfermeHtml)
-                const giroConferme = (data.giroConferme && typeof data.giroConferme === 'object') ? data.giroConferme : null;
-                if (data.invariato) return { ok: true, invariato: true, rev: data.rev, aggiornato: data.aggiornato || Date.now(), giroConferme: giroConferme };
-                return { ok: true, iscrizioni: data.iscrizioni || [], presenze: data.presenze || {}, rev: (typeof data.rev === 'number' ? data.rev : null), avviso: data.avviso || '', aggiornato: data.aggiornato || Date.now(), giroConferme: giroConferme };
+                /* lo stato del giro delle conferme viaggia con l'elenco, anche "invariato"
+                   (giroConfermeHtml): un oggetto, o null se il servizio non l'ha potuto
+                   leggere; la chiave manca del tutto con un servizio piu' vecchio */
+                const esito = { ok: true, aggiornato: data.aggiornato || Date.now() };
+                if ('giroConferme' in data) esito.giroConferme = (data.giroConferme && typeof data.giroConferme === 'object') ? data.giroConferme : null;
+                if (data.invariato) return Object.assign(esito, { invariato: true, rev: data.rev });
+                return Object.assign(esito, { iscrizioni: data.iscrizioni || [], presenze: data.presenze || {}, rev: (typeof data.rev === 'number' ? data.rev : null), avviso: data.avviso || '' });
             } catch (e) {
                 return { ok: false, msg: 'Servizio iscrizioni non raggiungibile.' };
             }
@@ -15737,7 +15740,8 @@
     let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
     let _evAggiornato = 0;       // ora dell'ultima lettura riuscita
     let _evRev = null;           // numero di revisione dell'elenco a video (lo rimanda al server)
-    let _evGiro = null;          // l'ultimo giro delle conferme sul servizio, con i suoi conti (giroConfermeHtml)
+    let _evGiro;                 // l'ultimo giro delle conferme sul servizio (giroConfermeHtml): undefined finche' non arriva, null se il servizio non l'ha letto
+    let _evGiroLetto = 0;        // quando lo stato del giro e' arrivato l'ultima volta
     /* Quota di Firebase esaurita: si sospende l'aggiornamento automatico per un
        quarto d'ora. Insistere ogni quattro minuti non cambia niente e consuma le
        poche letture che tornano disponibili. */
@@ -16124,9 +16128,9 @@
                 _evMsg = ''; _evAggiornato = Date.now();
                 if (_evCache[ev.id]) _evCache[ev.id].aggiornato = _evAggiornato;
                 // il giro delle conferme invece cambia da solo: la sua riga si aggiorna sul posto
-                if ('giroConferme' in r) { _evGiro = r.giroConferme; aggiornaGiroConferme(); }
+                if ('giroConferme' in r) { _evGiro = r.giroConferme; _evGiroLetto = Date.now(); aggiornaGiroConferme(); }
             } else if (r && r.ok) {
-                if ('giroConferme' in r) { _evGiro = r.giroConferme; aggiornaGiroConferme(); }
+                if ('giroConferme' in r) { _evGiro = r.giroConferme; _evGiroLetto = Date.now(); aggiornaGiroConferme(); }
                 const nuova = firmaIscr(r.iscrizioni) + '#' + firmaPres(r.presenze);
                 // l'avviso (es. dati dall'ultima copia perche' la quota e' finita) conta
                 // come cambiamento: va mostrato, e va tolto quando sparisce
@@ -17635,8 +17639,16 @@
     function giroConfermeHtml() {
         const g = _evGiro;
         const base = 'Il servizio manda mail di conferma, solleciti, promemoria e PEC con un giro ogni dieci minuti. ';
-        if (!g || !g.quando) {
+        /* tre "non so" che non sono un fermo: lo stato non e' ancora arrivato, il
+           servizio non l'ha potuto leggere, lo stato stesso non si aggiorna piu'
+           (servizio non raggiungibile): in grigio, e il suggerimento lo dice */
+        if (g === undefined) return '<span class="ev-giro" title="' + esc(base + 'Lo stato arriva con l\'elenco e non è ancora stato letto.') + '">giro delle conferme: stato in lettura</span>';
+        if (g === null) return '<span class="ev-giro" title="' + esc(base + 'Il servizio non ha potuto leggere lo stato del giro (database non raggiungibile, o letture del giorno finite): non vuol dire che il giro sia fermo.') + '">giro delle conferme: stato non leggibile al momento</span>';
+        if (!g.quando) {
             return '<span class="ev-giro fermo" title="' + esc(base + 'Non risulta ancora nessun giro registrato: servizio appena pubblicato, oppure il lavoro programmato non parte.') + '">giro delle conferme: nessun giro registrato</span>';
+        }
+        if (Date.now() - _evGiroLetto > 25 * 60 * 1000) {
+            return '<span class="ev-giro" title="' + esc(base + 'L\'elenco non si aggiorna dal servizio da più di venticinque minuti: lo stato del giro è quello di allora, non si sa se nel frattempo il giro gira.') + '">giro delle conferme: stato non aggiornato dalle ' + fmtDataOra(_evGiroLetto).slice(11) + ' (ultimo giro noto alle ' + fmtDataOra(g.quando).slice(11) + ')</span>';
         }
         const c = g.conti || {};
         const fermo = Date.now() - g.quando > 25 * 60 * 1000;

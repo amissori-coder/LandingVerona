@@ -251,13 +251,15 @@ function extraMatching(v) {
        perche' una scheda mezza vuota senza spiegazione sembra un errore. */
 /* Lo stato del giro delle conferme (lib/giro-conferme.js), per l'area
    riservata: l'ultimo giro con i suoi conti, il controllo del mittente del
-   sollecito, gli arretrati. Una lettura (meta/confermeEmail); se manca o non
-   si legge, null: servizio appena pubblicato, o nessun giro ancora. */
+   sollecito, gli arretrati. Una lettura (meta/confermeEmail). Senza il
+   documento, o senza un giro registrato, `quando` e' 0 (servizio appena
+   pubblicato, o il lavoro programmato non parte); se la lettura NON riesce
+   (database non raggiungibile, letture del giorno finite) null: e' un'altra
+   cosa, e l'area riservata non deve dire "nessun giro". */
 async function giroConferme(db) {
     try {
         const s = await db.collection('meta').doc('confermeEmail').get();
-        if (!s || !s.exists) return null;
-        const d = s.data() || {};
+        const d = (s && s.exists) ? (s.data() || {}) : {};
         const g = d.ultimoGiro && typeof d.ultimoGiro === 'object' ? d.ultimoGiro : null;
         const c = g && g.conti && typeof g.conti === 'object' ? g.conti : {};
         const m = d.sollecitoMittente && typeof d.sollecitoMittente === 'object' ? d.sollecitoMittente : null;
