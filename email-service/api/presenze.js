@@ -1845,14 +1845,15 @@ module.exports = async (req, res) => {
             const evV = V.eventoDi(scheda.pagina);
             const invito = { codice: v.codice, azienda: v.ragioneSociale, scheda: v.scheda };
             if (body.anteprima) {
-                // gli stessi no della transazione, senza scrivere: il codice pieno si vede prima di confermare
+                // gli stessi no della transazione, nello stesso ordine, senza scrivere: il codice pieno si vede prima di confermare
+                const gia = !!suo && suo === codice;
                 let altre = 0;
                 if (evV) {
                     const posti = await V.usiCodice(db, v.codice);
                     altre = posti.attive.filter(id => id !== rif.id).length;
-                    if (altre >= V.MAX_PER_CODICE) { rifiuta({ no: 'pieno' }); return; }
+                    if (!gia && altre >= V.MAX_PER_CODICE) { rifiuta({ no: 'pieno' }); return; }
                 }
-                res.status(200).json({ ok: true, anteprima: true, gia: !!suo && suo === codice, invito: invito, iscritte: altre });
+                res.status(200).json({ ok: true, anteprima: true, gia: gia, invito: invito, iscritte: altre });
                 return;
             }
             const patch = {

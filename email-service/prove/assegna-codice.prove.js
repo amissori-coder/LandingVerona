@@ -234,6 +234,13 @@ function scenario() {
         'rifarlo con lo stesso codice: "gia\'", e niente si conta due volte', JSON.stringify(r.corpo));
     r = await assegna(G, 'P0Y1M', { anteprima: 1 });
     esigi(r.stato === 200 && r.corpo.gia === true && r.corpo.iscritte === 0, 'e l\'anteprima lo dice, senza contare la scheda fra le altre', JSON.stringify(r.corpo));
+    // una scheda che ha gia' il codice di Alfa senza stare nel suo conto (una riga vecchia): "gia'", non "pieno", come la scrittura
+    dati.set('iscrizioni/' + idScheda(T), Object.assign({}, scheda(T), { invitoCodice: 'K7M3P' }));
+    const ant = await assegna(T, 'K7M3P', { anteprima: 1 });
+    const scr = await assegna(T, 'K7M3P');
+    esigi(ant.stato === 200 && ant.corpo.gia === true && scr.stato === 200 && scr.corpo.gia === true, 'con il codice gia\' sulla scheda e il codice pieno, anteprima e scrittura dicono tutte e due "gia\'"', ant.stato + ' ' + scr.stato);
+    dati.set('iscrizioni/' + idScheda(T), Object.assign({}, scheda(T), { invitoCodice: admin.firestore.FieldValue.delete() }));
+    delete scheda(T).invitoCodice;
     r = await assegna(G, 'Q2W3E');
     esigi(r.stato === 400 && /ha già il codice P0Y1M/.test(r.corpo.msg) && scheda(G).invitoCodice === 'P0Y1M', 'un altro codice su una scheda che ne ha uno: no', r.corpo.msg);
     r = await assegna(T, 'K7M3P');

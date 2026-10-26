@@ -18618,8 +18618,19 @@
                    fra quelli spediti per questo evento, e qui si legge a quale
                    azienda e' riservato prima di assegnarlo - un codice di un'altra
                    azienda e' buono per il servizio, ma non per questa persona. */
+                const dopoScritto = res2 => {
+                    const inv2 = res2.invito || {};
+                    toast(res2.gia ? 'La scheda aveva già il codice ' + inv2.codice + '.'
+                        : 'Codice ' + inv2.codice + ' assegnato' + (inv2.azienda ? ': ' + inv2.azienda : '') + '.', 'verde');
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: codice invito assegnato', 'sistema', ev.id, null, r.id + ' ' + inv2.codice); } catch (e) { }
+                    // si rilegge dal server: azienda, codice e colonne del file sono quelli scritti
+                    _evUltimoTentativo[ev.id] = 0;
+                    caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
+                };
                 chiedi({ anteprima: 1 }).then(res => {
                     if (!res.ok) { toast(res.msg || 'Codice non assegnato.', 'rosso'); return; }
+                    // un servizio di prima dell'anteprima ha gia' scritto: si prende per quello che e'
+                    if (!res.anteprima) { dopoScritto(res); return; }
                     const inv = res.invito || {};
                     if (res.gia) { toast('La scheda ha già il codice ' + inv.codice + '.', 'verde'); return; }
                     const n = Number(res.iscritte) || 0;
@@ -18628,13 +18639,7 @@
                         + 'Lo assegno a ' + chi + (r.azienda ? ' (' + r.azienda + ')' : '') + '?')) return;
                     chiedi({}).then(res2 => {
                         if (!res2.ok) { toast(res2.msg || 'Codice non assegnato.', 'rosso'); return; }
-                        const inv2 = res2.invito || {};
-                        toast(res2.gia ? 'La scheda aveva già il codice ' + inv2.codice + '.'
-                            : 'Codice ' + inv2.codice + ' assegnato' + (inv2.azienda ? ': ' + inv2.azienda : '') + '.', 'verde');
-                        try { Audit.registra(Auth.utenteCorrente, 'Evento: codice invito assegnato', 'sistema', ev.id, null, r.id + ' ' + inv2.codice); } catch (e) { }
-                        // si rilegge dal server: azienda, codice e colonne del file sono quelli scritti
-                        _evUltimoTentativo[ev.id] = 0;
-                        caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
+                        dopoScritto(res2);
                     });
                 });
             }));
