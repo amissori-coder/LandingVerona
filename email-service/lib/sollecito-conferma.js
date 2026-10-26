@@ -137,16 +137,49 @@ function componi(scheda, opz) {
     return { oggetto: oggetto, testo: testo };
 }
 
+/* DOV'E' CADUTA LA LINEA. Un errore senza la risposta del server (tempo
+   scaduto, connessione caduta, DNS, TLS) non dice da solo se il messaggio
+   e' partito: prima del "via al testo" (la risposta 354 al comando DATA)
+   non e' partito niente, ed e' un guasto del canale che si riprova; dopo,
+   il messaggio puo' essere arrivato lo stesso, e l'esito e' INCERTO: non
+   si ripete (meglio una lettera in meno che due uguali). Lo sa il
+   trasporto, con il registro dei comandi (transactionLog) e un logger che
+   guarda solo DATA e la risposta dopo: il testo e la password non passano
+   di li'. Lo stesso del giro "l'invito vale per due persone". */
+function tracciatore() {
+    const t = { data: false, corpo: false };
+    const zitto = () => { };
+    const logger = {
+        trace: zitto, info: zitto, warn: zitto, error: zitto, fatal: zitto,
+        debug: (d, m) => {
+            if (!d) return;
+            const riga = String(m || '').trim();
+            if (d.tnx === 'client' && /^DATA$/i.test(riga)) t.data = true;
+            else if (d.tnx === 'server' && t.data && !t.corpo && /^[23]/.test(riga)) t.corpo = true;
+        }
+    };
+    return { traccia: t, opzioni: { transactionLog: true, logger: logger } };
+}
+/* Che cos'e' un errore della posta: { incerto, canale }.
+   Con la risposta del server (responseCode): un no al destinatario (RCPT TO)
+   o al messaggio (DATA) e' di questa persona e conta; un no prima - il
+   saluto, le credenziali, il mittente ("Sender not valid" di Brevo per un
+   indirizzo non verificato) - e' del canale, vale per tutti, e non consuma
+   i tentativi di nessuno. Senza risposta: incerto se il via al testo era
+   arrivato, altrimenti canale. */
+function classifica(e, traccia) {
+    const conRisposta = Number(e && e.responseCode) > 0;
+    const comando = String((e && e.command) || '').toUpperCase();
+    // una risposta senza il comando (non succede con nodemailer) si prende per un no a questa persona
+    if (conRisposta) return { incerto: false, canale: !!comando && !(comando === 'RCPT TO' || comando === 'DATA') };
+    if (traccia && traccia.corpo) return { incerto: true, canale: false };
+    return { incerto: false, canale: true };
+}
+
 /* La spedizione: una mail sola, solo testo, con i tempi massimi del
-   trasporto delle conferme. Restituisce { ok, errore, a, incerto, canale }:
-   `incerto` quando il server non ha risposto con un suo codice (tempo
-   scaduto, connessione caduta) e la mail potrebbe essere partita lo
-   stesso; `canale` quando il no e' arrivato PRIMA del destinatario (il
-   saluto, le credenziali, il MITTENTE: "Sender not valid" di Brevo per un
-   indirizzo non verificato) - un guasto che vale per tutti, non per
-   questa persona, e che non deve consumare i suoi tentativi. Niente
-   secondo tentativo qui: lo fa il giro, dopo mezz'ora, e solo per un no
-   certo. */
+   trasporto delle conferme. Restituisce { ok, errore, a, incerto, canale }
+   (vedi classifica). Niente secondo tentativo qui: lo fa il giro, dopo
+   mezz'ora, e solo per un no certo o un guasto del canale. */
 async function spedisci(scheda) {
     const a = String((scheda && scheda.email) || '').trim().toLowerCase();
     if (!EMAIL_RE.test(a)) return { ok: false, errore: 'indirizzo mancante', a: a };
@@ -162,17 +195,15 @@ async function spedisci(scheda) {
     };
     const ccn = copiaNascosta();
     if (ccn && ccn !== a) messaggio.bcc = ccn;
+    const tr = tracciatore();
     try {
-        await CONF.trasporto().sendMail(messaggio);
+        await CONF.trasporto(tr.opzioni).sendMail(messaggio);
         return { ok: true, errore: '', a: a };
     } catch (e) {
         const errore = String((e && e.message) || e || 'errore del server di posta').slice(0, 200);
-        const incerto = !(Number(e && e.responseCode) > 0);
-        // il comando a cui il server ha detto no (nodemailer lo scrive): prima del destinatario e' il canale
-        const comando = String((e && e.command) || '').toUpperCase();
-        const canale = !incerto && (/^(CONN|EHLO|HELO|STARTTLS|AUTH|MAIL FROM)/.test(comando) || String((e && e.code) || '') === 'EAUTH');
-        console.error('Sollecito conferma non inviato' + (incerto ? ' (esito incerto)' : (canale ? ' (guasto del canale: ' + comando + ')' : '')) + ':', errore);
-        return { ok: false, errore: errore, a: a, incerto: incerto, canale: canale };
+        const c = classifica(e, tr.traccia);
+        console.error('Sollecito conferma non inviato' + (c.incerto ? ' (esito incerto)' : (c.canale ? ' (guasto del canale: ' + String((e && e.command) || e && e.code || '') + ')' : '')) + ':', errore);
+        return { ok: false, errore: errore, a: a, incerto: c.incerto, canale: c.canale };
     }
 }
 
@@ -217,4 +248,4 @@ async function mittenteVerificato(adesso) {
     return esito;
 }
 
-module.exports = { spento, componi, spedisci, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, copiaNascosta, MITTENTE_EMAIL, MITTENTE_NOME, RISPONDI_A_EMAIL, CCN_EMAIL, VERIFICA_VALE_MS };
+module.exports = { spento, componi, spedisci, tracciatore, classifica, mittenteVerificato, azzeraVerifica, mittenteEmail, mittenteNome, rispondiA, copiaNascosta, MITTENTE_EMAIL, MITTENTE_NOME, RISPONDI_A_EMAIL, CCN_EMAIL, VERIFICA_VALE_MS };

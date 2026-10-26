@@ -155,6 +155,21 @@ async function registraIdentificativo(db, identificativo, dati) {
         gestore: true, quando: Date.now()
     }, { merge: true });
 }
+/* La scheda dell'ISCRIZIONE che trasloca (Modifica dell'area riservata:
+   email o data corrette, documento nuovo): i riferimenti della sua PEC di
+   sollecito puntano al nome vecchio, e le ricevute e la risposta che
+   arrivano dopo non troverebbero piu' nessuno. Qui il nome vecchio diventa
+   quello nuovo. */
+async function ripuntaIscrizione(db, da, a) {
+    da = String(da || ''); a = String(a || '');
+    if (!da || !a || da === a) return 0;
+    const snap = await db.collection(RIF).where('iscrizione', '==', da).get();
+    const b = db.batch();
+    let n = 0;
+    snap.forEach(d => { b.set(db.collection(RIF).doc(d.id), { iscrizione: a }, { merge: true }); n++; });
+    if (n) await b.commit();
+    return n;
+}
 /* Tutti i riferimenti che puntano a queste schede, anche quelli che il loro
    invio attuale non elenca piu' (il primo invio, dopo un secondo invio; i
    riferimenti di una scheda unita a questa da "Modifica"). Trenta schede per
@@ -888,5 +903,6 @@ module.exports = {
     /* Esposti per le prove: il pezzo che decide a chi appartiene un messaggio
        e quello che scrive sulla scheda vanno potuti provare sui messaggi PEC
        veri, senza una casella e senza rete. */
+    ripuntaIscrizione,
     _interni: { trovaScheda, applicaRicevuta, segnaPecSollecito, lavoraMessaggio, trovaParte }
 };

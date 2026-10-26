@@ -148,6 +148,7 @@ let passoMail = 0;
 // l'errore del server finto: di norma uno che non passa
 let erroreMail = () => new Error('550 casella inesistente');
 let durantePosta = null;
+let guastoDopoIlVia = false;
 let sms = [];
 // i mittenti e i domini che Brevo dice di avere (il sollecito personale li chiede prima di spedire)
 let mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }];
@@ -174,12 +175,19 @@ global.fetch = async (url, opz) => {
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return admin;
-    if (nome === 'nodemailer') return { createTransport: () => ({ sendMail: async m => {
+    if (nome === 'nodemailer') return { createTransport: (opts) => ({ sendMail: async m => {
         chiamateSmtp++;
         // quello che succede mentre la mail sta partendo (una prova lo mette, e vale una volta)
         if (durantePosta) { const f = durantePosta; durantePosta = null; await f(); }
         orologio += passoMail;
-        if (mailGuasta > 0) { mailGuasta--; throw erroreMail(); }
+        if (mailGuasta > 0) {
+            mailGuasta--;
+            /* il guasto DOPO il via al testo: il server ha risposto 354 al DATA e poi
+               e' caduto. Lo si racconta al logger del trasporto, come farebbe
+               nodemailer con transactionLog (lib/sollecito-conferma.js, tracciatore) */
+            if (guastoDopoIlVia && opts && opts.logger) { opts.logger.debug({ tnx: 'client' }, 'DATA'); opts.logger.debug({ tnx: 'server' }, '354 End data with <CR><LF>.<CR><LF>'); }
+            throw erroreMail();
+        }
         spedite.push(m); return {};
     } }) };
     return veroRequire.apply(this, arguments);
@@ -238,7 +246,7 @@ function iscritto(id, campi) {
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
     dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; rompiUpdate = {}; passoMail = 0; durantePosta = null;
-    mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }]; dominiBrevo = []; chiamateBrevo = 0; brevoGiu = false; SOLL.azzeraVerifica();
+    mittentiBrevo = [{ email: 'revilaw@nextgenerationbusiness.it', name: 'Revilaw S.p.A.', active: true }]; dominiBrevo = []; chiamateBrevo = 0; brevoGiu = false; guastoDopoIlVia = false; SOLL.azzeraVerifica();
     erroreMail = () => new Error('550 casella inesistente');
     // i recuperi una tantum (la bandiera, il sollecito agli arretrati) li provano le loro prove: qui risultano gia' fatti
     dati.set('meta/confermeEmail', { recupero: 1, sollecitoArretrati: 1 });
@@ -421,16 +429,33 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     await giro();
     esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'e il promemoria del giorno dopo parte lo stesso');
 
-    // la posta non risponde (tempo scaduto, senza un codice): esito incerto, e non si riprova
+    // la posta non risponde PRIMA del via al testo (connessione, DNS, saluto): non e' partito niente, e' il canale: si riprova senza contare
     azzera();
-    erroreMail = () => Object.assign(new Error('Connection timeout'), { code: 'ETIMEDOUT', command: 'CONN' });
+    erroreMail = () => Object.assign(new Error('connect ECONNREFUSED 1.2.3.4:587'), { code: 'ECONNECTION', command: 'CONN' });
     iscritto('muto', partita('muto'));
+    iscritto('muto2', partita('muto2'));
+    avanza(ORA);
+    mailGuasta = 9;
+    r = await giro();
+    const mutaProvata = ['muto', 'muto2'].find(id => scheda(id).sollecitoConferma);
+    sc = scheda(mutaProvata);
+    esigi(chiamateSmtp === 1 && r.corpo.sollecitoBloccato === true && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.canale === true && sc.sollecitoConferma.incerto === false && sc.sollecitoConferma.tentativi === 0,
+        'la connessione rifiutata: guasto del canale, una provata, nessun tentativo consumato', JSON.stringify(sc.sollecitoConferma));
+    mailGuasta = 0;
+    avanza(30 * MIN);
+    await giro();
+    esigi(spedite.length === 2 && ['muto', 'muto2'].every(id => scheda(id).sollecitoConferma.ok === true), 'tornata la linea, partono tutte e due');
+    // la linea cade DOPO il via al testo (la risposta 354 al DATA): il messaggio puo' essere arrivato, esito incerto, e non si riprova
+    azzera();
+    erroreMail = () => Object.assign(new Error('Timeout - closing connection'), { code: 'ETIMEDOUT', command: 'CONN' });
+    guastoDopoIlVia = true;
+    iscritto('caduta', partita('caduta'));
     avanza(ORA);
     mailGuasta = 1;
     r = await giro();
-    sc = scheda('muto');
-    esigi(r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === true && /timeout/i.test(sc.sollecitoConferma.errore),
-        'la posta non risponde: esito incerto', JSON.stringify(sc.sollecitoConferma));
+    sc = scheda('caduta');
+    esigi(r.corpo.solleciti === 1 && r.corpo.errori === 1 && r.corpo.sollecitoBloccato === false && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === true && sc.sollecitoConferma.canale === false,
+        'la linea caduta dopo il via al testo: esito incerto', JSON.stringify(sc.sollecitoConferma));
     avanza(ORA);
     await giro();
     esigi(chiamateSmtp === 1 && spedite.length === 0, 'e non si riprova: meglio una lettera in meno che due uguali');
@@ -708,6 +733,24 @@ prova('La PEC di sollecito, un giorno dopo la lettera, firmata Revilaw S.p.A.', 
     avanza(30 * MIN);
     r = await giro();
     esigi(spedite.length === 2 && ['notte', 'notte2'].every(id => scheda(id).pecSollecito.ok === true && scheda(id).pecSollecito.tentativi === 1), 'sistemato, partono tutte e due');
+    // il gestore PEC irraggiungibile (connessione rifiutata, DNS): guasto del canale, le PEC aspettano e nessuna si perde
+    azzera();
+    dati.set('aziendeInvito/milano~giu1', { pec: 'giu1@pec.it' });
+    dati.set('aziendeInvito/milano~giu2', { pec: 'giu2@pec.it' });
+    ['giu1', 'giu2'].forEach(id => iscritto(id, Object.assign(partita(id), { invitoScheda: 'milano~' + id })));
+    avanza(ORA); await giro();
+    avanza(24 * ORA); await giro();   // i promemoria
+    erroreMail = () => Object.assign(new Error('getaddrinfo ENOTFOUND smtps.pec.aruba.it'), { code: 'EDNS', command: 'CONN' });
+    mailGuasta = 9;
+    r = await giro();
+    const giuProvata = ['giu1', 'giu2'].find(id => scheda(id).pecSollecito);
+    esigi(chiamateSmtp === 5 && r.corpo.pecBloccato === true && scheda(giuProvata).pecSollecito.canale === true && scheda(giuProvata).pecSollecito.incerto === false && scheda(giuProvata).pecSollecito.tentativi === 0
+        && ['giu1', 'giu2'].every(id => scheda(id).confermaInAttesa === true),
+        'il gestore irraggiungibile: una provata, il tentativo non conta, tutte e due restano nel giro', JSON.stringify(scheda(giuProvata).pecSollecito));
+    mailGuasta = 0;
+    avanza(30 * MIN);
+    await giro();
+    esigi(spedite.length === 6 && ['giu1', 'giu2'].every(id => scheda(id).pecSollecito.ok === true), 'tornato, partono tutte e due');
     // un no certo alla casella: si riprova dopo mezz'ora, tre volte, poi basta
     azzera();
     dati.set('aziendeInvito/milano~no', { pec: 'no@pec.it' });

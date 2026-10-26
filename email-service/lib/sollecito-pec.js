@@ -87,13 +87,13 @@ function pecDi(azienda) {
 /* Il trasporto PEC, una connessione sola e con i tempi massimi: la
    funzione ha 60 secondi e il giro ne concede 35 alla fila; una PEC che
    non parte entro una ventina di secondi si riprova al giro dopo. */
-function trasporto() {
+function trasporto(extra) {
     const c = CANALI.configurazione('pec');
-    return nodemailer.createTransport({
+    return nodemailer.createTransport(Object.assign({
         host: c.host, port: c.porta, secure: c.porta === 465,
         auth: { user: c.utente, pass: c.password },
         connectionTimeout: 12000, greetingTimeout: 12000, socketTimeout: 20000, dnsTimeout: 5000
-    });
+    }, extra || {}));
 }
 
 /* La spedizione: { ok, errore, incerto, canale, messageId, a }, con le
@@ -112,16 +112,16 @@ async function spedisci(scheda, azienda, riferimento) {
         text: m.testo,
         messageId: '<' + riferimento + '>'
     };
+    // a che punto cade la linea lo dice il registro dei comandi (lib/sollecito-conferma.js, tracciatore e classifica)
+    const tr = SOLL.tracciatore();
     try {
-        const info = await trasporto().sendMail(messaggio);
+        const info = await trasporto(tr.opzioni).sendMail(messaggio);
         return { ok: true, errore: '', a: a, incerto: false, canale: false, messageId: String((info && info.messageId) || '').slice(0, 300) };
     } catch (e) {
         const errore = String((e && e.message) || e || 'errore del gestore PEC').slice(0, 200);
-        const incerto = !(Number(e && e.responseCode) > 0);
-        const comando = String((e && e.command) || '').toUpperCase();
-        const canale = !incerto && (/^(CONN|EHLO|HELO|STARTTLS|AUTH|MAIL FROM)/.test(comando) || String((e && e.code) || '') === 'EAUTH');
-        console.error('PEC di sollecito non inviata' + (incerto ? ' (esito incerto)' : (canale ? ' (guasto del canale: ' + comando + ')' : '')) + ':', errore);
-        return { ok: false, errore: errore, a: a, incerto: incerto, canale: canale };
+        const c = SOLL.classifica(e, tr.traccia);
+        console.error('PEC di sollecito non inviata' + (c.incerto ? ' (esito incerto)' : (c.canale ? ' (guasto del canale: ' + String((e && e.command) || e && e.code || '') + ')' : '')) + ':', errore);
+        return { ok: false, errore: errore, a: a, incerto: c.incerto, canale: c.canale };
     }
 }
 
