@@ -17031,9 +17031,12 @@
                    quello che avrebbe scritto il modulo con il codice, prende il
                    posto nel conto del codice, e da li' il promemoria "l'invito
                    vale per due persone" vede l'azienda (api/presenze.js,
-                   'assegna-codice'). */
-                + (ev.iscrizioniPerCodice && r.doc && !(r.invito && r.invito.codice)
-                    ? '<button type="button" class="ev-menu-voce ev-codice" data-id="' + esc(r.id) + '">Assegna codice invito</button>'
+                   'assegna-codice'). Non sui posti 2..N di un ordine (gruppo):
+                   il codice e' dell'intestatario, e un compagno con il suo
+                   stesso indirizzo ha il suo stesso identificativo - la voce
+                   ritrova la riga dal documento, non dall'identificativo. */
+                + (ev.iscrizioniPerCodice && r.doc && !r.gruppo && !(r.invito && r.invito.codice)
+                    ? '<button type="button" class="ev-menu-voce ev-codice" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc) + '">Assegna codice invito</button>'
                     : '')
                 : ''),
             /* Le mail che si mandano a QUESTA persona. "Chiedi dati
@@ -18603,7 +18606,7 @@
                 if (r) modaleRichiediDati(ev, r);
             }));
             radice.querySelectorAll('.ev-codice').forEach(b => b.addEventListener('click', () => {
-                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id && String(x.doc || '') === String(b.dataset.doc || ''));
                 if (!r) return;
                 const chi = ((r.nome || '') + ' ' + (r.cognome || '')).trim() || r.email;
                 const scritto = prompt('Codice invito riservato all\'azienda di ' + chi + ' (cinque caratteri, come nella PEC di invito):', '');

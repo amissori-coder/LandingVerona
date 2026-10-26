@@ -1728,10 +1728,14 @@ menu della riga, «Assegna codice invito» (`api/presenze.js`,
 `assegna-codice`): si scrive quello che avrebbe scritto il modulo con il
 codice (codice, ragione sociale e scheda dell'invito, l'azienda del codice, le
 colonne del file, il segno dell'uso sul codice e `stato: 'iscritta'`
-sull'azienda) e, agli eventi con il tetto, il posto nel conto del codice nella
-stessa transazione (`riattiva`): un codice gia' pieno dice di no. Un codice
-gia' sulla scheda non si cambia da li'. Sulla scheda resta `codiceAssegnato:
-{ da, daNome, collab, quando, codice, aziendaPrima }`. Da li' in poi vale
+sull'azienda). La scheda e, agli eventi con il tetto, il posto nel conto del
+codice si scrivono in una transazione che rilegge la scheda
+(`lib/iscrizione-verificata.js`, `assegnaCodice`): un codice gia' pieno dice
+di no, due richieste insieme (un doppio clic, due amministratori) non contano
+due volte ne' su due codici. Un codice gia' sulla scheda non si cambia da li';
+i posti 2..N di un ordine (`gruppo`) non lo prendono, e' dell'intestatario.
+Sulla scheda resta `codiceAssegnato: { da, daNome, collab, quando, codice,
+aziendaPrima }`, che Modifica si porta dietro. Da li' in poi vale
 tutto quanto sopra: la mail parte a un giorno dalla conferma dell'email, al
 primo giro feriale fra le 9 e le 19. Le prove: `node prove/assegna-codice.prove.js`.
 

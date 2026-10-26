@@ -72,12 +72,28 @@ const db = {
             commit: async () => { for (const f of op) await f(); }
         };
     },
+    /* Come Firestore: se un documento letto nella transazione e' cambiato
+       prima della scrittura, la transazione riparte da capo. Senza questo
+       due richieste insieme passerebbero tutte e due anche qui, e la prova
+       dei doppioni non proverebbe niente. */
     async runTransaction(fn) {
-        const scritture = [];
-        const tx = { get: async r => r.get(), set: (r, patch, opz) => { scritture.push([r, patch, opz]); } };
-        const esito = await fn(tx);
-        for (const [r, patch, opz] of scritture) await r.set(patch, opz);
-        return esito;
+        for (let giro = 0; giro < 5; giro++) {
+            const letti = new Map();
+            const scritture = [];
+            const tx = {
+                get: async r => { const s = await r.get(); letti.set(r._chiave, JSON.stringify(dati.get(r._chiave) || null)); return s; },
+                set: (r, patch, opz) => { scritture.push([r, patch, opz]); }
+            };
+            const esito = await fn(tx);
+            // la scrittura avviene "dopo": un'altra richiesta puo' essere passata nel frattempo
+            await new Promise(res => setImmediate(res));
+            let cambiato = false;
+            for (const [k, v] of letti) if (JSON.stringify(dati.get(k) || null) !== v) cambiato = true;
+            if (cambiato) continue;
+            for (const [r, patch, opz] of scritture) await r.set(patch, opz);
+            return esito;
+        }
+        throw new Error('transazione mai riuscita');
     }
 };
 const admin = {
@@ -157,6 +173,8 @@ function scenario() {
     dati.set('iscrizioni/' + idScheda(O), { data: '09/01/2027 08:00:00', pagina: MILANO, nome: 'Olga', cognome: 'Omega', email: 'olga@omega.it', annullato: { quando: 7, da: 'intestatario' } });
     dati.set('codiciInvito/Q2W3E', { codice: 'Q2W3E', evento: 'milano', pagina: 'Milano 26 Febbraio 2027', campagna: 'invito', ragioneSociale: 'OMEGA S.R.L.' });
     dati.set('codiciInvito/NAP01', { codice: 'NAP01', evento: 'napoli', pagina: 'Napoli 2 Ottobre 2026', campagna: 'invito', ragioneSociale: 'DELTA S.R.L.' });
+    // il posto 2 di un ordine di Tina: ha il suo stesso indirizzo e la sua data
+    dati.set('iscrizioni/' + idScheda(T) + '~p2', { data: '12/01/2027 08:00:00', pagina: MILANO, nome: 'Tino', cognome: 'Theta', email: 'tina@theta.it', azienda: 'Theta', gruppo: idScheda(T), origine: 'partecipante', partecipanti: 1 });
     dati.set('iscrizioni/' + idScheda(N), { data: '01/09/2026 10:00:00', pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse', nome: 'Nino', cognome: 'Delta', email: 'nino@delta.it', azienda: 'Delta' });
 }
 
@@ -216,7 +234,38 @@ function scenario() {
     esigi(r.stato === 200 && scheda(T).invitoCodice === 'K7M3P' && JSON.stringify(dati.get('codiciInvito/K7M3P').iscrizioniUsate) === JSON.stringify([idScheda(A), idScheda(T)]),
         'con un posto libero (Bruno ha annullato) Tina entra, e il conto tiene le due attive', JSON.stringify(dati.get('codiciInvito/K7M3P').iscrizioniUsate));
 
+    console.log('\nI posti 2..N di un ordine, e due richieste insieme');
+    r = await chiama({ azione: 'assegna-codice', evento: EV, idIscritto: T, doc: idScheda(T) + '~p2', codice: 'Q2W3E' });
+    esigi(r.stato === 400 && /intestatario/.test(r.corpo.msg) && !dati.get('iscrizioni/' + idScheda(T) + '~p2').invitoCodice && !dati.get('codiciInvito/Q2W3E').iscrizioniUsate,
+        'il posto 2 di un ordine non prende il codice: e\' dell\'intestatario', r.corpo.msg);
+    scenario();
+    let due = await Promise.all([assegna(G, 'P0Y1M'), assegna(G, 'P0Y1M')]);
+    esigi(due.every(x => x.stato === 200 && x.corpo.ok) && due.filter(x => x.corpo.gia).length === 1,
+        'lo stesso codice due volte insieme (un doppio clic): una scrive, l\'altra dice "gia\'"', JSON.stringify(due.map(x => x.corpo)));
+    esigi(dati.get('aziendeInvito/milano~guna@pec-it').iscritti.length === 1 && dati.get('codiciInvito/P0Y1M').usi === 1 && dati.get('codiciInvito/P0Y1M').iscrizioniUsate.length === 1,
+        'e niente si conta due volte: un iscritto sull\'azienda, un uso, un posto');
+    scenario();
+    due = await Promise.all([assegna(G, 'P0Y1M'), assegna(G, 'Q2W3E')]);
+    const vinto = scheda(G).invitoCodice;
+    const perso = vinto === 'P0Y1M' ? 'Q2W3E' : 'P0Y1M';
+    esigi(due.filter(x => x.stato === 200).length === 1 && due.some(x => x.stato === 400 && new RegExp('ha già il codice ' + vinto).test(x.corpo.msg)),
+        'due codici diversi insieme: uno passa, l\'altro dice quale c\'e\' gia\'', JSON.stringify(due.map(x => x.stato + ' ' + (x.corpo.msg || 'ok'))));
+    esigi(JSON.stringify(dati.get('codiciInvito/' + vinto).iscrizioniUsate) === JSON.stringify([idScheda(G)]) && !dati.get('codiciInvito/' + perso).iscrizioniUsate && !dati.get('codiciInvito/' + perso).usi,
+        'la scheda occupa un posto solo, in un codice solo', vinto);
+    esigi(scheda(G).invitoAzienda === dati.get('codiciInvito/' + vinto).ragioneSociale && scheda(G).codiceAssegnato.codice === vinto, 'e azienda e firma sono quelle del codice scritto');
+
+    console.log('\nModifica si porta dietro la firma');
+    scenario();
+    await assegna(G, 'P0Y1M');
+    const sG = scheda(G);
+    r = await chiama({ azione: 'modifica', evento: EV, idIscritto: G, pagina: sG.pagina, campi: { nome: sG.nome, cognome: sG.cognome, email: sG.email, telefono: sG.telefono, azienda: sG.azienda, ruolo: sG.ruolo, data: '26/10/2026 09:16:08', messaggio: '' } });
+    const G2 = 'a.antonini@guna.it|26/10/2026 09:16:08';
+    esigi(r.stato === 200 && !scheda(G) && scheda(G2) && scheda(G2).invitoCodice === 'P0Y1M' && scheda(G2).codiceAssegnato && scheda(G2).codiceAssegnato.aziendaPrima === 'Guna S.p.A.',
+        'corretta l\'ora dell\'iscrizione, la scheda trasloca con il codice e con chi l\'ha assegnato', JSON.stringify(r.corpo).slice(0, 200));
+    esigi(JSON.stringify(dati.get('codiciInvito/P0Y1M').iscrizioniUsate) === JSON.stringify([idScheda(G2)]), 'e il posto nel codice segue la scheda');
+
     console.log('\nNapoli: il codice si scrive, il conto no');
+    scenario();
     r = await chiama({ azione: 'assegna-codice', evento: 'napoli-2026-10-02', idIscritto: N, doc: idScheda(N), codice: 'NAP01' });
     const n = scheda(N);
     esigi(r.stato === 200 && n.invitoCodice === 'NAP01' && n.invitoAzienda === 'DELTA S.R.L.' && n.selezionata === true, 'a Napoli la scheda prende il codice', JSON.stringify(r.corpo));
@@ -224,6 +273,8 @@ function scenario() {
         'ma l\'azienda scritta resta, e sul codice c\'e\' l\'uso, non il posto (a Napoli il codice non tiene il conto)');
 
     console.log('\nE il promemoria della seconda persona la vede');
+    await assegna(G, 'P0Y1M');
+    await assegna(T, 'K7M3P');
     const schedeP2 = [G, A, T].map(id => ({ id: idScheda(id), x: scheda(id) }));
     const unGiornoMeno = ORA_CONFERMA + P2.DOPO_CONFERMA_MS - 60000;
     const unGiorno = ORA_CONFERMA + P2.DOPO_CONFERMA_MS;
