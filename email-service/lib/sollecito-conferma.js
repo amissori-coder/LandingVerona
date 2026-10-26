@@ -15,10 +15,16 @@
 
    La manda il giro delle conferme (lib/giro-conferme.js, 'sollecito'):
    una per scheda, dalle 8 alle 21 ora di Milano (di notte aspetta), e
-   se il server di posta dice no si riprova dopo mezz'ora, tre tentativi
-   in tutto. Il promemoria di sempre (mail e SMS, a un giorno) resta.
-   Il segno sta sulla scheda: `sollecitoConferma: { quando, ok, errore,
-   tentativi, a }`; Modifica se lo porta dietro con la conferma.
+   solo finche' la mail ha meno di ventidue ore: oltre e' in arrivo il
+   promemoria di sempre (mail e SMS, a un giorno), e due mail a dieci
+   minuti non le vuole nessuno. Se il server di posta dice NO (una
+   risposta con il suo codice) si riprova dopo mezz'ora, tre tentativi
+   in tutto; se non risponde (tempo scaduto, connessione caduta), o la
+   funzione si chiude a meta', l'esito e' INCERTO e non si riprova:
+   meglio una lettera in meno che due uguali - il promemoria arriva lo
+   stesso. Il segno sta sulla scheda: `sollecitoConferma: { quando, ok,
+   incerto, errore, tentativi, a }`; Modifica se lo porta dietro con la
+   conferma.
 
    IL MITTENTE. Brevo accetta come mittente solo un indirizzo verificato
    (o un dominio autenticato): `andreamissori@revilaw.it` va aggiunto fra
@@ -79,7 +85,8 @@ function componi(scheda) {
             + mailDiConferma() + ' con il pulsante «Conferma il tuo indirizzo email».',
         'Le chiedo di cercarla anche nella posta indesiderata (spam) o nelle cartelle Promozioni e Aggiornamenti, dove a volte la spostano i filtri. '
             + 'Se la trova, basta un clic sul pulsante: subito dopo '
-            + (online ? 'riceverà la conferma con il collegamento per seguire i lavori online.' : 'riceverà l\'invito personale in PDF da presentare all\'accreditamento.'),
+            + (online ? 'riceverà la conferma dell\'iscrizione; le istruzioni per seguire i lavori online le arriveranno con un\'email a parte prima dell\'evento.'
+                : 'riceverà l\'invito personale in PDF da presentare all\'accreditamento.'),
         'Se invece non la trova, mi risponda pure a questa email e predisporremo un nuovo invio.',
         'Resto a disposizione per qualsiasi chiarimento.',
         'Cordiali saluti,',
@@ -89,8 +96,11 @@ function componi(scheda) {
 }
 
 /* La spedizione: una mail sola, solo testo, con i tempi massimi del
-   trasporto delle conferme. Restituisce { ok, errore, a }. Niente secondo
-   tentativo qui: lo fa il giro, dopo mezz'ora. */
+   trasporto delle conferme. Restituisce { ok, errore, a, incerto }:
+   `incerto` quando il server non ha risposto con un suo codice (tempo
+   scaduto, connessione caduta) e la mail potrebbe essere partita lo
+   stesso. Niente secondo tentativo qui: lo fa il giro, dopo mezz'ora, e
+   solo per un no certo. */
 async function spedisci(scheda) {
     const a = String((scheda && scheda.email) || '').trim().toLowerCase();
     if (!EMAIL_RE.test(a)) return { ok: false, errore: 'indirizzo mancante', a: a };
@@ -109,8 +119,9 @@ async function spedisci(scheda) {
         return { ok: true, errore: '', a: a };
     } catch (e) {
         const errore = String((e && e.message) || e || 'errore del server di posta').slice(0, 200);
-        console.error('Sollecito conferma non inviato:', errore);
-        return { ok: false, errore: errore, a: a };
+        const incerto = !(Number(e && e.responseCode) > 0);
+        console.error('Sollecito conferma non inviato' + (incerto ? ' (esito incerto)' : '') + ':', errore);
+        return { ok: false, errore: errore, a: a, incerto: incerto };
     }
 }
 

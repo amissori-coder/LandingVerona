@@ -82,6 +82,8 @@ function doc(coll, id) {
         // come Firestore: su un documento che non c'e' update fallisce (NOT_FOUND, codice 5) e non lo crea
         update: async (patch) => {
             if (!dati.has(chiave)) { const e = new Error('5 NOT_FOUND: No document to update: ' + chiave); e.code = 5; throw e; }
+            // una scrittura che non riesce (una prova lo mette, e vale una volta): Firestore giu' per un attimo
+            if (rompiUpdate[chiave]) { delete rompiUpdate[chiave]; const e = new Error('14 UNAVAILABLE'); e.code = 14; throw e; }
             dati.set(chiave, applica(dati.get(chiave), patch, true));
         }
     };
@@ -91,6 +93,7 @@ function doc(coll, id) {
    quello che succede nel frattempo (una cancellazione, una conferma). */
 let fraRicercaELavoro = null;
 let alLeggere = {};
+let rompiUpdate = {};
 let letture = 0;
 function interroga(coll, filtri, max) {
     return {
@@ -215,7 +218,7 @@ function iscritto(id, campi) {
 }
 function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
-    dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; passoMail = 0; durantePosta = null;
+    dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; rompiUpdate = {}; passoMail = 0; durantePosta = null;
     erroreMail = () => new Error('550 casella inesistente');
     // il recupero una tantum lo prova la sua prova: qui risulta gia' fatto
     dati.set('meta/confermeEmail', { recupero: 1 });
@@ -351,8 +354,8 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     iscritto('online', Object.assign(partita('online'), { nome: 'Ada', cognome: 'Rossi', azienda: '', modalita: 'online' }));
     avanza(ORA);
     await giro();
-    esigi(spedite.length === 1 && /La sua richiesta risulta registrata/.test(spedite[0].text) && /riceverà la conferma con il collegamento per seguire i lavori online/.test(spedite[0].text)
-        && !/invito personale in PDF/.test(spedite[0].text), 'online e senza azienda: il testo lo sa', spedite[0] && spedite[0].text.slice(0, 400));
+    esigi(spedite.length === 1 && /La sua richiesta risulta registrata/.test(spedite[0].text) && /le istruzioni per seguire i lavori online le arriveranno con un'email a parte/.test(spedite[0].text)
+        && !/invito personale in PDF/.test(spedite[0].text) && !/collegamento/.test(spedite[0].text), 'online e senza azienda: il testo lo sa, e non promette un collegamento che non c\'e\'', spedite[0] && spedite[0].text.slice(0, 400));
 
     // di notte aspetta: la mail parte alle 23, il sollecito alle 8
     azzera();
@@ -371,13 +374,14 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
 
     // la posta dice no: si riprova dopo mezz'ora, tre volte, poi resta il promemoria
     azzera();
+    erroreMail = () => Object.assign(new Error('550 casella inesistente'), { responseCode: 550 });
     iscritto('giu', partita('giu'));
     avanza(ORA);
     mailGuasta = 1;
     r = await giro();
     sc = scheda('giu');
-    esigi(spedite.length === 0 && r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.tentativi === 1 && /550/.test(sc.sollecitoConferma.errore),
-        'la posta dice no: resta il tentativo con l\'errore', JSON.stringify(sc.sollecitoConferma));
+    esigi(spedite.length === 0 && r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === false && sc.sollecitoConferma.tentativi === 1 && /550/.test(sc.sollecitoConferma.errore),
+        'la posta dice no (con il suo codice): resta il tentativo con l\'errore', JSON.stringify(sc.sollecitoConferma));
     avanza(10 * MIN);
     await giro();
     esigi(chiamateSmtp === 1, 'dieci minuti dopo non si riprova ancora');
@@ -395,6 +399,59 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     avanza(22 * ORA);
     await giro();
     esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'e il promemoria del giorno dopo parte lo stesso');
+
+    // la posta non risponde (tempo scaduto, senza un codice): esito incerto, e non si riprova
+    azzera();
+    erroreMail = () => Object.assign(new Error('Connection timeout'), { code: 'ETIMEDOUT', command: 'CONN' });
+    iscritto('muto', partita('muto'));
+    avanza(ORA);
+    mailGuasta = 1;
+    r = await giro();
+    sc = scheda('muto');
+    esigi(r.corpo.solleciti === 1 && r.corpo.errori === 1 && sc.sollecitoConferma.ok === false && sc.sollecitoConferma.incerto === true && /timeout/i.test(sc.sollecitoConferma.errore),
+        'la posta non risponde: esito incerto', JSON.stringify(sc.sollecitoConferma));
+    avanza(ORA);
+    await giro();
+    esigi(chiamateSmtp === 1 && spedite.length === 0, 'e non si riprova: meglio una lettera in meno che due uguali');
+    avanza(22 * ORA);
+    await giro();
+    esigi(spedite.length === 1 && /^Promemoria:/.test(spedite[0].subject), 'il promemoria del giorno dopo arriva lo stesso');
+
+    // la mail e' partita ma la traccia non si e' scritta (Firestore giu' un attimo): non si rimanda
+    azzera();
+    iscritto('traccia', partita('traccia'));
+    avanza(ORA);
+    rompiUpdate['iscrizioni/traccia'] = true;
+    r = await giro();
+    sc = scheda('traccia');
+    esigi(spedite.length === 1 && r.corpo.solleciti === 1 && sc.sollecitoConferma.incerto === true && sc.sollecitoConferma.errore === 'in corso' && sc.sollecitoConferma.tentativi === 1,
+        'partita, traccia non scritta: resta la presa, "in corso" e incerta', JSON.stringify(sc.sollecitoConferma));
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 1, 'un\'ora dopo non riparte: la stessa lettera due volte sarebbe peggio');
+    avanza(22 * ORA);
+    await giro();
+    esigi(spedite.length === 2 && /^Promemoria:/.test(spedite[1].subject), 'e il promemoria arriva');
+
+    // una scheda vecchia (il rilascio, un recupero): a ventidue ore e oltre tocca al promemoria, non a tutti e due
+    azzera();
+    const partitaDa = (id, ore) => Object.assign(partita(id), { ricevuto: orologio - ore * ORA, mailConferma: { quando: orologio - ore * ORA, ok: true, errore: '', via: 'iscrizione', a: id + '@studio.it' } });
+    iscritto('vecchia', partitaDa('vecchia', 23));
+    iscritto('vecchissima', partitaDa('vecchissima', 48));
+    iscritto('recente', partitaDa('recente', 21));
+    r = await giro();
+    const aChi = (m) => m.to.split('@')[0] + (/^Promemoria:/.test(m.subject) ? ':promemoria' : ':sollecito');
+    esigi(spedite.length === 2 && spedite.map(aChi).sort().join(' ') === 'recente:sollecito vecchissima:promemoria'
+        && !scheda('vecchia').sollecitoConferma && !scheda('vecchissima').sollecitoConferma,
+        'a ventuno ore il sollecito; a due giorni il promemoria e basta; a ventitre ore niente, per ora', JSON.stringify(spedite.map(aChi)));
+    await giro();
+    esigi(spedite.length === 2, 'il giro dopo non aggiunge niente');
+    avanza(ORA + 10 * MIN);
+    await giro();
+    esigi(spedite.length === 3 && aChi(spedite[2]) === 'vecchia:promemoria' && !scheda('vecchia').sollecitoConferma, 'a un giorno il promemoria a chi aveva ventitre ore, senza sollecito');
+    avanza(2 * ORA);
+    await giro();
+    esigi(spedite.length === 4 && aChi(spedite[3]) === 'recente:promemoria', 'e a chi ha avuto il sollecito, tre ore dopo, il promemoria');
 
     // spento: si salta, e il promemoria resta
     azzera();

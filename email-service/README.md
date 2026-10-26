@@ -1648,7 +1648,7 @@ con le sue pause) e per ognuna:
 | confermata, annullata, inserita a mano, importata senza mail, da un Portale (Eventbrite, desk), di un evento che non chiede la conferma, segnata **presente** (il documento `presenze/<evento~idIscritto>`, come per i promemoria degli eventi), o **dopo la fine dell'evento** (`fine` in `VERIFICATA.EVENTI`: Milano, 26 febbraio 2027 alle 18) | toglie la bandiera, non spedisce niente |
 | nessuna `mailConferma` per l'indirizzo di adesso (la funzione si e' chiusa prima di spedire, o l'indirizzo e' stato corretto) | passati **5 minuti** dall'iscrizione spedisce (`via: 'automatico'`), con l'SMS "conferma la tua email" se non era partito |
 | `mailConferma.ok` falso | riprova dopo **5 minuti, 30 minuti, 2 ore e 12 ore** dall'ultimo tentativo: **cinque tentativi** in tutto, poi toglie la bandiera e la lascia allo staff ("mail non inviata" nell'elenco) |
-| `mailConferma.ok` vero e niente clic da **un'ora** | **il sollecito personale** (sotto), solo dalle 8 alle 21 ora di Milano; se il server di posta dice no si riprova dopo **30 minuti**, tre tentativi in tutto; resta `sollecitoConferma: { quando, ok, errore, tentativi, a }`, e la scheda resta nel giro per il promemoria |
+| `mailConferma.ok` vero e niente clic da **un'ora** (e da meno di **22 ore**: oltre tocca al promemoria) | **il sollecito personale** (sotto), solo dalle 8 alle 21 ora di Milano; se il server di posta dice **no** (una risposta con il suo codice) si riprova dopo **30 minuti**, tre tentativi in tutto; se non risponde, o la funzione si chiude a meta', l'esito e' **incerto** e non si ripete; resta `sollecitoConferma: { quando, ok, incerto, errore, tentativi, a }`, e la scheda resta nel giro per il promemoria |
 | `mailConferma.ok` vero e niente clic da **24 ore** | **UN promemoria**, **solo dalle 8 alle 21 ora di Milano** (di notte aspetta, con la bandiera): la stessa mail con "Promemoria:" davanti all'oggetto e l'SMS del promemoria; resta `promemoriaConferma: { quando, mail, sms }` e la bandiera se ne va. Mai un secondo promemoria |
 
 **Il sollecito personale** (`lib/sollecito-conferma.js`). A un'ora dalla mail
@@ -1659,11 +1659,13 @@ una lettera, non una circolare: e' quello che le fa passare i filtri). Dice
 che la richiesta per l'azienda e' registrata ma l'iscrizione non e' completa,
 di cercare la mail di `noreply@nextgenerationbusiness.it` anche nello spam e
 nelle cartelle Promozioni e Aggiornamenti, che dopo il clic arriva l'invito
-in PDF (o, per chi segue online, il collegamento), e di rispondere se non la
-trova. Personalizzata con nome, azienda del modulo, data e sede dell'evento
+in PDF (per chi segue online: la conferma, e le istruzioni con un'email a
+parte), e di rispondere se non la trova. Personalizzata con nome, azienda del modulo, data e sede dell'evento
 (`CONF.dettagliEvento`); tag Brevo `X-Mailin-Tag: sollecito-conferma`. Una
-per scheda; nell'area riservata il suggerimento sulla riga dice "Sollecito
-personale mandato il ...". Il mittente va verificato su Brevo una volta
+per scheda, e solo a chi e' iscritto da **dopo la pubblicazione** o da meno
+di ventidue ore: chi aspettava gia' da prima ha il promemoria di sempre.
+Nell'area riservata il suggerimento sulla riga dice "Sollecito personale
+mandato il ..." (o "NON partito", "dall'esito incerto", con il motivo). Il mittente va verificato su Brevo una volta
 (Mittenti e IP › Aggiungi mittente); si cambia con `SOLLECITO_FROM_EMAIL` /
 `SOLLECITO_FROM_NAME`, e `SOLLECITO_CONFERMA=no` lo spegne.
 
