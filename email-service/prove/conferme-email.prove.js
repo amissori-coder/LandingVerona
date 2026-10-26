@@ -220,8 +220,8 @@ function scheda(id) { return dati.get('iscrizioni/' + id) || {}; }
 function azzera() {
     dati.clear(); spedite = []; sms = []; mailGuasta = 0; chiamateSmtp = 0; orologio = INIZIO; fraRicercaELavoro = null; alLeggere = {}; rompiUpdate = {}; passoMail = 0; durantePosta = null;
     erroreMail = () => new Error('550 casella inesistente');
-    // il recupero una tantum lo prova la sua prova: qui risulta gia' fatto
-    dati.set('meta/confermeEmail', { recupero: 1 });
+    // i recuperi una tantum (la bandiera, il sollecito agli arretrati) li provano le loro prove: qui risultano gia' fatti
+    dati.set('meta/confermeEmail', { recupero: 1, sollecitoArretrati: 1 });
 }
 
 const prove = [];
@@ -484,6 +484,59 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     await giro();
     esigi(spedite.length === 1 && spedite[0].from === '"Segreteria NGB" <segreteria@revilaw.it>' && spedite[0].replyTo === 'segreteria@revilaw.it', 'il mittente dalle variabili', spedite[0] && spedite[0].from);
     delete process.env.SOLLECITO_FROM_EMAIL; delete process.env.SOLLECITO_FROM_NAME;
+});
+
+prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il promemoria', async () => {
+    azzera();
+    dati.set('meta/confermeEmail', { recupero: 1 });
+    const giorni = n => orologio - n * GIORNO;
+    const vecchia = (id, n, altro) => iscritto(id, Object.assign({ confermaInAttesa: undefined, sollecitoConferma: undefined, ricevuto: giorni(n),
+        mailConferma: { quando: giorni(n), ok: true, errore: '', via: 'iscrizione', a: id + '@studio.it' } }, altro || {}));
+    vecchia('arr', 3, { promemoriaConferma: { quando: giorni(2), mail: true, sms: true } });          // promemoria gia' avuto, fuori dal giro
+    vecchia('arr2', 2, {});                                                                           // fuori dal giro senza promemoria (caso raro)
+    iscritto('fresca', { ricevuto: orologio - 2 * ORA, sollecitoConferma: undefined, mailConferma: { quando: orologio - 2 * ORA, ok: true, a: 'fresca@studio.it' } }); // nel giro, due ore
+    vecchia('fatta', 3, { promemoriaConferma: { quando: giorni(2) }, emailConfermata: { quando: giorni(1), come: 'mail' } });
+    vecchia('annullata', 3, { annullato: { quando: giorni(2), da: 'intestatario' } });
+    vecchia('manuale', 3, { inserito: { da: 'x', quando: 1 } });
+    vecchia('giafatto', 3, { sollecitoConferma: { quando: giorni(1), ok: true, tentativi: 1 } });
+    vecchia('maipartita', 3, { mailConferma: { quando: giorni(3), ok: false, errore: 'x', a: 'maipartita@studio.it' } });
+    vecchia('insala', 3, { promemoriaConferma: { quando: giorni(2) } });
+    dati.set('presenze/' + GIRO.idPresenza(V.eventoDi(MILANO), scheda('insala')), { stato: 'presente' });
+    vecchia('napoli', 3, { pagina: 'Napoli 2 Ottobre 2026 - Manifestazione di interesse' });
+    let r = await giro();
+    const m = dati.get('meta/confermeEmail') || {};
+    esigi(r.corpo.arretrati === 3 && m.sollecitoArretrati === 1 && m.sollecitiArretrati === 3, 'segnate le tre fuori dal giro che aspettano ancora con la mail partita, e scritto che e\' fatto', JSON.stringify(r.corpo));
+    esigi(['arr', 'arr2', 'insala'].every(id => scheda(id).sollecitoArretrato === true) && !scheda('fresca').sollecitoArretrato && scheda('fresca').confermaInAttesa === true
+        && ['fatta', 'annullata', 'manuale', 'giafatto', 'maipartita', 'napoli'].every(id => !scheda(id).sollecitoArretrato),
+        'quali: non chi e\' gia\' nel giro (segue la strada di tutti), ne\' le confermate, annullate, inserite a mano, gia\' sollecitate, senza mail partita, di Napoli');
+    const aChi = x => x.to.split('@')[0];
+    esigi(spedite.length === 3 && spedite.map(aChi).sort().join(' ') === 'arr arr2 fresca' && spedite.every(x => /andreamissori@revilaw\.it/.test(x.from) && !x.html),
+        'nello stesso giro, di giorno, il sollecito alle tre (a chi e\' in sala no: la presenza si rilegge)', JSON.stringify(spedite.map(aChi)));
+    esigi(scheda('arr').sollecitoConferma.ok === true && !('confermaInAttesa' in scheda('insala')), 'sulla scheda il segno; chi e\' in sala esce dal giro');
+    r = await giro();
+    esigi(spedite.length === 3 && r.corpo.arretrati === 0 && !('confermaInAttesa' in scheda('arr')) && !('confermaInAttesa' in scheda('arr2')) && scheda('fresca').confermaInAttesa === true,
+        'il giro dopo: niente di nuovo, il recupero non si ripete, gli arretrati escono (niente promemoria dopo la lettera), chi era nel giro ci resta');
+    avanza(GIORNO);
+    await giro();
+    esigi(spedite.length === 4 && spedite[3].to === 'fresca@studio.it' && /^Promemoria:/.test(spedite[3].subject), 'nessuno riceve il sollecito due volte; a chi era nel giro, a un giorno, il promemoria di sempre');
+    // di notte il recupero segna, e il sollecito aspetta il mattino
+    azzera();
+    dati.set('meta/confermeEmail', { recupero: 1 });
+    orologio = DateVera.parse('2027-01-15T23:00:00+01:00');
+    vecchia('notturna', 3, { promemoriaConferma: { quando: giorni(2) } });
+    r = await giro();
+    esigi(r.corpo.arretrati === 1 && spedite.length === 0 && r.corpo.aspettano === 1, 'alle 23 si segna e si aspetta');
+    orologio = DateVera.parse('2027-01-16T09:00:00+01:00');
+    await giro();
+    esigi(spedite.length === 1 && spedite[0].to === 'notturna@studio.it', 'alle 9 parte');
+    // spento: il recupero non segna niente, e non si consuma
+    azzera();
+    dati.set('meta/confermeEmail', { recupero: 1 });
+    process.env.SOLLECITO_CONFERMA = 'no';
+    vecchia('spenta', 3, { promemoriaConferma: { quando: giorni(2) } });
+    r = await giro();
+    esigi(r.corpo.arretrati === 0 && !(dati.get('meta/confermeEmail') || {}).sollecitoArretrati && !scheda('spenta').sollecitoArretrato, 'spento: niente, e il recupero resta da fare');
+    delete process.env.SOLLECITO_CONFERMA;
 });
 
 prova('Partita e mai cliccata: dopo un giorno UN promemoria, mail e SMS', async () => {

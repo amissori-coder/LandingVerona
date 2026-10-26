@@ -1662,10 +1662,19 @@ nelle cartelle Promozioni e Aggiornamenti, che dopo il clic arriva l'invito
 in PDF (per chi segue online: la conferma, e le istruzioni con un'email a
 parte), e di rispondere se non la trova. Personalizzata con nome, azienda del modulo, data e sede dell'evento
 (`CONF.dettagliEvento`); tag Brevo `X-Mailin-Tag: sollecito-conferma`. Una
-per scheda, e solo a chi e' iscritto da **dopo la pubblicazione** o da meno
-di ventidue ore: chi aspettava gia' da prima ha il promemoria di sempre.
-Nell'area riservata il suggerimento sulla riga dice "Sollecito personale
-mandato il ..." (o "NON partito", "dall'esito incerto", con il motivo). Il mittente va verificato su Brevo una volta
+per scheda. Nell'area riservata il suggerimento sulla riga dice "Sollecito
+personale mandato il ..." (o "NON partito", "dall'esito incerto", con il
+motivo).
+
+**Gli arretrati, una volta** (`recuperoSollecito`, `VERSIONE_SOLLECITO`). Al
+primo giro dopo la pubblicazione si rilegge l'archivio e chi aspettava gia' da
+prima - fuori dal giro, con il promemoria gia' ricevuto o la mail di giorni
+fa - viene segnato (`sollecitoArretrato`) e rimesso nel giro: riceve il
+sollecito, di giorno, poche schede per giro, con la presenza riletta prima
+di spedire, e poi esce (dopo la lettera non arriva un altro promemoria). Chi
+era ancora nel giro segue la strada di tutti. Su `meta/confermeEmail` resta
+`sollecitoArretrati: 1` con `sollecitiArretrati` (quante). Spento
+(`SOLLECITO_CONFERMA=no`) il recupero non parte e resta da fare. Il mittente va verificato su Brevo una volta
 (Mittenti e IP › Aggiungi mittente); si cambia con `SOLLECITO_FROM_EMAIL` /
 `SOLLECITO_FROM_NAME`, e `SOLLECITO_CONFERMA=no` lo spegne.
 

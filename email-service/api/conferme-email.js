@@ -47,7 +47,7 @@ module.exports = async (req, res) => {
         const conti = await GIRO.giro(admin.firestore());
         // i conti finiscono nei log di Vercel: e' li' che si guarda se il giro lavora
         if (conti.limitePieno || conti.rimaste) console.warn('Conferme email:', JSON.stringify(conti));
-        else if (conti.inviate || conti.riprovate || conti.solleciti || conti.promemoria || conti.errori || conti.occupato) console.log('Conferme email:', JSON.stringify(conti));
+        else if (conti.inviate || conti.riprovate || conti.solleciti || conti.arretrati || conti.promemoria || conti.errori || conti.occupato) console.log('Conferme email:', JSON.stringify(conti));
         res.status(200).json(Object.assign({ ok: true }, conti));
     } catch (e) {
         console.error('Conferme email:', String((e && e.message) || e).slice(0, 200));

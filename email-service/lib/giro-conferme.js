@@ -118,6 +118,12 @@ const PROMEMORIA_ALLE = 21;
 const LUCCHETTO_MS = 120 * 1000;
 // alzarla rifa' il recupero (vedi in cima) al giro dopo
 const VERSIONE_RECUPERO = 1;
+/* IL SOLLECITO AGLI ARRETRATI, una volta: alla pubblicazione del sollecito
+   personale chi aspettava gia' da prima (anche con il promemoria gia'
+   ricevuto, e fuori dal giro) lo riceve lo stesso, una volta. Si rilegge
+   l'archivio, si segnano le schede (`sollecitoArretrato`) e si rimette la
+   bandiera; da li' le prende il giro, di giorno, poche per volta. */
+const VERSIONE_SOLLECITO = 1;
 // l'ordine del lavoro (vedi PRIMA I GUASTI): l'attesa non costa niente e non entra nel tempo
 const PRIORITA = { invia: 0, riprova: 0, togli: 1, sollecito: 2, promemoria: 3, aspetta: 4 };
 
@@ -173,19 +179,28 @@ function cosaFare(x, ora, presenza) {
         const pausa = PAUSE_MS[Math.min(falliti, PAUSE_MS.length) - 1];
         return ora - (Number(m.quando) || 0) >= pausa ? { fare: 'riprova' } : { fare: 'aspetta' };
     }
-    if (x.promemoriaConferma) return { fare: 'togli', perche: 'promemoria gia\' mandato' };
     /* Il sollecito personale, prima del promemoria: a un'ora dalla mail
        partita, finche' non e' partito (o i tentativi sono finiti), e con lo
        stesso orario di giorno. Spento, si salta e si passa al promemoria. */
     const so = x.sollecitoConferma && typeof x.sollecitoConferma === 'object' ? x.sollecitoConferma : null;
     /* fatto: partito; o i tentativi finiti; o un esito incerto (la posta non
        ha risposto, o la funzione si e' chiusa fra la presa e la traccia): meglio
-       una lettera in meno che due uguali. E solo finche' il promemoria non e'
-       alle porte: una scheda vecchia (il rilascio, un recupero) ha quello. */
+       una lettera in meno che due uguali. */
     const soFatto = !!so && (so.ok === true || so.incerto === true || (Number(so.tentativi) || 0) >= SOLLECITO_MAX_TENTATIVI);
+    const soRiprova = !!so && ora - (Number(so.quando) || 0) < SOLLECITO_RIPROVA_MS;
+    /* Gli arretrati (recuperoSollecito): anche con il promemoria gia' mandato
+       e la mail di giorni fa, una volta; poi la scheda esce, com'era: il
+       sollecito e' la sua ultima mail, non l'anticamera di un promemoria. */
+    if (x.sollecitoArretrato === true) {
+        if (soFatto || SOLL.spento()) return { fare: 'togli', perche: 'sollecito agli arretrati fatto' };
+        if (soRiprova) return { fare: 'aspetta', perche: 'sollecito da riprovare' };
+        return diGiorno(ora) ? { fare: 'sollecito' } : { fare: 'aspetta', perche: 'notte' };
+    }
+    if (x.promemoriaConferma) return { fare: 'togli', perche: 'promemoria gia\' mandato' };
+    // e solo finche' il promemoria non e' alle porte: una scheda vecchia ha quello
     if (!soFatto && !SOLL.spento() && ora - (Number(m.quando) || 0) < SOLLECITO_ENTRO_MS) {
         if (ora - (Number(m.quando) || 0) < SOLLECITO_DOPO_MS) return { fare: 'aspetta' };
-        if (so && ora - (Number(so.quando) || 0) < SOLLECITO_RIPROVA_MS) return { fare: 'aspetta', perche: 'sollecito da riprovare' };
+        if (soRiprova) return { fare: 'aspetta', perche: 'sollecito da riprovare' };
         return diGiorno(ora) ? { fare: 'sollecito' } : { fare: 'aspetta', perche: 'notte' };
     }
     if (ora - (Number(m.quando) || 0) < PROMEMORIA_DOPO_MS) return { fare: 'aspetta' };
@@ -405,6 +420,42 @@ async function recupero(db) {
     return segnate;
 }
 
+/* Il sollecito agli arretrati, una volta (VERSIONE_SOLLECITO): le schede
+   di un evento con la conferma, dal modulo del sito, con la mail con il
+   pulsante partita e mai cliccata, senza il sollecito. Anche quelle fuori
+   dal giro: con il promemoria gia' ricevuto, o di giorni fa. Si segnano
+   (`sollecitoArretrato`) e si rimette la bandiera: da li' le prende il
+   giro, di giorno, poche per volta, con la presenza riletta prima di
+   spedire (chi e' gia' in sala non riceve niente), e dopo il sollecito
+   escono. Chi e' ancora NEL giro (la bandiera alzata) non e' un arretrato:
+   segue la strada di tutti - il sollecito se la mail ha meno di ventidue
+   ore, poi il promemoria. Una scheda confermata, annullata, inserita a
+   mano, importata o di un altro evento resta fuori. */
+async function recuperoSollecito(db) {
+    const rif = rifMeta(db);
+    const s = await rif.get();
+    if (s.exists && Number((s.data() || {}).sollecitoArretrati) >= VERSIONE_SOLLECITO) return 0;
+    if (SOLL.spento()) return 0;
+    const snap = await db.collection('iscrizioni').get();
+    const docs = [];
+    snap.forEach(d => docs.push(d));
+    let batch = db.batch(), nel = 0, segnate = 0;
+    for (const d of docs) {
+        const x = d.data() || {};
+        if (x.sollecitoConferma || x.sollecitoArretrato || x.confermaInAttesa === true) continue;
+        const ev = VERIFICATA.eventoDi(x.pagina);
+        if (!ev || (ev.fine && Date.now() >= ev.fine) || !CONF.inAttesaDiConferma(x)) continue;
+        const m = CONF.mailPerIndirizzo(x);
+        if (!m || m.ok !== true) continue;
+        batch.set(d.ref, { confermaInAttesa: true, sollecitoArretrato: true }, { merge: true });
+        nel++; segnate++;
+        if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
+    }
+    if (nel) await batch.commit();
+    await rif.set({ sollecitoArretrati: VERSIONE_SOLLECITO, sollecitoArretratiQuando: Date.now(), sollecitiArretrati: segnate }, { merge: true });
+    return segnate;
+}
+
 /* Il giro. opz.budget (millisecondi) solo per le prove. Restituisce i
    conti, che l'endpoint rimanda tali e quali (nei log di Vercel):
    `occupato` se un altro giro aveva il lucchetto (e questo non ha fatto
@@ -416,7 +467,7 @@ async function giro(db, opz) {
     opz = opz || {};
     const scadenza = Date.now() + (Number(opz.budget) || BUDGET_MS);
     const conti = {
-        occupato: false, recuperate: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0, solleciti: 0, promemoria: 0,
+        occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0, solleciti: 0, promemoria: 0,
         sms: 0, tolte: 0, aspettano: 0, cambiate: 0, errori: 0, rimaste: 0
     };
     const idGiro = crypto.randomBytes(8).toString('hex');
@@ -424,6 +475,8 @@ async function giro(db, opz) {
     try {
         try { conti.recuperate = await recupero(db); }
         catch (e) { console.error('Conferme email: recupero non riuscito:', motivo(e)); }
+        try { conti.arretrati = await recuperoSollecito(db); }
+        catch (e) { console.error('Conferme email: sollecito agli arretrati non segnato:', motivo(e)); }
         const snap = await db.collection('iscrizioni').where('confermaInAttesa', '==', true).limit(LIMITE).get();
         const fila = [];
         snap.forEach(d => fila.push({ id: d.id, c: cosaFare(d.data() || {}, Date.now()) }));
@@ -453,7 +506,7 @@ async function giro(db, opz) {
 }
 
 module.exports = {
-    giro, cosaFare, registrataIl, recupero, idPresenza, idIscritto, oraRoma,
+    giro, cosaFare, registrataIl, recupero, recuperoSollecito, idPresenza, idIscritto, oraRoma,
     PAUSE_MS, MAX_TENTATIVI, PRIMA_ATTESA_MS, PROMEMORIA_DOPO_MS, PROMEMORIA_DALLE, PROMEMORIA_ALLE, LIMITE, LUCCHETTO_MS,
-    SOLLECITO_DOPO_MS, SOLLECITO_ENTRO_MS, SOLLECITO_RIPROVA_MS, SOLLECITO_MAX_TENTATIVI
+    SOLLECITO_DOPO_MS, SOLLECITO_ENTRO_MS, SOLLECITO_RIPROVA_MS, SOLLECITO_MAX_TENTATIVI, VERSIONE_SOLLECITO
 };
