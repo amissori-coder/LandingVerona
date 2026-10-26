@@ -1681,6 +1681,17 @@ lettera, e' la persona che manca. Nell'area riservata il suggerimento sulla riga
 personale mandato il ..." (o "NON partito", "dall'esito incerto", con il
 motivo).
 
+**Lo stato del giro si vede nell'area riservata.** Ogni giro lascia su
+`meta/confermeEmail` l'ultimo giro con i suoi conti (`ultimoGiro: { quando,
+durata, conti }`); `api/iscrizioni.js` lo manda con l'elenco (`giroConferme`,
+anche con la risposta "invariato", perche' cambia da solo), e sotto i totali
+dell'evento una riga dice "ultimo giro delle conferme alle hh:mm · N
+solleciti, N promemoria, N PEC; N in attesa", in rosso con "giro fermo" se
+l'ultimo giro ha piu' di 25 minuti e "solleciti fermi: motivo" quando il
+mittente non passa o la posta e' giu' (il suggerimento ha tutti i conti e
+l'esito del controllo del mittente). Prima un fermo si leggeva solo nei log
+di Vercel.
+
 **Il mittente va verificato su Brevo, e il giro lo controlla.** Brevo spedisce
 solo da un indirizzo verificato o da un dominio autenticato, e **non lo dice
 al momento**: il relay accetta la mail e la scarta dopo, in silenzio ("sender

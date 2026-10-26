@@ -249,7 +249,35 @@ function extraMatching(v) {
      - non c'e' piu' nessuna riga: restano l'indirizzo e la data, che stanno
        dentro l'identificativo ("email|data"), e la riga si marca `sparita`,
        perche' una scheda mezza vuota senza spiegazione sembra un errore. */
-function rispondi(res, lista, fonti, presenze, cancellate, avviso, rev) {
+/* Lo stato del giro delle conferme (lib/giro-conferme.js), per l'area
+   riservata: l'ultimo giro con i suoi conti, il controllo del mittente del
+   sollecito, gli arretrati. Una lettura (meta/confermeEmail); se manca o non
+   si legge, null: servizio appena pubblicato, o nessun giro ancora. */
+async function giroConferme(db) {
+    try {
+        const s = await db.collection('meta').doc('confermeEmail').get();
+        if (!s || !s.exists) return null;
+        const d = s.data() || {};
+        const g = d.ultimoGiro && typeof d.ultimoGiro === 'object' ? d.ultimoGiro : null;
+        const c = g && g.conti && typeof g.conti === 'object' ? g.conti : {};
+        const m = d.sollecitoMittente && typeof d.sollecitoMittente === 'object' ? d.sollecitoMittente : null;
+        const n = k => Number(c[k]) || 0;
+        return {
+            quando: g ? Number(g.quando) || 0 : 0,
+            durata: g ? Number(g.durata) || 0 : 0,
+            conti: g ? {
+                esaminate: n('esaminate'), inviate: n('inviate'), riprovate: n('riprovate'), solleciti: n('solleciti'),
+                sollecitoBloccato: c.sollecitoBloccato === true, sollecitoMotivo: String(c.sollecitoMotivo || '').slice(0, 300), mittenteOk: c.mittenteOk === true,
+                pec: n('pec'), pecEscluse: n('pecEscluse'), pecBloccato: c.pecBloccato === true, promemoria: n('promemoria'),
+                aspettano: n('aspettano'), errori: n('errori'), rimaste: n('rimaste'), arretrati: n('arretrati'), occupato: c.occupato === true
+            } : null,
+            mittente: m ? { quando: Number(m.quando) || 0, ok: m.ok === true, motivo: String(m.motivo || '').slice(0, 300), mittente: String(m.mittente || '').slice(0, 200) } : null,
+            arretrati: { quando: Number(d.sollecitoArretratiQuando) || 0, segnate: Number(d.sollecitiArretrati) || 0 }
+        };
+    } catch (_) { return null; }
+}
+
+function rispondi(res, lista, fonti, presenze, cancellate, avviso, rev, extra) {
     const tolte = {};
     const vive = ordina(lista.filter(x => {
         if (!cancellate[x.id]) return true;
@@ -272,6 +300,8 @@ function rispondi(res, lista, fonti, presenze, cancellate, avviso, rev) {
         aggiornato: Date.now(), fonti: fonti };
     if (typeof rev === 'number') out.rev = rev;
     if (avviso) out.avviso = avviso;
+    // quello che viaggia con l'elenco ma non e' l'elenco (lo stato del giro delle conferme)
+    if (extra && typeof extra === 'object') Object.assign(out, extra);
     res.status(200).json(out);
 }
 
@@ -364,8 +394,10 @@ module.exports = async (req, res) => {
         const arch = await C.archivio(admin.firestore(), { forza: forza });
         const revDati = arch.rev;
         const revNota = typeof body.rev === 'number' ? body.rev : null;
+        // lo stato del giro delle conferme viaggia sempre, anche con l'elenco invariato: cambia da solo ogni dieci minuti
+        const giro = await giroConferme(admin.firestore());
         if (!forza && revNota !== null && revDati >= 0 && revNota === revDati && !arch.avviso) {
-            res.status(200).json({ ok: true, invariato: true, rev: revDati, aggiornato: Date.now() });
+            res.status(200).json({ ok: true, invariato: true, rev: revDati, aggiornato: Date.now(), giroConferme: giro });
             return;
         }
         const presenze = {};
@@ -642,7 +674,7 @@ module.exports = async (req, res) => {
         //    con le sole iscrizioni di Firestore, invece di non mostrare niente.
         const sheetId = process.env.EVENTI_SHEET_ID || '';
         if (!sheetId) {
-            rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso, revDati);
+            rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso, revDati, { giroConferme: giro });
             return;
         }
         const range = process.env.EVENTI_SHEET_RANGE || 'A:Z';
@@ -659,7 +691,7 @@ module.exports = async (req, res) => {
                 ? 'Il foglio non e condiviso con l\'account di servizio, oppure l\'API Google Sheets non e abilitata.'
                 : (r.status === 404 ? 'Foglio non trovato: controlla EVENTI_SHEET_ID.' : 'Lettura del foglio non riuscita (' + r.status + ').');
             if (daFirestore.length) {
-                rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso || msg, revDati);
+                rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso || msg, revDati, { giroConferme: giro });
             } else {
                 res.status(502).json({ ok: false, msg: msg });
             }
@@ -668,7 +700,7 @@ module.exports = async (req, res) => {
         const dati = await r.json();
         const righe = Array.isArray(dati.values) ? dati.values : [];
         if (!righe.length) {
-            rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso, revDati);
+            rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso, revDati, { giroConferme: giro });
             return;
         }
 
@@ -718,7 +750,7 @@ module.exports = async (req, res) => {
         const perId = {};
         iscrizioni.forEach(x => { perId[x.id] = x; });
         daFirestore.forEach(x => { delete perId[x.id]; });
-        rispondi(res, Object.keys(perId).map(k => perId[k]).concat(daFirestore), ['firestore', 'foglio'], presenze, cancellate, arch.avviso, revDati);
+        rispondi(res, Object.keys(perId).map(k => perId[k]).concat(daFirestore), ['firestore', 'foglio'], presenze, cancellate, arch.avviso, revDati, { giroConferme: giro });
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Iscrizioni: lettura non riuscita:', motivo);

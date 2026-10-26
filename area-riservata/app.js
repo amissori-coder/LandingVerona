@@ -1739,8 +1739,10 @@
                 const data = await r.json().catch(() => ({}));
                 // quota: il database ha finito le letture del giorno; chi chiama rallenta i tentativi
                 if (!r.ok || !data.ok) return { ok: false, quota: !!(data && data.quota), msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
-                if (data.invariato) return { ok: true, invariato: true, rev: data.rev, aggiornato: data.aggiornato || Date.now() };
-                return { ok: true, iscrizioni: data.iscrizioni || [], presenze: data.presenze || {}, rev: (typeof data.rev === 'number' ? data.rev : null), avviso: data.avviso || '', aggiornato: data.aggiornato || Date.now() };
+                // lo stato del giro delle conferme viaggia con l'elenco, anche "invariato" (giroConfermeHtml)
+                const giroConferme = (data.giroConferme && typeof data.giroConferme === 'object') ? data.giroConferme : null;
+                if (data.invariato) return { ok: true, invariato: true, rev: data.rev, aggiornato: data.aggiornato || Date.now(), giroConferme: giroConferme };
+                return { ok: true, iscrizioni: data.iscrizioni || [], presenze: data.presenze || {}, rev: (typeof data.rev === 'number' ? data.rev : null), avviso: data.avviso || '', aggiornato: data.aggiornato || Date.now(), giroConferme: giroConferme };
             } catch (e) {
                 return { ok: false, msg: 'Servizio iscrizioni non raggiungibile.' };
             }
@@ -15735,6 +15737,7 @@
     let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
     let _evAggiornato = 0;       // ora dell'ultima lettura riuscita
     let _evRev = null;           // numero di revisione dell'elenco a video (lo rimanda al server)
+    let _evGiro = null;          // l'ultimo giro delle conferme sul servizio, con i suoi conti (giroConfermeHtml)
     /* Quota di Firebase esaurita: si sospende l'aggiornamento automatico per un
        quarto d'ora. Insistere ogni quattro minuti non cambia niente e consuma le
        poche letture che tornano disponibili. */
@@ -16120,7 +16123,10 @@
                 cambiato = (_evMsg !== '');
                 _evMsg = ''; _evAggiornato = Date.now();
                 if (_evCache[ev.id]) _evCache[ev.id].aggiornato = _evAggiornato;
+                // il giro delle conferme invece cambia da solo: la sua riga si aggiorna sul posto
+                if ('giroConferme' in r) { _evGiro = r.giroConferme; aggiornaGiroConferme(); }
             } else if (r && r.ok) {
+                if ('giroConferme' in r) { _evGiro = r.giroConferme; aggiornaGiroConferme(); }
                 const nuova = firmaIscr(r.iscrizioni) + '#' + firmaPres(r.presenze);
                 // l'avviso (es. dati dall'ultima copia perche' la quota e' finita) conta
                 // come cambiamento: va mostrato, e va tolto quando sparisce
@@ -17619,6 +17625,40 @@
             tutti: 'Tutte le persone dell\'evento, ognuna una volta: ' + t.aziende + ' aziende + ' + t.aderenti + ' aderenti. ' + att
         };
     }
+    /* LO STATO DEL GIRO DELLE CONFERME, accanto a chi aspetta. Il servizio
+       manda le mail di conferma, i solleciti, i promemoria e le PEC con un
+       giro ogni dieci minuti (email-service/lib/giro-conferme.js) e registra
+       l'ultimo con i suoi conti; l'API li manda con l'elenco (`giroConferme`).
+       Qui si vede se gira, quando, e se i solleciti sono fermi e perche':
+       prima un fermo (il mittente non verificato su Brevo, la posta giu') si
+       leggeva solo nei log di Vercel. In rosso quando c'e' da guardare. */
+    function giroConfermeHtml() {
+        const g = _evGiro;
+        const base = 'Il servizio manda mail di conferma, solleciti, promemoria e PEC con un giro ogni dieci minuti. ';
+        if (!g || !g.quando) {
+            return '<span class="ev-giro fermo" title="' + esc(base + 'Non risulta ancora nessun giro registrato: servizio appena pubblicato, oppure il lavoro programmato non parte.') + '">giro delle conferme: nessun giro registrato</span>';
+        }
+        const c = g.conti || {};
+        const fermo = Date.now() - g.quando > 25 * 60 * 1000;
+        const pezzi = [];
+        if (fermo) pezzi.push('giro delle conferme fermo: l\'ultimo il ' + fmtDataOra(g.quando));
+        else pezzi.push('ultimo giro delle conferme alle ' + fmtDataOra(g.quando).slice(11));
+        if (c.sollecitoBloccato) pezzi.push('solleciti fermi' + (c.sollecitoMotivo ? ': ' + c.sollecitoMotivo : ' (guasto della posta; si riprova da solo)'));
+        else if (!fermo) pezzi.push((c.solleciti || 0) + ' solleciti, ' + (c.promemoria || 0) + ' promemoria, ' + (c.pec || 0) + ' PEC; ' + (c.aspettano || 0) + ' in attesa del loro momento');
+        if (c.pecBloccato) pezzi.push('PEC ferme (guasto del gestore; si riprova da solo)');
+        const m = g.mittente;
+        const titolo = base + 'Ultimo giro il ' + fmtDataOra(g.quando) + ': schede esaminate ' + (c.esaminate || 0) + ', mail di conferma mandate ' + (c.inviate || 0) + ', riprovate ' + (c.riprovate || 0)
+            + ', solleciti ' + (c.solleciti || 0) + ', promemoria ' + (c.promemoria || 0) + ', PEC ' + (c.pec || 0) + (c.pecEscluse ? ' (escluse ' + c.pecEscluse + ')' : '')
+            + ', errori ' + (c.errori || 0) + ', in attesa ' + (c.aspettano || 0) + (c.rimaste ? ', rimaste al giro dopo ' + c.rimaste : '') + (c.arretrati ? ', arretrati segnati ' + c.arretrati : '') + '. '
+            + (m && m.quando ? 'Mittente del sollecito (' + (m.mittente || '') + ') controllato su Brevo il ' + fmtDataOra(m.quando) + ': ' + (m.ok ? 'verificato.' : 'NON verificato' + (m.motivo ? ' (' + m.motivo + ')' : '') + '.')
+                : 'Mittente del sollecito non ancora controllato (finora nessuna lettera da mandare).')
+            + (g.arretrati && g.arretrati.quando ? ' Arretrati: ' + (g.arretrati.segnate || 0) + ' segnati il ' + fmtDataOra(g.arretrati.quando) + '.' : '');
+        return '<span class="ev-giro' + (fermo || c.sollecitoBloccato || c.pecBloccato ? ' fermo' : '') + '" title="' + esc(titolo) + '">' + esc(pezzi.join(' · ')) + '</span>';
+    }
+    // la riga del giro si rifa' sul posto, senza ridisegnare l'elenco
+    function aggiornaGiroConferme() {
+        document.querySelectorAll('.ev-giro').forEach(el => { el.outerHTML = giroConfermeHtml(); });
+    }
     function totaliHtml(ev, riquadroNum) {
         if (!evHaAderenti(ev)) return '';
         const t = totaliEvento(ev);
@@ -17637,7 +17677,8 @@
                confermare l'email, nell'ambra della loro sezione. Non sono nei
                totali; il suggerimento dice quanto sarebbero se confermassero. */
             + (ev.confermaEmail ? '<span class="ev-tot-fuori"><span class="ev-tot-sep" aria-hidden="true"></span>'
-                + riquadroNum(v(t && t.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', 'tot-attesa') + '</span>' : '')
+                + riquadroNum(v(t && t.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', 'tot-attesa') + '</span>'
+                + giroConfermeHtml() : '')
             + '</div>';
     }
 

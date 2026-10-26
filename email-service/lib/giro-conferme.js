@@ -595,7 +595,8 @@ async function recuperoSollecito(db) {
    `rimaste` quelle che avevano qualcosa da fare e aspettano il giro dopo. */
 async function giro(db, opz) {
     opz = opz || {};
-    const scadenza = Date.now() + (Number(opz.budget) || BUDGET_MS);
+    const inizio = Date.now();
+    const scadenza = inizio + (Number(opz.budget) || BUDGET_MS);
     const conti = {
         occupato: false, recuperate: 0, arretrati: 0, lette: 0, limitePieno: false, esaminate: 0, inviate: 0, riprovate: 0,
         solleciti: 0, sollecitoBloccato: false, sollecitoMotivo: '', mittenteOk: false, pec: 0, pecEscluse: 0, pecBloccato: false, promemoria: 0,
@@ -636,6 +637,9 @@ async function giro(db, opz) {
         if (conti.mittenteOk || conti.sollecitoMotivo) {
             try { await rifMeta(db).set({ sollecitoMittente: { quando: Date.now(), ok: !!conti.mittenteOk, motivo: conti.sollecitoMotivo || '', mittente: SOLL.mittenteEmail() } }, { merge: true }); } catch (_) { }
         }
+        /* l'ultimo giro con i suoi conti, per l'area riservata (api/iscrizioni.js,
+           giroConferme): si vede se il giro gira, quando, e se e perche' e' fermo */
+        try { await rifMeta(db).set({ ultimoGiro: { quando: Date.now(), durata: Date.now() - inizio, conti: Object.assign({}, conti) } }, { merge: true }); } catch (_) { }
         await mollaLucchetto(db, idGiro);
     }
     return conti;
