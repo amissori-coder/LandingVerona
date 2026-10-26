@@ -1807,7 +1807,9 @@ module.exports = async (req, res) => {
            a un altro codice senza che nessuno lo veda). I posti 2..N di un
            ordine non lo prendono: il codice e' dell'intestatario. Il codice si
            scrive come si legge: minuscole, O e I al posto di 0 e 1 valgono
-           (lib/codici-invito.js, normalizza). */
+           (lib/codici-invito.js, normalizza). Con `anteprima` si fanno tutti i
+           controlli e non si scrive niente: l'area riservata mostra a chi e'
+           riservato il codice e chiede conferma prima di assegnarlo. */
         if (azione === 'assegna-codice') {
             if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo assegnare un codice invito.' }); return; }
             const rif = db.collection('iscrizioni').doc(testo(body.doc, 400) || idIscrizione(idIscritto));
@@ -1841,6 +1843,18 @@ module.exports = async (req, res) => {
                 res.status(400).json({ ok: false, msg: 'Il codice ' + codice + ' ' + perche + '.' }); return;
             }
             const evV = V.eventoDi(scheda.pagina);
+            const invito = { codice: v.codice, azienda: v.ragioneSociale, scheda: v.scheda };
+            if (body.anteprima) {
+                // gli stessi no della transazione, senza scrivere: il codice pieno si vede prima di confermare
+                let altre = 0;
+                if (evV) {
+                    const posti = await V.usiCodice(db, v.codice);
+                    altre = posti.attive.filter(id => id !== rif.id).length;
+                    if (altre >= V.MAX_PER_CODICE) { rifiuta({ no: 'pieno' }); return; }
+                }
+                res.status(200).json({ ok: true, anteprima: true, gia: !!suo && suo === codice, invito: invito, iscritte: altre });
+                return;
+            }
             const patch = {
                 invitoCodice: v.codice, invitoAzienda: v.ragioneSociale, invitoScheda: v.scheda, selezionata: true,
                 codiceAssegnato: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now(), codice: v.codice, aziendaPrima: String(scheda.azienda || '') }
@@ -1858,7 +1872,6 @@ module.exports = async (req, res) => {
             }
             const r = await V.assegnaCodice(db, { idDoc: rif.id, codice: v.codice, patch: patch, conto: !!evV });
             if (!r.ok) { rifiuta(r); return; }
-            const invito = { codice: v.codice, azienda: v.ragioneSociale, scheda: v.scheda };
             if (r.gia) { res.status(200).json({ ok: true, gia: true, invito: invito }); return; }
             await CODICI.segnaUso(db, v.codice, { email: String(scheda.email || ''), iscrizione: rif.id });
             if (v.scheda) {

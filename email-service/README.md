@@ -1725,7 +1725,12 @@ di spedire:
 **Chi si e' iscritto senza scrivere il codice** non ha `invitoCodice` e il
 giro non lo vede. L'amministratore glielo assegna dall'area riservata, dal
 menu della riga, «Assegna codice invito» (`api/presenze.js`,
-`assegna-codice`): si scrive quello che avrebbe scritto il modulo con il
+`assegna-codice`). Vale solo un codice fra quelli spediti per quell'evento
+(`codiciInvito`, `CODICI.verifica`): uno sconosciuto o di un altro evento si
+rifiuta e non si scrive niente. Prima di scrivere l'area riservata chiede
+l'anteprima (`anteprima: 1`, stessi controlli senza scritture) e mostra a quale
+azienda e' riservato il codice, e quante iscrizioni ha gia', chiedendo
+conferma. Poi si scrive quello che avrebbe scritto il modulo con il
 codice (codice, ragione sociale e scheda dell'invito, l'azienda del codice, le
 colonne del file, il segno dell'uso sul codice e `stato: 'iscritta'`
 sull'azienda). La scheda e, agli eventi con il tetto, il posto nel conto del

@@ -197,6 +197,17 @@ function scenario() {
     esigi(r.stato === 400 && /annullata/.test(r.corpo.msg) && !scheda(O).invitoCodice, 'un\'iscrizione annullata non prende il codice', r.corpo.msg);
     const revPrima = (dati.get('meta/iscrizioni') || {}).rev || 0;
 
+    console.log('\nPrima si guarda: l\'anteprima dice di chi e\' il codice e non scrive niente');
+    r = await assegna(G, 'poyim', { anteprima: 1 });
+    esigi(r.stato === 200 && r.corpo.anteprima === true && r.corpo.invito.codice === 'P0Y1M' && r.corpo.invito.azienda === 'GUNA S.P.A.' && r.corpo.iscritte === 0 && !r.corpo.gia,
+        'l\'anteprima: P0Y1M e\' di GUNA S.P.A., nessuna iscrizione ancora', JSON.stringify(r.corpo));
+    esigi(!scheda(G).invitoCodice && !dati.get('codiciInvito/P0Y1M').iscrizioniUsate && !dati.get('codiciInvito/P0Y1M').usi && dati.get('aziendeInvito/milano~guna@pec-it').stato === 'invitata',
+        'e non ha scritto niente: scheda, codice e azienda come prima');
+    r = await assegna(G, 'ZZZZ9', { anteprima: 1 });
+    esigi(r.stato === 400 && /non risulta fra quelli inviati/.test(r.corpo.msg), 'un codice fuori da quelli spediti non passa nemmeno l\'anteprima', r.corpo.msg);
+    r = await assegna(T, 'K7M3P', { anteprima: 1 });
+    esigi(r.stato === 409 && /due iscrizioni attive/.test(r.corpo.msg), 'un codice pieno si vede gia\' nell\'anteprima', r.corpo.msg);
+
     console.log('\nGuna prende il suo codice, scritto come si legge');
     r = await assegna(G, ' poyim ');
     const g = scheda(G);
@@ -221,6 +232,8 @@ function scenario() {
     r = await assegna(G, 'P0Y1M');
     esigi(r.stato === 200 && r.corpo.gia === true && dati.get('codiciInvito/P0Y1M').iscrizioniUsate.length === 1 && dati.get('codiciInvito/P0Y1M').usi === 1,
         'rifarlo con lo stesso codice: "gia\'", e niente si conta due volte', JSON.stringify(r.corpo));
+    r = await assegna(G, 'P0Y1M', { anteprima: 1 });
+    esigi(r.stato === 200 && r.corpo.gia === true && r.corpo.iscritte === 0, 'e l\'anteprima lo dice, senza contare la scheda fra le altre', JSON.stringify(r.corpo));
     r = await assegna(G, 'Q2W3E');
     esigi(r.stato === 400 && /ha già il codice P0Y1M/.test(r.corpo.msg) && scheda(G).invitoCodice === 'P0Y1M', 'un altro codice su una scheda che ne ha uno: no', r.corpo.msg);
     r = await assegna(T, 'K7M3P');

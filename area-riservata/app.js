@@ -18613,15 +18613,29 @@
                 if (scritto === null) return;
                 const codice = String(scritto).trim().toUpperCase();
                 if (!codice) return;
-                Cloud.operaPresenza({ azione: 'assegna-codice', evento: ev.id, idIscritto: r.id, doc: r.doc || '', codice: codice }).then(res => {
+                const chiedi = extra => Cloud.operaPresenza(Object.assign({ azione: 'assegna-codice', evento: ev.id, idIscritto: r.id, doc: r.doc || '', codice: codice }, extra));
+                /* Prima si guarda, poi si scrive: il servizio accetta solo un codice
+                   fra quelli spediti per questo evento, e qui si legge a quale
+                   azienda e' riservato prima di assegnarlo - un codice di un'altra
+                   azienda e' buono per il servizio, ma non per questa persona. */
+                chiedi({ anteprima: 1 }).then(res => {
                     if (!res.ok) { toast(res.msg || 'Codice non assegnato.', 'rosso'); return; }
                     const inv = res.invito || {};
-                    toast(res.gia ? 'La scheda aveva già il codice ' + inv.codice + '.'
-                        : 'Codice ' + inv.codice + ' assegnato' + (inv.azienda ? ': ' + inv.azienda : '') + '.', 'verde');
-                    try { Audit.registra(Auth.utenteCorrente, 'Evento: codice invito assegnato', 'sistema', ev.id, null, r.id + ' ' + inv.codice); } catch (e) { }
-                    // si rilegge dal server: azienda, codice e colonne del file sono quelli scritti
-                    _evUltimoTentativo[ev.id] = 0;
-                    caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
+                    if (res.gia) { toast('La scheda ha già il codice ' + inv.codice + '.', 'verde'); return; }
+                    const n = Number(res.iscritte) || 0;
+                    if (!confirm('Il codice ' + inv.codice + ' è riservato a ' + (inv.azienda || 'un\'azienda senza ragione sociale')
+                        + (n ? ' (ha già ' + (n === 1 ? 'un\'iscrizione' : n + ' iscrizioni') + ' con questo codice)' : '') + '.\n'
+                        + 'Lo assegno a ' + chi + (r.azienda ? ' (' + r.azienda + ')' : '') + '?')) return;
+                    chiedi({}).then(res2 => {
+                        if (!res2.ok) { toast(res2.msg || 'Codice non assegnato.', 'rosso'); return; }
+                        const inv2 = res2.invito || {};
+                        toast(res2.gia ? 'La scheda aveva già il codice ' + inv2.codice + '.'
+                            : 'Codice ' + inv2.codice + ' assegnato' + (inv2.azienda ? ': ' + inv2.azienda : '') + '.', 'verde');
+                        try { Audit.registra(Auth.utenteCorrente, 'Evento: codice invito assegnato', 'sistema', ev.id, null, r.id + ' ' + inv2.codice); } catch (e) { }
+                        // si rilegge dal server: azienda, codice e colonne del file sono quelli scritti
+                        _evUltimoTentativo[ev.id] = 0;
+                        caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
+                    });
                 });
             }));
             radice.querySelectorAll('.ev-conf').forEach(b => b.addEventListener('click', () => {
