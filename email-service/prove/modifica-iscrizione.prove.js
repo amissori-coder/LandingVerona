@@ -75,8 +75,24 @@ function doc(coll, id) {
     };
     return self;
 }
+/* Le ricerche per uguaglianza (anche con il punto nel campo), come Firestore:
+   servono ai riferimenti della PEC di sollecito, che seguono la scheda che
+   trasloca (lib/lettore-pec.js, ripuntaIscrizione). */
+function interroga(coll, filtri, max) {
+    return {
+        where(campo, op, val) { return interroga(coll, filtri.concat([[campo, val]]), max); },
+        limit(n) { return interroga(coll, filtri, n); },
+        async get() {
+            const docs = [...dati.keys()].filter(k => k.startsWith(coll + '/') && k.split('/').length === 2)
+                .filter(k => filtri.every(([c, v]) => c.split('.').reduce((o, parte) => (o && typeof o === 'object') ? o[parte] : undefined, dati.get(k) || {}) === v))
+                .sort().slice(0, max || 1e9)
+                .map(k => ({ id: k.split('/')[1], ref: doc(coll, k.split('/')[1]), data: () => JSON.parse(JSON.stringify(dati.get(k))) }));
+            return { docs: docs, forEach: f => docs.forEach(f), size: docs.length };
+        }
+    };
+}
 const db = {
-    collection(coll) { return { doc: id => doc(coll, id) }; },
+    collection(coll) { return Object.assign(interroga(coll, [], 0), { doc: id => doc(coll, id) }); },
     async getAll(...rif) { return Promise.all(rif.map(r => r.get())); },
     batch() {
         const op = [];
@@ -543,6 +559,20 @@ prova('Rifare il trasloco non cambia niente', async () => {
 
 (async () => {
     for (const p of prove) { console.log('\n' + p.titolo); await p.fn(); }
+    console.log('\nLa PEC di sollecito segue la scheda che trasloca');
+    {
+        scenario();
+        dati.set('iscrizioni/' + idScheda(A), Object.assign({}, scheda(A), { pecSollecito: { quando: 7, ok: true, a: 'alfa@pec.alfa.it', riferimento: 'sol-abc@pec.it' } }));
+        dati.set('pecRiferimenti/m~sol-abc@pec.it', { msgid: 'sol-abc@pec.it', scheda: 'milano~alfa@pec-it', tipo: 'sollecito', iscrizione: idScheda(A) });
+        dati.set('pecRiferimenti/lp~sol-abc', { msgid: 'sol-abc@pec.it', scheda: 'milano~alfa@pec-it', tipo: 'sollecito', iscrizione: idScheda(A) });
+        dati.set('pecRiferimenti/m~altra', { msgid: 'altra', scheda: 'milano~alfa@pec-it', tipo: 'sollecito', iscrizione: 'un-altro' });
+        const r = await modifica(A, { data: '10/01/2027 10:00:01' });
+        const A2 = 'anna@alfa.it|10/01/2027 10:00:01';
+        esigi(r.stato === 200 && scheda(A2) && scheda(A2).pecSollecito && scheda(A2).pecSollecito.riferimento === 'sol-abc@pec.it' && !scheda(A), 'la scheda trasloca con la traccia della PEC');
+        esigi(dati.get('pecRiferimenti/m~sol-abc@pec.it').iscrizione === idScheda(A2) && dati.get('pecRiferimenti/lp~sol-abc').iscrizione === idScheda(A2) && dati.get('pecRiferimenti/m~altra').iscrizione === 'un-altro',
+            'e i riferimenti della sua PEC puntano al nome nuovo (gli altri no)');
+    }
+
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
     process.exit(ko ? 1 : 0);
 })();

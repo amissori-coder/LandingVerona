@@ -54,6 +54,12 @@ Serve per generare i link di reimpostazione password.
 | `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
 | `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
 | `PROMEMORIA_SECONDA_PERSONA` | *(facoltativa)* `no` spegne la mail "l'invito vale per due persone" (per esempio a sala piena). Senza: accesa. Vedi "L'invito vale per due persone" |
+| `SOLLECITO_FROM_EMAIL` | *(facoltativa)* il mittente del sollecito personale della conferma email (a un'ora dalla mail non cliccata). Senza: `revilaw@nextgenerationbusiness.it` (il dominio autenticato su Brevo: `revilaw.it` non lo e'). **Deve essere un mittente verificato su Brevo** o di un dominio autenticato: il giro lo controlla prima di spedire. Vedi "Il sollecito personale" |
+| `SOLLECITO_FROM_NAME` | *(facoltativa)* il nome del mittente del sollecito. Senza: `Andrea Missori - Revilaw` |
+| `SOLLECITO_RISPONDI_A` | *(facoltativa)* a chi torna "Rispondi" sul sollecito. Senza: `andreamissori@revilaw.it` |
+| `SOLLECITO_CCN` | *(facoltativa)* chi riceve il sollecito in copia nascosta. Senza: `andreamissori@revilaw.it`; `no` per nessuno |
+| `SOLLECITO_PEC` | *(facoltativa)* `no` spegne la PEC di sollecito del giorno dopo (vedi "La PEC di sollecito"). Senza: accesa, se il canale PEC e' configurato (`PEC_SMTP_*`) |
+| `SOLLECITO_CONFERMA` | *(facoltativa)* `no` spegne il sollecito personale; resta il promemoria del giorno dopo. Senza: acceso |
 | `CHECKUP_MAX_GIORNO` | *(facoltativa)* quanti avvisi delle richieste di check-up dalle pagine dei temi possono partire in tutto in un giorno (intero positivo). Senza: `40`. Vedi "Le richieste di check-up dalle pagine dei temi" |
 
 > **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
@@ -1645,13 +1651,104 @@ con le sue pause) e per ognuna:
 | confermata, annullata, inserita a mano, importata senza mail, da un Portale (Eventbrite, desk), di un evento che non chiede la conferma, segnata **presente** (il documento `presenze/<evento~idIscritto>`, come per i promemoria degli eventi), o **dopo la fine dell'evento** (`fine` in `VERIFICATA.EVENTI`: Milano, 26 febbraio 2027 alle 18) | toglie la bandiera, non spedisce niente |
 | nessuna `mailConferma` per l'indirizzo di adesso (la funzione si e' chiusa prima di spedire, o l'indirizzo e' stato corretto) | passati **5 minuti** dall'iscrizione spedisce (`via: 'automatico'`), con l'SMS "conferma la tua email" se non era partito |
 | `mailConferma.ok` falso | riprova dopo **5 minuti, 30 minuti, 2 ore e 12 ore** dall'ultimo tentativo: **cinque tentativi** in tutto, poi toglie la bandiera e la lascia allo staff ("mail non inviata" nell'elenco) |
+| `mailConferma.ok` vero e niente clic da **un'ora** (e da meno di **22 ore**: oltre tocca al promemoria) | **il sollecito personale** (sotto), solo dalle 8 alle 21 ora di Milano; se il server di posta dice un **no temporaneo** (una risposta 4xx al destinatario o al messaggio) si riprova dopo **30 minuti**, tre tentativi in tutto; un **no definitivo** (5xx: la casella non esiste, il messaggio rifiutato) chiude al primo colpo (`definitivo`), senza riprovare; se la linea cade **dopo il via al testo** (la risposta 354 al DATA: lo sa il registro dei comandi del trasporto), o la funzione si chiude a meta', l'esito e' **incerto** e non si ripete; se il no arriva **prima del destinatario** (il mittente rifiutato, le credenziali, il saluto) o la linea cade **prima del via al testo** (connessione, DNS: non e' partito niente) e' un **guasto del canale**: il tentativo non si conta, si riprova fra mezz'ora, e il giro non prova altre lettere (`sollecitoBloccato` nei conti); resta `sollecitoConferma: { quando, ok, incerto, canale, definitivo, errore, tentativi, a, copia }`, e la scheda resta nel giro per il promemoria |
 | `mailConferma.ok` vero e niente clic da **24 ore** | **UN promemoria**, **solo dalle 8 alle 21 ora di Milano** (di notte aspetta, con la bandiera): la stessa mail con "Promemoria:" davanti all'oggetto e l'SMS del promemoria; resta `promemoriaConferma: { quando, mail, sms }` e la bandiera se ne va. Mai un secondo promemoria |
 
+**Il sollecito personale** (`lib/sollecito-conferma.js`). A un'ora dalla mail
+con il pulsante partita e non cliccata, una seconda mail: a nome di **Andrea
+Missori**, da `revilaw@nextgenerationbusiness.it` (il dominio autenticato su
+Brevo con DKIM e DMARC: `revilaw.it` non lo e', e una lettera "da revilaw.it"
+firmata da un altro dominio e' il profilo che i filtri guardano storto), con
+"Rispondi" verso `andreamissori@revilaw.it` e lui in **copia nascosta**,
+**solo testo**, senza collegamenti, immagini o intestazioni da invio di massa
+(e' una lettera, non una circolare: e' quello che le fa passare i filtri). Dice
+che la richiesta per l'azienda e' registrata ma l'iscrizione non e' completa,
+di cercare la mail di `noreply@nextgenerationbusiness.it` anche nello spam e
+nelle cartelle Promozioni e Aggiornamenti, che dopo il clic arriva l'invito
+in PDF (per chi segue online: la conferma, e le istruzioni con un'email a
+parte), e di rispondere se non la trova. Personalizzata con nome, azienda del modulo, data e sede dell'evento
+(`CONF.dettagliEvento`); tag Brevo `X-Mailin-Tag: sollecito-conferma`. Una
+per scheda. **La copia nascosta non copre un no alla persona**: con due
+destinatari, davanti a un no alla casella dell'iscritto, nodemailer va avanti
+con la copia e la spedizione "riesce"; il rifiuto si legge dopo, in
+`info.rejected` (`rifiutato`, con il dominio in punycode com'e' nella busta),
+ed e' un no come gli altri (temporaneo: mezz'ora e si riprova; 5xx:
+definitivo), non una lettera mandata; con tutti e due rifiutati nodemailer
+lancia un errore solo, con la risposta dell'ultimo, e la persona si giudica
+dalla sua (`rejectedErrors`). La copia che il server ha gia' accettato
+resta segnata (`copia`) e ai tentativi dopo non si rimanda: Andrea ha gia' la
+lettera, e' la persona che manca. Nell'area riservata il suggerimento sulla riga dice "Sollecito
+personale mandato il ..." (o "NON partito", "dall'esito incerto", con il
+motivo).
+
+**Il mittente va verificato su Brevo, e il giro lo controlla.** Brevo spedisce
+solo da un indirizzo verificato o da un dominio autenticato, e **non lo dice
+al momento**: il relay accetta la mail e la scarta dopo, in silenzio ("sender
+not valid", solo nei suoi log). Per non segnare partita una lettera mai
+arrivata, prima della prima lettera di ogni giro il servizio chiede a Brevo
+(API, la chiave `BREVO_API_KEY` degli SMS: `/senders`, poi `/senders/domains`)
+se il mittente e' fra i verificati o il suo dominio fra gli autenticati
+(`mittenteVerificato`); un si' vale un'ora. Se no, o se non riesce a
+chiederlo, **le lettere aspettano** senza consumare tentativi (`sollecitoBloccato`
+e `sollecitoMotivo` nei conti e nel log; su `meta/confermeEmail`
+`sollecitoMittente: { quando, ok, motivo, mittente }`), e si riprova al giro
+dopo. Il mittente predefinito (`revilaw@nextgenerationbusiness.it`) e' gia'
+fra i verificati; se si cambia `SOLLECITO_FROM_EMAIL`, il nuovo indirizzo va
+aggiunto ai mittenti di Brevo (Mittenti e IP › Aggiungi mittente, con la
+conferma dalla casella): al giro successivo partono tutte.
+
+**La PEC di sollecito, un giorno dopo** (`lib/sollecito-pec.js`, azione `pec`
+del giro). Se un giorno dopo la lettera l'indirizzo non e' ancora confermato,
+lo stesso testo parte **per PEC** dalla casella PEC dello studio (il canale
+degli inviti: `PEC_SMTP_*`, `PEC_FROM_EMAIL`) all'indirizzo PEC con cui
+l'azienda e' stata invitata, **firmato Revilaw S.p.A.** ("la ringraziamo",
+"ci risponda pure a questa PEC"), solo testo. L'azienda e' quella collegata
+all'iscrizione: la scheda di `aziendeInvito` scritta sull'iscrizione
+(`invitoScheda`), quella a cui punta il codice, o quella con quel codice
+(`codice`, `invio.codice`); senza un'azienda con una PEC la scheda resta
+`esclusa` e lo dice (chi si e' iscritto senza codice: si assegna il codice dal
+menu della riga, e da li' la PEC parte). Di giorno; viene **dopo il promemoria**
+di sempre (la scheda resta nel giro finche' la PEC non e' fatta), e dopo la
+PEC la scheda esce. Un no temporaneo del gestore (4xx, alla casella o al
+messaggio) si riprova dopo mezz'ora, tre volte; un no definitivo (5xx: la
+casella PEC non c'e') chiude al primo (`definitivo`); un no sulle credenziali o sul saluto, o la
+linea caduta **prima del via al testo** (connessione, DNS, saluto: non e'
+partito niente), e' un guasto del canale (`pecBloccato`): non conta, e si
+riprova; la linea caduta **dopo** il via al testo e' un esito incerto, che
+non si ripete (lo sa il registro dei comandi del trasporto). Sulla scheda resta `pecSollecito: { quando, ok, incerto, canale,
+definitivo, esclusa, errore, tentativi, a, azienda, riferimento, messageId }`.
+**Le ricevute e la risposta** tornano nella casella PEC: il Message-ID si
+registra prima di spedire (`pecRiferimenti`, `tipo: 'sollecito'`, con
+l'iscrizione), e il lettore (`lib/lettore-pec.js`) scrive accettazione,
+consegna, problema e risposta su `pecSollecito` dell'iscrizione - **non**
+sull'invito dell'azienda - e mette la risposta in coda per l'**inoltro per
+email ad Andrea Missori** (`lib/inoltro-risposte-pec.js`, come le risposte
+agli inviti: oggetto "Risposta alla PEC di sollecito (conferma email) -
+<azienda>"). Nell'area riservata, sulla riga: a vista "sollecito gg/mm hh:mm ·
+PEC gg/mm hh:mm (ha risposto)", e nel suggerimento a chi, consegnata quando,
+la risposta.
+
+**Gli arretrati, una volta** (`recuperoSollecito`, `VERSIONE_SOLLECITO`). Al
+primo giro dopo la pubblicazione si rilegge l'archivio e chi aspettava gia' da
+prima - fuori dal giro, con il promemoria gia' ricevuto o la mail di giorni
+fa - viene segnato (`sollecitoArretrato`) e rimesso nel giro: riceve il
+sollecito, di giorno, poche schede per giro, con la presenza riletta prima
+di spedire (e, dopo un rinvio della mail con il pulsante, l'ora di tutti), e
+poi esce: dopo la lettera non arriva un altro promemoria. Se la mail con il
+pulsante riparte dopo la lettera (un rinvio dello staff) la scheda torna
+sulla strada di tutti, ma un secondo promemoria non parte mai: lo riceve solo
+chi non l'aveva ancora avuto. Chi era ancora nel giro segue la strada di tutti. Su
+`meta/confermeEmail` resta `sollecitoArretrati: 1` con `sollecitiArretrati`
+(quante). Spento (`SOLLECITO_CONFERMA=no`) il recupero non parte e resta da
+fare; spento dopo, gli arretrati aspettano e ripartono quando si riaccende. Il mittente va verificato su Brevo una volta
+(Mittenti e IP › Aggiungi mittente); si cambia con `SOLLECITO_FROM_EMAIL` /
+`SOLLECITO_FROM_NAME`, e `SOLLECITO_CONFERMA=no` lo spegne.
+
 **Prima i guasti.** Le schede lette si lavorano per urgenza: prima le mail
-mai partite e quelle da riprovare, poi le bandiere da togliere, per ultimi i
-promemoria (i piu' lenti): una fila di promemoria arretrati non fa aspettare
-chi si e' appena iscritto. Se le schede lette arrivano al limite il giro lo
-scrive nel log (`limitePieno`).
+mai partite e quelle da riprovare, poi le bandiere da togliere, poi i
+solleciti, per ultimi i promemoria (i piu' lenti): una fila di promemoria
+arretrati non fa aspettare chi si e' appena iscritto. Se le schede lette
+arrivano al limite il giro lo scrive nel log (`limitePieno`).
 
 **La scheda di adesso.** La ricerca e' una fotografia: prima di agire su una
 scheda il giro la **rilegge** (con la sua presenza) e rifa' il conto. Una

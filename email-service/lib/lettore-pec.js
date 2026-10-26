@@ -128,6 +128,11 @@ async function registraRiferimento(db, riferimento, dati) {
         msgid: String(riferimento).slice(0, 400),
         scheda: String(dati.scheda || ''), evento: String(dati.evento || ''),
         destinatario: String(dati.destinatario || '').toLowerCase().slice(0, 200),
+        /* che cosa e' partito con questo Message-ID: l'invito (il solito), o la
+           PEC di sollecito della conferma email (lib/sollecito-pec.js), le cui
+           ricevute e risposte vanno sull'iscrizione, non sull'invito */
+        tipo: String(dati.tipo || 'invito').slice(0, 40),
+        iscrizione: String(dati.iscrizione || '').slice(0, 300),
         quando: Date.now()
     };
     const b = db.batch();
@@ -145,8 +150,25 @@ async function registraIdentificativo(db, identificativo, dati) {
         msgid: String(identificativo).slice(0, 400),
         scheda: String(dati.scheda || ''), evento: String(dati.evento || ''),
         destinatario: String(dati.destinatario || '').toLowerCase().slice(0, 200),
+        tipo: String(dati.tipo || 'invito').slice(0, 40),
+        iscrizione: String(dati.iscrizione || '').slice(0, 300),
         gestore: true, quando: Date.now()
     }, { merge: true });
+}
+/* La scheda dell'ISCRIZIONE che trasloca (Modifica dell'area riservata:
+   email o data corrette, documento nuovo): i riferimenti della sua PEC di
+   sollecito puntano al nome vecchio, e le ricevute e la risposta che
+   arrivano dopo non troverebbero piu' nessuno. Qui il nome vecchio diventa
+   quello nuovo. */
+async function ripuntaIscrizione(db, da, a) {
+    da = String(da || ''); a = String(a || '');
+    if (!da || !a || da === a) return 0;
+    const snap = await db.collection(RIF).where('iscrizione', '==', da).get();
+    const b = db.batch();
+    let n = 0;
+    snap.forEach(d => { b.set(db.collection(RIF).doc(d.id), { iscrizione: a }, { merge: true }); n++; });
+    if (n) await b.commit();
+    return n;
 }
 /* Tutti i riferimenti che puntano a queste schede, anche quelli che il loro
    invio attuale non elenca piu' (il primo invio, dopo un secondo invio; i
@@ -194,9 +216,45 @@ async function trovaScheda(db, candidati) {
         // controllo anti-collisione, fatto sulla stessa forma della chiave
         const atteso = c.chiave.slice(0, 3) === 'lp~' ? D.parteLocale(d.msgid) : D.chiaveMsgId(d.msgid);
         if (atteso && ('lp~' + atteso !== c.chiave && 'm~' + atteso !== c.chiave)) continue;
-        return { scheda: d.scheda, evento: d.evento || '', destinatario: d.destinatario || '', via: c.via };
+        return { scheda: d.scheda, evento: d.evento || '', destinatario: d.destinatario || '', via: c.via, tipo: d.tipo || 'invito', iscrizione: d.iscrizione || '' };
     }
     return null;
+}
+
+/* Le ricevute e la risposta della PEC DI SOLLECITO, sull'iscrizione
+   (`pecSollecito`, lib/sollecito-pec.js): gli stessi fatti monotoni di
+   applicaRicevuta, senza toccare l'invito dell'azienda. Una scheda che non
+   c'e' piu' non rinasce. */
+async function segnaPecSollecito(db, idIscrizione, fatto) {
+    if (!idIscrizione) return { ok: false, motivo: 'iscrizione mancante' };
+    const rif = db.collection('iscrizioni').doc(String(idIscrizione));
+    return db.runTransaction(async tx => {
+        const snap = await tx.get(rif);
+        if (!snap.exists) return { ok: false, motivo: 'scheda sparita' };
+        const p = Object.assign({}, (snap.data() || {}).pecSollecito || {});
+        let cambiato = false;
+        if (fatto.genere === 'accettata') {
+            if (!p.accettata) { p.accettata = { quando: fatto.quando, gestore: fatto.gestore || '' }; cambiato = true; }
+        } else if (fatto.genere === 'consegnata') {
+            if (!p.consegnata) { p.consegnata = { quando: fatto.quando, destinatario: fatto.destinatario || '' }; cambiato = true; }
+        } else if (fatto.genere === 'problema') {
+            if (!p.problema || (fatto.gravita || 0) > (p.problema.gravita || 0)) {
+                p.problema = { quando: fatto.quando, tipo: fatto.tipo || '', motivo: String(fatto.motivo || '').slice(0, 300), definitivo: !!fatto.definitivo, gravita: fatto.gravita || 1 };
+                cambiato = true;
+            }
+        } else if (fatto.genere === 'risposta') {
+            if (!p.risposta || (fatto.quando || 0) > (p.risposta.quando || 0)) {
+                p.risposta = { quando: fatto.quando, da: fatto.da || '', oggetto: String(fatto.oggetto || '').slice(0, 250), certificata: !!fatto.certificata };
+                cambiato = true;
+            }
+        } else if (fatto.genere === 'automatica') {
+            if (!p.automatica) { p.automatica = { quando: fatto.quando }; cambiato = true; }
+        }
+        if (!cambiato) return { ok: true, cambiato: false };
+        p.aggiornato = Date.now();
+        tx.set(rif, { pecSollecito: p }, { merge: true });
+        return { ok: true, cambiato: true };
+    });
 }
 
 /* ---------- la scrittura sulla scheda ----------
@@ -693,9 +751,11 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
                messaggio pero' si elenca sulla scheda e si puo' aprire: un
                "questa casella non e' presidiata, scrivete a..." e' un'
                informazione, non spazzatura. */
-            const scrittoAuto = await applicaRicevuta(db, trovata.scheda, Object.assign(
-                { genere: 'automatica', etichetta: 'risposta automatica' }, coordinate, { quando: quandoMsg }));
-            if (scrittoAuto && scrittoAuto.cambiato) toccate[trovata.scheda] = scrittoAuto.esito || '';
+            const autoFatto = Object.assign({ genere: 'automatica', etichetta: 'risposta automatica' }, coordinate, { quando: quandoMsg });
+            const scrittoAuto = trovata.tipo === 'sollecito'
+                ? await segnaPecSollecito(db, trovata.iscrizione, autoFatto)
+                : await applicaRicevuta(db, trovata.scheda, autoFatto);
+            if (scrittoAuto && scrittoAuto.cambiato && trovata.tipo !== 'sollecito') toccate[trovata.scheda] = scrittoAuto.esito || '';
             return { genere: 'ignorato', tipo: 'automatica', scheda: trovata.scheda };
         }
         fatto = {
@@ -712,7 +772,7 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
         try {
             await INOLTRO.accoda(db, {
                 messageId: h['message-id'], uid: Number(m.uid), uidValidity: uidValidity, cartella: opz.cartella || '',
-                scheda: trovata.scheda, evento: trovata.evento,
+                scheda: trovata.scheda, evento: trovata.evento, tipo: trovata.tipo,
                 quando: quandoMsg, da: fatto.da, oggetto: fatto.oggetto, certificata: fatto.certificata
             });
         } catch (e) {
@@ -730,8 +790,11 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
 
     // l'etichetta e' quella che si legge nell'elenco dei messaggi
     fatto.etichetta = g.genere === 'ricevuta' ? (dc && dc.tipo ? dc.tipo : g.tipo) : (g.genere === 'anomalia' ? 'risposta non certificata' : 'risposta');
-    const scritto = await applicaRicevuta(db, trovata.scheda, Object.assign(fatto, coordinate, { quando: fatto.quando }));
-    if (scritto && scritto.cambiato) toccate[trovata.scheda] = scritto.esito || '';
+    // la PEC di sollecito: i fatti vanno sull'iscrizione, l'invito dell'azienda non si tocca
+    const scritto = trovata.tipo === 'sollecito'
+        ? await segnaPecSollecito(db, trovata.iscrizione, Object.assign(fatto, coordinate, { quando: fatto.quando }))
+        : await applicaRicevuta(db, trovata.scheda, Object.assign(fatto, coordinate, { quando: fatto.quando }));
+    if (scritto && scritto.cambiato && trovata.tipo !== 'sollecito') toccate[trovata.scheda] = scritto.esito || '';
     // l'identificativo del gestore diventa il ponte per le risposte future
     if (fatto.genere === 'accettata' && fatto.identificativo) {
         try { await registraIdentificativo(db, fatto.identificativo, trovata); } catch (_) { }
@@ -840,5 +903,6 @@ module.exports = {
     /* Esposti per le prove: il pezzo che decide a chi appartiene un messaggio
        e quello che scrive sulla scheda vanno potuti provare sui messaggi PEC
        veri, senza una casella e senza rete. */
-    _interni: { trovaScheda, applicaRicevuta, lavoraMessaggio, trovaParte }
+    ripuntaIscrizione,
+    _interni: { trovaScheda, applicaRicevuta, segnaPecSollecito, lavoraMessaggio, trovaParte }
 };

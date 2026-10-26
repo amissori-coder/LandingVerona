@@ -283,8 +283,8 @@ function scheda(id, o) {
         invio: { quando: ORA - 5 * GIORNO, canale: 'pec', destinatario: 'alfa@pec.alfa.it', riferimento: '<ngb.aaaa@revilaw.it>', pecMsgId: '<opec.invito.1@pec.aruba.it>' }
     }, o || {}));
 }
-function riferimento(msgid, idScheda) {
-    dati.set('pecRiferimenti/m~' + D.chiaveMsgId(msgid), { msgid: msgid, scheda: idScheda, evento: 'milano-2027-02-26', destinatario: 'alfa@pec.alfa.it', gestore: true });
+function riferimento(msgid, idScheda, extra) {
+    dati.set('pecRiferimenti/m~' + D.chiaveMsgId(msgid), Object.assign({ msgid: msgid, scheda: idScheda, evento: 'milano-2027-02-26', destinatario: 'alfa@pec.alfa.it', gestore: true }, extra || {}));
 }
 async function lavora(client, uid) {
     const m = casella.messaggi.get(uid);
@@ -789,6 +789,39 @@ function base() { azzera(); scheda('s1'); riferimento('<opec.invito.1@pec.aruba.
     const ev = INOLTRO.evento('milano-2027-02-26');
     esigi(ev.pagina === 'Milano 26 Febbraio 2027' && ev.nome === 'Milano, 26 febbraio 2027', 'il nome dell\'evento dal suo identificativo', JSON.stringify(ev));
     esigi(INOLTRO.quandoTesto(Date.parse('2027-01-15T09:05:00Z')) === '15/01/2027 alle 10:05', 'l\'ora di Roma', INOLTRO.quandoTesto(Date.parse('2027-01-15T09:05:00Z')));
+
+    console.log('\nLa risposta alla PEC di sollecito della conferma email: sull\'iscrizione, e inoltrata');
+    {
+        base();
+        dati.set('iscrizioni/guna', { nome: 'Andrea', cognome: 'Antonini', email: 'a.antonini@guna.it', pagina: 'Milano 26 Febbraio 2027 - Iscrizione', pecSollecito: { quando: ORA - 2 * GIORNO, ok: true, a: 'alfa@pec.alfa.it', riferimento: 'sol-abc@pec.it' } });
+        riferimento('<opec.sol.1@pec.aruba.it>', 's1', { tipo: 'sollecito', iscrizione: 'guna' });
+        messaggio(60, { inReplyTo: '<opec.sol.1@pec.aruba.it>', msgId: '<opec.risposta.60@pec.alfa.it>', oggetto: 'POSTA CERTIFICATA: Re: Next Generation Business Milano, 26 febbraio 2027 – conferma della sua iscrizione', oggettoDentro: 'Re: Next Generation Business Milano - conferma', testo: 'Confermiamo ora, grazie.\nMario Rossi' });
+        const client = clientDiProva();
+        const r = await lavora(client, 60);
+        const gu = dati.get('iscrizioni/guna') || {};
+        esigi(r.genere === 'risposta' && gu.pecSollecito && gu.pecSollecito.risposta && gu.pecSollecito.risposta.da === 'alfa@pec.alfa.it' && gu.pecSollecito.risposta.certificata === true,
+            'la risposta si segna sull\'iscrizione (chi, quando)', JSON.stringify(gu.pecSollecito));
+        const s1 = dati.get('aziendeInvito/s1') || {};
+        esigi(!(s1.ricevute && s1.ricevute.risposta) && s1.stato === 'inviata', 'e non sull\'invito dell\'azienda, che resta com\'era');
+        const righe = [...dati.keys()].filter(k => k.startsWith('pecInoltri/')).map(k => dati.get(k));
+        esigi(righe.length === 1 && righe[0].tipo === 'sollecito' && righe[0].scheda === 's1', 'in coda per l\'inoltro, come risposta al sollecito', JSON.stringify(righe[0]));
+        await giro(client);
+        const m = spedite[0] || {};
+        esigi(spedite.length === 1 && m.subject === 'Risposta alla PEC di sollecito (conferma email) - Alfa S.r.l.' && /andreamissori@revilaw\.it/.test(String(m.to)) && /Confermiamo ora, grazie/.test(m.text)
+            && /alla PEC di sollecito per la conferma dell'email di iscrizione/.test(m.text), 'inoltrata ad Andrea Missori, e dice che e\' la risposta al sollecito', m.subject + ' | ' + m.to);
+        // le ricevute della PEC di sollecito: sull'iscrizione, con gli stessi fatti monotoni
+        const SP = LETTORE._interni.segnaPecSollecito;
+        await SP(db, 'guna', { genere: 'accettata', quando: 10, gestore: 'Aruba' });
+        await SP(db, 'guna', { genere: 'consegnata', quando: 20, destinatario: 'alfa@pec.alfa.it' });
+        const r2 = await SP(db, 'guna', { genere: 'consegnata', quando: 30, destinatario: 'alfa@pec.alfa.it' });
+        const p = (dati.get('iscrizioni/guna') || {}).pecSollecito || {};
+        esigi(p.accettata && p.accettata.quando === 10 && p.consegnata && p.consegnata.quando === 20 && r2.cambiato === false, 'accettata e consegnata, una volta (la seconda consegna non cambia niente)', JSON.stringify(p));
+        await SP(db, 'guna', { genere: 'problema', quando: 40, tipo: 'errore-consegna', motivo: 'casella piena', gravita: 2, definitivo: true });
+        await SP(db, 'guna', { genere: 'problema', quando: 50, tipo: 'preavviso', motivo: 'ritardo', gravita: 1 });
+        esigi((dati.get('iscrizioni/guna') || {}).pecSollecito.problema.motivo === 'casella piena', 'un problema meno grave non sostituisce quello piu\' grave');
+        const r3 = await SP(db, 'nessuna', { genere: 'consegnata', quando: 1 });
+        esigi(r3.ok === false && !dati.has('iscrizioni/nessuna'), 'una scheda che non c\'e\' non rinasce');
+    }
 
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
     process.exit(ko ? 1 : 0);

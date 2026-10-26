@@ -83,6 +83,8 @@ function moduloVerificata() { return require('../lib/iscrizione-verificata'); }
    la verifica del codice e il segno dell'uso (lib/codici-invito.js) e le
    colonne del file dell'azienda (lib/dati-file-azienda.js). Solo allora. */
 function moduloCodici() { return require('../lib/codici-invito'); }
+// il lettore della casella PEC: i riferimenti della PEC di sollecito seguono la scheda che trasloca
+function moduloLettore() { return require('../lib/lettore-pec'); }
 function moduloDatiFile() { return require('../lib/dati-file-azienda'); }
 function sezioneCene(body) { return !!(body && String(body.sezione || '') === 'cene'); }
 /* Le iscrizioni a pagamento degli aderenti Revilaw (Milano 2027): le raccoglie
@@ -1973,7 +1975,7 @@ module.exports = async (req, res) => {
                     if (attuale.emailConfermaRimandata !== undefined) nuovo.emailConfermaRimandata = attuale.emailConfermaRimandata;
                     /* E il giro automatico delle mail di conferma: la bandiera
                        e i conti degli invii a quell'indirizzo (lib/conferma-email.js) */
-                    ['confermaInAttesa', 'invioConferma', 'promemoriaConferma', 'rimandaConferma', 'smsConferma']
+                    ['confermaInAttesa', 'invioConferma', 'promemoriaConferma', 'sollecitoConferma', 'sollecitoArretrato', 'pecSollecito', 'rimandaConferma', 'smsConferma']
                         .forEach(k => { if (attuale[k] !== undefined) nuovo[k] = attuale[k]; });
                 } else {
                     /* Un indirizzo NUOVO non ha ricevuto niente. La mail partita
@@ -2006,6 +2008,13 @@ module.exports = async (req, res) => {
                     email: stessoIndirizzo ? String(nuovo.email || '').trim().toLowerCase() : '',
                     numero: String(attuale.telefonoNumero || '')
                 });
+                /* I riferimenti della PEC di sollecito (lib/lettore-pec.js) puntano
+                   all'iscrizione per nome: senza questo, le ricevute e la risposta
+                   arrivate dopo la modifica non troverebbero la scheda. */
+                if (attuale.pecSollecito) {
+                    try { await moduloLettore().ripuntaIscrizione(db, idIscrizione(idIscritto), idIscrizione(idNuovo)); }
+                    catch (e) { console.error('Riferimenti PEC di sollecito non spostati:', String((e && e.message) || e).slice(0, 200)); }
+                }
                 const pVecchia = await db.collection('presenze').doc(idDoc(evento, idIscritto)).get();
                 if (pVecchia.exists) {
                     const pd = pVecchia.data() || {};

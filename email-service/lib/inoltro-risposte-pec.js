@@ -171,6 +171,8 @@ async function accoda(db, dati) {
         tx.set(rif, {
             stato: 'da-inviare', tentativi: 0, cadute: 0, creato: ora, fino: 0, prossimo: 0,
             scheda: s(dati.scheda), evento: s(dati.evento),
+            // la risposta a che cosa: all'invito (il solito), o alla PEC di sollecito della conferma email
+            tipo: s(dati.tipo) || 'invito',
             uid: uid, uidValidity: uidValidity, cartella: s(dati.cartella),
             messageId: s(dati.messageId).slice(0, 400),
             quando: Number(dati.quando) || ora,
@@ -475,6 +477,7 @@ async function inoltra(db, client, opz) {
                 certificata: riga.certificata !== false,
                 pagina: ev.pagina, eventoNome: ev.nome,
                 sponsor: CAMPAGNE.diScheda(sch) === 'sponsor',
+                sollecito: s(riga.tipo) === 'sollecito',
                 codice: unaRiga(sch.codice || (sch.invio && sch.invio.codice), 40),
                 testo: letto.testo, troncato: letto.troncato, nonLetto: letto.nonLetto,
                 allegati: letto.allegati, casella: unaRiga(opz.casella, 200),
